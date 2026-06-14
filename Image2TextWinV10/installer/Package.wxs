@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package
+    Name="Image to ASCII Art"
+    Manufacturer="Image2TextWin"
+    Version="1.0.0"
+    UpgradeCode="A3F8C2D1-4E57-4B9A-8C3F-1D2E5F6A7B8C"
+    Language="1042"
+    Codepage="949">
+
+    <SummaryInformation Description="Image to ASCII Art Converter" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="Image to ASCII Art" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Image to ASCII Art" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Directory Id="DesktopFolderRef" Name="." />
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="Image to ASCII Art" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="ApplicationShortcutStart" />
+      <ComponentRef Id="ApplicationShortcutDesktop" />
+    </Feature>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExe">
+        <File Id="Image2TextWinExe"
+              Source="..\bin\Release\net8.0-windows\Image2TextWin.exe"
+              KeyPath="yes" />
+      </Component>
+      <Component Id="MainDll">
+        <File Source="..\bin\Release\net8.0-windows\Image2TextWin.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="AppIconFile">
+        <File Source="..\bin\Release\net8.0-windows\Assets\AppIcon.ico" KeyPath="yes" />
+      </Component>
+      <Component Id="RuntimeConfig">
+        <File Source="..\bin\Release\net8.0-windows\Image2TextWin.runtimeconfig.json" KeyPath="yes" />
+      </Component>
+      <Component Id="DepsJson">
+        <File Source="..\bin\Release\net8.0-windows\Image2TextWin.deps.json" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpSharedDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.Shared.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpWPFontsDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.WPFonts.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpBarcodesDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.BarCodes.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpChartingDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.Charting.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpCryptoDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.Cryptography.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpQualityDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.Quality.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpSnippetsDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.Snippets.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PdfSharpSystemDll">
+        <File Source="..\bin\Release\net8.0-windows\PdfSharp.System.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="OpenXmlDll">
+        <File Source="..\bin\Release\net8.0-windows\DocumentFormat.OpenXml.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="OpenXmlFrameworkDll">
+        <File Source="..\bin\Release\net8.0-windows\DocumentFormat.OpenXml.Framework.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="DIDll">
+        <File Source="..\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="DIAbsDll">
+        <File Source="..\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.Abstractions.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="LoggingDll">
+        <File Source="..\bin\Release\net8.0-windows\Microsoft.Extensions.Logging.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="LoggingAbsDll">
+        <File Source="..\bin\Release\net8.0-windows\Microsoft.Extensions.Logging.Abstractions.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="OptionsDll">
+        <File Source="..\bin\Release\net8.0-windows\Microsoft.Extensions.Options.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PrimitivesDll">
+        <File Source="..\bin\Release\net8.0-windows\Microsoft.Extensions.Primitives.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="CryptoPkmsDll">
+        <File Source="..\bin\Release\net8.0-windows\System.Security.Cryptography.Pkcs.dll" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Start Menu shortcut -->
+    <Component Id="ApplicationShortcutStart" Directory="ApplicationProgramsFolder">
+      <Shortcut Id="StartMenuShortcut"
+                Name="Image to ASCII Art"
+                Description="Convert images to ASCII art"
+                Target="[INSTALLFOLDER]Image2TextWin.exe"
+                Icon="AppIconRef"
+                WorkingDirectory="INSTALLFOLDER" />
+      <Shortcut Id="UninstallShortcut"
+                Name="Uninstall Image to ASCII Art"
+                Target="[System64Folder]msiexec.exe"
+                Arguments="/x [ProductCode]" />
+      <RemoveFolder Id="RemoveStartMenu" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\Image2TextWin"
+                     Name="StartMenuInstalled"
+                     Type="integer" Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <!-- Desktop shortcut -->
+    <Component Id="ApplicationShortcutDesktop" Directory="DesktopFolderRef">
+      <Shortcut Id="DesktopShortcut"
+                Name="Image to ASCII Art"
+                Description="Convert images to ASCII art"
+                Target="[INSTALLFOLDER]Image2TextWin.exe"
+                Icon="AppIconRef"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\Image2TextWin"
+                     Name="DesktopInstalled"
+                     Type="integer" Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Icon Id="AppIconRef" SourceFile="..\Assets\AppIcon.ico" />
+
+    <Property Id="ARPHELPLINK" Value="https://github.com/" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/" />
+
+  </Package>
+</Wix>
+

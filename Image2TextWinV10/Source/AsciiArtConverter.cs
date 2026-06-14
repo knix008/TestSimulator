@@ -8,6 +8,7 @@ public class ConversionOptions
     public int Width { get; set; } = 120;
     public int Height { get; set; } = 60;
     public bool AutoHeight { get; set; } = true;
+    public double AspectRatio { get; set; } = 0.45;
     public string CharSet { get; set; } = "Standard";
     public string CustomChars { get; set; } = "@#*+:. ";
     public bool Invert { get; set; } = false;
@@ -41,9 +42,8 @@ public static class AsciiArtConverter
         int rows;
         if (options.AutoHeight)
         {
-            // 폰트 종횡비 보정 (일반 고정폭 폰트는 높이가 너비의 약 2배)
             double ratio = (double)source.Height / source.Width;
-            rows = Math.Max(5, (int)(cols * ratio * 0.45));
+            rows = Math.Max(5, (int)(cols * ratio * options.AspectRatio));
         }
         else
         {
@@ -147,7 +147,9 @@ public static class AsciiArtConverter
 
     public static Bitmap RenderToImage(string asciiText, Font font, Color foreColor, Color backColor)
     {
-        var lines = asciiText.Split('\n');
+        var lines = asciiText.Split('\n')
+            .Select(l => l.TrimEnd('\r'))
+            .ToArray();
         if (lines.Length == 0) return new Bitmap(1, 1);
 
         using var tmp = new Bitmap(1, 1);
@@ -156,7 +158,8 @@ public static class AsciiArtConverter
         float charW = lineSize.Width;
         float charH = lineSize.Height;
 
-        int imgW = (int)(charW * (lines.Max(l => l.Length))) + 4;
+        int maxCols = lines.Max(l => l.Length);
+        int imgW = (int)(charW * maxCols) + 4;
         int imgH = (int)(charH * lines.Length) + 4;
 
         var bmp = new Bitmap(imgW, imgH);
@@ -165,8 +168,20 @@ public static class AsciiArtConverter
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
 
         using var brush = new SolidBrush(foreColor);
+        using var sf = new StringFormat(StringFormat.GenericTypographic)
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Near,
+            FormatFlags = StringFormatFlags.MeasureTrailingSpaces
+        };
+
+        float startY = (imgH - charH * lines.Length) / 2f;
         for (int i = 0; i < lines.Length; i++)
-            g.DrawString(lines[i], font, brush, 2, 2 + i * charH);
+        {
+            if (lines[i].Length == 0) continue;
+            var rect = new RectangleF(0, startY + i * charH, imgW, charH);
+            g.DrawString(lines[i], font, brush, rect, sf);
+        }
 
         return bmp;
     }

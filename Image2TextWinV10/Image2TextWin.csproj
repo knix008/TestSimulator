@@ -9,7 +9,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>Image2TextWin</AssemblyName>
     <RootNamespace>Image2TextWin</RootNamespace>
-    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <Version>1.0.0</Version>
     <Company>Image2TextWin</Company>
     <Product>Image to ASCII Art</Product>
@@ -22,9 +22,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="AppIcon.ico">
+    <Content Include="Assets\AppIcon.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <!-- Release 빌드 후 WiX MSI 자동 생성 -->
+  <Target Name="BuildMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="MSI 빌드 중..." Importance="high" />
+    <Exec
+      Command="wix build &quot;$(MSBuildProjectDirectory)\installer\Package.wxs&quot; -ext WixToolset.UI.wixext -culture ko-KR -o &quot;$(MSBuildProjectDirectory)\installer\Output\Image2TextWin_Setup_v$(Version).msi&quot;"
+      WorkingDirectory="$(MSBuildProjectDirectory)\installer"
+      ContinueOnError="true" />
+    <Message Text="MSI 생성 완료: installer\Output\Image2TextWin_Setup_v$(Version).msi" Importance="high" />
+  </Target>
 
 </Project>

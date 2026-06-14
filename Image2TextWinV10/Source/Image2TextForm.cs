@@ -106,10 +106,15 @@ public partial class Image2TextForm : Form
 
         try
         {
-            // 2순위: 출력 폴더의 .ico 파일
-            string iconPath = Path.Combine(AppContext.BaseDirectory, "AppIcon.ico");
-            if (File.Exists(iconPath))
-                Icon = new Icon(iconPath);
+            // 2순위: Assets/ 하위 또는 실행 폴더의 .ico 파일
+            string[] candidates = {
+                Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"),
+                Path.Combine(AppContext.BaseDirectory, "AppIcon.ico")
+            };
+            foreach (var p in candidates)
+            {
+                if (File.Exists(p)) { Icon = new Icon(p); return; }
+            }
         }
         catch { }
     }
@@ -240,6 +245,12 @@ public partial class Image2TextForm : Form
         numHeight.Value = Math.Clamp(_settings.OutputHeight, (int)numHeight.Minimum, (int)numHeight.Maximum);
         chkAutoHeight.Checked = _settings.AutoHeight;
         numHeight.Enabled = !_settings.AutoHeight;
+        numAspectRatio.Value = (decimal)Math.Clamp(_settings.AspectRatio, 0.10f, 1.00f);
+        chkKeepAspectRatio.Checked = _settings.KeepAspectRatio;
+        numAspectRatio.Enabled = !_settings.KeepAspectRatio;
+        chkAutoWidth.Checked = _settings.AutoWidth;
+        numOutputScale.Value = Math.Clamp(_settings.OutputScale, (int)numOutputScale.Minimum, (int)numOutputScale.Maximum);
+        numWidth.Enabled = !_settings.AutoWidth;
 
         switch (_settings.CharSet)
         {
@@ -261,10 +272,14 @@ public partial class Image2TextForm : Form
         chkColorOutput.Checked = _settings.ColorOutput;
         chkInvert.Checked = _settings.InvertBrightness;
         chkEdgeDetect.Checked = _settings.EdgeDetect;
-        trkContrast.Value = Math.Clamp(_settings.Contrast, trkContrast.Minimum, trkContrast.Maximum);
-        trkBrightness.Value = Math.Clamp(_settings.Brightness, trkBrightness.Minimum, trkBrightness.Maximum);
-        lblContrast.Text = $"대비:\n{_settings.Contrast:+#;-#;0}";
-        lblBrightness.Text = $"밝기:\n{_settings.Brightness:+#;-#;0}";
+
+        int contrast = Math.Clamp(_settings.Contrast, trkContrast.Minimum, trkContrast.Maximum);
+        trkContrast.Value = contrast;
+        numContrastValue.Value = contrast;
+
+        int brightness = Math.Clamp(_settings.Brightness, trkBrightness.Minimum, trkBrightness.Maximum);
+        trkBrightness.Value = brightness;
+        numBrightnessValue.Value = brightness;
 
         UpdateOutputFont();
     }
@@ -275,6 +290,9 @@ public partial class Image2TextForm : Form
         _settings.OutputWidth = def.OutputWidth;
         _settings.OutputHeight = def.OutputHeight;
         _settings.AutoHeight = def.AutoHeight;
+        _settings.AspectRatio = def.AspectRatio;
+        _settings.AutoWidth = def.AutoWidth;
+        _settings.OutputScale = def.OutputScale;
         _settings.CharSet = def.CharSet;
         _settings.CustomChars = def.CustomChars;
         _settings.FontName = def.FontName;
@@ -294,6 +312,10 @@ public partial class Image2TextForm : Form
         _settings.OutputWidth = (int)numWidth.Value;
         _settings.OutputHeight = (int)numHeight.Value;
         _settings.AutoHeight = chkAutoHeight.Checked;
+        _settings.AspectRatio = (float)numAspectRatio.Value;
+        _settings.KeepAspectRatio = chkKeepAspectRatio.Checked;
+        _settings.AutoWidth = chkAutoWidth.Checked;
+        _settings.OutputScale = (int)numOutputScale.Value;
         _settings.FontName = _currentFontName;
         _settings.FontSize = _currentFontSize;
         _settings.ColorOutput = chkColorOutput.Checked;
@@ -424,6 +446,9 @@ public partial class Image2TextForm : Form
 
     // ─── 변환 ─────────────────────────────────────────────────────────────
 
+    private static readonly Color BtnConvertNormal = Color.FromArgb(60, 180, 60);
+    private static readonly Color BtnConvertBusy   = Color.FromArgb(200, 50, 50);
+
     private async void btnConvertMain_Click(object? sender, EventArgs e)
     {
         if (_sourceBitmap == null)
@@ -435,6 +460,8 @@ public partial class Image2TextForm : Form
 
         var options = BuildOptions();
         SetControlsEnabled(false);
+        btnConvertMain.BackColor = BtnConvertBusy;
+        btnConvertMain.Text = "멈춤\r\n처리중";
         statusProgressBar.Visible = true;
         statusProgressBar.Value = 0;
         SetStatus("변환 중...");
@@ -452,24 +479,31 @@ public partial class Image2TextForm : Form
 
             _lastResult = result;
 
-            // 현재 문자 집합 인덱스 업데이트
             _charSetCycleIndex = Array.IndexOf(CharSetCycle, options.CharSet);
             if (_charSetCycleIndex < 0) _charSetCycleIndex = 0;
 
             ApplyResultToOutput(result);
             statusOutputInfo.Text = $"출력: {result.Rows}행 × {result.Cols}열";
-            SetStatus($"변환 완료. {result.Rows}행 × {result.Cols}열  |  문자 집합: {GetCharSetDisplayName(options.CharSet)}");
+            string doneMsg = $"변환 완료  |  {result.Rows}행 × {result.Cols}열  |  {GetCharSetDisplayName(options.CharSet)}";
+            SetStatus(doneMsg);
+
+            MessageBox.Show(
+                $"변환이 완료되었습니다.\n\n{result.Rows}행 × {result.Cols}열\n문자 집합: {GetCharSetDisplayName(options.CharSet)}",
+                "변환 완료",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"변환 중 오류가 발생했습니다:\n{ex.Message}", "오류",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ShowError("변환 오류", $"변환 중 오류가 발생했습니다:\n\n{ex.GetType().Name}: {ex.Message}\n\n{ex.StackTrace}");
             SetStatus("변환 실패.");
         }
         finally
         {
             statusProgressBar.Visible = false;
             statusProgressBar.Value = 0;
+            btnConvertMain.BackColor = BtnConvertNormal;
+            btnConvertMain.Text = "변환\r\n(F5)";
             SetControlsEnabled(true);
         }
     }
@@ -547,7 +581,8 @@ public partial class Image2TextForm : Form
 
         if (result.ColorData != null && chkColorOutput.Checked)
         {
-            var lines = result.Text.Split('\n');
+            // Split on \r\n or \n to avoid stray \r being appended as blank lines in RichTextBox
+            var lines = result.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
             var colorDict = result.ColorData.ToDictionary(x => (x.Row, x.Col), x => x.Color);
             int row = 0;
             foreach (var line in lines)
@@ -587,45 +622,108 @@ public partial class Image2TextForm : Form
     {
         if (richTextBoxOutput.TextLength == 0) return;
 
-        // 텍스트 크기 측정
         var lines = richTextBoxOutput.Text.Split('\n');
-        int maxCols = lines.Max(l => l.Length);
+        for (int i = 0; i < lines.Length; i++)
+            lines[i] = lines[i].TrimEnd('\r');
+
+        int maxCols = lines.Length > 0 ? lines.Max(l => l.Length) : 0;
         int rows = lines.Length;
 
-        using var g = richTextBoxOutput.CreateGraphics();
-        var charSz = g.MeasureString("W", richTextBoxOutput.Font);
-        int textW = (int)(charSz.Width * maxCols) + 4;
-        int textH = (int)(charSz.Height * rows) + 4;
+        var (charW, charH) = MeasureCharSize();
+        int textW = (int)(charW * maxCols) + 8;
+        int textH = (int)(charH * rows) + 4;
 
         richTextBoxOutput.Size = new Size(textW, textH);
 
         int canvasW = pnlOutputCanvas.ClientSize.Width;
         int canvasH = pnlOutputCanvas.ClientSize.Height;
 
-        int x = textW < canvasW ? (canvasW - textW) / 2 : 0;
-        int y = textH < canvasH ? (canvasH - textH) / 2 : 0;
+        bool fitsH = textW <= canvasW;
+        bool fitsV = textH <= canvasH;
+
+        int x = fitsH ? (canvasW - textW) / 2 : 0;
+        int y = fitsV ? (canvasH - textH) / 2 : 0;
 
         richTextBoxOutput.Location = new Point(x, y);
 
-        // AutoScrollMinSize 설정으로 스크롤바 활성화
         pnlOutputCanvas.AutoScrollMinSize = new Size(
-            textW < canvasW ? 0 : textW,
-            textH < canvasH ? 0 : textH);
+            fitsH ? 0 : textW,
+            fitsV ? 0 : textH);
+
+        if (fitsH && fitsV)
+        {
+            // 화면보다 작으면 항상 정중앙 정렬
+            pnlOutputCanvas.AutoScrollPosition = new Point(0, 0);
+        }
+        else
+        {
+            pnlOutputCanvas.PerformLayout();
+
+            // 넘치는 축: 스크롤 바로 이동한 위치 유지(범위만 보정)
+            // 맞는 축: Location으로 중앙 정렬되므로 스크롤은 0
+            if (fitsH)
+                pnlOutputCanvas.HorizontalScroll.Value = 0;
+            else if (pnlOutputCanvas.HorizontalScroll.Maximum > 0)
+                pnlOutputCanvas.HorizontalScroll.Value = Math.Min(
+                    pnlOutputCanvas.HorizontalScroll.Value,
+                    pnlOutputCanvas.HorizontalScroll.Maximum);
+
+            if (fitsV)
+                pnlOutputCanvas.VerticalScroll.Value = 0;
+            else if (pnlOutputCanvas.VerticalScroll.Maximum > 0)
+                pnlOutputCanvas.VerticalScroll.Value = Math.Min(
+                    pnlOutputCanvas.VerticalScroll.Value,
+                    pnlOutputCanvas.VerticalScroll.Maximum);
+
+            pnlOutputCanvas.PerformLayout();
+        }
     }
 
-    private ConversionOptions BuildOptions() => new()
+    private (float charW, float charH) MeasureCharSize()
     {
-        Width = (int)numWidth.Value,
-        Height = (int)numHeight.Value,
-        AutoHeight = chkAutoHeight.Checked,
-        CharSet = GetSelectedCharSet(),
-        CustomChars = txtCustomChars.Text,
-        Invert = chkInvert.Checked,
-        EdgeDetect = chkEdgeDetect.Checked,
-        Contrast = trkContrast.Value,
-        Brightness = trkBrightness.Value,
-        ColorOutput = chkColorOutput.Checked
-    };
+        using var g = richTextBoxOutput.CreateGraphics();
+        var sz = g.MeasureString(new string('W', 10), richTextBoxOutput.Font,
+            int.MaxValue, StringFormat.GenericTypographic);
+        float charW = Math.Max(1f, sz.Width / 10f);
+        float charH = Math.Max(1f, sz.Height);
+        return (charW, charH);
+    }
+
+    private double ComputeAspectRatio()
+    {
+        var (charW, charH) = MeasureCharSize();
+        return Math.Clamp((double)(charW / charH), 0.10, 1.00);
+    }
+
+    private int ComputeAutoWidth()
+    {
+        if (_sourceBitmap == null) return (int)numWidth.Value;
+        var (charW, _) = MeasureCharSize();
+        int w = (int)(_sourceBitmap.Width * (float)numOutputScale.Value / 100.0f / charW);
+        return Math.Clamp(w, (int)numWidth.Minimum, (int)numWidth.Maximum);
+    }
+
+    private ConversionOptions BuildOptions()
+    {
+        double aspectRatio = chkKeepAspectRatio.Checked
+            ? ComputeAspectRatio()
+            : (double)numAspectRatio.Value;
+
+        return new ConversionOptions
+        {
+            Width = chkAutoWidth.Checked ? ComputeAutoWidth() : (int)numWidth.Value,
+            Height = (int)numHeight.Value,
+            AutoHeight = chkAutoHeight.Checked,
+            AspectRatio = aspectRatio,
+            CharSet = GetSelectedCharSet(),
+            CustomChars = txtCustomChars.Text,
+            Invert = chkInvert.Checked,
+            EdgeDetect = chkEdgeDetect.Checked,
+            Contrast = (trkContrast.Value - 50) * 2,
+            Brightness = (trkBrightness.Value - 50) * 2,
+            ColorOutput = chkColorOutput.Checked
+        };
+    }
 
     // ─── 저장 ─────────────────────────────────────────────────────────────
 
@@ -647,6 +745,11 @@ public partial class Image2TextForm : Form
                 ?? _settings.LastTextDirectory;
             statusFilePath.Text = Path.GetFileName(saveTextDialog.FileName);
             SetStatus($"저장 완료: {saveTextDialog.FileName}");
+            MessageBox.Show(
+                $"텍스트 파일이 저장되었습니다.\n\n저장 위치:\n{saveTextDialog.FileName}",
+                "저장 완료",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
@@ -695,6 +798,11 @@ public partial class Image2TextForm : Form
             _settings.LastExportDirectory = Path.GetDirectoryName(saveImageDialog.FileName)
                 ?? _settings.LastExportDirectory;
             SetStatus($"이미지로 내보내기 완료: {saveImageDialog.FileName}");
+            MessageBox.Show(
+                $"이미지 파일이 저장되었습니다.\n\n저장 위치:\n{saveImageDialog.FileName}",
+                "내보내기 완료",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
@@ -715,6 +823,7 @@ public partial class Image2TextForm : Form
         {
             Filter = filter,
             DefaultExt = ext.TrimStart('.'),
+            FileName = "Img2Txt_",
             Title = $"{typeName}로 내보내기",
             InitialDirectory = _settings.LastExportDirectory
         };
@@ -728,12 +837,62 @@ public partial class Image2TextForm : Form
             _settings.LastExportDirectory = Path.GetDirectoryName(dlg.FileName)
                 ?? _settings.LastExportDirectory;
             SetStatus($"{typeName} 내보내기 완료: {dlg.FileName}");
+            MessageBox.Show(
+                $"{typeName} 파일이 저장되었습니다.\n\n저장 위치:\n{dlg.FileName}",
+                "내보내기 완료",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
             MessageBox.Show($"{typeName} 내보내기 실패:\n{ex.Message}", "오류",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus($"{typeName} 내보내기 실패.");
+        }
+    }
+
+    // ─── 프리셋 저장/불러오기 ─────────────────────────────────────────────
+
+    private void menuFileLoadPreset_Click(object? sender, EventArgs e)
+    {
+        openPresetDialog.InitialDirectory = _settings.LastTextDirectory;
+        if (openPresetDialog.ShowDialog() != DialogResult.OK) return;
+
+        try
+        {
+            _settings.LoadPreset(openPresetDialog.FileName);
+            ApplySettings();
+            PopulateMonospaceFonts();
+            SetStatus($"프리셋 불러오기 완료: {Path.GetFileName(openPresetDialog.FileName)}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"프리셋 파일을 불러올 수 없습니다:\n{ex.Message}", "오류",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void menuFileSavePreset_Click(object? sender, EventArgs e)
+    {
+        SaveCurrentSettings();
+        savePresetDialog.InitialDirectory = _settings.LastTextDirectory;
+        if (savePresetDialog.ShowDialog() != DialogResult.OK) return;
+
+        try
+        {
+            _settings.SavePreset(savePresetDialog.FileName);
+            string savedPath = savePresetDialog.FileName;
+            SetStatus($"프리셋 저장 완료: {savedPath}");
+            MessageBox.Show(
+                $"설정이 저장되었습니다.\n\n저장 위치:\n{savedPath}",
+                "프리셋 저장 완료",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"프리셋 저장 실패:\n{ex.Message}", "오류",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -833,19 +992,83 @@ public partial class Image2TextForm : Form
     private void chkAutoHeight_CheckedChanged(object? sender, EventArgs e)
         => numHeight.Enabled = !chkAutoHeight.Checked;
 
+    private void chkAutoWidth_CheckedChanged(object? sender, EventArgs e)
+        => numWidth.Enabled = !chkAutoWidth.Checked;
+
+    private void chkKeepAspectRatio_CheckedChanged(object? sender, EventArgs e)
+    {
+        numAspectRatio.Enabled = !chkKeepAspectRatio.Checked;
+        if (chkKeepAspectRatio.Checked)
+            RefreshAutoAspectRatio();
+    }
+
+    private void RefreshAutoAspectRatio()
+    {
+        if (!chkKeepAspectRatio.Checked) return;
+        double ar = ComputeAspectRatio();
+        numAspectRatio.Value = (decimal)Math.Round(ar, 2);
+    }
+
     private void numFontSize_ValueChanged(object? sender, EventArgs e)
     {
         _currentFontSize = (float)numFontSize.Value;
         if (cmbFontName.SelectedItem is string name)
             _currentFontName = name;
         UpdateOutputFont();
+        RefreshAutoAspectRatio();
     }
 
+    private bool _syncingContrast = false;
+    private bool _syncingBrightness = false;
+
     private void trkContrast_Scroll(object? sender, EventArgs e)
-        => lblContrast.Text = $"대비:\n{trkContrast.Value:+#;-#;0}";
+    {
+        if (_syncingContrast) return;
+        _syncingContrast = true;
+        numContrastValue.Value = trkContrast.Value;
+        _syncingContrast = false;
+    }
+
+    private void numContrastValue_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_syncingContrast) return;
+        _syncingContrast = true;
+        trkContrast.Value = (int)numContrastValue.Value;
+        _syncingContrast = false;
+    }
 
     private void trkBrightness_Scroll(object? sender, EventArgs e)
-        => lblBrightness.Text = $"밝기:\n{trkBrightness.Value:+#;-#;0}";
+    {
+        if (_syncingBrightness) return;
+        _syncingBrightness = true;
+        numBrightnessValue.Value = trkBrightness.Value;
+        _syncingBrightness = false;
+    }
+
+    private void numBrightnessValue_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_syncingBrightness) return;
+        _syncingBrightness = true;
+        trkBrightness.Value = (int)numBrightnessValue.Value;
+        _syncingBrightness = false;
+    }
+
+    private void pnlScale_Paint(object? sender, PaintEventArgs e)
+    {
+        if (sender is not Panel pnl) return;
+        using var font = new Font("맑은 고딕", 6.5f);
+        using var brush = new SolidBrush(Color.FromArgb(130, 130, 130));
+        int w = pnl.Width;
+        string[] labels = { "0", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100" };
+        for (int i = 0; i < labels.Length; i++)
+        {
+            float ratio = i / 10.0f;
+            float x = ratio * (w - 1);
+            var sz = e.Graphics.MeasureString(labels[i], font);
+            float drawX = Math.Clamp(x - sz.Width / 2f, 0f, w - sz.Width);
+            e.Graphics.DrawString(labels[i], font, brush, drawX, 0f);
+        }
+    }
 
     private void Image2TextForm_KeyDown(object? sender, KeyEventArgs e)
     {
@@ -873,6 +1096,34 @@ public partial class Image2TextForm : Form
     }
 
     // ─── 유틸리티 ─────────────────────────────────────────────────────────
+
+    private static void ShowError(string title, string message)
+    {
+        using var form = new Form
+        {
+            Text = title,
+            Size = new Size(540, 300),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false, MinimizeBox = false
+        };
+        var txtError = new TextBox
+        {
+            Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical,
+            Dock = DockStyle.Fill, Text = message, Font = new Font("Consolas", 9f),
+            BackColor = SystemColors.Window
+        };
+        var pnlBtn = new Panel { Dock = DockStyle.Bottom, Height = 36 };
+        var btnCopy = new Button { Text = "오류 내용 복사", Location = new Point(6, 6), Size = new Size(120, 24) };
+        var btnOk   = new Button { Text = "확인", Location = new Point(132, 6), Size = new Size(80, 24), DialogResult = DialogResult.OK };
+        btnCopy.Click += (_, _) => { Clipboard.SetText(message); btnCopy.Text = "복사됨!"; };
+        pnlBtn.Controls.Add(btnCopy);
+        pnlBtn.Controls.Add(btnOk);
+        form.Controls.Add(txtError);
+        form.Controls.Add(pnlBtn);
+        form.AcceptButton = btnOk;
+        form.ShowDialog();
+    }
 
     private void SetStatus(string message) => statusLabel.Text = message;
 
