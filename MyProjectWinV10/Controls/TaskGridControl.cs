@@ -261,9 +261,11 @@ namespace MyProject.Controls
 
                 var rowRect = new Rectangle(0, rowY, gridWidth, AppTheme.RowHeight);
 
-                // Row background
+                // Row background — band color only on root tasks; selection/hover take priority
+                Color bandColor = task.ParentId == -1 ? _model!.GetTaskBandColor(task.Id) : Color.Empty;
                 Color rowBg = task.Id == _selectedTaskId ? AppTheme.RowSelectedColor
                             : task.Id == _hoveredTaskId ? AppTheme.RowHoverColor
+                            : !bandColor.IsEmpty ? bandColor
                             : i % 2 == 1 ? AppTheme.RowAltColor
                             : AppTheme.SurfaceColor;
                 using var rowBrush = new SolidBrush(rowBg);

@@ -348,5 +348,29 @@ namespace MyProject.Theme
             g.DrawEllipse(p, 6, 6, 5, 4);
             g.DrawLine(p, 4, 16, 16, 4);
         });
+
+        public static Bitmap Undo => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            // Arrow shaft pointing left
+            g.DrawLine(p, 16, 7, 6, 7);
+            // Arrowhead (pointing left)
+            g.DrawLine(p, 6, 7, 9, 4);
+            g.DrawLine(p, 6, 7, 9, 10);
+            // Curve at right end going down
+            g.DrawArc(p, 6, 7, 10, 9, 0, -180);
+        });
+
+        public static Bitmap Redo => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            // Arrow shaft pointing right
+            g.DrawLine(p, 4, 7, 14, 7);
+            // Arrowhead (pointing right)
+            g.DrawLine(p, 14, 7, 11, 4);
+            g.DrawLine(p, 14, 7, 11, 10);
+            // Curve at left end going down
+            g.DrawArc(p, 4, 7, 10, 9, 180, 180);
+        });
     }
 }

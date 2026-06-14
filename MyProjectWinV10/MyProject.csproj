@@ -17,6 +17,8 @@
     <Company>MyProject</Company>
     <Product>MyProject Project Manager</Product>
     <Copyright>Copyright © 2026</Copyright>
+    <!-- Required so MSI publish (win-x64) can restore MPXJ/IKVM assets without affecting normal Release output. -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <!-- WinForms: avoid hot reload and keep a native exe for reliable VS debug stop. -->
@@ -25,15 +27,11 @@
     <DebugType>portable</DebugType>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <BuildMsi Condition="'$(BuildMsi)' == ''">true</BuildMsi>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(BuildMsi)' == 'true'">
+  <!-- MSI publish only (MyProject.Installer sets BuildingMsiPackage=true). -->
+  <PropertyGroup Condition="'$(BuildingMsiPackage)' == 'true'">
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
@@ -60,26 +58,27 @@
 
   <PropertyGroup>
     <SetupProjectPath>$(MSBuildThisFileDirectory)Installer\MyProject.Installer.wixproj</SetupProjectPath>
-    <MsiOutputPath>$(MSBuildThisFileDirectory)Installer\bin\Release\MyProject_Setup.msi</MsiOutputPath>
+    <MsiOutputPath>$(MSBuildThisFileDirectory)Installer\bin\$(Configuration)\MyProject_Setup.msi</MsiOutputPath>
   </PropertyGroup>
 
+  <!-- Visual Studio often cannot build WixToolset.Sdk projects without the WiX extension.
+       Build MSI via dotnet after a normal Release build of this project. -->
   <Target Name="BuildInstallerMsi"
           AfterTargets="Build"
           Condition="'$(Configuration)' == 'Release'
-                     and '$(BuildMsi)' == 'true'
                      and '$(BuildingMsiPackage)' != 'true'
                      and '$(DesignTimeBuild)' != 'true'
                      and Exists('$(SetupProjectPath)')">
     <Message Importance="high" Text="Building MSI installer..." />
-    <Exec Command="dotnet build &quot;$(SetupProjectPath)&quot; -c Release -p:BuildingMsiPackage=true -v minimal"
+    <Exec Command="dotnet build &quot;$(SetupProjectPath)&quot; -c Release -p:BuildingMsiPackage=true -m:1 -v minimal"
           WorkingDirectory="$(MSBuildProjectDirectory)" />
     <Error Condition="!Exists('$(MsiOutputPath)')"
-           Text="MSI was not created at $(MsiOutputPath). See MyProject.Installer build output for errors." />
+           Text="MSI was not created at $(MsiOutputPath). Install the WiX Toolset VS extension, or run: dotnet build Installer\MyProject.Installer.wixproj -c Release" />
     <Copy SourceFiles="$(MsiOutputPath)"
           DestinationFiles="$(OutputPath)MyProject_Setup.msi"
           SkipUnchangedFiles="true"
           Condition="Exists('$(MsiOutputPath)')" />
-    <Message Importance="high" Text="MSI ready: $(MsiOutputPath)" />
+    <Message Importance="high" Text="MSI ready: $(OutputPath)MyProject_Setup.msi" Condition="Exists('$(MsiOutputPath)')" />
   </Target>
 
 </Project>

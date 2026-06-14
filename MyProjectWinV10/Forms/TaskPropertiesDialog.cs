@@ -21,9 +21,11 @@ namespace MyProject.Forms
         // Colors
         private Panel _scheduleColorPreview = null!;
         private Panel _progressColorPreview = null!;
+        private Panel _bandColorPreview = null!;
         private Panel _colorBarPreview = null!;
         private Color _scheduleColor = Color.Empty;
         private Color _progressColor = Color.Empty;
+        private Color _bandColor = Color.Empty;
 
         // Resources
         private DataGridView _gridResources = null!;
@@ -42,7 +44,7 @@ namespace MyProject.Forms
         private void Build()
         {
             Text = $"Task Properties — {_task.Name}";
-            Size = new Size(520, 500);
+            Size = new Size(580, 540);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -144,16 +146,19 @@ namespace MyProject.Forms
         private TabPage BuildColorsTab()
         {
             var page = new TabPage("Colors");
+            bool isRootTask = _task.ParentId == -1;
+
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 3,
-                RowCount = 3
+                RowCount = 4
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 50));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
@@ -168,11 +173,19 @@ namespace MyProject.Forms
             layout.Controls.Add(MakeCenteredHost(_progressColorPreview), 1, 1);
             layout.Controls.Add(MakeColorBtnPanel(() => _progressColor, c => _progressColor = c, _progressColorPreview, RefreshColorBarPreview), 2, 1);
 
-            layout.Controls.Add(MakeLabel("Preview:"), 0, 2);
+            // Group row color — only root tasks can set this; others show it disabled
+            layout.Controls.Add(MakeLabel("Group row color:"), 0, 2);
+            _bandColorPreview = CreateColorPreviewPanel();
+            layout.Controls.Add(MakeCenteredHost(_bandColorPreview), 1, 2);
+            var bandBtnPanel = MakeColorBtnPanel(() => _bandColor, c => _bandColor = c, _bandColorPreview);
+            if (!isRootTask) bandBtnPanel.Enabled = false;
+            layout.Controls.Add(bandBtnPanel, 2, 2);
+
+            layout.Controls.Add(MakeLabel("Bar preview:"), 0, 3);
             _colorBarPreview = new Panel { Dock = DockStyle.Fill, Height = 30 };
             _colorBarPreview.Paint += PaintColorBarPreview;
             layout.SetColumnSpan(_colorBarPreview, 2);
-            layout.Controls.Add(_colorBarPreview, 1, 2);
+            layout.Controls.Add(_colorBarPreview, 1, 3);
             if (_nudProgress != null) _nudProgress.ValueChanged += (s, e) => RefreshColorBarPreview();
 
             page.Controls.Add(layout);
@@ -350,8 +363,11 @@ namespace MyProject.Forms
 
             _scheduleColor = _task.BarColor;
             _progressColor = _task.ProgressColor;
+            _bandColor = _task.BandColor;
             _scheduleColorPreview.BackColor = _scheduleColor == Color.Empty ? Color.LightGray : _scheduleColor;
             _progressColorPreview.BackColor = _progressColor == Color.Empty ? Color.LightGray : _progressColor;
+            var effective = _bandColor.IsEmpty ? _model.GetTaskBandColor(_task.Id) : _bandColor;
+            _bandColorPreview.BackColor = effective.IsEmpty ? Color.LightGray : effective;
 
             var txtAssigned = Controls.Find("txtAssigned", true).FirstOrDefault() as TextBox;
             if (txtAssigned != null) txtAssigned.Text = _model.GetTaskAssigneeDisplay(_task.Id);
@@ -375,6 +391,8 @@ namespace MyProject.Forms
             _task.Notes = _txtNotes.Text;
             _task.BarColor = _scheduleColor;
             _task.ProgressColor = _progressColor;
+            if (_task.ParentId == -1)
+                _task.BandColor = _bandColor;
 
             var txtAssigned = Controls.Find("txtAssigned", true).FirstOrDefault() as TextBox;
             if (txtAssigned != null) _task.AssignedTo = txtAssigned.Text;

@@ -282,6 +282,107 @@ namespace MyProject.Models
             }
         }
 
+        /// <summary>
+        /// For each top-level summary task, runs local CPM using only that group's tasks and
+        /// internal dependencies. Tasks with zero float relative to the group's own finish date
+        /// are returned as locally critical — even when the group ends before the global finish.
+        /// </summary>
+        public static HashSet<int> ComputeLocalCriticalTaskIds(
+            IReadOnlyList<ProjectTask> allTasks,
+            IReadOnlyList<TaskDependency> dependencies,
+            DateTime projectStart)
+        {
+            var localCritical = new HashSet<int>();
+            var taskById = allTasks.ToDictionary(t => t.Id);
+            var schedulableIds = allTasks
+                .Where(t => t.TaskType != TaskType.Summary)
+                .Select(t => t.Id)
+                .ToHashSet();
+
+            var projectStartDate = projectStart.Date;
+
+            int EarlyStart(ProjectTask t) =>
+                (t.StartDate.Date - projectStartDate).Days;
+
+            int EarlyFinish(ProjectTask t) =>
+                t.TaskType == TaskType.Milestone
+                    ? EarlyStart(t)
+                    : (t.EndDate.Date - projectStartDate).Days;
+
+            foreach (var root in allTasks.Where(t => t.ParentId == -1 && t.TaskType == TaskType.Summary))
+            {
+                var groupTasks = GetLeafSchedulableTasks(root.Id, allTasks, schedulableIds);
+                if (groupTasks.Count == 0) continue;
+
+                var groupIds = groupTasks.Select(t => t.Id).ToHashSet();
+                var es = groupTasks.ToDictionary(t => t.Id, EarlyStart);
+                var ef = groupTasks.ToDictionary(t => t.Id, EarlyFinish);
+                int groupFinish = ef.Values.Max();
+
+                // Only dependencies where both endpoints are within this root subtree
+                var groupDeps = dependencies
+                    .Where(d => IsInSubtree(d.PredecessorId, root.Id, taskById)
+                             && IsInSubtree(d.SuccessorId, root.Id, taskById))
+                    .ToList();
+
+                var effectiveDeps = ExpandDependencies(allTasks, groupDeps, taskById, groupIds);
+
+                foreach (var id in ComputeBackwardPassCritical(groupTasks, effectiveDeps, es, ef, groupFinish))
+                    localCritical.Add(id);
+            }
+
+            return localCritical;
+        }
+
+        private static HashSet<int> ComputeBackwardPassCritical(
+            List<ProjectTask> tasks,
+            List<TaskDependency> effectiveDeps,
+            Dictionary<int, int> es,
+            Dictionary<int, int> ef,
+            int groupFinish)
+        {
+            int Duration(ProjectTask t) =>
+                t.TaskType == TaskType.Milestone ? 0 : Math.Max(1, t.DurationDays);
+
+            var lf = new Dictionary<int, int>();
+            var ls = new Dictionary<int, int>();
+
+            foreach (var task in tasks)
+            {
+                lf[task.Id] = groupFinish;
+                int dur = Duration(task);
+                ls[task.Id] = task.TaskType == TaskType.Milestone ? groupFinish : groupFinish - dur + 1;
+            }
+
+            for (int iteration = 0; iteration < tasks.Count + 5; iteration++)
+            {
+                bool changed = false;
+                foreach (var task in tasks)
+                {
+                    int dur = Duration(task);
+                    int newLf = lf[task.Id];
+                    foreach (var dep in effectiveDeps.Where(d => d.PredecessorId == task.Id))
+                    {
+                        if (!ls.ContainsKey(dep.SuccessorId)) continue;
+                        int limit = GetBackwardLfLimit(dep, ls[dep.SuccessorId], lf[dep.SuccessorId], dur);
+                        if (limit < newLf) newLf = limit;
+                    }
+
+                    if (newLf != lf[task.Id]) { lf[task.Id] = newLf; changed = true; }
+
+                    int newLs = task.TaskType == TaskType.Milestone ? newLf : newLf - dur + 1;
+                    if (newLs != ls[task.Id]) { ls[task.Id] = newLs; changed = true; }
+                }
+                if (!changed) break;
+            }
+
+            var result = new HashSet<int>();
+            foreach (var task in tasks)
+                if (ls[task.Id] <= es[task.Id])
+                    result.Add(task.Id);
+            return result;
+        }
+
         private static bool IsInSubtree(int taskId, int summaryRootId, Dictionary<int, ProjectTask> taskById)
         {
             if (taskId == summaryRootId)
@@ -299,10 +400,16 @@ namespace MyProject.Models
             int lag = dep.LagDays;
             return dep.Type switch
             {
+                // FS: succ.Start >= pred.Finish+1+lag  →  pred.LF <= succ.LS - 1 - lag
                 DependencyType.FS => succLs - 1 - lag,
-                DependencyType.SS => succLf - lag,
+                // SS: succ.Start >= pred.Start+lag  →  pred.LS <= succ.LS - lag
+                //     pred.LF = pred.LS + dur - 1  →  pred.LF <= succ.LS + predDuration - 1 - lag
+                DependencyType.SS => succLs + predDuration - 1 - lag,
+                // FF: succ.Finish >= pred.Finish+lag  →  pred.LF <= succ.LF - lag
                 DependencyType.FF => succLf - lag,
-                DependencyType.SF => succLs - lag,
+                // SF: succ.Finish >= pred.Start+lag  →  pred.LS <= succ.LF - lag
+                //     pred.LF = pred.LS + dur - 1  →  pred.LF <= succ.LF + predDuration - 1 - lag
+                DependencyType.SF => succLf + predDuration - 1 - lag,
                 _ => succLs - 1 - lag
             };
         }

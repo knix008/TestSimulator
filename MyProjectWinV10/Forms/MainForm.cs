@@ -8,6 +8,7 @@ namespace MyProject.Forms
     {
         private ProjectModel _model = new();
         private ProjectModel? _titleBarModel;
+        private readonly UndoRedoManager _undoRedo = new();
         private int _lastSelectedId = -1;
         private int _linkSourceId = -1;  // for dependency link tool
         private bool _awaitingLinkPredecessor;
@@ -111,6 +112,13 @@ namespace MyProject.Forms
             var tt = new ToolTip { ShowAlways = true, AutomaticDelay = 400 };
             tt.SetToolTip(this, "MyProject - Project Manager");
 
+            btnUndo.Image = AppIcons.Undo;
+            btnRedo.Image = AppIcons.Redo;
+            menuUndo.Image = AppIcons.Undo;
+            menuRedo.Image = AppIcons.Redo;
+            btnUndo.ToolTipText = "Undo (Ctrl+Z)";
+            btnRedo.ToolTipText = "Redo (Ctrl+Y)";
+
             btnNew.ToolTipText        = "New Project (Ctrl+N)";
             btnOpen.ToolTipText       = "Open Project (Ctrl+O)";
             btnSave.ToolTipText       = "Save Project (Ctrl+S)";
@@ -170,6 +178,11 @@ namespace MyProject.Forms
         private void SetupEventHandlers()
         {
             _contextMenuBuilder = CreateContextMenuBuilder();
+
+            menuUndo.Click += (_, _) => OnUndo();
+            menuRedo.Click += (_, _) => OnRedo();
+            btnUndo.Click  += (_, _) => OnUndo();
+            btnRedo.Click  += (_, _) => OnRedo();
 
             menuNew.Click        += (_, _) => OnNew();
             menuOpen.Click       += (_, _) => OnOpen();
@@ -424,6 +437,38 @@ namespace MyProject.Forms
             UpdateTaskToolState();
         }
 
+        // ── Undo / Redo ──────────────────────────────────────────────────────
+
+        private void SaveSnapshot() => _undoRedo.SaveSnapshot(_model);
+
+        private void OnUndo()
+        {
+            var restored = _undoRedo.Undo(_model);
+            if (restored == null) return;
+            _model = restored;
+            ApplyModel();
+            statusLabel.Text = "Undo";
+            UpdateUndoRedoState();
+        }
+
+        private void OnRedo()
+        {
+            var restored = _undoRedo.Redo(_model);
+            if (restored == null) return;
+            _model = restored;
+            ApplyModel();
+            statusLabel.Text = "Redo";
+            UpdateUndoRedoState();
+        }
+
+        private void UpdateUndoRedoState()
+        {
+            menuUndo.Enabled = _undoRedo.CanUndo;
+            menuRedo.Enabled = _undoRedo.CanRedo;
+            btnUndo.Enabled  = _undoRedo.CanUndo;
+            btnRedo.Enabled  = _undoRedo.CanRedo;
+        }
+
         // ── Model loading ────────────────────────────────────────────────────
 
         private void LoadNewProject()
@@ -433,7 +478,9 @@ namespace MyProject.Forms
                 ProjectName = "New Project",
                 ViewSettings = ProjectViewSettings.CreateDefault()
             };
+            _undoRedo.Clear();
             ApplyModel();
+            UpdateUndoRedoState();
         }
 
         private void ApplyModel()
@@ -722,6 +769,7 @@ namespace MyProject.Forms
 
         private void DeleteNoteById(int noteId)
         {
+            SaveSnapshot();
             _model.RemoveNote(noteId);
             ganttChartControl.ClearNoteSelection();
             ganttChartControl.EndInlineNoteEdit(false);
@@ -908,7 +956,9 @@ namespace MyProject.Forms
                 ProjectName = "New Project",
                 ViewSettings = ProjectViewSettings.CreateDefault()
             };
+            _undoRedo.Clear();
             ApplyModel();
+            UpdateUndoRedoState();
         }
 
         private void OnOpen()
@@ -929,18 +979,33 @@ namespace MyProject.Forms
 
         private void LoadProjectFromFile(string path)
         {
-            try
+            ProjectModel? loaded = null;
+            Exception? error = null;
+
+            using var dlg = new LoadingDialog(
+                $"Opening: {Path.GetFileName(path)}",
+                () =>
+                {
+                    try { loaded = MsProjectInterop.Load(path); }
+                    catch (Exception ex) { error = ex; }
+                });
+            dlg.ShowDialog(this);
+
+            if (error != null)
             {
-                _model = MsProjectInterop.Load(path);
-                ApplyModel();
-                statusLabel.Text = MsProjectInterop.CanImport(path) && !path.EndsWith($".{ProjectFile.Extension}", StringComparison.OrdinalIgnoreCase)
-                    ? $"Imported from Microsoft Project: {path}"
-                    : $"Opened: {path}";
+                ErrorDialog.Show(this, "Open Error", "Could not open the project file.", error);
+                return;
             }
-            catch (Exception ex)
-            {
-                ErrorDialog.Show(this, "Open Error", "Could not open the project file.", ex);
-            }
+
+            if (loaded == null) return;
+
+            _model = loaded;
+            _undoRedo.Clear();
+            ApplyModel();
+            UpdateUndoRedoState();
+            statusLabel.Text = MsProjectInterop.CanImport(path) && !path.EndsWith($".{ProjectFile.Extension}", StringComparison.OrdinalIgnoreCase)
+                ? $"Imported from Microsoft Project: {path}"
+                : $"Opened: {path}";
         }
 
         private void OnExportMsProject()
@@ -1109,18 +1174,22 @@ namespace MyProject.Forms
 
         private void OnAddTask()
         {
+            SaveSnapshot();
             var task = _model.AddTask("New Task", _lastSelectedId);
             ganttChartControl.SetSelectedTask(task.Id);
             taskGridControl.SetSelectedTask(task.Id);
             _lastSelectedId = task.Id;
             UpdateStatus(task.Id);
+            UpdateUndoRedoState();
         }
 
         private void OnAddSubtask(int parentId)
         {
             if (parentId < 0) return;
+            SaveSnapshot();
             var task = _model.AddSubtask(parentId, "New Task");
             SelectTask(task.Id);
+            UpdateUndoRedoState();
         }
 
         private void OnDeleteTask()
@@ -1137,23 +1206,31 @@ namespace MyProject.Forms
             if (MessageBox.Show(message, "Confirm Delete",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
+                SaveSnapshot();
                 _model.RemoveTask(_lastSelectedId);
                 _lastSelectedId = -1;
                 ganttChartControl.SetSelectedTask(-1);
                 taskGridControl.SetSelectedTask(-1);
                 UpdateStatus(-1);
                 UpdateTaskToolState();
+                UpdateUndoRedoState();
             }
         }
 
         private void OnIndent()
         {
-            if (_lastSelectedId >= 0) _model.IndentTask(_lastSelectedId);
+            if (_lastSelectedId < 0) return;
+            SaveSnapshot();
+            _model.IndentTask(_lastSelectedId);
+            UpdateUndoRedoState();
         }
 
         private void OnOutdent()
         {
-            if (_lastSelectedId >= 0) _model.OutdentTask(_lastSelectedId);
+            if (_lastSelectedId < 0) return;
+            SaveSnapshot();
+            _model.OutdentTask(_lastSelectedId);
+            UpdateUndoRedoState();
         }
 
         private void OnToggleExpandSelectedTask()
@@ -1247,15 +1324,19 @@ namespace MyProject.Forms
             if (predId == succId)
                 return false;
 
+            SaveSnapshot();
             if (_model.AddDependency(predId, succId, dependencyTypeSelector.SelectedType))
             {
                 CancelLink();
                 statusLabel.Text = $"Dependency created ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
                 ganttChartControl.Invalidate();
                 taskGridControl.Invalidate();
+                UpdateUndoRedoState();
                 return true;
             }
 
+            // Dependency not created — discard the snapshot we just saved
+            _undoRedo.DiscardLast();
             ShowLinkError(predId, succId);
             return false;
         }
@@ -1350,9 +1431,12 @@ namespace MyProject.Forms
             if (taskId < 0) return;
             var task = _model.GetTask(taskId);
             if (task == null) return;
+            var preDialogSnapshot = ProjectFile.ToSnapshot(_model);
             using var dlg = new TaskPropertiesDialog(task, _model);
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
+                _undoRedo.PushSnapshot(preDialogSnapshot);
+                UpdateUndoRedoState();
                 _model.NotifyViewsChanged();
                 ganttChartControl.Invalidate();
                 taskGridControl.Invalidate();

@@ -37,6 +37,19 @@ namespace MyProject.Models
             return FromData(data, path);
         }
 
+        internal static string ToSnapshot(ProjectModel model)
+        {
+            var data = ToData(model);
+            return JsonSerializer.Serialize(data, JsonOptions);
+        }
+
+        internal static ProjectModel FromSnapshot(string json, string? filePath = null)
+        {
+            var data = JsonSerializer.Deserialize<ProjectFileData>(json, JsonOptions)
+                ?? throw new InvalidDataException("Snapshot is empty or invalid.");
+            return FromData(data, filePath ?? "");
+        }
+
         public static string TemplatePath =>
             Path.Combine(AppContext.BaseDirectory, "Template", "Template Project.myprj");
 
@@ -73,6 +86,7 @@ namespace MyProject.Models
                     Notes = t.Notes,
                     BarColorArgb = t.BarColor.IsEmpty ? null : t.BarColor.ToArgb(),
                     ProgressColorArgb = t.ProgressColor.IsEmpty ? null : t.ProgressColor.ToArgb(),
+                    BandColorArgb = t.BandColor.IsEmpty ? null : t.BandColor.ToArgb(),
                     AutoSchedule = t.AutoSchedule,
                     Deliverable = t.Deliverable,
                     IsCritical = t.IsCritical
@@ -223,6 +237,7 @@ namespace MyProject.Models
             public string Notes { get; set; } = "";
             public int? BarColorArgb { get; set; }
             public int? ProgressColorArgb { get; set; }
+            public int? BandColorArgb { get; set; }
             public bool AutoSchedule { get; set; } = true;
             public string Deliverable { get; set; } = "";
             public bool IsCritical { get; set; }

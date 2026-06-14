@@ -30,6 +30,7 @@ namespace MyProject.Models
         private string _notes = "";
         private Color _barColor = Color.Empty;
         private Color _progressColor = Color.Empty;
+        private Color _bandColor = Color.Empty;
         private bool _autoSchedule = true;
         private string _deliverable = "";
 
@@ -165,6 +166,18 @@ namespace MyProject.Models
                 if (_progressColor == value) return;
                 _progressColor = value;
                 OnPropertyChanged(nameof(ProgressColor));
+            }
+        }
+
+        /// <summary>Optional explicit row-band color in the task grid. Only effective on root tasks (ParentId == -1).</summary>
+        public Color BandColor
+        {
+            get => _bandColor;
+            set
+            {
+                if (_bandColor == value) return;
+                _bandColor = value;
+                OnPropertyChanged(nameof(BandColor));
             }
         }
 

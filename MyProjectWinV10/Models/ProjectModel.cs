@@ -738,20 +738,66 @@ namespace MyProject.Models
         private void UpdateCriticalPath()
         {
             var result = CriticalPathCalculator.Compute(_tasks, _dependencies, ProjectStart);
-            _criticalTaskIds = result.CriticalChainTaskIds;
+            _criticalTaskIds = result.CriticalTaskIds;
             _criticalDependencies = result.CriticalDependencies;
             _criticalPathLinks = result.CriticalLinks;
+
+            // Each top-level summary group gets its own local critical path so that
+            // tasks driving their group's completion are highlighted even when their
+            // group ends before the global project finish and has no cross-group links.
+            foreach (var id in CriticalPathCalculator.ComputeLocalCriticalTaskIds(
+                _tasks, _dependencies, ProjectStart))
+                _criticalTaskIds.Add(id);
 
             foreach (var task in _tasks)
             {
                 if (task.TaskType == TaskType.Summary)
-                    task.IsCritical = false;
+                    task.IsCritical = GetAllDescendants(task.Id).Any(d => _criticalTaskIds.Contains(d.Id));
                 else
                     task.IsCritical = _criticalTaskIds.Contains(task.Id);
             }
         }
 
         public bool IsTaskOnCriticalPath(int taskId) => _criticalTaskIds.Contains(taskId);
+
+        private static readonly Color[] BandColorPalette =
+        {
+            Color.FromArgb(226, 240, 255),  // blue
+            Color.FromArgb(225, 247, 225),  // green
+            Color.FromArgb(255, 249, 215),  // yellow
+            Color.FromArgb(242, 228, 255),  // purple
+            Color.FromArgb(255, 233, 215),  // peach
+            Color.FromArgb(255, 228, 238),  // pink
+            Color.FromArgb(218, 245, 242),  // teal
+            Color.FromArgb(243, 238, 255),  // lavender
+        };
+
+        /// <summary>
+        /// Returns the row-band color for a task's top-level group. Uses the root task's explicit
+        /// BandColor if set, otherwise picks from the pastel palette by root-task position.
+        /// </summary>
+        public Color GetTaskBandColor(int taskId)
+        {
+            var task = GetTask(taskId);
+            if (task == null) return Color.Empty;
+
+            // Walk up to root
+            var root = task;
+            while (root.ParentId >= 0)
+            {
+                var parent = GetTask(root.ParentId);
+                if (parent == null) break;
+                root = parent;
+            }
+
+            if (!root.BandColor.IsEmpty)
+                return root.BandColor;
+
+            // Auto-assign from palette by position among root tasks
+            var rootTasks = _tasks.Where(t => t.ParentId == -1).ToList();
+            int idx = rootTasks.IndexOf(root);
+            return idx < 0 ? Color.Empty : BandColorPalette[idx % BandColorPalette.Length];
+        }
 
         private void ApplyDependencyScheduling(int predecessorId)
         {
@@ -951,6 +997,7 @@ namespace MyProject.Models
                     Notes = src.Notes,
                     BarColor = src.BarColorArgb.HasValue ? Color.FromArgb(src.BarColorArgb.Value) : Color.Empty,
                     ProgressColor = src.ProgressColorArgb.HasValue ? Color.FromArgb(src.ProgressColorArgb.Value) : Color.Empty,
+                    BandColor = src.BandColorArgb.HasValue ? Color.FromArgb(src.BandColorArgb.Value) : Color.Empty,
                     AutoSchedule = src.AutoSchedule,
                     Deliverable = src.Deliverable,
                     IsCritical = src.IsCritical

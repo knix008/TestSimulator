@@ -9,6 +9,9 @@ namespace MyProject.Forms
         // ── Menu ──────────────────────────────────────────────────────────────
         private System.Windows.Forms.MenuStrip mainMenuStrip;
         private System.Windows.Forms.ToolStripMenuItem menuFile;
+        private System.Windows.Forms.ToolStripMenuItem menuEdit;
+        private System.Windows.Forms.ToolStripMenuItem menuUndo;
+        private System.Windows.Forms.ToolStripMenuItem menuRedo;
         private System.Windows.Forms.ToolStripMenuItem menuNew;
         private System.Windows.Forms.ToolStripMenuItem menuOpen;
         private System.Windows.Forms.ToolStripSeparator menuSep1;
@@ -52,6 +55,9 @@ namespace MyProject.Forms
 
         // ── Toolbar ───────────────────────────────────────────────────────────
         private System.Windows.Forms.ToolStrip mainToolStrip;
+        private System.Windows.Forms.ToolStripButton btnUndo;
+        private System.Windows.Forms.ToolStripButton btnRedo;
+        private System.Windows.Forms.ToolStripSeparator tsSepUndo;
         private System.Windows.Forms.ToolStripButton btnNew;
         private System.Windows.Forms.ToolStripButton btnOpen;
         private System.Windows.Forms.ToolStripButton btnSave;
@@ -115,6 +121,9 @@ namespace MyProject.Forms
             menuExportMsProject = new ToolStripMenuItem();
             menuSep2 = new ToolStripSeparator();
             menuExit = new ToolStripMenuItem();
+            menuEdit = new ToolStripMenuItem();
+            menuUndo = new ToolStripMenuItem();
+            menuRedo = new ToolStripMenuItem();
             menuTask = new ToolStripMenuItem();
             menuAddTask = new ToolStripMenuItem();
             menuAddSubtask = new ToolStripMenuItem();
@@ -147,6 +156,9 @@ namespace MyProject.Forms
             menuExportPdf = new ToolStripMenuItem();
             menuPrint = new ToolStripMenuItem();
             mainToolStrip = new ToolStrip();
+            btnUndo = new ToolStripButton();
+            btnRedo = new ToolStripButton();
+            tsSepUndo = new ToolStripSeparator();
             btnNew = new ToolStripButton();
             btnOpen = new ToolStripButton();
             btnSave = new ToolStripButton();
@@ -202,7 +214,7 @@ namespace MyProject.Forms
             mainMenuStrip.BackColor = Color.FromArgb(40, 45, 55);
             mainMenuStrip.Font = new Font("Segoe UI", 9F);
             mainMenuStrip.ForeColor = Color.White;
-            mainMenuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuTask, menuView, menuReport });
+            mainMenuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuEdit, menuTask, menuView, menuReport });
             mainMenuStrip.Location = new Point(0, 0);
             mainMenuStrip.Name = "mainMenuStrip";
             mainMenuStrip.Size = new Size(1280, 24);
@@ -269,9 +281,33 @@ namespace MyProject.Forms
             menuExit.Name = "menuExit";
             menuExit.Size = new Size(181, 22);
             menuExit.Text = "E&xit";
-            // 
+            //
+            // menuEdit
+            //
+            menuEdit.DropDownItems.AddRange(new ToolStripItem[] { menuUndo, menuRedo });
+            menuEdit.ForeColor = Color.White;
+            menuEdit.Name = "menuEdit";
+            menuEdit.Size = new Size(39, 20);
+            menuEdit.Text = "&Edit";
+            //
+            // menuUndo
+            //
+            menuUndo.Enabled = false;
+            menuUndo.Name = "menuUndo";
+            menuUndo.ShortcutKeys = Keys.Control | Keys.Z;
+            menuUndo.Size = new Size(151, 22);
+            menuUndo.Text = "&Undo";
+            //
+            // menuRedo
+            //
+            menuRedo.Enabled = false;
+            menuRedo.Name = "menuRedo";
+            menuRedo.ShortcutKeys = Keys.Control | Keys.Y;
+            menuRedo.Size = new Size(151, 22);
+            menuRedo.Text = "&Redo";
+            //
             // menuTask
-            // 
+            //
             menuTask.DropDownItems.AddRange(new ToolStripItem[] { menuAddTask, menuAddSubtask, menuDeleteTask, menuTaskSep1, menuIndent, menuOutdent, menuTaskSep2, menuLink, menuDepType, menuTaskSep3, menuTaskProps, menuExpandCollapse });
             menuTask.ForeColor = Color.White;
             menuTask.Name = "menuTask";
@@ -480,15 +516,38 @@ namespace MyProject.Forms
             mainToolStrip.Font = new Font("Segoe UI", 9F);
             mainToolStrip.GripStyle = ToolStripGripStyle.Hidden;
             mainToolStrip.ImageScalingSize = new Size(20, 20);
-            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSep1, btnAddTask, btnAddSubtask, btnDeleteTask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint });
+            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnDeleteTask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint });
             mainToolStrip.Location = new Point(0, 24);
             mainToolStrip.Name = "mainToolStrip";
             mainToolStrip.Padding = new Padding(4, 0, 0, 0);
             mainToolStrip.Size = new Size(1280, 40);
             mainToolStrip.TabIndex = 1;
-            // 
+            //
+            // tsSepUndo
+            //
+            tsSepUndo.Name = "tsSepUndo";
+            tsSepUndo.Size = new Size(6, 40);
+            //
+            // btnUndo
+            //
+            btnUndo.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnUndo.Enabled = false;
+            btnUndo.ForeColor = Color.White;
+            btnUndo.Name = "btnUndo";
+            btnUndo.Size = new Size(23, 37);
+            btnUndo.Text = "Undo";
+            //
+            // btnRedo
+            //
+            btnRedo.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnRedo.Enabled = false;
+            btnRedo.ForeColor = Color.White;
+            btnRedo.Name = "btnRedo";
+            btnRedo.Size = new Size(23, 37);
+            btnRedo.Text = "Redo";
+            //
             // btnNew
-            // 
+            //
             btnNew.DisplayStyle = ToolStripItemDisplayStyle.Image;
             btnNew.ForeColor = Color.White;
             btnNew.Name = "btnNew";
