@@ -166,6 +166,21 @@ namespace MyProject.Theme
             g.DrawLine(p, 5, 13, 11, 13);
         });
 
+        public static Bitmap Notes => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            var rect = new Rectangle(3, 3, 14, 14);
+            using var grad = new LinearGradientBrush(rect, Color.FromArgb(255, 252, 220), Color.FromArgb(255, 238, 170), LinearGradientMode.Vertical);
+            g.FillRectangle(grad, rect);
+            g.DrawRectangle(p, rect);
+            float fold = 4f;
+            g.DrawLine(p, rect.Right - fold, rect.Top, rect.Right, rect.Top + fold);
+            g.DrawLine(p, rect.Right - fold, rect.Top, rect.Right - fold, rect.Top + fold);
+            g.DrawLine(p, rect.Right - fold, rect.Top + fold, rect.Right, rect.Top + fold);
+            g.DrawLine(p, 5, 8, 13, 8);
+            g.DrawLine(p, 5, 11, 11, 11);
+        });
+
         public static Bitmap Link => Make(g =>
         {
             using var p = new Pen(Color.White, 1.8f);
@@ -284,6 +299,54 @@ namespace MyProject.Theme
             g.DrawLine(p, 11, 6, 15, 6);
             using var f = new Font("Segoe UI", 6f, FontStyle.Bold);
             g.DrawString("PDF", f, Brushes.White, 4, 9);
+        });
+
+        public static Bitmap Html => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawRectangle(p, 3, 3, 14, 14);
+            using var f = new Font("Segoe UI", 7f, FontStyle.Bold);
+            g.DrawString("</>", f, Brushes.White, 4, 5);
+        });
+
+        public static Bitmap Word => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            var pts = new Point[] { new(3, 2), new(3, 18), new(15, 18), new(15, 6), new(11, 2), new(3, 2) };
+            g.DrawPolygon(p, pts);
+            g.DrawLine(p, 11, 2, 11, 6);
+            g.DrawLine(p, 11, 6, 15, 6);
+            using var f = new Font("Segoe UI", 7f, FontStyle.Bold);
+            g.DrawString("W", f, Brushes.White, 6, 6);
+        });
+
+        public static Bitmap PropertiesPanel => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawRectangle(p, 2, 3, 7, 14);
+            g.DrawLine(p, 12, 5, 16, 5);
+            g.DrawLine(p, 12, 9, 16, 9);
+            g.DrawLine(p, 12, 13, 16, 13);
+        });
+
+        public static Bitmap CriticalPath => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.8f);
+            g.DrawLine(p, 3, 15, 7, 11);
+            g.DrawLine(p, 7, 11, 11, 13);
+            g.DrawLine(p, 11, 13, 15, 5);
+            using var accent = new Pen(Color.FromArgb(255, 100, 90), 2f);
+            g.DrawLine(accent, 2, 16, 6, 12);
+            g.DrawLine(accent, 6, 12, 10, 14);
+            g.DrawLine(accent, 10, 14, 14, 4);
+        });
+
+        public static Bitmap Image => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawRectangle(p, 3, 3, 14, 12);
+            g.DrawEllipse(p, 6, 6, 5, 4);
+            g.DrawLine(p, 4, 16, 16, 4);
         });
     }
 }

@@ -90,6 +90,17 @@ namespace MyProject.Models
                     ResourceName = a.ResourceName,
                     AllocationPercent = a.AllocationPercent
                 }).ToList(),
+                Notes = model.Notes.Select(n => new NoteData
+                {
+                    Id = n.Id,
+                    Title = n.Title,
+                    Body = n.Body,
+                    BodyRtf = n.BodyRtf,
+                    TaskId = n.TaskId,
+                    OffsetDays = n.OffsetDays,
+                    AnchorDate = n.AnchorDate,
+                    ContentY = n.ContentY
+                }).ToList(),
                 Settings = ToSettingsData(model.ViewSettings)
             };
         }
@@ -99,7 +110,12 @@ namespace MyProject.Models
             TaskGridColumnWidths = settings.TaskGridColumnWidths,
             DefaultDependencyType = settings.DefaultDependencyType.ToString(),
             DayWidth = settings.DayWidth,
-            SplitterDistance = settings.SplitterDistance
+            SplitterDistance = settings.SplitterDistance,
+            PropertiesPanelWidth = settings.PropertiesPanelWidth,
+            PropertiesPanelVisible = settings.PropertiesPanelVisible,
+            ShowCriticalPath = settings.ShowCriticalPath,
+            NotesPanelHeight = settings.NotesPanelHeight,
+            NotesPanelVisible = settings.NotesPanelVisible
         };
 
         private static ProjectViewSettings FromSettingsData(SettingsData? data)
@@ -120,6 +136,19 @@ namespace MyProject.Models
             if (data.SplitterDistance is >= 200 and <= 2000)
                 settings.SplitterDistance = data.SplitterDistance;
 
+            if (data.PropertiesPanelWidth is >= 180 and <= 600)
+                settings.PropertiesPanelWidth = data.PropertiesPanelWidth;
+            else if (data.NotesPanelHeight is >= 80 and <= 400)
+                settings.PropertiesPanelWidth = data.NotesPanelHeight;
+
+            settings.PropertiesPanelVisible = data.PropertiesPanelVisible ?? data.NotesPanelVisible;
+            settings.ShowCriticalPath = data.ShowCriticalPath;
+
+            if (data.NotesPanelHeight is >= 80 and <= 400)
+                settings.NotesPanelHeight = data.NotesPanelHeight;
+
+            settings.NotesPanelVisible = data.NotesPanelVisible;
+
             return settings;
         }
 
@@ -137,7 +166,8 @@ namespace MyProject.Models
             model.Restore(
                 data.Tasks,
                 data.Dependencies,
-                data.Assignments);
+                data.Assignments,
+                data.Notes);
 
             return model;
         }
@@ -150,6 +180,7 @@ namespace MyProject.Models
             public List<TaskData> Tasks { get; set; } = new();
             public List<DependencyData> Dependencies { get; set; } = new();
             public List<AssignmentData> Assignments { get; set; } = new();
+            public List<NoteData> Notes { get; set; } = new();
             public SettingsData? Settings { get; set; }
         }
 
@@ -159,6 +190,11 @@ namespace MyProject.Models
             public string DefaultDependencyType { get; set; } = "FS";
             public int DayWidth { get; set; } = 22;
             public int SplitterDistance { get; set; } = 560;
+            public int PropertiesPanelWidth { get; set; } = 300;
+            public bool? PropertiesPanelVisible { get; set; }
+            public bool ShowCriticalPath { get; set; }
+            public int NotesPanelHeight { get; set; } = 140;
+            public bool NotesPanelVisible { get; set; } = true;
         }
 
         internal sealed class TaskData
@@ -194,6 +230,18 @@ namespace MyProject.Models
             public int TaskId { get; set; }
             public string ResourceName { get; set; } = "";
             public double AllocationPercent { get; set; } = 100;
+        }
+
+        internal sealed class NoteData
+        {
+            public int Id { get; set; }
+            public string Title { get; set; } = "New Note";
+            public string Body { get; set; } = "";
+            public string BodyRtf { get; set; } = "";
+            public int TaskId { get; set; } = -1;
+            public int OffsetDays { get; set; }
+            public DateTime AnchorDate { get; set; }
+            public int ContentY { get; set; }
         }
     }
 }

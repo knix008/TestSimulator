@@ -35,19 +35,37 @@ namespace MyProject.Models
         public string Name
         {
             get => _name;
-            set { _name = value; OnPropertyChanged(nameof(Name)); }
+            set
+            {
+                if (_name == value) return;
+                _name = value;
+                OnPropertyChanged(nameof(Name));
+            }
         }
 
         public DateTime StartDate
         {
             get => _startDate;
-            set { _startDate = value; OnPropertyChanged(nameof(StartDate)); OnPropertyChanged(nameof(EndDate)); }
+            set
+            {
+                if (_startDate == value) return;
+                _startDate = value;
+                OnPropertyChanged(nameof(StartDate));
+                OnPropertyChanged(nameof(EndDate));
+            }
         }
 
         public int DurationDays
         {
             get => _durationDays;
-            set { _durationDays = Math.Max(1, value); OnPropertyChanged(nameof(DurationDays)); OnPropertyChanged(nameof(EndDate)); }
+            set
+            {
+                int clamped = Math.Max(1, value);
+                if (_durationDays == clamped) return;
+                _durationDays = clamped;
+                OnPropertyChanged(nameof(DurationDays));
+                OnPropertyChanged(nameof(EndDate));
+            }
         }
 
         public DateTime EndDate => _taskType == TaskType.Milestone
@@ -57,25 +75,47 @@ namespace MyProject.Models
         public double Progress
         {
             get => _progress;
-            set { _progress = Math.Clamp(value, 0.0, 100.0); OnPropertyChanged(nameof(Progress)); }
+            set
+            {
+                double clamped = Math.Clamp(value, 0.0, 100.0);
+                if (_progress == clamped) return;
+                _progress = clamped;
+                OnPropertyChanged(nameof(Progress));
+            }
         }
 
         public TaskType TaskType
         {
             get => _taskType;
-            set { _taskType = value; OnPropertyChanged(nameof(TaskType)); }
+            set
+            {
+                if (_taskType == value) return;
+                _taskType = value;
+                OnPropertyChanged(nameof(TaskType));
+            }
         }
 
         public int IndentLevel
         {
             get => _indentLevel;
-            set { _indentLevel = Math.Max(0, value); OnPropertyChanged(nameof(IndentLevel)); }
+            set
+            {
+                int clamped = Math.Max(0, value);
+                if (_indentLevel == clamped) return;
+                _indentLevel = clamped;
+                OnPropertyChanged(nameof(IndentLevel));
+            }
         }
 
         public bool IsExpanded
         {
             get => _isExpanded;
-            set { _isExpanded = value; OnPropertyChanged(nameof(IsExpanded)); }
+            set
+            {
+                if (_isExpanded == value) return;
+                _isExpanded = value;
+                OnPropertyChanged(nameof(IsExpanded));
+            }
         }
 
         public bool IsVisible { get; set; } = true;
@@ -83,37 +123,67 @@ namespace MyProject.Models
         public string AssignedTo
         {
             get => _assignedTo;
-            set { _assignedTo = value; OnPropertyChanged(nameof(AssignedTo)); }
+            set
+            {
+                if (_assignedTo == value) return;
+                _assignedTo = value;
+                OnPropertyChanged(nameof(AssignedTo));
+            }
         }
 
         public string Notes
         {
             get => _notes;
-            set { _notes = value; OnPropertyChanged(nameof(Notes)); }
+            set
+            {
+                if (_notes == value) return;
+                _notes = value;
+                OnPropertyChanged(nameof(Notes));
+            }
         }
 
         public Color BarColor
         {
             get => _barColor;
-            set { _barColor = value; OnPropertyChanged(nameof(BarColor)); }
+            set
+            {
+                if (_barColor == value) return;
+                _barColor = value;
+                OnPropertyChanged(nameof(BarColor));
+            }
         }
 
         public Color ProgressColor
         {
             get => _progressColor;
-            set { _progressColor = value; OnPropertyChanged(nameof(ProgressColor)); }
+            set
+            {
+                if (_progressColor == value) return;
+                _progressColor = value;
+                OnPropertyChanged(nameof(ProgressColor));
+            }
         }
 
         public bool AutoSchedule
         {
             get => _autoSchedule;
-            set { _autoSchedule = value; OnPropertyChanged(nameof(AutoSchedule)); }
+            set
+            {
+                if (_autoSchedule == value) return;
+                _autoSchedule = value;
+                OnPropertyChanged(nameof(AutoSchedule));
+            }
         }
 
         public string Deliverable
         {
             get => _deliverable;
-            set { _deliverable = value; OnPropertyChanged(nameof(Deliverable)); }
+            set
+            {
+                if (_deliverable == value) return;
+                _deliverable = value;
+                OnPropertyChanged(nameof(Deliverable));
+            }
         }
 
         public bool IsCritical { get; set; } = false;

@@ -13,63 +13,77 @@ namespace MyProject.Models
             sb.AppendLine($"**Total Tasks:** {model.Tasks.Count}  ");
             sb.AppendLine($"**Project Start:** {model.ProjectStart:yyyy-MM-dd}  ");
             sb.AppendLine($"**Project End:** {model.GetProjectEnd():yyyy-MM-dd}");
+            sb.AppendLine($"**Notes:** {model.Notes.Count}");
             sb.AppendLine();
 
-            // Overall progress
-            double overallProgress = model.Tasks.Any()
-                ? model.Tasks.Average(t => t.Progress)
-                : 0;
+            double overallProgress = ProjectReportContent.OverallProgress(model);
             sb.AppendLine($"**Overall Progress:** {overallProgress:0.0}%");
             sb.AppendLine();
 
-            // Task table
             sb.AppendLine("## Task Schedule");
             sb.AppendLine();
-            sb.AppendLine("| # | Task | Start | End | Days | Progress | Assignee | Deliverable |");
-            sb.AppendLine("|---|------|-------|-----|------|----------|----------|-------------|");
+            sb.AppendLine("| # | Task | Start | End | Days | Progress | Assignee | Deliverable | Notes |");
+            sb.AppendLine("|---|------|-------|-----|------|----------|----------|-------------|-------|");
 
             foreach (var task in model.Tasks)
             {
-                string indent = new string(' ', task.IndentLevel * 2);
+                string indent = ProjectReportContent.TaskIndent(task);
                 string type = task.TaskType == TaskType.Milestone ? "🔷"
                             : task.TaskType == TaskType.Summary ? "📁"
                             : "▶";
                 string progress = $"{task.Progress:0}%";
-                string bar = MakeProgressBar(task.Progress, 10);
+                string bar = ProjectReportContent.ProgressBarText(task.Progress, 10);
                 string assignees = string.Join(", ", model.GetAssignments(task.Id).Select(a => $"{a.ResourceName} ({a.AllocationPercent:0}%)"));
                 if (string.IsNullOrEmpty(assignees)) assignees = task.AssignedTo;
 
                 sb.AppendLine(
                     $"| {task.Id} " +
-                    $"| {indent}{type} {EscapeMd(task.Name)} " +
+                    $"| {indent}{type} {ProjectReportContent.EscapeMd(task.Name)} " +
                     $"| {task.StartDate:MM/dd/yy} " +
                     $"| {task.EndDate:MM/dd/yy} " +
                     $"| {task.DurationDays} " +
                     $"| {bar} {progress} " +
-                    $"| {EscapeMd(assignees)} " +
-                    $"| {EscapeMd(task.Deliverable)} |");
+                    $"| {ProjectReportContent.EscapeMd(assignees)} " +
+                    $"| {ProjectReportContent.EscapeMd(task.Deliverable)} " +
+                    $"| {ProjectReportContent.EscapeMd(task.Notes)} |");
             }
 
             sb.AppendLine();
 
-            // Dependencies
+            if (model.Notes.Any())
+            {
+                sb.AppendLine("## Notes");
+                sb.AppendLine();
+                foreach (var note in model.Notes.OrderBy(n => n.Id))
+                {
+                    sb.AppendLine($"### {ProjectReportContent.EscapeMd(ProjectReportContent.NoteTitle(note))}");
+                    string linked = ProjectReportContent.LinkedTaskName(model, note);
+                    if (!string.IsNullOrEmpty(linked))
+                        sb.AppendLine($"**Linked task:** {ProjectReportContent.EscapeMd(linked)} (ID {note.TaskId})");
+                    sb.AppendLine($"**Anchor date:** {note.AnchorDate:yyyy-MM-dd}");
+                    sb.AppendLine();
+                    sb.AppendLine(note.Body);
+                    sb.AppendLine();
+                }
+            }
+
             if (model.Dependencies.Any())
             {
                 sb.AppendLine("## Dependencies");
                 sb.AppendLine();
-                sb.AppendLine("| Predecessor | Successor | Type | Lag |");
-                sb.AppendLine("|-------------|-----------|------|-----|");
+                sb.AppendLine("| Predecessor | Successor | Type | Lag | Critical |");
+                sb.AppendLine("|-------------|-----------|------|-----|----------|");
                 foreach (var dep in model.Dependencies)
                 {
                     var pred = model.GetTask(dep.PredecessorId);
                     var succ = model.GetTask(dep.SuccessorId);
                     if (pred == null || succ == null) continue;
-                    sb.AppendLine($"| {pred.Name} | {succ.Name} | {dep.Type} | {dep.LagDays}d |");
+                    bool critical = model.IsDependencyOnCriticalPath(dep);
+                    sb.AppendLine($"| {pred.Name} | {succ.Name} | {dep.Type} | {dep.LagDays}d | {(critical ? "Yes" : "No")} |");
                 }
                 sb.AppendLine();
             }
 
-            // Critical tasks
             var criticalTasks = model.Tasks.Where(t => t.IsCritical).ToList();
             if (criticalTasks.Any())
             {
@@ -80,7 +94,6 @@ namespace MyProject.Models
                 sb.AppendLine();
             }
 
-            // In-progress tasks
             var inProgress = model.Tasks.Where(t => t.Progress > 0 && t.Progress < 100).OrderByDescending(t => t.Progress).ToList();
             if (inProgress.Any())
             {
@@ -91,9 +104,8 @@ namespace MyProject.Models
                 sb.AppendLine();
             }
 
-            // Completed tasks
             var completed = model.Tasks.Where(t => t.Progress >= 100).ToList();
-            sb.AppendLine($"## Summary");
+            sb.AppendLine("## Summary");
             sb.AppendLine();
             sb.AppendLine($"- ✅ Completed: {completed.Count}");
             sb.AppendLine($"- 🔄 In Progress: {inProgress.Count}");
@@ -101,14 +113,5 @@ namespace MyProject.Models
 
             return sb.ToString();
         }
-
-        private static string MakeProgressBar(double progress, int width)
-        {
-            int filled = (int)(progress / 100.0 * width);
-            return "`" + new string('█', filled) + new string('░', width - filled) + "`";
-        }
-
-        private static string EscapeMd(string? s) =>
-            (s ?? "").Replace("|", "\\|").Replace("\n", " ").Replace("\r", "");
     }
 }

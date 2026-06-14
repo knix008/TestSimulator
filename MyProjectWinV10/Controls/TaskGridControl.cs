@@ -13,6 +13,7 @@ namespace MyProject.Controls
         private int _selectedTaskId = -1;
         private int _hoveredTaskId = -1;
         private int _editingTaskId = -1;
+        private int _editingColumn = -1;
         private TextBox? _inlineEditor;
         private TextBox? _projectNameEditor;
         private bool _editingProjectName;
@@ -48,6 +49,20 @@ namespace MyProject.Controls
         public event EventHandler<ContextMenuRequestEventArgs>? ContextMenuRequested;
 
         public int ScrollOffsetY => _scrollY;
+
+        private bool _showCriticalPath;
+
+        public bool ShowCriticalPath
+        {
+            get => _showCriticalPath;
+            set
+            {
+                if (_showCriticalPath == value)
+                    return;
+                _showCriticalPath = value;
+                Invalidate();
+            }
+        }
 
         public int[] GetColumnWidths() => (int[])_colWidths.Clone();
 
@@ -258,11 +273,13 @@ namespace MyProject.Controls
         {
             var sfCenter = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
+            bool completed = IsTaskCompleted(task);
             using var secondaryBrush = new SolidBrush(AppTheme.TextSecondary);
+            Font smallFont = completed ? AppTheme.FontSmallStrikeout : AppTheme.FontSmall;
 
             if (ColumnRight(ColId) > 0 && ColumnLeft(ColId) < gridWidth)
             {
-                g.DrawString(task.Id.ToString(), AppTheme.FontSmall, secondaryBrush,
+                g.DrawString(task.Id.ToString(), smallFont, secondaryBrush,
                     new Rectangle(ColumnLeft(ColId), rowY, _colWidths[ColId], AppTheme.RowHeight), sfCenter);
                 DrawColDivider(g, ColumnRight(ColId), rowY);
             }
@@ -270,9 +287,11 @@ namespace MyProject.Controls
             int nameColumnLeft = ColumnLeft(ColName);
             int nameX = DrawTreeGlyphs(g, task, rowY, nameColumnLeft);
             bool isSummary = _model!.IsSummaryTask(task.Id);
-            var font = isSummary ? AppTheme.FontBold : AppTheme.FontTaskName;
+            var font = isSummary
+                ? completed ? AppTheme.FontBoldStrikeout : AppTheme.FontBold
+                : completed ? AppTheme.FontTaskNameStrikeout : AppTheme.FontTaskName;
             var textColor = isSummary ? AppTheme.TextPrimary
-                          : task.IsCritical ? Color.FromArgb(180, 30, 20)
+                          : ShowCriticalPath && task.IsCritical ? Color.FromArgb(180, 30, 20)
                           : AppTheme.TextPrimary;
 
             if (ColumnRight(ColName) > 0 && nameColumnLeft < gridWidth)
@@ -287,7 +306,7 @@ namespace MyProject.Controls
 
             if (ColumnRight(ColStart) > 0 && ColumnLeft(ColStart) < gridWidth)
             {
-                g.DrawString(task.StartDate.ToString("MM/dd/yy"), AppTheme.FontSmall, secondaryBrush,
+                g.DrawString(task.StartDate.ToString("MM/dd/yy"), smallFont, secondaryBrush,
                     new Rectangle(ColumnLeft(ColStart) + 2, rowY, _colWidths[ColStart] - 4, AppTheme.RowHeight),
                     new StringFormat { LineAlignment = StringAlignment.Center });
                 DrawColDivider(g, ColumnRight(ColStart), rowY);
@@ -296,7 +315,7 @@ namespace MyProject.Controls
             if (ColumnRight(ColDuration) > 0 && ColumnLeft(ColDuration) < gridWidth)
             {
                 string durationText = task.TaskType == TaskType.Milestone ? "0" : task.DurationDays.ToString();
-                g.DrawString(durationText, AppTheme.FontSmall, secondaryBrush,
+                g.DrawString(durationText, smallFont, secondaryBrush,
                     new Rectangle(ColumnLeft(ColDuration), rowY, _colWidths[ColDuration], AppTheme.RowHeight), sfCenter);
                 DrawColDivider(g, ColumnRight(ColDuration), rowY);
             }
@@ -307,32 +326,127 @@ namespace MyProject.Controls
                 DrawColDivider(g, ColumnRight(ColProgress), rowY);
             }
 
-            string assignee = _model!.GetTaskAssigneeDisplay(task.Id);
-            if (!string.IsNullOrWhiteSpace(assignee) && ColumnRight(ColAssigned) > 0 && ColumnLeft(ColAssigned) < gridWidth)
+            if (ColumnRight(ColAssigned) > 0 && ColumnLeft(ColAssigned) < gridWidth)
             {
-                var assigneeRect = new Rectangle(ColumnLeft(ColAssigned) + 4, rowY, _colWidths[ColAssigned] - 8, AppTheme.RowHeight);
-                g.DrawString(assignee, AppTheme.FontSmall, secondaryBrush, assigneeRect,
-                    new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter });
+                if (task.Id != _editingTaskId || _editingColumn != ColAssigned)
+                {
+                    var lines = GetResourceDisplayLines(task.Id);
+                    var assigneeRect = new Rectangle(ColumnLeft(ColAssigned) + 2, rowY, _colWidths[ColAssigned] - 4, AppTheme.RowHeight);
+                    DrawListedCell(g, assigneeRect, lines, secondaryBrush, smallFont);
+                }
                 DrawColDivider(g, ColumnRight(ColAssigned), rowY);
             }
 
-            string deliverable = FormatDeliverable(task.Deliverable);
-            if (!string.IsNullOrWhiteSpace(deliverable) && ColumnRight(ColDeliverable) > 0 && ColumnLeft(ColDeliverable) < gridWidth)
+            if (ColumnRight(ColDeliverable) > 0 && ColumnLeft(ColDeliverable) < gridWidth)
             {
-                var deliverableRect = new Rectangle(ColumnLeft(ColDeliverable) + 4, rowY, _colWidths[ColDeliverable] - 8, AppTheme.RowHeight);
-                g.DrawString(deliverable, AppTheme.FontSmall, secondaryBrush, deliverableRect,
-                    new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter });
+                if (task.Id != _editingTaskId || _editingColumn != ColDeliverable)
+                {
+                    var lines = GetDeliverableDisplayLines(task.Deliverable);
+                    var deliverableRect = new Rectangle(ColumnLeft(ColDeliverable) + 2, rowY, _colWidths[ColDeliverable] - 4, AppTheme.RowHeight);
+                    DrawListedCell(g, deliverableRect, lines, secondaryBrush, smallFont);
+                }
+                DrawColDivider(g, ColumnRight(ColDeliverable), rowY);
             }
         }
 
-        private static string FormatDeliverable(string? deliverable)
+        private static bool IsTaskCompleted(ProjectTask task) => task.Progress >= 100;
+
+        private List<string> GetResourceDisplayLines(int taskId)
         {
-            if (string.IsNullOrWhiteSpace(deliverable)) return "";
+            var assignments = _model!.GetAssignments(taskId).ToList();
+            if (assignments.Count > 0)
+                return assignments.Select(a =>
+                    assignments.Count == 1 && Math.Abs(a.AllocationPercent - 100) < 0.01
+                        ? a.ResourceName
+                        : $"{a.ResourceName} ({a.AllocationPercent:0}%)").ToList();
+
+            string assigned = _model.GetTask(taskId)?.AssignedTo ?? "";
+            if (string.IsNullOrWhiteSpace(assigned))
+                return new List<string>();
+
+            return assigned.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(s => s.Length > 0)
+                .ToList();
+        }
+
+        private static List<string> GetDeliverableDisplayLines(string? deliverable)
+        {
+            if (string.IsNullOrWhiteSpace(deliverable))
+                return new List<string>();
 
             return deliverable
-                .Replace('\r', ' ')
-                .Replace('\n', ' ')
-                .Trim();
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => l.Length > 0)
+                .ToList();
+        }
+
+        private void DrawListedCell(Graphics g, Rectangle cellRect, IReadOnlyList<string> lines, Brush textBrush, Font baseFont)
+        {
+            const int maxLines = 4;
+            int lineCount = Math.Max(1, Math.Min(lines.Count, maxLines));
+            DrawVerticalListGlyphs(g, cellRect, lines.Count == 0 ? 1 : lineCount);
+
+            if (lines.Count == 0)
+                return;
+
+            int textX = cellRect.Left + 14;
+            int textW = Math.Max(0, cellRect.Right - textX - 2);
+            var sf = new StringFormat
+            {
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
+
+            if (lines.Count == 1)
+            {
+                g.DrawString(lines[0], baseFont, textBrush,
+                    new Rectangle(textX, cellRect.Top, textW, cellRect.Height), sf);
+                return;
+            }
+
+            int displayCount = Math.Min(lines.Count, maxLines);
+            int lineH = Math.Max(10, cellRect.Height / displayCount);
+            FontStyle multiStyle = baseFont.Style;
+            using var smallFont = new Font(baseFont.FontFamily, 7.5f, multiStyle);
+            sf.LineAlignment = StringAlignment.Near;
+
+            for (int i = 0; i < displayCount; i++)
+            {
+                var lineRect = new Rectangle(textX, cellRect.Top + i * lineH, textW, lineH);
+                g.DrawString(lines[i], smallFont, textBrush, lineRect, sf);
+            }
+
+            if (lines.Count > maxLines)
+            {
+                var moreRect = new Rectangle(textX, cellRect.Bottom - lineH, textW, lineH);
+                g.DrawString("…", smallFont, textBrush, moreRect, sf);
+            }
+        }
+
+        private static void DrawVerticalListGlyphs(Graphics g, Rectangle cellRect, int lineCount)
+        {
+            lineCount = Math.Max(1, lineCount);
+            using var pen = new Pen(AppTheme.GridLineColor);
+            int x = cellRect.Left + 6;
+
+            if (lineCount == 1)
+            {
+                int midY = cellRect.Top + cellRect.Height / 2;
+                g.DrawLine(pen, x, cellRect.Top + 4, x, cellRect.Bottom - 4);
+                g.DrawLine(pen, x, midY, x + 7, midY);
+                return;
+            }
+
+            int lineH = cellRect.Height / lineCount;
+            for (int i = 0; i < lineCount; i++)
+            {
+                int midY = cellRect.Top + i * lineH + lineH / 2;
+                int segmentBottom = i == lineCount - 1 ? midY : cellRect.Top + (i + 1) * lineH;
+                g.DrawLine(pen, x, cellRect.Top + i * lineH + 2, x, segmentBottom);
+                g.DrawLine(pen, x, midY, x + 7, midY);
+            }
         }
 
         private int DrawTreeGlyphs(Graphics g, ProjectTask task, int rowY, int nameColumnX)
@@ -579,9 +693,22 @@ namespace MyProject.Controls
 
             if (ContentXFromMouse(e.X) >= ColumnLeft(ColName) && ContentXFromMouse(e.X) < ColumnRight(ColName))
             {
-                StartInlineEdit(task);
+                StartInlineEdit(task, ColName);
                 return;
             }
+
+            if (ContentXFromMouse(e.X) >= ColumnLeft(ColAssigned) && ContentXFromMouse(e.X) < ColumnRight(ColAssigned))
+            {
+                StartInlineEdit(task, ColAssigned);
+                return;
+            }
+
+            if (ContentXFromMouse(e.X) >= ColumnLeft(ColDeliverable) && ContentXFromMouse(e.X) < ColumnRight(ColDeliverable))
+            {
+                StartInlineEdit(task, ColDeliverable);
+                return;
+            }
+
             TaskDoubleClicked?.Invoke(this, task.Id);
         }
 
@@ -620,37 +747,74 @@ namespace MyProject.Controls
             Invalidate();
         }
 
-        private void StartInlineEdit(ProjectTask task)
+        private void StartInlineEdit(ProjectTask task, int column)
         {
             CommitEdit();
             _editingTaskId = task.Id;
+            _editingColumn = column;
 
-            var visibleTasks = _model!.GetVisibleTasks().ToList();
-            int idx = visibleTasks.IndexOf(task);
-            int rowY = AppTheme.TimescaleHeaderHeight + idx * AppTheme.RowHeight - _scrollY;
-            int nameX = ColumnLeft(ColName) + 4 + task.IndentLevel * TreeIndent + (_model!.HasChildren(task.Id) ? 14 : 0);
+            int rowY = GetRowY(task);
+            int cellLeft = ColumnLeft(column) + 4;
+            int cellWidth = Math.Max(40, _colWidths[column] - 8);
+            bool multiline = column is ColAssigned or ColDeliverable;
+
+            string text = column switch
+            {
+                ColName => task.Name,
+                ColAssigned => _model!.GetTaskResourceEditText(task.Id),
+                ColDeliverable => task.Deliverable ?? "",
+                _ => ""
+            };
+
+            int editorX = cellLeft;
+            int editorWidth = cellWidth;
+            if (column == ColName)
+            {
+                editorX = ColumnLeft(ColName) + 4 + task.IndentLevel * TreeIndent + (_model!.HasChildren(task.Id) ? 14 : 0);
+                editorWidth = Math.Max(40, ColumnRight(ColName) - editorX - 4);
+            }
 
             _inlineEditor = new TextBox
             {
-                Text = task.Name,
-                Font = AppTheme.FontTaskName,
+                Text = text,
+                Font = column == ColName ? AppTheme.FontTaskName : AppTheme.FontSmall,
                 BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White,
                 ForeColor = AppTheme.TextPrimary,
-                Location = new Point(nameX, rowY + 3),
-                Width = Math.Max(40, ColumnRight(ColName) - nameX - 4),
-                Height = AppTheme.RowHeight - 6
+                Location = new Point(editorX, rowY + 3),
+                Width = editorWidth,
+                Height = AppTheme.RowHeight - 6,
+                Multiline = multiline,
+                ScrollBars = multiline ? ScrollBars.Vertical : ScrollBars.None
             };
             _inlineEditor.KeyDown += (s, e) =>
             {
-                if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Escape)
+                if (e.KeyCode == Keys.Enter && !multiline)
                 {
-                    if (e.KeyCode == Keys.Enter) CommitEdit();
-                    else CancelEdit();
+                    CommitEdit();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    return;
+                }
+
+                if (e.KeyCode == Keys.Enter && multiline && e.Control)
+                {
+                    CommitEdit();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    return;
+                }
+
+                if (e.KeyCode == Keys.Escape)
+                {
+                    CancelInlineEdit();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
                 }
             };
             _inlineEditor.LostFocus += (s, e) => CommitEdit();
             Controls.Add(_inlineEditor);
+            _inlineEditor.BringToFront();
             _inlineEditor.Focus();
             _inlineEditor.SelectAll();
             Invalidate();
@@ -668,13 +832,28 @@ namespace MyProject.Controls
 
                 var editor = _inlineEditor;
                 int taskId = _editingTaskId;
-                CancelTaskNameEdit();
+                int column = _editingColumn;
+                CancelInlineEdit();
 
-                if (editor != null && taskId >= 0)
+                if (editor != null && taskId >= 0 && _model != null)
                 {
-                    var task = _model?.GetTask(taskId);
-                    if (task != null && !string.IsNullOrWhiteSpace(editor.Text))
-                        task.Name = editor.Text.Trim();
+                    var task = _model.GetTask(taskId);
+                    if (task == null)
+                        return;
+
+                    switch (column)
+                    {
+                        case ColName:
+                            if (!string.IsNullOrWhiteSpace(editor.Text))
+                                task.Name = editor.Text.Trim();
+                            break;
+                        case ColAssigned:
+                            _model.SetTaskResourcesFromText(taskId, editor.Text);
+                            break;
+                        case ColDeliverable:
+                            task.Deliverable = editor.Text;
+                            break;
+                    }
                 }
             }
             finally
@@ -711,14 +890,15 @@ namespace MyProject.Controls
         private void CancelEdit()
         {
             CancelProjectNameEdit();
-            CancelTaskNameEdit();
+            CancelInlineEdit();
         }
 
-        private void CancelTaskNameEdit()
+        private void CancelInlineEdit()
         {
             var editor = _inlineEditor;
             _inlineEditor = null;
             _editingTaskId = -1;
+            _editingColumn = -1;
 
             if (editor == null)
                 return;
@@ -762,6 +942,16 @@ namespace MyProject.Controls
 
             Cursor = Cursors.Default;
             if (_model == null) return;
+
+            if (e.Y >= AppTheme.TimescaleHeaderHeight)
+            {
+                int contentX = ContentXFromMouse(e.X);
+                if (contentX >= ColumnLeft(ColName) && contentX < ColumnRight(ColName)
+                    || contentX >= ColumnLeft(ColAssigned) && contentX < ColumnRight(ColAssigned)
+                    || contentX >= ColumnLeft(ColDeliverable) && contentX < ColumnRight(ColDeliverable))
+                    Cursor = Cursors.IBeam;
+            }
+
             var task = HitTestTask(e.Location);
             int newHovered = task?.Id ?? -1;
             if (newHovered != _hoveredTaskId) { _hoveredTaskId = newHovered; Invalidate(); }

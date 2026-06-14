@@ -37,9 +37,14 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripMenuItem menuZoomIn;
         private System.Windows.Forms.ToolStripMenuItem menuZoomOut;
         private System.Windows.Forms.ToolStripMenuItem menuToday;
+        private System.Windows.Forms.ToolStripMenuItem menuPropertiesPanel;
+        private System.Windows.Forms.ToolStripMenuItem menuShowCriticalPath;
         private System.Windows.Forms.ToolStripMenuItem menuReport;
-        private System.Windows.Forms.ToolStripMenuItem menuExportMd;
         private System.Windows.Forms.ToolStripMenuItem menuExportExcel;
+        private System.Windows.Forms.ToolStripMenuItem menuExportHtml;
+        private System.Windows.Forms.ToolStripMenuItem menuExportWord;
+        private System.Windows.Forms.ToolStripMenuItem menuExportMd;
+        private System.Windows.Forms.ToolStripMenuItem menuExportGanttImage;
         private System.Windows.Forms.ToolStripMenuItem menuExportPdf;
         private System.Windows.Forms.ToolStripMenuItem menuPrint;
 
@@ -54,9 +59,11 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripButton btnAddSubtask;
         private System.Windows.Forms.ToolStripButton btnDeleteTask;
         private System.Windows.Forms.ToolStripButton btnTaskProps;
+        private System.Windows.Forms.ToolStripButton btnNotes;
         private System.Windows.Forms.ToolStripButton btnIndent;
         private System.Windows.Forms.ToolStripButton btnOutdent;
         private System.Windows.Forms.ToolStripButton btnExpandCollapse;
+        private System.Windows.Forms.ToolStripButton btnCriticalPath;
         private System.Windows.Forms.ToolStripButton btnLink;
         private DependencyTypeSelector dependencyTypeSelector;
         private System.Windows.Forms.ToolStripControlHost dependencyTypeHost;
@@ -64,16 +71,20 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripButton btnZoomIn;
         private System.Windows.Forms.ToolStripButton btnZoomOut;
         private System.Windows.Forms.ToolStripButton btnToday;
+        private System.Windows.Forms.ToolStripButton btnPropertiesPanel;
         private System.Windows.Forms.ToolStripSeparator tsSep3;
         private System.Windows.Forms.ToolStripButton btnReport;
         private System.Windows.Forms.ToolStripButton btnExportMd;
+        private System.Windows.Forms.ToolStripButton btnExportGanttImage;
         private System.Windows.Forms.ToolStripButton btnExportPdf;
         private System.Windows.Forms.ToolStripButton btnPrint;
 
         // ── Main area ─────────────────────────────────────────────────────────
         private System.Windows.Forms.SplitContainer splitContainer;
+        private System.Windows.Forms.SplitContainer ganttSplitContainer;
         private TaskGridControl taskGridControl;
         private GanttChartControl ganttChartControl;
+        private SelectionPropertiesControl selectionPropertiesControl;
 
         // ── Status bar ────────────────────────────────────────────────────────
         private System.Windows.Forms.StatusStrip statusStrip;
@@ -121,9 +132,14 @@ namespace MyProject.Forms
             menuZoomIn = new ToolStripMenuItem();
             menuZoomOut = new ToolStripMenuItem();
             menuToday = new ToolStripMenuItem();
+            menuPropertiesPanel = new ToolStripMenuItem();
+            menuShowCriticalPath = new ToolStripMenuItem();
             menuReport = new ToolStripMenuItem();
             menuExportExcel = new ToolStripMenuItem();
+            menuExportHtml = new ToolStripMenuItem();
+            menuExportWord = new ToolStripMenuItem();
             menuExportMd = new ToolStripMenuItem();
+            menuExportGanttImage = new ToolStripMenuItem();
             menuExportPdf = new ToolStripMenuItem();
             menuPrint = new ToolStripMenuItem();
             mainToolStrip = new ToolStrip();
@@ -136,9 +152,11 @@ namespace MyProject.Forms
             btnAddSubtask = new ToolStripButton();
             btnDeleteTask = new ToolStripButton();
             btnTaskProps = new ToolStripButton();
+            btnNotes = new ToolStripButton();
             btnIndent = new ToolStripButton();
             btnOutdent = new ToolStripButton();
             btnExpandCollapse = new ToolStripButton();
+            btnCriticalPath = new ToolStripButton();
             btnLink = new ToolStripButton();
             dependencyTypeSelector = new DependencyTypeSelector();
             dependencyTypeHost = new ToolStripControlHost(dependencyTypeSelector);
@@ -146,14 +164,18 @@ namespace MyProject.Forms
             btnZoomIn = new ToolStripButton();
             btnZoomOut = new ToolStripButton();
             btnToday = new ToolStripButton();
+            btnPropertiesPanel = new ToolStripButton();
             tsSep3 = new ToolStripSeparator();
             btnReport = new ToolStripButton();
             btnExportMd = new ToolStripButton();
+            btnExportGanttImage = new ToolStripButton();
             btnExportPdf = new ToolStripButton();
             btnPrint = new ToolStripButton();
             splitContainer = new SplitContainer();
+            ganttSplitContainer = new SplitContainer();
             taskGridControl = new TaskGridControl();
             ganttChartControl = new GanttChartControl();
+            selectionPropertiesControl = new SelectionPropertiesControl();
             statusStrip = new StatusStrip();
             statusLabel = new ToolStripStatusLabel();
             statusSpacer = new ToolStripStatusLabel();
@@ -164,6 +186,10 @@ namespace MyProject.Forms
             splitContainer.Panel1.SuspendLayout();
             splitContainer.Panel2.SuspendLayout();
             splitContainer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)ganttSplitContainer).BeginInit();
+            ganttSplitContainer.Panel1.SuspendLayout();
+            ganttSplitContainer.Panel2.SuspendLayout();
+            ganttSplitContainer.SuspendLayout();
             statusStrip.SuspendLayout();
             SuspendLayout();
             // 
@@ -340,7 +366,7 @@ namespace MyProject.Forms
             // 
             // menuView
             // 
-            menuView.DropDownItems.AddRange(new ToolStripItem[] { menuZoomIn, menuZoomOut, menuToday });
+            menuView.DropDownItems.AddRange(new ToolStripItem[] { menuZoomIn, menuZoomOut, menuToday, menuPropertiesPanel, menuShowCriticalPath });
             menuView.ForeColor = Color.White;
             menuView.Name = "menuView";
             menuView.Size = new Size(44, 20);
@@ -367,9 +393,23 @@ namespace MyProject.Forms
             menuToday.Size = new Size(222, 22);
             menuToday.Text = "Go to &Today";
             // 
+            // menuPropertiesPanel
+            // 
+            menuPropertiesPanel.CheckOnClick = true;
+            menuPropertiesPanel.Name = "menuPropertiesPanel";
+            menuPropertiesPanel.Size = new Size(222, 22);
+            menuPropertiesPanel.Text = "Properties &Panel";
+            // 
+            // menuShowCriticalPath
+            // 
+            menuShowCriticalPath.CheckOnClick = true;
+            menuShowCriticalPath.Name = "menuShowCriticalPath";
+            menuShowCriticalPath.Size = new Size(222, 22);
+            menuShowCriticalPath.Text = "Show Critical &Path";
+            // 
             // menuReport
             // 
-            menuReport.DropDownItems.AddRange(new ToolStripItem[] { menuExportExcel, menuExportMd, menuExportPdf, menuPrint });
+            menuReport.DropDownItems.AddRange(new ToolStripItem[] { menuExportExcel, menuExportHtml, menuExportWord, menuExportPdf, menuExportMd, menuExportGanttImage, menuPrint });
             menuReport.ForeColor = Color.White;
             menuReport.Name = "menuReport";
             menuReport.Size = new Size(54, 20);
@@ -380,6 +420,18 @@ namespace MyProject.Forms
             menuExportExcel.Name = "menuExportExcel";
             menuExportExcel.Size = new Size(222, 22);
             menuExportExcel.Text = "Export as E&xcel (.xlsx)...";
+            // 
+            // menuExportHtml
+            // 
+            menuExportHtml.Name = "menuExportHtml";
+            menuExportHtml.Size = new Size(222, 22);
+            menuExportHtml.Text = "Export as &HTML (.html)...";
+            // 
+            // menuExportWord
+            // 
+            menuExportWord.Name = "menuExportWord";
+            menuExportWord.Size = new Size(222, 22);
+            menuExportWord.Text = "Export as &Word (.docx)...";
             // 
             // menuExportMd
             // 
@@ -392,6 +444,12 @@ namespace MyProject.Forms
             menuExportPdf.Name = "menuExportPdf";
             menuExportPdf.Size = new Size(222, 22);
             menuExportPdf.Text = "Export as &PDF...";
+            // 
+            // menuExportGanttImage
+            // 
+            menuExportGanttImage.Name = "menuExportGanttImage";
+            menuExportGanttImage.Size = new Size(222, 22);
+            menuExportGanttImage.Text = "Export Gantt as &Image...";
             // 
             // menuPrint
             // 
@@ -407,7 +465,7 @@ namespace MyProject.Forms
             mainToolStrip.Font = new Font("Segoe UI", 9F);
             mainToolStrip.GripStyle = ToolStripGripStyle.Hidden;
             mainToolStrip.ImageScalingSize = new Size(20, 20);
-            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSep1, btnAddTask, btnAddSubtask, btnDeleteTask, btnTaskProps, btnIndent, btnOutdent, btnExpandCollapse, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnToday, tsSep3, btnReport, btnExportMd, btnExportPdf, btnPrint });
+            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSep1, btnAddTask, btnAddSubtask, btnDeleteTask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint });
             mainToolStrip.Location = new Point(0, 24);
             mainToolStrip.Name = "mainToolStrip";
             mainToolStrip.Padding = new Padding(4, 0, 0, 0);
@@ -483,6 +541,15 @@ namespace MyProject.Forms
             btnTaskProps.Size = new Size(23, 37);
             btnTaskProps.Text = "Task Properties";
             // 
+            // btnNotes
+            // 
+            btnNotes.CheckOnClick = true;
+            btnNotes.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnNotes.ForeColor = Color.White;
+            btnNotes.Name = "btnNotes";
+            btnNotes.Size = new Size(23, 37);
+            btnNotes.Text = "Notes";
+            // 
             // btnIndent
             // 
             btnIndent.DisplayStyle = ToolStripItemDisplayStyle.Image;
@@ -506,6 +573,15 @@ namespace MyProject.Forms
             btnExpandCollapse.Name = "btnExpandCollapse";
             btnExpandCollapse.Size = new Size(23, 37);
             btnExpandCollapse.Text = "Expand Subtasks";
+            // 
+            // btnCriticalPath
+            // 
+            btnCriticalPath.CheckOnClick = true;
+            btnCriticalPath.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnCriticalPath.ForeColor = Color.White;
+            btnCriticalPath.Name = "btnCriticalPath";
+            btnCriticalPath.Size = new Size(23, 37);
+            btnCriticalPath.Text = "Show Critical Path";
             // 
             // btnLink
             // 
@@ -557,6 +633,15 @@ namespace MyProject.Forms
             btnToday.Size = new Size(23, 37);
             btnToday.Text = "Go to Today";
             // 
+            // btnPropertiesPanel
+            // 
+            btnPropertiesPanel.CheckOnClick = true;
+            btnPropertiesPanel.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnPropertiesPanel.ForeColor = Color.White;
+            btnPropertiesPanel.Name = "btnPropertiesPanel";
+            btnPropertiesPanel.Size = new Size(23, 37);
+            btnPropertiesPanel.Text = "Properties Panel";
+            // 
             // tsSep3
             // 
             tsSep3.Name = "tsSep3";
@@ -586,6 +671,14 @@ namespace MyProject.Forms
             btnExportPdf.Size = new Size(23, 37);
             btnExportPdf.Text = "Export PDF";
             // 
+            // btnExportGanttImage
+            // 
+            btnExportGanttImage.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnExportGanttImage.ForeColor = Color.White;
+            btnExportGanttImage.Name = "btnExportGanttImage";
+            btnExportGanttImage.Size = new Size(23, 37);
+            btnExportGanttImage.Text = "Export Gantt Image";
+            // 
             // btnPrint
             // 
             btnPrint.DisplayStyle = ToolStripItemDisplayStyle.Image;
@@ -609,11 +702,40 @@ namespace MyProject.Forms
             // splitContainer.Panel2
             // 
             splitContainer.Panel2.BackColor = Color.White;
-            splitContainer.Panel2.Controls.Add(ganttChartControl);
+            splitContainer.Panel2.Controls.Add(ganttSplitContainer);
             splitContainer.Panel2MinSize = 300;
             splitContainer.Size = new Size(1280, 634);
             splitContainer.SplitterDistance = 560;
             splitContainer.TabIndex = 2;
+            // 
+            // ganttSplitContainer
+            // 
+            ganttSplitContainer.Dock = DockStyle.Fill;
+            ganttSplitContainer.FixedPanel = FixedPanel.Panel2;
+            ganttSplitContainer.Location = new Point(0, 0);
+            ganttSplitContainer.Name = "ganttSplitContainer";
+            // 
+            // ganttSplitContainer.Panel1
+            // 
+            ganttSplitContainer.Panel1.Controls.Add(ganttChartControl);
+            ganttSplitContainer.Panel1MinSize = 240;
+            // 
+            // ganttSplitContainer.Panel2
+            // 
+            ganttSplitContainer.Panel2.BackColor = Color.FromArgb(244, 245, 247);
+            ganttSplitContainer.Panel2.Controls.Add(selectionPropertiesControl);
+            ganttSplitContainer.Panel2MinSize = 220;
+            ganttSplitContainer.Size = new Size(896, 634);
+            ganttSplitContainer.SplitterDistance = 596;
+            ganttSplitContainer.TabIndex = 0;
+            // 
+            // selectionPropertiesControl
+            // 
+            selectionPropertiesControl.Dock = DockStyle.Fill;
+            selectionPropertiesControl.Location = new Point(0, 0);
+            selectionPropertiesControl.Name = "selectionPropertiesControl";
+            selectionPropertiesControl.Size = new Size(300, 634);
+            selectionPropertiesControl.TabIndex = 0;
             // 
             // taskGridControl
             // 
@@ -686,6 +808,10 @@ namespace MyProject.Forms
             mainToolStrip.PerformLayout();
             splitContainer.Panel1.ResumeLayout(false);
             splitContainer.Panel2.ResumeLayout(false);
+            ganttSplitContainer.Panel1.ResumeLayout(false);
+            ganttSplitContainer.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)ganttSplitContainer).EndInit();
+            ganttSplitContainer.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitContainer).EndInit();
             splitContainer.ResumeLayout(false);
             statusStrip.ResumeLayout(false);

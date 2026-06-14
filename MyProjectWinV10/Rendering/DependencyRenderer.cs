@@ -12,8 +12,13 @@ namespace MyProject.Rendering
             _viewport = viewport;
         }
 
-        public void DrawDependencies(Graphics g, IEnumerable<TaskDependency> dependencies,
-            IEnumerable<ProjectTask> visibleTasks, Func<int, int> getRowY)
+        public void DrawDependencies(
+            Graphics g,
+            IEnumerable<TaskDependency> dependencies,
+            IEnumerable<ProjectTask> visibleTasks,
+            Func<int, int> getRowY,
+            bool showCriticalPath,
+            Func<TaskDependency, bool>? isCriticalDependency = null)
         {
             var taskList = visibleTasks.ToList();
             var taskMap = taskList.ToDictionary(t => t.Id);
@@ -27,57 +32,75 @@ namespace MyProject.Rendering
 
                 int predRowY = rowMap[pred.Id];
                 int succRowY = rowMap[succ.Id];
+                bool isCritical = showCriticalPath && isCriticalDependency?.Invoke(dep) == true;
 
-                DrawArrow(g, dep, pred, succ, predRowY, succRowY);
+                DrawArrow(g, dep, pred, succ, predRowY, succRowY, isCritical);
             }
         }
 
         public void DrawPreview(Graphics g, DependencyType type, ProjectTask pred, ProjectTask succ, int predRowY, int succRowY)
         {
-            int predCenterY = predRowY + AppTheme.RowHeight / 2;
-            int succCenterY = succRowY + AppTheme.RowHeight / 2;
-
-            int fromX = type switch
-            {
-                DependencyType.SS or DependencyType.SF => _viewport.DateToX(pred.StartDate),
-                _ => _viewport.DateToX(pred.EndDate.AddDays(1))
-            };
-            int fromY = predCenterY;
-
-            int toX = type switch
-            {
-                DependencyType.FF or DependencyType.SF => _viewport.DateToX(succ.EndDate.AddDays(1)),
-                _ => _viewport.DateToX(succ.StartDate)
-            };
-            int toY = succCenterY;
-
+            GetConnectionPoints(type, pred, succ, predRowY, succRowY, out int fromX, out int fromY, out int toX, out int toY);
             var pts = DependencyLineGeometry.BuildPath(type, fromX, fromY, toX, toY);
             DependencyLineGeometry.DrawSilhouettePath(g, AppTheme.DependencyLinePreview, pts);
         }
 
-        private void DrawArrow(Graphics g, TaskDependency dep, ProjectTask pred, ProjectTask succ, int predRowY, int succRowY)
+        public void DrawPreviewToPoint(Graphics g, DependencyType type, ProjectTask pred, int predRowY, int toX, int toY)
         {
-            Color lineColor = (pred.IsCritical && succ.IsCritical)
-                ? AppTheme.DependencyLineCritical
-                : AppTheme.DependencyLine;
+            GetFromPoint(type, pred, predRowY, out int fromX, out int fromY);
+            var pts = DependencyLineGeometry.BuildPath(type, fromX, fromY, toX, toY);
+            DependencyLineGeometry.DrawSilhouettePath(g, AppTheme.DependencyLinePreview, pts);
+        }
 
-            int predCenterY = predRowY + AppTheme.RowHeight / 2;
-            int succCenterY = succRowY + AppTheme.RowHeight / 2;
+        private void GetConnectionPoints(
+            DependencyType type,
+            ProjectTask pred,
+            ProjectTask succ,
+            int predRowY,
+            int succRowY,
+            out int fromX,
+            out int fromY,
+            out int toX,
+            out int toY)
+        {
+            GetFromPoint(type, pred, predRowY, out fromX, out fromY);
+            GetToPoint(type, succ, succRowY, out toX, out toY);
+        }
 
-            int fromX = dep.Type switch
+        private void GetFromPoint(DependencyType type, ProjectTask pred, int predRowY, out int fromX, out int fromY)
+        {
+            fromY = predRowY + AppTheme.RowHeight / 2;
+            fromX = type switch
             {
                 DependencyType.SS or DependencyType.SF => _viewport.DateToX(pred.StartDate),
                 _ => _viewport.DateToX(pred.EndDate.AddDays(1))
             };
-            int fromY = predCenterY;
+        }
 
-            int toX = dep.Type switch
+        private void GetToPoint(DependencyType type, ProjectTask succ, int succRowY, out int toX, out int toY)
+        {
+            toY = succRowY + AppTheme.RowHeight / 2;
+            toX = type switch
             {
                 DependencyType.FF or DependencyType.SF => _viewport.DateToX(succ.EndDate.AddDays(1)),
                 _ => _viewport.DateToX(succ.StartDate)
             };
-            int toY = succCenterY;
+        }
 
+        private void DrawArrow(
+            Graphics g,
+            TaskDependency dep,
+            ProjectTask pred,
+            ProjectTask succ,
+            int predRowY,
+            int succRowY,
+            bool isCritical)
+        {
+            Color lineColor = isCritical
+                ? AppTheme.DependencyLineCritical
+                : AppTheme.DependencyLine;
+
+            GetConnectionPoints(dep.Type, pred, succ, predRowY, succRowY, out int fromX, out int fromY, out int toX, out int toY);
             var pts = DependencyLineGeometry.BuildPath(dep.Type, fromX, fromY, toX, toY);
             DependencyLineGeometry.DrawPath(g, lineColor, pts);
         }

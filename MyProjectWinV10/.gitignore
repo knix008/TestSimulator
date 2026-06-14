@@ -1,40 +1,75 @@
 ## Visual Studio / .NET
 
 # Build outputs
-bin/
-obj/
+[Bb]in/
+[Oo]bj/
+[Bb]uild/
+[Oo]ut/
+publish/
 Installer/bin/
 Installer/obj/
 
-# WiX
+# WiX / MSI
 *.msi
 *.wixobj
 *.wixpdb
+*.wixmst
 
 # User-specific files
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
+*.rsuser
+*.userprefs
 .vs/
 
-# NuGet packages
+# NuGet
 packages/
 *.nupkg
 **/[Nn]uget.config
+project.lock.json
+artifacts/
 
-# Rider
+# Rider / VS Code
 .idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
 # Publish profiles
 **/Properties/PublishProfiles/
 
-# Generated MSBuild files
+# Generated MSBuild / designer
 *.g.cs
 *.g.i.cs
+*.AssemblyAttributes.cs
+*.GlobalUsings.g.cs
+*.GeneratedMSBuildEditorConfig.editorconfig
+*.nuget.g.props
+*.nuget.g.targets
+*.nuget.dgspec.json
+project.assets.json
+
+# Logs and temp
+*.log
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# Secrets (never commit)
+*.pfx
+*.snk
+.env
+.env.*
+!.env.example
 
 # Crash dumps
 *.dmp
+*.stackdump
 
 # OS
 Thumbs.db
@@ -43,8 +78,9 @@ Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
 
-# Test results
+# Test / coverage
 TestResults/
 coverage/
 *.coverage
 *.coveragexml
+*.opencover.xml

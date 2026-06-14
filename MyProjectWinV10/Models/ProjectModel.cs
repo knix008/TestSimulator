@@ -1,4 +1,7 @@
-﻿using System.ComponentModel;
+﻿using MyProject.Theme;
+using MyProject.Rendering;
+using System.ComponentModel;
+using System.Text.RegularExpressions;
 
 namespace MyProject.Models
 {
@@ -8,7 +11,13 @@ namespace MyProject.Models
         private readonly List<ProjectTask> _tasks = new();
         private readonly List<TaskDependency> _dependencies = new();
         private readonly List<ResourceAssignment> _assignments = new();
+        private readonly List<ProjectNote> _notes = new();
+        private int _nextNoteId = 1;
         private bool _isUpdatingHierarchy;
+        private bool _isCascadingSchedule;
+        private bool _suppressModificationTracking;
+        private HashSet<int> _criticalTaskIds = new();
+        private HashSet<(int PredecessorId, int SuccessorId)> _criticalDependencies = new();
 
         public string ProjectName { get; set; } = "New Project";
 
@@ -34,6 +43,213 @@ namespace MyProject.Models
         public IReadOnlyList<ProjectTask> Tasks => _tasks.AsReadOnly();
         public IReadOnlyList<TaskDependency> Dependencies => _dependencies.AsReadOnly();
         public IReadOnlyList<ResourceAssignment> Assignments => _assignments.AsReadOnly();
+        public IReadOnlyList<ProjectNote> Notes => _notes.AsReadOnly();
+
+        public ProjectNote? GetNote(int noteId) => _notes.FirstOrDefault(n => n.Id == noteId);
+
+        public IEnumerable<ProjectNote> GetNotesForTask(int taskId) =>
+            _notes.Where(n => n.TaskId == taskId);
+
+        public ProjectNote AddNote(int taskId = -1, string title = "New Note", string? body = null)
+        {
+            var task = taskId >= 0 ? GetTask(taskId) : null;
+            DateTime anchor = task != null ? task.EndDate.AddDays(1) : DateTime.Today;
+            int contentY = task != null ? GetDefaultContentYForTask(taskId) : AppTheme.TimescaleHeaderHeight;
+            return AddNoteAt(taskId, anchor, contentY, title, body);
+        }
+
+        public ProjectNote AddNoteAt(
+            int taskId,
+            DateTime anchorDate,
+            int contentY,
+            string title = "New Note",
+            string? body = null)
+        {
+            var note = new ProjectNote
+            {
+                Id = _nextNoteId++,
+                Title = title,
+                TaskId = taskId,
+                AnchorDate = anchorDate.Date,
+                ContentY = contentY
+            };
+            if (body != null)
+                note.Body = body;
+
+            _notes.Add(note);
+
+            if (taskId >= 0)
+                SyncTaskNotesFromLinkedNote(taskId);
+
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+            return note;
+        }
+
+        public void RemoveNote(int noteId)
+        {
+            var note = GetNote(noteId);
+            if (note == null)
+                return;
+
+            int taskId = note.TaskId;
+            _notes.Remove(note);
+
+            if (taskId >= 0)
+            {
+                var task = GetTask(taskId);
+                if (task != null)
+                    task.Notes = GetNotesForTask(taskId).FirstOrDefault()?.Body ?? "";
+            }
+
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void SetNotePosition(int noteId, DateTime anchorDate, int contentY)
+        {
+            var note = GetNote(noteId);
+            if (note == null)
+                return;
+
+            note.AnchorDate = anchorDate.Date;
+            note.ContentY = contentY;
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void UpdateNoteBody(int noteId, string body)
+        {
+            var note = GetNote(noteId);
+            if (note == null)
+                return;
+
+            note.Body = body ?? "";
+            note.BodyRtf = "";
+
+            if (note.TaskId >= 0)
+                SyncTaskNotesFromLinkedNote(note.TaskId);
+
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void UpdateNoteRtf(int noteId, string rtf)
+        {
+            var note = GetNote(noteId);
+            if (note == null)
+                return;
+
+            note.BodyRtf = rtf ?? "";
+            note.Body = NoteRtfHelper.GetPlainText(note.BodyRtf, note.Body);
+
+            if (note.TaskId >= 0)
+                SyncTaskNotesFromLinkedNote(note.TaskId);
+
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void UpdateNoteTitle(int noteId, string title)
+        {
+            var note = GetNote(noteId);
+            if (note == null)
+                return;
+
+            note.Title = title ?? "";
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void LinkNoteToTask(int noteId, int taskId)
+        {
+            var note = GetNote(noteId);
+            if (note == null)
+                return;
+
+            int previousTaskId = note.TaskId;
+            note.TaskId = taskId;
+
+            if (previousTaskId >= 0 && previousTaskId != taskId)
+            {
+                var prevTask = GetTask(previousTaskId);
+                if (prevTask != null)
+                    prevTask.Notes = GetNotesForTask(previousTaskId).FirstOrDefault()?.Body ?? "";
+            }
+
+            if (taskId >= 0)
+                SyncTaskNotesFromLinkedNote(taskId);
+
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void SyncTaskNotesFromLinkedNote(int taskId)
+        {
+            var task = GetTask(taskId);
+            if (task == null)
+                return;
+
+            var linked = GetNotesForTask(taskId).FirstOrDefault();
+            if (linked != null)
+                task.Notes = linked.Body;
+        }
+
+        private void MigrateLegacyTaskNotes()
+        {
+            foreach (var task in _tasks)
+            {
+                if (string.IsNullOrWhiteSpace(task.Notes))
+                    continue;
+
+                if (GetNotesForTask(task.Id).Any())
+                    continue;
+
+                var note = new ProjectNote
+                {
+                    Id = _nextNoteId++,
+                    Title = task.Name,
+                    Body = task.Notes,
+                    TaskId = task.Id,
+                    AnchorDate = task.EndDate.AddDays(1),
+                    ContentY = GetDefaultContentYForTask(task.Id)
+                };
+                _notes.Add(note);
+            }
+        }
+
+        private int GetDefaultContentYForTask(int taskId)
+        {
+            var visible = GetVisibleTasks().ToList();
+            int idx = visible.FindIndex(t => t.Id == taskId);
+            if (idx < 0)
+                return AppTheme.TimescaleHeaderHeight;
+
+            return AppTheme.TimescaleHeaderHeight + idx * AppTheme.RowHeight;
+        }
+
+        public bool IsDependencyOnCriticalPath(int predecessorId, int successorId) =>
+            _criticalDependencies.Contains((predecessorId, successorId));
+
+        public bool IsDependencyOnCriticalPath(TaskDependency dependency) =>
+            IsDependencyOnCriticalPath(dependency.PredecessorId, dependency.SuccessorId);
+
+        public bool SetDependencyLag(int predecessorId, int successorId, int lagDays)
+        {
+            var dep = _dependencies.FirstOrDefault(d =>
+                d.PredecessorId == predecessorId && d.SuccessorId == successorId);
+            if (dep == null)
+                return false;
+
+            if (dep.LagDays == lagDays)
+                return true;
+
+            dep.LagDays = lagDays;
+            ApplyDependencyScheduling(predecessorId);
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
 
         public IEnumerable<ResourceAssignment> GetAssignments(int taskId) =>
             _assignments.Where(a => a.TaskId == taskId);
@@ -70,6 +286,91 @@ namespace MyProject.Models
             }
 
             return GetTask(taskId)?.AssignedTo ?? "";
+        }
+
+        public string GetTaskResourceEditText(int taskId)
+        {
+            var assignments = GetAssignments(taskId).ToList();
+            if (assignments.Count > 0)
+                return string.Join(Environment.NewLine, assignments.Select(a =>
+                    assignments.Count == 1 && Math.Abs(a.AllocationPercent - 100) < 0.01
+                        ? a.ResourceName
+                        : $"{a.ResourceName} ({a.AllocationPercent:0}%)"));
+
+            return GetTask(taskId)?.AssignedTo ?? "";
+        }
+
+        public void SetTaskResourcesFromText(int taskId, string text)
+        {
+            var task = GetTask(taskId);
+            if (task == null)
+                return;
+
+            _assignments.RemoveAll(a => a.TaskId == taskId);
+
+            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => l.Length > 0)
+                .ToList();
+
+            bool added = false;
+            double total = 0;
+            foreach (var line in lines)
+            {
+                if (!TryParseResourceLine(line, out string name, out double percent))
+                    continue;
+
+                percent = Math.Clamp(percent, 0, 100);
+                if (total + percent > 100)
+                    percent = 100 - total;
+                if (percent <= 0)
+                    continue;
+
+                _assignments.Add(new ResourceAssignment
+                {
+                    TaskId = taskId,
+                    ResourceName = name,
+                    AllocationPercent = percent
+                });
+                total += percent;
+                added = true;
+            }
+
+            if (!added)
+                task.AssignedTo = lines.Count == 0 ? "" : text.Trim();
+            else
+                task.AssignedTo = GetTaskAssigneeDisplay(taskId);
+
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private static bool TryParseResourceLine(string line, out string name, out double percent)
+        {
+            name = "";
+            percent = 100;
+
+            if (string.IsNullOrWhiteSpace(line))
+                return false;
+
+            var parensMatch = Regex.Match(line, @"^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$");
+            if (parensMatch.Success)
+            {
+                name = parensMatch.Groups[1].Value.Trim();
+                percent = double.Parse(parensMatch.Groups[2].Value);
+                return name.Length > 0;
+            }
+
+            var suffixMatch = Regex.Match(line, @"^(.*?)\s+(\d+(?:\.\d+)?)%\s*$");
+            if (suffixMatch.Success)
+            {
+                name = suffixMatch.Groups[1].Value.Trim();
+                percent = double.Parse(suffixMatch.Groups[2].Value);
+                return name.Length > 0;
+            }
+
+            name = line.Trim();
+            return name.Length > 0;
         }
 
         public event EventHandler? ModelChanged;
@@ -147,6 +448,7 @@ namespace MyProject.Models
 
             _dependencies.RemoveAll(d => removedIds.Contains(d.PredecessorId) || removedIds.Contains(d.SuccessorId));
             _assignments.RemoveAll(a => removedIds.Contains(a.TaskId));
+            _notes.RemoveAll(n => removedIds.Contains(n.TaskId));
 
             UpdateHierarchy();
             IsModified = true;
@@ -256,6 +558,7 @@ namespace MyProject.Models
                 Type = type
             });
 
+            ApplyDependencyScheduling(predecessorId);
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
             return true;
@@ -269,7 +572,7 @@ namespace MyProject.Models
             if (dep.Type == type) return true;
 
             dep.Type = type;
-            IsModified = true;
+            ApplyDependencyScheduling(predecessorId);
             ModelChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -278,7 +581,10 @@ namespace MyProject.Models
 
         public void RemoveDependency(int predecessorId, int successorId)
         {
-            _dependencies.RemoveAll(d => d.PredecessorId == predecessorId && d.SuccessorId == successorId);
+            if (_dependencies.RemoveAll(d => d.PredecessorId == predecessorId && d.SuccessorId == successorId) == 0)
+                return;
+
+            UpdateHierarchy();
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -368,11 +674,54 @@ namespace MyProject.Models
                 UpdateSummaryTypes();
                 UpdateSummaryRollups();
                 UpdateVisibility();
+                UpdateCriticalPath();
             }
             finally
             {
                 _isUpdatingHierarchy = false;
             }
+        }
+
+        private void UpdateCriticalPath()
+        {
+            var result = CriticalPathCalculator.Compute(_tasks, _dependencies, ProjectStart);
+            _criticalTaskIds = result.CriticalTaskIds;
+            _criticalDependencies = result.CriticalDependencies;
+
+            foreach (var task in _tasks)
+            {
+                if (task.TaskType == TaskType.Summary)
+                    task.IsCritical = GetAllDescendants(task.Id)
+                        .Any(c => c.TaskType != TaskType.Summary && _criticalTaskIds.Contains(c.Id));
+                else
+                    task.IsCritical = _criticalTaskIds.Contains(task.Id);
+            }
+        }
+
+        public bool IsTaskOnCriticalPath(int taskId) => _criticalTaskIds.Contains(taskId);
+
+        private void ApplyDependencyScheduling(int predecessorId)
+        {
+            if (_isCascadingSchedule)
+                return;
+
+            _isCascadingSchedule = true;
+            try
+            {
+                CascadeDependencies(predecessorId);
+                UpdateHierarchy();
+            }
+            finally
+            {
+                _isCascadingSchedule = false;
+            }
+        }
+
+        private void ApplySchedulingOnLoad()
+        {
+            foreach (var dep in _dependencies)
+                CascadeDependencies(dep.PredecessorId);
+            UpdateHierarchy();
         }
 
         private void UpdateParentLinks()
@@ -507,7 +856,11 @@ namespace MyProject.Models
             _tasks.Clear();
             _dependencies.Clear();
             _assignments.Clear();
+            _notes.Clear();
+            _nextNoteId = 1;
             _nextId = 1;
+            _criticalTaskIds.Clear();
+            _criticalDependencies.Clear();
             IsModified = false;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -515,12 +868,17 @@ namespace MyProject.Models
         internal void Restore(
             IReadOnlyList<ProjectFile.TaskData> tasks,
             IReadOnlyList<ProjectFile.DependencyData> dependencies,
-            IReadOnlyList<ProjectFile.AssignmentData> assignments)
+            IReadOnlyList<ProjectFile.AssignmentData> assignments,
+            IReadOnlyList<ProjectFile.NoteData>? notes = null)
         {
+            _suppressModificationTracking = true;
+            try
+            {
             foreach (var t in _tasks) t.PropertyChanged -= Task_PropertyChanged;
             _tasks.Clear();
             _dependencies.Clear();
             _assignments.Clear();
+            _notes.Clear();
 
             foreach (var src in tasks)
             {
@@ -570,9 +928,35 @@ namespace MyProject.Models
                 });
             }
 
-            UpdateHierarchy();
+            if (notes != null)
+            {
+                foreach (var nd in notes)
+                {
+                    _notes.Add(new ProjectNote
+                    {
+                        Id = nd.Id,
+                        Title = nd.Title,
+                        Body = nd.Body,
+                        BodyRtf = nd.BodyRtf ?? "",
+                        TaskId = nd.TaskId,
+                        OffsetDays = nd.OffsetDays,
+                        AnchorDate = nd.AnchorDate == default ? DateTime.Today : nd.AnchorDate,
+                        ContentY = nd.ContentY
+                    });
+                }
+
+                _nextNoteId = _notes.Count > 0 ? _notes.Max(n => n.Id) + 1 : 1;
+            }
+
+            MigrateLegacyTaskNotes();
+            ApplySchedulingOnLoad();
             IsModified = false;
             ModelChanged?.Invoke(this, EventArgs.Empty);
+            }
+            finally
+            {
+                _suppressModificationTracking = false;
+            }
         }
 
         public static ProjectModel CreateTemplate()
@@ -682,18 +1066,41 @@ namespace MyProject.Models
 
         private void Task_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (_isUpdatingHierarchy) return;
+            if (_isUpdatingHierarchy || _suppressModificationTracking)
+                return;
 
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
 
-            if (e.PropertyName is nameof(ProjectTask.StartDate) or nameof(ProjectTask.DurationDays)
-                or nameof(ProjectTask.Progress) or nameof(ProjectTask.IndentLevel)
+            if (e.PropertyName is nameof(ProjectTask.StartDate) or nameof(ProjectTask.DurationDays))
+            {
+                if (sender is ProjectTask task && !_isCascadingSchedule)
+                    ApplyDependencyScheduling(task.Id);
+                else
+                    UpdateHierarchy();
+            }
+            else if (e.PropertyName is nameof(ProjectTask.Progress) or nameof(ProjectTask.IndentLevel)
                 or nameof(ProjectTask.TaskType) or nameof(ProjectTask.BarColor)
                 or nameof(ProjectTask.ProgressColor) or nameof(ProjectTask.IsCritical))
             {
                 UpdateHierarchy();
             }
+            else if (e.PropertyName == nameof(ProjectTask.Notes) && sender is ProjectTask task)
+            {
+                SyncProjectNoteFromTaskNotes(task);
+            }
+        }
+
+        private void SyncProjectNoteFromTaskNotes(ProjectTask task)
+        {
+            var linked = GetNotesForTask(task.Id).FirstOrDefault();
+            if (linked != null)
+            {
+                linked.Body = task.Notes;
+                linked.BodyRtf = "";
+            }
+            else if (!string.IsNullOrWhiteSpace(task.Notes))
+                AddNote(task.Id, task.Name, task.Notes);
         }
     }
 }

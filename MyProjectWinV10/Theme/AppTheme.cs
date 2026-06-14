@@ -68,6 +68,9 @@
         public static Font FontTimescaleLarge { get; } = new Font("Segoe UI", 8.5f, FontStyle.Bold);
         public static Font FontTimescaleSmall { get; } = new Font("Segoe UI", 7.5f);
         public static Font FontTaskName { get; } = new Font("Segoe UI", 8.5f);
+        public static Font FontTaskNameStrikeout { get; } = new Font("Segoe UI", 8.5f, FontStyle.Strikeout);
+        public static Font FontBoldStrikeout { get; } = new Font("Segoe UI", 9f, FontStyle.Bold | FontStyle.Strikeout);
+        public static Font FontSmallStrikeout { get; } = new Font("Segoe UI", 8f, FontStyle.Strikeout);
 
         // Sizes
         public static int RowHeight { get; } = 28;

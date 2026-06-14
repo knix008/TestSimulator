@@ -126,7 +126,7 @@ namespace MyProject.Forms
             layout.Controls.Add(_chkAutoSchedule, 1, r++);
 
             layout.Controls.Add(MakeLabel("Critical Path:"), 0, r);
-            _chkCritical = new CheckBox { Text = "Mark as Critical Path", Dock = DockStyle.Fill };
+            _chkCritical = new CheckBox { Text = "On critical path (computed)", Dock = DockStyle.Fill, Enabled = false };
             layout.Controls.Add(_chkCritical, 1, r++);
 
             layout.Controls.Add(MakeLabel("Assigned To:"), 0, r);
@@ -370,7 +370,6 @@ namespace MyProject.Forms
             _task.StartDate = _dtpStart.Value.Date;
             _task.DurationDays = (int)_nudDuration.Value;
             _task.Progress = (double)_nudProgress.Value;
-            _task.IsCritical = _chkCritical.Checked;
             _task.AutoSchedule = _chkAutoSchedule.Checked;
             _task.Deliverable = _txtDeliverable.Text;
             _task.Notes = _txtNotes.Text;

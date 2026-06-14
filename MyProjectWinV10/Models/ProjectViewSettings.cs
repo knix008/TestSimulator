@@ -8,13 +8,23 @@ namespace MyProject.Models
         public DependencyType DefaultDependencyType { get; set; } = DependencyType.FS;
         public int DayWidth { get; set; } = AppTheme.DefaultDayWidth;
         public int SplitterDistance { get; set; } = 560;
+        public int PropertiesPanelWidth { get; set; } = 300;
+        public bool PropertiesPanelVisible { get; set; } = true;
+        public bool ShowCriticalPath { get; set; } = false;
+        public int NotesPanelHeight { get; set; } = 140;
+        public bool NotesPanelVisible { get; set; } = true;
 
         public static ProjectViewSettings CreateDefault() => new()
         {
             TaskGridColumnWidths = (int[])DefaultTaskGridColumnWidths().Clone(),
             DefaultDependencyType = AppSettings.DefaultDependencyType,
             DayWidth = AppTheme.DefaultDayWidth,
-            SplitterDistance = 560
+            SplitterDistance = 560,
+            PropertiesPanelWidth = 300,
+            PropertiesPanelVisible = true,
+            ShowCriticalPath = false,
+            NotesPanelHeight = 140,
+            NotesPanelVisible = true
         };
 
         public ProjectViewSettings Clone() => new()
@@ -22,8 +32,31 @@ namespace MyProject.Models
             TaskGridColumnWidths = (int[])TaskGridColumnWidths.Clone(),
             DefaultDependencyType = DefaultDependencyType,
             DayWidth = DayWidth,
-            SplitterDistance = SplitterDistance
+            SplitterDistance = SplitterDistance,
+            PropertiesPanelWidth = PropertiesPanelWidth,
+            PropertiesPanelVisible = PropertiesPanelVisible,
+            ShowCriticalPath = ShowCriticalPath,
+            NotesPanelHeight = NotesPanelHeight,
+            NotesPanelVisible = NotesPanelVisible
         };
+
+        public static bool Equals(ProjectViewSettings? a, ProjectViewSettings? b)
+        {
+            if (ReferenceEquals(a, b))
+                return true;
+            if (a is null || b is null)
+                return false;
+
+            return a.DefaultDependencyType == b.DefaultDependencyType
+                && a.DayWidth == b.DayWidth
+                && a.SplitterDistance == b.SplitterDistance
+                && a.PropertiesPanelWidth == b.PropertiesPanelWidth
+                && a.PropertiesPanelVisible == b.PropertiesPanelVisible
+                && a.ShowCriticalPath == b.ShowCriticalPath
+                && a.NotesPanelHeight == b.NotesPanelHeight
+                && a.NotesPanelVisible == b.NotesPanelVisible
+                && a.TaskGridColumnWidths.AsSpan().SequenceEqual(b.TaskGridColumnWidths);
+        }
 
         public static int[] DefaultTaskGridColumnWidths() =>
             new[] { 32, 200, 58, 34, 30, 88, 120 };

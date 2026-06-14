@@ -8,6 +8,8 @@ namespace MyProject.Rendering
     {
         private readonly GanttViewport _viewport;
 
+        public bool ShowCriticalPath { get; set; }
+
         public TaskBarRenderer(GanttViewport viewport)
         {
             _viewport = viewport;
@@ -38,11 +40,12 @@ namespace MyProject.Rendering
             int barY = rowY + (AppTheme.RowHeight - barH) / 2;
 
             var barRect = new Rectangle(x, barY, width, barH);
+            bool highlightCritical = ShowCriticalPath && task.IsCritical;
             Color barColor = task.BarColor != Color.Empty ? task.BarColor
-                           : task.IsCritical ? AppTheme.TaskBarCritical
+                           : highlightCritical ? AppTheme.TaskBarCritical
                            : AppTheme.TaskBarNormal;
             Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor
-                                : task.IsCritical ? AppTheme.TaskBarCriticalProgress
+                                : highlightCritical ? AppTheme.TaskBarCriticalProgress
                                 : AppTheme.TaskBarProgress;
 
             // Drop shadow
