@@ -17,7 +17,7 @@
       "notes": "This template shows tasks, dependencies, and notes on the Gantt chart. Select a note to edit it in the properties panel.",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 2,
@@ -33,7 +33,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 3,
@@ -49,7 +49,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 4,
@@ -65,7 +65,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 5,
@@ -129,7 +129,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 9,
@@ -145,7 +145,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 10,
@@ -161,7 +161,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 11,
@@ -177,7 +177,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 12,
@@ -193,7 +193,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 13,
@@ -313,9 +313,9 @@
     "defaultDependencyStartLineEnd": "None",
     "defaultDependencyEndLineEnd": "Arrow",
     "dayWidth": 22,
-    "splitterDistance": 390,
+    "splitterDistance": 585,
     "propertiesPanelWidth": 300,
-    "propertiesPanelVisible": false,
+    "propertiesPanelVisible": true,
     "showCriticalPath": true,
     "notesPanelHeight": 140,
     "notesPanelVisible": true

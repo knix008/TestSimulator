@@ -36,6 +36,9 @@ namespace MyProject.Controls
     private TextBox _taskNotes = null!;
     private Panel _taskBarColorPreview = null!;
     private Panel _taskProgressColorPreview = null!;
+    private Panel _taskBandColorPreview = null!;
+    private Button _btnBandColor = null!;
+    private Button _btnBandColorDefault = null!;
     private DataGridView _resourceGrid = null!;
     private Label _resourceTotalLabel = null!;
     private DataGridView _dependencyGrid = null!;
@@ -345,6 +348,14 @@ namespace MyProject.Controls
       barColorPanel.Controls.Add(_taskProgressColorPreview);
       barColorPanel.Controls.Add(btnProgressColor);
 
+      _taskBandColorPreview = new Panel { Width = 28, Height = 22, BorderStyle = BorderStyle.FixedSingle };
+      _btnBandColor = new Button { Text = "Choose", Width = 60, Height = 24, FlatStyle = FlatStyle.Flat };
+      _btnBandColor.Click += (_, _) => PickBandColor();
+      _btnBandColorDefault = new Button { Text = "Default", Width = 56, Height = 24, FlatStyle = FlatStyle.Flat };
+      _btnBandColorDefault.Click += (_, _) => ResetBandColor();
+      var bandColorPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
+      bandColorPanel.Controls.AddRange(new Control[] { _taskBandColorPreview, _btnBandColor, _btnBandColorDefault });
+
       AddRow(layout, "Name:", _taskName);
       AddRow(layout, "Type:", _taskType);
       AddRow(layout, "Start:", _taskStart);
@@ -356,6 +367,7 @@ namespace MyProject.Controls
       AddRow(layout, "Deliver:", _taskDeliverable, 56);
       AddRow(layout, "Notes:", _taskNotes, 56);
       AddRow(layout, "Colors:", barColorPanel);
+      AddRow(layout, "Row color:", bandColorPanel);
 
       _resourceGrid = new DataGridView
       {
@@ -543,6 +555,11 @@ namespace MyProject.Controls
           _taskNotes.Text = task.Notes;
           _taskBarColorPreview.BackColor = task.BarColor == Color.Empty ? Color.LightGray : task.BarColor;
           _taskProgressColorPreview.BackColor = task.ProgressColor == Color.Empty ? Color.LightGray : task.ProgressColor;
+          bool isRootTask = task.ParentId == -1;
+          _btnBandColor.Enabled = isRootTask;
+          _btnBandColorDefault.Enabled = isRootTask;
+          var bandColor = _model!.GetTaskBandColor(task.Id);
+          _taskBandColorPreview.BackColor = bandColor.IsEmpty ? Color.LightGray : bandColor;
           LoadResourceGrid(task.Id);
           LoadDependencyGrid(task.Id);
         }
@@ -894,6 +911,41 @@ namespace MyProject.Controls
           task.ProgressColor = dlg.Color;
           _taskProgressColorPreview.BackColor = dlg.Color;
         }
+      }
+      finally { _applyingToModel = false; }
+    }
+
+    private void PickBandColor()
+    {
+      var task = CurrentTask();
+      if (task == null || task.ParentId != -1 || _model == null) return;
+
+      Color current = _model.GetTaskBandColor(task.Id);
+      using var dlg = new ColorDialog { Color = current.IsEmpty ? Color.White : current };
+      if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
+
+      _applyingToModel = true;
+      try
+      {
+        task.BandColor = dlg.Color;
+        _taskBandColorPreview.BackColor = dlg.Color;
+        _model.NotifyViewsChanged();
+      }
+      finally { _applyingToModel = false; }
+    }
+
+    private void ResetBandColor()
+    {
+      var task = CurrentTask();
+      if (task == null || task.ParentId != -1 || _model == null) return;
+
+      _applyingToModel = true;
+      try
+      {
+        task.BandColor = Color.Empty;
+        var autoColor = _model.GetTaskBandColor(task.Id);
+        _taskBandColorPreview.BackColor = autoColor.IsEmpty ? Color.LightGray : autoColor;
+        _model.NotifyViewsChanged();
       }
       finally { _applyingToModel = false; }
     }
