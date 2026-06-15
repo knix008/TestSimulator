@@ -40,6 +40,18 @@ namespace MyProject.Models
         }
 
         public DateTime ProjectStart { get; set; } = DateTime.Today;
+
+        public void SetProjectStart(DateTime start)
+        {
+            start = start.Date;
+            if (ProjectStart.Date == start)
+                return;
+
+            ProjectStart = start;
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         public ProjectViewSettings ViewSettings { get; set; } = ProjectViewSettings.CreateDefault();
         public string FilePath { get; set; } = "";
         public bool IsModified { get; set; } = false;
@@ -393,6 +405,42 @@ namespace MyProject.Models
                 return "";
 
             return string.Join(Environment.NewLine, Enumerable.Repeat("100", nameCount));
+        }
+
+        public IReadOnlyList<(string Name, string AllocEdit)> GetTaskResourceGridRows(int taskId)
+        {
+            var nameLines = SplitNonEmptyLines(GetTaskResourceNamesEditText(taskId));
+            var allocLines = SplitNonEmptyLines(GetTaskResourceAllocEditText(taskId));
+            var rows = new List<(string Name, string AllocEdit)>(nameLines.Count);
+            for (int i = 0; i < nameLines.Count; i++)
+            {
+                string alloc = i < allocLines.Count ? allocLines[i] : "100";
+                rows.Add((nameLines[i], alloc));
+            }
+
+            return rows;
+        }
+
+        public IReadOnlyList<string> GetTaskResourceAllocDisplayLines(int taskId)
+        {
+            var lines = new List<string>();
+            foreach (var (_, allocEdit) in GetTaskResourceGridRows(taskId))
+            {
+                if (TryParseAllocationNumber(allocEdit, out double pct))
+                    lines.Add(FormatResourceAllocationDisplay(pct));
+                else if (!string.IsNullOrWhiteSpace(allocEdit))
+                    lines.Add(allocEdit.Trim());
+            }
+
+            return lines;
+        }
+
+        public string FormatTaskResourceAllocForPropertiesGrid(string allocEdit)
+        {
+            if (TryParseAllocationNumber(allocEdit, out double pct))
+                return FormatResourceAllocationDisplay(pct);
+
+            return allocEdit.Trim();
         }
 
         public IReadOnlyList<string> GetPendingResourceAllocDisplayLines(int taskId)

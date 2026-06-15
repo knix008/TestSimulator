@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Windows.Forms;
 
 namespace MyProject.Models
 {
@@ -18,6 +19,20 @@ namespace MyProject.Models
         public static string LastDirectory { get; private set; } = GetDefaultDirectory();
         public static DependencyType DefaultDependencyType { get; private set; } = DependencyType.FS;
         public static int[] TaskGridColumnWidths { get; private set; } = DefaultTaskGridColumnWidths();
+        public static bool RestoreLastSession { get; private set; } = true;
+        public static string? LastSessionProjectPath { get; private set; }
+        public static bool LastSessionIsRecovery { get; private set; }
+        public static bool HasSavedWindowBounds { get; private set; }
+        public static int? WindowX { get; private set; }
+        public static int? WindowY { get; private set; }
+        public static int WindowWidth { get; private set; } = 1280;
+        public static int WindowHeight { get; private set; } = 720;
+        public static FormWindowState WindowState { get; private set; } = FormWindowState.Normal;
+
+        private static string RecoveryProjectPath => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MyProject",
+            "session_recovery.myprj");
 
         private static int[] DefaultTaskGridColumnWidths() =>
             new[] { 32, 200, 58, 34, 84, 72, 58, 120 };
@@ -32,10 +47,10 @@ namespace MyProject.Models
 
             var json = File.ReadAllText(SettingsPath, System.Text.Encoding.UTF8);
             var data = JsonSerializer.Deserialize<SettingsData>(json, JsonOptions);
-            if (data == null || string.IsNullOrWhiteSpace(data.LastDirectory))
+            if (data == null)
                 return;
 
-            if (Directory.Exists(data.LastDirectory))
+            if (!string.IsNullOrWhiteSpace(data.LastDirectory) && Directory.Exists(data.LastDirectory))
                 LastDirectory = data.LastDirectory;
 
             if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
@@ -43,6 +58,24 @@ namespace MyProject.Models
 
             if (data.TaskGridColumnWidths is { Length: >= 7 })
                 TaskGridColumnWidths = SanitizeColumnWidths(data.TaskGridColumnWidths);
+
+            RestoreLastSession = data.RestoreLastSession ?? true;
+            LastSessionProjectPath = string.IsNullOrWhiteSpace(data.LastSessionProjectPath)
+                ? null
+                : data.LastSessionProjectPath;
+            LastSessionIsRecovery = data.LastSessionIsRecovery;
+            HasSavedWindowBounds = data.WindowWidth is > 0 && data.WindowHeight is > 0;
+            if (data.WindowWidth is > 0)
+                WindowWidth = data.WindowWidth.Value;
+            if (data.WindowHeight is > 0)
+                WindowHeight = data.WindowHeight.Value;
+            if (data.WindowX is >= -10000 and <= 10000)
+                WindowX = data.WindowX;
+            if (data.WindowY is >= -10000 and <= 10000)
+                WindowY = data.WindowY;
+            if (Enum.TryParse<FormWindowState>(data.WindowState, out var windowState)
+                && windowState is FormWindowState.Normal or FormWindowState.Maximized)
+                WindowState = windowState;
         }
 
         public static void Save()
@@ -58,7 +91,15 @@ namespace MyProject.Models
             {
                 LastDirectory = LastDirectory,
                 DefaultDependencyType = DefaultDependencyType.ToString(),
-                TaskGridColumnWidths = TaskGridColumnWidths
+                TaskGridColumnWidths = TaskGridColumnWidths,
+                RestoreLastSession = RestoreLastSession,
+                LastSessionProjectPath = LastSessionProjectPath,
+                LastSessionIsRecovery = LastSessionIsRecovery,
+                WindowX = WindowX,
+                WindowY = WindowY,
+                WindowWidth = HasSavedWindowBounds ? WindowWidth : null,
+                WindowHeight = HasSavedWindowBounds ? WindowHeight : null,
+                WindowState = WindowState.ToString()
             };
             var json = JsonSerializer.Serialize(data, JsonOptions);
             File.WriteAllText(SettingsPath, json, System.Text.Encoding.UTF8);
@@ -145,6 +186,52 @@ namespace MyProject.Models
             Save();
         }
 
+        public static string GetRecoveryProjectPath() => RecoveryProjectPath;
+
+        public static void RememberSession(string? projectPath, bool isRecovery)
+        {
+            RestoreLastSession = true;
+            LastSessionProjectPath = string.IsNullOrWhiteSpace(projectPath) ? null : projectPath;
+            LastSessionIsRecovery = isRecovery;
+            Save();
+        }
+
+        public static void RememberWindowBounds(int x, int y, int width, int height, FormWindowState state)
+        {
+            width = Math.Clamp(width, 800, 10000);
+            height = Math.Clamp(height, 500, 10000);
+
+            WindowX = x;
+            WindowY = y;
+            WindowWidth = width;
+            WindowHeight = height;
+            WindowState = state is FormWindowState.Maximized
+                ? FormWindowState.Maximized
+                : FormWindowState.Normal;
+            HasSavedWindowBounds = true;
+        }
+
+        public static void ClearSession()
+        {
+            LastSessionProjectPath = null;
+            LastSessionIsRecovery = false;
+            Save();
+        }
+
+        public static bool TryGetSessionProjectPath(out string path)
+        {
+            if (!RestoreLastSession
+                || string.IsNullOrWhiteSpace(LastSessionProjectPath)
+                || !File.Exists(LastSessionProjectPath))
+            {
+                path = "";
+                return false;
+            }
+
+            path = LastSessionProjectPath;
+            return true;
+        }
+
         public static void ApplyTo(FileDialog dialog)
         {
             dialog.InitialDirectory = GetValidDirectory();
@@ -161,6 +248,14 @@ namespace MyProject.Models
             public string LastDirectory { get; set; } = "";
             public string DefaultDependencyType { get; set; } = "FS";
             public int[]? TaskGridColumnWidths { get; set; }
+            public bool? RestoreLastSession { get; set; }
+            public string? LastSessionProjectPath { get; set; }
+            public bool LastSessionIsRecovery { get; set; }
+            public int? WindowX { get; set; }
+            public int? WindowY { get; set; }
+            public int? WindowWidth { get; set; }
+            public int? WindowHeight { get; set; }
+            public string? WindowState { get; set; }
         }
     }
 }

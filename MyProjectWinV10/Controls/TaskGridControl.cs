@@ -50,6 +50,7 @@ namespace MyProject.Controls
         public event EventHandler<ContextMenuRequestEventArgs>? ContextMenuRequested;
 
         public int ScrollOffsetY => _scrollY;
+        public int ScrollOffsetX => _scrollX;
 
         private bool _showCriticalPath;
 
@@ -169,6 +170,14 @@ namespace MyProject.Controls
         {
             _scrollY = scrollY;
             _scrollBar.Value = Math.Min(scrollY, Math.Max(0, _scrollBar.Maximum));
+            Invalidate();
+        }
+
+        public void SyncScrollX(int scrollX)
+        {
+            _scrollX = Math.Max(0, scrollX);
+            if (_hScrollBar.Enabled)
+                _hScrollBar.Value = Math.Min(_scrollX, Math.Max(0, _hScrollBar.Maximum));
             Invalidate();
         }
 
@@ -403,22 +412,8 @@ namespace MyProject.Controls
                 .ToList();
         }
 
-        private List<string> GetResourceAllocDisplayLines(int taskId)
-        {
-            var assignments = _model!.GetAssignments(taskId).ToList();
-            if (assignments.Count > 0)
-                return assignments.Select(a => ProjectModel.FormatResourceAllocationDisplay(a.AllocationPercent)).ToList();
-
-            var pending = _model.GetPendingResourceAllocDisplayLines(taskId);
-            if (pending.Count > 0)
-                return pending.ToList();
-
-            var nameLines = GetResourceNameDisplayLines(taskId);
-            if (nameLines.Count == 0)
-                return new List<string>();
-
-            return nameLines.Select(_ => "100%").ToList();
-        }
+        private List<string> GetResourceAllocDisplayLines(int taskId) =>
+            _model!.GetTaskResourceAllocDisplayLines(taskId).ToList();
 
         private static List<string> GetDeliverableDisplayLines(string? deliverable)
         {
@@ -805,6 +800,9 @@ namespace MyProject.Controls
             Invalidate();
         }
 
+        private static bool IsEnterOnlyCommitColumn(int column) =>
+            column is ColAssigned or ColResourceAlloc or ColDeliverable;
+
         private void StartInlineEdit(ProjectTask task, int column, bool commitCurrentEdit = true)
         {
             if (commitCurrentEdit)
@@ -858,9 +856,29 @@ namespace MyProject.Controls
             };
             _inlineEditor.KeyDown += (s, e) =>
             {
+                if (IsEnterOnlyCommitColumn(column))
+                {
+                    if (e.KeyCode == Keys.Enter && !e.Shift)
+                    {
+                        CommitEdit(forceCommit: true);
+                        e.Handled = true;
+                        e.SuppressKeyPress = true;
+                        return;
+                    }
+
+                    if (e.KeyCode == Keys.Escape)
+                    {
+                        CancelInlineEdit();
+                        e.Handled = true;
+                        e.SuppressKeyPress = true;
+                    }
+
+                    return;
+                }
+
                 if (e.KeyCode == Keys.Enter && !multiline)
                 {
-                    CommitEdit();
+                    CommitEdit(forceCommit: true);
                     e.Handled = true;
                     e.SuppressKeyPress = true;
                     return;
@@ -868,7 +886,7 @@ namespace MyProject.Controls
 
                 if (e.KeyCode == Keys.Enter && multiline && e.Control)
                 {
-                    CommitEdit();
+                    CommitEdit(forceCommit: true);
                     e.Handled = true;
                     e.SuppressKeyPress = true;
                     return;
@@ -881,7 +899,7 @@ namespace MyProject.Controls
                     e.SuppressKeyPress = true;
                 }
             };
-            _inlineEditor.LostFocus += (s, e) => CommitEdit();
+            _inlineEditor.LostFocus += (_, _) => CommitEdit();
             Controls.Add(_inlineEditor);
             _inlineEditor.BringToFront();
             _inlineEditor.Focus();
@@ -889,9 +907,9 @@ namespace MyProject.Controls
             Invalidate();
         }
 
-        public void CommitPendingEdits() => CommitEdit();
+        public void CommitPendingEdits() => CommitEdit(forceCommit: true);
 
-        private void CommitEdit()
+        private void CommitEdit(bool forceCommit = false)
         {
             if (_isCommittingEdit)
                 return;
@@ -904,6 +922,12 @@ namespace MyProject.Controls
                 var editor = _inlineEditor;
                 if (editor == null)
                     return;
+
+                if (!forceCommit && IsEnterOnlyCommitColumn(_editingColumn))
+                {
+                    CancelInlineEdit();
+                    return;
+                }
 
                 int taskId = _editingTaskId;
                 int column = _editingColumn;

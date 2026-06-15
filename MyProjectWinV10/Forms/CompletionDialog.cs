@@ -81,11 +81,19 @@ namespace MyProject.Forms
                 buttonPanel.Controls.Add(btnAction);
             }
 
-            Controls.Add(buttonPanel);
-            Controls.Add(summaryLabel);
-
             if (!string.IsNullOrWhiteSpace(details))
             {
+                var detailsLabel = new Label
+                {
+                    Text = "Location:",
+                    Dock = DockStyle.Top,
+                    AutoSize = false,
+                    Height = 22,
+                    Padding = new Padding(12, 8, 12, 0),
+                    ForeColor = AppTheme.TextSecondary,
+                    BackColor = AppTheme.SurfaceColor
+                };
+
                 var detailsBox = new TextBox
                 {
                     Multiline = true,
@@ -107,8 +115,13 @@ namespace MyProject.Forms
                     BackColor = AppTheme.SurfaceColor
                 };
                 contentPanel.Controls.Add(detailsBox);
+                contentPanel.Controls.Add(detailsLabel);
+
                 Controls.Add(contentPanel);
             }
+
+            Controls.Add(summaryLabel);
+            Controls.Add(buttonPanel);
 
             AcceptButton = btnOk;
             CancelButton = btnOk;

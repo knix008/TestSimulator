@@ -21,6 +21,12 @@ namespace MyProject.Models
         public int WindowWidth { get; set; } = 1280;
         public int WindowHeight { get; set; } = 720;
         public FormWindowState WindowState { get; set; } = FormWindowState.Normal;
+        public int SelectedTaskId { get; set; } = -1;
+        public int SelectedNoteId { get; set; } = -1;
+        public int GanttScrollY { get; set; }
+        public DateTime? GanttViewStartDate { get; set; }
+        public int TaskGridScrollX { get; set; }
+        public int TaskGridScrollY { get; set; }
 
         public static ProjectViewSettings CreateDefault() => new()
         {
@@ -61,7 +67,13 @@ namespace MyProject.Models
             WindowY = WindowY,
             WindowWidth = WindowWidth,
             WindowHeight = WindowHeight,
-            WindowState = WindowState
+            WindowState = WindowState,
+            SelectedTaskId = SelectedTaskId,
+            SelectedNoteId = SelectedNoteId,
+            GanttScrollY = GanttScrollY,
+            GanttViewStartDate = GanttViewStartDate,
+            TaskGridScrollX = TaskGridScrollX,
+            TaskGridScrollY = TaskGridScrollY
         };
 
         public static bool Equals(ProjectViewSettings? a, ProjectViewSettings? b)

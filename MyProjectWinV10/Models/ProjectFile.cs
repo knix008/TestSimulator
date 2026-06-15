@@ -147,7 +147,13 @@ namespace MyProject.Models
                 PropertiesPanelVisible = settings.PropertiesPanelVisible,
                 ShowCriticalPath = settings.ShowCriticalPath,
                 NotesPanelHeight = settings.NotesPanelHeight,
-                NotesPanelVisible = settings.NotesPanelVisible
+                NotesPanelVisible = settings.NotesPanelVisible,
+                SelectedTaskId = settings.SelectedTaskId >= 0 ? settings.SelectedTaskId : null,
+                SelectedNoteId = settings.SelectedNoteId >= 0 ? settings.SelectedNoteId : null,
+                GanttScrollY = settings.GanttScrollY,
+                GanttViewStartDate = settings.GanttViewStartDate,
+                TaskGridScrollX = settings.TaskGridScrollX,
+                TaskGridScrollY = settings.TaskGridScrollY
             };
 
             if (includeWindowSettings)
@@ -210,6 +216,19 @@ namespace MyProject.Models
                 && windowState is FormWindowState.Normal or FormWindowState.Maximized)
                 settings.WindowState = windowState;
 
+            if (data.SelectedTaskId is >= 0)
+                settings.SelectedTaskId = data.SelectedTaskId.Value;
+            if (data.SelectedNoteId is >= 0)
+                settings.SelectedNoteId = data.SelectedNoteId.Value;
+            if (data.GanttScrollY is >= 0)
+                settings.GanttScrollY = data.GanttScrollY.Value;
+            if (data.GanttViewStartDate.HasValue)
+                settings.GanttViewStartDate = data.GanttViewStartDate.Value.Date;
+            if (data.TaskGridScrollX is >= 0)
+                settings.TaskGridScrollX = data.TaskGridScrollX.Value;
+            if (data.TaskGridScrollY is >= 0)
+                settings.TaskGridScrollY = data.TaskGridScrollY.Value;
+
             return settings;
         }
 
@@ -263,6 +282,12 @@ namespace MyProject.Models
             public int? WindowWidth { get; set; }
             public int? WindowHeight { get; set; }
             public string? WindowState { get; set; }
+            public int? SelectedTaskId { get; set; }
+            public int? SelectedNoteId { get; set; }
+            public int? GanttScrollY { get; set; }
+            public DateTime? GanttViewStartDate { get; set; }
+            public int? TaskGridScrollX { get; set; }
+            public int? TaskGridScrollY { get; set; }
         }
 
         internal sealed class TaskData

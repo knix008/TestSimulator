@@ -76,6 +76,26 @@ namespace MyProject.Controls
         public GanttViewport Viewport => _viewport;
         public int SelectedTaskId => _selectedTaskId;
         public int SelectedNoteId => _selectedNoteId;
+        public int ScrollOffsetY => _scrollY;
+        public DateTime ViewStartDate => _viewport.ViewStartDate;
+
+        public void SelectNote(int noteId)
+        {
+            _selectedNoteId = noteId;
+            Invalidate();
+        }
+
+        public void RestoreTimelineState(DateTime viewStartDate, int scrollY)
+        {
+            _viewport.ViewStartDate = viewStartDate;
+            _scrollY = Math.Max(0, scrollY);
+            SyncHorizontalScrollFromViewport();
+            UpdateScrollbars();
+            if (_vScrollBar.Enabled)
+                _vScrollBar.Value = Math.Min(_scrollY, Math.Max(0, _vScrollBar.Maximum));
+            Invalidate();
+        }
+
         public bool IsInlineNoteEditActive => _noteInlineEditor != null;
         public bool NoteModeActive => _noteModeActive;
 

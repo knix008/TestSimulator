@@ -18,6 +18,7 @@ namespace MyProject.Forms
         private int _propertiesPanelExpandedWidth = 340;
         private bool _isPropertiesPanelExpanded = true;
         private bool _trackViewSettingsChanges;
+        private bool _pendingNavigationRestore;
         private ToolTip? _toolbarToolTip;
 
         private const int CollapsedPropertiesPanelWidth = 32;
@@ -33,7 +34,7 @@ namespace MyProject.Forms
             PostInitializeComponent();
             ApplyRenderers();
             SetupEventHandlers();
-            LoadNewProject();
+            RestoreSessionOrNewProject();
         }
 
         private void PostInitializeComponent()
@@ -351,7 +352,8 @@ namespace MyProject.Forms
             FormClosed += OnFormClosed;
             Shown += (_, _) =>
             {
-                BeginInvoke(SyncViewSettingsAfterInitialLayout);
+                ApplyWindowSettingsFromAppSettings();
+                BeginInvoke(CompleteInitialLayout);
             };
 
             KeyPreview = true;
@@ -389,11 +391,37 @@ namespace MyProject.Forms
             ganttChartControl.PrepareForShutdown();
             taskGridControl.CancelInteraction();
 
-            if (!ShouldCloseWithoutSavePrompt() && NeedsSavePrompt() && !ConfirmProceedWithoutSaving())
+            bool allowPersistence = true;
+            if (!ShouldCloseWithoutSavePrompt() && NeedsSavePrompt())
             {
-                e.Cancel = true;
-                return;
+                var result = MessageBox.Show(
+                    this,
+                    "Save changes to the current project?",
+                    "Unsaved Changes",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Cancel)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                if (result == DialogResult.Yes)
+                {
+                    if (!TrySave())
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+                }
+                else
+                {
+                    allowPersistence = false;
+                }
             }
+
+            SaveSessionState(allowPersistence);
 
             AppShutdown.BeginShutdown();
             DetachFromModel();
@@ -599,9 +627,136 @@ namespace MyProject.Forms
             _undoRedo.Clear();
             ApplyModel();
             UpdateUndoRedoState();
+            AppSettings.ClearSession();
         }
 
-        private void ApplyModel(bool preserveWindowLayout = false)
+        private void RestoreSessionOrNewProject()
+        {
+            if (!AppSettings.TryGetSessionProjectPath(out string path))
+            {
+                LoadNewProject();
+                return;
+            }
+
+            ProjectModel? loaded = null;
+            Exception? error = null;
+            try
+            {
+                loaded = MsProjectInterop.Load(path);
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            if (error != null || loaded == null)
+            {
+                AppSettings.ClearSession();
+                LoadNewProject();
+                return;
+            }
+
+            _model = loaded;
+            if (AppSettings.LastSessionIsRecovery)
+                _model.FilePath = "";
+            else
+                _model.FilePath = path;
+
+            _undoRedo.Clear();
+            ApplyModel();
+            UpdateUndoRedoState();
+            _pendingNavigationRestore = true;
+
+            statusLabel.Text = AppSettings.LastSessionIsRecovery
+                ? "Restored previous editing session."
+                : $"Restored: {path}";
+        }
+
+        private void SaveSessionState(bool allowPersistence)
+        {
+            try
+            {
+                taskGridControl.CommitPendingEdits();
+                selectionPropertiesControl.CommitPendingEdits();
+
+                var windowBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+                AppSettings.RememberWindowBounds(
+                    windowBounds.X,
+                    windowBounds.Y,
+                    windowBounds.Width,
+                    windowBounds.Height,
+                    WindowState);
+
+                CaptureViewSettingsToModel();
+
+                string? sessionPath = null;
+                bool isRecovery = false;
+
+                if (!string.IsNullOrEmpty(_model.FilePath))
+                {
+                    sessionPath = _model.FilePath;
+                    if (_model.IsModified && allowPersistence)
+                    {
+                        ProjectFile.Save(_model, _model.FilePath);
+                        _model.IsModified = false;
+                    }
+                }
+                else if (_model.IsModified && allowPersistence)
+                {
+                    sessionPath = AppSettings.GetRecoveryProjectPath();
+                    var directory = Path.GetDirectoryName(sessionPath);
+                    if (!string.IsNullOrEmpty(directory))
+                        Directory.CreateDirectory(directory);
+
+                    ProjectFile.Save(_model, sessionPath);
+                    isRecovery = true;
+                }
+
+                if (!string.IsNullOrEmpty(sessionPath))
+                    AppSettings.RememberSession(sessionPath, isRecovery);
+                else
+                    AppSettings.ClearSession();
+            }
+            catch
+            {
+                // ignore persistence errors during shutdown
+            }
+        }
+
+        private void RestoreNavigationFromViewSettings()
+        {
+            if (_isApplyingViewSettings)
+                return;
+
+            var settings = _model.ViewSettings;
+            DateTime viewStart = settings.GanttViewStartDate
+                ?? _model.GetTimelineScrollOrigin();
+            ganttChartControl.RestoreTimelineState(viewStart, settings.GanttScrollY);
+            taskGridControl.SyncScrollX(settings.TaskGridScrollX);
+            taskGridControl.SyncScroll(settings.TaskGridScrollY);
+
+            if (settings.SelectedNoteId >= 0 && _model.GetNote(settings.SelectedNoteId) != null)
+            {
+                ganttChartControl.SelectNote(settings.SelectedNoteId);
+                ganttChartControl.SetSelectedTask(-1);
+                taskGridControl.SetSelectedTask(-1);
+                _lastSelectedId = -1;
+                selectionPropertiesControl.SetSelection(-1, settings.SelectedNoteId, commitPending: false);
+                return;
+            }
+
+            if (settings.SelectedTaskId >= 0 && _model.GetTask(settings.SelectedTaskId) != null)
+            {
+                _lastSelectedId = settings.SelectedTaskId;
+                taskGridControl.SetSelectedTask(settings.SelectedTaskId);
+                ganttChartControl.SetSelectedTask(settings.SelectedTaskId);
+                ganttChartControl.ClearNoteSelection();
+                selectionPropertiesControl.SetSelection(settings.SelectedTaskId, -1, commitPending: false);
+                UpdateStatus(settings.SelectedTaskId);
+            }
+        }
+
+        private void ApplyModel()
         {
             if (_titleBarModel != null)
                 _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
@@ -624,7 +779,7 @@ namespace MyProject.Forms
             _isApplyingViewSettings = true;
             try
             {
-                ApplyViewSettingsFromModel(preserveWindowLayout);
+                ApplyViewSettingsFromModel();
             }
             finally
             {
@@ -635,6 +790,16 @@ namespace MyProject.Forms
             UpdateTitleBar();
             UpdateStatus(-1);
             UpdateTaskToolState();
+        }
+
+        private void CompleteInitialLayout()
+        {
+            SyncViewSettingsAfterInitialLayout();
+            if (!_pendingNavigationRestore)
+                return;
+
+            _pendingNavigationRestore = false;
+            RestoreNavigationFromViewSettings();
         }
 
         private void SyncViewSettingsAfterInitialLayout()
@@ -684,27 +849,46 @@ namespace MyProject.Forms
                 WindowY = windowBounds.Y,
                 WindowWidth = windowBounds.Width,
                 WindowHeight = windowBounds.Height,
-                WindowState = WindowState
+                WindowState = WindowState,
+                SelectedTaskId = ganttChartControl.SelectedNoteId >= 0 ? -1 : ganttChartControl.SelectedTaskId,
+                SelectedNoteId = ganttChartControl.SelectedNoteId,
+                GanttScrollY = ganttChartControl.ScrollOffsetY,
+                GanttViewStartDate = ganttChartControl.ViewStartDate,
+                TaskGridScrollX = taskGridControl.ScrollOffsetX,
+                TaskGridScrollY = taskGridControl.ScrollOffsetY
             };
         }
 
-        private void ApplyWindowSettingsFromModel(ProjectViewSettings settings)
+        private void ApplyWindowSettingsFromAppSettings()
         {
-            int width = Math.Clamp(settings.WindowWidth, MinimumSize.Width, 10000);
-            int height = Math.Clamp(settings.WindowHeight, MinimumSize.Height, 10000);
+            if (!AppSettings.HasSavedWindowBounds)
+                return;
+
+            ApplyWindowBounds(
+                AppSettings.WindowX,
+                AppSettings.WindowY,
+                AppSettings.WindowWidth,
+                AppSettings.WindowHeight,
+                AppSettings.WindowState);
+        }
+
+        private void ApplyWindowBounds(int? x, int? y, int width, int height, FormWindowState state)
+        {
+            width = Math.Clamp(width, MinimumSize.Width, 10000);
+            height = Math.Clamp(height, MinimumSize.Height, 10000);
 
             var screen = Screen.FromControl(this).WorkingArea;
-            int x = settings.WindowX ?? screen.Left + Math.Max(0, (screen.Width - width) / 2);
-            int y = settings.WindowY ?? screen.Top + Math.Max(0, (screen.Height - height) / 2);
+            int resolvedX = x ?? screen.Left + Math.Max(0, (screen.Width - width) / 2);
+            int resolvedY = y ?? screen.Top + Math.Max(0, (screen.Height - height) / 2);
 
-            x = Math.Clamp(x, screen.Left - width + 120, screen.Right - 120);
-            y = Math.Clamp(y, screen.Top, screen.Bottom - 80);
+            resolvedX = Math.Clamp(resolvedX, screen.Left - width + 120, screen.Right - 120);
+            resolvedY = Math.Clamp(resolvedY, screen.Top, screen.Bottom - 80);
 
             StartPosition = FormStartPosition.Manual;
             WindowState = FormWindowState.Normal;
-            Bounds = new Rectangle(x, y, width, height);
+            Bounds = new Rectangle(resolvedX, resolvedY, width, height);
 
-            if (settings.WindowState == FormWindowState.Maximized)
+            if (state == FormWindowState.Maximized)
                 WindowState = FormWindowState.Maximized;
         }
 
@@ -837,7 +1021,7 @@ namespace MyProject.Forms
             MarkViewSettingsModified();
         }
 
-        private void ApplyViewSettingsFromModel(bool preserveWindowLayout = false)
+        private void ApplyViewSettingsFromModel()
         {
             _isApplyingViewSettings = true;
             try
@@ -869,8 +1053,6 @@ namespace MyProject.Forms
 
                 SyncPropertiesPanelUi(settings.PropertiesPanelVisible);
                 ApplyShowCriticalPath(settings.ShowCriticalPath);
-                if (!preserveWindowLayout)
-                    ApplyWindowSettingsFromModel(settings);
             }
             finally
             {
@@ -1214,6 +1396,8 @@ namespace MyProject.Forms
             _undoRedo.Clear();
             ApplyModel();
             UpdateUndoRedoState();
+            AppSettings.RememberSession(path, isRecovery: false);
+            BeginInvoke(RestoreNavigationFromViewSettings);
             statusLabel.Text = MsProjectInterop.CanImport(path) && !path.EndsWith($".{ProjectFile.Extension}", StringComparison.OrdinalIgnoreCase)
                 ? $"Imported from Microsoft Project: {path}"
                 : $"Opened: {path}";
@@ -1242,12 +1426,8 @@ namespace MyProject.Forms
                 MsProjectInterop.Export(_model, dlg.FileName, format);
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"Exported to Microsoft Project: {dlg.FileName}";
-                CompletionDialog.Show(
-                    this,
-                    "Export Complete",
-                    "The project was exported for Microsoft Project.",
+                ShowExportComplete(
                     dlg.FileName,
-                    "Open File",
                     () => OpenExportedFile(dlg.FileName));
             }
             catch (Exception ex)
@@ -1276,7 +1456,7 @@ namespace MyProject.Forms
                 return;
             }
 
-            SaveProject(_model.FilePath, showCompletionPopup: _model.IsModified);
+            SaveProject(_model.FilePath, showCompletionPopup: true);
         }
 
         private void OnSaveAs()
@@ -1304,15 +1484,17 @@ namespace MyProject.Forms
                 _model.FilePath = path;
                 _model.IsModified = false;
                 AppSettings.RememberFromPath(path);
+                AppSettings.RememberSession(path, isRecovery: false);
                 UpdateTitleBar();
                 statusLabel.Text = $"Saved: {path}";
 
                 if (showCompletionPopup)
                 {
+                    string savedPath = Path.GetFullPath(path);
                     CompletionDialog.Show(this,
                         "Save Complete",
-                        "The project was saved successfully.",
-                        path);
+                        "The project was saved to the following location:",
+                        savedPath);
                 }
             }
             catch (Exception ex)
@@ -1654,39 +1836,34 @@ namespace MyProject.Forms
                 "Excel Workbook (*.xlsx)|*.xlsx",
                 "xlsx",
                 path => ExcelReportGenerator.Export(_model, path),
-                "Excel report",
-                "The Excel report was exported successfully.");
+                "Excel report");
 
         private void OnExportHtml() =>
             ExportReport(
                 "HTML Document (*.html)|*.html",
                 "html",
                 path => HtmlReportGenerator.Export(_model, path),
-                "HTML report",
-                "The HTML report was exported successfully.");
+                "HTML report");
 
         private void OnExportWord() =>
             ExportReport(
                 "Word Document (*.docx)|*.docx",
                 "docx",
                 path => WordReportGenerator.Export(_model, path),
-                "Word report",
-                "The Word report was exported successfully.");
+                "Word report");
 
         private void OnExportPdf() =>
             ExportReport(
                 "PDF Document (*.pdf)|*.pdf",
                 "pdf",
                 path => PdfReportGenerator.Export(_model, path),
-                "PDF report",
-                "The PDF report was exported successfully.");
+                "PDF report");
 
         private void ExportReport(
             string filter,
             string defaultExt,
             Action<string> export,
-            string reportLabel,
-            string completionMessage)
+            string reportLabel)
         {
             using var dlg = new SaveFileDialog
             {
@@ -1703,14 +1880,9 @@ namespace MyProject.Forms
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"{reportLabel} saved: {dlg.FileName}";
 
-                var exportPath = dlg.FileName;
-                CompletionDialog.Show(
-                    this,
-                    "Export Complete",
-                    completionMessage,
-                    exportPath,
-                    "Open File",
-                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
+                ShowExportComplete(
+                    dlg.FileName,
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName)
                     {
                         UseShellExecute = true
                     }));
@@ -1718,6 +1890,27 @@ namespace MyProject.Forms
             catch (Exception ex)
             {
                 ErrorDialog.Show(this, "Export Error", $"Could not export the {reportLabel}.", ex);
+            }
+        }
+
+        private void ShowExportComplete(string path, Action? openFile = null)
+        {
+            string fullPath = Path.GetFullPath(path);
+            const string summary = "The file was exported to the following location:";
+
+            if (openFile != null)
+            {
+                CompletionDialog.Show(
+                    this,
+                    "Export Complete",
+                    summary,
+                    fullPath,
+                    "Open File",
+                    openFile);
+            }
+            else
+            {
+                CompletionDialog.Show(this, "Export Complete", summary, fullPath);
             }
         }
 
@@ -1739,14 +1932,9 @@ namespace MyProject.Forms
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"Report saved: {dlg.FileName}";
 
-                var exportPath = dlg.FileName;
-                CompletionDialog.Show(
-                    this,
-                    "Export Complete",
-                    "The Markdown report was exported successfully.",
-                    exportPath,
-                    "Open File",
-                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
+                ShowExportComplete(
+                    dlg.FileName,
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName)
                     {
                         UseShellExecute = true
                     }));
@@ -1780,14 +1968,9 @@ namespace MyProject.Forms
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"Gantt image saved: {dlg.FileName}";
 
-                var exportPath = dlg.FileName;
-                CompletionDialog.Show(
-                    this,
-                    "Export Complete",
-                    "The Gantt chart image was exported successfully.",
-                    exportPath,
-                    "Open File",
-                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
+                ShowExportComplete(
+                    dlg.FileName,
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName)
                     {
                         UseShellExecute = true
                     }));

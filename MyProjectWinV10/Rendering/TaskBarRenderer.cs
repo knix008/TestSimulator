@@ -1,6 +1,7 @@
 ﻿using MyProject.Models;
 using MyProject.Theme;
 using System.Drawing.Drawing2D;
+using System.Windows.Forms;
 
 namespace MyProject.Rendering
 {
@@ -36,69 +37,47 @@ namespace MyProject.Rendering
             var barRect = GetBarBounds(task, rowY);
             int width = barRect.Width;
             int radius = GetTaskBarCornerRadius(barRect.Height);
-            bool highlightCritical = ShowCriticalPath && task.IsCritical;
-            Color barColor = task.BarColor != Color.Empty ? task.BarColor
-                           : highlightCritical ? AppTheme.TaskBarCritical
-                           : AppTheme.TaskBarNormal;
-            Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor
-                                : highlightCritical ? AppTheme.TaskBarCriticalProgress
-                                : AppTheme.TaskBarProgress;
+            ResolveNormalBarColors(task, out Color barColor, out Color progressColor);
 
-            using var barPath = GraphicsExtensions.CreateRoundedPath(barRect, radius);
-
-            // Drop shadow
             using var shadowBrush = new SolidBrush(Color.FromArgb(30, 0, 0, 0));
-            using var shadowPath = GraphicsExtensions.CreateRoundedPath(new Rectangle(barRect.X + 1, barRect.Y + 2, barRect.Width, barRect.Height), radius);
-            g.FillPath(shadowBrush, shadowPath);
+            g.FillRoundedRectangle(shadowBrush, new Rectangle(barRect.X + 1, barRect.Y + 2, barRect.Width, barRect.Height), radius);
 
-            // Bar background
             using (var bgBrush = new LinearGradientBrush(barRect,
                 LightenColor(barColor, 30), barColor, LinearGradientMode.Vertical))
-                g.FillPath(bgBrush, barPath);
+                g.FillRoundedRectangle(bgBrush, barRect, radius);
 
-            // Progress fill (clip so bar ends stay rounded)
-            if (task.Progress > 0)
+            double progress = Math.Clamp(task.Progress, 0, 100);
+            if (progress > 0)
             {
-                int progressWidth = (int)(width * task.Progress / 100.0);
-                if (progressWidth > 0)
-                {
-                    var progressRect = new Rectangle(barRect.X, barRect.Y, progressWidth, barRect.Height);
-                    using var progressBrush = new LinearGradientBrush(progressRect,
-                        LightenColor(progressColor, 20), progressColor, LinearGradientMode.Vertical);
-                    var state = g.Save();
-                    g.SetClip(barPath);
+                int progressWidth = Math.Max(2, (int)(width * progress / 100.0));
+                var progressRect = new Rectangle(barRect.X, barRect.Y, progressWidth, barRect.Height);
+                using var barPath = GraphicsExtensions.CreateRoundedPath(barRect, radius);
+                var state = g.Save();
+                g.SetClip(barPath);
+                using (var progressBrush = new LinearGradientBrush(progressRect,
+                    LightenColor(progressColor, 20), progressColor, LinearGradientMode.Vertical))
                     g.FillRectangle(progressBrush, progressRect);
 
-                    using var stripePen = new Pen(Color.FromArgb(40, 255, 255, 255), 1f);
-                    for (int sx = progressRect.X; sx < progressRect.Right; sx += 6)
-                        g.DrawLine(stripePen, sx, progressRect.Y, sx - 4, progressRect.Bottom);
-                    g.Restore(state);
-                }
+                using var stripePen = new Pen(Color.FromArgb(40, 255, 255, 255), 1f);
+                for (int sx = progressRect.X; sx < progressRect.Right; sx += 6)
+                    g.DrawLine(stripePen, sx, progressRect.Y, sx - 4, progressRect.Bottom);
+                g.Restore(state);
             }
 
-            // Border
             Color borderColor = isSelected ? AppTheme.AccentDark
                              : isHovered ? LightenColor(barColor, -20)
                              : DarkenColor(barColor, 30);
             using var borderPen = new Pen(borderColor, isSelected ? 2f : 1f);
-            g.DrawPath(borderPen, barPath);
+            g.DrawRoundedRectangle(borderPen, barRect, radius);
 
-            // Selection glow
             if (isSelected)
             {
-                var glowRect = new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2);
                 using var glowPen = new Pen(Color.FromArgb(80, AppTheme.Accent), 4f);
-                g.DrawRoundedRectangle(glowPen, glowRect, radius + 1);
+                g.DrawRoundedRectangle(glowPen, new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2), radius + 1);
             }
 
-            // % label inside bar if wide enough
-            if (width > 40 && task.Progress > 0)
-            {
-                using var textBrush = new SolidBrush(Color.FromArgb(200, 255, 255, 255));
-                var label = $"{task.Progress:0}%";
-                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                g.DrawString(label, AppTheme.FontSmall, textBrush, barRect, sf);
-            }
+            if (progress > 0)
+                DrawProgressPercentLabel(g, barRect, progress, isSummaryBar: false);
 
             DrawAssigneeLabel(g, barRect.Right, rowY, assigneeText);
         }
@@ -106,41 +85,52 @@ namespace MyProject.Rendering
         private void DrawSummaryBar(Graphics g, ProjectTask task, int rowY, bool isSelected, string? assigneeText)
         {
             var barRect = GetBarBounds(task, rowY);
-            int width = barRect.Width;
-            int radius = GetTaskBarCornerRadius(barRect.Height);
-            Color barColor = GetSummaryBarColor(task, isSelected);
-            Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor : AppTheme.AccentLight;
+            if (barRect.Width <= 0)
+                return;
 
+            int radius = GetTaskBarCornerRadius(barRect.Height);
+            Color summaryColor = GetSummaryBarColor(task, isSelected);
             using var barPath = GraphicsExtensions.CreateRoundedPath(barRect, radius);
 
-            using (var brush = new SolidBrush(barColor))
+            using (var brush = new SolidBrush(summaryColor))
                 g.FillPath(brush, barPath);
 
-            if (task.Progress > 0)
+            double progress = Math.Clamp(task.Progress, 0, 100);
+            if (progress > 0)
             {
-                int progressWidth = (int)(width * task.Progress / 100.0);
-                if (progressWidth > 0)
-                {
-                    var progressRect = new Rectangle(barRect.X, barRect.Y, progressWidth, barRect.Height);
-                    using var progressBrush = new SolidBrush(Color.FromArgb(180, progressColor));
-                    var state = g.Save();
-                    g.SetClip(barPath);
-                    g.FillRectangle(progressBrush, progressRect);
-                    g.Restore(state);
-                }
+                const int inset = 2;
+                var inner = new Rectangle(
+                    barRect.X + inset,
+                    barRect.Y + inset,
+                    Math.Max(1, barRect.Width - inset * 2),
+                    Math.Max(1, barRect.Height - inset * 2));
+                int progressWidth = Math.Max(2, (int)(inner.Width * progress / 100.0));
+                var progressRect = new Rectangle(inner.X, inner.Y, progressWidth, inner.Height);
+                Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor : AppTheme.AccentLight;
+                using var progressBrush = new SolidBrush(Color.FromArgb(180, progressColor));
+                var state = g.Save();
+                g.SetClip(barPath);
+                g.FillRectangle(progressBrush, progressRect);
+                g.Restore(state);
             }
 
-            using var borderPen = new Pen(DarkenColor(barColor, 20), isSelected ? 2f : 1f);
-            g.DrawPath(borderPen, barPath);
+            if (isSelected)
+            {
+                using var glowPen = new Pen(Color.FromArgb(80, AppTheme.Accent), 4f);
+                g.DrawRoundedRectangle(glowPen, new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2), radius + 1);
+            }
 
-            DrawAssigneeLabel(g, barRect.Right + 4, rowY, assigneeText);
+            if (progress > 0)
+                DrawProgressPercentLabel(g, barRect, progress, isSummaryBar: true);
+
+            DrawAssigneeLabel(g, barRect.Right, rowY, assigneeText);
         }
 
         private void DrawMilestone(Graphics g, ProjectTask task, int rowY, bool isSelected, bool isHovered, string? assigneeText)
         {
             int cx = _viewport.DateToX(task.StartDate) + _viewport.DayWidth / 2;
-            int cy = rowY + AppTheme.RowHeight / 2;
-            int half = AppTheme.MilestoneSize / 2;
+            int cy = GetBarTopY(rowY) + AppTheme.TaskBarHeight / 2;
+            int half = AppTheme.TaskBarHeight / 2;
 
             var diamond = new Point[]
             {
@@ -168,6 +158,70 @@ namespace MyProject.Rendering
             }
 
             DrawAssigneeLabel(g, cx + half + 4, rowY, assigneeText);
+        }
+
+        private void ResolveNormalBarColors(ProjectTask task, out Color barColor, out Color progressColor)
+        {
+            bool highlightCritical = ShowCriticalPath && task.IsCritical;
+            barColor = task.BarColor != Color.Empty ? task.BarColor
+                     : highlightCritical ? AppTheme.TaskBarCritical
+                     : AppTheme.TaskBarNormal;
+            progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor
+                          : highlightCritical ? AppTheme.TaskBarCriticalProgress
+                          : AppTheme.TaskBarProgress;
+        }
+
+        private static void DrawProgressPercentLabel(Graphics g, Rectangle barRect, double progress, bool isSummaryBar)
+        {
+            string label = $"{progress:0}%";
+            Font font = AppTheme.FontSmall;
+            const TextFormatFlags measureFlags = TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
+            int textWidth = TextRenderer.MeasureText(g, label, font, new Size(int.MaxValue, barRect.Height), measureFlags).Width;
+            const int pad = 6;
+
+            int progressWidth = Math.Max(0, (int)(barRect.Width * progress / 100.0));
+            var progressRect = new Rectangle(barRect.X, barRect.Y, progressWidth, barRect.Height);
+            var remainderRect = new Rectangle(
+                barRect.X + progressWidth,
+                barRect.Y,
+                Math.Max(0, barRect.Width - progressWidth),
+                barRect.Height);
+
+            Rectangle textRect;
+            bool useLightText;
+            bool alignNear;
+
+            if (progressRect.Width >= textWidth + pad)
+            {
+                textRect = progressRect;
+                useLightText = !isSummaryBar;
+                alignNear = false;
+            }
+            else if (remainderRect.Width >= textWidth + pad)
+            {
+                textRect = remainderRect;
+                useLightText = isSummaryBar;
+                alignNear = false;
+            }
+            else
+            {
+                textRect = new Rectangle(barRect.Right + 3, barRect.Y, textWidth + 2, barRect.Height);
+                useLightText = false;
+                alignNear = true;
+            }
+
+            TextFormatFlags drawFlags = TextFormatFlags.SingleLine
+                | TextFormatFlags.NoPadding
+                | TextFormatFlags.VerticalCenter
+                | TextFormatFlags.EndEllipsis
+                | (alignNear ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter);
+
+            Color textColor = useLightText ? Color.FromArgb(245, 255, 255, 255) : AppTheme.TextPrimary;
+            Color shadowColor = useLightText ? Color.FromArgb(120, 0, 0, 0) : Color.FromArgb(140, 255, 255, 255);
+
+            var shadowRect = new Rectangle(textRect.X, textRect.Y + 1, textRect.Width, textRect.Height);
+            TextRenderer.DrawText(g, label, font, shadowRect, shadowColor, drawFlags);
+            TextRenderer.DrawText(g, label, font, textRect, textColor, drawFlags);
         }
 
         private static void DrawAssigneeLabel(Graphics g, int textX, int rowY, string? assigneeText)
@@ -199,25 +253,32 @@ namespace MyProject.Rendering
             if (task.TaskType == TaskType.Milestone)
             {
                 int cx = _viewport.DateToX(task.StartDate) + _viewport.DayWidth / 2;
-                int cy = rowY + AppTheme.RowHeight / 2;
-                int half = AppTheme.MilestoneSize / 2 + 2;
+                int cy = GetBarTopY(rowY) + AppTheme.TaskBarHeight / 2;
+                int half = AppTheme.TaskBarHeight / 2 + 2;
                 return new Rectangle(cx - half, cy - half, half * 2, half * 2);
             }
 
             return GetBarBounds(task, rowY);
         }
 
-        public static int GetTaskBarCornerRadius(int barHeight) =>
-            Math.Max(2, Math.Min(barHeight / 2, 8));
-
-        private Rectangle GetBarBounds(ProjectTask task, int rowY)
+        private Rectangle GetBarSpan(ProjectTask task)
         {
             int x = _viewport.DateToX(task.StartDate);
             int endX = _viewport.DateToX(task.EndDate.AddDays(1));
             int width = Math.Max(endX - x, 4);
-            int barH = AppTheme.TaskBarHeight;
-            int barY = rowY + (AppTheme.RowHeight - barH) / 2;
-            return new Rectangle(x, barY, width, barH);
+            return new Rectangle(x, 0, width, 0);
+        }
+
+        public static int GetTaskBarCornerRadius(int barHeight) =>
+            Math.Max(2, Math.Min(barHeight / 2, 8));
+
+        private static int GetBarTopY(int rowY) =>
+            rowY + (AppTheme.RowHeight - AppTheme.TaskBarHeight) / 2;
+
+        private Rectangle GetBarBounds(ProjectTask task, int rowY)
+        {
+            var span = GetBarSpan(task);
+            return new Rectangle(span.Left, GetBarTopY(rowY), span.Width, AppTheme.TaskBarHeight);
         }
 
         private static Color LightenColor(Color color, int amount)

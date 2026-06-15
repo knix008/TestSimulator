@@ -608,7 +608,6 @@ namespace MyProject.Forms
             // 
             // btnDeleteTask
             // 
-            btnDeleteTask.Alignment = ToolStripItemAlignment.Right;
             btnDeleteTask.DisplayStyle = ToolStripItemDisplayStyle.Image;
             btnDeleteTask.ForeColor = Color.White;
             btnDeleteTask.Name = "btnDeleteTask";
@@ -617,7 +616,6 @@ namespace MyProject.Forms
             // 
             // tsSepDelete
             // 
-            tsSepDelete.Alignment = ToolStripItemAlignment.Right;
             tsSepDelete.Name = "tsSepDelete";
             tsSepDelete.Size = new Size(6, 40);
             // 

@@ -52,6 +52,13 @@
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- Incomplete calendar/note-connector UI; excluded until wired to current APIs. -->
+  <ItemGroup>
+    <Compile Remove="Controls\CalendarViewControl.cs" />
+    <Compile Remove="Controls\NoteConnectorPreviewControl.cs" />
+    <Compile Remove="Controls\NoteLineStyleSelector.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="Assets\MyProject.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
