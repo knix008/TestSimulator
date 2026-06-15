@@ -48,6 +48,9 @@
     <Compile Update="Forms\BurndownChartForm.Designer.cs">
       <DependentUpon>BurndownChartForm.cs</DependentUpon>
     </Compile>
+    <Compile Update="Forms\BurndownChartColorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="Forms\CompletedHistoryForm.cs">
       <SubType>Form</SubType>
     </Compile>

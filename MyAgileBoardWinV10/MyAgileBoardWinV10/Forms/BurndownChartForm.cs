@@ -1,11 +1,13 @@
 using System.Drawing.Drawing2D;
 using MyAgileBoardWinV10.Models;
+using MyAgileBoardWinV10.Services;
 
 namespace MyAgileBoardWinV10.Forms;
 
 public partial class BurndownChartForm : Form
 {
     private readonly KanbanProject _project;
+    private BurndownChartColorSettings _chartColors;
 
     // Chart data computed on refresh
     private record DayData(DateTime Date, int PointsCompleted, int CumulativeCompleted);
@@ -15,6 +17,7 @@ public partial class BurndownChartForm : Form
     public BurndownChartForm(KanbanProject project)
     {
         _project = project;
+        _chartColors = AppSettings.GetBurndownChartColors();
         InitializeComponent();
         dtpStart.Value = DateTime.Today.AddDays(-13);
         dtpEnd.Value   = DateTime.Today;
@@ -145,26 +148,32 @@ public partial class BurndownChartForm : Form
         }
 
         // ── 이상 소진선 (Ideal Burn Down): totalPoints → 0 ────────────────
-        using var idealPen = new Pen(Color.FromArgb(160, 180, 180, 180), 1.5f) { DashStyle = DashStyle.Dash };
+        var idealColor = ColorFromHex(_chartColors.IdealLineHex, Color.FromArgb(160, 160, 160));
+        using var idealPen = new Pen(Color.FromArgb(180, idealColor), 1.5f) { DashStyle = DashStyle.Dash };
         float iy0 = marginT;                         // 시작: totalPoints (상단)
         float iy1 = marginT + chartH;               // 끝: 0 (하단)
         g.DrawLine(idealPen, marginL, iy0, marginL + chartW, iy1);
 
-        // ── 일별 완료 포인트 막대 (초록 계열) ──────────────────────────────
+        // ── 일별 완료 포인트 막대 ───────────────────────────────────────────
         float barW = Math.Max(2f, stepX * 0.45f);
-        using var barBrush = new SolidBrush(Color.FromArgb(80, 80, 185, 110));
+        var barColor = ColorFromHex(_chartColors.DailyBarHex, Color.FromArgb(34, 139, 71));
+        using var barBrush = new SolidBrush(barColor);
+        using var barBorderPen = new Pen(Darken(barColor, 0.85f), 1f);
         for (int i = 0; i < days; i++)
         {
             if (_chartData[i].PointsCompleted <= 0) continue;
             float bh = (float)chartH * _chartData[i].PointsCompleted / maxY;
             float bx = marginL + i * stepX - barW / 2;
             float by = marginT + chartH - bh;
-            g.FillRectangle(barBrush, bx, by, barW, bh);
+            var barRect = new RectangleF(bx, by, barW, bh);
+            g.FillRectangle(barBrush, barRect);
+            g.DrawRectangle(barBorderPen, barRect.X, barRect.Y, barRect.Width, barRect.Height);
         }
 
         // ── 실제 잔여량 선 (Actual Burn Down): remaining = total - cumulative ─
-        using var actualPen  = new Pen(Color.FromArgb(220, 60, 60), 2.2f);
-        using var actualBrush = new SolidBrush(Color.FromArgb(220, 60, 60));
+        var remainingColor = ColorFromHex(_chartColors.RemainingLineHex, Color.FromArgb(220, 60, 60));
+        using var actualPen  = new Pen(remainingColor, 2.2f);
+        using var actualBrush = new SolidBrush(remainingColor);
         var burnPts = new PointF[days];
         for (int i = 0; i < days; i++)
         {
@@ -194,8 +203,9 @@ public partial class BurndownChartForm : Form
         int lx = marginL + chartW - 160;
         int ly = marginT + 8;
 
-        using var legendBarBrush = new SolidBrush(Color.FromArgb(80, 185, 110));
+        using var legendBarBrush = new SolidBrush(barColor);
         g.FillRectangle(legendBarBrush, lx, ly + 2, 20, 10);
+        g.DrawRectangle(barBorderPen, lx, ly + 2, 20, 10);
         g.DrawString("일별 완료", legendFont, Brushes.DimGray, lx + 24, ly);
 
         g.DrawLine(idealPen, lx, ly + 22, lx + 20, ly + 22);
@@ -209,5 +219,31 @@ public partial class BurndownChartForm : Form
 
     private void btnRefresh_Click(object? sender, EventArgs e) => RefreshChart();
 
+    private void btnColors_Click(object? sender, EventArgs e)
+    {
+        using var dlg = new BurndownChartColorForm(_chartColors);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        _chartColors = dlg.Colors;
+        AppSettings.SetBurndownChartColors(_chartColors);
+        panelChart.Invalidate();
+    }
+
     private void panelChart_Resize(object? sender, EventArgs e) => panelChart.Invalidate();
+
+    private static Color ColorFromHex(string hex, Color fallback)
+    {
+        try { return ColorTranslator.FromHtml(hex); }
+        catch { return fallback; }
+    }
+
+    private static Color Darken(Color color, float factor)
+    {
+        factor = Math.Clamp(factor, 0f, 1f);
+        return Color.FromArgb(
+            color.A,
+            (int)(color.R * factor),
+            (int)(color.G * factor),
+            (int)(color.B * factor));
+    }
 }

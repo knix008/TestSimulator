@@ -96,6 +96,7 @@ public partial class SummaryForm : Form
     {
         var g = e.Graphics;
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
         var panel = (Panel)sender;
         int size = Math.Min(panel.Width, panel.Height) - 40;
@@ -127,6 +128,8 @@ public partial class SummaryForm : Form
             using var pen = new Pen(Color.White, 1.5f);
             g.DrawPie(pen, rect, startAngle, sweep);
 
+            DrawPieSliceLabel(g, rect, col.Name, col.Cards.Count, total, startAngle, sweep, color);
+
             // Legend
             int lx = size + 20;
             g.FillRectangle(brush, lx, legendY, 12, 12);
@@ -137,6 +140,50 @@ public partial class SummaryForm : Form
             colorIdx++;
             legendY += 18;
         }
+    }
+
+    private static void DrawPieSliceLabel(
+        Graphics g, Rectangle pieRect, string name, int count, int total,
+        float startAngle, float sweep, Color sliceColor)
+    {
+        if (sweep < 8f) return;
+
+        int percent = (int)Math.Round(100f * count / total);
+        float midAngle = startAngle + sweep / 2f;
+        double midRad = midAngle * Math.PI / 180.0;
+
+        float cx = pieRect.X + pieRect.Width / 2f;
+        float cy = pieRect.Y + pieRect.Height / 2f;
+        float labelRadius = pieRect.Width / 2f * (sweep >= 22f ? 0.58f : 0.68f);
+        float lx = cx + (float)(labelRadius * Math.Cos(midRad));
+        float ly = cy + (float)(labelRadius * Math.Sin(midRad));
+
+        string label = sweep >= 20f
+            ? $"{TruncateLabel(name, 8)}\n{count} ({percent}%)"
+            : $"{percent}%";
+
+        float fontSize = sweep >= 28f ? 8f : sweep >= 16f ? 7f : 6.5f;
+        using var font = new Font("Segoe UI", fontSize, FontStyle.Bold);
+        using var textBrush = new SolidBrush(GetContrastTextColor(sliceColor));
+
+        var textRect = new RectangleF(lx - 42, ly - 18, 84, 36);
+        using var format = new StringFormat
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center,
+            Trimming = StringTrimming.EllipsisCharacter,
+            FormatFlags = StringFormatFlags.NoClip
+        };
+        g.DrawString(label, font, textBrush, textRect, format);
+    }
+
+    private static string TruncateLabel(string text, int maxChars)
+        => text.Length <= maxChars ? text : text[..(maxChars - 1)] + "…";
+
+    private static Color GetContrastTextColor(Color bg)
+    {
+        double lum = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255;
+        return lum < 0.55 ? Color.White : Color.FromArgb(45, 45, 45);
     }
 
     private void panelBarChart_Paint(object sender, PaintEventArgs e)

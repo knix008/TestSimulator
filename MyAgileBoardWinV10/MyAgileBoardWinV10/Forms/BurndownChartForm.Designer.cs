@@ -17,6 +17,7 @@ partial class BurndownChartForm
         lblEndDate   = new Label();
         dtpEnd       = new DateTimePicker();
         btnRefresh   = new Button();
+        btnColors    = new Button();
         lblSummary   = new Label();
         panelChart   = new Panel();
         btnClose     = new Button();
@@ -52,6 +53,13 @@ partial class BurndownChartForm
         btnRefresh.UseVisualStyleBackColor = true;
         btnRefresh.Click               += new EventHandler(btnRefresh_Click);
 
+        // btnColors
+        btnColors.Location             = new Point(478, 9);
+        btnColors.Size                 = new Size(90, 27);
+        btnColors.Text                 = "색상 설정...";
+        btnColors.UseVisualStyleBackColor = true;
+        btnColors.Click                += new EventHandler(btnColors_Click);
+
         // lblSummary
         lblSummary.AutoSize  = true;
         lblSummary.ForeColor = Color.DimGray;
@@ -84,7 +92,7 @@ partial class BurndownChartForm
         Controls.AddRange(new Control[]
         {
             lblStartDate, dtpStart, lblEndDate, dtpEnd,
-            btnRefresh, lblSummary, panelChart, btnClose
+            btnRefresh, btnColors, lblSummary, panelChart, btnClose
         });
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox     = true;
@@ -102,6 +110,7 @@ partial class BurndownChartForm
     private Label          lblEndDate   = null!;
     private DateTimePicker dtpEnd       = null!;
     private Button         btnRefresh   = null!;
+    private Button         btnColors    = null!;
     private Label          lblSummary   = null!;
     private Panel          panelChart   = null!;
     private Button         btnClose     = null!;

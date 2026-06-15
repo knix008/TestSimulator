@@ -1,10 +1,12 @@
 using System.Text.Json;
+using MyAgileBoardWinV10.Models;
 
 namespace MyAgileBoardWinV10.Services;
 
 public static class AppSettings
 {
     private static string? _lastDirectory;
+    private static BurndownChartColorSettings _burndownChart = BurndownChartColorSettings.CreateDefault();
     private static bool _loaded;
 
     private static string SettingsPath =>
@@ -31,6 +33,19 @@ public static class AppSettings
         Save();
     }
 
+    public static BurndownChartColorSettings GetBurndownChartColors()
+    {
+        EnsureLoaded();
+        return _burndownChart.Clone();
+    }
+
+    public static void SetBurndownChartColors(BurndownChartColorSettings colors)
+    {
+        EnsureLoaded();
+        _burndownChart = colors.Clone();
+        Save();
+    }
+
     private static void EnsureLoaded()
     {
         if (_loaded) return;
@@ -40,8 +55,20 @@ public static class AppSettings
         {
             if (!File.Exists(SettingsPath)) return;
             using var doc = JsonDocument.Parse(File.ReadAllText(SettingsPath));
-            if (doc.RootElement.TryGetProperty("lastDirectory", out var prop))
-                _lastDirectory = prop.GetString();
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("lastDirectory", out var dirProp))
+                _lastDirectory = dirProp.GetString();
+
+            if (root.TryGetProperty("burndownChart", out var chartProp))
+            {
+                if (chartProp.TryGetProperty("dailyBarHex", out var bar))
+                    _burndownChart.DailyBarHex = bar.GetString() ?? _burndownChart.DailyBarHex;
+                if (chartProp.TryGetProperty("idealLineHex", out var ideal))
+                    _burndownChart.IdealLineHex = ideal.GetString() ?? _burndownChart.IdealLineHex;
+                if (chartProp.TryGetProperty("remainingLineHex", out var remaining))
+                    _burndownChart.RemainingLineHex = remaining.GetString() ?? _burndownChart.RemainingLineHex;
+            }
         }
         catch { /* 손상된 설정 파일은 무시 */ }
     }
@@ -52,7 +79,17 @@ public static class AppSettings
         {
             var dir = Path.GetDirectoryName(SettingsPath)!;
             Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(new { lastDirectory = _lastDirectory });
+            var payload = new
+            {
+                lastDirectory = _lastDirectory,
+                burndownChart = new
+                {
+                    dailyBarHex = _burndownChart.DailyBarHex,
+                    idealLineHex = _burndownChart.IdealLineHex,
+                    remainingLineHex = _burndownChart.RemainingLineHex
+                }
+            };
+            var json = JsonSerializer.Serialize(payload);
             File.WriteAllText(SettingsPath, json);
         }
         catch { /* 설정 저장 실패 시 무시 */ }
