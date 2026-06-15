@@ -49,13 +49,13 @@ namespace MyProject.Controls
     private TableLayoutPanel _taskMainLayout = null!;
 
     private const int MinContentWidth = 300;
-    private const int RowSpacing = 4;
-    private const int LabelRowHeight = 18;
-    private const int StandardRowHeight = 28;
-    private const int CheckRowHeight = 26;
-    private const int MultilineRowHeight = 56;
-    private const int SectionGapHeight = 10;
-    private const int BottomPaddingHeight = 8;
+    private const int RowSpacing = 2;
+    private const int LabelRowHeight = 16;
+    private const int StandardRowHeight = 24;
+    private const int CheckRowHeight = 22;
+    private const int MultilineRowHeight = 48;
+    private const int SectionGapHeight = 6;
+    private const int BottomPaddingHeight = 4;
 
     public event EventHandler? CollapseRequested;
     public event EventHandler? ExpandRequested;
@@ -263,7 +263,7 @@ namespace MyProject.Controls
 
       if (control is CheckBox)
       {
-        var host = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 2) };
+        var host = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
         control.Dock = DockStyle.Left;
         control.Margin = Padding.Empty;
         host.Controls.Add(control);
@@ -272,7 +272,7 @@ namespace MyProject.Controls
       }
 
       control.Dock = DockStyle.Fill;
-      control.Margin = new Padding(0, 0, 0, 2);
+      control.Margin = Padding.Empty;
       layout.Controls.Add(control, 0, row);
     }
 
@@ -356,7 +356,7 @@ namespace MyProject.Controls
         Dock = DockStyle.Fill,
         ColumnCount = 2,
         RowCount = 1,
-        Margin = new Padding(0, 0, 0, 2),
+        Margin = Padding.Empty,
         Padding = Padding.Empty,
         GrowStyle = TableLayoutPanelGrowStyle.FixedSize
       };
@@ -405,7 +405,7 @@ namespace MyProject.Controls
 
     private static void AddSectionHeaderRow(TableLayoutPanel layout, string title)
     {
-      int row = AddLayoutRow(layout, 22);
+      int row = AddLayoutRow(layout, 18);
       var label = new Label
       {
         Text = title,
@@ -413,7 +413,7 @@ namespace MyProject.Controls
         Font = AppTheme.FontBold,
         ForeColor = AppTheme.TextPrimary,
         TextAlign = ContentAlignment.MiddleLeft,
-        Margin = new Padding(0, 4, 0, 2)
+        Margin = new Padding(0, 2, 0, 0)
       };
       layout.Controls.Add(label, 0, row);
     }
@@ -422,7 +422,7 @@ namespace MyProject.Controls
     {
       int row = AddLayoutRow(layout, height);
       control.Dock = DockStyle.Fill;
-      control.Margin = new Padding(0, 2, 0, 2);
+      control.Margin = Padding.Empty;
       var host = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
       host.Controls.Add(control);
       layout.Controls.Add(host, 0, row);
@@ -451,11 +451,94 @@ namespace MyProject.Controls
       RefreshFromSelection();
     }
 
-    public void SetSelection(int taskId, int noteId)
+    public void PrepareForModelRestore()
     {
-      _taskId = taskId;
+      _suppressChanges = true;
+      try
+      {
+        if (_resourceGrid.IsCurrentCellInEditMode)
+          _resourceGrid.CancelEdit();
+
+        _taskId = -1;
+        _noteId = -1;
+        RefreshFromSelection();
+      }
+      finally
+      {
+        _suppressChanges = false;
+      }
+    }
+
+    public void SetSelection(int taskId, int noteId, bool commitPending = true)
+    {
+      if (commitPending)
+      {
+        CommitPendingTaskEdits();
+        CommitPendingNoteEdits();
+      }
+
       _noteId = noteId;
+      _taskId = noteId >= 0 ? -1 : taskId;
       RefreshFromSelection();
+    }
+
+    public void CommitPendingEdits() => CommitPendingTaskEdits();
+
+    private void CommitPendingTaskEdits()
+    {
+      if (_suppressChanges)
+        return;
+
+      if (_taskDeliverable.Focused)
+        ApplyTaskDeliverable();
+      if (_taskNotes.Focused)
+        ApplyTaskNotes();
+      if (_taskName.Focused)
+        ApplyTaskName();
+
+      if (_resourceGrid.IsCurrentCellInEditMode)
+        _resourceGrid.EndEdit();
+
+      if (_resourceGrid.ContainsFocus || _resourceGrid.IsCurrentCellInEditMode)
+        ApplyResourceGrid();
+    }
+
+    private void CommitPendingNoteEdits()
+    {
+      if (_suppressChanges || _noteId < 0)
+        return;
+
+      ApplyNoteTitle();
+      ApplyNoteContent();
+    }
+
+    private bool IsEditingNoteProperties()
+    {
+      if (!_contentPanel.Visible || _noteId < 0)
+        return false;
+
+      return _noteTitle.Focused
+             || _noteEditor.ContainsFocus
+             || _noteLinkedTask.Focused
+             || _noteAnchorDate.Focused;
+    }
+
+    private bool IsEditingTaskProperties()
+    {
+      if (!_contentPanel.Visible || _taskId < 0)
+        return false;
+
+      if (_taskDeliverable.Focused || _taskNotes.Focused || _taskName.Focused)
+        return true;
+
+      if (_resourceGrid.Focused
+          || _resourceGrid.IsCurrentCellInEditMode
+          || _resourceGrid.EditingControl != null)
+        return true;
+
+      return _taskDeliverable.ContainsFocus
+             || _taskNotes.ContainsFocus
+             || _taskName.ContainsFocus;
     }
 
     private GroupBox BuildNoteGroup()
@@ -506,8 +589,8 @@ namespace MyProject.Controls
         Dock = DockStyle.Top,
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
-        Padding = new Padding(8, 20, 8, 8),
-        Margin = new Padding(0, 0, 0, 8)
+        Padding = new Padding(8, 18, 8, 6),
+        Margin = new Padding(0, 0, 0, 6)
       };
 
       var layout = _taskMainLayout = CreateFieldsLayout();
@@ -518,6 +601,7 @@ namespace MyProject.Controls
       _taskType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
       _taskType.Items.AddRange(new object[] { "Normal", "Summary", "Milestone" });
       _taskType.SelectedIndexChanged += (_, _) => ApplyTaskType();
+      TaskTypeComboTooltips.Attach(_taskType);
 
       _taskStart = new DateTimePicker { Format = DateTimePickerFormat.Short };
       _taskStart.ValueChanged += (_, _) => ApplyTaskStart();
@@ -529,7 +613,7 @@ namespace MyProject.Controls
       {
         TextAlign = ContentAlignment.MiddleLeft,
         ForeColor = AppTheme.TextSecondary,
-        Height = 23
+        Height = 20
       };
 
       _taskProgress = new NumericUpDown { Minimum = 0, Maximum = 100 };
@@ -553,7 +637,10 @@ namespace MyProject.Controls
       {
         Multiline = true,
         ScrollBars = ScrollBars.Vertical,
-        Height = 52
+        Height = 44,
+        BackColor = Color.White,
+        ForeColor = AppTheme.TextPrimary,
+        BorderStyle = BorderStyle.FixedSingle
       };
       _taskDeliverable.Leave += (_, _) => ApplyTaskDeliverable();
 
@@ -561,7 +648,10 @@ namespace MyProject.Controls
       {
         Multiline = true,
         ScrollBars = ScrollBars.Vertical,
-        Height = 52
+        Height = 44,
+        BackColor = Color.White,
+        ForeColor = AppTheme.TextPrimary,
+        BorderStyle = BorderStyle.FixedSingle
       };
       _taskNotes.Leave += (_, _) => ApplyTaskNotes();
 
@@ -595,7 +685,7 @@ namespace MyProject.Controls
 
       _resourceGrid = new DataGridView
       {
-        Height = 62,
+        Height = 72,
         AllowUserToAddRows = true,
         AllowUserToDeleteRows = true,
         RowHeadersVisible = false,
@@ -603,24 +693,37 @@ namespace MyProject.Controls
         AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
         BackgroundColor = Color.White,
         BorderStyle = BorderStyle.FixedSingle,
-        SelectionMode = DataGridViewSelectionMode.FullRowSelect
+        SelectionMode = DataGridViewSelectionMode.CellSelect,
+        EditMode = DataGridViewEditMode.EditOnEnter,
+        StandardTab = true
       };
-      _resourceGrid.RowTemplate.Height = 19;
-      _resourceGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ResourceName", HeaderText = "Resource", FillWeight = 60 });
-      _resourceGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "AllocationPercent", HeaderText = "%", FillWeight = 40 });
-      _resourceGrid.CellEndEdit += (_, _) => ApplyResourceGrid();
+      _resourceGrid.RowTemplate.Height = 20;
+      _resourceGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ResourceName", HeaderText = "Resource", FillWeight = 55 });
+      var pctCol = new DataGridViewTextBoxColumn
+      {
+        Name = "AllocationPercent",
+        HeaderText = "Alloc %",
+        FillWeight = 25,
+        MinimumWidth = 52
+      };
+      pctCol.DefaultCellStyle.NullValue = "";
+      pctCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+      _resourceGrid.Columns.Add(pctCol);
+      _resourceGrid.CellEndEdit += OnResourceGridCellEndEdit;
+      _resourceGrid.CellValidating += OnResourceGridCellValidating;
       _resourceGrid.UserDeletedRow += (_, _) => ApplyResourceGrid();
-      AddFullWidthRow(layout, _resourceGrid, 62);
+      _resourceGrid.Leave += (_, _) => ApplyResourceGrid();
+      AddFullWidthRow(layout, _resourceGrid, 72);
 
       _resourceTotalLabel = new Label
       {
-        Height = 18,
+        Height = 16,
         TextAlign = ContentAlignment.MiddleLeft,
         ForeColor = AppTheme.TextSecondary,
         Font = AppTheme.FontSmall,
         Text = "Total: 0%"
       };
-      AddFullWidthRow(layout, _resourceTotalLabel, 18);
+      AddFullWidthRow(layout, _resourceTotalLabel, 16);
 
       AddSpacerRow(layout, SectionGapHeight);
       AddSectionHeaderRow(layout, "Dependencies");
@@ -634,7 +737,8 @@ namespace MyProject.Controls
         AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
         BackgroundColor = Color.White,
         BorderStyle = BorderStyle.FixedSingle,
-        SelectionMode = DataGridViewSelectionMode.FullRowSelect
+        SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+        ShowCellToolTips = true
       };
       _dependencyGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Role", HeaderText = "Role", FillWeight = 30, ReadOnly = true });
       _dependencyGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TaskName", HeaderText = "Task", FillWeight = 50, ReadOnly = true });
@@ -653,6 +757,7 @@ namespace MyProject.Controls
       _dependencyGrid.UserDeletedRow += (_, _) => ApplyDependencyGrid();
       _dependencyGrid.UserDeletingRow += OnDependencyRowDeleting;
       _dependencyGrid.SelectionChanged += (_, _) => LoadSelectedDependencyLineEnds();
+      _dependencyGrid.CellToolTipTextNeeded += OnDependencyGridCellToolTipTextNeeded;
       AddFullWidthRow(layout, _dependencyGrid, 100);
 
       _dependencyStartLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = true };
@@ -704,23 +809,18 @@ namespace MyProject.Controls
           var note = _model.GetNote(_noteId)!;
           _headerLabel.Text = "Note Properties";
           _noteGroup.Visible = true;
+          _taskGroup.Visible = false;
           _noteTitle.Text = note.Title;
           _noteEditor.LoadContent(note.BodyRtf, note.Body);
           _noteAnchorDate.Value = note.AnchorDate;
           ReloadLinkedTaskChoices();
           SelectLinkedTask(note.TaskId);
         }
-        else
-        {
-          _noteGroup.Visible = false;
-        }
-
-        if (hasTask)
+        else if (hasTask)
         {
           var task = _model.GetTask(_taskId)!;
-          if (!hasNote)
-            _headerLabel.Text = "Task Properties";
-
+          _headerLabel.Text = "Task Properties";
+          _noteGroup.Visible = false;
           _taskGroup.Visible = true;
           _taskName.Text = task.Name;
           _taskType.SelectedIndex = (int)task.TaskType;
@@ -745,6 +845,7 @@ namespace MyProject.Controls
         }
         else
         {
+          _noteGroup.Visible = false;
           _taskGroup.Visible = false;
         }
       }
@@ -786,7 +887,7 @@ namespace MyProject.Controls
     {
       _resourceGrid.Rows.Clear();
       foreach (var a in _model!.GetAssignments(taskId))
-        _resourceGrid.Rows.Add(a.ResourceName, a.AllocationPercent.ToString("0"));
+        _resourceGrid.Rows.Add(a.ResourceName, ProjectModel.FormatResourceAllocationEditDisplay(a.AllocationPercent));
 
       UpdateResourceTotal();
     }
@@ -884,9 +985,18 @@ namespace MyProject.Controls
       double total = 0;
       foreach (DataGridViewRow row in _resourceGrid.Rows)
       {
-        if (row.IsNewRow) continue;
-        if (double.TryParse(row.Cells["AllocationPercent"].Value?.ToString(), out double v))
-          total += v;
+        if (row.IsNewRow)
+          continue;
+
+        string name = row.Cells["ResourceName"].Value?.ToString()?.Trim() ?? "";
+        if (string.IsNullOrEmpty(name))
+          continue;
+
+        string? allocText = row.Cells["AllocationPercent"].Value?.ToString();
+        if (string.IsNullOrWhiteSpace(allocText))
+          total += 100;
+        else if (ProjectModel.TryParseAllocationNumber(allocText, out double pct))
+          total += pct;
       }
 
       _resourceTotalLabel.Text = $"Total: {total:0}%";
@@ -895,7 +1005,7 @@ namespace MyProject.Controls
 
     private void OnModelChanged(object? sender, EventArgs e)
     {
-      if (_applyingToModel || _suppressChanges)
+      if (_applyingToModel || _suppressChanges || IsEditingTaskProperties() || IsEditingNoteProperties())
         return;
 
       RefreshFromSelection();
@@ -1130,33 +1240,109 @@ namespace MyProject.Controls
       finally { _applyingToModel = false; }
     }
 
+    private void OnResourceGridCellEndEdit(object? sender, DataGridViewCellEventArgs e)
+    {
+      if (e.RowIndex < 0 || e.ColumnIndex < 0)
+        return;
+
+      var row = _resourceGrid.Rows[e.RowIndex];
+      if (row.IsNewRow)
+        return;
+
+      if (_resourceGrid.Columns[e.ColumnIndex].Name == "AllocationPercent")
+      {
+        string name = row.Cells["ResourceName"].Value?.ToString()?.Trim() ?? "";
+        if (string.IsNullOrEmpty(name))
+        {
+          UpdateResourceTotal();
+          return;
+        }
+      }
+
+      ApplyResourceGrid();
+    }
+
+    private void OnResourceGridCellValidating(object? sender, DataGridViewCellValidatingEventArgs e)
+    {
+      if (_resourceGrid.Columns[e.ColumnIndex].Name != "AllocationPercent")
+        return;
+
+      string? val = e.FormattedValue?.ToString();
+      if (string.IsNullOrWhiteSpace(val))
+        return;
+
+      if (!double.TryParse(val, out double pct) || pct < 0)
+      {
+        e.Cancel = true;
+        MessageBox.Show(
+          FindForm(),
+          "Allocation must be a number of 0 or greater.",
+          "Invalid Allocation",
+          MessageBoxButtons.OK,
+          MessageBoxIcon.Warning);
+      }
+    }
+
     private void ApplyResourceGrid()
     {
       if (_suppressChanges || _model == null || _taskId < 0) return;
 
-      foreach (var a in _model.GetAssignments(_taskId).ToList())
-        _model.RemoveAssignment(_taskId, a.ResourceName);
-
-      double total = 0;
+      var lines = new List<string>();
       foreach (DataGridViewRow row in _resourceGrid.Rows)
       {
         if (row.IsNewRow) continue;
         string name = row.Cells["ResourceName"].Value?.ToString()?.Trim() ?? "";
         if (string.IsNullOrEmpty(name)) continue;
-        if (!double.TryParse(row.Cells["AllocationPercent"].Value?.ToString(), out double pct)) pct = 100;
-        total += pct;
-        if (total > 100) break;
-        _model.AddAssignment(_taskId, name, pct);
+        if (!ProjectModel.TryParseAllocationNumber(row.Cells["AllocationPercent"].Value?.ToString() ?? "", out double pct))
+          pct = 100;
+        if (pct <= 0) continue;
+
+        lines.Add(ProjectModel.FormatResourceEditLine(name, pct));
       }
 
-      var task = _model.GetTask(_taskId);
-      if (task != null)
-        task.AssignedTo = _model.GetTaskAssigneeDisplay(_taskId);
+      string text = string.Join(Environment.NewLine, lines);
+      if (text == _model.GetTaskResourceEditText(_taskId))
+      {
+        UpdateResourceTotal();
+        return;
+      }
+
+      _applyingToModel = true;
+      try
+      {
+        if (!_model.TrySetTaskResourcesFromText(_taskId, text, out string? error))
+        {
+          MessageBox.Show(
+            FindForm(),
+            error,
+            "Invalid Allocation",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+          LoadResourceGrid(_taskId);
+          return;
+        }
+      }
+      finally
+      {
+        _applyingToModel = false;
+      }
 
       UpdateResourceTotal();
-      _applyingToModel = true;
-      try { _model.NotifyViewsChanged(); }
-      finally { _applyingToModel = false; }
+    }
+
+    private void OnDependencyGridCellToolTipTextNeeded(object? sender, DataGridViewCellToolTipTextNeededEventArgs e)
+    {
+      if (e.RowIndex < 0 || e.ColumnIndex < 0)
+        return;
+
+      if (_dependencyGrid.Columns[e.ColumnIndex].Name != "Type")
+        return;
+
+      string typeStr = _dependencyGrid.Rows[e.RowIndex].Cells["Type"].FormattedValue?.ToString()
+        ?? _dependencyGrid.Rows[e.RowIndex].Cells["Type"].Value?.ToString()
+        ?? "FS";
+      if (Enum.TryParse<DependencyType>(typeStr, out var depType))
+        e.ToolTipText = DependencyTypeInfo.GetTooltipText(depType);
     }
 
     private void OnDependencyRowDeleting(object? sender, DataGridViewRowCancelEventArgs e)

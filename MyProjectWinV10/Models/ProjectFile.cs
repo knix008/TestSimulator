@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Windows.Forms;
 
 namespace MyProject.Models
 {
@@ -37,11 +38,17 @@ namespace MyProject.Models
             return FromData(data, path);
         }
 
-        internal static string ToSnapshot(ProjectModel model)
+        internal static string ToSnapshot(
+            ProjectModel model,
+            bool includeWindowSettings = true,
+            bool includeViewSettings = true)
         {
-            var data = ToData(model);
+            var data = ToData(model, includeWindowSettings, includeViewSettings);
             return JsonSerializer.Serialize(data, JsonOptions);
         }
+
+        internal static string ToUndoSnapshot(ProjectModel model) =>
+            ToSnapshot(model, includeWindowSettings: false, includeViewSettings: false);
 
         internal static ProjectModel FromSnapshot(string json, string? filePath = null)
         {
@@ -65,7 +72,10 @@ namespace MyProject.Models
             Save(ProjectModel.CreateTemplate(), path);
         }
 
-        private static ProjectFileData ToData(ProjectModel model)
+        private static ProjectFileData ToData(
+            ProjectModel model,
+            bool includeWindowSettings = true,
+            bool includeViewSettings = true)
         {
             return new ProjectFileData
             {
@@ -117,24 +127,40 @@ namespace MyProject.Models
                     AnchorDate = n.AnchorDate,
                     ContentY = n.ContentY
                 }).ToList(),
-                Settings = ToSettingsData(model.ViewSettings)
+                Settings = includeViewSettings
+                    ? ToSettingsData(model.ViewSettings, includeWindowSettings)
+                    : null
             };
         }
 
-        private static SettingsData ToSettingsData(ProjectViewSettings settings) => new()
+        private static SettingsData ToSettingsData(ProjectViewSettings settings, bool includeWindowSettings = true)
         {
-            TaskGridColumnWidths = settings.TaskGridColumnWidths,
-            DefaultDependencyType = settings.DefaultDependencyType.ToString(),
-            DefaultDependencyStartLineEnd = settings.DefaultDependencyStartLineEnd.ToString(),
-            DefaultDependencyEndLineEnd = settings.DefaultDependencyEndLineEnd.ToString(),
-            DayWidth = settings.DayWidth,
-            SplitterDistance = settings.SplitterDistance,
-            PropertiesPanelWidth = settings.PropertiesPanelWidth,
-            PropertiesPanelVisible = settings.PropertiesPanelVisible,
-            ShowCriticalPath = settings.ShowCriticalPath,
-            NotesPanelHeight = settings.NotesPanelHeight,
-            NotesPanelVisible = settings.NotesPanelVisible
-        };
+            var data = new SettingsData
+            {
+                TaskGridColumnWidths = settings.TaskGridColumnWidths,
+                DefaultDependencyType = settings.DefaultDependencyType.ToString(),
+                DefaultDependencyStartLineEnd = settings.DefaultDependencyStartLineEnd.ToString(),
+                DefaultDependencyEndLineEnd = settings.DefaultDependencyEndLineEnd.ToString(),
+                DayWidth = settings.DayWidth,
+                SplitterDistance = settings.SplitterDistance,
+                PropertiesPanelWidth = settings.PropertiesPanelWidth,
+                PropertiesPanelVisible = settings.PropertiesPanelVisible,
+                ShowCriticalPath = settings.ShowCriticalPath,
+                NotesPanelHeight = settings.NotesPanelHeight,
+                NotesPanelVisible = settings.NotesPanelVisible
+            };
+
+            if (includeWindowSettings)
+            {
+                data.WindowX = settings.WindowX;
+                data.WindowY = settings.WindowY;
+                data.WindowWidth = settings.WindowWidth;
+                data.WindowHeight = settings.WindowHeight;
+                data.WindowState = settings.WindowState.ToString();
+            }
+
+            return data;
+        }
 
         private static ProjectViewSettings FromSettingsData(SettingsData? data)
         {
@@ -142,7 +168,7 @@ namespace MyProject.Models
                 return ProjectViewSettings.CreateDefault();
 
             var settings = ProjectViewSettings.CreateDefault();
-            if (data.TaskGridColumnWidths is { Length: 7 })
+            if (data.TaskGridColumnWidths is { Length: >= 7 })
                 settings.TaskGridColumnWidths = ProjectViewSettings.SanitizeColumnWidths(data.TaskGridColumnWidths);
 
             if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
@@ -171,6 +197,18 @@ namespace MyProject.Models
                 settings.NotesPanelHeight = data.NotesPanelHeight;
 
             settings.NotesPanelVisible = data.NotesPanelVisible;
+
+            if (data.WindowWidth is int savedWidth and >= 800 and <= 10000)
+                settings.WindowWidth = savedWidth;
+            if (data.WindowHeight is int savedHeight and >= 500 and <= 10000)
+                settings.WindowHeight = savedHeight;
+            if (data.WindowX is >= -10000 and <= 10000)
+                settings.WindowX = data.WindowX;
+            if (data.WindowY is >= -10000 and <= 10000)
+                settings.WindowY = data.WindowY;
+            if (Enum.TryParse<FormWindowState>(data.WindowState, out var windowState)
+                && windowState is FormWindowState.Normal or FormWindowState.Maximized)
+                settings.WindowState = windowState;
 
             return settings;
         }
@@ -220,6 +258,11 @@ namespace MyProject.Models
             public bool ShowCriticalPath { get; set; }
             public int NotesPanelHeight { get; set; } = 140;
             public bool NotesPanelVisible { get; set; } = true;
+            public int? WindowX { get; set; }
+            public int? WindowY { get; set; }
+            public int? WindowWidth { get; set; }
+            public int? WindowHeight { get; set; }
+            public string? WindowState { get; set; }
         }
 
         internal sealed class TaskData

@@ -33,13 +33,9 @@ namespace MyProject.Rendering
 
         private void DrawNormalBar(Graphics g, ProjectTask task, int rowY, bool isSelected, bool isHovered, string? assigneeText)
         {
-            int x = _viewport.DateToX(task.StartDate);
-            int endX = _viewport.DateToX(task.EndDate.AddDays(1));
-            int width = Math.Max(endX - x, 4);
-            int barH = AppTheme.TaskBarHeight;
-            int barY = rowY + (AppTheme.RowHeight - barH) / 2;
-
-            var barRect = new Rectangle(x, barY, width, barH);
+            var barRect = GetBarBounds(task, rowY);
+            int width = barRect.Width;
+            int radius = GetTaskBarCornerRadius(barRect.Height);
             bool highlightCritical = ShowCriticalPath && task.IsCritical;
             Color barColor = task.BarColor != Color.Empty ? task.BarColor
                            : highlightCritical ? AppTheme.TaskBarCritical
@@ -48,16 +44,19 @@ namespace MyProject.Rendering
                                 : highlightCritical ? AppTheme.TaskBarCriticalProgress
                                 : AppTheme.TaskBarProgress;
 
+            using var barPath = GraphicsExtensions.CreateRoundedPath(barRect, radius);
+
             // Drop shadow
             using var shadowBrush = new SolidBrush(Color.FromArgb(30, 0, 0, 0));
-            g.FillRoundedRectangle(shadowBrush, new Rectangle(barRect.X + 1, barRect.Y + 2, barRect.Width, barRect.Height), 3);
+            using var shadowPath = GraphicsExtensions.CreateRoundedPath(new Rectangle(barRect.X + 1, barRect.Y + 2, barRect.Width, barRect.Height), radius);
+            g.FillPath(shadowBrush, shadowPath);
 
             // Bar background
-            using var bgBrush = new LinearGradientBrush(barRect,
-                LightenColor(barColor, 30), barColor, LinearGradientMode.Vertical);
-            g.FillRoundedRectangle(bgBrush, barRect, 3);
+            using (var bgBrush = new LinearGradientBrush(barRect,
+                LightenColor(barColor, 30), barColor, LinearGradientMode.Vertical))
+                g.FillPath(bgBrush, barPath);
 
-            // Progress fill
+            // Progress fill (clip so bar ends stay rounded)
             if (task.Progress > 0)
             {
                 int progressWidth = (int)(width * task.Progress / 100.0);
@@ -66,12 +65,14 @@ namespace MyProject.Rendering
                     var progressRect = new Rectangle(barRect.X, barRect.Y, progressWidth, barRect.Height);
                     using var progressBrush = new LinearGradientBrush(progressRect,
                         LightenColor(progressColor, 20), progressColor, LinearGradientMode.Vertical);
-                    g.FillRoundedRectangle(progressBrush, progressRect, 3);
+                    var state = g.Save();
+                    g.SetClip(barPath);
+                    g.FillRectangle(progressBrush, progressRect);
 
-                    // Progress stripe
                     using var stripePen = new Pen(Color.FromArgb(40, 255, 255, 255), 1f);
                     for (int sx = progressRect.X; sx < progressRect.Right; sx += 6)
                         g.DrawLine(stripePen, sx, progressRect.Y, sx - 4, progressRect.Bottom);
+                    g.Restore(state);
                 }
             }
 
@@ -80,13 +81,14 @@ namespace MyProject.Rendering
                              : isHovered ? LightenColor(barColor, -20)
                              : DarkenColor(barColor, 30);
             using var borderPen = new Pen(borderColor, isSelected ? 2f : 1f);
-            g.DrawRoundedRectangle(borderPen, barRect, 3);
+            g.DrawPath(borderPen, barPath);
 
             // Selection glow
             if (isSelected)
             {
+                var glowRect = new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2);
                 using var glowPen = new Pen(Color.FromArgb(80, AppTheme.Accent), 4f);
-                g.DrawRoundedRectangle(glowPen, new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2), 4);
+                g.DrawRoundedRectangle(glowPen, glowRect, radius + 1);
             }
 
             // % label inside bar if wide enough
@@ -103,39 +105,35 @@ namespace MyProject.Rendering
 
         private void DrawSummaryBar(Graphics g, ProjectTask task, int rowY, bool isSelected, string? assigneeText)
         {
-            int x = _viewport.DateToX(task.StartDate);
-            int endX = _viewport.DateToX(task.EndDate.AddDays(1));
-            int width = Math.Max(endX - x, 4);
-            int barH = AppTheme.TaskBarHeight - 4;
-            int barY = rowY + (AppTheme.RowHeight - barH) / 2;
+            var barRect = GetBarBounds(task, rowY);
+            int width = barRect.Width;
+            int radius = GetTaskBarCornerRadius(barRect.Height);
+            Color barColor = GetSummaryBarColor(task, isSelected);
+            Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor : AppTheme.AccentLight;
 
-            var pts = new Point[]
-            {
-                new(x, barY + barH / 2),
-                new(x, barY),
-                new(x + width, barY),
-                new(x + width, barY + barH / 2),
-                new(x + width + 5, barY + barH),
-                new(x + width + 5, barY + barH + 2),
-                new(x + width, barY + barH),
-                new(x, barY + barH),
-                new(x - 5, barY + barH + 2),
-                new(x - 5, barY + barH),
-                new(x, barY + barH / 2)
-            };
+            using var barPath = GraphicsExtensions.CreateRoundedPath(barRect, radius);
 
-            using var brush = new SolidBrush(GetSummaryBarColor(task, isSelected));
-            g.FillPolygon(brush, pts);
+            using (var brush = new SolidBrush(barColor))
+                g.FillPath(brush, barPath);
 
             if (task.Progress > 0)
             {
                 int progressWidth = (int)(width * task.Progress / 100.0);
-                Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor : AppTheme.AccentLight;
-                using var progressBrush = new SolidBrush(Color.FromArgb(180, progressColor));
-                g.FillRectangle(progressBrush, x, barY + 2, progressWidth, barH - 4);
+                if (progressWidth > 0)
+                {
+                    var progressRect = new Rectangle(barRect.X, barRect.Y, progressWidth, barRect.Height);
+                    using var progressBrush = new SolidBrush(Color.FromArgb(180, progressColor));
+                    var state = g.Save();
+                    g.SetClip(barPath);
+                    g.FillRectangle(progressBrush, progressRect);
+                    g.Restore(state);
+                }
             }
 
-            DrawAssigneeLabel(g, x + width + 5, rowY, assigneeText);
+            using var borderPen = new Pen(DarkenColor(barColor, 20), isSelected ? 2f : 1f);
+            g.DrawPath(borderPen, barPath);
+
+            DrawAssigneeLabel(g, barRect.Right + 4, rowY, assigneeText);
         }
 
         private void DrawMilestone(Graphics g, ProjectTask task, int rowY, bool isSelected, bool isHovered, string? assigneeText)
@@ -206,6 +204,14 @@ namespace MyProject.Rendering
                 return new Rectangle(cx - half, cy - half, half * 2, half * 2);
             }
 
+            return GetBarBounds(task, rowY);
+        }
+
+        public static int GetTaskBarCornerRadius(int barHeight) =>
+            Math.Max(2, Math.Min(barHeight / 2, 8));
+
+        private Rectangle GetBarBounds(ProjectTask task, int rowY)
+        {
             int x = _viewport.DateToX(task.StartDate);
             int endX = _viewport.DateToX(task.EndDate.AddDays(1));
             int width = Math.Max(endX - x, 4);
@@ -239,10 +245,17 @@ namespace MyProject.Rendering
             g.DrawPath(pen, path);
         }
 
-        private static GraphicsPath CreateRoundedPath(Rectangle rect, int radius)
+        internal static GraphicsPath CreateRoundedPath(Rectangle rect, int radius)
         {
-            int d = radius * 2;
+            radius = Math.Max(0, Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2));
             var path = new GraphicsPath();
+            if (radius == 0)
+            {
+                path.AddRectangle(rect);
+                return path;
+            }
+
+            int d = radius * 2;
             path.AddArc(rect.X, rect.Y, d, d, 180, 90);
             path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
             path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);

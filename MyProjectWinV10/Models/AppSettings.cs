@@ -20,7 +20,7 @@ namespace MyProject.Models
         public static int[] TaskGridColumnWidths { get; private set; } = DefaultTaskGridColumnWidths();
 
         private static int[] DefaultTaskGridColumnWidths() =>
-            new[] { 32, 200, 58, 34, 30, 88, 120 };
+            new[] { 32, 200, 58, 34, 84, 72, 58, 120 };
 
         public static void Load()
         {
@@ -41,7 +41,7 @@ namespace MyProject.Models
             if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
                 DefaultDependencyType = depType;
 
-            if (data.TaskGridColumnWidths is { Length: 7 })
+            if (data.TaskGridColumnWidths is { Length: >= 7 })
                 TaskGridColumnWidths = SanitizeColumnWidths(data.TaskGridColumnWidths);
         }
 
@@ -93,10 +93,28 @@ namespace MyProject.Models
         private static int[] SanitizeColumnWidths(int[] widths)
         {
             var defaults = DefaultTaskGridColumnWidths();
+            widths = MigrateLegacyColumnWidths(widths, defaults.Length);
             var result = new int[defaults.Length];
             for (int i = 0; i < result.Length; i++)
-                result[i] = Math.Clamp(widths[i], GetMinColumnWidth(i), 800);
+            {
+                int value = i < widths.Length ? widths[i] : defaults[i];
+                result[i] = Math.Clamp(value, GetMinColumnWidth(i), 800);
+            }
             return result;
+        }
+
+        private static int[] MigrateLegacyColumnWidths(int[] widths, int targetLength)
+        {
+            if (widths.Length >= targetLength)
+                return widths;
+
+            if (widths.Length == 7 && targetLength == 8)
+            {
+                var defaults = DefaultTaskGridColumnWidths();
+                return new[] { widths[0], widths[1], widths[2], widths[3], widths[4], widths[5], defaults[6], widths[6] };
+            }
+
+            return widths;
         }
 
         private static int GetMinColumnWidth(int columnIndex) => columnIndex switch
@@ -105,9 +123,10 @@ namespace MyProject.Models
             1 => 80,
             2 => 52,
             3 => 30,
-            4 => 28,
+            4 => 68,
             5 => 48,
-            6 => 48,
+            6 => 52,
+            7 => 48,
             _ => 24
         };
 

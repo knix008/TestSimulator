@@ -81,7 +81,7 @@
         public static int TimescaleMiddleHeight { get; } = 16;   // Day number row
         public static int TimescaleBottomHeight { get; } = 16;   // Weekday row
         public static int TaskBarHeight { get; } = 16;
-        public static int MilestoneSize { get; } = 14;
+        public static int MilestoneSize => TaskBarHeight;
         public static int ToolbarHeight { get; } = 40;
         public static int TaskGridWidth { get; } = 560;
         public static int SplitterWidth { get; } = 4;

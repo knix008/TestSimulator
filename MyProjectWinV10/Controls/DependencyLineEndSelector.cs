@@ -98,32 +98,35 @@ namespace MyProject.Controls
 
             e.DrawBackground();
 
-            using var textBrush = new SolidBrush(AppTheme.TextPrimary);
-            var sf = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
-            var font = e.Font ?? Font;
-
-            if (isEditState)
-            {
-                var textRect = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 8, e.Bounds.Height);
-                e.Graphics.DrawString(DependencyLineEndInfo.GetDisplayName(style), font, textBrush, textRect, sf);
-                return;
-            }
-
-            if (selected)
+            if (selected && !isEditState)
             {
                 using var selBrush = new SolidBrush(Color.FromArgb(230, 240, 255));
                 e.Graphics.FillRectangle(selBrush, e.Bounds);
             }
 
+            int previewHeight = Math.Min(20, Math.Max(12, e.Bounds.Height - 6));
             int previewLeft = e.Bounds.Right - PreviewWidth - 8;
-            var previewRect = new Rectangle(previewLeft, e.Bounds.Y + 3, PreviewWidth, e.Bounds.Height - 6);
+            int previewY = e.Bounds.Y + (e.Bounds.Height - previewHeight) / 2;
+            var previewRect = new Rectangle(previewLeft, previewY, PreviewWidth, previewHeight);
             DependencyLineGeometry.DrawLineEndPreview(e.Graphics, previewRect, style, PreviewAtLineStart);
 
-            var textRectOpen = new Rectangle(e.Bounds.X + 8, e.Bounds.Y, previewLeft - e.Bounds.X - 12, e.Bounds.Height);
-            e.Graphics.DrawString(DependencyLineEndInfo.GetDisplayName(style), font, textBrush, textRectOpen, sf);
+            using var textBrush = new SolidBrush(AppTheme.TextPrimary);
+            var textRect = new Rectangle(e.Bounds.X + 8, e.Bounds.Y, previewLeft - e.Bounds.X - 12, e.Bounds.Height);
+            var sf = new StringFormat
+            {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
+            var font = e.Font ?? Font;
+            e.Graphics.DrawString(DependencyLineEndInfo.GetDisplayName(style), font, textBrush, textRect, sf);
 
-            using var linePen = new Pen(AppTheme.GridLineColor);
-            e.Graphics.DrawLine(linePen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+            if (!isEditState)
+            {
+                using var linePen = new Pen(AppTheme.GridLineColor);
+                e.Graphics.DrawLine(linePen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+            }
         }
     }
 }

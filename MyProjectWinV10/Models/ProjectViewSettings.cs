@@ -1,4 +1,5 @@
 using MyProject.Theme;
+using System.Windows.Forms;
 
 namespace MyProject.Models
 {
@@ -15,6 +16,11 @@ namespace MyProject.Models
         public bool ShowCriticalPath { get; set; } = false;
         public int NotesPanelHeight { get; set; } = 140;
         public bool NotesPanelVisible { get; set; } = true;
+        public int? WindowX { get; set; }
+        public int? WindowY { get; set; }
+        public int WindowWidth { get; set; } = 1280;
+        public int WindowHeight { get; set; } = 720;
+        public FormWindowState WindowState { get; set; } = FormWindowState.Normal;
 
         public static ProjectViewSettings CreateDefault() => new()
         {
@@ -29,6 +35,15 @@ namespace MyProject.Models
             NotesPanelVisible = true
         };
 
+        public void CopyWindowSettingsTo(ProjectViewSettings target)
+        {
+            target.WindowX = WindowX;
+            target.WindowY = WindowY;
+            target.WindowWidth = WindowWidth;
+            target.WindowHeight = WindowHeight;
+            target.WindowState = WindowState;
+        }
+
         public ProjectViewSettings Clone() => new()
         {
             TaskGridColumnWidths = (int[])TaskGridColumnWidths.Clone(),
@@ -41,7 +56,12 @@ namespace MyProject.Models
             PropertiesPanelVisible = PropertiesPanelVisible,
             ShowCriticalPath = ShowCriticalPath,
             NotesPanelHeight = NotesPanelHeight,
-            NotesPanelVisible = NotesPanelVisible
+            NotesPanelVisible = NotesPanelVisible,
+            WindowX = WindowX,
+            WindowY = WindowY,
+            WindowWidth = WindowWidth,
+            WindowHeight = WindowHeight,
+            WindowState = WindowState
         };
 
         public static bool Equals(ProjectViewSettings? a, ProjectViewSettings? b)
@@ -61,17 +81,23 @@ namespace MyProject.Models
                 && a.ShowCriticalPath == b.ShowCriticalPath
                 && a.NotesPanelHeight == b.NotesPanelHeight
                 && a.NotesPanelVisible == b.NotesPanelVisible
+                && a.WindowX == b.WindowX
+                && a.WindowY == b.WindowY
+                && LayoutDistanceEqual(a.WindowWidth, b.WindowWidth)
+                && LayoutDistanceEqual(a.WindowHeight, b.WindowHeight)
+                && a.WindowState == b.WindowState
                 && a.TaskGridColumnWidths.AsSpan().SequenceEqual(b.TaskGridColumnWidths);
         }
 
         private static bool LayoutDistanceEqual(int a, int b) => Math.Abs(a - b) <= 4;
 
         public static int[] DefaultTaskGridColumnWidths() =>
-            new[] { 32, 200, 58, 34, 30, 88, 120 };
+            new[] { 32, 200, 58, 34, 84, 72, 58, 120 };
 
         public static int[] SanitizeColumnWidths(int[] widths)
         {
             var defaults = DefaultTaskGridColumnWidths();
+            widths = MigrateLegacyColumnWidths(widths, defaults.Length);
             var result = new int[defaults.Length];
             for (int i = 0; i < result.Length; i++)
             {
@@ -81,15 +107,30 @@ namespace MyProject.Models
             return result;
         }
 
+        private static int[] MigrateLegacyColumnWidths(int[] widths, int targetLength)
+        {
+            if (widths.Length >= targetLength)
+                return widths;
+
+            if (widths.Length == 7 && targetLength == 8)
+            {
+                var defaults = DefaultTaskGridColumnWidths();
+                return new[] { widths[0], widths[1], widths[2], widths[3], widths[4], widths[5], defaults[6], widths[6] };
+            }
+
+            return widths;
+        }
+
         private static int GetMinColumnWidth(int columnIndex) => columnIndex switch
         {
             0 => 28,
             1 => 80,
             2 => 52,
             3 => 30,
-            4 => 28,
+            4 => 68,
             5 => 48,
-            6 => 48,
+            6 => 52,
+            7 => 48,
             _ => 24
         };
     }

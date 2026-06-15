@@ -29,6 +29,14 @@ namespace MyProject.Models
             _ => ""
         };
 
+        public static string GetTooltipText(DependencyType type)
+        {
+            string description = GetDescription(type);
+            return string.IsNullOrEmpty(description)
+                ? GetDisplayName(type)
+                : $"{GetDisplayName(type)}\n{description}";
+        }
+
         public static IReadOnlyList<DependencyType> AllTypes { get; } =
             Enum.GetValues<DependencyType>().ToArray();
     }

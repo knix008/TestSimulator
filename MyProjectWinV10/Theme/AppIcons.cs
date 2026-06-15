@@ -161,9 +161,8 @@ namespace MyProject.Theme
             g.DrawLine(p, 2, 8, 18, 8);
             g.DrawLine(p, 6, 2, 6, 6);
             g.DrawLine(p, 14, 2, 14, 6);
-            // Today marker
-            using var b = new SolidBrush(Color.FromArgb(255, 100, 100));
-            g.FillRectangle(b, 9, 10, 4, 5);
+            using var todayPen = new Pen(Color.FromArgb(255, 100, 100), 1.5f);
+            g.DrawRectangle(todayPen, 9, 10, 4, 5);
         });
 
         public static Bitmap Properties => Make(g =>
@@ -380,6 +379,15 @@ namespace MyProject.Theme
             g.DrawLine(p, 14, 7, 11, 10);
             // Curve at left end going down
             g.DrawArc(p, 4, 7, 10, 9, 180, 180);
+        });
+
+        public static Bitmap Info => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawEllipse(p, 3, 3, 14, 14);
+            using var b = new SolidBrush(Color.White);
+            g.FillEllipse(b, 9, 6, 2, 2);
+            g.DrawLine(p, 10, 9, 10, 15);
         });
     }
 }

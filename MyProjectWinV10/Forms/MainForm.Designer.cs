@@ -87,6 +87,8 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripButton btnExportGanttImage;
         private System.Windows.Forms.ToolStripButton btnExportPdf;
         private System.Windows.Forms.ToolStripButton btnPrint;
+        private System.Windows.Forms.ToolStripSeparator tsSepDelete;
+        private System.Windows.Forms.ToolStripButton btnInfo;
 
         // ── Main area ─────────────────────────────────────────────────────────
         private System.Windows.Forms.SplitContainer splitContainer;
@@ -189,6 +191,8 @@ namespace MyProject.Forms
             btnExportGanttImage = new ToolStripButton();
             btnExportPdf = new ToolStripButton();
             btnPrint = new ToolStripButton();
+            tsSepDelete = new ToolStripSeparator();
+            btnInfo = new ToolStripButton();
             splitContainer = new SplitContainer();
             ganttSplitContainer = new SplitContainer();
             taskGridControl = new TaskGridControl();
@@ -518,11 +522,12 @@ namespace MyProject.Forms
             mainToolStrip.Font = new Font("Segoe UI", 9F);
             mainToolStrip.GripStyle = ToolStripGripStyle.Hidden;
             mainToolStrip.ImageScalingSize = new Size(20, 20);
-            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnDeleteTask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnZoomDefault, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint });
+            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnZoomDefault, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint, tsSepDelete, btnDeleteTask, btnInfo });
             mainToolStrip.Location = new Point(0, 24);
             mainToolStrip.Name = "mainToolStrip";
             mainToolStrip.Padding = new Padding(4, 0, 0, 0);
             mainToolStrip.Size = new Size(1280, 40);
+            mainToolStrip.ShowItemToolTips = true;
             mainToolStrip.TabIndex = 1;
             //
             // tsSepUndo
@@ -603,11 +608,29 @@ namespace MyProject.Forms
             // 
             // btnDeleteTask
             // 
+            btnDeleteTask.Alignment = ToolStripItemAlignment.Right;
             btnDeleteTask.DisplayStyle = ToolStripItemDisplayStyle.Image;
             btnDeleteTask.ForeColor = Color.White;
             btnDeleteTask.Name = "btnDeleteTask";
             btnDeleteTask.Size = new Size(23, 37);
             btnDeleteTask.Text = "Delete Task";
+            // 
+            // tsSepDelete
+            // 
+            tsSepDelete.Alignment = ToolStripItemAlignment.Right;
+            tsSepDelete.Name = "tsSepDelete";
+            tsSepDelete.Size = new Size(6, 40);
+            // 
+            // btnInfo
+            // 
+            btnInfo.Alignment = ToolStripItemAlignment.Right;
+            btnInfo.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+            btnInfo.ForeColor = Color.White;
+            btnInfo.ImageAlign = ContentAlignment.MiddleLeft;
+            btnInfo.Name = "btnInfo";
+            btnInfo.Size = new Size(52, 37);
+            btnInfo.Text = "Info";
+            btnInfo.TextImageRelation = TextImageRelation.ImageBeforeText;
             // 
             // btnTaskProps
             // 
@@ -678,7 +701,6 @@ namespace MyProject.Forms
             dependencyTypeHost.Margin = new Padding(2, 4, 2, 4);
             dependencyTypeHost.Name = "dependencyTypeHost";
             dependencyTypeHost.Size = new Size(268, 32);
-            dependencyTypeHost.ToolTipText = "Dependency line type";
             // 
             // tsSep2
             // 

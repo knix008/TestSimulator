@@ -36,6 +36,7 @@ namespace MyProject.Rendering
                 try
                 {
                     rtb.Rtf = rtf;
+                    ClearRichTextBackgroundHighlights(rtb, NoteRenderer.NoteEditorBack);
                     return;
                 }
                 catch
@@ -45,12 +46,15 @@ namespace MyProject.Rendering
             }
 
             rtb.Text = plainFallback ?? "";
+            ClearRichTextBackgroundHighlights(rtb, NoteRenderer.NoteEditorBack);
         }
 
         public static string GetRtfFromRichTextBox(RichTextBox rtb)
         {
             if (string.IsNullOrWhiteSpace(rtb.Text))
                 return "";
+
+            ClearRichTextBackgroundHighlights(rtb, NoteRenderer.NoteEditorBack);
 
             try
             {
@@ -59,6 +63,31 @@ namespace MyProject.Rendering
             catch
             {
                 return "";
+            }
+        }
+
+        /// <summary>
+        /// RichTextBox RTF often embeds white character backgrounds; strip them so note
+        /// rendering shows the UML gradient instead of opaque boxes under the text.
+        /// </summary>
+        public static void ClearRichTextBackgroundHighlights(RichTextBox rtb, Color backColor)
+        {
+            rtb.BackColor = backColor;
+            if (rtb.TextLength <= 0)
+                return;
+
+            int selStart = rtb.SelectionStart;
+            int selLength = rtb.SelectionLength;
+            try
+            {
+                rtb.SelectAll();
+                rtb.SelectionBackColor = backColor;
+            }
+            finally
+            {
+                int textLength = rtb.TextLength;
+                rtb.SelectionStart = Math.Min(selStart, textLength);
+                rtb.SelectionLength = Math.Min(selLength, Math.Max(0, textLength - rtb.SelectionStart));
             }
         }
 
@@ -98,10 +127,8 @@ namespace MyProject.Rendering
             if (string.IsNullOrWhiteSpace(rtf) || bounds.Width <= 0 || bounds.Height <= 0)
                 return;
 
-            using var brush = new SolidBrush(backColor);
-            graphics.FillRectangle(brush, bounds);
-
             using var rtb = CreateMeasureBox();
+            rtb.BackColor = backColor;
             try
             {
                 rtb.Rtf = rtf;
@@ -110,6 +137,8 @@ namespace MyProject.Rendering
             {
                 return;
             }
+
+            ClearRichTextBackgroundHighlights(rtb, backColor);
 
             float dpiX = graphics.DpiX;
             float dpiY = graphics.DpiY;
@@ -222,6 +251,7 @@ namespace MyProject.Rendering
                 BorderStyle = BorderStyle.None,
                 ScrollBars = RichTextBoxScrollBars.None,
                 DetectUrls = false,
+                BackColor = NoteRenderer.NoteEditorBack,
                 Size = new Size(1, 1)
             };
 

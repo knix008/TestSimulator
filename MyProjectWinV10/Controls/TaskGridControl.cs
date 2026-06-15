@@ -21,14 +21,15 @@ namespace MyProject.Controls
         private VScrollBar _scrollBar;
         private HScrollBar _hScrollBar;
 
-        private const int ColumnCount = 7;
+        private const int ColumnCount = 8;
         private const int ColId = 0;
         private const int ColName = 1;
         private const int ColStart = 2;
         private const int ColDuration = 3;
         private const int ColProgress = 4;
         private const int ColAssigned = 5;
-        private const int ColDeliverable = 6;
+        private const int ColResourceAlloc = 6;
+        private const int ColDeliverable = 7;
         private const int TreeIndent = 16;
         private const int ResizeGripWidth = 6;
 
@@ -144,6 +145,7 @@ namespace MyProject.Controls
         public void SetModel(ProjectModel model)
         {
             if (_model != null) _model.ModelChanged -= OnModelChanged;
+            CancelEdit();
             _model = model;
             _model.ModelChanged += OnModelChanged;
             UpdateScrollbar();
@@ -220,7 +222,7 @@ namespace MyProject.Controls
             using (var columnBg = new SolidBrush(AppTheme.TimescaleBackground))
                 g.FillRectangle(columnBg, columnRect);
 
-            string[] headers = { "ID", "Task Name", "Start", "Days", "%", "Resource", "Deliverable" };
+            string[] headers = { "ID", "Task Name", "Start", "Days", "Progress", "Resource", "Alloc %", "Deliverable" };
             for (int i = 0; i < ColumnCount; i++)
                 DrawColumnHeader(g, ColumnLeft(i), headers[i], _colWidths[i], columnTop, columnRowH, i);
 
@@ -234,7 +236,13 @@ namespace MyProject.Controls
 
             var rect = new Rectangle(x, top, width, height);
             using var textBrush = new SolidBrush(AppTheme.TimescaleText);
-            var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
+            var sf = new StringFormat
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
             g.DrawString(text, AppTheme.FontBold, textBrush, rect, sf);
 
             int dividerX = x + width - 1;
@@ -308,7 +316,7 @@ namespace MyProject.Controls
             {
                 using var nameBrush = new SolidBrush(textColor);
                 var nameRect = new Rectangle(nameX, rowY, ColumnRight(ColName) - nameX - 4, AppTheme.RowHeight);
-                if (task.Id != _editingTaskId)
+                if (task.Id != _editingTaskId || _editingColumn != ColName)
                     g.DrawString(task.Name, font, nameBrush, nameRect,
                         new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter });
                 DrawColDivider(g, ColumnRight(ColName), rowY);
@@ -324,9 +332,12 @@ namespace MyProject.Controls
 
             if (ColumnRight(ColDuration) > 0 && ColumnLeft(ColDuration) < gridWidth)
             {
-                string durationText = task.TaskType == TaskType.Milestone ? "0" : task.DurationDays.ToString();
-                g.DrawString(durationText, smallFont, secondaryBrush,
-                    new Rectangle(ColumnLeft(ColDuration), rowY, _colWidths[ColDuration], AppTheme.RowHeight), sfCenter);
+                if (task.Id != _editingTaskId || _editingColumn != ColDuration)
+                {
+                    string durationText = task.TaskType == TaskType.Milestone ? "0" : task.DurationDays.ToString();
+                    g.DrawString(durationText, smallFont, secondaryBrush,
+                        new Rectangle(ColumnLeft(ColDuration), rowY, _colWidths[ColDuration], AppTheme.RowHeight), sfCenter);
+                }
                 DrawColDivider(g, ColumnRight(ColDuration), rowY);
             }
 
@@ -340,11 +351,22 @@ namespace MyProject.Controls
             {
                 if (task.Id != _editingTaskId || _editingColumn != ColAssigned)
                 {
-                    var lines = GetResourceDisplayLines(task.Id);
+                    var lines = GetResourceNameDisplayLines(task.Id);
                     var assigneeRect = new Rectangle(ColumnLeft(ColAssigned) + 2, rowY, _colWidths[ColAssigned] - 4, AppTheme.RowHeight);
-                    DrawListedCell(g, assigneeRect, lines, secondaryBrush, smallFont);
+                    DrawListedCell(g, assigneeRect, lines, secondaryBrush, smallFont, StringAlignment.Center);
                 }
                 DrawColDivider(g, ColumnRight(ColAssigned), rowY);
+            }
+
+            if (ColumnRight(ColResourceAlloc) > 0 && ColumnLeft(ColResourceAlloc) < gridWidth)
+            {
+                if (task.Id != _editingTaskId || _editingColumn != ColResourceAlloc)
+                {
+                    var lines = GetResourceAllocDisplayLines(task.Id);
+                    var allocRect = new Rectangle(ColumnLeft(ColResourceAlloc) + 2, rowY, _colWidths[ColResourceAlloc] - 4, AppTheme.RowHeight);
+                    DrawListedCell(g, allocRect, lines, secondaryBrush, smallFont, StringAlignment.Far);
+                }
+                DrawColDivider(g, ColumnRight(ColResourceAlloc), rowY);
             }
 
             if (ColumnRight(ColDeliverable) > 0 && ColumnLeft(ColDeliverable) < gridWidth)
@@ -361,22 +383,41 @@ namespace MyProject.Controls
 
         private static bool IsTaskCompleted(ProjectTask task) => task.Progress >= 100;
 
-        private List<string> GetResourceDisplayLines(int taskId)
+        private List<string> GetResourceNameDisplayLines(int taskId)
         {
             var assignments = _model!.GetAssignments(taskId).ToList();
             if (assignments.Count > 0)
-                return assignments.Select(a =>
-                    assignments.Count == 1 && Math.Abs(a.AllocationPercent - 100) < 0.01
-                        ? a.ResourceName
-                        : $"{a.ResourceName} ({a.AllocationPercent:0}%)").ToList();
+                return assignments.Select(a => a.ResourceName).ToList();
 
             string assigned = _model.GetTask(taskId)?.AssignedTo ?? "";
             if (string.IsNullOrWhiteSpace(assigned))
                 return new List<string>();
 
             return assigned.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(line =>
+                {
+                    ProjectModel.TryParseResourceLine(line, out string name, out _);
+                    return name;
+                })
                 .Where(s => s.Length > 0)
                 .ToList();
+        }
+
+        private List<string> GetResourceAllocDisplayLines(int taskId)
+        {
+            var assignments = _model!.GetAssignments(taskId).ToList();
+            if (assignments.Count > 0)
+                return assignments.Select(a => ProjectModel.FormatResourceAllocationDisplay(a.AllocationPercent)).ToList();
+
+            var pending = _model.GetPendingResourceAllocDisplayLines(taskId);
+            if (pending.Count > 0)
+                return pending.ToList();
+
+            var nameLines = GetResourceNameDisplayLines(taskId);
+            if (nameLines.Count == 0)
+                return new List<string>();
+
+            return nameLines.Select(_ => "100%").ToList();
         }
 
         private static List<string> GetDeliverableDisplayLines(string? deliverable)
@@ -391,16 +432,18 @@ namespace MyProject.Controls
                 .ToList();
         }
 
-        private void DrawListedCell(Graphics g, Rectangle cellRect, IReadOnlyList<string> lines, Brush textBrush, Font baseFont)
+        private void DrawListedCell(Graphics g, Rectangle cellRect, IReadOnlyList<string> lines, Brush textBrush, Font baseFont,
+            StringAlignment alignment = StringAlignment.Near)
         {
             const int maxLines = 4;
+            const int pad = 2;
             if (lines.Count == 0)
                 return;
 
-            int textX = cellRect.Left + 2;
-            int textW = Math.Max(0, cellRect.Right - textX - 2);
+            var textRect = new Rectangle(cellRect.Left + pad, cellRect.Top, Math.Max(0, cellRect.Width - pad * 2), cellRect.Height);
             var sf = new StringFormat
             {
+                Alignment = alignment,
                 LineAlignment = StringAlignment.Center,
                 Trimming = StringTrimming.EllipsisCharacter,
                 FormatFlags = StringFormatFlags.NoWrap
@@ -408,26 +451,26 @@ namespace MyProject.Controls
 
             if (lines.Count == 1)
             {
-                g.DrawString(lines[0], baseFont, textBrush,
-                    new Rectangle(textX, cellRect.Top, textW, cellRect.Height), sf);
+                g.DrawString(lines[0], baseFont, textBrush, textRect, sf);
                 return;
             }
 
             int displayCount = Math.Min(lines.Count, maxLines);
-            int lineH = Math.Max(10, cellRect.Height / displayCount);
             FontStyle multiStyle = baseFont.Style;
             using var smallFont = new Font(baseFont.FontFamily, 7.5f, multiStyle);
-            sf.LineAlignment = StringAlignment.Near;
+            int lineH = smallFont.Height;
+            int blockHeight = displayCount * lineH;
+            int startY = textRect.Top + Math.Max(0, (textRect.Height - blockHeight) / 2);
 
             for (int i = 0; i < displayCount; i++)
             {
-                var lineRect = new Rectangle(textX, cellRect.Top + i * lineH, textW, lineH);
+                var lineRect = new Rectangle(textRect.Left, startY + i * lineH, textRect.Width, lineH);
                 g.DrawString(lines[i], smallFont, textBrush, lineRect, sf);
             }
 
             if (lines.Count > maxLines)
             {
-                var moreRect = new Rectangle(textX, cellRect.Bottom - lineH, textW, lineH);
+                var moreRect = new Rectangle(textRect.Left, textRect.Bottom - lineH, textRect.Width, lineH);
                 g.DrawString("…", smallFont, textBrush, moreRect, sf);
             }
         }
@@ -512,19 +555,39 @@ namespace MyProject.Controls
 
         private void DrawProgressCell(Graphics g, ProjectTask task, int x, int rowY)
         {
-            var cellRect = new Rectangle(x + 4, rowY + (AppTheme.RowHeight - 8) / 2, _colWidths[ColProgress] - 8, 8);
-            using var bgBrush = new SolidBrush(Color.FromArgb(220, 224, 230));
-            g.FillRoundedRectangle(bgBrush, cellRect, 3);
+            const int barHeight = 8;
+            const int pad = 2;
+            const int gap = 2;
+
+            var cellRect = new Rectangle(x + pad, rowY, _colWidths[ColProgress] - pad * 2, AppTheme.RowHeight);
+            string progressText = $"{task.Progress:0}%";
+
+            int textW = (int)Math.Ceiling(g.MeasureString(progressText, AppTheme.FontTimescaleSmall).Width);
+            var textRect = new Rectangle(cellRect.Right - textW, cellRect.Top, textW, cellRect.Height);
+            int barWidth = Math.Max(4, textRect.Left - gap - cellRect.Left);
+            var barRect = new Rectangle(cellRect.Left, rowY + (AppTheme.RowHeight - barHeight) / 2, barWidth, barHeight);
+
+            using (var bgBrush = new SolidBrush(Color.FromArgb(220, 224, 230)))
+                g.FillRoundedRectangle(bgBrush, barRect, 3);
 
             if (task.Progress > 0)
             {
-                int progW = (int)(cellRect.Width * task.Progress / 100.0);
+                int progW = (int)(barRect.Width * task.Progress / 100.0);
                 if (progW > 0)
                 {
                     using var progBrush = new SolidBrush(AppTheme.Accent);
-                    g.FillRoundedRectangle(progBrush, new Rectangle(cellRect.X, cellRect.Y, progW, cellRect.Height), 3);
+                    g.FillRoundedRectangle(progBrush, new Rectangle(barRect.X, barRect.Y, progW, barRect.Height), 3);
                 }
             }
+
+            using var textBrush = new SolidBrush(AppTheme.TextSecondary);
+            var sf = new StringFormat
+            {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Center,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
+            g.DrawString(progressText, AppTheme.FontTimescaleSmall, textBrush, textRect, sf);
         }
 
         private void DrawExpandArrow(Graphics g, Rectangle rect, bool expanded)
@@ -680,9 +743,21 @@ namespace MyProject.Controls
                 return;
             }
 
+            if (ContentXFromMouse(e.X) >= ColumnLeft(ColDuration) && ContentXFromMouse(e.X) < ColumnRight(ColDuration))
+            {
+                StartInlineEdit(task, ColDuration);
+                return;
+            }
+
             if (ContentXFromMouse(e.X) >= ColumnLeft(ColAssigned) && ContentXFromMouse(e.X) < ColumnRight(ColAssigned))
             {
                 StartInlineEdit(task, ColAssigned);
+                return;
+            }
+
+            if (ContentXFromMouse(e.X) >= ColumnLeft(ColResourceAlloc) && ContentXFromMouse(e.X) < ColumnRight(ColResourceAlloc))
+            {
+                StartInlineEdit(task, ColResourceAlloc);
                 return;
             }
 
@@ -730,21 +805,24 @@ namespace MyProject.Controls
             Invalidate();
         }
 
-        private void StartInlineEdit(ProjectTask task, int column)
+        private void StartInlineEdit(ProjectTask task, int column, bool commitCurrentEdit = true)
         {
-            CommitEdit();
+            if (commitCurrentEdit)
+                CommitEdit();
             _editingTaskId = task.Id;
             _editingColumn = column;
 
             int rowY = GetRowY(task);
-            int cellLeft = ColumnLeft(column) + 4;
-            int cellWidth = Math.Max(40, _colWidths[column] - 8);
-            bool multiline = column is ColAssigned or ColDeliverable;
+            int cellLeft = ColumnLeft(column) + 2;
+            int cellWidth = Math.Max(40, _colWidths[column] - 4);
+            bool multiline = column is ColAssigned or ColResourceAlloc or ColDeliverable;
 
             string text = column switch
             {
                 ColName => task.Name,
-                ColAssigned => _model!.GetTaskResourceEditText(task.Id),
+                ColDuration => task.TaskType == TaskType.Milestone ? "0" : task.DurationDays.ToString(),
+                ColAssigned => _model!.GetTaskResourceNamesEditText(task.Id),
+                ColResourceAlloc => _model!.GetTaskResourceAllocEditText(task.Id),
                 ColDeliverable => task.Deliverable ?? "",
                 _ => ""
             };
@@ -761,14 +839,22 @@ namespace MyProject.Controls
             {
                 Text = text,
                 Font = column == ColName ? AppTheme.FontTaskName : AppTheme.FontSmall,
-                BorderStyle = multiline ? BorderStyle.None : BorderStyle.FixedSingle,
-                BackColor = multiline ? AppTheme.RowSelectedColor : Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
                 ForeColor = AppTheme.TextPrimary,
-                Location = new Point(editorX, rowY + 3),
+                Location = new Point(editorX, rowY + 2),
                 Width = editorWidth,
-                Height = AppTheme.RowHeight - 6,
+                Height = AppTheme.RowHeight - 4,
                 Multiline = multiline,
-                ScrollBars = multiline ? ScrollBars.Vertical : ScrollBars.None
+                AcceptsReturn = multiline,
+                ScrollBars = multiline ? ScrollBars.Vertical : ScrollBars.None,
+                TextAlign = column switch
+                {
+                    ColAssigned => HorizontalAlignment.Center,
+                    ColResourceAlloc => HorizontalAlignment.Right,
+                    ColDuration => HorizontalAlignment.Center,
+                    _ => HorizontalAlignment.Left
+                }
             };
             _inlineEditor.KeyDown += (s, e) =>
             {
@@ -803,6 +889,8 @@ namespace MyProject.Controls
             Invalidate();
         }
 
+        public void CommitPendingEdits() => CommitEdit();
+
         private void CommitEdit()
         {
             if (_isCommittingEdit)
@@ -814,34 +902,65 @@ namespace MyProject.Controls
                 CommitProjectNameEdit();
 
                 var editor = _inlineEditor;
+                if (editor == null)
+                    return;
+
                 int taskId = _editingTaskId;
                 int column = _editingColumn;
+                string editorText = editor.Text;
                 CancelInlineEdit();
 
-                if (editor != null && taskId >= 0 && _model != null)
-                {
-                    var task = _model.GetTask(taskId);
-                    if (task == null)
-                        return;
+                if (taskId < 0 || _model == null)
+                    return;
 
-                    switch (column)
-                    {
-                        case ColName:
-                            if (!string.IsNullOrWhiteSpace(editor.Text))
-                                task.Name = editor.Text.Trim();
-                            break;
-                        case ColAssigned:
-                            _model.SetTaskResourcesFromText(taskId, editor.Text);
-                            break;
-                        case ColDeliverable:
-                            task.Deliverable = editor.Text;
-                            break;
-                    }
+                var task = _model.GetTask(taskId);
+                if (task == null)
+                    return;
+
+                switch (column)
+                {
+                    case ColName:
+                        if (!string.IsNullOrWhiteSpace(editorText))
+                            task.Name = editorText.Trim();
+                        break;
+                    case ColDuration:
+                        if (task.TaskType != TaskType.Milestone
+                            && int.TryParse(editorText.Trim(), out int days))
+                        {
+                            task.DurationDays = Math.Max(1, days);
+                        }
+                        break;
+                    case ColAssigned:
+                        if (!_model.TrySetTaskResourcesFromColumns(taskId, editorText, _model.GetTaskResourceAllocEditText(taskId), out string? resourceError))
+                            RestoreInlineEditAfterError(task, column, editorText, resourceError);
+                        break;
+                    case ColResourceAlloc:
+                        if (!_model.TrySetTaskResourcesFromColumns(taskId, _model.GetTaskResourceNamesEditText(taskId), editorText, out string? allocError))
+                            RestoreInlineEditAfterError(task, column, editorText, allocError);
+                        break;
+                    case ColDeliverable:
+                        if (task.Deliverable != editorText)
+                        {
+                            task.Deliverable = editorText;
+                            _model.NotifyViewsChanged();
+                        }
+                        break;
                 }
             }
             finally
             {
                 _isCommittingEdit = false;
+            }
+        }
+
+        private void RestoreInlineEditAfterError(ProjectTask task, int column, string editorText, string? errorMessage)
+        {
+            MessageBox.Show(errorMessage, "Invalid Allocation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            StartInlineEdit(task, column, commitCurrentEdit: false);
+            if (_inlineEditor != null)
+            {
+                _inlineEditor.Text = editorText;
+                _inlineEditor.SelectionStart = editorText.Length;
             }
         }
 
@@ -930,7 +1049,9 @@ namespace MyProject.Controls
             {
                 int contentX = ContentXFromMouse(e.X);
                 if (contentX >= ColumnLeft(ColName) && contentX < ColumnRight(ColName)
+                    || contentX >= ColumnLeft(ColDuration) && contentX < ColumnRight(ColDuration)
                     || contentX >= ColumnLeft(ColAssigned) && contentX < ColumnRight(ColAssigned)
+                    || contentX >= ColumnLeft(ColResourceAlloc) && contentX < ColumnRight(ColResourceAlloc)
                     || contentX >= ColumnLeft(ColDeliverable) && contentX < ColumnRight(ColDeliverable))
                     Cursor = Cursors.IBeam;
             }

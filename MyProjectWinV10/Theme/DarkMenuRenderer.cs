@@ -63,14 +63,20 @@ namespace MyProject.Theme
         protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e)
         {
             var g = e.Graphics;
-            using var b = new SolidBrush(AppTheme.AccentLight);
-            g.FillRectangle(b, e.ImageRectangle);
-            using var p = new Pen(AppTheme.Accent, 2f);
-            var r = e.ImageRectangle;
-            g.DrawLines(p, new Point[] {
-                new(r.X + 3, r.Y + r.Height / 2),
-                new(r.X + r.Width / 2 - 1, r.Bottom - 4),
-                new(r.Right - 3, r.Y + 3)
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var rect = e.ImageRectangle;
+
+            if (e.Item is ToolStripMenuItem { Image: Image img })
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.DrawImage(img, rect);
+            }
+
+            using var pen = new Pen(AppTheme.Accent, 2f);
+            g.DrawLines(pen, new Point[] {
+                new(rect.X + 2, rect.Y + rect.Height / 2),
+                new(rect.X + rect.Width / 2 - 1, rect.Bottom - 3),
+                new(rect.Right - 2, rect.Y + 2)
             });
         }
     }
