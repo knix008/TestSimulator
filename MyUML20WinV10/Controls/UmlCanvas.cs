@@ -595,9 +595,9 @@ public sealed class UmlCanvas : Control
                             Select(resizeTarget, null);
                             _isResizing = true;
                             _resizeHandleIndex = resizeHandle;
-                            SyncCircleNodeBounds(_selectedNode);
-                            SyncActorNodeBounds(_selectedNode);
-                            _resizeBoundsAtStart = _selectedNode!.Bounds;
+                            SyncCircleNodeBounds(resizeTarget);
+                            SyncActorNodeBounds(resizeTarget);
+                            _resizeBoundsAtStart = resizeTarget.Bounds;
                             Capture = true;
                             break;
                         }

@@ -31,8 +31,8 @@ public static class UmlComponentInterfaceLink
         project.FindRelationship(edge.ModelElementId) is UmlDependency
         && IsInterfaceLink(source, target);
 
-    public static bool HasOutwardAssemblyLink(UmlProject project, UmlDiagram diagram, UmlDiagramNode node) =>
-        node.Presentation switch
+    public static bool HasOutwardAssemblyLink(UmlProject project, UmlDiagram? diagram, UmlDiagramNode node) =>
+        diagram is not null && node.Presentation switch
         {
             UmlNodePresentation.RequiredInterface =>
                 diagram.Edges.Any(e =>

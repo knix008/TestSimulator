@@ -591,7 +591,7 @@ public static class UmlDiagramRenderer
         UmlPackageNotation.DrawPackage(g, bounds, pen, package, node.ShowCompartments, nestingFromLabel: nestingFrom);
     }
 
-    private static void DrawPortNode(Graphics g, UmlDiagram diagram, UmlDiagramNode node, RectangleF bounds, UmlComponentPort port, Pen pen)
+    private static void DrawPortNode(Graphics g, UmlDiagram? diagram, UmlDiagramNode node, RectangleF bounds, UmlComponentPort port, Pen pen)
     {
         UmlComponentNotation.DrawPort(g, bounds, pen);
         if (!string.IsNullOrWhiteSpace(port.InterfaceName))
@@ -605,7 +605,9 @@ public static class UmlDiagramRenderer
         {
             using var font = new Font("Segoe UI", 7.5f);
             using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
-            var labelPos = UmlComponentNotation.GetPortNameLabelPosition(g, font, port.Name, diagram, node, bounds);
+            var labelPos = diagram is not null
+                ? UmlComponentNotation.GetPortNameLabelPosition(g, font, port.Name, diagram, node, bounds)
+                : new PointF(bounds.Right + 4f, bounds.Top + (bounds.Height - font.Height) / 2f);
             g.DrawString(port.Name, font, brush, labelPos.X, labelPos.Y);
         }
     }
