@@ -25,11 +25,7 @@ internal sealed class SequenceDiagramTabHost : UserControl
         Visible = false
     };
 
-    private readonly TabControl _tabs = new()
-    {
-        Dock = DockStyle.Fill,
-        Visible = false
-    };
+    private readonly NavigationTabControl _tabs = new() { Visible = false };
 
     private SequenceDiagramDocument? _document;
 

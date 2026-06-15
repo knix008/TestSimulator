@@ -6,7 +6,8 @@ namespace CodeAnalyzer.Controls;
 internal sealed class EntryPointTabPager : UserControl
 {
     private const int PageComboWidth = 168;
-    private const int PageSelectorMinWidth = 214;
+    private const int NavButtonWidth = 28;
+    private const int PageLabelWidth = 56;
 
     private readonly Label _summaryLabel = new()
     {
@@ -19,21 +20,43 @@ internal sealed class EntryPointTabPager : UserControl
 
     private readonly Label _pageLabel = new()
     {
-        AutoSize = true,
+        AutoSize = false,
+        Width = PageLabelWidth,
+        Dock = DockStyle.Left,
         Text = "페이지:",
         ForeColor = Color.FromArgb(70, 80, 95),
         TextAlign = ContentAlignment.MiddleRight,
-        Margin = new Padding(8, 0, 6, 0)
+        Padding = new Padding(4, 0, 4, 0)
     };
 
     private readonly ComboBox _pageCombo = new()
     {
         DropDownStyle = ComboBoxStyle.DropDownList,
-        Width = PageComboWidth,
-        Margin = new Padding(0)
+        Dock = DockStyle.Fill
     };
 
-    private readonly Panel _pageSelectorPanel;
+    private readonly Button _prevPageButton = new()
+    {
+        Text = "◀",
+        AutoSize = false,
+        Width = NavButtonWidth,
+        Dock = DockStyle.Left,
+        FlatStyle = FlatStyle.System,
+        ForeColor = Color.FromArgb(50, 70, 100),
+        Enabled = false
+    };
+
+    private readonly Button _nextPageButton = new()
+    {
+        Text = "▶",
+        AutoSize = false,
+        Width = NavButtonWidth,
+        Dock = DockStyle.Right,
+        FlatStyle = FlatStyle.System,
+        ForeColor = Color.FromArgb(50, 70, 100),
+        Enabled = false
+    };
+
     private int _totalItems;
     private int _pageIndex;
     private bool _suppressPageChange;
@@ -42,48 +65,30 @@ internal sealed class EntryPointTabPager : UserControl
     {
         Dock = DockStyle.Top;
         Height = 32;
-        MinimumSize = new Size(PageSelectorMinWidth, 32);
-        Padding = new Padding(8, 4, 8, 4);
+        MinimumSize = new Size(NavButtonWidth, 32);
+        Padding = new Padding(8, 4, 4, 4);
         BackColor = Color.FromArgb(248, 249, 252);
         Visible = false;
 
-        var pagePanel = new TableLayoutPanel
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            ColumnCount = 2,
-            RowCount = 1,
-            Margin = new Padding(0),
-            Padding = new Padding(0)
-        };
-        pagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        pagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, PageComboWidth));
-        pagePanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-
-        _pageLabel.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        _pageLabel.Dock = DockStyle.Fill;
-
-        _pageCombo.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        _pageCombo.Dock = DockStyle.Fill;
-
-        pagePanel.Controls.Add(_pageLabel, 0, 0);
-        pagePanel.Controls.Add(_pageCombo, 1, 0);
-
-        _pageSelectorPanel = new Panel
+        // [◀][페이지:][ComboBox] 패널 — DockStyle.Right 으로 우측 정렬
+        // 창이 좁아질 때 왼쪽부터 클리핑되므로 ▶는 항상 최우측에 표시됨
+        var middlePanel = new Panel
         {
             Dock = DockStyle.Right,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            MinimumSize = new Size(PageSelectorMinWidth, 24),
-            Margin = new Padding(0),
-            Padding = new Padding(0)
+            Width = NavButtonWidth + PageLabelWidth + PageComboWidth
         };
-        _pageSelectorPanel.Controls.Add(pagePanel);
-        pagePanel.Location = new Point(0, 0);
-        _pageSelectorPanel.Resize += (_, _) => AlignPagePanelVertically(pagePanel);
+        // 높은 인덱스 먼저 처리: ◀가 가장 좌측이 되도록 마지막에 추가
+        middlePanel.Controls.Add(_pageCombo);       // index 0: Fill
+        middlePanel.Controls.Add(_pageLabel);        // index 1: Left
+        middlePanel.Controls.Add(_prevPageButton);   // index 2: Left (좌단)
 
-        Controls.Add(_summaryLabel);
-        Controls.Add(_pageSelectorPanel);
+        // ▶를 가장 마지막에 추가(높은 인덱스) → 도킹 처리 시 최우측에 고정
+        Controls.Add(_summaryLabel);   // index 0: Fill
+        Controls.Add(middlePanel);     // index 1: Right (▶ 왼쪽)
+        Controls.Add(_nextPageButton); // index 2: Right (최우측, 항상 표시)
+
+        _prevPageButton.Click += (_, _) => SelectPage(_pageIndex - 1);
+        _nextPageButton.Click += (_, _) => SelectPage(_pageIndex + 1);
 
         _pageCombo.SelectedIndexChanged += (_, _) =>
         {
@@ -93,6 +98,7 @@ internal sealed class EntryPointTabPager : UserControl
             }
 
             _pageIndex = _pageCombo.SelectedIndex;
+            UpdateNavButtonStates();
             PageChanged?.Invoke();
         };
     }
@@ -119,6 +125,7 @@ internal sealed class EntryPointTabPager : UserControl
                 Visible = false;
                 _pageIndex = 0;
                 _summaryLabel.Text = string.Empty;
+                UpdateNavButtonStates();
                 return;
             }
 
@@ -134,7 +141,7 @@ internal sealed class EntryPointTabPager : UserControl
                 ? Math.Clamp(preserveGlobalIndex.Value / PageSize, 0, pageCount - 1)
                 : Math.Clamp(_pageIndex, 0, pageCount - 1);
             _pageCombo.SelectedIndex = _pageIndex;
-            AlignPagePanelVertically(_pageSelectorPanel.Controls[0]);
+            UpdateNavButtonStates();
         }
         finally
         {
@@ -175,6 +182,8 @@ internal sealed class EntryPointTabPager : UserControl
             {
                 _pageCombo.SelectedIndex = pageIndex;
             }
+
+            UpdateNavButtonStates();
         }
         finally
         {
@@ -194,22 +203,16 @@ internal sealed class EntryPointTabPager : UserControl
         SelectPage(globalIndex / PageSize);
     }
 
+    private void UpdateNavButtonStates()
+    {
+        _prevPageButton.Enabled = Visible && _pageIndex > 0;
+        _nextPageButton.Enabled = Visible && _pageIndex < PageCount - 1;
+    }
+
     private string FormatPageLabel(int pageIndex, int pageCount)
     {
         var start = pageIndex * PageSize;
         var end = Math.Min(start + PageSize, _totalItems) - 1;
         return $"{start}–{end} ({pageIndex + 1}/{pageCount})";
-    }
-
-    private static void AlignPagePanelVertically(Control? pagePanel)
-    {
-        if (pagePanel?.Parent is not Panel host)
-        {
-            return;
-        }
-
-        pagePanel.Location = new Point(
-            0,
-            Math.Max(0, (host.ClientSize.Height - pagePanel.Height) / 2));
     }
 }

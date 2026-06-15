@@ -17,7 +17,7 @@ internal sealed class CallGraphTabHost : UserControl
 
     private readonly EntryPointTabPager _pager = new();
     private readonly Panel _contentPanel = new() { Dock = DockStyle.Fill };
-    private readonly TabControl _tabs = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly NavigationTabControl _tabs = new() { Visible = false };
     private readonly CallGraphViewer _singleViewer = new() { Dock = DockStyle.Fill, Visible = true };
     private readonly List<CallGraphViewer> _tabViewers = [];
     private CallGraphResult? _graph;

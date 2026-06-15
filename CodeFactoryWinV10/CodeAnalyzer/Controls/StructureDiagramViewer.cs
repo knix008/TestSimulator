@@ -103,6 +103,10 @@ public sealed class StructureDiagramViewer : UserControl
         var isSequence = _viewKind == DiagramViewKind.SequenceDiagram;
         _sequenceTabHost.Visible = isSequence;
         AutoScroll = !isSequence;
+        if (isSequence)
+        {
+            AutoScrollPosition = new Point(0, 0);
+        }
     }
 
     public void FocusType(string? typeId)
