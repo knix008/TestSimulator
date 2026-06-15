@@ -279,6 +279,7 @@ public sealed class ErdDiagramViewer : UserControl
 
         try
         {
+            ViewProgressReporter.Report(20, "테이블 노드를 구성하는 중...");
             foreach (var table in _schema.Tables.Where(t => t.SourceKind != "sql-detected"))
             {
                 var box = ErdDiagramRenderer.CreateTableBox(table);
@@ -286,8 +287,10 @@ public sealed class ErdDiagramViewer : UserControl
                 _boxMap[box.Id] = box;
             }
 
+            ViewProgressReporter.Report(70, "관계를 구성하는 중...");
             _relations.AddRange(_schema.Relations);
             _lastLayoutWidth = ClientSize.Width;
+            ViewProgressReporter.Report(90, "ERD 레이아웃을 계산하는 중...");
             _contentSize = ErdDiagramRenderer.Layout(_boxes, _relations, _lastLayoutWidth);
             _zoom.ApplyContentSize(this, _contentSize);
         }

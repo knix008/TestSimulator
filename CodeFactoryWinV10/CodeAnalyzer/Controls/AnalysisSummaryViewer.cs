@@ -111,6 +111,7 @@ public sealed class AnalysisSummaryViewer : UserControl
         _header.Text = areaCount > 0
             ? $"품질 Summary — {areaCount}개 영역{rootHint}"
             : $"품질 Summary{rootHint}";
+        ViewProgressReporter.Report(40, "Summary 카드를 구성하는 중...");
         ClearCards();
         foreach (var section in _sections)
         {

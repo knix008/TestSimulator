@@ -257,6 +257,7 @@ public sealed class BugRiskViewer : UserControl
             (_selectedLanguageId is not null ? $"  |  표시 {filtered.Count:N0}건" : "") +
             "  |  더블클릭: 소스로 이동";
 
+        ViewProgressReporter.Report(35, "버그 위험 목록을 구성하는 중...");
         var index = 1;
         foreach (var f in filtered)
         {

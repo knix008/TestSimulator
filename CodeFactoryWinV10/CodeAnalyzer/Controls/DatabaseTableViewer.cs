@@ -424,6 +424,7 @@ public sealed class DatabaseTableViewer : UserControl
             $"테이블 {_schema.Tables.Count:N0}개 · 테이블 접근 {_schema.Accesses.Count:N0}건 · 필드 접근 {totalColumnAccesses:N0}건 · 함수 {totalAccessors:N0}개 · " +
             "더블클릭: 파일 열기 · 우클릭/버튼: 접근 함수 그래프";
 
+        ViewProgressReporter.Report(30, "DB 테이블 목록을 구성하는 중...");
         var index = 1;
         foreach (var table in _schema.Tables)
         {

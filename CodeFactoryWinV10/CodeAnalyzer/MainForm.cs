@@ -32,6 +32,7 @@ public partial class MainForm : Form
     private AnalysisProgressReport? _lastAnalysisProgressReport;
     private bool _suppressRootComboChange;
     private bool _suppressDiagramViewChange;
+    private bool _sequenceUseAllEntryPoints = true;
     private UserAnalysisSettings _analysisSettings = UserAnalysisSettings.CreateDefaults();
     private MetricInspectionKind _enabledInspections = MetricInspectionKind.All;
     private IReadOnlyList<DiagramViewKind> _visibleDiagramViews = DiagramViewCatalog.ViewKinds;
@@ -1098,9 +1099,9 @@ public partial class MainForm : Form
         comboRootMethod.Items.Add(RootMethodItem.ComprehensiveRoots);
 
         var entryPointIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var entryPoint in CallGraphEntryPointResolver.FindEntryPoints(result))
+        foreach (var id in CallGraphEntryPointResolver.GetConventionEntryPointIds(result))
         {
-            entryPointIds.Add(entryPoint.Id);
+            entryPointIds.Add(id);
         }
 
         var candidates = new List<CallGraphNode>();
@@ -1129,6 +1130,7 @@ public partial class MainForm : Form
         }
 
         comboRootMethod.SelectedItem = RootMethodItem.AutoEntryPoints;
+        _sequenceUseAllEntryPoints = true;
         FitComboDropDownWidth();
 
         if (result.Nodes.Count == 0)
@@ -1242,6 +1244,12 @@ public partial class MainForm : Form
         {
             ApplyRootTypeSelection();
             return;
+        }
+
+        if (comboRootMethod.SelectedItem is RootMethodItem item)
+        {
+            _sequenceUseAllEntryPoints = item.PresetKind is RootMethodPresetKind.ConventionEntryPoints
+                or RootMethodPresetKind.ComprehensiveRoots;
         }
 
         ApplyRootMethodSelection();
@@ -1540,10 +1548,10 @@ public partial class MainForm : Form
 
         if (item.PresetKind == RootMethodPresetKind.ConventionEntryPoints)
         {
-            var entryPoints = CallGraphEntryPointResolver.FindEntryPoints(_lastAnalysis.CallGraph);
-            if (entryPoints.Count > 0)
+            var entryPointIds = CallGraphEntryPointResolver.GetConventionEntryPointIds(_lastAnalysis.CallGraph);
+            if (entryPointIds.Count > 0)
             {
-                return entryPoints.Select(node => node.Id).ToList();
+                return entryPointIds.ToList();
             }
 
             var fallback = CallGraphEntryPointResolver.FindFallbackRoot(_lastAnalysis.CallGraph);
@@ -1565,6 +1573,37 @@ public partial class MainForm : Form
         return item.Node is null ? [] : [item.Node.Id];
     }
 
+    private IReadOnlyList<string> ResolveSequenceDiagramRootIds()
+    {
+        if (_lastAnalysis is null)
+        {
+            return [];
+        }
+
+        if (!_sequenceUseAllEntryPoints
+            && comboRootMethod.SelectedItem is RootMethodItem { Node: { } node })
+        {
+            return [node.Id];
+        }
+
+        if (comboRootMethod.SelectedItem is RootMethodItem { PresetKind: RootMethodPresetKind.ComprehensiveRoots })
+        {
+            var comprehensive = CallGraphEntryPointResolver.FindComprehensiveRoots(_lastAnalysis.CallGraph);
+            if (comprehensive.Count > 0)
+            {
+                return comprehensive.Select(entry => entry.Id).ToList();
+            }
+        }
+
+        var entryPointIds = CallGraphEntryPointResolver.GetConventionEntryPointIds(_lastAnalysis.CallGraph);
+        if (entryPointIds.Count > 0)
+        {
+            return entryPointIds.ToList();
+        }
+
+        return ResolveRootNodeIds();
+    }
+
     private void ApplyRootMethodSelection()
     {
         if (_lastAnalysis is null)
@@ -1577,7 +1616,7 @@ public partial class MainForm : Form
             var rootIds = ResolveRootNodeIds();
             diagramViewHost.ProjectRootDirectory = txtRootPath.Text.Trim();
             diagramViewHost.ViewKind = GetSelectedViewKind();
-            diagramViewHost.SetAnalysis(_lastAnalysis, rootIds);
+            diagramViewHost.SetAnalysis(_lastAnalysis, rootIds, ResolveSequenceDiagramRootIds());
             ApplySearchHighlightToViewer();
             RecordCurrentRootSelectionBaseline();
         }

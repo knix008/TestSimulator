@@ -111,7 +111,7 @@ public static class FileCallGraphBuilder
             return graph;
         }
 
-        var fileRootIds = ResolveFileRoots(functionGraph, functionRootIds);
+        var fileRootIds = ResolveFileRootsForView(functionGraph, functionRootIds);
         if (fileRootIds.Count == 0)
         {
             return graph;
@@ -250,6 +250,81 @@ public static class FileCallGraphBuilder
         }
 
         return roots;
+    }
+
+    /// <summary>호출 그래프 진입점이 포함된 파일 ID 목록(파일 관계 뷰 루트).</summary>
+    public static IReadOnlyList<string> ResolveFileRootsFromEntryPoints(CallGraphResult functionGraph)
+    {
+        var entryPointIds = CallGraphEntryPointResolver.GetConventionEntryPointIds(functionGraph);
+        return ResolveFileRoots(functionGraph, entryPointIds);
+    }
+
+    public static IReadOnlyList<string> ResolveFileRootsForView(
+        CallGraphResult functionGraph,
+        IReadOnlyList<string> functionRootIds)
+    {
+        var functionRoots = functionRootIds.Count > 0
+            ? functionRootIds
+            : CallGraphEntryPointResolver.GetConventionEntryPointIds(functionGraph);
+
+        return ResolveFileRoots(functionGraph, functionRoots);
+    }
+
+    /// <summary>진입점 파일에서 BFS 깊이(최소). 진입점 파일은 0열에 배치됩니다.</summary>
+    public static Dictionary<string, int> ComputeDepthsFromFileRoots(
+        FileRelationGraphResult graph,
+        IReadOnlyList<string> rootFileIds)
+    {
+        var depths = graph.Files.ToDictionary(
+            file => file.Id,
+            _ => int.MaxValue,
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var rootId in rootFileIds)
+        {
+            if (!graph.FileMap.ContainsKey(rootId))
+            {
+                continue;
+            }
+
+            var queue = new Queue<(string Id, int Depth)>();
+            queue.Enqueue((rootId, 0));
+
+            while (queue.Count > 0)
+            {
+                var (currentId, depth) = queue.Dequeue();
+                if (depths.TryGetValue(currentId, out var existing) && existing <= depth)
+                {
+                    continue;
+                }
+
+                depths[currentId] = depth;
+
+                if (!graph.Outgoing.TryGetValue(currentId, out var children))
+                {
+                    continue;
+                }
+
+                foreach (var childId in children)
+                {
+                    if (graph.FileMap.ContainsKey(childId))
+                    {
+                        queue.Enqueue((childId, depth + 1));
+                    }
+                }
+            }
+        }
+
+        var reachableMax = depths.Values.Where(value => value != int.MaxValue).DefaultIfEmpty(0).Max();
+        foreach (var file in graph.Files)
+        {
+            if (depths[file.Id] == int.MaxValue)
+            {
+                depths[file.Id] = reachableMax + 1;
+            }
+        }
+
+        return depths;
     }
 
     public static string ToFileId(string normalizedPath) => "file:" + normalizedPath;

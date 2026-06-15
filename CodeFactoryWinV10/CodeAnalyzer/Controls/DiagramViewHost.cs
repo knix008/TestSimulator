@@ -1,10 +1,11 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
 public sealed class DiagramViewHost : UserControl
 {
-    private readonly CallGraphViewer _callGraphViewer = new() { Dock = DockStyle.Fill, Visible = true };
+    private readonly CallGraphTabHost _callGraphTabHost = new() { Dock = DockStyle.Fill, Visible = true };
     private readonly AnalysisSummaryViewer _summaryViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly StructureDiagramViewer _structureViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly CodeMetricsViewer _metricsViewer = new() { Dock = DockStyle.Fill, Visible = false };
@@ -17,6 +18,7 @@ public sealed class DiagramViewHost : UserControl
     private DiagramViewKind _viewKind = DiagramViewKind.CallGraph;
     private AnalysisResult? _analysis;
     private IReadOnlyList<string> _rootNodeIds = [];
+    private IReadOnlyList<string> _sequenceRootNodeIds = [];
 
     private CallGraphResult? _callGraphOverride;
     private string? _accessGraphRootId;
@@ -25,7 +27,7 @@ public sealed class DiagramViewHost : UserControl
 
     public DiagramViewHost()
     {
-        Controls.Add(_callGraphViewer);
+        Controls.Add(_callGraphTabHost);
         Controls.Add(_summaryViewer);
         Controls.Add(_structureViewer);
         Controls.Add(_metricsViewer);
@@ -43,7 +45,7 @@ public sealed class DiagramViewHost : UserControl
         _bugRiskViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _securityViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _summaryViewer.NavigationRequested += viewKind => SummaryNavigationRequested?.Invoke(viewKind);
-        _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
+        _callGraphTabHost.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
         _structureViewer.DirectoryRootChanged += node => DirectoryRootChanged?.Invoke(node);
         _structureViewer.FunctionRootChanged += OnStructureFunctionRootChanged;
@@ -71,13 +73,13 @@ public sealed class DiagramViewHost : UserControl
         }
     }
 
-    public CallGraphViewer CallGraphViewer => _callGraphViewer;
+    public CallGraphViewer CallGraphViewer => _callGraphTabHost.ActiveViewer;
 
     public GraphLayoutDirection LayoutDirection
     {
         set
         {
-            _callGraphViewer.LayoutDirection = value;
+            _callGraphTabHost.LayoutDirection = value;
             _structureViewer.LayoutDirection = value;
         }
     }
@@ -86,7 +88,7 @@ public sealed class DiagramViewHost : UserControl
     {
         set
         {
-            _callGraphViewer.LineStyle = value;
+            _callGraphTabHost.LineStyle = value;
             _structureViewer.LineStyle = value;
             _erdViewer.LineStyle = value;
         }
@@ -94,10 +96,11 @@ public sealed class DiagramViewHost : UserControl
 
     public string? ProjectRootDirectory { get; set; }
 
-    public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> rootNodeIds)
+    public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> rootNodeIds, IReadOnlyList<string>? sequenceRootNodeIds = null)
     {
         _analysis = analysis;
         _rootNodeIds = rootNodeIds;
+        _sequenceRootNodeIds = sequenceRootNodeIds ?? [];
         ClearGlobalVariableAccessGraph();
         _summaryViewer.SetAnalysis(_analysis, ProjectRootDirectory);
         RefreshActiveView();
@@ -114,11 +117,14 @@ public sealed class DiagramViewHost : UserControl
         _accessGraphRootIds = rootNodeIds;
         _viewKind = DiagramViewKind.CallGraph;
         ApplyVisibility();
-        _callGraphViewer.SetGlobalVariableAccessGraph(
+        using var progress = ViewProgressScope.Begin(FindForm(), DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph));
+        ViewProgressReporter.Report(10, "접근 그래프를 구성하는 중...");
+        _callGraphTabHost.SetGlobalVariableAccessGraph(
             graph,
             rootNodeIds,
             variable.Id);
-        _callGraphViewer.ExpandAll();
+        _callGraphTabHost.ExpandAll();
+        ViewProgressReporter.Report(100, "완료");
     }
 
     public void ShowDatabaseTableAccessGraph(
@@ -132,11 +138,14 @@ public sealed class DiagramViewHost : UserControl
         _accessGraphRootIds = rootNodeIds;
         _viewKind = DiagramViewKind.CallGraph;
         ApplyVisibility();
-        _callGraphViewer.SetGlobalVariableAccessGraph(
+        using var progress = ViewProgressScope.Begin(FindForm(), DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph));
+        ViewProgressReporter.Report(10, "접근 그래프를 구성하는 중...");
+        _callGraphTabHost.SetGlobalVariableAccessGraph(
             graph,
             rootNodeIds,
             table.Id);
-        _callGraphViewer.ExpandAll();
+        _callGraphTabHost.ExpandAll();
+        ViewProgressReporter.Report(100, "완료");
     }
 
     public void ClearGlobalVariableAccessGraph()
@@ -150,7 +159,8 @@ public sealed class DiagramViewHost : UserControl
     {
         _analysis = null;
         _rootNodeIds = [];
-        _callGraphViewer.BeginAnalysis();
+        _sequenceRootNodeIds = [];
+        _callGraphTabHost.BeginAnalysis();
         _summaryViewer.BeginAnalysis();
         _structureViewer.BeginAnalysis();
         _metricsViewer.BeginAnalysis();
@@ -164,7 +174,7 @@ public sealed class DiagramViewHost : UserControl
 
     public void EndAnalysis()
     {
-        _callGraphViewer.EndAnalysis();
+        _callGraphTabHost.EndAnalysis();
         _summaryViewer.EndAnalysis();
         _structureViewer.EndAnalysis();
         _metricsViewer.EndAnalysis();
@@ -178,14 +188,14 @@ public sealed class DiagramViewHost : UserControl
 
     public void ClearSearchHighlight()
     {
-        _callGraphViewer.ClearSearchHighlight();
+        _callGraphTabHost.ClearSearchHighlight();
         _structureViewer.ClearSearchHighlight();
     }
 
     public void ResetView()
     {
         if (_viewKind == DiagramViewKind.CallGraph)
-            _callGraphViewer.ResetView();
+            _callGraphTabHost.ResetView();
         else if (_viewKind == DiagramViewKind.DatabaseErd)
             _erdViewer.ResetView();
         else if (_structureViewer.Visible)
@@ -196,7 +206,7 @@ public sealed class DiagramViewHost : UserControl
     {
         if (_viewKind == DiagramViewKind.CallGraph)
         {
-            _callGraphViewer.SetSearchHighlight(matchIds, currentId);
+            _callGraphTabHost.SetSearchHighlight(matchIds, currentId);
         }
         else
         {
@@ -218,7 +228,7 @@ public sealed class DiagramViewHost : UserControl
 
         if (_viewKind == DiagramViewKind.CallGraph)
         {
-            return _callGraphViewer.TryFocusNode(nodeId);
+            return _callGraphTabHost.TryFocusNode(nodeId);
         }
 
         if (_viewKind == DiagramViewKind.FileRelations
@@ -274,8 +284,7 @@ public sealed class DiagramViewHost : UserControl
         _rootNodeIds = [node.Id];
         CallGraphRootChanged?.Invoke(node);
 
-        if (_viewKind is DiagramViewKind.SequenceDiagram
-            or DiagramViewKind.DataFlow
+        if (_viewKind is DiagramViewKind.DataFlow
             or DiagramViewKind.FileRelations
             or DiagramViewKind.DirectoryRelations)
         {
@@ -286,7 +295,7 @@ public sealed class DiagramViewHost : UserControl
 
     private void ApplyVisibility()
     {
-        _callGraphViewer.Visible = _viewKind == DiagramViewKind.CallGraph;
+        _callGraphTabHost.Visible = _viewKind == DiagramViewKind.CallGraph;
         _summaryViewer.Visible = _viewKind == DiagramViewKind.Summary;
         _structureViewer.Visible = _viewKind is DiagramViewKind.ClassDiagram
             or DiagramViewKind.SequenceDiagram
@@ -307,7 +316,7 @@ public sealed class DiagramViewHost : UserControl
     {
         if (_viewKind == DiagramViewKind.CallGraph)
         {
-            _callGraphViewer.ExpandAll();
+            _callGraphTabHost.ExpandAll();
         }
     }
 
@@ -315,7 +324,7 @@ public sealed class DiagramViewHost : UserControl
     {
         if (_viewKind == DiagramViewKind.CallGraph)
         {
-            _callGraphViewer.CollapseAll();
+            _callGraphTabHost.CollapseAll();
         }
     }
 
@@ -325,7 +334,7 @@ public sealed class DiagramViewHost : UserControl
     {
         return _viewKind switch
         {
-            DiagramViewKind.CallGraph => _callGraphViewer.ExportToBitmap(),
+            DiagramViewKind.CallGraph => _callGraphTabHost.ExportToBitmap(),
             DiagramViewKind.CodeMetrics => null,
             DiagramViewKind.DuplicateCode => null,
             DiagramViewKind.GlobalVariables => null,
@@ -338,6 +347,20 @@ public sealed class DiagramViewHost : UserControl
     }
 
     private void RefreshActiveView()
+    {
+        if (_viewKind == DiagramViewKind.SequenceDiagram)
+        {
+            RefreshActiveViewCore();
+            return;
+        }
+
+        using var progress = ViewProgressScope.Begin(FindForm(), DiagramViewDisplayNames.Get(_viewKind));
+        ViewProgressReporter.Report(5, "뷰를 준비하는 중...");
+        RefreshActiveViewCore();
+        ViewProgressReporter.Report(100, "완료");
+    }
+
+    private void RefreshActiveViewCore()
     {
         if (_viewKind == DiagramViewKind.Summary)
         {
@@ -391,18 +414,29 @@ public sealed class DiagramViewHost : UserControl
         {
             if (_analysis is null && _callGraphOverride is null)
             {
-                _callGraphViewer.SetGraph(null, Array.Empty<string>());
+                _callGraphTabHost.SetGraph(null, Array.Empty<string>());
                 return;
             }
 
             var graph = _callGraphOverride ?? _analysis!.CallGraph;
-            var roots = _callGraphOverride is not null && _accessGraphRootIds is { Count: > 0 }
-                ? _accessGraphRootIds
-                : _callGraphOverride is not null && !string.IsNullOrWhiteSpace(_accessGraphRootId)
-                    ? [_accessGraphRootId!]
-                    : _rootNodeIds;
-            _callGraphViewer.SetGraph(graph, roots);
-            _callGraphViewer.ExpandAll();
+            if (_callGraphOverride is not null)
+            {
+                var accessRoots = _accessGraphRootIds is { Count: > 0 }
+                    ? _accessGraphRootIds
+                    : !string.IsNullOrWhiteSpace(_accessGraphRootId)
+                        ? [_accessGraphRootId!]
+                        : _rootNodeIds;
+                _callGraphTabHost.SetGlobalVariableAccessGraph(
+                    graph,
+                    accessRoots,
+                    _accessGraphRootId ?? accessRoots.FirstOrDefault() ?? string.Empty);
+                _callGraphTabHost.ExpandAll();
+                return;
+            }
+
+            var roots = ResolveCallGraphTabRoots();
+            _callGraphTabHost.SetGraph(graph, roots);
+            _callGraphTabHost.ExpandAll();
             return;
         }
 
@@ -411,6 +445,31 @@ public sealed class DiagramViewHost : UserControl
             _structureViewer.ViewKind = _viewKind;
         }
 
-        _structureViewer.SetAnalysis(_analysis, _rootNodeIds, ProjectRootDirectory);
+        var structureRoots = _viewKind == DiagramViewKind.SequenceDiagram
+            ? ResolveSequenceRootNodeIds()
+            : _rootNodeIds;
+        _structureViewer.SetAnalysis(_analysis, structureRoots, ProjectRootDirectory);
+    }
+
+    private IReadOnlyList<string> ResolveSequenceRootNodeIds()
+    {
+        if (_analysis is null)
+        {
+            return _sequenceRootNodeIds.Count > 0 ? _sequenceRootNodeIds : _rootNodeIds;
+        }
+
+        var selected = _sequenceRootNodeIds.Count > 0 ? _sequenceRootNodeIds : _rootNodeIds;
+        return SequenceDiagramBuilder.ResolveSequenceEntryRoots(_analysis.CallGraph, selected);
+    }
+
+    private IReadOnlyList<string> ResolveCallGraphTabRoots()
+    {
+        if (_analysis is null)
+        {
+            return _rootNodeIds;
+        }
+
+        var selected = _sequenceRootNodeIds.Count > 0 ? _sequenceRootNodeIds : _rootNodeIds;
+        return SequenceDiagramBuilder.ResolveSequenceEntryRoots(_analysis.CallGraph, selected);
     }
 }

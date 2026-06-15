@@ -221,6 +221,7 @@ public sealed class DuplicateCodeViewer : UserControl
             $"기준 {_duplicates.MinDuplicateLines}줄 이상(≥) 중복 · 그룹 {_duplicates.Groups.Count}건 · " +
             $"위치 {totalFragments}곳 · 중복 줄 {duplicateLines:N0} · 더블클릭/버튼: 파일 열기";
 
+        ViewProgressReporter.Report(30, "중복 코드 그룹 목록을 구성하는 중...");
         foreach (var group in _duplicates.Groups)
         {
             var item = new ListViewItem(group.Id);

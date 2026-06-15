@@ -55,6 +55,48 @@ public sealed class SequenceDiagramResult
     public string? TruncationNote { get; init; }
 }
 
+public sealed class SequenceDiagramParticipantLayoutData
+{
+    public required string Id { get; init; }
+    public required string DisplayName { get; init; }
+    public Rectangle HeaderBounds { get; init; }
+    public int LifelineX { get; init; }
+    public IReadOnlyList<Rectangle> Activations { get; init; } = [];
+}
+
+public sealed class SequenceDiagramMessageLayoutData
+{
+    public required SequenceMessage Message { get; init; }
+    public int FromIndex { get; init; }
+    public int ToIndex { get; init; }
+    public int Y { get; init; }
+    public bool IsSelfCall { get; init; }
+}
+
+public sealed class SequenceDiagramLayoutData
+{
+    public Size DiagramSize { get; init; }
+    public int LifelineBottomY { get; init; }
+    public IReadOnlyList<SequenceDiagramParticipantLayoutData> Participants { get; init; } = [];
+    public IReadOnlyList<SequenceDiagramMessageLayoutData> Messages { get; init; } = [];
+}
+
+public sealed class SequenceDiagramPanel
+{
+    public required string RootId { get; init; }
+    public required string Title { get; init; }
+    public required SequenceDiagramResult Diagram { get; init; }
+    public Size LayoutSize { get; init; }
+    public SequenceDiagramLayoutData? Layout { get; init; }
+}
+
+public sealed class SequenceDiagramDocument
+{
+    public IReadOnlyList<SequenceDiagramPanel> Panels { get; init; } = [];
+    public bool IsTruncated { get; init; }
+    public string? TruncationNote { get; init; }
+}
+
 public sealed class DataFlowEdge
 {
     public required string FromId { get; init; }

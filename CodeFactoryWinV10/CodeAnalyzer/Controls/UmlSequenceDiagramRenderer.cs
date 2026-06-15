@@ -1,35 +1,10 @@
+using System.Diagnostics;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
-internal sealed class UmlSequenceLayout
-{
-    public Size DiagramSize { get; init; }
-    public IReadOnlyList<UmlSequenceParticipantLayout> Participants { get; init; } = [];
-    public IReadOnlyList<UmlSequenceMessageLayout> Messages { get; init; } = [];
-    public int LifelineBottomY { get; init; }
-}
-
-internal sealed class UmlSequenceParticipantLayout
-{
-    public required string Id { get; init; }
-    public required string DisplayName { get; init; }
-    public Rectangle HeaderBounds { get; init; }
-    public int LifelineX { get; init; }
-    public IReadOnlyList<Rectangle> Activations { get; init; } = [];
-}
-
-internal sealed class UmlSequenceMessageLayout
-{
-    public required SequenceMessage Message { get; init; }
-    public int FromIndex { get; init; }
-    public int ToIndex { get; init; }
-    public int Y { get; init; }
-    public bool IsSelfCall { get; init; }
-}
-
-internal static class UmlSequenceDiagramRenderer
+internal sealed class UmlSequenceDiagramRenderer
 {
     private const int LeftMargin = 40;
     private const int TopMargin = 28;
@@ -42,6 +17,11 @@ internal static class UmlSequenceDiagramRenderer
     private const int ActivationWidth = 12;
     private const int SelfCallWidth = 28;
     private const int SelfCallHeight = 22;
+    private const int DocumentTopPadding = 8;
+    private const int DocumentTitleHeight = 30;
+    private const int DocumentPanelBottomPadding = 16;
+    private const int DocumentPanelSeparator = 24;
+    private const int DocumentGlobalNoteHeight = 22;
 
     public static Size Measure(SequenceDiagramResult? sequence)
     {
@@ -51,6 +31,120 @@ internal static class UmlSequenceDiagramRenderer
         }
 
         return BuildLayout(sequence).DiagramSize;
+    }
+
+    public static Size MeasureDocument(SequenceDiagramDocument? document)
+    {
+        if (document is null || document.Panels.Count == 0)
+        {
+            return new Size(400, 300);
+        }
+
+        var maxWidth = 400;
+        var totalHeight = DocumentTopPadding;
+
+        if (!string.IsNullOrWhiteSpace(document.TruncationNote))
+        {
+            totalHeight += DocumentGlobalNoteHeight;
+        }
+
+        for (var index = 0; index < document.Panels.Count; index++)
+        {
+            var panel = document.Panels[index];
+            var panelSize = panel.LayoutSize.IsEmpty ? Measure(panel.Diagram) : panel.LayoutSize;
+            maxWidth = Math.Max(maxWidth, panelSize.Width);
+
+            totalHeight += DocumentTitleHeight;
+            if (!string.IsNullOrWhiteSpace(document.Panels[index].Diagram.TruncationNote))
+            {
+                totalHeight += 18;
+            }
+
+            totalHeight += panelSize.Height + DocumentPanelBottomPadding;
+
+            if (index < document.Panels.Count - 1)
+            {
+                totalHeight += DocumentPanelSeparator;
+            }
+        }
+
+        return new Size(maxWidth, Math.Max(totalHeight + 12, 280));
+    }
+
+    public static Size MeasurePanel(SequenceDiagramPanel panel)
+    {
+        var panelSize = panel.LayoutSize.IsEmpty ? Measure(panel.Diagram) : panel.LayoutSize;
+        var height = panelSize.Height + 8;
+        if (!string.IsNullOrWhiteSpace(panel.Diagram.TruncationNote))
+        {
+            height += 22;
+        }
+
+        return new Size(
+            Math.Min(Math.Max(panelSize.Width, 400), AnalysisScaleLimits.MaxSequenceDiagramCacheDimension),
+            Math.Max(height, 280));
+    }
+
+    public static void DrawSinglePanel(Graphics graphics, SequenceDiagramPanel panel)
+    {
+        var y = 4;
+        if (!string.IsNullOrWhiteSpace(panel.Diagram.TruncationNote))
+        {
+            DrawNote(graphics, panel.Diagram.TruncationNote, 12, y);
+            y += 22;
+        }
+
+        using var nameFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+        using var messageFont = new Font("Segoe UI", 8.25f);
+        DrawPanel(graphics, panel.Diagram, panel.Layout, new Point(0, y), nameFont, messageFont);
+    }
+
+    public static SequenceDiagramDocument AttachPanelSizes(
+        SequenceDiagramDocument document,
+        IProgress<AnalysisProgressReport>? progress = null)
+    {
+        if (document.Panels.Count == 0)
+        {
+            return document;
+        }
+
+        var panels = new List<SequenceDiagramPanel>(document.Panels.Count);
+        var stopwatch = Stopwatch.StartNew();
+
+        for (var index = 0; index < document.Panels.Count; index++)
+        {
+            var panel = document.Panels[index];
+            var layout = BuildLayout(panel.Diagram);
+            panels.Add(new SequenceDiagramPanel
+            {
+                RootId = panel.RootId,
+                Title = panel.Title,
+                Diagram = panel.Diagram,
+                LayoutSize = layout.DiagramSize,
+                Layout = layout
+            });
+
+            progress?.Report(new AnalysisProgressReport
+            {
+                Percent = 70 + (int)((index + 1) * 30.0 / document.Panels.Count),
+                Message = $"레이아웃 계산 중 ({index + 1}/{document.Panels.Count})...",
+                Elapsed = stopwatch.Elapsed
+            });
+        }
+
+        progress?.Report(new AnalysisProgressReport
+        {
+            Percent = 100,
+            Message = "완료",
+            Elapsed = stopwatch.Elapsed
+        });
+
+        return new SequenceDiagramDocument
+        {
+            Panels = panels,
+            IsTruncated = document.IsTruncated,
+            TruncationNote = document.TruncationNote
+        };
     }
 
     public static bool TryHitParticipant(
@@ -86,12 +180,142 @@ internal static class UmlSequenceDiagramRenderer
 
     public static void Draw(Graphics graphics, SequenceDiagramResult? sequence)
     {
+        DrawPanel(graphics, sequence, layout: null, Point.Empty);
+    }
+
+    public static void DrawDocument(Graphics graphics, SequenceDiagramDocument? document)
+    {
+        DrawDocument(graphics, document, null);
+    }
+
+    public static void DrawDocument(Graphics graphics, SequenceDiagramDocument? document, Rectangle? visibleDocumentBounds)
+    {
+        if (document is null || document.Panels.Count == 0)
+        {
+            return;
+        }
+
+        var y = DocumentTopPadding;
+        const int cullMargin = 160;
+
+        if (!string.IsNullOrWhiteSpace(document.TruncationNote))
+        {
+            DrawNote(graphics, document.TruncationNote, 12, y);
+            y += DocumentGlobalNoteHeight;
+        }
+
+        using var titleFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        using var titleBrush = new SolidBrush(Color.FromArgb(35, 45, 60));
+        using var separatorPen = new Pen(Color.FromArgb(210, 215, 222), 1f);
+        using var nameFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+        using var messageFont = new Font("Segoe UI", 8.25f);
+
+        for (var index = 0; index < document.Panels.Count; index++)
+        {
+            var panel = document.Panels[index];
+            var panelSize = panel.LayoutSize.IsEmpty ? Measure(panel.Diagram) : panel.LayoutSize;
+            var blockHeight = ComputePanelBlockHeight(panel, panelSize);
+            var blockTop = y;
+            var blockBottom = blockTop + blockHeight;
+
+            if (visibleDocumentBounds is { } visible)
+            {
+                if (blockBottom < visible.Top - cullMargin)
+                {
+                    y = blockBottom;
+                    continue;
+                }
+
+                if (blockTop > visible.Bottom + cullMargin)
+                {
+                    break;
+                }
+            }
+
+            var title = document.Panels.Count > 1
+                ? $"[{index + 1}/{document.Panels.Count}] {panel.Title}"
+                : panel.Title;
+
+            graphics.DrawString(title, titleFont, titleBrush, 12, y);
+            y += DocumentTitleHeight;
+
+            if (!string.IsNullOrWhiteSpace(panel.Diagram.TruncationNote))
+            {
+                DrawNote(graphics, panel.Diagram.TruncationNote, 12, y);
+                y += 18;
+            }
+
+            try
+            {
+                DrawPanel(graphics, panel.Diagram, panel.Layout, new Point(0, y), nameFont, messageFont);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                DrawNote(graphics, $"패널 그리기 실패: {ex.Message}", 12, y + 4);
+                y += panelSize.Height + DocumentPanelBottomPadding;
+                continue;
+            }
+
+            y += panelSize.Height + DocumentPanelBottomPadding;
+
+            if (index < document.Panels.Count - 1)
+            {
+                graphics.DrawLine(separatorPen, 12, y, Math.Max(panelSize.Width - 12, 200), y);
+                y += DocumentPanelSeparator;
+            }
+        }
+    }
+
+    private static int ComputePanelBlockHeight(SequenceDiagramPanel panel, Size panelSize)
+    {
+        var height = DocumentTitleHeight + panelSize.Height + DocumentPanelBottomPadding;
+        if (!string.IsNullOrWhiteSpace(panel.Diagram.TruncationNote))
+        {
+            height += 18;
+        }
+
+        return height;
+    }
+
+    private static void DrawPanel(
+        Graphics graphics,
+        SequenceDiagramResult? sequence,
+        SequenceDiagramLayoutData? layout,
+        Point origin,
+        Font? nameFont = null,
+        Font? messageFont = null)
+    {
         if (sequence is null || sequence.ParticipantIds.Count == 0)
         {
             return;
         }
 
-        var layout = BuildLayout(sequence);
+        graphics.TranslateTransform(origin.X, origin.Y);
+        try
+        {
+            DrawCore(graphics, sequence, layout, nameFont, messageFont);
+        }
+        finally
+        {
+            graphics.ResetTransform();
+        }
+    }
+
+    private static void DrawNote(Graphics graphics, string note, int x, int y)
+    {
+        using var noteFont = new Font("Segoe UI", 8.25f, FontStyle.Italic);
+        using var noteBrush = new SolidBrush(Color.FromArgb(120, 90, 0));
+        graphics.DrawString(note, noteFont, noteBrush, x, y);
+    }
+
+    private static void DrawCore(
+        Graphics graphics,
+        SequenceDiagramResult sequence,
+        SequenceDiagramLayoutData? layout,
+        Font? nameFont = null,
+        Font? messageFont = null)
+    {
+        var resolvedLayout = layout ?? BuildLayout(sequence);
 
         using var lifelinePen = new Pen(Color.FromArgb(90, 100, 115), 1f)
         {
@@ -99,26 +323,27 @@ internal static class UmlSequenceDiagramRenderer
         };
         using var borderPen = new Pen(Color.FromArgb(35, 45, 60), 1.4f);
         using var messagePen = new Pen(Color.FromArgb(35, 45, 60), 1.5f);
-        using var fillBrush = new SolidBrush(Color.White);
         using var headerBrush = new SolidBrush(Color.FromArgb(248, 250, 252));
         using var activationBrush = new SolidBrush(Color.FromArgb(225, 235, 248));
         using var activationBorder = new Pen(Color.FromArgb(74, 108, 155), 1f);
-        using var nameFont = new Font("Segoe UI", 9f, FontStyle.Bold);
-        using var messageFont = new Font("Segoe UI", 8.25f);
+        using var ownedNameFont = nameFont is null ? new Font("Segoe UI", 9f, FontStyle.Bold) : null;
+        using var ownedMessageFont = messageFont is null ? new Font("Segoe UI", 8.25f) : null;
         using var textBrush = new SolidBrush(Color.FromArgb(30, 40, 55));
         using var arrowFill = new SolidBrush(Color.FromArgb(35, 45, 60));
+        var resolvedNameFont = nameFont ?? ownedNameFont!;
+        var resolvedMessageFont = messageFont ?? ownedMessageFont!;
 
-        foreach (var participant in layout.Participants)
+        foreach (var participant in resolvedLayout.Participants)
         {
             var header = participant.HeaderBounds;
             graphics.FillRectangle(headerBrush, header);
             graphics.DrawRectangle(borderPen, header);
 
             var name = participant.DisplayName;
-            var nameSize = graphics.MeasureString(name, nameFont);
+            var nameSize = graphics.MeasureString(name, resolvedNameFont);
             graphics.DrawString(
                 name,
-                nameFont,
+                resolvedNameFont,
                 textBrush,
                 header.Left + (header.Width - nameSize.Width) / 2f,
                 header.Top + (header.Height - nameSize.Height) / 2f - 1);
@@ -128,7 +353,7 @@ internal static class UmlSequenceDiagramRenderer
                 participant.LifelineX,
                 header.Bottom,
                 participant.LifelineX,
-                layout.LifelineBottomY);
+                resolvedLayout.LifelineBottomY);
 
             foreach (var activation in participant.Activations)
             {
@@ -137,16 +362,24 @@ internal static class UmlSequenceDiagramRenderer
             }
         }
 
-        foreach (var messageDraw in layout.Messages)
+        foreach (var messageDraw in resolvedLayout.Messages)
         {
-            var from = layout.Participants[messageDraw.FromIndex];
-            var to = layout.Participants[messageDraw.ToIndex];
+            if (messageDraw.FromIndex < 0
+                || messageDraw.ToIndex < 0
+                || messageDraw.FromIndex >= resolvedLayout.Participants.Count
+                || messageDraw.ToIndex >= resolvedLayout.Participants.Count)
+            {
+                continue;
+            }
+
+            var from = resolvedLayout.Participants[messageDraw.FromIndex];
+            var to = resolvedLayout.Participants[messageDraw.ToIndex];
             var y = messageDraw.Y;
             var label = $"{messageDraw.Message.Order + 1}: {messageDraw.Message.Label}";
 
             if (messageDraw.IsSelfCall)
             {
-                DrawSelfMessage(graphics, messagePen, arrowFill, messageFont, textBrush, from.LifelineX, y, label);
+                DrawSelfMessage(graphics, messagePen, arrowFill, resolvedMessageFont, textBrush, from.LifelineX, y, label);
                 continue;
             }
 
@@ -155,16 +388,16 @@ internal static class UmlSequenceDiagramRenderer
             var start = new Point(x1, y);
             var end = new Point(x2, y);
 
-            var labelSize = graphics.MeasureString(label, messageFont);
+            var labelSize = graphics.MeasureString(label, resolvedMessageFont);
             var labelX = Math.Min(x1, x2) + Math.Abs(x2 - x1) / 2f - labelSize.Width / 2f;
-            graphics.DrawString(label, messageFont, textBrush, labelX, y - labelSize.Height - 3);
+            graphics.DrawString(label, resolvedMessageFont, textBrush, labelX, y - labelSize.Height - 3);
 
             graphics.DrawLine(messagePen, start, end);
             DrawFilledArrow(graphics, messagePen, arrowFill, start, end);
         }
     }
 
-    private static UmlSequenceLayout BuildLayout(SequenceDiagramResult sequence)
+    private static SequenceDiagramLayoutData BuildLayout(SequenceDiagramResult sequence)
     {
         var participantWidths = sequence.ParticipantIds
             .Select(id =>
@@ -174,14 +407,14 @@ internal static class UmlSequenceDiagramRenderer
             })
             .ToList();
 
-        var participants = new List<UmlSequenceParticipantLayout>();
+        var participants = new List<SequenceDiagramParticipantLayoutData>();
         var x = LeftMargin;
         for (var index = 0; index < sequence.ParticipantIds.Count; index++)
         {
             var id = sequence.ParticipantIds[index];
             var width = participantWidths[index];
             var header = new Rectangle(x, TopMargin, width, HeaderHeight);
-            participants.Add(new UmlSequenceParticipantLayout
+            participants.Add(new SequenceDiagramParticipantLayoutData
             {
                 Id = id,
                 DisplayName = GetDisplayName(sequence, id),
@@ -192,7 +425,7 @@ internal static class UmlSequenceDiagramRenderer
         }
 
         var messageStartY = TopMargin + HeaderHeight + 36;
-        var messages = new List<UmlSequenceMessageLayout>();
+        var messages = new List<SequenceDiagramMessageLayoutData>();
         var activationsByParticipant = participants.ToDictionary(
             participant => participant.Id,
             _ => new List<Rectangle>(),
@@ -210,7 +443,7 @@ internal static class UmlSequenceDiagramRenderer
             var y = messageStartY + message.Order * MessageRowHeight;
             var isSelf = fromIndex == toIndex;
 
-            messages.Add(new UmlSequenceMessageLayout
+            messages.Add(new SequenceDiagramMessageLayoutData
             {
                 Message = message,
                 FromIndex = fromIndex,
@@ -233,7 +466,7 @@ internal static class UmlSequenceDiagramRenderer
         }
 
         var participantsWithActivations = participants
-            .Select(participant => new UmlSequenceParticipantLayout
+            .Select(participant => new SequenceDiagramParticipantLayoutData
             {
                 Id = participant.Id,
                 DisplayName = participant.DisplayName,
@@ -251,7 +484,7 @@ internal static class UmlSequenceDiagramRenderer
         diagramWidth = Math.Min(diagramWidth, AnalysisScaleLimits.MaxSequenceDiagramCacheDimension);
         diagramHeight = Math.Min(diagramHeight, AnalysisScaleLimits.MaxSequenceDiagramCacheDimension);
 
-        return new UmlSequenceLayout
+        return new SequenceDiagramLayoutData
         {
             DiagramSize = new Size(Math.Max(diagramWidth, 400), diagramHeight),
             Participants = participantsWithActivations,

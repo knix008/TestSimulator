@@ -17,9 +17,15 @@ internal sealed class DiagramZoomController
     private Size _lastScrollMinSize = Size.Empty;
     private Size _lastClientSize = Size.Empty;
 
+    private float _maxZoom = MaxZoom;
+
     public float Zoom => _zoom;
 
     public int ZoomPercent => (int)Math.Round(_zoom * 100);
+
+    public void SetMaxZoom(float maxZoom) => _maxZoom = Math.Clamp(maxZoom, MinZoom, MaxZoom);
+
+    public void ResetMaxZoom() => _maxZoom = MaxZoom;
 
     public void Reset()
     {
@@ -83,16 +89,20 @@ internal sealed class DiagramZoomController
         Rectangle clipRect,
         Size logicalContentSize,
         Color backgroundColor,
-        Action<Graphics> drawLogicalContent)
+        Action<Graphics> drawLogicalContent,
+        bool useDocumentCache = true)
     {
-        EnsureCache(logicalContentSize, backgroundColor, drawLogicalContent);
+        if (useDocumentCache)
+        {
+            EnsureCache(logicalContentSize, backgroundColor, drawLogicalContent);
+        }
 
         if (clipRect.Width <= 0 || clipRect.Height <= 0)
         {
             return;
         }
 
-        if (_cache is not null && TryDrawFromCache(target, control, clipRect))
+        if (useDocumentCache && _cache is not null && TryDrawFromCache(target, control, clipRect))
         {
             return;
         }
@@ -174,7 +184,7 @@ internal sealed class DiagramZoomController
         var oldZoom = _zoom;
         if (e.Delta > 0)
         {
-            _zoom = Math.Min(MaxZoom, _zoom * ZoomStep);
+            _zoom = Math.Min(_maxZoom, _zoom * ZoomStep);
         }
         else if (e.Delta < 0)
         {
@@ -262,8 +272,8 @@ internal sealed class DiagramZoomController
 
     private static bool CanAllocateCacheBitmap(int width, int height)
     {
-        const int maxDimension = 16_384;
-        const long maxPixels = 64L * 1024 * 1024;
+        const int maxDimension = 8_192;
+        const long maxPixels = 32L * 1024 * 1024;
 
         if (width > maxDimension || height > maxDimension)
         {

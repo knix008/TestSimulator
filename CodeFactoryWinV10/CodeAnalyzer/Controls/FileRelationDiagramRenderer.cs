@@ -4,6 +4,12 @@ namespace CodeAnalyzer.Controls;
 
 internal static class FileRelationDiagramRenderer
 {
+    private const int MinNodeWidth = 200;
+    private const int MaxNodeWidth = 560;
+    private const int HorizontalPadding = 20;
+    private const int PathLineHeight = 13;
+    private const int PathCharsPerLine = 58;
+
     public static DiagramBoxNode CreateDirectoryBox(DirectoryRelationNode directory)
     {
         var displayName = directory.DisplayName;
@@ -12,6 +18,7 @@ internal static class FileRelationDiagramRenderer
             displayName = directory.FullName;
         }
 
+        var pathLines = WrapPath(directory.FullName);
         return new DiagramBoxNode
         {
             Id = directory.Id,
@@ -21,19 +28,14 @@ internal static class FileRelationDiagramRenderer
             IsUmlStyle = false,
             Attributes = [$"{directory.FileCount}개 파일", $"{directory.FunctionCount}개 함수"],
             Operations = [],
-            Lines = [directory.FullName]
+            Lines = pathLines,
+            MeasuredWidth = MeasureBoxWidth(displayName, pathLines)
         };
     }
 
     public static DiagramBoxNode CreateBox(FileRelationNode file)
     {
-        var directory = Path.GetDirectoryName(file.FilePath) ?? string.Empty;
-        var folder = string.IsNullOrWhiteSpace(directory) ? string.Empty : Path.GetFileName(directory);
-        if (string.IsNullOrWhiteSpace(folder))
-        {
-            folder = directory;
-        }
-
+        var pathLines = WrapPath(file.FullName);
         return new DiagramBoxNode
         {
             Id = file.Id,
@@ -41,9 +43,10 @@ internal static class FileRelationDiagramRenderer
             Subtitle = "파일",
             TypeKind = "file",
             IsUmlStyle = false,
-            Attributes = [folder, $"{file.FunctionCount}개 함수"],
+            Attributes = [$"{file.FunctionCount}개 함수"],
             Operations = [],
-            Lines = [file.FullName]
+            Lines = pathLines,
+            MeasuredWidth = MeasureBoxWidth(file.DisplayName, pathLines)
         };
     }
 
@@ -83,13 +86,11 @@ internal static class FileRelationDiagramRenderer
         graphics.DrawLine(separatorPen, bounds.Left, y + 2, bounds.Right, y + 2);
         y += 8;
 
-        var path = box.Lines.FirstOrDefault() ?? string.Empty;
-        if (path.Length > 36)
+        foreach (var pathLine in box.Lines)
         {
-            path = path[..33] + "...";
+            graphics.DrawString(pathLine, pathFont, subBrush, bounds.Left + 10, y);
+            y += PathLineHeight;
         }
-
-        graphics.DrawString(path, pathFont, subBrush, bounds.Left + 10, y);
     }
 
     public static void DrawFileEdge(
@@ -146,6 +147,58 @@ internal static class FileRelationDiagramRenderer
             brush,
             (start.X + end.X) / 2f - labelSize.Width / 2f,
             (start.Y + end.Y) / 2f - labelSize.Height - 4);
+    }
+
+    private static IReadOnlyList<string> WrapPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return [string.Empty];
+        }
+
+        if (path.Length <= PathCharsPerLine)
+        {
+            return [path];
+        }
+
+        var lines = new List<string>();
+        var remaining = path;
+        while (remaining.Length > 0)
+        {
+            if (remaining.Length <= PathCharsPerLine)
+            {
+                lines.Add(remaining);
+                break;
+            }
+
+            var slice = remaining[..PathCharsPerLine];
+            var breakAt = Math.Max(slice.LastIndexOf('\\'), slice.LastIndexOf('/'));
+            if (breakAt <= 0)
+            {
+                breakAt = PathCharsPerLine;
+                lines.Add(remaining[..breakAt]);
+                remaining = remaining[breakAt..];
+                continue;
+            }
+
+            lines.Add(remaining[..breakAt].TrimEnd('\\', '/'));
+            remaining = remaining[(breakAt + 1)..];
+        }
+
+        return lines;
+    }
+
+    private static int MeasureBoxWidth(string title, IReadOnlyList<string> pathLines)
+    {
+        using var titleFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        using var pathFont = new Font("Segoe UI", 7.5f);
+        var maxWidth = TextRenderer.MeasureText(title, titleFont).Width;
+        foreach (var line in pathLines)
+        {
+            maxWidth = Math.Max(maxWidth, TextRenderer.MeasureText(line, pathFont).Width);
+        }
+
+        return Math.Clamp(maxWidth + HorizontalPadding, MinNodeWidth, MaxNodeWidth);
     }
 
     private static void DrawOrthogonalEdge(

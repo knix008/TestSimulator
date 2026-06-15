@@ -713,6 +713,7 @@ public sealed class CallGraphViewer : UserControl
 
         try
         {
+            ViewProgressReporter.Report(15, "호출 트리를 구성하는 중...");
             foreach (var rootNodeId in _rootNodeIds)
             {
                 if (!_graph.NodeMap.ContainsKey(rootNodeId))
@@ -736,6 +737,7 @@ public sealed class CallGraphViewer : UserControl
                 return;
             }
 
+            ViewProgressReporter.Report(85, "호출 그래프 레이아웃을 계산하는 중...");
             _contentSize = InflateGraphContentSize(CallGraphLayoutEngine.Layout(_roots, _layoutDirection));
             _zoom.InvalidateCache();
             _zoom.ApplyContentSize(this, _contentSize);

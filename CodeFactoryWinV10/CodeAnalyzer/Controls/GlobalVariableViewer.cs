@@ -214,6 +214,7 @@ public sealed class GlobalVariableViewer : UserControl
             $"전역 변수 {_globals.Variables.Count:N0}개 · 접근 함수 {totalAccessors:N0}개 · 파일 {fileCount:N0}개 · 언어 {languageCount:N0}개 · " +
             "변수 더블클릭/우클릭: 접근 함수 그래프";
 
+        ViewProgressReporter.Report(30, "전역 변수 목록을 구성하는 중...");
         var index = 1;
         foreach (var variable in _globals.Variables)
         {

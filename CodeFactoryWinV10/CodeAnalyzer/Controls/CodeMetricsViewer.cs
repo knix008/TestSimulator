@@ -506,26 +506,31 @@ public sealed class CodeMetricsViewer : UserControl
 
         if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowFunctionsTab))
         {
+            ViewProgressReporter.Report(25, "함수 메트릭 목록을 구성하는 중...");
             BuildFunctionList();
         }
 
         if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowFilesTab))
         {
+            ViewProgressReporter.Report(45, "파일 메트릭 목록을 구성하는 중...");
             BuildFileList();
         }
 
         if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowTypesTab))
         {
+            ViewProgressReporter.Report(60, "타입 메트릭 목록을 구성하는 중...");
             BuildTypeList();
         }
 
         if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowPackagesTab))
         {
+            ViewProgressReporter.Report(75, "패키지 메트릭 목록을 구성하는 중...");
             BuildPackageList();
         }
 
         if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowArchitectureTab))
         {
+            ViewProgressReporter.Report(90, "아키텍처 인사이트를 구성하는 중...");
             BuildArchitectureList();
         }
 

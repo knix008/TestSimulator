@@ -13,6 +13,7 @@ internal sealed class DiagramBoxNode
     public bool IsAbstract { get; init; }
     public IReadOnlyList<string> Attributes { get; init; } = [];
     public IReadOnlyList<string> Operations { get; init; } = [];
+    public int MeasuredWidth { get; init; } = 200;
     public Rectangle Bounds { get; set; }
 }
 
@@ -27,19 +28,30 @@ internal sealed class DiagramEdge
 
 internal static class DiagramBoxLayoutEngine
 {
-    private const int NodeWidth = 200;
+    private const int DefaultNodeWidth = 200;
     private const int LineHeight = 14;
+    private const int PathLineHeight = 13;
     private const int HeaderHeight = 36;
     private const int HorizontalGap = 72;
     private const int VerticalGap = 110;
     private const int TreeDepthGap = 120;
     private const int TreeSiblingGap = 36;
 
+    private static int GetNodeWidth(DiagramBoxNode node) =>
+        node.TypeKind is "file" or "directory"
+            ? Math.Max(DefaultNodeWidth, node.MeasuredWidth)
+            : DefaultNodeWidth;
+
     public static int MeasureNodeHeight(DiagramBoxNode node)
     {
         if (node.TypeKind is "file" or "directory")
         {
-            return HeaderHeight + Math.Max(1, node.Attributes.Count) * LineHeight + 36;
+            var pathLineCount = Math.Max(1, node.Lines.Count);
+            return HeaderHeight
+                + Math.Max(1, node.Attributes.Count) * LineHeight
+                + 10
+                + pathLineCount * PathLineHeight
+                + 8;
         }
 
         return HeaderHeight + Math.Max(1, node.Lines.Count) * LineHeight + 12;
@@ -68,16 +80,18 @@ internal static class DiagramBoxLayoutEngine
             foreach (var group in grouped)
             {
                 var y = 24;
+                var columnWidth = group.Max(GetNodeWidth);
 
                 foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
                 {
+                    var width = GetNodeWidth(node);
                     var height = MeasureNodeHeight(node);
-                    node.Bounds = new Rectangle(x, y, NodeWidth, height);
+                    node.Bounds = new Rectangle(x, y, width, height);
                     bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
                     y += height + HorizontalGap;
                 }
 
-                x += NodeWidth + VerticalGap;
+                x += columnWidth + VerticalGap;
             }
 
             return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
@@ -92,10 +106,11 @@ internal static class DiagramBoxLayoutEngine
             var topDownX = 24;
             foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
             {
+                var width = GetNodeWidth(node);
                 var height = MeasureNodeHeight(node);
-                node.Bounds = new Rectangle(topDownX, topDownY, NodeWidth, height);
+                node.Bounds = new Rectangle(topDownX, topDownY, width, height);
                 topDownBounds = topDownBounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(topDownBounds, node.Bounds);
-                topDownX += NodeWidth + HorizontalGap;
+                topDownX += width + HorizontalGap;
             }
 
             topDownY += rowHeight + VerticalGap;
@@ -169,16 +184,18 @@ internal static class DiagramBoxLayoutEngine
         foreach (var group in grouped)
         {
             var y = 24;
+            var columnWidth = group.Max(GetNodeWidth);
 
             foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
             {
+                var width = GetNodeWidth(node);
                 var height = MeasureNodeHeight(node);
-                node.Bounds = new Rectangle(x, y, NodeWidth, height);
+                node.Bounds = new Rectangle(x, y, width, height);
                 bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
                 y += height + HorizontalGap;
             }
 
-            x += NodeWidth + VerticalGap;
+            x += columnWidth + VerticalGap;
         }
 
         return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
@@ -253,10 +270,11 @@ internal static class DiagramBoxLayoutEngine
 
             foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
             {
+                var width = GetNodeWidth(node);
                 var height = MeasureNodeHeight(node);
-                node.Bounds = new Rectangle(x, y, NodeWidth, height);
+                node.Bounds = new Rectangle(x, y, width, height);
                 bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
-                x += NodeWidth + HorizontalGap;
+                x += width + HorizontalGap;
             }
 
             y += rowHeight + VerticalGap;

@@ -40,7 +40,7 @@ internal static class CallGraphBuilder
                 .ToList();
         }
 
-        return new CallGraphResult
+        var built = new CallGraphResult
         {
             Nodes = uniqueNodes,
             Edges = uniqueEdges.Select(edge => new CallGraphEdge
@@ -51,6 +51,31 @@ internal static class CallGraphBuilder
             NodeMap = nodeMap,
             Outgoing = outgoing,
             Incoming = incoming
+        };
+
+        return AttachConventionEntryPoints(built);
+    }
+
+    private static CallGraphResult AttachConventionEntryPoints(CallGraphResult result)
+    {
+        var entryPointIds = CallGraphEntryPointResolver.FindEntryPoints(result)
+            .Select(node => node.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (entryPointIds.Count == 0)
+        {
+            return result;
+        }
+
+        return new CallGraphResult
+        {
+            Nodes = result.Nodes,
+            Edges = result.Edges,
+            NodeMap = result.NodeMap,
+            Outgoing = result.Outgoing,
+            Incoming = result.Incoming,
+            ConventionEntryPointIds = entryPointIds
         };
     }
 
