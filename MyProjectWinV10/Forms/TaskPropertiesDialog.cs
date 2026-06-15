@@ -1,10 +1,17 @@
-﻿using MyProject.Models;
+﻿using MyProject.Controls;
+using MyProject.Models;
 using MyProject.Theme;
 
 namespace MyProject.Forms
 {
     public class TaskPropertiesDialog : Form
     {
+        private const int LabelColumnWidth = 172;
+        private const int ValueColumnWidth = 360;
+        private const int ColorPreviewColumnWidth = 48;
+        private const int StandardRowHeight = 36;
+        private const int TallRowHeight = 44;
+
         private readonly ProjectTask _task;
         private readonly ProjectModel _model;
 
@@ -29,9 +36,7 @@ namespace MyProject.Forms
 
         // Resources
         private DataGridView _gridResources = null!;
-
-        // Notes
-        private TextBox _txtNotes = null!;
+        private Label _lblResourceTotal = null!;
 
         public TaskPropertiesDialog(ProjectTask task, ProjectModel model)
         {
@@ -44,7 +49,9 @@ namespace MyProject.Forms
         private void Build()
         {
             Text = $"Task Properties — {_task.Name}";
-            Size = new Size(580, 540);
+            Size = new Size(LabelColumnWidth + ValueColumnWidth + 72, 580);
+            MinimumSize = Size;
+            MaximumSize = Size;
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -56,13 +63,16 @@ namespace MyProject.Forms
             tabs.TabPages.Add(BuildGeneralTab());
             tabs.TabPages.Add(BuildColorsTab());
             tabs.TabPages.Add(BuildResourcesTab());
-            tabs.TabPages.Add(BuildNotesTab());
 
             var btnOk = MakeButton("OK", true);
             var btnCancel = MakeButton("Cancel", false);
-            btnOk.DialogResult = DialogResult.OK;
+            btnOk.DialogResult = DialogResult.None;
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnOk.Click += (s, e) => SaveValues();
+            btnOk.Click += (s, e) =>
+            {
+                if (SaveValues())
+                    DialogResult = DialogResult.OK;
+            };
 
             var btnPanel = new FlowLayoutPanel
             {
@@ -81,41 +91,46 @@ namespace MyProject.Forms
         private TabPage BuildGeneralTab()
         {
             var page = new TabPage("General");
-            var layout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill, Padding = new Padding(12),
-                ColumnCount = 2, RowCount = 9
-            };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            for (int i = 0; i < 8; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
+            var layout = CreateTwoColumnLayout(9);
+            layout.RowStyles[4] = new RowStyle(SizeType.Absolute, TallRowHeight);
+            layout.RowStyles[5] = new RowStyle(SizeType.Absolute, TallRowHeight);
+            layout.RowStyles[6] = new RowStyle(SizeType.Absolute, TallRowHeight);
+            layout.RowStyles[8] = new RowStyle(SizeType.Absolute, 72);
 
             int r = 0;
 
             layout.Controls.Add(MakeLabel("Task Name:"), 0, r);
-            _txtName = new TextBox { Dock = DockStyle.Fill };
+            _txtName = new TextBox { Dock = DockStyle.Fill, Margin = FieldMargin };
             layout.Controls.Add(_txtName, 1, r++);
 
             layout.Controls.Add(MakeLabel("Type:"), 0, r);
-            _cboType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Margin = FieldMargin };
             _cboType.Items.AddRange(new object[] { "Normal", "Summary", "Milestone" });
+            TaskTypeComboTooltips.Attach(_cboType);
             layout.Controls.Add(_cboType, 1, r++);
 
             layout.Controls.Add(MakeLabel("Start Date:"), 0, r);
-            _dtpStart = new DateTimePicker { Dock = DockStyle.Fill, Format = DateTimePickerFormat.Short };
+            _dtpStart = new DateTimePicker { Dock = DockStyle.Fill, Format = DateTimePickerFormat.Short, Margin = FieldMargin };
             layout.Controls.Add(_dtpStart, 1, r++);
 
             layout.Controls.Add(MakeLabel("Duration (days):"), 0, r);
-            _nudDuration = new NumericUpDown { Dock = DockStyle.Fill, Minimum = 1, Maximum = 3650 };
+            _nudDuration = new NumericUpDown { Dock = DockStyle.Fill, Minimum = 1, Maximum = 3650, Margin = FieldMargin };
             layout.Controls.Add(_nudDuration, 1, r++);
 
             layout.Controls.Add(MakeLabel("Progress (%):"), 0, r);
-            var progPanel = new Panel { Dock = DockStyle.Fill };
-            _nudProgress = new NumericUpDown { Width = 70, Minimum = 0, Maximum = 100, Top = 4 };
-            var progressBar = new ProgressBar { Left = 78, Top = 7, Width = 150, Height = 18, Minimum = 0, Maximum = 100 };
+            var progPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Margin = FieldMargin
+            };
+            progPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
+            progPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _nudProgress = new NumericUpDown { Dock = DockStyle.Fill, Minimum = 0, Maximum = 100, Margin = Padding.Empty };
+            var progressBar = new ProgressBar { Dock = DockStyle.Fill, Minimum = 0, Maximum = 100, Margin = new Padding(8, 6, 0, 6) };
             _nudProgress.ValueChanged += (s, e) => progressBar.Value = (int)_nudProgress.Value;
-            progPanel.Controls.AddRange(new Control[] { _nudProgress, progressBar });
+            progPanel.Controls.Add(_nudProgress, 0, 0);
+            progPanel.Controls.Add(progressBar, 1, 0);
             layout.Controls.Add(progPanel, 1, r++);
 
             layout.Controls.Add(MakeLabel("Auto-schedule:"), 0, r);
@@ -123,20 +138,29 @@ namespace MyProject.Forms
             {
                 Text = "Cascade dependents when dates change",
                 Dock = DockStyle.Fill,
-                Checked = true
+                Checked = true,
+                Margin = FieldMargin,
+                AutoEllipsis = true
             };
             layout.Controls.Add(_chkAutoSchedule, 1, r++);
 
             layout.Controls.Add(MakeLabel("Critical Path:"), 0, r);
-            _chkCritical = new CheckBox { Text = "On critical path (computed)", Dock = DockStyle.Fill, Enabled = false };
+            _chkCritical = new CheckBox
+            {
+                Text = "On critical path (computed)",
+                Dock = DockStyle.Fill,
+                Enabled = false,
+                Margin = FieldMargin,
+                AutoEllipsis = true
+            };
             layout.Controls.Add(_chkCritical, 1, r++);
 
             layout.Controls.Add(MakeLabel("Assigned To:"), 0, r);
-            var txtAssigned = new TextBox { Dock = DockStyle.Fill, Name = "txtAssigned" };
+            var txtAssigned = new TextBox { Dock = DockStyle.Fill, Name = "txtAssigned", Margin = FieldMargin };
             layout.Controls.Add(txtAssigned, 1, r++);
 
             layout.Controls.Add(MakeLabel("Deliverable:"), 0, r);
-            _txtDeliverable = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical };
+            _txtDeliverable = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical, Margin = FieldMargin };
             layout.Controls.Add(_txtDeliverable, 1, r++);
 
             page.Controls.Add(layout);
@@ -155,13 +179,13 @@ namespace MyProject.Forms
                 ColumnCount = 3,
                 RowCount = 4
             };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 50));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LabelColumnWidth));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, ColorPreviewColumnWidth));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, ValueColumnWidth));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, TallRowHeight));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, TallRowHeight));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, TallRowHeight));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, TallRowHeight));
 
             layout.Controls.Add(MakeLabel("Schedule bar color:"), 0, 0);
             _scheduleColorPreview = CreateColorPreviewPanel();
@@ -238,24 +262,17 @@ namespace MyProject.Forms
 
         private Panel MakeColorBtnPanel(Func<Color> getColor, Action<Color> setColor, Panel preview, Action? onChanged = null)
         {
-            var panel = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
-            var btnChoose = new Button { Text = "Choose...", Width = 75, Height = 28, FlatStyle = FlatStyle.Flat };
-            var btnDefault = new Button { Text = "Default", Width = 65, Height = 28, FlatStyle = FlatStyle.Flat };
-            panel.Controls.AddRange(new Control[] { btnChoose, btnDefault });
-
-            const int gap = 8;
-            void LayoutButtons()
+            var panel = new FlowLayoutPanel
             {
-                int top = Math.Max(0, (panel.ClientSize.Height - btnChoose.Height) / 2);
-                btnChoose.Top = top;
-                btnChoose.Left = 0;
-                btnDefault.Top = top;
-                btnDefault.Left = btnChoose.Right + gap;
-            }
-
-            panel.Resize += (_, _) => LayoutButtons();
-            panel.HandleCreated += (_, _) => LayoutButtons();
-            if (panel.IsHandleCreated) LayoutButtons();
+                Dock = DockStyle.Fill,
+                Margin = FieldMargin,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = false
+            };
+            var btnChoose = new Button { Text = "Choose...", Width = 88, Height = 28, FlatStyle = FlatStyle.Flat, Margin = new Padding(0, 6, 8, 0) };
+            var btnDefault = new Button { Text = "Default", Width = 72, Height = 28, FlatStyle = FlatStyle.Flat, Margin = new Padding(0, 6, 0, 0) };
+            panel.Controls.AddRange(new Control[] { btnChoose, btnDefault });
 
             btnChoose.Click += (s, e) =>
             {
@@ -284,7 +301,7 @@ namespace MyProject.Forms
 
             var lblInfo = new Label
             {
-                Text = "Assign resources. Total allocation per task cannot exceed 100%.",
+                Text = "Assign resources. Allocation can exceed 100% when needed.",
                 Dock = DockStyle.Top, Height = 22,
                 ForeColor = AppTheme.TextSecondary, Font = AppTheme.FontSmall
             };
@@ -299,14 +316,31 @@ namespace MyProject.Forms
                 BorderStyle = BorderStyle.None,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                Font = AppTheme.FontNormal
+                Font = AppTheme.FontNormal,
+                ColumnHeadersHeight = 22,
+                EnableHeadersVisualStyles = false,
+                ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+                {
+                    Alignment = DataGridViewContentAlignment.MiddleCenter,
+                    Font = AppTheme.FontBold,
+                    BackColor = AppTheme.TimescaleBackground,
+                    ForeColor = AppTheme.TextPrimary
+                }
             };
             _gridResources.Columns.Add(new DataGridViewTextBoxColumn
-            { Name = "ResourceName", HeaderText = "Assignee / Resource", FillWeight = 60 });
-            _gridResources.Columns.Add(new DataGridViewTextBoxColumn
-            { Name = "AllocationPercent", HeaderText = "Allocation (%)", FillWeight = 40 });
+            { Name = "ResourceName", HeaderText = "Resource", FillWeight = 50, MinimumWidth = 120 });
+            var allocCol = new DataGridViewTextBoxColumn
+            {
+                Name = "AllocationPercent",
+                HeaderText = "Alloc %",
+                FillWeight = 50,
+                MinimumWidth = 80
+            };
+            allocCol.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            allocCol.DefaultCellStyle.NullValue = "";
+            _gridResources.Columns.Add(allocCol);
 
-            var lblTotal = new Label
+            _lblResourceTotal = new Label
             {
                 Dock = DockStyle.Bottom, Height = 22,
                 TextAlign = ContentAlignment.MiddleRight,
@@ -314,21 +348,18 @@ namespace MyProject.Forms
                 Text = "Total: 0%"
             };
 
-            _gridResources.CellEndEdit += (s, e) =>
-            {
-                double total = GetGridTotal();
-                lblTotal.Text = $"Total: {total:0}%";
-                lblTotal.ForeColor = total > 100 ? Color.Red : AppTheme.TextSecondary;
-            };
+            _gridResources.CellEndEdit += (_, _) => UpdateResourceTotal();
+            _gridResources.UserDeletedRow += (_, _) => UpdateResourceTotal();
+            _gridResources.RowsAdded += (_, _) => UpdateResourceTotal();
 
             _gridResources.CellValidating += (s, e) =>
             {
                 if (_gridResources.Columns[e.ColumnIndex].Name != "AllocationPercent") return;
                 string? val = e.FormattedValue?.ToString();
-                if (!string.IsNullOrEmpty(val) && (!double.TryParse(val, out double d) || d < 0 || d > 100))
+                if (!string.IsNullOrEmpty(val) && (!double.TryParse(val, out double d) || d < 0))
                 {
                     MessageBox.Show(
-                        $"Allocation percent must be a number between 0 and 100.\nEntered value: {val}",
+                        $"Allocation percent must be a number of 0 or greater.\nEntered value: {val}",
                         "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     e.Cancel = true;
                 }
@@ -336,16 +367,7 @@ namespace MyProject.Forms
 
             page.Controls.Add(_gridResources);
             page.Controls.Add(lblInfo);
-            page.Controls.Add(lblTotal);
-            return page;
-        }
-
-        private TabPage BuildNotesTab()
-        {
-            var page = new TabPage("Notes");
-            page.Padding = new Padding(8);
-            _txtNotes = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Both };
-            page.Controls.Add(_txtNotes);
+            page.Controls.Add(_lblResourceTotal);
             return page;
         }
 
@@ -359,7 +381,6 @@ namespace MyProject.Forms
             _chkCritical.Checked = _task.IsCritical;
             _chkAutoSchedule.Checked = _task.AutoSchedule;
             _txtDeliverable.Text = _task.Deliverable;
-            _txtNotes.Text = _task.Notes;
 
             _scheduleColor = _task.BarColor;
             _progressColor = _task.ProgressColor;
@@ -372,11 +393,13 @@ namespace MyProject.Forms
             var txtAssigned = Controls.Find("txtAssigned", true).FirstOrDefault() as TextBox;
             if (txtAssigned != null) txtAssigned.Text = _model.GetTaskAssigneeDisplay(_task.Id);
 
+            _gridResources.Rows.Clear();
             foreach (var a in _model.GetAssignments(_task.Id))
-                _gridResources.Rows.Add(a.ResourceName, a.AllocationPercent.ToString("0"));
+                _gridResources.Rows.Add(a.ResourceName, ProjectModel.FormatResourceAllocationEditDisplay(a.AllocationPercent));
+            UpdateResourceTotal();
         }
 
-        private void SaveValues()
+        private bool SaveValues()
         {
             if (!string.IsNullOrWhiteSpace(_txtName.Text))
                 _task.Name = _txtName.Text.Trim();
@@ -388,7 +411,6 @@ namespace MyProject.Forms
             _task.Progress = (double)_nudProgress.Value;
             _task.AutoSchedule = _chkAutoSchedule.Checked;
             _task.Deliverable = _txtDeliverable.Text;
-            _task.Notes = _txtNotes.Text;
             _task.BarColor = _scheduleColor;
             _task.ProgressColor = _progressColor;
             if (_task.ParentId == -1)
@@ -402,46 +424,83 @@ namespace MyProject.Forms
                 _model.CascadeDependencies(_task.Id);
 
             // Re-save resource assignments
-            foreach (var a in _model.GetAssignments(_task.Id).ToList())
-                _model.RemoveAssignment(_task.Id, a.ResourceName);
-
-            double total = 0;
+            var resourceLines = new List<string>();
             foreach (DataGridViewRow row in _gridResources.Rows)
             {
                 if (row.IsNewRow) continue;
                 string name = row.Cells["ResourceName"].Value?.ToString()?.Trim() ?? "";
                 if (string.IsNullOrEmpty(name)) continue;
-                if (!double.TryParse(row.Cells["AllocationPercent"].Value?.ToString(), out double pct)) pct = 100;
-                total += pct;
-                if (total > 100)
-                {
-                    MessageBox.Show(
-                        $"Total resource allocation exceeds 100%.\nCurrent total: {total:0}%\nRemaining assignments were not saved.",
-                        "Allocation Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    break;
-                }
-                _model.AddAssignment(_task.Id, name, pct);
+                if (!ProjectModel.TryParseAllocationNumber(row.Cells["AllocationPercent"].Value?.ToString() ?? "", out double pct))
+                    pct = 100;
+                if (pct <= 0) continue;
+                resourceLines.Add(ProjectModel.FormatResourceEditLine(name, pct));
+            }
+
+            string resourceText = string.Join(Environment.NewLine, resourceLines);
+            if (!_model.TrySetTaskResourcesFromText(_task.Id, resourceText, out string? resourceError))
+            {
+                MessageBox.Show(
+                    resourceError,
+                    "Invalid Allocation",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return false;
             }
 
             _task.AssignedTo = _model.GetTaskAssigneeDisplay(_task.Id);
             _model.NotifyViewsChanged();
+            return true;
         }
 
-        private double GetGridTotal()
+        private void UpdateResourceTotal()
         {
             double total = 0;
             foreach (DataGridViewRow row in _gridResources.Rows)
             {
-                if (row.IsNewRow) continue;
-                if (double.TryParse(row.Cells["AllocationPercent"].Value?.ToString(), out double v)) total += v;
+                if (row.IsNewRow)
+                    continue;
+
+                string name = row.Cells["ResourceName"].Value?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(name))
+                    continue;
+
+                string? allocText = row.Cells["AllocationPercent"].Value?.ToString();
+                if (string.IsNullOrWhiteSpace(allocText))
+                    total += 100;
+                else if (ProjectModel.TryParseAllocationNumber(allocText, out double pct))
+                    total += pct;
             }
-            return total;
+
+            _lblResourceTotal.Text = $"Total: {total:0}%";
+            _lblResourceTotal.ForeColor = total > 100 ? Color.Red : AppTheme.TextSecondary;
+        }
+
+        private static readonly Padding FieldMargin = new(0, 4, 0, 4);
+
+        private static TableLayoutPanel CreateTwoColumnLayout(int rowCount)
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(12),
+                ColumnCount = 2,
+                RowCount = rowCount
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LabelColumnWidth));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, ValueColumnWidth));
+            for (int i = 0; i < rowCount; i++)
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StandardRowHeight));
+            return layout;
         }
 
         private static Label MakeLabel(string text) => new()
         {
-            Text = text, TextAlign = ContentAlignment.MiddleRight,
-            Dock = DockStyle.Fill, ForeColor = AppTheme.TextSecondary
+            Text = text,
+            TextAlign = ContentAlignment.MiddleRight,
+            Dock = DockStyle.Fill,
+            ForeColor = AppTheme.TextSecondary,
+            AutoSize = false,
+            Margin = FieldMargin
         };
 
         private static Button MakeButton(string text, bool primary)

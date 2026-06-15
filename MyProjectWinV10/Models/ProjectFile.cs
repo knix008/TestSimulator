@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Windows.Forms;
 
 namespace MyProject.Models
 {
@@ -37,11 +38,17 @@ namespace MyProject.Models
             return FromData(data, path);
         }
 
-        internal static string ToSnapshot(ProjectModel model)
+        internal static string ToSnapshot(
+            ProjectModel model,
+            bool includeWindowSettings = true,
+            bool includeViewSettings = true)
         {
-            var data = ToData(model);
+            var data = ToData(model, includeWindowSettings, includeViewSettings);
             return JsonSerializer.Serialize(data, JsonOptions);
         }
+
+        internal static string ToUndoSnapshot(ProjectModel model) =>
+            ToSnapshot(model, includeWindowSettings: false, includeViewSettings: false);
 
         internal static ProjectModel FromSnapshot(string json, string? filePath = null)
         {
@@ -65,12 +72,16 @@ namespace MyProject.Models
             Save(ProjectModel.CreateTemplate(), path);
         }
 
-        private static ProjectFileData ToData(ProjectModel model)
+        private static ProjectFileData ToData(
+            ProjectModel model,
+            bool includeWindowSettings = true,
+            bool includeViewSettings = true)
         {
             return new ProjectFileData
             {
                 ProjectName = model.ProjectName,
                 ProjectStart = model.ProjectStart,
+                WorkingDays = model.WorkingWeek.ToDayFlags(),
                 Tasks = model.Tasks.Select(t => new TaskData
                 {
                     Id = t.Id,
@@ -117,24 +128,46 @@ namespace MyProject.Models
                     AnchorDate = n.AnchorDate,
                     ContentY = n.ContentY
                 }).ToList(),
-                Settings = ToSettingsData(model.ViewSettings)
+                Settings = includeViewSettings
+                    ? ToSettingsData(model.ViewSettings, includeWindowSettings)
+                    : null
             };
         }
 
-        private static SettingsData ToSettingsData(ProjectViewSettings settings) => new()
+        private static SettingsData ToSettingsData(ProjectViewSettings settings, bool includeWindowSettings = true)
         {
-            TaskGridColumnWidths = settings.TaskGridColumnWidths,
-            DefaultDependencyType = settings.DefaultDependencyType.ToString(),
-            DefaultDependencyStartLineEnd = settings.DefaultDependencyStartLineEnd.ToString(),
-            DefaultDependencyEndLineEnd = settings.DefaultDependencyEndLineEnd.ToString(),
-            DayWidth = settings.DayWidth,
-            SplitterDistance = settings.SplitterDistance,
-            PropertiesPanelWidth = settings.PropertiesPanelWidth,
-            PropertiesPanelVisible = settings.PropertiesPanelVisible,
-            ShowCriticalPath = settings.ShowCriticalPath,
-            NotesPanelHeight = settings.NotesPanelHeight,
-            NotesPanelVisible = settings.NotesPanelVisible
-        };
+            var data = new SettingsData
+            {
+                TaskGridColumnWidths = settings.TaskGridColumnWidths,
+                DefaultDependencyType = settings.DefaultDependencyType.ToString(),
+                DefaultDependencyStartLineEnd = settings.DefaultDependencyStartLineEnd.ToString(),
+                DefaultDependencyEndLineEnd = settings.DefaultDependencyEndLineEnd.ToString(),
+                DayWidth = settings.DayWidth,
+                SplitterDistance = settings.SplitterDistance,
+                PropertiesPanelWidth = settings.PropertiesPanelWidth,
+                PropertiesPanelVisible = settings.PropertiesPanelVisible,
+                ShowCriticalPath = settings.ShowCriticalPath,
+                NotesPanelHeight = settings.NotesPanelHeight,
+                NotesPanelVisible = settings.NotesPanelVisible,
+                SelectedTaskId = settings.SelectedTaskId >= 0 ? settings.SelectedTaskId : null,
+                SelectedNoteId = settings.SelectedNoteId >= 0 ? settings.SelectedNoteId : null,
+                GanttScrollY = settings.GanttScrollY,
+                GanttViewStartDate = settings.GanttViewStartDate,
+                TaskGridScrollX = settings.TaskGridScrollX,
+                TaskGridScrollY = settings.TaskGridScrollY
+            };
+
+            if (includeWindowSettings)
+            {
+                data.WindowX = settings.WindowX;
+                data.WindowY = settings.WindowY;
+                data.WindowWidth = settings.WindowWidth;
+                data.WindowHeight = settings.WindowHeight;
+                data.WindowState = settings.WindowState.ToString();
+            }
+
+            return data;
+        }
 
         private static ProjectViewSettings FromSettingsData(SettingsData? data)
         {
@@ -142,7 +175,7 @@ namespace MyProject.Models
                 return ProjectViewSettings.CreateDefault();
 
             var settings = ProjectViewSettings.CreateDefault();
-            if (data.TaskGridColumnWidths is { Length: 7 })
+            if (data.TaskGridColumnWidths is { Length: >= 7 })
                 settings.TaskGridColumnWidths = ProjectViewSettings.SanitizeColumnWidths(data.TaskGridColumnWidths);
 
             if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
@@ -172,6 +205,31 @@ namespace MyProject.Models
 
             settings.NotesPanelVisible = data.NotesPanelVisible;
 
+            if (data.WindowWidth is int savedWidth and >= 800 and <= 10000)
+                settings.WindowWidth = savedWidth;
+            if (data.WindowHeight is int savedHeight and >= 500 and <= 10000)
+                settings.WindowHeight = savedHeight;
+            if (data.WindowX is >= -10000 and <= 10000)
+                settings.WindowX = data.WindowX;
+            if (data.WindowY is >= -10000 and <= 10000)
+                settings.WindowY = data.WindowY;
+            if (Enum.TryParse<FormWindowState>(data.WindowState, out var windowState)
+                && windowState is FormWindowState.Normal or FormWindowState.Maximized)
+                settings.WindowState = windowState;
+
+            if (data.SelectedTaskId is >= 0)
+                settings.SelectedTaskId = data.SelectedTaskId.Value;
+            if (data.SelectedNoteId is >= 0)
+                settings.SelectedNoteId = data.SelectedNoteId.Value;
+            if (data.GanttScrollY is >= 0)
+                settings.GanttScrollY = data.GanttScrollY.Value;
+            if (data.GanttViewStartDate.HasValue)
+                settings.GanttViewStartDate = data.GanttViewStartDate.Value.Date;
+            if (data.TaskGridScrollX is >= 0)
+                settings.TaskGridScrollX = data.TaskGridScrollX.Value;
+            if (data.TaskGridScrollY is >= 0)
+                settings.TaskGridScrollY = data.TaskGridScrollY.Value;
+
             return settings;
         }
 
@@ -185,6 +243,8 @@ namespace MyProject.Models
                 FilePath = path,
                 IsModified = false
             };
+            model.SetWorkingWeek(WorkingWeekSchedule.FromDayFlags(data.WorkingDays));
+            model.IsModified = false;
 
             model.Restore(
                 data.Tasks,
@@ -200,6 +260,7 @@ namespace MyProject.Models
             public int Version { get; set; } = 1;
             public string ProjectName { get; set; } = "New Project";
             public DateTime ProjectStart { get; set; } = DateTime.Today;
+            public bool[]? WorkingDays { get; set; }
             public List<TaskData> Tasks { get; set; } = new();
             public List<DependencyData> Dependencies { get; set; } = new();
             public List<AssignmentData> Assignments { get; set; } = new();
@@ -220,6 +281,17 @@ namespace MyProject.Models
             public bool ShowCriticalPath { get; set; }
             public int NotesPanelHeight { get; set; } = 140;
             public bool NotesPanelVisible { get; set; } = true;
+            public int? WindowX { get; set; }
+            public int? WindowY { get; set; }
+            public int? WindowWidth { get; set; }
+            public int? WindowHeight { get; set; }
+            public string? WindowState { get; set; }
+            public int? SelectedTaskId { get; set; }
+            public int? SelectedNoteId { get; set; }
+            public int? GanttScrollY { get; set; }
+            public DateTime? GanttViewStartDate { get; set; }
+            public int? TaskGridScrollX { get; set; }
+            public int? TaskGridScrollY { get; set; }
         }
 
         internal sealed class TaskData

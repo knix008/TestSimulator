@@ -18,7 +18,7 @@ namespace MyProject.Models
         public double AllocationPercent
         {
             get => _allocationPercent;
-            set { _allocationPercent = Math.Clamp(value, 0, 100); OnPropertyChanged(nameof(AllocationPercent)); }
+            set { _allocationPercent = Math.Max(0, value); OnPropertyChanged(nameof(AllocationPercent)); }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

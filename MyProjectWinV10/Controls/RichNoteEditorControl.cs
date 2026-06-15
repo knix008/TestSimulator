@@ -14,8 +14,12 @@ namespace MyProject.Controls
         private readonly ToolStripButton _btnUnderline;
         private readonly ToolStripButton _btnStrikeout;
         private bool _suppressEvents;
+        private bool _isContentDirty;
+
+        public bool IsContentDirty => _isContentDirty;
 
         public event EventHandler? ContentChanged;
+        public event EventHandler? EditorEnter;
 
         public RichNoteEditorControl()
         {
@@ -71,10 +75,14 @@ namespace MyProject.Controls
                 HideSelection = false
             };
             _editor.SelectionChanged += (_, _) => SyncToolbarFromSelection();
+            _editor.Enter += (_, _) => EditorEnter?.Invoke(this, EventArgs.Empty);
             _editor.TextChanged += (_, _) =>
             {
                 if (!_suppressEvents)
+                {
+                    _isContentDirty = true;
                     ContentChanged?.Invoke(this, EventArgs.Empty);
+                }
             };
 
             Controls.Add(_editor);
@@ -94,12 +102,15 @@ namespace MyProject.Controls
             {
                 NoteRtfHelper.ApplyToRichTextBox(_editor, rtf, plainFallback);
                 SyncToolbarFromSelection();
+                _isContentDirty = false;
             }
             finally
             {
                 _suppressEvents = false;
             }
         }
+
+        public void MarkContentClean() => _isContentDirty = false;
 
         public void FocusEditor() => _editor.Focus();
 

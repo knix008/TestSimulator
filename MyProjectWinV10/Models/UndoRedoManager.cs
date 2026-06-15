@@ -11,7 +11,7 @@ namespace MyProject.Models
 
         public void SaveSnapshot(ProjectModel model)
         {
-            PushSnapshot(ProjectFile.ToSnapshot(model));
+            PushSnapshot(ProjectFile.ToUndoSnapshot(model));
         }
 
         public void PushSnapshot(string snapshot)
@@ -24,15 +24,20 @@ namespace MyProject.Models
         public ProjectModel? Undo(ProjectModel current)
         {
             if (!CanUndo) return null;
-            _redo.Push(ProjectFile.ToSnapshot(current));
-            return ProjectFile.FromSnapshot(_undo.Pop(), current.FilePath);
+            _redo.Push(ProjectFile.ToUndoSnapshot(current));
+            return RestoreSnapshot(_undo.Pop(), current);
         }
 
         public ProjectModel? Redo(ProjectModel current)
         {
             if (!CanRedo) return null;
-            _undo.Push(ProjectFile.ToSnapshot(current));
-            return ProjectFile.FromSnapshot(_redo.Pop(), current.FilePath);
+            _undo.Push(ProjectFile.ToUndoSnapshot(current));
+            return RestoreSnapshot(_redo.Pop(), current);
+        }
+
+        private static ProjectModel RestoreSnapshot(string snapshot, ProjectModel current)
+        {
+            return ProjectFile.FromSnapshot(snapshot, current.FilePath);
         }
 
         public void DiscardLast()

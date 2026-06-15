@@ -2,30 +2,39 @@
   "version": 1,
   "projectName": "Template Project",
   "projectStart": "2026-06-14T00:00:00+09:00",
+  "workingDays": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  ],
   "tasks": [
     {
       "id": 1,
       "parentId": -1,
       "name": "Project Planning",
-      "startDate": "2026-06-14T00:00:00+09:00",
-      "durationDays": 10,
-      "progress": 80,
+      "startDate": "2026-06-15T00:00:00+09:00",
+      "durationDays": 12,
+      "progress": 40,
       "taskType": "Summary",
       "indentLevel": 0,
       "isExpanded": true,
-      "assignedTo": "",
+      "assignedTo": "SHKWON",
       "notes": "This template shows tasks, dependencies, and notes on the Gantt chart. Select a note to edit it in the properties panel.",
       "autoSchedule": true,
-      "deliverable": "",
+      "deliverable": "\uACFC\uC81C \uACC4\uD68D\uC11C",
       "isCritical": true
     },
     {
       "id": 2,
       "parentId": 1,
       "name": "Requirements Analysis",
-      "startDate": "2026-06-14T00:00:00+09:00",
+      "startDate": "2026-06-15T00:00:00+09:00",
       "durationDays": 5,
-      "progress": 100,
+      "progress": 20,
       "taskType": "Normal",
       "indentLevel": 1,
       "isExpanded": true,
@@ -33,13 +42,13 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": true
+      "isCritical": false
     },
     {
       "id": 3,
       "parentId": 1,
       "name": "System Design",
-      "startDate": "2026-06-19T00:00:00+09:00",
+      "startDate": "2026-06-22T00:00:00+09:00",
       "durationDays": 5,
       "progress": 60,
       "taskType": "Normal",
@@ -56,8 +65,8 @@
       "parentId": -1,
       "name": "Development",
       "startDate": "2026-06-24T00:00:00+09:00",
-      "durationDays": 15,
-      "progress": 41.48148148148148,
+      "durationDays": 16,
+      "progress": 41.37931034482759,
       "taskType": "Summary",
       "indentLevel": 0,
       "isExpanded": true,
@@ -72,8 +81,8 @@
       "parentId": 4,
       "name": "Frontend Implementation",
       "startDate": "2026-06-24T00:00:00+09:00",
-      "durationDays": 12,
-      "progress": 60,
+      "durationDays": 16,
+      "progress": 57.142857142857146,
       "taskType": "Summary",
       "indentLevel": 1,
       "isExpanded": true,
@@ -81,7 +90,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 6,
@@ -103,8 +112,8 @@
       "id": 7,
       "parentId": 5,
       "name": "UI Development",
-      "startDate": "2026-06-28T00:00:00+09:00",
-      "durationDays": 8,
+      "startDate": "2026-06-30T00:00:00+09:00",
+      "durationDays": 10,
       "progress": 40,
       "taskType": "Normal",
       "indentLevel": 2,
@@ -113,7 +122,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 8,
@@ -129,7 +138,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": true
+      "isCritical": false
     },
     {
       "id": 9,
@@ -145,7 +154,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": true
+      "isCritical": false
     },
     {
       "id": 10,
@@ -161,7 +170,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": true
+      "isCritical": false
     },
     {
       "id": 11,
@@ -177,7 +186,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": true
+      "isCritical": false
     },
     {
       "id": 12,
@@ -193,13 +202,13 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": true
+      "isCritical": false
     },
     {
       "id": 13,
       "parentId": -1,
       "name": "Integration \u0026 Testing",
-      "startDate": "2026-07-14T00:00:00+09:00",
+      "startDate": "2026-07-23T00:00:00+09:00",
       "durationDays": 8,
       "progress": 0,
       "taskType": "Normal",
@@ -209,13 +218,13 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": true
+      "isCritical": false
     },
     {
       "id": 14,
       "parentId": -1,
       "name": "Release",
-      "startDate": "2026-07-22T00:00:00+09:00",
+      "startDate": "2026-08-04T00:00:00+09:00",
       "durationDays": 5,
       "progress": 0,
       "taskType": "Milestone",
@@ -286,17 +295,43 @@
       "endLineEnd": "Arrow"
     }
   ],
-  "assignments": [],
+  "assignments": [
+    {
+      "taskId": 1,
+      "resourceName": "SHKWON",
+      "allocationPercent": 100
+    }
+  ],
   "notes": [
     {
       "id": 1,
       "title": "Getting started",
       "body": "This template shows tasks, dependencies, and notes on the Gantt chart. Select a note to edit it in the properties panel.",
-      "bodyRtf": "",
+      "bodyRtf": "{\\rtf1\\ansi\\ansicpg949\\deff0\\nouicompat\\deflang1033\\deflangfe1042{\\fonttbl{\\f0\\fnil Segoe UI;}}\r\n{\\colortbl ;\\red255\\green252\\blue220;}\r\n{\\*\\generator Riched20 10.0.26100}\\viewkind4\\uc1 \r\n\\pard\\f0\\fs17\\lang1042 This template shows tasks, dependencies, and notes on the Gantt chart. Select a note to edit it in the properties panel.\\par\r\n}\r\n",
       "taskId": 1,
       "offsetDays": 0,
-      "anchorDate": "2026-06-29T00:00:00+09:00",
-      "contentY": 72
+      "anchorDate": "2026-06-28T00:00:00+09:00",
+      "contentY": 60
+    },
+    {
+      "id": 2,
+      "title": "New Note",
+      "body": "",
+      "bodyRtf": "",
+      "taskId": 3,
+      "offsetDays": 0,
+      "anchorDate": "2026-06-18T00:00:00+09:00",
+      "contentY": 243
+    },
+    {
+      "id": 3,
+      "title": "New Note",
+      "body": "",
+      "bodyRtf": "",
+      "taskId": 13,
+      "offsetDays": 0,
+      "anchorDate": "2026-07-15T00:00:00+09:00",
+      "contentY": 265
     }
   ],
   "settings": {
@@ -305,19 +340,30 @@
       200,
       58,
       34,
-      30,
+      68,
       88,
+      58,
       120
     ],
     "defaultDependencyType": "FS",
     "defaultDependencyStartLineEnd": "None",
     "defaultDependencyEndLineEnd": "Arrow",
-    "dayWidth": 16,
-    "splitterDistance": 482,
-    "propertiesPanelWidth": 300,
-    "propertiesPanelVisible": false,
+    "dayWidth": 27,
+    "splitterDistance": 621,
+    "propertiesPanelWidth": 336,
+    "propertiesPanelVisible": true,
     "showCriticalPath": true,
     "notesPanelHeight": 140,
-    "notesPanelVisible": true
+    "notesPanelVisible": true,
+    "windowX": 55,
+    "windowY": 200,
+    "windowWidth": 2076,
+    "windowHeight": 1083,
+    "windowState": "Normal",
+    "selectedTaskId": 3,
+    "ganttScrollY": 0,
+    "ganttViewStartDate": "2026-06-14T00:00:00+09:00",
+    "taskGridScrollX": 0,
+    "taskGridScrollY": 0
   }
 }

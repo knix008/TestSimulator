@@ -4,16 +4,16 @@ using MyProject.Theme;
 
 namespace MyProject.Controls
 {
-    public class DependencyLineEndSelector : UserControl
+    public class NoteLineStyleSelector : UserControl
     {
         private readonly ComboBox _combo;
-        private DependencyLineEnd _selectedStyle = DependencyLineEnd.Arrow;
+        private NoteLineStyle _selectedStyle = NoteLineStyle.Dash;
+        private DependencyLineEnd _taskLineEndContext = DependencyLineEnd.None;
+        private DependencyLineEnd _noteLineEndContext = DependencyLineEnd.None;
         private const int ItemHeight = 28;
-        private const int PreviewWidth = 72;
+        private const int PreviewWidth = 96;
 
-        public bool PreviewAtLineStart { get; set; } = false;
-
-        public DependencyLineEnd SelectedLineEnd
+        public NoteLineStyle SelectedLineStyle
         {
             get => _selectedStyle;
             set
@@ -24,9 +24,20 @@ namespace MyProject.Controls
             }
         }
 
-        public event EventHandler? SelectedLineEndChanged;
+        public event EventHandler? SelectedLineStyleChanged;
 
-        public DependencyLineEndSelector()
+        public void SetPreviewContext(DependencyLineEnd taskLineEnd, DependencyLineEnd noteLineEnd)
+        {
+            if (_taskLineEndContext == taskLineEnd && _noteLineEndContext == noteLineEnd)
+                return;
+
+            _taskLineEndContext = taskLineEnd;
+            _noteLineEndContext = noteLineEnd;
+            _combo.Invalidate();
+            Invalidate();
+        }
+
+        public NoteLineStyleSelector()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             MinimumSize = new Size(80, 28);
@@ -45,7 +56,7 @@ namespace MyProject.Controls
                 Margin = Padding.Empty
             };
 
-            foreach (var style in DependencyLineEndInfo.AllStyles)
+            foreach (var style in NoteLineStyleInfo.AllStyles)
                 _combo.Items.Add(style);
 
             _combo.SelectedIndex = 0;
@@ -66,16 +77,16 @@ namespace MyProject.Controls
 
         private void OnComboSelectionChanged(object? sender, EventArgs e)
         {
-            if (_combo.SelectedItem is not DependencyLineEnd style || _selectedStyle == style)
+            if (_combo.SelectedItem is not NoteLineStyle style || _selectedStyle == style)
                 return;
 
             _selectedStyle = style;
-            SelectedLineEndChanged?.Invoke(this, EventArgs.Empty);
+            SelectedLineStyleChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void SyncComboSelection()
         {
-            var styles = DependencyLineEndInfo.AllStyles;
+            var styles = NoteLineStyleInfo.AllStyles;
             for (int i = 0; i < styles.Count; i++)
             {
                 if (styles[i] == _selectedStyle && _combo.SelectedIndex != i)
@@ -92,7 +103,7 @@ namespace MyProject.Controls
         {
             if (e.Index < 0 || e.Index >= _combo.Items.Count) return;
 
-            var style = (DependencyLineEnd)_combo.Items[e.Index]!;
+            var style = (NoteLineStyle)_combo.Items[e.Index]!;
             bool selected = (e.State & DrawItemState.Selected) != 0;
             bool isEditState = (e.State & DrawItemState.ComboBoxEdit) != 0;
 
@@ -108,7 +119,12 @@ namespace MyProject.Controls
             int previewLeft = e.Bounds.Right - PreviewWidth - 8;
             int previewY = e.Bounds.Y + (e.Bounds.Height - previewHeight) / 2;
             var previewRect = new Rectangle(previewLeft, previewY, PreviewWidth, previewHeight);
-            DependencyLineGeometry.DrawLineEndPreview(e.Graphics, previewRect, style, PreviewAtLineStart);
+            NoteRenderer.DrawConnectorPreview(
+                e.Graphics,
+                previewRect,
+                style,
+                _taskLineEndContext,
+                _noteLineEndContext);
 
             using var textBrush = new SolidBrush(AppTheme.TextPrimary);
             var textRect = new Rectangle(e.Bounds.X + 8, e.Bounds.Y, previewLeft - e.Bounds.X - 12, e.Bounds.Height);
@@ -120,7 +136,7 @@ namespace MyProject.Controls
                 FormatFlags = StringFormatFlags.NoWrap
             };
             var font = e.Font ?? Font;
-            e.Graphics.DrawString(DependencyLineEndInfo.GetDisplayName(style), font, textBrush, textRect, sf);
+            e.Graphics.DrawString(NoteLineStyleInfo.GetDisplayName(style), font, textBrush, textRect, sf);
 
             if (!isEditState)
             {

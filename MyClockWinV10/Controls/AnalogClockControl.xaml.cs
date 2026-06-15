@@ -104,6 +104,8 @@ public partial class AnalogClockControl : UserControl
                 break;
         }
 
+        DrawAmPmAndDate(now, numBrush);
+
         double secA = now.Second               * 6      * Math.PI / 180;
         double minA = (now.Minute + now.Second / 60.0)  * 6      * Math.PI / 180;
         double hrA  = ((now.Hour % 12) + now.Minute / 60.0) * 30 * Math.PI / 180;
@@ -504,6 +506,59 @@ public partial class AnalogClockControl : UserControl
             Stroke = stroke, StrokeThickness = thickness,
             StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round
         });
+    }
+
+    private void DrawAmPmAndDate(DateTime now, Brush textBrush)
+    {
+        // ── 오전/오후 — 12시 바로 아래 ────────────────────────────────────
+        string ampm = now.Hour < 12 ? "오전" : "오후";
+        double ampmFont = ScaledNumFont(0.095);
+
+        var ampmTb = new TextBlock
+        {
+            Text = ampm, FontSize = ampmFont,
+            FontWeight = FontWeights.SemiBold, Foreground = textBrush
+        };
+        ampmTb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double ampmW = ampmTb.DesiredSize.Width;
+        double ampmH = ampmTb.DesiredSize.Height;
+        // 12 숫자 위치(_r*0.72)에서 간격을 두고 아래쪽(중앙 방향)에 배치
+        double ampmCy = _cy - _r * 0.50;
+        Canvas.SetLeft(ampmTb, _cx - ampmW / 2);
+        Canvas.SetTop(ampmTb,  ampmCy - ampmH / 2);
+        ClockCanvas.Children.Add(ampmTb);
+
+        // ── 날짜 — 6시 바로 위, 하얀 배경 ───────────────────────────────
+        string dateStr = now.Day.ToString("D2");
+        double dateFont = ScaledNumFont(0.105);
+
+        var dateTb = new TextBlock
+        {
+            Text = dateStr, FontSize = dateFont,
+            FontWeight = FontWeights.Bold, Foreground = Brushes.Black
+        };
+        dateTb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double dateTbW = dateTb.DesiredSize.Width;
+        double dateTbH = dateTb.DesiredSize.Height;
+
+        double padX = Sc(5), padY = Sc(2.5);
+        double bgW = dateTbW + padX * 2;
+        double bgH = dateTbH + padY * 2;
+        // 6 숫자 위치(_r*0.72)에서 간격을 두고 위쪽(중앙 방향)에 배치
+        double dateCy = _cy + _r * 0.50;
+
+        var bg = new Rectangle
+        {
+            Width = bgW, Height = bgH, Fill = Brushes.White,
+            RadiusX = Sc(2), RadiusY = Sc(2)
+        };
+        Canvas.SetLeft(bg, _cx - bgW / 2);
+        Canvas.SetTop(bg,  dateCy - bgH / 2);
+        ClockCanvas.Children.Add(bg);
+
+        Canvas.SetLeft(dateTb, _cx - dateTbW / 2);
+        Canvas.SetTop(dateTb,  dateCy - dateTbH / 2);
+        ClockCanvas.Children.Add(dateTb);
     }
 
     private Brush GetBrush(string key, Brush fallback)

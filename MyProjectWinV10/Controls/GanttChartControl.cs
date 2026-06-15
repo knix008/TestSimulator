@@ -46,6 +46,7 @@ namespace MyProject.Controls
         private bool _isResizingLeft = false;
         private Point _dragStartMouse;
         private DateTime _dragStartDate;
+        private DateTime _dragStartEndDate;
         private int _dragStartDuration;
         private int _dragTaskId = -1;
 
@@ -57,6 +58,7 @@ namespace MyProject.Controls
         // Scrollbar
         private VScrollBar _vScrollBar;
         private HScrollBar _hScrollBar;
+        private bool _isSyncingHorizontalScroll;
 
         private int _paintClipBottom;
         private bool _paintExportMode;
@@ -75,7 +77,30 @@ namespace MyProject.Controls
         public GanttViewport Viewport => _viewport;
         public int SelectedTaskId => _selectedTaskId;
         public int SelectedNoteId => _selectedNoteId;
+        public int ScrollOffsetY => _scrollY;
+        public DateTime ViewStartDate => _viewport.ViewStartDate;
+
+        public void SelectNote(int noteId)
+        {
+            _selectedNoteId = noteId;
+            Invalidate();
+        }
+
+        public void RestoreTimelineState(DateTime viewStartDate, int scrollY)
+        {
+            _viewport.ViewStartDate = viewStartDate;
+            _scrollY = Math.Max(0, scrollY);
+            SyncHorizontalScrollFromViewport();
+            UpdateScrollbars();
+            if (_vScrollBar.Enabled)
+                _vScrollBar.Value = Math.Min(_scrollY, Math.Max(0, _vScrollBar.Maximum));
+            Invalidate();
+        }
+
+        public bool IsInlineNoteEditActive => _noteInlineEditor != null;
         public bool NoteModeActive => _noteModeActive;
+
+        public Action? RequestUndoSnapshot { get; set; }
 
         public bool ShowCriticalPath
         {
@@ -131,6 +156,7 @@ namespace MyProject.Controls
             };
             NoteRtfHelper.ApplyToRichTextBox(_noteInlineEditor, note.BodyRtf, note.Body);
             _noteInlineEditor.KeyDown += OnNoteInlineEditorKeyDown;
+            _noteInlineEditor.LostFocus += OnNoteInlineEditorLostFocus;
             Controls.Add(_noteInlineEditor);
             _noteInlineEditor.BringToFront();
             _noteInlineEditor.Focus();
@@ -140,16 +166,32 @@ namespace MyProject.Controls
 
         public void EndInlineNoteEdit(bool commit)
         {
-            if (_noteInlineEditor == null)
+            var editor = _noteInlineEditor;
+            if (editor == null)
                 return;
 
-            if (commit && _editingNoteId >= 0 && _model != null)
-                _model.UpdateNoteRtf(_editingNoteId, NoteRtfHelper.GetRtfFromRichTextBox(_noteInlineEditor));
-
-            Controls.Remove(_noteInlineEditor);
-            _noteInlineEditor.Dispose();
+            int noteId = _editingNoteId;
             _noteInlineEditor = null;
             _editingNoteId = -1;
+
+            editor.LostFocus -= OnNoteInlineEditorLostFocus;
+            editor.KeyDown -= OnNoteInlineEditorKeyDown;
+
+            if (commit && noteId >= 0 && _model != null)
+            {
+                string newRtf = NoteRtfHelper.GetRtfFromRichTextBox(editor);
+                var note = _model.GetNote(noteId);
+                if (note != null
+                    && (note.BodyRtf != newRtf || note.Body != editor.Text))
+                {
+                    RequestUndoSnapshot?.Invoke();
+                }
+
+                _model.UpdateNoteRtf(noteId, newRtf);
+            }
+
+            Controls.Remove(editor);
+            editor.Dispose();
             Invalidate();
         }
 
@@ -162,6 +204,7 @@ namespace MyProject.Controls
             if (task == null)
                 return;
 
+            RequestUndoSnapshot?.Invoke();
             var note = _model.AddNote(taskId);
             _selectedNoteId = note.Id;
             _selectedTaskId = taskId;
@@ -174,6 +217,11 @@ namespace MyProject.Controls
         {
             var hitRects = BuildNoteHitRects();
             return hitRects.GetValueOrDefault(note.Id, new Rectangle(0, 0, NoteRenderer.NoteWidth, NoteRenderer.NoteHeight));
+        }
+
+        private void OnNoteInlineEditorLostFocus(object? sender, EventArgs e)
+        {
+            EndInlineNoteEdit(true);
         }
 
         private void OnNoteInlineEditorKeyDown(object? sender, KeyEventArgs e)
@@ -209,9 +257,11 @@ namespace MyProject.Controls
             _vScrollBar.Scroll += (s, e) => { _scrollY = _vScrollBar.Value; ScrollYChanged?.Invoke(this, _scrollY); Invalidate(); };
             _hScrollBar.Scroll += (s, e) =>
             {
-                _viewport.ViewStartDate = _model != null
-                    ? _model.ProjectStart.AddDays((double)_hScrollBar.Value / _viewport.DayWidth)
-                    : DateTime.Today.AddDays(-1);
+                if (_isSyncingHorizontalScroll)
+                    return;
+
+                _viewport.ViewStartDate = GetTimelineScrollOrigin()
+                    .AddDays((double)_hScrollBar.Value / _viewport.DayWidth);
                 Invalidate();
             };
 
@@ -255,7 +305,7 @@ namespace MyProject.Controls
             _model = model;
             _model.ModelChanged += OnModelChanged;
 
-            _viewport.ViewStartDate = model.ProjectStart.AddDays(-1);
+            _viewport.ViewStartDate = model.GetTimelineScrollOrigin();
             _timeScaleRenderer = new TimeScaleRenderer(_viewport);
             _taskBarRenderer = new TaskBarRenderer(_viewport);
             _depRenderer = new DependencyRenderer(_viewport, _taskBarRenderer);
@@ -330,6 +380,7 @@ namespace MyProject.Controls
         public void ZoomIn()
         {
             _viewport.ZoomIn();
+            ScrollToTimelineOrigin();
             UpdateScrollbars();
             Invalidate();
             ViewZoomChanged?.Invoke(this, EventArgs.Empty);
@@ -338,6 +389,7 @@ namespace MyProject.Controls
         public void ZoomOut()
         {
             _viewport.ZoomOut();
+            ScrollToTimelineOrigin();
             UpdateScrollbars();
             Invalidate();
             ViewZoomChanged?.Invoke(this, EventArgs.Empty);
@@ -345,15 +397,19 @@ namespace MyProject.Controls
 
         public void ResetZoom()
         {
-            var center = _viewport.XToDate(_viewport.ChartLeft + _viewport.ChartWidth / 2);
             _viewport.ResetZoom();
-            _viewport.CenterOnDate(center);
+            ScrollToTimelineOrigin();
             UpdateScrollbars();
             Invalidate();
             ViewZoomChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        public void GoToToday() { _viewport.ScrollToDate(DateTime.Today); Invalidate(); }
+        public void GoToToday()
+        {
+            _viewport.ScrollToDate(DateTime.Today);
+            SyncHorizontalScrollFromViewport();
+            Invalidate();
+        }
 
         public void ApplyDayWidth(int dayWidth)
         {
@@ -412,7 +468,7 @@ namespace MyProject.Controls
 
         private (int width, int height, DateTime chartStart) CalculateExportDimensions()
         {
-            DateTime chartStart = _model!.ProjectStart.Date.AddDays(-1);
+            DateTime chartStart = _model!.GetTimelineScrollOrigin();
             DateTime chartEnd = _model.GetProjectEnd().Date.AddDays(7);
             if (chartEnd < chartStart)
                 chartEnd = chartStart.AddDays(30);
@@ -600,8 +656,9 @@ namespace MyProject.Controls
                 if (isLinkSource)
                 {
                     var barRect = _taskBarRenderer.GetTaskBarRect(task, rowY);
+                    int radius = TaskBarRenderer.GetTaskBarCornerRadius(barRect.Height);
                     using var outlinePen = new Pen(AppTheme.Accent, 2f);
-                    g.DrawRectangle(outlinePen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
+                    g.DrawRoundedRectangle(outlinePen, barRect, radius);
                 }
             }
             DrawNotes(g, chartArea, visibleTasks, rowYByTaskId, selectedNoteId);
@@ -720,10 +777,43 @@ namespace MyProject.Controls
             _vScrollBar.Enabled = totalH > visibleH;
             if (!_vScrollBar.Enabled) { _scrollY = 0; _vScrollBar.Value = 0; }
 
-            int totalDays = (int)(_model.GetProjectEnd() - _model.ProjectStart).TotalDays + 60;
+            var origin = GetTimelineScrollOrigin();
+            int totalDays = Math.Max(1, (int)(_model.GetProjectEnd() - origin).TotalDays + 60);
             int totalPx = totalDays * _viewport.DayWidth;
             _hScrollBar.Maximum = Math.Max(0, totalPx);
             _hScrollBar.LargeChange = Math.Max(1, Width - _vScrollBar.Width);
+            SyncHorizontalScrollFromViewport();
+        }
+
+        private DateTime GetTimelineScrollOrigin() =>
+            _model?.GetTimelineScrollOrigin() ?? DateTime.Today.AddDays(-1);
+
+        private void ScrollToTimelineOrigin()
+        {
+            _viewport.ViewStartDate = GetTimelineScrollOrigin();
+        }
+
+        private void SyncHorizontalScrollFromViewport()
+        {
+            if (_model == null)
+                return;
+
+            int scrollPx = (int)Math.Round(
+                (_viewport.ViewStartDate - GetTimelineScrollOrigin()).TotalDays * _viewport.DayWidth);
+            int value = Math.Clamp(scrollPx, 0, Math.Max(0, _hScrollBar.Maximum));
+
+            if (_hScrollBar.Value == value)
+                return;
+
+            _isSyncingHorizontalScroll = true;
+            try
+            {
+                _hScrollBar.Value = value;
+            }
+            finally
+            {
+                _isSyncingHorizontalScroll = false;
+            }
         }
 
         private void OnMouseDown(object? sender, MouseEventArgs e)
@@ -786,6 +876,7 @@ namespace MyProject.Controls
                 {
                     int contentY = e.Y + _scrollY;
                     DateTime anchor = _viewport.XToDate(e.X).Date;
+                    RequestUndoSnapshot?.Invoke();
                     var note = _model.AddNoteAt(barTask.Id, anchor, contentY);
                     _selectedNoteId = note.Id;
                     _selectedTaskId = barTask.Id;
@@ -836,6 +927,7 @@ namespace MyProject.Controls
                         _dragStartMouse = e.Location;
                         _dragStartDate = task.StartDate;
                         _dragStartDuration = task.DurationDays;
+                        _dragStartEndDate = _model.GetTaskEndDate(task);
                         Cursor = Cursors.SizeWE;
                         return;
                     }
@@ -846,6 +938,7 @@ namespace MyProject.Controls
                         _dragStartMouse = e.Location;
                         _dragStartDate = task.StartDate;
                         _dragStartDuration = task.DurationDays;
+                        _dragStartEndDate = _model.GetTaskEndDate(task);
                         Cursor = Cursors.SizeWE;
                         return;
                     }
@@ -858,6 +951,7 @@ namespace MyProject.Controls
                     _dragStartMouse = e.Location;
                     _dragStartDate = task.StartDate;
                     _dragStartDuration = task.DurationDays;
+                    _dragStartEndDate = _model.GetTaskEndDate(task);
                     Cursor = Cursors.SizeAll;
                 }
             }
@@ -929,7 +1023,10 @@ namespace MyProject.Controls
             {
                 int deltaPx = e.X - _panStartX;
                 double deltaDays = -(double)deltaPx / _viewport.DayWidth;
-                _viewport.ViewStartDate = _panStartDate.AddDays(deltaDays);
+                var origin = GetTimelineScrollOrigin();
+                var nextDate = _panStartDate.AddDays(deltaDays);
+                _viewport.ViewStartDate = nextDate < origin ? origin : nextDate;
+                SyncHorizontalScrollFromViewport();
                 Invalidate();
                 return;
             }
@@ -943,13 +1040,19 @@ namespace MyProject.Controls
                     int deltaDays = (int)Math.Round((double)deltaPx / _viewport.DayWidth);
 
                     if (_isDragging)
-                        task.StartDate = _dragStartDate.AddDays(deltaDays);
+                    {
+                        task.StartDate = _model.NormalizeToWorkingDay(_dragStartDate.AddDays(deltaDays));
+                    }
                     else if (_isResizingRight)
-                        task.DurationDays = Math.Max(1, _dragStartDuration + deltaDays);
+                    {
+                        var newEnd = _dragStartEndDate.AddDays(deltaDays);
+                        task.DurationDays = Math.Max(1, _model.CountWorkingDaysInclusive(_dragStartDate, newEnd));
+                    }
                     else if (_isResizingLeft)
                     {
-                        task.StartDate = _dragStartDate.AddDays(deltaDays);
-                        task.DurationDays = Math.Max(1, _dragStartDuration - deltaDays);
+                        var newStart = _model.NormalizeToWorkingDay(_dragStartDate.AddDays(deltaDays));
+                        task.StartDate = newStart;
+                        task.DurationDays = Math.Max(1, _model.CountWorkingDaysInclusive(newStart, _dragStartEndDate));
                     }
                     Invalidate();
                 }
@@ -1020,7 +1123,16 @@ namespace MyProject.Controls
             }
 
             if (_isDraggingNote && _dragNoteId >= 0 && _model != null)
-                _model.SetNotePosition(_dragNoteId, _dragNotePreviewAnchorDate, _dragNotePreviewContentY);
+            {
+                var note = _model.GetNote(_dragNoteId);
+                if (note != null
+                    && (note.AnchorDate.Date != _dragNotePreviewAnchorDate.Date
+                        || note.ContentY != _dragNotePreviewContentY))
+                {
+                    RequestUndoSnapshot?.Invoke();
+                    _model.SetNotePosition(_dragNoteId, _dragNotePreviewAnchorDate, _dragNotePreviewContentY);
+                }
+            }
 
             _isDragging = false;
             _isResizingRight = false;

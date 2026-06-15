@@ -18,6 +18,8 @@ namespace MyProject.Forms
         private int _propertiesPanelExpandedWidth = 340;
         private bool _isPropertiesPanelExpanded = true;
         private bool _trackViewSettingsChanges;
+        private bool _pendingNavigationRestore;
+        private ToolTip? _toolbarToolTip;
 
         private const int CollapsedPropertiesPanelWidth = 32;
         private const int ExpandedPropertiesPanelMinWidth = 280;
@@ -32,7 +34,7 @@ namespace MyProject.Forms
             PostInitializeComponent();
             ApplyRenderers();
             SetupEventHandlers();
-            LoadNewProject();
+            RestoreSessionOrNewProject();
         }
 
         private void PostInitializeComponent()
@@ -68,6 +70,12 @@ namespace MyProject.Forms
             btnExportPdf.Image  = AppIcons.Pdf;
             btnExportGanttImage.Image = AppIcons.Image;
             btnPrint.Image      = AppIcons.Print;
+            btnInfo.Image       = AppIcons.Info;
+
+            btnUndo.Image = AppIcons.Undo;
+            btnRedo.Image = AppIcons.Redo;
+            menuUndo.Image = AppIcons.Undo;
+            menuRedo.Image = AppIcons.Redo;
 
             // Top-level menu icons
             menuFile.Image   = AppIcons.File;
@@ -110,58 +118,7 @@ namespace MyProject.Forms
             menuPrint.Image     = AppIcons.Print;
 
             // Tooltips
-            var tt = new ToolTip { ShowAlways = true, AutomaticDelay = 400 };
-            tt.SetToolTip(this, "MyProject - Project Manager");
-
-            btnUndo.Image = AppIcons.Undo;
-            btnRedo.Image = AppIcons.Redo;
-            menuUndo.Image = AppIcons.Undo;
-            menuRedo.Image = AppIcons.Redo;
-            btnUndo.ToolTipText = "Undo (Ctrl+Z)";
-            btnRedo.ToolTipText = "Redo (Ctrl+Y)";
-
-            btnNew.ToolTipText        = "New Project (Ctrl+N)";
-            btnOpen.ToolTipText       = "Open Project (Ctrl+O)";
-            btnSave.ToolTipText       = "Save Project (Ctrl+S)";
-            btnSaveAs.ToolTipText     = "Save Project As...";
-            btnAddTask.ToolTipText    = "Add Task (Insert)";
-            btnAddSubtask.ToolTipText = "Add Subtask (Ctrl+Shift+Insert)";
-            btnDeleteTask.ToolTipText = "Delete Selected Task (Delete)";
-            btnTaskProps.ToolTipText  = "Task Properties (F2)";
-            btnNotes.ToolTipText      = "Add note on Gantt chart (selected task or click task bar)";
-            btnIndent.ToolTipText     = "Indent Task (Alt+Right)";
-            btnOutdent.ToolTipText    = "Outdent Task (Alt+Left)";
-            btnExpandCollapse.ToolTipText = "Expand or collapse subtasks";
-            btnCriticalPath.ToolTipText = "Show or hide critical path highlighting";
-            btnLink.ToolTipText       = "Link Tasks — click task bars on Gantt chart (preview line shown)";
-            dependencyTypeHost.ToolTipText = "Select dependency line type (shown with preview)";
-            btnZoomIn.ToolTipText     = "Zoom In (Ctrl++)";
-            btnZoomOut.ToolTipText    = "Zoom Out (Ctrl+-)";
-            btnZoomDefault.ToolTipText = "Reset zoom to default";
-            btnToday.ToolTipText      = "Scroll to Today (Ctrl+T)";
-            btnPropertiesPanel.ToolTipText = "Show or hide the properties panel";
-            btnReport.ToolTipText     = "Export schedule and progress to Excel";
-            btnExportMd.ToolTipText   = "Export progress report as Markdown";
-            btnExportPdf.ToolTipText  = "Export schedule report as PDF";
-            btnExportGanttImage.ToolTipText = "Export Gantt chart as PNG, JPEG, GIF, or WebP";
-            btnPrint.ToolTipText      = "Print Schedule (Ctrl+P)";
-
-            menuNew.ToolTipText       = "Create a new empty project";
-            menuOpen.ToolTipText      = "Open a MyProject or Microsoft Project file";
-            menuSave.ToolTipText      = "Save the current project";
-            menuExportMsProject.ToolTipText = "Export schedule for Microsoft Project (XML or MPX)";
-            menuZoomIn.ToolTipText    = "Increase day column width";
-            menuZoomOut.ToolTipText   = "Decrease day column width";
-            menuToday.ToolTipText     = "Scroll the chart to today";
-            menuPropertiesPanel.ToolTipText = "Show or hide the properties panel";
-            menuShowCriticalPath.ToolTipText = "Highlight tasks and dependencies on the critical path";
-            menuExportExcel.ToolTipText = "Export schedule, resources, notes, and progress to Excel";
-            menuExportHtml.ToolTipText  = "Export schedule, resources, and notes to HTML";
-            menuExportWord.ToolTipText  = "Export schedule, resources, and notes to Word";
-            menuExportMd.ToolTipText  = "Save a Markdown progress report";
-            menuExportPdf.ToolTipText = "Export schedule report as PDF";
-            menuExportGanttImage.ToolTipText = "Export Gantt chart as PNG, JPEG, GIF, or WebP (transparent PNG/WebP)";
-            menuPrint.ToolTipText     = "Print the Gantt chart";
+            ConfigureToolbarToolTips();
 
             // Update status bar date
             lblDateToday.Text = "Today: " + DateTime.Today.ToString("yyyy-MM-dd");
@@ -179,6 +136,108 @@ namespace MyProject.Forms
             mainToolStrip.Renderer = new DarkToolStripRenderer();
         }
 
+        private void ConfigureToolbarToolTips()
+        {
+            mainToolStrip.ShowItemToolTips = true;
+
+            _toolbarToolTip = new ToolTip
+            {
+                ShowAlways = true,
+                AutomaticDelay = 400,
+                AutoPopDelay = 8000,
+                InitialDelay = 400
+            };
+
+            SetToolbarTip(btnNew, "New Project (Ctrl+N)");
+            SetToolbarTip(btnOpen, "Open Project (Ctrl+O)");
+            SetToolbarTip(btnSave, "Save Project (Ctrl+S)");
+            SetToolbarTip(btnSaveAs, "Save Project As...");
+            SetToolbarTip(btnUndo, "Undo (Ctrl+Z)");
+            SetToolbarTip(btnRedo, "Redo (Ctrl+Y)");
+            SetToolbarTip(btnAddTask, "Add Task (Insert)");
+            SetToolbarTip(btnAddSubtask, "Add Subtask (Ctrl+Shift+Insert)");
+            SetToolbarTip(btnDeleteTask, "Delete Selected Note or Task (Delete)");
+            SetToolbarTip(btnInfo, "Program information");
+            SetToolbarTip(btnTaskProps, "Task Properties (F2)");
+            SetToolbarTip(btnIndent, "Indent Task (Alt+Right)");
+            SetToolbarTip(btnOutdent, "Outdent Task (Alt+Left)");
+            SetToolbarTip(btnZoomIn, "Zoom In (Ctrl++)");
+            SetToolbarTip(btnZoomOut, "Zoom Out (Ctrl+-)");
+            SetToolbarTip(btnZoomDefault, "Reset zoom to default day width");
+            SetToolbarTip(btnToday, "Scroll to Today (Ctrl+T)");
+            SetToolbarTip(btnReport, "Export schedule and progress to Excel");
+            SetToolbarTip(btnExportMd, "Export progress report as Markdown");
+            SetToolbarTip(btnExportPdf, "Export schedule report as PDF");
+            SetToolbarTip(btnExportGanttImage, "Export Gantt chart as PNG, JPEG, GIF, or WebP");
+            SetToolbarTip(btnPrint, "Print Schedule (Ctrl+P)");
+
+            menuNew.ToolTipText = "Create a new empty project";
+            menuOpen.ToolTipText = "Open a MyProject or Microsoft Project file";
+            menuSave.ToolTipText = "Save the current project";
+            menuSaveAs.ToolTipText = "Save the current project under a new file name";
+            menuProjectSettings.ToolTipText = "Edit project name, schedule, working days, and dependency defaults";
+            menuUndo.ToolTipText = "Undo the last edit (Ctrl+Z)";
+            menuRedo.ToolTipText = "Redo the last undone edit (Ctrl+Y)";
+            menuExportMsProject.ToolTipText = "Export schedule for Microsoft Project (XML or MPX)";
+            menuZoomIn.ToolTipText = "Increase day column width";
+            menuZoomOut.ToolTipText = "Decrease day column width";
+            menuToday.ToolTipText = "Scroll the chart to today";
+            menuPropertiesPanel.ToolTipText = "Show or hide the properties panel";
+            menuShowCriticalPath.ToolTipText = "Highlight tasks and dependencies on the critical path";
+            menuExportExcel.ToolTipText = "Export schedule, resources, notes, and progress to Excel";
+            menuExportHtml.ToolTipText = "Export schedule, resources, and notes to HTML";
+            menuExportWord.ToolTipText = "Export schedule, resources, and notes to Word";
+            menuExportMd.ToolTipText = "Save a Markdown progress report";
+            menuExportPdf.ToolTipText = "Export schedule report as PDF";
+            menuExportGanttImage.ToolTipText = "Export Gantt chart as PNG, JPEG, GIF, or WebP (transparent PNG/WebP)";
+            menuPrint.ToolTipText = "Print the Gantt chart";
+            menuDepFS.ToolTipText = DependencyTypeInfo.GetTooltipText(DependencyType.FS);
+            menuDepFF.ToolTipText = DependencyTypeInfo.GetTooltipText(DependencyType.FF);
+            menuDepSS.ToolTipText = DependencyTypeInfo.GetTooltipText(DependencyType.SS);
+            menuDepSF.ToolTipText = DependencyTypeInfo.GetTooltipText(DependencyType.SF);
+            menuDepType.ToolTipText = "Select the dependency line type used when linking tasks";
+
+            UpdateToolbarToggleToolTips();
+        }
+
+        private void SetToolbarTip(ToolStripItem item, string text) => item.ToolTipText = text;
+
+        private void UpdateToolbarToggleToolTips()
+        {
+            bool hasSelection = _lastSelectedId >= 0;
+            bool hasChildren = hasSelection && _model.HasChildren(_lastSelectedId);
+            var task = hasSelection ? _model.GetTask(_lastSelectedId) : null;
+            string expandText = hasChildren && task != null && task.IsExpanded
+                ? "Collapse Subtasks"
+                : "Expand Subtasks";
+
+            SetToolbarTip(btnExpandCollapse, hasChildren
+                ? expandText
+                : "Expand or collapse subtasks (select a summary task)");
+
+            SetToolbarTip(btnCriticalPath, btnCriticalPath.Checked
+                ? "Hide critical path highlighting"
+                : "Show critical path highlighting");
+
+            SetToolbarTip(btnPropertiesPanel, btnPropertiesPanel.Checked
+                ? "Hide the properties panel"
+                : "Show the properties panel");
+
+            SetToolbarTip(btnLink, IsLinkModeActive
+                ? "Cancel link mode (Esc)"
+                : "Link Tasks — click task bars on the Gantt chart (preview line shown)");
+
+            SetToolbarTip(btnNotes, btnNotes.Checked
+                ? "Note mode active — click a task bar to add a note (click again to cancel)"
+                : "Add note on Gantt chart (selected task or click task bar)");
+
+            var depType = dependencyTypeSelector.SelectedType;
+            string depTip =
+                $"Dependency type: {DependencyTypeInfo.GetDisplayName(depType)} — {DependencyTypeInfo.GetTooltipText(depType)}";
+            SetToolbarTip(dependencyTypeHost, depTip);
+            _toolbarToolTip?.SetToolTip(dependencyTypeSelector, depTip);
+        }
+
         // ── Event wiring ─────────────────────────────────────────────────────
 
         private void SetupEventHandlers()
@@ -194,6 +253,7 @@ namespace MyProject.Forms
             menuOpen.Click       += (_, _) => OnOpen();
             menuSave.Click       += (_, _) => OnSave();
             menuSaveAs.Click     += (_, _) => OnSaveAs();
+            menuProjectSettings.Click += (_, _) => OnProjectSettings();
             menuExportMsProject.Click += (_, _) => OnExportMsProject();
             menuExit.Click       += (_, _) => Close();
 
@@ -231,7 +291,7 @@ namespace MyProject.Forms
             btnSaveAs.Click     += (_, _) => OnSaveAs();
             btnAddTask.Click    += (_, _) => OnAddTask();
             btnAddSubtask.Click += (_, _) => OnAddSubtask(_lastSelectedId);
-            btnDeleteTask.Click += (_, _) => OnDeleteTask();
+            btnDeleteTask.Click += (_, _) => OnDeleteSelected();
             btnTaskProps.Click  += (_, _) => OpenTaskProperties(_lastSelectedId);
             btnNotes.Click      += (_, _) => OnNotesToolbarClick();
             btnIndent.Click     += (_, _) => OnIndent();
@@ -251,6 +311,7 @@ namespace MyProject.Forms
             btnExportPdf.Click  += (_, _) => OnExportPdf();
             btnExportGanttImage.Click += (_, _) => OnExportGanttImage();
             btnPrint.Click      += (_, _) => OnPrint();
+            btnInfo.Click       += (_, _) => AboutDialog.ShowAbout(this);
 
             taskGridControl.TaskSelected     += OnTaskSelected;
             taskGridControl.TaskHovered      += OnTaskHovered;
@@ -286,11 +347,15 @@ namespace MyProject.Forms
 
             ganttChartControl.NoteSelected += OnNoteSelected;
 
+            ganttChartControl.RequestUndoSnapshot = CaptureUndoSnapshot;
+            selectionPropertiesControl.RequestUndoSnapshot = CaptureUndoSnapshot;
+
             FormClosing += OnFormClosing;
             FormClosed += OnFormClosed;
             Shown += (_, _) =>
             {
-                BeginInvoke(SyncViewSettingsAfterInitialLayout);
+                ApplyWindowSettingsFromAppSettings();
+                BeginInvoke(CompleteInitialLayout);
             };
 
             KeyPreview = true;
@@ -298,9 +363,8 @@ namespace MyProject.Forms
             {
                 if (e.KeyCode == Keys.Delete)
                 {
-                    if (ganttChartControl.SelectedNoteId >= 0)
+                    if (TryDeleteSelectedNote())
                     {
-                        DeleteNoteById(ganttChartControl.SelectedNoteId);
                         e.Handled = true;
                         return;
                     }
@@ -329,11 +393,37 @@ namespace MyProject.Forms
             ganttChartControl.PrepareForShutdown();
             taskGridControl.CancelInteraction();
 
-            if (!ShouldCloseWithoutSavePrompt() && NeedsSavePrompt() && !ConfirmProceedWithoutSaving())
+            bool allowPersistence = true;
+            if (!ShouldCloseWithoutSavePrompt() && NeedsSavePrompt())
             {
-                e.Cancel = true;
-                return;
+                var result = MessageBox.Show(
+                    this,
+                    "Save changes to the current project?",
+                    "Unsaved Changes",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Cancel)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                if (result == DialogResult.Yes)
+                {
+                    if (!TrySave())
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+                }
+                else
+                {
+                    allowPersistence = false;
+                }
             }
+
+            SaveSessionState(allowPersistence);
 
             AppShutdown.BeginShutdown();
             DetachFromModel();
@@ -377,7 +467,7 @@ namespace MyProject.Forms
                 ToggleExpandTask = id => ToggleExpandTask(id),
                 AddNoteToTask = id => ganttChartControl.AddNoteForTask(id),
                 EditNote = id => ganttChartControl.BeginInlineNoteEdit(id),
-                DeleteNote = id => DeleteNoteById(id),
+                DeleteNote = id => DeleteNoteById(id, confirm: true),
                 ZoomIn = OnZoomIn,
                 ZoomOut = OnZoomOut,
                 GoToToday = () => ganttChartControl.GoToToday(),
@@ -421,6 +511,7 @@ namespace MyProject.Forms
             menuLink.Checked = true;
             SelectTask(taskId);
             UpdateLinkPreview();
+            UpdateToolbarToggleToolTips();
             ganttChartControl.Focus();
 
             var src = _model.GetTask(taskId);
@@ -448,24 +539,74 @@ namespace MyProject.Forms
 
         private void SaveSnapshot() => _undoRedo.SaveSnapshot(_model);
 
+        private void CaptureUndoSnapshot()
+        {
+            SaveSnapshot();
+            UpdateUndoRedoState();
+        }
+
         private void OnUndo()
         {
+            if (!_undoRedo.CanUndo) return;
+
+            taskGridControl.CancelInteraction();
+            selectionPropertiesControl.PrepareForModelRestore();
+
+            var liveViewSettings = BuildViewSettingsFromUi().Clone();
             var restored = _undoRedo.Undo(_model);
             if (restored == null) return;
+
+            restored.ViewSettings = liveViewSettings;
             _model = restored;
-            ApplyModel();
+            ApplyRestoredModel();
             statusLabel.Text = "Undo";
             UpdateUndoRedoState();
         }
 
         private void OnRedo()
         {
+            if (!_undoRedo.CanRedo) return;
+
+            taskGridControl.CancelInteraction();
+            selectionPropertiesControl.PrepareForModelRestore();
+
+            var liveViewSettings = BuildViewSettingsFromUi().Clone();
             var restored = _undoRedo.Redo(_model);
             if (restored == null) return;
+
+            restored.ViewSettings = liveViewSettings;
             _model = restored;
-            ApplyModel();
+            ApplyRestoredModel();
             statusLabel.Text = "Redo";
             UpdateUndoRedoState();
+        }
+
+        private void ApplyRestoredModel()
+        {
+            if (_titleBarModel != null)
+                _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
+
+            ganttChartControl.EndInlineNoteEdit(false);
+
+            _titleBarModel = _model;
+            _model.ModelChanged += OnModelChangedForTitleBar;
+            _model.UpdateHierarchy();
+
+            selectionPropertiesControl.PrepareForModelRestore();
+            taskGridControl.SetModel(_model);
+            ganttChartControl.SetModel(_model);
+            selectionPropertiesControl.SetModel(_model);
+
+            _lastSelectedId = -1;
+            CancelLink();
+            taskGridControl.SetSelectedTask(-1);
+            ganttChartControl.SetSelectedTask(-1);
+            selectionPropertiesControl.SetSelection(-1, -1, commitPending: false);
+
+            _model.IsModified = true;
+            UpdateTitleBar();
+            UpdateStatus(-1);
+            UpdateTaskToolState();
         }
 
         private void UpdateUndoRedoState()
@@ -488,6 +629,133 @@ namespace MyProject.Forms
             _undoRedo.Clear();
             ApplyModel();
             UpdateUndoRedoState();
+            AppSettings.ClearSession();
+        }
+
+        private void RestoreSessionOrNewProject()
+        {
+            if (!AppSettings.TryGetSessionProjectPath(out string path))
+            {
+                LoadNewProject();
+                return;
+            }
+
+            ProjectModel? loaded = null;
+            Exception? error = null;
+            try
+            {
+                loaded = MsProjectInterop.Load(path);
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            if (error != null || loaded == null)
+            {
+                AppSettings.ClearSession();
+                LoadNewProject();
+                return;
+            }
+
+            _model = loaded;
+            if (AppSettings.LastSessionIsRecovery)
+                _model.FilePath = "";
+            else
+                _model.FilePath = path;
+
+            _undoRedo.Clear();
+            ApplyModel();
+            UpdateUndoRedoState();
+            _pendingNavigationRestore = true;
+
+            statusLabel.Text = AppSettings.LastSessionIsRecovery
+                ? "Restored previous editing session."
+                : $"Restored: {path}";
+        }
+
+        private void SaveSessionState(bool allowPersistence)
+        {
+            try
+            {
+                taskGridControl.CommitPendingEdits();
+                selectionPropertiesControl.CommitPendingEdits();
+
+                var windowBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+                AppSettings.RememberWindowBounds(
+                    windowBounds.X,
+                    windowBounds.Y,
+                    windowBounds.Width,
+                    windowBounds.Height,
+                    WindowState);
+
+                CaptureViewSettingsToModel();
+
+                string? sessionPath = null;
+                bool isRecovery = false;
+
+                if (!string.IsNullOrEmpty(_model.FilePath))
+                {
+                    sessionPath = _model.FilePath;
+                    if (_model.IsModified && allowPersistence)
+                    {
+                        ProjectFile.Save(_model, _model.FilePath);
+                        _model.IsModified = false;
+                    }
+                }
+                else if (_model.IsModified && allowPersistence)
+                {
+                    sessionPath = AppSettings.GetRecoveryProjectPath();
+                    var directory = Path.GetDirectoryName(sessionPath);
+                    if (!string.IsNullOrEmpty(directory))
+                        Directory.CreateDirectory(directory);
+
+                    ProjectFile.Save(_model, sessionPath);
+                    isRecovery = true;
+                }
+
+                if (!string.IsNullOrEmpty(sessionPath))
+                    AppSettings.RememberSession(sessionPath, isRecovery);
+                else
+                    AppSettings.ClearSession();
+            }
+            catch
+            {
+                // ignore persistence errors during shutdown
+            }
+        }
+
+        private void RestoreNavigationFromViewSettings()
+        {
+            if (_isApplyingViewSettings)
+                return;
+
+            var settings = _model.ViewSettings;
+            DateTime viewStart = settings.GanttViewStartDate
+                ?? _model.GetTimelineScrollOrigin();
+            ganttChartControl.RestoreTimelineState(viewStart, settings.GanttScrollY);
+            taskGridControl.SyncScrollX(settings.TaskGridScrollX);
+            taskGridControl.SyncScroll(settings.TaskGridScrollY);
+
+            if (settings.SelectedNoteId >= 0 && _model.GetNote(settings.SelectedNoteId) != null)
+            {
+                ganttChartControl.SelectNote(settings.SelectedNoteId);
+                ganttChartControl.SetSelectedTask(-1);
+                taskGridControl.SetSelectedTask(-1);
+                _lastSelectedId = -1;
+                selectionPropertiesControl.SetSelection(-1, settings.SelectedNoteId, commitPending: false);
+                return;
+            }
+
+            if (settings.SelectedTaskId >= 0 && _model.GetTask(settings.SelectedTaskId) != null)
+            {
+                _lastSelectedId = settings.SelectedTaskId;
+                taskGridControl.SetSelectedTask(settings.SelectedTaskId);
+                ganttChartControl.SetSelectedTask(settings.SelectedTaskId);
+                ganttChartControl.ClearNoteSelection();
+                selectionPropertiesControl.SetSelection(settings.SelectedTaskId, -1, commitPending: false);
+                UpdateStatus(settings.SelectedTaskId);
+            }
         }
 
         private void ApplyModel()
@@ -526,6 +794,16 @@ namespace MyProject.Forms
             UpdateTaskToolState();
         }
 
+        private void CompleteInitialLayout()
+        {
+            SyncViewSettingsAfterInitialLayout();
+            if (!_pendingNavigationRestore)
+                return;
+
+            _pendingNavigationRestore = false;
+            RestoreNavigationFromViewSettings();
+        }
+
         private void SyncViewSettingsAfterInitialLayout()
         {
             _isApplyingViewSettings = true;
@@ -556,6 +834,8 @@ namespace MyProject.Forms
                 ? Math.Clamp(ganttSplitContainer.Panel2.Width, ExpandedPropertiesPanelMinWidth, 600)
                 : prev.PropertiesPanelWidth;
 
+            var windowBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+
             return new ProjectViewSettings
             {
                 TaskGridColumnWidths = taskGridControl.GetColumnWidths(),
@@ -566,8 +846,52 @@ namespace MyProject.Forms
                 PropertiesPanelVisible = panelVisible,
                 ShowCriticalPath = btnCriticalPath.Checked,
                 NotesPanelHeight = prev.NotesPanelHeight,
-                NotesPanelVisible = prev.NotesPanelVisible
+                NotesPanelVisible = prev.NotesPanelVisible,
+                WindowX = windowBounds.X,
+                WindowY = windowBounds.Y,
+                WindowWidth = windowBounds.Width,
+                WindowHeight = windowBounds.Height,
+                WindowState = WindowState,
+                SelectedTaskId = ganttChartControl.SelectedNoteId >= 0 ? -1 : ganttChartControl.SelectedTaskId,
+                SelectedNoteId = ganttChartControl.SelectedNoteId,
+                GanttScrollY = ganttChartControl.ScrollOffsetY,
+                GanttViewStartDate = ganttChartControl.ViewStartDate,
+                TaskGridScrollX = taskGridControl.ScrollOffsetX,
+                TaskGridScrollY = taskGridControl.ScrollOffsetY
             };
+        }
+
+        private void ApplyWindowSettingsFromAppSettings()
+        {
+            if (!AppSettings.HasSavedWindowBounds)
+                return;
+
+            ApplyWindowBounds(
+                AppSettings.WindowX,
+                AppSettings.WindowY,
+                AppSettings.WindowWidth,
+                AppSettings.WindowHeight,
+                AppSettings.WindowState);
+        }
+
+        private void ApplyWindowBounds(int? x, int? y, int width, int height, FormWindowState state)
+        {
+            width = Math.Clamp(width, MinimumSize.Width, 10000);
+            height = Math.Clamp(height, MinimumSize.Height, 10000);
+
+            var screen = Screen.FromControl(this).WorkingArea;
+            int resolvedX = x ?? screen.Left + Math.Max(0, (screen.Width - width) / 2);
+            int resolvedY = y ?? screen.Top + Math.Max(0, (screen.Height - height) / 2);
+
+            resolvedX = Math.Clamp(resolvedX, screen.Left - width + 120, screen.Right - 120);
+            resolvedY = Math.Clamp(resolvedY, screen.Top, screen.Bottom - 80);
+
+            StartPosition = FormStartPosition.Manual;
+            WindowState = FormWindowState.Normal;
+            Bounds = new Rectangle(resolvedX, resolvedY, width, height);
+
+            if (state == FormWindowState.Maximized)
+                WindowState = FormWindowState.Maximized;
         }
 
         private void ApplyPropertiesPanelWidth(int propsWidth)
@@ -666,6 +990,7 @@ namespace MyProject.Forms
         {
             btnPropertiesPanel.Checked = visible;
             menuPropertiesPanel.Checked = visible;
+            UpdateToolbarToggleToolTips();
         }
 
         private void OnPropertiesPanelToolbarClick()
@@ -745,6 +1070,7 @@ namespace MyProject.Forms
             menuShowCriticalPath.Checked = show;
             ganttChartControl.ShowCriticalPath = show;
             taskGridControl.ShowCriticalPath = show;
+            UpdateToolbarToggleToolTips();
         }
 
         private void OnShowCriticalPathToolbarClick()
@@ -775,14 +1101,65 @@ namespace MyProject.Forms
             _model.ViewSettings = captured;
         }
 
-        private void DeleteNoteById(int noteId)
+        private bool CanDeleteSelectedNote()
         {
+            if (ganttChartControl.SelectedNoteId < 0)
+                return false;
+
+            if (ganttChartControl.IsInlineNoteEditActive)
+                return false;
+
+            if (selectionPropertiesControl.IsNoteEditorFocused)
+                return false;
+
+            return _model.GetNote(ganttChartControl.SelectedNoteId) != null;
+        }
+
+        private bool TryDeleteSelectedNote(bool confirm = false)
+        {
+            if (!CanDeleteSelectedNote())
+                return false;
+
+            DeleteNoteById(ganttChartControl.SelectedNoteId, confirm);
+            return true;
+        }
+
+        private void OnDeleteSelected()
+        {
+            if (TryDeleteSelectedNote(confirm: true))
+                return;
+
+            OnDeleteTask();
+        }
+
+        private void DeleteNoteById(int noteId, bool confirm = false)
+        {
+            var note = _model.GetNote(noteId);
+            if (note == null)
+                return;
+
+            if (confirm)
+            {
+                string label = string.IsNullOrWhiteSpace(note.Title) ? "this note" : $"\"{note.Title.Trim()}\"";
+                if (MessageBox.Show(
+                        $"Delete note {label}?",
+                        "Confirm Delete",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question) != DialogResult.Yes)
+                {
+                    return;
+                }
+            }
+
+            ganttChartControl.EndInlineNoteEdit(false);
+            ganttChartControl.EndInlineNoteEdit(false);
             SaveSnapshot();
             _model.RemoveNote(noteId);
             ganttChartControl.ClearNoteSelection();
-            ganttChartControl.EndInlineNoteEdit(false);
             selectionPropertiesControl.SetSelection(ganttChartControl.SelectedTaskId, -1);
             ganttChartControl.Invalidate();
+            UpdateUndoRedoState();
+            UpdateTaskToolState();
         }
 
         private void OnNotesToolbarClick()
@@ -797,16 +1174,19 @@ namespace MyProject.Forms
                     btnNotes.Checked = false;
                     ganttChartControl.SetNoteModeActive(false);
                     statusLabel.Text = "Note added to selected task.";
+                    UpdateToolbarToggleToolTips();
                     return;
                 }
 
                 ganttChartControl.SetNoteModeActive(true);
                 statusLabel.Text = "Note mode: click a task bar on the Gantt chart to add a yellow note.";
+                UpdateToolbarToggleToolTips();
                 return;
             }
 
             ganttChartControl.SetNoteModeActive(false);
             statusLabel.Text = "Ready";
+            UpdateToolbarToggleToolTips();
         }
 
         private void OnZoomIn()
@@ -830,6 +1210,7 @@ namespace MyProject.Forms
 
         private void OnTaskSelected(object? sender, int taskId)
         {
+            taskGridControl.CommitPendingEdits();
             _lastSelectedId = taskId;
             if (sender != taskGridControl) taskGridControl.SetSelectedTask(taskId);
             if (sender != ganttChartControl) ganttChartControl.SetSelectedTask(taskId);
@@ -864,7 +1245,8 @@ namespace MyProject.Forms
 
         private void OnNoteSelected(object? sender, int noteId)
         {
-            selectionPropertiesControl.SetSelection(ganttChartControl.SelectedTaskId, noteId);
+            selectionPropertiesControl.SetSelection(-1, noteId);
+            UpdateTaskToolState();
         }
 
         private void OnGanttLinkShapeClicked(object? sender, int taskId)
@@ -1016,6 +1398,8 @@ namespace MyProject.Forms
             _undoRedo.Clear();
             ApplyModel();
             UpdateUndoRedoState();
+            AppSettings.RememberSession(path, isRecovery: false);
+            BeginInvoke(RestoreNavigationFromViewSettings);
             statusLabel.Text = MsProjectInterop.CanImport(path) && !path.EndsWith($".{ProjectFile.Extension}", StringComparison.OrdinalIgnoreCase)
                 ? $"Imported from Microsoft Project: {path}"
                 : $"Opened: {path}";
@@ -1044,12 +1428,8 @@ namespace MyProject.Forms
                 MsProjectInterop.Export(_model, dlg.FileName, format);
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"Exported to Microsoft Project: {dlg.FileName}";
-                CompletionDialog.Show(
-                    this,
-                    "Export Complete",
-                    "The project was exported for Microsoft Project.",
+                ShowExportComplete(
                     dlg.FileName,
-                    "Open File",
                     () => OpenExportedFile(dlg.FileName));
             }
             catch (Exception ex)
@@ -1072,20 +1452,13 @@ namespace MyProject.Forms
 
         private void OnSave()
         {
-            if (!_model.IsModified)
-            {
-                if (!string.IsNullOrEmpty(_model.FilePath))
-                    statusLabel.Text = $"Already saved: {_model.FilePath}";
-                return;
-            }
-
             if (string.IsNullOrEmpty(_model.FilePath))
             {
                 OnSaveAs();
                 return;
             }
 
-            SaveProject(_model.FilePath);
+            SaveProject(_model.FilePath, showCompletionPopup: true);
         }
 
         private void OnSaveAs()
@@ -1102,31 +1475,48 @@ namespace MyProject.Forms
                 SaveProject(dlg.FileName);
         }
 
+        private void OnProjectSettings()
+        {
+            taskGridControl.CommitPendingEdits();
+            selectionPropertiesControl.CommitPendingEdits();
+
+            var preSnapshot = ProjectFile.ToUndoSnapshot(_model);
+            using var dlg = new ProjectSettingsDialog(_model);
+            if (dlg.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            _undoRedo.PushSnapshot(preSnapshot);
+            UpdateUndoRedoState();
+            dependencyTypeSelector.SelectedType = _model.ViewSettings.DefaultDependencyType;
+            UpdateDependencyTypeMenuChecks();
+            UpdateTitleBar();
+            ganttChartControl.Invalidate();
+            taskGridControl.Invalidate();
+            UpdateStatus(_lastSelectedId);
+        }
+
         private void SaveProject(string path, bool showCompletionPopup = true)
         {
-            if (!_model.IsModified && !string.IsNullOrEmpty(_model.FilePath)
-                && string.Equals(_model.FilePath, path, StringComparison.OrdinalIgnoreCase))
-            {
-                statusLabel.Text = $"Already saved: {path}";
-                return;
-            }
-
             try
             {
+                taskGridControl.CommitPendingEdits();
+                selectionPropertiesControl.CommitPendingEdits();
                 CaptureViewSettingsToModel();
                 ProjectFile.Save(_model, path);
                 _model.FilePath = path;
                 _model.IsModified = false;
                 AppSettings.RememberFromPath(path);
+                AppSettings.RememberSession(path, isRecovery: false);
                 UpdateTitleBar();
                 statusLabel.Text = $"Saved: {path}";
 
                 if (showCompletionPopup)
                 {
+                    string savedPath = Path.GetFullPath(path);
                     CompletionDialog.Show(this,
                         "Save Complete",
-                        "The project was saved successfully.",
-                        path);
+                        "The project was saved to the following location:",
+                        savedPath);
                 }
             }
             catch (Exception ex)
@@ -1259,24 +1649,27 @@ namespace MyProject.Forms
 
         private void UpdateTaskToolState()
         {
-            bool hasSelection = _lastSelectedId >= 0;
-            var task = hasSelection ? _model.GetTask(_lastSelectedId) : null;
-            bool hasChildren = hasSelection && _model.HasChildren(_lastSelectedId);
+            bool hasNoteSelection = CanDeleteSelectedNote()
+                || (ganttChartControl.SelectedNoteId >= 0 && _model.GetNote(ganttChartControl.SelectedNoteId) != null);
+            bool hasTaskSelection = _lastSelectedId >= 0;
+            bool hasSelection = hasTaskSelection || hasNoteSelection;
+            var task = hasTaskSelection ? _model.GetTask(_lastSelectedId) : null;
+            bool hasChildren = hasTaskSelection && _model.HasChildren(_lastSelectedId);
 
-            menuAddSubtask.Enabled = hasSelection;
+            menuAddSubtask.Enabled = hasTaskSelection;
             menuDeleteTask.Enabled = hasSelection;
-            menuIndent.Enabled = hasSelection;
-            menuOutdent.Enabled = hasSelection;
-            menuTaskProps.Enabled = hasSelection;
+            menuIndent.Enabled = hasTaskSelection;
+            menuOutdent.Enabled = hasTaskSelection;
+            menuTaskProps.Enabled = hasTaskSelection;
             menuLink.Enabled = true;
             menuLink.Checked = IsLinkModeActive;
             menuExpandCollapse.Enabled = hasChildren;
 
-            btnAddSubtask.Enabled = hasSelection;
+            btnAddSubtask.Enabled = hasTaskSelection;
             btnDeleteTask.Enabled = hasSelection;
-            btnTaskProps.Enabled = hasSelection;
-            btnIndent.Enabled = hasSelection;
-            btnOutdent.Enabled = hasSelection;
+            btnTaskProps.Enabled = hasTaskSelection;
+            btnIndent.Enabled = hasTaskSelection;
+            btnOutdent.Enabled = hasTaskSelection;
             btnExpandCollapse.Enabled = hasChildren;
             btnLink.Checked = IsLinkModeActive;
 
@@ -1286,10 +1679,8 @@ namespace MyProject.Forms
 
             menuExpandCollapse.Text = expandText;
             btnExpandCollapse.Text = expandText;
-            btnExpandCollapse.ToolTipText = hasChildren
-                ? expandText
-                : "Expand or collapse subtasks (select a summary task)";
 
+            UpdateToolbarToggleToolTips();
             UpdateDependencyTypeMenuChecks();
         }
 
@@ -1319,6 +1710,7 @@ namespace MyProject.Forms
                 btnLink.Checked = true;
                 menuLink.Checked = true;
                 UpdateLinkPreview();
+                UpdateToolbarToggleToolTips();
                 statusLabel.Text = $"Click a task bar on the Gantt chart, then click another to link ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
                 return;
             }
@@ -1328,6 +1720,7 @@ namespace MyProject.Forms
             menuLink.Checked = true;
             _linkHoverTargetId = -1;
             UpdateLinkPreview();
+            UpdateToolbarToggleToolTips();
             var src = _model.GetTask(_linkSourceId);
             statusLabel.Text = $"Link source: [{src?.Name}] — click another task bar on the Gantt chart ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
         }
@@ -1384,6 +1777,7 @@ namespace MyProject.Forms
             btnLink.Checked = false;
             menuLink.Checked = false;
             ganttChartControl.ClearLinkPreview();
+            UpdateToolbarToggleToolTips();
         }
 
         private void OnDependencyTypeChanged()
@@ -1410,6 +1804,7 @@ namespace MyProject.Forms
 
             UpdateLinkPreview();
             UpdateDependencyTypeMenuChecks();
+            UpdateToolbarToggleToolTips();
             ganttChartControl.Invalidate();
             taskGridControl.Invalidate();
         }
@@ -1442,7 +1837,7 @@ namespace MyProject.Forms
             if (taskId < 0) return;
             var task = _model.GetTask(taskId);
             if (task == null) return;
-            var preDialogSnapshot = ProjectFile.ToSnapshot(_model);
+            var preDialogSnapshot = ProjectFile.ToUndoSnapshot(_model);
             using var dlg = new TaskPropertiesDialog(task, _model);
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
@@ -1463,39 +1858,34 @@ namespace MyProject.Forms
                 "Excel Workbook (*.xlsx)|*.xlsx",
                 "xlsx",
                 path => ExcelReportGenerator.Export(_model, path),
-                "Excel report",
-                "The Excel report was exported successfully.");
+                "Excel report");
 
         private void OnExportHtml() =>
             ExportReport(
                 "HTML Document (*.html)|*.html",
                 "html",
                 path => HtmlReportGenerator.Export(_model, path),
-                "HTML report",
-                "The HTML report was exported successfully.");
+                "HTML report");
 
         private void OnExportWord() =>
             ExportReport(
                 "Word Document (*.docx)|*.docx",
                 "docx",
                 path => WordReportGenerator.Export(_model, path),
-                "Word report",
-                "The Word report was exported successfully.");
+                "Word report");
 
         private void OnExportPdf() =>
             ExportReport(
                 "PDF Document (*.pdf)|*.pdf",
                 "pdf",
                 path => PdfReportGenerator.Export(_model, path),
-                "PDF report",
-                "The PDF report was exported successfully.");
+                "PDF report");
 
         private void ExportReport(
             string filter,
             string defaultExt,
             Action<string> export,
-            string reportLabel,
-            string completionMessage)
+            string reportLabel)
         {
             using var dlg = new SaveFileDialog
             {
@@ -1512,14 +1902,9 @@ namespace MyProject.Forms
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"{reportLabel} saved: {dlg.FileName}";
 
-                var exportPath = dlg.FileName;
-                CompletionDialog.Show(
-                    this,
-                    "Export Complete",
-                    completionMessage,
-                    exportPath,
-                    "Open File",
-                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
+                ShowExportComplete(
+                    dlg.FileName,
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName)
                     {
                         UseShellExecute = true
                     }));
@@ -1527,6 +1912,27 @@ namespace MyProject.Forms
             catch (Exception ex)
             {
                 ErrorDialog.Show(this, "Export Error", $"Could not export the {reportLabel}.", ex);
+            }
+        }
+
+        private void ShowExportComplete(string path, Action? openFile = null)
+        {
+            string fullPath = Path.GetFullPath(path);
+            const string summary = "The file was exported to the following location:";
+
+            if (openFile != null)
+            {
+                CompletionDialog.Show(
+                    this,
+                    "Export Complete",
+                    summary,
+                    fullPath,
+                    "Open File",
+                    openFile);
+            }
+            else
+            {
+                CompletionDialog.Show(this, "Export Complete", summary, fullPath);
             }
         }
 
@@ -1548,14 +1954,9 @@ namespace MyProject.Forms
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"Report saved: {dlg.FileName}";
 
-                var exportPath = dlg.FileName;
-                CompletionDialog.Show(
-                    this,
-                    "Export Complete",
-                    "The Markdown report was exported successfully.",
-                    exportPath,
-                    "Open File",
-                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
+                ShowExportComplete(
+                    dlg.FileName,
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName)
                     {
                         UseShellExecute = true
                     }));
@@ -1589,14 +1990,9 @@ namespace MyProject.Forms
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"Gantt image saved: {dlg.FileName}";
 
-                var exportPath = dlg.FileName;
-                CompletionDialog.Show(
-                    this,
-                    "Export Complete",
-                    "The Gantt chart image was exported successfully.",
-                    exportPath,
-                    "Open File",
-                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
+                ShowExportComplete(
+                    dlg.FileName,
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName)
                     {
                         UseShellExecute = true
                     }));

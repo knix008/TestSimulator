@@ -1,6 +1,7 @@
 ﻿using MyProject.Theme;
 using MyProject.Rendering;
 using System.ComponentModel;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace MyProject.Models
@@ -11,6 +12,8 @@ namespace MyProject.Models
         private readonly List<ProjectTask> _tasks = new();
         private readonly List<TaskDependency> _dependencies = new();
         private readonly List<ResourceAssignment> _assignments = new();
+        private readonly Dictionary<int, string> _pendingResourceAllocEdits = new();
+        private bool _suppressTaskNotesSync;
         private readonly List<ProjectNote> _notes = new();
         private int _nextNoteId = 1;
         private bool _isUpdatingHierarchy;
@@ -19,6 +22,11 @@ namespace MyProject.Models
         private HashSet<int> _criticalTaskIds = new();
         private HashSet<(int PredecessorId, int SuccessorId)> _criticalDependencies = new();
         private List<TaskDependency> _criticalPathLinks = new();
+
+        public ProjectModel()
+        {
+            ProjectTask.SetEndDateResolver(GetTaskEndDate);
+        }
 
         public string ProjectName { get; set; } = "New Project";
 
@@ -37,6 +45,127 @@ namespace MyProject.Models
         }
 
         public DateTime ProjectStart { get; set; } = DateTime.Today;
+
+        public WorkingWeekSchedule WorkingWeek { get; private set; } = new();
+
+        public void SetProjectStart(DateTime start)
+        {
+            start = start.Date;
+            if (ProjectStart.Date == start)
+                return;
+
+            ProjectStart = start;
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void SetWorkingWeek(WorkingWeekSchedule schedule)
+        {
+            schedule ??= new WorkingWeekSchedule();
+            var normalized = WorkingWeekSchedule.FromDayFlags(schedule.ToDayFlags());
+            if (WorkingWeek.Equals(normalized))
+                return;
+
+            WorkingWeek = normalized;
+            RecalculateScheduleForWorkingWeek();
+        }
+
+        public DateTime GetTaskEndDate(ProjectTask task)
+        {
+            if (task.TaskType == TaskType.Milestone)
+                return task.StartDate.Date;
+
+            if (task.DurationDays <= 0)
+                return task.StartDate.Date;
+
+            return WorkingDayCalendar.GetTaskEndDate(task.StartDate, task.DurationDays, WorkingWeek);
+        }
+
+        public DateTime NormalizeToWorkingDay(DateTime date) =>
+            WorkingDayCalendar.SnapToNextWorkingDay(date.Date, WorkingWeek);
+
+        public DateTime AddWorkingDays(DateTime start, int workingDays) =>
+            WorkingDayCalendar.AddWorkingDays(start.Date, workingDays, WorkingWeek);
+
+        public int CountWorkingDaysInclusive(DateTime from, DateTime to) =>
+            WorkingDayCalendar.CountWorkingDaysInclusive(from.Date, to.Date, WorkingWeek);
+
+        public void RecalculateScheduleForWorkingWeek() =>
+            ApplyWorkingDaySchedule(markModified: true);
+
+        private void ApplyWorkingDaySchedule(bool markModified)
+        {
+            if (_tasks.Count == 0)
+            {
+                if (markModified)
+                {
+                    IsModified = true;
+                    ModelChanged?.Invoke(this, EventArgs.Empty);
+                }
+                return;
+            }
+
+            _isCascadingSchedule = true;
+            _suppressModificationTracking = true;
+            try
+            {
+                foreach (var task in _tasks.Where(t => t.TaskType is TaskType.Normal or TaskType.Milestone))
+                {
+                    var normalized = NormalizeToWorkingDay(task.StartDate);
+                    if (normalized != task.StartDate.Date)
+                        task.StartDate = normalized;
+                }
+
+                foreach (var dep in _dependencies.ToList())
+                    CascadeDependencies(dep.PredecessorId);
+
+                UpdateHierarchy();
+            }
+            finally
+            {
+                _isCascadingSchedule = false;
+                _suppressModificationTracking = false;
+            }
+
+            if (markModified)
+            {
+                IsModified = true;
+                ModelChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public bool ApplyProjectDependencyDefaults(
+            DependencyType dependencyType,
+            DependencyLineEnd startLineEnd,
+            DependencyLineEnd endLineEnd)
+        {
+            bool changed = false;
+            if (ViewSettings.DefaultDependencyType != dependencyType)
+            {
+                ViewSettings.DefaultDependencyType = dependencyType;
+                changed = true;
+            }
+
+            if (ViewSettings.DefaultDependencyStartLineEnd != startLineEnd)
+            {
+                ViewSettings.DefaultDependencyStartLineEnd = startLineEnd;
+                changed = true;
+            }
+
+            if (ViewSettings.DefaultDependencyEndLineEnd != endLineEnd)
+            {
+                ViewSettings.DefaultDependencyEndLineEnd = endLineEnd;
+                changed = true;
+            }
+
+            if (!changed)
+                return false;
+
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
         public ProjectViewSettings ViewSettings { get; set; } = ProjectViewSettings.CreateDefault();
         public string FilePath { get; set; } = "";
         public bool IsModified { get; set; } = false;
@@ -100,7 +229,17 @@ namespace MyProject.Models
             {
                 var task = GetTask(taskId);
                 if (task != null)
-                    task.Notes = GetNotesForTask(taskId).FirstOrDefault()?.Body ?? "";
+                {
+                    _suppressTaskNotesSync = true;
+                    try
+                    {
+                        task.Notes = GetNotesForTask(taskId).FirstOrDefault()?.Body ?? "";
+                    }
+                    finally
+                    {
+                        _suppressTaskNotesSync = false;
+                    }
+                }
             }
 
             IsModified = true;
@@ -305,10 +444,18 @@ namespace MyProject.Models
         public IEnumerable<ResourceAssignment> GetAssignments(int taskId) =>
             _assignments.Where(a => a.TaskId == taskId);
 
-        public bool AddAssignment(int taskId, string resourceName, double percent)
+        public bool AddAssignment(int taskId, string resourceName, double percent) =>
+            TryAddAssignment(taskId, resourceName, percent, out _);
+
+        public bool TryAddAssignment(int taskId, string resourceName, double percent, out string? errorMessage)
         {
-            double existing = _assignments.Where(a => a.TaskId == taskId).Sum(a => a.AllocationPercent);
-            if (existing + percent > 100.0) return false;
+            errorMessage = null;
+            if (percent <= 0)
+            {
+                errorMessage = "Allocation must be greater than 0%.";
+                return false;
+            }
+
             _assignments.Add(new ResourceAssignment { TaskId = taskId, ResourceName = resourceName, AllocationPercent = percent });
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
@@ -331,9 +478,7 @@ namespace MyProject.Models
             if (assignments.Count > 0)
             {
                 return string.Join(", ", assignments.Select(a =>
-                    assignments.Count == 1 && Math.Abs(a.AllocationPercent - 100) < 0.01
-                        ? a.ResourceName
-                        : $"{a.ResourceName} ({a.AllocationPercent:0}%)"));
+                    FormatResourceEditLine(a.ResourceName, a.AllocationPercent)));
             }
 
             return GetTask(taskId)?.AssignedTo ?? "";
@@ -344,14 +489,156 @@ namespace MyProject.Models
             var assignments = GetAssignments(taskId).ToList();
             if (assignments.Count > 0)
                 return string.Join(Environment.NewLine, assignments.Select(a =>
-                    assignments.Count == 1 && Math.Abs(a.AllocationPercent - 100) < 0.01
-                        ? a.ResourceName
-                        : $"{a.ResourceName} ({a.AllocationPercent:0}%)"));
+                    FormatResourceEditLine(a.ResourceName, a.AllocationPercent)));
 
             return GetTask(taskId)?.AssignedTo ?? "";
         }
 
+        public string GetTaskResourceNamesEditText(int taskId)
+        {
+            var assignments = GetAssignments(taskId).ToList();
+            if (assignments.Count > 0)
+                return string.Join(Environment.NewLine, assignments.Select(a => a.ResourceName));
+
+            return GetLegacyResourceNameLines(taskId);
+        }
+
+        public string GetTaskResourceAllocEditText(int taskId)
+        {
+            var assignments = GetAssignments(taskId).ToList();
+            if (assignments.Count > 0)
+                return string.Join(Environment.NewLine, assignments.Select(a => a.AllocationPercent.ToString("0")));
+
+            if (_pendingResourceAllocEdits.TryGetValue(taskId, out string? pending))
+                return pending;
+
+            int nameCount = GetLegacyResourceNameLines(taskId)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Length;
+            if (nameCount == 0)
+                return "";
+
+            return string.Join(Environment.NewLine, Enumerable.Repeat("100", nameCount));
+        }
+
+        public IReadOnlyList<(string Name, string AllocEdit)> GetTaskResourceGridRows(int taskId)
+        {
+            var nameLines = SplitNonEmptyLines(GetTaskResourceNamesEditText(taskId));
+            var allocLines = SplitNonEmptyLines(GetTaskResourceAllocEditText(taskId));
+            var rows = new List<(string Name, string AllocEdit)>(nameLines.Count);
+            for (int i = 0; i < nameLines.Count; i++)
+            {
+                string alloc = i < allocLines.Count ? allocLines[i] : "100";
+                rows.Add((nameLines[i], alloc));
+            }
+
+            return rows;
+        }
+
+        public IReadOnlyList<string> GetTaskResourceAllocDisplayLines(int taskId)
+        {
+            var lines = new List<string>();
+            foreach (var (_, allocEdit) in GetTaskResourceGridRows(taskId))
+            {
+                if (TryParseAllocationNumber(allocEdit, out double pct))
+                    lines.Add(FormatResourceAllocationDisplay(pct));
+                else if (!string.IsNullOrWhiteSpace(allocEdit))
+                    lines.Add(allocEdit.Trim());
+            }
+
+            return lines;
+        }
+
+        public string FormatTaskResourceAllocForPropertiesGrid(string allocEdit)
+        {
+            if (TryParseAllocationNumber(allocEdit, out double pct))
+                return FormatResourceAllocationDisplay(pct);
+
+            return allocEdit.Trim();
+        }
+
+        public IReadOnlyList<string> GetPendingResourceAllocDisplayLines(int taskId)
+        {
+            if (!_pendingResourceAllocEdits.TryGetValue(taskId, out string? pending))
+                return Array.Empty<string>();
+
+            return SplitNonEmptyLines(pending)
+                .Select(line => TryParseAllocationNumber(line, out double pct)
+                    ? FormatResourceAllocationDisplay(pct)
+                    : line)
+                .ToList();
+        }
+
+        public bool TrySetTaskResourcesFromColumns(int taskId, string namesText, string allocsText, out string? errorMessage)
+        {
+            errorMessage = null;
+            var nameLines = SplitNonEmptyLines(namesText);
+            var allocLines = SplitNonEmptyLines(allocsText);
+            if (nameLines.Count == 0)
+            {
+                if (allocLines.Count > 0)
+                {
+                    _pendingResourceAllocEdits[taskId] = allocsText.TrimEnd();
+                    IsModified = true;
+                    ModelChanged?.Invoke(this, EventArgs.Empty);
+                    return true;
+                }
+
+                _pendingResourceAllocEdits.Remove(taskId);
+                return TrySetTaskResourcesFromText(taskId, "", out errorMessage);
+            }
+
+            var effectiveAllocLines = allocLines;
+            if (effectiveAllocLines.Count == 0
+                && _pendingResourceAllocEdits.TryGetValue(taskId, out string? pending))
+            {
+                effectiveAllocLines = SplitNonEmptyLines(pending);
+            }
+
+            var combined = new StringBuilder();
+            for (int i = 0; i < nameLines.Count; i++)
+            {
+                double percent = 100;
+                if (i < effectiveAllocLines.Count && TryParseAllocationNumber(effectiveAllocLines[i], out double parsed))
+                    percent = parsed;
+
+                if (combined.Length > 0)
+                    combined.AppendLine();
+                combined.Append($"{nameLines[i]} {percent:0}");
+            }
+
+            _pendingResourceAllocEdits.Remove(taskId);
+            return TrySetTaskResourcesFromText(taskId, combined.ToString(), out errorMessage);
+        }
+
+        public void SetTaskResourcesFromColumns(int taskId, string namesText, string allocsText)
+        {
+            TrySetTaskResourcesFromColumns(taskId, namesText, allocsText, out _);
+        }
+
+        public bool TrySetTaskResourcesFromText(int taskId, string text, out string? errorMessage)
+        {
+            errorMessage = null;
+            var task = GetTask(taskId);
+            if (task == null)
+                return true;
+
+            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => l.Length > 0)
+                .ToList();
+
+            var parsed = ParseTaskResourceAssignmentLines(lines);
+            ApplyTaskResourceAssignments(taskId, lines, parsed);
+            return true;
+        }
+
         public void SetTaskResourcesFromText(int taskId, string text)
+        {
+            TrySetTaskResourcesFromText(taskId, text, out _);
+        }
+
+        private void ApplyTaskResourceAssignments(int taskId, List<string> lines, List<(string Name, double Percent)> parsed)
         {
             var task = GetTask(taskId);
             if (task == null)
@@ -359,44 +646,50 @@ namespace MyProject.Models
 
             _assignments.RemoveAll(a => a.TaskId == taskId);
 
-            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim())
-                .Where(l => l.Length > 0)
-                .ToList();
-
-            bool added = false;
-            double total = 0;
-            foreach (var line in lines)
+            if (parsed.Count > 0)
             {
-                if (!TryParseResourceLine(line, out string name, out double percent))
-                    continue;
-
-                percent = Math.Clamp(percent, 0, 100);
-                if (total + percent > 100)
-                    percent = 100 - total;
-                if (percent <= 0)
-                    continue;
-
-                _assignments.Add(new ResourceAssignment
+                foreach (var (name, percent) in parsed)
                 {
-                    TaskId = taskId,
-                    ResourceName = name,
-                    AllocationPercent = percent
-                });
-                total += percent;
-                added = true;
+                    _assignments.Add(new ResourceAssignment
+                    {
+                        TaskId = taskId,
+                        ResourceName = name,
+                        AllocationPercent = percent
+                    });
+                }
+
+                task.AssignedTo = GetTaskAssigneeDisplay(taskId);
+            }
+            else
+            {
+                task.AssignedTo = lines.Count == 0 ? "" : string.Join(Environment.NewLine, lines).Trim();
             }
 
-            if (!added)
-                task.AssignedTo = lines.Count == 0 ? "" : text.Trim();
-            else
-                task.AssignedTo = GetTaskAssigneeDisplay(taskId);
+            _pendingResourceAllocEdits.Remove(taskId);
 
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        private static bool TryParseResourceLine(string line, out string name, out double percent)
+        private static List<(string Name, double Percent)> ParseTaskResourceAssignmentLines(IEnumerable<string> lines)
+        {
+            var assignments = new List<(string Name, double Percent)>();
+            foreach (var line in lines)
+            {
+                if (!TryParseResourceLine(line, out string name, out double percent))
+                    continue;
+
+                percent = Math.Max(0, percent);
+                if (percent <= 0)
+                    continue;
+
+                assignments.Add((name, percent));
+            }
+
+            return assignments;
+        }
+
+        internal static bool TryParseResourceLine(string line, out string name, out double percent)
         {
             name = "";
             percent = 100;
@@ -420,9 +713,62 @@ namespace MyProject.Models
                 return name.Length > 0;
             }
 
+            var plainNumberMatch = Regex.Match(line, @"^(.*?)\s+(\d+(?:\.\d+)?)\s*$");
+            if (plainNumberMatch.Success)
+            {
+                name = plainNumberMatch.Groups[1].Value.Trim();
+                percent = double.Parse(plainNumberMatch.Groups[2].Value);
+                return name.Length > 0;
+            }
+
             name = line.Trim();
             return name.Length > 0;
         }
+
+        internal static string FormatResourceEditLine(string name, double percent)
+        {
+            if (Math.Abs(percent - 100) < 0.01)
+                return name;
+
+            return $"{name} ({percent:0}%)";
+        }
+
+        internal static string FormatResourceAllocationDisplay(double percent) => $"{percent:0}%";
+
+        internal static string FormatResourceAllocationEditDisplay(double percent) =>
+            Math.Abs(percent - 100) < 0.01 ? "" : percent.ToString("0");
+
+        internal static bool TryParseAllocationNumber(string text, out double percent)
+        {
+            percent = 100;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            text = text.Trim().TrimEnd('%').Trim();
+            return double.TryParse(text, out percent);
+        }
+
+        private string GetLegacyResourceNameLines(int taskId)
+        {
+            string assigned = GetTask(taskId)?.AssignedTo ?? "";
+            if (string.IsNullOrWhiteSpace(assigned))
+                return "";
+
+            var names = new List<string>();
+            foreach (var part in assigned.Split(new[] { '\r', '\n', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (TryParseResourceLine(part, out string name, out _))
+                    names.Add(name);
+            }
+
+            return string.Join(Environment.NewLine, names);
+        }
+
+        private static List<string> SplitNonEmptyLines(string text) =>
+            text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => l.Length > 0)
+                .ToList();
 
         public event EventHandler? ModelChanged;
 
@@ -499,6 +845,8 @@ namespace MyProject.Models
 
             _dependencies.RemoveAll(d => removedIds.Contains(d.PredecessorId) || removedIds.Contains(d.SuccessorId));
             _assignments.RemoveAll(a => removedIds.Contains(a.TaskId));
+            foreach (int id in removedIds)
+                _pendingResourceAllocEdits.Remove(id);
             _notes.RemoveAll(n => removedIds.Contains(n.TaskId));
 
             UpdateHierarchy();
@@ -646,6 +994,15 @@ namespace MyProject.Models
         {
             if (!_tasks.Any()) return ProjectStart.AddDays(30);
             return _tasks.Max(t => t.EndDate);
+        }
+
+        /// <summary>Gantt horizontal scroll origin: one day before the earliest-starting task.</summary>
+        public DateTime GetTimelineScrollOrigin()
+        {
+            if (_tasks.Count == 0)
+                return ProjectStart.Date.AddDays(-1);
+
+            return _tasks.Min(t => t.StartDate.Date).AddDays(-1);
         }
 
         public int GetTaskIndex(int taskId) => _tasks.FindIndex(t => t.Id == taskId);
@@ -816,12 +1173,8 @@ namespace MyProject.Models
             }
         }
 
-        private void ApplySchedulingOnLoad()
-        {
-            foreach (var dep in _dependencies)
-                CascadeDependencies(dep.PredecessorId);
-            UpdateHierarchy();
-        }
+        private void ApplySchedulingOnLoad() =>
+            ApplyWorkingDaySchedule(markModified: false);
 
         private void UpdateParentLinks()
         {
@@ -860,7 +1213,7 @@ namespace MyProject.Models
             if (descendants.Count == 0) return;
 
             var minStart = descendants.Min(c => c.StartDate);
-            var maxEnd = descendants.Max(c => c.EndDate);
+            var maxEnd = descendants.Max(c => GetTaskEndDate(c));
 
             double totalWeight = 0;
             double weightedProgress = 0;
@@ -882,7 +1235,7 @@ namespace MyProject.Models
             }
 
             task.StartDate = minStart;
-            task.DurationDays = Math.Max(1, (maxEnd - minStart).Days + 1);
+            task.DurationDays = Math.Max(1, CountWorkingDaysInclusive(minStart, maxEnd));
             task.Progress = totalWeight > 0 ? weightedProgress / totalWeight : 0;
         }
 
@@ -932,14 +1285,17 @@ namespace MyProject.Models
                 var succ = GetTask(dep.SuccessorId);
                 if (succ == null || !succ.AutoSchedule) continue;
 
+                int succWorkingDuration = succ.TaskType == TaskType.Milestone ? 0 : Math.Max(1, succ.DurationDays);
+                DateTime predEnd = GetTaskEndDate(pred);
                 DateTime newStart = dep.Type switch
                 {
-                    DependencyType.FS => pred.EndDate.AddDays(1 + dep.LagDays),
-                    DependencyType.FF => pred.EndDate.AddDays(dep.LagDays).AddDays(1 - succ.DurationDays),
-                    DependencyType.SS => pred.StartDate.AddDays(dep.LagDays),
-                    DependencyType.SF => pred.StartDate.AddDays(dep.LagDays).AddDays(1 - succ.DurationDays),
-                    _                 => pred.EndDate.AddDays(1 + dep.LagDays)
+                    DependencyType.FS => AddWorkingDays(predEnd, 1 + dep.LagDays),
+                    DependencyType.FF => AddWorkingDays(predEnd, dep.LagDays - Math.Max(0, succWorkingDuration - 1)),
+                    DependencyType.SS => AddWorkingDays(pred.StartDate, dep.LagDays),
+                    DependencyType.SF => AddWorkingDays(pred.StartDate, dep.LagDays - Math.Max(0, succWorkingDuration - 1)),
+                    _ => AddWorkingDays(predEnd, 1 + dep.LagDays)
                 };
+                newStart = NormalizeToWorkingDay(newStart);
 
                 if (newStart > succ.StartDate)
                 {
@@ -955,6 +1311,7 @@ namespace MyProject.Models
             _tasks.Clear();
             _dependencies.Clear();
             _assignments.Clear();
+            _pendingResourceAllocEdits.Clear();
             _notes.Clear();
             _nextNoteId = 1;
             _nextId = 1;
@@ -978,6 +1335,7 @@ namespace MyProject.Models
             _tasks.Clear();
             _dependencies.Clear();
             _assignments.Clear();
+            _pendingResourceAllocEdits.Clear();
             _notes.Clear();
 
             foreach (var src in tasks)
@@ -1188,10 +1546,27 @@ namespace MyProject.Models
 
             if (e.PropertyName is nameof(ProjectTask.StartDate) or nameof(ProjectTask.DurationDays))
             {
-                if (sender is ProjectTask task && !_isCascadingSchedule)
-                    ApplyDependencyScheduling(task.Id);
+                if (sender is ProjectTask task)
+                {
+                    if (e.PropertyName == nameof(ProjectTask.StartDate) && !_isCascadingSchedule)
+                    {
+                        var normalized = NormalizeToWorkingDay(task.StartDate);
+                        if (normalized != task.StartDate.Date)
+                        {
+                            task.StartDate = normalized;
+                            return;
+                        }
+                    }
+
+                    if (!_isCascadingSchedule)
+                        ApplyDependencyScheduling(task.Id);
+                    else
+                        UpdateHierarchy();
+                }
                 else
+                {
                     UpdateHierarchy();
+                }
             }
             else if (e.PropertyName is nameof(ProjectTask.Progress) or nameof(ProjectTask.IndentLevel)
                 or nameof(ProjectTask.TaskType) or nameof(ProjectTask.BarColor)
@@ -1201,7 +1576,8 @@ namespace MyProject.Models
             }
             else if (e.PropertyName == nameof(ProjectTask.Notes) && sender is ProjectTask task)
             {
-                SyncProjectNoteFromTaskNotes(task);
+                if (!_suppressTaskNotesSync)
+                    SyncProjectNoteFromTaskNotes(task);
             }
         }
 

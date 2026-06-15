@@ -21,6 +21,15 @@
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
+  <!-- IKVM: shared cache + unique stage dir per build so concurrent VS/CLI builds do not lock the same .log files. -->
+  <PropertyGroup>
+    <_IkvmBuildId>$([System.Guid]::NewGuid())</_IkvmBuildId>
+    <IkvmCacheDir>$(LOCALAPPDATA)\IKVM\cache\</IkvmCacheDir>
+    <IkvmStageDir>$(LOCALAPPDATA)\IKVM\stage\$(_IkvmBuildId)\</IkvmStageDir>
+    <IkvmExportStageDir>$(LOCALAPPDATA)\IKVM\expstage\$(_IkvmBuildId)\</IkvmExportStageDir>
+    <MavenCacheFile>$(LOCALAPPDATA)\IKVM\$(ProjectName).maven.cache</MavenCacheFile>
+  </PropertyGroup>
+
   <!-- WinForms: avoid hot reload and keep a native exe for reliable VS debug stop. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <HotReloadEnabled>false</HotReloadEnabled>
@@ -41,6 +50,13 @@
     <PackageReference Include="QuestPDF" Version="2024.12.3" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- Incomplete calendar/note-connector UI; excluded until wired to current APIs. -->
+  <ItemGroup>
+    <Compile Remove="Controls\CalendarViewControl.cs" />
+    <Compile Remove="Controls\NoteConnectorPreviewControl.cs" />
+    <Compile Remove="Controls\NoteLineStyleSelector.cs" />
   </ItemGroup>
 
   <ItemGroup>
