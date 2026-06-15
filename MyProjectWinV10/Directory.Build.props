@@ -3,7 +3,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NuGetAudit>false</NuGetAudit>
     <!-- MPXJ.Net / IKVM: non-actionable Java translation warnings on first publish. -->
-    <NoWarn>$(NoWarn);IKVM0100;IKVM0101;NU1605</NoWarn>
+    <NoWarn>$(NoWarn);IKVM0100;IKVM0101;IKVM0109;NU1605</NoWarn>
     <!-- App still running during rebuild: avoid failing the build on file-copy retries. -->
     <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3026;MSB3027</MSBuildWarningsAsMessages>
   </PropertyGroup>

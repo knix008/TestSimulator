@@ -27,8 +27,12 @@
     <IkvmCacheDir>$(LOCALAPPDATA)\IKVM\cache\</IkvmCacheDir>
     <IkvmStageDir>$(LOCALAPPDATA)\IKVM\stage\$(_IkvmBuildId)\</IkvmStageDir>
     <IkvmExportStageDir>$(LOCALAPPDATA)\IKVM\expstage\$(_IkvmBuildId)\</IkvmExportStageDir>
-    <MavenCacheFile>$(LOCALAPPDATA)\IKVM\$(ProjectName).maven.cache</MavenCacheFile>
+    <MavenCacheFile>$(LOCALAPPDATA)\IKVM\$(AssemblyName).maven.cache</MavenCacheFile>
   </PropertyGroup>
+
+  <Target Name="EnsureIkvmDirectories" BeforeTargets="_GetMavenIkvmReferenceItems">
+    <MakeDir Directories="$(LOCALAPPDATA)\IKVM;$(IkvmCacheDir);$(LOCALAPPDATA)\IKVM\stage;$(LOCALAPPDATA)\IKVM\expstage" />
+  </Target>
 
   <!-- WinForms: avoid hot reload and keep a native exe for reliable VS debug stop. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
