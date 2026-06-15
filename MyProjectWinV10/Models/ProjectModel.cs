@@ -13,6 +13,7 @@ namespace MyProject.Models
         private readonly List<TaskDependency> _dependencies = new();
         private readonly List<ResourceAssignment> _assignments = new();
         private readonly Dictionary<int, string> _pendingResourceAllocEdits = new();
+        private bool _suppressTaskNotesSync;
         private readonly List<ProjectNote> _notes = new();
         private int _nextNoteId = 1;
         private bool _isUpdatingHierarchy;
@@ -102,7 +103,17 @@ namespace MyProject.Models
             {
                 var task = GetTask(taskId);
                 if (task != null)
-                    task.Notes = GetNotesForTask(taskId).FirstOrDefault()?.Body ?? "";
+                {
+                    _suppressTaskNotesSync = true;
+                    try
+                    {
+                        task.Notes = GetNotesForTask(taskId).FirstOrDefault()?.Body ?? "";
+                    }
+                    finally
+                    {
+                        _suppressTaskNotesSync = false;
+                    }
+                }
             }
 
             IsModified = true;
@@ -1387,7 +1398,8 @@ namespace MyProject.Models
             }
             else if (e.PropertyName == nameof(ProjectTask.Notes) && sender is ProjectTask task)
             {
-                SyncProjectNoteFromTaskNotes(task);
+                if (!_suppressTaskNotesSync)
+                    SyncProjectNoteFromTaskNotes(task);
             }
         }
 

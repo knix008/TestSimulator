@@ -16,6 +16,7 @@ namespace MyProject.Controls
         private bool _suppressEvents;
 
         public event EventHandler? ContentChanged;
+        public event EventHandler? EditorEnter;
 
         public RichNoteEditorControl()
         {
@@ -71,6 +72,7 @@ namespace MyProject.Controls
                 HideSelection = false
             };
             _editor.SelectionChanged += (_, _) => SyncToolbarFromSelection();
+            _editor.Enter += (_, _) => EditorEnter?.Invoke(this, EventArgs.Empty);
             _editor.TextChanged += (_, _) =>
             {
                 if (!_suppressEvents)

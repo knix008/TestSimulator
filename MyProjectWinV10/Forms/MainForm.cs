@@ -155,7 +155,7 @@ namespace MyProject.Forms
             SetToolbarTip(btnRedo, "Redo (Ctrl+Y)");
             SetToolbarTip(btnAddTask, "Add Task (Insert)");
             SetToolbarTip(btnAddSubtask, "Add Subtask (Ctrl+Shift+Insert)");
-            SetToolbarTip(btnDeleteTask, "Delete Selected Task (Delete)");
+            SetToolbarTip(btnDeleteTask, "Delete Selected Note or Task (Delete)");
             SetToolbarTip(btnInfo, "Program information");
             SetToolbarTip(btnTaskProps, "Task Properties (F2)");
             SetToolbarTip(btnIndent, "Indent Task (Alt+Right)");
@@ -288,7 +288,7 @@ namespace MyProject.Forms
             btnSaveAs.Click     += (_, _) => OnSaveAs();
             btnAddTask.Click    += (_, _) => OnAddTask();
             btnAddSubtask.Click += (_, _) => OnAddSubtask(_lastSelectedId);
-            btnDeleteTask.Click += (_, _) => OnDeleteTask();
+            btnDeleteTask.Click += (_, _) => OnDeleteSelected();
             btnTaskProps.Click  += (_, _) => OpenTaskProperties(_lastSelectedId);
             btnNotes.Click      += (_, _) => OnNotesToolbarClick();
             btnIndent.Click     += (_, _) => OnIndent();
@@ -344,6 +344,9 @@ namespace MyProject.Forms
 
             ganttChartControl.NoteSelected += OnNoteSelected;
 
+            ganttChartControl.RequestUndoSnapshot = CaptureUndoSnapshot;
+            selectionPropertiesControl.RequestUndoSnapshot = CaptureUndoSnapshot;
+
             FormClosing += OnFormClosing;
             FormClosed += OnFormClosed;
             Shown += (_, _) =>
@@ -356,9 +359,8 @@ namespace MyProject.Forms
             {
                 if (e.KeyCode == Keys.Delete)
                 {
-                    if (ganttChartControl.SelectedNoteId >= 0)
+                    if (TryDeleteSelectedNote())
                     {
-                        DeleteNoteById(ganttChartControl.SelectedNoteId);
                         e.Handled = true;
                         return;
                     }
@@ -435,7 +437,7 @@ namespace MyProject.Forms
                 ToggleExpandTask = id => ToggleExpandTask(id),
                 AddNoteToTask = id => ganttChartControl.AddNoteForTask(id),
                 EditNote = id => ganttChartControl.BeginInlineNoteEdit(id),
-                DeleteNote = id => DeleteNoteById(id),
+                DeleteNote = id => DeleteNoteById(id, confirm: true),
                 ZoomIn = OnZoomIn,
                 ZoomOut = OnZoomOut,
                 GoToToday = () => ganttChartControl.GoToToday(),
@@ -507,6 +509,12 @@ namespace MyProject.Forms
 
         private void SaveSnapshot() => _undoRedo.SaveSnapshot(_model);
 
+        private void CaptureUndoSnapshot()
+        {
+            SaveSnapshot();
+            UpdateUndoRedoState();
+        }
+
         private void OnUndo()
         {
             if (!_undoRedo.CanUndo) return;
@@ -547,6 +555,8 @@ namespace MyProject.Forms
         {
             if (_titleBarModel != null)
                 _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
+
+            ganttChartControl.EndInlineNoteEdit(false);
 
             _titleBarModel = _model;
             _model.ModelChanged += OnModelChangedForTitleBar;
@@ -907,14 +917,65 @@ namespace MyProject.Forms
             _model.ViewSettings = captured;
         }
 
-        private void DeleteNoteById(int noteId)
+        private bool CanDeleteSelectedNote()
         {
+            if (ganttChartControl.SelectedNoteId < 0)
+                return false;
+
+            if (ganttChartControl.IsInlineNoteEditActive)
+                return false;
+
+            if (selectionPropertiesControl.IsNoteEditorFocused)
+                return false;
+
+            return _model.GetNote(ganttChartControl.SelectedNoteId) != null;
+        }
+
+        private bool TryDeleteSelectedNote(bool confirm = false)
+        {
+            if (!CanDeleteSelectedNote())
+                return false;
+
+            DeleteNoteById(ganttChartControl.SelectedNoteId, confirm);
+            return true;
+        }
+
+        private void OnDeleteSelected()
+        {
+            if (TryDeleteSelectedNote(confirm: true))
+                return;
+
+            OnDeleteTask();
+        }
+
+        private void DeleteNoteById(int noteId, bool confirm = false)
+        {
+            var note = _model.GetNote(noteId);
+            if (note == null)
+                return;
+
+            if (confirm)
+            {
+                string label = string.IsNullOrWhiteSpace(note.Title) ? "this note" : $"\"{note.Title.Trim()}\"";
+                if (MessageBox.Show(
+                        $"Delete note {label}?",
+                        "Confirm Delete",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question) != DialogResult.Yes)
+                {
+                    return;
+                }
+            }
+
+            ganttChartControl.EndInlineNoteEdit(false);
+            ganttChartControl.EndInlineNoteEdit(false);
             SaveSnapshot();
             _model.RemoveNote(noteId);
             ganttChartControl.ClearNoteSelection();
-            ganttChartControl.EndInlineNoteEdit(false);
             selectionPropertiesControl.SetSelection(ganttChartControl.SelectedTaskId, -1);
             ganttChartControl.Invalidate();
+            UpdateUndoRedoState();
+            UpdateTaskToolState();
         }
 
         private void OnNotesToolbarClick()
@@ -1001,6 +1062,7 @@ namespace MyProject.Forms
         private void OnNoteSelected(object? sender, int noteId)
         {
             selectionPropertiesControl.SetSelection(-1, noteId);
+            UpdateTaskToolState();
         }
 
         private void OnGanttLinkShapeClicked(object? sender, int taskId)
@@ -1383,24 +1445,27 @@ namespace MyProject.Forms
 
         private void UpdateTaskToolState()
         {
-            bool hasSelection = _lastSelectedId >= 0;
-            var task = hasSelection ? _model.GetTask(_lastSelectedId) : null;
-            bool hasChildren = hasSelection && _model.HasChildren(_lastSelectedId);
+            bool hasNoteSelection = CanDeleteSelectedNote()
+                || (ganttChartControl.SelectedNoteId >= 0 && _model.GetNote(ganttChartControl.SelectedNoteId) != null);
+            bool hasTaskSelection = _lastSelectedId >= 0;
+            bool hasSelection = hasTaskSelection || hasNoteSelection;
+            var task = hasTaskSelection ? _model.GetTask(_lastSelectedId) : null;
+            bool hasChildren = hasTaskSelection && _model.HasChildren(_lastSelectedId);
 
-            menuAddSubtask.Enabled = hasSelection;
+            menuAddSubtask.Enabled = hasTaskSelection;
             menuDeleteTask.Enabled = hasSelection;
-            menuIndent.Enabled = hasSelection;
-            menuOutdent.Enabled = hasSelection;
-            menuTaskProps.Enabled = hasSelection;
+            menuIndent.Enabled = hasTaskSelection;
+            menuOutdent.Enabled = hasTaskSelection;
+            menuTaskProps.Enabled = hasTaskSelection;
             menuLink.Enabled = true;
             menuLink.Checked = IsLinkModeActive;
             menuExpandCollapse.Enabled = hasChildren;
 
-            btnAddSubtask.Enabled = hasSelection;
+            btnAddSubtask.Enabled = hasTaskSelection;
             btnDeleteTask.Enabled = hasSelection;
-            btnTaskProps.Enabled = hasSelection;
-            btnIndent.Enabled = hasSelection;
-            btnOutdent.Enabled = hasSelection;
+            btnTaskProps.Enabled = hasTaskSelection;
+            btnIndent.Enabled = hasTaskSelection;
+            btnOutdent.Enabled = hasTaskSelection;
             btnExpandCollapse.Enabled = hasChildren;
             btnLink.Checked = IsLinkModeActive;
 

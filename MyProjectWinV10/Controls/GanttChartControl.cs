@@ -76,7 +76,10 @@ namespace MyProject.Controls
         public GanttViewport Viewport => _viewport;
         public int SelectedTaskId => _selectedTaskId;
         public int SelectedNoteId => _selectedNoteId;
+        public bool IsInlineNoteEditActive => _noteInlineEditor != null;
         public bool NoteModeActive => _noteModeActive;
+
+        public Action? RequestUndoSnapshot { get; set; }
 
         public bool ShowCriticalPath
         {
@@ -154,7 +157,17 @@ namespace MyProject.Controls
             editor.KeyDown -= OnNoteInlineEditorKeyDown;
 
             if (commit && noteId >= 0 && _model != null)
-                _model.UpdateNoteRtf(noteId, NoteRtfHelper.GetRtfFromRichTextBox(editor));
+            {
+                string newRtf = NoteRtfHelper.GetRtfFromRichTextBox(editor);
+                var note = _model.GetNote(noteId);
+                if (note != null
+                    && (note.BodyRtf != newRtf || note.Body != editor.Text))
+                {
+                    RequestUndoSnapshot?.Invoke();
+                }
+
+                _model.UpdateNoteRtf(noteId, newRtf);
+            }
 
             Controls.Remove(editor);
             editor.Dispose();
@@ -170,6 +183,7 @@ namespace MyProject.Controls
             if (task == null)
                 return;
 
+            RequestUndoSnapshot?.Invoke();
             var note = _model.AddNote(taskId);
             _selectedNoteId = note.Id;
             _selectedTaskId = taskId;
@@ -841,6 +855,7 @@ namespace MyProject.Controls
                 {
                     int contentY = e.Y + _scrollY;
                     DateTime anchor = _viewport.XToDate(e.X).Date;
+                    RequestUndoSnapshot?.Invoke();
                     var note = _model.AddNoteAt(barTask.Id, anchor, contentY);
                     _selectedNoteId = note.Id;
                     _selectedTaskId = barTask.Id;
@@ -1078,7 +1093,16 @@ namespace MyProject.Controls
             }
 
             if (_isDraggingNote && _dragNoteId >= 0 && _model != null)
-                _model.SetNotePosition(_dragNoteId, _dragNotePreviewAnchorDate, _dragNotePreviewContentY);
+            {
+                var note = _model.GetNote(_dragNoteId);
+                if (note != null
+                    && (note.AnchorDate.Date != _dragNotePreviewAnchorDate.Date
+                        || note.ContentY != _dragNotePreviewContentY))
+                {
+                    RequestUndoSnapshot?.Invoke();
+                    _model.SetNotePosition(_dragNoteId, _dragNotePreviewAnchorDate, _dragNotePreviewContentY);
+                }
+            }
 
             _isDragging = false;
             _isResizingRight = false;

@@ -6,6 +6,9 @@ namespace MyProject.Controls
   public sealed class SelectionPropertiesControl : UserControl
   {
     private ProjectModel? _model;
+    private int _noteContentSnapshotNoteId = -1;
+
+    public Action? RequestUndoSnapshot { get; set; }
     private int _taskId = -1;
     private int _noteId = -1;
     private bool _suppressChanges;
@@ -479,10 +482,19 @@ namespace MyProject.Controls
 
       _noteId = noteId;
       _taskId = noteId >= 0 ? -1 : taskId;
+      if (noteId < 0)
+        _noteContentSnapshotNoteId = -1;
       RefreshFromSelection();
     }
 
     public void CommitPendingEdits() => CommitPendingTaskEdits();
+
+    public bool IsNoteEditorFocused =>
+      _noteId >= 0
+      && (_noteTitle.Focused
+          || _noteEditor.ContainsFocus
+          || _noteLinkedTask.Focused
+          || _noteAnchorDate.Focused);
 
     private void CommitPendingTaskEdits()
     {
@@ -565,6 +577,7 @@ namespace MyProject.Controls
         Margin = new Padding(0, 6, 0, 8)
       };
       _noteEditor.ContentChanged += (_, _) => ApplyNoteContent();
+      _noteEditor.EditorEnter += (_, _) => CaptureNoteContentUndoIfNeeded();
 
       _noteLinkedTask = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
       _noteLinkedTask.SelectedIndexChanged += (_, _) => ApplyNoteLink();
@@ -812,6 +825,7 @@ namespace MyProject.Controls
           _taskGroup.Visible = false;
           _noteTitle.Text = note.Title;
           _noteEditor.LoadContent(note.BodyRtf, note.Body);
+          _noteContentSnapshotNoteId = -1;
           _noteAnchorDate.Value = note.AnchorDate;
           ReloadLinkedTaskChoices();
           SelectLinkedTask(note.TaskId);
@@ -1017,6 +1031,15 @@ namespace MyProject.Controls
     private ProjectNote? CurrentNote() =>
       _model != null && _noteId >= 0 ? _model.GetNote(_noteId) : null;
 
+    private void CaptureNoteContentUndoIfNeeded()
+    {
+      if (_suppressChanges || _noteId < 0 || _noteContentSnapshotNoteId == _noteId)
+        return;
+
+      RequestUndoSnapshot?.Invoke();
+      _noteContentSnapshotNoteId = _noteId;
+    }
+
     private void ApplyNoteTitle()
     {
       if (_suppressChanges || _model == null) return;
@@ -1026,6 +1049,7 @@ namespace MyProject.Controls
       string title = _noteTitle.Text.Trim();
       if (note.Title == title) return;
 
+      RequestUndoSnapshot?.Invoke();
       _applyingToModel = true;
       try { _model.UpdateNoteTitle(_noteId, title); }
       finally { _applyingToModel = false; }
@@ -1054,6 +1078,7 @@ namespace MyProject.Controls
       var note = CurrentNote();
       if (note == null || note.TaskId == item.Id) return;
 
+      RequestUndoSnapshot?.Invoke();
       _applyingToModel = true;
       try { _model.LinkNoteToTask(_noteId, item.Id); }
       finally { _applyingToModel = false; }
@@ -1066,6 +1091,7 @@ namespace MyProject.Controls
       if (note == null) return;
       if (note.AnchorDate.Date == _noteAnchorDate.Value.Date) return;
 
+      RequestUndoSnapshot?.Invoke();
       _applyingToModel = true;
       try { _model.SetNotePosition(_noteId, _noteAnchorDate.Value.Date, note.ContentY); }
       finally { _applyingToModel = false; }
