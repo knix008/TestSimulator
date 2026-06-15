@@ -73,13 +73,11 @@ public static class SequenceDiagramBuilder
         var messages = new List<SequenceMessage>();
         var participantOrder = new List<string>();
         var participantSet = new HashSet<string>(StringComparer.Ordinal);
-        var truncatedMessages = false;
-        var truncatedParticipants = false;
         var order = 0;
 
         foreach (var rootId in roots)
         {
-            if (!TryAddParticipant(rootId, participantOrder, participantSet, ref truncatedParticipants))
+            if (!TryAddParticipant(rootId, participantOrder, participantSet))
             {
                 continue;
             }
@@ -90,42 +88,20 @@ public static class SequenceDiagramBuilder
                 messages,
                 participantOrder,
                 participantSet,
-                ref order,
-                ref truncatedMessages,
-                ref truncatedParticipants);
+                ref order);
         }
 
         var map = participantOrder
             .Where(id => callGraph.NodeMap.ContainsKey(id))
             .ToDictionary(id => id, id => callGraph.NodeMap[id], StringComparer.Ordinal);
 
-        var truncated = truncatedMessages || truncatedParticipants;
-        string? note = null;
-        if (truncated)
-        {
-            var parts = new List<string>();
-            if (truncatedMessages)
-            {
-                parts.Add($"메시지 상한 {AnalysisScaleLimits.MaxSequenceDiagramMessages}건");
-            }
-
-            if (truncatedParticipants)
-            {
-                parts.Add($"참가자 상한 {AnalysisScaleLimits.MaxSequenceDiagramParticipants}개");
-            }
-
-            note =
-                string.Join(" · ", parts) +
-                " — 「시작 함수」에서 특정 함수를 선택하면 해당 흐름만 볼 수 있습니다.";
-        }
-
         return new SequenceDiagramResult
         {
             ParticipantIds = participantOrder,
             Messages = messages,
             ParticipantMap = map,
-            IsTruncated = truncated,
-            TruncationNote = note
+            IsTruncated = false,
+            TruncationNote = null
         };
     }
 
@@ -139,11 +115,9 @@ public static class SequenceDiagramBuilder
         var messages = new List<SequenceMessage>();
         var participantOrder = new List<string>();
         var participantSet = new HashSet<string>(StringComparer.Ordinal);
-        var truncatedMessages = false;
-        var truncatedParticipants = false;
         var order = 0;
 
-        if (!TryAddParticipant(rootId, participantOrder, participantSet, ref truncatedParticipants))
+        if (!TryAddParticipant(rootId, participantOrder, participantSet))
         {
             return new SequenceDiagramResult();
         }
@@ -154,41 +128,19 @@ public static class SequenceDiagramBuilder
             messages,
             participantOrder,
             participantSet,
-            ref order,
-            ref truncatedMessages,
-            ref truncatedParticipants);
+            ref order);
 
         var map = participantOrder
             .Where(id => callGraph.NodeMap.ContainsKey(id))
             .ToDictionary(id => id, id => callGraph.NodeMap[id], StringComparer.Ordinal);
-
-        var truncated = truncatedMessages || truncatedParticipants;
-        string? note = null;
-        if (truncated)
-        {
-            var parts = new List<string>();
-            if (truncatedMessages)
-            {
-                parts.Add($"메시지 상한 {AnalysisScaleLimits.MaxSequenceDiagramMessages}건");
-            }
-
-            if (truncatedParticipants)
-            {
-                parts.Add($"참가자 상한 {AnalysisScaleLimits.MaxSequenceDiagramParticipants}개");
-            }
-
-            note =
-                string.Join(" · ", parts) +
-                " — 「시작 함수」에서 특정 함수를 선택하면 해당 흐름만 볼 수 있습니다.";
-        }
 
         return new SequenceDiagramResult
         {
             ParticipantIds = participantOrder,
             Messages = messages,
             ParticipantMap = map,
-            IsTruncated = truncated,
-            TruncationNote = note
+            IsTruncated = false,
+            TruncationNote = null
         };
     }
 
@@ -272,25 +224,16 @@ public static class SequenceDiagramBuilder
         List<SequenceMessage> messages,
         List<string> participantOrder,
         HashSet<string> participantSet,
-        ref int order,
-        ref bool truncatedMessages,
-        ref bool truncatedParticipants)
+        ref int order)
     {
         var stack = new Stack<TraverseFrame>();
         stack.Push(new TraverseFrame(rootId, 0, 0, new HashSet<string>(StringComparer.Ordinal) { rootId }));
 
         while (stack.Count > 0)
         {
-            if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
-            {
-                truncatedMessages = true;
-                return;
-            }
-
             var frame = stack.Pop();
             if (frame.Depth >= AnalysisScaleLimits.MaxSequenceDiagramDepth)
             {
-                truncatedMessages = true;
                 continue;
             }
 
@@ -299,32 +242,17 @@ public static class SequenceDiagramBuilder
                 continue;
             }
 
-            var branchCount = 0;
             var resumePushed = false;
 
             for (var index = frame.NextCalleeIndex; index < callees.Count; index++)
             {
-                if (branchCount >= AnalysisScaleLimits.MaxSequenceDiagramBranchFanOut)
-                {
-                    truncatedMessages = true;
-                    break;
-                }
-
-                branchCount++;
-
-                if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
-                {
-                    truncatedMessages = true;
-                    return;
-                }
-
                 var calleeId = callees[index];
                 if (!callGraph.NodeMap.TryGetValue(calleeId, out var callee))
                 {
                     continue;
                 }
 
-                if (!TryAddParticipant(calleeId, participantOrder, participantSet, ref truncatedParticipants))
+                if (!TryAddParticipant(calleeId, participantOrder, participantSet))
                 {
                     continue;
                 }
@@ -359,18 +287,11 @@ public static class SequenceDiagramBuilder
     private static bool TryAddParticipant(
         string participantId,
         List<string> participantOrder,
-        HashSet<string> participantSet,
-        ref bool truncatedParticipants)
+        HashSet<string> participantSet)
     {
         if (participantSet.Contains(participantId))
         {
             return true;
-        }
-
-        if (participantSet.Count >= AnalysisScaleLimits.MaxSequenceDiagramParticipants)
-        {
-            truncatedParticipants = true;
-            return false;
         }
 
         participantSet.Add(participantId);

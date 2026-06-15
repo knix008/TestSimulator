@@ -3,59 +3,11 @@ using CodeAnalyzer.Services;
 namespace CodeAnalyzer.Controls;
 
 /// <summary>진입점 탭이 한 페이지 분량을 넘을 때 페이지(예: 1–20, 21–40)를 선택합니다.</summary>
-internal sealed class EntryPointTabPager : UserControl
+internal partial class EntryPointTabPager : UserControl
 {
     private const int PageComboWidth = 168;
     private const int NavButtonWidth = 28;
     private const int PageLabelWidth = 56;
-
-    private readonly Label _summaryLabel = new()
-    {
-        AutoSize = false,
-        Dock = DockStyle.Fill,
-        ForeColor = Color.FromArgb(70, 80, 95),
-        TextAlign = ContentAlignment.MiddleLeft,
-        AutoEllipsis = true
-    };
-
-    private readonly Label _pageLabel = new()
-    {
-        AutoSize = false,
-        Width = PageLabelWidth,
-        Dock = DockStyle.Left,
-        Text = "페이지:",
-        ForeColor = Color.FromArgb(70, 80, 95),
-        TextAlign = ContentAlignment.MiddleRight,
-        Padding = new Padding(4, 0, 4, 0)
-    };
-
-    private readonly ComboBox _pageCombo = new()
-    {
-        DropDownStyle = ComboBoxStyle.DropDownList,
-        Dock = DockStyle.Fill
-    };
-
-    private readonly Button _prevPageButton = new()
-    {
-        Text = "◀",
-        AutoSize = false,
-        Width = NavButtonWidth,
-        Dock = DockStyle.Left,
-        FlatStyle = FlatStyle.System,
-        ForeColor = Color.FromArgb(50, 70, 100),
-        Enabled = false
-    };
-
-    private readonly Button _nextPageButton = new()
-    {
-        Text = "▶",
-        AutoSize = false,
-        Width = NavButtonWidth,
-        Dock = DockStyle.Right,
-        FlatStyle = FlatStyle.System,
-        ForeColor = Color.FromArgb(50, 70, 100),
-        Enabled = false
-    };
 
     private int _totalItems;
     private int _pageIndex;
@@ -63,44 +15,10 @@ internal sealed class EntryPointTabPager : UserControl
 
     public EntryPointTabPager()
     {
-        Dock = DockStyle.Top;
-        Height = 32;
-        MinimumSize = new Size(NavButtonWidth, 32);
-        Padding = new Padding(8, 4, 4, 4);
-        BackColor = Color.FromArgb(248, 249, 252);
-        Visible = false;
-
-        // [◀][페이지:][ComboBox] 패널 — DockStyle.Right 으로 우측 정렬
-        // 창이 좁아질 때 왼쪽부터 클리핑되므로 ▶는 항상 최우측에 표시됨
-        var middlePanel = new Panel
-        {
-            Dock = DockStyle.Right,
-            Width = NavButtonWidth + PageLabelWidth + PageComboWidth
-        };
-        // 높은 인덱스 먼저 처리: ◀가 가장 좌측이 되도록 마지막에 추가
-        middlePanel.Controls.Add(_pageCombo);       // index 0: Fill
-        middlePanel.Controls.Add(_pageLabel);        // index 1: Left
-        middlePanel.Controls.Add(_prevPageButton);   // index 2: Left (좌단)
-
-        // ▶를 가장 마지막에 추가(높은 인덱스) → 도킹 처리 시 최우측에 고정
-        Controls.Add(_summaryLabel);   // index 0: Fill
-        Controls.Add(middlePanel);     // index 1: Right (▶ 왼쪽)
-        Controls.Add(_nextPageButton); // index 2: Right (최우측, 항상 표시)
-
-        _prevPageButton.Click += (_, _) => SelectPage(_pageIndex - 1);
-        _nextPageButton.Click += (_, _) => SelectPage(_pageIndex + 1);
-
-        _pageCombo.SelectedIndexChanged += (_, _) =>
-        {
-            if (_suppressPageChange || _pageCombo.SelectedIndex < 0)
-            {
-                return;
-            }
-
-            _pageIndex = _pageCombo.SelectedIndex;
-            UpdateNavButtonStates();
-            PageChanged?.Invoke();
-        };
+        InitializeComponent();
+        _prevPageButton.Click += OnPrevPageButtonClick;
+        _nextPageButton.Click += OnNextPageButtonClick;
+        _pageCombo.SelectedIndexChanged += OnPageComboSelectedIndexChanged;
     }
 
     public event Action? PageChanged;
@@ -201,6 +119,22 @@ internal sealed class EntryPointTabPager : UserControl
         }
 
         SelectPage(globalIndex / PageSize);
+    }
+
+    private void OnPrevPageButtonClick(object? sender, EventArgs e) => SelectPage(_pageIndex - 1);
+
+    private void OnNextPageButtonClick(object? sender, EventArgs e) => SelectPage(_pageIndex + 1);
+
+    private void OnPageComboSelectedIndexChanged(object? sender, EventArgs e)
+    {
+        if (_suppressPageChange || _pageCombo.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        _pageIndex = _pageCombo.SelectedIndex;
+        UpdateNavButtonStates();
+        PageChanged?.Invoke();
     }
 
     private void UpdateNavButtonStates()

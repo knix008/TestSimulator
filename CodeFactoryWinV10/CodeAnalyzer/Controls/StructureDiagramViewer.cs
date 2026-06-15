@@ -105,6 +105,11 @@ public sealed class StructureDiagramViewer : UserControl
         AutoScroll = !isSequence;
         if (isSequence)
         {
+            // AutoScrollMinSize를 빈 값으로 초기화해야 함:
+            // WinForms에서 AutoScrollMinSize를 0이 아닌 값으로 설정하면 AutoScroll이 자동으로
+            // true가 되므로, 시퀀스 모드에서는 OnResize 때 ApplyContentSize를 호출하지 않고
+            // 여기서 명시적으로 초기화해서 스크롤바가 나타나지 않도록 한다.
+            AutoScrollMinSize = Size.Empty;
             AutoScrollPosition = new Point(0, 0);
         }
     }
@@ -135,7 +140,13 @@ public sealed class StructureDiagramViewer : UserControl
         _sequenceDocument = null;
         _sequenceTabHost.SetEmpty("분석을 실행하면 다이어그램이 표시됩니다.");
         _contentSize = new Size(400, 300);
-        _zoom.ApplyContentSize(this, _contentSize);
+        // 시퀀스 모드에서는 건너뜀: AutoScrollMinSize → AutoScroll=true →
+        // _sequenceTabHost 너비가 가시 영역보다 커져 오른쪽 컨트롤이 화면 밖으로 밀려남
+        if (_viewKind != DiagramViewKind.SequenceDiagram)
+        {
+            _zoom.ApplyContentSize(this, _contentSize);
+        }
+
         Invalidate();
     }
 
@@ -1535,7 +1546,13 @@ public sealed class StructureDiagramViewer : UserControl
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
-        _zoom.ApplyContentSize(this, _contentSize);
+        // 시퀀스 모드에서는 ApplyContentSize를 호출하지 않는다.
+        // ApplyContentSize → AutoScrollMinSize 설정 → AutoScroll=true 강제 활성화로
+        // 스크롤바가 생겨 SequenceDiagramTabHost 레이아웃이 망가지는 것을 방지한다.
+        if (_viewKind != DiagramViewKind.SequenceDiagram)
+        {
+            _zoom.ApplyContentSize(this, _contentSize);
+        }
     }
 
     private void InvalidateDiagramSurface() => Invalidate(ClientRectangle);

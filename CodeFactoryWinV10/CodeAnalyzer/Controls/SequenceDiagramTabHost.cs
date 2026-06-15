@@ -3,39 +3,13 @@ using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
-internal sealed class SequenceDiagramTabHost : UserControl
+internal partial class SequenceDiagramTabHost : UserControl
 {
-    private readonly Label _bannerLabel = new()
-    {
-        Dock = DockStyle.Top,
-        Height = 28,
-        Padding = new Padding(8, 6, 8, 0),
-        ForeColor = Color.FromArgb(30, 85, 130),
-        BackColor = Color.FromArgb(224, 242, 255),
-        Visible = false
-    };
-
-    private readonly EntryPointTabPager _pager = new();
-    private readonly Label _messageLabel = new()
-    {
-        Dock = DockStyle.Fill,
-        TextAlign = ContentAlignment.MiddleCenter,
-        ForeColor = Color.FromArgb(100, 110, 125),
-        Font = new Font("Segoe UI", 10f),
-        Visible = false
-    };
-
-    private readonly NavigationTabControl _tabs = new() { Visible = false };
-
     private SequenceDiagramDocument? _document;
 
     public SequenceDiagramTabHost()
     {
-        BackColor = Color.White;
-        Controls.Add(_tabs);
-        Controls.Add(_messageLabel);
-        Controls.Add(_pager);
-        Controls.Add(_bannerLabel);
+        InitializeComponent();
         _pager.PageChanged += RebuildTabsForCurrentPage;
     }
 

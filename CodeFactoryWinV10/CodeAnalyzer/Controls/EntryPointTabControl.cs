@@ -14,19 +14,17 @@ internal sealed class NavigationTabControl : TabControl
     private const int WmLButtonDown = 0x0201;
     private const int WmLButtonUp = 0x0202;
     private const int WmHScroll = 0x0114;
-    private const int TcmHitTest = 0x1300 + 13;
-    private const int TcmScroll = 0x1300 + 48;
-    private const int TchtLeftHeaderButton = 10;
-    private const int TchtRightHeaderButton = 11;
     private const int SbLineLeft = 0;
     private const int SbLineRight = 1;
     private const int SbPageLeft = 2;
     private const int SbPageRight = 3;
+    private const int SbThumbPosition = 4;  // UpDown 스핀 컨트롤이 전송하는 실제 코드
 
     private int _headerLayoutSuspendCount;
     private bool _applyingHeaderLayout;
     private Size _appliedItemSize = Size.Empty;
     private TabSizeMode _appliedSizeMode = TabSizeMode.Normal;
+    private int _prevScrollPos;
 
     public NavigationTabControl()
     {
@@ -124,22 +122,44 @@ internal sealed class NavigationTabControl : TabControl
     {
         if (TabCount > 1)
         {
+            // 마우스 버튼: 스핀 컨트롤(◀▶) 영역 클릭 감지
             if (m.Msg is WmLButtonDown or WmLButtonUp
-                && TryGetHeaderScrollDeltaFromHitTest(m, out var hitDelta))
+                && TryGetSpinButtonDelta(new Point(LowWord(m.LParam), HighWordSigned(m.LParam)), out var spinDelta))
             {
                 if (m.Msg == WmLButtonUp)
                 {
-                    SelectRelativeTab(hitDelta);
+                    SelectRelativeTab(spinDelta);
                 }
 
                 base.WndProc(ref m);
                 return;
             }
 
-            if (TryGetScrollMessageDelta(m, out var scrollDelta))
+            // WM_HSCROLL: 내장 UpDown 스핀 컨트롤이 부모에게 전송하는 스크롤 메시지
+            if (m.Msg == WmHScroll)
             {
-                SelectRelativeTab(scrollDelta);
-                return;
+                var code = LowWord(m.WParam);
+
+                // SB_LINE*/SB_PAGE*: 방향이 코드에 명시된 경우
+                if (TryMapScrollCode(code, out var directDelta))
+                {
+                    SelectRelativeTab(directDelta);
+                    return;
+                }
+
+                // SB_THUMBPOSITION (4): UpDown 스핀이 실제로 전송하는 코드
+                // wParam 상위 워드에 새 스크롤 위치(첫 번째 가시 탭 인덱스)가 담겨 있음
+                if (code == SbThumbPosition)
+                {
+                    var newPos = HighWordSigned(m.WParam);
+                    var dir = newPos > _prevScrollPos ? 1 : newPos < _prevScrollPos ? -1 : 0;
+                    _prevScrollPos = newPos;
+                    if (dir != 0)
+                    {
+                        SelectRelativeTab(dir);
+                        return;
+                    }
+                }
             }
         }
 
@@ -155,7 +175,8 @@ internal sealed class NavigationTabControl : TabControl
         }
     }
 
-    private bool TryGetHeaderScrollDeltaFromHitTest(Message m, out int delta)
+    /// <summary>클릭 좌표가 내장 UpDown 스핀 컨트롤(msctls_updown32) 위인지 확인합니다.</summary>
+    private bool TryGetSpinButtonDelta(Point clientPt, out int delta)
     {
         delta = 0;
         if (!IsHandleCreated)
@@ -163,38 +184,28 @@ internal sealed class NavigationTabControl : TabControl
             return false;
         }
 
-        var point = new Point(LowWord(m.LParam), HighWordSigned(m.LParam));
-        var info = new TcHitTestInfo
+        var spinHwnd = FindWindowEx(Handle, IntPtr.Zero, "msctls_updown32", null);
+        if (spinHwnd == IntPtr.Zero)
         {
-            Point = point
-        };
-
-        var hit = (int)SendMessage(Handle, TcmHitTest, 0, ref info);
-        delta = hit switch
-        {
-            TchtLeftHeaderButton => -1,
-            TchtRightHeaderButton => 1,
-            _ => 0
-        };
-
-        return delta != 0;
-    }
-
-    private static bool TryGetScrollMessageDelta(Message m, out int delta)
-    {
-        delta = 0;
-
-        if (m.Msg == WmHScroll)
-        {
-            return TryMapScrollCode(LowWord(m.WParam), out delta);
+            return false;
         }
 
-        if (m.Msg == TcmScroll)
+        if (!GetWindowRect(spinHwnd, out var sr))
         {
-            return TryMapScrollCode(m.WParam.ToInt32(), out delta);
+            return false;
         }
 
-        return false;
+        var topLeft = PointToClient(new Point(sr.Left, sr.Top));
+        var spinBounds = new Rectangle(topLeft, new Size(sr.Right - sr.Left, sr.Bottom - sr.Top));
+
+        if (!spinBounds.Contains(clientPt))
+        {
+            return false;
+        }
+
+        // 좌측 절반 = 이전(◀), 우측 절반 = 다음(▶)
+        delta = clientPt.X < spinBounds.Left + spinBounds.Width / 2 ? -1 : 1;
+        return true;
     }
 
     private static bool TryMapScrollCode(int code, out int delta)
@@ -210,14 +221,14 @@ internal sealed class NavigationTabControl : TabControl
     }
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    private static extern nint SendMessage(nint hWnd, int msg, int wParam, ref TcHitTestInfo lParam);
+    private static extern nint FindWindowEx(nint hwndParent, nint hwndChildAfter, string lpszClass, string? lpszWindow);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(nint hWnd, out WinRect lpRect);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct TcHitTestInfo
-    {
-        public Point Point;
-        public uint Flags;
-    }
+    private struct WinRect { public int Left, Top, Right, Bottom; }
 
     private static int LowWord(nint value) => (int)(value & 0xFFFF);
 

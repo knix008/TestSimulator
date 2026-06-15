@@ -12,16 +12,8 @@ public static class AnalysisScaleLimits
     /// <summary>다이어그램 뷰 기본 표시 시 서브그래프·흐름 탐색 깊이 (전체 펼치기).</summary>
     public const int DefaultViewTraversalDepth = int.MaxValue;
 
-    public const int MaxSequenceDiagramMessages = 120;
-
     /// <summary>시퀀스 다이어그램 DFS 최대 깊이(재귀·스택 오버플로 방지).</summary>
     public const int MaxSequenceDiagramDepth = 32;
-
-    /// <summary>한 함수에서 시퀀스로 펼칠 최대 callees 수.</summary>
-    public const int MaxSequenceDiagramBranchFanOut = 40;
-
-    /// <summary>시퀀스 다이어그램 가로 배치 참가자(객체) 최대 수. 초과 시 GDI 비트맵·메모리 한계로 그리기가 실패할 수 있습니다.</summary>
-    public const int MaxSequenceDiagramParticipants = 24;
 
     /// <summary>줌 캐시 비트맵 한 변 최대 픽셀(초과 시 캐시 없이 뷰포트만 그림).</summary>
     public const int MaxSequenceDiagramCacheDimension = 8_192;
