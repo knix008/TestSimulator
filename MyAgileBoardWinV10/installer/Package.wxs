@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="MyAgileBoard"
+           Manufacturer="TestSimulator"
+           Version="1.0.0.0"
+           UpgradeCode="F3A8B2C1-4D5E-6F70-8912-3A4B5C6D7E8F"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Language="1042"
+           Codepage="65001">
+
+    <MajorUpgrade DowngradeErrorMessage="더 높은 버전의 MyAgileBoard가 이미 설치되어 있습니다." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="assets\MyAgileBoard.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <WixVariable Id="WixUILicenseRtf" Value="assets\License.rtf" />
+    <WixVariable Id="WixUIExclamationIco" Value="assets\MyAgileBoard.ico" />
+    <WixVariable Id="WixUIInfoIco" Value="assets\MyAgileBoard.ico" />
+    <WixVariable Id="WixUINewIco" Value="assets\MyAgileBoard.ico" />
+    <WixVariable Id="WixUIUpIco" Value="assets\MyAgileBoard.ico" />
+
+    <Launch Condition="Privileged"
+            Message="관리자 권한이 필요합니다. 설치 파일을 관리자 권한으로 실행해 주세요." />
+
+    <!--
+      기능 선택 (WixUI_FeatureTree):
+        MainApp         — 앱 파일 (필수)
+          FeatDesktop   — 바탕화면 바로가기 (선택, 기본 설치)
+          FeatStartMenu — 시작 메뉴 바로가기 (선택, 기본 설치)
+    -->
+    <Feature Id="MainApp"
+             Title="MyAgileBoard"
+             Description="MyAgileBoard 칸반 보드 애플리케이션 파일을 설치합니다."
+             Level="1"
+             AllowAbsent="no"
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+
+      <ComponentGroupRef Id="HarvestedApp" />
+
+      <Feature Id="FeatDesktop"
+               Title="바탕화면 바로가기"
+               Description="바탕화면에 MyAgileBoard 바로가기를 만듭니다."
+               Level="1">
+        <ComponentRef Id="DesktopSCComp" />
+      </Feature>
+
+      <Feature Id="FeatStartMenu"
+               Title="시작 메뉴 바로가기"
+               Description="시작 메뉴에 MyAgileBoard 바로가기를 만듭니다."
+               Level="1">
+        <ComponentRef Id="StartMenuSCComp" />
+      </Feature>
+
+    </Feature>
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="MyAgileBoard" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramsFolder" Name="MyAgileBoard" />
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="HarvestedApp" Directory="INSTALLFOLDER">
+      <Files Include="$(var.MyAgileBoardWinV10.TargetDir)**">
+        <Exclude Files="$(var.MyAgileBoardWinV10.TargetDir)\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="DesktopSCComp" Directory="DesktopFolder" Guid="*">
+      <Shortcut Id="DesktopSC"
+                Name="MyAgileBoard"
+                Description="MyAgileBoard — Kanban Board Application"
+                Target="[INSTALLFOLDER]MyAgileBoardWinV10.exe"
+                Icon="AppIcon"
+                IconIndex="0"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\TestSimulator\MyAgileBoard\Setup"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="StartMenuSCComp" Directory="AppProgramsFolder" Guid="*">
+      <Shortcut Id="StartMenuSC"
+                Name="MyAgileBoard"
+                Description="MyAgileBoard — Kanban Board Application"
+                Target="[INSTALLFOLDER]MyAgileBoardWinV10.exe"
+                Icon="AppIcon"
+                IconIndex="0"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveAppProgramsFolder"
+                    Directory="AppProgramsFolder"
+                    On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\TestSimulator\MyAgileBoard\Setup"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

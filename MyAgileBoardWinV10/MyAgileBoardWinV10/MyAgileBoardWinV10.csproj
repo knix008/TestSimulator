@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>..\Assets\MyAgileBoard.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="..\Assets\MyAgileBoard.ico">
+      <Link>Assets\MyAgileBoard.ico</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Release 빌드 시 MSI 생성. SkipInstaller=true 로 순환 참조 방지. -->
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+    <Message Text="Building MSI installer (Release)..." Importance="high" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\installer\MyAgileBoardWinV10.Installer.wixproj" Targets="Restore;Build" Properties="Configuration=Release;Platform=x64" />
+    <Message Text="MSI created: $(MSBuildThisFileDirectory)..\bin\Release\installer\MyAgileBoard_Setup.msi" Importance="high" />
+  </Target>
+
+</Project>

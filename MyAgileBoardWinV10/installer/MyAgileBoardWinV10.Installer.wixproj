@@ -1,0 +1,38 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platforms>x64</Platforms>
+    <OutputName>MyAgileBoard_Setup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <AcceptEula>wix7</AcceptEula>
+    <!-- ICE69: per-user shortcut registry keys; ICE60: harvested .NET DLLs often lack version Language -->
+    <SuppressIces>ICE69;ICE60</SuppressIces>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>$(MSBuildThisFileDirectory)..\bin\$(Configuration)\installer\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyAgileBoardWinV10\MyAgileBoardWinV10.csproj">
+      <AdditionalProperties>SkipInstaller=true</AdditionalProperties>
+    </ProjectReference>
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(PkgWixToolset_UI_wixext)' != ''">$(PkgWixToolset_UI_wixext)\wixext7\WixToolset.UI.wixext.dll</_UiWixExtDll>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.ui.wixext\7.0.0\wixext7\WixToolset.UI.wixext.dll</_UiWixExtDll>
+  </PropertyGroup>
+  <ItemGroup>
+    <WixExtension Include="$(_UiWixExtDll)" Condition="Exists('$(_UiWixExtDll)')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Assets\MyAgileBoard.ico" Link="assets\MyAgileBoard.ico" />
+    <Content Include="assets\License.rtf" />
+  </ItemGroup>
+
+  <Target Name="ShowMsiOutputPath" AfterTargets="Build">
+    <Message Text="MSI created: $(TargetPath)" Importance="high" />
+  </Target>
+</Project>
