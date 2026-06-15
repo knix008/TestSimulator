@@ -44,7 +44,9 @@ partial class MyAgileForm
         toolBtnSummary = new ToolStripButton();
         toolBtnCompleted = new ToolStripButton();
         toolBtnBurndown = new ToolStripButton();
-        panelBoard = new FlowLayoutPanel();
+        panelBoard = new Panel();
+        flowColumns = new FlowLayoutPanel();
+        btnAddColumn = new Button();
         statusStrip = new StatusStrip();
         statusTotal = new ToolStripStatusLabel();
         statusSep1 = new ToolStripStatusLabel();
@@ -185,6 +187,7 @@ partial class MyAgileForm
         // 
         // menuHelp
         // 
+        menuHelp.Alignment = ToolStripItemAlignment.Right;
         menuHelp.DropDownItems.AddRange(new ToolStripItem[] { menuAbout });
         menuHelp.Name = "menuHelp";
         menuHelp.Size = new Size(72, 20);
@@ -284,8 +287,6 @@ partial class MyAgileForm
         toolBtnBurndown.Click += menuBurndown_Click;
         // 
         // panelBoard
-        // 
-        panelBoard.AutoScroll = true;
         panelBoard.BackColor = Color.FromArgb(235, 237, 240);
         panelBoard.Dock = DockStyle.Fill;
         panelBoard.Location = new Point(0, 49);
@@ -293,8 +294,31 @@ partial class MyAgileForm
         panelBoard.Padding = new Padding(6);
         panelBoard.Size = new Size(1440, 649);
         panelBoard.TabIndex = 0;
-        panelBoard.WrapContents = false;
         panelBoard.Resize += panelBoard_Resize;
+        // 
+        // flowColumns
+        flowColumns.AutoScroll = true;
+        flowColumns.BackColor = Color.FromArgb(235, 237, 240);
+        flowColumns.Dock = DockStyle.Fill;
+        flowColumns.FlowDirection = FlowDirection.LeftToRight;
+        flowColumns.Name = "flowColumns";
+        flowColumns.Padding = new Padding(0);
+        flowColumns.WrapContents = false;
+        // 
+        // btnAddColumn — docked right on panelBoard (see SetupAddColumnButton)
+        btnAddColumn.BackColor = Color.FromArgb(220, 222, 226);
+        btnAddColumn.Dock = DockStyle.Right;
+        btnAddColumn.FlatStyle = FlatStyle.Flat;
+        btnAddColumn.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        btnAddColumn.ForeColor = Color.DimGray;
+        btnAddColumn.Name = "btnAddColumn";
+        btnAddColumn.Size = new Size(54, 649);
+        btnAddColumn.Text = "+\r\n컬럼";
+        btnAddColumn.UseVisualStyleBackColor = false;
+        btnAddColumn.Click += BtnAddColumn_Click;
+        // 
+        panelBoard.Controls.Add(flowColumns);
+        panelBoard.Controls.Add(btnAddColumn);
         // 
         // statusStrip
         // 
@@ -395,7 +419,9 @@ partial class MyAgileForm
     private ToolStripButton toolBtnBurndown = null!;
 
     // Board
-    private FlowLayoutPanel panelBoard = null!;
+    private Panel panelBoard = null!;
+    private FlowLayoutPanel flowColumns = null!;
+    private Button btnAddColumn = null!;
 
     // Status
     private StatusStrip statusStrip = null!;

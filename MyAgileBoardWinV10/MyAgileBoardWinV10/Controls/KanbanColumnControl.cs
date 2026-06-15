@@ -7,48 +7,173 @@ public partial class KanbanColumnControl : UserControl
 {
     private KanbanColumn _column;
     private bool _isHeaderDragging = false;
+    private bool _isWidthResizing = false;
     private Point _dragStartLocal;
-    private Panel? _cardPlaceholder;
-    private int _lastCardDropInsertIdx = -1;
+    private int _widthDragStartScreenX;
+    private int _widthDragStartValue;
+    private Font? _appliedTitleFont;
+    private KanbanCardControl? _selectedCard;
 
     public KanbanColumn Column => _column;
 
-    // ── Column-level events ────────────────────────────────────────
     public event EventHandler<KanbanColumn>? AddCardRequested;
     public event EventHandler<KanbanColumn>? ColumnSettingsRequested;
     public event EventHandler<KanbanColumn>? DeleteColumnRequested;
     public event EventHandler? ProjectChanged;
-    // Fires before any model change so the parent can save an undo snapshot
     public event EventHandler? BeforeProjectChange;
-    // Fires when a card from a completion column is being archived (instead of deleted)
     public event EventHandler<(KanbanCard Card, string ColumnName)>? CardArchivedRequested;
 
-    // Column header drag events (screen coords)
     public event EventHandler<Point>? ColumnHeaderDragStarted;
     public event EventHandler<Point>? ColumnHeaderDragging;
     public event EventHandler<Point>? ColumnHeaderDragEnded;
 
-    // Card drag relay events (screen coords, sender = KanbanCardControl)
     public event EventHandler<(KanbanCard Card, Point ScreenPos)>? CardDragStarted;
     public event EventHandler<(KanbanCard Card, Point ScreenPos)>? CardDragging;
     public event EventHandler<(KanbanCard Card, Point ScreenPos)>? CardDragEnded;
+    public event EventHandler<KanbanCard>? CardTransformChanged;
+    public event EventHandler? ColumnWidthChanged;
+    public event EventHandler? ColumnWidthLiveChanged;
+
+    public bool IsResizingWidth => _isWidthResizing;
 
     public KanbanColumnControl(KanbanColumn column)
     {
         _column = column;
         InitializeComponent();
         SetupIcons();
+        SetupResizeGrip();
+        if (column.ColumnWidth <= 0)
+            column.ColumnWidth = ColumnWidthDefaults.Default;
+        SetupCanvas();
         UpdateHeader();
-
-        flowCards.SizeChanged += (_, _) => UpdateCardWidths();
-
         LoadCards();
+    }
+
+    private void SetupResizeGrip()
+    {
+        panelResizeGrip.MouseDown += PanelResizeGrip_MouseDown;
+        panelResizeGrip.MouseMove += PanelResizeGrip_MouseMove;
+        panelResizeGrip.MouseUp += PanelResizeGrip_MouseUp;
+        panelResizeGrip.Paint += PanelResizeGrip_Paint;
+    }
+
+    public void SetColumnWidthWeight(int weight)
+    {
+        _column.ColumnWidth = Math.Max(1, weight);
+    }
+
+    public void SetVisualWidth(int pixelWidth)
+    {
+        pixelWidth = Math.Max(ColumnWidthDefaults.Min, pixelWidth);
+        if (Width == pixelWidth) return;
+        Width = pixelWidth;
+        ApplyCardLayouts();
+    }
+
+    public void SetLastColumn(bool isLast)
+        => panelResizeGrip.Visible = !isLast;
+
+    private void SetColumnWidthLive(int width)
+    {
+        SetVisualWidth(width);
+        ColumnWidthLiveChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void PanelResizeGrip_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+        _isWidthResizing = true;
+        _widthDragStartScreenX = Cursor.Position.X;
+        _widthDragStartValue = Width;
+        BeforeProjectChange?.Invoke(this, EventArgs.Empty);
+        panelResizeGrip.Capture = true;
+    }
+
+    private void PanelResizeGrip_MouseMove(object? sender, MouseEventArgs e)
+    {
+        if (!_isWidthResizing || e.Button != MouseButtons.Left) return;
+        int delta = Cursor.Position.X - _widthDragStartScreenX;
+        SetColumnWidthLive(_widthDragStartValue + delta);
+    }
+
+    private void PanelResizeGrip_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (!_isWidthResizing) return;
+        _isWidthResizing = false;
+        panelResizeGrip.Capture = false;
+
+        if (_widthDragStartValue > 0)
+        {
+            double ratio = Width / (double)_widthDragStartValue;
+            _column.ColumnWidth = Math.Max(1, (int)Math.Round(_column.ColumnWidth * ratio));
+        }
+
+        ColumnWidthChanged?.Invoke(this, EventArgs.Empty);
+        ProjectChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static void PanelResizeGrip_Paint(object? sender, PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        int cx = ColumnWidthDefaults.GripWidth / 2;
+        using var brush = new SolidBrush(Color.FromArgb(120, 120, 130));
+        for (int y = 8; y < e.ClipRectangle.Bottom - 8; y += 6)
+            g.FillRectangle(brush, cx - 1, y, 2, 2);
+    }
+
+    private void SetupCanvas()
+    {
+        panelCanvas.Resize += (_, _) =>
+        {
+            if (HasInteractingCard()) return;
+            ApplyCardSizesOnly();
+        };
+        panelCanvas.MouseDown += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+                DeselectAllCards();
+        };
+    }
+
+    private bool HasInteractingCard()
+        => panelCanvas.Controls.OfType<KanbanCardControl>().Any(c => c.IsInteracting);
+
+    public void ApplyCardSizesOnly()
+    {
+        int maxW = GetCanvasInnerWidth();
+        if (maxW < CardSizeDefaults.MinWidth) return;
+
+        panelCanvas.SuspendLayout();
+        foreach (KanbanCardControl ctrl in panelCanvas.Controls.OfType<KanbanCardControl>())
+        {
+            ctrl.ApplyLayout(maxW);
+            ClampCardControl(ctrl);
+        }
+        panelCanvas.ResumeLayout(false);
+    }
+
+    public void ApplyCardLayouts()
+    {
+        int maxW = GetCanvasInnerWidth();
+        if (maxW < CardSizeDefaults.MinWidth) return;
+
+        EnsureAllCanvasPositions(maxW);
+
+        panelCanvas.SuspendLayout();
+        foreach (KanbanCardControl ctrl in panelCanvas.Controls.OfType<KanbanCardControl>())
+        {
+            ctrl.ApplyLayout(maxW);
+            PositionCardControl(ctrl);
+        }
+        panelCanvas.ResumeLayout(false);
+
+        SortCardsByZIndex();
     }
 
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
-        UpdateCardWidths();
+        ApplyCardLayouts();
     }
 
     private void SetupIcons()
@@ -59,102 +184,188 @@ public partial class KanbanColumnControl : UserControl
         menuDeleteColumn.Image = IconFactory.Get("delete");
     }
 
-    // ── Card width management ──────────────────────────────────────
-
-    private void UpdateCardWidths()
+    public int GetCanvasInnerWidth()
     {
-        // Each card has Margin = (3,3,3,2); left visible gap = Padding.Left + Margin.Left = 4+3 = 7
-        // For equal right gap, card.Width = ClientWidth - Padding.Left - Padding.Right - Margin.Left - Margin.Right
-        int w = flowCards.ClientSize.Width
-                - flowCards.Padding.Left - flowCards.Padding.Right
-                - 6; // card Margin.Left(3) + Margin.Right(3)
-        if (w < 60) return;
-        foreach (KanbanCardControl ctrl in flowCards.Controls.OfType<KanbanCardControl>())
-            ctrl.Width = w;
+        return Math.Max(CardSizeDefaults.MinWidth,
+            panelCanvas.ClientSize.Width - panelCanvas.Padding.Horizontal);
     }
 
-    // ── Card drop placeholder (push effect) ───────────────────────
-
-    public void ShowCardDropIndicator(int insertIdx, int placeholderHeight = 56)
+    private void EnsureAllCanvasPositions(int maxW)
     {
-        var cards = flowCards.Controls.OfType<KanbanCardControl>().Where(c => c.Visible).ToList();
-        insertIdx = Math.Clamp(insertIdx, 0, cards.Count);
-
-        if (_cardPlaceholder != null
-            && flowCards.Controls.Contains(_cardPlaceholder)
-            && insertIdx == _lastCardDropInsertIdx
-            && _cardPlaceholder.Height == placeholderHeight)
-            return;
-
-        _lastCardDropInsertIdx = insertIdx;
-
-        if (_cardPlaceholder == null)
+        int nextY = CardCanvasHelper.CanvasPadding;
+        for (int i = 0; i < _column.Cards.Count; i++)
         {
-            _cardPlaceholder = new Panel
+            var card = _column.Cards[i];
+            if (card.HasCanvasPosition())
             {
-                BackColor = Color.FromArgb(100, 30, 144, 255),
-                BorderStyle = BorderStyle.FixedSingle,
-                Margin = new Padding(3, 3, 3, 2)
-            };
+                nextY = Math.Max(nextY, card.CanvasY + card.ResolveDisplaySize(maxW).Height + 12);
+                continue;
+            }
+
+            var (_, h) = card.ResolveDisplaySize(maxW);
+            card.CanvasX = CardCanvasHelper.CanvasPadding + (i % 4) * 14 + card.OffsetX;
+            card.CanvasY = nextY;
+            card.OffsetX = 0;
+            if (card.ZIndex == 0)
+                card.ZIndex = i + 1;
+            nextY += h + 12;
+        }
+    }
+
+    private void ClampCardControl(KanbanCardControl ctrl)
+    {
+        var card = ctrl.Card;
+        var bounds = CardCanvasHelper.GetRotatedBounds(ctrl.Width, ctrl.Height, card.Rotation);
+        var loc = CardCanvasHelper.ClampToCanvas(new Point(card.CanvasX, card.CanvasY), bounds, panelCanvas.ClientSize);
+        card.CanvasX = loc.X;
+        card.CanvasY = loc.Y;
+        ctrl.Location = loc;
+    }
+
+    private void PositionCardControl(KanbanCardControl ctrl)
+    {
+        var card = ctrl.Card;
+        var loc = new Point(card.CanvasX, card.CanvasY);
+        var bounds = CardCanvasHelper.GetRotatedBounds(ctrl.Width, ctrl.Height, card.Rotation);
+        loc = CardCanvasHelper.ClampToCanvas(loc, bounds, panelCanvas.ClientSize);
+        card.CanvasX = loc.X;
+        card.CanvasY = loc.Y;
+        ctrl.Location = loc;
+    }
+
+    private void SortCardsByZIndex()
+    {
+        var controls = panelCanvas.Controls.OfType<KanbanCardControl>()
+            .OrderBy(c => c.Card.ZIndex)
+            .ToList();
+        for (int i = 0; i < controls.Count; i++)
+            panelCanvas.Controls.SetChildIndex(controls[i], i);
+    }
+
+    public KanbanCardControl? SelectedCardControl => _selectedCard;
+
+    public void DeselectAllCards()
+    {
+        foreach (var ctrl in panelCanvas.Controls.OfType<KanbanCardControl>())
+            ctrl.SetSelected(false);
+        _selectedCard = null;
+    }
+
+    public bool RotateSelectedCard(float delta)
+    {
+        if (_selectedCard == null) return false;
+        _selectedCard.AdjustRotation(delta);
+        return true;
+    }
+
+    public bool ResetSelectedCardRotation()
+    {
+        if (_selectedCard == null) return false;
+        _selectedCard.ResetRotation();
+        return true;
+    }
+
+    public (bool CanBringForward, bool CanBringToFront, bool CanSendBackward, bool CanSendToBack)
+        GetCardZOrderCapabilities(KanbanCard card)
+    {
+        var sorted = GetCardsSortedByZIndex();
+        if (sorted.Count <= 1)
+            return (false, false, false, false);
+
+        int idx = sorted.FindIndex(c => c.Id == card.Id);
+        if (idx < 0)
+            return (false, false, false, false);
+
+        bool canRaise = idx < sorted.Count - 1;
+        bool canLower = idx > 0;
+        return (canRaise, canRaise, canLower, canLower);
+    }
+
+    public bool ChangeCardZOrder(KanbanCard card, CardZOrderAction action)
+    {
+        var sorted = GetCardsSortedByZIndex();
+        int idx = sorted.FindIndex(c => c.Id == card.Id);
+        if (idx < 0) return false;
+
+        int targetIdx = action switch
+        {
+            CardZOrderAction.BringForward => idx + 1,
+            CardZOrderAction.BringToFront => sorted.Count - 1,
+            CardZOrderAction.SendBackward => idx - 1,
+            CardZOrderAction.SendToBack => 0,
+            _ => idx
+        };
+
+        targetIdx = Math.Clamp(targetIdx, 0, sorted.Count - 1);
+        if (targetIdx == idx) return false;
+
+        BeforeProjectChange?.Invoke(this, EventArgs.Empty);
+
+        var moving = sorted[idx];
+        sorted.RemoveAt(idx);
+        sorted.Insert(targetIdx, moving);
+        for (int i = 0; i < sorted.Count; i++)
+            sorted[i].ZIndex = i + 1;
+
+        SortCardsByZIndex();
+
+        var ctrl = FindCardControl(card);
+        if (ctrl != null)
+        {
+            DeselectAllCards();
+            _selectedCard = ctrl;
+            ctrl.SetSelected(true);
         }
 
-        _cardPlaceholder.Height = placeholderHeight;
-        int w = flowCards.ClientSize.Width - flowCards.Padding.Horizontal - 6;
-        _cardPlaceholder.Width = Math.Max(w, 60);
-
-        flowCards.SuspendLayout();
-
-        bool hadPlaceholder = flowCards.Controls.Contains(_cardPlaceholder);
-        if (hadPlaceholder)
-            flowCards.Controls.Remove(_cardPlaceholder);
-
-        int targetIdx = cards.Count == 0
-            ? 0
-            : insertIdx < cards.Count
-                ? flowCards.Controls.IndexOf(cards[insertIdx])
-                : flowCards.Controls.Count;
-
-        flowCards.Controls.Add(_cardPlaceholder);
-        if (flowCards.Controls.GetChildIndex(_cardPlaceholder) != targetIdx)
-            flowCards.Controls.SetChildIndex(_cardPlaceholder, targetIdx);
-
-        flowCards.ResumeLayout(false);
-        flowCards.PerformLayout();
+        ProjectChanged?.Invoke(this, EventArgs.Empty);
+        return true;
     }
 
-    public void HideCardDropIndicator()
+    private List<KanbanCard> GetCardsSortedByZIndex()
+        => _column.Cards.OrderBy(c => c.ZIndex).ThenBy(c => c.Id).ToList();
+
+    private int NextZIndexFor(KanbanCard card)
     {
-        _lastCardDropInsertIdx = -1;
-        if (_cardPlaceholder != null && flowCards.Controls.Contains(_cardPlaceholder))
-            flowCards.Controls.Remove(_cardPlaceholder);
+        int maxZ = _column.Cards
+            .Select(c => c.ZIndex)
+            .DefaultIfEmpty(0)
+            .Max();
+        return maxZ + 1;
     }
 
-    // ── Hit testing ────────────────────────────────────────────────
+    private void SelectCard(KanbanCardControl ctrl)
+    {
+        if (!_column.Cards.Any(c => c.Id == ctrl.Card.Id))
+            return;
+
+        DeselectAllCards();
+        _selectedCard = ctrl;
+        ctrl.SetSelected(true);
+        ctrl.Card.ZIndex = NextZIndexFor(ctrl.Card);
+        ctrl.BringToFront();
+        SortCardsByZIndex();
+    }
 
     public bool ContainsScreenPoint(Point screenPos)
         => RectangleToScreen(ClientRectangle).Contains(screenPos);
 
-    public int GetCardInsertIndexFromScreen(Point screenPos)
-    {
-        var localPos = flowCards.PointToClient(screenPos);
-        var cards = flowCards.Controls.OfType<KanbanCardControl>().Where(c => c.Visible).ToList();
-        for (int i = 0; i < cards.Count; i++)
-        {
-            if (localPos.Y < cards[i].Top + cards[i].Height / 2)
-                return i;
-        }
-        return cards.Count;
-    }
+    public bool ContainsCanvasPoint(Point screenPos)
+        => panelCanvas.RectangleToScreen(panelCanvas.ClientRectangle).Contains(screenPos);
 
-    // ── Header display ─────────────────────────────────────────────
+    public Point GetCanvasDropLocation(Point screenPos, Size cardSize)
+    {
+        var local = panelCanvas.PointToClient(screenPos);
+        var loc = new Point(local.X - cardSize.Width / 2, local.Y - cardSize.Height / 2);
+        return CardCanvasHelper.ClampToCanvas(loc, cardSize, panelCanvas.ClientSize);
+    }
 
     public void UpdateHeader()
     {
         var bgColor = ColorTranslator.FromHtml(_column.HeaderColorHex);
         panelHeader.BackColor = bgColor;
 
-        double lum = (0.299 * bgColor.R + 0.587 * bgColor.G + 0.114 * bgColor.B) / 255;
-        var textColor = lum < 0.5 ? Color.White : Color.Black;
+        ApplyTitleFont();
+        var textColor = _column.ResolveTitleColor(bgColor);
         lblColumnName.ForeColor = textColor;
         btnColumnMenu.ForeColor = textColor;
 
@@ -165,58 +376,187 @@ public partial class KanbanColumnControl : UserControl
             : "완료 컬럼으로 설정";
     }
 
-    // ── Card management ────────────────────────────────────────────
+    private void ApplyTitleFont()
+    {
+        var font = _column.CreateTitleFont();
+        if (_appliedTitleFont != null && _appliedTitleFont.Equals(font))
+        {
+            font.Dispose();
+            return;
+        }
+
+        _appliedTitleFont?.Dispose();
+        _appliedTitleFont = font;
+        lblColumnName.Font = font;
+    }
 
     public void LoadCards()
     {
-        var existing = flowCards.Controls.OfType<KanbanCardControl>().ToArray();
-        flowCards.Controls.Clear();
+        var existing = panelCanvas.Controls.OfType<KanbanCardControl>().ToArray();
+        panelCanvas.Controls.Clear();
         foreach (var c in existing) c.Dispose();
 
         foreach (var card in _column.Cards)
             CreateCardControl(card);
 
-        UpdateCardWidths();
+        ApplyCardLayouts();
     }
 
     private KanbanCardControl CreateCardControl(KanbanCard card)
     {
         var ctrl = new KanbanCardControl(card);
-
-        int w = flowCards.ClientSize.Width
-                - flowCards.Padding.Left - flowCards.Padding.Right - 6;
-        ctrl.Width = w > 60 ? w : 200;
-
-        ctrl.CardDoubleClicked += OnCardDoubleClicked;
-        ctrl.CardDeleted       += OnCardDeleted;
-        ctrl.CardDragStarted   += (s, e) => CardDragStarted?.Invoke(s, e);
-        ctrl.CardDragging      += (s, e) => CardDragging?.Invoke(s, e);
-        ctrl.CardDragEnded     += (s, e) => CardDragEnded?.Invoke(s, e);
-
-        flowCards.Controls.Add(ctrl);
+        WireCardControlEvents(ctrl);
+        panelCanvas.Controls.Add(ctrl);
         return ctrl;
     }
+
+    private void UnwireCardControlEvents(KanbanCardControl ctrl)
+    {
+        ctrl.CardDoubleClicked -= OnCardDoubleClicked;
+        ctrl.CardDeleted -= OnCardDeleted;
+        ctrl.CardSelected -= OnCardSelected;
+        ctrl.CardBeforeTransform -= OnCardBeforeTransform;
+        ctrl.CardTransformChanged -= OnCardTransformChanged;
+        ctrl.CardDragStarted -= OnCardDragStartedRelay;
+        ctrl.CardDragging -= OnCardDraggingRelay;
+        ctrl.CardDragEnded -= OnCardDragEndedRelay;
+        ctrl.CardZOrderRequested -= OnCardZOrderRequested;
+    }
+
+    private void WireCardControlEvents(KanbanCardControl ctrl)
+    {
+        UnwireCardControlEvents(ctrl);
+
+        ctrl.CardDoubleClicked += OnCardDoubleClicked;
+        ctrl.CardDeleted += OnCardDeleted;
+        ctrl.CardSelected += OnCardSelected;
+        ctrl.CardBeforeTransform += OnCardBeforeTransform;
+        ctrl.CardTransformChanged += OnCardTransformChanged;
+        ctrl.CardDragStarted += OnCardDragStartedRelay;
+        ctrl.CardDragging += OnCardDraggingRelay;
+        ctrl.CardDragEnded += OnCardDragEndedRelay;
+        ctrl.CardZOrderRequested += OnCardZOrderRequested;
+    }
+
+    private void OnCardZOrderRequested(object? sender, CardZOrderAction action)
+    {
+        if (sender is KanbanCardControl ctrl)
+            ChangeCardZOrder(ctrl.Card, action);
+    }
+
+    private void OnCardBeforeTransform(object? sender, KanbanCard card)
+        => BeforeProjectChange?.Invoke(this, EventArgs.Empty);
+
+    private void OnCardDragStartedRelay(object? sender, (KanbanCard Card, Point ScreenPos) e)
+        => CardDragStarted?.Invoke(sender, e);
+
+    private void OnCardDraggingRelay(object? sender, (KanbanCard Card, Point ScreenPos) e)
+        => CardDragging?.Invoke(sender, e);
+
+    private void OnCardDragEndedRelay(object? sender, (KanbanCard Card, Point ScreenPos) e)
+        => CardDragEnded?.Invoke(sender, e);
 
     public void AddCard(KanbanCard card)
     {
         _column.Cards.Add(card);
+        if (card.ZIndex == 0)
+            card.ZIndex = NextZIndexFor(card);
+
+        int maxW = GetCanvasInnerWidth();
+        if (!card.HasCanvasPosition())
+        {
+            var (_, h) = card.ResolveDisplaySize(maxW);
+            int maxBottom = _column.Cards
+                .Where(c => c.Id != card.Id && c.HasCanvasPosition())
+                .Select(c => c.CanvasY + c.ResolveDisplaySize(maxW).Height)
+                .DefaultIfEmpty(CardCanvasHelper.CanvasPadding)
+                .Max();
+            card.CanvasX = CardCanvasHelper.CanvasPadding + (_column.Cards.Count % 4) * 16;
+            card.CanvasY = maxBottom + 12;
+        }
+
         CreateCardControl(card);
-        UpdateCardWidths();
+        ApplyCardLayouts();
         UpdateHeader();
     }
 
     public void RemoveCard(KanbanCard card)
     {
         _column.Cards.Remove(card);
-        var toRemove = flowCards.Controls
+        var toRemove = panelCanvas.Controls
             .OfType<KanbanCardControl>()
             .FirstOrDefault(c => c.Card.Id == card.Id);
         if (toRemove != null)
         {
-            flowCards.Controls.Remove(toRemove);
+            if (_selectedCard == toRemove) _selectedCard = null;
+            panelCanvas.Controls.Remove(toRemove);
             toRemove.Dispose();
         }
         UpdateHeader();
+    }
+
+    public KanbanCardControl? DetachCardControl(KanbanCard card, KanbanCardControl? fallbackCtrl = null)
+    {
+        var ctrl = FindCardControl(card) ?? fallbackCtrl;
+        if (ctrl == null) return null;
+
+        UnwireCardControlEvents(ctrl);
+        if (_selectedCard == ctrl) _selectedCard = null;
+
+        if (ctrl.Parent is Control parent)
+            parent.Controls.Remove(ctrl);
+
+        return ctrl;
+    }
+
+    public void AttachCardControl(KanbanCardControl ctrl, Point location)
+    {
+        if (ctrl.Parent is Control existingParent && existingParent != panelCanvas)
+            existingParent.Controls.Remove(ctrl);
+
+        WireCardControlEvents(ctrl);
+        ctrl.Visible = true;
+
+        if (ctrl.Parent != panelCanvas)
+            panelCanvas.Controls.Add(ctrl);
+
+        ctrl.ApplyLayout(GetCanvasInnerWidth());
+        ctrl.BringToFront();
+        SetCardCanvasPosition(ctrl.Card, location);
+        SortCardsByZIndex();
+    }
+
+    public KanbanCardControl? FindCardControl(KanbanCard card)
+        => panelCanvas.Controls.OfType<KanbanCardControl>().FirstOrDefault(c => c.Card.Id == card.Id);
+
+    public void SetCardCanvasPosition(KanbanCard card, Point location, bool clamp = true)
+    {
+        var ctrl = FindCardControl(card);
+        if (ctrl == null) return;
+
+        var bounds = CardCanvasHelper.GetRotatedBounds(ctrl.Width, ctrl.Height, card.Rotation);
+        if (clamp)
+            location = CardCanvasHelper.ClampToCanvas(location, bounds, panelCanvas.ClientSize);
+
+        card.CanvasX = location.X;
+        card.CanvasY = location.Y;
+        ctrl.Location = location;
+    }
+
+    private void OnCardSelected(object? sender, KanbanCardControl ctrl)
+        => SelectCard(ctrl);
+
+    private void OnCardTransformChanged(object? sender, KanbanCard card)
+    {
+        var ctrl = FindCardControl(card);
+        if (ctrl != null)
+        {
+            ClampCardControl(ctrl);
+            ctrl.BringToFront();
+            SortCardsByZIndex();
+        }
+        CardTransformChanged?.Invoke(this, card);
+        ProjectChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnCardDoubleClicked(object? sender, KanbanCard card)
@@ -225,10 +565,8 @@ public partial class KanbanColumnControl : UserControl
         using var form = new Forms.CardEditForm(card);
         if (form.ShowDialog() == DialogResult.OK)
         {
-            var ctrl = flowCards.Controls
-                .OfType<KanbanCardControl>()
-                .FirstOrDefault(c => c.Card.Id == card.Id);
-            ctrl?.UpdateDisplay();
+            FindCardControl(card)?.UpdateDisplay();
+            ApplyCardLayouts();
             UpdateHeader();
             ProjectChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -251,7 +589,16 @@ public partial class KanbanColumnControl : UserControl
         ProjectChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // ── Column header drag ─────────────────────────────────────────
+    private void panelCanvas_Paint(object? sender, PaintEventArgs e)
+    {
+        using var pen = new Pen(Color.FromArgb(28, 0, 0, 0), 1f);
+        int step = 24;
+        var clip = e.ClipRectangle;
+        for (int x = clip.Left - clip.Left % step; x < clip.Right; x += step)
+            e.Graphics.DrawLine(pen, x, clip.Top, x, clip.Bottom);
+        for (int y = clip.Top - clip.Top % step; y < clip.Bottom; y += step)
+            e.Graphics.DrawLine(pen, clip.Left, y, clip.Right, y);
+    }
 
     internal void panelHeader_MouseDown(object? sender, MouseEventArgs e)
     {
@@ -289,8 +636,6 @@ public partial class KanbanColumnControl : UserControl
             ColumnHeaderDragEnded?.Invoke(this, panelHeader.PointToScreen(e.Location));
         }
     }
-
-    // ── Button / Menu handlers ─────────────────────────────────────
 
     private void btnAddCard_Click(object sender, EventArgs e)
         => AddCardRequested?.Invoke(this, _column);

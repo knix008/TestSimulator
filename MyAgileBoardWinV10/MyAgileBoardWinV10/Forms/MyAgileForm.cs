@@ -22,6 +22,7 @@ public partial class MyAgileForm : Form
     private KanbanCard? _draggingCard;
     private KanbanCardControl? _draggingCardControl;
     private int _draggingCardHeight = 56;
+    private int _draggingCardWidth = 0;
 
     // Undo/Redo stacks (JSON snapshots of KanbanProject)
     private readonly Stack<string> _undoStack = new();
@@ -32,9 +33,11 @@ public partial class MyAgileForm : Form
     public MyAgileForm()
     {
         InitializeComponent();
+        KeyPreview = true;
         LoadAppIcon();
         SetupIcons();
         SetupTooltips();
+        SetupAddColumnButton();
         RebuildBoard();
         CaptureSavedState();
         UpdateStatusBar();
@@ -104,6 +107,27 @@ public partial class MyAgileForm : Form
         toolBtnBurndown.ToolTipText  = "Burn Down 차트 보기";
     }
 
+    private void SetupAddColumnButton()
+    {
+        btnAddColumn.Width = ColumnWidthDefaults.AddColumnButtonWidth;
+        btnAddColumn.FlatAppearance.BorderColor = Color.Silver;
+        btnAddColumn.Image = IconFactory.Get("add");
+        btnAddColumn.ImageAlign = ContentAlignment.TopCenter;
+        btnAddColumn.TextAlign = ContentAlignment.BottomCenter;
+        btnAddColumn.Dock = DockStyle.Right;
+
+        if (flowColumns.Controls.Contains(btnAddColumn))
+            flowColumns.Controls.Remove(btnAddColumn);
+
+        if (!panelBoard.Controls.Contains(btnAddColumn))
+            panelBoard.Controls.Add(btnAddColumn);
+
+        btnAddColumn.BringToFront();
+
+        var tip = new ToolTip();
+        tip.SetToolTip(btnAddColumn, "새 컬럼 추가");
+    }
+
     // ─────────────────────────────────────────────
     //  Board management
     // ─────────────────────────────────────────────
@@ -112,15 +136,18 @@ public partial class MyAgileForm : Form
     {
         CleanupGhost();
 
-        panelBoard.SuspendLayout();
-        panelBoard.Controls.Clear();
+        flowColumns.SuspendLayout();
+        foreach (var ctrl in flowColumns.Controls.OfType<KanbanColumnControl>().ToArray())
+            flowColumns.Controls.Remove(ctrl);
 
         foreach (var col in _project.Columns)
-            panelBoard.Controls.Add(CreateColumnControl(col));
+            flowColumns.Controls.Add(CreateColumnControl(col));
 
-        panelBoard.Controls.Add(BuildAddColumnButton());
-        panelBoard.ResumeLayout();
+        flowColumns.ResumeLayout();
 
+        btnAddColumn.Height = GetColumnControlHeight();
+        ApplyProportionalColumnWidths();
+        UpdateLastColumnGrips();
         UpdateStatusBar();
     }
 
@@ -128,12 +155,14 @@ public partial class MyAgileForm : Form
     {
         var ctrl = new KanbanColumnControl(col)
         {
-            Height = Math.Max(panelBoard.ClientSize.Height - 12, 300),
+            Height = GetColumnControlHeight(),
             Margin = new Padding(4, 0, 0, 0)
         };
         ctrl.AddCardRequested        += OnAddCardRequested;
         ctrl.ColumnSettingsRequested += OnColumnSettingsRequested;
         ctrl.DeleteColumnRequested   += OnDeleteColumnRequested;
+        ctrl.ColumnWidthChanged     += (_, _) => OnColumnWidthChanged(ctrl);
+        ctrl.ColumnWidthLiveChanged += (_, _) => OnColumnWidthLiveChanged(ctrl);
         ctrl.ProjectChanged          += (_, _) => UpdateDirtyState();
         ctrl.BeforeProjectChange     += (_, _) => SaveUndoSnapshot();
         ctrl.CardArchivedRequested   += OnCardArchivedRequested;
@@ -146,33 +175,135 @@ public partial class MyAgileForm : Form
         return ctrl;
     }
 
-    private Button BuildAddColumnButton()
+    private int GetColumnControlHeight()
+        => Math.Max(flowColumns.ClientSize.Height - flowColumns.Padding.Vertical, 300);
+
+    private void panelBoard_Resize(object? sender, EventArgs e)
     {
-        var btn = new Button
-        {
-            Size      = new Size(54, Math.Max(panelBoard.ClientSize.Height - 12, 300)),
-            Text      = "+\r\n컬럼",
-            Font      = new Font("Segoe UI", 9F, FontStyle.Bold),
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.DimGray,
-            BackColor = Color.FromArgb(220, 222, 226),
-            Margin    = new Padding(6, 0, 4, 0),
-        };
-        btn.FlatAppearance.BorderColor = Color.Silver;
-        btn.Image = IconFactory.Get("add");
-        btn.ImageAlign = ContentAlignment.TopCenter;
-        btn.TextAlign = ContentAlignment.BottomCenter;
-        var tip = new ToolTip();
-        tip.SetToolTip(btn, "새 컬럼 추가");
-        btn.Click += BtnAddColumn_Click;
-        return btn;
+        int h = GetColumnControlHeight();
+        foreach (KanbanColumnControl ctrl in flowColumns.Controls.OfType<KanbanColumnControl>())
+            ctrl.Height = h;
+
+        btnAddColumn.Height = h;
+        ApplyProportionalColumnWidths();
+        UpdateLastColumnGrips();
     }
 
-    private void panelBoard_Resize(object sender, EventArgs e)
+    private void OnColumnWidthLiveChanged(KanbanColumnControl changed)
     {
-        int h = Math.Max(panelBoard.ClientSize.Height - 12, 300);
-        foreach (Control ctrl in panelBoard.Controls)
-            ctrl.Height = h;
+        if (!IsLastColumn(changed))
+            ApplyLastColumnFillWidth();
+    }
+
+    private void OnColumnWidthChanged(KanbanColumnControl changed)
+    {
+        UpdateDirtyState();
+        if (!IsLastColumn(changed))
+            ApplyLastColumnFillWidth();
+        UpdateLastColumnGrips();
+    }
+
+    private static bool IsLastColumn(KanbanColumnControl ctrl)
+    {
+        if (ctrl.Parent is not FlowLayoutPanel flow) return false;
+        var columns = flow.Controls.OfType<KanbanColumnControl>().ToList();
+        return columns.Count > 0 && columns[^1] == ctrl;
+    }
+
+    private void UpdateLastColumnGrips()
+    {
+        var columns = flowColumns.Controls.OfType<KanbanColumnControl>().ToList();
+        for (int i = 0; i < columns.Count; i++)
+            columns[i].SetLastColumn(i == columns.Count - 1);
+    }
+
+    private void ApplyLastColumnFillWidth()
+    {
+        var columns = flowColumns.Controls.OfType<KanbanColumnControl>().ToList();
+        if (columns.Count <= 1)
+        {
+            if (columns.Count == 1)
+            {
+                int only = GetAvailableColumnAreaWidth(1);
+                if (only > 0)
+                    columns[0].SetVisualWidth(Math.Max(ColumnWidthDefaults.Min, only));
+            }
+            return;
+        }
+
+        int available = GetAvailableColumnAreaWidth(columns.Count);
+        if (available <= 0) return;
+
+        int minWidth = ColumnWidthDefaults.Min;
+        int othersTotal = columns.Take(columns.Count - 1).Sum(c => c.Width);
+        int lastWidth = available - othersTotal;
+
+        if (lastWidth < minWidth)
+        {
+            foreach (var c in columns.Take(columns.Count - 1))
+                c.SetVisualWidth(minWidth);
+            othersTotal = minWidth * (columns.Count - 1);
+            lastWidth = Math.Max(minWidth, available - othersTotal);
+        }
+
+        columns[^1].SetVisualWidth(Math.Max(minWidth, lastWidth));
+    }
+
+    private int GetAvailableColumnAreaWidth(int columnCount)
+    {
+        if (columnCount <= 0) return 0;
+
+        int area = flowColumns.ClientSize.Width - flowColumns.Padding.Horizontal;
+        int columnMargins = columnCount * 4;
+        return Math.Max(0, area - columnMargins);
+    }
+
+    private void ApplyProportionalColumnWidths()
+    {
+        var columns = flowColumns.Controls.OfType<KanbanColumnControl>().ToList();
+        if (columns.Count == 0) return;
+        if (columns.Any(c => c.IsResizingWidth)) return;
+
+        int available = GetAvailableColumnAreaWidth(columns.Count);
+        if (available <= 0) return;
+
+        int minWidth = ColumnWidthDefaults.Min;
+        int minTotal = columns.Count * minWidth;
+
+        if (available <= minTotal)
+        {
+            foreach (var ctrl in columns)
+                ctrl.SetVisualWidth(minWidth);
+            return;
+        }
+
+        double totalWeight = columns.Sum(c => Math.Max(1, c.Column.ColumnWidth));
+        if (totalWeight <= 0)
+            totalWeight = columns.Count * ColumnWidthDefaults.Default;
+
+        int extra = available - minTotal;
+        var widths = new int[columns.Count];
+        int assigned = 0;
+
+        for (int i = 0; i < columns.Count; i++)
+        {
+            if (i == columns.Count - 1)
+            {
+                widths[i] = available - assigned;
+                break;
+            }
+
+            double share = Math.Max(1, columns[i].Column.ColumnWidth) / totalWeight;
+            int w = minWidth + (int)Math.Round(extra * share);
+            w = Math.Max(minWidth, w);
+            widths[i] = w;
+            assigned += w;
+        }
+
+        for (int i = 0; i < columns.Count; i++)
+            columns[i].SetVisualWidth(Math.Max(minWidth, widths[i]));
+
+        UpdateLastColumnGrips();
     }
 
     // ─────────────────────────────────────────────
@@ -203,7 +334,7 @@ public partial class MyAgileForm : Form
         // so the ghost form receiving focus is harmless.
         _ghostForm.Show();
 
-        _columnDragHitRects = panelBoard.Controls
+        _columnDragHitRects = flowColumns.Controls
             .OfType<KanbanColumnControl>()
             .Select(c => (c, c.RectangleToScreen(c.ClientRectangle)))
             .ToList();
@@ -222,7 +353,7 @@ public partial class MyAgileForm : Form
             screenPos.Y - 20);
 
         // Update drop indicator
-        var boardPos = panelBoard.PointToClient(screenPos);
+        var boardPos = flowColumns.PointToClient(screenPos);
         int insertIdx = GetColumnDropIndex(boardPos);
         PositionDropIndicator(insertIdx);
     }
@@ -233,7 +364,7 @@ public partial class MyAgileForm : Form
 
         if (_draggingColumn == null) return;
 
-        var boardPos = panelBoard.PointToClient(screenPos);
+        var boardPos = flowColumns.PointToClient(screenPos);
         int insertIdx = GetColumnDropIndex(boardPos);
 
         if (insertIdx >= 0)
@@ -260,8 +391,8 @@ public partial class MyAgileForm : Form
         // Full-height placeholder panel — same width as a column so other columns push aside
         _dropIndicator = new Panel
         {
-            Width     = 250,
-            Height    = Math.Max(panelBoard.ClientSize.Height - 12, 300),
+            Width     = ColumnWidthDefaults.Default,
+            Height    = GetColumnControlHeight(),
             BackColor = Color.FromArgb(80, 30, 144, 255),
             BorderStyle = BorderStyle.FixedSingle,
             Margin    = new Padding(4, 0, 0, 0),
@@ -273,37 +404,38 @@ public partial class MyAgileForm : Form
     {
         if (_dropIndicator == null) return;
 
-        var columns = panelBoard.Controls.OfType<KanbanColumnControl>().ToList();
+        var columns = flowColumns.Controls.OfType<KanbanColumnControl>().ToList();
         if (insertIdx < 0 || columns.Count == 0) return;
 
         if (insertIdx == _lastColumnDropInsertIdx
-            && panelBoard.Controls.Contains(_dropIndicator))
+            && flowColumns.Controls.Contains(_dropIndicator))
             return;
 
         _lastColumnDropInsertIdx = insertIdx;
-        _dropIndicator.Height = Math.Max(panelBoard.ClientSize.Height - 12, 300);
+        _dropIndicator.Height = GetColumnControlHeight();
+        _dropIndicator.Width = _draggingColumn?.Width ?? ColumnWidthDefaults.Default;
 
-        panelBoard.SuspendLayout();
+        flowColumns.SuspendLayout();
 
-        bool hadIndicator = panelBoard.Controls.Contains(_dropIndicator);
+        bool hadIndicator = flowColumns.Controls.Contains(_dropIndicator);
         if (hadIndicator)
-            panelBoard.Controls.Remove(_dropIndicator);
+            flowColumns.Controls.Remove(_dropIndicator);
 
         int targetCtrlIdx = insertIdx < columns.Count
-            ? panelBoard.Controls.IndexOf(columns[insertIdx])
-            : panelBoard.Controls.Count;
+            ? flowColumns.Controls.GetChildIndex(columns[insertIdx])
+            : flowColumns.Controls.Count;
 
-        panelBoard.Controls.Add(_dropIndicator);
-        if (panelBoard.Controls.GetChildIndex(_dropIndicator) != targetCtrlIdx)
-            panelBoard.Controls.SetChildIndex(_dropIndicator, targetCtrlIdx);
+        flowColumns.Controls.Add(_dropIndicator);
+        if (flowColumns.Controls.GetChildIndex(_dropIndicator) != targetCtrlIdx)
+            flowColumns.Controls.SetChildIndex(_dropIndicator, targetCtrlIdx);
 
-        panelBoard.ResumeLayout(false);
-        panelBoard.PerformLayout();
+        flowColumns.ResumeLayout(false);
+        flowColumns.PerformLayout();
     }
 
     private int GetColumnDropIndex(Point boardPos)
     {
-        var screenPos = panelBoard.PointToScreen(boardPos);
+        var screenPos = flowColumns.PointToScreen(boardPos);
 
         if (_columnDragHitRects != null)
         {
@@ -315,7 +447,7 @@ public partial class MyAgileForm : Form
             return _columnDragHitRects.Count;
         }
 
-        var columns = panelBoard.Controls
+        var columns = flowColumns.Controls
             .OfType<KanbanColumnControl>()
             .OrderBy(c => c.Left)
             .ToList();
@@ -336,7 +468,7 @@ public partial class MyAgileForm : Form
 
         if (_dropIndicator != null)
         {
-            panelBoard.Controls.Remove(_dropIndicator);
+            flowColumns.Controls.Remove(_dropIndicator);
             _dropIndicator.Dispose();
             _dropIndicator = null;
         }
@@ -368,12 +500,13 @@ public partial class MyAgileForm : Form
     private void OnCardDragStarted(object? sender, (KanbanCard Card, Point ScreenPos) e)
     {
         if (sender is not KanbanCardControl cardCtrl) return;
+        SaveUndoSnapshot();
         _draggingCard = e.Card;
         _draggingCardControl = cardCtrl;
         _draggingCardHeight = cardCtrl.Height;
+        _draggingCardWidth = cardCtrl.Width;
 
         cardCtrl.Visible = false;
-        cardCtrl.Parent?.PerformLayout();
 
         var bmp = new Bitmap(cardCtrl.Width, cardCtrl.Height);
         cardCtrl.DrawToBitmap(bmp, new Rectangle(0, 0, cardCtrl.Width, cardCtrl.Height));
@@ -400,18 +533,6 @@ public partial class MyAgileForm : Form
         _ghostForm.Location = new Point(
             e.ScreenPos.X - _ghostForm.Width / 2,
             e.ScreenPos.Y - _ghostForm.Height / 2);
-
-        var targetCol = panelBoard.Controls
-            .OfType<KanbanColumnControl>()
-            .FirstOrDefault(c => c.ContainsScreenPoint(e.ScreenPos));
-
-        foreach (var col in panelBoard.Controls.OfType<KanbanColumnControl>())
-        {
-            if (col == targetCol)
-                col.ShowCardDropIndicator(col.GetCardInsertIndexFromScreen(e.ScreenPos), _draggingCardHeight);
-            else
-                col.HideCardDropIndicator();
-        }
     }
 
     private void OnCardDragEnded(object? sender, (KanbanCard Card, Point ScreenPos) e)
@@ -420,61 +541,141 @@ public partial class MyAgileForm : Form
         _ghostForm?.Dispose();
         _ghostForm = null;
 
-        foreach (var col in panelBoard.Controls.OfType<KanbanColumnControl>())
-            col.HideCardDropIndicator();
+        var draggedCtrl = _draggingCardControl;
+        var card = _draggingCard;
+        var dragWidth = _draggingCardWidth;
+        var dragHeight = _draggingCardHeight;
+        _draggingCardControl = null;
+        _draggingCard = null;
+        _draggingCardWidth = 0;
+        _draggingCardHeight = 0;
 
-        if (_draggingCardControl != null)
-        {
-            _draggingCardControl.Visible = true;
-            _draggingCardControl = null;
-        }
+        if (card == null) return;
 
-        if (_draggingCard == null) { _draggingCard = null; return; }
-
-        var targetColCtrl = panelBoard.Controls
+        var targetColCtrl = flowColumns.Controls
             .OfType<KanbanColumnControl>()
             .FirstOrDefault(c => c.ContainsScreenPoint(e.ScreenPos));
 
         if (targetColCtrl != null)
         {
-            int insertIdx = targetColCtrl.GetCardInsertIndexFromScreen(e.ScreenPos);
-            MoveCard(_draggingCard, targetColCtrl.Column, insertIdx);
-        }
+            var dropSize = new Size(
+                dragWidth > 0 ? dragWidth : draggedCtrl?.Width ?? CardSizeDefaults.MinWidth,
+                dragHeight > 0 ? dragHeight : draggedCtrl?.Height ?? CardSizeDefaults.MinHeight);
+            var canvasLoc = targetColCtrl.GetCanvasDropLocation(e.ScreenPos, dropSize);
 
-        _draggingCard = null;
+            ErrorHandler.TryExecute(
+                () => MoveCardToCanvas(card, targetColCtrl, canvasLoc, draggedCtrl),
+                "카드 이동 오류",
+                this,
+                $"카드: {card.Title}");
+        }
+        else
+        {
+            RestoreDraggedCard(card, draggedCtrl);
+        }
     }
 
-    private void MoveCard(KanbanCard card, KanbanColumn targetColumn, int insertIdx)
+    private void RestoreDraggedCard(KanbanCard card, KanbanCardControl? draggedCtrl)
     {
-        SaveUndoSnapshot();
-        var sourceCol = _project.Columns.FirstOrDefault(c => c.Cards.Contains(card));
-        if (sourceCol == null) return;
+        if (draggedCtrl == null) return;
 
+        draggedCtrl.Visible = true;
+        var sourceColModel = _project.Columns.FirstOrDefault(c => c.Cards.Contains(card));
+        if (sourceColModel == null) return;
+
+        var sourceUi = FindColumnControl(sourceColModel);
+        if (sourceUi == null) return;
+
+        var restoreAt = new Point(card.CanvasX, card.CanvasY);
+        if (draggedCtrl.Parent == null)
+            sourceUi.AttachCardControl(draggedCtrl, restoreAt);
+        else
+            sourceUi.SetCardCanvasPosition(card, restoreAt);
+    }
+
+    private void MoveCardToCanvas(KanbanCard card, KanbanColumnControl targetCtrl, Point canvasLocation, KanbanCardControl? draggedCtrl = null)
+    {
+        var sourceCol = _project.Columns.FirstOrDefault(c => c.Cards.Contains(card));
+        if (sourceCol == null)
+            throw new InvalidOperationException("이동할 카드가 원본 컬럼에 없습니다.");
+
+        var targetColumn = targetCtrl.Column;
         bool sameColumn = sourceCol.Id == targetColumn.Id;
-        int srcIdx = sourceCol.Cards.IndexOf(card);
+        var sourceUi = FindColumnControl(sourceCol);
 
         if (targetColumn.IsCompletionColumn && card.CompletedAt == null)
             card.CompletedAt = DateTime.Now;
         else if (!targetColumn.IsCompletionColumn)
             card.CompletedAt = null;
 
-        if (sameColumn)
+        var savedLocation = card.HasCanvasPosition()
+            ? new Point(card.CanvasX, card.CanvasY)
+            : new Point(CardCanvasHelper.CanvasPadding, CardCanvasHelper.CanvasPadding);
+
+        card.CanvasX = canvasLocation.X;
+        card.CanvasY = canvasLocation.Y;
+
+        if (!sameColumn)
         {
-            if (srcIdx == insertIdx || srcIdx + 1 == insertIdx) return;
-            sourceCol.Cards.RemoveAt(srcIdx);
-            int target = insertIdx > srcIdx ? insertIdx - 1 : insertIdx;
-            sourceCol.Cards.Insert(Math.Clamp(target, 0, sourceCol.Cards.Count), card);
-            FindColumnControl(sourceCol)?.LoadCards();
-            FindColumnControl(sourceCol)?.UpdateHeader();
+            var ctrl = sourceUi?.DetachCardControl(card, draggedCtrl);
+            var removedFromSource = false;
+            var addedToTarget = false;
+
+            try
+            {
+                sourceCol.Cards.Remove(card);
+                removedFromSource = true;
+
+                int nextZ = targetColumn.Cards.Select(c => c.ZIndex).DefaultIfEmpty(0).Max() + 1;
+                targetColumn.Cards.Add(card);
+                addedToTarget = true;
+                card.ZIndex = nextZ;
+
+                sourceUi?.UpdateHeader();
+                targetCtrl.UpdateHeader();
+
+                if (ctrl != null)
+                {
+                    ctrl.Visible = true;
+                    targetCtrl.AttachCardControl(ctrl, canvasLocation);
+                }
+                else
+                {
+                    targetCtrl.LoadCards();
+                    targetCtrl.SetCardCanvasPosition(card, canvasLocation);
+                }
+            }
+            catch
+            {
+                card.CanvasX = savedLocation.X;
+                card.CanvasY = savedLocation.Y;
+
+                if (addedToTarget)
+                    targetColumn.Cards.Remove(card);
+                if (removedFromSource && !sourceCol.Cards.Contains(card))
+                    sourceCol.Cards.Add(card);
+
+                if (ctrl != null && sourceUi != null)
+                {
+                    ctrl.Visible = true;
+                    sourceUi.AttachCardControl(ctrl, savedLocation);
+                }
+                else if (ctrl != null)
+                {
+                    ctrl.Visible = true;
+                }
+
+                sourceUi?.UpdateHeader();
+                targetCtrl.UpdateHeader();
+                throw;
+            }
         }
         else
         {
-            sourceCol.Cards.RemoveAt(srcIdx);
-            targetColumn.Cards.Insert(Math.Clamp(insertIdx, 0, targetColumn.Cards.Count), card);
-            FindColumnControl(sourceCol)?.LoadCards();
-            FindColumnControl(sourceCol)?.UpdateHeader();
-            FindColumnControl(targetColumn)?.LoadCards();
-            FindColumnControl(targetColumn)?.UpdateHeader();
+            if (draggedCtrl != null)
+                draggedCtrl.Visible = true;
+            targetCtrl.SetCardCanvasPosition(card, canvasLocation);
+            draggedCtrl?.SetSelected(true);
         }
 
         UpdateDirtyState();
@@ -482,7 +683,7 @@ public partial class MyAgileForm : Form
     }
 
     private KanbanColumnControl? FindColumnControl(KanbanColumn col) =>
-        panelBoard.Controls.OfType<KanbanColumnControl>()
+        flowColumns.Controls.OfType<KanbanColumnControl>()
                            .FirstOrDefault(c => c.Column.Id == col.Id);
 
     // ─────────────────────────────────────────────
@@ -491,9 +692,12 @@ public partial class MyAgileForm : Form
 
     private void OnColumnSettingsRequested(object? sender, KanbanColumn column)
     {
+        SaveUndoSnapshot();
         using var form = new ColumnSettingsForm(column);
         if (form.ShowDialog() != DialogResult.OK) return;
-        FindColumnControl(column)?.UpdateHeader();
+        var ctrl = FindColumnControl(column);
+        ctrl?.UpdateHeader();
+        ApplyProportionalColumnWidths();
         UpdateDirtyState();
     }
 
@@ -542,13 +746,25 @@ public partial class MyAgileForm : Form
         if (dlg.ShowDialog() != DialogResult.OK) return;
         RememberDir(dlg.FileName);
 
-        var loaded = ProjectService.Load(dlg.FileName);
+        var loaded = ErrorHandler.TryExecute(
+            () => ProjectService.Load(dlg.FileName),
+            "프로젝트 열기 오류",
+            this,
+            $"파일: {dlg.FileName}");
+
         if (loaded == null)
         {
-            MessageBox.Show("파일을 불러올 수 없습니다.", "오류",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            if (File.Exists(dlg.FileName))
+            {
+                ErrorHandler.Show(
+                    "프로젝트 열기 오류",
+                    "파일을 읽었지만 프로젝트 데이터를 해석할 수 없습니다.",
+                    $"[컨텍스트] 파일: {dlg.FileName}\n[시각] {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n[원인] 파일 형식이 올바르지 않거나 내용이 비어 있습니다.",
+                    this);
+            }
             return;
         }
+
         _project = loaded;
         RebuildBoard();
         CaptureSavedState();
@@ -561,10 +777,12 @@ public partial class MyAgileForm : Form
     private bool Save()
     {
         if (string.IsNullOrEmpty(_project.FilePath)) return SaveAs();
-        ProjectService.Save(_project, _project.FilePath);
-        RememberDir(_project.FilePath);
-        CaptureSavedState();
-        return true;
+        return ErrorHandler.TryExecute(() =>
+        {
+            ProjectService.Save(_project, _project.FilePath);
+            RememberDir(_project.FilePath);
+            CaptureSavedState();
+        }, "저장 오류", this, $"파일: {_project.FilePath}");
     }
 
     private bool SaveAs()
@@ -578,9 +796,11 @@ public partial class MyAgileForm : Form
         };
         if (dlg.ShowDialog() != DialogResult.OK) return false;
         RememberDir(dlg.FileName);
-        ProjectService.Save(_project, dlg.FileName);
-        CaptureSavedState();
-        return true;
+        return ErrorHandler.TryExecute(() =>
+        {
+            ProjectService.Save(_project, dlg.FileName);
+            CaptureSavedState();
+        }, "저장 오류", this, $"파일: {dlg.FileName}");
     }
 
     private void menuExit_Click(object sender, EventArgs e) => Close();
@@ -616,17 +836,23 @@ public partial class MyAgileForm : Form
 
     private void CaptureSavedState()
     {
-        _savedStateJson = JsonSerializer.Serialize(_project, ProjectService.Options);
-        _isDirty = false;
-        UpdateTitle();
+        ErrorHandler.TryExecute(() =>
+        {
+            _savedStateJson = JsonSerializer.Serialize(_project, ProjectService.Options);
+            _isDirty = false;
+            UpdateTitle();
+        }, "상태 저장 오류", this);
     }
 
     private void UpdateDirtyState()
     {
-        var currentJson = JsonSerializer.Serialize(_project, ProjectService.Options);
-        _isDirty = currentJson != _savedStateJson;
-        UpdateTitle();
-        UpdateStatusBar();
+        ErrorHandler.TryExecute(() =>
+        {
+            var currentJson = JsonSerializer.Serialize(_project, ProjectService.Options);
+            _isDirty = currentJson != _savedStateJson;
+            UpdateTitle();
+            UpdateStatusBar();
+        }, "변경 상태 확인 오류", this);
     }
 
     private void UpdateTitle()
@@ -667,34 +893,46 @@ public partial class MyAgileForm : Form
 
     private void SaveUndoSnapshot()
     {
-        var json = JsonSerializer.Serialize(_project, ProjectService.Options);
-        _undoStack.Push(json);
-        _redoStack.Clear();
-        UpdateUndoRedoUI();
+        if (!ErrorHandler.TryExecute(() =>
+        {
+            var json = JsonSerializer.Serialize(_project, ProjectService.Options);
+            _undoStack.Push(json);
+            _redoStack.Clear();
+            UpdateUndoRedoUI();
+        }, "실행 취소 준비 오류", this))
+            return;
     }
 
     private void menuUndo_Click(object? sender, EventArgs e)
     {
         if (_undoStack.Count == 0) return;
-        var currentJson = JsonSerializer.Serialize(_project, ProjectService.Options);
-        _redoStack.Push(currentJson);
-        var json = _undoStack.Pop();
-        _project = JsonSerializer.Deserialize<KanbanProject>(json, ProjectService.Options)!;
-        RebuildBoard();
-        UpdateDirtyState();
-        UpdateUndoRedoUI();
+        ErrorHandler.TryExecute(() =>
+        {
+            var currentJson = JsonSerializer.Serialize(_project, ProjectService.Options);
+            _redoStack.Push(currentJson);
+            var json = _undoStack.Pop();
+            _project = JsonSerializer.Deserialize<KanbanProject>(json, ProjectService.Options)
+                ?? throw new InvalidOperationException("저장된 실행 취소 데이터를 복원할 수 없습니다.");
+            RebuildBoard();
+            UpdateDirtyState();
+            UpdateUndoRedoUI();
+        }, "실행 취소 오류", this);
     }
 
     private void menuRedo_Click(object? sender, EventArgs e)
     {
         if (_redoStack.Count == 0) return;
-        var currentJson = JsonSerializer.Serialize(_project, ProjectService.Options);
-        _undoStack.Push(currentJson);
-        var json = _redoStack.Pop();
-        _project = JsonSerializer.Deserialize<KanbanProject>(json, ProjectService.Options)!;
-        RebuildBoard();
-        UpdateDirtyState();
-        UpdateUndoRedoUI();
+        ErrorHandler.TryExecute(() =>
+        {
+            var currentJson = JsonSerializer.Serialize(_project, ProjectService.Options);
+            _undoStack.Push(currentJson);
+            var json = _redoStack.Pop();
+            _project = JsonSerializer.Deserialize<KanbanProject>(json, ProjectService.Options)
+                ?? throw new InvalidOperationException("저장된 다시 실행 데이터를 복원할 수 없습니다.");
+            RebuildBoard();
+            UpdateDirtyState();
+            UpdateUndoRedoUI();
+        }, "다시 실행 오류", this);
     }
 
     private void UpdateUndoRedoUI()
@@ -739,6 +977,29 @@ public partial class MyAgileForm : Form
     {
         using var form = new AboutForm();
         form.ShowDialog();
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (TryHandleSelectedCardRotation(keyData))
+            return true;
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private bool TryHandleSelectedCardRotation(Keys keyData)
+    {
+        var column = flowColumns.Controls.OfType<KanbanColumnControl>()
+            .FirstOrDefault(c => c.SelectedCardControl != null);
+        if (column == null) return false;
+
+        if (keyData == (Keys.Control | Keys.OemOpenBrackets))
+            return column.RotateSelectedCard(-CardCanvasHelper.RotationStep);
+        if (keyData == (Keys.Control | Keys.OemCloseBrackets))
+            return column.RotateSelectedCard(CardCanvasHelper.RotationStep);
+        if (keyData == (Keys.Control | Keys.D0) || keyData == (Keys.Control | Keys.NumPad0))
+            return column.ResetSelectedCardRotation();
+
+        return false;
     }
 
     // ─────────────────────────────────────────────

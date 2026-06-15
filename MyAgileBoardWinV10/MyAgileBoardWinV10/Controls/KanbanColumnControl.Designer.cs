@@ -6,8 +6,12 @@ partial class KanbanColumnControl
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && components != null)
-            components.Dispose();
+        if (disposing)
+        {
+            _appliedTitleFont?.Dispose();
+            if (components != null)
+                components.Dispose();
+        }
         base.Dispose(disposing);
     }
 
@@ -17,7 +21,8 @@ partial class KanbanColumnControl
         panelHeader = new Panel();
         lblColumnName = new Label();
         btnColumnMenu = new Button();
-        flowCards = new FlowLayoutPanel();
+        panelCanvas = new ColumnCanvasPanel();
+        panelResizeGrip = new Panel();
         btnAddCard = new Button();
         contextMenuColumn = new ContextMenuStrip(components);
         menuAddCardFromMenu = new ToolStripMenuItem();
@@ -104,14 +109,22 @@ partial class KanbanColumnControl
         panelHeader.MouseMove += new MouseEventHandler(panelHeader_MouseMove);
         panelHeader.MouseUp   += new MouseEventHandler(panelHeader_MouseUp);
 
-        // flowCards
-        flowCards.AutoScroll = true;
-        flowCards.Dock = DockStyle.Fill;
-        flowCards.FlowDirection = FlowDirection.TopDown;
-        flowCards.Name = "flowCards";
-        flowCards.Padding = new Padding(4, 4, 4, 4);
-        flowCards.WrapContents = false;
-        flowCards.ContextMenuStrip = contextMenuColumn;
+        // panelCanvas
+        panelCanvas.AutoScroll = false;
+        panelCanvas.BackColor = Color.FromArgb(252, 252, 250);
+        panelCanvas.Dock = DockStyle.Fill;
+        panelCanvas.Name = "panelCanvas";
+        panelCanvas.Padding = new Padding(4, 4, 4, 4);
+        panelCanvas.ContextMenuStrip = contextMenuColumn;
+        panelCanvas.Paint += panelCanvas_Paint;
+
+        // panelResizeGrip
+        panelResizeGrip.BackColor = Color.FromArgb(238, 239, 242);
+        panelResizeGrip.Cursor = Cursors.SizeWE;
+        panelResizeGrip.Dock = DockStyle.Right;
+        panelResizeGrip.Name = "panelResizeGrip";
+        panelResizeGrip.Size = new Size(6, 100);
+        panelResizeGrip.TabIndex = 0;
 
         // btnAddCard
         btnAddCard.BackColor = SystemColors.Control;
@@ -131,11 +144,12 @@ partial class KanbanColumnControl
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.FromArgb(245, 246, 248);
         BorderStyle = BorderStyle.FixedSingle;
-        Controls.Add(flowCards);
+        Controls.Add(panelCanvas);
+        Controls.Add(panelResizeGrip);
         Controls.Add(panelHeader);
         Controls.Add(btnAddCard);
         ContextMenuStrip = contextMenuColumn;
-        MinimumSize = new Size(200, 100);
+        MinimumSize = new Size(160, 100);
         Name = "KanbanColumnControl";
         Size = new Size(250, 500);
 
@@ -146,7 +160,8 @@ partial class KanbanColumnControl
     private Panel panelHeader = null!;
     private Label lblColumnName = null!;
     private Button btnColumnMenu = null!;
-    private FlowLayoutPanel flowCards = null!;
+    private Panel panelCanvas = null!;
+    private Panel panelResizeGrip = null!;
     private Button btnAddCard = null!;
     private ContextMenuStrip contextMenuColumn = null!;
     private ToolStripMenuItem menuAddCardFromMenu = null!;

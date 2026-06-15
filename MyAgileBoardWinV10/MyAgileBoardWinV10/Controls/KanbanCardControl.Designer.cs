@@ -6,8 +6,13 @@ partial class KanbanCardControl
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && components != null)
-            components.Dispose();
+        if (disposing)
+        {
+            _titleFont?.Dispose();
+            _rotatedCache?.Dispose();
+            if (components != null)
+                components.Dispose();
+        }
         base.Dispose(disposing);
     }
 
@@ -23,6 +28,15 @@ partial class KanbanCardControl
         contextMenuCard = new ContextMenuStrip(components);
         menuEdit = new ToolStripMenuItem();
         menuSep = new ToolStripSeparator();
+        menuRotateLeft = new ToolStripMenuItem();
+        menuRotateRight = new ToolStripMenuItem();
+        menuRotateReset = new ToolStripMenuItem();
+        menuSepRotate = new ToolStripSeparator();
+        menuBringForward = new ToolStripMenuItem();
+        menuBringToFront = new ToolStripMenuItem();
+        menuSendBackward = new ToolStripMenuItem();
+        menuSendToBack = new ToolStripMenuItem();
+        menuSepOrder = new ToolStripSeparator();
         menuDelete = new ToolStripMenuItem();
         toolTip = new ToolTip(components);
 
@@ -34,15 +48,60 @@ partial class KanbanCardControl
         {
             menuEdit,
             menuSep,
+            menuRotateLeft,
+            menuRotateRight,
+            menuRotateReset,
+            menuSepRotate,
+            menuBringForward,
+            menuBringToFront,
+            menuSendBackward,
+            menuSendToBack,
+            menuSepOrder,
             menuDelete
         });
         contextMenuCard.Name = "contextMenuCard";
-        contextMenuCard.Size = new Size(120, 54);
+        contextMenuCard.Size = new Size(200, 240);
+        contextMenuCard.Opening += ContextMenuCard_Opening;
 
         // menuEdit
         menuEdit.Name = "menuEdit";
         menuEdit.Text = "편집...";
         menuEdit.Click += new EventHandler(menuEdit_Click);
+
+        // menuRotateLeft
+        menuRotateLeft.Name = "menuRotateLeft";
+        menuRotateLeft.Text = "왼쪽으로 회전 (-15°)";
+        menuRotateLeft.Click += new EventHandler(menuRotateLeft_Click);
+
+        // menuRotateRight
+        menuRotateRight.Name = "menuRotateRight";
+        menuRotateRight.Text = "오른쪽으로 회전 (+15°)";
+        menuRotateRight.Click += new EventHandler(menuRotateRight_Click);
+
+        // menuRotateReset
+        menuRotateReset.Name = "menuRotateReset";
+        menuRotateReset.Text = "회전 초기화";
+        menuRotateReset.Click += new EventHandler(menuRotateReset_Click);
+
+        // menuBringForward
+        menuBringForward.Name = "menuBringForward";
+        menuBringForward.Text = "앞으로 보내기";
+        menuBringForward.Click += new EventHandler(menuBringForward_Click);
+
+        // menuBringToFront
+        menuBringToFront.Name = "menuBringToFront";
+        menuBringToFront.Text = "가장 앞으로 보내기";
+        menuBringToFront.Click += new EventHandler(menuBringToFront_Click);
+
+        // menuSendBackward
+        menuSendBackward.Name = "menuSendBackward";
+        menuSendBackward.Text = "뒤로 보내기";
+        menuSendBackward.Click += new EventHandler(menuSendBackward_Click);
+
+        // menuSendToBack
+        menuSendToBack.Name = "menuSendToBack";
+        menuSendToBack.Text = "가장 뒤로 보내기";
+        menuSendToBack.Click += new EventHandler(menuSendToBack_Click);
 
         // menuDelete
         menuDelete.Name = "menuDelete";
@@ -52,16 +111,18 @@ partial class KanbanCardControl
 
         // lblTitle
         lblTitle.AutoSize = false;
+        lblTitle.AutoEllipsis = true;
         lblTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
         lblTitle.Location = new Point(5, 4);
         lblTitle.Name = "lblTitle";
         lblTitle.Size = new Size(216, 18);
         lblTitle.Text = string.Empty;
-        lblTitle.DoubleClick += new EventHandler(lblTitle_DoubleClick);
+        lblTitle.BackColor = Color.Transparent;
         lblTitle.ContextMenuStrip = contextMenuCard;
 
         // lblPriority
         lblPriority.AutoSize = true;
+        lblPriority.BackColor = Color.Transparent;
         lblPriority.Font = new Font("Segoe UI", 7.5F, FontStyle.Bold);
         lblPriority.Location = new Point(5, 24);
         lblPriority.Name = "lblPriority";
@@ -71,6 +132,7 @@ partial class KanbanCardControl
 
         // lblAssignee
         lblAssignee.AutoSize = true;
+        lblAssignee.BackColor = Color.Transparent;
         lblAssignee.Font = new Font("Segoe UI", 7.5F);
         lblAssignee.Location = new Point(5, 40);
         lblAssignee.Name = "lblAssignee";
@@ -81,6 +143,7 @@ partial class KanbanCardControl
 
         // lblDueDate
         lblDueDate.AutoSize = true;
+        lblDueDate.BackColor = Color.Transparent;
         lblDueDate.Font = new Font("Segoe UI", 7.5F);
         lblDueDate.Location = new Point(5, 56);
         lblDueDate.Name = "lblDueDate";
@@ -91,6 +154,7 @@ partial class KanbanCardControl
 
         // lblTags
         lblTags.AutoSize = false;
+        lblTags.BackColor = Color.Transparent;
         lblTags.Font = new Font("Segoe UI", 7F);
         lblTags.Location = new Point(5, 72);
         lblTags.Name = "lblTags";
@@ -101,7 +165,7 @@ partial class KanbanCardControl
 
         // panelCard
         panelCard.BackColor = Color.WhiteSmoke;
-        panelCard.BorderStyle = BorderStyle.FixedSingle;
+        panelCard.BorderStyle = BorderStyle.None;
         panelCard.Controls.AddRange(new Control[]
         {
             lblTitle,
@@ -115,7 +179,6 @@ partial class KanbanCardControl
         panelCard.Dock = DockStyle.Fill;
         panelCard.Name = "panelCard";
         panelCard.Size = new Size(230, 74);
-        panelCard.DoubleClick += new EventHandler(panelCard_DoubleClick);
 
         // KanbanCardControl
         AutoScaleDimensions = new SizeF(7F, 15F);
@@ -141,6 +204,15 @@ partial class KanbanCardControl
     private ContextMenuStrip contextMenuCard = null!;
     private ToolStripMenuItem menuEdit = null!;
     private ToolStripSeparator menuSep = null!;
+    private ToolStripMenuItem menuRotateLeft = null!;
+    private ToolStripMenuItem menuRotateRight = null!;
+    private ToolStripMenuItem menuRotateReset = null!;
+    private ToolStripSeparator menuSepRotate = null!;
+    private ToolStripMenuItem menuBringForward = null!;
+    private ToolStripMenuItem menuBringToFront = null!;
+    private ToolStripMenuItem menuSendBackward = null!;
+    private ToolStripMenuItem menuSendToBack = null!;
+    private ToolStripSeparator menuSepOrder = null!;
     private ToolStripMenuItem menuDelete = null!;
     private ToolTip toolTip = null!;
 }

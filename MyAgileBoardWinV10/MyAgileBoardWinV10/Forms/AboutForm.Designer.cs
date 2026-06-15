@@ -58,7 +58,7 @@ partial class AboutForm
         lblAuthor.Location  = new Point(20, 195);
         lblAuthor.Font      = new Font("Segoe UI", 9F);
         lblAuthor.ForeColor = Color.DimGray;
-        lblAuthor.Text      = "개발:  MyAgileBoard Team";
+        lblAuthor.Text      = "개발:  SH Kwon(Knix008)";
 
         // lblCopyright
         lblCopyright.AutoSize  = true;
