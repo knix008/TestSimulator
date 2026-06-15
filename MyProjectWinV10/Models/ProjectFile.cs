@@ -81,6 +81,7 @@ namespace MyProject.Models
             {
                 ProjectName = model.ProjectName,
                 ProjectStart = model.ProjectStart,
+                WorkingDays = model.WorkingWeek.ToDayFlags(),
                 Tasks = model.Tasks.Select(t => new TaskData
                 {
                     Id = t.Id,
@@ -242,6 +243,8 @@ namespace MyProject.Models
                 FilePath = path,
                 IsModified = false
             };
+            model.SetWorkingWeek(WorkingWeekSchedule.FromDayFlags(data.WorkingDays));
+            model.IsModified = false;
 
             model.Restore(
                 data.Tasks,
@@ -257,6 +260,7 @@ namespace MyProject.Models
             public int Version { get; set; } = 1;
             public string ProjectName { get; set; } = "New Project";
             public DateTime ProjectStart { get; set; } = DateTime.Today;
+            public bool[]? WorkingDays { get; set; }
             public List<TaskData> Tasks { get; set; } = new();
             public List<DependencyData> Dependencies { get; set; } = new();
             public List<AssignmentData> Assignments { get; set; } = new();

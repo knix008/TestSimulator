@@ -751,7 +751,7 @@ namespace MyProject.Controls
       AddLabeledField(layout, "Name:", _taskName, StandardRowHeight);
       AddLabeledField(layout, "Type:", _taskType, StandardRowHeight);
       AddLabeledField(layout, "Start:", _taskStart, StandardRowHeight);
-      AddLabeledField(layout, "Days:", _taskDuration, StandardRowHeight);
+      AddLabeledField(layout, "Days (working):", _taskDuration, StandardRowHeight);
       AddLabeledField(layout, "End:", _taskEndLabel, StandardRowHeight);
       AddLabeledField(layout, "Progress:", _taskProgress, StandardRowHeight);
       AddControlRow(layout, _taskAutoSchedule, CheckRowHeight);

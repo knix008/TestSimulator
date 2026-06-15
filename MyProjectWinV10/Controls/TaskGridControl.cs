@@ -231,7 +231,7 @@ namespace MyProject.Controls
             using (var columnBg = new SolidBrush(AppTheme.TimescaleBackground))
                 g.FillRectangle(columnBg, columnRect);
 
-            string[] headers = { "ID", "Task Name", "Start", "Days", "Progress", "Resource", "Alloc %", "Deliverable" };
+            string[] headers = { "ID", "Task Name", "Start", "W.Days", "Progress", "Resource", "Alloc %", "Deliverable" };
             for (int i = 0; i < ColumnCount; i++)
                 DrawColumnHeader(g, ColumnLeft(i), headers[i], _colWidths[i], columnTop, columnRowH, i);
 

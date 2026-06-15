@@ -73,9 +73,22 @@ namespace MyProject.Models
             }
         }
 
-        public DateTime EndDate => _taskType == TaskType.Milestone
-            ? _startDate
-            : _startDate.AddDays(_durationDays - 1);
+        public DateTime EndDate
+        {
+            get
+            {
+                if (_taskType == TaskType.Milestone)
+                    return _startDate.Date;
+
+                return _endDateResolver?.Invoke(this)
+                    ?? _startDate.AddDays(Math.Max(1, _durationDays) - 1);
+            }
+        }
+
+        private static Func<ProjectTask, DateTime>? _endDateResolver;
+
+        public static void SetEndDateResolver(Func<ProjectTask, DateTime>? resolver) =>
+            _endDateResolver = resolver;
 
         public double Progress
         {

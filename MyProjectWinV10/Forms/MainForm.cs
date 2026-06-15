@@ -175,6 +175,7 @@ namespace MyProject.Forms
             menuOpen.ToolTipText = "Open a MyProject or Microsoft Project file";
             menuSave.ToolTipText = "Save the current project";
             menuSaveAs.ToolTipText = "Save the current project under a new file name";
+            menuProjectSettings.ToolTipText = "Edit project name, schedule, working days, and dependency defaults";
             menuUndo.ToolTipText = "Undo the last edit (Ctrl+Z)";
             menuRedo.ToolTipText = "Redo the last undone edit (Ctrl+Y)";
             menuExportMsProject.ToolTipText = "Export schedule for Microsoft Project (XML or MPX)";
@@ -252,6 +253,7 @@ namespace MyProject.Forms
             menuOpen.Click       += (_, _) => OnOpen();
             menuSave.Click       += (_, _) => OnSave();
             menuSaveAs.Click     += (_, _) => OnSaveAs();
+            menuProjectSettings.Click += (_, _) => OnProjectSettings();
             menuExportMsProject.Click += (_, _) => OnExportMsProject();
             menuExit.Click       += (_, _) => Close();
 
@@ -1471,6 +1473,26 @@ namespace MyProject.Forms
             AppSettings.ApplyTo(dlg);
             if (dlg.ShowDialog(this) == DialogResult.OK)
                 SaveProject(dlg.FileName);
+        }
+
+        private void OnProjectSettings()
+        {
+            taskGridControl.CommitPendingEdits();
+            selectionPropertiesControl.CommitPendingEdits();
+
+            var preSnapshot = ProjectFile.ToUndoSnapshot(_model);
+            using var dlg = new ProjectSettingsDialog(_model);
+            if (dlg.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            _undoRedo.PushSnapshot(preSnapshot);
+            UpdateUndoRedoState();
+            dependencyTypeSelector.SelectedType = _model.ViewSettings.DefaultDependencyType;
+            UpdateDependencyTypeMenuChecks();
+            UpdateTitleBar();
+            ganttChartControl.Invalidate();
+            taskGridControl.Invalidate();
+            UpdateStatus(_lastSelectedId);
         }
 
         private void SaveProject(string path, bool showCompletionPopup = true)

@@ -23,6 +23,11 @@ namespace MyProject.Models
         private HashSet<(int PredecessorId, int SuccessorId)> _criticalDependencies = new();
         private List<TaskDependency> _criticalPathLinks = new();
 
+        public ProjectModel()
+        {
+            ProjectTask.SetEndDateResolver(GetTaskEndDate);
+        }
+
         public string ProjectName { get; set; } = "New Project";
 
         public void SetProjectName(string name)
@@ -41,6 +46,8 @@ namespace MyProject.Models
 
         public DateTime ProjectStart { get; set; } = DateTime.Today;
 
+        public WorkingWeekSchedule WorkingWeek { get; private set; } = new();
+
         public void SetProjectStart(DateTime start)
         {
             start = start.Date;
@@ -50,6 +57,113 @@ namespace MyProject.Models
             ProjectStart = start;
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void SetWorkingWeek(WorkingWeekSchedule schedule)
+        {
+            schedule ??= new WorkingWeekSchedule();
+            var normalized = WorkingWeekSchedule.FromDayFlags(schedule.ToDayFlags());
+            if (WorkingWeek.Equals(normalized))
+                return;
+
+            WorkingWeek = normalized;
+            RecalculateScheduleForWorkingWeek();
+        }
+
+        public DateTime GetTaskEndDate(ProjectTask task)
+        {
+            if (task.TaskType == TaskType.Milestone)
+                return task.StartDate.Date;
+
+            if (task.DurationDays <= 0)
+                return task.StartDate.Date;
+
+            return WorkingDayCalendar.GetTaskEndDate(task.StartDate, task.DurationDays, WorkingWeek);
+        }
+
+        public DateTime NormalizeToWorkingDay(DateTime date) =>
+            WorkingDayCalendar.SnapToNextWorkingDay(date.Date, WorkingWeek);
+
+        public DateTime AddWorkingDays(DateTime start, int workingDays) =>
+            WorkingDayCalendar.AddWorkingDays(start.Date, workingDays, WorkingWeek);
+
+        public int CountWorkingDaysInclusive(DateTime from, DateTime to) =>
+            WorkingDayCalendar.CountWorkingDaysInclusive(from.Date, to.Date, WorkingWeek);
+
+        public void RecalculateScheduleForWorkingWeek() =>
+            ApplyWorkingDaySchedule(markModified: true);
+
+        private void ApplyWorkingDaySchedule(bool markModified)
+        {
+            if (_tasks.Count == 0)
+            {
+                if (markModified)
+                {
+                    IsModified = true;
+                    ModelChanged?.Invoke(this, EventArgs.Empty);
+                }
+                return;
+            }
+
+            _isCascadingSchedule = true;
+            _suppressModificationTracking = true;
+            try
+            {
+                foreach (var task in _tasks.Where(t => t.TaskType is TaskType.Normal or TaskType.Milestone))
+                {
+                    var normalized = NormalizeToWorkingDay(task.StartDate);
+                    if (normalized != task.StartDate.Date)
+                        task.StartDate = normalized;
+                }
+
+                foreach (var dep in _dependencies.ToList())
+                    CascadeDependencies(dep.PredecessorId);
+
+                UpdateHierarchy();
+            }
+            finally
+            {
+                _isCascadingSchedule = false;
+                _suppressModificationTracking = false;
+            }
+
+            if (markModified)
+            {
+                IsModified = true;
+                ModelChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public bool ApplyProjectDependencyDefaults(
+            DependencyType dependencyType,
+            DependencyLineEnd startLineEnd,
+            DependencyLineEnd endLineEnd)
+        {
+            bool changed = false;
+            if (ViewSettings.DefaultDependencyType != dependencyType)
+            {
+                ViewSettings.DefaultDependencyType = dependencyType;
+                changed = true;
+            }
+
+            if (ViewSettings.DefaultDependencyStartLineEnd != startLineEnd)
+            {
+                ViewSettings.DefaultDependencyStartLineEnd = startLineEnd;
+                changed = true;
+            }
+
+            if (ViewSettings.DefaultDependencyEndLineEnd != endLineEnd)
+            {
+                ViewSettings.DefaultDependencyEndLineEnd = endLineEnd;
+                changed = true;
+            }
+
+            if (!changed)
+                return false;
+
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+            return true;
         }
 
         public ProjectViewSettings ViewSettings { get; set; } = ProjectViewSettings.CreateDefault();
@@ -1059,12 +1173,8 @@ namespace MyProject.Models
             }
         }
 
-        private void ApplySchedulingOnLoad()
-        {
-            foreach (var dep in _dependencies)
-                CascadeDependencies(dep.PredecessorId);
-            UpdateHierarchy();
-        }
+        private void ApplySchedulingOnLoad() =>
+            ApplyWorkingDaySchedule(markModified: false);
 
         private void UpdateParentLinks()
         {
@@ -1103,7 +1213,7 @@ namespace MyProject.Models
             if (descendants.Count == 0) return;
 
             var minStart = descendants.Min(c => c.StartDate);
-            var maxEnd = descendants.Max(c => c.EndDate);
+            var maxEnd = descendants.Max(c => GetTaskEndDate(c));
 
             double totalWeight = 0;
             double weightedProgress = 0;
@@ -1125,7 +1235,7 @@ namespace MyProject.Models
             }
 
             task.StartDate = minStart;
-            task.DurationDays = Math.Max(1, (maxEnd - minStart).Days + 1);
+            task.DurationDays = Math.Max(1, CountWorkingDaysInclusive(minStart, maxEnd));
             task.Progress = totalWeight > 0 ? weightedProgress / totalWeight : 0;
         }
 
@@ -1175,14 +1285,17 @@ namespace MyProject.Models
                 var succ = GetTask(dep.SuccessorId);
                 if (succ == null || !succ.AutoSchedule) continue;
 
+                int succWorkingDuration = succ.TaskType == TaskType.Milestone ? 0 : Math.Max(1, succ.DurationDays);
+                DateTime predEnd = GetTaskEndDate(pred);
                 DateTime newStart = dep.Type switch
                 {
-                    DependencyType.FS => pred.EndDate.AddDays(1 + dep.LagDays),
-                    DependencyType.FF => pred.EndDate.AddDays(dep.LagDays).AddDays(1 - succ.DurationDays),
-                    DependencyType.SS => pred.StartDate.AddDays(dep.LagDays),
-                    DependencyType.SF => pred.StartDate.AddDays(dep.LagDays).AddDays(1 - succ.DurationDays),
-                    _                 => pred.EndDate.AddDays(1 + dep.LagDays)
+                    DependencyType.FS => AddWorkingDays(predEnd, 1 + dep.LagDays),
+                    DependencyType.FF => AddWorkingDays(predEnd, dep.LagDays - Math.Max(0, succWorkingDuration - 1)),
+                    DependencyType.SS => AddWorkingDays(pred.StartDate, dep.LagDays),
+                    DependencyType.SF => AddWorkingDays(pred.StartDate, dep.LagDays - Math.Max(0, succWorkingDuration - 1)),
+                    _ => AddWorkingDays(predEnd, 1 + dep.LagDays)
                 };
+                newStart = NormalizeToWorkingDay(newStart);
 
                 if (newStart > succ.StartDate)
                 {
@@ -1433,10 +1546,27 @@ namespace MyProject.Models
 
             if (e.PropertyName is nameof(ProjectTask.StartDate) or nameof(ProjectTask.DurationDays))
             {
-                if (sender is ProjectTask task && !_isCascadingSchedule)
-                    ApplyDependencyScheduling(task.Id);
+                if (sender is ProjectTask task)
+                {
+                    if (e.PropertyName == nameof(ProjectTask.StartDate) && !_isCascadingSchedule)
+                    {
+                        var normalized = NormalizeToWorkingDay(task.StartDate);
+                        if (normalized != task.StartDate.Date)
+                        {
+                            task.StartDate = normalized;
+                            return;
+                        }
+                    }
+
+                    if (!_isCascadingSchedule)
+                        ApplyDependencyScheduling(task.Id);
+                    else
+                        UpdateHierarchy();
+                }
                 else
+                {
                     UpdateHierarchy();
+                }
             }
             else if (e.PropertyName is nameof(ProjectTask.Progress) or nameof(ProjectTask.IndentLevel)
                 or nameof(ProjectTask.TaskType) or nameof(ProjectTask.BarColor)

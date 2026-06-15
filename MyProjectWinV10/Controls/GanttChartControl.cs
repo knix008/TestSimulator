@@ -46,6 +46,7 @@ namespace MyProject.Controls
         private bool _isResizingLeft = false;
         private Point _dragStartMouse;
         private DateTime _dragStartDate;
+        private DateTime _dragStartEndDate;
         private int _dragStartDuration;
         private int _dragTaskId = -1;
 
@@ -926,6 +927,7 @@ namespace MyProject.Controls
                         _dragStartMouse = e.Location;
                         _dragStartDate = task.StartDate;
                         _dragStartDuration = task.DurationDays;
+                        _dragStartEndDate = _model.GetTaskEndDate(task);
                         Cursor = Cursors.SizeWE;
                         return;
                     }
@@ -936,6 +938,7 @@ namespace MyProject.Controls
                         _dragStartMouse = e.Location;
                         _dragStartDate = task.StartDate;
                         _dragStartDuration = task.DurationDays;
+                        _dragStartEndDate = _model.GetTaskEndDate(task);
                         Cursor = Cursors.SizeWE;
                         return;
                     }
@@ -948,6 +951,7 @@ namespace MyProject.Controls
                     _dragStartMouse = e.Location;
                     _dragStartDate = task.StartDate;
                     _dragStartDuration = task.DurationDays;
+                    _dragStartEndDate = _model.GetTaskEndDate(task);
                     Cursor = Cursors.SizeAll;
                 }
             }
@@ -1036,13 +1040,19 @@ namespace MyProject.Controls
                     int deltaDays = (int)Math.Round((double)deltaPx / _viewport.DayWidth);
 
                     if (_isDragging)
-                        task.StartDate = _dragStartDate.AddDays(deltaDays);
+                    {
+                        task.StartDate = _model.NormalizeToWorkingDay(_dragStartDate.AddDays(deltaDays));
+                    }
                     else if (_isResizingRight)
-                        task.DurationDays = Math.Max(1, _dragStartDuration + deltaDays);
+                    {
+                        var newEnd = _dragStartEndDate.AddDays(deltaDays);
+                        task.DurationDays = Math.Max(1, _model.CountWorkingDaysInclusive(_dragStartDate, newEnd));
+                    }
                     else if (_isResizingLeft)
                     {
-                        task.StartDate = _dragStartDate.AddDays(deltaDays);
-                        task.DurationDays = Math.Max(1, _dragStartDuration - deltaDays);
+                        var newStart = _model.NormalizeToWorkingDay(_dragStartDate.AddDays(deltaDays));
+                        task.StartDate = newStart;
+                        task.DurationDays = Math.Max(1, _model.CountWorkingDaysInclusive(newStart, _dragStartEndDate));
                     }
                     Invalidate();
                 }
