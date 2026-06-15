@@ -25,7 +25,7 @@ MyAgileBoard는 Windows용 칸반 보드 프로그램입니다. 이 문서는 �
 
 - **MSI 설치**: `bin/Release/installer/MyAgileBoard_Setup.msi` 실행 후 안내에 따라 설치
 - 개발 빌드: `dotnet run --project MyAgileBoardWinV10/MyAgileBoardWinV10.csproj`
-- Visual Studio: `MyAgileBoardWinV10.slnx`를 연 뒤 F5
+- Visual Studio: `MyAgileBoardWinV10.sln`을 연 뒤 F5
 
 설치 시 **기능 선택** 화면에서 **바탕화면 바로가기**와 **시작 메뉴 바로가기**를 각각 선택할 수 있습니다. 제거는 Windows **설정 → 앱 → 설치된 앱**에서 MyAgileBoard를 선택합니다.
 

@@ -7,7 +7,72 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>..\Assets\MyAgileBoard.ico</ApplicationIcon>
+    <RootNamespace>MyAgileBoardWinV10</RootNamespace>
+    <AssemblyName>MyAgileBoardWinV10</AssemblyName>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Update="Forms\MyAgileForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\MyAgileForm.Designer.cs">
+      <DependentUpon>MyAgileForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Forms\MyAgileForm.resx">
+      <DependentUpon>MyAgileForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <Compile Update="Forms\CardEditForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\CardEditForm.Designer.cs">
+      <DependentUpon>CardEditForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Forms\CardEditForm.resx">
+      <DependentUpon>CardEditForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <Compile Update="Forms\ColumnSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\ColumnSettingsForm.Designer.cs">
+      <DependentUpon>ColumnSettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Forms\SummaryForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\SummaryForm.Designer.cs">
+      <DependentUpon>SummaryForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Forms\BurndownChartForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\BurndownChartForm.Designer.cs">
+      <DependentUpon>BurndownChartForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Forms\CompletedHistoryForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\CompletedHistoryForm.Designer.cs">
+      <DependentUpon>CompletedHistoryForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Forms\AboutForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\AboutForm.Designer.cs">
+      <DependentUpon>AboutForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Controls\KanbanColumnControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\KanbanColumnControl.Designer.cs">
+      <DependentUpon>KanbanColumnControl.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Controls\KanbanCardControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\KanbanCardControl.Designer.cs">
+      <DependentUpon>KanbanCardControl.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="..\Assets\MyAgileBoard.ico">

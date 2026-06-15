@@ -15,9 +15,12 @@ public partial class MyAgileForm : Form
     private KanbanColumnControl? _draggingColumn;
     private Form? _ghostForm;
     private Panel? _dropIndicator;
+    private int _lastColumnDropInsertIdx = -1;
+    private List<(KanbanColumnControl Col, Rectangle ScreenRect)>? _columnDragHitRects;
 
     // Card drag state
     private KanbanCard? _draggingCard;
+    private KanbanCardControl? _draggingCardControl;
     private int _draggingCardHeight = 56;
 
     // Undo/Redo stacks (JSON snapshots of KanbanProject)
@@ -200,6 +203,12 @@ public partial class MyAgileForm : Form
         // so the ghost form receiving focus is harmless.
         _ghostForm.Show();
 
+        _columnDragHitRects = panelBoard.Controls
+            .OfType<KanbanColumnControl>()
+            .Select(c => (c, c.RectangleToScreen(c.ClientRectangle)))
+            .ToList();
+        _lastColumnDropInsertIdx = -1;
+
         EnsureDropIndicator();
     }
 
@@ -267,26 +276,45 @@ public partial class MyAgileForm : Form
         var columns = panelBoard.Controls.OfType<KanbanColumnControl>().ToList();
         if (insertIdx < 0 || columns.Count == 0) return;
 
+        if (insertIdx == _lastColumnDropInsertIdx
+            && panelBoard.Controls.Contains(_dropIndicator))
+            return;
+
+        _lastColumnDropInsertIdx = insertIdx;
         _dropIndicator.Height = Math.Max(panelBoard.ClientSize.Height - 12, 300);
 
         panelBoard.SuspendLayout();
 
-        // Remove placeholder if already there, then re-insert at right spot
-        if (panelBoard.Controls.Contains(_dropIndicator))
+        bool hadIndicator = panelBoard.Controls.Contains(_dropIndicator);
+        if (hadIndicator)
             panelBoard.Controls.Remove(_dropIndicator);
-
-        panelBoard.Controls.Add(_dropIndicator);
 
         int targetCtrlIdx = insertIdx < columns.Count
             ? panelBoard.Controls.IndexOf(columns[insertIdx])
-            : panelBoard.Controls.IndexOf(columns[^1]) + 1;
-        panelBoard.Controls.SetChildIndex(_dropIndicator, targetCtrlIdx);
+            : panelBoard.Controls.Count;
 
-        panelBoard.ResumeLayout();
+        panelBoard.Controls.Add(_dropIndicator);
+        if (panelBoard.Controls.GetChildIndex(_dropIndicator) != targetCtrlIdx)
+            panelBoard.Controls.SetChildIndex(_dropIndicator, targetCtrlIdx);
+
+        panelBoard.ResumeLayout(false);
+        panelBoard.PerformLayout();
     }
 
     private int GetColumnDropIndex(Point boardPos)
     {
+        var screenPos = panelBoard.PointToScreen(boardPos);
+
+        if (_columnDragHitRects != null)
+        {
+            for (int i = 0; i < _columnDragHitRects.Count; i++)
+            {
+                int mid = _columnDragHitRects[i].ScreenRect.Left + _columnDragHitRects[i].ScreenRect.Width / 2;
+                if (screenPos.X < mid) return i;
+            }
+            return _columnDragHitRects.Count;
+        }
+
         var columns = panelBoard.Controls
             .OfType<KanbanColumnControl>()
             .OrderBy(c => c.Left)
@@ -312,6 +340,9 @@ public partial class MyAgileForm : Form
             _dropIndicator.Dispose();
             _dropIndicator = null;
         }
+
+        _lastColumnDropInsertIdx = -1;
+        _columnDragHitRects = null;
     }
 
     // ─────────────────────────────────────────────
@@ -338,7 +369,11 @@ public partial class MyAgileForm : Form
     {
         if (sender is not KanbanCardControl cardCtrl) return;
         _draggingCard = e.Card;
+        _draggingCardControl = cardCtrl;
         _draggingCardHeight = cardCtrl.Height;
+
+        cardCtrl.Visible = false;
+        cardCtrl.Parent?.PerformLayout();
 
         var bmp = new Bitmap(cardCtrl.Width, cardCtrl.Height);
         cardCtrl.DrawToBitmap(bmp, new Rectangle(0, 0, cardCtrl.Width, cardCtrl.Height));
@@ -387,6 +422,12 @@ public partial class MyAgileForm : Form
 
         foreach (var col in panelBoard.Controls.OfType<KanbanColumnControl>())
             col.HideCardDropIndicator();
+
+        if (_draggingCardControl != null)
+        {
+            _draggingCardControl.Visible = true;
+            _draggingCardControl = null;
+        }
 
         if (_draggingCard == null) { _draggingCard = null; return; }
 

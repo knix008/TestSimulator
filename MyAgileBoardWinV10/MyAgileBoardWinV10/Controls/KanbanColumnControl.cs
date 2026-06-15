@@ -9,6 +9,7 @@ public partial class KanbanColumnControl : UserControl
     private bool _isHeaderDragging = false;
     private Point _dragStartLocal;
     private Panel? _cardPlaceholder;
+    private int _lastCardDropInsertIdx = -1;
 
     public KanbanColumn Column => _column;
 
@@ -76,7 +77,17 @@ public partial class KanbanColumnControl : UserControl
 
     public void ShowCardDropIndicator(int insertIdx, int placeholderHeight = 56)
     {
-        // Create placeholder on first use
+        var cards = flowCards.Controls.OfType<KanbanCardControl>().Where(c => c.Visible).ToList();
+        insertIdx = Math.Clamp(insertIdx, 0, cards.Count);
+
+        if (_cardPlaceholder != null
+            && flowCards.Controls.Contains(_cardPlaceholder)
+            && insertIdx == _lastCardDropInsertIdx
+            && _cardPlaceholder.Height == placeholderHeight)
+            return;
+
+        _lastCardDropInsertIdx = insertIdx;
+
         if (_cardPlaceholder == null)
         {
             _cardPlaceholder = new Panel
@@ -86,35 +97,36 @@ public partial class KanbanColumnControl : UserControl
                 Margin = new Padding(3, 3, 3, 2)
             };
         }
+
         _cardPlaceholder.Height = placeholderHeight;
         int w = flowCards.ClientSize.Width - flowCards.Padding.Horizontal - 6;
         _cardPlaceholder.Width = Math.Max(w, 60);
 
         flowCards.SuspendLayout();
 
-        // Remove placeholder if already present so card indices are clean
-        if (flowCards.Controls.Contains(_cardPlaceholder))
+        bool hadPlaceholder = flowCards.Controls.Contains(_cardPlaceholder);
+        if (hadPlaceholder)
             flowCards.Controls.Remove(_cardPlaceholder);
 
-        // Get card controls (no placeholder in this list)
-        var cards = flowCards.Controls.OfType<KanbanCardControl>().ToList();
+        int targetIdx = cards.Count == 0
+            ? 0
+            : insertIdx < cards.Count
+                ? flowCards.Controls.IndexOf(cards[insertIdx])
+                : flowCards.Controls.Count;
 
-        // Add placeholder at end, then move it to the right position
         flowCards.Controls.Add(_cardPlaceholder);
-        int targetIdx = insertIdx < cards.Count
-            ? flowCards.Controls.IndexOf(cards[insertIdx])
-            : flowCards.Controls.Count - 1;
-        flowCards.Controls.SetChildIndex(_cardPlaceholder, targetIdx);
+        if (flowCards.Controls.GetChildIndex(_cardPlaceholder) != targetIdx)
+            flowCards.Controls.SetChildIndex(_cardPlaceholder, targetIdx);
 
-        flowCards.ResumeLayout();
+        flowCards.ResumeLayout(false);
+        flowCards.PerformLayout();
     }
 
     public void HideCardDropIndicator()
     {
+        _lastCardDropInsertIdx = -1;
         if (_cardPlaceholder != null && flowCards.Controls.Contains(_cardPlaceholder))
-        {
             flowCards.Controls.Remove(_cardPlaceholder);
-        }
     }
 
     // ── Hit testing ────────────────────────────────────────────────
@@ -125,7 +137,7 @@ public partial class KanbanColumnControl : UserControl
     public int GetCardInsertIndexFromScreen(Point screenPos)
     {
         var localPos = flowCards.PointToClient(screenPos);
-        var cards = flowCards.Controls.OfType<KanbanCardControl>().ToList();
+        var cards = flowCards.Controls.OfType<KanbanCardControl>().Where(c => c.Visible).ToList();
         for (int i = 0; i < cards.Count; i++)
         {
             if (localPos.Y < cards[i].Top + cards[i].Height / 2)

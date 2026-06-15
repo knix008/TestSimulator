@@ -17,7 +17,7 @@ cd MyAgileBoardWinV10
 dotnet run
 ```
 
-또는 솔루션 파일(`MyAgileBoardWinV10.slnx`)을 Visual Studio에서 열고 F5로 실행합니다.
+또는 솔루션 파일(`MyAgileBoardWinV10.sln`)을 Visual Studio에서 열고 F5로 실행합니다.
 
 ```bash
 dotnet build MyAgileBoardWinV10/MyAgileBoardWinV10.csproj -c Release
@@ -138,7 +138,7 @@ MyAgileBoardWinV10/
 │   │   └── AppSettings.cs      최근 폴더 등 앱 설정
 │   └── Utils/
 │       └── IconFactory.cs
-└── MyAgileBoardWinV10.slnx
+└── MyAgileBoardWinV10.sln
 ```
 
 ## 라이선스

@@ -1,0 +1,35 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MyAgileBoardWinV10", "MyAgileBoardWinV10\MyAgileBoardWinV10.csproj", "{9EA7EBC5-7A6B-46EA-8952-C100121AF7F1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "installer", "installer", "{1860D2E4-5C43-71D5-59A5-599A4DE1DF67}"
+EndProject
+Project("{462F9274-B64E-4EDD-8F6C-F6B3BEB05BB0}") = "MyAgileBoardWinV10.Installer", "installer\MyAgileBoardWinV10.Installer.wixproj", "{EE314482-C0B3-4EFF-AF06-E114B252F50F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9EA7EBC5-7A6B-46EA-8952-C100121AF7F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9EA7EBC5-7A6B-46EA-8952-C100121AF7F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9EA7EBC5-7A6B-46EA-8952-C100121AF7F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9EA7EBC5-7A6B-46EA-8952-C100121AF7F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE314482-C0B3-4EFF-AF06-E114B252F50F}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{EE314482-C0B3-4EFF-AF06-E114B252F50F}.Release|Any CPU.ActiveCfg = Release|x64
+		{EE314482-C0B3-4EFF-AF06-E114B252F50F}.Release|Any CPU.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{EE314482-C0B3-4EFF-AF06-E114B252F50F} = {1860D2E4-5C43-71D5-59A5-599A4DE1DF67}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A4E8C1D2-3F5B-4A6C-9D0E-1F2A3B4C5D6E}
+	EndGlobalSection
+EndGlobal
