@@ -41,12 +41,23 @@ public partial class MyAgileForm : Form
     // JSON of project at last save/load — used to detect real dirtiness after undo
     private string _savedStateJson = string.Empty;
 
+    // Export UI
+    private ToolStripMenuItem menuExport = null!;
+    private ToolStripMenuItem menuExportReportMd = null!;
+    private ToolStripMenuItem menuExportReportWord = null!;
+    private ToolStripMenuItem menuExportReportPdf = null!;
+    private ToolStripMenuItem menuExportReportPrint = null!;
+    private ToolStripSeparator menuExportSep = null!;
+    private ToolStripMenuItem menuExportColumnImages = null!;
+    private ToolStripDropDownButton toolBtnExport = null!;
+
     public MyAgileForm()
     {
         InitializeComponent();
         KeyPreview = true;
         LoadAppIcon();
         SetupIcons();
+        SetupExportCommands();
         SetupTooltips();
         SetupAddColumnButton();
         Load += OnFormFirstLoad;
@@ -114,6 +125,69 @@ public partial class MyAgileForm : Form
         menuBurndown.Image         = IconFactory.Get("burndown");
     }
 
+    private void SetupExportCommands()
+    {
+        menuExport = new ToolStripMenuItem("보내기(&O)");
+        menuExportReportMd = new ToolStripMenuItem("Report — Markdown(&M)...", null, (_, _) => ExportReportMarkdown())
+        {
+            ShortcutKeys = Keys.Control | Keys.Shift | Keys.M
+        };
+        menuExportReportWord = new ToolStripMenuItem("Report — Word(&W)...", null, (_, _) => ExportReportWord())
+        {
+            ShortcutKeys = Keys.Control | Keys.Shift | Keys.W
+        };
+        menuExportReportPdf = new ToolStripMenuItem("Report — PDF(&P)...", null, (_, _) => ExportReportPdf())
+        {
+            ShortcutKeys = Keys.Control | Keys.Shift | Keys.P
+        };
+        menuExportReportPrint = new ToolStripMenuItem("Report 인쇄(&R)...", null, (_, _) => PrintReport())
+        {
+            ShortcutKeys = Keys.Control | Keys.P
+        };
+        menuExportSep = new ToolStripSeparator();
+        menuExportColumnImages = new ToolStripMenuItem("컬럼 카드 이미지(&I)...", null, (_, _) => ExportColumnImages());
+
+        menuExport.DropDownItems.AddRange(
+        [
+            menuExportReportMd,
+            menuExportReportWord,
+            menuExportReportPdf,
+            menuExportReportPrint,
+            menuExportSep,
+            menuExportColumnImages
+        ]);
+
+        int projectIndex = menuStrip.Items.IndexOf(menuProject);
+        if (projectIndex < 0) projectIndex = menuStrip.Items.Count - 1;
+        menuStrip.Items.Insert(projectIndex + 1, menuExport);
+
+        toolBtnExport = new ToolStripDropDownButton("보내기")
+        {
+            Image = IconFactory.Get("export")
+        };
+        toolBtnExport.DropDownItems.AddRange(
+        [
+            new ToolStripMenuItem("Report — Markdown...", IconFactory.Get("report"), (_, _) => ExportReportMarkdown()),
+            new ToolStripMenuItem("Report — Word...", IconFactory.Get("report"), (_, _) => ExportReportWord()),
+            new ToolStripMenuItem("Report — PDF...", IconFactory.Get("report"), (_, _) => ExportReportPdf()),
+            new ToolStripMenuItem("Report 인쇄...", IconFactory.Get("print"), (_, _) => PrintReport()),
+            new ToolStripSeparator(),
+            new ToolStripMenuItem("컬럼 카드 이미지...", IconFactory.Get("image"), (_, _) => ExportColumnImages())
+        ]);
+
+        int summaryIndex = toolStrip.Items.IndexOf(toolBtnSummary);
+        if (summaryIndex < 0) summaryIndex = toolStrip.Items.Count;
+        toolStrip.Items.Insert(summaryIndex, toolBtnExport);
+        toolStrip.Items.Insert(summaryIndex + 1, new ToolStripSeparator());
+
+        menuExport.Image = IconFactory.Get("export");
+        menuExportReportMd.Image = IconFactory.Get("report");
+        menuExportReportWord.Image = IconFactory.Get("report");
+        menuExportReportPdf.Image = IconFactory.Get("report");
+        menuExportReportPrint.Image = IconFactory.Get("print");
+        menuExportColumnImages.Image = IconFactory.Get("image");
+    }
+
     private void SetupTooltips()
     {
         toolBtnNew.ToolTipText       = "새 프로젝트 만들기 (Ctrl+N)";
@@ -125,6 +199,7 @@ public partial class MyAgileForm : Form
         toolBtnCompleted.ToolTipText   = "완료 후 삭제된 항목 보기";
         toolBtnBurndown.ToolTipText    = "Burn Down 차트 보기";
         toolBtnToggleGrid.ToolTipText  = "배경 눈금 표시/숨기기";
+        toolBtnExport.ToolTipText = "프로젝트 보내기 (Report / 인쇄 / 이미지)";
     }
 
     private void SetupAddColumnButton()
@@ -1059,6 +1134,97 @@ public partial class MyAgileForm : Form
         foreach (var col in flowColumns.Controls.OfType<KanbanColumnControl>())
             col.SetGridVisible(show);
         UpdateDirtyState();
+    }
+
+    // ─────────────────────────────────────────────
+    //  Export — Report & images
+    // ─────────────────────────────────────────────
+
+    private ProjectReportSnapshot BuildReportSnapshot()
+        => ProjectReportBuilder.Build(_project);
+
+    private void ExportReportMarkdown() => ExportReport(
+        "Markdown (*.md)|*.md",
+        ".md",
+        (snapshot, path) => MarkdownReportExporter.Export(snapshot, path),
+        "Report 보내기 (Markdown)");
+
+    private void ExportReportWord() => ExportReport(
+        "Word 문서 (*.docx)|*.docx",
+        ".docx",
+        (snapshot, path) => WordReportExporter.Export(snapshot, path),
+        "Report 보내기 (Word)");
+
+    private void ExportReportPdf() => ExportReport(
+        "PDF 문서 (*.pdf)|*.pdf",
+        ".pdf",
+        (snapshot, path) => PdfReportExporter.Export(snapshot, path),
+        "Report 보내기 (PDF)");
+
+    private void PrintReport()
+    {
+        ErrorHandler.TryExecute(() =>
+        {
+            ReportPrinter.ShowPreview(this, BuildReportSnapshot());
+        }, "Report 인쇄", this);
+    }
+
+    private void ExportReport(string filter, string extension, Action<ProjectReportSnapshot, string> export, string errorTitle)
+    {
+        using var dlg = new SaveFileDialog
+        {
+            Filter = filter,
+            FileName = SanitizeExportName(_project.Name) + extension,
+            InitialDirectory = GetInitialDir()
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        ErrorHandler.TryExecute(() =>
+        {
+            export(BuildReportSnapshot(), dlg.FileName);
+            RememberDir(dlg.FileName);
+            MessageBox.Show(this,
+                $"Report를 저장했습니다.\n\n{dlg.FileName}",
+                "보내기",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }, errorTitle, this, dlg.FileName);
+    }
+
+    private void ExportColumnImages()
+    {
+        using var folderDlg = new FolderBrowserDialog
+        {
+            Description = "컬럼 카드 이미지를 저장할 폴더를 선택하세요.",
+            SelectedPath = GetInitialDir(),
+            UseDescriptionForTitle = true
+        };
+        if (folderDlg.ShowDialog(this) != DialogResult.OK) return;
+
+        using var fmtDlg = new ExportImageFormatDialog();
+        if (fmtDlg.ShowDialog(this) != DialogResult.OK) return;
+
+        string targetDir = Path.Combine(folderDlg.SelectedPath, SanitizeExportName(_project.Name) + "_cards");
+        var format = fmtDlg.SelectedFormat;
+
+        ErrorHandler.TryExecute(() =>
+        {
+            int count = ColumnCardImageExporter.Export(_project, targetDir, format);
+            RememberDir(targetDir);
+            MessageBox.Show(this,
+                $"{count}개 이미지를 저장했습니다.\n\n{targetDir}",
+                "이미지 보내기",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }, "컬럼 카드 이미지 보내기", this, targetDir);
+    }
+
+    private static string SanitizeExportName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "project";
+        foreach (char ch in Path.GetInvalidFileNameChars())
+            name = name.Replace(ch, '_');
+        name = name.Trim().TrimEnd('.');
+        return string.IsNullOrWhiteSpace(name) ? "project" : name;
     }
 
     // ─────────────────────────────────────────────

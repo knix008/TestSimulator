@@ -36,6 +36,10 @@ public static class IconFactory
         "redo"       => DrawRedo(),
         "grid"       => DrawGrid(),
         "burndown"   => DrawBurndown(),
+        "export"     => DrawExport(),
+        "report"     => DrawReport(),
+        "image"      => DrawImage(),
+        "print"      => DrawPrint(),
         _            => DrawDefault()
     };
 
@@ -324,6 +328,68 @@ public static class IconFactory
                 g.DrawLine(pen, x, 2, x, 14);
             for (int y = 2; y <= 14; y += 4)
                 g.DrawLine(pen, 2, y, 14, y);
+        });
+    }
+
+    private static Bitmap DrawExport()
+    {
+        return Draw(g =>
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var box = new Pen(Color.FromArgb(68, 114, 196), 1.5f);
+            g.DrawRectangle(box, 2, 4, 9, 10);
+            using var arrow = new Pen(Color.FromArgb(112, 173, 71), 2f);
+            g.DrawLine(arrow, 10, 8, 14, 8);
+            g.DrawLine(arrow, 12, 6, 14, 8);
+            g.DrawLine(arrow, 12, 10, 14, 8);
+        });
+    }
+
+    private static Bitmap DrawReport()
+    {
+        return Draw(g =>
+        {
+            g.FillRectangle(Brushes.White, 3, 1, 10, 13);
+            g.DrawRectangle(Pens.Gray, 3, 1, 10, 13);
+            using var pen = new Pen(Color.FromArgb(68, 114, 196), 1.2f);
+            g.DrawLine(pen, 5, 5, 11, 5);
+            g.DrawLine(pen, 5, 7, 11, 7);
+            g.DrawLine(pen, 5, 9, 9, 9);
+            g.DrawLine(pen, 5, 11, 10, 11);
+        });
+    }
+
+    private static Bitmap DrawImage()
+    {
+        return Draw(g =>
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var frame = new Pen(Color.FromArgb(80, 80, 80), 1.5f);
+            g.DrawRectangle(frame, 2, 3, 12, 10);
+            using var sun = new SolidBrush(Color.FromArgb(241, 196, 15));
+            g.FillEllipse(sun, 4, 5, 3, 3);
+            using var hill = new SolidBrush(Color.FromArgb(112, 173, 71));
+            g.FillPolygon(hill, new[] { new Point(2, 13), new Point(8, 8), new Point(14, 13) });
+        });
+    }
+
+    private static Bitmap DrawPrint()
+    {
+        return Draw(g =>
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var body = new SolidBrush(Color.FromArgb(220, 220, 220));
+            g.FillRectangle(body, 3, 2, 10, 8);
+            g.DrawRectangle(Pens.Gray, 3, 2, 10, 8);
+            using var tray = new SolidBrush(Color.FromArgb(160, 160, 160));
+            g.FillRectangle(tray, 1, 10, 14, 3);
+            g.DrawRectangle(Pens.Gray, 1, 10, 13, 3);
+            using var paper = new SolidBrush(Color.White);
+            g.FillRectangle(paper, 5, 0, 6, 5);
+            g.DrawRectangle(Pens.Gray, 5, 0, 5, 5);
+            using var pen = new Pen(Color.FromArgb(68, 114, 196), 1f);
+            g.DrawLine(pen, 6, 2, 9, 2);
+            g.DrawLine(pen, 6, 3, 9, 3);
         });
     }
 

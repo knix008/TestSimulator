@@ -289,12 +289,12 @@ partial class MyAgileForm
         // 
         // toolStrip
         // 
-        toolStrip.Dock = DockStyle.None;
+        toolStrip.Dock = DockStyle.Top;
         toolStrip.GripStyle = ToolStripGripStyle.Hidden;
         toolStrip.Items.AddRange(new ToolStripItem[] { toolBtnNew, toolBtnOpen, toolBtnSave, toolStripSep1, toolBtnUndo, toolBtnRedo, toolStripSep2, toolBtnSummary, toolBtnCompleted, toolBtnBurndown, toolStripSep3, toolBtnToggleGrid });
-        toolStrip.Location = new Point(9, 24);
+        toolStrip.Location = new Point(0, 24);
         toolStrip.Name = "toolStrip";
-        toolStrip.Size = new Size(487, 25);
+        toolStrip.Padding = new Padding(0, 0, 1, 0);
         toolStrip.TabIndex = 1;
         // 
         // toolBtnNew
