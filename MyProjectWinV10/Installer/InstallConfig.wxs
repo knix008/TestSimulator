@@ -2,6 +2,15 @@
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
   <Fragment>
+    <!-- Detect any prior install (including legacy x86) that shares our UpgradeCode. -->
+    <Upgrade Id="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+      <UpgradeVersion Minimum="0.0.0.0"
+                      Maximum="99.9.9.9"
+                      Property="PREVIOUSX86PRODUCT"
+                      IncludeMinimum="yes"
+                      IncludeMaximum="yes" />
+    </Upgrade>
+
     <Property Id="KEEPUSERSETTINGS" Value="1" />
 
     <Property Id="LOCALAPPDATAFOLDER" Secure="yes">
@@ -42,10 +51,40 @@
                       Type="raw" />
     </Property>
 
+    <!-- Legacy x86 installs wrote InstallPath under the 32-bit registry view. -->
+    <Property Id="LEGACY_X86_INSTALLFOLDER">
+      <RegistrySearch Id="SearchLegacyX86InstallPath"
+                      Root="HKLM"
+                      Key="Software\MyProject"
+                      Name="InstallPath"
+                      Type="raw"
+                      Bitness="always32" />
+    </Property>
+
     <SetProperty Id="INSTALLFOLDER_CLEANUP"
                  Value="[INSTALLFOLDER]"
                  Before="CostInitialize"
                  Sequence="both" />
+
+    <SetProperty Id="LEGACY_X86_FOLDER_CLEANUP"
+                 Value="[LEGACY_X86_INSTALLFOLDER]"
+                 Before="CostInitialize"
+                 Sequence="both"
+                 Condition="LEGACY_X86_INSTALLFOLDER" />
+
+    <!-- MajorUpgrade does not remove cross-bitness products; uninstall legacy x86 MSI first. -->
+    <SetProperty Id="QuietUninstallLegacyX86"
+                 Value="&quot;[SystemFolder]msiexec.exe&quot; /x [PREVIOUSX86PRODUCT] /qn REBOOT=ReallySuppress"
+                 Before="QuietUninstallLegacyX86"
+                 Sequence="execute"
+                 Condition="PREVIOUSX86PRODUCT AND NOT UPGRADINGPRODUCTCODE AND NOT REMOVE=&quot;ALL&quot;" />
+
+    <CustomAction Id="QuietUninstallLegacyX86"
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
 
     <CustomAction Id="PurgeUserSettings"
                   FileRef="MyProjectExe"
@@ -55,6 +94,10 @@
                   Return="ignore" />
 
     <InstallExecuteSequence>
+      <Custom Action="QuietUninstallLegacyX86"
+              After="InstallInitialize"
+              Condition="PREVIOUSX86PRODUCT AND NOT UPGRADINGPRODUCTCODE AND NOT REMOVE=&quot;ALL&quot;" />
+
       <Custom Action="PurgeUserSettings"
               After="InstallFiles"
               Condition="KEEPUSERSETTINGS=&quot;0&quot;" />

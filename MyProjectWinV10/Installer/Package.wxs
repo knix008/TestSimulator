@@ -22,6 +22,8 @@
     <Feature Id="ProductFeature" Title="MyProject" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
       <ComponentRef Id="InstallFolderCleanup" />
+      <ComponentRef Id="LegacyX86InstallFolderCleanup" />
+      <ComponentRef Id="LegacyX86RegistryCleanup" />
       <ComponentRef Id="ApplicationShortcutDesktop" />
       <ComponentRef Id="ApplicationShortcutStartMenu" />
     </Feature>
@@ -69,6 +71,22 @@
                      Type="string"
                      Value="[INSTALLFOLDER]"
                      KeyPath="yes" />
+    </Component>
+
+    <Component Id="LegacyX86InstallFolderCleanup"
+               Directory="INSTALLFOLDER"
+               Guid="F1A2B3C4-D5E6-4789-ABCD-EF0123456789">
+      <CreateFolder />
+      <util:RemoveFolderEx On="install" Property="LEGACY_X86_FOLDER_CLEANUP" />
+    </Component>
+
+    <Component Id="LegacyX86RegistryCleanup"
+               Directory="INSTALLFOLDER"
+               Guid="E2B3C4D5-F6A7-4890-BCDE-F12345678903">
+      <CreateFolder />
+      <RemoveRegistryKey Root="HKLM"
+                         Key="Software\Wow6432Node\MyProject"
+                         Action="removeOnInstall" />
     </Component>
 
     <Component Id="ApplicationShortcutDesktop" Directory="DesktopFolder" Guid="B1C2D3E4-F5A6-4789-BCDE-F12345678901">
