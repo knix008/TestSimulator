@@ -300,7 +300,7 @@ partial class PdfSettingsDialog
         _grpWord.Controls.Add(_lblWordTemplate);
         _grpWord.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _grpWord.Dock = DockStyle.Top;
-        _grpWord.Location = new Point(0, 440);
+        _grpWord.Location = new Point(0, 432);
         _grpWord.Name = "_grpWord";
         _grpWord.Padding = new Padding(12, 8, 12, 12);
         _grpWord.Size = new Size(376, 92);
@@ -323,12 +323,12 @@ partial class PdfSettingsDialog
         _txtWordTemplate.TabIndex = 1;
         _txtWordTemplate.ReadOnly = true;
 
-        _btnBrowseWordTemplate.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _btnBrowseWordTemplate.Location = new Point(168, 52);
+        _btnBrowseWordTemplate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        _btnBrowseWordTemplate.Location = new Point(280, 52);
         _btnBrowseWordTemplate.Name = "_btnBrowseWordTemplate";
-        _btnBrowseWordTemplate.Size = new Size(192, 25);
+        _btnBrowseWordTemplate.Size = new Size(72, 28);
         _btnBrowseWordTemplate.TabIndex = 2;
-        _btnBrowseWordTemplate.Text = "찾아보기...";
+        _btnBrowseWordTemplate.Text = "찾아보기";
         _btnBrowseWordTemplate.UseVisualStyleBackColor = true;
 
         // Buttons
@@ -338,7 +338,7 @@ partial class PdfSettingsDialog
         _flowButtons.Dock = DockStyle.Bottom;
         _flowButtons.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         _flowButtons.FlowDirection = FlowDirection.RightToLeft;
-        _flowButtons.Location = new Point(0, 540);
+        _flowButtons.Location = new Point(0, 532);
         _flowButtons.Name = "_flowButtons";
         _flowButtons.Padding = new Padding(0, 8, 0, 0);
         _flowButtons.Size = new Size(376, 48);
@@ -373,7 +373,7 @@ partial class PdfSettingsDialog
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = _btnCancel;
-        ClientSize = new Size(440, 620);
+        ClientSize = new Size(440, 612);
         Controls.Add(_grpFormat);
         Controls.Add(_grpHeaderFooter);
         Controls.Add(_grpWord);
@@ -382,7 +382,7 @@ partial class PdfSettingsDialog
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = true;
         MinimizeBox = false;
-        MinimumSize = new Size(420, 520);
+        MinimumSize = new Size(420, 512);
         Name = "PdfSettingsDialog";
         Padding = new Padding(12, 12, 12, 8);
         StartPosition = FormStartPosition.CenterParent;

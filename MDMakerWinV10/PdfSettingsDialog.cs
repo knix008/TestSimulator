@@ -48,11 +48,25 @@ public sealed partial class PdfSettingsDialog : Form
         UiTheme.StyleGroupBox(_grpFormat);
         UiTheme.StyleGroupBox(_grpHeaderFooter);
         UiTheme.StyleGroupBox(_grpWord);
-        UiTheme.StyleSecondaryButton(_btnBrowseWordTemplate, UiIconKind.Folder);
+        UiTheme.StyleCompactButton(_btnBrowseWordTemplate, UiIconKind.Folder);
+        _btnBrowseWordTemplate.Padding = new Padding(4, 4, 6, 3);
+        UiTheme.FitButton(_btnBrowseWordTemplate);
+        _grpWord.Resize += (_, _) => LayoutWordTemplateControls();
+        LayoutWordTemplateControls();
         UiTheme.StylePrimaryButton(_btnOk, UiIconKind.Ok);
         UiTheme.StyleSecondaryButton(_btnReset, UiIconKind.Refresh);
         UiTheme.StyleSecondaryButton(_btnCancel, UiIconKind.Cancel);
         _btnOk.Margin = _btnReset.Margin = _btnCancel.Margin = new Padding(0, 0, 8, 0);
+    }
+
+    private void LayoutWordTemplateControls()
+    {
+        const int rowGap = 6;
+        int right = _grpWord.ClientRectangle.Right - _grpWord.Padding.Right;
+        _txtWordTemplate.Top = 24;
+        _txtWordTemplate.Width = Math.Max(120, right - _txtWordTemplate.Left);
+        _btnBrowseWordTemplate.Top = _txtWordTemplate.Bottom + rowGap;
+        _btnBrowseWordTemplate.Left = right - _btnBrowseWordTemplate.Width;
     }
 
     private void ConfigureNudRanges()
