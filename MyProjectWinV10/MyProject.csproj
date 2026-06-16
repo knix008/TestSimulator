@@ -25,14 +25,17 @@
 
   <!-- IKVM: shared cache + unique stage dir per build so concurrent VS/CLI builds do not lock the same .log files. -->
   <PropertyGroup>
-    <_IkvmBuildId>$([System.Guid]::NewGuid())</_IkvmBuildId>
+    <_IkvmBuildId Condition="'$(DesignTimeBuild)' == 'true'">DesignTime</_IkvmBuildId>
+    <_IkvmBuildId Condition="'$(DesignTimeBuild)' != 'true'">$([System.Guid]::NewGuid())</_IkvmBuildId>
     <IkvmCacheDir>$(LOCALAPPDATA)\IKVM\cache\</IkvmCacheDir>
     <IkvmStageDir>$(LOCALAPPDATA)\IKVM\stage\$(_IkvmBuildId)\</IkvmStageDir>
     <IkvmExportStageDir>$(LOCALAPPDATA)\IKVM\expstage\$(_IkvmBuildId)\</IkvmExportStageDir>
     <MavenCacheFile>$(LOCALAPPDATA)\IKVM\$(AssemblyName).maven.cache</MavenCacheFile>
   </PropertyGroup>
 
-  <Target Name="EnsureIkvmDirectories" BeforeTargets="_GetMavenIkvmReferenceItems">
+  <Target Name="EnsureIkvmDirectories"
+          BeforeTargets="_GetMavenIkvmReferenceItems"
+          Condition="'$(DesignTimeBuild)' != 'true'">
     <MakeDir Directories="$(LOCALAPPDATA)\IKVM;$(IkvmCacheDir);$(LOCALAPPDATA)\IKVM\stage;$(LOCALAPPDATA)\IKVM\expstage" />
   </Target>
 
@@ -92,7 +95,7 @@
                      and '$(DesignTimeBuild)' != 'true'
                      and Exists('$(SetupProjectPath)')">
     <Message Importance="high" Text="Building MSI installer..." />
-    <Exec Command="dotnet build &quot;$(SetupProjectPath)&quot; -c Release -p:BuildingMsiPackage=true -m:1 -v minimal"
+    <Exec Command="dotnet build &quot;$(SetupProjectPath)&quot; -c Release -p:BuildingMsiPackage=true -p:InstallerPlatform=x64 -m:1 -v minimal"
           WorkingDirectory="$(MSBuildProjectDirectory)" />
     <Error Condition="!Exists('$(MsiOutputPath)')"
            Text="MSI was not created at $(MsiOutputPath). Install the WiX Toolset VS extension, or run: dotnet build Installer\MyProject.Installer.wixproj -c Release" />
