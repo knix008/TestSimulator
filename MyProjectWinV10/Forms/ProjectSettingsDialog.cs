@@ -6,9 +6,10 @@ namespace MyProject.Forms
 {
     public sealed class ProjectSettingsDialog : Form
     {
-        private const int LabelColumnWidth = 172;
-        private const int ValueColumnWidth = 360;
-        private const int StandardRowHeight = 36;
+        private const int LabelColumnWidth = 188;
+        private const int ValueColumnWidth = 380;
+        private const int StandardRowHeight = 40;
+        private const int SelectorRowHeight = 52;
 
         private readonly ProjectModel _model;
 
@@ -34,9 +35,9 @@ namespace MyProject.Forms
         private void Build()
         {
             Text = "Project Settings";
-            Size = new Size(LabelColumnWidth + ValueColumnWidth + 72, 460);
+            Size = new Size(LabelColumnWidth + ValueColumnWidth + 80, 500);
             MinimumSize = Size;
-            MaximumSize = new Size(Size.Width, 560);
+            MaximumSize = new Size(Size.Width, 600);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -154,6 +155,9 @@ namespace MyProject.Forms
         {
             var page = new TabPage("Defaults");
             var layout = CreateTwoColumnLayout(3);
+            layout.RowStyles[0] = new RowStyle(SizeType.Absolute, SelectorRowHeight);
+            layout.RowStyles[1] = new RowStyle(SizeType.Absolute, StandardRowHeight + 4);
+            layout.RowStyles[2] = new RowStyle(SizeType.Absolute, StandardRowHeight + 4);
 
             _defaultDependencyType = new DependencyTypeSelector();
             _defaultStartLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = true };

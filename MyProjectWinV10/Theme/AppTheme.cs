@@ -59,31 +59,48 @@
         public static Color BorderColor { get; } = Color.FromArgb(218, 220, 224);
         public static Color DividerColor { get; } = Color.FromArgb(200, 205, 215);
 
-        // Fonts
+        // Fonts — task list & Gantt chart
         public static Font FontNormal { get; } = new Font("Segoe UI", 9f);
         public static Font FontBold { get; } = new Font("Segoe UI", 9f, FontStyle.Bold);
-        public static Font FontSmall { get; } = new Font("Segoe UI", 8f);
+        public static Font FontSmall { get; } = new Font("Segoe UI", 9.5f);
         public static Font FontLarge { get; } = new Font("Segoe UI", 11f);
-        public static Font FontToolbar { get; } = new Font("Segoe UI", 9f);
-        public static Font FontTimescaleLarge { get; } = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-        public static Font FontTimescaleSmall { get; } = new Font("Segoe UI", 7.5f);
-        public static Font FontTaskName { get; } = new Font("Segoe UI", 8.5f);
-        public static Font FontTaskNameStrikeout { get; } = new Font("Segoe UI", 8.5f, FontStyle.Strikeout);
-        public static Font FontBoldStrikeout { get; } = new Font("Segoe UI", 9f, FontStyle.Bold | FontStyle.Strikeout);
-        public static Font FontSmallStrikeout { get; } = new Font("Segoe UI", 8f, FontStyle.Strikeout);
+        public static Font FontMenu { get; } = new Font("Segoe UI", 11f);
+        public static Font FontToolbar { get; } = new Font("Segoe UI", 11f);
+        public static Font FontTimescaleLarge { get; } = new Font("Segoe UI", 10f, FontStyle.Bold);
+        public static Font FontTimescaleSmall { get; } = new Font("Segoe UI", 9f);
+        public static Font FontTaskName { get; } = new Font("Segoe UI", 10f);
+        public static Font FontTaskNameStrikeout { get; } = new Font("Segoe UI", 10f, FontStyle.Strikeout);
+        public static Font FontTaskGridHeader { get; } = new Font("Segoe UI", 10f, FontStyle.Bold);
+        public static Font FontBoldStrikeout { get; } = new Font("Segoe UI", 10.5f, FontStyle.Bold | FontStyle.Strikeout);
+        public static Font FontSmallStrikeout { get; } = new Font("Segoe UI", 9.5f, FontStyle.Strikeout);
 
         // Sizes
-        public static int RowHeight { get; } = 28;
-        public static int TimescaleHeaderHeight { get; } = 54;   // top + middle + bottom
-        public static int TaskGridProjectRowHeight { get; } = 22;
-        public static int TaskGridColumnHeaderHeight { get; } = 32;
-        public static int TimescaleTopHeight { get; } = 22;      // Month/Year row
-        public static int TimescaleMiddleHeight { get; } = 16;   // Day number row
-        public static int TimescaleBottomHeight { get; } = 16;   // Weekday row
-        public static int TaskBarHeight { get; } = 16;
+        public static int RowHeight { get; } = 32;
+        public static int TimescaleHeaderHeight { get; } = 62;   // top + middle + bottom
+        public static int TaskGridProjectRowHeight { get; } = 26;
+        public static int TaskGridColumnHeaderHeight { get; } = 36;
+        public static int TimescaleTopHeight { get; } = 26;      // Month/Year row
+        public static int TimescaleMiddleHeight { get; } = 18;   // Day number row
+        public static int TimescaleBottomHeight { get; } = 18;   // Weekday row
+        public static int TaskBarHeight { get; } = 18;
         public static int MilestoneSize => TaskBarHeight;
-        public static int ToolbarHeight { get; } = 40;
-        public static int TaskGridWidth { get; } = 560;
+
+        // Menu / toolbar chrome
+        public static Size MenuImageSize { get; } = new Size(20, 20);
+        public static Size ToolbarImageSize { get; } = new Size(26, 26);
+        public static int MenuStripHeight { get; } = 28;
+        public static int ToolbarHeight { get; } = 48;
+        public static int ToolbarButtonWidth { get; } = 28;
+        public static Padding ToolbarItemMargin { get; } = new Padding(5, 2, 5, 2);
+        public static Padding ToolbarSeparatorMargin { get; } = new Padding(10, 0, 10, 0);
+        public static Padding ToolbarStripPadding { get; } = new Padding(10, 4, 8, 4);
+        public static int ToolbarControlHostWidth { get; } = 272;
+
+        public static int TaskGridWidth { get; } = 720;
+
+        public static int PropertiesPanelDefaultWidth { get; } = 480;
+        public static int PropertiesPanelMinWidth { get; } = 480;
+        public static int PropertiesPanelContentMinWidth { get; } = 448;
         public static int SplitterWidth { get; } = 4;
 
         // Day pixel width at default zoom

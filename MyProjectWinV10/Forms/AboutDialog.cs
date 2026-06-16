@@ -10,7 +10,7 @@ namespace MyProject.Forms
             var asm = Assembly.GetExecutingAssembly();
             var info = asm.GetCustomAttribute<AssemblyProductAttribute>();
             string product = info?.Product ?? Application.ProductName ?? "MyProject";
-            string version = Application.ProductVersion;
+            string version = AppVersion.DisplayVersion;
             string copyright = asm.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright
                 ?? $"Copyright © {DateTime.Now.Year}";
 
@@ -19,7 +19,7 @@ namespace MyProject.Forms
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            ClientSize = new Size(420, 240);
+            ClientSize = new Size(420, 250);
             BackColor = AppTheme.SurfaceColor;
             Font = AppTheme.FontNormal;
             ShowInTaskbar = false;
@@ -37,7 +37,7 @@ namespace MyProject.Forms
 
             var iconBox = new PictureBox
             {
-                Location = new Point(24, 20),
+                Location = new Point(24, 24),
                 Size = new Size(48, 48),
                 SizeMode = PictureBoxSizeMode.Zoom
             };
@@ -47,8 +47,9 @@ namespace MyProject.Forms
             var lblProduct = new Label
             {
                 Text = product,
-                Location = new Point(84, 22),
-                Size = new Size(320, 24),
+                Location = new Point(84, 24),
+                AutoSize = true,
+                MaximumSize = new Size(320, 0),
                 Font = new Font(AppTheme.FontNormal.FontFamily, 12f, FontStyle.Bold),
                 ForeColor = AppTheme.TextPrimary
             };
@@ -56,15 +57,17 @@ namespace MyProject.Forms
             var lblVersion = new Label
             {
                 Text = $"Version {version}",
-                Location = new Point(84, 48),
-                Size = new Size(320, 20),
-                ForeColor = AppTheme.TextSecondary
+                Location = new Point(84, 56),
+                AutoSize = true,
+                MaximumSize = new Size(320, 0),
+                Font = AppTheme.FontNormal,
+                ForeColor = AppTheme.TextPrimary
             };
 
             var lblDescription = new Label
             {
                 Text = "Windows Gantt chart project manager for tasks, dependencies, resources, progress, and chart notes.",
-                Location = new Point(24, 84),
+                Location = new Point(24, 96),
                 Size = new Size(372, 56),
                 ForeColor = AppTheme.TextPrimary
             };
@@ -72,8 +75,9 @@ namespace MyProject.Forms
             var lblCopyright = new Label
             {
                 Text = copyright,
-                Location = new Point(24, 148),
-                Size = new Size(372, 20),
+                Location = new Point(24, 160),
+                AutoSize = true,
+                MaximumSize = new Size(372, 0),
                 ForeColor = AppTheme.TextSecondary
             };
 
@@ -82,14 +86,22 @@ namespace MyProject.Forms
                 Text = "OK",
                 DialogResult = DialogResult.OK,
                 Size = new Size(80, 28),
-                Location = new Point(316, 188),
+                Location = new Point(316, 198),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = AppTheme.Accent,
                 ForeColor = Color.White
             };
             btnOk.FlatAppearance.BorderColor = AppTheme.AccentDark;
 
-            Controls.AddRange(new Control[] { iconBox, lblProduct, lblVersion, lblDescription, lblCopyright, btnOk });
+            Controls.AddRange(new Control[]
+            {
+                iconBox,
+                lblProduct,
+                lblVersion,
+                lblDescription,
+                lblCopyright,
+                btnOk
+            });
             AcceptButton = btnOk;
         }
 

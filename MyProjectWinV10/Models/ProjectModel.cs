@@ -1094,7 +1094,7 @@ namespace MyProject.Models
 
         private void UpdateCriticalPath()
         {
-            var result = CriticalPathCalculator.Compute(_tasks, _dependencies, ProjectStart);
+            var result = CriticalPathCalculator.Compute(_tasks, _dependencies, ProjectStart, WorkingWeek);
             _criticalTaskIds = result.CriticalTaskIds;
             _criticalDependencies = result.CriticalDependencies;
             _criticalPathLinks = result.CriticalLinks;
@@ -1103,7 +1103,7 @@ namespace MyProject.Models
             // tasks driving their group's completion are highlighted even when their
             // group ends before the global project finish and has no cross-group links.
             foreach (var id in CriticalPathCalculator.ComputeLocalCriticalTaskIds(
-                _tasks, _dependencies, ProjectStart))
+                _tasks, _dependencies, ProjectStart, WorkingWeek))
                 _criticalTaskIds.Add(id);
 
             foreach (var task in _tasks)

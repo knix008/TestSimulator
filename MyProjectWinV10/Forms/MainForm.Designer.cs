@@ -1,4 +1,5 @@
 ﻿using MyProject.Controls;
+using MyProject.Theme;
 
 namespace MyProject.Forms
 {
@@ -220,12 +221,13 @@ namespace MyProject.Forms
             // mainMenuStrip
             // 
             mainMenuStrip.BackColor = Color.FromArgb(40, 45, 55);
-            mainMenuStrip.Font = new Font("Segoe UI", 9F);
+            mainMenuStrip.Font = AppTheme.FontMenu;
             mainMenuStrip.ForeColor = Color.White;
+            mainMenuStrip.ImageScalingSize = AppTheme.MenuImageSize;
             mainMenuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuEdit, menuTask, menuView, menuReport });
             mainMenuStrip.Location = new Point(0, 0);
             mainMenuStrip.Name = "mainMenuStrip";
-            mainMenuStrip.Size = new Size(1280, 24);
+            mainMenuStrip.Size = new Size(1280, AppTheme.MenuStripHeight);
             mainMenuStrip.TabIndex = 0;
             // 
             // menuFile
@@ -527,14 +529,14 @@ namespace MyProject.Forms
             // 
             mainToolStrip.AutoSize = false;
             mainToolStrip.BackColor = Color.FromArgb(26, 115, 232);
-            mainToolStrip.Font = new Font("Segoe UI", 9F);
+            mainToolStrip.Font = AppTheme.FontToolbar;
             mainToolStrip.GripStyle = ToolStripGripStyle.Hidden;
-            mainToolStrip.ImageScalingSize = new Size(20, 20);
+            mainToolStrip.ImageScalingSize = AppTheme.ToolbarImageSize;
             mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnZoomDefault, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint, tsSepDelete, btnDeleteTask, btnInfo });
-            mainToolStrip.Location = new Point(0, 24);
+            mainToolStrip.Location = new Point(0, AppTheme.MenuStripHeight);
             mainToolStrip.Name = "mainToolStrip";
-            mainToolStrip.Padding = new Padding(4, 0, 0, 0);
-            mainToolStrip.Size = new Size(1280, 40);
+            mainToolStrip.Padding = AppTheme.ToolbarStripPadding;
+            mainToolStrip.Size = new Size(1280, AppTheme.ToolbarHeight);
             mainToolStrip.ShowItemToolTips = true;
             mainToolStrip.TabIndex = 1;
             //
@@ -698,15 +700,16 @@ namespace MyProject.Forms
             // 
             // dependencyTypeSelector
             // 
-            dependencyTypeSelector.Margin = new Padding(4, 6, 4, 6);
-            dependencyTypeSelector.Size = new Size(260, 28);
+            dependencyTypeSelector.Margin = Padding.Empty;
+            dependencyTypeSelector.Size = new Size(AppTheme.ToolbarControlHostWidth, AppTheme.ToolbarHeight - AppTheme.ToolbarStripPadding.Vertical);
             // 
             // dependencyTypeHost
             // 
             dependencyTypeHost.AutoSize = false;
-            dependencyTypeHost.Margin = new Padding(2, 4, 2, 4);
+            dependencyTypeHost.BackColor = AppTheme.ToolbarBackground;
+            dependencyTypeHost.Margin = AppTheme.ToolbarSeparatorMargin;
             dependencyTypeHost.Name = "dependencyTypeHost";
-            dependencyTypeHost.Size = new Size(268, 32);
+            dependencyTypeHost.Size = new Size(AppTheme.ToolbarControlHostWidth, AppTheme.ToolbarHeight - AppTheme.ToolbarStripPadding.Vertical);
             // 
             // tsSep2
             // 
@@ -802,7 +805,7 @@ namespace MyProject.Forms
             // splitContainer
             // 
             splitContainer.Dock = DockStyle.Fill;
-            splitContainer.Location = new Point(0, 64);
+            splitContainer.Location = new Point(0, AppTheme.MenuStripHeight + AppTheme.ToolbarHeight);
             splitContainer.Name = "splitContainer";
             // 
             // splitContainer.Panel1
@@ -817,7 +820,7 @@ namespace MyProject.Forms
             splitContainer.Panel2.Controls.Add(ganttSplitContainer);
             splitContainer.Panel2MinSize = 300;
             splitContainer.Size = new Size(1280, 634);
-            splitContainer.SplitterDistance = 560;
+            splitContainer.SplitterDistance = 552;
             splitContainer.TabIndex = 2;
             // 
             // ganttSplitContainer
@@ -836,9 +839,9 @@ namespace MyProject.Forms
             // 
             ganttSplitContainer.Panel2.BackColor = Color.FromArgb(244, 245, 247);
             ganttSplitContainer.Panel2.Controls.Add(selectionPropertiesControl);
-            ganttSplitContainer.Panel2MinSize = 280;
-            ganttSplitContainer.Size = new Size(896, 634);
-            ganttSplitContainer.SplitterDistance = 556;
+            ganttSplitContainer.Panel2MinSize = AppTheme.PropertiesPanelMinWidth;
+            ganttSplitContainer.Size = new Size(724, 634);
+            ganttSplitContainer.SplitterDistance = 240;
             ganttSplitContainer.TabIndex = 0;
             // 
             // selectionPropertiesControl
@@ -854,7 +857,7 @@ namespace MyProject.Forms
             taskGridControl.Dock = DockStyle.Fill;
             taskGridControl.Location = new Point(0, 0);
             taskGridControl.Name = "taskGridControl";
-            taskGridControl.Size = new Size(560, 634);
+            taskGridControl.Size = new Size(720, 634);
             taskGridControl.TabIndex = 0;
             // 
             // ganttChartControl

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows.Forms;
+using MyProject.Theme;
 
 namespace MyProject.Models
 {
@@ -193,9 +194,9 @@ namespace MyProject.Models
                 settings.SplitterDistance = data.SplitterDistance;
 
             if (data.PropertiesPanelWidth is >= 180 and <= 600)
-                settings.PropertiesPanelWidth = data.PropertiesPanelWidth;
+                settings.PropertiesPanelWidth = Math.Max(AppTheme.PropertiesPanelMinWidth, data.PropertiesPanelWidth);
             else if (data.NotesPanelHeight is >= 80 and <= 400)
-                settings.PropertiesPanelWidth = data.NotesPanelHeight;
+                settings.PropertiesPanelWidth = Math.Max(AppTheme.PropertiesPanelMinWidth, data.NotesPanelHeight);
 
             settings.PropertiesPanelVisible = data.PropertiesPanelVisible ?? data.NotesPanelVisible;
             settings.ShowCriticalPath = data.ShowCriticalPath;
@@ -275,8 +276,8 @@ namespace MyProject.Models
             public string? DefaultDependencyStartLineEnd { get; set; }
             public string? DefaultDependencyEndLineEnd { get; set; }
             public int DayWidth { get; set; } = 22;
-            public int SplitterDistance { get; set; } = 560;
-            public int PropertiesPanelWidth { get; set; } = 300;
+            public int SplitterDistance { get; set; } = 720;
+            public int PropertiesPanelWidth { get; set; } = AppTheme.PropertiesPanelDefaultWidth;
             public bool? PropertiesPanelVisible { get; set; }
             public bool ShowCriticalPath { get; set; }
             public int NotesPanelHeight { get; set; } = 140;

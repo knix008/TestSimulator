@@ -10,8 +10,8 @@ namespace MyProject.Models
         public DependencyLineEnd DefaultDependencyStartLineEnd { get; set; } = DependencyLineEnd.None;
         public DependencyLineEnd DefaultDependencyEndLineEnd { get; set; } = DependencyLineEnd.Arrow;
         public int DayWidth { get; set; } = AppTheme.DefaultDayWidth;
-        public int SplitterDistance { get; set; } = 560;
-        public int PropertiesPanelWidth { get; set; } = 340;
+        public int SplitterDistance { get; set; } = 720;
+        public int PropertiesPanelWidth { get; set; } = AppTheme.PropertiesPanelDefaultWidth;
         public bool PropertiesPanelVisible { get; set; } = true;
         public bool ShowCriticalPath { get; set; } = false;
         public int NotesPanelHeight { get; set; } = 140;
@@ -33,8 +33,8 @@ namespace MyProject.Models
             TaskGridColumnWidths = (int[])DefaultTaskGridColumnWidths().Clone(),
             DefaultDependencyType = AppSettings.DefaultDependencyType,
             DayWidth = AppTheme.DefaultDayWidth,
-            SplitterDistance = 560,
-            PropertiesPanelWidth = 340,
+            SplitterDistance = 720,
+            PropertiesPanelWidth = AppTheme.PropertiesPanelDefaultWidth,
             PropertiesPanelVisible = true,
             ShowCriticalPath = false,
             NotesPanelHeight = 140,
@@ -104,7 +104,7 @@ namespace MyProject.Models
         private static bool LayoutDistanceEqual(int a, int b) => Math.Abs(a - b) <= 4;
 
         public static int[] DefaultTaskGridColumnWidths() =>
-            new[] { 32, 200, 58, 34, 84, 72, 58, 120 };
+            new[] { 36, 220, 72, 40, 96, 84, 68, 132 };
 
         public static int[] SanitizeColumnWidths(int[] widths)
         {
@@ -135,14 +135,14 @@ namespace MyProject.Models
 
         private static int GetMinColumnWidth(int columnIndex) => columnIndex switch
         {
-            0 => 28,
-            1 => 80,
-            2 => 52,
-            3 => 30,
-            4 => 68,
-            5 => 48,
-            6 => 52,
-            7 => 48,
+            0 => 32,
+            1 => 100,
+            2 => 68,
+            3 => 36,
+            4 => 80,
+            5 => 60,
+            6 => 60,
+            7 => 56,
             _ => 24
         };
     }

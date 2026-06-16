@@ -49,22 +49,28 @@ namespace MyProject.Controls
     private DataGridView _dependencyGrid = null!;
     private DependencyLineEndSelector _dependencyStartLineEnd = null!;
     private DependencyLineEndSelector _dependencyEndLineEnd = null!;
+    private int _lineEndPredId = -1;
+    private int _lineEndSuccId = -1;
 
     private TableLayoutPanel _projectFieldsLayout = null!;
     private TableLayoutPanel _noteFieldsLayout = null!;
     private TableLayoutPanel _taskMainLayout = null!;
 
-    private const int MinContentWidth = 280;
-    private const int FieldLabelColumnWidth = 76;
+    private static int MinContentWidth => AppTheme.PropertiesPanelContentMinWidth;
+    private const int FieldLabelColumnWidth = 108;
     private const int GroupContentInset = 20;
+    private const int GroupBoxCaptionAllowance = 18;
     private const int RowSpacing = 2;
-    private const int LabelRowHeight = 16;
-    private const int StandardRowHeight = 24;
-    private const int CheckRowHeight = 22;
-    private const int MultilineRowHeight = 48;
-    private const int SectionGapHeight = 6;
-    private const int BottomPaddingHeight = 8;
-    private const int LineEndSelectorRowHeight = 28;
+    private const int LabelRowHeight = 18;
+    private const int StandardRowHeight = 30;
+    private const int CheckRowHeight = 28;
+    private const int MultilineRowHeight = 56;
+    private const int SectionGapHeight = 8;
+    private const int BottomPaddingHeight = 12;
+        private const int LineEndSelectorRowHeight = 40;
+    private const int LineEndRowTopSpacing = 8;
+    private const int ResourceGridRowHeight = 96;
+    private const int DependencyGridRowHeight = 140;
 
     public event EventHandler? CollapseRequested;
     public event EventHandler? ExpandRequested;
@@ -106,7 +112,7 @@ namespace MyProject.Controls
       var headerBar = new Panel
       {
         Dock = DockStyle.Top,
-        Height = 28,
+        Height = 32,
         Padding = new Padding(0, 0, 4, 0)
       };
       headerBar.Controls.Add(_headerLabel);
@@ -199,11 +205,21 @@ namespace MyProject.Controls
     private static void FitGroupToLayout(GroupBox group, TableLayoutPanel layout)
     {
       layout.PerformLayout();
-      int layoutHeight = layout.GetPreferredSize(new Size(layout.Width, 0)).Height;
-      if (layoutHeight <= 0)
-        layoutHeight = layout.PreferredSize.Height;
 
-      group.Height = group.Padding.Vertical + layoutHeight;
+      int layoutHeight = 0;
+      foreach (RowStyle style in layout.RowStyles)
+      {
+        if (style.SizeType == SizeType.Absolute)
+          layoutHeight += (int)Math.Ceiling(style.Height);
+      }
+
+      if (layoutHeight <= 0)
+        layoutHeight = layout.GetPreferredSize(new Size(layout.Width, 0)).Height;
+
+      int totalHeight = group.Padding.Vertical + GroupBoxCaptionAllowance + layoutHeight + 10;
+      group.AutoSize = false;
+      group.MinimumSize = new Size(0, totalHeight);
+      group.Height = totalHeight;
     }
 
     private void SyncContentSize()
@@ -249,7 +265,7 @@ namespace MyProject.Controls
           height = Math.Max(height, child.Bottom + child.Margin.Bottom);
         }
 
-        _contentPanel.Height = height;
+        _contentPanel.Height = height + BottomPaddingHeight;
       }
       finally
       {
@@ -343,7 +359,7 @@ namespace MyProject.Controls
     }
 
     private const int ColorSwatchWidth = 64;
-    private const int ColorRowItemHeight = 24;
+    private const int ColorRowItemHeight = 28;
     private const int ColorRowButtonWidth = 64;
     private const int ColorRowGap = 8;
 
@@ -445,7 +461,7 @@ namespace MyProject.Controls
 
     private static void AddSectionHeaderRow(TableLayoutPanel layout, string title)
     {
-      int row = AddLayoutRow(layout, 18);
+      int row = AddLayoutRow(layout, 22);
       var label = new Label
       {
         Text = title,
@@ -595,7 +611,10 @@ namespace MyProject.Controls
         return true;
 
       return _taskDeliverable.ContainsFocus
-             || _taskName.ContainsFocus;
+             || _taskName.ContainsFocus
+             || _dependencyGrid.ContainsFocus
+             || _dependencyStartLineEnd.ContainsFocus
+             || _dependencyEndLineEnd.ContainsFocus;
     }
 
     private bool IsEditingProjectProperties() =>
@@ -769,16 +788,17 @@ namespace MyProject.Controls
         AllowUserToAddRows = true,
         AllowUserToDeleteRows = true,
         RowHeadersVisible = false,
-        ColumnHeadersHeight = 22,
+        ColumnHeadersHeight = 26,
         AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
         BackgroundColor = Color.White,
         BorderStyle = BorderStyle.FixedSingle,
         SelectionMode = DataGridViewSelectionMode.CellSelect,
         EditMode = DataGridViewEditMode.EditOnEnter,
         StandardTab = true,
-        MinimumSize = new Size(0, 72)
+        Font = AppTheme.FontSmall,
+        MinimumSize = new Size(0, ResourceGridRowHeight)
       };
-      _resourceGrid.RowTemplate.Height = 20;
+      _resourceGrid.RowTemplate.Height = 24;
       _resourceGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ResourceName", HeaderText = "Resource", FillWeight = 55 });
       var pctCol = new DataGridViewTextBoxColumn
       {
@@ -794,7 +814,7 @@ namespace MyProject.Controls
       _resourceGrid.CellValidating += OnResourceGridCellValidating;
       _resourceGrid.UserDeletedRow += (_, _) => ApplyResourceGrid();
       _resourceGrid.Leave += (_, _) => ApplyResourceGrid();
-      AddFullWidthRow(layout, _resourceGrid, 72);
+      AddFullWidthRow(layout, _resourceGrid, ResourceGridRowHeight);
 
       _resourceTotalLabel = new Label
       {
@@ -805,7 +825,7 @@ namespace MyProject.Controls
         Dock = DockStyle.Fill,
         AutoSize = false
       };
-      AddFullWidthRow(layout, _resourceTotalLabel, 16);
+      AddFullWidthRow(layout, _resourceTotalLabel, 20);
 
       AddSpacerRow(layout, SectionGapHeight);
       AddSectionHeaderRow(layout, "Dependencies");
@@ -815,13 +835,16 @@ namespace MyProject.Controls
         AllowUserToAddRows = false,
         AllowUserToDeleteRows = true,
         RowHeadersVisible = false,
+        ColumnHeadersHeight = 26,
         AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
         BackgroundColor = Color.White,
         BorderStyle = BorderStyle.FixedSingle,
         SelectionMode = DataGridViewSelectionMode.FullRowSelect,
         ShowCellToolTips = true,
-        MinimumSize = new Size(0, 100)
+        Font = AppTheme.FontSmall,
+        MinimumSize = new Size(0, DependencyGridRowHeight)
       };
+      _dependencyGrid.RowTemplate.Height = 24;
       _dependencyGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Role", HeaderText = "Role", FillWeight = 30, ReadOnly = true });
       _dependencyGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TaskName", HeaderText = "Task", FillWeight = 50, ReadOnly = true });
       var typeCol = new DataGridViewComboBoxColumn
@@ -840,14 +863,16 @@ namespace MyProject.Controls
       _dependencyGrid.UserDeletingRow += OnDependencyRowDeleting;
       _dependencyGrid.SelectionChanged += (_, _) => LoadSelectedDependencyLineEnds();
       _dependencyGrid.CellToolTipTextNeeded += OnDependencyGridCellToolTipTextNeeded;
-      AddFullWidthRow(layout, _dependencyGrid, 100);
+      AddFullWidthRow(layout, _dependencyGrid, DependencyGridRowHeight);
 
       _dependencyStartLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = true };
       _dependencyEndLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = false };
       _dependencyStartLineEnd.SelectedLineEndChanged += (_, _) => ApplySelectedDependencyLineEnds();
       _dependencyEndLineEnd.SelectedLineEndChanged += (_, _) => ApplySelectedDependencyLineEnds();
 
+      AddSpacerRow(layout, LineEndRowTopSpacing);
       AddLabeledField(layout, "Line start:", _dependencyStartLineEnd, LineEndSelectorRowHeight);
+      AddSpacerRow(layout, LineEndRowTopSpacing);
       AddLabeledField(layout, "Line end:", _dependencyEndLineEnd, LineEndSelectorRowHeight);
       AddSpacerRow(layout, BottomPaddingHeight);
 
@@ -1029,6 +1054,8 @@ namespace MyProject.Controls
 
     private void LoadDependencyGrid(int taskId)
     {
+      _lineEndPredId = -1;
+      _lineEndSuccId = -1;
       _dependencyGrid.Rows.Clear();
       foreach (var dep in _model!.Dependencies)
       {
@@ -1057,26 +1084,85 @@ namespace MyProject.Controls
       }
 
       if (_dependencyGrid.Rows.Count > 0)
-        _dependencyGrid.Rows[0].Selected = true;
+      {
+        DataGridViewRow? outgoingRow = null;
+        foreach (DataGridViewRow row in _dependencyGrid.Rows)
+        {
+          if (IsOutgoingDependencyRow(row))
+          {
+            outgoingRow = row;
+            break;
+          }
+        }
+
+        (outgoingRow ?? _dependencyGrid.Rows[0]).Selected = true;
+      }
 
       LoadSelectedDependencyLineEnds();
     }
 
+    private bool IsOutgoingDependencyRow(DataGridViewRow row)
+    {
+      if (_taskId < 0)
+        return false;
+
+      string role = row.Cells["Role"].Value?.ToString() ?? "";
+      if (role == "Succ")
+        return true;
+      if (role == "Pre")
+        return false;
+
+      return TryGetDependencyIds(row, out int predId, out _)
+        && predId == _taskId;
+    }
+
+    private DataGridViewRow? GetActiveDependencyRow()
+    {
+      if (_dependencyGrid.SelectedRows.Count > 0 && !_dependencyGrid.SelectedRows[0].IsNewRow)
+        return _dependencyGrid.SelectedRows[0];
+
+      if (_dependencyGrid.CurrentRow != null && !_dependencyGrid.CurrentRow.IsNewRow)
+        return _dependencyGrid.CurrentRow;
+
+      return null;
+    }
+
+    private bool TryGetActiveDependencyIds(out int predId, out int succId)
+    {
+      predId = _lineEndPredId;
+      succId = _lineEndSuccId;
+      if (predId >= 0 && succId >= 0 && predId == _taskId)
+        return true;
+
+      var row = GetActiveDependencyRow();
+      if (row != null
+        && IsOutgoingDependencyRow(row)
+        && TryGetDependencyIds(row, out predId, out succId))
+        return true;
+
+      predId = -1;
+      succId = -1;
+      return false;
+    }
+
     private void LoadSelectedDependencyLineEnds()
     {
-      if (_suppressChanges || _model == null)
+      if (_model == null)
         return;
 
       int predId = -1;
       int succId = -1;
-      bool hasSelection = _dependencyGrid.SelectedRows.Count > 0
-        && !_dependencyGrid.SelectedRows[0].IsNewRow
-        && TryGetDependencyIds(_dependencyGrid.SelectedRows[0], out predId, out succId);
+      var row = GetActiveDependencyRow();
+      bool hasSelection = row != null && TryGetDependencyIds(row, out predId, out succId);
+      bool isOutgoing = hasSelection && IsOutgoingDependencyRow(row!);
 
-      _dependencyStartLineEnd.Enabled = hasSelection;
-      _dependencyEndLineEnd.Enabled = hasSelection;
+      _lineEndPredId = isOutgoing ? predId : -1;
+      _lineEndSuccId = isOutgoing ? succId : -1;
 
-      if (!hasSelection)
+      _dependencyStartLineEnd.Enabled = isOutgoing;
+      _dependencyEndLineEnd.Enabled = isOutgoing;
+
+      if (!hasSelection || !isOutgoing)
         return;
 
       var dep = _model.Dependencies.FirstOrDefault(d =>
@@ -1098,9 +1184,11 @@ namespace MyProject.Controls
       if (_suppressChanges || _model == null || _taskId < 0)
         return;
 
-      if (_dependencyGrid.SelectedRows.Count == 0
-        || _dependencyGrid.SelectedRows[0].IsNewRow
-        || !TryGetDependencyIds(_dependencyGrid.SelectedRows[0], out int predId, out int succId))
+      var row = GetActiveDependencyRow();
+      if (row == null || !IsOutgoingDependencyRow(row))
+        return;
+
+      if (!TryGetActiveDependencyIds(out int predId, out int succId))
         return;
 
       _applyingToModel = true;

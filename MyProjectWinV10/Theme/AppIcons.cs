@@ -1,4 +1,5 @@
 ﻿using System.Drawing.Drawing2D;
+using System.Windows.Forms;
 
 namespace MyProject.Theme
 {
@@ -293,9 +294,14 @@ namespace MyProject.Theme
         {
             using var p = new Pen(Color.White, 1.5f);
             g.DrawRectangle(p, 3, 2, 14, 16);
-            using var f = new Font("Segoe UI", 8f, FontStyle.Bold);
-            g.DrawString("M", f, Brushes.White, 6, 5);
-            g.DrawLine(p, 5, 14, 15, 14);
+            // Markdown heading hash
+            g.DrawLine(p, 5, 6, 11, 6);
+            g.DrawLine(p, 5, 9, 11, 9);
+            g.DrawLine(p, 7, 5, 7, 10);
+            g.DrawLine(p, 9, 5, 9, 10);
+            // Body lines
+            g.DrawLine(p, 5, 12, 14, 12);
+            g.DrawLine(p, 5, 15, 11, 15);
         });
 
         public static Bitmap Pdf => Make(g =>
@@ -305,8 +311,18 @@ namespace MyProject.Theme
             g.DrawPolygon(p, pts);
             g.DrawLine(p, 11, 2, 11, 6);
             g.DrawLine(p, 11, 6, 15, 6);
-            using var f = new Font("Segoe UI", 6f, FontStyle.Bold);
-            g.DrawString("PDF", f, Brushes.White, 4, 9);
+            g.DrawLine(p, 5, 8, 13, 8);
+            g.DrawLine(p, 5, 10, 13, 10);
+            using var badge = new SolidBrush(Color.FromArgb(235, 211, 47, 47));
+            g.FillRectangle(badge, 4, 13, 10, 4);
+            using var f = new Font("Segoe UI", 4f, FontStyle.Bold);
+            TextRenderer.DrawText(
+                g,
+                "PDF",
+                f,
+                new Rectangle(4, 12, 10, 5),
+                Color.White,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
         });
 
         public static Bitmap Html => Make(g =>

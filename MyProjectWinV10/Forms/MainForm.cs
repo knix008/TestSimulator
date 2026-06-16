@@ -15,14 +15,14 @@ namespace MyProject.Forms
         private int _linkHoverTargetId = -1;
         private ProjectContextMenuBuilder? _contextMenuBuilder;
         private bool _isApplyingViewSettings;
-        private int _propertiesPanelExpandedWidth = 340;
+        private int _propertiesPanelExpandedWidth = AppTheme.PropertiesPanelDefaultWidth;
         private bool _isPropertiesPanelExpanded = true;
         private bool _trackViewSettingsChanges;
         private bool _pendingNavigationRestore;
         private ToolTip? _toolbarToolTip;
 
         private const int CollapsedPropertiesPanelWidth = 32;
-        private const int ExpandedPropertiesPanelMinWidth = 280;
+        private static int ExpandedPropertiesPanelMinWidth => AppTheme.PropertiesPanelMinWidth;
 
         public MainForm()
         {
@@ -39,7 +39,7 @@ namespace MyProject.Forms
 
         private void PostInitializeComponent()
         {
-            mainMenuStrip.ImageScalingSize = new Size(16, 16);
+            ApplyChromeSizing();
 
             // Toolbar icons
             btnNew.Image        = AppIcons.New;
@@ -198,6 +198,13 @@ namespace MyProject.Forms
             menuDepType.ToolTipText = "Select the dependency line type used when linking tasks";
 
             UpdateToolbarToggleToolTips();
+        }
+
+        private void ApplyChromeSizing()
+        {
+            AppChrome.ApplyMenuStrip(mainMenuStrip);
+            AppChrome.ApplyToolStrip(mainToolStrip);
+            mainToolStrip.Location = new Point(0, mainMenuStrip.Height);
         }
 
         private void SetToolbarTip(ToolStripItem item, string text) => item.ToolTipText = text;
@@ -1045,7 +1052,10 @@ namespace MyProject.Forms
                         maxDistance);
                 }
 
-                int propsWidth = Math.Clamp(settings.PropertiesPanelWidth, ExpandedPropertiesPanelMinWidth, 600);
+                int propsWidth = Math.Clamp(
+                    Math.Max(settings.PropertiesPanelWidth, AppTheme.PropertiesPanelMinWidth),
+                    AppTheme.PropertiesPanelMinWidth,
+                    600);
                 _propertiesPanelExpandedWidth = propsWidth;
 
                 if (settings.PropertiesPanelVisible)

@@ -10,8 +10,9 @@ namespace MyProject.Controls
         private readonly ToolTip _toolTip;
         private DependencyType _selectedType = DependencyType.FS;
         private int _hoverTipIndex = -1;
-        private const int ItemHeight = 28;
         private const int PreviewWidth = 72;
+        private static readonly Color ComboSurfaceColor = AppTheme.SurfaceColor;
+        private static readonly Color ComboSelectedColor = Color.FromArgb(230, 240, 255);
 
         public DependencyType SelectedType
         {
@@ -31,8 +32,8 @@ namespace MyProject.Controls
         public DependencyTypeSelector()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-            Size = new Size(260, 28);
-            BackColor = Color.White;
+            BackColor = AppTheme.ToolbarBackground;
+            Margin = Padding.Empty;
 
             _toolTip = new ToolTip
             {
@@ -44,13 +45,15 @@ namespace MyProject.Controls
 
             _combo = new ComboBox
             {
-                Dock = DockStyle.Fill,
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 DrawMode = DrawMode.OwnerDrawFixed,
-                ItemHeight = ItemHeight,
                 IntegralHeight = false,
-                Font = AppTheme.FontNormal,
-                BackColor = Color.White
+                FlatStyle = FlatStyle.Flat,
+                Font = AppTheme.FontToolbar,
+                BackColor = ComboSurfaceColor,
+                ForeColor = AppTheme.TextPrimary,
+                Margin = Padding.Empty,
+                Dock = DockStyle.Fill
             };
 
             foreach (var type in DependencyTypeInfo.AllTypes)
@@ -68,6 +71,28 @@ namespace MyProject.Controls
 
             Controls.Add(_combo);
             UpdateTooltipForType(_selectedType);
+            Size = new Size(AppTheme.ToolbarControlHostWidth, AppTheme.ToolbarHeight - AppTheme.ToolbarStripPadding.Vertical);
+            UpdateComboMetrics();
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            using var brush = new SolidBrush(AppTheme.ToolbarBackground);
+            e.Graphics.FillRectangle(brush, ClientRectangle);
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            UpdateComboMetrics();
+        }
+
+        private void UpdateComboMetrics()
+        {
+            if (Width <= 0 || Height <= 0 || !Controls.Contains(_combo))
+                return;
+
+            _combo.ItemHeight = Math.Max(22, Height - 2);
         }
 
         private void OnComboSelectionChanged(object? sender, EventArgs e)
@@ -114,7 +139,7 @@ namespace MyProject.Controls
                 return _combo.SelectedIndex;
 
             int relativeY = clientPoint.Y - _combo.Height;
-            int index = relativeY / ItemHeight;
+            int index = relativeY / _combo.ItemHeight;
             if (index < 0 || index >= _combo.Items.Count)
                 return -1;
 
@@ -134,13 +159,9 @@ namespace MyProject.Controls
             bool selected = (e.State & DrawItemState.Selected) != 0;
             bool isEditState = (e.State & DrawItemState.ComboBoxEdit) != 0;
 
-            e.DrawBackground();
-
-            if (selected && !isEditState)
-            {
-                using var selBrush = new SolidBrush(Color.FromArgb(230, 240, 255));
-                e.Graphics.FillRectangle(selBrush, e.Bounds);
-            }
+            Color background = selected && !isEditState ? ComboSelectedColor : ComboSurfaceColor;
+            using (var bgBrush = new SolidBrush(background))
+                e.Graphics.FillRectangle(bgBrush, e.Bounds);
 
             int previewHeight = Math.Min(20, Math.Max(12, e.Bounds.Height - 6));
             int previewLeft = e.Bounds.Right - PreviewWidth - 8;

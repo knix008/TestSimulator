@@ -8,8 +8,10 @@ namespace MyProject.Controls
     {
         private readonly ComboBox _combo;
         private DependencyLineEnd _selectedStyle = DependencyLineEnd.Arrow;
-        private const int ItemHeight = 28;
         private const int PreviewWidth = 72;
+        private const int BorderInset = 1;
+        private static readonly Color ComboSurfaceColor = AppTheme.SurfaceColor;
+        private static readonly Color ComboSelectedColor = Color.FromArgb(230, 240, 255);
 
         public bool PreviewAtLineStart { get; set; } = false;
 
@@ -29,19 +31,20 @@ namespace MyProject.Controls
         public DependencyLineEndSelector()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-            MinimumSize = new Size(80, 28);
-            Height = 28;
-            BackColor = Color.White;
+            MinimumSize = new Size(80, 36);
+            Height = 36;
+            BackColor = AppTheme.SurfaceColor;
+            Margin = Padding.Empty;
 
             _combo = new ComboBox
             {
-                Dock = DockStyle.Fill,
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 DrawMode = DrawMode.OwnerDrawFixed,
-                ItemHeight = ItemHeight,
                 IntegralHeight = false,
+                FlatStyle = FlatStyle.Flat,
                 Font = AppTheme.FontNormal,
-                BackColor = Color.White,
+                BackColor = ComboSurfaceColor,
+                ForeColor = AppTheme.TextPrimary,
                 Margin = Padding.Empty
             };
 
@@ -53,7 +56,19 @@ namespace MyProject.Controls
             _combo.SelectedIndexChanged += OnComboSelectionChanged;
 
             Controls.Add(_combo);
-            Resize += (_, _) => UpdateDropDownWidth(Width);
+            LayoutCombo();
+            Resize += (_, _) =>
+            {
+                LayoutCombo();
+                UpdateDropDownWidth(Width);
+            };
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            using var borderPen = new Pen(AppTheme.BorderColor);
+            e.Graphics.DrawRectangle(borderPen, 0, 0, Width - 1, Height - 1);
         }
 
         public void UpdateDropDownWidth(int valueColumnWidth)
@@ -61,7 +76,20 @@ namespace MyProject.Controls
             if (valueColumnWidth <= 0)
                 return;
 
-            _combo.DropDownWidth = valueColumnWidth;
+            _combo.DropDownWidth = Math.Max(valueColumnWidth - BorderInset * 2, 120);
+        }
+
+        private void LayoutCombo()
+        {
+            if (Width <= 0 || Height <= 0 || !Controls.Contains(_combo))
+                return;
+
+            int left = BorderInset;
+            int top = BorderInset;
+            int width = Math.Max(40, Width - BorderInset * 2);
+            int height = Math.Max(24, Height - BorderInset * 2);
+            _combo.SetBounds(left, top, width, height);
+            _combo.ItemHeight = Math.Max(24, height - 2);
         }
 
         private void OnComboSelectionChanged(object? sender, EventArgs e)
@@ -96,13 +124,9 @@ namespace MyProject.Controls
             bool selected = (e.State & DrawItemState.Selected) != 0;
             bool isEditState = (e.State & DrawItemState.ComboBoxEdit) != 0;
 
-            e.DrawBackground();
-
-            if (selected && !isEditState)
-            {
-                using var selBrush = new SolidBrush(Color.FromArgb(230, 240, 255));
-                e.Graphics.FillRectangle(selBrush, e.Bounds);
-            }
+            Color background = selected && !isEditState ? ComboSelectedColor : ComboSurfaceColor;
+            using (var bgBrush = new SolidBrush(background))
+                e.Graphics.FillRectangle(bgBrush, e.Bounds);
 
             int previewHeight = Math.Min(20, Math.Max(12, e.Bounds.Height - 6));
             int previewLeft = e.Bounds.Right - PreviewWidth - 8;
@@ -122,11 +146,13 @@ namespace MyProject.Controls
             var font = e.Font ?? Font;
             e.Graphics.DrawString(DependencyLineEndInfo.GetDisplayName(style), font, textBrush, textRect, sf);
 
-            if (!isEditState)
-            {
-                using var linePen = new Pen(AppTheme.GridLineColor);
-                e.Graphics.DrawLine(linePen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
-            }
+            using var borderPen = new Pen(isEditState ? AppTheme.BorderColor : AppTheme.GridLineColor);
+            e.Graphics.DrawRectangle(
+                borderPen,
+                e.Bounds.X,
+                e.Bounds.Y,
+                e.Bounds.Width - 1,
+                e.Bounds.Height - 1);
         }
     }
 }

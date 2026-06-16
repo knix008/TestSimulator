@@ -18,7 +18,7 @@
       "name": "Project Planning",
       "startDate": "2026-06-15T00:00:00+09:00",
       "durationDays": 12,
-      "progress": 40,
+      "progress": 43.333333333333336,
       "taskType": "Summary",
       "indentLevel": 0,
       "isExpanded": true,
@@ -42,14 +42,14 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 3,
       "parentId": 1,
       "name": "System Design",
-      "startDate": "2026-06-22T00:00:00+09:00",
-      "durationDays": 5,
+      "startDate": "2026-06-20T00:00:00+09:00",
+      "durationDays": 7,
       "progress": 60,
       "taskType": "Normal",
       "indentLevel": 1,
@@ -65,8 +65,8 @@
       "parentId": -1,
       "name": "Development",
       "startDate": "2026-06-24T00:00:00+09:00",
-      "durationDays": 16,
-      "progress": 41.37931034482759,
+      "durationDays": 15,
+      "progress": 41.53846153846154,
       "taskType": "Summary",
       "indentLevel": 0,
       "isExpanded": true,
@@ -81,8 +81,8 @@
       "parentId": 4,
       "name": "Frontend Implementation",
       "startDate": "2026-06-24T00:00:00+09:00",
-      "durationDays": 16,
-      "progress": 57.142857142857146,
+      "durationDays": 15,
+      "progress": 56.666666666666664,
       "taskType": "Summary",
       "indentLevel": 1,
       "isExpanded": true,
@@ -98,7 +98,7 @@
       "name": "UI Design",
       "startDate": "2026-06-24T00:00:00+09:00",
       "durationDays": 4,
-      "progress": 100,
+      "progress": 90,
       "taskType": "Normal",
       "indentLevel": 2,
       "isExpanded": true,
@@ -112,8 +112,8 @@
       "id": 7,
       "parentId": 5,
       "name": "UI Development",
-      "startDate": "2026-06-30T00:00:00+09:00",
-      "durationDays": 10,
+      "startDate": "2026-07-01T00:00:00+09:00",
+      "durationDays": 8,
       "progress": 40,
       "taskType": "Normal",
       "indentLevel": 2,
@@ -130,7 +130,7 @@
       "name": "Backend Implementation",
       "startDate": "2026-06-24T00:00:00+09:00",
       "durationDays": 15,
-      "progress": 26.666666666666668,
+      "progress": 28.571428571428573,
       "taskType": "Summary",
       "indentLevel": 1,
       "isExpanded": true,
@@ -138,7 +138,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 9,
@@ -160,8 +160,8 @@
       "id": 10,
       "parentId": 8,
       "name": "API Implementation",
-      "startDate": "2026-06-29T00:00:00+09:00",
-      "durationDays": 10,
+      "startDate": "2026-06-30T00:00:00+09:00",
+      "durationDays": 9,
       "progress": 0,
       "taskType": "Summary",
       "indentLevel": 2,
@@ -170,13 +170,13 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 11,
       "parentId": 10,
       "name": "Authentication Module",
-      "startDate": "2026-06-29T00:00:00+09:00",
+      "startDate": "2026-06-30T00:00:00+09:00",
       "durationDays": 4,
       "progress": 0,
       "taskType": "Normal",
@@ -186,14 +186,14 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 12,
       "parentId": 10,
       "name": "Data Access Layer",
-      "startDate": "2026-07-03T00:00:00+09:00",
-      "durationDays": 6,
+      "startDate": "2026-07-04T00:00:00+09:00",
+      "durationDays": 5,
       "progress": 0,
       "taskType": "Normal",
       "indentLevel": 3,
@@ -202,13 +202,13 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 13,
       "parentId": -1,
       "name": "Integration \u0026 Testing",
-      "startDate": "2026-07-23T00:00:00+09:00",
+      "startDate": "2026-07-13T00:00:00+09:00",
       "durationDays": 8,
       "progress": 0,
       "taskType": "Normal",
@@ -218,13 +218,13 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 14,
       "parentId": -1,
       "name": "Release",
-      "startDate": "2026-08-04T00:00:00+09:00",
+      "startDate": "2026-07-21T00:00:00+09:00",
       "durationDays": 5,
       "progress": 0,
       "taskType": "Milestone",
@@ -251,8 +251,8 @@
       "successorId": 4,
       "type": "FS",
       "lagDays": 0,
-      "startLineEnd": "None",
-      "endLineEnd": "Arrow"
+      "startLineEnd": "Dot",
+      "endLineEnd": "Dot"
     },
     {
       "predecessorId": 6,
@@ -283,7 +283,7 @@
       "successorId": 13,
       "type": "FS",
       "lagDays": 0,
-      "startLineEnd": "None",
+      "startLineEnd": "Dot",
       "endLineEnd": "Arrow"
     },
     {
@@ -291,8 +291,8 @@
       "successorId": 14,
       "type": "FS",
       "lagDays": 0,
-      "startLineEnd": "None",
-      "endLineEnd": "Arrow"
+      "startLineEnd": "Dot",
+      "endLineEnd": "Dot"
     }
   ],
   "assignments": [
@@ -337,30 +337,30 @@
   "settings": {
     "taskGridColumnWidths": [
       32,
-      200,
-      58,
-      34,
-      68,
+      205,
+      75,
+      60,
+      80,
       88,
-      58,
+      60,
       120
     ],
     "defaultDependencyType": "FS",
     "defaultDependencyStartLineEnd": "None",
     "defaultDependencyEndLineEnd": "Arrow",
-    "dayWidth": 27,
-    "splitterDistance": 681,
-    "propertiesPanelWidth": 336,
+    "dayWidth": 20,
+    "splitterDistance": 720,
+    "propertiesPanelWidth": 480,
     "propertiesPanelVisible": true,
     "showCriticalPath": true,
     "notesPanelHeight": 140,
     "notesPanelVisible": true,
-    "windowX": 223,
-    "windowY": 81,
-    "windowWidth": 1550,
-    "windowHeight": 953,
+    "windowX": 182,
+    "windowY": 136,
+    "windowWidth": 2370,
+    "windowHeight": 1205,
     "windowState": "Normal",
-    "selectedTaskId": 1,
+    "selectedTaskId": 12,
     "ganttScrollY": 0,
     "ganttViewStartDate": "2026-06-14T00:00:00+09:00",
     "taskGridScrollX": 0,

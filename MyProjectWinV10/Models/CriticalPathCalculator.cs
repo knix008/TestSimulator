@@ -2,6 +2,7 @@ namespace MyProject.Models
 {
     /// <summary>
     /// Critical Path Method (CPM) on schedulable tasks (normal + milestone).
+    /// Uses working-day indices aligned with the project working-week schedule.
     /// Summary-level dependencies are expanded to the leaf tasks that actually
     /// drive schedule synchronization inside each subtree.
     /// </summary>
@@ -24,7 +25,8 @@ namespace MyProject.Models
         public static Result Compute(
             IReadOnlyList<ProjectTask> allTasks,
             IReadOnlyList<TaskDependency> dependencies,
-            DateTime projectStart)
+            DateTime projectStart,
+            WorkingWeekSchedule schedule)
         {
             var result = new Result();
             var taskById = allTasks.ToDictionary(t => t.Id);
@@ -38,22 +40,21 @@ namespace MyProject.Models
             var schedulableIds = schedulable.Select(t => t.Id).ToHashSet();
             var effectiveDeps = ExpandDependencies(allTasks, dependencies, taskById, schedulableIds);
 
-            var projectStartDate = projectStart.Date;
+            var origin = GetScheduleOrigin(projectStart, schedule);
 
-            int Duration(ProjectTask t) =>
-                t.TaskType == TaskType.Milestone ? 0 : Math.Max(1, t.DurationDays);
-
-            int EarlyStart(ProjectTask t) =>
-                (t.StartDate.Date - projectStartDate).Days;
+            int EarlyStart(ProjectTask t) => GetWorkingDayIndex(origin, t.StartDate, schedule);
 
             int EarlyFinish(ProjectTask t) =>
                 t.TaskType == TaskType.Milestone
                     ? EarlyStart(t)
-                    : (t.EndDate.Date - projectStartDate).Days;
+                    : GetWorkingDayIndex(origin, t.EndDate, schedule);
 
             var es = schedulable.ToDictionary(t => t.Id, EarlyStart);
             var ef = schedulable.ToDictionary(t => t.Id, EarlyFinish);
             var taskBySchedId = schedulable.ToDictionary(t => t.Id);
+
+            int Duration(ProjectTask t) =>
+                t.TaskType == TaskType.Milestone ? 0 : Math.Max(1, ef[t.Id] - es[t.Id] + 1);
 
             int projectFinish = ef.Values.DefaultIfEmpty(0).Max();
             var lf = new Dictionary<int, int>();
@@ -290,7 +291,8 @@ namespace MyProject.Models
         public static HashSet<int> ComputeLocalCriticalTaskIds(
             IReadOnlyList<ProjectTask> allTasks,
             IReadOnlyList<TaskDependency> dependencies,
-            DateTime projectStart)
+            DateTime projectStart,
+            WorkingWeekSchedule schedule)
         {
             var localCritical = new HashSet<int>();
             var taskById = allTasks.ToDictionary(t => t.Id);
@@ -299,15 +301,14 @@ namespace MyProject.Models
                 .Select(t => t.Id)
                 .ToHashSet();
 
-            var projectStartDate = projectStart.Date;
+            var origin = GetScheduleOrigin(projectStart, schedule);
 
-            int EarlyStart(ProjectTask t) =>
-                (t.StartDate.Date - projectStartDate).Days;
+            int EarlyStart(ProjectTask t) => GetWorkingDayIndex(origin, t.StartDate, schedule);
 
             int EarlyFinish(ProjectTask t) =>
                 t.TaskType == TaskType.Milestone
                     ? EarlyStart(t)
-                    : (t.EndDate.Date - projectStartDate).Days;
+                    : GetWorkingDayIndex(origin, t.EndDate, schedule);
 
             foreach (var root in allTasks.Where(t => t.ParentId == -1 && t.TaskType == TaskType.Summary))
             {
@@ -342,7 +343,7 @@ namespace MyProject.Models
             int groupFinish)
         {
             int Duration(ProjectTask t) =>
-                t.TaskType == TaskType.Milestone ? 0 : Math.Max(1, t.DurationDays);
+                t.TaskType == TaskType.Milestone ? 0 : Math.Max(1, ef[t.Id] - es[t.Id] + 1);
 
             var lf = new Dictionary<int, int>();
             var ls = new Dictionary<int, int>();
@@ -398,18 +399,20 @@ namespace MyProject.Models
         private static int GetBackwardLfLimit(TaskDependency dep, int succLs, int succLf, int predDuration)
         {
             int lag = dep.LagDays;
+            // For milestones predDuration=0, so LF=LS: the SS/SF offset is 0 not -1.
+            int durOffset = predDuration > 0 ? predDuration - 1 : 0;
             return dep.Type switch
             {
                 // FS: succ.Start >= pred.Finish+1+lag  →  pred.LF <= succ.LS - 1 - lag
                 DependencyType.FS => succLs - 1 - lag,
                 // SS: succ.Start >= pred.Start+lag  →  pred.LS <= succ.LS - lag
-                //     pred.LF = pred.LS + dur - 1  →  pred.LF <= succ.LS + predDuration - 1 - lag
-                DependencyType.SS => succLs + predDuration - 1 - lag,
+                //     pred.LF = pred.LS + dur - 1  →  pred.LF <= succ.LS + durOffset - lag
+                DependencyType.SS => succLs + durOffset - lag,
                 // FF: succ.Finish >= pred.Finish+lag  →  pred.LF <= succ.LF - lag
                 DependencyType.FF => succLf - lag,
                 // SF: succ.Finish >= pred.Start+lag  →  pred.LS <= succ.LF - lag
-                //     pred.LF = pred.LS + dur - 1  →  pred.LF <= succ.LF + predDuration - 1 - lag
-                DependencyType.SF => succLf + predDuration - 1 - lag,
+                //     pred.LF = pred.LS + dur - 1  →  pred.LF <= succ.LF + durOffset - lag
+                DependencyType.SF => succLf + durOffset - lag,
                 _ => succLs - 1 - lag
             };
         }
@@ -436,6 +439,17 @@ namespace MyProject.Models
                 DependencyType.SF => succEf == predEs + lag,
                 _ => succEs == predEf + 1 + lag
             };
+        }
+
+        private static DateTime GetScheduleOrigin(DateTime projectStart, WorkingWeekSchedule schedule) =>
+            WorkingDayCalendar.SnapToNextWorkingDay(projectStart.Date, schedule);
+
+        private static int GetWorkingDayIndex(DateTime origin, DateTime date, WorkingWeekSchedule schedule)
+        {
+            if (date.Date < origin.Date)
+                return 0;
+
+            return WorkingDayCalendar.CountWorkingDaysInclusive(origin, date.Date, schedule) - 1;
         }
     }
 }

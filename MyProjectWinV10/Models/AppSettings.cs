@@ -35,7 +35,7 @@ namespace MyProject.Models
             "session_recovery.myprj");
 
         private static int[] DefaultTaskGridColumnWidths() =>
-            new[] { 32, 200, 58, 34, 84, 72, 58, 120 };
+            new[] { 36, 220, 72, 40, 96, 84, 68, 132 };
 
         public static void Load()
         {
@@ -160,14 +160,14 @@ namespace MyProject.Models
 
         private static int GetMinColumnWidth(int columnIndex) => columnIndex switch
         {
-            0 => 28,
-            1 => 80,
-            2 => 52,
-            3 => 30,
-            4 => 68,
-            5 => 48,
-            6 => 52,
-            7 => 48,
+            0 => 32,   // ID
+            1 => 100,  // Task Name
+            2 => 68,   // Start
+            3 => 36,   // Days
+            4 => 80,   // Progress
+            5 => 60,   // Resource
+            6 => 60,   // Alloc %
+            7 => 56,   // Deliverable
             _ => 24
         };
 

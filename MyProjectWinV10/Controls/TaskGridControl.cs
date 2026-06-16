@@ -81,7 +81,7 @@ namespace MyProject.Controls
         {
             _colWidths = DesignTime.IsActive
                 ? (int[])ProjectViewSettings.DefaultTaskGridColumnWidths().Clone()
-                : (int[])AppSettings.TaskGridColumnWidths.Clone();
+                : ProjectViewSettings.SanitizeColumnWidths(AppSettings.TaskGridColumnWidths);
             _minColWidths = AppSettings.GetMinColumnWidths();
 
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
@@ -231,7 +231,7 @@ namespace MyProject.Controls
             using (var columnBg = new SolidBrush(AppTheme.TimescaleBackground))
                 g.FillRectangle(columnBg, columnRect);
 
-            string[] headers = { "ID", "Task Name", "Start", "W.Days", "Progress", "Resource", "Alloc %", "Deliverable" };
+            string[] headers = { "ID", "Task Name", "Start", "Days", "Progress", "Resource", "Alloc %", "Deliverable" };
             for (int i = 0; i < ColumnCount; i++)
                 DrawColumnHeader(g, ColumnLeft(i), headers[i], _colWidths[i], columnTop, columnRowH, i);
 
@@ -252,7 +252,7 @@ namespace MyProject.Controls
                 Trimming = StringTrimming.EllipsisCharacter,
                 FormatFlags = StringFormatFlags.NoWrap
             };
-            g.DrawString(text, AppTheme.FontBold, textBrush, rect, sf);
+            g.DrawString(text, AppTheme.FontTaskGridHeader, textBrush, rect, sf);
 
             int dividerX = x + width - 1;
             bool highlightGrip = _isResizingColumn
@@ -334,8 +334,7 @@ namespace MyProject.Controls
             if (ColumnRight(ColStart) > 0 && ColumnLeft(ColStart) < gridWidth)
             {
                 g.DrawString(task.StartDate.ToString("MM/dd/yy"), smallFont, secondaryBrush,
-                    new Rectangle(ColumnLeft(ColStart) + 2, rowY, _colWidths[ColStart] - 4, AppTheme.RowHeight),
-                    new StringFormat { LineAlignment = StringAlignment.Center });
+                    new Rectangle(ColumnLeft(ColStart), rowY, _colWidths[ColStart], AppTheme.RowHeight), sfCenter);
                 DrawColDivider(g, ColumnRight(ColStart), rowY);
             }
 
@@ -452,7 +451,7 @@ namespace MyProject.Controls
 
             int displayCount = Math.Min(lines.Count, maxLines);
             FontStyle multiStyle = baseFont.Style;
-            using var smallFont = new Font(baseFont.FontFamily, 7.5f, multiStyle);
+            using var smallFont = new Font(baseFont.FontFamily, Math.Max(8.5f, baseFont.SizeInPoints - 1f), multiStyle);
             int lineH = smallFont.Height;
             int blockHeight = displayCount * lineH;
             int startY = textRect.Top + Math.Max(0, (textRect.Height - blockHeight) / 2);
