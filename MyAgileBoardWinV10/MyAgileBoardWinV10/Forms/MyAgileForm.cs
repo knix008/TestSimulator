@@ -49,7 +49,13 @@ public partial class MyAgileForm : Form
         SetupIcons();
         SetupTooltips();
         SetupAddColumnButton();
-        RebuildBoard();
+        Load += OnFormFirstLoad;
+    }
+
+    private void OnFormFirstLoad(object? sender, EventArgs e)
+    {
+        Load -= OnFormFirstLoad;
+        TryLoadLastFile();
         CaptureSavedState();
         UpdateStatusBar();
     }
@@ -770,6 +776,37 @@ public partial class MyAgileForm : Form
     //  File operations
     // ─────────────────────────────────────────────
 
+    private void TryLoadLastFile()
+    {
+        var lastFile = AppSettings.GetLastFilePath();
+        if (string.IsNullOrEmpty(lastFile))
+        {
+            RebuildBoard();
+            return;
+        }
+
+        if (!File.Exists(lastFile))
+        {
+            AppSettings.SetLastFilePath(null);
+            RebuildBoard();
+            return;
+        }
+
+        var loaded = ErrorHandler.TryExecute(
+            () => ProjectService.Load(lastFile),
+            "마지막 파일 열기 오류", this, $"파일: {lastFile}");
+
+        if (loaded != null)
+        {
+            _project = loaded;
+            RestoreWindowState();
+            RebuildBoard();
+            return;
+        }
+
+        RebuildBoard();
+    }
+
     private void menuNew_Click(object sender, EventArgs e)
     {
         if (!ConfirmDiscardChanges()) return;
@@ -789,7 +826,6 @@ public partial class MyAgileForm : Form
             InitialDirectory = GetInitialDir()
         };
         if (dlg.ShowDialog() != DialogResult.OK) return;
-        RememberDir(dlg.FileName);
 
         var loaded = ErrorHandler.TryExecute(
             () => ProjectService.Load(dlg.FileName),
@@ -811,6 +847,7 @@ public partial class MyAgileForm : Form
         }
 
         _project = loaded;
+        RememberDir(dlg.FileName);
         RestoreWindowState();
         RebuildBoard();
         BeginInvoke(CaptureSavedState);
@@ -998,7 +1035,14 @@ public partial class MyAgileForm : Form
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         if (_isDirty && !ConfirmDiscardChanges())
+        {
             e.Cancel = true;
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(_project.FilePath))
+            RememberDir(_project.FilePath);
+
         base.OnFormClosing(e);
     }
 
@@ -1183,5 +1227,6 @@ public partial class MyAgileForm : Form
         var dir = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(dir))
             AppSettings.SetLastDirectory(dir);
+        AppSettings.SetLastFilePath(filePath);
     }
 }

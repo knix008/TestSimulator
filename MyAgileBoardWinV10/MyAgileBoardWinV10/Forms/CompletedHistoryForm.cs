@@ -4,12 +4,16 @@ namespace MyAgileBoardWinV10.Forms;
 
 public partial class CompletedHistoryForm : Form
 {
-    private readonly KanbanProject _project;
+    private KanbanProject _project = null!;
 
-    public CompletedHistoryForm(KanbanProject project)
+    public CompletedHistoryForm()
+    {
+        InitializeComponent();
+    }
+
+    public CompletedHistoryForm(KanbanProject project) : this()
     {
         _project = project;
-        InitializeComponent();
         PopulateAll();
     }
 

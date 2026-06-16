@@ -2,9 +2,13 @@ namespace MyAgileBoardWinV10.Forms;
 
 public partial class ErrorDialogForm : Form
 {
-    public ErrorDialogForm(string title, string summary, string details)
+    public ErrorDialogForm()
     {
         InitializeComponent();
+    }
+
+    public ErrorDialogForm(string title, string summary, string details) : this()
+    {
         Text = title;
         lblSummary.Text = summary;
         txtDetails.Text = details;

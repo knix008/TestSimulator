@@ -4,10 +4,10 @@ namespace MyAgileBoardWinV10.Forms;
 
 public partial class ColumnSettingsForm : Form
 {
-    private readonly KanbanColumn _column;
+    private KanbanColumn _column = null!;
     private Color _headerColor;
     private Color _titleColor;
-    private string _titleFontFamily;
+    private string _titleFontFamily = "Segoe UI";
     private float _titleFontSize;
     private bool _titleFontBold;
     private bool _titleFontItalic;
@@ -41,7 +41,12 @@ public partial class ColumnSettingsForm : Form
         Color.FromArgb(158, 73, 211),
     };
 
-    public ColumnSettingsForm(KanbanColumn column)
+    public ColumnSettingsForm()
+    {
+        InitializeComponent();
+    }
+
+    public ColumnSettingsForm(KanbanColumn column) : this()
     {
         _column = column;
         _headerColor = ColorTranslator.FromHtml(column.HeaderColorHex);
@@ -54,7 +59,6 @@ public partial class ColumnSettingsForm : Form
             ? column.ResolveTitleColor(_headerColor)
             : ColorTranslator.FromHtml(column.TitleColorHex!);
 
-        InitializeComponent();
         LoadFromColumn();
     }
 

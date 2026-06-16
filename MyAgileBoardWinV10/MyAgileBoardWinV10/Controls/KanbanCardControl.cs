@@ -6,7 +6,7 @@ namespace MyAgileBoardWinV10.Controls;
 
 public partial class KanbanCardControl : UserControl
 {
-    private enum HandleKind { None, Move, Rotate, TopLeft, Top, Left, BottomLeft, Bottom, Right, BottomRight }
+    private enum HandleKind { None, Move, Rotate, TopLeft, Top, TopRight, Left, BottomLeft, Bottom, Right, BottomRight }
 
     private KanbanCard _card;
     private Font? _titleFont;
@@ -19,7 +19,6 @@ public partial class KanbanCardControl : UserControl
     private Point _canvasDragStartLocation;
     private HandleKind _activeHandle = HandleKind.None;
     private HandleKind _hoverHandle = HandleKind.None;
-    private bool _isMouseOverCard;
     private int _mouseOverCount;
     private Point _transformStartScreen;
     private Point _transformStartLocation;
@@ -32,8 +31,8 @@ public partial class KanbanCardControl : UserControl
     public bool IsSelected => _isSelected;
     public bool IsInteracting => Capture || _localCanvasMove || _isCrossColumnDragging
         || _activeHandle is HandleKind.Rotate
-            or HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
-            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight;
+            or HandleKind.TopLeft or HandleKind.Top or HandleKind.TopRight or HandleKind.Left
+            or HandleKind.BottomLeft or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight;
 
     public event EventHandler<KanbanCard>? CardDoubleClicked;
     public event EventHandler<KanbanCard>? CardDeleted;
@@ -221,7 +220,8 @@ public partial class KanbanCardControl : UserControl
 
         int bottomReserve = lblPriority.Visible ? 18 : 16;
         int titleH = Math.Max(18, totalHeight - bottomReserve - 8);
-        if (!compact && lblAssignee.Visible) titleH = Math.Min(titleH, 36);
+        if (!compact && (lblAssignee.Visible || !string.IsNullOrEmpty(lblDescription.Text)))
+            titleH = Math.Min(titleH, 36);
         lblTitle.Height = titleH;
         lblTitle.Location = new Point(5, 4);
 
@@ -328,7 +328,6 @@ public partial class KanbanCardControl : UserControl
     private void Card_MouseEnter(object? sender, EventArgs e)
     {
         _mouseOverCount++;
-        _isMouseOverCard = true;
         Invalidate();
     }
 
@@ -337,7 +336,6 @@ public partial class KanbanCardControl : UserControl
         _mouseOverCount = Math.Max(0, _mouseOverCount - 1);
         if (_mouseOverCount == 0)
         {
-            _isMouseOverCard = false;
             if (!Capture && !_mouseDownActive)
                 UpdateHoverHandle(HandleKind.None);
         }
@@ -360,31 +358,28 @@ public partial class KanbanCardControl : UserControl
 
     private HandleKind HitTestHandle(Point localPoint)
     {
-        int hs = CardCanvasHelper.HandleSize;
-        int edge = CardCanvasHelper.EdgeGripSize;
+        if (!_isSelected)
+            return HandleKind.Move;
+
+        int edge   = CardCanvasHelper.EdgeGripSize;
         int corner = CardCanvasHelper.CornerHandleHitSize;
+        int rotSz  = CardCanvasHelper.RotateHandleHitSize;
 
-        // Rotate (top-right area) takes priority when selected, before corner checks
-        if (_isSelected)
-        {
-            var rotateRect = new Rectangle(Width - hs * 3 - 6, 2, hs * 3 + 4, hs * 3 + 4);
-            if (rotateRect.Contains(localPoint)) return HandleKind.Rotate;
-        }
+        var rotCenter = GetRotateHandleCenter();
+        int rotDistSq = (localPoint.X - rotCenter.X) * (localPoint.X - rotCenter.X)
+                      + (localPoint.Y - rotCenter.Y) * (localPoint.Y - rotCenter.Y);
+        if (rotDistSq <= (rotSz / 2) * (rotSz / 2))
+            return HandleKind.Rotate;
 
-        // Corners
-        if (new Rectangle(0, 0, corner, corner).Contains(localPoint)) return HandleKind.TopLeft;
+        if (new Rectangle(0, 0, corner, corner).Contains(localPoint))             return HandleKind.TopLeft;
+        if (new Rectangle(Width - corner, 0, corner, corner).Contains(localPoint)) return HandleKind.TopRight;
         if (new Rectangle(0, Height - corner, corner, corner).Contains(localPoint)) return HandleKind.BottomLeft;
         if (new Rectangle(Width - corner, Height - corner, corner, corner).Contains(localPoint)) return HandleKind.BottomRight;
 
-        // Edges
-        if (localPoint.Y < edge && localPoint.X >= corner && localPoint.X < Width - corner)
-            return HandleKind.Top;
-        if (localPoint.Y >= Height - edge && localPoint.X >= corner && localPoint.X < Width - corner)
-            return HandleKind.Bottom;
-        if (localPoint.X < edge && localPoint.Y >= corner && localPoint.Y < Height - corner)
-            return HandleKind.Left;
-        if (localPoint.X >= Width - edge && localPoint.Y >= corner && localPoint.Y < Height - corner)
-            return HandleKind.Right;
+        if (localPoint.Y < edge && localPoint.X >= corner && localPoint.X < Width - corner) return HandleKind.Top;
+        if (localPoint.Y >= Height - edge && localPoint.X >= corner && localPoint.X < Width - corner) return HandleKind.Bottom;
+        if (localPoint.X < edge && localPoint.Y >= corner && localPoint.Y < Height - corner) return HandleKind.Left;
+        if (localPoint.X >= Width - edge && localPoint.Y >= corner && localPoint.Y < Height - corner) return HandleKind.Right;
 
         return HandleKind.Move;
     }
@@ -395,7 +390,7 @@ public partial class KanbanCardControl : UserControl
         _hoverHandle = handle;
         Cursor = handle switch
         {
-            HandleKind.TopLeft or HandleKind.BottomRight => Cursors.SizeNWSE,
+            HandleKind.TopLeft or HandleKind.BottomRight or HandleKind.TopRight => Cursors.SizeNWSE,
             HandleKind.BottomLeft => Cursors.SizeNESW,
             HandleKind.Top or HandleKind.Bottom => Cursors.SizeNS,
             HandleKind.Left or HandleKind.Right => Cursors.SizeWE,
@@ -407,7 +402,7 @@ public partial class KanbanCardControl : UserControl
 
     private void UpdateHoverFromMouse(Control? sender, MouseEventArgs e)
     {
-        if (Capture || _mouseDownActive) return;
+        if (Capture || _mouseDownActive || !_isSelected) return;
 
         var clientPt = sender is Control c && c != this
             ? PointToClient(c.PointToScreen(e.Location))
@@ -420,14 +415,17 @@ public partial class KanbanCardControl : UserControl
     {
         if (e.Button != MouseButtons.Left) return;
 
-        CardSelected?.Invoke(this, this);
-
         var clientPt = sender is Control c && c != this
             ? PointToClient(c.PointToScreen(e.Location))
             : e.Location;
 
         var local = GetLocalPoint(clientPt);
-        _activeHandle = HitTestHandle(local);
+        var handle = HitTestHandle(local);
+        bool wasSelected = _isSelected;
+
+        CardSelected?.Invoke(this, this);
+
+        _activeHandle = wasSelected && handle != HandleKind.Move ? handle : HandleKind.Move;
         _dragStartScreen = Cursor.Position;
         _grabOffset = clientPt;
         _isCrossColumnDragging = false;
@@ -443,10 +441,11 @@ public partial class KanbanCardControl : UserControl
 
         if (_activeHandle is HandleKind.Rotate
             or HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
-            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight)
+            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight or HandleKind.TopRight)
         {
             CardBeforeTransform?.Invoke(this, _card);
             Capture = true;
+            Invalidate();
         }
 
         BringToFront();
@@ -475,10 +474,13 @@ public partial class KanbanCardControl : UserControl
         var pos = Cursor.Position;
         int dx = pos.X - _transformStartScreen.X;
         int dy = pos.Y - _transformStartScreen.Y;
+        var localDelta = CardCanvasHelper.TransformDeltaToLocal(dx, dy, _transformStartRotation);
+        dx = localDelta.X;
+        dy = localDelta.Y;
 
         bool fromLeft = handle is HandleKind.TopLeft or HandleKind.Left or HandleKind.BottomLeft;
-        bool fromTop = handle is HandleKind.TopLeft or HandleKind.Top;
-        bool fromRight = handle is HandleKind.Right or HandleKind.BottomRight;
+        bool fromTop = handle is HandleKind.TopLeft or HandleKind.Top or HandleKind.TopRight;
+        bool fromRight = handle is HandleKind.Right or HandleKind.BottomRight or HandleKind.TopRight;
         bool fromBottom = handle is HandleKind.BottomLeft or HandleKind.Bottom or HandleKind.BottomRight;
 
         int newW = fromLeft ? _transformStartSize.Width - dx
@@ -493,12 +495,15 @@ public partial class KanbanCardControl : UserControl
 
         if (fromLeft || fromTop)
         {
-            int actualDx = fromLeft ? _transformStartSize.Width - newW : 0;
-            int actualDy = fromTop ? _transformStartSize.Height - newH : 0;
+            int localOx = fromLeft ? _transformStartSize.Width - newW : 0;
+            int localOy = fromTop ? _transformStartSize.Height - newH : 0;
+            var parentOffset = CardCanvasHelper.TransformLocalDeltaToParent(
+                localOx, localOy, _transformStartRotation);
+
             var canvas = Parent;
             canvas?.SuspendLayout();
-            _card.CanvasX = _transformStartLocation.X + actualDx;
-            _card.CanvasY = _transformStartLocation.Y + actualDy;
+            _card.CanvasX = _transformStartLocation.X + parentOffset.X;
+            _card.CanvasY = _transformStartLocation.Y + parentOffset.Y;
             Location = new Point(_card.CanvasX, _card.CanvasY);
             canvas?.ResumeLayout(false);
         }
@@ -570,7 +575,7 @@ public partial class KanbanCardControl : UserControl
         }
 
         if (_activeHandle is HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
-            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight)
+            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight or HandleKind.TopRight)
         {
             ApplyResizeFromHandle(_activeHandle);
             return;
@@ -629,8 +634,8 @@ public partial class KanbanCardControl : UserControl
         _mouseDownActive = false;
 
         if (_activeHandle is HandleKind.Rotate
-            or HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
-            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight)
+            or HandleKind.TopLeft or HandleKind.Top or HandleKind.TopRight or HandleKind.Left
+            or HandleKind.BottomLeft or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight)
         {
             _activeHandle = HandleKind.None;
             CardTransformChanged?.Invoke(this, _card);
@@ -690,36 +695,45 @@ public partial class KanbanCardControl : UserControl
 
         if (_isSelected)
             DrawSelectionHandles(e.Graphics);
-        else if (_isMouseOverCard || _activeHandle is HandleKind.BottomRight or HandleKind.Bottom or HandleKind.Right)
-            DrawHoverResizeHandles(e.Graphics);
     }
 
     private static readonly HandleKind[] ResizeHandleKinds =
     {
-        HandleKind.TopLeft, HandleKind.Top,
+        HandleKind.TopLeft, HandleKind.Top, HandleKind.TopRight,
         HandleKind.Left, HandleKind.Right,
         HandleKind.BottomLeft, HandleKind.Bottom, HandleKind.BottomRight
     };
 
     private Rectangle GetHandleRect(HandleKind kind)
     {
-        const int sz = 10;
-        const int inset = 2;
-        int cx = Width / 2 - sz / 2;
-        int cy = Height / 2 - sz / 2;
-        int right = Width - sz - inset;
+        const int sz    = 14;
+        const int inset = 3;
+        int cx     = Width / 2 - sz / 2;
+        int cy     = Height / 2 - sz / 2;
+        int right  = Width  - sz - inset;
         int bottom = Height - sz - inset;
         return kind switch
         {
-            HandleKind.TopLeft    => new Rectangle(inset,  inset,  sz, sz),
-            HandleKind.Top        => new Rectangle(cx,     inset,  sz, sz),
-            HandleKind.Left       => new Rectangle(inset,  cy,     sz, sz),
-            HandleKind.Right      => new Rectangle(right,  cy,     sz, sz),
-            HandleKind.BottomLeft => new Rectangle(inset,  bottom, sz, sz),
-            HandleKind.Bottom     => new Rectangle(cx,     bottom, sz, sz),
+            HandleKind.TopLeft     => new Rectangle(inset, inset,  sz, sz),
+            HandleKind.Top         => new Rectangle(cx,    inset,  sz, sz),
+            HandleKind.TopRight    => new Rectangle(right, inset,  sz, sz),
+            HandleKind.Left        => new Rectangle(inset, cy,     sz, sz),
+            HandleKind.Right       => new Rectangle(right, cy,     sz, sz),
+            HandleKind.BottomLeft  => new Rectangle(inset, bottom, sz, sz),
+            HandleKind.Bottom      => new Rectangle(cx,    bottom, sz, sz),
             HandleKind.BottomRight => new Rectangle(right, bottom, sz, sz),
             _ => Rectangle.Empty
         };
+    }
+
+    private Point GetRotateHandleCenter()
+        => new Point(Width / 2, 14);
+
+    private Rectangle GetRotateHandleRect()
+    {
+        const int sz = 24;
+        var center = GetRotateHandleCenter();
+        return new Rectangle(center.X - sz / 2, center.Y - sz / 2, sz, sz);
     }
 
     private bool IsResizeHandleActive(HandleKind kind)
@@ -732,18 +746,39 @@ public partial class KanbanCardControl : UserControl
         {
             var rect = GetHandleRect(kind);
             bool active = IsResizeHandleActive(kind);
-            using var fill = new SolidBrush(active ? Color.FromArgb(40, 80, 200) : Color.White);
-            using var border = new Pen(Color.FromArgb(200, 30, 100, 220), active ? 2f : 1.5f);
+            using var fill   = new SolidBrush(active ? Color.FromArgb(40, 80, 200) : Color.White);
+            using var border = new Pen(Color.FromArgb(200, 30, 100, 220), active ? 2.5f : 1.5f);
             g.FillRectangle(fill, rect);
             g.DrawRectangle(border, rect);
         }
     }
 
-    private void DrawHoverResizeHandles(Graphics g)
+    private void DrawRotateHandleVisual(Graphics g)
     {
-        using var outline = new Pen(Color.FromArgb(120, 30, 100, 220), 1.5f);
-        g.DrawRectangle(outline, 1, 1, Width - 3, Height - 3);
-        DrawResizeHandlesVisual(g);
+        var rect   = GetRotateHandleRect();
+        bool active = _hoverHandle == HandleKind.Rotate || _activeHandle == HandleKind.Rotate;
+
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        // Outer glow when active
+        if (active)
+        {
+            using var glow = new Pen(Color.FromArgb(60, 0, 180, 120), 4f);
+            g.DrawEllipse(glow, rect);
+        }
+
+        using var fill   = new SolidBrush(active ? Color.FromArgb(0, 170, 110) : Color.FromArgb(235, 255, 248));
+        using var border = new Pen(active ? Color.FromArgb(0, 140, 90) : Color.FromArgb(160, 0, 150, 100),
+                                   active ? 2f : 1.5f);
+        g.FillEllipse(fill, rect);
+        g.DrawEllipse(border, rect);
+
+        // ↻ symbol centered
+        using var sf   = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        using var font = new Font("Segoe UI", 11f, FontStyle.Bold);
+        using var tb   = new SolidBrush(active ? Color.White : Color.FromArgb(0, 130, 80));
+        g.DrawString("↻", font, tb, rect, sf);
+        g.SmoothingMode = SmoothingMode.None;
     }
 
     private void DrawSelectionHandles(Graphics g)
@@ -751,15 +786,7 @@ public partial class KanbanCardControl : UserControl
         using var pen = new Pen(Color.FromArgb(220, 30, 100, 220), 2f);
         g.DrawRectangle(pen, 1, 1, Width - 3, Height - 3);
         DrawResizeHandlesVisual(g);
-
-        int hs = CardCanvasHelper.HandleSize;
-        using var brush = new SolidBrush(Color.White);
-        using var border = new Pen(Color.FromArgb(220, 30, 100, 220), 1.5f);
-        var rotate = new Rectangle(Width - hs * 3 - 4, 2, hs * 2 + 4, hs * 2 + 4);
-        g.FillEllipse(brush, rotate);
-        g.DrawEllipse(border, rotate);
-        using var rotatePen = new Pen(Color.FromArgb(200, 30, 100, 220), 1.5f);
-        g.DrawString("↻", new Font("Segoe UI", 8f, FontStyle.Bold), rotatePen.Brush, rotate.X + 3, rotate.Y + 2);
+        DrawRotateHandleVisual(g);
     }
 
     private void EnsureRotatedCache()
@@ -820,24 +847,6 @@ public partial class KanbanCardControl : UserControl
 
     private void menuEdit_Click(object sender, EventArgs e)
         => OnCardDoubleClick(sender, e);
-
-    private void menuRotateLeft_Click(object sender, EventArgs e)
-    {
-        CardSelected?.Invoke(this, this);
-        AdjustRotation(-CardCanvasHelper.RotationStep);
-    }
-
-    private void menuRotateRight_Click(object sender, EventArgs e)
-    {
-        CardSelected?.Invoke(this, this);
-        AdjustRotation(CardCanvasHelper.RotationStep);
-    }
-
-    private void menuRotateReset_Click(object sender, EventArgs e)
-    {
-        CardSelected?.Invoke(this, this);
-        ResetRotation();
-    }
 
     private void ContextMenuCard_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {

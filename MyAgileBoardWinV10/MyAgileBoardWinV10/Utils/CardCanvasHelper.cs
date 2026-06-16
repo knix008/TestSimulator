@@ -4,12 +4,13 @@ public static class CardCanvasHelper
 {
     public const int CanvasPadding = 8;
     public const int HandleSize = 8;
-    public const int EdgeGripSize = 14;
+    public const int EdgeGripSize = 22;
     public const int CornerHandleVisualSize = 14;
-    public const int CornerHandleHitSize = 22;
+    public const int CornerHandleHitSize = 30;
     public const int EdgeHandleVisualThickness = 5;
-    public const float MinRotation = -45f;
-    public const float MaxRotation = 45f;
+    public const int RotateHandleHitSize = 36;
+    public const float MinRotation = -180f;
+    public const float MaxRotation = 180f;
     public const float RotationStep = 15f;
 
     public static bool HasCanvasPosition(int canvasX, int canvasY) => canvasX >= 0 && canvasY >= 0;
@@ -25,6 +26,32 @@ public static class CardCanvasHelper
         int w = (int)Math.Ceiling(width * cos + height * sin);
         int h = (int)Math.Ceiling(width * sin + height * cos);
         return new Size(Math.Max(width, w), Math.Max(height, h));
+    }
+
+    public static Point TransformDeltaToLocal(int dx, int dy, float angleDegrees)
+    {
+        if (Math.Abs(angleDegrees) < 0.01f)
+            return new Point(dx, dy);
+
+        double rad = -angleDegrees * Math.PI / 180.0;
+        double cos = Math.Cos(rad);
+        double sin = Math.Sin(rad);
+        return new Point(
+            (int)Math.Round(dx * cos - dy * sin),
+            (int)Math.Round(dx * sin + dy * cos));
+    }
+
+    public static Point TransformLocalDeltaToParent(int localDx, int localDy, float angleDegrees)
+    {
+        if (Math.Abs(angleDegrees) < 0.01f)
+            return new Point(localDx, localDy);
+
+        double rad = angleDegrees * Math.PI / 180.0;
+        double cos = Math.Cos(rad);
+        double sin = Math.Sin(rad);
+        return new Point(
+            (int)Math.Round(localDx * cos - localDy * sin),
+            (int)Math.Round(localDx * sin + localDy * cos));
     }
 
     public static Point TransformPointToLocal(Point point, int width, int height, float angleDegrees)

@@ -4,14 +4,18 @@ namespace MyAgileBoardWinV10.Forms;
 
 public partial class ProjectSettingsForm : Form
 {
-    private readonly KanbanProject _project;
+    private KanbanProject _project = null!;
 
     public event EventHandler<bool>? GridVisibilityChanged;
 
-    public ProjectSettingsForm(KanbanProject project)
+    public ProjectSettingsForm()
+    {
+        InitializeComponent();
+    }
+
+    public ProjectSettingsForm(KanbanProject project) : this()
     {
         _project = project;
-        InitializeComponent();
         LoadFromProject();
         chkShowGrid.CheckedChanged += (_, _) => GridVisibilityChanged?.Invoke(this, chkShowGrid.Checked);
     }

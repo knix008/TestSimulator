@@ -48,20 +48,41 @@
     <Compile Update="Forms\BurndownChartForm.Designer.cs">
       <DependentUpon>BurndownChartForm.cs</DependentUpon>
     </Compile>
+    <Compile Update="Forms\SymbolPickerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\SymbolPickerForm.Designer.cs">
+      <DependentUpon>SymbolPickerForm.cs</DependentUpon>
+    </Compile>
     <Compile Update="Forms\BurndownChartColorForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="Forms\CompletedHistoryForm.cs">
+    <Compile Update="Forms\BurndownChartColorForm.Designer.cs">
+      <DependentUpon>BurndownChartColorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Forms\ErrorDialogForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="Forms\CompletedHistoryForm.Designer.cs">
-      <DependentUpon>CompletedHistoryForm.cs</DependentUpon>
+    <Compile Update="Forms\ErrorDialogForm.Designer.cs">
+      <DependentUpon>ErrorDialogForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Forms\ProjectSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\ProjectSettingsForm.Designer.cs">
+      <DependentUpon>ProjectSettingsForm.cs</DependentUpon>
     </Compile>
     <Compile Update="Forms\AboutForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Update="Forms\AboutForm.Designer.cs">
       <DependentUpon>AboutForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Forms\CompletedHistoryForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Forms\CompletedHistoryForm.Designer.cs">
+      <DependentUpon>CompletedHistoryForm.cs</DependentUpon>
     </Compile>
     <Compile Update="Controls\KanbanColumnControl.cs">
       <SubType>UserControl</SubType>

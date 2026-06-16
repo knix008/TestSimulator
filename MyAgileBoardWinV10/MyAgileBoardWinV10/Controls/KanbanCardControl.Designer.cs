@@ -29,10 +29,6 @@ partial class KanbanCardControl
         contextMenuCard = new ContextMenuStrip(components);
         menuEdit = new ToolStripMenuItem();
         menuSep = new ToolStripSeparator();
-        menuRotateLeft = new ToolStripMenuItem();
-        menuRotateRight = new ToolStripMenuItem();
-        menuRotateReset = new ToolStripMenuItem();
-        menuSepRotate = new ToolStripSeparator();
         menuBringForward = new ToolStripMenuItem();
         menuBringToFront = new ToolStripMenuItem();
         menuSendBackward = new ToolStripMenuItem();
@@ -49,10 +45,6 @@ partial class KanbanCardControl
         {
             menuEdit,
             menuSep,
-            menuRotateLeft,
-            menuRotateRight,
-            menuRotateReset,
-            menuSepRotate,
             menuBringForward,
             menuBringToFront,
             menuSendBackward,
@@ -68,21 +60,6 @@ partial class KanbanCardControl
         menuEdit.Name = "menuEdit";
         menuEdit.Text = "편집...";
         menuEdit.Click += new EventHandler(menuEdit_Click);
-
-        // menuRotateLeft
-        menuRotateLeft.Name = "menuRotateLeft";
-        menuRotateLeft.Text = "왼쪽으로 회전 (-15°)";
-        menuRotateLeft.Click += new EventHandler(menuRotateLeft_Click);
-
-        // menuRotateRight
-        menuRotateRight.Name = "menuRotateRight";
-        menuRotateRight.Text = "오른쪽으로 회전 (+15°)";
-        menuRotateRight.Click += new EventHandler(menuRotateRight_Click);
-
-        // menuRotateReset
-        menuRotateReset.Name = "menuRotateReset";
-        menuRotateReset.Text = "회전 초기화";
-        menuRotateReset.Click += new EventHandler(menuRotateReset_Click);
 
         // menuBringForward
         menuBringForward.Name = "menuBringForward";
@@ -219,10 +196,6 @@ partial class KanbanCardControl
     private ContextMenuStrip contextMenuCard = null!;
     private ToolStripMenuItem menuEdit = null!;
     private ToolStripSeparator menuSep = null!;
-    private ToolStripMenuItem menuRotateLeft = null!;
-    private ToolStripMenuItem menuRotateRight = null!;
-    private ToolStripMenuItem menuRotateReset = null!;
-    private ToolStripSeparator menuSepRotate = null!;
     private ToolStripMenuItem menuBringForward = null!;
     private ToolStripMenuItem menuBringToFront = null!;
     private ToolStripMenuItem menuSendBackward = null!;

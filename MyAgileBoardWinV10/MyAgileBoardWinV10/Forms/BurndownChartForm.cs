@@ -6,19 +6,23 @@ namespace MyAgileBoardWinV10.Forms;
 
 public partial class BurndownChartForm : Form
 {
-    private readonly KanbanProject _project;
-    private BurndownChartColorSettings _chartColors;
+    private KanbanProject _project = null!;
+    private BurndownChartColorSettings _chartColors = null!;
 
     // Chart data computed on refresh
     private record DayData(DateTime Date, int PointsCompleted, int CumulativeCompleted);
     private List<DayData> _chartData = new();
     private int _totalPoints;
 
-    public BurndownChartForm(KanbanProject project)
+    public BurndownChartForm()
+    {
+        InitializeComponent();
+    }
+
+    public BurndownChartForm(KanbanProject project) : this()
     {
         _project = project;
         _chartColors = AppSettings.GetBurndownChartColors();
-        InitializeComponent();
         dtpStart.Value = DateTime.Today.AddDays(-13);
         dtpEnd.Value   = DateTime.Today;
         dtpStart.ValueChanged += DateRange_ValueChanged;

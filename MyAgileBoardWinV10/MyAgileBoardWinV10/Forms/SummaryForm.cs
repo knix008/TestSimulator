@@ -4,7 +4,7 @@ namespace MyAgileBoardWinV10.Forms;
 
 public partial class SummaryForm : Form
 {
-    private readonly KanbanProject _project;
+    private KanbanProject _project = null!;
 
     private static readonly Color[] ChartColors =
     {
@@ -18,10 +18,14 @@ public partial class SummaryForm : Form
         Color.FromArgb(52, 152, 219),
     };
 
-    public SummaryForm(KanbanProject project)
+    public SummaryForm()
+    {
+        InitializeComponent();
+    }
+
+    public SummaryForm(KanbanProject project) : this()
     {
         _project = project;
-        InitializeComponent();
         LoadStats();
         Text = $"Summary — {project.Name}";
     }

@@ -6,6 +6,7 @@ namespace MyAgileBoardWinV10.Services;
 public static class AppSettings
 {
     private static string? _lastDirectory;
+    private static string? _lastFilePath;
     private static BurndownChartColorSettings _burndownChart = BurndownChartColorSettings.CreateDefault();
     private static bool _loaded;
 
@@ -30,6 +31,22 @@ public static class AppSettings
         if (_lastDirectory == directory) return;
 
         _lastDirectory = directory;
+        Save();
+    }
+
+    public static string GetLastFilePath()
+    {
+        EnsureLoaded();
+        return _lastFilePath ?? string.Empty;
+    }
+
+    public static void SetLastFilePath(string? filePath)
+    {
+        EnsureLoaded();
+        var normalized = string.IsNullOrWhiteSpace(filePath) ? null : filePath;
+        if (_lastFilePath == normalized) return;
+
+        _lastFilePath = normalized;
         Save();
     }
 
@@ -60,6 +77,9 @@ public static class AppSettings
             if (root.TryGetProperty("lastDirectory", out var dirProp))
                 _lastDirectory = dirProp.GetString();
 
+            if (root.TryGetProperty("lastFilePath", out var fileProp))
+                _lastFilePath = fileProp.GetString();
+
             if (root.TryGetProperty("burndownChart", out var chartProp))
             {
                 if (chartProp.TryGetProperty("dailyBarHex", out var bar))
@@ -82,6 +102,7 @@ public static class AppSettings
             var payload = new
             {
                 lastDirectory = _lastDirectory,
+                lastFilePath = _lastFilePath,
                 burndownChart = new
                 {
                     dailyBarHex = _burndownChart.DailyBarHex,
