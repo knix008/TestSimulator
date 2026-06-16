@@ -529,6 +529,7 @@ namespace MyProject.Forms
             _lastSelectedId = taskId;
             taskGridControl.SetSelectedTask(taskId);
             ganttChartControl.SetSelectedTask(taskId);
+            selectionPropertiesControl.SetSelection(taskId, -1);
             UpdateStatus(taskId);
             UpdateTaskToolState();
         }
@@ -1580,10 +1581,7 @@ namespace MyProject.Forms
         {
             SaveSnapshot();
             var task = _model.AddTask("New Task", _lastSelectedId);
-            ganttChartControl.SetSelectedTask(task.Id);
-            taskGridControl.SetSelectedTask(task.Id);
-            _lastSelectedId = task.Id;
-            UpdateStatus(task.Id);
+            SelectTask(task.Id);
             UpdateUndoRedoState();
         }
 

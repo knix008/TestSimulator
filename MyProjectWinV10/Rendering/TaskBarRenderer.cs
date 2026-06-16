@@ -76,8 +76,7 @@ namespace MyProject.Rendering
                 g.DrawRoundedRectangle(glowPen, new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2), radius + 1);
             }
 
-            if (progress > 0)
-                DrawProgressPercentLabel(g, barRect, progress, isSummaryBar: false);
+            DrawProgressPercentLabel(g, barRect, progress, isSummaryBar: false);
 
             DrawAssigneeLabel(g, barRect.Right, rowY, assigneeText);
         }
@@ -112,6 +111,8 @@ namespace MyProject.Rendering
             using (var borderPen = new Pen(Color.Black, 1f))
                 g.DrawRectangle(borderPen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
 
+            DrawSummaryEndCaps(g, barRect, summaryColor);
+
             if (isSelected)
             {
                 var selectionRect = new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2);
@@ -119,10 +120,42 @@ namespace MyProject.Rendering
                 g.DrawRectangle(glowPen, selectionRect);
             }
 
-            if (progress > 0)
-                DrawProgressPercentLabel(g, barRect, progress, isSummaryBar: true);
+            DrawProgressPercentLabel(g, barRect, progress, isSummaryBar: true);
 
             DrawAssigneeLabel(g, barRect.Right, rowY, assigneeText);
+        }
+
+        /// <summary>Inverted triangles hanging below the bar ends; tips aligned with left/right corners.</summary>
+        private static void DrawSummaryEndCaps(Graphics g, Rectangle barRect, Color fillColor)
+        {
+            if (barRect.Width < 8 || barRect.Height < 6)
+                return;
+
+            int capWidth = Math.Clamp(barRect.Height / 2, 4, 7);
+            int capHeight = Math.Clamp(barRect.Height / 3, 3, 5);
+            capWidth = Math.Min(capWidth, barRect.Width / 2);
+
+            int left = barRect.Left;
+            int right = barRect.Right - 1;
+            int bottom = barRect.Bottom - 1;
+
+            using var brush = new SolidBrush(fillColor);
+
+            // Base on bottom edge at left corner; tip points down at the bar start.
+            g.FillPolygon(brush, new[]
+            {
+                new Point(left, bottom),
+                new Point(left + capWidth, bottom),
+                new Point(left, bottom + capHeight)
+            });
+
+            // Base on bottom edge at right corner; tip points down at the bar end.
+            g.FillPolygon(brush, new[]
+            {
+                new Point(right - capWidth, bottom),
+                new Point(right, bottom),
+                new Point(right, bottom + capHeight)
+            });
         }
 
         private void DrawMilestone(Graphics g, ProjectTask task, int rowY, bool isSelected, bool isHovered, string? assigneeText)
