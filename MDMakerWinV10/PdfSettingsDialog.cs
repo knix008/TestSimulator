@@ -16,12 +16,23 @@ public sealed partial class PdfSettingsDialog : Form
         ("Georgia",            "Georgia,serif"),
     ];
 
+    private static readonly (string Display, PageNumberPosition Position)[] ConfidentialPositionOptions =
+    [
+        ("상단 왼쪽", PageNumberPosition.TopLeft),
+        ("상단 가운데", PageNumberPosition.TopCenter),
+        ("상단 오른쪽", PageNumberPosition.TopRight),
+        ("하단 왼쪽", PageNumberPosition.BottomLeft),
+        ("하단 가운데", PageNumberPosition.BottomCenter),
+    ];
+
     public PdfSettingsDialog(PdfSettings? initial)
     {
         InitializeComponent();
         ConfigureAppearance();
         ConfigureNudRanges();
         LoadInitial((initial ?? PdfSettings.CreateDefault()).Clone());
+        _btnBrowseWordTemplate.Click += BrowseWordTemplate_Click;
+        _txtCopyright.TextChanged += (_, _) => RefreshConfidentialPositionOptions();
         FormClosing += OnFormClosing;
     }
 
@@ -35,6 +46,9 @@ public sealed partial class PdfSettingsDialog : Form
     {
         BackColor = UiTheme.Surface;
         UiTheme.StyleGroupBox(_grpFormat);
+        UiTheme.StyleGroupBox(_grpHeaderFooter);
+        UiTheme.StyleGroupBox(_grpWord);
+        UiTheme.StyleSecondaryButton(_btnBrowseWordTemplate, UiIconKind.Folder);
         UiTheme.StylePrimaryButton(_btnOk, UiIconKind.Ok);
         UiTheme.StyleSecondaryButton(_btnReset, UiIconKind.Refresh);
         UiTheme.StyleSecondaryButton(_btnCancel, UiIconKind.Cancel);
@@ -78,6 +92,72 @@ public sealed partial class PdfSettingsDialog : Form
         _nudMarginH.Value    = Clamp((decimal)initial.MarginHorizontalInch, _nudMarginH);
         _chkNumberHeadings.Checked = initial.NumberHeadings;
         _cmbPageNumbers.SelectedIndex = Math.Clamp((int)initial.PageNumbers, 0, _cmbPageNumbers.Items.Count - 1);
+        _txtWordTemplate.Text = initial.WordTemplatePath ?? "";
+        _txtConfidential.Text = initial.Confidential ?? "";
+        _txtCopyright.Text = initial.Copyright ?? "";
+        RefreshConfidentialPositionOptions();
+        SelectConfidentialPosition(initial.ConfidentialPosition);
+    }
+
+    void SelectConfidentialPosition(PageNumberPosition pos)
+    {
+        pos = ExportMarginLayout.NormalizeConfidentialPosition(pos);
+        for (int i = 0; i < _cmbConfidentialPosition.Items.Count; i++)
+        {
+            if (_cmbConfidentialPosition.Items[i] is ConfidentialPositionItem item && item.Position == pos)
+            {
+                _cmbConfidentialPosition.SelectedIndex = i;
+                return;
+            }
+        }
+        _cmbConfidentialPosition.SelectedIndex = Math.Max(0, _cmbConfidentialPosition.Items.Count - 1);
+    }
+
+    void RefreshConfidentialPositionOptions()
+    {
+        bool copyrightSet = !string.IsNullOrWhiteSpace(_txtCopyright.Text);
+        var selected = _cmbConfidentialPosition.SelectedItem as ConfidentialPositionItem;
+
+        _cmbConfidentialPosition.Items.Clear();
+        foreach (var (display, position) in ConfidentialPositionOptions)
+        {
+            if (copyrightSet && position == PageNumberPosition.BottomLeft)
+                continue;
+            _cmbConfidentialPosition.Items.Add(new ConfidentialPositionItem(display, position));
+        }
+
+        if (selected != null && !(copyrightSet && selected.Position == PageNumberPosition.BottomLeft))
+            SelectConfidentialPosition(selected.Position);
+        else if (copyrightSet && selected?.Position == PageNumberPosition.BottomLeft)
+            SelectConfidentialPosition(PageNumberPosition.BottomCenter);
+        else if (_cmbConfidentialPosition.SelectedIndex < 0)
+            SelectConfidentialPosition(PageNumberPosition.TopCenter);
+    }
+
+    sealed record ConfidentialPositionItem(string Display, PageNumberPosition Position)
+    {
+        public override string ToString() => Display;
+    }
+
+    private void BrowseWordTemplate_Click(object? sender, EventArgs e)
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = "Word 양식 파일 선택",
+            Filter = "Word 서식 (*.dotx;*.dotm)|*.dotx;*.dotm|모든 파일 (*.*)|*.*",
+            DefaultExt = "dotx",
+            CheckFileExists = true,
+        };
+        var current = _txtWordTemplate.Text.Trim();
+        if (!string.IsNullOrEmpty(current))
+        {
+            var dir = Path.GetDirectoryName(current);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                dlg.InitialDirectory = dir;
+            dlg.FileName = Path.GetFileName(current);
+        }
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        _txtWordTemplate.Text = dlg.FileName;
     }
 
     private void ApplyDefaults() => LoadInitial(PdfSettings.CreateDefault());
@@ -98,7 +178,16 @@ public sealed partial class PdfSettingsDialog : Form
             MarginHorizontalInch   = (double)_nudMarginH.Value,
             NumberHeadings         = _chkNumberHeadings.Checked,
             PageNumbers            = (PageNumberPosition)Math.Max(0, _cmbPageNumbers.SelectedIndex),
+            WordTemplatePath       = _txtWordTemplate.Text.Trim(),
+            Confidential           = _txtConfidential.Text.Trim(),
+            ConfidentialPosition   = (_cmbConfidentialPosition.SelectedItem as ConfidentialPositionItem)?.Position
+                                     ?? PageNumberPosition.TopCenter,
+            Copyright              = _txtCopyright.Text.Trim(),
         };
+        Result.ConfidentialPosition = ExportMarginLayout.NormalizeConfidentialPosition(Result.ConfidentialPosition);
+        if (!string.IsNullOrWhiteSpace(Result.Copyright)
+            && Result.ConfidentialPosition == PageNumberPosition.BottomLeft)
+            Result.ConfidentialPosition = PageNumberPosition.BottomCenter;
         Result.MigrateLegacyDefaults();
     }
 }

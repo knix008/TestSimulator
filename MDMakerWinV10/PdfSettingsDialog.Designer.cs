@@ -5,6 +5,17 @@ partial class PdfSettingsDialog
     private System.ComponentModel.IContainer components = null;
 
     private GroupBox       _grpFormat;
+    private GroupBox       _grpHeaderFooter;
+    private GroupBox       _grpWord;
+    private Label          _lblConfidential;
+    private TextBox        _txtConfidential;
+    private Label          _lblConfidentialPosition;
+    private ComboBox       _cmbConfidentialPosition;
+    private Label          _lblCopyright;
+    private TextBox        _txtCopyright;
+    private Label          _lblWordTemplate;
+    private TextBox        _txtWordTemplate;
+    private Button         _btnBrowseWordTemplate;
     private Label          _lblFont;
     private ComboBox       _cmbFont;
     private Label          _lblFontSize;
@@ -36,6 +47,17 @@ partial class PdfSettingsDialog
     private void InitializeComponent()
     {
         _grpFormat         = new GroupBox();
+        _grpHeaderFooter   = new GroupBox();
+        _lblConfidential   = new Label();
+        _txtConfidential   = new TextBox();
+        _lblConfidentialPosition = new Label();
+        _cmbConfidentialPosition = new ComboBox();
+        _lblCopyright      = new Label();
+        _txtCopyright      = new TextBox();
+        _grpWord           = new GroupBox();
+        _lblWordTemplate   = new Label();
+        _txtWordTemplate   = new TextBox();
+        _btnBrowseWordTemplate = new Button();
         _lblFont           = new Label();
         _cmbFont           = new ComboBox();
         _lblFontSize       = new Label();
@@ -58,6 +80,8 @@ partial class PdfSettingsDialog
         _btnCancel         = new Button();
 
         _grpFormat.SuspendLayout();
+        _grpHeaderFooter.SuspendLayout();
+        _grpWord.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)_nudFontSize).BeginInit();
         ((System.ComponentModel.ISupportInitialize)_nudLineHeight).BeginInit();
         ((System.ComponentModel.ISupportInitialize)_nudParaSpacing).BeginInit();
@@ -83,7 +107,8 @@ partial class PdfSettingsDialog
         _grpFormat.Controls.Add(_lblFontSize);
         _grpFormat.Controls.Add(_cmbFont);
         _grpFormat.Controls.Add(_lblFont);
-        _grpFormat.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        _grpFormat.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _grpFormat.Dock = DockStyle.Top;
         _grpFormat.Location = new Point(0, 0);
         _grpFormat.Name = "_grpFormat";
         _grpFormat.Padding = new Padding(12, 8, 12, 12);
@@ -210,16 +235,113 @@ partial class PdfSettingsDialog
         _cmbPageNumbers.TabIndex = 15;
         _cmbPageNumbers.SelectedIndex = 2;
 
+        // _grpHeaderFooter
+        _grpHeaderFooter.Controls.Add(_txtCopyright);
+        _grpHeaderFooter.Controls.Add(_lblCopyright);
+        _grpHeaderFooter.Controls.Add(_cmbConfidentialPosition);
+        _grpHeaderFooter.Controls.Add(_lblConfidentialPosition);
+        _grpHeaderFooter.Controls.Add(_txtConfidential);
+        _grpHeaderFooter.Controls.Add(_lblConfidential);
+        _grpHeaderFooter.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _grpHeaderFooter.Dock = DockStyle.Top;
+        _grpHeaderFooter.Location = new Point(0, 316);
+        _grpHeaderFooter.Name = "_grpHeaderFooter";
+        _grpHeaderFooter.Padding = new Padding(12, 8, 12, 12);
+        _grpHeaderFooter.Size = new Size(376, 116);
+        _grpHeaderFooter.TabIndex = 3;
+        _grpHeaderFooter.TabStop = false;
+        _grpHeaderFooter.Text = "머리글 / 바닥글";
+
+        _lblConfidential.AutoSize = true;
+        _lblConfidential.Location = new Point(16, 28);
+        _lblConfidential.Name = "_lblConfidential";
+        _lblConfidential.Size = new Size(72, 15);
+        _lblConfidential.TabIndex = 0;
+        _lblConfidential.Text = "Confidential";
+
+        _txtConfidential.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _txtConfidential.Location = new Point(168, 24);
+        _txtConfidential.Name = "_txtConfidential";
+        _txtConfidential.PlaceholderText = "표시할 문구 (예: Confidential)";
+        _txtConfidential.Size = new Size(192, 23);
+        _txtConfidential.TabIndex = 1;
+
+        _lblConfidentialPosition.AutoSize = true;
+        _lblConfidentialPosition.Location = new Point(16, 56);
+        _lblConfidentialPosition.Name = "_lblConfidentialPosition";
+        _lblConfidentialPosition.Size = new Size(103, 15);
+        _lblConfidentialPosition.TabIndex = 2;
+        _lblConfidentialPosition.Text = "Confidential 위치";
+
+        _cmbConfidentialPosition.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _cmbConfidentialPosition.DropDownStyle = ComboBoxStyle.DropDownList;
+        _cmbConfidentialPosition.Location = new Point(168, 52);
+        _cmbConfidentialPosition.Name = "_cmbConfidentialPosition";
+        _cmbConfidentialPosition.Size = new Size(192, 23);
+        _cmbConfidentialPosition.TabIndex = 3;
+
+        _lblCopyright.AutoSize = true;
+        _lblCopyright.Location = new Point(16, 84);
+        _lblCopyright.Name = "_lblCopyright";
+        _lblCopyright.Size = new Size(115, 15);
+        _lblCopyright.TabIndex = 4;
+        _lblCopyright.Text = "Copyright (하단 좌측)";
+
+        _txtCopyright.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _txtCopyright.Location = new Point(168, 80);
+        _txtCopyright.Name = "_txtCopyright";
+        _txtCopyright.PlaceholderText = "하단 좌측에 표시 (예: © 2026 Company)";
+        _txtCopyright.Size = new Size(192, 23);
+        _txtCopyright.TabIndex = 5;
+
+        // _grpWord
+        _grpWord.Controls.Add(_btnBrowseWordTemplate);
+        _grpWord.Controls.Add(_txtWordTemplate);
+        _grpWord.Controls.Add(_lblWordTemplate);
+        _grpWord.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _grpWord.Dock = DockStyle.Top;
+        _grpWord.Location = new Point(0, 440);
+        _grpWord.Name = "_grpWord";
+        _grpWord.Padding = new Padding(12, 8, 12, 12);
+        _grpWord.Size = new Size(376, 92);
+        _grpWord.TabIndex = 2;
+        _grpWord.TabStop = false;
+        _grpWord.Text = "Word 보내기";
+
+        _lblWordTemplate.AutoSize = true;
+        _lblWordTemplate.Location = new Point(16, 28);
+        _lblWordTemplate.Name = "_lblWordTemplate";
+        _lblWordTemplate.Size = new Size(103, 15);
+        _lblWordTemplate.TabIndex = 0;
+        _lblWordTemplate.Text = "Word 양식 (DOTX)";
+
+        _txtWordTemplate.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _txtWordTemplate.Location = new Point(168, 24);
+        _txtWordTemplate.Name = "_txtWordTemplate";
+        _txtWordTemplate.PlaceholderText = ".dotx / .dotm 파일 경로";
+        _txtWordTemplate.Size = new Size(192, 23);
+        _txtWordTemplate.TabIndex = 1;
+        _txtWordTemplate.ReadOnly = true;
+
+        _btnBrowseWordTemplate.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _btnBrowseWordTemplate.Location = new Point(168, 52);
+        _btnBrowseWordTemplate.Name = "_btnBrowseWordTemplate";
+        _btnBrowseWordTemplate.Size = new Size(192, 25);
+        _btnBrowseWordTemplate.TabIndex = 2;
+        _btnBrowseWordTemplate.Text = "찾아보기...";
+        _btnBrowseWordTemplate.UseVisualStyleBackColor = true;
+
         // Buttons
         _flowButtons.Controls.Add(_btnCancel);
         _flowButtons.Controls.Add(_btnReset);
         _flowButtons.Controls.Add(_btnOk);
+        _flowButtons.Dock = DockStyle.Bottom;
         _flowButtons.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         _flowButtons.FlowDirection = FlowDirection.RightToLeft;
-        _flowButtons.Location = new Point(0, 316);
+        _flowButtons.Location = new Point(0, 540);
         _flowButtons.Name = "_flowButtons";
         _flowButtons.Padding = new Padding(0, 8, 0, 0);
-        _flowButtons.Size = new Size(376, 40);
+        _flowButtons.Size = new Size(376, 48);
         _flowButtons.TabIndex = 1;
         _flowButtons.WrapContents = false;
 
@@ -251,13 +373,16 @@ partial class PdfSettingsDialog
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = _btnCancel;
-        ClientSize = new Size(400, 364);
+        ClientSize = new Size(440, 620);
         Controls.Add(_grpFormat);
+        Controls.Add(_grpHeaderFooter);
+        Controls.Add(_grpWord);
         Controls.Add(_flowButtons);
         Font = new Font("Segoe UI", 9F);
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
         MinimizeBox = false;
+        MinimumSize = new Size(420, 520);
         Name = "PdfSettingsDialog";
         Padding = new Padding(12, 12, 12, 8);
         StartPosition = FormStartPosition.CenterParent;
@@ -265,6 +390,10 @@ partial class PdfSettingsDialog
 
         _grpFormat.ResumeLayout(false);
         _grpFormat.PerformLayout();
+        _grpHeaderFooter.ResumeLayout(false);
+        _grpHeaderFooter.PerformLayout();
+        _grpWord.ResumeLayout(false);
+        _grpWord.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)_nudFontSize).EndInit();
         ((System.ComponentModel.ISupportInitialize)_nudLineHeight).EndInit();
         ((System.ComponentModel.ISupportInitialize)_nudParaSpacing).EndInit();

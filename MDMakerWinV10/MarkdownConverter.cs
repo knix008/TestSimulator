@@ -2,9 +2,6 @@
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -222,66 +219,9 @@ public static class MarkdownConverter
     public static string RenumberHeadings(string markdown) =>
         ApplyHeadingNumberingToMarkdown(StripHeadingNumbers(markdown));
 
-    // DOCX via AltChunk: Word opens the embedded HTML and converts it natively.
-    public static void ToDocx(string markdown, string outputPath, PdfSettings? settings = null)
-    {
-        const string chunkId = "chunk1";
-        settings ??= PdfSettings.CreateDefault();
-        // UTF-8 BOM helps Word detect encoding correctly
-        byte[] htmlBytes = Encoding.UTF8.GetPreamble()
-            .Concat(Encoding.UTF8.GetBytes(ToHtml(markdown, settings))).ToArray();
-
-        using var doc = WordprocessingDocument.Create(outputPath, WordprocessingDocumentType.Document);
-        var main = doc.AddMainDocumentPart();
-        main.Document = new Document(new Body());
-
-        var chunk = main.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.Html, chunkId);
-        using var ms = new MemoryStream(htmlBytes);
-        chunk.FeedData(ms);
-
-        // Id maps to r:id in OOXML — links AltChunk to the HTML relationship
-        main.Document.Body!.AppendChild(new AltChunk { Id = chunkId });
-        AddDocxPageNumbers(main, settings.PageNumbers);
-        main.Document.Save();
-    }
-
-    static void AddDocxPageNumbers(MainDocumentPart main, PageNumberPosition pos)
-    {
-        if (pos == PageNumberPosition.None) return;
-
-        bool isTop = pos >= PageNumberPosition.TopLeft;
-        JustificationValues align = pos switch
-        {
-            PageNumberPosition.BottomCenter or PageNumberPosition.TopCenter => JustificationValues.Center,
-            PageNumberPosition.BottomRight  or PageNumberPosition.TopRight  => JustificationValues.Right,
-            _ => JustificationValues.Left,
-        };
-
-        var para = new Paragraph();
-        para.Append(new ParagraphProperties(new Justification { Val = align }));
-        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Begin }));
-        para.Append(new Run(new FieldCode(" PAGE ")));
-        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Separate }));
-        para.Append(new Run(new Text("1")));
-        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.End }));
-
-        var sectPr = new SectionProperties();
-        if (isTop)
-        {
-            var part = main.AddNewPart<HeaderPart>();
-            part.Header = new Header(para);
-            part.Header.Save();
-            sectPr.Append(new HeaderReference { Type = HeaderFooterValues.Default, Id = main.GetIdOfPart(part) });
-        }
-        else
-        {
-            var part = main.AddNewPart<FooterPart>();
-            part.Footer = new Footer(para);
-            part.Footer.Save();
-            sectPr.Append(new FooterReference { Type = HeaderFooterValues.Default, Id = main.GetIdOfPart(part) });
-        }
-        main.Document!.Body!.AppendChild(sectPr);
-    }
+    // DOCX: DOTX 템플릿이 지정되면 템플릿 양식으로, 없으면 HTML AltChunk 방식.
+    public static void ToDocx(string markdown, string outputPath, PdfSettings? settings = null) =>
+        WordDocxExporter.Export(markdown, outputPath, settings);
 
     private static string GetHeadingText(HeadingBlock h)
     {
@@ -329,19 +269,8 @@ public static class MarkdownConverter
               }
             """;
 
-        // CSS @page margin-box page numbers (Chrome 128+ / modern WebView2)
-        string pageNumSelector = settings.PageNumbers switch
-        {
-            PageNumberPosition.BottomLeft   => "@bottom-left",
-            PageNumberPosition.BottomCenter => "@bottom-center",
-            PageNumberPosition.BottomRight  => "@bottom-right",
-            PageNumberPosition.TopLeft      => "@top-left",
-            PageNumberPosition.TopCenter    => "@top-center",
-            PageNumberPosition.TopRight     => "@top-right",
-            _                               => "",
-        };
-        string pageNumCss = pageNumSelector == "" ? ""
-            : $"\n  @page{{{pageNumSelector}{{content:counter(page);font-family:{ff};font-size:9pt;color:#555}}}}";
+        // CSS @page margin-box: Confidential(머리글), Copyright(바닥글), 페이지 번호
+        string pageMarginCss = BuildPageMarginCss(settings, ff);
         return $$"""
             <!DOCTYPE html>
             <html><head>
@@ -371,11 +300,44 @@ public static class MarkdownConverter
               ul,ol{padding-left:1.8em;margin:0 0 {{ps}}em}
               li{margin:.1em 0}
             {{screenPadCss}}
-            {{pageNumCss}}
+            {{pageMarginCss}}
             </style>
             </head><body>
             {{body}}
             </body></html>
             """;
     }
+
+    static string BuildPageMarginCss(PdfSettings settings, string fontFamily)
+    {
+        var layout = ExportMarginLayout.Resolve(settings);
+        if (layout.ConfidentialText == null && layout.CopyrightText == null && layout.PageNumberSlot == null)
+            return "";
+
+        const string boxStyle = "font-size:9pt;color:#555";
+        var boxes = new List<string>();
+
+        if (layout.ConfidentialText != null && layout.ConfidentialSlot != null)
+        {
+            string selector = ExportMarginLayout.MarginBoxSelector(layout.ConfidentialSlot.Value);
+            boxes.Add($"@{selector}{{content:{EscapeCssContent(layout.ConfidentialText)};font-family:{fontFamily};{boxStyle}}}");
+        }
+
+        if (layout.CopyrightText != null && layout.CopyrightSlot != null)
+        {
+            string selector = ExportMarginLayout.MarginBoxSelector(layout.CopyrightSlot.Value);
+            boxes.Add($"@{selector}{{content:{EscapeCssContent(layout.CopyrightText)};font-family:{fontFamily};{boxStyle}}}");
+        }
+
+        if (layout.PageNumberSlot != null)
+        {
+            string selector = ExportMarginLayout.MarginBoxSelector(layout.PageNumberSlot.Value);
+            boxes.Add($"@{selector}{{content:counter(page);font-family:{fontFamily};{boxStyle}}}");
+        }
+
+        return $"\n  @page{{{string.Join(";", boxes)}}}";
+    }
+
+    static string EscapeCssContent(string text) =>
+        "\"" + text.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 }

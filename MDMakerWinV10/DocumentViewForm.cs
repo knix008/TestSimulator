@@ -92,7 +92,8 @@ public partial class DocumentViewForm : Form
 
     private static string PdfSettingsKey(PdfSettings s) =>
         $"{s.FontFamily}|{s.FontSizePt:0.##}|{s.LineHeight:0.##}|{s.ParagraphSpacingEm:0.##}|" +
-        $"{s.MarginVerticalInch:0.##}|{s.MarginHorizontalInch:0.##}|{s.NumberHeadings}|{s.PageNumbers}";
+        $"{s.MarginVerticalInch:0.##}|{s.MarginHorizontalInch:0.##}|{s.NumberHeadings}|{s.PageNumbers}|{s.WordTemplatePath}|" +
+        $"{s.Confidential}|{s.ConfidentialPosition}|{s.Copyright}";
 
     protected override void OnActivated(EventArgs e)
     {

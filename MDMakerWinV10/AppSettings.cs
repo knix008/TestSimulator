@@ -26,6 +26,18 @@ public class PdfSettings
     public bool                NumberHeadings { get; set; } = true;
     public PageNumberPosition  PageNumbers    { get; set; } = PageNumberPosition.BottomCenter;
 
+    /// <summary>Word 보내기용 DOTX/DOTM 템플릿 경로. 비어 있으면 HTML 변환 방식을 사용합니다.</summary>
+    public string WordTemplatePath { get; set; } = "";
+
+    /// <summary>머리글 Confidential 문구. 비어 있으면 표시하지 않습니다.</summary>
+    public string Confidential { get; set; } = "";
+
+    /// <summary>Confidential 표시 위치 (상·하단 좌/중앙/우 중 하단 우측 제외).</summary>
+    public PageNumberPosition ConfidentialPosition { get; set; } = PageNumberPosition.TopCenter;
+
+    /// <summary>바닥글 Copyright 문구 (하단 좌측 고정). 비어 있으면 표시하지 않습니다.</summary>
+    public string Copyright { get; set; } = "";
+
     public static PageNumberPosition DefaultPageNumbers => PageNumberPosition.BottomCenter;
 
     public static PdfSettings CreateDefault() => new();
@@ -45,6 +57,7 @@ public class PdfSettings
             MarginVerticalInch = 0.75;
         if (MarginHorizontalInch <= 0)
             MarginHorizontalInch = 1.0;
+        ConfidentialPosition = ExportMarginLayout.NormalizeConfidentialPosition(ConfidentialPosition);
     }
 
     /// <summary>이전 버전 기본값(줄간격 1.0 등)을 현재 기본값으로 올립니다.</summary>
@@ -65,12 +78,20 @@ public class PdfSettings
         MarginHorizontalInch = MarginHorizontalInch,
         NumberHeadings       = NumberHeadings,
         PageNumbers          = PageNumbers,
+        WordTemplatePath     = WordTemplatePath,
+        Confidential         = Confidential,
+        ConfidentialPosition = ConfidentialPosition,
+        Copyright            = Copyright,
     };
 
     public bool Matches(PdfSettings other) =>
         NumberHeadings == other.NumberHeadings
         && PageNumbers == other.PageNumbers
+        && ConfidentialPosition == other.ConfidentialPosition
         && FontFamily == other.FontFamily
+        && WordTemplatePath == other.WordTemplatePath
+        && Confidential == other.Confidential
+        && Copyright == other.Copyright
         && Math.Abs(LineHeight - other.LineHeight) < 0.001
         && Math.Abs(FontSizePt - other.FontSizePt) < 0.001
         && Math.Abs(ParagraphSpacingEm - other.ParagraphSpacingEm) < 0.001

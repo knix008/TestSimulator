@@ -402,9 +402,9 @@ partial class MainForm
         // _btnBrowseSrc
         // 
         _btnBrowseSrc.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _btnBrowseSrc.Location = new Point(776, 15);
+        _btnBrowseSrc.Location = new Point(776, 17);
         _btnBrowseSrc.Name = "_btnBrowseSrc";
-        _btnBrowseSrc.Size = new Size(96, 32);
+        _btnBrowseSrc.Size = new Size(96, 28);
         _btnBrowseSrc.TabIndex = 2;
         _btnBrowseSrc.Text = "찾기";
         _btnBrowseSrc.UseVisualStyleBackColor = true;
@@ -465,7 +465,7 @@ partial class MainForm
         _btnExportSettings.Name = "_btnExportSettings";
         _btnExportSettings.Size = new Size(128, 32);
         _btnExportSettings.TabIndex = 2;
-        _btnExportSettings.Text = "보내기 서식";
+        _btnExportSettings.Text = "내보내기 서식";
         _btnExportSettings.UseVisualStyleBackColor = true;
         _btnExportSettings.Click += ExportSettings_Click;
         // 
@@ -507,7 +507,7 @@ partial class MainForm
         // _txtOutput
         // 
         _txtOutput.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _txtOutput.Location = new Point(80, 20);
+        _txtOutput.Location = new Point(80, 17);
         _txtOutput.Name = "_txtOutput";
         _txtOutput.Size = new Size(688, 23);
         _txtOutput.TabIndex = 1;
@@ -518,7 +518,7 @@ partial class MainForm
         _btnBrowseOut.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         _btnBrowseOut.Location = new Point(776, 14);
         _btnBrowseOut.Name = "_btnBrowseOut";
-        _btnBrowseOut.Size = new Size(96, 32);
+        _btnBrowseOut.Size = new Size(96, 31);
         _btnBrowseOut.TabIndex = 2;
         _btnBrowseOut.Text = "찾기";
         _btnBrowseOut.UseVisualStyleBackColor = true;
@@ -547,7 +547,7 @@ partial class MainForm
         Name = "MainForm";
         Padding = new Padding(10, 0, 10, 10);
         StartPosition = FormStartPosition.CenterScreen;
-        Text = "MD Merge v1.0";
+        Text = "MarkDown 통합기";
         _menuMain.ResumeLayout(false);
         _menuMain.PerformLayout();
         _splitMain.Panel1.ResumeLayout(false);
