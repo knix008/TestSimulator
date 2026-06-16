@@ -1,42 +1,49 @@
 ﻿using MyProject.Rendering;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace MyProject.Theme
 {
     public class DarkMenuRenderer : ToolStripProfessionalRenderer
     {
+        private static readonly Color MenuBackground = Color.FromArgb(40, 45, 55);
+
         public DarkMenuRenderer() : base(new DarkMenuColorTable()) { }
 
         protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
         {
             var item = e.Item;
             var g = e.Graphics;
-            var rect = new Rectangle(1, 1, item.Width - 2, item.Height - 2);
 
-            if (!item.Enabled)
+            Color bg = GetMenuItemBackground(item);
+            using var brush = new SolidBrush(bg);
+            g.FillRectangle(brush, new Rectangle(0, 0, item.Width, item.Height));
+
+            if (item.Enabled && (item.Selected || item.Pressed))
             {
-                using var b = new SolidBrush(Color.FromArgb(40, 45, 55));
-                g.FillRectangle(b, new Rectangle(0, 0, item.Width, item.Height));
+                var rect = new Rectangle(1, 1, item.Width - 2, item.Height - 2);
+                using var border = new Pen(AppTheme.ToolbarButtonHover);
+                g.DrawRectangle(border, rect);
+            }
+        }
+
+        protected override void OnRenderImageMargin(ToolStripRenderEventArgs e)
+        {
+            using var brush = new SolidBrush(MenuBackground);
+            e.Graphics.FillRectangle(brush, e.AffectedBounds);
+        }
+
+        protected override void OnRenderItemImage(ToolStripItemImageRenderEventArgs e)
+        {
+            if (e.Image == null)
                 return;
-            }
 
-            if (item.Selected || item.Pressed)
-            {
-                using var b = new SolidBrush(AppTheme.ToolbarButtonHover);
-                g.FillRectangle(b, rect);
-                using var rp = new Pen(AppTheme.ToolbarButtonHover);
-                g.DrawRectangle(rp, rect);
-            }
-            else
-            {
-                using var b = new SolidBrush(Color.FromArgb(40, 45, 55));
-                g.FillRectangle(b, new Rectangle(0, 0, item.Width, item.Height));
-            }
+            DrawMenuItemIcon(e.Graphics, e.Image, e.ImageRectangle, GetMenuItemBackground(e.Item));
         }
 
         protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
         {
-            using var b = new SolidBrush(Color.FromArgb(40, 45, 55));
+            using var b = new SolidBrush(MenuBackground);
             e.Graphics.FillRectangle(b, e.AffectedBounds);
         }
 
@@ -65,11 +72,14 @@ namespace MyProject.Theme
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             var rect = e.ImageRectangle;
+            Color bg = GetMenuItemBackground(e.Item);
 
             if (e.Item is ToolStripMenuItem { Image: Image img })
+                DrawMenuItemIcon(g, img, rect, bg);
+            else
             {
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.DrawImage(img, rect);
+                using var brush = new SolidBrush(bg);
+                g.FillRectangle(brush, rect);
             }
 
             using var pen = new Pen(AppTheme.Accent, 2f);
@@ -79,12 +89,44 @@ namespace MyProject.Theme
                 new(rect.Right - 2, rect.Y + 2)
             });
         }
+
+        private static Color GetMenuItemBackground(ToolStripItem item)
+        {
+            if (!item.Enabled)
+                return MenuBackground;
+            if (item.Selected || item.Pressed)
+                return AppTheme.ToolbarButtonHover;
+            return MenuBackground;
+        }
+
+        private static void DrawMenuItemIcon(Graphics g, Image image, Rectangle dest, Color background)
+        {
+            using var bgBrush = new SolidBrush(background);
+            g.FillRectangle(bgBrush, dest);
+
+            var matrix = new ColorMatrix(new float[][]
+            {
+                new float[] {0, 0, 0, 0, 0},
+                new float[] {0, 0, 0, 0, 0},
+                new float[] {0, 0, 0, 0, 0},
+                new float[] {0, 0, 0, 1, 0},
+                new float[] {1, 1, 1, 0, 1}
+            });
+
+            var attrs = new ImageAttributes();
+            attrs.SetColorMatrix(matrix);
+
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.DrawImage(image, dest, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, attrs);
+        }
     }
 
     internal class DarkMenuColorTable : ProfessionalColorTable
     {
-        public override Color MenuStripGradientBegin => Color.FromArgb(40, 45, 55);
-        public override Color MenuStripGradientEnd => Color.FromArgb(40, 45, 55);
+        private static Color MenuBackground => Color.FromArgb(40, 45, 55);
+
+        public override Color MenuStripGradientBegin => MenuBackground;
+        public override Color MenuStripGradientEnd => MenuBackground;
         public override Color MenuItemSelected => AppTheme.ToolbarButtonHover;
         public override Color MenuItemSelectedGradientBegin => AppTheme.ToolbarButtonHover;
         public override Color MenuItemSelectedGradientEnd => AppTheme.ToolbarButtonHover;
@@ -92,10 +134,10 @@ namespace MyProject.Theme
         public override Color MenuItemPressedGradientEnd => AppTheme.ToolbarButtonPressed;
         public override Color MenuItemBorder => Color.FromArgb(60, 70, 85);
         public override Color MenuBorder => Color.FromArgb(60, 70, 85);
-        public override Color ToolStripDropDownBackground => Color.FromArgb(40, 45, 55);
-        public override Color ImageMarginGradientBegin => Color.FromArgb(40, 45, 55);
-        public override Color ImageMarginGradientMiddle => Color.FromArgb(40, 45, 55);
-        public override Color ImageMarginGradientEnd => Color.FromArgb(40, 45, 55);
+        public override Color ToolStripDropDownBackground => MenuBackground;
+        public override Color ImageMarginGradientBegin => MenuBackground;
+        public override Color ImageMarginGradientMiddle => MenuBackground;
+        public override Color ImageMarginGradientEnd => MenuBackground;
         public override Color SeparatorDark => Color.FromArgb(70, 80, 95);
         public override Color SeparatorLight => Color.FromArgb(70, 80, 95);
     }

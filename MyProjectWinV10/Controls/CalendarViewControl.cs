@@ -8,12 +8,21 @@ namespace MyProject.Controls
     public sealed class CalendarViewControl : Control
     {
         private const int NavBarHeight = 36;
+        private const int UnitButtonWidth = 62;
+        private const int UnitButtonHeight = 28;
+        private const int UnitButtonGap = 4;
+        private const int UnitSelectorRightMargin = 8;
         private const int DayHeaderHeight = 26;
         private const int WeekRowHeight = 28;
         private const int MonthDayLabelHeight = 18;
         private const int MonthTaskBarHeight = 14;
         private const int MonthTaskBarGap = 2;
-        private const int YearMonthGap = 8;
+        private const int YearMonthGap = 10;
+        private const int YearTileTitleHeight = 22;
+        private const int YearTileInnerPadding = 5;
+        private static readonly Color YearGridBackground = Color.FromArgb(245, 247, 250);
+        private static readonly Color YearTileBorderColor = Color.FromArgb(206, 211, 218);
+        private static readonly Color YearMiniGridColor = Color.FromArgb(228, 232, 238);
         private const int YearMiniBarHeight = 3;
         private const int YearMiniBarGap = 1;
         private const int CalendarNoteWidth = 72;
@@ -41,8 +50,10 @@ namespace MyProject.Controls
         public Action? RequestUndoSnapshot { get; set; }
 
         public event EventHandler<int>? TaskSelected;
+        public event EventHandler<int>? TaskDoubleClicked;
         public event EventHandler<int>? NoteSelected;
         public event EventHandler<int>? NoteDoubleClicked;
+        public event EventHandler<CalendarDisplayUnit>? DisplayUnitChanged;
 
         public int SelectedNoteId => _selectedNoteId;
 
@@ -55,6 +66,7 @@ namespace MyProject.Controls
                 _unit = value;
                 _scrollY = 0;
                 SyncScrollbars();
+                DisplayUnitChanged?.Invoke(this, _unit);
                 Invalidate();
             }
         }
@@ -94,7 +106,7 @@ namespace MyProject.Controls
 
             var content = GetContentRect();
             var metrics = BuildViewMetrics(content);
-            var anchor = ClampDateToMetrics(task.EndDate.AddDays(1), metrics);
+            var anchor = ClampDateToMetrics(task.StartDate, metrics);
             var rect = GetDefaultNoteRect(anchor, metrics);
 
             RequestUndoSnapshot?.Invoke();
@@ -134,10 +146,39 @@ namespace MyProject.Controls
                 return;
 
             var content = GetContentRect();
+
+            if (TryHitTestNoteIndicator(e.Location, content, out int indicatorNoteId))
+            {
+                SelectNote(indicatorNoteId);
+                NoteDoubleClicked?.Invoke(this, indicatorNoteId);
+                return;
+            }
+
             if (TryHitTestNote(e.Location, content, out int noteId))
             {
                 SelectNote(noteId);
                 NoteDoubleClicked?.Invoke(this, noteId);
+                return;
+            }
+
+            if (TryHitTestTask(e.Location, content, out int taskId))
+            {
+                SelectTask(taskId);
+                TaskDoubleClicked?.Invoke(this, taskId);
+                return;
+            }
+
+            if (_unit == CalendarDisplayUnit.Year)
+            {
+                var monthDate = HitTestYearMonthRect(e.Location, content);
+                if (monthDate.HasValue)
+                {
+                    DisplayUnit = CalendarDisplayUnit.Month;
+                    _focusDate = monthDate.Value;
+                    _scrollY = 0;
+                    SyncScrollbars();
+                    Invalidate();
+                }
             }
         }
 
@@ -200,6 +241,7 @@ namespace MyProject.Controls
             _selectedTaskId = taskId;
             if (taskId >= 0)
                 _selectedNoteId = -1;
+            TaskSelected?.Invoke(this, taskId);
             Invalidate();
         }
 
@@ -298,13 +340,21 @@ namespace MyProject.Controls
                     NavigatePrevious();
                 else if (nextRect.Contains(e.Location))
                     NavigateNext();
-                else if (todayRect.Contains(e.Location))
+                else                 if (todayRect.Contains(e.Location))
                     GoToToday();
+                else if (TryHitTestUnitButton(e.Location, content, out var unit))
+                    DisplayUnit = unit;
                 return;
             }
 
             if (TryBeginNoteDrag(e.Location, content))
                 return;
+
+            if (TryHitTestNoteIndicator(e.Location, content, out int noteIndicatorId))
+            {
+                SelectNote(noteIndicatorId);
+                return;
+            }
 
             if (_noteModeActive && TryHitTestTask(e.Location, content, out int noteTaskId))
             {
@@ -322,8 +372,8 @@ namespace MyProject.Controls
                 if (TryHitTestMonthTask(e.Location, content, out int taskId))
                     SelectTask(taskId);
             }
-            else if (!HitTestYearInteractive(e.Location, content))
-                HitTestYearMonth(e.Location, content);
+            else if (_unit == CalendarDisplayUnit.Year)
+                HitTestYearInteractive(e.Location, content);
         }
 
         private void AddNoteForTaskAtClick(int taskId, Point pt, Rectangle content)
@@ -332,7 +382,7 @@ namespace MyProject.Controls
                 return;
 
             var metrics = BuildViewMetrics(content);
-            var anchor = GetDateFromPoint(pt, metrics) ?? _model.GetTask(taskId)?.EndDate.AddDays(1) ?? DateTime.Today;
+            var anchor = GetDateFromPoint(pt, metrics) ?? _model.GetTask(taskId)?.StartDate ?? DateTime.Today;
             anchor = ClampDateToMetrics(anchor, metrics);
             var rect = GetDefaultNoteRect(anchor, metrics);
 
@@ -477,45 +527,95 @@ namespace MyProject.Controls
 
             int btnSize = 28;
             int y = content.Y + (NavBarHeight - btnSize) / 2;
-            DrawNavButton(g, new Rectangle(content.X + 8, y, btnSize, btnSize), "◀");
-            DrawNavButton(g, new Rectangle(content.X + 8 + btnSize + 4, y, btnSize, btnSize), "▶");
-            DrawNavButton(g, new Rectangle(content.X + 8 + (btnSize + 4) * 2 + 8, y, 52, btnSize), "Today");
+            DrawNavButton(g, new Rectangle(content.X + 8, y, btnSize, btnSize), "◀", selected: false);
+            DrawNavButton(g, new Rectangle(content.X + 8 + btnSize + 4, y, btnSize, btnSize), "▶", selected: false);
+            DrawNavButton(g, new Rectangle(content.X + 8 + (btnSize + 4) * 2 + 8, y, 52, btnSize), "Today", selected: false);
 
+            DrawUnitSelector(g, content);
+
+            int unitSelectorWidth = UnitButtonWidth * 3 + UnitButtonGap * 2 + UnitSelectorRightMargin;
             string title = GetPeriodTitle();
             using var titleBrush = new SolidBrush(AppTheme.TextPrimary);
             using var titleFont = new Font(Font.FontFamily, Font.Size + 1f, FontStyle.Bold);
-            var titleRect = new Rectangle(content.X + 160, content.Y, content.Width - 170, NavBarHeight);
-            var sf = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
+            int titleLeft = content.X + 160;
+            int titleRight = content.Right - unitSelectorWidth;
+            var titleRect = new Rectangle(titleLeft, content.Y, Math.Max(80, titleRight - titleLeft), NavBarHeight);
+            var sf = new StringFormat
+            {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
             g.DrawString(title, titleFont, titleBrush, titleRect, sf);
 
             using var linePen = new Pen(AppTheme.BorderColor);
             g.DrawLine(linePen, content.X, content.Y + NavBarHeight - 1, content.Right, content.Y + NavBarHeight - 1);
         }
 
-        private static void DrawNavButton(Graphics g, Rectangle rect, string text)
+        private void DrawUnitSelector(Graphics g, Rectangle content)
         {
-            using var fill = new SolidBrush(Color.FromArgb(248, 249, 251));
-            using var border = new Pen(AppTheme.BorderColor);
-            g.FillRectangle(fill, rect);
+            foreach (var unit in new[] { CalendarDisplayUnit.Year, CalendarDisplayUnit.Month, CalendarDisplayUnit.Week })
+            {
+                var rect = GetUnitButtonRect(unit, content);
+                DrawNavButton(g, rect, CalendarDisplayUnitInfo.GetDisplayName(unit), _unit == unit);
+            }
+        }
+
+        private Rectangle GetUnitButtonRect(CalendarDisplayUnit unit, Rectangle content)
+        {
+            int totalWidth = UnitButtonWidth * 3 + UnitButtonGap * 2;
+            int left = content.Right - UnitSelectorRightMargin - totalWidth;
+            int y = content.Y + (NavBarHeight - UnitButtonHeight) / 2;
+            int index = unit switch
+            {
+                CalendarDisplayUnit.Week => 2,
+                CalendarDisplayUnit.Month => 1,
+                _ => 0
+            };
+            return new Rectangle(left + index * (UnitButtonWidth + UnitButtonGap), y, UnitButtonWidth, UnitButtonHeight);
+        }
+
+        private bool TryHitTestUnitButton(Point pt, Rectangle content, out CalendarDisplayUnit unit)
+        {
+            foreach (var candidate in new[] { CalendarDisplayUnit.Week, CalendarDisplayUnit.Month, CalendarDisplayUnit.Year })
+            {
+                if (GetUnitButtonRect(candidate, content).Contains(pt))
+                {
+                    unit = candidate;
+                    return true;
+                }
+            }
+
+            unit = CalendarDisplayUnit.Month;
+            return false;
+        }
+
+        private static void DrawNavButton(Graphics g, Rectangle rect, string text, bool selected)
+        {
+            Color fill = selected ? Color.FromArgb(220, AppTheme.Accent) : Color.FromArgb(248, 249, 251);
+            using var fillBrush = new SolidBrush(fill);
+            using var border = new Pen(selected ? AppTheme.AccentDark : AppTheme.BorderColor, selected ? 1.5f : 1f);
+            g.FillRectangle(fillBrush, rect);
             g.DrawRectangle(border, rect.X, rect.Y, rect.Width - 1, rect.Height - 1);
 
-            using var brush = new SolidBrush(AppTheme.TextPrimary);
+            using var brush = new SolidBrush(selected ? Color.White : AppTheme.TextPrimary);
+            using var font = new Font(SystemFonts.DefaultFont, selected ? FontStyle.Bold : FontStyle.Regular);
             var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            g.DrawString(text, SystemFonts.DefaultFont, brush, rect, sf);
+            g.DrawString(text, font, brush, rect, sf);
         }
 
         private string GetPeriodTitle()
         {
-            var culture = System.Globalization.CultureInfo.CurrentCulture;
             return _unit switch
             {
                 CalendarDisplayUnit.Week =>
                     $"{GetWeekStart(_focusDate):yyyy-MM-dd} – {GetWeekStart(_focusDate).AddDays(6):yyyy-MM-dd}",
                 CalendarDisplayUnit.Month =>
-                    _focusDate.ToString("Y", culture),
+                    _focusDate.ToString("Y", DisplayCulture.English),
                 CalendarDisplayUnit.Year =>
-                    _focusDate.ToString("yyyy", culture),
-                _ => _focusDate.ToString("Y", culture)
+                    _focusDate.ToString("yyyy", DisplayCulture.English),
+                _ => _focusDate.ToString("Y", DisplayCulture.English)
             };
         }
 
@@ -544,6 +644,8 @@ namespace MyProject.Controls
 
                 DrawWeekTaskBar(g, tasks[i], weekStart, body.X, rowY, colWidth, WeekRowHeight - 4);
             }
+
+            DrawWeekNoteIndicators(g, body, weekStart, colWidth);
         }
 
         private void DrawWeekTaskBar(Graphics g, ProjectTask task, DateTime weekStart, int left, int rowY, int colWidth, int barHeight)
@@ -583,6 +685,8 @@ namespace MyProject.Controls
                 DrawVerticalDayLines(g, body, 7, colWidth, gridTop + w * rowHeight, rowHeight);
                 DrawMonthWeekTaskBars(g, body, gridStart, w, gridTop, rowHeight, colWidth);
             }
+
+            DrawMonthNoteIndicators(g, body, gridStart, gridTop, rowHeight, colWidth);
         }
 
         private void DrawMonthCellBackground(Graphics g, Rectangle cell, DateTime day, int currentMonth)
@@ -603,7 +707,8 @@ namespace MyProject.Controls
             g.DrawRectangle(borderPen, cell.X, cell.Y, cell.Width - 1, cell.Height - 1);
 
             var dayRect = new Rectangle(cell.X + 4, cell.Y + 2, cell.Width - 8, MonthDayLabelHeight);
-            using var dayBrush = new SolidBrush(inMonth ? AppTheme.TextPrimary : AppTheme.TextSecondary);
+            Color dayColor = GetCalendarDayTextColor(day, inMonth);
+            using var dayBrush = new SolidBrush(dayColor);
             using var dayFont = new Font(Font, isToday ? FontStyle.Bold : FontStyle.Regular);
             g.DrawString(day.Day.ToString(), dayFont, dayBrush, dayRect);
         }
@@ -701,19 +806,28 @@ namespace MyProject.Controls
             if (barRect.Width <= 0 || barRect.Height <= 0)
                 return;
 
+            if (task.TaskType == TaskType.Milestone)
+            {
+                DrawCalendarMilestone(g, task, barRect);
+                return;
+            }
+
             bool selected = task.Id == _selectedTaskId;
-            Color color = GetTaskColor(task);
+            TaskBarColorResolver.ResolveCalendarBarColors(
+                task, _showCriticalPath, selected, out Color barColor, out Color progressColor);
+            bool isSummary = task.TaskType == TaskType.Summary;
+
             var fillRect = barRect;
             if (fillRect.Width < 2)
                 fillRect.Width = 2;
             if (fillRect.Height < 2)
                 fillRect.Height = 2;
 
-            using var brush = new SolidBrush(color);
-            bool canRound = fillRect.Width >= 12 && fillRect.Height >= 8;
+            using var brush = new SolidBrush(barColor);
+            bool canRound = !isSummary && fillRect.Width >= 12 && fillRect.Height >= 8;
             int radius = Math.Min(4, fillRect.Height / 2);
 
-            if (!canRound)
+            if (isSummary || !canRound)
             {
                 g.FillRectangle(brush, fillRect);
             }
@@ -753,12 +867,33 @@ namespace MyProject.Controls
                 g.FillPath(brush, path);
             }
 
-            using (var borderPen = new Pen(DarkenColor(color, 30), selected ? 2f : 1f))
+            double progress = Math.Clamp(task.Progress, 0, 100);
+            if (progress > 0)
+            {
+                var progressBounds = isSummary
+                    ? new Rectangle(
+                        fillRect.X + 2,
+                        fillRect.Y + 2,
+                        Math.Max(1, fillRect.Width - 4),
+                        Math.Max(1, fillRect.Height - 4))
+                    : fillRect;
+                int progressWidth = Math.Max(2, (int)(progressBounds.Width * progress / 100.0));
+                var progressRect = new Rectangle(progressBounds.X, progressBounds.Y, progressWidth, progressBounds.Height);
+                using var progressBrush = new SolidBrush(progressColor);
+                g.FillRectangle(progressBrush, progressRect);
+            }
+
+            Color borderColor = isSummary
+                ? Color.Black
+                : selected ? AppTheme.AccentDark : TaskBarColorResolver.DarkenColor(barColor, 30);
+            using (var borderPen = new Pen(borderColor, selected ? 2f : 1f))
                 g.DrawRectangle(borderPen, fillRect.X, fillRect.Y, fillRect.Width - 1, fillRect.Height - 1);
 
             if (!continuesFromLeft && fillRect.Width > 24)
             {
-                using var textBrush = new SolidBrush(Color.White);
+                Color textColor = TaskBarColorResolver.GetCalendarTaskTextColor(
+                    fillRect, barColor, progressColor, progress);
+                using var textBrush = new SolidBrush(textColor);
                 var textRect = Rectangle.Inflate(fillRect, -4, 0);
                 var sf = new StringFormat
                 {
@@ -771,47 +906,81 @@ namespace MyProject.Controls
             }
         }
 
-        private static Color DarkenColor(Color color, int amount) =>
-            Color.FromArgb(
-                color.A,
-                Math.Clamp(color.R - amount, 0, 255),
-                Math.Clamp(color.G - amount, 0, 255),
-                Math.Clamp(color.B - amount, 0, 255));
+        private void DrawCalendarMilestone(Graphics g, ProjectTask task, Rectangle barRect)
+        {
+            bool selected = task.Id == _selectedTaskId;
+            Color fillColor = TaskBarColorResolver.GetMilestoneColor(task, selected);
+            int half = Math.Max(3, Math.Min(barRect.Width, barRect.Height) / 2);
+            int cx = barRect.X + barRect.Width / 2;
+            int cy = barRect.Y + barRect.Height / 2;
+            var diamond = new[]
+            {
+                new Point(cx, cy - half),
+                new Point(cx + half, cy),
+                new Point(cx, cy + half),
+                new Point(cx - half, cy)
+            };
+
+            using var brush = new SolidBrush(fillColor);
+            g.FillPolygon(brush, diamond);
+
+            Color borderBase = !task.BarColor.IsEmpty ? task.BarColor : AppTheme.TaskBarMilestone;
+            using var pen = new Pen(TaskBarColorResolver.DarkenColor(borderBase, 40), selected ? 2f : 1f);
+            g.DrawPolygon(pen, diamond);
+        }
 
         private void DrawYearView(Graphics g, Rectangle content)
         {
             var body = new Rectangle(content.X, content.Y + NavBarHeight, content.Width, content.Height - NavBarHeight);
-            int cols = 4;
-            int rows = 3;
-            int tileW = (body.Width - YearMonthGap * (cols + 1)) / cols;
-            int tileH = (body.Height - YearMonthGap * (rows + 1)) / rows;
+            using (var bg = new SolidBrush(YearGridBackground))
+                g.FillRectangle(bg, body);
 
             for (int m = 0; m < 12; m++)
             {
-                int col = m % cols;
-                int row = m / cols;
-                var tile = new Rectangle(
-                    body.X + YearMonthGap + col * (tileW + YearMonthGap),
-                    body.Y + YearMonthGap + row * (tileH + YearMonthGap),
-                    tileW,
-                    tileH);
-                DrawYearMonthTile(g, tile, new DateTime(_focusDate.Year, m + 1, 1));
+                var layout = GetYearTileLayout(body, m);
+                DrawYearMonthTile(g, layout.Tile, layout.Mini, new DateTime(_focusDate.Year, m + 1, 1));
             }
         }
 
-        private void DrawYearMonthTile(Graphics g, Rectangle tile, DateTime monthStart)
+        private static YearTileLayout GetYearTileLayout(Rectangle body, int monthIndex)
+        {
+            const int cols = 4;
+            const int rows = 3;
+            int gap = YearMonthGap;
+            int tileW = Math.Max(1, (body.Width - gap * (cols + 1)) / cols);
+            int tileH = Math.Max(1, (body.Height - gap * (rows + 1)) / rows);
+            int col = monthIndex % cols;
+            int row = monthIndex / cols;
+            var tile = new Rectangle(
+                body.X + gap + col * (tileW + gap),
+                body.Y + gap + row * (tileH + gap),
+                tileW,
+                tileH);
+            var mini = new Rectangle(
+                tile.X + YearTileInnerPadding,
+                tile.Y + YearTileTitleHeight + 2,
+                Math.Max(1, tile.Width - YearTileInnerPadding * 2),
+                Math.Max(1, tile.Height - YearTileTitleHeight - 2 - YearTileInnerPadding));
+            return new YearTileLayout(tile, mini);
+        }
+
+        private void DrawYearMonthTile(Graphics g, Rectangle tile, Rectangle mini, DateTime monthStart)
         {
             using var bg = new SolidBrush(Color.White);
-            using var border = new Pen(AppTheme.BorderColor);
             g.FillRectangle(bg, tile);
-            g.DrawRectangle(border, tile.X, tile.Y, tile.Width - 1, tile.Height - 1);
 
-            var titleRect = new Rectangle(tile.X + 6, tile.Y + 4, tile.Width - 12, 16);
+            using (var border = new Pen(YearTileBorderColor, 1f))
+                g.DrawRectangle(border, tile.X, tile.Y, tile.Width - 1, tile.Height - 1);
+
+            int titleBottom = tile.Y + YearTileTitleHeight;
+            using (var titleLine = new Pen(YearMiniGridColor, 1f))
+                g.DrawLine(titleLine, tile.X + YearTileInnerPadding, titleBottom, tile.Right - YearTileInnerPadding, titleBottom);
+
+            var titleRect = new Rectangle(tile.X + YearTileInnerPadding + 2, tile.Y + 4, tile.Width - (YearTileInnerPadding + 2) * 2, 16);
             using var titleBrush = new SolidBrush(AppTheme.TextPrimary);
             using var titleFont = new Font(Font, FontStyle.Bold);
-            g.DrawString(monthStart.ToString("MMM", System.Globalization.CultureInfo.CurrentCulture), titleFont, titleBrush, titleRect);
+            g.DrawString(monthStart.ToString("MMM", DisplayCulture.English), titleFont, titleBrush, titleRect);
 
-            var mini = new Rectangle(tile.X + 4, tile.Y + 22, tile.Width - 8, tile.Height - 26);
             DrawMiniMonth(g, mini, monthStart);
         }
 
@@ -829,10 +998,13 @@ namespace MyProject.Controls
             for (int i = 0; i < cols; i++)
             {
                 var r = new Rectangle(area.X + i * cellW, area.Y, cellW, headerH);
-                using var brush = new SolidBrush(AppTheme.TextSecondary);
+                bool isWeekend = i == 0 || i == 6;
+                using var brush = new SolidBrush(isWeekend ? AppTheme.CalendarWeekendText : AppTheme.TextSecondary);
                 var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                 g.DrawString(weekdays[i], AppTheme.FontSmall, brush, r, sf);
             }
+
+            DrawMiniMonthGrid(g, area, headerH, cols, rows, cellW, cellH);
 
             var gridStart = GetWeekStart(monthStart);
             for (int w = 0; w < rows; w++)
@@ -854,9 +1026,49 @@ namespace MyProject.Controls
                     if (width <= 0) continue;
 
                     var barRect = new Rectangle(left, top, width, YearMiniBarHeight);
-                    using var brush = new SolidBrush(GetTaskColor(segment.Task));
-                    g.FillRectangle(brush, barRect);
+                    DrawYearMiniTaskSegment(g, barRect, segment.Task);
                 }
+            }
+
+            DrawYearNoteIndicators(g, area, monthStart);
+        }
+
+        private static void DrawMiniMonthGrid(Graphics g, Rectangle area, int headerH, int cols, int rows, int cellW, int cellH)
+        {
+            int gridTop = area.Y + headerH;
+            int gridBottom = gridTop + rows * cellH;
+
+            using var pen = new Pen(YearMiniGridColor, 1f);
+            for (int c = 0; c <= cols; c++)
+            {
+                int x = area.X + c * cellW;
+                g.DrawLine(pen, x, area.Y, x, gridBottom);
+            }
+
+            g.DrawLine(pen, area.X, gridTop, area.Right, gridTop);
+            for (int r = 1; r <= rows; r++)
+            {
+                int y = gridTop + r * cellH;
+                g.DrawLine(pen, area.X, y, area.Right, y);
+            }
+        }
+
+        private void DrawYearMiniTaskSegment(Graphics g, Rectangle barRect, ProjectTask task)
+        {
+            if (barRect.Width <= 0 || barRect.Height <= 0)
+                return;
+
+            bool selected = task.Id == _selectedTaskId;
+            TaskBarColorResolver.ResolveCalendarBarColors(
+                task, _showCriticalPath, selected, out Color barColor, out _);
+
+            using var brush = new SolidBrush(barColor);
+            g.FillRectangle(brush, barRect);
+
+            if (selected)
+            {
+                using var pen = new Pen(AppTheme.AccentDark, 1.5f);
+                g.DrawRectangle(pen, barRect.X - 1, barRect.Y - 1, barRect.Width + 1, barRect.Height + 1);
             }
         }
 
@@ -879,9 +1091,9 @@ namespace MyProject.Controls
                 }
 
                 string label = showWeekdayOnly
-                    ? day.ToString("ddd", System.Globalization.CultureInfo.CurrentCulture)
-                    : $"{day:ddd}\n{day:M/d}";
-                using var brush = new SolidBrush(AppTheme.TextPrimary);
+                    ? day.ToString("ddd", DisplayCulture.English)
+                    : $"{day.ToString("ddd", DisplayCulture.English)}\n{day.ToString("M/d", DisplayCulture.English)}";
+                using var brush = new SolidBrush(GetCalendarDayTextColor(day));
                 var sf = new StringFormat
                 {
                     Alignment = StringAlignment.Center,
@@ -970,78 +1182,50 @@ namespace MyProject.Controls
             return false;
         }
 
+        private static Rectangle GetYearViewBody(Rectangle content) =>
+            new Rectangle(content.X, content.Y + NavBarHeight, content.Width, content.Height - NavBarHeight);
+
         private bool TryHitTestYearTask(Point pt, Rectangle content, out int taskId)
         {
             taskId = -1;
-            var body = new Rectangle(content.X, content.Y + NavBarHeight, content.Width, content.Height - NavBarHeight);
-            int cols = 4;
-            int rows = 3;
-            int tileW = (body.Width - YearMonthGap * (cols + 1)) / cols;
-            int tileH = (body.Height - YearMonthGap * (rows + 1)) / rows;
+            var body = GetYearViewBody(content);
 
             for (int m = 0; m < 12; m++)
             {
-                int col = m % cols;
-                int row = m / cols;
-                var tile = new Rectangle(
-                    body.X + YearMonthGap + col * (tileW + YearMonthGap),
-                    body.Y + YearMonthGap + row * (tileH + YearMonthGap),
-                    tileW,
-                    tileH);
-                if (!tile.Contains(pt))
+                var layout = GetYearTileLayout(body, m);
+                if (!layout.Tile.Contains(pt))
                     continue;
 
-                var mini = new Rectangle(tile.X + 4, tile.Y + 22, tile.Width - 8, tile.Height - 26);
                 var monthStart = new DateTime(_focusDate.Year, m + 1, 1);
-                if (TryHitTestMiniMonthTaskBar(pt, mini, monthStart, out taskId))
+                if (TryHitTestMiniMonthTaskBar(pt, layout.Mini, monthStart, out taskId))
                     return true;
             }
 
             return false;
         }
 
-        private void HitTestYearMonth(Point pt, Rectangle content)
-        {
-            var monthDate = HitTestYearMonthRect(pt, content);
-            if (monthDate.HasValue)
-            {
-                _unit = CalendarDisplayUnit.Month;
-                _focusDate = monthDate.Value;
-                _scrollY = 0;
-                SyncScrollbars();
-                Invalidate();
-            }
-        }
-
         private bool HitTestYearInteractive(Point pt, Rectangle content)
         {
-            var body = new Rectangle(content.X, content.Y + NavBarHeight, content.Width, content.Height - NavBarHeight);
-            int cols = 4;
-            int rows = 3;
-            int tileW = (body.Width - YearMonthGap * (cols + 1)) / cols;
-            int tileH = (body.Height - YearMonthGap * (rows + 1)) / rows;
+            var body = GetYearViewBody(content);
 
             for (int m = 0; m < 12; m++)
             {
-                int col = m % cols;
-                int row = m / cols;
-                var tile = new Rectangle(
-                    body.X + YearMonthGap + col * (tileW + YearMonthGap),
-                    body.Y + YearMonthGap + row * (tileH + YearMonthGap),
-                    tileW,
-                    tileH);
-                if (!tile.Contains(pt))
+                var layout = GetYearTileLayout(body, m);
+                if (!layout.Tile.Contains(pt))
                     continue;
 
-                var mini = new Rectangle(tile.X + 4, tile.Y + 22, tile.Width - 8, tile.Height - 26);
                 var monthStart = new DateTime(_focusDate.Year, m + 1, 1);
-                if (TryHitTestMiniMonthTaskBar(pt, mini, monthStart, out int taskId))
+                if (TryHitTestMiniMonthTaskBar(pt, layout.Mini, monthStart, out int taskId))
                 {
                     SelectTask(taskId);
                     return true;
                 }
-                if (HitTestMiniMonthNotes(pt, mini, monthStart))
+
+                if (HitTestMiniMonthNotes(pt, layout.Mini, monthStart, out int noteId))
+                {
+                    SelectNote(noteId);
                     return true;
+                }
             }
 
             return false;
@@ -1075,7 +1259,8 @@ namespace MyProject.Controls
                     int left = area.X + segment.StartCol * cellW + 1;
                     int width = (segment.EndCol - segment.StartCol + 1) * cellW - 2;
                     var barRect = new Rectangle(left, top, width, YearMiniBarHeight);
-                    if (barRect.Contains(pt))
+                    var hitRect = Rectangle.Inflate(barRect, 0, 2);
+                    if (hitRect.Contains(pt))
                     {
                         taskId = segment.Task.Id;
                         return true;
@@ -1086,13 +1271,29 @@ namespace MyProject.Controls
             return false;
         }
 
-        private bool HitTestMiniMonthNotes(Point pt, Rectangle area, DateTime monthStart)
+        private bool HitTestMiniMonthNotes(Point pt, Rectangle area, DateTime monthStart, out int noteId)
         {
-            foreach (var note in GetNotesForRange(monthStart, monthStart.AddMonths(1).AddDays(-1)))
+            noteId = -1;
+            if (_model == null)
+                return false;
+
+            int headerH = 12;
+            int cellW = Math.Max(1, area.Width / 7);
+            int cellH = Math.Max(1, (area.Height - headerH) / 6);
+            var gridStart = GetWeekStart(monthStart);
+
+            foreach (var note in _model.Notes.OrderByDescending(n => n.Id))
             {
-                if (TryGetYearNoteRect(note, area, monthStart, out var rect) && rect.Contains(pt))
+                var displayDate = GetNoteDisplayDate(note);
+                if (displayDate.Year != monthStart.Year || displayDate.Month != monthStart.Month)
+                    continue;
+
+                if (!TryGetMiniMonthDayCellRect(displayDate, area, gridStart, headerH, cellW, cellH, out var cell))
+                    continue;
+
+                if (GetYearNoteBadgeRect(cell).Contains(pt))
                 {
-                    SelectNote(note.Id);
+                    noteId = note.Id;
                     return true;
                 }
             }
@@ -1102,22 +1303,12 @@ namespace MyProject.Controls
 
         private DateTime? HitTestYearMonthRect(Point pt, Rectangle content)
         {
-            var body = new Rectangle(content.X, content.Y + NavBarHeight, content.Width, content.Height - NavBarHeight);
-            int cols = 4;
-            int rows = 3;
-            int tileW = (body.Width - YearMonthGap * (cols + 1)) / cols;
-            int tileH = (body.Height - YearMonthGap * (rows + 1)) / rows;
+            var body = GetYearViewBody(content);
 
             for (int m = 0; m < 12; m++)
             {
-                int col = m % cols;
-                int row = m / cols;
-                var tile = new Rectangle(
-                    body.X + YearMonthGap + col * (tileW + YearMonthGap),
-                    body.Y + YearMonthGap + row * (tileH + YearMonthGap),
-                    tileW,
-                    tileH);
-                if (tile.Contains(pt))
+                var layout = GetYearTileLayout(body, m);
+                if (layout.Tile.Contains(pt))
                     return new DateTime(_focusDate.Year, m + 1, 1);
             }
 
@@ -1143,6 +1334,9 @@ namespace MyProject.Controls
         private void DrawNotes(Graphics g, Rectangle content)
         {
             if (_model == null)
+                return;
+
+            if (_unit is CalendarDisplayUnit.Month or CalendarDisplayUnit.Year)
                 return;
 
             var metrics = BuildViewMetrics(content);
@@ -1179,7 +1373,7 @@ namespace MyProject.Controls
                     if (dragged.TaskId >= 0 && TryGetLinkedTaskBarRect(dragged.TaskId, metrics, out var barRect))
                         _noteRenderer.DrawConnectorSilhouette(g, dragged, barRect, preview);
 
-                    _noteRenderer.DrawNoteSilhouette(g, preview, dragged);
+                    _noteRenderer.DrawNoteSilhouette(g, preview, true);
                 }
             }
         }
@@ -1253,10 +1447,11 @@ namespace MyProject.Controls
         {
             if (_unit == CalendarDisplayUnit.Year)
             {
+                var displayDate = GetNoteDisplayDate(note);
                 for (int m = 0; m < 12; m++)
                 {
                     var monthStart = new DateTime(_focusDate.Year, m + 1, 1);
-                    if (note.AnchorDate.Month != monthStart.Month)
+                    if (displayDate.Month != monthStart.Month)
                         continue;
 
                     if (!TryGetYearTileMiniArea(metrics.Body, m, out var mini))
@@ -1275,7 +1470,7 @@ namespace MyProject.Controls
             rect = GetNoteRectFromValues(note, metrics);
             if (_unit == CalendarDisplayUnit.Week)
             {
-                int dayIndex = (note.AnchorDate.Date - metrics.GridStart.Date).Days;
+                int dayIndex = (GetNoteDisplayDate(note).Date - metrics.GridStart.Date).Days;
                 return dayIndex >= 0 && dayIndex < metrics.DayCount;
             }
 
@@ -1410,29 +1605,18 @@ namespace MyProject.Controls
         private bool TryGetYearNoteRect(ProjectNote note, Rectangle mini, DateTime monthStart, out Rectangle rect)
         {
             rect = default;
-            if (note.AnchorDate.Month != monthStart.Month)
+            var displayDate = GetNoteDisplayDate(note);
+            if (displayDate.Month != monthStart.Month || displayDate.Year != monthStart.Year)
                 return false;
 
             int headerH = 12;
             int cellW = Math.Max(1, mini.Width / 7);
             int cellH = Math.Max(1, (mini.Height - headerH) / 6);
             var gridStart = GetWeekStart(monthStart);
-            int dayIndex = (note.AnchorDate.Date - gridStart.Date).Days;
-            if (dayIndex < 0 || dayIndex >= 42)
+            if (!TryGetMiniMonthDayCellRect(displayDate, mini, gridStart, headerH, cellW, cellH, out var cell))
                 return false;
 
-            int col = dayIndex % 7;
-            int week = dayIndex / 7;
-            var cell = new Rectangle(mini.X + col * cellW, mini.Y + headerH + week * cellH, cellW, cellH);
-            int noteW = Math.Clamp(cell.Width - 2, YearNoteMinWidth, 40);
-            int noteH = Math.Clamp(cell.Height - 2, YearNoteMinHeight, 32);
-            noteW = Math.Min(noteW, cell.Width - 2);
-            noteH = Math.Min(noteH, cell.Height - 2);
-            rect = new Rectangle(
-                cell.X + Math.Max(0, (cell.Width - noteW) / 2),
-                cell.Y + Math.Max(0, (cell.Height - noteH) / 2),
-                noteW,
-                noteH);
+            rect = GetYearNoteBadgeRect(cell);
             return true;
         }
 
@@ -1530,17 +1714,8 @@ namespace MyProject.Controls
 
         private bool TryGetYearTileMiniArea(Rectangle body, int monthIndex, out Rectangle mini)
         {
-            int cols = 4;
-            int tileW = (body.Width - YearMonthGap * (cols + 1)) / cols;
-            int tileH = (body.Height - YearMonthGap * 4) / 3;
-            int col = monthIndex % cols;
-            int row = monthIndex / cols;
-            var tile = new Rectangle(
-                body.X + YearMonthGap + col * (tileW + YearMonthGap),
-                body.Y + YearMonthGap + row * (tileH + YearMonthGap),
-                tileW,
-                tileH);
-            mini = new Rectangle(tile.X + 4, tile.Y + 22, tile.Width - 8, tile.Height - 26);
+            var layout = GetYearTileLayout(body, monthIndex);
+            mini = layout.Mini;
             return mini.Width > 0 && mini.Height > 0;
         }
 
@@ -1602,7 +1777,8 @@ namespace MyProject.Controls
 
             foreach (var note in _model.Notes)
             {
-                if (note.AnchorDate.Date >= start.Date && note.AnchorDate.Date <= end.Date)
+                var displayDate = GetNoteDisplayDate(note);
+                if (displayDate.Date >= start.Date && displayDate.Date <= end.Date)
                     yield return note;
             }
         }
@@ -1655,13 +1831,14 @@ namespace MyProject.Controls
         private static DateTime GetWeekStart(DateTime date) =>
             date.Date.AddDays(-(int)date.DayOfWeek);
 
-        private Color GetTaskColor(ProjectTask task)
+        private static bool IsWeekend(DateTime day) =>
+            day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+
+        private static Color GetCalendarDayTextColor(DateTime day, bool inMonth = true)
         {
-            if (task.BarColor != Color.Empty)
-                return task.BarColor;
-            if (_showCriticalPath && task.IsCritical)
-                return AppTheme.TaskBarCritical;
-            return AppTheme.TaskBarNormal;
+            if (IsWeekend(day))
+                return inMonth ? AppTheme.CalendarWeekendText : AppTheme.CalendarWeekendTextMuted;
+            return inMonth ? AppTheme.TextPrimary : AppTheme.TextSecondary;
         }
 
         private static GraphicsPath CreateRoundedRect(Rectangle rect, int radius)
@@ -1676,6 +1853,275 @@ namespace MyProject.Controls
             return path;
         }
 
+        private void DrawMonthNoteIndicators(
+            Graphics g,
+            Rectangle body,
+            DateTime gridStart,
+            int gridTop,
+            int rowHeight,
+            int colWidth)
+        {
+            if (_model == null)
+                return;
+
+            var monthStart = new DateTime(_focusDate.Year, _focusDate.Month, 1);
+            foreach (var note in _model.Notes.OrderBy(n => n.Id))
+            {
+                var displayDate = GetNoteDisplayDate(note);
+                if (displayDate.Month != monthStart.Month || displayDate.Year != monthStart.Year)
+                    continue;
+
+                if (!TryGetMonthDayCellRect(displayDate, body, gridStart, gridTop, rowHeight, colWidth, out var cell))
+                    continue;
+
+                var badge = GetMonthNoteBadgeRect(cell);
+                DrawMonthNoteBadge(g, badge, note, note.Id == _selectedNoteId);
+            }
+        }
+
+        private DateTime GetNoteDisplayDate(ProjectNote note)
+        {
+            if (note.TaskId >= 0)
+            {
+                var task = _model?.GetTask(note.TaskId);
+                if (task != null)
+                    return task.StartDate.Date;
+            }
+
+            return note.AnchorDate.Date;
+        }
+
+        private bool TryGetMonthDayCellRect(
+            DateTime day,
+            Rectangle body,
+            DateTime gridStart,
+            int gridTop,
+            int rowHeight,
+            int colWidth,
+            out Rectangle cell)
+        {
+            int dayIndex = (day.Date - gridStart.Date).Days;
+            if (dayIndex < 0 || dayIndex >= 42)
+            {
+                cell = default;
+                return false;
+            }
+
+            int week = dayIndex / 7;
+            int col = dayIndex % 7;
+            cell = new Rectangle(body.X + col * colWidth, gridTop + week * rowHeight, colWidth, rowHeight);
+            return true;
+        }
+
+        private static Rectangle GetMonthNoteBadgeRect(Rectangle cell) =>
+            new(cell.Right - 18, cell.Y + 2, 16, 14);
+
+        private void DrawMonthNoteBadge(Graphics g, Rectangle badge, ProjectNote note, bool isSelected, bool compact = false)
+        {
+            var fill = isSelected ? NoteRenderer.GradientBottom : NoteRenderer.GradientTop;
+            using (var brush = new SolidBrush(fill))
+                g.FillRectangle(brush, badge);
+
+            using (var pen = new Pen(isSelected ? AppTheme.AccentDark : NoteRenderer.BorderColor, isSelected ? 2f : 1f))
+            {
+                g.DrawRectangle(pen, badge.X, badge.Y, badge.Width - 1, badge.Height - 1);
+                if (!compact)
+                {
+                    g.DrawLine(pen, badge.Right - 4, badge.Y + 1, badge.Right - 1, badge.Y + 1);
+                    g.DrawLine(pen, badge.Right - 4, badge.Y + 1, badge.Right - 4, badge.Y + 4);
+                    g.DrawLine(pen, badge.Right - 4, badge.Y + 4, badge.Right - 1, badge.Y + 1);
+                }
+            }
+
+            if (!compact && badge.Width >= 12)
+            {
+                using var textBrush = new SolidBrush(AppTheme.TextPrimary);
+                string text = string.IsNullOrWhiteSpace(note.Title) ? "N" : note.Title.Trim()[0].ToString();
+                var sf = new StringFormat
+                {
+                    Alignment = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center
+                };
+                g.DrawString(text, AppTheme.FontSmall, textBrush, badge, sf);
+            }
+        }
+
+        private bool TryHitTestMonthNoteIndicator(Point pt, Rectangle content, out int noteId)
+        {
+            noteId = -1;
+            if (_model == null)
+                return false;
+
+            var monthStart = new DateTime(_focusDate.Year, _focusDate.Month, 1);
+            var gridStart = GetWeekStart(monthStart);
+            var body = new Rectangle(content.X, content.Y + NavBarHeight, content.Width, content.Height - NavBarHeight);
+            int gridTop = body.Y + DayHeaderHeight;
+            int weeks = 6;
+            int rowHeight = Math.Max(56, (body.Bottom - gridTop) / weeks);
+            int colWidth = Math.Max(1, body.Width / 7);
+
+            foreach (var note in _model.Notes.OrderByDescending(n => n.Id))
+            {
+                var displayDate = GetNoteDisplayDate(note);
+                if (displayDate.Month != monthStart.Month || displayDate.Year != monthStart.Year)
+                    continue;
+
+                if (!TryGetMonthDayCellRect(displayDate, body, gridStart, gridTop, rowHeight, colWidth, out var cell))
+                    continue;
+
+                if (GetMonthNoteBadgeRect(cell).Contains(pt))
+                {
+                    noteId = note.Id;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void DrawWeekNoteIndicators(Graphics g, Rectangle body, DateTime weekStart, int colWidth)
+        {
+            if (_model == null)
+                return;
+
+            var weekEnd = weekStart.AddDays(6);
+            foreach (var note in _model.Notes.OrderBy(n => n.Id))
+            {
+                var displayDate = GetNoteDisplayDate(note);
+                if (displayDate.Date < weekStart.Date || displayDate.Date > weekEnd.Date)
+                    continue;
+
+                int col = (displayDate.Date - weekStart.Date).Days;
+                if (col < 0 || col > 6)
+                    continue;
+
+                var headerCell = new Rectangle(body.X + col * colWidth, body.Y, colWidth, DayHeaderHeight);
+                var badge = GetHeaderNoteBadgeRect(headerCell);
+                DrawMonthNoteBadge(g, badge, note, note.Id == _selectedNoteId);
+            }
+        }
+
+        private void DrawYearNoteIndicators(Graphics g, Rectangle area, DateTime monthStart)
+        {
+            if (_model == null || area.Width < 20 || area.Height < 20)
+                return;
+
+            int headerH = 12;
+            int cellW = Math.Max(1, area.Width / 7);
+            int cellH = Math.Max(1, (area.Height - headerH) / 6);
+            var gridStart = GetWeekStart(monthStart);
+
+            foreach (var note in _model.Notes.OrderBy(n => n.Id))
+            {
+                var displayDate = GetNoteDisplayDate(note);
+                if (displayDate.Year != monthStart.Year || displayDate.Month != monthStart.Month)
+                    continue;
+
+                if (!TryGetMiniMonthDayCellRect(displayDate, area, gridStart, headerH, cellW, cellH, out var cell))
+                    continue;
+
+                var badge = GetYearNoteBadgeRect(cell);
+                DrawMonthNoteBadge(g, badge, note, note.Id == _selectedNoteId, compact: true);
+            }
+        }
+
+        private static Rectangle GetHeaderNoteBadgeRect(Rectangle headerCell) =>
+            new(headerCell.Right - 18, headerCell.Y + 4, 16, 14);
+
+        private static Rectangle GetYearNoteBadgeRect(Rectangle cell) =>
+            new(cell.Right - 10, cell.Y + 2, 9, 8);
+
+        private bool TryGetMiniMonthDayCellRect(
+            DateTime day,
+            Rectangle area,
+            DateTime gridStart,
+            int headerH,
+            int cellW,
+            int cellH,
+            out Rectangle cell)
+        {
+            int dayIndex = (day.Date - gridStart.Date).Days;
+            if (dayIndex < 0 || dayIndex >= 42)
+            {
+                cell = default;
+                return false;
+            }
+
+            int week = dayIndex / 7;
+            int col = dayIndex % 7;
+            cell = new Rectangle(area.X + col * cellW, area.Y + headerH + week * cellH, cellW, cellH);
+            return true;
+        }
+
+        private bool TryHitTestNoteIndicator(Point pt, Rectangle content, out int noteId)
+        {
+            noteId = -1;
+            if (_model == null)
+                return false;
+
+            return _unit switch
+            {
+                CalendarDisplayUnit.Week => TryHitTestWeekNoteIndicator(pt, content, out noteId),
+                CalendarDisplayUnit.Month => TryHitTestMonthNoteIndicator(pt, content, out noteId),
+                CalendarDisplayUnit.Year => TryHitTestYearNoteIndicator(pt, content, out noteId),
+                _ => false
+            };
+        }
+
+        private bool TryHitTestWeekNoteIndicator(Point pt, Rectangle content, out int noteId)
+        {
+            noteId = -1;
+            if (_model == null)
+                return false;
+
+            var weekStart = GetWeekStart(_focusDate);
+            var weekEnd = weekStart.AddDays(6);
+            var body = new Rectangle(content.X, content.Y + NavBarHeight, content.Width, content.Height - NavBarHeight);
+            int colWidth = Math.Max(1, body.Width / 7);
+
+            foreach (var note in _model.Notes.OrderByDescending(n => n.Id))
+            {
+                var displayDate = GetNoteDisplayDate(note);
+                if (displayDate.Date < weekStart.Date || displayDate.Date > weekEnd.Date)
+                    continue;
+
+                int col = (displayDate.Date - weekStart.Date).Days;
+                if (col < 0 || col > 6)
+                    continue;
+
+                var headerCell = new Rectangle(body.X + col * colWidth, body.Y, colWidth, DayHeaderHeight);
+                if (GetHeaderNoteBadgeRect(headerCell).Contains(pt))
+                {
+                    noteId = note.Id;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryHitTestYearNoteIndicator(Point pt, Rectangle content, out int noteId)
+        {
+            noteId = -1;
+            if (_model == null)
+                return false;
+
+            var body = GetYearViewBody(content);
+
+            for (int m = 0; m < 12; m++)
+            {
+                var layout = GetYearTileLayout(body, m);
+                if (!layout.Tile.Contains(pt))
+                    continue;
+
+                var monthStart = new DateTime(_focusDate.Year, m + 1, 1);
+                if (HitTestMiniMonthNotes(pt, layout.Mini, monthStart, out noteId))
+                    return true;
+            }
+
+            return false;
+        }
+
         private sealed class MonthWeekBarSegment
         {
             public ProjectTask Task { get; init; } = null!;
@@ -1684,6 +2130,18 @@ namespace MyProject.Controls
             public int Lane { get; init; }
             public bool ContinuesFromPreviousWeek { get; init; }
             public bool ContinuesToNextWeek { get; init; }
+        }
+
+        private readonly struct YearTileLayout
+        {
+            public Rectangle Tile { get; }
+            public Rectangle Mini { get; }
+
+            public YearTileLayout(Rectangle tile, Rectangle mini)
+            {
+                Tile = tile;
+                Mini = mini;
+            }
         }
 
         private readonly struct ViewMetrics

@@ -65,6 +65,9 @@ namespace MyProject.Rendering
             g.DrawLine(pen, bounds.Right - fold, bounds.Top + fold, bounds.Right, bounds.Top + fold);
         }
 
+        public void DrawNoteSilhouette(Graphics g, Rectangle rect, bool dragged) =>
+            DrawNoteSilhouette(g, rect);
+
         public void DrawConnector(Graphics g, Rectangle taskBarRect, Rectangle noteRect)
         {
             if (taskBarRect.Width <= 0 || taskBarRect.Height <= 0
@@ -81,6 +84,11 @@ namespace MyProject.Rendering
             };
 
             g.DrawLine(pen, from, to);
+        }
+
+        public void DrawConnector(Graphics g, ProjectNote note, Rectangle taskBarRect, Rectangle noteRect, bool isSelected)
+        {
+            DrawConnector(g, taskBarRect, noteRect);
         }
 
         public void DrawConnectorSilhouette(Graphics g, Rectangle taskBarRect, Rectangle noteRect)
@@ -100,6 +108,9 @@ namespace MyProject.Rendering
 
             g.DrawLine(pen, from, to);
         }
+
+        public void DrawConnectorSilhouette(Graphics g, ProjectNote note, Rectangle taskBarRect, Rectangle noteRect) =>
+            DrawConnectorSilhouette(g, taskBarRect, noteRect);
 
         private static Point GetRectCenter(Rectangle rect) =>
             new(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);

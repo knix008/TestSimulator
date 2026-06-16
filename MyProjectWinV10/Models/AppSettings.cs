@@ -29,6 +29,9 @@ namespace MyProject.Models
         public static int WindowWidth { get; private set; } = 1280;
         public static int WindowHeight { get; private set; } = 720;
         public static FormWindowState WindowState { get; private set; } = FormWindowState.Normal;
+        public static IReadOnlyList<string> RecentFiles { get; private set; } = Array.Empty<string>();
+
+        public const int MaxRecentFiles = 10;
 
         private static string RecoveryProjectPath => Path.Combine(UserDataFolder, "session_recovery.myprj");
 
@@ -95,6 +98,35 @@ namespace MyProject.Models
             if (Enum.TryParse<FormWindowState>(data.WindowState, out var windowState)
                 && windowState is FormWindowState.Normal or FormWindowState.Maximized)
                 WindowState = windowState;
+
+            if (data.RecentFiles is { Count: > 0 })
+            {
+                var loaded = new List<string>();
+                foreach (var path in data.RecentFiles)
+                {
+                    if (string.IsNullOrWhiteSpace(path))
+                        continue;
+
+                    try
+                    {
+                        string fullPath = Path.GetFullPath(path);
+                        if (!File.Exists(fullPath))
+                            continue;
+                        if (loaded.Any(p => string.Equals(p, fullPath, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+                        loaded.Add(fullPath);
+                    }
+                    catch
+                    {
+                        // skip invalid paths
+                    }
+
+                    if (loaded.Count >= MaxRecentFiles)
+                        break;
+                }
+
+                RecentFiles = loaded.ToArray();
+            }
         }
 
         public static void Save()
@@ -118,7 +150,8 @@ namespace MyProject.Models
                 WindowY = WindowY,
                 WindowWidth = HasSavedWindowBounds ? WindowWidth : null,
                 WindowHeight = HasSavedWindowBounds ? WindowHeight : null,
-                WindowState = WindowState.ToString()
+                WindowState = WindowState.ToString(),
+                RecentFiles = RecentFiles.Count > 0 ? RecentFiles.ToList() : null
             };
             var json = JsonSerializer.Serialize(data, JsonOptions);
             File.WriteAllText(SettingsPath, json, System.Text.Encoding.UTF8);
@@ -137,6 +170,48 @@ namespace MyProject.Models
                 return;
 
             LastDirectory = directory;
+            Save();
+        }
+
+        public static void RememberRecentFile(string? filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                return;
+
+            string fullPath = Path.GetFullPath(filePath);
+            var list = RecentFiles.ToList();
+            list.RemoveAll(p => string.Equals(p, fullPath, StringComparison.OrdinalIgnoreCase));
+            list.Insert(0, fullPath);
+            if (list.Count > MaxRecentFiles)
+                list.RemoveRange(MaxRecentFiles, list.Count - MaxRecentFiles);
+
+            RecentFiles = list.ToArray();
+            Save();
+        }
+
+        public static void RemoveRecentFile(string? filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return;
+
+            string fullPath = Path.GetFullPath(filePath);
+            var list = RecentFiles
+                .Where(p => !string.Equals(p, fullPath, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (list.Length == RecentFiles.Count)
+                return;
+
+            RecentFiles = list;
+            Save();
+        }
+
+        public static void PruneMissingRecentFiles()
+        {
+            var list = RecentFiles.Where(File.Exists).ToArray();
+            if (list.Length == RecentFiles.Count)
+                return;
+
+            RecentFiles = list;
             Save();
         }
 
@@ -275,6 +350,7 @@ namespace MyProject.Models
             public int? WindowWidth { get; set; }
             public int? WindowHeight { get; set; }
             public string? WindowState { get; set; }
+            public List<string>? RecentFiles { get; set; }
         }
     }
 }

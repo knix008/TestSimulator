@@ -248,12 +248,20 @@ namespace MyProject.Models
 
         public void SetNotePosition(int noteId, DateTime anchorDate, int contentY)
         {
+            SetNotePosition(noteId, anchorDate, contentY, -1);
+        }
+
+        public void SetNotePosition(int noteId, DateTime anchorDate, int contentY, int contentX)
+        {
             var note = GetNote(noteId);
             if (note == null)
                 return;
 
             note.AnchorDate = anchorDate.Date;
             note.ContentY = contentY;
+            if (contentX >= 0)
+                note.ContentX = contentX;
+
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -1475,7 +1483,8 @@ namespace MyProject.Models
                         TaskId = nd.TaskId,
                         OffsetDays = nd.OffsetDays,
                         AnchorDate = nd.AnchorDate == default ? DateTime.Today : nd.AnchorDate,
-                        ContentY = nd.ContentY
+                        ContentY = nd.ContentY,
+                        ContentX = nd.ContentX
                     });
                 }
 

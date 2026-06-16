@@ -306,6 +306,56 @@ namespace MyProject.Theme
             g.DrawEllipse(p, 8, 8, 4, 4);
         });
 
+        public static Bitmap Calendar => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawRectangle(p, 3, 4, 14, 14);
+            g.DrawLine(p, 3, 8, 17, 8);
+            g.DrawLine(p, 7, 2, 7, 6);
+            g.DrawLine(p, 13, 2, 13, 6);
+            g.FillRectangle(new SolidBrush(Color.White), 6, 11, 3, 3);
+            g.FillRectangle(new SolidBrush(Color.White), 11, 11, 3, 3);
+        });
+
+        public static Bitmap CalendarWeekly => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.3f);
+            g.DrawRectangle(p, 2, 4, 16, 14);
+            g.DrawLine(p, 2, 8, 18, 8);
+            using var row = new SolidBrush(Color.FromArgb(210, 255, 255, 255));
+            g.FillRectangle(row, 3, 9, 14, 4);
+            for (int c = 0; c < 7; c++)
+            {
+                int x = 3 + c * 2;
+                g.DrawRectangle(p, x, 10, 2, 2);
+            }
+        });
+
+        public static Bitmap CalendarMonthly => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.2f);
+            g.DrawRectangle(p, 2, 3, 16, 15);
+            g.DrawLine(p, 2, 7, 18, 7);
+            for (int r = 1; r <= 4; r++)
+                g.DrawLine(p, 3, 3 + r * 3, 17, 3 + r * 3);
+            for (int c = 1; c <= 5; c++)
+                g.DrawLine(p, 2 + c * 3, 7, 2 + c * 3, 17);
+        });
+
+        public static Bitmap CalendarYearly => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.1f);
+            for (int row = 0; row < 3; row++)
+            {
+                for (int col = 0; col < 4; col++)
+                {
+                    int x = 2 + col * 4;
+                    int y = 3 + row * 5;
+                    g.DrawRectangle(p, x, y, 3, 4);
+                }
+            }
+        });
+
         public static Bitmap Markdown => Make(g =>
         {
             using var p = new Pen(Color.White, 1.5f);

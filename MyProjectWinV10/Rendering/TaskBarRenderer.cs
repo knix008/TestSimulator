@@ -103,7 +103,7 @@ namespace MyProject.Rendering
                     Math.Max(1, barRect.Height - inset * 2));
                 int progressWidth = Math.Max(2, (int)(inner.Width * progress / 100.0));
                 var progressRect = new Rectangle(inner.X, inner.Y, progressWidth, inner.Height);
-                Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor : Color.FromArgb(90, 90, 90);
+                Color progressColor = TaskBarColorResolver.GetSummaryProgressColor(task);
                 using var progressBrush = new SolidBrush(progressColor);
                 g.FillRectangle(progressBrush, progressRect);
             }
@@ -179,7 +179,7 @@ namespace MyProject.Rendering
             using var brush = new SolidBrush(GetMilestoneColor(task, isSelected, isHovered));
             g.FillPolygon(brush, diamond);
 
-            Color borderBase = task.BarColor != Color.Empty ? task.BarColor : AppTheme.TaskBarMilestone;
+            Color borderBase = !task.BarColor.IsEmpty ? task.BarColor : AppTheme.TaskBarMilestone;
             using var pen = new Pen(DarkenColor(borderBase, 40), isSelected ? 2f : 1f);
             g.DrawPolygon(pen, diamond);
 
@@ -192,16 +192,8 @@ namespace MyProject.Rendering
             DrawAssigneeLabel(g, cx + half + 4, rowY, assigneeText);
         }
 
-        private void ResolveNormalBarColors(ProjectTask task, out Color barColor, out Color progressColor)
-        {
-            bool highlightCritical = ShowCriticalPath && task.IsCritical;
-            barColor = task.BarColor != Color.Empty ? task.BarColor
-                     : highlightCritical ? AppTheme.TaskBarCritical
-                     : AppTheme.TaskBarNormal;
-            progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor
-                          : highlightCritical ? AppTheme.TaskBarCriticalProgress
-                          : AppTheme.TaskBarProgress;
-        }
+        private void ResolveNormalBarColors(ProjectTask task, out Color barColor, out Color progressColor) =>
+            TaskBarColorResolver.ResolveNormalBarColors(task, ShowCriticalPath, out barColor, out progressColor);
 
         private static void DrawProgressPercentLabel(Graphics g, Rectangle barRect, double progress, bool isSummaryBar)
         {
@@ -266,19 +258,11 @@ namespace MyProject.Rendering
             g.DrawString(assigneeText, AppTheme.FontSmall, brush, textRect, sf);
         }
 
-        private static Color GetSummaryBarColor(ProjectTask task, bool isSelected)
-        {
-            if (isSelected) return Color.FromArgb(40, 40, 40);
-            if (task.BarColor != Color.Empty) return task.BarColor;
-            return Color.Black;
-        }
+        private static Color GetSummaryBarColor(ProjectTask task, bool isSelected) =>
+            TaskBarColorResolver.GetSummaryBarColor(task, isSelected);
 
-        private static Color GetMilestoneColor(ProjectTask task, bool isSelected, bool isHovered)
-        {
-            if (isSelected) return AppTheme.AccentDark;
-            Color baseColor = task.BarColor != Color.Empty ? task.BarColor : AppTheme.TaskBarMilestone;
-            return isHovered ? LightenColor(baseColor, 20) : baseColor;
-        }
+        private static Color GetMilestoneColor(ProjectTask task, bool isSelected, bool isHovered) =>
+            TaskBarColorResolver.GetMilestoneColor(task, isSelected, isHovered);
 
         public Rectangle GetTaskBarRect(ProjectTask task, int rowY)
         {
@@ -313,15 +297,11 @@ namespace MyProject.Rendering
             return new Rectangle(span.Left, GetBarTopY(rowY), span.Width, AppTheme.TaskBarHeight);
         }
 
-        private static Color LightenColor(Color color, int amount)
-        {
-            return Color.FromArgb(color.A,
-                Math.Clamp(color.R + amount, 0, 255),
-                Math.Clamp(color.G + amount, 0, 255),
-                Math.Clamp(color.B + amount, 0, 255));
-        }
+        private static Color LightenColor(Color color, int amount) =>
+            TaskBarColorResolver.LightenColor(color, amount);
 
-        private static Color DarkenColor(Color color, int amount) => LightenColor(color, -amount);
+        private static Color DarkenColor(Color color, int amount) =>
+            TaskBarColorResolver.DarkenColor(color, amount);
     }
 
     internal static class GraphicsExtensions

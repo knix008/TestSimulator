@@ -47,6 +47,7 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripMenuItem menuToday;
         private System.Windows.Forms.ToolStripMenuItem menuPropertiesPanel;
         private System.Windows.Forms.ToolStripMenuItem menuShowCriticalPath;
+        private System.Windows.Forms.ToolStripMenuItem menuCalendarView;
         private System.Windows.Forms.ToolStripMenuItem menuReport;
         private System.Windows.Forms.ToolStripMenuItem menuExportExcel;
         private System.Windows.Forms.ToolStripMenuItem menuExportHtml;
@@ -80,6 +81,7 @@ namespace MyProject.Forms
         private DependencyTypeSelector dependencyTypeSelector;
         private System.Windows.Forms.ToolStripControlHost dependencyTypeHost;
         private System.Windows.Forms.ToolStripSeparator tsSep2;
+        private System.Windows.Forms.ToolStripButton btnCalendarView;
         private System.Windows.Forms.ToolStripButton btnZoomIn;
         private System.Windows.Forms.ToolStripButton btnZoomOut;
         private System.Windows.Forms.ToolStripButton btnZoomDefault;
@@ -99,6 +101,7 @@ namespace MyProject.Forms
         private System.Windows.Forms.SplitContainer ganttSplitContainer;
         private TaskGridControl taskGridControl;
         private GanttChartControl ganttChartControl;
+        private CalendarViewControl calendarViewControl;
         private SelectionPropertiesControl selectionPropertiesControl;
 
         // ── Status bar ────────────────────────────────────────────────────────
@@ -156,6 +159,7 @@ namespace MyProject.Forms
             menuToday = new ToolStripMenuItem();
             menuPropertiesPanel = new ToolStripMenuItem();
             menuShowCriticalPath = new ToolStripMenuItem();
+            menuCalendarView = new ToolStripMenuItem();
             menuReport = new ToolStripMenuItem();
             menuExportExcel = new ToolStripMenuItem();
             menuExportHtml = new ToolStripMenuItem();
@@ -187,6 +191,7 @@ namespace MyProject.Forms
             dependencyTypeSelector = new DependencyTypeSelector();
             dependencyTypeHost = new ToolStripControlHost(dependencyTypeSelector);
             tsSep2 = new ToolStripSeparator();
+            btnCalendarView = new ToolStripButton();
             btnZoomIn = new ToolStripButton();
             btnZoomOut = new ToolStripButton();
             btnZoomDefault = new ToolStripButton();
@@ -204,6 +209,7 @@ namespace MyProject.Forms
             ganttSplitContainer = new SplitContainer();
             taskGridControl = new TaskGridControl();
             ganttChartControl = new GanttChartControl();
+            calendarViewControl = new CalendarViewControl();
             selectionPropertiesControl = new SelectionPropertiesControl();
             statusStrip = new StatusStrip();
             statusLabel = new ToolStripStatusLabel();
@@ -444,7 +450,7 @@ namespace MyProject.Forms
             // 
             // menuView
             // 
-            menuView.DropDownItems.AddRange(new ToolStripItem[] { menuZoomIn, menuZoomOut, menuToday, menuPropertiesPanel, menuShowCriticalPath });
+            menuView.DropDownItems.AddRange(new ToolStripItem[] { menuCalendarView, menuZoomIn, menuZoomOut, menuToday, menuPropertiesPanel, menuShowCriticalPath });
             menuView.ForeColor = Color.White;
             menuView.Name = "menuView";
             menuView.Size = new Size(44, 20);
@@ -477,6 +483,13 @@ namespace MyProject.Forms
             menuPropertiesPanel.Name = "menuPropertiesPanel";
             menuPropertiesPanel.Size = new Size(222, 22);
             menuPropertiesPanel.Text = "Properties &Panel";
+            // 
+            // menuCalendarView
+            // 
+            menuCalendarView.CheckOnClick = true;
+            menuCalendarView.Name = "menuCalendarView";
+            menuCalendarView.Size = new Size(222, 22);
+            menuCalendarView.Text = "Calendar &View";
             // 
             // menuShowCriticalPath
             // 
@@ -543,7 +556,7 @@ namespace MyProject.Forms
             mainToolStrip.Font = AppTheme.FontToolbar;
             mainToolStrip.GripStyle = ToolStripGripStyle.Hidden;
             mainToolStrip.ImageScalingSize = AppTheme.ToolbarImageSize;
-            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, btnUnlink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnZoomDefault, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint, tsSepDelete, btnDeleteTask, btnInfo });
+            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, btnUnlink, dependencyTypeHost, tsSep2, btnCalendarView, btnZoomIn, btnZoomOut, btnZoomDefault, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint, tsSepDelete, btnDeleteTask, btnInfo });
             mainToolStrip.Location = new Point(0, AppTheme.MenuStripHeight);
             mainToolStrip.Name = "mainToolStrip";
             mainToolStrip.Padding = AppTheme.ToolbarStripPadding;
@@ -735,6 +748,15 @@ namespace MyProject.Forms
             tsSep2.Name = "tsSep2";
             tsSep2.Size = new Size(6, 40);
             // 
+            // btnCalendarView
+            // 
+            btnCalendarView.CheckOnClick = true;
+            btnCalendarView.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnCalendarView.ForeColor = Color.White;
+            btnCalendarView.Name = "btnCalendarView";
+            btnCalendarView.Size = new Size(23, 37);
+            btnCalendarView.Text = "Calendar View";
+            // 
             // btnZoomIn
             // 
             btnZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Image;
@@ -851,6 +873,7 @@ namespace MyProject.Forms
             // 
             // ganttSplitContainer.Panel1
             // 
+            ganttSplitContainer.Panel1.Controls.Add(calendarViewControl);
             ganttSplitContainer.Panel1.Controls.Add(ganttChartControl);
             ganttSplitContainer.Panel1MinSize = 240;
             // 
@@ -878,6 +901,15 @@ namespace MyProject.Forms
             taskGridControl.Name = "taskGridControl";
             taskGridControl.Size = new Size(720, 634);
             taskGridControl.TabIndex = 0;
+            // 
+            // calendarViewControl
+            // 
+            calendarViewControl.Dock = DockStyle.Fill;
+            calendarViewControl.Location = new Point(0, 0);
+            calendarViewControl.Name = "calendarViewControl";
+            calendarViewControl.Size = new Size(896, 634);
+            calendarViewControl.TabIndex = 1;
+            calendarViewControl.Visible = false;
             // 
             // ganttChartControl
             // 

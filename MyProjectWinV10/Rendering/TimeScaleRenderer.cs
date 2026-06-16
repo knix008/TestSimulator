@@ -52,9 +52,9 @@ namespace MyProject.Rendering
                     LineAlignment = StringAlignment.Center,
                     Trimming = StringTrimming.EllipsisCharacter
                 };
-                string label = width > 60 ? month.ToString("MMMM yyyy")
-                             : width > 30 ? month.ToString("MMM yy")
-                             : month.ToString("M");
+                string label = width > 60 ? month.ToString("MMMM yyyy", DisplayCulture.English)
+                             : width > 30 ? month.ToString("MMM yy", DisplayCulture.English)
+                             : month.ToString("M", DisplayCulture.English);
                 g.DrawString(label, AppTheme.FontTimescaleLarge, textBrush, cellRect, sf);
 
                 using var pen = new Pen(AppTheme.TimescaleBorder);

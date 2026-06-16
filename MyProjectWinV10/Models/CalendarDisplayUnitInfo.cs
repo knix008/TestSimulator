@@ -4,9 +4,9 @@ namespace MyProject.Models
     {
         public static string GetDisplayName(CalendarDisplayUnit unit) => unit switch
         {
-            CalendarDisplayUnit.Week => "Week",
-            CalendarDisplayUnit.Month => "Month",
-            CalendarDisplayUnit.Year => "Year",
+            CalendarDisplayUnit.Week => "Weekly",
+            CalendarDisplayUnit.Month => "Monthly",
+            CalendarDisplayUnit.Year => "Yearly",
             _ => unit.ToString()
         };
     }

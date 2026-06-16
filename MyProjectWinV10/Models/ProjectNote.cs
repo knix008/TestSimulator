@@ -10,6 +10,8 @@ namespace MyProject.Models
         public int TaskId { get; set; } = -1;
         public DateTime AnchorDate { get; set; } = DateTime.Today;
         public int ContentY { get; set; }
+        /// <summary>Horizontal position for calendar view note placement (pixels).</summary>
+        public int ContentX { get; set; }
         public int OffsetDays { get; set; } = 0;
     }
 }

@@ -13,6 +13,8 @@ namespace MyProject.Models
         public int SplitterDistance { get; set; } = 720;
         public int PropertiesPanelWidth { get; set; } = AppTheme.PropertiesPanelDefaultWidth;
         public bool PropertiesPanelVisible { get; set; } = true;
+        public bool UseCalendarView { get; set; }
+        public CalendarDisplayUnit CalendarDisplayUnit { get; set; } = CalendarDisplayUnit.Month;
         public bool ShowCriticalPath { get; set; } = false;
         public int NotesPanelHeight { get; set; } = 140;
         public bool NotesPanelVisible { get; set; } = true;
@@ -36,6 +38,8 @@ namespace MyProject.Models
             SplitterDistance = 720,
             PropertiesPanelWidth = AppTheme.PropertiesPanelDefaultWidth,
             PropertiesPanelVisible = true,
+            UseCalendarView = false,
+            CalendarDisplayUnit = CalendarDisplayUnit.Month,
             ShowCriticalPath = false,
             NotesPanelHeight = 140,
             NotesPanelVisible = true
@@ -60,6 +64,8 @@ namespace MyProject.Models
             SplitterDistance = SplitterDistance,
             PropertiesPanelWidth = PropertiesPanelWidth,
             PropertiesPanelVisible = PropertiesPanelVisible,
+            UseCalendarView = UseCalendarView,
+            CalendarDisplayUnit = CalendarDisplayUnit,
             ShowCriticalPath = ShowCriticalPath,
             NotesPanelHeight = NotesPanelHeight,
             NotesPanelVisible = NotesPanelVisible,
@@ -90,6 +96,8 @@ namespace MyProject.Models
                 && LayoutDistanceEqual(a.SplitterDistance, b.SplitterDistance)
                 && LayoutDistanceEqual(a.PropertiesPanelWidth, b.PropertiesPanelWidth)
                 && a.PropertiesPanelVisible == b.PropertiesPanelVisible
+                && a.UseCalendarView == b.UseCalendarView
+                && a.CalendarDisplayUnit == b.CalendarDisplayUnit
                 && a.ShowCriticalPath == b.ShowCriticalPath
                 && a.NotesPanelHeight == b.NotesPanelHeight
                 && a.NotesPanelVisible == b.NotesPanelVisible

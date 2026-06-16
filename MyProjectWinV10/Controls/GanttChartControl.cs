@@ -68,6 +68,7 @@ namespace MyProject.Controls
         public event EventHandler<int>? TaskHovered;
         public event EventHandler<int>? LinkShapeClicked;
         public event EventHandler<int>? TaskDoubleClicked;
+        public event EventHandler<int>? NoteDoubleClicked;
         public event EventHandler<int>? NoteSelected;
         public event EventHandler? ModelChanged;
         public event EventHandler<int>? ScrollYChanged;
@@ -1157,7 +1158,7 @@ namespace MyProject.Controls
             var note = HitTestNote(e.Location);
             if (note != null)
             {
-                BeginInlineNoteEdit(note.Id);
+                NoteDoubleClicked?.Invoke(this, note.Id);
                 return;
             }
 

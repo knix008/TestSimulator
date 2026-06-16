@@ -63,7 +63,6 @@
 
   <!-- Incomplete calendar/note-connector UI; excluded until wired to current APIs. -->
   <ItemGroup>
-    <Compile Remove="Controls\CalendarViewControl.cs" />
     <Compile Remove="Controls\NoteConnectorPreviewControl.cs" />
     <Compile Remove="Controls\NoteLineStyleSelector.cs" />
   </ItemGroup>

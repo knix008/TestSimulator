@@ -127,7 +127,8 @@ namespace MyProject.Models
                     TaskId = n.TaskId,
                     OffsetDays = n.OffsetDays,
                     AnchorDate = n.AnchorDate,
-                    ContentY = n.ContentY
+                    ContentY = n.ContentY,
+                    ContentX = n.ContentX
                 }).ToList(),
                 Settings = includeViewSettings
                     ? ToSettingsData(model.ViewSettings, includeWindowSettings)
@@ -147,6 +148,8 @@ namespace MyProject.Models
                 SplitterDistance = settings.SplitterDistance,
                 PropertiesPanelWidth = settings.PropertiesPanelWidth,
                 PropertiesPanelVisible = settings.PropertiesPanelVisible,
+                UseCalendarView = settings.UseCalendarView,
+                CalendarDisplayUnit = settings.CalendarDisplayUnit.ToString(),
                 ShowCriticalPath = settings.ShowCriticalPath,
                 NotesPanelHeight = settings.NotesPanelHeight,
                 NotesPanelVisible = settings.NotesPanelVisible,
@@ -199,6 +202,9 @@ namespace MyProject.Models
                 settings.PropertiesPanelWidth = Math.Max(AppTheme.PropertiesPanelMinWidth, data.NotesPanelHeight);
 
             settings.PropertiesPanelVisible = data.PropertiesPanelVisible ?? data.NotesPanelVisible;
+            settings.UseCalendarView = data.UseCalendarView;
+            if (Enum.TryParse<CalendarDisplayUnit>(data.CalendarDisplayUnit, out var calendarUnit))
+                settings.CalendarDisplayUnit = calendarUnit;
             settings.ShowCriticalPath = data.ShowCriticalPath;
 
             if (data.NotesPanelHeight is >= 80 and <= 400)
@@ -279,6 +285,8 @@ namespace MyProject.Models
             public int SplitterDistance { get; set; } = 720;
             public int PropertiesPanelWidth { get; set; } = AppTheme.PropertiesPanelDefaultWidth;
             public bool? PropertiesPanelVisible { get; set; }
+            public bool UseCalendarView { get; set; }
+            public string? CalendarDisplayUnit { get; set; }
             public bool ShowCriticalPath { get; set; }
             public int NotesPanelHeight { get; set; } = 140;
             public bool NotesPanelVisible { get; set; } = true;
@@ -343,6 +351,7 @@ namespace MyProject.Models
             public int OffsetDays { get; set; }
             public DateTime AnchorDate { get; set; }
             public int ContentY { get; set; }
+            public int ContentX { get; set; }
         }
     }
 }

@@ -49,6 +49,8 @@
         public static Color TimescaleWeekend { get; } = Color.FromArgb(235, 236, 242);
         public static Color TimescaleToday { get; } = Color.FromArgb(255, 235, 235);
         public static Color TimescaleTodayLine { get; } = Color.FromArgb(255, 82, 82);
+        public static Color CalendarWeekendText { get; } = Color.FromArgb(217, 48, 37);
+        public static Color CalendarWeekendTextMuted { get; } = Color.FromArgb(190, 90, 85);
 
         // Dependency arrows
         public static Color DependencyLine { get; } = Color.FromArgb(120, 130, 150);

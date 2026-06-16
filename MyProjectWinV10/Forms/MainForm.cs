@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using MyProject.Controls;
 using MyProject.Models;
 using MyProject.Theme;
 
@@ -19,6 +20,14 @@ namespace MyProject.Forms
         private bool _isPropertiesPanelExpanded = true;
         private bool _trackViewSettingsChanges;
         private bool _pendingNavigationRestore;
+        private ToolStripMenuItem? _menuCalendarWeekly;
+        private ToolStripMenuItem? _menuCalendarMonthly;
+        private ToolStripMenuItem? _menuCalendarYearly;
+        private ToolStripButton? _btnCalendarWeekly;
+        private ToolStripButton? _btnCalendarMonthly;
+        private ToolStripButton? _btnCalendarYearly;
+        private ToolStripSeparator? _menuRecentFilesSeparator;
+        private readonly List<ToolStripMenuItem> _menuRecentFileItems = new();
         private ToolTip? _toolbarToolTip;
 
         private const int CollapsedPropertiesPanelWidth = 32;
@@ -66,6 +75,7 @@ namespace MyProject.Forms
             btnZoomOut.Image    = AppIcons.ZoomOut;
             btnZoomDefault.Image = AppIcons.ZoomDefault;
             btnToday.Image      = AppIcons.Today;
+            btnCalendarView.Image = AppIcons.Calendar;
             btnPropertiesPanel.Image = AppIcons.PropertiesPanel;
             btnReport.Image     = AppIcons.Excel;
             btnExportMd.Image   = AppIcons.Markdown;
@@ -108,6 +118,7 @@ namespace MyProject.Forms
             menuZoomIn.Image  = AppIcons.ZoomIn;
             menuZoomOut.Image = AppIcons.ZoomOut;
             menuToday.Image   = AppIcons.Today;
+            menuCalendarView.Image = AppIcons.Calendar;
             menuPropertiesPanel.Image = AppIcons.PropertiesPanel;
             menuShowCriticalPath.Image = AppIcons.CriticalPath;
 
@@ -122,6 +133,9 @@ namespace MyProject.Forms
 
             // Tooltips
             ConfigureToolbarToolTips();
+            SetupCalendarUnitMenu();
+            SetupCalendarUnitToolbar();
+            SetupRecentFilesMenu();
 
             // Update status bar date
             lblDateToday.Text = "Today: " + DateTime.Today.ToString("yyyy-MM-dd");
@@ -248,6 +262,17 @@ namespace MyProject.Forms
                 $"Dependency type: {DependencyTypeInfo.GetDisplayName(depType)} — {DependencyTypeInfo.GetTooltipText(depType)}";
             SetToolbarTip(dependencyTypeHost, depTip);
             _toolbarToolTip?.SetToolTip(dependencyTypeSelector, depTip);
+
+            SetToolbarTip(btnCalendarView, btnCalendarView.Checked
+                ? "Switch to Gantt chart view"
+                : "Switch to calendar view");
+
+            if (_btnCalendarWeekly != null)
+                SetToolbarTip(_btnCalendarWeekly, "Calendar weekly view");
+            if (_btnCalendarMonthly != null)
+                SetToolbarTip(_btnCalendarMonthly, "Calendar monthly view");
+            if (_btnCalendarYearly != null)
+                SetToolbarTip(_btnCalendarYearly, "Calendar yearly view");
         }
 
         // ── Event wiring ─────────────────────────────────────────────────────
@@ -286,7 +311,8 @@ namespace MyProject.Forms
 
             menuZoomIn.Click  += (_, _) => OnZoomIn();
             menuZoomOut.Click += (_, _) => OnZoomOut();
-            menuToday.Click   += (_, _) => ganttChartControl.GoToToday();
+            menuToday.Click   += (_, _) => GoToTodayInActiveView();
+            menuCalendarView.Click += (_, _) => OnCalendarViewMenuClick();
             menuPropertiesPanel.Click += (_, _) => OnPropertiesPanelMenuClick();
             menuShowCriticalPath.Click += (_, _) => OnShowCriticalPathMenuClick();
 
@@ -318,7 +344,8 @@ namespace MyProject.Forms
             btnZoomIn.Click     += (_, _) => OnZoomIn();
             btnZoomOut.Click    += (_, _) => OnZoomOut();
             btnZoomDefault.Click += (_, _) => OnZoomDefault();
-            btnToday.Click      += (_, _) => ganttChartControl.GoToToday();
+            btnToday.Click      += (_, _) => GoToTodayInActiveView();
+            btnCalendarView.Click += (_, _) => OnCalendarViewToolbarClick();
             btnPropertiesPanel.Click += (_, _) => OnPropertiesPanelToolbarClick();
             btnReport.Click     += (_, _) => OnExportExcel();
             btnExportMd.Click   += (_, _) => OnExportMarkdown();
@@ -337,6 +364,7 @@ namespace MyProject.Forms
             ganttChartControl.TaskHovered       += OnTaskHovered;
             ganttChartControl.LinkShapeClicked  += OnGanttLinkShapeClicked;
             ganttChartControl.TaskDoubleClicked += (_, id) => OpenTaskProperties(id);
+            ganttChartControl.NoteDoubleClicked += (_, id) => OpenNoteProperties(id);
             ganttChartControl.ScrollYChanged    += (_, scrollY) =>
                 taskGridControl.SyncScroll(scrollY);
 
@@ -361,7 +389,18 @@ namespace MyProject.Forms
 
             ganttChartControl.NoteSelected += OnNoteSelected;
 
+            calendarViewControl.TaskSelected += OnTaskSelected;
+            calendarViewControl.TaskDoubleClicked += (_, id) => OpenTaskProperties(id);
+            calendarViewControl.NoteSelected += OnNoteSelected;
+            calendarViewControl.NoteDoubleClicked += (_, id) => OpenNoteProperties(id);
+            calendarViewControl.DisplayUnitChanged += (_, unit) =>
+            {
+                SyncCalendarUnitControls(unit);
+                MarkViewSettingsModified();
+            };
+
             ganttChartControl.RequestUndoSnapshot = CaptureUndoSnapshot;
+            calendarViewControl.RequestUndoSnapshot = CaptureUndoSnapshot;
             selectionPropertiesControl.RequestUndoSnapshot = CaptureUndoSnapshot;
 
             FormClosing += OnFormClosing;
@@ -594,12 +633,14 @@ namespace MyProject.Forms
             selectionPropertiesControl.PrepareForModelRestore();
             taskGridControl.SetModel(_model);
             ganttChartControl.SetModel(_model);
+            calendarViewControl.SetModel(_model);
             selectionPropertiesControl.SetModel(_model);
 
             _lastSelectedId = -1;
             CancelLink();
             taskGridControl.SetSelectedTask(-1);
             ganttChartControl.SetSelectedTask(-1);
+            calendarViewControl.SetSelectedTask(-1);
             selectionPropertiesControl.SetSelection(-1, -1, commitPending: false);
 
             _model.IsModified = true;
@@ -671,6 +712,9 @@ namespace MyProject.Forms
             statusLabel.Text = AppSettings.LastSessionIsRecovery
                 ? "Restored previous editing session."
                 : $"Restored: {path}";
+
+            if (!AppSettings.LastSessionIsRecovery)
+                AppSettings.RememberRecentFile(path);
         }
 
         private void SaveSessionState(bool allowPersistence)
@@ -738,8 +782,17 @@ namespace MyProject.Forms
 
             if (settings.SelectedNoteId >= 0 && _model.GetNote(settings.SelectedNoteId) != null)
             {
-                ganttChartControl.SelectNote(settings.SelectedNoteId);
-                ganttChartControl.SetSelectedTask(-1);
+                if (IsCalendarViewActive)
+                {
+                    calendarViewControl.SetSelectedNote(settings.SelectedNoteId);
+                    calendarViewControl.SetSelectedTask(-1);
+                }
+                else
+                {
+                    ganttChartControl.SelectNote(settings.SelectedNoteId);
+                    ganttChartControl.SetSelectedTask(-1);
+                }
+
                 taskGridControl.SetSelectedTask(-1);
                 _lastSelectedId = -1;
                 selectionPropertiesControl.SetSelection(-1, settings.SelectedNoteId, commitPending: false);
@@ -750,8 +803,17 @@ namespace MyProject.Forms
             {
                 _lastSelectedId = settings.SelectedTaskId;
                 taskGridControl.SetSelectedTask(settings.SelectedTaskId);
-                ganttChartControl.SetSelectedTask(settings.SelectedTaskId);
-                ganttChartControl.ClearNoteSelection();
+                if (IsCalendarViewActive)
+                {
+                    calendarViewControl.SetSelectedTask(settings.SelectedTaskId);
+                    calendarViewControl.ClearNoteSelection();
+                }
+                else
+                {
+                    ganttChartControl.SetSelectedTask(settings.SelectedTaskId);
+                    ganttChartControl.ClearNoteSelection();
+                }
+
                 selectionPropertiesControl.SetSelection(settings.SelectedTaskId, -1, commitPending: false);
                 UpdateStatus(settings.SelectedTaskId);
             }
@@ -768,12 +830,14 @@ namespace MyProject.Forms
 
             taskGridControl.SetModel(_model);
             ganttChartControl.SetModel(_model);
+            calendarViewControl.SetModel(_model);
             selectionPropertiesControl.SetModel(_model);
 
             _lastSelectedId = -1;
             CancelLink();
             taskGridControl.SetSelectedTask(-1);
             ganttChartControl.SetSelectedTask(-1);
+            calendarViewControl.SetSelectedTask(-1);
             selectionPropertiesControl.SetSelection(-1, -1);
 
             _trackViewSettingsChanges = false;
@@ -851,12 +915,14 @@ namespace MyProject.Forms
                 WindowWidth = windowBounds.Width,
                 WindowHeight = windowBounds.Height,
                 WindowState = WindowState,
-                SelectedTaskId = ganttChartControl.SelectedNoteId >= 0 ? -1 : ganttChartControl.SelectedTaskId,
-                SelectedNoteId = ganttChartControl.SelectedNoteId,
+                SelectedTaskId = GetActiveSelectedNoteId() >= 0 ? -1 : (IsCalendarViewActive ? calendarViewControl.SelectedTaskId : ganttChartControl.SelectedTaskId),
+                SelectedNoteId = GetActiveSelectedNoteId(),
                 GanttScrollY = ganttChartControl.ScrollOffsetY,
                 GanttViewStartDate = ganttChartControl.ViewStartDate,
                 TaskGridScrollX = taskGridControl.ScrollOffsetX,
-                TaskGridScrollY = taskGridControl.ScrollOffsetY
+                TaskGridScrollY = taskGridControl.ScrollOffsetY,
+                UseCalendarView = IsCalendarViewActive,
+                CalendarDisplayUnit = calendarViewControl.DisplayUnit
             };
         }
 
@@ -1057,6 +1123,12 @@ namespace MyProject.Forms
 
                 SyncPropertiesPanelUi(settings.PropertiesPanelVisible);
                 ApplyShowCriticalPath(settings.ShowCriticalPath);
+
+                btnCalendarView.Checked = settings.UseCalendarView;
+                menuCalendarView.Checked = settings.UseCalendarView;
+                ApplyScheduleView(settings.UseCalendarView);
+                calendarViewControl.SetDisplayUnit(settings.CalendarDisplayUnit);
+                SyncCalendarUnitControls(settings.CalendarDisplayUnit);
             }
             finally
             {
@@ -1071,6 +1143,7 @@ namespace MyProject.Forms
             btnCriticalPath.Checked = show;
             menuShowCriticalPath.Checked = show;
             ganttChartControl.ShowCriticalPath = show;
+            calendarViewControl.ShowCriticalPath = show;
             taskGridControl.ShowCriticalPath = show;
             UpdateToolbarToggleToolTips();
         }
@@ -1105,16 +1178,17 @@ namespace MyProject.Forms
 
         private bool CanDeleteSelectedNote()
         {
-            if (ganttChartControl.SelectedNoteId < 0)
+            int noteId = GetActiveSelectedNoteId();
+            if (noteId < 0)
                 return false;
 
-            if (ganttChartControl.IsInlineNoteEditActive)
+            if (!IsCalendarViewActive && ganttChartControl.IsInlineNoteEditActive)
                 return false;
 
             if (selectionPropertiesControl.IsNoteEditorFocused)
                 return false;
 
-            return _model.GetNote(ganttChartControl.SelectedNoteId) != null;
+            return _model.GetNote(noteId) != null;
         }
 
         private bool TryDeleteSelectedNote(bool confirm = false)
@@ -1122,7 +1196,7 @@ namespace MyProject.Forms
             if (!CanDeleteSelectedNote())
                 return false;
 
-            DeleteNoteById(ganttChartControl.SelectedNoteId, confirm);
+            DeleteNoteById(GetActiveSelectedNoteId(), confirm);
             return true;
         }
 
@@ -1172,21 +1246,35 @@ namespace MyProject.Forms
 
                 if (_lastSelectedId >= 0)
                 {
-                    ganttChartControl.AddNoteForTask(_lastSelectedId);
+                    if (IsCalendarViewActive)
+                        calendarViewControl.AddNoteForTask(_lastSelectedId);
+                    else
+                        ganttChartControl.AddNoteForTask(_lastSelectedId);
                     btnNotes.Checked = false;
                     ganttChartControl.SetNoteModeActive(false);
+                    calendarViewControl.SetNoteModeActive(false);
                     statusLabel.Text = "Note added to selected task.";
                     UpdateToolbarToggleToolTips();
                     return;
                 }
 
-                ganttChartControl.SetNoteModeActive(true);
-                statusLabel.Text = "Note mode: click a task bar on the Gantt chart to add a yellow note.";
+                if (IsCalendarViewActive)
+                {
+                    calendarViewControl.SetNoteModeActive(true);
+                    statusLabel.Text = "Note mode: click a task on the calendar to add a note.";
+                }
+                else
+                {
+                    ganttChartControl.SetNoteModeActive(true);
+                    statusLabel.Text = "Note mode: click a task bar on the Gantt chart to add a yellow note.";
+                }
+
                 UpdateToolbarToggleToolTips();
                 return;
             }
 
             ganttChartControl.SetNoteModeActive(false);
+            calendarViewControl.SetNoteModeActive(false);
             statusLabel.Text = "Ready";
             UpdateToolbarToggleToolTips();
         }
@@ -1210,16 +1298,170 @@ namespace MyProject.Forms
 
         // ── Selection ────────────────────────────────────────────────────────
 
+        private bool IsCalendarViewActive => btnCalendarView.Checked;
+
+        private int GetActiveSelectedNoteId() =>
+            IsCalendarViewActive ? calendarViewControl.SelectedNoteId : ganttChartControl.SelectedNoteId;
+
+        private void OnCalendarViewToolbarClick()
+        {
+            if (_isApplyingViewSettings)
+                return;
+
+            menuCalendarView.Checked = btnCalendarView.Checked;
+            ApplyScheduleView(btnCalendarView.Checked);
+            MarkViewSettingsModified();
+        }
+
+        private void OnCalendarViewMenuClick()
+        {
+            if (_isApplyingViewSettings)
+                return;
+
+            btnCalendarView.Checked = menuCalendarView.Checked;
+            ApplyScheduleView(menuCalendarView.Checked);
+            MarkViewSettingsModified();
+        }
+
+        private void SetupCalendarUnitMenu()
+        {
+            var separator = new ToolStripSeparator();
+            _menuCalendarWeekly = new ToolStripMenuItem("Calendar &Weekly") { CheckOnClick = true };
+            _menuCalendarMonthly = new ToolStripMenuItem("Calendar &Monthly") { CheckOnClick = true };
+            _menuCalendarYearly = new ToolStripMenuItem("Calendar &Yearly") { CheckOnClick = true };
+
+            _menuCalendarWeekly.Click += (_, _) => SetCalendarDisplayUnit(CalendarDisplayUnit.Week);
+            _menuCalendarMonthly.Click += (_, _) => SetCalendarDisplayUnit(CalendarDisplayUnit.Month);
+            _menuCalendarYearly.Click += (_, _) => SetCalendarDisplayUnit(CalendarDisplayUnit.Year);
+
+            int insertAt = menuView.DropDownItems.IndexOf(menuCalendarView) + 1;
+            menuView.DropDownItems.Insert(insertAt, separator);
+            menuView.DropDownItems.Insert(insertAt + 1, _menuCalendarWeekly);
+            menuView.DropDownItems.Insert(insertAt + 2, _menuCalendarMonthly);
+            menuView.DropDownItems.Insert(insertAt + 3, _menuCalendarYearly);
+
+            SyncCalendarUnitControls(calendarViewControl.DisplayUnit);
+        }
+
+        private void SetupCalendarUnitToolbar()
+        {
+            int insertAt = mainToolStrip.Items.IndexOf(btnCalendarView) + 1;
+            var separator = new ToolStripSeparator { Name = "tsSepCalendarUnit" };
+
+            _btnCalendarWeekly = CreateCalendarUnitToolbarButton("Weekly", AppIcons.CalendarWeekly, CalendarDisplayUnit.Week);
+            _btnCalendarMonthly = CreateCalendarUnitToolbarButton("Monthly", AppIcons.CalendarMonthly, CalendarDisplayUnit.Month);
+            _btnCalendarYearly = CreateCalendarUnitToolbarButton("Yearly", AppIcons.CalendarYearly, CalendarDisplayUnit.Year);
+
+            mainToolStrip.Items.Insert(insertAt, separator);
+            mainToolStrip.Items.Insert(insertAt + 1, _btnCalendarWeekly);
+            mainToolStrip.Items.Insert(insertAt + 2, _btnCalendarMonthly);
+            mainToolStrip.Items.Insert(insertAt + 3, _btnCalendarYearly);
+
+            AppChrome.ApplyToolStrip(mainToolStrip);
+        }
+
+        private ToolStripButton CreateCalendarUnitToolbarButton(string name, Image image, CalendarDisplayUnit unit)
+        {
+            var btn = new ToolStripButton
+            {
+                Name = $"btnCalendar{name}",
+                DisplayStyle = ToolStripItemDisplayStyle.Image,
+                Image = image,
+                Text = name
+            };
+            btn.Click += (_, _) => SetCalendarDisplayUnit(unit);
+            return btn;
+        }
+
+        private void SetCalendarDisplayUnit(CalendarDisplayUnit unit)
+        {
+            if (_isApplyingViewSettings)
+                return;
+
+            if (!IsCalendarViewActive)
+            {
+                btnCalendarView.Checked = true;
+                menuCalendarView.Checked = true;
+                ApplyScheduleView(true);
+            }
+
+            calendarViewControl.SetDisplayUnit(unit);
+            SyncCalendarUnitControls(unit);
+            MarkViewSettingsModified();
+        }
+
+        private void SyncCalendarUnitControls(CalendarDisplayUnit unit)
+        {
+            if (_menuCalendarWeekly != null)
+            {
+                _menuCalendarWeekly.Checked = unit == CalendarDisplayUnit.Week;
+                _menuCalendarMonthly!.Checked = unit == CalendarDisplayUnit.Month;
+                _menuCalendarYearly!.Checked = unit == CalendarDisplayUnit.Year;
+            }
+
+            if (_btnCalendarWeekly != null)
+            {
+                _btnCalendarWeekly.Checked = unit == CalendarDisplayUnit.Week;
+                _btnCalendarMonthly!.Checked = unit == CalendarDisplayUnit.Month;
+                _btnCalendarYearly!.Checked = unit == CalendarDisplayUnit.Year;
+            }
+        }
+
+        private void ApplyScheduleView(bool calendar)
+        {
+            ganttChartControl.Visible = !calendar;
+            calendarViewControl.Visible = calendar;
+            btnZoomIn.Enabled = !calendar;
+            btnZoomOut.Enabled = !calendar;
+            btnZoomDefault.Enabled = !calendar;
+            menuZoomIn.Enabled = !calendar;
+            menuZoomOut.Enabled = !calendar;
+
+            if (calendar)
+            {
+                ganttChartControl.SetNoteModeActive(false);
+                btnNotes.Checked = false;
+                calendarViewControl.Focus();
+            }
+            else
+            {
+                calendarViewControl.SetNoteModeActive(false);
+                ganttChartControl.Focus();
+            }
+
+            UpdateToolbarToggleToolTips();
+        }
+
+        private void GoToTodayInActiveView()
+        {
+            if (IsCalendarViewActive)
+                calendarViewControl.GoToToday();
+            else
+                ganttChartControl.GoToToday();
+        }
+
+        private void InvalidateActiveScheduleView()
+        {
+            ganttChartControl.Invalidate();
+            calendarViewControl.Invalidate();
+        }
+
         private void OnTaskSelected(object? sender, int taskId)
         {
             taskGridControl.CommitPendingEdits();
             _lastSelectedId = taskId;
             if (sender != taskGridControl) taskGridControl.SetSelectedTask(taskId);
             if (sender != ganttChartControl) ganttChartControl.SetSelectedTask(taskId);
+            if (sender != calendarViewControl) calendarViewControl.SetSelectedTask(taskId);
 
-            int noteId = sender == ganttChartControl ? ganttChartControl.SelectedNoteId : -1;
+            int noteId = sender == ganttChartControl ? ganttChartControl.SelectedNoteId
+                : sender == calendarViewControl ? calendarViewControl.SelectedNoteId
+                : -1;
             if (sender == taskGridControl)
+            {
                 ganttChartControl.ClearNoteSelection();
+                calendarViewControl.ClearNoteSelection();
+            }
 
             selectionPropertiesControl.SetSelection(taskId, noteId);
             UpdateStatus(taskId);
@@ -1247,6 +1489,26 @@ namespace MyProject.Forms
 
         private void OnNoteSelected(object? sender, int noteId)
         {
+            if (sender != ganttChartControl)
+                ganttChartControl.ClearNoteSelection();
+            if (sender != calendarViewControl)
+            {
+                if (noteId >= 0)
+                    calendarViewControl.SetSelectedNote(noteId);
+                else
+                    calendarViewControl.ClearNoteSelection();
+            }
+
+            if (noteId >= 0)
+            {
+                _lastSelectedId = -1;
+                taskGridControl.SetSelectedTask(-1);
+                if (sender != ganttChartControl)
+                    ganttChartControl.SetSelectedTask(-1);
+                if (sender != calendarViewControl)
+                    calendarViewControl.SetSelectedTask(-1);
+            }
+
             selectionPropertiesControl.SetSelection(-1, noteId);
             UpdateTaskToolState();
         }
@@ -1368,10 +1630,85 @@ namespace MyProject.Forms
             };
             AppSettings.ApplyTo(dlg);
             if (dlg.ShowDialog(this) == DialogResult.OK)
+                OpenProjectFile(dlg.FileName);
+        }
+
+        private void OpenProjectFile(string path)
+        {
+            AppSettings.RememberFromPath(path);
+            LoadProjectFromFile(path);
+        }
+
+        private void OpenRecentFile(string path)
+        {
+            if (!ConfirmProceedWithoutSaving())
+                return;
+
+            if (!File.Exists(path))
             {
-                AppSettings.RememberFromPath(dlg.FileName);
-                LoadProjectFromFile(dlg.FileName);
+                AppSettings.RemoveRecentFile(path);
+                RefreshRecentFilesMenu();
+                MessageBox.Show(this,
+                    $"The file could not be found:\n{path}",
+                    "Open Project",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
             }
+
+            OpenProjectFile(path);
+        }
+
+        private void SetupRecentFilesMenu()
+        {
+            int insertAt = menuFile.DropDownItems.IndexOf(menuSep1);
+            _menuRecentFilesSeparator = new ToolStripSeparator
+            {
+                Name = "menuRecentFilesSeparator",
+                Visible = false
+            };
+            menuFile.DropDownItems.Insert(insertAt, _menuRecentFilesSeparator);
+            menuFile.DropDownOpening += (_, _) => RefreshRecentFilesMenu();
+        }
+
+        private void RefreshRecentFilesMenu()
+        {
+            foreach (var item in _menuRecentFileItems)
+                menuFile.DropDownItems.Remove(item);
+            _menuRecentFileItems.Clear();
+
+            AppSettings.PruneMissingRecentFiles();
+            var recent = AppSettings.RecentFiles;
+            if (_menuRecentFilesSeparator != null)
+                _menuRecentFilesSeparator.Visible = recent.Count > 0;
+
+            if (recent.Count == 0 || _menuRecentFilesSeparator == null)
+                return;
+
+            int insertAt = menuFile.DropDownItems.IndexOf(_menuRecentFilesSeparator) + 1;
+            for (int i = 0; i < recent.Count; i++)
+            {
+                string path = recent[i];
+                string label = i < 9 ? $"&{i + 1} " : "";
+                label += GetRecentFileMenuText(path, recent);
+                var item = new ToolStripMenuItem(label) { ToolTipText = path };
+                string capturedPath = path;
+                item.Click += (_, _) => OpenRecentFile(capturedPath);
+                menuFile.DropDownItems.Insert(insertAt + i, item);
+                _menuRecentFileItems.Add(item);
+            }
+        }
+
+        private static string GetRecentFileMenuText(string path, IReadOnlyList<string> allRecent)
+        {
+            string name = Path.GetFileName(path);
+            bool duplicateName = allRecent.Count(p =>
+                string.Equals(Path.GetFileName(p), name, StringComparison.OrdinalIgnoreCase)) > 1;
+            if (!duplicateName)
+                return name;
+
+            string? folder = Path.GetFileName(Path.GetDirectoryName(path));
+            return string.IsNullOrWhiteSpace(folder) ? name : $"{name} ({folder})";
         }
 
         private void LoadProjectFromFile(string path)
@@ -1401,6 +1738,7 @@ namespace MyProject.Forms
             ApplyModel();
             UpdateUndoRedoState();
             AppSettings.RememberSession(path, isRecovery: false);
+            AppSettings.RememberRecentFile(path);
             BeginInvoke(RestoreNavigationFromViewSettings);
             statusLabel.Text = MsProjectInterop.CanImport(path) && !path.EndsWith($".{ProjectFile.Extension}", StringComparison.OrdinalIgnoreCase)
                 ? $"Imported from Microsoft Project: {path}"
@@ -1509,6 +1847,7 @@ namespace MyProject.Forms
                 _model.IsModified = false;
                 AppSettings.RememberFromPath(path);
                 AppSettings.RememberSession(path, isRecovery: false);
+                AppSettings.RememberRecentFile(path);
                 UpdateTitleBar();
                 statusLabel.Text = $"Saved: {path}";
 
@@ -1886,10 +2225,29 @@ namespace MyProject.Forms
                 _undoRedo.PushSnapshot(preDialogSnapshot);
                 UpdateUndoRedoState();
                 _model.NotifyViewsChanged();
-                ganttChartControl.Invalidate();
+                InvalidateActiveScheduleView();
                 taskGridControl.Invalidate();
                 UpdateTitleBar();
                 UpdateStatus(taskId);
+            }
+        }
+
+        private void OpenNoteProperties(int noteId)
+        {
+            if (noteId < 0) return;
+            var note = _model.GetNote(noteId);
+            if (note == null) return;
+            var preDialogSnapshot = ProjectFile.ToUndoSnapshot(_model);
+            using var dlg = new NotePropertiesDialog(note, _model);
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            {
+                _undoRedo.PushSnapshot(preDialogSnapshot);
+                UpdateUndoRedoState();
+                _model.NotifyViewsChanged();
+                InvalidateActiveScheduleView();
+                selectionPropertiesControl.SetSelection(-1, noteId);
+                UpdateTitleBar();
+                UpdateTaskToolState();
             }
         }
 
