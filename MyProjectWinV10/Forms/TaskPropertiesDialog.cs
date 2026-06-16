@@ -255,7 +255,7 @@ namespace MyProject.Forms
 
         private TabPage BuildColorsTab()
         {
-            var page = new TabPage("Colors");
+            var page = new TabPage("Colors & Shape");
             bool isRootTask = _task.ParentId == -1;
 
             // 4-column layout: [label | swatch | gap | buttons/control]
