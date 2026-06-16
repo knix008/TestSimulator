@@ -22,6 +22,7 @@ partial class MyAgileForm
         menuSaveAs = new ToolStripMenuItem();
         menuFileSep = new ToolStripSeparator();
         menuExit = new ToolStripMenuItem();
+        menuAbout = new ToolStripMenuItem();
         menuEdit = new ToolStripMenuItem();
         menuUndo = new ToolStripMenuItem();
         menuRedo = new ToolStripMenuItem();
@@ -29,12 +30,15 @@ partial class MyAgileForm
         menuProjectSettings = new ToolStripMenuItem();
         menuView = new ToolStripMenuItem();
         menuSummary = new ToolStripMenuItem();
-        menuViewSep1 = new ToolStripSeparator();
-        menuViewShowGrid = new ToolStripMenuItem();
         menuCompletedHistory = new ToolStripMenuItem();
         menuBurndown = new ToolStripMenuItem();
+        menuViewSep1 = new ToolStripSeparator();
+        menuViewShowGrid = new ToolStripMenuItem();
         menuHelp = new ToolStripMenuItem();
-        menuAbout = new ToolStripMenuItem();
+        toolStripContainer = new ToolStripContainer();
+        panelBoard = new Panel();
+        flowColumns = new FlowLayoutPanel();
+        btnAddColumn = new Button();
         toolStrip = new ToolStrip();
         toolBtnNew = new ToolStripButton();
         toolBtnOpen = new ToolStripButton();
@@ -48,9 +52,6 @@ partial class MyAgileForm
         toolBtnBurndown = new ToolStripButton();
         toolStripSep3 = new ToolStripSeparator();
         toolBtnToggleGrid = new ToolStripButton();
-        panelBoard = new Panel();
-        flowColumns = new FlowLayoutPanel();
-        btnAddColumn = new Button();
         statusStrip = new StatusStrip();
         statusTotal = new ToolStripStatusLabel();
         statusSep1 = new ToolStripStatusLabel();
@@ -58,12 +59,17 @@ partial class MyAgileForm
         statusSep2 = new ToolStripStatusLabel();
         statusInProgress = new ToolStripStatusLabel();
         menuStrip.SuspendLayout();
+        toolStripContainer.ContentPanel.SuspendLayout();
+        toolStripContainer.TopToolStripPanel.SuspendLayout();
+        toolStripContainer.SuspendLayout();
+        panelBoard.SuspendLayout();
         toolStrip.SuspendLayout();
         statusStrip.SuspendLayout();
         SuspendLayout();
         // 
         // menuStrip
         // 
+        menuStrip.Dock = DockStyle.None;
         menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuEdit, menuProject, menuView, menuHelp });
         menuStrip.Location = new Point(0, 0);
         menuStrip.Name = "menuStrip";
@@ -121,6 +127,14 @@ partial class MyAgileForm
         menuExit.Text = "종료(&X)";
         menuExit.Click += menuExit_Click;
         // 
+        // menuAbout
+        // 
+        menuAbout.Name = "menuAbout";
+        menuAbout.ShortcutKeys = Keys.F1;
+        menuAbout.Size = new Size(277, 22);
+        menuAbout.Visible = false;
+        menuAbout.Click += menuAbout_Click;
+        // 
         // menuEdit
         // 
         menuEdit.DropDownItems.AddRange(new ToolStripItem[] { menuUndo, menuRedo });
@@ -161,12 +175,8 @@ partial class MyAgileForm
         menuProjectSettings.Click += menuProjectSettings_Click;
         // 
         // menuView
-        //
-        menuView.DropDownItems.AddRange(new ToolStripItem[]
-        {
-            menuSummary, menuCompletedHistory, menuBurndown,
-            menuViewSep1, menuViewShowGrid
-        });
+        // 
+        menuView.DropDownItems.AddRange(new ToolStripItem[] { menuSummary, menuCompletedHistory, menuBurndown, menuViewSep1, menuViewShowGrid });
         menuView.Name = "menuView";
         menuView.Size = new Size(59, 20);
         menuView.Text = "보기(&V)";
@@ -187,47 +197,104 @@ partial class MyAgileForm
         menuCompletedHistory.Click += menuCompletedHistory_Click;
         // 
         // menuBurndown
-        //
+        // 
         menuBurndown.Name = "menuBurndown";
         menuBurndown.Size = new Size(217, 22);
         menuBurndown.Text = "Burn Down 차트(&B)";
         menuBurndown.Click += menuBurndown_Click;
-        //
+        // 
         // menuViewSep1
-        //
+        // 
         menuViewSep1.Name = "menuViewSep1";
-        //
+        menuViewSep1.Size = new Size(214, 6);
+        // 
         // menuViewShowGrid
-        //
+        // 
         menuViewShowGrid.Checked = true;
         menuViewShowGrid.CheckOnClick = true;
+        menuViewShowGrid.CheckState = CheckState.Checked;
         menuViewShowGrid.Name = "menuViewShowGrid";
         menuViewShowGrid.Size = new Size(217, 22);
         menuViewShowGrid.Text = "배경 눈금 표시(&G)";
         menuViewShowGrid.Click += menuViewShowGrid_Click;
-        //
-        // menuHelp — directly opens info dialog (no submenu)
-        //
+        // 
+        // menuHelp
+        // 
         menuHelp.Alignment = ToolStripItemAlignment.Right;
         menuHelp.Name = "menuHelp";
         menuHelp.Size = new Size(72, 20);
         menuHelp.Text = "도움말(&H)";
         menuHelp.Click += menuAbout_Click;
-        //
-        // menuAbout (hidden in File menu to provide F1 shortcut)
-        //
-        menuAbout.Name = "menuAbout";
-        menuAbout.ShortcutKeys = Keys.F1;
-        menuAbout.Visible = false;
-        menuAbout.Click += menuAbout_Click;
+        // 
+        // toolStripContainer
+        // 
+        toolStripContainer.BottomToolStripPanelVisible = false;
+        // 
+        // toolStripContainer.ContentPanel
+        // 
+        toolStripContainer.ContentPanel.Controls.Add(panelBoard);
+        toolStripContainer.ContentPanel.Size = new Size(1440, 649);
+        toolStripContainer.Dock = DockStyle.Fill;
+        toolStripContainer.LeftToolStripPanelVisible = false;
+        toolStripContainer.Location = new Point(0, 0);
+        toolStripContainer.Name = "toolStripContainer";
+        toolStripContainer.RightToolStripPanelVisible = false;
+        toolStripContainer.Size = new Size(1440, 698);
+        toolStripContainer.TabIndex = 4;
+        toolStripContainer.Text = "toolStripContainer";
+        // 
+        // toolStripContainer.TopToolStripPanel
+        // 
+        toolStripContainer.TopToolStripPanel.Controls.Add(menuStrip);
+        toolStripContainer.TopToolStripPanel.Controls.Add(toolStrip);
+        // 
+        // panelBoard
+        // 
+        panelBoard.BackColor = Color.FromArgb(235, 237, 240);
+        panelBoard.Controls.Add(flowColumns);
+        panelBoard.Controls.Add(btnAddColumn);
+        panelBoard.Dock = DockStyle.Fill;
+        panelBoard.Location = new Point(0, 0);
+        panelBoard.Name = "panelBoard";
+        panelBoard.Padding = new Padding(6);
+        panelBoard.Size = new Size(1440, 649);
+        panelBoard.TabIndex = 0;
+        panelBoard.Resize += panelBoard_Resize;
+        // 
+        // flowColumns
+        // 
+        flowColumns.AutoScroll = true;
+        flowColumns.BackColor = Color.FromArgb(235, 237, 240);
+        flowColumns.Dock = DockStyle.Fill;
+        flowColumns.Location = new Point(6, 6);
+        flowColumns.Name = "flowColumns";
+        flowColumns.Size = new Size(1374, 637);
+        flowColumns.TabIndex = 0;
+        flowColumns.WrapContents = false;
+        // 
+        // btnAddColumn
+        // 
+        btnAddColumn.BackColor = Color.FromArgb(220, 222, 226);
+        btnAddColumn.Dock = DockStyle.Right;
+        btnAddColumn.FlatStyle = FlatStyle.Flat;
+        btnAddColumn.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        btnAddColumn.ForeColor = Color.DimGray;
+        btnAddColumn.Location = new Point(1380, 6);
+        btnAddColumn.Name = "btnAddColumn";
+        btnAddColumn.Size = new Size(54, 637);
+        btnAddColumn.TabIndex = 1;
+        btnAddColumn.Text = "+\r\n컬럼";
+        btnAddColumn.UseVisualStyleBackColor = false;
+        btnAddColumn.Click += BtnAddColumn_Click;
         // 
         // toolStrip
         // 
+        toolStrip.Dock = DockStyle.None;
         toolStrip.GripStyle = ToolStripGripStyle.Hidden;
         toolStrip.Items.AddRange(new ToolStripItem[] { toolBtnNew, toolBtnOpen, toolBtnSave, toolStripSep1, toolBtnUndo, toolBtnRedo, toolStripSep2, toolBtnSummary, toolBtnCompleted, toolBtnBurndown, toolStripSep3, toolBtnToggleGrid });
-        toolStrip.Location = new Point(0, 24);
+        toolStrip.Location = new Point(9, 24);
         toolStrip.Name = "toolStrip";
-        toolStrip.Size = new Size(1440, 25);
+        toolStrip.Size = new Size(487, 25);
         toolStrip.TabIndex = 1;
         // 
         // toolBtnNew
@@ -299,61 +366,28 @@ partial class MyAgileForm
         toolBtnCompleted.Click += menuCompletedHistory_Click;
         // 
         // toolBtnBurndown
-        //
+        // 
         toolBtnBurndown.Name = "toolBtnBurndown";
         toolBtnBurndown.Size = new Size(66, 22);
         toolBtnBurndown.Text = "Burndown";
         toolBtnBurndown.ToolTipText = "Burn Down 차트 보기";
         toolBtnBurndown.Click += menuBurndown_Click;
-        //
+        // 
         // toolStripSep3
-        //
+        // 
         toolStripSep3.Name = "toolStripSep3";
         toolStripSep3.Size = new Size(6, 25);
-        //
+        // 
         // toolBtnToggleGrid
-        //
-        toolBtnToggleGrid.CheckOnClick = true;
+        // 
         toolBtnToggleGrid.Checked = true;
+        toolBtnToggleGrid.CheckOnClick = true;
+        toolBtnToggleGrid.CheckState = CheckState.Checked;
         toolBtnToggleGrid.Name = "toolBtnToggleGrid";
         toolBtnToggleGrid.Size = new Size(35, 22);
         toolBtnToggleGrid.Text = "눈금";
         toolBtnToggleGrid.ToolTipText = "배경 눈금 표시/숨기기";
         toolBtnToggleGrid.Click += toolBtnToggleGrid_Click;
-        //
-        // panelBoard
-        panelBoard.BackColor = Color.FromArgb(235, 237, 240);
-        panelBoard.Dock = DockStyle.Fill;
-        panelBoard.Location = new Point(0, 49);
-        panelBoard.Name = "panelBoard";
-        panelBoard.Padding = new Padding(6);
-        panelBoard.Size = new Size(1440, 649);
-        panelBoard.TabIndex = 0;
-        panelBoard.Resize += panelBoard_Resize;
-        // 
-        // flowColumns
-        flowColumns.AutoScroll = true;
-        flowColumns.BackColor = Color.FromArgb(235, 237, 240);
-        flowColumns.Dock = DockStyle.Fill;
-        flowColumns.FlowDirection = FlowDirection.LeftToRight;
-        flowColumns.Name = "flowColumns";
-        flowColumns.Padding = new Padding(0);
-        flowColumns.WrapContents = false;
-        // 
-        // btnAddColumn — docked right on panelBoard (see SetupAddColumnButton)
-        btnAddColumn.BackColor = Color.FromArgb(220, 222, 226);
-        btnAddColumn.Dock = DockStyle.Right;
-        btnAddColumn.FlatStyle = FlatStyle.Flat;
-        btnAddColumn.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        btnAddColumn.ForeColor = Color.DimGray;
-        btnAddColumn.Name = "btnAddColumn";
-        btnAddColumn.Size = new Size(54, 649);
-        btnAddColumn.Text = "+\r\n컬럼";
-        btnAddColumn.UseVisualStyleBackColor = false;
-        btnAddColumn.Click += BtnAddColumn_Click;
-        // 
-        panelBoard.Controls.Add(flowColumns);
-        panelBoard.Controls.Add(btnAddColumn);
         // 
         // statusStrip
         // 
@@ -399,9 +433,7 @@ partial class MyAgileForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1440, 720);
-        Controls.Add(panelBoard);
-        Controls.Add(toolStrip);
-        Controls.Add(menuStrip);
+        Controls.Add(toolStripContainer);
         Controls.Add(statusStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
@@ -411,6 +443,12 @@ partial class MyAgileForm
         Text = "MyAgileBoard";
         menuStrip.ResumeLayout(false);
         menuStrip.PerformLayout();
+        toolStripContainer.ContentPanel.ResumeLayout(false);
+        toolStripContainer.TopToolStripPanel.ResumeLayout(false);
+        toolStripContainer.TopToolStripPanel.PerformLayout();
+        toolStripContainer.ResumeLayout(false);
+        toolStripContainer.PerformLayout();
+        panelBoard.ResumeLayout(false);
         toolStrip.ResumeLayout(false);
         toolStrip.PerformLayout();
         statusStrip.ResumeLayout(false);
@@ -443,6 +481,7 @@ partial class MyAgileForm
     private ToolStripMenuItem menuAbout = null!;
 
     // Toolbar
+    private ToolStripContainer toolStripContainer = null!;
     private ToolStrip toolStrip = null!;
     private ToolStripButton toolBtnNew = null!;
     private ToolStripButton toolBtnOpen = null!;
