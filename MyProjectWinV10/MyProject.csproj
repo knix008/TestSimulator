@@ -18,7 +18,7 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Company>MyProject</Company>
     <Product>MyProject Project Manager</Product>
-    <Copyright>Copyright © 2026</Copyright>
+    <Copyright>Copyright © 2026 SH KWON (knix008@naver.com)</Copyright>
     <!-- Required so MSI publish (win-x64) can restore MPXJ/IKVM assets without affecting normal Release output. -->
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>

@@ -12,7 +12,7 @@ namespace MyProject.Forms
             string product = info?.Product ?? Application.ProductName ?? "MyProject";
             string version = AppVersion.DisplayVersion;
             string copyright = asm.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright
-                ?? $"Copyright © {DateTime.Now.Year} SH Kwon";
+                ?? $"Copyright © {DateTime.Now.Year} SH KWON (knix008@naver.com)";
 
             Text = "About";
             StartPosition = FormStartPosition.CenterParent;
