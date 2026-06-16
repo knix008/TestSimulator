@@ -8,7 +8,7 @@
       "Name": "Backlog",
       "HeaderColorHex": "#808080",
       "IsCompletionColumn": false,
-      "ColumnWidth": 279,
+      "ColumnWidth": 280,
       "Cards": [
         {
           "Id": "card-001",
@@ -86,7 +86,7 @@
       "Name": "To Do",
       "HeaderColorHex": "#4472C4",
       "IsCompletionColumn": false,
-      "ColumnWidth": 279,
+      "ColumnWidth": 280,
       "Cards": [
         {
           "Id": "card-003",
@@ -164,7 +164,7 @@
       "Name": "In Progress",
       "HeaderColorHex": "#ED7D31",
       "IsCompletionColumn": false,
-      "ColumnWidth": 293,
+      "ColumnWidth": 287,
       "Cards": [
         {
           "Id": "card-005",
@@ -242,7 +242,7 @@
       "Name": "Review",
       "HeaderColorHex": "#9E49D3",
       "IsCompletionColumn": false,
-      "ColumnWidth": 279,
+      "ColumnWidth": 280,
       "Cards": [
         {
           "Id": "card-007",
@@ -320,7 +320,7 @@
       "Name": "Done",
       "HeaderColorHex": "#70AD47",
       "IsCompletionColumn": true,
-      "ColumnWidth": 278,
+      "ColumnWidth": 281,
       "Cards": [
         {
           "Id": "card-009",
@@ -372,9 +372,9 @@
             "Bold": true,
             "Italic": false,
             "Underline": false,
-            "Strikeout": false
+            "Strikeout": true
           },
-          "DescriptionRtf": "{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fnil\\fcharset129 Segoe UI;}}\\viewkind4\\uc1\\pard\\lang1042\\f0\\fs18 \uD504\uB808\uC784\uC6CC\uD06C \uC120\uD0DD, \\b \uB514\uB809\uD130\uB9AC \uAD6C\uC870\\b0  \uD655\uC815, \uAC1C\uBC1C \uD658\uACBD \uC138\uD305 \uC644\uB8CC.\\par}",
+          "DescriptionRtf": "{\\rtf1\\ansi\\ansicpg949\\deff0\\nouicompat{\\fonttbl{\\f0\\fnil\\fcharset129 Segoe UI;}}\r\n{\\*\\generator Riched20 10.0.26100}\\viewkind4\\uc1 \r\n\\pard\\f0\\fs18\\lang1042\\\u0027c7\\\u0027c1\\\u0027b7\\\u0027b9\\\u0027c0\\\u0027d3\\\u0027bf\\\u0027f6\\\u0027c5\\\u0027a9 \\\u0027bc\\\u0027b1\\\u0027c5\\\u0027c3, \\b\\\u0027b5\\\u0027f0\\\u0027b7\\\u0027ba\\\u0027c5\\\u0027cd\\\u0027b8\\\u0027ae \\\u0027b1\\\u0027b8\\\u0027c1\\\u0027b6\\b0  \\\u0027c8\\\u0027ae\\\u0027c1\\\u0027a4, \\\u0027b0\\\u0027b3\\\u0027b9\\\u0027df \\\u0027c8\\\u0027af\\\u0027b0\\\u0027e6 \\\u0027bc\\\u0027bc\\\u0027c6\\\u0027c3 \\\u0027bf\\\u0027cf\\\u0027b7\\\u0027e1.\\par\r\n}\r\n",
           "SizePreset": "Custom",
           "CustomWidth": 185,
           "CustomHeight": 120,
@@ -382,7 +382,7 @@
           "CanvasX": 29,
           "CanvasY": 131,
           "Rotation": 8,
-          "ZIndex": 3,
+          "ZIndex": 5,
           "CreatedAt": "2026-05-30T09:00:00",
           "CompletedAt": "2026-06-05T16:00:00"
         }
