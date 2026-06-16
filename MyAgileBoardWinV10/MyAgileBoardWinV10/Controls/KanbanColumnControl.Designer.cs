@@ -88,6 +88,7 @@ partial class KanbanColumnControl
         btnColumnMenu.FlatStyle = FlatStyle.Flat;
         btnColumnMenu.FlatAppearance.BorderSize = 0;
         btnColumnMenu.FlatAppearance.MouseOverBackColor = Color.FromArgb(30, 255, 255, 255);
+        btnColumnMenu.TabStop = false;
         btnColumnMenu.Font = new Font("Segoe UI", 14F);
         btnColumnMenu.ForeColor = Color.White;
         btnColumnMenu.Name = "btnColumnMenu";
@@ -119,7 +120,7 @@ partial class KanbanColumnControl
         panelCanvas.Paint += panelCanvas_Paint;
 
         // panelResizeGrip
-        panelResizeGrip.BackColor = Color.FromArgb(238, 239, 242);
+        panelResizeGrip.BackColor = Color.Transparent;
         panelResizeGrip.Cursor = Cursors.SizeWE;
         panelResizeGrip.Dock = DockStyle.Right;
         panelResizeGrip.Name = "panelResizeGrip";

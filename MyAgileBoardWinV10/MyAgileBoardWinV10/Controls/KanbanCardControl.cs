@@ -6,7 +6,7 @@ namespace MyAgileBoardWinV10.Controls;
 
 public partial class KanbanCardControl : UserControl
 {
-    private enum HandleKind { None, Move, Rotate, BottomRight, Bottom, Right }
+    private enum HandleKind { None, Move, Rotate, TopLeft, Top, Left, BottomLeft, Bottom, Right, BottomRight }
 
     private KanbanCard _card;
     private Font? _titleFont;
@@ -22,6 +22,7 @@ public partial class KanbanCardControl : UserControl
     private bool _isMouseOverCard;
     private int _mouseOverCount;
     private Point _transformStartScreen;
+    private Point _transformStartLocation;
     private Size _transformStartSize;
     private float _transformStartRotation;
     private double _transformStartAngle;
@@ -30,7 +31,9 @@ public partial class KanbanCardControl : UserControl
     public KanbanCard Card => _card;
     public bool IsSelected => _isSelected;
     public bool IsInteracting => Capture || _localCanvasMove || _isCrossColumnDragging
-        || _activeHandle is HandleKind.Rotate or HandleKind.BottomRight or HandleKind.Bottom or HandleKind.Right;
+        || _activeHandle is HandleKind.Rotate
+            or HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
+            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight;
 
     public event EventHandler<KanbanCard>? CardDoubleClicked;
     public event EventHandler<KanbanCard>? CardDeleted;
@@ -127,15 +130,24 @@ public partial class KanbanCardControl : UserControl
         var descriptionText = CardTextHelper.ExtractPlainText(_card.DescriptionRtf, _card.Description);
         if (!string.IsNullOrEmpty(descriptionText))
         {
+            // Collapse newlines → single space for single-line display; AutoEllipsis handles clipping
+            var descFlat = string.Join(" ",
+                descriptionText.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            lblDescription.Text = descFlat;
+            lblDescription.Visible = true;
             toolTip.SetToolTip(this, descriptionText);
             toolTip.SetToolTip(panelCard, descriptionText);
             toolTip.SetToolTip(lblTitle, descriptionText);
+            toolTip.SetToolTip(lblDescription, descriptionText);
         }
         else
         {
+            lblDescription.Text = string.Empty;
+            lblDescription.Visible = false;
             toolTip.SetToolTip(this, string.Empty);
             toolTip.SetToolTip(panelCard, string.Empty);
             toolTip.SetToolTip(lblTitle, string.Empty);
+            toolTip.SetToolTip(lblDescription, string.Empty);
         }
 
         InvalidateRotatedCache();
@@ -151,6 +163,7 @@ public partial class KanbanCardControl : UserControl
 
         int innerW = Math.Max(40, Width - 12);
         lblTitle.Width = innerW;
+        lblDescription.Width = innerW;
         lblTags.Width = innerW;
         lblTitle.AutoEllipsis = true;
 
@@ -172,7 +185,16 @@ public partial class KanbanCardControl : UserControl
     {
         lblTitle.Height = Math.Min(36, Height - 20);
         lblTitle.Location = new Point(5, 4);
-        lblPriority.Location = new Point(5, lblTitle.Bottom + 2);
+
+        int afterTitle = lblTitle.Bottom + 2;
+        if (lblDescription.Visible)
+        {
+            lblDescription.Height = 14;
+            lblDescription.Location = new Point(5, afterTitle);
+            afterTitle = lblDescription.Bottom + 2;
+        }
+
+        lblPriority.Location = new Point(5, afterTitle);
         lblAssignee.Location = new Point(5, lblPriority.Bottom + 1);
         lblDueDate.Location = new Point(5, lblAssignee.Visible ? lblAssignee.Bottom + 1 : lblPriority.Bottom + 1);
         lblTags.Location = new Point(5, GetTagsTop());
@@ -188,6 +210,7 @@ public partial class KanbanCardControl : UserControl
             lblAssignee.Visible = !string.IsNullOrEmpty(_card.Assignee) && totalHeight >= 78;
             lblDueDate.Visible = false;
             lblTags.Visible = false;
+            lblDescription.Visible = false;
         }
         else if (medium)
         {
@@ -203,8 +226,27 @@ public partial class KanbanCardControl : UserControl
         lblTitle.Location = new Point(5, 4);
 
         int metaY = totalHeight - 16;
+
+        // Show description in the gap between title and bottom meta row
+        if (!compact && !string.IsNullOrEmpty(lblDescription.Text))
+        {
+            int descStart = lblTitle.Bottom + 3;
+            int descAvailable = metaY - descStart - 3;
+            if (descAvailable >= 14)
+            {
+                lblDescription.Height = 14;
+                lblDescription.Location = new Point(5, descStart);
+                lblDescription.Visible = true;
+            }
+            else
+            {
+                lblDescription.Visible = false;
+            }
+        }
+
         lblPriority.Location = new Point(5, metaY);
-        lblAssignee.Location = new Point(5, Math.Min(metaY, lblTitle.Bottom + 2));
+        int afterContent = (lblDescription.Visible ? lblDescription.Bottom : lblTitle.Bottom) + 2;
+        lblAssignee.Location = new Point(5, Math.Min(metaY, afterContent));
         lblDueDate.Location = new Point(5, lblAssignee.Bottom + 1);
         lblTags.Location = new Point(5, GetTagsTop());
     }
@@ -224,7 +266,7 @@ public partial class KanbanCardControl : UserControl
     private int GetTagsTop()
     {
         if (!lblTags.Visible) return lblTitle.Bottom;
-        int y = lblTitle.Bottom + 2;
+        int y = (lblDescription.Visible ? lblDescription.Bottom : lblTitle.Bottom) + 2;
         if (lblAssignee.Visible) y = lblAssignee.Bottom + 1;
         else if (lblDueDate.Visible) y = lblDueDate.Bottom + 1;
         else if (lblPriority.Visible) y = lblPriority.Bottom + 1;
@@ -234,6 +276,7 @@ public partial class KanbanCardControl : UserControl
     private void AdjustHeight()
     {
         int h = lblTitle.Bottom + 4;
+        if (lblDescription.Visible) h = Math.Max(h, lblDescription.Bottom + 4);
         if (lblPriority.Visible) h = Math.Max(h, lblPriority.Bottom + 4);
         if (lblAssignee.Visible) h = Math.Max(h, lblAssignee.Bottom + 4);
         if (lblDueDate.Visible) h = Math.Max(h, lblDueDate.Bottom + 4);
@@ -244,6 +287,7 @@ public partial class KanbanCardControl : UserControl
     private void ApplyCanvasLabelBackgrounds(Color cardColor)
     {
         lblTitle.BackColor = cardColor;
+        lblDescription.BackColor = cardColor;
         lblPriority.BackColor = cardColor;
         lblAssignee.BackColor = cardColor;
         lblDueDate.BackColor = cardColor;
@@ -304,6 +348,7 @@ public partial class KanbanCardControl : UserControl
     {
         yield return panelCard;
         yield return lblTitle;
+        yield return lblDescription;
         yield return lblPriority;
         yield return lblAssignee;
         yield return lblDueDate;
@@ -317,22 +362,29 @@ public partial class KanbanCardControl : UserControl
     {
         int hs = CardCanvasHelper.HandleSize;
         int edge = CardCanvasHelper.EdgeGripSize;
-        int cornerHit = CardCanvasHelper.CornerHandleHitSize;
+        int corner = CardCanvasHelper.CornerHandleHitSize;
 
-        var brRect = new Rectangle(Width - cornerHit, Height - cornerHit, cornerHit, cornerHit);
-        if (brRect.Contains(localPoint)) return HandleKind.BottomRight;
-
-        if (localPoint.Y >= Height - edge && localPoint.X >= edge && localPoint.X < Width - cornerHit)
-            return HandleKind.Bottom;
-
-        if (localPoint.X >= Width - edge && localPoint.Y >= edge && localPoint.Y < Height - cornerHit)
-            return HandleKind.Right;
-
+        // Rotate (top-right area) takes priority when selected, before corner checks
         if (_isSelected)
         {
             var rotateRect = new Rectangle(Width - hs * 3 - 6, 2, hs * 3 + 4, hs * 3 + 4);
             if (rotateRect.Contains(localPoint)) return HandleKind.Rotate;
         }
+
+        // Corners
+        if (new Rectangle(0, 0, corner, corner).Contains(localPoint)) return HandleKind.TopLeft;
+        if (new Rectangle(0, Height - corner, corner, corner).Contains(localPoint)) return HandleKind.BottomLeft;
+        if (new Rectangle(Width - corner, Height - corner, corner, corner).Contains(localPoint)) return HandleKind.BottomRight;
+
+        // Edges
+        if (localPoint.Y < edge && localPoint.X >= corner && localPoint.X < Width - corner)
+            return HandleKind.Top;
+        if (localPoint.Y >= Height - edge && localPoint.X >= corner && localPoint.X < Width - corner)
+            return HandleKind.Bottom;
+        if (localPoint.X < edge && localPoint.Y >= corner && localPoint.Y < Height - corner)
+            return HandleKind.Left;
+        if (localPoint.X >= Width - edge && localPoint.Y >= corner && localPoint.Y < Height - corner)
+            return HandleKind.Right;
 
         return HandleKind.Move;
     }
@@ -343,9 +395,10 @@ public partial class KanbanCardControl : UserControl
         _hoverHandle = handle;
         Cursor = handle switch
         {
-            HandleKind.BottomRight => Cursors.SizeNWSE,
-            HandleKind.Bottom => Cursors.SizeNS,
-            HandleKind.Right => Cursors.SizeWE,
+            HandleKind.TopLeft or HandleKind.BottomRight => Cursors.SizeNWSE,
+            HandleKind.BottomLeft => Cursors.SizeNESW,
+            HandleKind.Top or HandleKind.Bottom => Cursors.SizeNS,
+            HandleKind.Left or HandleKind.Right => Cursors.SizeWE,
             HandleKind.Rotate => Cursors.Hand,
             _ => Cursors.Hand
         };
@@ -381,13 +434,16 @@ public partial class KanbanCardControl : UserControl
         _localCanvasMove = false;
         _canvasDragStartLocation = Location;
         _transformStartScreen = Cursor.Position;
+        _transformStartLocation = Location;
         _transformStartSize = Size;
         _transformStartRotation = _card.Rotation;
         _transformStartAngle = Math.Atan2(local.Y - Height / 2.0, local.X - Width / 2.0);
 
         _mouseDownActive = true;
 
-        if (_activeHandle is HandleKind.Rotate or HandleKind.BottomRight or HandleKind.Bottom or HandleKind.Right)
+        if (_activeHandle is HandleKind.Rotate
+            or HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
+            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight)
         {
             CardBeforeTransform?.Invoke(this, _card);
             Capture = true;
@@ -412,6 +468,42 @@ public partial class KanbanCardControl : UserControl
         LayoutForFixedHeight(newH);
         InvalidateRotatedCache();
         Invalidate();
+    }
+
+    private void ApplyResizeFromHandle(HandleKind handle)
+    {
+        var pos = Cursor.Position;
+        int dx = pos.X - _transformStartScreen.X;
+        int dy = pos.Y - _transformStartScreen.Y;
+
+        bool fromLeft = handle is HandleKind.TopLeft or HandleKind.Left or HandleKind.BottomLeft;
+        bool fromTop = handle is HandleKind.TopLeft or HandleKind.Top;
+        bool fromRight = handle is HandleKind.Right or HandleKind.BottomRight;
+        bool fromBottom = handle is HandleKind.BottomLeft or HandleKind.Bottom or HandleKind.BottomRight;
+
+        int newW = fromLeft ? _transformStartSize.Width - dx
+                 : fromRight ? _transformStartSize.Width + dx
+                 : _transformStartSize.Width;
+        int newH = fromTop ? _transformStartSize.Height - dy
+                 : fromBottom ? _transformStartSize.Height + dy
+                 : _transformStartSize.Height;
+
+        newW = Math.Max(CardSizeDefaults.MinWidth, newW);
+        newH = Math.Max(CardSizeDefaults.MinHeight, newH);
+
+        if (fromLeft || fromTop)
+        {
+            int actualDx = fromLeft ? _transformStartSize.Width - newW : 0;
+            int actualDy = fromTop ? _transformStartSize.Height - newH : 0;
+            var canvas = Parent;
+            canvas?.SuspendLayout();
+            _card.CanvasX = _transformStartLocation.X + actualDx;
+            _card.CanvasY = _transformStartLocation.Y + actualDy;
+            Location = new Point(_card.CanvasX, _card.CanvasY);
+            canvas?.ResumeLayout(false);
+        }
+
+        ApplyVisualSize(newW, newH);
     }
 
     private void MoveOnCanvas(Point canvasClient)
@@ -477,26 +569,10 @@ public partial class KanbanCardControl : UserControl
             return;
         }
 
-        if (_activeHandle == HandleKind.BottomRight)
+        if (_activeHandle is HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
+            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight)
         {
-            var pos = Cursor.Position;
-            int dw = pos.X - _transformStartScreen.X;
-            int dh = pos.Y - _transformStartScreen.Y;
-            ApplyVisualSize(_transformStartSize.Width + dw, _transformStartSize.Height + dh);
-            return;
-        }
-
-        if (_activeHandle == HandleKind.Bottom)
-        {
-            int dh = Cursor.Position.Y - _transformStartScreen.Y;
-            ApplyVisualSize(_transformStartSize.Width, _transformStartSize.Height + dh);
-            return;
-        }
-
-        if (_activeHandle == HandleKind.Right)
-        {
-            int dw = Cursor.Position.X - _transformStartScreen.X;
-            ApplyVisualSize(_transformStartSize.Width + dw, _transformStartSize.Height);
+            ApplyResizeFromHandle(_activeHandle);
             return;
         }
 
@@ -552,7 +628,9 @@ public partial class KanbanCardControl : UserControl
         Capture = false;
         _mouseDownActive = false;
 
-        if (_activeHandle is HandleKind.Rotate or HandleKind.BottomRight or HandleKind.Bottom or HandleKind.Right)
+        if (_activeHandle is HandleKind.Rotate
+            or HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
+            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight)
         {
             _activeHandle = HandleKind.None;
             CardTransformChanged?.Invoke(this, _card);
@@ -616,98 +694,67 @@ public partial class KanbanCardControl : UserControl
             DrawHoverResizeHandles(e.Graphics);
     }
 
-    private Rectangle GetBottomRightHandleRect(bool emphasized = false)
+    private static readonly HandleKind[] ResizeHandleKinds =
     {
-        int size = emphasized
-            ? CardCanvasHelper.CornerHandleVisualSize + 2
-            : CardCanvasHelper.CornerHandleVisualSize;
+        HandleKind.TopLeft, HandleKind.Top,
+        HandleKind.Left, HandleKind.Right,
+        HandleKind.BottomLeft, HandleKind.Bottom, HandleKind.BottomRight
+    };
+
+    private Rectangle GetHandleRect(HandleKind kind)
+    {
+        const int sz = 10;
         const int inset = 2;
-        return new Rectangle(Width - size - inset, Height - size - inset, size, size);
-    }
-
-    private Rectangle GetBottomEdgeHandleRect()
-    {
-        int thickness = CardCanvasHelper.EdgeHandleVisualThickness;
-        int cornerReserve = CardCanvasHelper.CornerHandleHitSize / 2 + 2;
-        int barW = Math.Max(36, Math.Min(Width - cornerReserve * 2, Width / 2));
-        return new Rectangle(Width / 2 - barW / 2, Height - thickness - 2, barW, thickness);
-    }
-
-    private Rectangle GetRightEdgeHandleRect()
-    {
-        int thickness = CardCanvasHelper.EdgeHandleVisualThickness;
-        int cornerReserve = CardCanvasHelper.CornerHandleHitSize / 2 + 2;
-        int barH = Math.Max(36, Math.Min(Height - cornerReserve * 2, Height / 2));
-        return new Rectangle(Width - thickness - 2, Height / 2 - barH / 2, thickness, barH);
+        int cx = Width / 2 - sz / 2;
+        int cy = Height / 2 - sz / 2;
+        int right = Width - sz - inset;
+        int bottom = Height - sz - inset;
+        return kind switch
+        {
+            HandleKind.TopLeft    => new Rectangle(inset,  inset,  sz, sz),
+            HandleKind.Top        => new Rectangle(cx,     inset,  sz, sz),
+            HandleKind.Left       => new Rectangle(inset,  cy,     sz, sz),
+            HandleKind.Right      => new Rectangle(right,  cy,     sz, sz),
+            HandleKind.BottomLeft => new Rectangle(inset,  bottom, sz, sz),
+            HandleKind.Bottom     => new Rectangle(cx,     bottom, sz, sz),
+            HandleKind.BottomRight => new Rectangle(right, bottom, sz, sz),
+            _ => Rectangle.Empty
+        };
     }
 
     private bool IsResizeHandleActive(HandleKind kind)
         => _hoverHandle == kind || _activeHandle == kind;
 
+    private void DrawResizeHandlesVisual(Graphics g)
+    {
+        g.SmoothingMode = SmoothingMode.None;
+        foreach (var kind in ResizeHandleKinds)
+        {
+            var rect = GetHandleRect(kind);
+            bool active = IsResizeHandleActive(kind);
+            using var fill = new SolidBrush(active ? Color.FromArgb(40, 80, 200) : Color.White);
+            using var border = new Pen(Color.FromArgb(200, 30, 100, 220), active ? 2f : 1.5f);
+            g.FillRectangle(fill, rect);
+            g.DrawRectangle(border, rect);
+        }
+    }
+
     private void DrawHoverResizeHandles(Graphics g)
     {
-        DrawResizeEdgeZones(g, emphasized: true);
-
-        using (var outline = new Pen(Color.FromArgb(140, 30, 100, 220), 1.5f))
-            g.DrawRectangle(outline, 1, 1, Width - 3, Height - 3);
-
-        DrawResizeHandleBox(g, GetBottomRightHandleRect(emphasized: true), HandleKind.BottomRight, showGrip: true);
-        DrawResizeHandleBox(g, GetBottomEdgeHandleRect(), HandleKind.Bottom, showGrip: false);
-        DrawResizeHandleBox(g, GetRightEdgeHandleRect(), HandleKind.Right, showGrip: false);
-    }
-
-    private void DrawResizeEdgeZones(Graphics g, bool emphasized)
-    {
-        int edge = CardCanvasHelper.EdgeHandleVisualThickness;
-        int corner = CardCanvasHelper.CornerHandleHitSize / 2;
-        int bottomAlpha = IsResizeHandleActive(HandleKind.Bottom) ? 100 : (emphasized ? 55 : 35);
-        int rightAlpha = IsResizeHandleActive(HandleKind.Right) ? 100 : (emphasized ? 55 : 35);
-
-        using var bottomBrush = new SolidBrush(Color.FromArgb(bottomAlpha, 30, 100, 220));
-        using var rightBrush = new SolidBrush(Color.FromArgb(rightAlpha, 30, 100, 220));
-
-        if (Width > corner * 2)
-            g.FillRectangle(bottomBrush, corner, Height - edge, Width - corner * 2, edge);
-        if (Height > corner * 2)
-            g.FillRectangle(rightBrush, Width - edge, corner, edge, Height - corner * 2);
-    }
-
-    private void DrawResizeHandleBox(Graphics g, Rectangle rect, HandleKind kind, bool showGrip)
-    {
-        bool active = IsResizeHandleActive(kind);
-        g.SmoothingMode = SmoothingMode.None;
-
-        using var fill = new SolidBrush(active ? Color.White : Color.FromArgb(245, 255, 255, 255));
-        using var border = new Pen(
-            active ? Color.FromArgb(240, 20, 90, 210) : Color.FromArgb(200, 30, 100, 220),
-            active ? 2f : 1.5f);
-        g.FillRectangle(fill, rect);
-        g.DrawRectangle(border, rect);
-
-        if (!showGrip) return;
-
-        using var grip = new Pen(Color.FromArgb(active ? 170 : 120, 60, 60, 60), 1f);
-        int gx = rect.X + 3;
-        int gy = rect.Bottom - 3;
-        for (int i = 0; i < 3; i++)
-            g.DrawLine(grip, gx + i * 3, gy, gx + i * 3, gy - (rect.Height - 5));
+        using var outline = new Pen(Color.FromArgb(120, 30, 100, 220), 1.5f);
+        g.DrawRectangle(outline, 1, 1, Width - 3, Height - 3);
+        DrawResizeHandlesVisual(g);
     }
 
     private void DrawSelectionHandles(Graphics g)
     {
-        DrawResizeEdgeZones(g, emphasized: true);
-
         using var pen = new Pen(Color.FromArgb(220, 30, 100, 220), 2f);
         g.DrawRectangle(pen, 1, 1, Width - 3, Height - 3);
-
-        DrawResizeHandleBox(g, GetBottomRightHandleRect(emphasized: true), HandleKind.BottomRight, showGrip: true);
-        DrawResizeHandleBox(g, GetBottomEdgeHandleRect(), HandleKind.Bottom, showGrip: false);
-        DrawResizeHandleBox(g, GetRightEdgeHandleRect(), HandleKind.Right, showGrip: false);
+        DrawResizeHandlesVisual(g);
 
         int hs = CardCanvasHelper.HandleSize;
         using var brush = new SolidBrush(Color.White);
         using var border = new Pen(Color.FromArgb(220, 30, 100, 220), 1.5f);
-
         var rotate = new Rectangle(Width - hs * 3 - 4, 2, hs * 2 + 4, hs * 2 + 4);
         g.FillEllipse(brush, rotate);
         g.DrawEllipse(border, rotate);

@@ -21,6 +21,7 @@ partial class KanbanCardControl
         components = new System.ComponentModel.Container();
         panelCard = new Panel();
         lblTitle = new Label();
+        lblDescription = new Label();
         lblPriority = new Label();
         lblAssignee = new Label();
         lblDueDate = new Label();
@@ -120,6 +121,18 @@ partial class KanbanCardControl
         lblTitle.BackColor = Color.Transparent;
         lblTitle.ContextMenuStrip = contextMenuCard;
 
+        // lblDescription
+        lblDescription.AutoSize = false;
+        lblDescription.AutoEllipsis = true;
+        lblDescription.Font = new Font("Segoe UI", 7.5F);
+        lblDescription.ForeColor = Color.DimGray;
+        lblDescription.Location = new Point(5, 22);
+        lblDescription.Name = "lblDescription";
+        lblDescription.Size = new Size(216, 14);
+        lblDescription.BackColor = Color.Transparent;
+        lblDescription.Visible = false;
+        lblDescription.ContextMenuStrip = contextMenuCard;
+
         // lblPriority
         lblPriority.AutoSize = true;
         lblPriority.BackColor = Color.Transparent;
@@ -169,6 +182,7 @@ partial class KanbanCardControl
         panelCard.Controls.AddRange(new Control[]
         {
             lblTitle,
+            lblDescription,
             lblPriority,
             lblAssignee,
             lblDueDate,
@@ -197,6 +211,7 @@ partial class KanbanCardControl
 
     private Panel panelCard = null!;
     private Label lblTitle = null!;
+    private Label lblDescription = null!;
     private Label lblPriority = null!;
     private Label lblAssignee = null!;
     private Label lblDueDate = null!;

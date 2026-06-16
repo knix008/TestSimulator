@@ -29,6 +29,8 @@ partial class MyAgileForm
         menuProjectSettings = new ToolStripMenuItem();
         menuView = new ToolStripMenuItem();
         menuSummary = new ToolStripMenuItem();
+        menuViewSep1 = new ToolStripSeparator();
+        menuViewShowGrid = new ToolStripMenuItem();
         menuCompletedHistory = new ToolStripMenuItem();
         menuBurndown = new ToolStripMenuItem();
         menuHelp = new ToolStripMenuItem();
@@ -44,6 +46,8 @@ partial class MyAgileForm
         toolBtnSummary = new ToolStripButton();
         toolBtnCompleted = new ToolStripButton();
         toolBtnBurndown = new ToolStripButton();
+        toolStripSep3 = new ToolStripSeparator();
+        toolBtnToggleGrid = new ToolStripButton();
         panelBoard = new Panel();
         flowColumns = new FlowLayoutPanel();
         btnAddColumn = new Button();
@@ -68,7 +72,7 @@ partial class MyAgileForm
         // 
         // menuFile
         // 
-        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuNew, menuOpen, menuSave, menuSaveAs, menuFileSep, menuExit });
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuNew, menuOpen, menuSave, menuSaveAs, menuFileSep, menuExit, menuAbout });
         menuFile.Name = "menuFile";
         menuFile.Size = new Size(57, 20);
         menuFile.Text = "파일(&F)";
@@ -157,8 +161,12 @@ partial class MyAgileForm
         menuProjectSettings.Click += menuProjectSettings_Click;
         // 
         // menuView
-        // 
-        menuView.DropDownItems.AddRange(new ToolStripItem[] { menuSummary, menuCompletedHistory, menuBurndown });
+        //
+        menuView.DropDownItems.AddRange(new ToolStripItem[]
+        {
+            menuSummary, menuCompletedHistory, menuBurndown,
+            menuViewSep1, menuViewShowGrid
+        });
         menuView.Name = "menuView";
         menuView.Size = new Size(59, 20);
         menuView.Text = "보기(&V)";
@@ -179,32 +187,44 @@ partial class MyAgileForm
         menuCompletedHistory.Click += menuCompletedHistory_Click;
         // 
         // menuBurndown
-        // 
+        //
         menuBurndown.Name = "menuBurndown";
         menuBurndown.Size = new Size(217, 22);
         menuBurndown.Text = "Burn Down 차트(&B)";
         menuBurndown.Click += menuBurndown_Click;
-        // 
-        // menuHelp
-        // 
+        //
+        // menuViewSep1
+        //
+        menuViewSep1.Name = "menuViewSep1";
+        //
+        // menuViewShowGrid
+        //
+        menuViewShowGrid.Checked = true;
+        menuViewShowGrid.CheckOnClick = true;
+        menuViewShowGrid.Name = "menuViewShowGrid";
+        menuViewShowGrid.Size = new Size(217, 22);
+        menuViewShowGrid.Text = "배경 눈금 표시(&G)";
+        menuViewShowGrid.Click += menuViewShowGrid_Click;
+        //
+        // menuHelp — directly opens info dialog (no submenu)
+        //
         menuHelp.Alignment = ToolStripItemAlignment.Right;
-        menuHelp.DropDownItems.AddRange(new ToolStripItem[] { menuAbout });
         menuHelp.Name = "menuHelp";
         menuHelp.Size = new Size(72, 20);
         menuHelp.Text = "도움말(&H)";
-        // 
-        // menuAbout
-        // 
+        menuHelp.Click += menuAbout_Click;
+        //
+        // menuAbout (hidden in File menu to provide F1 shortcut)
+        //
         menuAbout.Name = "menuAbout";
         menuAbout.ShortcutKeys = Keys.F1;
-        menuAbout.Size = new Size(190, 22);
-        menuAbout.Text = "프로그램 정보(&I)...";
+        menuAbout.Visible = false;
         menuAbout.Click += menuAbout_Click;
         // 
         // toolStrip
         // 
         toolStrip.GripStyle = ToolStripGripStyle.Hidden;
-        toolStrip.Items.AddRange(new ToolStripItem[] { toolBtnNew, toolBtnOpen, toolBtnSave, toolStripSep1, toolBtnUndo, toolBtnRedo, toolStripSep2, toolBtnSummary, toolBtnCompleted, toolBtnBurndown });
+        toolStrip.Items.AddRange(new ToolStripItem[] { toolBtnNew, toolBtnOpen, toolBtnSave, toolStripSep1, toolBtnUndo, toolBtnRedo, toolStripSep2, toolBtnSummary, toolBtnCompleted, toolBtnBurndown, toolStripSep3, toolBtnToggleGrid });
         toolStrip.Location = new Point(0, 24);
         toolStrip.Name = "toolStrip";
         toolStrip.Size = new Size(1440, 25);
@@ -279,13 +299,28 @@ partial class MyAgileForm
         toolBtnCompleted.Click += menuCompletedHistory_Click;
         // 
         // toolBtnBurndown
-        // 
+        //
         toolBtnBurndown.Name = "toolBtnBurndown";
         toolBtnBurndown.Size = new Size(66, 22);
         toolBtnBurndown.Text = "Burndown";
         toolBtnBurndown.ToolTipText = "Burn Down 차트 보기";
         toolBtnBurndown.Click += menuBurndown_Click;
-        // 
+        //
+        // toolStripSep3
+        //
+        toolStripSep3.Name = "toolStripSep3";
+        toolStripSep3.Size = new Size(6, 25);
+        //
+        // toolBtnToggleGrid
+        //
+        toolBtnToggleGrid.CheckOnClick = true;
+        toolBtnToggleGrid.Checked = true;
+        toolBtnToggleGrid.Name = "toolBtnToggleGrid";
+        toolBtnToggleGrid.Size = new Size(35, 22);
+        toolBtnToggleGrid.Text = "눈금";
+        toolBtnToggleGrid.ToolTipText = "배경 눈금 표시/숨기기";
+        toolBtnToggleGrid.Click += toolBtnToggleGrid_Click;
+        //
         // panelBoard
         panelBoard.BackColor = Color.FromArgb(235, 237, 240);
         panelBoard.Dock = DockStyle.Fill;
@@ -402,6 +437,8 @@ partial class MyAgileForm
     private ToolStripMenuItem menuSummary = null!;
     private ToolStripMenuItem menuCompletedHistory = null!;
     private ToolStripMenuItem menuBurndown = null!;
+    private ToolStripSeparator menuViewSep1 = null!;
+    private ToolStripMenuItem menuViewShowGrid = null!;
     private ToolStripMenuItem menuHelp = null!;
     private ToolStripMenuItem menuAbout = null!;
 
@@ -417,6 +454,8 @@ partial class MyAgileForm
     private ToolStripButton toolBtnSummary = null!;
     private ToolStripButton toolBtnCompleted = null!;
     private ToolStripButton toolBtnBurndown = null!;
+    private ToolStripSeparator toolStripSep3 = null!;
+    private ToolStripButton toolBtnToggleGrid = null!;
 
     // Board
     private Panel panelBoard = null!;

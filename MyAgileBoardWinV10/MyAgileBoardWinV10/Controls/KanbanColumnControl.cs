@@ -8,6 +8,8 @@ public partial class KanbanColumnControl : UserControl
     private KanbanColumn _column;
     private bool _isHeaderDragging = false;
     private bool _isWidthResizing = false;
+    private bool _showGrid = true;
+    private bool _layoutFinalized = false;
     private Point _dragStartLocal;
     private int _widthDragStartScreenX;
     private int _widthDragStartValue;
@@ -36,6 +38,13 @@ public partial class KanbanColumnControl : UserControl
 
     public bool IsResizingWidth => _isWidthResizing;
 
+    public void SetGridVisible(bool show)
+    {
+        if (_showGrid == show) return;
+        _showGrid = show;
+        panelCanvas.Invalidate();
+    }
+
     public KanbanColumnControl(KanbanColumn column)
     {
         _column = column;
@@ -54,7 +63,6 @@ public partial class KanbanColumnControl : UserControl
         panelResizeGrip.MouseDown += PanelResizeGrip_MouseDown;
         panelResizeGrip.MouseMove += PanelResizeGrip_MouseMove;
         panelResizeGrip.MouseUp += PanelResizeGrip_MouseUp;
-        panelResizeGrip.Paint += PanelResizeGrip_Paint;
     }
 
     public void SetColumnWidthWeight(int weight)
@@ -67,6 +75,14 @@ public partial class KanbanColumnControl : UserControl
         pixelWidth = Math.Max(ColumnWidthDefaults.Min, pixelWidth);
         if (Width == pixelWidth) return;
         Width = pixelWidth;
+        ApplyCardLayouts();
+    }
+
+    // Called from RebuildBoard() after proportional widths are set.
+    // Until this runs, ClampCardControl/PositionCardControl don't write back to the model.
+    public void FinalizeLayout()
+    {
+        _layoutFinalized = true;
         ApplyCardLayouts();
     }
 
@@ -112,14 +128,6 @@ public partial class KanbanColumnControl : UserControl
         ProjectChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private static void PanelResizeGrip_Paint(object? sender, PaintEventArgs e)
-    {
-        var g = e.Graphics;
-        int cx = ColumnWidthDefaults.GripWidth / 2;
-        using var brush = new SolidBrush(Color.FromArgb(120, 120, 130));
-        for (int y = 8; y < e.ClipRectangle.Bottom - 8; y += 6)
-            g.FillRectangle(brush, cx - 1, y, 2, 2);
-    }
 
     private void SetupCanvas()
     {
@@ -214,9 +222,20 @@ public partial class KanbanColumnControl : UserControl
 
     private void ClampCardControl(KanbanCardControl ctrl)
     {
+        if (!_layoutFinalized)
+        {
+            // Before final proportional widths are established, just keep the
+            // control visually in sync with the model — don't corrupt the model.
+            ctrl.Location = new Point(ctrl.Card.CanvasX, ctrl.Card.CanvasY);
+            return;
+        }
+
+        var canvasSize = panelCanvas.ClientSize;
+        if (canvasSize.Width <= 0 || canvasSize.Height <= 0) return;
+
         var card = ctrl.Card;
         var bounds = CardCanvasHelper.GetRotatedBounds(ctrl.Width, ctrl.Height, card.Rotation);
-        var loc = CardCanvasHelper.ClampToCanvas(new Point(card.CanvasX, card.CanvasY), bounds, panelCanvas.ClientSize);
+        var loc = CardCanvasHelper.ClampToCanvas(new Point(card.CanvasX, card.CanvasY), bounds, canvasSize);
         card.CanvasX = loc.X;
         card.CanvasY = loc.Y;
         ctrl.Location = loc;
@@ -226,17 +245,29 @@ public partial class KanbanColumnControl : UserControl
     {
         var card = ctrl.Card;
         var loc = new Point(card.CanvasX, card.CanvasY);
-        var bounds = CardCanvasHelper.GetRotatedBounds(ctrl.Width, ctrl.Height, card.Rotation);
-        loc = CardCanvasHelper.ClampToCanvas(loc, bounds, panelCanvas.ClientSize);
-        card.CanvasX = loc.X;
-        card.CanvasY = loc.Y;
+        // Only clamp and write back to the model once the column has its final
+        // proportional width (FinalizeLayout sets _layoutFinalized = true).
+        // Before that, column may have the designer default width (244 px) which
+        // would clamp saved positions to wrong values.
+        if (_layoutFinalized)
+        {
+            var canvasSize = panelCanvas.ClientSize;
+            if (canvasSize.Width > 0 && canvasSize.Height > 0)
+            {
+                var bounds = CardCanvasHelper.GetRotatedBounds(ctrl.Width, ctrl.Height, card.Rotation);
+                loc = CardCanvasHelper.ClampToCanvas(loc, bounds, canvasSize);
+                card.CanvasX = loc.X;
+                card.CanvasY = loc.Y;
+            }
+        }
         ctrl.Location = loc;
     }
 
     private void SortCardsByZIndex()
     {
+        // In WinForms, Controls[0] is drawn on top. Higher ZIndex = more in front → index 0.
         var controls = panelCanvas.Controls.OfType<KanbanCardControl>()
-            .OrderBy(c => c.Card.ZIndex)
+            .OrderByDescending(c => c.Card.ZIndex)
             .ToList();
         for (int i = 0; i < controls.Count; i++)
             panelCanvas.Controls.SetChildIndex(controls[i], i);
@@ -591,6 +622,7 @@ public partial class KanbanColumnControl : UserControl
 
     private void panelCanvas_Paint(object? sender, PaintEventArgs e)
     {
+        if (!_showGrid) return;
         using var pen = new Pen(Color.FromArgb(28, 0, 0, 0), 1f);
         int step = 24;
         var clip = e.ClipRectangle;

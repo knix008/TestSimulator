@@ -351,30 +351,30 @@ public partial class CardEditForm : Form
         lblTitle.Location = new Point(FormPad, y);
         y += lblTitle.Height + LabelGap;
 
-        txtTitle.Location = new Point(FormPad, y);
-        txtTitle.Size = new Size(contentW, inputH);
-        y += inputH + RowGap;
-
         lblTitleFormat.Location = new Point(FormPad, y);
         y += lblTitleFormat.Height + LabelGap;
 
         toolStripTitleFormat.Location = new Point(FormPad, y);
         toolStripTitleFormat.Width = contentW;
-        y += toolStripTitleFormat.Height + RowGap;
+        y += toolStripTitleFormat.Height + LabelGap;
+
+        txtTitle.Location = new Point(FormPad, y);
+        txtTitle.Size = new Size(contentW, inputH);
+        y += inputH + RowGap;
 
         lblDescription.Location = new Point(FormPad, y);
         y += lblDescription.Height + LabelGap;
-
-        rtbDescription.Location = new Point(FormPad, y);
-        rtbDescription.Size = new Size(contentW, descH);
-        y += descH + RowGap;
 
         lblDescriptionFormat.Location = new Point(FormPad, y);
         y += lblDescriptionFormat.Height + LabelGap;
 
         toolStripDescFormat.Location = new Point(FormPad, y);
         toolStripDescFormat.Width = contentW;
-        y += toolStripDescFormat.Height + RowGap;
+        y += toolStripDescFormat.Height + LabelGap;
+
+        rtbDescription.Location = new Point(FormPad, y);
+        rtbDescription.Size = new Size(contentW, descH);
+        y += descH + RowGap;
 
         int colGap = 8;
         int colW = (contentW - colGap * 2) / 3;

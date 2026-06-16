@@ -4,8 +4,16 @@ public class KanbanProject
 {
     public string Name { get; set; } = "New Project";
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public bool ShowGrid { get; set; } = true;
     public List<KanbanColumn> Columns { get; set; } = new();
     public List<ArchivedCard> ArchivedCards { get; set; } = new();
+
+    // Window state
+    public int WindowX { get; set; } = -1;
+    public int WindowY { get; set; } = -1;
+    public int WindowWidth { get; set; } = 0;
+    public int WindowHeight { get; set; } = 0;
+    public bool WindowMaximized { get; set; } = false;
 
     [System.Text.Json.Serialization.JsonIgnore]
     public string FilePath { get; set; } = string.Empty;

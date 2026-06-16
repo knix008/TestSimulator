@@ -15,6 +15,7 @@ partial class ProjectSettingsForm
     {
         lblName = new Label();
         txtProjectName = new TextBox();
+        chkShowGrid = new CheckBox();
         lblCreatedLabel = new Label();
         lblCreated = new Label();
         lblFilePathLabel = new Label();
@@ -38,11 +39,19 @@ partial class ProjectSettingsForm
         txtProjectName.Size = new Size(360, 27);
         txtProjectName.TabIndex = 0;
 
+        // chkShowGrid
+        chkShowGrid.AutoSize = true;
+        chkShowGrid.Font = new Font("Segoe UI", 9F);
+        chkShowGrid.Location = new Point(12, 74);
+        chkShowGrid.Name = "chkShowGrid";
+        chkShowGrid.Text = "배경 눈금 표시";
+        chkShowGrid.TabIndex = 1;
+
         // lblCreatedLabel
         lblCreatedLabel.AutoSize = true;
         lblCreatedLabel.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
         lblCreatedLabel.ForeColor = Color.DimGray;
-        lblCreatedLabel.Location = new Point(12, 78);
+        lblCreatedLabel.Location = new Point(12, 104);
         lblCreatedLabel.Name = "lblCreatedLabel";
         lblCreatedLabel.Text = "프로젝트 정보";
 
@@ -50,7 +59,7 @@ partial class ProjectSettingsForm
         lblCreated.AutoSize = true;
         lblCreated.Font = new Font("Segoe UI", 8.5F);
         lblCreated.ForeColor = Color.DimGray;
-        lblCreated.Location = new Point(12, 96);
+        lblCreated.Location = new Point(12, 122);
         lblCreated.Name = "lblCreated";
         lblCreated.Text = "생성일: -";
 
@@ -58,7 +67,7 @@ partial class ProjectSettingsForm
         lblFilePathLabel.AutoSize = true;
         lblFilePathLabel.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
         lblFilePathLabel.ForeColor = Color.DimGray;
-        lblFilePathLabel.Location = new Point(12, 118);
+        lblFilePathLabel.Location = new Point(12, 144);
         lblFilePathLabel.Name = "lblFilePathLabel";
         lblFilePathLabel.Text = "파일 경로:";
 
@@ -66,25 +75,25 @@ partial class ProjectSettingsForm
         lblFilePath.AutoSize = false;
         lblFilePath.Font = new Font("Segoe UI", 8F);
         lblFilePath.ForeColor = Color.DimGray;
-        lblFilePath.Location = new Point(12, 136);
+        lblFilePath.Location = new Point(12, 162);
         lblFilePath.Name = "lblFilePath";
         lblFilePath.Size = new Size(360, 32);
         lblFilePath.Text = "저장되지 않음";
 
         // btnOk
-        btnOk.Location = new Point(216, 180);
+        btnOk.Location = new Point(216, 206);
         btnOk.Name = "btnOk";
         btnOk.Size = new Size(75, 28);
-        btnOk.TabIndex = 1;
+        btnOk.TabIndex = 2;
         btnOk.Text = "확인";
         btnOk.UseVisualStyleBackColor = true;
         btnOk.Click += new EventHandler(btnOk_Click);
 
         // btnCancel
-        btnCancel.Location = new Point(297, 180);
+        btnCancel.Location = new Point(297, 206);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(75, 28);
-        btnCancel.TabIndex = 2;
+        btnCancel.TabIndex = 3;
         btnCancel.Text = "취소";
         btnCancel.UseVisualStyleBackColor = true;
         btnCancel.Click += new EventHandler(btnCancel_Click);
@@ -94,10 +103,11 @@ partial class ProjectSettingsForm
         CancelButton = btnCancel;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(384, 220);
+        ClientSize = new Size(384, 246);
         Controls.AddRange(new Control[]
         {
             lblName, txtProjectName,
+            chkShowGrid,
             lblCreatedLabel, lblCreated,
             lblFilePathLabel, lblFilePath,
             btnOk, btnCancel
@@ -115,6 +125,7 @@ partial class ProjectSettingsForm
 
     private Label lblName = null!;
     private TextBox txtProjectName = null!;
+    private CheckBox chkShowGrid = null!;
     private Label lblCreatedLabel = null!;
     private Label lblCreated = null!;
     private Label lblFilePathLabel = null!;

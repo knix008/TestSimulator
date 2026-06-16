@@ -34,6 +34,8 @@ public static class IconFactory
         "view"       => DrawView(),
         "undo"       => DrawUndo(),
         "redo"       => DrawRedo(),
+        "grid"       => DrawGrid(),
+        "burndown"   => DrawBurndown(),
         _            => DrawDefault()
     };
 
@@ -291,6 +293,37 @@ public static class IconFactory
             // Arrowhead at end of arc
             g.FillPolygon(new SolidBrush(Color.FromArgb(68, 114, 196)),
                 new[] { new Point(14, 3), new Point(10, 1), new Point(11, 5) });
+        });
+    }
+
+    private static Bitmap DrawBurndown()
+    {
+        return Draw(g =>
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            // Axes
+            using var axis = new Pen(Color.Gray, 1.5f);
+            g.DrawLine(axis, 1, 1, 1, 14);
+            g.DrawLine(axis, 1, 14, 15, 14);
+            // Ideal line (dashed, top-left to bottom-right)
+            using var ideal = new Pen(Color.FromArgb(180, 100, 160, 220), 1f) { DashStyle = DashStyle.Dash };
+            g.DrawLine(ideal, 1, 1, 15, 14);
+            // Actual burn-down line (red, stepping down)
+            using var actual = new Pen(Color.FromArgb(200, 50, 50), 1.5f);
+            g.DrawLines(actual, new PointF[] { new(1,1), new(5,3), new(8,7), new(11,9), new(13,13) });
+        });
+    }
+
+    private static Bitmap DrawGrid()
+    {
+        return Draw(g =>
+        {
+            g.SmoothingMode = SmoothingMode.None;
+            using var pen = new Pen(Color.FromArgb(90, 100, 150), 1f);
+            for (int x = 2; x <= 14; x += 4)
+                g.DrawLine(pen, x, 2, x, 14);
+            for (int y = 2; y <= 14; y += 4)
+                g.DrawLine(pen, 2, y, 14, y);
         });
     }
 

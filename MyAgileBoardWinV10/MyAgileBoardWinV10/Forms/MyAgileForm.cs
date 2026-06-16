@@ -8,6 +8,17 @@ namespace MyAgileBoardWinV10.Forms;
 
 public partial class MyAgileForm : Form
 {
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            const int WS_EX_COMPOSITED = 0x02000000;
+            var cp = base.CreateParams;
+            cp.ExStyle |= WS_EX_COMPOSITED;
+            return cp;
+        }
+    }
+
     private KanbanProject _project = KanbanProject.CreateDefault();
     private bool _isDirty = false;
 
@@ -67,8 +78,10 @@ public partial class MyAgileForm : Form
         toolBtnUndo.Image      = IconFactory.Get("undo");
         toolBtnRedo.Image      = IconFactory.Get("redo");
         toolBtnSummary.Image   = IconFactory.Get("summary");
-        toolBtnCompleted.Image = IconFactory.Get("check");
-        toolBtnBurndown.Image  = IconFactory.Get("summary");
+        toolBtnCompleted.Image   = IconFactory.Get("check");
+        toolBtnBurndown.Image    = IconFactory.Get("burndown");
+        toolBtnToggleGrid.Image  = IconFactory.Get("grid");
+        menuViewShowGrid.Image   = IconFactory.Get("grid");
 
         // Menu bar — top-level items
         menuFile.Image    = IconFactory.Get("file");
@@ -92,7 +105,7 @@ public partial class MyAgileForm : Form
         // View menu — dropdown items
         menuSummary.Image          = IconFactory.Get("summary");
         menuCompletedHistory.Image = IconFactory.Get("check");
-        menuBurndown.Image         = IconFactory.Get("summary");
+        menuBurndown.Image         = IconFactory.Get("burndown");
     }
 
     private void SetupTooltips()
@@ -103,8 +116,9 @@ public partial class MyAgileForm : Form
         toolBtnUndo.ToolTipText      = "실행 취소 (Ctrl+Z)";
         toolBtnRedo.ToolTipText      = "다시 실행 (Ctrl+Y)";
         toolBtnSummary.ToolTipText   = "Summary / 차트 보기 (Ctrl+T)";
-        toolBtnCompleted.ToolTipText = "완료 후 삭제된 항목 보기";
-        toolBtnBurndown.ToolTipText  = "Burn Down 차트 보기";
+        toolBtnCompleted.ToolTipText   = "완료 후 삭제된 항목 보기";
+        toolBtnBurndown.ToolTipText    = "Burn Down 차트 보기";
+        toolBtnToggleGrid.ToolTipText  = "배경 눈금 표시/숨기기";
     }
 
     private void SetupAddColumnButton()
@@ -136,19 +150,32 @@ public partial class MyAgileForm : Form
     {
         CleanupGhost();
 
+        SuspendLayout();
         flowColumns.SuspendLayout();
+
         foreach (var ctrl in flowColumns.Controls.OfType<KanbanColumnControl>().ToArray())
             flowColumns.Controls.Remove(ctrl);
 
         foreach (var col in _project.Columns)
             flowColumns.Controls.Add(CreateColumnControl(col));
 
-        flowColumns.ResumeLayout();
-
         btnAddColumn.Height = GetColumnControlHeight();
         ApplyProportionalColumnWidths();
+
+        // Finalize card layouts now that columns have their correct proportional widths.
+        // This is the first moment where ClampCardControl/PositionCardControl may safely
+        // write back to the model — any earlier call used the designer-default width.
+        foreach (var ctrl in flowColumns.Controls.OfType<KanbanColumnControl>())
+            ctrl.FinalizeLayout();
+
         UpdateLastColumnGrips();
+
+        flowColumns.ResumeLayout(false);
+        flowColumns.PerformLayout();
+        ResumeLayout(false);
+
         UpdateStatusBar();
+        toolBtnToggleGrid.Checked = _project.ShowGrid;
     }
 
     private KanbanColumnControl CreateColumnControl(KanbanColumn col)
@@ -172,6 +199,7 @@ public partial class MyAgileForm : Form
         ctrl.CardDragStarted         += OnCardDragStarted;
         ctrl.CardDragging            += OnCardDragging;
         ctrl.CardDragEnded           += OnCardDragEnded;
+        ctrl.SetGridVisible(_project.ShowGrid);
         return ctrl;
     }
 
@@ -191,15 +219,32 @@ public partial class MyAgileForm : Form
 
     private void OnColumnWidthLiveChanged(KanbanColumnControl changed)
     {
-        if (!IsLastColumn(changed))
-            ApplyLastColumnFillWidth();
+        var columns = flowColumns.Controls.OfType<KanbanColumnControl>().ToList();
+        int idx = columns.IndexOf(changed);
+        if (idx < 0 || idx >= columns.Count - 1) return;
+
+        var nextCol = columns[idx + 1];
+        int minWidth = ColumnWidthDefaults.Min;
+        int available = GetAvailableColumnAreaWidth(columns.Count);
+
+        // Width of all columns except the two being resized
+        int othersWidth = columns.Where((_, i) => i != idx && i != idx + 1).Sum(c => c.Width);
+        int twoColSpace = available - othersWidth;
+
+        // Clamp current column so next can't go below minimum
+        int changedWidth = Math.Clamp(changed.Width, minWidth, twoColSpace - minWidth);
+        if (changed.Width != changedWidth)
+            changed.SetVisualWidth(changedWidth);
+
+        nextCol.SetVisualWidth(Math.Max(minWidth, twoColSpace - changedWidth));
     }
 
     private void OnColumnWidthChanged(KanbanColumnControl changed)
     {
+        // Persist current pixel widths as column weight values
+        foreach (var ctrl in flowColumns.Controls.OfType<KanbanColumnControl>())
+            ctrl.SetColumnWidthWeight(ctrl.Width);
         UpdateDirtyState();
-        if (!IsLastColumn(changed))
-            ApplyLastColumnFillWidth();
         UpdateLastColumnGrips();
     }
 
@@ -730,7 +775,7 @@ public partial class MyAgileForm : Form
         if (!ConfirmDiscardChanges()) return;
         _project = KanbanProject.CreateDefault();
         RebuildBoard();
-        CaptureSavedState();
+        BeginInvoke(CaptureSavedState);
         UpdateStatusBar();
     }
 
@@ -766,8 +811,9 @@ public partial class MyAgileForm : Form
         }
 
         _project = loaded;
+        RestoreWindowState();
         RebuildBoard();
-        CaptureSavedState();
+        BeginInvoke(CaptureSavedState);
         UpdateStatusBar();
     }
 
@@ -777,6 +823,8 @@ public partial class MyAgileForm : Form
     private bool Save()
     {
         if (string.IsNullOrEmpty(_project.FilePath)) return SaveAs();
+        CaptureWindowState();
+        SyncColumnWidthsToModel();
         return ErrorHandler.TryExecute(() =>
         {
             ProjectService.Save(_project, _project.FilePath);
@@ -796,6 +844,8 @@ public partial class MyAgileForm : Form
         };
         if (dlg.ShowDialog() != DialogResult.OK) return false;
         RememberDir(dlg.FileName);
+        CaptureWindowState();
+        SyncColumnWidthsToModel();
         return ErrorHandler.TryExecute(() =>
         {
             ProjectService.Save(_project, dlg.FileName);
@@ -817,9 +867,80 @@ public partial class MyAgileForm : Form
 
     private void menuProjectSettings_Click(object sender, EventArgs e)
     {
+        bool originalShowGrid = _project.ShowGrid;
         using var form = new ProjectSettingsForm(_project);
-        if (form.ShowDialog() == DialogResult.OK)
+        form.GridVisibilityChanged += (_, show) => ApplyGridSetting(show);
+        var result = form.ShowDialog();
+        if (result == DialogResult.OK)
+        {
+            SyncColumnWidthsToModel();
+            ApplyGridSetting(_project.ShowGrid);
             UpdateDirtyState();
+        }
+        else
+        {
+            // Revert live preview
+            ApplyGridSetting(originalShowGrid);
+        }
+    }
+
+    private void ApplyGridSetting(bool show)
+    {
+        toolBtnToggleGrid.Checked = show;
+        menuViewShowGrid.Checked = show;
+        foreach (var col in flowColumns.Controls.OfType<KanbanColumnControl>())
+            col.SetGridVisible(show);
+    }
+
+    private void menuViewShowGrid_Click(object? sender, EventArgs e)
+    {
+        bool show = menuViewShowGrid.Checked;
+        _project.ShowGrid = show;
+        ApplyGridSetting(show);
+        UpdateDirtyState();
+    }
+
+    private void SyncColumnWidthsToModel()
+    {
+        foreach (var ctrl in flowColumns.Controls.OfType<KanbanColumnControl>())
+            ctrl.SetColumnWidthWeight(ctrl.Width);
+    }
+
+    private void CaptureWindowState()
+    {
+        if (WindowState == FormWindowState.Maximized)
+        {
+            _project.WindowMaximized = true;
+            _project.WindowX = RestoreBounds.X;
+            _project.WindowY = RestoreBounds.Y;
+            _project.WindowWidth = RestoreBounds.Width;
+            _project.WindowHeight = RestoreBounds.Height;
+        }
+        else if (WindowState == FormWindowState.Normal)
+        {
+            _project.WindowMaximized = false;
+            _project.WindowX = Location.X;
+            _project.WindowY = Location.Y;
+            _project.WindowWidth = Width;
+            _project.WindowHeight = Height;
+        }
+    }
+
+    private void RestoreWindowState()
+    {
+        if (_project.WindowWidth <= 0 || _project.WindowHeight <= 0) return;
+        var screen = Screen.FromPoint(new Point(
+            Math.Max(0, _project.WindowX),
+            Math.Max(0, _project.WindowY)));
+        int x = _project.WindowX >= 0
+            ? Math.Clamp(_project.WindowX, screen.Bounds.Left, screen.Bounds.Right - 200)
+            : Left;
+        int y = _project.WindowY >= 0
+            ? Math.Clamp(_project.WindowY, screen.Bounds.Top, screen.Bounds.Bottom - 100)
+            : Top;
+        SetBounds(x, y, _project.WindowWidth, _project.WindowHeight);
+        if (_project.WindowMaximized)
+            WindowState = FormWindowState.Maximized;
     }
 
     // ─────────────────────────────────────────────
@@ -887,6 +1008,15 @@ public partial class MyAgileForm : Form
     private void toolBtnSave_Click(object sender, EventArgs e)    => menuSave_Click(sender, e);
     private void toolBtnSummary_Click(object sender, EventArgs e) => menuSummary_Click(sender, e);
 
+    private void toolBtnToggleGrid_Click(object sender, EventArgs e)
+    {
+        bool show = toolBtnToggleGrid.Checked;
+        _project.ShowGrid = show;
+        foreach (var col in flowColumns.Controls.OfType<KanbanColumnControl>())
+            col.SetGridVisible(show);
+        UpdateDirtyState();
+    }
+
     // ─────────────────────────────────────────────
     //  Undo / Redo
     // ─────────────────────────────────────────────
@@ -908,12 +1038,14 @@ public partial class MyAgileForm : Form
         if (_undoStack.Count == 0) return;
         ErrorHandler.TryExecute(() =>
         {
+            var savedWidths = CaptureColumnWidths();
             var currentJson = JsonSerializer.Serialize(_project, ProjectService.Options);
             _redoStack.Push(currentJson);
             var json = _undoStack.Pop();
             _project = JsonSerializer.Deserialize<KanbanProject>(json, ProjectService.Options)
                 ?? throw new InvalidOperationException("저장된 실행 취소 데이터를 복원할 수 없습니다.");
             RebuildBoard();
+            TryRestoreColumnWidths(savedWidths);
             UpdateDirtyState();
             UpdateUndoRedoUI();
         }, "실행 취소 오류", this);
@@ -924,15 +1056,39 @@ public partial class MyAgileForm : Form
         if (_redoStack.Count == 0) return;
         ErrorHandler.TryExecute(() =>
         {
+            var savedWidths = CaptureColumnWidths();
             var currentJson = JsonSerializer.Serialize(_project, ProjectService.Options);
             _undoStack.Push(currentJson);
             var json = _redoStack.Pop();
             _project = JsonSerializer.Deserialize<KanbanProject>(json, ProjectService.Options)
                 ?? throw new InvalidOperationException("저장된 다시 실행 데이터를 복원할 수 없습니다.");
             RebuildBoard();
+            TryRestoreColumnWidths(savedWidths);
             UpdateDirtyState();
             UpdateUndoRedoUI();
         }, "다시 실행 오류", this);
+    }
+
+    private Dictionary<string, int> CaptureColumnWidths()
+        => flowColumns.Controls.OfType<KanbanColumnControl>()
+            .ToDictionary(c => c.Column.Id, c => c.Width);
+
+    private void TryRestoreColumnWidths(Dictionary<string, int> saved)
+    {
+        var cols = flowColumns.Controls.OfType<KanbanColumnControl>().ToList();
+        if (cols.Count == 0) return;
+
+        // Only restore if the exact same column set exists (no columns added/removed)
+        var currentIds = cols.Select(c => c.Column.Id).ToHashSet();
+        var savedIds   = saved.Keys.ToHashSet();
+        if (!currentIds.SetEquals(savedIds)) return;
+
+        foreach (var ctrl in cols)
+        {
+            if (saved.TryGetValue(ctrl.Column.Id, out int w))
+                ctrl.SetVisualWidth(w);
+        }
+        SyncColumnWidthsToModel();
     }
 
     private void UpdateUndoRedoUI()
