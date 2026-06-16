@@ -105,28 +105,33 @@ namespace MyProject.Theme
 
         public static Bitmap Indent => Make(g =>
         {
-            using var p = new Pen(Color.White, 1.5f);
-            // Three lines (indented)
-            g.DrawLine(p, 2, 5, 18, 5);
-            g.DrawLine(p, 6, 10, 18, 10);
-            g.DrawLine(p, 6, 15, 18, 15);
-            // Arrow
-            using var ap = new Pen(Color.White, 2f);
-            g.DrawLine(ap, 2, 10, 5, 10);
-            g.DrawLine(ap, 3, 8, 5, 10);
-            g.DrawLine(ap, 3, 12, 5, 10);
+            using var linePen = new Pen(Color.White, 1.5f);
+            using var arrowBrush = new SolidBrush(Color.White);
+            // Parent row
+            g.DrawLine(linePen, 2, 5, 18, 5);
+            // Indented child rows
+            g.DrawLine(linePen, 10, 10, 18, 10);
+            g.DrawLine(linePen, 10, 15, 18, 15);
+            // Hierarchy elbow
+            g.DrawLine(linePen, 8, 5, 8, 10);
+            g.DrawLine(linePen, 8, 10, 10, 10);
+            // Prominent right-pointing chevron
+            g.FillPolygon(arrowBrush, new Point[] { new(2, 7), new(7, 10), new(2, 13) });
         });
 
         public static Bitmap Outdent => Make(g =>
         {
-            using var p = new Pen(Color.White, 1.5f);
-            g.DrawLine(p, 2, 5, 18, 5);
-            g.DrawLine(p, 6, 10, 18, 10);
-            g.DrawLine(p, 6, 15, 18, 15);
-            using var ap = new Pen(Color.White, 2f);
-            g.DrawLine(ap, 7, 10, 4, 10);
-            g.DrawLine(ap, 6, 8, 4, 10);
-            g.DrawLine(ap, 6, 12, 4, 10);
+            using var linePen = new Pen(Color.White, 1.5f);
+            using var arrowBrush = new SolidBrush(Color.White);
+            // Parent row
+            g.DrawLine(linePen, 2, 5, 18, 5);
+            // Outdented child rows (left aligned)
+            g.DrawLine(linePen, 2, 10, 12, 10);
+            g.DrawLine(linePen, 2, 15, 12, 15);
+            // Hierarchy elbow lifting child to parent level
+            g.DrawLine(linePen, 8, 10, 8, 5);
+            // Prominent left-pointing chevron
+            g.FillPolygon(arrowBrush, new Point[] { new(18, 7), new(13, 10), new(18, 13) });
         });
 
         public static Bitmap ZoomIn => Make(g =>
@@ -201,6 +206,17 @@ namespace MyProject.Theme
             // Circles (anchor points)
             g.DrawEllipse(p, 2, 8, 4, 4);
             g.DrawEllipse(p, 14, 8, 4, 4);
+        });
+
+        public static Bitmap Unlink => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.8f);
+            g.DrawEllipse(p, 2, 8, 4, 4);
+            g.DrawEllipse(p, 14, 8, 4, 4);
+            g.DrawLine(p, 5, 7, 15, 13);
+            using var xp = new Pen(Color.White, 2.2f);
+            g.DrawLine(xp, 8, 5, 12, 9);
+            g.DrawLine(xp, 12, 5, 8, 9);
         });
 
         public static Bitmap Report => Make(g =>

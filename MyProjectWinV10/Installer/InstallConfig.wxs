@@ -1,0 +1,64 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Fragment>
+    <Property Id="KEEPUSERSETTINGS" Value="1" />
+
+    <Property Id="LOCALAPPDATAFOLDER" Secure="yes">
+      <RegistrySearch Id="LocalAppDataSearch"
+                      Root="HKCU"
+                      Key="Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+                      Name="Local AppData"
+                      Type="raw" />
+    </Property>
+
+    <Property Id="EXISTINGUSERSETTINGS">
+      <DirectorySearch Id="SearchUserDataDir"
+                       Path="[LOCALAPPDATAFOLDER]MyProject"
+                       Depth="0">
+        <FileSearch Id="SearchSettingsFile" Name="settings.json" />
+      </DirectorySearch>
+    </Property>
+
+    <Property Id="EXISTINGRECOVERY">
+      <DirectorySearch Id="SearchRecoveryDir"
+                       Path="[LOCALAPPDATAFOLDER]MyProject"
+                       Depth="0">
+        <FileSearch Id="SearchRecoveryFile" Name="session_recovery.myprj" />
+      </DirectorySearch>
+    </Property>
+
+    <SetProperty Id="SHOW_SETTINGS_DIALOG"
+                 Value="1"
+                 Before="FindRelatedProducts"
+                 Sequence="ui"
+                 Condition="EXISTINGUSERSETTINGS OR EXISTINGRECOVERY" />
+
+    <Property Id="ARPINSTALLLOCATION">
+      <RegistrySearch Id="SearchArpInstallLocation"
+                      Root="HKLM"
+                      Key="Software\MyProject"
+                      Name="InstallPath"
+                      Type="raw" />
+    </Property>
+
+    <SetProperty Id="INSTALLFOLDER_CLEANUP"
+                 Value="[INSTALLFOLDER]"
+                 Before="CostInitialize"
+                 Sequence="both" />
+
+    <CustomAction Id="PurgeUserSettings"
+                  FileRef="MyProjectExe"
+                  ExeCommand="--purge-settings"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="PurgeUserSettings"
+              After="InstallFiles"
+              Condition="KEEPUSERSETTINGS=&quot;0&quot;" />
+    </InstallExecuteSequence>
+  </Fragment>
+
+</Wix>

@@ -5,10 +5,11 @@ namespace MyProject.Models
 {
     public static class AppSettings
     {
-        private static readonly string SettingsPath = Path.Combine(
+        public static string UserDataFolder => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MyProject",
-            "settings.json");
+            "MyProject");
+
+        private static string SettingsPath => Path.Combine(UserDataFolder, "settings.json");
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -29,10 +30,28 @@ namespace MyProject.Models
         public static int WindowHeight { get; private set; } = 720;
         public static FormWindowState WindowState { get; private set; } = FormWindowState.Normal;
 
-        private static string RecoveryProjectPath => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MyProject",
-            "session_recovery.myprj");
+        private static string RecoveryProjectPath => Path.Combine(UserDataFolder, "session_recovery.myprj");
+
+        public static bool HasUserData =>
+            File.Exists(SettingsPath) || File.Exists(RecoveryProjectPath);
+
+        public static void PurgeUserData()
+        {
+            if (!Directory.Exists(UserDataFolder))
+                return;
+
+            try
+            {
+                Directory.Delete(UserDataFolder, recursive: true);
+            }
+            catch
+            {
+                foreach (var file in Directory.EnumerateFiles(UserDataFolder, "*", SearchOption.AllDirectories))
+                {
+                    try { File.Delete(file); } catch { /* best effort */ }
+                }
+            }
+        }
 
         private static int[] DefaultTaskGridColumnWidths() =>
             new[] { 36, 220, 72, 40, 96, 84, 68, 132 };

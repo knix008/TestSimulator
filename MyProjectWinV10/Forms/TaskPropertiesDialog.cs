@@ -518,19 +518,35 @@ namespace MyProject.Forms
             foreach (var a in _model.GetAssignments(_task.Id))
                 _gridResources.Rows.Add(a.ResourceName, ProjectModel.FormatResourceAllocationEditDisplay(a.AllocationPercent));
             UpdateResourceTotal();
+
+            bool readOnlySchedule = _model.IsSummaryTask(_task.Id);
+            _dtpStart.Enabled = !readOnlySchedule;
+            _nudDuration.Enabled = !readOnlySchedule;
+            _nudProgress.Enabled = !readOnlySchedule;
+            _chkAutoSchedule.Enabled = !readOnlySchedule;
+            _cboType.Enabled = !readOnlySchedule;
         }
 
         private bool SaveValues()
         {
             if (!string.IsNullOrWhiteSpace(_txtName.Text))
                 _task.Name = _txtName.Text.Trim();
-            _task.TaskType = (TaskType)_cboType.SelectedIndex;
 
-            var oldStart = _task.StartDate;
-            _task.StartDate = _dtpStart.Value.Date;
-            _task.DurationDays = (int)_nudDuration.Value;
-            _task.Progress = (double)_nudProgress.Value;
-            _task.AutoSchedule = _chkAutoSchedule.Checked;
+            bool readOnlySchedule = _model.IsSummaryTask(_task.Id);
+            if (!readOnlySchedule)
+            {
+                _task.TaskType = (TaskType)_cboType.SelectedIndex;
+
+                var oldStart = _task.StartDate;
+                _task.StartDate = _dtpStart.Value.Date;
+                _task.DurationDays = (int)_nudDuration.Value;
+                _task.Progress = (double)_nudProgress.Value;
+                _task.AutoSchedule = _chkAutoSchedule.Checked;
+
+                if (_task.AutoSchedule && _task.StartDate != oldStart)
+                    _model.CascadeDependencies(_task.Id);
+            }
+
             _task.Deliverable = _txtDeliverable.Text;
             _task.BarColor = _scheduleColor;
             _task.ProgressColor = _progressColor;
@@ -539,9 +555,6 @@ namespace MyProject.Forms
 
             var txtAssigned = Controls.Find("txtAssigned", true).FirstOrDefault() as TextBox;
             if (txtAssigned != null) _task.AssignedTo = txtAssigned.Text;
-
-            if (_task.AutoSchedule && _task.StartDate != oldStart)
-                _model.CascadeDependencies(_task.Id);
 
             var resourceLines = new List<string>();
             foreach (DataGridViewRow row in _gridResources.Rows)

@@ -59,6 +59,8 @@ namespace MyProject.Forms
             btnLink.Image       = AppIcons.Link;
             btnLink.CheckOnClick = true;
             menuLink.CheckOnClick = true;
+            btnUnlink.Image     = AppIcons.Unlink;
+            menuUnlink.Image        = AppIcons.Unlink;
             btnNotes.CheckOnClick = true;
             btnZoomIn.Image     = AppIcons.ZoomIn;
             btnZoomOut.Image    = AppIcons.ZoomOut;
@@ -92,11 +94,12 @@ namespace MyProject.Forms
 
             // Task menu
             menuAddTask.Image       = AppIcons.AddTask;
-            menuAddSubtask.Image    = AppIcons.Indent;
+            menuAddSubtask.Image    = AppIcons.AddSubtask;
             menuDeleteTask.Image    = AppIcons.Delete;
             menuIndent.Image        = AppIcons.Indent;
             menuOutdent.Image       = AppIcons.Outdent;
             menuLink.Image          = AppIcons.Link;
+            menuUnlink.Image        = AppIcons.Unlink;
             menuDepType.Image       = AppIcons.Link;
             menuTaskProps.Image     = AppIcons.Properties;
             menuExpandCollapse.Image = AppIcons.View;
@@ -234,6 +237,8 @@ namespace MyProject.Forms
                 ? "Cancel link mode (Esc)"
                 : "Link Tasks — click task bars on the Gantt chart (preview line shown)");
 
+            SetToolbarTip(btnUnlink, "Remove Link — remove outgoing links from the selected task");
+
             SetToolbarTip(btnNotes, btnNotes.Checked
                 ? "Note mode active — click a task bar to add a note (click again to cancel)"
                 : "Add note on Gantt chart (selected task or click task bar)");
@@ -270,6 +275,7 @@ namespace MyProject.Forms
             menuIndent.Click     += (_, _) => OnIndent();
             menuOutdent.Click    += (_, _) => OnOutdent();
             menuLink.Click       += (_, _) => OnLinkTasks();
+            menuUnlink.Click     += (_, _) => OnUnlinkTasks();
             menuDepFS.Click      += (_, _) => SelectDependencyType(DependencyType.FS);
             menuDepFF.Click      += (_, _) => SelectDependencyType(DependencyType.FF);
             menuDepSS.Click      += (_, _) => SelectDependencyType(DependencyType.SS);
@@ -306,6 +312,7 @@ namespace MyProject.Forms
             btnExpandCollapse.Click += (_, _) => OnToggleExpandSelectedTask();
             btnCriticalPath.Click += (_, _) => OnShowCriticalPathToolbarClick();
             btnLink.Click       += (_, _) => OnLinkTasks();
+            btnUnlink.Click     += (_, _) => OnUnlinkTasks();
             dependencyTypeSelector.SelectedType = AppSettings.DefaultDependencyType;
             dependencyTypeSelector.SelectedTypeChanged += (_, _) => OnDependencyTypeChanged();
             btnZoomIn.Click     += (_, _) => OnZoomIn();
@@ -358,7 +365,6 @@ namespace MyProject.Forms
             selectionPropertiesControl.RequestUndoSnapshot = CaptureUndoSnapshot;
 
             FormClosing += OnFormClosing;
-            FormClosed += OnFormClosed;
             Shown += (_, _) =>
             {
                 ApplyWindowSettingsFromAppSettings();
@@ -384,12 +390,15 @@ namespace MyProject.Forms
                     }
                 }
 
-                if (e.KeyCode != Keys.Escape || !IsLinkModeActive)
+                if (e.KeyCode != Keys.Escape)
                     return;
 
-                CancelLink();
-                statusLabel.Text = "Link cancelled.";
-                e.Handled = true;
+                if (IsLinkModeActive)
+                {
+                    CancelLink();
+                    statusLabel.Text = "Link cancelled.";
+                    e.Handled = true;
+                }
             };
         }
 
@@ -401,38 +410,20 @@ namespace MyProject.Forms
             taskGridControl.CancelInteraction();
 
             bool allowPersistence = true;
-            if (!ShouldCloseWithoutSavePrompt() && NeedsSavePrompt())
+            if (NeedsSavePrompt())
             {
-                var result = MessageBox.Show(
-                    this,
-                    "Save changes to the current project?",
-                    "Unsaved Changes",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Question);
-
-                if (result == DialogResult.Cancel)
+                if (!ConfirmProceedWithoutSaving())
                 {
                     e.Cancel = true;
                     return;
                 }
 
-                if (result == DialogResult.Yes)
-                {
-                    if (!TrySave())
-                    {
-                        e.Cancel = true;
-                        return;
-                    }
-                }
-                else
-                {
+                if (_model.IsModified)
                     allowPersistence = false;
-                }
             }
 
             SaveSessionState(allowPersistence);
 
-            AppShutdown.BeginShutdown();
             DetachFromModel();
 
             if (_titleBarModel != null)
@@ -440,20 +431,9 @@ namespace MyProject.Forms
 
             try { AppSettings.Save(); }
             catch { /* ignore settings write errors during shutdown */ }
-
-            if (AppShutdown.IsDebugSession)
-                AppShutdown.ForceExitIfDebugSession();
         }
-
-        private static bool ShouldCloseWithoutSavePrompt() =>
-            AppShutdown.IsDebugSession;
 
         private bool NeedsSavePrompt() => _model.IsModified;
-
-        private void OnFormClosed(object? sender, FormClosedEventArgs e)
-        {
-            AppShutdown.ExitProcessIfDebugSession();
-        }
 
         private void DetachFromModel()
         {
@@ -471,6 +451,7 @@ namespace MyProject.Forms
                 IndentTask = id => IndentTaskById(id),
                 OutdentTask = id => OutdentTaskById(id),
                 LinkFromTask = id => LinkFromTask(id),
+                UnlinkFromTask = id => UnlinkFromTask(id),
                 ToggleExpandTask = id => ToggleExpandTask(id),
                 AddNoteToTask = id => ganttChartControl.AddNoteForTask(id),
                 EditNote = id => ganttChartControl.BeginInlineNoteEdit(id),
@@ -512,6 +493,7 @@ namespace MyProject.Forms
         {
             if (taskId < 0) return;
 
+            CancelLink();
             _awaitingLinkPredecessor = false;
             _linkSourceId = taskId;
             btnLink.Checked = true;
@@ -523,6 +505,15 @@ namespace MyProject.Forms
 
             var src = _model.GetTask(taskId);
             statusLabel.Text = $"Link source: [{src?.Name}] — click another task bar on the Gantt chart ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+        }
+
+        private void UnlinkFromTask(int taskId)
+        {
+            if (taskId < 0) return;
+
+            CancelLink();
+            SelectTask(taskId);
+            RemoveOutgoingLinks(taskId);
         }
 
         private void ToggleExpandTask(int taskId)
@@ -1673,6 +1664,7 @@ namespace MyProject.Forms
             menuTaskProps.Enabled = hasTaskSelection;
             menuLink.Enabled = true;
             menuLink.Checked = IsLinkModeActive;
+            menuUnlink.Enabled = hasTaskSelection;
             menuExpandCollapse.Enabled = hasChildren;
 
             btnAddSubtask.Enabled = hasTaskSelection;
@@ -1682,6 +1674,7 @@ namespace MyProject.Forms
             btnOutdent.Enabled = hasTaskSelection;
             btnExpandCollapse.Enabled = hasChildren;
             btnLink.Checked = IsLinkModeActive;
+            btnUnlink.Enabled = hasTaskSelection;
 
             string expandText = hasChildren && task != null && task.IsExpanded
                 ? "Collapse Subtasks"
@@ -1735,6 +1728,46 @@ namespace MyProject.Forms
             statusLabel.Text = $"Link source: [{src?.Name}] — click another task bar on the Gantt chart ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
         }
 
+        private void OnUnlinkTasks()
+        {
+            CancelLink();
+            RemoveOutgoingLinks(_lastSelectedId);
+        }
+
+        private void RemoveOutgoingLinks(int taskId)
+        {
+            if (taskId < 0)
+            {
+                statusLabel.Text = "Select a task to remove its outgoing link.";
+                return;
+            }
+
+            var task = _model.GetTask(taskId);
+            string taskName = task?.Name ?? taskId.ToString();
+            int outgoingCount = _model.Dependencies.Count(d => d.PredecessorId == taskId);
+            if (outgoingCount == 0)
+            {
+                statusLabel.Text = $"[{taskName}] has no outgoing links.";
+                return;
+            }
+
+            SaveSnapshot();
+            int removed = _model.TryRemoveOutgoingDependencies(taskId);
+            if (removed > 0)
+            {
+                statusLabel.Text = removed == 1
+                    ? $"Outgoing link removed from [{taskName}]."
+                    : $"{removed} outgoing links removed from [{taskName}].";
+                ganttChartControl.Invalidate();
+                taskGridControl.Invalidate();
+                UpdateUndoRedoState();
+                return;
+            }
+
+            _undoRedo.DiscardLast();
+            statusLabel.Text = $"[{taskName}] has no outgoing links.";
+        }
+
         private bool TryCreateDependency(int predId, int succId)
         {
             if (predId == succId)
@@ -1771,6 +1804,7 @@ namespace MyProject.Forms
                 $"Line type: {lineType}\n\n" +
                 "Possible reasons:\n" +
                 "- The same dependency already exists.\n" +
+                "- A task cannot be linked to its own subtask or parent task.\n" +
                 "- Linking these tasks would create a circular dependency.\n" +
                 "- One of the selected tasks is no longer available.";
 

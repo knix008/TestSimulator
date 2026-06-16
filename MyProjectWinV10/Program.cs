@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text;
+﻿using System.Text;
 using MyProject.Forms;
 using MyProject.Models;
 using MyProject.Theme;
@@ -28,15 +27,17 @@ static class Program
             return;
         }
 
-        AppShutdown.Initialize(Debugger.IsAttached);
+        if (args.Contains("--purge-settings"))
+        {
+            AppSettings.PurgeUserData();
+            return;
+        }
 
         ApplicationConfiguration.Initialize();
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        AppShutdown.RegisterExceptionHandlers();
 
         AppSettings.Load();
         Application.Run(new MainForm());
-        AppShutdown.ExitProcessIfDebugSession();
     }
 }

@@ -12,6 +12,7 @@ namespace MyProject.Forms
         public required Action<int> IndentTask { get; init; }
         public required Action<int> OutdentTask { get; init; }
         public required Action<int> LinkFromTask { get; init; }
+        public required Action<int> UnlinkFromTask { get; init; }
         public required Action<int> ToggleExpandTask { get; init; }
         public required Action<int> AddNoteToTask { get; init; }
         public required Action<int> EditNote { get; init; }
@@ -66,12 +67,13 @@ namespace MyProject.Forms
             menu.Items.Add(new ToolStripSeparator());
             AddItem(menu, "Add Task", AppIcons.AddTask, AddTask);
             if (model?.GetTask(taskId) != null)
-                AddItem(menu, "Add Subtask", AppIcons.Indent, () => AddSubtask(taskId));
+                AddItem(menu, "Add Subtask", AppIcons.AddSubtask, () => AddSubtask(taskId));
             AddItem(menu, "Delete Task", AppIcons.Delete, () => DeleteTask(taskId));
             menu.Items.Add(new ToolStripSeparator());
             AddItem(menu, "Indent Task", AppIcons.Indent, () => IndentTask(taskId));
             AddItem(menu, "Outdent Task", AppIcons.Outdent, () => OutdentTask(taskId));
             AddItem(menu, "Link Tasks", AppIcons.Link, () => LinkFromTask(taskId));
+            AddItem(menu, "Remove Link", AppIcons.Unlink, () => UnlinkFromTask(taskId));
 
             if (model != null && model.HasChildren(taskId))
             {
@@ -115,12 +117,13 @@ namespace MyProject.Forms
             AddItem(menu, "Add Note", AppIcons.Notes, () => AddNoteToTask(taskId));
             AddItem(menu, "Add Task", AppIcons.AddTask, AddTask);
             if (model?.GetTask(taskId) != null)
-                AddItem(menu, "Add Subtask", AppIcons.Indent, () => AddSubtask(taskId));
+                AddItem(menu, "Add Subtask", AppIcons.AddSubtask, () => AddSubtask(taskId));
             AddItem(menu, "Delete Task", AppIcons.Delete, () => DeleteTask(taskId));
             menu.Items.Add(new ToolStripSeparator());
             AddItem(menu, "Indent Task", AppIcons.Indent, () => IndentTask(taskId));
             AddItem(menu, "Outdent Task", AppIcons.Outdent, () => OutdentTask(taskId));
             AddItem(menu, "Link Tasks", AppIcons.Link, () => LinkFromTask(taskId));
+            AddItem(menu, "Remove Link", AppIcons.Unlink, () => UnlinkFromTask(taskId));
 
             if (model != null && model.HasChildren(taskId))
             {
@@ -172,4 +175,4 @@ namespace MyProject.Forms
         private static void RunMenuAction(ContextMenuStrip menu, Action action) => action();
     }
 }
-
+

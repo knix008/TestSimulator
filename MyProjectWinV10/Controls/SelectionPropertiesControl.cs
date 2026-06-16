@@ -49,8 +49,11 @@ namespace MyProject.Controls
     private DataGridView _dependencyGrid = null!;
     private DependencyLineEndSelector _dependencyStartLineEnd = null!;
     private DependencyLineEndSelector _dependencyEndLineEnd = null!;
+    private Button _btnRemoveDependency = null!;
     private int _lineEndPredId = -1;
     private int _lineEndSuccId = -1;
+    private int _selectedDepPredId = -1;
+    private int _selectedDepSuccId = -1;
 
     private TableLayoutPanel _projectFieldsLayout = null!;
     private TableLayoutPanel _noteFieldsLayout = null!;
@@ -560,6 +563,10 @@ namespace MyProject.Controls
         ApplyTaskDeliverable();
       if (_taskName.Focused)
         ApplyTaskName();
+      if (_taskStart.Focused)
+        ApplyTaskStart();
+      if (_taskDuration.Focused)
+        ApplyTaskDuration();
 
       if (_resourceGrid.IsCurrentCellInEditMode)
         _resourceGrid.EndEdit();
@@ -612,6 +619,8 @@ namespace MyProject.Controls
 
       return _taskDeliverable.ContainsFocus
              || _taskName.ContainsFocus
+             || _taskStart.ContainsFocus
+             || _taskDuration.ContainsFocus
              || _dependencyGrid.ContainsFocus
              || _dependencyStartLineEnd.ContainsFocus
              || _dependencyEndLineEnd.ContainsFocus;
@@ -861,9 +870,22 @@ namespace MyProject.Controls
       _dependencyGrid.CellEndEdit += (_, _) => ApplyDependencyGrid();
       _dependencyGrid.UserDeletedRow += (_, _) => ApplyDependencyGrid();
       _dependencyGrid.UserDeletingRow += OnDependencyRowDeleting;
-      _dependencyGrid.SelectionChanged += (_, _) => LoadSelectedDependencyLineEnds();
+      _dependencyGrid.SelectionChanged += (_, _) =>
+      {
+        UpdateSelectedDependencyFromGrid();
+        LoadSelectedDependencyLineEnds();
+      };
       _dependencyGrid.CellToolTipTextNeeded += OnDependencyGridCellToolTipTextNeeded;
       AddFullWidthRow(layout, _dependencyGrid, DependencyGridRowHeight);
+
+      _btnRemoveDependency = new Button
+      {
+        Text = "Remove Link",
+        AutoSize = true,
+        Margin = new Padding(0, 4, 0, 0)
+      };
+      _btnRemoveDependency.Click += (_, _) => RemoveSelectedDependencyLink();
+      AddFullWidthRow(layout, _btnRemoveDependency, 30);
 
       _dependencyStartLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = true };
       _dependencyEndLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = false };
@@ -975,6 +997,7 @@ namespace MyProject.Controls
           _taskBandColorPreview.BackColor = bandColor.IsEmpty ? Color.LightGray : bandColor;
           LoadResourceGrid(task.Id);
           LoadDependencyGrid(task.Id);
+          ConfigureScheduleFieldsForTask(task);
           BeginInvoke(SyncContentSize);
         }
       }
@@ -1052,10 +1075,65 @@ namespace MyProject.Controls
       UpdateResourceTotal();
     }
 
+    private void ConfigureScheduleFieldsForTask(ProjectTask task)
+    {
+      bool readOnly = _model!.IsSummaryTask(task.Id);
+      _taskStart.Enabled = !readOnly;
+      _taskDuration.Enabled = !readOnly;
+      _taskProgress.Enabled = !readOnly;
+      _taskAutoSchedule.Enabled = !readOnly;
+      _taskType.Enabled = !readOnly;
+      UpdateSelectedDependencyFromGrid();
+    }
+
+    private void UpdateSelectedDependencyFromGrid()
+    {
+      _selectedDepPredId = -1;
+      _selectedDepSuccId = -1;
+
+      var row = GetActiveDependencyRow();
+      if (row != null && TryGetDependencyIds(row, out int predId, out int succId))
+      {
+        _selectedDepPredId = predId;
+        _selectedDepSuccId = succId;
+      }
+
+      _btnRemoveDependency.Enabled = _selectedDepPredId >= 0 && _selectedDepSuccId >= 0;
+    }
+
+    private void RemoveSelectedDependencyLink()
+    {
+      if (_suppressChanges || _model == null || _taskId < 0)
+        return;
+
+      int predId = _selectedDepPredId;
+      int succId = _selectedDepSuccId;
+      if (predId < 0 || succId < 0)
+      {
+        var row = GetActiveDependencyRow();
+        if (row == null || !TryGetDependencyIds(row, out predId, out succId))
+          return;
+      }
+
+      RequestUndoSnapshot?.Invoke();
+      _applyingToModel = true;
+      try
+      {
+        if (_model.TryRemoveDependency(predId, succId))
+          LoadDependencyGrid(_taskId);
+      }
+      finally
+      {
+        _applyingToModel = false;
+      }
+    }
+
     private void LoadDependencyGrid(int taskId)
     {
       _lineEndPredId = -1;
       _lineEndSuccId = -1;
+      _selectedDepPredId = -1;
+      _selectedDepSuccId = -1;
       _dependencyGrid.Rows.Clear();
       foreach (var dep in _model!.Dependencies)
       {
@@ -1099,6 +1177,13 @@ namespace MyProject.Controls
       }
 
       LoadSelectedDependencyLineEnds();
+      UpdateSelectedDependencyFromGrid();
+      if (_model != null)
+      {
+        var task = _model.GetTask(taskId);
+        if (task != null)
+          ConfigureScheduleFieldsForTask(task);
+      }
     }
 
     private bool IsOutgoingDependencyRow(DataGridViewRow row)
@@ -1383,7 +1468,7 @@ namespace MyProject.Controls
     {
       if (_suppressChanges) return;
       var task = CurrentTask();
-      if (task == null) return;
+      if (task == null || _model!.IsSummaryTask(task.Id)) return;
       var newStart = _taskStart.Value.Date;
       if (task.StartDate == newStart) return;
 
@@ -1402,7 +1487,7 @@ namespace MyProject.Controls
     {
       if (_suppressChanges) return;
       var task = CurrentTask();
-      if (task == null) return;
+      if (task == null || _model!.IsSummaryTask(task.Id)) return;
       int days = (int)_taskDuration.Value;
       if (task.DurationDays == days) return;
 
@@ -1419,7 +1504,7 @@ namespace MyProject.Controls
     {
       if (_suppressChanges) return;
       var task = CurrentTask();
-      if (task == null) return;
+      if (task == null || _model!.IsSummaryTask(task.Id)) return;
       double progress = (double)_taskProgress.Value;
       if (task.Progress == progress) return;
 
@@ -1432,7 +1517,7 @@ namespace MyProject.Controls
     {
       if (_suppressChanges) return;
       var task = CurrentTask();
-      if (task == null) return;
+      if (task == null || _model!.IsSummaryTask(task.Id)) return;
       if (task.AutoSchedule == _taskAutoSchedule.Checked) return;
 
       _applyingToModel = true;
@@ -1628,7 +1713,11 @@ namespace MyProject.Controls
         return;
 
       _applyingToModel = true;
-      try { _model.RemoveDependency(predId, succId); }
+      try
+      {
+        if (_model.TryRemoveDependency(predId, succId))
+          LoadDependencyGrid(_taskId);
+      }
       finally { _applyingToModel = false; }
     }
 

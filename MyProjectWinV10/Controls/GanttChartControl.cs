@@ -656,9 +656,14 @@ namespace MyProject.Controls
                 if (isLinkSource)
                 {
                     var barRect = _taskBarRenderer.GetTaskBarRect(task, rowY);
-                    int radius = TaskBarRenderer.GetTaskBarCornerRadius(barRect.Height);
                     using var outlinePen = new Pen(AppTheme.Accent, 2f);
-                    g.DrawRoundedRectangle(outlinePen, barRect, radius);
+                    if (task.TaskType == TaskType.Summary)
+                        g.DrawRectangle(outlinePen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
+                    else
+                    {
+                        int radius = TaskBarRenderer.GetTaskBarCornerRadius(barRect.Height);
+                        g.DrawRoundedRectangle(outlinePen, barRect, radius);
+                    }
                 }
             }
             DrawNotes(g, chartArea, visibleTasks, rowYByTaskId, selectedNoteId);

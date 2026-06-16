@@ -32,6 +32,7 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripMenuItem menuOutdent;
         private System.Windows.Forms.ToolStripSeparator menuTaskSep2;
         private System.Windows.Forms.ToolStripMenuItem menuLink;
+        private System.Windows.Forms.ToolStripMenuItem menuUnlink;
         private System.Windows.Forms.ToolStripMenuItem menuDepType;
         private System.Windows.Forms.ToolStripMenuItem menuDepFS;
         private System.Windows.Forms.ToolStripMenuItem menuDepFF;
@@ -75,6 +76,7 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripButton btnExpandCollapse;
         private System.Windows.Forms.ToolStripButton btnCriticalPath;
         private System.Windows.Forms.ToolStripButton btnLink;
+        private System.Windows.Forms.ToolStripButton btnUnlink;
         private DependencyTypeSelector dependencyTypeSelector;
         private System.Windows.Forms.ToolStripControlHost dependencyTypeHost;
         private System.Windows.Forms.ToolStripSeparator tsSep2;
@@ -139,6 +141,7 @@ namespace MyProject.Forms
             menuOutdent = new ToolStripMenuItem();
             menuTaskSep2 = new ToolStripSeparator();
             menuLink = new ToolStripMenuItem();
+            menuUnlink = new ToolStripMenuItem();
             menuDepType = new ToolStripMenuItem();
             menuDepFS = new ToolStripMenuItem();
             menuDepFF = new ToolStripMenuItem();
@@ -180,6 +183,7 @@ namespace MyProject.Forms
             btnExpandCollapse = new ToolStripButton();
             btnCriticalPath = new ToolStripButton();
             btnLink = new ToolStripButton();
+            btnUnlink = new ToolStripButton();
             dependencyTypeSelector = new DependencyTypeSelector();
             dependencyTypeHost = new ToolStripControlHost(dependencyTypeSelector);
             tsSep2 = new ToolStripSeparator();
@@ -324,7 +328,7 @@ namespace MyProject.Forms
             //
             // menuTask
             //
-            menuTask.DropDownItems.AddRange(new ToolStripItem[] { menuAddTask, menuAddSubtask, menuDeleteTask, menuTaskSep1, menuIndent, menuOutdent, menuTaskSep2, menuLink, menuDepType, menuTaskSep3, menuTaskProps, menuExpandCollapse });
+            menuTask.DropDownItems.AddRange(new ToolStripItem[] { menuAddTask, menuAddSubtask, menuDeleteTask, menuTaskSep1, menuIndent, menuOutdent, menuTaskSep2, menuLink, menuUnlink, menuDepType, menuTaskSep3, menuTaskProps, menuExpandCollapse });
             menuTask.ForeColor = Color.White;
             menuTask.Name = "menuTask";
             menuTask.Size = new Size(42, 20);
@@ -381,6 +385,13 @@ namespace MyProject.Forms
             menuLink.ShortcutKeys = Keys.Control | Keys.L;
             menuLink.Size = new Size(260, 22);
             menuLink.Text = "&Link Tasks";
+            // 
+            // menuUnlink
+            // 
+            menuUnlink.Name = "menuUnlink";
+            menuUnlink.ShortcutKeys = Keys.Control | Keys.Shift | Keys.L;
+            menuUnlink.Size = new Size(260, 22);
+            menuUnlink.Text = "&Remove Link";
             // 
             // menuDepType
             // 
@@ -532,7 +543,7 @@ namespace MyProject.Forms
             mainToolStrip.Font = AppTheme.FontToolbar;
             mainToolStrip.GripStyle = ToolStripGripStyle.Hidden;
             mainToolStrip.ImageScalingSize = AppTheme.ToolbarImageSize;
-            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnZoomDefault, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint, tsSepDelete, btnDeleteTask, btnInfo });
+            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, btnUnlink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnZoomDefault, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint, tsSepDelete, btnDeleteTask, btnInfo });
             mainToolStrip.Location = new Point(0, AppTheme.MenuStripHeight);
             mainToolStrip.Name = "mainToolStrip";
             mainToolStrip.Padding = AppTheme.ToolbarStripPadding;
@@ -697,6 +708,14 @@ namespace MyProject.Forms
             btnLink.Name = "btnLink";
             btnLink.Size = new Size(23, 37);
             btnLink.Text = "Link Tasks";
+            // 
+            // btnUnlink
+            // 
+            btnUnlink.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnUnlink.ForeColor = Color.White;
+            btnUnlink.Name = "btnUnlink";
+            btnUnlink.Size = new Size(23, 37);
+            btnUnlink.Text = "Remove Link";
             // 
             // dependencyTypeSelector
             // 

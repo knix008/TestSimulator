@@ -88,12 +88,10 @@ namespace MyProject.Rendering
             if (barRect.Width <= 0)
                 return;
 
-            int radius = GetTaskBarCornerRadius(barRect.Height);
             Color summaryColor = GetSummaryBarColor(task, isSelected);
-            using var barPath = GraphicsExtensions.CreateRoundedPath(barRect, radius);
 
             using (var brush = new SolidBrush(summaryColor))
-                g.FillPath(brush, barPath);
+                g.FillRectangle(brush, barRect);
 
             double progress = Math.Clamp(task.Progress, 0, 100);
             if (progress > 0)
@@ -106,18 +104,19 @@ namespace MyProject.Rendering
                     Math.Max(1, barRect.Height - inset * 2));
                 int progressWidth = Math.Max(2, (int)(inner.Width * progress / 100.0));
                 var progressRect = new Rectangle(inner.X, inner.Y, progressWidth, inner.Height);
-                Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor : AppTheme.AccentLight;
-                using var progressBrush = new SolidBrush(Color.FromArgb(180, progressColor));
-                var state = g.Save();
-                g.SetClip(barPath);
+                Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor : Color.FromArgb(90, 90, 90);
+                using var progressBrush = new SolidBrush(progressColor);
                 g.FillRectangle(progressBrush, progressRect);
-                g.Restore(state);
             }
+
+            using (var borderPen = new Pen(Color.Black, 1f))
+                g.DrawRectangle(borderPen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
 
             if (isSelected)
             {
-                using var glowPen = new Pen(Color.FromArgb(80, AppTheme.Accent), 4f);
-                g.DrawRoundedRectangle(glowPen, new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2), radius + 1);
+                var selectionRect = new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2);
+                using var glowPen = new Pen(AppTheme.Accent, 2f);
+                g.DrawRectangle(glowPen, selectionRect);
             }
 
             if (progress > 0)
@@ -236,9 +235,9 @@ namespace MyProject.Rendering
 
         private static Color GetSummaryBarColor(ProjectTask task, bool isSelected)
         {
-            if (isSelected) return AppTheme.AccentDark;
+            if (isSelected) return Color.FromArgb(40, 40, 40);
             if (task.BarColor != Color.Empty) return task.BarColor;
-            return AppTheme.TaskBarSummary;
+            return Color.Black;
         }
 
         private static Color GetMilestoneColor(ProjectTask task, bool isSelected, bool isHovered)

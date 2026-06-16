@@ -407,6 +407,22 @@ namespace MyProject.Models
             return false;
         }
 
+        /// <summary>True when one task is an ancestor of the other (parent/child WBS branch).</summary>
+        public bool AreHierarchyRelated(int taskId1, int taskId2) =>
+            taskId1 != taskId2
+            && (IsTaskInSubtree(taskId1, taskId2) || IsTaskInSubtree(taskId2, taskId1));
+
+        private void RemoveInvalidHierarchyDependencies()
+        {
+            int removed = _dependencies.RemoveAll(d =>
+                AreHierarchyRelated(d.PredecessorId, d.SuccessorId));
+            if (removed == 0)
+                return;
+
+            if (!_suppressModificationTracking)
+                IsModified = true;
+        }
+
         public bool SetDependencyLag(int predecessorId, int successorId, int lagDays)
         {
             var dep = _dependencies.FirstOrDefault(d =>
@@ -774,7 +790,7 @@ namespace MyProject.Models
 
         public ProjectTask AddTask(string name = "New Task", int afterId = -1)
         {
-            var task = new ProjectTask { Id = _nextId++, Name = name, StartDate = DateTime.Today };
+            var task = new ProjectTask { Id = _nextId++, Name = name, StartDate = DateTime.Today, Progress = 0 };
             task.PropertyChanged += Task_PropertyChanged;
 
             int insertIdx = afterId >= 0
@@ -806,7 +822,8 @@ namespace MyProject.Models
                 Id = _nextId++,
                 Name = name,
                 StartDate = parent.StartDate,
-                IndentLevel = parent.IndentLevel + 1
+                IndentLevel = parent.IndentLevel + 1,
+                Progress = 0
             };
             task.PropertyChanged += Task_PropertyChanged;
 
@@ -873,20 +890,54 @@ namespace MyProject.Models
 
         public void IndentTask(int taskId)
         {
-            var task = _tasks.FirstOrDefault(t => t.Id == taskId);
-            if (task == null) return;
-
-            int idx = _tasks.IndexOf(task);
+            int idx = GetTaskIndex(taskId);
             if (idx <= 0) return;
 
-            var previous = _tasks[idx - 1];
-            int maxIndent = previous.IndentLevel + 1;
-            if (task.IndentLevel >= maxIndent) return;
+            var task = _tasks[idx];
+            int currentLevel = task.IndentLevel;
+
+            int parentIdx = ResolveIndentParentIndex(idx);
+            if (parentIdx < 0) return;
+
+            if (_tasks[parentIdx].IndentLevel != currentLevel) return;
 
             ApplyIndentDelta(taskId, 1);
+            EnsureTaskNestedUnderParent(taskId, parentIdx);
             UpdateHierarchy();
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Nearest row above at the same outline level becomes the parent when indenting one step.
+        /// </summary>
+        private int ResolveIndentParentIndex(int taskIdx)
+        {
+            int level = _tasks[taskIdx].IndentLevel;
+            for (int i = taskIdx - 1; i >= 0; i--)
+            {
+                if (_tasks[i].IndentLevel == level)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private void EnsureTaskNestedUnderParent(int taskId, int parentIdx)
+        {
+            int idx = GetTaskIndex(taskId);
+            if (idx < 0 || parentIdx < 0 || idx <= parentIdx)
+                return;
+
+            int targetIndex = GetInsertIndexAfterSubtree(_tasks[parentIdx].Id);
+            if (idx < targetIndex)
+                targetIndex -= GetSubtreeTaskCount(taskId);
+
+            int subtreeEnd = idx + GetSubtreeTaskCount(taskId);
+            if (subtreeEnd == targetIndex)
+                return;
+
+            MoveTask(taskId, targetIndex);
         }
 
         public void OutdentTask(int taskId)
@@ -943,6 +994,7 @@ namespace MyProject.Models
         public bool AddDependency(int predecessorId, int successorId, DependencyType type = DependencyType.FS)
         {
             if (predecessorId == successorId) return false;
+            if (AreHierarchyRelated(predecessorId, successorId)) return false;
             if (WouldCreateCycle(predecessorId, successorId)) return false;
 
             var existing = _dependencies.FirstOrDefault(d =>
@@ -980,15 +1032,35 @@ namespace MyProject.Models
 
         public void NotifyViewsChanged() => ModelChanged?.Invoke(this, EventArgs.Empty);
 
-        public void RemoveDependency(int predecessorId, int successorId)
+        public bool HasDependency(int predecessorId, int successorId) =>
+            _dependencies.Any(d => d.PredecessorId == predecessorId && d.SuccessorId == successorId);
+
+        public bool TryRemoveDependency(int predecessorId, int successorId)
         {
             if (_dependencies.RemoveAll(d => d.PredecessorId == predecessorId && d.SuccessorId == successorId) == 0)
-                return;
+                return false;
 
-            UpdateHierarchy();
+            // Removing a link must not reschedule connected tasks; only refresh derived views.
+            UpdateCriticalPath();
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
+            return true;
         }
+
+        public int TryRemoveOutgoingDependencies(int predecessorId)
+        {
+            int removed = _dependencies.RemoveAll(d => d.PredecessorId == predecessorId);
+            if (removed == 0)
+                return 0;
+
+            UpdateCriticalPath();
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+            return removed;
+        }
+
+        public void RemoveDependency(int predecessorId, int successorId) =>
+            TryRemoveDependency(predecessorId, successorId);
 
         public DateTime GetProjectEnd()
         {
@@ -1081,6 +1153,7 @@ namespace MyProject.Models
             try
             {
                 UpdateParentLinks();
+                RemoveInvalidHierarchyDependencies();
                 UpdateSummaryTypes();
                 UpdateSummaryRollups();
                 UpdateVisibility();

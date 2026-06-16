@@ -10,33 +10,21 @@ namespace MyProject.Forms
 
         public static void Show(IWin32Window? owner, string title, Exception ex)
         {
-            if (AppShutdown.ShouldSuppressModalUi)
-                return;
-
             Show(owner, title, ex.Message, FormatException(ex));
         }
 
         public static void Show(IWin32Window? owner, string title, string summary, Exception ex)
         {
-            if (AppShutdown.ShouldSuppressModalUi)
-                return;
-
             Show(owner, title, summary, FormatException(ex));
         }
 
         public static void Show(IWin32Window? owner, string title, string message)
         {
-            if (AppShutdown.ShouldSuppressModalUi)
-                return;
-
             Show(owner, title, message, message);
         }
 
         public static void Show(IWin32Window? owner, string title, string summary, string details)
         {
-            if (AppShutdown.ShouldSuppressModalUi)
-                return;
-
             using var dlg = new ErrorDialog(title, summary, details);
             dlg.ShowDialog(owner);
         }
