@@ -18,9 +18,8 @@ namespace MyProject.Rendering
 
         public static Color GetSummaryBarColor(ProjectTask task, bool isSelected)
         {
-            if (isSelected) return Color.FromArgb(40, 40, 40);
-            if (!task.BarColor.IsEmpty) return task.BarColor;
-            return Color.Black;
+            Color baseColor = !task.BarColor.IsEmpty ? task.BarColor : Color.Black;
+            return isSelected ? DarkenColor(baseColor, 20) : baseColor;
         }
 
         public static Color GetMilestoneColor(ProjectTask task, bool isSelected, bool isHovered = false)

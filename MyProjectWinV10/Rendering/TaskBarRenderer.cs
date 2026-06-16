@@ -88,25 +88,36 @@ namespace MyProject.Rendering
                 return;
 
             Color summaryColor = GetSummaryBarColor(task, isSelected);
+            double progress = Math.Clamp(task.Progress, 0, 100);
 
+            switch (task.SummaryBarStyle)
+            {
+                case SummaryBarStyle.Rounded:
+                    DrawSummaryBarRounded(g, task, barRect, summaryColor, progress, isSelected);
+                    break;
+                case SummaryBarStyle.Bracket:
+                    DrawSummaryBarBracket(g, task, barRect, summaryColor, progress, isSelected);
+                    break;
+                case SummaryBarStyle.Arrow:
+                    DrawSummaryBarArrow(g, task, barRect, summaryColor, progress, isSelected);
+                    break;
+                default:
+                    DrawSummaryBarStandard(g, task, barRect, summaryColor, progress, isSelected);
+                    break;
+            }
+
+            DrawProgressPercentLabel(g, barRect, progress, isSummaryBar: true);
+            DrawAssigneeLabel(g, barRect.Right, rowY, assigneeText);
+        }
+
+        // Standard: classic rectangle with downward triangular end caps.
+        private static void DrawSummaryBarStandard(Graphics g, ProjectTask task, Rectangle barRect,
+            Color summaryColor, double progress, bool isSelected)
+        {
             using (var brush = new SolidBrush(summaryColor))
                 g.FillRectangle(brush, barRect);
 
-            double progress = Math.Clamp(task.Progress, 0, 100);
-            if (progress > 0)
-            {
-                const int inset = 2;
-                var inner = new Rectangle(
-                    barRect.X + inset,
-                    barRect.Y + inset,
-                    Math.Max(1, barRect.Width - inset * 2),
-                    Math.Max(1, barRect.Height - inset * 2));
-                int progressWidth = Math.Max(2, (int)(inner.Width * progress / 100.0));
-                var progressRect = new Rectangle(inner.X, inner.Y, progressWidth, inner.Height);
-                Color progressColor = TaskBarColorResolver.GetSummaryProgressColor(task);
-                using var progressBrush = new SolidBrush(progressColor);
-                g.FillRectangle(progressBrush, progressRect);
-            }
+            DrawSummaryProgressStrip(g, task, barRect, progress);
 
             using (var borderPen = new Pen(Color.Black, 1f))
                 g.DrawRectangle(borderPen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
@@ -115,17 +126,121 @@ namespace MyProject.Rendering
 
             if (isSelected)
             {
-                var selectionRect = new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2);
+                var sel = new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2);
                 using var glowPen = new Pen(AppTheme.Accent, 2f);
-                g.DrawRectangle(glowPen, selectionRect);
+                g.DrawRectangle(glowPen, sel);
             }
-
-            DrawProgressPercentLabel(g, barRect, progress, isSummaryBar: true);
-
-            DrawAssigneeLabel(g, barRect.Right, rowY, assigneeText);
         }
 
-        /// <summary>Inverted triangles hanging below the bar ends; tips aligned with left/right corners.</summary>
+        // Rounded: rounded rectangle with gradient, same visual language as normal task bars.
+        private void DrawSummaryBarRounded(Graphics g, ProjectTask task, Rectangle barRect,
+            Color summaryColor, double progress, bool isSelected)
+        {
+            int radius = GetTaskBarCornerRadius(barRect.Height);
+
+            using var shadowBrush = new SolidBrush(Color.FromArgb(30, 0, 0, 0));
+            g.FillRoundedRectangle(shadowBrush, new Rectangle(barRect.X + 1, barRect.Y + 2, barRect.Width, barRect.Height), radius);
+
+            using (var bgBrush = new LinearGradientBrush(barRect,
+                LightenColor(summaryColor, 25), summaryColor, LinearGradientMode.Vertical))
+                g.FillRoundedRectangle(bgBrush, barRect, radius);
+
+            DrawSummaryProgressStrip(g, task, barRect, progress);
+
+            Color borderColor = isSelected ? AppTheme.AccentDark : DarkenColor(summaryColor, 30);
+            using var borderPen = new Pen(borderColor, isSelected ? 2f : 1f);
+            g.DrawRoundedRectangle(borderPen, barRect, radius);
+
+            if (isSelected)
+            {
+                using var glowPen = new Pen(Color.FromArgb(80, AppTheme.Accent), 4f);
+                g.DrawRoundedRectangle(glowPen, new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2), radius + 1);
+            }
+        }
+
+        // Bracket: flat rectangle with square L-shaped bracket end caps at both ends.
+        private static void DrawSummaryBarBracket(Graphics g, ProjectTask task, Rectangle barRect,
+            Color summaryColor, double progress, bool isSelected)
+        {
+            using (var brush = new SolidBrush(summaryColor))
+                g.FillRectangle(brush, barRect);
+
+            DrawSummaryProgressStrip(g, task, barRect, progress);
+
+            using (var borderPen = new Pen(Color.Black, 1f))
+                g.DrawRectangle(borderPen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
+
+            // Bracket caps: vertical bars extending below bar at each end
+            int capH = Math.Clamp(barRect.Height / 2, 3, 6);
+            int capW = Math.Clamp(barRect.Height / 3, 2, 4);
+            using var capBrush = new SolidBrush(DarkenColor(summaryColor, 40));
+            using var capPen = new Pen(Color.Black, 1f);
+
+            // Left bracket
+            var leftCap = new Rectangle(barRect.Left, barRect.Bottom - 1, capW, capH);
+            g.FillRectangle(capBrush, leftCap);
+            g.DrawRectangle(capPen, leftCap);
+
+            // Right bracket
+            var rightCap = new Rectangle(barRect.Right - capW - 1, barRect.Bottom - 1, capW, capH);
+            g.FillRectangle(capBrush, rightCap);
+            g.DrawRectangle(capPen, rightCap);
+
+            if (isSelected)
+            {
+                var sel = new Rectangle(barRect.X - 1, barRect.Y - 1, barRect.Width + 2, barRect.Height + 2);
+                using var glowPen = new Pen(AppTheme.Accent, 2f);
+                g.DrawRectangle(glowPen, sel);
+            }
+        }
+
+        // Arrow: flat rectangle with a right-pointing chevron at the right end.
+        private static void DrawSummaryBarArrow(Graphics g, ProjectTask task, Rectangle barRect,
+            Color summaryColor, double progress, bool isSelected)
+        {
+            int arrowW = Math.Clamp(barRect.Height / 2, 4, 10);
+            arrowW = Math.Min(arrowW, barRect.Width / 3);
+
+            // Body (rectangle minus the arrow tip area)
+            var bodyRect = new Rectangle(barRect.X, barRect.Y, barRect.Width - arrowW, barRect.Height);
+
+            // Arrow polygon: body right edge + tip point
+            int midY = barRect.Y + barRect.Height / 2;
+            var arrowShape = new[]
+            {
+                new Point(barRect.X,               barRect.Y),
+                new Point(barRect.Right - arrowW,  barRect.Y),
+                new Point(barRect.Right,            midY),
+                new Point(barRect.Right - arrowW,  barRect.Bottom),
+                new Point(barRect.X,               barRect.Bottom),
+            };
+
+            using (var brush = new SolidBrush(summaryColor))
+                g.FillPolygon(brush, arrowShape);
+
+            DrawSummaryProgressStrip(g, task, barRect, progress);
+
+            using (var borderPen = new Pen(Color.Black, 1f))
+                g.DrawPolygon(borderPen, arrowShape);
+
+            if (isSelected)
+            {
+                using var glowPen = new Pen(AppTheme.Accent, 2f);
+                g.DrawPolygon(glowPen, arrowShape.Select(p => new Point(p.X, p.Y)).ToArray());
+            }
+        }
+
+        private static void DrawSummaryProgressStrip(Graphics g, ProjectTask task, Rectangle barRect, double progress)
+        {
+            if (progress <= 0) return;
+            int progressWidth = Math.Max(2, (int)(barRect.Width * progress / 100.0));
+            var progressRect = new Rectangle(barRect.X, barRect.Y, progressWidth, barRect.Height);
+            Color progressColor = TaskBarColorResolver.GetSummaryProgressColor(task);
+            using var progressBrush = new SolidBrush(progressColor);
+            g.FillRectangle(progressBrush, progressRect);
+        }
+
+        /// <summary>Inverted triangles hanging below the bar ends (Standard style only).</summary>
         private static void DrawSummaryEndCaps(Graphics g, Rectangle barRect, Color fillColor)
         {
             if (barRect.Width < 8 || barRect.Height < 6)
@@ -141,7 +256,6 @@ namespace MyProject.Rendering
 
             using var brush = new SolidBrush(fillColor);
 
-            // Base on bottom edge at left corner; tip points down at the bar start.
             g.FillPolygon(brush, new[]
             {
                 new Point(left, bottom),
@@ -149,7 +263,6 @@ namespace MyProject.Rendering
                 new Point(left, bottom + capHeight)
             });
 
-            // Base on bottom edge at right corner; tip points down at the bar end.
             g.FillPolygon(brush, new[]
             {
                 new Point(right - capWidth, bottom),

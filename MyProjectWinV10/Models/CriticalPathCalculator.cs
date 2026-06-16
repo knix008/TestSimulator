@@ -141,7 +141,84 @@ namespace MyProject.Models
                 result.CriticalChainTaskIds.Add(link.SuccessorId);
             }
 
+            // Isolated critical tasks (no driving links) that end at projectFinish
+            // are still on the critical path — include them so backward tracing works.
+            var tasksInAnyLink = result.CriticalLinks.Select(l => l.PredecessorId)
+                .Concat(result.CriticalLinks.Select(l => l.SuccessorId))
+                .ToHashSet();
+            foreach (var task in schedulable)
+            {
+                if (result.CriticalTaskIds.Contains(task.Id)
+                    && !tasksInAnyLink.Contains(task.Id)
+                    && ef[task.Id] == projectFinish)
+                    result.CriticalChainTaskIds.Add(task.Id);
+            }
+
             return result;
+        }
+
+        /// <summary>
+        /// Returns the terminal task IDs on the critical chain — tasks with no outgoing
+        /// driving critical link. These are the starting points for backward tracing
+        /// (they correspond to the end of the critical path, i.e. the project finish).
+        /// </summary>
+        public static IReadOnlyList<int> GetCriticalChainTerminals(Result result)
+        {
+            var hasOutgoingLink = result.CriticalLinks.Select(l => l.PredecessorId).ToHashSet();
+            return result.CriticalChainTaskIds
+                .Where(id => !hasOutgoingLink.Contains(id))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Traces backward through driving critical links from the given task, returning
+        /// all tasks on the chain that lead to it, ordered from earliest to latest.
+        /// </summary>
+        public static List<int> TraceBackwardFrom(Result result, int targetTaskId)
+        {
+            var predecessorMap = result.CriticalLinks
+                .GroupBy(l => l.SuccessorId)
+                .ToDictionary(g => g.Key, g => g.Select(l => l.PredecessorId).ToList());
+
+            var chain = new List<int>();
+            var visited = new HashSet<int>();
+
+            void Trace(int id)
+            {
+                if (!visited.Add(id)) return;
+                chain.Add(id);
+                if (predecessorMap.TryGetValue(id, out var preds))
+                    foreach (var pred in preds)
+                        Trace(pred);
+            }
+
+            Trace(targetTaskId);
+            chain.Reverse();
+            return chain;
+        }
+
+        /// <summary>
+        /// Traces backward from all terminal critical tasks to build complete critical chains.
+        /// Each chain is ordered from its earliest task to its terminal (project-end) task.
+        /// Isolated critical tasks with no driving links appear as single-element chains.
+        /// </summary>
+        public static List<List<int>> GetCriticalChainsFromEnd(Result result)
+        {
+            var terminals = GetCriticalChainTerminals(result);
+            var allChains = new List<List<int>>();
+            var covered = new HashSet<int>();
+
+            foreach (var terminal in terminals)
+            {
+                var chain = TraceBackwardFrom(result, terminal);
+                if (chain.Count > 0)
+                {
+                    allChains.Add(chain);
+                    foreach (var id in chain) covered.Add(id);
+                }
+            }
+
+            return allChains;
         }
 
         private static List<TaskDependency> ExpandDependencies(

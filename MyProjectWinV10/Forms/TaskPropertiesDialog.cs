@@ -1,4 +1,5 @@
-﻿using MyProject.Controls;
+﻿using System.Drawing.Drawing2D;
+using MyProject.Controls;
 using MyProject.Models;
 using MyProject.Theme;
 
@@ -10,6 +11,7 @@ namespace MyProject.Forms
         private const int ValueColumnWidth = 380;
         private const int ColorSwatchWidth = 40;
         private const int ColorRowGap = 12;
+        private const int ColorPreviewBarHeight = 18;
         private const int StandardRowHeight = 40;
         private const int MultilineRowHeight = 72;
         private const int InputControlHeight = 28;
@@ -34,9 +36,14 @@ namespace MyProject.Forms
         private Panel _progressColorPreview = null!;
         private Panel _bandColorPreview = null!;
         private Panel _colorBarPreview = null!;
+        private ComboBox _cboSummaryBarStyle = null!;
         private Color _scheduleColor = Color.Empty;
         private Color _progressColor = Color.Empty;
         private Color _bandColor = Color.Empty;
+        private Color _originalBarColor;
+        private Color _originalProgressColor;
+        private Color _originalBandColor;
+        private SummaryBarStyle _originalSummaryBarStyle;
 
         // Resources
         private DataGridView _gridResources = null!;
@@ -92,6 +99,20 @@ namespace MyProject.Forms
             Controls.Add(btnPanel);
             AcceptButton = btnOk;
             CancelButton = btnCancel;
+
+            FormClosing += (_, _) =>
+            {
+                if (DialogResult != DialogResult.OK)
+                {
+                    _task.BarColor = _originalBarColor;
+                    _task.ProgressColor = _originalProgressColor;
+                    if (_task.ParentId == -1)
+                        _task.BandColor = _originalBandColor;
+                    if (_task.TaskType == TaskType.Summary)
+                        _task.SummaryBarStyle = _originalSummaryBarStyle;
+                    _model.NotifyViewsChanged();
+                }
+            };
         }
 
         private TabPage BuildGeneralTab()
@@ -236,77 +257,107 @@ namespace MyProject.Forms
         {
             var page = new TabPage("Colors");
             bool isRootTask = _task.ParentId == -1;
-            var layout = CreateTwoColumnLayout(4);
+
+            // 4-column layout: [label | swatch | gap | buttons/control]
+            // Rows: Schedule color, Progress color, Group color, Bar shape, Bar preview, spacer
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(12),
+                ColumnCount = 4,
+                RowCount = 6
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LabelColumnWidth));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, ColorSwatchWidth));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, ColorRowGap));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            for (int i = 0; i < 5; i++)
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StandardRowHeight));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f)); // bottom spacer
 
             int r = 0;
 
+            void LiveRefresh() { RefreshColorBarPreview(); _model.NotifyViewsChanged(); }
+
+            // Schedule bar color
+            _scheduleColorPreview = CreateColorPreviewPanel();
             layout.Controls.Add(MakeLabel("Schedule bar color:"), 0, r);
+            layout.Controls.Add(MakeVerticallyCenteredCell(_scheduleColorPreview, ColorSwatchWidth), 1, r);
             layout.Controls.Add(
-                BuildColorPickerRow(
-                    out _scheduleColorPreview,
+                MakeLeftAlignedCell(CreateColorButtons(
                     () => _scheduleColor,
-                    c => _scheduleColor = c,
-                    RefreshColorBarPreview),
-                1,
-                r++);
+                    c => { _scheduleColor = c; _task.BarColor = c; },
+                    _scheduleColorPreview, LiveRefresh)),
+                3, r++);
 
+            // Progress bar color
+            _progressColorPreview = CreateColorPreviewPanel();
             layout.Controls.Add(MakeLabel("Progress bar color:"), 0, r);
+            layout.Controls.Add(MakeVerticallyCenteredCell(_progressColorPreview, ColorSwatchWidth), 1, r);
             layout.Controls.Add(
-                BuildColorPickerRow(
-                    out _progressColorPreview,
+                MakeLeftAlignedCell(CreateColorButtons(
                     () => _progressColor,
-                    c => _progressColor = c,
-                    RefreshColorBarPreview),
-                1,
-                r++);
+                    c => { _progressColor = c; _task.ProgressColor = c; },
+                    _progressColorPreview, LiveRefresh)),
+                3, r++);
 
-            layout.Controls.Add(MakeLabel("Group row color:"), 0, r);
-            var bandRow = BuildColorPickerRow(
-                out _bandColorPreview,
+            // Group row color
+            _bandColorPreview = CreateColorPreviewPanel();
+            var bandSwatchCell = MakeVerticallyCenteredCell(_bandColorPreview, ColorSwatchWidth);
+            var bandButtonsCell = MakeLeftAlignedCell(CreateColorButtons(
                 () => _bandColor,
-                c => _bandColor = c);
+                c => { _bandColor = c; if (_task.ParentId == -1) _task.BandColor = c; },
+                _bandColorPreview, LiveRefresh));
             if (!isRootTask)
-                bandRow.Enabled = false;
-            layout.Controls.Add(bandRow, 1, r++);
+            {
+                bandSwatchCell.Enabled = false;
+                bandButtonsCell.Enabled = false;
+            }
+            layout.Controls.Add(MakeLabel("Group row color:"), 0, r);
+            layout.Controls.Add(bandSwatchCell, 1, r);
+            layout.Controls.Add(bandButtonsCell, 3, r++);
 
-            layout.Controls.Add(MakeLabel("Bar preview:"), 0, r);
+            // Bar shape (Summary tasks only) — spans swatch+gap+buttons columns
+            bool isSummary = _task.TaskType == TaskType.Summary;
+            _cboSummaryBarStyle = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                DrawMode = DrawMode.OwnerDrawFixed,
+                FlatStyle = FlatStyle.Flat,
+                Enabled = isSummary
+            };
+            _cboSummaryBarStyle.ItemHeight = InputControlHeight - 4;
+            _cboSummaryBarStyle.DrawItem += DrawSummaryBarStyleItem;
+            _cboSummaryBarStyle.Items.AddRange(new object[] { "Standard (brackets)", "Rounded", "Bracket caps", "Arrow / Chevron" });
+            _cboSummaryBarStyle.SelectedIndexChanged += (_, _) =>
+            {
+                if (_cboSummaryBarStyle.SelectedIndex >= 0 && _task.TaskType == TaskType.Summary)
+                {
+                    _task.SummaryBarStyle = (SummaryBarStyle)_cboSummaryBarStyle.SelectedIndex;
+                    _model.NotifyViewsChanged();
+                }
+            };
+            var shapeCell = MakeVerticallyCenteredStretchCell(_cboSummaryBarStyle);
+            layout.Controls.Add(MakeLabel("Bar shape:"), 0, r);
+            layout.Controls.Add(shapeCell, 1, r);
+            layout.SetColumnSpan(shapeCell, 3);
+            r++;
+
+            // Bar preview — spans swatch+gap+buttons columns, shorter height
             _colorBarPreview = new Panel
             {
-                Height = InputControlHeight,
+                Height = ColorPreviewBarHeight,
                 Margin = Padding.Empty,
                 BackColor = AppTheme.SurfaceColor
             };
             _colorBarPreview.Paint += PaintColorBarPreview;
-            layout.Controls.Add(MakeVerticallyCenteredStretchCell(_colorBarPreview), 1, r++);
+            var previewCell = MakeVerticallyCenteredStretchCell(_colorBarPreview);
+            layout.Controls.Add(MakeLabel("Bar preview:"), 0, r);
+            layout.Controls.Add(previewCell, 1, r);
+            layout.SetColumnSpan(previewCell, 3);
 
             page.Controls.Add(layout);
             return page;
-        }
-
-        private Control BuildColorPickerRow(
-            out Panel preview,
-            Func<Color> getColor,
-            Action<Color> setColor,
-            Action? onChanged = null)
-        {
-            preview = CreateColorPreviewPanel();
-
-            var row = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 3,
-                RowCount = 1,
-                Margin = Padding.Empty,
-                Padding = Padding.Empty
-            };
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, ColorSwatchWidth));
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, ColorRowGap));
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            row.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-
-            row.Controls.Add(MakeVerticallyCenteredCell(preview, ColorSwatchWidth), 0, 0);
-            row.Controls.Add(MakeLeftAlignedCell(CreateColorButtons(getColor, setColor, preview, onChanged)), 2, 0);
-            return row;
         }
 
         private FlowLayoutPanel CreateColorButtons(
@@ -319,7 +370,8 @@ namespace MyProject.Forms
             {
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
-                AutoSize = true,
+                AutoSize = false,
+                Height = InputControlHeight,
                 Margin = Padding.Empty,
                 Padding = Padding.Empty
             };
@@ -403,6 +455,102 @@ namespace MyProject.Forms
         }
 
         private void RefreshColorBarPreview() => _colorBarPreview?.Invalidate();
+
+        private static readonly Color SummaryPreviewColor = Color.FromArgb(70, 100, 180);
+
+        private void DrawSummaryBarStyleItem(object? sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0 || sender is not ComboBox combo) return;
+            e.DrawBackground();
+
+            const int previewWidth = 56;
+            const int previewPad = 6;
+
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int barH = 10;
+            int barY = e.Bounds.Y + (e.Bounds.Height - barH) / 2;
+            var barRect = new Rectangle(e.Bounds.X + previewPad, barY, previewWidth - previewPad * 2, barH);
+
+            DrawMiniSummaryBar(g, barRect, (SummaryBarStyle)e.Index, SummaryPreviewColor);
+
+            using (var divPen = new Pen(Color.FromArgb(180, 180, 200)))
+                g.DrawLine(divPen, e.Bounds.X + previewWidth, e.Bounds.Y + 2, e.Bounds.X + previewWidth, e.Bounds.Bottom - 2);
+
+            var textRect = new Rectangle(
+                e.Bounds.X + previewWidth + 6,
+                e.Bounds.Y,
+                e.Bounds.Width - previewWidth - 6,
+                e.Bounds.Height);
+
+            bool selected = (e.State & DrawItemState.Selected) != 0;
+            Color textColor = selected ? SystemColors.HighlightText : AppTheme.TextPrimary;
+            TextRenderer.DrawText(g, combo.Items[e.Index]?.ToString(), AppTheme.FontNormal, textRect, textColor,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine);
+
+            e.DrawFocusRectangle();
+        }
+
+        private static void DrawMiniSummaryBar(Graphics g, Rectangle barRect, SummaryBarStyle style, Color color)
+        {
+            using var brush = new SolidBrush(color);
+
+            switch (style)
+            {
+                case SummaryBarStyle.Standard:
+                {
+                    g.FillRectangle(brush, barRect);
+                    int capW = Math.Max(3, barRect.Height / 2);
+                    g.FillPolygon(brush, new Point[] {
+                        new(barRect.Left, barRect.Bottom),
+                        new(barRect.Left + capW, barRect.Bottom),
+                        new(barRect.Left, barRect.Bottom + capW)
+                    });
+                    g.FillPolygon(brush, new Point[] {
+                        new(barRect.Right, barRect.Bottom),
+                        new(barRect.Right - capW, barRect.Bottom),
+                        new(barRect.Right, barRect.Bottom + capW)
+                    });
+                    break;
+                }
+                case SummaryBarStyle.Rounded:
+                {
+                    int r = barRect.Height / 2;
+                    int d = r * 2;
+                    using var path = new GraphicsPath();
+                    path.AddArc(barRect.Left, barRect.Top, d, d, 180, 90);
+                    path.AddArc(barRect.Right - d, barRect.Top, d, d, 270, 90);
+                    path.AddArc(barRect.Right - d, barRect.Bottom - d, d, d, 0, 90);
+                    path.AddArc(barRect.Left, barRect.Bottom - d, d, d, 90, 90);
+                    path.CloseFigure();
+                    g.FillPath(brush, path);
+                    break;
+                }
+                case SummaryBarStyle.Bracket:
+                {
+                    g.FillRectangle(brush, barRect);
+                    int capH = Math.Max(3, barRect.Height / 2);
+                    int capW = Math.Max(2, barRect.Height / 3 + 1);
+                    g.FillRectangle(brush, new Rectangle(barRect.Left, barRect.Bottom - 1, capW, capH));
+                    g.FillRectangle(brush, new Rectangle(barRect.Right - capW, barRect.Bottom - 1, capW, capH));
+                    break;
+                }
+                case SummaryBarStyle.Arrow:
+                {
+                    int arrowW = Math.Max(3, barRect.Height / 2);
+                    int midY = barRect.Top + barRect.Height / 2;
+                    g.FillPolygon(brush, new Point[] {
+                        new(barRect.Left,           barRect.Top),
+                        new(barRect.Right - arrowW, barRect.Top),
+                        new(barRect.Right,           midY),
+                        new(barRect.Right - arrowW, barRect.Bottom),
+                        new(barRect.Left,           barRect.Bottom),
+                    });
+                    break;
+                }
+            }
+        }
 
         private static Panel CreateColorPreviewPanel() =>
             new Panel { Width = ColorSwatchWidth, Height = InputControlHeight, BorderStyle = BorderStyle.FixedSingle };
@@ -504,11 +652,16 @@ namespace MyProject.Forms
             _scheduleColor = _task.BarColor;
             _progressColor = _task.ProgressColor;
             _bandColor = _task.BandColor;
+            _originalBarColor = _task.BarColor;
+            _originalProgressColor = _task.ProgressColor;
+            _originalBandColor = _task.BandColor;
+            _originalSummaryBarStyle = _task.SummaryBarStyle;
             _scheduleColorPreview.BackColor = _scheduleColor == Color.Empty ? Color.LightGray : _scheduleColor;
             _progressColorPreview.BackColor = _progressColor == Color.Empty ? Color.LightGray : _progressColor;
             var effective = _bandColor.IsEmpty ? _model.GetTaskBandColor(_task.Id) : _bandColor;
             _bandColorPreview.BackColor = effective.IsEmpty ? Color.LightGray : effective;
 
+            _cboSummaryBarStyle.SelectedIndex = (int)_task.SummaryBarStyle;
             _colorBarPreview?.Invalidate();
 
             var txtAssigned = Controls.Find("txtAssigned", true).FirstOrDefault() as TextBox;
@@ -552,6 +705,8 @@ namespace MyProject.Forms
             _task.ProgressColor = _progressColor;
             if (_task.ParentId == -1)
                 _task.BandColor = _bandColor;
+            if (_task.TaskType == TaskType.Summary && _cboSummaryBarStyle.SelectedIndex >= 0)
+                _task.SummaryBarStyle = (SummaryBarStyle)_cboSummaryBarStyle.SelectedIndex;
 
             var txtAssigned = Controls.Find("txtAssigned", true).FirstOrDefault() as TextBox;
             if (txtAssigned != null) _task.AssignedTo = txtAssigned.Text;
@@ -717,6 +872,8 @@ namespace MyProject.Forms
 
             host.Resize += (_, _) => LayoutContent();
             host.HandleCreated += (_, _) => LayoutContent();
+            // Re-center when the content auto-sizes (e.g. FlowLayoutPanel after buttons are laid out)
+            content.SizeChanged += (_, _) => LayoutContent();
             return host;
         }
 

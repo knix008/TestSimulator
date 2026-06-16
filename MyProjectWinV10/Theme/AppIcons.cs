@@ -421,14 +421,29 @@ namespace MyProject.Theme
 
         public static Bitmap CriticalPath => Make(g =>
         {
-            using var p = new Pen(Color.White, 1.8f);
-            g.DrawLine(p, 3, 15, 7, 11);
-            g.DrawLine(p, 7, 11, 11, 13);
-            g.DrawLine(p, 11, 13, 15, 5);
-            using var accent = new Pen(Color.FromArgb(255, 100, 90), 2f);
-            g.DrawLine(accent, 2, 16, 6, 12);
-            g.DrawLine(accent, 6, 12, 10, 14);
-            g.DrawLine(accent, 10, 14, 14, 4);
+            var red = Color.FromArgb(225, 60, 50);
+            using var critBrush = new SolidBrush(red);
+            using var critPen = new Pen(red, 1.5f);
+            using var normalBrush = new SolidBrush(Color.FromArgb(150, 255, 255, 255));
+            using var normalPen = new Pen(Color.FromArgb(150, 255, 255, 255), 1f);
+
+            // Critical path (top row, red): bar → arrow → bar → finish flag
+            g.FillRectangle(critBrush, 1, 2, 6, 4);
+            g.DrawLine(critPen, 7, 4, 10, 4);
+            g.FillPolygon(critBrush, new[] { new Point(10, 3), new Point(12, 4), new Point(10, 5) });
+            g.FillRectangle(critBrush, 12, 2, 6, 4);
+            // Finish flag (vertical line + small flag)
+            using var flagPen = new Pen(red, 1.5f);
+            g.DrawLine(flagPen, 18, 1, 18, 7);
+
+            // Non-critical path (bottom row, white): bar → arrow → bar
+            g.FillRectangle(normalBrush, 1, 11, 4, 3);
+            g.DrawLine(normalPen, 5, 12, 8, 12);
+            g.FillPolygon(normalBrush, new[] { new Point(8, 11), new Point(10, 12), new Point(8, 13) });
+            g.FillRectangle(normalBrush, 10, 11, 7, 3);
+
+            // Vertical connector (white, non-critical joins at finish)
+            g.DrawLine(normalPen, 17, 12, 18, 12);
         });
 
         public static Bitmap Image => Make(g =>

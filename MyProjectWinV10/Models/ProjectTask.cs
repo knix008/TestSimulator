@@ -5,6 +5,19 @@ namespace MyProject.Models
     public enum TaskType { Normal, Milestone, Summary }
     public enum DependencyType { FS, FF, SS, SF }
 
+    /// <summary>Visual shape of a summary task bar on the Gantt chart.</summary>
+    public enum SummaryBarStyle
+    {
+        /// <summary>Classic rectangle with downward triangular end caps (default).</summary>
+        Standard,
+        /// <summary>Rounded rectangle, styled like a normal task bar.</summary>
+        Rounded,
+        /// <summary>Rectangle with square inward bracket end caps at both ends.</summary>
+        Bracket,
+        /// <summary>Rectangle with a right-pointing chevron/arrow at the right end.</summary>
+        Arrow,
+    }
+
     public class TaskDependency
     {
         public int PredecessorId { get; set; }
@@ -33,6 +46,7 @@ namespace MyProject.Models
         private Color _bandColor = Color.Empty;
         private bool _autoSchedule = true;
         private string _deliverable = "";
+        private SummaryBarStyle _summaryBarStyle = SummaryBarStyle.Standard;
 
         public int Id { get; set; }
         public int ParentId { get; set; } = -1;
@@ -213,6 +227,17 @@ namespace MyProject.Models
                 if (_deliverable == value) return;
                 _deliverable = value;
                 OnPropertyChanged(nameof(Deliverable));
+            }
+        }
+
+        public SummaryBarStyle SummaryBarStyle
+        {
+            get => _summaryBarStyle;
+            set
+            {
+                if (_summaryBarStyle == value) return;
+                _summaryBarStyle = value;
+                OnPropertyChanged(nameof(SummaryBarStyle));
             }
         }
 

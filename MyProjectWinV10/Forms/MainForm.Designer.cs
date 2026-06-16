@@ -956,7 +956,7 @@ namespace MyProject.Forms
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(250, 250, 252);
-            ClientSize = new Size(1280, 720);
+            ClientSize = new Size(1440, 768);
             Controls.Add(splitContainer);
             Controls.Add(mainToolStrip);
             Controls.Add(mainMenuStrip);
@@ -964,7 +964,7 @@ namespace MyProject.Forms
             Font = new Font("Segoe UI", 9F);
             Icon = (Icon)resources.GetObject("$this.Icon");
             MainMenuStrip = mainMenuStrip;
-            MinimumSize = new Size(800, 500);
+            MinimumSize = new Size(1200, 500);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "MyProject - Project Manager";

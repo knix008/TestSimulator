@@ -19,12 +19,14 @@ namespace MyProject.Controls
         private int _selectedNoteId = -1;
         private bool _noteModeActive = false;
         private bool _isDraggingNote = false;
+        private bool _isPendingNoteDrag = false;
         private int _dragNoteId = -1;
         private Point _dragNoteStartMouse;
         private DateTime _dragNoteStartAnchorDate;
         private int _dragNoteStartContentY;
         private DateTime _dragNotePreviewAnchorDate;
         private int _dragNotePreviewContentY;
+        private const int NoteDragThreshold = 4;
 
         private RichTextBox? _noteInlineEditor;
         private int _editingNoteId = -1;
@@ -291,6 +293,7 @@ namespace MyProject.Controls
             EndInlineNoteEdit(false);
 
             _isDraggingNote = false;
+            _isPendingNoteDrag = false;
             _isDragging = false;
             _isResizingRight = false;
             _isResizingLeft = false;
@@ -859,14 +862,13 @@ namespace MyProject.Controls
 
                 if (e.Button == MouseButtons.Left)
                 {
-                    _isDraggingNote = true;
+                    _isPendingNoteDrag = true;
                     _dragNoteId = hitNote.Id;
                     _dragNoteStartMouse = e.Location;
                     _dragNoteStartAnchorDate = hitNote.AnchorDate;
                     _dragNoteStartContentY = hitNote.ContentY;
                     _dragNotePreviewAnchorDate = hitNote.AnchorDate;
                     _dragNotePreviewContentY = hitNote.ContentY;
-                    Cursor = Cursors.SizeAll;
                 }
 
                 Invalidate();
@@ -1065,6 +1067,18 @@ namespace MyProject.Controls
                 return;
             }
 
+            if (_isPendingNoteDrag && !_isDraggingNote)
+            {
+                int dx = e.X - _dragNoteStartMouse.X;
+                int dy = e.Y - _dragNoteStartMouse.Y;
+                if (Math.Abs(dx) > NoteDragThreshold || Math.Abs(dy) > NoteDragThreshold)
+                {
+                    _isDraggingNote = true;
+                    _isPendingNoteDrag = false;
+                    Cursor = Cursors.SizeAll;
+                }
+            }
+
             if (_isDraggingNote)
             {
                 int deltaPx = e.X - _dragNoteStartMouse.X;
@@ -1144,6 +1158,7 @@ namespace MyProject.Controls
             _isResizingRight = false;
             _isResizingLeft = false;
             _isDraggingNote = false;
+            _isPendingNoteDrag = false;
             _isPanning = false;
             _dragTaskId = -1;
             _dragNoteId = -1;

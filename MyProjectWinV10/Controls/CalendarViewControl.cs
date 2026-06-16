@@ -38,11 +38,14 @@ namespace MyProject.Controls
         private int _selectedNoteId = -1;
         private int _scrollY;
         private bool _isDraggingNote;
+        private bool _isPendingNoteDrag;
         private int _dragNoteId = -1;
         private Point _dragNoteMouseOffset;
+        private Point _noteDragStartMouse;
         private DateTime _dragNotePreviewAnchor;
         private int _dragNotePreviewContentX;
         private int _dragNotePreviewContentY;
+        private const int NoteDragThreshold = 4;
         private bool _noteModeActive;
         private bool _showCriticalPath;
         private readonly VScrollBar _vScrollBar;
@@ -427,6 +430,17 @@ namespace MyProject.Controls
 
         private void OnMouseMove(object? sender, MouseEventArgs e)
         {
+            if (_isPendingNoteDrag && !_isDraggingNote)
+            {
+                int dx = e.X - _noteDragStartMouse.X;
+                int dy = e.Y - _noteDragStartMouse.Y;
+                if (Math.Abs(dx) > NoteDragThreshold || Math.Abs(dy) > NoteDragThreshold)
+                {
+                    _isDraggingNote = true;
+                    _isPendingNoteDrag = false;
+                }
+            }
+
             if (!_isDraggingNote || _model == null)
                 return;
 
@@ -465,6 +479,8 @@ namespace MyProject.Controls
             if (!_isDraggingNote || _dragNoteId < 0 || _model == null)
             {
                 _isDraggingNote = false;
+                _isPendingNoteDrag = false;
+                _dragNoteId = -1;
                 Cursor = Cursors.Default;
                 return;
             }
@@ -483,6 +499,7 @@ namespace MyProject.Controls
             }
 
             _isDraggingNote = false;
+            _isPendingNoteDrag = false;
             _dragNoteId = -1;
             Cursor = Cursors.Default;
             Invalidate();
@@ -1430,9 +1447,10 @@ namespace MyProject.Controls
                 if (!TryGetNoteRect(note, metrics, out var rect) || !rect.Contains(pt))
                     continue;
 
-                _isDraggingNote = true;
+                _isPendingNoteDrag = true;
                 _dragNoteId = note.Id;
                 _dragNoteMouseOffset = new Point(pt.X - rect.X, pt.Y - rect.Y);
+                _noteDragStartMouse = pt;
                 _dragNotePreviewAnchor = note.AnchorDate;
                 _dragNotePreviewContentX = note.ContentX > 0 ? note.ContentX : rect.X;
                 _dragNotePreviewContentY = note.ContentY > 0 ? note.ContentY : rect.Y;

@@ -1439,7 +1439,8 @@ namespace MyProject.Models
                     BandColor = src.BandColorArgb.HasValue ? Color.FromArgb(src.BandColorArgb.Value) : Color.Empty,
                     AutoSchedule = src.AutoSchedule,
                     Deliverable = src.Deliverable,
-                    IsCritical = src.IsCritical
+                    IsCritical = src.IsCritical,
+                    SummaryBarStyle = Enum.TryParse<SummaryBarStyle>(src.SummaryBarStyle, out var sbs) ? sbs : SummaryBarStyle.Standard
                 };
                 task.PropertyChanged += Task_PropertyChanged;
                 _tasks.Add(task);

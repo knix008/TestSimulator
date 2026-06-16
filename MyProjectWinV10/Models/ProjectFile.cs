@@ -101,7 +101,8 @@ namespace MyProject.Models
                     BandColorArgb = t.BandColor.IsEmpty ? null : t.BandColor.ToArgb(),
                     AutoSchedule = t.AutoSchedule,
                     Deliverable = t.Deliverable,
-                    IsCritical = t.IsCritical
+                    IsCritical = t.IsCritical,
+                    SummaryBarStyle = t.SummaryBarStyle == Models.SummaryBarStyle.Standard ? null : t.SummaryBarStyle.ToString()
                 }).ToList(),
                 Dependencies = model.Dependencies.Select(d => new DependencyData
                 {
@@ -322,6 +323,7 @@ namespace MyProject.Models
             public bool AutoSchedule { get; set; } = true;
             public string Deliverable { get; set; } = "";
             public bool IsCritical { get; set; }
+            public string? SummaryBarStyle { get; set; }
         }
 
         internal sealed class DependencyData
