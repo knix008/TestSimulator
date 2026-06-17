@@ -25,7 +25,7 @@ public class MainForm : Form
 
 	private string _currentFilePath;
 
-	private bool _isDirty;
+	private DbSchema _cleanSchemaSnapshot;
 
 	private bool _rightPanelVisible = true;
 
@@ -475,7 +475,6 @@ public class MainForm : Form
 		if (selectedRelationship != null)
 		{
 			diagramCanvas.SetRelationshipLineStyle(selectedRelationship, style);
-			_isDirty = true;
 			RefreshPropertyGrid();
 			diagramCanvas.Invalidate();
 		}
@@ -665,9 +664,9 @@ public class MainForm : Form
 	{
 		diagramCanvas.SchemaChanged += delegate
 		{
-			_isDirty = true;
 			RefreshTreeView();
 			RefreshStatus();
+			UpdateTitle();
 		};
 		diagramCanvas.SelectionChanged += delegate
 		{
@@ -1058,9 +1057,9 @@ public class MainForm : Form
 	{
 		if (ConfirmDiscard())
 		{
-			diagramCanvas.LoadSchema(new DbSchema());
+			diagramCanvas.LoadSchema(new DbSchema(), notifyChange: false);
 			_currentFilePath = null;
-			_isDirty = false;
+			MarkDocumentClean();
 			RefreshAll();
 			UpdateDbTypeIndicator(diagramCanvas.Schema.TargetDb);
 			statusLabel.Text = "새 프로젝트가 생성되었습니다.";
@@ -1135,9 +1134,8 @@ public class MainForm : Form
 			DbSchema dbSchema = dbFileFormat == DbFileFormat.Sqlite
 				? ImportSqliteDatabase(path)
 				: DatabaseFileImporter.Import(path);
-			diagramCanvas.LoadSchema(dbSchema);
+			diagramCanvas.LoadSchema(dbSchema, notifyChange: false);
 			_currentFilePath = null;
-			_isDirty = true;
 			UpdateDbTypeIndicator(dbSchema.TargetDb);
 			RefreshAll();
 			diagramCanvas.FitAll();
@@ -1190,9 +1188,9 @@ public class MainForm : Form
 		try
 		{
 			DbSchema dbSchema = SchemaSerializer.Load(path);
-			diagramCanvas.LoadSchema(dbSchema);
+			diagramCanvas.LoadSchema(dbSchema, notifyChange: false);
 			_currentFilePath = path;
-			_isDirty = false;
+			MarkDocumentClean();
 			RecentFilesManager.Push(path);
 			RememberOpenDirectory(path);
 			UpdateDbTypeIndicator(dbSchema.TargetDb);
@@ -1239,7 +1237,7 @@ public class MainForm : Form
 		try
 		{
 			SchemaSerializer.Save(diagramCanvas.Schema, path);
-			_isDirty = false;
+			MarkDocumentClean();
 			RecentFilesManager.Push(path);
 			UpdateTitle();
 			statusLabel.Text = "저장 완료: " + Path.GetFileName(path);
@@ -1358,7 +1356,6 @@ public class MainForm : Form
 			tableEditDialog.Result.Y = 80 + diagramCanvas.Schema.Tables.Count * 20;
 			diagramCanvas.Schema.Tables.Add(tableEditDialog.Result);
 			diagramCanvas.Invalidate();
-			_isDirty = true;
 			RefreshAll();
 		}
 	}
@@ -1393,7 +1390,6 @@ public class MainForm : Form
 			if (columnEditDialog.ShowDialog(this) == DialogResult.OK)
 			{
 				table.Columns.Add(columnEditDialog.Result);
-				_isDirty = true;
 				RefreshAll();
 			}
 		}
@@ -1420,7 +1416,6 @@ public class MainForm : Form
 		if (relationshipDialog.ShowDialog(this) == DialogResult.OK)
 		{
 			diagramCanvas.Schema.Relationships.Add(relationshipDialog.Result);
-			_isDirty = true;
 			RefreshAll();
 		}
 	}
@@ -1461,7 +1456,6 @@ public class MainForm : Form
 			{
 				table.Columns[num] = columnEditDialog.Result;
 			}
-			_isDirty = true;
 			RefreshAll();
 		}
 	}
@@ -1472,7 +1466,6 @@ public class MainForm : Form
 		{
 			diagramCanvas.Schema.RemoveColumn(table.Id, column.Id);
 			diagramCanvas.NotifyColumnRemoved(column);
-			_isDirty = true;
 			RefreshAll();
 		}
 	}
@@ -1534,7 +1527,6 @@ public class MainForm : Form
 				diagramCanvas.Schema.Tables.RemoveAll((DbTable tb) => tb.Id == t.Id);
 				diagramCanvas.Schema.Relationships.RemoveAll((DbRelationship r) => r.SourceTableId == t.Id || r.TargetTableId == t.Id);
 				diagramCanvas.ClearSelection();
-				_isDirty = true;
 				RefreshAll();
 			}
 		};
@@ -1639,7 +1631,6 @@ public class MainForm : Form
 			table.Name = tableEditDialog.Result.Name;
 			table.Comment = tableEditDialog.Result.Comment;
 			table.Columns = tableEditDialog.Result.Columns;
-			_isDirty = true;
 			RefreshAll();
 		}
 	}
@@ -1657,7 +1648,6 @@ public class MainForm : Form
 			rel.SourceColumnId = relationshipDialog.Result.SourceColumnId;
 			rel.TargetTableId = relationshipDialog.Result.TargetTableId;
 			rel.TargetColumnId = relationshipDialog.Result.TargetColumnId;
-			_isDirty = true;
 			RefreshAll();
 		}
 	}
@@ -1665,7 +1655,6 @@ public class MainForm : Form
 	private void SetDbType(DbTargetType db)
 	{
 		diagramCanvas.Schema.TargetDb = db;
-		_isDirty = true;
 		UpdateDbTypeIndicator(db);
 		RefreshAll();
 		statusLabel.Text = $"데이터베이스 종류: {DbTargetTypeHelper.GetDisplayName(db)}";
@@ -1996,7 +1985,6 @@ public class MainForm : Form
 			rel.RoutePoints?.Clear();
 			UpdateToolbarLineStyleFromSelection();
 		}
-		_isDirty = true;
 		diagramCanvas.Invalidate();
 		RefreshTreeView();
 		UpdateTitle();
@@ -2023,7 +2011,24 @@ public class MainForm : Form
 	private void UpdateTitle()
 	{
 		string text = ((_currentFilePath != null) ? Path.GetFileName(_currentFilePath) : "새 프로젝트");
-		Text = (_isDirty ? "● " : "") + text + " — DBTools v1.0";
+		Text = (HasUnsavedChanges() ? "● " : "") + text + " — DBTools v1.0";
+	}
+
+	private void MarkDocumentClean()
+	{
+		diagramCanvas.NormalizeRelationshipRoutes();
+		_cleanSchemaSnapshot = diagramCanvas.CreateSnapshot();
+		UpdateTitle();
+	}
+
+	private bool HasUnsavedChanges()
+	{
+		if (_cleanSchemaSnapshot == null)
+		{
+			return false;
+		}
+		diagramCanvas.NormalizeRelationshipRoutes();
+		return !SchemaSerializer.AreEquivalent(_cleanSchemaSnapshot, diagramCanvas.Schema);
 	}
 
 	private void UpdateToolButtonStates()
@@ -2038,7 +2043,7 @@ public class MainForm : Form
 
 	private bool ConfirmDiscard()
 	{
-		if (!_isDirty)
+		if (!HasUnsavedChanges())
 		{
 			return true;
 		}

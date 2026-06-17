@@ -6,11 +6,52 @@ using DBToolsWinV10.Models;
 
 namespace DBToolsWinV10.Controls;
 
+public enum ConnectionEdge
+{
+	Left,
+	Right,
+	Top,
+	Bottom
+}
+
+public readonly struct RelationshipConnectionInfo
+{
+	public PointF Start { get; init; }
+
+	public PointF End { get; init; }
+
+	public ConnectionEdge StartEdge { get; init; }
+
+	public ConnectionEdge EndEdge { get; init; }
+}
+
 public static class RelationshipPathBuilder
 {
 	private const int BezierSampleCount = 24;
 
-	public static void EnsureRoutePoints(DbRelationship rel, PointF start, PointF end)
+	public static ConnectionEdge GetConnectionEdge(RectangleF bounds, PointF point)
+	{
+		float dLeft = Math.Abs(point.X - bounds.Left);
+		float dRight = Math.Abs(point.X - bounds.Right);
+		float dTop = Math.Abs(point.Y - bounds.Top);
+		float dBottom = Math.Abs(point.Y - bounds.Bottom);
+		float min = Math.Min(Math.Min(dLeft, dRight), Math.Min(dTop, dBottom));
+		if (min == dLeft)
+		{
+			return ConnectionEdge.Left;
+		}
+		if (min == dRight)
+		{
+			return ConnectionEdge.Right;
+		}
+		if (min == dTop)
+		{
+			return ConnectionEdge.Top;
+		}
+		return ConnectionEdge.Bottom;
+	}
+
+	public static void EnsureRoutePoints(DbRelationship rel, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
 	{
 		rel.RoutePoints ??= new List<RelationshipPoint>();
 		if (rel.LineStyle == RelationshipLineStyle.Straight)
@@ -27,15 +68,20 @@ public static class RelationshipPathBuilder
 			rel.RoutePoints.Add(new RelationshipPoint(control.X, control.Y));
 			return;
 		}
-		foreach (PointF bend in GetDefaultOrthogonalBends(start, end))
+		foreach (PointF bend in GetDefaultOrthogonalBends(start, end, startEdge, endEdge))
 		{
 			rel.RoutePoints.Add(new RelationshipPoint(bend.X, bend.Y));
 		}
 	}
 
-	public static List<PointF> GetPathPoints(DbRelationship rel, PointF start, PointF end)
+	public static void EnsureRoutePoints(DbRelationship rel, PointF start, PointF end)
 	{
-		EnsureRoutePoints(rel, start, end);
+		EnsureRoutePoints(rel, start, end, ConnectionEdge.Right, ConnectionEdge.Left);
+	}
+
+	public static List<PointF> GetPathPoints(DbRelationship rel, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
+	{
+		EnsureRoutePoints(rel, start, end, startEdge, endEdge);
 		if (rel.LineStyle == RelationshipLineStyle.Straight)
 		{
 			return new List<PointF> { start, end };
@@ -53,6 +99,16 @@ public static class RelationshipPathBuilder
 		return list;
 	}
 
+	public static List<PointF> GetPathPoints(DbRelationship rel, PointF start, PointF end)
+	{
+		return GetPathPoints(rel, start, end, ConnectionEdge.Right, ConnectionEdge.Left);
+	}
+
+	public static List<PointF> GetPathPoints(DbRelationship rel, RelationshipConnectionInfo connection)
+	{
+		return GetPathPoints(rel, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
+	}
+
 	public static PointF GetCurveControl(DbRelationship rel, PointF start, PointF end)
 	{
 		if (rel.RoutePoints != null && rel.RoutePoints.Count > 0)
@@ -63,9 +119,14 @@ public static class RelationshipPathBuilder
 		return GetDefaultCurveControl(start, end);
 	}
 
-	public static PointF GetPathMidpoint(DbRelationship rel, PointF start, PointF end)
+	public static PointF GetPathMidpoint(DbRelationship rel, RelationshipConnectionInfo connection)
 	{
-		List<PointF> pathPoints = GetPathPoints(rel, start, end);
+		return GetPathMidpoint(rel, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
+	}
+
+	public static PointF GetPathMidpoint(DbRelationship rel, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
+	{
+		List<PointF> pathPoints = GetPathPoints(rel, start, end, startEdge, endEdge);
 		if (pathPoints.Count < 2)
 		{
 			return start;
@@ -95,9 +156,19 @@ public static class RelationshipPathBuilder
 		return pathPoints[pathPoints.Count / 2];
 	}
 
-	public static bool HitTest(DbRelationship rel, PointF point, PointF start, PointF end, float tolerance)
+	public static PointF GetPathMidpoint(DbRelationship rel, PointF start, PointF end)
 	{
-		List<PointF> pathPoints = GetPathPoints(rel, start, end);
+		return GetPathMidpoint(rel, start, end, ConnectionEdge.Right, ConnectionEdge.Left);
+	}
+
+	public static bool HitTest(DbRelationship rel, PointF point, RelationshipConnectionInfo connection, float tolerance)
+	{
+		return HitTest(rel, point, connection.Start, connection.End, connection.StartEdge, connection.EndEdge, tolerance);
+	}
+
+	public static bool HitTest(DbRelationship rel, PointF point, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge, float tolerance)
+	{
+		List<PointF> pathPoints = GetPathPoints(rel, start, end, startEdge, endEdge);
 		for (int i = 0; i < pathPoints.Count - 1; i++)
 		{
 			if (DistanceToSegment(point, pathPoints[i], pathPoints[i + 1]) < tolerance)
@@ -108,13 +179,18 @@ public static class RelationshipPathBuilder
 		return false;
 	}
 
-	public static int HitTestRoutePoint(DbRelationship rel, PointF point, PointF start, PointF end, float handleRadius)
+	public static bool HitTest(DbRelationship rel, PointF point, PointF start, PointF end, float tolerance)
+	{
+		return HitTest(rel, point, start, end, ConnectionEdge.Right, ConnectionEdge.Left, tolerance);
+	}
+
+	public static int HitTestRoutePoint(DbRelationship rel, PointF point, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge, float handleRadius)
 	{
 		if (rel.LineStyle == RelationshipLineStyle.Straight)
 		{
 			return -1;
 		}
-		EnsureRoutePoints(rel, start, end);
+		EnsureRoutePoints(rel, start, end, startEdge, endEdge);
 		for (int i = 0; i < rel.RoutePoints.Count; i++)
 		{
 			RelationshipPoint routePoint = rel.RoutePoints[i];
@@ -126,22 +202,42 @@ public static class RelationshipPathBuilder
 		return -1;
 	}
 
-	public static void ResetRoutePoints(DbRelationship rel, PointF start, PointF end)
+	public static int HitTestRoutePoint(DbRelationship rel, PointF point, PointF start, PointF end, float handleRadius)
+	{
+		return HitTestRoutePoint(rel, point, start, end, ConnectionEdge.Right, ConnectionEdge.Left, handleRadius);
+	}
+
+	public static void ResetRoutePoints(DbRelationship rel, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
 	{
 		rel.RoutePoints ??= new List<RelationshipPoint>();
 		rel.RoutePoints.Clear();
-		EnsureRoutePoints(rel, start, end);
+		EnsureRoutePoints(rel, start, end, startEdge, endEdge);
 	}
 
-	public static bool TryInsertOrthogonalBend(DbRelationship rel, PointF clickPoint, PointF start, PointF end, out int insertedIndex)
+	public static void ResetRoutePoints(DbRelationship rel, PointF start, PointF end)
+	{
+		ResetRoutePoints(rel, start, end, ConnectionEdge.Right, ConnectionEdge.Left);
+	}
+
+	public static void ResetRoutePoints(DbRelationship rel, RelationshipConnectionInfo connection)
+	{
+		ResetRoutePoints(rel, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
+	}
+
+	public static bool TryInsertOrthogonalBend(DbRelationship rel, PointF clickPoint, RelationshipConnectionInfo connection, out int insertedIndex)
+	{
+		return TryInsertOrthogonalBend(rel, clickPoint, connection.Start, connection.End, connection.StartEdge, connection.EndEdge, out insertedIndex);
+	}
+
+	public static bool TryInsertOrthogonalBend(DbRelationship rel, PointF clickPoint, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge, out int insertedIndex)
 	{
 		insertedIndex = -1;
 		if (rel.LineStyle != RelationshipLineStyle.Orthogonal)
 		{
 			return false;
 		}
-		EnsureRoutePoints(rel, start, end);
-		List<PointF> pathPoints = GetPathPoints(rel, start, end);
+		EnsureRoutePoints(rel, start, end, startEdge, endEdge);
+		List<PointF> pathPoints = GetPathPoints(rel, start, end, startEdge, endEdge);
 		float num = float.MaxValue;
 		int num2 = -1;
 		PointF pointF = clickPoint;
@@ -165,11 +261,79 @@ public static class RelationshipPathBuilder
 		return true;
 	}
 
-	private static IEnumerable<PointF> GetDefaultOrthogonalBends(PointF start, PointF end)
+	private static List<PointF> GetDefaultOrthogonalBends(PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
 	{
-		float num = (start.X + end.X) / 2f;
-		yield return new PointF(num, start.Y);
-		yield return new PointF(num, end.Y);
+		const float pad = 24f;
+		bool startHorizontal = IsHorizontalEdge(startEdge);
+		bool endHorizontal = IsHorizontalEdge(endEdge);
+		if (startHorizontal && endHorizontal)
+		{
+			if (Math.Abs(start.Y - end.Y) < 0.5f)
+			{
+				return new List<PointF>();
+			}
+			float midX = (start.X + end.X) * 0.5f;
+			if (startEdge == ConnectionEdge.Right)
+			{
+				midX = Math.Max(midX, start.X + pad);
+			}
+			if (startEdge == ConnectionEdge.Left)
+			{
+				midX = Math.Min(midX, start.X - pad);
+			}
+			if (endEdge == ConnectionEdge.Left)
+			{
+				midX = Math.Min(midX, end.X - pad);
+			}
+			if (endEdge == ConnectionEdge.Right)
+			{
+				midX = Math.Max(midX, end.X + pad);
+			}
+			return new List<PointF>
+			{
+				new PointF(midX, start.Y),
+				new PointF(midX, end.Y)
+			};
+		}
+		if (startHorizontal && !endHorizontal)
+		{
+			return new List<PointF> { new PointF(end.X, start.Y) };
+		}
+		if (!startHorizontal && endHorizontal)
+		{
+			return new List<PointF> { new PointF(start.X, end.Y) };
+		}
+		if (Math.Abs(start.X - end.X) < 0.5f)
+		{
+			return new List<PointF>();
+		}
+		float midY = (start.Y + end.Y) * 0.5f;
+		if (startEdge == ConnectionEdge.Bottom)
+		{
+			midY = Math.Max(midY, start.Y + pad);
+		}
+		if (startEdge == ConnectionEdge.Top)
+		{
+			midY = Math.Min(midY, start.Y - pad);
+		}
+		if (endEdge == ConnectionEdge.Top)
+		{
+			midY = Math.Min(midY, end.Y - pad);
+		}
+		if (endEdge == ConnectionEdge.Bottom)
+		{
+			midY = Math.Max(midY, end.Y + pad);
+		}
+		return new List<PointF>
+		{
+			new PointF(start.X, midY),
+			new PointF(end.X, midY)
+		};
+	}
+
+	private static bool IsHorizontalEdge(ConnectionEdge edge)
+	{
+		return edge == ConnectionEdge.Left || edge == ConnectionEdge.Right;
 	}
 
 	private static PointF GetDefaultCurveControl(PointF start, PointF end)

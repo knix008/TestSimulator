@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -27,5 +28,24 @@ public static class SchemaSerializer
 		DbSchema schema = JsonSerializer.Deserialize<DbSchema>(json, Options) ?? throw new InvalidDataException("스키마 파일을 읽을 수 없습니다.");
 		schema.EnsureInitialized();
 		return schema;
+	}
+
+	public static string SerializeToString(DbSchema schema)
+	{
+		schema?.EnsureInitialized();
+		return JsonSerializer.Serialize(schema, Options);
+	}
+
+	public static bool AreEquivalent(DbSchema left, DbSchema right)
+	{
+		if (left == null && right == null)
+		{
+			return true;
+		}
+		if (left == null || right == null)
+		{
+			return false;
+		}
+		return string.Equals(SerializeToString(left), SerializeToString(right), StringComparison.Ordinal);
 	}
 }
