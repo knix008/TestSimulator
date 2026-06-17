@@ -145,6 +145,16 @@ public class MainForm : Form
 
 	private ToolStripButton btnTsAddRel;
 
+	private ToolStripSeparator tsSepLineStyle;
+
+	private ToolStripDropDownButton tsLineStyle;
+
+	private ToolStripMenuItem tsLineStraight;
+
+	private ToolStripMenuItem tsLineCurved;
+
+	private ToolStripMenuItem tsLineOrthogonal;
+
 	private ToolStripSeparator tsSep2;
 
 	private ToolStripButton btnTsZoomIn;
@@ -260,6 +270,7 @@ public class MainForm : Form
 		if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
 		{
 			ConfigureToolStripZoomButton();
+			ConfigureToolStripLineStyle();
 			ApplyModernTheme();
 			ConfigureSampleMenus();
 			ApplyIcons();
@@ -409,6 +420,93 @@ public class MainForm : Form
 		};
 		int num = toolStrip.Items.IndexOf(btnTsZoomOut);
 		toolStrip.Items.Insert(num + 1, btnTsZoom);
+	}
+
+	private void ConfigureToolStripLineStyle()
+	{
+		tsSepLineStyle = new ToolStripSeparator
+		{
+			Name = "tsSepLineStyle"
+		};
+		tsLineStraight = new ToolStripMenuItem("직선")
+		{
+			Name = "tsLineStraight",
+			CheckOnClick = true,
+			Checked = true
+		};
+		tsLineCurved = new ToolStripMenuItem("곡선")
+		{
+			Name = "tsLineCurved",
+			CheckOnClick = true
+		};
+		tsLineOrthogonal = new ToolStripMenuItem("꺾은선")
+		{
+			Name = "tsLineOrthogonal",
+			CheckOnClick = true
+		};
+		tsLineStyle = new ToolStripDropDownButton
+		{
+			Name = "tsLineStyle",
+			Text = "직선",
+			ToolTipText = "관계선 스타일. 관계가 선택되면 해당 선에 적용되고, 없으면 새 관계의 기본 스타일입니다."
+		};
+		tsLineStyle.DropDownItems.AddRange(tsLineStraight, tsLineCurved, tsLineOrthogonal);
+		tsLineStraight.Click += delegate
+		{
+			ApplyToolbarLineStyle(RelationshipLineStyle.Straight);
+		};
+		tsLineCurved.Click += delegate
+		{
+			ApplyToolbarLineStyle(RelationshipLineStyle.Curved);
+		};
+		tsLineOrthogonal.Click += delegate
+		{
+			ApplyToolbarLineStyle(RelationshipLineStyle.Orthogonal);
+		};
+		int num = toolStrip.Items.IndexOf(btnTsAddRel);
+		toolStrip.Items.Insert(num + 1, tsSepLineStyle);
+		toolStrip.Items.Insert(num + 2, tsLineStyle);
+		UpdateToolbarLineStyleDisplay(diagramCanvas.DefaultLineStyle);
+	}
+
+	private void ApplyToolbarLineStyle(RelationshipLineStyle style)
+	{
+		DbRelationship selectedRelationship = diagramCanvas.SelectedRelationship;
+		if (selectedRelationship != null)
+		{
+			diagramCanvas.SetRelationshipLineStyle(selectedRelationship, style);
+			_isDirty = true;
+			RefreshPropertyGrid();
+			diagramCanvas.Invalidate();
+		}
+		else
+		{
+			diagramCanvas.DefaultLineStyle = style;
+		}
+		UpdateToolbarLineStyleDisplay(style);
+	}
+
+	private void UpdateToolbarLineStyleFromSelection()
+	{
+		RelationshipLineStyle style = diagramCanvas.SelectedRelationship?.LineStyle ?? diagramCanvas.DefaultLineStyle;
+		UpdateToolbarLineStyleDisplay(style);
+	}
+
+	private void UpdateToolbarLineStyleDisplay(RelationshipLineStyle style)
+	{
+		if (tsLineStyle == null)
+		{
+			return;
+		}
+		tsLineStyle.Text = style switch
+		{
+			RelationshipLineStyle.Curved => "곡선",
+			RelationshipLineStyle.Orthogonal => "꺾은선",
+			_ => "직선"
+		};
+		tsLineStraight.Checked = style == RelationshipLineStyle.Straight;
+		tsLineCurved.Checked = style == RelationshipLineStyle.Curved;
+		tsLineOrthogonal.Checked = style == RelationshipLineStyle.Orthogonal;
 	}
 
 	private void ConfigureAnalysisPanel()
@@ -574,6 +672,7 @@ public class MainForm : Form
 		diagramCanvas.SelectionChanged += delegate
 		{
 			RefreshPropertyGrid();
+			UpdateToolbarLineStyleFromSelection();
 		};
 		diagramCanvas.TableEditRequested += delegate(object sender, EventArgs _)
 		{
@@ -1314,7 +1413,8 @@ public class MainForm : Form
 		DbRelationship rel = new DbRelationship
 		{
 			SourceTableId = diagramCanvas.Schema.Tables[0].Id,
-			TargetTableId = diagramCanvas.Schema.Tables[1].Id
+			TargetTableId = diagramCanvas.Schema.Tables[1].Id,
+			LineStyle = diagramCanvas.DefaultLineStyle
 		};
 		using RelationshipDialog relationshipDialog = new RelationshipDialog(rel, diagramCanvas.Schema);
 		if (relationshipDialog.ShowDialog(this) == DialogResult.OK)
@@ -1551,6 +1651,8 @@ public class MainForm : Form
 		{
 			rel.Name = relationshipDialog.Result.Name;
 			rel.Type = relationshipDialog.Result.Type;
+			rel.LineStyle = relationshipDialog.Result.LineStyle;
+			rel.RoutePoints = relationshipDialog.Result.RoutePoints?.Select((RelationshipPoint p) => p.Clone()).ToList() ?? new List<RelationshipPoint>();
 			rel.SourceTableId = relationshipDialog.Result.SourceTableId;
 			rel.SourceColumnId = relationshipDialog.Result.SourceColumnId;
 			rel.TargetTableId = relationshipDialog.Result.TargetTableId;
@@ -1889,6 +1991,11 @@ public class MainForm : Form
 
 	private void PropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
 	{
+		if (propertyGrid.SelectedObject is DbRelationship rel && e.ChangedItem?.PropertyDescriptor?.Name == nameof(DbRelationship.LineStyle))
+		{
+			rel.RoutePoints?.Clear();
+			UpdateToolbarLineStyleFromSelection();
+		}
 		_isDirty = true;
 		diagramCanvas.Invalidate();
 		RefreshTreeView();
@@ -1903,6 +2010,7 @@ public class MainForm : Form
 		RefreshStatus();
 		UpdateTitle();
 		UpdateViewportUi();
+		UpdateToolbarLineStyleFromSelection();
 		diagramCanvas.Invalidate();
 	}
 

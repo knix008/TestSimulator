@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -90,6 +91,10 @@ public sealed class DiagramCanvas : Control
 
 	private PointF _relCurrentMouse;
 
+	private DbRelationship _dragRouteRel;
+
+	private int _dragRoutePointIndex = -1;
+
 	public DbSchema Schema => _schema;
 
 	public ToolMode CurrentTool => _toolMode;
@@ -103,6 +108,10 @@ public sealed class DiagramCanvas : Control
 	public DbColumn SelectedColumn => _selectedColumn;
 
 	public DbRelationship SelectedRelationship => _selectedRelationship;
+
+	[Browsable(false)]
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public RelationshipLineStyle DefaultLineStyle { get; set; } = RelationshipLineStyle.Straight;
 
 	public event EventHandler SelectionChanged;
 
@@ -456,6 +465,7 @@ public sealed class DiagramCanvas : Control
 		PointF tableCenter2 = GetTableCenter(dbTable2);
 		PointF connectionPoint = GetConnectionPoint(dbTable, tableCenter2);
 		PointF connectionPoint2 = GetConnectionPoint(dbTable2, tableCenter);
+		List<PointF> pathPoints = RelationshipPathBuilder.GetPathPoints(rel, connectionPoint, connectionPoint2);
 		bool flag = IsRelationshipSelected(rel);
 		Color color = (flag ? SelectionColor : Color.FromArgb(100, 100, 120));
 		float width = (flag ? (3f / _zoom) : (2.2f / _zoom));
@@ -463,28 +473,59 @@ public sealed class DiagramCanvas : Control
 		{
 			DashStyle = DashStyle.Solid
 		};
-		g.DrawLine(pen, connectionPoint, connectionPoint2);
+		if (rel.LineStyle == RelationshipLineStyle.Curved && pathPoints.Count > 2)
+		{
+			using GraphicsPath graphicsPath = new GraphicsPath();
+			graphicsPath.AddLines(pathPoints.ToArray());
+			g.DrawPath(pen, graphicsPath);
+		}
+		else
+		{
+			g.DrawLines(pen, pathPoints.ToArray());
+		}
 		bool isMany = rel.Type == RelationshipType.ManyToMany;
 		RelationshipType type = rel.Type;
 		bool flag2 = (uint)(type - 1) <= 1u;
 		bool isMany2 = flag2;
-		DrawCardinality(g, pen, connectionPoint, connectionPoint2, isMany);
-		DrawCardinality(g, pen, connectionPoint2, connectionPoint, isMany2);
+		DrawCardinality(g, pen, pathPoints[0], pathPoints[1], isMany);
+		DrawCardinality(g, pen, pathPoints[pathPoints.Count - 1], pathPoints[pathPoints.Count - 2], isMany2);
+		if (flag)
+		{
+			DrawRelationshipRouteHandles(g, rel, connectionPoint, connectionPoint2);
+		}
 		if (string.IsNullOrWhiteSpace(rel.Name))
 		{
 			return;
 		}
-		PointF point = new PointF((connectionPoint.X + connectionPoint2.X) / 2f, (connectionPoint.Y + connectionPoint2.Y) / 2f);
+		PointF pathMidpoint = RelationshipPathBuilder.GetPathMidpoint(rel, connectionPoint, connectionPoint2);
 		using Font font = new Font("맑은 고딕", 7.5f, FontStyle.Regular, GraphicsUnit.Point);
 		using SolidBrush brush = new SolidBrush(Color.FromArgb(80, 80, 100));
 		using SolidBrush brush2 = new SolidBrush(Color.FromArgb(200, 242, 242, 248));
 		SizeF sizeF = g.MeasureString(rel.Name, font);
-		g.FillRectangle(brush2, point.X - sizeF.Width / 2f - 2f, point.Y - sizeF.Height / 2f - 1f, sizeF.Width + 4f, sizeF.Height + 2f);
-		g.DrawString(rel.Name, font, brush, point, new StringFormat
+		g.FillRectangle(brush2, pathMidpoint.X - sizeF.Width / 2f - 2f, pathMidpoint.Y - sizeF.Height / 2f - 1f, sizeF.Width + 4f, sizeF.Height + 2f);
+		g.DrawString(rel.Name, font, brush, pathMidpoint, new StringFormat
 		{
 			Alignment = StringAlignment.Center,
 			LineAlignment = StringAlignment.Center
 		});
+	}
+
+	private void DrawRelationshipRouteHandles(Graphics g, DbRelationship rel, PointF start, PointF end)
+	{
+		if (rel.LineStyle == RelationshipLineStyle.Straight || rel.RoutePoints == null)
+		{
+			return;
+		}
+		RelationshipPathBuilder.EnsureRoutePoints(rel, start, end);
+		float num = 5f / _zoom;
+		using SolidBrush brush = new SolidBrush(Color.White);
+		using Pen pen = new Pen(SelectionColor, 1.5f / _zoom);
+		foreach (RelationshipPoint routePoint in rel.RoutePoints)
+		{
+			RectangleF rect = new RectangleF(routePoint.X - num, routePoint.Y - num, num * 2f, num * 2f);
+			g.FillEllipse(brush, rect);
+			g.DrawEllipse(pen, rect);
+		}
 	}
 
 	private void DrawCardinality(Graphics g, Pen pen, PointF tip, PointF other, bool isMany)
@@ -591,6 +632,27 @@ public sealed class DiagramCanvas : Control
 
 	private void HandleSelectDown(PointF cp, Point screenPt)
 	{
+		float handleRadius = 7f / _zoom;
+		foreach (DbRelationship relationship in _schema.Relationships)
+		{
+			if (!TryGetRelationshipEndpoints(relationship, out PointF start, out PointF end))
+			{
+				continue;
+			}
+			int num = RelationshipPathBuilder.HitTestRoutePoint(relationship, cp, start, end, handleRadius);
+			if (num >= 0)
+			{
+				_selectedRelationship = relationship;
+				_selectedTable = null;
+				_selectedColumn = null;
+				_dragRouteRel = relationship;
+				_dragRoutePointIndex = num;
+				base.Capture = true;
+				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+				Invalidate();
+				return;
+			}
+		}
 		foreach (DbTable item in Enumerable.Reverse(_schema.Tables))
 		{
 			int num = HitTestColumn(item, cp);
@@ -603,6 +665,17 @@ public sealed class DiagramCanvas : Control
 				Invalidate();
 				return;
 			}
+		}
+		foreach (DbRelationship relationship in _schema.Relationships)
+		{
+			if (HitTestRelationship(relationship, cp))
+			{
+				SelectRelationship(relationship);
+				return;
+			}
+		}
+		foreach (DbTable item in Enumerable.Reverse(_schema.Tables))
+		{
 			if (HitTestTableHeader(item, cp))
 			{
 				_selectedTable = item;
@@ -627,20 +700,34 @@ public sealed class DiagramCanvas : Control
 				return;
 			}
 		}
-		foreach (DbRelationship relationship in _schema.Relationships)
-		{
-			if (HitTestRelationship(relationship, cp))
-			{
-				_selectedRelationship = relationship;
-				_selectedTable = null;
-				_selectedColumn = null;
-				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
-				Invalidate();
-				return;
-			}
-		}
 		ClearSelection();
 		StartPan(screenPt);
+	}
+
+	private void SelectRelationship(DbRelationship relationship)
+	{
+		_selectedRelationship = relationship;
+		_selectedTable = null;
+		_selectedColumn = null;
+		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+		Invalidate();
+	}
+
+	private bool TryGetRelationshipEndpoints(DbRelationship rel, out PointF start, out PointF end)
+	{
+		start = default;
+		end = default;
+		DbTable dbTable = _schema.FindTable(rel.SourceTableId);
+		DbTable dbTable2 = _schema.FindTable(rel.TargetTableId);
+		if (dbTable == null || dbTable2 == null)
+		{
+			return false;
+		}
+		PointF tableCenter = GetTableCenter(dbTable);
+		PointF tableCenter2 = GetTableCenter(dbTable2);
+		start = GetConnectionPoint(dbTable, tableCenter2);
+		end = GetConnectionPoint(dbTable2, tableCenter);
+		return true;
 	}
 
 	private void HandleRelationDown(PointF cp)
@@ -685,12 +772,17 @@ public sealed class DiagramCanvas : Control
 		DbRelationship dbRelationship = new DbRelationship
 		{
 			Type = type,
+			LineStyle = DefaultLineStyle,
 			SourceTableId = _relSource.Id,
 			SourceColumnId = dbColumn.Id,
 			TargetTableId = dbTable.Id,
 			TargetColumnId = dbColumn2.Id
 		};
 		_schema.Relationships.Add(dbRelationship);
+		if (TryGetRelationshipEndpoints(dbRelationship, out PointF start, out PointF end))
+		{
+			RelationshipPathBuilder.EnsureRoutePoints(dbRelationship, start, end);
+		}
 		_relSource = null;
 		_selectedTable = null;
 		_selectedColumn = null;
@@ -722,6 +814,16 @@ public sealed class DiagramCanvas : Control
 		{
 			_selectedTable.X = _tableOriginAtDrag.X + (pointF.X - _dragStartCanvas.X);
 			_selectedTable.Y = _tableOriginAtDrag.Y + (pointF.Y - _dragStartCanvas.Y);
+			Invalidate();
+		}
+		else if (_dragRouteRel != null && _dragRoutePointIndex >= 0)
+		{
+			if (_dragRouteRel.RoutePoints != null && _dragRoutePointIndex < _dragRouteRel.RoutePoints.Count)
+			{
+				RelationshipPoint relationshipPoint = _dragRouteRel.RoutePoints[_dragRoutePointIndex];
+				relationshipPoint.X = pointF.X;
+				relationshipPoint.Y = pointF.Y;
+			}
 			Invalidate();
 		}
 		else if (_relSource != null)
@@ -758,6 +860,23 @@ public sealed class DiagramCanvas : Control
 				break;
 			}
 		}
+		foreach (DbRelationship relationship in _schema.Relationships)
+		{
+			if (!HitTestRelationship(relationship, p))
+			{
+				continue;
+			}
+			_selectedRelationship = relationship;
+			_selectedTable = null;
+			_selectedColumn = null;
+			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+			if (relationship.LineStyle == RelationshipLineStyle.Orthogonal && TryGetRelationshipEndpoints(relationship, out PointF start, out PointF end) && RelationshipPathBuilder.TryInsertOrthogonalBend(relationship, p, start, end, out _))
+			{
+				NotifyChanged();
+			}
+			Invalidate();
+			break;
+		}
 	}
 
 	protected override void OnMouseUp(MouseEventArgs e)
@@ -772,6 +891,13 @@ public sealed class DiagramCanvas : Control
 		else if (_isDragging)
 		{
 			_isDragging = false;
+			base.Capture = false;
+			NotifyChanged();
+		}
+		else if (_dragRouteRel != null)
+		{
+			_dragRouteRel = null;
+			_dragRoutePointIndex = -1;
 			base.Capture = false;
 			NotifyChanged();
 		}
@@ -870,8 +996,42 @@ public sealed class DiagramCanvas : Control
 			contextMenuStrip.Show(this, screenPt);
 			return;
 		}
-		DbTable hitTable = HitTestTable(cp);
 		DbRelationship hitRel = _schema.Relationships.FirstOrDefault((DbRelationship r) => HitTestRelationship(r, cp));
+		if (hitRel != null)
+		{
+			SelectRelationship(hitRel);
+			AddRelationshipContextMenuItems(contextMenuStrip, hitRel, cp);
+			contextMenuStrip.Show(this, screenPt);
+			return;
+		}
+		foreach (DbTable table in Enumerable.Reverse(_schema.Tables))
+		{
+			if (!HitTestTableHeader(table, cp))
+			{
+				continue;
+			}
+			_selectedTable = table;
+			_selectedColumn = null;
+			_selectedRelationship = null;
+			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+			Invalidate();
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("테이블 편집...", "Edit", delegate
+			{
+				this.TableEditRequested?.Invoke(table, EventArgs.Empty);
+			}));
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 추가", "AddColumn", delegate
+			{
+				this.ColumnAddRequested?.Invoke(table, EventArgs.Empty);
+			}));
+			contextMenuStrip.Items.Add(new ToolStripSeparator());
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("테이블 삭제", "Delete", delegate
+			{
+				DeleteSelected();
+			}));
+			contextMenuStrip.Show(this, screenPt);
+			return;
+		}
+		DbTable hitTable = HitTestTable(cp);
 		if (hitTable != null)
 		{
 			_selectedTable = hitTable;
@@ -892,28 +1052,146 @@ public sealed class DiagramCanvas : Control
 			{
 				DeleteSelected();
 			}));
+			contextMenuStrip.Show(this, screenPt);
+			return;
 		}
-		else if (hitRel != null)
-		{
-			_selectedRelationship = hitRel;
-			_selectedTable = null;
-			_selectedColumn = null;
-			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("관계 편집...", "AddRelation", delegate
-			{
-				this.RelationEditRequested?.Invoke(hitRel, EventArgs.Empty);
-			}));
-			contextMenuStrip.Items.Add(new ToolStripSeparator());
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("삭제", "Delete", delegate
-			{
-				DeleteSelected();
-			}));
-		}
-		else
-		{
-			AddCanvasBackgroundMenuItems(contextMenuStrip, cp);
-		}
+		AddCanvasBackgroundMenuItems(contextMenuStrip, cp);
 		contextMenuStrip.Show(this, screenPt);
+	}
+
+	private void AddRelationshipContextMenuItems(ContextMenuStrip menu, DbRelationship rel, PointF cp)
+	{
+		menu.Items.Add(ModernTheme.CreateMenuItem("관계 편집...", "AddRelation", delegate
+		{
+			this.RelationEditRequested?.Invoke(rel, EventArgs.Empty);
+		}));
+		menu.Items.Add(CreateRelationshipTypeMenu(rel));
+		menu.Items.Add(CreateRelationshipLineStyleMenu(rel));
+		if (rel.LineStyle == RelationshipLineStyle.Orthogonal)
+		{
+			menu.Items.Add(ModernTheme.CreateMenuItem("꺾임 점 추가", "AddRelation", delegate
+			{
+				if (TryGetRelationshipEndpoints(rel, out PointF start, out PointF end) && RelationshipPathBuilder.TryInsertOrthogonalBend(rel, cp, start, end, out _))
+				{
+					NotifyChanged();
+					Invalidate();
+				}
+			}));
+		}
+		if (rel.LineStyle != RelationshipLineStyle.Straight)
+		{
+			menu.Items.Add(ModernTheme.CreateMenuItem("경로 초기화", "FitAll", delegate
+			{
+				if (TryGetRelationshipEndpoints(rel, out PointF start, out PointF end))
+				{
+					RelationshipPathBuilder.ResetRoutePoints(rel, start, end);
+					NotifyChanged();
+					Invalidate();
+				}
+			}));
+		}
+		menu.Items.Add(new ToolStripSeparator());
+		menu.Items.Add(ModernTheme.CreateMenuItem("관계 삭제", "Delete", delegate
+		{
+			DeleteSelected();
+		}));
+	}
+
+	private ToolStripMenuItem CreateRelationshipTypeMenu(DbRelationship rel)
+	{
+		ToolStripMenuItem toolStripMenuItem = new ToolStripMenuItem("관계 유형");
+		ToolStripMenuItem oneToOneItem = new ToolStripMenuItem("1:1 (일대일)")
+		{
+			Checked = rel.Type == RelationshipType.OneToOne
+		};
+		ToolStripMenuItem oneToManyItem = new ToolStripMenuItem("1:N (일대다)")
+		{
+			Checked = rel.Type == RelationshipType.OneToMany
+		};
+		ToolStripMenuItem manyToManyItem = new ToolStripMenuItem("N:M (다대다)")
+		{
+			Checked = rel.Type == RelationshipType.ManyToMany
+		};
+		oneToOneItem.Click += delegate
+		{
+			ApplyRelationshipType(rel, RelationshipType.OneToOne);
+		};
+		oneToManyItem.Click += delegate
+		{
+			ApplyRelationshipType(rel, RelationshipType.OneToMany);
+		};
+		manyToManyItem.Click += delegate
+		{
+			ApplyRelationshipType(rel, RelationshipType.ManyToMany);
+		};
+		toolStripMenuItem.DropDownItems.AddRange(oneToOneItem, oneToManyItem, manyToManyItem);
+		return toolStripMenuItem;
+	}
+
+	private void ApplyRelationshipType(DbRelationship rel, RelationshipType type)
+	{
+		if (rel.Type == type)
+		{
+			return;
+		}
+		rel.Type = type;
+		SelectRelationship(rel);
+		NotifyChanged();
+	}
+
+	private ToolStripMenuItem CreateRelationshipLineStyleMenu(DbRelationship rel)
+	{
+		ToolStripMenuItem toolStripMenuItem = new ToolStripMenuItem("선 스타일");
+		ToolStripMenuItem straightItem = new ToolStripMenuItem("직선")
+		{
+			Checked = rel.LineStyle == RelationshipLineStyle.Straight
+		};
+		ToolStripMenuItem curvedItem = new ToolStripMenuItem("곡선")
+		{
+			Checked = rel.LineStyle == RelationshipLineStyle.Curved
+		};
+		ToolStripMenuItem orthogonalItem = new ToolStripMenuItem("꺾은선")
+		{
+			Checked = rel.LineStyle == RelationshipLineStyle.Orthogonal
+		};
+		straightItem.Click += delegate
+		{
+			ApplyRelationshipLineStyle(rel, RelationshipLineStyle.Straight);
+		};
+		curvedItem.Click += delegate
+		{
+			ApplyRelationshipLineStyle(rel, RelationshipLineStyle.Curved);
+		};
+		orthogonalItem.Click += delegate
+		{
+			ApplyRelationshipLineStyle(rel, RelationshipLineStyle.Orthogonal);
+		};
+		toolStripMenuItem.DropDownItems.AddRange(straightItem, curvedItem, orthogonalItem);
+		return toolStripMenuItem;
+	}
+
+	public void SetRelationshipLineStyle(DbRelationship rel, RelationshipLineStyle style)
+	{
+		ApplyRelationshipLineStyle(rel, style);
+	}
+
+	private void ApplyRelationshipLineStyle(DbRelationship rel, RelationshipLineStyle style)
+	{
+		if (rel.LineStyle == style)
+		{
+			return;
+		}
+		rel.LineStyle = style;
+		rel.RoutePoints ??= new List<RelationshipPoint>();
+		rel.RoutePoints.Clear();
+		if (TryGetRelationshipEndpoints(rel, out PointF start, out PointF end))
+		{
+			RelationshipPathBuilder.EnsureRoutePoints(rel, start, end);
+		}
+		_selectedRelationship = rel;
+		NotifyChanged();
+		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+		Invalidate();
 	}
 
 	private void AddCanvasBackgroundMenuItems(ContextMenuStrip menu, PointF cp)
@@ -998,30 +1276,11 @@ public sealed class DiagramCanvas : Control
 
 	private bool HitTestRelationship(DbRelationship rel, PointF p)
 	{
-		DbTable dbTable = _schema.FindTable(rel.SourceTableId);
-		DbTable dbTable2 = _schema.FindTable(rel.TargetTableId);
-		if (dbTable == null || dbTable2 == null)
+		if (!TryGetRelationshipEndpoints(rel, out PointF start, out PointF end))
 		{
 			return false;
 		}
-		PointF connectionPoint = GetConnectionPoint(dbTable, GetTableCenter(dbTable2));
-		PointF connectionPoint2 = GetConnectionPoint(dbTable2, GetTableCenter(dbTable));
-		return DistanceToSegment(p, connectionPoint, connectionPoint2) < 6f / _zoom;
-	}
-
-	private static float DistanceToSegment(PointF p, PointF a, PointF b)
-	{
-		float num = b.X - a.X;
-		float num2 = b.Y - a.Y;
-		float num3 = num * num + num2 * num2;
-		if (num3 < 0.001f)
-		{
-			return (PointF.Empty == default(PointF)) ? float.MaxValue : MathF.Sqrt((p.X - a.X) * (p.X - a.X) + (p.Y - a.Y) * (p.Y - a.Y));
-		}
-		float num4 = Math.Clamp(((p.X - a.X) * num + (p.Y - a.Y) * num2) / num3, 0f, 1f);
-		float num5 = a.X + num4 * num;
-		float num6 = a.Y + num4 * num2;
-		return MathF.Sqrt((p.X - num5) * (p.X - num5) + (p.Y - num6) * (p.Y - num6));
+		return RelationshipPathBuilder.HitTest(rel, p, start, end, 6f / _zoom);
 	}
 
 	public static float GetTableHeight(DbTable t)

@@ -39,6 +39,10 @@ public class RelationshipDialog : Form
 
 	private ComboBox cmbTargetCol = null;
 
+	private Label lblLineStyle = null;
+
+	private ComboBox cmbLineStyle = null;
+
 	private Button btnOk = null;
 
 	private Button btnCancel = null;
@@ -68,6 +72,8 @@ public class RelationshipDialog : Form
 		}
 		cmbRelType.Items.Clear();
 		cmbRelType.Items.AddRange("1:1 (일대일)", "1:N (일대다)", "N:M (다대다)");
+		cmbLineStyle.Items.Clear();
+		cmbLineStyle.Items.AddRange("직선", "곡선", "꺾은선");
 	}
 
 	private void LoadRelationship(DbRelationship rel)
@@ -89,6 +95,15 @@ public class RelationshipDialog : Form
 		{
 		}
 		comboBox.SelectedIndex = selectedIndex;
+		ComboBox comboBox2 = cmbLineStyle;
+		RelationshipLineStyle lineStyle = rel.LineStyle;
+		int selectedIndex2 = lineStyle switch
+		{
+			RelationshipLineStyle.Curved => 1,
+			RelationshipLineStyle.Orthogonal => 2,
+			_ => 0,
+		};
+		comboBox2.SelectedIndex = selectedIndex2;
 		DbTable dbTable = _schema.FindTable(rel.SourceTableId);
 		DbTable dbTable2 = _schema.FindTable(rel.TargetTableId);
 		if (dbTable != null)
@@ -187,6 +202,19 @@ public class RelationshipDialog : Form
 		{
 		}
 		result.Type = type;
+		RelationshipLineStyle previousLineStyle = Result.LineStyle;
+		DbRelationship result2 = Result;
+		int selectedIndex2 = cmbLineStyle.SelectedIndex;
+		result2.LineStyle = selectedIndex2 switch
+		{
+			1 => RelationshipLineStyle.Curved,
+			2 => RelationshipLineStyle.Orthogonal,
+			_ => RelationshipLineStyle.Straight,
+		};
+		if (result2.LineStyle != previousLineStyle)
+		{
+			result2.RoutePoints?.Clear();
+		}
 		Result.SourceTableId = selectedTable.Id;
 		Result.TargetTableId = selectedTable2.Id;
 		Result.SourceColumnId = GetSelectedColumn(cmbSourceCol, selectedTable)?.Id ?? Guid.Empty;
@@ -219,6 +247,8 @@ public class RelationshipDialog : Form
 		this.cmbTargetTable = new System.Windows.Forms.ComboBox();
 		this.lblTgtCol = new System.Windows.Forms.Label();
 		this.cmbTargetCol = new System.Windows.Forms.ComboBox();
+		this.lblLineStyle = new System.Windows.Forms.Label();
+		this.cmbLineStyle = new System.Windows.Forms.ComboBox();
 		this.btnOk = new System.Windows.Forms.Button();
 		this.btnCancel = new System.Windows.Forms.Button();
 		this.grpSource.SuspendLayout();
@@ -237,7 +267,14 @@ public class RelationshipDialog : Form
 		this.cmbRelType.Size = new System.Drawing.Size(180, 23);
 		this.cmbRelType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
 		this.cmbRelType.TabIndex = 1;
-		this.grpSource.Location = new System.Drawing.Point(12, 80);
+		this.lblLineStyle.AutoSize = true;
+		this.lblLineStyle.Location = new System.Drawing.Point(12, 79);
+		this.lblLineStyle.Text = "선 스타일:";
+		this.cmbLineStyle.Location = new System.Drawing.Point(120, 76);
+		this.cmbLineStyle.Size = new System.Drawing.Size(180, 23);
+		this.cmbLineStyle.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+		this.cmbLineStyle.TabIndex = 2;
+		this.grpSource.Location = new System.Drawing.Point(12, 112);
 		this.grpSource.Size = new System.Drawing.Size(340, 100);
 		this.grpSource.Text = "소스 (참조하는 쪽)";
 		this.grpSource.TabStop = false;
@@ -256,7 +293,7 @@ public class RelationshipDialog : Form
 		this.cmbSourceCol.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
 		this.cmbSourceCol.TabIndex = 3;
 		this.grpSource.Controls.AddRange(this.lblSrcTable, this.cmbSourceTable, this.lblSrcCol, this.cmbSourceCol);
-		this.grpTarget.Location = new System.Drawing.Point(12, 195);
+		this.grpTarget.Location = new System.Drawing.Point(12, 227);
 		this.grpTarget.Size = new System.Drawing.Size(340, 100);
 		this.grpTarget.Text = "타겟 (참조받는 쪽)";
 		this.grpTarget.TabStop = false;
@@ -275,11 +312,11 @@ public class RelationshipDialog : Form
 		this.cmbTargetCol.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
 		this.cmbTargetCol.TabIndex = 5;
 		this.grpTarget.Controls.AddRange(this.lblTgtTable, this.cmbTargetTable, this.lblTgtCol, this.cmbTargetCol);
-		this.btnOk.Location = new System.Drawing.Point(196, 312);
+		this.btnOk.Location = new System.Drawing.Point(196, 344);
 		this.btnOk.Size = new System.Drawing.Size(75, 30);
 		this.btnOk.Text = "확인";
 		this.btnOk.TabIndex = 6;
-		this.btnCancel.Location = new System.Drawing.Point(277, 312);
+		this.btnCancel.Location = new System.Drawing.Point(277, 344);
 		this.btnCancel.Size = new System.Drawing.Size(75, 30);
 		this.btnCancel.Text = "취소";
 		this.btnCancel.TabIndex = 7;
@@ -288,14 +325,14 @@ public class RelationshipDialog : Form
 		this.grpSource.PerformLayout();
 		this.grpTarget.ResumeLayout(false);
 		this.grpTarget.PerformLayout();
-		base.ClientSize = new System.Drawing.Size(366, 358);
+		base.ClientSize = new System.Drawing.Size(366, 390);
 		this.Text = "관계 편집";
 		base.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
 		base.MaximizeBox = false;
 		base.MinimizeBox = false;
 		base.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 		base.ShowInTaskbar = false;
-		base.Controls.AddRange(this.lblName, this.txtName, this.lblRelType, this.cmbRelType, this.grpSource, this.grpTarget, this.btnOk, this.btnCancel);
+		base.Controls.AddRange(this.lblName, this.txtName, this.lblRelType, this.cmbRelType, this.lblLineStyle, this.cmbLineStyle, this.grpSource, this.grpTarget, this.btnOk, this.btnCancel);
 		base.ResumeLayout(false);
 		base.PerformLayout();
 	}

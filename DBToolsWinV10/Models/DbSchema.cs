@@ -68,5 +68,9 @@ public class DbSchema
 		{
 			table.Columns ??= new List<DbColumn>();
 		}
+		foreach (DbRelationship relationship in Relationships)
+		{
+			relationship.RoutePoints ??= new List<RelationshipPoint>();
+		}
 	}
 }
