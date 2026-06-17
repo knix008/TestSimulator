@@ -68,7 +68,10 @@ public static class IconProvider
 			"SqlServer" => DrawDbBadge(size, Color.FromArgb(204, 41, 39), "MS"), 
 			"FAISS" => DrawDbBadge(size, Color.FromArgb(88, 64, 168), "Fa"),
 			"VectorDb" => DrawDbBadge(size, Color.FromArgb(88, 64, 168), "VD"), 
-			"Access" => DrawDbBadge(size, Color.FromArgb(166, 89, 0), "AC"), 
+			"Access" => DrawDbBadge(size, Color.FromArgb(166, 89, 0), "AC"),
+			"LineStraight" => DrawLineStraight(size),
+			"LineCurved" => DrawLineCurved(size),
+			"LineOrthogonal" => DrawLineOrthogonal(size),
 			_ => DrawDefault(size), 
 		};
 		if (1 == 0)
@@ -862,6 +865,87 @@ public static class IconProvider
 		{
 			Alignment = StringAlignment.Center,
 			LineAlignment = StringAlignment.Center
+		});
+		graphics.Dispose();
+		return bitmap;
+	}
+
+	private static void DrawRelationEndpointBoxes(Graphics graphics, int sz)
+	{
+		float box = P(sz, 4.5f);
+		float pad = P(sz, 1f);
+		using SolidBrush brush = new SolidBrush(Color.FromArgb(50, 100, 180));
+		using Pen pen = new Pen(Color.FromArgb(80, 120, 200), P(sz, 0.8f));
+		graphics.FillRectangle(brush, pad, pad + P(sz, 1f), box, box);
+		graphics.DrawRectangle(pen, pad, pad + P(sz, 1f), box, box);
+		graphics.FillRectangle(brush, sz - pad - box, sz - pad - box - P(sz, 1f), box, box);
+		graphics.DrawRectangle(pen, sz - pad - box, sz - pad - box - P(sz, 1f), box, box);
+	}
+
+	private static Image DrawLineStraight(int sz)
+	{
+		Bitmap bitmap = New32(sz);
+		Graphics graphics = Setup(bitmap);
+		float box = P(sz, 4.5f);
+		float pad = P(sz, 1f);
+		using Pen pen = new Pen(Color.FromArgb(255, 140, 30), P(sz, 1.6f))
+		{
+			StartCap = LineCap.Round,
+			EndCap = LineCap.Round
+		};
+		DrawRelationEndpointBoxes(graphics, sz);
+		PointF start = new PointF(pad + box, pad + P(sz, 1f) + box / 2f);
+		PointF end = new PointF(sz - pad - box, sz - pad - box - P(sz, 1f) + box / 2f);
+		graphics.DrawLine(pen, start, end);
+		graphics.Dispose();
+		return bitmap;
+	}
+
+	private static Image DrawLineCurved(int sz)
+	{
+		Bitmap bitmap = New32(sz);
+		Graphics graphics = Setup(bitmap);
+		float box = P(sz, 4.5f);
+		float pad = P(sz, 1f);
+		using Pen pen = new Pen(Color.FromArgb(255, 140, 30), P(sz, 1.6f))
+		{
+			StartCap = LineCap.Round,
+			EndCap = LineCap.Round
+		};
+		DrawRelationEndpointBoxes(graphics, sz);
+		PointF start = new PointF(pad + box, pad + P(sz, 1f) + box / 2f);
+		PointF end = new PointF(sz - pad - box, sz - pad - box - P(sz, 1f) + box / 2f);
+		PointF control1 = new PointF(start.X + (end.X - start.X) * 0.35f, start.Y - P(sz, 4f));
+		PointF control2 = new PointF(start.X + (end.X - start.X) * 0.65f, end.Y + P(sz, 4f));
+		graphics.DrawBezier(pen, start, control1, control2, end);
+		graphics.Dispose();
+		return bitmap;
+	}
+
+	private static Image DrawLineOrthogonal(int sz)
+	{
+		Bitmap bitmap = New32(sz);
+		Graphics graphics = Setup(bitmap);
+		float box = P(sz, 4.5f);
+		float pad = P(sz, 1f);
+		using Pen pen = new Pen(Color.FromArgb(255, 140, 30), P(sz, 1.6f))
+		{
+			StartCap = LineCap.Round,
+			EndCap = LineCap.Round,
+			LineJoin = LineJoin.Round
+		};
+		DrawRelationEndpointBoxes(graphics, sz);
+		float startX = pad + box;
+		float startY = pad + P(sz, 1f) + box / 2f;
+		float endX = sz - pad - box;
+		float endY = sz - pad - box - P(sz, 1f) + box / 2f;
+		float midX = startX + (endX - startX) * 0.5f;
+		graphics.DrawLines(pen, new[]
+		{
+			new PointF(startX, startY),
+			new PointF(midX, startY),
+			new PointF(midX, endY),
+			new PointF(endX, endY)
 		});
 		graphics.Dispose();
 		return bitmap;

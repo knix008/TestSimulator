@@ -8,6 +8,16 @@ namespace DBToolsWinV10.Dialogs;
 
 public sealed class NormalizationIssueDialog : Form
 {
+	private const int ContentWidth = 448;
+
+	private const int HorizontalPadding = 20;
+
+	private const int FooterHeight = 44;
+
+	private const int FooterButtonTop = 4;
+
+	private const int MaxDialogHeight = 720;
+
 	private NormalizationIssueDialog(NormalizationIssue issue)
 	{
 		InitializeComponent(issue);
@@ -29,13 +39,14 @@ public sealed class NormalizationIssueDialog : Form
 		string levelLabel = NormalizationLabels.GetLevelLabel(issue.Level);
 		string severityLabel = NormalizationLabels.GetSeverityLabel(issue.Severity);
 		string affectedColumns = string.IsNullOrWhiteSpace(issue.AffectedColumns) ? "-" : issue.AffectedColumns;
+		int valueColumnWidth = ContentWidth - 92;
 
 		Panel panelHeader = new Panel
 		{
 			Dock = DockStyle.Top,
-			Height = 72,
+			Height = 76,
 			BackColor = GetSeverityHeaderColor(issue.Severity),
-			Padding = new Padding(16, 14, 16, 10)
+			Padding = new Padding(HorizontalPadding, 14, HorizontalPadding, 10)
 		};
 		Label lblTitle = new Label
 		{
@@ -43,7 +54,7 @@ public sealed class NormalizationIssueDialog : Form
 			Dock = DockStyle.Top,
 			Font = new Font(ModernTheme.UiFont.FontFamily, 13f, FontStyle.Bold),
 			ForeColor = Color.White,
-			Height = 28,
+			Height = 30,
 			Text = NormalizationLabels.GetLevelGroupTitle(issue.Level)
 		};
 		Label lblSeverity = new Label
@@ -52,7 +63,7 @@ public sealed class NormalizationIssueDialog : Form
 			Dock = DockStyle.Top,
 			Font = ModernTheme.UiFontSmall,
 			ForeColor = Color.FromArgb(235, 240, 250),
-			Height = 20,
+			Height = 22,
 			Text = severityLabel
 		};
 		panelHeader.Controls.Add(lblSeverity);
@@ -64,70 +75,52 @@ public sealed class NormalizationIssueDialog : Form
 			AutoSizeMode = AutoSizeMode.GrowAndShrink,
 			ColumnCount = 2,
 			Dock = DockStyle.Top,
-			Location = new Point(16, 88),
-			Margin = new Padding(16, 16, 16, 0),
-			Padding = new Padding(0),
-			Width = 432
+			Location = new Point(0, 0),
+			Margin = Padding.Empty,
+			Padding = Padding.Empty,
+			Width = ContentWidth
 		};
-		layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88F));
+		layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 84F));
 		layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-		AddFieldRow(layout, "단계", levelLabel);
-		AddFieldRow(layout, "심각도", severityLabel);
-		AddFieldRow(layout, "테이블", issue.Table);
-		AddFieldRow(layout, "영향 컬럼", affectedColumns);
+		AddFieldRow(layout, "단계", levelLabel, valueColumnWidth);
+		AddFieldRow(layout, "심각도", severityLabel, valueColumnWidth);
+		AddFieldRow(layout, "테이블", issue.Table, valueColumnWidth);
+		AddFieldRow(layout, "영향 컬럼", affectedColumns, valueColumnWidth);
 
-		Label lblMessageCaption = CreateCaptionLabel("문제");
-		TextBox txtMessage = CreateReadOnlyTextBox(issue.Message, 72);
-		Label lblHintCaption = CreateCaptionLabel("권장 조치");
-		TextBox txtHint = CreateReadOnlyTextBox(issue.Hint, 96);
+		AddSectionCaption(layout, "문제");
+		AddSectionText(layout, issue.Message, ContentWidth, minHeight: 72, maxHeight: 140);
+		AddSectionCaption(layout, "권장 조치");
+		AddSectionText(layout, issue.Hint, ContentWidth, minHeight: 88, maxHeight: 180);
 
-		layout.Controls.Add(lblMessageCaption, 0, layout.RowCount);
-		layout.SetColumnSpan(lblMessageCaption, 2);
-		layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-		layout.RowCount++;
-		layout.Controls.Add(txtMessage, 0, layout.RowCount);
-		layout.SetColumnSpan(txtMessage, 2);
-		layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-		layout.RowCount++;
-
-		layout.Controls.Add(lblHintCaption, 0, layout.RowCount);
-		layout.SetColumnSpan(lblHintCaption, 2);
-		layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-		layout.RowCount++;
-		layout.Controls.Add(txtHint, 0, layout.RowCount);
-		layout.SetColumnSpan(txtHint, 2);
-		layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-		layout.RowCount++;
+		Panel panelContent = new Panel
+		{
+			BackColor = ModernTheme.PanelBackground,
+			Dock = DockStyle.Top,
+			Padding = new Padding(HorizontalPadding, 16, HorizontalPadding, 4)
+		};
+		panelContent.Controls.Add(layout);
 
 		Button btnOk = new Button
 		{
 			DialogResult = DialogResult.OK,
 			Font = ModernTheme.UiFont,
-			Location = new Point(184, 0),
 			Size = new Size(96, 32),
 			Text = "확인"
 		};
-
 		Panel panelFooter = new Panel
 		{
 			Dock = DockStyle.Bottom,
-			Height = 56,
-			Padding = new Padding(16, 8, 16, 12)
+			Height = FooterHeight,
+			Padding = new Padding(0, FooterButtonTop, 0, 8)
 		};
 		panelFooter.Controls.Add(btnOk);
-		btnOk.Anchor = AnchorStyles.Top;
-		btnOk.Left = (panelFooter.ClientSize.Width - btnOk.Width) / 2;
-		panelFooter.Resize += (_, _) =>
-		{
-			btnOk.Left = Math.Max(16, (panelFooter.ClientSize.Width - btnOk.Width) / 2);
-		};
+		panelFooter.Resize += (_, _) => PositionFooterButton(panelFooter, btnOk);
 
 		AutoScaleMode = AutoScaleMode.Font;
 		BackColor = ModernTheme.PanelBackground;
-		ClientSize = new Size(464, 420);
+		Controls.Add(panelContent);
 		Controls.Add(panelFooter);
-		Controls.Add(layout);
 		Controls.Add(panelHeader);
 		Font = ModernTheme.UiFont;
 		FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -137,12 +130,55 @@ public sealed class NormalizationIssueDialog : Form
 		StartPosition = FormStartPosition.CenterParent;
 		Text = $"정규화 분석 — {levelLabel} ({severityLabel})";
 		AcceptButton = btnOk;
+
+		layout.PerformLayout();
+		int contentHeight = layout.PreferredSize.Height + panelContent.Padding.Vertical;
+		int desiredClientHeight = panelHeader.Height + contentHeight + panelFooter.Height;
+		if (desiredClientHeight > MaxDialogHeight)
+		{
+			panelContent.AutoScroll = true;
+			panelContent.Dock = DockStyle.Fill;
+			panelContent.Height = MaxDialogHeight - panelHeader.Height - panelFooter.Height;
+			ClientSize = new Size(ContentWidth + HorizontalPadding * 2, MaxDialogHeight);
+		}
+		else
+		{
+			panelContent.Height = contentHeight;
+			ClientSize = new Size(ContentWidth + HorizontalPadding * 2, desiredClientHeight);
+		}
+
+		PositionFooterButton(panelFooter, btnOk);
 	}
 
-	private static void AddFieldRow(TableLayoutPanel layout, string caption, string value)
+	private static void PositionFooterButton(Control parent, Control child)
+	{
+		child.Left = Math.Max(0, (parent.ClientSize.Width - child.Width) / 2);
+		child.Top = FooterButtonTop;
+	}
+
+	private static void AddFieldRow(TableLayoutPanel layout, string caption, string value, int valueWidth)
 	{
 		layout.Controls.Add(CreateCaptionLabel(caption), 0, layout.RowCount);
-		layout.Controls.Add(CreateValueLabel(value), 1, layout.RowCount);
+		layout.Controls.Add(CreateWrappedValueLabel(value, valueWidth), 1, layout.RowCount);
+		layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		layout.RowCount++;
+	}
+
+	private static void AddSectionCaption(TableLayoutPanel layout, string caption)
+	{
+		Label label = CreateCaptionLabel(caption);
+		label.Margin = new Padding(0, 4, 0, 6);
+		layout.Controls.Add(label, 0, layout.RowCount);
+		layout.SetColumnSpan(label, 2);
+		layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		layout.RowCount++;
+	}
+
+	private static void AddSectionText(TableLayoutPanel layout, string text, int width, int minHeight, int maxHeight)
+	{
+		TextBox textBox = CreateReadOnlyTextBox(text, width, minHeight, maxHeight);
+		layout.Controls.Add(textBox, 0, layout.RowCount);
+		layout.SetColumnSpan(textBox, 2);
 		layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 		layout.RowCount++;
 	}
@@ -153,38 +189,55 @@ public sealed class NormalizationIssueDialog : Form
 		{
 			AutoSize = true,
 			ForeColor = ModernTheme.TextSecondary,
-			Margin = new Padding(0, 0, 8, 10),
+			Margin = new Padding(0, 0, 8, 8),
 			Text = text
 		};
 	}
 
-	private static Label CreateValueLabel(string text)
+	private static Label CreateWrappedValueLabel(string text, int width)
 	{
+		Font font = ModernTheme.UiFont;
+		Size measured = TextRenderer.MeasureText(
+			text ?? string.Empty,
+			font,
+			new Size(width, int.MaxValue),
+			TextFormatFlags.WordBreak | TextFormatFlags.Left);
 		return new Label
 		{
-			AutoSize = true,
+			AutoSize = false,
 			ForeColor = ModernTheme.TextPrimary,
-			Margin = new Padding(0, 0, 0, 10),
-			Text = text
+			Margin = new Padding(0, 0, 0, 8),
+			Size = new Size(width, Math.Max(font.Height + 4, measured.Height)),
+			Text = text ?? string.Empty
 		};
 	}
 
-	private static TextBox CreateReadOnlyTextBox(string text, int height)
+	private static TextBox CreateReadOnlyTextBox(string text, int width, int minHeight, int maxHeight)
 	{
+		Font font = ModernTheme.UiFontSmall;
+		string value = text ?? string.Empty;
+		int textWidth = Math.Max(40, width - 6);
+		Size measured = TextRenderer.MeasureText(
+			value,
+			font,
+			new Size(textWidth, int.MaxValue),
+			TextFormatFlags.WordBreak | TextFormatFlags.Left | TextFormatFlags.TextBoxControl);
+		int height = Math.Clamp(measured.Height + 10, minHeight, maxHeight);
 		return new TextBox
 		{
+			Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
 			BackColor = ModernTheme.AppBackground,
 			BorderStyle = BorderStyle.FixedSingle,
-			Dock = DockStyle.Top,
-			Font = ModernTheme.UiFontSmall,
+			Font = font,
 			ForeColor = ModernTheme.TextPrimary,
-			Margin = new Padding(0, 0, 0, 12),
+			Margin = new Padding(0, 0, 0, 10),
 			Multiline = true,
 			ReadOnly = true,
-			ScrollBars = ScrollBars.Vertical,
-			Size = new Size(432, height),
+			ScrollBars = height >= maxHeight ? ScrollBars.Vertical : ScrollBars.None,
+			Size = new Size(width, height),
 			TabStop = false,
-			Text = text ?? string.Empty
+			Text = value,
+			WordWrap = true
 		};
 	}
 

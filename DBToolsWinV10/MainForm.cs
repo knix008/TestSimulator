@@ -588,26 +588,16 @@ public partial class MainForm : Form
 		{
 			Name = "tsSepLineStyle"
 		};
-		tsLineStraight = new ToolStripMenuItem("직선")
-		{
-			Name = "tsLineStraight",
-			CheckOnClick = true,
-			Checked = true
-		};
-		tsLineCurved = new ToolStripMenuItem("곡선")
-		{
-			Name = "tsLineCurved",
-			CheckOnClick = true
-		};
-		tsLineOrthogonal = new ToolStripMenuItem("꺾은선")
-		{
-			Name = "tsLineOrthogonal",
-			CheckOnClick = true
-		};
+		tsLineStraight = CreateLineStyleMenuItem("직선", RelationshipLineStyle.Straight);
+		tsLineCurved = CreateLineStyleMenuItem("곡선", RelationshipLineStyle.Curved);
+		tsLineOrthogonal = CreateLineStyleMenuItem("꺾은선", RelationshipLineStyle.Orthogonal);
 		tsLineStyle = new ToolStripDropDownButton
 		{
+			DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+			ImageScaling = ToolStripItemImageScaling.None,
 			Name = "tsLineStyle",
 			Text = "직선",
+			TextImageRelation = TextImageRelation.ImageBeforeText,
 			ToolTipText = "관계선 스타일. 관계가 선택되면 해당 선에 적용되고, 없으면 새 관계의 기본 스타일입니다."
 		};
 		tsLineStyle.DropDownItems.AddRange(tsLineStraight, tsLineCurved, tsLineOrthogonal);
@@ -628,6 +618,31 @@ public partial class MainForm : Form
 		toolStrip.Items.Insert(num + 2, tsLineStyle);
 		UpdateToolbarLineStyleDisplay(diagramCanvas.DefaultLineStyle);
 	}
+
+	private static ToolStripMenuItem CreateLineStyleMenuItem(string text, RelationshipLineStyle style)
+	{
+		return new ToolStripMenuItem(text)
+		{
+			CheckOnClick = true,
+			DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+			Image = IconProvider.Get(GetLineStyleIconName(style), 16),
+			ImageScaling = ToolStripItemImageScaling.None,
+			Name = style switch
+			{
+				RelationshipLineStyle.Curved => "tsLineCurved",
+				RelationshipLineStyle.Orthogonal => "tsLineOrthogonal",
+				_ => "tsLineStraight"
+			},
+			TextImageRelation = TextImageRelation.ImageBeforeText
+		};
+	}
+
+	private static string GetLineStyleIconName(RelationshipLineStyle style) => style switch
+	{
+		RelationshipLineStyle.Curved => "LineCurved",
+		RelationshipLineStyle.Orthogonal => "LineOrthogonal",
+		_ => "LineStraight"
+	};
 
 	private void ApplyToolbarLineStyle(RelationshipLineStyle style)
 	{
@@ -663,6 +678,7 @@ public partial class MainForm : Form
 			RelationshipLineStyle.Orthogonal => "꺾은선",
 			_ => "직선"
 		};
+		tsLineStyle.Image = IconProvider.Get(GetLineStyleIconName(style), 16);
 		tsLineStraight.Checked = style == RelationshipLineStyle.Straight;
 		tsLineCurved.Checked = style == RelationshipLineStyle.Curved;
 		tsLineOrthogonal.Checked = style == RelationshipLineStyle.Orthogonal;
