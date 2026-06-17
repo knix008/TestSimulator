@@ -69,6 +69,8 @@ public sealed class DiagramCanvas : Control
 
 	private DbRelationship _selectedRelationship;
 
+	private readonly HashSet<Guid> _normalizationHighlightedColumnIds = new HashSet<Guid>();
+
 	private bool _isDragging;
 
 	private PointF _dragStartCanvas;
@@ -270,7 +272,19 @@ public sealed class DiagramCanvas : Control
 		_selectedTable = null;
 		_selectedColumn = null;
 		_selectedRelationship = null;
+		_normalizationHighlightedColumnIds.Clear();
 		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+		Invalidate();
+	}
+
+	public void ClearNormalizationHighlight()
+	{
+		if (_normalizationHighlightedColumnIds.Count == 0)
+		{
+			return;
+		}
+
+		_normalizationHighlightedColumnIds.Clear();
 		Invalidate();
 	}
 
@@ -279,6 +293,44 @@ public sealed class DiagramCanvas : Control
 		_selectedTable = table;
 		_selectedColumn = null;
 		_selectedRelationship = null;
+		_normalizationHighlightedColumnIds.Clear();
+		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+		Invalidate();
+	}
+
+	public void ShowNormalizationIssue(DbTable table, IEnumerable<string> affectedColumnNames)
+	{
+		if (table == null)
+		{
+			return;
+		}
+
+		_selectedTable = table;
+		_selectedRelationship = null;
+		_normalizationHighlightedColumnIds.Clear();
+		DbColumn firstSelected = null;
+		if (affectedColumnNames != null)
+		{
+			foreach (string columnName in affectedColumnNames)
+			{
+				if (string.IsNullOrWhiteSpace(columnName))
+				{
+					continue;
+				}
+
+				DbColumn column = table.Columns.FirstOrDefault((DbColumn c) => string.Equals(c.Name, columnName.Trim(), StringComparison.OrdinalIgnoreCase));
+				if (column == null)
+				{
+					continue;
+				}
+
+				_normalizationHighlightedColumnIds.Add(column.Id);
+				firstSelected ??= column;
+			}
+		}
+
+		_selectedColumn = firstSelected;
+		EnsureNormalizationTargetVisible(table);
 		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 		Invalidate();
 	}
@@ -304,6 +356,72 @@ public sealed class DiagramCanvas : Control
 		Size viewportSize = GetViewportSize();
 		_hScroll.Value = ClampScroll(_hScroll, (int)(pt.X * _zoom - (float)(viewportSize.Width / 2)));
 		_vScroll.Value = ClampScroll(_vScroll, (int)(pt.Y * _zoom - (float)(viewportSize.Height / 2)));
+		Invalidate();
+		this.ViewportChanged?.Invoke(this, EventArgs.Empty);
+	}
+
+	private void EnsureNormalizationTargetVisible(DbTable table)
+	{
+		RectangleF focusBounds = GetTableBounds(table);
+		if (_normalizationHighlightedColumnIds.Count > 0)
+		{
+			float minY = float.MaxValue;
+			float maxY = float.MinValue;
+			for (int i = 0; i < table.Columns.Count; i++)
+			{
+				DbColumn column = table.Columns[i];
+				if (column == null || !_normalizationHighlightedColumnIds.Contains(column.Id))
+				{
+					continue;
+				}
+
+				float rowY = table.Y + 28f + i * 22f;
+				minY = Math.Min(minY, rowY);
+				maxY = Math.Max(maxY, rowY + 22f);
+			}
+
+			if (maxY > minY)
+			{
+				focusBounds = new RectangleF(table.X, minY, table.Width, maxY - minY);
+			}
+		}
+
+		EnsureCanvasRectVisible(focusBounds);
+	}
+
+	private void EnsureCanvasRectVisible(RectangleF rect, float margin = 48f)
+	{
+		rect.Inflate(margin, margin);
+		RectangleF viewport = GetViewportBounds();
+		float newLeft = viewport.Left;
+		float newTop = viewport.Top;
+		if (rect.Right > viewport.Right)
+		{
+			newLeft += rect.Right - viewport.Right;
+		}
+
+		if (rect.Left < viewport.Left)
+		{
+			newLeft += rect.Left - viewport.Left;
+		}
+
+		if (rect.Bottom > viewport.Bottom)
+		{
+			newTop += rect.Bottom - viewport.Bottom;
+		}
+
+		if (rect.Top < viewport.Top)
+		{
+			newTop += rect.Top - viewport.Top;
+		}
+
+		if (Math.Abs(newLeft - viewport.Left) < 0.5f && Math.Abs(newTop - viewport.Top) < 0.5f)
+		{
+			return;
+		}
+
+		_hScroll.Value = ClampScroll(_hScroll, (int)(newLeft * _zoom));
+		_vScroll.Value = ClampScroll(_vScroll, (int)(newTop * _zoom));
 		Invalidate();
 		this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 	}
@@ -467,6 +585,14 @@ public sealed class DiagramCanvas : Control
 			&& _selectedTable.Id == table.Id;
 	}
 
+	private bool IsNormalizationHighlighted(DbTable table, DbColumn column)
+	{
+		return column != null
+			&& _selectedTable != null
+			&& _selectedTable.Id == table.Id
+			&& _normalizationHighlightedColumnIds.Contains(column.Id);
+	}
+
 	private bool IsRelationshipSelected(DbRelationship relationship)
 	{
 		return _selectedRelationship != null && _selectedRelationship.Id == relationship.Id;
@@ -517,7 +643,8 @@ public sealed class DiagramCanvas : Control
 			float num = rect.Y + 28f + (float)i * 22f;
 			RectangleF rect3 = new RectangleF(rect.X, num, rect.Width, 22f);
 			bool columnSelected = IsColumnSelected(table, col);
-			using SolidBrush brush7 = new SolidBrush(columnSelected ? Color.FromArgb(255, 243, 205) : ((i % 2 == 0) ? RowEvenColor : RowOddColor));
+			bool normalizationHighlighted = IsNormalizationHighlighted(table, col);
+			using SolidBrush brush7 = new SolidBrush(columnSelected || normalizationHighlighted ? Color.FromArgb(255, 243, 205) : ((i % 2 == 0) ? RowEvenColor : RowOddColor));
 			g.FillRectangle(brush7, rect3);
 			using Pen pen = new Pen(Color.FromArgb(220, 220, 226), 0.5f / _zoom);
 			g.DrawLine(pen, rect3.X, rect3.Bottom, rect3.Right, rect3.Bottom);
@@ -746,6 +873,7 @@ public sealed class DiagramCanvas : Control
 
 	private void HandleSelectDown(PointF cp, Point screenPt)
 	{
+		_normalizationHighlightedColumnIds.Clear();
 		float handleRadius = 7f / _zoom;
 		foreach (DbRelationship relationship in _schema.Relationships)
 		{

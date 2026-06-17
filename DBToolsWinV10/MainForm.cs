@@ -705,6 +705,7 @@ public partial class MainForm : Form
 		}
 		listViewAnalysis.ShowGroups = true;
 		listViewAnalysis.HeaderStyle = ColumnHeaderStyle.Clickable;
+		listViewAnalysis.SelectedIndexChanged += ListViewAnalysis_SelectedIndexChanged;
 		listViewAnalysis.DoubleClick += ListViewAnalysis_DoubleClick;
 		listViewAnalysis.ColumnClick += ListViewAnalysis_ColumnClick;
 		listViewAnalysis.ColumnWidthChanging += ListViewAnalysis_ColumnWidthChanging;
@@ -905,17 +906,60 @@ public partial class MainForm : Form
 		lblAnalysisSummary.Height = Math.Max(40, textSize.Height + lblAnalysisSummary.Padding.Vertical + 4);
 	}
 
+	private void ListViewAnalysis_SelectedIndexChanged(object sender, EventArgs e)
+	{
+		if (listViewAnalysis.SelectedItems.Count == 0)
+		{
+			diagramCanvas.ClearNormalizationHighlight();
+			return;
+		}
+
+		NavigateToSelectedAnalysisIssue();
+	}
+
 	private void ListViewAnalysis_DoubleClick(object sender, EventArgs e)
 	{
 		if (listViewAnalysis.SelectedItems.Count == 0 || listViewAnalysis.SelectedItems[0].Tag is not NormalizationIssue issue)
 		{
 			return;
 		}
-		DbTable table = diagramCanvas.Schema.Tables.FirstOrDefault((DbTable t) => t.Name == issue.Table);
-		if (table != null)
+
+		NormalizationIssueDialog.Show(this, issue);
+	}
+
+	private void NavigateToSelectedAnalysisIssue()
+	{
+		if (listViewAnalysis.SelectedItems.Count == 0 || listViewAnalysis.SelectedItems[0].Tag is not NormalizationIssue issue)
 		{
-			diagramCanvas.SelectTable(table);
-			RefreshPropertyGrid();
+			return;
+		}
+
+		DbTable table = diagramCanvas.Schema.Tables.FirstOrDefault((DbTable t) => string.Equals(t.Name, issue.Table, StringComparison.OrdinalIgnoreCase));
+		if (table == null)
+		{
+			return;
+		}
+
+		diagramCanvas.ShowNormalizationIssue(table, ParseAffectedColumnNames(issue.AffectedColumns));
+		RefreshPropertyGrid();
+	}
+
+	private static IEnumerable<string> ParseAffectedColumnNames(string affectedColumns)
+	{
+		if (string.IsNullOrWhiteSpace(affectedColumns) || string.Equals(affectedColumns, "-", StringComparison.Ordinal))
+		{
+			yield break;
+		}
+
+		if (affectedColumns.Contains("테이블 전체", StringComparison.Ordinal))
+		{
+			yield break;
+		}
+
+		string[] parts = affectedColumns.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+		foreach (string part in parts)
+		{
+			yield return part;
 		}
 	}
 
