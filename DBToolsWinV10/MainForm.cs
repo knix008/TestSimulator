@@ -19,7 +19,7 @@ using DBToolsWinV10.Serialization;
 
 namespace DBToolsWinV10;
 
-public class MainForm : Form
+public partial class MainForm : Form
 {
 	private const string FileFilter = "DB 프로젝트 파일 (*.mdprj)|*.mdprj|모든 파일 (*.*)|*.*";
 
@@ -64,6 +64,10 @@ public class MainForm : Form
 	private ToolStripMenuItem menuExportSql;
 
 	private ToolStripMenuItem menuExportJson;
+
+	private ToolStripSeparator tsSepExport;
+
+	private ToolStripDropDownButton tsExport;
 
 	private ToolStripSeparator sepFile4;
 
@@ -271,6 +275,7 @@ public class MainForm : Form
 		{
 			ConfigureToolStripZoomButton();
 			ConfigureToolStripLineStyle();
+			ConfigureExportMenus();
 			ApplyModernTheme();
 			ConfigureSampleMenus();
 			ApplyIcons();
@@ -571,6 +576,11 @@ public class MainForm : Form
 		btnTsOpenDatabase.Image = IconProvider.Get("OpenDbFile", 22);
 		btnTsSave.Image = IconProvider.Get("Save", 22);
 		btnTsSaveAs.Image = IconProvider.Get("SaveAs", 22);
+		if (tsExport != null)
+		{
+			tsExport.Image = IconProvider.Get("Export", 22);
+			ApplyExportDropdownIcons(tsExport.DropDownItems);
+		}
 		btnTsAddTable.Image = IconProvider.Get("AddTable", 22);
 		btnTsAddRel.Image = IconProvider.Get("AddRelation", 22);
 		btnTsZoomIn.Image = IconProvider.Get("ZoomIn", 22);
@@ -840,14 +850,6 @@ public class MainForm : Form
 		menuSaveAs.Click += delegate
 		{
 			SaveSchemaAs();
-		};
-		menuExportSql.Click += delegate
-		{
-			ExportSql();
-		};
-		menuExportJson.Click += delegate
-		{
-			ExportJson();
 		};
 		menuExit.Click += delegate
 		{
@@ -1245,57 +1247,6 @@ public class MainForm : Form
 		catch (Exception ex)
 		{
 			ErrorDialog.Show(this, "저장 오류", ex, "파일을 저장할 수 없습니다.\n" + path);
-		}
-	}
-
-	private void ExportSql()
-	{
-		using SaveFileDialog saveFileDialog = new SaveFileDialog
-		{
-			Filter = "SQL 파일 (*.sql)|*.sql|텍스트 파일 (*.txt)|*.txt",
-			Title = "SQL DDL 내보내기",
-			FileName = diagramCanvas.Schema.Name
-		};
-		if (saveFileDialog.ShowDialog(this) != DialogResult.OK)
-		{
-			return;
-		}
-		try
-		{
-			string contents = SqlExporter.Export(diagramCanvas.Schema);
-			File.WriteAllText(saveFileDialog.FileName, contents, Encoding.UTF8);
-			statusLabel.Text = "SQL 내보내기 완료: " + Path.GetFileName(saveFileDialog.FileName);
-			if (MessageBox.Show("SQL 파일을 메모장으로 열까요?", "내보내기 완료", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-			{
-				Process.Start("notepad.exe", saveFileDialog.FileName);
-			}
-		}
-		catch (Exception ex)
-		{
-			ErrorDialog.Show(this, "SQL보내기 오류", ex, "SQL 파일을보낼 수 없습니다.\n" + saveFileDialog.FileName);
-		}
-	}
-
-	private void ExportJson()
-	{
-		using SaveFileDialog saveFileDialog = new SaveFileDialog
-		{
-			Filter = "JSON 파일 (*.json)|*.json",
-			Title = "JSON 내보내기",
-			FileName = diagramCanvas.Schema.Name
-		};
-		if (saveFileDialog.ShowDialog(this) != DialogResult.OK)
-		{
-			return;
-		}
-		try
-		{
-			SchemaSerializer.Save(diagramCanvas.Schema, saveFileDialog.FileName);
-			statusLabel.Text = "JSON 내보내기 완료: " + Path.GetFileName(saveFileDialog.FileName);
-		}
-		catch (Exception ex)
-		{
-			ErrorDialog.Show(this, "JSON보내기 오류", ex, "JSON 파일을보낼 수 없습니다.\n" + saveFileDialog.FileName);
 		}
 	}
 

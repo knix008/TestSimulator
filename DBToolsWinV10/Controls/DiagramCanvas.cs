@@ -489,7 +489,8 @@ public sealed class DiagramCanvas : Control
 		{
 			return;
 		}
-		List<PointF> pathPoints = RelationshipPathBuilder.GetPathPoints(rel, connection);
+		bool liveRoute = ShouldLiveRouteRelationship(rel);
+		List<PointF> pathPoints = RelationshipPathBuilder.GetPathPoints(rel, connection, liveRoute);
 		bool flag = IsRelationshipSelected(rel);
 		Color color = (flag ? SelectionColor : Color.FromArgb(100, 100, 120));
 		float width = (flag ? (3f / _zoom) : (2.2f / _zoom));
@@ -513,7 +514,7 @@ public sealed class DiagramCanvas : Control
 		bool isMany2 = flag2;
 		DrawCardinality(g, pen, pathPoints[0], pathPoints[1], isMany);
 		DrawCardinality(g, pen, pathPoints[pathPoints.Count - 1], pathPoints[pathPoints.Count - 2], isMany2);
-		if (flag)
+		if (flag && !liveRoute)
 		{
 			DrawRelationshipRouteHandles(g, rel, connection);
 		}
@@ -521,7 +522,7 @@ public sealed class DiagramCanvas : Control
 		{
 			return;
 		}
-		PointF pathMidpoint = RelationshipPathBuilder.GetPathMidpoint(rel, connection);
+		PointF pathMidpoint = RelationshipPathBuilder.GetPathMidpoint(rel, connection, liveRoute);
 		using Font font = new Font("맑은 고딕", 7.5f, FontStyle.Regular, GraphicsUnit.Point);
 		using SolidBrush brush = new SolidBrush(Color.FromArgb(80, 80, 100));
 		using SolidBrush brush2 = new SolidBrush(Color.FromArgb(200, 242, 242, 248));
@@ -922,6 +923,7 @@ public sealed class DiagramCanvas : Control
 			base.Capture = false;
 			if (_selectedTable != null && (Math.Abs(_selectedTable.X - _tableOriginAtDrag.X) > 0.01f || Math.Abs(_selectedTable.Y - _tableOriginAtDrag.Y) > 0.01f))
 			{
+				ResetOrthogonalRoutesForTable(_selectedTable);
 				NotifyChanged();
 			}
 		}
@@ -971,7 +973,7 @@ public sealed class DiagramCanvas : Control
 			DeleteSelected();
 			return true;
 		case Keys.Escape:
-			_relSource = null;
+			SetToolMode(ToolMode.Select);
 			ClearSelection();
 			return true;
 		default:
@@ -1319,7 +1321,31 @@ public sealed class DiagramCanvas : Control
 		{
 			return false;
 		}
-		return RelationshipPathBuilder.HitTest(rel, p, connection, 6f / _zoom);
+		return RelationshipPathBuilder.HitTest(rel, p, connection, 6f / _zoom, ShouldLiveRouteRelationship(rel));
+	}
+
+	private bool ShouldLiveRouteRelationship(DbRelationship rel)
+	{
+		return _isDragging
+			&& _selectedTable != null
+			&& rel.LineStyle == RelationshipLineStyle.Orthogonal
+			&& (rel.SourceTableId == _selectedTable.Id || rel.TargetTableId == _selectedTable.Id);
+	}
+
+	private void ResetOrthogonalRoutesForTable(DbTable table)
+	{
+		if (table == null)
+		{
+			return;
+		}
+		RelationshipPathBuilder.ResetOrthogonalRoutesForTable(_schema, table.Id, delegate(DbRelationship rel)
+		{
+			if (TryGetRelationshipConnection(rel, out RelationshipConnectionInfo connection))
+			{
+				return connection;
+			}
+			return null;
+		});
 	}
 
 	public static float GetTableHeight(DbTable t)

@@ -106,7 +106,24 @@ public static class RelationshipPathBuilder
 
 	public static List<PointF> GetPathPoints(DbRelationship rel, RelationshipConnectionInfo connection)
 	{
+		return GetPathPoints(rel, connection, liveRoute: false);
+	}
+
+	public static List<PointF> GetPathPoints(DbRelationship rel, RelationshipConnectionInfo connection, bool liveRoute)
+	{
+		if (liveRoute && rel.LineStyle == RelationshipLineStyle.Orthogonal)
+		{
+			return BuildOrthogonalPath(connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
+		}
 		return GetPathPoints(rel, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
+	}
+
+	public static List<PointF> BuildOrthogonalPath(PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
+	{
+		List<PointF> list = new List<PointF> { start };
+		list.AddRange(GetDefaultOrthogonalBends(start, end, startEdge, endEdge));
+		list.Add(end);
+		return list;
 	}
 
 	public static PointF GetCurveControl(DbRelationship rel, PointF start, PointF end)
@@ -121,7 +138,41 @@ public static class RelationshipPathBuilder
 
 	public static PointF GetPathMidpoint(DbRelationship rel, RelationshipConnectionInfo connection)
 	{
+		return GetPathMidpoint(rel, connection, liveRoute: false);
+	}
+
+	public static PointF GetPathMidpoint(DbRelationship rel, RelationshipConnectionInfo connection, bool liveRoute)
+	{
+		if (liveRoute && rel.LineStyle == RelationshipLineStyle.Orthogonal)
+		{
+			return GetPolylineMidpoint(BuildOrthogonalPath(connection.Start, connection.End, connection.StartEdge, connection.EndEdge));
+		}
 		return GetPathMidpoint(rel, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
+	}
+
+	public static void ResetOrthogonalRoutesForTable(DbSchema schema, Guid tableId, Func<DbRelationship, RelationshipConnectionInfo?> connectionResolver)
+	{
+		if (schema == null || connectionResolver == null)
+		{
+			return;
+		}
+		schema.EnsureInitialized();
+		foreach (DbRelationship rel in schema.Relationships)
+		{
+			if (rel.LineStyle != RelationshipLineStyle.Orthogonal)
+			{
+				continue;
+			}
+			if (rel.SourceTableId != tableId && rel.TargetTableId != tableId)
+			{
+				continue;
+			}
+			RelationshipConnectionInfo? connection = connectionResolver(rel);
+			if (connection.HasValue)
+			{
+				ResetRoutePoints(rel, connection.Value);
+			}
+		}
 	}
 
 	public static PointF GetPathMidpoint(DbRelationship rel, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
@@ -163,12 +214,19 @@ public static class RelationshipPathBuilder
 
 	public static bool HitTest(DbRelationship rel, PointF point, RelationshipConnectionInfo connection, float tolerance)
 	{
-		return HitTest(rel, point, connection.Start, connection.End, connection.StartEdge, connection.EndEdge, tolerance);
+		return HitTest(rel, point, connection, tolerance, liveRoute: false);
 	}
 
-	public static bool HitTest(DbRelationship rel, PointF point, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge, float tolerance)
+	public static bool HitTest(DbRelationship rel, PointF point, RelationshipConnectionInfo connection, float tolerance, bool liveRoute)
 	{
-		List<PointF> pathPoints = GetPathPoints(rel, start, end, startEdge, endEdge);
+		return HitTest(rel, point, connection.Start, connection.End, connection.StartEdge, connection.EndEdge, tolerance, liveRoute);
+	}
+
+	public static bool HitTest(DbRelationship rel, PointF point, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge, float tolerance, bool liveRoute)
+	{
+		List<PointF> pathPoints = liveRoute && rel.LineStyle == RelationshipLineStyle.Orthogonal
+			? BuildOrthogonalPath(start, end, startEdge, endEdge)
+			: GetPathPoints(rel, start, end, startEdge, endEdge);
 		for (int i = 0; i < pathPoints.Count - 1; i++)
 		{
 			if (DistanceToSegment(point, pathPoints[i], pathPoints[i + 1]) < tolerance)
@@ -179,9 +237,35 @@ public static class RelationshipPathBuilder
 		return false;
 	}
 
-	public static bool HitTest(DbRelationship rel, PointF point, PointF start, PointF end, float tolerance)
+	public static bool HitTest(DbRelationship rel, PointF point, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge, float tolerance)
 	{
-		return HitTest(rel, point, start, end, ConnectionEdge.Right, ConnectionEdge.Left, tolerance);
+		return HitTest(rel, point, start, end, startEdge, endEdge, tolerance, liveRoute: false);
+	}
+
+	private static PointF GetPolylineMidpoint(List<PointF> pathPoints)
+	{
+		if (pathPoints.Count < 2)
+		{
+			return pathPoints.Count > 0 ? pathPoints[0] : default;
+		}
+		float total = 0f;
+		for (int i = 0; i < pathPoints.Count - 1; i++)
+		{
+			total += Distance(pathPoints[i], pathPoints[i + 1]);
+		}
+		float half = total / 2f;
+		float walked = 0f;
+		for (int j = 0; j < pathPoints.Count - 1; j++)
+		{
+			float segment = Distance(pathPoints[j], pathPoints[j + 1]);
+			if (walked + segment >= half)
+			{
+				float amount = (half - walked) / Math.Max(segment, 0.001f);
+				return Lerp(pathPoints[j], pathPoints[j + 1], amount);
+			}
+			walked += segment;
+		}
+		return pathPoints[pathPoints.Count / 2];
 	}
 
 	public static int HitTestRoutePoint(DbRelationship rel, PointF point, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge, float handleRadius)
