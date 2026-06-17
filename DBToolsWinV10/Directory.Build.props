@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- App still running during rebuild: avoid failing the build on file-copy retries. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3026;MSB3027;MSB3021</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+</Project>

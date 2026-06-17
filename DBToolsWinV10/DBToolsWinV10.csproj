@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <StartupObject>DBToolsWinV10.Program</StartupObject>
+    <RootNamespace>DBToolsWinV10</RootNamespace>
+    <AssemblyName>DBToolsWinV10</AssemblyName>
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Sample\**" />
+    <Content Remove="Sample\**" />
+    <EmbeddedResource Remove="Sample\**" />
+    <None Remove="Sample\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <PackageReference Include="System.Data.OleDb" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Assets\AppIcon.ico" />
+    <Content Include="Sample\OnlineShop.mdprj" Link="Sample\OnlineShop.mdprj" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Sample\OnlineShop_*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

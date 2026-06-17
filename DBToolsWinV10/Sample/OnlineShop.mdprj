@@ -1,0 +1,312 @@
+﻿{
+  "Name": "OnlineShop",
+  "TargetDb": "PostgreSQL",
+  "Tables": [
+    {
+      "Id": "11111111-1111-1111-1111-111111111101",
+      "Name": "users",
+      "Comment": "\uD68C\uC6D0 \uC815\uBCF4",
+      "Columns": [
+        {
+          "Id": "22222222-2222-2222-2222-222222222201",
+          "Name": "id",
+          "DataType": "BIGSERIAL",
+          "IsPrimaryKey": true,
+          "IsAutoIncrement": true,
+          "IsNullable": false,
+          "IsUnique": false,
+          "Comment": "\uD68C\uC6D0 ID"
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222203",
+          "Name": "username",
+          "DataType": "VARCHAR",
+          "Length": 50,
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false,
+          "Comment": "\uB85C\uADF8\uC778 \uC774\uB984"
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222202",
+          "Name": "email",
+          "DataType": "VARCHAR",
+          "Length": 255,
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": true,
+          "Comment": "\uC774\uBA54\uC77C"
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222204",
+          "Name": "created_at",
+          "DataType": "TIMESTAMPTZ",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false,
+          "DefaultValue": "NOW()"
+        }
+      ],
+      "ColumnCount": 4,
+      "PrimaryKeyCount": 1,
+      "X": 40,
+      "Y": 60,
+      "Width": 210
+    },
+    {
+      "Id": "11111111-1111-1111-1111-111111111102",
+      "Name": "categories",
+      "Comment": "\uC0C1\uD488 \uCE74\uD14C\uACE0\uB9AC",
+      "Columns": [
+        {
+          "Id": "22222222-2222-2222-2222-222222222211",
+          "Name": "id",
+          "DataType": "SERIAL",
+          "IsPrimaryKey": true,
+          "IsAutoIncrement": true,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222212",
+          "Name": "name",
+          "DataType": "VARCHAR",
+          "Length": 100,
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222213",
+          "Name": "description",
+          "DataType": "TEXT",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": true,
+          "IsUnique": false
+        }
+      ],
+      "ColumnCount": 3,
+      "PrimaryKeyCount": 1,
+      "X": 40,
+      "Y": 320,
+      "Width": 210
+    },
+    {
+      "Id": "11111111-1111-1111-1111-111111111103",
+      "Name": "products",
+      "Comment": "\uD310\uB9E4 \uC0C1\uD488",
+      "Columns": [
+        {
+          "Id": "22222222-2222-2222-2222-222222222221",
+          "Name": "id",
+          "DataType": "BIGSERIAL",
+          "IsPrimaryKey": true,
+          "IsAutoIncrement": true,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222223",
+          "Name": "name",
+          "DataType": "VARCHAR",
+          "Length": 200,
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222224",
+          "Name": "price",
+          "DataType": "DECIMAL",
+          "Precision": 12,
+          "Scale": 2,
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222222",
+          "Name": "category_id",
+          "DataType": "INTEGER",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false,
+          "Comment": "\uCE74\uD14C\uACE0\uB9AC FK"
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222225",
+          "Name": "is_active",
+          "DataType": "BOOLEAN",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false,
+          "DefaultValue": "TRUE"
+        }
+      ],
+      "ColumnCount": 5,
+      "PrimaryKeyCount": 1,
+      "X": 320,
+      "Y": 320,
+      "Width": 210
+    },
+    {
+      "Id": "11111111-1111-1111-1111-111111111104",
+      "Name": "orders",
+      "Comment": "\uC8FC\uBB38 \uD5E4\uB354",
+      "Columns": [
+        {
+          "Id": "22222222-2222-2222-2222-222222222231",
+          "Name": "id",
+          "DataType": "BIGSERIAL",
+          "IsPrimaryKey": true,
+          "IsAutoIncrement": true,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222232",
+          "Name": "user_id",
+          "DataType": "BIGINT",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false,
+          "Comment": "\uC8FC\uBB38 \uD68C\uC6D0 FK"
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222233",
+          "Name": "order_date",
+          "DataType": "TIMESTAMPTZ",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false,
+          "DefaultValue": "NOW()"
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222234",
+          "Name": "status",
+          "DataType": "VARCHAR",
+          "Length": 20,
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false,
+          "DefaultValue": "\u0027PENDING\u0027"
+        }
+      ],
+      "ColumnCount": 4,
+      "PrimaryKeyCount": 1,
+      "X": 320,
+      "Y": 60,
+      "Width": 210
+    },
+    {
+      "Id": "11111111-1111-1111-1111-111111111105",
+      "Name": "order_items",
+      "Comment": "\uC8FC\uBB38 \uC0C1\uC138",
+      "Columns": [
+        {
+          "Id": "22222222-2222-2222-2222-222222222241",
+          "Name": "id",
+          "DataType": "BIGSERIAL",
+          "IsPrimaryKey": true,
+          "IsAutoIncrement": true,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222242",
+          "Name": "order_id",
+          "DataType": "BIGINT",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222243",
+          "Name": "product_id",
+          "DataType": "BIGINT",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222244",
+          "Name": "quantity",
+          "DataType": "INTEGER",
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false,
+          "DefaultValue": "1"
+        },
+        {
+          "Id": "22222222-2222-2222-2222-222222222245",
+          "Name": "unit_price",
+          "DataType": "DECIMAL",
+          "Precision": 12,
+          "Scale": 2,
+          "IsPrimaryKey": false,
+          "IsAutoIncrement": false,
+          "IsNullable": false,
+          "IsUnique": false
+        }
+      ],
+      "ColumnCount": 5,
+      "PrimaryKeyCount": 1,
+      "X": 600,
+      "Y": 180,
+      "Width": 210
+    }
+  ],
+  "Relationships": [
+    {
+      "Id": "33333333-3333-3333-3333-333333333301",
+      "Name": "fk_products_category",
+      "Type": "OneToMany",
+      "SourceTableId": "11111111-1111-1111-1111-111111111102",
+      "SourceColumnId": "22222222-2222-2222-2222-222222222211",
+      "TargetTableId": "11111111-1111-1111-1111-111111111103",
+      "TargetColumnId": "22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "Id": "33333333-3333-3333-3333-333333333302",
+      "Name": "fk_orders_user",
+      "Type": "OneToMany",
+      "SourceTableId": "11111111-1111-1111-1111-111111111101",
+      "SourceColumnId": "22222222-2222-2222-2222-222222222201",
+      "TargetTableId": "11111111-1111-1111-1111-111111111104",
+      "TargetColumnId": "22222222-2222-2222-2222-222222222232"
+    },
+    {
+      "Id": "33333333-3333-3333-3333-333333333303",
+      "Name": "fk_order_items_order",
+      "Type": "OneToMany",
+      "SourceTableId": "11111111-1111-1111-1111-111111111104",
+      "SourceColumnId": "22222222-2222-2222-2222-222222222231",
+      "TargetTableId": "11111111-1111-1111-1111-111111111105",
+      "TargetColumnId": "22222222-2222-2222-2222-222222222242"
+    },
+    {
+      "Id": "33333333-3333-3333-3333-333333333304",
+      "Name": "fk_order_items_product",
+      "Type": "OneToMany",
+      "SourceTableId": "11111111-1111-1111-1111-111111111103",
+      "SourceColumnId": "22222222-2222-2222-2222-222222222221",
+      "TargetTableId": "11111111-1111-1111-1111-111111111105",
+      "TargetColumnId": "22222222-2222-2222-2222-222222222243"
+    }
+  ]
+}
