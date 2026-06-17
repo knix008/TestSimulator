@@ -45,7 +45,16 @@ internal static class Program
 				}
 			}
 		};
-		string initialFile = ((args.Length != 0 && File.Exists(args[0])) ? args[0] : null);
+		string initialFile = null;
+		if (args.Length > 0 && File.Exists(args[0]))
+		{
+			initialFile = args[0];
+		}
+		else
+		{
+			initialFile = RecentFilesManager.GetMostRecent();
+		}
+
 		Application.Run(new MainForm(initialFile));
 	}
 }

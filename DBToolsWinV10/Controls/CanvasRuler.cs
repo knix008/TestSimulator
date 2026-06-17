@@ -114,6 +114,7 @@ public sealed class CanvasRuler : Control
 		}
 		else
 		{
+			graphics.DrawLine(pen3, 0, 0, 0, base.Height);
 			graphics.DrawLine(pen3, base.Width - 1, 0, base.Width - 1, base.Height);
 		}
 	}

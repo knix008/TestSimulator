@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace DBToolsWinV10.App;
@@ -53,6 +54,11 @@ internal static class RecentFilesManager
 		List<string> list = Load();
 		list.RemoveAll((string f) => string.Equals(f, filePath, StringComparison.OrdinalIgnoreCase));
 		Save(list);
+	}
+
+	public static string GetMostRecent()
+	{
+		return Load().FirstOrDefault();
 	}
 
 	private static void Save(List<string> list)

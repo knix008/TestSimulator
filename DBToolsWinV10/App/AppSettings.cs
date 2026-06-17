@@ -40,18 +40,30 @@ internal static class AppSettings
 
 	public static int GetRightPanelWidth(int defaultWidth)
 	{
-		int? width = ReadSettings()?.RightPanelWidth;
-		if (width.HasValue && width.Value >= 280)
+		if (TryGetRightPanelWidth(out int width))
 		{
-			return width.Value;
+			return width;
 		}
 
 		return defaultWidth;
 	}
 
+	public static bool TryGetRightPanelWidth(out int width)
+	{
+		int? stored = ReadSettings()?.RightPanelWidth;
+		if (stored.HasValue && stored.Value >= 240)
+		{
+			width = Math.Clamp(stored.Value, 240, 360);
+			return true;
+		}
+
+		width = 0;
+		return false;
+	}
+
 	public static void SetRightPanelWidth(int width)
 	{
-		if (width < 280)
+		if (width < 240)
 		{
 			return;
 		}

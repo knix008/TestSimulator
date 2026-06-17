@@ -29,15 +29,17 @@ public partial class MainForm : Form
 
 	private bool _rightPanelVisible = true;
 
-	private const int RightPanelDefaultWidth = 420;
+	private const int RightPanelMinWidth = 260;
 
-	private const int RightPanelMinWidth = 300;
+	private const int CanvasMinWidth = 320;
 
-	private const int CanvasMinWidth = 360;
+	private const float RulerThickness = 28f;
+
+	private const float RulerHeaderThickness = 24f;
 
 	private SplitContainer splitMain;
 
-	private int _rightPanelWidth = RightPanelDefaultWidth;
+	private int _rightPanelWidth;
 
 	private bool _mainSplitDistanceInitialized;
 
@@ -209,7 +211,9 @@ public partial class MainForm : Form
 
 	private Panel panelCanvasHost;
 
-	private TableLayoutPanel tlpCanvasChrome;
+	private Panel panelCanvasChromeTop;
+
+	private Panel panelCanvasChromeBody;
 
 	private Panel panelRulerCorner;
 
@@ -295,47 +299,27 @@ public partial class MainForm : Form
 			{
 				UpdateViewportUi();
 			};
-			NewSchema();
-			if (initialFile != null && File.Exists(initialFile))
+			if (!string.IsNullOrWhiteSpace(initialFile) && File.Exists(initialFile))
 			{
-				LoadFile(initialFile);
+				if (!TryLoadFile(initialFile, showErrorOnFailure: false))
+				{
+					InitializeEmptyProject();
+				}
+			}
+			else
+			{
+				InitializeEmptyProject();
 			}
 		}
 	}
-
-	private bool _rightPanelSplitterInitialized;
 
 	protected override void OnLoad(EventArgs e)
 	{
 		base.OnLoad(e);
 		SetRightPanelVisible(visible: true);
 		UpdateViewportUi();
-		splitRightPanel.Resize += RightPanelSplitter_Resize;
-		BeginInvoke(ApplyRightPanelSplitterLayout);
 		BeginInvoke(ApplyMainSplitDistanceIfReady);
 		BeginInvoke(AdjustAnalysisColumnWidths);
-	}
-
-	private void RightPanelSplitter_Resize(object sender, EventArgs e)
-	{
-		ApplyRightPanelSplitterLayout();
-	}
-
-	private void ApplyRightPanelSplitterLayout()
-	{
-		if (_rightPanelSplitterInitialized || splitRightPanel.Height <= 0)
-			return;
-
-		int minTotal = splitRightPanel.Panel1MinSize + splitRightPanel.Panel2MinSize + splitRightPanel.SplitterWidth;
-		if (splitRightPanel.Height < minTotal)
-			return;
-
-		int available = splitRightPanel.Height - splitRightPanel.SplitterWidth;
-		int half = available / 2;
-		int maxDistance = splitRightPanel.Height - splitRightPanel.Panel2MinSize - splitRightPanel.SplitterWidth;
-		splitRightPanel.SplitterDistance = Math.Clamp(half, splitRightPanel.Panel1MinSize, Math.Max(splitRightPanel.Panel1MinSize, maxDistance));
-		_rightPanelSplitterInitialized = true;
-		splitRightPanel.Resize -= RightPanelSplitter_Resize;
 	}
 
 	private void SetRightPanelVisible(bool visible, bool syncUiOnly = false)
@@ -347,8 +331,16 @@ public partial class MainForm : Form
 			{
 				if (visible)
 				{
+					bool wasCollapsed = splitMain.Panel2Collapsed;
 					splitMain.Panel2Collapsed = false;
-					SetRightPanelWidth(_rightPanelWidth, persist: false);
+					if (wasCollapsed)
+					{
+						SetRightPanelWidth(_rightPanelWidth, persist: false);
+					}
+					else if (AppSettings.TryGetRightPanelWidth(out int savedWidth))
+					{
+						SetRightPanelWidth(savedWidth, persist: false);
+					}
 				}
 				else
 				{
@@ -366,27 +358,54 @@ public partial class MainForm : Form
 
 	private void ConfigureMainLayoutSplit()
 	{
-		_rightPanelWidth = AppSettings.GetRightPanelWidth(RightPanelDefaultWidth);
-		splitMain = new SplitContainer
-		{
-			Name = "splitMain",
-			Dock = DockStyle.Fill,
-			Orientation = Orientation.Vertical,
-			FixedPanel = FixedPanel.Panel2,
-			Panel1MinSize = CanvasMinWidth,
-			Panel2MinSize = RightPanelMinWidth
-		};
-		panelContent.SuspendLayout();
-		panelContent.Controls.Remove(panelCanvasHost);
-		panelContent.Controls.Remove(panelRight);
-		panelRight.Dock = DockStyle.Fill;
-		panelCanvasHost.Dock = DockStyle.Fill;
-		splitMain.Panel1.Controls.Add(panelCanvasHost);
-		splitMain.Panel2.Controls.Add(panelRight);
-		panelContent.Controls.Add(splitMain);
-		panelContent.ResumeLayout(performLayout: false);
+		_rightPanelWidth = panelRight.Width;
 		splitMain.SplitterMoved += MainSplit_SplitterMoved;
 		splitMain.Resize += MainSplit_Resize;
+	}
+
+	private void EnsureMainSplitConstraints()
+	{
+		if (splitMain == null || splitMain.Width <= 0)
+		{
+			return;
+		}
+
+		int available = splitMain.Width - splitMain.SplitterWidth;
+		if (available <= 0)
+		{
+			return;
+		}
+
+		int panel1Min = CanvasMinWidth;
+		int panel2Min = RightPanelMinWidth;
+		if (panel1Min + panel2Min > available)
+		{
+			panel1Min = Math.Max(100, available * 55 / 100);
+			panel2Min = Math.Max(100, available - panel1Min);
+		}
+
+		if (splitMain.Panel1MinSize != panel1Min)
+		{
+			splitMain.Panel1MinSize = panel1Min;
+		}
+
+		if (splitMain.Panel2MinSize != panel2Min)
+		{
+			splitMain.Panel2MinSize = panel2Min;
+		}
+	}
+
+	private static bool TrySetSplitterDistance(SplitContainer split, int distance)
+	{
+		try
+		{
+			split.SplitterDistance = distance;
+			return true;
+		}
+		catch (InvalidOperationException)
+		{
+			return false;
+		}
 	}
 
 	private void MainSplit_Resize(object sender, EventArgs e)
@@ -401,11 +420,13 @@ public partial class MainForm : Form
 			return;
 		}
 
-		if (_rightPanelVisible)
+		EnsureMainSplitConstraints();
+		if (_rightPanelVisible && AppSettings.TryGetRightPanelWidth(out int savedWidth))
 		{
-			SetRightPanelWidth(_rightPanelWidth, persist: false);
+			SetRightPanelWidth(savedWidth, persist: false);
 		}
 
+		_rightPanelWidth = GetCurrentRightPanelWidth();
 		_mainSplitDistanceInitialized = true;
 	}
 
@@ -416,9 +437,20 @@ public partial class MainForm : Form
 			return;
 		}
 
+		EnsureMainSplitConstraints();
 		int available = splitMain.Width - splitMain.SplitterWidth;
-		int panel2Width = Math.Clamp(width, RightPanelMinWidth, Math.Max(RightPanelMinWidth, available - CanvasMinWidth));
-		splitMain.SplitterDistance = available - panel2Width;
+		if (available <= splitMain.Panel1MinSize + splitMain.Panel2MinSize)
+		{
+			return;
+		}
+
+		int maxPanel2 = available - splitMain.Panel1MinSize;
+		int panel2Width = Math.Clamp(width, splitMain.Panel2MinSize, maxPanel2);
+		if (!TrySetSplitterDistance(splitMain, available - panel2Width))
+		{
+			return;
+		}
+
 		_rightPanelWidth = panel2Width;
 		if (persist)
 		{
@@ -447,7 +479,7 @@ public partial class MainForm : Form
 		AppSettings.SetRightPanelWidth(_rightPanelWidth);
 		propertyGrid.PerformLayout();
 		propertyGrid.Invalidate(true);
-		AdjustAnalysisColumnWidths();
+		ApplyAnalysisColumnLayout(fillOnly: true);
 	}
 
 	private void UpdateRightPanelToggleUi()
@@ -513,6 +545,7 @@ public partial class MainForm : Form
 		panelCanvasHost.BackColor = ModernTheme.CanvasChrome;
 		panelCanvasInner.BackColor = ModernTheme.CanvasBackground;
 		panelRulerCorner.BackColor = ModernTheme.ToolHover;
+		ConfigureCanvasChromeLayout();
 		ModernTheme.StyleCanvasToggleButton(btnCanvasToggleRight);
 		panelToggleStrip.BackColor = ModernTheme.CanvasChrome;
 		panelRight.BackColor = ModernTheme.PanelBackground;
@@ -520,6 +553,13 @@ public partial class MainForm : Form
 		btnTsAbout.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
 		btnTsAbout.Text = "정보";
 		UpdateToolButtonStates();
+	}
+
+	private void ConfigureCanvasChromeLayout()
+	{
+		rulerHorizontal.Orientation = RulerOrientation.Horizontal;
+		rulerVertical.Orientation = RulerOrientation.Vertical;
+		UpdateViewportUi();
 	}
 
 	private void ConfigureToolStripZoomButton()
@@ -630,6 +670,16 @@ public partial class MainForm : Form
 
 	private static readonly string[] AnalysisColumnHeaders = { "수준", "심각도", "테이블", "문제 컬럼", "문제", "권장" };
 
+	private int _analysisSortColumn = -1;
+
+	private SortOrder _analysisSortOrder = SortOrder.None;
+
+	private bool _analysisColumnsUserSized;
+
+	private int[] _analysisColumnWidths;
+
+	private bool _suppressAnalysisColumnWidthEvents;
+
 	private void ConfigureAnalysisPanel()
 	{
 		lblAnalysisSummary = new Label
@@ -654,10 +704,52 @@ public partial class MainForm : Form
 			listViewAnalysis.Columns.Add(header);
 		}
 		listViewAnalysis.ShowGroups = true;
-		listViewAnalysis.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+		listViewAnalysis.HeaderStyle = ColumnHeaderStyle.Clickable;
 		listViewAnalysis.DoubleClick += ListViewAnalysis_DoubleClick;
-		listViewAnalysis.Resize += (_, _) => AdjustAnalysisColumnWidths();
-		tabAnalysis.Resize += (_, _) => AdjustAnalysisColumnWidths();
+		listViewAnalysis.ColumnClick += ListViewAnalysis_ColumnClick;
+		listViewAnalysis.ColumnWidthChanging += ListViewAnalysis_ColumnWidthChanging;
+		listViewAnalysis.ColumnWidthChanged += ListViewAnalysis_ColumnWidthChanged;
+		tabAnalysis.Resize += (_, _) =>
+		{
+			UpdateAnalysisSummaryLayout();
+			ApplyAnalysisColumnLayout(fillOnly: true);
+		};
+	}
+
+	private void ListViewAnalysis_ColumnClick(object sender, ColumnClickEventArgs e)
+	{
+		if (_analysisSortColumn == e.Column)
+		{
+			_analysisSortOrder = _analysisSortOrder == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending;
+		}
+		else
+		{
+			_analysisSortColumn = e.Column;
+			_analysisSortOrder = SortOrder.Ascending;
+		}
+
+		listViewAnalysis.ListViewItemSorter = new AnalysisListViewItemComparer(_analysisSortColumn, _analysisSortOrder);
+		listViewAnalysis.Sort();
+	}
+
+	private void ListViewAnalysis_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
+	{
+		int minWidth = MeasureAnalysisColumnHeaderWidth(AnalysisColumnHeaders[e.ColumnIndex]);
+		if (e.NewWidth < minWidth)
+		{
+			e.NewWidth = minWidth;
+		}
+	}
+
+	private void ListViewAnalysis_ColumnWidthChanged(object sender, ColumnWidthChangedEventArgs e)
+	{
+		if (_suppressAnalysisColumnWidthEvents)
+		{
+			return;
+		}
+
+		_analysisColumnsUserSized = true;
+		SaveAnalysisColumnWidths();
 	}
 
 	private int MeasureAnalysisColumnHeaderWidth(string headerText)
@@ -667,18 +759,21 @@ public partial class MainForm : Form
 		return size.Width + padding;
 	}
 
-	private void AdjustAnalysisColumnWidths()
+	private void SaveAnalysisColumnWidths()
 	{
-		if (listViewAnalysis.Columns.Count < AnalysisColumnHeaders.Length)
+		_analysisColumnWidths = new int[listViewAnalysis.Columns.Count];
+		for (int i = 0; i < listViewAnalysis.Columns.Count; i++)
 		{
-			return;
+			_analysisColumnWidths[i] = listViewAnalysis.Columns[i].Width;
 		}
+	}
 
-		int[] minWidths = AnalysisColumnHeaders.Select(MeasureAnalysisColumnHeaderWidth).ToArray();
+	private int GetAnalysisAvailableWidth()
+	{
 		int available = listViewAnalysis.ClientSize.Width;
 		if (available <= 0)
 		{
-			return;
+			return 0;
 		}
 
 		if (listViewAnalysis.Items.Count > 0)
@@ -691,6 +786,49 @@ public partial class MainForm : Form
 			}
 		}
 
+		return available;
+	}
+
+	private void ApplyAnalysisColumnLayout(bool fillOnly = false)
+	{
+		if (listViewAnalysis.Columns.Count < AnalysisColumnHeaders.Length)
+		{
+			return;
+		}
+
+		int available = GetAnalysisAvailableWidth();
+		if (available <= 0)
+		{
+			return;
+		}
+
+		_suppressAnalysisColumnWidthEvents = true;
+		try
+		{
+			if (_analysisColumnsUserSized && _analysisColumnWidths != null)
+			{
+				ApplySavedAnalysisColumnWidths(available);
+			}
+			else if (!fillOnly)
+			{
+				ApplyDefaultAnalysisColumnWidths(available);
+			}
+			else
+			{
+				ExpandLastAnalysisColumnToFill(available);
+			}
+		}
+		finally
+		{
+			_suppressAnalysisColumnWidthEvents = false;
+		}
+
+		UpdateAnalysisSummaryLayout();
+	}
+
+	private void ApplyDefaultAnalysisColumnWidths(int available)
+	{
+		int[] minWidths = AnalysisColumnHeaders.Select(MeasureAnalysisColumnHeaderWidth).ToArray();
 		int minTotal = minWidths.Sum();
 		for (int i = 0; i < minWidths.Length; i++)
 		{
@@ -699,7 +837,7 @@ public partial class MainForm : Form
 
 		if (available <= minTotal)
 		{
-			UpdateAnalysisSummaryLayout();
+			SaveAnalysisColumnWidths();
 			return;
 		}
 
@@ -707,7 +845,52 @@ public partial class MainForm : Form
 		int problemExtra = extra * 55 / 100;
 		listViewAnalysis.Columns[4].Width = minWidths[4] + problemExtra;
 		listViewAnalysis.Columns[5].Width = minWidths[5] + (extra - problemExtra);
-		UpdateAnalysisSummaryLayout();
+		SaveAnalysisColumnWidths();
+	}
+
+	private void ApplySavedAnalysisColumnWidths(int available)
+	{
+		int columnCount = Math.Min(_analysisColumnWidths.Length, listViewAnalysis.Columns.Count);
+		for (int i = 0; i < columnCount; i++)
+		{
+			int minWidth = MeasureAnalysisColumnHeaderWidth(AnalysisColumnHeaders[i]);
+			listViewAnalysis.Columns[i].Width = Math.Max(minWidth, _analysisColumnWidths[i]);
+		}
+
+		ExpandLastAnalysisColumnToFill(available);
+	}
+
+	private void ExpandLastAnalysisColumnToFill(int available)
+	{
+		if (listViewAnalysis.Columns.Count == 0)
+		{
+			return;
+		}
+
+		int total = 0;
+		for (int i = 0; i < listViewAnalysis.Columns.Count; i++)
+		{
+			total += listViewAnalysis.Columns[i].Width;
+		}
+
+		int lastIndex = listViewAnalysis.Columns.Count - 1;
+		if (total < available)
+		{
+			listViewAnalysis.Columns[lastIndex].Width += available - total;
+		}
+		else if (total > available)
+		{
+			int overflow = total - available;
+			int minWidth = MeasureAnalysisColumnHeaderWidth(AnalysisColumnHeaders[lastIndex]);
+			listViewAnalysis.Columns[lastIndex].Width = Math.Max(minWidth, listViewAnalysis.Columns[lastIndex].Width - overflow);
+		}
+
+		SaveAnalysisColumnWidths();
+	}
+
+	private void AdjustAnalysisColumnWidths()
+	{
+		ApplyAnalysisColumnLayout();
 	}
 
 	private void UpdateAnalysisSummaryLayout()
@@ -1265,15 +1448,21 @@ public partial class MainForm : Form
 		}
 	}
 
+	private void InitializeEmptyProject()
+	{
+		diagramCanvas.LoadSchema(new DbSchema(), notifyChange: false);
+		_currentFilePath = null;
+		MarkDocumentClean();
+		RefreshAll();
+		UpdateDbTypeIndicator(diagramCanvas.Schema.TargetDb);
+		statusLabel.Text = "새 프로젝트";
+	}
+
 	private void NewSchema()
 	{
 		if (ConfirmDiscard())
 		{
-			diagramCanvas.LoadSchema(new DbSchema(), notifyChange: false);
-			_currentFilePath = null;
-			MarkDocumentClean();
-			RefreshAll();
-			UpdateDbTypeIndicator(diagramCanvas.Schema.TargetDb);
+			InitializeEmptyProject();
 			statusLabel.Text = "새 프로젝트가 생성되었습니다.";
 		}
 	}
@@ -1397,6 +1586,11 @@ public partial class MainForm : Form
 
 	private void LoadFile(string path)
 	{
+		TryLoadFile(path, showErrorOnFailure: true);
+	}
+
+	private bool TryLoadFile(string path, bool showErrorOnFailure)
+	{
 		try
 		{
 			DbSchema dbSchema = SchemaSerializer.Load(path);
@@ -1408,11 +1602,17 @@ public partial class MainForm : Form
 			UpdateDbTypeIndicator(dbSchema.TargetDb);
 			RefreshAll();
 			statusLabel.Text = "불러오기 완료: " + Path.GetFileName(path);
+			return true;
 		}
 		catch (Exception ex)
 		{
 			RecentFilesManager.Remove(path);
-			ErrorDialog.Show(this, "파일 열기 오류", ex, "파일을 열 수 없습니다.\n" + path);
+			if (showErrorOnFailure)
+			{
+				ErrorDialog.Show(this, "파일 열기 오류", ex, "파일을 열 수 없습니다.\n" + path);
+			}
+
+			return false;
 		}
 	}
 
@@ -1931,7 +2131,13 @@ public partial class MainForm : Form
 			lblAnalysisSummary.ForeColor = (errorCount > 0) ? ModernTheme.Danger : ModernTheme.Warning;
 		}
 		listViewAnalysis.EndUpdate();
-		AdjustAnalysisColumnWidths();
+		if (_analysisSortColumn >= 0)
+		{
+			listViewAnalysis.ListViewItemSorter = new AnalysisListViewItemComparer(_analysisSortColumn, _analysisSortOrder);
+			listViewAnalysis.Sort();
+		}
+
+		ApplyAnalysisColumnLayout();
 		if (focusTab)
 		{
 			tabControlRight.SelectedTab = tabAnalysis;
@@ -2393,7 +2599,7 @@ public partial class MainForm : Form
         grpView = new ToolboxGroupBox();
         panelToolBox = new Panel();
         treeViewSchema = new TreeView();
-        listViewAnalysis = new ListView();
+        listViewAnalysis = new BufferedListView();
         tabTreeView = new TabPage();
         tabAnalysis = new TabPage();
         tabControlRight = new TabControl();
@@ -2407,10 +2613,12 @@ public partial class MainForm : Form
         panelCanvasArea = new Panel();
         panelToggleStrip = new Panel();
         panelCanvasInner = new Panel();
+        panelCanvasChromeTop = new Panel();
+        panelCanvasChromeBody = new Panel();
         panelRulerCorner = new Panel();
         rulerHorizontal = new CanvasRuler();
         rulerVertical = new CanvasRuler();
-        tlpCanvasChrome = new TableLayoutPanel();
+        splitMain = new SplitContainer();
         panelCanvasHost = new Panel();
         panelContent = new Panel();
         statusLabel = new ToolStripStatusLabel();
@@ -2433,7 +2641,12 @@ public partial class MainForm : Form
         panelCanvasArea.SuspendLayout();
         panelToggleStrip.SuspendLayout();
         panelCanvasInner.SuspendLayout();
-        tlpCanvasChrome.SuspendLayout();
+        panelCanvasChromeTop.SuspendLayout();
+        panelCanvasChromeBody.SuspendLayout();
+        ((ISupportInitialize)splitMain).BeginInit();
+        splitMain.Panel1.SuspendLayout();
+        splitMain.Panel2.SuspendLayout();
+        splitMain.SuspendLayout();
         panelCanvasHost.SuspendLayout();
         panelContent.SuspendLayout();
         statusStrip.SuspendLayout();
@@ -3179,11 +3392,11 @@ public partial class MainForm : Form
         // panelRight
         // 
         panelRight.Controls.Add(splitRightPanel);
-        panelRight.Dock = DockStyle.Right;
-        panelRight.Location = new Point(964, 0);
+        panelRight.Dock = DockStyle.Fill;
+        panelRight.Location = new Point(0, 0);
         panelRight.Name = "panelRight";
         panelRight.Size = new Size(300, 690);
-        panelRight.TabIndex = 2;
+        panelRight.TabIndex = 0;
         // 
         // diagramCanvas
         // 
@@ -3217,71 +3430,95 @@ public partial class MainForm : Form
         panelCanvasInner.Controls.Add(panelCanvasArea);
         panelCanvasInner.Controls.Add(panelToggleStrip);
         panelCanvasInner.Dock = DockStyle.Fill;
-        panelCanvasInner.Location = new Point(31, 27);
+        panelCanvasInner.Location = new Point(28, 0);
         panelCanvasInner.Name = "panelCanvasInner";
-        panelCanvasInner.Size = new Size(854, 660);
-        panelCanvasInner.TabIndex = 3;
+        panelCanvasInner.Size = new Size(860, 666);
+        panelCanvasInner.TabIndex = 1;
+        // 
+        // panelCanvasChromeTop
+        // 
+        panelCanvasChromeTop.Controls.Add(panelRulerCorner);
+        panelCanvasChromeTop.Controls.Add(rulerHorizontal);
+        panelCanvasChromeTop.Dock = DockStyle.Top;
+        panelCanvasChromeTop.Location = new Point(0, 0);
+        panelCanvasChromeTop.Name = "panelCanvasChromeTop";
+        panelCanvasChromeTop.Size = new Size(888, 24);
+        panelCanvasChromeTop.TabIndex = 0;
+        panelCanvasChromeTop.Height = 24;
+        // 
+        // panelCanvasChromeBody
+        // 
+        panelCanvasChromeBody.Controls.Add(rulerVertical);
+        panelCanvasChromeBody.Controls.Add(panelCanvasInner);
+        panelCanvasChromeBody.Dock = DockStyle.Fill;
+        panelCanvasChromeBody.Location = new Point(0, 24);
+        panelCanvasChromeBody.Name = "panelCanvasChromeBody";
+        panelCanvasChromeBody.Size = new Size(888, 666);
+        panelCanvasChromeBody.TabIndex = 1;
         // 
         // panelRulerCorner
         // 
         panelRulerCorner.BackColor = Color.FromArgb(243, 244, 246);
-        panelRulerCorner.Dock = DockStyle.Fill;
-        panelRulerCorner.Location = new Point(3, 3);
+        panelRulerCorner.Dock = DockStyle.Left;
+        panelRulerCorner.Location = new Point(0, 0);
         panelRulerCorner.Name = "panelRulerCorner";
-        panelRulerCorner.Size = new Size(22, 18);
+        panelRulerCorner.Size = new Size(28, 24);
         panelRulerCorner.TabIndex = 0;
         // 
         // rulerHorizontal
         // 
         rulerHorizontal.BackColor = Color.FromArgb(248, 249, 251);
         rulerHorizontal.Dock = DockStyle.Fill;
-        rulerHorizontal.Location = new Point(31, 3);
+        rulerHorizontal.Location = new Point(28, 0);
         rulerHorizontal.Name = "rulerHorizontal";
         rulerHorizontal.Orientation = RulerOrientation.Horizontal;
-        rulerHorizontal.Size = new Size(854, 18);
+        rulerHorizontal.Size = new Size(860, 24);
         rulerHorizontal.TabIndex = 1;
         // 
         // rulerVertical
         // 
         rulerVertical.BackColor = Color.FromArgb(248, 249, 251);
-        rulerVertical.Dock = DockStyle.Fill;
-        rulerVertical.Location = new Point(3, 27);
+        rulerVertical.Dock = DockStyle.Left;
+        rulerVertical.Location = new Point(0, 0);
         rulerVertical.Name = "rulerVertical";
         rulerVertical.Orientation = RulerOrientation.Vertical;
-        rulerVertical.Size = new Size(22, 660);
-        rulerVertical.TabIndex = 2;
+        rulerVertical.Size = new Size(28, 666);
+        rulerVertical.TabIndex = 0;
         // 
-        // tlpCanvasChrome
+        // splitMain
         // 
-        tlpCanvasChrome.ColumnCount = 2;
-        tlpCanvasChrome.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28F));
-        tlpCanvasChrome.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        tlpCanvasChrome.Controls.Add(panelRulerCorner, 0, 0);
-        tlpCanvasChrome.Controls.Add(rulerHorizontal, 1, 0);
-        tlpCanvasChrome.Controls.Add(rulerVertical, 0, 1);
-        tlpCanvasChrome.Controls.Add(panelCanvasInner, 1, 1);
-        tlpCanvasChrome.Dock = DockStyle.Fill;
-        tlpCanvasChrome.Location = new Point(0, 0);
-        tlpCanvasChrome.Name = "tlpCanvasChrome";
-        tlpCanvasChrome.RowCount = 2;
-        tlpCanvasChrome.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
-        tlpCanvasChrome.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        tlpCanvasChrome.Size = new Size(888, 690);
-        tlpCanvasChrome.TabIndex = 0;
+        splitMain.Dock = DockStyle.Fill;
+        splitMain.FixedPanel = FixedPanel.Panel2;
+        splitMain.Location = new Point(76, 0);
+        splitMain.Name = "splitMain";
+        splitMain.Orientation = Orientation.Vertical;
+        // 
+        // splitMain.Panel1
+        // 
+        splitMain.Panel1.Controls.Add(panelCanvasHost);
+        splitMain.Panel1MinSize = 320;
+        // 
+        // splitMain.Panel2
+        // 
+        splitMain.Panel2.Controls.Add(panelRight);
+        splitMain.Panel2MinSize = 260;
+        splitMain.Size = new Size(1188, 690);
+        splitMain.SplitterDistance = 888;
+        splitMain.TabIndex = 3;
         // 
         // panelCanvasHost
         // 
-        panelCanvasHost.Controls.Add(tlpCanvasChrome);
+        panelCanvasHost.Controls.Add(panelCanvasChromeBody);
+        panelCanvasHost.Controls.Add(panelCanvasChromeTop);
         panelCanvasHost.Dock = DockStyle.Fill;
-        panelCanvasHost.Location = new Point(76, 0);
+        panelCanvasHost.Location = new Point(0, 0);
         panelCanvasHost.Name = "panelCanvasHost";
         panelCanvasHost.Size = new Size(888, 690);
         panelCanvasHost.TabIndex = 0;
         // 
         // panelContent
         // 
-        panelContent.Controls.Add(panelCanvasHost);
-        panelContent.Controls.Add(panelRight);
+        panelContent.Controls.Add(splitMain);
         panelContent.Controls.Add(panelToolBox);
         panelContent.Dock = DockStyle.Fill;
         panelContent.Location = new Point(0, 49);
@@ -3306,14 +3543,14 @@ public partial class MainForm : Form
         // 
         // MainForm
         // 
-        ClientSize = new Size(1264, 761);
+        ClientSize = new Size(1400, 800);
         Controls.Add(panelContent);
         Controls.Add(statusStrip);
         Controls.Add(toolStrip);
         Controls.Add(menuStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
-        MinimumSize = new Size(900, 600);
+        MinimumSize = new Size(960, 600);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "DBTools v1.0";
@@ -3339,7 +3576,12 @@ public partial class MainForm : Form
         panelCanvasArea.ResumeLayout(false);
         panelToggleStrip.ResumeLayout(false);
         panelCanvasInner.ResumeLayout(false);
-        tlpCanvasChrome.ResumeLayout(false);
+        panelCanvasChromeTop.ResumeLayout(false);
+        panelCanvasChromeBody.ResumeLayout(false);
+        splitMain.Panel1.ResumeLayout(false);
+        splitMain.Panel2.ResumeLayout(false);
+        ((ISupportInitialize)splitMain).EndInit();
+        splitMain.ResumeLayout(false);
         panelCanvasHost.ResumeLayout(false);
         panelContent.ResumeLayout(false);
         statusStrip.ResumeLayout(false);
