@@ -202,7 +202,8 @@ public partial class MainForm
 		string filePath = saveFileDialog.FileName;
 		try
 		{
-			PdfExporter.Export(diagramCanvas.Schema, filePath, _currentFilePath);
+			using Bitmap diagramImage = diagramCanvas.RenderToImage(transparentBackground: false);
+			PdfExporter.Export(diagramCanvas.Schema, filePath, _currentFilePath, diagramImage);
 			NotifyExportSucceeded("PDF 보내기 완료", filePath, "PDF 문서를 저장했습니다.");
 		}
 		catch (Exception ex)

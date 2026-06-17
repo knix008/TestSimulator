@@ -8,7 +8,7 @@ namespace DBToolsWinV10.Analysis;
 
 public static class SchemaReportWriter
 {
-	public static string Write(DbSchema schema, string projectPath = null)
+	public static string Write(DbSchema schema, string projectPath = null, string erdImageRelativePath = null)
 	{
 		StringBuilder stringBuilder = new StringBuilder();
 		IReadOnlyList<NormalizationIssue> issues = NormalizationAnalyzer.Analyze(schema);
@@ -54,10 +54,22 @@ public static class SchemaReportWriter
 		handler.AppendFormatted(schema.Relationships.Count);
 		stringBuilder8.AppendLine(ref handler);
 		stringBuilder.AppendLine();
+		if (!string.IsNullOrWhiteSpace(erdImageRelativePath))
+		{
+			AppendDiagramSection(stringBuilder, erdImageRelativePath);
+		}
 		AppendTables(stringBuilder, schema);
 		AppendRelationships(stringBuilder, schema);
 		AppendNormalization(stringBuilder, issues);
 		return stringBuilder.ToString();
+	}
+
+	private static void AppendDiagramSection(StringBuilder sb, string erdImageRelativePath)
+	{
+		sb.AppendLine("## ERD 다이어그램");
+		sb.AppendLine();
+		sb.AppendLine($"![ERD 다이어그램]({erdImageRelativePath})");
+		sb.AppendLine();
 	}
 
 	private static void AppendTables(StringBuilder sb, DbSchema schema)

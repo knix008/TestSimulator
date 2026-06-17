@@ -1,7 +1,8 @@
+using System.Drawing;
+using System.Drawing.Imaging;
 using DBToolsWinV10.Analysis;
 using DBToolsWinV10.Models;
 using PdfSharp.Drawing;
-using PdfSharp.Fonts;
 using PdfSharp.Pdf;
 
 namespace DBToolsWinV10.Export;
@@ -10,19 +11,20 @@ public static class PdfExporter
 {
 	private const double Margin = 40d;
 	private const double LineHeight = 16d;
+	private const double MaxDiagramWidth = 500d;
 
-	public static void Export(DbSchema schema, string filePath, string projectPath = null)
+	public static void Export(DbSchema schema, string filePath, string projectPath = null, Bitmap diagramImage = null)
 	{
 		schema.EnsureInitialized();
 		IReadOnlyList<NormalizationIssue> issues = NormalizationAnalyzer.Analyze(schema);
-		EnsureFontSettings();
+		ReportPdfFontResolver.EnsureInitialized();
 		using PdfDocument document = new PdfDocument();
 		document.Info.Title = $"{schema.Name} - DB 설계 보고서";
 		PdfPage page = document.AddPage();
 		XGraphics gfx = XGraphics.FromPdfPage(page);
-		XFont titleFont = new XFont("Malgun Gothic", 16, XFontStyleEx.Bold);
-		XFont headingFont = new XFont("Malgun Gothic", 12, XFontStyleEx.Bold);
-		XFont bodyFont = new XFont("Malgun Gothic", 10, XFontStyleEx.Regular);
+		XFont titleFont = CreateFont(16, XFontStyleEx.Bold);
+		XFont headingFont = CreateFont(12, XFontStyleEx.Bold);
+		XFont bodyFont = CreateFont(10, XFontStyleEx.Regular);
 		double y = Margin;
 		y = DrawLine(gfx, page, titleFont, "데이터베이스 설계 보고서", Margin, y);
 		y += 8d;
@@ -36,6 +38,10 @@ public static class PdfExporter
 		y = DrawLine(gfx, page, bodyFont, $"테이블 수: {schema.Tables.Count}", Margin, y);
 		y = DrawLine(gfx, page, bodyFont, $"관계 수: {schema.Relationships.Count}", Margin, y);
 		y += 8d;
+		if (diagramImage != null)
+		{
+			(page, gfx, y) = AppendDiagramImage(document, page, gfx, headingFont, diagramImage, y);
+		}
 		y = DrawLine(gfx, page, headingFont, "테이블 목록", Margin, y);
 		foreach (DbTable table in schema.Tables)
 		{
@@ -103,17 +109,51 @@ public static class PdfExporter
 		document.Save(filePath);
 	}
 
-	private static void EnsureFontSettings()
+	private static XFont CreateFont(double size, XFontStyleEx style)
 	{
-		if (GlobalFontSettings.FontResolver == null)
+		string[] families = ["Malgun Gothic", "맑은 고딕", "Segoe UI", "Arial", "Tahoma"];
+		foreach (string family in families)
 		{
-			GlobalFontSettings.UseWindowsFontsUnderWindows = true;
+			try
+			{
+				return new XFont(family, size, style);
+			}
+			catch
+			{
+			}
 		}
+
+		return new XFont("Arial", size, style);
 	}
 
-	private static (PdfPage Page, XGraphics Gfx, double Y) EnsureSpace(PdfDocument document, PdfPage page, XGraphics gfx, double y)
+	private static (PdfPage Page, XGraphics Gfx, double Y) AppendDiagramImage(
+		PdfDocument document,
+		PdfPage page,
+		XGraphics gfx,
+		XFont headingFont,
+		Bitmap diagramImage,
+		double y)
 	{
-		if (y > page.Height.Point - Margin)
+		(page, gfx, y) = EnsureSpace(document, page, gfx, y);
+		y = DrawLine(gfx, page, headingFont, "ERD 다이어그램", Margin, y);
+		y += 4d;
+		using MemoryStream stream = new MemoryStream();
+		diagramImage.Save(stream, ImageFormat.Png);
+		stream.Position = 0;
+		using XImage image = XImage.FromStream(stream);
+		double maxWidth = page.Width.Point - Margin * 2d;
+		double drawWidth = Math.Min(MaxDiagramWidth, maxWidth);
+		double scale = drawWidth / image.PointWidth;
+		double drawHeight = image.PointHeight * scale;
+		(page, gfx, y) = EnsureSpace(document, page, gfx, y, drawHeight + 8d);
+		gfx.DrawImage(image, Margin, y, drawWidth, drawHeight);
+		y += drawHeight + 12d;
+		return (page, gfx, y);
+	}
+
+	private static (PdfPage Page, XGraphics Gfx, double Y) EnsureSpace(PdfDocument document, PdfPage page, XGraphics gfx, double y, double requiredHeight = LineHeight)
+	{
+		if (y + requiredHeight > page.Height.Point - Margin)
 		{
 			page = document.AddPage();
 			gfx = XGraphics.FromPdfPage(page);

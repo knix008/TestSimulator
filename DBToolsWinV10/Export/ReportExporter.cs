@@ -1,3 +1,4 @@
+using System.Drawing;
 using DBToolsWinV10.Models;
 
 namespace DBToolsWinV10.Export;
@@ -47,22 +48,22 @@ public static class ReportExporter
 		};
 	}
 
-	public static void Export(DbSchema schema, string filePath, ReportFormat format, string projectPath = null)
+	public static void Export(DbSchema schema, string filePath, ReportFormat format, string projectPath = null, Bitmap diagramImage = null)
 	{
 		switch (format)
 		{
 		case ReportFormat.Markdown:
 		case ReportFormat.PlainText:
-			MarkdownExporter.Export(schema, filePath, projectPath);
+			MarkdownExporter.Export(schema, filePath, projectPath, diagramImage);
 			return;
 		case ReportFormat.Excel:
-			ExcelExporter.Export(schema, filePath, projectPath);
+			ExcelExporter.Export(schema, filePath, projectPath, diagramImage);
 			return;
 		case ReportFormat.Word:
-			WordExporter.Export(schema, filePath, projectPath);
+			WordExporter.Export(schema, filePath, projectPath, diagramImage);
 			return;
 		case ReportFormat.Pdf:
-			PdfExporter.Export(schema, filePath, projectPath);
+			PdfExporter.Export(schema, filePath, projectPath, diagramImage);
 			return;
 		default:
 			throw new NotSupportedException($"지원하지 않는 보고서 형식입니다: {format}");

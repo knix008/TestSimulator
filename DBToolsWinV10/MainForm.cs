@@ -2223,7 +2223,8 @@ public partial class MainForm : Form
 		try
 		{
 			ReportFormat format = ReportExporter.GetFormatFromPath(saveFileDialog.FileName);
-			ReportExporter.Export(diagramCanvas.Schema, saveFileDialog.FileName, format, _currentFilePath);
+			using Bitmap diagramImage = diagramCanvas.RenderToImage(transparentBackground: false);
+			ReportExporter.Export(diagramCanvas.Schema, saveFileDialog.FileName, format, _currentFilePath, diagramImage);
 			string displayName = ReportExporter.GetDisplayName(format);
 			NotifyExportSucceeded("보고서 작성 완료", saveFileDialog.FileName,
 				$"{displayName} 보고서를 저장했습니다.",

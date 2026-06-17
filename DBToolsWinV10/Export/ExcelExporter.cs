@@ -1,3 +1,4 @@
+using System.Drawing;
 using ClosedXML.Excel;
 using DBToolsWinV10.Analysis;
 using DBToolsWinV10.Models;
@@ -6,12 +7,16 @@ namespace DBToolsWinV10.Export;
 
 public static class ExcelExporter
 {
-	public static void Export(DbSchema schema, string filePath, string projectPath = null)
+	public static void Export(DbSchema schema, string filePath, string projectPath = null, Bitmap diagramImage = null)
 	{
 		schema.EnsureInitialized();
 		IReadOnlyList<NormalizationIssue> issues = NormalizationAnalyzer.Analyze(schema);
 		using XLWorkbook workbook = new XLWorkbook();
 		WriteSummarySheet(workbook.Worksheets.Add("요약"), schema, projectPath);
+		if (diagramImage != null)
+		{
+			WriteDiagramSheet(workbook.Worksheets.Add("ERD"), diagramImage);
+		}
 		WriteTablesSheet(workbook.Worksheets.Add("테이블"), schema);
 		WriteRelationshipsSheet(workbook.Worksheets.Add("관계"), schema);
 		WriteNormalizationSheet(workbook.Worksheets.Add("정규화"), issues);
@@ -34,6 +39,23 @@ public static class ExcelExporter
 		WritePair(sheet, ref row, "테이블 수", schema.Tables.Count.ToString());
 		WritePair(sheet, ref row, "관계 수", schema.Relationships.Count.ToString());
 		sheet.Columns().AdjustToContents();
+	}
+
+	private static void WriteDiagramSheet(IXLWorksheet sheet, Bitmap diagramImage)
+	{
+		sheet.Cell(1, 1).Value = "ERD 다이어그램";
+		sheet.Cell(1, 1).Style.Font.Bold = true;
+		using MemoryStream stream = new MemoryStream();
+		diagramImage.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+		stream.Position = 0;
+		var picture = sheet.AddPicture(stream);
+		picture.MoveTo(sheet.Cell(2, 1));
+		Size scaled = ReportDiagramHelper.ScaleToMaxWidth(diagramImage, ReportDiagramHelper.DefaultMaxImageWidth);
+		if (scaled.Width > 0 && scaled.Height > 0)
+		{
+			picture.Width = scaled.Width;
+			picture.Height = scaled.Height;
+		}
 	}
 
 	private static void WriteTablesSheet(IXLWorksheet sheet, DbSchema schema)

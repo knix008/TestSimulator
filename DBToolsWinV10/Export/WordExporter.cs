@@ -1,14 +1,20 @@
+using System.Drawing;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DBToolsWinV10.Analysis;
 using DBToolsWinV10.Models;
+using A = DocumentFormat.OpenXml.Drawing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 
 namespace DBToolsWinV10.Export;
 
 public static class WordExporter
 {
-	public static void Export(DbSchema schema, string filePath, string projectPath = null)
+	private static uint _drawingObjectId = 1U;
+
+	public static void Export(DbSchema schema, string filePath, string projectPath = null, Bitmap diagramImage = null)
 	{
 		schema.EnsureInitialized();
 		IReadOnlyList<NormalizationIssue> issues = NormalizationAnalyzer.Analyze(schema);
@@ -31,6 +37,11 @@ public static class WordExporter
 		}
 		AppendParagraph(body, $"테이블 수: {schema.Tables.Count}");
 		AppendParagraph(body, $"관계 수: {schema.Relationships.Count}");
+		if (diagramImage != null)
+		{
+			AppendHeading(body, "ERD 다이어그램");
+			AppendDiagramImage(body, mainPart, diagramImage);
+		}
 		AppendHeading(body, "테이블 목록");
 		foreach (DbTable table in schema.Tables)
 		{
@@ -103,6 +114,84 @@ public static class WordExporter
 				}));
 		}
 		mainPart.Document.Save();
+	}
+
+	private static void AppendDiagramImage(Body body, MainDocumentPart mainPart, Bitmap diagramImage)
+	{
+		byte[] imageBytes = ReportDiagramHelper.ToPngBytes(diagramImage);
+		Size scaled = ReportDiagramHelper.ScaleToMaxWidth(diagramImage, ReportDiagramHelper.DefaultMaxImageWidth);
+		if (scaled.Width <= 0 || scaled.Height <= 0)
+		{
+			AppendParagraph(body, "(다이어그램 없음)");
+			return;
+		}
+
+		ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
+		using (MemoryStream stream = new MemoryStream(imageBytes))
+		{
+			imagePart.FeedData(stream);
+		}
+
+		string relationshipId = mainPart.GetIdOfPart(imagePart);
+		long widthEmus = scaled.Width * 9525L;
+		long heightEmus = scaled.Height * 9525L;
+		uint drawingId = _drawingObjectId++;
+
+		Drawing drawing = new Drawing(
+			new DW.Inline(
+				new DW.Extent { Cx = widthEmus, Cy = heightEmus },
+				new DW.EffectExtent
+				{
+					LeftEdge = 0L,
+					TopEdge = 0L,
+					RightEdge = 0L,
+					BottomEdge = 0L
+				},
+				new DW.DocProperties
+				{
+					Id = drawingId,
+					Name = "ERD Diagram"
+				},
+				new DW.NonVisualGraphicFrameDrawingProperties(new A.GraphicFrameLocks { NoChangeAspect = true }),
+				new A.Graphic(
+					new A.GraphicData(
+						new PIC.Picture(
+							new PIC.NonVisualPictureProperties(
+								new PIC.NonVisualDrawingProperties
+								{
+									Id = drawingId,
+									Name = "ERD.png"
+								},
+								new PIC.NonVisualPictureDrawingProperties()),
+							new PIC.BlipFill(
+								new A.Blip
+								{
+									Embed = relationshipId,
+									CompressionState = A.BlipCompressionValues.Print
+								},
+								new A.Stretch(new A.FillRectangle())),
+							new PIC.ShapeProperties(
+								new A.Transform2D(
+									new A.Offset { X = 0L, Y = 0L },
+									new A.Extents { Cx = widthEmus, Cy = heightEmus }),
+								new A.PresetGeometry(new A.AdjustValueList())
+								{
+									Preset = A.ShapeTypeValues.Rectangle
+								})))
+					{
+						Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture"
+					}))
+			{
+				DistanceFromTop = 0U,
+				DistanceFromBottom = 0U,
+				DistanceFromLeft = 0U,
+				DistanceFromRight = 0U
+			});
+
+		Paragraph paragraph = body.AppendChild(new Paragraph());
+		Run run = paragraph.AppendChild(new Run());
+		run.AppendChild(drawing);
+		body.AppendChild(new Paragraph());
 	}
 
 	private static void AppendTitle(Body body, string text)
