@@ -11,51 +11,134 @@ using Microsoft.Data.Sqlite;
 
 namespace DBToolsWinV10.Sample;
 
-internal static class SampleDbGenerator
+public static class SampleDbGenerator
 {
 	private const string BaseName = "OnlineShop";
 
-	public static void GenerateAll(string outputDir)
+	public static string ResolveTemplateDirectory()
 	{
-		Directory.CreateDirectory(outputDir);
-		DbSchema schema = SampleSchemaFactory.CreateOnlineShop();
-
-		string mdprjPath = Path.Combine(outputDir, $"{BaseName}.mdprj");
-		SchemaSerializer.Save(schema, mdprjPath);
-
-		string reportPath = Path.Combine(outputDir, $"{BaseName}_report.md");
-		File.WriteAllText(reportPath, SchemaReportWriter.Write(schema, mdprjPath));
-
-		WriteSqlDdl(outputDir, schema);
-		CreateSqliteFile(Path.Combine(outputDir, $"{BaseName}_sqlite.db"));
-		// 기존 경로 호환
-		File.Copy(Path.Combine(outputDir, $"{BaseName}_sqlite.db"), Path.Combine(outputDir, $"{BaseName}.db"), overwrite: true);
-
-		TryCreateSqlServerMdf(Path.Combine(outputDir, $"{BaseName}_sqlserver.mdf"));
-		TryCreateAccessDatabase(Path.Combine(outputDir, $"{BaseName}_access.accdb"));
-
-		VerifyImports(outputDir);
+		string dir = Path.Combine(AppContext.BaseDirectory, "Template");
+		Directory.CreateDirectory(dir);
+		return dir;
 	}
 
-	private static void WriteSqlDdl(string outputDir, DbSchema schema)
+	public static SampleGenerationResult GenerateAll(string outputDir)
 	{
-		(DbTargetType db, string suffix, bool useExporter)[] targets =
-		[
-			(DbTargetType.PostgreSQL, "postgres", true),
-			(DbTargetType.MySQL, "mysql", true),
-			(DbTargetType.MariaDB, "mariadb", true),
-			(DbTargetType.SqlServer, "sqlserver", false),
-		];
-
-		foreach ((DbTargetType db, string suffix, bool useExporter) in targets)
+		var created = new List<string>();
+		try
 		{
-			string path = Path.Combine(outputDir, $"{BaseName}_{suffix}.sql");
-			string sql = useExporter
-				? SqlExporter.Export(CloneFor(schema, db))
-				: SqlServerDdl;
-			File.WriteAllText(path, sql, Encoding.UTF8);
-			Console.WriteLine($"  - {path}");
+			Directory.CreateDirectory(outputDir);
+			DbSchema schema = SampleSchemaFactory.CreateOnlineShop();
+
+			string mdprjPath = Path.Combine(outputDir, $"{BaseName}.mdprj");
+			SchemaSerializer.Save(schema, mdprjPath);
+			created.Add(mdprjPath);
+
+			string reportPath = Path.Combine(outputDir, $"{BaseName}_report.md");
+			File.WriteAllText(reportPath, SchemaReportWriter.Write(schema, mdprjPath));
+			created.Add(reportPath);
+
+			created.AddRange(WriteSqlDdl(outputDir, schema));
+			created.AddRange(CreateSqliteFiles(outputDir));
+			TryAdd(created, TryCreateSqlServerMdf(Path.Combine(outputDir, $"{BaseName}_sqlserver.mdf")));
+			TryAdd(created, TryCreateAccessDatabase(Path.Combine(outputDir, $"{BaseName}_access.accdb")));
+
+			return Ok(created, "모든 DB Sample 파일을 생성했습니다.");
 		}
+		catch (Exception ex)
+		{
+			return Fail(created, ex.Message);
+		}
+	}
+
+	public static SampleGenerationResult Generate(DbTargetType target, string outputDir)
+	{
+		var created = new List<string>();
+		try
+		{
+			Directory.CreateDirectory(outputDir);
+			DbSchema schema = SampleSchemaFactory.CreateOnlineShop();
+
+			switch (target)
+			{
+				case DbTargetType.SQLite:
+					created.AddRange(CreateSqliteFiles(outputDir));
+					break;
+				case DbTargetType.PostgreSQL:
+					created.Add(WriteSqlDdlFile(outputDir, schema, DbTargetType.PostgreSQL, "postgres", useExporter: true));
+					break;
+				case DbTargetType.MySQL:
+					created.Add(WriteSqlDdlFile(outputDir, schema, DbTargetType.MySQL, "mysql", useExporter: true));
+					break;
+				case DbTargetType.MariaDB:
+					created.Add(WriteSqlDdlFile(outputDir, schema, DbTargetType.MariaDB, "mariadb", useExporter: true));
+					break;
+				case DbTargetType.SqlServer:
+					created.Add(WriteSqlDdlFile(outputDir, schema, DbTargetType.SqlServer, "sqlserver", useExporter: false));
+					TryAdd(created, TryCreateSqlServerMdf(Path.Combine(outputDir, $"{BaseName}_sqlserver.mdf")));
+					break;
+				default:
+					throw new ArgumentOutOfRangeException(nameof(target), target, null);
+			}
+
+			if (created.Count == 0)
+				return Fail(created, "Sample 파일을 생성하지 못했습니다.");
+
+			return Ok(created, $"{GetDisplayName(target)} Sample 파일을 생성했습니다.");
+		}
+		catch (Exception ex)
+		{
+			return Fail(created, ex.Message);
+		}
+	}
+
+	public static SampleGenerationResult GenerateAccess(string outputDir)
+	{
+		var created = new List<string>();
+		try
+		{
+			Directory.CreateDirectory(outputDir);
+			string path = Path.Combine(outputDir, $"{BaseName}_access.accdb");
+			string file = TryCreateAccessDatabase(path);
+			if (file == null)
+				return Fail(created, "Access Sample을 생성하지 못했습니다. Microsoft Access Database Engine(ACE) 설치 여부를 확인하세요.");
+
+			created.Add(file);
+			return Ok(created, "Access Sample 파일을 생성했습니다.");
+		}
+		catch (Exception ex)
+		{
+			return Fail(created, ex.Message);
+		}
+	}
+
+	public static string GetDisplayName(DbTargetType target) => target switch
+	{
+		DbTargetType.PostgreSQL => "PostgreSQL",
+		DbTargetType.MySQL => "MySQL",
+		DbTargetType.MariaDB => "MariaDB",
+		DbTargetType.SQLite => "SQLite",
+		DbTargetType.SqlServer => "SQL Server",
+		DbTargetType.VectorDb => "FAISS",
+		_ => target.ToString()
+	};
+
+	private static List<string> WriteSqlDdl(string outputDir, DbSchema schema)
+	{
+		var files = new List<string>();
+		files.Add(WriteSqlDdlFile(outputDir, schema, DbTargetType.PostgreSQL, "postgres", useExporter: true));
+		files.Add(WriteSqlDdlFile(outputDir, schema, DbTargetType.MySQL, "mysql", useExporter: true));
+		files.Add(WriteSqlDdlFile(outputDir, schema, DbTargetType.MariaDB, "mariadb", useExporter: true));
+		files.Add(WriteSqlDdlFile(outputDir, schema, DbTargetType.SqlServer, "sqlserver", useExporter: false));
+		return files;
+	}
+
+	private static string WriteSqlDdlFile(string outputDir, DbSchema schema, DbTargetType db, string suffix, bool useExporter)
+	{
+		string path = Path.Combine(outputDir, $"{BaseName}_{suffix}.sql");
+		string sql = useExporter ? SqlExporter.Export(CloneFor(schema, db)) : SqlServerDdl;
+		File.WriteAllText(path, sql, Encoding.UTF8);
+		return path;
 	}
 
 	private static DbSchema CloneFor(DbSchema schema, DbTargetType db)
@@ -63,6 +146,15 @@ internal static class SampleDbGenerator
 		DbSchema clone = schema.Clone();
 		clone.TargetDb = db;
 		return clone;
+	}
+
+	private static List<string> CreateSqliteFiles(string outputDir)
+	{
+		string sqlitePath = Path.Combine(outputDir, $"{BaseName}_sqlite.db");
+		CreateSqliteFile(sqlitePath);
+		string legacyPath = Path.Combine(outputDir, $"{BaseName}.db");
+		File.Copy(sqlitePath, legacyPath, overwrite: true);
+		return [sqlitePath, legacyPath];
 	}
 
 	private static void CreateSqliteFile(string dbPath)
@@ -117,10 +209,9 @@ internal static class SampleDbGenerator
 			);
 			""";
 		cmd.ExecuteNonQuery();
-		Console.WriteLine($"  - {dbPath}");
 	}
 
-	private static void TryCreateSqlServerMdf(string mdfPath)
+	private static string TryCreateSqlServerMdf(string mdfPath)
 	{
 		string ldfPath = Path.ChangeExtension(mdfPath, ".ldf");
 		string dbName = "OnlineShopSample_" + Guid.NewGuid().ToString("N")[..8];
@@ -145,22 +236,20 @@ internal static class SampleDbGenerator
 			}
 			created = true;
 
-			string ddl = SqlServerDdl;
-
 			using (var db = new SqlConnection($@"Server=(localdb)\MSSQLLocalDB;Database={dbName};Integrated Security=True;Trust Server Certificate=True"))
 			{
 				db.Open();
-				ExecuteSqlBatches(db, ddl);
+				ExecuteSqlBatches(db, SqlServerDdl);
 			}
 
 			DetachDatabase(dbName);
-			Console.WriteLine($"  - {mdfPath}");
+			return mdfPath;
 		}
-		catch (Exception ex)
+		catch
 		{
 			if (created)
 				DetachDatabase(dbName);
-			Console.WriteLine($"  - {mdfPath}  (생략: {ex.Message})");
+			return null;
 		}
 	}
 
@@ -182,11 +271,10 @@ internal static class SampleDbGenerator
 		}
 		catch
 		{
-			// detach 실패 시 파일이 잠길 수 있음 — 호출자가 메시지로 처리
 		}
 	}
 
-	private static void TryCreateAccessDatabase(string accdbPath)
+	private static string TryCreateAccessDatabase(string accdbPath)
 	{
 		SafeDelete(accdbPath);
 
@@ -206,45 +294,12 @@ internal static class SampleDbGenerator
 			using var connection = new OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={accdbPath};");
 			connection.Open();
 			ExecuteOleDbBatches(connection, AccessDdl);
-			Console.WriteLine($"  - {accdbPath}");
+			return accdbPath;
 		}
-		catch (Exception ex)
+		catch
 		{
 			SafeDelete(accdbPath);
-			Console.WriteLine($"  - {accdbPath}  (생략: {ex.Message})");
-		}
-	}
-
-	private static void VerifyImports(string outputDir)
-	{
-		Console.WriteLine();
-		Console.WriteLine("가져오기 검증:");
-
-		TryVerify("SQLite", () => DatabaseFileImporter.Import(Path.Combine(outputDir, $"{BaseName}_sqlite.db")));
-		TryVerify("PostgreSQL SQL", () => SqlDdlSchemaImporter.Import(Path.Combine(outputDir, $"{BaseName}_postgres.sql")));
-		TryVerify("MySQL SQL", () => SqlDdlSchemaImporter.Import(Path.Combine(outputDir, $"{BaseName}_mysql.sql")));
-		TryVerify("MariaDB SQL", () => SqlDdlSchemaImporter.Import(Path.Combine(outputDir, $"{BaseName}_mariadb.sql")));
-		TryVerify("SQL Server SQL", () => SqlDdlSchemaImporter.Import(Path.Combine(outputDir, $"{BaseName}_sqlserver.sql")));
-
-		string mdf = Path.Combine(outputDir, $"{BaseName}_sqlserver.mdf");
-		if (File.Exists(mdf))
-			TryVerify("SQL Server MDF", () => DatabaseFileImporter.Import(mdf));
-
-		string accdb = Path.Combine(outputDir, $"{BaseName}_access.accdb");
-		if (File.Exists(accdb))
-			TryVerify("Access", () => DatabaseFileImporter.Import(accdb));
-	}
-
-	private static void TryVerify(string label, Func<DbSchema> import)
-	{
-		try
-		{
-			DbSchema imported = import();
-			Console.WriteLine($"  {label}: 테이블 {imported.Tables.Count}개, 관계 {imported.Relationships.Count}개");
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine($"  {label}: 실패 ({ex.Message})");
+			return null;
 		}
 	}
 
@@ -306,6 +361,26 @@ internal static class SampleDbGenerator
 		{
 		}
 	}
+
+	private static void TryAdd(List<string> files, string path)
+	{
+		if (!string.IsNullOrWhiteSpace(path))
+			files.Add(path);
+	}
+
+	private static SampleGenerationResult Ok(List<string> created, string message) => new()
+	{
+		Success = true,
+		Message = message,
+		CreatedFiles = created.ToArray()
+	};
+
+	private static SampleGenerationResult Fail(List<string> created, string message) => new()
+	{
+		Success = created.Count > 0,
+		Message = message,
+		CreatedFiles = created.ToArray()
+	};
 
 	private const string SqlServerDdl = """
 		-- OnlineShop sample (SQL Server)

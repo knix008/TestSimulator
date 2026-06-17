@@ -1,0 +1,48 @@
+## Build outputs
+bin/
+obj/
+[Bb]uild/
+[Dd]ist/
+out/
+artifacts/
+TestResults/
+
+## Visual Studio / VS Code / Rider
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.cache
+*.log
+
+## NuGet
+packages/
+*.nupkg
+*.snupkg
+
+## Publish
+**/publish/
+
+## Windows / misc
+Thumbs.db
+Desktop.ini
+
+## Sample 
+Sample/bin/
+
+## WiX / installer artifacts
+installer/bin/
+installer/obj/
+*.msi
+*.msp
+*.wixobj
+*.wixpdb
+*.wixlog
+*.cab
+
+## Cursor / local tooling (optional)
+.cursor/

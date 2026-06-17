@@ -9,6 +9,7 @@ internal static class SchemaRelationshipBuilder
 {
 	public static void AddForeignKey(DbSchema schema, IReadOnlyDictionary<string, DbTable> tableMap, string parentTableName, string parentColumnName, string childTableName, string childColumnName, string constraintName = null)
 	{
+		schema.EnsureInitialized();
 		if (!tableMap.TryGetValue(parentTableName, out DbTable parentTable) || !tableMap.TryGetValue(childTableName, out DbTable childTable))
 		{
 			return;

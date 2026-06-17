@@ -28,6 +28,7 @@ public static class NormalizationAnalyzer
 				Level = NormalizationLevel.NF1,
 				Severity = IssueSeverity.Error,
 				Table = table.Name,
+				AffectedColumns = "(테이블 전체)",
 				Message = "기본 키(PK)가 없습니다.",
 				Hint = "모든 테이블은 행을 유일하게 식별하는 기본 키를 가져야 합니다."
 			});
@@ -40,7 +41,8 @@ public static class NormalizationAnalyzer
 				Level = NormalizationLevel.NF1,
 				Severity = IssueSeverity.Warning,
 				Table = table.Name,
-				Message = "반복 그룹 컬럼이 감지되었습니다: " + string.Join(", ", item),
+				AffectedColumns = string.Join(", ", item),
+				Message = "반복 그룹 컬럼이 감지되었습니다.",
 				Hint = "반복되는 데이터는 별도 테이블로 분리하는 것이 1NF 원칙에 부합합니다."
 			});
 		}
@@ -73,7 +75,8 @@ public static class NormalizationAnalyzer
 				Level = NormalizationLevel.NF1,
 				Severity = IssueSeverity.Info,
 				Table = table.Name,
-				Message = $"컬럼 '{item2.Name}' ({item2.DataType})이 원자적이지 않은 값을 저장할 수 있습니다.",
+				AffectedColumns = item2.Name,
+				Message = $"원자적이지 않은 값을 저장할 수 있는 타입입니다 ({item2.DataType}).",
 				Hint = "1NF는 각 셀에 단일 원자값을 요구합니다. 별도 테이블 또는 조인 테이블을 검토하세요."
 			});
 		}
@@ -84,12 +87,14 @@ public static class NormalizationAnalyzer
 		List<DbColumn> list = table.Columns.Where((DbColumn c) => c.IsPrimaryKey).ToList();
 		if (list.Count >= 2)
 		{
+			string pkNames = string.Join(", ", list.Select((DbColumn c) => c.Name));
 			issues.Add(new NormalizationIssue
 			{
 				Level = NormalizationLevel.NF2,
 				Severity = IssueSeverity.Warning,
 				Table = table.Name,
-				Message = "복합 기본 키(" + string.Join(", ", list.Select((DbColumn c) => c.Name)) + ")가 있습니다.",
+				AffectedColumns = pkNames,
+				Message = "복합 기본 키가 있습니다.",
 				Hint = "비키 속성이 복합 PK의 일부에만 종속(부분 종속)되어 있는지 검토하세요. 부분 종속이 있다면 해당 속성을 별도 테이블로 분리하십시오."
 			});
 		}
@@ -121,7 +126,8 @@ public static class NormalizationAnalyzer
 					Level = NormalizationLevel.NF3,
 					Severity = IssueSeverity.Warning,
 					Table = table.Name,
-					Message = "컬럼 '" + item.Name + "'이 이행 종속될 가능성이 있습니다.",
+					AffectedColumns = $"{prefix}_id, {item.Name}",
+					Message = "비키 속성 간 이행 종속 가능성이 있습니다.",
 					Hint = $"'{prefix}_id' → '{item.Name}' 관계가 비키 속성 간 이행 종속이면 '{prefix}' 엔티티를 별도 테이블로 분리하세요."
 				});
 			}

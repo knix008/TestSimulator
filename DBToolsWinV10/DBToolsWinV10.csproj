@@ -1,6 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>DBTools</Product>
+    <Description>Database schema diagram tool</Description>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <SkipInstaller Condition="'$(SkipInstaller)' == ''">false</SkipInstaller>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>disable</Nullable>
@@ -15,6 +25,11 @@
 
   <ItemGroup>
     <Compile Remove="Sample\**" />
+    <Compile Remove="tools\**" />
+    <Compile Remove="SmokeTest\**" />
+    <Compile Include="Sample\SampleDbGenerator.cs" />
+    <Compile Include="Sample\SampleGenerationResult.cs" />
+    <Compile Include="Sample\SampleSchemaFactory.cs" />
     <Content Remove="Sample\**" />
     <EmbeddedResource Remove="Sample\**" />
     <None Remove="Sample\**" />
@@ -22,14 +37,24 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.9" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
     <PackageReference Include="System.Data.OleDb" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="Assets\AppIcon.ico" />
-    <Content Include="Sample\OnlineShop.mdprj" Link="Sample\OnlineShop.mdprj" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Sample\OnlineShop_*.*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\FileIcon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\mdprj_file.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Template\OnlineShop*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and Exists('$(MSBuildProjectDirectory)\installer\DBToolsWinV10.Installer.wixproj')">
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\installer\DBToolsWinV10.Installer.wixproj&quot; -c Release -p:Platform=x64" />
+  </Target>
 
 </Project>

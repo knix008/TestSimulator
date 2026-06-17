@@ -92,8 +92,8 @@
       ],
       "ColumnCount": 3,
       "PrimaryKeyCount": 1,
-      "X": 40,
-      "Y": 320,
+      "X": 38.555237,
+      "Y": 339.18314,
       "Width": 210
     },
     {
@@ -154,8 +154,8 @@
       ],
       "ColumnCount": 5,
       "PrimaryKeyCount": 1,
-      "X": 320,
-      "Y": 320,
+      "X": 401.76743,
+      "Y": 314.0378,
       "Width": 210
     },
     {
@@ -206,8 +206,8 @@
       ],
       "ColumnCount": 4,
       "PrimaryKeyCount": 1,
-      "X": 320,
-      "Y": 60,
+      "X": 397.5087,
+      "Y": 63.406975,
       "Width": 210
     },
     {
@@ -266,8 +266,8 @@
       ],
       "ColumnCount": 5,
       "PrimaryKeyCount": 1,
-      "X": 600,
-      "Y": 180,
+      "X": 766.9418,
+      "Y": 179.14825,
       "Width": 210
     }
   ],

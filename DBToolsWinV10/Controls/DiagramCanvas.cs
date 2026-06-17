@@ -38,6 +38,8 @@ public sealed class DiagramCanvas : Control
 
 	private static readonly Color HeaderColorSqlServer = Color.FromArgb(152, 34, 34);
 
+	private static readonly Color HeaderColorVector = Color.FromArgb(88, 64, 168);
+
 	private static readonly Color RowEvenColor = Color.FromArgb(248, 249, 250);
 
 	private static readonly Color RowOddColor = Color.White;
@@ -130,14 +132,14 @@ public sealed class DiagramCanvas : Control
 			_vScroll.Scroll += delegate
 			{
 				Invalidate();
-				this.ViewportChanged.Invoke(this, EventArgs.Empty);
+				this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 			};
 			_hScroll.Dock = DockStyle.Bottom;
 			_hScroll.Visible = false;
 			_hScroll.Scroll += delegate
 			{
 				Invalidate();
-				this.ViewportChanged.Invoke(this, EventArgs.Empty);
+				this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 			};
 			base.Controls.Add(_vScroll);
 			base.Controls.Add(_hScroll);
@@ -146,7 +148,8 @@ public sealed class DiagramCanvas : Control
 
 	public void LoadSchema(DbSchema schema)
 	{
-		_schema = schema;
+		_schema = schema ?? new DbSchema();
+		_schema.EnsureInitialized();
 		ClearSelection();
 		ResetView();
 		NotifyChanged();
@@ -175,6 +178,11 @@ public sealed class DiagramCanvas : Control
 		SetZoom(_zoom * 0.83f, GetViewportCenter());
 	}
 
+	public void ResetZoom()
+	{
+		SetZoom(1f, GetViewportCenter());
+	}
+
 	public void FitAll()
 	{
 		if (_schema.Tables.Count == 0)
@@ -192,7 +200,7 @@ public sealed class DiagramCanvas : Control
 		_vScroll.Value = ClampScroll(_vScroll, (int)((allTablesBounds.Y - 40f) * _zoom));
 		UpdateScrollBars();
 		Invalidate();
-		this.ViewportChanged.Invoke(this, EventArgs.Empty);
+		this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	public void SetSpacePressed(bool pressed)
@@ -205,7 +213,7 @@ public sealed class DiagramCanvas : Control
 	{
 		if (_selectedColumn != null && _selectedTable != null)
 		{
-			this.ColumnDeleteRequested.Invoke(this, new ColumnEventArgs(_selectedTable, _selectedColumn));
+			this.ColumnDeleteRequested?.Invoke(this, new ColumnEventArgs(_selectedTable, _selectedColumn));
 		}
 		else if (_selectedTable != null)
 		{
@@ -229,7 +237,16 @@ public sealed class DiagramCanvas : Control
 		_selectedTable = null;
 		_selectedColumn = null;
 		_selectedRelationship = null;
-		this.SelectionChanged.Invoke(this, EventArgs.Empty);
+		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+		Invalidate();
+	}
+
+	public void SelectTable(DbTable table)
+	{
+		_selectedTable = table;
+		_selectedColumn = null;
+		_selectedRelationship = null;
+		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 		Invalidate();
 	}
 
@@ -255,7 +272,7 @@ public sealed class DiagramCanvas : Control
 		_hScroll.Value = ClampScroll(_hScroll, (int)(pt.X * _zoom - (float)(viewportSize.Width / 2)));
 		_vScroll.Value = ClampScroll(_vScroll, (int)(pt.Y * _zoom - (float)(viewportSize.Height / 2)));
 		Invalidate();
-		this.ViewportChanged.Invoke(this, EventArgs.Empty);
+		this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	protected override void OnPaint(PaintEventArgs e)
@@ -313,11 +330,31 @@ public sealed class DiagramCanvas : Control
 		}
 	}
 
+	private bool IsTableSelected(DbTable table)
+	{
+		return _selectedTable != null && _selectedTable.Id == table.Id;
+	}
+
+	private bool IsColumnSelected(DbTable table, DbColumn column)
+	{
+		if (column == null)
+			return false;
+		return _selectedColumn != null
+			&& _selectedTable != null
+			&& _selectedColumn.Id == column.Id
+			&& _selectedTable.Id == table.Id;
+	}
+
+	private bool IsRelationshipSelected(DbRelationship relationship)
+	{
+		return _selectedRelationship != null && _selectedRelationship.Id == relationship.Id;
+	}
+
 	private void DrawTable(Graphics g, DbTable table)
 	{
 		float tableHeight = GetTableHeight(table);
 		RectangleF rect = new RectangleF(table.X, table.Y, table.Width, tableHeight);
-		bool flag = _selectedTable.Id == table.Id;
+		bool flag = IsTableSelected(table);
 		using SolidBrush brush = new SolidBrush(Color.FromArgb(30, 0, 0, 0));
 		g.FillRectangle(brush, rect.X + 3f, rect.Y + 3f, rect.Width, rect.Height);
 		using SolidBrush brush2 = new SolidBrush(Color.White);
@@ -338,7 +375,7 @@ public sealed class DiagramCanvas : Control
 		g.DrawString(table.Name, font, brush4, layoutRectangle, format);
 		using Font font2 = new Font("맑은 고딕", 7f, FontStyle.Regular, GraphicsUnit.Point);
 		using SolidBrush brush5 = new SolidBrush(Color.FromArgb(160, 255, 255, 255));
-		string s = _schema.TargetDb.ToString();
+		string s = DbTargetTypeHelper.GetDisplayName(_schema.TargetDb);
 		g.DrawString(s, font2, brush5, new RectangleF(rect.X, rect.Y + 2f, rect.Width - 4f, 24f), new StringFormat
 		{
 			Alignment = StringAlignment.Far,
@@ -353,11 +390,12 @@ public sealed class DiagramCanvas : Control
 		for (int i = 0; i < table.Columns.Count; i++)
 		{
 			DbColumn col = table.Columns[i];
+			if (col == null)
+				continue;
 			float num = rect.Y + 28f + (float)i * 22f;
 			RectangleF rect3 = new RectangleF(rect.X, num, rect.Width, 22f);
-			Guid? guid = _selectedColumn.Id;
-			Guid id = col.Id;
-			using SolidBrush brush7 = new SolidBrush((guid.HasValue && guid.GetValueOrDefault() == id && _selectedTable.Id == table.Id) ? Color.FromArgb(255, 243, 205) : ((i % 2 == 0) ? RowEvenColor : RowOddColor));
+			bool columnSelected = IsColumnSelected(table, col);
+			using SolidBrush brush7 = new SolidBrush(columnSelected ? Color.FromArgb(255, 243, 205) : ((i % 2 == 0) ? RowEvenColor : RowOddColor));
 			g.FillRectangle(brush7, rect3);
 			using Pen pen = new Pen(Color.FromArgb(220, 220, 226), 0.5f / _zoom);
 			g.DrawLine(pen, rect3.X, rect3.Bottom, rect3.Right, rect3.Bottom);
@@ -401,6 +439,8 @@ public sealed class DiagramCanvas : Control
 
 	private bool IsFK(DbColumn col)
 	{
+		if (col == null)
+			return false;
 		return _schema.Relationships.Any((DbRelationship r) => r.SourceColumnId == col.Id || r.TargetColumnId == col.Id);
 	}
 
@@ -416,9 +456,9 @@ public sealed class DiagramCanvas : Control
 		PointF tableCenter2 = GetTableCenter(dbTable2);
 		PointF connectionPoint = GetConnectionPoint(dbTable, tableCenter2);
 		PointF connectionPoint2 = GetConnectionPoint(dbTable2, tableCenter);
-		bool flag = _selectedRelationship.Id == rel.Id;
+		bool flag = IsRelationshipSelected(rel);
 		Color color = (flag ? SelectionColor : Color.FromArgb(100, 100, 120));
-		float width = (flag ? (2.5f / _zoom) : (1.5f / _zoom));
+		float width = (flag ? (3f / _zoom) : (2.2f / _zoom));
 		using Pen pen = new Pen(color, width)
 		{
 			DashStyle = DashStyle.Solid
@@ -485,7 +525,7 @@ public sealed class DiagramCanvas : Control
 		}
 		PointF tableCenter = GetTableCenter(_relSource);
 		PointF connectionPoint = GetConnectionPoint(_relSource, _relCurrentMouse);
-		using Pen pen = new Pen(Color.FromArgb(180, 255, 140, 0), 2f / _zoom)
+		using Pen pen = new Pen(Color.FromArgb(180, 255, 140, 0), 2.5f / _zoom)
 		{
 			DashStyle = DashStyle.Dash
 		};
@@ -516,7 +556,7 @@ public sealed class DiagramCanvas : Control
 			}
 			if (_toolMode == ToolMode.Select)
 			{
-				HandleSelectDown(cp);
+				HandleSelectDown(cp, e.Location);
 			}
 			else if (_toolMode == ToolMode.AddTable)
 			{
@@ -528,7 +568,7 @@ public sealed class DiagramCanvas : Control
 				};
 				_schema.Tables.Add(dbTable);
 				_selectedTable = dbTable;
-				this.SelectionChanged.Invoke(this, EventArgs.Empty);
+				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 				NotifyChanged();
 			}
 			else
@@ -536,13 +576,20 @@ public sealed class DiagramCanvas : Control
 				ToolMode toolMode = _toolMode;
 				if ((uint)(toolMode - 2) <= 2u)
 				{
-					HandleRelationDown(cp);
+					if (HitTestTable(cp) == null)
+					{
+						StartPan(e.Location);
+					}
+					else
+					{
+						HandleRelationDown(cp);
+					}
 				}
 			}
 		}
 	}
 
-	private void HandleSelectDown(PointF cp)
+	private void HandleSelectDown(PointF cp, Point screenPt)
 	{
 		foreach (DbTable item in Enumerable.Reverse(_schema.Tables))
 		{
@@ -552,7 +599,7 @@ public sealed class DiagramCanvas : Control
 				_selectedTable = item;
 				_selectedColumn = item.Columns[num];
 				_selectedRelationship = null;
-				this.SelectionChanged.Invoke(this, EventArgs.Empty);
+				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 				Invalidate();
 				return;
 			}
@@ -561,7 +608,7 @@ public sealed class DiagramCanvas : Control
 				_selectedTable = item;
 				_selectedColumn = null;
 				_selectedRelationship = null;
-				this.SelectionChanged.Invoke(this, EventArgs.Empty);
+				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 				_isDragging = true;
 				_dragStartCanvas = cp;
 				_lastMouseCanvas = cp;
@@ -575,7 +622,7 @@ public sealed class DiagramCanvas : Control
 				_selectedTable = item;
 				_selectedColumn = null;
 				_selectedRelationship = null;
-				this.SelectionChanged.Invoke(this, EventArgs.Empty);
+				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 				Invalidate();
 				return;
 			}
@@ -587,12 +634,13 @@ public sealed class DiagramCanvas : Control
 				_selectedRelationship = relationship;
 				_selectedTable = null;
 				_selectedColumn = null;
-				this.SelectionChanged.Invoke(this, EventArgs.Empty);
+				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 				Invalidate();
 				return;
 			}
 		}
 		ClearSelection();
+		StartPan(screenPt);
 	}
 
 	private void HandleRelationDown(PointF cp)
@@ -614,22 +662,26 @@ public sealed class DiagramCanvas : Control
 			Invalidate();
 			return;
 		}
-		ToolMode toolMode = _toolMode;
-		if (1 == 0)
+		_schema.EnsureInitialized();
+		DbColumn dbColumn = FindPrimaryKeyColumn(_relSource);
+		DbColumn dbColumn2 = FindPrimaryKeyColumn(dbTable);
+		if (dbColumn == null || dbColumn2 == null)
 		{
+			_relSource = null;
+			Invalidate();
+			MessageBox.Show(
+				"관계를 추가하려면 두 테이블 모두에 기본 키(PK) 컬럼이 필요합니다.\n테이블 편집에서 PK 컬럼을 지정한 후 다시 시도하세요.",
+				"관계 추가",
+				MessageBoxButtons.OK,
+				MessageBoxIcon.Information);
+			return;
 		}
-		RelationshipType relationshipType = toolMode switch
+		RelationshipType type = _toolMode switch
 		{
-			ToolMode.RelationOneToOne => RelationshipType.OneToOne, 
-			ToolMode.RelationManyToMany => RelationshipType.ManyToMany, 
-			_ => RelationshipType.OneToMany, 
+			ToolMode.RelationOneToOne => RelationshipType.OneToOne,
+			ToolMode.RelationManyToMany => RelationshipType.ManyToMany,
+			_ => RelationshipType.OneToMany,
 		};
-		if (1 == 0)
-		{
-		}
-		RelationshipType type = relationshipType;
-		DbColumn dbColumn = _relSource.Columns.FirstOrDefault((DbColumn c) => c.IsPrimaryKey);
-		DbColumn dbColumn2 = dbTable.Columns.FirstOrDefault((DbColumn c) => c.IsPrimaryKey);
 		DbRelationship dbRelationship = new DbRelationship
 		{
 			Type = type,
@@ -640,9 +692,19 @@ public sealed class DiagramCanvas : Control
 		};
 		_schema.Relationships.Add(dbRelationship);
 		_relSource = null;
+		_selectedTable = null;
+		_selectedColumn = null;
 		_selectedRelationship = dbRelationship;
-		this.SelectionChanged.Invoke(this, EventArgs.Empty);
+		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 		NotifyChanged();
+	}
+
+	private static DbColumn FindPrimaryKeyColumn(DbTable table)
+	{
+		if (table?.Columns == null)
+			return null;
+
+		return table.Columns.FirstOrDefault(c => c != null && c.IsPrimaryKey);
 	}
 
 	protected override void OnMouseMove(MouseEventArgs e)
@@ -654,7 +716,7 @@ public sealed class DiagramCanvas : Control
 			_hScroll.Value = ClampScroll(_hScroll, _panStartH + (_panStartScreen.X - e.X));
 			_vScroll.Value = ClampScroll(_vScroll, _panStartV + (_panStartScreen.Y - e.Y));
 			Invalidate();
-			this.ViewportChanged.Invoke(this, EventArgs.Empty);
+			this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 		}
 		else if (_isDragging && _selectedTable != null)
 		{
@@ -685,14 +747,14 @@ public sealed class DiagramCanvas : Control
 				_selectedTable = item;
 				_selectedColumn = dbColumn;
 				_selectedRelationship = null;
-				this.SelectionChanged.Invoke(this, EventArgs.Empty);
+				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 				Invalidate();
-				this.ColumnEditRequested.Invoke(this, new ColumnEventArgs(item, dbColumn));
+				this.ColumnEditRequested?.Invoke(this, new ColumnEventArgs(item, dbColumn));
 				break;
 			}
 			if (HitTestTableHeader(item, p))
 			{
-				this.TableEditRequested.Invoke(item, EventArgs.Empty);
+				this.TableEditRequested?.Invoke(item, EventArgs.Empty);
 				break;
 			}
 		}
@@ -727,7 +789,7 @@ public sealed class DiagramCanvas : Control
 		int num = ((e.Delta > 0) ? (-_vScroll.SmallChange) : _vScroll.SmallChange);
 		_vScroll.Value = ClampScroll(_vScroll, _vScroll.Value + num);
 		Invalidate();
-		this.ViewportChanged.Invoke(this, EventArgs.Empty);
+		this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	protected override void OnResize(EventArgs e)
@@ -772,6 +834,7 @@ public sealed class DiagramCanvas : Control
 
 	private void ShowContextMenu(Point screenPt, PointF cp)
 	{
+		_schema.EnsureInitialized();
 		ContextMenuStrip contextMenuStrip = new ContextMenuStrip();
 		ModernTheme.StyleContextMenu(contextMenuStrip);
 		foreach (DbTable table in Enumerable.Reverse(_schema.Tables))
@@ -782,23 +845,27 @@ public sealed class DiagramCanvas : Control
 				continue;
 			}
 			DbColumn col = table.Columns[num];
+			if (col == null)
+			{
+				continue;
+			}
 			_selectedTable = table;
 			_selectedColumn = col;
 			_selectedRelationship = null;
-			this.SelectionChanged.Invoke(this, EventArgs.Empty);
+			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 			Invalidate();
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 편집...", "Edit", delegate
 			{
-				this.ColumnEditRequested.Invoke(this, new ColumnEventArgs(table, col));
+				this.ColumnEditRequested?.Invoke(this, new ColumnEventArgs(table, col));
 			}));
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 추가", "AddColumn", delegate
 			{
-				this.ColumnAddRequested.Invoke(table, EventArgs.Empty);
+				this.ColumnAddRequested?.Invoke(table, EventArgs.Empty);
 			}));
 			contextMenuStrip.Items.Add(new ToolStripSeparator());
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 삭제", "Delete", delegate
 			{
-				this.ColumnDeleteRequested.Invoke(this, new ColumnEventArgs(table, col));
+				this.ColumnDeleteRequested?.Invoke(this, new ColumnEventArgs(table, col));
 			}));
 			contextMenuStrip.Show(this, screenPt);
 			return;
@@ -810,15 +877,15 @@ public sealed class DiagramCanvas : Control
 			_selectedTable = hitTable;
 			_selectedColumn = null;
 			_selectedRelationship = null;
-			this.SelectionChanged.Invoke(this, EventArgs.Empty);
+			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 			Invalidate();
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("테이블 편집...", "Edit", delegate
 			{
-				this.TableEditRequested.Invoke(hitTable, EventArgs.Empty);
+				this.TableEditRequested?.Invoke(hitTable, EventArgs.Empty);
 			}));
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 추가", "AddColumn", delegate
 			{
-				this.ColumnAddRequested.Invoke(hitTable, EventArgs.Empty);
+				this.ColumnAddRequested?.Invoke(hitTable, EventArgs.Empty);
 			}));
 			contextMenuStrip.Items.Add(new ToolStripSeparator());
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("테이블 삭제", "Delete", delegate
@@ -831,10 +898,10 @@ public sealed class DiagramCanvas : Control
 			_selectedRelationship = hitRel;
 			_selectedTable = null;
 			_selectedColumn = null;
-			this.SelectionChanged.Invoke(this, EventArgs.Empty);
+			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("관계 편집...", "AddRelation", delegate
 			{
-				this.RelationEditRequested.Invoke(hitRel, EventArgs.Empty);
+				this.RelationEditRequested?.Invoke(hitRel, EventArgs.Empty);
 			}));
 			contextMenuStrip.Items.Add(new ToolStripSeparator());
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("삭제", "Delete", delegate
@@ -844,35 +911,53 @@ public sealed class DiagramCanvas : Control
 		}
 		else
 		{
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("여기에 새 테이블 추가", "AddTable", delegate
+			AddCanvasBackgroundMenuItems(contextMenuStrip, cp);
+		}
+		contextMenuStrip.Show(this, screenPt);
+	}
+
+	private void AddCanvasBackgroundMenuItems(ContextMenuStrip menu, PointF cp)
+	{
+		ClearSelection();
+		menu.Items.Add(ModernTheme.CreateMenuItem("여기에 새 테이블 추가", "AddTable", delegate
+		{
+			DbTable item = new DbTable
 			{
-				DbTable item = new DbTable
-				{
-					Name = $"table_{_schema.Tables.Count + 1}",
-					X = cp.X - 105f,
-					Y = cp.Y - 14f
-				};
-				_schema.Tables.Add(item);
-				NotifyChanged();
-			}));
-		}
-		if (contextMenuStrip.Items.Count > 0)
+				Name = $"table_{_schema.Tables.Count + 1}",
+				X = cp.X - 105f,
+				Y = cp.Y - 14f
+			};
+			_schema.Tables.Add(item);
+			_selectedTable = item;
+			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+			NotifyChanged();
+		}));
+		menu.Items.Add(new ToolStripSeparator());
+		menu.Items.Add(ModernTheme.CreateMenuItem("화면 맞춤", "FitAll", delegate
 		{
-			contextMenuStrip.Show(this, screenPt);
-		}
-		else
+			FitAll();
+		}));
+		menu.Items.Add(ModernTheme.CreateMenuItem("확대", "ZoomIn", delegate
 		{
-			contextMenuStrip.Dispose();
-		}
+			ZoomIn();
+		}));
+		menu.Items.Add(ModernTheme.CreateMenuItem("축소", "ZoomOut", delegate
+		{
+			ZoomOut();
+		}));
+		menu.Items.Add(ModernTheme.CreateMenuItem("배율 100%로 복원", "FitAll", delegate
+		{
+			ResetZoom();
+		}));
 	}
 
 	public void NotifyColumnRemoved(DbColumn column)
 	{
-		if (_selectedColumn.Id == column.Id)
+		if (_selectedColumn != null && _selectedColumn.Id == column.Id)
 		{
 			_selectedColumn = null;
 		}
-		this.SelectionChanged.Invoke(this, EventArgs.Empty);
+		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 		Invalidate();
 	}
 
@@ -896,7 +981,7 @@ public sealed class DiagramCanvas : Control
 
 	private int HitTestColumn(DbTable t, PointF p)
 	{
-		if (p.X < t.X || p.X > t.X + t.Width)
+		if (p.X < t.X || p.X > t.X + t.Width || t.Columns == null)
 		{
 			return -1;
 		}
@@ -941,7 +1026,8 @@ public sealed class DiagramCanvas : Control
 
 	public static float GetTableHeight(DbTable t)
 	{
-		return 28f + (float)t.Columns.Count * 22f + 4f;
+		int columnCount = t.Columns?.Count ?? 0;
+		return 28f + (float)columnCount * 22f + 4f;
 	}
 
 	private RectangleF GetTableBounds(DbTable t)
@@ -1020,7 +1106,7 @@ public sealed class DiagramCanvas : Control
 			_vScroll.Value = ClampScroll(_vScroll, (int)(pointF.Y * _zoom - (float)point.Y));
 			UpdateScrollBars();
 			Invalidate();
-			this.ViewportChanged.Invoke(this, EventArgs.Empty);
+			this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 		}
 	}
 
@@ -1035,7 +1121,7 @@ public sealed class DiagramCanvas : Control
 			_vScroll.Value = ClampScroll(_vScroll, (int)(pointF.Y * _zoom - (float)screenPt.Y));
 			UpdateScrollBars();
 			Invalidate();
-			this.ViewportChanged.Invoke(this, EventArgs.Empty);
+			this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 		}
 	}
 
@@ -1046,7 +1132,7 @@ public sealed class DiagramCanvas : Control
 		_vScroll.Value = 0;
 		UpdateScrollBars();
 		Invalidate();
-		this.ViewportChanged.Invoke(this, EventArgs.Empty);
+		this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	private void StartPan(Point screenPt)
@@ -1163,8 +1249,8 @@ public sealed class DiagramCanvas : Control
 	{
 		UpdateScrollBars();
 		Invalidate();
-		this.SchemaChanged.Invoke(this, EventArgs.Empty);
-		this.ViewportChanged.Invoke(this, EventArgs.Empty);
+		this.SchemaChanged?.Invoke(this, EventArgs.Empty);
+		this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	private static Color GetHeaderColor(DbTargetType db)
@@ -1179,6 +1265,7 @@ public sealed class DiagramCanvas : Control
 			DbTargetType.MariaDB => HeaderColorMaria, 
 			DbTargetType.SQLite => HeaderColorSqlite, 
 			DbTargetType.SqlServer => HeaderColorSqlServer, 
+			DbTargetType.VectorDb => HeaderColorVector, 
 			_ => HeaderColorPg, 
 		};
 		if (1 == 0)

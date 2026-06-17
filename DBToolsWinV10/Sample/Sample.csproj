@@ -13,4 +13,10 @@
     <ProjectReference Include="..\DBToolsWinV10.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="SampleDbGenerator.cs" />
+    <Compile Remove="SampleGenerationResult.cs" />
+    <Compile Remove="SampleSchemaFactory.cs" />
+  </ItemGroup>
+
 </Project>

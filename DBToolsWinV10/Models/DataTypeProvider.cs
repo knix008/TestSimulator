@@ -39,6 +39,11 @@ public static class DataTypeProvider
 		"DATE", "TIME", "DATETIME", "DATETIME2", "SMALLDATETIME", "DATETIMEOFFSET", "UNIQUEIDENTIFIER", "XML", "JSON"
 	};
 
+	private static readonly string[] VectorDbTypes = new string[6]
+	{
+		"BIGINT", "INT", "FLOAT", "DOUBLE", "TEXT", "VECTOR"
+	};
+
 	public static string[] GetTypes(DbTargetType db)
 	{
 		if (1 == 0)
@@ -51,6 +56,7 @@ public static class DataTypeProvider
 			DbTargetType.MariaDB => MariaDBTypes, 
 			DbTargetType.SQLite => SQLiteTypes, 
 			DbTargetType.SqlServer => SqlServerTypes, 
+			DbTargetType.VectorDb => VectorDbTypes, 
 			_ => SQLiteTypes, 
 		};
 		if (1 == 0)
@@ -71,6 +77,7 @@ public static class DataTypeProvider
 		case "VARBINARY":
 		case "BIT":
 		case "VARBIT":
+		case "VECTOR":
 		case "TEXT":
 		case "NTEXT":
 		case "IMAGE":

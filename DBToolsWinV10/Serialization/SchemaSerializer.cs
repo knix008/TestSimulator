@@ -24,6 +24,8 @@ public static class SchemaSerializer
 	public static DbSchema Load(string filePath)
 	{
 		string json = File.ReadAllText(filePath, Encoding.UTF8);
-		return JsonSerializer.Deserialize<DbSchema>(json, Options) ?? throw new InvalidDataException("스키마 파일을 읽을 수 없습니다.");
+		DbSchema schema = JsonSerializer.Deserialize<DbSchema>(json, Options) ?? throw new InvalidDataException("스키마 파일을 읽을 수 없습니다.");
+		schema.EnsureInitialized();
+		return schema;
 	}
 }

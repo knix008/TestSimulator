@@ -6,5 +6,6 @@ public enum DbFileFormat
 	Sqlite,
 	SqlDdl,
 	Access,
-	SqlServer
+	SqlServer,
+	VectorIndex
 }

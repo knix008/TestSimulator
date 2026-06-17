@@ -8,6 +8,8 @@ public class NormalizationIssue
 
 	public string Table { get; init; } = string.Empty;
 
+	public string AffectedColumns { get; init; } = string.Empty;
+
 	public string Message { get; init; } = string.Empty;
 
 	public string Hint { get; init; } = string.Empty;

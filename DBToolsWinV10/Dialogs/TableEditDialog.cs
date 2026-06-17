@@ -86,19 +86,30 @@ public class TableEditDialog : Form
 
 	private void BtnAddCol_Click(object sender, EventArgs e)
 	{
-		DbColumn column = new DbColumn
+		try
 		{
-			Name = $"col_{_columns.Count + 1}",
-			DataType = "VARCHAR",
-			Length = 255,
-			IsNullable = true
-		};
-		using ColumnEditDialog columnEditDialog = new ColumnEditDialog(column, _dbType);
-		if (columnEditDialog.ShowDialog(this) == DialogResult.OK)
+			string[] types = DataTypeProvider.GetTypes(_dbType);
+			DbColumn column = new DbColumn
+			{
+				Name = $"col_{_columns.Count + 1}",
+				DataType = types.Length > 0 ? types[0] : "TEXT",
+				IsNullable = true
+			};
+			if (DataTypeProvider.TypeHasLength(column.DataType))
+				column.Length = _dbType == DbTargetType.VectorDb ? 128 : 255;
+
+			using ColumnEditDialog columnEditDialog = new ColumnEditDialog(column, _dbType);
+			if (columnEditDialog.ShowDialog(this) == DialogResult.OK)
+			{
+				_columns.Add(columnEditDialog.Result);
+				RefreshGrid();
+				if (dgvColumns.Rows.Count > 0)
+					dgvColumns.CurrentCell = dgvColumns.Rows[dgvColumns.Rows.Count - 1].Cells[0];
+			}
+		}
+		catch (Exception ex)
 		{
-			_columns.Add(columnEditDialog.Result);
-			RefreshGrid();
-			dgvColumns.CurrentCell = dgvColumns.Rows[dgvColumns.Rows.Count - 1].Cells[0];
+			ErrorDialog.Show(this, "컬럼 추가 오류", ex, "컬럼을 추가할 수 없습니다.");
 		}
 	}
 

@@ -50,6 +50,7 @@ public class DbSchema
 
 	public DbSchema Clone()
 	{
+		EnsureInitialized();
 		return new DbSchema
 		{
 			Name = Name,
@@ -57,5 +58,15 @@ public class DbSchema
 			Tables = Tables.Select((DbTable t) => t.Clone()).ToList(),
 			Relationships = Relationships.Select((DbRelationship r) => r.Clone()).ToList()
 		};
+	}
+
+	public void EnsureInitialized()
+	{
+		Tables ??= new List<DbTable>();
+		Relationships ??= new List<DbRelationship>();
+		foreach (DbTable table in Tables)
+		{
+			table.Columns ??= new List<DbColumn>();
+		}
 	}
 }

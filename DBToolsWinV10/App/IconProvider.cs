@@ -53,6 +53,7 @@ public static class IconProvider
 			"PanelExpand" => DrawRightPanelLayout(size, panelOpen: false), 
 			"Analyze" => DrawAnalyze(size), 
 			"Report" => DrawReport(size), 
+			"Sample" => DrawReport(size),
 			"ImportDb" => DrawOpenDbFile(size), 
 			"OpenDbFile" => DrawOpenDbFile(size), 
 			"About" => DrawAbout(size), 
@@ -62,6 +63,9 @@ public static class IconProvider
 			"MariaDB" => DrawDbBadge(size, Color.FromArgb(194, 63, 63), "MA"), 
 			"SQLite" => DrawDbBadge(size, Color.FromArgb(90, 90, 140), "SQ"), 
 			"SqlServer" => DrawDbBadge(size, Color.FromArgb(204, 41, 39), "MS"), 
+			"FAISS" => DrawDbBadge(size, Color.FromArgb(88, 64, 168), "Fa"),
+			"VectorDb" => DrawDbBadge(size, Color.FromArgb(88, 64, 168), "VD"), 
+			"Access" => DrawDbBadge(size, Color.FromArgb(166, 89, 0), "AC"), 
 			_ => DrawDefault(size), 
 		};
 		if (1 == 0)

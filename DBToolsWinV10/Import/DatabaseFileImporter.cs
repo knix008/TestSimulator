@@ -22,6 +22,7 @@ public static class DatabaseFileImporter
 			DbFileFormat.SqlDdl => SqlDdlSchemaImporter.Import(filePath), 
 			DbFileFormat.Access => AccessSchemaImporter.Import(filePath), 
 			DbFileFormat.SqlServer => SqlServerFileSchemaImporter.Import(filePath), 
+			DbFileFormat.VectorIndex => VectorIndex.VectorIndexSchemaImporter.Import(filePath), 
 			_ => throw new NotSupportedException("지원하지 않는 파일 형식입니다: " + Path.GetExtension(filePath)), 
 		};
 		if (1 == 0)

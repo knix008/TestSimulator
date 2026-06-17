@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <?define ProductName = "DBTools v1.0" ?>
+  <?define Manufacturer = "DBTools" ?>
+  <?define UpgradeCode = "D4E5F6A7-B8C9-4D0E-1F2A-3B4C5D6E7F80" ?>
+  <?define PublishDir = "..\bin\Release\net10.0-windows\win-x64\publish" ?>
+
+  <Package Name="$(var.ProductName)"
+           Manufacturer="$(var.Manufacturer)"
+           Version="1.0.0.0"
+           Scope="perMachine"
+           InstallerVersion="500"
+           UpgradeCode="$(var.UpgradeCode)"
+           Language="1042">
+
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)"
+                  AllowDowngrades="no"
+                  Schedule="afterInstallInitialize"
+                  IgnoreRemoveFailure="no" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\Assets\AppIcon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="REMOVEUSERDATA" Value="0" />
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <Upgrade Id="$(var.UpgradeCode)">
+      <UpgradeVersion Minimum="0.0.0.0"
+                      IncludeMinimum="yes"
+                      Maximum="99.0.0.0"
+                      IncludeMaximum="yes"
+                      OnlyDetect="yes"
+                      Property="OLDVERSIONFOUND" />
+    </Upgrade>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="DBToolsWinV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuAppFolder" Name="DBTools" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <StandardDirectory Id="AppDataFolder">
+      <Directory Id="UserDataRoot" Name="DBToolsWinV10" />
+    </StandardDirectory>
+
+    <Feature Id="ProductFeature" Title="$(var.ProductName)" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <Feature Id="FileAssociationFeature"
+             Title="!(loc.FeatureFileAssociationTitle)"
+             Description="!(loc.FeatureFileAssociationDescription)"
+             Level="1"
+             AllowAbsent="no">
+      <ComponentRef Id="FileAssociationComponent" />
+    </Feature>
+
+    <Feature Id="StartMenuShortcutFeature"
+             Title="!(loc.FeatureStartMenuTitle)"
+             Description="!(loc.FeatureStartMenuDescription)"
+             Level="1"
+             AllowAbsent="yes">
+      <ComponentRef Id="StartMenuShortcutComponent" />
+    </Feature>
+
+    <Feature Id="DesktopShortcutFeature"
+             Title="!(loc.FeatureDesktopTitle)"
+             Description="!(loc.FeatureDesktopDescription)"
+             Level="1"
+             AllowAbsent="yes">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+    <Feature Id="UserDataMarkerFeature" Title="User Data" Level="1" AllowAbsent="no" Display="hidden">
+      <ComponentRef Id="UserDataMarkerComponent" />
+    </Feature>
+
+    <SetProperty Id="WixQuietExecCmdLine"
+                 Value="&quot;[SystemFolder]cmd.exe&quot; /c if exist &quot;[AppDataFolder]DBToolsWinV10&quot; rmdir /s /q &quot;[AppDataFolder]DBToolsWinV10&quot;"
+                 Before="RemoveUserDataExec"
+                 Sequence="execute"
+                 Condition="REMOVE~=&quot;ALL&quot; AND REMOVEUSERDATA=&quot;1&quot;" />
+
+    <CustomAction Id="RemoveUserDataExec"
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RemoveUserDataExec"
+              Before="RemoveFiles"
+              Condition="REMOVE~=&quot;ALL&quot; AND REMOVEUSERDATA=&quot;1&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="ProgramMenuAppFolder">
+      <Component Id="StartMenuShortcutComponent" Guid="A1C2B3D4-E5F6-7890-ABCD-EF1234567891">
+        <Shortcut Id="StartMenuShortcut"
+                  Name="$(var.ProductName)"
+                  Description="Database schema diagram tool"
+                  Target="[INSTALLFOLDER]DBToolsWinV10.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RemoveFolder Id="ProgramMenuAppFolderRemove" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\DBToolsWinV10"
+                       Name="StartMenuShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="B2C3D4E5-F6A7-8901-BCDE-F12345678902">
+        <Shortcut Id="DesktopShortcut"
+                  Name="$(var.ProductName)"
+                  Description="Database schema diagram tool"
+                  Target="[INSTALLFOLDER]DBToolsWinV10.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\DBToolsWinV10"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="FileAssociationComponent" Guid="C3D4E5F6-A7B8-9012-CDEF-123456789003">
+        <RegistryKey Root="HKCR" Key=".mdprj">
+          <RegistryValue Type="string" Value="DBToolsWinV10.mdprj" />
+        </RegistryKey>
+        <RegistryKey Root="HKCR" Key="DBToolsWinV10.mdprj">
+          <RegistryValue Type="string" Value="DBTools Project" />
+          <RegistryKey Key="DefaultIcon">
+            <RegistryValue Type="string" Value="[INSTALLFOLDER]Assets\mdprj_file.ico" />
+          </RegistryKey>
+          <RegistryKey Key="shell\open\command">
+            <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]DBToolsWinV10.exe&quot; &quot;%1&quot;" />
+          </RegistryKey>
+        </RegistryKey>
+        <RegistryValue Root="HKLM"
+                       Key="Software\DBToolsWinV10"
+                       Name="FileAssociation"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="UserDataRoot">
+      <Component Id="UserDataMarkerComponent" Guid="D4E5F6A7-B8C9-4D0E-1F2A-3B4C5D6E7F81">
+        <CreateFolder />
+        <RegistryValue Root="HKCU"
+                       Key="Software\DBToolsWinV10"
+                       Name="UserDataRoot"
+                       Type="string"
+                       Value="[UserDataRoot]"
+                       KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <Fragment>
+    <UI>
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Malgun Gothic" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Malgun Gothic" Size="12" Bold="yes" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Malgun Gothic" Size="12" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+      <Dialog Id="ConfirmUpgradeDlg" Width="370" Height="270" Title="!(loc.ConfirmUpgradeTitle)">
+        <Control Id="Title" Type="Text" X="20" Y="20" Width="330" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}!(loc.ConfirmUpgradeTitle)" />
+        <Control Id="Body" Type="Text" X="20" Y="45" Width="330" Height="120" Text="!(loc.ConfirmUpgradeText)" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)" />
+      </Dialog>
+
+      <Dialog Id="ConfirmRemoveUserDataDlg" Width="370" Height="270" Title="!(loc.ConfirmRemoveUserDataTitle)">
+        <Control Id="Title" Type="Text" X="20" Y="55" Width="330" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}!(loc.ConfirmRemoveUserDataTitle)" />
+        <Control Id="Body" Type="Text" X="20" Y="80" Width="330" Height="90" Text="!(loc.ConfirmRemoveUserDataText)" />
+        <Control Id="RemoveUserDataCheck" Type="CheckBox" X="20" Y="175" Width="330" Height="17" Property="REMOVEUSERDATA" CheckBoxValue="1" Text="!(loc.RemoveUserDataCheckbox)" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)" />
+      </Dialog>
+
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="ConfirmUpgradeDlg" Order="1" Condition="OLDVERSIONFOUND" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" Order="2" Condition="NOT OLDVERSIONFOUND" />
+
+      <Publish Dialog="ConfirmUpgradeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
+      <Publish Dialog="ConfirmUpgradeDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" />
+
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Remove" Event="NewDialog" Value="ConfirmRemoveUserDataDlg" Order="1" />
+      <Publish Dialog="ConfirmRemoveUserDataDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
+      <Publish Dialog="ConfirmRemoveUserDataDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" />
+    </UI>
+  </Fragment>
+</Wix>

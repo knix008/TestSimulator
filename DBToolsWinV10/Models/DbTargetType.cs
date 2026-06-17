@@ -6,5 +6,6 @@ public enum DbTargetType
 	MySQL,
 	MariaDB,
 	SQLite,
-	SqlServer
+	SqlServer,
+	VectorDb
 }

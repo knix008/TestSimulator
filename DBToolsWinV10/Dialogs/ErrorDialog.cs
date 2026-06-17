@@ -8,11 +8,19 @@ namespace DBToolsWinV10.Dialogs;
 
 public class ErrorDialog : Form
 {
+	private const int ContentWidth = 520;
+
+	private const int DetailsHeight = 220;
+
 	private readonly string _clipboardText;
 
 	private IContainer components = null;
 
 	private Label lblSummary;
+
+	private Label lblDetailsCaption;
+
+	private TextBox txtDetails;
 
 	private Button btnCopy;
 
@@ -29,8 +37,19 @@ public class ErrorDialog : Form
 		InitializeComponent();
 		Text = title;
 		lblSummary.Text = summary;
-		_clipboardText = ErrorReporter.BuildClipboardText(summary, details);
-		FitToSummary();
+		bool hasDetails = !string.IsNullOrWhiteSpace(details);
+		lblDetailsCaption.Visible = hasDetails;
+		txtDetails.Visible = hasDetails;
+		btnCopy.Visible = hasDetails;
+		if (hasDetails)
+		{
+			txtDetails.Text = details;
+			txtDetails.SelectionStart = 0;
+			txtDetails.SelectionLength = 0;
+		}
+
+		_clipboardText = ErrorReporter.BuildClipboardText(summary, details ?? string.Empty);
+		ApplyLayout(hasDetails);
 		panelButtons.Resize += delegate
 		{
 			CenterButtonPanel();
@@ -41,26 +60,40 @@ public class ErrorDialog : Form
 		};
 	}
 
-	private void FitToSummary()
+	private void ApplyLayout(bool hasDetails)
 	{
-		int height = TextRenderer.MeasureText(lblSummary.Text, lblSummary.Font, new Size(496, int.MaxValue), TextFormatFlags.TextBoxControl | TextFormatFlags.WordBreak).Height;
-		int num = height + lblSummary.Padding.Vertical + 8;
-		lblSummary.MinimumSize = new Size(496, num);
-		int num2 = panelButtons.Padding.Vertical + btnCopy.Height;
-		base.ClientSize = new Size(520, panelContent.Padding.Vertical + num + num2);
-		MinimumSize = new Size(360, Math.Max(150, panelContent.Padding.Vertical + num + num2));
+		int summaryHeight = TextRenderer.MeasureText(
+			lblSummary.Text,
+			lblSummary.Font,
+			new Size(ContentWidth, int.MaxValue),
+			TextFormatFlags.TextBoxControl | TextFormatFlags.WordBreak).Height;
+		summaryHeight += lblSummary.Padding.Vertical + 4;
+		lblSummary.Height = summaryHeight;
+
+		int contentHeight = panelContent.Padding.Vertical + summaryHeight;
+		if (hasDetails)
+		{
+			contentHeight += lblDetailsCaption.Height + DetailsHeight + 8;
+		}
+
+		int buttonHeight = panelButtons.Padding.Vertical + btnClose.Height;
+		base.ClientSize = new Size(ContentWidth + panelContent.Padding.Horizontal, contentHeight + buttonHeight);
+		MinimumSize = new Size(380, Math.Max(180, contentHeight + buttonHeight));
 	}
 
 	private void CenterButtonPanel()
 	{
-		flowButtons.Location = new Point(Math.Max(0, (panelButtons.ClientSize.Width - flowButtons.Width) / 2), Math.Max(0, (panelButtons.ClientSize.Height - flowButtons.Height) / 2));
+		flowButtons.Location = new Point(
+			Math.Max(0, (panelButtons.ClientSize.Width - flowButtons.Width) / 2),
+			Math.Max(0, (panelButtons.ClientSize.Height - flowButtons.Height) / 2));
 	}
 
 	public static void Show(IWin32Window owner, string title, Exception ex, string summary = null)
 	{
 		UiThread.Run(delegate
 		{
-			using ErrorDialog errorDialog = new ErrorDialog(title, summary ?? ex.Message, ErrorReporter.Format(ex));
+			string displaySummary = ErrorReporter.BuildSummary(ex, summary);
+			using ErrorDialog errorDialog = new ErrorDialog(title, displaySummary, ErrorReporter.Format(ex));
 			errorDialog.ShowDialog(owner);
 		});
 	}
@@ -105,6 +138,8 @@ public class ErrorDialog : Form
 	private void InitializeComponent()
 	{
 		this.lblSummary = new System.Windows.Forms.Label();
+		this.lblDetailsCaption = new System.Windows.Forms.Label();
+		this.txtDetails = new System.Windows.Forms.TextBox();
 		this.btnCopy = new System.Windows.Forms.Button();
 		this.btnClose = new System.Windows.Forms.Button();
 		this.panelButtons = new System.Windows.Forms.Panel();
@@ -114,24 +149,42 @@ public class ErrorDialog : Form
 		this.panelButtons.SuspendLayout();
 		this.flowButtons.SuspendLayout();
 		base.SuspendLayout();
-		this.lblSummary.AutoSize = true;
-		this.lblSummary.Dock = System.Windows.Forms.DockStyle.Fill;
+		this.lblSummary.Dock = System.Windows.Forms.DockStyle.Top;
 		this.lblSummary.Font = new System.Drawing.Font("Segoe UI", 9.5f, System.Drawing.FontStyle.Bold);
 		this.lblSummary.ForeColor = System.Drawing.Color.FromArgb(17, 24, 39);
-		this.lblSummary.MaximumSize = new System.Drawing.Size(496, 0);
 		this.lblSummary.Name = "lblSummary";
-		this.lblSummary.Padding = new System.Windows.Forms.Padding(0, 4, 0, 4);
+		this.lblSummary.Padding = new System.Windows.Forms.Padding(0, 0, 0, 6);
 		this.lblSummary.Text = "오류가 발생했습니다.";
-		this.lblSummary.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+		this.lblDetailsCaption.AutoSize = true;
+		this.lblDetailsCaption.Dock = System.Windows.Forms.DockStyle.Top;
+		this.lblDetailsCaption.Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
+		this.lblDetailsCaption.ForeColor = System.Drawing.Color.FromArgb(75, 85, 99);
+		this.lblDetailsCaption.Name = "lblDetailsCaption";
+		this.lblDetailsCaption.Padding = new System.Windows.Forms.Padding(0, 0, 0, 4);
+		this.lblDetailsCaption.Text = "상세 내용";
+		this.txtDetails.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
+		this.txtDetails.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+		this.txtDetails.Dock = System.Windows.Forms.DockStyle.Top;
+		this.txtDetails.Font = new System.Drawing.Font("Consolas", 8.75f);
+		this.txtDetails.ForeColor = System.Drawing.Color.FromArgb(31, 41, 55);
+		this.txtDetails.Height = 220;
+		this.txtDetails.Multiline = true;
+		this.txtDetails.Name = "txtDetails";
+		this.txtDetails.ReadOnly = true;
+		this.txtDetails.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+		this.txtDetails.TabStop = false;
+		this.txtDetails.WordWrap = false;
+		this.panelContent.Controls.Add(this.txtDetails);
+		this.panelContent.Controls.Add(this.lblDetailsCaption);
 		this.panelContent.Controls.Add(this.lblSummary);
 		this.panelContent.Dock = System.Windows.Forms.DockStyle.Fill;
 		this.panelContent.Name = "panelContent";
-		this.panelContent.Padding = new System.Windows.Forms.Padding(12, 12, 12, 0);
-		this.panelContent.Size = new System.Drawing.Size(520, 96);
+		this.panelContent.Padding = new System.Windows.Forms.Padding(12, 12, 12, 8);
+		this.panelContent.Size = new System.Drawing.Size(520, 300);
 		this.btnCopy.Name = "btnCopy";
 		this.btnCopy.Size = new System.Drawing.Size(96, 30);
 		this.btnCopy.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
-		this.btnCopy.Text = "내용 복사";
+		this.btnCopy.Text = "전체 복사";
 		this.btnCopy.UseVisualStyleBackColor = true;
 		this.btnCopy.Click += new System.EventHandler(BtnCopy_Click);
 		this.btnClose.DialogResult = System.Windows.Forms.DialogResult.OK;
@@ -158,14 +211,14 @@ public class ErrorDialog : Form
 		base.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 		this.BackColor = System.Drawing.Color.FromArgb(250, 251, 253);
 		base.CancelButton = this.btnClose;
-		base.ClientSize = new System.Drawing.Size(520, 160);
+		base.ClientSize = new System.Drawing.Size(544, 360);
 		base.Controls.Add(this.panelContent);
 		base.Controls.Add(this.panelButtons);
 		this.Font = new System.Drawing.Font("Segoe UI", 9f);
-		base.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+		base.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Sizable;
 		base.MaximizeBox = false;
 		base.MinimizeBox = false;
-		this.MinimumSize = new System.Drawing.Size(360, 150);
+		this.MinimumSize = new System.Drawing.Size(380, 220);
 		base.Name = "ErrorDialog";
 		base.ShowIcon = false;
 		base.ShowInTaskbar = false;
@@ -177,6 +230,5 @@ public class ErrorDialog : Form
 		this.flowButtons.PerformLayout();
 		this.panelButtons.ResumeLayout(false);
 		base.ResumeLayout(false);
-		base.PerformLayout();
 	}
 }

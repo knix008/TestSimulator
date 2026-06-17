@@ -9,21 +9,62 @@ namespace DBToolsWinV10.Import;
 
 public static class SqliteSchemaImporter
 {
-	public static DbSchema Import(string dbFilePath)
+	public static DbSchema Import(string dbFilePath, string password = null)
 	{
 		if (!File.Exists(dbFilePath))
-		{
 			throw new FileNotFoundException("SQLite 데이터베이스 파일을 찾을 수 없습니다.", dbFilePath);
-		}
+
 		string fullPath = Path.GetFullPath(dbFilePath);
+		try
+		{
+			using SqliteConnection connection = OpenConnection(fullPath, password);
+			return ReadSchema(fullPath, connection);
+		}
+		catch (SqlitePasswordRejectedException)
+		{
+			throw;
+		}
+		catch (SqlitePasswordRequiredException)
+		{
+			throw;
+		}
+		catch (SqliteException ex) when (!string.IsNullOrEmpty(password) && LooksLikeEncryptedDatabase(ex, fullPath))
+		{
+			throw new SqlitePasswordRejectedException(ex);
+		}
+		catch (SqliteException ex) when (string.IsNullOrEmpty(password) && LooksLikeEncryptedDatabase(ex, fullPath))
+		{
+			throw new SqlitePasswordRequiredException(fullPath, ex);
+		}
+		catch (SqliteException ex)
+		{
+			throw new InvalidDataException("SQLite 데이터베이스를 읽을 수 없습니다: " + ex.Message, ex);
+		}
+	}
+
+	public static bool LooksLikeEncryptedDatabase(SqliteException ex, string filePath = null)
+	{
+		if (!string.IsNullOrEmpty(filePath) && !SqliteFileDetector.HasSqliteHeader(filePath))
+			return false;
+
+		if (ex.SqliteErrorCode == 26)
+			return true;
+
+		string message = ex.Message;
+		return message.Contains("encrypted", StringComparison.OrdinalIgnoreCase)
+			|| message.Contains("not a database", StringComparison.OrdinalIgnoreCase)
+			|| message.Contains("file is not a database", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static DbSchema ReadSchema(string fullPath, SqliteConnection connection)
+	{
 		DbSchema dbSchema = new DbSchema
 		{
 			Name = Path.GetFileNameWithoutExtension(fullPath),
 			TargetDb = DbTargetType.SQLite
 		};
-		using SqliteConnection sqliteConnection = new SqliteConnection("Data Source=" + fullPath + ";Mode=ReadOnly");
-		sqliteConnection.Open();
-		List<string> list = ReadUserTables(sqliteConnection);
+
+		List<string> list = ReadUserTables(connection);
 		Dictionary<string, DbTable> dictionary = new Dictionary<string, DbTable>(StringComparer.OrdinalIgnoreCase);
 		foreach (string item in list)
 		{
@@ -31,14 +72,38 @@ public static class SqliteSchemaImporter
 			{
 				Name = item
 			};
-			ReadColumns(sqliteConnection, dbTable);
+			ReadColumns(connection, dbTable);
 			dbSchema.Tables.Add(dbTable);
 			dictionary[item] = dbTable;
 		}
-		ApplyUniqueIndexes(sqliteConnection, dictionary);
-		ReadForeignKeys(sqliteConnection, dictionary, dbSchema);
+
+		ApplyUniqueIndexes(connection, dictionary);
+		ReadForeignKeys(connection, dictionary, dbSchema);
 		SchemaLayout.AutoArrange(dbSchema);
 		return dbSchema;
+	}
+
+	private static SqliteConnection OpenConnection(string fullPath, string password)
+	{
+		SqliteConnectionStringBuilder builder = new SqliteConnectionStringBuilder
+		{
+			DataSource = fullPath,
+			Mode = SqliteOpenMode.ReadOnly
+		};
+		if (!string.IsNullOrEmpty(password))
+			builder.Password = password;
+
+		SqliteConnection connection = new SqliteConnection(builder.ConnectionString);
+		connection.Open();
+		VerifyReadable(connection);
+		return connection;
+	}
+
+	private static void VerifyReadable(SqliteConnection connection)
+	{
+		using SqliteCommand command = connection.CreateCommand();
+		command.CommandText = "SELECT COUNT(*) FROM sqlite_master;";
+		command.ExecuteScalar();
 	}
 
 	private static List<string> ReadUserTables(SqliteConnection connection)

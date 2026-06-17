@@ -14,6 +14,7 @@ using DBToolsWinV10.Dialogs;
 using DBToolsWinV10.Export;
 using DBToolsWinV10.Import;
 using DBToolsWinV10.Models;
+using DBToolsWinV10.Sample;
 using DBToolsWinV10.Serialization;
 
 namespace DBToolsWinV10;
@@ -30,7 +31,7 @@ public class MainForm : Form
 
 	private const int RightPanelWidth = 300;
 
-	private ToolStripLabel lblTsZoom = null;
+	private ToolStripButton btnTsZoom = null;
 
 	private IContainer components = null;
 
@@ -108,6 +109,8 @@ public class MainForm : Form
 
 	private ToolStripMenuItem menuDbSqlServer;
 
+	private ToolStripMenuItem menuDbVectorDb;
+
 	private ToolStripMenuItem menuAnalyzeTop;
 
 	private ToolStripMenuItem menuAnalyze;
@@ -117,6 +120,12 @@ public class MainForm : Form
 	private ToolStripSeparator sepAnalyze1;
 
 	private ToolStripMenuItem menuAbout;
+
+	private ToolStripMenuItem menuSample;
+
+	private ToolStripDropDownButton tsSample;
+
+	private ToolStripSeparator tsSepSample;
 
 	private ToolStrip toolStrip;
 
@@ -165,6 +174,8 @@ public class MainForm : Form
 	private ToolStripMenuItem tsDbSQLite;
 
 	private ToolStripMenuItem tsDbSqlServer;
+
+	private ToolStripMenuItem tsDbVectorDb;
 
 	private ToolStripButton btnTsAbout;
 
@@ -228,11 +239,15 @@ public class MainForm : Form
 
 	private ListView listViewAnalysis;
 
+	private Label lblAnalysisSummary;
+
 	private BufferedPropertyGrid propertyGrid = null!;
 
-	private SplitContainer splitPropertyDetail;
+	private ToolStrip propertySortBar;
 
-	private TextBox txtPropertyDescription;
+	private ToolStripButton btnPropertySortCategory;
+
+	private ToolStripButton btnPropertySortAlphabetical;
 
 	private StatusStrip statusStrip;
 
@@ -244,8 +259,9 @@ public class MainForm : Form
 		InitializeComponent();
 		if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
 		{
-			ConfigureToolStripZoomLabel();
+			ConfigureToolStripZoomButton();
 			ApplyModernTheme();
+			ConfigureSampleMenus();
 			ApplyIcons();
 			WireEvents();
 			diagramCanvas.ViewportChanged += delegate
@@ -260,38 +276,37 @@ public class MainForm : Form
 		}
 	}
 
+	private bool _rightPanelSplitterInitialized;
+
 	protected override void OnLoad(EventArgs e)
 	{
 		base.OnLoad(e);
 		SetRightPanelVisible(visible: true);
 		UpdateViewportUi();
-		BeginInvoke(() =>
-		{
-			ApplyRightPanelSplitterLayout();
-			ApplyPropertyDetailSplitterLayout();
-		});
+		splitRightPanel.Resize += RightPanelSplitter_Resize;
+		BeginInvoke(ApplyRightPanelSplitterLayout);
 	}
 
-	private void ApplyPropertyDetailSplitterLayout()
+	private void RightPanelSplitter_Resize(object sender, EventArgs e)
 	{
-		if (splitPropertyDetail.Height <= 0)
-			return;
-
-		const int defaultDescriptionHeight = 72;
-		int distance = splitPropertyDetail.Height - defaultDescriptionHeight - splitPropertyDetail.SplitterWidth;
-		int maxDistance = splitPropertyDetail.Height - splitPropertyDetail.Panel2MinSize - splitPropertyDetail.SplitterWidth;
-		splitPropertyDetail.SplitterDistance = Math.Clamp(distance, splitPropertyDetail.Panel1MinSize, Math.Max(splitPropertyDetail.Panel1MinSize, maxDistance));
+		ApplyRightPanelSplitterLayout();
 	}
 
 	private void ApplyRightPanelSplitterLayout()
 	{
-		if (splitRightPanel.Height <= 0)
+		if (_rightPanelSplitterInitialized || splitRightPanel.Height <= 0)
 			return;
 
-		const int defaultPropertyHeight = 240;
-		int distance = splitRightPanel.Height - defaultPropertyHeight - splitRightPanel.SplitterWidth;
+		int minTotal = splitRightPanel.Panel1MinSize + splitRightPanel.Panel2MinSize + splitRightPanel.SplitterWidth;
+		if (splitRightPanel.Height < minTotal)
+			return;
+
+		int available = splitRightPanel.Height - splitRightPanel.SplitterWidth;
+		int half = available / 2;
 		int maxDistance = splitRightPanel.Height - splitRightPanel.Panel2MinSize - splitRightPanel.SplitterWidth;
-		splitRightPanel.SplitterDistance = Math.Clamp(distance, splitRightPanel.Panel1MinSize, Math.Max(splitRightPanel.Panel1MinSize, maxDistance));
+		splitRightPanel.SplitterDistance = Math.Clamp(half, splitRightPanel.Panel1MinSize, Math.Max(splitRightPanel.Panel1MinSize, maxDistance));
+		_rightPanelSplitterInitialized = true;
+		splitRightPanel.Resize -= RightPanelSplitter_Resize;
 	}
 
 	private void SetRightPanelVisible(bool visible, bool syncUiOnly = false)
@@ -326,7 +341,7 @@ public class MainForm : Form
 
 	private void UpdateViewportUi()
 	{
-		lblTsZoom.Text = $"{diagramCanvas.Zoom:P0}";
+		btnTsZoom.Text = $"{diagramCanvas.Zoom:P0}";
 		Point scrollPosition = diagramCanvas.ScrollPosition;
 		rulerHorizontal.Zoom = diagramCanvas.Zoom;
 		rulerHorizontal.ScrollOffset = scrollPosition.X;
@@ -359,10 +374,10 @@ public class MainForm : Form
 		ModernTheme.StyleTabControl(tabControlRight);
 		ModernTheme.StyleDataTree(treeViewSchema);
 		ModernTheme.StyleDataList(listViewAnalysis);
+		ConfigureAnalysisPanel();
 		ModernTheme.StylePropertyGrid(propertyGrid);
-		ModernTheme.StylePropertyDescription(txtPropertyDescription);
+		propertyGrid.HelpVisible = false;
 		ModernTheme.StyleSplitContainer(splitRightPanel, ModernTheme.PanelBackground, ModernTheme.PanelBackground);
-		ModernTheme.StyleSplitContainer(splitPropertyDetail, ModernTheme.PanelBackground, ModernTheme.SidebarBackground);
 		panelContent.BackColor = ModernTheme.AppBackground;
 		panelCanvasHost.BackColor = ModernTheme.CanvasChrome;
 		panelCanvasInner.BackColor = ModernTheme.CanvasBackground;
@@ -376,19 +391,69 @@ public class MainForm : Form
 		UpdateToolButtonStates();
 	}
 
-	private void ConfigureToolStripZoomLabel()
+	private void ConfigureToolStripZoomButton()
 	{
-		lblTsZoom = new ToolStripLabel
+		btnTsZoom = new ToolStripButton
 		{
 			Margin = new Padding(6, 0, 2, 0),
-			Name = "lblTsZoom",
-			Size = new Size(38, 25),
+			Name = "btnTsZoom",
 			Text = "100%",
+			DisplayStyle = ToolStripItemDisplayStyle.Text,
 			ForeColor = ModernTheme.TextSecondary,
-			Font = ModernTheme.UiFontSmall
+			Font = ModernTheme.UiFontSmall,
+			ToolTipText = "배율을 100%로 복원"
+		};
+		btnTsZoom.Click += delegate
+		{
+			diagramCanvas.ResetZoom();
 		};
 		int num = toolStrip.Items.IndexOf(btnTsZoomOut);
-		toolStrip.Items.Insert(num + 1, lblTsZoom);
+		toolStrip.Items.Insert(num + 1, btnTsZoom);
+	}
+
+	private void ConfigureAnalysisPanel()
+	{
+		lblAnalysisSummary = new Label
+		{
+			Dock = DockStyle.Top,
+			Height = 40,
+			Padding = new Padding(10, 10, 10, 4),
+			TextAlign = ContentAlignment.MiddleLeft,
+			Text = "정규화 분석 결과가 여기에 표시됩니다.",
+			ForeColor = ModernTheme.TextSecondary,
+			BackColor = ModernTheme.SidebarBackground,
+			Font = ModernTheme.UiFontSmall
+		};
+		tabAnalysis.Controls.Clear();
+		listViewAnalysis.Dock = DockStyle.Fill;
+		tabAnalysis.Controls.Add(listViewAnalysis);
+		tabAnalysis.Controls.Add(lblAnalysisSummary);
+		listViewAnalysis.Columns.AddRange(new[]
+		{
+			new ColumnHeader { Text = "수준", Width = 42 },
+			new ColumnHeader { Text = "심각도", Width = 48 },
+			new ColumnHeader { Text = "테이블", Width = 88 },
+			new ColumnHeader { Text = "문제 컬럼", Width = 96 },
+			new ColumnHeader { Text = "문제", Width = 140 },
+			new ColumnHeader { Text = "권장", Width = 160 }
+		});
+		listViewAnalysis.ShowGroups = true;
+		listViewAnalysis.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+		listViewAnalysis.DoubleClick += ListViewAnalysis_DoubleClick;
+	}
+
+	private void ListViewAnalysis_DoubleClick(object sender, EventArgs e)
+	{
+		if (listViewAnalysis.SelectedItems.Count == 0 || listViewAnalysis.SelectedItems[0].Tag is not NormalizationIssue issue)
+		{
+			return;
+		}
+		DbTable table = diagramCanvas.Schema.Tables.FirstOrDefault((DbTable t) => t.Name == issue.Table);
+		if (table != null)
+		{
+			diagramCanvas.SelectTable(table);
+			RefreshPropertyGrid();
+		}
 	}
 
 	private static void ConfigureToolboxButton(Button button, string iconName, string caption)
@@ -417,6 +482,11 @@ public class MainForm : Form
 		UpdateRightPanelToggleUi();
 		btnTsAnalyze.Image = IconProvider.Get("Analyze", 22);
 		btnTsWriteReport.Image = IconProvider.Get("Report", 22);
+		if (tsSample != null)
+		{
+			tsSample.Image = IconProvider.Get("Sample", 22);
+			ApplySampleDropdownIcons(tsSample.DropDownItems);
+		}
 		tsDbType.Image = IconProvider.Get("SQLite", 22);
 		btnTsAbout.Image = IconProvider.Get("About", 22);
 		tsDbPostgres.Image = IconProvider.Get("PostgreSQL");
@@ -424,6 +494,7 @@ public class MainForm : Form
 		tsDbMariaDB.Image = IconProvider.Get("MariaDB");
 		tsDbSQLite.Image = IconProvider.Get("SQLite");
 		tsDbSqlServer.Image = IconProvider.Get("SqlServer");
+		tsDbVectorDb.Image = IconProvider.Get("FAISS");
 		menuNew.Image = IconProvider.Get("New");
 		menuOpen.Image = IconProvider.Get("Open");
 		menuOpenDatabase.Image = IconProvider.Get("OpenDbFile");
@@ -433,6 +504,8 @@ public class MainForm : Form
 		menuExport.Image = IconProvider.Get("Export");
 		menuExportSql.Image = IconProvider.Get("ExportSql");
 		menuExportJson.Image = IconProvider.Get("Export");
+		if (menuSample != null)
+			menuSample.Image = IconProvider.Get("Sample");
 		menuExit.Image = IconProvider.Get("Exit");
 		menuAddTable.Image = IconProvider.Get("AddTable");
 		menuAddColumn.Image = IconProvider.Get("AddColumn");
@@ -449,6 +522,7 @@ public class MainForm : Form
 		menuDbMariaDB.Image = IconProvider.Get("MariaDB");
 		menuDbSQLite.Image = IconProvider.Get("SQLite");
 		menuDbSqlServer.Image = IconProvider.Get("SqlServer");
+		menuDbVectorDb.Image = IconProvider.Get("FAISS");
 		menuAnalyze.Image = IconProvider.Get("Analyze");
 		menuWriteReport.Image = IconProvider.Get("Report");
 		menuAbout.Image = IconProvider.Get("About");
@@ -643,6 +717,10 @@ public class MainForm : Form
 		{
 			SetDbType(DbTargetType.SqlServer);
 		};
+		tsDbVectorDb.Click += delegate
+		{
+			SetDbType(DbTargetType.VectorDb);
+		};
 		treeViewSchema.AfterSelect += TreeView_AfterSelect;
 		treeViewSchema.NodeMouseDoubleClick += TreeView_DoubleClick;
 		menuNew.Click += delegate
@@ -737,6 +815,10 @@ public class MainForm : Form
 		{
 			SetDbType(DbTargetType.SqlServer);
 		};
+		menuDbVectorDb.Click += delegate
+		{
+			SetDbType(DbTargetType.VectorDb);
+		};
 		menuAnalyze.Click += delegate
 		{
 			RunNormalizationCheck();
@@ -750,15 +832,127 @@ public class MainForm : Form
 			ShowAbout();
 		};
 		propertyGrid.PropertyValueChanged += PropertyGrid_PropertyValueChanged;
-		propertyGrid.PropertySortChanged += PropertyGrid_PropertySortChanged;
-		propertyGrid.SelectedGridItemChanged += PropertyGrid_SelectedGridItemChanged;
+		ConfigurePropertySortBar();
 		splitRightPanel.SplitterMoving += SplitPanel_SplitterMoving;
 		splitRightPanel.SplitterMoved += SplitPanel_SplitterMoved;
-		splitPropertyDetail.SplitterMoving += SplitPanel_SplitterMoving;
-		splitPropertyDetail.SplitterMoved += SplitPanel_SplitterMoved;
 		base.FormClosing += MainForm_FormClosing;
 		base.KeyPreview = true;
 		base.KeyDown += MainForm_KeyDown;
+	}
+
+	private void ConfigureSampleMenus()
+	{
+		menuSample = new ToolStripMenuItem
+		{
+			Name = "menuSample",
+			Text = "Sample 생성(&S)",
+			ToolTipText = "DB별 OnlineShop Template 파일을 생성합니다"
+		};
+		AddSampleMenuItems(menuSample.DropDownItems);
+
+		int fileIdx = menuFile.DropDownItems.IndexOf(sepFile4);
+		menuFile.DropDownItems.Insert(fileIdx, menuSample);
+
+		tsSepSample = new ToolStripSeparator { Name = "tsSepSample" };
+		tsSample = new ToolStripDropDownButton
+		{
+			Name = "tsSample",
+			Text = "Sample",
+			DisplayStyle = ToolStripItemDisplayStyle.Image,
+			ToolTipText = "DB별 Sample 파일 생성"
+		};
+		AddSampleMenuItems(tsSample.DropDownItems);
+
+		int tsIdx = toolStrip.Items.IndexOf(tsSep4);
+		toolStrip.Items.Insert(tsIdx, tsSepSample);
+		toolStrip.Items.Insert(tsIdx + 1, tsSample);
+	}
+
+	private void AddSampleMenuItems(ToolStripItemCollection items)
+	{
+		items.Add(CreateSampleMenuItem("전체 Sample 생성...", "Sample", "모든 DB 형식의 OnlineShop Sample을 생성합니다", GenerateAllSamples));
+		items.Add(new ToolStripSeparator());
+		items.Add(CreateSampleMenuItem("SQLite Sample...", "SQLite", "SQLite DB Sample 파일을 생성합니다", () => GenerateDbSample(DbTargetType.SQLite)));
+		items.Add(CreateSampleMenuItem("PostgreSQL Sample...", "PostgreSQL", "PostgreSQL DDL Sample 파일을 생성합니다", () => GenerateDbSample(DbTargetType.PostgreSQL)));
+		items.Add(CreateSampleMenuItem("MySQL Sample...", "MySQL", "MySQL DDL Sample 파일을 생성합니다", () => GenerateDbSample(DbTargetType.MySQL)));
+		items.Add(CreateSampleMenuItem("MariaDB Sample...", "MariaDB", "MariaDB DDL Sample 파일을 생성합니다", () => GenerateDbSample(DbTargetType.MariaDB)));
+		items.Add(CreateSampleMenuItem("SQL Server Sample...", "SqlServer", "SQL Server DDL 및 MDF Sample 파일을 생성합니다", () => GenerateDbSample(DbTargetType.SqlServer)));
+		items.Add(CreateSampleMenuItem("Access Sample...", "Access", "Access ACCDB Sample 파일을 생성합니다", GenerateAccessSample));
+	}
+
+	private ToolStripMenuItem CreateSampleMenuItem(string text, string iconName, string tooltip, Action handler)
+	{
+		var item = new ToolStripMenuItem(text)
+		{
+			Image = IconProvider.Get(iconName),
+			ToolTipText = tooltip
+		};
+		item.Click += (_, _) => handler();
+		return item;
+	}
+
+	private static void ApplySampleDropdownIcons(ToolStripItemCollection items)
+	{
+		string[] icons = { "Sample", null, "SQLite", "PostgreSQL", "MySQL", "MariaDB", "SqlServer", "Access" };
+		int iconIdx = 0;
+		foreach (ToolStripItem item in items)
+		{
+			if (item is ToolStripSeparator)
+			{
+				iconIdx++;
+				continue;
+			}
+			if (iconIdx < icons.Length && icons[iconIdx] != null)
+				item.Image = IconProvider.Get(icons[iconIdx], 22);
+			iconIdx++;
+		}
+	}
+
+	private void GenerateAllSamples()
+	{
+		RunSampleGeneration(SampleDbGenerator.GenerateAll);
+	}
+
+	private void GenerateDbSample(DbTargetType target)
+	{
+		RunSampleGeneration(dir => SampleDbGenerator.Generate(target, dir));
+	}
+
+	private void GenerateAccessSample()
+	{
+		RunSampleGeneration(SampleDbGenerator.GenerateAccess);
+	}
+
+	private void RunSampleGeneration(Func<string, SampleGenerationResult> generate)
+	{
+		using var dlg = new FolderBrowserDialog
+		{
+			Description = "Template 파일을 저장할 폴더를 선택하세요.",
+			SelectedPath = SampleDbGenerator.ResolveTemplateDirectory(),
+			UseDescriptionForTitle = true
+		};
+		if (dlg.ShowDialog(this) != DialogResult.OK)
+			return;
+
+		try
+		{
+			SampleGenerationResult result = generate(dlg.SelectedPath);
+			string body = result.Message;
+			if (result.CreatedFiles.Count > 0)
+			{
+				body += Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine,
+					result.CreatedFiles.Select(Path.GetFileName));
+			}
+
+			MessageBox.Show(this, body, result.Success ? "Sample 생성" : "Sample 생성 경고",
+				MessageBoxButtons.OK,
+				result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+			statusLabel.Text = result.Message;
+		}
+		catch (Exception ex)
+		{
+			ErrorDialog.Show(this, "Sample 생성 오류", ex);
+		}
 	}
 
 	private void NewSchema()
@@ -805,7 +999,7 @@ public class MainForm : Form
 		}
 		using OpenFileDialog openFileDialog = new OpenFileDialog
 		{
-			Filter = "지원 DB 파일|*.db;*.sqlite;*.sqlite3;*.db3;*.sql;*.mdf;*.mdb;*.accdb|SQLite (*.db;*.sqlite;*.sqlite3)|*.db;*.sqlite;*.sqlite3;*.db3|SQL DDL (*.sql)|*.sql|SQL Server (*.mdf)|*.mdf|Access (*.mdb;*.accdb)|*.mdb;*.accdb|모든 파일 (*.*)|*.*",
+			Filter = DbFileFormatDetector.OpenFileFilter,
 			Title = "DB 파일 열기"
 		};
 		string text = AppSettings.ResolveInitialDatabaseFileOpenDirectory();
@@ -836,10 +1030,12 @@ public class MainForm : Form
 			DbFileFormat dbFileFormat = DbFileFormatDetector.Detect(path);
 			if (dbFileFormat == DbFileFormat.Unknown)
 			{
-				ErrorDialog.Show(this, "지원하지 않는 형식", "지원하지 않는 DB 파일 형식입니다.\n\n지원 형식: SQLite(.db), SQL DDL(.sql), SQL Server(.mdf), Access(.mdb/.accdb)");
+				ErrorDialog.Show(this, "지원하지 않는 형식", "지원하지 않는 DB 파일 형식입니다.\n\n지원 형식: SQLite(.db), SQLCipher, Vector Index(Faiss/hnswlib), SQL DDL(.sql), SQL Server(.mdf), Access(.mdb/.accdb)");
 				return;
 			}
-			DbSchema dbSchema = DatabaseFileImporter.Import(path);
+			DbSchema dbSchema = dbFileFormat == DbFileFormat.Sqlite
+				? ImportSqliteDatabase(path)
+				: DatabaseFileImporter.Import(path);
 			diagramCanvas.LoadSchema(dbSchema);
 			_currentFilePath = null;
 			_isDirty = true;
@@ -850,9 +1046,34 @@ public class MainForm : Form
 			string displayName = DbFileFormatDetector.GetDisplayName(dbFileFormat);
 			statusLabel.Text = $"{displayName} 가져오기 완료: {Path.GetFileName(path)}  (테이블 {dbSchema.Tables.Count}개, 관계 {dbSchema.Relationships.Count}개)";
 		}
+		catch (OperationCanceledException)
+		{
+		}
 		catch (Exception ex)
 		{
 			ErrorDialog.Show(this, "DB 파일 열기 오류", ex, "데이터베이스 구조를 읽을 수 없습니다.\n" + path);
+		}
+	}
+
+	private DbSchema ImportSqliteDatabase(string path)
+	{
+		string password = null;
+		while (true)
+		{
+			try
+			{
+				return SqliteSchemaImporter.Import(path, password);
+			}
+			catch (SqlitePasswordRequiredException)
+			{
+				if (!SqlitePasswordDialog.TryPrompt(this, path, null, out password))
+					throw new OperationCanceledException();
+			}
+			catch (SqlitePasswordRejectedException)
+			{
+				if (!SqlitePasswordDialog.TryPrompt(this, path, "암호가 올바르지 않습니다.", out password))
+					throw new OperationCanceledException();
+			}
 		}
 	}
 
@@ -1055,18 +1276,31 @@ public class MainForm : Form
 			MessageBox.Show("테이블을 먼저 선택하세요.", "안내");
 			return;
 		}
-		DbColumn column = new DbColumn
+
+		try
 		{
-			Name = $"col_{table.Columns.Count + 1}",
-			DataType = "VARCHAR",
-			Length = 255
-		};
-		using ColumnEditDialog columnEditDialog = new ColumnEditDialog(column, diagramCanvas.Schema.TargetDb);
-		if (columnEditDialog.ShowDialog(this) == DialogResult.OK)
+			DbTargetType targetDb = diagramCanvas.Schema.TargetDb;
+			string[] types = DataTypeProvider.GetTypes(targetDb);
+			DbColumn column = new DbColumn
+			{
+				Name = $"col_{table.Columns.Count + 1}",
+				DataType = types.Length > 0 ? types[0] : "TEXT",
+				IsNullable = true
+			};
+			if (DataTypeProvider.TypeHasLength(column.DataType))
+				column.Length = targetDb == DbTargetType.VectorDb ? 128 : 255;
+
+			using ColumnEditDialog columnEditDialog = new ColumnEditDialog(column, targetDb);
+			if (columnEditDialog.ShowDialog(this) == DialogResult.OK)
+			{
+				table.Columns.Add(columnEditDialog.Result);
+				_isDirty = true;
+				RefreshAll();
+			}
+		}
+		catch (Exception ex)
 		{
-			table.Columns.Add(columnEditDialog.Result);
-			_isDirty = true;
-			RefreshAll();
+			ErrorDialog.Show(this, "컬럼 추가 오류", ex, "컬럼을 추가할 수 없습니다.");
 		}
 	}
 
@@ -1153,6 +1387,9 @@ public class MainForm : Form
 		ToolStripSeparator toolStripSeparator = new ToolStripSeparator();
 		ToolStripMenuItem miEditTable = ModernTheme.CreateMenuItem("테이블 편집...", "Edit");
 		ToolStripMenuItem miDeleteTable = ModernTheme.CreateMenuItem("테이블 삭제", "Delete");
+		ToolStripSeparator sortSeparator = new ToolStripSeparator();
+		ToolStripMenuItem miSortCategory = ModernTheme.CreateMenuItem("분류별 정렬", "SortCategory");
+		ToolStripMenuItem miSortAlphabetical = ModernTheme.CreateMenuItem("사전순 정렬", "SortAlphabetical");
 		miEditCol.Click += delegate
 		{
 			(DbTable, DbColumn)? columnContext = GetColumnContext();
@@ -1201,7 +1438,15 @@ public class MainForm : Form
 				RefreshAll();
 			}
 		};
-		contextMenuStrip.Items.AddRange(miEditCol, miAddCol, miDeleteCol, toolStripSeparator, miEditTable, miDeleteTable);
+		miSortCategory.Click += delegate
+		{
+			ApplyPropertySortMode(categorized: true);
+		};
+		miSortAlphabetical.Click += delegate
+		{
+			ApplyPropertySortMode(categorized: false);
+		};
+		contextMenuStrip.Items.AddRange(miEditCol, miAddCol, miDeleteCol, toolStripSeparator, miEditTable, miDeleteTable, sortSeparator, miSortCategory, miSortAlphabetical);
 		contextMenuStrip.Opening += delegate
 		{
 			(DbTable, DbColumn)? columnContext = GetColumnContext();
@@ -1211,6 +1456,8 @@ public class MainForm : Form
 			miAddCol.Enabled = tableContext != null;
 			miEditTable.Enabled = tableContext != null;
 			miDeleteTable.Enabled = tableContext != null;
+			miSortCategory.Checked = !propertyGrid.IsAlphabeticalWithinCategories;
+			miSortAlphabetical.Checked = propertyGrid.IsAlphabeticalWithinCategories;
 		};
 		propertyGrid.ContextMenuStrip = contextMenuStrip;
 	}
@@ -1319,14 +1566,16 @@ public class MainForm : Form
 		_isDirty = true;
 		UpdateDbTypeIndicator(db);
 		RefreshAll();
-		statusLabel.Text = $"데이터베이스 종류: {db}";
+		statusLabel.Text = $"데이터베이스 종류: {DbTargetTypeHelper.GetDisplayName(db)}";
 	}
 
 	private void UpdateDbTypeIndicator(DbTargetType db)
 	{
-		tsDbType.Text = db.ToString();
-		tsDbType.Image = IconProvider.Get(db.ToString(), 22);
-		menuDbType.Image = IconProvider.Get(db.ToString());
+		string displayName = DbTargetTypeHelper.GetDisplayName(db);
+		string iconKey = DbTargetTypeHelper.GetIconKey(db);
+		tsDbType.Text = displayName;
+		tsDbType.Image = IconProvider.Get(iconKey, 22);
+		menuDbType.Image = IconProvider.Get(iconKey);
 	}
 
 	private void SetTool(ToolMode mode)
@@ -1359,35 +1608,81 @@ public class MainForm : Form
 
 	private void RunNormalizationCheck()
 	{
-		IReadOnlyList<NormalizationIssue> readOnlyList = NormalizationAnalyzer.Analyze(diagramCanvas.Schema);
+		RefreshNormalizationAnalysis(focusTab: true);
+	}
+
+	private void RefreshNormalizationAnalysis(bool focusTab = false)
+	{
+		DbSchema schema = diagramCanvas.Schema;
+		IReadOnlyList<NormalizationIssue> issues = NormalizationAnalyzer.Analyze(schema);
+		listViewAnalysis.BeginUpdate();
 		listViewAnalysis.Items.Clear();
-		foreach (NormalizationIssue item in readOnlyList)
+		listViewAnalysis.Groups.Clear();
+		if (schema.Tables.Count == 0)
 		{
-			ListViewItem listViewItem = new ListViewItem(item.Level.ToString())
+			lblAnalysisSummary.Text = "테이블이 없어 정규화 검사를 수행할 수 없습니다.";
+			lblAnalysisSummary.ForeColor = ModernTheme.TextMuted;
+			listViewAnalysis.EndUpdate();
+			if (focusTab)
 			{
-				Tag = item
-			};
-			listViewItem.SubItems.Add(item.Table);
-			listViewItem.SubItems.Add(item.Message);
-			ListViewItem listViewItem2 = listViewItem;
-			IssueSeverity severity = item.Severity;
-			if (1 == 0)
-			{
+				tabControlRight.SelectedTab = tabAnalysis;
 			}
-			Color foreColor = severity switch
+			return;
+		}
+		Dictionary<NormalizationLevel, ListViewGroup> groups = new Dictionary<NormalizationLevel, ListViewGroup>();
+		foreach (NormalizationIssue issue in issues.OrderBy((NormalizationIssue i) => i.Severity).ThenBy((NormalizationIssue i) => i.Level).ThenBy((NormalizationIssue i) => i.Table, StringComparer.OrdinalIgnoreCase))
+		{
+			if (!groups.TryGetValue(issue.Level, out ListViewGroup group))
 			{
-				IssueSeverity.Error => ModernTheme.Danger, 
-				IssueSeverity.Warning => ModernTheme.Warning, 
-				_ => ModernTheme.Info, 
-			};
-			if (1 == 0)
-			{
+				group = new ListViewGroup(NormalizationLabels.GetLevelGroupTitle(issue.Level), HorizontalAlignment.Left);
+				listViewAnalysis.Groups.Add(group);
+				groups[issue.Level] = group;
 			}
-			listViewItem2.ForeColor = foreColor;
+			ListViewItem listViewItem = new ListViewItem(NormalizationLabels.GetLevelLabel(issue.Level))
+			{
+				Group = groups[issue.Level],
+				Tag = issue
+			};
+			listViewItem.SubItems.Add(NormalizationLabels.GetSeverityLabel(issue.Severity));
+			listViewItem.SubItems.Add(issue.Table);
+			listViewItem.SubItems.Add(string.IsNullOrWhiteSpace(issue.AffectedColumns) ? "-" : issue.AffectedColumns);
+			listViewItem.SubItems.Add(issue.Message);
+			listViewItem.SubItems.Add(issue.Hint);
+			NormalizationLabels.ApplyListItemStyle(listViewItem, issue.Severity);
 			listViewAnalysis.Items.Add(listViewItem);
 		}
-		tabControlRight.SelectedTab = tabAnalysis;
-		statusLabel.Text = ((readOnlyList.Count == 0) ? "정규화 검사 완료: 문제 없음" : $"정규화 검사 완료: {readOnlyList.Count}개 항목 발견");
+		int errorCount = issues.Count((NormalizationIssue i) => i.Severity == IssueSeverity.Error);
+		int warningCount = issues.Count((NormalizationIssue i) => i.Severity == IssueSeverity.Warning);
+		int infoCount = issues.Count((NormalizationIssue i) => i.Severity == IssueSeverity.Info);
+		if (issues.Count == 0)
+		{
+			lblAnalysisSummary.Text = "정규화 검사: 문제 없음 (1NF · 2NF · 3NF)";
+			lblAnalysisSummary.ForeColor = ModernTheme.Success;
+		}
+		else
+		{
+			List<string> parts = new List<string>();
+			if (errorCount > 0)
+			{
+				parts.Add($"오류 {errorCount}건");
+			}
+			if (warningCount > 0)
+			{
+				parts.Add($"경고 {warningCount}건");
+			}
+			if (infoCount > 0)
+			{
+				parts.Add($"정보 {infoCount}건");
+			}
+			lblAnalysisSummary.Text = "정규화 검사: " + string.Join(", ", parts) + " — 아래 목록에서 문제 위치를 확인하세요.";
+			lblAnalysisSummary.ForeColor = (errorCount > 0) ? ModernTheme.Danger : ModernTheme.Warning;
+		}
+		listViewAnalysis.EndUpdate();
+		if (focusTab)
+		{
+			tabControlRight.SelectedTab = tabAnalysis;
+			statusLabel.Text = ((issues.Count == 0) ? "정규화 검사 완료: 문제 없음" : $"정규화 검사 완료: {issues.Count}개 항목 발견");
+		}
 	}
 
 	private void WriteReport()
@@ -1424,7 +1719,7 @@ public class MainForm : Form
 		treeViewSchema.BeginUpdate();
 		treeViewSchema.Nodes.Clear();
 		DbSchema schema = diagramCanvas.Schema;
-		TreeNode treeNode = new TreeNode($"\ud83d\udce6 {schema.Name}  [{schema.TargetDb}]")
+		TreeNode treeNode = new TreeNode($"\ud83d\udce6 {schema.Name}  [{DbTargetTypeHelper.GetDisplayName(schema.TargetDb)}]")
 		{
 			Tag = schema
 		};
@@ -1436,8 +1731,10 @@ public class MainForm : Form
 			{
 				Tag = table
 			};
-			foreach (DbColumn col in table.Columns)
+			foreach (DbColumn col in table.Columns ?? Enumerable.Empty<DbColumn>())
 			{
+				if (col == null)
+					continue;
 				string value = (col.IsPrimaryKey ? "\ud83d\udd11" : (schema.Relationships.Any((DbRelationship r) => r.SourceTableId == table.Id && r.SourceColumnId == col.Id) ? "\ud83d\udd17" : "·"));
 				treeNode3.Nodes.Add(new TreeNode($"{value} {col.Name}  :  {col.GetTypeDisplay()}")
 				{
@@ -1482,6 +1779,9 @@ public class MainForm : Form
 
 	private void TreeView_AfterSelect(object sender, TreeViewEventArgs e)
 	{
+		if (e.Node == null)
+			return;
+
 		object obj = e.Node.Tag;
 		diagramCanvas.ClearSelection();
 		PropertyGrid propertyGrid = this.propertyGrid;
@@ -1497,6 +1797,9 @@ public class MainForm : Form
 
 	private void TreeView_DoubleClick(object sender, TreeNodeMouseClickEventArgs e)
 	{
+		if (e.Node == null)
+			return;
+
 		object obj = e.Node.Tag;
 		if (obj is DbTable table)
 		{
@@ -1531,40 +1834,57 @@ public class MainForm : Form
 		{
 			propertyGrid.SelectedObject = obj;
 		}
-		UpdatePropertyDescription(propertyGrid.SelectedGridItem);
-	}
-
-	private void PropertyGrid_SelectedGridItemChanged(object sender, SelectedGridItemChangedEventArgs e)
-	{
-		UpdatePropertyDescription(e.NewSelection);
-	}
-
-	private void UpdatePropertyDescription(GridItem item)
-	{
-		string text = item.PropertyDescriptor.Description ?? string.Empty;
-		if (txtPropertyDescription.Text != text)
-			txtPropertyDescription.Text = text;
 	}
 
 	private void SplitPanel_SplitterMoving(object sender, SplitterCancelEventArgs e)
 	{
-		splitPropertyDetail.SuspendLayout();
-		propertyGrid.Visible = false;
-		txtPropertyDescription.Visible = false;
+		propertyGrid.Invalidate(true);
+	}
+
+	private void ConfigurePropertySortBar()
+	{
+		ModernTheme.StyleToolStrip(propertySortBar);
+		btnPropertySortCategory.Click += delegate
+		{
+			ApplyPropertySortMode(categorized: true);
+		};
+		btnPropertySortAlphabetical.Click += delegate
+		{
+			ApplyPropertySortMode(categorized: false);
+		};
+		UpdatePropertySortButtons();
+	}
+
+	private void ApplyPropertySortMode(bool categorized)
+	{
+		if (categorized)
+		{
+			propertyGrid.SetSortByCategory();
+		}
+		else
+		{
+			propertyGrid.SetSortAlphabetical();
+		}
+
+		UpdatePropertySortButtons();
+	}
+
+	private void UpdatePropertySortButtons()
+	{
+		if (btnPropertySortCategory == null || btnPropertySortAlphabetical == null)
+		{
+			return;
+		}
+
+		bool alphabetical = propertyGrid.IsAlphabeticalWithinCategories;
+		btnPropertySortCategory.Checked = !alphabetical;
+		btnPropertySortAlphabetical.Checked = alphabetical;
 	}
 
 	private void SplitPanel_SplitterMoved(object sender, SplitterEventArgs e)
 	{
-		propertyGrid.Visible = true;
-		txtPropertyDescription.Visible = true;
-		splitPropertyDetail.ResumeLayout(performLayout: true);
-	}
-
-	private void PropertyGrid_PropertySortChanged(object sender, EventArgs e)
-	{
-		// 사전순 선택 시에도 카테고리 헤더·접기/펼치기가 유지되도록 한다.
-		if (propertyGrid.PropertySort == PropertySort.Alphabetical)
-			propertyGrid.PropertySort = PropertySort.CategorizedAlphabetical;
+		propertyGrid.PerformLayout();
+		propertyGrid.Invalidate(true);
 	}
 
 	private void PropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
@@ -1578,6 +1898,7 @@ public class MainForm : Form
 	private void RefreshAll()
 	{
 		RefreshTreeView();
+		RefreshNormalizationAnalysis();
 		RefreshPropertyGrid();
 		RefreshStatus();
 		UpdateTitle();
@@ -1588,7 +1909,7 @@ public class MainForm : Form
 	private void RefreshStatus()
 	{
 		DbSchema schema = diagramCanvas.Schema;
-		statusLabel.Text = $"{schema.Name}  |  {schema.TargetDb}  |  테이블 {schema.Tables.Count}개  |  관계 {schema.Relationships.Count}개";
+		statusLabel.Text = $"{schema.Name}  |  {DbTargetTypeHelper.GetDisplayName(schema.TargetDb)}  |  테이블 {schema.Tables.Count}개  |  관계 {schema.Relationships.Count}개";
 	}
 
 	private void UpdateTitle()
@@ -1755,6 +2076,7 @@ public class MainForm : Form
         menuDbMariaDB = new ToolStripMenuItem();
         menuDbSQLite = new ToolStripMenuItem();
         menuDbSqlServer = new ToolStripMenuItem();
+        menuDbVectorDb = new ToolStripMenuItem();
         menuDbType = new ToolStripMenuItem();
         menuView = new ToolStripMenuItem();
         menuAnalyze = new ToolStripMenuItem();
@@ -1785,6 +2107,7 @@ public class MainForm : Form
         tsDbMariaDB = new ToolStripMenuItem();
         tsDbSQLite = new ToolStripMenuItem();
         tsDbSqlServer = new ToolStripMenuItem();
+        tsDbVectorDb = new ToolStripMenuItem();
         tsDbType = new ToolStripDropDownButton();
         btnTsAbout = new ToolStripButton();
         toolStrip = new ToolStrip();
@@ -1797,8 +2120,10 @@ public class MainForm : Form
         tabTreeView = new TabPage();
         tabAnalysis = new TabPage();
         tabControlRight = new TabControl();
-        splitPropertyDetail = new SplitContainer();
-        txtPropertyDescription = new TextBox();
+        propertyGrid = new BufferedPropertyGrid();
+        propertySortBar = new ToolStrip();
+        btnPropertySortCategory = new ToolStripButton();
+        btnPropertySortAlphabetical = new ToolStripButton();
         splitRightPanel = new SplitContainer();
         panelRight = new Panel();
         diagramCanvas = new DiagramCanvas();
@@ -1822,12 +2147,10 @@ public class MainForm : Form
         tabTreeView.SuspendLayout();
         tabAnalysis.SuspendLayout();
         tabControlRight.SuspendLayout();
-        ((ISupportInitialize)splitPropertyDetail).BeginInit();
-        splitPropertyDetail.Panel2.SuspendLayout();
-        splitPropertyDetail.SuspendLayout();
         ((ISupportInitialize)splitRightPanel).BeginInit();
         splitRightPanel.Panel1.SuspendLayout();
         splitRightPanel.Panel2.SuspendLayout();
+        propertySortBar.SuspendLayout();
         splitRightPanel.SuspendLayout();
         panelRight.SuspendLayout();
         panelCanvasArea.SuspendLayout();
@@ -1848,7 +2171,7 @@ public class MainForm : Form
         btnToolSelect.Size = new Size(60, 40);
         btnToolSelect.TabIndex = 1;
         btnToolSelect.Text = "선택";
-        toolTip1.SetToolTip(btnToolSelect, "포인터로 테이블/관계를 선택·이동합니다");
+        toolTip1.SetToolTip(btnToolSelect, "테이블/관계 선택·이동, 빈 영역 드래그로 화면 이동");
         // 
         // btnToolAddTable
         // 
@@ -1962,7 +2285,7 @@ public class MainForm : Form
         menuOpenDatabase.ShortcutKeys = Keys.Control | Keys.Shift | Keys.O;
         menuOpenDatabase.Size = new Size(261, 22);
         menuOpenDatabase.Text = "DB 파일 열기(&D)...";
-        menuOpenDatabase.ToolTipText = "SQLite, SQL DDL, SQL Server, Access DB 파일을 분석해 다이어그램으로 표시합니다 (Ctrl+Shift+O)";
+        menuOpenDatabase.ToolTipText = "SQLite, SQLCipher, Vector Index(Faiss/hnswlib), SQL DDL, SQL Server, Access DB 파일을 분석해 다이어그램으로 표시합니다 (Ctrl+Shift+O)";
         // 
         // sepFile1
         // 
@@ -2169,13 +2492,20 @@ public class MainForm : Form
         menuDbSqlServer.Size = new Size(136, 22);
         menuDbSqlServer.Text = "SQL Server";
         // 
+        // menuDbVectorDb
+        // 
+        menuDbVectorDb.Name = "menuDbVectorDb";
+        menuDbVectorDb.Size = new Size(136, 22);
+        menuDbVectorDb.Text = "FAISS (Vector DB)";
+        menuDbVectorDb.ToolTipText = "Faiss/hnswlib 벡터 인덱스용 스키마 타입";
+        // 
         // menuDbType
         // 
-        menuDbType.DropDownItems.AddRange(new ToolStripItem[] { menuDbPostgres, menuDbMySQL, menuDbMariaDB, menuDbSQLite, menuDbSqlServer });
+        menuDbType.DropDownItems.AddRange(new ToolStripItem[] { menuDbPostgres, menuDbMySQL, menuDbMariaDB, menuDbSQLite, menuDbSqlServer, menuDbVectorDb });
         menuDbType.Name = "menuDbType";
         menuDbType.Size = new Size(204, 22);
         menuDbType.Text = "데이터베이스 종류";
-        menuDbType.ToolTipText = "대상 데이터베이스 종류를 선택합니다";
+        menuDbType.ToolTipText = "대상 데이터베이스 종류를 선택합니다 (PostgreSQL, MySQL, SQLite, SQL Server, FAISS 등)";
         // 
         // menuView
         // 
@@ -2368,9 +2698,16 @@ public class MainForm : Form
         tsDbSqlServer.Size = new Size(136, 22);
         tsDbSqlServer.Text = "SQL Server";
         // 
+        // tsDbVectorDb
+        // 
+        tsDbVectorDb.Name = "tsDbVectorDb";
+        tsDbVectorDb.Size = new Size(136, 22);
+        tsDbVectorDb.Text = "FAISS (Vector DB)";
+        tsDbVectorDb.ToolTipText = "Faiss/hnswlib 벡터 인덱스용 스키마 타입";
+        // 
         // tsDbType
         // 
-        tsDbType.DropDownItems.AddRange(new ToolStripItem[] { tsDbSQLite, tsDbMySQL, tsDbMariaDB, tsDbPostgres, tsDbSqlServer });
+        tsDbType.DropDownItems.AddRange(new ToolStripItem[] { tsDbSQLite, tsDbMySQL, tsDbMariaDB, tsDbPostgres, tsDbSqlServer, tsDbVectorDb });
         tsDbType.Name = "tsDbType";
         tsDbType.Size = new Size(55, 22);
         tsDbType.Text = "SQLite";
@@ -2450,23 +2787,23 @@ public class MainForm : Form
         // 
         // treeViewSchema
         // 
-        treeViewSchema.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        treeViewSchema.Dock = DockStyle.Fill;
         treeViewSchema.BorderStyle = BorderStyle.None;
         treeViewSchema.HideSelection = false;
         treeViewSchema.Location = new Point(0, 0);
         treeViewSchema.Name = "treeViewSchema";
         treeViewSchema.ShowNodeToolTips = true;
-        treeViewSchema.Size = new Size(384, 811);
+        treeViewSchema.Size = new Size(384, 422);
         treeViewSchema.TabIndex = 0;
         // 
         // listViewAnalysis
         // 
-        listViewAnalysis.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        listViewAnalysis.Dock = DockStyle.Fill;
         listViewAnalysis.BorderStyle = BorderStyle.None;
         listViewAnalysis.FullRowSelect = true;
         listViewAnalysis.Location = new Point(0, 0);
         listViewAnalysis.Name = "listViewAnalysis";
-        listViewAnalysis.Size = new Size(284, 422);
+        listViewAnalysis.Size = new Size(384, 811);
         listViewAnalysis.TabIndex = 0;
         listViewAnalysis.UseCompatibleStateImageBehavior = false;
         listViewAnalysis.View = View.Details;
@@ -2476,7 +2813,7 @@ public class MainForm : Form
         tabTreeView.Controls.Add(treeViewSchema);
         tabTreeView.Location = new Point(4, 24);
         tabTreeView.Name = "tabTreeView";
-        tabTreeView.Size = new Size(292, 461);
+        tabTreeView.Size = new Size(292, 72);
         tabTreeView.TabIndex = 0;
         tabTreeView.Text = "구조";
         // 
@@ -2485,7 +2822,7 @@ public class MainForm : Form
         tabAnalysis.Controls.Add(listViewAnalysis);
         tabAnalysis.Location = new Point(4, 24);
         tabAnalysis.Name = "tabAnalysis";
-        tabAnalysis.Size = new Size(192, 72);
+        tabAnalysis.Size = new Size(292, 461);
         tabAnalysis.TabIndex = 1;
         tabAnalysis.Text = "정규화 분석";
         // 
@@ -2497,32 +2834,49 @@ public class MainForm : Form
         tabControlRight.Location = new Point(0, 0);
         tabControlRight.Name = "tabControlRight";
         tabControlRight.SelectedIndex = 0;
-        tabControlRight.Size = new Size(300, 489);
+        tabControlRight.Size = new Size(300, 100);
         tabControlRight.TabIndex = 0;
         // 
-        // splitPropertyDetail
+        // propertyGrid
         // 
-        splitPropertyDetail.Dock = DockStyle.Fill;
-        splitPropertyDetail.Location = new Point(0, 0);
-        splitPropertyDetail.Name = "splitPropertyDetail";
-        splitPropertyDetail.Orientation = Orientation.Horizontal;
-        splitPropertyDetail.Panel1MinSize = 80;
+        propertyGrid.Dock = DockStyle.Fill;
+        propertyGrid.HelpVisible = false;
+        propertyGrid.Location = new Point(0, 25);
+        propertyGrid.Name = "propertyGrid";
+        propertyGrid.Size = new Size(300, 212);
+        propertyGrid.TabIndex = 0;
+        propertyGrid.ToolbarVisible = false;
+        propertyGrid.PropertySort = PropertySort.CategorizedAlphabetical;
         // 
-        // splitPropertyDetail.Panel2
+        // propertySortBar
         // 
-        splitPropertyDetail.Panel2.Controls.Add(txtPropertyDescription);
-        splitPropertyDetail.Panel2MinSize = 48;
-        splitPropertyDetail.Size = new Size(300, 197);
-        splitPropertyDetail.SplitterDistance = 139;
-        splitPropertyDetail.TabIndex = 0;
+        propertySortBar.Dock = DockStyle.Top;
+        propertySortBar.GripStyle = ToolStripGripStyle.Hidden;
+        propertySortBar.Items.AddRange(new ToolStripItem[] { btnPropertySortCategory, btnPropertySortAlphabetical });
+        propertySortBar.Location = new Point(0, 0);
+        propertySortBar.Name = "propertySortBar";
+        propertySortBar.Size = new Size(300, 25);
+        propertySortBar.TabIndex = 1;
         // 
-        // txtPropertyDescription
+        // btnPropertySortCategory
         // 
-        txtPropertyDescription.Dock = DockStyle.Fill;
-        txtPropertyDescription.Location = new Point(0, 0);
-        txtPropertyDescription.Name = "txtPropertyDescription";
-        txtPropertyDescription.Size = new Size(300, 23);
-        txtPropertyDescription.TabIndex = 0;
+        btnPropertySortCategory.CheckOnClick = true;
+        btnPropertySortCategory.Checked = false;
+        btnPropertySortCategory.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        btnPropertySortCategory.Name = "btnPropertySortCategory";
+        btnPropertySortCategory.Size = new Size(47, 22);
+        btnPropertySortCategory.Text = "분류별";
+        btnPropertySortCategory.ToolTipText = "카테고리별로 속성을 표시합니다.";
+        // 
+        // btnPropertySortAlphabetical
+        // 
+        btnPropertySortAlphabetical.CheckOnClick = true;
+        btnPropertySortAlphabetical.Checked = true;
+        btnPropertySortAlphabetical.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        btnPropertySortAlphabetical.Name = "btnPropertySortAlphabetical";
+        btnPropertySortAlphabetical.Size = new Size(47, 22);
+        btnPropertySortAlphabetical.Text = "사전순";
+        btnPropertySortAlphabetical.ToolTipText = "카테고리를 유지한 채 각 카테고리 안에서 사전순으로 정렬합니다.";
         // 
         // splitRightPanel
         // 
@@ -2534,14 +2888,15 @@ public class MainForm : Form
         // splitRightPanel.Panel1
         // 
         splitRightPanel.Panel1.Controls.Add(tabControlRight);
-        splitRightPanel.Panel1MinSize = 100;
+        splitRightPanel.Panel1MinSize = 80;
         // 
         // splitRightPanel.Panel2
         // 
-        splitRightPanel.Panel2.Controls.Add(splitPropertyDetail);
-        splitRightPanel.Panel2MinSize = 120;
+        splitRightPanel.Panel2.Controls.Add(propertyGrid);
+        splitRightPanel.Panel2.Controls.Add(propertySortBar);
+        splitRightPanel.Panel2MinSize = 80;
         splitRightPanel.Size = new Size(300, 690);
-        splitRightPanel.SplitterDistance = 489;
+        splitRightPanel.SplitterDistance = 345;
         splitRightPanel.TabIndex = 0;
         // 
         // panelRight
@@ -2605,6 +2960,7 @@ public class MainForm : Form
         rulerHorizontal.Dock = DockStyle.Fill;
         rulerHorizontal.Location = new Point(31, 3);
         rulerHorizontal.Name = "rulerHorizontal";
+        rulerHorizontal.Orientation = RulerOrientation.Horizontal;
         rulerHorizontal.Size = new Size(854, 18);
         rulerHorizontal.TabIndex = 1;
         // 
@@ -2614,6 +2970,7 @@ public class MainForm : Form
         rulerVertical.Dock = DockStyle.Fill;
         rulerVertical.Location = new Point(3, 27);
         rulerVertical.Name = "rulerVertical";
+        rulerVertical.Orientation = RulerOrientation.Vertical;
         rulerVertical.Size = new Size(22, 660);
         rulerVertical.TabIndex = 2;
         // 
@@ -2694,12 +3051,11 @@ public class MainForm : Form
         tabTreeView.ResumeLayout(false);
         tabAnalysis.ResumeLayout(false);
         tabControlRight.ResumeLayout(false);
-        splitPropertyDetail.Panel2.ResumeLayout(false);
-        splitPropertyDetail.Panel2.PerformLayout();
-        ((ISupportInitialize)splitPropertyDetail).EndInit();
-        splitPropertyDetail.ResumeLayout(false);
         splitRightPanel.Panel1.ResumeLayout(false);
         splitRightPanel.Panel2.ResumeLayout(false);
+        splitRightPanel.Panel2.PerformLayout();
+        propertySortBar.ResumeLayout(false);
+        propertySortBar.PerformLayout();
         ((ISupportInitialize)splitRightPanel).EndInit();
         splitRightPanel.ResumeLayout(false);
         panelRight.ResumeLayout(false);

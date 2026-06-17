@@ -2,8 +2,8 @@
 
 - **스키마 이름**: OnlineShop
 - **대상 DB**: PostgreSQL
-- **작성 일시**: 2026-06-17 13:37:24
-- **프로젝트 파일**: c:\Home\Projects\TestSimulator\DBToolsWinV10\Sample\OnlineShop.mdprj
+- **작성 일시**: 2026-06-17 14:43:25
+- **프로젝트 파일**: C:\Home\Projects\TestSimulator\DBToolsWinV10\Template\OnlineShop.mdprj
 - **테이블 수**: 5
 - **관계 수**: 4
 

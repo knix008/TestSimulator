@@ -75,9 +75,9 @@ public class ColumnEditDialog : Form
 	{
 		txtName.Text = col.Name;
 		cmbDataType.Text = col.DataType;
-		nudLength.Value = col.Length ?? 255;
-		nudPrecision.Value = col.Precision ?? 10;
-		nudScale.Value = col.Scale ?? 2;
+		SetNumericValue(nudLength, col.Length ?? 255, nudLength.Minimum, nudLength.Maximum);
+		SetNumericValue(nudPrecision, col.Precision ?? 10, nudPrecision.Minimum, nudPrecision.Maximum);
+		SetNumericValue(nudScale, col.Scale ?? 2, nudScale.Minimum, nudScale.Maximum);
 		chkPrimaryKey.Checked = col.IsPrimaryKey;
 		chkAutoInc.Checked = col.IsAutoIncrement;
 		chkNullable.Checked = col.IsNullable;
@@ -86,6 +86,12 @@ public class ColumnEditDialog : Form
 		txtComment.Text = col.Comment ?? string.Empty;
 		UpdateFieldVisibility();
 		UpdateConstraintState();
+	}
+
+	private static void SetNumericValue(NumericUpDown control, int value, decimal minimum, decimal maximum)
+	{
+		decimal clamped = Math.Clamp(value, minimum, maximum);
+		control.Value = clamped;
 	}
 
 	private void WireEvents()
