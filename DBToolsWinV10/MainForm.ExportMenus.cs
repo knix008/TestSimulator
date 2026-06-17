@@ -1,6 +1,7 @@
 using System;
 using System.Windows.Forms;
 using DBToolsWinV10.App;
+using DBToolsWinV10.Export;
 using DBToolsWinV10.Models;
 
 namespace DBToolsWinV10;
@@ -12,7 +13,7 @@ public partial class MainForm
 		menuExport.DropDownItems.Clear();
 		AddExportMenuItems(menuExport.DropDownItems);
 		menuExport.Text = "보내기(&E)";
-		menuExport.ToolTipText = "스키마를 Markdown, Excel, Word, PDF, JSON, SQL, DB 파일로보냅니다";
+		menuExport.ToolTipText = "스키마를 문서, 이미지, 데이터, DB 형식으로보냅니다";
 
 		tsSepExport = new ToolStripSeparator { Name = "tsSepExport" };
 		tsExport = new ToolStripDropDownButton
@@ -20,7 +21,7 @@ public partial class MainForm
 			Name = "tsExport",
 			Text = "보내기",
 			DisplayStyle = ToolStripItemDisplayStyle.Image,
-			ToolTipText = "스키마를 문서, 데이터, DB 형식으로보냅니다"
+			ToolTipText = "스키마를 문서, 이미지, 데이터, DB 형식으로보냅니다"
 		};
 		AddExportMenuItems(tsExport.DropDownItems);
 
@@ -35,6 +36,12 @@ public partial class MainForm
 		items.Add(CreateExportMenuItem("Excel...", "Export", "Excel 통합 문서(.xlsx)로보냅니다", ExportExcel));
 		items.Add(CreateExportMenuItem("Word...", "Report", "Word 문서(.docx)로보냅니다", ExportWord));
 		items.Add(CreateExportMenuItem("PDF...", "Report", "PDF 문서로보냅니다", ExportPdf));
+		items.Add(new ToolStripSeparator());
+		items.Add(CreateExportMenuItem("PNG (배경 투명)...", "Export", "다이어그램을 PNG 이미지(배경 투명)로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Png)));
+		items.Add(CreateExportMenuItem("JPEG...", "Export", "다이어그램을 JPEG 이미지로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Jpeg)));
+		items.Add(CreateExportMenuItem("WebP...", "Export", "다이어그램을 WebP 이미지로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Webp)));
+		items.Add(CreateExportMenuItem("GIF...", "Export", "다이어그램을 GIF 이미지로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Gif)));
+		items.Add(CreateExportMenuItem("AVIF...", "Export", "다이어그램을 AVIF 이미지로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Avif)));
 		items.Add(new ToolStripSeparator());
 		items.Add(CreateExportMenuItem("JSON...", "Export", "JSON 파일로보냅니다", ExportJson));
 		items.Add(new ToolStripSeparator());
@@ -62,7 +69,9 @@ public partial class MainForm
 	{
 		string[] icons =
 		{
-			"Report", "Export", "Report", "Report", null, "Export", null, "ExportSql", null,
+			"Report", "Export", "Report", "Report", null,
+			"Export", "Export", "Export", "Export", "Export", null,
+			"Export", null, "ExportSql", null,
 			"SQLite", "PostgreSQL", "MySQL", "MariaDB", "SqlServer"
 		};
 		int iconIdx = 0;

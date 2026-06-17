@@ -6,6 +6,12 @@ obj/
 out/
 artifacts/
 TestResults/
+**/publish/
+
+## Platform-specific build folders
+bin/x64/
+obj/x64/
+bin/Release/net10.0-windows/win-x64/
 
 ## Visual Studio / VS Code / Rider
 .vs/
@@ -18,11 +24,13 @@ TestResults/
 *.rsuser
 *.cache
 *.log
+*.pubxml.user
 
 ## NuGet
 packages/
 *.nupkg
 *.snupkg
+project.lock.json
 
 ## Publish
 **/publish/
@@ -30,9 +38,14 @@ packages/
 ## Windows / misc
 Thumbs.db
 Desktop.ini
+$RECYCLE.BIN/
 
-## Sample 
+## Sample / tools / smoke test
 Sample/bin/
+Sample/obj/
+tools/bin/
+tools/obj/
+SmokeTest/
 
 ## WiX / installer artifacts
 installer/bin/
@@ -46,3 +59,10 @@ installer/obj/
 
 ## Cursor / local tooling (optional)
 .cursor/
+
+## Local export / scratch (optional)
+*.export.png
+*.export.jpg
+*.export.webp
+*.export.gif
+*.export.avif

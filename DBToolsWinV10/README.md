@@ -1,6 +1,6 @@
 # DBToolsWinV10
 
-Windows용 ER 다이어그램 및 데이터베이스 스키마 설계 도구입니다. 테이블·컬럼·관계를 시각적으로 편집하고, 정규화 검사·보고서 작성·SQL/JSON보내기를 지원합니다. SQLite, PostgreSQL, MySQL, MariaDB, SQL Server, FAISS(Vector DB) 형식의 DDL 생성과 DB 파일 가져오기를 제공합니다.
+Windows용 ER 다이어그램 및 데이터베이스 스키마 설계 도구입니다. 테이블·컬럼·관계를 시각적으로 편집하고, 정규화 검사·보고서 작성·다양한 형식으로 보내기를 지원합니다. SQLite, PostgreSQL, MySQL, MariaDB, SQL Server, FAISS(Vector DB) 형식의 DDL 생성과 DB 파일 가져오기를 제공합니다.
 
 ## 실행 환경
 
@@ -62,12 +62,17 @@ dotnet build .\installer\DBToolsWinV10.Installer.wixproj -c Release -p:Platform=
 ## 주요 기능
 
 - **ER 다이어그램 편집**: 테이블 배치, 1:1 / 1:N / N:M 관계, 컬럼 속성 편집
-- **캔버스 조작**: 빈 영역 드래그로 이동(팬), 확대/축소, 전체 맞춤, 배율 100% 복원
+- **관계선 스타일**: 직선, 곡선(Bezier), 꺾은선(직교). 꺾은선은 경로 점 드래그·추가 지원
+- **캔버스 조작**: 빈 영역 드래그로 이동(팬), 확대/축소, 전체 맞춤, 배율 100% 복원, Esc로 선택 도구 복귀
 - **DB 파일 가져오기**: SQLite, SQLCipher, Vector Index(Faiss/hnswlib), SQL DDL, SQL Server (`.mdf`), Access (`.mdb` / `.accdb`)
-- **프로젝트 저장**: `.mdprj` (JSON, UTF-8)
-- **보내기**: 대상 DB별 SQL DDL, JSON
+- **프로젝트 저장**: `.mdprj` (JSON, UTF-8). 변경 사항 추적 및 종료 시 저장 확인
+- **보내기** (`파일 → 보내기`, 툴바 **보내기**):
+  - **문서**: Markdown, Excel (`.xlsx`), Word (`.docx`), PDF
+  - **이미지**: PNG (배경 투명), JPEG, WebP, GIF, AVIF
+  - **데이터**: JSON
+  - **SQL/DB**: 현재 DB용 SQL DDL, SQLite `.db`, PostgreSQL/MySQL/MariaDB/SQL Server `.sql`
 - **정규화 검사**: 1NF / 2NF / 3NF 분석, 우측 탭에 결과·심각도·문제 컬럼 표시
-- **보고서**: Markdown 형식 스키마 보고서
+- **보고서**: Markdown 형식 스키마 보고서 (`분석 → 보고서 작성` 또는 보내기 메뉴)
 - **Sample 생성**: DB별 OnlineShop 예제 스키마·파일 생성
 - **오류 표시**: 예외 유형·메시지·발생 위치·스택 트레이스를 상세 대화상자로 표시
 
@@ -76,6 +81,7 @@ dotnet build .\installer\DBToolsWinV10.Installer.wixproj -c Release -p:Platform=
 - **좌측**: 도구 패널 (선택, 테이블, 관계, 확대/축소/맞춤)
 - **가운데**: ER 다이어그램 캔버스 (눈금자 포함)
 - **우측**: 구조 트리 · 정규화 분석 · 속성 패널 (분류별/사전순 정렬)
+- **툴바**: 저장, **보내기**, 관계선 스타일, Sample 등
 
 ## Template 파일
 
@@ -109,10 +115,10 @@ dotnet run --project .\Sample\Sample.csproj
 DBToolsWinV10/
 ├── App/            # 설정, 테마, 아이콘, 최근 파일, 오류 표시
 ├── Analysis/       # 정규화 분석, 보고서
-├── Controls/       # 다이어그램 캔버스, 속성 그리드
+├── Controls/       # 다이어그램 캔버스, 속성 그리드, 관계 경로
 ├── Dialogs/        # 편집·오류 대화상자
-├── Export/         # SQL DDL보내기
-├── Import/         # DB 파일 가져오기
+├── Export/         # 문서·이미지·SQL·SQLite 보내기
+├── Import/         # DB 파일 가져오기, 자동 배치
 ├── installer/      # WiX MSI 설치 패키지 (Release 빌드)
 ├── Models/         # 스키마 모델
 ├── Sample/         # Sample 생성기 (콘솔 도구)
@@ -121,6 +127,16 @@ DBToolsWinV10/
 ├── MainForm.cs     # 메인 UI
 └── Program.cs      # 진입점
 ```
+
+### 주요 NuGet 의존성
+
+| 패키지 | 용도 |
+|--------|------|
+| ClosedXML | Excel (`.xlsx`) 보내기 |
+| DocumentFormat.OpenXml | Word (`.docx`) 보내기 |
+| PDFsharp | PDF 보내기 |
+| SixLabors.ImageSharp | WebP, GIF 이미지 보내기 |
+| NeoSolve.ImageSharp.AVIF | AVIF 이미지 보내기 |
 
 ## 라이선스
 

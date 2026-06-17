@@ -29,7 +29,17 @@ public partial class MainForm : Form
 
 	private bool _rightPanelVisible = true;
 
-	private const int RightPanelWidth = 300;
+	private const int RightPanelDefaultWidth = 420;
+
+	private const int RightPanelMinWidth = 300;
+
+	private const int CanvasMinWidth = 360;
+
+	private SplitContainer splitMain;
+
+	private int _rightPanelWidth = RightPanelDefaultWidth;
+
+	private bool _mainSplitDistanceInitialized;
 
 	private ToolStripButton btnTsZoom = null;
 
@@ -276,6 +286,7 @@ public partial class MainForm : Form
 			ConfigureToolStripZoomButton();
 			ConfigureToolStripLineStyle();
 			ConfigureExportMenus();
+			ConfigureMainLayoutSplit();
 			ApplyModernTheme();
 			ConfigureSampleMenus();
 			ApplyIcons();
@@ -301,6 +312,8 @@ public partial class MainForm : Form
 		UpdateViewportUi();
 		splitRightPanel.Resize += RightPanelSplitter_Resize;
 		BeginInvoke(ApplyRightPanelSplitterLayout);
+		BeginInvoke(ApplyMainSplitDistanceIfReady);
+		BeginInvoke(AdjustAnalysisColumnWidths);
 	}
 
 	private void RightPanelSplitter_Resize(object sender, EventArgs e)
@@ -330,13 +343,111 @@ public partial class MainForm : Form
 		_rightPanelVisible = visible;
 		if (!syncUiOnly)
 		{
-			panelRight.Visible = visible;
-			if (visible)
+			if (splitMain != null)
 			{
-				panelRight.Width = 300;
+				if (visible)
+				{
+					splitMain.Panel2Collapsed = false;
+					SetRightPanelWidth(_rightPanelWidth, persist: false);
+				}
+				else
+				{
+					_rightPanelWidth = GetCurrentRightPanelWidth();
+					splitMain.Panel2Collapsed = true;
+				}
+			}
+			else
+			{
+				panelRight.Visible = visible;
 			}
 		}
 		UpdateRightPanelToggleUi();
+	}
+
+	private void ConfigureMainLayoutSplit()
+	{
+		_rightPanelWidth = AppSettings.GetRightPanelWidth(RightPanelDefaultWidth);
+		splitMain = new SplitContainer
+		{
+			Name = "splitMain",
+			Dock = DockStyle.Fill,
+			Orientation = Orientation.Vertical,
+			FixedPanel = FixedPanel.Panel2,
+			Panel1MinSize = CanvasMinWidth,
+			Panel2MinSize = RightPanelMinWidth
+		};
+		panelContent.SuspendLayout();
+		panelContent.Controls.Remove(panelCanvasHost);
+		panelContent.Controls.Remove(panelRight);
+		panelRight.Dock = DockStyle.Fill;
+		panelCanvasHost.Dock = DockStyle.Fill;
+		splitMain.Panel1.Controls.Add(panelCanvasHost);
+		splitMain.Panel2.Controls.Add(panelRight);
+		panelContent.Controls.Add(splitMain);
+		panelContent.ResumeLayout(performLayout: false);
+		splitMain.SplitterMoved += MainSplit_SplitterMoved;
+		splitMain.Resize += MainSplit_Resize;
+	}
+
+	private void MainSplit_Resize(object sender, EventArgs e)
+	{
+		ApplyMainSplitDistanceIfReady();
+	}
+
+	private void ApplyMainSplitDistanceIfReady()
+	{
+		if (_mainSplitDistanceInitialized || splitMain == null || splitMain.Width <= 0)
+		{
+			return;
+		}
+
+		if (_rightPanelVisible)
+		{
+			SetRightPanelWidth(_rightPanelWidth, persist: false);
+		}
+
+		_mainSplitDistanceInitialized = true;
+	}
+
+	private void SetRightPanelWidth(int width, bool persist = true)
+	{
+		if (splitMain == null || splitMain.Width <= 0)
+		{
+			return;
+		}
+
+		int available = splitMain.Width - splitMain.SplitterWidth;
+		int panel2Width = Math.Clamp(width, RightPanelMinWidth, Math.Max(RightPanelMinWidth, available - CanvasMinWidth));
+		splitMain.SplitterDistance = available - panel2Width;
+		_rightPanelWidth = panel2Width;
+		if (persist)
+		{
+			AppSettings.SetRightPanelWidth(panel2Width);
+		}
+	}
+
+	private int GetCurrentRightPanelWidth()
+	{
+		if (splitMain == null || splitMain.Width <= 0)
+		{
+			return _rightPanelWidth;
+		}
+
+		return splitMain.Width - splitMain.SplitterDistance - splitMain.SplitterWidth;
+	}
+
+	private void MainSplit_SplitterMoved(object sender, SplitterEventArgs e)
+	{
+		if (!_rightPanelVisible || splitMain.Panel2Collapsed)
+		{
+			return;
+		}
+
+		_rightPanelWidth = GetCurrentRightPanelWidth();
+		AppSettings.SetRightPanelWidth(_rightPanelWidth);
+		propertyGrid.PerformLayout();
+		propertyGrid.Invalidate(true);
+		AdjustAnalysisColumnWidths();
 	}
 
 	private void UpdateRightPanelToggleUi()
@@ -394,6 +505,10 @@ public partial class MainForm : Form
 		ModernTheme.StylePropertyGrid(propertyGrid);
 		propertyGrid.HelpVisible = false;
 		ModernTheme.StyleSplitContainer(splitRightPanel, ModernTheme.PanelBackground, ModernTheme.PanelBackground);
+		if (splitMain != null)
+		{
+			ModernTheme.StyleSplitContainer(splitMain, ModernTheme.AppBackground, ModernTheme.PanelBackground);
+		}
 		panelContent.BackColor = ModernTheme.AppBackground;
 		panelCanvasHost.BackColor = ModernTheme.CanvasChrome;
 		panelCanvasInner.BackColor = ModernTheme.CanvasBackground;
@@ -513,14 +628,17 @@ public partial class MainForm : Form
 		tsLineOrthogonal.Checked = style == RelationshipLineStyle.Orthogonal;
 	}
 
+	private static readonly string[] AnalysisColumnHeaders = { "수준", "심각도", "테이블", "문제 컬럼", "문제", "권장" };
+
 	private void ConfigureAnalysisPanel()
 	{
 		lblAnalysisSummary = new Label
 		{
 			Dock = DockStyle.Top,
-			Height = 40,
-			Padding = new Padding(10, 10, 10, 4),
-			TextAlign = ContentAlignment.MiddleLeft,
+			AutoSize = false,
+			Height = 48,
+			Padding = new Padding(10, 8, 10, 4),
+			TextAlign = ContentAlignment.TopLeft,
 			Text = "정규화 분석 결과가 여기에 표시됩니다.",
 			ForeColor = ModernTheme.TextSecondary,
 			BackColor = ModernTheme.SidebarBackground,
@@ -530,18 +648,78 @@ public partial class MainForm : Form
 		listViewAnalysis.Dock = DockStyle.Fill;
 		tabAnalysis.Controls.Add(listViewAnalysis);
 		tabAnalysis.Controls.Add(lblAnalysisSummary);
-		listViewAnalysis.Columns.AddRange(new[]
+		listViewAnalysis.Columns.Clear();
+		foreach (string header in AnalysisColumnHeaders)
 		{
-			new ColumnHeader { Text = "수준", Width = 42 },
-			new ColumnHeader { Text = "심각도", Width = 48 },
-			new ColumnHeader { Text = "테이블", Width = 88 },
-			new ColumnHeader { Text = "문제 컬럼", Width = 96 },
-			new ColumnHeader { Text = "문제", Width = 140 },
-			new ColumnHeader { Text = "권장", Width = 160 }
-		});
+			listViewAnalysis.Columns.Add(header);
+		}
 		listViewAnalysis.ShowGroups = true;
 		listViewAnalysis.HeaderStyle = ColumnHeaderStyle.Nonclickable;
 		listViewAnalysis.DoubleClick += ListViewAnalysis_DoubleClick;
+		listViewAnalysis.Resize += (_, _) => AdjustAnalysisColumnWidths();
+		tabAnalysis.Resize += (_, _) => AdjustAnalysisColumnWidths();
+	}
+
+	private int MeasureAnalysisColumnHeaderWidth(string headerText)
+	{
+		const int padding = 20;
+		Size size = TextRenderer.MeasureText(headerText, listViewAnalysis.Font, Size.Empty, TextFormatFlags.SingleLine | TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+		return size.Width + padding;
+	}
+
+	private void AdjustAnalysisColumnWidths()
+	{
+		if (listViewAnalysis.Columns.Count < AnalysisColumnHeaders.Length)
+		{
+			return;
+		}
+
+		int[] minWidths = AnalysisColumnHeaders.Select(MeasureAnalysisColumnHeaderWidth).ToArray();
+		int available = listViewAnalysis.ClientSize.Width;
+		if (available <= 0)
+		{
+			return;
+		}
+
+		if (listViewAnalysis.Items.Count > 0)
+		{
+			int itemHeight = Math.Max(18, listViewAnalysis.GetItemRect(0).Height);
+			int visibleRows = Math.Max(1, listViewAnalysis.ClientSize.Height / itemHeight);
+			if (listViewAnalysis.Items.Count > visibleRows)
+			{
+				available -= SystemInformation.VerticalScrollBarWidth;
+			}
+		}
+
+		int minTotal = minWidths.Sum();
+		for (int i = 0; i < minWidths.Length; i++)
+		{
+			listViewAnalysis.Columns[i].Width = minWidths[i];
+		}
+
+		if (available <= minTotal)
+		{
+			UpdateAnalysisSummaryLayout();
+			return;
+		}
+
+		int extra = available - minTotal;
+		int problemExtra = extra * 55 / 100;
+		listViewAnalysis.Columns[4].Width = minWidths[4] + problemExtra;
+		listViewAnalysis.Columns[5].Width = minWidths[5] + (extra - problemExtra);
+		UpdateAnalysisSummaryLayout();
+	}
+
+	private void UpdateAnalysisSummaryLayout()
+	{
+		if (lblAnalysisSummary == null || tabAnalysis == null)
+		{
+			return;
+		}
+
+		int width = Math.Max(120, tabAnalysis.ClientSize.Width - lblAnalysisSummary.Padding.Horizontal);
+		Size textSize = TextRenderer.MeasureText(lblAnalysisSummary.Text, lblAnalysisSummary.Font, new Size(width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.Left);
+		lblAnalysisSummary.Height = Math.Max(40, textSize.Height + lblAnalysisSummary.Padding.Vertical + 4);
 	}
 
 	private void ListViewAnalysis_DoubleClick(object sender, EventArgs e)
@@ -556,6 +734,28 @@ public partial class MainForm : Form
 			diagramCanvas.SelectTable(table);
 			RefreshPropertyGrid();
 		}
+	}
+
+	private void ApplyRightPanelIcons()
+	{
+		ImageList rightTabImages = new ImageList
+		{
+			ColorDepth = ColorDepth.Depth32Bit,
+			ImageSize = new Size(16, 16)
+		};
+		rightTabImages.Images.Add("Structure", IconProvider.Get("Structure", 16));
+		rightTabImages.Images.Add("Analyze", IconProvider.Get("Analyze", 16));
+		tabControlRight.ImageList = rightTabImages;
+		tabTreeView.ImageKey = "Structure";
+		tabAnalysis.ImageKey = "Analyze";
+
+		btnPropertySortCategory.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+		btnPropertySortCategory.Image = IconProvider.Get("SortCategory", 16);
+		btnPropertySortCategory.TextImageRelation = TextImageRelation.ImageBeforeText;
+
+		btnPropertySortAlphabetical.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+		btnPropertySortAlphabetical.Image = IconProvider.Get("SortAlphabetical", 16);
+		btnPropertySortAlphabetical.TextImageRelation = TextImageRelation.ImageBeforeText;
 	}
 
 	private static void ConfigureToolboxButton(Button button, string iconName, string caption)
@@ -633,6 +833,7 @@ public partial class MainForm : Form
 		menuAnalyze.Image = IconProvider.Get("Analyze");
 		menuWriteReport.Image = IconProvider.Get("Report");
 		menuAbout.Image = IconProvider.Get("About");
+		ApplyRightPanelIcons();
 		btnToolSelect.Image = IconProvider.Get("Select", 24);
 		btnToolSelect.Text = "";
 		btnToolSelect.ImageAlign = ContentAlignment.MiddleCenter;
@@ -1037,21 +1238,30 @@ public partial class MainForm : Form
 		try
 		{
 			SampleGenerationResult result = generate(dlg.SelectedPath);
-			string body = result.Message;
+			statusLabel.Text = result.Message;
 			if (result.CreatedFiles.Count > 0)
 			{
-				body += Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine,
-					result.CreatedFiles.Select(Path.GetFileName));
+				OperationCompleteDialog.ShowSavedMany(this,
+					result.Success ? "Sample 생성 완료" : "Sample 생성 경고",
+					result.CreatedFiles,
+					result.Message);
 			}
-
-			MessageBox.Show(this, body, result.Success ? "Sample 생성" : "Sample 생성 경고",
-				MessageBoxButtons.OK,
-				result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-			statusLabel.Text = result.Message;
+			else
+			{
+				if (result.Success)
+				{
+					OperationCompleteDialog.ShowSaved(this, "Sample 생성 완료", dlg.SelectedPath, result.Message);
+				}
+				else
+				{
+					OperationCompleteDialog.ShowFailed(this, "Sample 생성 실패", dlg.SelectedPath, result.Message);
+				}
+			}
 		}
 		catch (Exception ex)
 		{
-			ErrorDialog.Show(this, "Sample 생성 오류", ex);
+			OperationCompleteDialog.ShowFailed(this, "Sample 생성 실패", dlg.SelectedPath, "Sample 파일을 생성하지 못했습니다.", ex);
+			statusLabel.Text = "Sample 생성 실패";
 		}
 	}
 
@@ -1242,11 +1452,11 @@ public partial class MainForm : Form
 			MarkDocumentClean();
 			RecentFilesManager.Push(path);
 			UpdateTitle();
-			statusLabel.Text = "저장 완료: " + Path.GetFileName(path);
+			NotifyExportSucceeded("저장 완료", path, "프로젝트 파일을 저장했습니다.");
 		}
 		catch (Exception ex)
 		{
-			ErrorDialog.Show(this, "저장 오류", ex, "파일을 저장할 수 없습니다.\n" + path);
+			NotifyExportFailed("저장 실패", path, ex);
 		}
 	}
 
@@ -1665,6 +1875,7 @@ public partial class MainForm : Form
 			lblAnalysisSummary.Text = "테이블이 없어 정규화 검사를 수행할 수 없습니다.";
 			lblAnalysisSummary.ForeColor = ModernTheme.TextMuted;
 			listViewAnalysis.EndUpdate();
+			UpdateAnalysisSummaryLayout();
 			if (focusTab)
 			{
 				tabControlRight.SelectedTab = tabAnalysis;
@@ -1720,6 +1931,7 @@ public partial class MainForm : Form
 			lblAnalysisSummary.ForeColor = (errorCount > 0) ? ModernTheme.Danger : ModernTheme.Warning;
 		}
 		listViewAnalysis.EndUpdate();
+		AdjustAnalysisColumnWidths();
 		if (focusTab)
 		{
 			tabControlRight.SelectedTab = tabAnalysis;
@@ -1729,12 +1941,14 @@ public partial class MainForm : Form
 
 	private void WriteReport()
 	{
+		string baseName = SchemaExportHelper.GetBaseFileName(diagramCanvas.Schema) + "_report";
 		using SaveFileDialog saveFileDialog = new SaveFileDialog
 		{
-			Filter = "Markdown 보고서 (*.md)|*.md|텍스트 파일 (*.txt)|*.txt",
+			Filter = ReportExporter.SaveFileFilter,
 			Title = "보고서 저장",
-			FileName = diagramCanvas.Schema.Name + "_report",
-			DefaultExt = "md"
+			FileName = baseName,
+			DefaultExt = "md",
+			FilterIndex = 1
 		};
 		if (saveFileDialog.ShowDialog(this) != DialogResult.OK)
 		{
@@ -1742,17 +1956,16 @@ public partial class MainForm : Form
 		}
 		try
 		{
-			string contents = SchemaReportWriter.Write(diagramCanvas.Schema, _currentFilePath);
-			File.WriteAllText(saveFileDialog.FileName, contents, Encoding.UTF8);
-			statusLabel.Text = "보고서 작성 완료: " + Path.GetFileName(saveFileDialog.FileName);
-			if (MessageBox.Show("보고서 파일을 메모장으로 열까요?", "보고서 작성 완료", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-			{
-				Process.Start("notepad.exe", saveFileDialog.FileName);
-			}
+			ReportFormat format = ReportExporter.GetFormatFromPath(saveFileDialog.FileName);
+			ReportExporter.Export(diagramCanvas.Schema, saveFileDialog.FileName, format, _currentFilePath);
+			string displayName = ReportExporter.GetDisplayName(format);
+			NotifyExportSucceeded("보고서 작성 완료", saveFileDialog.FileName,
+				$"{displayName} 보고서를 저장했습니다.",
+				ReportExporter.OfferOpenInNotepad(format));
 		}
 		catch (Exception ex)
 		{
-			ErrorDialog.Show(this, "보고서 작성 오류", ex, "보고서를 저장할 수 없습니다.\n" + saveFileDialog.FileName);
+			NotifyExportFailed("보고서 작성 실패", saveFileDialog.FileName, ex);
 		}
 	}
 
@@ -2592,7 +2805,7 @@ public partial class MainForm : Form
         menuWriteReport.ShortcutKeys = Keys.Control | Keys.Shift | Keys.R;
         menuWriteReport.Size = new Size(227, 22);
         menuWriteReport.Text = "보고서 작성(&R)";
-        menuWriteReport.ToolTipText = "스키마 분석 보고서를 파일로 저장합니다 (Ctrl+Shift+R)";
+        menuWriteReport.ToolTipText = "스키마 보고서를 Markdown, Excel, Word, PDF로 저장합니다 (Ctrl+Shift+R)";
         // 
         // sepAnalyze1
         // 
@@ -2725,7 +2938,7 @@ public partial class MainForm : Form
         btnTsWriteReport.DisplayStyle = ToolStripItemDisplayStyle.Image;
         btnTsWriteReport.Name = "btnTsWriteReport";
         btnTsWriteReport.Size = new Size(23, 22);
-        btnTsWriteReport.ToolTipText = "보고서 작성 (Ctrl+Shift+R)";
+        btnTsWriteReport.ToolTipText = "보고서 작성 — Markdown, Excel, Word, PDF (Ctrl+Shift+R)";
         // 
         // tsSep4
         // 

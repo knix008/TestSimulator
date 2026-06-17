@@ -14,6 +14,8 @@ internal static class AppSettings
 		public string LastSqliteOpenDirectory { get; set; }
 
 		public string LastDatabaseFileOpenDirectory { get; set; }
+
+		public int? RightPanelWidth { get; set; }
 	}
 
 	private static readonly string SettingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DBToolsWinV10");
@@ -34,6 +36,30 @@ internal static class AppSettings
 		{
 			d.LastDatabaseFileOpenDirectory = directory;
 		}, directory);
+	}
+
+	public static int GetRightPanelWidth(int defaultWidth)
+	{
+		int? width = ReadSettings()?.RightPanelWidth;
+		if (width.HasValue && width.Value >= 280)
+		{
+			return width.Value;
+		}
+
+		return defaultWidth;
+	}
+
+	public static void SetRightPanelWidth(int width)
+	{
+		if (width < 280)
+		{
+			return;
+		}
+
+		UpdateSettings(delegate(SettingsData d)
+		{
+			d.RightPanelWidth = width;
+		});
 	}
 
 	public static string ResolveInitialOpenDirectory()
@@ -79,6 +105,15 @@ internal static class AppSettings
 		{
 			return;
 		}
+
+		UpdateSettings(delegate(SettingsData settingsData)
+		{
+			assign(settingsData);
+		});
+	}
+
+	private static void UpdateSettings(Action<SettingsData> assign)
+	{
 		try
 		{
 			Directory.CreateDirectory(SettingsDir);

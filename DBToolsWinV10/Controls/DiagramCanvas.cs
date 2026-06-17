@@ -308,6 +308,95 @@ public sealed class DiagramCanvas : Control
 		this.ViewportChanged?.Invoke(this, EventArgs.Empty);
 	}
 
+	public Bitmap RenderToImage(bool transparentBackground, float padding = 48f, float scale = 1f)
+	{
+		scale = Math.Max(0.1f, scale);
+		RectangleF bounds = GetDiagramExportBounds(padding);
+		int width = Math.Max(1, (int)Math.Ceiling(bounds.Width * scale));
+		int height = Math.Max(1, (int)Math.Ceiling(bounds.Height * scale));
+		const long maxPixels = 16_000_000L;
+		long pixelCount = (long)width * height;
+		if (pixelCount > maxPixels)
+		{
+			float fit = MathF.Sqrt(maxPixels / pixelCount);
+			scale *= fit;
+			width = Math.Max(1, (int)Math.Ceiling(bounds.Width * scale));
+			height = Math.Max(1, (int)Math.Ceiling(bounds.Height * scale));
+		}
+
+		Bitmap bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+		using Graphics graphics = Graphics.FromImage(bitmap);
+		graphics.SmoothingMode = SmoothingMode.AntiAlias;
+		graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+		graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+		graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+		graphics.Clear(transparentBackground ? Color.Transparent : Color.White);
+		graphics.TranslateTransform(-bounds.X * scale, -bounds.Y * scale);
+		graphics.ScaleTransform(scale, scale);
+		if (_schema.Tables.Count == 0)
+		{
+			using Font font = new Font("맑은 고딕", 12f, FontStyle.Regular, GraphicsUnit.Point);
+			using SolidBrush brush = new SolidBrush(Color.FromArgb(120, 120, 120));
+			graphics.DrawString("테이블이 없습니다.", font, brush, bounds.X + padding, bounds.Y + padding);
+			return bitmap;
+		}
+
+		foreach (DbRelationship relationship in _schema.Relationships)
+		{
+			DrawRelationship(graphics, relationship);
+		}
+		foreach (DbTable table in _schema.Tables)
+		{
+			DrawTable(graphics, table);
+		}
+		return bitmap;
+	}
+
+	private RectangleF GetDiagramExportBounds(float padding)
+	{
+		if (_schema.Tables.Count == 0)
+		{
+			return new RectangleF(0f, 0f, 640f, 360f);
+		}
+
+		RectangleF bounds = GetAllTablesBounds();
+		foreach (DbRelationship relationship in _schema.Relationships)
+		{
+			if (!TryGetRelationshipConnection(relationship, out RelationshipConnectionInfo connection))
+			{
+				continue;
+			}
+			foreach (PointF point in RelationshipPathBuilder.GetPathPoints(relationship, connection))
+			{
+				ExpandBounds(ref bounds, point);
+			}
+		}
+		bounds.Inflate(padding, padding);
+		return bounds;
+	}
+
+	private static void ExpandBounds(ref RectangleF bounds, PointF point)
+	{
+		if (point.X < bounds.Left)
+		{
+			bounds.Width += bounds.Left - point.X;
+			bounds.X = point.X;
+		}
+		if (point.Y < bounds.Top)
+		{
+			bounds.Height += bounds.Top - point.Y;
+			bounds.Y = point.Y;
+		}
+		if (point.X > bounds.Right)
+		{
+			bounds.Width = point.X - bounds.Left;
+		}
+		if (point.Y > bounds.Bottom)
+		{
+			bounds.Height = point.Y - bounds.Top;
+		}
+	}
+
 	protected override void OnPaint(PaintEventArgs e)
 	{
 		base.OnPaint(e);

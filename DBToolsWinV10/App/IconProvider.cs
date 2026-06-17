@@ -52,6 +52,9 @@ public static class IconProvider
 			"PanelCollapse" => DrawRightPanelLayout(size, panelOpen: true), 
 			"PanelExpand" => DrawRightPanelLayout(size, panelOpen: false), 
 			"Analyze" => DrawAnalyze(size), 
+			"Structure" => DrawStructure(size),
+			"SortCategory" => DrawSortCategory(size),
+			"SortAlphabetical" => DrawSortAlphabetical(size),
 			"Report" => DrawReport(size), 
 			"Sample" => DrawReport(size),
 			"ImportDb" => DrawOpenDbFile(size), 
@@ -633,6 +636,77 @@ public static class IconProvider
 				graphics.FillEllipse(brush2, num + P(sz, 1.5f), num2, P(sz, 2f), P(sz, 2f));
 			}
 			graphics.DrawLine(pen, num + P(sz, 5f), num2 + P(sz, 1f), (float)sz - num - P(sz, 1f), num2 + P(sz, 1f));
+		}
+		graphics.Dispose();
+		return bitmap;
+	}
+
+	private static Image DrawStructure(int sz)
+	{
+		Bitmap bitmap = New32(sz);
+		Graphics graphics = Setup(bitmap);
+		using Pen linePen = new Pen(Color.FromArgb(90, 110, 150), P(sz, 1.1f))
+		{
+			StartCap = LineCap.Round,
+			EndCap = LineCap.Round
+		};
+		using SolidBrush nodeBrush = new SolidBrush(Color.FromArgb(37, 99, 235));
+		using SolidBrush childBrush = new SolidBrush(Color.FromArgb(96, 165, 250));
+		float rootX = P(sz, 8f);
+		float rootY = P(sz, 2.5f);
+		float childY1 = P(sz, 8.5f);
+		float childY2 = P(sz, 12.5f);
+		float leftX = P(sz, 3.5f);
+		float rightX = P(sz, 12.5f);
+		graphics.FillEllipse(nodeBrush, rootX - P(sz, 1.4f), rootY - P(sz, 1.4f), P(sz, 2.8f), P(sz, 2.8f));
+		graphics.DrawLine(linePen, rootX, rootY + P(sz, 1.2f), rootX, P(sz, 6.5f));
+		graphics.DrawLine(linePen, leftX + P(sz, 1.2f), P(sz, 6.5f), rightX - P(sz, 1.2f), P(sz, 6.5f));
+		graphics.DrawLine(linePen, leftX + P(sz, 1.2f), P(sz, 6.5f), leftX + P(sz, 1.2f), childY1);
+		graphics.DrawLine(linePen, rightX - P(sz, 1.2f), P(sz, 6.5f), rightX - P(sz, 1.2f), childY2);
+		graphics.FillEllipse(childBrush, leftX, childY1 - P(sz, 1.2f), P(sz, 2.4f), P(sz, 2.4f));
+		graphics.FillEllipse(childBrush, rightX - P(sz, 2.4f), childY2 - P(sz, 1.2f), P(sz, 2.4f), P(sz, 2.4f));
+		graphics.Dispose();
+		return bitmap;
+	}
+
+	private static Image DrawSortCategory(int sz)
+	{
+		Bitmap bitmap = New32(sz);
+		Graphics graphics = Setup(bitmap);
+		using Pen linePen = new Pen(Color.FromArgb(100, 116, 139), P(sz, 0.9f));
+		using Pen groupPen = new Pen(Color.FromArgb(37, 99, 235), P(sz, 1.4f))
+		{
+			StartCap = LineCap.Round,
+			EndCap = LineCap.Round
+		};
+		float left = P(sz, 2.5f);
+		float right = (float)sz - P(sz, 2.5f);
+		float[] groupYs = { P(sz, 3.5f), P(sz, 8.5f), P(sz, 13.5f) };
+		foreach (float groupY in groupYs)
+		{
+			graphics.DrawLine(groupPen, left, groupY, right, groupY);
+			graphics.DrawLine(linePen, left + P(sz, 1f), groupY + P(sz, 2f), right - P(sz, 1f), groupY + P(sz, 2f));
+			graphics.DrawLine(linePen, left + P(sz, 1f), groupY + P(sz, 4f), right - P(sz, 3f), groupY + P(sz, 4f));
+		}
+		graphics.Dispose();
+		return bitmap;
+	}
+
+	private static Image DrawSortAlphabetical(int sz)
+	{
+		Bitmap bitmap = New32(sz);
+		Graphics graphics = Setup(bitmap);
+		using SolidBrush textBrush = new SolidBrush(Color.FromArgb(37, 99, 235));
+		using Font font = new Font("Consolas", P(sz, 5.5f), FontStyle.Bold, GraphicsUnit.Point);
+		using Pen linePen = new Pen(Color.FromArgb(100, 116, 139), P(sz, 0.9f));
+		graphics.DrawString("A", font, textBrush, P(sz, 1.5f), P(sz, 1f));
+		graphics.DrawString("Z", font, textBrush, P(sz, 10f), P(sz, 9f));
+		float left = P(sz, 2f);
+		float right = (float)sz - P(sz, 2f);
+		for (int i = 0; i < 3; i++)
+		{
+			float y = P(sz, 5.5f) + i * P(sz, 2.8f);
+			graphics.DrawLine(linePen, left, y, right, y);
 		}
 		graphics.Dispose();
 		return bitmap;
