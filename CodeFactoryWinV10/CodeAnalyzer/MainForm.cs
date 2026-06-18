@@ -374,6 +374,7 @@ public partial class MainForm : Form
         else if (diagramViewHost.ViewKind != viewKind)
         {
             diagramViewHost.ViewKind = viewKind;
+            diagramViewHost.RefreshCurrentView();
             UpdateToolbarForViewKind();
         }
     }
@@ -979,25 +980,6 @@ public partial class MainForm : Form
         menuAnalysisSettings.Enabled = true;
         menuDatabaseSettings.Enabled = true;
         ResetAnalysisProgress(isActive: false);
-
-        if (_lastAnalysis is not null && GetSelectedViewKind() is DiagramViewKind.Summary
-            or DiagramViewKind.CodeMetrics
-            or DiagramViewKind.DuplicateCode
-            or DiagramViewKind.GlobalVariables
-            or DiagramViewKind.DatabaseErd
-            or DiagramViewKind.DatabaseTableAccess
-            or DiagramViewKind.BugRisk
-            or DiagramViewKind.InformationSecurity)
-        {
-            try
-            {
-                diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
-            }
-            catch (Exception ex)
-            {
-                DetailedErrorDialog.Show(this, "뷰 갱신 오류", ex, "분석 뷰를 갱신하는 중 오류가 발생했습니다.");
-            }
-        }
         UpdateToolbarForViewKind();
         UpdateRootHistoryNavigationState();
     }
@@ -1278,6 +1260,7 @@ public partial class MainForm : Form
         if (_lastAnalysis is null)
         {
             diagramViewHost.ViewKind = GetSelectedViewKind();
+            diagramViewHost.RefreshCurrentView();
         }
 
         ApplyRootMethodSelection();

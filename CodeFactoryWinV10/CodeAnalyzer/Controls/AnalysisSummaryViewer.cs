@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 
@@ -49,6 +50,9 @@ public sealed class AnalysisSummaryViewer : UserControl
     private bool _isAnalyzing;
     private int _refreshGeneration;
     private IReadOnlyList<SummarySection> _sections = [];
+    private string? _completedRefreshKey;
+    private string? _inFlightRefreshKey;
+    private Task? _refreshTask;
 
     public event Action<DiagramViewKind>? NavigationRequested;
 
@@ -73,10 +77,7 @@ public sealed class AnalysisSummaryViewer : UserControl
 
     public void SetAnalysis(AnalysisResult? analysis, string? projectRoot)
     {
-        _isAnalyzing = false;
-        _analysis = analysis;
-        _projectRoot = projectRoot;
-        _ = RefreshAsync();
+        _ = SetAnalysisAsync(analysis, projectRoot);
     }
 
     public Task SetAnalysisAsync(AnalysisResult? analysis, string? projectRoot)
@@ -84,8 +85,29 @@ public sealed class AnalysisSummaryViewer : UserControl
         _isAnalyzing = false;
         _analysis = analysis;
         _projectRoot = projectRoot;
-        return RefreshAsync();
+
+        var refreshKey = CreateRefreshKey(analysis, projectRoot);
+        if (_refreshTask is { IsCompleted: false } inFlight
+            && string.Equals(_inFlightRefreshKey, refreshKey, StringComparison.Ordinal))
+        {
+            return inFlight;
+        }
+
+        if (string.Equals(_completedRefreshKey, refreshKey, StringComparison.Ordinal)
+            && _sections.Count > 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        _inFlightRefreshKey = refreshKey;
+        _refreshTask = RefreshAsync();
+        return _refreshTask;
     }
+
+    private static string CreateRefreshKey(AnalysisResult? analysis, string? projectRoot) =>
+        analysis is null
+            ? "\0"
+            : string.Join('\u001e', RuntimeHelpers.GetHashCode(analysis), projectRoot ?? string.Empty);
 
     private async Task RefreshAsync()
     {
@@ -97,48 +119,60 @@ public sealed class AnalysisSummaryViewer : UserControl
         var generation = ++_refreshGeneration;
         var analysis = _analysis;
         var projectRoot = _projectRoot;
+        var refreshKey = CreateRefreshKey(analysis, projectRoot);
         var title = DiagramViewDisplayNames.Get(DiagramViewKind.Summary);
 
-        var sections = await ViewProgressRunner.RunBackgroundAsync(
-            FindForm(),
-            title,
-            progress =>
-            {
-                progress.Report(new AnalysisProgressReport
+        try
+        {
+            var sections = await ViewProgressRunner.RunBackgroundAsync(
+                FindForm(),
+                title,
+                progress =>
                 {
-                    Percent = 40,
-                    Message = "Summary 카드를 구성하는 중...",
-                    Elapsed = TimeSpan.Zero
-                });
-                return AnalysisSummarySectionBuilder.Build(analysis);
-            }).ConfigureAwait(true);
+                    progress.Report(new AnalysisProgressReport
+                    {
+                        Percent = 40,
+                        Message = "Summary 카드를 구성하는 중...",
+                        Elapsed = TimeSpan.Zero
+                    });
+                    return AnalysisSummarySectionBuilder.Build(analysis);
+                }).ConfigureAwait(true);
 
-        if (generation != _refreshGeneration || IsDisposed)
-        {
-            return;
-        }
+            if (generation != _refreshGeneration || IsDisposed)
+            {
+                return;
+            }
 
-        _sections = sections;
-        if (_sections.Count == 0)
-        {
-            _header.Text = "품질 Summary";
+            _sections = sections;
+            _completedRefreshKey = refreshKey;
+            if (_sections.Count == 0)
+            {
+                _header.Text = "품질 Summary";
+                ClearCards();
+                ShowPlaceholder("표시할 품질 분석 결과가 없습니다. 프로젝트를 분석한 뒤 다시 확인하세요.");
+                return;
+            }
+
+            var rootHint = string.IsNullOrWhiteSpace(projectRoot) ? string.Empty : $" · {projectRoot}";
+            var areaCount = _sections.Count(section => !section.IsFullWidth);
+            _header.Text = areaCount > 0
+                ? $"품질 Summary — {areaCount}개 영역{rootHint}"
+                : $"품질 Summary{rootHint}";
             ClearCards();
-            ShowPlaceholder("표시할 품질 분석 결과가 없습니다. 프로젝트를 분석한 뒤 다시 확인하세요.");
-            return;
-        }
+            foreach (var section in _sections)
+            {
+                _cardsPanel.Controls.Add(CreateCard(section));
+            }
 
-        var rootHint = string.IsNullOrWhiteSpace(projectRoot) ? string.Empty : $" · {projectRoot}";
-        var areaCount = _sections.Count(section => !section.IsFullWidth);
-        _header.Text = areaCount > 0
-            ? $"품질 Summary — {areaCount}개 영역{rootHint}"
-            : $"품질 Summary{rootHint}";
-        ClearCards();
-        foreach (var section in _sections)
+            LayoutCards();
+        }
+        finally
         {
-            _cardsPanel.Controls.Add(CreateCard(section));
+            if (string.Equals(_inFlightRefreshKey, refreshKey, StringComparison.Ordinal))
+            {
+                _inFlightRefreshKey = null;
+            }
         }
-
-        LayoutCards();
     }
 
     public void BeginAnalysis()
@@ -147,43 +181,15 @@ public sealed class AnalysisSummaryViewer : UserControl
         _analysis = null;
         _projectRoot = null;
         _sections = [];
+        _completedRefreshKey = null;
+        _inFlightRefreshKey = null;
+        _refreshGeneration++;
         _header.Text = "품질 Summary — 분석 중...";
         ClearCards();
         ShowPlaceholder("분석을 실행하면 코드 품질 요약과 개선 지표 차트가 표시됩니다.");
     }
 
     public void EndAnalysis() => _isAnalyzing = false;
-
-    private void Rebuild()
-    {
-        if (_isAnalyzing)
-        {
-            return;
-        }
-
-        _sections = AnalysisSummarySectionBuilder.Build(_analysis);
-        if (_sections.Count == 0)
-        {
-            _header.Text = "품질 Summary";
-            ClearCards();
-            ShowPlaceholder("표시할 품질 분석 결과가 없습니다. 프로젝트를 분석한 뒤 다시 확인하세요.");
-            return;
-        }
-
-        var rootHint = string.IsNullOrWhiteSpace(_projectRoot) ? string.Empty : $" · {_projectRoot}";
-        var areaCount = _sections.Count(section => !section.IsFullWidth);
-        _header.Text = areaCount > 0
-            ? $"품질 Summary — {areaCount}개 영역{rootHint}"
-            : $"품질 Summary{rootHint}";
-        ViewProgressReporter.Report(40, "Summary 카드를 구성하는 중...");
-        ClearCards();
-        foreach (var section in _sections)
-        {
-            _cardsPanel.Controls.Add(CreateCard(section));
-        }
-
-        LayoutCards();
-    }
 
     private SummaryChartCard CreateCard(SummarySection section)
     {

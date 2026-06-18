@@ -176,7 +176,6 @@ public sealed class CallGraphViewer : UserControl
         _hubTargetNodeId = null;
         _hubTargetNode = null;
         _collapsedNodeIds.Clear();
-        CallGraphExpandHelper.ApplyInitialCollapse(_graph, _rootNodeIds, _collapsedNodeIds);
         _lastVisualBuildKey = null;
         ClearSearchHighlight();
         _zoom.Reset();

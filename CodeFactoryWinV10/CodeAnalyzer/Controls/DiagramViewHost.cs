@@ -80,9 +80,10 @@ public sealed class DiagramViewHost : UserControl
             _readyViews.Remove(value);
             _viewKind = value;
             ApplyVisibility();
-            RefreshActiveView();
         }
     }
+
+    public void RefreshCurrentView() => RefreshActiveView();
 
     public CallGraphViewer CallGraphViewer => _callGraphTabHost.ActiveViewer;
 
@@ -560,6 +561,7 @@ public sealed class DiagramViewHost : UserControl
 
         var roots = ResolveCallGraphTabRoots();
         await _callGraphTabHost.SetGraphAsync(graph, roots).ConfigureAwait(true);
+        await _callGraphTabHost.ExpandAllAsync().ConfigureAwait(true);
     }
 
     private void RefreshActiveViewCore()

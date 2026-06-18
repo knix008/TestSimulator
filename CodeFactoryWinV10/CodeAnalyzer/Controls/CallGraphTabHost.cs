@@ -109,6 +109,7 @@ internal sealed class CallGraphTabHost : UserControl
 
         if (signature == _loadedGraphSignature && _useTabs == useTabs && (!useTabs || _tabSlots.Count > 0))
         {
+            await ExpandAllAsync().ConfigureAwait(true);
             return;
         }
 
@@ -191,24 +192,19 @@ internal sealed class CallGraphTabHost : UserControl
 
     public void ExpandAll()
     {
+        _ = ExpandAllAsync();
+    }
+
+    public async Task ExpandAllAsync()
+    {
         if (_useTabs)
         {
-            foreach (var viewer in _tabViewers)
-            {
-                viewer.ExpandAll();
-            }
-
-            _ = EnsureSelectedTabLoadedAsync();
+            await EnsureSelectedTabLoadedAsync().ConfigureAwait(true);
+            ExpandSelectedTabIfLoaded();
             return;
         }
 
         _singleViewer.ExpandAll();
-    }
-
-    public Task ExpandAllAsync()
-    {
-        ExpandAll();
-        return Task.CompletedTask;
     }
 
     public void CollapseAll()
@@ -311,8 +307,14 @@ internal sealed class CallGraphTabHost : UserControl
             return;
         }
 
-        _tabs.SelectedIndexChanged += (_, _) => _ = EnsureSelectedTabLoadedAsync();
+        _tabs.SelectedIndexChanged += (_, _) => _ = OnTabSelectedAsync();
         _tabSelectHandlerAttached = true;
+    }
+
+    private async Task OnTabSelectedAsync()
+    {
+        await EnsureSelectedTabLoadedAsync().ConfigureAwait(true);
+        ExpandSelectedTabIfLoaded();
     }
 
     private async Task RebuildTabsForCurrentPageAsync(int generation)
@@ -370,18 +372,18 @@ internal sealed class CallGraphTabHost : UserControl
 
         _tabs.ResumeLayout();
         await EnsureSelectedTabLoadedAsync(generation).ConfigureAwait(true);
-        ExpandFirstTabIfLoaded();
+        ExpandSelectedTabIfLoaded();
         SyncPagerState();
     }
 
-    private void ExpandFirstTabIfLoaded()
+    private void ExpandSelectedTabIfLoaded()
     {
-        if (!_useTabs || _tabSlots.Count == 0)
+        if (!_useTabs || _tabs.SelectedIndex < 0 || _tabs.SelectedIndex >= _tabSlots.Count)
         {
             return;
         }
 
-        _tabSlots[0].Viewer?.ExpandAll();
+        _tabSlots[_tabs.SelectedIndex].Viewer?.ExpandAll();
     }
 
     private async Task EnsureSelectedTabLoadedAsync(int? generation = null)
@@ -397,7 +399,13 @@ internal sealed class CallGraphTabHost : UserControl
         }
 
         var slot = _tabSlots[_tabs.SelectedIndex];
-        if (slot.Viewer is not null || slot.IsLoading)
+        if (slot.Viewer is not null)
+        {
+            slot.Viewer.ExpandAll();
+            return;
+        }
+
+        if (slot.IsLoading)
         {
             return;
         }
@@ -417,6 +425,7 @@ internal sealed class CallGraphTabHost : UserControl
             slot.TabPage.Controls.Add(viewer);
             slot.Viewer = viewer;
             _tabViewers.Add(viewer);
+            viewer.ExpandAll();
         }
         finally
         {
