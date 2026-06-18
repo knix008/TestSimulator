@@ -25,6 +25,14 @@ public class KanbanCard
     public int CanvasY { get; set; } = -1;
     public float Rotation { get; set; }
     public int ZIndex { get; set; }
+    /// <summary>우측 상단 종이 접힘(도그이어) 표시 여부.</summary>
+    private bool? _showTopRightFold;
+
+    public bool ShowTopRightFold
+    {
+        get => _showTopRightFold ?? true;
+        set => _showTopRightFold = value;
+    }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? CompletedAt { get; set; }
 

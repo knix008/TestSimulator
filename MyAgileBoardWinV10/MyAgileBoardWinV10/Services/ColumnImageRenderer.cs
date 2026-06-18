@@ -42,7 +42,7 @@ public static class ColumnImageRenderer
         var bmp = new Bitmap(innerWidth + CardCanvasHelper.CanvasPadding * 2, canvasHeight);
         using (var g = Graphics.FromImage(bmp))
         {
-            g.Clear(Color.White);
+            g.Clear(column.GetCanvasColor());
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
             using var headerFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
@@ -52,6 +52,9 @@ public static class ColumnImageRenderer
             TextRenderer.DrawText(g, column.Name, headerFont, new Rectangle(8, 4, bmp.Width - 16, 22),
                 column.ResolveTitleColor(headerColor),
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+            using (var canvasBrush = new SolidBrush(column.GetCanvasColor()))
+                g.FillRectangle(canvasBrush, 0, 28, bmp.Width, bmp.Height - 28);
 
             int fallbackY = 36;
             foreach (var card in column.Cards.OrderBy(c => c.ZIndex).ThenBy(c => c.Title))

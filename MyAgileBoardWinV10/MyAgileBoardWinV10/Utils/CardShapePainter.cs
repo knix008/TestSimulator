@@ -9,7 +9,6 @@ public static class CardShapePainter
 {
     private const int PadX = 5;
     private const int PadTop = 4;
-    private const int FoldSize = 12;
 
     public static int MeasureHeight(KanbanCard card, int width, Font titleFont)
     {
@@ -39,7 +38,15 @@ public static class CardShapePainter
         using (var border = new Pen(Color.FromArgb(hovered ? 140 : 90, 0, 0, 0), 1f))
             g.DrawRectangle(border, cardRect.X, cardRect.Y, w - 1, h - 1);
 
-        DrawStickyFold(g, cardRect, cardColor);
+        if (card.ShowTopRightFold)
+            CardFoldEffect.DrawTopRightFold(g, cardRect, cardColor);
+
+        CardResizeGripPainter.Paint(g,
+            new Rectangle(cardRect.Right - CardCanvasHelper.ResizeGripVisualSize,
+                cardRect.Bottom - CardCanvasHelper.ResizeGripVisualSize,
+                CardCanvasHelper.ResizeGripVisualSize,
+                CardCanvasHelper.ResizeGripVisualSize),
+            cardColor);
 
         bool compact = h < 82;
         bool medium = h < 105;
@@ -113,23 +120,6 @@ public static class CardShapePainter
     {
         g.Clear(Color.Transparent);
         PaintCard(g, new Rectangle(0, 0, width, height), card, titleFont, hovered: false);
-    }
-
-    private static void DrawStickyFold(Graphics g, Rectangle r, Color baseColor)
-    {
-        var foldColor = Color.FromArgb(
-            Math.Min(baseColor.R + 40, 255),
-            Math.Min(baseColor.G + 40, 255),
-            Math.Min(baseColor.B + 40, 255));
-        using var foldBrush = new SolidBrush(foldColor);
-        g.FillPolygon(foldBrush,
-        [
-            new Point(r.Right - FoldSize - 1, r.Top),
-            new Point(r.Right - FoldSize - 1, r.Top + FoldSize),
-            new Point(r.Right - 1, r.Top + FoldSize)
-        ]);
-        using var creasePen = new Pen(Color.FromArgb(50, 0, 0, 0), 1f);
-        g.DrawLine(creasePen, r.Right - FoldSize - 1, r.Top, r.Right - 1, r.Top + FoldSize);
     }
 
     private static int MeasureTitleHeight(string title, Font font, int maxWidth)

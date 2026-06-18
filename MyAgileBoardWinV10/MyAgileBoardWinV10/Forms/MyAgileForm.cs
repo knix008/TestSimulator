@@ -610,13 +610,29 @@ public partial class MyAgileForm : Form
     private void OnAddCardRequested(object? sender, KanbanColumn column)
     {
         var newCard = new KanbanCard { Title = "새 카드" };
-        using var form = new CardEditForm(newCard);
-        if (form.ShowDialog() != DialogResult.OK) return;
-
         SaveUndoSnapshot();
-        FindColumnControl(column)?.AddCard(newCard);
+        var colCtrl = FindColumnControl(column);
+        colCtrl?.AddCard(newCard);
+
+        using var form = new CardEditForm(newCard);
+        form.PreviewChanged += (_, _) => RefreshCardPreview(colCtrl, newCard);
+        if (form.ShowDialog() != DialogResult.OK)
+        {
+            colCtrl?.RemoveCard(newCard);
+            UpdateDirtyState();
+            UpdateStatusBar();
+            return;
+        }
+
         UpdateDirtyState();
         UpdateStatusBar();
+    }
+
+    private void RefreshCardPreview(KanbanColumnControl? colCtrl, KanbanCard card)
+    {
+        colCtrl?.FindCardControl(card)?.UpdateDisplay();
+        colCtrl?.ApplyCardLayouts();
+        colCtrl?.UpdateHeader();
     }
 
     // ─────────────────────────────────────────────
@@ -820,11 +836,16 @@ public partial class MyAgileForm : Form
     {
         SaveUndoSnapshot();
         using var form = new ColumnSettingsForm(column);
+        form.PreviewChanged += (_, _) => RefreshColumnPreview(column);
         if (form.ShowDialog() != DialogResult.OK) return;
+        UpdateDirtyState();
+    }
+
+    private void RefreshColumnPreview(KanbanColumn column)
+    {
         var ctrl = FindColumnControl(column);
         ctrl?.UpdateHeader();
         ApplyProportionalColumnWidths();
-        UpdateDirtyState();
     }
 
     private void OnDeleteColumnRequested(object? sender, KanbanColumn column)
@@ -838,12 +859,20 @@ public partial class MyAgileForm : Form
 
     private void BtnAddColumn_Click(object? sender, EventArgs e)
     {
-        var newCol = new KanbanColumn { Name = "새 컬럼" };
-        using var form = new ColumnSettingsForm(newCol);
-        if (form.ShowDialog() != DialogResult.OK) return;
         SaveUndoSnapshot();
+        var newCol = new KanbanColumn { Name = "새 컬럼" };
         _project.Columns.Add(newCol);
         RebuildBoard();
+
+        using var form = new ColumnSettingsForm(newCol);
+        form.PreviewChanged += (_, _) => RefreshColumnPreview(newCol);
+        if (form.ShowDialog() != DialogResult.OK)
+        {
+            _project.Columns.Remove(newCol);
+            RebuildBoard();
+            return;
+        }
+
         UpdateDirtyState();
     }
 
@@ -932,11 +961,16 @@ public partial class MyAgileForm : Form
     private void menuSave_Click(object sender, EventArgs e)   => Save();
     private void menuSaveAs_Click(object sender, EventArgs e) => SaveAs();
 
+    private void SyncProjectFromBoard()
+    {
+        CaptureWindowState();
+        ProjectBoardSync.SyncFromBoard(_project, flowColumns.Controls.OfType<KanbanColumnControl>());
+    }
+
     private bool Save()
     {
         if (string.IsNullOrEmpty(_project.FilePath)) return SaveAs();
-        CaptureWindowState();
-        SyncColumnWidthsToModel();
+        SyncProjectFromBoard();
         return ErrorHandler.TryExecute(() =>
         {
             ProjectService.Save(_project, _project.FilePath);
@@ -956,8 +990,7 @@ public partial class MyAgileForm : Form
         };
         if (dlg.ShowDialog() != DialogResult.OK) return false;
         RememberDir(dlg.FileName);
-        CaptureWindowState();
-        SyncColumnWidthsToModel();
+        SyncProjectFromBoard();
         return ErrorHandler.TryExecute(() =>
         {
             ProjectService.Save(_project, dlg.FileName);
@@ -985,7 +1018,7 @@ public partial class MyAgileForm : Form
         var result = form.ShowDialog();
         if (result == DialogResult.OK)
         {
-            SyncColumnWidthsToModel();
+            SyncProjectFromBoard();
             ApplyGridSetting(_project.ShowGrid);
             UpdateDirtyState();
         }
@@ -1336,6 +1369,7 @@ public partial class MyAgileForm : Form
     private void menuBurndown_Click(object? sender, EventArgs e)
     {
         using var form = new BurndownChartForm(_project);
+        form.ProjectSettingsChanged += (_, _) => UpdateDirtyState();
         form.ShowDialog();
     }
 

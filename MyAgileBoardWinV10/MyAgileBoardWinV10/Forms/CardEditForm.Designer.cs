@@ -61,18 +61,16 @@ partial class CardEditForm
         btnCustomColor = new Button();
         panelPreview = new Panel();
         lblPreview = new Label();
+        lblTopRightFold = new Label();
+        rbShowTopRightFold = new RadioButton();
+        rbHideTopRightFold = new RadioButton();
         lblCardSize = new Label();
         cmbSizePreset = new ComboBox();
         lblWidth = new Label();
         nudCardWidth = new NumericUpDown();
         lblHeight = new Label();
         nudCardHeight = new NumericUpDown();
-        lblRotation = new Label();
-        nudRotation = new NumericUpDown();
         panelMemoSizePreview = new Panel();
-        btnRotateLeft = new Button();
-        btnRotateRight = new Button();
-        btnRotateReset = new Button();
         lblMemoPreview = new Label();
         btnOk = new Button();
         btnCancel = new Button();
@@ -84,7 +82,6 @@ partial class CardEditForm
         ((System.ComponentModel.ISupportInitialize)nudPoints).BeginInit();
         ((System.ComponentModel.ISupportInitialize)nudCardWidth).BeginInit();
         ((System.ComponentModel.ISupportInitialize)nudCardHeight).BeginInit();
-        ((System.ComponentModel.ISupportInitialize)nudRotation).BeginInit();
         SuspendLayout();
         // 
         // menuCardEdit
@@ -490,14 +487,14 @@ partial class CardEditForm
         // 
         panelColors.Location = new Point(12, 425);
         panelColors.Name = "panelColors";
-        panelColors.Size = new Size(320, 68);
+        panelColors.Size = new Size(456, 68);
         panelColors.TabIndex = 11;
         // 
         // btnCustomColor
         // 
-        btnCustomColor.Location = new Point(340, 425);
+        btnCustomColor.Location = new Point(12, 500);
         btnCustomColor.Name = "btnCustomColor";
-        btnCustomColor.Size = new Size(92, 28);
+        btnCustomColor.Size = new Size(100, 28);
         btnCustomColor.TabIndex = 12;
         btnCustomColor.Text = "직접 선택...";
         btnCustomColor.UseVisualStyleBackColor = true;
@@ -507,27 +504,62 @@ partial class CardEditForm
         // 
         panelPreview.BackColor = Color.WhiteSmoke;
         panelPreview.BorderStyle = BorderStyle.FixedSingle;
-        panelPreview.Location = new Point(340, 456);
+        panelPreview.Location = new Point(120, 498);
         panelPreview.Name = "panelPreview";
-        panelPreview.Size = new Size(92, 34);
+        panelPreview.Size = new Size(80, 36);
         panelPreview.TabIndex = 13;
+        panelPreview.Paint += PanelPreview_Paint;
         // 
         // lblPreview
         // 
         lblPreview.AutoSize = true;
         lblPreview.Font = new Font("Segoe UI", 7.5F);
         lblPreview.ForeColor = Color.DimGray;
-        lblPreview.Location = new Point(340, 496);
+        lblPreview.Location = new Point(120, 538);
         lblPreview.Name = "lblPreview";
         lblPreview.Size = new Size(45, 12);
         lblPreview.TabIndex = 26;
-        lblPreview.Text = "미리보기";
+        lblPreview.Text = "색상 미리보기";
+        // 
+        // lblTopRightFold
+        // 
+        lblTopRightFold.AutoSize = true;
+        lblTopRightFold.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        lblTopRightFold.Location = new Point(220, 498);
+        lblTopRightFold.Name = "lblTopRightFold";
+        lblTopRightFold.Size = new Size(67, 15);
+        lblTopRightFold.TabIndex = 34;
+        lblTopRightFold.Text = "우측 상단";
+        // 
+        // rbShowTopRightFold
+        // 
+        rbShowTopRightFold.AutoSize = true;
+        rbShowTopRightFold.Checked = true;
+        rbShowTopRightFold.Location = new Point(220, 518);
+        rbShowTopRightFold.Name = "rbShowTopRightFold";
+        rbShowTopRightFold.Size = new Size(49, 19);
+        rbShowTopRightFold.TabIndex = 17;
+        rbShowTopRightFold.TabStop = true;
+        rbShowTopRightFold.Text = "접힘";
+        rbShowTopRightFold.UseVisualStyleBackColor = true;
+        rbShowTopRightFold.CheckedChanged += FoldOption_CheckedChanged;
+        // 
+        // rbHideTopRightFold
+        // 
+        rbHideTopRightFold.AutoSize = true;
+        rbHideTopRightFold.Location = new Point(280, 518);
+        rbHideTopRightFold.Name = "rbHideTopRightFold";
+        rbHideTopRightFold.Size = new Size(73, 19);
+        rbHideTopRightFold.TabIndex = 19;
+        rbHideTopRightFold.Text = "접힘 없음";
+        rbHideTopRightFold.UseVisualStyleBackColor = true;
+        rbHideTopRightFold.CheckedChanged += FoldOption_CheckedChanged;
         // 
         // lblCardSize
         // 
         lblCardSize.AutoSize = true;
         lblCardSize.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        lblCardSize.Location = new Point(12, 515);
+        lblCardSize.Location = new Point(12, 558);
         lblCardSize.Name = "lblCardSize";
         lblCardSize.Size = new Size(58, 15);
         lblCardSize.TabIndex = 25;
@@ -536,16 +568,16 @@ partial class CardEditForm
         // cmbSizePreset
         // 
         cmbSizePreset.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbSizePreset.Location = new Point(12, 532);
+        cmbSizePreset.Location = new Point(12, 575);
         cmbSizePreset.Name = "cmbSizePreset";
-        cmbSizePreset.Size = new Size(258, 23);
+        cmbSizePreset.Size = new Size(250, 23);
         cmbSizePreset.TabIndex = 14;
         cmbSizePreset.SelectedIndexChanged += cmbSizePreset_SelectedIndexChanged;
         // 
         // lblWidth
         // 
         lblWidth.AutoSize = true;
-        lblWidth.Location = new Point(278, 515);
+        lblWidth.Location = new Point(272, 558);
         lblWidth.Name = "lblWidth";
         lblWidth.Size = new Size(31, 15);
         lblWidth.TabIndex = 24;
@@ -553,7 +585,7 @@ partial class CardEditForm
         // 
         // nudCardWidth
         // 
-        nudCardWidth.Location = new Point(278, 532);
+        nudCardWidth.Location = new Point(272, 575);
         nudCardWidth.Maximum = new decimal(new int[] { 400, 0, 0, 0 });
         nudCardWidth.Minimum = new decimal(new int[] { 80, 0, 0, 0 });
         nudCardWidth.Name = "nudCardWidth";
@@ -565,7 +597,7 @@ partial class CardEditForm
         // lblHeight
         // 
         lblHeight.AutoSize = true;
-        lblHeight.Location = new Point(344, 515);
+        lblHeight.Location = new Point(340, 558);
         lblHeight.Name = "lblHeight";
         lblHeight.Size = new Size(31, 15);
         lblHeight.TabIndex = 23;
@@ -573,7 +605,7 @@ partial class CardEditForm
         // 
         // nudCardHeight
         // 
-        nudCardHeight.Location = new Point(344, 532);
+        nudCardHeight.Location = new Point(340, 575);
         nudCardHeight.Maximum = new decimal(new int[] { 300, 0, 0, 0 });
         nudCardHeight.Minimum = new decimal(new int[] { 56, 0, 0, 0 });
         nudCardHeight.Name = "nudCardHeight";
@@ -582,74 +614,22 @@ partial class CardEditForm
         nudCardHeight.Value = new decimal(new int[] { 90, 0, 0, 0 });
         nudCardHeight.ValueChanged += nudCardSize_ValueChanged;
         // 
-        // lblRotation
-        // 
-        lblRotation.AutoSize = true;
-        lblRotation.Location = new Point(410, 515);
-        lblRotation.Name = "lblRotation";
-        lblRotation.Size = new Size(44, 15);
-        lblRotation.TabIndex = 22;
-        lblRotation.Text = "회전(°)";
-        // 
-        // nudRotation
-        // 
-        nudRotation.Location = new Point(410, 532);
-        nudRotation.Maximum = new decimal(new int[] { 180, 0, 0, 0 });
-        nudRotation.Minimum = new decimal(new int[] { 180, 0, 0, int.MinValue });
-        nudRotation.Name = "nudRotation";
-        nudRotation.Size = new Size(58, 23);
-        nudRotation.TabIndex = 17;
-        nudRotation.ValueChanged += nudCardSize_ValueChanged;
-        // 
         // panelMemoSizePreview
         // 
         panelMemoSizePreview.BackColor = Color.WhiteSmoke;
         panelMemoSizePreview.BorderStyle = BorderStyle.FixedSingle;
-        panelMemoSizePreview.Location = new Point(12, 560);
+        panelMemoSizePreview.Location = new Point(12, 608);
         panelMemoSizePreview.Name = "panelMemoSizePreview";
-        panelMemoSizePreview.Size = new Size(80, 36);
+        panelMemoSizePreview.Size = new Size(100, 40);
         panelMemoSizePreview.TabIndex = 18;
         panelMemoSizePreview.Paint += PanelMemoSizePreview_Paint;
-        // 
-        // btnRotateLeft
-        // 
-        btnRotateLeft.FlatStyle = FlatStyle.System;
-        btnRotateLeft.Location = new Point(100, 566);
-        btnRotateLeft.Name = "btnRotateLeft";
-        btnRotateLeft.Size = new Size(28, 23);
-        btnRotateLeft.TabIndex = 19;
-        btnRotateLeft.Text = "↺";
-        btnRotateLeft.UseVisualStyleBackColor = true;
-        btnRotateLeft.Click += btnRotateLeft_Click;
-        // 
-        // btnRotateRight
-        // 
-        btnRotateRight.FlatStyle = FlatStyle.System;
-        btnRotateRight.Location = new Point(132, 566);
-        btnRotateRight.Name = "btnRotateRight";
-        btnRotateRight.Size = new Size(28, 23);
-        btnRotateRight.TabIndex = 20;
-        btnRotateRight.Text = "↻";
-        btnRotateRight.UseVisualStyleBackColor = true;
-        btnRotateRight.Click += btnRotateRight_Click;
-        // 
-        // btnRotateReset
-        // 
-        btnRotateReset.FlatStyle = FlatStyle.System;
-        btnRotateReset.Location = new Point(164, 566);
-        btnRotateReset.Name = "btnRotateReset";
-        btnRotateReset.Size = new Size(32, 23);
-        btnRotateReset.TabIndex = 21;
-        btnRotateReset.Text = "0°";
-        btnRotateReset.UseVisualStyleBackColor = true;
-        btnRotateReset.Click += btnRotateReset_Click;
         // 
         // lblMemoPreview
         // 
         lblMemoPreview.AutoSize = true;
         lblMemoPreview.Font = new Font("Segoe UI", 7.5F);
         lblMemoPreview.ForeColor = Color.DimGray;
-        lblMemoPreview.Location = new Point(17, 598);
+        lblMemoPreview.Location = new Point(12, 652);
         lblMemoPreview.Name = "lblMemoPreview";
         lblMemoPreview.Size = new Size(68, 12);
         lblMemoPreview.TabIndex = 0;
@@ -657,7 +637,7 @@ partial class CardEditForm
         // 
         // btnOk
         // 
-        btnOk.Location = new Point(310, 616);
+        btnOk.Location = new Point(310, 668);
         btnOk.Name = "btnOk";
         btnOk.Size = new Size(75, 30);
         btnOk.TabIndex = 22;
@@ -667,7 +647,7 @@ partial class CardEditForm
         // 
         // btnCancel
         // 
-        btnCancel.Location = new Point(393, 616);
+        btnCancel.Location = new Point(393, 668);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(75, 30);
         btnCancel.TabIndex = 23;
@@ -681,14 +661,12 @@ partial class CardEditForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(480, 658);
+        ClientSize = new Size(480, 710);
         Controls.Add(lblMemoPreview);
-        Controls.Add(btnRotateReset);
-        Controls.Add(btnRotateRight);
-        Controls.Add(btnRotateLeft);
         Controls.Add(panelMemoSizePreview);
-        Controls.Add(nudRotation);
-        Controls.Add(lblRotation);
+        Controls.Add(rbHideTopRightFold);
+        Controls.Add(rbShowTopRightFold);
+        Controls.Add(lblTopRightFold);
         Controls.Add(nudCardHeight);
         Controls.Add(lblHeight);
         Controls.Add(nudCardWidth);
@@ -720,6 +698,7 @@ partial class CardEditForm
         Controls.Add(btnOk);
         Controls.Add(btnCancel);
         FormBorderStyle = FormBorderStyle.FixedDialog;
+        AutoScroll = true;
         MainMenuStrip = menuCardEdit;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -739,7 +718,6 @@ partial class CardEditForm
         ((System.ComponentModel.ISupportInitialize)nudPoints).EndInit();
         ((System.ComponentModel.ISupportInitialize)nudCardWidth).EndInit();
         ((System.ComponentModel.ISupportInitialize)nudCardHeight).EndInit();
-        ((System.ComponentModel.ISupportInitialize)nudRotation).EndInit();
         ResumeLayout(false);
         PerformLayout();
     }
@@ -792,18 +770,16 @@ partial class CardEditForm
     private Button btnCustomColor = null!;
     private Panel panelPreview = null!;
     private Label lblPreview = null!;
+    private Label lblTopRightFold = null!;
+    private RadioButton rbShowTopRightFold = null!;
+    private RadioButton rbHideTopRightFold = null!;
     private Label lblCardSize = null!;
     private ComboBox cmbSizePreset = null!;
     private Label lblWidth = null!;
     private NumericUpDown nudCardWidth = null!;
     private Label lblHeight = null!;
     private NumericUpDown nudCardHeight = null!;
-    private Label lblRotation = null!;
-    private NumericUpDown nudRotation = null!;
     private Panel panelMemoSizePreview = null!;
-    private Button btnRotateLeft = null!;
-    private Button btnRotateRight = null!;
-    private Button btnRotateReset = null!;
     private Label lblMemoPreview = null!;
     private Button btnOk = null!;
     private Button btnCancel = null!;

@@ -6,7 +6,7 @@ namespace MyAgileBoardWinV10.Controls;
 
 public partial class KanbanCardControl : UserControl
 {
-    private enum HandleKind { None, Move, Rotate, TopLeft, Top, TopRight, Left, BottomLeft, Bottom, Right, BottomRight }
+    private enum HandleKind { None, Move, Resize, Rotate }
 
     private KanbanCard _card;
     private Font? _titleFont;
@@ -18,7 +18,6 @@ public partial class KanbanCardControl : UserControl
     private bool _mouseDownActive;
     private Point _canvasDragStartLocation;
     private HandleKind _activeHandle = HandleKind.None;
-    private HandleKind _hoverHandle = HandleKind.None;
     private int _mouseOverCount;
     private Point _transformStartScreen;
     private Point _transformStartLocation;
@@ -30,9 +29,7 @@ public partial class KanbanCardControl : UserControl
     public KanbanCard Card => _card;
     public bool IsSelected => _isSelected;
     public bool IsInteracting => Capture || _localCanvasMove || _isCrossColumnDragging
-        || _activeHandle is HandleKind.Rotate
-            or HandleKind.TopLeft or HandleKind.Top or HandleKind.TopRight or HandleKind.Left
-            or HandleKind.BottomLeft or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight;
+        || _activeHandle is HandleKind.Rotate or HandleKind.Resize;
 
     public event EventHandler<KanbanCard>? CardDoubleClicked;
     public event EventHandler<KanbanCard>? CardDeleted;
@@ -96,6 +93,9 @@ public partial class KanbanCardControl : UserControl
         var cardColor = _card.CardColor;
         BackColor = cardColor;
         panelCard.BackColor = cardColor;
+        panelResizeGrip.CardColor = cardColor;
+        panelFoldCorner.CardColor = cardColor;
+        panelFoldMask.BackColor = cardColor;
 
         lblTitle.Text = _card.Title;
         CardTextHelper.ApplyStyleToCanvasLabel(lblTitle, _card.TitleStyle ?? new CardTextStyle(), _titleFont);
@@ -150,8 +150,38 @@ public partial class KanbanCardControl : UserControl
         }
 
         InvalidateRotatedCache();
+        RefreshChrome();
+    }
+
+    /// <summary>접힘·그립·제목 영역을 동기화하고 다시 그립니다.</summary>
+    public void RefreshChrome()
+    {
+        UpdateLabelMetrics();
         ApplyContentLayout();
-        Invalidate();
+        PositionChromeControls();
+        panelFoldCorner?.Invalidate(true);
+        panelResizeGrip?.Invalidate(true);
+        Invalidate(true);
+    }
+
+    private void UpdateLabelMetrics()
+    {
+        int grip = CardCanvasHelper.ResizeGripVisualSize;
+        bool showFold = _card.ShowTopRightFold && Math.Abs(_card.Rotation) < 0.5f;
+        int fold = showFold ? CardFoldEffect.DefaultFoldSize : 0;
+        int leftPad = 5;
+        int contentW = panelCard.ClientSize.Width > 0 ? panelCard.ClientSize.Width : Width;
+        int innerW = Math.Max(40, contentW - grip - leftPad - 3);
+        int titleW = Math.Max(40, contentW - fold - leftPad);
+
+        lblTitle.Width = titleW;
+        lblTitle.Left = leftPad;
+        lblDescription.Width = innerW;
+        lblDescription.Left = leftPad;
+        lblTags.Width = innerW;
+        lblTags.Left = leftPad;
+        lblTitle.AutoEllipsis = true;
+        lblTitle.TextAlign = ContentAlignment.TopLeft;
     }
 
     public void ApplyLayout(int columnMaxWidth)
@@ -159,12 +189,6 @@ public partial class KanbanCardControl : UserControl
         var (width, fixedHeight) = _card.ResolveDisplaySize(columnMaxWidth);
         Margin = Padding.Empty;
         Width = width;
-
-        int innerW = Math.Max(40, Width - 12);
-        lblTitle.Width = innerW;
-        lblDescription.Width = innerW;
-        lblTags.Width = innerW;
-        lblTitle.AutoEllipsis = true;
 
         if (fixedHeight > 0)
         {
@@ -178,6 +202,7 @@ public partial class KanbanCardControl : UserControl
         }
 
         InvalidateRotatedCache();
+        RefreshChrome();
     }
 
     private void LayoutForAutoHeight()
@@ -225,7 +250,9 @@ public partial class KanbanCardControl : UserControl
         lblTitle.Height = titleH;
         lblTitle.Location = new Point(5, 4);
 
-        int metaY = totalHeight - 16;
+        int metaY = totalHeight - CardCanvasHelper.ResizeGripVisualSize - 2;
+        if (metaY < lblTitle.Bottom + 14)
+            metaY = totalHeight - 16;
 
         // Show description in the gap between title and bottom meta row
         if (!compact && !string.IsNullOrEmpty(lblDescription.Text))
@@ -261,6 +288,8 @@ public partial class KanbanCardControl : UserControl
             LayoutForAutoHeight();
             AdjustHeight();
         }
+
+        UpdateLabelMetrics();
     }
 
     private int GetTagsTop()
@@ -292,6 +321,7 @@ public partial class KanbanCardControl : UserControl
         lblAssignee.BackColor = cardColor;
         lblDueDate.BackColor = cardColor;
         lblTags.BackColor = cardColor;
+        panelFoldMask.BackColor = cardColor;
     }
 
     private static Color GetPriorityColor(Priority p) => p switch
@@ -305,7 +335,12 @@ public partial class KanbanCardControl : UserControl
 
     private void SetupDragSource()
     {
-        panelCard.Paint += PanelCard_StickyEffect;
+        panelResizeGrip.MouseDown += ResizeGrip_MouseDown;
+        panelResizeGrip.MouseMove += ResizeGrip_MouseMove;
+        panelResizeGrip.MouseUp += ResizeGrip_MouseUp;
+        panelResizeGrip.ContextMenuStrip = contextMenuCard;
+        panelFoldCorner.ContextMenuStrip = contextMenuCard;
+        toolTip.SetToolTip(panelResizeGrip, "드래그하여 크기 조절");
 
         foreach (var ctrl in GetInteractiveControls())
         {
@@ -325,6 +360,51 @@ public partial class KanbanCardControl : UserControl
         MouseLeave += Card_MouseLeave;
     }
 
+    private IEnumerable<Control> GetInteractiveControls()
+    {
+        yield return panelCard;
+        yield return panelFoldCorner;
+        yield return lblTitle;
+        yield return lblDescription;
+        yield return lblPriority;
+        yield return lblAssignee;
+        yield return lblDueDate;
+        yield return lblTags;
+    }
+
+    private void ResizeGrip_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+
+        CardSelected?.Invoke(this, this);
+        CardBeforeTransform?.Invoke(this, _card);
+
+        _activeHandle = HandleKind.Resize;
+        _mouseDownActive = true;
+        _transformStartScreen = Cursor.Position;
+        _transformStartSize = Size;
+        _transformStartRotation = _card.Rotation;
+        Capture = true;
+        BringToFront();
+    }
+
+    private void ResizeGrip_MouseMove(object? sender, MouseEventArgs e)
+    {
+        if (_activeHandle != HandleKind.Resize) return;
+        if (e.Button != MouseButtons.Left && !Capture) return;
+        ApplyResizeFromGrip();
+    }
+
+    private void ResizeGrip_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (_activeHandle != HandleKind.Resize) return;
+
+        Capture = false;
+        _mouseDownActive = false;
+        _activeHandle = HandleKind.None;
+        CardTransformChanged?.Invoke(this, _card);
+    }
+
     private void Card_MouseEnter(object? sender, EventArgs e)
     {
         _mouseOverCount++;
@@ -334,82 +414,11 @@ public partial class KanbanCardControl : UserControl
     private void Card_MouseLeave(object? sender, EventArgs e)
     {
         _mouseOverCount = Math.Max(0, _mouseOverCount - 1);
-        if (_mouseOverCount == 0)
-        {
-            if (!Capture && !_mouseDownActive)
-                UpdateHoverHandle(HandleKind.None);
-        }
         Invalidate();
-    }
-
-    private IEnumerable<Control> GetInteractiveControls()
-    {
-        yield return panelCard;
-        yield return lblTitle;
-        yield return lblDescription;
-        yield return lblPriority;
-        yield return lblAssignee;
-        yield return lblDueDate;
-        yield return lblTags;
     }
 
     private Point GetLocalPoint(Point clientPoint)
         => CardCanvasHelper.TransformPointToLocal(clientPoint, Width, Height, _card.Rotation);
-
-    private HandleKind HitTestHandle(Point localPoint)
-    {
-        if (!_isSelected)
-            return HandleKind.Move;
-
-        int edge   = CardCanvasHelper.EdgeGripSize;
-        int corner = CardCanvasHelper.CornerHandleHitSize;
-        int rotSz  = CardCanvasHelper.RotateHandleHitSize;
-
-        var rotCenter = GetRotateHandleCenter();
-        int rotDistSq = (localPoint.X - rotCenter.X) * (localPoint.X - rotCenter.X)
-                      + (localPoint.Y - rotCenter.Y) * (localPoint.Y - rotCenter.Y);
-        if (rotDistSq <= (rotSz / 2) * (rotSz / 2))
-            return HandleKind.Rotate;
-
-        if (new Rectangle(0, 0, corner, corner).Contains(localPoint))             return HandleKind.TopLeft;
-        if (new Rectangle(Width - corner, 0, corner, corner).Contains(localPoint)) return HandleKind.TopRight;
-        if (new Rectangle(0, Height - corner, corner, corner).Contains(localPoint)) return HandleKind.BottomLeft;
-        if (new Rectangle(Width - corner, Height - corner, corner, corner).Contains(localPoint)) return HandleKind.BottomRight;
-
-        if (localPoint.Y < edge && localPoint.X >= corner && localPoint.X < Width - corner) return HandleKind.Top;
-        if (localPoint.Y >= Height - edge && localPoint.X >= corner && localPoint.X < Width - corner) return HandleKind.Bottom;
-        if (localPoint.X < edge && localPoint.Y >= corner && localPoint.Y < Height - corner) return HandleKind.Left;
-        if (localPoint.X >= Width - edge && localPoint.Y >= corner && localPoint.Y < Height - corner) return HandleKind.Right;
-
-        return HandleKind.Move;
-    }
-
-    private void UpdateHoverHandle(HandleKind handle)
-    {
-        if (_hoverHandle == handle) return;
-        _hoverHandle = handle;
-        Cursor = handle switch
-        {
-            HandleKind.TopLeft or HandleKind.BottomRight or HandleKind.TopRight => Cursors.SizeNWSE,
-            HandleKind.BottomLeft => Cursors.SizeNESW,
-            HandleKind.Top or HandleKind.Bottom => Cursors.SizeNS,
-            HandleKind.Left or HandleKind.Right => Cursors.SizeWE,
-            HandleKind.Rotate => Cursors.Hand,
-            _ => Cursors.Hand
-        };
-        Invalidate();
-    }
-
-    private void UpdateHoverFromMouse(Control? sender, MouseEventArgs e)
-    {
-        if (Capture || _mouseDownActive || !_isSelected) return;
-
-        var clientPt = sender is Control c && c != this
-            ? PointToClient(c.PointToScreen(e.Location))
-            : e.Location;
-
-        UpdateHoverHandle(HitTestHandle(GetLocalPoint(clientPt)));
-    }
 
     private void Card_MouseDown(object? sender, MouseEventArgs e)
     {
@@ -419,13 +428,9 @@ public partial class KanbanCardControl : UserControl
             ? PointToClient(c.PointToScreen(e.Location))
             : e.Location;
 
-        var local = GetLocalPoint(clientPt);
-        var handle = HitTestHandle(local);
-        bool wasSelected = _isSelected;
-
         CardSelected?.Invoke(this, this);
 
-        _activeHandle = wasSelected && handle != HandleKind.Move ? handle : HandleKind.Move;
+        _activeHandle = HandleKind.Move;
         _dragStartScreen = Cursor.Position;
         _grabOffset = clientPt;
         _isCrossColumnDragging = false;
@@ -435,19 +440,9 @@ public partial class KanbanCardControl : UserControl
         _transformStartLocation = Location;
         _transformStartSize = Size;
         _transformStartRotation = _card.Rotation;
+        var local = GetLocalPoint(clientPt);
         _transformStartAngle = Math.Atan2(local.Y - Height / 2.0, local.X - Width / 2.0);
-
         _mouseDownActive = true;
-
-        if (_activeHandle is HandleKind.Rotate
-            or HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
-            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight or HandleKind.TopRight)
-        {
-            CardBeforeTransform?.Invoke(this, _card);
-            Capture = true;
-            Invalidate();
-        }
-
         BringToFront();
     }
 
@@ -461,53 +456,24 @@ public partial class KanbanCardControl : UserControl
         Width = newW;
         Height = newH;
 
-        int innerW = Math.Max(40, Width - 12);
-        lblTitle.Width = innerW;
-        lblTags.Width = innerW;
+        UpdateLabelMetrics();
         LayoutForFixedHeight(newH);
+        PositionChromeControls();
+        panelResizeGrip.BringToFront();
         InvalidateRotatedCache();
         Invalidate();
     }
 
-    private void ApplyResizeFromHandle(HandleKind handle)
+    private void ApplyResizeFromGrip()
     {
         var pos = Cursor.Position;
         int dx = pos.X - _transformStartScreen.X;
         int dy = pos.Y - _transformStartScreen.Y;
         var localDelta = CardCanvasHelper.TransformDeltaToLocal(dx, dy, _transformStartRotation);
-        dx = localDelta.X;
-        dy = localDelta.Y;
 
-        bool fromLeft = handle is HandleKind.TopLeft or HandleKind.Left or HandleKind.BottomLeft;
-        bool fromTop = handle is HandleKind.TopLeft or HandleKind.Top or HandleKind.TopRight;
-        bool fromRight = handle is HandleKind.Right or HandleKind.BottomRight or HandleKind.TopRight;
-        bool fromBottom = handle is HandleKind.BottomLeft or HandleKind.Bottom or HandleKind.BottomRight;
-
-        int newW = fromLeft ? _transformStartSize.Width - dx
-                 : fromRight ? _transformStartSize.Width + dx
-                 : _transformStartSize.Width;
-        int newH = fromTop ? _transformStartSize.Height - dy
-                 : fromBottom ? _transformStartSize.Height + dy
-                 : _transformStartSize.Height;
-
-        newW = Math.Max(CardSizeDefaults.MinWidth, newW);
-        newH = Math.Max(CardSizeDefaults.MinHeight, newH);
-
-        if (fromLeft || fromTop)
-        {
-            int localOx = fromLeft ? _transformStartSize.Width - newW : 0;
-            int localOy = fromTop ? _transformStartSize.Height - newH : 0;
-            var parentOffset = CardCanvasHelper.TransformLocalDeltaToParent(
-                localOx, localOy, _transformStartRotation);
-
-            var canvas = Parent;
-            canvas?.SuspendLayout();
-            _card.CanvasX = _transformStartLocation.X + parentOffset.X;
-            _card.CanvasY = _transformStartLocation.Y + parentOffset.Y;
-            Location = new Point(_card.CanvasX, _card.CanvasY);
-            canvas?.ResumeLayout(false);
-        }
-
+        int maxW = GetColumnMaxWidth();
+        int newW = Math.Clamp(_transformStartSize.Width + localDelta.X, CardSizeDefaults.MinWidth, maxW);
+        int newH = Math.Max(CardSizeDefaults.MinHeight, _transformStartSize.Height + localDelta.Y);
         ApplyVisualSize(newW, newH);
     }
 
@@ -524,12 +490,8 @@ public partial class KanbanCardControl : UserControl
 
     private void Card_MouseMove(object? sender, MouseEventArgs e)
     {
-        if (e.Button == MouseButtons.None)
-        {
-            UpdateHoverFromMouse(sender as Control, e);
-            return;
-        }
-
+        if (_activeHandle == HandleKind.Resize) return;
+        if (e.Button == MouseButtons.None) return;
         if (!_mouseDownActive && !Capture) return;
         if (e.Button != MouseButtons.Left) return;
 
@@ -561,26 +523,6 @@ public partial class KanbanCardControl : UserControl
 
     private void ProcessDragMove()
     {
-
-        if (_activeHandle == HandleKind.Rotate)
-        {
-            var local = GetLocalPoint(PointToClient(Cursor.Position));
-            double angle = Math.Atan2(local.Y - Height / 2.0, local.X - Width / 2.0);
-            float delta = (float)((angle - _transformStartAngle) * 180.0 / Math.PI);
-            _card.Rotation = Math.Clamp(_transformStartRotation + delta,
-                CardCanvasHelper.MinRotation, CardCanvasHelper.MaxRotation);
-            InvalidateRotatedCache();
-            Invalidate();
-            return;
-        }
-
-        if (_activeHandle is HandleKind.TopLeft or HandleKind.Top or HandleKind.Left or HandleKind.BottomLeft
-            or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight or HandleKind.TopRight)
-        {
-            ApplyResizeFromHandle(_activeHandle);
-            return;
-        }
-
         var canvas = Parent;
         if (canvas == null) return;
         var canvasClient = canvas.PointToClient(Cursor.Position);
@@ -628,19 +570,11 @@ public partial class KanbanCardControl : UserControl
 
     private void Card_MouseUp(object? sender, MouseEventArgs e)
     {
+        if (_activeHandle == HandleKind.Resize) return;
         if (!_mouseDownActive && !Capture && !_isCrossColumnDragging) return;
 
         Capture = false;
         _mouseDownActive = false;
-
-        if (_activeHandle is HandleKind.Rotate
-            or HandleKind.TopLeft or HandleKind.Top or HandleKind.TopRight or HandleKind.Left
-            or HandleKind.BottomLeft or HandleKind.Bottom or HandleKind.Right or HandleKind.BottomRight)
-        {
-            _activeHandle = HandleKind.None;
-            CardTransformChanged?.Invoke(this, _card);
-            return;
-        }
 
         if (_localCanvasMove)
         {
@@ -664,6 +598,24 @@ public partial class KanbanCardControl : UserControl
         _activeHandle = HandleKind.None;
     }
 
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_activeHandle == HandleKind.Resize && Capture)
+            ApplyResizeFromGrip();
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        if (_activeHandle == HandleKind.Resize && e.Button == MouseButtons.Left)
+        {
+            ResizeGrip_MouseUp(panelResizeGrip, e);
+            return;
+        }
+
+        base.OnMouseUp(e);
+    }
+
     private int GetColumnMaxWidth()
     {
         if (Parent is Panel canvas && canvas.Parent is KanbanColumnControl col)
@@ -671,11 +623,70 @@ public partial class KanbanCardControl : UserControl
         return Width;
     }
 
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        RefreshChrome();
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        if (IsHandleCreated)
+            RefreshChrome();
+    }
+
+    private void PositionChromeControls()
+    {
+        if (panelResizeGrip == null || panelFoldCorner == null) return;
+
+        int grip = CardCanvasHelper.ResizeGripVisualSize;
+        int fold = CardFoldEffect.DefaultFoldSize;
+
+        panelResizeGrip.Size = new Size(grip, grip);
+        panelResizeGrip.Location = new Point(
+            Math.Max(0, ClientSize.Width - grip),
+            Math.Max(0, ClientSize.Height - grip));
+
+        panelFoldCorner.Size = new Size(fold, fold);
+        panelFoldCorner.Location = new Point(
+            Math.Max(0, ClientSize.Width - fold),
+            0);
+
+        bool showChrome = Math.Abs(_card.Rotation) < 0.5f;
+        bool showFold = showChrome && _card.ShowTopRightFold;
+
+        panelResizeGrip.Visible = showChrome;
+        panelFoldCorner.Visible = showFold;
+
+        panelFoldMask.Visible = showFold;
+        if (showFold)
+        {
+            panelFoldMask.Size = new Size(fold, fold);
+            panelFoldMask.Location = new Point(
+                Math.Max(0, panelCard.ClientSize.Width - fold),
+                0);
+            panelFoldMask.BringToFront();
+        }
+
+        panelFoldCorner.BringToFront();
+        panelResizeGrip.BringToFront();
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (Visible && IsHandleCreated)
+            RefreshChrome();
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         if (Math.Abs(_card.Rotation) > 0.5f)
         {
             panelCard.Visible = false;
+            panelResizeGrip.Visible = false;
+            panelFoldCorner.Visible = false;
             EnsureRotatedCache();
             if (_rotatedCache != null)
             {
@@ -694,99 +705,10 @@ public partial class KanbanCardControl : UserControl
         }
 
         if (_isSelected)
-            DrawSelectionHandles(e.Graphics);
-    }
-
-    private static readonly HandleKind[] ResizeHandleKinds =
-    {
-        HandleKind.TopLeft, HandleKind.Top, HandleKind.TopRight,
-        HandleKind.Left, HandleKind.Right,
-        HandleKind.BottomLeft, HandleKind.Bottom, HandleKind.BottomRight
-    };
-
-    private Rectangle GetHandleRect(HandleKind kind)
-    {
-        const int sz    = 14;
-        const int inset = 3;
-        int cx     = Width / 2 - sz / 2;
-        int cy     = Height / 2 - sz / 2;
-        int right  = Width  - sz - inset;
-        int bottom = Height - sz - inset;
-        return kind switch
         {
-            HandleKind.TopLeft     => new Rectangle(inset, inset,  sz, sz),
-            HandleKind.Top         => new Rectangle(cx,    inset,  sz, sz),
-            HandleKind.TopRight    => new Rectangle(right, inset,  sz, sz),
-            HandleKind.Left        => new Rectangle(inset, cy,     sz, sz),
-            HandleKind.Right       => new Rectangle(right, cy,     sz, sz),
-            HandleKind.BottomLeft  => new Rectangle(inset, bottom, sz, sz),
-            HandleKind.Bottom      => new Rectangle(cx,    bottom, sz, sz),
-            HandleKind.BottomRight => new Rectangle(right, bottom, sz, sz),
-            _ => Rectangle.Empty
-        };
-    }
-
-    private Point GetRotateHandleCenter()
-        => new Point(Width / 2, 14);
-
-    private Rectangle GetRotateHandleRect()
-    {
-        const int sz = 24;
-        var center = GetRotateHandleCenter();
-        return new Rectangle(center.X - sz / 2, center.Y - sz / 2, sz, sz);
-    }
-
-    private bool IsResizeHandleActive(HandleKind kind)
-        => _hoverHandle == kind || _activeHandle == kind;
-
-    private void DrawResizeHandlesVisual(Graphics g)
-    {
-        g.SmoothingMode = SmoothingMode.None;
-        foreach (var kind in ResizeHandleKinds)
-        {
-            var rect = GetHandleRect(kind);
-            bool active = IsResizeHandleActive(kind);
-            using var fill   = new SolidBrush(active ? Color.FromArgb(40, 80, 200) : Color.White);
-            using var border = new Pen(Color.FromArgb(200, 30, 100, 220), active ? 2.5f : 1.5f);
-            g.FillRectangle(fill, rect);
-            g.DrawRectangle(border, rect);
+            using var pen = new Pen(Color.FromArgb(200, 30, 100, 220), 2f) { DashStyle = DashStyle.Dash };
+            e.Graphics.DrawRectangle(pen, 1, 1, Width - 3, Height - 3);
         }
-    }
-
-    private void DrawRotateHandleVisual(Graphics g)
-    {
-        var rect   = GetRotateHandleRect();
-        bool active = _hoverHandle == HandleKind.Rotate || _activeHandle == HandleKind.Rotate;
-
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-
-        // Outer glow when active
-        if (active)
-        {
-            using var glow = new Pen(Color.FromArgb(60, 0, 180, 120), 4f);
-            g.DrawEllipse(glow, rect);
-        }
-
-        using var fill   = new SolidBrush(active ? Color.FromArgb(0, 170, 110) : Color.FromArgb(235, 255, 248));
-        using var border = new Pen(active ? Color.FromArgb(0, 140, 90) : Color.FromArgb(160, 0, 150, 100),
-                                   active ? 2f : 1.5f);
-        g.FillEllipse(fill, rect);
-        g.DrawEllipse(border, rect);
-
-        // ↻ symbol centered
-        using var sf   = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        using var font = new Font("Segoe UI", 11f, FontStyle.Bold);
-        using var tb   = new SolidBrush(active ? Color.White : Color.FromArgb(0, 130, 80));
-        g.DrawString("↻", font, tb, rect, sf);
-        g.SmoothingMode = SmoothingMode.None;
-    }
-
-    private void DrawSelectionHandles(Graphics g)
-    {
-        using var pen = new Pen(Color.FromArgb(220, 30, 100, 220), 2f);
-        g.DrawRectangle(pen, 1, 1, Width - 3, Height - 3);
-        DrawResizeHandlesVisual(g);
-        DrawRotateHandleVisual(g);
     }
 
     private void EnsureRotatedCache()
@@ -799,7 +721,21 @@ public partial class KanbanCardControl : UserControl
         InvalidateRotatedCache();
         _rotatedCache = new Bitmap(Width, Height);
         panelCard.Visible = true;
+        panelResizeGrip.Visible = false;
+        panelFoldCorner.Visible = false;
         panelCard.DrawToBitmap(_rotatedCache, new Rectangle(0, 0, Width, Height));
+        using (var g = Graphics.FromImage(_rotatedCache))
+        {
+            if (_card.ShowTopRightFold)
+                CardFoldEffect.DrawTopRightFold(g, new Rectangle(0, 0, Width, Height), panelCard.BackColor);
+
+            CardResizeGripPainter.Paint(g,
+                new Rectangle(Width - CardCanvasHelper.ResizeGripVisualSize,
+                    Height - CardCanvasHelper.ResizeGripVisualSize,
+                    CardCanvasHelper.ResizeGripVisualSize,
+                    CardCanvasHelper.ResizeGripVisualSize),
+                panelCard.BackColor);
+        }
     }
 
     private void InvalidateRotatedCache()
@@ -807,33 +743,11 @@ public partial class KanbanCardControl : UserControl
         _rotatedCache?.Dispose();
         _rotatedCache = null;
         panelCard.Visible = true;
+        panelResizeGrip.Visible = Math.Abs(_card.Rotation) < 0.5f;
+        panelFoldCorner.Visible = Math.Abs(_card.Rotation) < 0.5f && _card.ShowTopRightFold;
+        PositionChromeControls();
     }
 
-    private void PanelCard_StickyEffect(object? sender, PaintEventArgs e)
-    {
-        if (Math.Abs(_card.Rotation) > 0.5f) return;
-
-        const int fold = 12;
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        var r = panelCard.ClientRectangle;
-
-        var base_ = panelCard.BackColor;
-        var foldColor = Color.FromArgb(
-            Math.Min(base_.R + 40, 255),
-            Math.Min(base_.G + 40, 255),
-            Math.Min(base_.B + 40, 255));
-        using var foldBrush = new SolidBrush(foldColor);
-        g.FillPolygon(foldBrush, new Point[]
-        {
-            new(r.Right - fold - 1, r.Top),
-            new(r.Right - fold - 1, r.Top + fold),
-            new(r.Right - 1,        r.Top + fold)
-        });
-
-        using var creasePen = new Pen(Color.FromArgb(50, 0, 0, 0), 1f);
-        g.DrawLine(creasePen, r.Right - fold - 1, r.Top, r.Right - 1, r.Top + fold);
-    }
 
     private void OnCardDoubleClick(object? sender, EventArgs e)
     {

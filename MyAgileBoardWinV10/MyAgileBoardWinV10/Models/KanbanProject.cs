@@ -7,6 +7,7 @@ public class KanbanProject
     public bool ShowGrid { get; set; } = true;
     public List<KanbanColumn> Columns { get; set; } = new();
     public List<ArchivedCard> ArchivedCards { get; set; } = new();
+    public BurndownChartColorSettings BurndownChartColors { get; set; } = BurndownChartColorSettings.CreateDefault();
 
     // Window state
     public int WindowX { get; set; } = -1;

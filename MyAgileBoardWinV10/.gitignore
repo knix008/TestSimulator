@@ -1,14 +1,19 @@
 ## Visual Studio / .NET
 
 # Build outputs
-bin/
-obj/
+[Bb]in/
+[Oo]bj/
+**/bin/
+**/obj/
+
+# Installer / WiX
 *.msi
 *.wixpdb
 *.wixobj
 
 # User-specific files
 *.user
+*.csproj.user
 *.suo
 *.userosscache
 *.sln.docstates
@@ -19,18 +24,21 @@ packages/
 *.nupkg
 **/[Nn]uget.config
 
-# Rider
+# Rider / JetBrains
 .idea/
 
-# Publish profiles
+# Publish profiles & output
 **/Properties/PublishProfiles/
+publish/
+PublishOutputs/
 
-# Generated
+# Generated (designer / source generators)
 *.g.cs
 *.g.i.cs
 
-# Crash dumps
+# Crash dumps & logs
 *.dmp
+*.log
 
 # OS
 Thumbs.db
@@ -47,3 +55,9 @@ coverage/
 
 # Local AI / editor settings
 .claude/
+
+# Accidental tool output (sample generator mis-path)
+Tools/Samples/
+
+# Ephemeral validation scripts
+Samples/_verify.cs

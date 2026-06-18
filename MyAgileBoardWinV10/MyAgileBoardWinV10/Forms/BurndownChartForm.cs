@@ -9,6 +9,8 @@ public partial class BurndownChartForm : Form
     private KanbanProject _project = null!;
     private BurndownChartColorSettings _chartColors = null!;
 
+    public event EventHandler? ProjectSettingsChanged;
+
     // Chart data computed on refresh
     private record DayData(DateTime Date, int PointsCompleted, int CumulativeCompleted);
     private List<DayData> _chartData = new();
@@ -22,7 +24,8 @@ public partial class BurndownChartForm : Form
     public BurndownChartForm(KanbanProject project) : this()
     {
         _project = project;
-        _chartColors = AppSettings.GetBurndownChartColors();
+        _chartColors = (_project.BurndownChartColors ?? BurndownChartColorSettings.CreateDefault()).Clone();
+        _project.BurndownChartColors = _chartColors.Clone();
         dtpStart.Value = DateTime.Today.AddDays(-13);
         dtpEnd.Value   = DateTime.Today;
         dtpStart.ValueChanged += DateRange_ValueChanged;
@@ -229,7 +232,8 @@ public partial class BurndownChartForm : Form
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
         _chartColors = dlg.Colors;
-        AppSettings.SetBurndownChartColors(_chartColors);
+        _project.BurndownChartColors = _chartColors.Clone();
+        ProjectSettingsChanged?.Invoke(this, EventArgs.Empty);
         panelChart.Invalidate();
     }
 

@@ -153,6 +153,12 @@ partial class KanbanCardControl
         lblTags.Visible = false;
         lblTags.ContextMenuStrip = contextMenuCard;
 
+        // panelFoldMask — 접힘 아래 제목 글자가 그려지지 않도록 카드색으로 덮음
+        panelFoldMask = new Panel();
+        panelFoldMask.Name = "panelFoldMask";
+        panelFoldMask.TabStop = false;
+        panelFoldMask.Enabled = false;
+
         // panelCard
         panelCard.BackColor = Color.WhiteSmoke;
         panelCard.BorderStyle = BorderStyle.None;
@@ -163,7 +169,8 @@ partial class KanbanCardControl
             lblPriority,
             lblAssignee,
             lblDueDate,
-            lblTags
+            lblTags,
+            panelFoldMask
         });
         panelCard.ContextMenuStrip = contextMenuCard;
         panelCard.Cursor = Cursors.Hand;
@@ -171,10 +178,21 @@ partial class KanbanCardControl
         panelCard.Name = "panelCard";
         panelCard.Size = new Size(230, 74);
 
+        // panelFoldCorner
+        panelFoldCorner = new CardFoldCornerPanel();
+        panelFoldCorner.Name = "panelFoldCorner";
+
+        // panelResizeGrip
+        panelResizeGrip = new CardResizeGripPanel();
+        panelResizeGrip.Name = "panelResizeGrip";
+        panelResizeGrip.TabIndex = 1;
+
         // KanbanCardControl
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         Controls.Add(panelCard);
+        Controls.Add(panelFoldCorner);
+        Controls.Add(panelResizeGrip);
         ContextMenuStrip = contextMenuCard;
         Cursor = Cursors.Hand;
         Margin = new Padding(3, 3, 3, 2);
@@ -187,6 +205,9 @@ partial class KanbanCardControl
     }
 
     private Panel panelCard = null!;
+    private Panel panelFoldMask = null!;
+    private CardFoldCornerPanel panelFoldCorner = null!;
+    private CardResizeGripPanel panelResizeGrip = null!;
     private Label lblTitle = null!;
     private Label lblDescription = null!;
     private Label lblPriority = null!;

@@ -271,6 +271,9 @@ public partial class KanbanColumnControl : UserControl
             .ToList();
         for (int i = 0; i < controls.Count; i++)
             panelCanvas.Controls.SetChildIndex(controls[i], i);
+
+        foreach (var ctrl in controls)
+            ctrl.RefreshChrome();
     }
 
     public KanbanCardControl? SelectedCardControl => _selectedCard;
@@ -405,6 +408,34 @@ public partial class KanbanColumnControl : UserControl
         menuCompletionToggle.Text = _column.IsCompletionColumn
             ? "완료 컬럼 해제"
             : "완료 컬럼으로 설정";
+
+        panelCanvas.BackColor = _column.GetCanvasColor();
+    }
+
+    public void SyncToModel()
+    {
+        _column.ColumnWidth = Math.Max(1, Width);
+
+        foreach (KanbanCardControl ctrl in panelCanvas.Controls.OfType<KanbanCardControl>())
+        {
+            var card = ctrl.Card;
+            card.CanvasX = ctrl.Left;
+            card.CanvasY = ctrl.Top;
+            card.Rotation = ctrl.Card.Rotation;
+
+            if (card.SizePreset == CardSizePreset.Custom)
+            {
+                card.CustomWidth = ctrl.Width;
+                card.CustomHeight = ctrl.Height;
+            }
+        }
+
+        int topIndex = panelCanvas.Controls.Count;
+        foreach (KanbanCardControl ctrl in panelCanvas.Controls.OfType<KanbanCardControl>())
+        {
+            int childIndex = panelCanvas.Controls.GetChildIndex(ctrl);
+            ctrl.Card.ZIndex = topIndex - childIndex;
+        }
     }
 
     private void ApplyTitleFont()
@@ -594,13 +625,16 @@ public partial class KanbanColumnControl : UserControl
     {
         BeforeProjectChange?.Invoke(this, EventArgs.Empty);
         using var form = new Forms.CardEditForm(card);
-        if (form.ShowDialog() == DialogResult.OK)
+        form.PreviewChanged += (_, _) =>
         {
             FindCardControl(card)?.UpdateDisplay();
             ApplyCardLayouts();
             UpdateHeader();
             ProjectChanged?.Invoke(this, EventArgs.Empty);
-        }
+        };
+
+        if (form.ShowDialog() == DialogResult.OK)
+            ProjectChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnCardDeleted(object? sender, KanbanCard card)

@@ -3,12 +3,7 @@ namespace MyAgileBoardWinV10.Utils;
 public static class CardCanvasHelper
 {
     public const int CanvasPadding = 8;
-    public const int HandleSize = 8;
-    public const int EdgeGripSize = 22;
-    public const int CornerHandleVisualSize = 14;
-    public const int CornerHandleHitSize = 30;
-    public const int EdgeHandleVisualThickness = 5;
-    public const int RotateHandleHitSize = 36;
+    public const int ResizeGripVisualSize = 24;
     public const float MinRotation = -180f;
     public const float MaxRotation = 180f;
     public const float RotationStep = 15f;

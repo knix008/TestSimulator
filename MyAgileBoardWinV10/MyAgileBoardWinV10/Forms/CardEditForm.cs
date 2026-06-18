@@ -7,10 +7,12 @@ namespace MyAgileBoardWinV10.Forms;
 public partial class CardEditForm : Form
 {
     private KanbanCard _card = null!;
+    private readonly string _originalCardJson = string.Empty;
     private Color _selectedColor;
     private CardTextStyle _titleStyle = new();
     private Control? _activeTextTarget;
     private bool _suppressToolbarEvents;
+    private bool _loading;
 
     private const int ColorSwatchSize = 28;
     private const int ColorSwatchMargin = 2;
@@ -53,10 +55,14 @@ public partial class CardEditForm : Form
     public CardEditForm(KanbanCard card) : this()
     {
         _card = card;
+        _originalCardJson = CardEditSnapshot.Capture(card);
         _selectedColor = card.CardColor;
         _titleStyle = card.TitleStyle?.Clone() ?? new CardTextStyle();
         LoadFromCard();
+        WirePreviewEvents();
     }
+
+    public event EventHandler? PreviewChanged;
 
     private void InitializeFormatToolbarComboBoxes()
     {
@@ -101,14 +107,23 @@ public partial class CardEditForm : Form
     private void tsbDescStrikeout_Click(object? sender, EventArgs e) => ToggleDescriptionStrikeout();
     private void tsbDescInsertSymbol_Click(object? sender, EventArgs e) => InsertSymbolIntoDescription();
     private void cmbSizePreset_SelectedIndexChanged(object? sender, EventArgs e) => OnSizePresetChanged();
-    private void nudCardSize_ValueChanged(object? sender, EventArgs e) => UpdateMemoSizePreview();
-    private void btnRotateLeft_Click(object? sender, EventArgs e) => AdjustRotationInForm(-CardCanvasHelper.RotationStep);
-    private void btnRotateRight_Click(object? sender, EventArgs e) => AdjustRotationInForm(CardCanvasHelper.RotationStep);
-    private void btnRotateReset_Click(object? sender, EventArgs e)
+    private void nudCardSize_ValueChanged(object? sender, EventArgs e)
     {
-        nudRotation.Value = 0;
         UpdateMemoSizePreview();
+        CommitPreview();
     }
+    private void FoldOption_CheckedChanged(object? sender, EventArgs e)
+    {
+        if (rbShowTopRightFold.Checked || rbHideTopRightFold.Checked)
+        {
+            panelPreview.Invalidate();
+            panelMemoSizePreview.Invalidate();
+        }
+
+        CommitPreview();
+    }
+
+    private bool ShowTopRightFoldPreview => rbShowTopRightFold.Checked;
 
     private void rtbDescription_SelectionChanged(object? sender, EventArgs e)
     {
@@ -131,6 +146,7 @@ public partial class CardEditForm : Form
         nudCardHeight.Enabled = custom || preset == CardSizePreset.Wide;
 
         UpdateMemoSizePreview();
+        CommitPreview();
     }
 
     private void UpdateMemoSizePreview()
@@ -148,12 +164,6 @@ public partial class CardEditForm : Form
         lblMemoPreview.Location = new Point(panelMemoSizePreview.Left, panelMemoSizePreview.Bottom + 2);
     }
 
-    private void AdjustRotationInForm(float delta)
-    {
-        var next = (float)nudRotation.Value + delta;
-        nudRotation.Value = (decimal)Math.Clamp(next, CardCanvasHelper.MinRotation, CardCanvasHelper.MaxRotation);
-    }
-
     private void PanelMemoSizePreview_Paint(object? sender, PaintEventArgs e)
     {
         var g = e.Graphics;
@@ -164,15 +174,30 @@ public partial class CardEditForm : Form
         inner.Inflate(-3, -3);
         if (inner.Width <= 4 || inner.Height <= 4) return;
 
-        float angle = (float)nudRotation.Value;
-        g.TranslateTransform(inner.X + inner.Width / 2f, inner.Y + inner.Height / 2f);
-        g.RotateTransform(angle);
-        var rect = new Rectangle(-inner.Width / 2, -inner.Height / 2, inner.Width, inner.Height);
         using var fill = new SolidBrush(_selectedColor);
         using var border = new Pen(Color.FromArgb(120, 80, 80, 80));
-        g.FillRectangle(fill, rect);
-        g.DrawRectangle(border, rect);
-        g.ResetTransform();
+        g.FillRectangle(fill, inner);
+        g.DrawRectangle(border, inner);
+
+        if (ShowTopRightFoldPreview)
+            CardFoldEffect.DrawTopRightFold(g, inner, _selectedColor, foldSize: Math.Max(10, Math.Min(inner.Width, inner.Height) / 3));
+    }
+
+    private void PanelPreview_Paint(object? sender, PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        var inner = panelPreview.ClientRectangle;
+        inner.Inflate(-1, -1);
+        if (inner.Width <= 2 || inner.Height <= 2) return;
+
+        using var fill = new SolidBrush(_selectedColor);
+        using var border = new Pen(Color.FromArgb(120, 80, 80, 80));
+        g.FillRectangle(fill, inner);
+        g.DrawRectangle(border, inner);
+
+        if (ShowTopRightFoldPreview)
+            CardFoldEffect.DrawTopRightFold(g, inner, _selectedColor, foldSize: Math.Max(8, Math.Min(inner.Width, inner.Height) / 2));
     }
 
     protected override bool ProcessDialogKey(Keys keyData)
@@ -184,6 +209,9 @@ public partial class CardEditForm : Form
 
     private void LoadFromCard()
     {
+        _loading = true;
+        try
+        {
         txtTitle.Text = _card.Title;
         txtAssignee.Text = _card.Assignee;
         txtTags.Text = _card.Tags;
@@ -215,14 +243,71 @@ public partial class CardEditForm : Form
         SyncTitleToolbar();
         SyncDescriptionToolbar();
         BuildColorPalette();
+        panelPreview.BackColor = _selectedColor;
+
+        rbShowTopRightFold.Checked = _card.ShowTopRightFold;
+        rbHideTopRightFold.Checked = !_card.ShowTopRightFold;
 
         cmbSizePreset.SelectedIndex = Math.Clamp((int)_card.SizePreset, 0, cmbSizePreset.Items.Count - 1);
         nudCardWidth.Value = Math.Clamp(_card.CustomWidth > 0 ? _card.CustomWidth : 150, nudCardWidth.Minimum, nudCardWidth.Maximum);
         nudCardHeight.Value = Math.Clamp(_card.CustomHeight > 0 ? _card.CustomHeight : 90, nudCardHeight.Minimum, nudCardHeight.Maximum);
-        nudRotation.Value = (decimal)Math.Clamp(_card.Rotation, CardCanvasHelper.MinRotation, CardCanvasHelper.MaxRotation);
         OnSizePresetChanged();
 
         _activeTextTarget = txtTitle;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void WirePreviewEvents()
+    {
+        txtTitle.TextChanged += (_, _) => CommitPreview();
+        txtAssignee.TextChanged += (_, _) => CommitPreview();
+        txtTags.TextChanged += (_, _) => CommitPreview();
+        cmbPriority.SelectedIndexChanged += (_, _) => CommitPreview();
+        nudPoints.ValueChanged += (_, _) => CommitPreview();
+        chkDueDate.CheckedChanged += (_, _) => CommitPreview();
+        dtpDueDate.ValueChanged += (_, _) => CommitPreview();
+        rtbDescription.TextChanged += (_, _) => CommitPreview();
+    }
+
+    private void ApplyToCard()
+    {
+        _card.Title = txtTitle.Text.Trim();
+        _card.TitleStyle = _titleStyle.Clone();
+        _card.Description = CardTextHelper.ExtractPlainText(rtbDescription.Rtf, rtbDescription.Text).Trim();
+        _card.DescriptionRtf = string.IsNullOrWhiteSpace(rtbDescription.Text) ? null : rtbDescription.Rtf;
+        _card.Assignee = txtAssignee.Text.Trim();
+        _card.Tags = txtTags.Text.Trim();
+        if (cmbPriority.SelectedItem != null)
+            _card.Priority = Enum.Parse<Priority>(cmbPriority.SelectedItem.ToString()!);
+        _card.Points = (int)nudPoints.Value;
+        _card.DueDate = chkDueDate.Checked ? dtpDueDate.Value.Date : null;
+        _card.CardColor = _selectedColor;
+        _card.SizePreset = (CardSizePreset)cmbSizePreset.SelectedIndex;
+        _card.CustomWidth = (int)nudCardWidth.Value;
+        _card.CustomHeight = (int)nudCardHeight.Value;
+        _card.ShowTopRightFold = rbShowTopRightFold.Checked;
+    }
+
+    private void CommitPreview()
+    {
+        if (_loading) return;
+        ApplyToCard();
+        PreviewChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        if (DialogResult != DialogResult.OK)
+        {
+            CardEditSnapshot.Restore(_card, _originalCardJson);
+            PreviewChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        base.OnFormClosing(e);
     }
 
     private void TextTarget_Enter(object? sender, EventArgs e)
@@ -293,6 +378,7 @@ public partial class CardEditForm : Form
         _titleStyle.Strikeout = dlg.Font.Strikeout;
         ApplyTitleStyleToTextBox();
         SyncTitleToolbar();
+        CommitPreview();
     }
 
     private void ApplyTitleFontSizeFromCombo()
@@ -301,6 +387,7 @@ public partial class CardEditForm : Form
         if (tscTitleFontSize.SelectedItem is not string s || !float.TryParse(s, out var size)) return;
         _titleStyle.FontSize = size;
         ApplyTitleStyleToTextBox();
+        CommitPreview();
     }
 
     private void PickTitleTextColor()
@@ -310,6 +397,7 @@ public partial class CardEditForm : Form
         _titleStyle.ColorHex = CardTextHelper.ColorToHex(dlg.Color);
         ApplyTitleStyleToTextBox();
         SyncTitleToolbar();
+        CommitPreview();
     }
 
     private void PickTitleBackColor()
@@ -319,6 +407,7 @@ public partial class CardEditForm : Form
         _titleStyle.BackgroundColorHex = CardTextHelper.ColorToHex(dlg.Color);
         ApplyTitleStyleToTextBox();
         SyncTitleToolbar();
+        CommitPreview();
     }
 
     private void ToggleTitleBold()
@@ -326,6 +415,7 @@ public partial class CardEditForm : Form
         _titleStyle.Bold = !_titleStyle.Bold;
         ApplyTitleStyleToTextBox();
         SyncTitleToolbar();
+        CommitPreview();
     }
 
     private void ToggleTitleItalic()
@@ -333,6 +423,7 @@ public partial class CardEditForm : Form
         _titleStyle.Italic = !_titleStyle.Italic;
         ApplyTitleStyleToTextBox();
         SyncTitleToolbar();
+        CommitPreview();
     }
 
     private void ToggleTitleUnderline()
@@ -340,6 +431,7 @@ public partial class CardEditForm : Form
         _titleStyle.Underline = !_titleStyle.Underline;
         ApplyTitleStyleToTextBox();
         SyncTitleToolbar();
+        CommitPreview();
     }
 
     private void ToggleTitleStrikeout()
@@ -347,6 +439,7 @@ public partial class CardEditForm : Form
         _titleStyle.Strikeout = !_titleStyle.Strikeout;
         ApplyTitleStyleToTextBox();
         SyncTitleToolbar();
+        CommitPreview();
     }
 
     private void PickDescriptionFont()
@@ -356,6 +449,7 @@ public partial class CardEditForm : Form
         CardTextHelper.ApplySelectionStyle(rtbDescription, dlg.Font.FontFamily.Name, dlg.Font.Size,
             null, null, dlg.Font.Bold, dlg.Font.Italic, dlg.Font.Underline, dlg.Font.Strikeout);
         SyncDescriptionToolbar();
+        CommitPreview();
     }
 
     private void ApplyDescriptionFontSizeFromCombo()
@@ -363,6 +457,7 @@ public partial class CardEditForm : Form
         if (_suppressToolbarEvents) return;
         if (tscDescFontSize.SelectedItem is not string s || !float.TryParse(s, out var size)) return;
         CardTextHelper.ApplySelectionStyle(rtbDescription, null, size, null, null, null, null, null, null);
+        CommitPreview();
     }
 
     private void PickDescriptionTextColor()
@@ -371,6 +466,7 @@ public partial class CardEditForm : Form
         if (dlg.ShowDialog() != DialogResult.OK) return;
         CardTextHelper.ApplySelectionStyle(rtbDescription, null, null, dlg.Color, null, null, null, null, null);
         SyncDescriptionToolbar();
+        CommitPreview();
     }
 
     private void PickDescriptionBackColor()
@@ -379,6 +475,7 @@ public partial class CardEditForm : Form
         if (dlg.ShowDialog() != DialogResult.OK) return;
         CardTextHelper.ApplySelectionStyle(rtbDescription, null, null, null, dlg.Color, null, null, null, null);
         SyncDescriptionToolbar();
+        CommitPreview();
     }
 
     private void ToggleDescriptionBold()
@@ -386,6 +483,7 @@ public partial class CardEditForm : Form
         var font = rtbDescription.SelectionFont ?? rtbDescription.Font;
         CardTextHelper.ApplySelectionStyle(rtbDescription, null, null, null, null, !font.Bold, null, null, null);
         SyncDescriptionToolbar();
+        CommitPreview();
     }
 
     private void ToggleDescriptionItalic()
@@ -393,6 +491,7 @@ public partial class CardEditForm : Form
         var font = rtbDescription.SelectionFont ?? rtbDescription.Font;
         CardTextHelper.ApplySelectionStyle(rtbDescription, null, null, null, null, null, !font.Italic, null, null);
         SyncDescriptionToolbar();
+        CommitPreview();
     }
 
     private void ToggleDescriptionUnderline()
@@ -400,6 +499,7 @@ public partial class CardEditForm : Form
         var font = rtbDescription.SelectionFont ?? rtbDescription.Font;
         CardTextHelper.ApplySelectionStyle(rtbDescription, null, null, null, null, null, null, !font.Underline, null);
         SyncDescriptionToolbar();
+        CommitPreview();
     }
 
     private void ToggleDescriptionStrikeout()
@@ -407,6 +507,7 @@ public partial class CardEditForm : Form
         var font = rtbDescription.SelectionFont ?? rtbDescription.Font;
         CardTextHelper.ApplySelectionStyle(rtbDescription, null, null, null, null, null, null, null, !font.Strikeout);
         SyncDescriptionToolbar();
+        CommitPreview();
     }
 
     private void InsertSymbol()
@@ -459,6 +560,8 @@ public partial class CardEditForm : Form
         btn.BorderStyle = BorderStyle.Fixed3D;
         panelPreview.BackColor = _selectedColor;
         UpdateMemoSizePreview();
+        panelPreview.Invalidate();
+        CommitPreview();
     }
 
     private void chkDueDate_CheckedChanged(object? sender, EventArgs e)
@@ -473,21 +576,7 @@ public partial class CardEditForm : Form
             return;
         }
 
-        _card.Title = txtTitle.Text.Trim();
-        _card.TitleStyle = _titleStyle.Clone();
-        _card.Description = CardTextHelper.ExtractPlainText(rtbDescription.Rtf, rtbDescription.Text).Trim();
-        _card.DescriptionRtf = string.IsNullOrWhiteSpace(rtbDescription.Text) ? null : rtbDescription.Rtf;
-        _card.Assignee = txtAssignee.Text.Trim();
-        _card.Tags = txtTags.Text.Trim();
-        _card.Priority = Enum.Parse<Priority>(cmbPriority.SelectedItem!.ToString()!);
-        _card.Points = (int)nudPoints.Value;
-        _card.DueDate = chkDueDate.Checked ? dtpDueDate.Value.Date : null;
-        _card.CardColor = _selectedColor;
-        _card.SizePreset = (CardSizePreset)cmbSizePreset.SelectedIndex;
-        _card.CustomWidth = (int)nudCardWidth.Value;
-        _card.CustomHeight = (int)nudCardHeight.Value;
-        _card.Rotation = (float)nudRotation.Value;
-
+        ApplyToCard();
         DialogResult = DialogResult.OK;
         Close();
     }
@@ -506,6 +595,8 @@ public partial class CardEditForm : Form
             _selectedColor = dlg.Color;
             panelPreview.BackColor = _selectedColor;
             UpdateMemoSizePreview();
+            panelPreview.Invalidate();
+            CommitPreview();
         }
     }
 }

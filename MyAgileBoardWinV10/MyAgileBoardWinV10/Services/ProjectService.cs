@@ -9,11 +9,13 @@ public static class ProjectService
     internal static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
         Converters = { new JsonStringEnumConverter() }
     };
 
     public static void Save(KanbanProject project, string filePath)
     {
+        ProjectBoardSync.Normalize(project);
         var json = JsonSerializer.Serialize(project, Options);
         File.WriteAllText(filePath, json);
         project.FilePath = filePath;
@@ -25,7 +27,10 @@ public static class ProjectService
         var json = File.ReadAllText(filePath);
         var project = JsonSerializer.Deserialize<KanbanProject>(json, Options);
         if (project != null)
+        {
             project.FilePath = filePath;
+            ProjectBoardSync.Normalize(project);
+        }
         return project;
     }
 }

@@ -158,7 +158,7 @@ public static class ReportChartRenderer
     {
         var start = DateTime.Today.AddDays(-13);
         var end = DateTime.Today;
-        var chartColors = AppSettings.GetBurndownChartColors();
+        var chartColors = project.BurndownChartColors ?? BurndownChartColorSettings.CreateDefault();
 
         int activePoints = project.Columns.Sum(c => c.Cards.Sum(k => k.Points));
         int archivedPoints = project.ArchivedCards.Sum(a => a.Card.Points);

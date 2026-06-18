@@ -21,6 +21,9 @@ partial class ColumnSettingsForm
         lblColor = new Label();
         panelColors = new FlowLayoutPanel();
         btnCustomColor = new Button();
+        lblCanvasColor = new Label();
+        panelCanvasColors = new FlowLayoutPanel();
+        btnCanvasCustomColor = new Button();
         lblTitleFont = new Label();
         lblTitleFontSample = new Label();
         btnTitleFont = new Button();
@@ -31,11 +34,14 @@ partial class ColumnSettingsForm
         lblPreviewLabel = new Label();
         panelPreview = new Panel();
         lblPreviewText = new Label();
+        panelCanvasPreview = new Panel();
+        lblCanvasPreviewHint = new Label();
         btnOk = new Button();
         btnCancel = new Button();
 
         ((System.ComponentModel.ISupportInitialize)nudColumnWidth).BeginInit();
         panelPreview.SuspendLayout();
+        panelCanvasPreview.SuspendLayout();
         SuspendLayout();
 
         lblName.AutoSize = true;
@@ -54,6 +60,7 @@ partial class ColumnSettingsForm
         chkIsCompletion.Location = new Point(12, 110);
         chkIsCompletion.TabIndex = 2;
         chkIsCompletion.Text = "완료 컬럼으로 지정 (번다운 차트용)";
+        chkIsCompletion.CheckedChanged += chkIsCompletion_CheckedChanged;
 
         lblColumnWidth.AutoSize = true;
         lblColumnWidth.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
@@ -65,6 +72,7 @@ partial class ColumnSettingsForm
         nudColumnWidth.TabIndex = 1;
         nudColumnWidth.Minimum = 50;
         nudColumnWidth.Maximum = 2000;
+        nudColumnWidth.ValueChanged += nudColumnWidth_ValueChanged;
 
         lblColor.AutoSize = true;
         lblColor.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
@@ -73,67 +81,83 @@ partial class ColumnSettingsForm
 
         panelColors.AutoSize = false;
         panelColors.Location = new Point(12, 160);
-        panelColors.Size = new Size(336, 76);
+        panelColors.Size = new Size(336, 68);
         panelColors.WrapContents = true;
 
-        btnCustomColor.Location = new Point(12, 244);
+        btnCustomColor.Location = new Point(12, 236);
         btnCustomColor.Size = new Size(100, 26);
         btnCustomColor.TabIndex = 2;
         btnCustomColor.Text = "직접 선택...";
         btnCustomColor.Click += btnCustomColor_Click;
 
+        lblCanvasColor.AutoSize = true;
+        lblCanvasColor.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        lblCanvasColor.Location = new Point(12, 272);
+        lblCanvasColor.Text = "바탕화면 색상";
+
+        panelCanvasColors.AutoSize = false;
+        panelCanvasColors.Location = new Point(12, 290);
+        panelCanvasColors.Size = new Size(336, 68);
+        panelCanvasColors.WrapContents = true;
+
+        btnCanvasCustomColor.Location = new Point(12, 366);
+        btnCanvasCustomColor.Size = new Size(100, 26);
+        btnCanvasCustomColor.TabIndex = 3;
+        btnCanvasCustomColor.Text = "직접 선택...";
+        btnCanvasCustomColor.Click += btnCanvasCustomColor_Click;
+
         lblTitleFont.AutoSize = true;
         lblTitleFont.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        lblTitleFont.Location = new Point(12, 280);
+        lblTitleFont.Location = new Point(12, 402);
         lblTitleFont.Text = "제목 글꼴";
 
         lblTitleFontSample.AutoEllipsis = true;
         lblTitleFontSample.ForeColor = Color.DimGray;
-        lblTitleFontSample.Location = new Point(12, 300);
+        lblTitleFontSample.Location = new Point(12, 422);
         lblTitleFontSample.Size = new Size(220, 20);
         lblTitleFontSample.Text = "Segoe UI, 9.5pt, Bold";
 
-        btnTitleFont.Location = new Point(248, 296);
+        btnTitleFont.Location = new Point(248, 418);
         btnTitleFont.Size = new Size(100, 26);
-        btnTitleFont.TabIndex = 3;
+        btnTitleFont.TabIndex = 4;
         btnTitleFont.Text = "글꼴 선택...";
         btnTitleFont.Click += btnTitleFont_Click;
 
         lblTitleColor.AutoSize = true;
         lblTitleColor.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        lblTitleColor.Location = new Point(12, 332);
+        lblTitleColor.Location = new Point(12, 454);
         lblTitleColor.Text = "제목 색상";
 
         chkAutoTitleColor.AutoSize = true;
         chkAutoTitleColor.Checked = true;
-        chkAutoTitleColor.Location = new Point(12, 352);
-        chkAutoTitleColor.TabIndex = 4;
+        chkAutoTitleColor.Location = new Point(12, 474);
+        chkAutoTitleColor.TabIndex = 5;
         chkAutoTitleColor.Text = "헤더 배경에 맞춰 자동";
         chkAutoTitleColor.CheckedChanged += chkAutoTitleColor_CheckedChanged;
 
         panelTitleColors.AutoSize = false;
         panelTitleColors.Enabled = false;
-        panelTitleColors.Location = new Point(12, 374);
-        panelTitleColors.Size = new Size(336, 36);
+        panelTitleColors.Location = new Point(12, 496);
+        panelTitleColors.Size = new Size(336, 68);
         panelTitleColors.WrapContents = true;
 
         btnTitleCustomColor.Enabled = false;
-        btnTitleCustomColor.Location = new Point(12, 418);
+        btnTitleCustomColor.Location = new Point(12, 572);
         btnTitleCustomColor.Size = new Size(100, 26);
-        btnTitleCustomColor.TabIndex = 5;
+        btnTitleCustomColor.TabIndex = 6;
         btnTitleCustomColor.Text = "직접 선택...";
         btnTitleCustomColor.Click += btnTitleCustomColor_Click;
 
         lblPreviewLabel.AutoSize = true;
         lblPreviewLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-        lblPreviewLabel.Location = new Point(12, 454);
+        lblPreviewLabel.Location = new Point(12, 608);
         lblPreviewLabel.Text = "미리보기";
 
         panelPreview.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         panelPreview.BackColor = Color.SteelBlue;
         panelPreview.Controls.Add(lblPreviewText);
-        panelPreview.Location = new Point(12, 472);
-        panelPreview.Size = new Size(336, 36);
+        panelPreview.Location = new Point(12, 626);
+        panelPreview.Size = new Size(336, 32);
 
         lblPreviewText.AutoEllipsis = true;
         lblPreviewText.AutoSize = false;
@@ -144,18 +168,32 @@ partial class ColumnSettingsForm
         lblPreviewText.Text = "Column Name";
         lblPreviewText.TextAlign = ContentAlignment.MiddleLeft;
 
+        panelCanvasPreview.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        panelCanvasPreview.BackColor = Color.FromArgb(252, 252, 250);
+        panelCanvasPreview.Controls.Add(lblCanvasPreviewHint);
+        panelCanvasPreview.Location = new Point(12, 662);
+        panelCanvasPreview.Size = new Size(336, 44);
+
+        lblCanvasPreviewHint.AutoSize = false;
+        lblCanvasPreviewHint.Dock = DockStyle.Fill;
+        lblCanvasPreviewHint.Font = new Font("Segoe UI", 8.5F);
+        lblCanvasPreviewHint.ForeColor = Color.DimGray;
+        lblCanvasPreviewHint.Padding = new Padding(8, 0, 8, 0);
+        lblCanvasPreviewHint.Text = "바탕화면 영역";
+        lblCanvasPreviewHint.TextAlign = ContentAlignment.MiddleLeft;
+
         btnOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-        btnOk.Location = new Point(189, 524);
+        btnOk.Location = new Point(189, 724);
         btnOk.Size = new Size(75, 28);
-        btnOk.TabIndex = 6;
+        btnOk.TabIndex = 7;
         btnOk.Text = "확인";
         btnOk.UseVisualStyleBackColor = true;
         btnOk.Click += btnOk_Click;
 
         btnCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-        btnCancel.Location = new Point(273, 524);
+        btnCancel.Location = new Point(273, 724);
         btnCancel.Size = new Size(75, 28);
-        btnCancel.TabIndex = 7;
+        btnCancel.TabIndex = 8;
         btnCancel.Text = "취소";
         btnCancel.UseVisualStyleBackColor = true;
         btnCancel.Click += btnCancel_Click;
@@ -164,14 +202,15 @@ partial class ColumnSettingsForm
         CancelButton = btnCancel;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(360, 564);
+        ClientSize = new Size(360, 764);
         Controls.AddRange(new Control[]
         {
             lblName, txtName, lblColumnWidth, nudColumnWidth, chkIsCompletion,
             lblColor, panelColors, btnCustomColor,
+            lblCanvasColor, panelCanvasColors, btnCanvasCustomColor,
             lblTitleFont, lblTitleFontSample, btnTitleFont,
             lblTitleColor, chkAutoTitleColor, panelTitleColors, btnTitleCustomColor,
-            lblPreviewLabel, panelPreview,
+            lblPreviewLabel, panelPreview, panelCanvasPreview,
             btnOk, btnCancel
         });
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -181,6 +220,7 @@ partial class ColumnSettingsForm
         Text = "컬럼 설정";
 
         panelPreview.ResumeLayout(false);
+        panelCanvasPreview.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)nudColumnWidth).EndInit();
         ResumeLayout(false);
         PerformLayout();
@@ -194,6 +234,9 @@ partial class ColumnSettingsForm
     private Label lblColor = null!;
     private FlowLayoutPanel panelColors = null!;
     private Button btnCustomColor = null!;
+    private Label lblCanvasColor = null!;
+    private FlowLayoutPanel panelCanvasColors = null!;
+    private Button btnCanvasCustomColor = null!;
     private Label lblTitleFont = null!;
     private Label lblTitleFontSample = null!;
     private Button btnTitleFont = null!;
@@ -204,6 +247,8 @@ partial class ColumnSettingsForm
     private Label lblPreviewLabel = null!;
     private Panel panelPreview = null!;
     private Label lblPreviewText = null!;
+    private Panel panelCanvasPreview = null!;
+    private Label lblCanvasPreviewHint = null!;
     private Button btnOk = null!;
     private Button btnCancel = null!;
 }
