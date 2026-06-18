@@ -705,6 +705,8 @@ public partial class MainForm : Form
 	private Analysis.NormalizationLevel _normLevel = Analysis.NormalizationLevel.NF1;
 	private ToolStrip _normLevelStrip;
 	private ToolStripButton _btnNf1, _btnNf2, _btnNf3, _btnBcnf;
+	private IReadOnlyList<Analysis.IndexSuggestion> _indexSuggestions = [];
+	private string _indexAdvisorTableFilter;
 
 	private void ConfigureAnalysisPanel()
 	{
@@ -1085,16 +1087,24 @@ public partial class MainForm : Form
 			listViewIndexAdvisor.Columns.Add(header, 100);
 		listViewIndexAdvisor.FullRowSelect = true;
 		listViewIndexAdvisor.GridLines = true;
+		listViewIndexAdvisor.SelectedIndexChanged += ListViewIndexAdvisor_SelectedIndexChanged;
 	}
 
 	private void RefreshIndexAdvisorAnalysis()
 	{
-		DbSchema schema = diagramCanvas.Schema;
-		IReadOnlyList<Analysis.IndexSuggestion> suggestions = Analysis.IndexAdvisor.Analyze(schema);
+		_indexSuggestions = Analysis.IndexAdvisor.Analyze(diagramCanvas.Schema);
+		UpdateIndexAdvisorView();
+	}
+
+	private void UpdateIndexAdvisorView()
+	{
 		listViewIndexAdvisor.BeginUpdate();
 		listViewIndexAdvisor.Items.Clear();
-		foreach (var s in suggestions)
+		bool filtered = !string.IsNullOrEmpty(_indexAdvisorTableFilter);
+		foreach (var s in _indexSuggestions)
 		{
+			if (filtered && !string.Equals(s.Table, _indexAdvisorTableFilter, StringComparison.OrdinalIgnoreCase))
+				continue;
 			string kindLabel = s.Kind switch
 			{
 				Analysis.IndexSuggestionKind.AlreadyIndexed => "✓ 인덱싱됨",
@@ -1104,6 +1114,7 @@ public partial class MainForm : Form
 				_ => s.Kind.ToString(),
 			};
 			var item = new ListViewItem([s.Table, s.Column, kindLabel, s.Reason, s.Recommendation]);
+			item.Tag = s;
 			item.ForeColor = s.Kind switch
 			{
 				Analysis.IndexSuggestionKind.AlreadyIndexed => Color.FromArgb(80, 160, 80),
@@ -1115,9 +1126,23 @@ public partial class MainForm : Form
 			listViewIndexAdvisor.Items.Add(item);
 		}
 		listViewIndexAdvisor.EndUpdate();
-		// Auto-size first three columns; let Reason fill
 		for (int i = 0; i < 3; i++)
 			listViewIndexAdvisor.Columns[i].Width = -2;
+	}
+
+	private void ListViewIndexAdvisor_SelectedIndexChanged(object sender, EventArgs e)
+	{
+		if (listViewIndexAdvisor.SelectedItems.Count == 0 ||
+			listViewIndexAdvisor.SelectedItems[0].Tag is not Analysis.IndexSuggestion s)
+		{
+			diagramCanvas.ClearNormalizationHighlight();
+			return;
+		}
+		DbTable table = diagramCanvas.Schema.Tables
+			.FirstOrDefault(t => string.Equals(t.Name, s.Table, StringComparison.OrdinalIgnoreCase));
+		if (table == null) return;
+		diagramCanvas.ShowNormalizationIssue(table, [s.Column]);
+		RefreshPropertyGrid();
 	}
 
 	private void ApplyRightPanelIcons()
@@ -1261,6 +1286,7 @@ public partial class MainForm : Form
 		diagramCanvas.SchemaChanged += delegate
 		{
 			RefreshTreeView();
+			RefreshIndexAdvisorAnalysis();
 			RefreshStatus();
 			UpdateTitle();
 		};
@@ -1268,6 +1294,8 @@ public partial class MainForm : Form
 		{
 			RefreshPropertyGrid();
 			UpdateToolbarLineStyleFromSelection();
+			_indexAdvisorTableFilter = diagramCanvas.SelectedTable?.Name;
+			UpdateIndexAdvisorView();
 		};
 		diagramCanvas.TableEditRequested += delegate(object sender, EventArgs _)
 		{
