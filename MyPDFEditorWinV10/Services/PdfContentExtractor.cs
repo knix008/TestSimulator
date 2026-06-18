@@ -116,13 +116,13 @@ public static class PdfContentExtractor
 		{
 			foreach (IPdfImage image in page.GetImages())
 			{
-				Bitmap bitmap = TryCreateBitmap(image);
-				if (bitmap == null)
+				var bounds = image.BoundingBox;
+				if (bounds.Width <= 0 || bounds.Height <= 0)
 				{
 					continue;
 				}
 
-				var bounds = image.BoundingBox;
+				Bitmap bitmap = TryCreateBitmap(image);
 				images.Add(new PdfImageBlock
 				{
 					PageIndex = pageIndex,

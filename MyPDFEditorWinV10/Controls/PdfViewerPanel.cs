@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using MyPDFEditorWinV10.App;
 using MyPDFEditorWinV10.Models;
 using MyPDFEditorWinV10.Services;
@@ -248,10 +249,15 @@ public partial class PdfViewerPanel : UserControl
 			return false;
 		}
 
-		if (HasEmbeddedImageSelection && _selectedEmbeddedImage?.Bitmap != null)
+		if (HasEmbeddedImageSelection)
 		{
-			bitmap = new Bitmap(_selectedEmbeddedImage.Bitmap);
-			return true;
+			if (_selectedEmbeddedImage.Bitmap != null)
+			{
+				bitmap = new Bitmap(_selectedEmbeddedImage.Bitmap);
+				return true;
+			}
+
+			return TryCropEmbeddedImageFromPage(_selectedEmbeddedImage, out bitmap);
 		}
 
 		if (!HasRegionSelection)
@@ -337,19 +343,102 @@ public partial class PdfViewerPanel : UserControl
 				break;
 			case PdfInteractionMode.ImageSelect:
 				renderer.CursorMode = PdfViewerCursorMode.Pan;
-				_selectionOverlay.BringToFront();
 				break;
 		}
 
 		UpdateHoverCursor();
-
 		renderer.Invalidate();
 		RefreshSelectionOverlay();
 	}
 
 	private void RefreshSelectionOverlay()
 	{
-		_selectionOverlay?.Invalidate();
+		if (_selectionOverlay == null || _viewer?.Document == null)
+		{
+			return;
+		}
+
+		Region region = BuildOverlayRegion();
+		if (region == null)
+		{
+			_selectionOverlay.Visible = false;
+			Region oldHiddenRegion = _selectionOverlay.Region;
+			_selectionOverlay.Region = null;
+			oldHiddenRegion?.Dispose();
+			return;
+		}
+
+		_selectionOverlay.Visible = true;
+		Region oldRegion = _selectionOverlay.Region;
+		_selectionOverlay.Region = region;
+		oldRegion?.Dispose();
+		_selectionOverlay.Invalidate();
+	}
+
+	private Region BuildOverlayRegion()
+	{
+		GraphicsPath path = new GraphicsPath();
+		try
+		{
+			if (_interactionMode == PdfInteractionMode.TextSelect)
+			{
+				foreach (Rectangle rect in PdfRendererSelectionHelper.GetSelectionRectangles(_viewer.Renderer))
+				{
+					AddOverlayRect(path, RendererRectToOverlay(rect));
+				}
+			}
+
+			if (_hoveredEmbeddedImage != null && _hoveredEmbeddedImage != _selectedEmbeddedImage)
+			{
+				AddOverlayRect(path, PdfBlockToOverlay(
+					_hoveredEmbeddedImage.PageIndex,
+					_hoveredEmbeddedImage.Left,
+					_hoveredEmbeddedImage.Bottom,
+					_hoveredEmbeddedImage.Right,
+					_hoveredEmbeddedImage.Top));
+			}
+
+			if (HasEmbeddedImageSelection)
+			{
+				PdfImageBlock image = _selectedEmbeddedImage;
+				AddOverlayRect(path, PdfBlockToOverlay(image.PageIndex, image.Left, image.Bottom, image.Right, image.Top));
+			}
+
+			if (_interactionMode == PdfInteractionMode.ImageSelect && (_isSelecting || HasRegionSelection))
+			{
+				AddOverlayRect(path, _regionSelection);
+			}
+
+			if (path.PointCount == 0)
+			{
+				return null;
+			}
+
+			return new Region(path);
+		}
+		finally
+		{
+			path.Dispose();
+		}
+	}
+
+	private static void AddOverlayRect(GraphicsPath path, Rectangle rect)
+	{
+		if (rect.Width >= 1 && rect.Height >= 1)
+		{
+			path.AddRectangle(Rectangle.Inflate(rect, 1, 1));
+		}
+	}
+
+	private Rectangle RendererRectToOverlay(Rectangle rendererRect)
+	{
+		if (rendererRect.IsEmpty)
+		{
+			return Rectangle.Empty;
+		}
+
+		Point overlayPoint = _selectionOverlay.PointToClient(_viewer.Renderer.PointToScreen(rendererRect.Location));
+		return new Rectangle(overlayPoint, rendererRect.Size);
 	}
 
 	private Rectangle PdfBoundsToOverlay(PdfRectangle pdfRect)
@@ -366,8 +455,7 @@ public partial class PdfViewerPanel : UserControl
 
 	private Rectangle PdfBlockToOverlay(int pageIndex, double left, double bottom, double right, double top)
 	{
-		var pdfBounds = new RectangleF((float)left, (float)bottom, (float)(right - left), (float)(top - bottom));
-		return PdfBoundsToOverlay(new PdfRectangle(pageIndex, pdfBounds));
+		return PdfBoundsToOverlay(PdfImageGeometry.ToPdfRectangle(pageIndex, left, bottom, right, top));
 	}
 
 	private Point RendererPointToOverlay(Point rendererPoint)
@@ -416,8 +504,7 @@ public partial class PdfViewerPanel : UserControl
 	{
 		foreach (Rectangle rendererRect in PdfRendererSelectionHelper.GetSelectionRectangles(_viewer.Renderer))
 		{
-			Point overlayPoint = _selectionOverlay.PointToClient(_viewer.Renderer.PointToScreen(rendererRect.Location));
-			Rectangle overlayRect = new Rectangle(overlayPoint, rendererRect.Size);
+			Rectangle overlayRect = RendererRectToOverlay(rendererRect);
 			using SolidBrush fill = new SolidBrush(Color.FromArgb(120, 30, 144, 255));
 			graphics.FillRectangle(fill, overlayRect);
 			using Pen pen = new Pen(Color.FromArgb(220, 0, 90, 200), 1.5f);
@@ -663,13 +750,18 @@ public partial class PdfViewerPanel : UserControl
 			return false;
 		}
 
-		int pageIndex = _viewer.Renderer.Page;
+		PdfRenderer renderer = _viewer.Renderer;
+		PdfPoint pdfPoint = renderer.PointToPdf(rendererPoint);
+		if (!pdfPoint.IsValid || pdfPoint.Page != renderer.Page)
+		{
+			return false;
+		}
+
+		int pageIndex = renderer.Page;
+		PointF location = pdfPoint.Location;
 		foreach (PdfImageBlock image in _pageImages.Where(image => image.PageIndex == pageIndex))
 		{
-			Rectangle rendererBounds = _viewer.Renderer.BoundsFromPdf(new PdfRectangle(
-				image.PageIndex,
-				new RectangleF((float)image.Left, (float)image.Bottom, (float)(image.Right - image.Left), (float)(image.Top - image.Bottom))));
-			if (!rendererBounds.IsEmpty && rendererBounds.Contains(rendererPoint))
+			if (PdfImageGeometry.ContainsPdfPoint(image.Left, image.Bottom, image.Right, image.Top, location))
 			{
 				hit = image;
 				return true;
@@ -677,6 +769,53 @@ public partial class PdfViewerPanel : UserControl
 		}
 
 		return false;
+	}
+
+	private bool TryCropEmbeddedImageFromPage(PdfImageBlock image, out Bitmap bitmap)
+	{
+		bitmap = null;
+		if (_viewer?.Document == null)
+		{
+			return false;
+		}
+
+		Rectangle rendererBounds = _viewer.Renderer.BoundsFromPdf(
+			PdfImageGeometry.ToPdfRectangle(image.PageIndex, image.Left, image.Bottom, image.Right, image.Top));
+		if (rendererBounds.IsEmpty)
+		{
+			return false;
+		}
+
+		int page = image.PageIndex;
+		Rectangle pageBounds = _viewer.Renderer.GetOuterBounds(page);
+		Rectangle intersect = Rectangle.Intersect(rendererBounds, pageBounds);
+		if (intersect.Width < 4 || intersect.Height < 4)
+		{
+			return false;
+		}
+
+		SizeF pageSize = _viewer.Document.PageSizes[page];
+		int renderWidth = Math.Max(1, (int)Math.Ceiling(pageSize.Width));
+		int renderHeight = Math.Max(1, (int)Math.Ceiling(pageSize.Height));
+		using Image pageImage = _viewer.Document.Render(page, renderWidth, renderHeight, 96f, 96f, PdfRenderFlags.Annotations);
+		float relX = (intersect.X - pageBounds.X) / (float)pageBounds.Width;
+		float relY = (intersect.Y - pageBounds.Y) / (float)pageBounds.Height;
+		float relW = intersect.Width / (float)pageBounds.Width;
+		float relH = intersect.Height / (float)pageBounds.Height;
+		int cropX = (int)Math.Round(relX * pageImage.Width);
+		int cropY = (int)Math.Round(relY * pageImage.Height);
+		int cropW = Math.Max(1, (int)Math.Round(relW * pageImage.Width));
+		int cropH = Math.Max(1, (int)Math.Round(relH * pageImage.Height));
+		cropX = Math.Clamp(cropX, 0, pageImage.Width - 1);
+		cropY = Math.Clamp(cropY, 0, pageImage.Height - 1);
+		cropW = Math.Clamp(cropW, 1, pageImage.Width - cropX);
+		cropH = Math.Clamp(cropH, 1, pageImage.Height - cropY);
+
+		Rectangle cropRect = new Rectangle(cropX, cropY, cropW, cropH);
+		bitmap = new Bitmap(cropW, cropH);
+		using Graphics g = Graphics.FromImage(bitmap);
+		g.DrawImage(pageImage, new Rectangle(0, 0, cropW, cropH), cropRect, GraphicsUnit.Pixel);
+		return true;
 	}
 
 	private static Rectangle NormalizeRectangle(Point a, Point b)
@@ -693,13 +832,25 @@ public partial class PdfViewerPanel : UserControl
 		public SelectionOverlay()
 		{
 			BackColor = Color.Transparent;
-			SetStyle(ControlStyles.SupportsTransparentBackColor, true);
+			SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.OptimizedDoubleBuffer, true);
+		}
+
+		protected override void OnPaintBackground(PaintEventArgs e)
+		{
 		}
 
 		protected override void WndProc(ref Message m)
 		{
+			const int wmEraseBkgnd = 0x0014;
 			const int wmNcHitTest = 0x0084;
 			const nint htTransparent = -1;
+
+			if (m.Msg == wmEraseBkgnd)
+			{
+				m.Result = 1;
+				return;
+			}
+
 			if (m.Msg == wmNcHitTest)
 			{
 				m.Result = htTransparent;
