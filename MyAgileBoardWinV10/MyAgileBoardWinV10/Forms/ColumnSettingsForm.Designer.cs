@@ -18,6 +18,7 @@ partial class ColumnSettingsForm
         lblColumnWidth = new Label();
         nudColumnWidth = new NumericUpDown();
         chkIsCompletion = new CheckBox();
+        chkShowGrid = new CheckBox();
         lblColor = new Label();
         panelColors = new FlowLayoutPanel();
         btnCustomColor = new Button();
@@ -61,6 +62,12 @@ partial class ColumnSettingsForm
         chkIsCompletion.TabIndex = 2;
         chkIsCompletion.Text = "완료 컬럼으로 지정 (번다운 차트용)";
         chkIsCompletion.CheckedChanged += chkIsCompletion_CheckedChanged;
+
+        chkShowGrid.AutoSize = true;
+        chkShowGrid.Location = new Point(250, 110);
+        chkShowGrid.TabIndex = 3;
+        chkShowGrid.Text = "배경 눈금 표시";
+        chkShowGrid.CheckedChanged += chkShowGrid_CheckedChanged;
 
         lblColumnWidth.AutoSize = true;
         lblColumnWidth.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
@@ -205,7 +212,7 @@ partial class ColumnSettingsForm
         ClientSize = new Size(360, 764);
         Controls.AddRange(new Control[]
         {
-            lblName, txtName, lblColumnWidth, nudColumnWidth, chkIsCompletion,
+            lblName, txtName, lblColumnWidth, nudColumnWidth, chkIsCompletion, chkShowGrid,
             lblColor, panelColors, btnCustomColor,
             lblCanvasColor, panelCanvasColors, btnCanvasCustomColor,
             lblTitleFont, lblTitleFontSample, btnTitleFont,
@@ -231,6 +238,7 @@ partial class ColumnSettingsForm
     private Label lblColumnWidth = null!;
     private NumericUpDown nudColumnWidth = null!;
     private CheckBox chkIsCompletion = null!;
+    private CheckBox chkShowGrid = null!;
     private Label lblColor = null!;
     private FlowLayoutPanel panelColors = null!;
     private Button btnCustomColor = null!;

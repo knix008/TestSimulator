@@ -15,6 +15,13 @@ public static class ProjectBoardSync
     {
         project.BurndownChartColors ??= BurndownChartColorSettings.CreateDefault();
 
+        // 이전 .mab: 프로젝트 전역 ShowGrid=false → 모든 컬럼에 적용
+        if (!project.ShowGrid)
+        {
+            foreach (var column in project.Columns)
+                column.ShowGrid = false;
+        }
+
         foreach (var column in project.Columns)
         {
             if (string.IsNullOrWhiteSpace(column.CanvasColorHex))

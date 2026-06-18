@@ -125,6 +125,7 @@ public partial class ColumnSettingsForm : Form
         txtName.Text = _column.Name;
         nudColumnWidth.Value = Math.Clamp(_column.ColumnWidth > 0 ? _column.ColumnWidth : ColumnWidthDefaults.Default, 50, 2000);
         chkIsCompletion.Checked = _column.IsCompletionColumn;
+        chkShowGrid.Checked = _column.ShowGrid;
         chkAutoTitleColor.Checked = _autoTitleColor;
         BuildHeaderColorPalette();
         BuildCanvasColorPalette();
@@ -247,6 +248,7 @@ public partial class ColumnSettingsForm : Form
     private void nudColumnWidth_ValueChanged(object? sender, EventArgs e) => CommitPreview();
 
     private void chkIsCompletion_CheckedChanged(object? sender, EventArgs e) => CommitPreview();
+    private void chkShowGrid_CheckedChanged(object? sender, EventArgs e) => CommitPreview();
 
     private void chkAutoTitleColor_CheckedChanged(object? sender, EventArgs e)
     {
@@ -322,6 +324,7 @@ public partial class ColumnSettingsForm : Form
         _column.TitleFontItalic = _titleFontItalic;
         _column.TitleColorHex = _autoTitleColor ? null : ColorToHex(_titleColor);
         _column.IsCompletionColumn = chkIsCompletion.Checked;
+        _column.ShowGrid = chkShowGrid.Checked;
     }
 
     private void CommitPreview()
@@ -398,7 +401,8 @@ public partial class ColumnSettingsForm : Form
         bool TitleFontBold,
         bool TitleFontItalic,
         string? TitleColorHex,
-        bool IsCompletionColumn)
+        bool IsCompletionColumn,
+        bool ShowGrid)
     {
         public static ColumnSettingsSnapshot Capture(KanbanColumn column) => new(
             column.Name,
@@ -410,7 +414,8 @@ public partial class ColumnSettingsForm : Form
             column.TitleFontBold,
             column.TitleFontItalic,
             column.TitleColorHex,
-            column.IsCompletionColumn);
+            column.IsCompletionColumn,
+            column.ShowGrid);
 
         public void ApplyTo(KanbanColumn column)
         {
@@ -424,6 +429,7 @@ public partial class ColumnSettingsForm : Form
             column.TitleFontItalic = TitleFontItalic;
             column.TitleColorHex = TitleColorHex;
             column.IsCompletionColumn = IsCompletionColumn;
+            column.ShowGrid = ShowGrid;
         }
     }
 }

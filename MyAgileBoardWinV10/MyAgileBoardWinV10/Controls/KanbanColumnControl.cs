@@ -9,6 +9,7 @@ public partial class KanbanColumnControl : UserControl
     private bool _isHeaderDragging = false;
     private bool _isWidthResizing = false;
     private bool _showGrid = true;
+    private bool _isSelected;
     private bool _layoutFinalized = false;
     private Point _dragStartLocal;
     private int _widthDragStartScreenX;
@@ -35,27 +36,57 @@ public partial class KanbanColumnControl : UserControl
     public event EventHandler<KanbanCard>? CardTransformChanged;
     public event EventHandler? ColumnWidthChanged;
     public event EventHandler? ColumnWidthLiveChanged;
+    public event EventHandler? ColumnSelected;
 
     public bool IsResizingWidth => _isWidthResizing;
+    public bool IsSelected => _isSelected;
+
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    [System.ComponentModel.Browsable(false)]
+    public bool ShowGrid
+    {
+        get => _column.ShowGrid;
+        set => SetGridVisible(value);
+    }
 
     public void SetGridVisible(bool show)
     {
-        if (_showGrid == show) return;
+        if (_showGrid == show && _column.ShowGrid == show) return;
         _showGrid = show;
+        _column.ShowGrid = show;
         panelCanvas.Invalidate();
     }
+
+    public void SetSelected(bool selected)
+    {
+        if (_isSelected == selected) return;
+        _isSelected = selected;
+        panelHeader.Invalidate();
+    }
+
+    private void RaiseColumnSelected() => ColumnSelected?.Invoke(this, EventArgs.Empty);
 
     public KanbanColumnControl(KanbanColumn column)
     {
         _column = column;
+        _showGrid = column.ShowGrid;
         InitializeComponent();
         SetupIcons();
         SetupResizeGrip();
         if (column.ColumnWidth <= 0)
             column.ColumnWidth = ColumnWidthDefaults.Default;
         SetupCanvas();
+        panelHeader.Paint += PanelHeader_Paint;
         UpdateHeader();
         LoadCards();
+    }
+
+    private void PanelHeader_Paint(object? sender, PaintEventArgs e)
+    {
+        if (!_isSelected) return;
+        using var pen = new Pen(Color.FromArgb(220, 30, 100, 220), 2f);
+        var r = panelHeader.ClientRectangle;
+        e.Graphics.DrawLine(pen, 0, r.Bottom - 1, r.Right, r.Bottom - 1);
     }
 
     private void SetupResizeGrip()
@@ -139,7 +170,10 @@ public partial class KanbanColumnControl : UserControl
         panelCanvas.MouseDown += (_, e) =>
         {
             if (e.Button == MouseButtons.Left)
+            {
                 DeselectAllCards();
+                RaiseColumnSelected();
+            }
         };
     }
 
@@ -378,6 +412,7 @@ public partial class KanbanColumnControl : UserControl
         ctrl.Card.ZIndex = NextZIndexFor(ctrl.Card);
         ctrl.BringToFront();
         SortCardsByZIndex();
+        RaiseColumnSelected();
     }
 
     public bool ContainsScreenPoint(Point screenPos)
@@ -700,6 +735,10 @@ public partial class KanbanColumnControl : UserControl
         {
             _isHeaderDragging = false;
             ColumnHeaderDragEnded?.Invoke(this, panelHeader.PointToScreen(e.Location));
+        }
+        else if (e.Button == MouseButtons.Left)
+        {
+            RaiseColumnSelected();
         }
     }
 

@@ -11,6 +11,8 @@ public class KanbanColumn
     public bool IsCompletionColumn { get; set; } = false;
     /// <summary>컬럼 간 상대 너비 비율(가중치). 실제 픽셀 너비는 보드 크기에 따라 계산됩니다.</summary>
     public int ColumnWidth { get; set; } = 250;
+    /// <summary>캔버스 배경 눈금 표시 여부.</summary>
+    public bool ShowGrid { get; set; } = true;
     public List<KanbanCard> Cards { get; set; } = new();
 
     public string TitleFontFamily { get; set; } = "Segoe UI";

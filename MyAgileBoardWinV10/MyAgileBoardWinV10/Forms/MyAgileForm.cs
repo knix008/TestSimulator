@@ -24,6 +24,7 @@ public partial class MyAgileForm : Form
 
     // Column drag state
     private KanbanColumnControl? _draggingColumn;
+    private KanbanColumnControl? _selectedColumnControl;
     private Form? _ghostForm;
     private Panel? _dropIndicator;
     private int _lastColumnDropInsertIdx = -1;
@@ -198,7 +199,7 @@ public partial class MyAgileForm : Form
         toolBtnSummary.ToolTipText   = "Summary / 차트 보기 (Ctrl+T)";
         toolBtnCompleted.ToolTipText   = "완료 후 삭제된 항목 보기";
         toolBtnBurndown.ToolTipText    = "Burn Down 차트 보기";
-        toolBtnToggleGrid.ToolTipText  = "배경 눈금 표시/숨기기";
+        toolBtnToggleGrid.ToolTipText  = "선택한 컬럼의 배경 눈금 표시/숨기기";
         toolBtnExport.ToolTipText = "프로젝트 보내기 (Report / 인쇄 / 이미지)";
     }
 
@@ -230,6 +231,7 @@ public partial class MyAgileForm : Form
     private void RebuildBoard()
     {
         CleanupGhost();
+        DeselectAllColumns();
 
         SuspendLayout();
         flowColumns.SuspendLayout();
@@ -256,7 +258,58 @@ public partial class MyAgileForm : Form
         ResumeLayout(false);
 
         UpdateStatusBar();
-        toolBtnToggleGrid.Checked = _project.ShowGrid;
+        UpdateGridToolbarState();
+    }
+
+    private void SelectColumn(KanbanColumnControl ctrl)
+    {
+        if (_selectedColumnControl == ctrl)
+        {
+            UpdateGridToolbarState();
+            return;
+        }
+
+        foreach (var col in flowColumns.Controls.OfType<KanbanColumnControl>())
+            col.SetSelected(false);
+
+        _selectedColumnControl = ctrl;
+        ctrl.SetSelected(true);
+        UpdateGridToolbarState();
+    }
+
+    private void DeselectAllColumns()
+    {
+        foreach (var col in flowColumns.Controls.OfType<KanbanColumnControl>())
+            col.SetSelected(false);
+        _selectedColumnControl = null;
+        UpdateGridToolbarState();
+    }
+
+    private void UpdateGridToolbarState()
+    {
+        bool hasSelection = _selectedColumnControl != null;
+        toolBtnToggleGrid.Enabled = hasSelection;
+        menuViewShowGrid.Enabled = hasSelection;
+
+        if (hasSelection)
+        {
+            toolBtnToggleGrid.Checked = _selectedColumnControl!.ShowGrid;
+            menuViewShowGrid.Checked = _selectedColumnControl.ShowGrid;
+        }
+        else
+        {
+            toolBtnToggleGrid.Checked = false;
+            menuViewShowGrid.Checked = false;
+        }
+    }
+
+    private void ToggleSelectedColumnGrid(bool show)
+    {
+        if (_selectedColumnControl == null) return;
+        _selectedColumnControl.ShowGrid = show;
+        toolBtnToggleGrid.Checked = show;
+        menuViewShowGrid.Checked = show;
+        UpdateDirtyState();
     }
 
     private KanbanColumnControl CreateColumnControl(KanbanColumn col)
@@ -280,7 +333,8 @@ public partial class MyAgileForm : Form
         ctrl.CardDragStarted         += OnCardDragStarted;
         ctrl.CardDragging            += OnCardDragging;
         ctrl.CardDragEnded           += OnCardDragEnded;
-        ctrl.SetGridVisible(_project.ShowGrid);
+        ctrl.ColumnSelected          += (_, _) => SelectColumn(ctrl);
+        ctrl.SetGridVisible(col.ShowGrid);
         return ctrl;
     }
 
@@ -834,10 +888,15 @@ public partial class MyAgileForm : Form
 
     private void OnColumnSettingsRequested(object? sender, KanbanColumn column)
     {
+        var ctrl = FindColumnControl(column);
+        if (ctrl != null)
+            SelectColumn(ctrl);
+
         SaveUndoSnapshot();
         using var form = new ColumnSettingsForm(column);
         form.PreviewChanged += (_, _) => RefreshColumnPreview(column);
         if (form.ShowDialog() != DialogResult.OK) return;
+        UpdateGridToolbarState();
         UpdateDirtyState();
     }
 
@@ -845,7 +904,9 @@ public partial class MyAgileForm : Form
     {
         var ctrl = FindColumnControl(column);
         ctrl?.UpdateHeader();
+        ctrl?.SetGridVisible(column.ShowGrid);
         ApplyProportionalColumnWidths();
+        UpdateGridToolbarState();
     }
 
     private void OnDeleteColumnRequested(object? sender, KanbanColumn column)
@@ -863,6 +924,10 @@ public partial class MyAgileForm : Form
         var newCol = new KanbanColumn { Name = "새 컬럼" };
         _project.Columns.Add(newCol);
         RebuildBoard();
+
+        var newColCtrl = FindColumnControl(newCol);
+        if (newColCtrl != null)
+            SelectColumn(newColCtrl);
 
         using var form = new ColumnSettingsForm(newCol);
         form.PreviewChanged += (_, _) => RefreshColumnPreview(newCol);
@@ -1012,36 +1077,9 @@ public partial class MyAgileForm : Form
 
     private void menuProjectSettings_Click(object sender, EventArgs e)
     {
-        bool originalShowGrid = _project.ShowGrid;
         using var form = new ProjectSettingsForm(_project);
-        form.GridVisibilityChanged += (_, show) => ApplyGridSetting(show);
-        var result = form.ShowDialog();
-        if (result == DialogResult.OK)
-        {
-            SyncProjectFromBoard();
-            ApplyGridSetting(_project.ShowGrid);
-            UpdateDirtyState();
-        }
-        else
-        {
-            // Revert live preview
-            ApplyGridSetting(originalShowGrid);
-        }
-    }
-
-    private void ApplyGridSetting(bool show)
-    {
-        toolBtnToggleGrid.Checked = show;
-        menuViewShowGrid.Checked = show;
-        foreach (var col in flowColumns.Controls.OfType<KanbanColumnControl>())
-            col.SetGridVisible(show);
-    }
-
-    private void menuViewShowGrid_Click(object? sender, EventArgs e)
-    {
-        bool show = menuViewShowGrid.Checked;
-        _project.ShowGrid = show;
-        ApplyGridSetting(show);
+        if (form.ShowDialog() != DialogResult.OK) return;
+        SyncProjectFromBoard();
         UpdateDirtyState();
     }
 
@@ -1160,14 +1198,11 @@ public partial class MyAgileForm : Form
     private void toolBtnSave_Click(object sender, EventArgs e)    => menuSave_Click(sender, e);
     private void toolBtnSummary_Click(object sender, EventArgs e) => menuSummary_Click(sender, e);
 
+    private void menuViewShowGrid_Click(object? sender, EventArgs e)
+        => ToggleSelectedColumnGrid(menuViewShowGrid.Checked);
+
     private void toolBtnToggleGrid_Click(object sender, EventArgs e)
-    {
-        bool show = toolBtnToggleGrid.Checked;
-        _project.ShowGrid = show;
-        foreach (var col in flowColumns.Controls.OfType<KanbanColumnControl>())
-            col.SetGridVisible(show);
-        UpdateDirtyState();
-    }
+        => ToggleSelectedColumnGrid(toolBtnToggleGrid.Checked);
 
     // ─────────────────────────────────────────────
     //  Export — Report & images

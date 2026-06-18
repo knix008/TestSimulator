@@ -6,8 +6,6 @@ public partial class ProjectSettingsForm : Form
 {
     private KanbanProject _project = null!;
 
-    public event EventHandler<bool>? GridVisibilityChanged;
-
     public ProjectSettingsForm()
     {
         InitializeComponent();
@@ -17,13 +15,11 @@ public partial class ProjectSettingsForm : Form
     {
         _project = project;
         LoadFromProject();
-        chkShowGrid.CheckedChanged += (_, _) => GridVisibilityChanged?.Invoke(this, chkShowGrid.Checked);
     }
 
     private void LoadFromProject()
     {
         txtProjectName.Text = _project.Name;
-        chkShowGrid.Checked = _project.ShowGrid;
         lblCreated.Text = $"생성일: {_project.CreatedAt:yyyy-MM-dd HH:mm}";
         lblFilePath.Text = string.IsNullOrEmpty(_project.FilePath)
             ? "저장되지 않음"
@@ -41,7 +37,6 @@ public partial class ProjectSettingsForm : Form
         }
 
         _project.Name = txtProjectName.Text.Trim();
-        _project.ShowGrid = chkShowGrid.Checked;
         DialogResult = DialogResult.OK;
         Close();
     }

@@ -13,7 +13,6 @@ public static class SampleProjectFactory
         {
             Name = "MyAgileBoard 샘플 보드",
             CreatedAt = baseDate,
-            ShowGrid = true,
             BurndownChartColors = new BurndownChartColorSettings
             {
                 DailyBarHex = "#228B47",

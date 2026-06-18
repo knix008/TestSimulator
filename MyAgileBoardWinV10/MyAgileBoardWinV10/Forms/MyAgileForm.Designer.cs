@@ -210,12 +210,11 @@ partial class MyAgileForm
         // 
         // menuViewShowGrid
         // 
-        menuViewShowGrid.Checked = true;
+        menuViewShowGrid.Enabled = false;
         menuViewShowGrid.CheckOnClick = true;
-        menuViewShowGrid.CheckState = CheckState.Checked;
         menuViewShowGrid.Name = "menuViewShowGrid";
         menuViewShowGrid.Size = new Size(217, 22);
-        menuViewShowGrid.Text = "배경 눈금 표시(&G)";
+        menuViewShowGrid.Text = "선택 컬럼 눈금 표시(&G)";
         menuViewShowGrid.Click += menuViewShowGrid_Click;
         // 
         // menuHelp
@@ -380,13 +379,12 @@ partial class MyAgileForm
         // 
         // toolBtnToggleGrid
         // 
-        toolBtnToggleGrid.Checked = true;
+        toolBtnToggleGrid.Enabled = false;
         toolBtnToggleGrid.CheckOnClick = true;
-        toolBtnToggleGrid.CheckState = CheckState.Checked;
         toolBtnToggleGrid.Name = "toolBtnToggleGrid";
         toolBtnToggleGrid.Size = new Size(35, 22);
         toolBtnToggleGrid.Text = "눈금";
-        toolBtnToggleGrid.ToolTipText = "배경 눈금 표시/숨기기";
+        toolBtnToggleGrid.ToolTipText = "선택한 컬럼의 배경 눈금 표시/숨기기";
         toolBtnToggleGrid.Click += toolBtnToggleGrid_Click;
         // 
         // statusStrip
