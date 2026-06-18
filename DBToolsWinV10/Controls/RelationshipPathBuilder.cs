@@ -58,14 +58,28 @@ public static class RelationshipPathBuilder
 		{
 			return;
 		}
-		if (rel.RoutePoints.Count > 0)
-		{
-			return;
-		}
 		if (rel.LineStyle == RelationshipLineStyle.Curved)
 		{
-			PointF control = GetDefaultCurveControl(start, end);
-			rel.RoutePoints.Add(new RelationshipPoint(control.X, control.Y));
+			if (rel.RoutePoints.Count == 1)
+			{
+				// Upgrade legacy single control point to two cubic bezier control points
+				PointF legacy = new PointF(rel.RoutePoints[0].X, rel.RoutePoints[0].Y);
+				PointF newCp1 = Lerp(start, legacy, 0.6f);
+				PointF newCp2 = Lerp(legacy, end, 0.4f);
+				rel.RoutePoints.Clear();
+				rel.RoutePoints.Add(new RelationshipPoint(newCp1.X, newCp1.Y));
+				rel.RoutePoints.Add(new RelationshipPoint(newCp2.X, newCp2.Y));
+			}
+			else if (rel.RoutePoints.Count == 0)
+			{
+				var (cp1, cp2) = GetDefaultCubicControls(start, end, startEdge, endEdge);
+				rel.RoutePoints.Add(new RelationshipPoint(cp1.X, cp1.Y));
+				rel.RoutePoints.Add(new RelationshipPoint(cp2.X, cp2.Y));
+			}
+			return;
+		}
+		if (rel.RoutePoints.Count > 0)
+		{
 			return;
 		}
 		foreach (PointF bend in GetDefaultOrthogonalBends(start, end, startEdge, endEdge))
@@ -88,7 +102,8 @@ public static class RelationshipPathBuilder
 		}
 		if (rel.LineStyle == RelationshipLineStyle.Curved)
 		{
-			return SampleQuadraticBezier(start, GetCurveControl(rel, start, end), end);
+			var (cp1, cp2) = GetCubicControls(rel, start, end, startEdge, endEdge);
+			return SampleCubicBezier(start, cp1, cp2, end);
 		}
 		List<PointF> list = new List<PointF> { start };
 		foreach (RelationshipPoint routePoint in rel.RoutePoints)
@@ -135,6 +150,33 @@ public static class RelationshipPathBuilder
 		}
 		return GetDefaultCurveControl(start, end);
 	}
+
+	public static (PointF cp1, PointF cp2) GetCubicControls(DbRelationship rel, PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
+	{
+		EnsureRoutePoints(rel, start, end, startEdge, endEdge);
+		if (rel.RoutePoints != null && rel.RoutePoints.Count >= 2)
+			return (new PointF(rel.RoutePoints[0].X, rel.RoutePoints[0].Y),
+			        new PointF(rel.RoutePoints[1].X, rel.RoutePoints[1].Y));
+		return GetDefaultCubicControls(start, end, startEdge, endEdge);
+	}
+
+	private static (PointF cp1, PointF cp2) GetDefaultCubicControls(PointF start, PointF end, ConnectionEdge startEdge, ConnectionEdge endEdge)
+	{
+		float dist = Distance(start, end);
+		float offset = Math.Clamp(dist * 0.4f, 50f, 180f);
+		PointF cp1 = GetEdgeOffset(start, startEdge, offset);
+		PointF cp2 = GetEdgeOffset(end, endEdge, offset);
+		return (cp1, cp2);
+	}
+
+	private static PointF GetEdgeOffset(PointF pt, ConnectionEdge edge, float d) => edge switch
+	{
+		ConnectionEdge.Left   => new PointF(pt.X - d, pt.Y),
+		ConnectionEdge.Right  => new PointF(pt.X + d, pt.Y),
+		ConnectionEdge.Top    => new PointF(pt.X, pt.Y - d),
+		ConnectionEdge.Bottom => new PointF(pt.X, pt.Y + d),
+		_                     => pt
+	};
 
 	public static PointF GetPathMidpoint(DbRelationship rel, RelationshipConnectionInfo connection)
 	{
@@ -184,8 +226,8 @@ public static class RelationshipPathBuilder
 		}
 		if (rel.LineStyle == RelationshipLineStyle.Curved)
 		{
-			PointF curveControl = GetCurveControl(rel, start, end);
-			return EvaluateQuadraticBezier(start, curveControl, end, 0.5f);
+			var (cp1, cp2) = GetCubicControls(rel, start, end, startEdge, endEdge);
+			return EvaluateCubicBezier(start, cp1, cp2, end, 0.5f);
 		}
 		float num = 0f;
 		for (int i = 0; i < pathPoints.Count - 1; i++)
@@ -450,6 +492,22 @@ public static class RelationshipPathBuilder
 		float x = num * num * start.X + 2f * num * t * control.X + t * t * end.X;
 		float y = num * num * start.Y + 2f * num * t * control.Y + t * t * end.Y;
 		return new PointF(x, y);
+	}
+
+	private static List<PointF> SampleCubicBezier(PointF p0, PointF p1, PointF p2, PointF p3)
+	{
+		var list = new List<PointF>(BezierSampleCount + 1);
+		for (int i = 0; i <= BezierSampleCount; i++)
+			list.Add(EvaluateCubicBezier(p0, p1, p2, p3, i / (float)BezierSampleCount));
+		return list;
+	}
+
+	private static PointF EvaluateCubicBezier(PointF p0, PointF p1, PointF p2, PointF p3, float t)
+	{
+		float u = 1f - t;
+		return new PointF(
+			u*u*u*p0.X + 3*u*u*t*p1.X + 3*u*t*t*p2.X + t*t*t*p3.X,
+			u*u*u*p0.Y + 3*u*u*t*p1.Y + 3*u*t*t*p2.Y + t*t*t*p3.Y);
 	}
 
 	private static PointF Lerp(PointF a, PointF b, float amount)

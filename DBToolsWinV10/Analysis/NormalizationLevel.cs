@@ -4,5 +4,6 @@ public enum NormalizationLevel
 {
 	NF1,
 	NF2,
-	NF3
+	NF3,
+	BCNF
 }

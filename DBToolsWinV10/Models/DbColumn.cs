@@ -54,6 +54,11 @@ public class DbColumn
 	public bool IsUnique { get; set; }
 
 	[Category("제약조건")]
+	[Description("외래 키 여부")]
+	[DisplayName("외래 키")]
+	public bool IsForeignKey { get; set; }
+
+	[Category("제약조건")]
 	[Description("기본값")]
 	[DisplayName("기본값")]
 	public string DefaultValue { get; set; }
@@ -95,6 +100,7 @@ public class DbColumn
 			IsAutoIncrement = IsAutoIncrement,
 			IsNullable = IsNullable,
 			IsUnique = IsUnique,
+			IsForeignKey = IsForeignKey,
 			DefaultValue = DefaultValue,
 			Comment = Comment
 		};

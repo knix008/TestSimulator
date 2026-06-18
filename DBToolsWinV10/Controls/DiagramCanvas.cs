@@ -101,6 +101,14 @@ public sealed class DiagramCanvas : Control
 
 	private float _dragRouteOriginY;
 
+	// Segment-midpoint dragging (orthogonal lines)
+	private DbRelationship _dragSegRel;
+	private int _dragSegIdx = -1;
+	private List<PointF> _dragSegOrigPath;
+	private float[] _dragSegOrigRpX;
+	private float[] _dragSegOrigRpY;
+	private PointF _dragSegStart;
+
 	public DbSchema Schema => _schema;
 
 	public ToolMode CurrentTool => _toolMode;
@@ -524,10 +532,12 @@ public sealed class DiagramCanvas : Control
 		graphics.TranslateTransform(-_hScroll.Value, -_vScroll.Value);
 		graphics.ScaleTransform(_zoom, _zoom);
 		DrawGrid(graphics);
+
 		foreach (DbRelationship relationship in _schema.Relationships)
 		{
 			DrawRelationship(graphics, relationship);
 		}
+
 		if (_relSource != null && _toolMode != ToolMode.Select)
 		{
 			DrawRelationPreview(graphics);
@@ -714,11 +724,12 @@ public sealed class DiagramCanvas : Control
 		{
 			DashStyle = DashStyle.Solid
 		};
-		if (rel.LineStyle == RelationshipLineStyle.Curved && pathPoints.Count > 2)
+		if (rel.LineStyle == RelationshipLineStyle.Curved)
 		{
-			using GraphicsPath graphicsPath = new GraphicsPath();
-			graphicsPath.AddLines(pathPoints.ToArray());
-			g.DrawPath(pen, graphicsPath);
+			var (cp1, cp2) = RelationshipPathBuilder.GetCubicControls(rel, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
+			using var curvePath = new GraphicsPath();
+			curvePath.AddBezier(connection.Start, cp1, cp2, connection.End);
+			g.DrawPath(pen, curvePath);
 		}
 		else
 		{
@@ -754,19 +765,60 @@ public sealed class DiagramCanvas : Control
 	private void DrawRelationshipRouteHandles(Graphics g, DbRelationship rel, RelationshipConnectionInfo connection)
 	{
 		if (rel.LineStyle == RelationshipLineStyle.Straight || rel.RoutePoints == null)
-		{
 			return;
-		}
+
 		RelationshipPathBuilder.EnsureRoutePoints(rel, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
-		float num = 5f / _zoom;
-		using SolidBrush brush = new SolidBrush(Color.White);
-		using Pen pen = new Pen(SelectionColor, 1.5f / _zoom);
-		foreach (RelationshipPoint routePoint in rel.RoutePoints)
+
+		if (rel.LineStyle == RelationshipLineStyle.Curved && rel.RoutePoints.Count >= 2)
 		{
-			RectangleF rect = new RectangleF(routePoint.X - num, routePoint.Y - num, num * 2f, num * 2f);
-			g.FillEllipse(brush, rect);
-			g.DrawEllipse(pen, rect);
+			PointF cp1 = new PointF(rel.RoutePoints[0].X, rel.RoutePoints[0].Y);
+			PointF cp2 = new PointF(rel.RoutePoints[1].X, rel.RoutePoints[1].Y);
+
+			// Dotted arm lines: start→CP1, end→CP2
+			using var armPen = new Pen(Color.FromArgb(180, 90, 140, 230), 1.2f / _zoom) { DashStyle = DashStyle.Dot };
+			g.DrawLine(armPen, connection.Start, cp1);
+			g.DrawLine(armPen, connection.End,   cp2);
+
+			// CP1: blue diamond
+			float r = 6f / _zoom;
+			using var fill1   = new SolidBrush(Color.FromArgb(240, 60, 130, 255));
+			using var fill2   = new SolidBrush(Color.FromArgb(240, 40, 210, 140));
+			using var outline = new Pen(Color.White, 1.5f / _zoom);
+			DrawDiamond(g, cp1, r, fill1, outline);
+			DrawDiamond(g, cp2, r, fill2, outline);
 		}
+		else
+		{
+			// Orthogonal: show square handles at SEGMENT MIDPOINTS (between bends)
+			List<PointF> pathPts = RelationshipPathBuilder.GetPathPoints(rel, connection);
+			float hr = 5f / _zoom;
+			using var fillBrush = new SolidBrush(Color.FromArgb(240, 255, 220, 60));
+			using var outlinePen = new Pen(Color.FromArgb(200, 160, 90, 0), 1.5f / _zoom);
+			using var activeBrush = new SolidBrush(Color.FromArgb(240, 60, 160, 255));
+			for (int i = 0; i < pathPts.Count - 1; i++)
+			{
+				PointF mid = new PointF(
+					(pathPts[i].X + pathPts[i + 1].X) * 0.5f,
+					(pathPts[i].Y + pathPts[i + 1].Y) * 0.5f);
+				bool isDragging = _dragSegRel != null && _dragSegRel.Id == rel.Id && _dragSegIdx == i;
+				RectangleF r = new RectangleF(mid.X - hr, mid.Y - hr, hr * 2f, hr * 2f);
+				g.FillRectangle(isDragging ? activeBrush : fillBrush, r);
+				g.DrawRectangle(outlinePen, r.X, r.Y, r.Width, r.Height);
+			}
+		}
+	}
+
+	private static void DrawDiamond(Graphics g, PointF center, float r, Brush fill, Pen border)
+	{
+		PointF[] pts =
+		{
+			new PointF(center.X,     center.Y - r),
+			new PointF(center.X + r, center.Y    ),
+			new PointF(center.X,     center.Y + r),
+			new PointF(center.X - r, center.Y    )
+		};
+		g.FillPolygon(fill, pts);
+		g.DrawPolygon(border, pts);
 	}
 
 	private void DrawCardinality(Graphics g, Pen pen, PointF tip, PointF other, bool isMany)
@@ -875,6 +927,41 @@ public sealed class DiagramCanvas : Control
 	{
 		_normalizationHighlightedColumnIds.Clear();
 		float handleRadius = 7f / _zoom;
+
+		// Check orthogonal segment-midpoint handles FIRST (they have priority)
+		foreach (DbRelationship relationship in _schema.Relationships)
+		{
+			if (relationship.LineStyle != RelationshipLineStyle.Orthogonal) continue;
+			if (!IsRelationshipSelected(relationship)) continue; // only when selected
+			if (!TryGetRelationshipConnection(relationship, out RelationshipConnectionInfo conn)) continue;
+
+			RelationshipPathBuilder.EnsureRoutePoints(relationship, conn.Start, conn.End, conn.StartEdge, conn.EndEdge);
+			List<PointF> pathPts = RelationshipPathBuilder.GetPathPoints(relationship, conn);
+			for (int i = 0; i < pathPts.Count - 1; i++)
+			{
+				PointF mid = new PointF(
+					(pathPts[i].X + pathPts[i + 1].X) * 0.5f,
+					(pathPts[i].Y + pathPts[i + 1].Y) * 0.5f);
+				float dist = MathF.Sqrt((cp.X - mid.X) * (cp.X - mid.X) + (cp.Y - mid.Y) * (cp.Y - mid.Y));
+				if (dist <= handleRadius)
+				{
+					_selectedRelationship = relationship;
+					_selectedTable = null;
+					_selectedColumn = null;
+					_dragSegRel = relationship;
+					_dragSegIdx = i;
+					_dragSegOrigPath = new List<PointF>(pathPts);
+					_dragSegOrigRpX = relationship.RoutePoints.Select(rp => rp.X).ToArray();
+					_dragSegOrigRpY = relationship.RoutePoints.Select(rp => rp.Y).ToArray();
+					_dragSegStart = cp;
+					base.Capture = true;
+					this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+					Invalidate();
+					return;
+				}
+			}
+		}
+
 		foreach (DbRelationship relationship in _schema.Relationships)
 		{
 			if (!TryGetRelationshipConnection(relationship, out RelationshipConnectionInfo connection))
@@ -964,24 +1051,75 @@ public sealed class DiagramCanvas : Control
 		DbTable dbTable = _schema.FindTable(rel.SourceTableId);
 		DbTable dbTable2 = _schema.FindTable(rel.TargetTableId);
 		if (dbTable == null || dbTable2 == null)
-		{
 			return false;
+
+		RectangleF srcBounds = GetTableBounds(dbTable);
+		RectangleF dstBounds = GetTableBounds(dbTable2);
+		PointF start, end;
+		ConnectionEdge startEdge, endEdge;
+
+		if (rel.LineStyle == RelationshipLineStyle.Orthogonal && rel.RoutePoints is { Count: >= 1 })
+		{
+			// Sliding connection: align start/end to first/last bend so first and last
+			// segments always leave/arrive at exactly 90 degrees.
+			PointF firstBend = new PointF(rel.RoutePoints[0].X, rel.RoutePoints[0].Y);
+			PointF lastBend  = new PointF(rel.RoutePoints[^1].X, rel.RoutePoints[^1].Y);
+			startEdge = GetNearestEdgeForPoint(srcBounds, firstBend);
+			start     = GetSlidingConnectionPoint(srcBounds, startEdge, firstBend);
+			endEdge   = GetNearestEdgeForPoint(dstBounds, lastBend);
+			end       = GetSlidingConnectionPoint(dstBounds, endEdge, lastBend);
 		}
-		PointF tableCenter = GetTableCenter(dbTable);
-		PointF tableCenter2 = GetTableCenter(dbTable2);
-		PointF start = GetConnectionPoint(dbTable, tableCenter2);
-		PointF end = GetConnectionPoint(dbTable2, tableCenter);
-		RectangleF tableBounds = GetTableBounds(dbTable);
-		RectangleF tableBounds2 = GetTableBounds(dbTable2);
+		else
+		{
+			PointF tableCenter = GetTableCenter(dbTable);
+			PointF tableCenter2 = GetTableCenter(dbTable2);
+			start     = GetConnectionPoint(dbTable, tableCenter2);
+			end       = GetConnectionPoint(dbTable2, tableCenter);
+			startEdge = RelationshipPathBuilder.GetConnectionEdge(srcBounds, start);
+			endEdge   = RelationshipPathBuilder.GetConnectionEdge(dstBounds, end);
+		}
+
 		connection = new RelationshipConnectionInfo
 		{
-			Start = start,
-			End = end,
-			StartEdge = RelationshipPathBuilder.GetConnectionEdge(tableBounds, start),
-			EndEdge = RelationshipPathBuilder.GetConnectionEdge(tableBounds2, end)
+			Start     = start,
+			End       = end,
+			StartEdge = startEdge,
+			EndEdge   = endEdge
 		};
 		return true;
 	}
+
+	private static ConnectionEdge GetNearestEdgeForPoint(RectangleF bounds, PointF pt)
+	{
+		bool isLeft  = pt.X <= bounds.Left;
+		bool isRight = pt.X >= bounds.Right;
+		bool isAbove = pt.Y <= bounds.Top;
+		bool isBelow = pt.Y >= bounds.Bottom;
+
+		if (isLeft  && !isAbove && !isBelow) return ConnectionEdge.Left;
+		if (isRight && !isAbove && !isBelow) return ConnectionEdge.Right;
+		if (isAbove && !isLeft  && !isRight) return ConnectionEdge.Top;
+		if (isBelow && !isLeft  && !isRight) return ConnectionEdge.Bottom;
+
+		float dL = MathF.Abs(pt.X - bounds.Left);
+		float dR = MathF.Abs(pt.X - bounds.Right);
+		float dT = MathF.Abs(pt.Y - bounds.Top);
+		float dB = MathF.Abs(pt.Y - bounds.Bottom);
+		float mn = MathF.Min(MathF.Min(dL, dR), MathF.Min(dT, dB));
+		if (mn == dL) return ConnectionEdge.Left;
+		if (mn == dR) return ConnectionEdge.Right;
+		if (mn == dT) return ConnectionEdge.Top;
+		return ConnectionEdge.Bottom;
+	}
+
+	private static PointF GetSlidingConnectionPoint(RectangleF bounds, ConnectionEdge edge, PointF toward) => edge switch
+	{
+		ConnectionEdge.Left   => new PointF(bounds.Left,  Math.Clamp(toward.Y, bounds.Top, bounds.Bottom)),
+		ConnectionEdge.Right  => new PointF(bounds.Right, Math.Clamp(toward.Y, bounds.Top, bounds.Bottom)),
+		ConnectionEdge.Top    => new PointF(Math.Clamp(toward.X, bounds.Left, bounds.Right), bounds.Top),
+		ConnectionEdge.Bottom => new PointF(Math.Clamp(toward.X, bounds.Left, bounds.Right), bounds.Bottom),
+		_                     => new PointF(bounds.Left + bounds.Width / 2f, bounds.Top)
+	};
 
 	private void HandleRelationDown(PointF cp)
 	{
@@ -1034,7 +1172,10 @@ public sealed class DiagramCanvas : Control
 		_schema.Relationships.Add(dbRelationship);
 		if (TryGetRelationshipConnection(dbRelationship, out RelationshipConnectionInfo connection))
 		{
-			RelationshipPathBuilder.EnsureRoutePoints(dbRelationship, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
+			if (dbRelationship.LineStyle == RelationshipLineStyle.Orthogonal)
+				PlanOrthogonalRouteAroundTables(dbRelationship);
+			else
+				RelationshipPathBuilder.EnsureRoutePoints(dbRelationship, connection.Start, connection.End, connection.StartEdge, connection.EndEdge);
 		}
 		_relSource = null;
 		_selectedTable = null;
@@ -1069,6 +1210,11 @@ public sealed class DiagramCanvas : Control
 			_selectedTable.Y = _tableOriginAtDrag.Y + (pointF.Y - _dragStartCanvas.Y);
 			Invalidate();
 		}
+		else if (_dragSegRel != null && _dragSegIdx >= 0)
+		{
+			MoveSegment(pointF);
+			Invalidate();
+		}
 		else if (_dragRouteRel != null && _dragRoutePointIndex >= 0)
 		{
 			if (_dragRouteRel.RoutePoints != null && _dragRoutePointIndex < _dragRouteRel.RoutePoints.Count)
@@ -1082,6 +1228,38 @@ public sealed class DiagramCanvas : Control
 		else if (_relSource != null)
 		{
 			Invalidate();
+		}
+	}
+
+	private void MoveSegment(PointF cp)
+	{
+		if (_dragSegRel?.RoutePoints == null || _dragSegOrigPath == null) return;
+		List<PointF> pts = _dragSegOrigPath;
+		int i = _dragSegIdx;
+		if (i < 0 || i >= pts.Count - 1) return;
+
+		bool isH = MathF.Abs(pts[i].Y - pts[i + 1].Y) < 1f; // horizontal segment
+		float delta = isH ? cp.Y - _dragSegStart.Y : cp.X - _dragSegStart.X;
+		int lastIdx = pts.Count - 1;
+		var rp = _dragSegRel.RoutePoints;
+
+		// pathPoints[j] maps to RoutePoints[j-1] for j in [1 .. lastIdx-1]
+		int rpA = i - 1;
+		int rpB = i;
+
+		if (isH)
+		{
+			if (rpA >= 0 && rpA < _dragSegOrigRpY.Length)
+				rp[rpA].Y = _dragSegOrigRpY[rpA] + delta;
+			if (rpB >= 0 && rpB < _dragSegOrigRpY.Length && i + 1 < lastIdx)
+				rp[rpB].Y = _dragSegOrigRpY[rpB] + delta;
+		}
+		else
+		{
+			if (rpA >= 0 && rpA < _dragSegOrigRpX.Length)
+				rp[rpA].X = _dragSegOrigRpX[rpA] + delta;
+			if (rpB >= 0 && rpB < _dragSegOrigRpX.Length && i + 1 < lastIdx)
+				rp[rpB].X = _dragSegOrigRpX[rpB] + delta;
 		}
 	}
 
@@ -1143,6 +1321,17 @@ public sealed class DiagramCanvas : Control
 				ResetOrthogonalRoutesForTable(_selectedTable);
 				NotifyChanged();
 			}
+		}
+		else if (_dragSegRel != null)
+		{
+			bool moved = _dragSegOrigPath != null && _dragSegIdx >= 0;
+			_dragSegRel = null;
+			_dragSegIdx = -1;
+			_dragSegOrigPath = null;
+			_dragSegOrigRpX = null;
+			_dragSegOrigRpY = null;
+			base.Capture = false;
+			if (moved) NotifyChanged();
 		}
 		else if (_dragRouteRel != null)
 		{
@@ -1551,18 +1740,167 @@ public sealed class DiagramCanvas : Control
 
 	private void ResetOrthogonalRoutesForTable(DbTable table)
 	{
-		if (table == null)
+		if (table == null) return;
+		RelationshipPathBuilder.ResetOrthogonalRoutesForTable(_schema, table.Id, rel =>
 		{
-			return;
-		}
-		RelationshipPathBuilder.ResetOrthogonalRoutesForTable(_schema, table.Id, delegate(DbRelationship rel)
-		{
-			if (TryGetRelationshipConnection(rel, out RelationshipConnectionInfo connection))
-			{
-				return connection;
-			}
+			if (TryGetRelationshipConnection(rel, out RelationshipConnectionInfo conn)) return conn;
 			return null;
 		});
+		foreach (DbRelationship rel in _schema.Relationships)
+		{
+			if (rel.LineStyle == RelationshipLineStyle.Orthogonal)
+				PlanOrthogonalRouteAroundTables(rel);
+		}
+	}
+
+	private void PlanOrthogonalRouteAroundTables(DbRelationship rel)
+	{
+		if (rel.LineStyle != RelationshipLineStyle.Orthogonal) return;
+		if (!TryGetRelationshipConnection(rel, out var conn)) return;
+
+		const float pad = 36f;
+		DbTable srcTbl = _schema.FindTable(rel.SourceTableId);
+		DbTable dstTbl = _schema.FindTable(rel.TargetTableId);
+		if (srcTbl == null || dstTbl == null) return;
+
+		var obstacles = new List<RectangleF>();
+		foreach (DbTable t in _schema.Tables)
+		{
+			if (t.Id == rel.SourceTableId || t.Id == rel.TargetTableId) continue;
+			RectangleF b = GetTableBounds(t);
+			b.Inflate(8f, 8f);
+			obstacles.Add(b);
+		}
+
+		var allBounds = new List<RectangleF>(obstacles);
+		{ RectangleF b = GetTableBounds(srcTbl); b.Inflate(8f, 8f); allBounds.Add(b); }
+		{ RectangleF b = GetTableBounds(dstTbl); b.Inflate(8f, 8f); allBounds.Add(b); }
+
+		var bends = FindClearOrthogonalBends(
+			conn.Start, conn.StartEdge, conn.End, conn.EndEdge,
+			obstacles, allBounds, pad);
+
+		rel.RoutePoints ??= new System.Collections.Generic.List<RelationshipPoint>();
+		rel.RoutePoints.Clear();
+		foreach (PointF pt in bends)
+			rel.RoutePoints.Add(new RelationshipPoint(pt.X, pt.Y));
+	}
+
+	private static List<PointF> FindClearOrthogonalBends(
+		PointF start, ConnectionEdge startEdge,
+		PointF end,   ConnectionEdge endEdge,
+		List<RectangleF> obstacles,
+		List<RectangleF> allBounds,
+		float pad)
+	{
+		bool startH = startEdge is ConnectionEdge.Left or ConnectionEdge.Right;
+		bool endH   = endEdge   is ConnectionEdge.Left or ConnectionEdge.Right;
+		float midX  = (start.X + end.X) * 0.5f;
+		float midY  = (start.Y + end.Y) * 0.5f;
+
+		// Candidate lanes built from obstacle edges + natural midpoints, sorted closest-first
+		var xSet = new HashSet<float> { start.X, end.X, midX };
+		var ySet = new HashSet<float> { start.Y, end.Y, midY };
+		foreach (RectangleF b in allBounds)
+		{
+			xSet.Add(b.Left - pad); xSet.Add(b.Right  + pad);
+			ySet.Add(b.Top  - pad); ySet.Add(b.Bottom + pad);
+		}
+		List<float> xC = xSet.OrderBy(x => MathF.Abs(x - midX)).ToList();
+		List<float> yC = ySet.OrderBy(y => MathF.Abs(y - midY)).ToList();
+
+		bool Clear(List<PointF> bends)
+		{
+			if (obstacles.Count == 0) return true;
+			var path = new List<PointF>(bends.Count + 2) { start };
+			path.AddRange(bends);
+			path.Add(end);
+			for (int i = 0; i < path.Count - 1; i++)
+				foreach (RectangleF obs in obstacles)
+					if (OrthogonalSegmentHitsRect(path[i], path[i + 1], obs))
+						return false;
+			return true;
+		}
+
+		List<PointF> Fallback()
+		{
+			if (startH && endH) return new List<PointF> { new PointF(midX, start.Y), new PointF(midX, end.Y) };
+			if (startH)         return new List<PointF> { new PointF(end.X, start.Y) };
+			if (endH)           return new List<PointF> { new PointF(start.X, end.Y) };
+			return new List<PointF> { new PointF(start.X, midY), new PointF(end.X, midY) };
+		}
+
+		if (startH && endH)
+		{
+			if (MathF.Abs(start.Y - end.Y) < 1f && Clear(new List<PointF>()))
+				return new List<PointF>();
+			foreach (float xL in xC)
+			{
+				var b = new List<PointF> { new PointF(xL, start.Y), new PointF(xL, end.Y) };
+				if (Clear(b)) return b;
+			}
+		}
+		else if (!startH && !endH)
+		{
+			if (MathF.Abs(start.X - end.X) < 1f && Clear(new List<PointF>()))
+				return new List<PointF>();
+			foreach (float yL in yC)
+			{
+				var b = new List<PointF> { new PointF(start.X, yL), new PointF(end.X, yL) };
+				if (Clear(b)) return b;
+			}
+		}
+		else if (startH && !endH)
+		{
+			// 1-bend L-shape
+			{ var b1 = new List<PointF> { new PointF(end.X, start.Y) }; if (Clear(b1)) return b1; }
+			// 3-bend detour through (xL, yL) gap
+			foreach (float xL in xC)
+			{
+				if (MathF.Abs(xL - end.X) < 1f) continue;
+				foreach (float yL in yC)
+				{
+					if (MathF.Abs(yL - start.Y) < 1f) continue;
+					var b = new List<PointF> { new PointF(xL, start.Y), new PointF(xL, yL), new PointF(end.X, yL) };
+					if (Clear(b)) return b;
+				}
+			}
+		}
+		else // !startH && endH
+		{
+			// 1-bend L-shape
+			{ var b1 = new List<PointF> { new PointF(start.X, end.Y) }; if (Clear(b1)) return b1; }
+			// 3-bend detour through (yL, xL) gap
+			foreach (float yL in yC)
+			{
+				if (MathF.Abs(yL - end.Y) < 1f) continue;
+				foreach (float xL in xC)
+				{
+					if (MathF.Abs(xL - start.X) < 1f) continue;
+					var b = new List<PointF> { new PointF(start.X, yL), new PointF(xL, yL), new PointF(xL, end.Y) };
+					if (Clear(b)) return b;
+				}
+			}
+		}
+
+		return Fallback();
+	}
+
+	private static bool OrthogonalSegmentHitsRect(PointF a, PointF b, RectangleF r)
+	{
+		bool isH = MathF.Abs(a.Y - b.Y) < 1f;
+		if (isH)
+		{
+			float minX = MathF.Min(a.X, b.X);
+			float maxX = MathF.Max(a.X, b.X);
+			return a.Y > r.Top && a.Y < r.Bottom && minX < r.Right && maxX > r.Left;
+		}
+		else
+		{
+			float minY = MathF.Min(a.Y, b.Y);
+			float maxY = MathF.Max(a.Y, b.Y);
+			return a.X > r.Left && a.X < r.Right && minY < r.Bottom && maxY > r.Top;
+		}
 	}
 
 	public static float GetTableHeight(DbTable t)

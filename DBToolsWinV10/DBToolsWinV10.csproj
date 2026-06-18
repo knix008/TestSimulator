@@ -49,6 +49,7 @@
 
   <ItemGroup>
     <None Include="Assets\AppIcon.ico" />
+    <EmbeddedResource Include="Assets\mouse-pointer-icon.png" />
     <Content Include="Assets\FileIcon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

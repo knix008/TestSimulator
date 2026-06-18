@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Reflection;
 
 namespace DBToolsWinV10.App;
 
@@ -60,7 +61,8 @@ public static class IconProvider
 			"ImportDb" => DrawOpenDbFile(size), 
 			"OpenDbFile" => DrawOpenDbFile(size), 
 			"About" => DrawAbout(size), 
-			"Select" => DrawSelect(size), 
+			"Select" => DrawSelect(size),
+			"IndexAdvisor" => DrawIndexAdvisor(size),
 			"PostgreSQL" => DrawDbBadge(size, Color.FromArgb(52, 101, 164), "PG"), 
 			"MySQL" => DrawDbBadge(size, Color.FromArgb(0, 114, 66), "MY"), 
 			"MariaDB" => DrawDbBadge(size, Color.FromArgb(194, 63, 63), "MA"), 
@@ -828,24 +830,81 @@ public static class IconProvider
 
 	private static Image DrawSelect(int sz)
 	{
+		using var stream = Assembly.GetExecutingAssembly()
+			.GetManifestResourceStream("DBToolsWinV10.Assets.mouse-pointer-icon.png");
+		if (stream != null)
+		{
+			// Load the PNG and make its white background transparent before resizing.
+			// MakeTransparent removes exact-white pixels; HighQualityBicubic then properly
+			// composites the alpha channel when scaling, giving clean anti-aliased edges.
+			var src = new Bitmap(stream);
+			src.MakeTransparent(Color.White);
+			var dst = New32(sz);
+			using var g = Graphics.FromImage(dst);
+			g.Clear(Color.Transparent);
+			g.SmoothingMode = SmoothingMode.AntiAlias;
+			g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+			g.DrawImage(src, new Rectangle(0, 0, sz, sz));
+			src.Dispose();
+			return dst;
+		}
+		return DrawSelectFallback(sz);
+	}
+
+	private static Image DrawSelectFallback(int sz)
+	{
 		Bitmap bitmap = New32(sz);
 		Graphics graphics = Setup(bitmap);
-		using SolidBrush brush = new SolidBrush(Color.White);
-		using Pen pen = new Pen(Color.FromArgb(60, 80, 120), P(sz, 1.2f));
-		PointF[] points = new PointF[7]
-		{
-			new PointF(P(sz, 2f), P(sz, 1f)),
-			new PointF(P(sz, 2f), (float)sz - P(sz, 3f)),
-			new PointF(P(sz, 5f), (float)sz - P(sz, 6f)),
-			new PointF(P(sz, 7f), (float)sz - P(sz, 2f)),
-			new PointF(P(sz, 9f), (float)sz - P(sz, 3f)),
-			new PointF(P(sz, 7f), (float)sz - P(sz, 7f)),
-			new PointF((float)sz - P(sz, 2f), (float)sz - P(sz, 7f))
-		};
-		graphics.FillPolygon(brush, points);
-		graphics.DrawPolygon(pen, points);
+		PointF tip    = new PointF(P(sz, 1.5f), P(sz, 1f));
+		PointF leftBt = new PointF(P(sz, 1.5f), P(sz, 10f));
+		PointF notchL = new PointF(P(sz, 5f),   P(sz, 9.5f));
+		PointF tailBL = new PointF(P(sz, 6f),   P(sz, 14.5f));
+		PointF tailBR = new PointF(P(sz, 9f),   P(sz, 14f));
+		PointF notchR = new PointF(P(sz, 8f),   P(sz, 9.5f));
+		PointF arrowR = new PointF(P(sz, 11.5f),P(sz, 5f));
+		PointF[] pts = { tip, leftBt, notchL, tailBL, tailBR, notchR, arrowR };
+		float sh = P(sz, 0.75f);
+		PointF[] shadowPts = Array.ConvertAll(pts, p => new PointF(p.X + sh, p.Y + sh));
+		using var shadowBrush = new SolidBrush(Color.FromArgb(70, 0, 0, 0));
+		graphics.FillPolygon(shadowBrush, shadowPts);
+		using var fill = new SolidBrush(Color.White);
+		graphics.FillPolygon(fill, pts);
+		using var outline = new Pen(Color.FromArgb(40, 60, 100), Math.Max(1f, P(sz, 1.1f)));
+		outline.LineJoin = LineJoin.Round;
+		graphics.DrawPolygon(outline, pts);
 		graphics.Dispose();
 		return bitmap;
+	}
+
+	private static Image DrawIndexAdvisor(int sz)
+	{
+		Bitmap bmp = New32(sz);
+		using Graphics g = Setup(bmp);
+		float m  = P(sz, 1f);
+		float w  = sz - m * 2f;
+		float h  = sz - m * 2f;
+		using var bgBrush  = new SolidBrush(Color.FromArgb(220, 230, 250));
+		using var bgPen    = new Pen(Color.FromArgb(60, 100, 180), P(sz, 0.8f));
+		using var rowPen   = new Pen(Color.FromArgb(140, 160, 200), P(sz, 0.8f));
+		using var hlBrush  = new SolidBrush(Color.FromArgb(240, 160, 30));
+		using var hlPen    = new Pen(Color.FromArgb(230, 130, 20), P(sz, 1f));
+		using var keyPen   = new Pen(Color.FromArgb(230, 130, 20), P(sz, 1.2f)) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+		g.FillRectangle(bgBrush, m, m, w, h);
+		g.DrawRectangle(bgPen, m, m, w, h);
+		// Three rows
+		float rowH = h / 4f;
+		float[] ys = [ m + rowH * 1f, m + rowH * 2f, m + rowH * 3f ];
+		float x1 = m + P(sz, 1.5f), x2 = m + w - P(sz, 1.5f);
+		g.DrawLine(rowPen, x1, ys[0], x2, ys[0]);
+		g.DrawLine(hlPen, x1, ys[1], x2, ys[1]);   // highlighted row
+		g.DrawLine(rowPen, x1, ys[2], x2, ys[2]);
+		// Key icon on the highlighted row (right side)
+		float kx = x2 - P(sz, 0.5f);
+		float ky = ys[1] - P(sz, 2.5f);
+		g.DrawEllipse(keyPen, kx - P(sz, 1.5f), ky, P(sz, 3f), P(sz, 3f));
+		g.DrawLine(keyPen, kx, ky + P(sz, 3f), kx, ky + P(sz, 5.5f));
+		g.DrawLine(keyPen, kx, ky + P(sz, 4.5f), kx + P(sz, 1.2f), ky + P(sz, 4.5f));
+		return bmp;
 	}
 
 	private static Image DrawDbBadge(int sz, Color color, string label)

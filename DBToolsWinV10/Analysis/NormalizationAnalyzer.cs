@@ -8,16 +8,39 @@ namespace DBToolsWinV10.Analysis;
 public static class NormalizationAnalyzer
 {
 	public static IReadOnlyList<NormalizationIssue> Analyze(DbSchema schema)
+		=> AnalyzeLevel(schema, NormalizationLevel.BCNF);
+
+	public static IReadOnlyList<NormalizationIssue> AnalyzeLevel(DbSchema schema, NormalizationLevel level)
 	{
 		List<NormalizationIssue> list = new List<NormalizationIssue>();
 		foreach (DbTable table in schema.Tables)
 		{
 			Check1NF(table, list);
+			if (level == NormalizationLevel.NF1) continue;
 			Check2NF(table, schema, list);
+			if (level == NormalizationLevel.NF2) continue;
 			Check3NF(table, schema, list);
+			if (level == NormalizationLevel.NF3) continue;
+			CheckBCNF(table, schema, list);
 		}
 		return list;
 	}
+
+	// Returns true when all issues up to the given level are non-errors
+	public static bool LevelPasses(DbSchema schema, NormalizationLevel level)
+	{
+		var issues = AnalyzeLevel(schema, level);
+		return !issues.Any(i => i.Severity == IssueSeverity.Error && NfLevelOf(i.Level) <= (int)level);
+	}
+
+	private static int NfLevelOf(NormalizationLevel l) => l switch
+	{
+		NormalizationLevel.NF1  => 0,
+		NormalizationLevel.NF2  => 1,
+		NormalizationLevel.NF3  => 2,
+		NormalizationLevel.BCNF => 3,
+		_ => 0
+	};
 
 	private static void Check1NF(DbTable table, List<NormalizationIssue> issues)
 	{
@@ -129,6 +152,37 @@ public static class NormalizationAnalyzer
 					AffectedColumns = $"{prefix}_id, {item.Name}",
 					Message = "비키 속성 간 이행 종속 가능성이 있습니다.",
 					Hint = $"'{prefix}_id' → '{item.Name}' 관계가 비키 속성 간 이행 종속이면 '{prefix}' 엔티티를 별도 테이블로 분리하세요."
+				});
+			}
+		}
+	}
+
+	private static void CheckBCNF(DbTable table, DbSchema schema, List<NormalizationIssue> issues)
+	{
+		// BCNF: every functional dependency X→Y where X is a superkey.
+		// Heuristic: any non-PK column that has _id suffix AND a corresponding _name/_code column
+		// is a candidate for a non-superkey determinant.
+		HashSet<Guid> pkIds = (from c in table.Columns where c.IsPrimaryKey select c.Id).ToHashSet();
+		var nonPkCols = table.Columns.Where(c => !pkIds.Contains(c.Id)).ToList();
+
+		foreach (var col in nonPkCols)
+		{
+			if (!col.Name.EndsWith("_id", StringComparison.OrdinalIgnoreCase)) continue;
+			string prefix = col.Name[..^3]; // strip "_id"
+			bool hasDependent = nonPkCols.Any(c =>
+				c.Id != col.Id &&
+				(c.Name.StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase) ||
+				 c.Name.Equals(prefix, StringComparison.OrdinalIgnoreCase)));
+			if (hasDependent)
+			{
+				issues.Add(new NormalizationIssue
+				{
+					Level    = NormalizationLevel.BCNF,
+					Severity = IssueSeverity.Warning,
+					Table    = table.Name,
+					AffectedColumns = col.Name,
+					Message  = $"비슈퍼키 결정자 가능성: '{col.Name}'이 관련 속성을 결정합니다.",
+					Hint     = $"'{col.Name}' 관련 속성들을 별도의 테이블로 분리하면 BCNF를 만족할 수 있습니다."
 				});
 			}
 		}

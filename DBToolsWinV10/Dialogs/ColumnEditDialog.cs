@@ -39,6 +39,8 @@ public class ColumnEditDialog : Form
 
 	private CheckBox chkUnique = null;
 
+	private CheckBox chkForeignKey = null;
+
 	private Label lblDefault = null;
 
 	private TextBox txtDefault = null;
@@ -82,6 +84,7 @@ public class ColumnEditDialog : Form
 		chkAutoInc.Checked = col.IsAutoIncrement;
 		chkNullable.Checked = col.IsNullable;
 		chkUnique.Checked = col.IsUnique;
+		chkForeignKey.Checked = col.IsForeignKey;
 		txtDefault.Text = col.DefaultValue ?? string.Empty;
 		txtComment.Text = col.Comment ?? string.Empty;
 		UpdateFieldVisibility();
@@ -163,6 +166,7 @@ public class ColumnEditDialog : Form
 		Result.IsAutoIncrement = chkAutoInc.Checked;
 		Result.IsNullable = chkNullable.Checked;
 		Result.IsUnique = chkUnique.Checked;
+		Result.IsForeignKey = chkForeignKey.Checked;
 		Result.DefaultValue = (string.IsNullOrWhiteSpace(txtDefault.Text) ? null : txtDefault.Text);
 		Result.Comment = (string.IsNullOrWhiteSpace(txtComment.Text) ? null : txtComment.Text);
 		base.DialogResult = DialogResult.OK;
@@ -193,6 +197,7 @@ public class ColumnEditDialog : Form
 		this.chkAutoInc = new System.Windows.Forms.CheckBox();
 		this.chkNullable = new System.Windows.Forms.CheckBox();
 		this.chkUnique = new System.Windows.Forms.CheckBox();
+		this.chkForeignKey = new System.Windows.Forms.CheckBox();
 		this.lblDefault = new System.Windows.Forms.Label();
 		this.txtDefault = new System.Windows.Forms.TextBox();
 		this.lblComment = new System.Windows.Forms.Label();
@@ -262,39 +267,43 @@ public class ColumnEditDialog : Form
 		this.chkUnique.Location = new System.Drawing.Point(130, 142);
 		this.chkUnique.Text = "유니크";
 		this.chkUnique.TabIndex = 8;
+		this.chkForeignKey.AutoSize = true;
+		this.chkForeignKey.Location = new System.Drawing.Point(12, 170);
+		this.chkForeignKey.Text = "외래 키 (FK)";
+		this.chkForeignKey.TabIndex = 9;
 		this.lblDefault.AutoSize = true;
-		this.lblDefault.Location = new System.Drawing.Point(12, 176);
+		this.lblDefault.Location = new System.Drawing.Point(12, 204);
 		this.lblDefault.Text = "기본값:";
-		this.txtDefault.Location = new System.Drawing.Point(100, 173);
+		this.txtDefault.Location = new System.Drawing.Point(100, 201);
 		this.txtDefault.Size = new System.Drawing.Size(230, 23);
-		this.txtDefault.TabIndex = 9;
+		this.txtDefault.TabIndex = 10;
 		this.lblComment.AutoSize = true;
-		this.lblComment.Location = new System.Drawing.Point(12, 210);
+		this.lblComment.Location = new System.Drawing.Point(12, 238);
 		this.lblComment.Text = "설명:";
-		this.txtComment.Location = new System.Drawing.Point(100, 207);
+		this.txtComment.Location = new System.Drawing.Point(100, 235);
 		this.txtComment.Size = new System.Drawing.Size(230, 23);
-		this.txtComment.TabIndex = 10;
-		this.btnOk.Location = new System.Drawing.Point(174, 248);
+		this.txtComment.TabIndex = 11;
+		this.btnOk.Location = new System.Drawing.Point(174, 276);
 		this.btnOk.Size = new System.Drawing.Size(75, 30);
 		this.btnOk.Text = "확인";
-		this.btnOk.TabIndex = 11;
+		this.btnOk.TabIndex = 12;
 		this.btnOk.DialogResult = System.Windows.Forms.DialogResult.None;
-		this.btnCancel.Location = new System.Drawing.Point(255, 248);
+		this.btnCancel.Location = new System.Drawing.Point(255, 276);
 		this.btnCancel.Size = new System.Drawing.Size(75, 30);
 		this.btnCancel.Text = "취소";
-		this.btnCancel.TabIndex = 12;
+		this.btnCancel.TabIndex = 13;
 		this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
 		((System.ComponentModel.ISupportInitialize)this.nudLength).EndInit();
 		((System.ComponentModel.ISupportInitialize)this.nudPrecision).EndInit();
 		((System.ComponentModel.ISupportInitialize)this.nudScale).EndInit();
-		base.ClientSize = new System.Drawing.Size(348, 292);
+		base.ClientSize = new System.Drawing.Size(348, 320);
 		this.Text = "컬럼 편집";
 		base.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
 		base.MaximizeBox = false;
 		base.MinimizeBox = false;
 		base.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 		base.ShowInTaskbar = false;
-		base.Controls.AddRange(this.lblName, this.txtName, this.lblDataType, this.cmbDataType, this.lblLength, this.nudLength, this.lblPrecision, this.nudPrecision, this.lblScale, this.nudScale, this.chkPrimaryKey, this.chkAutoInc, this.chkNullable, this.chkUnique, this.lblDefault, this.txtDefault, this.lblComment, this.txtComment, this.btnOk, this.btnCancel);
+		base.Controls.AddRange(this.lblName, this.txtName, this.lblDataType, this.cmbDataType, this.lblLength, this.nudLength, this.lblPrecision, this.nudPrecision, this.lblScale, this.nudScale, this.chkPrimaryKey, this.chkAutoInc, this.chkNullable, this.chkUnique, this.chkForeignKey, this.lblDefault, this.txtDefault, this.lblComment, this.txtComment, this.btnOk, this.btnCancel);
 		base.ResumeLayout(false);
 		base.PerformLayout();
 	}
