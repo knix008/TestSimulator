@@ -103,6 +103,10 @@ internal sealed class CallGraphTabHost : UserControl
             .Where(id => graph is null || graph.NodeMap.ContainsKey(id))
             .Distinct(StringComparer.Ordinal)
             .ToList();
+        if (graph is not null && nextRootIds.Count > 1)
+        {
+            nextRootIds = CallGraphRootSortHelper.SortRootIdsBySubtreeSize(graph, nextRootIds);
+        }
         var signature = CreateGraphSignature(graph, nextRootIds);
         var useTabs = graph is not null && nextRootIds.Count > 1;
 

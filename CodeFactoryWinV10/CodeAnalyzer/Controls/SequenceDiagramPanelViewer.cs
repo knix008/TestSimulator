@@ -11,13 +11,8 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
     private Size _contentSize = new(400, 300);
     private readonly DiagramZoomController _zoom = new();
     private readonly EntryPointTabPager _messagePager = new();
-    private readonly Panel _headerPanel = new()
-    {
-        Dock = DockStyle.Top,
-        AutoSize = true,
-        AutoSizeMode = AutoSizeMode.GrowAndShrink
-    };
-    private readonly DiagramScrollSurface _scrollSurface = new();
+
+    private readonly DiagramScrollSurface _scrollSurface;
 
     public SequenceDiagramPanelViewer()
     {
@@ -28,18 +23,18 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         _zoom.SetMaxZoom(4f);
 
         _messagePager.Visible = false;
-        _messagePager.Dock = DockStyle.Top;
         _messagePager.PageChanged += () => ApplyMessagePage(resetZoom: true);
 
-        _scrollSurface.Dock = DockStyle.Fill;
-        _scrollSurface.BackColor = Color.White;
+        _scrollSurface = new DiagramScrollSurface
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.White
+        };
         _scrollSurface.PaintDiagram += OnScrollSurfacePaint;
         _scrollSurface.MouseWheel += OnScrollSurfaceMouseWheel;
 
-        _headerPanel.Controls.Add(_messagePager);
         Controls.Add(_scrollSurface);
-        Controls.Add(_headerPanel);
-        _headerPanel.BringToFront();
+        Controls.Add(_messagePager);
     }
 
     public void SetPanel(SequenceDiagramPanel? panel)
@@ -84,7 +79,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         _zoom.ApplyContentSize(_scrollSurface, _contentSize);
         _scrollSurface.AutoScrollPosition = new Point(0, 0);
         _scrollSurface.Invalidate();
-        SyncMessagePagerState();
+        SyncMessagePagerLayout();
     }
 
     public Bitmap? ExportToBitmap()
@@ -190,7 +185,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
 
         _zoom.InvalidateCache();
         _zoom.ApplyContentSize(_scrollSurface, _contentSize);
-        SyncMessagePagerState();
+        SyncMessagePagerLayout();
         _scrollSurface.Invalidate();
     }
 
@@ -205,26 +200,29 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
             "메시지",
             preserveIndex,
             oneBasedRangeLabels: true);
-        _headerPanel.Visible = _messagePager.Visible;
-        _headerPanel.BringToFront();
+        SyncMessagePagerLayout();
     }
 
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
-        SyncMessagePagerState();
+        SyncMessagePagerLayout();
     }
 
-    private void SyncMessagePagerState()
+    private void SyncMessagePagerLayout()
     {
         if (_sourcePanel is null)
         {
+            _messagePager.Visible = false;
+            _messagePager.Height = 0;
             return;
         }
 
         _messagePager.EnsureVisibleState();
-        _headerPanel.Visible = _messagePager.Visible;
-        _headerPanel.BringToFront();
+        if (_messagePager.Visible)
+        {
+            _messagePager.BringToFront();
+        }
     }
 
     private void DrawContent(Graphics graphics)

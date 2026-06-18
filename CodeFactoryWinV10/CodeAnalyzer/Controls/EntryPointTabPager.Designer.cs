@@ -75,14 +75,16 @@ partial class EntryPointTabPager
         _nextPageButton.ForeColor = Color.FromArgb(30, 55, 95);
         _nextPageButton.Enabled = false;
         //
-        // _navPanel — [◀][페이지:][ComboBox][▶]
+        // _navPanel — [◀][페이지:][ComboBox][▶] (우측 고정 폭)
         //
-        _navPanel.AutoSize = true;
-        _navPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        _navPanel.AutoSize = false;
+        _navPanel.Width = NavButtonWidth * 2 + PageLabelWidth + PageComboWidth + 16;
+        _navPanel.Height = 28;
         _navPanel.Dock = DockStyle.Right;
         _navPanel.FlowDirection = FlowDirection.LeftToRight;
         _navPanel.WrapContents = false;
         _navPanel.Padding = new Padding(0, 2, 0, 2);
+        _navPanel.Margin = new Padding(0);
         _navPanel.Controls.Add(_prevPageButton);
         _navPanel.Controls.Add(_pageLabel);
         _navPanel.Controls.Add(_pageCombo);

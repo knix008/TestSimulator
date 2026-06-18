@@ -61,6 +61,7 @@ internal partial class EntryPointTabPager : UserControl
             Visible = true;
             Height = 36;
             MinimumSize = new Size(NavButtonWidth * 2 + PageLabelWidth + PageComboWidth + 24, 36);
+            Dock = DockStyle.Top;
             var pageCount = PageCount;
             for (var page = 0; page < pageCount; page++)
             {
@@ -170,10 +171,12 @@ internal partial class EntryPointTabPager : UserControl
         {
             Visible = true;
             Height = 36;
+            Dock = DockStyle.Top;
         }
 
         UpdateNavButtonStates();
         BringToFront();
+        Parent?.PerformLayout();
     }
 
     private string FormatPageLabel(int pageIndex, int pageCount)

@@ -51,7 +51,7 @@ partial class SequenceDiagramTabHost
         // SequenceDiagramTabHost
         //
         BackColor = Color.White;
-        // 추가 역순: _tabs → Fill 영역 아래서, _messageLabel → 중앙, _headerPanel은 코드에서 추가
+        // 추가 역순: _contentPanel은 생성자에서 추가, _headerPanel은 생성자에서 추가
         Controls.Add(_tabs);
         Controls.Add(_messageLabel);
         ResumeLayout(false);
