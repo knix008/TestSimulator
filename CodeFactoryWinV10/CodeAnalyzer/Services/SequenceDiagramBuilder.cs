@@ -45,8 +45,8 @@ public static class SequenceDiagramBuilder
 
         ReportBuildProgress(progress, stopwatch, roots.Count, roots.Count);
 
-        string? note = roots.Count > AnalysisScaleLimits.MaxEntryPointTabsPerPage
-            ? $"진입점 {roots.Count:N0}개 — 상단 페이지 선택(예: 0–9, 10–19)으로 나누어 표시합니다."
+        string? note = panels.Count > AnalysisScaleLimits.MaxEntryPointTabsPerPage
+            ? $"시퀀스 {panels.Count:N0}개 — 상단 페이지 선택(예: 1–10, 11–20)으로 나누어 표시합니다."
             : null;
 
         return new SequenceDiagramDocument
@@ -178,18 +178,27 @@ public static class SequenceDiagramBuilder
             return explicitRoots;
         }
 
+        List<string> resolved;
         if (explicitRoots.Count > 1)
         {
-            return OrderByEntryPointSequence(explicitRoots, entryPointIds);
+            resolved = OrderByEntryPointSequence(explicitRoots, entryPointIds);
         }
-
-        if (entryPointIds.Count > 0)
+        else if (entryPointIds.Count > 0)
         {
-            return entryPointIds.ToList();
+            resolved = entryPointIds.ToList();
+        }
+        else
+        {
+            var fallback = CallGraphEntryPointResolver.FindFallbackRoot(callGraph);
+            return fallback is null ? [] : [fallback.Id];
         }
 
-        var fallback = CallGraphEntryPointResolver.FindFallbackRoot(callGraph);
-        return fallback is null ? [] : [fallback.Id];
+        if (resolved.Count > 1)
+        {
+            resolved = CallGraphRootSortHelper.SortRootIdsBySubtreeSize(callGraph, resolved);
+        }
+
+        return resolved;
     }
 
     private static List<string> OrderByEntryPointSequence(

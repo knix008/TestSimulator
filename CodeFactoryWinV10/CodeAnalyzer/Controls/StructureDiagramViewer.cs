@@ -141,12 +141,9 @@ public sealed class StructureDiagramViewer : UserControl
         AutoScroll = !isSequence;
         if (isSequence)
         {
-            // AutoScrollMinSize를 빈 값으로 초기화해야 함:
-            // WinForms에서 AutoScrollMinSize를 0이 아닌 값으로 설정하면 AutoScroll이 자동으로
-            // true가 되므로, 시퀀스 모드에서는 OnResize 때 ApplyContentSize를 호출하지 않고
-            // 여기서 명시적으로 초기화해서 스크롤바가 나타나지 않도록 한다.
             AutoScrollMinSize = Size.Empty;
             AutoScrollPosition = new Point(0, 0);
+            _sequenceTabHost.BringToFront();
         }
     }
 

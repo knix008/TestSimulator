@@ -18,20 +18,18 @@ internal partial class SequenceDiagramTabHost : UserControl
     private readonly List<SequenceTabSlot> _tabSlots = [];
     private string? _loadedDocumentSignature;
     private bool _tabSelectHandlerAttached;
-    private readonly Panel _headerPanel = new()
-    {
-        Dock = DockStyle.Top,
-        AutoSize = true,
-        AutoSizeMode = AutoSizeMode.GrowAndShrink
-    };
+    private readonly Panel _contentPanel = new() { Dock = DockStyle.Fill };
 
     public SequenceDiagramTabHost()
     {
         InitializeComponent();
-        _headerPanel.Controls.Add(_pager);
-        _headerPanel.Controls.Add(_bannerLabel);
-        Controls.Add(_headerPanel);
-        _headerPanel.BringToFront();
+        Controls.Remove(_tabs);
+        Controls.Remove(_messageLabel);
+        _contentPanel.Controls.Add(_tabs);
+        _contentPanel.Controls.Add(_messageLabel);
+        Controls.Add(_contentPanel);
+        Controls.Add(_pager);
+        Controls.Add(_bannerLabel);
         _pager.PageChanged += RebuildTabsForCurrentPage;
     }
 
@@ -43,7 +41,7 @@ internal partial class SequenceDiagramTabHost : UserControl
         _tabs.Visible = false;
         ClearTabs();
         _bannerLabel.Visible = false;
-        SyncHeaderState();
+        SyncPagerLayout();
         _messageLabel.Text = message;
         _messageLabel.Visible = true;
     }
@@ -55,6 +53,7 @@ internal partial class SequenceDiagramTabHost : UserControl
         var signature = document is null ? string.Empty : CreateDocumentSignature(document);
         if (signature == _loadedDocumentSignature && _tabSlots.Count > 0)
         {
+            SyncPagerLayout();
             return;
         }
 
@@ -71,7 +70,7 @@ internal partial class SequenceDiagramTabHost : UserControl
             _messageLabel.Text =
                 "시퀀스 다이어그램을 표시할 호출 경로가 없습니다.\n호출 그래프에 진입점이 없거나 분석 결과가 비어 있습니다.";
             _messageLabel.Visible = true;
-            SyncHeaderState();
+            SyncPagerLayout();
             _tabs.ResumeLayout();
             return;
         }
@@ -90,7 +89,7 @@ internal partial class SequenceDiagramTabHost : UserControl
 
         _pager.Configure(document.Panels.Count);
         RebuildTabsForCurrentPage();
-        SyncHeaderState();
+        SyncPagerLayout();
         _tabs.Visible = true;
         _tabs.ResumeLayout();
     }
@@ -115,11 +114,18 @@ internal partial class SequenceDiagramTabHost : UserControl
         return null;
     }
 
-    private void SyncHeaderState()
+    private void SyncPagerLayout()
     {
         _pager.EnsureVisibleState();
-        _headerPanel.Visible = _bannerLabel.Visible || _pager.Visible;
-        _headerPanel.BringToFront();
+        if (_bannerLabel.Visible)
+        {
+            _bannerLabel.BringToFront();
+        }
+
+        if (_pager.Visible)
+        {
+            _pager.BringToFront();
+        }
     }
 
     private void RebuildTabsForCurrentPage()
@@ -165,6 +171,7 @@ internal partial class SequenceDiagramTabHost : UserControl
 
         _tabs.ResumeLayout();
         EnsureSelectedTabLoaded();
+        SyncPagerLayout();
     }
 
     private void EnsureTabSelectHandler()
