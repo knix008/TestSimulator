@@ -9,7 +9,7 @@
       "HeaderColorHex": "#4472C4",
       "CanvasColorHex": "#FFF0F5",
       "IsCompletionColumn": false,
-      "ColumnWidth": 420,
+      "ColumnWidth": 389,
       "Cards": [
         {
           "Id": "card-v2-001",
@@ -65,14 +65,14 @@
             "Strikeout": false
           },
           "DescriptionRtf": null,
-          "SizePreset": "Medium",
-          "CustomWidth": 0,
-          "CustomHeight": 0,
+          "SizePreset": "Custom",
+          "CustomWidth": 245,
+          "CustomHeight": 195,
           "OffsetX": 0,
-          "CanvasX": 12,
-          "CanvasY": 148,
+          "CanvasX": 19,
+          "CanvasY": 139,
           "Rotation": 0,
-          "ZIndex": 2,
+          "ZIndex": 3,
           "ShowTopRightFold": true,
           "CreatedAt": "2026-06-14T09:00:00",
           "CompletedAt": null
@@ -102,10 +102,10 @@
           "CustomWidth": 180,
           "CustomHeight": 130,
           "OffsetX": 0,
-          "CanvasX": 170,
-          "CanvasY": 12,
+          "CanvasX": 121,
+          "CanvasY": 283,
           "Rotation": 0,
-          "ZIndex": 3,
+          "ZIndex": 4,
           "ShowTopRightFold": true,
           "CreatedAt": "2026-06-15T09:00:00",
           "CompletedAt": null
@@ -131,14 +131,14 @@
             "Strikeout": false
           },
           "DescriptionRtf": null,
-          "SizePreset": "Small",
-          "CustomWidth": 0,
-          "CustomHeight": 0,
+          "SizePreset": "Custom",
+          "CustomWidth": 127,
+          "CustomHeight": 102,
           "OffsetX": 0,
-          "CanvasX": 170,
-          "CanvasY": 158,
+          "CanvasX": 227,
+          "CanvasY": 118,
           "Rotation": 0,
-          "ZIndex": 4,
+          "ZIndex": 2,
           "ShowTopRightFold": true,
           "CreatedAt": "2026-06-15T11:00:00",
           "CompletedAt": null
@@ -156,7 +156,7 @@
       "HeaderColorHex": "#ED7D31",
       "CanvasColorHex": "#FFFAEB",
       "IsCompletionColumn": false,
-      "ColumnWidth": 420,
+      "ColumnWidth": 389,
       "Cards": [
         {
           "Id": "card-v2-005",
@@ -199,7 +199,7 @@
           "Priority": "High",
           "DueDate": "2026-07-15T00:00:00",
           "Tags": "\uD14C\uC2A4\uD2B8",
-          "CardColorHex": "#B4EBB4",
+          "CardColorHex": "#82D282",
           "Points": 5,
           "TitleStyle": {
             "FontFamily": "Segoe UI",
@@ -211,13 +211,13 @@
             "Underline": false,
             "Strikeout": false
           },
-          "DescriptionRtf": null,
+          "DescriptionRtf": "{\\rtf1\\ansi\\ansicpg949\\deff0\\nouicompat\\deflang1033\\deflangfe1042{\\fonttbl{\\f0\\fnil\\fcharset129 \\\u0027b8\\\u0027bc\\\u0027c0\\\u0027ba \\\u0027b0\\\u0027ed\\\u0027b5\\\u0027f1;}}\r\n{\\*\\generator Riched20 10.0.26100}\\viewkind4\\uc1 \r\n\\pard\\f0\\fs18\\lang1042\\\u0027c7\\\u0027d9\\\u0027bd\\\u0027c9 \\\u0027b7\\\u0027ce\\\u0027c1\\\u0027f7 \\\u0027b4\\\u0027dc\\\u0027c0\\\u0027a7 \\\u0027c5\\\u0027d7\\\u0027bd\\\u0027ba\\\u0027c6\\\u0027ae\\\u0027b8\\\u0027a6 \\\u0027c3\\\u0027df\\\u0027b0\\\u0027a1\\\u0027c7\\\u0027d5\\\u0027b4\\\u0027cf\\\u0027b4\\\u0027d9.\\par\r\n}\r\n",
           "SizePreset": "Medium",
-          "CustomWidth": 0,
-          "CustomHeight": 0,
+          "CustomWidth": 150,
+          "CustomHeight": 92,
           "OffsetX": 0,
-          "CanvasX": 12,
-          "CanvasY": 200,
+          "CanvasX": 45,
+          "CanvasY": 253,
           "Rotation": 0,
           "ZIndex": 2,
           "ShowTopRightFold": true,
@@ -237,7 +237,7 @@
       "HeaderColorHex": "#9E49D3",
       "CanvasColorHex": "#F0FFF0",
       "IsCompletionColumn": false,
-      "ColumnWidth": 420,
+      "ColumnWidth": 389,
       "Cards": [
         {
           "Id": "card-v2-007",
@@ -318,7 +318,7 @@
       "HeaderColorHex": "#70AD47",
       "CanvasColorHex": "#FFE4E1",
       "IsCompletionColumn": true,
-      "ColumnWidth": 420,
+      "ColumnWidth": 389,
       "Cards": [
         {
           "Id": "card-v2-009",
