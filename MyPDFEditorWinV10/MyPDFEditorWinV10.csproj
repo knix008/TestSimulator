@@ -1,0 +1,100 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+
+
+  <PropertyGroup>
+
+    <Version>1.0.0</Version>
+
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+
+    <FileVersion>1.0.0.0</FileVersion>
+
+    <Product>MyPDFEditor</Product>
+
+    <Description>PDF viewer and text editor</Description>
+
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+
+    <SkipInstaller Condition="'$(SkipInstaller)' == ''">false</SkipInstaller>
+
+  </PropertyGroup>
+
+
+
+  <PropertyGroup>
+
+    <OutputType>WinExe</OutputType>
+
+    <TargetFramework>net10.0-windows</TargetFramework>
+
+    <Nullable>disable</Nullable>
+
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+
+    <RootNamespace>MyPDFEditorWinV10</RootNamespace>
+
+    <AssemblyName>MyPDFEditorWinV10</AssemblyName>
+
+    <StartupObject>MyPDFEditorWinV10.Program</StartupObject>
+
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);WFO1000</MSBuildWarningsAsMessages>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+  </PropertyGroup>
+
+
+
+  <ItemGroup>
+
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
+
+    <PackageReference Include="NeoSolve.ImageSharp.AVIF" Version="1.3.0" />
+
+    <PackageReference Include="PDFium.x64.v8-xfa" Version="4194.0.0" />
+
+    <PackageReference Include="PDFsharp" Version="6.2.0" />
+
+    <PackageReference Include="PdfPig" Version="0.1.14" />
+
+    <PackageReference Include="PdfiumViewer.Updated" Version="2.14.5" />
+
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+
+  </ItemGroup>
+
+
+
+  <ItemGroup>
+    <Compile Remove="tools\**" />
+    <Content Remove="tools\**" />
+    <None Remove="tools\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\AppIcon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+
+
+  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and Exists('$(MSBuildProjectDirectory)\installer\MyPDFEditorWinV10.Installer.wixproj')">
+
+    <Message Importance="high" Text="Building MSI installer package (WiX)..." />
+
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\installer\MyPDFEditorWinV10.Installer.wixproj&quot; -c Release -p:Platform=x64" />
+
+    <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\installer\bin\Release\ko-kr\MyPDFEditorWinV10Setup.msi" />
+
+  </Target>
+
+
+
+</Project>
+
