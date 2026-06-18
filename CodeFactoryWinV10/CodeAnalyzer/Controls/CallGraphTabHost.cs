@@ -28,8 +28,8 @@ internal sealed class CallGraphTabHost : UserControl
     private readonly Panel _headerPanel = new()
     {
         Dock = DockStyle.Top,
-        AutoSize = true,
-        AutoSizeMode = AutoSizeMode.GrowAndShrink
+        Height = 0,
+        Visible = false
     };
 
     private readonly EntryPointTabPager _pager = new();
@@ -58,7 +58,6 @@ internal sealed class CallGraphTabHost : UserControl
         _contentPanel.Controls.Add(_tabs);
         _singleViewer.RootNodeChanged += node => RootNodeChanged?.Invoke(node);
         _pager.PageChanged += () => _ = RebuildTabsForCurrentPageAsync(_setGraphGeneration);
-        _headerPanel.BringToFront();
     }
 
     public event Action<CallGraphNode>? RootNodeChanged;
@@ -138,6 +137,7 @@ internal sealed class CallGraphTabHost : UserControl
         {
             _pager.Configure(0);
             _bannerLabel.Visible = false;
+            SyncHeaderPanel();
             return;
         }
 
@@ -156,8 +156,18 @@ internal sealed class CallGraphTabHost : UserControl
             ? _pager.PageIndex * AnalysisScaleLimits.MaxEntryPointTabsPerPage
             : null;
         _pager.Configure(_allRootIds.Count, preserveGlobalIndex);
-        _headerPanel.Visible = _bannerLabel.Visible || _pager.Visible;
-        _headerPanel.BringToFront();
+        SyncHeaderPanel();
+    }
+
+    private void SyncHeaderPanel()
+    {
+        var height = (_pager.Visible ? _pager.Height : 0) + (_bannerLabel.Visible ? _bannerLabel.Height : 0);
+        _headerPanel.Height = height;
+        _headerPanel.Visible = height > 0;
+        if (_headerPanel.Visible)
+        {
+            _headerPanel.BringToFront();
+        }
     }
 
     public void SetGlobalVariableAccessGraph(
@@ -170,6 +180,7 @@ internal sealed class CallGraphTabHost : UserControl
         _loadedGraphSignature = null;
         _pager.Configure(0);
         _bannerLabel.Visible = false;
+        SyncHeaderPanel();
         ShowSingleViewer();
         _singleViewer.SetGlobalVariableAccessGraph(graph, rootNodeIds, targetNodeId);
     }
@@ -181,6 +192,7 @@ internal sealed class CallGraphTabHost : UserControl
         _loadedGraphSignature = null;
         _pager.Configure(0);
         _bannerLabel.Visible = false;
+        SyncHeaderPanel();
         ShowSingleViewer();
         ClearTabs();
         _singleViewer.BeginAnalysis();
