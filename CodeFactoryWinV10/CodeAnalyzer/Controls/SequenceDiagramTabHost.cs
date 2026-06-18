@@ -62,7 +62,6 @@ internal partial class SequenceDiagramTabHost : UserControl
         _loadedDocumentSignature = signature;
         _tabs.SuspendLayout();
         ClearTabs();
-        _tabs.TabPages.Clear();
 
         if (document is null || document.Panels.Count == 0)
         {
@@ -133,7 +132,6 @@ internal partial class SequenceDiagramTabHost : UserControl
         var (startIndex, count) = _pager.GetCurrentPageSlice();
         _tabs.SuspendLayout();
         ClearTabs();
-        _tabs.TabPages.Clear();
         _tabSlots.Clear();
         EnsureTabSelectHandler();
 
@@ -211,6 +209,8 @@ internal partial class SequenceDiagramTabHost : UserControl
             {
                 control.Dispose();
             }
+
+            tab.Dispose();
         }
 
         _tabSlots.Clear();
