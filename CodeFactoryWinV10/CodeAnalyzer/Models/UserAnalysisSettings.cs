@@ -52,6 +52,8 @@ public sealed class UserAnalysisSettings
             EnabledAnalysisScope = ResolveAnalysisScopeFromInspections(source),
             IncludedDirectoryPaths = ClonePathList(source.IncludedDirectoryPaths),
             ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths),
+            LanguageSelectionCustomized = source.LanguageSelectionCustomized,
+            EnabledLanguageIds = ClonePathList(source.EnabledLanguageIds),
             DatabaseConnection = DatabaseConnectionSettings.Clone(source.DatabaseConnection)
         };
     }
@@ -134,6 +136,12 @@ public sealed class UserAnalysisSettings
 
     public List<string> ExcludedDirectoryPaths { get; set; } = [];
 
+    /// <summary>사용자가 언어 목록을 직접 변경한 경우 true. false이면 디렉터리 변경 시 자동 감지합니다.</summary>
+    public bool LanguageSelectionCustomized { get; set; }
+
+    /// <summary><see cref="LanguageSelectionCustomized"/>가 true일 때 사용할 언어 ID 목록.</summary>
+    public List<string> EnabledLanguageIds { get; set; } = [];
+
     public DatabaseConnectionSettings DatabaseConnection { get; set; } = new();
 
     public UserAnalysisSettings()
@@ -197,6 +205,8 @@ public sealed class UserAnalysisSettings
                 MetricInspectionCatalog.NormalizeScope(source.EnabledInspections)),
             IncludedDirectoryPaths = ClonePathList(source.IncludedDirectoryPaths),
             ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths),
+            LanguageSelectionCustomized = source.LanguageSelectionCustomized,
+            EnabledLanguageIds = ClonePathList(source.EnabledLanguageIds),
             DatabaseConnection = DatabaseConnectionSettings.Clone(source.DatabaseConnection)
         };
     }
@@ -235,6 +245,8 @@ public sealed class UserAnalysisSettings
             MetricInspectionCatalog.NormalizeScope(source.EnabledInspections));
         IncludedDirectoryPaths = ClonePathList(source.IncludedDirectoryPaths);
         ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths);
+        LanguageSelectionCustomized = source.LanguageSelectionCustomized;
+        EnabledLanguageIds = ClonePathList(source.EnabledLanguageIds);
         DatabaseConnection = DatabaseConnectionSettings.Clone(source.DatabaseConnection);
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CodeAnalyzer.Models;
 
 namespace CodeAnalyzer.Services;
@@ -7,9 +8,10 @@ public static class CallGraphExportService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true,
+        WriteIndented = false,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault
     };
 
     public static void SaveToFile(AnalysisResult analysis, string rootDirectory, string filePath)
@@ -37,7 +39,7 @@ public static class CallGraphExportService
                         Id = n.Id,
                         DisplayName = n.DisplayName,
                         FullName = n.FullName,
-                        FilePath = n.FilePath,
+                        FilePath = AnalysisExportPathHelper.ToStoredPath(n.FilePath, rootDirectory),
                         LineNumber = n.LineNumber
                     }).ToList(),
                 Edges = analysis.CallGraph.Edges
@@ -53,7 +55,7 @@ public static class CallGraphExportService
                     .Select(f => new FileRelationNodeRecord
                     {
                         Id = f.Id,
-                        FilePath = f.FilePath,
+                        FilePath = AnalysisExportPathHelper.ToStoredPath(f.FilePath, rootDirectory),
                         DisplayName = f.DisplayName,
                         FullName = f.FullName,
                         FunctionCount = f.FunctionCount
@@ -72,7 +74,7 @@ public static class CallGraphExportService
                     .Select(d => new DirectoryRelationNodeRecord
                     {
                         Id = d.Id,
-                        DirectoryPath = d.DirectoryPath,
+                        DirectoryPath = AnalysisExportPathHelper.ToStoredPath(d.DirectoryPath, rootDirectory),
                         DisplayName = d.DisplayName,
                         FullName = d.FullName,
                         FileCount = d.FileCount,
@@ -94,7 +96,7 @@ public static class CallGraphExportService
                         Id = t.Id,
                         DisplayName = t.DisplayName,
                         FullName = t.FullName,
-                        FilePath = t.FilePath,
+                        FilePath = AnalysisExportPathHelper.ToStoredPath(t.FilePath, rootDirectory),
                         LineNumber = t.LineNumber,
                         Kind = t.Kind,
                         Members = t.Members.ToList(),
@@ -110,12 +112,12 @@ public static class CallGraphExportService
                         Kind = r.Kind.ToString()
                     }).ToList()
             },
-            Metrics = MetricsSectionFrom(analysis.Metrics),
-            Duplicates = DuplicatesSectionFrom(analysis.Duplicates),
-            GlobalVariables = GlobalVariablesSectionFrom(analysis.GlobalVariables),
-            DatabaseSchema = DatabaseSchemaSectionFrom(analysis.DatabaseSchema),
-            BugRisk = BugRiskSectionFrom(analysis.BugRisk),
-            Security = SecuritySectionFrom(analysis.Security),
+            Metrics = MetricsSectionFrom(analysis.Metrics, rootDirectory),
+            Duplicates = DuplicatesSectionFrom(analysis.Duplicates, rootDirectory),
+            GlobalVariables = GlobalVariablesSectionFrom(analysis.GlobalVariables, rootDirectory, analysis.CallGraph),
+            DatabaseSchema = DatabaseSchemaSectionFrom(analysis.DatabaseSchema, rootDirectory, analysis.CallGraph),
+            BugRisk = BugRiskSectionFrom(analysis.BugRisk, rootDirectory),
+            Security = SecuritySectionFrom(analysis.Security, rootDirectory),
             QualityThresholds = QualityThresholdsRecordFrom(analysis.QualityThresholds),
             Issues = IssuesSectionFrom(analysis.Issues)
         };
@@ -202,10 +204,10 @@ public static class CallGraphExportService
 
     private static AnalysisResult BuildFromDocument(AnalysisDocument d)
     {
-        var callGraph = BuildCallGraph(d.CallGraph);
-        var (fileNodes, fileEdges) = BuildFileNodes(d.FileRelations);
-        var (dirNodes, dirEdges) = BuildDirNodes(d.DirectoryRelations);
-        var (types, relations) = BuildStructure(d.Structure);
+        var callGraph = BuildCallGraph(d.CallGraph, d.RootDirectory);
+        var (fileNodes, fileEdges) = BuildFileNodes(d.FileRelations, d.RootDirectory);
+        var (dirNodes, dirEdges) = BuildDirNodes(d.DirectoryRelations, d.RootDirectory);
+        var (types, relations) = BuildStructure(d.Structure, d.RootDirectory);
 
         return new AnalysisResult
         {
@@ -218,45 +220,18 @@ public static class CallGraphExportService
                 Relations = relations,
                 TypeMap = types.ToDictionary(t => t.Id, StringComparer.Ordinal)
             },
-            Metrics = BuildMetricsResult(d.Metrics),
-            Duplicates = BuildDuplicatesResult(d.Duplicates),
-            GlobalVariables = BuildGlobalVariablesResult(d.GlobalVariables),
-            DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema),
-            BugRisk = BuildBugRiskResult(d.BugRisk),
-            Security = BuildSecurityResult(d.Security),
+            Metrics = BuildMetricsResult(d.Metrics, d.RootDirectory),
+            Duplicates = BuildDuplicatesResult(d.Duplicates, d.RootDirectory),
+            GlobalVariables = BuildGlobalVariablesResult(d.GlobalVariables, d.RootDirectory, callGraph),
+            DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema, d.RootDirectory, callGraph),
+            BugRisk = BuildBugRiskResult(d.BugRisk, d.RootDirectory),
+            Security = BuildSecurityResult(d.Security, d.RootDirectory),
             QualityThresholds = BuildQualityThresholds(d.QualityThresholds),
             Issues = BuildIssuesResult(d.Issues)
         };
     }
 
-    private static AnalysisResult BuildFromV2(AnalysisDocument d)
-    {
-        var callGraph = BuildCallGraph(d.CallGraph);
-        var (fileNodes, fileEdges) = BuildFileNodes(d.FileRelations);
-        var (dirNodes, dirEdges) = BuildDirNodes(d.DirectoryRelations);
-        var (types, relations) = BuildStructure(d.Structure);
-
-        return new AnalysisResult
-        {
-            CallGraph = callGraph,
-            FileRelations = BuildFileRelations(fileNodes, fileEdges),
-            DirectoryRelations = BuildDirectoryRelations(dirNodes, dirEdges),
-            Structure = new ProjectStructureResult
-            {
-                Types = types,
-                Relations = relations,
-                TypeMap = types.ToDictionary(t => t.Id, StringComparer.Ordinal)
-            },
-            Metrics = BuildMetricsResult(d.Metrics),
-            Duplicates = BuildDuplicatesResult(d.Duplicates),
-            GlobalVariables = BuildGlobalVariablesResult(d.GlobalVariables),
-            DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema),
-            BugRisk = BuildBugRiskResult(d.BugRisk),
-            Security = BuildSecurityResult(d.Security),
-            QualityThresholds = BuildQualityThresholds(d.QualityThresholds),
-            Issues = BuildIssuesResult(d.Issues)
-        };
-    }
+    private static AnalysisResult BuildFromV2(AnalysisDocument d) => BuildFromDocument(d);
 
     private static AnalysisResult BuildFromV1(LegacyCallGraphDocument d)
     {
@@ -286,14 +261,14 @@ public static class CallGraphExportService
 
     // ── Shared build helpers ──────────────────────────────────────────────────
 
-    private static CallGraphResult BuildCallGraph(CallGraphSection s) =>
+    private static CallGraphResult BuildCallGraph(CallGraphSection s, string rootDirectory) =>
         CallGraphBuilder.Build(
             s.Nodes.Select(n => new CallGraphNode
             {
                 Id = n.Id,
                 DisplayName = n.DisplayName,
                 FullName = n.FullName,
-                FilePath = n.FilePath,
+                FilePath = AnalysisExportPathHelper.ToAbsolutePath(n.FilePath, rootDirectory),
                 LineNumber = n.LineNumber
             }).ToList(),
             s.Edges.Select(e => new CallGraphEdge
@@ -302,12 +277,14 @@ public static class CallGraphExportService
                 CalleeId = e.CalleeId
             }).ToList());
 
-    private static (List<FileRelationNode> nodes, List<FileRelationEdge> edges) BuildFileNodes(FileRelationsSection s)
+    private static (List<FileRelationNode> nodes, List<FileRelationEdge> edges) BuildFileNodes(
+        FileRelationsSection s,
+        string rootDirectory)
     {
         var nodes = s.Files.Select(f => new FileRelationNode
         {
             Id = f.Id,
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToAbsolutePath(f.FilePath, rootDirectory),
             DisplayName = f.DisplayName,
             FullName = f.FullName,
             FunctionCount = f.FunctionCount
@@ -321,12 +298,14 @@ public static class CallGraphExportService
         return (nodes, edges);
     }
 
-    private static (List<DirectoryRelationNode> nodes, List<DirectoryRelationEdge> edges) BuildDirNodes(DirectoryRelationsSection s)
+    private static (List<DirectoryRelationNode> nodes, List<DirectoryRelationEdge> edges) BuildDirNodes(
+        DirectoryRelationsSection s,
+        string rootDirectory)
     {
         var nodes = s.Directories.Select(n => new DirectoryRelationNode
         {
             Id = n.Id,
-            DirectoryPath = n.DirectoryPath,
+            DirectoryPath = AnalysisExportPathHelper.ToAbsolutePath(n.DirectoryPath, rootDirectory),
             DisplayName = n.DisplayName,
             FullName = n.FullName,
             FileCount = n.FileCount,
@@ -341,14 +320,16 @@ public static class CallGraphExportService
         return (nodes, edges);
     }
 
-    private static (List<StructureTypeNode> types, List<StructureRelationEdge> relations) BuildStructure(StructureSection s)
+    private static (List<StructureTypeNode> types, List<StructureRelationEdge> relations) BuildStructure(
+        StructureSection s,
+        string rootDirectory)
     {
         var types = s.Types.Select(t => new StructureTypeNode
         {
             Id = t.Id,
             DisplayName = t.DisplayName,
             FullName = t.FullName,
-            FilePath = t.FilePath,
+            FilePath = AnalysisExportPathHelper.ToAbsolutePath(t.FilePath, rootDirectory),
             LineNumber = t.LineNumber,
             Kind = t.Kind,
             Members = t.Members,
@@ -365,7 +346,7 @@ public static class CallGraphExportService
         return (types, relations);
     }
 
-    private static CodeMetricsResult BuildMetricsResult(MetricsSection? s)
+    private static CodeMetricsResult BuildMetricsResult(MetricsSection? s, string rootDirectory)
     {
         if (s is null)
         {
@@ -376,7 +357,7 @@ public static class CallGraphExportService
 
         var files = s.Files.Select(f => new FileLineMetric
         {
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToAbsolutePath(f.FilePath, rootDirectory),
             LanguageId = f.LanguageId,
             PhysicalLines = f.PhysicalLines,
             CodeLines = f.CodeLines,
@@ -394,7 +375,7 @@ public static class CallGraphExportService
 
         var aggregates = s.FileAggregates.Select(f => new FileAggregateMetric
         {
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToAbsolutePath(f.FilePath, rootDirectory),
             LanguageId = f.LanguageId,
             PhysicalLines = f.PhysicalLines,
             CodeLines = f.CodeLines,
@@ -433,7 +414,7 @@ public static class CallGraphExportService
             LanguageId = f.LanguageId,
             DisplayName = f.DisplayName,
             FullName = f.FullName,
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToAbsolutePath(f.FilePath, rootDirectory),
             StartLine = f.StartLine,
             EndLine = f.EndLine,
             LineCount = f.LineCount,
@@ -460,7 +441,7 @@ public static class CallGraphExportService
 
         var packages = (s.Packages ?? []).Select(p => new PackageMetric
         {
-            DirectoryPath = p.DirectoryPath,
+            DirectoryPath = AnalysisExportPathHelper.ToAbsolutePath(p.DirectoryPath, rootDirectory),
             AfferentCoupling = p.AfferentCoupling,
             EfferentCoupling = p.EfferentCoupling,
             Instability = p.Instability,
@@ -519,7 +500,7 @@ public static class CallGraphExportService
         };
     }
 
-    private static DuplicateCodeResult BuildDuplicatesResult(DuplicatesSection? s)
+    private static DuplicateCodeResult BuildDuplicatesResult(DuplicatesSection? s, string rootDirectory)
     {
         if (s is null) return new();
 
@@ -534,7 +515,7 @@ public static class CallGraphExportService
                 SampleLines = g.SampleLines,
                 Fragments = g.Fragments.Select(f => new DuplicateCodeFragment
                 {
-                    FilePath = f.FilePath,
+                    FilePath = AnalysisExportPathHelper.ToAbsolutePath(f.FilePath, rootDirectory),
                     LanguageId = f.LanguageId,
                     StartLine = f.StartLine,
                     EndLine = f.EndLine
@@ -543,7 +524,10 @@ public static class CallGraphExportService
         };
     }
 
-    private static GlobalVariableResult BuildGlobalVariablesResult(GlobalVariablesSection? s)
+    private static GlobalVariableResult BuildGlobalVariablesResult(
+        GlobalVariablesSection? s,
+        string rootDirectory,
+        CallGraphResult callGraph)
     {
         if (s is null)
         {
@@ -557,7 +541,7 @@ public static class CallGraphExportService
                 Id = v.Id,
                 Name = v.Name,
                 LanguageId = v.LanguageId,
-                FilePath = v.FilePath,
+                FilePath = AnalysisExportPathHelper.ToAbsolutePath(v.FilePath, rootDirectory),
                 LineNumber = v.LineNumber,
                 Scope = Enum.TryParse<GlobalVariableScope>(v.Scope, out var scope)
                     ? scope
@@ -569,36 +553,56 @@ public static class CallGraphExportService
                 IsReadOnly = v.IsReadOnly,
                 Declaration = v.Declaration
             }).ToList(),
-            Accesses = (s.Accesses ?? []).Select(a => new GlobalVariableAccess
+            Accesses = (s.Accesses ?? []).Select(a =>
             {
-                GlobalVariableId = a.GlobalVariableId,
-                FunctionId = a.FunctionId,
-                FunctionDisplayName = a.FunctionDisplayName,
-                FunctionFullName = a.FunctionFullName,
-                FunctionFilePath = a.FunctionFilePath,
-                FunctionLineNumber = a.FunctionLineNumber,
-                Kind = Enum.TryParse<GlobalVariableAccessKind>(a.Kind, out var kind)
-                    ? kind
-                    : GlobalVariableAccessKind.Read
+                var displayName = a.FunctionDisplayName;
+                var fullName = a.FunctionFullName;
+                var filePath = a.FunctionFilePath;
+                var lineNumber = a.FunctionLineNumber;
+                RehydrateFunctionFields(callGraph, ref displayName, ref fullName, ref filePath, ref lineNumber, a.FunctionId);
+                filePath = AnalysisExportPathHelper.ToAbsolutePath(filePath, rootDirectory);
+                return new GlobalVariableAccess
+                {
+                    GlobalVariableId = a.GlobalVariableId,
+                    FunctionId = a.FunctionId,
+                    FunctionDisplayName = displayName,
+                    FunctionFullName = fullName,
+                    FunctionFilePath = filePath,
+                    FunctionLineNumber = lineNumber,
+                    Kind = Enum.TryParse<GlobalVariableAccessKind>(a.Kind, out var kind)
+                        ? kind
+                        : GlobalVariableAccessKind.Read
+                };
             }).ToList(),
-            AccessesByVariableId = BuildAccessLookup(s)
+            AccessesByVariableId = BuildAccessLookup(s, rootDirectory, callGraph)
         };
     }
 
     private static IReadOnlyDictionary<string, IReadOnlyList<GlobalVariableAccess>> BuildAccessLookup(
-        GlobalVariablesSection section)
+        GlobalVariablesSection section,
+        string rootDirectory,
+        CallGraphResult callGraph)
     {
-        var accesses = (section.Accesses ?? []).Select(a => new GlobalVariableAccess
+        var accesses = (section.Accesses ?? []).Select(a =>
         {
-            GlobalVariableId = a.GlobalVariableId,
-            FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
-            Kind = Enum.TryParse<GlobalVariableAccessKind>(a.Kind, out var kind)
-                ? kind
-                : GlobalVariableAccessKind.Read
+            var displayName = a.FunctionDisplayName;
+            var fullName = a.FunctionFullName;
+            var filePath = a.FunctionFilePath;
+            var lineNumber = a.FunctionLineNumber;
+            RehydrateFunctionFields(callGraph, ref displayName, ref fullName, ref filePath, ref lineNumber, a.FunctionId);
+            filePath = AnalysisExportPathHelper.ToAbsolutePath(filePath, rootDirectory);
+            return new GlobalVariableAccess
+            {
+                GlobalVariableId = a.GlobalVariableId,
+                FunctionId = a.FunctionId,
+                FunctionDisplayName = displayName,
+                FunctionFullName = fullName,
+                FunctionFilePath = filePath,
+                FunctionLineNumber = lineNumber,
+                Kind = Enum.TryParse<GlobalVariableAccessKind>(a.Kind, out var kind)
+                    ? kind
+                    : GlobalVariableAccessKind.Read
+            };
         }).ToList();
 
         return accesses
@@ -609,7 +613,10 @@ public static class CallGraphExportService
                 StringComparer.OrdinalIgnoreCase);
     }
 
-    private static DatabaseSchemaResult BuildDatabaseSchemaResult(DatabaseSchemaSection? s)
+    private static DatabaseSchemaResult BuildDatabaseSchemaResult(
+        DatabaseSchemaSection? s,
+        string rootDirectory,
+        CallGraphResult callGraph)
     {
         if (s is null)
         {
@@ -624,7 +631,9 @@ public static class CallGraphExportService
                 ? catalogDialect
                 : DatabaseDialect.Unknown,
             SourceKind = c.SourceKind,
-            FilePath = string.IsNullOrWhiteSpace(c.FilePath) ? null : c.FilePath,
+            FilePath = string.IsNullOrWhiteSpace(c.FilePath)
+                ? null
+                : AnalysisExportPathHelper.ToAbsolutePath(c.FilePath, rootDirectory),
             LineNumber = c.LineNumber
         }).ToList();
 
@@ -636,7 +645,7 @@ public static class CallGraphExportService
             EntityTypeName = t.EntityTypeName ?? string.Empty,
             Dialect = Enum.TryParse<DatabaseDialect>(t.Dialect, out var dialect) ? dialect : DatabaseDialect.Unknown,
             SourceKind = t.SourceKind,
-            FilePath = t.FilePath,
+            FilePath = AnalysisExportPathHelper.ToAbsolutePath(t.FilePath, rootDirectory),
             LineNumber = t.LineNumber,
             AccessAliases = (t.AccessAliases ?? []).ToList(),
             Columns = t.Columns.Select(c => new DatabaseColumn
@@ -661,63 +670,13 @@ public static class CallGraphExportService
             Label = r.Label
         }).ToList();
 
-        var accesses = (s.Accesses ?? []).Select(a => new DatabaseTableAccess
-        {
-            TableId = a.TableId,
-            FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
-            Kind = Enum.TryParse<DatabaseTableAccessKind>(a.Kind, out var kind) ? kind : DatabaseTableAccessKind.Read,
-            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql,
-            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations) ? operations : DatabaseCrudOperation.None
-        }).ToList();
+        var accesses = (s.Accesses ?? []).Select(a => CreateDatabaseTableAccess(a, rootDirectory, callGraph)).ToList();
 
-        var catalogAccesses = (s.CatalogAccesses ?? []).Select(a => new DatabaseCatalogAccess
-        {
-            CatalogId = a.CatalogId,
-            FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
-            Kind = Enum.TryParse<DatabaseCatalogAccessKind>(a.Kind, out var kind)
-                ? kind
-                : DatabaseCatalogAccessKind.Connect,
-            Pattern = Enum.TryParse<DatabaseCatalogAccessPattern>(a.Pattern, out var pattern)
-                ? pattern
-                : DatabaseCatalogAccessPattern.Sql,
-            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations)
-                ? operations
-                : DatabaseCrudOperation.None
-        }).ToList();
+        var catalogAccesses = (s.CatalogAccesses ?? []).Select(a => CreateDatabaseCatalogAccess(a, rootDirectory, callGraph)).ToList();
 
-        var columnAccesses = (s.ColumnAccesses ?? []).Select(a => new DatabaseColumnAccess
-        {
-            TableId = a.TableId,
-            ColumnName = a.ColumnName,
-            FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
-            Kind = Enum.TryParse<DatabaseTableAccessKind>(a.Kind, out var kind) ? kind : DatabaseTableAccessKind.Read,
-            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql,
-            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations) ? operations : DatabaseCrudOperation.None
-        }).ToList();
+        var columnAccesses = (s.ColumnAccesses ?? []).Select(a => CreateDatabaseColumnAccess(a, rootDirectory, callGraph)).ToList();
 
-        var entryAccesses = (s.EntryAccesses ?? []).Select(a => new DatabaseEntryAccess
-        {
-            TableId = a.TableId,
-            FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
-            Operation = Enum.TryParse<DatabaseCrudOperation>(a.Operation, out var operation) ? operation : DatabaseCrudOperation.None,
-            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql
-        }).ToList();
+        var entryAccesses = (s.EntryAccesses ?? []).Select(a => CreateDatabaseEntryAccess(a, rootDirectory, callGraph)).ToList();
 
         return new DatabaseSchemaResult
         {
@@ -792,7 +751,7 @@ public static class CallGraphExportService
         });
     }
 
-    private static BugRiskResult BuildBugRiskResult(BugRiskSection? s)
+    private static BugRiskResult BuildBugRiskResult(BugRiskSection? s, string rootDirectory)
     {
         if (s?.Findings is null || s.Findings.Count == 0)
         {
@@ -808,7 +767,7 @@ public static class CallGraphExportService
                 ? severity
                 : BugRiskSeverity.Info,
             Message = f.Message,
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToAbsolutePath(f.FilePath, rootDirectory),
             LineNumber = f.LineNumber,
             FunctionName = f.FunctionName,
             Detail = f.Detail,
@@ -819,7 +778,7 @@ public static class CallGraphExportService
         return BugRiskResult.FromFindings(findings);
     }
 
-    private static SecurityAnalysisResult BuildSecurityResult(SecuritySection? s)
+    private static SecurityAnalysisResult BuildSecurityResult(SecuritySection? s, string rootDirectory)
     {
         if (s?.Findings is null || s.Findings.Count == 0)
         {
@@ -833,7 +792,7 @@ public static class CallGraphExportService
             Severity = Enum.TryParse<SecuritySeverity>(f.Severity, out var severity)
                 ? severity
                 : SecuritySeverity.Info,
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToAbsolutePath(f.FilePath, rootDirectory),
             LanguageId = f.LanguageId,
             LineNumber = f.LineNumber,
             Snippet = f.Snippet,
@@ -861,11 +820,151 @@ public static class CallGraphExportService
 
     // ── Section builders (model → record) ───────────────────────────────────
 
-    private static MetricsSection MetricsSectionFrom(CodeMetricsResult m) => new()
+    private static void RehydrateFunctionFields(
+        CallGraphResult callGraph,
+        ref string displayName,
+        ref string fullName,
+        ref string filePath,
+        ref int lineNumber,
+        string functionId)
+    {
+        if (string.IsNullOrWhiteSpace(functionId)
+            || !callGraph.NodeMap.TryGetValue(functionId, out var node))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            displayName = node.DisplayName;
+        }
+
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            fullName = node.FullName;
+        }
+
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            filePath = node.FilePath;
+        }
+
+        if (lineNumber == 0)
+        {
+            lineNumber = node.LineNumber;
+        }
+    }
+
+    private static bool ShouldOmitFunctionMetadata(CallGraphResult callGraph, string functionId) =>
+        !string.IsNullOrWhiteSpace(functionId) && callGraph.NodeMap.ContainsKey(functionId);
+
+    private static DatabaseTableAccess CreateDatabaseTableAccess(
+        DatabaseTableAccessRecord a,
+        string rootDirectory,
+        CallGraphResult callGraph)
+    {
+        var displayName = a.FunctionDisplayName;
+        var fullName = a.FunctionFullName;
+        var filePath = a.FunctionFilePath;
+        var lineNumber = a.FunctionLineNumber;
+        RehydrateFunctionFields(callGraph, ref displayName, ref fullName, ref filePath, ref lineNumber, a.FunctionId);
+        return new DatabaseTableAccess
+        {
+            TableId = a.TableId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = displayName,
+            FunctionFullName = fullName,
+            FunctionFilePath = AnalysisExportPathHelper.ToAbsolutePath(filePath, rootDirectory),
+            FunctionLineNumber = lineNumber,
+            Kind = Enum.TryParse<DatabaseTableAccessKind>(a.Kind, out var kind) ? kind : DatabaseTableAccessKind.Read,
+            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql,
+            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations) ? operations : DatabaseCrudOperation.None
+        };
+    }
+
+    private static DatabaseCatalogAccess CreateDatabaseCatalogAccess(
+        DatabaseCatalogAccessRecord a,
+        string rootDirectory,
+        CallGraphResult callGraph)
+    {
+        var displayName = a.FunctionDisplayName;
+        var fullName = a.FunctionFullName;
+        var filePath = a.FunctionFilePath;
+        var lineNumber = a.FunctionLineNumber;
+        RehydrateFunctionFields(callGraph, ref displayName, ref fullName, ref filePath, ref lineNumber, a.FunctionId);
+        return new DatabaseCatalogAccess
+        {
+            CatalogId = a.CatalogId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = displayName,
+            FunctionFullName = fullName,
+            FunctionFilePath = AnalysisExportPathHelper.ToAbsolutePath(filePath, rootDirectory),
+            FunctionLineNumber = lineNumber,
+            Kind = Enum.TryParse<DatabaseCatalogAccessKind>(a.Kind, out var kind)
+                ? kind
+                : DatabaseCatalogAccessKind.Connect,
+            Pattern = Enum.TryParse<DatabaseCatalogAccessPattern>(a.Pattern, out var pattern)
+                ? pattern
+                : DatabaseCatalogAccessPattern.Sql,
+            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations)
+                ? operations
+                : DatabaseCrudOperation.None
+        };
+    }
+
+    private static DatabaseColumnAccess CreateDatabaseColumnAccess(
+        DatabaseColumnAccessRecord a,
+        string rootDirectory,
+        CallGraphResult callGraph)
+    {
+        var displayName = a.FunctionDisplayName;
+        var fullName = a.FunctionFullName;
+        var filePath = a.FunctionFilePath;
+        var lineNumber = a.FunctionLineNumber;
+        RehydrateFunctionFields(callGraph, ref displayName, ref fullName, ref filePath, ref lineNumber, a.FunctionId);
+        return new DatabaseColumnAccess
+        {
+            TableId = a.TableId,
+            ColumnName = a.ColumnName,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = displayName,
+            FunctionFullName = fullName,
+            FunctionFilePath = AnalysisExportPathHelper.ToAbsolutePath(filePath, rootDirectory),
+            FunctionLineNumber = lineNumber,
+            Kind = Enum.TryParse<DatabaseTableAccessKind>(a.Kind, out var kind) ? kind : DatabaseTableAccessKind.Read,
+            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql,
+            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations) ? operations : DatabaseCrudOperation.None
+        };
+    }
+
+    private static DatabaseEntryAccess CreateDatabaseEntryAccess(
+        DatabaseEntryAccessRecord a,
+        string rootDirectory,
+        CallGraphResult callGraph)
+    {
+        var displayName = a.FunctionDisplayName;
+        var fullName = a.FunctionFullName;
+        var filePath = a.FunctionFilePath;
+        var lineNumber = a.FunctionLineNumber;
+        RehydrateFunctionFields(callGraph, ref displayName, ref fullName, ref filePath, ref lineNumber, a.FunctionId);
+        return new DatabaseEntryAccess
+        {
+            TableId = a.TableId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = displayName,
+            FunctionFullName = fullName,
+            FunctionFilePath = AnalysisExportPathHelper.ToAbsolutePath(filePath, rootDirectory),
+            FunctionLineNumber = lineNumber,
+            Operation = Enum.TryParse<DatabaseCrudOperation>(a.Operation, out var operation) ? operation : DatabaseCrudOperation.None,
+            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql
+        };
+    }
+
+    private static MetricsSection MetricsSectionFrom(CodeMetricsResult m, string rootDirectory) => new()
     {
         Files = m.Files.Select(f => new FileLineMetricRecord
         {
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToStoredPath(f.FilePath, rootDirectory),
             LanguageId = f.LanguageId,
             PhysicalLines = f.PhysicalLines,
             CodeLines = f.CodeLines,
@@ -882,7 +981,7 @@ public static class CallGraphExportService
         }).ToList(),
         FileAggregates = m.FileAggregates.Select(f => new FileAggregateMetricRecord
         {
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToStoredPath(f.FilePath, rootDirectory),
             LanguageId = f.LanguageId,
             PhysicalLines = f.PhysicalLines,
             CodeLines = f.CodeLines,
@@ -920,7 +1019,7 @@ public static class CallGraphExportService
             LanguageId = f.LanguageId,
             DisplayName = f.DisplayName,
             FullName = f.FullName,
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToStoredPath(f.FilePath, rootDirectory),
             StartLine = f.StartLine,
             EndLine = f.EndLine,
             LineCount = f.LineCount,
@@ -946,7 +1045,7 @@ public static class CallGraphExportService
         }).ToList(),
         Packages = m.Packages.Select(p => new PackageMetricRecord
         {
-            DirectoryPath = p.DirectoryPath,
+            DirectoryPath = AnalysisExportPathHelper.ToStoredPath(p.DirectoryPath, rootDirectory),
             AfferentCoupling = p.AfferentCoupling,
             EfferentCoupling = p.EfferentCoupling,
             Instability = p.Instability,
@@ -993,14 +1092,14 @@ public static class CallGraphExportService
         }
     };
 
-    private static BugRiskSection BugRiskSectionFrom(BugRiskResult bugRisk) => new()
+    private static BugRiskSection BugRiskSectionFrom(BugRiskResult bugRisk, string rootDirectory) => new()
     {
         Findings = bugRisk.Findings.Select(f => new BugRiskFindingRecord
         {
             Category = f.Category.ToString(),
             Severity = f.Severity.ToString(),
             Message = f.Message,
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToStoredPath(f.FilePath, rootDirectory),
             LineNumber = f.LineNumber,
             FunctionName = f.FunctionName,
             Detail = f.Detail,
@@ -1009,14 +1108,14 @@ public static class CallGraphExportService
         }).ToList()
     };
 
-    private static SecuritySection SecuritySectionFrom(SecurityAnalysisResult security) => new()
+    private static SecuritySection SecuritySectionFrom(SecurityAnalysisResult security, string rootDirectory) => new()
     {
         Findings = security.Findings.Select(f => new SecurityFindingRecord
         {
             RuleId = f.RuleId,
             Label = f.Label,
             Severity = f.Severity.ToString(),
-            FilePath = f.FilePath,
+            FilePath = AnalysisExportPathHelper.ToStoredPath(f.FilePath, rootDirectory),
             LanguageId = f.LanguageId,
             LineNumber = f.LineNumber,
             Snippet = f.Snippet,
@@ -1035,7 +1134,7 @@ public static class CallGraphExportService
         }).ToList()
     };
 
-    private static DuplicatesSection DuplicatesSectionFrom(DuplicateCodeResult d) => new()
+    private static DuplicatesSection DuplicatesSectionFrom(DuplicateCodeResult d, string rootDirectory) => new()
     {
         MinDuplicateLines = d.MinDuplicateLines,
         Groups = d.Groups.Select(g => new DuplicateCodeGroupRecord
@@ -1046,7 +1145,7 @@ public static class CallGraphExportService
             SampleLines = g.SampleLines.ToList(),
             Fragments = g.Fragments.Select(f => new DuplicateCodeFragmentRecord
             {
-                FilePath = f.FilePath,
+                FilePath = AnalysisExportPathHelper.ToStoredPath(f.FilePath, rootDirectory),
                 LanguageId = f.LanguageId,
                 StartLine = f.StartLine,
                 EndLine = f.EndLine
@@ -1054,14 +1153,17 @@ public static class CallGraphExportService
         }).ToList()
     };
 
-    private static GlobalVariablesSection GlobalVariablesSectionFrom(GlobalVariableResult g) => new()
+    private static GlobalVariablesSection GlobalVariablesSectionFrom(
+        GlobalVariableResult g,
+        string rootDirectory,
+        CallGraphResult callGraph) => new()
     {
         Variables = g.Variables.Select(v => new GlobalVariableRecord
         {
             Id = v.Id,
             Name = v.Name,
             LanguageId = v.LanguageId,
-            FilePath = v.FilePath,
+            FilePath = AnalysisExportPathHelper.ToStoredPath(v.FilePath, rootDirectory),
             LineNumber = v.LineNumber,
             Scope = v.Scope.ToString(),
             TypeName = v.TypeName,
@@ -1071,19 +1173,28 @@ public static class CallGraphExportService
             IsReadOnly = v.IsReadOnly,
             Declaration = v.Declaration
         }).ToList(),
-        Accesses = g.Accesses.Select(a => new GlobalVariableAccessRecord
-        {
-            GlobalVariableId = a.GlobalVariableId,
-            FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
-            Kind = a.Kind.ToString()
-        }).ToList()
+        Accesses = g.Accesses.Select(a =>
+            {
+                var omitMeta = ShouldOmitFunctionMetadata(callGraph, a.FunctionId);
+                return new GlobalVariableAccessRecord
+                {
+                    GlobalVariableId = a.GlobalVariableId,
+                    FunctionId = a.FunctionId,
+                    FunctionDisplayName = omitMeta ? string.Empty : a.FunctionDisplayName,
+                    FunctionFullName = omitMeta ? string.Empty : a.FunctionFullName,
+                    FunctionFilePath = omitMeta
+                        ? string.Empty
+                        : AnalysisExportPathHelper.ToStoredPath(a.FunctionFilePath, rootDirectory),
+                    FunctionLineNumber = omitMeta ? 0 : a.FunctionLineNumber,
+                    Kind = a.Kind.ToString()
+                };
+            }).ToList()
     };
 
-    private static DatabaseSchemaSection DatabaseSchemaSectionFrom(DatabaseSchemaResult schema) => new()
+    private static DatabaseSchemaSection DatabaseSchemaSectionFrom(
+        DatabaseSchemaResult schema,
+        string rootDirectory,
+        CallGraphResult callGraph) => new()
     {
         Catalogs = schema.Catalogs.Select(c => new DatabaseCatalogRecord
         {
@@ -1091,7 +1202,9 @@ public static class CallGraphExportService
             Name = c.Name,
             Dialect = c.Dialect.ToString(),
             SourceKind = c.SourceKind,
-            FilePath = c.FilePath ?? string.Empty,
+            FilePath = string.IsNullOrWhiteSpace(c.FilePath)
+                ? string.Empty
+                : AnalysisExportPathHelper.ToStoredPath(c.FilePath, rootDirectory),
             LineNumber = c.LineNumber
         }).ToList(),
         Tables = schema.Tables.Select(t => new DatabaseTableRecord
@@ -1102,7 +1215,7 @@ public static class CallGraphExportService
             EntityTypeName = t.EntityTypeName,
             Dialect = t.Dialect.ToString(),
             SourceKind = t.SourceKind,
-            FilePath = t.FilePath,
+            FilePath = AnalysisExportPathHelper.ToStoredPath(t.FilePath, rootDirectory),
             LineNumber = t.LineNumber,
             AccessAliases = t.AccessAliases.ToList(),
             Columns = t.Columns.Select(c => new DatabaseColumnRecord
@@ -1125,55 +1238,99 @@ public static class CallGraphExportService
             Kind = r.Kind.ToString(),
             Label = r.Label
         }).ToList(),
-        Accesses = schema.Accesses.Select(a => new DatabaseTableAccessRecord
+        Accesses = schema.Accesses.Select(a => ExportDatabaseTableAccess(a, rootDirectory, callGraph)).ToList(),
+        CatalogAccesses = schema.CatalogAccesses.Select(a => ExportDatabaseCatalogAccess(a, rootDirectory, callGraph)).ToList(),
+        ColumnAccesses = schema.ColumnAccesses.Select(a => ExportDatabaseColumnAccess(a, rootDirectory, callGraph)).ToList(),
+        EntryAccesses = schema.EntryAccesses.Select(a => ExportDatabaseEntryAccess(a, rootDirectory, callGraph)).ToList()
+    };
+
+    private static DatabaseTableAccessRecord ExportDatabaseTableAccess(
+        DatabaseTableAccess a,
+        string rootDirectory,
+        CallGraphResult callGraph)
+    {
+        var omitMeta = ShouldOmitFunctionMetadata(callGraph, a.FunctionId);
+        return new DatabaseTableAccessRecord
         {
             TableId = a.TableId,
             FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
+            FunctionDisplayName = omitMeta ? string.Empty : a.FunctionDisplayName,
+            FunctionFullName = omitMeta ? string.Empty : a.FunctionFullName,
+            FunctionFilePath = omitMeta
+                ? string.Empty
+                : AnalysisExportPathHelper.ToStoredPath(a.FunctionFilePath, rootDirectory),
+            FunctionLineNumber = omitMeta ? 0 : a.FunctionLineNumber,
             Kind = a.Kind.ToString(),
             Pattern = a.Pattern.ToString(),
             Operations = a.Operations.ToString()
-        }).ToList(),
-        CatalogAccesses = schema.CatalogAccesses.Select(a => new DatabaseCatalogAccessRecord
+        };
+    }
+
+    private static DatabaseCatalogAccessRecord ExportDatabaseCatalogAccess(
+        DatabaseCatalogAccess a,
+        string rootDirectory,
+        CallGraphResult callGraph)
+    {
+        var omitMeta = ShouldOmitFunctionMetadata(callGraph, a.FunctionId);
+        return new DatabaseCatalogAccessRecord
         {
             CatalogId = a.CatalogId,
             FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
+            FunctionDisplayName = omitMeta ? string.Empty : a.FunctionDisplayName,
+            FunctionFullName = omitMeta ? string.Empty : a.FunctionFullName,
+            FunctionFilePath = omitMeta
+                ? string.Empty
+                : AnalysisExportPathHelper.ToStoredPath(a.FunctionFilePath, rootDirectory),
+            FunctionLineNumber = omitMeta ? 0 : a.FunctionLineNumber,
             Kind = a.Kind.ToString(),
             Pattern = a.Pattern.ToString(),
             Operations = a.Operations.ToString()
-        }).ToList(),
-        ColumnAccesses = schema.ColumnAccesses.Select(a => new DatabaseColumnAccessRecord
+        };
+    }
+
+    private static DatabaseColumnAccessRecord ExportDatabaseColumnAccess(
+        DatabaseColumnAccess a,
+        string rootDirectory,
+        CallGraphResult callGraph)
+    {
+        var omitMeta = ShouldOmitFunctionMetadata(callGraph, a.FunctionId);
+        return new DatabaseColumnAccessRecord
         {
             TableId = a.TableId,
             ColumnName = a.ColumnName,
             FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
+            FunctionDisplayName = omitMeta ? string.Empty : a.FunctionDisplayName,
+            FunctionFullName = omitMeta ? string.Empty : a.FunctionFullName,
+            FunctionFilePath = omitMeta
+                ? string.Empty
+                : AnalysisExportPathHelper.ToStoredPath(a.FunctionFilePath, rootDirectory),
+            FunctionLineNumber = omitMeta ? 0 : a.FunctionLineNumber,
             Kind = a.Kind.ToString(),
             Pattern = a.Pattern.ToString(),
             Operations = a.Operations.ToString()
-        }).ToList(),
-        EntryAccesses = schema.EntryAccesses.Select(a => new DatabaseEntryAccessRecord
+        };
+    }
+
+    private static DatabaseEntryAccessRecord ExportDatabaseEntryAccess(
+        DatabaseEntryAccess a,
+        string rootDirectory,
+        CallGraphResult callGraph)
+    {
+        var omitMeta = ShouldOmitFunctionMetadata(callGraph, a.FunctionId);
+        return new DatabaseEntryAccessRecord
         {
             TableId = a.TableId,
             FunctionId = a.FunctionId,
-            FunctionDisplayName = a.FunctionDisplayName,
-            FunctionFullName = a.FunctionFullName,
-            FunctionFilePath = a.FunctionFilePath,
-            FunctionLineNumber = a.FunctionLineNumber,
+            FunctionDisplayName = omitMeta ? string.Empty : a.FunctionDisplayName,
+            FunctionFullName = omitMeta ? string.Empty : a.FunctionFullName,
+            FunctionFilePath = omitMeta
+                ? string.Empty
+                : AnalysisExportPathHelper.ToStoredPath(a.FunctionFilePath, rootDirectory),
+            FunctionLineNumber = omitMeta ? 0 : a.FunctionLineNumber,
             Operation = a.Operation.ToString(),
             Pattern = a.Pattern.ToString()
-        }).ToList()
-    };
+        };
+    }
 
     private static QualityThresholdsRecord QualityThresholdsRecordFrom(UserAnalysisSettings s) => new()
     {

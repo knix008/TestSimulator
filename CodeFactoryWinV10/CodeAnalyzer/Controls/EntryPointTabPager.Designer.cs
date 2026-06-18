@@ -22,8 +22,8 @@ partial class EntryPointTabPager
         _pageCombo = new ComboBox();
         _prevPageButton = new Button();
         _nextPageButton = new Button();
-        _middlePanel = new Panel();
-        _middlePanel.SuspendLayout();
+        _navPanel = new FlowLayoutPanel();
+        _navPanel.SuspendLayout();
         SuspendLayout();
         //
         // _summaryLabel
@@ -38,7 +38,8 @@ partial class EntryPointTabPager
         //
         _pageLabel.AutoSize = false;
         _pageLabel.Width = PageLabelWidth;
-        _pageLabel.Dock = DockStyle.Left;
+        _pageLabel.Height = 24;
+        _pageLabel.Margin = new Padding(0, 0, 4, 0);
         _pageLabel.Text = "페이지:";
         _pageLabel.ForeColor = Color.FromArgb(70, 80, 95);
         _pageLabel.TextAlign = ContentAlignment.MiddleRight;
@@ -47,16 +48,19 @@ partial class EntryPointTabPager
         // _pageCombo
         //
         _pageCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-        _pageCombo.Dock = DockStyle.Fill;
+        _pageCombo.Width = PageComboWidth;
+        _pageCombo.Margin = new Padding(0, 0, 4, 0);
         //
         // _prevPageButton
         //
         _prevPageButton.Text = "◀";
         _prevPageButton.AutoSize = false;
         _prevPageButton.Width = NavButtonWidth;
-        _prevPageButton.Dock = DockStyle.Left;
-        _prevPageButton.FlatStyle = FlatStyle.System;
-        _prevPageButton.ForeColor = Color.FromArgb(50, 70, 100);
+        _prevPageButton.Height = 24;
+        _prevPageButton.Margin = new Padding(0, 0, 4, 0);
+        _prevPageButton.FlatStyle = FlatStyle.Standard;
+        _prevPageButton.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+        _prevPageButton.ForeColor = Color.FromArgb(30, 55, 95);
         _prevPageButton.Enabled = false;
         //
         // _nextPageButton
@@ -64,31 +68,37 @@ partial class EntryPointTabPager
         _nextPageButton.Text = "▶";
         _nextPageButton.AutoSize = false;
         _nextPageButton.Width = NavButtonWidth;
-        _nextPageButton.Dock = DockStyle.Right;
-        _nextPageButton.FlatStyle = FlatStyle.System;
-        _nextPageButton.ForeColor = Color.FromArgb(50, 70, 100);
+        _nextPageButton.Height = 24;
+        _nextPageButton.Margin = new Padding(4, 0, 0, 0);
+        _nextPageButton.FlatStyle = FlatStyle.Standard;
+        _nextPageButton.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+        _nextPageButton.ForeColor = Color.FromArgb(30, 55, 95);
         _nextPageButton.Enabled = false;
         //
-        // _middlePanel — [◀][페이지:][ComboBox] 우측 정렬 그룹
+        // _navPanel — [◀][페이지:][ComboBox][▶]
         //
-        _middlePanel.Dock = DockStyle.Right;
-        _middlePanel.Width = NavButtonWidth + PageLabelWidth + PageComboWidth;
-        _middlePanel.Controls.Add(_pageCombo);
-        _middlePanel.Controls.Add(_pageLabel);
-        _middlePanel.Controls.Add(_prevPageButton);
+        _navPanel.AutoSize = true;
+        _navPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        _navPanel.Dock = DockStyle.Right;
+        _navPanel.FlowDirection = FlowDirection.LeftToRight;
+        _navPanel.WrapContents = false;
+        _navPanel.Padding = new Padding(0, 2, 0, 2);
+        _navPanel.Controls.Add(_prevPageButton);
+        _navPanel.Controls.Add(_pageLabel);
+        _navPanel.Controls.Add(_pageCombo);
+        _navPanel.Controls.Add(_nextPageButton);
         //
         // EntryPointTabPager
         //
         Dock = DockStyle.Top;
-        Height = 32;
-        MinimumSize = new Size(NavButtonWidth, 32);
-        Padding = new Padding(8, 4, 4, 4);
+        Height = 36;
+        MinimumSize = new Size(NavButtonWidth * 2 + PageLabelWidth + PageComboWidth + 24, 36);
+        Padding = new Padding(8, 4, 8, 4);
         BackColor = Color.FromArgb(248, 249, 252);
         Visible = false;
         Controls.Add(_summaryLabel);
-        Controls.Add(_middlePanel);
-        Controls.Add(_nextPageButton);
-        _middlePanel.ResumeLayout(false);
+        Controls.Add(_navPanel);
+        _navPanel.ResumeLayout(false);
         ResumeLayout(false);
     }
 
@@ -97,5 +107,5 @@ partial class EntryPointTabPager
     private ComboBox _pageCombo = null!;
     private Button _prevPageButton = null!;
     private Button _nextPageButton = null!;
-    private Panel _middlePanel = null!;
+    private FlowLayoutPanel _navPanel = null!;
 }

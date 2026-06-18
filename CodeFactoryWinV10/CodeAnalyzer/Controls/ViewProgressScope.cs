@@ -118,11 +118,58 @@ internal sealed class ViewProgressScope : IDisposable
 
 internal static class ViewProgressReporter
 {
-    public static void Report(int percent, string message) =>
-        ViewProgressScope.Active?.Report(percent, message);
+    private static readonly AsyncLocal<IProgress<AnalysisProgressReport>?> AsyncProgress = new();
+    private static readonly AsyncLocal<CancellationToken> AsyncCancellation = new();
+    private static readonly AsyncLocal<Stopwatch?> AsyncStopwatch = new();
 
-    public static void ReportStep(int currentIndex, int totalCount, string message) =>
-        ViewProgressScope.Active?.ReportStep(currentIndex, totalCount, message);
+    public static IDisposable Attach(IProgress<AnalysisProgressReport> progress, CancellationToken cancellationToken = default)
+    {
+        AsyncProgress.Value = progress;
+        AsyncCancellation.Value = cancellationToken;
+        var stopwatch = Stopwatch.StartNew();
+        AsyncStopwatch.Value = stopwatch;
+        return new AttachScope();
+    }
+
+    public static void Report(int percent, string message)
+    {
+        AsyncCancellation.Value.ThrowIfCancellationRequested();
+
+        if (AsyncProgress.Value is { } asyncProgress)
+        {
+            asyncProgress.Report(new AnalysisProgressReport
+            {
+                Percent = Math.Clamp(percent, 0, 100),
+                Message = message,
+                Elapsed = AsyncStopwatch.Value?.Elapsed ?? TimeSpan.Zero
+            });
+            return;
+        }
+
+        ViewProgressScope.Active?.Report(percent, message);
+    }
+
+    public static void ReportStep(int currentIndex, int totalCount, string message)
+    {
+        if (totalCount <= 0)
+        {
+            Report(0, message);
+            return;
+        }
+
+        var percent = (int)Math.Round((currentIndex + 1) * 100.0 / totalCount);
+        Report(Math.Clamp(percent, 1, 99), message);
+    }
+
+    private sealed class AttachScope : IDisposable
+    {
+        public void Dispose()
+        {
+            AsyncProgress.Value = null;
+            AsyncCancellation.Value = default;
+            AsyncStopwatch.Value = null;
+        }
+    }
 }
 
 file sealed class NoOpDisposable : IDisposable

@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -165,7 +166,14 @@ public sealed class GlobalVariableViewer : UserControl
     {
         _globals = globals;
         _projectRoot = projectRoot;
-        RebuildList();
+        _ = RebuildListAsync();
+    }
+
+    public Task SetGlobalsAsync(GlobalVariableResult? globals, string? projectRoot = null)
+    {
+        _globals = globals;
+        _projectRoot = projectRoot;
+        return RebuildListAsync();
     }
 
     public GlobalVariableItem? SelectedVariable => _selected;
@@ -241,6 +249,9 @@ public sealed class GlobalVariableViewer : UserControl
         _variableList.EndUpdate();
         AdjustColumnWidths();
     }
+
+    private Task RebuildListAsync() =>
+        AsyncViewRefresh.RunUiRebuildAsync(this, DiagramViewKind.GlobalVariables, RebuildList);
 
     private void ShowSelectedVariable()
     {

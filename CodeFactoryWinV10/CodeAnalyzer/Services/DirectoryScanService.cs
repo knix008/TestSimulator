@@ -64,7 +64,7 @@ public static class DirectoryScanService
 
             if (relativeIncluded == ".")
             {
-                foreach (var file in EnumerateSourceFilesInDirectoryOnly(absolutePath, extensionSet, cancellationToken))
+                foreach (var file in EnumerateSourceFilesRecursive(rootPath, absolutePath, extensionSet, cancellationToken))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (yielded.Add(file))

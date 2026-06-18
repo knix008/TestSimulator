@@ -435,7 +435,7 @@ public sealed class CodeMetricsViewer : UserControl
                 EnsureColumnToolTips(PackageColumns, BuildPackageHeaderToolTips(_thresholds)));
             ApplyInspectionTabVisibility();
             ViewFailureReporter.Clear(this);
-            RebuildLists();
+            _ = RebuildListsAsync();
         }
         catch (Exception ex)
         {
@@ -453,6 +453,58 @@ public sealed class CodeMetricsViewer : UserControl
                 ex);
         }
     }
+
+    public Task SetMetricsAsync(
+        CodeMetricsResult? metrics,
+        UserAnalysisSettings? thresholds = null,
+        AnalysisResult? analysis = null)
+    {
+        try
+        {
+            var nextThresholds = thresholds ?? analysis?.QualityThresholds ?? new UserAnalysisSettings();
+            if (ReferenceEquals(_metrics, metrics)
+                && ReferenceEquals(_analysis, analysis)
+                && ThresholdsEqual(_thresholds, nextThresholds))
+            {
+                ScheduleColumnLayoutAdjust();
+                return Task.CompletedTask;
+            }
+
+            _metrics = metrics;
+            _analysis = analysis;
+            _thresholds = nextThresholds;
+            _functionHeaderToolTip.UpdateColumnToolTips(
+                EnsureColumnToolTips(FunctionColumns, BuildFunctionHeaderToolTips(_thresholds)));
+            _fileHeaderToolTip.UpdateColumnToolTips(
+                EnsureColumnToolTips(FileColumns, BuildFileHeaderToolTips(_thresholds)));
+            _typeHeaderToolTip.UpdateColumnToolTips(
+                EnsureColumnToolTips(TypeColumns, BuildTypeHeaderToolTips(_thresholds)));
+            _packageHeaderToolTip.UpdateColumnToolTips(
+                EnsureColumnToolTips(PackageColumns, BuildPackageHeaderToolTips(_thresholds)));
+            ApplyInspectionTabVisibility();
+            ViewFailureReporter.Clear(this);
+            return RebuildListsAsync();
+        }
+        catch (Exception ex)
+        {
+            _metrics = null;
+            _functionList.Items.Clear();
+            _fileList.Items.Clear();
+            _typeList.Items.Clear();
+            _packageList.Items.Clear();
+            _architectureList.Items.Clear();
+            _summaryLabel.Text = $"메트릭 표시 오류: {ex.Message}";
+            ViewFailureReporter.Report(
+                this,
+                DiagramViewDisplayNames.Get(DiagramViewKind.CodeMetrics),
+                "구성",
+                ex);
+            return Task.CompletedTask;
+        }
+    }
+
+    private Task RebuildListsAsync() =>
+        AsyncViewRefresh.RunUiRebuildAsync(this, DiagramViewKind.CodeMetrics, RebuildLists);
 
     public void BeginAnalysis()
     {

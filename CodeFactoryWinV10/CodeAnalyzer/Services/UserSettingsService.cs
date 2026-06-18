@@ -146,6 +146,8 @@ public sealed class UserSettingsService
         settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
         settings.IncludedDirectoryPaths = CloneDirectoryPaths(thresholds.IncludedDirectoryPaths);
         settings.ExcludedDirectoryPaths = CloneDirectoryPaths(thresholds.ExcludedDirectoryPaths);
+        settings.LanguageSelectionCustomized = thresholds.LanguageSelectionCustomized;
+        settings.EnabledLanguageIds = CloneDirectoryPaths(thresholds.EnabledLanguageIds);
         settings.DatabaseConnection = DatabaseConnectionSettings.Normalize(thresholds.DatabaseConnection);
         SaveSettings(settings);
     }
@@ -166,6 +168,7 @@ public sealed class UserSettingsService
         settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
         settings.IncludedDirectoryPaths = CloneDirectoryPaths(settings.IncludedDirectoryPaths);
         settings.ExcludedDirectoryPaths = CloneDirectoryPaths(settings.ExcludedDirectoryPaths);
+        settings.EnabledLanguageIds = CloneDirectoryPaths(settings.EnabledLanguageIds);
         settings.DatabaseConnection = DatabaseConnectionSettings.Normalize(settings.DatabaseConnection);
 
         if (settings.MinDuplicateLines > 0)

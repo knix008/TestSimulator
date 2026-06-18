@@ -10,7 +10,7 @@ public static class DeferredProgressRunner
     public static async Task<T> RunAsync<T>(
         IWin32Window? owner,
         string title,
-        Func<IProgress<AnalysisProgressReport>, Task<T>> work,
+        Func<IProgress<AnalysisProgressReport>, CancellationToken, Task<T>> work,
         int showDelayMs = DefaultShowDelayMs)
     {
         using var dialog = new DeferredProgressDialog(title);
@@ -23,7 +23,7 @@ public static class DeferredProgressRunner
             }
         });
 
-        var workTask = work(progress);
+        var workTask = work(progress, dialog.CancellationToken);
         var delayTask = Task.Delay(Math.Max(0, showDelayMs));
 
         await Task.WhenAny(workTask, delayTask).ConfigureAwait(true);

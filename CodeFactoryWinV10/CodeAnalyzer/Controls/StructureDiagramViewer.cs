@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using System.Runtime.CompilerServices;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 
@@ -27,6 +28,10 @@ public sealed class StructureDiagramViewer : UserControl
     private readonly DiagramScrollPan _pan = new();
     private bool _buildError;
     private int _sequenceRebuildGeneration;
+    private int _rebuildGeneration;
+    private string? _lastBuildKey;
+    private string? _lastSequenceBuildKey;
+    private string? _activeSequenceBuildKey;
     private readonly SequenceDiagramTabHost _sequenceTabHost = new() { Dock = DockStyle.Fill, Visible = false };
     private string? _focusedTypeId;
     private readonly HashSet<string> _fileEntryRootIds = new(StringComparer.OrdinalIgnoreCase);
@@ -61,28 +66,59 @@ public sealed class StructureDiagramViewer : UserControl
         }
     }
 
-    public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> functionRootIds, string? projectRootDirectory = null)
+    public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> functionRootIds, string? projectRootDirectory = null) =>
+        ApplyViewState(_viewKind, analysis, functionRootIds, projectRootDirectory);
+
+    public void ApplyViewState(
+        DiagramViewKind viewKind,
+        AnalysisResult? analysis,
+        IReadOnlyList<string> functionRootIds,
+        string? projectRootDirectory = null)
     {
         _isAnalyzing = false;
         _buildError = false;
         ViewFailureReporter.Clear(this);
+
+        var viewKindChanged = _viewKind != viewKind;
+        var analysisChanged = !ReferenceEquals(_analysis, analysis);
+        var rootsChanged = !_functionRootIds.SequenceEqual(functionRootIds);
+
+        if (viewKindChanged)
+        {
+            _viewKind = viewKind;
+            ApplySequenceZoomLimits();
+            UpdateSequencePresentationMode();
+        }
+
+        if (!viewKindChanged && !analysisChanged && !rootsChanged
+            && string.Equals(_projectRootDirectory, projectRootDirectory, StringComparison.Ordinal)
+            && _dataFlowRootOverride is null)
+        {
+            return;
+        }
+
         _zoom.Reset();
-        var preserveContainerRoots = ReferenceEquals(_analysis, analysis)
-            && _functionRootIds.SequenceEqual(functionRootIds);
+        var preserveContainerRoots = !analysisChanged && !rootsChanged;
         _analysis = analysis;
         _functionRootIds = functionRootIds;
         _projectRootDirectory = projectRootDirectory;
+
+        if (analysisChanged)
+        {
+            _lastBuildKey = null;
+            _lastSequenceBuildKey = null;
+            _sequenceDocument = null;
+        }
+
         if (!preserveContainerRoots)
         {
             _fileRootOverride = [];
             _directoryRootOverride = [];
         }
+
         _dataFlowRootOverride = null;
-        // _focusedTypeId is NOT reset here — BeginAnalysis and FocusType control it.
         _highlightIds.Clear();
         _currentHighlightId = null;
-        ApplySequenceZoomLimits();
-        UpdateSequencePresentationMode();
         Rebuild();
     }
 
@@ -138,6 +174,8 @@ public sealed class StructureDiagramViewer : UserControl
         _edges.Clear();
         _boxMap.Clear();
         _sequenceDocument = null;
+        _lastSequenceBuildKey = null;
+        _activeSequenceBuildKey = null;
         _sequenceTabHost.SetEmpty("분석을 실행하면 다이어그램이 표시됩니다.");
         _contentSize = new Size(400, 300);
         // 시퀀스 모드에서는 건너뜀: AutoScrollMinSize → AutoScroll=true →
@@ -202,6 +240,17 @@ public sealed class StructureDiagramViewer : UserControl
     public void FocusDataFlowNode(string nodeId)
     {
         _dataFlowRootOverride = nodeId;
+        Rebuild();
+    }
+
+    public void ClearDataFlowRootOverride()
+    {
+        if (_dataFlowRootOverride is null)
+        {
+            return;
+        }
+
+        _dataFlowRootOverride = null;
         Rebuild();
     }
 
@@ -594,17 +643,78 @@ public sealed class StructureDiagramViewer : UserControl
 
     private void Rebuild()
     {
-        if (_viewKind != DiagramViewKind.SequenceDiagram)
+        if (_viewKind == DiagramViewKind.SequenceDiagram)
         {
-            using var _ = ViewProgressScope.BeginIfNeeded(FindForm(), DiagramViewDisplayNames.Get(_viewKind));
             RebuildCore();
             return;
         }
 
-        RebuildCore();
+        _ = RebuildInBackgroundAsync();
     }
 
-    private void RebuildCore()
+    private StructureDiagramBuildSession CreateBuildSession() => new()
+    {
+        ViewKind = _viewKind,
+        Analysis = _analysis,
+        FunctionRootIds = _functionRootIds,
+        FileRootOverride = _fileRootOverride,
+        DirectoryRootOverride = _directoryRootOverride,
+        DataFlowRootOverride = _dataFlowRootOverride,
+        ProjectRootDirectory = _projectRootDirectory,
+        LayoutDirection = _layoutDirection,
+        FocusedTypeId = _focusedTypeId
+    };
+
+    private async Task RebuildInBackgroundAsync()
+    {
+        var generation = ++_rebuildGeneration;
+        var buildKey = CreateBuildKey();
+        var title = DiagramViewDisplayNames.Get(_viewKind);
+
+        if (_analysis is null)
+        {
+            _lastBuildKey = null;
+            ApplyEmptyBuild();
+            return;
+        }
+
+        if (buildKey == _lastBuildKey && _boxes.Count > 0 && !_buildError)
+        {
+            return;
+        }
+
+        var session = CreateBuildSession();
+
+        try
+        {
+            var built = await ViewProgressRunner.RunBackgroundAsync(
+                FindForm(),
+                title,
+                _ => ExecuteBuild(session)).ConfigureAwait(true);
+
+            if (generation != _rebuildGeneration || IsDisposed)
+            {
+                return;
+            }
+
+            ApplyBuildSession(built);
+            _lastBuildKey = buildKey;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        {
+            if (generation != _rebuildGeneration || IsDisposed)
+            {
+                return;
+            }
+
+            ApplyBuildFailure(ex);
+        }
+    }
+
+    private void ApplyEmptyBuild()
     {
         _zoom.InvalidateCache();
         _boxes.Clear();
@@ -614,46 +724,96 @@ public sealed class StructureDiagramViewer : UserControl
         _fileEntryRootIds.Clear();
         _buildError = false;
         ViewFailureReporter.Clear(this);
+        _contentSize = new Size(400, 300);
+        _zoom.ApplyContentSize(this, _contentSize);
+        Invalidate();
+    }
 
-        if (_analysis is null)
+    private void ApplyBuildSession(StructureDiagramBuildSession session)
+    {
+        _zoom.InvalidateCache();
+        _boxes.Clear();
+        _boxes.AddRange(session.Boxes);
+        _edges.Clear();
+        _edges.AddRange(session.Edges);
+        _boxMap.Clear();
+        foreach (var pair in session.BoxMap)
         {
-            _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(this, _contentSize);
-            if (_viewKind == DiagramViewKind.SequenceDiagram)
-            {
-                _sequenceTabHost.SetEmpty("분석을 실행하면 다이어그램이 표시됩니다.");
-            }
-
-            Invalidate();
-            return;
+            _boxMap[pair.Key] = pair.Value;
         }
 
+        _sequenceDocument = null;
+        _fileEntryRootIds.Clear();
+        foreach (var rootId in session.FileEntryRootIds)
+        {
+            _fileEntryRootIds.Add(rootId);
+        }
+
+        _buildError = session.BuildError;
+        ViewFailureReporter.Clear(this);
+
+        if (session.Error is not null)
+        {
+            _buildError = true;
+            _boxes.Clear();
+            _edges.Clear();
+            _boxMap.Clear();
+            _contentSize = new Size(400, 300);
+            _zoom.ApplyContentSize(this, _contentSize);
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(_viewKind), "구성", session.Error);
+        }
+        else
+        {
+            _contentSize = session.ContentSize;
+            _zoom.ApplyContentSize(this, _contentSize);
+            EnsureCurrentBoxVisible();
+        }
+
+        Invalidate();
+    }
+
+    private void ApplyBuildFailure(Exception ex)
+    {
+        _buildError = true;
+        _boxes.Clear();
+        _edges.Clear();
+        _boxMap.Clear();
+        _sequenceDocument = null;
+        _contentSize = new Size(400, 300);
+        _zoom.ApplyContentSize(this, _contentSize);
+        ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(_viewKind), "구성", ex);
+        Invalidate();
+    }
+
+    private static StructureDiagramBuildSession ExecuteBuild(StructureDiagramBuildSession session)
+    {
         try
         {
             ViewProgressReporter.Report(10, "그래프 데이터를 구성하는 중...");
-            switch (_viewKind)
+            switch (session.ViewKind)
             {
                 case DiagramViewKind.ClassDiagram:
-                    BuildClassDiagram(_analysis.Structure, inheritanceOnly: false);
+                    BuildClassDiagram(session, session.Analysis!.Structure, inheritanceOnly: false);
                     break;
                 case DiagramViewKind.Inheritance:
-                    BuildClassDiagram(_analysis.Structure, inheritanceOnly: true);
+                    BuildClassDiagram(session, session.Analysis!.Structure, inheritanceOnly: true);
                     break;
                 case DiagramViewKind.FileRelations:
-                    BuildFileRelations();
+                    BuildFileRelations(session);
                     break;
                 case DiagramViewKind.DirectoryRelations:
-                    BuildDirectoryRelations();
+                    BuildDirectoryRelations(session);
                     break;
                 case DiagramViewKind.DataFlow:
                     BuildDataFlow(
-                        _analysis.CallGraph,
-                        _dataFlowRootOverride ?? _functionRootIds.FirstOrDefault());
+                        session,
+                        session.Analysis!.CallGraph,
+                        session.DataFlowRootOverride is { } dataFlowRoot
+                            ? [dataFlowRoot]
+                            : ResolveDataFlowRoots(
+                                session.Analysis!.CallGraph,
+                                session.FunctionRootIds));
                     break;
-                case DiagramViewKind.SequenceDiagram:
-                    UpdateSequencePresentationMode();
-                    BeginRebuildSequenceDiagramAsync();
-                    return;
             }
         }
         catch (OperationCanceledException)
@@ -662,22 +822,100 @@ public sealed class StructureDiagramViewer : UserControl
         }
         catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
         {
-            _buildError = true;
-            _boxes.Clear();
-            _edges.Clear();
-            _boxMap.Clear();
-            _sequenceDocument = null;
-            _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(this, _contentSize);
-            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(_viewKind), "구성", ex);
+            session.BuildError = true;
+            session.Error = ex;
+            session.Boxes.Clear();
+            session.Edges.Clear();
+            session.BoxMap.Clear();
+            session.ContentSize = new Size(400, 300);
         }
 
-        EnsureCurrentBoxVisible();
-        Invalidate();
+        return session;
     }
 
-    private async void BeginRebuildSequenceDiagramAsync()
+    private string CreateBuildKey()
     {
+        if (_analysis is null)
+        {
+            return string.Empty;
+        }
+
+        return string.Join(
+            '\u001e',
+            _viewKind,
+            RuntimeHelpers.GetHashCode(_analysis),
+            string.Join('\u001f', _functionRootIds),
+            string.Join('\u001f', _fileRootOverride),
+            string.Join('\u001f', _directoryRootOverride),
+            _dataFlowRootOverride ?? string.Empty,
+            _projectRootDirectory ?? string.Empty,
+            _layoutDirection,
+            _focusedTypeId ?? string.Empty);
+    }
+
+    private void RebuildCore()
+    {
+        if (_viewKind != DiagramViewKind.SequenceDiagram)
+        {
+            return;
+        }
+
+        _zoom.InvalidateCache();
+        _boxes.Clear();
+        _edges.Clear();
+        _boxMap.Clear();
+        _fileEntryRootIds.Clear();
+        _buildError = false;
+        ViewFailureReporter.Clear(this);
+
+        if (_analysis is null)
+        {
+            _sequenceDocument = null;
+            _lastSequenceBuildKey = null;
+            _contentSize = new Size(400, 300);
+            _zoom.ApplyContentSize(this, _contentSize);
+            _sequenceTabHost.SetEmpty("분석을 실행하면 다이어그램이 표시됩니다.");
+            Invalidate();
+            return;
+        }
+
+        UpdateSequencePresentationMode();
+
+        var buildKey = CreateSequenceBuildKey();
+        if (buildKey == _lastSequenceBuildKey && _sequenceDocument is not null && !_buildError)
+        {
+            _sequenceTabHost.SetDocument(_sequenceDocument);
+            Invalidate();
+            return;
+        }
+
+        _sequenceDocument = null;
+        BeginRebuildSequenceDiagramAsync(buildKey);
+    }
+
+    private string CreateSequenceBuildKey()
+    {
+        if (_analysis is null)
+        {
+            return string.Empty;
+        }
+
+        var rootIds = SequenceDiagramBuilder.ResolveSequenceEntryRoots(_analysis.CallGraph, _functionRootIds);
+        return string.Join(
+            '\u001e',
+            RuntimeHelpers.GetHashCode(_analysis),
+            string.Join('\u001f', rootIds.OrderBy(id => id, StringComparer.Ordinal)));
+    }
+
+    private async void BeginRebuildSequenceDiagramAsync(string buildKey)
+    {
+        if (!string.IsNullOrEmpty(buildKey)
+            && string.Equals(buildKey, _activeSequenceBuildKey, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _activeSequenceBuildKey = buildKey;
         var generation = ++_sequenceRebuildGeneration;
         _sequenceTabHost.SetLoading("시퀀스 다이어그램을 준비하는 중...");
 
@@ -687,20 +925,21 @@ public sealed class StructureDiagramViewer : UserControl
 
         try
         {
-            var document = await DeferredProgressRunner.RunAsync(
+            var document = await ViewProgressRunner.RunBackgroundAsync(
                 FindForm(),
                 title,
-                progress => Task.Run(() =>
+                progress =>
                 {
                     var built = SequenceDiagramBuilder.BuildDocument(callGraph, rootIds, progress);
                     return UmlSequenceDiagramRenderer.AttachPanelSizes(built, progress);
-                })).ConfigureAwait(true);
+                }).ConfigureAwait(true);
 
             if (generation != _sequenceRebuildGeneration || IsDisposed)
             {
                 return;
             }
 
+            _lastSequenceBuildKey = buildKey;
             _sequenceDocument = document;
             _sequenceTabHost.SetDocument(_sequenceDocument);
         }
@@ -716,31 +955,39 @@ public sealed class StructureDiagramViewer : UserControl
             }
 
             _buildError = true;
+            _lastSequenceBuildKey = null;
             _sequenceDocument = null;
             ViewFailureReporter.Report(this, title, "구성", ex);
             _sequenceTabHost.SetEmpty(ViewFailureReporter.FormatCanvasMessage(ex, "시퀀스 다이어그램 구성"));
         }
+        finally
+        {
+            if (string.Equals(_activeSequenceBuildKey, buildKey, StringComparison.Ordinal))
+            {
+                _activeSequenceBuildKey = null;
+            }
+        }
     }
 
-    private void BuildFileRelations()
+    private static void BuildFileRelations(StructureDiagramBuildSession s)
     {
-        var full = _analysis!.FileRelations;
+        var full = s.Analysis!.FileRelations;
         FileRelationGraphResult subgraph;
-        var fileRoots = _fileRootOverride.Count > 0
-            ? _fileRootOverride.ToList()
-            : FileCallGraphBuilder.ResolveFileRootsForView(_analysis.CallGraph, _functionRootIds).ToList();
+        var fileRoots = s.FileRootOverride.Count > 0
+            ? s.FileRootOverride.ToList()
+            : FileCallGraphBuilder.ResolveFileRootsForView(s.Analysis.CallGraph, s.FunctionRootIds).ToList();
 
-        if (_fileRootOverride.Count > 0)
+        if (s.FileRootOverride.Count > 0)
         {
-            subgraph = FileCallGraphBuilder.BuildSubgraphFromFileRoots(full, _fileRootOverride);
+            subgraph = FileCallGraphBuilder.BuildSubgraphFromFileRoots(full, s.FileRootOverride);
         }
         else if (fileRoots.Count > 0)
         {
             subgraph = FileCallGraphBuilder.BuildSubgraphFromFileRoots(full, fileRoots);
         }
-        else if (_functionRootIds.Count > 0)
+        else if (s.FunctionRootIds.Count > 0)
         {
-            subgraph = FileCallGraphBuilder.BuildSubgraph(full, _analysis.CallGraph, _functionRootIds);
+            subgraph = FileCallGraphBuilder.BuildSubgraph(full, s.Analysis.CallGraph, s.FunctionRootIds);
         }
         else
         {
@@ -749,8 +996,7 @@ public sealed class StructureDiagramViewer : UserControl
 
         if (subgraph.Files.Count == 0)
         {
-            _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(this, _contentSize);
+            s.ContentSize = new Size(400, 300);
             return;
         }
 
@@ -764,14 +1010,14 @@ public sealed class StructureDiagramViewer : UserControl
             }
 
             var box = FileRelationDiagramRenderer.CreateBox(file);
-            _boxes.Add(box);
-            _boxMap[box.Id] = box;
+            s.Boxes.Add(box);
+            s.BoxMap[box.Id] = box;
         }
 
         ViewProgressReporter.Report(75, "파일 관계 연결을 구성하는 중...");
         foreach (var edge in subgraph.Edges)
         {
-            _edges.Add(new DiagramEdge
+            s.Edges.Add(new DiagramEdge
             {
                 FromId = edge.FromFileId,
                 ToId = edge.ToFileId,
@@ -785,33 +1031,33 @@ public sealed class StructureDiagramViewer : UserControl
         {
             foreach (var rootId in fileRoots)
             {
-                _fileEntryRootIds.Add(rootId);
+                s.FileEntryRootIds.Add(rootId);
             }
 
             var depths = FileCallGraphBuilder.ComputeDepthsFromFileRoots(subgraph, fileRoots);
             ViewProgressReporter.Report(90, "레이아웃을 계산하는 중...");
-            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths, _layoutDirection));
+            s.ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(s.Boxes, depths, s.LayoutDirection));
         }
         else
         {
             var depths = ComputeFileDepths(subgraph);
             ViewProgressReporter.Report(90, "레이아웃을 계산하는 중...");
-            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths, _layoutDirection));
+            s.ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(s.Boxes, depths, s.LayoutDirection));
         }
     }
 
-    private void BuildDirectoryRelations()
+    private static void BuildDirectoryRelations(StructureDiagramBuildSession s)
     {
-        var full = _analysis!.DirectoryRelations;
+        var full = s.Analysis!.DirectoryRelations;
         DirectoryRelationGraphResult subgraph;
 
-        if (_directoryRootOverride.Count > 0)
+        if (s.DirectoryRootOverride.Count > 0)
         {
-            subgraph = DirectoryCallGraphBuilder.BuildSubgraphFromDirectoryRoots(full, _directoryRootOverride);
+            subgraph = DirectoryCallGraphBuilder.BuildSubgraphFromDirectoryRoots(full, s.DirectoryRootOverride);
         }
-        else if (_functionRootIds.Count > 0)
+        else if (s.FunctionRootIds.Count > 0)
         {
-            subgraph = DirectoryCallGraphBuilder.BuildSubgraph(full, _analysis.CallGraph, _functionRootIds);
+            subgraph = DirectoryCallGraphBuilder.BuildSubgraph(full, s.Analysis.CallGraph, s.FunctionRootIds);
         }
         else
         {
@@ -820,12 +1066,11 @@ public sealed class StructureDiagramViewer : UserControl
 
         if (subgraph.Directories.Count == 0)
         {
-            _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(this, _contentSize);
+            s.ContentSize = new Size(400, 300);
             return;
         }
 
-        subgraph = DirectoryCallGraphBuilder.EnrichWithAncestorDirectories(subgraph, _projectRootDirectory);
+        subgraph = DirectoryCallGraphBuilder.EnrichWithAncestorDirectories(subgraph, s.ProjectRootDirectory);
 
         ViewProgressReporter.Report(20, "디렉터리 노드를 구성하는 중...");
         for (var index = 0; index < subgraph.Directories.Count; index++)
@@ -837,14 +1082,14 @@ public sealed class StructureDiagramViewer : UserControl
             }
 
             var box = FileRelationDiagramRenderer.CreateDirectoryBox(directory);
-            _boxes.Add(box);
-            _boxMap[box.Id] = box;
+            s.Boxes.Add(box);
+            s.BoxMap[box.Id] = box;
         }
 
         ViewProgressReporter.Report(75, "디렉터리 관계 연결을 구성하는 중...");
         foreach (var edge in subgraph.Edges)
         {
-            _edges.Add(new DiagramEdge
+            s.Edges.Add(new DiagramEdge
             {
                 FromId = edge.FromDirectoryId,
                 ToId = edge.ToDirectoryId,
@@ -856,18 +1101,18 @@ public sealed class StructureDiagramViewer : UserControl
 
         var primaryRoot = DirectoryCallGraphBuilder.ResolvePrimaryLayoutRoot(
             subgraph,
-            _analysis.CallGraph,
-            _functionRootIds,
-            _directoryRootOverride,
-            _projectRootDirectory);
+            s.Analysis.CallGraph,
+            s.FunctionRootIds,
+            s.DirectoryRootOverride,
+            s.ProjectRootDirectory);
 
         var useProjectPathLayout = false;
         string? projectRootDirectoryId = null;
-        if (_directoryRootOverride.Count == 0
-            && !string.IsNullOrWhiteSpace(_projectRootDirectory)
+        if (s.DirectoryRootOverride.Count == 0
+            && !string.IsNullOrWhiteSpace(s.ProjectRootDirectory)
             && DirectoryCallGraphBuilder.TryGetProjectRootDirectoryId(
                 subgraph,
-                _projectRootDirectory,
+                s.ProjectRootDirectory,
                 out var resolvedProjectRootId))
         {
             useProjectPathLayout = true;
@@ -878,41 +1123,38 @@ public sealed class StructureDiagramViewer : UserControl
         {
             var depths = DirectoryCallGraphBuilder.ComputePathLayoutDepths(
                 subgraph,
-                _projectRootDirectory!,
+                s.ProjectRootDirectory!,
                 projectRootDirectoryId);
             ViewProgressReporter.Report(90, "레이아웃을 계산하는 중...");
-            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths, _layoutDirection));
+            s.ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(s.Boxes, depths, s.LayoutDirection));
         }
         else if (string.IsNullOrEmpty(primaryRoot))
         {
             var depths = ComputeDirectoryDepths(subgraph);
             ViewProgressReporter.Report(90, "레이아웃을 계산하는 중...");
-            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths, _layoutDirection));
+            s.ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(s.Boxes, depths, s.LayoutDirection));
         }
         else
         {
-            var orderedOutgoing = BuildOrderedOutgoing(subgraph.Outgoing);
+            var orderedOutgoing = BuildOrderedOutgoing(s.BoxMap, subgraph.Outgoing);
 
-            // After EnrichWithAncestorDirectories, ancestor nodes are added to the subgraph.
-            // Use the project root (topmost ancestor) as the BFS root so ancestors are placed
-            // left of the selected directory, producing a correct sideways-expanding tree.
             var layoutRoot = primaryRoot;
-            if (!string.IsNullOrWhiteSpace(_projectRootDirectory)
+            if (!string.IsNullOrWhiteSpace(s.ProjectRootDirectory)
                 && DirectoryCallGraphBuilder.TryGetProjectRootDirectoryId(
-                    subgraph, _projectRootDirectory, out var topRootId)
-                && _boxMap.ContainsKey(topRootId))
+                    subgraph, s.ProjectRootDirectory, out var topRootId)
+                && s.BoxMap.ContainsKey(topRootId))
             {
                 layoutRoot = topRootId;
             }
 
             ViewProgressReporter.Report(90, "레이아웃을 계산하는 중...");
-            ApplyBoxContentSize(_layoutDirection == GraphLayoutDirection.TopToBottom
+            s.ApplyBoxContentSize(s.LayoutDirection == GraphLayoutDirection.TopToBottom
                 ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(
-                    _boxes,
+                    s.Boxes,
                     orderedOutgoing,
                     layoutRoot)
                 : DiagramBoxLayoutEngine.LayoutLeftToRightTree(
-                    _boxes,
+                    s.Boxes,
                     orderedOutgoing,
                     layoutRoot));
         }
@@ -972,7 +1214,8 @@ public sealed class StructureDiagramViewer : UserControl
         return depths;
     }
 
-    private IReadOnlyDictionary<string, List<string>> BuildOrderedOutgoing(
+    private static IReadOnlyDictionary<string, List<string>> BuildOrderedOutgoing(
+        IReadOnlyDictionary<string, DiagramBoxNode> boxMap,
         IReadOnlyDictionary<string, List<string>> outgoing)
     {
         var ordered = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -980,9 +1223,9 @@ public sealed class StructureDiagramViewer : UserControl
         foreach (var (fromId, children) in outgoing)
         {
             ordered[fromId] = children
-                .Where(childId => _boxMap.ContainsKey(childId))
+                .Where(childId => boxMap.ContainsKey(childId))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(childId => _boxMap[childId].Title, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(childId => boxMap[childId].Title, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(childId => childId, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -1043,7 +1286,10 @@ public sealed class StructureDiagramViewer : UserControl
         return depths;
     }
 
-    private void BuildClassDiagram(ProjectStructureResult structure, bool inheritanceOnly)
+    private static void BuildClassDiagram(
+        StructureDiagramBuildSession s,
+        ProjectStructureResult structure,
+        bool inheritanceOnly)
     {
         var hierarchyRelations = structure.Relations
             .Where(relation => relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation)
@@ -1052,12 +1298,12 @@ public sealed class StructureDiagramViewer : UserControl
         List<StructureRelationEdge> relations;
         var typeIds = new HashSet<string>(StringComparer.Ordinal);
 
-        if (_focusedTypeId is not null && structure.TypeMap.ContainsKey(_focusedTypeId))
+        if (s.FocusedTypeId is not null && structure.TypeMap.ContainsKey(s.FocusedTypeId))
         {
-            typeIds.Add(_focusedTypeId);
+            typeIds.Add(s.FocusedTypeId);
             foreach (var relation in structure.Relations)
             {
-                if (relation.FromId == _focusedTypeId || relation.ToId == _focusedTypeId)
+                if (relation.FromId == s.FocusedTypeId || relation.ToId == s.FocusedTypeId)
                 {
                     typeIds.Add(relation.FromId);
                     typeIds.Add(relation.ToId);
@@ -1103,18 +1349,18 @@ public sealed class StructureDiagramViewer : UserControl
             }
 
             var box = UmlClassDiagramRenderer.CreateBox(type);
-            _boxes.Add(box);
-            _boxMap[box.Id] = box;
+            s.Boxes.Add(box);
+            s.BoxMap[box.Id] = box;
         }
 
         foreach (var relation in relations)
         {
-            if (!_boxMap.ContainsKey(relation.FromId) || !_boxMap.ContainsKey(relation.ToId))
+            if (!s.BoxMap.ContainsKey(relation.FromId) || !s.BoxMap.ContainsKey(relation.ToId))
             {
                 continue;
             }
 
-            _edges.Add(new DiagramEdge
+            s.Edges.Add(new DiagramEdge
             {
                 FromId = relation.FromId,
                 ToId = relation.ToId,
@@ -1123,11 +1369,11 @@ public sealed class StructureDiagramViewer : UserControl
             });
         }
 
-        var depths = ComputeTypeDepths(_boxMap.Keys, relations);
+        var depths = ComputeTypeDepths(s.BoxMap.Keys, relations);
 
         var clusteringEdges = inheritanceOnly
-            ? _edges
-            : _edges.Concat(
+            ? s.Edges
+            : s.Edges.Concat(
                     structure.Relations
                         .Where(relation => relation.Kind == StructureRelationKind.Dependency)
                         .Select(relation => new DiagramEdge
@@ -1139,17 +1385,45 @@ public sealed class StructureDiagramViewer : UserControl
                         }))
                 .ToList();
 
-        ApplyBoxContentSize(UmlClassDiagramRenderer.Layout(_boxes, depths, clusteringEdges));
+        s.ApplyBoxContentSize(UmlClassDiagramRenderer.Layout(s.Boxes, depths, clusteringEdges));
         ViewProgressReporter.Report(95, "클래스 다이어그램 레이아웃 완료");
     }
 
     private static bool IsDisplayableStructureType(string typeId) =>
         !StructureTypeIdResolver.IsSyntheticCallDependencyType(typeId);
 
-    private void BuildDataFlow(CallGraphResult callGraph, string? rootNodeId)
+    private static IReadOnlyList<string> ResolveDataFlowRoots(
+        CallGraphResult callGraph,
+        IReadOnlyList<string> functionRootIds)
+    {
+        var roots = functionRootIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Where(id => callGraph.NodeMap.ContainsKey(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (roots.Count > 0)
+        {
+            return roots;
+        }
+
+        var entryPointIds = CallGraphEntryPointResolver.GetConventionEntryPointIds(callGraph);
+        if (entryPointIds.Count > 0)
+        {
+            return entryPointIds.ToList();
+        }
+
+        var fallback = CallGraphEntryPointResolver.FindFallbackRoot(callGraph);
+        return fallback is null ? [] : [fallback.Id];
+    }
+
+    private static void BuildDataFlow(
+        StructureDiagramBuildSession s,
+        CallGraphResult callGraph,
+        IReadOnlyList<string> rootNodeIds)
     {
         ViewProgressReporter.Report(25, "데이터 흐름을 분석하는 중...");
-        var flow = DataFlowDiagramBuilder.Build(callGraph, rootNodeId);
+        var flow = DataFlowDiagramBuilder.BuildFromRoots(callGraph, rootNodeIds);
         ViewProgressReporter.Report(55, "데이터 흐름 노드를 구성하는 중...");
         foreach (var node in flow.Nodes)
         {
@@ -1160,13 +1434,13 @@ public sealed class StructureDiagramViewer : UserControl
                 Subtitle = "함수",
                 Lines = [node.FullName, "→ 호출/데이터 전달"]
             };
-            _boxes.Add(box);
-            _boxMap[box.Id] = box;
+            s.Boxes.Add(box);
+            s.BoxMap[box.Id] = box;
         }
 
         foreach (var edge in flow.Edges)
         {
-            _edges.Add(new DiagramEdge
+            s.Edges.Add(new DiagramEdge
             {
                 FromId = edge.FromId,
                 ToId = edge.ToId,
@@ -1174,16 +1448,20 @@ public sealed class StructureDiagramViewer : UserControl
             });
         }
 
-        var root = rootNodeId ?? flow.Nodes.FirstOrDefault()?.Id ?? string.Empty;
         ViewProgressReporter.Report(90, "레이아웃을 계산하는 중...");
-        ApplyBoxContentSize(string.IsNullOrEmpty(root)
-            ? DiagramBoxLayoutEngine.LayoutLayered(
-                _boxes,
-                _boxes.ToDictionary(box => box.Id, _ => 0),
-                _layoutDirection)
-            : _layoutDirection == GraphLayoutDirection.TopToBottom
-                ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(_boxes, flow.Outgoing, root)
-                : DiagramBoxLayoutEngine.LayoutLeftToRightTree(_boxes, flow.Outgoing, root));
+        if (rootNodeIds.Count == 1 && !string.IsNullOrWhiteSpace(rootNodeIds[0]))
+        {
+            var root = rootNodeIds[0];
+            s.ApplyBoxContentSize(s.LayoutDirection == GraphLayoutDirection.TopToBottom
+                ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(s.Boxes, flow.Outgoing, root)
+                : DiagramBoxLayoutEngine.LayoutLeftToRightTree(s.Boxes, flow.Outgoing, root));
+            return;
+        }
+
+        var depthById = flow.DepthById.Count > 0
+            ? flow.DepthById
+            : s.Boxes.ToDictionary(box => box.Id, _ => 0, StringComparer.Ordinal);
+        s.ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(s.Boxes, depthById, s.LayoutDirection));
     }
 
     private static Dictionary<string, int> ComputeTypeDepths(

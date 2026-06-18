@@ -6,63 +6,90 @@ namespace CodeAnalyzer.Controls;
 
 internal sealed class SequenceDiagramPanelViewer : UserControl
 {
-    private SequenceDiagramPanel? _panel;
+    private SequenceDiagramPanel? _sourcePanel;
+    private SequenceDiagramPanel? _displayPanel;
     private Size _contentSize = new(400, 300);
     private readonly DiagramZoomController _zoom = new();
+    private readonly EntryPointTabPager _messagePager = new();
+    private readonly Panel _headerPanel = new()
+    {
+        Dock = DockStyle.Top,
+        AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink
+    };
+    private readonly DiagramScrollSurface _scrollSurface = new();
 
     public SequenceDiagramPanelViewer()
     {
         DoubleBuffered = true;
         SetStyle(ControlStyles.ResizeRedraw, true);
         BackColor = Color.White;
-        AutoScroll = true;
+        AutoScroll = false;
         _zoom.SetMaxZoom(4f);
+
+        _messagePager.Visible = false;
+        _messagePager.Dock = DockStyle.Top;
+        _messagePager.PageChanged += () => ApplyMessagePage(resetZoom: true);
+
+        _scrollSurface.Dock = DockStyle.Fill;
+        _scrollSurface.BackColor = Color.White;
+        _scrollSurface.PaintDiagram += OnScrollSurfacePaint;
+        _scrollSurface.MouseWheel += OnScrollSurfaceMouseWheel;
+
+        _headerPanel.Controls.Add(_messagePager);
+        Controls.Add(_scrollSurface);
+        Controls.Add(_headerPanel);
+        _headerPanel.BringToFront();
     }
 
     public void SetPanel(SequenceDiagramPanel? panel)
     {
-        _panel = panel;
+        _sourcePanel = panel;
+        _displayPanel = null;
         _zoom.Reset();
         _zoom.InvalidateCache();
 
         if (panel is null)
         {
+            SyncMessagePager(0);
             _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(this, _contentSize);
+            _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+            _scrollSurface.Invalidate();
             Invalidate();
             return;
         }
 
         try
         {
-            var measured = UmlSequenceDiagramRenderer.MeasurePanel(panel);
-            _contentSize = new Size(
-                Math.Min(measured.Width, AnalysisScaleLimits.MaxSequenceDiagramCacheDimension),
-                measured.Height);
-            _zoom.ApplyContentSize(this, _contentSize);
+            SyncMessagePager(panel.Diagram.Messages.Count);
+            ApplyMessagePage(resetZoom: false);
         }
         catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
         {
-            _panel = null;
+            _sourcePanel = null;
+            _displayPanel = null;
+            SyncMessagePager(0);
             _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(this, _contentSize);
+            _zoom.ApplyContentSize(_scrollSurface, _contentSize);
             ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.SequenceDiagram), "구성", ex);
         }
 
+        _scrollSurface.Invalidate();
         Invalidate();
     }
 
     public void ResetView()
     {
         _zoom.Reset();
-        _zoom.ApplyContentSize(this, _contentSize);
-        AutoScrollPosition = new Point(0, 0);
-        Invalidate();
+        _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+        _scrollSurface.AutoScrollPosition = new Point(0, 0);
+        _scrollSurface.Invalidate();
+        SyncMessagePagerState();
     }
 
     public Bitmap? ExportToBitmap()
     {
-        if (_panel is null)
+        if (_displayPanel is null)
         {
             return null;
         }
@@ -82,28 +109,17 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         return bmp;
     }
 
-    protected override void OnMouseWheel(MouseEventArgs e)
-    {
-        if (_zoom.HandleMouseWheel(this, e, _contentSize))
-        {
-            Invalidate();
-            return;
-        }
-
-        base.OnMouseWheel(e);
-    }
-
     protected override void OnPaintBackground(PaintEventArgs e)
     {
         using var brush = new SolidBrush(BackColor);
         e.Graphics.FillRectangle(brush, e.ClipRectangle);
     }
 
-    protected override void OnPaint(PaintEventArgs e)
+    private void OnScrollSurfacePaint(PaintEventArgs e)
     {
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        if (_panel is null)
+        if (_displayPanel is null)
         {
             DrawMessage(e.Graphics, "표시할 시퀀스 다이어그램이 없습니다.");
             return;
@@ -113,7 +129,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         {
             _zoom.PaintDocument(
                 e.Graphics,
-                this,
+                _scrollSurface,
                 e.ClipRectangle,
                 _contentSize,
                 BackColor,
@@ -132,20 +148,93 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         }
     }
 
+    private void OnScrollSurfaceMouseWheel(object? sender, MouseEventArgs e)
+    {
+        if (_zoom.HandleMouseWheel(_scrollSurface, e, _contentSize))
+        {
+            _scrollSurface.Invalidate();
+        }
+    }
+
+    private void ApplyMessagePage(bool resetZoom)
+    {
+        if (_sourcePanel is null)
+        {
+            _displayPanel = null;
+            _contentSize = new Size(400, 300);
+            _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+            return;
+        }
+
+        var pageDiagram = SequenceDiagramMessagePaginator.CreatePage(_sourcePanel.Diagram, _messagePager.PageIndex);
+        var layout = UmlSequenceDiagramRenderer.BuildLayout(pageDiagram);
+        _displayPanel = new SequenceDiagramPanel
+        {
+            RootId = _sourcePanel.RootId,
+            Title = _sourcePanel.Title,
+            Diagram = pageDiagram,
+            Layout = layout,
+            LayoutSize = layout.DiagramSize
+        };
+
+        var measured = UmlSequenceDiagramRenderer.MeasurePanel(_displayPanel);
+        _contentSize = new Size(
+            Math.Min(measured.Width, AnalysisScaleLimits.MaxSequenceDiagramCacheDimension),
+            measured.Height);
+
+        if (resetZoom)
+        {
+            _zoom.Reset();
+            _scrollSurface.AutoScrollPosition = new Point(0, 0);
+        }
+
+        _zoom.InvalidateCache();
+        _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+        SyncMessagePagerState();
+        _scrollSurface.Invalidate();
+    }
+
+    private void SyncMessagePager(int messageCount)
+    {
+        var preserveIndex = _messagePager.Visible
+            ? _messagePager.PageIndex * AnalysisScaleLimits.MaxSequenceDiagramMessagesPerPage
+            : (int?)null;
+        _messagePager.Configure(
+            messageCount,
+            AnalysisScaleLimits.MaxSequenceDiagramMessagesPerPage,
+            "메시지",
+            preserveIndex,
+            oneBasedRangeLabels: true);
+        _headerPanel.Visible = _messagePager.Visible;
+        _headerPanel.BringToFront();
+    }
+
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
-        _zoom.ApplyContentSize(this, _contentSize);
+        SyncMessagePagerState();
     }
 
-    private void DrawContent(Graphics graphics)
+    private void SyncMessagePagerState()
     {
-        if (_panel is null)
+        if (_sourcePanel is null)
         {
             return;
         }
 
-        UmlSequenceDiagramRenderer.DrawSinglePanel(graphics, _panel);
+        _messagePager.EnsureVisibleState();
+        _headerPanel.Visible = _messagePager.Visible;
+        _headerPanel.BringToFront();
+    }
+
+    private void DrawContent(Graphics graphics)
+    {
+        if (_displayPanel is null)
+        {
+            return;
+        }
+
+        UmlSequenceDiagramRenderer.DrawSinglePanel(graphics, _displayPanel);
     }
 
     private static void DrawMessage(Graphics graphics, string message)
@@ -153,5 +242,25 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         using var font = new Font("Segoe UI", 10f);
         using var brush = new SolidBrush(Color.FromArgb(100, 110, 125));
         graphics.DrawString(message, font, brush, 12, 12);
+    }
+
+    private sealed class DiagramScrollSurface : Panel
+    {
+        public event Action<PaintEventArgs>? PaintDiagram;
+
+        public DiagramScrollSurface()
+        {
+            DoubleBuffered = true;
+            AutoScroll = true;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            using var brush = new SolidBrush(BackColor);
+            e.Graphics.FillRectangle(brush, e.ClipRectangle);
+        }
+
+        protected override void OnPaint(PaintEventArgs e) => PaintDiagram?.Invoke(e);
     }
 }

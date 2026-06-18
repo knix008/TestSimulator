@@ -13,6 +13,10 @@ internal partial class EntryPointTabPager : UserControl
     private int _pageIndex;
     private bool _suppressPageChange;
 
+    private int _pageSize = AnalysisScaleLimits.MaxEntryPointTabsPerPage;
+    private string _itemSummaryLabel = "진입점";
+    private bool _oneBasedRangeLabels;
+
     public EntryPointTabPager()
     {
         InitializeComponent();
@@ -25,22 +29,29 @@ internal partial class EntryPointTabPager : UserControl
 
     public int PageIndex => _pageIndex;
 
-    public int PageSize => AnalysisScaleLimits.MaxEntryPointTabsPerPage;
+    public int PageSize => _pageSize;
 
     public int PageCount => _totalItems == 0
         ? 0
-        : (int)Math.Ceiling(_totalItems / (double)PageSize);
+        : (int)Math.Ceiling(_totalItems / (double)_pageSize);
 
-    public void Configure(int totalItems, int? preserveGlobalIndex = null)
+    public void Configure(int totalItems, int? preserveGlobalIndex = null) =>
+        Configure(totalItems, AnalysisScaleLimits.MaxEntryPointTabsPerPage, "진입점", preserveGlobalIndex);
+
+    public void Configure(int totalItems, int pageSize, string itemSummaryLabel, int? preserveGlobalIndex = null, bool oneBasedRangeLabels = false)
     {
         _totalItems = Math.Max(0, totalItems);
+        _pageSize = Math.Max(1, pageSize);
+        _itemSummaryLabel = string.IsNullOrWhiteSpace(itemSummaryLabel) ? "항목" : itemSummaryLabel.Trim();
+        _oneBasedRangeLabels = oneBasedRangeLabels;
         _suppressPageChange = true;
         try
         {
             _pageCombo.Items.Clear();
-            if (_totalItems <= PageSize)
+            if (_totalItems <= _pageSize)
             {
                 Visible = false;
+                Height = 0;
                 _pageIndex = 0;
                 _summaryLabel.Text = string.Empty;
                 UpdateNavButtonStates();
@@ -48,15 +59,17 @@ internal partial class EntryPointTabPager : UserControl
             }
 
             Visible = true;
+            Height = 36;
+            MinimumSize = new Size(NavButtonWidth * 2 + PageLabelWidth + PageComboWidth + 24, 36);
             var pageCount = PageCount;
             for (var page = 0; page < pageCount; page++)
             {
                 _pageCombo.Items.Add(FormatPageLabel(page, pageCount));
             }
 
-            _summaryLabel.Text = $"진입점 {_totalItems:N0}개 — 페이지당 {PageSize:N0}개";
+            _summaryLabel.Text = $"{_itemSummaryLabel} {_totalItems:N0}개 — 페이지당 {_pageSize:N0}개";
             _pageIndex = preserveGlobalIndex.HasValue
-                ? Math.Clamp(preserveGlobalIndex.Value / PageSize, 0, pageCount - 1)
+                ? Math.Clamp(preserveGlobalIndex.Value / _pageSize, 0, pageCount - 1)
                 : Math.Clamp(_pageIndex, 0, pageCount - 1);
             _pageCombo.SelectedIndex = _pageIndex;
             UpdateNavButtonStates();
@@ -139,14 +152,40 @@ internal partial class EntryPointTabPager : UserControl
 
     private void UpdateNavButtonStates()
     {
-        _prevPageButton.Enabled = Visible && _pageIndex > 0;
-        _nextPageButton.Enabled = Visible && _pageIndex < PageCount - 1;
+        var canNavigate = Visible && PageCount > 1;
+        _prevPageButton.Enabled = canNavigate && _pageIndex > 0;
+        _nextPageButton.Enabled = canNavigate && _pageIndex < PageCount - 1;
+        _prevPageButton.Visible = canNavigate;
+        _nextPageButton.Visible = canNavigate;
+    }
+
+    public void EnsureVisibleState()
+    {
+        if (_totalItems <= _pageSize)
+        {
+            return;
+        }
+
+        if (!Visible || Height < 32)
+        {
+            Visible = true;
+            Height = 36;
+        }
+
+        UpdateNavButtonStates();
+        BringToFront();
     }
 
     private string FormatPageLabel(int pageIndex, int pageCount)
     {
-        var start = pageIndex * PageSize;
-        var end = Math.Min(start + PageSize, _totalItems) - 1;
-        return $"{start}–{end} ({pageIndex + 1}/{pageCount})";
+        var start = pageIndex * _pageSize;
+        var endExclusive = Math.Min(start + _pageSize, _totalItems);
+        if (_oneBasedRangeLabels)
+        {
+            return $"{start + 1}–{endExclusive} ({pageIndex + 1}/{pageCount})";
+        }
+
+        var endInclusive = endExclusive - 1;
+        return $"{start}–{endInclusive} ({pageIndex + 1}/{pageCount})";
     }
 }

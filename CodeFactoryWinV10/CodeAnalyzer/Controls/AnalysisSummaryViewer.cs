@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -46,6 +47,7 @@ public sealed class AnalysisSummaryViewer : UserControl
     private AnalysisResult? _analysis;
     private string? _projectRoot;
     private bool _isAnalyzing;
+    private int _refreshGeneration;
     private IReadOnlyList<SummarySection> _sections = [];
 
     public event Action<DiagramViewKind>? NavigationRequested;
@@ -74,7 +76,69 @@ public sealed class AnalysisSummaryViewer : UserControl
         _isAnalyzing = false;
         _analysis = analysis;
         _projectRoot = projectRoot;
-        Rebuild();
+        _ = RefreshAsync();
+    }
+
+    public Task SetAnalysisAsync(AnalysisResult? analysis, string? projectRoot)
+    {
+        _isAnalyzing = false;
+        _analysis = analysis;
+        _projectRoot = projectRoot;
+        return RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_isAnalyzing)
+        {
+            return;
+        }
+
+        var generation = ++_refreshGeneration;
+        var analysis = _analysis;
+        var projectRoot = _projectRoot;
+        var title = DiagramViewDisplayNames.Get(DiagramViewKind.Summary);
+
+        var sections = await ViewProgressRunner.RunBackgroundAsync(
+            FindForm(),
+            title,
+            progress =>
+            {
+                progress.Report(new AnalysisProgressReport
+                {
+                    Percent = 40,
+                    Message = "Summary 카드를 구성하는 중...",
+                    Elapsed = TimeSpan.Zero
+                });
+                return AnalysisSummarySectionBuilder.Build(analysis);
+            }).ConfigureAwait(true);
+
+        if (generation != _refreshGeneration || IsDisposed)
+        {
+            return;
+        }
+
+        _sections = sections;
+        if (_sections.Count == 0)
+        {
+            _header.Text = "품질 Summary";
+            ClearCards();
+            ShowPlaceholder("표시할 품질 분석 결과가 없습니다. 프로젝트를 분석한 뒤 다시 확인하세요.");
+            return;
+        }
+
+        var rootHint = string.IsNullOrWhiteSpace(projectRoot) ? string.Empty : $" · {projectRoot}";
+        var areaCount = _sections.Count(section => !section.IsFullWidth);
+        _header.Text = areaCount > 0
+            ? $"품질 Summary — {areaCount}개 영역{rootHint}"
+            : $"품질 Summary{rootHint}";
+        ClearCards();
+        foreach (var section in _sections)
+        {
+            _cardsPanel.Controls.Add(CreateCard(section));
+        }
+
+        LayoutCards();
     }
 
     public void BeginAnalysis()

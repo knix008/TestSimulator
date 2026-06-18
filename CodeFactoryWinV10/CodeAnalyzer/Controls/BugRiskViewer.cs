@@ -148,9 +148,27 @@ public sealed class BugRiskViewer : UserControl
         _projectRoot = projectRoot;
         _isAnalyzing = false;
         _selectedLanguageId = null;
-        RebuildLangStrip();
-        RebuildList();
+        _ = RefreshAsync();
     }
+
+    public Task SetResultAsync(BugRiskResult? result, string? projectRoot = null)
+    {
+        _result = result;
+        _projectRoot = projectRoot;
+        _isAnalyzing = false;
+        _selectedLanguageId = null;
+        return RefreshAsync();
+    }
+
+    private Task RefreshAsync() =>
+        AsyncViewRefresh.RunUiRebuildAsync(
+            this,
+            DiagramViewKind.BugRisk,
+            () =>
+            {
+                RebuildLangStrip();
+                RebuildList();
+            });
 
     public void BeginAnalysis()
     {

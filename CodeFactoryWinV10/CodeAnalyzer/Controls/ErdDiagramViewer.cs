@@ -18,6 +18,9 @@ public sealed class ErdDiagramViewer : UserControl
     private string? _selectedTableId;
     private bool _buildError;
     private int _lastLayoutWidth;
+    private int _rebuildGeneration;
+    private DatabaseSchemaResult? _lastBuiltSchema;
+    private int _lastBuiltLayoutWidth;
 
     public ErdDiagramViewer()
     {
@@ -43,7 +46,7 @@ public sealed class ErdDiagramViewer : UserControl
         _selectedTableId = null;
         _buildError = false;
         ViewFailureReporter.Clear(this);
-        Rebuild();
+        _ = RebuildInBackgroundAsync();
     }
 
     public void BeginAnalysis()
@@ -261,44 +264,90 @@ public sealed class ErdDiagramViewer : UserControl
         }
     }
 
-    private void Rebuild()
+    private async Task RebuildInBackgroundAsync()
+    {
+        var generation = ++_rebuildGeneration;
+        var layoutWidth = ClientSize.Width > 0 ? ClientSize.Width : 480;
+        var title = DiagramViewDisplayNames.Get(DiagramViewKind.DatabaseErd);
+
+        if (_schema is null || _schema.Tables.Count == 0)
+        {
+            _lastBuiltSchema = null;
+            ApplyEmptyBuild();
+            return;
+        }
+
+        if (ReferenceEquals(_schema, _lastBuiltSchema)
+            && layoutWidth == _lastBuiltLayoutWidth
+            && _boxes.Count > 0
+            && !_buildError)
+        {
+            return;
+        }
+
+        var session = new ErdDiagramBuildSession
+        {
+            Schema = _schema,
+            LayoutWidth = layoutWidth
+        };
+
+        try
+        {
+            var built = await ViewProgressRunner.RunBackgroundAsync(
+                FindForm(),
+                title,
+                _ => BuildSession(session)).ConfigureAwait(true);
+
+            if (generation != _rebuildGeneration || IsDisposed)
+            {
+                return;
+            }
+
+            ApplyBuildSession(built);
+            _lastBuiltSchema = _schema;
+            _lastBuiltLayoutWidth = layoutWidth;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        {
+            if (generation != _rebuildGeneration || IsDisposed)
+            {
+                return;
+            }
+
+            ApplyBuildFailure(ex);
+        }
+    }
+
+    private void ApplyEmptyBuild()
     {
         _boxes.Clear();
         _relations.Clear();
         _boxMap.Clear();
         _buildError = false;
+        _contentSize = new Size(480, 320);
+        _zoom.ApplyContentSize(this, _contentSize);
+        Invalidate();
+    }
+
+    private void ApplyBuildSession(ErdDiagramBuildSession session)
+    {
+        _boxes.Clear();
+        _boxes.AddRange(session.Boxes);
+        _relations.Clear();
+        _relations.AddRange(session.Relations);
+        _boxMap.Clear();
+        foreach (var pair in session.BoxMap)
+        {
+            _boxMap[pair.Key] = pair.Value;
+        }
+
+        _buildError = session.BuildError;
         ViewFailureReporter.Clear(this);
 
-        if (_schema is null || _schema.Tables.Count == 0)
-        {
-            _contentSize = new Size(480, 320);
-            _zoom.ApplyContentSize(this, _contentSize);
-            Invalidate();
-            return;
-        }
-
-        try
-        {
-            ViewProgressReporter.Report(20, "테이블 노드를 구성하는 중...");
-            foreach (var table in _schema.Tables.Where(t => t.SourceKind != "sql-detected"))
-            {
-                var box = ErdDiagramRenderer.CreateTableBox(table);
-                _boxes.Add(box);
-                _boxMap[box.Id] = box;
-            }
-
-            ViewProgressReporter.Report(70, "관계를 구성하는 중...");
-            _relations.AddRange(_schema.Relations);
-            _lastLayoutWidth = ClientSize.Width;
-            ViewProgressReporter.Report(90, "ERD 레이아웃을 계산하는 중...");
-            _contentSize = ErdDiagramRenderer.Layout(_boxes, _relations, _lastLayoutWidth);
-            _zoom.ApplyContentSize(this, _contentSize);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        if (session.Error is not null)
         {
             _buildError = true;
             _boxes.Clear();
@@ -306,10 +355,67 @@ public sealed class ErdDiagramViewer : UserControl
             _boxMap.Clear();
             _contentSize = new Size(480, 320);
             _zoom.ApplyContentSize(this, _contentSize);
-            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.DatabaseErd), "구성", ex);
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.DatabaseErd), "구성", session.Error);
+        }
+        else
+        {
+            _contentSize = session.ContentSize;
+            _lastLayoutWidth = session.LayoutWidth;
+            _zoom.ApplyContentSize(this, _contentSize);
         }
 
         Invalidate();
+    }
+
+    private void ApplyBuildFailure(Exception ex)
+    {
+        _buildError = true;
+        _boxes.Clear();
+        _relations.Clear();
+        _boxMap.Clear();
+        _contentSize = new Size(480, 320);
+        _zoom.ApplyContentSize(this, _contentSize);
+        ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.DatabaseErd), "구성", ex);
+        Invalidate();
+    }
+
+    private static ErdDiagramBuildSession BuildSession(ErdDiagramBuildSession session)
+    {
+        try
+        {
+            ViewProgressReporter.Report(20, "테이블 노드를 구성하는 중...");
+            foreach (var table in session.Schema!.Tables.Where(t => t.SourceKind != "sql-detected"))
+            {
+                var box = ErdDiagramRenderer.CreateTableBox(table);
+                session.Boxes.Add(box);
+                session.BoxMap[box.Id] = box;
+            }
+
+            ViewProgressReporter.Report(70, "관계를 구성하는 중...");
+            session.Relations.AddRange(session.Schema.Relations);
+            ViewProgressReporter.Report(90, "ERD 레이아웃을 계산하는 중...");
+            session.ContentSize = ErdDiagramRenderer.Layout(session.Boxes, session.Relations, session.LayoutWidth);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        {
+            session.BuildError = true;
+            session.Error = ex;
+            session.Boxes.Clear();
+            session.Relations.Clear();
+            session.BoxMap.Clear();
+            session.ContentSize = new Size(480, 320);
+        }
+
+        return session;
+    }
+
+    private void Rebuild()
+    {
+        _ = RebuildInBackgroundAsync();
     }
 
     private void DrawDiagram(Graphics graphics)

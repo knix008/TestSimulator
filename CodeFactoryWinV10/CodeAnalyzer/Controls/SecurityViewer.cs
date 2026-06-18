@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -146,10 +147,28 @@ public sealed class SecurityViewer : UserControl
         _projectRoot = projectRoot;
         _isAnalyzing = false;
         _selectedLanguageId = null;
-        RebuildRuleFilter();
-        RebuildLangStrip();
-        RebuildList();
+        _ = RefreshAsync();
     }
+
+    public Task SetResultAsync(SecurityAnalysisResult? result, string? projectRoot = null)
+    {
+        _result = result;
+        _projectRoot = projectRoot;
+        _isAnalyzing = false;
+        _selectedLanguageId = null;
+        return RefreshAsync();
+    }
+
+    private Task RefreshAsync() =>
+        AsyncViewRefresh.RunUiRebuildAsync(
+            this,
+            DiagramViewKind.InformationSecurity,
+            () =>
+            {
+                RebuildRuleFilter();
+                RebuildLangStrip();
+                RebuildList();
+            });
 
     public void BeginAnalysis()
     {

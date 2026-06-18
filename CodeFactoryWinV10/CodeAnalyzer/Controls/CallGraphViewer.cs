@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 
@@ -26,6 +27,9 @@ public sealed class CallGraphViewer : UserControl
     private bool _buildError;
     private string? _hubTargetNodeId;
     private GraphVisualNode? _hubTargetNode;
+    private int _rebuildGeneration;
+    private string? _lastVisualBuildKey;
+    private bool _suppressResizeContentSizing;
     private Image? _hourglassGifImage;
     private bool _hourglassGifLoadAttempted;
     private readonly EventHandler _hourglassGifFrameChangedHandler;
@@ -136,12 +140,30 @@ public sealed class CallGraphViewer : UserControl
 
     public IReadOnlyList<string> RootNodeIds => _rootNodeIds;
 
+    internal bool SuppressResizeContentSizing
+    {
+        get => _suppressResizeContentSizing;
+        set => _suppressResizeContentSizing = value;
+    }
+
     public void SetGraph(CallGraphResult? graph, string? rootNodeId)
     {
         SetGraph(graph, string.IsNullOrWhiteSpace(rootNodeId) ? [] : [rootNodeId]);
     }
 
     public void SetGraph(CallGraphResult? graph, IReadOnlyList<string> rootNodeIds)
+    {
+        PrepareSetGraph(graph, rootNodeIds);
+        _ = RebuildVisualTreeAsync();
+    }
+
+    public Task SetGraphAsync(CallGraphResult? graph, IReadOnlyList<string> rootNodeIds)
+    {
+        PrepareSetGraph(graph, rootNodeIds);
+        return RebuildVisualTreeAsync();
+    }
+
+    private void PrepareSetGraph(CallGraphResult? graph, IReadOnlyList<string> rootNodeIds)
     {
         _isAnalyzing = false;
         _buildError = false;
@@ -154,12 +176,12 @@ public sealed class CallGraphViewer : UserControl
         _hubTargetNodeId = null;
         _hubTargetNode = null;
         _collapsedNodeIds.Clear();
+        CallGraphExpandHelper.ApplyInitialCollapse(_graph, _rootNodeIds, _collapsedNodeIds);
+        _lastVisualBuildKey = null;
         ClearSearchHighlight();
         _zoom.Reset();
         StopAnalysisAnimation();
         if (!UseWaitCursor) Cursor = Cursors.Default;
-
-        RebuildVisualTree();
     }
 
     public void SetGlobalVariableAccessGraph(
@@ -184,7 +206,7 @@ public sealed class CallGraphViewer : UserControl
         StopAnalysisAnimation();
         if (!UseWaitCursor) Cursor = Cursors.Default;
 
-        RebuildVisualTree();
+        _ = RebuildVisualTreeAsync();
     }
 
     public void BeginAnalysis()
@@ -224,7 +246,13 @@ public sealed class CallGraphViewer : UserControl
 
     public void ExpandAll()
     {
+        if (_collapsedNodeIds.Count == 0)
+        {
+            return;
+        }
+
         _collapsedNodeIds.Clear();
+        _lastVisualBuildKey = null;
         RebuildVisualTree();
     }
 
@@ -672,13 +700,25 @@ public sealed class CallGraphViewer : UserControl
             _collapsedNodeIds.Add(nodeId);
         }
 
-        RebuildVisualTree();
+        _lastVisualBuildKey = null;
+        _ = RebuildVisualTreeAsync();
     }
 
     private Point ClientToDocument(Point clientPoint) => _zoom.ClientToDocument(this, clientPoint);
 
-    private void RebuildVisualTree()
+    private void RebuildVisualTree() => _ = RebuildVisualTreeAsync();
+
+    private async Task RebuildVisualTreeAsync()
     {
+        var generation = ++_rebuildGeneration;
+        var title = DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph);
+        var buildKey = CreateVisualBuildKey();
+
+        if (buildKey == _lastVisualBuildKey && _roots.Count > 0 && !_buildError)
+        {
+            return;
+        }
+
         _roots = [];
         _visualNodeCount = 0;
         _visualTreeTruncated = false;
@@ -694,133 +734,60 @@ public sealed class CallGraphViewer : UserControl
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(_hubTargetNodeId))
+        var session = new CallGraphVisualBuildSession
         {
-            RebuildHubAccessVisualTree();
-            Invalidate();
-            return;
-        }
-
-        _hubTargetNode = null;
-
-        if (_rootNodeIds.Count == 0)
-        {
-            _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(this, _contentSize);
-            Invalidate();
-            return;
-        }
+            Graph = _graph,
+            RootNodeIds = _rootNodeIds,
+            LayoutDirection = _layoutDirection,
+            CollapsedNodeIds = _collapsedNodeIds,
+            HubTargetNodeId = _hubTargetNodeId
+        };
 
         try
         {
-            ViewProgressReporter.Report(15, "호출 트리를 구성하는 중...");
-            foreach (var rootNodeId in _rootNodeIds)
-            {
-                if (!_graph.NodeMap.ContainsKey(rootNodeId))
-                {
-                    continue;
-                }
+            var built = await ViewProgressRunner.RunBackgroundAsync(
+                FindForm(),
+                title,
+                _ => CallGraphVisualBuilder.Build(session)).ConfigureAwait(true);
 
-                var visitedOnPath = new HashSet<string>(StringComparer.Ordinal);
-                var rootVisual = BuildVisualNode(rootNodeId, visitedOnPath, depth: 0);
-                if (rootVisual is not null)
-                {
-                    _roots.Add(rootVisual);
-                }
-            }
-
-            if (_roots.Count == 0)
+            if (generation != _rebuildGeneration || IsDisposed)
             {
-                _contentSize = new Size(400, 300);
-                _zoom.ApplyContentSize(this, _contentSize);
-                Invalidate();
                 return;
             }
 
-            ViewProgressReporter.Report(85, "호출 그래프 레이아웃을 계산하는 중...");
-            _contentSize = InflateGraphContentSize(CallGraphLayoutEngine.Layout(_roots, _layoutDirection));
-            _zoom.InvalidateCache();
-            _zoom.ApplyContentSize(this, _contentSize);
+            ApplyVisualBuildSession(built);
+            _lastVisualBuildKey = buildKey;
         }
         catch (OperationCanceledException)
         {
-            throw;
         }
         catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
         {
+            if (generation != _rebuildGeneration || IsDisposed)
+            {
+                return;
+            }
+
             _buildError = true;
             _roots = [];
+            _hubTargetNode = null;
             _contentSize = new Size(400, 300);
             _zoom.InvalidateCache();
             _zoom.ApplyContentSize(this, _contentSize);
-            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph), "구성", ex);
+            ViewFailureReporter.Report(this, title, "구성", ex);
+            Invalidate();
         }
-
-        Invalidate();
     }
 
-    private void RebuildHubAccessVisualTree()
+    private void ApplyVisualBuildSession(CallGraphVisualBuildSession session)
     {
-        _roots = [];
-        _hubTargetNode = null;
+        _roots = session.Roots;
+        _hubTargetNode = session.HubTargetNode;
+        _visualNodeCount = session.VisualNodeCount;
+        _visualTreeTruncated = session.VisualTreeTruncated;
+        _buildError = session.BuildError;
 
-        if (!_graph!.NodeMap.TryGetValue(_hubTargetNodeId!, out var targetData))
-        {
-            _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(this, _contentSize);
-            return;
-        }
-
-        try
-        {
-            foreach (var rootNodeId in _rootNodeIds)
-            {
-                if (!_graph.NodeMap.TryGetValue(rootNodeId, out var accessorData))
-                {
-                    continue;
-                }
-
-                _visualNodeCount++;
-                _roots.Add(new GraphVisualNode
-                {
-                    Data = accessorData,
-                    HasChildren = false,
-                    IsExpanded = true
-                });
-            }
-
-            if (_roots.Count == 0)
-            {
-                _visualNodeCount++;
-                _roots.Add(new GraphVisualNode
-                {
-                    Data = targetData,
-                    HasChildren = false,
-                    IsExpanded = true
-                });
-                _contentSize = InflateGraphContentSize(CallGraphLayoutEngine.Layout(_roots, _layoutDirection));
-            }
-            else
-            {
-                _visualNodeCount++;
-                _hubTargetNode = new GraphVisualNode
-                {
-                    Data = targetData,
-                    HasChildren = false,
-                    IsExpanded = true
-                };
-                _contentSize = InflateGraphContentSize(
-                    CallGraphLayoutEngine.LayoutHubAccess(_roots, _hubTargetNode, _layoutDirection));
-            }
-
-            _zoom.InvalidateCache();
-            _zoom.ApplyContentSize(this, _contentSize);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        if (session.Error is not null)
         {
             _buildError = true;
             _roots = [];
@@ -828,8 +795,35 @@ public sealed class CallGraphViewer : UserControl
             _contentSize = new Size(400, 300);
             _zoom.InvalidateCache();
             _zoom.ApplyContentSize(this, _contentSize);
-            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph), "구성", ex);
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph), "구성", session.Error);
+            Invalidate();
+            return;
         }
+
+        _contentSize = session.ContentSize;
+        _zoom.InvalidateCache();
+        _zoom.ApplyContentSize(this, _contentSize);
+        Invalidate();
+    }
+
+    private string? CreateVisualBuildKey()
+    {
+        if (_graph is null)
+        {
+            return null;
+        }
+
+        var roots = string.Join('\u001f', _rootNodeIds);
+        var collapsed = string.Join(
+            '\u001f',
+            _collapsedNodeIds.OrderBy(id => id, StringComparer.Ordinal));
+        return string.Join(
+            '\u001e',
+            RuntimeHelpers.GetHashCode(_graph),
+            roots,
+            _layoutDirection,
+            _hubTargetNodeId ?? string.Empty,
+            collapsed);
     }
 
     private IEnumerable<GraphVisualNode> EnumerateVisualNodes()
@@ -843,78 +837,6 @@ public sealed class CallGraphViewer : UserControl
         {
             yield return _hubTargetNode;
         }
-    }
-
-    private Size InflateGraphContentSize(Size layoutSize)
-    {
-        var bounds = new List<Rectangle>();
-        foreach (var node in EnumerateVisualNodes())
-        {
-            bounds.Add(node.Bounds);
-            if (!node.ToggleBounds.IsEmpty)
-            {
-                bounds.Add(node.ToggleBounds);
-            }
-        }
-
-        return DiagramZoomController.InflateContentSize(layoutSize, bounds);
-    }
-
-    private GraphVisualNode? BuildVisualNode(string nodeId, HashSet<string> visitedOnPath, int depth)
-    {
-        if (_visualNodeCount >= AnalysisScaleLimits.MaxCallGraphVisualNodes
-            || depth >= AnalysisScaleLimits.MaxCallGraphVisualDepth)
-        {
-            _visualTreeTruncated = true;
-            return null;
-        }
-
-        if (!_graph!.NodeMap.TryGetValue(nodeId, out var data))
-        {
-            return null;
-        }
-
-        _visualNodeCount++;
-
-        if (visitedOnPath.Contains(nodeId))
-        {
-            return new GraphVisualNode
-            {
-                Data = data,
-                HasChildren = false,
-                IsExpanded = false
-            };
-        }
-
-        visitedOnPath.Add(nodeId);
-
-        var childIds = _graph.Outgoing.TryGetValue(nodeId, out var outgoing) ? outgoing : [];
-        var isExpanded = !_collapsedNodeIds.Contains(nodeId);
-
-        var visualNode = new GraphVisualNode
-        {
-            Data = data,
-            HasChildren = childIds.Count > 0,
-            IsExpanded = isExpanded
-        };
-
-        if (isExpanded)
-        {
-            foreach (var childId in childIds)
-            {
-                var child = BuildVisualNode(childId, visitedOnPath, depth + 1);
-                if (child is null)
-                {
-                    continue;
-                }
-
-                child.Parent = visualNode;
-                visualNode.Children.Add(child);
-            }
-        }
-
-        visitedOnPath.Remove(nodeId);
-        return visualNode;
     }
 
     private void DrawPlaceholder(Graphics graphics)
@@ -1372,6 +1294,11 @@ public sealed class CallGraphViewer : UserControl
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        if (_suppressResizeContentSizing)
+        {
+            return;
+        }
+
         _zoom.ApplyContentSize(this, _contentSize);
     }
 

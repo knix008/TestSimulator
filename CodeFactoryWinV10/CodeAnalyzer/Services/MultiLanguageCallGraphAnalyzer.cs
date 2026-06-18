@@ -277,8 +277,13 @@ public sealed class MultiLanguageCallGraphAnalyzer
             try
             {
                 duplicates = await Task.Run(
-                    () => DuplicateCodeAnalyzer.Analyze(sourceFiles, minDuplicateLines, cancellationToken),
+                    () => DuplicateCodeAnalyzer.Analyze(
+                        sourceFiles,
+                        minDuplicateLines,
+                        cancellationToken,
+                        message => tracker.Report(message, stepDelta: 0)),
                     cancellationToken).ConfigureAwait(false);
+                tracker.Report($"중복 코드 검색 완료 ({duplicates.Groups.Count:N0}건)");
             }
             catch (OperationCanceledException)
             {

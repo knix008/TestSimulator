@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing.Drawing2D;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 
@@ -22,6 +23,8 @@ internal sealed class UmlSequenceDiagramRenderer
     private const int DocumentPanelBottomPadding = 16;
     private const int DocumentPanelSeparator = 24;
     private const int DocumentGlobalNoteHeight = 22;
+    private const float GdiSafeCoordinateMin = -32_768f;
+    private const float GdiSafeCoordinateMax = 32_767f;
 
     public static Size Measure(SequenceDiagramResult? sequence)
     {
@@ -80,6 +83,11 @@ internal sealed class UmlSequenceDiagramRenderer
             height += 22;
         }
 
+        if (!string.IsNullOrWhiteSpace(panel.Diagram.PageNote))
+        {
+            height += 22;
+        }
+
         return new Size(
             Math.Min(Math.Max(panelSize.Width, 400), AnalysisScaleLimits.MaxSequenceDiagramCacheDimension),
             Math.Max(height, 280));
@@ -91,6 +99,12 @@ internal sealed class UmlSequenceDiagramRenderer
         if (!string.IsNullOrWhiteSpace(panel.Diagram.TruncationNote))
         {
             DrawNote(graphics, panel.Diagram.TruncationNote, 12, y);
+            y += 22;
+        }
+
+        if (!string.IsNullOrWhiteSpace(panel.Diagram.PageNote))
+        {
+            DrawNote(graphics, panel.Diagram.PageNote, 12, y);
             y += 22;
         }
 
@@ -114,7 +128,8 @@ internal sealed class UmlSequenceDiagramRenderer
         for (var index = 0; index < document.Panels.Count; index++)
         {
             var panel = document.Panels[index];
-            var layout = BuildLayout(panel.Diagram);
+            var layoutSource = SequenceDiagramMessagePaginator.GetLayoutSource(panel.Diagram);
+            var layout = BuildLayout(layoutSource);
             panels.Add(new SequenceDiagramPanel
             {
                 RootId = panel.RootId,
@@ -375,7 +390,12 @@ internal sealed class UmlSequenceDiagramRenderer
             var from = resolvedLayout.Participants[messageDraw.FromIndex];
             var to = resolvedLayout.Participants[messageDraw.ToIndex];
             var y = messageDraw.Y;
-            var label = $"{messageDraw.Message.Order + 1}: {messageDraw.Message.Label}";
+            if (!IsDrawableCoordinate(y) || !IsDrawableCoordinate(from.LifelineX) || !IsDrawableCoordinate(to.LifelineX))
+            {
+                continue;
+            }
+
+            var label = $"{messageDraw.Message.Order + 1 + sequence.MessageIndexOffset}: {messageDraw.Message.Label}";
 
             if (messageDraw.IsSelfCall)
             {
@@ -397,7 +417,7 @@ internal sealed class UmlSequenceDiagramRenderer
         }
     }
 
-    private static SequenceDiagramLayoutData BuildLayout(SequenceDiagramResult sequence)
+    internal static SequenceDiagramLayoutData BuildLayout(SequenceDiagramResult sequence)
     {
         var participantWidths = sequence.ParticipantIds
             .Select(id =>
@@ -549,7 +569,12 @@ internal sealed class UmlSequenceDiagramRenderer
 
     private static void DrawFilledArrow(Graphics graphics, Pen pen, Brush fill, Point start, Point end)
     {
-        if (start.X == end.X && start.Y == end.Y)
+        DrawFilledArrow(graphics, pen, fill, new PointF(start.X, start.Y), new PointF(end.X, end.Y));
+    }
+
+    private static void DrawFilledArrow(Graphics graphics, Pen pen, Brush fill, PointF start, PointF end)
+    {
+        if (Math.Abs(start.X - end.X) < 0.5f && Math.Abs(start.Y - end.Y) < 0.5f)
         {
             return;
         }
@@ -565,21 +590,38 @@ internal sealed class UmlSequenceDiagramRenderer
         var ux = dx / len;
         var uy = dy / len;
         var tip = end;
-        var baseCenterX = tip.X - ux * 10;
-        var baseCenterY = tip.Y - uy * 10;
-        var perpX = -uy * 5;
-        var perpY = ux * 5;
+        var baseCenterX = tip.X - ux * 10f;
+        var baseCenterY = tip.Y - uy * 10f;
+        var perpX = -uy * 5f;
+        var perpY = ux * 5f;
 
         var points = new[]
         {
             tip,
-            new Point((int)(baseCenterX + perpX), (int)(baseCenterY + perpY)),
-            new Point((int)(baseCenterX - perpX), (int)(baseCenterY - perpY))
+            new PointF(baseCenterX + perpX, baseCenterY + perpY),
+            new PointF(baseCenterX - perpX, baseCenterY - perpY)
         };
 
-        graphics.FillPolygon(fill, points);
-        graphics.DrawPolygon(pen, points);
+        if (!IsDrawableCoordinate(points[0].X, points[0].Y)
+            || !IsDrawableCoordinate(points[1].X, points[1].Y)
+            || !IsDrawableCoordinate(points[2].X, points[2].Y))
+        {
+            return;
+        }
+
+        using var path = new GraphicsPath();
+        path.AddPolygon(points);
+        graphics.FillPath(fill, path);
+        graphics.DrawPath(pen, path);
     }
+
+    private static bool IsDrawableCoordinate(float value) =>
+        value >= GdiSafeCoordinateMin && value <= GdiSafeCoordinateMax;
+
+    private static bool IsDrawableCoordinate(int value) => IsDrawableCoordinate((float)value);
+
+    private static bool IsDrawableCoordinate(float x, float y) =>
+        IsDrawableCoordinate(x) && IsDrawableCoordinate(y);
 
     private static string GetDisplayName(SequenceDiagramResult sequence, string id)
     {

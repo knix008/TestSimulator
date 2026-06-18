@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 using CodeAnalyzer.Services.Duplicates;
 
 namespace CodeAnalyzer.Controls;
@@ -63,6 +64,7 @@ public sealed class DuplicateCodeViewer : UserControl
     private DuplicateCodeFragment? _selectedFragment;
     private string? _projectRoot;
     private bool _isAnalyzing;
+    private int _refreshGeneration;
     private readonly ListViewColumnHeaderToolTip _groupListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _fragmentListHeaderToolTip;
 
@@ -174,7 +176,88 @@ public sealed class DuplicateCodeViewer : UserControl
     {
         _duplicates = duplicates;
         _projectRoot = projectRoot;
-        RebuildGroupList();
+        _ = RebuildGroupListAsync();
+    }
+
+    public Task SetDuplicatesAsync(DuplicateCodeResult? duplicates, string? projectRoot = null)
+    {
+        _duplicates = duplicates;
+        _projectRoot = projectRoot;
+        return RebuildGroupListAsync();
+    }
+
+    private async Task RebuildGroupListAsync()
+    {
+        var generation = ++_refreshGeneration;
+        var duplicates = _duplicates;
+        var isAnalyzing = _isAnalyzing;
+        var title = DiagramViewDisplayNames.Get(DiagramViewKind.DuplicateCode);
+
+        if (duplicates is null || duplicates.Groups.Count == 0)
+        {
+            ApplyEmptyGroupList(isAnalyzing);
+            return;
+        }
+
+        await AsyncListViewRefresh.RunAsync(
+            this,
+            title,
+            generation,
+            () => _refreshGeneration,
+            progress =>
+            {
+                ViewProgressReporter.Report(30, "중복 코드 그룹 목록을 구성하는 중...");
+                var items = new List<ListViewItem>(duplicates.Groups.Count);
+                foreach (var group in duplicates.Groups)
+                {
+                    var item = new ListViewItem(group.Id);
+                    item.SubItems.Add(group.LineCount.ToString());
+                    item.SubItems.Add(group.Fragments.Count.ToString());
+                    item.Tag = group;
+                    items.Add(item);
+                }
+
+                var totalFragments = duplicates.Groups.Sum(group => group.Fragments.Count);
+                var duplicateLines = duplicates.Groups.Sum(group =>
+                    group.LineCount * Math.Max(0, group.Fragments.Count - 1));
+                var summary =
+                    $"기준 {duplicates.MinDuplicateLines}줄 이상(≥) 중복 · 그룹 {duplicates.Groups.Count}건 · " +
+                    $"위치 {totalFragments}곳 · 중복 줄 {duplicateLines:N0} · 더블클릭/버튼: 파일 열기";
+                return (summary, items);
+            },
+            result =>
+            {
+                _groupList.BeginUpdate();
+                _groupList.Items.Clear();
+                _fragmentList.Items.Clear();
+                ClearPreview();
+                _selectedGroup = null;
+                _selectedFragment = null;
+                _openFileButton.Enabled = false;
+                _summaryLabel.Text = result.summary;
+                _groupList.Items.AddRange(result.items.ToArray());
+                if (_groupList.Items.Count > 0)
+                {
+                    _groupList.Items[0].Selected = true;
+                }
+
+                _groupList.EndUpdate();
+            }).ConfigureAwait(true);
+    }
+
+    private void ApplyEmptyGroupList(bool isAnalyzing)
+    {
+        _groupList.BeginUpdate();
+        _groupList.Items.Clear();
+        _fragmentList.Items.Clear();
+        ClearPreview();
+        _selectedGroup = null;
+        _selectedFragment = null;
+        _openFileButton.Enabled = false;
+        _summaryLabel.Text = isAnalyzing
+            ? "중복 코드 분석 중..."
+            : "표시할 중복 코드가 없습니다. 분석 실행 후 결과가 여기에 표시됩니다.";
+        _groupList.EndUpdate();
     }
 
     public void BeginAnalysis()
@@ -195,49 +278,7 @@ public sealed class DuplicateCodeViewer : UserControl
         _isAnalyzing = false;
     }
 
-    private void RebuildGroupList()
-    {
-        _groupList.BeginUpdate();
-        _groupList.Items.Clear();
-        _fragmentList.Items.Clear();
-        ClearPreview();
-        _selectedGroup = null;
-        _selectedFragment = null;
-        _openFileButton.Enabled = false;
-
-        if (_duplicates is null || _duplicates.Groups.Count == 0)
-        {
-            _summaryLabel.Text = _isAnalyzing
-                ? "중복 코드 분석 중..."
-                : "표시할 중복 코드가 없습니다. 분석 실행 후 결과가 여기에 표시됩니다.";
-            _groupList.EndUpdate();
-            return;
-        }
-
-        var totalFragments = _duplicates.Groups.Sum(group => group.Fragments.Count);
-        var duplicateLines = _duplicates.Groups.Sum(group =>
-            group.LineCount * Math.Max(0, group.Fragments.Count - 1));
-        _summaryLabel.Text =
-            $"기준 {_duplicates.MinDuplicateLines}줄 이상(≥) 중복 · 그룹 {_duplicates.Groups.Count}건 · " +
-            $"위치 {totalFragments}곳 · 중복 줄 {duplicateLines:N0} · 더블클릭/버튼: 파일 열기";
-
-        ViewProgressReporter.Report(30, "중복 코드 그룹 목록을 구성하는 중...");
-        foreach (var group in _duplicates.Groups)
-        {
-            var item = new ListViewItem(group.Id);
-            item.SubItems.Add(group.LineCount.ToString());
-            item.SubItems.Add(group.Fragments.Count.ToString());
-            item.Tag = group;
-            _groupList.Items.Add(item);
-        }
-
-        if (_groupList.Items.Count > 0)
-        {
-            _groupList.Items[0].Selected = true;
-        }
-
-        _groupList.EndUpdate();
-    }
+    private void RebuildGroupList() => _ = RebuildGroupListAsync();
 
     private void ShowSelectedGroup()
     {

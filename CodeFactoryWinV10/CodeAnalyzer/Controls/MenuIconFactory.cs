@@ -216,6 +216,42 @@ internal static class MenuIconFactory
         g.DrawLine(cross, 11, 5, 5, 11);
     });
 
+    public static Bitmap CreateExpandAllIcon() => Draw(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(46, 125, 50), 2f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        };
+        g.DrawLine(pen, 4, 6, 8, 10);
+        g.DrawLine(pen, 8, 10, 12, 6);
+    });
+
+    public static Bitmap CreateCollapseAllIcon() => Draw(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(198, 40, 40), 2f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        };
+        g.DrawLine(pen, 4, 10, 8, 6);
+        g.DrawLine(pen, 8, 6, 12, 10);
+    });
+
+    public static Bitmap CreateResetViewIcon() => Draw(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(55, 90, 140), 1.6f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round
+        };
+        g.DrawArc(pen, 3, 3, 10, 10, 45, 270);
+        g.DrawLine(pen, 10, 3, 12, 1);
+        g.DrawLine(pen, 10, 3, 8, 5);
+    });
+
     private static Bitmap DrawSized(int size, Action<Graphics> draw)
     {
         var bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);

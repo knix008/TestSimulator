@@ -21,6 +21,8 @@ public partial class MainForm : Form
     private readonly List<RootSelection> _rootHistory = new();
     private int _rootHistoryIndex = -1;
     private bool _suppressDirectoryListEvents;
+    private bool _suppressLanguageListEvents;
+    private bool _languageSelectionCustomized;
     private bool _suppressRootHistory;
     private IReadOnlyList<SearchResultItem> _searchResults = [];
     private int _searchIndex = -1;
@@ -44,7 +46,10 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        EnsureDiagramViewHost();
+        WireDiagramViewHostEvents();
         InitializeMenuIcons();
+        InitializeToolbarButtons();
         _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(_userSettings.LoadSettings());
         _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
         UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
@@ -70,24 +75,17 @@ public partial class MainForm : Form
             _searchPopup.Owner = this;
             HookClickOutsideToHideSearch(this);
         };
-        checkedListDirectories.ItemCheck += (_, _) =>
+        directorySelectionTree.SelectionChanged += (_, _) =>
         {
             if (!_suppressDirectoryListEvents && IsHandleCreated)
             {
                 BeginInvoke(() =>
                 {
                     PersistDirectorySelectionsFromSidebar();
-                    AutoDetectLanguages(txtRootPath.Text.Trim());
+                    RefreshLanguageSelection(txtRootPath.Text.Trim());
                 });
             }
         };
-        diagramViewHost.CallGraphRootChanged += OnCallGraphRootChanged;
-        diagramViewHost.FileRootChanged += OnFileRootChanged;
-        diagramViewHost.DirectoryRootChanged += OnDirectoryRootChanged;
-        diagramViewHost.MetricsNavigationRequested += OnMetricsNavigationRequested;
-        diagramViewHost.GlobalVariableAccessGraphRequested += OnGlobalVariableAccessGraphRequested;
-        diagramViewHost.DatabaseTableAccessGraphRequested += OnDatabaseTableAccessGraphRequested;
-        diagramViewHost.SummaryNavigationRequested += OnSummaryNavigationRequested;
         InitializeOptionControls();
         LoadLanguageList();
         RestoreUserSettings();
@@ -96,6 +94,37 @@ public partial class MainForm : Form
         UpdateToolbarForViewKind();
         UpdateRootHistoryNavigationState();
         LayoutRootPathControls();
+    }
+
+    private void EnsureDiagramViewHost()
+    {
+        if (diagramViewHost is not null)
+        {
+            return;
+        }
+
+        diagramViewHost = new DiagramViewHost
+        {
+            Dock = DockStyle.Fill,
+            Name = "diagramViewHost",
+            TabIndex = 1,
+            ViewKind = DiagramViewKind.CallGraph
+        };
+
+        splitContainerMain.Panel2.Controls.Add(diagramViewHost);
+        diagramViewHost.SendToBack();
+        panelToolbar.BringToFront();
+    }
+
+    private void WireDiagramViewHostEvents()
+    {
+        diagramViewHost.CallGraphRootChanged += OnCallGraphRootChanged;
+        diagramViewHost.FileRootChanged += OnFileRootChanged;
+        diagramViewHost.DirectoryRootChanged += OnDirectoryRootChanged;
+        diagramViewHost.MetricsNavigationRequested += OnMetricsNavigationRequested;
+        diagramViewHost.GlobalVariableAccessGraphRequested += OnGlobalVariableAccessGraphRequested;
+        diagramViewHost.DatabaseTableAccessGraphRequested += OnDatabaseTableAccessGraphRequested;
+        diagramViewHost.SummaryNavigationRequested += OnSummaryNavigationRequested;
     }
 
     private const int RootPathControlGap = 8;
@@ -187,6 +216,31 @@ public partial class MainForm : Form
             Message = _lastAnalysisProgressReport.Message,
             Elapsed = elapsed
         });
+    }
+
+    private void InitializeToolbarButtons()
+    {
+        ConfigureToolbarButton(btnExpandAll, MenuIconFactory.CreateExpandAllIcon(), "전체 펼치기");
+        ConfigureToolbarButton(btnCollapseAll, MenuIconFactory.CreateCollapseAllIcon(), "전체 접기");
+        ConfigureToolbarButton(btnResetView, MenuIconFactory.CreateResetViewIcon(), "뷰 초기화");
+    }
+
+    private void ConfigureToolbarButton(Button button, Bitmap icon, string text)
+    {
+        button.Image = RegisterMenuImage(icon);
+        button.Text = text;
+        button.TextAlign = ContentAlignment.MiddleLeft;
+        button.ImageAlign = ContentAlignment.MiddleLeft;
+        button.TextImageRelation = TextImageRelation.ImageBeforeText;
+        button.Padding = new Padding(6, 0, 8, 0);
+        button.UseVisualStyleBackColor = true;
+
+        var textWidth = TextRenderer.MeasureText(text, button.Font, Size.Empty, TextFormatFlags.NoPadding).Width;
+        var minWidth = button.Padding.Horizontal + 18 + textWidth;
+        if (button.Width < minWidth)
+        {
+            button.Width = minWidth;
+        }
     }
 
     private void InitializeMenuIcons()
@@ -344,9 +398,20 @@ public partial class MainForm : Form
 
         foreach (var language in LanguageRegistry.All)
         {
-            var index = checkedListLanguages.Items.Add(language);
-            checkedListLanguages.SetItemChecked(index, true);
+            checkedListLanguages.Items.Add(language);
         }
+
+        checkedListLanguages.ItemCheck += checkedListLanguages_ItemCheck;
+    }
+
+    private void checkedListLanguages_ItemCheck(object? sender, ItemCheckEventArgs e)
+    {
+        if (_suppressLanguageListEvents)
+        {
+            return;
+        }
+
+        BeginInvoke(OnLanguageSelectionChangedByUser);
     }
 
     private void btnBrowseRoot_Click(object? sender, EventArgs e)
@@ -374,12 +439,15 @@ public partial class MainForm : Form
 
     private void RestoreUserSettings()
     {
+        var persistedSettings = _userSettings.LoadSettings();
         if (_userSettings.HasSettingsFile())
         {
-            _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(_userSettings.LoadSettings());
+            _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(persistedSettings);
             _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
             UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
         }
+
+        _languageSelectionCustomized = persistedSettings.LanguageSelectionCustomized;
 
         if (string.IsNullOrWhiteSpace(_analysisSettings.LastRootDirectory))
         {
@@ -474,6 +542,8 @@ public partial class MainForm : Form
         settings.LastRootDirectory = Directory.Exists(rootPath)
             ? Path.GetFullPath(rootPath)
             : _userSettings.LoadSettings().LastRootDirectory;
+        settings.LanguageSelectionCustomized = _languageSelectionCustomized;
+        settings.EnabledLanguageIds = GetSelectedLanguageIds().ToList();
         return settings;
     }
 
@@ -512,23 +582,16 @@ public partial class MainForm : Form
         _suppressDirectoryListEvents = true;
         try
         {
-            checkedListDirectories.Items.Clear();
-            checkedListDirectories.Items.Add(new DirectoryListEntry("."), isChecked: true);
-
             var directories = DirectoryScanService.ScanSubdirectories(rootPath);
-            foreach (var directory in directories)
-            {
-                checkedListDirectories.Items.Add(new DirectoryListEntry(directory), isChecked: true);
-            }
-
-            var knownPaths = GetDirectoryPathsFromSidebar();
-            IReadOnlyList<string> includedForSidebar;
+            IReadOnlyList<string> includedForTree;
             if (includedPathsOverride is { Count: > 0 })
             {
-                includedForSidebar = includedPathsOverride;
+                includedForTree = includedPathsOverride;
             }
             else
             {
+                var knownPaths = new List<string> { "." };
+                knownPaths.AddRange(directories);
                 var settings = _userSettings.LoadSettings();
                 var hadLegacyIncludeList = settings.IncludedDirectoryPaths.Count > 0;
                 DirectoryScopeSettings.MigrateLegacyIncludedPaths(settings, knownPaths);
@@ -537,17 +600,32 @@ public partial class MainForm : Form
                     _userSettings.SaveSettings(settings);
                 }
 
-                includedForSidebar = DirectoryScopeSettings.ResolveIncludedPathsForSidebar(
+                includedForTree = DirectoryScopeSettings.ResolveIncludedPathsForSidebar(
                     knownPaths,
                     settings.IncludedDirectoryPaths,
                     settings.ExcludedDirectoryPaths);
             }
 
-            ApplyDirectoryChecksFromIncluded(includedForSidebar);
+            directorySelectionTree.LoadDirectories(rootPath, directories, includedForTree);
         }
         finally
         {
             _suppressDirectoryListEvents = false;
+        }
+
+        RefreshLanguageSelection(rootPath, restoreCustomizedSelection: true);
+    }
+
+    private void RefreshLanguageSelection(string rootPath, bool restoreCustomizedSelection = false)
+    {
+        if (_languageSelectionCustomized)
+        {
+            if (restoreCustomizedSelection)
+            {
+                ApplyLanguageSelection(_userSettings.LoadSettings().EnabledLanguageIds);
+            }
+
+            return;
         }
 
         AutoDetectLanguages(rootPath);
@@ -555,36 +633,59 @@ public partial class MainForm : Form
 
     private void AutoDetectLanguages(string rootPath)
     {
-        if (!Directory.Exists(rootPath))
-            return;
-
-        var foundIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var relativePath in GetIncludedDirectoriesFromSidebar())
+        if (_languageSelectionCustomized || !Directory.Exists(rootPath))
         {
-            var fullPath = relativePath == "." ? rootPath : Path.Combine(rootPath, relativePath);
-            if (!Directory.Exists(fullPath))
-                continue;
+            return;
+        }
 
-            try
+        var includedDirectories = GetIncludedDirectoriesFromSidebar();
+        var foundIds = includedDirectories.Count == 0
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : DirectoryLanguageDetector.DetectLanguageIds(rootPath, includedDirectories);
+
+        ApplyLanguageSelection(foundIds);
+    }
+
+    private void ApplyLanguageSelection(IEnumerable<string> languageIds)
+    {
+        var ids = languageIds is HashSet<string> hashSet
+            ? hashSet
+            : languageIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        _suppressLanguageListEvents = true;
+        try
+        {
+            for (var i = 0; i < checkedListLanguages.Items.Count; i++)
             {
-                foreach (var file in Directory.EnumerateFiles(fullPath, "*.*", SearchOption.TopDirectoryOnly))
+                if (checkedListLanguages.Items[i] is ProgrammingLanguage lang)
                 {
-                    var lang = LanguageRegistry.FindByExtension(Path.GetExtension(file));
-                    if (lang is not null)
-                        foundIds.Add(lang.Id);
+                    checkedListLanguages.SetItemChecked(i, ids.Contains(lang.Id));
                 }
             }
-            catch (UnauthorizedAccessException) { }
-            catch (DirectoryNotFoundException) { }
+        }
+        finally
+        {
+            _suppressLanguageListEvents = false;
+        }
+    }
+
+    private void OnLanguageSelectionChangedByUser()
+    {
+        if (_suppressLanguageListEvents)
+        {
+            return;
         }
 
-        var list = checkedListLanguages;
-        for (var i = 0; i < list.Items.Count; i++)
-        {
-            if (list.Items[i] is ProgrammingLanguage lang)
-                list.SetItemChecked(i, foundIds.Contains(lang.Id));
-        }
+        _languageSelectionCustomized = true;
+        PersistLanguageSelection();
+    }
+
+    private void PersistLanguageSelection()
+    {
+        var settings = _userSettings.LoadSettings();
+        settings.LanguageSelectionCustomized = _languageSelectionCustomized;
+        settings.EnabledLanguageIds = GetSelectedLanguageIds().ToList();
+        _userSettings.SaveSettings(settings);
     }
 
     private void ApplyDirectoryChecksFromIncluded(IReadOnlyList<string> includedPaths)
@@ -592,17 +693,7 @@ public partial class MainForm : Form
         _suppressDirectoryListEvents = true;
         try
         {
-            var included = new HashSet<string>(
-                includedPaths.Select(path => path == "." ? "." : path),
-                StringComparer.OrdinalIgnoreCase);
-
-            for (var i = 0; i < checkedListDirectories.Items.Count; i++)
-            {
-                if (TryGetDirectoryRelativePath(checkedListDirectories.Items[i], out var path))
-                {
-                    checkedListDirectories.SetItemChecked(i, included.Contains(path));
-                }
-            }
+            directorySelectionTree.SetIncludedPaths(includedPaths);
         }
         finally
         {
@@ -612,22 +703,12 @@ public partial class MainForm : Form
 
     private void ApplyDirectoryChecksToSidebar(IReadOnlyList<string> excludedPaths)
     {
-        _suppressDirectoryListEvents = true;
-        try
-        {
-            var excluded = new HashSet<string>(excludedPaths, StringComparer.OrdinalIgnoreCase);
-            for (var i = 0; i < checkedListDirectories.Items.Count; i++)
-            {
-                if (TryGetDirectoryRelativePath(checkedListDirectories.Items[i], out var path))
-                {
-                    checkedListDirectories.SetItemChecked(i, !excluded.Contains(path));
-                }
-            }
-        }
-        finally
-        {
-            _suppressDirectoryListEvents = false;
-        }
+        var knownPaths = GetDirectoryPathsFromSidebar();
+        var included = DirectoryScopeSettings.ResolveIncludedPathsForSidebar(
+            knownPaths,
+            [],
+            excludedPaths);
+        ApplyDirectoryChecksFromIncluded(included);
     }
 
     private void PersistDirectorySelectionsFromSidebar()
@@ -643,50 +724,11 @@ public partial class MainForm : Form
         _userSettings.SaveSettings(settings);
     }
 
-    private List<string> GetDirectoryPathsFromSidebar()
-    {
-        var paths = new List<string>();
-        for (var i = 0; i < checkedListDirectories.Items.Count; i++)
-        {
-            if (TryGetDirectoryRelativePath(checkedListDirectories.Items[i], out var path))
-            {
-                paths.Add(path);
-            }
-        }
+    private List<string> GetDirectoryPathsFromSidebar() =>
+        directorySelectionTree.GetAllKnownPaths().ToList();
 
-        return paths;
-    }
-
-    private List<string> GetIncludedDirectoriesFromSidebar()
-    {
-        var included = new List<string>();
-        for (var i = 0; i < checkedListDirectories.Items.Count; i++)
-        {
-            if (checkedListDirectories.GetItemChecked(i)
-                && TryGetDirectoryRelativePath(checkedListDirectories.Items[i], out var path))
-            {
-                included.Add(path);
-            }
-        }
-
-        return included;
-    }
-
-    private static bool TryGetDirectoryRelativePath(object? item, out string path)
-    {
-        switch (item)
-        {
-            case DirectoryListEntry entry:
-                path = entry.RelativePath;
-                return true;
-            case string relativePath when !string.IsNullOrWhiteSpace(relativePath):
-                path = relativePath;
-                return true;
-            default:
-                path = "";
-                return false;
-        }
-    }
+    private List<string> GetIncludedDirectoriesFromSidebar() =>
+        directorySelectionTree.GetIncludedPaths().ToList();
 
     private IEnumerable<string> GetSelectedLanguageIds()
     {
@@ -711,17 +753,22 @@ public partial class MainForm : Form
             return;
         }
 
-        var enabledLanguages = GetSelectedLanguageIds().ToList();
-        if (enabledLanguages.Count == 0)
-        {
-            MessageBox.Show(this, "분석할 프로그래밍 언어를 하나 이상 선택하세요.", "분석", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
-
         var includedDirectories = GetIncludedDirectoriesFromSidebar();
         if (includedDirectories.Count == 0)
         {
             MessageBox.Show(this, "분석할 하위 디렉터리를 하나 이상 선택하세요.", "분석", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var enabledLanguages = GetSelectedLanguageIds().ToList();
+        if (enabledLanguages.Count == 0)
+        {
+            MessageBox.Show(
+                this,
+                "선택한 디렉터리에서 분석할 수 있는 프로그래밍 언어 파일을 찾지 못했습니다.\n디렉터리 선택 또는 소스 파일 확장자를 확인하세요.",
+                "분석",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
             return;
         }
 
@@ -1198,7 +1245,6 @@ public partial class MainForm : Form
             diagramViewHost.ClearGlobalVariableAccessGraph();
         }
 
-        diagramViewHost.ViewKind = GetSelectedViewKind();
         UpdateToolbarForViewKind();
 
         if (_lastAnalysis is not null && IsClassStructureView())
@@ -1227,6 +1273,11 @@ public partial class MainForm : Form
 
             ApplySearchHighlightToViewer();
             return;
+        }
+
+        if (_lastAnalysis is null)
+        {
+            diagramViewHost.ViewKind = GetSelectedViewKind();
         }
 
         ApplyRootMethodSelection();
@@ -1524,6 +1575,17 @@ public partial class MainForm : Form
                 break;
 
             case DiagramViewKind.DataFlow:
+                if (!string.IsNullOrWhiteSpace(selection.FocusedGraphNodeId))
+                {
+                    diagramViewHost.TryFocusNode(selection.FocusedGraphNodeId);
+                }
+                else
+                {
+                    diagramViewHost.ClearDataFlowRootOverride();
+                }
+
+                break;
+
             case DiagramViewKind.CallGraph:
                 if (!string.IsNullOrWhiteSpace(selection.FocusedGraphNodeId))
                 {
@@ -1764,29 +1826,23 @@ public partial class MainForm : Form
         if (!string.IsNullOrWhiteSpace(project.RootDirectory) && Directory.Exists(project.RootDirectory))
         {
             txtRootPath.Text = project.RootDirectory;
+            _languageSelectionCustomized = project.EnabledLanguageIds.Count > 0;
             LoadDirectoryList(
                 project.RootDirectory,
                 includedPaths.Count > 0 ? includedPaths : null);
+            if (_languageSelectionCustomized)
+            {
+                ApplyLanguageSelection(project.EnabledLanguageIds);
+                PersistLanguageSelection();
+            }
         }
-        else if (includedPaths.Count > 0 && checkedListDirectories.Items.Count > 0)
+        else if (includedPaths.Count > 0 && directorySelectionTree.GetAllKnownPaths().Count > 0)
         {
             ApplyDirectoryChecksFromIncluded(includedPaths);
         }
         else if (project.ExcludedDirectoryPaths.Count > 0)
         {
             ApplyDirectoryChecksToSidebar(project.ExcludedDirectoryPaths);
-        }
-
-        if (project.EnabledLanguageIds.Count > 0)
-        {
-            var enabledSet = new HashSet<string>(project.EnabledLanguageIds, StringComparer.OrdinalIgnoreCase);
-            for (var i = 0; i < checkedListLanguages.Items.Count; i++)
-            {
-                if (checkedListLanguages.Items[i] is ProgrammingLanguage lang)
-                {
-                    checkedListLanguages.SetItemChecked(i, enabledSet.Contains(lang.Id));
-                }
-            }
         }
 
         _userSettings.SaveQualityThresholds(BuildAnalysisSettingsForPersistence());
@@ -2803,11 +2859,35 @@ public partial class MainForm : Form
         comboRootMethod.DropDownWidth = Math.Max(comboRootMethod.Width, Math.Min(maxWidth + 24, 900));
     }
 
-    private void btnLanguagesSelectAll_Click(object sender, EventArgs e) =>
-        SetAllCheckedItems(checkedListLanguages, check: true);
+    private void btnLanguagesSelectAll_Click(object sender, EventArgs e)
+    {
+        _suppressLanguageListEvents = true;
+        try
+        {
+            SetAllCheckedItems(checkedListLanguages, check: true);
+        }
+        finally
+        {
+            _suppressLanguageListEvents = false;
+        }
 
-    private void btnLanguagesDeselectAll_Click(object sender, EventArgs e) =>
-        SetAllCheckedItems(checkedListLanguages, check: false);
+        OnLanguageSelectionChangedByUser();
+    }
+
+    private void btnLanguagesDeselectAll_Click(object sender, EventArgs e)
+    {
+        _suppressLanguageListEvents = true;
+        try
+        {
+            SetAllCheckedItems(checkedListLanguages, check: false);
+        }
+        finally
+        {
+            _suppressLanguageListEvents = false;
+        }
+
+        OnLanguageSelectionChangedByUser();
+    }
 
     private void btnDirectoriesSelectAll_Click(object sender, EventArgs e) =>
         SetAllDirectoryChecks(check: true);
@@ -2826,7 +2906,14 @@ public partial class MainForm : Form
         _suppressDirectoryListEvents = true;
         try
         {
-            SetAllCheckedItems(checkedListDirectories, check);
+            if (check)
+            {
+                directorySelectionTree.SelectAll();
+            }
+            else
+            {
+                directorySelectionTree.DeselectAll();
+            }
         }
         finally
         {
@@ -2834,7 +2921,13 @@ public partial class MainForm : Form
         }
 
         if (IsHandleCreated)
-            BeginInvoke(PersistDirectorySelectionsFromSidebar);
+        {
+            BeginInvoke(() =>
+            {
+                PersistDirectorySelectionsFromSidebar();
+                RefreshLanguageSelection(txtRootPath.Text.Trim());
+            });
+        }
     }
 
     private void lblLayout_Click(object sender, EventArgs e)

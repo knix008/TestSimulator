@@ -74,6 +74,7 @@ public static class SequenceDiagramBuilder
         var participantOrder = new List<string>();
         var participantSet = new HashSet<string>(StringComparer.Ordinal);
         var order = 0;
+        var isTruncated = false;
 
         foreach (var rootId in roots)
         {
@@ -88,7 +89,13 @@ public static class SequenceDiagramBuilder
                 messages,
                 participantOrder,
                 participantSet,
-                ref order);
+                ref order,
+                ref isTruncated);
+
+            if (isTruncated)
+            {
+                break;
+            }
         }
 
         var map = participantOrder
@@ -100,8 +107,10 @@ public static class SequenceDiagramBuilder
             ParticipantIds = participantOrder,
             Messages = messages,
             ParticipantMap = map,
-            IsTruncated = false,
-            TruncationNote = null
+            IsTruncated = isTruncated,
+            TruncationNote = isTruncated
+                ? $"메시지 {AnalysisScaleLimits.MaxSequenceDiagramMessagesTotal:N0}개까지만 수집했습니다. 호출이 더 있습니다."
+                : null
         };
     }
 
@@ -116,6 +125,7 @@ public static class SequenceDiagramBuilder
         var participantOrder = new List<string>();
         var participantSet = new HashSet<string>(StringComparer.Ordinal);
         var order = 0;
+        var isTruncated = false;
 
         if (!TryAddParticipant(rootId, participantOrder, participantSet))
         {
@@ -128,7 +138,8 @@ public static class SequenceDiagramBuilder
             messages,
             participantOrder,
             participantSet,
-            ref order);
+            ref order,
+            ref isTruncated);
 
         var map = participantOrder
             .Where(id => callGraph.NodeMap.ContainsKey(id))
@@ -139,8 +150,10 @@ public static class SequenceDiagramBuilder
             ParticipantIds = participantOrder,
             Messages = messages,
             ParticipantMap = map,
-            IsTruncated = false,
-            TruncationNote = null
+            IsTruncated = isTruncated,
+            TruncationNote = isTruncated
+                ? $"메시지 {AnalysisScaleLimits.MaxSequenceDiagramMessagesTotal:N0}개까지만 수집했습니다. 호출이 더 있습니다."
+                : null
         };
     }
 
@@ -224,7 +237,8 @@ public static class SequenceDiagramBuilder
         List<SequenceMessage> messages,
         List<string> participantOrder,
         HashSet<string> participantSet,
-        ref int order)
+        ref int order,
+        ref bool isTruncated)
     {
         var stack = new Stack<TraverseFrame>();
         stack.Push(new TraverseFrame(rootId, 0, 0, new HashSet<string>(StringComparer.Ordinal) { rootId }));
@@ -246,6 +260,12 @@ public static class SequenceDiagramBuilder
 
             for (var index = frame.NextCalleeIndex; index < callees.Count; index++)
             {
+                if (order >= AnalysisScaleLimits.MaxSequenceDiagramMessagesTotal)
+                {
+                    isTruncated = true;
+                    return;
+                }
+
                 var calleeId = callees[index];
                 if (!callGraph.NodeMap.TryGetValue(calleeId, out var callee))
                 {

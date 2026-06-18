@@ -53,6 +53,8 @@ public sealed class SequenceDiagramResult
         = new Dictionary<string, CallGraphNode>(StringComparer.Ordinal);
     public bool IsTruncated { get; init; }
     public string? TruncationNote { get; init; }
+    public int MessageIndexOffset { get; init; }
+    public string? PageNote { get; init; }
 }
 
 public sealed class SequenceDiagramParticipantLayoutData
@@ -106,12 +108,15 @@ public sealed class DataFlowEdge
 
 public sealed class DataFlowDiagramResult
 {
+    public IReadOnlyList<string> RootIds { get; init; } = [];
     public IReadOnlyList<CallGraphNode> Nodes { get; init; } = [];
     public IReadOnlyList<DataFlowEdge> Edges { get; init; } = [];
     public IReadOnlyDictionary<string, CallGraphNode> NodeMap { get; init; }
         = new Dictionary<string, CallGraphNode>(StringComparer.Ordinal);
     public IReadOnlyDictionary<string, List<string>> Outgoing { get; init; }
         = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, int> DepthById { get; init; }
+        = new Dictionary<string, int>(StringComparer.Ordinal);
 }
 
 public sealed class AnalysisResult

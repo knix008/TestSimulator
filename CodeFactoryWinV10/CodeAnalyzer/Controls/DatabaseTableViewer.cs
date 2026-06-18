@@ -362,10 +362,26 @@ public sealed class DatabaseTableViewer : UserControl
     {
         _schema = schema;
         _projectRoot = projectRoot;
-        RebuildList();
-        RebuildCatalogList();
-        RebuildImpactList();
+        _ = RefreshAsync();
     }
+
+    public Task SetSchemaAsync(DatabaseSchemaResult? schema, string? projectRoot = null)
+    {
+        _schema = schema;
+        _projectRoot = projectRoot;
+        return RefreshAsync();
+    }
+
+    private Task RefreshAsync() =>
+        AsyncViewRefresh.RunUiRebuildAsync(
+            this,
+            DiagramViewKind.DatabaseTableAccess,
+            () =>
+            {
+                RebuildList();
+                RebuildCatalogList();
+                RebuildImpactList();
+            });
 
     public DatabaseTable? SelectedTable => _selected;
 

@@ -41,6 +41,20 @@ public static class LanguageRegistry
         return extensions;
     }
 
+    public static HashSet<string> GetAllExtensions()
+    {
+        var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var language in All)
+        {
+            foreach (var extension in language.Extensions)
+            {
+                extensions.Add(extension);
+            }
+        }
+
+        return extensions;
+    }
+
     public static ProgrammingLanguage? FindByExtension(string extension)
     {
         return All.FirstOrDefault(language =>

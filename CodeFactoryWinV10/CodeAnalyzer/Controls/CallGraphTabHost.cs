@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 
@@ -5,6 +6,15 @@ namespace CodeAnalyzer.Controls;
 
 internal sealed class CallGraphTabHost : UserControl
 {
+    private sealed class CallGraphTabSlot
+    {
+        public required int GlobalIndex { get; init; }
+        public required string RootId { get; init; }
+        public required TabPage TabPage { get; init; }
+        public CallGraphViewer? Viewer { get; set; }
+        public bool IsLoading { get; set; }
+    }
+
     private readonly Label _bannerLabel = new()
     {
         Dock = DockStyle.Top,
@@ -15,27 +25,40 @@ internal sealed class CallGraphTabHost : UserControl
         Visible = false
     };
 
+    private readonly Panel _headerPanel = new()
+    {
+        Dock = DockStyle.Top,
+        AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink
+    };
+
     private readonly EntryPointTabPager _pager = new();
     private readonly Panel _contentPanel = new() { Dock = DockStyle.Fill };
     private readonly NavigationTabControl _tabs = new() { Visible = false };
     private readonly CallGraphViewer _singleViewer = new() { Dock = DockStyle.Fill, Visible = true };
     private readonly List<CallGraphViewer> _tabViewers = [];
+    private readonly List<CallGraphTabSlot> _tabSlots = [];
     private CallGraphResult? _graph;
     private List<string> _allRootIds = [];
     private GraphLayoutDirection _layoutDirection = GraphLayoutDirection.LeftToRight;
     private ConnectionLineStyle _lineStyle = ConnectionLineStyle.Orthogonal;
     private bool _useTabs;
+    private int _setGraphGeneration;
+    private string? _loadedGraphSignature;
+    private bool _tabSelectHandlerAttached;
 
     public CallGraphTabHost()
     {
         BackColor = Color.White;
+        _headerPanel.Controls.Add(_pager);
+        _headerPanel.Controls.Add(_bannerLabel);
         Controls.Add(_contentPanel);
-        Controls.Add(_pager);
-        Controls.Add(_bannerLabel);
+        Controls.Add(_headerPanel);
         _contentPanel.Controls.Add(_singleViewer);
         _contentPanel.Controls.Add(_tabs);
         _singleViewer.RootNodeChanged += node => RootNodeChanged?.Invoke(node);
-        _pager.PageChanged += RebuildTabsForCurrentPage;
+        _pager.PageChanged += () => _ = RebuildTabsForCurrentPageAsync(_setGraphGeneration);
+        _headerPanel.BringToFront();
     }
 
     public event Action<CallGraphNode>? RootNodeChanged;
@@ -70,34 +93,70 @@ internal sealed class CallGraphTabHost : UserControl
 
     public void SetGraph(CallGraphResult? graph, IReadOnlyList<string> rootNodeIds)
     {
-        _graph = graph;
-        _allRootIds = rootNodeIds
+        _ = SetGraphAsync(graph, rootNodeIds);
+    }
+
+    public async Task SetGraphAsync(CallGraphResult? graph, IReadOnlyList<string> rootNodeIds)
+    {
+        var generation = ++_setGraphGeneration;
+        var nextRootIds = rootNodeIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Where(id => graph is null || graph.NodeMap.ContainsKey(id))
             .Distinct(StringComparer.Ordinal)
             .ToList();
+        var signature = CreateGraphSignature(graph, nextRootIds);
+        var useTabs = graph is not null && nextRootIds.Count > 1;
+
+        if (signature == _loadedGraphSignature && _useTabs == useTabs && (!useTabs || _tabSlots.Count > 0))
+        {
+            return;
+        }
+
+        _graph = graph;
+        _allRootIds = nextRootIds;
+        _loadedGraphSignature = signature;
 
         _bannerLabel.Visible = false;
         if (graph is null || _allRootIds.Count <= 1)
         {
-            _pager.Configure(0);
+            SyncPagerState();
             ShowSingleViewer();
-            ViewProgressReporter.Report(20, "호출 그래프를 구성하는 중...");
-            _singleViewer.SetGraph(graph, _allRootIds);
-            ViewProgressReporter.Report(100, "완료");
+            await _singleViewer.SetGraphAsync(graph, _allRootIds).ConfigureAwait(true);
+            _singleViewer.ExpandAll();
             return;
         }
 
-        if (_allRootIds.Count > _pager.PageSize)
+        SyncPagerState();
+        ShowTabs();
+        await RebuildTabsForCurrentPageAsync(generation).ConfigureAwait(true);
+    }
+
+    private void SyncPagerState()
+    {
+        if (_allRootIds.Count <= 1)
+        {
+            _pager.Configure(0);
+            _bannerLabel.Visible = false;
+            return;
+        }
+
+        if (_allRootIds.Count > AnalysisScaleLimits.MaxEntryPointTabsPerPage)
         {
             _bannerLabel.Text =
                 $"진입점 {_allRootIds.Count:N0}개 — 상단 페이지 선택(예: 0–9, 10–19)으로 나누어 표시합니다.";
             _bannerLabel.Visible = true;
         }
+        else
+        {
+            _bannerLabel.Visible = false;
+        }
 
-        _pager.Configure(_allRootIds.Count);
-        ShowTabs();
-        RebuildTabsForCurrentPage();
+        int? preserveGlobalIndex = _pager.Visible
+            ? _pager.PageIndex * AnalysisScaleLimits.MaxEntryPointTabsPerPage
+            : null;
+        _pager.Configure(_allRootIds.Count, preserveGlobalIndex);
+        _headerPanel.Visible = _bannerLabel.Visible || _pager.Visible;
+        _headerPanel.BringToFront();
     }
 
     public void SetGlobalVariableAccessGraph(
@@ -107,6 +166,7 @@ internal sealed class CallGraphTabHost : UserControl
     {
         _graph = null;
         _allRootIds = [];
+        _loadedGraphSignature = null;
         _pager.Configure(0);
         _bannerLabel.Visible = false;
         ShowSingleViewer();
@@ -117,6 +177,7 @@ internal sealed class CallGraphTabHost : UserControl
     {
         _graph = null;
         _allRootIds = [];
+        _loadedGraphSignature = null;
         _pager.Configure(0);
         _bannerLabel.Visible = false;
         ShowSingleViewer();
@@ -137,10 +198,17 @@ internal sealed class CallGraphTabHost : UserControl
                 viewer.ExpandAll();
             }
 
+            _ = EnsureSelectedTabLoadedAsync();
             return;
         }
 
         _singleViewer.ExpandAll();
+    }
+
+    public Task ExpandAllAsync()
+    {
+        ExpandAll();
+        return Task.CompletedTask;
     }
 
     public void CollapseAll()
@@ -216,6 +284,7 @@ internal sealed class CallGraphTabHost : UserControl
             return viewer;
         }
 
+        _ = EnsureSelectedTabLoadedAsync();
         return _tabViewers.FirstOrDefault() ?? _singleViewer;
     }
 
@@ -232,48 +301,66 @@ internal sealed class CallGraphTabHost : UserControl
         _useTabs = true;
         _singleViewer.Visible = false;
         _tabs.Visible = true;
+        EnsureTabSelectHandler();
     }
 
-    private void RebuildTabsForCurrentPage()
+    private void EnsureTabSelectHandler()
+    {
+        if (_tabSelectHandlerAttached)
+        {
+            return;
+        }
+
+        _tabs.SelectedIndexChanged += (_, _) => _ = EnsureSelectedTabLoadedAsync();
+        _tabSelectHandlerAttached = true;
+    }
+
+    private async Task RebuildTabsForCurrentPageAsync(int generation)
     {
         if (_graph is null || _allRootIds.Count <= 1)
         {
             return;
         }
 
-        using var _ = ViewProgressScope.BeginIfNeeded(FindForm(), DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph));
-
         var (startIndex, count) = _pager.GetCurrentPageSlice();
+
         _tabs.SuspendLayout();
         ClearTabs();
         _tabs.TabPages.Clear();
+        _tabSlots.Clear();
 
         for (var offset = 0; offset < count; offset++)
         {
-            var globalIndex = startIndex + offset;
-            ViewProgressReporter.ReportStep(
-                offset,
-                count,
-                $"호출 그래프 탭을 구성하는 중... ({globalIndex + 1}/{_allRootIds.Count})");
+            if (generation != _setGraphGeneration || IsDisposed)
+            {
+                _tabs.ResumeLayout();
+                return;
+            }
 
+            var globalIndex = startIndex + offset;
             var rootId = _allRootIds[globalIndex];
             if (!_graph.NodeMap.TryGetValue(rootId, out var node))
             {
                 continue;
             }
 
-            var viewer = CreateTabViewer();
-            viewer.SetGraph(_graph, [rootId]);
-            viewer.ExpandAll();
-
             var tab = new TabPage(FormatTabTitle(node, globalIndex, _allRootIds.Count))
             {
                 Padding = new Padding(2),
                 ToolTipText = string.IsNullOrWhiteSpace(node.FullName) ? node.DisplayName : node.FullName
             };
-            tab.Controls.Add(viewer);
+            tab.Controls.Add(new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White
+            });
             _tabs.TabPages.Add(tab);
-            _tabViewers.Add(viewer);
+            _tabSlots.Add(new CallGraphTabSlot
+            {
+                GlobalIndex = globalIndex,
+                RootId = rootId,
+                TabPage = tab
+            });
         }
 
         if (_tabs.TabPages.Count > 0)
@@ -282,13 +369,67 @@ internal sealed class CallGraphTabHost : UserControl
         }
 
         _tabs.ResumeLayout();
+        await EnsureSelectedTabLoadedAsync(generation).ConfigureAwait(true);
+        ExpandFirstTabIfLoaded();
+        SyncPagerState();
+    }
+
+    private void ExpandFirstTabIfLoaded()
+    {
+        if (!_useTabs || _tabSlots.Count == 0)
+        {
+            return;
+        }
+
+        _tabSlots[0].Viewer?.ExpandAll();
+    }
+
+    private async Task EnsureSelectedTabLoadedAsync(int? generation = null)
+    {
+        if (_graph is null || !_useTabs || _tabs.SelectedIndex < 0 || _tabs.SelectedIndex >= _tabSlots.Count)
+        {
+            return;
+        }
+
+        if (generation is not null && generation != _setGraphGeneration)
+        {
+            return;
+        }
+
+        var slot = _tabSlots[_tabs.SelectedIndex];
+        if (slot.Viewer is not null || slot.IsLoading)
+        {
+            return;
+        }
+
+        slot.IsLoading = true;
+        try
+        {
+            var viewer = CreateTabViewer();
+            await viewer.SetGraphAsync(_graph, [slot.RootId]).ConfigureAwait(true);
+            if (generation is not null && generation != _setGraphGeneration || IsDisposed)
+            {
+                viewer.Dispose();
+                return;
+            }
+
+            slot.TabPage.Controls.Clear();
+            slot.TabPage.Controls.Add(viewer);
+            slot.Viewer = viewer;
+            _tabViewers.Add(viewer);
+        }
+        finally
+        {
+            slot.IsLoading = false;
+        }
     }
 
     private CallGraphViewer CreateTabViewer()
     {
         var viewer = new CallGraphViewer
         {
-            Dock = DockStyle.Fill
+            Dock = DockStyle.Fill,
+            SuppressResizeContentSizing = true
         };
         viewer.LayoutDirection = _layoutDirection;
         viewer.LineStyle = _lineStyle;
@@ -304,7 +445,21 @@ internal sealed class CallGraphTabHost : UserControl
         }
 
         _tabViewers.Clear();
+        _tabSlots.Clear();
         _tabs.TabPages.Clear();
+    }
+
+    private static string CreateGraphSignature(CallGraphResult? graph, IReadOnlyList<string> rootIds)
+    {
+        if (graph is null)
+        {
+            return string.Empty;
+        }
+
+        return string.Join(
+            '\u001e',
+            RuntimeHelpers.GetHashCode(graph),
+            string.Join('\u001f', rootIds));
     }
 
     private static int FindRootIndexForNode(

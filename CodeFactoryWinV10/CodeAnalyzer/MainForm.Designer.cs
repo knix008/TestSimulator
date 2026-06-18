@@ -1,3 +1,5 @@
+using CodeAnalyzer.Controls;
+
 namespace CodeAnalyzer;
 
 partial class MainForm
@@ -20,7 +22,7 @@ partial class MainForm
         splitContainerMain = new SplitContainer();
         panelSidebarMiddle = new Panel();
         groupDirectories = new GroupBox();
-        checkedListDirectories = new CheckedListBox();
+        directorySelectionTree = new DirectorySelectionTreeView();
         lblExcludeHint = new Label();
         btnDirectoriesDeselectAll = new Button();
         btnDirectoriesSelectAll = new Button();
@@ -34,7 +36,7 @@ partial class MainForm
         panelRootPath = new Panel();
         txtRootPath = new TextBox();
         btnBrowseRoot = new Button();
-        diagramViewHost = new CodeAnalyzer.Controls.DiagramViewHost();
+        diagramViewHost = new DiagramViewHost();
         panelToolbar = new Panel();
         btnResetView = new Button();
         btnBackView = new Button();
@@ -101,8 +103,8 @@ partial class MainForm
         // 
         splitContainerMain.Panel2.Controls.Add(diagramViewHost);
         splitContainerMain.Panel2.Controls.Add(panelToolbar);
-        splitContainerMain.Panel2MinSize = 940;
-        splitContainerMain.Size = new Size(1528, 951);
+        splitContainerMain.Panel2MinSize = 960;
+        splitContainerMain.Size = new Size(1560, 951);
         splitContainerMain.SplitterDistance = 356;
         splitContainerMain.SplitterWidth = 6;
         splitContainerMain.TabIndex = 0;
@@ -120,7 +122,7 @@ partial class MainForm
         // 
         // groupDirectories
         // 
-        groupDirectories.Controls.Add(checkedListDirectories);
+        groupDirectories.Controls.Add(directorySelectionTree);
         groupDirectories.Controls.Add(lblExcludeHint);
         groupDirectories.Controls.Add(btnDirectoriesDeselectAll);
         groupDirectories.Controls.Add(btnDirectoriesSelectAll);
@@ -132,16 +134,13 @@ partial class MainForm
         groupDirectories.TabStop = false;
         groupDirectories.Text = "하위 디렉터리";
         // 
-        // checkedListDirectories
+        // directorySelectionTree
         // 
-        checkedListDirectories.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        checkedListDirectories.CheckOnClick = true;
-        checkedListDirectories.FormattingEnabled = true;
-        checkedListDirectories.IntegralHeight = false;
-        checkedListDirectories.Location = new Point(3, 49);
-        checkedListDirectories.Name = "checkedListDirectories";
-        checkedListDirectories.Size = new Size(344, 450);
-        checkedListDirectories.TabIndex = 2;
+        directorySelectionTree.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        directorySelectionTree.Location = new Point(3, 49);
+        directorySelectionTree.Name = "directorySelectionTree";
+        directorySelectionTree.Size = new Size(344, 450);
+        directorySelectionTree.TabIndex = 2;
         // 
         // lblExcludeHint
         // 
@@ -152,7 +151,7 @@ partial class MainForm
         lblExcludeHint.Padding = new Padding(0, 2, 0, 0);
         lblExcludeHint.Size = new Size(344, 32);
         lblExcludeHint.TabIndex = 3;
-        lblExcludeHint.Text = "체크한 디렉터리만 분석합니다. 하나 이상 선택해야 분석을 실행할 수 있습니다.";
+        lblExcludeHint.Text = "트리에서 상위 폴더를 선택하면 하위가 함께 선택됩니다. 하위만 선택해도 상위가 표시됩니다.";
         // 
         // btnDirectoriesDeselectAll
         // 
@@ -294,7 +293,7 @@ partial class MainForm
         diagramViewHost.Location = new Point(0, 48);
         diagramViewHost.Name = "diagramViewHost";
         diagramViewHost.ProjectRootDirectory = null;
-        diagramViewHost.Size = new Size(1166, 903);
+        diagramViewHost.Size = new Size(1198, 903);
         diagramViewHost.TabIndex = 1;
         diagramViewHost.ViewKind = Models.DiagramViewKind.CallGraph;
         // 
@@ -316,23 +315,23 @@ partial class MainForm
         panelToolbar.Location = new Point(0, 0);
         panelToolbar.Name = "panelToolbar";
         panelToolbar.Padding = new Padding(8, 8, 8, 4);
-        panelToolbar.Size = new Size(1166, 48);
+        panelToolbar.Size = new Size(1198, 48);
         panelToolbar.TabIndex = 0;
         // 
         // btnResetView
         // 
         btnResetView.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnResetView.Location = new Point(1071, 10);
+        btnResetView.Location = new Point(1081, 10);
         btnResetView.Name = "btnResetView";
-        btnResetView.Size = new Size(88, 27);
+        btnResetView.Size = new Size(104, 27);
         btnResetView.TabIndex = 9;
-        btnResetView.Text = "⟳ 뷰 초기화";
+        btnResetView.Text = "뷰 초기화";
         btnResetView.UseVisualStyleBackColor = true;
         btnResetView.Click += btnResetView_Click;
         // 
         // btnBackView
         // 
-        btnBackView.Location = new Point(157, 10);
+        btnBackView.Location = new Point(180, 9);
         btnBackView.Name = "btnBackView";
         btnBackView.Size = new Size(70, 27);
         btnBackView.TabIndex = 2;
@@ -343,22 +342,22 @@ partial class MainForm
         // btnCollapseAll
         // 
         btnCollapseAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnCollapseAll.Location = new Point(974, 10);
+        btnCollapseAll.Location = new Point(966, 10);
         btnCollapseAll.Name = "btnCollapseAll";
-        btnCollapseAll.Size = new Size(92, 27);
+        btnCollapseAll.Size = new Size(107, 27);
         btnCollapseAll.TabIndex = 7;
-        btnCollapseAll.Text = "▲ 전체 접기";
+        btnCollapseAll.Text = "전체 접기";
         btnCollapseAll.UseVisualStyleBackColor = true;
         btnCollapseAll.Click += btnCollapseAll_Click;
         // 
         // btnExpandAll
         // 
         btnExpandAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnExpandAll.Location = new Point(879, 10);
+        btnExpandAll.Location = new Point(851, 9);
         btnExpandAll.Name = "btnExpandAll";
-        btnExpandAll.Size = new Size(92, 27);
+        btnExpandAll.Size = new Size(109, 27);
         btnExpandAll.TabIndex = 6;
-        btnExpandAll.Text = "▼ 전체 펼치기";
+        btnExpandAll.Text = "전체 펼치기";
         btnExpandAll.UseVisualStyleBackColor = true;
         btnExpandAll.Click += btnExpandAll_Click;
         // 
@@ -367,7 +366,7 @@ partial class MainForm
         comboLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         comboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
         comboLineStyle.FormattingEnabled = true;
-        comboLineStyle.Location = new Point(785, 11);
+        comboLineStyle.Location = new Point(755, 11);
         comboLineStyle.Name = "comboLineStyle";
         comboLineStyle.Size = new Size(87, 23);
         comboLineStyle.TabIndex = 5;
@@ -377,7 +376,7 @@ partial class MainForm
         // 
         lblLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         lblLineStyle.AutoSize = true;
-        lblLineStyle.Location = new Point(736, 14);
+        lblLineStyle.Location = new Point(710, 14);
         lblLineStyle.Name = "lblLineStyle";
         lblLineStyle.Size = new Size(43, 15);
         lblLineStyle.TabIndex = 4;
@@ -388,7 +387,7 @@ partial class MainForm
         comboLayoutDirection.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         comboLayoutDirection.DropDownStyle = ComboBoxStyle.DropDownList;
         comboLayoutDirection.FormattingEnabled = true;
-        comboLayoutDirection.Location = new Point(649, 11);
+        comboLayoutDirection.Location = new Point(625, 11);
         comboLayoutDirection.Name = "comboLayoutDirection";
         comboLayoutDirection.Size = new Size(81, 23);
         comboLayoutDirection.TabIndex = 3;
@@ -398,7 +397,7 @@ partial class MainForm
         // 
         lblLayout.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         lblLayout.AutoSize = true;
-        lblLayout.Location = new Point(588, 14);
+        lblLayout.Location = new Point(564, 15);
         lblLayout.Name = "lblLayout";
         lblLayout.Size = new Size(55, 15);
         lblLayout.TabIndex = 2;
@@ -410,16 +409,16 @@ partial class MainForm
         comboRootMethod.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         comboRootMethod.DropDownStyle = ComboBoxStyle.DropDownList;
         comboRootMethod.FormattingEnabled = true;
-        comboRootMethod.Location = new Point(289, 11);
+        comboRootMethod.Location = new Point(321, 11);
         comboRootMethod.Name = "comboRootMethod";
-        comboRootMethod.Size = new Size(293, 23);
+        comboRootMethod.Size = new Size(237, 23);
         comboRootMethod.TabIndex = 3;
         comboRootMethod.SelectedIndexChanged += comboRootMethod_SelectedIndexChanged;
         // 
         // lblRootMethod
         // 
         lblRootMethod.AutoSize = true;
-        lblRootMethod.Location = new Point(228, 15);
+        lblRootMethod.Location = new Point(254, 15);
         lblRootMethod.Name = "lblRootMethod";
         lblRootMethod.Size = new Size(59, 15);
         lblRootMethod.TabIndex = 2;
@@ -431,7 +430,7 @@ partial class MainForm
         comboDiagramView.FormattingEnabled = true;
         comboDiagramView.Location = new Point(32, 11);
         comboDiagramView.Name = "comboDiagramView";
-        comboDiagramView.Size = new Size(120, 23);
+        comboDiagramView.Size = new Size(142, 23);
         comboDiagramView.TabIndex = 1;
         comboDiagramView.SelectedIndexChanged += comboDiagramView_SelectedIndexChanged;
         // 
@@ -449,7 +448,7 @@ partial class MainForm
         menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuSettings, toolStripSearchLabel, toolStripSearchBox, toolStripFindPrevious, toolStripFindNext });
         menuStrip.Location = new Point(0, 0);
         menuStrip.Name = "menuStrip";
-        menuStrip.Size = new Size(1528, 27);
+        menuStrip.Size = new Size(1560, 27);
         menuStrip.TabIndex = 2;
         menuStrip.Text = "menuStrip";
         // 
@@ -587,7 +586,7 @@ partial class MainForm
         statusStrip.Items.AddRange(new ToolStripItem[] { progressBarAnalysis, lblProgressPercent, lblStatus });
         statusStrip.Location = new Point(0, 978);
         statusStrip.Name = "statusStrip";
-        statusStrip.Size = new Size(1528, 22);
+        statusStrip.Size = new Size(1560, 22);
         statusStrip.TabIndex = 1;
         statusStrip.Text = "statusStrip1";
         // 
@@ -610,7 +609,7 @@ partial class MainForm
         // lblStatus
         // 
         lblStatus.Name = "lblStatus";
-        lblStatus.Size = new Size(1513, 17);
+        lblStatus.Size = new Size(1545, 17);
         lblStatus.Spring = true;
         lblStatus.Text = "준비";
         lblStatus.TextAlign = ContentAlignment.MiddleLeft;
@@ -619,13 +618,13 @@ partial class MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1528, 1000);
+        ClientSize = new Size(1560, 1000);
         Controls.Add(splitContainerMain);
         Controls.Add(statusStrip);
         Controls.Add(menuStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
-        MinimumSize = new Size(1400, 980);
+        MinimumSize = new Size(1420, 980);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Code Analyzer - 코드 구조 분석";
@@ -663,12 +662,12 @@ partial class MainForm
     private GroupBox groupDirectories;
     private Button btnDirectoriesSelectAll;
     private Button btnDirectoriesDeselectAll;
-    private CheckedListBox checkedListDirectories;
+    private DirectorySelectionTreeView directorySelectionTree;
     private Label lblExcludeHint;
     private Panel panelSidebarBottom;
     private Button btnAnalysisSettings;
     private Button btnAnalyze;
-    private Controls.DiagramViewHost diagramViewHost;
+    private DiagramViewHost diagramViewHost;
     private Panel panelToolbar;
     private Button btnBackView;
     private Button btnCollapseAll;
