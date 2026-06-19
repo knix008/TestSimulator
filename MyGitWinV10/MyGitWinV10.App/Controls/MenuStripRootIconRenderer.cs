@@ -75,8 +75,18 @@ internal sealed class MenuStripRootIconRenderer : ToolStripProfessionalRenderer
         {
             if (e.Item.Selected)
             {
+                var highlight = new Rectangle(Point.Empty, e.Item.Size);
+                if (e.ToolStrip is ToolStripDropDown dropDown)
+                {
+                    int rowWidth = dropDown.ClientRectangle.Width - e.Item.Bounds.Left;
+                    if (rowWidth > highlight.Width)
+                    {
+                        highlight.Width = rowWidth;
+                    }
+                }
+
                 using var brush = new SolidBrush(RootSelectedBackground);
-                e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
+                e.Graphics.FillRectangle(brush, highlight);
             }
 
             return;

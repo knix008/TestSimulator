@@ -257,7 +257,7 @@ public partial class MainForm : Form
         menu.AutoSize = true;
         menu.Padding = new Padding(1);
         menu.MinimumSize = new Size(MenuStripRootIconRenderer.ContextMenuDropDownMinWidth, 0);
-        menu.Opening += (_, _) => AlignDropDownItemWidths(menu);
+        WireDropDownWidthAlignment(menu);
 
         foreach (var (item, icon, text) in items)
         {
@@ -265,17 +265,25 @@ public partial class MainForm : Form
         }
     }
 
-    // ToolStripDropDownMenu does not stretch each item's own Bounds to the popup's full
-    // width — a short label next to a long one in the same menu ends up with a narrower
-    // Bounds, so its hover/selection highlight (clipped to that item's own Bounds during
-    // paint) only covers part of the row. Force every item to the widest sibling's
-    // preferred width right before the popup opens so the highlight always spans the row.
+    // ToolStripDropDownMenu does not stretch each item's Bounds to the popup's full width.
+    // Short labels keep a narrower Bounds, so hover/selection only covers part of the row.
+    private static void WireDropDownWidthAlignment(ToolStripDropDown dropDown)
+    {
+        dropDown.Opening += (_, _) => AlignDropDownItemWidths(dropDown);
+        dropDown.Opened += (_, _) => AlignDropDownItemWidths(dropDown);
+    }
+
     private static void AlignDropDownItemWidths(ToolStripDropDown dropDown)
     {
         var menuItems = dropDown.Items.OfType<ToolStripMenuItem>().ToList();
         if (menuItems.Count == 0)
         {
             return;
+        }
+
+        foreach (var item in menuItems)
+        {
+            item.AutoSize = false;
         }
 
         int width = menuItems.Max(item => item.GetPreferredSize(Size.Empty).Width);
@@ -285,10 +293,34 @@ public partial class MainForm : Form
         {
             bool menuBar = MenuStripRootIconRenderer.IsMenuBarDropDownItem(item);
             int minHeight = MenuStripRootIconRenderer.GetMinDropDownItemHeight(menuBar);
-            item.AutoSize = false;
             item.Size = new Size(
                 width,
                 Math.Max(item.GetPreferredSize(Size.Empty).Height, minHeight));
+        }
+
+        dropDown.PerformLayout();
+
+        int clientWidth = dropDown.ClientRectangle.Width;
+        if (clientWidth <= 0)
+        {
+            return;
+        }
+
+        foreach (var item in menuItems)
+        {
+            if (item.Width != clientWidth)
+            {
+                item.Width = clientWidth;
+            }
+        }
+
+        foreach (var separator in dropDown.Items.OfType<ToolStripSeparator>())
+        {
+            separator.AutoSize = false;
+            if (separator.Width != clientWidth)
+            {
+                separator.Width = clientWidth;
+            }
         }
     }
 
@@ -312,7 +344,7 @@ public partial class MainForm : Form
         menuItem.DropDown.AutoSize = true;
         menuItem.DropDown.Padding = new Padding(1);
         menuItem.DropDown.MinimumSize = new Size(MenuStripRootIconRenderer.MenuBarDropDownMinWidth, 0);
-        menuItem.DropDown.Opening += (_, _) => AlignDropDownItemWidths(menuItem.DropDown);
+        WireDropDownWidthAlignment(menuItem.DropDown);
     }
 
     private void ConfigureNestedDropDownMenu(ToolStripMenuItem menuItem, bool menuBar)
@@ -332,7 +364,7 @@ public partial class MainForm : Form
         menuItem.DropDown.AutoSize = true;
         menuItem.DropDown.Padding = new Padding(1);
         menuItem.DropDown.MinimumSize = new Size(minWidth, 0);
-        menuItem.DropDown.Opening += (_, _) => AlignDropDownItemWidths(menuItem.DropDown);
+        WireDropDownWidthAlignment(menuItem.DropDown);
     }
 
     private static void ConfigureDropDownItem(ToolStripMenuItem item, bool menuBar = false)
