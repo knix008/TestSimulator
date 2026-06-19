@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="MyGit V1.0.0"
+           Manufacturer="MyGitWinV10"
+           Version="1.0.0.0"
+           Scope="perMachine"
+           InstallerVersion="500"
+           UpgradeCode="2FF16463-2B7E-4057-9303-269B0F48FE8B">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <!-- Same icon as the application (Assets/MyGit.ico). Id must use .exe for shortcuts targeting the exe. -->
+    <Icon Id="MyGitWinV10.App.exe" SourceFile="..\Assets\MyGit.ico" />
+    <Property Id="ARPPRODUCTICON" Value="MyGitWinV10.App.exe" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MyGitWinV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuAppFolder" Name="MyGit V1.0.0">
+        <Component Id="StartMenuShortcutComponent" Guid="*">
+          <Shortcut Id="StartMenuShortcut"
+                    Name="MyGit V1.0.0"
+                    Description="Git history, branch, and release viewer"
+                    Target="[INSTALLFOLDER]MyGitWinV10.App.exe"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="MyGitWinV10.App.exe"
+                    IconIndex="0" />
+          <RemoveFolder Id="ProgramMenuAppFolderRemove" On="uninstall" />
+          <RegistryValue Root="HKCU"
+                         Key="Software\MyGitWinV10"
+                         Name="StartMenuShortcut"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut Id="DesktopShortcut"
+                  Name="MyGit V1.0.0"
+                  Description="Git history, branch, and release viewer"
+                  Target="[INSTALLFOLDER]MyGitWinV10.App.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="MyGitWinV10.App.exe"
+                  IconIndex="0" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\MyGitWinV10"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="ProductFeature"
+             Title="MyGit V1.0.0"
+             Description="Git history, branch, and release viewer."
+             Level="1"
+             AllowAbsent="no">
+      <ComponentGroupRef Id="ProductComponents" />
+
+      <Feature Id="StartMenuShortcutFeature"
+               Title="Start Menu shortcut"
+               Description="Add a shortcut to the Start Menu."
+               Level="1"
+               AllowAbsent="yes">
+        <ComponentRef Id="StartMenuShortcutComponent" />
+      </Feature>
+
+      <Feature Id="DesktopShortcutFeature"
+               Title="Desktop shortcut"
+               Description="Add a shortcut to the Desktop."
+               Level="1"
+               AllowAbsent="yes">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+    </Feature>
+
+  </Package>
+
+  <!-- Application files from publish output -->
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Files Include="..\MyGitWinV10.App\bin\Release\net8.0-windows\win-x64\publish\**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>

@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>..\Assets\MyGit.ico</ApplicationIcon>
+    <AssemblyTitle>MyGit V1.0.0</AssemblyTitle>
+    <Product>MyGit V1.0.0</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="..\Assets\Info_icon.png" Link="Assets\Info_icon.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
+    <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+    <PackageReference Include="Octokit" Version="13.0.1" />
+    <PackageReference Include="QuestPDF" Version="2024.12.3" />
+  </ItemGroup>
+
+  <!-- Build the MSI installer automatically after a Release publish, unless explicitly skipped. -->
+  <Target Name="BuildInstallerOnRelease" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\..\installer"
+          Command="dotnet build MyGitWinV10.Installer.wixproj -c Release" />
+  </Target>
+
+</Project>

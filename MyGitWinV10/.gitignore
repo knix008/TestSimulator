@@ -1,0 +1,47 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+build-check/
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Build artifacts
+*.cache
+*.log
+*.tmp
+*.bak
+*.pdb
+*.ilk
+*.aps
+*.nupkg
+*.snupkg
+*.msi
+UpgradeLog.htm
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+
+# Local / AI tooling (not part of the product)
+.claude/
+user-settings.json
+
+# Installer (WiX)
+installer/bin/
+installer/obj/
