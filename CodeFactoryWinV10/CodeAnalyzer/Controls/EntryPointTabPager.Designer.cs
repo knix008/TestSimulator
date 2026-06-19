@@ -95,7 +95,7 @@ partial class EntryPointTabPager
         Dock = DockStyle.Top;
         Height = 36;
         MinimumSize = new Size(NavButtonWidth * 2 + PageLabelWidth + PageComboWidth + 24, 36);
-        Padding = new Padding(8, 4, 8, 4);
+        Padding = new Padding(8, 4, 8, 6);
         BackColor = Color.FromArgb(248, 249, 252);
         Visible = false;
         Controls.Add(_summaryLabel);

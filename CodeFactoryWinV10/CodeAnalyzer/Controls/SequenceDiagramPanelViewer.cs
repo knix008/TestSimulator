@@ -6,6 +6,9 @@ namespace CodeAnalyzer.Controls;
 
 internal sealed class SequenceDiagramPanelViewer : UserControl
 {
+    private const int PagerBottomGap = 10;
+    private const int ContentTopGap = 12;
+
     private SequenceDiagramPanel? _sourcePanel;
     private SequenceDiagramPanel? _displayPanel;
     private Size _contentSize = new(400, 300);
@@ -24,6 +27,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         _zoom.SetMaxZoom(4f);
 
         _messagePager.Visible = false;
+        _messagePager.Margin = new Padding(0, 0, 0, PagerBottomGap);
         _messagePager.PageChanged += () => ApplyMessagePage(resetZoom: true);
 
         _scrollSurface = new DiagramScrollSurface
@@ -52,7 +56,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         {
             SyncMessagePager(0);
             _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+            ApplyScrollContentSize();
             _scrollSurface.Invalidate();
             Invalidate();
             return;
@@ -69,7 +73,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
             _displayPanel = null;
             SyncMessagePager(0);
             _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+            ApplyScrollContentSize();
             ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.SequenceDiagram), "구성", ex);
         }
 
@@ -80,7 +84,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
     public void ResetView()
     {
         _zoom.Reset();
-        _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+        ApplyScrollContentSize();
         _scrollSurface.AutoScrollPosition = new Point(0, 0);
         _scrollSurface.Invalidate();
         SyncMessagePagerLayout();
@@ -130,9 +134,9 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
                 e.Graphics,
                 _scrollSurface,
                 e.ClipRectangle,
-                _contentSize,
+                GetScrollContentSize(),
                 BackColor,
-                DrawContent,
+                DrawContentWithTopGap,
                 useDocumentCache: false);
         }
         catch (OutOfMemoryException ex)
@@ -149,7 +153,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
 
     private void OnScrollSurfaceMouseWheel(object? sender, MouseEventArgs e)
     {
-        if (_zoom.HandleMouseWheel(_scrollSurface, e, _contentSize))
+        if (_zoom.HandleMouseWheel(_scrollSurface, e, GetScrollContentSize()))
         {
             _scrollSurface.Invalidate();
         }
@@ -162,7 +166,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
 
     private void OnScrollSurfaceMouseMove(object? sender, MouseEventArgs e)
     {
-        if (_pan.HandleMove(e, _scrollSurface, _zoom, _contentSize))
+        if (_pan.HandleMove(e, _scrollSurface, _zoom, GetScrollContentSize()))
         {
             _scrollSurface.Invalidate();
         }
@@ -179,7 +183,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         {
             _displayPanel = null;
             _contentSize = new Size(400, 300);
-            _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+            ApplyScrollContentSize();
             return;
         }
 
@@ -206,7 +210,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         }
 
         _zoom.InvalidateCache();
-        _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+        ApplyScrollContentSize();
         SyncMessagePagerLayout();
         _scrollSurface.Invalidate();
     }
@@ -229,9 +233,15 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
     {
         base.OnResize(e);
         SyncMessagePagerLayout();
-        _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+        ApplyScrollContentSize();
         _scrollSurface.Invalidate();
     }
+
+    private Size GetScrollContentSize() =>
+        new(_contentSize.Width, _contentSize.Height + ContentTopGap);
+
+    private void ApplyScrollContentSize() =>
+        _zoom.ApplyContentSize(_scrollSurface, GetScrollContentSize());
 
     private void SyncMessagePagerLayout()
     {
@@ -239,18 +249,20 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         {
             _messagePager.Visible = false;
             _messagePager.Height = 0;
+            _messagePager.Margin = Padding.Empty;
             return;
         }
 
         _messagePager.EnsureVisibleState();
-        if (_messagePager.Visible)
-        {
-            _messagePager.BringToFront();
-        }
+        _messagePager.Margin = _messagePager.Visible
+            ? new Padding(0, 0, 0, PagerBottomGap)
+            : Padding.Empty;
+    }
 
-        // 페이지 선택기가 나타나거나 사라지면서 _scrollSurface의 높이가 바뀌므로,
-        // 줌 컨트롤러가 가진 스크롤 범위를 새 ClientSize에 맞춰 다시 계산한다.
-        _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+    private void DrawContentWithTopGap(Graphics graphics)
+    {
+        graphics.TranslateTransform(0, ContentTopGap);
+        DrawContent(graphics);
     }
 
     private void DrawContent(Graphics graphics)
