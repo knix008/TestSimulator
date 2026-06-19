@@ -66,6 +66,7 @@ internal sealed class DiagramScrollPan
         if (_dragged)
         {
             _suppressClick = true;
+            control.Cursor = Cursors.Default;
         }
 
         _active = false;

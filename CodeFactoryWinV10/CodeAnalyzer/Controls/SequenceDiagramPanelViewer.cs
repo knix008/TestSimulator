@@ -10,6 +10,7 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
     private SequenceDiagramPanel? _displayPanel;
     private Size _contentSize = new(400, 300);
     private readonly DiagramZoomController _zoom = new();
+    private readonly DiagramScrollPan _pan = new();
     private readonly EntryPointTabPager _messagePager = new();
 
     private readonly DiagramScrollSurface _scrollSurface;
@@ -32,6 +33,9 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         };
         _scrollSurface.PaintDiagram += OnScrollSurfacePaint;
         _scrollSurface.MouseWheel += OnScrollSurfaceMouseWheel;
+        _scrollSurface.MouseDown += OnScrollSurfaceMouseDown;
+        _scrollSurface.MouseMove += OnScrollSurfaceMouseMove;
+        _scrollSurface.MouseUp += OnScrollSurfaceMouseUp;
 
         Controls.Add(_scrollSurface);
         Controls.Add(_messagePager);
@@ -149,6 +153,24 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         {
             _scrollSurface.Invalidate();
         }
+    }
+
+    private void OnScrollSurfaceMouseDown(object? sender, MouseEventArgs e)
+    {
+        _pan.Begin(e, _scrollSurface);
+    }
+
+    private void OnScrollSurfaceMouseMove(object? sender, MouseEventArgs e)
+    {
+        if (_pan.HandleMove(e, _scrollSurface, _zoom, _contentSize))
+        {
+            _scrollSurface.Invalidate();
+        }
+    }
+
+    private void OnScrollSurfaceMouseUp(object? sender, MouseEventArgs e)
+    {
+        _pan.End(_scrollSurface);
     }
 
     private void ApplyMessagePage(bool resetZoom)

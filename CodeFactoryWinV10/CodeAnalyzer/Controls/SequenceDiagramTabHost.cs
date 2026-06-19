@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 
@@ -28,20 +27,16 @@ internal partial class SequenceDiagramTabHost : UserControl
         _contentPanel.Controls.Add(_tabs);
         _contentPanel.Controls.Add(_messageLabel);
         Controls.Add(_contentPanel);
-        Controls.Add(_pager);
         Controls.Add(_bannerLabel);
-        _pager.PageChanged += RebuildTabsForCurrentPage;
     }
 
     public void SetLoading(string message)
     {
         _document = null;
         _loadedDocumentSignature = null;
-        _pager.Configure(0);
         _tabs.Visible = false;
         ClearTabs();
         _bannerLabel.Visible = false;
-        SyncPagerLayout();
         _messageLabel.Text = message;
         _messageLabel.Visible = true;
     }
@@ -53,7 +48,6 @@ internal partial class SequenceDiagramTabHost : UserControl
         var signature = document is null ? string.Empty : CreateDocumentSignature(document);
         if (signature == _loadedDocumentSignature && _tabSlots.Count > 0)
         {
-            SyncPagerLayout();
             return;
         }
 
@@ -64,13 +58,11 @@ internal partial class SequenceDiagramTabHost : UserControl
 
         if (document is null || document.Panels.Count == 0)
         {
-            _pager.Configure(0);
             _tabs.Visible = false;
             _bannerLabel.Visible = false;
             _messageLabel.Text =
                 "시퀀스 다이어그램을 표시할 호출 경로가 없습니다.\n호출 그래프에 진입점이 없거나 분석 결과가 비어 있습니다.";
             _messageLabel.Visible = true;
-            SyncPagerLayout();
             _tabs.ResumeLayout();
             return;
         }
@@ -81,15 +73,14 @@ internal partial class SequenceDiagramTabHost : UserControl
         {
             _bannerLabel.Text = document.TruncationNote;
             _bannerLabel.Visible = true;
+            _bannerLabel.BringToFront();
         }
         else
         {
             _bannerLabel.Visible = false;
         }
 
-        _pager.Configure(document.Panels.Count);
-        RebuildTabsForCurrentPage();
-        SyncPagerLayout();
+        BuildAllTabs();
         _tabs.Visible = true;
         _tabs.ResumeLayout();
     }
@@ -114,38 +105,20 @@ internal partial class SequenceDiagramTabHost : UserControl
         return null;
     }
 
-    private void SyncPagerLayout()
+    private void BuildAllTabs()
     {
-        _pager.EnsureVisibleState();
-        if (_bannerLabel.Visible)
-        {
-            _bannerLabel.BringToFront();
-        }
-
-        if (_pager.Visible)
-        {
-            _pager.BringToFront();
-        }
-    }
-
-    private void RebuildTabsForCurrentPage()
-    {
-        if (_document is null || _document.Panels.Count == 0)
+        if (_document is null)
         {
             return;
         }
 
-        var (startIndex, count) = _pager.GetCurrentPageSlice();
-        _tabs.SuspendLayout();
-        ClearTabs();
         _tabSlots.Clear();
         EnsureTabSelectHandler();
 
-        for (var offset = 0; offset < count; offset++)
+        for (var index = 0; index < _document.Panels.Count; index++)
         {
-            var globalIndex = startIndex + offset;
-            var panel = _document.Panels[globalIndex];
-            var tab = new TabPage(FormatTabTitle(panel, globalIndex, _document.Panels.Count))
+            var panel = _document.Panels[index];
+            var tab = new TabPage(FormatTabTitle(panel, index, _document.Panels.Count))
             {
                 Padding = new Padding(4),
                 ToolTipText = panel.Title
@@ -158,7 +131,7 @@ internal partial class SequenceDiagramTabHost : UserControl
             _tabs.TabPages.Add(tab);
             _tabSlots.Add(new SequenceTabSlot
             {
-                GlobalIndex = globalIndex,
+                GlobalIndex = index,
                 Panel = panel,
                 TabPage = tab
             });
@@ -169,9 +142,7 @@ internal partial class SequenceDiagramTabHost : UserControl
             _tabs.SelectedIndex = 0;
         }
 
-        _tabs.ResumeLayout();
         EnsureSelectedTabLoaded();
-        SyncPagerLayout();
     }
 
     private void EnsureTabSelectHandler()
@@ -227,11 +198,11 @@ internal partial class SequenceDiagramTabHost : UserControl
     private static string CreateDocumentSignature(SequenceDiagramDocument document)
     {
         var panelSignatures = document.Panels.Select(panel =>
-            string.Join('\u001f',
+            string.Join('',
                 panel.Title,
                 panel.Diagram.ParticipantIds.Count,
                 panel.Diagram.Messages.Count));
-        return string.Join('\u001e', document.Panels.Count, string.Join('\u001d', panelSignatures));
+        return string.Join('', document.Panels.Count, string.Join('', panelSignatures));
     }
 
     private static string FormatTabTitle(SequenceDiagramPanel panel, int index, int total)

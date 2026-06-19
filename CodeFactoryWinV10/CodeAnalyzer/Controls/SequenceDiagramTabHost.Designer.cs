@@ -18,7 +18,6 @@ partial class SequenceDiagramTabHost
     private void InitializeComponent()
     {
         _bannerLabel = new Label();
-        _pager = new EntryPointTabPager();
         _messageLabel = new Label();
         _tabs = new NavigationTabControl();
         SuspendLayout();
@@ -31,10 +30,6 @@ partial class SequenceDiagramTabHost
         _bannerLabel.ForeColor = Color.FromArgb(30, 85, 130);
         _bannerLabel.BackColor = Color.FromArgb(224, 242, 255);
         _bannerLabel.Visible = false;
-        //
-        // _pager
-        //
-        // (EntryPointTabPager는 자체 InitializeComponent에서 Dock=Top, Height=32 등 설정)
         //
         // _messageLabel
         //
@@ -58,7 +53,6 @@ partial class SequenceDiagramTabHost
     }
 
     private Label _bannerLabel = null!;
-    private EntryPointTabPager _pager = null!;
     private Label _messageLabel = null!;
     private NavigationTabControl _tabs = null!;
 }

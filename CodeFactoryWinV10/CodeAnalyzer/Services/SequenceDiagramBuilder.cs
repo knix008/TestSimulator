@@ -45,15 +45,11 @@ public static class SequenceDiagramBuilder
 
         ReportBuildProgress(progress, stopwatch, roots.Count, roots.Count);
 
-        string? note = panels.Count > AnalysisScaleLimits.MaxEntryPointTabsPerPage
-            ? $"시퀀스 {panels.Count:N0}개 — 상단 페이지 선택(예: 1–10, 11–20)으로 나누어 표시합니다."
-            : null;
-
         return new SequenceDiagramDocument
         {
             Panels = panels,
             IsTruncated = false,
-            TruncationNote = note
+            TruncationNote = null
         };
     }
 
