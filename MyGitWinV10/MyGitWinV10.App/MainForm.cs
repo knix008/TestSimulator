@@ -28,6 +28,8 @@ public partial class MainForm : Form
         InitializeComponent();
         Icon = AppInfo.LoadIcon();
         Text = AppInfo.Title;
+        ConfigureToolbars();
+        ConfigureMenuIcons();
         ConfigureChangedFilesListView();
         ConfigureSectionHeadingToolTips();
         graphDetailSplitContainer.FixedPanel = FixedPanel.Panel1;
@@ -148,8 +150,10 @@ public partial class MainForm : Form
     {
         menuStrip.Dock = DockStyle.Top;
         mainToolStrip.Dock = DockStyle.Top;
+        mainToolStrip.AutoSize = false;
         mainToolStrip.ImageScalingSize = new Size(IconFactory.ToolbarIconSize, IconFactory.ToolbarIconSize);
-        mainToolStrip.Padding = new Padding(6, 5, 6, 5);
+        mainToolStrip.Padding = new Padding(6, 4, 6, 4);
+        mainToolStrip.Height = IconFactory.ToolbarIconSize + mainToolStrip.Padding.Vertical + 6;
         mainToolStrip.ShowItemToolTips = true;
 
         ConfigureToolStripButton(openToolButton, IconFactory.Open(IconFactory.ToolbarIconSize), "Open a local Git repository folder");
@@ -253,10 +257,38 @@ public partial class MainForm : Form
         menu.AutoSize = true;
         menu.Padding = new Padding(1);
         menu.MinimumSize = new Size(MenuStripRootIconRenderer.ContextMenuDropDownMinWidth, 0);
+        menu.Opening += (_, _) => AlignDropDownItemWidths(menu);
 
         foreach (var (item, icon, text) in items)
         {
             ConfigureMenuItem(item, icon, text);
+        }
+    }
+
+    // ToolStripDropDownMenu does not stretch each item's own Bounds to the popup's full
+    // width — a short label next to a long one in the same menu ends up with a narrower
+    // Bounds, so its hover/selection highlight (clipped to that item's own Bounds during
+    // paint) only covers part of the row. Force every item to the widest sibling's
+    // preferred width right before the popup opens so the highlight always spans the row.
+    private static void AlignDropDownItemWidths(ToolStripDropDown dropDown)
+    {
+        var menuItems = dropDown.Items.OfType<ToolStripMenuItem>().ToList();
+        if (menuItems.Count == 0)
+        {
+            return;
+        }
+
+        int width = menuItems.Max(item => item.GetPreferredSize(Size.Empty).Width);
+        width = Math.Max(width, dropDown.MinimumSize.Width - dropDown.Padding.Horizontal);
+
+        foreach (var item in menuItems)
+        {
+            bool menuBar = MenuStripRootIconRenderer.IsMenuBarDropDownItem(item);
+            int minHeight = MenuStripRootIconRenderer.GetMinDropDownItemHeight(menuBar);
+            item.AutoSize = false;
+            item.Size = new Size(
+                width,
+                Math.Max(item.GetPreferredSize(Size.Empty).Height, minHeight));
         }
     }
 
@@ -280,6 +312,7 @@ public partial class MainForm : Form
         menuItem.DropDown.AutoSize = true;
         menuItem.DropDown.Padding = new Padding(1);
         menuItem.DropDown.MinimumSize = new Size(MenuStripRootIconRenderer.MenuBarDropDownMinWidth, 0);
+        menuItem.DropDown.Opening += (_, _) => AlignDropDownItemWidths(menuItem.DropDown);
     }
 
     private void ConfigureNestedDropDownMenu(ToolStripMenuItem menuItem, bool menuBar)
@@ -299,6 +332,7 @@ public partial class MainForm : Form
         menuItem.DropDown.AutoSize = true;
         menuItem.DropDown.Padding = new Padding(1);
         menuItem.DropDown.MinimumSize = new Size(minWidth, 0);
+        menuItem.DropDown.Opening += (_, _) => AlignDropDownItemWidths(menuItem.DropDown);
     }
 
     private static void ConfigureDropDownItem(ToolStripMenuItem item, bool menuBar = false)
@@ -307,9 +341,7 @@ public partial class MainForm : Form
         item.DisplayStyle = ToolStripItemDisplayStyle.Text;
         item.Font = new Font(item.Font.FontFamily, MenuStripRootIconRenderer.DropDownMenuFontSize, FontStyle.Regular);
         item.ForeColor = Color.FromArgb(30, 41, 59);
-        item.Padding = menuBar
-            ? MenuStripRootIconRenderer.MenuBarDropDownPadding
-            : MenuStripRootIconRenderer.ContextMenuDropDownPadding;
+        item.Padding = MenuStripRootIconRenderer.GetDropDownPadding(menuBar);
         item.Margin = Padding.Empty;
     }
 
@@ -408,7 +440,7 @@ public partial class MainForm : Form
         button.DisplayStyle = ToolStripItemDisplayStyle.Image;
         button.Text = string.Empty;
         button.Padding = new Padding(4);
-        button.Margin = new Padding(2, 1, 2, 1);
+        button.Margin = new Padding(2, 0, 2, 0);
         button.AutoSize = false;
         int content = Math.Max(icon.Width, icon.Height);
         button.Size = new Size(content + button.Padding.Horizontal, content + button.Padding.Vertical);

@@ -42,17 +42,17 @@ namespace MyGitWinV10.App
             exportSummaryPdfMenuItem = new ToolStripMenuItem();
             exportSummaryWordMenuItem = new ToolStripMenuItem();
             exportSummaryMarkdownMenuItem = new ToolStripMenuItem();
-            repoInfoContextMenu = new ContextMenuStrip(components);
-            exportSummaryInfoMenuItem = new ToolStripMenuItem();
-            exportSummaryInfoPdfMenuItem = new ToolStripMenuItem();
-            exportSummaryInfoWordMenuItem = new ToolStripMenuItem();
-            exportSummaryInfoMarkdownMenuItem = new ToolStripMenuItem();
             commitMetaLabel = new Label();
             changedFilesListView = new ListView();
             changedFilesContextMenu = new ContextMenuStrip(components);
             copyFilePathContextMenuItem = new ToolStripMenuItem();
             diffTextBox = new RichTextBox();
             repoInfoLabel = new SectionInfoLabel();
+            repoInfoContextMenu = new ContextMenuStrip(components);
+            exportSummaryInfoMenuItem = new ToolStripMenuItem();
+            exportSummaryInfoPdfMenuItem = new ToolStripMenuItem();
+            exportSummaryInfoWordMenuItem = new ToolStripMenuItem();
+            exportSummaryInfoMarkdownMenuItem = new ToolStripMenuItem();
             commitGraphView = new CommitGraphView();
             commitGraphContextMenu = new ContextMenuStrip(components);
             copyShaContextMenuItem = new ToolStripMenuItem();
@@ -68,9 +68,9 @@ namespace MyGitWinV10.App
             exitMenuItem = new ToolStripMenuItem();
             repositoryMenuItem = new ToolStripMenuItem();
             refreshTreeMenuItem = new ToolStripMenuItem();
-            barExportSummaryPdfMenuItem = new ToolStripMenuItem();
             barExportSummaryWordMenuItem = new ToolStripMenuItem();
             barExportSummaryMarkdownMenuItem = new ToolStripMenuItem();
+            barExportSummaryPdfMenuItem = new ToolStripMenuItem();
             historyMenuItem = new ToolStripMenuItem();
             refreshGraphMenuItem = new ToolStripMenuItem();
             copyShaMenuItem = new ToolStripMenuItem();
@@ -114,8 +114,8 @@ namespace MyGitWinV10.App
             copyDiffToolButton = new ToolStripButton();
             infoToolButton = new ToolStripButton();
             repoTreeContextMenu.SuspendLayout();
-            repoInfoContextMenu.SuspendLayout();
             changedFilesContextMenu.SuspendLayout();
+            repoInfoContextMenu.SuspendLayout();
             commitGraphContextMenu.SuspendLayout();
             menuStrip.SuspendLayout();
             statusStrip.SuspendLayout();
@@ -146,10 +146,10 @@ namespace MyGitWinV10.App
             repoTreeView.Dock = DockStyle.Fill;
             repoTreeView.FullRowSelect = true;
             repoTreeView.HideSelection = false;
-            repoTreeView.Location = new Point(1, 83);
+            repoTreeView.Location = new Point(1, 80);
             repoTreeView.Name = "repoTreeView";
             repoTreeView.ShowNodeToolTips = true;
-            repoTreeView.Size = new Size(296, 793);
+            repoTreeView.Size = new Size(296, 796);
             repoTreeView.TabIndex = 0;
             toolTip.SetToolTip(repoTreeView, "Local/remote branches, tags, and releases. Double-click a local branch to check it out.");
             repoTreeView.AfterSelect += RepoTreeView_AfterSelect;
@@ -160,13 +160,13 @@ namespace MyGitWinV10.App
             // 
             repoTreeContextMenu.Items.AddRange(new ToolStripItem[] { checkoutContextMenuItem, copyBranchNameContextMenuItem, repoTreeExportSeparator, exportSummaryMenuItem });
             repoTreeContextMenu.Name = "repoTreeContextMenu";
-            repoTreeContextMenu.Size = new Size(200, 120);
+            repoTreeContextMenu.Size = new Size(165, 76);
             repoTreeContextMenu.Opening += RepoTreeContextMenu_Opening;
             // 
             // checkoutContextMenuItem
             // 
             checkoutContextMenuItem.Name = "checkoutContextMenuItem";
-            checkoutContextMenuItem.Size = new Size(138, 22);
+            checkoutContextMenuItem.Size = new Size(164, 22);
             checkoutContextMenuItem.Text = "Checkout";
             checkoutContextMenuItem.ToolTipText = "Check out this local branch";
             checkoutContextMenuItem.Click += CheckoutContextMenuItem_Click;
@@ -174,7 +174,7 @@ namespace MyGitWinV10.App
             // copyBranchNameContextMenuItem
             // 
             copyBranchNameContextMenuItem.Name = "copyBranchNameContextMenuItem";
-            copyBranchNameContextMenuItem.Size = new Size(138, 22);
+            copyBranchNameContextMenuItem.Size = new Size(164, 22);
             copyBranchNameContextMenuItem.Text = "Copy Name";
             copyBranchNameContextMenuItem.ToolTipText = "Copy the branch name to the clipboard";
             copyBranchNameContextMenuItem.Click += CopyBranchNameContextMenuItem_Click;
@@ -182,20 +182,20 @@ namespace MyGitWinV10.App
             // repoTreeExportSeparator
             // 
             repoTreeExportSeparator.Name = "repoTreeExportSeparator";
-            repoTreeExportSeparator.Size = new Size(196, 6);
+            repoTreeExportSeparator.Size = new Size(161, 6);
             // 
             // exportSummaryMenuItem
             // 
             exportSummaryMenuItem.DropDownItems.AddRange(new ToolStripItem[] { exportSummaryPdfMenuItem, exportSummaryWordMenuItem, exportSummaryMarkdownMenuItem });
             exportSummaryMenuItem.Name = "exportSummaryMenuItem";
-            exportSummaryMenuItem.Size = new Size(197, 22);
+            exportSummaryMenuItem.Size = new Size(164, 22);
             exportSummaryMenuItem.Text = "Export Summary";
             exportSummaryMenuItem.ToolTipText = "Export repository summary as a report";
             // 
             // exportSummaryPdfMenuItem
             // 
             exportSummaryPdfMenuItem.Name = "exportSummaryPdfMenuItem";
-            exportSummaryPdfMenuItem.Size = new Size(180, 22);
+            exportSummaryPdfMenuItem.Size = new Size(164, 22);
             exportSummaryPdfMenuItem.Tag = "pdf";
             exportSummaryPdfMenuItem.Text = "PDF (.pdf)";
             exportSummaryPdfMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
@@ -203,7 +203,7 @@ namespace MyGitWinV10.App
             // exportSummaryWordMenuItem
             // 
             exportSummaryWordMenuItem.Name = "exportSummaryWordMenuItem";
-            exportSummaryWordMenuItem.Size = new Size(180, 22);
+            exportSummaryWordMenuItem.Size = new Size(164, 22);
             exportSummaryWordMenuItem.Tag = "docx";
             exportSummaryWordMenuItem.Text = "Word (.docx)";
             exportSummaryWordMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
@@ -211,49 +211,10 @@ namespace MyGitWinV10.App
             // exportSummaryMarkdownMenuItem
             // 
             exportSummaryMarkdownMenuItem.Name = "exportSummaryMarkdownMenuItem";
-            exportSummaryMarkdownMenuItem.Size = new Size(180, 22);
+            exportSummaryMarkdownMenuItem.Size = new Size(164, 22);
             exportSummaryMarkdownMenuItem.Tag = "md";
             exportSummaryMarkdownMenuItem.Text = "Markdown (.md)";
             exportSummaryMarkdownMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
-            // 
-            // repoInfoContextMenu
-            // 
-            repoInfoContextMenu.Items.AddRange(new ToolStripItem[] { exportSummaryInfoMenuItem });
-            repoInfoContextMenu.Name = "repoInfoContextMenu";
-            repoInfoContextMenu.Size = new Size(200, 26);
-            repoInfoContextMenu.Opening += RepoInfoContextMenu_Opening;
-            // 
-            // exportSummaryInfoMenuItem
-            // 
-            exportSummaryInfoMenuItem.DropDownItems.AddRange(new ToolStripItem[] { exportSummaryInfoPdfMenuItem, exportSummaryInfoWordMenuItem, exportSummaryInfoMarkdownMenuItem });
-            exportSummaryInfoMenuItem.Name = "exportSummaryInfoMenuItem";
-            exportSummaryInfoMenuItem.Size = new Size(199, 22);
-            exportSummaryInfoMenuItem.Text = "Export Summary";
-            exportSummaryInfoMenuItem.ToolTipText = "Export repository summary as a report";
-            // 
-            // exportSummaryInfoPdfMenuItem
-            // 
-            exportSummaryInfoPdfMenuItem.Name = "exportSummaryInfoPdfMenuItem";
-            exportSummaryInfoPdfMenuItem.Size = new Size(180, 22);
-            exportSummaryInfoPdfMenuItem.Tag = "pdf";
-            exportSummaryInfoPdfMenuItem.Text = "PDF (.pdf)";
-            exportSummaryInfoPdfMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
-            // 
-            // exportSummaryInfoWordMenuItem
-            // 
-            exportSummaryInfoWordMenuItem.Name = "exportSummaryInfoWordMenuItem";
-            exportSummaryInfoWordMenuItem.Size = new Size(180, 22);
-            exportSummaryInfoWordMenuItem.Tag = "docx";
-            exportSummaryInfoWordMenuItem.Text = "Word (.docx)";
-            exportSummaryInfoWordMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
-            // 
-            // exportSummaryInfoMarkdownMenuItem
-            // 
-            exportSummaryInfoMarkdownMenuItem.Name = "exportSummaryInfoMarkdownMenuItem";
-            exportSummaryInfoMarkdownMenuItem.Size = new Size(180, 22);
-            exportSummaryInfoMarkdownMenuItem.Tag = "md";
-            exportSummaryInfoMarkdownMenuItem.Text = "Markdown (.md)";
-            exportSummaryInfoMarkdownMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
             // 
             // commitMetaLabel
             // 
@@ -279,7 +240,7 @@ namespace MyGitWinV10.App
             changedFilesListView.Location = new Point(1, 145);
             changedFilesListView.MultiSelect = false;
             changedFilesListView.Name = "changedFilesListView";
-            changedFilesListView.Size = new Size(342, 289);
+            changedFilesListView.Size = new Size(342, 207);
             changedFilesListView.TabIndex = 0;
             toolTip.SetToolTip(changedFilesListView, "Files changed in the selected commit. Click a file to view its diff.");
             changedFilesListView.UseCompatibleStateImageBehavior = false;
@@ -310,7 +271,7 @@ namespace MyGitWinV10.App
             diffTextBox.Location = new Point(1, 31);
             diffTextBox.Name = "diffTextBox";
             diffTextBox.ReadOnly = true;
-            diffTextBox.Size = new Size(342, 404);
+            diffTextBox.Size = new Size(342, 486);
             diffTextBox.TabIndex = 0;
             diffTextBox.Text = "";
             toolTip.SetToolTip(diffTextBox, "Unified diff of the selected file.");
@@ -318,17 +279,59 @@ namespace MyGitWinV10.App
             // 
             // repoInfoLabel
             // 
-            repoInfoLabel.Dock = DockStyle.Top;
+            repoInfoLabel.BackColor = Color.FromArgb(238, 242, 255);
             repoInfoLabel.ContextMenuStrip = repoInfoContextMenu;
+            repoInfoLabel.Dock = DockStyle.Top;
+            repoInfoLabel.Font = new Font("Segoe UI", 9F);
+            repoInfoLabel.ForeColor = Color.FromArgb(55, 48, 163);
             repoInfoLabel.Location = new Point(1, 31);
             repoInfoLabel.Name = "repoInfoLabel";
             repoInfoLabel.Padding = new Padding(12, 8, 10, 8);
-            repoInfoLabel.Section = SectionTitleKind.Repository;
-            repoInfoLabel.Size = new Size(296, 52);
+            repoInfoLabel.Size = new Size(296, 49);
             repoInfoLabel.TabIndex = 2;
             repoInfoLabel.Text = "No repository open";
             repoInfoLabel.TextAlign = ContentAlignment.MiddleLeft;
             toolTip.SetToolTip(repoInfoLabel, "Current repository folder and checked-out branch.");
+            repoInfoLabel.UseCompatibleTextRendering = true;
+            // 
+            // repoInfoContextMenu
+            // 
+            repoInfoContextMenu.Items.AddRange(new ToolStripItem[] { exportSummaryInfoMenuItem });
+            repoInfoContextMenu.Name = "repoInfoContextMenu";
+            repoInfoContextMenu.Size = new Size(165, 26);
+            repoInfoContextMenu.Opening += RepoInfoContextMenu_Opening;
+            // 
+            // exportSummaryInfoMenuItem
+            // 
+            exportSummaryInfoMenuItem.DropDownItems.AddRange(new ToolStripItem[] { exportSummaryInfoPdfMenuItem, exportSummaryInfoWordMenuItem, exportSummaryInfoMarkdownMenuItem });
+            exportSummaryInfoMenuItem.Name = "exportSummaryInfoMenuItem";
+            exportSummaryInfoMenuItem.Size = new Size(164, 22);
+            exportSummaryInfoMenuItem.Text = "Export Summary";
+            exportSummaryInfoMenuItem.ToolTipText = "Export repository summary as a report";
+            // 
+            // exportSummaryInfoPdfMenuItem
+            // 
+            exportSummaryInfoPdfMenuItem.Name = "exportSummaryInfoPdfMenuItem";
+            exportSummaryInfoPdfMenuItem.Size = new Size(164, 22);
+            exportSummaryInfoPdfMenuItem.Tag = "pdf";
+            exportSummaryInfoPdfMenuItem.Text = "PDF (.pdf)";
+            exportSummaryInfoPdfMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
+            // 
+            // exportSummaryInfoWordMenuItem
+            // 
+            exportSummaryInfoWordMenuItem.Name = "exportSummaryInfoWordMenuItem";
+            exportSummaryInfoWordMenuItem.Size = new Size(164, 22);
+            exportSummaryInfoWordMenuItem.Tag = "docx";
+            exportSummaryInfoWordMenuItem.Text = "Word (.docx)";
+            exportSummaryInfoWordMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
+            // 
+            // exportSummaryInfoMarkdownMenuItem
+            // 
+            exportSummaryInfoMarkdownMenuItem.Name = "exportSummaryInfoMarkdownMenuItem";
+            exportSummaryInfoMarkdownMenuItem.Size = new Size(164, 22);
+            exportSummaryInfoMarkdownMenuItem.Tag = "md";
+            exportSummaryInfoMarkdownMenuItem.Text = "Markdown (.md)";
+            exportSummaryInfoMarkdownMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
             // 
             // commitGraphView
             // 
@@ -406,9 +409,9 @@ namespace MyGitWinV10.App
             // openRepositoryMenuItem
             // 
             openRepositoryMenuItem.Name = "openRepositoryMenuItem";
-            openRepositoryMenuItem.Size = new Size(114, 22);
             openRepositoryMenuItem.ShortcutKeys = Keys.Control | Keys.O;
             openRepositoryMenuItem.ShowShortcutKeys = false;
+            openRepositoryMenuItem.Size = new Size(107, 22);
             openRepositoryMenuItem.Text = "&Open...";
             openRepositoryMenuItem.ToolTipText = "Open a local Git repository folder";
             openRepositoryMenuItem.Click += OpenRepositoryMenuItem_Click;
@@ -416,9 +419,9 @@ namespace MyGitWinV10.App
             // cloneRepositoryMenuItem
             // 
             cloneRepositoryMenuItem.Name = "cloneRepositoryMenuItem";
-            cloneRepositoryMenuItem.Size = new Size(114, 22);
             cloneRepositoryMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.O;
             cloneRepositoryMenuItem.ShowShortcutKeys = false;
+            cloneRepositoryMenuItem.Size = new Size(107, 22);
             cloneRepositoryMenuItem.Text = "&Clone...";
             cloneRepositoryMenuItem.ToolTipText = "Clone a remote repository to a local folder";
             cloneRepositoryMenuItem.Click += CloneRepositoryMenuItem_Click;
@@ -426,19 +429,19 @@ namespace MyGitWinV10.App
             // fileRecentSeparator
             // 
             fileRecentSeparator.Name = "fileRecentSeparator";
-            fileRecentSeparator.Size = new Size(111, 6);
+            fileRecentSeparator.Size = new Size(104, 6);
             // 
             // fileMenuSeparator
             // 
             fileMenuSeparator.Name = "fileMenuSeparator";
-            fileMenuSeparator.Size = new Size(111, 6);
+            fileMenuSeparator.Size = new Size(104, 6);
             // 
             // exitMenuItem
             // 
             exitMenuItem.Name = "exitMenuItem";
-            exitMenuItem.Size = new Size(114, 22);
             exitMenuItem.ShortcutKeys = Keys.Alt | Keys.F4;
             exitMenuItem.ShowShortcutKeys = false;
+            exitMenuItem.Size = new Size(107, 22);
             exitMenuItem.Text = "E&xit";
             exitMenuItem.ToolTipText = "Close the application";
             exitMenuItem.Click += ExitMenuItem_Click;
@@ -449,49 +452,49 @@ namespace MyGitWinV10.App
             repositoryMenuItem.Name = "repositoryMenuItem";
             repositoryMenuItem.Size = new Size(75, 20);
             repositoryMenuItem.Text = "&Repository";
-            //
+            // 
             // refreshTreeMenuItem
-            //
+            // 
             refreshTreeMenuItem.Name = "refreshTreeMenuItem";
-            refreshTreeMenuItem.Size = new Size(220, 22);
             refreshTreeMenuItem.ShortcutKeys = Keys.F5;
             refreshTreeMenuItem.ShowShortcutKeys = false;
+            refreshTreeMenuItem.Size = new Size(177, 22);
             refreshTreeMenuItem.Text = "Refresh &Tree";
             refreshTreeMenuItem.ToolTipText = "Reload branches, tags, and releases";
             refreshTreeMenuItem.Click += RefreshTreeToolButton_Click;
-            //
-            // barExportSummaryPdfMenuItem
-            //
-            barExportSummaryPdfMenuItem.Name = "barExportSummaryPdfMenuItem";
-            barExportSummaryPdfMenuItem.Size = new Size(180, 22);
-            barExportSummaryPdfMenuItem.ShortcutKeys = Keys.Control | Keys.Alt | Keys.P;
-            barExportSummaryPdfMenuItem.ShowShortcutKeys = false;
-            barExportSummaryPdfMenuItem.Tag = "pdf";
-            barExportSummaryPdfMenuItem.Text = "Export to &PDF";
-            barExportSummaryPdfMenuItem.ToolTipText = "Export repository summary as a PDF report";
-            barExportSummaryPdfMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
-            //
+            // 
             // barExportSummaryWordMenuItem
-            //
+            // 
             barExportSummaryWordMenuItem.Name = "barExportSummaryWordMenuItem";
-            barExportSummaryWordMenuItem.Size = new Size(180, 22);
             barExportSummaryWordMenuItem.ShortcutKeys = Keys.Control | Keys.Alt | Keys.W;
             barExportSummaryWordMenuItem.ShowShortcutKeys = false;
+            barExportSummaryWordMenuItem.Size = new Size(177, 22);
             barExportSummaryWordMenuItem.Tag = "docx";
             barExportSummaryWordMenuItem.Text = "Export to &Word";
             barExportSummaryWordMenuItem.ToolTipText = "Export repository summary as a Word document";
             barExportSummaryWordMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
-            //
+            // 
             // barExportSummaryMarkdownMenuItem
-            //
+            // 
             barExportSummaryMarkdownMenuItem.Name = "barExportSummaryMarkdownMenuItem";
-            barExportSummaryMarkdownMenuItem.Size = new Size(180, 22);
             barExportSummaryMarkdownMenuItem.ShortcutKeys = Keys.Control | Keys.Alt | Keys.M;
             barExportSummaryMarkdownMenuItem.ShowShortcutKeys = false;
+            barExportSummaryMarkdownMenuItem.Size = new Size(177, 22);
             barExportSummaryMarkdownMenuItem.Tag = "md";
             barExportSummaryMarkdownMenuItem.Text = "Export to &Markdown";
             barExportSummaryMarkdownMenuItem.ToolTipText = "Export repository summary as a Markdown file";
             barExportSummaryMarkdownMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
+            // 
+            // barExportSummaryPdfMenuItem
+            // 
+            barExportSummaryPdfMenuItem.Name = "barExportSummaryPdfMenuItem";
+            barExportSummaryPdfMenuItem.ShortcutKeys = Keys.Control | Keys.Alt | Keys.P;
+            barExportSummaryPdfMenuItem.ShowShortcutKeys = false;
+            barExportSummaryPdfMenuItem.Size = new Size(177, 22);
+            barExportSummaryPdfMenuItem.Tag = "pdf";
+            barExportSummaryPdfMenuItem.Text = "Export to &PDF";
+            barExportSummaryPdfMenuItem.ToolTipText = "Export repository summary as a PDF report";
+            barExportSummaryPdfMenuItem.Click += ExportRepositorySummaryMenuItem_Click;
             // 
             // historyMenuItem
             // 
@@ -503,9 +506,9 @@ namespace MyGitWinV10.App
             // refreshGraphMenuItem
             // 
             refreshGraphMenuItem.Name = "refreshGraphMenuItem";
-            refreshGraphMenuItem.Size = new Size(200, 22);
             refreshGraphMenuItem.ShortcutKeys = Keys.Control | Keys.F5;
             refreshGraphMenuItem.ShowShortcutKeys = false;
+            refreshGraphMenuItem.Size = new Size(145, 22);
             refreshGraphMenuItem.Text = "Refresh &Graph";
             refreshGraphMenuItem.ToolTipText = "Reload the commit history graph";
             refreshGraphMenuItem.Click += RefreshGraphToolButton_Click;
@@ -513,9 +516,9 @@ namespace MyGitWinV10.App
             // copyShaMenuItem
             // 
             copyShaMenuItem.Name = "copyShaMenuItem";
-            copyShaMenuItem.Size = new Size(200, 22);
             copyShaMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
             copyShaMenuItem.ShowShortcutKeys = false;
+            copyShaMenuItem.Size = new Size(145, 22);
             copyShaMenuItem.Text = "Copy &SHA";
             copyShaMenuItem.ToolTipText = "Copy the selected commit's full hash to the clipboard";
             copyShaMenuItem.Click += CopyShaContextMenuItem_Click;
@@ -523,9 +526,9 @@ namespace MyGitWinV10.App
             // copyMessageMenuItem
             // 
             copyMessageMenuItem.Name = "copyMessageMenuItem";
-            copyMessageMenuItem.Size = new Size(200, 22);
             copyMessageMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.M;
             copyMessageMenuItem.ShowShortcutKeys = false;
+            copyMessageMenuItem.Size = new Size(145, 22);
             copyMessageMenuItem.Text = "Copy &Message";
             copyMessageMenuItem.ToolTipText = "Copy the selected commit message to the clipboard";
             copyMessageMenuItem.Click += CopyMessageContextMenuItem_Click;
@@ -534,15 +537,15 @@ namespace MyGitWinV10.App
             // 
             diffMenuItem.DropDownItems.AddRange(new ToolStripItem[] { copyPathMenuItem, wordWrapMenuItem, copyDiffMenuItem });
             diffMenuItem.Name = "diffMenuItem";
-            diffMenuItem.Size = new Size(40, 20);
+            diffMenuItem.Size = new Size(39, 20);
             diffMenuItem.Text = "&Diff";
             // 
             // copyPathMenuItem
             // 
             copyPathMenuItem.Name = "copyPathMenuItem";
-            copyPathMenuItem.Size = new Size(180, 22);
             copyPathMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.P;
             copyPathMenuItem.ShowShortcutKeys = false;
+            copyPathMenuItem.Size = new Size(128, 22);
             copyPathMenuItem.Text = "Copy &Path";
             copyPathMenuItem.ToolTipText = "Copy the selected file path to the clipboard";
             copyPathMenuItem.Click += CopyFilePathContextMenuItem_Click;
@@ -551,9 +554,9 @@ namespace MyGitWinV10.App
             // 
             wordWrapMenuItem.CheckOnClick = true;
             wordWrapMenuItem.Name = "wordWrapMenuItem";
-            wordWrapMenuItem.Size = new Size(180, 22);
             wordWrapMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.W;
             wordWrapMenuItem.ShowShortcutKeys = false;
+            wordWrapMenuItem.Size = new Size(128, 22);
             wordWrapMenuItem.Text = "Word &Wrap";
             wordWrapMenuItem.ToolTipText = "Toggle word wrap for the diff view";
             wordWrapMenuItem.CheckedChanged += WordWrapMenuItem_CheckedChanged;
@@ -561,9 +564,9 @@ namespace MyGitWinV10.App
             // copyDiffMenuItem
             // 
             copyDiffMenuItem.Name = "copyDiffMenuItem";
-            copyDiffMenuItem.Size = new Size(180, 22);
             copyDiffMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.D;
             copyDiffMenuItem.ShowShortcutKeys = false;
+            copyDiffMenuItem.Size = new Size(128, 22);
             copyDiffMenuItem.Text = "Copy &Diff";
             copyDiffMenuItem.ToolTipText = "Copy the visible diff text to the clipboard";
             copyDiffMenuItem.Click += CopyDiffToolButton_Click;
@@ -578,9 +581,9 @@ namespace MyGitWinV10.App
             // aboutMenuItem
             // 
             aboutMenuItem.Name = "aboutMenuItem";
-            aboutMenuItem.Size = new Size(107, 22);
             aboutMenuItem.ShortcutKeys = Keys.F1;
             aboutMenuItem.ShowShortcutKeys = false;
+            aboutMenuItem.Size = new Size(100, 22);
             aboutMenuItem.Text = "&About";
             aboutMenuItem.ToolTipText = "Show application information";
             aboutMenuItem.Click += AboutMenuItem_Click;
@@ -643,12 +646,13 @@ namespace MyGitWinV10.App
             // 
             // repoTitleLabel
             // 
+            repoTitleLabel.BackColor = Color.FromArgb(238, 242, 255);
             repoTitleLabel.Dock = DockStyle.Top;
             repoTitleLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            repoTitleLabel.ForeColor = Color.FromArgb(55, 48, 163);
             repoTitleLabel.Location = new Point(1, 1);
             repoTitleLabel.Name = "repoTitleLabel";
             repoTitleLabel.Padding = new Padding(12, 0, 10, 0);
-            repoTitleLabel.Section = SectionTitleKind.Repository;
             repoTitleLabel.Size = new Size(296, 30);
             repoTitleLabel.TabIndex = 1;
             repoTitleLabel.Text = "Repository";
@@ -722,7 +726,7 @@ namespace MyGitWinV10.App
             detailSplitContainer.Panel2.Controls.Add(diffPanel);
             detailSplitContainer.Panel2MinSize = 120;
             detailSplitContainer.Size = new Size(346, 879);
-            detailSplitContainer.SplitterDistance = 437;
+            detailSplitContainer.SplitterDistance = 355;
             detailSplitContainer.TabIndex = 0;
             // 
             // filesPanel
@@ -737,7 +741,7 @@ namespace MyGitWinV10.App
             filesPanel.Location = new Point(0, 0);
             filesPanel.Name = "filesPanel";
             filesPanel.Padding = new Padding(1);
-            filesPanel.Size = new Size(346, 437);
+            filesPanel.Size = new Size(346, 355);
             filesPanel.TabIndex = 0;
             // 
             // filesTitleLabel
@@ -766,7 +770,7 @@ namespace MyGitWinV10.App
             diffPanel.Location = new Point(0, 0);
             diffPanel.Name = "diffPanel";
             diffPanel.Padding = new Padding(1);
-            diffPanel.Size = new Size(346, 438);
+            diffPanel.Size = new Size(346, 520);
             diffPanel.TabIndex = 0;
             // 
             // diffTitleLabel
@@ -825,7 +829,7 @@ namespace MyGitWinV10.App
             // 
             exportSummaryToolButton.DropDownItems.AddRange(new ToolStripItem[] { exportSummaryToolPdfItem, exportSummaryToolWordItem, exportSummaryToolMarkdownItem });
             exportSummaryToolButton.Name = "exportSummaryToolButton";
-            exportSummaryToolButton.Size = new Size(48, 20);
+            exportSummaryToolButton.Size = new Size(110, 20);
             exportSummaryToolButton.Text = "Export Summary";
             exportSummaryToolButton.ToolTipText = "Export repository summary as PDF, Word, or Markdown";
             // 
@@ -944,8 +948,8 @@ namespace MyGitWinV10.App
             StartPosition = FormStartPosition.CenterScreen;
             Text = "MyGit V1.0.0";
             repoTreeContextMenu.ResumeLayout(false);
-            repoInfoContextMenu.ResumeLayout(false);
             changedFilesContextMenu.ResumeLayout(false);
+            repoInfoContextMenu.ResumeLayout(false);
             commitGraphContextMenu.ResumeLayout(false);
             menuStrip.ResumeLayout(false);
             menuStrip.PerformLayout();
@@ -971,12 +975,6 @@ namespace MyGitWinV10.App
             mainToolStrip.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
-
-            // Run icon/size/padding styling here (not in the constructor body after
-            // InitializeComponent returns) so the Designer — which only executes
-            // InitializeComponent — renders the menu bar and toolbar identically to runtime.
-            ConfigureToolbars();
-            ConfigureMenuIcons();
         }
 
         #endregion
