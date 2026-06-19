@@ -5,11 +5,16 @@ namespace MyGitWinV10.App.Dialogs;
 public partial class CloneRepositoryForm : Form
 {
     private CancellationTokenSource? _cloneCts;
+    private readonly AppSettingsStore _settings = AppSettingsStore.Load();
 
     public CloneRepositoryForm()
     {
         InitializeComponent();
         ResetProgress();
+
+        urlTextBox.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        urlTextBox.AutoCompleteSource = AutoCompleteSource.CustomSource;
+        urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
     }
 
     public string? ClonedRepositoryPath { get; private set; }
@@ -66,6 +71,12 @@ public partial class CloneRepositoryForm : Form
             MessageBox.Show(this, "Please enter both a repository URL and a destination folder.", "MyGit", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
+
+        // Record the URL up front (not just on success) so a failed attempt doesn't force
+        // the user to retype it — it will still show up in the autocomplete suggestions.
+        _settings.RecordRecentCloneUrl(url);
+        _settings.Save();
+        urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
 
         _cloneCts?.Dispose();
         _cloneCts = new CancellationTokenSource();
@@ -130,6 +141,13 @@ public partial class CloneRepositoryForm : Form
     }
 
     private bool WasCloneCancelled() => _cloneCts?.IsCancellationRequested == true;
+
+    private AutoCompleteStringCollection CreateRecentUrlSource()
+    {
+        var source = new AutoCompleteStringCollection();
+        source.AddRange(_settings.RecentCloneUrls.ToArray());
+        return source;
+    }
 
     private void ReportCloneProgress(float progress)
     {

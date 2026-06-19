@@ -17,6 +17,7 @@ public class CommitGraphView : Panel
     private const int DefaultShaColumnWidth = 72;
     private const int DefaultAuthorColumnWidth = 150;
     private const int DefaultDateColumnWidth = 96;
+    private const int MinGraphColumnWidth = 56;
     private const int MinMessageColumnWidth = 80;
     private const int MinShaColumnWidth = 56;
     private const int MinAuthorColumnWidth = 80;
@@ -44,13 +45,13 @@ public class CommitGraphView : Panel
         new("Date", "Date when the commit was authored.", 0, DefaultDateColumnWidth)
     ];
 
-    private int[] _columnWidths = [0, DefaultMessageColumnWidth, DefaultShaColumnWidth, DefaultAuthorColumnWidth, DefaultDateColumnWidth];
+    private int[] _columnWidths = [MinGraphColumnWidth, DefaultMessageColumnWidth, DefaultShaColumnWidth, DefaultAuthorColumnWidth, DefaultDateColumnWidth];
     private int _resizeColumnIndex = -1;
     private int _resizeStartMouseX;
     private int _resizeStartWidth;
 
     private List<CommitRow> _rows = new();
-    private int _textColumnX = LeftMargin + LaneWidth + 8;
+    private int _textColumnX = MinGraphColumnWidth;
     private int _messageColumnX;
     private int _shaColumnX;
     private int _authorColumnX;
@@ -66,17 +67,75 @@ public class CommitGraphView : Panel
 
     public event EventHandler<Commit>? CommitSelected;
 
-    public event EventHandler? ColumnLayoutChanged;
+    /// <summary>Raised when column widths change. The bool argument is true only when the
+    /// user dragged a header divider — callers should not resize the history/detail
+    /// splitter for that case, since widening Date (or any column) manually must not
+    /// drag the splitter along with it.</summary>
+    public event EventHandler<bool>? ColumnLayoutChanged;
 
     public int ListContentWidth => ContentWidth;
 
     public Commit? SelectedCommit => _selectedCommit;
+
+    [Category("Layout")]
+    [DefaultValue(DefaultMessageColumnWidth)]
+    [Description("Width, in pixels, of the Message column heading.")]
+    public int MessageColumnWidth
+    {
+        get => _columnWidths[1];
+        set => SetColumnWidth(1, value);
+    }
+
+    [Category("Layout")]
+    [DefaultValue(DefaultShaColumnWidth)]
+    [Description("Width, in pixels, of the SHA column heading.")]
+    public int ShaColumnWidth
+    {
+        get => _columnWidths[2];
+        set => SetColumnWidth(2, value);
+    }
+
+    [Category("Layout")]
+    [DefaultValue(DefaultAuthorColumnWidth)]
+    [Description("Width, in pixels, of the Author column heading.")]
+    public int AuthorColumnWidth
+    {
+        get => _columnWidths[3];
+        set => SetColumnWidth(3, value);
+    }
+
+    [Category("Layout")]
+    [DefaultValue(DefaultDateColumnWidth)]
+    [Description("Width, in pixels, of the Date column heading.")]
+    public int DateColumnWidth
+    {
+        get => _columnWidths[4];
+        set => SetColumnWidth(4, value);
+    }
+
+    private void SetColumnWidth(int columnIndex, int width)
+    {
+        int clamped = Math.Max(GetMinColumnWidth(columnIndex), width);
+        if (_columnWidths[columnIndex] == clamped)
+        {
+            return;
+        }
+
+        _columnWidths[columnIndex] = clamped;
+        RecalculateColumnLayout(notifyLayoutChanged: false);
+        InvalidateView();
+    }
 
     public CommitGraphView()
     {
         DoubleBuffered = true;
         BackColor = Color.FromArgb(250, 250, 251);
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
+
+        // Headers otherwise stay at their StaticColumnHeaders X=0 default (all stacked
+        // on top of each other) until SetRows is first called, which doesn't happen
+        // in the Designer or before a repository is opened.
+        RecalculateColumnLayout(notifyLayoutChanged: false);
 
         if (!DesignMode)
         {
@@ -178,7 +237,7 @@ public class CommitGraphView : Panel
         _textColumnX = LeftMargin + (maxLane + 1) * LaneWidth + 8;
         _maxLaneIndex = maxLane;
 
-        int requiredGraphWidth = _textColumnX;
+        int requiredGraphWidth = Math.Max(_textColumnX, MinGraphColumnWidth);
         _columnWidths[0] = Math.Max(_columnWidths[0] == 0 ? requiredGraphWidth : _columnWidths[0], requiredGraphWidth);
         RecalculateColumnLayout();
 
@@ -209,18 +268,11 @@ public class CommitGraphView : Panel
 
         if (notifyLayoutChanged)
         {
-            ColumnLayoutChanged?.Invoke(this, EventArgs.Empty);
+            ColumnLayoutChanged?.Invoke(this, false);
         }
     }
 
     private int ContentWidth => _columnHeaders[^1].X + _columnHeaders[^1].Width;
-
-    private static Rectangle GetVisibleContentRect(int offsetX, int contentWidth, int controlWidth, int top, int height)
-    {
-        int left = Math.Max(0, offsetX);
-        int right = Math.Min(controlWidth, offsetX + contentWidth);
-        return right > left ? new Rectangle(left, top, right - left, height) : Rectangle.Empty;
-    }
 
     private int GetMinColumnWidth(int columnIndex)
     {
@@ -310,20 +362,12 @@ public class CommitGraphView : Panel
 
             if (i % 2 == 1)
             {
-                var rowFill = GetVisibleContentRect(offsetX, ContentWidth, ViewportWidth, rowTop, RowHeight);
-                if (rowFill.Width > 0)
-                {
-                    g.FillRectangle(altRowBrush, rowFill);
-                }
+                g.FillRectangle(altRowBrush, 0, rowTop, ViewportWidth, RowHeight);
             }
 
             if (ReferenceEquals(row.Commit, _selectedCommit))
             {
-                var rowFill = GetVisibleContentRect(offsetX, ContentWidth, ViewportWidth, rowTop, RowHeight);
-                if (rowFill.Width > 0)
-                {
-                    g.FillRectangle(selectionBrush, rowFill);
-                }
+                g.FillRectangle(selectionBrush, 0, rowTop, ViewportWidth, RowHeight);
             }
         }
 
@@ -380,18 +424,8 @@ public class CommitGraphView : Panel
     {
         var theme = CommitHistoryHeaderTheme;
 
-        using (var clearBrush = new SolidBrush(BackColor))
-        {
-            g.FillRectangle(clearBrush, 0, 0, viewportWidth, HeaderHeight);
-        }
-
-        var headerRect = GetVisibleContentRect(offsetX, ContentWidth, viewportWidth, 0, HeaderHeight);
-
         using var bg = new SolidBrush(theme.Background);
-        if (headerRect.Width > 0)
-        {
-            g.FillRectangle(bg, headerRect);
-        }
+        g.FillRectangle(bg, 0, 0, viewportWidth, HeaderHeight);
 
         using (var accent = new SolidBrush(theme.Accent))
         {
@@ -401,10 +435,9 @@ public class CommitGraphView : Panel
         using var headerFont = new Font(Font, FontStyle.Bold);
         using var border = new Pen(theme.Border);
 
-        if (headerRect.Width > 0)
-        {
-            g.DrawLine(border, headerRect.Left, HeaderHeight - 1, headerRect.Right - 1, HeaderHeight - 1);
-        }
+        // Spans the full viewport (not just ContentWidth) so the header doesn't look cut
+        // off mid-row when the control is wider than the last (Date) column.
+        g.DrawLine(border, 0, HeaderHeight - 1, viewportWidth - 1, HeaderHeight - 1);
 
         for (int i = 0; i < _columnHeaders.Length; i++)
         {
@@ -464,7 +497,6 @@ public class CommitGraphView : Panel
 
         int graphLeft = offsetX;
         int graphRight = offsetX + _messageColumnX;
-        int contentRight = offsetX + ContentWidth;
 
         var previousSmoothing = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.None;
@@ -500,7 +532,7 @@ public class CommitGraphView : Panel
                 continue;
             }
 
-            g.DrawLine(rowPen, graphLeft, y, contentRight, y);
+            g.DrawLine(rowPen, graphLeft, y, viewportWidth, y);
         }
 
         g.SmoothingMode = previousSmoothing;
@@ -604,7 +636,7 @@ public class CommitGraphView : Panel
             _headerPanel.Capture = false;
         }
 
-        ColumnLayoutChanged?.Invoke(this, EventArgs.Empty);
+        ColumnLayoutChanged?.Invoke(this, true);
     }
 
     private void BodyPanel_MouseDown(object? sender, MouseEventArgs e)

@@ -5,6 +5,7 @@ namespace MyGitWinV10.App.Services;
 public sealed class AppSettingsStore
 {
     public const int MaxRecentRepositories = 10;
+    public const int MaxRecentCloneUrls = 10;
 
     private static readonly string SettingsDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -14,6 +15,10 @@ public sealed class AppSettingsStore
     public string? LastRepositoryPath { get; set; }
 
     public List<string> RecentRepositoryPaths { get; set; } = [];
+
+    // Records every clone URL the user has typed, whether the clone succeeded or failed —
+    // a failed attempt shouldn't force the user to retype the same URL next time.
+    public List<string> RecentCloneUrls { get; set; } = [];
 
     public static AppSettingsStore Load()
     {
@@ -89,6 +94,22 @@ public sealed class AppSettingsStore
             && string.Equals(LastRepositoryPath, path, StringComparison.OrdinalIgnoreCase))
         {
             LastRepositoryPath = RecentRepositoryPaths.FirstOrDefault();
+        }
+    }
+
+    public void RecordRecentCloneUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return;
+        }
+
+        RecentCloneUrls.RemoveAll(existing => string.Equals(existing, url, StringComparison.OrdinalIgnoreCase));
+        RecentCloneUrls.Insert(0, url);
+
+        if (RecentCloneUrls.Count > MaxRecentCloneUrls)
+        {
+            RecentCloneUrls.RemoveRange(MaxRecentCloneUrls, RecentCloneUrls.Count - MaxRecentCloneUrls);
         }
     }
 

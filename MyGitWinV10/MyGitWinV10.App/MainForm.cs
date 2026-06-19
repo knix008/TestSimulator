@@ -13,9 +13,13 @@ public partial class MainForm : Form
     private Patch? _currentPatch;
     private Commit? _currentCommit;
 
+    // Kept in memory only for this session — never persisted to disk (see CredentialsPrompt).
+    private string? _gitHubToken;
+
     private readonly List<ToolStripMenuItem> _fileRecentMenuItems = [];
 
     private bool _applyingPanelLayout;
+    private bool _historySplitterUserAdjusted;
 
     private const int HistoryPanelChromeWidth = 4;
 
@@ -24,13 +28,29 @@ public partial class MainForm : Form
         InitializeComponent();
         Icon = AppInfo.LoadIcon();
         Text = AppInfo.Title;
-        ConfigureToolbars();
-        ConfigureMenuIcons();
         ConfigureChangedFilesListView();
         ConfigureSectionHeadingToolTips();
         graphDetailSplitContainer.FixedPanel = FixedPanel.Panel1;
-        graphDetailSplitContainer.SplitterMoved += (_, _) => ApplyPanelLayout();
-        commitGraphView.ColumnLayoutChanged += (_, _) => ApplyPanelLayout();
+        // Once the user drags this splitter themselves, stop re-pinning it to the commit
+        // graph's preferred (Date-column-aligned) width on every resize/layout pass — it
+        // should no longer be "fixed" to that width, only sized to it on first display.
+        graphDetailSplitContainer.SplitterMoved += (_, _) =>
+        {
+            if (!_applyingPanelLayout)
+            {
+                _historySplitterUserAdjusted = true;
+            }
+        };
+        // Skip auto-fit when the user manually drags a column divider (e.g. widening Date) —
+        // the history/detail splitter must not follow column width changes after the
+        // initial layout, only when row data changes the required graph-lane width.
+        commitGraphView.ColumnLayoutChanged += (_, manualResize) =>
+        {
+            if (!manualResize)
+            {
+                ApplyPanelLayout();
+            }
+        };
         mainSplitContainer.SplitterMoved += (_, _) => ApplyPanelLayout();
         mainSplitContainer.Panel2.Resize += (_, _) => ApplyPanelLayout();
         detailSplitContainer.Resize += (_, _) => ApplyDetailVerticalLayout();
@@ -52,7 +72,7 @@ public partial class MainForm : Form
 
     private void ApplyHorizontalPanelLayout()
     {
-        if (_applyingPanelLayout || !IsHandleCreated)
+        if (_applyingPanelLayout || !IsHandleCreated || _historySplitterUserAdjusted)
         {
             return;
         }
@@ -126,8 +146,10 @@ public partial class MainForm : Form
 
     private void ConfigureToolbars()
     {
+        menuStrip.Dock = DockStyle.Top;
+        mainToolStrip.Dock = DockStyle.Top;
         mainToolStrip.ImageScalingSize = new Size(IconFactory.ToolbarIconSize, IconFactory.ToolbarIconSize);
-        mainToolStrip.Padding = new Padding(8, 6, 8, 6);
+        mainToolStrip.Padding = new Padding(6, 5, 6, 5);
         mainToolStrip.ShowItemToolTips = true;
 
         ConfigureToolStripButton(openToolButton, IconFactory.Open(IconFactory.ToolbarIconSize), "Open a local Git repository folder");
@@ -135,48 +157,51 @@ public partial class MainForm : Form
         ConfigureToolStripButton(refreshTreeToolButton, IconFactory.RefreshTree(IconFactory.ToolbarIconSize), "Reload branches, tags, and releases");
         ConfigureToolStripDropDownButton(exportSummaryToolButton, IconFactory.Report(IconFactory.ToolbarIconSize), "Export repository summary as PDF, Word, or Markdown");
         exportSummaryToolButton.Enabled = false;
-        barExportSummaryMenuItem.Enabled = false;
+        SetExportSummaryMenuItemsEnabled(false);
         ConfigureToolStripButton(refreshGraphToolButton, IconFactory.RefreshGraph(IconFactory.ToolbarIconSize), "Reload the commit history graph");
         ConfigureToolStripButton(copyShaToolButton, IconFactory.Copy(IconFactory.ToolbarIconSize), "Copy the selected commit's full hash to the clipboard");
         ConfigureToolStripButton(copyMessageToolButton, IconFactory.Message(IconFactory.ToolbarIconSize), "Copy the selected commit message to the clipboard");
         ConfigureToolStripButton(copyFilePathToolButton, IconFactory.File(IconFactory.ToolbarIconSize), "Copy the selected file path to the clipboard");
         ConfigureToolStripButton(wordWrapToolButton, IconFactory.WordWrap(IconFactory.ToolbarIconSize), "Toggle word wrap for the diff view");
         ConfigureToolStripButton(copyDiffToolButton, IconFactory.Copy(IconFactory.ToolbarIconSize), "Copy the visible diff text to the clipboard");
-        ConfigureToolStripButton(infoToolButton, IconFactory.InfoToolbar(IconFactory.ToolbarIconSize), "Show application information");
+        ConfigureToolStripButton(infoToolButton, IconFactory.InfoToolbar(IconFactory.InfoToolbarIconSize), "Show application information");
+        infoToolButton.Margin = new Padding(2, 1, 2, 1);
     }
 
     private void ConfigureMenuIcons()
     {
-        menuStrip.ImageScalingSize = new Size(16, 16);
+        menuStrip.ImageScalingSize = new Size(IconFactory.MenuBarIconSize, IconFactory.MenuBarIconSize);
         menuStrip.ShowItemToolTips = true;
         menuStrip.Padding = new Padding(4, 2, 4, 2);
         menuStrip.Renderer = _menuRenderer;
         menuStrip.AutoSize = false;
         menuStrip.Height = MenuStripRootIconRenderer.RootMenuHeight;
 
-        ConfigureRootMenuIcon(fileMenuItem, IconFactory.Folder());
-        ConfigureRootMenuIcon(repositoryMenuItem, IconFactory.RefreshTree());
-        ConfigureRootMenuIcon(historyMenuItem, IconFactory.RefreshGraph());
-        ConfigureRootMenuIcon(diffMenuItem, IconFactory.WordWrap());
-        ConfigureRootMenuIcon(helpMenuItem, IconFactory.InfoMenu());
+        ConfigureRootMenu(fileMenuItem);
+        ConfigureRootMenu(repositoryMenuItem);
+        ConfigureRootMenu(historyMenuItem);
+        ConfigureRootMenu(diffMenuItem);
+        ConfigureRootMenu(helpMenuItem);
         ConfigureDropDownMenu(fileMenuItem);
         ConfigureDropDownMenu(repositoryMenuItem);
         ConfigureDropDownMenu(historyMenuItem);
         ConfigureDropDownMenu(diffMenuItem);
         ConfigureDropDownMenu(helpMenuItem);
 
-        ConfigureMenuItem(openRepositoryMenuItem, IconFactory.Open(), "&Open...");
-        ConfigureMenuItem(cloneRepositoryMenuItem, IconFactory.Clone(), "&Clone...");
-        ConfigureMenuItem(exitMenuItem, IconFactory.Exit(), "E&xit");
-        ConfigureMenuItem(refreshTreeMenuItem, IconFactory.RefreshTree(), "Refresh &Tree");
-        ConfigureExportSummaryMenu(barExportSummaryMenuItem);
-        ConfigureMenuItem(refreshGraphMenuItem, IconFactory.RefreshGraph(), "Refresh &Graph");
-        ConfigureMenuItem(copyShaMenuItem, IconFactory.Copy(), "Copy &SHA");
-        ConfigureMenuItem(copyMessageMenuItem, IconFactory.Message(), "Copy &Message");
-        ConfigureMenuItem(copyPathMenuItem, IconFactory.File(), "Copy &Path");
-        ConfigureMenuItem(wordWrapMenuItem, IconFactory.WordWrap(), "Word &Wrap");
-        ConfigureMenuItem(copyDiffMenuItem, IconFactory.Copy(), "Copy &Diff");
-        ConfigureMenuItem(aboutMenuItem, IconFactory.Info(), "&About");
+        ConfigureMenuItem(openRepositoryMenuItem, IconFactory.Open(IconFactory.MenuBarIconSize), "&Open...", menuBar: true);
+        ConfigureMenuItem(cloneRepositoryMenuItem, IconFactory.Clone(IconFactory.MenuBarIconSize), "&Clone...", menuBar: true);
+        ConfigureMenuItem(exitMenuItem, IconFactory.Exit(IconFactory.MenuBarIconSize), "E&xit", menuBar: true);
+        ConfigureMenuItem(refreshTreeMenuItem, IconFactory.RefreshTree(IconFactory.MenuBarIconSize), "Refresh &Tree", menuBar: true);
+        ConfigureMenuItem(barExportSummaryWordMenuItem, IconFactory.FileWord(IconFactory.MenuBarIconSize), "Export to &Word", menuBar: true);
+        ConfigureMenuItem(barExportSummaryMarkdownMenuItem, IconFactory.FileMarkdown(IconFactory.MenuBarIconSize), "Export to &Markdown", menuBar: true);
+        ConfigureMenuItem(barExportSummaryPdfMenuItem, IconFactory.FilePdf(IconFactory.MenuBarIconSize), "Export to &PDF", menuBar: true);
+        ConfigureMenuItem(refreshGraphMenuItem, IconFactory.RefreshGraph(IconFactory.MenuBarIconSize), "Refresh &Graph", menuBar: true);
+        ConfigureMenuItem(copyShaMenuItem, IconFactory.Copy(IconFactory.MenuBarIconSize), "Copy &SHA", menuBar: true);
+        ConfigureMenuItem(copyMessageMenuItem, IconFactory.Message(IconFactory.MenuBarIconSize), "Copy &Message", menuBar: true);
+        ConfigureMenuItem(copyPathMenuItem, IconFactory.File(IconFactory.MenuBarIconSize), "Copy &Path", menuBar: true);
+        ConfigureMenuItem(wordWrapMenuItem, IconFactory.WordWrap(IconFactory.MenuBarIconSize), "Word &Wrap", menuBar: true);
+        ConfigureMenuItem(copyDiffMenuItem, IconFactory.Diff(IconFactory.MenuBarIconSize), "Copy &Diff", menuBar: true);
+        ConfigureMenuItem(aboutMenuItem, IconFactory.InfoToolbar(IconFactory.MenuBarIconSize), "&About", menuBar: true);
 
         ConfigureContextMenu(repoTreeContextMenu,
             (checkoutContextMenuItem, IconFactory.Checkout(), "Checkout"),
@@ -192,17 +217,34 @@ public partial class MainForm : Form
             (copyFilePathContextMenuItem, IconFactory.File(), "Copy Path"));
     }
 
-    private void ConfigureExportSummaryMenu(ToolStripMenuItem parent)
+    private void ConfigureExportSummaryMenu(ToolStripMenuItem parent, bool menuBar = false)
     {
-        ConfigureMenuItem(parent, IconFactory.Report(), "Export Summary");
+        Image icon = menuBar ? IconFactory.Report(IconFactory.MenuBarIconSize) : IconFactory.Report(IconFactory.MenuIconSize);
+        ConfigureMenuItem(parent, icon, menuBar ? "Export &Summary" : "Export Summary", menuBar);
+
+        if (parent.DropDownItems.Count > 0)
+        {
+            ConfigureNestedDropDownMenu(parent, menuBar);
+        }
+
+        int childIconSize = menuBar ? IconFactory.MenuBarIconSize : IconFactory.MenuIconSize;
         foreach (ToolStripItem child in parent.DropDownItems)
         {
             if (child is ToolStripMenuItem menuItem)
             {
-                ConfigureDropDownItem(menuItem);
+                SetMenuIcon(menuItem, GetExportFormatIcon(menuItem.Tag as string, childIconSize));
+                ConfigureDropDownItem(menuItem, menuBar);
             }
         }
     }
+
+    private static Image GetExportFormatIcon(string? formatTag, int size) => formatTag switch
+    {
+        "pdf" => IconFactory.FilePdf(size),
+        "docx" => IconFactory.FileWord(size),
+        "md" => IconFactory.FileMarkdown(size),
+        _ => IconFactory.File(size),
+    };
 
     private void ConfigureContextMenu(ContextMenuStrip menu, params (ToolStripMenuItem Item, Image Icon, string Text)[] items)
     {
@@ -210,6 +252,7 @@ public partial class MainForm : Form
         menu.ShowImageMargin = false;
         menu.AutoSize = true;
         menu.Padding = new Padding(1);
+        menu.MinimumSize = new Size(MenuStripRootIconRenderer.ContextMenuDropDownMinWidth, 0);
 
         foreach (var (item, icon, text) in items)
         {
@@ -217,11 +260,11 @@ public partial class MainForm : Form
         }
     }
 
-    private static void ConfigureMenuItem(ToolStripMenuItem item, Image icon, string text)
+    private static void ConfigureMenuItem(ToolStripMenuItem item, Image icon, string text, bool menuBar = false)
     {
         item.Text = text;
         SetMenuIcon(item, icon);
-        ConfigureDropDownItem(item);
+        ConfigureDropDownItem(item, menuBar);
     }
 
     private void ConfigureDropDownMenu(ToolStripMenuItem menuItem)
@@ -236,22 +279,43 @@ public partial class MainForm : Form
         menuItem.DropDown.ForeColor = Color.FromArgb(30, 41, 59);
         menuItem.DropDown.AutoSize = true;
         menuItem.DropDown.Padding = new Padding(1);
-        menuItem.DropDown.MinimumSize = Size.Empty;
+        menuItem.DropDown.MinimumSize = new Size(MenuStripRootIconRenderer.MenuBarDropDownMinWidth, 0);
     }
 
-    private static void ConfigureDropDownItem(ToolStripMenuItem item)
+    private void ConfigureNestedDropDownMenu(ToolStripMenuItem menuItem, bool menuBar)
+    {
+        int minWidth = menuBar
+            ? MenuStripRootIconRenderer.MenuBarDropDownMinWidth
+            : MenuStripRootIconRenderer.ContextMenuDropDownMinWidth;
+
+        menuItem.DropDown.Renderer = _menuRenderer;
+        if (menuItem.DropDown is ToolStripDropDownMenu dropDownMenu)
+        {
+            dropDownMenu.ShowImageMargin = false;
+        }
+
+        menuItem.DropDown.BackColor = Color.White;
+        menuItem.DropDown.ForeColor = Color.FromArgb(30, 41, 59);
+        menuItem.DropDown.AutoSize = true;
+        menuItem.DropDown.Padding = new Padding(1);
+        menuItem.DropDown.MinimumSize = new Size(minWidth, 0);
+    }
+
+    private static void ConfigureDropDownItem(ToolStripMenuItem item, bool menuBar = false)
     {
         item.AutoSize = true;
         item.DisplayStyle = ToolStripItemDisplayStyle.Text;
         item.Font = new Font(item.Font.FontFamily, MenuStripRootIconRenderer.DropDownMenuFontSize, FontStyle.Regular);
         item.ForeColor = Color.FromArgb(30, 41, 59);
-        item.Padding = MenuStripRootIconRenderer.DropDownMenuPadding;
+        item.Padding = menuBar
+            ? MenuStripRootIconRenderer.MenuBarDropDownPadding
+            : MenuStripRootIconRenderer.ContextMenuDropDownPadding;
         item.Margin = Padding.Empty;
     }
 
-    private static void ConfigureRootMenuIcon(ToolStripMenuItem item, Image icon)
+    private static void ConfigureRootMenu(ToolStripMenuItem item)
     {
-        SetMenuIcon(item, icon);
+        item.Image = null;
         item.Font = new Font(item.Font.FontFamily, MenuStripRootIconRenderer.RootMenuFontSize, FontStyle.Regular);
         item.DisplayStyle = ToolStripItemDisplayStyle.Text;
         item.AutoSize = true;
@@ -328,23 +392,27 @@ public partial class MainForm : Form
 
     private static void ConfigureToolStripButton(ToolStripButton button, Image icon, string toolTipText)
     {
-        button.Image = icon;
-        button.ImageScaling = ToolStripItemImageScaling.None;
-        button.DisplayStyle = ToolStripItemDisplayStyle.Image;
-        button.Padding = new Padding(4);
-        button.Margin = new Padding(2, 0, 2, 0);
-        button.ToolTipText = toolTipText;
+        ApplyToolStripIconButton(button, icon, toolTipText);
     }
 
     private static void ConfigureToolStripDropDownButton(ToolStripDropDownButton button, Image icon, string toolTipText)
     {
+        ApplyToolStripIconButton(button, icon, toolTipText);
+        button.ShowDropDownArrow = false;
+    }
+
+    private static void ApplyToolStripIconButton(ToolStripItem button, Image icon, string toolTipText)
+    {
         button.Image = icon;
         button.ImageScaling = ToolStripItemImageScaling.None;
         button.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        button.Text = string.Empty;
         button.Padding = new Padding(4);
-        button.Margin = new Padding(2, 0, 2, 0);
+        button.Margin = new Padding(2, 1, 2, 1);
+        button.AutoSize = false;
+        int content = Math.Max(icon.Width, icon.Height);
+        button.Size = new Size(content + button.Padding.Horizontal, content + button.Padding.Vertical);
         button.ToolTipText = toolTipText;
-        button.ShowDropDownArrow = false;
     }
 
     private void OpenLastRepositoryIfAvailable()
@@ -503,7 +571,7 @@ public partial class MainForm : Form
             ToolTipText = path,
             Checked = IsSameRepositoryPath(path, currentPath)
         };
-        ConfigureMenuItem(item, IconFactory.Folder(), label);
+        ConfigureMenuItem(item, IconFactory.Folder(IconFactory.MenuBarIconSize), label, menuBar: true);
         item.Click += RecentRepositoryMenuItem_Click;
         return item;
     }
@@ -614,7 +682,7 @@ public partial class MainForm : Form
         {
             repoInfoLabel.Text = "No repository open";
             exportSummaryToolButton.Enabled = false;
-            barExportSummaryMenuItem.Enabled = false;
+            SetExportSummaryMenuItemsEnabled(false);
             return;
         }
 
@@ -622,7 +690,14 @@ public partial class MainForm : Form
         string branch = _gitService.GetCurrentBranchName();
         repoInfoLabel.Text = $"{folderName}  ·  {branch}\n{_gitService.RepositoryPath}";
         exportSummaryToolButton.Enabled = true;
-        barExportSummaryMenuItem.Enabled = true;
+        SetExportSummaryMenuItemsEnabled(true);
+    }
+
+    private void SetExportSummaryMenuItemsEnabled(bool enabled)
+    {
+        barExportSummaryPdfMenuItem.Enabled = enabled;
+        barExportSummaryWordMenuItem.Enabled = enabled;
+        barExportSummaryMarkdownMenuItem.Enabled = enabled;
     }
 
     private void UpdateRepoCounts()
@@ -868,7 +943,7 @@ public partial class MainForm : Form
         statusLabel.Text = "Loading GitHub releases...";
         try
         {
-            var releases = await GitHubReleaseService.GetReleasesAsync(parsed.Value.Owner, parsed.Value.Repo);
+            var releases = await GitHubReleaseService.GetReleasesAsync(parsed.Value.Owner, parsed.Value.Repo, _gitHubToken);
             var items = releases.Select(release =>
             {
                 var label = string.IsNullOrWhiteSpace(release.Name) ? release.TagName : release.Name;
@@ -879,6 +954,22 @@ public partial class MainForm : Form
             BranchTagTreePopulator.SetReleaseNodes(releasesNode, items);
             statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
         }
+        catch (Octokit.ApiException ex) when (ex is Octokit.RateLimitExceededException or Octokit.ForbiddenException)
+        {
+            // GitHub's anonymous quota (60 req/hour/IP) is exhausted easily and returns 403 —
+            // ask for a PAT to retry authenticated, since the git-auth PAT is never reused here.
+            if (string.IsNullOrEmpty(_gitHubToken) && PromptForGitHubToken())
+            {
+                await LoadReleasesAsync();
+                return;
+            }
+
+            BranchTagTreePopulator.SetReleaseNodes(releasesNode,
+            [
+                ("(403: GitHub API rate limit/access denied — add a Personal Access Token)", null, null)
+            ]);
+            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+        }
         catch (Exception ex)
         {
             BranchTagTreePopulator.SetReleaseNodes(releasesNode,
@@ -887,6 +978,18 @@ public partial class MainForm : Form
             ]);
             statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
         }
+    }
+
+    private bool PromptForGitHubToken()
+    {
+        using var dialog = new CredentialsDialog(suggestedUsername: null, suggestedPassword: null, isGitHub: true);
+        if (dialog.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.Result.Password))
+        {
+            return false;
+        }
+
+        _gitHubToken = dialog.Result.Password;
+        return true;
     }
 
     private void RepoTreeView_AfterSelect(object? sender, TreeViewEventArgs e)
