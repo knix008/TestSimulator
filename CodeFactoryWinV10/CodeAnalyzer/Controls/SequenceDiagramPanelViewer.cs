@@ -229,6 +229,8 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
     {
         base.OnResize(e);
         SyncMessagePagerLayout();
+        _zoom.ApplyContentSize(_scrollSurface, _contentSize);
+        _scrollSurface.Invalidate();
     }
 
     private void SyncMessagePagerLayout()
@@ -245,6 +247,10 @@ internal sealed class SequenceDiagramPanelViewer : UserControl
         {
             _messagePager.BringToFront();
         }
+
+        // 페이지 선택기가 나타나거나 사라지면서 _scrollSurface의 높이가 바뀌므로,
+        // 줌 컨트롤러가 가진 스크롤 범위를 새 ClientSize에 맞춰 다시 계산한다.
+        _zoom.ApplyContentSize(_scrollSurface, _contentSize);
     }
 
     private void DrawContent(Graphics graphics)

@@ -35,7 +35,13 @@ public sealed class ErdDiagramViewer : UserControl
         get => _lineStyle;
         set
         {
+            if (_lineStyle == value)
+            {
+                return;
+            }
+
             _lineStyle = value;
+            _zoom.InvalidateCache();
             Invalidate();
         }
     }
@@ -428,7 +434,10 @@ public sealed class ErdDiagramViewer : UserControl
                 continue;
             }
 
-            ErdDiagramRenderer.DrawRelation(graphics, from, to, edge.Label, _lineStyle);
+            var childIsMany = _schema is null || DatabaseRelationCardinalityResolver.IsChildMany(_schema, edge);
+            var parentIsMany = _schema is not null && DatabaseRelationCardinalityResolver.IsParentMany(_schema, edge);
+
+            ErdDiagramRenderer.DrawRelation(graphics, from, to, edge.Label, _lineStyle, childIsMany, parentIsMany);
         }
 
         foreach (var box in _boxes)

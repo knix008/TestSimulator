@@ -141,15 +141,13 @@ internal static class ErdDiagramRenderer
         DiagramBoxNode from,
         DiagramBoxNode to,
         string? label,
-        ConnectionLineStyle lineStyle)
+        ConnectionLineStyle lineStyle,
+        bool childIsMany = true,
+        bool parentIsMany = false)
     {
         var connection = DiagramSideAnchor.GetConnectionPair(from.Bounds, to.Bounds);
 
-        using var pen = new Pen(Color.FromArgb(70, 110, 160), 1.8f)
-        {
-            EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor,
-            CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(5, 5)
-        };
+        using var pen = new Pen(Color.FromArgb(70, 110, 160), 1.5f);
 
         DrawRoutedLine(
             graphics,
@@ -160,6 +158,16 @@ internal static class ErdDiagramRenderer
             connection.ToSide,
             lineStyle);
 
+        var (fromDir, toDir) = GetEndpointDirections(
+            connection.From,
+            connection.To,
+            connection.FromSide,
+            connection.ToSide,
+            lineStyle);
+
+        DrawCardinalityGlyph(graphics, pen, connection.From, fromDir, childIsMany);
+        DrawCardinalityGlyph(graphics, pen, connection.To, toDir, parentIsMany);
+
         if (!string.IsNullOrWhiteSpace(label))
         {
             using var font = new Font("Segoe UI", 7.5f);
@@ -168,6 +176,71 @@ internal static class ErdDiagramRenderer
             var my = (connection.From.Y + connection.To.Y) / 2f;
             var sz = graphics.MeasureString(label, font);
             graphics.DrawString(label, font, brush, mx - sz.Width / 2f, my - sz.Height - 4);
+        }
+    }
+
+    /// <summary>각 끝점에서 선이 실제로 빠져나가는 방향(단위 벡터)을 선 스타일에 맞게 계산합니다.</summary>
+    private static (PointF FromDir, PointF ToDir) GetEndpointDirections(
+        Point start,
+        Point end,
+        BoxSide startSide,
+        BoxSide endSide,
+        ConnectionLineStyle style)
+    {
+        if (style == ConnectionLineStyle.Orthogonal)
+        {
+            return (SideUnitVector(startSide), SideUnitVector(endSide));
+        }
+
+        if (style == ConnectionLineStyle.Bezier)
+        {
+            var (control1, control2) = GetBezierControlPoints(start, end, startSide, endSide);
+            return (Normalize(control1.X - start.X, control1.Y - start.Y),
+                Normalize(control2.X - end.X, control2.Y - end.Y));
+        }
+
+        return (Normalize(end.X - start.X, end.Y - start.Y), Normalize(start.X - end.X, start.Y - end.Y));
+    }
+
+    private static PointF SideUnitVector(BoxSide side) => side switch
+    {
+        BoxSide.Left => new PointF(-1, 0),
+        BoxSide.Right => new PointF(1, 0),
+        BoxSide.Top => new PointF(0, -1),
+        BoxSide.Bottom => new PointF(0, 1),
+        _ => new PointF(0, 0)
+    };
+
+    private static PointF Normalize(double dx, double dy)
+    {
+        var length = Math.Sqrt(dx * dx + dy * dy);
+        return length < 0.0001 ? new PointF(0, 0) : new PointF((float)(dx / length), (float)(dy / length));
+    }
+
+    /// <summary>크로우 풋(까마귀 발) 표기법: "많음" 쪽은 세 갈래로 펼쳐진 선, "하나" 쪽은 직선과 직각인 짧은 틱 표시.</summary>
+    private static void DrawCardinalityGlyph(Graphics graphics, Pen pen, Point endpoint, PointF direction, bool isMany)
+    {
+        const float legLength = 14f;
+        const float spread = 6f;
+
+        var (ux, uy) = (direction.X, direction.Y);
+        var (px, py) = (-uy, ux);
+
+        var basePoint = new PointF(endpoint.X + ux * legLength, endpoint.Y + uy * legLength);
+        var spread1 = new PointF(basePoint.X + px * spread, basePoint.Y + py * spread);
+        var spread2 = new PointF(basePoint.X - px * spread, basePoint.Y - py * spread);
+
+        if (isMany)
+        {
+            graphics.DrawLine(pen, endpoint, spread1);
+            graphics.DrawLine(pen, endpoint, spread2);
+        }
+        else
+        {
+            var tickCenter = new PointF(endpoint.X + ux * legLength / 2, endpoint.Y + uy * legLength / 2);
+            var tick1 = new PointF(tickCenter.X + px * spread, tickCenter.Y + py * spread);
+            var tick2 = new PointF(tickCenter.X - px * spread, tickCenter.Y - py * spread);
+            graphics.DrawLine(pen, tick1, tick2);
         }
     }
 
@@ -269,7 +342,36 @@ internal static class ErdDiagramRenderer
             return;
         }
 
+        if (style == ConnectionLineStyle.Bezier)
+        {
+            var (control1, control2) = GetBezierControlPoints(start, end, startSide, endSide);
+            graphics.DrawBezier(pen, start, control1, control2, end);
+            return;
+        }
+
         graphics.DrawLine(pen, start, end);
+    }
+
+    private static (Point Control1, Point Control2) GetBezierControlPoints(
+        Point start,
+        Point end,
+        BoxSide startSide,
+        BoxSide endSide)
+    {
+        var startExitsHorizontally = startSide is BoxSide.Left or BoxSide.Right;
+        var endExitsHorizontally = endSide is BoxSide.Left or BoxSide.Right;
+        var pull = Math.Max(40, (startExitsHorizontally
+            ? Math.Abs(end.X - start.X)
+            : Math.Abs(end.Y - start.Y)) / 2);
+
+        var control1 = startExitsHorizontally
+            ? new Point(start.X + (startSide == BoxSide.Right ? pull : -pull), start.Y)
+            : new Point(start.X, start.Y + (startSide == BoxSide.Bottom ? pull : -pull));
+        var control2 = endExitsHorizontally
+            ? new Point(end.X + (endSide == BoxSide.Right ? pull : -pull), end.Y)
+            : new Point(end.X, end.Y + (endSide == BoxSide.Bottom ? pull : -pull));
+
+        return (control1, control2);
     }
 
     private static string FormatColumn(DatabaseColumn column)
