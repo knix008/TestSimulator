@@ -233,4 +233,15 @@ public static class IconFactory
         using var brush = new SolidBrush(color);
         g.FillEllipse(brush, 3, 3, 10, 10);
     });
+
+    public static Bitmap About() => Canvas(g =>
+    {
+        using var fill = new SolidBrush(Color.SteelBlue);
+        using var pen = new Pen(Color.FromArgb(40, 70, 110), 1f);
+        g.FillEllipse(fill, 1, 1, 14, 14);
+        g.DrawEllipse(pen, 1, 1, 14, 14);
+        using var dotBrush = new SolidBrush(Color.White);
+        g.FillEllipse(dotBrush, 7, 3, 2, 2);
+        g.FillRectangle(dotBrush, 7, 7, 2, 6);
+    });
 }

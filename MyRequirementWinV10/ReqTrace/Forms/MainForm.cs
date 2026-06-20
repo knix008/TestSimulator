@@ -1,6 +1,7 @@
 using ReqTrace.Localization;
 using ReqTrace.Models;
 using ReqTrace.Persistence;
+using ReqTrace.Persistence.Database;
 using ReqTrace.Resources;
 using ReqTrace.Services;
 using ReqTrace.Theme;
@@ -24,6 +25,12 @@ public partial class MainForm : Form
     private ToolStripMenuItem languageSettingsMenuItem = null!;
     private ToolStripMenuItem languageKoreanMenuItem = null!;
     private ToolStripMenuItem languageEnglishMenuItem = null!;
+    private ToolStripMenuItem databaseMenuItem = null!;
+    private ToolStripMenuItem connectDatabaseMenuItem = null!;
+    private ToolStripMenuItem saveToDatabaseMenuItem = null!;
+    private ToolStripMenuItem loadFromDatabaseMenuItem = null!;
+    private DbConnectionSettings? _dbSettings;
+    private ToolStripButton aboutToolButton = null!;
 
     public MainForm(string? startupProjectPath = null)
     {
@@ -46,6 +53,8 @@ public partial class MainForm : Form
         InitializeRequirementsListView();
         InitializeDetailEditors();
         InitializeLanguageMenu();
+        InitializeDatabaseMenu();
+        InitializeAboutToolButton();
         WireEvents();
         ApplyLocalization();
         RebuildRecentFilesMenu();
@@ -116,6 +125,101 @@ public partial class MainForm : Form
         languageEnglishMenuItem.Checked = !isKorean;
     }
 
+    private void InitializeDatabaseMenu()
+    {
+        connectDatabaseMenuItem = new ToolStripMenuItem(Loc.T("Menu_ConnectDatabase"));
+        saveToDatabaseMenuItem = new ToolStripMenuItem(Loc.T("Menu_SaveToDatabase"));
+        loadFromDatabaseMenuItem = new ToolStripMenuItem(Loc.T("Menu_LoadFromDatabase"));
+        databaseMenuItem = new ToolStripMenuItem(Loc.T("Menu_Database"));
+        databaseMenuItem.DropDownItems.AddRange(new ToolStripItem[]
+        {
+            connectDatabaseMenuItem, saveToDatabaseMenuItem, loadFromDatabaseMenuItem
+        });
+
+        var toolsMenuIndex = menuStrip1.Items.IndexOf(toolsMenu);
+        menuStrip1.Items.Insert(toolsMenuIndex, databaseMenuItem);
+
+        connectDatabaseMenuItem.Click += (_, _) => ConnectToDatabase();
+        saveToDatabaseMenuItem.Click += async (_, _) => await SaveToDatabaseAsync();
+        loadFromDatabaseMenuItem.Click += async (_, _) => await LoadFromDatabaseAsync();
+    }
+
+    private void InitializeAboutToolButton()
+    {
+        aboutToolButton = new ToolStripButton
+        {
+            Image = IconFactory.About(),
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            Alignment = ToolStripItemAlignment.Right,
+            ToolTipText = Loc.T("Menu_About")
+        };
+        toolStrip1.Items.Add(aboutToolButton);
+        aboutToolButton.Click += (_, _) => new AboutForm().ShowDialog(this);
+    }
+
+    private void ConnectToDatabase()
+    {
+        using var dlg = new DatabaseConnectionForm(_dbSettings);
+        if (dlg.ShowDialog(this) == DialogResult.OK)
+            _dbSettings = dlg.Settings;
+    }
+
+    private async Task SaveToDatabaseAsync()
+    {
+        if (_dbSettings is null)
+        {
+            ConnectToDatabase();
+            if (_dbSettings is null)
+                return;
+        }
+
+        Cursor = Cursors.WaitCursor;
+        try
+        {
+            await DatabaseProjectRepository.SaveAsync(_requirementService.Project, _dbSettings);
+            _requirementService.MarkSaved();
+            MessageBox.Show(this, Loc.T("Msg_DbSaveSuccess"), Loc.T("Msg_DbSaveSuccessTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorDialog.Show(this, Loc.T("Msg_DbSaveFailed"), ex);
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+        }
+    }
+
+    private async Task LoadFromDatabaseAsync()
+    {
+        if (_dbSettings is null)
+        {
+            ConnectToDatabase();
+            if (_dbSettings is null)
+                return;
+        }
+
+        if (!TryProceedWithUnsavedChanges())
+            return;
+
+        Cursor = Cursors.WaitCursor;
+        try
+        {
+            var data = await DatabaseProjectRepository.LoadAsync(_dbSettings);
+            _currentFilePath = null;
+            _requirementService.ReplaceProject(data);
+            MessageBox.Show(this, Loc.T("Msg_DbLoadSuccess"), Loc.T("Msg_DbLoadSuccessTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorDialog.Show(this, Loc.T("Msg_DbLoadFailed"), ex);
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+        }
+    }
+
     private void ApplyLocalization()
     {
         Text = "ReqTrace";
@@ -149,12 +253,18 @@ public partial class MainForm : Form
         refreshMenuItem.Text = Loc.T("Menu_Refresh");
         searchToggleMenuItem.Text = Loc.T("Menu_SearchFilter");
 
+        databaseMenuItem.Text = Loc.T("Menu_Database");
+        connectDatabaseMenuItem.Text = Loc.T("Menu_ConnectDatabase");
+        saveToDatabaseMenuItem.Text = Loc.T("Menu_SaveToDatabase");
+        loadFromDatabaseMenuItem.Text = Loc.T("Menu_LoadFromDatabase");
+
         toolsMenu.Text = Loc.T("Menu_Tools");
         traceabilitySummaryMenuItem.Text = Loc.T("Menu_TraceabilitySummary");
         optionsMenuItem.Text = Loc.T("Menu_Options");
 
         helpMenu.Text = Loc.T("Menu_Help");
         aboutMenuItem.Text = Loc.T("Menu_About");
+        aboutToolButton.ToolTipText = Loc.T("Menu_About");
 
         newToolButton.Text = Loc.T("Tool_New");
         openToolButton.Text = Loc.T("Tool_Open");

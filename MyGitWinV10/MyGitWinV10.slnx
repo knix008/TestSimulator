@@ -1,4 +1,6 @@
 <Solution>
   <Project Path="MyGitWinV10.App/MyGitWinV10.App.csproj" />
-  <Project Path="installer/MyGitWinV10.Installer.wixproj" />
+  <Project Path="installer/MyGitWinV10.Installer.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0">
+    <Platform Project="x64" />
+  </Project>
 </Solution>
