@@ -27,6 +27,32 @@ public partial class TestRunEntryForm : Form
         ModernTheme.Apply(this);
         ModernTheme.MakePrimary(btnOk);
         ApplyLocalization();
+        AdjustLayout();
+    }
+
+    private void AdjustLayout()
+    {
+        var labels = new[] { lblStatus, lblExecutedBy, lblExecutedAt, lblBuild, lblNotes, lblRunHistory };
+        var labelColumnWidth = labels.Max(l => TextRenderer.MeasureText(l.Text, Font).Width) + 24;
+        layoutTable.ColumnStyles[0].Width = Math.Max(130, labelColumnWidth);
+
+        var lineHeight = TextRenderer.MeasureText("Ay", Font).Height + 12;
+        layoutTable.RowStyles[0].Height = lineHeight;
+        layoutTable.RowStyles[1].Height = lineHeight;
+        layoutTable.RowStyles[2].Height = lineHeight;
+        layoutTable.RowStyles[3].Height = lineHeight;
+        layoutTable.RowStyles[4].Height = lineHeight * 3;
+        layoutTable.RowStyles[5].Height = lineHeight;
+
+        foreach (var label in labels)
+        {
+            label.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            label.Margin = new Padding(3, 6, 3, 3);
+        }
+
+        panelButtons.Height = Math.Max(panelButtons.Height, btnOk.Height + 20);
+        MinimumSize = new Size((int)layoutTable.ColumnStyles[0].Width + 380, 420);
+        ClientSize = new Size(Math.Max(ClientSize.Width, MinimumSize.Width), Math.Max(ClientSize.Height, MinimumSize.Height));
     }
 
     private void ApplyLocalization()

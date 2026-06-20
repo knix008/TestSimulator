@@ -53,7 +53,7 @@ partial class TestRunEntryForm
         // layoutTable
         // 
         layoutTable.ColumnCount = 2;
-        layoutTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F));
+        layoutTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
         layoutTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         layoutTable.Controls.Add(lblStatus, 0, 0);
         layoutTable.Controls.Add(cboStatus, 1, 0);
@@ -72,21 +72,21 @@ partial class TestRunEntryForm
         layoutTable.Name = "layoutTable";
         layoutTable.Padding = new Padding(12);
         layoutTable.RowCount = 7;
-        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));
-        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
+        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
         layoutTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layoutTable.Size = new Size(520, 412);
+        layoutTable.Size = new Size(540, 428);
         layoutTable.TabIndex = 0;
         layoutTable.SetColumnSpan(lblRunHistory, 2);
         layoutTable.SetColumnSpan(historyList, 2);
         // 
         // lblStatus
         // 
-        lblStatus.Anchor = AnchorStyles.Left;
+        lblStatus.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         lblStatus.AutoSize = true;
         lblStatus.Location = new Point(15, 20);
         lblStatus.Margin = new Padding(3, 8, 3, 3);
@@ -106,7 +106,7 @@ partial class TestRunEntryForm
         // 
         // lblExecutedBy
         // 
-        lblExecutedBy.Anchor = AnchorStyles.Left;
+        lblExecutedBy.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         lblExecutedBy.AutoSize = true;
         lblExecutedBy.Location = new Point(15, 50);
         lblExecutedBy.Margin = new Padding(3, 8, 3, 3);
@@ -125,7 +125,7 @@ partial class TestRunEntryForm
         // 
         // lblExecutedAt
         // 
-        lblExecutedAt.Anchor = AnchorStyles.Left;
+        lblExecutedAt.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         lblExecutedAt.AutoSize = true;
         lblExecutedAt.Location = new Point(15, 80);
         lblExecutedAt.Margin = new Padding(3, 8, 3, 3);
@@ -146,7 +146,7 @@ partial class TestRunEntryForm
         // 
         // lblBuild
         // 
-        lblBuild.Anchor = AnchorStyles.Left;
+        lblBuild.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         lblBuild.AutoSize = true;
         lblBuild.Location = new Point(15, 110);
         lblBuild.Margin = new Padding(3, 8, 3, 3);
@@ -165,7 +165,7 @@ partial class TestRunEntryForm
         // 
         // lblNotes
         // 
-        lblNotes.Anchor = AnchorStyles.Left;
+        lblNotes.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         lblNotes.AutoSize = true;
         lblNotes.Location = new Point(15, 140);
         lblNotes.Margin = new Padding(3, 8, 3, 3);
@@ -186,7 +186,7 @@ partial class TestRunEntryForm
         // 
         // lblRunHistory
         // 
-        lblRunHistory.Anchor = AnchorStyles.Left;
+        lblRunHistory.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         lblRunHistory.AutoSize = true;
         lblRunHistory.Location = new Point(15, 195);
         lblRunHistory.Margin = new Padding(3, 8, 3, 3);
@@ -210,9 +210,9 @@ partial class TestRunEntryForm
         panelButtons.Controls.Add(btnOk);
         panelButtons.Controls.Add(btnCancel);
         panelButtons.Dock = DockStyle.Bottom;
-        panelButtons.Location = new Point(0, 412);
+        panelButtons.Location = new Point(0, 428);
         panelButtons.Name = "panelButtons";
-        panelButtons.Size = new Size(520, 48);
+        panelButtons.Size = new Size(540, 52);
         panelButtons.TabIndex = 1;
         // 
         // btnOk
@@ -244,13 +244,13 @@ partial class TestRunEntryForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(520, 460);
+        ClientSize = new Size(540, 480);
         Controls.Add(layoutTable);
         Controls.Add(panelButtons);
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = false;
         MinimizeBox = false;
-        MinimumSize = new Size(440, 400);
+        MinimumSize = new Size(480, 420);
         Name = "TestRunEntryForm";
         StartPosition = FormStartPosition.CenterParent;
         Text = "Record Test Run";

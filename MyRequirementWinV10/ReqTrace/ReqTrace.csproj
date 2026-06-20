@@ -5,6 +5,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsFormsDesigner>true</EnableWindowsFormsDesigner>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
     <Version>1.0.0</Version>

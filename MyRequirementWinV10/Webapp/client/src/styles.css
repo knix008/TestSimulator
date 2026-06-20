@@ -537,8 +537,12 @@ button:disabled {
   margin-top: 6px;
 }
 
+.step-edit-header span:first-child,
 .step-num {
   text-align: center;
+}
+
+.step-num {
   font-size: 13px;
   color: #6b7280;
 }

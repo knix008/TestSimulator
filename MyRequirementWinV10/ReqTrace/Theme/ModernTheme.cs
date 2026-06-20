@@ -352,4 +352,40 @@ internal class ModernToolStripRenderer : ToolStripProfessionalRenderer
     {
         RoundedEdges = false;
     }
+
+    protected override void OnRenderItemImage(ToolStripItemImageRenderEventArgs e)
+    {
+        if (e.Item is ToolStripMenuItem menuItem && menuItem.Image is not null)
+        {
+            var imageRect = e.ImageRectangle;
+            if (imageRect.Width > 0 && imageRect.Height > 0)
+            {
+                if (menuItem.Enabled)
+                    e.Graphics.DrawImage(menuItem.Image, imageRect);
+                else
+                    ControlPaint.DrawImageDisabled(e.Graphics, menuItem.Image, imageRect.X, imageRect.Y, menuItem.BackColor);
+            }
+
+            if (menuItem.Checked)
+            {
+                var content = menuItem.ContentRectangle;
+                const int checkSize = 13;
+                var checkRect = new Rectangle(
+                    content.Right - checkSize - 4,
+                    content.Top + (content.Height - checkSize) / 2,
+                    checkSize,
+                    checkSize);
+                ControlPaint.DrawMenuGlyph(
+                    e.Graphics,
+                    checkRect,
+                    MenuGlyph.Checkmark,
+                    menuItem.Enabled ? menuItem.ForeColor : SystemColors.GrayText,
+                    SystemColors.Window);
+            }
+
+            return;
+        }
+
+        base.OnRenderItemImage(e);
+    }
 }

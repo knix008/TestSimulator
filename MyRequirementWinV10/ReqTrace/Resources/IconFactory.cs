@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace ReqTrace.Resources;
 
@@ -11,8 +12,9 @@ public static class IconFactory
 {
     private static Bitmap Canvas(Action<Graphics> draw)
     {
-        var bmp = new Bitmap(16, 16);
+        var bmp = new Bitmap(16, 16, PixelFormat.Format32bppArgb);
         using var g = Graphics.FromImage(bmp);
+        g.Clear(Color.Transparent);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         draw(g);
@@ -156,6 +158,37 @@ public static class IconFactory
         DrawArrowBadge(g, Color.DarkOrange, pointingDown: false);
     });
 
+    private static void DrawDatabase(Graphics g, Color fill, Color border)
+    {
+        using var brush = new SolidBrush(fill);
+        using var pen = new Pen(border, 1f);
+        g.FillEllipse(brush, 3, 2, 10, 4);
+        g.DrawEllipse(pen, 3, 2, 10, 4);
+        var body = new Rectangle(3, 4, 10, 10);
+        g.FillRectangle(brush, body);
+        g.DrawRectangle(pen, body);
+        g.FillEllipse(brush, 3, 12, 10, 4);
+        g.DrawEllipse(pen, 3, 12, 10, 4);
+        using var linePen = new Pen(Color.White, 1f);
+        g.DrawLine(linePen, 3, 8, 13, 8);
+        g.DrawLine(linePen, 3, 11, 13, 11);
+    }
+
+    public static Bitmap ConnectDatabase() => Canvas(g =>
+        DrawDatabase(g, Color.SteelBlue, Color.FromArgb(40, 70, 110)));
+
+    public static Bitmap SaveToDatabase() => Canvas(g =>
+    {
+        DrawDatabase(g, Color.SteelBlue, Color.FromArgb(40, 70, 110));
+        DrawArrowBadge(g, Color.DarkOrange, pointingDown: false);
+    });
+
+    public static Bitmap LoadFromDatabase() => Canvas(g =>
+    {
+        DrawDatabase(g, Color.SteelBlue, Color.FromArgb(40, 70, 110));
+        DrawArrowBadge(g, Color.DarkGreen, pointingDown: true);
+    });
+
     public static Bitmap AddRequirement() => Canvas(g =>
     {
         DrawDocument(g, Color.Lavender, Color.DarkSlateBlue);
@@ -244,4 +277,84 @@ public static class IconFactory
         g.FillEllipse(dotBrush, 7, 3, 2, 2);
         g.FillRectangle(dotBrush, 7, 7, 2, 6);
     });
+
+    public static Bitmap Options() => Canvas(g =>
+    {
+        using var pen = new Pen(Color.SlateGray, 1.3f);
+        g.DrawEllipse(pen, 4, 4, 8, 8);
+        g.DrawEllipse(pen, 2, 2, 12, 12);
+        for (var i = 0; i < 8; i++)
+        {
+            var angle = i * Math.PI / 4;
+            var innerX = 8f + (float)(3.5 * Math.Cos(angle));
+            var innerY = 8f + (float)(3.5 * Math.Sin(angle));
+            var outerX = 8f + (float)(6.5 * Math.Cos(angle));
+            var outerY = 8f + (float)(6.5 * Math.Sin(angle));
+            g.DrawLine(pen, innerX, innerY, outerX, outerY);
+        }
+    });
+
+    public static Bitmap Exit() => Canvas(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(70, 70, 70), 1.2f);
+        using var accentPen = new Pen(Color.Firebrick, 1.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        g.DrawRectangle(pen, 3, 2, 10, 12);
+        g.DrawLine(pen, 8, 2, 8, 7);
+        g.DrawLine(accentPen, 6, 8, 10, 12);
+        g.DrawLine(accentPen, 10, 8, 6, 12);
+    });
+
+    public static Bitmap Language() => Canvas(g =>
+    {
+        using var pen = new Pen(Color.SteelBlue, 1.2f);
+        g.DrawEllipse(pen, 2, 2, 12, 12);
+        g.DrawLine(pen, 8, 2, 8, 14);
+        g.DrawArc(pen, 5, 2, 6, 12, 270, 180);
+    });
+
+    public static Bitmap LanguageKorean() => Canvas(g =>
+    {
+        using var bg = new SolidBrush(Color.White);
+        using var border = new Pen(Color.FromArgb(70, 70, 70), 1f);
+        g.FillRectangle(bg, 2, 3, 12, 10);
+        g.DrawRectangle(border, 2, 3, 12, 10);
+        using var red = new SolidBrush(Color.FromArgb(200, 45, 55));
+        using var blue = new SolidBrush(Color.FromArgb(0, 70, 140));
+        g.FillEllipse(red, 4, 5, 4, 4);
+        g.FillEllipse(blue, 8, 5, 4, 4);
+        using var font = new Font("Segoe UI", 5.5f, FontStyle.Bold);
+        g.DrawString("A", font, Brushes.Black, 4.5f, 9.5f);
+    });
+
+    public static Bitmap LanguageEnglish() => Canvas(g =>
+    {
+        using var bg = new SolidBrush(Color.White);
+        using var border = new Pen(Color.FromArgb(70, 70, 70), 1f);
+        g.FillRectangle(bg, 2, 3, 12, 10);
+        g.DrawRectangle(border, 2, 3, 12, 10);
+        using var red = new SolidBrush(Color.FromArgb(180, 30, 40));
+        using var blue = new SolidBrush(Color.FromArgb(0, 55, 130));
+        g.FillRectangle(red, 2, 3, 12, 3);
+        g.FillRectangle(blue, 2, 10, 12, 3);
+        using var font = new Font("Segoe UI", 5.5f, FontStyle.Bold);
+        g.DrawString("En", font, Brushes.Black, 4f, 6.5f);
+    });
+
+    public static Bitmap GroupByCategory() => Canvas(g =>
+        DrawFolder(g, Color.FromArgb(255, 213, 110), Color.FromArgb(150, 110, 30)));
+
+    public static Bitmap GroupByHierarchy() => Canvas(g =>
+    {
+        using var pen = new Pen(Color.SaddleBrown, 1.4f);
+        g.DrawLine(pen, 8, 2, 8, 6);
+        g.DrawLine(pen, 4, 6, 12, 6);
+        g.DrawLine(pen, 4, 6, 4, 10);
+        g.DrawLine(pen, 8, 6, 8, 10);
+        g.DrawLine(pen, 12, 6, 12, 10);
+        g.DrawLine(pen, 4, 10, 4, 14);
+        g.DrawLine(pen, 8, 10, 8, 14);
+        g.DrawLine(pen, 12, 10, 12, 14);
+    });
+
+    public static Bitmap RecentFiles() => Open();
 }

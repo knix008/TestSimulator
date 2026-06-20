@@ -30,6 +30,9 @@ public partial class MainForm : Form
     private ToolStripMenuItem saveToDatabaseMenuItem = null!;
     private ToolStripMenuItem loadFromDatabaseMenuItem = null!;
     private DbConnectionSettings? _dbSettings;
+    private ToolStripButton connectDatabaseToolButton = null!;
+    private ToolStripButton saveToDatabaseToolButton = null!;
+    private ToolStripButton loadFromDatabaseToolButton = null!;
     private ToolStripButton aboutToolButton = null!;
 
     public MainForm(string? startupProjectPath = null)
@@ -43,7 +46,6 @@ public partial class MainForm : Form
         ModernTheme.Apply(this);
         StylePanelHeaders();
         StylePanelBorders();
-        AssignIcons();
 
         _requirementService = new RequirementService(ProjectRepository.CreateNew(Loc.T("DefaultProjectName")));
         _testCaseService = new TestCaseService(_requirementService);
@@ -54,7 +56,9 @@ public partial class MainForm : Form
         InitializeDetailEditors();
         InitializeLanguageMenu();
         InitializeDatabaseMenu();
+        InitializeDatabaseToolButtons();
         InitializeAboutToolButton();
+        AssignIcons();
         WireEvents();
         ApplyLocalization();
         RebuildRecentFilesMenu();
@@ -142,6 +146,41 @@ public partial class MainForm : Form
         connectDatabaseMenuItem.Click += (_, _) => ConnectToDatabase();
         saveToDatabaseMenuItem.Click += async (_, _) => await SaveToDatabaseAsync();
         loadFromDatabaseMenuItem.Click += async (_, _) => await LoadFromDatabaseAsync();
+    }
+
+    private void InitializeDatabaseToolButtons()
+    {
+        connectDatabaseToolButton = new ToolStripButton
+        {
+            Image = IconFactory.ConnectDatabase(),
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            Text = Loc.T("Tool_DbConnect"),
+            ToolTipText = Loc.T("Menu_ConnectDatabase")
+        };
+        saveToDatabaseToolButton = new ToolStripButton
+        {
+            Image = IconFactory.SaveToDatabase(),
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            Text = Loc.T("Tool_DbSend"),
+            ToolTipText = Loc.T("Menu_SaveToDatabase")
+        };
+        loadFromDatabaseToolButton = new ToolStripButton
+        {
+            Image = IconFactory.LoadFromDatabase(),
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            Text = Loc.T("Tool_DbReceive"),
+            ToolTipText = Loc.T("Menu_LoadFromDatabase")
+        };
+
+        var exportIndex = toolStrip1.Items.IndexOf(exportReportToolButton);
+        toolStrip1.Items.Insert(exportIndex + 1, new ToolStripSeparator());
+        toolStrip1.Items.Insert(exportIndex + 2, connectDatabaseToolButton);
+        toolStrip1.Items.Insert(exportIndex + 3, saveToDatabaseToolButton);
+        toolStrip1.Items.Insert(exportIndex + 4, loadFromDatabaseToolButton);
+
+        connectDatabaseToolButton.Click += (_, _) => ConnectToDatabase();
+        saveToDatabaseToolButton.Click += async (_, _) => await SaveToDatabaseAsync();
+        loadFromDatabaseToolButton.Click += async (_, _) => await LoadFromDatabaseAsync();
     }
 
     private void InitializeAboutToolButton()
@@ -271,6 +310,12 @@ public partial class MainForm : Form
         saveToolButton.Text = Loc.T("Tool_Save");
         importExcelToolButton.Text = Loc.T("Tool_Import");
         exportReportToolButton.Text = Loc.T("Tool_Export");
+        connectDatabaseToolButton.Text = Loc.T("Tool_DbConnect");
+        connectDatabaseToolButton.ToolTipText = Loc.T("Menu_ConnectDatabase");
+        saveToDatabaseToolButton.Text = Loc.T("Tool_DbSend");
+        saveToDatabaseToolButton.ToolTipText = Loc.T("Menu_SaveToDatabase");
+        loadFromDatabaseToolButton.Text = Loc.T("Tool_DbReceive");
+        loadFromDatabaseToolButton.ToolTipText = Loc.T("Menu_LoadFromDatabase");
         addRequirementToolButton.Text = Loc.T("Tool_AddReq");
         editRequirementToolButton.Text = Loc.T("Tool_EditReq");
         deleteRequirementToolButton.Text = Loc.T("Tool_DeleteReq");
@@ -379,12 +424,36 @@ public partial class MainForm : Form
 
     private void AssignIcons()
     {
+        menuStrip1.ImageScalingSize = new Size(16, 16);
+        toolStrip1.ImageScalingSize = new Size(16, 16);
+        statusStrip1.ImageScalingSize = new Size(16, 16);
+
+        fileMenu.Image = IconFactory.Open();
+        editMenu.Image = IconFactory.EditRequirement();
+        viewMenu.Image = IconFactory.Search();
+        databaseMenuItem.Image = IconFactory.ConnectDatabase();
+        toolsMenu.Image = IconFactory.Options();
+        helpMenu.Image = IconFactory.About();
+
         newToolButton.Image = newProjectMenuItem.Image = IconFactory.New();
-        openToolButton.Image = openProjectMenuItem.Image = AppAssets.ProjectIcon16;
-        saveToolButton.Image = saveMenuItem.Image = AppAssets.ProjectIcon16;
-        saveAsMenuItem.Image = AppAssets.GetProjectIcon(16);
+        openToolButton.Image = openProjectMenuItem.Image = IconFactory.Open();
+        saveToolButton.Image = saveMenuItem.Image = IconFactory.Save();
+        saveAsMenuItem.Image = IconFactory.SaveAs();
         importExcelToolButton.Image = importExcelMenuItem.Image = IconFactory.ImportExcel();
         exportReportToolButton.Image = exportReportMenuItem.Image = IconFactory.ExportReport();
+        recentFilesMenuItem.Image = IconFactory.RecentFiles();
+        languageSettingsMenuItem.Image = IconFactory.Language();
+        languageKoreanMenuItem.Image = IconFactory.LanguageKorean();
+        languageEnglishMenuItem.Image = IconFactory.LanguageEnglish();
+        exitMenuItem.Image = IconFactory.Exit();
+
+        connectDatabaseMenuItem.Image = IconFactory.ConnectDatabase();
+        saveToDatabaseMenuItem.Image = IconFactory.SaveToDatabase();
+        loadFromDatabaseMenuItem.Image = IconFactory.LoadFromDatabase();
+        connectDatabaseToolButton.Image = IconFactory.ConnectDatabase();
+        saveToDatabaseToolButton.Image = IconFactory.SaveToDatabase();
+        loadFromDatabaseToolButton.Image = IconFactory.LoadFromDatabase();
+
         addRequirementToolButton.Image = addRequirementMenuItem.Image = IconFactory.AddRequirement();
         editRequirementToolButton.Image = editRequirementMenuItem.Image = IconFactory.EditRequirement();
         deleteRequirementToolButton.Image = deleteRequirementMenuItem.Image = IconFactory.DeleteRequirement();
@@ -392,10 +461,25 @@ public partial class MainForm : Form
         editTestCaseMenuItem.Image = IconFactory.EditTestCase();
         deleteTestCaseMenuItem.Image = IconFactory.DeleteTestCase();
         recordTestRunToolButton.Image = recordTestRunMenuItem.Image = IconFactory.RecordRun();
+
+        groupByCategoryMenuItem.Image = IconFactory.GroupByCategory();
+        groupByHierarchyMenuItem.Image = IconFactory.GroupByHierarchy();
         refreshMenuItem.Image = IconFactory.Refresh();
         searchToggleMenuItem.Image = IconFactory.Search();
+
         traceabilitySummaryMenuItem.Image = IconFactory.Summary();
+        optionsMenuItem.Image = IconFactory.Options();
+        aboutMenuItem.Image = IconFactory.About();
+        aboutToolButton.Image = IconFactory.About();
+
+        statusFileLabel.Image = IconFactory.Open();
         Icon = AppAssets.AppIcon;
+
+        foreach (ToolStripItem item in toolStrip1.Items)
+        {
+            if (item is ToolStripButton button)
+                button.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        }
     }
 
     private void WireEvents()
@@ -434,6 +518,7 @@ public partial class MainForm : Form
         groupByHierarchyMenuItem.Click += (_, _) => SetGrouping(true);
         refreshMenuItem.Click += (_, _) => RefreshAll();
         traceabilitySummaryMenuItem.Click += (_, _) => ShowTraceabilitySummary();
+        optionsMenuItem.Click += (_, _) => ShowOptions();
         aboutMenuItem.Click += (_, _) => new AboutForm().ShowDialog(this);
 
         reqListView.SelectedIndexChanged += (_, _) =>
@@ -815,7 +900,10 @@ public partial class MainForm : Form
         recentFilesMenuItem.DropDownItems.Clear();
         foreach (var file in _settings.RecentFiles)
         {
-            var item = new ToolStripMenuItem(file);
+            var item = new ToolStripMenuItem(file)
+            {
+                Image = IconFactory.Open()
+            };
             item.Click += (_, _) =>
             {
                 if (TryProceedWithUnsavedChanges())
@@ -1097,6 +1185,12 @@ public partial class MainForm : Form
         AppSettingsService.Save(_settings);
     }
 
+    private void ShowOptions()
+    {
+        using var dlg = new OptionsForm(_settings);
+        dlg.ShowDialog(this);
+    }
+
     private void ShowTraceabilitySummary()
     {
         var project = _requirementService.Project;
@@ -1273,7 +1367,6 @@ public partial class MainForm : Form
     private void RefreshStatusBar()
     {
         var project = _requirementService.Project;
-        statusFileLabel.Image = AppAssets.ProjectIcon16;
         statusFileLabel.ImageAlign = ContentAlignment.MiddleLeft;
         statusFileLabel.Text = _currentFilePath ?? Loc.T("Status_UnsavedProject");
         if (_requirementService.IsDirty)
