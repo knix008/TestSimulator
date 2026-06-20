@@ -72,3 +72,11 @@ ReqTrace/bin/build-check/
 # App-specific local artifacts
 ReqTrace/obj/ImportDiag.cs
 ReqTrace/obj/ImportVerify/
+
+# Webapp (Node.js / Vite — see Webapp/.gitignore for the authoritative rules)
+Webapp/**/node_modules/
+Webapp/**/dist/
+Webapp/**/*.tsbuildinfo
+Webapp/**/*.db
+Webapp/**/*.sqlite
+Webapp/**/.env

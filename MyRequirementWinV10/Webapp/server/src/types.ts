@@ -55,3 +55,12 @@ export interface TestCase {
   steps: TestStep[];
   runs: TestRun[];
 }
+
+export type UserRole = "admin" | "editor" | "viewer";
+
+export interface AppUser {
+  id: string;
+  username: string;
+  role: UserRole;
+  createdUtc: string;
+}

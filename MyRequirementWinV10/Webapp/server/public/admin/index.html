@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ReqTrace 서버 관리 콘솔</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #f3f4f6; color: #111827; }
+  header { background: #1e293b; color: white; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+  header h1 { margin: 0; font-size: 18px; }
+  .badge { font-size: 13px; padding: 4px 10px; border-radius: 12px; margin-left: auto; }
+  .badge.connected { background: #14532d; color: #bbf7d0; }
+  .badge.disconnected { background: #7f1d1d; color: #fecaca; }
+  nav.tabs { display: flex; gap: 8px; background: #111827; padding: 0 24px; }
+  nav.tabs button { background: transparent; color: #9ca3af; border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 12px 14px; font-size: 13px; cursor: pointer; }
+  nav.tabs button:hover { color: white; background: transparent; }
+  nav.tabs button.active { color: white; border-bottom-color: #3b82f6; }
+  main { padding: 24px; max-width: 760px; margin: 0 auto; }
+  .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); padding: 20px; margin-bottom: 20px; }
+  h2 { margin-top: 0; font-size: 16px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; margin-bottom: 12px; }
+  input, select { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button { background: #2563eb; color: white; border: none; border-radius: 4px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  button.secondary { background: #6b7280; }
+  button.secondary:hover { background: #4b5563; }
+  button:disabled { background: #9ca3af; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+  .msg-error { color: #b91c1c; font-size: 13px; }
+  .msg-success { color: #15803d; font-size: 13px; }
+  .hidden { display: none; }
+  .row-actions { display: flex; gap: 6px; }
+  .hint { font-size: 12px; color: #6b7280; }
+  .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 13px; margin-top: 12px; }
+  .info-grid .label { color: #6b7280; }
+  .login-card { max-width: 360px; margin: 60px auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ReqTrace 서버 관리 콘솔</h1>
+  <span id="connBadge" class="badge disconnected">확인 중...</span>
+</header>
+
+<nav class="tabs hidden" id="tabsNav">
+  <button data-page="db" class="active">DB 설정</button>
+  <button data-page="users">사용자 설정</button>
+  <button data-page="admin">관리자 설정</button>
+</nav>
+
+<main>
+  <!-- Bootstrap login: only used before any database has ever been connected -->
+  <section id="bootstrapLoginSection" class="card login-card hidden">
+    <h2>관리자 로그인</h2>
+    <p class="hint">아직 데이터베이스가 연결되어 있지 않습니다. 최초 설정용 관리자 ID/비밀번호로 로그인하세요 (기본값: admin / admin).</p>
+    <label>관리자 ID <input id="bootstrapUsername" autocomplete="username" /></label>
+    <label>비밀번호 <input id="bootstrapPassword" type="password" autocomplete="current-password" /></label>
+    <p id="bootstrapLoginError" class="msg-error hidden"></p>
+    <button id="bootstrapLoginButton">로그인</button>
+  </section>
+
+  <!-- DB-backed admin login: used once a database is connected -->
+  <section id="loginSection" class="card login-card hidden">
+    <h2>관리자 로그인</h2>
+    <label>사용자 ID <input id="loginUsername" autocomplete="username" /></label>
+    <label>비밀번호 <input id="loginPassword" type="password" autocomplete="current-password" /></label>
+    <p id="loginError" class="msg-error hidden"></p>
+    <button id="loginButton">로그인</button>
+    <p class="hint">데이터베이스가 처음 연결될 때 기본 관리자 계정(admin / admin)이 자동으로 생성됩니다. 로그인 후 "관리자 설정"에서 ID와 비밀번호를 변경하세요.</p>
+  </section>
+
+  <!-- Page: DB settings -->
+  <section id="page-db" class="hidden">
+    <div class="card">
+      <h2>데이터베이스 연결</h2>
+      <p id="bootstrapHint" class="hint hidden">아직 어떤 데이터베이스에도 연결되어 있지 않습니다. 최초 설정 단계입니다.</p>
+      <label>종류
+        <select id="dbProvider">
+          <option value="mariadb" selected>MariaDB</option>
+          <option value="mysql">MySQL</option>
+          <option value="postgresql">PostgreSQL</option>
+          <option value="sqlite">SQLite3</option>
+          <option value="mssql">MS SQL Server</option>
+        </select>
+      </label>
+      <div id="networkFields" class="grid">
+        <label>서버 <input id="dbServer" value="localhost" /></label>
+        <label>포트 <input id="dbPort" type="number" value="3306" /></label>
+        <label>데이터베이스 <input id="dbDatabase" value="reqtrace" /></label>
+        <label>사용자 <input id="dbUsername" /></label>
+        <label>비밀번호 <input id="dbPassword" type="password" placeholder="변경하지 않으려면 비워두세요" /></label>
+      </div>
+      <label id="sqliteField" class="hidden">파일 경로 <input id="dbSqlitePath" placeholder="예: ./reqtrace.db" /></label>
+      <p id="connError" class="msg-error hidden"></p>
+      <p id="connSuccess" class="msg-success hidden"></p>
+      <button id="saveConnectionButton">저장 및 연결</button>
+    </div>
+
+    <div id="dbContentCard" class="card hidden">
+      <h2>DB 내용</h2>
+      <div id="infoGrid" class="info-grid"></div>
+    </div>
+  </section>
+
+  <!-- Page: user settings -->
+  <section id="page-users" class="card hidden">
+    <h2>사용자 관리</h2>
+    <table>
+      <thead><tr><th>사용자 ID</th><th>권한</th><th>생성일</th><th></th></tr></thead>
+      <tbody id="usersTableBody"></tbody>
+    </table>
+    <h3>사용자 추가</h3>
+    <div class="grid">
+      <label>사용자 ID <input id="newUsername" /></label>
+      <label>비밀번호 <input id="newPassword" type="password" /></label>
+      <label>권한
+        <select id="newRole">
+          <option value="viewer">조회자 (읽기 전용)</option>
+          <option value="editor">편집자 (요구사항 변경 가능)</option>
+          <option value="admin">관리자</option>
+        </select>
+      </label>
+    </div>
+    <p id="userError" class="msg-error hidden"></p>
+    <button id="addUserButton">추가</button>
+  </section>
+
+  <!-- Page: admin (self) settings -->
+  <section id="page-admin" class="card hidden">
+    <h2>관리자 설정</h2>
+    <p class="hint">현재 로그인한 관리자 계정의 ID와 비밀번호를 한 번에 변경합니다. 비밀번호를 바꾸지 않으려면 비워두세요.</p>
+    <label>새 관리자 ID <input id="adminNewUsername" /></label>
+    <label>새 비밀번호 (6자 이상, 변경하지 않으려면 비워두세요) <input id="adminNewPassword" type="password" /></label>
+    <button id="saveAdminSettingsButton">저장</button>
+    <p id="adminSettingsError" class="msg-error hidden"></p>
+    <p id="adminSettingsSuccess" class="msg-success hidden"></p>
+  </section>
+</main>
+
+<script>
+const TOKEN_KEY = "reqtrace.admin.token";
+const BOOTSTRAP_TOKEN_KEY = "reqtrace.bootstrap.token";
+let currentUser = null;
+
+function getToken() { return localStorage.getItem(TOKEN_KEY); }
+function setToken(t) { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); }
+function getBootstrapToken() { return localStorage.getItem(BOOTSTRAP_TOKEN_KEY); }
+function setBootstrapToken(t) { t ? localStorage.setItem(BOOTSTRAP_TOKEN_KEY, t) : localStorage.removeItem(BOOTSTRAP_TOKEN_KEY); }
+
+async function api(path, options) {
+  const headers = { "Content-Type": "application/json" };
+  const bootstrapToken = getBootstrapToken();
+  const adminToken = getToken();
+  if (bootstrapToken) headers["X-Console-Token"] = bootstrapToken;
+  if (adminToken) headers["Authorization"] = "Bearer " + adminToken;
+  const res = await fetch("/api" + path, { headers, ...options });
+  const isJson = res.headers.get("content-type")?.includes("application/json");
+  const body = isJson ? await res.json() : null;
+  if (!res.ok) {
+    const err = new Error(body?.error ?? ("요청 실패: " + res.status));
+    err.status = res.status;
+    throw err;
+  }
+  return body;
+}
+
+function show(el, visible) { el.classList.toggle("hidden", !visible); }
+
+function updateProviderFields() {
+  const provider = document.getElementById("dbProvider").value;
+  const isSqlite = provider === "sqlite";
+  show(document.getElementById("networkFields"), !isSqlite);
+  show(document.getElementById("sqliteField"), isSqlite);
+}
+document.getElementById("dbProvider").addEventListener("change", updateProviderFields);
+
+let activePage = "db";
+function showPage(page) {
+  activePage = page;
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("active", b.dataset.page === page));
+  show(document.getElementById("page-db"), page === "db");
+  show(document.getElementById("page-users"), page === "users");
+  show(document.getElementById("page-admin"), page === "admin");
+  if (page === "users") loadUsers();
+}
+document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => showPage(b.dataset.page)));
+
+document.getElementById("bootstrapLoginButton").addEventListener("click", async () => {
+  const errorEl = document.getElementById("bootstrapLoginError");
+  show(errorEl, false);
+  try {
+    const { token } = await api("/console/login", {
+      method: "POST",
+      body: JSON.stringify({
+        username: document.getElementById("bootstrapUsername").value,
+        password: document.getElementById("bootstrapPassword").value
+      })
+    });
+    setBootstrapToken(token);
+    await render();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    show(errorEl, true);
+  }
+});
+
+document.getElementById("loginButton").addEventListener("click", async () => {
+  const errorEl = document.getElementById("loginError");
+  show(errorEl, false);
+  try {
+    const { token, user } = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        username: document.getElementById("loginUsername").value,
+        password: document.getElementById("loginPassword").value
+      })
+    });
+    if (user.role !== "admin") throw new Error("관리자 계정만 이 콘솔을 사용할 수 있습니다.");
+    setToken(token);
+    currentUser = user;
+    await render();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    show(errorEl, true);
+  }
+});
+
+document.getElementById("saveConnectionButton").addEventListener("click", async () => {
+  const errorEl = document.getElementById("connError");
+  const successEl = document.getElementById("connSuccess");
+  show(errorEl, false);
+  show(successEl, false);
+  const provider = document.getElementById("dbProvider").value;
+  const settings = {
+    provider,
+    server: document.getElementById("dbServer").value,
+    port: Number(document.getElementById("dbPort").value) || 0,
+    database: document.getElementById("dbDatabase").value || "reqtrace",
+    username: document.getElementById("dbUsername").value,
+    password: document.getElementById("dbPassword").value,
+    sqliteFilePath: document.getElementById("dbSqlitePath").value
+  };
+  try {
+    await api("/admin/connection", { method: "PUT", body: JSON.stringify(settings) });
+    successEl.textContent = "연결되었습니다. 데이터베이스와 테이블이 없으면 자동으로 생성됩니다.";
+    show(successEl, true);
+    setBootstrapToken(null);
+    await render();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    show(errorEl, true);
+  }
+});
+
+document.getElementById("addUserButton").addEventListener("click", async () => {
+  const errorEl = document.getElementById("userError");
+  show(errorEl, false);
+  try {
+    await api("/auth/users", {
+      method: "POST",
+      body: JSON.stringify({
+        username: document.getElementById("newUsername").value,
+        password: document.getElementById("newPassword").value,
+        role: document.getElementById("newRole").value
+      })
+    });
+    document.getElementById("newUsername").value = "";
+    document.getElementById("newPassword").value = "";
+    await loadUsers();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    show(errorEl, true);
+  }
+});
+
+async function deleteUser(id) {
+  if (!confirm("이 사용자를 삭제하시겠습니까?")) return;
+  try {
+    await api("/auth/users/" + id, { method: "DELETE" });
+    await loadUsers();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function renameUser(id, currentUsername) {
+  const username = prompt("새 사용자 ID를 입력하세요:", currentUsername);
+  if (!username || username === currentUsername) return;
+  try {
+    await api("/auth/users/" + id + "/username", { method: "PUT", body: JSON.stringify({ username }) });
+    await loadUsers();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function resetPassword(id) {
+  const password = prompt("새 비밀번호 (6자 이상):");
+  if (!password) return;
+  try {
+    await api("/auth/users/" + id + "/password", { method: "PUT", body: JSON.stringify({ password }) });
+    alert("비밀번호가 변경되었습니다.");
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+const ROLE_LABELS = { admin: "관리자", editor: "편집자", viewer: "조회자" };
+
+function roleOptionsHtml(selected) {
+  return Object.entries(ROLE_LABELS)
+    .map(([value, label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`)
+    .join("");
+}
+
+async function changeRole(id, role) {
+  try {
+    await api("/auth/users/" + id + "/role", { method: "PUT", body: JSON.stringify({ role }) });
+    await loadUsers();
+  } catch (err) {
+    alert(err.message);
+    await loadUsers();
+  }
+}
+
+async function loadUsers() {
+  const users = await api("/auth/users");
+  const tbody = document.getElementById("usersTableBody");
+  tbody.innerHTML = "";
+  for (const u of users) {
+    const tr = document.createElement("tr");
+    const isSelf = u.id === currentUser.id;
+    tr.innerHTML = `
+      <td>${u.username}</td>
+      <td><select data-action="role" data-id="${u.id}" ${isSelf ? "disabled" : ""}>${roleOptionsHtml(u.role)}</select></td>
+      <td>${new Date(u.createdUtc).toLocaleString()}</td>
+      <td class="row-actions">
+        <button class="secondary" data-action="rename" data-id="${u.id}" data-username="${u.username}">ID 변경</button>
+        <button class="secondary" data-action="reset" data-id="${u.id}">비밀번호 변경</button>
+        <button class="secondary" data-action="delete" data-id="${u.id}" ${isSelf ? "disabled" : ""}>삭제</button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll("select[data-action='role']").forEach((s) => s.addEventListener("change", () => changeRole(s.dataset.id, s.value)));
+  tbody.querySelectorAll("button[data-action='rename']").forEach((b) => b.addEventListener("click", () => renameUser(b.dataset.id, b.dataset.username)));
+  tbody.querySelectorAll("button[data-action='delete']").forEach((b) => b.addEventListener("click", () => deleteUser(b.dataset.id)));
+  tbody.querySelectorAll("button[data-action='reset']").forEach((b) => b.addEventListener("click", () => resetPassword(b.dataset.id)));
+}
+
+document.getElementById("saveAdminSettingsButton").addEventListener("click", async () => {
+  const errorEl = document.getElementById("adminSettingsError");
+  const successEl = document.getElementById("adminSettingsSuccess");
+  show(errorEl, false);
+  show(successEl, false);
+
+  const username = document.getElementById("adminNewUsername").value.trim();
+  const password = document.getElementById("adminNewPassword").value;
+
+  if (!username) {
+    errorEl.textContent = "관리자 ID는 비워둘 수 없습니다.";
+    show(errorEl, true);
+    return;
+  }
+  if (password && password.length < 6) {
+    errorEl.textContent = "비밀번호는 6자 이상이어야 합니다.";
+    show(errorEl, true);
+    return;
+  }
+
+  try {
+    const usernameChanged = username !== currentUser.username;
+    if (usernameChanged) {
+      currentUser = await api("/auth/users/" + currentUser.id + "/username", { method: "PUT", body: JSON.stringify({ username }) });
+    }
+    if (password) {
+      await api("/auth/users/" + currentUser.id + "/password", { method: "PUT", body: JSON.stringify({ password }) });
+    }
+    document.getElementById("adminNewPassword").value = "";
+    document.getElementById("adminNewUsername").value = currentUser.username;
+    successEl.textContent = usernameChanged
+      ? "ID와 비밀번호가 변경되었습니다. 다음 로그인부터 새 ID/비밀번호를 사용하세요."
+      : "비밀번호가 변경되었습니다.";
+    show(successEl, true);
+  } catch (err) {
+    errorEl.textContent = err.message;
+    show(errorEl, true);
+  }
+});
+
+async function loadInfo() {
+  const info = await api("/admin/info");
+  show(document.getElementById("dbContentCard"), true);
+  const grid = document.getElementById("infoGrid");
+  grid.innerHTML = `
+    <div><div class="label">DB 종류</div><div>${info.connection.provider ?? "-"}</div></div>
+    <div><div class="label">DB / 파일</div><div>${info.connection.database ?? "-"}</div></div>
+    <div><div class="label">요구사항 수</div><div>${info.counts.requirements}</div></div>
+    <div><div class="label">테스트 케이스 수</div><div>${info.counts.testCases}</div></div>
+    <div><div class="label">테스트 실행 기록 수</div><div>${info.counts.testRuns}</div></div>
+    <div><div class="label">사용자 수</div><div>${info.counts.users} (관리자 ${info.counts.usersByRole.admin} / 편집자 ${info.counts.usersByRole.editor} / 조회자 ${info.counts.usersByRole.viewer})</div></div>
+    <div><div class="label">Node.js 버전</div><div>${info.server.nodeVersion}</div></div>
+    <div><div class="label">서버 가동 시간</div><div>${Math.floor(info.server.uptimeSeconds / 60)}분</div></div>`;
+}
+
+function fillConnectionForm(settings) {
+  if (!settings) return;
+  document.getElementById("dbProvider").value = settings.provider;
+  document.getElementById("dbServer").value = settings.server || "localhost";
+  document.getElementById("dbPort").value = settings.port || "";
+  document.getElementById("dbDatabase").value = settings.database || "reqtrace";
+  document.getElementById("dbUsername").value = settings.username || "";
+  document.getElementById("dbSqlitePath").value = settings.sqliteFilePath || "";
+  updateProviderFields();
+}
+
+function hideAllSections() {
+  ["bootstrapLoginSection", "loginSection", "page-db", "page-users", "page-admin"].forEach((id) => show(document.getElementById(id), false));
+  show(document.getElementById("tabsNav"), false);
+  show(document.getElementById("dbContentCard"), false);
+}
+
+async function render() {
+  // /connection/status is public and always reflects reality, regardless of which (if any)
+  // auth the caller has — use it first to decide whether we're in the bootstrap phase or
+  // past it, before deciding which login form (if any) to show.
+  const status = await api("/connection/status");
+
+  const badge = document.getElementById("connBadge");
+  badge.textContent = status.connected ? "연결됨" : "연결 안 됨";
+  badge.className = "badge " + (status.connected ? "connected" : "disconnected");
+
+  hideAllSections();
+
+  if (!status.connected) {
+    show(document.getElementById("bootstrapHint"), true);
+    if (!getBootstrapToken()) {
+      show(document.getElementById("bootstrapLoginSection"), true);
+      return;
+    }
+    // Already have a bootstrap token: load the connection form using it.
+    try {
+      const connInfo = await api("/admin/connection");
+      fillConnectionForm(connInfo.settings);
+    } catch (err) {
+      if (err.status === 401) {
+        setBootstrapToken(null);
+        show(document.getElementById("bootstrapLoginSection"), true);
+        return;
+      }
+    }
+    show(document.getElementById("page-db"), true);
+    return;
+  }
+
+  // Connected: bootstrap is no longer relevant from here on.
+  setBootstrapToken(null);
+  show(document.getElementById("bootstrapHint"), false);
+
+  const loggedIn = !!getToken() && !!currentUser;
+  if (!loggedIn) {
+    show(document.getElementById("loginSection"), true);
+    return;
+  }
+
+  try {
+    const connInfo = await api("/admin/connection");
+    fillConnectionForm(connInfo.settings);
+  } catch (err) {
+    if (err.status === 401) {
+      setToken(null);
+      currentUser = null;
+      show(document.getElementById("loginSection"), true);
+      return;
+    }
+  }
+
+  show(document.getElementById("tabsNav"), true);
+  showPage(activePage);
+  document.getElementById("adminNewUsername").value = currentUser.username;
+  await loadInfo();
+}
+
+(async () => {
+  if (getToken()) {
+    try { currentUser = await api("/auth/me"); } catch { setToken(null); }
+  }
+  await render();
+})();
+</script>
+</body>
+</html>

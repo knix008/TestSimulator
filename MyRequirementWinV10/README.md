@@ -1,8 +1,10 @@
 # ReqTrace
 
-Windows용 **요구사항 추적(Requirements Traceability)** 관리 프로그램입니다. Excel에서 요구사항을 가져오고, 테스트 케이스·실행 결과를 연결하여 추적성을 유지하며, Excel·Word·Markdown·PDF 보고서로 내보낼 수 있습니다.
+Windows용 **요구사항 추적(Requirements Traceability)** 관리 프로그램입니다. Excel에서 요구사항을 가져오고, 테스트 케이스·실행 결과를 연결하여 추적성을 유지하며, Excel·Word·Markdown·PDF 보고서로 내보낼 수 있습니다. MySQL·MariaDB·PostgreSQL·SQLite3·MS SQL Server에 직접 연결해 프로젝트를 저장/불러올 수도 있습니다.
 
 **사용자 가이드**: 상세 사용법은 [UsersGuide.md](UsersGuide.md)를 참고하세요.
+
+**웹 애플리케이션**: 데스크톱 앱과 독립적으로 동작하는 브라우저용 클라이언트는 [Webapp/README.md](Webapp/README.md)를 참고하세요.
 
 ## 실행 환경
 
@@ -119,6 +121,17 @@ Excel 가져오기 시 **테스트 케이스 자동 생성** 문구는 UI 언어
 - **한국어** (기본), **English** 지원
 - **파일 → 언어 설정**에서 변경 (즉시 반영, 설정 저장)
 
+### 데이터베이스 연결
+
+- **데이터베이스** 메뉴에서 **MySQL, MariaDB, PostgreSQL, SQLite3, MS SQL Server** 중 하나에 연결
+- 처음 연결 시 대상 데이터베이스와 테이블(Requirements/TestCases/TestSteps/TestRuns)이 없으면 자동으로 생성
+- **데이터베이스에 저장 / 불러오기**로 현재 프로젝트를 DB와 동기화 (파일 기반 `.reqtproj`와는 별도 경로)
+- 연결 정보(비밀번호 포함)는 디스크에 저장되지 않고 실행 중에만 메모리에 유지
+
+### 프로그램 정보
+
+- 툴바 **우측**의 정보 아이콘 버튼 또는 **도움말 → 정보**에서 버전·사용 라이브러리 확인
+
 ## 프로젝트 구조
 
 ```
@@ -138,13 +151,16 @@ MyRequirementWinV10/
 │   ├── Sample.xlsx         # Excel import 샘플 (영문)
 │   ├── SampleKo.reqtproj   # 샘플 프로젝트 (한글)
 │   └── SampleKo.xlsx       # Excel import 샘플 (한글)
+├── Webapp/                 # 데스크톱 앱과 독립적인 브라우저용 웹앱 (Node.js + React)
+│   ├── server/             # Express + TypeScript REST API (Knex, 5개 DB 종류 지원)
+│   └── client/             # React + Vite + TypeScript 프론트엔드
 └── ReqTrace/
     ├── Assets/             # 앱·프로젝트 아이콘 (PNG/ICO)
-    ├── Forms/              # WinForms UI
+    ├── Forms/              # WinForms UI (DatabaseConnectionForm 포함)
     ├── Importing/          # Excel import, 열 매핑
     ├── Localization/       # 다국어 문자열
     ├── Models/             # 도메인 모델
-    ├── Persistence/        # .reqtproj, 설정 저장
+    ├── Persistence/        # .reqtproj·설정 저장, Database/ (DB 연결·스키마 초기화)
     ├── Reporting/          # 보고서 export
     ├── Resources/          # AppAssets, IconFactory
     ├── Services/           # 비즈니스 로직
@@ -160,6 +176,12 @@ MyRequirementWinV10/
 | [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) | Word 보고서 |
 | [QuestPDF](https://www.questpdf.com/) | PDF 보고서 (Community license) |
 | [WixToolset.Sdk](https://wixtoolset.org/) | MSI 설치 프로그램 (Installer 프로젝트) |
+| [MySqlConnector](https://mysqlconnector.net/) | MySQL / MariaDB 연결 |
+| [Npgsql](https://www.npgsql.org/) | PostgreSQL 연결 |
+| [Microsoft.Data.Sqlite](https://learn.microsoft.com/dotnet/standard/data/sqlite/) | SQLite3 연결 |
+| [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) | MS SQL Server 연결 |
+
+`Webapp/` 디렉터리는 독립적인 Node.js/React 프로젝트로, 사용 라이브러리는 [Webapp/README.md](Webapp/README.md)에 별도로 정리되어 있습니다 (Express, Knex, mysql2, pg, better-sqlite3, mssql, React, Vite 등).
 
 ## 라이선스
 

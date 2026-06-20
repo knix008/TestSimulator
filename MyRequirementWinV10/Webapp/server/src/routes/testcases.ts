@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { v4 as uuid } from "uuid";
 import { asyncHandler } from "../asyncHandler";
+import { requireEditor } from "../auth";
 import { getKnex } from "../db";
 import { intToRunStatus, runStatusToInt } from "../enums";
 import { TestCase, TestRun, TestStep } from "../types";
@@ -68,6 +69,7 @@ router.get(
 
 router.post(
   "/",
+  requireEditor,
   asyncHandler(async (req, res) => {
     const db = getKnex();
     const body = req.body as Partial<TestCase>;
@@ -99,6 +101,7 @@ router.post(
 
 router.put(
   "/:id",
+  requireEditor,
   asyncHandler(async (req, res) => {
     const db = getKnex();
     const { id } = req.params;
@@ -136,6 +139,7 @@ router.put(
 
 router.delete(
   "/:id",
+  requireEditor,
   asyncHandler(async (req, res) => {
     const db = getKnex();
     const { id } = req.params;
@@ -148,6 +152,7 @@ router.delete(
 
 router.post(
   "/:id/runs",
+  requireEditor,
   asyncHandler(async (req, res) => {
     const db = getKnex();
     const { id } = req.params;

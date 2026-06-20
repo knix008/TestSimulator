@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { v4 as uuid } from "uuid";
 import { asyncHandler } from "../asyncHandler";
+import { requireEditor } from "../auth";
 import { getKnex } from "../db";
 import { intToPriority, intToStatus, priorityToInt, statusToInt } from "../enums";
+import { generateTestCases } from "../testCaseGenerator";
 import { Requirement } from "../types";
 
 const router = Router();
@@ -40,7 +42,7 @@ router.get("/", asyncHandler(async (_req, res) => {
   );
 }));
 
-router.post("/", asyncHandler(async (req, res) => {
+router.post("/", requireEditor, asyncHandler(async (req, res) => {
   const db = getKnex();
   const body = req.body as Partial<Requirement>;
   if (!body.title || !body.title.trim()) {
@@ -66,7 +68,7 @@ router.post("/", asyncHandler(async (req, res) => {
   res.status(201).json(rowToRequirement(row));
 }));
 
-router.put("/:id", asyncHandler(async (req, res) => {
+router.put("/:id", requireEditor, asyncHandler(async (req, res) => {
   const db = getKnex();
   const { id } = req.params;
   const existing = await db("requirements").where({ id }).first();
@@ -96,7 +98,45 @@ router.put("/:id", asyncHandler(async (req, res) => {
   res.json(rowToRequirement(row));
 }));
 
-router.delete("/:id", asyncHandler(async (req, res) => {
+router.post("/:id/generate-testcases", requireEditor, asyncHandler(async (req, res) => {
+  const db = getKnex();
+  const { id } = req.params;
+  const requirement = await db("requirements").where({ id }).first();
+  if (!requirement) {
+    res.status(404).json({ error: "Requirement not found." });
+    return;
+  }
+
+  const generated = generateTestCases({
+    code: requirement.code,
+    title: requirement.title,
+    description: requirement.description,
+    priority: intToPriority(requirement.priority)
+  });
+
+  const created: string[] = [];
+  for (const tc of generated) {
+    const testCaseId = uuid();
+    await db("test_cases").insert({
+      id: testCaseId,
+      requirementId: id,
+      code: tc.code,
+      title: tc.title,
+      preconditions: tc.preconditions,
+      expectedResult: tc.expectedResult
+    });
+    if (tc.steps.length) {
+      await db("test_steps").insert(
+        tc.steps.map((s) => ({ testCaseId, stepOrder: s.order, action: s.action, expectedOutcome: s.expectedOutcome }))
+      );
+    }
+    created.push(testCaseId);
+  }
+
+  res.status(201).json({ createdCount: created.length, testCaseIds: created });
+}));
+
+router.delete("/:id", requireEditor, asyncHandler(async (req, res) => {
   const db = getKnex();
   const { id } = req.params;
   const testCaseIds = (await db("test_cases").where({ requirementId: id }).select("id")).map((r: any) => r.id);

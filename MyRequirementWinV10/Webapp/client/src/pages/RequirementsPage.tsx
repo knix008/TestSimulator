@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { useAuth } from "../auth";
 import TestCasePanel from "../components/TestCasePanel";
+import { canEdit } from "../roles";
 import { Priority, Requirement, RequirementStatus } from "../types";
 
 const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Critical"];
@@ -17,11 +19,15 @@ const emptyForm = {
 };
 
 export default function RequirementsPage({ connected }: { connected: boolean }) {
+  const { user } = useAuth();
+  const editable = canEdit(user?.role);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [testCaseRefreshKey, setTestCaseRefreshKey] = useState(0);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   async function refresh() {
     try {
@@ -76,6 +82,21 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
     await refresh();
   }
 
+  async function generateTests(id: string) {
+    setError(null);
+    setGeneratingId(id);
+    try {
+      const result = await api.generateTestCases(id);
+      await refresh();
+      if (selectedId === id) setTestCaseRefreshKey((k) => k + 1);
+      alert(`테스트 케이스 ${result.createdCount}개가 자동 생성되었습니다.`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setGeneratingId(null);
+    }
+  }
+
   if (!connected) {
     return (
       <div className="card">
@@ -91,7 +112,7 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
       <div className="card req-list-card">
         <div className="card-header">
           <h2>요구사항</h2>
-          <button onClick={startAdd}>+ 추가</button>
+          {editable && <button onClick={startAdd}>+ 추가</button>}
         </div>
         {error && <p className="msg-error">{error}</p>}
         <table className="data-table">
@@ -118,8 +139,15 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
                 <td>{req.status}</td>
                 <td>{req.testCaseCount}</td>
                 <td className="row-actions">
-                  <button onClick={(e) => { e.stopPropagation(); startEdit(req); }}>편집</button>
-                  <button onClick={(e) => { e.stopPropagation(); remove(req.id); }}>삭제</button>
+                  {editable && (
+                    <>
+                      <button onClick={(e) => { e.stopPropagation(); startEdit(req); }}>편집</button>
+                      <button disabled={generatingId === req.id} onClick={(e) => { e.stopPropagation(); generateTests(req.id); }}>
+                        {generatingId === req.id ? "생성 중..." : "테스트 자동 생성"}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); remove(req.id); }}>삭제</button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -186,7 +214,9 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
         </div>
       )}
 
-      {selected && !editingId && <TestCasePanel requirement={selected} />}
+      {selected && !editingId && (
+        <TestCasePanel key={`${selected.id}-${testCaseRefreshKey}`} requirement={selected} editable={editable} />
+      )}
     </div>
   );
 }

@@ -14,7 +14,7 @@ interface FormState {
 
 const emptyForm: FormState = { code: "", title: "", preconditions: "", expectedResult: "", steps: [] };
 
-export default function TestCasePanel({ requirement }: { requirement: Requirement }) {
+export default function TestCasePanel({ requirement, editable }: { requirement: Requirement; editable: boolean }) {
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -93,7 +93,7 @@ export default function TestCasePanel({ requirement }: { requirement: Requiremen
     <div className="card test-case-card">
       <div className="card-header">
         <h2>테스트 케이스 — {requirement.code || requirement.title}</h2>
-        <button onClick={startAdd}>+ 테스트 케이스 추가</button>
+        {editable && <button onClick={startAdd}>+ 테스트 케이스 추가</button>}
       </div>
       {error && <p className="msg-error">{error}</p>}
 
@@ -104,11 +104,13 @@ export default function TestCasePanel({ requirement }: { requirement: Requiremen
             <span className={`status-pill status-${(tc.runs[0]?.status ?? "NotRun").toLowerCase()}`}>
               {tc.runs[0]?.status ?? "NotRun"}
             </span>
-            <div className="row-actions">
-              <button onClick={() => startEdit(tc)}>편집</button>
-              <button onClick={() => setRunFormFor(tc.id)}>실행 기록</button>
-              <button onClick={() => remove(tc.id)}>삭제</button>
-            </div>
+            {editable && (
+              <div className="row-actions">
+                <button onClick={() => startEdit(tc)}>편집</button>
+                <button onClick={() => setRunFormFor(tc.id)}>실행 기록</button>
+                <button onClick={() => remove(tc.id)}>삭제</button>
+              </div>
+            )}
           </div>
 
           {runFormFor === tc.id && (
@@ -152,7 +154,7 @@ export default function TestCasePanel({ requirement }: { requirement: Requiremen
 
       {testCases.length === 0 && !editingId && <p className="empty-row">테스트 케이스가 없습니다.</p>}
 
-      {editingId && (
+      {editable && editingId && (
         <div className="test-case-form">
           <h3>{editingId === "__new__" ? "테스트 케이스 추가" : "테스트 케이스 편집"}</h3>
           <div className="form-grid">

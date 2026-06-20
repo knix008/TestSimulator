@@ -1,15 +1,5 @@
 export type DbProvider = "mysql" | "mariadb" | "postgresql" | "sqlite" | "mssql";
 
-export interface ConnectionSettings {
-  provider: DbProvider;
-  server: string;
-  port: number;
-  database: string;
-  username: string;
-  password: string;
-  sqliteFilePath: string;
-}
-
 export type Priority = "Low" | "Medium" | "High" | "Critical";
 export type RequirementStatus = "Draft" | "Approved" | "InProgress" | "Implemented" | "Deprecated";
 export type TestRunStatus = "NotRun" | "Pass" | "Fail" | "Blocked";
@@ -66,4 +56,25 @@ export interface DashboardData {
   priorityBreakdown: { name: string; count: number }[];
   statusBreakdown: { name: string; count: number }[];
   runStatusBreakdown: { name: string; count: number }[];
+}
+
+export type UserRole = "admin" | "editor" | "viewer";
+
+export interface AppUser {
+  id: string;
+  username: string;
+  role: UserRole;
+  createdUtc: string;
+}
+
+export interface AdminInfo {
+  connection: { provider: DbProvider | null; server: string | null; database: string | null };
+  counts: {
+    requirements: number;
+    testCases: number;
+    testRuns: number;
+    users: number;
+    usersByRole: { admin: number; editor: number; viewer: number };
+  };
+  server: { nodeVersion: string; uptimeSeconds: number; startedAt: string };
 }

@@ -1,23 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import PieChart from "../components/PieChart";
 import { DashboardData } from "../types";
-
-function Bar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
-  const pct = total === 0 ? 0 : (count / total) * 100;
-  return (
-    <div className="bar-row">
-      <span className="bar-label">{label}</span>
-      <div className="bar-track">
-        <div className="bar-fill" style={{ width: `${pct}%`, backgroundColor: color }} />
-      </div>
-      <span className="bar-count">{count}</span>
-    </div>
-  );
-}
 
 const PRIORITY_COLORS = ["#94a3b8", "#3b82f6", "#f59e0b", "#ef4444"];
 const STATUS_COLORS = ["#94a3b8", "#3b82f6", "#8b5cf6", "#10b981", "#6b7280"];
 const RUN_COLORS = ["#94a3b8", "#10b981", "#ef4444", "#f59e0b"];
+
+function withColors(breakdown: { name: string; count: number }[], colors: string[]) {
+  return breakdown.map((b, i) => ({ ...b, color: colors[i] ?? "#cbd5e1" }));
+}
 
 export default function DashboardPage({ connected }: { connected: boolean }) {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -68,23 +60,17 @@ export default function DashboardPage({ connected }: { connected: boolean }) {
 
       <div className="card chart-card">
         <h3>우선순위별 요구사항</h3>
-        {data.priorityBreakdown.map((p, i) => (
-          <Bar key={p.name} label={p.name} count={p.count} total={data.totalRequirements} color={PRIORITY_COLORS[i]} />
-        ))}
+        <PieChart data={withColors(data.priorityBreakdown, PRIORITY_COLORS)} />
       </div>
 
       <div className="card chart-card">
         <h3>상태별 요구사항</h3>
-        {data.statusBreakdown.map((s, i) => (
-          <Bar key={s.name} label={s.name} count={s.count} total={data.totalRequirements} color={STATUS_COLORS[i]} />
-        ))}
+        <PieChart data={withColors(data.statusBreakdown, STATUS_COLORS)} />
       </div>
 
       <div className="card chart-card">
         <h3>테스트 실행 결과 (최신 실행 기준)</h3>
-        {data.runStatusBreakdown.map((r, i) => (
-          <Bar key={r.name} label={r.name} count={r.count} total={data.totalTestCases} color={RUN_COLORS[i]} />
-        ))}
+        <PieChart data={withColors(data.runStatusBreakdown, RUN_COLORS)} />
       </div>
     </div>
   );

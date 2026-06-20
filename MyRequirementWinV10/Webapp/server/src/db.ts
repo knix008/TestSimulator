@@ -1,5 +1,10 @@
+import bcrypt from "bcryptjs";
 import knexFactory, { Knex } from "knex";
+import { v4 as uuid } from "uuid";
 import { ConnectionSettings } from "./types";
+
+export const DEFAULT_ADMIN_USERNAME = "admin";
+export const DEFAULT_ADMIN_PASSWORD = "admin";
 
 const VALID_DB_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -160,6 +165,30 @@ async function ensureSchema(db: Knex): Promise<void> {
       t.string("buildOrVersion", 128).notNullable();
     });
   }
+
+  if (!(await db.schema.hasTable("users"))) {
+    await db.schema.createTable("users", (t) => {
+      t.string("id", 36).primary();
+      t.string("username", 64).notNullable().unique();
+      t.string("passwordHash", 255).notNullable();
+      t.string("role", 16).notNullable();
+      t.dateTime("createdUtc").notNullable();
+    });
+
+    // First-time setup: seed a default admin account so there is always a way to log in.
+    // The operator must change this password immediately after first login.
+    const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+    await db("users").insert({
+      id: uuid(),
+      username: DEFAULT_ADMIN_USERNAME,
+      passwordHash,
+      role: "admin",
+      createdUtc: new Date().toISOString()
+    });
+    console.warn(
+      `[ReqTrace] Created default admin account — username: "${DEFAULT_ADMIN_USERNAME}", password: "${DEFAULT_ADMIN_PASSWORD}". Change this password immediately.`
+    );
+  }
 }
 
 export async function connect(settings: ConnectionSettings): Promise<void> {
@@ -180,4 +209,23 @@ export async function connect(settings: ConnectionSettings): Promise<void> {
 
 export function isConnected(): boolean {
   return activeKnex !== null;
+}
+
+/**
+ * The DB connection is server-side configuration, not something the browser client
+ * controls — it's read once from environment variables when the process starts.
+ */
+export function settingsFromEnv(): ConnectionSettings | null {
+  const provider = process.env.DB_PROVIDER as ConnectionSettings["provider"] | undefined;
+  if (!provider) return null;
+
+  return {
+    provider,
+    server: process.env.DB_SERVER ?? "localhost",
+    port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 0,
+    database: process.env.DB_DATABASE ?? "",
+    username: process.env.DB_USERNAME ?? "",
+    password: process.env.DB_PASSWORD ?? "",
+    sqliteFilePath: process.env.DB_SQLITE_PATH ?? ""
+  };
 }
