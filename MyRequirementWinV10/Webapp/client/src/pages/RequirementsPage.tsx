@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import TestCasePanel from "../components/TestCasePanel";
-import ReqDataTableColGroup from "../components/ReqDataTableColGroup";
+import ReqDataTableColGroup, { REQ_TABLE_COLUMN_COUNT } from "../components/ReqDataTableColGroup";
 import { canEdit, ROLE_LABELS } from "../roles";
 import { Priority, Requirement, RequirementStatus } from "../types";
 
@@ -115,6 +115,12 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
   }
 
   const selected = requirements.find((r) => r.id === selectedId) ?? null;
+  const codeById = new Map(requirements.map((r) => [r.id, r.code]));
+
+  function parentCode(req: Requirement): string {
+    if (!req.parentId) return "";
+    return codeById.get(req.parentId) ?? req.parentId;
+  }
 
   return (
     <div className="req-layout">
@@ -128,19 +134,27 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
       <div className="card req-list-card">
         <div className="card-header">
           <h2>요구사항</h2>
-          {editable && <button onClick={startAdd}>+ 추가</button>}
         </div>
         {error && <p className="msg-error">{error}</p>}
+        <div className="req-table-scroll">
         <table className="data-table req-data-table">
           <ReqDataTableColGroup />
           <thead>
             <tr>
               <th>코드</th>
               <th>제목</th>
+              <th>설명</th>
+              <th>카테고리</th>
               <th>우선순위</th>
               <th>상태</th>
               <th>테스트</th>
-              <th></th>
+              <th>출처</th>
+              <th>상위</th>
+              <th className="row-actions req-table-actions-header">
+                {editable && (
+                  <button type="button" className="btn-add" onClick={startAdd}>+ 요구사항 추가</button>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -151,10 +165,14 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
                 onClick={() => setSelectedId(req.id)}
               >
                 <td>{req.code}</td>
-                <td>{req.title}</td>
+                <td className="req-col-title-cell">{req.title}</td>
+                <td className="req-col-description-cell">{req.description}</td>
+                <td>{req.category}</td>
                 <td>{req.priority}</td>
                 <td>{req.status}</td>
-                <td>{req.testCaseCount}</td>
+                <td className="req-col-test-count">{req.testCaseCount}</td>
+                <td className="req-col-source-cell">{req.source}</td>
+                <td>{parentCode(req)}</td>
                 <td className="row-actions">
                   {editable && (
                     <>
@@ -170,13 +188,14 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
             ))}
             {requirements.length === 0 && (
               <tr>
-                <td colSpan={6} className="empty-row">
+                <td colSpan={REQ_TABLE_COLUMN_COUNT} className="empty-row">
                   요구사항이 없습니다.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {editingId && (

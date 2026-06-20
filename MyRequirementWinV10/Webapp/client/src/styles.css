@@ -230,6 +230,18 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.btn-add {
+  background: #16a34a;
+}
+
+.btn-add:hover {
+  background: #15803d;
+}
+
+.btn-add:disabled {
+  background: #9ca3af;
+}
+
 .form-actions {
   display: flex;
   gap: 8px;
@@ -267,33 +279,55 @@ button:disabled {
 }
 
 /* Shared column layout: requirements list + test case list */
+.req-table-scroll {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
 .req-data-table {
   table-layout: fixed;
   width: 100%;
+  min-width: 1100px;
 }
 
 .req-data-table col.req-col-code {
-  width: 9%;
-}
-
-.req-data-table col.req-col-title {
-  width: 28%;
-}
-
-.req-data-table col.req-col-priority {
-  width: 10%;
-}
-
-.req-data-table col.req-col-req-status {
-  width: 12%;
-}
-
-.req-data-table col.req-col-test {
   width: 7%;
 }
 
+.req-data-table col.req-col-title {
+  width: 11%;
+}
+
+.req-data-table col.req-col-description {
+  width: 18%;
+}
+
+.req-data-table col.req-col-category {
+  width: 8%;
+}
+
+.req-data-table col.req-col-priority {
+  width: 7%;
+}
+
+.req-data-table col.req-col-req-status {
+  width: 9%;
+}
+
+.req-data-table col.req-col-test {
+  width: 6%;
+}
+
+.req-data-table col.req-col-source {
+  width: 8%;
+}
+
+.req-data-table col.req-col-parent {
+  width: 6%;
+}
+
 .req-data-table col.req-col-actions {
-  width: 34%;
+  width: 20%;
 }
 
 .req-data-table td,
@@ -301,8 +335,20 @@ button:disabled {
   vertical-align: middle;
 }
 
-.req-data-table .req-col-title-cell {
+.req-data-table .req-col-title-cell,
+.req-data-table .req-col-description-cell,
+.req-data-table .req-col-source-cell {
   word-break: break-word;
+}
+
+.req-data-table .req-col-description-cell {
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.35;
+}
+
+.req-data-table .req-col-test-count {
+  text-align: center;
 }
 
 .req-data-table .req-col-spacer {
@@ -324,6 +370,20 @@ button:disabled {
 
 .req-data-table td.row-actions {
   text-align: left;
+}
+
+.req-table-toolbar-spacer {
+  padding: 0;
+  border-bottom: none;
+}
+
+.req-table-actions-header {
+  font-weight: 600;
+  text-align: left;
+}
+
+.req-table-actions-header.row-actions {
+  white-space: nowrap;
 }
 
 .row-actions {

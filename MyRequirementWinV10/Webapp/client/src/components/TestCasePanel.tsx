@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../api";
-import ReqDataTableColGroup from "./ReqDataTableColGroup";
+import ReqDataTableColGroup, { REQ_TABLE_COLUMN_COUNT } from "./ReqDataTableColGroup";
 import { Requirement, TestCase, TestRunStatus, TestStep } from "../types";
 
 const RUN_STATUSES: TestRunStatus[] = ["NotRun", "Pass", "Fail", "Blocked"];
@@ -94,14 +94,30 @@ export default function TestCasePanel({ requirement, editable }: { requirement: 
     <div className="card test-case-card">
       <div className="card-header">
         <h2>테스트 케이스 — {requirement.code || requirement.title}</h2>
-        {editable && <button onClick={startAdd}>+ 테스트 케이스 추가</button>}
       </div>
       {error && <p className="msg-error">{error}</p>}
 
-      {testCases.length > 0 && (
+      <div className="req-table-scroll">
         <table className="data-table req-data-table test-case-list-table">
           <ReqDataTableColGroup />
+          {editable && (
+            <thead>
+              <tr>
+                <th colSpan={REQ_TABLE_COLUMN_COUNT - 1} className="req-table-toolbar-spacer" />
+                <th className="row-actions req-table-actions-header">
+                  <button type="button" className="btn-add" onClick={startAdd}>+ 테스트 케이스 추가</button>
+                </th>
+              </tr>
+            </thead>
+          )}
           <tbody>
+            {testCases.length === 0 && (
+              <tr>
+                <td colSpan={REQ_TABLE_COLUMN_COUNT} className="empty-row">
+                  테스트 케이스가 없습니다.
+                </td>
+              </tr>
+            )}
             {testCases.map((tc) => {
               const runState = tc.runs[0]?.status ?? "NotRun";
               return (
@@ -111,9 +127,13 @@ export default function TestCasePanel({ requirement, editable }: { requirement: 
                     <td className="req-col-title-cell">{tc.title}</td>
                     <td className="req-col-spacer" />
                     <td className="req-col-spacer" />
+                    <td className="req-col-spacer" />
+                    <td className="req-col-spacer" />
                     <td className="req-col-run">
                       <span className={`status-pill status-${runState.toLowerCase()}`}>{runState}</span>
                     </td>
+                    <td className="req-col-spacer" />
+                    <td className="req-col-spacer" />
                     <td className="row-actions">
                       {editable && (
                         <>
@@ -127,7 +147,7 @@ export default function TestCasePanel({ requirement, editable }: { requirement: 
 
                   {runFormFor === tc.id && (
                     <tr className="test-case-detail-row">
-                      <td colSpan={6}>
+                      <td colSpan={REQ_TABLE_COLUMN_COUNT}>
                         <div className="run-form">
                           <select value={runStatus} onChange={(e) => setRunStatus(e.target.value as TestRunStatus)}>
                             {RUN_STATUSES.map((s) => (
@@ -147,7 +167,7 @@ export default function TestCasePanel({ requirement, editable }: { requirement: 
 
                   {tc.steps.length > 0 && (
                     <tr className="test-case-detail-row">
-                      <td colSpan={6}>
+                      <td colSpan={REQ_TABLE_COLUMN_COUNT}>
                         <table className="data-table steps-table">
                           <thead>
                             <tr>
@@ -174,9 +194,7 @@ export default function TestCasePanel({ requirement, editable }: { requirement: 
             })}
           </tbody>
         </table>
-      )}
-
-      {testCases.length === 0 && !editingId && <p className="empty-row">테스트 케이스가 없습니다.</p>}
+      </div>
 
       {editable && editingId && (
         <div className="test-case-form">
