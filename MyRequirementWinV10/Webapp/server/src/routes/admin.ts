@@ -4,6 +4,7 @@ import { authMiddleware, requireAdmin } from "../auth";
 import { loadPersistedSettings, savePersistedSettings } from "../configStore";
 import { requireConsoleAuth } from "../consoleAuth";
 import { connect, getActiveSettings, getKnex, isConnected } from "../db";
+import { getTables } from "../schema";
 import { ConnectionSettings } from "../types";
 
 const router = Router();
@@ -28,13 +29,14 @@ router.get(
   asyncHandler(async (_req, res) => {
     const db = getKnex();
     const settings = getActiveSettings();
+    const t = getTables();
 
     const count = async (table: string) => Number((await db(table).count<{ count: string }[]>("* as count").first())?.count ?? 0);
 
     const [requirementCount, testCaseCount, testRunCount, userCount, roleRows] = await Promise.all([
-      count("requirements"),
-      count("test_cases"),
-      count("test_runs"),
+      count(t.requirements),
+      count(t.testCases),
+      count(t.testRuns),
       count("users"),
       db("users").select("role").count<{ role: string; count: string }[]>("* as count").groupBy("role")
     ]);

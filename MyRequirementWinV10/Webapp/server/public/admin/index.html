@@ -44,6 +44,7 @@
 <header>
   <h1>ReqTrace 서버 관리 콘솔</h1>
   <span id="connBadge" class="badge disconnected">확인 중...</span>
+  <button id="logoutButton" class="secondary hidden" style="margin-left:8px">로그아웃</button>
 </header>
 
 <nav class="tabs hidden" id="tabsNav">
@@ -55,22 +56,26 @@
 <main>
   <!-- Bootstrap login: only used before any database has ever been connected -->
   <section id="bootstrapLoginSection" class="card login-card hidden">
-    <h2>관리자 로그인</h2>
-    <p class="hint">아직 데이터베이스가 연결되어 있지 않습니다. 최초 설정용 관리자 ID/비밀번호로 로그인하세요 (기본값: admin / admin).</p>
-    <label>관리자 ID <input id="bootstrapUsername" autocomplete="username" /></label>
-    <label>비밀번호 <input id="bootstrapPassword" type="password" autocomplete="current-password" /></label>
-    <p id="bootstrapLoginError" class="msg-error hidden"></p>
-    <button id="bootstrapLoginButton">로그인</button>
+    <form id="bootstrapLoginForm">
+      <h2>관리자 로그인</h2>
+      <p class="hint">아직 데이터베이스가 연결되어 있지 않습니다. 최초 설정용 관리자 ID/비밀번호로 로그인하세요 (기본값: admin / admin).</p>
+      <label>관리자 ID <input id="bootstrapUsername" autocomplete="username" /></label>
+      <label>비밀번호 <input id="bootstrapPassword" type="password" autocomplete="current-password" /></label>
+      <p id="bootstrapLoginError" class="msg-error hidden"></p>
+      <button id="bootstrapLoginButton" type="submit">로그인</button>
+    </form>
   </section>
 
   <!-- DB-backed admin login: used once a database is connected -->
   <section id="loginSection" class="card login-card hidden">
-    <h2>관리자 로그인</h2>
-    <label>사용자 ID <input id="loginUsername" autocomplete="username" /></label>
-    <label>비밀번호 <input id="loginPassword" type="password" autocomplete="current-password" /></label>
-    <p id="loginError" class="msg-error hidden"></p>
-    <button id="loginButton">로그인</button>
-    <p class="hint">데이터베이스가 처음 연결될 때 기본 관리자 계정(admin / admin)이 자동으로 생성됩니다. 로그인 후 "관리자 설정"에서 ID와 비밀번호를 변경하세요.</p>
+    <form id="loginForm">
+      <h2>관리자 로그인</h2>
+      <label>사용자 ID <input id="loginUsername" autocomplete="username" /></label>
+      <label>비밀번호 <input id="loginPassword" type="password" autocomplete="current-password" /></label>
+      <p id="loginError" class="msg-error hidden"></p>
+      <button id="loginButton" type="submit">로그인</button>
+      <p class="hint">데이터베이스가 처음 연결될 때 기본 관리자 계정(admin / admin)이 자동으로 생성됩니다. 로그인 후 "관리자 설정"에서 ID와 비밀번호를 변경하세요.</p>
+    </form>
   </section>
 
   <!-- Page: DB settings -->
@@ -96,7 +101,6 @@
       </div>
       <label id="sqliteField" class="hidden">파일 경로 <input id="dbSqlitePath" placeholder="예: ./reqtrace.db" /></label>
       <p id="connError" class="msg-error hidden"></p>
-      <p id="connSuccess" class="msg-success hidden"></p>
       <button id="saveConnectionButton">저장 및 연결</button>
     </div>
 
@@ -145,6 +149,8 @@
 const TOKEN_KEY = "reqtrace.admin.token";
 const BOOTSTRAP_TOKEN_KEY = "reqtrace.bootstrap.token";
 let currentUser = null;
+/** In-memory only: reuse bootstrap credentials for DB login after first connect. */
+let bootstrapCredentials = null;
 
 function getToken() { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t) { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); }
@@ -168,6 +174,44 @@ async function api(path, options) {
   return body;
 }
 
+async function restoreDbSession() {
+  if (!getToken()) return false;
+  if (currentUser?.role === "admin") return true;
+  try {
+    currentUser = await api("/auth/me");
+    return currentUser.role === "admin";
+  } catch {
+    setToken(null);
+    currentUser = null;
+    return false;
+  }
+}
+
+/** After DB connect, establish one DB-backed session so tabs do not ask to log in again. */
+async function ensureDbAuthSession() {
+  if (getToken() && currentUser?.role === "admin") return true;
+
+  const creds = bootstrapCredentials || {
+    username: document.getElementById("bootstrapUsername")?.value || "admin",
+    password: document.getElementById("bootstrapPassword")?.value || "admin"
+  };
+
+  try {
+    const { token, user } = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(creds)
+    });
+    if (user.role !== "admin") return false;
+    setToken(token);
+    currentUser = user;
+    bootstrapCredentials = null;
+    setBootstrapToken(null);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function show(el, visible) { el.classList.toggle("hidden", !visible); }
 
 function updateProviderFields() {
@@ -186,10 +230,21 @@ function showPage(page) {
   show(document.getElementById("page-users"), page === "users");
   show(document.getElementById("page-admin"), page === "admin");
   if (page === "users") loadUsers();
+  if (page === "admin" && currentUser) {
+    document.getElementById("adminNewUsername").value = currentUser.username;
+  }
 }
 document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => showPage(b.dataset.page)));
 
-document.getElementById("bootstrapLoginButton").addEventListener("click", async () => {
+document.getElementById("logoutButton").addEventListener("click", () => {
+  setToken(null);
+  setBootstrapToken(null);
+  bootstrapCredentials = null;
+  currentUser = null;
+  render();
+});
+
+async function submitBootstrapLogin() {
   const errorEl = document.getElementById("bootstrapLoginError");
   show(errorEl, false);
   try {
@@ -201,14 +256,18 @@ document.getElementById("bootstrapLoginButton").addEventListener("click", async 
       })
     });
     setBootstrapToken(token);
+    bootstrapCredentials = {
+      username: document.getElementById("bootstrapUsername").value,
+      password: document.getElementById("bootstrapPassword").value
+    };
     await render();
   } catch (err) {
     errorEl.textContent = err.message;
     show(errorEl, true);
   }
-});
+}
 
-document.getElementById("loginButton").addEventListener("click", async () => {
+async function submitDbLogin() {
   const errorEl = document.getElementById("loginError");
   show(errorEl, false);
   try {
@@ -222,18 +281,28 @@ document.getElementById("loginButton").addEventListener("click", async () => {
     if (user.role !== "admin") throw new Error("관리자 계정만 이 콘솔을 사용할 수 있습니다.");
     setToken(token);
     currentUser = user;
+    bootstrapCredentials = null;
+    setBootstrapToken(null);
     await render();
   } catch (err) {
     errorEl.textContent = err.message;
     show(errorEl, true);
   }
+}
+
+document.getElementById("bootstrapLoginForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  submitBootstrapLogin();
+});
+
+document.getElementById("loginForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  submitDbLogin();
 });
 
 document.getElementById("saveConnectionButton").addEventListener("click", async () => {
   const errorEl = document.getElementById("connError");
-  const successEl = document.getElementById("connSuccess");
   show(errorEl, false);
-  show(successEl, false);
   const provider = document.getElementById("dbProvider").value;
   const settings = {
     provider,
@@ -246,9 +315,8 @@ document.getElementById("saveConnectionButton").addEventListener("click", async 
   };
   try {
     await api("/admin/connection", { method: "PUT", body: JSON.stringify(settings) });
-    successEl.textContent = "연결되었습니다. 데이터베이스와 테이블이 없으면 자동으로 생성됩니다.";
-    show(successEl, true);
-    setBootstrapToken(null);
+    await ensureDbAuthSession();
+    alert("데이터베이스에 연결되었습니다. 데이터베이스와 테이블이 없으면 자동으로 생성됩니다.");
     await render();
   } catch (err) {
     errorEl.textContent = err.message;
@@ -420,6 +488,7 @@ function fillConnectionForm(settings) {
 function hideAllSections() {
   ["bootstrapLoginSection", "loginSection", "page-db", "page-users", "page-admin"].forEach((id) => show(document.getElementById(id), false));
   show(document.getElementById("tabsNav"), false);
+  show(document.getElementById("logoutButton"), false);
   show(document.getElementById("dbContentCard"), false);
 }
 
@@ -452,19 +521,26 @@ async function render() {
         return;
       }
     }
+    show(document.getElementById("logoutButton"), true);
     show(document.getElementById("page-db"), true);
     return;
   }
 
-  // Connected: bootstrap is no longer relevant from here on.
-  setBootstrapToken(null);
   show(document.getElementById("bootstrapHint"), false);
+
+  await restoreDbSession();
+  if ((!getToken() || !currentUser) && (bootstrapCredentials || getBootstrapToken())) {
+    await ensureDbAuthSession();
+  }
 
   const loggedIn = !!getToken() && !!currentUser;
   if (!loggedIn) {
     show(document.getElementById("loginSection"), true);
     return;
   }
+
+  setBootstrapToken(null);
+  bootstrapCredentials = null;
 
   try {
     const connInfo = await api("/admin/connection");
@@ -479,15 +555,14 @@ async function render() {
   }
 
   show(document.getElementById("tabsNav"), true);
+  show(document.getElementById("logoutButton"), true);
   showPage(activePage);
   document.getElementById("adminNewUsername").value = currentUser.username;
   await loadInfo();
 }
 
 (async () => {
-  if (getToken()) {
-    try { currentUser = await api("/auth/me"); } catch { setToken(null); }
-  }
+  await restoreDbSession();
   await render();
 })();
 </script>

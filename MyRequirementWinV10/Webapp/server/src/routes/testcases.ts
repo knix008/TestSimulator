@@ -3,53 +3,62 @@ import { v4 as uuid } from "uuid";
 import { asyncHandler } from "../asyncHandler";
 import { requireEditor } from "../auth";
 import { getKnex } from "../db";
+import { toSqlDateTime } from "../dateTime";
 import { intToRunStatus, runStatusToInt } from "../enums";
+import { col, getTables, readField, readString, whereField, writeFields } from "../schema";
 import { TestCase, TestRun, TestStep } from "../types";
 
 const router = Router();
 
 async function loadTestCase(db: ReturnType<typeof getKnex>, id: string): Promise<TestCase | null> {
-  const row = await db("test_cases").where({ id }).first();
+  const t = getTables();
+  const row = await db(t.testCases).where(whereField("id", id)).first();
   if (!row) return null;
-  const steps: TestStep[] = (await db("test_steps").where({ testCaseId: id }).orderBy("stepOrder")).map((s: any) => ({
-    testCaseId: s.testCaseId,
-    order: s.stepOrder,
-    action: s.action,
-    expectedOutcome: s.expectedOutcome
-  }));
-  const runs: TestRun[] = (await db("test_runs").where({ testCaseId: id }).orderBy("executedUtc", "desc")).map((r: any) => ({
-    id: r.id,
-    testCaseId: r.testCaseId,
-    status: intToRunStatus(r.status),
-    executedUtc: r.executedUtc,
-    executedBy: r.executedBy,
-    notes: r.notes,
-    buildOrVersion: r.buildOrVersion
-  }));
+  const steps: TestStep[] = (await db(t.testSteps).where(whereField("testCaseId", id)).orderBy(col("stepOrder"))).map(
+    (s) => ({
+      testCaseId: readString(s, "testCaseId"),
+      order: Number(readField(s, "stepOrder") ?? 0),
+      action: readString(s, "action"),
+      expectedOutcome: readString(s, "expectedOutcome")
+    })
+  );
+  const runs: TestRun[] = (await db(t.testRuns).where(whereField("testCaseId", id)).orderBy(col("executedUtc"), "desc")).map(
+    (r) => ({
+      id: readString(r, "id"),
+      testCaseId: readString(r, "testCaseId"),
+      status: intToRunStatus(Number(readField(r, "status") ?? 0)),
+      executedUtc: readString(r, "executedUtc"),
+      executedBy: readString(r, "executedBy"),
+      notes: readString(r, "notes"),
+      buildOrVersion: readString(r, "buildOrVersion")
+    })
+  );
   return {
-    id: row.id,
-    requirementId: row.requirementId,
-    code: row.code,
-    title: row.title,
-    preconditions: row.preconditions,
-    expectedResult: row.expectedResult,
+    id: readString(row, "id"),
+    requirementId: readString(row, "requirementId"),
+    code: readString(row, "code"),
+    title: readString(row, "title"),
+    preconditions: readString(row, "preconditions"),
+    expectedResult: readString(row, "expectedResult"),
     steps,
     runs
   };
 }
 
-// List test cases for a requirement: GET /api/testcases?requirementId=...
 router.get(
   "/",
   asyncHandler(async (req, res) => {
     const db = getKnex();
+    const t = getTables();
     const requirementId = req.query.requirementId as string | undefined;
     if (!requirementId) {
       res.status(400).json({ error: "requirementId query param is required." });
       return;
     }
-    const ids = (await db("test_cases").where({ requirementId }).select("id")).map((r: any) => r.id);
-    const cases = await Promise.all(ids.map((id: string) => loadTestCase(db, id)));
+    const ids = (await db(t.testCases).where(whereField("requirementId", requirementId)).select(col("id"))).map((r) =>
+      readString(r, "id")
+    );
+    const cases = await Promise.all(ids.map((id) => loadTestCase(db, id)));
     res.json(cases.filter(Boolean));
   })
 );
@@ -72,6 +81,7 @@ router.post(
   requireEditor,
   asyncHandler(async (req, res) => {
     const db = getKnex();
+    const t = getTables();
     const body = req.body as Partial<TestCase>;
     if (!body.requirementId) {
       res.status(400).json({ error: "requirementId is required." });
@@ -82,17 +92,26 @@ router.post(
       return;
     }
     const id = uuid();
-    await db("test_cases").insert({
-      id,
-      requirementId: body.requirementId,
-      code: body.code ?? "",
-      title: body.title,
-      preconditions: body.preconditions ?? "",
-      expectedResult: body.expectedResult ?? ""
-    });
+    await db(t.testCases).insert(
+      writeFields({
+        id,
+        requirementId: body.requirementId,
+        code: body.code ?? "",
+        title: body.title,
+        preconditions: body.preconditions ?? "",
+        expectedResult: body.expectedResult ?? ""
+      })
+    );
     if (body.steps?.length) {
-      await db("test_steps").insert(
-        body.steps.map((s, idx) => ({ testCaseId: id, stepOrder: s.order ?? idx, action: s.action, expectedOutcome: s.expectedOutcome }))
+      await db(t.testSteps).insert(
+        body.steps.map((s, idx) =>
+          writeFields({
+            testCaseId: id,
+            stepOrder: s.order ?? idx,
+            action: s.action,
+            expectedOutcome: s.expectedOutcome
+          })
+        )
       );
     }
     res.status(201).json(await loadTestCase(db, id));
@@ -104,8 +123,9 @@ router.put(
   requireEditor,
   asyncHandler(async (req, res) => {
     const db = getKnex();
+    const t = getTables();
     const { id } = req.params;
-    const existing = await db("test_cases").where({ id }).first();
+    const existing = await db(t.testCases).where(whereField("id", id)).first();
     if (!existing) {
       res.status(404).json({ error: "Test case not found." });
       return;
@@ -115,20 +135,29 @@ router.put(
       res.status(400).json({ error: "Title is required." });
       return;
     }
-    await db("test_cases")
-      .where({ id })
-      .update({
-        code: body.code ?? existing.code,
-        title: body.title ?? existing.title,
-        preconditions: body.preconditions ?? existing.preconditions,
-        expectedResult: body.expectedResult ?? existing.expectedResult
-      });
+    await db(t.testCases)
+      .where(whereField("id", id))
+      .update(
+        writeFields({
+          code: body.code ?? readString(existing, "code"),
+          title: body.title ?? readString(existing, "title"),
+          preconditions: body.preconditions ?? readString(existing, "preconditions"),
+          expectedResult: body.expectedResult ?? readString(existing, "expectedResult")
+        })
+      );
 
     if (body.steps) {
-      await db("test_steps").where({ testCaseId: id }).delete();
+      await db(t.testSteps).where(whereField("testCaseId", id)).delete();
       if (body.steps.length) {
-        await db("test_steps").insert(
-          body.steps.map((s, idx) => ({ testCaseId: id, stepOrder: s.order ?? idx, action: s.action, expectedOutcome: s.expectedOutcome }))
+        await db(t.testSteps).insert(
+          body.steps.map((s, idx) =>
+            writeFields({
+              testCaseId: id,
+              stepOrder: s.order ?? idx,
+              action: s.action,
+              expectedOutcome: s.expectedOutcome
+            })
+          )
         );
       }
     }
@@ -142,10 +171,11 @@ router.delete(
   requireEditor,
   asyncHandler(async (req, res) => {
     const db = getKnex();
+    const t = getTables();
     const { id } = req.params;
-    await db("test_steps").where({ testCaseId: id }).delete();
-    await db("test_runs").where({ testCaseId: id }).delete();
-    await db("test_cases").where({ id }).delete();
+    await db(t.testSteps).where(whereField("testCaseId", id)).delete();
+    await db(t.testRuns).where(whereField("testCaseId", id)).delete();
+    await db(t.testCases).where(whereField("id", id)).delete();
     res.status(204).send();
   })
 );
@@ -155,23 +185,26 @@ router.post(
   requireEditor,
   asyncHandler(async (req, res) => {
     const db = getKnex();
+    const t = getTables();
     const { id } = req.params;
-    const testCase = await db("test_cases").where({ id }).first();
+    const testCase = await db(t.testCases).where(whereField("id", id)).first();
     if (!testCase) {
       res.status(404).json({ error: "Test case not found." });
       return;
     }
     const body = req.body as Partial<TestRun>;
     const runId = uuid();
-    await db("test_runs").insert({
-      id: runId,
-      testCaseId: id,
-      status: runStatusToInt(body.status ?? "NotRun"),
-      executedUtc: new Date().toISOString(),
-      executedBy: body.executedBy ?? "",
-      notes: body.notes ?? "",
-      buildOrVersion: body.buildOrVersion ?? ""
-    });
+    await db(t.testRuns).insert(
+      writeFields({
+        id: runId,
+        testCaseId: id,
+        status: runStatusToInt(body.status ?? "NotRun"),
+        executedUtc: toSqlDateTime(),
+        executedBy: body.executedBy ?? "",
+        notes: body.notes ?? "",
+        buildOrVersion: body.buildOrVersion ?? ""
+      })
+    );
     res.status(201).json(await loadTestCase(db, id));
   })
 );

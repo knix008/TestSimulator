@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import knexFactory, { Knex } from "knex";
 import { v4 as uuid } from "uuid";
+import { toSqlDateTime } from "./dateTime";
+import { initSchema } from "./schema";
 import { ConnectionSettings } from "./types";
 
 export const DEFAULT_ADMIN_USERNAME = "admin";
@@ -117,8 +119,15 @@ async function ensureDatabaseExists(settings: ConnectionSettings): Promise<void>
   }
 }
 
+async function hasAnyTable(db: Knex, names: string[]): Promise<boolean> {
+  for (const name of names) {
+    if (await db.schema.hasTable(name)) return true;
+  }
+  return false;
+}
+
 async function ensureSchema(db: Knex): Promise<void> {
-  if (!(await db.schema.hasTable("requirements"))) {
+  if (!(await hasAnyTable(db, ["requirements", "Requirements"]))) {
     await db.schema.createTable("requirements", (t) => {
       t.string("id", 36).primary();
       t.string("code", 64).notNullable();
@@ -134,7 +143,7 @@ async function ensureSchema(db: Knex): Promise<void> {
     });
   }
 
-  if (!(await db.schema.hasTable("test_cases"))) {
+  if (!(await hasAnyTable(db, ["test_cases", "testcases", "TestCases"]))) {
     await db.schema.createTable("test_cases", (t) => {
       t.string("id", 36).primary();
       t.string("requirementId", 36).notNullable();
@@ -145,7 +154,7 @@ async function ensureSchema(db: Knex): Promise<void> {
     });
   }
 
-  if (!(await db.schema.hasTable("test_steps"))) {
+  if (!(await hasAnyTable(db, ["test_steps", "teststeps", "TestSteps"]))) {
     await db.schema.createTable("test_steps", (t) => {
       t.string("testCaseId", 36).notNullable();
       t.integer("stepOrder").notNullable();
@@ -154,7 +163,7 @@ async function ensureSchema(db: Knex): Promise<void> {
     });
   }
 
-  if (!(await db.schema.hasTable("test_runs"))) {
+  if (!(await hasAnyTable(db, ["test_runs", "testruns", "TestRuns"]))) {
     await db.schema.createTable("test_runs", (t) => {
       t.string("id", 36).primary();
       t.string("testCaseId", 36).notNullable();
@@ -174,21 +183,47 @@ async function ensureSchema(db: Knex): Promise<void> {
       t.string("role", 16).notNullable();
       t.dateTime("createdUtc").notNullable();
     });
-
-    // First-time setup: seed a default admin account so there is always a way to log in.
-    // The operator must change this password immediately after first login.
-    const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
-    await db("users").insert({
-      id: uuid(),
-      username: DEFAULT_ADMIN_USERNAME,
-      passwordHash,
-      role: "admin",
-      createdUtc: new Date().toISOString()
-    });
-    console.warn(
-      `[ReqTrace] Created default admin account — username: "${DEFAULT_ADMIN_USERNAME}", password: "${DEFAULT_ADMIN_PASSWORD}". Change this password immediately.`
-    );
   }
+
+  await ensureDefaultAdmin(db);
+  await initSchema(db);
+}
+
+async function insertDefaultAdmin(db: Knex): Promise<void> {
+  const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+  await db("users").insert({
+    id: uuid(),
+    username: DEFAULT_ADMIN_USERNAME,
+    passwordHash,
+    role: "admin",
+    createdUtc: toSqlDateTime()
+  });
+  console.warn(
+    `[ReqTrace] Created default admin account — username: "${DEFAULT_ADMIN_USERNAME}", password: "${DEFAULT_ADMIN_PASSWORD}". Change this password immediately.`
+  );
+}
+
+/** Ensures at least one admin account exists (handles empty users table after manual DB setup). */
+async function ensureDefaultAdmin(db: Knex): Promise<void> {
+  const total = Number((await db("users").count<{ count: string }[]>("* as count").first())?.count ?? 0);
+  if (total === 0) {
+    await insertDefaultAdmin(db);
+    return;
+  }
+
+  const adminCount = Number(
+    (await db("users").where({ role: "admin" }).count<{ count: string }[]>("* as count").first())?.count ?? 0
+  );
+  if (adminCount > 0) return;
+
+  const byName = await db("users").where({ username: DEFAULT_ADMIN_USERNAME }).first();
+  if (byName) {
+    await db("users").where({ id: byName.id }).update({ role: "admin" });
+    console.warn(`[ReqTrace] Promoted user "${DEFAULT_ADMIN_USERNAME}" to admin role (no admin account was found).`);
+    return;
+  }
+
+  await insertDefaultAdmin(db);
 }
 
 export async function connect(settings: ConnectionSettings): Promise<void> {

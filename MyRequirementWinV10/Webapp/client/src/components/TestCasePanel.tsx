@@ -177,14 +177,23 @@ export default function TestCasePanel({ requirement, editable }: { requirement: 
           </div>
 
           <h4>단계</h4>
-          {form.steps.map((step, idx) => (
-            <div key={idx} className="step-row">
-              <input placeholder="동작" value={step.action} onChange={(e) => updateStep(idx, "action", e.target.value)} />
-              <input placeholder="예상 결과" value={step.expectedOutcome} onChange={(e) => updateStep(idx, "expectedOutcome", e.target.value)} />
-              <button onClick={() => removeStep(idx)}>삭제</button>
+          <div className="steps-edit-table">
+            <div className="step-edit-header">
+              <span>#</span>
+              <span>동작</span>
+              <span>예상 결과</span>
+              <span />
             </div>
-          ))}
-          <button onClick={addStep}>+ 단계 추가</button>
+            {form.steps.map((step, idx) => (
+              <div key={idx} className="step-row">
+                <span className="step-num">{idx + 1}</span>
+                <input placeholder="동작" value={step.action} onChange={(e) => updateStep(idx, "action", e.target.value)} />
+                <input placeholder="예상 결과" value={step.expectedOutcome} onChange={(e) => updateStep(idx, "expectedOutcome", e.target.value)} />
+                <button type="button" onClick={() => removeStep(idx)}>삭제</button>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={addStep}>+ 단계 추가</button>
 
           <div className="form-actions">
             <button onClick={save}>저장</button>

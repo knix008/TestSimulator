@@ -42,7 +42,7 @@ export default function LoginPage() {
         <button type="submit" disabled={busy}>
           {busy ? "로그인 중..." : "로그인"}
         </button>
-        <p className="login-hint">서버에 처음 연결한 경우 기본 관리자 계정(admin / admin123)으로 로그인한 뒤 비밀번호를 변경하세요.</p>
+        <p className="login-hint">서버에 처음 연결한 경우 기본 관리자 계정(admin / admin)으로 로그인한 뒤 비밀번호를 변경하세요.</p>
       </form>
     </div>
   );

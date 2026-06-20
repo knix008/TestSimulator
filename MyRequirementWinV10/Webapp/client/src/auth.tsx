@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { api } from "./api";
 import { AppUser } from "./types";
 
 const TOKEN_KEY = "reqtrace.token";
@@ -31,6 +32,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("reqtrace:unauthorized", handleUnauthorized);
     return () => window.removeEventListener("reqtrace:unauthorized", handleUnauthorized);
   }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    api
+      .me()
+      .then((freshUser) => {
+        localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+        setUser(freshUser);
+      })
+      .catch(() => logout());
+  }, [token]);
 
   function login(nextToken: string, nextUser: AppUser) {
     localStorage.setItem(TOKEN_KEY, nextToken);

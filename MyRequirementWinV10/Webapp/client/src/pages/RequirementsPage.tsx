@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import TestCasePanel from "../components/TestCasePanel";
-import { canEdit } from "../roles";
+import { canEdit, ROLE_LABELS } from "../roles";
 import { Priority, Requirement, RequirementStatus } from "../types";
 
 const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Critical"];
@@ -97,10 +97,18 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
     }
   }
 
+  if (connected === null) {
+    return (
+      <div className="card">
+        <p>불러오는 중...</p>
+      </div>
+    );
+  }
+
   if (!connected) {
     return (
       <div className="card">
-        <p>먼저 "DB 연결" 메뉴에서 데이터베이스에 연결하세요.</p>
+        <p>서버가 데이터베이스에 연결되어 있지 않습니다. 관리자가 서버 관리 콘솔(/admin)에서 DB를 설정해야 합니다.</p>
       </div>
     );
   }
@@ -109,6 +117,13 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
 
   return (
     <div className="req-layout">
+      {user && (
+        <p className={`role-banner ${editable ? "role-banner-edit" : "role-banner-view"}`}>
+          {editable
+            ? `${ROLE_LABELS[user.role]} 권한: 요구사항과 테스트 케이스를 추가·편집·삭제할 수 있습니다.`
+            : `${ROLE_LABELS[user.role]} 권한: 조회만 가능합니다. 변경이 필요하면 관리자에게 편집자 권한을 요청하세요.`}
+        </p>
+      )}
       <div className="card req-list-card">
         <div className="card-header">
           <h2>요구사항</h2>

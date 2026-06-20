@@ -65,9 +65,21 @@ async function start() {
     }
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`ReqTrace webapp server listening on http://localhost:${PORT}`);
     console.log(`[ReqTrace] Admin console: http://localhost:${PORT}/admin`);
+  });
+
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `[ReqTrace] Port ${PORT} is already in use. Stop the other ReqTrace server process ` +
+          `(or run: netstat -ano | findstr :${PORT} then taskkill /PID <pid> /F) and try again.`
+      );
+      process.exit(1);
+    }
+    console.error(`[ReqTrace] Failed to start server: ${err.message}`);
+    process.exit(1);
   });
 }
 

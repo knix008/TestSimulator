@@ -6,8 +6,65 @@ import { AdminInfo, AppUser, UserRole } from "../types";
 
 const ROLES: UserRole[] = ["admin", "editor", "viewer"];
 
+function AdminSelfSettings({ currentUser, onUpdated }: { currentUser: AppUser; onUpdated: () => Promise<void> }) {
+  const [username, setUsername] = useState(currentUser.username);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUsername(currentUser.username);
+  }, [currentUser.username]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    const trimmed = username.trim();
+    if (!trimmed) {
+      setError("관리자 ID는 비워둘 수 없습니다.");
+      return;
+    }
+    if (password && password.length < 6) {
+      setError("비밀번호는 6자 이상이어야 합니다.");
+      return;
+    }
+    try {
+      if (trimmed !== currentUser.username) {
+        await api.changeUsername(currentUser.id, trimmed);
+      }
+      if (password) {
+        await api.changePassword(currentUser.id, password);
+      }
+      setPassword("");
+      setSuccess(trimmed !== currentUser.username ? "ID와 비밀번호가 변경되었습니다." : "비밀번호가 변경되었습니다.");
+      await onUpdated();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  return (
+    <form className="form-grid" onSubmit={save}>
+      <label>
+        관리자 ID
+        <input value={username} onChange={(e) => setUsername(e.target.value)} required />
+      </label>
+      <label>
+        새 비밀번호 (변경하지 않으려면 비워두세요)
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} />
+      </label>
+      {error && <p className="msg-error full-width">{error}</p>}
+      {success && <p className="msg-success full-width">{success}</p>}
+      <div className="full-width">
+        <button type="submit">저장</button>
+      </div>
+    </form>
+  );
+}
+
 export default function AdminPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, token, login } = useAuth();
   const [info, setInfo] = useState<AdminInfo | null>(null);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [newUsername, setNewUsername] = useState("");
@@ -21,6 +78,9 @@ export default function AdminPage() {
       const [infoResult, usersResult] = await Promise.all([api.getAdminInfo(), api.listUsers()]);
       setInfo(infoResult);
       setUsers(usersResult);
+      if (token) {
+        login(token, await api.me());
+      }
     } catch (err) {
       setError((err as Error).message);
     }
@@ -139,6 +199,23 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      <div className="card">
+        <h2>서버 관리 콘솔</h2>
+        <p className="hint">
+          데이터베이스 연결 설정, 서버 관리자 계정(ID/비밀번호) 변경, 사용자 추가·삭제는{" "}
+          <a href="http://localhost:4000/admin" target="_blank" rel="noreferrer">
+            서버 관리 콘솔 (/admin)
+          </a>
+          에서 합니다. 최초 DB 미연결 시 기본 부트스트랩 로그인은 <strong>admin / admin</strong> 입니다.
+        </p>
+      </div>
+
+      <div className="card">
+        <h2>관리자 계정 설정</h2>
+        <p className="hint">현재 로그인한 관리자 계정의 ID와 비밀번호를 변경합니다.</p>
+        <AdminSelfSettings currentUser={currentUser} onUpdated={refresh} />
+      </div>
 
       <div className="card">
         <h2>사용자 관리</h2>

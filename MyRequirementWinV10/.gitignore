@@ -1,4 +1,4 @@
-# Build output
+# Build output (.NET)
 [Bb]in/
 [Oo]bj/
 [Dd]ebug/
@@ -73,10 +73,16 @@ ReqTrace/bin/build-check/
 ReqTrace/obj/ImportDiag.cs
 ReqTrace/obj/ImportVerify/
 
-# Webapp (Node.js / Vite — see Webapp/.gitignore for the authoritative rules)
+# Tools (GenerateKoSample, IconConverter, etc.)
+Tools/**/bin/
+Tools/**/obj/
+
+# Webapp (Node.js / Vite — see Webapp/.gitignore for detail)
 Webapp/**/node_modules/
 Webapp/**/dist/
 Webapp/**/*.tsbuildinfo
 Webapp/**/*.db
 Webapp/**/*.sqlite
 Webapp/**/.env
+Webapp/**/.env.*
+Webapp/server/data/

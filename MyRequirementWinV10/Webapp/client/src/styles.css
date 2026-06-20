@@ -283,6 +283,23 @@ button:disabled {
   gap: 16px;
 }
 
+.role-banner {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.role-banner-edit {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.role-banner-view {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
 .test-case-row {
   border-top: 1px solid #e5e7eb;
   padding: 10px 0;
@@ -322,18 +339,71 @@ button:disabled {
   margin: 8px 0;
 }
 
+.steps-table {
+  margin-top: 6px;
+  table-layout: fixed;
+}
+
+.steps-table tr {
+  cursor: default;
+}
+
+.steps-table th,
+.steps-table td {
+  vertical-align: top;
+}
+
+.steps-table th:first-child,
+.steps-table td:first-child {
+  width: 48px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.steps-table th:nth-child(2),
+.steps-table td:nth-child(2),
+.steps-table th:nth-child(3),
+.steps-table td:nth-child(3) {
+  width: calc((100% - 48px) / 2);
+}
+
+.steps-table td {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.steps-edit-table {
+  margin-bottom: 8px;
+}
+
+.step-edit-header,
 .step-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 8px;
-  margin-bottom: 6px;
+  align-items: center;
+}
+
+.step-edit-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.step-row {
+  margin-top: 6px;
+}
+
+.step-num {
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
 }
 
 .step-row input {
-  flex: 1;
-}
-
-.steps-table {
-  margin-top: 6px;
+  min-width: 0;
 }
 
 .dashboard-grid {

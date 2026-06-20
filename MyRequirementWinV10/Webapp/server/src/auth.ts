@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { getKnex } from "./db";
 import { JWT_SECRET } from "./secrets";
 
 const TOKEN_TTL = "12h";
@@ -34,6 +35,18 @@ export function signToken(user: AuthUser): string {
   return jwt.sign(user, JWT_SECRET, { expiresIn: TOKEN_TTL });
 }
 
+export function canEditRole(role: UserRole | undefined): boolean {
+  return role === "admin" || role === "editor";
+}
+
+async function refreshUserRole(req: Request): Promise<AuthUser | null> {
+  if (!req.user) return null;
+  const row = await getKnex()("users").where({ id: req.user.id }).first();
+  if (!row) return null;
+  req.user = { id: row.id, username: row.username, role: row.role as UserRole };
+  return req.user;
+}
+
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
   const token = header?.startsWith("Bearer ") ? header.slice(7) : null;
@@ -58,10 +71,19 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 }
 
 /** Requirements/test cases can be changed by admins and editors; viewers are read-only. */
-export function requireEditor(req: Request, res: Response, next: NextFunction): void {
-  if (req.user?.role !== "admin" && req.user?.role !== "editor") {
-    res.status(403).json({ error: "You only have view access. Editing requires the editor or admin role." });
-    return;
+export async function requireEditor(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = await refreshUserRole(req);
+    if (!user) {
+      res.status(401).json({ error: "User no longer exists." });
+      return;
+    }
+    if (!canEditRole(user.role)) {
+      res.status(403).json({ error: "조회 권한만 있습니다. 변경하려면 편집자 또는 관리자 권한이 필요합니다." });
+      return;
+    }
+    next();
+  } catch (err) {
+    next(err);
   }
-  next();
 }

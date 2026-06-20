@@ -3,6 +3,7 @@ import { v4 as uuid } from "uuid";
 import { asyncHandler } from "../asyncHandler";
 import { authMiddleware, hashPassword, requireAdmin, signToken, verifyPassword } from "../auth";
 import { getKnex } from "../db";
+import { toSqlDateTime } from "../dateTime";
 import { AppUser, UserRole } from "../types";
 
 const router = Router();
@@ -36,7 +37,13 @@ router.get(
   "/me",
   authMiddleware,
   asyncHandler(async (req, res) => {
-    res.json(req.user);
+    const db = getKnex();
+    const row = await db("users").where({ id: req.user!.id }).first();
+    if (!row) {
+      res.status(401).json({ error: "User no longer exists." });
+      return;
+    }
+    res.json(rowToUser(row));
   })
 );
 
@@ -80,7 +87,7 @@ router.post(
       username: username.trim(),
       passwordHash: await hashPassword(password),
       role: role ?? "viewer",
-      createdUtc: new Date().toISOString()
+      createdUtc: toSqlDateTime()
     };
     await db("users").insert(row);
     res.status(201).json(rowToUser(row));

@@ -478,10 +478,13 @@ QuestPDF **Community license**를 사용합니다. 상업적 대량 배포 시 Q
 
 ## 16. 웹 애플리케이션 (Webapp)
 
-ReqTrace 데스크톱 앱과는 **완전히 독립적인** 브라우저 기반 클라이언트가 `Webapp/` 디렉터리에 포함되어 있습니다. Node.js + Express 서버와 React 프론트엔드로 구성되며, 데스크톱 앱과 마찬가지로 MySQL·MariaDB·PostgreSQL·SQLite3·MS SQL Server에 연결해 요구사항/테스트 케이스를 조회·편집하고 대시보드로 현황을 볼 수 있습니다.
+ReqTrace 데스크톱 앱과는 **별도로 실행**하는 브라우저 기반 클라이언트가 `Webapp/` 디렉터리에 포함되어 있습니다. Node.js + Express 서버와 React 프론트엔드로 구성됩니다.
 
-- 데스크톱 앱과 **별도의 테이블 스키마**(snake_case)를 사용하므로, 같은 DB라도 데스크톱 앱이 만든 데이터와는 호환되지 않습니다.
-- 실행 방법, 폴더 구조, API 구성 등 자세한 내용은 [Webapp/README.md](Webapp/README.md)를 참고하세요.
+- **같은 DB 공유**: 데스크톱에서 **데이터베이스에 저장**한 데이터를 웹 클라이언트에서 조회·편집할 수 있습니다. 웹 서버는 DB의 PascalCase(데스크톱) / camelCase(웹 단독) 스키마를 자동 감지합니다.
+- **역할**: 관리자·편집자는 요구사항/테스트 케이스 변경 가능, 조회자는 읽기 전용입니다.
+- **DB 연결 설정**: React 클라이언트가 아니라 서버 관리 콘솔(`http://localhost:4000/admin`)에서 합니다.
+
+실행 방법·권한·관리 콘솔 사용법은 [Webapp/README.md](Webapp/README.md)와 [Webapp/UsersGuide.md](Webapp/UsersGuide.md)를 참고하세요.
 
 ---
 
@@ -489,4 +492,4 @@ ReqTrace 데스크톱 앱과는 **완전히 독립적인** 브라우저 기반 �
 
 - **도움말 → 정보** 또는 툴바 **우측 정보 아이콘**: 버전 및 사용 라이브러리 안내
 - 개발·빌드·MSI 패키징: [README.md](README.md)
-- 웹 애플리케이션 실행 방법: [Webapp/README.md](Webapp/README.md)
+- 웹 애플리케이션: [Webapp/README.md](Webapp/README.md), [Webapp/UsersGuide.md](Webapp/UsersGuide.md)

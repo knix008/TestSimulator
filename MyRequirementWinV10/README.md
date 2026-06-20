@@ -127,6 +127,7 @@ Excel 가져오기 시 **테스트 케이스 자동 생성** 문구는 UI 언어
 - 처음 연결 시 대상 데이터베이스와 테이블(Requirements/TestCases/TestSteps/TestRuns)이 없으면 자동으로 생성
 - **데이터베이스에 저장 / 불러오기**로 현재 프로젝트를 DB와 동기화 (파일 기반 `.reqtproj`와는 별도 경로)
 - 연결 정보(비밀번호 포함)는 디스크에 저장되지 않고 실행 중에만 메모리에 유지
+- **ReqTrace Web**(`Webapp/`)과 **같은 DB**를 공유할 수 있습니다. 데스크톱이 만든 PascalCase 스키마(`Id`, `RequirementId` 등)를 웹 서버가 자동 감지해 읽고 씁니다. 웹 전용 `users` 테이블은 사용자 인증에만 사용됩니다.
 
 ### 프로그램 정보
 
@@ -151,8 +152,12 @@ MyRequirementWinV10/
 │   ├── Sample.xlsx         # Excel import 샘플 (영문)
 │   ├── SampleKo.reqtproj   # 샘플 프로젝트 (한글)
 │   └── SampleKo.xlsx       # Excel import 샘플 (한글)
+├── Tools/
+│   └── GenerateKoSample/   # SampleKo.* 재생성 도구 (generate-ko-sample.ps1)
 ├── Webapp/                 # 데스크톱 앱과 독립적인 브라우저용 웹앱 (Node.js + React)
 │   ├── server/             # Express + TypeScript REST API (Knex, 5개 DB 종류 지원)
+│   │   ├── public/admin/   # 서버 관리 콘솔 (정적 HTML)
+│   │   └── data/           # connection-config.json, secrets.json (gitignore, 로컬 생성)
 │   └── client/             # React + Vite + TypeScript 프론트엔드
 └── ReqTrace/
     ├── Assets/             # 앱·프로젝트 아이콘 (PNG/ICO)
