@@ -306,9 +306,32 @@ button:disabled {
 }
 
 .test-case-summary {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 220px;
+  gap: 10px 12px;
   align-items: center;
-  gap: 10px;
+}
+
+.test-case-title {
+  min-width: 0;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.test-case-summary .status-pill {
+  justify-self: center;
+  white-space: nowrap;
+  text-align: center;
+  min-width: 64px;
+}
+
+.test-case-actions {
+  justify-self: end;
+  flex-wrap: nowrap;
+}
+
+.test-case-summary-readonly {
+  grid-template-columns: minmax(0, 1fr) 72px;
 }
 
 .status-pill {

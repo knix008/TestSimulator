@@ -99,16 +99,18 @@ export default function TestCasePanel({ requirement, editable }: { requirement: 
 
       {testCases.map((tc) => (
         <div key={tc.id} className="test-case-row">
-          <div className="test-case-summary">
-            <strong>{tc.code || "(코드 없음)"}</strong> {tc.title}
+          <div className={`test-case-summary${editable ? "" : " test-case-summary-readonly"}`}>
+            <div className="test-case-title">
+              <strong>{tc.code || "(코드 없음)"}</strong> {tc.title}
+            </div>
             <span className={`status-pill status-${(tc.runs[0]?.status ?? "NotRun").toLowerCase()}`}>
               {tc.runs[0]?.status ?? "NotRun"}
             </span>
             {editable && (
-              <div className="row-actions">
-                <button onClick={() => startEdit(tc)}>편집</button>
-                <button onClick={() => setRunFormFor(tc.id)}>실행 기록</button>
-                <button onClick={() => remove(tc.id)}>삭제</button>
+              <div className="row-actions test-case-actions">
+                <button type="button" onClick={() => startEdit(tc)}>편집</button>
+                <button type="button" onClick={() => setRunFormFor(tc.id)}>실행 기록</button>
+                <button type="button" onClick={() => remove(tc.id)}>삭제</button>
               </div>
             )}
           </div>
