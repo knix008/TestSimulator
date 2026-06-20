@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import TestCasePanel from "../components/TestCasePanel";
+import ReqDataTableColGroup from "../components/ReqDataTableColGroup";
 import { canEdit, ROLE_LABELS } from "../roles";
 import { Priority, Requirement, RequirementStatus } from "../types";
 
@@ -130,7 +131,8 @@ export default function RequirementsPage({ connected }: { connected: boolean }) 
           {editable && <button onClick={startAdd}>+ 추가</button>}
         </div>
         {error && <p className="msg-error">{error}</p>}
-        <table className="data-table">
+        <table className="data-table req-data-table">
+          <ReqDataTableColGroup />
           <thead>
             <tr>
               <th>코드</th>

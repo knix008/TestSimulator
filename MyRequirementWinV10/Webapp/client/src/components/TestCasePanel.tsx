@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api } from "../api";
+import ReqDataTableColGroup from "./ReqDataTableColGroup";
 import { Requirement, TestCase, TestRunStatus, TestStep } from "../types";
 
 const RUN_STATUSES: TestRunStatus[] = ["NotRun", "Pass", "Fail", "Blocked"];
@@ -97,62 +98,83 @@ export default function TestCasePanel({ requirement, editable }: { requirement: 
       </div>
       {error && <p className="msg-error">{error}</p>}
 
-      {testCases.map((tc) => (
-        <div key={tc.id} className="test-case-row">
-          <div className={`test-case-summary${editable ? "" : " test-case-summary-readonly"}`}>
-            <div className="test-case-title">
-              <strong>{tc.code || "(코드 없음)"}</strong> {tc.title}
-            </div>
-            <span className={`status-pill status-${(tc.runs[0]?.status ?? "NotRun").toLowerCase()}`}>
-              {tc.runs[0]?.status ?? "NotRun"}
-            </span>
-            {editable && (
-              <div className="row-actions test-case-actions">
-                <button type="button" onClick={() => startEdit(tc)}>편집</button>
-                <button type="button" onClick={() => setRunFormFor(tc.id)}>실행 기록</button>
-                <button type="button" onClick={() => remove(tc.id)}>삭제</button>
-              </div>
-            )}
-          </div>
-
-          {runFormFor === tc.id && (
-            <div className="run-form">
-              <select value={runStatus} onChange={(e) => setRunStatus(e.target.value as TestRunStatus)}>
-                {RUN_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <input placeholder="실행자" value={runBy} onChange={(e) => setRunBy(e.target.value)} />
-              <input placeholder="메모" value={runNotes} onChange={(e) => setRunNotes(e.target.value)} />
-              <button onClick={() => submitRun(tc.id)}>저장</button>
-              <button onClick={() => setRunFormFor(null)}>취소</button>
-            </div>
-          )}
-
-          {tc.steps.length > 0 && (
-            <table className="data-table steps-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>동작</th>
-                  <th>예상 결과</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tc.steps.map((s) => (
-                  <tr key={s.order}>
-                    <td>{s.order + 1}</td>
-                    <td>{s.action}</td>
-                    <td>{s.expectedOutcome}</td>
+      {testCases.length > 0 && (
+        <table className="data-table req-data-table test-case-list-table">
+          <ReqDataTableColGroup />
+          <tbody>
+            {testCases.map((tc) => {
+              const runState = tc.runs[0]?.status ?? "NotRun";
+              return (
+                <Fragment key={tc.id}>
+                  <tr className="test-case-row">
+                    <td>{tc.code || "(코드 없음)"}</td>
+                    <td className="req-col-title-cell">{tc.title}</td>
+                    <td className="req-col-spacer" />
+                    <td className="req-col-spacer" />
+                    <td className="req-col-run">
+                      <span className={`status-pill status-${runState.toLowerCase()}`}>{runState}</span>
+                    </td>
+                    <td className="row-actions">
+                      {editable && (
+                        <>
+                          <button type="button" onClick={() => startEdit(tc)}>편집</button>
+                          <button type="button" onClick={() => setRunFormFor(tc.id)}>실행 기록</button>
+                          <button type="button" onClick={() => remove(tc.id)}>삭제</button>
+                        </>
+                      )}
+                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      ))}
+
+                  {runFormFor === tc.id && (
+                    <tr className="test-case-detail-row">
+                      <td colSpan={6}>
+                        <div className="run-form">
+                          <select value={runStatus} onChange={(e) => setRunStatus(e.target.value as TestRunStatus)}>
+                            {RUN_STATUSES.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                          <input placeholder="실행자" value={runBy} onChange={(e) => setRunBy(e.target.value)} />
+                          <input placeholder="메모" value={runNotes} onChange={(e) => setRunNotes(e.target.value)} />
+                          <button type="button" onClick={() => submitRun(tc.id)}>저장</button>
+                          <button type="button" onClick={() => setRunFormFor(null)}>취소</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {tc.steps.length > 0 && (
+                    <tr className="test-case-detail-row">
+                      <td colSpan={6}>
+                        <table className="data-table steps-table">
+                          <thead>
+                            <tr>
+                              <th>#</th>
+                              <th>동작</th>
+                              <th>예상 결과</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tc.steps.map((s) => (
+                              <tr key={s.order}>
+                                <td>{s.order + 1}</td>
+                                <td>{s.action}</td>
+                                <td>{s.expectedOutcome}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
 
       {testCases.length === 0 && !editingId && <p className="empty-row">테스트 케이스가 없습니다.</p>}
 

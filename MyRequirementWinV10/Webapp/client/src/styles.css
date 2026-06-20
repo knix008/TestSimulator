@@ -266,9 +266,97 @@ button:disabled {
   background: #dbeafe;
 }
 
+/* Shared column layout: requirements list + test case list */
+.req-data-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.req-data-table col.req-col-code {
+  width: 9%;
+}
+
+.req-data-table col.req-col-title {
+  width: 28%;
+}
+
+.req-data-table col.req-col-priority {
+  width: 10%;
+}
+
+.req-data-table col.req-col-req-status {
+  width: 12%;
+}
+
+.req-data-table col.req-col-test {
+  width: 7%;
+}
+
+.req-data-table col.req-col-actions {
+  width: 34%;
+}
+
+.req-data-table td,
+.req-data-table th {
+  vertical-align: middle;
+}
+
+.req-data-table .req-col-title-cell {
+  word-break: break-word;
+}
+
+.req-data-table .req-col-spacer {
+  padding: 0;
+}
+
+.req-data-table .req-col-run {
+  text-align: center;
+}
+
+.req-data-table .req-col-run .status-pill {
+  display: inline-block;
+}
+
+.req-data-table td.row-actions,
+.req-data-table th:last-child {
+  white-space: nowrap;
+}
+
+.req-data-table td.row-actions {
+  text-align: left;
+}
+
 .row-actions {
   display: flex;
   gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.test-case-list-table tr {
+  cursor: default;
+}
+
+.test-case-detail-row > td {
+  padding-top: 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.test-case-detail-row:last-child > td,
+.test-case-row:has(+ .test-case-detail-row) > td {
+  border-bottom: none;
+}
+
+.test-case-row > td {
+  border-bottom: none;
+}
+
+.test-case-list-table tbody > tr.test-case-row:not(:first-child) > td {
+  padding-top: 12px;
+}
+
+.test-case-list-table tbody > tr.test-case-row:last-child > td,
+.test-case-list-table tbody > tr.test-case-detail-row:last-child > td {
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .empty-row {
@@ -300,38 +388,14 @@ button:disabled {
   color: #4b5563;
 }
 
-.test-case-row {
-  border-top: 1px solid #e5e7eb;
-  padding: 10px 0;
+.test-case-form {
+  margin-top: 12px;
 }
 
-.test-case-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 220px;
-  gap: 10px 12px;
-  align-items: center;
-}
-
-.test-case-title {
-  min-width: 0;
-  word-break: break-word;
-  line-height: 1.4;
-}
-
-.test-case-summary .status-pill {
-  justify-self: center;
-  white-space: nowrap;
-  text-align: center;
-  min-width: 64px;
-}
-
-.test-case-actions {
-  justify-self: end;
-  flex-wrap: nowrap;
-}
-
-.test-case-summary-readonly {
-  grid-template-columns: minmax(0, 1fr) 72px;
+.run-form {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
 }
 
 .status-pill {
@@ -354,12 +418,6 @@ button:disabled {
 .status-blocked {
   background: #fde68a;
   color: #78350f;
-}
-
-.run-form {
-  display: flex;
-  gap: 8px;
-  margin: 8px 0;
 }
 
 .steps-table {
