@@ -1,0 +1,58 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package
+    Name="ReqTrace"
+    Manufacturer="ReqTrace"
+    Version="1.0.0.0"
+    UpgradeCode="b2e4f6a8-1c3d-4e5f-9a0b-1d507e9a0ace"
+    Scope="perUser"
+    Compressed="yes">
+
+    <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer version of ReqTrace is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Complete" Title="ReqTrace" Level="1" Display="expand" ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="PublishedApp" />
+
+      <Feature
+        Id="StartMenuShortcutFeature"
+        Title="Start Menu shortcut"
+        Description="Create a Start Menu shortcut using the ReqTrace application icon."
+        Level="1"
+        AllowAbsent="yes">
+        <ComponentRef Id="StartMenuShortcutComponent" />
+      </Feature>
+
+      <Feature
+        Id="DesktopShortcutFeature"
+        Title="Desktop shortcut"
+        Description="Create a Desktop shortcut using the ReqTrace application icon."
+        Level="0"
+        AllowAbsent="yes">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+
+      <Feature
+        Id="FileAssociationFeature"
+        Title="Associate .reqtproj files"
+        Description="Open ReqTrace project files with ReqTrace when double-clicked."
+        Level="1"
+        AllowAbsent="yes">
+        <ComponentRef Id="FileAssociationComponent" />
+      </Feature>
+    </Feature>
+
+    <ui:WixUI Id="WixUI_FeatureTree" InstallDirectory="INSTALLFOLDER" />
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="ReqTrace" />
+    </StandardDirectory>
+  </Fragment>
+
+</Wix>

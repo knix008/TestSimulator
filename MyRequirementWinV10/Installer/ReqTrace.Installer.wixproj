@@ -1,0 +1,42 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <PropertyGroup>
+    <OutputName>ReqTraceSetup-1.0.0</OutputName>
+    <OutputType>Package</OutputType>
+    <!-- WiX MSI must be x64 (ProgramFiles64Folder). slnx maps "Any CPU" solution builds to x64. -->
+    <Platform>x64</Platform>
+    <OutputPath>Output\</OutputPath>
+    <PublishDir>$(MSBuildThisFileDirectory)..\ReqTrace\bin\publish\win-x64\</PublishDir>
+    <DefineConstants>PublishDir=$(PublishDir)</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' != 'Release'">
+    <InstallerBuildEnabled>false</InstallerBuildEnabled>
+    <OutputType>None</OutputType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <InstallerBuildEnabled>true</InstallerBuildEnabled>
+    <!-- Self-contained publish DLLs often lack Language in version resources (ICE60). -->
+    <!-- AllowSameVersionUpgrades enables same-version reinstall (ICE61). -->
+    <SuppressIces>ICE60;ICE61</SuppressIces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <Target Name="PublishApp" BeforeTargets="PrepareForBuild" Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <MSBuild
+      Projects="..\ReqTrace\ReqTrace.csproj"
+      Targets="Publish"
+      Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(PublishDir);PublishSingleFile=false" />
+  </Target>
+
+  <Target Name="SkipNonReleaseBuild" BeforeTargets="Build" Condition="'$(InstallerBuildEnabled)' != 'true'">
+    <Message Importance="high" Text="ReqTrace.Installer: MSI is generated only for Release configuration." />
+  </Target>
+
+  <Target Name="Build" Condition="'$(InstallerBuildEnabled)' != 'true'" />
+
+</Project>

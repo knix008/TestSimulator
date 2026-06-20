@@ -1,0 +1,205 @@
+using ReqTrace.Importing;
+using ReqTrace.Localization;
+using ReqTrace.Models;
+using ReqTrace.Theme;
+
+namespace ReqTrace.Forms;
+
+public partial class ImportMappingForm : Form
+{
+    private readonly string _filePath;
+    private Dictionary<string, ComboBox> _fieldCombos = null!;
+
+    public List<Requirement> ImportedRequirements { get; private set; } = new();
+    public List<string> Warnings { get; private set; } = new();
+    public int RowsProcessed { get; private set; }
+    public int RowsSkipped { get; private set; }
+    public bool GeneratedTestCases { get; private set; }
+
+    public ImportMappingForm(string filePath)
+    {
+        _filePath = filePath;
+        InitializeComponent();
+        InitializeFieldCombos();
+
+        ModernTheme.Apply(this);
+        ModernTheme.MakePrimary(btnImport);
+        ApplyLocalization();
+
+        foreach (var sheet in ExcelRequirementImporter.GetSheetNames(filePath))
+            cboSheet.Items.Add(sheet);
+
+        if (cboSheet.Items.Count > 0)
+            cboSheet.SelectedIndex = 0;
+    }
+
+    private void ApplyLocalization()
+    {
+        Text = Loc.T("Dlg_ImportExcel", Path.GetFileName(_filePath));
+        lblSheet.Text = Loc.T("Import_Sheet");
+        lblHeaderRow.Text = Loc.T("Import_HeaderRow");
+        lblPreview.Text = Loc.T("Import_Preview");
+        lblColumnMapping.Text = Loc.T("Import_ColumnMapping");
+        lblCode.Text = Loc.T("Import_Code");
+        lblTitle.Text = Loc.T("Import_Title");
+        lblDescription.Text = Loc.T("Import_Description");
+        lblCategory.Text = Loc.T("Import_Category");
+        lblPriority.Text = Loc.T("Import_Priority");
+        lblStatus.Text = Loc.T("Import_Status");
+        lblSource.Text = Loc.T("Import_Source");
+        lblParentCode.Text = Loc.T("Import_ParentCode");
+        chkGenerateIds.Text = Loc.T("Import_GenerateIds");
+        chkGenerateTestCases.Text = Loc.T("Import_GenerateTestCases");
+        btnImport.Text = Loc.T("Common_Import");
+        btnCancel.Text = Loc.T("Common_Cancel");
+    }
+
+    private void InitializeFieldCombos()
+    {
+        _fieldCombos = new Dictionary<string, ComboBox>
+        {
+            ["Code"] = cboCode,
+            ["Title"] = cboTitle,
+            ["Description"] = cboDescription,
+            ["Category"] = cboCategory,
+            ["Priority"] = cboPriority,
+            ["Status"] = cboStatus,
+            ["Source"] = cboSource,
+            ["ParentCode"] = cboParentCode
+        };
+    }
+
+    private void cboSheet_SelectedIndexChanged(object? sender, EventArgs e) => ReloadPreviewAndMapping();
+
+    private void numHeaderRow_ValueChanged(object? sender, EventArgs e) => ReloadPreviewAndMapping();
+
+    private void ReloadPreviewAndMapping()
+    {
+        if (cboSheet.SelectedItem is not string sheetName)
+            return;
+
+        var headerRow = (int)numHeaderRow.Value;
+        IReadOnlyList<string> headers;
+        try
+        {
+            headers = ExcelRequirementImporter.ReadHeaderRow(_filePath, sheetName, headerRow);
+        }
+        catch
+        {
+            return;
+        }
+
+        foreach (var combo in _fieldCombos.Values)
+        {
+            combo.Items.Clear();
+            combo.Items.Add(Loc.T("Common_None"));
+            foreach (var h in headers)
+                combo.Items.Add(h);
+        }
+
+        var inferred = ColumnMappingHeuristics.Infer(headers);
+        SetCombo("Code", inferred.CodeColumn, headers);
+        SetCombo("Title", inferred.TitleColumn, headers);
+        SetCombo("Description", inferred.DescriptionColumn, headers);
+        SetCombo("Category", inferred.CategoryColumn, headers);
+        SetCombo("Priority", inferred.PriorityColumn, headers);
+        SetCombo("Status", inferred.StatusColumn, headers);
+        SetCombo("Source", inferred.SourceColumn, headers);
+        SetCombo("ParentCode", inferred.ParentCodeColumn, headers);
+
+        previewGrid.Columns.Clear();
+        previewGrid.Rows.Clear();
+        foreach (var h in headers)
+            previewGrid.Columns.Add(h, h);
+        var previewRows = ExcelRequirementImporter.ReadPreviewRows(_filePath, sheetName, headerRow, 10);
+        foreach (var row in previewRows)
+            previewGrid.Rows.Add(row.ToArray());
+    }
+
+    private void SetCombo(string field, int? columnIndex, IReadOnlyList<string> headers)
+    {
+        var combo = _fieldCombos[field];
+        if (columnIndex is { } idx && idx >= 0 && idx < headers.Count)
+            combo.SelectedIndex = idx + 1;
+        else
+            combo.SelectedIndex = 0;
+    }
+
+    private int? GetMappedColumn(string field)
+    {
+        var combo = _fieldCombos[field];
+        if (combo.SelectedIndex <= 0)
+            return null;
+        return combo.SelectedIndex - 1;
+    }
+
+    private void btnImport_Click(object? sender, EventArgs e)
+    {
+        DialogResult = DialogResult.None;
+
+        if (cboSheet.SelectedItem is not string sheetName)
+            return;
+
+        try
+        {
+            var headerRow = (int)numHeaderRow.Value;
+            ExcelRequirementImporter.ReadHeaderRow(_filePath, sheetName, headerRow);
+
+            var mapping = new ColumnMapping
+            {
+                CodeColumn = GetMappedColumn("Code"),
+                TitleColumn = GetMappedColumn("Title"),
+                DescriptionColumn = GetMappedColumn("Description"),
+                CategoryColumn = GetMappedColumn("Category"),
+                PriorityColumn = GetMappedColumn("Priority"),
+                StatusColumn = GetMappedColumn("Status"),
+                SourceColumn = GetMappedColumn("Source"),
+                ParentCodeColumn = GetMappedColumn("ParentCode"),
+                GenerateCodeIfMissing = chkGenerateIds.Checked,
+                GenerateTestCases = chkGenerateTestCases.Checked
+            };
+
+            if (mapping.TitleColumn is null)
+            {
+                MessageBox.Show(this, Loc.T("Msg_TitleColumnRequired"), Loc.T("Common_Validation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            ImportResult importResult;
+            using (var progressDialog = new ProgressDialog(
+                Loc.T("Dlg_ProgressImportTitle"),
+                Loc.T("Dlg_ProgressImportMessage", Path.GetFileName(_filePath))))
+            {
+                var progress = new Progress<int>(progressDialog.SetProgress);
+                var importTask = Task.Run(() => ExcelRequirementImporter.Import(_filePath, sheetName, headerRow, mapping, progress));
+                importTask.ContinueWith(_ =>
+                {
+                    progressDialog.BeginInvoke(progressDialog.CloseDialog);
+                }, TaskScheduler.Default);
+                progressDialog.ShowDialog(Owner ?? FindForm());
+                importResult = importTask.GetAwaiter().GetResult();
+            }
+
+            ImportedRequirements = importResult.Requirements.ToList();
+            Warnings = importResult.Warnings.ToList();
+            RowsProcessed = importResult.RowsProcessed;
+            RowsSkipped = importResult.RowsSkipped;
+            GeneratedTestCases = mapping.GenerateTestCases;
+
+            DialogResult = DialogResult.OK;
+        }
+        catch (Exception ex)
+        {
+            var root = ex is AggregateException aggregate ? aggregate.GetBaseException() : ex;
+            if (root is IOException or UnauthorizedAccessException)
+            {
+                ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"),
+                    new IOException(Loc.T("Msg_ImportReadFailed", Path.GetFileName(_filePath)), root));
+            }
+            else
+            {
+                ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"), root);
+            }
+        }
+    }
+}

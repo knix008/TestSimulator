@@ -1,0 +1,51 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Fragment>
+    <Icon Id="AppIcon.ico" SourceFile="..\ReqTrace\Assets\app-icon.ico" />
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ReqTraceProgramMenuFolder" Name="ReqTrace" />
+    </StandardDirectory>
+
+    <Component Id="StartMenuShortcutComponent" Directory="ReqTraceProgramMenuFolder" Guid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+      <Shortcut
+        Id="StartMenuShortcut"
+        Name="ReqTrace"
+        Description="Requirements Traceability Manager"
+        Target="[INSTALLFOLDER]ReqTrace.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="AppIcon.ico" />
+      <RemoveFolder Id="RemoveReqTraceProgramMenuFolder" Directory="ReqTraceProgramMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\ReqTrace" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="b2c3d4e5-f6a7-8901-bcde-f12345678901">
+      <Shortcut
+        Id="DesktopShortcut"
+        Name="ReqTrace"
+        Description="Requirements Traceability Manager"
+        Target="[INSTALLFOLDER]ReqTrace.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="AppIcon.ico" />
+      <RegistryValue Root="HKCU" Key="Software\ReqTrace" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="FileAssociationComponent" Directory="INSTALLFOLDER" Guid="c3d4e5f6-a7b8-9012-cdef-123456789012">
+      <RegistryKey Root="HKCU" Key="Software\Classes\.reqtproj">
+        <RegistryValue Type="string" Value="ReqTrace.Project" />
+      </RegistryKey>
+      <RegistryKey Root="HKCU" Key="Software\Classes\ReqTrace.Project">
+        <RegistryValue Type="string" Value="ReqTrace Requirement Project" />
+        <RegistryValue Name="FriendlyTypeName" Type="string" Value="ReqTrace Requirement Project" />
+      </RegistryKey>
+      <RegistryKey Root="HKCU" Key="Software\Classes\ReqTrace.Project\DefaultIcon">
+        <RegistryValue Type="string" Value="[INSTALLFOLDER]Assets\project-icon.ico" />
+      </RegistryKey>
+      <RegistryKey Root="HKCU" Key="Software\Classes\ReqTrace.Project\shell\open\command">
+        <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]ReqTrace.exe&quot; &quot;%1&quot;" />
+      </RegistryKey>
+      <RegistryValue Root="HKCU" Key="Software\ReqTrace" Name="FileAssociation" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

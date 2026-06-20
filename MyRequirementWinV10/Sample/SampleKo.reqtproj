@@ -1,0 +1,735 @@
+{
+  "projectName": "\uC0D8\uD50C \uD504\uB85C\uC81D\uD2B8 (\uD55C\uAE00)",
+  "schemaVersion": "1.0",
+  "createdUtc": "2026-06-20T05:40:38.0527077Z",
+  "lastModifiedUtc": "2026-06-20T05:40:38.0580771Z",
+  "requirements": [
+    {
+      "id": "52d55eb5-fe0a-41c5-9d28-d3e057ab37f7",
+      "code": "REQ-001",
+      "title": "\uC0AC\uC6A9\uC790 \uB4F1\uB85D",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC2E0\uADDC \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uC8FC\uC18C\uC640 \uBE44\uBC00\uBC88\uD638\uB85C \uACC4\uC815\uC744 \uB4F1\uB85D\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uBE44\uBC00\uBC88\uD638\uB294 \uCD5C\uC18C 8\uC790 \uC774\uC0C1\uC774\uBA70 \uC22B\uC790\uB97C \uD3EC\uD568\uD574\uC57C \uD55C\uB2E4.",
+      "category": "\uC778\uC99D",
+      "priority": "high",
+      "status": "approved",
+      "source": "\uBA85\uC138 v1.2",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.0530679Z",
+      "modifiedUtc": "2026-06-20T05:40:38.053068Z",
+      "testCases": [
+        {
+          "id": "4cf626a7-891c-4a2a-aaa0-e0c3a456b07e",
+          "requirementId": "52d55eb5-fe0a-41c5-9d28-d3e057ab37f7",
+          "code": "REQ-001-TC1",
+          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB4F1\uB85D (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC2E0\uADDC \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uC8FC\uC18C\uC640 \uBE44\uBC00\uBC88\uD638\uB85C \uACC4\uC815\uC744 \uB4F1\uB85D\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uBE44\uBC00\uBC88\uD638\uB294 \uCD5C\uC18C 8\uC790 \uC774\uC0C1\uC774\uBA70 \uC22B\uC790\uB97C \uD3EC\uD568\uD574\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC2E0\uADDC \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uC8FC\uC18C\uC640 \uBE44\uBC00\uBC88\uD638\uB85C \uACC4\uC815\uC744 \uB4F1\uB85D\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            },
+            {
+              "order": 2,
+              "action": "\uBE44\uBC00\uBC88\uD638\uB294 \uCD5C\uC18C 8\uC790 \uC774\uC0C1\uC774\uBA70 \uC22B\uC790\uB97C \uD3EC\uD568\uD574\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "a6b4ea9f-ca58-409c-bc0e-d53ad9211172",
+          "requirementId": "52d55eb5-fe0a-41c5-9d28-d3e057ab37f7",
+          "code": "REQ-001-TC2",
+          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB4F1\uB85D (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC0AC\uC6A9\uC790 \uB4F1\uB85D\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "77647f1d-8fdd-455d-93a2-c28f377e160e",
+          "requirementId": "52d55eb5-fe0a-41c5-9d28-d3e057ab37f7",
+          "code": "REQ-001-TC3",
+          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB4F1\uB85D (\uACBD\uACC4 \uC870\uAC74)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC0AC\uC6A9\uC790 \uB4F1\uB85D\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
+              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "6dd42eb7-68ad-47b3-9e2d-9f2818c27e5c",
+      "code": "REQ-002",
+      "title": "\uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uB4F1\uB85D\uB41C \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB85C \uB85C\uADF8\uC778\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC5F0\uC18D 5\uD68C \uB85C\uADF8\uC778 \uC2E4\uD328 \uC2DC \uACC4\uC815\uC740 15\uBD84\uAC04 \uC7A0\uAE34\uB2E4.",
+      "category": "\uC778\uC99D",
+      "priority": "critical",
+      "status": "approved",
+      "source": "\uBA85\uC138 v1.2",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.0567699Z",
+      "modifiedUtc": "2026-06-20T05:40:38.0567699Z",
+      "testCases": [
+        {
+          "id": "88ea745a-937d-458e-a721-58ec733b4529",
+          "requirementId": "6dd42eb7-68ad-47b3-9e2d-9f2818c27e5c",
+          "code": "REQ-002-TC1",
+          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uB4F1\uB85D\uB41C \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB85C \uB85C\uADF8\uC778\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC5F0\uC18D 5\uD68C \uB85C\uADF8\uC778 \uC2E4\uD328 \uC2DC \uACC4\uC815\uC740 15\uBD84\uAC04 \uC7A0\uAE34\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uB4F1\uB85D\uB41C \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB85C \uB85C\uADF8\uC778\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            },
+            {
+              "order": 2,
+              "action": "\uC5F0\uC18D 5\uD68C \uB85C\uADF8\uC778 \uC2E4\uD328 \uC2DC \uACC4\uC815\uC740 15\uBD84\uAC04 \uC7A0\uAE34\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "6581ca5f-9b92-4c5e-b809-a9339dbe9316",
+          "requirementId": "6dd42eb7-68ad-47b3-9e2d-9f2818c27e5c",
+          "code": "REQ-002-TC2",
+          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "b7ba5028-0409-4fbd-991e-d9543ce95977",
+          "requirementId": "6dd42eb7-68ad-47b3-9e2d-9f2818c27e5c",
+          "code": "REQ-002-TC3",
+          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778 (\uACBD\uACC4 \uC870\uAC74)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
+              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "6dd3dd58-f879-4097-8759-4a7da8379bcb",
+      "code": "REQ-003",
+      "title": "\uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uB9C1\uD06C\uB97C \uD1B5\uD574 \uBE44\uBC00\uBC88\uD638\uB97C \uC7AC\uC124\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC7AC\uC124\uC815 \uB9C1\uD06C\uB294 30\uBD84 \uD6C4 \uB9CC\uB8CC\uB41C\uB2E4.",
+      "category": "\uC778\uC99D",
+      "priority": "medium",
+      "status": "approved",
+      "source": "\uBA85\uC138 v1.2",
+      "parentId": "6dd42eb7-68ad-47b3-9e2d-9f2818c27e5c",
+      "createdUtc": "2026-06-20T05:40:38.0568012Z",
+      "modifiedUtc": "2026-06-20T05:40:38.0568012Z",
+      "testCases": [
+        {
+          "id": "0d02283e-273d-4647-8ea0-962b5116b39d",
+          "requirementId": "6dd3dd58-f879-4097-8759-4a7da8379bcb",
+          "code": "REQ-003-TC1",
+          "title": "\uAC80\uC99D: \uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uB9C1\uD06C\uB97C \uD1B5\uD574 \uBE44\uBC00\uBC88\uD638\uB97C \uC7AC\uC124\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC7AC\uC124\uC815 \uB9C1\uD06C\uB294 30\uBD84 \uD6C4 \uB9CC\uB8CC\uB41C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uB9C1\uD06C\uB97C \uD1B5\uD574 \uBE44\uBC00\uBC88\uD638\uB97C \uC7AC\uC124\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            },
+            {
+              "order": 2,
+              "action": "\uC7AC\uC124\uC815 \uB9C1\uD06C\uB294 30\uBD84 \uD6C4 \uB9CC\uB8CC\uB41C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "0dde195a-6ec1-4b8e-9446-67b51d9c5001",
+          "requirementId": "6dd3dd58-f879-4097-8759-4a7da8379bcb",
+          "code": "REQ-003-TC2",
+          "title": "\uAC80\uC99D: \uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "954907cd-3f95-4c22-8064-eedde79224ef",
+      "code": "REQ-004",
+      "title": "\uC0C1\uD488 \uAC80\uC0C9",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uD0A4\uC6CC\uB4DC\uB85C \uC0C1\uD488 \uCE74\uD0C8\uB85C\uADF8\uB97C \uAC80\uC0C9\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. 10\uB9CC \uAC74 \uC774\uD558 \uCE74\uD0C8\uB85C\uADF8\uC5D0\uC11C\uB294 \uACB0\uACFC\uAC00 2\uCD08 \uC774\uB0B4\uC5D0 \uBC18\uD658\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+      "category": "\uCE74\uD0C8\uB85C\uADF8",
+      "priority": "high",
+      "status": "approved",
+      "source": "\uBA85\uC138 v1.3",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.0568036Z",
+      "modifiedUtc": "2026-06-20T05:40:38.0568037Z",
+      "testCases": [
+        {
+          "id": "663b5f00-2b3c-469c-bb40-8195290ceeed",
+          "requirementId": "954907cd-3f95-4c22-8064-eedde79224ef",
+          "code": "REQ-004-TC1",
+          "title": "\uAC80\uC99D: \uC0C1\uD488 \uAC80\uC0C9 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uD0A4\uC6CC\uB4DC\uB85C \uC0C1\uD488 \uCE74\uD0C8\uB85C\uADF8\uB97C \uAC80\uC0C9\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. 10\uB9CC \uAC74 \uC774\uD558 \uCE74\uD0C8\uB85C\uADF8\uC5D0\uC11C\uB294 \uACB0\uACFC\uAC00 2\uCD08 \uC774\uB0B4\uC5D0 \uBC18\uD658\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uD0A4\uC6CC\uB4DC\uB85C \uC0C1\uD488 \uCE74\uD0C8\uB85C\uADF8\uB97C \uAC80\uC0C9\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            },
+            {
+              "order": 2,
+              "action": "10\uB9CC \uAC74 \uC774\uD558 \uCE74\uD0C8\uB85C\uADF8\uC5D0\uC11C\uB294 \uACB0\uACFC\uAC00 2\uCD08 \uC774\uB0B4\uC5D0 \uBC18\uD658\uB418\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "a7ba82c0-25ac-4dfa-8cb1-45187354effc",
+          "requirementId": "954907cd-3f95-4c22-8064-eedde79224ef",
+          "code": "REQ-004-TC2",
+          "title": "\uAC80\uC99D: \uC0C1\uD488 \uAC80\uC0C9 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC0C1\uD488 \uAC80\uC0C9\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "3aade2c3-5d2f-4bb6-ac77-b519287b13b5",
+          "requirementId": "954907cd-3f95-4c22-8064-eedde79224ef",
+          "code": "REQ-004-TC3",
+          "title": "\uAC80\uC99D: \uC0C1\uD488 \uAC80\uC0C9 (\uACBD\uACC4 \uC870\uAC74)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC0C1\uD488 \uAC80\uC0C9\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
+              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "9f6d1fcf-7843-4c86-9fde-29541c1d2101",
+      "code": "REQ-005",
+      "title": "\uC0C1\uD488 \uD544\uD130\uB9C1",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uAC80\uC0C9 \uACB0\uACFC\uB97C \uCE74\uD14C\uACE0\uB9AC, \uAC00\uACA9 \uBC94\uC704, \uC7AC\uACE0 \uC5EC\uBD80\uB85C \uD544\uD130\uB9C1\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+      "category": "\uCE74\uD0C8\uB85C\uADF8",
+      "priority": "medium",
+      "status": "inProgress",
+      "source": "\uBA85\uC138 v1.3",
+      "parentId": "954907cd-3f95-4c22-8064-eedde79224ef",
+      "createdUtc": "2026-06-20T05:40:38.0568055Z",
+      "modifiedUtc": "2026-06-20T05:40:38.0568056Z",
+      "testCases": [
+        {
+          "id": "385f0a5c-798b-48da-a27f-9fee7c32654d",
+          "requirementId": "9f6d1fcf-7843-4c86-9fde-29541c1d2101",
+          "code": "REQ-005-TC1",
+          "title": "\uAC80\uC99D: \uC0C1\uD488 \uD544\uD130\uB9C1 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uAC80\uC0C9 \uACB0\uACFC\uB97C \uCE74\uD14C\uACE0\uB9AC, \uAC00\uACA9 \uBC94\uC704, \uC7AC\uACE0 \uC5EC\uBD80\uB85C \uD544\uD130\uB9C1\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uAC80\uC0C9 \uACB0\uACFC\uB97C \uCE74\uD14C\uACE0\uB9AC, \uAC00\uACA9 \uBC94\uC704, \uC7AC\uACE0 \uC5EC\uBD80\uB85C \uD544\uD130\uB9C1\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "24ad5918-6fb5-4990-8c07-c096b6eb1591",
+          "requirementId": "9f6d1fcf-7843-4c86-9fde-29541c1d2101",
+          "code": "REQ-005-TC2",
+          "title": "\uAC80\uC99D: \uC0C1\uD488 \uD544\uD130\uB9C1 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC0C1\uD488 \uD544\uD130\uB9C1\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "2eaa2c0d-a80e-492e-a6de-f7febb3acbba",
+      "code": "REQ-006",
+      "title": "\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD488\uC744 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0 \uCD94\uAC00\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC218\uB7C9\uC740 1\uBD80\uD130 \uC7AC\uACE0 \uC218\uB7C9\uAE4C\uC9C0 \uC9C0\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+      "category": "\uC7A5\uBC14\uAD6C\uB2C8",
+      "priority": "critical",
+      "status": "approved",
+      "source": "\uBA85\uC138 v1.4",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.056807Z",
+      "modifiedUtc": "2026-06-20T05:40:38.056807Z",
+      "testCases": [
+        {
+          "id": "f2719707-0437-4a02-b3c0-e7fa3ba2eb2b",
+          "requirementId": "2eaa2c0d-a80e-492e-a6de-f7febb3acbba",
+          "code": "REQ-006-TC1",
+          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD488\uC744 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0 \uCD94\uAC00\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC218\uB7C9\uC740 1\uBD80\uD130 \uC7AC\uACE0 \uC218\uB7C9\uAE4C\uC9C0 \uC9C0\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD488\uC744 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0 \uCD94\uAC00\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            },
+            {
+              "order": 2,
+              "action": "\uC218\uB7C9\uC740 1\uBD80\uD130 \uC7AC\uACE0 \uC218\uB7C9\uAE4C\uC9C0 \uC9C0\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "0baccf28-2316-40c1-a2a9-729d88dc428c",
+          "requirementId": "2eaa2c0d-a80e-492e-a6de-f7febb3acbba",
+          "code": "REQ-006-TC2",
+          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "62cbcfe7-e703-48b7-a478-71bdaa3ebee9",
+          "requirementId": "2eaa2c0d-a80e-492e-a6de-f7febb3acbba",
+          "code": "REQ-006-TC3",
+          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00 (\uACBD\uACC4 \uC870\uAC74)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
+              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "07528810-67b0-4cbe-ba0d-3e41b0de1097",
+      "code": "REQ-007",
+      "title": "\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0\uC11C \uC0C1\uD488\uC744 \uC81C\uAC70\uD558\uAC70\uB098 \uC218\uB7C9\uC744 \uBCC0\uACBD\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+      "category": "\uC7A5\uBC14\uAD6C\uB2C8",
+      "priority": "high",
+      "status": "approved",
+      "source": "\uBA85\uC138 v1.4",
+      "parentId": "2eaa2c0d-a80e-492e-a6de-f7febb3acbba",
+      "createdUtc": "2026-06-20T05:40:38.0568113Z",
+      "modifiedUtc": "2026-06-20T05:40:38.0568113Z",
+      "testCases": [
+        {
+          "id": "f7d3b6e4-5f60-4690-8170-f8b2df06935a",
+          "requirementId": "07528810-67b0-4cbe-ba0d-3e41b0de1097",
+          "code": "REQ-007-TC1",
+          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0\uC11C \uC0C1\uD488\uC744 \uC81C\uAC70\uD558\uAC70\uB098 \uC218\uB7C9\uC744 \uBCC0\uACBD\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0\uC11C \uC0C1\uD488\uC744 \uC81C\uAC70\uD558\uAC70\uB098 \uC218\uB7C9\uC744 \uBCC0\uACBD\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "dc59df1f-26c9-4d7f-964f-00f3c30ccccc",
+          "requirementId": "07528810-67b0-4cbe-ba0d-3e41b0de1097",
+          "code": "REQ-007-TC2",
+          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "bc31a805-04f4-4e44-bfe1-ba41ddbb6a0d",
+          "requirementId": "07528810-67b0-4cbe-ba0d-3e41b0de1097",
+          "code": "REQ-007-TC3",
+          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70 (\uACBD\uACC4 \uC870\uAC74)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
+              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "19b30777-2f34-453b-a3df-2ae92be082a7",
+      "code": "REQ-008",
+      "title": "\uACB0\uC81C \uD504\uB85C\uC138\uC2A4",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uBC30\uC1A1\uC9C0, \uACB0\uC81C \uC218\uB2E8, \uC8FC\uBB38 \uAC80\uD1A0 \uB2E8\uACC4\uB97C \uD3EC\uD568\uD55C \uACB0\uC81C \uD750\uB984\uC744 \uC548\uB0B4\uD574\uC57C \uD55C\uB2E4. \uCD5C\uC885 \uD655\uC778 \uC804\uAE4C\uC9C0 \uAC01 \uB2E8\uACC4\uB97C \uAC70\uCCD0\uC57C \uD55C\uB2E4.",
+      "category": "\uACB0\uC81C",
+      "priority": "critical",
+      "status": "draft",
+      "source": "\uBA85\uC138 v1.5",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.056813Z",
+      "modifiedUtc": "2026-06-20T05:40:38.056813Z",
+      "testCases": [
+        {
+          "id": "5164af95-f34f-4acb-a6d2-c1485179b8dd",
+          "requirementId": "19b30777-2f34-453b-a3df-2ae92be082a7",
+          "code": "REQ-008-TC1",
+          "title": "\uAC80\uC99D: \uACB0\uC81C \uD504\uB85C\uC138\uC2A4 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uBC30\uC1A1\uC9C0, \uACB0\uC81C \uC218\uB2E8, \uC8FC\uBB38 \uAC80\uD1A0 \uB2E8\uACC4\uB97C \uD3EC\uD568\uD55C \uACB0\uC81C \uD750\uB984\uC744 \uC548\uB0B4\uD574\uC57C \uD55C\uB2E4. \uCD5C\uC885 \uD655\uC778 \uC804\uAE4C\uC9C0 \uAC01 \uB2E8\uACC4\uB97C \uAC70\uCCD0\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uBC30\uC1A1\uC9C0, \uACB0\uC81C \uC218\uB2E8, \uC8FC\uBB38 \uAC80\uD1A0 \uB2E8\uACC4\uB97C \uD3EC\uD568\uD55C \uACB0\uC81C \uD750\uB984\uC744 \uC548\uB0B4\uD574\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            },
+            {
+              "order": 2,
+              "action": "\uCD5C\uC885 \uD655\uC778 \uC804\uAE4C\uC9C0 \uAC01 \uB2E8\uACC4\uB97C \uAC70\uCCD0\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "ee483010-67d2-434a-a41d-84468bf8e264",
+          "requirementId": "19b30777-2f34-453b-a3df-2ae92be082a7",
+          "code": "REQ-008-TC2",
+          "title": "\uAC80\uC99D: \uACB0\uC81C \uD504\uB85C\uC138\uC2A4 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uACB0\uC81C \uD504\uB85C\uC138\uC2A4\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "fe2d1aca-bd80-4dff-9fa5-43d34e92fe32",
+          "requirementId": "19b30777-2f34-453b-a3df-2ae92be082a7",
+          "code": "REQ-008-TC3",
+          "title": "\uAC80\uC99D: \uACB0\uC81C \uD504\uB85C\uC138\uC2A4 (\uACBD\uACC4 \uC870\uAC74)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uACB0\uC81C \uD504\uB85C\uC138\uC2A4\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
+              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "e656faa1-31ea-4578-b5e0-c512683156f1",
+      "code": "REQ-009",
+      "title": "\uACB0\uC81C \uCC98\uB9AC",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC81C3\uC790 \uACB0\uC81C \uAC8C\uC774\uD2B8\uC6E8\uC774\uB97C \uD1B5\uD574 \uC2E0\uC6A9\uCE74\uB4DC \uACB0\uC81C\uB97C \uCC98\uB9AC\uD574\uC57C \uD55C\uB2E4. \uAC70\uC808\uB41C \uAC70\uB798\uC5D0\uB294 \uBA85\uD655\uD55C \uC624\uB958 \uBA54\uC2DC\uC9C0\uB97C \uD45C\uC2DC\uD574\uC57C \uD55C\uB2E4.",
+      "category": "\uACB0\uC81C",
+      "priority": "critical",
+      "status": "draft",
+      "source": "\uBA85\uC138 v1.5",
+      "parentId": "19b30777-2f34-453b-a3df-2ae92be082a7",
+      "createdUtc": "2026-06-20T05:40:38.0568146Z",
+      "modifiedUtc": "2026-06-20T05:40:38.0568147Z",
+      "testCases": [
+        {
+          "id": "d84f1228-a451-416c-b4f0-db5b9a52b6b9",
+          "requirementId": "e656faa1-31ea-4578-b5e0-c512683156f1",
+          "code": "REQ-009-TC1",
+          "title": "\uAC80\uC99D: \uACB0\uC81C \uCC98\uB9AC (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC81C3\uC790 \uACB0\uC81C \uAC8C\uC774\uD2B8\uC6E8\uC774\uB97C \uD1B5\uD574 \uC2E0\uC6A9\uCE74\uB4DC \uACB0\uC81C\uB97C \uCC98\uB9AC\uD574\uC57C \uD55C\uB2E4. \uAC70\uC808\uB41C \uAC70\uB798\uC5D0\uB294 \uBA85\uD655\uD55C \uC624\uB958 \uBA54\uC2DC\uC9C0\uB97C \uD45C\uC2DC\uD574\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC81C3\uC790 \uACB0\uC81C \uAC8C\uC774\uD2B8\uC6E8\uC774\uB97C \uD1B5\uD574 \uC2E0\uC6A9\uCE74\uB4DC \uACB0\uC81C\uB97C \uCC98\uB9AC\uD574\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            },
+            {
+              "order": 2,
+              "action": "\uAC70\uC808\uB41C \uAC70\uB798\uC5D0\uB294 \uBA85\uD655\uD55C \uC624\uB958 \uBA54\uC2DC\uC9C0\uB97C \uD45C\uC2DC\uD574\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "0d91fd67-4010-4f01-ad81-cd9ae22dcdd5",
+          "requirementId": "e656faa1-31ea-4578-b5e0-c512683156f1",
+          "code": "REQ-009-TC2",
+          "title": "\uAC80\uC99D: \uACB0\uC81C \uCC98\uB9AC (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uACB0\uC81C \uCC98\uB9AC\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "635e43d2-087e-4d9e-a9d2-a49a3518e75a",
+          "requirementId": "e656faa1-31ea-4578-b5e0-c512683156f1",
+          "code": "REQ-009-TC3",
+          "title": "\uAC80\uC99D: \uACB0\uC81C \uCC98\uB9AC (\uACBD\uACC4 \uC870\uAC74)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uACB0\uC81C \uCC98\uB9AC\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
+              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "d66b7e59-76b4-4759-8638-c02bcfdb1582",
+      "code": "REQ-010",
+      "title": "\uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uACB0\uC81C \uC644\uB8CC \uD6C4 1\uBD84 \uC774\uB0B4\uC5D0 \uC0AC\uC6A9\uC790\uC5D0\uAC8C \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C\uC744 \uBC1C\uC1A1\uD574\uC57C \uD55C\uB2E4.",
+      "category": "\uC54C\uB9BC",
+      "priority": "medium",
+      "status": "draft",
+      "source": "\uBA85\uC138 v1.5",
+      "parentId": "19b30777-2f34-453b-a3df-2ae92be082a7",
+      "createdUtc": "2026-06-20T05:40:38.0568189Z",
+      "modifiedUtc": "2026-06-20T05:40:38.056819Z",
+      "testCases": [
+        {
+          "id": "e7202e1f-4faf-4e7f-82dd-94365cf6b9a1",
+          "requirementId": "d66b7e59-76b4-4759-8638-c02bcfdb1582",
+          "code": "REQ-010-TC1",
+          "title": "\uAC80\uC99D: \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uACB0\uC81C \uC644\uB8CC \uD6C4 1\uBD84 \uC774\uB0B4\uC5D0 \uC0AC\uC6A9\uC790\uC5D0\uAC8C \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C\uC744 \uBC1C\uC1A1\uD574\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uACB0\uC81C \uC644\uB8CC \uD6C4 1\uBD84 \uC774\uB0B4\uC5D0 \uC0AC\uC6A9\uC790\uC5D0\uAC8C \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C\uC744 \uBC1C\uC1A1\uD574\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "935b7c0e-1c2b-4c39-bf46-e218d3e03cf3",
+          "requirementId": "d66b7e59-76b4-4759-8638-c02bcfdb1582",
+          "code": "REQ-010-TC2",
+          "title": "\uAC80\uC99D: \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "a0eb9f46-6f7b-450b-a520-71f660ffd2ce",
+      "code": "REQ-011",
+      "title": "\uC8FC\uBB38 \uB0B4\uC5ED",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uB85C\uADF8\uC778\uD55C \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD0DC, \uB0A0\uC9DC, \uCD1D\uC561\uC744 \uD3EC\uD568\uD55C \uACFC\uAC70 \uC8FC\uBB38 \uBAA9\uB85D\uC744 \uC870\uD68C\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+      "category": "\uACC4\uC815",
+      "priority": "medium",
+      "status": "approved",
+      "source": "\uBA85\uC138 v1.6",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.0568202Z",
+      "modifiedUtc": "2026-06-20T05:40:38.0568202Z",
+      "testCases": [
+        {
+          "id": "ecc6c25b-b704-40a7-adb6-9783cc3f9b14",
+          "requirementId": "a0eb9f46-6f7b-450b-a520-71f660ffd2ce",
+          "code": "REQ-011-TC1",
+          "title": "\uAC80\uC99D: \uC8FC\uBB38 \uB0B4\uC5ED (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uB85C\uADF8\uC778\uD55C \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD0DC, \uB0A0\uC9DC, \uCD1D\uC561\uC744 \uD3EC\uD568\uD55C \uACFC\uAC70 \uC8FC\uBB38 \uBAA9\uB85D\uC744 \uC870\uD68C\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uB85C\uADF8\uC778\uD55C \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD0DC, \uB0A0\uC9DC, \uCD1D\uC561\uC744 \uD3EC\uD568\uD55C \uACFC\uAC70 \uC8FC\uBB38 \uBAA9\uB85D\uC744 \uC870\uD68C\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "6ff8a7e1-cf4d-4485-abd2-74630df80d96",
+          "requirementId": "a0eb9f46-6f7b-450b-a520-71f660ffd2ce",
+          "code": "REQ-011-TC2",
+          "title": "\uAC80\uC99D: \uC8FC\uBB38 \uB0B4\uC5ED (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uC8FC\uBB38 \uB0B4\uC5ED\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "fc143287-7061-4de4-abb2-619414c623c8",
+      "code": "REQ-012",
+      "title": "\uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC",
+      "description": "\uC2DC\uC2A4\uD15C\uC740 \uAD00\uB9AC\uC790\uAC00 \uC0C1\uD488 \uC7AC\uACE0 \uC218\uB7C9\uC744 \uC5C5\uB370\uC774\uD2B8\uD558\uACE0 \uD488\uC808 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+      "category": "\uAD00\uB9AC",
+      "priority": "high",
+      "status": "inProgress",
+      "source": "\uBA85\uC138 v1.6",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.0568215Z",
+      "modifiedUtc": "2026-06-20T05:40:38.0568215Z",
+      "testCases": [
+        {
+          "id": "5ff08ad4-0b0c-4c03-a6fd-fe0bc26ab4fb",
+          "requirementId": "fc143287-7061-4de4-abb2-619414c623c8",
+          "code": "REQ-012-TC1",
+          "title": "\uAC80\uC99D: \uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uAD00\uB9AC\uC790\uAC00 \uC0C1\uD488 \uC7AC\uACE0 \uC218\uB7C9\uC744 \uC5C5\uB370\uC774\uD2B8\uD558\uACE0 \uD488\uC808 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\uC2DC\uC2A4\uD15C\uC740 \uAD00\uB9AC\uC790\uAC00 \uC0C1\uD488 \uC7AC\uACE0 \uC218\uB7C9\uC744 \uC5C5\uB370\uC774\uD2B8\uD558\uACE0 \uD488\uC808 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
+              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "840b3b42-bcab-4cd7-be64-7797da3ff269",
+          "requirementId": "fc143287-7061-4de4-abb2-619414c623c8",
+          "code": "REQ-012-TC2",
+          "title": "\uAC80\uC99D: \uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
+              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "4d61ca47-389d-4f7a-88a5-01860f57bf46",
+          "requirementId": "fc143287-7061-4de4-abb2-619414c623c8",
+          "code": "REQ-012-TC3",
+          "title": "\uAC80\uC99D: \uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC (\uACBD\uACC4 \uC870\uAC74)",
+          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
+          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "\u0022\uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
+              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    }
+  ]
+}

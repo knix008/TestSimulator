@@ -1,0 +1,15 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="ReqTrace/ReqTrace.csproj" Id="ReqTrace-App" />
+  <Project Path="Installer/ReqTrace.Installer.wixproj" Id="ReqTrace-Installer">
+    <!-- WiX requires x64; map VS default "Release | Any CPU" to x64 for the installer. -->
+    <Platform Project="x64" />
+    <Platform Solution="Release|Any CPU" Project="x64" />
+    <Platform Solution="Debug|Any CPU" Project="x64" />
+    <Build Solution="Release|*" Project="true" />
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
+</Solution>

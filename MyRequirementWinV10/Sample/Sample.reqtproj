@@ -1,0 +1,720 @@
+{
+  "projectName": "Sample Project",
+  "schemaVersion": "1.0",
+  "createdUtc": "2026-06-20T05:40:38.1344082Z",
+  "lastModifiedUtc": "2026-06-20T05:40:38.1344845Z",
+  "requirements": [
+    {
+      "id": "e35f94d0-186d-43d6-aed5-6a2eed08fb7c",
+      "code": "REQ-001",
+      "title": "User Registration",
+      "description": "The system shall allow a new user to register an account using an email address and password. The password must be at least 8 characters and include a number.",
+      "category": "Authentication",
+      "priority": "high",
+      "status": "approved",
+      "source": "Spec v1.2",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.1344153Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344153Z",
+      "testCases": [
+        {
+          "id": "484b6c76-0f69-43c9-9eaf-fcef22e94669",
+          "requirementId": "e35f94d0-186d-43d6-aed5-6a2eed08fb7c",
+          "code": "REQ-001-TC1",
+          "title": "Verify: User Registration (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a new user to register an account using an email address and password. The password must be at least 8 characters and include a number.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow a new user to register an account using an email address and password",
+              "expectedOutcome": "Behaves as described in the requirement."
+            },
+            {
+              "order": 2,
+              "action": "The password must be at least 8 characters and include a number",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "62b91841-c52c-419e-bdfc-59f2add88682",
+          "requirementId": "e35f94d0-186d-43d6-aed5-6a2eed08fb7c",
+          "code": "REQ-001-TC2",
+          "title": "Verify: User Registration (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022User Registration\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "76b7eab6-14bd-4a2e-8731-85351ca35782",
+          "requirementId": "e35f94d0-186d-43d6-aed5-6a2eed08fb7c",
+          "code": "REQ-001-TC3",
+          "title": "Verify: User Registration (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Exercise \u0022User Registration\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "83c15ffc-0200-4129-9078-79a66ffcd36b",
+      "code": "REQ-002",
+      "title": "User Login",
+      "description": "The system shall allow a registered user to log in using their email and password. After 5 consecutive failed attempts, the account is locked for 15 minutes.",
+      "category": "Authentication",
+      "priority": "critical",
+      "status": "approved",
+      "source": "Spec v1.2",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.1344473Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344473Z",
+      "testCases": [
+        {
+          "id": "7fc15bdc-0e1c-4905-bbb5-aa63d67ee3d5",
+          "requirementId": "83c15ffc-0200-4129-9078-79a66ffcd36b",
+          "code": "REQ-002-TC1",
+          "title": "Verify: User Login (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a registered user to log in using their email and password. After 5 consecutive failed attempts, the account is locked for 15 minutes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow a registered user to log in using their email and password",
+              "expectedOutcome": "Behaves as described in the requirement."
+            },
+            {
+              "order": 2,
+              "action": "After 5 consecutive failed attempts, the account is locked for 15 minutes",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "bfe69b4e-3aeb-40a4-bf79-428f2fd66e30",
+          "requirementId": "83c15ffc-0200-4129-9078-79a66ffcd36b",
+          "code": "REQ-002-TC2",
+          "title": "Verify: User Login (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022User Login\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "ff473ce2-5cff-45a0-a9ff-b2b7dba2e077",
+          "requirementId": "83c15ffc-0200-4129-9078-79a66ffcd36b",
+          "code": "REQ-002-TC3",
+          "title": "Verify: User Login (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Exercise \u0022User Login\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "acc4a42f-6398-426a-ab95-ae1b31cc47e1",
+      "code": "REQ-003",
+      "title": "Password Reset",
+      "description": "The system shall allow a user to reset their password via an email link. The reset link expires after 30 minutes.",
+      "category": "Authentication",
+      "priority": "medium",
+      "status": "approved",
+      "source": "Spec v1.2",
+      "parentId": "83c15ffc-0200-4129-9078-79a66ffcd36b",
+      "createdUtc": "2026-06-20T05:40:38.1344545Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344546Z",
+      "testCases": [
+        {
+          "id": "2f48eba2-077c-4659-9a1c-28422493fdae",
+          "requirementId": "acc4a42f-6398-426a-ab95-ae1b31cc47e1",
+          "code": "REQ-003-TC1",
+          "title": "Verify: Password Reset (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a user to reset their password via an email link. The reset link expires after 30 minutes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow a user to reset their password via an email link",
+              "expectedOutcome": "Behaves as described in the requirement."
+            },
+            {
+              "order": 2,
+              "action": "The reset link expires after 30 minutes",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "286d970d-34b0-48b5-8f7b-829e4936752a",
+          "requirementId": "acc4a42f-6398-426a-ab95-ae1b31cc47e1",
+          "code": "REQ-003-TC2",
+          "title": "Verify: Password Reset (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Password Reset\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "ad8e2c72-073c-4cfe-8c8d-c2e67031f5c1",
+      "code": "REQ-004",
+      "title": "Product Search",
+      "description": "The system shall allow a user to search the product catalog by keyword. Results must return within 2 seconds for catalogs up to 100,000 items.",
+      "category": "Catalog",
+      "priority": "high",
+      "status": "approved",
+      "source": "Spec v1.3",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.1344561Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344561Z",
+      "testCases": [
+        {
+          "id": "ab9e6dea-d697-4baf-8261-6e0fd2e40c92",
+          "requirementId": "ad8e2c72-073c-4cfe-8c8d-c2e67031f5c1",
+          "code": "REQ-004-TC1",
+          "title": "Verify: Product Search (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a user to search the product catalog by keyword. Results must return within 2 seconds for catalogs up to 100,000 items.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow a user to search the product catalog by keyword",
+              "expectedOutcome": "Behaves as described in the requirement."
+            },
+            {
+              "order": 2,
+              "action": "Results must return within 2 seconds for catalogs up to 100,000 items",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "0eb2f902-7c70-451a-a395-eafb43e0e0ca",
+          "requirementId": "ad8e2c72-073c-4cfe-8c8d-c2e67031f5c1",
+          "code": "REQ-004-TC2",
+          "title": "Verify: Product Search (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Product Search\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "e63ae78a-3dcf-4e3d-b240-d173d5312b32",
+          "requirementId": "ad8e2c72-073c-4cfe-8c8d-c2e67031f5c1",
+          "code": "REQ-004-TC3",
+          "title": "Verify: Product Search (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Exercise \u0022Product Search\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "2c437941-501f-4cc0-a08f-2505c383eb70",
+      "code": "REQ-005",
+      "title": "Product Filtering",
+      "description": "The system shall allow search results to be filtered by category, price range, and availability.",
+      "category": "Catalog",
+      "priority": "medium",
+      "status": "inProgress",
+      "source": "Spec v1.3",
+      "parentId": "ad8e2c72-073c-4cfe-8c8d-c2e67031f5c1",
+      "createdUtc": "2026-06-20T05:40:38.1344579Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344579Z",
+      "testCases": [
+        {
+          "id": "49b9d9cc-66d3-4dae-9e7f-abd8081cd2e2",
+          "requirementId": "2c437941-501f-4cc0-a08f-2505c383eb70",
+          "code": "REQ-005-TC1",
+          "title": "Verify: Product Filtering (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow search results to be filtered by category, price range, and availability.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow search results to be filtered by category, price range, and availability",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "39bdc090-ac16-4be7-84d9-0ac85db721c5",
+          "requirementId": "2c437941-501f-4cc0-a08f-2505c383eb70",
+          "code": "REQ-005-TC2",
+          "title": "Verify: Product Filtering (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Product Filtering\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "be9795ac-e7a7-4503-a080-2357acff6d7e",
+      "code": "REQ-006",
+      "title": "Shopping Cart - Add Item",
+      "description": "The system shall allow a user to add a product to the shopping cart, specifying a quantity between 1 and the available stock.",
+      "category": "Cart",
+      "priority": "critical",
+      "status": "approved",
+      "source": "Spec v1.4",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.1344624Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344624Z",
+      "testCases": [
+        {
+          "id": "922473f5-283d-403f-a6ed-b88b8f759c9d",
+          "requirementId": "be9795ac-e7a7-4503-a080-2357acff6d7e",
+          "code": "REQ-006-TC1",
+          "title": "Verify: Shopping Cart - Add Item (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a user to add a product to the shopping cart, specifying a quantity between 1 and the available stock.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow a user to add a product to the shopping cart, specifying a quantity between 1 and the available stock",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "818be80a-eba2-4d45-abc7-a0d07c85f08e",
+          "requirementId": "be9795ac-e7a7-4503-a080-2357acff6d7e",
+          "code": "REQ-006-TC2",
+          "title": "Verify: Shopping Cart - Add Item (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Shopping Cart - Add Item\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "256b37a9-06fe-4450-a414-7db72df7b782",
+          "requirementId": "be9795ac-e7a7-4503-a080-2357acff6d7e",
+          "code": "REQ-006-TC3",
+          "title": "Verify: Shopping Cart - Add Item (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Exercise \u0022Shopping Cart - Add Item\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "b21cde09-49bc-4dd8-b0eb-ac763bcb46e3",
+      "code": "REQ-007",
+      "title": "Shopping Cart - Remove Item",
+      "description": "The system shall allow a user to remove an item from the shopping cart or update its quantity.",
+      "category": "Cart",
+      "priority": "high",
+      "status": "approved",
+      "source": "Spec v1.4",
+      "parentId": "be9795ac-e7a7-4503-a080-2357acff6d7e",
+      "createdUtc": "2026-06-20T05:40:38.1344639Z",
+      "modifiedUtc": "2026-06-20T05:40:38.134464Z",
+      "testCases": [
+        {
+          "id": "5953bdf8-f9ba-4184-afb2-5e2564cf0091",
+          "requirementId": "b21cde09-49bc-4dd8-b0eb-ac763bcb46e3",
+          "code": "REQ-007-TC1",
+          "title": "Verify: Shopping Cart - Remove Item (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a user to remove an item from the shopping cart or update its quantity.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow a user to remove an item from the shopping cart or update its quantity",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "3c3cd222-d333-476a-8153-14d9346da9bb",
+          "requirementId": "b21cde09-49bc-4dd8-b0eb-ac763bcb46e3",
+          "code": "REQ-007-TC2",
+          "title": "Verify: Shopping Cart - Remove Item (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Shopping Cart - Remove Item\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "9ca8d1ef-56f2-4e5b-9889-cccf1dad9318",
+          "requirementId": "b21cde09-49bc-4dd8-b0eb-ac763bcb46e3",
+          "code": "REQ-007-TC3",
+          "title": "Verify: Shopping Cart - Remove Item (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Exercise \u0022Shopping Cart - Remove Item\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "cf5d71a3-ef5c-45c1-bd13-4846fbea98b4",
+      "code": "REQ-008",
+      "title": "Checkout Process",
+      "description": "The system shall guide the user through a checkout flow including shipping address, payment method, and order review before final confirmation.",
+      "category": "Checkout",
+      "priority": "critical",
+      "status": "draft",
+      "source": "Spec v1.5",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.1344656Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344656Z",
+      "testCases": [
+        {
+          "id": "bb70215e-323d-45fc-a223-3cb1d89c1e95",
+          "requirementId": "cf5d71a3-ef5c-45c1-bd13-4846fbea98b4",
+          "code": "REQ-008-TC1",
+          "title": "Verify: Checkout Process (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall guide the user through a checkout flow including shipping address, payment method, and order review before final confirmation.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall guide the user through a checkout flow including shipping address, payment method, and order review before final confirmation",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "c383366d-262e-493e-aa2f-7ed5db9a0643",
+          "requirementId": "cf5d71a3-ef5c-45c1-bd13-4846fbea98b4",
+          "code": "REQ-008-TC2",
+          "title": "Verify: Checkout Process (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Checkout Process\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "58c3d064-aea8-4e61-84c7-3d7d5b3a0ac8",
+          "requirementId": "cf5d71a3-ef5c-45c1-bd13-4846fbea98b4",
+          "code": "REQ-008-TC3",
+          "title": "Verify: Checkout Process (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Exercise \u0022Checkout Process\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "73528c6f-3556-4f2b-b623-490ba1377287",
+      "code": "REQ-009",
+      "title": "Payment Processing",
+      "description": "The system shall process credit card payments through a third-party payment gateway and handle declined transactions with a clear error message.",
+      "category": "Checkout",
+      "priority": "critical",
+      "status": "draft",
+      "source": "Spec v1.5",
+      "parentId": "cf5d71a3-ef5c-45c1-bd13-4846fbea98b4",
+      "createdUtc": "2026-06-20T05:40:38.1344697Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344697Z",
+      "testCases": [
+        {
+          "id": "be8ea0fa-baea-40bb-81d1-831e905a3e37",
+          "requirementId": "73528c6f-3556-4f2b-b623-490ba1377287",
+          "code": "REQ-009-TC1",
+          "title": "Verify: Payment Processing (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall process credit card payments through a third-party payment gateway and handle declined transactions with a clear error message.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall process credit card payments through a third-party payment gateway and handle declined transactions with a clear error message",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "30ad4650-ef0a-479e-924a-d0f280083a6d",
+          "requirementId": "73528c6f-3556-4f2b-b623-490ba1377287",
+          "code": "REQ-009-TC2",
+          "title": "Verify: Payment Processing (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Payment Processing\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "22b429f4-2f05-41f9-ab37-f6d8f1950f13",
+          "requirementId": "73528c6f-3556-4f2b-b623-490ba1377287",
+          "code": "REQ-009-TC3",
+          "title": "Verify: Payment Processing (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Exercise \u0022Payment Processing\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "0d6d10f7-bc96-473e-89f9-9b0abb34aec9",
+      "code": "REQ-010",
+      "title": "Order Confirmation Email",
+      "description": "The system shall send an order confirmation email to the user within 1 minute of a successful checkout.",
+      "category": "Notifications",
+      "priority": "medium",
+      "status": "draft",
+      "source": "Spec v1.5",
+      "parentId": "cf5d71a3-ef5c-45c1-bd13-4846fbea98b4",
+      "createdUtc": "2026-06-20T05:40:38.1344716Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344716Z",
+      "testCases": [
+        {
+          "id": "9b16e402-30a7-4886-b4f8-2ebf0b1a5084",
+          "requirementId": "0d6d10f7-bc96-473e-89f9-9b0abb34aec9",
+          "code": "REQ-010-TC1",
+          "title": "Verify: Order Confirmation Email (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall send an order confirmation email to the user within 1 minute of a successful checkout.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall send an order confirmation email to the user within 1 minute of a successful checkout",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "ff043426-1abf-4ab5-a923-f2094d2b5018",
+          "requirementId": "0d6d10f7-bc96-473e-89f9-9b0abb34aec9",
+          "code": "REQ-010-TC2",
+          "title": "Verify: Order Confirmation Email (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Order Confirmation Email\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "cdf3a6f5-eb96-4ca6-bbce-b68172d9a611",
+      "code": "REQ-011",
+      "title": "Order History",
+      "description": "The system shall allow a logged-in user to view a list of their past orders with status, date, and total amount.",
+      "category": "Account",
+      "priority": "medium",
+      "status": "approved",
+      "source": "Spec v1.6",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.1344726Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344727Z",
+      "testCases": [
+        {
+          "id": "5f3fb845-5838-42a3-87f0-4d2ddffcff78",
+          "requirementId": "cdf3a6f5-eb96-4ca6-bbce-b68172d9a611",
+          "code": "REQ-011-TC1",
+          "title": "Verify: Order History (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a logged-in user to view a list of their past orders with status, date, and total amount.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow a logged-in user to view a list of their past orders with status, date, and total amount",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "796de40f-0634-441d-835f-53a735f11941",
+          "requirementId": "cdf3a6f5-eb96-4ca6-bbce-b68172d9a611",
+          "code": "REQ-011-TC2",
+          "title": "Verify: Order History (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Order History\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    },
+    {
+      "id": "4123a856-bd2d-4a8a-9742-9dafe483c788",
+      "code": "REQ-012",
+      "title": "Admin Inventory Management",
+      "description": "The system shall allow an administrator to update product stock levels and mark items as out of stock.",
+      "category": "Admin",
+      "priority": "high",
+      "status": "inProgress",
+      "source": "Spec v1.6",
+      "parentId": null,
+      "createdUtc": "2026-06-20T05:40:38.1344763Z",
+      "modifiedUtc": "2026-06-20T05:40:38.1344763Z",
+      "testCases": [
+        {
+          "id": "132c7aed-b05c-48a9-9ce3-0eb69d883ba5",
+          "requirementId": "4123a856-bd2d-4a8a-9742-9dafe483c788",
+          "code": "REQ-012-TC1",
+          "title": "Verify: Admin Inventory Management (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow an administrator to update product stock levels and mark items as out of stock.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "The system shall allow an administrator to update product stock levels and mark items as out of stock",
+              "expectedOutcome": "Behaves as described in the requirement."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "800a710d-3a71-490d-9edd-ed3af46e5fed",
+          "requirementId": "4123a856-bd2d-4a8a-9742-9dafe483c788",
+          "code": "REQ-012-TC2",
+          "title": "Verify: Admin Inventory Management (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Attempt the scenario for \u0022Admin Inventory Management\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
+            }
+          ],
+          "runs": []
+        },
+        {
+          "id": "b0e90e3c-5719-479c-ab71-a2a21e85cb3b",
+          "requirementId": "4123a856-bd2d-4a8a-9742-9dafe483c788",
+          "code": "REQ-012-TC3",
+          "title": "Verify: Admin Inventory Management (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
+          "steps": [
+            {
+              "order": 1,
+              "action": "Exercise \u0022Admin Inventory Management\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
+            }
+          ],
+          "runs": []
+        }
+      ]
+    }
+  ]
+}
