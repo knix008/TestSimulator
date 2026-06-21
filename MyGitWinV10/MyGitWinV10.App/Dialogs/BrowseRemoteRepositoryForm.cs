@@ -2,12 +2,12 @@ using MyGitWinV10.App.Services;
 
 namespace MyGitWinV10.App.Dialogs;
 
-public partial class CloneRepositoryForm : Form
+public partial class BrowseRemoteRepositoryForm : Form
 {
-    private CancellationTokenSource? _cloneCts;
+    private CancellationTokenSource? _browseCts;
     private readonly AppSettingsStore _settings = AppSettingsStore.Load();
 
-    public CloneRepositoryForm()
+    public BrowseRemoteRepositoryForm()
     {
         InitializeComponent();
         ResetProgress();
@@ -17,28 +17,18 @@ public partial class CloneRepositoryForm : Form
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
     }
 
-    public string? ClonedRepositoryPath { get; private set; }
+    public string? RepositoryPath { get; private set; }
 
     public string? RepositoryUrl { get; private set; }
 
-    // Kept in memory only (not persisted to disk) so a failed attempt doesn't force retyping.
     private string? _lastUsername;
     private string? _lastPassword;
 
-    private void BrowseButton_Click(object? sender, EventArgs e)
-    {
-        using var dialog = new FolderBrowserDialog { Description = "Select an empty destination folder for the clone" };
-        if (dialog.ShowDialog(this) == DialogResult.OK)
-        {
-            destinationTextBox.Text = dialog.SelectedPath;
-        }
-    }
-
     private void CancelButton_Click(object? sender, EventArgs e)
     {
-        if (_cloneCts is { IsCancellationRequested: false })
+        if (_browseCts is { IsCancellationRequested: false })
         {
-            RequestCloneCancellation();
+            RequestBrowseCancellation();
             return;
         }
 
@@ -46,67 +36,70 @@ public partial class CloneRepositoryForm : Form
         Close();
     }
 
-    private void CloneRepositoryForm_FormClosing(object? sender, FormClosingEventArgs e)
+    private void BrowseRemoteRepositoryForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
         if (DialogResult == DialogResult.OK)
         {
             return;
         }
 
-        if (_cloneCts is { IsCancellationRequested: false })
+        if (_browseCts is { IsCancellationRequested: false })
         {
             e.Cancel = true;
-            RequestCloneCancellation();
+            RequestBrowseCancellation();
         }
     }
 
-    private void RequestCloneCancellation()
+    private void RequestBrowseCancellation()
     {
         statusLabel.Text = "Cancelling...";
         cancelButton.Enabled = false;
-        _cloneCts?.Cancel();
+        browseButton.Enabled = false;
+        _browseCts?.Cancel();
     }
 
-    private async void CloneButton_Click(object? sender, EventArgs e)
+    private async void BrowseButton_Click(object? sender, EventArgs e)
     {
-        var url = urlTextBox.Text.Trim();
-        var destination = destinationTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(destination))
+        if (_browseCts is { IsCancellationRequested: false })
         {
-            MessageBox.Show(this, "Please enter both a repository URL and a destination folder.", "MyGit", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            RequestBrowseCancellation();
             return;
         }
 
-        // Record the URL up front (not just on success) so a failed attempt doesn't force
-        // the user to retype it — it will still show up in the autocomplete suggestions.
+        var url = urlTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            MessageBox.Show(this, "Please enter a repository URL.", "MyGit", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         _settings.RecordRecentCloneUrl(url);
         _settings.Save();
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
 
-        _cloneCts?.Dispose();
-        _cloneCts = new CancellationTokenSource();
-        var cancellationToken = _cloneCts.Token;
+        _browseCts?.Dispose();
+        _browseCts = new CancellationTokenSource();
+        var cancellationToken = _browseCts.Token;
 
         SetBusy(true);
         ResetProgress();
-        statusLabel.Text = "Cloning... 0%";
+        statusLabel.Text = "Downloading... 0%";
         var prompt = new CredentialsPrompt(this, _lastUsername, _lastPassword);
         try
         {
-            await Task.Run(
-                () => GitRepositoryService.Clone(
+            var path = await Task.Run(
+                () => RemoteRepositoryService.EnsureBareRepository(
                     url,
-                    destination,
                     prompt.Handler,
-                    ReportCloneProgress,
+                    ReportBrowseProgress,
                     cancellationToken),
                 cancellationToken);
 
             UpdateProgress(1f);
-            ClonedRepositoryPath = destination;
+            RepositoryPath = path;
             RepositoryUrl = url;
-            _cloneCts?.Dispose();
-            _cloneCts = null;
+            _browseCts?.Dispose();
+            _browseCts = null;
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -114,14 +107,14 @@ public partial class CloneRepositoryForm : Form
         {
             statusLabel.Text = "Cancelled.";
         }
-        catch (Exception) when (WasCloneCancelled())
+        catch (Exception) when (WasBrowseCancelled())
         {
             statusLabel.Text = "Cancelled.";
         }
         catch (Exception ex)
         {
             statusLabel.Text = "Failed.";
-            ErrorDetailDialog.Show(this, "Clone Failed", ex);
+            ErrorDetailDialog.Show(this, "Browse Remote Failed", ex);
         }
         finally
         {
@@ -131,8 +124,8 @@ public partial class CloneRepositoryForm : Form
                 _lastPassword = entered.Password;
             }
 
-            _cloneCts?.Dispose();
-            _cloneCts = null;
+            _browseCts?.Dispose();
+            _browseCts = null;
             SetBusy(false);
             cancelButton.Enabled = true;
 
@@ -147,7 +140,7 @@ public partial class CloneRepositoryForm : Form
         }
     }
 
-    private bool WasCloneCancelled() => _cloneCts?.IsCancellationRequested == true;
+    private bool WasBrowseCancelled() => _browseCts?.IsCancellationRequested == true;
 
     private AutoCompleteStringCollection CreateRecentUrlSource()
     {
@@ -156,7 +149,7 @@ public partial class CloneRepositoryForm : Form
         return source;
     }
 
-    private void ReportCloneProgress(float progress)
+    private void ReportBrowseProgress(float progress)
     {
         if (IsDisposed)
         {
@@ -167,7 +160,7 @@ public partial class CloneRepositoryForm : Form
         {
             try
             {
-                BeginInvoke(ReportCloneProgress, progress);
+                BeginInvoke(ReportBrowseProgress, progress);
             }
             catch (ObjectDisposedException)
             {
@@ -195,14 +188,17 @@ public partial class CloneRepositoryForm : Form
         var percent = Math.Clamp((int)Math.Round(progress * 100f), 0, 100);
         progressBar.Value = percent;
         progressPercentLabel.Text = $"{percent}%";
-        statusLabel.Text = percent >= 100 ? "Complete." : $"Cloning... {percent}%";
+        statusLabel.Text = percent >= 100 ? "Complete." : $"Downloading... {percent}%";
     }
 
     private void SetBusy(bool busy)
     {
         urlTextBox.Enabled = !busy;
-        destinationTextBox.Enabled = !busy;
-        browseButton.Enabled = !busy;
-        cloneButton.Enabled = !busy;
+        browseButton.Enabled = true;
+        browseButton.Text = busy ? "Stop" : "Browse";
+        browseButton.BackColor = busy
+            ? Color.FromArgb(220, 38, 38)
+            : Color.FromArgb(37, 99, 235);
+        browseButton.Size = new Size(75, 28);
     }
 }

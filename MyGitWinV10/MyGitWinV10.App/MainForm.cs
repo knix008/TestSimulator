@@ -16,6 +16,13 @@ public partial class MainForm : Form
     // Kept in memory only for this session — never persisted to disk (see CredentialsPrompt).
     private string? _gitHubToken;
 
+    // Set when viewing a remote repository from cache (Browse Remote); cleared on local open.
+    private string? _remoteBrowseUrl;
+
+    private string? _pathHistoryFilter;
+    private bool _pathHistoryFilterIsDirectory;
+    private bool _suppressFileTreePathLog;
+
     private readonly List<ToolStripMenuItem> _fileRecentMenuItems = [];
 
     private bool _applyingPanelLayout;
@@ -158,6 +165,7 @@ public partial class MainForm : Form
 
         ConfigureToolStripButton(openToolButton, IconFactory.Open(IconFactory.ToolbarIconSize), "Open a local Git repository folder");
         ConfigureToolStripButton(cloneToolButton, IconFactory.Clone(IconFactory.ToolbarIconSize), "Clone a remote repository to a local folder");
+        ConfigureToolStripButton(browseRemoteToolButton, IconFactory.BrowseRemote(IconFactory.ToolbarIconSize), "Browse remote commit history without saving a local copy");
         ConfigureToolStripButton(refreshTreeToolButton, IconFactory.RefreshTree(IconFactory.ToolbarIconSize), "Reload branches, tags, and releases");
         ConfigureToolStripDropDownButton(exportSummaryToolButton, IconFactory.Report(IconFactory.ToolbarIconSize), "Export repository summary as PDF, Word, or Markdown");
         exportSummaryToolButton.Enabled = false;
@@ -194,6 +202,7 @@ public partial class MainForm : Form
 
         ConfigureMenuItem(openRepositoryMenuItem, IconFactory.Open(IconFactory.MenuBarIconSize), "&Open...", menuBar: true);
         ConfigureMenuItem(cloneRepositoryMenuItem, IconFactory.Clone(IconFactory.MenuBarIconSize), "&Clone...", menuBar: true);
+        ConfigureMenuItem(browseRemoteRepositoryMenuItem, IconFactory.BrowseRemote(IconFactory.MenuBarIconSize), "Browse &Remote...", menuBar: true);
         ConfigureMenuItem(exitMenuItem, IconFactory.Exit(IconFactory.MenuBarIconSize), "E&xit", menuBar: true);
         ConfigureMenuItem(refreshTreeMenuItem, IconFactory.RefreshTree(IconFactory.MenuBarIconSize), "Refresh &Tree", menuBar: true);
         ConfigureMenuItem(barExportSummaryWordMenuItem, IconFactory.FileWord(IconFactory.MenuBarIconSize), "Export to &Word", menuBar: true);
@@ -219,6 +228,10 @@ public partial class MainForm : Form
             (exportCommitContextMenuItem, IconFactory.Folder(), "Export to Folder..."));
         ConfigureContextMenu(changedFilesContextMenu,
             (copyFilePathContextMenuItem, IconFactory.File(), "Copy Path"));
+        ConfigureContextMenu(repoFilesContextMenu,
+            (showFileLogContextMenuItem, IconFactory.History(), "Show Log"),
+            (copyRepoFilePathContextMenuItem, IconFactory.File(), "Copy Path"),
+            (clearFileLogFilterContextMenuItem, IconFactory.RefreshGraph(), "Show All Commits"));
     }
 
     private void ConfigureExportSummaryMenu(ToolStripMenuItem parent, bool menuBar = false)
@@ -412,6 +425,8 @@ public partial class MainForm : Form
     private void ConfigureSectionHeadingToolTips()
     {
         toolTip.SetToolTip(repoTitleLabel, "Local repository tree with branches, tags, and releases.");
+        toolTip.SetToolTip(repoFilesTitleLabel, "Repository folders and files. Select a tracked path to show its commit log.");
+        toolTip.SetToolTip(repoFilesTreeView, "Browse repository folders and files. Select a tracked path to show its commit log.");
         toolTip.SetToolTip(graphTitleLabel, "Commit log with branch graph, messages, and metadata.");
         toolTip.SetToolTip(filesTitleLabel, "Author, message, and files changed in the selected commit.");
         toolTip.SetToolTip(diffTitleLabel, "Unified diff for the selected changed file.");
@@ -525,6 +540,24 @@ public partial class MainForm : Form
             ]);
     }
 
+    private void BrowseRemoteRepositoryMenuItem_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new BrowseRemoteRepositoryForm();
+        if (dialog.ShowDialog(this) != DialogResult.OK
+            || dialog.RepositoryPath is null
+            || string.IsNullOrWhiteSpace(dialog.RepositoryUrl))
+        {
+            return;
+        }
+
+        statusLabel.Text = "Opening remote repository...";
+        TryOpenRemoteBrowse(
+            dialog.RepositoryPath,
+            dialog.RepositoryUrl,
+            completionTitle: "Remote Browse Ready",
+            completionSummary: "The remote repository history is ready to browse.");
+    }
+
     private void ExitMenuItem_Click(object? sender, EventArgs e) => Close();
 
     private void AboutMenuItem_Click(object? sender, EventArgs e)
@@ -542,6 +575,8 @@ public partial class MainForm : Form
     {
         try
         {
+            _remoteBrowseUrl = null;
+            _pathHistoryFilter = null;
             _gitService.OpenLocal(path);
             statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
             RefreshRepositoryViews();
@@ -573,6 +608,48 @@ public partial class MainForm : Form
             }
         }
     }
+
+    private void TryOpenRemoteBrowse(
+        string cachePath,
+        string remoteUrl,
+        bool showErrorOnFailure = true,
+        string? completionTitle = null,
+        string? completionSummary = null)
+    {
+        try
+        {
+            _remoteBrowseUrl = remoteUrl;
+            _pathHistoryFilter = null;
+            _gitService.OpenLocal(cachePath);
+            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()} (remote view)";
+            RefreshRepositoryViews();
+
+            if (completionTitle is not null)
+            {
+                var displayName = RemoteRepositoryService.GetDisplayName(remoteUrl) ?? remoteUrl;
+                ShowOperationComplete(
+                    completionTitle,
+                    completionSummary ?? "The operation completed successfully.",
+                    null,
+                    new OperationDetail("Repository", displayName),
+                    new OperationDetail("URL", remoteUrl),
+                    new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
+                    new OperationDetail("Mode", "Remote browse (read-only)"));
+            }
+        }
+        catch (Exception ex)
+        {
+            _remoteBrowseUrl = null;
+            statusLabel.Text = "Ready";
+            if (showErrorOnFailure)
+            {
+                MessageBox.Show(this, ex.Message, "Browse Remote Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+
+    private bool IsRemoteBrowseMode =>
+        !string.IsNullOrWhiteSpace(_remoteBrowseUrl) || _gitService.Repo?.Info.IsBare == true;
 
     private void ShowOperationComplete(
         string title,
@@ -730,10 +807,28 @@ public partial class MainForm : Form
     {
         if (_gitService.Repo is null)
         {
+            repoFilesTreeView.Nodes.Clear();
+            UpdateGraphTitleLabel();
             return;
         }
 
         BranchTagTreePopulator.Populate(repoTreeView, _gitService.Repo);
+        RepositoryFileTreeService.PopulateRoot(repoFilesTreeView, _gitService.Repo);
+        if (repoFilesTreeView.Nodes.Count == 1 && repoFilesTreeView.Nodes[0].Tag is RepositoryFileNodeTag)
+        {
+            var root = repoFilesTreeView.Nodes[0];
+            RepositoryFileTreeService.LoadChildren(root, _gitService.Repo);
+            _suppressFileTreePathLog = true;
+            try
+            {
+                root.Expand();
+            }
+            finally
+            {
+                _suppressFileTreePathLog = false;
+            }
+        }
+
         UpdateRepoInfoLabel();
         LoadCommitGraph();
         UpdateRepoCounts();
@@ -750,9 +845,17 @@ public partial class MainForm : Form
             return;
         }
 
-        string folderName = Path.GetFileName(_gitService.RepositoryPath.TrimEnd(Path.DirectorySeparatorChar));
         string branch = _gitService.GetCurrentBranchName();
-        repoInfoLabel.Text = $"{folderName}  ·  {branch}\n{_gitService.RepositoryPath}";
+        if (IsRemoteBrowseMode && !string.IsNullOrWhiteSpace(_remoteBrowseUrl))
+        {
+            string displayName = RemoteRepositoryService.GetDisplayName(_remoteBrowseUrl) ?? _remoteBrowseUrl;
+            repoInfoLabel.Text = $"{displayName}  ·  {branch}  (remote view)\n{_remoteBrowseUrl}";
+        }
+        else
+        {
+            string folderName = Path.GetFileName(_gitService.RepositoryPath.TrimEnd(Path.DirectorySeparatorChar));
+            repoInfoLabel.Text = $"{folderName}  ·  {branch}\n{_gitService.RepositoryPath}";
+        }
         exportSummaryToolButton.Enabled = true;
         SetExportSummaryMenuItemsEnabled(true);
     }
@@ -812,7 +915,9 @@ public partial class MainForm : Form
     private void RepoTreeContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         bool repoOpen = _gitService.Repo is not null;
-        bool isCheckoutableBranch = repoTreeView.SelectedNode?.Tag is Branch branch && !branch.IsRemote;
+        bool isCheckoutableBranch = !IsRemoteBrowseMode
+            && repoTreeView.SelectedNode?.Tag is Branch branch
+            && !branch.IsRemote;
         checkoutContextMenuItem.Enabled = isCheckoutableBranch;
         copyBranchNameContextMenuItem.Enabled = repoTreeView.SelectedNode?.Tag is Branch;
         exportSummaryMenuItem.Enabled = repoOpen;
@@ -946,6 +1051,11 @@ public partial class MainForm : Form
 
     private void RepoTreeView_NodeMouseDoubleClick(object? sender, TreeNodeMouseClickEventArgs e)
     {
+        if (IsRemoteBrowseMode)
+        {
+            return;
+        }
+
         if (e.Node?.Tag is Branch branch && !branch.IsRemote)
         {
             CheckoutBranch(branch);
@@ -1078,6 +1188,12 @@ public partial class MainForm : Form
             return;
         }
 
+        if (_pathHistoryFilter is not null)
+        {
+            _ = LoadPathFilteredCommitGraphAsync();
+            return;
+        }
+
         var commits = _gitService.Repo.Commits.QueryBy(new CommitFilter
         {
             IncludeReachableFrom = _gitService.Repo.Head,
@@ -1085,7 +1201,177 @@ public partial class MainForm : Form
         }).ToList();
 
         commitGraphView.SetRows(CommitGraphBuilder.Build(commits));
+        UpdateGraphTitleLabel();
     }
+
+    private async Task LoadPathFilteredCommitGraphAsync()
+    {
+        if (_gitService.Repo is null || _pathHistoryFilter is null)
+        {
+            return;
+        }
+
+        var repo = _gitService.Repo;
+        string path = _pathHistoryFilter;
+        bool isDirectory = _pathHistoryFilterIsDirectory;
+        statusLabel.Text = string.IsNullOrEmpty(path)
+            ? "Loading commit history..."
+            : $"Loading commit history for {path}...";
+
+        try
+        {
+            var commits = await Task.Run(() => PathCommitHistoryService.GetCommits(repo, path, isDirectory));
+            if (_gitService.Repo != repo || _pathHistoryFilter != path)
+            {
+                return;
+            }
+
+            commitGraphView.SetRows(CommitGraphBuilder.Build(commits));
+            UpdateGraphTitleLabel();
+            statusLabel.Text = string.IsNullOrEmpty(path)
+                ? "Showing all commits"
+                : $"Showing commits for {path}";
+        }
+        catch (Exception ex)
+        {
+            statusLabel.Text = "Ready";
+            MessageBox.Show(this, ex.Message, "Load Commit History Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void UpdateGraphTitleLabel()
+    {
+        if (string.IsNullOrWhiteSpace(_pathHistoryFilter))
+        {
+            graphTitleLabel.Text = "Commit History";
+            return;
+        }
+
+        string displayPath = string.IsNullOrEmpty(_pathHistoryFilter) ? "(root)" : _pathHistoryFilter;
+        graphTitleLabel.Text = $"Commit History — {displayPath}";
+    }
+
+    private void ApplyPathHistoryFilter(string relativePath, bool isDirectory)
+    {
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
+        string normalized = PathCommitHistoryService.NormalizeGitPath(relativePath);
+        if (string.IsNullOrEmpty(normalized))
+        {
+            ClearPathHistoryFilter();
+            return;
+        }
+
+        bool isDirectoryFilter = isDirectory;
+        if (_pathHistoryFilter == normalized && _pathHistoryFilterIsDirectory == isDirectoryFilter)
+        {
+            return;
+        }
+
+        _pathHistoryFilter = normalized;
+        _pathHistoryFilterIsDirectory = isDirectoryFilter;
+        UpdateGraphTitleLabel();
+        _ = LoadPathFilteredCommitGraphAsync();
+    }
+
+    private void ClearPathHistoryFilter()
+    {
+        _pathHistoryFilter = null;
+        _pathHistoryFilterIsDirectory = false;
+        if (_gitService.Repo is not null)
+        {
+            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+            LoadCommitGraph();
+        }
+        else
+        {
+            UpdateGraphTitleLabel();
+        }
+    }
+
+    private void RepoFilesTreeView_BeforeExpand(object? sender, TreeViewCancelEventArgs e)
+    {
+        if (_gitService.Repo is null || e.Node is null)
+        {
+            return;
+        }
+
+        RepositoryFileTreeService.LoadChildren(e.Node, _gitService.Repo);
+    }
+
+    private void RepoFilesTreeView_AfterSelect(object? sender, TreeViewEventArgs e)
+    {
+        if (_suppressFileTreePathLog || _gitService.Repo is null)
+        {
+            return;
+        }
+
+        TryApplyPathHistoryFromFileNode(e.Node);
+    }
+
+    private void RepoFilesTreeView_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
+    {
+        if (e.Node is not null)
+        {
+            repoFilesTreeView.SelectedNode = e.Node;
+        }
+    }
+
+    private void TryApplyPathHistoryFromFileNode(TreeNode? node)
+    {
+        if (node?.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
+        {
+            return;
+        }
+
+        if (!PathCommitHistoryService.CanShowLog(_gitService.Repo!, tag.RelativePath, tag.IsDirectory))
+        {
+            return;
+        }
+
+        ApplyPathHistoryFilter(tag.RelativePath, tag.IsDirectory);
+    }
+
+    private void RepoFilesContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_gitService.Repo is null)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        if (repoFilesTreeView.SelectedNode?.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
+        {
+            showFileLogContextMenuItem.Enabled = false;
+            copyRepoFilePathContextMenuItem.Enabled = false;
+            clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
+            return;
+        }
+
+        bool canShowLog = PathCommitHistoryService.CanShowLog(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+        showFileLogContextMenuItem.Enabled = canShowLog;
+        copyRepoFilePathContextMenuItem.Enabled = true;
+        clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
+    }
+
+    private void ShowFileLogContextMenuItem_Click(object? sender, EventArgs e) =>
+        TryApplyPathHistoryFromFileNode(repoFilesTreeView.SelectedNode);
+
+    private void CopyRepoFilePathContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (repoFilesTreeView.SelectedNode?.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
+        {
+            return;
+        }
+
+        Clipboard.SetText(string.IsNullOrEmpty(tag.RelativePath) ? "." : tag.RelativePath);
+    }
+
+    private void ClearFileLogFilterContextMenuItem_Click(object? sender, EventArgs e) =>
+        ClearPathHistoryFilter();
 
     private void CommitGraphView_CommitSelected(object? sender, Commit commit)
     {

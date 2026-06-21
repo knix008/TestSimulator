@@ -39,6 +39,23 @@ public static class IconFactory
         g.DrawLine(pen, 3, 13, 13, 13);
     }, size: size);
 
+    /// <summary>Browse remote repository history without a permanent local clone.</summary>
+    public static Image BrowseRemote(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        // Globe — remote repository
+        g.DrawEllipse(pen, 1.5f, 3, 9, 9);
+        g.DrawArc(pen, 5, 3, 2, 9, -90, 180);
+        g.DrawLine(pen, 1.5f, 7.5f, 10.5f, 7.5f);
+
+        // Log lines — history view only
+        g.FillEllipse(brush, 11, 4.5f, 1.4f, 1.4f);
+        g.DrawLine(pen, 12.8f, 5.2f, 14.5f, 5.2f);
+        g.FillEllipse(brush, 11, 7.3f, 1.4f, 1.4f);
+        g.DrawLine(pen, 12.8f, 8f, 14.5f, 8f);
+        g.FillEllipse(brush, 11, 10.1f, 1.4f, 1.4f);
+        g.DrawLine(pen, 12.8f, 10.8f, 13.8f, 10.8f);
+    }, AccentColor, size);
+
     public static Image Exit(int size = MenuIconSize) => Create((g, pen, brush) =>
     {
         // Door + arrow — kept inside 3..13 so round pen caps are not clipped.

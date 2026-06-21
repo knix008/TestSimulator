@@ -9,6 +9,11 @@ public readonly record struct SectionTitleTheme(Color Background, Color Foregrou
             Color.FromArgb(55, 48, 163),
             Color.FromArgb(79, 70, 229),
             Color.FromArgb(165, 180, 252)),
+        SectionTitleKind.Workspace => new(
+            Color.FromArgb(239, 246, 255),
+            Color.FromArgb(30, 64, 175),
+            Color.FromArgb(59, 130, 246),
+            Color.FromArgb(147, 197, 253)),
         SectionTitleKind.CommitHistory => new(
             Color.FromArgb(245, 243, 255),
             Color.FromArgb(91, 33, 182),
