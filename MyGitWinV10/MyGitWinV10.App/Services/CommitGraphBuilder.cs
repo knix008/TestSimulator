@@ -12,6 +12,24 @@ public sealed record CommitRow(
 
 public static class CommitGraphBuilder
 {
+    /// <summary>
+    /// Lays out commits in a single lane with no fork/merge lines. Use this for path-filtered
+    /// history: those commits are rarely direct parent/child pairs (commits that don't touch the
+    /// path are elided), so the lane-tracking logic in <see cref="Build"/> — which assumes each row's
+    /// parent is the next row — would otherwise wire up bogus fork/merge lines between unrelated commits.
+    /// </summary>
+    public static List<CommitRow> BuildFlat(IEnumerable<Commit> commits)
+    {
+        var list = commits.ToList();
+        var rows = new List<CommitRow>(list.Count);
+        for (int i = 0; i < list.Count; i++)
+        {
+            rows.Add(new CommitRow(list[i], 0, [], [], [], ContinuesDown: i < list.Count - 1));
+        }
+
+        return rows;
+    }
+
     public static List<CommitRow> Build(IEnumerable<Commit> commits)
     {
         var rows = new List<CommitRow>();

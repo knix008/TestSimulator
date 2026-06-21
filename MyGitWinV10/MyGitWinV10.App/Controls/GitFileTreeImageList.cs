@@ -15,7 +15,8 @@ public enum GitFileTreeIconIndex
     FileAdded,
     FileStaged,
     FileRenamed,
-    FileMixed
+    FileMixed,
+    FileConflicted
 }
 
 public sealed class GitFileTreeImageList : IDisposable
@@ -95,6 +96,7 @@ public sealed class GitFileTreeImageList : IDisposable
             GitFileTreeIconIndex.FileStaged => AddBadge(bitmap, Color.FromArgb(124, 58, 237), "+"),
             GitFileTreeIconIndex.FileRenamed => AddBadge(bitmap, Color.FromArgb(37, 99, 235), "R"),
             GitFileTreeIconIndex.FileMixed => AddBadge(bitmap, Color.FromArgb(217, 119, 6), "~"),
+            GitFileTreeIconIndex.FileConflicted => AddBadge(bitmap, Color.FromArgb(220, 38, 38), "!"),
             _ => bitmap
         };
     }

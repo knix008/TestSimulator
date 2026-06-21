@@ -43,6 +43,7 @@ public sealed class PathGitStatus
                     "Deleted" => "D",
                     "Renamed" => "R",
                     "Type Changed" => "T",
+                    "Conflicted" => "!",
                     _ => "~"
                 };
             }
@@ -68,7 +69,7 @@ public sealed class PathGitStatus
                 return WorkTree switch
                 {
                     "Untracked" => Color.FromArgb(5, 150, 105),
-                    "Deleted" => Color.FromArgb(220, 38, 38),
+                    "Deleted" or "Conflicted" => Color.FromArgb(220, 38, 38),
                     _ => Color.FromArgb(37, 99, 235)
                 };
             }
@@ -140,6 +141,7 @@ public sealed class PathGitStatus
                 "Deleted" => GitFileTreeIconIndex.FileDeleted,
                 "Renamed" => GitFileTreeIconIndex.FileRenamed,
                 "Type Changed" => GitFileTreeIconIndex.FileModified,
+                "Conflicted" => GitFileTreeIconIndex.FileConflicted,
                 _ => GitFileTreeIconIndex.FileMixed
             };
         }

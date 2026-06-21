@@ -1422,7 +1422,10 @@ public partial class MainForm : Form
                 return;
             }
 
-            commitGraphView.SetRows(CommitGraphBuilder.Build(commits));
+            var rows = string.IsNullOrEmpty(path)
+                ? CommitGraphBuilder.Build(commits)
+                : CommitGraphBuilder.BuildFlat(commits);
+            commitGraphView.SetRows(rows);
             UpdateGraphTitleLabel();
             if (!commitGraphView.TrySelectFirstCommit())
             {

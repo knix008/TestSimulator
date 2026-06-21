@@ -235,6 +235,11 @@ public static class RepositoryPathStatusService
 
     private static string FormatWorkTreeStatus(FileStatus state)
     {
+        if (state.HasFlag(FileStatus.Conflicted))
+        {
+            return "Conflicted";
+        }
+
         if (state.HasFlag(FileStatus.NewInWorkdir))
         {
             return "Untracked";
