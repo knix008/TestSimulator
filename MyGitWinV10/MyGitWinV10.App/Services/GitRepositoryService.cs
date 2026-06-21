@@ -5,8 +5,30 @@ namespace MyGitWinV10.App.Services;
 
 public sealed class GitRepositoryService : IDisposable
 {
+    private readonly object _sync = new();
+
     public Repository? Repo { get; private set; }
     public string? RepositoryPath { get; private set; }
+
+    public T RunLocked<T>(Func<Repository, T> action)
+    {
+        if (Repo is null)
+        {
+            throw new InvalidOperationException("No repository is open.");
+        }
+
+        lock (_sync)
+        {
+            return action(Repo);
+        }
+    }
+
+    public void RunLocked(Action<Repository> action) =>
+        RunLocked(repo =>
+        {
+            action(repo);
+            return true;
+        });
 
     public void OpenLocal(string path)
     {

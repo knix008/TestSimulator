@@ -1,0 +1,281 @@
+using LibGit2Sharp;
+
+namespace MyGitWinV10.App.Services;
+
+using MyGitWinV10.App.Controls;
+
+public sealed class RepositoryPathStatusIndex
+{
+    public static readonly RepositoryPathStatusIndex Empty = new([], [], canReportStatus: false);
+
+    private readonly Dictionary<string, PathGitStatus> _files;
+    private readonly Dictionary<string, PathGitStatus> _directories;
+
+    internal RepositoryPathStatusIndex(
+        Dictionary<string, PathGitStatus> files,
+        Dictionary<string, PathGitStatus> directories,
+        bool canReportStatus)
+    {
+        _files = files;
+        _directories = directories;
+        CanReportStatus = canReportStatus;
+    }
+
+    public bool CanReportStatus { get; }
+
+    public bool IsAvailable => _files.Count > 0 || _directories.Count > 0;
+
+    public bool HasAnyStagedChanges =>
+        CanReportStatus && _files.Values.Any(status => !string.IsNullOrEmpty(status.Staged));
+
+    public bool HasAnyWorkTreeChanges =>
+        CanReportStatus && _files.Values.Any(status => !string.IsNullOrEmpty(status.WorkTree));
+
+    public bool HasStagedChangesAtPath(string relativePath, bool isDirectory)
+    {
+        if (!CanReportStatus)
+        {
+            return false;
+        }
+
+        string normalized = PathCommitHistoryService.NormalizeGitPath(relativePath);
+        if (string.IsNullOrEmpty(normalized))
+        {
+            return HasAnyStagedChanges;
+        }
+
+        if (isDirectory)
+        {
+            return !string.IsNullOrEmpty(Get(normalized, isDirectory: true)?.Staged);
+        }
+
+        return _files.TryGetValue(normalized, out PathGitStatus? status)
+            && !string.IsNullOrEmpty(status.Staged);
+    }
+
+    public bool HasWorkTreeChangesAtPath(string relativePath, bool isDirectory)
+    {
+        if (!CanReportStatus)
+        {
+            return false;
+        }
+
+        string normalized = PathCommitHistoryService.NormalizeGitPath(relativePath);
+        if (string.IsNullOrEmpty(normalized))
+        {
+            return HasAnyWorkTreeChanges;
+        }
+
+        if (isDirectory)
+        {
+            return !string.IsNullOrEmpty(Get(normalized, isDirectory: true)?.WorkTree);
+        }
+
+        return _files.TryGetValue(normalized, out PathGitStatus? status)
+            && !string.IsNullOrEmpty(status.WorkTree);
+    }
+
+    public PathGitStatus? Get(string relativePath, bool isDirectory)
+    {
+        string normalized = PathCommitHistoryService.NormalizeGitPath(relativePath);
+        var map = isDirectory ? _directories : _files;
+        return map.TryGetValue(normalized, out PathGitStatus? status) ? status : null;
+    }
+
+    public IEnumerable<string> GetDirectChildFilePaths(string relativePath)
+    {
+        string prefix = string.IsNullOrEmpty(relativePath)
+            ? string.Empty
+            : PathCommitHistoryService.NormalizeGitPath(relativePath) + "/";
+
+        foreach (string path in _files.Keys)
+        {
+            if (!string.IsNullOrEmpty(prefix) && !path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string remainder = string.IsNullOrEmpty(prefix) ? path : path[prefix.Length..];
+            if (string.IsNullOrEmpty(remainder) || remainder.Contains('/'))
+            {
+                continue;
+            }
+
+            yield return path;
+        }
+    }
+}
+
+public static class RepositoryPathStatusService
+{
+    public static RepositoryPathStatusIndex Build(Repository repo)
+    {
+        if (repo.Info.IsBare || string.IsNullOrWhiteSpace(repo.Info.WorkingDirectory))
+        {
+            return RepositoryPathStatusIndex.Empty;
+        }
+
+        var files = new Dictionary<string, PathGitStatus>(StringComparer.OrdinalIgnoreCase);
+        var directories = new Dictionary<string, PathGitStatus>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (StatusEntry entry in repo.RetrieveStatus(new StatusOptions()))
+        {
+            var status = ToPathStatus(entry);
+            if (!status.HasChanges)
+            {
+                continue;
+            }
+
+            string path = PathCommitHistoryService.NormalizeGitPath(entry.FilePath);
+            files[path] = status;
+            PropagateToParents(directories, path, status);
+        }
+
+        return new RepositoryPathStatusIndex(files, directories, canReportStatus: true);
+    }
+
+    public static string FormatNodeToolTip(RepositoryFileNodeTag tag, PathGitStatus? status, bool canReportStatus)
+    {
+        string pathLabel = string.IsNullOrEmpty(tag.RelativePath)
+            ? tag.DisplayName
+            : tag.RelativePath;
+
+        var lines = new List<string>();
+        if (!string.IsNullOrEmpty(pathLabel))
+        {
+            lines.Add(pathLabel);
+        }
+
+        if (!canReportStatus)
+        {
+            lines.Add("Status: Unavailable (read-only repository view)");
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        if (tag.IsMissingFromWorkTree)
+        {
+            lines.Add("Status: Deleted");
+            lines.Add("Staged: —");
+            lines.Add("Work tree: Deleted");
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        PathGitStatus effectiveStatus = status ?? PathGitStatus.Empty;
+        lines.Add($"Status: {effectiveStatus.GetSummaryLabel(tag.IsDirectory)}");
+        lines.Add($"Staged: {PathGitStatus.FormatDisplayValue(effectiveStatus.Staged)}");
+        lines.Add($"Work tree: {PathGitStatus.FormatDisplayValue(effectiveStatus.WorkTree)}");
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    public static void ApplyToNode(
+        TreeNode node,
+        RepositoryPathStatusIndex? statusIndex,
+        GitFileTreeImageList? icons)
+    {
+        if (node.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
+        {
+            return;
+        }
+
+        bool canReportStatus = statusIndex?.CanReportStatus == true;
+        PathGitStatus? status = canReportStatus
+            ? statusIndex!.Get(tag.RelativePath, tag.IsDirectory)
+            : null;
+
+        node.Text = tag.DisplayName;
+        node.ForeColor = SystemColors.ControlText;
+
+        if (icons is not null)
+        {
+            int imageIndex = icons.GetImageIndex(tag.IsDirectory, status);
+            node.ImageIndex = imageIndex;
+            node.SelectedImageIndex = imageIndex;
+        }
+
+        node.ToolTipText = FormatNodeToolTip(tag, status, canReportStatus);
+    }
+
+    private static PathGitStatus ToPathStatus(StatusEntry entry) =>
+        new()
+        {
+            Staged = FormatIndexStatus(entry.State),
+            WorkTree = FormatWorkTreeStatus(entry.State)
+        };
+
+    private static string FormatIndexStatus(FileStatus state)
+    {
+        if (state.HasFlag(FileStatus.NewInIndex))
+        {
+            return "Added";
+        }
+
+        if (state.HasFlag(FileStatus.ModifiedInIndex))
+        {
+            return "Modified";
+        }
+
+        if (state.HasFlag(FileStatus.DeletedFromIndex))
+        {
+            return "Deleted";
+        }
+
+        if (state.HasFlag(FileStatus.RenamedInIndex))
+        {
+            return "Renamed";
+        }
+
+        if (state.HasFlag(FileStatus.TypeChangeInIndex))
+        {
+            return "Type Changed";
+        }
+
+        return string.Empty;
+    }
+
+    private static string FormatWorkTreeStatus(FileStatus state)
+    {
+        if (state.HasFlag(FileStatus.NewInWorkdir))
+        {
+            return "Untracked";
+        }
+
+        if (state.HasFlag(FileStatus.ModifiedInWorkdir))
+        {
+            return "Modified";
+        }
+
+        if (state.HasFlag(FileStatus.DeletedFromWorkdir))
+        {
+            return "Deleted";
+        }
+
+        if (state.HasFlag(FileStatus.RenamedInWorkdir))
+        {
+            return "Renamed";
+        }
+
+        if (state.HasFlag(FileStatus.TypeChangeInWorkdir))
+        {
+            return "Type Changed";
+        }
+
+        return string.Empty;
+    }
+
+    private static void PropagateToParents(
+        Dictionary<string, PathGitStatus> directories,
+        string filePath,
+        PathGitStatus status)
+    {
+        directories[string.Empty] = PathGitStatus.Merge(directories.GetValueOrDefault(string.Empty), status);
+
+        int separatorIndex = filePath.IndexOf('/');
+        while (separatorIndex >= 0)
+        {
+            string directoryPath = filePath[..separatorIndex];
+            directories[directoryPath] = PathGitStatus.Merge(directories.GetValueOrDefault(directoryPath), status);
+            separatorIndex = filePath.IndexOf('/', separatorIndex + 1);
+        }
+    }
+}

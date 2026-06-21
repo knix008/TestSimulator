@@ -4,9 +4,31 @@ namespace MyGitWinV10.App.Services;
 
 public static class CommitDetailService
 {
+    public static TreeChanges GetTreeChanges(Repository repo, Commit commit)
+    {
+        Tree? oldTree = commit.Parents.FirstOrDefault()?.Tree;
+        return repo.Diff.Compare<TreeChanges>(oldTree, commit.Tree);
+    }
+
+    public static string GetFilePatch(Repository repo, Commit commit, string path)
+    {
+        Tree? oldTree = commit.Parents.FirstOrDefault()?.Tree;
+        Patch patch = repo.Diff.Compare<Patch>(oldTree, commit.Tree, [path]);
+        foreach (var entry in patch)
+        {
+            if (string.Equals(entry.Path, path, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(entry.OldPath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                return entry.Patch ?? string.Empty;
+            }
+        }
+
+        return string.Empty;
+    }
+
     public static Patch GetPatch(Repository repo, Commit commit)
     {
-        var oldTree = commit.Parents.FirstOrDefault()?.Tree;
+        Tree? oldTree = commit.Parents.FirstOrDefault()?.Tree;
         return repo.Diff.Compare<Patch>(oldTree, commit.Tree);
     }
 

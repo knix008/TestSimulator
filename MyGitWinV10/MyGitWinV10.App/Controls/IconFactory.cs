@@ -264,4 +264,45 @@ public static class IconFactory
         g.FillPolygon(brush, new PointF[] { new(5, 6.5f), new(11, 6.5f), new(8, 2.5f) });
         g.DrawLine(pen, 3, 13, 13, 13);
     }, Color.FromArgb(217, 119, 6), size);
+
+    public static Image GitPull(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawLine(pen, 8, 3, 8, 12.5f);
+        g.FillPolygon(brush, new PointF[] { new(5, 10f), new(11, 10f), new(8, 13.5f) });
+        g.DrawLine(pen, 3, 3, 13, 3);
+    }, Color.FromArgb(217, 119, 6), size);
+
+    public static Image GitFetch(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawArc(pen, 3, 4, 10, 10, 130, 220);
+        g.FillPolygon(brush, new PointF[] { new(11.5f, 3.5f), new(13.5f, 6.5f), new(10.5f, 7.5f) });
+        g.DrawLine(pen, 3, 13, 13, 13);
+    }, AccentColor, size);
+
+    public static Image GitReset(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawArc(pen, 3.5f, 4, 9, 9, 40, 250);
+        g.FillPolygon(brush, new PointF[] { new(3.5f, 7.5f), new(6.5f, 4.5f), new(6.5f, 9.5f) });
+    }, Color.FromArgb(100, 116, 139), size);
+
+    public static Image GitDiscard(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawLine(pen, 4.5f, 4.5f, 11.5f, 11.5f);
+        g.DrawLine(pen, 11.5f, 4.5f, 4.5f, 11.5f);
+    }, Color.FromArgb(220, 38, 38), size);
+
+    public static Image GitStatus(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawRectangle(pen, 3, 3, 10, 10);
+        g.DrawLine(pen, 5, 6, 11, 6);
+        g.DrawLine(pen, 5, 8.5f, 11, 8.5f);
+        g.DrawLine(pen, 5, 11, 8.5f, 11);
+    }, size: size);
+
+    public static Image GitStash(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawRectangle(pen, 3, 5, 10, 8);
+        g.DrawLine(pen, 3, 8, 13, 8);
+        g.DrawLine(pen, 8, 5, 8, 13);
+    }, Color.FromArgb(124, 58, 237), size);
 }

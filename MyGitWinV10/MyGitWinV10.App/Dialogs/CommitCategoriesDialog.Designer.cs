@@ -66,64 +66,88 @@ namespace MyGitWinV10.App.Dialogs
             //
             // addCategoryButton
             //
+            addCategoryButton.AutoSize = false;
             addCategoryButton.FlatStyle = FlatStyle.Flat;
             addCategoryButton.Location = new Point(20, 304);
+            addCategoryButton.MaximumSize = new Size(75, 28);
+            addCategoryButton.MinimumSize = new Size(75, 28);
             addCategoryButton.Name = "addCategoryButton";
             addCategoryButton.Size = new Size(75, 28);
             addCategoryButton.TabIndex = 2;
             addCategoryButton.Text = "Add";
+            addCategoryButton.TextAlign = ContentAlignment.MiddleCenter;
             addCategoryButton.Click += AddCategoryButton_Click;
             //
             // updateCategoryButton
             //
+            updateCategoryButton.AutoSize = false;
             updateCategoryButton.FlatStyle = FlatStyle.Flat;
             updateCategoryButton.Location = new Point(101, 304);
+            updateCategoryButton.MaximumSize = new Size(75, 28);
+            updateCategoryButton.MinimumSize = new Size(75, 28);
             updateCategoryButton.Name = "updateCategoryButton";
             updateCategoryButton.Size = new Size(75, 28);
             updateCategoryButton.TabIndex = 3;
             updateCategoryButton.Text = "Update";
+            updateCategoryButton.TextAlign = ContentAlignment.MiddleCenter;
             updateCategoryButton.Click += UpdateCategoryButton_Click;
             //
             // removeCategoryButton
             //
+            removeCategoryButton.AutoSize = false;
             removeCategoryButton.FlatStyle = FlatStyle.Flat;
             removeCategoryButton.Location = new Point(182, 304);
+            removeCategoryButton.MaximumSize = new Size(75, 28);
+            removeCategoryButton.MinimumSize = new Size(75, 28);
             removeCategoryButton.Name = "removeCategoryButton";
             removeCategoryButton.Size = new Size(75, 28);
             removeCategoryButton.TabIndex = 4;
             removeCategoryButton.Text = "Remove";
+            removeCategoryButton.TextAlign = ContentAlignment.MiddleCenter;
             removeCategoryButton.Click += RemoveCategoryButton_Click;
             //
             // resetDefaultsButton
             //
+            resetDefaultsButton.AutoSize = false;
             resetDefaultsButton.FlatStyle = FlatStyle.Flat;
             resetDefaultsButton.Location = new Point(263, 304);
+            resetDefaultsButton.MaximumSize = new Size(75, 28);
+            resetDefaultsButton.MinimumSize = new Size(75, 28);
             resetDefaultsButton.Name = "resetDefaultsButton";
-            resetDefaultsButton.Size = new Size(110, 28);
+            resetDefaultsButton.Size = new Size(75, 28);
             resetDefaultsButton.TabIndex = 5;
-            resetDefaultsButton.Text = "Reset Defaults";
+            resetDefaultsButton.Text = "Defaults";
+            resetDefaultsButton.TextAlign = ContentAlignment.MiddleCenter;
             resetDefaultsButton.Click += ResetDefaultsButton_Click;
             //
             // okButton
             //
+            okButton.AutoSize = false;
             okButton.BackColor = Color.FromArgb(37, 99, 235);
             okButton.FlatStyle = FlatStyle.Flat;
             okButton.ForeColor = Color.White;
             okButton.Location = new Point(324, 348);
+            okButton.MaximumSize = new Size(75, 28);
+            okButton.MinimumSize = new Size(75, 28);
             okButton.Name = "okButton";
             okButton.Size = new Size(75, 28);
             okButton.TabIndex = 6;
             okButton.Text = "OK";
+            okButton.TextAlign = ContentAlignment.MiddleCenter;
             okButton.Click += OkButton_Click;
             //
             // cancelButton
             //
+            cancelButton.AutoSize = false;
             cancelButton.FlatStyle = FlatStyle.Flat;
             cancelButton.Location = new Point(405, 348);
+            cancelButton.MaximumSize = new Size(75, 28);
+            cancelButton.MinimumSize = new Size(75, 28);
             cancelButton.Name = "cancelButton";
             cancelButton.Size = new Size(75, 28);
             cancelButton.TabIndex = 7;
             cancelButton.Text = "Cancel";
+            cancelButton.TextAlign = ContentAlignment.MiddleCenter;
             cancelButton.Click += CancelButton_Click;
             //
             // CommitCategoriesDialog

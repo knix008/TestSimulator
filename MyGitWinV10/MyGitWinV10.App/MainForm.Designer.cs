@@ -84,22 +84,33 @@ namespace MyGitWinV10.App
             aboutMenuItem = new ToolStripMenuItem();
             statusStrip = new StatusStrip();
             statusLabel = new ToolStripStatusLabel();
+            repoLoadProgressBar = new ToolStripProgressBar();
             repoCountsStatusLabel = new ToolStripStatusLabel();
             mainSplitContainer = new SplitContainer();
             leftSideSplitContainer = new SplitContainer();
             repoTreePanel = new Panel();
+            repoTitleLabel = new SectionTitleLabel();
             repoFilesPanel = new Panel();
-            repoFilesTitleLabel = new SectionTitleLabel();
             repoFilesTreeView = new TreeView();
             repoFilesContextMenu = new ContextMenuStrip(components);
             showFileLogContextMenuItem = new ToolStripMenuItem();
             repoFilesGitSeparator = new ToolStripSeparator();
             gitAddContextMenuItem = new ToolStripMenuItem();
+            gitResetContextMenuItem = new ToolStripMenuItem();
+            gitDiscardContextMenuItem = new ToolStripMenuItem();
+            gitStagingSeparator = new ToolStripSeparator();
             gitCommitContextMenuItem = new ToolStripMenuItem();
+            gitRemoteSeparator = new ToolStripSeparator();
+            gitFetchContextMenuItem = new ToolStripMenuItem();
+            gitPullContextMenuItem = new ToolStripMenuItem();
             gitPushContextMenuItem = new ToolStripMenuItem();
+            gitStashSeparator = new ToolStripSeparator();
+            gitStashContextMenuItem = new ToolStripMenuItem();
+            gitStashPopContextMenuItem = new ToolStripMenuItem();
+            gitStatusContextMenuItem = new ToolStripMenuItem();
             copyRepoFilePathContextMenuItem = new ToolStripMenuItem();
             clearFileLogFilterContextMenuItem = new ToolStripMenuItem();
-            repoTitleLabel = new SectionTitleLabel();
+            repoFilesTitleLabel = new SectionTitleLabel();
             graphDetailSplitContainer = new SplitContainer();
             graphPanel = new Panel();
             graphTitleLabel = new SectionTitleLabel();
@@ -128,7 +139,6 @@ namespace MyGitWinV10.App
             copyDiffToolButton = new ToolStripButton();
             infoToolButton = new ToolStripButton();
             repoTreeContextMenu.SuspendLayout();
-            repoFilesContextMenu.SuspendLayout();
             changedFilesContextMenu.SuspendLayout();
             repoInfoContextMenu.SuspendLayout();
             commitGraphContextMenu.SuspendLayout();
@@ -144,6 +154,7 @@ namespace MyGitWinV10.App
             leftSideSplitContainer.SuspendLayout();
             repoTreePanel.SuspendLayout();
             repoFilesPanel.SuspendLayout();
+            repoFilesContextMenu.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)graphDetailSplitContainer).BeginInit();
             graphDetailSplitContainer.Panel1.SuspendLayout();
             graphDetailSplitContainer.Panel2.SuspendLayout();
@@ -169,7 +180,7 @@ namespace MyGitWinV10.App
             repoTreeView.Location = new Point(1, 80);
             repoTreeView.Name = "repoTreeView";
             repoTreeView.ShowNodeToolTips = true;
-            repoTreeView.Size = new Size(296, 796);
+            repoTreeView.Size = new Size(296, 377);
             repoTreeView.TabIndex = 0;
             toolTip.SetToolTip(repoTreeView, "Local/remote branches, tags, and releases. Double-click a local branch to check it out.");
             repoTreeView.AfterSelect += RepoTreeView_AfterSelect;
@@ -243,7 +254,7 @@ namespace MyGitWinV10.App
             commitMetaLabel.Location = new Point(1, 31);
             commitMetaLabel.Name = "commitMetaLabel";
             commitMetaLabel.Padding = new Padding(10, 8, 10, 8);
-            commitMetaLabel.Size = new Size(342, 84);
+            commitMetaLabel.Size = new Size(311, 84);
             commitMetaLabel.TabIndex = 1;
             commitMetaLabel.Text = "Select a commit to see its details.";
             toolTip.SetToolTip(commitMetaLabel, "Author, date, and message of the selected commit or release.");
@@ -260,7 +271,7 @@ namespace MyGitWinV10.App
             changedFilesListView.Location = new Point(1, 145);
             changedFilesListView.MultiSelect = false;
             changedFilesListView.Name = "changedFilesListView";
-            changedFilesListView.Size = new Size(342, 207);
+            changedFilesListView.Size = new Size(311, 207);
             changedFilesListView.TabIndex = 0;
             toolTip.SetToolTip(changedFilesListView, "Files changed in the selected commit. Click a file to view its diff.");
             changedFilesListView.UseCompatibleStateImageBehavior = false;
@@ -291,7 +302,7 @@ namespace MyGitWinV10.App
             diffTextBox.Location = new Point(1, 31);
             diffTextBox.Name = "diffTextBox";
             diffTextBox.ReadOnly = true;
-            diffTextBox.Size = new Size(342, 486);
+            diffTextBox.Size = new Size(311, 486);
             diffTextBox.TabIndex = 0;
             diffTextBox.Text = "";
             toolTip.SetToolTip(diffTextBox, "Unified diff of the selected file.");
@@ -360,7 +371,7 @@ namespace MyGitWinV10.App
             commitGraphView.Dock = DockStyle.Fill;
             commitGraphView.Location = new Point(1, 31);
             commitGraphView.Name = "commitGraphView";
-            commitGraphView.Size = new Size(942, 845);
+            commitGraphView.Size = new Size(973, 845);
             commitGraphView.TabIndex = 0;
             commitGraphView.CommitSelected += CommitGraphView_CommitSelected;
             // 
@@ -404,7 +415,7 @@ namespace MyGitWinV10.App
             changedFilesTitleLabel.Name = "changedFilesTitleLabel";
             changedFilesTitleLabel.Padding = new Padding(12, 0, 10, 0);
             changedFilesTitleLabel.Section = SectionTitleKind.ChangedFiles;
-            changedFilesTitleLabel.Size = new Size(342, 30);
+            changedFilesTitleLabel.Size = new Size(311, 30);
             changedFilesTitleLabel.TabIndex = 2;
             changedFilesTitleLabel.Text = "Changed Files";
             changedFilesTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -431,7 +442,7 @@ namespace MyGitWinV10.App
             openRepositoryMenuItem.Name = "openRepositoryMenuItem";
             openRepositoryMenuItem.ShortcutKeys = Keys.Control | Keys.O;
             openRepositoryMenuItem.ShowShortcutKeys = false;
-            openRepositoryMenuItem.Size = new Size(107, 22);
+            openRepositoryMenuItem.Size = new Size(159, 22);
             openRepositoryMenuItem.Text = "&Open...";
             openRepositoryMenuItem.ToolTipText = "Open a local Git repository folder";
             openRepositoryMenuItem.Click += OpenRepositoryMenuItem_Click;
@@ -441,37 +452,37 @@ namespace MyGitWinV10.App
             cloneRepositoryMenuItem.Name = "cloneRepositoryMenuItem";
             cloneRepositoryMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.O;
             cloneRepositoryMenuItem.ShowShortcutKeys = false;
-            cloneRepositoryMenuItem.Size = new Size(107, 22);
+            cloneRepositoryMenuItem.Size = new Size(159, 22);
             cloneRepositoryMenuItem.Text = "&Clone...";
             cloneRepositoryMenuItem.ToolTipText = "Clone a remote repository to a local folder";
             cloneRepositoryMenuItem.Click += CloneRepositoryMenuItem_Click;
-            //
+            // 
             // browseRemoteRepositoryMenuItem
-            //
+            // 
             browseRemoteRepositoryMenuItem.Name = "browseRemoteRepositoryMenuItem";
             browseRemoteRepositoryMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.B;
             browseRemoteRepositoryMenuItem.ShowShortcutKeys = false;
-            browseRemoteRepositoryMenuItem.Size = new Size(107, 22);
+            browseRemoteRepositoryMenuItem.Size = new Size(159, 22);
             browseRemoteRepositoryMenuItem.Text = "Browse &Remote...";
             browseRemoteRepositoryMenuItem.ToolTipText = "Browse remote commit history without saving a local copy";
             browseRemoteRepositoryMenuItem.Click += BrowseRemoteRepositoryMenuItem_Click;
-            //
+            // 
             // fileRecentSeparator
             // 
             fileRecentSeparator.Name = "fileRecentSeparator";
-            fileRecentSeparator.Size = new Size(104, 6);
+            fileRecentSeparator.Size = new Size(156, 6);
             // 
             // fileMenuSeparator
             // 
             fileMenuSeparator.Name = "fileMenuSeparator";
-            fileMenuSeparator.Size = new Size(104, 6);
+            fileMenuSeparator.Size = new Size(156, 6);
             // 
             // exitMenuItem
             // 
             exitMenuItem.Name = "exitMenuItem";
             exitMenuItem.ShortcutKeys = Keys.Alt | Keys.F4;
             exitMenuItem.ShowShortcutKeys = false;
-            exitMenuItem.Size = new Size(107, 22);
+            exitMenuItem.Size = new Size(159, 22);
             exitMenuItem.Text = "E&xit";
             exitMenuItem.ToolTipText = "Close the application";
             exitMenuItem.Click += ExitMenuItem_Click;
@@ -621,7 +632,7 @@ namespace MyGitWinV10.App
             // statusStrip
             // 
             statusStrip.BackColor = Color.FromArgb(245, 246, 248);
-            statusStrip.Items.AddRange(new ToolStripItem[] { statusLabel, repoCountsStatusLabel });
+            statusStrip.Items.AddRange(new ToolStripItem[] { statusLabel, repoLoadProgressBar, repoCountsStatusLabel });
             statusStrip.Location = new Point(0, 938);
             statusStrip.Name = "statusStrip";
             statusStrip.Size = new Size(1600, 22);
@@ -634,6 +645,14 @@ namespace MyGitWinV10.App
             statusLabel.Spring = true;
             statusLabel.Text = "Ready";
             statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // repoLoadProgressBar
+            // 
+            repoLoadProgressBar.Alignment = ToolStripItemAlignment.Right;
+            repoLoadProgressBar.Name = "repoLoadProgressBar";
+            repoLoadProgressBar.Size = new Size(100, 16);
+            repoLoadProgressBar.Style = ProgressBarStyle.Marquee;
+            repoLoadProgressBar.Visible = false;
             // 
             // repoCountsStatusLabel
             // 
@@ -652,6 +671,13 @@ namespace MyGitWinV10.App
             // 
             mainSplitContainer.Panel1.Controls.Add(leftSideSplitContainer);
             mainSplitContainer.Panel1MinSize = 220;
+            // 
+            // mainSplitContainer.Panel2
+            // 
+            mainSplitContainer.Panel2.Controls.Add(graphDetailSplitContainer);
+            mainSplitContainer.Size = new Size(1600, 879);
+            mainSplitContainer.SplitterDistance = 300;
+            mainSplitContainer.TabIndex = 2;
             // 
             // leftSideSplitContainer
             // 
@@ -673,6 +699,35 @@ namespace MyGitWinV10.App
             leftSideSplitContainer.Size = new Size(300, 879);
             leftSideSplitContainer.SplitterDistance = 460;
             leftSideSplitContainer.TabIndex = 0;
+            // 
+            // repoTreePanel
+            // 
+            repoTreePanel.BackColor = Color.FromArgb(250, 250, 251);
+            repoTreePanel.BorderStyle = BorderStyle.FixedSingle;
+            repoTreePanel.Controls.Add(repoTreeView);
+            repoTreePanel.Controls.Add(repoInfoLabel);
+            repoTreePanel.Controls.Add(repoTitleLabel);
+            repoTreePanel.Dock = DockStyle.Fill;
+            repoTreePanel.Location = new Point(0, 0);
+            repoTreePanel.Name = "repoTreePanel";
+            repoTreePanel.Padding = new Padding(1);
+            repoTreePanel.Size = new Size(300, 460);
+            repoTreePanel.TabIndex = 0;
+            // 
+            // repoTitleLabel
+            // 
+            repoTitleLabel.BackColor = Color.FromArgb(238, 242, 255);
+            repoTitleLabel.Dock = DockStyle.Top;
+            repoTitleLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            repoTitleLabel.ForeColor = Color.FromArgb(55, 48, 163);
+            repoTitleLabel.Location = new Point(1, 1);
+            repoTitleLabel.Name = "repoTitleLabel";
+            repoTitleLabel.Padding = new Padding(12, 0, 10, 0);
+            repoTitleLabel.Size = new Size(296, 30);
+            repoTitleLabel.TabIndex = 1;
+            repoTitleLabel.Text = "Repository";
+            repoTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
+            repoTitleLabel.UseCompatibleTextRendering = true;
             // 
             // repoFilesPanel
             // 
@@ -697,24 +752,24 @@ namespace MyGitWinV10.App
             repoFilesTreeView.HideSelection = false;
             repoFilesTreeView.Location = new Point(1, 31);
             repoFilesTreeView.Name = "repoFilesTreeView";
-            repoFilesTreeView.ShowNodeToolTips = true;
             repoFilesTreeView.Size = new Size(296, 381);
             repoFilesTreeView.TabIndex = 0;
             repoFilesTreeView.BeforeExpand += RepoFilesTreeView_BeforeExpand;
             repoFilesTreeView.AfterSelect += RepoFilesTreeView_AfterSelect;
             repoFilesTreeView.NodeMouseClick += RepoFilesTreeView_NodeMouseClick;
+            repoFilesTreeView.MouseDown += RepoFilesTreeView_MouseDown;
             // 
             // repoFilesContextMenu
             // 
-            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { showFileLogContextMenuItem, repoFilesGitSeparator, gitAddContextMenuItem, gitCommitContextMenuItem, gitPushContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
+            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { showFileLogContextMenuItem, repoFilesGitSeparator, gitAddContextMenuItem, gitResetContextMenuItem, gitDiscardContextMenuItem, gitStagingSeparator, gitCommitContextMenuItem, gitRemoteSeparator, gitFetchContextMenuItem, gitPullContextMenuItem, gitPushContextMenuItem, gitStashSeparator, gitStashContextMenuItem, gitStashPopContextMenuItem, gitStatusContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
             repoFilesContextMenu.Name = "repoFilesContextMenu";
-            repoFilesContextMenu.Size = new Size(181, 142);
+            repoFilesContextMenu.Size = new Size(184, 314);
             repoFilesContextMenu.Opening += RepoFilesContextMenu_Opening;
             // 
             // showFileLogContextMenuItem
             // 
             showFileLogContextMenuItem.Name = "showFileLogContextMenuItem";
-            showFileLogContextMenuItem.Size = new Size(180, 22);
+            showFileLogContextMenuItem.Size = new Size(183, 22);
             showFileLogContextMenuItem.Text = "Show Log";
             showFileLogContextMenuItem.ToolTipText = "Show commit history for this path in the graph panel";
             showFileLogContextMenuItem.Click += ShowFileLogContextMenuItem_Click;
@@ -722,36 +777,107 @@ namespace MyGitWinV10.App
             // repoFilesGitSeparator
             // 
             repoFilesGitSeparator.Name = "repoFilesGitSeparator";
-            repoFilesGitSeparator.Size = new Size(177, 6);
+            repoFilesGitSeparator.Size = new Size(180, 6);
             // 
             // gitAddContextMenuItem
             // 
             gitAddContextMenuItem.Name = "gitAddContextMenuItem";
-            gitAddContextMenuItem.Size = new Size(180, 22);
+            gitAddContextMenuItem.Size = new Size(183, 22);
             gitAddContextMenuItem.Text = "Git Add";
             gitAddContextMenuItem.ToolTipText = "Stage the selected file or folder";
             gitAddContextMenuItem.Click += GitAddContextMenuItem_Click;
             // 
+            // gitResetContextMenuItem
+            // 
+            gitResetContextMenuItem.Name = "gitResetContextMenuItem";
+            gitResetContextMenuItem.Size = new Size(183, 22);
+            gitResetContextMenuItem.Text = "Git Reset (Unstage)";
+            gitResetContextMenuItem.ToolTipText = "Unstage the selected file or folder";
+            gitResetContextMenuItem.Click += GitResetContextMenuItem_Click;
+            // 
+            // gitDiscardContextMenuItem
+            // 
+            gitDiscardContextMenuItem.Name = "gitDiscardContextMenuItem";
+            gitDiscardContextMenuItem.Size = new Size(183, 22);
+            gitDiscardContextMenuItem.Text = "Git Discard Changes";
+            gitDiscardContextMenuItem.ToolTipText = "Discard uncommitted changes in the selected path";
+            gitDiscardContextMenuItem.Click += GitDiscardContextMenuItem_Click;
+            // 
+            // gitStagingSeparator
+            // 
+            gitStagingSeparator.Name = "gitStagingSeparator";
+            gitStagingSeparator.Size = new Size(180, 6);
+            // 
             // gitCommitContextMenuItem
             // 
             gitCommitContextMenuItem.Name = "gitCommitContextMenuItem";
-            gitCommitContextMenuItem.Size = new Size(180, 22);
+            gitCommitContextMenuItem.Size = new Size(183, 22);
             gitCommitContextMenuItem.Text = "Git Commit...";
             gitCommitContextMenuItem.ToolTipText = "Commit staged changes with a formatted message";
             gitCommitContextMenuItem.Click += GitCommitContextMenuItem_Click;
             // 
+            // gitRemoteSeparator
+            // 
+            gitRemoteSeparator.Name = "gitRemoteSeparator";
+            gitRemoteSeparator.Size = new Size(180, 6);
+            // 
+            // gitFetchContextMenuItem
+            // 
+            gitFetchContextMenuItem.Name = "gitFetchContextMenuItem";
+            gitFetchContextMenuItem.Size = new Size(183, 22);
+            gitFetchContextMenuItem.Text = "Git Fetch";
+            gitFetchContextMenuItem.ToolTipText = "Fetch updates from origin";
+            gitFetchContextMenuItem.Click += GitFetchContextMenuItem_Click;
+            // 
+            // gitPullContextMenuItem
+            // 
+            gitPullContextMenuItem.Name = "gitPullContextMenuItem";
+            gitPullContextMenuItem.Size = new Size(183, 22);
+            gitPullContextMenuItem.Text = "Git Pull";
+            gitPullContextMenuItem.ToolTipText = "Pull and merge updates from origin";
+            gitPullContextMenuItem.Click += GitPullContextMenuItem_Click;
+            // 
             // gitPushContextMenuItem
             // 
             gitPushContextMenuItem.Name = "gitPushContextMenuItem";
-            gitPushContextMenuItem.Size = new Size(180, 22);
+            gitPushContextMenuItem.Size = new Size(183, 22);
             gitPushContextMenuItem.Text = "Git Push";
             gitPushContextMenuItem.ToolTipText = "Push the current branch to origin";
             gitPushContextMenuItem.Click += GitPushContextMenuItem_Click;
             // 
+            // gitStashSeparator
+            // 
+            gitStashSeparator.Name = "gitStashSeparator";
+            gitStashSeparator.Size = new Size(180, 6);
+            // 
+            // gitStashContextMenuItem
+            // 
+            gitStashContextMenuItem.Name = "gitStashContextMenuItem";
+            gitStashContextMenuItem.Size = new Size(183, 22);
+            gitStashContextMenuItem.Text = "Git Stash";
+            gitStashContextMenuItem.ToolTipText = "Stash uncommitted changes";
+            gitStashContextMenuItem.Click += GitStashContextMenuItem_Click;
+            // 
+            // gitStashPopContextMenuItem
+            // 
+            gitStashPopContextMenuItem.Name = "gitStashPopContextMenuItem";
+            gitStashPopContextMenuItem.Size = new Size(183, 22);
+            gitStashPopContextMenuItem.Text = "Git Stash Pop";
+            gitStashPopContextMenuItem.ToolTipText = "Apply and remove the latest stash";
+            gitStashPopContextMenuItem.Click += GitStashPopContextMenuItem_Click;
+            // 
+            // gitStatusContextMenuItem
+            // 
+            gitStatusContextMenuItem.Name = "gitStatusContextMenuItem";
+            gitStatusContextMenuItem.Size = new Size(183, 22);
+            gitStatusContextMenuItem.Text = "Git Status...";
+            gitStatusContextMenuItem.ToolTipText = "Show working tree status";
+            gitStatusContextMenuItem.Click += GitStatusContextMenuItem_Click;
+            // 
             // copyRepoFilePathContextMenuItem
             // 
             copyRepoFilePathContextMenuItem.Name = "copyRepoFilePathContextMenuItem";
-            copyRepoFilePathContextMenuItem.Size = new Size(180, 22);
+            copyRepoFilePathContextMenuItem.Size = new Size(183, 22);
             copyRepoFilePathContextMenuItem.Text = "Copy Path";
             copyRepoFilePathContextMenuItem.ToolTipText = "Copy the repository-relative path to the clipboard";
             copyRepoFilePathContextMenuItem.Click += CopyRepoFilePathContextMenuItem_Click;
@@ -759,7 +885,7 @@ namespace MyGitWinV10.App
             // clearFileLogFilterContextMenuItem
             // 
             clearFileLogFilterContextMenuItem.Name = "clearFileLogFilterContextMenuItem";
-            clearFileLogFilterContextMenuItem.Size = new Size(180, 22);
+            clearFileLogFilterContextMenuItem.Size = new Size(183, 22);
             clearFileLogFilterContextMenuItem.Text = "Show All Commits";
             clearFileLogFilterContextMenuItem.ToolTipText = "Clear the path filter and show the full commit history";
             clearFileLogFilterContextMenuItem.Click += ClearFileLogFilterContextMenuItem_Click;
@@ -780,42 +906,6 @@ namespace MyGitWinV10.App
             repoFilesTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
             repoFilesTitleLabel.UseCompatibleTextRendering = true;
             // 
-            // mainSplitContainer.Panel2
-            // 
-            mainSplitContainer.Panel2.Controls.Add(graphDetailSplitContainer);
-            mainSplitContainer.Size = new Size(1600, 879);
-            mainSplitContainer.SplitterDistance = 300;
-            mainSplitContainer.TabIndex = 2;
-            // 
-            // repoTreePanel
-            // 
-            repoTreePanel.BackColor = Color.FromArgb(250, 250, 251);
-            repoTreePanel.BorderStyle = BorderStyle.FixedSingle;
-            repoTreePanel.Controls.Add(repoTreeView);
-            repoTreePanel.Controls.Add(repoInfoLabel);
-            repoTreePanel.Controls.Add(repoTitleLabel);
-            repoTreePanel.Dock = DockStyle.Fill;
-            repoTreePanel.Location = new Point(0, 0);
-            repoTreePanel.Name = "repoTreePanel";
-            repoTreePanel.Padding = new Padding(1);
-            repoTreePanel.Size = new Size(300, 879);
-            repoTreePanel.TabIndex = 0;
-            // 
-            // repoTitleLabel
-            // 
-            repoTitleLabel.BackColor = Color.FromArgb(238, 242, 255);
-            repoTitleLabel.Dock = DockStyle.Top;
-            repoTitleLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            repoTitleLabel.ForeColor = Color.FromArgb(55, 48, 163);
-            repoTitleLabel.Location = new Point(1, 1);
-            repoTitleLabel.Name = "repoTitleLabel";
-            repoTitleLabel.Padding = new Padding(12, 0, 10, 0);
-            repoTitleLabel.Size = new Size(296, 30);
-            repoTitleLabel.TabIndex = 1;
-            repoTitleLabel.Text = "Repository";
-            repoTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
-            repoTitleLabel.UseCompatibleTextRendering = true;
-            // 
             // graphDetailSplitContainer
             // 
             graphDetailSplitContainer.BackColor = Color.FromArgb(230, 231, 234);
@@ -833,7 +923,7 @@ namespace MyGitWinV10.App
             graphDetailSplitContainer.Panel2.Controls.Add(detailSplitContainer);
             graphDetailSplitContainer.Panel2MinSize = 220;
             graphDetailSplitContainer.Size = new Size(1296, 879);
-            graphDetailSplitContainer.SplitterDistance = 946;
+            graphDetailSplitContainer.SplitterDistance = 977;
             graphDetailSplitContainer.TabIndex = 0;
             // 
             // graphPanel
@@ -846,7 +936,7 @@ namespace MyGitWinV10.App
             graphPanel.Location = new Point(0, 0);
             graphPanel.Name = "graphPanel";
             graphPanel.Padding = new Padding(1);
-            graphPanel.Size = new Size(946, 879);
+            graphPanel.Size = new Size(977, 879);
             graphPanel.TabIndex = 0;
             // 
             // graphTitleLabel
@@ -859,7 +949,7 @@ namespace MyGitWinV10.App
             graphTitleLabel.Name = "graphTitleLabel";
             graphTitleLabel.Padding = new Padding(12, 0, 10, 0);
             graphTitleLabel.Section = SectionTitleKind.CommitHistory;
-            graphTitleLabel.Size = new Size(942, 30);
+            graphTitleLabel.Size = new Size(973, 30);
             graphTitleLabel.TabIndex = 1;
             graphTitleLabel.Text = "Commit History";
             graphTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -882,7 +972,7 @@ namespace MyGitWinV10.App
             // 
             detailSplitContainer.Panel2.Controls.Add(diffPanel);
             detailSplitContainer.Panel2MinSize = 120;
-            detailSplitContainer.Size = new Size(346, 879);
+            detailSplitContainer.Size = new Size(315, 879);
             detailSplitContainer.SplitterDistance = 355;
             detailSplitContainer.TabIndex = 0;
             // 
@@ -898,7 +988,7 @@ namespace MyGitWinV10.App
             filesPanel.Location = new Point(0, 0);
             filesPanel.Name = "filesPanel";
             filesPanel.Padding = new Padding(1);
-            filesPanel.Size = new Size(346, 355);
+            filesPanel.Size = new Size(315, 355);
             filesPanel.TabIndex = 0;
             // 
             // filesTitleLabel
@@ -911,7 +1001,7 @@ namespace MyGitWinV10.App
             filesTitleLabel.Name = "filesTitleLabel";
             filesTitleLabel.Padding = new Padding(12, 0, 10, 0);
             filesTitleLabel.Section = SectionTitleKind.CommitDetails;
-            filesTitleLabel.Size = new Size(342, 30);
+            filesTitleLabel.Size = new Size(311, 30);
             filesTitleLabel.TabIndex = 2;
             filesTitleLabel.Text = "Commit Details";
             filesTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -927,7 +1017,7 @@ namespace MyGitWinV10.App
             diffPanel.Location = new Point(0, 0);
             diffPanel.Name = "diffPanel";
             diffPanel.Padding = new Padding(1);
-            diffPanel.Size = new Size(346, 520);
+            diffPanel.Size = new Size(315, 520);
             diffPanel.TabIndex = 0;
             // 
             // diffTitleLabel
@@ -940,7 +1030,7 @@ namespace MyGitWinV10.App
             diffTitleLabel.Name = "diffTitleLabel";
             diffTitleLabel.Padding = new Padding(12, 0, 10, 0);
             diffTitleLabel.Section = SectionTitleKind.Diff;
-            diffTitleLabel.Size = new Size(342, 30);
+            diffTitleLabel.Size = new Size(311, 30);
             diffTitleLabel.TabIndex = 1;
             diffTitleLabel.Text = "Diff";
             diffTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
@@ -973,15 +1063,15 @@ namespace MyGitWinV10.App
             cloneToolButton.Text = "Clone";
             cloneToolButton.ToolTipText = "Clone a remote repository to a local folder";
             cloneToolButton.Click += CloneRepositoryMenuItem_Click;
-            //
+            // 
             // browseRemoteToolButton
-            //
+            // 
             browseRemoteToolButton.Name = "browseRemoteToolButton";
-            browseRemoteToolButton.Size = new Size(42, 20);
+            browseRemoteToolButton.Size = new Size(94, 20);
             browseRemoteToolButton.Text = "Browse Remote";
             browseRemoteToolButton.ToolTipText = "Browse remote commit history without saving a local copy";
             browseRemoteToolButton.Click += BrowseRemoteRepositoryMenuItem_Click;
-            //
+            // 
             // refreshTreeToolButton
             // 
             refreshTreeToolButton.Name = "refreshTreeToolButton";
@@ -1001,7 +1091,7 @@ namespace MyGitWinV10.App
             // exportSummaryToolPdfItem
             // 
             exportSummaryToolPdfItem.Name = "exportSummaryToolPdfItem";
-            exportSummaryToolPdfItem.Size = new Size(180, 22);
+            exportSummaryToolPdfItem.Size = new Size(164, 22);
             exportSummaryToolPdfItem.Tag = "pdf";
             exportSummaryToolPdfItem.Text = "PDF (.pdf)";
             exportSummaryToolPdfItem.Click += ExportRepositorySummaryMenuItem_Click;
@@ -1009,7 +1099,7 @@ namespace MyGitWinV10.App
             // exportSummaryToolWordItem
             // 
             exportSummaryToolWordItem.Name = "exportSummaryToolWordItem";
-            exportSummaryToolWordItem.Size = new Size(180, 22);
+            exportSummaryToolWordItem.Size = new Size(164, 22);
             exportSummaryToolWordItem.Tag = "docx";
             exportSummaryToolWordItem.Text = "Word (.docx)";
             exportSummaryToolWordItem.Click += ExportRepositorySummaryMenuItem_Click;
@@ -1017,7 +1107,7 @@ namespace MyGitWinV10.App
             // exportSummaryToolMarkdownItem
             // 
             exportSummaryToolMarkdownItem.Name = "exportSummaryToolMarkdownItem";
-            exportSummaryToolMarkdownItem.Size = new Size(180, 22);
+            exportSummaryToolMarkdownItem.Size = new Size(164, 22);
             exportSummaryToolMarkdownItem.Tag = "md";
             exportSummaryToolMarkdownItem.Text = "Markdown (.md)";
             exportSummaryToolMarkdownItem.Click += ExportRepositorySummaryMenuItem_Click;
@@ -1113,7 +1203,6 @@ namespace MyGitWinV10.App
             StartPosition = FormStartPosition.CenterScreen;
             Text = "MyGit V1.0.0";
             repoTreeContextMenu.ResumeLayout(false);
-            repoFilesContextMenu.ResumeLayout(false);
             changedFilesContextMenu.ResumeLayout(false);
             repoInfoContextMenu.ResumeLayout(false);
             commitGraphContextMenu.ResumeLayout(false);
@@ -1131,6 +1220,7 @@ namespace MyGitWinV10.App
             leftSideSplitContainer.ResumeLayout(false);
             repoTreePanel.ResumeLayout(false);
             repoFilesPanel.ResumeLayout(false);
+            repoFilesContextMenu.ResumeLayout(false);
             graphDetailSplitContainer.Panel1.ResumeLayout(false);
             graphDetailSplitContainer.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)graphDetailSplitContainer).EndInit();
@@ -1176,6 +1266,7 @@ namespace MyGitWinV10.App
         private ToolStripMenuItem aboutMenuItem;
         private StatusStrip statusStrip;
         private ToolStripStatusLabel statusLabel;
+        private ToolStripProgressBar repoLoadProgressBar;
         private ToolStripStatusLabel repoCountsStatusLabel;
         private SplitContainer mainSplitContainer;
         private SplitContainer leftSideSplitContainer;
@@ -1187,8 +1278,18 @@ namespace MyGitWinV10.App
         private ToolStripMenuItem showFileLogContextMenuItem;
         private ToolStripSeparator repoFilesGitSeparator;
         private ToolStripMenuItem gitAddContextMenuItem;
+        private ToolStripMenuItem gitResetContextMenuItem;
+        private ToolStripMenuItem gitDiscardContextMenuItem;
+        private ToolStripSeparator gitStagingSeparator;
         private ToolStripMenuItem gitCommitContextMenuItem;
+        private ToolStripSeparator gitRemoteSeparator;
+        private ToolStripMenuItem gitFetchContextMenuItem;
+        private ToolStripMenuItem gitPullContextMenuItem;
         private ToolStripMenuItem gitPushContextMenuItem;
+        private ToolStripSeparator gitStashSeparator;
+        private ToolStripMenuItem gitStashContextMenuItem;
+        private ToolStripMenuItem gitStashPopContextMenuItem;
+        private ToolStripMenuItem gitStatusContextMenuItem;
         private ToolStripMenuItem copyRepoFilePathContextMenuItem;
         private ToolStripMenuItem clearFileLogFilterContextMenuItem;
         private SectionInfoLabel repoInfoLabel;

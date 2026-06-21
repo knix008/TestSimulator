@@ -53,12 +53,16 @@ namespace MyGitWinV10.App.Dialogs
             //
             // manageCategoriesButton
             //
+            manageCategoriesButton.AutoSize = false;
             manageCategoriesButton.FlatStyle = FlatStyle.Flat;
-            manageCategoriesButton.Location = new Point(396, 37);
+            manageCategoriesButton.Location = new Point(405, 36);
+            manageCategoriesButton.MaximumSize = new Size(75, 28);
+            manageCategoriesButton.MinimumSize = new Size(75, 28);
             manageCategoriesButton.Name = "manageCategoriesButton";
-            manageCategoriesButton.Size = new Size(84, 25);
+            manageCategoriesButton.Size = new Size(75, 28);
             manageCategoriesButton.TabIndex = 7;
             manageCategoriesButton.Text = "Manage...";
+            manageCategoriesButton.TextAlign = ContentAlignment.MiddleCenter;
             manageCategoriesButton.Click += ManageCategoriesButton_Click;
             //
             // subjectLabel

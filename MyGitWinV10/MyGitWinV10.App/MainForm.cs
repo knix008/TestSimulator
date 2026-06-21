@@ -10,8 +10,14 @@ public partial class MainForm : Form
     private readonly GitRepositoryService _gitService = new();
     private readonly AppSettingsStore _settings = AppSettingsStore.Load();
     private readonly MenuStripRootIconRenderer _menuRenderer = new();
-    private Patch? _currentPatch;
     private Commit? _currentCommit;
+    private TreeChanges? _currentCommitChanges;
+    private int _commitDetailLoadGeneration;
+    private int _diffLoadGeneration;
+    private int _pathHistoryLoadGeneration;
+    private int _commitGraphLoadGeneration;
+    private int _repositoryRefreshGeneration;
+    private bool _repositoryRefreshInProgress;
 
     // Kept in memory only for this session — never persisted to disk (see CredentialsPrompt).
     private string? _gitHubToken;
@@ -24,6 +30,20 @@ public partial class MainForm : Form
     private bool _suppressFileTreePathLog;
 
     private readonly List<ToolStripMenuItem> _fileRecentMenuItems = [];
+
+    private readonly List<ToolStripMenuItem> _repositoryGitMenuItems = [];
+
+    private static readonly RepositoryFileNodeTag RepositoryRootTag = new()
+    {
+        RelativePath = string.Empty,
+        IsDirectory = true
+    };
+
+    private ToolStripMenuItem repositoryGitMenuItem = null!;
+
+    private readonly GitFileTreeImageList _gitFileTreeImages = new();
+
+    private RepositoryPathStatusIndex? _fileTreeStatusIndex;
 
     private bool _applyingPanelLayout;
     private bool _historySplitterUserAdjusted;
@@ -64,7 +84,12 @@ public partial class MainForm : Form
         mainSplitContainer.Panel2.Resize += (_, _) => ApplyPanelLayout();
         detailSplitContainer.Resize += (_, _) => ApplyDetailVerticalLayout();
         fileMenuItem.DropDownOpening += (_, _) => RefreshFileRecentMenu();
-        FormClosed += (_, _) => _gitService.Dispose();
+        FormClosed += (_, _) =>
+        {
+            _gitService.Dispose();
+            _gitFileTreeImages.Dispose();
+        };
+        _gitFileTreeImages.Attach(repoFilesTreeView);
         Shown += (_, _) =>
         {
             ApplyPanelLayout();
@@ -231,10 +256,18 @@ public partial class MainForm : Form
         ConfigureContextMenu(repoFilesContextMenu,
             (showFileLogContextMenuItem, IconFactory.History(), "Show Log"),
             (gitAddContextMenuItem, IconFactory.GitAdd(), "Git Add"),
+            (gitResetContextMenuItem, IconFactory.GitReset(), "Git Reset (Unstage)"),
+            (gitDiscardContextMenuItem, IconFactory.GitDiscard(), "Git Discard Changes"),
             (gitCommitContextMenuItem, IconFactory.GitCommit(), "Git Commit..."),
+            (gitFetchContextMenuItem, IconFactory.GitFetch(), "Git Fetch"),
+            (gitPullContextMenuItem, IconFactory.GitPull(), "Git Pull"),
             (gitPushContextMenuItem, IconFactory.GitPush(), "Git Push"),
+            (gitStashContextMenuItem, IconFactory.GitStash(), "Git Stash"),
+            (gitStashPopContextMenuItem, IconFactory.GitStash(), "Git Stash Pop"),
+            (gitStatusContextMenuItem, IconFactory.GitStatus(), "Git Status..."),
             (copyRepoFilePathContextMenuItem, IconFactory.File(), "Copy Path"),
             (clearFileLogFilterContextMenuItem, IconFactory.RefreshGraph(), "Show All Commits"));
+        ConfigureRepositoryGitMenu();
     }
 
     private void ConfigureExportSummaryMenu(ToolStripMenuItem parent, bool menuBar = false)
@@ -428,8 +461,7 @@ public partial class MainForm : Form
     private void ConfigureSectionHeadingToolTips()
     {
         toolTip.SetToolTip(repoTitleLabel, "Local repository tree with branches, tags, and releases.");
-        toolTip.SetToolTip(repoFilesTitleLabel, "Repository folders and files. Select a tracked path to show its commit log.");
-        toolTip.SetToolTip(repoFilesTreeView, "Browse repository folders and files. Select a tracked path to show its commit log.");
+        toolTip.SetToolTip(repoFilesTitleLabel, "Repository folders and files. Icons show Git status; hover a node for staged and work tree details.");
         toolTip.SetToolTip(graphTitleLabel, "Commit log with branch graph, messages, and metadata.");
         toolTip.SetToolTip(filesTitleLabel, "Author, message, and files changed in the selected commit.");
         toolTip.SetToolTip(diffTitleLabel, "Unified diff for the selected changed file.");
@@ -447,11 +479,11 @@ public partial class MainForm : Form
         _ => kind.ToString()
     };
 
-    private void PopulateChangedFilesList(Patch patch)
+    private void PopulateChangedFilesList(TreeChanges changes)
     {
         changedFilesListView.BeginUpdate();
         changedFilesListView.Items.Clear();
-        foreach (var entry in patch)
+        foreach (TreeEntryChanges entry in changes)
         {
             var item = new ListViewItem(entry.Path) { Tag = entry.Path };
             item.SubItems.Add(FormatChangeKind(entry.Status));
@@ -594,6 +626,14 @@ public partial class MainForm : Form
         bool showErrorOnFailure = true,
         string? completionTitle = null,
         string? completionSummary = null,
+        IReadOnlyList<OperationDetail>? completionDetails = null) =>
+        _ = TryOpenRepositoryAsync(path, showErrorOnFailure, completionTitle, completionSummary, completionDetails);
+
+    private async Task TryOpenRepositoryAsync(
+        string path,
+        bool showErrorOnFailure = true,
+        string? completionTitle = null,
+        string? completionSummary = null,
         IReadOnlyList<OperationDetail>? completionDetails = null)
     {
         try
@@ -602,7 +642,7 @@ public partial class MainForm : Form
             _pathHistoryFilter = null;
             _gitService.OpenLocal(path);
             statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
-            RefreshRepositoryViews();
+            await RefreshRepositoryViewsAsync("Opening repository...");
 
             if (!string.IsNullOrWhiteSpace(_gitService.RepositoryPath))
             {
@@ -637,6 +677,14 @@ public partial class MainForm : Form
         string remoteUrl,
         bool showErrorOnFailure = true,
         string? completionTitle = null,
+        string? completionSummary = null) =>
+        _ = TryOpenRemoteBrowseAsync(cachePath, remoteUrl, showErrorOnFailure, completionTitle, completionSummary);
+
+    private async Task TryOpenRemoteBrowseAsync(
+        string cachePath,
+        string remoteUrl,
+        bool showErrorOnFailure = true,
+        string? completionTitle = null,
         string? completionSummary = null)
     {
         try
@@ -645,7 +693,7 @@ public partial class MainForm : Form
             _pathHistoryFilter = null;
             _gitService.OpenLocal(cachePath);
             statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()} (remote view)";
-            RefreshRepositoryViews();
+            await RefreshRepositoryViewsAsync("Opening remote repository...");
 
             _settings.RecordSuccessfulRemoteBrowseSession(cachePath, remoteUrl);
             _settings.Save();
@@ -829,36 +877,105 @@ public partial class MainForm : Form
         }
     }
 
-    private void RefreshRepositoryViews()
+    private void RefreshRepositoryViews() => _ = RefreshRepositoryViewsAsync();
+
+    private void CancelPendingRepositoryOperations()
+    {
+        _repositoryRefreshGeneration++;
+        _pathHistoryLoadGeneration++;
+        _commitGraphLoadGeneration++;
+    }
+
+    private async Task RefreshRepositoryViewsAsync(string progressMessage = "Refreshing repository...", bool showProgress = true)
     {
         if (_gitService.Repo is null)
         {
+            _fileTreeStatusIndex = null;
             repoFilesTreeView.Nodes.Clear();
             UpdateGraphTitleLabel();
             return;
         }
 
-        BranchTagTreePopulator.Populate(repoTreeView, _gitService.Repo);
-        RepositoryFileTreeService.PopulateRoot(repoFilesTreeView, _gitService.Repo);
-        if (repoFilesTreeView.Nodes.Count == 1 && repoFilesTreeView.Nodes[0].Tag is RepositoryFileNodeTag)
+        Repository repo = _gitService.Repo;
+        int refreshGeneration = ++_repositoryRefreshGeneration;
+        _pathHistoryLoadGeneration++;
+        _commitGraphLoadGeneration++;
+        _repositoryRefreshInProgress = true;
+        try
         {
-            var root = repoFilesTreeView.Nodes[0];
-            RepositoryFileTreeService.LoadChildren(root, _gitService.Repo);
-            _suppressFileTreePathLog = true;
-            try
+            async Task BuildStatusIndexAsync()
             {
-                root.Expand();
+                _fileTreeStatusIndex = await Task.Run(
+                    () => _gitService.RunLocked(RepositoryPathStatusService.Build));
             }
-            finally
+
+            if (showProgress)
             {
-                _suppressFileTreePathLog = false;
+                statusLabel.Text = progressMessage;
+                repoLoadProgressBar.Visible = true;
+                try
+                {
+                    await BuildStatusIndexAsync();
+                }
+                finally
+                {
+                    repoLoadProgressBar.Visible = false;
+                }
             }
+            else
+            {
+                await BuildStatusIndexAsync();
+            }
+
+            if (refreshGeneration != _repositoryRefreshGeneration || _gitService.Repo != repo)
+            {
+                return;
+            }
+
+            PopulateRepositoryTrees(repo);
+            if (refreshGeneration != _repositoryRefreshGeneration || _gitService.Repo != repo)
+            {
+                return;
+            }
+
+            UpdateRepoInfoLabel();
+            if (_pathHistoryFilter is not null)
+            {
+                await LoadPathFilteredCommitGraphAsync();
+            }
+            else
+            {
+                await LoadCommitGraphAsync();
+            }
+
+            UpdateRepoCounts();
+        }
+        finally
+        {
+            _repositoryRefreshInProgress = false;
         }
 
-        UpdateRepoInfoLabel();
-        LoadCommitGraph();
-        UpdateRepoCounts();
         _ = LoadReleasesAsync();
+    }
+
+    private void PopulateRepositoryTrees(Repository repo)
+    {
+        _suppressFileTreePathLog = true;
+        try
+        {
+            BranchTagTreePopulator.Populate(repoTreeView, repo);
+            RepositoryFileTreeService.PopulateRoot(repoFilesTreeView, repo, _gitFileTreeImages, _fileTreeStatusIndex);
+            if (repoFilesTreeView.Nodes.Count == 1 && repoFilesTreeView.Nodes[0].Tag is RepositoryFileNodeTag)
+            {
+                var root = repoFilesTreeView.Nodes[0];
+                RepositoryFileTreeService.LoadChildren(root, repo, _gitFileTreeImages, _fileTreeStatusIndex);
+                root.Expand();
+            }
+        }
+        finally
+        {
+            _suppressFileTreePathLog = false;
+        }
     }
 
     private void UpdateRepoInfoLabel()
@@ -914,8 +1031,7 @@ public partial class MainForm : Form
         }
 
         statusLabel.Text = "Refreshing branches, tags, and releases...";
-        RefreshRepositoryViews();
-        statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+        _ = RefreshRepositoryViewsAsync("Refreshing branches, tags, and releases...");
     }
 
     private void RefreshGraphToolButton_Click(object? sender, EventArgs e)
@@ -926,8 +1042,7 @@ public partial class MainForm : Form
         }
 
         statusLabel.Text = "Refreshing commit graph...";
-        LoadCommitGraph();
-        statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+        _ = LoadCommitGraphAsync();
     }
 
     private void RepoTreeView_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
@@ -1072,18 +1187,43 @@ public partial class MainForm : Form
             return;
         }
 
+        _ = CheckoutBranchAsync(branch);
+    }
+
+    private async Task CheckoutBranchAsync(Branch branch)
+    {
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
         try
         {
             statusLabel.Text = $"Checking out {branch.FriendlyName}...";
-            Commands.Checkout(_gitService.Repo, branch);
-            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
-            RefreshRepositoryViews();
+            await OperationProgress.RunAsync(
+                this,
+                $"Checking out {branch.FriendlyName}...",
+                async cancellationToken =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await Task.Run(
+                        () => _gitService.RunLocked(activeRepo => Commands.Checkout(activeRepo, branch)),
+                        cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+                },
+                onCancelled: CancelPendingRepositoryOperations);
+            await RefreshRepositoryViewsAsync(showProgress: false);
+            _ = LoadReleasesAsync();
             ShowOperationComplete(
                 "Checkout Complete",
                 "The branch was checked out successfully.",
                 null,
                 new OperationDetail("Branch", branch.FriendlyName),
                 new OperationDetail("Repository", _gitService.RepositoryPath ?? string.Empty));
+        }
+        catch (OperationCanceledException)
+        {
+            statusLabel.Text = "Checkout cancelled";
         }
         catch (Exception ex)
         {
@@ -1179,12 +1319,14 @@ public partial class MainForm : Form
         _currentCommit = null;
         commitMetaLabel.Text = $"{(string.IsNullOrWhiteSpace(release.Name) ? release.TagName : release.Name)}   (tag: {release.TagName})\n{release.PublishedAt:yyyy-MM-dd}";
         changedFilesListView.Items.Clear();
-        _currentPatch = null;
+        _currentCommitChanges = null;
         diffTextBox.Clear();
         diffTextBox.Text = string.IsNullOrWhiteSpace(release.Body) ? "(no release notes)" : release.Body;
     }
 
-    private void LoadCommitGraph()
+    private void LoadCommitGraph() => _ = LoadCommitGraphAsync();
+
+    private async Task LoadCommitGraphAsync()
     {
         if (_gitService.Repo is null)
         {
@@ -1193,18 +1335,58 @@ public partial class MainForm : Form
 
         if (_pathHistoryFilter is not null)
         {
-            _ = LoadPathFilteredCommitGraphAsync();
+            await LoadPathFilteredCommitGraphAsync();
             return;
         }
 
-        var commits = _gitService.Repo.Commits.QueryBy(new CommitFilter
-        {
-            IncludeReachableFrom = _gitService.Repo.Head,
-            SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time
-        }).ToList();
+        await LoadFullCommitGraphAsync();
+    }
 
-        commitGraphView.SetRows(CommitGraphBuilder.Build(commits));
-        UpdateGraphTitleLabel();
+    private async Task LoadFullCommitGraphAsync()
+    {
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        int generation = ++_commitGraphLoadGeneration;
+        _pathHistoryLoadGeneration++;
+        const string progressMessage = "Loading commit history...";
+        statusLabel.Text = progressMessage;
+
+        try
+        {
+            var rows = await Task.Run(() => _gitService.RunLocked(activeRepo =>
+            {
+                var commits = activeRepo.Commits.QueryBy(new CommitFilter
+                {
+                    IncludeReachableFrom = activeRepo.Head,
+                    SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time
+                }).ToList();
+                return CommitGraphBuilder.Build(commits);
+            }));
+            if (generation != _commitGraphLoadGeneration
+                || _gitService.Repo != repo
+                || _pathHistoryFilter is not null)
+            {
+                return;
+            }
+
+            commitGraphView.SetRows(rows);
+            UpdateGraphTitleLabel();
+            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+        }
+        catch (Exception ex)
+        {
+            if (generation != _commitGraphLoadGeneration)
+            {
+                return;
+            }
+
+            statusLabel.Text = "Ready";
+            MessageBox.Show(this, ex.Message, "Load Commit History Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private async Task LoadPathFilteredCommitGraphAsync()
@@ -1217,26 +1399,51 @@ public partial class MainForm : Form
         var repo = _gitService.Repo;
         string path = _pathHistoryFilter;
         bool isDirectory = _pathHistoryFilterIsDirectory;
-        statusLabel.Text = string.IsNullOrEmpty(path)
+        int generation = ++_pathHistoryLoadGeneration;
+        _commitGraphLoadGeneration++;
+        string progressMessage = string.IsNullOrEmpty(path)
             ? "Loading commit history..."
             : $"Loading commit history for {path}...";
+        statusLabel.Text = progressMessage;
 
         try
         {
-            var commits = await Task.Run(() => PathCommitHistoryService.GetCommits(repo, path, isDirectory));
-            if (_gitService.Repo != repo || _pathHistoryFilter != path)
+            var commits = await Task.Run(() => _gitService.RunLocked(activeRepo =>
+                PathCommitHistoryService.GetCommits(
+                    activeRepo,
+                    path,
+                    isDirectory,
+                    () => generation == _pathHistoryLoadGeneration)));
+            if (generation != _pathHistoryLoadGeneration
+                || _gitService.Repo != repo
+                || _pathHistoryFilter != path
+                || _pathHistoryFilterIsDirectory != isDirectory)
             {
                 return;
             }
 
             commitGraphView.SetRows(CommitGraphBuilder.Build(commits));
             UpdateGraphTitleLabel();
+            if (!commitGraphView.TrySelectFirstCommit())
+            {
+                _currentCommit = null;
+                _currentCommitChanges = null;
+                commitMetaLabel.Text = string.Empty;
+                changedFilesListView.Items.Clear();
+                diffTextBox.Clear();
+            }
+
             statusLabel.Text = string.IsNullOrEmpty(path)
                 ? "Showing all commits"
                 : $"Showing commits for {path}";
         }
         catch (Exception ex)
         {
+            if (generation != _pathHistoryLoadGeneration)
+            {
+                return;
+            }
+
             statusLabel.Text = "Ready";
             MessageBox.Show(this, ex.Message, "Load Commit History Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
@@ -1269,7 +1476,9 @@ public partial class MainForm : Form
         }
 
         bool isDirectoryFilter = isDirectory;
-        if (_pathHistoryFilter == normalized && _pathHistoryFilterIsDirectory == isDirectoryFilter)
+        if (_pathHistoryFilter == normalized
+            && _pathHistoryFilterIsDirectory == isDirectoryFilter
+            && commitGraphView.HasRows)
         {
             return;
         }
@@ -1277,17 +1486,25 @@ public partial class MainForm : Form
         _pathHistoryFilter = normalized;
         _pathHistoryFilterIsDirectory = isDirectoryFilter;
         UpdateGraphTitleLabel();
-        _ = LoadPathFilteredCommitGraphAsync();
+        commitGraphView.SetRows([]);
+        changedFilesListView.Items.Clear();
+        diffTextBox.Clear();
+        commitMetaLabel.Text = string.Empty;
+        if (!_repositoryRefreshInProgress)
+        {
+            _ = LoadPathFilteredCommitGraphAsync();
+        }
     }
 
     private void ClearPathHistoryFilter()
     {
+        _pathHistoryLoadGeneration++;
         _pathHistoryFilter = null;
         _pathHistoryFilterIsDirectory = false;
         if (_gitService.Repo is not null)
         {
             statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
-            LoadCommitGraph();
+            _ = LoadCommitGraphAsync();
         }
         else
         {
@@ -1302,7 +1519,21 @@ public partial class MainForm : Form
             return;
         }
 
-        RepositoryFileTreeService.LoadChildren(e.Node, _gitService.Repo);
+        RepositoryFileTreeService.LoadChildren(e.Node, _gitService.Repo, _gitFileTreeImages, _fileTreeStatusIndex);
+    }
+
+    private void RepoFilesTreeView_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right)
+        {
+            return;
+        }
+
+        TreeNode? node = repoFilesTreeView.GetNodeAt(e.Location);
+        if (node is not null)
+        {
+            repoFilesTreeView.SelectedNode = node;
+        }
     }
 
     private void RepoFilesTreeView_AfterSelect(object? sender, TreeViewEventArgs e)
@@ -1317,9 +1548,16 @@ public partial class MainForm : Form
 
     private void RepoFilesTreeView_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
     {
-        if (e.Node is not null)
+        if (e.Node is null || e.Button != MouseButtons.Left)
         {
-            repoFilesTreeView.SelectedNode = e.Node;
+            return;
+        }
+
+        bool alreadySelected = repoFilesTreeView.SelectedNode == e.Node;
+        repoFilesTreeView.SelectedNode = e.Node;
+        if (alreadySelected && !_suppressFileTreePathLog && _gitService.Repo is not null)
+        {
+            TryApplyPathHistoryFromFileNode(e.Node);
         }
     }
 
@@ -1330,16 +1568,67 @@ public partial class MainForm : Form
             return;
         }
 
-        if (!PathCommitHistoryService.CanShowLog(_gitService.Repo!, tag.RelativePath, tag.IsDirectory))
-        {
-            return;
-        }
-
         ApplyPathHistoryFilter(tag.RelativePath, tag.IsDirectory);
     }
 
     private bool CanUseGitWorkflow =>
         _gitService.Repo is not null && GitWorkflowService.CanUseWorkflow(_gitService.Repo, IsRemoteBrowseMode);
+
+    private void ConfigureRepositoryGitMenu()
+    {
+        repositoryGitMenuItem = new ToolStripMenuItem("&Git");
+        repositoryGitMenuItem.DropDownOpening += (_, _) => UpdateRepositoryGitMenuState();
+
+        AddRepositoryGitMenuItem("Git &Add", IconFactory.GitAdd(), (_, _) => TryGitAdd(RepositoryRootTag), "gitAddContextMenuItem");
+        AddRepositoryGitMenuItem("Git Reset (&Unstage)", IconFactory.GitReset(), (_, _) => TryGitReset(RepositoryRootTag), "gitResetContextMenuItem");
+        AddRepositoryGitMenuItem("Git &Discard Changes", IconFactory.GitDiscard(), (_, _) => TryGitDiscard(RepositoryRootTag), "gitDiscardContextMenuItem");
+        repositoryGitMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        AddRepositoryGitMenuItem("Git &Commit...", IconFactory.GitCommit(), GitCommitContextMenuItem_Click, "gitCommitContextMenuItem");
+        repositoryGitMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        AddRepositoryGitMenuItem("Git Fetc&h", IconFactory.GitFetch(), GitFetchContextMenuItem_Click, "gitFetchContextMenuItem");
+        AddRepositoryGitMenuItem("Git P&ull", IconFactory.GitPull(), GitPullContextMenuItem_Click, "gitPullContextMenuItem");
+        AddRepositoryGitMenuItem("Git P&ush", IconFactory.GitPush(), GitPushContextMenuItem_Click, "gitPushContextMenuItem");
+        repositoryGitMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        AddRepositoryGitMenuItem("Git Stas&h", IconFactory.GitStash(), GitStashContextMenuItem_Click, "gitStashContextMenuItem");
+        AddRepositoryGitMenuItem("Git Stash &Pop", IconFactory.GitStash(), GitStashPopContextMenuItem_Click, "gitStashPopContextMenuItem");
+        AddRepositoryGitMenuItem("Git &Status...", IconFactory.GitStatus(), (_, _) => ShowGitStatus(RepositoryRootTag), "gitStatusContextMenuItem");
+
+        repositoryGitMenuItem.DropDown.Renderer = _menuRenderer;
+        if (repositoryGitMenuItem.DropDown is ToolStripDropDownMenu dropDownMenu)
+        {
+            dropDownMenu.ShowImageMargin = false;
+        }
+
+        WireDropDownWidthAlignment(repositoryGitMenuItem.DropDown);
+        repositoryMenuItem.DropDownItems.Insert(1, repositoryGitMenuItem);
+        repositoryMenuItem.DropDownItems.Insert(2, new ToolStripSeparator());
+    }
+
+    private void AddRepositoryGitMenuItem(string text, Image icon, EventHandler handler, string name)
+    {
+        var item = new ToolStripMenuItem(text) { Name = name };
+        ConfigureMenuItem(item, icon, text, menuBar: true);
+        item.Click += handler;
+        _repositoryGitMenuItems.Add(item);
+        repositoryGitMenuItem.DropDownItems.Add(item);
+    }
+
+    private void UpdateRepositoryGitMenuState()
+    {
+        if (_gitService.Repo is null)
+        {
+            repositoryGitMenuItem.Enabled = false;
+            return;
+        }
+
+        repositoryGitMenuItem.Enabled = CanUseGitWorkflow;
+        if (!CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        ApplyGitMenuItemState(_gitService.Repo, RepositoryRootTag, _repositoryGitMenuItems, _fileTreeStatusIndex);
+    }
 
     private void RepoFilesContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
@@ -1349,38 +1638,127 @@ public partial class MainForm : Form
             return;
         }
 
-        bool canUseGit = CanUseGitWorkflow;
-        repoFilesGitSeparator.Visible = canUseGit;
-        gitAddContextMenuItem.Visible = canUseGit;
-        gitCommitContextMenuItem.Visible = canUseGit;
-        gitPushContextMenuItem.Visible = canUseGit;
+        _fileTreeStatusIndex ??= RepositoryPathStatusService.Build(_gitService.Repo);
 
-        if (repoFilesTreeView.SelectedNode?.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
+        bool canUseGit = CanUseGitWorkflow;
+        SetGitSectionVisible(canUseGit);
+
+        RepositoryFileNodeTag? tag = TryGetGitPathTag();
+        if (tag is null)
         {
             showFileLogContextMenuItem.Enabled = false;
-            gitAddContextMenuItem.Enabled = false;
-            gitCommitContextMenuItem.Enabled = canUseGit && GitWorkflowService.HasStagedChanges(_gitService.Repo);
-            gitPushContextMenuItem.Enabled = canUseGit && GitWorkflowService.HasOriginRemote(_gitService.Repo);
             copyRepoFilePathContextMenuItem.Enabled = false;
             clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
+            if (canUseGit)
+            {
+                ApplyGitMenuItemState(_gitService.Repo, RepositoryRootTag, GetFilesGitMenuItems(), _fileTreeStatusIndex);
+            }
+
             return;
         }
 
-        bool canShowLog = PathCommitHistoryService.CanShowLog(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
-        showFileLogContextMenuItem.Enabled = canShowLog;
-        gitAddContextMenuItem.Enabled = canUseGit;
-        gitCommitContextMenuItem.Enabled = canUseGit && GitWorkflowService.HasStagedChanges(_gitService.Repo);
-        gitPushContextMenuItem.Enabled = canUseGit && GitWorkflowService.HasOriginRemote(_gitService.Repo);
+        showFileLogContextMenuItem.Enabled = true;
         copyRepoFilePathContextMenuItem.Enabled = true;
         clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
+        if (canUseGit)
+        {
+            ApplyGitMenuItemState(_gitService.Repo, tag, GetFilesGitMenuItems(), _fileTreeStatusIndex);
+        }
     }
 
-    private void GitAddContextMenuItem_Click(object? sender, EventArgs e)
+    private IEnumerable<ToolStripMenuItem> GetFilesGitMenuItems() =>
+    [
+        gitAddContextMenuItem,
+        gitResetContextMenuItem,
+        gitDiscardContextMenuItem,
+        gitCommitContextMenuItem,
+        gitFetchContextMenuItem,
+        gitPullContextMenuItem,
+        gitPushContextMenuItem,
+        gitStashContextMenuItem,
+        gitStashPopContextMenuItem,
+        gitStatusContextMenuItem
+    ];
+
+    private void SetGitSectionVisible(bool visible)
     {
-        if (_gitService.Repo is null
-            || !CanUseGitWorkflow
-            || repoFilesTreeView.SelectedNode?.Tag is not RepositoryFileNodeTag tag
-            || tag.IsPlaceholder)
+        repoFilesGitSeparator.Visible = visible;
+        gitAddContextMenuItem.Visible = visible;
+        gitResetContextMenuItem.Visible = visible;
+        gitDiscardContextMenuItem.Visible = visible;
+        gitStagingSeparator.Visible = visible;
+        gitCommitContextMenuItem.Visible = visible;
+        gitRemoteSeparator.Visible = visible;
+        gitFetchContextMenuItem.Visible = visible;
+        gitPullContextMenuItem.Visible = visible;
+        gitPushContextMenuItem.Visible = visible;
+        gitStashSeparator.Visible = visible;
+        gitStashContextMenuItem.Visible = visible;
+        gitStashPopContextMenuItem.Visible = visible;
+        gitStatusContextMenuItem.Visible = visible;
+    }
+
+    private static void ApplyGitMenuItemState(
+        Repository repo,
+        RepositoryFileNodeTag tag,
+        IEnumerable<ToolStripMenuItem> items,
+        RepositoryPathStatusIndex? statusIndex)
+    {
+        bool hasOrigin = GitWorkflowService.HasOriginRemote(repo);
+        bool hasStaged = statusIndex?.HasStagedChangesAtPath(tag.RelativePath, tag.IsDirectory) ?? false;
+        bool hasWorkTree = statusIndex?.HasWorkTreeChangesAtPath(tag.RelativePath, tag.IsDirectory) ?? false;
+        bool hasAnyStaged = statusIndex?.HasAnyStagedChanges ?? false;
+        bool hasAnyWorkTree = statusIndex?.HasAnyWorkTreeChanges ?? false;
+
+        foreach (ToolStripMenuItem item in items)
+        {
+            item.Enabled = item.Name switch
+            {
+                "gitAddContextMenuItem" => true,
+                "gitResetContextMenuItem" => hasStaged,
+                "gitDiscardContextMenuItem" => hasWorkTree,
+                "gitCommitContextMenuItem" => hasAnyStaged,
+                "gitFetchContextMenuItem" => hasOrigin,
+                "gitPullContextMenuItem" => hasOrigin,
+                "gitPushContextMenuItem" => hasOrigin,
+                "gitStashContextMenuItem" => hasAnyWorkTree,
+                "gitStashPopContextMenuItem" => GitWorkflowService.HasStashEntries(repo),
+                "gitStatusContextMenuItem" => true,
+                _ => item.Enabled
+            };
+        }
+    }
+
+    private RepositoryFileNodeTag? TryGetGitPathTag()
+    {
+        if (repoFilesTreeView.SelectedNode?.Tag is RepositoryFileNodeTag tag && !tag.IsPlaceholder)
+        {
+            return tag;
+        }
+
+        return null;
+    }
+
+    private RepositoryFileNodeTag GetGitPathTagOrRoot() => TryGetGitPathTag() ?? RepositoryRootTag;
+
+    private CredentialsPrompt CreateGitCredentialsPrompt() => new(this, initialPassword: _gitHubToken);
+
+    private void RememberGitCredentials(CredentialsPrompt prompt)
+    {
+        if (prompt.LastEntered is { } credentials && !string.IsNullOrWhiteSpace(credentials.Password))
+        {
+            _gitHubToken = credentials.Password;
+        }
+    }
+
+    private static string FormatGitPathScope(string relativePath) =>
+        string.IsNullOrEmpty(relativePath) ? "(repository)" : relativePath;
+
+    private void GitAddContextMenuItem_Click(object? sender, EventArgs e) => TryGitAdd(GetGitPathTagOrRoot());
+
+    private void TryGitAdd(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
         {
             return;
         }
@@ -1392,10 +1770,85 @@ public partial class MainForm : Form
                 ? "Staged all changes"
                 : $"Staged {tag.RelativePath}";
             RefreshRepositoryViews();
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Add Complete",
+                "The selected changes were staged successfully.",
+                new OperationDetail("Path", FormatGitPathScope(tag.RelativePath)),
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Git Add Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, "Git Add Failed", ex);
+        }
+    }
+
+    private void GitResetContextMenuItem_Click(object? sender, EventArgs e) => TryGitReset(GetGitPathTagOrRoot());
+
+    private void TryGitReset(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        try
+        {
+            GitWorkflowService.Unstage(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+            statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
+                ? "Unstaged all changes"
+                : $"Unstaged {tag.RelativePath}";
+            RefreshRepositoryViews();
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Reset Complete",
+                "The selected staged changes were unstaged successfully.",
+                new OperationDetail("Path", FormatGitPathScope(tag.RelativePath)),
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Git Reset Failed", ex);
+        }
+    }
+
+    private void GitDiscardContextMenuItem_Click(object? sender, EventArgs e) => TryGitDiscard(GetGitPathTagOrRoot());
+
+    private void TryGitDiscard(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        string scope = FormatGitPathScope(tag.RelativePath);
+        if (MessageBox.Show(
+                this,
+                $"Discard uncommitted changes in {scope}?\nThis cannot be undone.",
+                "Git Discard Changes",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning) != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            GitWorkflowService.DiscardChanges(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+            statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
+                ? "Discarded all uncommitted changes"
+                : $"Discarded changes in {tag.RelativePath}";
+            RefreshRepositoryViews();
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Discard Complete",
+                "The uncommitted changes were discarded successfully.",
+                new OperationDetail("Path", scope),
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Git Discard Failed", ex);
         }
     }
 
@@ -1409,7 +1862,7 @@ public partial class MainForm : Form
         var stagedPaths = GitWorkflowService.GetStagedPaths(_gitService.Repo);
         if (stagedPaths.Count == 0)
         {
-            MessageBox.Show(this, "Stage changes with Git Add before committing.", "Git Commit", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            GitOperationNotifier.ShowInfo(this, "Git Commit", "Stage changes with Git Add before committing.");
             return;
         }
 
@@ -1424,17 +1877,118 @@ public partial class MainForm : Form
             var commit = GitWorkflowService.CreateCommit(_gitService.Repo, dialog.CommitMessage);
             RefreshRepositoryViews();
             statusLabel.Text = $"Committed {commit.Sha[..7]}";
-            ShowOperationComplete(
-                "Commit Complete",
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Commit Complete",
                 "The staged changes were committed successfully.",
-                null,
                 new OperationDetail("Commit", commit.Sha[..7]),
                 new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
                 new OperationDetail("Message", commit.MessageShort.Trim()));
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Git Commit Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, "Git Commit Failed", ex);
+        }
+    }
+
+    private void GitFetchContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        _ = GitFetchAsync();
+    }
+
+    private async Task GitFetchAsync()
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        var prompt = CreateGitCredentialsPrompt();
+        try
+        {
+            await OperationProgress.RunAsync(
+                this,
+                "Fetching from origin...",
+                cancellationToken => Task.Run(
+                    () => _gitService.RunLocked(activeRepo => GitWorkflowService.Fetch(activeRepo, prompt.Handler, cancellationToken)),
+                    cancellationToken),
+                onCancelled: CancelPendingRepositoryOperations);
+            RememberGitCredentials(prompt);
+            await RefreshRepositoryViewsAsync(showProgress: false);
+            _ = LoadReleasesAsync();
+            statusLabel.Text = "Fetched from origin";
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Fetch Complete",
+                "Updates were fetched from origin successfully.",
+                new OperationDetail("Remote", "origin"),
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+        }
+        catch (OperationCanceledException)
+        {
+            statusLabel.Text = "Fetch cancelled";
+            GitOperationNotifier.ShowCancelled(this, "Git Fetch");
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Git Fetch Failed", ex);
+        }
+    }
+
+    private void GitPullContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        _ = GitPullAsync();
+    }
+
+    private async Task GitPullAsync()
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        var prompt = CreateGitCredentialsPrompt();
+        try
+        {
+            var result = await OperationProgress.RunAsync(
+                this,
+                "Pulling from origin...",
+                cancellationToken => Task.Run(
+                    () => _gitService.RunLocked(activeRepo => GitWorkflowService.Pull(activeRepo, prompt.Handler, cancellationToken)),
+                    cancellationToken),
+                onCancelled: CancelPendingRepositoryOperations);
+            RememberGitCredentials(prompt);
+            await RefreshRepositoryViewsAsync(showProgress: false);
+            _ = LoadReleasesAsync();
+            statusLabel.Text = $"Pulled {_gitService.GetCurrentBranchName()} from origin";
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Pull Complete",
+                "Updates were pulled from origin successfully.",
+                new OperationDetail("Remote", "origin"),
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
+                new OperationDetail("Commit", result.Commit?.Sha?[..7] ?? "(fast-forward)"));
+        }
+        catch (OperationCanceledException)
+        {
+            statusLabel.Text = "Pull cancelled";
+            GitOperationNotifier.ShowCancelled(this, "Git Pull");
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Git Pull Failed", ex);
         }
     }
 
@@ -1445,31 +1999,109 @@ public partial class MainForm : Form
             return;
         }
 
+        _ = GitPushAsync();
+    }
+
+    private async Task GitPushAsync()
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        var prompt = CreateGitCredentialsPrompt();
         try
         {
-            var prompt = new CredentialsPrompt(this, initialPassword: _gitHubToken);
-            GitWorkflowService.Push(_gitService.Repo, prompt.Handler);
-            if (prompt.LastEntered is { } credentials && !string.IsNullOrWhiteSpace(credentials.Password))
-            {
-                _gitHubToken = credentials.Password;
-            }
-
+            await OperationProgress.RunAsync(
+                this,
+                "Pushing to origin...",
+                cancellationToken => Task.Run(
+                    () => _gitService.RunLocked(activeRepo => GitWorkflowService.Push(activeRepo, prompt.Handler, cancellationToken)),
+                    cancellationToken),
+                onCancelled: CancelPendingRepositoryOperations);
+            RememberGitCredentials(prompt);
             statusLabel.Text = $"Pushed {_gitService.GetCurrentBranchName()} to origin";
-            ShowOperationComplete(
-                "Push Complete",
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Push Complete",
                 "The current branch was pushed to origin successfully.",
-                null,
                 new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
                 new OperationDetail("Remote", "origin"));
         }
         catch (OperationCanceledException)
         {
             statusLabel.Text = "Push cancelled";
+            GitOperationNotifier.ShowCancelled(this, "Git Push");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Git Push Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, "Git Push Failed", ex);
         }
+    }
+
+    private void GitStashContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        try
+        {
+            GitWorkflowService.Stash(_gitService.Repo);
+            RefreshRepositoryViews();
+            statusLabel.Text = "Stashed uncommitted changes";
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Stash Complete",
+                "Uncommitted changes were stashed successfully.",
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Git Stash Failed", ex);
+        }
+    }
+
+    private void GitStashPopContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        try
+        {
+            GitWorkflowService.StashPop(_gitService.Repo);
+            RefreshRepositoryViews();
+            statusLabel.Text = "Applied latest stash";
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Git Stash Pop Complete",
+                "The latest stash was applied successfully.",
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Git Stash Pop Failed", ex);
+        }
+    }
+
+    private void GitStatusContextMenuItem_Click(object? sender, EventArgs e) =>
+        ShowGitStatus(GetGitPathTagOrRoot());
+
+    private void ShowGitStatus(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        var entries = GitWorkflowService.GetStatusEntries(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+        string? scope = string.IsNullOrEmpty(tag.RelativePath) ? null : tag.RelativePath;
+        using var dialog = new GitStatusDialog(entries, scope);
+        dialog.ShowDialog(this);
     }
 
     private void ShowFileLogContextMenuItem_Click(object? sender, EventArgs e) =>
@@ -1495,12 +2127,78 @@ public partial class MainForm : Form
             return;
         }
 
-        _currentCommit = commit;
-        statusLabel.Text = $"{commit.Sha[..7]}  {commit.MessageShort}";
-        commitMetaLabel.Text = CommitDetailService.FormatMetadata(commit);
+        _ = LoadCommitDetailsAsync(commit);
+    }
 
-        _currentPatch = CommitDetailService.GetPatch(_gitService.Repo, commit);
-        PopulateChangedFilesList(_currentPatch);
+    private async Task LoadCommitDetailsAsync(Commit commit)
+    {
+        Repository repo = _gitService.Repo!;
+        int generation = ++_commitDetailLoadGeneration;
+
+        _currentCommit = commit;
+        _currentCommitChanges = null;
+        statusLabel.Text = $"{commit.Sha[..7]}  Loading changes...";
+        commitMetaLabel.Text = CommitDetailService.FormatMetadata(commit);
+        changedFilesListView.BeginUpdate();
+        changedFilesListView.Items.Clear();
+        changedFilesListView.EndUpdate();
+        diffTextBox.Clear();
+
+        try
+        {
+            TreeChanges changes = await Task.Run(() => _gitService.RunLocked(activeRepo =>
+                CommitDetailService.GetTreeChanges(activeRepo, commit)));
+            if (generation != _commitDetailLoadGeneration
+                || _gitService.Repo != repo
+                || _currentCommit != commit)
+            {
+                return;
+            }
+
+            _currentCommitChanges = changes;
+            PopulateChangedFilesList(changes);
+            statusLabel.Text = $"{commit.Sha[..7]}  {commit.MessageShort}";
+
+            if (_pathHistoryFilter is not null)
+            {
+                SelectChangedFileMatchingPathFilter();
+            }
+        }
+        catch (Exception ex)
+        {
+            if (generation != _commitDetailLoadGeneration)
+            {
+                return;
+            }
+
+            statusLabel.Text = "Ready";
+            MessageBox.Show(this, ex.Message, "Load Commit Details Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void SelectChangedFileMatchingPathFilter()
+    {
+        if (string.IsNullOrWhiteSpace(_pathHistoryFilter))
+        {
+            diffTextBox.Clear();
+            return;
+        }
+
+        string filterPath = PathCommitHistoryService.NormalizeGitPath(_pathHistoryFilter);
+        foreach (ListViewItem item in changedFilesListView.Items)
+        {
+            string itemPath = PathCommitHistoryService.NormalizeGitPath(
+                item.Tag as string ?? item.Text);
+            if (!PathCommitHistoryService.PathMatchesFilter(itemPath, filterPath, _pathHistoryFilterIsDirectory))
+            {
+                continue;
+            }
+
+            item.Selected = true;
+            item.Focused = true;
+            return;
+        }
+
         diffTextBox.Clear();
     }
 
@@ -1593,13 +2291,49 @@ public partial class MainForm : Form
 
     private void ChangedFilesListView_SelectedIndexChanged(object? sender, EventArgs e)
     {
-        if (GetSelectedChangedFilePath() is not { } path || _currentPatch is null)
+        _ = LoadSelectedFileDiffAsync();
+    }
+
+    private async Task LoadSelectedFileDiffAsync()
+    {
+        if (GetSelectedChangedFilePath() is not { } path
+            || _currentCommit is null
+            || _gitService.Repo is null)
         {
             return;
         }
 
-        var entry = _currentPatch.FirstOrDefault(p => p.Path == path);
-        DiffTextRenderer.Render(diffTextBox, entry?.Patch ?? "");
+        Repository repo = _gitService.Repo;
+        Commit commit = _currentCommit;
+        int generation = ++_diffLoadGeneration;
+
+        diffTextBox.Clear();
+        string progressMessage = $"{commit.Sha[..7]}  Loading diff for {Path.GetFileName(path)}...";
+        statusLabel.Text = progressMessage;
+
+        try
+        {
+            string patchText = await Task.Run(() => _gitService.RunLocked(activeRepo =>
+                CommitDetailService.GetFilePatch(activeRepo, commit, path)));
+            if (generation != _diffLoadGeneration || _currentCommit != commit)
+            {
+                return;
+            }
+
+            DiffTextRenderer.Render(diffTextBox, patchText);
+            statusLabel.Text = $"{commit.Sha[..7]}  {commit.MessageShort}";
+        }
+        catch (Exception ex)
+        {
+            if (generation != _diffLoadGeneration)
+            {
+                return;
+            }
+
+            diffTextBox.Clear();
+            statusLabel.Text = $"{commit.Sha[..7]}  {commit.MessageShort}";
+            MessageBox.Show(this, ex.Message, "Load Diff Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void WordWrapToolButton_CheckedChanged(object? sender, EventArgs e)

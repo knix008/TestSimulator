@@ -213,6 +213,8 @@ public class CommitGraphView : Panel
         }
     }
 
+    public bool HasRows => _rows.Count > 0;
+
     public void SetRows(List<CommitRow> rows)
     {
         _rows = rows;
@@ -242,6 +244,19 @@ public class CommitGraphView : Panel
         RecalculateColumnLayout();
 
         InvalidateView();
+    }
+
+    public bool TrySelectFirstCommit()
+    {
+        if (_rows.Count == 0)
+        {
+            return false;
+        }
+
+        _selectedCommit = _rows[0].Commit;
+        InvalidateView();
+        CommitSelected?.Invoke(this, _selectedCommit);
+        return true;
     }
 
     private void RecalculateColumnLayout(bool notifyLayoutChanged = true)

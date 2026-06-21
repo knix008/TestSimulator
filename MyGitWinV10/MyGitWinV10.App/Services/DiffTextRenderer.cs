@@ -2,11 +2,21 @@ namespace MyGitWinV10.App.Services;
 
 public static class DiffTextRenderer
 {
+    private const int ColoredRenderMaxChars = 120_000;
+
     public static void Render(RichTextBox box, string patchText)
     {
         box.Clear();
         if (string.IsNullOrEmpty(patchText))
         {
+            return;
+        }
+
+        if (patchText.Length > ColoredRenderMaxChars)
+        {
+            box.ForeColor = Color.FromArgb(40, 40, 45);
+            box.BackColor = Color.White;
+            box.Text = patchText;
             return;
         }
 
