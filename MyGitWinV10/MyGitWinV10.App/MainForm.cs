@@ -54,7 +54,6 @@ public partial class MainForm : Form
     private RepositoryPathStatusIndex? _fileTreeStatusIndex;
 
     private bool _applyingPanelLayout;
-    private bool _historySplitterUserAdjusted;
 
     // Designer-configured detailSplitContainer.SplitterDistance (355) over its design-time
     // Size.Height (879) — captured as constants instead of read from the live control, since by
@@ -62,8 +61,6 @@ public partial class MainForm : Form
     // from its design-time size and the ratio derived from it would no longer match the Designer.
     private const double DefaultDetailSplitRatio = 355.0 / 879.0;
     private double _detailSplitRatio = DefaultDetailSplitRatio;
-
-    private const int HistoryPanelChromeWidth = 4;
 
     public MainForm()
     {
@@ -78,26 +75,6 @@ public partial class MainForm : Form
         ConfigureChangedFilesListView();
         ConfigureSectionHeadingToolTips();
         graphDetailSplitContainer.FixedPanel = FixedPanel.Panel1;
-        // Once the user drags this splitter themselves, stop re-pinning it to the commit
-        // graph's preferred (Date-column-aligned) width on every resize/layout pass — it
-        // should no longer be "fixed" to that width, only sized to it on first display.
-        graphDetailSplitContainer.SplitterMoved += (_, _) =>
-        {
-            if (!_applyingPanelLayout)
-            {
-                _historySplitterUserAdjusted = true;
-            }
-        };
-        // Skip auto-fit when the user manually drags a column divider (e.g. widening Date) —
-        // the history/detail splitter must not follow column width changes after the
-        // initial layout, only when row data changes the required graph-lane width.
-        commitGraphView.ColumnLayoutChanged += (_, manualResize) =>
-        {
-            if (!manualResize)
-            {
-                ApplyPanelLayout();
-            }
-        };
         mainSplitContainer.SplitterMoved += (_, _) => ApplyPanelLayout();
         mainSplitContainer.Panel2.Resize += (_, _) => ApplyPanelLayout();
         // Remember the ratio (Designer-configured or user-dragged) so resizes rescale the
@@ -127,50 +104,7 @@ public partial class MainForm : Form
 
     private void ApplyPanelLayout()
     {
-        ApplyHorizontalPanelLayout();
         ApplyDetailVerticalLayout();
-    }
-
-    private void ApplyHorizontalPanelLayout()
-    {
-        if (_applyingPanelLayout || !IsHandleCreated || _historySplitterUserAdjusted)
-        {
-            return;
-        }
-
-        int graphAreaWidth = mainSplitContainer.Panel2.ClientSize.Width;
-        if (graphAreaWidth <= 0)
-        {
-            return;
-        }
-
-        int preferredHistoryWidth = commitGraphView.ListContentWidth + HistoryPanelChromeWidth;
-        int maxHistoryWidth = graphAreaWidth
-            - graphDetailSplitContainer.Panel2MinSize
-            - graphDetailSplitContainer.SplitterWidth;
-        if (maxHistoryWidth <= 0)
-        {
-            return;
-        }
-
-        int historyWidth = Math.Min(preferredHistoryWidth, maxHistoryWidth);
-
-        if (Math.Abs(graphDetailSplitContainer.SplitterDistance - historyWidth) < 2)
-        {
-            return;
-        }
-
-        _applyingPanelLayout = true;
-        try
-        {
-            graphDetailSplitContainer.SuspendLayout();
-            graphDetailSplitContainer.SplitterDistance = historyWidth;
-        }
-        finally
-        {
-            graphDetailSplitContainer.ResumeLayout(true);
-            _applyingPanelLayout = false;
-        }
     }
 
     private double GetDetailSplitRatio()
