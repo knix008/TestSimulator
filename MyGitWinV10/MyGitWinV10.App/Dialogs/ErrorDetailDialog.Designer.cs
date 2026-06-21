@@ -32,9 +32,13 @@ namespace MyGitWinV10.App.Dialogs
             // copyButton
             //
             copyButton.FlatStyle = FlatStyle.Flat;
-            copyButton.Location = new Point(284, 82);
+            copyButton.Location = new Point(270, 82);
             copyButton.Name = "copyButton";
             copyButton.Size = new Size(90, 28);
+            copyButton.MinimumSize = new Size(90, 28);
+            copyButton.MaximumSize = new Size(90, 28);
+            copyButton.AutoSize = false;
+            copyButton.TextAlign = ContentAlignment.MiddleCenter;
             copyButton.TabIndex = 0;
             copyButton.Text = "Copy Details";
             copyButton.Click += CopyButton_Click;
@@ -45,9 +49,13 @@ namespace MyGitWinV10.App.Dialogs
             okButton.DialogResult = DialogResult.OK;
             okButton.FlatStyle = FlatStyle.Flat;
             okButton.ForeColor = Color.White;
-            okButton.Location = new Point(385, 82);
+            okButton.Location = new Point(370, 82);
             okButton.Name = "okButton";
-            okButton.Size = new Size(75, 28);
+            okButton.Size = new Size(90, 28);
+            okButton.MinimumSize = new Size(90, 28);
+            okButton.MaximumSize = new Size(90, 28);
+            okButton.AutoSize = false;
+            okButton.TextAlign = ContentAlignment.MiddleCenter;
             okButton.TabIndex = 1;
             okButton.Text = "OK";
             //

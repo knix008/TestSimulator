@@ -18,7 +18,7 @@ namespace MyGitWinV10.App.Dialogs
         private void InitializeComponent()
         {
             urlLabel = new Label();
-            urlTextBox = new TextBox();
+            urlTextBox = new ComboBox();
             infoLabel = new Label();
             progressBar = new ProgressBar();
             progressPercentLabel = new Label();
@@ -37,9 +37,9 @@ namespace MyGitWinV10.App.Dialogs
             //
             // urlTextBox
             //
+            urlTextBox.DropDownStyle = ComboBoxStyle.DropDown;
             urlTextBox.Location = new Point(20, 38);
             urlTextBox.Name = "urlTextBox";
-            urlTextBox.PlaceholderText = "https://github.com/owner/repo.git";
             urlTextBox.Size = new Size(460, 23);
             urlTextBox.TabIndex = 0;
             //
@@ -140,7 +140,7 @@ namespace MyGitWinV10.App.Dialogs
         #endregion
 
         private Label urlLabel;
-        private TextBox urlTextBox;
+        private ComboBox urlTextBox;
         private Label infoLabel;
         private ProgressBar progressBar;
         private Label progressPercentLabel;

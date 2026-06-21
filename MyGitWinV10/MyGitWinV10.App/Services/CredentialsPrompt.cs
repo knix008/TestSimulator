@@ -8,13 +8,19 @@ public sealed class CredentialsPrompt
     private readonly Control _owner;
     private readonly string? _initialUsername;
     private readonly string? _initialPassword;
+    private readonly bool _allowSilentReuse;
     private CredentialsDialogResult? _cached;
 
-    public CredentialsPrompt(Control owner, string? initialUsername = null, string? initialPassword = null)
+    public CredentialsPrompt(
+        Control owner,
+        string? initialUsername = null,
+        string? initialPassword = null,
+        bool allowSilentReuse = false)
     {
         _owner = owner;
         _initialUsername = initialUsername;
         _initialPassword = initialPassword;
+        _allowSilentReuse = allowSilentReuse;
     }
 
     public CredentialsDialogResult? LastEntered => _cached;
@@ -23,10 +29,13 @@ public sealed class CredentialsPrompt
     {
         if (_cached is null)
         {
-            // A remembered username+PAT means this remote already authenticated successfully
-            // before — reuse it silently instead of asking again. We only fall back to the
-            // dialog once those credentials are missing or get cleared after a failed attempt.
-            if (!string.IsNullOrWhiteSpace(_initialUsername) && !string.IsNullOrWhiteSpace(_initialPassword))
+            // A remembered username+PAT that authenticated successfully last time is reused
+            // silently. After a failure the caller still seeds the dialog with that same
+            // username/PAT (so the user only has to fix what's wrong) but sets
+            // allowSilentReuse to false, forcing the dialog to show again.
+            if (_allowSilentReuse
+                && !string.IsNullOrWhiteSpace(_initialUsername)
+                && !string.IsNullOrWhiteSpace(_initialPassword))
             {
                 _cached = new CredentialsDialogResult(_initialUsername, _initialPassword);
                 return ToCredentials(_cached.Value);

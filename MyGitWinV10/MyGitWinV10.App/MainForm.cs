@@ -24,6 +24,12 @@ public partial class MainForm : Form
     private string? _gitHubUsername;
     private string? _gitHubToken;
 
+    // True once _gitHubUsername/_gitHubToken are known-good (last push/pull/fetch succeeded
+    // with them), so the credentials dialog can be skipped. A failure flips this back to
+    // false — the dialog reappears pre-filled with the same values rather than blank, since
+    // the credentials themselves (e.g. a valid but SSO-unauthorized PAT) may still be correct.
+    private bool _gitCredentialsVerified;
+
     // Set when viewing a remote repository from cache (Browse Remote); cleared on local open.
     private string? _remoteBrowseUrl;
 
@@ -66,6 +72,7 @@ public partial class MainForm : Form
         Text = AppInfo.Title;
         _gitHubUsername = _settings.GitHubUsername;
         _gitHubToken = _settings.GetGitHubToken();
+        _gitCredentialsVerified = !string.IsNullOrWhiteSpace(_gitHubUsername) && !string.IsNullOrWhiteSpace(_gitHubToken);
         ConfigureToolbars();
         ConfigureMenuIcons();
         ConfigureChangedFilesListView();
@@ -1770,10 +1777,16 @@ public partial class MainForm : Form
 
     private RepositoryFileNodeTag GetGitPathTagOrRoot() => TryGetGitPathTag() ?? RepositoryRootTag;
 
-    private CredentialsPrompt CreateGitCredentialsPrompt() =>
-        new(this, initialUsername: _gitHubUsername, initialPassword: _gitHubToken);
+    private CredentialsPrompt CreateGitCredentialsPrompt() => new(
+        this,
+        initialUsername: _gitHubUsername,
+        initialPassword: _gitHubToken,
+        allowSilentReuse: _gitCredentialsVerified);
 
-    private void RememberGitCredentials(CredentialsPrompt prompt)
+    // Captures whatever the user typed (or the silently-reused values) regardless of whether
+    // the operation itself succeeded, so a retry dialog is pre-filled instead of blank — only
+    // the "skip the dialog" verified flag depends on success.
+    private void CaptureGitCredentials(CredentialsPrompt prompt)
     {
         if (prompt.LastEntered is not { } credentials || string.IsNullOrWhiteSpace(credentials.Password))
         {
@@ -1786,15 +1799,12 @@ public partial class MainForm : Form
         _settings.Save();
     }
 
+    private void MarkGitCredentialsVerified() => _gitCredentialsVerified = true;
+
     // Forces the next fetch/pull/push to prompt again instead of silently retrying credentials
-    // that just failed (e.g. a revoked or SSO-unauthorized PAT).
-    private void ClearGitCredentials()
-    {
-        _gitHubUsername = null;
-        _gitHubToken = null;
-        _settings.SetGitHubCredentials(null, null);
-        _settings.Save();
-    }
+    // that just failed (e.g. a revoked or SSO-unauthorized PAT) — but keeps the username/PAT
+    // values themselves so the dialog reappears pre-filled instead of blank.
+    private void MarkGitCredentialsUnverified() => _gitCredentialsVerified = false;
 
     private static string FormatGitPathScope(string relativePath) =>
         string.IsNullOrEmpty(relativePath) ? "(repository)" : relativePath;
@@ -1964,7 +1974,8 @@ public partial class MainForm : Form
                     () => _gitService.RunLocked(activeRepo => GitWorkflowService.Fetch(activeRepo, prompt.Handler, cancellationToken)),
                     cancellationToken),
                 onCancelled: CancelPendingRepositoryOperations);
-            RememberGitCredentials(prompt);
+            CaptureGitCredentials(prompt);
+            MarkGitCredentialsVerified();
             await RefreshRepositoryViewsAsync(showProgress: false);
             _ = LoadReleasesAsync();
             statusLabel.Text = "Fetched from origin";
@@ -1982,7 +1993,8 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            ClearGitCredentials();
+            CaptureGitCredentials(prompt);
+            MarkGitCredentialsUnverified();
             GitOperationNotifier.ShowFailure(this, "Git Fetch Failed", ex);
         }
     }
@@ -2015,7 +2027,8 @@ public partial class MainForm : Form
                     () => _gitService.RunLocked(activeRepo => GitWorkflowService.Pull(activeRepo, prompt.Handler, cancellationToken)),
                     cancellationToken),
                 onCancelled: CancelPendingRepositoryOperations);
-            RememberGitCredentials(prompt);
+            CaptureGitCredentials(prompt);
+            MarkGitCredentialsVerified();
             await RefreshRepositoryViewsAsync(showProgress: false);
             _ = LoadReleasesAsync();
             statusLabel.Text = $"Pulled {_gitService.GetCurrentBranchName()} from origin";
@@ -2034,7 +2047,8 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            ClearGitCredentials();
+            CaptureGitCredentials(prompt);
+            MarkGitCredentialsUnverified();
             GitOperationNotifier.ShowFailure(this, "Git Pull Failed", ex);
         }
     }
@@ -2060,14 +2074,26 @@ public partial class MainForm : Form
         var prompt = CreateGitCredentialsPrompt();
         try
         {
+            // Resolve credentials up front, on the UI thread, before the progress dialog's
+            // timer starts — otherwise a user who takes a few seconds to enter a PAT sees the
+            // "Pushing to origin..." popup appear while they're still typing. The dialog should
+            // only show once we're actually connected and transferring data slowly.
+            string? remoteUrl = repo.Network.Remotes["origin"]?.Url;
+            if (remoteUrl is not null)
+            {
+                prompt.Handler(remoteUrl, null, SupportedCredentialTypes.UsernamePassword);
+            }
+
             await OperationProgress.RunAsync(
                 this,
                 "Pushing to origin...",
                 cancellationToken => Task.Run(
                     () => _gitService.RunLocked(activeRepo => GitWorkflowService.Push(activeRepo, prompt.Handler, cancellationToken)),
                     cancellationToken),
+                showDelayMs: 800,
                 onCancelled: CancelPendingRepositoryOperations);
-            RememberGitCredentials(prompt);
+            CaptureGitCredentials(prompt);
+            MarkGitCredentialsVerified();
             statusLabel.Text = $"Pushed {_gitService.GetCurrentBranchName()} to origin";
             GitOperationNotifier.ShowSuccess(
                 this,
@@ -2083,7 +2109,8 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            ClearGitCredentials();
+            CaptureGitCredentials(prompt);
+            MarkGitCredentialsUnverified();
             GitOperationNotifier.ShowFailure(this, "Git Push Failed", ex);
         }
     }

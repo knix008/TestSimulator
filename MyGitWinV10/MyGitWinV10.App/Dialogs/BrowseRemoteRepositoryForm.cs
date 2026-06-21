@@ -1,3 +1,4 @@
+using MyGitWinV10.App.Controls;
 using MyGitWinV10.App.Services;
 
 namespace MyGitWinV10.App.Dialogs;
@@ -12,9 +13,23 @@ public partial class BrowseRemoteRepositoryForm : Form
         InitializeComponent();
         ResetProgress();
 
-        urlTextBox.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        urlTextBox.AutoCompleteMode = AutoCompleteMode.Suggest;
         urlTextBox.AutoCompleteSource = AutoCompleteSource.CustomSource;
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
+        RefreshRecentUrlItems();
+        RecentUrlComboBoxBehavior.Attach(urlTextBox, () => _settings.RecentCloneUrls, RemoveRecentUrl);
+    }
+
+    private void RemoveRecentUrl(string url)
+    {
+        _settings.RemoveRecentCloneUrl(url);
+        _settings.Save();
+    }
+
+    private void RefreshRecentUrlItems()
+    {
+        urlTextBox.Items.Clear();
+        urlTextBox.Items.AddRange(_settings.RecentCloneUrls.ToArray());
     }
 
     public string? RepositoryPath { get; private set; }
@@ -76,6 +91,7 @@ public partial class BrowseRemoteRepositoryForm : Form
         _settings.RecordRecentCloneUrl(url);
         _settings.Save();
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
+        RefreshRecentUrlItems();
 
         _browseCts?.Dispose();
         _browseCts = new CancellationTokenSource();

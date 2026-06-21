@@ -43,7 +43,7 @@ namespace MyGitWinV10.App.Dialogs
             //
             // categoryComboBox
             //
-            categoryComboBox.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            categoryComboBox.AutoCompleteMode = AutoCompleteMode.Suggest;
             categoryComboBox.AutoCompleteSource = AutoCompleteSource.ListItems;
             categoryComboBox.DropDownStyle = ComboBoxStyle.DropDown;
             categoryComboBox.Location = new Point(20, 38);

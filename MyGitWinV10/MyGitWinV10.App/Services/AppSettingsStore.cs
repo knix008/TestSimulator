@@ -214,6 +214,11 @@ public sealed class AppSettingsStore
         }
     }
 
+    public void RemoveRecentCloneUrl(string url)
+    {
+        RecentCloneUrls.RemoveAll(existing => string.Equals(existing, url, StringComparison.OrdinalIgnoreCase));
+    }
+
     public IReadOnlyList<string> GetCommitCategories()
     {
         EnsureCommitCategoriesInitialized();
