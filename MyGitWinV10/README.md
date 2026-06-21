@@ -1,18 +1,44 @@
 # MyGit V1.0.0
 
-Windows desktop Git viewer built with WinForms (.NET 8). Browse commit history with a branch graph, inspect diffs, manage branches, and explore GitHub Releases.
+Windows desktop Git client built with WinForms (.NET 8). Browse commit history with a branch graph, inspect diffs, manage branches, work with local repositories, browse remotes without a full clone, and export repository summary reports.
 
 ![MyGit icon](Assets/MyGit.ico)
 
 ## Features
 
-- Open local repositories or clone from a remote URL
+### Repository access
+
+- **Open** local repositories
+- **Clone** from a remote URL (HTTPS with optional credentials)
+- **Browse Remote** — read-only history view from a bare cache (no permanent working copy)
+- **Recent repositories** in the File menu
+- **Restore last session** on startup (local open, clone, or remote browse)
+
+### History and diff
+
 - Commit history with lane-based branch/merge graph
-- Commit metadata, changed files list, and unified diff view
-- Repository tree: local branches, remotes, tags, and GitHub Releases
-- Checkout local branches from the tree
+- Commit metadata, changed files list, and colored unified diff view
+- **Files** panel — working-tree / HEAD file tree with path-filtered commit log
 - Resizable commit-history columns
-- Remembers the last opened repository
+- Export a single commit snapshot to a folder
+
+### Repository tree
+
+- Local branches, remotes, tags, and GitHub Releases
+- Checkout local branches from the tree (local repos only)
+
+### Git workflow (local clone only)
+
+- **Git Add** — stage selected file or folder from the Files panel context menu
+- **Git Commit** — category-based commit message dialog (`[category] subject`)
+- **Git Push** — push current branch to `origin` (HTTPS credentials when needed)
+- Editable commit categories with a manage dialog; categories persist in settings
+
+### Reports
+
+- **Export Summary** to PDF, Word (.docx), or Markdown
+- Preview before export (stats, charts, recent commits)
+- Charts: commit activity, top contributors, repository overview, commit graph
 
 ## Requirements
 
@@ -51,7 +77,7 @@ The resulting `MyGitWinV10Setup.msi` is written to `installer/bin/Release/`.
 
 ## User Documentation
 
-See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface and workflows.
+See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface and workflows (Korean).
 
 ## Project Layout
 
@@ -59,21 +85,26 @@ See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface 
 |------|-------------|
 | `MyGitWinV10.App/` | Main WinForms application |
 | `MyGitWinV10.App/Controls/` | Custom UI controls (`CommitGraphView`, icons, section titles) |
-| `MyGitWinV10.App/Services/` | Git operations, graph builder, diff rendering, GitHub integration |
-| `MyGitWinV10.App/Dialogs/` | Clone, credentials, about, and error dialogs |
+| `MyGitWinV10.App/Services/` | Git operations, graph builder, diff rendering, export, GitHub integration |
+| `MyGitWinV10.App/Dialogs/` | Clone, browse remote, commit, export preview, credentials, about dialogs |
 | `Assets/` | Application icon (`MyGit.ico`) and icon generator |
 | `installer/` | WiX Toolset v6 MSI installer project |
 
 ## Key Source Files
 
-- `MyGitWinV10.App/MainForm.cs` — main window layout and event handling
-- `MyGitWinV10.App/Controls/CommitGraphView.cs` — owner-drawn commit graph
-- `MyGitWinV10.App/Services/GitRepositoryService.cs` — LibGit2Sharp repository open/clone
-- `MyGitWinV10.App/Services/CommitGraphBuilder.cs` — lane assignment for the commit graph
-- `MyGitWinV10.App/Services/CommitDetailService.cs` — commit metadata and patch retrieval
-- `MyGitWinV10.App/Services/DiffTextRenderer.cs` — colored unified diff rendering
-- `MyGitWinV10.App/Services/BranchTagTreePopulator.cs` — branches, tags, and releases tree
-- `MyGitWinV10.App/Services/GitHubReleaseService.cs` — GitHub remote parsing and release list
+| File | Role |
+|------|------|
+| `MainForm.cs` | Main window layout and event handling |
+| `Controls/CommitGraphView.cs` | Owner-drawn commit graph |
+| `Services/GitRepositoryService.cs` | LibGit2Sharp repository open/clone |
+| `Services/RemoteRepositoryService.cs` | Bare remote cache for Browse Remote |
+| `Services/GitWorkflowService.cs` | Stage, commit, push |
+| `Services/RepositoryFileTreeService.cs` | Files panel tree |
+| `Services/PathCommitHistoryService.cs` | Path-filtered commit history |
+| `Services/CommitGraphBuilder.cs` | Lane assignment for the commit graph |
+| `Services/RepositorySummaryBuilder.cs` | Summary report data and charts |
+| `Services/GitHubReleaseService.cs` | GitHub remote parsing and release list |
+| `Services/AppSettingsStore.cs` | User settings persistence |
 
 ## Regenerating the Application Icon
 
@@ -81,13 +112,16 @@ See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface 
 dotnet run --project Assets/GenerateIcon.csproj -- Assets/MyGit.ico
 ```
 
-## Settings
+## Settings and runtime data
 
-User settings (last repository path) are stored at:
+| Item | Location |
+|------|----------|
+| User settings | `%AppData%\MyGitWinV10\settings.json` |
+| Remote browse cache | `%LocalAppData%\MyGitWinV10\remote-cache\` |
 
-`%AppData%\MyGitWinV10\settings.json`
+Settings include recent repositories, last successful session (local or remote browse), recent clone URLs, and commit categories.
 
-Credentials entered for HTTPS clone are kept in memory only and are not written to disk.
+HTTPS credentials entered for clone, browse, or push are kept **in memory only** and are not written to disk.
 
 ## License
 

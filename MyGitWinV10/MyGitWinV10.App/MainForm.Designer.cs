@@ -93,6 +93,10 @@ namespace MyGitWinV10.App
             repoFilesTreeView = new TreeView();
             repoFilesContextMenu = new ContextMenuStrip(components);
             showFileLogContextMenuItem = new ToolStripMenuItem();
+            repoFilesGitSeparator = new ToolStripSeparator();
+            gitAddContextMenuItem = new ToolStripMenuItem();
+            gitCommitContextMenuItem = new ToolStripMenuItem();
+            gitPushContextMenuItem = new ToolStripMenuItem();
             copyRepoFilePathContextMenuItem = new ToolStripMenuItem();
             clearFileLogFilterContextMenuItem = new ToolStripMenuItem();
             repoTitleLabel = new SectionTitleLabel();
@@ -702,9 +706,9 @@ namespace MyGitWinV10.App
             // 
             // repoFilesContextMenu
             // 
-            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { showFileLogContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
+            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { showFileLogContextMenuItem, repoFilesGitSeparator, gitAddContextMenuItem, gitCommitContextMenuItem, gitPushContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
             repoFilesContextMenu.Name = "repoFilesContextMenu";
-            repoFilesContextMenu.Size = new Size(181, 70);
+            repoFilesContextMenu.Size = new Size(181, 142);
             repoFilesContextMenu.Opening += RepoFilesContextMenu_Opening;
             // 
             // showFileLogContextMenuItem
@@ -714,6 +718,35 @@ namespace MyGitWinV10.App
             showFileLogContextMenuItem.Text = "Show Log";
             showFileLogContextMenuItem.ToolTipText = "Show commit history for this path in the graph panel";
             showFileLogContextMenuItem.Click += ShowFileLogContextMenuItem_Click;
+            // 
+            // repoFilesGitSeparator
+            // 
+            repoFilesGitSeparator.Name = "repoFilesGitSeparator";
+            repoFilesGitSeparator.Size = new Size(177, 6);
+            // 
+            // gitAddContextMenuItem
+            // 
+            gitAddContextMenuItem.Name = "gitAddContextMenuItem";
+            gitAddContextMenuItem.Size = new Size(180, 22);
+            gitAddContextMenuItem.Text = "Git Add";
+            gitAddContextMenuItem.ToolTipText = "Stage the selected file or folder";
+            gitAddContextMenuItem.Click += GitAddContextMenuItem_Click;
+            // 
+            // gitCommitContextMenuItem
+            // 
+            gitCommitContextMenuItem.Name = "gitCommitContextMenuItem";
+            gitCommitContextMenuItem.Size = new Size(180, 22);
+            gitCommitContextMenuItem.Text = "Git Commit...";
+            gitCommitContextMenuItem.ToolTipText = "Commit staged changes with a formatted message";
+            gitCommitContextMenuItem.Click += GitCommitContextMenuItem_Click;
+            // 
+            // gitPushContextMenuItem
+            // 
+            gitPushContextMenuItem.Name = "gitPushContextMenuItem";
+            gitPushContextMenuItem.Size = new Size(180, 22);
+            gitPushContextMenuItem.Text = "Git Push";
+            gitPushContextMenuItem.ToolTipText = "Push the current branch to origin";
+            gitPushContextMenuItem.Click += GitPushContextMenuItem_Click;
             // 
             // copyRepoFilePathContextMenuItem
             // 
@@ -1152,6 +1185,10 @@ namespace MyGitWinV10.App
         private TreeView repoFilesTreeView;
         private ContextMenuStrip repoFilesContextMenu;
         private ToolStripMenuItem showFileLogContextMenuItem;
+        private ToolStripSeparator repoFilesGitSeparator;
+        private ToolStripMenuItem gitAddContextMenuItem;
+        private ToolStripMenuItem gitCommitContextMenuItem;
+        private ToolStripMenuItem gitPushContextMenuItem;
         private ToolStripMenuItem copyRepoFilePathContextMenuItem;
         private ToolStripMenuItem clearFileLogFilterContextMenuItem;
         private SectionInfoLabel repoInfoLabel;

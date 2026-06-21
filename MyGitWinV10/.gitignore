@@ -3,14 +3,17 @@
 [Oo]bj/
 artifacts/
 build-check/
+**/publish/
 
 # Visual Studio / Rider
 .vs/
+.idea/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
 *.rsuser
+*.DotSettings.user
 
 # Build artifacts
 *.cache
@@ -40,7 +43,12 @@ Desktop.ini
 
 # Local / AI tooling (not part of the product)
 .claude/
+.cursor/
 user-settings.json
+
+# Local export / report samples (not part of the product)
+sample-reports/
+**/exports/
 
 # Installer (WiX)
 installer/bin/

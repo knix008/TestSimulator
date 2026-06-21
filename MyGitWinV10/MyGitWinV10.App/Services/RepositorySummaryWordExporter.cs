@@ -20,6 +20,8 @@ public static class RepositorySummaryWordExporter
         AddParagraph(body, $"Local branches: {summary.LocalBranches.Count}  |  Remote branches: {summary.RemoteBranches.Count}  |  Tags: {summary.Tags.Count}  |  Releases: {summary.Releases.Count}");
         AddSpacer(body);
 
+        AddChartsSection(body, mainPart, summary);
+
         AddHeading(body, "HEAD Commit");
         if (summary.HeadCommitSha is null)
         {
@@ -66,6 +68,26 @@ public static class RepositorySummaryWordExporter
         }
 
         mainPart.Document.Save();
+    }
+
+    private static void AddChartsSection(Body body, MainDocumentPart mainPart, RepositorySummary summary)
+    {
+        if (summary.Charts.Count == 0)
+        {
+            return;
+        }
+
+        AddHeading(body, "Charts");
+        uint imageId = 1;
+        foreach (var chart in summary.Charts)
+        {
+            AddParagraph(body, chart.Title);
+            var (width, height) = WordDocumentImageHelper.GetPngDimensions(chart.PngData);
+            int scaledWidth = Math.Min(width, 620);
+            int scaledHeight = (int)Math.Round(height * (scaledWidth / (double)width));
+            WordDocumentImageHelper.AddImage(body, mainPart, chart.PngData, scaledWidth, scaledHeight, imageId++);
+            AddSpacer(body);
+        }
     }
 
     private static void AddTitle(Body body, string text) =>

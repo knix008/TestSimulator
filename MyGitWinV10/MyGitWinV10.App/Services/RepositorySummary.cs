@@ -28,6 +28,8 @@ public sealed class RepositorySummary
 
     public IReadOnlyList<RepositoryCommitSummary> RecentCommits { get; init; } = [];
 
+    public IReadOnlyList<RepositoryChartImage> Charts { get; init; } = [];
+
     public DateTime GeneratedAt { get; init; } = DateTime.Now;
 }
 

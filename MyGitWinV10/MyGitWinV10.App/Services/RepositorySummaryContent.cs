@@ -4,7 +4,13 @@ namespace MyGitWinV10.App.Services;
 
 internal static class RepositorySummaryContent
 {
-    public static string ToMarkdown(RepositorySummary summary)
+    public static string ToMarkdown(RepositorySummary summary, string chartsRelativeFolder) =>
+        ToMarkdown(summary, chartsRelativeFolder, includeChartSection: summary.Charts.Count > 0);
+
+    public static string ToMarkdown(RepositorySummary summary) =>
+        ToMarkdown(summary, chartsRelativeFolder: string.Empty, includeChartSection: false);
+
+    private static string ToMarkdown(RepositorySummary summary, string chartsRelativeFolder, bool includeChartSection)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"# Repository Summary: {summary.RepositoryName}");
@@ -18,6 +24,11 @@ internal static class RepositorySummaryContent
         sb.AppendLine($"- **Releases:** {summary.Releases.Count}");
         sb.AppendLine();
 
+        if (includeChartSection)
+        {
+            AppendChartsMarkdown(sb, summary, chartsRelativeFolder);
+        }
+
         AppendHeadCommitMarkdown(sb, summary);
         AppendSectionMarkdown(sb, "Remotes", summary.Remotes);
         AppendSectionMarkdown(sb, "Local Branches", summary.LocalBranches);
@@ -27,6 +38,20 @@ internal static class RepositorySummaryContent
         AppendRecentCommitsMarkdown(sb, summary);
 
         return sb.ToString();
+    }
+
+    private static void AppendChartsMarkdown(StringBuilder sb, RepositorySummary summary, string chartsRelativeFolder)
+    {
+        sb.AppendLine("## Charts");
+        sb.AppendLine();
+
+        foreach (var chart in summary.Charts)
+        {
+            sb.AppendLine($"### {chart.Title}");
+            sb.AppendLine();
+            sb.AppendLine($"![{chart.Title}]({chartsRelativeFolder}/{chart.FileName})");
+            sb.AppendLine();
+        }
     }
 
     private static void AppendHeadCommitMarkdown(StringBuilder sb, RepositorySummary summary)

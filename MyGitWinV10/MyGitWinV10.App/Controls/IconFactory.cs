@@ -242,4 +242,26 @@ public static class IconFactory
         g.FillRectangle(added, 9.5f, 6.5f, 3, 1.6f);
         g.FillRectangle(added, 10.7f, 5.3f, 1.6f, 4);
     }, size: size);
+
+    public static Image GitAdd(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawLine(pen, 8, 3.5f, 8, 12.5f);
+        g.DrawLine(pen, 3.5f, 8, 12.5f, 8);
+    }, Color.FromArgb(5, 150, 105), size);
+
+    public static Image GitCommit(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawRectangle(pen, 2.5f, 3, 11, 9);
+        g.DrawLine(pen, 4.5f, 6, 11.5f, 6);
+        g.DrawLine(pen, 4.5f, 8.5f, 9, 8.5f);
+        g.DrawLine(pen, 8, 12, 10.5f, 14.5f);
+        g.DrawLine(pen, 10.5f, 14.5f, 13, 12);
+    }, AccentColor, size);
+
+    public static Image GitPush(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawLine(pen, 8, 13, 8, 4);
+        g.FillPolygon(brush, new PointF[] { new(5, 6.5f), new(11, 6.5f), new(8, 2.5f) });
+        g.DrawLine(pen, 3, 13, 13, 13);
+    }, Color.FromArgb(217, 119, 6), size);
 }

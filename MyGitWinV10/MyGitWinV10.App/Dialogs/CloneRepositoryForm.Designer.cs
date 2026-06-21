@@ -105,8 +105,12 @@ namespace MyGitWinV10.App.Dialogs
             cloneButton.Location = new Point(324, 195);
             cloneButton.Name = "cloneButton";
             cloneButton.Size = new Size(75, 28);
+            cloneButton.MinimumSize = new Size(75, 28);
+            cloneButton.MaximumSize = new Size(75, 28);
+            cloneButton.AutoSize = false;
             cloneButton.TabIndex = 4;
             cloneButton.Text = "Clone";
+            cloneButton.TextAlign = ContentAlignment.MiddleCenter;
             cloneButton.Click += CloneButton_Click;
             //
             // cancelButton
@@ -115,8 +119,12 @@ namespace MyGitWinV10.App.Dialogs
             cancelButton.Location = new Point(405, 195);
             cancelButton.Name = "cancelButton";
             cancelButton.Size = new Size(75, 28);
+            cancelButton.MinimumSize = new Size(75, 28);
+            cancelButton.MaximumSize = new Size(75, 28);
+            cancelButton.AutoSize = false;
             cancelButton.TabIndex = 5;
             cancelButton.Text = "Cancel";
+            cancelButton.TextAlign = ContentAlignment.MiddleCenter;
             cancelButton.Click += CancelButton_Click;
             //
             // CloneRepositoryForm

@@ -57,6 +57,25 @@ public static class RepositorySummaryBuilder
             })
             .ToList();
 
+        var chartData = SummaryChartDataBuilder.Build(repo, new RepositorySummary
+        {
+            RepositoryName = name,
+            RepositoryPath = repositoryPath,
+            CurrentBranch = repo.Head?.FriendlyName ?? "(no branch)",
+            HeadCommitSha = head?.Sha[..10],
+            HeadCommitMessage = head?.MessageShort,
+            HeadCommitAuthor = head is null ? null : $"{head.Author.Name} <{head.Author.Email}>",
+            HeadCommitDate = head?.Author.When,
+            LocalBranches = localBranches,
+            RemoteBranches = remoteBranches,
+            Remotes = remotes,
+            Tags = tags,
+            Releases = releases ?? [],
+            RecentCommits = recentCommits,
+            GeneratedAt = DateTime.Now
+        });
+        var charts = RepositorySummaryChartRenderer.Render(chartData);
+
         return new RepositorySummary
         {
             RepositoryName = name,
@@ -72,6 +91,7 @@ public static class RepositorySummaryBuilder
             Tags = tags,
             Releases = releases ?? [],
             RecentCommits = recentCommits,
+            Charts = charts,
             GeneratedAt = DateTime.Now
         };
     }

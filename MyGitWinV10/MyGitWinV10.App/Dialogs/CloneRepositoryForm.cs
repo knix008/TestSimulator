@@ -64,11 +64,18 @@ public partial class CloneRepositoryForm : Form
     {
         statusLabel.Text = "Cancelling...";
         cancelButton.Enabled = false;
+        cloneButton.Enabled = false;
         _cloneCts?.Cancel();
     }
 
     private async void CloneButton_Click(object? sender, EventArgs e)
     {
+        if (_cloneCts is { IsCancellationRequested: false })
+        {
+            RequestCloneCancellation();
+            return;
+        }
+
         var url = urlTextBox.Text.Trim();
         var destination = destinationTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(destination))
@@ -203,6 +210,11 @@ public partial class CloneRepositoryForm : Form
         urlTextBox.Enabled = !busy;
         destinationTextBox.Enabled = !busy;
         browseButton.Enabled = !busy;
-        cloneButton.Enabled = !busy;
+        cloneButton.Enabled = true;
+        cloneButton.Text = busy ? "Stop" : "Clone";
+        cloneButton.BackColor = busy
+            ? Color.FromArgb(220, 38, 38)
+            : Color.FromArgb(37, 99, 235);
+        cloneButton.Size = new Size(75, 28);
     }
 }

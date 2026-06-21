@@ -69,7 +69,7 @@ public partial class MainForm : Form
         {
             ApplyPanelLayout();
             ApplyDetailVerticalLayout();
-            OpenLastRepositoryIfAvailable();
+            OpenLastSuccessfulSessionIfAvailable();
         };
     }
 
@@ -230,6 +230,9 @@ public partial class MainForm : Form
             (copyFilePathContextMenuItem, IconFactory.File(), "Copy Path"));
         ConfigureContextMenu(repoFilesContextMenu,
             (showFileLogContextMenuItem, IconFactory.History(), "Show Log"),
+            (gitAddContextMenuItem, IconFactory.GitAdd(), "Git Add"),
+            (gitCommitContextMenuItem, IconFactory.GitCommit(), "Git Commit..."),
+            (gitPushContextMenuItem, IconFactory.GitPush(), "Git Push"),
             (copyRepoFilePathContextMenuItem, IconFactory.File(), "Copy Path"),
             (clearFileLogFilterContextMenuItem, IconFactory.RefreshGraph(), "Show All Commits"));
     }
@@ -494,15 +497,35 @@ public partial class MainForm : Form
         button.ToolTipText = toolTipText;
     }
 
-    private void OpenLastRepositoryIfAvailable()
+    private void OpenLastSuccessfulSessionIfAvailable()
     {
-        if (string.IsNullOrWhiteSpace(_settings.LastRepositoryPath))
+        var session = _settings.LastSuccessfulSession;
+        if (session is null || string.IsNullOrWhiteSpace(session.Path))
         {
             return;
         }
 
+        if (!Directory.Exists(session.Path) || !Repository.IsValid(session.Path))
+        {
+            _settings.RemoveRecentRepository(session.Path);
+            _settings.Save();
+            return;
+        }
+
+        if (session.IsRemote)
+        {
+            if (string.IsNullOrWhiteSpace(session.RemoteUrl))
+            {
+                return;
+            }
+
+            statusLabel.Text = "Opening last remote repository...";
+            TryOpenRemoteBrowse(session.Path, session.RemoteUrl, showErrorOnFailure: false);
+            return;
+        }
+
         statusLabel.Text = "Opening last repository...";
-        TryOpenRepository(_settings.LastRepositoryPath, showErrorOnFailure: false);
+        TryOpenRepository(session.Path, showErrorOnFailure: false);
     }
 
     private void OpenRepositoryMenuItem_Click(object? sender, EventArgs e)
@@ -583,7 +606,7 @@ public partial class MainForm : Form
 
             if (!string.IsNullOrWhiteSpace(_gitService.RepositoryPath))
             {
-                _settings.RecordRecentRepository(_gitService.RepositoryPath);
+                _settings.RecordSuccessfulLocalSession(_gitService.RepositoryPath);
                 _settings.Save();
             }
 
@@ -623,6 +646,9 @@ public partial class MainForm : Form
             _gitService.OpenLocal(cachePath);
             statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()} (remote view)";
             RefreshRepositoryViews();
+
+            _settings.RecordSuccessfulRemoteBrowseSession(cachePath, remoteUrl);
+            _settings.Save();
 
             if (completionTitle is not null)
             {
@@ -946,62 +972,39 @@ public partial class MainForm : Form
             return;
         }
 
-        string repoName = Path.GetFileName(_gitService.RepositoryPath.TrimEnd(Path.DirectorySeparatorChar));
-        if (string.IsNullOrEmpty(repoName))
-        {
-            repoName = "repository";
-        }
-
-        string extension = format switch
-        {
-            "pdf" => ".pdf",
-            "docx" => ".docx",
-            "md" => ".md",
-            _ => ".txt"
-        };
-
-        using var dialog = new SaveFileDialog
-        {
-            Title = "Export Repository Summary",
-            Filter = format switch
-            {
-                "pdf" => "PDF document (*.pdf)|*.pdf",
-                "docx" => "Word document (*.docx)|*.docx",
-                "md" => "Markdown document (*.md)|*.md",
-                _ => "All files (*.*)|*.*"
-            },
-            FileName = $"{repoName}-summary{extension}",
-            DefaultExt = extension.TrimStart('.'),
-            AddExtension = true,
-            OverwritePrompt = true
-        };
-
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-        {
-            return;
-        }
-
         try
         {
+            UseWaitCursor = true;
             var summary = RepositorySummaryBuilder.Build(
                 _gitService.Repo,
                 _gitService.RepositoryPath,
                 CollectReleaseSummaries());
 
-            RepositorySummaryExportService.Export(summary, dialog.FileName);
-            statusLabel.Text = $"Exported summary to {dialog.FileName}";
+            UseWaitCursor = false;
+
+            using var preview = new RepositorySummaryPreviewForm(summary, format);
+            if (preview.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(preview.ExportedFilePath))
+            {
+                return;
+            }
+
+            statusLabel.Text = $"Exported summary to {preview.ExportedFilePath}";
             ShowOperationComplete(
                 "Export Complete",
                 "The repository summary was exported successfully.",
                 null,
                 new OperationDetail("Repository", summary.RepositoryName),
                 new OperationDetail("Branch", summary.CurrentBranch),
-                new OperationDetail("Format", GetExportFormatDisplayName(format)),
-                new OperationDetail("File", dialog.FileName));
+                new OperationDetail("Format", GetExportFormatDisplayName(preview.ExportedFormat ?? format)),
+                new OperationDetail("File", preview.ExportedFilePath));
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Export Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            UseWaitCursor = false;
         }
     }
 
@@ -1335,6 +1338,9 @@ public partial class MainForm : Form
         ApplyPathHistoryFilter(tag.RelativePath, tag.IsDirectory);
     }
 
+    private bool CanUseGitWorkflow =>
+        _gitService.Repo is not null && GitWorkflowService.CanUseWorkflow(_gitService.Repo, IsRemoteBrowseMode);
+
     private void RepoFilesContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_gitService.Repo is null)
@@ -1343,9 +1349,18 @@ public partial class MainForm : Form
             return;
         }
 
+        bool canUseGit = CanUseGitWorkflow;
+        repoFilesGitSeparator.Visible = canUseGit;
+        gitAddContextMenuItem.Visible = canUseGit;
+        gitCommitContextMenuItem.Visible = canUseGit;
+        gitPushContextMenuItem.Visible = canUseGit;
+
         if (repoFilesTreeView.SelectedNode?.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
         {
             showFileLogContextMenuItem.Enabled = false;
+            gitAddContextMenuItem.Enabled = false;
+            gitCommitContextMenuItem.Enabled = canUseGit && GitWorkflowService.HasStagedChanges(_gitService.Repo);
+            gitPushContextMenuItem.Enabled = canUseGit && GitWorkflowService.HasOriginRemote(_gitService.Repo);
             copyRepoFilePathContextMenuItem.Enabled = false;
             clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
             return;
@@ -1353,8 +1368,108 @@ public partial class MainForm : Form
 
         bool canShowLog = PathCommitHistoryService.CanShowLog(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
         showFileLogContextMenuItem.Enabled = canShowLog;
+        gitAddContextMenuItem.Enabled = canUseGit;
+        gitCommitContextMenuItem.Enabled = canUseGit && GitWorkflowService.HasStagedChanges(_gitService.Repo);
+        gitPushContextMenuItem.Enabled = canUseGit && GitWorkflowService.HasOriginRemote(_gitService.Repo);
         copyRepoFilePathContextMenuItem.Enabled = true;
         clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
+    }
+
+    private void GitAddContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_gitService.Repo is null
+            || !CanUseGitWorkflow
+            || repoFilesTreeView.SelectedNode?.Tag is not RepositoryFileNodeTag tag
+            || tag.IsPlaceholder)
+        {
+            return;
+        }
+
+        try
+        {
+            GitWorkflowService.Stage(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+            statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
+                ? "Staged all changes"
+                : $"Staged {tag.RelativePath}";
+            RefreshRepositoryViews();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Git Add Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void GitCommitContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        var stagedPaths = GitWorkflowService.GetStagedPaths(_gitService.Repo);
+        if (stagedPaths.Count == 0)
+        {
+            MessageBox.Show(this, "Stage changes with Git Add before committing.", "Git Commit", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var dialog = new GitCommitDialog(stagedPaths, _settings);
+        if (dialog.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.CommitMessage))
+        {
+            return;
+        }
+
+        try
+        {
+            var commit = GitWorkflowService.CreateCommit(_gitService.Repo, dialog.CommitMessage);
+            RefreshRepositoryViews();
+            statusLabel.Text = $"Committed {commit.Sha[..7]}";
+            ShowOperationComplete(
+                "Commit Complete",
+                "The staged changes were committed successfully.",
+                null,
+                new OperationDetail("Commit", commit.Sha[..7]),
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
+                new OperationDetail("Message", commit.MessageShort.Trim()));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Git Commit Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void GitPushContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        try
+        {
+            var prompt = new CredentialsPrompt(this, initialPassword: _gitHubToken);
+            GitWorkflowService.Push(_gitService.Repo, prompt.Handler);
+            if (prompt.LastEntered is { } credentials && !string.IsNullOrWhiteSpace(credentials.Password))
+            {
+                _gitHubToken = credentials.Password;
+            }
+
+            statusLabel.Text = $"Pushed {_gitService.GetCurrentBranchName()} to origin";
+            ShowOperationComplete(
+                "Push Complete",
+                "The current branch was pushed to origin successfully.",
+                null,
+                new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
+                new OperationDetail("Remote", "origin"));
+        }
+        catch (OperationCanceledException)
+        {
+            statusLabel.Text = "Push cancelled";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Git Push Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void ShowFileLogContextMenuItem_Click(object? sender, EventArgs e) =>

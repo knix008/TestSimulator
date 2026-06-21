@@ -30,6 +30,8 @@ public static class RepositorySummaryPdfExporter
                         $"Tags: {summary.Tags.Count}   " +
                         $"Releases: {summary.Releases.Count}");
 
+                    AddChartsSection(column, summary);
+
                     AddSection(column, "HEAD Commit", () =>
                     {
                         if (summary.HeadCommitSha is null)
@@ -80,6 +82,23 @@ public static class RepositorySummaryPdfExporter
                 });
             });
         }).GeneratePdf(filePath);
+    }
+
+    private static void AddChartsSection(ColumnDescriptor column, RepositorySummary summary)
+    {
+        if (summary.Charts.Count == 0)
+        {
+            return;
+        }
+
+        AddSection(column, "Charts", () =>
+        {
+            foreach (var chart in summary.Charts)
+            {
+                column.Item().PaddingTop(4).Text(chart.Title).SemiBold().FontSize(11);
+                column.Item().PaddingBottom(8).Image(chart.PngData).FitArea();
+            }
+        });
     }
 
     private static void AddSection(ColumnDescriptor column, string title, Action content)
