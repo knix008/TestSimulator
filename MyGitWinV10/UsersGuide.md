@@ -1,6 +1,6 @@
 # MyGit V1.0.0 — 사용자 가이드
 
-MyGit은 Windows용 Git 클라이언트입니다. 커밋 그래프, 변경 파일, diff, 브랜치/태그, GitHub Release를 한 화면에서 탐색할 수 있으며, 로컬 Clone 저장소에서는 **Git Add / Commit / Push** 작업도 수행할 수 있습니다.
+MyGit은 Windows용 Git 클라이언트입니다. 커밋 그래프, 변경 파일, diff, 브랜치/태그, GitHub Release를 한 화면에서 탐색할 수 있으며, 로컬 Clone 저장소에서는 **Git Add / Reset / Discard / Commit / Fetch / Pull / Push / Stash** 등의 작업도 수행할 수 있습니다.
 
 ---
 
@@ -13,7 +13,7 @@ MyGit은 Windows용 Git 클라이언트입니다. 커밋 그래프, 변경 파�
 5. [Files 패널](#files-패널)
 6. [Commit History 패널](#commit-history-패널)
 7. [Commit Details / Diff 패널](#commit-details--diff-패널)
-8. [Git 작업 (Add / Commit / Push)](#git-작업-add--commit--push)
+8. [Git 작업 (Add / Commit / Push 등)](#git-작업-add--commit--push-등)
 9. [저장소 요약 내보내기](#저장소-요약-내보내기)
 10. [메뉴 및 도구 모음](#메뉴-및-도구-모음)
 11. [바로 가기 및 컨텍스트 메뉴](#바로-가기-및-컨텍스트-메뉴)
@@ -116,11 +116,13 @@ Browse Remote 모드에서는 **Checkout, Git Add/Commit/Push** 가 비활성화
   토큰 발급: [github.com/settings/tokens](https://github.com/settings/tokens)
 - **기타 호스트:** 비밀번호 또는 PAT를 입력할 수 있습니다.
 
-입력한 자격 증명은 **메모리에만** 사용되며 디스크에 저장되지 않습니다.
+Clone/Browse Remote에서 입력한 자격 증명은 해당 다이얼로그가 열려 있는 동안만 메모리에 보관되며 디스크에 저장되지 않습니다. (Repository 메뉴의 Git Fetch/Pull/Push에서 사용하는 자격 증명은 다르게 동작합니다 — [Fetch / Pull / Push와 HTTPS 인증](#fetch--pull--push와-https-인증) 참고.)
 
-### 최근 저장소
+### 최근 URL · 최근 저장소
 
-**File** 메뉴 하단에 최근에 연 로컬 저장소 목록이 표시됩니다. 항목을 클릭하면 해당 저장소를 다시 엽니다.
+- **Repository URL** 입력란에 포커스를 주면(아무것도 입력하지 않아도) 최근에 사용한 URL 목록이 바로 드롭다운으로 표시됩니다.
+- 목록이 펼쳐진 상태에서 항목을 선택하고 **Delete** 키를 누르면 해당 URL이 히스토리에서 삭제됩니다.
+- **File** 메뉴 하단에는 최근에 연 로컬 저장소 목록이 표시됩니다. 항목을 클릭하면 해당 저장소를 다시 엽니다.
 
 ---
 
@@ -178,7 +180,11 @@ Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 �
 | **Copy Path** | 저장소 기준 상대 경로 복사 |
 | **Show All Commits** | 경로 필터 해제 |
 
-로컬 Clone 저장소에서 추가로 표시되는 메뉴는 [Git 작업](#git-작업-add--commit--push) 절을 참고하세요.
+로컬 Clone 저장소에서 추가로 표시되는 메뉴는 [Git 작업](#git-작업-add--commit--push-등) 절을 참고하세요.
+
+### 파일/디렉터리 아이콘과 상태 툴팁
+
+각 파일·디렉터리 아이콘은 Git 상태에 따라 다르게 표시됩니다 (수정됨, 추가됨, 스테이지됨, 삭제됨, 이름변경, 추적 안 됨, 충돌, 혼합 상태 등). 마우스를 파일/디렉터리 위에 올리면 잠시 후 해당 경로의 Git 상태가 툴팁으로 표시됩니다.
 
 ---
 
@@ -245,23 +251,37 @@ Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 �
 
 ---
 
-## Git 작업 (Add / Commit / Push)
+## Git 작업 (Add / Commit / Push 등)
 
 **로컬 Clone 저장소**(작업 디렉터리가 있는 저장소)에서만 사용할 수 있습니다. Browse Remote 모드에서는 표시되지 않습니다.
 
-Files 패널에서 파일 또는 폴더를 **우클릭**합니다.
+Files 패널에서 파일 또는 폴더를 **우클릭**하거나, 메뉴 모음의 **Repository → Git**에서 저장소 전체에 대해 실행합니다.
 
 | 메뉴 | 동작 |
 |------|------|
 | **Git Add** | 선택한 파일/폴더를 stage (저장소 루트 선택 시 전체) |
+| **Git Reset (Unstage)** | stage를 취소 |
+| **Git Discard Changes** | 작업 트리의 변경사항을 되돌림 |
 | **Git Commit...** | staged 변경사항 커밋 (카테고리 형식 메시지) |
+| **Git Fetch** | `origin`에서 변경사항만 가져옴 (병합 없음) |
+| **Git Pull** | `origin`의 변경사항을 가져와 병합 |
 | **Git Push** | 현재 브랜치를 `origin` 원격으로 push |
+| **Git Stash** | 작업 트리의 변경사항을 임시 보관 |
+| **Git Stash Pop** | 가장 최근 stash를 적용하고 제거 |
+| **Git Status...** | 현재 staged/work tree 상태를 대화상자로 표시 |
 
 ### 권장 작업 순서
 
 ```
 Git Add → Git Commit... → Git Push
 ```
+
+### Fetch / Pull / Push와 HTTPS 인증
+
+- 처음 실행할 때 username과 PAT를 입력하는 대화상자가 표시됩니다 (대화상자는 데이터 연결이 끝나고 실제로 시간이 걸릴 때만 나타나며, 인증 대기 중에는 표시되지 않습니다).
+- 인증에 **성공**하면 username/PAT가 암호화되어 저장되고, 다음부터는 대화상자 없이 자동으로 재사용됩니다.
+- 인증 후 작업이 **실패**하면(예: 403) 다음 시도에 대화상자가 다시 나타나지만, 입력했던 값은 지워지지 않고 그대로 채워져 있습니다 — 값 자체가 아니라 "자동 재사용" 여부만 초기화되기 때문입니다.
+- `403` 오류가 반복되면 PAT 자체가 아니라, GitHub organization의 **SSO(SAML) 정책으로 토큰이 아직 승인되지 않은 경우**가 흔한 원인입니다. GitHub의 Personal access token 설정 페이지에서 해당 조직에 대해 토큰을 "Authorize"했는지 확인하세요.
 
 ### Git Commit 다이얼로그
 
@@ -303,7 +323,8 @@ OAuth 연동 및 세션 저장
 | 작업 | 조건 |
 |------|------|
 | **Git Commit** | stage된 변경이 있어야 함 (`user.name`, `user.email` git config 설정 필요) |
-| **Git Push** | `origin` 원격이 설정되어 있어야 함 (HTTPS 시 자격 증명 입력) |
+| **Git Fetch / Pull / Push** | `origin` 원격이 설정되어 있어야 함 (HTTPS 시 자격 증명 입력, 이후 자동 재사용) |
+| **Git Stash Pop** | 적용할 stash 항목이 있어야 함 |
 
 git config 예:
 
@@ -417,7 +438,7 @@ Markdown 내보내기 시 차트 PNG는 `{파일명}_charts/` 폴더에 함께 �
 | 원격 탐색 | File → Browse Remote... (`Ctrl+Shift+B`) |
 | 브랜치 체크아웃 | Repository → 로컬 브랜치 우클릭 → Checkout |
 | 경로별 로그 | Files → 파일/폴더 클릭 또는 우클릭 → Show Log |
-| Git Add / Commit / Push | Files → 우클릭 (로컬 Clone만) |
+| Git Add / Commit / Fetch / Pull / Push / Stash | Files → 우클릭, 또는 Repository → Git 메뉴 (로컬 Clone만) |
 | 커밋 diff 보기 | Changed Files에서 파일 선택 |
 | 요약 리포트 | Repository → Export Summary |
 | 프로그램 정보 | Help → About (`F1`) |
@@ -475,11 +496,15 @@ Release 항목을 선택하면 릴리스 이름, 태그, 게시일, 릴리스 �
 | `RecentRepositoryPaths` | 최근 연 로컬 저장소 (최대 10개) |
 | `RecentCloneUrls` | 최근 입력한 Clone/Browse URL (최대 10개) |
 | `CommitCategories` | Git Commit Category 목록 (최대 30개) |
+| `GitHubUsername` | Git Fetch/Pull/Push에서 마지막으로 사용한 username |
+| `GitHubTokenProtected` | 마지막으로 사용한 PAT — Windows DPAPI(현재 사용자 기준)로 암호화되어 저장 |
 
 ### 저장하지 않는 정보
 
-- HTTPS 사용자 이름 / 비밀번호 / PAT
+- Clone / Browse Remote 다이얼로그에서 입력한 자격 증명 (해당 다이얼로그가 열려 있는 동안만 메모리에 유지)
 - 클립보드에 복사한 내용 (OS 클립보드 관리)
+
+> `GitHubTokenProtected`는 평문이 아니라 DPAPI로 암호화된 값입니다. 같은 Windows 사용자 계정에서만 복호화할 수 있으며, `settings.json` 파일 자체를 열어봐도 PAT 원문은 보이지 않습니다.
 
 ---
 
@@ -508,6 +533,7 @@ Release 항목을 선택하면 릴리스 이름, 태그, 게시일, 릴리스 �
 - `git remote -v`로 `origin` 원격 존재 확인
 - HTTPS 인증(PAT) 확인
 - 원격에 이미 push된 커밋과 충돌 시 Git CLI에서 pull/rebase 후 재시도
+- **403 오류가 PAT를 올바르게 입력했는데도 발생**하면, PAT 자체보다 GitHub organization의 SSO(SAML) 정책이 원인인 경우가 많습니다. PAT 발급 페이지에서 해당 조직에 토큰을 "Authorize"했는지 확인하세요. 실패한 자격 증명 값은 지워지지 않으므로 재시도 시 다시 입력할 필요 없이 그대로 다시 시도하면 됩니다.
 
 ### Releases가 표시되지 않음
 
