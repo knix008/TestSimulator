@@ -151,6 +151,9 @@ namespace MyGitWinV10.App.Dialogs
             commitButton.TabIndex = 5;
             commitButton.Text = "Commit";
             commitButton.TextAlign = ContentAlignment.MiddleCenter;
+            commitButton.Padding = Padding.Empty;
+            commitButton.Margin = Padding.Empty;
+            commitButton.FlatAppearance.BorderSize = 0;
             commitButton.Click += CommitButton_Click;
             //
             // cancelButton
@@ -165,6 +168,9 @@ namespace MyGitWinV10.App.Dialogs
             cancelButton.TabIndex = 6;
             cancelButton.Text = "Cancel";
             cancelButton.TextAlign = ContentAlignment.MiddleCenter;
+            cancelButton.Padding = Padding.Empty;
+            cancelButton.Margin = Padding.Empty;
+            cancelButton.FlatAppearance.BorderSize = 1;
             cancelButton.Click += CancelButton_Click;
             //
             // GitCommitDialog

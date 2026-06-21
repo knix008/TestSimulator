@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Drawing.Text;
 
 static GraphicsPath RoundedRect(float x, float y, float w, float h, float radius)
 {
@@ -212,23 +213,42 @@ static Bitmap DrawFileStatusIcon(int size, bool isDirectory, Color? badgeColor, 
     graphics.SmoothingMode = SmoothingMode.AntiAlias;
     graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
     graphics.CompositingQuality = CompositingQuality.HighQuality;
+    graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
 
     float scale = size / 16f;
     graphics.ScaleTransform(scale, scale);
 
-    var glyphColor = Color.FromArgb(71, 85, 105);
-    using var pen = new Pen(glyphColor, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-    using var brush = new SolidBrush(glyphColor);
+    var outlineColor = Color.FromArgb(51, 65, 85);
 
     if (isDirectory)
     {
-        PointF[] folder = [new(2, 6), new(8, 3), new(14, 6), new(14, 14), new(2, 14)];
-        graphics.FillPolygon(brush, folder);
+        var bodyColor = Color.FromArgb(96, 165, 250);
+        var tabColor = Color.FromArgb(59, 130, 246);
+        using var pen = new Pen(outlineColor, 1f) { LineJoin = LineJoin.Round };
+
+        // Classic folder silhouette: a tab sticking up from the left of a wider body.
+        PointF[] folder =
+        [
+            new(1.5f, 4.5f), new(6.5f, 4.5f), new(8f, 6.5f), new(14.5f, 6.5f),
+            new(14.5f, 13.5f), new(1.5f, 13.5f),
+        ];
+        using var bodyBrush = new SolidBrush(bodyColor);
+        graphics.FillPolygon(bodyBrush, folder);
         graphics.DrawPolygon(pen, folder);
+
+        using var tabBrush = new SolidBrush(tabColor);
+        PointF[] tab = [new(1.5f, 4.5f), new(6.5f, 4.5f), new(8f, 6.5f), new(1.5f, 6.5f)];
+        graphics.FillPolygon(tabBrush, tab);
+        graphics.DrawPolygon(pen, tab);
     }
     else
     {
-        graphics.DrawPolygon(pen, new PointF[] { new(4, 2), new(10, 2), new(13, 5), new(13, 14), new(4, 14) });
+        var glyphColor = Color.FromArgb(71, 85, 105);
+        using var pen = new Pen(glyphColor, 1.3f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        using var fillBrush = new SolidBrush(Color.FromArgb(241, 245, 249));
+        PointF[] page = [new(4, 2), new(10, 2), new(13, 5), new(13, 14), new(4, 14)];
+        graphics.FillPolygon(fillBrush, page);
+        graphics.DrawPolygon(pen, page);
         graphics.DrawLines(pen, new PointF[] { new(10, 2), new(10, 5), new(13, 5) });
         graphics.DrawLine(pen, 6, 8, 11, 8);
         graphics.DrawLine(pen, 6, 10.5f, 11, 10.5f);
@@ -236,18 +256,32 @@ static Bitmap DrawFileStatusIcon(int size, bool isDirectory, Color? badgeColor, 
 
     if (badgeColor is Color color)
     {
-        var badgeRect = new RectangleF(9, 9, 6.5f, 6.5f);
+        var badgeCenter = new PointF(12f, 12f);
+        const float badgeRadius = 3.6f;
+        var badgeRect = new RectangleF(badgeCenter.X - badgeRadius, badgeCenter.Y - badgeRadius, badgeRadius * 2, badgeRadius * 2);
+
+        using var ring = new Pen(Color.FromArgb(250, 250, 251), 1.2f);
         using var badgeBrush = new SolidBrush(color);
         graphics.FillEllipse(badgeBrush, badgeRect);
+        graphics.DrawEllipse(ring, Inflate(badgeRect, -0.4f));
 
         if (!string.IsNullOrEmpty(badgeLetter))
         {
+            var clipState = graphics.Save();
+            graphics.SetClip(new RectangleF(badgeRect.X - 0.5f, badgeRect.Y - 0.5f, badgeRect.Width + 1f, badgeRect.Height + 1f));
             using var textBrush = new SolidBrush(Color.White);
-            using var font = new Font("Segoe UI", 5.5f, FontStyle.Bold, GraphicsUnit.Point);
+            using var font = new Font("Segoe UI", 4.5f, FontStyle.Bold, GraphicsUnit.Point);
             var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             graphics.DrawString(badgeLetter, font, textBrush, badgeRect, format);
+            graphics.Restore(clipState);
         }
     }
 
     return bitmap;
+}
+
+static RectangleF Inflate(RectangleF rect, float amount)
+{
+    rect.Inflate(amount, amount);
+    return rect;
 }

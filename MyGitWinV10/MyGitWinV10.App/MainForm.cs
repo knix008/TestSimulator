@@ -19,7 +19,9 @@ public partial class MainForm : Form
     private int _repositoryRefreshGeneration;
     private bool _repositoryRefreshInProgress;
 
-    // Kept in memory only for this session — never persisted to disk (see CredentialsPrompt).
+    // Seeded from AppSettingsStore (DPAPI-encrypted on disk) and kept up to date after every
+    // successful push/pull/fetch so the user isn't asked to retype the PAT every session.
+    private string? _gitHubUsername;
     private string? _gitHubToken;
 
     // Set when viewing a remote repository from cache (Browse Remote); cleared on local open.
@@ -62,6 +64,8 @@ public partial class MainForm : Form
         InitializeComponent();
         Icon = AppInfo.LoadIcon();
         Text = AppInfo.Title;
+        _gitHubUsername = _settings.GitHubUsername;
+        _gitHubToken = _settings.GetGitHubToken();
         ConfigureToolbars();
         ConfigureMenuIcons();
         ConfigureChangedFilesListView();
@@ -1766,14 +1770,30 @@ public partial class MainForm : Form
 
     private RepositoryFileNodeTag GetGitPathTagOrRoot() => TryGetGitPathTag() ?? RepositoryRootTag;
 
-    private CredentialsPrompt CreateGitCredentialsPrompt() => new(this, initialPassword: _gitHubToken);
+    private CredentialsPrompt CreateGitCredentialsPrompt() =>
+        new(this, initialUsername: _gitHubUsername, initialPassword: _gitHubToken);
 
     private void RememberGitCredentials(CredentialsPrompt prompt)
     {
-        if (prompt.LastEntered is { } credentials && !string.IsNullOrWhiteSpace(credentials.Password))
+        if (prompt.LastEntered is not { } credentials || string.IsNullOrWhiteSpace(credentials.Password))
         {
-            _gitHubToken = credentials.Password;
+            return;
         }
+
+        _gitHubUsername = credentials.Username;
+        _gitHubToken = credentials.Password;
+        _settings.SetGitHubCredentials(credentials.Username, credentials.Password);
+        _settings.Save();
+    }
+
+    // Forces the next fetch/pull/push to prompt again instead of silently retrying credentials
+    // that just failed (e.g. a revoked or SSO-unauthorized PAT).
+    private void ClearGitCredentials()
+    {
+        _gitHubUsername = null;
+        _gitHubToken = null;
+        _settings.SetGitHubCredentials(null, null);
+        _settings.Save();
     }
 
     private static string FormatGitPathScope(string relativePath) =>
@@ -1962,6 +1982,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
+            ClearGitCredentials();
             GitOperationNotifier.ShowFailure(this, "Git Fetch Failed", ex);
         }
     }
@@ -2013,6 +2034,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
+            ClearGitCredentials();
             GitOperationNotifier.ShowFailure(this, "Git Pull Failed", ex);
         }
     }
@@ -2061,6 +2083,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
+            ClearGitCredentials();
             GitOperationNotifier.ShowFailure(this, "Git Push Failed", ex);
         }
     }

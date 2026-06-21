@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -41,6 +43,44 @@ public sealed class AppSettingsStore
     public List<string> RecentCloneUrls { get; set; } = [];
 
     public List<string> CommitCategories { get; set; } = [];
+
+    // PAT is encrypted with Windows DPAPI (current user + machine) before it touches disk —
+    // settings.json itself stays plain JSON, so the token must never be written in the clear.
+    public string? GitHubUsername { get; set; }
+
+    public string? GitHubTokenProtected { get; set; }
+
+    public void SetGitHubCredentials(string? username, string? token)
+    {
+        GitHubUsername = string.IsNullOrWhiteSpace(username) ? null : username.Trim();
+        GitHubTokenProtected = string.IsNullOrWhiteSpace(token) ? null : ProtectToken(token);
+    }
+
+    public string? GetGitHubToken()
+    {
+        if (string.IsNullOrWhiteSpace(GitHubTokenProtected))
+        {
+            return null;
+        }
+
+        try
+        {
+            byte[] protectedBytes = Convert.FromBase64String(GitHubTokenProtected);
+            byte[] bytes = ProtectedData.Unprotect(protectedBytes, optionalEntropy: null, DataProtectionScope.CurrentUser);
+            return Encoding.UTF8.GetString(bytes);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ProtectToken(string token)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(token);
+        byte[] protectedBytes = ProtectedData.Protect(bytes, optionalEntropy: null, DataProtectionScope.CurrentUser);
+        return Convert.ToBase64String(protectedBytes);
+    }
 
     public static AppSettingsStore Load()
     {

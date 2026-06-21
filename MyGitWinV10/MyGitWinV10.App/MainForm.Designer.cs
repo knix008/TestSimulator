@@ -752,6 +752,11 @@ namespace MyGitWinV10.App
             repoFilesTreeView.HideSelection = false;
             repoFilesTreeView.Location = new Point(1, 31);
             repoFilesTreeView.Name = "repoFilesTreeView";
+            // Native tooltip driven by each node's pre-computed ToolTipText (see
+            // RepositoryPathStatusService.ApplyToNode) — cheap, since it's set once when the
+            // node is populated rather than recomputed on every MouseMove like the custom
+            // overlay this replaced.
+            repoFilesTreeView.ShowNodeToolTips = true;
             repoFilesTreeView.Size = new Size(296, 381);
             repoFilesTreeView.TabIndex = 0;
             repoFilesTreeView.BeforeExpand += RepoFilesTreeView_BeforeExpand;
