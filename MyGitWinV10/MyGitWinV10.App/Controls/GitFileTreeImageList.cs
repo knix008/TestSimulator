@@ -67,7 +67,29 @@ public sealed class GitFileTreeImageList : IDisposable
         _imageList.Dispose();
     }
 
+    // Loaded from Assets/FileStatusIcons/<name>.png (see Assets/GenerateIcon.cs for the
+    // generator). Falls back to drawing the badge on the fly if an icon file is missing.
     private static Bitmap CreateIcon(GitFileTreeIconIndex icon)
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "Assets", "FileStatusIcons", $"{icon}.png");
+        if (System.IO.File.Exists(path))
+        {
+            using var stream = System.IO.File.OpenRead(path);
+            using var source = Image.FromStream(stream);
+            var resized = new Bitmap(IconSize, IconSize);
+            using var graphics = Graphics.FromImage(resized);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            graphics.CompositingQuality = CompositingQuality.HighQuality;
+            graphics.DrawImage(source, 0, 0, IconSize, IconSize);
+            return resized;
+        }
+
+        return CreateFallbackIcon(icon);
+    }
+
+    private static Bitmap CreateFallbackIcon(GitFileTreeIconIndex icon)
     {
         Image baseImage = icon switch
         {

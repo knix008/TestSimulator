@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Content Include="..\Assets\Info_icon.png" Link="Assets\Info_icon.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Assets\FileStatusIcons\*.png" Link="Assets\FileStatusIcons\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

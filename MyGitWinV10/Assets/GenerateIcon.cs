@@ -170,3 +170,84 @@ string outputPath = args.Length > 0
 
 SaveIcon(outputPath, [16, 32, 48, 256]);
 Console.WriteLine($"Created {outputPath}");
+
+GenerateFileStatusIcons(Path.Combine(Path.GetDirectoryName(outputPath)!, "FileStatusIcons"));
+
+// File-tree status icons: a plain file/folder glyph (same shape as IconFactory.File/Folder)
+// with an optional colored badge in the bottom-right corner, baked into static PNGs so the
+// tree view loads pre-rendered images instead of drawing badges on every app start.
+static void GenerateFileStatusIcons(string directory)
+{
+    Directory.CreateDirectory(directory);
+
+    var plain = (Color?)null;
+    var entries = new (string Name, bool IsDirectory, Color? Badge, string? Letter)[]
+    {
+        ("Folder", true, null, null),
+        ("FolderChanged", true, Color.FromArgb(37, 99, 235), null),
+        ("File", false, plain, null),
+        ("FileUntracked", false, Color.FromArgb(5, 150, 105), "?"),
+        ("FileModified", false, Color.FromArgb(37, 99, 235), "M"),
+        ("FileDeleted", false, Color.FromArgb(220, 38, 38), "D"),
+        ("FileAdded", false, Color.FromArgb(5, 150, 105), "A"),
+        ("FileStaged", false, Color.FromArgb(124, 58, 237), "+"),
+        ("FileRenamed", false, Color.FromArgb(37, 99, 235), "R"),
+        ("FileMixed", false, Color.FromArgb(217, 119, 6), "~"),
+        ("FileConflicted", false, Color.FromArgb(220, 38, 38), "!"),
+    };
+
+    foreach (var entry in entries)
+    {
+        using Bitmap bitmap = DrawFileStatusIcon(64, entry.IsDirectory, entry.Badge, entry.Letter);
+        string path = Path.Combine(directory, $"{entry.Name}.png");
+        bitmap.Save(path, ImageFormat.Png);
+        Console.WriteLine($"Created {path}");
+    }
+}
+
+static Bitmap DrawFileStatusIcon(int size, bool isDirectory, Color? badgeColor, string? badgeLetter)
+{
+    var bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
+    using var graphics = Graphics.FromImage(bitmap);
+    graphics.SmoothingMode = SmoothingMode.AntiAlias;
+    graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+    graphics.CompositingQuality = CompositingQuality.HighQuality;
+
+    float scale = size / 16f;
+    graphics.ScaleTransform(scale, scale);
+
+    var glyphColor = Color.FromArgb(71, 85, 105);
+    using var pen = new Pen(glyphColor, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+    using var brush = new SolidBrush(glyphColor);
+
+    if (isDirectory)
+    {
+        PointF[] folder = [new(2, 6), new(8, 3), new(14, 6), new(14, 14), new(2, 14)];
+        graphics.FillPolygon(brush, folder);
+        graphics.DrawPolygon(pen, folder);
+    }
+    else
+    {
+        graphics.DrawPolygon(pen, new PointF[] { new(4, 2), new(10, 2), new(13, 5), new(13, 14), new(4, 14) });
+        graphics.DrawLines(pen, new PointF[] { new(10, 2), new(10, 5), new(13, 5) });
+        graphics.DrawLine(pen, 6, 8, 11, 8);
+        graphics.DrawLine(pen, 6, 10.5f, 11, 10.5f);
+    }
+
+    if (badgeColor is Color color)
+    {
+        var badgeRect = new RectangleF(9, 9, 6.5f, 6.5f);
+        using var badgeBrush = new SolidBrush(color);
+        graphics.FillEllipse(badgeBrush, badgeRect);
+
+        if (!string.IsNullOrEmpty(badgeLetter))
+        {
+            using var textBrush = new SolidBrush(Color.White);
+            using var font = new Font("Segoe UI", 5.5f, FontStyle.Bold, GraphicsUnit.Point);
+            var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            graphics.DrawString(badgeLetter, font, textBrush, badgeRect, format);
+        }
+    }
+
+    return bitmap;
+}

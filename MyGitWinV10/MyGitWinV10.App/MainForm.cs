@@ -48,6 +48,13 @@ public partial class MainForm : Form
     private bool _applyingPanelLayout;
     private bool _historySplitterUserAdjusted;
 
+    // Designer-configured detailSplitContainer.SplitterDistance (355) over its design-time
+    // Size.Height (879) — captured as constants instead of read from the live control, since by
+    // the time any Resize/SplitterMoved event fires, docking has already moved the control away
+    // from its design-time size and the ratio derived from it would no longer match the Designer.
+    private const double DefaultDetailSplitRatio = 355.0 / 879.0;
+    private double _detailSplitRatio = DefaultDetailSplitRatio;
+
     private const int HistoryPanelChromeWidth = 4;
 
     public MainForm()
@@ -82,6 +89,15 @@ public partial class MainForm : Form
         };
         mainSplitContainer.SplitterMoved += (_, _) => ApplyPanelLayout();
         mainSplitContainer.Panel2.Resize += (_, _) => ApplyPanelLayout();
+        // Remember the ratio (Designer-configured or user-dragged) so resizes rescale the
+        // split proportionally instead of snapping back to a fixed 50/50 divide.
+        detailSplitContainer.SplitterMoved += (_, _) =>
+        {
+            if (!_applyingPanelLayout)
+            {
+                _detailSplitRatio = GetDetailSplitRatio();
+            }
+        };
         detailSplitContainer.Resize += (_, _) => ApplyDetailVerticalLayout();
         fileMenuItem.DropDownOpening += (_, _) => RefreshFileRecentMenu();
         FormClosed += (_, _) =>
@@ -146,6 +162,12 @@ public partial class MainForm : Form
         }
     }
 
+    private double GetDetailSplitRatio()
+    {
+        int height = detailSplitContainer.ClientSize.Height;
+        return height > 0 ? (double)detailSplitContainer.SplitterDistance / height : 0.5;
+    }
+
     private void ApplyDetailVerticalLayout()
     {
         if (_applyingPanelLayout || !IsHandleCreated)
@@ -159,7 +181,7 @@ public partial class MainForm : Form
             return;
         }
 
-        int halfHeight = (height - detailSplitContainer.SplitterWidth) / 2;
+        int targetTop = (int)Math.Round(height * _detailSplitRatio);
         int minTop = detailSplitContainer.Panel1MinSize;
         int maxTop = height - detailSplitContainer.Panel2MinSize - detailSplitContainer.SplitterWidth;
         if (maxTop < minTop)
@@ -170,7 +192,7 @@ public partial class MainForm : Form
         _applyingPanelLayout = true;
         try
         {
-            detailSplitContainer.SplitterDistance = Math.Clamp(halfHeight, minTop, maxTop);
+            detailSplitContainer.SplitterDistance = Math.Clamp(targetTop, minTop, maxTop);
         }
         finally
         {
