@@ -1,4 +1,5 @@
 using System.Text;
+using MyGitWinV10.App.Services;
 
 namespace MyGitWinV10.App.Dialogs;
 
@@ -21,8 +22,17 @@ public static class OperationCompleteDialog
         string summary,
         IEnumerable<OperationDetail> details)
     {
+        Show(owner, title, summary, details.Select(detail => new GitOperationDetailItem(detail.Label, detail.Value)));
+    }
+
+    public static void Show(
+        IWin32Window? owner,
+        string title,
+        string summary,
+        IEnumerable<GitOperationDetailItem> details)
+    {
         var message = new StringBuilder();
-        message.AppendLine(summary);
+        bool hasDetails = false;
 
         foreach (var detail in details)
         {
@@ -31,14 +41,26 @@ public static class OperationCompleteDialog
                 continue;
             }
 
-            message.AppendLine();
+            hasDetails = true;
+            if (message.Length > 0)
+            {
+                message.AppendLine();
+            }
+
             message.AppendLine($"{detail.Label}:");
             message.Append(detail.Value);
         }
 
+        if (hasDetails)
+        {
+            using var dialog = new OperationCompleteDetailDialog(title, summary, message.ToString().TrimEnd());
+            dialog.ShowDialog(owner);
+            return;
+        }
+
         MessageBox.Show(
             owner,
-            message.ToString().TrimEnd(),
+            summary,
             title,
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);

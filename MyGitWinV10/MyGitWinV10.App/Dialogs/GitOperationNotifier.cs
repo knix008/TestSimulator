@@ -1,7 +1,18 @@
 namespace MyGitWinV10.App.Dialogs;
 
+using MyGitWinV10.App.Services;
+
 public static class GitOperationNotifier
 {
+    public static void ShowSuccess(
+        IWin32Window? owner,
+        string title,
+        string summary,
+        IEnumerable<GitOperationDetailItem> details)
+    {
+        OperationCompleteDialog.Show(owner, title, summary, details);
+    }
+
     public static void ShowSuccess(
         IWin32Window? owner,
         string title,

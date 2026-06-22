@@ -1983,7 +1983,9 @@ public partial class MainForm : Form
 
         try
         {
-            GitWorkflowService.Unstage(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+            Repository repo = _gitService.Repo;
+            var unstagedPaths = GitOperationDetails.GetStagedPathsAtScope(repo, tag.RelativePath, tag.IsDirectory);
+            GitWorkflowService.Unstage(repo, tag.RelativePath, tag.IsDirectory);
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
                 ? "Unstaged all changes"
                 : $"Unstaged {tag.RelativePath}";
@@ -1992,8 +1994,7 @@ public partial class MainForm : Form
                 this,
                 "Git Reset Complete",
                 "The selected staged changes were unstaged successfully.",
-                new OperationDetail("Path", FormatGitPathScope(tag.RelativePath)),
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+                GitOperationDetails.ForReset(repo, tag.RelativePath, unstagedPaths));
         }
         catch (Exception ex)
         {
@@ -2023,7 +2024,9 @@ public partial class MainForm : Form
 
         try
         {
-            GitWorkflowService.DiscardChanges(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+            Repository repo = _gitService.Repo;
+            var discardedEntries = GitOperationDetails.GetWorkTreeEntriesAtScope(repo, tag.RelativePath, tag.IsDirectory);
+            GitWorkflowService.DiscardChanges(repo, tag.RelativePath, tag.IsDirectory);
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
                 ? "Discarded all uncommitted changes"
                 : $"Discarded changes in {tag.RelativePath}";
@@ -2032,8 +2035,7 @@ public partial class MainForm : Form
                 this,
                 "Git Discard Complete",
                 "The uncommitted changes were discarded successfully.",
-                new OperationDetail("Path", scope),
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+                GitOperationDetails.ForDiscard(repo, tag.RelativePath, discardedEntries));
         }
         catch (Exception ex)
         {
@@ -2063,16 +2065,15 @@ public partial class MainForm : Form
 
         try
         {
-            var commit = GitWorkflowService.CreateCommit(_gitService.Repo, dialog.CommitMessage);
+            Repository repo = _gitService.Repo;
+            var commit = GitWorkflowService.CreateCommit(repo, dialog.CommitMessage);
             _ = RefreshAfterGitCommitAsync();
             statusLabel.Text = $"Committed {commit.Sha[..7]}";
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Commit Complete",
                 "The staged changes were committed successfully.",
-                new OperationDetail("Commit", commit.Sha[..7]),
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
-                new OperationDetail("Message", commit.MessageShort.Trim()));
+                GitOperationDetails.ForCommit(repo, commit));
         }
         catch (Exception ex)
         {
@@ -2099,6 +2100,7 @@ public partial class MainForm : Form
 
         Repository repo = _gitService.Repo;
         var prompt = CreateGitCredentialsPrompt();
+        var remoteTipsBefore = GitOperationDetails.SnapshotOriginBranchTips(repo);
         try
         {
             await OperationProgress.RunAsync(
@@ -2113,12 +2115,12 @@ public partial class MainForm : Form
             await RefreshRepositoryViewsAsync(showProgress: false);
             _ = LoadReleasesAsync();
             statusLabel.Text = "Fetched from origin";
+            var remoteTipsAfter = GitOperationDetails.SnapshotOriginBranchTips(_gitService.Repo ?? repo);
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Fetch Complete",
                 "Updates were fetched from origin successfully.",
-                new OperationDetail("Remote", "origin"),
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+                GitOperationDetails.ForFetch(repo, remoteTipsBefore, remoteTipsAfter));
         }
         catch (OperationCanceledException)
         {
@@ -2152,6 +2154,7 @@ public partial class MainForm : Form
 
         Repository repo = _gitService.Repo;
         var prompt = CreateGitCredentialsPrompt();
+        string? headShaBefore = repo.Head?.Tip?.Sha;
         try
         {
             var result = await OperationProgress.RunAsync(
@@ -2166,13 +2169,12 @@ public partial class MainForm : Form
             await RefreshRepositoryViewsAsync(showProgress: false);
             _ = LoadReleasesAsync();
             statusLabel.Text = $"Pulled {_gitService.GetCurrentBranchName()} from origin";
+            string? headShaAfter = (_gitService.Repo ?? repo).Head?.Tip?.Sha;
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Pull Complete",
                 "Updates were pulled from origin successfully.",
-                new OperationDetail("Remote", "origin"),
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
-                new OperationDetail("Commit", result.Commit?.Sha?[..7] ?? "(fast-forward)"));
+                GitOperationDetails.ForPull(repo, result, headShaBefore, headShaAfter));
         }
         catch (OperationCanceledException)
         {
@@ -2206,6 +2208,7 @@ public partial class MainForm : Form
 
         Repository repo = _gitService.Repo;
         var prompt = CreateGitCredentialsPrompt();
+        var commitsToPush = GitOperationDetails.GetCommitsAheadOfTracked(repo);
         try
         {
             // Resolve credentials up front, on the UI thread, before the progress dialog's
@@ -2234,8 +2237,7 @@ public partial class MainForm : Form
                 this,
                 "Git Push Complete",
                 "The current branch was pushed to origin successfully.",
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
-                new OperationDetail("Remote", "origin"));
+                GitOperationDetails.ForPush(repo, commitsToPush));
         }
         catch (OperationCanceledException)
         {
@@ -2259,14 +2261,17 @@ public partial class MainForm : Form
 
         try
         {
-            GitWorkflowService.Stash(_gitService.Repo);
+            Repository repo = _gitService.Repo;
+            var stashedEntries = GitOperationDetails.GetWorkTreeEntriesAtScope(repo, string.Empty, isDirectory: true);
+            GitWorkflowService.Stash(repo);
             _ = RefreshFileTreeStatusAsync();
             statusLabel.Text = "Stashed uncommitted changes";
+            string stashMessage = repo.Stashes.FirstOrDefault()?.Message ?? "(stash)";
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Stash Complete",
                 "Uncommitted changes were stashed successfully.",
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+                GitOperationDetails.ForStash(repo, stashMessage, stashedEntries, repo.Stashes.Count()));
         }
         catch (Exception ex)
         {
@@ -2283,14 +2288,17 @@ public partial class MainForm : Form
 
         try
         {
-            GitWorkflowService.StashPop(_gitService.Repo);
+            Repository repo = _gitService.Repo;
+            string stashMessage = repo.Stashes.FirstOrDefault()?.Message
+                ?? throw new InvalidOperationException("There are no stashed changes.");
+            GitWorkflowService.StashPop(repo);
             _ = RefreshFileTreeStatusAsync();
             statusLabel.Text = "Applied latest stash";
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Stash Pop Complete",
                 "The latest stash was applied successfully.",
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+                GitOperationDetails.ForStashPop(repo, stashMessage, repo.Stashes.Count()));
         }
         catch (Exception ex)
         {
