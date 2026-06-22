@@ -116,7 +116,7 @@ public sealed class GitFileTreeImageList : IDisposable
         return icon switch
         {
             GitFileTreeIconIndex.FolderChanged => AddBadge(bitmap, Color.FromArgb(37, 99, 235), null),
-            GitFileTreeIconIndex.FileUntracked => AddBadge(bitmap, Color.FromArgb(5, 150, 105), "?"),
+            GitFileTreeIconIndex.FileUntracked => AddBadge(bitmap, Color.FromArgb(5, 150, 105), "U"),
             GitFileTreeIconIndex.FileModified => AddBadge(bitmap, Color.FromArgb(37, 99, 235), "M"),
             GitFileTreeIconIndex.FileDeleted => AddBadge(bitmap, Color.FromArgb(220, 38, 38), "D"),
             GitFileTreeIconIndex.FileAdded => AddBadge(bitmap, Color.FromArgb(5, 150, 105), "A"),
@@ -147,7 +147,7 @@ public sealed class GitFileTreeImageList : IDisposable
         }
 
         using var textBrush = new SolidBrush(Color.White);
-        float fontSize = letter is "+" or "-" or "±" or "~" ? 7.5f : 6.75f;
+        float fontSize = letter is "+" or "-" or "±" or "~" or "U" ? 7.5f : 6.75f;
         using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Point);
         var format = new StringFormat
         {

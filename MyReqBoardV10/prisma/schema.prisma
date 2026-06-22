@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ReqStatus {
+  DRAFT
+  APPROVED
+  IN_PROGRESS
+  DONE
+}
+
+enum TestCaseStatus {
+  NOT_RUN
+  PASS
+  FAIL
+  BLOCKED
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  name         String
+  email        String?
+  company      String?
+  department   String?
+  role         Role     @default(VIEWER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  requirements Requirement[]
+  testCases    TestCase[]
+}
+
+// 로그인 화면에서 신규 사용자가 직접 ID/비밀번호를 정해 등록을 요청하면 PENDING으로 쌓이고,
+// 관리자가 사용자 관리 화면에서 승인(User 생성)하거나 거절한다.
+model RegistrationRequest {
+  id            Int                 @id @default(autoincrement())
+  username      String
+  passwordHash  String
+  name          String
+  email         String?
+  company       String?
+  department    String?
+  requestedRole Role                @default(VIEWER)
+  status        RegistrationStatus  @default(PENDING)
+  createdAt     DateTime            @default(now())
+  reviewedAt    DateTime?
+}
+
+model Requirement {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  title       String
+  description String?   @db.Text
+  category    String?
+  priority    Priority  @default(MEDIUM)
+  status      ReqStatus @default(DRAFT)
+  createdById Int?
+  createdBy   User?     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  testCases TestCase[]
+}
+
+model TestCase {
+  id             Int            @id @default(autoincrement())
+  code           String         @unique
+  title          String
+  steps          String?        @db.Text
+  expectedResult String?        @db.Text
+  status         TestCaseStatus @default(NOT_RUN)
+  requirementId  Int
+  requirement    Requirement    @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  createdById    Int?
+  createdBy      User?          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}

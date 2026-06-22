@@ -49,6 +49,22 @@ public static class GitWorkflowService
             .Where(entry => MatchesPath(entry.FilePath, relativePath, isDirectory))
             .ToList();
 
+    public static Dictionary<string, GitStatusEntry> CreateStatusSnapshot(
+        Repository repo,
+        string relativePath,
+        bool isDirectory) =>
+        GetStatusEntries(repo, relativePath, isDirectory)
+            .ToDictionary(entry => entry.FilePath, StringComparer.OrdinalIgnoreCase);
+
+    public static IReadOnlyList<GitStatusEntry> GetNewlyStagedEntries(
+        IReadOnlyDictionary<string, GitStatusEntry> before,
+        Repository repo,
+        string relativePath,
+        bool isDirectory) =>
+        GetStatusEntries(repo, relativePath, isDirectory)
+            .Where(entry => IsNewlyStaged(before, entry))
+            .ToList();
+
     public static void Stage(Repository repo, string relativePath, bool isDirectory)
     {
         if (string.IsNullOrEmpty(relativePath))
@@ -227,6 +243,43 @@ public static class GitWorkflowService
         };
 
         return fetchOptions;
+    }
+
+    public static bool WasUntrackedBeforeStage(
+        IReadOnlyDictionary<string, GitStatusEntry> before,
+        GitStatusEntry after)
+    {
+        if (before.TryGetValue(after.FilePath, out GitStatusEntry? previous))
+        {
+            return string.Equals(previous.WorkTree, "Untracked", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return string.Equals(after.Staged, "Added", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsNewlyStaged(IReadOnlyDictionary<string, GitStatusEntry> before, GitStatusEntry after)
+    {
+        if (string.IsNullOrEmpty(after.Staged))
+        {
+            return false;
+        }
+
+        if (!before.TryGetValue(after.FilePath, out GitStatusEntry? previous))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(previous.Staged))
+        {
+            return true;
+        }
+
+        if (!string.Equals(previous.Staged, after.Staged, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrEmpty(previous.WorkTree);
     }
 
     private static GitStatusEntry ToStatusEntry(StatusEntry entry) =>
