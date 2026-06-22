@@ -11,11 +11,13 @@ namespace MyGitWinV10.App.Controls;
 [ToolboxItem(true)]
 public sealed class RepositoryFileListView : Panel
 {
-    private const int RowHeight = 22;
+    private const int RowHeight = 24;
     private const int HeaderHeight = 26;
     private const int IndentUnit = 16;
     private const int IconSize = 16;
     private const int IconTextGap = 4;
+    private const float StatusBadgeFontSizeBoost = 3f;
+    private const float StatusBadgeMinimumFontSize = 11.5f;
     private const int MinNameColumnWidth = 80;
     private const int ColumnResizeHitWidth = 6;
 
@@ -580,14 +582,19 @@ public sealed class RepositoryFileListView : Panel
         }
 
         var cellRect = new Rectangle(cellX, rowTop, Math.Max(0, viewportWidth - cellX), RowHeight);
-        using var boldFont = new Font(Font, FontStyle.Bold);
+        float badgeFontSize = Math.Max(Font.SizeInPoints + StatusBadgeFontSizeBoost, StatusBadgeMinimumFontSize);
+        using var badgeFont = new Font(Font.FontFamily, badgeFontSize, FontStyle.Bold, GraphicsUnit.Point);
+
+        var previousHint = g.TextRenderingHint;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         TextRenderer.DrawText(
             g,
             status.Badge,
-            boldFont,
+            badgeFont,
             cellRect,
             status.ForeColor,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
+        g.TextRenderingHint = previousHint;
     }
 
     private void HeaderPanel_Paint(object? sender, PaintEventArgs e)

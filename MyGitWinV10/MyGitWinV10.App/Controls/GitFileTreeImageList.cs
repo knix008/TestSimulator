@@ -132,9 +132,10 @@ public sealed class GitFileTreeImageList : IDisposable
     {
         using var graphics = Graphics.FromImage(baseBitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
-        var badgeRect = new RectangleF(9, 9, 6.5f, 6.5f);
+        float badgeSize = 8f;
+        var badgeRect = new RectangleF(IconSize - badgeSize - 0.5f, IconSize - badgeSize - 0.5f, badgeSize, badgeSize);
         using (var badgeBrush = new SolidBrush(badgeColor))
         {
             graphics.FillEllipse(badgeBrush, badgeRect);
@@ -146,7 +147,8 @@ public sealed class GitFileTreeImageList : IDisposable
         }
 
         using var textBrush = new SolidBrush(Color.White);
-        using var font = new Font("Segoe UI", 5.5f, FontStyle.Bold, GraphicsUnit.Point);
+        float fontSize = letter is "+" or "-" or "±" or "~" ? 7.5f : 6.75f;
+        using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Point);
         var format = new StringFormat
         {
             Alignment = StringAlignment.Center,
