@@ -11,7 +11,9 @@ public partial class ErrorDetailDialog : Form
         InitializeComponent();
         Text = title;
         summaryLabel.Text = summary;
+        detailsTextBox.Text = details;
         _details = details;
+        DialogIcons.ApplyError(iconPictureBox);
     }
 
     public static void Show(IWin32Window? owner, string title, Exception exception)

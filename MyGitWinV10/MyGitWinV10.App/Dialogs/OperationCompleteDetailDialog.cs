@@ -11,6 +11,7 @@ public partial class OperationCompleteDetailDialog : Form
         summaryLabel.Text = summary;
         detailsTextBox.Text = detailsText;
         _detailsText = detailsText;
+        DialogIcons.ApplySuccess(iconPictureBox);
     }
 
     private void CopyButton_Click(object? sender, EventArgs e)

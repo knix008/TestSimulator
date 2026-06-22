@@ -18,36 +18,59 @@ namespace MyGitWinV10.App.Dialogs
 
         private void InitializeComponent()
         {
+            headerPanel = new Panel();
+            iconPictureBox = new PictureBox();
             summaryLabel = new Label();
             detailsTextBox = new TextBox();
             copyButton = new Button();
             okButton = new Button();
             buttonPanel = new Panel();
+            headerPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)iconPictureBox).BeginInit();
             buttonPanel.SuspendLayout();
             SuspendLayout();
             //
+            // headerPanel
+            //
+            headerPanel.Controls.Add(summaryLabel);
+            headerPanel.Controls.Add(iconPictureBox);
+            headerPanel.Dock = DockStyle.Top;
+            headerPanel.Location = new Point(12, 12);
+            headerPanel.Name = "headerPanel";
+            headerPanel.Padding = new Padding(0, 0, 0, 8);
+            headerPanel.Size = new Size(536, 56);
+            headerPanel.TabIndex = 0;
+            //
+            // iconPictureBox
+            //
+            iconPictureBox.Location = new Point(0, 0);
+            iconPictureBox.Name = "iconPictureBox";
+            iconPictureBox.Size = new Size(32, 32);
+            iconPictureBox.TabIndex = 0;
+            iconPictureBox.TabStop = false;
+            //
             // summaryLabel
             //
-            summaryLabel.Dock = DockStyle.Top;
-            summaryLabel.Location = new Point(12, 12);
+            summaryLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            summaryLabel.Location = new Point(40, 0);
             summaryLabel.Name = "summaryLabel";
-            summaryLabel.Padding = new Padding(0, 0, 0, 8);
-            summaryLabel.Size = new Size(536, 48);
+            summaryLabel.Size = new Size(496, 48);
             summaryLabel.Text = "The operation completed successfully.";
             //
             // detailsTextBox
             //
             detailsTextBox.BackColor = Color.White;
+            detailsTextBox.BorderStyle = BorderStyle.FixedSingle;
             detailsTextBox.Dock = DockStyle.Fill;
-            detailsTextBox.Font = new Font("Consolas", 9F);
-            detailsTextBox.Location = new Point(12, 60);
+            detailsTextBox.Font = new Font("Segoe UI", 9F);
+            detailsTextBox.Location = new Point(12, 68);
             detailsTextBox.Multiline = true;
             detailsTextBox.Name = "detailsTextBox";
             detailsTextBox.ReadOnly = true;
             detailsTextBox.ScrollBars = ScrollBars.Vertical;
-            detailsTextBox.Size = new Size(536, 300);
-            detailsTextBox.TabIndex = 0;
-            detailsTextBox.WordWrap = false;
+            detailsTextBox.Size = new Size(536, 292);
+            detailsTextBox.TabIndex = 1;
+            detailsTextBox.WordWrap = true;
             //
             // copyButton
             //
@@ -81,7 +104,7 @@ namespace MyGitWinV10.App.Dialogs
             buttonPanel.Location = new Point(12, 360);
             buttonPanel.Name = "buttonPanel";
             buttonPanel.Size = new Size(536, 44);
-            buttonPanel.TabIndex = 1;
+            buttonPanel.TabIndex = 2;
             //
             // OperationCompleteDetailDialog
             //
@@ -92,7 +115,7 @@ namespace MyGitWinV10.App.Dialogs
             ClientSize = new Size(560, 416);
             Controls.Add(detailsTextBox);
             Controls.Add(buttonPanel);
-            Controls.Add(summaryLabel);
+            Controls.Add(headerPanel);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
@@ -104,6 +127,8 @@ namespace MyGitWinV10.App.Dialogs
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.CenterParent;
             Text = "Complete";
+            headerPanel.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)iconPictureBox).EndInit();
             buttonPanel.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
@@ -111,6 +136,8 @@ namespace MyGitWinV10.App.Dialogs
 
         #endregion
 
+        private Panel headerPanel;
+        private PictureBox iconPictureBox;
         private Label summaryLabel;
         private TextBox detailsTextBox;
         private Panel buttonPanel;

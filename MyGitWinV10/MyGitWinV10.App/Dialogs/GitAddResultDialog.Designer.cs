@@ -19,19 +19,29 @@ namespace MyGitWinV10.App.Dialogs
         private void InitializeComponent()
         {
             summaryLabel = new Label();
+            iconPictureBox = new PictureBox();
             addListView = new ListView();
             pathColumnHeader = new ColumnHeader();
             statusColumnHeader = new ColumnHeader();
             closeButton = new Button();
             SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)iconPictureBox).BeginInit();
             //
             // summaryLabel
             //
             summaryLabel.AutoSize = true;
-            summaryLabel.Location = new Point(20, 20);
+            summaryLabel.Location = new Point(56, 24);
             summaryLabel.Name = "summaryLabel";
             summaryLabel.Size = new Size(120, 15);
             summaryLabel.Text = "0 paths were staged.";
+            //
+            // iconPictureBox
+            //
+            iconPictureBox.Location = new Point(20, 20);
+            iconPictureBox.Name = "iconPictureBox";
+            iconPictureBox.Size = new Size(32, 32);
+            iconPictureBox.TabIndex = 2;
+            iconPictureBox.TabStop = false;
             //
             // addListView
             //
@@ -80,6 +90,7 @@ namespace MyGitWinV10.App.Dialogs
             CancelButton = closeButton;
             ClientSize = new Size(600, 380);
             Controls.Add(summaryLabel);
+            Controls.Add(iconPictureBox);
             Controls.Add(addListView);
             Controls.Add(closeButton);
             Font = new Font("Segoe UI", 9F);
@@ -89,6 +100,7 @@ namespace MyGitWinV10.App.Dialogs
             Name = "GitAddResultDialog";
             StartPosition = FormStartPosition.CenterParent;
             Text = "Git Add Complete";
+            ((System.ComponentModel.ISupportInitialize)iconPictureBox).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -96,6 +108,7 @@ namespace MyGitWinV10.App.Dialogs
         #endregion
 
         private Label summaryLabel;
+        private PictureBox iconPictureBox;
         private ListView addListView;
         private ColumnHeader pathColumnHeader;
         private ColumnHeader statusColumnHeader;

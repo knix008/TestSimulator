@@ -47,8 +47,7 @@ public static class OperationCompleteDialog
                 message.AppendLine();
             }
 
-            message.AppendLine($"{detail.Label}:");
-            message.Append(detail.Value);
+            message.AppendLine($"{detail.Label}: {detail.Value}");
         }
 
         if (hasDetails)

@@ -18,6 +18,8 @@ public partial class GitAddResultDialog : Form
             ? "1 path was staged."
             : $"{entries.Count} paths were staged.";
 
+        DialogIcons.ApplySuccess(iconPictureBox);
+
         addListView.Items.AddRange(entries.Select(entry => CreateListItem(entry, beforeSnapshot)).ToArray());
         if (addListView.Items.Count > 0)
         {
