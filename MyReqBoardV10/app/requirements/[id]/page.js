@@ -12,6 +12,7 @@ export default function RequirementDetailPage() {
   const { t, statusLabel, priorityLabel, tcStatusLabel } = useLanguage();
   const [requirement, setRequirement] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(new Set());
 
   const canEdit = session && (session.user.role === "EDITOR" || session.user.role === "ADMIN");
 
@@ -27,6 +28,23 @@ export default function RequirementDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  function toggle(tcId) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(tcId)) next.delete(tcId);
+      else next.add(tcId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    const testCases = requirement?.testCases || [];
+    setSelected((prev) => {
+      if (prev.size === testCases.length) return new Set();
+      return new Set(testCases.map((tc) => tc.id));
+    });
+  }
+
   async function handleDeleteTestCase(tcId) {
     if (!confirm("이 테스트케이스를 삭제할까요?")) return;
     const res = await fetch(`/api/testcases/${tcId}`, { method: "DELETE" });
@@ -34,8 +52,26 @@ export default function RequirementDetailPage() {
     else alert("삭제에 실패했습니다.");
   }
 
+  async function handleDeleteSelected() {
+    if (selected.size === 0) return;
+    if (!confirm(`선택한 ${selected.size}건의 테스트케이스를 삭제할까요?`)) return;
+    const res = await fetch("/api/testcases", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selected) }),
+    });
+    if (res.ok) {
+      setSelected(new Set());
+      load();
+    } else {
+      alert("삭제에 실패했습니다.");
+    }
+  }
+
   if (loading) return <p>{t("common.loading")}</p>;
   if (!requirement) return <p>요구사항을 찾을 수 없습니다.</p>;
+
+  const testCases = requirement.testCases;
 
   return (
     <div>
@@ -59,13 +95,26 @@ export default function RequirementDetailPage() {
 
       <h3>{t("requirements.testCases")}</h3>
       {canEdit && (
-        <p>
+        <div className="toolbar">
           <Link className="btn" href={`/requirements/${requirement.id}/testcases/new`}>+ {t("requirements.testCases")}</Link>
-        </p>
+          {selected.size > 0 && (
+            <button className="danger" onClick={handleDeleteSelected}>
+              {t("requirements.deleteSelected")} ({selected.size})
+            </button>
+          )}
+        </div>
       )}
       <table>
         <thead>
           <tr>
+            <th>
+              <input
+                type="checkbox"
+                checked={testCases.length > 0 && selected.size === testCases.length}
+                onChange={toggleSelectAll}
+                title={t("common.selectAll")}
+              />
+            </th>
             <th>{t("common.code")}</th>
             <th>{t("common.title")}</th>
             <th>예상결과</th>
@@ -74,11 +123,14 @@ export default function RequirementDetailPage() {
           </tr>
         </thead>
         <tbody>
-          {requirement.testCases.length === 0 && (
-            <tr><td colSpan={5}>등록된 테스트케이스가 없습니다.</td></tr>
+          {testCases.length === 0 && (
+            <tr><td colSpan={6}>등록된 테스트케이스가 없습니다.</td></tr>
           )}
-          {requirement.testCases.map((tc) => (
+          {testCases.map((tc) => (
             <tr key={tc.id}>
+              <td>
+                <input type="checkbox" checked={selected.has(tc.id)} onChange={() => toggle(tc.id)} />
+              </td>
               <td>{tc.code}</td>
               <td>{tc.title}</td>
               <td>{tc.expectedResult || "-"}</td>
