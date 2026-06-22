@@ -21,12 +21,14 @@ namespace MyGitWinV10.App.Dialogs
             headerPanel = new Panel();
             iconPictureBox = new PictureBox();
             summaryLabel = new Label();
-            detailsTextBox = new TextBox();
+            detailsPanel = new Panel();
+            detailsLabel = new Label();
             copyButton = new Button();
             okButton = new Button();
             buttonPanel = new Panel();
             headerPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)iconPictureBox).BeginInit();
+            detailsPanel.SuspendLayout();
             buttonPanel.SuspendLayout();
             SuspendLayout();
             //
@@ -52,25 +54,34 @@ namespace MyGitWinV10.App.Dialogs
             // summaryLabel
             //
             summaryLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            summaryLabel.ForeColor = Color.FromArgb(30, 41, 59);
             summaryLabel.Location = new Point(40, 0);
             summaryLabel.Name = "summaryLabel";
             summaryLabel.Size = new Size(496, 48);
             summaryLabel.Text = "An error occurred.";
             //
-            // detailsTextBox
+            // detailsPanel
             //
-            detailsTextBox.BackColor = Color.White;
-            detailsTextBox.BorderStyle = BorderStyle.FixedSingle;
-            detailsTextBox.Dock = DockStyle.Fill;
-            detailsTextBox.Font = new Font("Segoe UI", 9F);
-            detailsTextBox.Location = new Point(12, 68);
-            detailsTextBox.Multiline = true;
-            detailsTextBox.Name = "detailsTextBox";
-            detailsTextBox.ReadOnly = true;
-            detailsTextBox.ScrollBars = ScrollBars.Vertical;
-            detailsTextBox.Size = new Size(536, 292);
-            detailsTextBox.TabIndex = 1;
-            detailsTextBox.WordWrap = true;
+            detailsPanel.AutoScroll = true;
+            detailsPanel.BackColor = Color.FromArgb(250, 250, 251);
+            detailsPanel.Controls.Add(detailsLabel);
+            detailsPanel.Dock = DockStyle.Fill;
+            detailsPanel.Location = new Point(12, 68);
+            detailsPanel.Name = "detailsPanel";
+            detailsPanel.Padding = new Padding(0, 4, 0, 0);
+            detailsPanel.Size = new Size(536, 292);
+            detailsPanel.TabIndex = 1;
+            //
+            // detailsLabel
+            //
+            detailsLabel.AutoSize = true;
+            detailsLabel.Font = new Font("Consolas", 9F);
+            detailsLabel.ForeColor = Color.FromArgb(51, 65, 85);
+            detailsLabel.Location = new Point(0, 4);
+            detailsLabel.Name = "detailsLabel";
+            detailsLabel.Size = new Size(0, 14);
+            detailsLabel.TabIndex = 0;
+            detailsLabel.UseMnemonic = false;
             //
             // copyButton
             //
@@ -113,7 +124,7 @@ namespace MyGitWinV10.App.Dialogs
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.FromArgb(250, 250, 251);
             ClientSize = new Size(560, 416);
-            Controls.Add(detailsTextBox);
+            Controls.Add(detailsPanel);
             Controls.Add(buttonPanel);
             Controls.Add(headerPanel);
             Font = new Font("Segoe UI", 9F);
@@ -129,9 +140,10 @@ namespace MyGitWinV10.App.Dialogs
             Text = "Error";
             headerPanel.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)iconPictureBox).EndInit();
+            detailsPanel.ResumeLayout(false);
+            detailsPanel.PerformLayout();
             buttonPanel.ResumeLayout(false);
             ResumeLayout(false);
-            PerformLayout();
         }
 
         #endregion
@@ -139,7 +151,8 @@ namespace MyGitWinV10.App.Dialogs
         private Panel headerPanel;
         private PictureBox iconPictureBox;
         private Label summaryLabel;
-        private TextBox detailsTextBox;
+        private Panel detailsPanel;
+        private Label detailsLabel;
         private Panel buttonPanel;
         private Button copyButton;
         private Button okButton;

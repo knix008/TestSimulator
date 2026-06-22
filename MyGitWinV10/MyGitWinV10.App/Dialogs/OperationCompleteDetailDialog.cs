@@ -9,9 +9,17 @@ public partial class OperationCompleteDetailDialog : Form
         InitializeComponent();
         Text = title;
         summaryLabel.Text = summary;
-        detailsTextBox.Text = detailsText;
+        detailsLabel.Text = detailsText;
         _detailsText = detailsText;
         DialogIcons.ApplySuccess(iconPictureBox);
+        detailsPanel.Resize += (_, _) => UpdateDetailsLabelWidth();
+        UpdateDetailsLabelWidth();
+    }
+
+    private void UpdateDetailsLabelWidth()
+    {
+        int width = Math.Max(100, detailsPanel.ClientSize.Width - detailsPanel.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
+        detailsLabel.MaximumSize = new Size(width, 0);
     }
 
     private void CopyButton_Click(object? sender, EventArgs e)

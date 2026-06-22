@@ -198,67 +198,72 @@ public partial class MainForm : Form
 
     private void ConfigureToolbars()
     {
+        int tb = IconFactory.ToolbarIconSize;
+
         menuStrip.Dock = DockStyle.Top;
         mainToolStrip.Dock = DockStyle.Top;
         mainToolStrip.AutoSize = false;
-        mainToolStrip.ImageScalingSize = new Size(IconFactory.ToolbarIconSize, IconFactory.ToolbarIconSize);
+        mainToolStrip.ImageScalingSize = new Size(tb, tb);
         mainToolStrip.Padding = new Padding(6, 4, 6, 4);
-        mainToolStrip.Height = IconFactory.ToolbarIconSize + mainToolStrip.Padding.Vertical + 6;
+        mainToolStrip.Height = tb + mainToolStrip.Padding.Vertical + 6;
         mainToolStrip.ShowItemToolTips = true;
 
-        ConfigureToolStripButton(openToolButton, IconFactory.Open(IconFactory.ToolbarIconSize), "Open a local Git repository folder");
-        ConfigureToolStripButton(cloneToolButton, IconFactory.Clone(IconFactory.ToolbarIconSize), "Clone a remote repository to a local folder");
-        ConfigureToolStripButton(browseRemoteToolButton, IconFactory.BrowseRemote(IconFactory.ToolbarIconSize), "Browse remote commit history without saving a local copy");
-        ConfigureToolStripButton(refreshTreeToolButton, IconFactory.RefreshTree(IconFactory.ToolbarIconSize), "Reload branches, tags, and releases");
-        ConfigureToolStripDropDownButton(exportSummaryToolButton, IconFactory.Report(IconFactory.ToolbarIconSize), "Export repository summary as PDF, Word, or Markdown");
+        ConfigureToolStripButton(openToolButton, IconFactory.Open(tb, IconFactory.Palette.Open), "Open a local Git repository folder");
+        ConfigureToolStripButton(cloneToolButton, IconFactory.Clone(tb, IconFactory.Palette.Clone), "Clone a remote repository to a local folder");
+        ConfigureToolStripButton(browseRemoteToolButton, IconFactory.BrowseRemote(tb, IconFactory.Palette.Open), "Browse remote commit history without saving a local copy");
+        ConfigureToolStripButton(refreshTreeToolButton, IconFactory.RefreshTree(tb, IconFactory.Palette.Refresh), "Reload branches, tags, and releases");
+        ConfigureToolStripDropDownButton(exportSummaryToolButton, IconFactory.Report(tb, IconFactory.Palette.Report), "Export repository summary as PDF, Word, or Markdown");
         exportSummaryToolButton.Enabled = false;
         SetExportSummaryMenuItemsEnabled(false);
-        ConfigureToolStripButton(refreshGraphToolButton, IconFactory.RefreshGraph(IconFactory.ToolbarIconSize), "Reload the commit history graph");
-        ConfigureToolStripButton(copyShaToolButton, IconFactory.Copy(IconFactory.ToolbarIconSize), "Copy the selected commit's full hash to the clipboard");
-        ConfigureToolStripButton(copyMessageToolButton, IconFactory.Message(IconFactory.ToolbarIconSize), "Copy the selected commit message to the clipboard");
-        ConfigureToolStripButton(copyFilePathToolButton, IconFactory.File(IconFactory.ToolbarIconSize), "Copy the selected file path to the clipboard");
-        ConfigureToolStripButton(wordWrapToolButton, IconFactory.WordWrap(IconFactory.ToolbarIconSize), "Toggle word wrap for the diff view");
-        ConfigureToolStripButton(copyDiffToolButton, IconFactory.Copy(IconFactory.ToolbarIconSize), "Copy the visible diff text to the clipboard");
-        ConfigureToolStripButton(infoToolButton, IconFactory.InfoToolbar(IconFactory.InfoToolbarIconSize), "Show application information");
+        ConfigureToolStripButton(refreshGraphToolButton, IconFactory.RefreshGraph(tb, IconFactory.Palette.History), "Reload the commit history graph");
+        ConfigureToolStripButton(copyShaToolButton, IconFactory.Copy(tb, IconFactory.Palette.Copy), "Copy the selected commit's full hash to the clipboard");
+        ConfigureToolStripButton(copyMessageToolButton, IconFactory.Message(tb, IconFactory.Palette.Message), "Copy the selected commit message to the clipboard");
+        ConfigureToolStripButton(copyFilePathToolButton, IconFactory.File(tb, IconFactory.Palette.File), "Copy the selected file path to the clipboard");
+        ConfigureToolStripButton(wordWrapToolButton, IconFactory.WordWrap(tb, IconFactory.Palette.WordWrap), "Toggle word wrap for the diff view");
+        ConfigureToolStripButton(copyDiffToolButton, IconFactory.Diff(tb), "Copy the visible diff text to the clipboard");
+        ConfigureToolStripButton(infoToolButton, IconFactory.Info(IconFactory.InfoToolbarIconSize, IconFactory.Palette.Help), "Show application information");
         infoToolButton.Margin = new Padding(2, 1, 2, 1);
     }
 
     private void ConfigureMenuIcons()
     {
-        menuStrip.ImageScalingSize = new Size(IconFactory.MenuBarIconSize, IconFactory.MenuBarIconSize);
+        int root = IconFactory.RootMenuIconSize;
+        int bar = IconFactory.MenuBarIconSize;
+
+        menuStrip.ImageScalingSize = new Size(bar, bar);
         menuStrip.ShowItemToolTips = true;
         menuStrip.Padding = new Padding(4, 2, 4, 2);
         menuStrip.Renderer = _menuRenderer;
         menuStrip.AutoSize = false;
         menuStrip.Height = MenuStripRootIconRenderer.RootMenuHeight;
 
-        ConfigureRootMenu(fileMenuItem, IconFactory.Folder(IconFactory.RootMenuIconSize));
-        ConfigureRootMenu(repositoryMenuItem, IconFactory.Branch(IconFactory.RootMenuIconSize));
-        ConfigureRootMenu(historyMenuItem, IconFactory.History(IconFactory.RootMenuIconSize));
-        ConfigureRootMenu(diffMenuItem, IconFactory.Diff(IconFactory.RootMenuIconSize));
-        ConfigureRootMenu(helpMenuItem, IconFactory.InfoMenu(IconFactory.RootMenuIconSize));
+        ConfigureRootMenu(fileMenuItem, IconFactory.Folder(root, IconFactory.Palette.Folder));
+        ConfigureRootMenu(repositoryMenuItem, IconFactory.Branch(root, IconFactory.Palette.Branch));
+        ConfigureRootMenu(historyMenuItem, IconFactory.History(root, IconFactory.Palette.History));
+        ConfigureRootMenu(diffMenuItem, IconFactory.Diff(root));
+        ConfigureRootMenu(helpMenuItem, IconFactory.InfoMenu(root, IconFactory.Palette.Help));
         ConfigureDropDownMenu(fileMenuItem);
         ConfigureDropDownMenu(repositoryMenuItem);
         ConfigureDropDownMenu(historyMenuItem);
         ConfigureDropDownMenu(diffMenuItem);
         ConfigureDropDownMenu(helpMenuItem);
 
-        ConfigureMenuItem(openRepositoryMenuItem, IconFactory.Open(IconFactory.MenuBarIconSize), "&Open...", menuBar: true);
-        ConfigureMenuItem(cloneRepositoryMenuItem, IconFactory.Clone(IconFactory.MenuBarIconSize), "&Clone...", menuBar: true);
-        ConfigureMenuItem(browseRemoteRepositoryMenuItem, IconFactory.BrowseRemote(IconFactory.MenuBarIconSize), "Browse &Remote...", menuBar: true);
-        ConfigureMenuItem(exitMenuItem, IconFactory.Exit(IconFactory.MenuBarIconSize), "E&xit", menuBar: true);
-        ConfigureMenuItem(preferencesMenuItem, IconFactory.Settings(IconFactory.MenuBarIconSize), "&Preferences...", menuBar: true);
-        ConfigureMenuItem(refreshTreeMenuItem, IconFactory.RefreshTree(IconFactory.MenuBarIconSize), "Refresh &Tree", menuBar: true);
-        ConfigureMenuItem(barExportSummaryWordMenuItem, IconFactory.FileWord(IconFactory.MenuBarIconSize), "Export to &Word", menuBar: true);
-        ConfigureMenuItem(barExportSummaryMarkdownMenuItem, IconFactory.FileMarkdown(IconFactory.MenuBarIconSize), "Export to &Markdown", menuBar: true);
-        ConfigureMenuItem(barExportSummaryPdfMenuItem, IconFactory.FilePdf(IconFactory.MenuBarIconSize), "Export to &PDF", menuBar: true);
-        ConfigureMenuItem(refreshGraphMenuItem, IconFactory.RefreshGraph(IconFactory.MenuBarIconSize), "Refresh &Graph", menuBar: true);
-        ConfigureMenuItem(copyShaMenuItem, IconFactory.Copy(IconFactory.MenuBarIconSize), "Copy &SHA", menuBar: true);
-        ConfigureMenuItem(copyMessageMenuItem, IconFactory.Message(IconFactory.MenuBarIconSize), "Copy &Message", menuBar: true);
-        ConfigureMenuItem(copyPathMenuItem, IconFactory.File(IconFactory.MenuBarIconSize), "Copy &Path", menuBar: true);
-        ConfigureMenuItem(wordWrapMenuItem, IconFactory.WordWrap(IconFactory.MenuBarIconSize), "Word &Wrap", menuBar: true);
-        ConfigureMenuItem(copyDiffMenuItem, IconFactory.Diff(IconFactory.MenuBarIconSize), "Copy &Diff", menuBar: true);
-        ConfigureMenuItem(aboutMenuItem, IconFactory.InfoToolbar(IconFactory.MenuBarIconSize), "&About", menuBar: true);
+        ConfigureMenuItem(openRepositoryMenuItem, IconFactory.Open(bar, IconFactory.Palette.Open), "&Open...", menuBar: true);
+        ConfigureMenuItem(cloneRepositoryMenuItem, IconFactory.Clone(bar, IconFactory.Palette.Clone), "&Clone...", menuBar: true);
+        ConfigureMenuItem(browseRemoteRepositoryMenuItem, IconFactory.BrowseRemote(bar, IconFactory.Palette.Open), "Browse &Remote...", menuBar: true);
+        ConfigureMenuItem(exitMenuItem, IconFactory.Exit(bar, IconFactory.Palette.Exit), "E&xit", menuBar: true);
+        ConfigureMenuItem(preferencesMenuItem, IconFactory.Settings(bar, IconFactory.Palette.Settings), "&Preferences...", menuBar: true);
+        ConfigureMenuItem(refreshTreeMenuItem, IconFactory.RefreshTree(bar, IconFactory.Palette.Refresh), "Refresh &Tree", menuBar: true);
+        ConfigureMenuItem(barExportSummaryWordMenuItem, IconFactory.FileWord(bar), "Export to &Word", menuBar: true);
+        ConfigureMenuItem(barExportSummaryMarkdownMenuItem, IconFactory.FileMarkdown(bar), "Export to &Markdown", menuBar: true);
+        ConfigureMenuItem(barExportSummaryPdfMenuItem, IconFactory.FilePdf(bar), "Export to &PDF", menuBar: true);
+        ConfigureMenuItem(refreshGraphMenuItem, IconFactory.RefreshGraph(bar, IconFactory.Palette.History), "Refresh &Graph", menuBar: true);
+        ConfigureMenuItem(copyShaMenuItem, IconFactory.Copy(bar, IconFactory.Palette.Copy), "Copy &SHA", menuBar: true);
+        ConfigureMenuItem(copyMessageMenuItem, IconFactory.Message(bar, IconFactory.Palette.Message), "Copy &Message", menuBar: true);
+        ConfigureMenuItem(copyPathMenuItem, IconFactory.File(bar, IconFactory.Palette.File), "Copy &Path", menuBar: true);
+        ConfigureMenuItem(wordWrapMenuItem, IconFactory.WordWrap(bar, IconFactory.Palette.WordWrap), "Word &Wrap", menuBar: true);
+        ConfigureMenuItem(copyDiffMenuItem, IconFactory.Diff(bar), "Copy &Diff", menuBar: true);
+        ConfigureMenuItem(aboutMenuItem, IconFactory.InfoToolbar(bar), "&About", menuBar: true);
 
         ConfigureContextMenu(repoTreeContextMenu,
             (checkoutContextMenuItem, IconFactory.Checkout(), "Checkout"),
@@ -295,7 +300,8 @@ public partial class MainForm : Form
 
     private void ConfigureExportSummaryMenu(ToolStripMenuItem parent, bool menuBar = false)
     {
-        Image icon = menuBar ? IconFactory.Report(IconFactory.MenuBarIconSize) : IconFactory.Report(IconFactory.MenuIconSize);
+        int iconSize = menuBar ? IconFactory.MenuBarIconSize : IconFactory.MenuIconSize;
+        Image icon = IconFactory.Report(iconSize, menuBar ? IconFactory.Palette.Report : null);
         ConfigureMenuItem(parent, icon, menuBar ? "Export &Summary" : "Export Summary", menuBar);
 
         if (parent.DropDownItems.Count > 0)
@@ -908,7 +914,7 @@ public partial class MainForm : Form
             ToolTipText = path,
             Checked = IsSameRepositoryPath(path, currentPath)
         };
-        ConfigureMenuItem(item, IconFactory.Folder(IconFactory.MenuBarIconSize), label, menuBar: true);
+        ConfigureMenuItem(item, IconFactory.Folder(IconFactory.MenuBarIconSize, IconFactory.Palette.Folder), label, menuBar: true);
         item.Click += RecentRepositoryMenuItem_Click;
         return item;
     }
@@ -1735,22 +1741,22 @@ public partial class MainForm : Form
     private void ConfigureRepositoryGitMenu()
     {
         repositoryGitMenuItem = new ToolStripMenuItem("&Git");
-        ConfigureMenuItem(repositoryGitMenuItem, IconFactory.Branch(IconFactory.MenuBarIconSize), "&Git", menuBar: true);
+        ConfigureMenuItem(repositoryGitMenuItem, IconFactory.Branch(IconFactory.MenuBarIconSize, IconFactory.Palette.Branch), "&Git", menuBar: true);
         repositoryGitMenuItem.DropDownOpening += (_, _) => UpdateRepositoryGitMenuState();
 
-        AddRepositoryGitMenuItem("Git &Add", IconFactory.GitAdd(), (_, _) => TryGitAdd(RepositoryRootTag), "gitAddContextMenuItem");
-        AddRepositoryGitMenuItem("Git Reset (&Unstage)", IconFactory.GitReset(), (_, _) => TryGitReset(RepositoryRootTag), "gitResetContextMenuItem");
-        AddRepositoryGitMenuItem("Git &Discard Changes", IconFactory.GitDiscard(), (_, _) => TryGitDiscard(RepositoryRootTag), "gitDiscardContextMenuItem");
+        AddRepositoryGitMenuItem("Git &Add", IconFactory.GitAdd(IconFactory.MenuBarIconSize), (_, _) => TryGitAdd(RepositoryRootTag), "gitAddContextMenuItem");
+        AddRepositoryGitMenuItem("Git Reset (&Unstage)", IconFactory.GitReset(IconFactory.MenuBarIconSize), (_, _) => TryGitReset(RepositoryRootTag), "gitResetContextMenuItem");
+        AddRepositoryGitMenuItem("Git &Discard Changes", IconFactory.GitDiscard(IconFactory.MenuBarIconSize), (_, _) => TryGitDiscard(RepositoryRootTag), "gitDiscardContextMenuItem");
         repositoryGitMenuItem.DropDownItems.Add(new ToolStripSeparator());
-        AddRepositoryGitMenuItem("Git &Commit...", IconFactory.GitCommit(), GitCommitContextMenuItem_Click, "gitCommitContextMenuItem");
+        AddRepositoryGitMenuItem("Git &Commit...", IconFactory.GitCommit(IconFactory.MenuBarIconSize), GitCommitContextMenuItem_Click, "gitCommitContextMenuItem");
         repositoryGitMenuItem.DropDownItems.Add(new ToolStripSeparator());
-        AddRepositoryGitMenuItem("Git Fetc&h", IconFactory.GitFetch(), GitFetchContextMenuItem_Click, "gitFetchContextMenuItem");
-        AddRepositoryGitMenuItem("Git P&ull", IconFactory.GitPull(), GitPullContextMenuItem_Click, "gitPullContextMenuItem");
-        AddRepositoryGitMenuItem("Git P&ush", IconFactory.GitPush(), GitPushContextMenuItem_Click, "gitPushContextMenuItem");
+        AddRepositoryGitMenuItem("Git Fetc&h", IconFactory.GitFetch(IconFactory.MenuBarIconSize), GitFetchContextMenuItem_Click, "gitFetchContextMenuItem");
+        AddRepositoryGitMenuItem("Git P&ull", IconFactory.GitPull(IconFactory.MenuBarIconSize), GitPullContextMenuItem_Click, "gitPullContextMenuItem");
+        AddRepositoryGitMenuItem("Git P&ush", IconFactory.GitPush(IconFactory.MenuBarIconSize), GitPushContextMenuItem_Click, "gitPushContextMenuItem");
         repositoryGitMenuItem.DropDownItems.Add(new ToolStripSeparator());
-        AddRepositoryGitMenuItem("Git Stas&h", IconFactory.GitStash(), GitStashContextMenuItem_Click, "gitStashContextMenuItem");
-        AddRepositoryGitMenuItem("Git Stash &Pop", IconFactory.GitStash(), GitStashPopContextMenuItem_Click, "gitStashPopContextMenuItem");
-        AddRepositoryGitMenuItem("Git &Status...", IconFactory.GitStatus(), (_, _) => ShowGitStatus(RepositoryRootTag), "gitStatusContextMenuItem");
+        AddRepositoryGitMenuItem("Git Stas&h", IconFactory.GitStash(IconFactory.MenuBarIconSize), GitStashContextMenuItem_Click, "gitStashContextMenuItem");
+        AddRepositoryGitMenuItem("Git Stash &Pop", IconFactory.GitStash(IconFactory.MenuBarIconSize), GitStashPopContextMenuItem_Click, "gitStashPopContextMenuItem");
+        AddRepositoryGitMenuItem("Git &Status...", IconFactory.GitStatus(IconFactory.MenuBarIconSize, IconFactory.Palette.GitStatus), (_, _) => ShowGitStatus(RepositoryRootTag), "gitStatusContextMenuItem");
 
         repositoryGitMenuItem.DropDown.Renderer = _menuRenderer;
         if (repositoryGitMenuItem.DropDown is ToolStripDropDownMenu dropDownMenu)
