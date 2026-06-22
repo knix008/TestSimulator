@@ -18,7 +18,7 @@ partial class MainForm
     private StatusStrip statusStrip1;
     private SplitContainer splitContainerMain;
     private SplitContainer splitContainerDetail;
-    private ListView reqListView;
+    private DataGridView reqGrid;
     private DataGridView testCaseGrid;
     private Panel detailPanel;
     private TableLayoutPanel detailTable;
@@ -98,7 +98,7 @@ partial class MainForm
         statusCoverageLabel = new ToolStripStatusLabel();
         statusPassRateLabel = new ToolStripStatusLabel();
         splitContainerMain = new SplitContainer();
-        reqListView = new ListView();
+        reqGrid = new DataGridView();
         lblTreeHeader = new Label();
         splitContainerDetail = new SplitContainer();
         detailPanel = new Panel();
@@ -126,6 +126,7 @@ partial class MainForm
         splitContainerMain.Panel1.SuspendLayout();
         splitContainerMain.Panel2.SuspendLayout();
         splitContainerMain.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)reqGrid).BeginInit();
         ((System.ComponentModel.ISupportInitialize)splitContainerDetail).BeginInit();
         splitContainerDetail.Panel1.SuspendLayout();
         splitContainerDetail.Panel2.SuspendLayout();
@@ -444,7 +445,7 @@ partial class MainForm
         // 
         // splitContainerMain.Panel1
         // 
-        splitContainerMain.Panel1.Controls.Add(reqListView);
+        splitContainerMain.Panel1.Controls.Add(reqGrid);
         splitContainerMain.Panel1.Controls.Add(lblTreeHeader);
         splitContainerMain.Panel1MinSize = 200;
         // 
@@ -456,17 +457,19 @@ partial class MainForm
         splitContainerMain.SplitterDistance = 1012;
         splitContainerMain.TabIndex = 0;
         // 
-        // reqListView
+        // reqGrid
         // 
-        reqListView.Dock = DockStyle.Fill;
-        reqListView.FullRowSelect = true;
-        reqListView.GridLines = true;
-        reqListView.Location = new Point(0, 32);
-        reqListView.Name = "reqListView";
-        reqListView.Size = new Size(1012, 747);
-        reqListView.TabIndex = 1;
-        reqListView.UseCompatibleStateImageBehavior = false;
-        reqListView.View = View.Details;
+        reqGrid.AllowUserToAddRows = false;
+        reqGrid.AllowUserToDeleteRows = false;
+        reqGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        reqGrid.Dock = DockStyle.Fill;
+        reqGrid.Location = new Point(0, 32);
+        reqGrid.Name = "reqGrid";
+        reqGrid.ReadOnly = true;
+        reqGrid.RowHeadersVisible = false;
+        reqGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        reqGrid.Size = new Size(1012, 747);
+        reqGrid.TabIndex = 1;
         // 
         // lblTreeHeader
         // 
@@ -736,6 +739,7 @@ partial class MainForm
         splitContainerMain.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitContainerMain).EndInit();
         splitContainerMain.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)reqGrid).EndInit();
         splitContainerDetail.Panel1.ResumeLayout(false);
         splitContainerDetail.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitContainerDetail).EndInit();

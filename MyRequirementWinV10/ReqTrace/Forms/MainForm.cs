@@ -61,7 +61,7 @@ public partial class MainForm : Form
         _testRunService = new TestRunService(_requirementService);
         _requirementService.Changed += (_, _) => RefreshAll();
 
-        InitializeRequirementsListView();
+        InitializeRequirementsGrid();
         InitializeDetailEditors();
         InitializeLanguageMenu();
         InitializeDatabaseMenu();
@@ -80,22 +80,22 @@ public partial class MainForm : Form
 
     private const int RequirementListColumnCount = 9;
 
-    private void InitializeRequirementsListView()
+    private void InitializeRequirementsGrid()
     {
-        EnableDoubleBuffering(reqListView);
-        EnableDoubleBuffering(splitContainerMain.Panel1);
-        reqListView.Columns.Clear();
-        reqListView.Columns.Add("Code", 100);
-        reqListView.Columns.Add("Category", 120);
-        reqListView.Columns.Add("Title", 160);
-        reqListView.Columns.Add("Description", 280);
-        reqListView.Columns.Add("Priority", 80);
-        reqListView.Columns.Add("RequirementStatus", 110);
-        reqListView.Columns.Add("TestStatus", 100);
-        reqListView.Columns.Add("Source", 120);
-        reqListView.Columns.Add("Parent", 100);
+        reqGrid.AutoGenerateColumns = false;
+        reqGrid.Columns.Clear();
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Code", FillWeight = 100 });
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", FillWeight = 120 });
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Title", FillWeight = 160 });
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Description", FillWeight = 280 });
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Priority", FillWeight = 80 });
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "RequirementStatus", FillWeight = 110 });
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TestStatus", FillWeight = 100 });
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Source", FillWeight = 120 });
+        reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Parent", FillWeight = 100 });
+
+        ModernTheme.StyleGrid(reqGrid);
         UpdateRequirementColumnHeaders();
-        ModernTheme.FillLastListViewColumn(reqListView);
     }
 
     private void UpdateImportMenuLabels()
@@ -120,12 +120,12 @@ public partial class MainForm : Form
             Loc.T("Col_Source"),
             Loc.T("Col_Parent")
         };
-        for (var i = 0; i < reqListView.Columns.Count && i < names.Length; i++)
+        for (var i = 0; i < reqGrid.Columns.Count && i < names.Length; i++)
         {
             var suffix = i == _reqSortColumn
                 ? (_reqSortOrder == SortOrder.Ascending ? " ▲" : " ▼")
                 : string.Empty;
-            reqListView.Columns[i].Text = names[i] + suffix;
+            reqGrid.Columns[i].HeaderText = names[i] + suffix;
         }
     }
 
@@ -246,7 +246,7 @@ public partial class MainForm : Form
         tcCtxDelete.Click += (_, _) => DeleteSelectedTestCase();
         tcCtxRecord.Click += (_, _) => RecordTestRun();
 
-        reqListView.ContextMenuStrip = reqContextMenu;
+        reqGrid.ContextMenuStrip = reqContextMenu;
         testCaseGrid.ContextMenuStrip = testCaseContextMenu;
     }
 
@@ -446,9 +446,9 @@ public partial class MainForm : Form
 
     private void EnsureRequirementsListColumns()
     {
-        if (reqListView.Columns.Count == RequirementListColumnCount)
+        if (reqGrid.Columns.Count == RequirementListColumnCount)
             return;
-        InitializeRequirementsListView();
+        InitializeRequirementsGrid();
     }
 
     private void StylePanelHeaders()
@@ -486,8 +486,8 @@ public partial class MainForm : Form
 
     private void ApplyListHeaderStyles()
     {
+        ApplyGridHeaderStyle(reqGrid);
         ApplyGridHeaderStyle(testCaseGrid);
-        reqListView.Refresh();
     }
 
     private static void ApplyGridHeaderStyle(DataGridView grid)
@@ -616,37 +616,50 @@ public partial class MainForm : Form
         optionsMenuItem.Click += (_, _) => ShowOptions();
         aboutMenuItem.Click += (_, _) => new AboutForm().ShowDialog(this);
 
-        splitContainerMain.SplitterMoved += (_, _) =>
-        {
-            ModernTheme.FillLastListViewColumn(reqListView);
-            reqListView.Refresh();
-        };
-
-        reqListView.SelectedIndexChanged += (_, _) =>
+        reqGrid.SelectionChanged += (_, _) =>
         {
             CommitDetailPanel();
             RefreshDetailAndGrid();
         };
-        reqListView.ColumnClick += ReqListView_ColumnClick;
-        reqListView.DoubleClick += (_, _) => EditSelectedRequirement();
-        reqListView.MouseUp += ReqListView_MouseUp;
+        reqGrid.ColumnHeaderMouseClick += ReqGrid_ColumnHeaderMouseClick;
+        reqGrid.CellDoubleClick += (_, e) =>
+        {
+            if (e.RowIndex >= 0)
+                EditSelectedRequirement();
+        };
+        reqGrid.CellMouseDown += ReqGrid_CellMouseDown;
+        reqGrid.CellFormatting += ReqGrid_CellFormatting;
         testCaseGrid.CellDoubleClick += (_, _) => EditSelectedTestCase();
         testCaseGrid.CellMouseDown += TestCaseGrid_CellMouseDown;
 
         FormClosing += MainForm_FormClosing;
     }
 
-    private void ReqListView_MouseUp(object? sender, MouseEventArgs e)
+    private void ReqGrid_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
     {
-        if (e.Button != MouseButtons.Right)
+        if (e.Button != MouseButtons.Right || e.RowIndex < 0)
             return;
 
-        var info = reqListView.HitTest(e.Location);
-        if (info.Item is not null && !info.Item.Selected)
+        if (!reqGrid.Rows[e.RowIndex].Selected)
         {
-            reqListView.SelectedItems.Clear();
-            info.Item.Selected = true;
+            reqGrid.ClearSelection();
+            reqGrid.Rows[e.RowIndex].Selected = true;
         }
+
+        if (e.ColumnIndex >= 0)
+            reqGrid.CurrentCell = reqGrid.Rows[e.RowIndex].Cells[e.ColumnIndex];
+    }
+
+    private void ReqGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.CellStyle is null)
+            return;
+
+        var row = reqGrid.Rows[e.RowIndex];
+        if (row.Tag is Requirement req)
+            e.CellStyle.ForeColor = StatusForeColor(req.AggregateStatus);
+        else
+            e.CellStyle.ForeColor = Color.Gray;
     }
 
     private void TestCaseGrid_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
@@ -884,19 +897,21 @@ public partial class MainForm : Form
         RefreshRequirementsList();
     }
 
-    private void ReqListView_ColumnClick(object? sender, ColumnClickEventArgs e)
+    private void ReqGrid_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
     {
-        if (e.Column == _reqSortColumn)
+        if (e.ColumnIndex < 0)
+            return;
+
+        if (e.ColumnIndex == _reqSortColumn)
             _reqSortOrder = _reqSortOrder == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending;
         else
         {
-            _reqSortColumn = e.Column;
+            _reqSortColumn = e.ColumnIndex;
             _reqSortOrder = SortOrder.Ascending;
         }
 
         UpdateRequirementColumnHeaders();
         RefreshRequirementsList();
-        reqListView.Refresh();
     }
 
     private IEnumerable<Requirement> OrderRequirements(IEnumerable<Requirement> source)
@@ -1103,7 +1118,7 @@ public partial class MainForm : Form
     // ---------- Requirement CRUD ----------
 
     private Requirement? SelectedRequirement =>
-        reqListView.SelectedItems.Count > 0 ? reqListView.SelectedItems[0].Tag as Requirement : null;
+        reqGrid.CurrentRow?.Tag as Requirement;
 
     private void AddRequirement()
     {
@@ -1131,9 +1146,9 @@ public partial class MainForm : Form
 
     private void DeleteSelectedRequirement()
     {
-        var selected = reqListView.SelectedItems
-            .Cast<ListViewItem>()
-            .Select(item => item.Tag as Requirement)
+        var selected = reqGrid.SelectedRows
+            .Cast<DataGridViewRow>()
+            .Select(row => row.Tag as Requirement)
             .Where(r => r is not null)
             .Cast<Requirement>()
             .ToList();
@@ -1158,12 +1173,13 @@ public partial class MainForm : Form
 
     private void SelectRequirementByCode(string code)
     {
-        foreach (ListViewItem item in reqListView.Items)
+        foreach (DataGridViewRow row in reqGrid.Rows)
         {
-            if (item.Tag is Requirement r && r.Code == code)
+            if (row.Tag is Requirement r && r.Code == code)
             {
-                item.Selected = true;
-                item.EnsureVisible();
+                row.Selected = true;
+                reqGrid.CurrentCell = row.Cells[0];
+                reqGrid.FirstDisplayedScrollingRowIndex = Math.Max(0, row.Index);
                 RefreshDetailAndGrid();
                 break;
             }
@@ -1510,20 +1526,26 @@ public partial class MainForm : Form
         EnsureRequirementsListColumns();
 
         var previousCode = SelectedRequirement?.Code;
-        reqListView.BeginUpdate();
+        reqGrid.SuspendLayout();
         try
         {
-            reqListView.Items.Clear();
+            reqGrid.Rows.Clear();
 
             var requirements = _requirementService.AllRequirements.ToList();
             var byId = requirements.ToDictionary(r => r.Id);
 
             if (requirements.Count == 0)
             {
-                var placeholder = new ListViewItem(Loc.T("Placeholder_NoRequirements")) { ForeColor = Color.Gray };
-                for (var i = 0; i < RequirementListColumnCount - 1; i++)
-                    placeholder.SubItems.Add(i == 0 ? Loc.T("Placeholder_NoRequirementsHint") : string.Empty);
-                reqListView.Items.Add(placeholder);
+                reqGrid.Rows.Add(
+                    Loc.T("Placeholder_NoRequirements"),
+                    Loc.T("Placeholder_NoRequirementsHint"),
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty);
                 return;
             }
 
@@ -1536,7 +1558,7 @@ public partial class MainForm : Form
                 {
                     foreach (var req in OrderRequirements(byParent[parentId]))
                     {
-                        reqListView.Items.Add(CreateListItem(req, depth, byId));
+                        AddRequirementGridRow(req, depth, byId);
                         displayed.Add(req.Id);
                         AddChildren(req.Id, depth + 1);
                     }
@@ -1545,21 +1567,22 @@ public partial class MainForm : Form
                 AddChildren(null, 0);
 
                 foreach (var req in OrderRequirements(requirements.Where(r => !displayed.Contains(r.Id))))
-                    reqListView.Items.Add(CreateListItem(req, 0, byId));
+                    AddRequirementGridRow(req, 0, byId);
             }
             else
             {
                 foreach (var req in OrderRequirements(requirements))
-                    reqListView.Items.Add(CreateListItem(req, 0, byId));
+                    AddRequirementGridRow(req, 0, byId);
             }
 
             if (previousCode is not null)
             {
-                foreach (ListViewItem item in reqListView.Items)
+                foreach (DataGridViewRow row in reqGrid.Rows)
                 {
-                    if (item.Tag is Requirement r && r.Code == previousCode)
+                    if (row.Tag is Requirement r && r.Code == previousCode)
                     {
-                        item.Selected = true;
+                        row.Selected = true;
+                        reqGrid.CurrentCell = row.Cells[0];
                         break;
                     }
                 }
@@ -1567,29 +1590,28 @@ public partial class MainForm : Form
         }
         finally
         {
-            reqListView.EndUpdate();
-            reqListView.Refresh();
+            reqGrid.ResumeLayout();
         }
     }
 
-    private static ListViewItem CreateListItem(Requirement req, int depth, IReadOnlyDictionary<Guid, Requirement> byId)
+    private void AddRequirementGridRow(Requirement req, int depth, IReadOnlyDictionary<Guid, Requirement> byId)
     {
         var indent = depth > 0 ? new string(' ', depth * 3) + "↳ " : string.Empty;
         var parentCode = req.ParentId is { } parentId && byId.TryGetValue(parentId, out var parent)
             ? parent.Code
             : string.Empty;
 
-        var item = new ListViewItem(indent + req.Code) { Tag = req };
-        item.SubItems.Add(req.Category);
-        item.SubItems.Add(req.Title);
-        item.SubItems.Add(req.Description);
-        item.SubItems.Add(Loc.Enum(req.Priority));
-        item.SubItems.Add(Loc.Enum(req.Status));
-        item.SubItems.Add(Loc.Enum(req.AggregateStatus));
-        item.SubItems.Add(req.Source);
-        item.SubItems.Add(parentCode);
-        item.ForeColor = StatusForeColor(req.AggregateStatus);
-        return item;
+        var rowIndex = reqGrid.Rows.Add(
+            indent + req.Code,
+            req.Category,
+            req.Title,
+            req.Description,
+            Loc.Enum(req.Priority),
+            Loc.Enum(req.Status),
+            Loc.Enum(req.AggregateStatus),
+            req.Source,
+            parentCode);
+        reqGrid.Rows[rowIndex].Tag = req;
     }
 
     private static Color StatusForeColor(TestRunStatus status) => status switch
