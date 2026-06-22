@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using ReqTrace.Resources;
 
 namespace ReqTrace.Theme;
@@ -194,12 +195,23 @@ public static class ModernTheme
         panel.Paint += OnPanelBorderPaint;
     }
 
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetWindowTheme(IntPtr hWnd, string? pszSubAppName, string? pszSubIdList);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+
+    private const int LvmFirst = 0x1000;
+    private const int LvmSetBkColor = LvmFirst + 1;
+    private const int LvmSetTextBkColor = LvmFirst + 36;
+
     public static void ApplyListViewPastelStyle(ListView listView)
     {
         listView.HeaderStyle = ColumnHeaderStyle.Clickable;
         listView.OwnerDraw = true;
         listView.HoverSelection = false;
         EnableListViewSmoothPainting(listView);
+        DisableListViewVisualTheme(listView);
         listView.DrawColumnHeader -= OnListViewDrawColumnHeader;
         listView.DrawColumnHeader += OnListViewDrawColumnHeader;
         listView.DrawItem -= OnListViewDrawItem;
@@ -216,6 +228,12 @@ public static class ModernTheme
         listView.MouseDown += OnListViewMouseDownColumnResize;
         listView.MouseUp -= OnListViewMouseUpColumnResize;
         listView.MouseUp += OnListViewMouseUpColumnResize;
+        listView.MouseCaptureChanged -= OnListViewMouseCaptureChangedColumnResize;
+        listView.MouseCaptureChanged += OnListViewMouseCaptureChangedColumnResize;
+        listView.MouseMove -= OnListViewMouseMoveRepaintRow;
+        listView.MouseMove += OnListViewMouseMoveRepaintRow;
+        listView.MouseLeave -= OnListViewMouseLeaveRepaintRow;
+        listView.MouseLeave += OnListViewMouseLeaveRepaintRow;
         listView.Disposed -= OnListViewDisposed;
         listView.Disposed += OnListViewDisposed;
         listView.SelectedIndexChanged -= OnListViewSelectedIndexChanged;
@@ -258,8 +276,119 @@ public static class ModernTheme
         CompleteListViewLayoutRefresh(listView);
     }
 
+    /// <summary>
+    /// The header's column-resize drag is an internal modal loop that captures the
+    /// mouse for its duration; the WM_LBUTTONUP that ends it is consumed inside that
+    /// loop and doesn't always reach this control's MouseUp event afterward. Mouse
+    /// capture release is intrinsic to the drag ending regardless of how the button-up
+    /// message got routed, so it's a more reliable "drag just finished" signal than
+    /// MouseUp alone - this is the actual trigger that guarantees the post-drag repaint.
+    /// </summary>
+    private static void OnListViewMouseCaptureChangedColumnResize(object? sender, EventArgs e)
+    {
+        if (sender is not ListView listView || listView.Capture)
+            return;
+
+        var tracker = GetLayoutTracker(listView);
+        if (!tracker.IsResizingColumns)
+            return;
+
+        CompleteListViewLayoutRefresh(listView);
+    }
+
+    /// <summary>
+    /// Owner-drawn detail rows are often repainted one subitem at a time on hover.
+    /// DrawItem (full-row background) is skipped in that path, so we invalidate the
+    /// entire row whenever the hovered item changes to force a consistent repaint.
+    /// </summary>
+    private static void OnListViewMouseMoveRepaintRow(object? sender, MouseEventArgs e)
+    {
+        if (sender is not ListView listView)
+            return;
+
+        var tracker = GetLayoutTracker(listView);
+        if (tracker.IsResizingColumns)
+            return;
+
+        var itemIndex = listView.HitTest(e.Location).Item?.Index ?? -1;
+        if (itemIndex == tracker.HoveredItemIndex)
+            return;
+
+        var previousIndex = tracker.HoveredItemIndex;
+        tracker.HoveredItemIndex = itemIndex;
+
+        if (previousIndex >= 0)
+            InvalidateListViewRow(listView, previousIndex);
+
+        if (itemIndex >= 0)
+            InvalidateListViewRow(listView, itemIndex);
+    }
+
+    private static void OnListViewMouseLeaveRepaintRow(object? sender, EventArgs e)
+    {
+        if (sender is not ListView listView)
+            return;
+
+        var tracker = GetLayoutTracker(listView);
+        if (tracker.HoveredItemIndex < 0)
+            return;
+
+        var previousIndex = tracker.HoveredItemIndex;
+        tracker.HoveredItemIndex = -1;
+        InvalidateListViewRow(listView, previousIndex);
+    }
+
+    private static void InvalidateListViewRow(ListView listView, int itemIndex)
+    {
+        if (itemIndex < 0 || itemIndex >= listView.Items.Count)
+            return;
+
+        var bounds = listView.Items[itemIndex].Bounds;
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+            return;
+
+        listView.Invalidate(GetFullRowBounds(listView, bounds));
+    }
+
     private static ListViewLayoutTracker GetLayoutTracker(ListView listView) =>
         ListViewLayoutTrackers.GetOrCreateValue(listView);
+
+    /// <summary>
+    /// With visual styles enabled, the native list view control draws its own
+    /// theme-driven overlays on top of owner-drawn content - most visibly, a hot-track
+    /// highlight under the mouse and odd repaint timing around it. Those overlays are
+    /// not something OwnerDraw gives us control over, and they're the kind of thing
+    /// that can make a hovered row appear to blank out or leave a mismatched
+    /// highlight/ghost behind once the mouse moves off it. Turning the theme off for
+    /// just this control drops it back to classic (unthemed) rendering, where we are
+    /// the only thing drawing anything - no competing overlay layer to fight with.
+    /// </summary>
+    private static void DisableListViewVisualTheme(ListView listView)
+    {
+        if (listView.IsHandleCreated)
+        {
+            ApplyListViewNativeRendering(listView);
+            return;
+        }
+
+        listView.HandleCreated -= OnListViewHandleCreatedDisableTheme;
+        listView.HandleCreated += OnListViewHandleCreatedDisableTheme;
+    }
+
+    private static void OnListViewHandleCreatedDisableTheme(object? sender, EventArgs e)
+    {
+        if (sender is ListView listView)
+            ApplyListViewNativeRendering(listView);
+    }
+
+    private static void ApplyListViewNativeRendering(ListView listView)
+    {
+        SetWindowTheme(listView.Handle, string.Empty, string.Empty);
+
+        var surfaceColor = ColorTranslator.ToWin32(Surface);
+        SendMessage(listView.Handle, LvmSetBkColor, 0, surfaceColor);
+        SendMessage(listView.Handle, LvmSetTextBkColor, 0, surfaceColor);
+    }
 
     private static void OnListViewDisposed(object? sender, EventArgs e)
     {
@@ -295,15 +424,14 @@ public static class ModernTheme
         if (sender is not ListView listView || AdjustingListViewColumnWidth.Contains(listView))
             return;
 
+        // Per the user's explicit request: don't repaint the body at all while the
+        // divider is being dragged - the header's own native drag track already shows
+        // where the new boundary is, which is all the live feedback that's needed.
+        // Repainting body rows mid-drag (even throttled) was the source of persistent
+        // ghosting, since it painted against intermediate/inconsistent bounds. The
+        // body is repainted exactly once, fully, after the drag settles (see
+        // CompleteListViewLayoutRefresh below).
         GetLayoutTracker(listView).IsResizingColumns = true;
-
-        // The header drag only auto-invalidates the column being resized, but a
-        // width change shifts every column to its right. Mark the whole control
-        // dirty so the next paint repaints those too (GetColumnBounds always
-        // recomputes from the live Columns widths, so this paint will already see
-        // the new width by the time it runs - no need to force it synchronously,
-        // which would stall the UI thread on every pixel of drag movement).
-        listView.Invalidate();
     }
 
     private static void OnListViewColumnWidthChangedFillLastColumn(object? sender, ColumnWidthChangedEventArgs e)
@@ -311,18 +439,7 @@ public static class ModernTheme
         if (sender is not ListView listView || AdjustingListViewColumnWidth.Contains(listView))
             return;
 
-        var tracker = GetLayoutTracker(listView);
-        tracker.IsResizingColumns = true;
-        FillLastListViewColumn(listView);
-
-        // This handler fires on every pixel of drag movement (HDN_ITEMCHANGED is as
-        // chatty as HDN_ITEMCHANGING). Refresh() forces an immediate synchronous
-        // repaint, which - multiplied by every pixel of mouse movement - stalls the
-        // UI thread badly on lists with many rows. Invalidate() just marks the
-        // region dirty and lets the normal paint cycle catch up; the debounced
-        // CompleteListViewLayoutRefresh below still does one final Refresh() once
-        // the drag settles.
-        listView.Invalidate();
+        GetLayoutTracker(listView).IsResizingColumns = true;
         ScheduleListViewLayoutRefresh(listView);
     }
 
@@ -351,7 +468,9 @@ public static class ModernTheme
 
         FillLastListViewColumn(listView);
         tracker.IsResizingColumns = false;
-        listView.Refresh();
+        tracker.HoveredItemIndex = -1;
+        listView.Invalidate(listView.ClientRectangle);
+        listView.Update();
     }
 
     /// <summary>
@@ -434,32 +553,6 @@ public static class ModernTheme
         return new Rectangle(firstColumnBounds.Left, firstColumnBounds.Top, width, firstColumnBounds.Height);
     }
 
-    private static Rectangle GetColumnBounds(ListViewItem item, int columnIndex)
-    {
-        // Always derive bounds from the live Columns widths rather than trusting
-        // ListViewItem.SubItems[i].Bounds: the native control updates that cache
-        // lazily, so during a column-width drag it can briefly report the previous
-        // width. Painting against that stale rect leaves the old text glyphs
-        // un-erased outside the (too-narrow) rect we actually repaint, which shows
-        // up as ghosting while the divider is dragged.
-        var listView = item.ListView!;
-        var x = item.Bounds.Left;
-        for (var i = 0; i < columnIndex && i < listView.Columns.Count; i++)
-            x += listView.Columns[i].Width;
-
-        if (columnIndex >= listView.Columns.Count)
-            return Rectangle.Empty;
-
-        var width = listView.Columns[columnIndex].Width;
-        if (columnIndex == listView.Columns.Count - 1)
-        {
-            var contentRight = GetListViewContentRight(listView);
-            width = Math.Max(width, contentRight - x);
-        }
-
-        return new Rectangle(x, item.Bounds.Top, width, item.Bounds.Height);
-    }
-
     private static Rectangle InsetTextBounds(Rectangle bounds)
     {
         var inset = ListViewCellPadding;
@@ -468,6 +561,17 @@ public static class ModernTheme
             bounds.Top,
             Math.Max(0, bounds.Width - inset * 2),
             bounds.Height);
+    }
+
+    private static Color GetListViewRowBackColor(ListViewItem item) =>
+        item.Selected ? SelectionBack : Surface;
+
+    private static Rectangle GetCellFillBounds(ListView listView, int columnIndex, Rectangle cellBounds)
+    {
+        if (columnIndex == listView.Columns.Count - 1)
+            return ExtendToListViewContentRight(listView, cellBounds);
+
+        return cellBounds;
     }
 
     private static void OnListViewDrawItem(object? sender, DrawListViewItemEventArgs e)
@@ -479,9 +583,18 @@ public static class ModernTheme
         }
 
         e.DrawDefault = false;
-        var listView = e.Item.ListView!;
-        var tracker = GetLayoutTracker(listView);
-        PaintListViewRow(e.Graphics, e.Item, tracker.IsResizingColumns);
+
+        // Only fill the row background here, spanning the full row width (including
+        // any space to the right of the last column) - per-column text is drawn
+        // entirely by OnListViewDrawSubItem below, using the OS-reported bounds for
+        // that specific subitem. Previously this also looped over every column and
+        // drew text using manually-recomputed bounds, while each column's own
+        // DrawSubItem event redrew that same column again using the (slightly
+        // different) native bounds. Whenever the two disagreed by even a pixel - e.g.
+        // right after a resize - whichever rect was wider left an unerased sliver of
+        // old text/background that the other pass never touched, which is what showed
+        // up as persistent ghosting at row edges and just past a cell's text.
+        PaintListViewRowBackground(e.Graphics, e.Item, e.Bounds);
     }
 
     private static void OnListViewDrawSubItem(object? sender, DrawListViewSubItemEventArgs e)
@@ -490,75 +603,40 @@ public static class ModernTheme
             return;
 
         e.DrawDefault = false;
-        var listView = e.Item.ListView;
-        var tracker = GetLayoutTracker(listView);
-
-        if (tracker.IsResizingColumns)
-        {
-            PaintListViewRow(e.Graphics, e.Item, aggressiveErase: true);
-            return;
-        }
-
-        if (e.ColumnIndex == 0)
-        {
-            PaintListViewRow(e.Graphics, e.Item);
-            return;
-        }
-
-        PaintListViewCell(e.Graphics, e.Item, e.ColumnIndex, e.Bounds, paintBackground: true);
+        PaintListViewCell(e.Graphics, e.Item, e.ColumnIndex, e.Bounds);
     }
 
-    private static void PaintListViewRow(Graphics graphics, ListViewItem item, bool aggressiveErase = false)
+    private static void PaintListViewRowBackground(Graphics graphics, ListViewItem item, Rectangle itemBounds)
     {
         var listView = item.ListView;
-        if (listView is null || listView.Columns.Count == 0 || item.SubItems.Count == 0)
+        if (listView is null || itemBounds.Height <= 0)
             return;
 
-        var firstBounds = GetColumnBounds(item, 0);
-        if (firstBounds.Height <= 0)
-            return;
-
-        var rowBounds = GetFullRowBounds(listView, firstBounds);
-        if (aggressiveErase)
-        {
-            rowBounds = new Rectangle(
-                rowBounds.Left,
-                rowBounds.Top,
-                Math.Max(rowBounds.Width, listView.ClientSize.Width - rowBounds.Left),
-                rowBounds.Height);
-        }
-
-        var backColor = item.Selected ? SelectionBack : Surface;
-        using (var brush = new SolidBrush(backColor))
-            graphics.FillRectangle(brush, rowBounds);
-
-        for (var col = 0; col < listView.Columns.Count && col < item.SubItems.Count; col++)
-            PaintListViewCell(graphics, item, col, GetColumnBounds(item, col), paintBackground: false);
+        var rowBounds = GetFullRowBounds(listView, itemBounds);
+        using var brush = new SolidBrush(GetListViewRowBackColor(item));
+        graphics.FillRectangle(brush, rowBounds);
     }
 
     private static void PaintListViewCell(
         Graphics graphics,
         ListViewItem item,
         int columnIndex,
-        Rectangle cellBounds,
-        bool paintBackground = true)
+        Rectangle cellBounds)
     {
         if (cellBounds.Width <= 0 || cellBounds.Height <= 0)
             return;
 
         var listView = item.ListView!;
         var isLastColumn = columnIndex == listView.Columns.Count - 1;
+        var fillBounds = GetCellFillBounds(listView, columnIndex, cellBounds);
         var text = columnIndex < item.SubItems.Count ? item.SubItems[columnIndex].Text : string.Empty;
+        var backColor = GetListViewRowBackColor(item);
 
-        if (paintBackground)
-        {
-            var backColor = item.Selected ? SelectionBack : Surface;
-            using var brush = new SolidBrush(backColor);
-            graphics.FillRectangle(brush, cellBounds);
-        }
+        using (var brush = new SolidBrush(backColor))
+            graphics.FillRectangle(brush, fillBounds);
 
         var textState = graphics.Save();
-        graphics.SetClip(cellBounds);
+        graphics.SetClip(fillBounds);
 
         var flags = TextFormatFlags.VerticalCenter
                     | TextFormatFlags.Left
@@ -569,7 +647,7 @@ public static class ModernTheme
             graphics,
             text,
             BaseFont,
-            InsetTextBounds(cellBounds),
+            InsetTextBounds(fillBounds),
             item.ForeColor,
             flags);
         graphics.Restore(textState);
@@ -578,7 +656,7 @@ public static class ModernTheme
             return;
 
         using var pen = new Pen(Border);
-        graphics.DrawLine(pen, cellBounds.Left, cellBounds.Bottom - 1, cellBounds.Right, cellBounds.Bottom - 1);
+        graphics.DrawLine(pen, fillBounds.Left, fillBounds.Bottom - 1, fillBounds.Right, fillBounds.Bottom - 1);
         if (!isLastColumn)
             graphics.DrawLine(pen, cellBounds.Right - 1, cellBounds.Top, cellBounds.Right - 1, cellBounds.Bottom);
     }
@@ -586,6 +664,7 @@ public static class ModernTheme
     private sealed class ListViewLayoutTracker
     {
         public bool IsResizingColumns;
+        public int HoveredItemIndex = -1;
         public System.Windows.Forms.Timer? LayoutTimer;
 
         public void StopLayoutTimer()
