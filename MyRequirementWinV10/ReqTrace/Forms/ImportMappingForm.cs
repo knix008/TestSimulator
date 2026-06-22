@@ -15,6 +15,8 @@ public partial class ImportMappingForm : Form
     public int RowsProcessed { get; private set; }
     public int RowsSkipped { get; private set; }
     public bool GeneratedTestCases { get; private set; }
+    public Func<IEnumerable<string>>? GetReservedRequirementCodes { get; set; }
+    public Func<IEnumerable<string>>? GetReservedTestCaseCodes { get; set; }
 
     public ImportMappingForm(string filePath)
     {
@@ -78,59 +80,12 @@ public partial class ImportMappingForm : Form
         if (cboSheet.SelectedItem is not string sheetName)
             return;
 
-        var headerRow = (int)numHeaderRow.Value;
-        IReadOnlyList<string> headers;
-        try
-        {
-            headers = ExcelRequirementImporter.ReadHeaderRow(_filePath, sheetName, headerRow);
-        }
-        catch
-        {
-            return;
-        }
-
-        foreach (var combo in _fieldCombos.Values)
-        {
-            combo.Items.Clear();
-            combo.Items.Add(Loc.T("Common_None"));
-            foreach (var h in headers)
-                combo.Items.Add(h);
-        }
-
-        var inferred = ColumnMappingHeuristics.Infer(headers);
-        SetCombo("Code", inferred.CodeColumn, headers);
-        SetCombo("Title", inferred.TitleColumn, headers);
-        SetCombo("Description", inferred.DescriptionColumn, headers);
-        SetCombo("Category", inferred.CategoryColumn, headers);
-        SetCombo("Priority", inferred.PriorityColumn, headers);
-        SetCombo("Status", inferred.StatusColumn, headers);
-        SetCombo("Source", inferred.SourceColumn, headers);
-        SetCombo("ParentCode", inferred.ParentCodeColumn, headers);
-
-        previewGrid.Columns.Clear();
-        previewGrid.Rows.Clear();
-        foreach (var h in headers)
-            previewGrid.Columns.Add(h, h);
-        var previewRows = ExcelRequirementImporter.ReadPreviewRows(_filePath, sheetName, headerRow, 10);
-        foreach (var row in previewRows)
-            previewGrid.Rows.Add(row.ToArray());
-    }
-
-    private void SetCombo(string field, int? columnIndex, IReadOnlyList<string> headers)
-    {
-        var combo = _fieldCombos[field];
-        if (columnIndex is { } idx && idx >= 0 && idx < headers.Count)
-            combo.SelectedIndex = idx + 1;
-        else
-            combo.SelectedIndex = 0;
-    }
-
-    private int? GetMappedColumn(string field)
-    {
-        var combo = _fieldCombos[field];
-        if (combo.SelectedIndex <= 0)
-            return null;
-        return combo.SelectedIndex - 1;
+        ColumnMappingEditor.Reload(
+            _filePath,
+            sheetName,
+            (int)numHeaderRow.Value,
+            _fieldCombos,
+            previewGrid);
     }
 
     private void btnImport_Click(object? sender, EventArgs e)
@@ -145,19 +100,10 @@ public partial class ImportMappingForm : Form
             var headerRow = (int)numHeaderRow.Value;
             ExcelRequirementImporter.ReadHeaderRow(_filePath, sheetName, headerRow);
 
-            var mapping = new ColumnMapping
-            {
-                CodeColumn = GetMappedColumn("Code"),
-                TitleColumn = GetMappedColumn("Title"),
-                DescriptionColumn = GetMappedColumn("Description"),
-                CategoryColumn = GetMappedColumn("Category"),
-                PriorityColumn = GetMappedColumn("Priority"),
-                StatusColumn = GetMappedColumn("Status"),
-                SourceColumn = GetMappedColumn("Source"),
-                ParentCodeColumn = GetMappedColumn("ParentCode"),
-                GenerateCodeIfMissing = chkGenerateIds.Checked,
-                GenerateTestCases = chkGenerateTestCases.Checked
-            };
+            var mapping = ColumnMappingEditor.BuildMapping(
+                _fieldCombos,
+                chkGenerateIds.Checked,
+                chkGenerateTestCases.Checked);
 
             if (mapping.TitleColumn is null)
             {
@@ -165,20 +111,18 @@ public partial class ImportMappingForm : Form
                 return;
             }
 
-            ImportResult importResult;
-            using (var progressDialog = new ProgressDialog(
+            var importResult = ProgressDialogRunner.Run(
+                this,
                 Loc.T("Dlg_ProgressImportTitle"),
-                Loc.T("Dlg_ProgressImportMessage", Path.GetFileName(_filePath))))
-            {
-                var progress = new Progress<int>(progressDialog.SetProgress);
-                var importTask = Task.Run(() => ExcelRequirementImporter.Import(_filePath, sheetName, headerRow, mapping, progress));
-                importTask.ContinueWith(_ =>
-                {
-                    progressDialog.BeginInvoke(progressDialog.CloseDialog);
-                }, TaskScheduler.Default);
-                progressDialog.ShowDialog(Owner ?? FindForm());
-                importResult = importTask.GetAwaiter().GetResult();
-            }
+                Loc.T("Dlg_ProgressImportMessage", Path.GetFileName(_filePath)),
+                progress => ExcelRequirementImporter.Import(
+                    _filePath,
+                    sheetName,
+                    headerRow,
+                    mapping,
+                    progress,
+                    GetReservedRequirementCodes?.Invoke(),
+                    GetReservedTestCaseCodes?.Invoke()));
 
             ImportedRequirements = importResult.Requirements.ToList();
             Warnings = importResult.Warnings.ToList();

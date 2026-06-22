@@ -67,10 +67,10 @@ partial class RequirementEditForm
         layoutTable.Controls.Add(txtCode, 1, 0);
         layoutTable.Controls.Add(lblTitle, 0, 1);
         layoutTable.Controls.Add(txtTitle, 1, 1);
-        layoutTable.Controls.Add(lblDescription, 0, 2);
-        layoutTable.Controls.Add(txtDescription, 1, 2);
-        layoutTable.Controls.Add(lblCategory, 0, 3);
-        layoutTable.Controls.Add(cboCategory, 1, 3);
+        layoutTable.Controls.Add(lblCategory, 0, 2);
+        layoutTable.Controls.Add(cboCategory, 1, 2);
+        layoutTable.Controls.Add(lblDescription, 0, 3);
+        layoutTable.Controls.Add(txtDescription, 1, 3);
         layoutTable.Controls.Add(lblPriority, 0, 4);
         layoutTable.Controls.Add(cboPriority, 1, 4);
         layoutTable.Controls.Add(lblStatus, 0, 5);
@@ -86,13 +86,13 @@ partial class RequirementEditForm
         layoutTable.RowCount = 8;
         layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         layoutTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-        layoutTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-        layoutTable.Size = new Size(560, 412);
+        layoutTable.Size = new Size(560, 460);
         layoutTable.TabIndex = 0;
         // 
         // lblCode
@@ -133,32 +133,11 @@ partial class RequirementEditForm
         txtTitle.Size = new Size(420, 23);
         txtTitle.TabIndex = 3;
         // 
-        // lblDescription
-        // 
-        lblDescription.Anchor = AnchorStyles.Left;
-        lblDescription.AutoSize = true;
-        lblDescription.Location = new Point(15, 156);
-        lblDescription.Margin = new Padding(3, 8, 3, 3);
-        lblDescription.Name = "lblDescription";
-        lblDescription.Size = new Size(71, 15);
-        lblDescription.TabIndex = 4;
-        lblDescription.Text = "Description:";
-        // 
-        // txtDescription
-        // 
-        txtDescription.Dock = DockStyle.Fill;
-        txtDescription.Location = new Point(125, 75);
-        txtDescription.Multiline = true;
-        txtDescription.Name = "txtDescription";
-        txtDescription.ScrollBars = ScrollBars.Vertical;
-        txtDescription.Size = new Size(420, 172);
-        txtDescription.TabIndex = 5;
-        // 
         // lblCategory
         // 
         lblCategory.Anchor = AnchorStyles.Left;
         lblCategory.AutoSize = true;
-        lblCategory.Location = new Point(15, 260);
+        lblCategory.Location = new Point(15, 82);
         lblCategory.Margin = new Padding(3, 8, 3, 3);
         lblCategory.Name = "lblCategory";
         lblCategory.Size = new Size(58, 15);
@@ -168,16 +147,39 @@ partial class RequirementEditForm
         // cboCategory
         // 
         cboCategory.Dock = DockStyle.Fill;
-        cboCategory.Location = new Point(125, 253);
+        cboCategory.Location = new Point(125, 75);
         cboCategory.Name = "cboCategory";
         cboCategory.Size = new Size(420, 23);
         cboCategory.TabIndex = 7;
+        // 
+        // lblDescription
+        // 
+        lblDescription.Anchor = AnchorStyles.Left;
+        lblDescription.AutoSize = true;
+        lblDescription.Location = new Point(15, 112);
+        lblDescription.Margin = new Padding(3, 8, 3, 3);
+        lblDescription.Name = "lblDescription";
+        lblDescription.Size = new Size(71, 15);
+        lblDescription.TabIndex = 4;
+        lblDescription.Text = "Description:";
+        // 
+        // txtDescription
+        // 
+        txtDescription.Dock = DockStyle.Fill;
+        txtDescription.Location = new Point(125, 105);
+        txtDescription.Multiline = true;
+        txtDescription.Name = "txtDescription";
+        txtDescription.ScrollBars = ScrollBars.Vertical;
+        txtDescription.Size = new Size(420, 220);
+        txtDescription.TabIndex = 5;
+        txtDescription.WordWrap = true;
+        txtDescription.AcceptsReturn = true;
         // 
         // lblPriority
         // 
         lblPriority.Anchor = AnchorStyles.Left;
         lblPriority.AutoSize = true;
-        lblPriority.Location = new Point(15, 290);
+        lblPriority.Location = new Point(15, 338);
         lblPriority.Margin = new Padding(3, 8, 3, 3);
         lblPriority.Name = "lblPriority";
         lblPriority.Size = new Size(48, 15);
@@ -188,7 +190,7 @@ partial class RequirementEditForm
         // 
         cboPriority.Dock = DockStyle.Fill;
         cboPriority.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboPriority.Location = new Point(125, 283);
+        cboPriority.Location = new Point(125, 331);
         cboPriority.Name = "cboPriority";
         cboPriority.Size = new Size(420, 23);
         cboPriority.TabIndex = 9;
@@ -197,7 +199,7 @@ partial class RequirementEditForm
         // 
         lblStatus.Anchor = AnchorStyles.Left;
         lblStatus.AutoSize = true;
-        lblStatus.Location = new Point(15, 320);
+        lblStatus.Location = new Point(15, 368);
         lblStatus.Margin = new Padding(3, 8, 3, 3);
         lblStatus.Name = "lblStatus";
         lblStatus.Size = new Size(43, 15);
@@ -208,7 +210,7 @@ partial class RequirementEditForm
         // 
         cboStatus.Dock = DockStyle.Fill;
         cboStatus.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboStatus.Location = new Point(125, 313);
+        cboStatus.Location = new Point(125, 361);
         cboStatus.Name = "cboStatus";
         cboStatus.Size = new Size(420, 23);
         cboStatus.TabIndex = 11;
@@ -217,7 +219,7 @@ partial class RequirementEditForm
         // 
         lblSource.Anchor = AnchorStyles.Left;
         lblSource.AutoSize = true;
-        lblSource.Location = new Point(15, 350);
+        lblSource.Location = new Point(15, 398);
         lblSource.Margin = new Padding(3, 8, 3, 3);
         lblSource.Name = "lblSource";
         lblSource.Size = new Size(47, 15);
@@ -227,7 +229,7 @@ partial class RequirementEditForm
         // txtSource
         // 
         txtSource.Dock = DockStyle.Fill;
-        txtSource.Location = new Point(125, 343);
+        txtSource.Location = new Point(125, 391);
         txtSource.Name = "txtSource";
         txtSource.Size = new Size(420, 23);
         txtSource.TabIndex = 13;
@@ -236,7 +238,7 @@ partial class RequirementEditForm
         // 
         lblParent.Anchor = AnchorStyles.Left;
         lblParent.AutoSize = true;
-        lblParent.Location = new Point(15, 380);
+        lblParent.Location = new Point(15, 428);
         lblParent.Margin = new Padding(3, 8, 3, 3);
         lblParent.Name = "lblParent";
         lblParent.Size = new Size(44, 15);
@@ -247,7 +249,7 @@ partial class RequirementEditForm
         // 
         cboParent.Dock = DockStyle.Fill;
         cboParent.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboParent.Location = new Point(125, 373);
+        cboParent.Location = new Point(125, 421);
         cboParent.Name = "cboParent";
         cboParent.Size = new Size(420, 23);
         cboParent.TabIndex = 15;
@@ -257,7 +259,7 @@ partial class RequirementEditForm
         panelButtons.Controls.Add(btnOk);
         panelButtons.Controls.Add(btnCancel);
         panelButtons.Dock = DockStyle.Bottom;
-        panelButtons.Location = new Point(0, 412);
+        panelButtons.Location = new Point(0, 460);
         panelButtons.Name = "panelButtons";
         panelButtons.Size = new Size(560, 48);
         panelButtons.TabIndex = 1;
@@ -291,12 +293,12 @@ partial class RequirementEditForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(560, 460);
+        ClientSize = new Size(560, 508);
         Controls.Add(layoutTable);
         Controls.Add(panelButtons);
         MaximizeBox = false;
         MinimizeBox = false;
-        MinimumSize = new Size(480, 420);
+        MinimumSize = new Size(520, 480);
         Name = "RequirementEditForm";
         StartPosition = FormStartPosition.CenterParent;
         Text = "Requirement";

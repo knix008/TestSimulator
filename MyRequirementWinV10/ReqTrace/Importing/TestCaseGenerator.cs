@@ -10,26 +10,29 @@ namespace ReqTrace.Importing;
 /// </summary>
 public static class TestCaseGenerator
 {
-    public static List<TestCase> Generate(Requirement requirement)
+    public static List<TestCase> Generate(
+        Requirement requirement,
+        ISet<string> usedCodes,
+        ref int nextSequence)
     {
         var cases = new List<TestCase>
         {
-            BuildPositiveCase(requirement),
-            BuildNegativeCase(requirement)
+            BuildPositiveCase(requirement, usedCodes, ref nextSequence),
+            BuildNegativeCase(requirement, usedCodes, ref nextSequence)
         };
 
         if (requirement.Priority is Priority.High or Priority.Critical)
-            cases.Add(BuildBoundaryCase(requirement));
+            cases.Add(BuildBoundaryCase(requirement, usedCodes, ref nextSequence));
 
         return cases;
     }
 
-    private static TestCase BuildPositiveCase(Requirement requirement)
+    private static TestCase BuildPositiveCase(Requirement requirement, ISet<string> usedCodes, ref int nextSequence)
     {
         var steps = BuildStepsFromDescription(requirement);
         return new TestCase
         {
-            Code = $"{requirement.Code}-TC1",
+            Code = TestCaseCodeAllocator.AllocateNext(usedCodes, ref nextSequence),
             Title = Loc.T("TcGen_PositiveTitle", requirement.Title),
             Preconditions = Loc.T("TcGen_Preconditions"),
             ExpectedResult = string.IsNullOrWhiteSpace(requirement.Description)
@@ -39,11 +42,11 @@ public static class TestCaseGenerator
         };
     }
 
-    private static TestCase BuildNegativeCase(Requirement requirement)
+    private static TestCase BuildNegativeCase(Requirement requirement, ISet<string> usedCodes, ref int nextSequence)
     {
         return new TestCase
         {
-            Code = $"{requirement.Code}-TC2",
+            Code = TestCaseCodeAllocator.AllocateNext(usedCodes, ref nextSequence),
             Title = Loc.T("TcGen_NegativeTitle", requirement.Title),
             Preconditions = Loc.T("TcGen_Preconditions"),
             ExpectedResult = Loc.T("TcGen_NegativeExpected"),
@@ -59,11 +62,11 @@ public static class TestCaseGenerator
         };
     }
 
-    private static TestCase BuildBoundaryCase(Requirement requirement)
+    private static TestCase BuildBoundaryCase(Requirement requirement, ISet<string> usedCodes, ref int nextSequence)
     {
         return new TestCase
         {
-            Code = $"{requirement.Code}-TC3",
+            Code = TestCaseCodeAllocator.AllocateNext(usedCodes, ref nextSequence),
             Title = Loc.T("TcGen_BoundaryTitle", requirement.Title),
             Preconditions = Loc.T("TcGen_Preconditions"),
             ExpectedResult = Loc.T("TcGen_BoundaryExpected"),

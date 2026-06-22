@@ -1,3 +1,4 @@
+using ReqTrace.Importing;
 using ReqTrace.Localization;
 using ReqTrace.Models;
 using ReqTrace.Theme;
@@ -7,12 +8,17 @@ namespace ReqTrace.Forms;
 public partial class TestCaseEditForm : Form
 {
     private readonly TestCase? _existing;
+    private readonly List<string> _existingTestCaseCodes;
 
     public TestCase Result { get; private set; } = new();
 
-    public TestCaseEditForm(TestCase? existing)
+    public TestCaseEditForm(TestCase? existing, IEnumerable<string>? existingTestCaseCodes = null)
     {
         _existing = existing;
+        _existingTestCaseCodes = existingTestCaseCodes?
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code.Trim())
+            .ToList() ?? [];
         InitializeComponent();
         InitializeStepsGrid();
 
@@ -37,6 +43,7 @@ public partial class TestCaseEditForm : Form
         }
         else
         {
+            txtCode.Text = TestCaseCodeAllocator.PreviewNextCode(_existingTestCaseCodes);
             AddStepRow();
         }
 
@@ -345,7 +352,10 @@ public partial class TestCaseEditForm : Form
         Result = _existing ?? new TestCase();
         Result.Code = string.IsNullOrWhiteSpace(txtCode.Text) ? Result.Code : txtCode.Text.Trim();
         if (string.IsNullOrWhiteSpace(Result.Code))
-            Result.Code = "TC-" + Guid.NewGuid().ToString()[..6].ToUpperInvariant();
+        {
+            var (usedCodes, nextSequence) = TestCaseCodeAllocator.CreateState(_existingTestCaseCodes);
+            Result.Code = TestCaseCodeAllocator.AllocateNext(usedCodes, ref nextSequence);
+        }
         Result.Title = txtTitle.Text.Trim();
         Result.Preconditions = txtPreconditions.Text.Trim();
         Result.ExpectedResult = txtExpectedResult.Text.Trim();

@@ -68,8 +68,6 @@ partial class ExportOptionsForm
         // chkWord
         // 
         chkWord.AutoSize = true;
-        chkWord.Checked = true;
-        chkWord.CheckState = CheckState.Checked;
         chkWord.Location = new Point(20, 40);
         chkWord.Name = "chkWord";
         chkWord.Size = new Size(98, 19);
@@ -80,8 +78,6 @@ partial class ExportOptionsForm
         // chkMarkdown
         // 
         chkMarkdown.AutoSize = true;
-        chkMarkdown.Checked = true;
-        chkMarkdown.CheckState = CheckState.Checked;
         chkMarkdown.Location = new Point(20, 65);
         chkMarkdown.Name = "chkMarkdown";
         chkMarkdown.Size = new Size(114, 19);
@@ -92,8 +88,6 @@ partial class ExportOptionsForm
         // chkPdf
         // 
         chkPdf.AutoSize = true;
-        chkPdf.Checked = true;
-        chkPdf.CheckState = CheckState.Checked;
         chkPdf.Location = new Point(20, 90);
         chkPdf.Name = "chkPdf";
         chkPdf.Size = new Size(78, 19);

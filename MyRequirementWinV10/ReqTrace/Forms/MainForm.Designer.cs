@@ -42,7 +42,7 @@ partial class MainForm
     private ToolStripMenuItem editMenu, addRequirementMenuItem, editRequirementMenuItem, deleteRequirementMenuItem,
         addTestCaseMenuItem, editTestCaseMenuItem, deleteTestCaseMenuItem, recordTestRunMenuItem;
     private ToolStripMenuItem viewMenu, groupByCategoryMenuItem, groupByHierarchyMenuItem, refreshMenuItem, searchToggleMenuItem;
-    private ToolStripMenuItem toolsMenu, traceabilitySummaryMenuItem, optionsMenuItem;
+    private ToolStripMenuItem toolsMenu, traceabilitySummaryMenuItem, llmSettingsMenuItem, optionsMenuItem;
     private ToolStripMenuItem helpMenu, aboutMenuItem;
 
     private ToolStripButton newToolButton, openToolButton, saveToolButton, importExcelToolButton, exportReportToolButton,
@@ -51,6 +51,7 @@ partial class MainForm
 
     private void InitializeComponent()
     {
+        System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         menuStrip1 = new MenuStrip();
         fileMenu = new ToolStripMenuItem();
         newProjectMenuItem = new ToolStripMenuItem();
@@ -76,6 +77,7 @@ partial class MainForm
         searchToggleMenuItem = new ToolStripMenuItem();
         toolsMenu = new ToolStripMenuItem();
         traceabilitySummaryMenuItem = new ToolStripMenuItem();
+        llmSettingsMenuItem = new ToolStripMenuItem();
         optionsMenuItem = new ToolStripMenuItem();
         helpMenu = new ToolStripMenuItem();
         aboutMenuItem = new ToolStripMenuItem();
@@ -107,12 +109,12 @@ partial class MainForm
         txtDetailTitle = new TextBox();
         lblCategory = new Label();
         txtDetailCategory = new TextBox();
+        lblDescription = new Label();
+        txtDetailDescription = new TextBox();
         lblPriority = new Label();
         cboDetailPriority = new ComboBox();
         lblStatusField = new Label();
         cboDetailStatus = new ComboBox();
-        lblDescription = new Label();
-        txtDetailDescription = new TextBox();
         btnEditRequirement = new Button();
         lblDetailHeader = new Label();
         testCaseGrid = new DataGridView();
@@ -295,7 +297,7 @@ partial class MainForm
         // 
         // toolsMenu
         // 
-        toolsMenu.DropDownItems.AddRange(new ToolStripItem[] { traceabilitySummaryMenuItem, optionsMenuItem });
+        toolsMenu.DropDownItems.AddRange(new ToolStripItem[] { traceabilitySummaryMenuItem, llmSettingsMenuItem, optionsMenuItem });
         toolsMenu.Name = "toolsMenu";
         toolsMenu.Size = new Size(47, 20);
         toolsMenu.Text = "&Tools";
@@ -306,6 +308,12 @@ partial class MainForm
         traceabilitySummaryMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.T;
         traceabilitySummaryMenuItem.Size = new Size(263, 22);
         traceabilitySummaryMenuItem.Text = "&Traceability Summary";
+        // 
+        // llmSettingsMenuItem
+        // 
+        llmSettingsMenuItem.Name = "llmSettingsMenuItem";
+        llmSettingsMenuItem.Size = new Size(263, 22);
+        llmSettingsMenuItem.Text = "LLM Settings...";
         // 
         // optionsMenuItem
         // 
@@ -454,7 +462,6 @@ partial class MainForm
         reqListView.FullRowSelect = true;
         reqListView.GridLines = true;
         reqListView.Location = new Point(0, 32);
-        reqListView.MultiSelect = false;
         reqListView.Name = "reqListView";
         reqListView.Size = new Size(1012, 747);
         reqListView.TabIndex = 1;
@@ -483,7 +490,7 @@ partial class MainForm
         // 
         splitContainerDetail.Panel1.Controls.Add(detailPanel);
         splitContainerDetail.Panel1.Controls.Add(lblDetailHeader);
-        splitContainerDetail.Panel1MinSize = 272;
+        splitContainerDetail.Panel1MinSize = 300;
         // 
         // splitContainerDetail.Panel2
         // 
@@ -491,7 +498,7 @@ partial class MainForm
         splitContainerDetail.Panel2.Controls.Add(lblTestCasesHeader);
         splitContainerDetail.Panel2MinSize = 120;
         splitContainerDetail.Size = new Size(584, 779);
-        splitContainerDetail.SplitterDistance = 331;
+        splitContainerDetail.SplitterDistance = 380;
         splitContainerDetail.TabIndex = 0;
         // 
         // detailPanel
@@ -500,7 +507,7 @@ partial class MainForm
         detailPanel.Dock = DockStyle.Fill;
         detailPanel.Location = new Point(0, 32);
         detailPanel.Name = "detailPanel";
-        detailPanel.Size = new Size(584, 299);
+        detailPanel.Size = new Size(584, 348);
         detailPanel.TabIndex = 1;
         // 
         // detailTable
@@ -514,12 +521,12 @@ partial class MainForm
         detailTable.Controls.Add(txtDetailTitle, 1, 1);
         detailTable.Controls.Add(lblCategory, 0, 2);
         detailTable.Controls.Add(txtDetailCategory, 1, 2);
-        detailTable.Controls.Add(lblPriority, 0, 3);
-        detailTable.Controls.Add(cboDetailPriority, 1, 3);
-        detailTable.Controls.Add(lblStatusField, 0, 4);
-        detailTable.Controls.Add(cboDetailStatus, 1, 4);
-        detailTable.Controls.Add(lblDescription, 0, 5);
-        detailTable.Controls.Add(txtDetailDescription, 0, 6);
+        detailTable.Controls.Add(lblDescription, 0, 3);
+        detailTable.Controls.Add(txtDetailDescription, 0, 4);
+        detailTable.Controls.Add(lblPriority, 0, 5);
+        detailTable.Controls.Add(cboDetailPriority, 1, 5);
+        detailTable.Controls.Add(lblStatusField, 0, 6);
+        detailTable.Controls.Add(cboDetailStatus, 1, 6);
         detailTable.Controls.Add(btnEditRequirement, 0, 7);
         detailTable.Dock = DockStyle.Fill;
         detailTable.Location = new Point(0, 0);
@@ -529,12 +536,12 @@ partial class MainForm
         detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-        detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-        detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
         detailTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+        detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
         detailTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-        detailTable.Size = new Size(584, 299);
+        detailTable.Size = new Size(584, 348);
         detailTable.TabIndex = 0;
         // 
         // lblCode
@@ -594,11 +601,33 @@ partial class MainForm
         txtDetailCategory.Size = new Size(458, 23);
         txtDetailCategory.TabIndex = 5;
         // 
+        // lblDescription
+        // 
+        lblDescription.Anchor = AnchorStyles.Left;
+        lblDescription.AutoSize = true;
+        detailTable.SetColumnSpan(lblDescription, 2);
+        lblDescription.Location = new Point(13, 103);
+        lblDescription.Name = "lblDescription";
+        lblDescription.Size = new Size(71, 15);
+        lblDescription.TabIndex = 10;
+        lblDescription.Text = "Description:";
+        // 
+        // txtDetailDescription
+        // 
+        detailTable.SetColumnSpan(txtDetailDescription, 2);
+        txtDetailDescription.Dock = DockStyle.Fill;
+        txtDetailDescription.Location = new Point(13, 125);
+        txtDetailDescription.Multiline = true;
+        txtDetailDescription.Name = "txtDetailDescription";
+        txtDetailDescription.ScrollBars = ScrollBars.Vertical;
+        txtDetailDescription.Size = new Size(558, 112);
+        txtDetailDescription.TabIndex = 11;
+        // 
         // lblPriority
         // 
         lblPriority.Anchor = AnchorStyles.Left;
         lblPriority.AutoSize = true;
-        lblPriority.Location = new Point(13, 110);
+        lblPriority.Location = new Point(13, 250);
         lblPriority.Margin = new Padding(3, 8, 3, 3);
         lblPriority.Name = "lblPriority";
         lblPriority.Size = new Size(48, 15);
@@ -609,7 +638,7 @@ partial class MainForm
         // 
         cboDetailPriority.Dock = DockStyle.Fill;
         cboDetailPriority.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboDetailPriority.Location = new Point(113, 103);
+        cboDetailPriority.Location = new Point(113, 243);
         cboDetailPriority.Name = "cboDetailPriority";
         cboDetailPriority.Size = new Size(458, 23);
         cboDetailPriority.TabIndex = 7;
@@ -618,7 +647,7 @@ partial class MainForm
         // 
         lblStatusField.Anchor = AnchorStyles.Left;
         lblStatusField.AutoSize = true;
-        lblStatusField.Location = new Point(13, 140);
+        lblStatusField.Location = new Point(13, 280);
         lblStatusField.Margin = new Padding(3, 8, 3, 3);
         lblStatusField.Name = "lblStatusField";
         lblStatusField.Size = new Size(43, 15);
@@ -629,39 +658,17 @@ partial class MainForm
         // 
         cboDetailStatus.Dock = DockStyle.Fill;
         cboDetailStatus.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboDetailStatus.Location = new Point(113, 133);
+        cboDetailStatus.Location = new Point(113, 273);
         cboDetailStatus.Name = "cboDetailStatus";
         cboDetailStatus.Size = new Size(458, 23);
         cboDetailStatus.TabIndex = 9;
-        // 
-        // lblDescription
-        // 
-        lblDescription.Anchor = AnchorStyles.Left;
-        lblDescription.AutoSize = true;
-        detailTable.SetColumnSpan(lblDescription, 2);
-        lblDescription.Location = new Point(13, 163);
-        lblDescription.Name = "lblDescription";
-        lblDescription.Size = new Size(71, 15);
-        lblDescription.TabIndex = 10;
-        lblDescription.Text = "Description:";
-        // 
-        // txtDetailDescription
-        // 
-        detailTable.SetColumnSpan(txtDetailDescription, 2);
-        txtDetailDescription.Dock = DockStyle.Fill;
-        txtDetailDescription.Location = new Point(13, 185);
-        txtDetailDescription.Multiline = true;
-        txtDetailDescription.Name = "txtDetailDescription";
-        txtDetailDescription.ScrollBars = ScrollBars.Vertical;
-        txtDetailDescription.Size = new Size(558, 63);
-        txtDetailDescription.TabIndex = 11;
         // 
         // btnEditRequirement
         // 
         btnEditRequirement.Anchor = AnchorStyles.Left;
         btnEditRequirement.AutoSize = true;
         detailTable.SetColumnSpan(btnEditRequirement, 2);
-        btnEditRequirement.Location = new Point(13, 260);
+        btnEditRequirement.Location = new Point(13, 309);
         btnEditRequirement.Margin = new Padding(3, 8, 3, 3);
         btnEditRequirement.Name = "btnEditRequirement";
         btnEditRequirement.Size = new Size(118, 25);
@@ -690,7 +697,7 @@ partial class MainForm
         testCaseGrid.ReadOnly = true;
         testCaseGrid.RowHeadersVisible = false;
         testCaseGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        testCaseGrid.Size = new Size(584, 412);
+        testCaseGrid.Size = new Size(584, 363);
         testCaseGrid.TabIndex = 1;
         // 
         // lblTestCasesHeader
@@ -713,6 +720,7 @@ partial class MainForm
         Controls.Add(toolStrip1);
         Controls.Add(menuStrip1);
         Controls.Add(statusStrip1);
+        Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip1;
         MinimumSize = new Size(1100, 650);
         Name = "MainForm";

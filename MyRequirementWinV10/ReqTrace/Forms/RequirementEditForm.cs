@@ -1,3 +1,4 @@
+using ReqTrace.Importing;
 using ReqTrace.Localization;
 using ReqTrace.Models;
 using ReqTrace.Theme;
@@ -7,6 +8,7 @@ namespace ReqTrace.Forms;
 public partial class RequirementEditForm : Form
 {
     private readonly Requirement? _existing;
+    private readonly List<Requirement> _allOthers;
 
     public Requirement Result { get; private set; } = new();
 
@@ -15,13 +17,18 @@ public partial class RequirementEditForm : Form
         _existing = existing;
         InitializeComponent();
 
-        var others = allOthers.ToList();
+        _allOthers = allOthers.ToList();
+        var others = _allOthers;
         cboCategory.Items.AddRange(others.Select(r => r.Category).Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToArray());
         cboParent.DisplayMember = "Code";
 
         ModernTheme.Apply(this);
         ModernTheme.MakePrimary(btnOk);
         ApplyLocalization();
+
+        var emphasisFont = new Font(Font, FontStyle.Bold);
+        lblCategory.Font = emphasisFont;
+        lblDescription.Font = emphasisFont;
 
         PopulateEnumCombo(cboPriority, existing?.Priority ?? Priority.Medium);
         PopulateEnumCombo(cboStatus, existing?.Status ?? RequirementStatus.Draft);
@@ -43,6 +50,10 @@ public partial class RequirementEditForm : Form
                 if (match is not null)
                     cboParent.SelectedItem = match;
             }
+        }
+        else
+        {
+            txtCode.Text = RequirementCodeAllocator.PreviewNextCode(others.Select(r => r.Code));
         }
     }
 
@@ -81,7 +92,10 @@ public partial class RequirementEditForm : Form
         Result = _existing ?? new Requirement();
         Result.Code = string.IsNullOrWhiteSpace(txtCode.Text) ? Result.Code : txtCode.Text.Trim();
         if (string.IsNullOrWhiteSpace(Result.Code))
-            Result.Code = "REQ-" + Guid.NewGuid().ToString()[..6].ToUpperInvariant();
+        {
+            var (usedCodes, nextSequence) = RequirementCodeAllocator.CreateState(_allOthers.Select(r => r.Code));
+            Result.Code = RequirementCodeAllocator.AllocateNext(usedCodes, ref nextSequence);
+        }
         Result.Title = txtTitle.Text.Trim();
         Result.Description = txtDescription.Text.Trim();
         Result.Category = cboCategory.Text.Trim();

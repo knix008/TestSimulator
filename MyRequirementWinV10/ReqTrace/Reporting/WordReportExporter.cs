@@ -1,7 +1,7 @@
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
-using ReqTrace.Models;
+using ReqTrace.Localization;
 
 namespace ReqTrace.Reporting;
 
@@ -16,29 +16,42 @@ public class WordReportExporter : IReportExporter
         mainPart.Document = new Document();
         var body = mainPart.Document.AppendChild(new Body());
 
-        AppendHeading(body, $"{data.ProjectName} — Traceability Report", 28, true);
-        AppendParagraph(body, $"Generated: {data.GeneratedUtc.ToLocalTime():yyyy-MM-dd HH:mm}", 9);
+        AppendHeading(body, $"{data.ProjectName} — {Loc.T("Dlg_ExportReport")}", 28, true);
+        AppendParagraph(body, Loc.T("Export_GeneratedAt", data.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")), 9);
 
-        AppendHeading(body, "Summary", 20, true);
+        AppendHeading(body, Loc.T("Export_Section_Summary"), 20, true);
         var s = data.Summary;
         AppendSummaryTable(body, new (string, string)[]
         {
-            ("Total Requirements", s.TotalRequirements.ToString()),
-            ("Requirements With Tests", s.RequirementsWithTests.ToString()),
-            ("Requirements Without Tests", s.RequirementsWithoutTests.ToString()),
-            ("Total Test Cases", s.TotalTestCases.ToString()),
-            ("Pass", s.PassCount.ToString()),
-            ("Fail", s.FailCount.ToString()),
-            ("Blocked", s.BlockedCount.ToString()),
-            ("Not Run", s.NotRunCount.ToString()),
-            ("Coverage", $"{s.CoveragePercent:F1}%"),
-            ("Pass Rate", $"{s.PassRatePercent:F1}%")
+            (Loc.T("Export_TotalRequirements"), s.TotalRequirements.ToString()),
+            (Loc.T("Export_RequirementsWithTests"), s.RequirementsWithTests.ToString()),
+            (Loc.T("Export_RequirementsWithoutTests"), s.RequirementsWithoutTests.ToString()),
+            (Loc.T("Export_TotalTestCases"), s.TotalTestCases.ToString()),
+            (Loc.Enum(Models.TestRunStatus.Pass), s.PassCount.ToString()),
+            (Loc.Enum(Models.TestRunStatus.Fail), s.FailCount.ToString()),
+            (Loc.Enum(Models.TestRunStatus.Blocked), s.BlockedCount.ToString()),
+            (Loc.Enum(Models.TestRunStatus.NotRun), s.NotRunCount.ToString()),
+            (Loc.T("Export_CoveragePercent"), $"{s.CoveragePercent:F1}%"),
+            (Loc.T("Export_PassRatePercent"), $"{s.PassRatePercent:F1}%")
         });
 
-        AppendHeading(body, "Traceability Matrix", 20, true);
-        AppendMatrixTable(body, data);
+        AppendSectionTable(body, Loc.T("Export_Section_Requirements"),
+            ReportExportColumns.RequirementHeaders(),
+            data.Requirements.Select(ReportExportColumns.RequirementValues));
 
-        AppendHeading(body, "Coverage by Category", 20, true);
+        AppendSectionTable(body, Loc.T("Export_Section_TestCases"),
+            ReportExportColumns.TestCaseHeaders(),
+            data.TestCases.Select(ReportExportColumns.TestCaseValues));
+
+        AppendSectionTable(body, Loc.T("Export_Section_Traceability"),
+            ReportExportColumns.TraceabilityHeaders(),
+            data.TraceabilityMatrix.Select(ReportExportColumns.TraceabilityValues));
+
+        AppendSectionTable(body, Loc.T("Export_Section_TestCaseSteps"),
+            ReportExportColumns.TestCaseStepHeaders(),
+            data.TestCaseSteps.Select(ReportExportColumns.TestCaseStepValues));
+
+        AppendHeading(body, Loc.T("Export_Section_ByCategory"), 20, true);
         AppendCategoryTable(body, data);
     }
 
@@ -57,23 +70,20 @@ public class WordReportExporter : IReportExporter
     private static void AppendSummaryTable(Body body, (string Label, string Value)[] rows)
     {
         var table = CreateTable();
-        table.AppendChild(CreateHeaderRow("Metric", "Value"));
+        table.AppendChild(CreateHeaderRow(Loc.T("Export_Metric"), Loc.T("Export_Value")));
         foreach (var (label, value) in rows)
             table.AppendChild(CreateRow(label, value));
         body.AppendChild(table);
         body.AppendChild(new Paragraph());
     }
 
-    private static void AppendMatrixTable(Body body, TraceabilityReportData data)
+    private static void AppendSectionTable(Body body, string title, IReadOnlyList<string> headers, IEnumerable<string[]> rows)
     {
+        AppendHeading(body, title, 20, true);
         var table = CreateTable();
-        table.AppendChild(CreateHeaderRow("Req Code", "Req Title", "Category", "Test Case", "Status", "Last Run"));
-        foreach (var row in data.Rows)
-        {
-            var testCaseText = string.IsNullOrEmpty(row.TestCaseCode) ? "(no test case)" : $"{row.TestCaseCode} - {row.TestCaseTitle}";
-            var lastRun = row.LatestRunDate.HasValue ? row.LatestRunDate.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";
-            table.AppendChild(CreateRow(row.RequirementCode, row.RequirementTitle, row.Category, testCaseText, row.LatestRunStatus.ToString(), lastRun));
-        }
+        table.AppendChild(CreateHeaderRow(headers.ToArray()));
+        foreach (var values in rows)
+            table.AppendChild(CreateRow(values));
         body.AppendChild(table);
         body.AppendChild(new Paragraph());
     }
@@ -81,10 +91,19 @@ public class WordReportExporter : IReportExporter
     private static void AppendCategoryTable(Body body, TraceabilityReportData data)
     {
         var table = CreateTable();
-        table.AppendChild(CreateHeaderRow("Category", "Requirements", "Test Cases", "Coverage", "Pass Rate"));
+        table.AppendChild(CreateHeaderRow(
+            Loc.T("Col_Category"),
+            Loc.T("Export_RequirementsCount"),
+            Loc.T("Export_TestCasesCount"),
+            Loc.T("Export_CoveragePercent"),
+            Loc.T("Export_PassRatePercent")));
         foreach (var cat in data.Categories)
-            table.AppendChild(CreateRow(cat.Category, cat.RequirementCount.ToString(), cat.TestCaseCount.ToString(),
-                $"{cat.CoveragePercent:F1}%", $"{cat.PassRatePercent:F1}%"));
+            table.AppendChild(CreateRow(
+                cat.Category,
+                cat.RequirementCount.ToString(),
+                cat.TestCaseCount.ToString(),
+                $"{cat.CoveragePercent:F1}%",
+                $"{cat.PassRatePercent:F1}%"));
         body.AppendChild(table);
     }
 

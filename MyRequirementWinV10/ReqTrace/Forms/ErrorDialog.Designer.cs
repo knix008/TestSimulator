@@ -11,59 +11,50 @@ partial class ErrorDialog
         base.Dispose(disposing);
     }
 
-    private Label lblSummary;
     private Panel panelDetailsHost;
     private TextBox txtDetails;
     private Panel panelButtons;
     private Button btnCopy;
     private Button btnClose;
+    private ContextMenuStrip detailsContextMenu;
+    private ToolStripMenuItem copyMenuItem;
 
     private void InitializeComponent()
     {
-        lblSummary = new Label();
+        components = new System.ComponentModel.Container();
         panelDetailsHost = new Panel();
         txtDetails = new TextBox();
         panelButtons = new Panel();
         btnCopy = new Button();
         btnClose = new Button();
+        detailsContextMenu = new ContextMenuStrip(components);
+        copyMenuItem = new ToolStripMenuItem();
         panelDetailsHost.SuspendLayout();
         panelButtons.SuspendLayout();
+        detailsContextMenu.SuspendLayout();
         SuspendLayout();
-        // 
-        // lblSummary
-        // 
-        lblSummary.AutoSize = false;
-        lblSummary.Dock = DockStyle.Top;
-        lblSummary.Location = new Point(0, 0);
-        lblSummary.Name = "lblSummary";
-        lblSummary.Padding = new Padding(12, 10, 12, 0);
-        lblSummary.Size = new Size(640, 60);
-        lblSummary.TabIndex = 0;
-        lblSummary.Text = "Summary";
         // 
         // panelDetailsHost
         // 
         panelDetailsHost.Controls.Add(txtDetails);
         panelDetailsHost.Dock = DockStyle.Fill;
-        panelDetailsHost.Location = new Point(0, 60);
+        panelDetailsHost.Location = new Point(0, 0);
         panelDetailsHost.Name = "panelDetailsHost";
-        panelDetailsHost.Padding = new Padding(12, 0, 12, 0);
-        panelDetailsHost.Size = new Size(640, 312);
-        panelDetailsHost.TabIndex = 1;
+        panelDetailsHost.Padding = new Padding(12, 12, 12, 0);
+        panelDetailsHost.Size = new Size(640, 372);
+        panelDetailsHost.TabIndex = 0;
         // 
         // txtDetails
         // 
+        txtDetails.ContextMenuStrip = detailsContextMenu;
         txtDetails.Dock = DockStyle.Fill;
-        txtDetails.Font = new Font("Consolas", 9F);
-        txtDetails.Location = new Point(12, 0);
-        txtDetails.Margin = new Padding(12);
+        txtDetails.Location = new Point(12, 12);
         txtDetails.Multiline = true;
         txtDetails.Name = "txtDetails";
-        txtDetails.ReadOnly = true;
         txtDetails.ScrollBars = ScrollBars.Both;
-        txtDetails.Size = new Size(616, 312);
+        txtDetails.Size = new Size(616, 360);
         txtDetails.TabIndex = 0;
-        txtDetails.WordWrap = false;
+        txtDetails.WordWrap = true;
         // 
         // panelButtons
         // 
@@ -73,7 +64,7 @@ partial class ErrorDialog
         panelButtons.Location = new Point(0, 372);
         panelButtons.Name = "panelButtons";
         panelButtons.Size = new Size(640, 48);
-        panelButtons.TabIndex = 2;
+        panelButtons.TabIndex = 1;
         // 
         // btnCopy
         // 
@@ -96,6 +87,19 @@ partial class ErrorDialog
         btnClose.Text = "OK";
         btnClose.UseVisualStyleBackColor = true;
         // 
+        // detailsContextMenu
+        // 
+        detailsContextMenu.Items.AddRange(new ToolStripItem[] { copyMenuItem });
+        detailsContextMenu.Name = "detailsContextMenu";
+        detailsContextMenu.Size = new Size(181, 26);
+        // 
+        // copyMenuItem
+        // 
+        copyMenuItem.Name = "copyMenuItem";
+        copyMenuItem.Size = new Size(180, 22);
+        copyMenuItem.Text = "Copy";
+        copyMenuItem.Click += (_, _) => CopySelectedText();
+        // 
         // ErrorDialog
         // 
         AcceptButton = btnClose;
@@ -104,7 +108,6 @@ partial class ErrorDialog
         CancelButton = btnClose;
         ClientSize = new Size(640, 420);
         Controls.Add(panelDetailsHost);
-        Controls.Add(lblSummary);
         Controls.Add(panelButtons);
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = false;
@@ -113,9 +116,11 @@ partial class ErrorDialog
         Name = "ErrorDialog";
         StartPosition = FormStartPosition.CenterParent;
         Text = "Error";
+        Shown += (_, _) => txtDetails.SelectionLength = 0;
         panelDetailsHost.ResumeLayout(false);
         panelDetailsHost.PerformLayout();
         panelButtons.ResumeLayout(false);
+        detailsContextMenu.ResumeLayout(false);
         ResumeLayout(false);
     }
 }

@@ -4,6 +4,8 @@ namespace ReqTrace.Services;
 
 public class RequirementService
 {
+    private int _changeNotificationSuspendCount;
+
     public ProjectData Project { get; private set; }
     public bool IsDirty { get; private set; }
     public event EventHandler? Changed;
@@ -30,10 +32,17 @@ public class RequirementService
     public Requirement? FindByCode(string code) =>
         Project.Requirements.FirstOrDefault(r => string.Equals(r.Code, code, StringComparison.OrdinalIgnoreCase));
 
-    public Requirement Add(Requirement requirement)
+    public IDisposable SuspendChangeNotifications()
+    {
+        _changeNotificationSuspendCount++;
+        return new ChangeNotificationScope(this);
+    }
+
+    public Requirement Add(Requirement requirement, bool notify = true)
     {
         Project.Requirements.Add(requirement);
-        RaiseChanged();
+        if (notify)
+            RaiseChanged();
         return requirement;
     }
 
@@ -59,12 +68,52 @@ public class RequirementService
     public void Delete(Requirement requirement)
     {
         Project.Requirements.Remove(requirement);
+        RenumberStandardCodes();
         RaiseChanged();
+    }
+
+    public void DeleteMany(IEnumerable<Requirement> requirements)
+    {
+        var removed = false;
+        foreach (var requirement in requirements)
+        {
+            if (Project.Requirements.Remove(requirement))
+                removed = true;
+        }
+
+        if (removed)
+        {
+            RenumberStandardCodes();
+            RaiseChanged();
+        }
+    }
+
+    private void RenumberStandardCodes()
+    {
+        ProjectCodeRenumberer.RenumberStandardRequirementCodes(Project.Requirements);
+        ProjectCodeRenumberer.RenumberStandardTestCaseCodes(Project.Requirements);
     }
 
     private void RaiseChanged()
     {
         IsDirty = true;
+        if (_changeNotificationSuspendCount > 0)
+            return;
+
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private sealed class ChangeNotificationScope(RequirementService service) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            service._changeNotificationSuspendCount = Math.Max(0, service._changeNotificationSuspendCount - 1);
+        }
     }
 }

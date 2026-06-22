@@ -24,6 +24,7 @@ static void WriteReqtproj(string outputPath, string projectName, SampleDefinitio
 
     var project = ProjectRepository.CreateNew(projectName);
     var requirements = new List<Requirement>();
+    var (testCaseUsedCodes, testCaseNextSequence) = TestCaseCodeAllocator.CreateState(null);
 
     foreach (var def in definitions)
     {
@@ -38,7 +39,7 @@ static void WriteReqtproj(string outputPath, string projectName, SampleDefinitio
             Source = def.Source
         };
 
-        foreach (var testCase in TestCaseGenerator.Generate(requirement))
+        foreach (var testCase in TestCaseGenerator.Generate(requirement, testCaseUsedCodes, ref testCaseNextSequence))
         {
             testCase.RequirementId = requirement.Id;
             requirement.TestCases.Add(testCase);

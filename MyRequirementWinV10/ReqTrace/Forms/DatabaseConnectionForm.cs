@@ -152,7 +152,7 @@ public partial class DatabaseConnectionForm : Form
 
     private void UpdateFieldVisibility()
     {
-        var provider = cboProvider.SelectedItem is DbProvider p ? p : DbProvider.MySql;
+        var provider = cboProvider.SelectedItem is DbProvider p ? p : DbProvider.MariaDb;
         var isSqlite = provider == DbProvider.Sqlite;
         var isSqlServer = provider == DbProvider.SqlServer;
         var useIntegratedSecurity = isSqlServer && chkIntegratedSecurity.Checked;

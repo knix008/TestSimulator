@@ -9,7 +9,7 @@ public static class ColumnMappingHeuristics
         ["Code"] = new[] { "id", "reqid", "requirementid", "reqnum", "key", "code", "코드", "요구사항id", "요구사항번호", "식별자", "번호" },
         ["Title"] = new[] { "title", "name", "summary", "requirement", "제목", "요구사항명", "요구사항", "기능명", "항목" },
         ["Description"] = new[] { "description", "desc", "details", "text", "설명", "내용", "상세", "요구사항내용" },
-        ["Category"] = new[] { "category", "module", "component", "area", "분류", "카테고리", "모듈", "영역" },
+        ["Category"] = new[] { "category", "module", "component", "area", "대분류", "중분류", "소분류", "세분류", "분류", "카테고리", "모듈", "영역", "메뉴", "기능", "화면", "업무" },
         ["Priority"] = new[] { "priority", "severity", "우선순위", "중요도" },
         ["Status"] = new[] { "status", "state", "상태", "진행상태" },
         ["Source"] = new[] { "source", "origin", "reference", "출처", "원본" },

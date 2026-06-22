@@ -13,12 +13,14 @@ partial class AboutForm
 
     private PictureBox picAppIcon;
     private Label lblAboutText;
+    private Label lblCopyright;
     private Button btnClose;
 
     private void InitializeComponent()
     {
         picAppIcon = new PictureBox();
         lblAboutText = new Label();
+        lblCopyright = new Label();
         btnClose = new Button();
         ((System.ComponentModel.ISupportInitialize)picAppIcon).BeginInit();
         SuspendLayout();
@@ -38,14 +40,23 @@ partial class AboutForm
         lblAboutText.Location = new Point(72, 8);
         lblAboutText.Name = "lblAboutText";
         lblAboutText.Padding = new Padding(0, 4, 10, 10);
-        lblAboutText.Size = new Size(336, 202);
+        lblAboutText.Size = new Size(336, 180);
         lblAboutText.TabIndex = 0;
-        lblAboutText.Text = "Requirements Traceability Manager\r\nVersion 1.0\r\n\r\nImport requirements from Excel, manage test cases, track pass/fail status, and export traceability reports to Excel, Word, Markdown, and PDF.\r\n\r\nBuilt with:\r\n  - ClosedXML (Excel)\r\n  - DocumentFormat.OpenXml (Word)\r\n  - QuestPDF, Community license (PDF)";
+        lblAboutText.Text = "Requirements Traceability Manager\r\nVersion 1.0";
+        // 
+        // lblCopyright
+        // 
+        lblCopyright.AutoSize = false;
+        lblCopyright.Location = new Point(72, 196);
+        lblCopyright.Name = "lblCopyright";
+        lblCopyright.Size = new Size(336, 20);
+        lblCopyright.TabIndex = 3;
+        lblCopyright.Text = "Copyright";
         // 
         // btnClose
         // 
         btnClose.DialogResult = DialogResult.OK;
-        btnClose.Location = new Point(330, 220);
+        btnClose.Location = new Point(333, 224);
         btnClose.Name = "btnClose";
         btnClose.Size = new Size(75, 25);
         btnClose.TabIndex = 1;
@@ -58,6 +69,7 @@ partial class AboutForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(420, 260);
+        Controls.Add(lblCopyright);
         Controls.Add(picAppIcon);
         Controls.Add(btnClose);
         Controls.Add(lblAboutText);

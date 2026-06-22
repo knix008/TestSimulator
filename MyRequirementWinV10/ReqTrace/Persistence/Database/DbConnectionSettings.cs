@@ -2,7 +2,7 @@ namespace ReqTrace.Persistence.Database;
 
 public class DbConnectionSettings
 {
-    public DbProvider Provider { get; set; } = DbProvider.MySql;
+    public DbProvider Provider { get; set; } = DbProvider.MariaDb;
     public string Server { get; set; } = "localhost";
     public int Port { get; set; } = 3306;
     public string Database { get; set; } = "reqtrace";

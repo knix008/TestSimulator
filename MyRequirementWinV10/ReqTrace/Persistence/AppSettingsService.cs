@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ReqTrace.Persistence.Database;
 
 namespace ReqTrace.Persistence;
 
@@ -49,5 +50,36 @@ public static class AppSettingsService
     public static void SetLastProjectPath(AppSettings settings, string? filePath)
     {
         settings.LastProjectPath = string.IsNullOrWhiteSpace(filePath) ? string.Empty : filePath;
+    }
+
+    public static DbConnectionSettings? LoadDbConnectionSettings(AppSettings settings)
+    {
+        if (!settings.DbConnectionConfigured)
+            return null;
+
+        return new DbConnectionSettings
+        {
+            Provider = settings.DbProvider,
+            Server = settings.DbServer,
+            Port = settings.DbPort,
+            Database = settings.DbDatabase,
+            Username = settings.DbUsername,
+            Password = DbCredentialProtector.Unprotect(settings.DbPasswordProtected),
+            IntegratedSecurity = settings.DbIntegratedSecurity,
+            SqliteFilePath = settings.DbSqliteFilePath
+        };
+    }
+
+    public static void SaveDbConnectionSettings(AppSettings settings, DbConnectionSettings dbSettings)
+    {
+        settings.DbProvider = dbSettings.Provider;
+        settings.DbServer = dbSettings.Server;
+        settings.DbPort = dbSettings.Port;
+        settings.DbDatabase = dbSettings.Database;
+        settings.DbUsername = dbSettings.Username;
+        settings.DbPasswordProtected = DbCredentialProtector.Protect(dbSettings.Password);
+        settings.DbIntegratedSecurity = dbSettings.IntegratedSecurity;
+        settings.DbSqliteFilePath = dbSettings.SqliteFilePath;
+        settings.DbConnectionConfigured = true;
     }
 }

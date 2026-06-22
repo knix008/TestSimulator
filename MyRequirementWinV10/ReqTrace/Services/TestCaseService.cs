@@ -27,6 +27,7 @@ public class TestCaseService
     public void Delete(Requirement requirement, TestCase testCase)
     {
         requirement.TestCases.Remove(testCase);
+        ProjectCodeRenumberer.RenumberStandardTestCaseCodes(_requirementService.AllRequirements);
         _requirementService.Update(requirement);
     }
 }

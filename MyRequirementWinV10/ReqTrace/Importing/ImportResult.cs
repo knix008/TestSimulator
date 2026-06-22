@@ -8,4 +8,5 @@ public class ImportResult
     public List<string> Warnings { get; } = new();
     public int RowsProcessed { get; set; }
     public int RowsSkipped { get; set; }
+    public bool WasCancelled { get; set; }
 }

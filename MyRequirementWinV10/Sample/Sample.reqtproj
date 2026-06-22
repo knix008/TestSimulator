@@ -1,71 +1,71 @@
 {
   "projectName": "Sample Project",
   "schemaVersion": "1.0",
-  "createdUtc": "2026-06-20T05:40:38.1344082Z",
-  "lastModifiedUtc": "2026-06-20T13:52:48.3609911Z",
+  "createdUtc": "2026-06-22T09:03:18.6612332Z",
+  "lastModifiedUtc": "2026-06-22T09:03:18.6613153Z",
   "requirements": [
     {
-      "id": "88f285c4-8473-47e4-9acb-a5107f26c60b",
+      "id": "304d27cd-ff00-4650-9e2e-3086ed81c3f8",
       "code": "REQ-001",
-      "title": "\uC0AC\uC6A9\uC790 \uB4F1\uB85D",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC2E0\uADDC \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uC8FC\uC18C\uC640 \uBE44\uBC00\uBC88\uD638\uB85C \uACC4\uC815\uC744 \uB4F1\uB85D\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uBE44\uBC00\uBC88\uD638\uB294 \uCD5C\uC18C 8\uC790 \uC774\uC0C1\uC774\uBA70 \uC22B\uC790\uB97C \uD3EC\uD568\uD574\uC57C \uD55C\uB2E4.",
-      "category": "\uC778\uC99D",
+      "title": "User Registration",
+      "description": "The system shall allow a new user to register an account using an email address and password. The password must be at least 8 characters and include a number.",
+      "category": "Shop / Authentication / Registration",
       "priority": "high",
       "status": "approved",
-      "source": "\uBA85\uC138 v1.2",
+      "source": "Spec v1.2",
       "parentId": null,
-      "createdUtc": "2026-06-20T13:52:23.3960591Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3960597Z",
+      "createdUtc": "2026-06-22T09:03:18.6612388Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6612388Z",
       "testCases": [
         {
-          "id": "e13ec5cb-83cf-44c3-8dbd-6118851845cb",
-          "requirementId": "88f285c4-8473-47e4-9acb-a5107f26c60b",
-          "code": "REQ-001-TC1",
-          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB4F1\uB85D (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC2E0\uADDC \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uC8FC\uC18C\uC640 \uBE44\uBC00\uBC88\uD638\uB85C \uACC4\uC815\uC744 \uB4F1\uB85D\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uBE44\uBC00\uBC88\uD638\uB294 \uCD5C\uC18C 8\uC790 \uC774\uC0C1\uC774\uBA70 \uC22B\uC790\uB97C \uD3EC\uD568\uD574\uC57C \uD55C\uB2E4.",
+          "id": "80fda9cb-f01a-43cc-835a-ed78e000675d",
+          "requirementId": "304d27cd-ff00-4650-9e2e-3086ed81c3f8",
+          "code": "TC-001",
+          "title": "Verify: User Registration (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a new user to register an account using an email address and password. The password must be at least 8 characters and include a number.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC2E0\uADDC \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uC8FC\uC18C\uC640 \uBE44\uBC00\uBC88\uD638\uB85C \uACC4\uC815\uC744 \uB4F1\uB85D\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow a new user to register an account using an email address and password",
+              "expectedOutcome": "Behaves as described in the requirement."
             },
             {
               "order": 2,
-              "action": "\uBE44\uBC00\uBC88\uD638\uB294 \uCD5C\uC18C 8\uC790 \uC774\uC0C1\uC774\uBA70 \uC22B\uC790\uB97C \uD3EC\uD568\uD574\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The password must be at least 8 characters and include a number",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "f6c213a4-06fd-4fd4-8fa4-9978023385d5",
-          "requirementId": "88f285c4-8473-47e4-9acb-a5107f26c60b",
-          "code": "REQ-001-TC2",
-          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB4F1\uB85D (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "5d63f540-beac-4dda-9d6f-c427066d8868",
+          "requirementId": "304d27cd-ff00-4650-9e2e-3086ed81c3f8",
+          "code": "TC-002",
+          "title": "Verify: User Registration (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC0AC\uC6A9\uC790 \uB4F1\uB85D\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022User Registration\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
         },
         {
-          "id": "2cae84c1-989a-41d4-b0d0-a48cc688c504",
-          "requirementId": "88f285c4-8473-47e4-9acb-a5107f26c60b",
-          "code": "REQ-001-TC3",
-          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB4F1\uB85D (\uACBD\uACC4 \uC870\uAC74)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "492552d8-f63f-45c9-a3b5-3cade06f22ef",
+          "requirementId": "304d27cd-ff00-4650-9e2e-3086ed81c3f8",
+          "code": "TC-003",
+          "title": "Verify: User Registration (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC0AC\uC6A9\uC790 \uB4F1\uB85D\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
-              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+              "action": "Exercise \u0022User Registration\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
             }
           ],
           "runs": []
@@ -73,67 +73,67 @@
       ]
     },
     {
-      "id": "6ed1ff8a-5666-49c9-b9b7-46039f99bf4b",
+      "id": "fb025bd7-5205-484d-aab1-1cbabd3f6490",
       "code": "REQ-002",
-      "title": "\uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uB4F1\uB85D\uB41C \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB85C \uB85C\uADF8\uC778\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC5F0\uC18D 5\uD68C \uB85C\uADF8\uC778 \uC2E4\uD328 \uC2DC \uACC4\uC815\uC740 15\uBD84\uAC04 \uC7A0\uAE34\uB2E4.",
-      "category": "\uC778\uC99D",
+      "title": "User Login",
+      "description": "The system shall allow a registered user to log in using their email and password. After 5 consecutive failed attempts, the account is locked for 15 minutes.",
+      "category": "Shop / Authentication / Login",
       "priority": "critical",
       "status": "approved",
-      "source": "\uBA85\uC138 v1.2",
+      "source": "Spec v1.2",
       "parentId": null,
-      "createdUtc": "2026-06-20T13:52:23.399361Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3993615Z",
+      "createdUtc": "2026-06-22T09:03:18.661269Z",
+      "modifiedUtc": "2026-06-22T09:03:18.661269Z",
       "testCases": [
         {
-          "id": "b4076eba-0729-46b0-879c-89f902e8389e",
-          "requirementId": "6ed1ff8a-5666-49c9-b9b7-46039f99bf4b",
-          "code": "REQ-002-TC1",
-          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uB4F1\uB85D\uB41C \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB85C \uB85C\uADF8\uC778\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC5F0\uC18D 5\uD68C \uB85C\uADF8\uC778 \uC2E4\uD328 \uC2DC \uACC4\uC815\uC740 15\uBD84\uAC04 \uC7A0\uAE34\uB2E4.",
+          "id": "141852e9-6f55-4710-874d-1f0b23de356a",
+          "requirementId": "fb025bd7-5205-484d-aab1-1cbabd3f6490",
+          "code": "TC-004",
+          "title": "Verify: User Login (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a registered user to log in using their email and password. After 5 consecutive failed attempts, the account is locked for 15 minutes.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uB4F1\uB85D\uB41C \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB85C \uB85C\uADF8\uC778\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow a registered user to log in using their email and password",
+              "expectedOutcome": "Behaves as described in the requirement."
             },
             {
               "order": 2,
-              "action": "\uC5F0\uC18D 5\uD68C \uB85C\uADF8\uC778 \uC2E4\uD328 \uC2DC \uACC4\uC815\uC740 15\uBD84\uAC04 \uC7A0\uAE34\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "After 5 consecutive failed attempts, the account is locked for 15 minutes",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "9a31700d-8f59-4e0f-8c4f-3ed743d76870",
-          "requirementId": "6ed1ff8a-5666-49c9-b9b7-46039f99bf4b",
-          "code": "REQ-002-TC2",
-          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "3a328f22-3bd8-4f50-a4f6-888c792b0957",
+          "requirementId": "fb025bd7-5205-484d-aab1-1cbabd3f6490",
+          "code": "TC-005",
+          "title": "Verify: User Login (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022User Login\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
         },
         {
-          "id": "616f19f7-27db-4088-8b76-f7743a605159",
-          "requirementId": "6ed1ff8a-5666-49c9-b9b7-46039f99bf4b",
-          "code": "REQ-002-TC3",
-          "title": "\uAC80\uC99D: \uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778 (\uACBD\uACC4 \uC870\uAC74)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "d2c15cd6-cd31-4704-842e-4b57442be77e",
+          "requirementId": "fb025bd7-5205-484d-aab1-1cbabd3f6490",
+          "code": "TC-006",
+          "title": "Verify: User Login (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC0AC\uC6A9\uC790 \uB85C\uADF8\uC778\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
-              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+              "action": "Exercise \u0022User Login\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
             }
           ],
           "runs": []
@@ -141,51 +141,51 @@
       ]
     },
     {
-      "id": "4aa433d6-c3ff-467e-955c-80c3656abdd0",
+      "id": "6bffd447-a573-46b7-92fa-a6ce1bc8f6d4",
       "code": "REQ-003",
-      "title": "\uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uB9C1\uD06C\uB97C \uD1B5\uD574 \uBE44\uBC00\uBC88\uD638\uB97C \uC7AC\uC124\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC7AC\uC124\uC815 \uB9C1\uD06C\uB294 30\uBD84 \uD6C4 \uB9CC\uB8CC\uB41C\uB2E4.",
-      "category": "\uC778\uC99D",
+      "title": "Password Reset",
+      "description": "The system shall allow a user to reset their password via an email link. The reset link expires after 30 minutes.",
+      "category": "Shop / Authentication / Password Reset",
       "priority": "medium",
       "status": "approved",
-      "source": "\uBA85\uC138 v1.2",
-      "parentId": "6ed1ff8a-5666-49c9-b9b7-46039f99bf4b",
-      "createdUtc": "2026-06-20T13:52:23.3993971Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3993971Z",
+      "source": "Spec v1.2",
+      "parentId": "fb025bd7-5205-484d-aab1-1cbabd3f6490",
+      "createdUtc": "2026-06-22T09:03:18.6612779Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6612779Z",
       "testCases": [
         {
-          "id": "cc9e95ff-f3f9-4c8b-8938-d4a838576c86",
-          "requirementId": "4aa433d6-c3ff-467e-955c-80c3656abdd0",
-          "code": "REQ-003-TC1",
-          "title": "\uAC80\uC99D: \uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uB9C1\uD06C\uB97C \uD1B5\uD574 \uBE44\uBC00\uBC88\uD638\uB97C \uC7AC\uC124\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC7AC\uC124\uC815 \uB9C1\uD06C\uB294 30\uBD84 \uD6C4 \uB9CC\uB8CC\uB41C\uB2E4.",
+          "id": "a3f920ae-a294-4769-84fe-94d2efc63fa4",
+          "requirementId": "6bffd447-a573-46b7-92fa-a6ce1bc8f6d4",
+          "code": "TC-007",
+          "title": "Verify: Password Reset (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a user to reset their password via an email link. The reset link expires after 30 minutes.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC774\uBA54\uC77C \uB9C1\uD06C\uB97C \uD1B5\uD574 \uBE44\uBC00\uBC88\uD638\uB97C \uC7AC\uC124\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow a user to reset their password via an email link",
+              "expectedOutcome": "Behaves as described in the requirement."
             },
             {
               "order": 2,
-              "action": "\uC7AC\uC124\uC815 \uB9C1\uD06C\uB294 30\uBD84 \uD6C4 \uB9CC\uB8CC\uB41C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The reset link expires after 30 minutes",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "8e680035-ad78-48ae-a8be-d46362e6d45a",
-          "requirementId": "4aa433d6-c3ff-467e-955c-80c3656abdd0",
-          "code": "REQ-003-TC2",
-          "title": "\uAC80\uC99D: \uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "02d7c703-8140-4983-b3a1-baaf8f898000",
+          "requirementId": "6bffd447-a573-46b7-92fa-a6ce1bc8f6d4",
+          "code": "TC-008",
+          "title": "Verify: Password Reset (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Password Reset\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
@@ -193,67 +193,67 @@
       ]
     },
     {
-      "id": "7b87980e-3855-489c-a916-7289f1c37ae0",
+      "id": "1f8a7919-3228-4b21-a439-f53ab1439d22",
       "code": "REQ-004",
-      "title": "\uC0C1\uD488 \uAC80\uC0C9",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uD0A4\uC6CC\uB4DC\uB85C \uC0C1\uD488 \uCE74\uD0C8\uB85C\uADF8\uB97C \uAC80\uC0C9\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. 10\uB9CC \uAC74 \uC774\uD558 \uCE74\uD0C8\uB85C\uADF8\uC5D0\uC11C\uB294 \uACB0\uACFC\uAC00 2\uCD08 \uC774\uB0B4\uC5D0 \uBC18\uD658\uB418\uC5B4\uC57C \uD55C\uB2E4.",
-      "category": "\uCE74\uD0C8\uB85C\uADF8",
+      "title": "Product Search",
+      "description": "The system shall allow a user to search the product catalog by keyword. Results must return within 2 seconds for catalogs up to 100,000 items.",
+      "category": "Shop / Catalog / Search",
       "priority": "high",
       "status": "approved",
-      "source": "\uBA85\uC138 v1.3",
+      "source": "Spec v1.3",
       "parentId": null,
-      "createdUtc": "2026-06-20T13:52:23.3994716Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3994716Z",
+      "createdUtc": "2026-06-22T09:03:18.6612797Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6612797Z",
       "testCases": [
         {
-          "id": "28b49edb-bc54-48ea-8c07-33216fa0f7c8",
-          "requirementId": "7b87980e-3855-489c-a916-7289f1c37ae0",
-          "code": "REQ-004-TC1",
-          "title": "\uAC80\uC99D: \uC0C1\uD488 \uAC80\uC0C9 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uD0A4\uC6CC\uB4DC\uB85C \uC0C1\uD488 \uCE74\uD0C8\uB85C\uADF8\uB97C \uAC80\uC0C9\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. 10\uB9CC \uAC74 \uC774\uD558 \uCE74\uD0C8\uB85C\uADF8\uC5D0\uC11C\uB294 \uACB0\uACFC\uAC00 2\uCD08 \uC774\uB0B4\uC5D0 \uBC18\uD658\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "94908c70-cfc1-4958-a0b9-9c431d3f1d28",
+          "requirementId": "1f8a7919-3228-4b21-a439-f53ab1439d22",
+          "code": "TC-009",
+          "title": "Verify: Product Search (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a user to search the product catalog by keyword. Results must return within 2 seconds for catalogs up to 100,000 items.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uD0A4\uC6CC\uB4DC\uB85C \uC0C1\uD488 \uCE74\uD0C8\uB85C\uADF8\uB97C \uAC80\uC0C9\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow a user to search the product catalog by keyword",
+              "expectedOutcome": "Behaves as described in the requirement."
             },
             {
               "order": 2,
-              "action": "10\uB9CC \uAC74 \uC774\uD558 \uCE74\uD0C8\uB85C\uADF8\uC5D0\uC11C\uB294 \uACB0\uACFC\uAC00 2\uCD08 \uC774\uB0B4\uC5D0 \uBC18\uD658\uB418\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "Results must return within 2 seconds for catalogs up to 100,000 items",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "6d144703-4e53-4098-a824-7390372c0bee",
-          "requirementId": "7b87980e-3855-489c-a916-7289f1c37ae0",
-          "code": "REQ-004-TC2",
-          "title": "\uAC80\uC99D: \uC0C1\uD488 \uAC80\uC0C9 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "f5c62c35-8c35-47fe-86cd-fae1c830b65b",
+          "requirementId": "1f8a7919-3228-4b21-a439-f53ab1439d22",
+          "code": "TC-010",
+          "title": "Verify: Product Search (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC0C1\uD488 \uAC80\uC0C9\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Product Search\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
         },
         {
-          "id": "7c985ce9-893f-4887-ade1-df6d55c8b04f",
-          "requirementId": "7b87980e-3855-489c-a916-7289f1c37ae0",
-          "code": "REQ-004-TC3",
-          "title": "\uAC80\uC99D: \uC0C1\uD488 \uAC80\uC0C9 (\uACBD\uACC4 \uC870\uAC74)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "b146a498-a94e-446c-83d8-3f6ddad4cee8",
+          "requirementId": "1f8a7919-3228-4b21-a439-f53ab1439d22",
+          "code": "TC-011",
+          "title": "Verify: Product Search (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC0C1\uD488 \uAC80\uC0C9\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
-              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+              "action": "Exercise \u0022Product Search\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
             }
           ],
           "runs": []
@@ -261,46 +261,46 @@
       ]
     },
     {
-      "id": "24fecf05-72c0-44ea-bdce-ff6aecadd196",
+      "id": "508e657b-4fec-416e-8c8a-1bbfe720a4c3",
       "code": "REQ-005",
-      "title": "\uC0C1\uD488 \uD544\uD130\uB9C1",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uAC80\uC0C9 \uACB0\uACFC\uB97C \uCE74\uD14C\uACE0\uB9AC, \uAC00\uACA9 \uBC94\uC704, \uC7AC\uACE0 \uC5EC\uBD80\uB85C \uD544\uD130\uB9C1\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
-      "category": "\uCE74\uD0C8\uB85C\uADF8",
+      "title": "Product Filtering",
+      "description": "The system shall allow search results to be filtered by category, price range, and availability.",
+      "category": "Shop / Catalog / Filtering",
       "priority": "medium",
       "status": "inProgress",
-      "source": "\uBA85\uC138 v1.3",
-      "parentId": "7b87980e-3855-489c-a916-7289f1c37ae0",
-      "createdUtc": "2026-06-20T13:52:23.3994895Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3994895Z",
+      "source": "Spec v1.3",
+      "parentId": "1f8a7919-3228-4b21-a439-f53ab1439d22",
+      "createdUtc": "2026-06-22T09:03:18.6612862Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6612862Z",
       "testCases": [
         {
-          "id": "0fefbd18-b2a3-43b1-a997-3d6e8364e876",
-          "requirementId": "24fecf05-72c0-44ea-bdce-ff6aecadd196",
-          "code": "REQ-005-TC1",
-          "title": "\uAC80\uC99D: \uC0C1\uD488 \uD544\uD130\uB9C1 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uAC80\uC0C9 \uACB0\uACFC\uB97C \uCE74\uD14C\uACE0\uB9AC, \uAC00\uACA9 \uBC94\uC704, \uC7AC\uACE0 \uC5EC\uBD80\uB85C \uD544\uD130\uB9C1\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "0c250405-4ef1-462a-a468-f745bd278686",
+          "requirementId": "508e657b-4fec-416e-8c8a-1bbfe720a4c3",
+          "code": "TC-012",
+          "title": "Verify: Product Filtering (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow search results to be filtered by category, price range, and availability.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uAC80\uC0C9 \uACB0\uACFC\uB97C \uCE74\uD14C\uACE0\uB9AC, \uAC00\uACA9 \uBC94\uC704, \uC7AC\uACE0 \uC5EC\uBD80\uB85C \uD544\uD130\uB9C1\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow search results to be filtered by category, price range, and availability",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "16139ddc-79b7-41e9-b247-8b20bc849cad",
-          "requirementId": "24fecf05-72c0-44ea-bdce-ff6aecadd196",
-          "code": "REQ-005-TC2",
-          "title": "\uAC80\uC99D: \uC0C1\uD488 \uD544\uD130\uB9C1 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "65634308-4ee4-4362-ae62-f58c1e2b3e87",
+          "requirementId": "508e657b-4fec-416e-8c8a-1bbfe720a4c3",
+          "code": "TC-013",
+          "title": "Verify: Product Filtering (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC0C1\uD488 \uD544\uD130\uB9C1\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Product Filtering\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
@@ -308,67 +308,62 @@
       ]
     },
     {
-      "id": "2a0ea624-8a43-41d5-8e02-874b1f36b982",
+      "id": "f876a6ce-4c68-456a-83e7-6ccd1eab0098",
       "code": "REQ-006",
-      "title": "\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD488\uC744 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0 \uCD94\uAC00\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC218\uB7C9\uC740 1\uBD80\uD130 \uC7AC\uACE0 \uC218\uB7C9\uAE4C\uC9C0 \uC9C0\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
-      "category": "\uC7A5\uBC14\uAD6C\uB2C8",
+      "title": "Shopping Cart - Add Item",
+      "description": "The system shall allow a user to add a product to the shopping cart, specifying a quantity between 1 and the available stock.",
+      "category": "Shop / Cart / Add Item",
       "priority": "critical",
       "status": "approved",
-      "source": "\uBA85\uC138 v1.4",
+      "source": "Spec v1.4",
       "parentId": null,
-      "createdUtc": "2026-06-20T13:52:23.3995079Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3995079Z",
+      "createdUtc": "2026-06-22T09:03:18.6612879Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6612879Z",
       "testCases": [
         {
-          "id": "968952dd-206c-40bd-b9a1-8e252370f68a",
-          "requirementId": "2a0ea624-8a43-41d5-8e02-874b1f36b982",
-          "code": "REQ-006-TC1",
-          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD488\uC744 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0 \uCD94\uAC00\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4. \uC218\uB7C9\uC740 1\uBD80\uD130 \uC7AC\uACE0 \uC218\uB7C9\uAE4C\uC9C0 \uC9C0\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "b0ca4b2a-d512-4aab-be5a-c72e02b1379d",
+          "requirementId": "f876a6ce-4c68-456a-83e7-6ccd1eab0098",
+          "code": "TC-014",
+          "title": "Verify: Shopping Cart - Add Item (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a user to add a product to the shopping cart, specifying a quantity between 1 and the available stock.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD488\uC744 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0 \uCD94\uAC00\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
-            },
-            {
-              "order": 2,
-              "action": "\uC218\uB7C9\uC740 1\uBD80\uD130 \uC7AC\uACE0 \uC218\uB7C9\uAE4C\uC9C0 \uC9C0\uC815\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow a user to add a product to the shopping cart, specifying a quantity between 1 and the available stock",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "3b1856ff-6629-4a30-baac-26578d37bf68",
-          "requirementId": "2a0ea624-8a43-41d5-8e02-874b1f36b982",
-          "code": "REQ-006-TC2",
-          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "607a11d9-c701-452f-9874-d3ac8da3a9b5",
+          "requirementId": "f876a6ce-4c68-456a-83e7-6ccd1eab0098",
+          "code": "TC-015",
+          "title": "Verify: Shopping Cart - Add Item (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Shopping Cart - Add Item\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
         },
         {
-          "id": "3b8d2887-9958-4435-91c1-741ca1c7e19d",
-          "requirementId": "2a0ea624-8a43-41d5-8e02-874b1f36b982",
-          "code": "REQ-006-TC3",
-          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00 (\uACBD\uACC4 \uC870\uAC74)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "5db78d09-fcad-4a8e-b4fe-b766ac1006ce",
+          "requirementId": "f876a6ce-4c68-456a-83e7-6ccd1eab0098",
+          "code": "TC-016",
+          "title": "Verify: Shopping Cart - Add Item (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uCD94\uAC00\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
-              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+              "action": "Exercise \u0022Shopping Cart - Add Item\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
             }
           ],
           "runs": []
@@ -376,62 +371,62 @@
       ]
     },
     {
-      "id": "17664931-b04f-47cf-be93-94601f6800e0",
+      "id": "2ebd15a3-0dfc-484c-81ac-82260e838ea7",
       "code": "REQ-007",
-      "title": "\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0\uC11C \uC0C1\uD488\uC744 \uC81C\uAC70\uD558\uAC70\uB098 \uC218\uB7C9\uC744 \uBCC0\uACBD\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
-      "category": "\uC7A5\uBC14\uAD6C\uB2C8",
+      "title": "Shopping Cart - Remove Item",
+      "description": "The system shall allow a user to remove an item from the shopping cart or update its quantity.",
+      "category": "Shop / Cart / Remove Item",
       "priority": "high",
       "status": "approved",
-      "source": "\uBA85\uC138 v1.4",
-      "parentId": "2a0ea624-8a43-41d5-8e02-874b1f36b982",
-      "createdUtc": "2026-06-20T13:52:23.3995536Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3995536Z",
+      "source": "Spec v1.4",
+      "parentId": "f876a6ce-4c68-456a-83e7-6ccd1eab0098",
+      "createdUtc": "2026-06-22T09:03:18.6612899Z",
+      "modifiedUtc": "2026-06-22T09:03:18.66129Z",
       "testCases": [
         {
-          "id": "87ecbc35-5aa6-4eb6-b496-ac55f7623be4",
-          "requirementId": "17664931-b04f-47cf-be93-94601f6800e0",
-          "code": "REQ-007-TC1",
-          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0\uC11C \uC0C1\uD488\uC744 \uC81C\uAC70\uD558\uAC70\uB098 \uC218\uB7C9\uC744 \uBCC0\uACBD\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "30e836be-f8c1-4f5b-aeb2-6bcbd588360b",
+          "requirementId": "2ebd15a3-0dfc-484c-81ac-82260e838ea7",
+          "code": "TC-017",
+          "title": "Verify: Shopping Cart - Remove Item (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a user to remove an item from the shopping cart or update its quantity.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC0AC\uC6A9\uC790\uAC00 \uC7A5\uBC14\uAD6C\uB2C8\uC5D0\uC11C \uC0C1\uD488\uC744 \uC81C\uAC70\uD558\uAC70\uB098 \uC218\uB7C9\uC744 \uBCC0\uACBD\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow a user to remove an item from the shopping cart or update its quantity",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "c18031af-ea6f-4581-ac92-95bf782f2ac4",
-          "requirementId": "17664931-b04f-47cf-be93-94601f6800e0",
-          "code": "REQ-007-TC2",
-          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "31684b04-b829-4a67-bb18-4ec87c83fb22",
+          "requirementId": "2ebd15a3-0dfc-484c-81ac-82260e838ea7",
+          "code": "TC-018",
+          "title": "Verify: Shopping Cart - Remove Item (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Shopping Cart - Remove Item\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
         },
         {
-          "id": "1c2ad244-10eb-4eca-ad01-0315579cc030",
-          "requirementId": "17664931-b04f-47cf-be93-94601f6800e0",
-          "code": "REQ-007-TC3",
-          "title": "\uAC80\uC99D: \uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70 (\uACBD\uACC4 \uC870\uAC74)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "1eb64e30-2a56-484c-a4e5-962ae24bc669",
+          "requirementId": "2ebd15a3-0dfc-484c-81ac-82260e838ea7",
+          "code": "TC-019",
+          "title": "Verify: Shopping Cart - Remove Item (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC7A5\uBC14\uAD6C\uB2C8 - \uC0C1\uD488 \uC81C\uAC70\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
-              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+              "action": "Exercise \u0022Shopping Cart - Remove Item\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
             }
           ],
           "runs": []
@@ -439,67 +434,62 @@
       ]
     },
     {
-      "id": "b7abe3b8-9e40-4afc-9e29-be9a6b30f9d5",
+      "id": "57fed389-1435-41fd-8a56-00279b77988c",
       "code": "REQ-008",
-      "title": "\uACB0\uC81C \uD504\uB85C\uC138\uC2A4",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uBC30\uC1A1\uC9C0, \uACB0\uC81C \uC218\uB2E8, \uC8FC\uBB38 \uAC80\uD1A0 \uB2E8\uACC4\uB97C \uD3EC\uD568\uD55C \uACB0\uC81C \uD750\uB984\uC744 \uC548\uB0B4\uD574\uC57C \uD55C\uB2E4. \uCD5C\uC885 \uD655\uC778 \uC804\uAE4C\uC9C0 \uAC01 \uB2E8\uACC4\uB97C \uAC70\uCCD0\uC57C \uD55C\uB2E4.",
-      "category": "\uACB0\uC81C",
+      "title": "Checkout Process",
+      "description": "The system shall guide the user through a checkout flow including shipping address, payment method, and order review before final confirmation.",
+      "category": "Shop / Checkout / Process",
       "priority": "critical",
       "status": "draft",
-      "source": "\uBA85\uC138 v1.5",
+      "source": "Spec v1.5",
       "parentId": null,
-      "createdUtc": "2026-06-20T13:52:23.3995975Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3995976Z",
+      "createdUtc": "2026-06-22T09:03:18.6612972Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6612973Z",
       "testCases": [
         {
-          "id": "5f2d5907-e4f0-4e87-b89c-12c7bb3322af",
-          "requirementId": "b7abe3b8-9e40-4afc-9e29-be9a6b30f9d5",
-          "code": "REQ-008-TC1",
-          "title": "\uAC80\uC99D: \uACB0\uC81C \uD504\uB85C\uC138\uC2A4 (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uBC30\uC1A1\uC9C0, \uACB0\uC81C \uC218\uB2E8, \uC8FC\uBB38 \uAC80\uD1A0 \uB2E8\uACC4\uB97C \uD3EC\uD568\uD55C \uACB0\uC81C \uD750\uB984\uC744 \uC548\uB0B4\uD574\uC57C \uD55C\uB2E4. \uCD5C\uC885 \uD655\uC778 \uC804\uAE4C\uC9C0 \uAC01 \uB2E8\uACC4\uB97C \uAC70\uCCD0\uC57C \uD55C\uB2E4.",
+          "id": "38a1503e-db3e-457e-8f6b-265c808762b8",
+          "requirementId": "57fed389-1435-41fd-8a56-00279b77988c",
+          "code": "TC-020",
+          "title": "Verify: Checkout Process (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall guide the user through a checkout flow including shipping address, payment method, and order review before final confirmation.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uBC30\uC1A1\uC9C0, \uACB0\uC81C \uC218\uB2E8, \uC8FC\uBB38 \uAC80\uD1A0 \uB2E8\uACC4\uB97C \uD3EC\uD568\uD55C \uACB0\uC81C \uD750\uB984\uC744 \uC548\uB0B4\uD574\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
-            },
-            {
-              "order": 2,
-              "action": "\uCD5C\uC885 \uD655\uC778 \uC804\uAE4C\uC9C0 \uAC01 \uB2E8\uACC4\uB97C \uAC70\uCCD0\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall guide the user through a checkout flow including shipping address, payment method, and order review before final confirmation",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "7f045eee-8bd3-409c-8e51-089ae773ec98",
-          "requirementId": "b7abe3b8-9e40-4afc-9e29-be9a6b30f9d5",
-          "code": "REQ-008-TC2",
-          "title": "\uAC80\uC99D: \uACB0\uC81C \uD504\uB85C\uC138\uC2A4 (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "11db9271-7e87-4c57-80e6-e5938d2dd756",
+          "requirementId": "57fed389-1435-41fd-8a56-00279b77988c",
+          "code": "TC-021",
+          "title": "Verify: Checkout Process (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uACB0\uC81C \uD504\uB85C\uC138\uC2A4\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Checkout Process\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
         },
         {
-          "id": "7fd9699d-b431-4642-9b25-925270b60508",
-          "requirementId": "b7abe3b8-9e40-4afc-9e29-be9a6b30f9d5",
-          "code": "REQ-008-TC3",
-          "title": "\uAC80\uC99D: \uACB0\uC81C \uD504\uB85C\uC138\uC2A4 (\uACBD\uACC4 \uC870\uAC74)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "487494b3-5495-4462-9f80-85d7fdf70f9a",
+          "requirementId": "57fed389-1435-41fd-8a56-00279b77988c",
+          "code": "TC-022",
+          "title": "Verify: Checkout Process (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uACB0\uC81C \uD504\uB85C\uC138\uC2A4\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
-              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+              "action": "Exercise \u0022Checkout Process\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
             }
           ],
           "runs": []
@@ -507,67 +497,62 @@
       ]
     },
     {
-      "id": "f4aad737-6f49-4910-921d-c5084c99e7d0",
+      "id": "7955a5df-c628-4cf8-9074-4d02b83eb93d",
       "code": "REQ-009",
-      "title": "\uACB0\uC81C \uCC98\uB9AC",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uC81C3\uC790 \uACB0\uC81C \uAC8C\uC774\uD2B8\uC6E8\uC774\uB97C \uD1B5\uD574 \uC2E0\uC6A9\uCE74\uB4DC \uACB0\uC81C\uB97C \uCC98\uB9AC\uD574\uC57C \uD55C\uB2E4. \uAC70\uC808\uB41C \uAC70\uB798\uC5D0\uB294 \uBA85\uD655\uD55C \uC624\uB958 \uBA54\uC2DC\uC9C0\uB97C \uD45C\uC2DC\uD574\uC57C \uD55C\uB2E4.",
-      "category": "\uACB0\uC81C",
+      "title": "Payment Processing",
+      "description": "The system shall process credit card payments through a third-party payment gateway and handle declined transactions with a clear error message.",
+      "category": "Shop / Checkout / Payment",
       "priority": "critical",
       "status": "draft",
-      "source": "\uBA85\uC138 v1.5",
-      "parentId": "b7abe3b8-9e40-4afc-9e29-be9a6b30f9d5",
-      "createdUtc": "2026-06-20T13:52:23.399652Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3996522Z",
+      "source": "Spec v1.5",
+      "parentId": "57fed389-1435-41fd-8a56-00279b77988c",
+      "createdUtc": "2026-06-22T09:03:18.6612994Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6612994Z",
       "testCases": [
         {
-          "id": "362c4a5a-0ba6-4ec4-a387-99e695fb3ce8",
-          "requirementId": "f4aad737-6f49-4910-921d-c5084c99e7d0",
-          "code": "REQ-009-TC1",
-          "title": "\uAC80\uC99D: \uACB0\uC81C \uCC98\uB9AC (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uC81C3\uC790 \uACB0\uC81C \uAC8C\uC774\uD2B8\uC6E8\uC774\uB97C \uD1B5\uD574 \uC2E0\uC6A9\uCE74\uB4DC \uACB0\uC81C\uB97C \uCC98\uB9AC\uD574\uC57C \uD55C\uB2E4. \uAC70\uC808\uB41C \uAC70\uB798\uC5D0\uB294 \uBA85\uD655\uD55C \uC624\uB958 \uBA54\uC2DC\uC9C0\uB97C \uD45C\uC2DC\uD574\uC57C \uD55C\uB2E4.",
+          "id": "5de6f410-7ea4-4513-8ebf-c31a04993fe9",
+          "requirementId": "7955a5df-c628-4cf8-9074-4d02b83eb93d",
+          "code": "TC-023",
+          "title": "Verify: Payment Processing (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall process credit card payments through a third-party payment gateway and handle declined transactions with a clear error message.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uC81C3\uC790 \uACB0\uC81C \uAC8C\uC774\uD2B8\uC6E8\uC774\uB97C \uD1B5\uD574 \uC2E0\uC6A9\uCE74\uB4DC \uACB0\uC81C\uB97C \uCC98\uB9AC\uD574\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
-            },
-            {
-              "order": 2,
-              "action": "\uAC70\uC808\uB41C \uAC70\uB798\uC5D0\uB294 \uBA85\uD655\uD55C \uC624\uB958 \uBA54\uC2DC\uC9C0\uB97C \uD45C\uC2DC\uD574\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall process credit card payments through a third-party payment gateway and handle declined transactions with a clear error message",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "9dece7b4-d565-4ff1-b4aa-7d1ed1ec6537",
-          "requirementId": "f4aad737-6f49-4910-921d-c5084c99e7d0",
-          "code": "REQ-009-TC2",
-          "title": "\uAC80\uC99D: \uACB0\uC81C \uCC98\uB9AC (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "c4a0f3d1-5a17-4076-906d-94f5642ead80",
+          "requirementId": "7955a5df-c628-4cf8-9074-4d02b83eb93d",
+          "code": "TC-024",
+          "title": "Verify: Payment Processing (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uACB0\uC81C \uCC98\uB9AC\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Payment Processing\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
         },
         {
-          "id": "9b7c3fc5-af00-4ace-a1ea-90803da49fc5",
-          "requirementId": "f4aad737-6f49-4910-921d-c5084c99e7d0",
-          "code": "REQ-009-TC3",
-          "title": "\uAC80\uC99D: \uACB0\uC81C \uCC98\uB9AC (\uACBD\uACC4 \uC870\uAC74)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "1532b9fa-9080-4006-9230-cf791e2c6742",
+          "requirementId": "7955a5df-c628-4cf8-9074-4d02b83eb93d",
+          "code": "TC-025",
+          "title": "Verify: Payment Processing (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uACB0\uC81C \uCC98\uB9AC\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
-              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+              "action": "Exercise \u0022Payment Processing\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
             }
           ],
           "runs": []
@@ -575,46 +560,46 @@
       ]
     },
     {
-      "id": "42b0bd0a-4eba-4ed8-8307-61b7313339c6",
+      "id": "a0d32938-3837-4834-8785-1145cd01b024",
       "code": "REQ-010",
-      "title": "\uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uACB0\uC81C \uC644\uB8CC \uD6C4 1\uBD84 \uC774\uB0B4\uC5D0 \uC0AC\uC6A9\uC790\uC5D0\uAC8C \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C\uC744 \uBC1C\uC1A1\uD574\uC57C \uD55C\uB2E4.",
-      "category": "\uC54C\uB9BC",
+      "title": "Order Confirmation Email",
+      "description": "The system shall send an order confirmation email to the user within 1 minute of a successful checkout.",
+      "category": "Shop / Notifications / Order Confirmation",
       "priority": "medium",
       "status": "draft",
-      "source": "\uBA85\uC138 v1.5",
-      "parentId": "b7abe3b8-9e40-4afc-9e29-be9a6b30f9d5",
-      "createdUtc": "2026-06-20T13:52:23.3998676Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3998676Z",
+      "source": "Spec v1.5",
+      "parentId": "57fed389-1435-41fd-8a56-00279b77988c",
+      "createdUtc": "2026-06-22T09:03:18.6613039Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6613039Z",
       "testCases": [
         {
-          "id": "58fb1811-1cf8-4efb-a352-8a3a29b79402",
-          "requirementId": "42b0bd0a-4eba-4ed8-8307-61b7313339c6",
-          "code": "REQ-010-TC1",
-          "title": "\uAC80\uC99D: \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uACB0\uC81C \uC644\uB8CC \uD6C4 1\uBD84 \uC774\uB0B4\uC5D0 \uC0AC\uC6A9\uC790\uC5D0\uAC8C \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C\uC744 \uBC1C\uC1A1\uD574\uC57C \uD55C\uB2E4.",
+          "id": "e552629b-8583-4d68-9562-d2eb2fed0a21",
+          "requirementId": "a0d32938-3837-4834-8785-1145cd01b024",
+          "code": "TC-026",
+          "title": "Verify: Order Confirmation Email (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall send an order confirmation email to the user within 1 minute of a successful checkout.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uACB0\uC81C \uC644\uB8CC \uD6C4 1\uBD84 \uC774\uB0B4\uC5D0 \uC0AC\uC6A9\uC790\uC5D0\uAC8C \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C\uC744 \uBC1C\uC1A1\uD574\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall send an order confirmation email to the user within 1 minute of a successful checkout",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "245c2fbf-62d9-48d3-bbcf-b2e1d320a0d2",
-          "requirementId": "42b0bd0a-4eba-4ed8-8307-61b7313339c6",
-          "code": "REQ-010-TC2",
-          "title": "\uAC80\uC99D: \uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "32fe9480-e889-4a2f-9729-d26fefdc238c",
+          "requirementId": "a0d32938-3837-4834-8785-1145cd01b024",
+          "code": "TC-027",
+          "title": "Verify: Order Confirmation Email (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC8FC\uBB38 \uD655\uC778 \uC774\uBA54\uC77C\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Order Confirmation Email\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
@@ -622,46 +607,46 @@
       ]
     },
     {
-      "id": "e34cf61b-736c-458a-95ed-a97a2753c4cb",
+      "id": "e5b2b05f-145c-4aac-81f1-3a94b5b38067",
       "code": "REQ-011",
-      "title": "\uC8FC\uBB38 \uB0B4\uC5ED",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uB85C\uADF8\uC778\uD55C \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD0DC, \uB0A0\uC9DC, \uCD1D\uC561\uC744 \uD3EC\uD568\uD55C \uACFC\uAC70 \uC8FC\uBB38 \uBAA9\uB85D\uC744 \uC870\uD68C\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
-      "category": "\uACC4\uC815",
+      "title": "Order History",
+      "description": "The system shall allow a logged-in user to view a list of their past orders with status, date, and total amount.",
+      "category": "Shop / Account / Order History",
       "priority": "medium",
       "status": "approved",
-      "source": "\uBA85\uC138 v1.6",
+      "source": "Spec v1.6",
       "parentId": null,
-      "createdUtc": "2026-06-20T13:52:23.3998939Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3998939Z",
+      "createdUtc": "2026-06-22T09:03:18.6613052Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6613052Z",
       "testCases": [
         {
-          "id": "56bcd236-1321-439a-ad6c-41d5f777847e",
-          "requirementId": "e34cf61b-736c-458a-95ed-a97a2753c4cb",
-          "code": "REQ-011-TC1",
-          "title": "\uAC80\uC99D: \uC8FC\uBB38 \uB0B4\uC5ED (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uB85C\uADF8\uC778\uD55C \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD0DC, \uB0A0\uC9DC, \uCD1D\uC561\uC744 \uD3EC\uD568\uD55C \uACFC\uAC70 \uC8FC\uBB38 \uBAA9\uB85D\uC744 \uC870\uD68C\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "bec61475-a695-479e-b29b-b5324d196aa3",
+          "requirementId": "e5b2b05f-145c-4aac-81f1-3a94b5b38067",
+          "code": "TC-028",
+          "title": "Verify: Order History (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow a logged-in user to view a list of their past orders with status, date, and total amount.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uB85C\uADF8\uC778\uD55C \uC0AC\uC6A9\uC790\uAC00 \uC0C1\uD0DC, \uB0A0\uC9DC, \uCD1D\uC561\uC744 \uD3EC\uD568\uD55C \uACFC\uAC70 \uC8FC\uBB38 \uBAA9\uB85D\uC744 \uC870\uD68C\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow a logged-in user to view a list of their past orders with status, date, and total amount",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "158f68aa-9b00-49ba-9276-64f127bac8c3",
-          "requirementId": "e34cf61b-736c-458a-95ed-a97a2753c4cb",
-          "code": "REQ-011-TC2",
-          "title": "\uAC80\uC99D: \uC8FC\uBB38 \uB0B4\uC5ED (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "13bd126d-0ae7-4a58-aa41-8acb92b74635",
+          "requirementId": "e5b2b05f-145c-4aac-81f1-3a94b5b38067",
+          "code": "TC-029",
+          "title": "Verify: Order History (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uC8FC\uBB38 \uB0B4\uC5ED\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Order History\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
@@ -669,62 +654,62 @@
       ]
     },
     {
-      "id": "6f8f79b8-9505-47ad-b82a-b39c058e406d",
+      "id": "151127f3-0acc-47a9-86d9-5857f4ebb5bf",
       "code": "REQ-012",
-      "title": "\uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC",
-      "description": "\uC2DC\uC2A4\uD15C\uC740 \uAD00\uB9AC\uC790\uAC00 \uC0C1\uD488 \uC7AC\uACE0 \uC218\uB7C9\uC744 \uC5C5\uB370\uC774\uD2B8\uD558\uACE0 \uD488\uC808 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
-      "category": "\uAD00\uB9AC",
+      "title": "Admin Inventory Management",
+      "description": "The system shall allow an administrator to update product stock levels and mark items as out of stock.",
+      "category": "Shop / Admin / Inventory",
       "priority": "high",
       "status": "inProgress",
-      "source": "\uBA85\uC138 v1.6",
+      "source": "Spec v1.6",
       "parentId": null,
-      "createdUtc": "2026-06-20T13:52:23.3999061Z",
-      "modifiedUtc": "2026-06-20T13:52:23.3999061Z",
+      "createdUtc": "2026-06-22T09:03:18.6613067Z",
+      "modifiedUtc": "2026-06-22T09:03:18.6613067Z",
       "testCases": [
         {
-          "id": "6cd303f2-c602-40ff-85fc-ea4fd2458354",
-          "requirementId": "6f8f79b8-9505-47ad-b82a-b39c058e406d",
-          "code": "REQ-012-TC1",
-          "title": "\uAC80\uC99D: \uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC (\uC815\uC0C1 \uC2DC\uB098\uB9AC\uC624)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC2DC\uC2A4\uD15C\uC740 \uAD00\uB9AC\uC790\uAC00 \uC0C1\uD488 \uC7AC\uACE0 \uC218\uB7C9\uC744 \uC5C5\uB370\uC774\uD2B8\uD558\uACE0 \uD488\uC808 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "b9272a6a-ac00-4451-a9b2-81c7848a7044",
+          "requirementId": "151127f3-0acc-47a9-86d9-5857f4ebb5bf",
+          "code": "TC-030",
+          "title": "Verify: Admin Inventory Management (normal scenario)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "The system shall allow an administrator to update product stock levels and mark items as out of stock.",
           "steps": [
             {
               "order": 1,
-              "action": "\uC2DC\uC2A4\uD15C\uC740 \uAD00\uB9AC\uC790\uAC00 \uC0C1\uD488 \uC7AC\uACE0 \uC218\uB7C9\uC744 \uC5C5\uB370\uC774\uD2B8\uD558\uACE0 \uD488\uC808 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uD560 \uC218 \uC788\uC5B4\uC57C \uD55C\uB2E4",
-              "expectedOutcome": "\uC694\uAD6C\uC0AC\uD56D\uC5D0 \uAE30\uC220\uB41C \uB300\uB85C \uB3D9\uC791\uD55C\uB2E4."
+              "action": "The system shall allow an administrator to update product stock levels and mark items as out of stock",
+              "expectedOutcome": "Behaves as described in the requirement."
             }
           ],
           "runs": []
         },
         {
-          "id": "a5559769-30f7-4c06-b74a-48b66dcc7e9b",
-          "requirementId": "6f8f79b8-9505-47ad-b82a-b39c058e406d",
-          "code": "REQ-012-TC2",
-          "title": "\uAC80\uC99D: \uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC (\uC798\uBABB\uB41C/\uACBD\uACC4 \uC785\uB825)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC740 \uAC70\uBD80\uB418\uAC70\uB098, \uACBD\uACC4 \uACBD\uC6B0\uAC00 \uC624\uB958\uB098 \uCDA9\uB3CC \uC5C6\uC774 \uC801\uC808\uD788 \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "6bff3663-d781-4c58-969a-ae1aae65ef47",
+          "requirementId": "151127f3-0acc-47a9-86d9-5857f4ebb5bf",
+          "code": "TC-031",
+          "title": "Verify: Admin Inventory Management (invalid / edge-case input)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Invalid or out-of-range input is rejected, or the edge case is handled gracefully without errors or crashes.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC\u0022 \uC2DC\uB098\uB9AC\uC624\uB97C \uC798\uBABB\uB418\uAC70\uB098 \uBC94\uC704\uB97C \uBC97\uC5B4\uB09C \uC785\uB825\uC73C\uB85C \uC2DC\uB3C4\uD55C\uB2E4.",
-              "expectedOutcome": "\uC801\uC808\uD55C \uC720\uD6A8\uC131 \uAC80\uC0AC \uBA54\uC2DC\uC9C0\uAC00 \uD45C\uC2DC\uB418\uACE0 \uC2DC\uC2A4\uD15C\uC774 \uC548\uC815\uC801\uC73C\uB85C \uC720\uC9C0\uB41C\uB2E4."
+              "action": "Attempt the scenario for \u0022Admin Inventory Management\u0022 using invalid or out-of-range input.",
+              "expectedOutcome": "An appropriate validation message is shown and the system remains stable."
             }
           ],
           "runs": []
         },
         {
-          "id": "6bdcddb0-b47d-4111-a1ad-3e763fcac865",
-          "requirementId": "6f8f79b8-9505-47ad-b82a-b39c058e406d",
-          "code": "REQ-012-TC3",
-          "title": "\uAC80\uC99D: \uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC (\uACBD\uACC4 \uC870\uAC74)",
-          "preconditions": "\uC2DC\uC2A4\uD15C\uC774 \uC815\uC0C1\uC801\uC73C\uB85C \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uC0C1\uD0DC\uC774\uB2E4.",
-          "expectedResult": "\uACBD\uACC4\uAC12\uC774 \uC624\uD504-by-one \uB610\uB294 \uC624\uBC84\uD50C\uB85C \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB418\uC5B4\uC57C \uD55C\uB2E4.",
+          "id": "7da1a5df-20cc-4a6a-a41b-49b7236121a8",
+          "requirementId": "151127f3-0acc-47a9-86d9-5857f4ebb5bf",
+          "code": "TC-032",
+          "title": "Verify: Admin Inventory Management (boundary condition)",
+          "preconditions": "System is in a valid, ready-to-use state.",
+          "expectedResult": "Boundary values are processed correctly with no off-by-one or overflow errors.",
           "steps": [
             {
               "order": 1,
-              "action": "\u0022\uAD00\uB9AC\uC790 \uC7AC\uACE0 \uAD00\uB9AC\u0022\uC758 \uCD5C\uC18C \uBC0F \uCD5C\uB300 \uC9C0\uC6D0 \uD55C\uACC4\uC5D0\uC11C \uB3D9\uC791\uC744 \uD655\uC778\uD55C\uB2E4.",
-              "expectedOutcome": "\uB450 \uD55C\uACC4 \uBAA8\uB450 \uC624\uB958 \uC5C6\uC774 \uC62C\uBC14\uB974\uAC8C \uCC98\uB9AC\uB41C\uB2E4."
+              "action": "Exercise \u0022Admin Inventory Management\u0022 at its minimum and maximum supported limits.",
+              "expectedOutcome": "Both limits are handled correctly without errors."
             }
           ],
           "runs": []

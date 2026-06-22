@@ -1,3 +1,4 @@
+using ReqTrace.Importing;
 using ReqTrace.Localization;
 using ReqTrace.Models;
 using ReqTrace.Persistence;
@@ -34,7 +35,15 @@ public partial class MainForm : Form
     private ToolStripButton saveToDatabaseToolButton = null!;
     private ToolStripButton loadFromDatabaseToolButton = null!;
     private ToolStripButton aboutToolButton = null!;
-
+    private ContextMenuStrip reqContextMenu = null!;
+    private ContextMenuStrip testCaseContextMenu = null!;
+    private ToolStripMenuItem reqCtxAdd = null!;
+    private ToolStripMenuItem reqCtxEdit = null!;
+    private ToolStripMenuItem reqCtxDelete = null!;
+    private ToolStripMenuItem tcCtxAdd = null!;
+    private ToolStripMenuItem tcCtxEdit = null!;
+    private ToolStripMenuItem tcCtxDelete = null!;
+    private ToolStripMenuItem tcCtxRecord = null!;
     public MainForm(string? startupProjectPath = null)
     {
         _startupProjectPath = startupProjectPath;
@@ -58,6 +67,7 @@ public partial class MainForm : Form
         InitializeDatabaseMenu();
         InitializeDatabaseToolButtons();
         InitializeAboutToolButton();
+        InitializeContextMenus();
         AssignIcons();
         WireEvents();
         ApplyLocalization();
@@ -72,17 +82,28 @@ public partial class MainForm : Form
 
     private void InitializeRequirementsListView()
     {
+        EnableDoubleBuffering(reqListView);
+        EnableDoubleBuffering(splitContainerMain.Panel1);
         reqListView.Columns.Clear();
-        reqListView.Columns.Add("Code", 120);
-        reqListView.Columns.Add("Title", 180);
-        reqListView.Columns.Add("Description", 260);
-        reqListView.Columns.Add("Category", 100);
+        reqListView.Columns.Add("Code", 100);
+        reqListView.Columns.Add("Category", 120);
+        reqListView.Columns.Add("Title", 160);
+        reqListView.Columns.Add("Description", 280);
         reqListView.Columns.Add("Priority", 80);
         reqListView.Columns.Add("RequirementStatus", 110);
         reqListView.Columns.Add("TestStatus", 100);
         reqListView.Columns.Add("Source", 120);
         reqListView.Columns.Add("Parent", 100);
         UpdateRequirementColumnHeaders();
+        ModernTheme.FillLastListViewColumn(reqListView);
+    }
+
+    private void UpdateImportMenuLabels()
+    {
+        var useLlm = LlmConfiguration.ShouldUseLlmImport(_settings);
+        importExcelMenuItem.Text = Loc.T(useLlm ? "Menu_ImportExcelLlm" : "Menu_ImportExcelAuto");
+        importExcelToolButton.Text = Loc.T(useLlm ? "Tool_ImportLlm" : "Tool_ImportAuto");
+        importExcelToolButton.ToolTipText = Loc.T(useLlm ? "Tooltip_ImportExcelLlm" : "Tooltip_ImportExcelAuto");
     }
 
     private void UpdateRequirementColumnHeaders()
@@ -90,9 +111,9 @@ public partial class MainForm : Form
         var names = new[]
         {
             Loc.T("Col_Code"),
+            Loc.T("Col_Category"),
             Loc.T("Col_Title"),
             Loc.T("Col_Description"),
-            Loc.T("Col_Category"),
             Loc.T("Col_Priority"),
             Loc.T("Col_RequirementStatus"),
             Loc.T("Col_TestStatus"),
@@ -196,11 +217,67 @@ public partial class MainForm : Form
         aboutToolButton.Click += (_, _) => new AboutForm().ShowDialog(this);
     }
 
+    private void InitializeContextMenus()
+    {
+        reqCtxAdd = new ToolStripMenuItem();
+        reqCtxEdit = new ToolStripMenuItem();
+        reqCtxDelete = new ToolStripMenuItem();
+        reqContextMenu = new ContextMenuStrip();
+        reqContextMenu.Items.AddRange(new ToolStripItem[] { reqCtxAdd, reqCtxEdit, reqCtxDelete });
+        reqContextMenu.Opening += (_, _) => UpdateRequirementContextMenuState();
+
+        tcCtxAdd = new ToolStripMenuItem();
+        tcCtxEdit = new ToolStripMenuItem();
+        tcCtxDelete = new ToolStripMenuItem();
+        tcCtxRecord = new ToolStripMenuItem();
+        testCaseContextMenu = new ContextMenuStrip();
+        testCaseContextMenu.Items.AddRange(new ToolStripItem[]
+        {
+            tcCtxAdd, tcCtxEdit, tcCtxDelete, new ToolStripSeparator(), tcCtxRecord
+        });
+        testCaseContextMenu.Opening += (_, _) => UpdateTestCaseContextMenuState();
+
+        reqCtxAdd.Click += (_, _) => AddRequirement();
+        reqCtxEdit.Click += (_, _) => EditSelectedRequirement();
+        reqCtxDelete.Click += (_, _) => DeleteSelectedRequirement();
+
+        tcCtxAdd.Click += (_, _) => AddTestCase();
+        tcCtxEdit.Click += (_, _) => EditSelectedTestCase();
+        tcCtxDelete.Click += (_, _) => DeleteSelectedTestCase();
+        tcCtxRecord.Click += (_, _) => RecordTestRun();
+
+        reqListView.ContextMenuStrip = reqContextMenu;
+        testCaseGrid.ContextMenuStrip = testCaseContextMenu;
+    }
+
+    private void UpdateRequirementContextMenuState()
+    {
+        var hasSelection = SelectedRequirement is not null;
+        reqCtxEdit.Enabled = hasSelection;
+        reqCtxDelete.Enabled = hasSelection;
+    }
+
+    private void UpdateTestCaseContextMenuState()
+    {
+        var hasRequirement = SelectedRequirement is not null;
+        var hasTestCase = SelectedTestCase is not null;
+        tcCtxAdd.Enabled = hasRequirement;
+        tcCtxEdit.Enabled = hasTestCase;
+        tcCtxDelete.Enabled = hasTestCase;
+        tcCtxRecord.Enabled = hasTestCase;
+    }
+
     private void ConnectToDatabase()
     {
+        _dbSettings ??= AppSettingsService.LoadDbConnectionSettings(_settings);
+
         using var dlg = new DatabaseConnectionForm(_dbSettings);
-        if (dlg.ShowDialog(this) == DialogResult.OK)
-            _dbSettings = dlg.Settings;
+        if (dlg.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        _dbSettings = dlg.Settings;
+        AppSettingsService.SaveDbConnectionSettings(_settings, _dbSettings);
+        AppSettingsService.Save(_settings);
     }
 
     private async Task SaveToDatabaseAsync()
@@ -268,7 +345,7 @@ public partial class MainForm : Form
         openProjectMenuItem.Text = Loc.T("Menu_OpenProject");
         saveMenuItem.Text = Loc.T("Menu_Save");
         saveAsMenuItem.Text = Loc.T("Menu_SaveAs");
-        importExcelMenuItem.Text = Loc.T("Menu_ImportExcel");
+        UpdateImportMenuLabels();
         exportReportMenuItem.Text = Loc.T("Menu_ExportReport");
         recentFilesMenuItem.Text = Loc.T("Menu_RecentProjects");
         languageSettingsMenuItem.Text = Loc.T("Menu_LanguageSettings");
@@ -286,6 +363,14 @@ public partial class MainForm : Form
         deleteTestCaseMenuItem.Text = Loc.T("Menu_DeleteTestCase");
         recordTestRunMenuItem.Text = Loc.T("Menu_RecordTestRun");
 
+        reqCtxAdd.Text = Loc.T("Menu_AddRequirement");
+        reqCtxEdit.Text = Loc.T("Menu_EditRequirement");
+        reqCtxDelete.Text = Loc.T("Menu_DeleteRequirement");
+        tcCtxAdd.Text = Loc.T("Menu_AddTestCase");
+        tcCtxEdit.Text = Loc.T("Menu_EditTestCase");
+        tcCtxDelete.Text = Loc.T("Menu_DeleteTestCase");
+        tcCtxRecord.Text = Loc.T("Menu_RecordTestRun");
+
         viewMenu.Text = Loc.T("Menu_View");
         groupByCategoryMenuItem.Text = Loc.T("Menu_GroupByCategory");
         groupByHierarchyMenuItem.Text = Loc.T("Menu_GroupByHierarchy");
@@ -299,6 +384,7 @@ public partial class MainForm : Form
 
         toolsMenu.Text = Loc.T("Menu_Tools");
         traceabilitySummaryMenuItem.Text = Loc.T("Menu_TraceabilitySummary");
+        llmSettingsMenuItem.Text = Loc.T("Menu_LlmSettings");
         optionsMenuItem.Text = Loc.T("Menu_Options");
 
         helpMenu.Text = Loc.T("Menu_Help");
@@ -308,7 +394,7 @@ public partial class MainForm : Form
         newToolButton.Text = Loc.T("Tool_New");
         openToolButton.Text = Loc.T("Tool_Open");
         saveToolButton.Text = Loc.T("Tool_Save");
-        importExcelToolButton.Text = Loc.T("Tool_Import");
+        UpdateImportMenuLabels();
         exportReportToolButton.Text = Loc.T("Tool_Export");
         connectDatabaseToolButton.Text = Loc.T("Tool_DbConnect");
         connectDatabaseToolButton.ToolTipText = Loc.T("Menu_ConnectDatabase");
@@ -401,7 +487,7 @@ public partial class MainForm : Form
     private void ApplyListHeaderStyles()
     {
         ApplyGridHeaderStyle(testCaseGrid);
-        reqListView.Invalidate(true);
+        reqListView.Refresh();
     }
 
     private static void ApplyGridHeaderStyle(DataGridView grid)
@@ -462,6 +548,14 @@ public partial class MainForm : Form
         deleteTestCaseMenuItem.Image = IconFactory.DeleteTestCase();
         recordTestRunToolButton.Image = recordTestRunMenuItem.Image = IconFactory.RecordRun();
 
+        reqCtxAdd.Image = IconFactory.AddRequirement();
+        reqCtxEdit.Image = IconFactory.EditRequirement();
+        reqCtxDelete.Image = IconFactory.DeleteRequirement();
+        tcCtxAdd.Image = IconFactory.AddTestCase();
+        tcCtxEdit.Image = IconFactory.EditTestCase();
+        tcCtxDelete.Image = IconFactory.DeleteTestCase();
+        tcCtxRecord.Image = IconFactory.RecordRun();
+
         groupByCategoryMenuItem.Image = IconFactory.GroupByCategory();
         groupByHierarchyMenuItem.Image = IconFactory.GroupByHierarchy();
         refreshMenuItem.Image = IconFactory.Refresh();
@@ -518,8 +612,15 @@ public partial class MainForm : Form
         groupByHierarchyMenuItem.Click += (_, _) => SetGrouping(true);
         refreshMenuItem.Click += (_, _) => RefreshAll();
         traceabilitySummaryMenuItem.Click += (_, _) => ShowTraceabilitySummary();
+        llmSettingsMenuItem.Click += (_, _) => ShowLlmSettings();
         optionsMenuItem.Click += (_, _) => ShowOptions();
         aboutMenuItem.Click += (_, _) => new AboutForm().ShowDialog(this);
+
+        splitContainerMain.SplitterMoved += (_, _) =>
+        {
+            ModernTheme.FillLastListViewColumn(reqListView);
+            reqListView.Refresh();
+        };
 
         reqListView.SelectedIndexChanged += (_, _) =>
         {
@@ -528,9 +629,39 @@ public partial class MainForm : Form
         };
         reqListView.ColumnClick += ReqListView_ColumnClick;
         reqListView.DoubleClick += (_, _) => EditSelectedRequirement();
+        reqListView.MouseUp += ReqListView_MouseUp;
         testCaseGrid.CellDoubleClick += (_, _) => EditSelectedTestCase();
+        testCaseGrid.CellMouseDown += TestCaseGrid_CellMouseDown;
 
         FormClosing += MainForm_FormClosing;
+    }
+
+    private void ReqListView_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right)
+            return;
+
+        var info = reqListView.HitTest(e.Location);
+        if (info.Item is not null && !info.Item.Selected)
+        {
+            reqListView.SelectedItems.Clear();
+            info.Item.Selected = true;
+        }
+    }
+
+    private void TestCaseGrid_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right || e.RowIndex < 0)
+            return;
+
+        if (!testCaseGrid.Rows[e.RowIndex].Selected)
+        {
+            testCaseGrid.ClearSelection();
+            testCaseGrid.Rows[e.RowIndex].Selected = true;
+        }
+
+        if (e.ColumnIndex >= 0)
+            testCaseGrid.CurrentCell = testCaseGrid.Rows[e.RowIndex].Cells[e.ColumnIndex];
     }
 
     private void ChangeLanguage(string languageCode)
@@ -543,6 +674,11 @@ public partial class MainForm : Form
         PopulateDetailEnumCombos();
         StyleDetailInputControls();
 
+        txtDetailDescription.Multiline = true;
+        txtDetailDescription.AcceptsReturn = true;
+        txtDetailDescription.WordWrap = true;
+        txtDetailDescription.ScrollBars = ScrollBars.Vertical;
+
         foreach (var box in new[] { txtDetailCode, txtDetailTitle, txtDetailCategory, txtDetailDescription })
             box.Validated += (_, _) => CommitDetailPanel();
 
@@ -552,7 +688,11 @@ public partial class MainForm : Form
 
     private void StyleDetailInputControls()
     {
-        foreach (var label in new[] { lblCode, lblTitle, lblCategory, lblPriority, lblStatusField })
+        var emphasisFont = new Font(Font, FontStyle.Bold);
+        foreach (var label in new[] { lblCategory, lblDescription })
+            label.Font = emphasisFont;
+
+        foreach (var label in new[] { lblCode, lblTitle, lblCategory, lblPriority, lblStatusField, lblDescription })
         {
             label.AutoSize = false;
             label.Dock = DockStyle.Fill;
@@ -560,11 +700,13 @@ public partial class MainForm : Form
             label.TextAlign = ContentAlignment.MiddleLeft;
         }
 
-        foreach (var input in new Control[] { txtDetailCode, txtDetailTitle, txtDetailCategory, cboDetailPriority, cboDetailStatus })
+        foreach (var input in new Control[] { txtDetailCode, txtDetailTitle, txtDetailCategory, txtDetailDescription, cboDetailPriority, cboDetailStatus })
         {
             input.Dock = DockStyle.Fill;
             input.Margin = Padding.Empty;
         }
+
+        txtDetailCategory.Font = new Font(Font.FontFamily, Font.Size, FontStyle.Regular);
 
         foreach (var comboBox in new[] { cboDetailPriority, cboDetailStatus })
         {
@@ -754,7 +896,7 @@ public partial class MainForm : Form
 
         UpdateRequirementColumnHeaders();
         RefreshRequirementsList();
-        reqListView.Invalidate(true);
+        reqListView.Refresh();
     }
 
     private IEnumerable<Requirement> OrderRequirements(IEnumerable<Requirement> source)
@@ -767,12 +909,12 @@ public partial class MainForm : Form
 
         return (_reqSortColumn, _reqSortOrder) switch
         {
-            (1, SortOrder.Ascending) => list.OrderBy(r => r.Title, StringComparer.OrdinalIgnoreCase),
-            (1, SortOrder.Descending) => list.OrderByDescending(r => r.Title, StringComparer.OrdinalIgnoreCase),
-            (2, SortOrder.Ascending) => list.OrderBy(r => r.Description, StringComparer.OrdinalIgnoreCase),
-            (2, SortOrder.Descending) => list.OrderByDescending(r => r.Description, StringComparer.OrdinalIgnoreCase),
-            (3, SortOrder.Ascending) => list.OrderBy(r => r.Category, StringComparer.OrdinalIgnoreCase),
-            (3, SortOrder.Descending) => list.OrderByDescending(r => r.Category, StringComparer.OrdinalIgnoreCase),
+            (1, SortOrder.Ascending) => list.OrderBy(r => r.Category, StringComparer.OrdinalIgnoreCase),
+            (1, SortOrder.Descending) => list.OrderByDescending(r => r.Category, StringComparer.OrdinalIgnoreCase),
+            (2, SortOrder.Ascending) => list.OrderBy(r => r.Title, StringComparer.OrdinalIgnoreCase),
+            (2, SortOrder.Descending) => list.OrderByDescending(r => r.Title, StringComparer.OrdinalIgnoreCase),
+            (3, SortOrder.Ascending) => list.OrderBy(r => r.Description, StringComparer.OrdinalIgnoreCase),
+            (3, SortOrder.Descending) => list.OrderByDescending(r => r.Description, StringComparer.OrdinalIgnoreCase),
             (4, SortOrder.Ascending) => list.OrderBy(r => r.Priority).ThenBy(r => r.Code, StringComparer.OrdinalIgnoreCase),
             (4, SortOrder.Descending) => list.OrderByDescending(r => r.Priority).ThenBy(r => r.Code, StringComparer.OrdinalIgnoreCase),
             (5, SortOrder.Ascending) => list.OrderBy(r => r.Status).ThenBy(r => r.Code, StringComparer.OrdinalIgnoreCase),
@@ -989,16 +1131,29 @@ public partial class MainForm : Form
 
     private void DeleteSelectedRequirement()
     {
-        var req = SelectedRequirement;
-        if (req is null)
+        var selected = reqListView.SelectedItems
+            .Cast<ListViewItem>()
+            .Select(item => item.Tag as Requirement)
+            .Where(r => r is not null)
+            .Cast<Requirement>()
+            .ToList();
+
+        if (selected.Count == 0)
             return;
 
-        var result = MessageBox.Show(this, Loc.T("Msg_DeleteRequirement", req.Code, req.Title),
+        var message = selected.Count == 1
+            ? Loc.T("Msg_DeleteRequirement", selected[0].Code, selected[0].Title)
+            : Loc.T("Msg_DeleteRequirements", selected.Count);
+
+        var result = MessageBox.Show(this, message,
             Loc.T("Common_ConfirmDelete"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
         if (result != DialogResult.Yes)
             return;
 
-        _requirementService.Delete(req);
+        if (selected.Count == 1)
+            _requirementService.Delete(selected[0]);
+        else
+            _requirementService.DeleteMany(selected);
     }
 
     private void SelectRequirementByCode(string code)
@@ -1036,7 +1191,7 @@ public partial class MainForm : Form
             return;
         }
 
-        using var dlg = new TestCaseEditForm(null);
+        using var dlg = new TestCaseEditForm(null, GetExistingTestCaseCodes());
         if (dlg.ShowDialog(this) != DialogResult.OK)
             return;
         _testCaseService.Add(req, dlg.Result);
@@ -1050,7 +1205,7 @@ public partial class MainForm : Form
         if (req is null || tc is null)
             return;
 
-        using var dlg = new TestCaseEditForm(tc);
+        using var dlg = new TestCaseEditForm(tc, GetExistingTestCaseCodes());
         if (dlg.ShowDialog(this) != DialogResult.OK)
             return;
         _testCaseService.Update(req);
@@ -1098,83 +1253,214 @@ public partial class MainForm : Form
         if (ofd.ShowDialog(this) != DialogResult.OK)
             return;
 
-        ImportMappingForm dlg;
+        _settings.LastImportFolder = Path.GetDirectoryName(ofd.FileName) ?? _settings.LastImportFolder;
+        AppSettingsService.Save(_settings);
+
+        if (LlmConfiguration.ShouldUseLlmImport(_settings))
+            ImportFromExcelWithLlm(ofd.FileName);
+        else
+            ImportFromExcelAutomatically(ofd.FileName);
+    }
+
+    private void ImportFromExcelAutomatically(string filePath)
+    {
         try
         {
-            dlg = new ImportMappingForm(ofd.FileName);
+            var plan = AutoExcelRequirementImporter.TryCreatePlan(filePath);
+            if (plan is null)
+            {
+                ImportFromExcelWithMappingDialog(filePath);
+                return;
+            }
+
+            var importResult = ProgressDialogRunner.Run(
+                this,
+                Loc.T("Dlg_ProgressAutoImportTitle"),
+                Loc.T("Dlg_ProgressAutoImportMessage", Path.GetFileName(filePath)),
+                progress => AutoExcelRequirementImporter.Import(
+                    plan,
+                    progress,
+                    GetExistingRequirementCodes(),
+                    GetExistingTestCaseCodes()));
+
+            FinishImportedRequirements(
+                importResult.Requirements.ToList(),
+                importResult.Warnings.ToList(),
+                importResult.RowsProcessed,
+                importResult.RowsSkipped,
+                plan.Mapping.GenerateTestCases,
+                Loc.T("Msg_ImportNoneImported"));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"),
-                new IOException(Loc.T("Msg_ImportOpenFailed", ofd.FileName), ex));
+                new IOException(Loc.T("Msg_ImportReadFailed", Path.GetFileName(filePath)), ex));
+        }
+        catch (Exception ex)
+        {
+            ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"), ex);
+        }
+    }
+
+    private void ImportFromExcelWithMappingDialog(string filePath)
+    {
+        ImportMappingForm dlg;
+        try
+        {
+            dlg = new ImportMappingForm(filePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"),
+                new IOException(Loc.T("Msg_ImportOpenFailed", filePath), ex));
             return;
         }
+
+        using (dlg)
+        {
+            dlg.GetReservedRequirementCodes = GetExistingRequirementCodes;
+            dlg.GetReservedTestCaseCodes = GetExistingTestCaseCodes;
+            if (dlg.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            FinishImportedRequirements(
+                dlg.ImportedRequirements,
+                dlg.Warnings,
+                dlg.RowsProcessed,
+                dlg.RowsSkipped,
+                dlg.GeneratedTestCases,
+                Loc.T("Msg_ImportNoneImported"));
+        }
+    }
+
+    private void ImportFromExcelWithLlm(string filePath)
+    {
+        AiImportForm dlg;
+        try
+        {
+            dlg = new AiImportForm(filePath, _settings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"),
+                new IOException(Loc.T("Msg_ImportOpenFailed", filePath), ex));
+            return;
+        }
+
+        dlg.GetReservedRequirementCodes = GetExistingRequirementCodes;
+        dlg.GetReservedTestCaseCodes = GetExistingTestCaseCodes;
 
         using (dlg)
         {
             if (dlg.ShowDialog(this) != DialogResult.OK)
                 return;
 
-            _settings.LastImportFolder = Path.GetDirectoryName(ofd.FileName) ?? _settings.LastImportFolder;
-            AppSettingsService.Save(_settings);
+            FinishImportedRequirements(
+                dlg.ImportedRequirements,
+                dlg.Warnings,
+                dlg.RowsProcessed,
+                dlg.RowsSkipped,
+                dlg.GeneratedTestCases,
+                Loc.T("Msg_AiImportNoneImported"));
+        }
+    }
 
-            var imported = dlg.ImportedRequirements;
-            var duplicateCount = imported.Count(r => _requirementService.FindByCode(r.Code) is not null);
-            var overwriteDuplicates = false;
-            if (duplicateCount > 0)
-            {
-                overwriteDuplicates = MessageBox.Show(this,
-                    Loc.T("Msg_DuplicateRequirementsBatch", duplicateCount),
-                    Loc.T("Msg_DuplicateRequirementTitle"),
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question) == DialogResult.Yes;
-            }
+    private IEnumerable<string> GetExistingRequirementCodes() =>
+        _requirementService.AllRequirements.Select(r => r.Code);
 
-            var toImport = new List<Requirement>();
-            foreach (var requirement in imported)
+    private IEnumerable<string> GetExistingTestCaseCodes() =>
+        _requirementService.AllRequirements.SelectMany(r => r.TestCases).Select(tc => tc.Code);
+
+    private static void EnableDoubleBuffering(Control control)
+    {
+        typeof(Control).InvokeMember(
+            "DoubleBuffered",
+            System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.SetProperty,
+            null,
+            control,
+            [true]);
+    }
+
+    private void FinishImportedRequirements(
+        List<Requirement> imported,
+        List<string> warnings,
+        int rowsProcessed,
+        int rowsSkipped,
+        bool generatedTestCases,
+        string noneImportedMessage)
+    {
+        var duplicateCount = imported.Count(r => _requirementService.FindByCode(r.Code) is not null);
+        var overwriteDuplicates = false;
+        if (duplicateCount > 0)
+        {
+            overwriteDuplicates = MessageBox.Show(this,
+                Loc.T("Msg_DuplicateRequirementsBatch", duplicateCount),
+                Loc.T("Msg_DuplicateRequirementTitle"),
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question) == DialogResult.Yes;
+        }
+
+        var toImport = new List<Requirement>();
+        var toDelete = new List<Requirement>();
+        foreach (var requirement in imported)
+        {
+            var existing = _requirementService.FindByCode(requirement.Code);
+            if (existing is not null)
             {
-                var existing = _requirementService.FindByCode(requirement.Code);
-                if (existing is not null)
+                if (overwriteDuplicates)
                 {
-                    if (overwriteDuplicates)
-                    {
-                        _requirementService.Delete(existing);
-                        toImport.Add(requirement);
-                    }
-                }
-                else
-                {
+                    toDelete.Add(existing);
                     toImport.Add(requirement);
                 }
             }
-
-            if (toImport.Count == 0)
+            else
             {
-                MessageBox.Show(this,
-                    dlg.ImportedRequirements.Count == 0
-                        ? Loc.T("Msg_ImportNoneImported")
-                        : Loc.T("Msg_ImportNoneAdded"),
-                    Loc.T("Msg_ImportTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
+                toImport.Add(requirement);
             }
+        }
 
-            _requirementService.ImportMany(toImport);
-            RefreshAll();
-            SelectRequirementByCode(toImport[0].Code);
-
-            var testCaseCount = toImport.Sum(r => r.TestCases.Count);
-            var summarySuffix = dlg.GeneratedTestCases
-                ? Loc.T("Msg_ImportSummaryWithTests", testCaseCount)
-                : Loc.T("Msg_ImportSummaryEnd");
+        if (toImport.Count == 0)
+        {
             MessageBox.Show(this,
-                Loc.T("Msg_ImportSummary", dlg.RowsProcessed, dlg.RowsSkipped, toImport.Count, summarySuffix),
-                Loc.T("Msg_ImportSummaryTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                imported.Count == 0
+                    ? noneImportedMessage
+                    : Loc.T("Msg_ImportNoneAdded"),
+                Loc.T("Msg_ImportTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
 
-            if (dlg.Warnings.Count > 0)
+        ProgressDialogRunner.RunUi(
+            this,
+            Loc.T("Dlg_ProgressApplyImportTitle"),
+            Loc.T("Dlg_ProgressApplyImportMessage", toImport.Count),
+            progress =>
             {
-                MessageBox.Show(this, Loc.T("Msg_ImportWarnings", dlg.Warnings.Count, string.Join("\n", dlg.Warnings.Take(20))),
-                    Loc.T("Msg_ImportWarningsTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+                progress.Report(10);
+                if (toDelete.Count > 0)
+                    _requirementService.DeleteMany(toDelete);
+
+                progress.Report(40);
+                _requirementService.ImportMany(toImport);
+                progress.Report(80);
+                RefreshAll();
+                SelectRequirementByCode(toImport[0].Code);
+                progress.Report(100);
+            });
+
+        var testCaseCount = toImport.Sum(r => r.TestCases.Count);
+        var summarySuffix = generatedTestCases
+            ? Loc.T("Msg_ImportSummaryWithTests", testCaseCount)
+            : Loc.T("Msg_ImportSummaryEnd");
+        MessageBox.Show(this,
+            Loc.T("Msg_ImportSummary", rowsProcessed, rowsSkipped, toImport.Count, summarySuffix),
+            Loc.T("Msg_ImportSummaryTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+        if (warnings.Count > 0)
+        {
+            MessageBox.Show(this, Loc.T("Msg_ImportWarnings", warnings.Count, string.Join("\n", warnings.Take(20))),
+                Loc.T("Msg_ImportWarningsTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -1189,6 +1475,13 @@ public partial class MainForm : Form
     {
         using var dlg = new OptionsForm(_settings);
         dlg.ShowDialog(this);
+    }
+
+    private void ShowLlmSettings()
+    {
+        using var dlg = new LlmSettingsForm(_settings);
+        dlg.ShowDialog(this);
+        UpdateImportMenuLabels();
     }
 
     private void ShowTraceabilitySummary()
@@ -1218,59 +1511,64 @@ public partial class MainForm : Form
 
         var previousCode = SelectedRequirement?.Code;
         reqListView.BeginUpdate();
-        reqListView.Items.Clear();
-
-        var requirements = _requirementService.AllRequirements.ToList();
-        var byId = requirements.ToDictionary(r => r.Id);
-
-        if (requirements.Count == 0)
+        try
         {
-            var placeholder = new ListViewItem(Loc.T("Placeholder_NoRequirements")) { ForeColor = Color.Gray };
-            for (var i = 0; i < RequirementListColumnCount - 1; i++)
-                placeholder.SubItems.Add(i == 0 ? Loc.T("Placeholder_NoRequirementsHint") : string.Empty);
-            reqListView.Items.Add(placeholder);
+            reqListView.Items.Clear();
+
+            var requirements = _requirementService.AllRequirements.ToList();
+            var byId = requirements.ToDictionary(r => r.Id);
+
+            if (requirements.Count == 0)
+            {
+                var placeholder = new ListViewItem(Loc.T("Placeholder_NoRequirements")) { ForeColor = Color.Gray };
+                for (var i = 0; i < RequirementListColumnCount - 1; i++)
+                    placeholder.SubItems.Add(i == 0 ? Loc.T("Placeholder_NoRequirementsHint") : string.Empty);
+                reqListView.Items.Add(placeholder);
+                return;
+            }
+
+            if (_groupByHierarchy)
+            {
+                var displayed = new HashSet<Guid>();
+                var byParent = requirements.ToLookup(r => r.ParentId);
+
+                void AddChildren(Guid? parentId, int depth)
+                {
+                    foreach (var req in OrderRequirements(byParent[parentId]))
+                    {
+                        reqListView.Items.Add(CreateListItem(req, depth, byId));
+                        displayed.Add(req.Id);
+                        AddChildren(req.Id, depth + 1);
+                    }
+                }
+
+                AddChildren(null, 0);
+
+                foreach (var req in OrderRequirements(requirements.Where(r => !displayed.Contains(r.Id))))
+                    reqListView.Items.Add(CreateListItem(req, 0, byId));
+            }
+            else
+            {
+                foreach (var req in OrderRequirements(requirements))
+                    reqListView.Items.Add(CreateListItem(req, 0, byId));
+            }
+
+            if (previousCode is not null)
+            {
+                foreach (ListViewItem item in reqListView.Items)
+                {
+                    if (item.Tag is Requirement r && r.Code == previousCode)
+                    {
+                        item.Selected = true;
+                        break;
+                    }
+                }
+            }
+        }
+        finally
+        {
             reqListView.EndUpdate();
-            return;
-        }
-
-        if (_groupByHierarchy)
-        {
-            var displayed = new HashSet<Guid>();
-            var byParent = requirements.ToLookup(r => r.ParentId);
-
-            void AddChildren(Guid? parentId, int depth)
-            {
-                foreach (var req in OrderRequirements(byParent[parentId]))
-                {
-                    reqListView.Items.Add(CreateListItem(req, depth, byId));
-                    displayed.Add(req.Id);
-                    AddChildren(req.Id, depth + 1);
-                }
-            }
-
-            AddChildren(null, 0);
-
-            foreach (var req in OrderRequirements(requirements.Where(r => !displayed.Contains(r.Id))))
-                reqListView.Items.Add(CreateListItem(req, 0, byId));
-        }
-        else
-        {
-            foreach (var req in OrderRequirements(requirements))
-                reqListView.Items.Add(CreateListItem(req, 0, byId));
-        }
-
-        reqListView.EndUpdate();
-
-        if (previousCode is not null)
-        {
-            foreach (ListViewItem item in reqListView.Items)
-            {
-                if (item.Tag is Requirement r && r.Code == previousCode)
-                {
-                    item.Selected = true;
-                    break;
-                }
-            }
+            reqListView.Refresh();
         }
     }
 
@@ -1282,9 +1580,9 @@ public partial class MainForm : Form
             : string.Empty;
 
         var item = new ListViewItem(indent + req.Code) { Tag = req };
+        item.SubItems.Add(req.Category);
         item.SubItems.Add(req.Title);
         item.SubItems.Add(req.Description);
-        item.SubItems.Add(req.Category);
         item.SubItems.Add(Loc.Enum(req.Priority));
         item.SubItems.Add(Loc.Enum(req.Status));
         item.SubItems.Add(Loc.Enum(req.AggregateStatus));

@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using ReqTrace.Localization;
 using ReqTrace.Models;
 
 namespace ReqTrace.Reporting;
@@ -11,96 +12,178 @@ public class ExcelReportExporter : IReportExporter
     {
         using var workbook = new XLWorkbook();
 
-        var summarySheet = workbook.Worksheets.Add("Summary");
-        summarySheet.Cell(1, 1).Value = $"{data.ProjectName} — Traceability Report";
-        summarySheet.Cell(1, 1).Style.Font.Bold = true;
-        summarySheet.Cell(2, 1).Value = $"Generated: {data.GeneratedUtc.ToLocalTime():yyyy-MM-dd HH:mm}";
+        WriteSummarySheet(workbook, data);
+        WriteRequirementsSheet(workbook, data);
+        WriteTestCasesSheet(workbook, data);
+        WriteTraceabilitySheet(workbook, data);
+        WriteTestCaseStepsSheet(workbook, data);
+        WriteCategorySheet(workbook, data);
+
+        workbook.SaveAs(outputFilePath);
+    }
+
+    private static void WriteSummarySheet(XLWorkbook workbook, TraceabilityReportData data)
+    {
+        var sheet = workbook.Worksheets.Add(Loc.T("Export_Sheet_Summary"));
+        sheet.Cell(1, 1).Value = $"{data.ProjectName} — {Loc.T("Dlg_ExportReport")}";
+        sheet.Cell(1, 1).Style.Font.Bold = true;
+        sheet.Cell(2, 1).Value = Loc.T("Export_GeneratedAt", data.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"));
 
         var summaryRows = new (string Label, object Value)[]
         {
-            ("Total Requirements", data.Summary.TotalRequirements),
-            ("Requirements With Tests", data.Summary.RequirementsWithTests),
-            ("Requirements Without Tests", data.Summary.RequirementsWithoutTests),
-            ("Total Test Cases", data.Summary.TotalTestCases),
-            ("Pass", data.Summary.PassCount),
-            ("Fail", data.Summary.FailCount),
-            ("Blocked", data.Summary.BlockedCount),
-            ("Not Run", data.Summary.NotRunCount),
-            ("Coverage %", Math.Round(data.Summary.CoveragePercent, 1)),
-            ("Pass Rate %", Math.Round(data.Summary.PassRatePercent, 1))
+            (Loc.T("Export_TotalRequirements"), data.Summary.TotalRequirements),
+            (Loc.T("Export_RequirementsWithTests"), data.Summary.RequirementsWithTests),
+            (Loc.T("Export_RequirementsWithoutTests"), data.Summary.RequirementsWithoutTests),
+            (Loc.T("Export_TotalTestCases"), data.Summary.TotalTestCases),
+            (Loc.Enum(TestRunStatus.Pass), data.Summary.PassCount),
+            (Loc.Enum(TestRunStatus.Fail), data.Summary.FailCount),
+            (Loc.Enum(TestRunStatus.Blocked), data.Summary.BlockedCount),
+            (Loc.Enum(TestRunStatus.NotRun), data.Summary.NotRunCount),
+            (Loc.T("Export_CoveragePercent"), Math.Round(data.Summary.CoveragePercent, 1)),
+            (Loc.T("Export_PassRatePercent"), Math.Round(data.Summary.PassRatePercent, 1))
         };
 
-        var r = 4;
+        var row = 4;
         foreach (var (label, value) in summaryRows)
         {
-            summarySheet.Cell(r, 1).Value = label;
-            summarySheet.Cell(r, 2).Value = XLCellValue.FromObject(value);
-            if (label is "Pass" or "Fail" or "Blocked")
-                summarySheet.Cell(r, 2).Style.Fill.BackgroundColor = label switch
-                {
-                    "Pass" => XLColor.LightGreen,
-                    "Fail" => XLColor.LightPink,
-                    _ => XLColor.LightYellow
-                };
-            r++;
+            sheet.Cell(row, 1).Value = label;
+            sheet.Cell(row, 2).Value = XLCellValue.FromObject(value);
+            row++;
         }
-        summarySheet.Columns().AdjustToContents();
 
-        var categorySheet = workbook.Worksheets.Add("By Category");
-        categorySheet.Cell(1, 1).Value = "Category";
-        categorySheet.Cell(1, 2).Value = "Requirements";
-        categorySheet.Cell(1, 3).Value = "Test Cases";
-        categorySheet.Cell(1, 4).Value = "Coverage %";
-        categorySheet.Cell(1, 5).Value = "Pass Rate %";
-        categorySheet.Range(1, 1, 1, 5).Style.Font.Bold = true;
-        var cr = 2;
+        sheet.Columns().AdjustToContents();
+    }
+
+    private static void WriteRequirementsSheet(XLWorkbook workbook, TraceabilityReportData data)
+    {
+        var sheet = workbook.Worksheets.Add(Loc.T("Export_Sheet_Requirements"));
+        var headers = ReportExportColumns.RequirementHeaders();
+        WriteHeaderRow(sheet, headers);
+
+        var testStatusColumn = Array.IndexOf(ReportExportColumns.RequirementHeaderKeys, "Col_TestStatus") + 1;
+        var row = 2;
+        foreach (var requirement in data.Requirements)
+        {
+            WriteRow(sheet, row, ReportExportColumns.RequirementValues(requirement));
+            sheet.Cell(row, testStatusColumn).Style.Fill.BackgroundColor =
+                ReportExportStyling.ToExcelColor(requirement.AggregateTestStatus);
+            row++;
+        }
+
+        FinalizeTable(sheet, headers.Length, row);
+    }
+
+    private static void WriteTestCasesSheet(XLWorkbook workbook, TraceabilityReportData data)
+    {
+        var sheet = workbook.Worksheets.Add(Loc.T("Export_Sheet_TestCases"));
+        var headers = ReportExportColumns.TestCaseHeaders();
+        WriteHeaderRow(sheet, headers);
+
+        var statusColumn = Array.IndexOf(ReportExportColumns.TestCaseHeaderKeys, "Col_LatestStatus") + 1;
+        var row = 2;
+        foreach (var testCase in data.TestCases)
+        {
+            WriteRow(sheet, row, ReportExportColumns.TestCaseValues(testCase));
+            sheet.Cell(row, statusColumn).Style.Fill.BackgroundColor =
+                ReportExportStyling.ToExcelColor(testCase.LatestStatusValue);
+            row++;
+        }
+
+        FinalizeTable(sheet, headers.Length, row);
+    }
+
+    private static void WriteTraceabilitySheet(XLWorkbook workbook, TraceabilityReportData data)
+    {
+        var sheet = workbook.Worksheets.Add(Loc.T("Export_Sheet_Traceability"));
+        var headers = ReportExportColumns.TraceabilityHeaders();
+        WriteHeaderRow(sheet, headers);
+
+        var reqTestStatusColumn = Array.IndexOf(ReportExportColumns.TraceabilityHeaderKeys, "Col_TestStatus") + 1;
+        var tcStatusColumn = Array.IndexOf(ReportExportColumns.TraceabilityHeaderKeys, "Col_LatestStatus") + 1;
+        var row = 2;
+        foreach (var matrixRow in data.TraceabilityMatrix)
+        {
+            WriteRow(sheet, row, ReportExportColumns.TraceabilityValues(matrixRow));
+            sheet.Cell(row, reqTestStatusColumn).Style.Fill.BackgroundColor =
+                ReportExportStyling.ToExcelColor(matrixRow.RequirementAggregateStatus);
+
+            if (!string.IsNullOrWhiteSpace(matrixRow.TestCaseCode)
+                && matrixRow.TestCaseCode != Loc.T("Export_NoTestCase"))
+            {
+                sheet.Cell(row, tcStatusColumn).Style.Fill.BackgroundColor =
+                    ReportExportStyling.ToExcelColor(matrixRow.LatestStatusValue);
+            }
+
+            row++;
+        }
+
+        FinalizeTable(sheet, headers.Length, row);
+    }
+
+    private static void WriteTestCaseStepsSheet(XLWorkbook workbook, TraceabilityReportData data)
+    {
+        var sheet = workbook.Worksheets.Add(Loc.T("Export_Sheet_TestCaseSteps"));
+        var headers = ReportExportColumns.TestCaseStepHeaders();
+        WriteHeaderRow(sheet, headers);
+
+        var row = 2;
+        foreach (var step in data.TestCaseSteps)
+            WriteRow(sheet, row++, ReportExportColumns.TestCaseStepValues(step));
+
+        FinalizeTable(sheet, headers.Length, row);
+    }
+
+    private static void WriteCategorySheet(XLWorkbook workbook, TraceabilityReportData data)
+    {
+        var sheet = workbook.Worksheets.Add(Loc.T("Export_Sheet_ByCategory"));
+        var headers = new[]
+        {
+            Loc.T("Col_Category"),
+            Loc.T("Export_RequirementsCount"),
+            Loc.T("Export_TestCasesCount"),
+            Loc.T("Export_CoveragePercent"),
+            Loc.T("Export_PassRatePercent")
+        };
+        WriteHeaderRow(sheet, headers);
+
+        var row = 2;
         foreach (var cat in data.Categories)
         {
-            categorySheet.Cell(cr, 1).Value = cat.Category;
-            categorySheet.Cell(cr, 2).Value = cat.RequirementCount;
-            categorySheet.Cell(cr, 3).Value = cat.TestCaseCount;
-            categorySheet.Cell(cr, 4).Value = Math.Round(cat.CoveragePercent, 1);
-            categorySheet.Cell(cr, 5).Value = Math.Round(cat.PassRatePercent, 1);
-            cr++;
+            sheet.Cell(row, 1).Value = cat.Category;
+            sheet.Cell(row, 2).Value = cat.RequirementCount;
+            sheet.Cell(row, 3).Value = cat.TestCaseCount;
+            sheet.Cell(row, 4).Value = Math.Round(cat.CoveragePercent, 1);
+            sheet.Cell(row, 5).Value = Math.Round(cat.PassRatePercent, 1);
+            row++;
         }
-        categorySheet.Columns().AdjustToContents();
 
-        var matrixSheet = workbook.Worksheets.Add("Traceability Matrix");
-        string[] headers = { "Req Code", "Req Title", "Category", "Priority", "Req Status", "Test Case Code", "Test Case Title", "Latest Status", "Last Run" };
-        for (var c = 0; c < headers.Length; c++)
-            matrixSheet.Cell(1, c + 1).Value = headers[c];
-        matrixSheet.Range(1, 1, 1, headers.Length).Style.Font.Bold = true;
+        FinalizeTable(sheet, headers.Length, row);
+    }
 
-        var mr = 2;
-        foreach (var row in data.Rows)
+    private static void WriteHeaderRow(IXLWorksheet sheet, IReadOnlyList<string> headers)
+    {
+        for (var c = 0; c < headers.Count; c++)
+            sheet.Cell(1, c + 1).Value = headers[c];
+
+        sheet.Range(1, 1, 1, headers.Count).Style.Font.Bold = true;
+    }
+
+    private static void WriteRow(IXLWorksheet sheet, int row, IReadOnlyList<string> values)
+    {
+        for (var c = 0; c < values.Count; c++)
+            sheet.Cell(row, c + 1).Value = values[c];
+    }
+
+    private static void FinalizeTable(IXLWorksheet sheet, int columnCount, int nextRow)
+    {
+        if (nextRow <= 2)
         {
-            matrixSheet.Cell(mr, 1).Value = row.RequirementCode;
-            matrixSheet.Cell(mr, 2).Value = row.RequirementTitle;
-            matrixSheet.Cell(mr, 3).Value = row.Category;
-            matrixSheet.Cell(mr, 4).Value = row.Priority.ToString();
-            matrixSheet.Cell(mr, 5).Value = row.RequirementStatus.ToString();
-            matrixSheet.Cell(mr, 6).Value = row.TestCaseCode;
-            matrixSheet.Cell(mr, 7).Value = row.TestCaseTitle;
-            matrixSheet.Cell(mr, 8).Value = row.LatestRunStatus.ToString();
-            matrixSheet.Cell(mr, 9).Value = row.LatestRunDate.HasValue ? row.LatestRunDate.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";
-
-            matrixSheet.Cell(mr, 8).Style.Fill.BackgroundColor = row.LatestRunStatus switch
-            {
-                TestRunStatus.Pass => XLColor.LightGreen,
-                TestRunStatus.Fail => XLColor.LightPink,
-                TestRunStatus.Blocked => XLColor.LightYellow,
-                _ => XLColor.White
-            };
-            mr++;
+            sheet.Columns().AdjustToContents();
+            return;
         }
 
-        if (mr > 2)
-        {
-            matrixSheet.Range(1, 1, mr - 1, headers.Length).SetAutoFilter();
-            matrixSheet.SheetView.FreezeRows(1);
-        }
-        matrixSheet.Columns().AdjustToContents();
-
-        workbook.SaveAs(outputFilePath);
+        sheet.Range(1, 1, nextRow - 1, columnCount).SetAutoFilter();
+        sheet.SheetView.FreezeRows(1);
+        sheet.Columns().AdjustToContents();
     }
 }

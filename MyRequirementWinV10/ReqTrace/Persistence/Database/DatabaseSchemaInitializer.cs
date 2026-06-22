@@ -55,7 +55,49 @@ public static class DatabaseSchemaInitializer
             command.CommandText = statement;
             await command.ExecuteNonQueryAsync();
         }
+
+        // Tables created against an older schema may still have these columns as a
+        // narrow VARCHAR(N) (their original definition below). Free-text fields like
+        // composed hierarchical categories, long titles, or build/source labels can
+        // exceed that and fail to save, so widen them to the unbounded text type.
+        // Failures are ignored: the column may already be the wide type, or the
+        // provider may not need this.
+        foreach (var (table, column) in WidenedFreeTextColumns)
+        {
+            var statement = WidenColumnStatement(provider, table, column);
+            if (statement is null)
+                continue;
+
+            try
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = statement;
+                await command.ExecuteNonQueryAsync();
+            }
+            catch
+            {
+            }
+        }
     }
+
+    private static readonly (string Table, string Column)[] WidenedFreeTextColumns =
+    [
+        ("Requirements", "Category"),
+        ("Requirements", "Title"),
+        ("Requirements", "Source"),
+        ("TestCases", "Title"),
+        ("TestRuns", "ExecutedBy"),
+        ("TestRuns", "BuildOrVersion"),
+    ];
+
+    private static string? WidenColumnStatement(DbProvider provider, string table, string column) => provider switch
+    {
+        DbProvider.MySql or DbProvider.MariaDb => $"ALTER TABLE {table} MODIFY {column} {TextType(provider)} NOT NULL",
+        DbProvider.SqlServer => $"ALTER TABLE {table} ALTER COLUMN {column} {TextType(provider)} NOT NULL",
+        DbProvider.PostgreSql => $"ALTER TABLE {table} ALTER COLUMN {column} TYPE {TextType(provider)}",
+        DbProvider.Sqlite => null,
+        _ => null
+    };
 
     private static IEnumerable<string> BuildStatements(DbProvider provider)
     {
@@ -66,12 +108,12 @@ public static class DatabaseSchemaInitializer
         yield return CreateTable(provider, "Requirements", $@"
     Id {guid} NOT NULL PRIMARY KEY,
     Code VARCHAR(64) NOT NULL,
-    Title VARCHAR(255) NOT NULL,
+    Title {text} NOT NULL,
     Description {text} NOT NULL,
-    Category VARCHAR(128) NOT NULL,
+    Category {text} NOT NULL,
     Priority INT NOT NULL,
     Status INT NOT NULL,
-    Source VARCHAR(255) NOT NULL,
+    Source {text} NOT NULL,
     ParentId {guid} NULL,
     CreatedUtc {dateTime} NOT NULL,
     ModifiedUtc {dateTime} NOT NULL");
@@ -80,7 +122,7 @@ public static class DatabaseSchemaInitializer
     Id {guid} NOT NULL PRIMARY KEY,
     RequirementId {guid} NOT NULL,
     Code VARCHAR(64) NOT NULL,
-    Title VARCHAR(255) NOT NULL,
+    Title {text} NOT NULL,
     Preconditions {text} NOT NULL,
     ExpectedResult {text} NOT NULL");
 
@@ -95,9 +137,9 @@ public static class DatabaseSchemaInitializer
     TestCaseId {guid} NOT NULL,
     Status INT NOT NULL,
     ExecutedUtc {dateTime} NOT NULL,
-    ExecutedBy VARCHAR(255) NOT NULL,
+    ExecutedBy {text} NOT NULL,
     Notes {text} NOT NULL,
-    BuildOrVersion VARCHAR(128) NOT NULL");
+    BuildOrVersion {text} NOT NULL");
     }
 
     private static string CreateTable(DbProvider provider, string tableName, string columns)

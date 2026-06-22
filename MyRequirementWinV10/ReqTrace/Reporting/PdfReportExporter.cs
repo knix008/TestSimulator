@@ -1,6 +1,7 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using ReqTrace.Localization;
 using ReqTrace.Models;
 
 namespace ReqTrace.Reporting;
@@ -11,27 +12,32 @@ public class PdfReportExporter : IReportExporter
 
     public void Export(TraceabilityReportData data, string outputFilePath)
     {
-        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+        QuestPDF.Settings.License = LicenseType.Community;
 
         Document.Create(container =>
         {
             container.Page(page =>
             {
-                page.Size(PageSizes.A4);
-                page.Margin(30);
-                page.DefaultTextStyle(x => x.FontSize(9));
+                page.Size(PageSizes.A4.Landscape());
+                page.Margin(20);
+                page.DefaultTextStyle(x => x.FontSize(7));
 
                 page.Header().Column(col =>
                 {
-                    col.Item().Text($"{data.ProjectName} — Traceability Report").FontSize(18).Bold();
-                    col.Item().Text($"Generated: {data.GeneratedUtc.ToLocalTime():yyyy-MM-dd HH:mm}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                    col.Item().Text($"{data.ProjectName} — {Loc.T("Dlg_ExportReport")}").FontSize(14).Bold();
+                    col.Item().Text(Loc.T("Export_GeneratedAt", data.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")))
+                        .FontSize(8).FontColor(Colors.Grey.Darken1);
                 });
 
                 page.Content().Column(col =>
                 {
                     col.Spacing(10);
                     col.Item().Element(c => ComposeSummary(c, data));
-                    col.Item().Element(c => ComposeMatrix(c, data));
+                    col.Item().Element(c => ComposeRequirements(c, data));
+                    col.Item().Element(c => ComposeTestCases(c, data));
+                    col.Item().Element(c => ComposeTraceability(c, data));
+                    col.Item().Element(c => ComposeTestCaseSteps(c, data));
+                    col.Item().Element(c => ComposeCategories(c, data));
                 });
 
                 page.Footer().AlignCenter().Text(x =>
@@ -44,77 +50,156 @@ public class PdfReportExporter : IReportExporter
         }).GeneratePdf(outputFilePath);
     }
 
-    private static void ComposeSummary(QuestPDF.Infrastructure.IContainer container, TraceabilityReportData data)
+    private static void ComposeSummary(IContainer container, TraceabilityReportData data)
     {
         var s = data.Summary;
         container.Column(col =>
         {
-            col.Item().Text("Summary").FontSize(13).Bold();
+            col.Item().Text(Loc.T("Export_Section_Summary")).FontSize(11).Bold();
             col.Item().Row(row =>
             {
-                row.RelativeItem().Element(c => StatBox(c, "Requirements", s.TotalRequirements.ToString(), Colors.Blue.Lighten4));
-                row.RelativeItem().Element(c => StatBox(c, "Test Cases", s.TotalTestCases.ToString(), Colors.Blue.Lighten4));
-                row.RelativeItem().Element(c => StatBox(c, "Coverage", $"{s.CoveragePercent:F0}%", Colors.Blue.Lighten4));
-                row.RelativeItem().Element(c => StatBox(c, "Pass Rate", $"{s.PassRatePercent:F0}%", Colors.Green.Lighten4));
+                row.RelativeItem().Element(c => StatBox(c, Loc.T("Export_TotalRequirements"), s.TotalRequirements.ToString(), Colors.Blue.Lighten4));
+                row.RelativeItem().Element(c => StatBox(c, Loc.T("Export_TotalTestCases"), s.TotalTestCases.ToString(), Colors.Blue.Lighten4));
+                row.RelativeItem().Element(c => StatBox(c, Loc.T("Export_CoveragePercent"), $"{s.CoveragePercent:F0}%", Colors.Blue.Lighten4));
+                row.RelativeItem().Element(c => StatBox(c, Loc.T("Export_PassRatePercent"), $"{s.PassRatePercent:F0}%", Colors.Green.Lighten4));
             });
             col.Item().Row(row =>
             {
-                row.RelativeItem().Element(c => StatBox(c, "Pass", s.PassCount.ToString(), Colors.Green.Lighten3));
-                row.RelativeItem().Element(c => StatBox(c, "Fail", s.FailCount.ToString(), Colors.Red.Lighten3));
-                row.RelativeItem().Element(c => StatBox(c, "Blocked", s.BlockedCount.ToString(), Colors.Orange.Lighten3));
-                row.RelativeItem().Element(c => StatBox(c, "Not Run", s.NotRunCount.ToString(), Colors.Grey.Lighten3));
+                row.RelativeItem().Element(c => StatBox(c, Loc.Enum(TestRunStatus.Pass), s.PassCount.ToString(), Colors.Green.Lighten3));
+                row.RelativeItem().Element(c => StatBox(c, Loc.Enum(TestRunStatus.Fail), s.FailCount.ToString(), Colors.Red.Lighten3));
+                row.RelativeItem().Element(c => StatBox(c, Loc.Enum(TestRunStatus.Blocked), s.BlockedCount.ToString(), Colors.Orange.Lighten3));
+                row.RelativeItem().Element(c => StatBox(c, Loc.Enum(TestRunStatus.NotRun), s.NotRunCount.ToString(), Colors.Grey.Lighten3));
             });
         });
     }
 
-    private static void StatBox(QuestPDF.Infrastructure.IContainer container, string label, string value, string color)
+    private static void StatBox(IContainer container, string label, string value, string color)
     {
-        container.Border(1).BorderColor(Colors.Grey.Lighten2).Background(color).Padding(6).Column(col =>
+        container.Border(1).BorderColor(Colors.Grey.Lighten2).Background(color).Padding(4).Column(col =>
         {
-            col.Item().Text(label).FontSize(8).FontColor(Colors.Grey.Darken2);
-            col.Item().Text(value).FontSize(14).Bold();
+            col.Item().Text(label).FontSize(6).FontColor(Colors.Grey.Darken2);
+            col.Item().Text(value).FontSize(10).Bold();
         });
     }
 
-    private static void ComposeMatrix(QuestPDF.Infrastructure.IContainer container, TraceabilityReportData data)
+    private static void ComposeRequirements(IContainer container, TraceabilityReportData data) =>
+        ComposeDataTable(
+            container,
+            Loc.T("Export_Section_Requirements"),
+            ReportExportColumns.RequirementHeaders(),
+            data.Requirements.Select(ReportExportColumns.RequirementValues),
+            Array.IndexOf(ReportExportColumns.RequirementHeaderKeys, "Col_TestStatus"),
+            rowIndex => data.Requirements[rowIndex].AggregateTestStatus);
+
+    private static void ComposeTestCases(IContainer container, TraceabilityReportData data) =>
+        ComposeDataTable(
+            container,
+            Loc.T("Export_Section_TestCases"),
+            ReportExportColumns.TestCaseHeaders(),
+            data.TestCases.Select(ReportExportColumns.TestCaseValues),
+            Array.IndexOf(ReportExportColumns.TestCaseHeaderKeys, "Col_LatestStatus"),
+            rowIndex => data.TestCases[rowIndex].LatestStatusValue);
+
+    private static void ComposeTraceability(IContainer container, TraceabilityReportData data) =>
+        ComposeDataTable(
+            container,
+            Loc.T("Export_Section_Traceability"),
+            ReportExportColumns.TraceabilityHeaders(),
+            data.TraceabilityMatrix.Select(ReportExportColumns.TraceabilityValues),
+            Array.IndexOf(ReportExportColumns.TraceabilityHeaderKeys, "Col_LatestStatus"),
+            rowIndex => data.TraceabilityMatrix[rowIndex].LatestStatusValue);
+
+    private static void ComposeTestCaseSteps(IContainer container, TraceabilityReportData data) =>
+        ComposeDataTable(
+            container,
+            Loc.T("Export_Section_TestCaseSteps"),
+            ReportExportColumns.TestCaseStepHeaders(),
+            data.TestCaseSteps.Select(ReportExportColumns.TestCaseStepValues),
+            statusColumnIndex: -1,
+            statusSelector: null);
+
+    private static void ComposeCategories(IContainer container, TraceabilityReportData data)
     {
         container.Column(col =>
         {
-            col.Item().Text("Traceability Matrix").FontSize(13).Bold();
+            col.Item().Text(Loc.T("Export_Section_ByCategory")).FontSize(11).Bold();
             col.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
                 {
-                    columns.RelativeColumn(1.2f);
                     columns.RelativeColumn(2.5f);
-                    columns.RelativeColumn(1.2f);
-                    columns.RelativeColumn(2.5f);
-                    columns.RelativeColumn(1.2f);
-                    columns.RelativeColumn(1.5f);
+                    columns.RelativeColumn(1f);
+                    columns.RelativeColumn(1f);
+                    columns.RelativeColumn(1f);
+                    columns.RelativeColumn(1f);
                 });
 
                 table.Header(header =>
                 {
-                    foreach (var title in new[] { "Req Code", "Req / Test Case", "Category", "Test Case", "Status", "Last Run" })
-                        header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text(title).Bold();
+                    header.Cell().Background(Colors.Grey.Lighten2).Padding(2).Text(Loc.T("Col_Category")).Bold();
+                    header.Cell().Background(Colors.Grey.Lighten2).Padding(2).Text(Loc.T("Export_RequirementsCount")).Bold();
+                    header.Cell().Background(Colors.Grey.Lighten2).Padding(2).Text(Loc.T("Export_TestCasesCount")).Bold();
+                    header.Cell().Background(Colors.Grey.Lighten2).Padding(2).Text(Loc.T("Export_CoveragePercent")).Bold();
+                    header.Cell().Background(Colors.Grey.Lighten2).Padding(2).Text(Loc.T("Export_PassRatePercent")).Bold();
                 });
 
-                foreach (var row in data.Rows)
+                foreach (var cat in data.Categories)
                 {
-                    var bg = row.LatestRunStatus switch
-                    {
-                        TestRunStatus.Pass => Colors.Green.Lighten4,
-                        TestRunStatus.Fail => Colors.Red.Lighten4,
-                        TestRunStatus.Blocked => Colors.Orange.Lighten4,
-                        _ => Colors.White
-                    };
+                    table.Cell().Padding(2).Text(cat.Category);
+                    table.Cell().Padding(2).Text(cat.RequirementCount.ToString());
+                    table.Cell().Padding(2).Text(cat.TestCaseCount.ToString());
+                    table.Cell().Padding(2).Text($"{cat.CoveragePercent:F1}%");
+                    table.Cell().Padding(2).Text($"{cat.PassRatePercent:F1}%");
+                }
+            });
+        });
+    }
 
-                    table.Cell().Padding(3).Text(row.RequirementCode);
-                    table.Cell().Padding(3).Text(row.RequirementTitle);
-                    table.Cell().Padding(3).Text(row.Category);
-                    table.Cell().Padding(3).Text(string.IsNullOrEmpty(row.TestCaseCode) ? "(no test case)" : $"{row.TestCaseCode} - {row.TestCaseTitle}");
-                    table.Cell().Background(bg).Padding(3).Text(row.LatestRunStatus.ToString());
-                    table.Cell().Padding(3).Text(row.LatestRunDate.HasValue ? row.LatestRunDate.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-");
+    private static void ComposeDataTable(
+        IContainer container,
+        string title,
+        IReadOnlyList<string> headers,
+        IEnumerable<string[]> rows,
+        int statusColumnIndex,
+        Func<int, TestRunStatus>? statusSelector)
+    {
+        var rowList = rows.ToList();
+        container.Column(col =>
+        {
+            col.Item().Text(title).FontSize(11).Bold();
+            col.Item().Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    foreach (var _ in headers)
+                        columns.RelativeColumn();
+                });
+
+                table.Header(header =>
+                {
+                    foreach (var headerTitle in headers)
+                        header.Cell().Background(Colors.Grey.Lighten2).Padding(2).Text(headerTitle).Bold().FontSize(6);
+                });
+
+                for (var rowIndex = 0; rowIndex < rowList.Count; rowIndex++)
+                {
+                    var values = rowList[rowIndex];
+                    for (var columnIndex = 0; columnIndex < values.Length; columnIndex++)
+                    {
+                        var value = values[columnIndex];
+                        if (statusSelector is not null && columnIndex == statusColumnIndex)
+                        {
+                            table.Cell().Element(c => c
+                                .Background(ReportExportStyling.ToPdfColor(statusSelector(rowIndex)))
+                                .Padding(2)
+                                .Text(value)
+                                .FontSize(6));
+                        }
+                        else
+                        {
+                            table.Cell().Padding(2).Text(value).FontSize(6);
+                        }
+                    }
                 }
             });
         });

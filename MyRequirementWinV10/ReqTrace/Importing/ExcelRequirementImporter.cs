@@ -51,7 +51,14 @@ public static class ExcelRequirementImporter
         return result;
     }
 
-    public static ImportResult Import(string filePath, string sheetName, int headerRowNumber, ColumnMapping mapping, IProgress<int>? progress = null)
+    public static ImportResult Import(
+        string filePath,
+        string sheetName,
+        int headerRowNumber,
+        ColumnMapping mapping,
+        IProgress<int>? progress = null,
+        IEnumerable<string>? reservedCodes = null,
+        IEnumerable<string>? reservedTestCaseCodes = null)
     {
         var result = new ImportResult();
         using var workbook = OpenWorkbook(filePath);
@@ -61,7 +68,12 @@ public static class ExcelRequirementImporter
         var totalRows = Math.Max(1, lastRow - headerRowNumber);
 
         var codeToParentCode = new Dictionary<Requirement, string>();
-        var sequence = 1;
+        var (usedCodes, sequence) = RequirementCodeAllocator.CreateState(reservedCodes);
+        var (testCaseUsedCodes, testCaseNextSequence) = TestCaseCodeAllocator.CreateState(reservedTestCaseCodes);
+        var headers = ReadHeaderRow(sheet, headerRowNumber);
+        var allColumnIndexes = Enumerable.Range(0, lastCol).ToList();
+        var hierarchyColumns = SpreadsheetForwardFill.GetHierarchyColumnIndexes(allColumnIndexes, mapping, headers);
+        var lastHierarchyValues = new Dictionary<int, string>();
 
         progress?.Report(0);
 
@@ -71,10 +83,18 @@ public static class ExcelRequirementImporter
 
             var rowValues = ReadRowValues(sheet, r, lastCol);
 
-            if (rowValues.All(string.IsNullOrWhiteSpace))
+            if (SpreadsheetForwardFill.IsBlankRawRow(rowValues))
                 continue;
 
-            result.RowsProcessed++;
+            SpreadsheetForwardFill.UpdateHierarchyState(rowValues, hierarchyColumns, lastHierarchyValues);
+
+            if (!SpreadsheetForwardFill.HasRequirementContent(rowValues, allColumnIndexes, hierarchyColumns, mapping))
+            {
+                if (SpreadsheetForwardFill.IsHierarchyOnlyRow(rowValues, allColumnIndexes, hierarchyColumns, mapping))
+                    result.RowsSkipped++;
+
+                continue;
+            }
 
             var title = GetValue(rowValues, mapping.TitleColumn);
             if (string.IsNullOrWhiteSpace(title))
@@ -82,16 +102,24 @@ public static class ExcelRequirementImporter
 
             if (string.IsNullOrWhiteSpace(title))
             {
+                if (SpreadsheetForwardFill.IsHierarchyOnlyRow(rowValues, allColumnIndexes, hierarchyColumns, mapping))
+                {
+                    result.RowsSkipped++;
+                    continue;
+                }
+
                 result.Warnings.Add($"Row {r}: skipped — missing Title.");
                 result.RowsSkipped++;
                 continue;
             }
 
+            result.RowsProcessed++;
+
             var code = GetValue(rowValues, mapping.CodeColumn);
             if (string.IsNullOrWhiteSpace(code))
             {
                 if (mapping.GenerateCodeIfMissing)
-                    code = $"REQ-{sequence:D3}";
+                    code = RequirementCodeAllocator.AllocateNext(usedCodes, ref sequence);
                 else
                 {
                     result.Warnings.Add($"Row {r}: skipped — missing Code.");
@@ -99,14 +127,33 @@ public static class ExcelRequirementImporter
                     continue;
                 }
             }
-            sequence++;
+            else if (!RequirementCodeAllocator.TryRegisterCode(code, usedCodes, ref sequence, out code))
+            {
+                if (mapping.GenerateCodeIfMissing)
+                {
+                    var originalCode = code;
+                    code = RequirementCodeAllocator.AllocateNext(usedCodes, ref sequence);
+                    result.Warnings.Add($"Row {r}: code '{originalCode}' duplicated — reassigned to '{code}'.");
+                }
+                else
+                {
+                    result.Warnings.Add($"Row {r}: skipped — duplicate code '{code}'.");
+                    result.RowsSkipped++;
+                    continue;
+                }
+            }
 
             var requirement = new Requirement
             {
                 Code = code.Trim(),
                 Title = title.Trim(),
                 Description = GetValue(rowValues, mapping.DescriptionColumn),
-                Category = GetValue(rowValues, mapping.CategoryColumn),
+                Category = RequirementCategoryComposer.ComposeFromHierarchy(
+                    rowValues,
+                    allColumnIndexes,
+                    hierarchyColumns,
+                    lastHierarchyValues,
+                    mapping.CategoryColumn),
                 Source = string.IsNullOrWhiteSpace(GetValue(rowValues, mapping.SourceColumn))
                     ? Path.GetFileName(filePath)
                     : GetValue(rowValues, mapping.SourceColumn)
@@ -115,13 +162,14 @@ public static class ExcelRequirementImporter
             requirement.Priority = ParsePriorityOrDefault(GetValue(rowValues, mapping.PriorityColumn), Priority.Medium, r, result.Warnings);
             requirement.Status = ParseStatusOrDefault(GetValue(rowValues, mapping.StatusColumn), RequirementStatus.Draft, r, result.Warnings);
 
-            var parentCode = GetValue(rowValues, mapping.ParentCodeColumn);
+            var parentCode = SpreadsheetForwardFill.GetEffectiveValue(
+                rowValues, mapping.ParentCodeColumn, hierarchyColumns, lastHierarchyValues);
             if (!string.IsNullOrWhiteSpace(parentCode))
                 codeToParentCode[requirement] = parentCode.Trim();
 
             if (mapping.GenerateTestCases)
             {
-                var generated = TestCaseGenerator.Generate(requirement);
+                var generated = TestCaseGenerator.Generate(requirement, testCaseUsedCodes, ref testCaseNextSequence);
                 foreach (var tc in generated)
                     tc.RequirementId = requirement.Id;
                 requirement.TestCases.AddRange(generated);
@@ -130,10 +178,10 @@ public static class ExcelRequirementImporter
             result.Requirements.Add(requirement);
         }
 
+        var requirementsByCode = result.Requirements.ToDictionary(r => r.Code, StringComparer.OrdinalIgnoreCase);
         foreach (var (requirement, parentCode) in codeToParentCode)
         {
-            var parent = result.Requirements.FirstOrDefault(r => string.Equals(r.Code, parentCode, StringComparison.OrdinalIgnoreCase));
-            if (parent is not null)
+            if (requirementsByCode.TryGetValue(parentCode, out var parent))
                 requirement.ParentId = parent.Id;
             else
                 result.Warnings.Add($"Requirement '{requirement.Code}': parent code '{parentCode}' not found among imported rows.");
