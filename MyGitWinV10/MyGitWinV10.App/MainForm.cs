@@ -1943,17 +1943,28 @@ public partial class MainForm : Form
 
         try
         {
-            GitWorkflowService.Stage(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+            Repository repo = _gitService.Repo;
+            var before = GitWorkflowService.CreateStatusSnapshot(repo, tag.RelativePath, tag.IsDirectory);
+            GitWorkflowService.Stage(repo, tag.RelativePath, tag.IsDirectory);
+            IReadOnlyList<GitStatusEntry> stagedEntries = GitWorkflowService.GetNewlyStagedEntries(
+                before,
+                repo,
+                tag.RelativePath,
+                tag.IsDirectory);
+
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
                 ? "Staged all changes"
                 : $"Staged {tag.RelativePath}";
             _ = RefreshFileTreeStatusAsync();
-            GitOperationNotifier.ShowSuccess(
-                this,
-                "Git Add Complete",
-                "The selected changes were staged successfully.",
-                new OperationDetail("Path", FormatGitPathScope(tag.RelativePath)),
-                new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+
+            if (stagedEntries.Count == 0)
+            {
+                GitOperationNotifier.ShowInfo(this, "Git Add", "No changes were staged.");
+                return;
+            }
+
+            using var dialog = new GitAddResultDialog(stagedEntries, before, FormatGitPathScope(tag.RelativePath));
+            dialog.ShowDialog(this);
         }
         catch (Exception ex)
         {

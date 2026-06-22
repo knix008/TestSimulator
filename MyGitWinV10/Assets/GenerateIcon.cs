@@ -187,7 +187,7 @@ static void GenerateFileStatusIcons(string directory)
         ("Folder", true, null, null),
         ("FolderChanged", true, Color.FromArgb(37, 99, 235), null),
         ("File", false, plain, null),
-        ("FileUntracked", false, Color.FromArgb(5, 150, 105), "?"),
+        ("FileUntracked", false, Color.FromArgb(5, 150, 105), "U"),
         ("FileModified", false, Color.FromArgb(37, 99, 235), "M"),
         ("FileDeleted", false, Color.FromArgb(220, 38, 38), "D"),
         ("FileAdded", false, Color.FromArgb(5, 150, 105), "A"),

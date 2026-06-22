@@ -38,7 +38,7 @@ public sealed class PathGitStatus
             {
                 return WorkTree switch
                 {
-                    "Untracked" => "?",
+                    "Untracked" => "U",
                     "Modified" => "M",
                     "Deleted" => "D",
                     "Renamed" => "R",
