@@ -100,6 +100,12 @@ public static class Localization
         ["Column.ChangedFiles.Status"] = ("상태", "Status"),
         ["Column.ChangedFiles.Status.Tip"] = ("변경 종류입니다 (추가, 수정, 삭제, 이름변경 등).", "Kind of change (Added, Modified, Deleted, Renamed, etc.)."),
 
+        ["Menu.ChangedFiles.OpenExternal"] = ("외부 뷰어로 보기", "Open in External Viewer"),
+        ["Menu.ChangedFiles.OpenExternal.Tip"] = ("환경설정에 지정한 외부 Diff 도구로 선택한 파일을 엽니다.", "Open the selected file in the external diff tool configured in Preferences."),
+        ["Menu.ChangedFiles.ExternalNotConfigured"] = ("설정안됨", "not configured"),
+        ["Menu.ChangedFiles.CopyPath"] = ("경로 복사", "Copy Path"),
+        ["Menu.ChangedFiles.CopyPath.Tip"] = ("선택한 파일 경로를 클립보드에 복사합니다.", "Copy the selected file path to the clipboard."),
+
         ["Column.Graph.Graph"] = ("그래프", "Graph"),
         ["Column.Graph.Graph.Tip"] = ("커밋이 레인 사이에서 어떻게 연결되는지 보여주는 브랜치/머지 그래프입니다.", "Branch and merge graph showing how commits connect across lanes."),
         ["Column.Graph.Message"] = ("메시지", "Message"),

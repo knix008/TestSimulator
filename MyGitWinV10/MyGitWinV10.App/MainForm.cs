@@ -236,6 +236,7 @@ public partial class MainForm : Form
             (copyMessageContextMenuItem, IconFactory.Message(), "Copy Message"),
             (exportCommitContextMenuItem, IconFactory.Folder(), "Export to Folder..."));
         ConfigureContextMenu(changedFilesContextMenu,
+            (openExternalDiffContextMenuItem, IconFactory.Diff(), "Open in External Viewer"),
             (copyFilePathContextMenuItem, IconFactory.File(), "Copy Path"));
         ConfigureContextMenu(diffContextMenu,
             (diffCopyContextMenuItem, IconFactory.Copy(), "Copy"),
@@ -524,6 +525,11 @@ public partial class MainForm : Form
         copyShaContextMenuItem.Text = Localization.T("Menu.CommitGraph.CopySha");
         copyMessageContextMenuItem.Text = Localization.T("Menu.CommitGraph.CopyMessage");
         exportCommitContextMenuItem.Text = Localization.T("Menu.CommitGraph.ExportToFolder");
+
+        UpdateOpenExternalDiffMenuItemText();
+        copyFilePathContextMenuItem.Text = Localization.T("Menu.ChangedFiles.CopyPath");
+        copyFilePathContextMenuItem.ToolTipText = Localization.T("Menu.ChangedFiles.CopyPath.Tip");
+        openExternalDiffContextMenuItem.ToolTipText = Localization.T("Menu.ChangedFiles.OpenExternal.Tip");
 
         repoFilesListView.NameColumnText = Localization.T("Column.RepoFiles.Name");
         repoFilesListView.StatusColumnText = Localization.T("Column.RepoFiles.Status");
@@ -2379,6 +2385,29 @@ public partial class MainForm : Form
         }
     }
 
+    private void ChangedFilesContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        UpdateOpenExternalDiffMenuItemText();
+
+        bool hasFile = GetSelectedChangedFilePath() is not null;
+        bool canOpenExternal = hasFile
+            && _currentCommit is not null
+            && _gitService.Repo is not null
+            && ExternalDiffToolService.IsConfigured(_settings);
+
+        openExternalDiffContextMenuItem.Enabled = canOpenExternal;
+        copyFilePathContextMenuItem.Enabled = hasFile;
+    }
+
+    private void UpdateOpenExternalDiffMenuItemText()
+    {
+        string viewer = ExternalDiffToolService.IsConfigured(_settings)
+            ? ExternalDiffToolService.GetDisplayName(_settings)
+            : Localization.T("Menu.ChangedFiles.ExternalNotConfigured");
+        openExternalDiffContextMenuItem.Text =
+            $"{Localization.T("Menu.ChangedFiles.OpenExternal")} ({viewer})";
+    }
+
     private void CopyFilePathContextMenuItem_Click(object? sender, EventArgs e)
     {
         if (GetSelectedChangedFilePath() is { } path)
@@ -2387,12 +2416,18 @@ public partial class MainForm : Form
         }
     }
 
+    private void OpenExternalDiffContextMenuItem_Click(object? sender, EventArgs e) =>
+        TryOpenSelectedChangedFileInExternalDiff();
+
     private void ChangedFilesListView_SelectedIndexChanged(object? sender, EventArgs e)
     {
         _ = LoadSelectedFileDiffAsync();
     }
 
-    private void ChangedFilesListView_MouseDoubleClick(object? sender, MouseEventArgs e)
+    private void ChangedFilesListView_MouseDoubleClick(object? sender, MouseEventArgs e) =>
+        TryOpenSelectedChangedFileInExternalDiff();
+
+    private void TryOpenSelectedChangedFileInExternalDiff()
     {
         if (GetSelectedChangedFilePath() is not { } path
             || _currentCommit is null

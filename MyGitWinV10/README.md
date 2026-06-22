@@ -73,19 +73,27 @@ dotnet run --project MyGitWinV10.App
 
 ### Build the installer (MSI)
 
-The installer publishes the app (`win-x64`, framework-dependent) and packages it with WiX Toolset v6. A Release publish automatically triggers the installer build via the `BuildInstallerOnRelease` MSBuild target unless `-p:SkipInstaller=true` is passed.
+The installer publishes the app (`win-x64`, framework-dependent) and packages it with WiX Toolset v6. A **Release build** of the app automatically triggers the installer via the `BuildInstallerOnRelease` MSBuild target unless `-p:SkipInstaller=true` is passed.
 
 ```powershell
-dotnet publish MyGitWinV10.App -c Release -r win-x64 --self-contained false
+dotnet build MyGitWinV10.App/MyGitWinV10.App.csproj -c Release
 ```
 
-Or build the installer project directly (after a Release publish already exists):
+Or publish explicitly:
 
 ```powershell
-dotnet build installer/MyGitWinV10.Installer.wixproj -c Release
+dotnet publish MyGitWinV10.App/MyGitWinV10.App.csproj -c Release -r win-x64 --self-contained false
+```
+
+Or build the installer project directly:
+
+```powershell
+dotnet build installer/MyGitWinV10.Installer.wixproj -c Release -p:Platform=x64
 ```
 
 The resulting `MyGitWinV10Setup.msi` is written to `installer/bin/Release/`.
+
+> Close any running MyGit instance before building Release — a locked `MyGitWinV10.App.exe` can block the build.
 
 ## User Documentation
 

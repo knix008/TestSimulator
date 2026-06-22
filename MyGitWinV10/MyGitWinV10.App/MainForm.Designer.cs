@@ -45,6 +45,7 @@ namespace MyGitWinV10.App
             commitMetaLabel = new Label();
             changedFilesListView = new ListView();
             changedFilesContextMenu = new ContextMenuStrip(components);
+            openExternalDiffContextMenuItem = new ToolStripMenuItem();
             copyFilePathContextMenuItem = new ToolStripMenuItem();
             diffTextBox = new RichTextBox();
             diffContextMenu = new ContextMenuStrip(components);
@@ -288,9 +289,17 @@ namespace MyGitWinV10.App
             // 
             // changedFilesContextMenu
             // 
-            changedFilesContextMenu.Items.AddRange(new ToolStripItem[] { copyFilePathContextMenuItem });
+            changedFilesContextMenu.Items.AddRange(new ToolStripItem[] { openExternalDiffContextMenuItem, copyFilePathContextMenuItem });
             changedFilesContextMenu.Name = "changedFilesContextMenu";
             changedFilesContextMenu.Size = new Size(131, 26);
+            changedFilesContextMenu.Opening += ChangedFilesContextMenu_Opening;
+            // 
+            // openExternalDiffContextMenuItem
+            // 
+            openExternalDiffContextMenuItem.Name = "openExternalDiffContextMenuItem";
+            openExternalDiffContextMenuItem.Size = new Size(220, 22);
+            openExternalDiffContextMenuItem.Text = "Open in External Viewer";
+            openExternalDiffContextMenuItem.Click += OpenExternalDiffContextMenuItem_Click;
             // 
             // copyFilePathContextMenuItem
             // 
@@ -1398,6 +1407,7 @@ namespace MyGitWinV10.App
         private ListView changedFilesListView;
         private Label commitMetaLabel;
         private ContextMenuStrip changedFilesContextMenu;
+        private ToolStripMenuItem openExternalDiffContextMenuItem;
         private ToolStripMenuItem copyFilePathContextMenuItem;
         private Panel diffPanel;
         private SectionTitleLabel diffTitleLabel;

@@ -8,6 +8,16 @@ public static class ExternalDiffToolService
     public static bool IsConfigured(AppSettingsStore settings) =>
         !string.IsNullOrWhiteSpace(settings.ExternalDiffToolPath) && File.Exists(settings.ExternalDiffToolPath);
 
+    public static string GetDisplayName(AppSettingsStore settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.ExternalDiffToolPath))
+        {
+            return string.Empty;
+        }
+
+        return Path.GetFileName(settings.ExternalDiffToolPath.Trim());
+    }
+
     public static void Launch(AppSettingsStore settings, Repository repo, Commit commit, string path)
     {
         Tree? oldTree = commit.Parents.FirstOrDefault()?.Tree;

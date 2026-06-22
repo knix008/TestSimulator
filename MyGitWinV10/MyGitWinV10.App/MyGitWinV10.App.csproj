@@ -24,10 +24,15 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
 
-  <!-- Build the MSI installer automatically after a Release publish, unless explicitly skipped. -->
-  <Target Name="BuildInstallerOnRelease" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true'">
+  <!-- Release 빌드 후 MSI 생성 (Visual Studio / dotnet build 포함). WiX 프로젝트가 publish 후 패키징합니다. -->
+  <Target Name="BuildInstallerOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+    <Message Importance="high" Text="Building MSI installer package (WiX)..." />
+    <Exec Command="cmd /c taskkill /IM MyGitWinV10.App.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)\..\installer"
-          Command="dotnet build MyGitWinV10.Installer.wixproj -c Release" />
+          Command="dotnet build MyGitWinV10.Installer.wixproj -c Release -p:Platform=x64" />
+    <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\installer\bin\Release\MyGitWinV10Setup.msi" />
   </Target>
 
 </Project>
