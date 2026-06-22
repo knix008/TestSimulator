@@ -56,6 +56,20 @@ public static class IconFactory
         g.DrawLine(pen, 12.8f, 10.8f, 13.8f, 10.8f);
     }, AccentColor, size);
 
+    public static Image Settings(int size = MenuIconSize) => Create((g, pen, brush) =>
+    {
+        g.DrawEllipse(pen, 5.5f, 5.5f, 5, 5);
+        for (int i = 0; i < 8; i++)
+        {
+            double angle = i * Math.PI / 4;
+            float x1 = 8 + (float)(3.2 * Math.Cos(angle));
+            float y1 = 8 + (float)(3.2 * Math.Sin(angle));
+            float x2 = 8 + (float)(6.5 * Math.Cos(angle));
+            float y2 = 8 + (float)(6.5 * Math.Sin(angle));
+            g.DrawLine(pen, x1, y1, x2, y2);
+        }
+    }, size: size);
+
     public static Image Exit(int size = MenuIconSize) => Create((g, pen, brush) =>
     {
         // Door + arrow — kept inside 3..13 so round pen caps are not clipped.

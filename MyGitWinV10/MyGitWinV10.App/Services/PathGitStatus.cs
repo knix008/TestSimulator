@@ -44,7 +44,8 @@ public sealed class PathGitStatus
                     "Renamed" => "R",
                     "Type Changed" => "T",
                     "Conflicted" => "!",
-                    _ => "~"
+                    // "Mixed" — a folder whose contents have more than one kind of change.
+                    _ => "±"
                 };
             }
 
@@ -70,7 +71,9 @@ public sealed class PathGitStatus
                 {
                     "Untracked" => Color.FromArgb(5, 150, 105),
                     "Deleted" or "Conflicted" => Color.FromArgb(220, 38, 38),
-                    _ => Color.FromArgb(37, 99, 235)
+                    "Modified" or "Renamed" or "Type Changed" => Color.FromArgb(37, 99, 235),
+                    // "Mixed" — matches the amber used for FileMixed in GitFileTreeImageList.
+                    _ => Color.FromArgb(217, 119, 6)
                 };
             }
 

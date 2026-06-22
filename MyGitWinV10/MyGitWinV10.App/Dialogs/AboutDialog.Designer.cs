@@ -20,6 +20,7 @@ namespace MyGitWinV10.App.Dialogs
             titleLabel = new Label();
             versionLabel = new Label();
             descriptionLabel = new Label();
+            copyrightLabel = new Label();
             okButton = new Button();
             SuspendLayout();
             //
@@ -49,13 +50,22 @@ namespace MyGitWinV10.App.Dialogs
             descriptionLabel.Size = new Size(340, 60);
             descriptionLabel.Text = "A Git history, branch, and GitHub Release viewer.\nBrowse commit graphs, inspect diffs, and explore releases.";
             //
+            // copyrightLabel
+            //
+            copyrightLabel.AutoSize = true;
+            copyrightLabel.ForeColor = Color.Gray;
+            copyrightLabel.Location = new Point(22, 158);
+            copyrightLabel.Name = "copyrightLabel";
+            copyrightLabel.Size = new Size(200, 15);
+            copyrightLabel.Text = "Copyright © 2026 SHKWON(knix008@naver.com)";
+            //
             // okButton
             //
             okButton.BackColor = Color.FromArgb(37, 99, 235);
             okButton.DialogResult = DialogResult.OK;
             okButton.FlatStyle = FlatStyle.Flat;
             okButton.ForeColor = Color.White;
-            okButton.Location = new Point(285, 155);
+            okButton.Location = new Point(285, 185);
             okButton.Name = "okButton";
             okButton.Size = new Size(75, 28);
             okButton.TabIndex = 0;
@@ -67,10 +77,11 @@ namespace MyGitWinV10.App.Dialogs
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.FromArgb(250, 250, 251);
-            ClientSize = new Size(380, 200);
+            ClientSize = new Size(380, 230);
             Controls.Add(titleLabel);
             Controls.Add(versionLabel);
             Controls.Add(descriptionLabel);
+            Controls.Add(copyrightLabel);
             Controls.Add(okButton);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -90,6 +101,7 @@ namespace MyGitWinV10.App.Dialogs
         private Label titleLabel;
         private Label versionLabel;
         private Label descriptionLabel;
+        private Label copyrightLabel;
         private Button okButton;
     }
 }

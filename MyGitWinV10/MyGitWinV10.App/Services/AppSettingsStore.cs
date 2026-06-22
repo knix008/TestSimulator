@@ -5,6 +5,12 @@ using System.Text.Json.Serialization;
 
 namespace MyGitWinV10.App.Services;
 
+public enum AppLanguage
+{
+    Korean,
+    English
+}
+
 public sealed class LastSuccessfulSession
 {
     public const string ModeLocal = "local";
@@ -43,6 +49,13 @@ public sealed class AppSettingsStore
     public List<string> RecentCloneUrls { get; set; } = [];
 
     public List<string> CommitCategories { get; set; } = [];
+
+    public string? ExternalDiffToolPath { get; set; }
+
+    // {left} and {right} are substituted with the two temp file paths at launch time.
+    public string ExternalDiffToolArguments { get; set; } = "\"{left}\" \"{right}\"";
+
+    public AppLanguage Language { get; set; } = AppLanguage.Korean;
 
     // PAT is encrypted with Windows DPAPI (current user + machine) before it touches disk —
     // settings.json itself stays plain JSON, so the token must never be written in the clear.

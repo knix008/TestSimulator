@@ -36,7 +36,7 @@ public class CommitGraphView : Panel
     private static readonly SectionTitleTheme CommitHistoryHeaderTheme = SectionTitleTheme.For(SectionTitleKind.CommitHistory);
     private static readonly Color AlternatingRowColor = Color.FromArgb(252, 252, 253);
 
-    private static readonly ColumnHeader[] StaticColumnHeaders =
+    private ColumnHeader[] _headerTemplates =
     [
         new("Graph", "Branch and merge graph showing how commits connect across lanes.", 0, 0),
         new("Message", "Short summary of the commit (first line of the commit message).", 0, DefaultMessageColumnWidth),
@@ -58,9 +58,10 @@ public class CommitGraphView : Panel
     private int _dateColumnX;
     private int _maxLaneIndex;
     private Commit? _selectedCommit;
+    private bool _scrollToTopPending;
     private readonly ToolTip _toolTip = new() { InitialDelay = 300, ReshowDelay = 100, AutoPopDelay = 8000 };
     private string? _activeToolTip;
-    private ColumnHeader[] _columnHeaders = StaticColumnHeaders;
+    private ColumnHeader[] _columnHeaders = [];
 
     private DoubleBufferedPanel? _headerPanel;
     private DoubleBufferedPanel? _bodyPanel;
@@ -143,6 +144,24 @@ public class CommitGraphView : Panel
         }
     }
 
+    /// <summary>Updates the column header titles/tooltips (e.g. for localization) without
+    /// disturbing the user's current column widths.</summary>
+    public void SetColumnHeaderText(IReadOnlyList<(string Title, string ToolTip)> headers)
+    {
+        if (headers.Count != _headerTemplates.Length)
+        {
+            return;
+        }
+
+        for (int i = 0; i < headers.Count; i++)
+        {
+            _headerTemplates[i] = _headerTemplates[i] with { Title = headers[i].Title, ToolTip = headers[i].ToolTip };
+        }
+
+        RecalculateColumnLayout(notifyLayoutChanged: false);
+        _headerPanel?.Invalidate();
+    }
+
     public override ContextMenuStrip? ContextMenuStrip
     {
         get => base.ContextMenuStrip;
@@ -180,9 +199,6 @@ public class CommitGraphView : Panel
             BackColor = BackColor
         };
 
-        Controls.Add(_bodyPanel);
-        Controls.Add(_headerPanel);
-
         _headerPanel.Paint += HeaderPanel_Paint;
         _bodyPanel.Paint += BodyPanel_Paint;
         _bodyPanel.Scroll += BodyPanel_Scroll;
@@ -197,12 +213,24 @@ public class CommitGraphView : Panel
         _bodyPanel.MouseDown += BodyPanel_MouseDown;
         _bodyPanel.MouseClick += BodyPanel_MouseClick;
         _bodyPanel.MouseLeave += BodyPanel_MouseLeave;
+
+        // Body first, header last — see RepositoryFileListView for dock-order rationale.
+        Controls.Add(_bodyPanel);
+        Controls.Add(_headerPanel);
     }
 
     protected override void OnLayout(LayoutEventArgs levent)
     {
         base.OnLayout(levent);
+        RecalculateColumnLayout(notifyLayoutChanged: false);
+        if (_scrollToTopPending && _bodyPanel is not null)
+        {
+            _bodyPanel.AutoScrollPosition = Point.Empty;
+            _scrollToTopPending = false;
+        }
+
         _headerPanel?.Invalidate();
+        _bodyPanel?.Invalidate();
     }
 
     private void BodyPanel_Scroll(object? sender, ScrollEventArgs e)
@@ -210,6 +238,10 @@ public class CommitGraphView : Panel
         if (e.ScrollOrientation == ScrollOrientation.HorizontalScroll)
         {
             _headerPanel?.Invalidate();
+        }
+        else
+        {
+            _bodyPanel?.Invalidate();
         }
     }
 
@@ -241,6 +273,12 @@ public class CommitGraphView : Panel
 
         int requiredGraphWidth = Math.Max(_textColumnX, MinGraphColumnWidth);
         _columnWidths[0] = Math.Max(_columnWidths[0] == 0 ? requiredGraphWidth : _columnWidths[0], requiredGraphWidth);
+        _scrollToTopPending = true;
+        if (_bodyPanel is not null)
+        {
+            _bodyPanel.AutoScrollPosition = Point.Empty;
+        }
+
         RecalculateColumnLayout();
 
         InvalidateView();
@@ -265,7 +303,7 @@ public class CommitGraphView : Panel
         var headers = new ColumnHeader[_columnWidths.Length];
         for (int i = 0; i < _columnWidths.Length; i++)
         {
-            headers[i] = StaticColumnHeaders[i] with { X = x, Width = _columnWidths[i] };
+            headers[i] = _headerTemplates[i] with { X = x, Width = _columnWidths[i] };
             x += _columnWidths[i];
         }
 
@@ -278,7 +316,7 @@ public class CommitGraphView : Panel
 
         if (_bodyPanel is not null)
         {
-            _bodyPanel.AutoScrollMinSize = new Size(x, _rows.Count * RowHeight + 8);
+            _bodyPanel.AutoScrollMinSize = new Size(x, _rows.Count * RowHeight);
         }
 
         if (notifyLayoutChanged)

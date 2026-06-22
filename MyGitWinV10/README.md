@@ -19,9 +19,11 @@ Windows desktop Git client built with WinForms (.NET 8). Browse commit history w
 
 - Commit history with lane-based branch/merge graph
 - Commit metadata, changed files list, and colored unified diff view
-- **Files** panel — working-tree / HEAD file tree with path-filtered commit log
-- File/folder icons reflect Git status (modified, staged, added, deleted, renamed, untracked, conflicted, mixed); hover a node to see the status as a tooltip
+- **Files** panel — tree-structured list (Directory/File + Status columns) for the working tree / HEAD tree, with a path-filtered commit log
+- Status column shows a bold colored badge per file/folder (M/A/D/R/?/!/±); click a directory to expand/collapse it
 - Resizable commit-history columns
+- Diff view defaults to word wrap; right-click for Copy / Word Wrap
+- Double-click a changed file to open it in an external diff tool (if configured in Preferences) instead of the built-in viewer
 - Export a single commit snapshot to a folder
 
 ### Repository tree
@@ -43,6 +45,12 @@ Windows desktop Git client built with WinForms (.NET 8). Browse commit history w
 - **Export Summary** to PDF, Word (.docx), or Markdown
 - Preview before export (stats, charts, recent commits)
 - Charts: commit activity, top contributors, repository overview, commit graph
+
+### Preferences
+
+- **File → Preferences...**
+- **External diff tool** — path + argument template (`{left}`/`{right}` placeholders); double-clicking a changed file opens it there instead of the built-in Diff panel
+- **Language** — Korean (default) or English for the main menu, toolbar, section headings, and the Files/Commit History column headers; switches immediately, no restart needed
 
 ## Requirements
 
@@ -88,9 +96,9 @@ See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface 
 | Path | Description |
 |------|-------------|
 | `MyGitWinV10.App/` | Main WinForms application |
-| `MyGitWinV10.App/Controls/` | Custom UI controls (`CommitGraphView`, icons, section titles) |
-| `MyGitWinV10.App/Services/` | Git operations, graph builder, diff rendering, export, GitHub integration |
-| `MyGitWinV10.App/Dialogs/` | Clone, browse remote, commit, export preview, credentials, about dialogs |
+| `MyGitWinV10.App/Controls/` | Custom UI controls (`CommitGraphView`, `RepositoryFileListView`, icons, section titles) |
+| `MyGitWinV10.App/Services/` | Git operations, graph builder, diff rendering, export, GitHub integration, localization |
+| `MyGitWinV10.App/Dialogs/` | Clone, browse remote, commit, export preview, credentials, preferences, about dialogs |
 | `Assets/` | Application icon (`MyGit.ico`), Files-panel status icons (`FileStatusIcons/`), and the icon generator |
 | `installer/` | WiX Toolset v6 MSI installer project |
 
@@ -100,17 +108,21 @@ See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface 
 |------|------|
 | `MainForm.cs` | Main window layout and event handling |
 | `Controls/CommitGraphView.cs` | Owner-drawn commit graph |
+| `Controls/RepositoryFileListView.cs` | Owner-drawn Files panel tree-list (fixed header + independently-scrolling body, explicit `VScrollBar`; same split-panel architecture as `CommitGraphView`) |
 | `Services/GitRepositoryService.cs` | LibGit2Sharp repository open/clone |
 | `Services/RemoteRepositoryService.cs` | Bare remote cache for Browse Remote |
 | `Services/GitWorkflowService.cs` | Stage, commit, push |
-| `Services/RepositoryFileTreeService.cs` | Files panel tree |
+| `Services/RepositoryFileTreeService.cs` | Files panel tree (in-memory `TreeNode` data model rendered by `RepositoryFileListView`) |
 | `Services/PathCommitHistoryService.cs` | Path-filtered commit history (tree-entry-id diff, not libgit2's path-limited walk — see inline comment for why) |
 | `Services/CommitGraphBuilder.cs` | Lane assignment for the full commit graph; `BuildFlat` for path-filtered history |
 | `Controls/GitFileTreeImageList.cs` | Loads Files-panel status icons from `Assets/FileStatusIcons/` |
 | `Services/CredentialsPrompt.cs` | HTTPS credentials dialog with silent reuse after success |
 | `Services/RepositorySummaryBuilder.cs` | Summary report data and charts |
 | `Services/GitHubReleaseService.cs` | GitHub remote parsing and release list |
+| `Services/ExternalDiffToolService.cs` | Launches the configured external diff tool with the old/new blob content written to temp files |
+| `Services/Localization.cs` | Korean/English string table for the main shell UI |
 | `Services/AppSettingsStore.cs` | User settings persistence |
+| `Dialogs/PreferencesDialog.cs` | External diff tool + language settings |
 
 ## Regenerating the Application Icon
 
@@ -127,7 +139,7 @@ dotnet run --project Assets/GenerateIcon.csproj -- Assets/MyGit.ico
 | User settings | `%AppData%\MyGitWinV10\settings.json` |
 | Remote browse cache | `%LocalAppData%\MyGitWinV10\remote-cache\` |
 
-Settings include recent repositories, last successful session (local or remote browse), recent clone URLs, commit categories, and the last HTTPS username/PAT used for fetch/pull/push.
+Settings include recent repositories, last successful session (local or remote browse), recent clone URLs, commit categories, the last HTTPS username/PAT used for fetch/pull/push, the external diff tool path/arguments, and the UI language (Korean by default).
 
 The PAT is encrypted with Windows DPAPI (current user scope) before it's written to `settings.json` — it's never stored in plain text. A failed fetch/pull/push clears only the "skip the dialog next time" flag, not the stored value, so the credentials dialog reappears pre-filled instead of blank.
 

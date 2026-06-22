@@ -47,6 +47,11 @@ public sealed class GitFileTreeImageList : IDisposable
             TextRenderer.MeasureText("Ag", treeView.Font).Height + 2);
     }
 
+    public void Attach(RepositoryFileListView listView)
+    {
+        listView.Icons = _imageList;
+    }
+
     public int GetImageIndex(bool isDirectory, PathGitStatus? status)
     {
         if (status is null || !status.HasChanges)

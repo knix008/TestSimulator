@@ -15,11 +15,12 @@ MyGit은 Windows용 Git 클라이언트입니다. 커밋 그래프, 변경 파�
 7. [Commit Details / Diff 패널](#commit-details--diff-패널)
 8. [Git 작업 (Add / Commit / Push 등)](#git-작업-add--commit--push-등)
 9. [저장소 요약 내보내기](#저장소-요약-내보내기)
-10. [메뉴 및 도구 모음](#메뉴-및-도구-모음)
-11. [바로 가기 및 컨텍스트 메뉴](#바로-가기-및-컨텍스트-메뉴)
-12. [GitHub Releases](#github-releases)
-13. [설정 및 데이터 저장 위치](#설정-및-데이터-저장-위치)
-14. [문제 해결](#문제-해결)
+10. [환경설정 (Preferences)](#환경설정-preferences)
+11. [메뉴 및 도구 모음](#메뉴-및-도구-모음)
+12. [바로 가기 및 컨텍스트 메뉴](#바로-가기-및-컨텍스트-메뉴)
+13. [GitHub Releases](#github-releases)
+14. [설정 및 데이터 저장 위치](#설정-및-데이터-저장-위치)
+15. [문제 해결](#문제-해결)
 
 ---
 
@@ -161,16 +162,22 @@ GitHub `origin` 원격이 연결된 저장소인 경우, GitHub Release 목록�
 
 ## Files 패널
 
-Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 트리로 표시합니다.
+Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 **"디렉토리/파일"**, **"상태"** 두 컬럼을 가진 트리 구조 목록으로 표시합니다.
 
 | 모드 | 표시 내용 |
 |------|-----------|
 | **로컬 저장소** | 작업 디렉터리 (`.git` 제외) |
 | **Browse Remote / bare** | HEAD 커밋 기준 Git 트리 |
 
+### 트리 탐색
+
+- 디렉터리 행을 **클릭**하면 펼치기/접기가 토글됩니다 (▸ 접힘 / ▾ 펼쳐짐). 자식이 아직 로드되지 않은 폴더는 처음 펼칠 때 지연 로드됩니다.
+- 들여쓰기와 연결선으로 디렉터리/파일의 계층 구조를 표시합니다.
+- **헤더 컬럼 구분선을 드래그**하면 "디렉토리/파일" 컬럼의 너비를 조절할 수 있습니다.
+
 ### 경로별 커밋 로그
 
-추적(tracked) 중인 파일 또는 폴더를 **클릭**하거나 **우클릭 → Show Log** 하면 Commit History 패널이 해당 경로의 커밋만 필터링하여 표시합니다. 제목에 `Commit History — 경로` 형식으로 표시됩니다.
+추적(tracked) 중인 파일 또는 폴더를 **선택**하거나 **우클릭 → Show Log** 하면 Commit History 패널이 해당 경로의 커밋만 필터링하여 표시합니다. 제목에 `Commit History — 경로` 형식으로 표시됩니다.
 
 **우클릭 메뉴 (공통):**
 
@@ -182,9 +189,21 @@ Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 �
 
 로컬 Clone 저장소에서 추가로 표시되는 메뉴는 [Git 작업](#git-작업-add--commit--push-등) 절을 참고하세요.
 
-### 파일/디렉터리 아이콘과 상태 툴팁
+### 아이콘과 상태 컬럼
 
-각 파일·디렉터리 아이콘은 Git 상태에 따라 다르게 표시됩니다 (수정됨, 추가됨, 스테이지됨, 삭제됨, 이름변경, 추적 안 됨, 충돌, 혼합 상태 등). 마우스를 파일/디렉터리 위에 올리면 잠시 후 해당 경로의 Git 상태가 툴팁으로 표시됩니다.
+각 파일·디렉터리 아이콘은 Git 상태에 따라 다르게 표시됩니다. **상태** 컬럼에는 변경 종류를 나타내는 굵은 색상 문자가 표시됩니다:
+
+| 문자 | 의미 | 색상 |
+|------|------|------|
+| `M` | 수정됨 (Modified) | 파란색 |
+| `A` | 추가됨 (Added) | 보라색 |
+| `D` | 삭제됨 (Deleted) | 빨간색 |
+| `R` | 이름변경 (Renamed) | 파란색 |
+| `?` | 추적 안 됨 (Untracked) | 초록색 |
+| `!` | 충돌 (Conflicted) | 빨간색 |
+| `±` | 혼합 상태 — 폴더 내 여러 종류의 변경이 섞여 있음 | 주황색 |
+
+마우스를 파일/디렉터리 위에 올리면 잠시 후 해당 경로의 Git 상태가 툴팁으로 표시됩니다.
 
 ---
 
@@ -241,13 +260,17 @@ Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 �
 
 커밋에서 수정·추가·삭제된 파일 목록입니다. 파일을 선택하면 Diff 패널에 해당 파일의 변경 내용이 표시됩니다.
 
+**더블클릭:** [환경설정](#환경설정-preferences)에서 외부 Diff 도구가 설정되어 있으면, 더블클릭 시 내장 Diff 패널 대신 해당 외부 도구로 비교 화면이 열립니다.
+
 **우클릭:** **Copy Path** — 파일 경로를 클립보드에 복사
 
 ### Diff
 
 - unified diff 형식, 추가/삭제 줄 색상 구분
-- **Diff → Wrap** (`Ctrl+Shift+W`) 또는 도구 모음 **Wrap** — 긴 줄 자동 줄바꿈
+- **기본적으로 자동 줄바꿈(Word Wrap)이 켜져 있습니다**
+- **Diff → Wrap** (`Ctrl+Shift+W`) 또는 도구 모음 **Wrap** — 자동 줄바꿈 토글
 - **Diff → Copy** (`Ctrl+Shift+D`) 또는 도구 모음 **Copy** — diff 텍스트 복사
+- Diff 영역을 **우클릭**하면 **Copy**, **Word Wrap** 토글을 바로 사용할 수 있습니다
 
 ---
 
@@ -370,6 +393,30 @@ Markdown 내보내기 시 차트 PNG는 `{파일명}_charts/` 폴더에 함께 �
 
 ---
 
+## 환경설정 (Preferences)
+
+**File → Preferences...** 메뉴에서 다음 두 가지를 설정할 수 있습니다.
+
+### 외부 Diff 도구
+
+| 항목 | 설명 |
+|------|------|
+| **Tool Path** | 외부 Diff 도구의 실행 파일 경로 (**Browse...** 로 찾아보기) |
+| **Arguments** | 실행 인수 템플릿. `{left}`와 `{right}`는 비교할 두 임시 파일 경로로 자동 치환됩니다. 기본값: `"{left}" "{right}"` |
+
+도구가 설정되어 있으면, Changed Files 목록에서 파일을 **더블클릭**할 때 내장 Diff 패널 대신 해당 외부 도구가 실행되며, 선택한 파일의 변경 전/변경 후 내용이 임시 파일로 전달됩니다. 도구가 설정되어 있지 않으면 평소처럼 내장 Diff 패널이 사용됩니다.
+
+### 언어 (Language)
+
+- **한국어** (기본값) 또는 **English** 중 선택
+- 변경 사항은 재시작 없이 즉시 적용됩니다
+- 적용 범위: 메인 메뉴, 도구 모음 툴팁, 패널 제목(Repository/Files/Commit History 등), Files 패널과 Commit History의 컬럼 헤더, Commit History 우클릭 메뉴
+- 그 외 일부 대화상자 및 컨텍스트 메뉴는 현재 영어로 고정되어 있습니다
+
+설정한 값은 다음 실행 시에도 유지됩니다 ([설정 및 데이터 저장 위치](#설정-및-데이터-저장-위치) 참고).
+
+---
+
 ## 메뉴 및 도구 모음
 
 ### File 메뉴
@@ -380,6 +427,7 @@ Markdown 내보내기 시 차트 PNG는 `{파일명}_charts/` 폴더에 함께 �
 | **Clone...** | `Ctrl+Shift+O` | 원격 저장소 복제 |
 | **Browse Remote...** | `Ctrl+Shift+B` | 원격 히스토리 읽기 전용 탐색 |
 | *(최근 저장소)* | — | 최근 연 로컬 저장소 |
+| **Preferences...** | — | 외부 Diff 도구 및 언어 설정 |
 | **Exit** | `Alt+F4` | 앱 종료 |
 
 ### Repository 메뉴
@@ -440,7 +488,9 @@ Markdown 내보내기 시 차트 PNG는 `{파일명}_charts/` 폴더에 함께 �
 | 경로별 로그 | Files → 파일/폴더 클릭 또는 우클릭 → Show Log |
 | Git Add / Commit / Fetch / Pull / Push / Stash | Files → 우클릭, 또는 Repository → Git 메뉴 (로컬 Clone만) |
 | 커밋 diff 보기 | Changed Files에서 파일 선택 |
+| 외부 Diff 도구로 보기 | Changed Files에서 파일 더블클릭 (도구가 설정된 경우) |
 | 요약 리포트 | Repository → Export Summary |
+| 환경설정 (외부 Diff 도구 / 언어) | File → Preferences... |
 | 프로그램 정보 | Help → About (`F1`) |
 
 ---
@@ -486,7 +536,10 @@ Release 항목을 선택하면 릴리스 이름, 태그, 게시일, 릴리스 �
     "기능추가",
     "기능변경",
     "버그수정"
-  ]
+  ],
+  "ExternalDiffToolPath": "C:\\Program Files\\WinMerge\\WinMergeU.exe",
+  "ExternalDiffToolArguments": "\"{left}\" \"{right}\"",
+  "Language": "Korean"
 }
 ```
 
@@ -498,6 +551,9 @@ Release 항목을 선택하면 릴리스 이름, 태그, 게시일, 릴리스 �
 | `CommitCategories` | Git Commit Category 목록 (최대 30개) |
 | `GitHubUsername` | Git Fetch/Pull/Push에서 마지막으로 사용한 username |
 | `GitHubTokenProtected` | 마지막으로 사용한 PAT — Windows DPAPI(현재 사용자 기준)로 암호화되어 저장 |
+| `ExternalDiffToolPath` | [환경설정](#환경설정-preferences)에서 설정한 외부 Diff 도구 실행 파일 경로 |
+| `ExternalDiffToolArguments` | 외부 Diff 도구 실행 인수 템플릿 (`{left}`/`{right}` 치환) |
+| `Language` | UI 언어 (`Korean` 또는 `English`, 기본값 `Korean`) |
 
 ### 저장하지 않는 정보
 

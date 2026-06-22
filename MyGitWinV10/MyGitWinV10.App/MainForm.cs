@@ -49,6 +49,14 @@ public partial class MainForm : Form
 
     private ToolStripMenuItem repositoryGitMenuItem = null!;
 
+    private ColumnHeader _changedFilesPathColumn = null!;
+    private ColumnHeader _changedFilesStatusColumn = null!;
+
+    // In-memory TreeNode data model for repoFilesListView — never shown as a real TreeView
+    // (RepositoryFileTreeService just needs somewhere to build/store the TreeNode hierarchy;
+    // the ListView renders it with its own indentation and expand/collapse bookkeeping).
+    private readonly TreeView _repoFilesTreeModel = new();
+
     private readonly GitFileTreeImageList _gitFileTreeImages = new();
 
     private RepositoryPathStatusIndex? _fileTreeStatusIndex;
@@ -74,6 +82,9 @@ public partial class MainForm : Form
         ConfigureMenuIcons();
         ConfigureChangedFilesListView();
         ConfigureSectionHeadingToolTips();
+        Localization.SetLanguage(_settings.Language);
+        ApplyLocalizedShellText();
+        Localization.LanguageChanged += ApplyLocalizedShellText;
         graphDetailSplitContainer.FixedPanel = FixedPanel.Panel1;
         mainSplitContainer.SplitterMoved += (_, _) => ApplyPanelLayout();
         mainSplitContainer.Panel2.Resize += (_, _) => ApplyPanelLayout();
@@ -90,10 +101,15 @@ public partial class MainForm : Form
         fileMenuItem.DropDownOpening += (_, _) => RefreshFileRecentMenu();
         FormClosed += (_, _) =>
         {
+            Localization.LanguageChanged -= ApplyLocalizedShellText;
             _gitService.Dispose();
             _gitFileTreeImages.Dispose();
         };
-        _gitFileTreeImages.Attach(repoFilesTreeView);
+        _gitFileTreeImages.Attach(repoFilesListView);
+        repoFilesListView.StatusResolver = node =>
+            node.Tag is RepositoryFileNodeTag tag && !tag.IsPlaceholder
+                ? _fileTreeStatusIndex?.Get(tag.RelativePath, tag.IsDirectory)
+                : null;
         Shown += (_, _) =>
         {
             ApplyPanelLayout();
@@ -181,11 +197,11 @@ public partial class MainForm : Form
         menuStrip.AutoSize = false;
         menuStrip.Height = MenuStripRootIconRenderer.RootMenuHeight;
 
-        ConfigureRootMenu(fileMenuItem);
-        ConfigureRootMenu(repositoryMenuItem);
-        ConfigureRootMenu(historyMenuItem);
-        ConfigureRootMenu(diffMenuItem);
-        ConfigureRootMenu(helpMenuItem);
+        ConfigureRootMenu(fileMenuItem, IconFactory.Folder(IconFactory.RootMenuIconSize));
+        ConfigureRootMenu(repositoryMenuItem, IconFactory.Branch(IconFactory.RootMenuIconSize));
+        ConfigureRootMenu(historyMenuItem, IconFactory.History(IconFactory.RootMenuIconSize));
+        ConfigureRootMenu(diffMenuItem, IconFactory.Diff(IconFactory.RootMenuIconSize));
+        ConfigureRootMenu(helpMenuItem, IconFactory.InfoMenu(IconFactory.RootMenuIconSize));
         ConfigureDropDownMenu(fileMenuItem);
         ConfigureDropDownMenu(repositoryMenuItem);
         ConfigureDropDownMenu(historyMenuItem);
@@ -196,6 +212,7 @@ public partial class MainForm : Form
         ConfigureMenuItem(cloneRepositoryMenuItem, IconFactory.Clone(IconFactory.MenuBarIconSize), "&Clone...", menuBar: true);
         ConfigureMenuItem(browseRemoteRepositoryMenuItem, IconFactory.BrowseRemote(IconFactory.MenuBarIconSize), "Browse &Remote...", menuBar: true);
         ConfigureMenuItem(exitMenuItem, IconFactory.Exit(IconFactory.MenuBarIconSize), "E&xit", menuBar: true);
+        ConfigureMenuItem(preferencesMenuItem, IconFactory.Settings(IconFactory.MenuBarIconSize), "&Preferences...", menuBar: true);
         ConfigureMenuItem(refreshTreeMenuItem, IconFactory.RefreshTree(IconFactory.MenuBarIconSize), "Refresh &Tree", menuBar: true);
         ConfigureMenuItem(barExportSummaryWordMenuItem, IconFactory.FileWord(IconFactory.MenuBarIconSize), "Export to &Word", menuBar: true);
         ConfigureMenuItem(barExportSummaryMarkdownMenuItem, IconFactory.FileMarkdown(IconFactory.MenuBarIconSize), "Export to &Markdown", menuBar: true);
@@ -220,6 +237,9 @@ public partial class MainForm : Form
             (exportCommitContextMenuItem, IconFactory.Folder(), "Export to Folder..."));
         ConfigureContextMenu(changedFilesContextMenu,
             (copyFilePathContextMenuItem, IconFactory.File(), "Copy Path"));
+        ConfigureContextMenu(diffContextMenu,
+            (diffCopyContextMenuItem, IconFactory.Copy(), "Copy"),
+            (diffWordWrapContextMenuItem, IconFactory.WordWrap(), "Word Wrap"));
         ConfigureContextMenu(repoFilesContextMenu,
             (showFileLogContextMenuItem, IconFactory.History(), "Show Log"),
             (gitAddContextMenuItem, IconFactory.GitAdd(), "Git Add"),
@@ -393,9 +413,9 @@ public partial class MainForm : Form
         item.Margin = Padding.Empty;
     }
 
-    private static void ConfigureRootMenu(ToolStripMenuItem item)
+    private static void ConfigureRootMenu(ToolStripMenuItem item, Image icon)
     {
-        item.Image = null;
+        SetMenuIcon(item, icon);
         item.Font = new Font(item.Font.FontFamily, MenuStripRootIconRenderer.RootMenuFontSize, FontStyle.Regular);
         item.DisplayStyle = ToolStripItemDisplayStyle.Text;
         item.AutoSize = true;
@@ -412,18 +432,19 @@ public partial class MainForm : Form
     private void ConfigureChangedFilesListView()
     {
         ListViewStyles.ApplyTableStyle(changedFilesListView);
-        ListViewHeaderToolTipBehavior.AddColumn(
+        _changedFilesPathColumn = ListViewHeaderToolTipBehavior.AddColumn(
             changedFilesListView,
             "Path",
             280,
             "Relative path of the changed file in the repository.");
-        ListViewHeaderToolTipBehavior.AddColumn(
+        _changedFilesStatusColumn = ListViewHeaderToolTipBehavior.AddColumn(
             changedFilesListView,
             "Status",
             100,
             "Kind of change (Added, Modified, Deleted, Renamed, etc.).");
         ListViewHeaderToolTipBehavior.Attach(changedFilesListView);
     }
+
 
     private void ConfigureSectionHeadingToolTips()
     {
@@ -433,6 +454,93 @@ public partial class MainForm : Form
         toolTip.SetToolTip(filesTitleLabel, "Author, message, and files changed in the selected commit.");
         toolTip.SetToolTip(diffTitleLabel, "Unified diff for the selected changed file.");
         toolTip.SetToolTip(changedFilesTitleLabel, "List of files modified in the selected commit.");
+    }
+
+    // Re-applied whenever the language changes in Preferences — covers the main menu bar,
+    // toolbar tooltips, and section headings. Context menus and dialogs keep their English
+    // text for now; only the primary shell chrome is localized.
+    private void ApplyLocalizedShellText()
+    {
+        fileMenuItem.Text = Localization.T("Menu.File");
+        openRepositoryMenuItem.Text = Localization.T("Menu.File.Open");
+        openRepositoryMenuItem.ToolTipText = Localization.T("Menu.File.Open.Tip");
+        cloneRepositoryMenuItem.Text = Localization.T("Menu.File.Clone");
+        cloneRepositoryMenuItem.ToolTipText = Localization.T("Menu.File.Clone.Tip");
+        browseRemoteRepositoryMenuItem.Text = Localization.T("Menu.File.BrowseRemote");
+        browseRemoteRepositoryMenuItem.ToolTipText = Localization.T("Menu.File.BrowseRemote.Tip");
+        preferencesMenuItem.Text = Localization.T("Menu.File.Preferences");
+        preferencesMenuItem.ToolTipText = Localization.T("Menu.File.Preferences.Tip");
+        exitMenuItem.Text = Localization.T("Menu.File.Exit");
+        exitMenuItem.ToolTipText = Localization.T("Menu.File.Exit.Tip");
+
+        repositoryMenuItem.Text = Localization.T("Menu.Repository");
+        refreshTreeMenuItem.Text = Localization.T("Menu.Repository.RefreshTree");
+        barExportSummaryWordMenuItem.Text = Localization.T("Menu.Repository.ExportWord");
+        barExportSummaryMarkdownMenuItem.Text = Localization.T("Menu.Repository.ExportMarkdown");
+        barExportSummaryPdfMenuItem.Text = Localization.T("Menu.Repository.ExportPdf");
+
+        historyMenuItem.Text = Localization.T("Menu.History");
+        refreshGraphMenuItem.Text = Localization.T("Menu.History.RefreshGraph");
+        copyShaMenuItem.Text = Localization.T("Menu.History.CopySha");
+        copyMessageMenuItem.Text = Localization.T("Menu.History.CopyMessage");
+
+        diffMenuItem.Text = Localization.T("Menu.Diff");
+        copyPathMenuItem.Text = Localization.T("Menu.Diff.CopyPath");
+        wordWrapMenuItem.Text = Localization.T("Menu.Diff.WordWrap");
+        copyDiffMenuItem.Text = Localization.T("Menu.Diff.CopyDiff");
+
+        helpMenuItem.Text = Localization.T("Menu.Help");
+        aboutMenuItem.Text = Localization.T("Menu.Help.About");
+
+        openToolButton.ToolTipText = Localization.T("Toolbar.Open.Tip");
+        cloneToolButton.ToolTipText = Localization.T("Toolbar.Clone.Tip");
+        browseRemoteToolButton.ToolTipText = Localization.T("Toolbar.BrowseRemote.Tip");
+        refreshTreeToolButton.ToolTipText = Localization.T("Toolbar.RefreshTree.Tip");
+        exportSummaryToolButton.ToolTipText = Localization.T("Toolbar.ExportSummary.Tip");
+        refreshGraphToolButton.ToolTipText = Localization.T("Toolbar.RefreshGraph.Tip");
+        copyShaToolButton.ToolTipText = Localization.T("Toolbar.CopySha.Tip");
+        copyMessageToolButton.ToolTipText = Localization.T("Toolbar.CopyMessage.Tip");
+        copyFilePathToolButton.ToolTipText = Localization.T("Toolbar.CopyFilePath.Tip");
+        wordWrapToolButton.ToolTipText = Localization.T("Toolbar.WordWrap.Tip");
+        copyDiffToolButton.ToolTipText = Localization.T("Toolbar.CopyDiff.Tip");
+        infoToolButton.ToolTipText = Localization.T("Toolbar.Info.Tip");
+
+        repoTitleLabel.Text = Localization.T("Section.Repo.Title");
+        toolTip.SetToolTip(repoTitleLabel, Localization.T("Section.Repo.Tip"));
+        repoFilesTitleLabel.Text = Localization.T("Section.RepoFiles.Title");
+        toolTip.SetToolTip(repoFilesTitleLabel, Localization.T("Section.RepoFiles.Tip"));
+        UpdateGraphTitleLabel();
+        toolTip.SetToolTip(graphTitleLabel, Localization.T("Section.Graph.Tip"));
+        filesTitleLabel.Text = Localization.T("Section.Files.Title");
+        toolTip.SetToolTip(filesTitleLabel, Localization.T("Section.Files.Tip"));
+        diffTitleLabel.Text = Localization.T("Section.Diff.Title");
+        toolTip.SetToolTip(diffTitleLabel, Localization.T("Section.Diff.Tip"));
+        changedFilesTitleLabel.Text = Localization.T("Section.ChangedFiles.Title");
+        toolTip.SetToolTip(changedFilesTitleLabel, Localization.T("Section.ChangedFiles.Tip"));
+
+        diffCopyContextMenuItem.Text = Localization.T("Menu.Diff.ContextCopy");
+        diffWordWrapContextMenuItem.Text = Localization.T("Menu.Diff.ContextWordWrap");
+
+        copyShaContextMenuItem.Text = Localization.T("Menu.CommitGraph.CopySha");
+        copyMessageContextMenuItem.Text = Localization.T("Menu.CommitGraph.CopyMessage");
+        exportCommitContextMenuItem.Text = Localization.T("Menu.CommitGraph.ExportToFolder");
+
+        repoFilesListView.NameColumnText = Localization.T("Column.RepoFiles.Name");
+        repoFilesListView.StatusColumnText = Localization.T("Column.RepoFiles.Status");
+
+        _changedFilesPathColumn.Text = Localization.T("Column.ChangedFiles.Path");
+        _changedFilesPathColumn.Tag = Localization.T("Column.ChangedFiles.Path.Tip");
+        _changedFilesStatusColumn.Text = Localization.T("Column.ChangedFiles.Status");
+        _changedFilesStatusColumn.Tag = Localization.T("Column.ChangedFiles.Status.Tip");
+
+        commitGraphView.SetColumnHeaderText(
+        [
+            (Localization.T("Column.Graph.Graph"), Localization.T("Column.Graph.Graph.Tip")),
+            (Localization.T("Column.Graph.Message"), Localization.T("Column.Graph.Message.Tip")),
+            (Localization.T("Column.Graph.Sha"), Localization.T("Column.Graph.Sha.Tip")),
+            (Localization.T("Column.Graph.Author"), Localization.T("Column.Graph.Author.Tip")),
+            (Localization.T("Column.Graph.Date"), Localization.T("Column.Graph.Date.Tip"))
+        ]);
     }
 
     private static string FormatChangeKind(ChangeKind kind) => kind switch
@@ -581,6 +689,12 @@ public partial class MainForm : Form
     }
 
     private void ExitMenuItem_Click(object? sender, EventArgs e) => Close();
+
+    private void PreferencesMenuItem_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new PreferencesDialog(_settings);
+        dialog.ShowDialog(this);
+    }
 
     private void AboutMenuItem_Click(object? sender, EventArgs e)
     {
@@ -858,7 +972,8 @@ public partial class MainForm : Form
         if (_gitService.Repo is null)
         {
             _fileTreeStatusIndex = null;
-            repoFilesTreeView.Nodes.Clear();
+            _repoFilesTreeModel.Nodes.Clear();
+            repoFilesListView.SetRoot(null);
             UpdateGraphTitleLabel();
             return;
         }
@@ -931,13 +1046,14 @@ public partial class MainForm : Form
         try
         {
             BranchTagTreePopulator.Populate(repoTreeView, repo);
-            RepositoryFileTreeService.PopulateRoot(repoFilesTreeView, repo, _gitFileTreeImages, _fileTreeStatusIndex);
-            if (repoFilesTreeView.Nodes.Count == 1 && repoFilesTreeView.Nodes[0].Tag is RepositoryFileNodeTag)
+            RepositoryFileTreeService.PopulateRoot(_repoFilesTreeModel, repo, _gitFileTreeImages, _fileTreeStatusIndex);
+            TreeNode? root = _repoFilesTreeModel.Nodes.Count > 0 ? _repoFilesTreeModel.Nodes[0] : null;
+            if (root?.Tag is RepositoryFileNodeTag)
             {
-                var root = repoFilesTreeView.Nodes[0];
                 RepositoryFileTreeService.LoadChildren(root, repo, _gitFileTreeImages, _fileTreeStatusIndex);
-                root.Expand();
             }
+
+            repoFilesListView.SetRoot(root);
         }
         finally
         {
@@ -1421,14 +1537,15 @@ public partial class MainForm : Form
 
     private void UpdateGraphTitleLabel()
     {
+        string title = Localization.T("Section.Graph.Title");
         if (string.IsNullOrWhiteSpace(_pathHistoryFilter))
         {
-            graphTitleLabel.Text = "Commit History";
+            graphTitleLabel.Text = title;
             return;
         }
 
         string displayPath = string.IsNullOrEmpty(_pathHistoryFilter) ? "(root)" : _pathHistoryFilter;
-        graphTitleLabel.Text = $"Commit History — {displayPath}";
+        graphTitleLabel.Text = $"{title} — {displayPath}";
     }
 
     private void ApplyPathHistoryFilter(string relativePath, bool isDirectory)
@@ -1482,53 +1599,24 @@ public partial class MainForm : Form
         }
     }
 
-    private void RepoFilesTreeView_BeforeExpand(object? sender, TreeViewCancelEventArgs e)
+    private void RepoFilesListView_NodeExpanding(object? sender, TreeNode node)
     {
-        if (_gitService.Repo is null || e.Node is null)
+        if (_gitService.Repo is null)
         {
             return;
         }
 
-        RepositoryFileTreeService.LoadChildren(e.Node, _gitService.Repo, _gitFileTreeImages, _fileTreeStatusIndex);
+        RepositoryFileTreeService.LoadChildren(node, _gitService.Repo, _gitFileTreeImages, _fileTreeStatusIndex);
     }
 
-    private void RepoFilesTreeView_MouseDown(object? sender, MouseEventArgs e)
-    {
-        if (e.Button != MouseButtons.Right)
-        {
-            return;
-        }
-
-        TreeNode? node = repoFilesTreeView.GetNodeAt(e.Location);
-        if (node is not null)
-        {
-            repoFilesTreeView.SelectedNode = node;
-        }
-    }
-
-    private void RepoFilesTreeView_AfterSelect(object? sender, TreeViewEventArgs e)
+    private void RepoFilesListView_SelectedNodeChanged(object? sender, TreeNode? node)
     {
         if (_suppressFileTreePathLog || _gitService.Repo is null)
         {
             return;
         }
 
-        TryApplyPathHistoryFromFileNode(e.Node);
-    }
-
-    private void RepoFilesTreeView_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
-    {
-        if (e.Node is null || e.Button != MouseButtons.Left)
-        {
-            return;
-        }
-
-        bool alreadySelected = repoFilesTreeView.SelectedNode == e.Node;
-        repoFilesTreeView.SelectedNode = e.Node;
-        if (alreadySelected && !_suppressFileTreePathLog && _gitService.Repo is not null)
-        {
-            TryApplyPathHistoryFromFileNode(e.Node);
-        }
+        TryApplyPathHistoryFromFileNode(node);
     }
 
     private void TryApplyPathHistoryFromFileNode(TreeNode? node)
@@ -1547,6 +1635,7 @@ public partial class MainForm : Form
     private void ConfigureRepositoryGitMenu()
     {
         repositoryGitMenuItem = new ToolStripMenuItem("&Git");
+        ConfigureMenuItem(repositoryGitMenuItem, IconFactory.Branch(IconFactory.MenuBarIconSize), "&Git", menuBar: true);
         repositoryGitMenuItem.DropDownOpening += (_, _) => UpdateRepositoryGitMenuState();
 
         AddRepositoryGitMenuItem("Git &Add", IconFactory.GitAdd(), (_, _) => TryGitAdd(RepositoryRootTag), "gitAddContextMenuItem");
@@ -1701,7 +1790,7 @@ public partial class MainForm : Form
 
     private RepositoryFileNodeTag? TryGetGitPathTag()
     {
-        if (repoFilesTreeView.SelectedNode?.Tag is RepositoryFileNodeTag tag && !tag.IsPlaceholder)
+        if (repoFilesListView.SelectedNode?.Tag is RepositoryFileNodeTag tag && !tag.IsPlaceholder)
         {
             return tag;
         }
@@ -2114,11 +2203,11 @@ public partial class MainForm : Form
     }
 
     private void ShowFileLogContextMenuItem_Click(object? sender, EventArgs e) =>
-        TryApplyPathHistoryFromFileNode(repoFilesTreeView.SelectedNode);
+        TryApplyPathHistoryFromFileNode(repoFilesListView.SelectedNode);
 
     private void CopyRepoFilePathContextMenuItem_Click(object? sender, EventArgs e)
     {
-        if (repoFilesTreeView.SelectedNode?.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
+        if (repoFilesListView.SelectedNode?.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
         {
             return;
         }
@@ -2303,6 +2392,26 @@ public partial class MainForm : Form
         _ = LoadSelectedFileDiffAsync();
     }
 
+    private void ChangedFilesListView_MouseDoubleClick(object? sender, MouseEventArgs e)
+    {
+        if (GetSelectedChangedFilePath() is not { } path
+            || _currentCommit is null
+            || _gitService.Repo is null
+            || !ExternalDiffToolService.IsConfigured(_settings))
+        {
+            return;
+        }
+
+        try
+        {
+            ExternalDiffToolService.Launch(_settings, _gitService.Repo, _currentCommit, path);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "External Diff Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     private async Task LoadSelectedFileDiffAsync()
     {
         if (GetSelectedChangedFilePath() is not { } path
@@ -2366,6 +2475,26 @@ public partial class MainForm : Form
         if (wordWrapMenuItem.Checked != enabled)
         {
             wordWrapMenuItem.Checked = enabled;
+        }
+
+        if (diffWordWrapContextMenuItem.Checked != enabled)
+        {
+            diffWordWrapContextMenuItem.Checked = enabled;
+        }
+    }
+
+    private void DiffWordWrapContextMenuItem_CheckedChanged(object? sender, EventArgs e) =>
+        SetWordWrap(diffWordWrapContextMenuItem.Checked);
+
+    private void DiffCopyContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (diffTextBox.SelectionLength > 0)
+        {
+            diffTextBox.Copy();
+        }
+        else if (diffTextBox.TextLength > 0)
+        {
+            Clipboard.SetText(diffTextBox.Text);
         }
     }
 

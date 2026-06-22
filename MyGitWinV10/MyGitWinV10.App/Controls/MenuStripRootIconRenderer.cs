@@ -17,6 +17,9 @@ internal sealed class MenuStripRootIconRenderer : ToolStripProfessionalRenderer
     internal const float RootMenuFontSize = 10.5f;
     internal const float DropDownMenuFontSize = 10.5f;
     internal const int RootMenuHeight = 34;
+    internal const int RootMenuIconSize = IconFactory.RootMenuIconSize;
+    internal const int RootMenuIconLeft = 7;
+    internal const int RootMenuIconTextGap = 6;
 
     private static readonly Color RootSelectedBackground = Color.FromArgb(219, 234, 254);
     private static readonly Color RootSelectedText = Color.FromArgb(30, 41, 59);
@@ -99,7 +102,7 @@ internal sealed class MenuStripRootIconRenderer : ToolStripProfessionalRenderer
     {
         // Icons are painted in OnRenderItemText — this handler's clip rect excludes the
         // left padding column where icons are positioned.
-        if (e.Item is ToolStripMenuItem { Image: not null } && e.Item.Owner is not MenuStrip)
+        if (e.Item is ToolStripMenuItem { Image: not null })
         {
             return;
         }
@@ -115,11 +118,25 @@ internal sealed class MenuStripRootIconRenderer : ToolStripProfessionalRenderer
             var textFormat = (e.TextFormat & ~(TextFormatFlags.VerticalCenter | TextFormatFlags.HidePrefix | TextFormatFlags.NoPrefix))
                 | TextFormatFlags.VerticalCenter;
 
+            int textX = e.Item.Padding.Left;
+            if (e.Item.Image is not null)
+            {
+                int iconY = Math.Max(0, (e.Item.Height - RootMenuIconSize) / 2);
+                e.Graphics.DrawImage(e.Item.Image, RootMenuIconLeft, iconY, RootMenuIconSize, RootMenuIconSize);
+                textX = RootMenuIconLeft + RootMenuIconSize + RootMenuIconTextGap;
+            }
+
+            var textRect = new Rectangle(
+                textX,
+                0,
+                Math.Max(0, e.Item.Width - e.Item.Padding.Right - textX),
+                e.Item.Height);
+
             TextRenderer.DrawText(
                 e.Graphics,
                 e.Text ?? string.Empty,
                 e.TextFont!,
-                e.Item.ContentRectangle,
+                textRect,
                 textColor,
                 textFormat);
             return;
@@ -194,7 +211,8 @@ internal sealed class MenuStripRootIconRenderer : ToolStripProfessionalRenderer
     internal static Padding ContextMenuDropDownPadding =>
         new(DropDownPaddingLeft + ContextMenuDropDownIconColumnWidth + IconTextGap, 4, 8, 4);
 
-    internal static Padding RootMenuPadding => new(7, 2, 7, 2);
+    internal static Padding RootMenuPadding =>
+        new(RootMenuIconLeft + RootMenuIconSize + RootMenuIconTextGap, 2, 7, 2);
 
     protected override void OnRenderImageMargin(ToolStripRenderEventArgs e)
     {
