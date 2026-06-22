@@ -1,4 +1,3 @@
-using System.Text;
 using MyGitWinV10.App.Services;
 
 namespace MyGitWinV10.App.Dialogs;
@@ -31,28 +30,13 @@ public static class OperationCompleteDialog
         string summary,
         IEnumerable<GitOperationDetailItem> details)
     {
-        var message = new StringBuilder();
-        bool hasDetails = false;
+        var detailItems = details
+            .Where(detail => !string.IsNullOrWhiteSpace(detail.Value))
+            .ToList();
 
-        foreach (var detail in details)
+        if (detailItems.Count > 0)
         {
-            if (string.IsNullOrWhiteSpace(detail.Value))
-            {
-                continue;
-            }
-
-            hasDetails = true;
-            if (message.Length > 0)
-            {
-                message.AppendLine();
-            }
-
-            message.AppendLine($"{detail.Label}: {detail.Value}");
-        }
-
-        if (hasDetails)
-        {
-            using var dialog = new OperationCompleteDetailDialog(title, summary, message.ToString().TrimEnd());
+            using var dialog = new OperationCompleteDetailDialog(title, summary, detailItems);
             dialog.ShowDialog(owner);
             return;
         }

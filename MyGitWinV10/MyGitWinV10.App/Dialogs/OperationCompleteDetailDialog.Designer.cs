@@ -22,7 +22,7 @@ namespace MyGitWinV10.App.Dialogs
             iconPictureBox = new PictureBox();
             summaryLabel = new Label();
             detailsPanel = new Panel();
-            detailsLabel = new Label();
+            detailsFlowPanel = new FlowLayoutPanel();
             copyButton = new Button();
             okButton = new Button();
             buttonPanel = new Panel();
@@ -31,7 +31,6 @@ namespace MyGitWinV10.App.Dialogs
             detailsPanel.SuspendLayout();
             buttonPanel.SuspendLayout();
             SuspendLayout();
-            //
             // headerPanel
             //
             headerPanel.Controls.Add(summaryLabel);
@@ -63,24 +62,27 @@ namespace MyGitWinV10.App.Dialogs
             // detailsPanel
             //
             detailsPanel.AutoScroll = true;
-            detailsPanel.BackColor = Color.FromArgb(250, 250, 251);
-            detailsPanel.Controls.Add(detailsLabel);
+            detailsPanel.BackColor = Color.FromArgb(241, 245, 249);
+            detailsPanel.BorderStyle = BorderStyle.FixedSingle;
+            detailsPanel.Controls.Add(detailsFlowPanel);
             detailsPanel.Dock = DockStyle.Fill;
             detailsPanel.Location = new Point(12, 68);
             detailsPanel.Name = "detailsPanel";
-            detailsPanel.Padding = new Padding(0, 4, 0, 0);
+            detailsPanel.Padding = new Padding(8);
             detailsPanel.Size = new Size(536, 292);
             detailsPanel.TabIndex = 1;
             //
-            // detailsLabel
+            // detailsFlowPanel
             //
-            detailsLabel.AutoSize = true;
-            detailsLabel.ForeColor = Color.FromArgb(51, 65, 85);
-            detailsLabel.Location = new Point(0, 4);
-            detailsLabel.Name = "detailsLabel";
-            detailsLabel.Size = new Size(0, 15);
-            detailsLabel.TabIndex = 0;
-            detailsLabel.UseMnemonic = false;
+            detailsFlowPanel.AutoSize = true;
+            detailsFlowPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            detailsFlowPanel.Dock = DockStyle.Top;
+            detailsFlowPanel.FlowDirection = FlowDirection.TopDown;
+            detailsFlowPanel.Location = new Point(8, 8);
+            detailsFlowPanel.Name = "detailsFlowPanel";
+            detailsFlowPanel.Size = new Size(518, 0);
+            detailsFlowPanel.TabIndex = 0;
+            detailsFlowPanel.WrapContents = false;
             //
             // copyButton
             //
@@ -151,7 +153,7 @@ namespace MyGitWinV10.App.Dialogs
         private PictureBox iconPictureBox;
         private Label summaryLabel;
         private Panel detailsPanel;
-        private Label detailsLabel;
+        private FlowLayoutPanel detailsFlowPanel;
         private Panel buttonPanel;
         private Button copyButton;
         private Button okButton;

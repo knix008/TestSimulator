@@ -268,13 +268,11 @@ public static class IconFactory
     /// <summary>Root Diff menu — side-by-side removed/added lines.</summary>
     public static Image Diff(int size = MenuIconSize) => Create((g, pen, brush) =>
     {
-        g.DrawRectangle(pen, 2, 2, 12, 12);
-        g.DrawLine(pen, 8, 2, 8, 14);
         using var removed = new SolidBrush(Color.FromArgb(220, 38, 38));
         using var added = new SolidBrush(Color.FromArgb(5, 150, 105));
-        g.FillRectangle(removed, 3.5f, 6.5f, 3, 1.6f);
-        g.FillRectangle(added, 9.5f, 6.5f, 3, 1.6f);
-        g.FillRectangle(added, 10.7f, 5.3f, 1.6f, 4);
+        g.FillRectangle(removed, 2.5f, 6.5f, 4.5f, 1.8f);
+        g.FillRectangle(added, 9f, 6.5f, 4.5f, 1.8f);
+        g.FillRectangle(added, 10.5f, 5.2f, 1.8f, 4.4f);
     }, size: size);
 
     public static Image GitAdd(int size = MenuIconSize) => Create((g, pen, brush) =>

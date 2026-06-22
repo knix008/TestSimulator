@@ -11,13 +11,15 @@ namespace MyGitWinV10.App.Controls;
 [ToolboxItem(true)]
 public sealed class RepositoryFileListView : Panel
 {
-    private const int RowHeight = 24;
+    private const int RowHeight = 26;
     private const int HeaderHeight = 26;
     private const int IndentUnit = 16;
     private const int IconSize = 16;
     private const int IconTextGap = 4;
-    private const float StatusBadgeFontSizeBoost = 3f;
-    private const float StatusBadgeMinimumFontSize = 11.5f;
+    private const float StatusBadgeFontSizeBoost = 4f;
+    private const float StatusBadgeMinimumFontSize = 13f;
+    private const float SymbolBadgeFontSizeBoost = 6.5f;
+    private const float SymbolBadgeMinimumFontSize = 16f;
     private const int MinNameColumnWidth = 80;
     private const int ColumnResizeHitWidth = 6;
 
@@ -582,7 +584,7 @@ public sealed class RepositoryFileListView : Panel
         }
 
         var cellRect = new Rectangle(cellX, rowTop, Math.Max(0, viewportWidth - cellX), RowHeight);
-        float badgeFontSize = Math.Max(Font.SizeInPoints + StatusBadgeFontSizeBoost, StatusBadgeMinimumFontSize);
+        float badgeFontSize = GetStatusBadgeFontSize(status.Badge);
         using var badgeFont = new Font(Font.FontFamily, badgeFontSize, FontStyle.Bold, GraphicsUnit.Point);
 
         var previousHint = g.TextRenderingHint;
@@ -596,6 +598,14 @@ public sealed class RepositoryFileListView : Panel
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
         g.TextRenderingHint = previousHint;
     }
+
+    private float GetStatusBadgeFontSize(string badge) =>
+        IsSymbolStatusBadge(badge)
+            ? Math.Max(Font.SizeInPoints + SymbolBadgeFontSizeBoost, SymbolBadgeMinimumFontSize)
+            : Math.Max(Font.SizeInPoints + StatusBadgeFontSizeBoost, StatusBadgeMinimumFontSize);
+
+    private static bool IsSymbolStatusBadge(string badge) =>
+        badge is "+" or "±" or "-";
 
     private void HeaderPanel_Paint(object? sender, PaintEventArgs e)
     {
