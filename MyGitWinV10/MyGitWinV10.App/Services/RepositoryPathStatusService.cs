@@ -196,6 +196,29 @@ public static class RepositoryPathStatusService
         node.ToolTipText = FormatNodeToolTip(tag, status, canReportStatus);
     }
 
+    public static void ApplyToTree(
+        TreeView treeView,
+        RepositoryPathStatusIndex? statusIndex,
+        GitFileTreeImageList? icons)
+    {
+        foreach (TreeNode node in treeView.Nodes)
+        {
+            ApplyToSubtree(node, statusIndex, icons);
+        }
+    }
+
+    public static void ApplyToSubtree(
+        TreeNode node,
+        RepositoryPathStatusIndex? statusIndex,
+        GitFileTreeImageList? icons)
+    {
+        ApplyToNode(node, statusIndex, icons);
+        foreach (TreeNode child in node.Nodes)
+        {
+            ApplyToSubtree(child, statusIndex, icons);
+        }
+    }
+
     private static PathGitStatus ToPathStatus(StatusEntry entry) =>
         new()
         {

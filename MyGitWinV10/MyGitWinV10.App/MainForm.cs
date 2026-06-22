@@ -17,7 +17,9 @@ public partial class MainForm : Form
     private int _pathHistoryLoadGeneration;
     private int _commitGraphLoadGeneration;
     private int _repositoryRefreshGeneration;
+    private int _fileTreeStatusRefreshGeneration;
     private bool _repositoryRefreshInProgress;
+    private bool _startupLayoutComplete;
 
     // Seeded from AppSettingsStore (DPAPI-encrypted on disk) and kept up to date after every
     // successful push/pull/fetch so the user isn't asked to retype the PAT every session.
@@ -97,7 +99,14 @@ public partial class MainForm : Form
                 _detailSplitRatio = GetDetailSplitRatio();
             }
         };
-        detailSplitContainer.Resize += (_, _) => ApplyDetailVerticalLayout();
+        detailSplitContainer.Resize += (_, _) =>
+        {
+            if (_startupLayoutComplete)
+            {
+                ApplyDetailVerticalLayout();
+            }
+        };
+        Load += (_, _) => StabilizeSplitContainers();
         fileMenuItem.DropDownOpening += (_, _) => RefreshFileRecentMenu();
         FormClosed += (_, _) =>
         {
@@ -112,11 +121,35 @@ public partial class MainForm : Form
                 : null;
         Shown += (_, _) =>
         {
+            StabilizeSplitContainers();
             ApplyPanelLayout();
             ApplyDetailVerticalLayout();
-            OpenLastSuccessfulSessionIfAvailable();
+            // Defer auto-restore until after the first layout pass completes. Opening a
+            // repository during Shown races with split-container sizing under DPI scaling
+            // and can terminate the process on the first launch only.
+            BeginInvoke(CompleteStartupAndRestoreSession);
         };
     }
+
+    private void CompleteStartupAndRestoreSession()
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        _startupLayoutComplete = true;
+        StabilizeSplitContainers();
+        ApplyPanelLayout();
+        OpenLastSuccessfulSessionIfAvailable();
+    }
+
+    private void StabilizeSplitContainers() =>
+        SplitContainerLayoutHelper.Stabilize(
+            mainSplitContainer,
+            leftSideSplitContainer,
+            graphDetailSplitContainer,
+            detailSplitContainer);
 
     private void ApplyPanelLayout()
     {
@@ -153,7 +186,9 @@ public partial class MainForm : Form
         _applyingPanelLayout = true;
         try
         {
-            detailSplitContainer.SplitterDistance = Math.Clamp(targetTop, minTop, maxTop);
+            SplitContainerLayoutHelper.SafeSetSplitterDistance(
+                detailSplitContainer,
+                Math.Clamp(targetTop, minTop, maxTop));
         }
         finally
         {
@@ -969,8 +1004,58 @@ public partial class MainForm : Form
     private void CancelPendingRepositoryOperations()
     {
         _repositoryRefreshGeneration++;
+        _fileTreeStatusRefreshGeneration++;
         _pathHistoryLoadGeneration++;
         _commitGraphLoadGeneration++;
+    }
+
+    /// <summary>Rebuilds the Git status index and repaints every loaded file-tree row without
+    /// collapsing the tree or reloading the commit graph.</summary>
+    private async Task RefreshFileTreeStatusAsync()
+    {
+        if (_gitService.Repo is null)
+        {
+            _fileTreeStatusIndex = null;
+            repoFilesListView.RebuildPreservingSelection();
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        int refreshGeneration = ++_fileTreeStatusRefreshGeneration;
+        RepositoryPathStatusIndex index = await Task.Run(
+            () => _gitService.RunLocked(RepositoryPathStatusService.Build));
+
+        if (refreshGeneration != _fileTreeStatusRefreshGeneration || _gitService.Repo != repo)
+        {
+            return;
+        }
+
+        ApplyFileTreeStatus(index);
+    }
+
+    private async Task RefreshAfterGitCommitAsync()
+    {
+        await RefreshFileTreeStatusAsync();
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
+        if (_pathHistoryFilter is not null)
+        {
+            await LoadPathFilteredCommitGraphAsync();
+        }
+        else
+        {
+            await LoadCommitGraphAsync();
+        }
+    }
+
+    private void ApplyFileTreeStatus(RepositoryPathStatusIndex index)
+    {
+        _fileTreeStatusIndex = index;
+        RepositoryPathStatusService.ApplyToTree(_repoFilesTreeModel, _fileTreeStatusIndex, _gitFileTreeImages);
+        repoFilesListView.RebuildPreservingSelection();
     }
 
     private async Task RefreshRepositoryViewsAsync(string progressMessage = "Refreshing repository...", bool showProgress = true)
@@ -991,19 +1076,15 @@ public partial class MainForm : Form
         _repositoryRefreshInProgress = true;
         try
         {
-            async Task BuildStatusIndexAsync()
-            {
-                _fileTreeStatusIndex = await Task.Run(
-                    () => _gitService.RunLocked(RepositoryPathStatusService.Build));
-            }
-
+            RepositoryPathStatusIndex statusIndex;
             if (showProgress)
             {
                 statusLabel.Text = progressMessage;
                 repoLoadProgressBar.Visible = true;
                 try
                 {
-                    await BuildStatusIndexAsync();
+                    statusIndex = await Task.Run(
+                        () => _gitService.RunLocked(RepositoryPathStatusService.Build));
                 }
                 finally
                 {
@@ -1012,7 +1093,8 @@ public partial class MainForm : Form
             }
             else
             {
-                await BuildStatusIndexAsync();
+                statusIndex = await Task.Run(
+                    () => _gitService.RunLocked(RepositoryPathStatusService.Build));
             }
 
             if (refreshGeneration != _repositoryRefreshGeneration || _gitService.Repo != repo)
@@ -1020,6 +1102,8 @@ public partial class MainForm : Form
                 return;
             }
 
+            _fileTreeStatusIndex = statusIndex;
+            _fileTreeStatusRefreshGeneration++;
             PopulateRepositoryTrees(repo);
             if (refreshGeneration != _repositoryRefreshGeneration || _gitService.Repo != repo)
             {
@@ -1037,6 +1121,11 @@ public partial class MainForm : Form
             }
 
             UpdateRepoCounts();
+        }
+        catch (Exception ex)
+        {
+            statusLabel.Text = "Ready";
+            System.Diagnostics.Debug.WriteLine(ex);
         }
         finally
         {
@@ -1448,6 +1537,11 @@ public partial class MainForm : Form
         {
             var rows = await Task.Run(() => _gitService.RunLocked(activeRepo =>
             {
+                if (activeRepo.Head?.Tip is null)
+                {
+                    return new List<CommitRow>();
+                }
+
                 var commits = activeRepo.Commits.QueryBy(new CommitFilter
                 {
                     IncludeReachableFrom = activeRepo.Head,
@@ -1853,7 +1947,7 @@ public partial class MainForm : Form
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
                 ? "Staged all changes"
                 : $"Staged {tag.RelativePath}";
-            RefreshRepositoryViews();
+            _ = RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Add Complete",
@@ -1882,7 +1976,7 @@ public partial class MainForm : Form
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
                 ? "Unstaged all changes"
                 : $"Unstaged {tag.RelativePath}";
-            RefreshRepositoryViews();
+            _ = RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Reset Complete",
@@ -1922,7 +2016,7 @@ public partial class MainForm : Form
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
                 ? "Discarded all uncommitted changes"
                 : $"Discarded changes in {tag.RelativePath}";
-            RefreshRepositoryViews();
+            _ = RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Discard Complete",
@@ -1959,7 +2053,7 @@ public partial class MainForm : Form
         try
         {
             var commit = GitWorkflowService.CreateCommit(_gitService.Repo, dialog.CommitMessage);
-            RefreshRepositoryViews();
+            _ = RefreshAfterGitCommitAsync();
             statusLabel.Text = $"Committed {commit.Sha[..7]}";
             GitOperationNotifier.ShowSuccess(
                 this,
@@ -2124,6 +2218,7 @@ public partial class MainForm : Form
             CaptureGitCredentials(prompt);
             MarkGitCredentialsVerified();
             statusLabel.Text = $"Pushed {_gitService.GetCurrentBranchName()} to origin";
+            await RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
                 "Git Push Complete",
@@ -2154,7 +2249,7 @@ public partial class MainForm : Form
         try
         {
             GitWorkflowService.Stash(_gitService.Repo);
-            RefreshRepositoryViews();
+            _ = RefreshFileTreeStatusAsync();
             statusLabel.Text = "Stashed uncommitted changes";
             GitOperationNotifier.ShowSuccess(
                 this,
@@ -2178,7 +2273,7 @@ public partial class MainForm : Form
         try
         {
             GitWorkflowService.StashPop(_gitService.Repo);
-            RefreshRepositoryViews();
+            _ = RefreshFileTreeStatusAsync();
             statusLabel.Text = "Applied latest stash";
             GitOperationNotifier.ShowSuccess(
                 this,
