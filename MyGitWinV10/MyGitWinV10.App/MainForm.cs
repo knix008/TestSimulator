@@ -285,6 +285,9 @@ public partial class MainForm : Form
             (diffWordWrapContextMenuItem, IconFactory.WordWrap(), "Word Wrap"));
         ConfigureContextMenu(repoFilesContextMenu,
             (showFileLogContextMenuItem, IconFactory.History(), "Show Log"),
+            (createNewFileContextMenuItem, IconFactory.File(), "New File..."),
+            (createNewFolderContextMenuItem, IconFactory.Folder(), "New Folder..."),
+            (deleteRepoFileContextMenuItem, IconFactory.Delete(), "Delete"),
             (addToGitIgnoreContextMenuItem, IconFactory.GitIgnore(), "Add to .gitignore"),
             (removeFromGitIgnoreContextMenuItem, IconFactory.GitReset(), "Remove from .gitignore"),
             (gitAddContextMenuItem, IconFactory.GitAdd(), "Git Add"),
@@ -1734,6 +1737,32 @@ public partial class MainForm : Form
         TryApplyPathHistoryFromFileNode(node);
     }
 
+    private void RepoFilesListView_NodeDoubleClicked(object? sender, TreeNode node)
+    {
+        if (_gitService.Repo is null
+            || node.Tag is not RepositoryFileNodeTag tag
+            || tag.IsPlaceholder
+            || tag.IsDirectory)
+        {
+            return;
+        }
+
+        if (tag.IsMissingFromWorkTree || !CanUseGitWorkflow)
+        {
+            GitOperationNotifier.ShowInfo(this, "Open File", "The file is not available in the working tree.");
+            return;
+        }
+
+        try
+        {
+            WorkingTreeFileService.OpenWithSystemDefault(_gitService.Repo, tag.RelativePath);
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Open File Failed", ex);
+        }
+    }
+
     private void TryApplyPathHistoryFromFileNode(TreeNode? node)
     {
         if (node?.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder)
@@ -1816,6 +1845,7 @@ public partial class MainForm : Form
 
         bool canUseGit = CanUseGitWorkflow;
         SetGitSectionVisible(canUseGit);
+        SetWorkspaceSectionVisible(canUseGit);
         addToGitIgnoreContextMenuItem.Visible = canUseGit;
         removeFromGitIgnoreContextMenuItem.Visible = canUseGit;
 
@@ -1823,6 +1853,7 @@ public partial class MainForm : Form
         if (tag is null)
         {
             showFileLogContextMenuItem.Enabled = false;
+            ApplyWorkspaceMenuState(RepositoryRootTag, canUseGit);
             addToGitIgnoreContextMenuItem.Enabled = false;
             removeFromGitIgnoreContextMenuItem.Enabled = false;
             copyRepoFilePathContextMenuItem.Enabled = false;
@@ -1837,6 +1868,7 @@ public partial class MainForm : Form
 
         showFileLogContextMenuItem.Enabled = true;
         copyRepoFilePathContextMenuItem.Enabled = true;
+        ApplyWorkspaceMenuState(tag, canUseGit);
         ApplyGitIgnoreMenuState(_gitService.Repo, tag, canUseGit);
         clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
         if (canUseGit)
@@ -1857,6 +1889,26 @@ public partial class MainForm : Form
 
         addToGitIgnoreContextMenuItem.Enabled = canEditPath && !isIgnored;
         removeFromGitIgnoreContextMenuItem.Enabled = canEditPath && hasRemovablePattern;
+    }
+
+    private void ApplyWorkspaceMenuState(RepositoryFileNodeTag tag, bool canUseWorkspace)
+    {
+        bool canCreate = canUseWorkspace && !tag.IsMissingFromWorkTree;
+        bool canDelete = canUseWorkspace
+            && !string.IsNullOrEmpty(tag.RelativePath)
+            && !tag.IsMissingFromWorkTree;
+
+        createNewFileContextMenuItem.Enabled = canCreate;
+        createNewFolderContextMenuItem.Enabled = canCreate;
+        deleteRepoFileContextMenuItem.Enabled = canDelete;
+    }
+
+    private void SetWorkspaceSectionVisible(bool visible)
+    {
+        createNewFileContextMenuItem.Visible = visible;
+        createNewFolderContextMenuItem.Visible = visible;
+        deleteRepoFileContextMenuItem.Visible = visible;
+        repoFilesWorkspaceSeparator.Visible = visible;
     }
 
     private IEnumerable<ToolStripMenuItem> GetFilesGitMenuItems() =>
@@ -2481,6 +2533,134 @@ public partial class MainForm : Form
 
     private void ShowFileLogContextMenuItem_Click(object? sender, EventArgs e) =>
         TryApplyPathHistoryFromFileNode(repoFilesListView.SelectedNode);
+
+    private void CreateNewFileContextMenuItem_Click(object? sender, EventArgs e) =>
+        TryCreateNewFile(GetGitPathTagOrRoot());
+
+    private void CreateNewFolderContextMenuItem_Click(object? sender, EventArgs e) =>
+        TryCreateNewFolder(GetGitPathTagOrRoot());
+
+    private void DeleteRepoFileContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        RepositoryFileNodeTag? tag = TryGetGitPathTag();
+        if (tag is not null)
+        {
+            TryDeleteRepoPath(tag);
+        }
+    }
+
+    private void TryCreateNewFile(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        string parentPath = WorkingTreeFileService.GetCreateParentRelativePath(tag);
+        string parentLabel = string.IsNullOrEmpty(parentPath) ? "(repository root)" : parentPath;
+        string? fileName = NamePromptDialog.Show(this, "New File", $"File name in {parentLabel}:", "new-file.txt");
+        if (fileName is null)
+        {
+            return;
+        }
+
+        try
+        {
+            string createdPath = WorkingTreeFileService.CreateFile(_gitService.Repo, parentPath, fileName);
+            _ = ReloadFileTreeDirectoryAsync(parentPath);
+            statusLabel.Text = $"Created {createdPath}";
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Create File Failed", ex);
+        }
+    }
+
+    private void TryCreateNewFolder(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow)
+        {
+            return;
+        }
+
+        string parentPath = WorkingTreeFileService.GetCreateParentRelativePath(tag);
+        string parentLabel = string.IsNullOrEmpty(parentPath) ? "(repository root)" : parentPath;
+        string? folderName = NamePromptDialog.Show(this, "New Folder", $"Folder name in {parentLabel}:", "NewFolder");
+        if (folderName is null)
+        {
+            return;
+        }
+
+        try
+        {
+            string createdPath = WorkingTreeFileService.CreateDirectory(_gitService.Repo, parentPath, folderName);
+            _ = ReloadFileTreeDirectoryAsync(parentPath);
+            statusLabel.Text = $"Created {createdPath}";
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Create Folder Failed", ex);
+        }
+    }
+
+    private void TryDeleteRepoPath(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow || string.IsNullOrEmpty(tag.RelativePath))
+        {
+            return;
+        }
+
+        string targetLabel = tag.RelativePath;
+        string message = tag.IsDirectory
+            ? $"Delete folder '{targetLabel}' and everything inside it?\nThis cannot be undone."
+            : $"Delete file '{targetLabel}'?\nThis cannot be undone.";
+
+        if (MessageBox.Show(this, message, "Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            string parentPath = WorkingTreeFileService.GetDeleteParentRelativePath(tag);
+            WorkingTreeFileService.DeletePath(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
+            _ = ReloadFileTreeDirectoryAsync(parentPath);
+            statusLabel.Text = $"Deleted {targetLabel}";
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Delete Failed", ex);
+        }
+    }
+
+    private async Task ReloadFileTreeDirectoryAsync(string directoryRelativePath)
+    {
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        await RefreshFileTreeStatusAsync();
+        if (_gitService.Repo != repo)
+        {
+            return;
+        }
+
+        if (RepositoryFileTreeService.FindNodeByRelativePath(_repoFilesTreeModel, directoryRelativePath) is null
+            && !string.IsNullOrEmpty(directoryRelativePath))
+        {
+            directoryRelativePath = string.Empty;
+        }
+
+        RepositoryFileTreeService.ForceReloadDirectory(
+            _repoFilesTreeModel,
+            repo,
+            directoryRelativePath,
+            _gitFileTreeImages,
+            _fileTreeStatusIndex);
+        repoFilesListView.RebuildPreservingSelection();
+    }
 
     private void CopyRepoFilePathContextMenuItem_Click(object? sender, EventArgs e)
     {

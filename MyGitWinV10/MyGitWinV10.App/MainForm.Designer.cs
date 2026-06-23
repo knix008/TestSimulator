@@ -100,6 +100,10 @@ namespace MyGitWinV10.App
             repoFilesListView = new RepositoryFileListView();
             repoFilesContextMenu = new ContextMenuStrip(components);
             showFileLogContextMenuItem = new ToolStripMenuItem();
+            createNewFileContextMenuItem = new ToolStripMenuItem();
+            createNewFolderContextMenuItem = new ToolStripMenuItem();
+            deleteRepoFileContextMenuItem = new ToolStripMenuItem();
+            repoFilesWorkspaceSeparator = new ToolStripSeparator();
             addToGitIgnoreContextMenuItem = new ToolStripMenuItem();
             removeFromGitIgnoreContextMenuItem = new ToolStripMenuItem();
             repoFilesGitSeparator = new ToolStripSeparator();
@@ -820,10 +824,11 @@ namespace MyGitWinV10.App
             repoFilesListView.TabIndex = 0;
             repoFilesListView.NodeExpanding += RepoFilesListView_NodeExpanding;
             repoFilesListView.SelectedNodeChanged += RepoFilesListView_SelectedNodeChanged;
+            repoFilesListView.NodeDoubleClicked += RepoFilesListView_NodeDoubleClicked;
             // 
             // repoFilesContextMenu
             // 
-            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { showFileLogContextMenuItem, addToGitIgnoreContextMenuItem, removeFromGitIgnoreContextMenuItem, repoFilesGitSeparator, gitAddContextMenuItem, gitResetContextMenuItem, gitDiscardContextMenuItem, gitStagingSeparator, gitCommitContextMenuItem, gitRemoteSeparator, gitFetchContextMenuItem, gitPullContextMenuItem, gitPushContextMenuItem, gitStashSeparator, gitStashContextMenuItem, gitStashPopContextMenuItem, gitStatusContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
+            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { showFileLogContextMenuItem, createNewFileContextMenuItem, createNewFolderContextMenuItem, deleteRepoFileContextMenuItem, repoFilesWorkspaceSeparator, addToGitIgnoreContextMenuItem, removeFromGitIgnoreContextMenuItem, repoFilesGitSeparator, gitAddContextMenuItem, gitResetContextMenuItem, gitDiscardContextMenuItem, gitStagingSeparator, gitCommitContextMenuItem, gitRemoteSeparator, gitFetchContextMenuItem, gitPullContextMenuItem, gitPushContextMenuItem, gitStashSeparator, gitStashContextMenuItem, gitStashPopContextMenuItem, gitStatusContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
             repoFilesContextMenu.Name = "repoFilesContextMenu";
             repoFilesContextMenu.Size = new Size(184, 314);
             repoFilesContextMenu.Opening += RepoFilesContextMenu_Opening;
@@ -835,6 +840,35 @@ namespace MyGitWinV10.App
             showFileLogContextMenuItem.Text = "Show Log";
             showFileLogContextMenuItem.ToolTipText = "Show commit history for this path in the graph panel";
             showFileLogContextMenuItem.Click += ShowFileLogContextMenuItem_Click;
+            // 
+            // createNewFileContextMenuItem
+            // 
+            createNewFileContextMenuItem.Name = "createNewFileContextMenuItem";
+            createNewFileContextMenuItem.Size = new Size(183, 22);
+            createNewFileContextMenuItem.Text = "New File...";
+            createNewFileContextMenuItem.ToolTipText = "Create a new file in the selected folder";
+            createNewFileContextMenuItem.Click += CreateNewFileContextMenuItem_Click;
+            // 
+            // createNewFolderContextMenuItem
+            // 
+            createNewFolderContextMenuItem.Name = "createNewFolderContextMenuItem";
+            createNewFolderContextMenuItem.Size = new Size(183, 22);
+            createNewFolderContextMenuItem.Text = "New Folder...";
+            createNewFolderContextMenuItem.ToolTipText = "Create a new folder in the selected folder";
+            createNewFolderContextMenuItem.Click += CreateNewFolderContextMenuItem_Click;
+            // 
+            // deleteRepoFileContextMenuItem
+            // 
+            deleteRepoFileContextMenuItem.Name = "deleteRepoFileContextMenuItem";
+            deleteRepoFileContextMenuItem.Size = new Size(183, 22);
+            deleteRepoFileContextMenuItem.Text = "Delete";
+            deleteRepoFileContextMenuItem.ToolTipText = "Delete the selected file or folder from disk";
+            deleteRepoFileContextMenuItem.Click += DeleteRepoFileContextMenuItem_Click;
+            // 
+            // repoFilesWorkspaceSeparator
+            // 
+            repoFilesWorkspaceSeparator.Name = "repoFilesWorkspaceSeparator";
+            repoFilesWorkspaceSeparator.Size = new Size(180, 6);
             // 
             // addToGitIgnoreContextMenuItem
             // 
@@ -1356,6 +1390,10 @@ namespace MyGitWinV10.App
         private RepositoryFileListView repoFilesListView;
         private ContextMenuStrip repoFilesContextMenu;
         private ToolStripMenuItem showFileLogContextMenuItem;
+        private ToolStripMenuItem createNewFileContextMenuItem;
+        private ToolStripMenuItem createNewFolderContextMenuItem;
+        private ToolStripMenuItem deleteRepoFileContextMenuItem;
+        private ToolStripSeparator repoFilesWorkspaceSeparator;
         private ToolStripMenuItem addToGitIgnoreContextMenuItem;
         private ToolStripMenuItem removeFromGitIgnoreContextMenuItem;
         private ToolStripSeparator repoFilesGitSeparator;

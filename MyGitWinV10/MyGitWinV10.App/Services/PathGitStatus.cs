@@ -51,24 +51,20 @@ public sealed class PathGitStatus
                 return WorkTree switch
                 {
                     "Untracked" => "U",
-                    "Modified" => "M",
                     "Deleted" => "D",
                     "Renamed" => "R",
                     "Type Changed" => "T",
                     "Conflicted" => "!",
-                    // "Mixed" — a folder whose contents have more than one kind of change.
-                    _ => "±"
+                    _ => "C"
                 };
             }
 
             return Staged switch
             {
-                "Added" => "A",
-                "Modified" => "M",
                 "Deleted" => "D",
                 "Renamed" => "R",
                 "Type Changed" => "T",
-                _ => "+"
+                _ => "C"
             };
         }
     }
@@ -88,9 +84,9 @@ public sealed class PathGitStatus
                 {
                     "Untracked" => Color.FromArgb(5, 150, 105),
                     "Deleted" or "Conflicted" => Color.FromArgb(220, 38, 38),
-                    "Modified" or "Renamed" or "Type Changed" => Color.FromArgb(37, 99, 235),
-                    // "Mixed" — matches the amber used for FileMixed in GitFileTreeImageList.
-                    _ => Color.FromArgb(217, 119, 6)
+                    "Renamed" or "Type Changed" => Color.FromArgb(37, 99, 235),
+                    "Mixed" => Color.FromArgb(217, 119, 6),
+                    _ => Color.FromArgb(37, 99, 235)
                 };
             }
 

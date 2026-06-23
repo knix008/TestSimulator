@@ -76,6 +76,8 @@ public sealed class RepositoryFileListView : Panel
     /// so the caller can lazily load its real children before the row list is rebuilt.</summary>
     public event EventHandler<TreeNode>? NodeExpanding;
 
+    public event EventHandler<TreeNode>? NodeDoubleClicked;
+
     public event EventHandler<TreeNode?>? SelectedNodeChanged;
 
     /// <summary>Resolves the Git status (badge letter + color) to show in the Status column
@@ -158,6 +160,7 @@ public sealed class RepositoryFileListView : Panel
         _bodyPanel.Paint += BodyPanel_Paint;
         _bodyPanel.MouseDown += BodyPanel_MouseDown;
         _bodyPanel.MouseClick += BodyPanel_MouseClick;
+        _bodyPanel.MouseDoubleClick += BodyPanel_MouseDoubleClick;
         _bodyPanel.MouseMove += BodyPanel_MouseMove;
         _bodyPanel.MouseLeave += (_, _) => HideToolTip();
     }
@@ -444,6 +447,26 @@ public sealed class RepositoryFileListView : Panel
         ToggleExpand(_rows[index].Node);
     }
 
+    private void BodyPanel_MouseDoubleClick(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left)
+        {
+            return;
+        }
+
+        int index = RowIndexAt(e.Y);
+        if (index < 0)
+        {
+            return;
+        }
+
+        TreeNode node = _rows[index].Node;
+        SelectedNode = node;
+        InvalidateView();
+        SelectedNodeChanged?.Invoke(this, node);
+        NodeDoubleClicked?.Invoke(this, node);
+    }
+
     private void BodyPanel_MouseMove(object? sender, MouseEventArgs e)
     {
         int index = RowIndexAt(e.Y);
@@ -605,7 +628,7 @@ public sealed class RepositoryFileListView : Panel
             : Math.Max(Font.SizeInPoints + StatusBadgeFontSizeBoost, StatusBadgeMinimumFontSize);
 
     private static bool IsSymbolStatusBadge(string badge) =>
-        badge is "+" or "±" or "-" or "X";
+        badge is "X";
 
     private void HeaderPanel_Paint(object? sender, PaintEventArgs e)
     {

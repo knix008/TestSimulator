@@ -345,4 +345,12 @@ public static class IconFactory
         g.DrawLine(pen, 3, 8, 13, 8);
         g.DrawLine(pen, 8, 5, 8, 13);
     }, Color.FromArgb(124, 58, 237), size);
+
+    public static Image Delete(int size = MenuIconSize, Color? color = null) => Create((g, pen, brush) =>
+    {
+        g.DrawRectangle(pen, 4, 3.5f, 8, 9);
+        g.DrawLine(pen, 5.5f, 2.5f, 10.5f, 2.5f);
+        g.DrawLine(pen, 6.5f, 6, 9.5f, 9);
+        g.DrawLine(pen, 9.5f, 6, 6.5f, 9);
+    }, color ?? Color.FromArgb(220, 38, 38), size);
 }

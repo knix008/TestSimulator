@@ -63,6 +63,60 @@ public static class RepositoryFileTreeService
         }
     }
 
+    public static TreeNode? FindNodeByRelativePath(TreeView treeView, string relativePath)
+    {
+        string normalized = PathCommitHistoryService.NormalizeGitPath(relativePath);
+        foreach (TreeNode root in treeView.Nodes)
+        {
+            TreeNode? found = FindNodeRecursive(root, normalized);
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    public static void ForceReloadDirectory(
+        TreeView treeView,
+        Repository repo,
+        string directoryRelativePath,
+        GitFileTreeImageList? icons,
+        RepositoryPathStatusIndex? statusIndex)
+    {
+        TreeNode? node = FindNodeByRelativePath(treeView, directoryRelativePath);
+        if (node?.Tag is not RepositoryFileNodeTag { IsDirectory: true })
+        {
+            return;
+        }
+
+        node.Nodes.Clear();
+        AddPlaceholderChild(node);
+        LoadChildren(node, repo, icons, statusIndex);
+    }
+
+    private static TreeNode? FindNodeRecursive(TreeNode node, string relativePath)
+    {
+        if (node.Tag is RepositoryFileNodeTag tag
+            && !tag.IsPlaceholder
+            && string.Equals(PathCommitHistoryService.NormalizeGitPath(tag.RelativePath), relativePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return node;
+        }
+
+        foreach (TreeNode child in node.Nodes)
+        {
+            TreeNode? found = FindNodeRecursive(child, relativePath);
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
     private static string GetRootDisplayName(Repository repo)
     {
         if (repo.Info.IsBare)

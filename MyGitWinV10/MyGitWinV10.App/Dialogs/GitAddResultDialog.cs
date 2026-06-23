@@ -49,7 +49,7 @@ public partial class GitAddResultDialog : Form
         {
             "Deleted" => "D",
             "Renamed" => "R",
-            _ => "A"
+            _ => "C"
         };
     }
 
