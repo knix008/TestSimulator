@@ -79,6 +79,11 @@
   display: none;
 }
 
+.gantt-container .gantt-custom-dependencies .gantt-dependency-line-hit {
+  pointer-events: stroke;
+  cursor: context-menu;
+}
+
 .gantt-container .gantt-custom-dependencies .gantt-dependency-line {
   stroke-width: 1.75;
   pointer-events: none;

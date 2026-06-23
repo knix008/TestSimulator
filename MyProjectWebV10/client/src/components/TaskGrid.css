@@ -69,7 +69,7 @@
 .col-id { width: 48px; }
 .col-name { min-width: 220px; }
 .col-duration { width: 64px; }
-.col-start, .col-end { width: 96px; }
+.col-start, .col-end { width: 118px; }
 .col-progress { width: 72px; }
 .col-type { width: 88px; }
 
@@ -186,6 +186,12 @@
 .task-grid-num-input {
   width: 52px;
   text-align: right;
+}
+
+.task-grid-date-input {
+  min-width: 0;
+  padding: 1px 2px;
+  font-size: 12px;
 }
 
 .task-grid-name-input {

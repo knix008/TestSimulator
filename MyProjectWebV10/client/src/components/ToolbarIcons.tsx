@@ -145,6 +145,100 @@ export function IconLink(props: IconProps) {
   );
 }
 
+export function IconUnlink(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="4" cy="10" r="2" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="16" cy="10" r="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6 10h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M11 7l2 2-2 2M13 11l2 2-2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconZoomIn(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M13 13l4 4M8.5 6v5M6 8.5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconZoomOut(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M13 13l4 4M6 8.5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconExpand(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 8h12M10 4v8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M3 14h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeOpacity="0.55" />
+    </IconBase>
+  );
+}
+
+export function IconCollapse(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 8h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M3 14h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeOpacity="0.55" />
+    </IconBase>
+  );
+}
+
+function DepTypeBars({ fromX, toX, y, width }: { fromX: number; toX: number; y: number; width: number }) {
+  return (
+    <>
+      <rect x={fromX} y={y} width={width} height="3" fill="currentColor" fillOpacity="0.7" />
+      <rect x={toX} y={y + 7} width={width} height="3" fill="currentColor" fillOpacity="0.7" />
+    </>
+  );
+}
+
+export function IconDepFs(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <DepTypeBars fromX={2} toX={10} y={4} width={6} />
+      <path d="M8 5.5h3v5.5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconDepFf(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <DepTypeBars fromX={2} toX={10} y={4} width={6} />
+      <path d="M8 5.5h5M8 12.5h5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M13 5.5v7" stroke="currentColor" strokeWidth="1.2" />
+    </IconBase>
+  );
+}
+
+export function IconDepSs(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <DepTypeBars fromX={2} toX={10} y={4} width={6} />
+      <path d="M2 5.5h5M2 12.5h5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M2 5.5v7" stroke="currentColor" strokeWidth="1.2" />
+    </IconBase>
+  );
+}
+
+export function IconDepSf(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <DepTypeBars fromX={2} toX={10} y={4} width={6} />
+      <path d="M2 5.5h5v7h5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
 export function IconDatabase(props: IconProps) {
   return (
     <IconBase {...props}>
@@ -196,6 +290,15 @@ export type ToolbarIconName =
   | 'indent'
   | 'outdent'
   | 'link'
+  | 'unlink'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'expand'
+  | 'collapse'
+  | 'depFs'
+  | 'depFf'
+  | 'depSs'
+  | 'depSf'
   | 'database'
   | 'users'
   | 'account'
@@ -214,6 +317,15 @@ const ICONS: Record<ToolbarIconName, ComponentType<IconProps>> = {
   indent: IconIndent,
   outdent: IconOutdent,
   link: IconLink,
+  unlink: IconUnlink,
+  zoomIn: IconZoomIn,
+  zoomOut: IconZoomOut,
+  expand: IconExpand,
+  collapse: IconCollapse,
+  depFs: IconDepFs,
+  depFf: IconDepFf,
+  depSs: IconDepSs,
+  depSf: IconDepSf,
   database: IconDatabase,
   users: IconUsers,
   account: IconAccount,

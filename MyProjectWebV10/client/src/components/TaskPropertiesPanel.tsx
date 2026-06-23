@@ -1,6 +1,7 @@
 import type { DependencyItem, TaskItem } from '../types/project';
 import { getTaskName } from '../utils/scheduleUtils';
 import { getParentTask } from '../utils/taskModel';
+import { parseDateInputValue, toDateInputValue } from '../utils/taskDateInput';
 
 interface TaskPropertiesPanelProps {
   task: TaskItem | null;
@@ -9,21 +10,6 @@ interface TaskPropertiesPanelProps {
   canModify: boolean;
   onUpdateTask: (taskId: number, patch: Partial<TaskItem>) => void;
   onRemoveDependency: (predecessorId: number, successorId: number) => void;
-}
-
-function toDateInputValue(iso: string): string {
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function fromDateInputValue(value: string): string {
-  const [y, m, d] = value.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString();
 }
 
 export function TaskPropertiesPanel({
@@ -67,10 +53,28 @@ export function TaskPropertiesPanel({
         <input
           type="date"
           value={toDateInputValue(task.startDate)}
-          readOnly={readOnly}
-          onChange={(e) =>
-            onUpdateTask(task.taskId, { startDate: fromDateInputValue(e.target.value) })
-          }
+          disabled={readOnly}
+          onChange={(e) => {
+            if (!e.target.value) return;
+            onUpdateTask(task.taskId, {
+              startDate: parseDateInputValue(e.target.value).toISOString(),
+            });
+          }}
+        />
+      </label>
+
+      <label className="task-prop-field">
+        <span>종료일</span>
+        <input
+          type="date"
+          value={toDateInputValue(task.endDate)}
+          disabled={readOnly || isMilestone}
+          onChange={(e) => {
+            if (!e.target.value) return;
+            onUpdateTask(task.taskId, {
+              endDate: parseDateInputValue(e.target.value).toISOString(),
+            });
+          }}
         />
       </label>
 

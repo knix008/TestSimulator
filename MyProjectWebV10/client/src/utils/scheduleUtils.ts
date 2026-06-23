@@ -38,6 +38,39 @@ export function inclusiveDayCount(start: Date, end: Date, week?: WorkingWeek): n
   return Math.max(1, diff + 1);
 }
 
+export function applyTaskStartDateChange(
+  task: TaskItem,
+  start: Date,
+  week?: WorkingWeek,
+): TaskItem {
+  const schedule = week ?? parseWorkingWeek('[]');
+  const startDate = snapToNextWorkingDay(startOfDay(start), schedule).toISOString();
+  const durationDays =
+    task.taskType === 'Milestone' ? 1 : Math.max(1, task.durationDays);
+  const endDate = computeEndDate(startDate, durationDays, task.taskType, schedule);
+  return { ...task, startDate, durationDays, endDate };
+}
+
+export function applyTaskEndDateChange(
+  task: TaskItem,
+  end: Date,
+  week?: WorkingWeek,
+): TaskItem {
+  const schedule = week ?? parseWorkingWeek('[]');
+  const startDay = snapToNextWorkingDay(startOfDay(new Date(task.startDate)), schedule);
+  let endDay = snapToNextWorkingDay(startOfDay(end), schedule);
+  if (endDay < startDay) {
+    endDay = startDay;
+  }
+  const durationDays =
+    task.taskType === 'Milestone'
+      ? 1
+      : Math.max(1, inclusiveDayCount(startDay, endDay, schedule));
+  const startDate = startDay.toISOString();
+  const endDate = computeEndDate(startDate, durationDays, task.taskType, schedule);
+  return { ...task, startDate, durationDays, endDate };
+}
+
 export function applyTaskDateChange(
   task: TaskItem,
   start: Date,
@@ -46,8 +79,13 @@ export function applyTaskDateChange(
 ): TaskItem {
   const schedule = week ?? parseWorkingWeek('[]');
   const startDate = snapToNextWorkingDay(startOfDay(start), schedule).toISOString();
+  let endDay = startOfDay(end);
+  const startDay = startOfDay(new Date(startDate));
+  if (endDay < startDay) {
+    endDay = startDay;
+  }
   const durationDays =
-    task.taskType === 'Milestone' ? 1 : inclusiveDayCount(start, end, schedule);
+    task.taskType === 'Milestone' ? 1 : inclusiveDayCount(startDay, endDay, schedule);
   const endDate = computeEndDate(startDate, durationDays, task.taskType, schedule);
   return { ...task, startDate, durationDays, endDate };
 }
@@ -144,6 +182,70 @@ export function removeDependency(
   return deps.filter(
     (dep) => !(dep.predecessorId === predecessorId && dep.successorId === successorId),
   );
+}
+
+export function setDependencyType(
+  deps: DependencyItem[],
+  predecessorId: number,
+  successorId: number,
+  type: string,
+): DependencyItem[] {
+  return deps.map((dep) =>
+    dep.predecessorId === predecessorId && dep.successorId === successorId
+      ? { ...dep, type }
+      : dep,
+  );
+}
+
+export function getIncomingDependencies(deps: DependencyItem[], taskId: number): DependencyItem[] {
+  return deps.filter((dep) => dep.successorId === taskId);
+}
+
+export function getOutgoingDependencies(deps: DependencyItem[], taskId: number): DependencyItem[] {
+  return deps.filter((dep) => dep.predecessorId === taskId);
+}
+
+export interface DependencyLinkKey {
+  predecessorId: number;
+  successorId: number;
+}
+
+export function resolveDependencyTypeTarget(
+  deps: DependencyItem[],
+  taskId: number,
+  linkSourceTaskId: number | null,
+): DependencyLinkKey | null {
+  if (linkSourceTaskId != null && linkSourceTaskId !== taskId) {
+    return { predecessorId: linkSourceTaskId, successorId: taskId };
+  }
+
+  const incoming = getIncomingDependencies(deps, taskId);
+  if (incoming.length === 1) {
+    return { predecessorId: incoming[0].predecessorId, successorId: taskId };
+  }
+
+  const outgoing = getOutgoingDependencies(deps, taskId);
+  if (outgoing.length === 1) {
+    return { predecessorId: taskId, successorId: outgoing[0].successorId };
+  }
+
+  return null;
+}
+
+export function resolveContextDependencyType(
+  deps: DependencyItem[],
+  taskId: number,
+  linkSourceTaskId: number | null,
+  defaultType: string,
+): string {
+  const target = resolveDependencyTypeTarget(deps, taskId, linkSourceTaskId);
+  if (!target) return defaultType;
+
+  const dep = deps.find(
+    (item) =>
+      item.predecessorId === target.predecessorId && item.successorId === target.successorId,
+  );
+  return dep?.type || defaultType;
 }
 
 export function toUpdatePayload(project: ProjectDetail): {

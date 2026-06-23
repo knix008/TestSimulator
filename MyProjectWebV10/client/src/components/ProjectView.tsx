@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createProject,
   getDatabaseConfig,
@@ -17,11 +17,19 @@ import {
   finalizeSchedule,
   getPredecessors,
   removeDependency,
+  resolveDependencyTypeTarget,
+  setDependencyType,
   toUpdatePayload,
   tryAddDependency,
   withRecalculatedSchedule,
 } from '../utils/scheduleUtils';
 import { syncSplitScroll } from '../utils/splitScroll';
+import {
+  buildProjectContextMenu,
+  type DependencyTypeSelection,
+  type DependencyTypeValue,
+  type ProjectContextMenuTarget,
+} from '../utils/projectContextMenu';
 import { parseWorkingWeek } from '../utils/workingWeek';
 import {
   addSubtask,
@@ -31,12 +39,15 @@ import {
   getSubtreeTaskIds,
   getVisibleTasks,
   indentTask,
+  isSchedulePatch,
   outdentTask,
   removeInvalidHierarchyDependencies,
   removeTaskSubtree,
   updateTaskInList,
 } from '../utils/taskModel';
+import { applyScheduleCascadeFromTask } from '../utils/scheduleRecalculation';
 import { DatabaseSettingsPanel } from './DatabaseSettingsPanel';
+import { ContextMenu } from './ContextMenu';
 import { GanttChart } from './GanttChart';
 import { MyAccountPanel } from './MyAccountPanel';
 import { ProjectSettingsPanel } from './ProjectSettingsPanel';
@@ -61,6 +72,12 @@ export function ProjectView() {
   const [myAccountOpen, setMyAccountOpen] = useState(false);
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
   const [linkMode, setLinkMode] = useState(false);
+  const [linkSourceTaskId, setLinkSourceTaskId] = useState<number | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    target: ProjectContextMenuTarget;
+  } | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -71,6 +88,7 @@ export function ProjectView() {
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const ganttScrollRef = useRef<HTMLDivElement>(null);
   const scrollToTodayRef = useRef<(() => boolean) | null>(null);
+  const ganttZoomRef = useRef<{ zoomIn: () => void; zoomOut: () => void } | null>(null);
   const isSyncingScrollRef = useRef(false);
   projectRef.current = project;
   ganttViewSettingsRef.current = ganttViewSettings;
@@ -263,6 +281,7 @@ export function ProjectView() {
     setError(null);
     setScheduleError(null);
     setLinkMode(false);
+    setLinkSourceTaskId(null);
     setHasUnsavedChanges(false);
     pendingSaveRef.current = null;
     try {
@@ -306,12 +325,16 @@ export function ProjectView() {
     (taskId: number, start: Date, end: Date) => {
       updateProjectState((current) => {
         const week = parseWorkingWeek(current.workingDaysJson);
-        return {
-          ...current,
-          tasks: current.tasks.map((task) =>
-            task.taskId === taskId ? applyTaskDateChange(task, start, end, week) : task,
-          ),
-        };
+        const tasks = current.tasks.map((task) =>
+          task.taskId === taskId ? applyTaskDateChange(task, start, end, week) : task,
+        );
+        const cascaded = applyScheduleCascadeFromTask(
+          tasks,
+          current.dependencies,
+          current,
+          taskId,
+        );
+        return { ...current, tasks: cascaded };
       });
     },
     [updateProjectState],
@@ -343,6 +366,7 @@ export function ProjectView() {
           return current;
         }
         setScheduleError(null);
+        setLinkSourceTaskId(null);
         return { ...current, dependencies: result.dependencies };
       });
     },
@@ -361,10 +385,18 @@ export function ProjectView() {
 
   const handleUpdateTask = useCallback(
     (taskId: number, patch: Partial<TaskItem>) => {
-      updateProjectState((current) => ({
-        ...current,
-        tasks: updateTaskInList(current.tasks, taskId, patch, current.workingDaysJson),
-      }));
+      updateProjectState((current) => {
+        let tasks = updateTaskInList(current.tasks, taskId, patch, current.workingDaysJson);
+        if (isSchedulePatch(patch)) {
+          tasks = applyScheduleCascadeFromTask(
+            tasks,
+            current.dependencies,
+            current,
+            taskId,
+          );
+        }
+        return { ...current, tasks };
+      });
     },
     [updateProjectState],
   );
@@ -381,74 +413,90 @@ export function ProjectView() {
     }
   }, [selectedTaskId, updateProjectState]);
 
-  const handleAddSubtask = useCallback(() => {
-    if (selectedTaskId == null) {
-      handleAddTask();
-      return;
-    }
-    let newTaskId: number | null = null;
-    updateProjectState((current) => {
-      const result = addSubtask(current.tasks, selectedTaskId);
-      newTaskId = result.newTaskId;
-      return { ...current, tasks: result.tasks };
-    });
-    if (newTaskId != null) {
-      setSelectedTaskId(newTaskId);
-    }
-  }, [handleAddTask, selectedTaskId, updateProjectState]);
+  const handleAddSubtask = useCallback(
+    (parentTaskId?: number) => {
+      const parentId = parentTaskId ?? selectedTaskId;
+      if (parentId == null) {
+        handleAddTask();
+        return;
+      }
+      let newTaskId: number | null = null;
+      updateProjectState((current) => {
+        const result = addSubtask(current.tasks, parentId);
+        newTaskId = result.newTaskId;
+        return { ...current, tasks: result.tasks };
+      });
+      if (newTaskId != null) {
+        setSelectedTaskId(newTaskId);
+      }
+    },
+    [handleAddTask, selectedTaskId, updateProjectState],
+  );
 
-  const handleDeleteTask = useCallback(() => {
-    if (selectedTaskId == null || !project) return;
-    const task = project.tasks.find((t) => t.taskId === selectedTaskId);
-    if (!task) return;
-    const subtreeIds = getSubtreeTaskIds(project.tasks, selectedTaskId);
-    const message =
-      subtreeIds.length > 1
-        ? `"${task.name}" 및 하위 작업 ${subtreeIds.length}개를 삭제하시겠습니까?`
-        : `"${task.name}" 작업을 삭제하시겠습니까?`;
-    if (!window.confirm(message)) return;
+  const handleDeleteTask = useCallback(
+    (taskId?: number) => {
+      const targetId = taskId ?? selectedTaskId;
+      if (targetId == null || !project) return;
+      const task = project.tasks.find((t) => t.taskId === targetId);
+      if (!task) return;
+      const subtreeIds = getSubtreeTaskIds(project.tasks, targetId);
+      const message =
+        subtreeIds.length > 1
+          ? `"${task.name}" 및 하위 작업 ${subtreeIds.length}개를 삭제하시겠습니까?`
+          : `"${task.name}" 작업을 삭제하시겠습니까?`;
+      if (!window.confirm(message)) return;
 
-    const deletedId = selectedTaskId;
-    const idx = project.tasks.findIndex((t) => t.taskId === deletedId);
-    let nextSelected: number | null = null;
-    updateProjectState((current) => {
-      const { tasks, dependencies } = removeTaskSubtree(
-        current.tasks,
-        current.dependencies,
-        deletedId,
-      );
-      nextSelected =
-        tasks[Math.min(idx, tasks.length - 1)]?.taskId ??
-        tasks[tasks.length - 1]?.taskId ??
-        null;
-      return { ...current, tasks, dependencies };
-    });
-    setSelectedTaskId(nextSelected);
-  }, [project, selectedTaskId, updateProjectState]);
+      const deletedId = targetId;
+      const idx = project.tasks.findIndex((t) => t.taskId === deletedId);
+      let nextSelected: number | null = null;
+      updateProjectState((current) => {
+        const { tasks, dependencies } = removeTaskSubtree(
+          current.tasks,
+          current.dependencies,
+          deletedId,
+        );
+        nextSelected =
+          tasks[Math.min(idx, tasks.length - 1)]?.taskId ??
+          tasks[tasks.length - 1]?.taskId ??
+          null;
+        return { ...current, tasks, dependencies };
+      });
+      setSelectedTaskId(nextSelected);
+    },
+    [project, selectedTaskId, updateProjectState],
+  );
 
-  const handleIndentTask = useCallback(() => {
-    if (selectedTaskId == null) return;
-    updateProjectState((current) => {
-      const tasks = indentTask(current.tasks, selectedTaskId);
-      return {
-        ...current,
-        tasks,
-        dependencies: removeInvalidHierarchyDependencies(tasks, current.dependencies),
-      };
-    });
-  }, [selectedTaskId, updateProjectState]);
+  const handleIndentTask = useCallback(
+    (taskId?: number) => {
+      const targetId = taskId ?? selectedTaskId;
+      if (targetId == null) return;
+      updateProjectState((current) => {
+        const tasks = indentTask(current.tasks, targetId);
+        return {
+          ...current,
+          tasks,
+          dependencies: removeInvalidHierarchyDependencies(tasks, current.dependencies),
+        };
+      });
+    },
+    [selectedTaskId, updateProjectState],
+  );
 
-  const handleOutdentTask = useCallback(() => {
-    if (selectedTaskId == null) return;
-    updateProjectState((current) => {
-      const tasks = outdentTask(current.tasks, selectedTaskId);
-      return {
-        ...current,
-        tasks,
-        dependencies: removeInvalidHierarchyDependencies(tasks, current.dependencies),
-      };
-    });
-  }, [selectedTaskId, updateProjectState]);
+  const handleOutdentTask = useCallback(
+    (taskId?: number) => {
+      const targetId = taskId ?? selectedTaskId;
+      if (targetId == null) return;
+      updateProjectState((current) => {
+        const tasks = outdentTask(current.tasks, targetId);
+        return {
+          ...current,
+          tasks,
+          dependencies: removeInvalidHierarchyDependencies(tasks, current.dependencies),
+        };
+      });
+    },
+    [selectedTaskId, updateProjectState],
+  );
 
   const handleToggleExpand = useCallback(
     (taskId: number) => {
@@ -491,6 +539,185 @@ export function ProjectView() {
       setScheduleError(null);
     }
   }, []);
+
+  const handleOpenTaskProperties = useCallback((taskId: number) => {
+    setSelectedTaskId(taskId);
+    requestAnimationFrame(() => {
+      document.querySelector('.project-properties')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+  }, []);
+
+  const handleLinkFromTask = useCallback((taskId: number) => {
+    setSelectedTaskId(taskId);
+    setLinkSourceTaskId(taskId);
+    setLinkMode(true);
+  }, []);
+
+  const handleUnlinkFromTask = useCallback(
+    (taskId: number) => {
+      const outgoingCount =
+        project?.dependencies.filter((dep) => dep.predecessorId === taskId).length ?? 0;
+      if (outgoingCount === 0) {
+        setScheduleError('이 작업에서 나가는 의존성이 없습니다.');
+        return;
+      }
+      updateProjectState((current) => ({
+        ...current,
+        dependencies: current.dependencies.filter((dep) => dep.predecessorId !== taskId),
+      }));
+      setScheduleError(null);
+    },
+    [project?.dependencies, updateProjectState],
+  );
+
+  const handleGanttZoomIn = useCallback(() => {
+    ganttZoomRef.current?.zoomIn();
+  }, []);
+
+  const handleGanttZoomOut = useCallback(() => {
+    ganttZoomRef.current?.zoomOut();
+  }, []);
+
+  const persistDefaultDependencyType = useCallback(
+    (type: DependencyTypeValue) => {
+      if (!project?.id) return;
+      const next = normalizeGanttViewSettings({
+        ...ganttViewSettingsRef.current,
+        defaultDependencyType: type,
+      });
+      setGanttViewSettings(next);
+      ganttViewSettingsRef.current = next;
+      void saveProjectViewSettings(project.id, next)
+        .then((saved) => {
+          const normalized = normalizeGanttViewSettings(saved);
+          setGanttViewSettings(normalized);
+          ganttViewSettingsRef.current = normalized;
+        })
+        .catch((err) => {
+          setScheduleError(
+            err instanceof Error ? err.message : '의존성 종류 기본값 저장에 실패했습니다.',
+          );
+        });
+    },
+    [project?.id],
+  );
+
+  const handleSelectDependencyType = useCallback(
+    (type: DependencyTypeValue, selection: DependencyTypeSelection) => {
+      persistDefaultDependencyType(type);
+
+      if (selection.predecessorId != null && selection.successorId != null) {
+        updateProjectState((current) => {
+          const exists = current.dependencies.some(
+            (dep) =>
+              dep.predecessorId === selection.predecessorId &&
+              dep.successorId === selection.successorId,
+          );
+          if (!exists) return current;
+          return {
+            ...current,
+            dependencies: setDependencyType(
+              current.dependencies,
+              selection.predecessorId!,
+              selection.successorId!,
+              type,
+            ),
+          };
+        });
+        setScheduleError(null);
+        return;
+      }
+
+      if (selection.taskId == null) return;
+
+      const target = resolveDependencyTypeTarget(
+        project?.dependencies ?? [],
+        selection.taskId,
+        linkSourceTaskId,
+      );
+      if (!target) return;
+
+      const exists = project?.dependencies.some(
+        (dep) =>
+          dep.predecessorId === target.predecessorId && dep.successorId === target.successorId,
+      );
+      if (!exists) {
+        setScheduleError(null);
+        return;
+      }
+
+      updateProjectState((current) => ({
+        ...current,
+        dependencies: setDependencyType(
+          current.dependencies,
+          target.predecessorId,
+          target.successorId,
+          type,
+        ),
+      }));
+      setScheduleError(null);
+    },
+    [linkSourceTaskId, persistDefaultDependencyType, project?.dependencies, updateProjectState],
+  );
+
+  const handleContextMenuRequest = useCallback(
+    (target: ProjectContextMenuTarget, clientX: number, clientY: number) => {
+      if (!project) return;
+      setContextMenu({ x: clientX, y: clientY, target });
+    },
+    [project],
+  );
+
+  const contextMenuItems = useMemo(() => {
+    if (!contextMenu || !project) return [];
+    return buildProjectContextMenu({
+      target: contextMenu.target,
+      tasks: project.tasks,
+      dependencies: project.dependencies,
+      ganttViewSettings,
+      linkSourceTaskId,
+      canModify,
+      actions: {
+        openTaskProperties: handleOpenTaskProperties,
+        addTask: handleAddTask,
+        addSubtask: handleAddSubtask,
+        deleteTask: handleDeleteTask,
+        indentTask: handleIndentTask,
+        outdentTask: handleOutdentTask,
+        linkFromTask: handleLinkFromTask,
+        unlinkFromTask: handleUnlinkFromTask,
+        toggleExpandTask: handleToggleExpand,
+        setDependencyType: handleSelectDependencyType,
+        removeDependency: handleRemoveDependency,
+        goToToday: handleGoToToday,
+        zoomIn: handleGanttZoomIn,
+        zoomOut: handleGanttZoomOut,
+      },
+    });
+  }, [
+    contextMenu,
+    project,
+    ganttViewSettings,
+    linkSourceTaskId,
+    canModify,
+    handleOpenTaskProperties,
+    handleAddTask,
+    handleAddSubtask,
+    handleDeleteTask,
+    handleIndentTask,
+    handleOutdentTask,
+    handleLinkFromTask,
+    handleUnlinkFromTask,
+    handleToggleExpand,
+    handleSelectDependencyType,
+    handleRemoveDependency,
+    handleGoToToday,
+    handleGanttZoomIn,
+    handleGanttZoomOut,
+  ]);
 
   useEffect(() => {
     if (!canRead || !project) return;
@@ -589,7 +816,12 @@ export function ProjectView() {
         onOpenUserManagement={() => setUserMgmtOpen(true)}
         onOpenMyAccount={() => setMyAccountOpen(true)}
         onOpenProjectSettings={() => setProjectSettingsOpen(true)}
-        onToggleLinkMode={() => setLinkMode((current) => !current)}
+        onToggleLinkMode={() => {
+          setLinkMode((current) => {
+            if (current) setLinkSourceTaskId(null);
+            return !current;
+          });
+        }}
         onAddTask={handleAddTask}
         onAddSubtask={handleAddSubtask}
         onDeleteTask={handleDeleteTask}
@@ -688,6 +920,7 @@ export function ProjectView() {
                 onSelectTask={setSelectedTaskId}
                 onUpdateTask={handleUpdateTask}
                 onToggleExpand={handleToggleExpand}
+                onContextMenuRequest={handleContextMenuRequest}
               />
             </div>
             <div className="project-gantt-pane">
@@ -699,12 +932,15 @@ export function ProjectView() {
                 selectedTaskId={selectedTaskId}
                 canModify={canModify}
                 linkMode={linkMode}
+                linkSourceTaskId={linkSourceTaskId}
                 scrollContainerRef={ganttScrollRef}
                 scrollToTodayRef={scrollToTodayRef}
+                zoomRef={ganttZoomRef}
                 onSelectTask={setSelectedTaskId}
                 onTaskDateChange={handleTaskDateChange}
                 onTaskProgressChange={handleTaskProgressChange}
                 onAddDependency={handleAddDependency}
+                onContextMenuRequest={handleContextMenuRequest}
               />
             </div>
           </div>
@@ -750,6 +986,15 @@ export function ProjectView() {
           pendingSaveRef.current = null;
         }}
       />
+
+      {contextMenu && contextMenuItems.length > 0 && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

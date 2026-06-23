@@ -1,5 +1,10 @@
 import type { DependencyItem, TaskItem } from '../types/project';
-import { computeEndDate, startOfDay } from './scheduleUtils';
+import {
+  applyTaskEndDateChange,
+  applyTaskStartDateChange,
+  computeEndDate,
+  startOfDay,
+} from './scheduleUtils';
 import { countWorkingDaysInclusive } from './workingDayCalendar';
 import { parseWorkingWeek, type WorkingWeek } from './workingWeek';
 
@@ -259,8 +264,20 @@ export function patchTask(
   const week = workingDaysJson ? parseWorkingWeek(workingDaysJson) : undefined;
   const next = { ...task, ...patch };
 
+  if (patch.endDate !== undefined && patch.startDate === undefined) {
+    return applyTaskEndDateChange(next, new Date(patch.endDate), week);
+  }
+
+  if (patch.startDate !== undefined && patch.endDate === undefined) {
+    return applyTaskStartDateChange(next, new Date(patch.startDate), week);
+  }
+
+  if (patch.startDate !== undefined && patch.endDate !== undefined) {
+    const withStart = applyTaskStartDateChange(next, new Date(patch.startDate), week);
+    return applyTaskEndDateChange(withStart, new Date(patch.endDate), week);
+  }
+
   if (
-    patch.startDate !== undefined ||
     patch.durationDays !== undefined ||
     patch.taskType !== undefined
   ) {
@@ -291,6 +308,17 @@ export function updateTaskInList(
     t.taskId === taskId ? patchTask(t, patch, workingDaysJson) : t,
   );
   return updateTaskHierarchy(next, workingDaysJson);
+}
+
+const SCHEDULE_PATCH_KEYS: (keyof TaskItem)[] = [
+  'startDate',
+  'endDate',
+  'durationDays',
+  'taskType',
+];
+
+export function isSchedulePatch(patch: Partial<TaskItem>): boolean {
+  return SCHEDULE_PATCH_KEYS.some((key) => patch[key] !== undefined);
 }
 
 function applyIndentDelta(tasks: TaskItem[], rootTaskId: number, delta: number): TaskItem[] {

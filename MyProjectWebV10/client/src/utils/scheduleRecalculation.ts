@@ -14,6 +14,7 @@ function applyDependencyCascade(
   tasks: TaskItem[],
   dependencies: DependencyItem[],
   week: WorkingWeek,
+  rootTaskIds?: number[],
 ): TaskItem[] {
   const taskById = new Map(tasks.map((task) => [task.taskId, task]));
   const visited = new Set<number>();
@@ -68,12 +69,28 @@ function applyDependencyCascade(
     }
   };
 
-  for (const dep of dependencies) {
+  const roots =
+    rootTaskIds && rootTaskIds.length > 0
+      ? rootTaskIds
+      : dependencies.map((dep) => dep.predecessorId);
+
+  for (const rootId of roots) {
     visited.clear();
-    cascadeFrom(dep.predecessorId);
+    cascadeFrom(rootId);
   }
 
   return tasks.map((task) => taskById.get(task.taskId) ?? task);
+}
+
+export function applyScheduleCascadeFromTask(
+  tasks: TaskItem[],
+  dependencies: DependencyItem[],
+  project: { projectStart: string; workingDaysJson: string },
+  rootTaskId: number,
+): TaskItem[] {
+  const week = parseWorkingWeek(project.workingDaysJson);
+  const cascaded = applyDependencyCascade(tasks, dependencies, week, [rootTaskId]);
+  return finalizeSchedule(cascaded, dependencies, project);
 }
 
 export function recalculateScheduleForWorkingWeek(

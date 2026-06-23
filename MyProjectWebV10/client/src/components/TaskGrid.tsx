@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import type { TaskItem } from '../types/project';
 import { GANTT_HEADER_HEIGHT, GANTT_ROW_HEIGHT } from '../config/ganttLayout';
+import type { ProjectContextMenuTarget } from '../utils/projectContextMenu';
+import { parseDateInputValue, toDateInputValue } from '../utils/taskDateInput';
 import { getVisibleTasks, taskHasChildren } from '../utils/taskModel';
 import {
   getTreeGuideSegments,
@@ -17,6 +19,21 @@ interface TaskGridProps {
   onSelectTask: (taskId: number) => void;
   onUpdateTask: (taskId: number, patch: Partial<TaskItem>) => void;
   onToggleExpand: (taskId: number) => void;
+  onContextMenuRequest?: (target: ProjectContextMenuTarget, clientX: number, clientY: number) => void;
+}
+
+function commitDateChange(
+  onUpdateTask: TaskGridProps['onUpdateTask'],
+  task: TaskItem,
+  field: 'startDate' | 'endDate',
+  value: string,
+) {
+  if (!value) return;
+  const current = toDateInputValue(field === 'startDate' ? task.startDate : task.endDate);
+  if (value === current) return;
+  onUpdateTask(task.taskId, {
+    [field]: parseDateInputValue(value).toISOString(),
+  });
 }
 
 function formatDate(iso: string): string {
@@ -32,6 +49,7 @@ export function TaskGrid({
   onSelectTask,
   onUpdateTask,
   onToggleExpand,
+  onContextMenuRequest,
 }: TaskGridProps) {
   const [editingNameId, setEditingNameId] = useState<number | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -57,8 +75,35 @@ export function TaskGrid({
     setEditingNameId(null);
   };
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (!onContextMenuRequest) return;
+    event.preventDefault();
+
+    const row = (event.target as HTMLElement).closest('tr[data-task-id]');
+    if (row instanceof HTMLTableRowElement) {
+      const taskId = Number(row.dataset.taskId);
+      if (!Number.isFinite(taskId)) return;
+      onSelectTask(taskId);
+      onContextMenuRequest({ kind: 'task-grid-task', taskId }, event.clientX, event.clientY);
+      return;
+    }
+
+    const inHeader = (event.target as HTMLElement).closest('thead');
+    if (inHeader) {
+      onContextMenuRequest({ kind: 'task-grid-header' }, event.clientX, event.clientY);
+      return;
+    }
+
+    onContextMenuRequest({ kind: 'task-grid-empty' }, event.clientX, event.clientY);
+  };
+
   return (
-    <div className="task-grid" ref={scrollContainerRef} style={layoutStyle}>
+    <div
+      className="task-grid"
+      ref={scrollContainerRef}
+      style={layoutStyle}
+      onContextMenu={handleContextMenu}
+    >
       <table>
         <thead>
           <tr>
@@ -94,6 +139,7 @@ export function TaskGrid({
                 key={task.taskId}
                 className={rowClass || undefined}
                 onClick={() => onSelectTask(task.taskId)}
+                data-task-id={task.taskId}
               >
                 <td>{task.taskId}</td>
                 <td className="col-name-cell">
@@ -178,8 +224,32 @@ export function TaskGrid({
                     <span>{isMilestone ? '0일' : `${task.durationDays}일`}</span>
                   )}
                 </td>
-                <td>{formatDate(task.startDate)}</td>
-                <td>{formatDate(task.endDate)}</td>
+                <td>
+                  {canEditRow ? (
+                    <input
+                      type="date"
+                      className="task-grid-inline-input task-grid-date-input"
+                      value={toDateInputValue(task.startDate)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => commitDateChange(onUpdateTask, task, 'startDate', e.target.value)}
+                    />
+                  ) : (
+                    formatDate(task.startDate)
+                  )}
+                </td>
+                <td>
+                  {canEditRow && !isMilestone ? (
+                    <input
+                      type="date"
+                      className="task-grid-inline-input task-grid-date-input"
+                      value={toDateInputValue(task.endDate)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => commitDateChange(onUpdateTask, task, 'endDate', e.target.value)}
+                    />
+                  ) : (
+                    formatDate(task.endDate)
+                  )}
+                </td>
                 <td>
                   {canEditRow ? (
                     <input

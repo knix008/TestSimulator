@@ -18,35 +18,113 @@ export interface BarAnchors {
   center: Point;
 }
 
-const padding = 12;
+const FS_GAP = 8;
+const OTHER_GAP = 12;
 
-function buildOrthogonalPath(type: DependencyType, from: BarAnchors, to: BarAnchors): Point[] {
-  switch (type) {
-    case 'FF': {
-      const x = Math.max(from.right.x, to.right.x) + padding;
-      return [from.right, { x, y: from.right.y }, { x, y: to.right.y }, to.right];
-    }
-    case 'SS': {
-      const x = Math.min(from.left.x, to.left.x) - padding;
-      return [from.left, { x, y: from.left.y }, { x, y: to.left.y }, to.left];
-    }
-    case 'SF': {
-      const midX = (from.left.x + to.right.x) / 2;
-      return [from.left, { x: midX, y: from.left.y }, { x: midX, y: to.right.y }, to.right];
-    }
-    case 'FS':
-    default: {
-      if (to.left.x > from.right.x + padding) {
-        const midX = (from.right.x + to.left.x) / 2;
-        return [from.right, { x: midX, y: from.right.y }, { x: midX, y: to.left.y }, to.left];
+function simplifyOrthogonalPath(points: Point[]): Point[] {
+  if (points.length <= 2) return points;
+
+  const out: Point[] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = out[out.length - 1];
+    const cur = points[i];
+    if (prev.x === cur.x && prev.y === cur.y) continue;
+
+    if (out.length >= 2) {
+      const before = out[out.length - 2];
+      const sameX = before.x === prev.x && prev.x === cur.x;
+      const sameY = before.y === prev.y && prev.y === cur.y;
+      if (sameX || sameY) {
+        out[out.length - 1] = cur;
+        continue;
       }
-      const x = from.right.x + padding;
-      return [from.right, { x, y: from.right.y }, { x, y: to.left.y }, to.left];
     }
+    out.push(cur);
+  }
+  return out;
+}
+
+/** FS: finish-to-start — route around when successor overlaps or sits left of predecessor. */
+function buildFSPath(from: BarAnchors, to: BarAnchors, gap = FS_GAP): Point[] {
+  const fromX = from.right.x;
+  const fromY = from.right.y;
+  const toX = to.left.x;
+  const toY = to.left.y;
+
+  const pts: Point[] = [from.right, { x: fromX + gap, y: fromY }];
+
+  if (toX > fromX + gap * 2) {
+    pts.push({ x: fromX + gap, y: toY }, to.left);
+  } else {
+    const midY = (fromY + toY) / 2;
+    pts.push(
+      { x: fromX + gap, y: midY },
+      { x: toX - gap, y: midY },
+      { x: toX - gap, y: toY },
+      to.left,
+    );
+  }
+
+  return simplifyOrthogonalPath(pts);
+}
+
+function buildFFPath(from: BarAnchors, to: BarAnchors, gap = OTHER_GAP): Point[] {
+  const rightEdge = Math.max(from.right.x, to.right.x) + gap;
+  return simplifyOrthogonalPath([
+    from.right,
+    { x: rightEdge, y: from.right.y },
+    { x: rightEdge, y: to.right.y },
+    to.right,
+  ]);
+}
+
+function buildSSPath(from: BarAnchors, to: BarAnchors, gap = OTHER_GAP): Point[] {
+  const leftEdge = Math.min(from.left.x, to.left.x) - gap;
+  return simplifyOrthogonalPath([
+    from.left,
+    { x: leftEdge, y: from.left.y },
+    { x: leftEdge, y: to.left.y },
+    to.left,
+  ]);
+}
+
+function buildSFPath(from: BarAnchors, to: BarAnchors, gap = OTHER_GAP): Point[] {
+  const routeX = Math.max(from.left.x, to.right.x) + gap;
+  return simplifyOrthogonalPath([
+    from.left,
+    { x: routeX, y: from.left.y },
+    { x: routeX, y: to.right.y },
+    to.right,
+  ]);
+}
+
+export interface OrthogonalPathGaps {
+  fs?: number;
+  other?: number;
+}
+
+export function buildOrthogonalPath(
+  type: DependencyType,
+  from: BarAnchors,
+  to: BarAnchors,
+  gaps: OrthogonalPathGaps = {},
+): Point[] {
+  const fsGap = gaps.fs ?? FS_GAP;
+  const otherGap = gaps.other ?? OTHER_GAP;
+  switch (type) {
+    case 'FF':
+      return buildFFPath(from, to, otherGap);
+    case 'SS':
+      return buildSSPath(from, to, otherGap);
+    case 'SF':
+      return buildSFPath(from, to, otherGap);
+    case 'FS':
+    default:
+      return buildFSPath(from, to, fsGap);
   }
 }
 
-function pointsToPath(points: Point[]): string {
+export function pointsToPath(points: Point[]): string {
   if (points.length === 0) return '';
   let d = `M ${points[0].x} ${points[0].y}`;
   for (let i = 1; i < points.length; i++) {
@@ -263,6 +341,17 @@ export function renderDependencyLines(
     path.setAttribute('class', 'gantt-dependency-line');
     const dash = strokeDash(viewSettings.lineStyle);
     if (dash) path.setAttribute('stroke-dasharray', dash);
+
+    const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    hitPath.setAttribute('d', pathData);
+    hitPath.setAttribute('fill', 'none');
+    hitPath.setAttribute('stroke', 'transparent');
+    hitPath.setAttribute('stroke-width', '12');
+    hitPath.setAttribute('class', 'gantt-dependency-line-hit');
+    hitPath.setAttribute('data-predecessor-id', String(dep.predecessorId));
+    hitPath.setAttribute('data-successor-id', String(dep.successorId));
+
+    target.appendChild(hitPath);
     target.appendChild(path);
 
     const points = buildOrthogonalPath(style.type, from, to);
