@@ -30,6 +30,11 @@ namespace MyProject.Models
         public static int WindowHeight { get; private set; } = 720;
         public static FormWindowState WindowState { get; private set; } = FormWindowState.Normal;
         public static IReadOnlyList<string> RecentFiles { get; private set; } = Array.Empty<string>();
+        public static IReadOnlyList<DatabaseConnectionProfile> DatabaseProfiles { get; private set; } = Array.Empty<DatabaseConnectionProfile>();
+        public static string? LastDatabaseProfileId { get; private set; }
+        public static bool DatabaseAutoRefreshEnabled { get; private set; } = true;
+        public const int DatabaseAutoRefreshIntervalSeconds = 5;
+        public static string? DatabaseEditorName { get; private set; }
 
         public const int MaxRecentFiles = 10;
 
@@ -127,6 +132,35 @@ namespace MyProject.Models
 
                 RecentFiles = loaded.ToArray();
             }
+
+            if (data.DatabaseProfiles is { Count: > 0 })
+            {
+                DatabaseProfiles = data.DatabaseProfiles
+                    .Where(p => !string.IsNullOrWhiteSpace(p.Id))
+                    .Select(p => new DatabaseConnectionProfile
+                    {
+                        Id = p.Id,
+                        Name = string.IsNullOrWhiteSpace(p.Name) ? "Default" : p.Name,
+                        Provider = Enum.TryParse<DatabaseProviderKind>(p.Provider, out var provider)
+                            ? provider
+                            : DatabaseProviderKind.MariaDb,
+                        Server = p.Server ?? "localhost",
+                        Port = p.Port ?? DatabaseProviderInfo.GetDefaultPort(DatabaseProviderKind.MariaDb),
+                        Database = p.Database ?? "myproject",
+                        UserName = p.UserName ?? "",
+                        EncryptedPassword = p.EncryptedPassword ?? ""
+                    })
+                    .ToArray();
+            }
+
+            if (!string.IsNullOrWhiteSpace(data.LastDatabaseProfileId))
+                LastDatabaseProfileId = data.LastDatabaseProfileId;
+
+            if (data.DatabaseAutoRefreshEnabled.HasValue)
+                DatabaseAutoRefreshEnabled = data.DatabaseAutoRefreshEnabled.Value;
+
+            if (!string.IsNullOrWhiteSpace(data.DatabaseEditorName))
+                DatabaseEditorName = data.DatabaseEditorName.Trim();
         }
 
         public static void Save()
@@ -151,7 +185,23 @@ namespace MyProject.Models
                 WindowWidth = HasSavedWindowBounds ? WindowWidth : null,
                 WindowHeight = HasSavedWindowBounds ? WindowHeight : null,
                 WindowState = WindowState.ToString(),
-                RecentFiles = RecentFiles.Count > 0 ? RecentFiles.ToList() : null
+                RecentFiles = RecentFiles.Count > 0 ? RecentFiles.ToList() : null,
+                DatabaseProfiles = DatabaseProfiles.Count > 0
+                    ? DatabaseProfiles.Select(p => new DatabaseProfileData
+                    {
+                        Id = p.Id,
+                        Name = p.Name,
+                        Provider = p.Provider.ToString(),
+                        Server = p.Server,
+                        Port = p.Port,
+                        Database = p.Database,
+                        UserName = p.UserName,
+                        EncryptedPassword = p.EncryptedPassword
+                    }).ToList()
+                    : null,
+                LastDatabaseProfileId = LastDatabaseProfileId,
+                DatabaseAutoRefreshEnabled = DatabaseAutoRefreshEnabled,
+                DatabaseEditorName = DatabaseEditorName
             };
             var json = JsonSerializer.Serialize(data, JsonOptions);
             File.WriteAllText(SettingsPath, json, System.Text.Encoding.UTF8);
@@ -326,6 +376,73 @@ namespace MyProject.Models
             return true;
         }
 
+        public static DatabaseConnectionProfile? GetDatabaseProfile(string? profileId)
+        {
+            if (string.IsNullOrWhiteSpace(profileId))
+                return null;
+
+            return DatabaseProfiles.FirstOrDefault(p => string.Equals(p.Id, profileId, StringComparison.Ordinal));
+        }
+
+        public static DatabaseConnectionProfile? GetLastDatabaseProfile() =>
+            GetDatabaseProfile(LastDatabaseProfileId) ?? DatabaseProfiles.FirstOrDefault();
+
+        public static void RememberDatabaseProfile(DatabaseConnectionProfile profile)
+        {
+            var list = DatabaseProfiles.ToList();
+            int index = list.FindIndex(p => string.Equals(p.Id, profile.Id, StringComparison.Ordinal));
+            var stored = profile.Clone();
+            if (index >= 0)
+                list[index] = stored;
+            else
+                list.Add(stored);
+
+            DatabaseProfiles = list.ToArray();
+            LastDatabaseProfileId = stored.Id;
+            Save();
+        }
+
+        public static void RememberLastDatabaseProfile(string profileId)
+        {
+            if (string.IsNullOrWhiteSpace(profileId))
+                return;
+
+            if (string.Equals(LastDatabaseProfileId, profileId, StringComparison.Ordinal))
+                return;
+
+            LastDatabaseProfileId = profileId;
+            Save();
+        }
+
+        public static void SetDatabaseAutoRefreshEnabled(bool enabled)
+        {
+            if (DatabaseAutoRefreshEnabled == enabled)
+                return;
+
+            DatabaseAutoRefreshEnabled = enabled;
+            Save();
+        }
+
+        public static string GetDatabaseEditorName()
+        {
+            if (!string.IsNullOrWhiteSpace(DatabaseEditorName))
+                return DatabaseEditorName.Trim();
+
+            return $"{Environment.UserName}@{Environment.MachineName}";
+        }
+
+        public static void RemoveDatabaseProfile(string profileId)
+        {
+            var list = DatabaseProfiles.Where(p => !string.Equals(p.Id, profileId, StringComparison.Ordinal)).ToArray();
+            if (list.Length == DatabaseProfiles.Count)
+                return;
+
+            DatabaseProfiles = list;
+            if (string.Equals(LastDatabaseProfileId, profileId, StringComparison.Ordinal))
+                LastDatabaseProfileId = list.FirstOrDefault()?.Id;
+            Save();
+        }
+
         public static void ApplyTo(FileDialog dialog)
         {
             dialog.InitialDirectory = GetValidDirectory();
@@ -351,6 +468,22 @@ namespace MyProject.Models
             public int? WindowHeight { get; set; }
             public string? WindowState { get; set; }
             public List<string>? RecentFiles { get; set; }
+            public List<DatabaseProfileData>? DatabaseProfiles { get; set; }
+            public string? LastDatabaseProfileId { get; set; }
+            public bool? DatabaseAutoRefreshEnabled { get; set; }
+            public string? DatabaseEditorName { get; set; }
+        }
+
+        private sealed class DatabaseProfileData
+        {
+            public string Id { get; set; } = "";
+            public string Name { get; set; } = "";
+            public string Provider { get; set; } = DatabaseProviderKind.MariaDb.ToString();
+            public string? Server { get; set; }
+            public int? Port { get; set; }
+            public string? Database { get; set; }
+            public string? UserName { get; set; }
+            public string? EncryptedPassword { get; set; }
         }
     }
 }

@@ -456,7 +456,7 @@ namespace MyProject.Forms
 
         private void RefreshColorBarPreview() => _colorBarPreview?.Invalidate();
 
-        private static readonly Color SummaryPreviewColor = Color.FromArgb(70, 100, 180);
+        private static readonly Color SummaryPreviewColor = Color.FromArgb(168, 208, 245);
 
         private void DrawSummaryBarStyleItem(object? sender, DrawItemEventArgs e)
         {

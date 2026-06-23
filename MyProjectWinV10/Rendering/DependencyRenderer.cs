@@ -17,8 +17,7 @@ namespace MyProject.Rendering
             IEnumerable<TaskDependency> dependencies,
             IEnumerable<ProjectTask> visibleTasks,
             Func<int, int> getRowY,
-            bool showCriticalPath,
-            Func<TaskDependency, bool>? isCriticalDependency = null)
+            bool showCriticalPath)
         {
             var taskList = visibleTasks.ToList();
             var taskMap = taskList.ToDictionary(t => t.Id);
@@ -32,9 +31,9 @@ namespace MyProject.Rendering
 
                 int predRowY = rowMap[pred.Id];
                 int succRowY = rowMap[succ.Id];
-                bool isCritical = showCriticalPath && isCriticalDependency?.Invoke(dep) == true;
+                bool isCritical = showCriticalPath && pred.IsCritical && succ.IsCritical;
 
-                DrawArrow(g, dep, pred, succ, predRowY, succRowY, isCritical, 1.5f);
+                DrawArrow(g, dep, pred, succ, predRowY, succRowY, isCritical, isCritical ? 2.5f : 1.5f);
             }
         }
 

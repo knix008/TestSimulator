@@ -267,6 +267,32 @@ namespace MyProject.Theme
             g.DrawLine(p, 6, 15, 11, 15);
         });
 
+        public static Bitmap Database => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawEllipse(p, 4, 3, 12, 5);
+            g.DrawLine(p, 4, 5, 4, 13);
+            g.DrawLine(p, 16, 5, 16, 13);
+            g.DrawEllipse(p, 4, 11, 12, 5);
+        });
+
+        public static Bitmap Fetch => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawRectangle(p, 3, 3, 14, 12);
+            g.DrawLine(p, 10, 5, 10, 12);
+            g.DrawLine(p, 7, 10, 10, 13);
+            g.DrawLine(p, 13, 10, 10, 13);
+        });
+
+        public static Bitmap Refresh => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawArc(p, 4, 4, 12, 12, 45, 270);
+            g.DrawLine(p, 14, 6, 16, 3);
+            g.DrawLine(p, 14, 6, 11, 5);
+        });
+
         public static Bitmap SaveAs => Make(g =>
         {
             using var p = new Pen(Color.White, 1.5f);

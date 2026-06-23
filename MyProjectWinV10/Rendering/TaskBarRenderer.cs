@@ -39,7 +39,7 @@ namespace MyProject.Rendering
             int radius = GetTaskBarCornerRadius(barRect.Height);
             ResolveNormalBarColors(task, out Color barColor, out Color progressColor);
 
-            using var shadowBrush = new SolidBrush(Color.FromArgb(30, 0, 0, 0));
+            using var shadowBrush = new SolidBrush(Color.FromArgb(18, 0, 0, 0));
             g.FillRoundedRectangle(shadowBrush, new Rectangle(barRect.X + 1, barRect.Y + 2, barRect.Width, barRect.Height), radius);
 
             using (var bgBrush = new LinearGradientBrush(barRect,
@@ -64,10 +64,8 @@ namespace MyProject.Rendering
                 g.Restore(state);
             }
 
-            Color borderColor = isSelected ? AppTheme.AccentDark
-                             : isHovered ? LightenColor(barColor, -20)
-                             : DarkenColor(barColor, 30);
-            using var borderPen = new Pen(borderColor, isSelected ? 2f : 1f);
+            Color borderColor = TaskBarColorResolver.GetBarBorderColor(barColor, isSelected, isHovered);
+            using var borderPen = new Pen(borderColor, TaskBarColorResolver.BarBorderWidth(isSelected));
             g.DrawRoundedRectangle(borderPen, barRect, radius);
 
             if (isSelected)
@@ -119,7 +117,7 @@ namespace MyProject.Rendering
 
             DrawSummaryProgressStrip(g, task, barRect, progress);
 
-            using (var borderPen = new Pen(Color.Black, 1f))
+            using (var borderPen = new Pen(TaskBarColorResolver.GetStrongBarOutlineColor(), TaskBarColorResolver.BarBorderWidth(isSelected)))
                 g.DrawRectangle(borderPen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
 
             DrawSummaryEndCaps(g, barRect, summaryColor);
@@ -138,7 +136,7 @@ namespace MyProject.Rendering
         {
             int radius = GetTaskBarCornerRadius(barRect.Height);
 
-            using var shadowBrush = new SolidBrush(Color.FromArgb(30, 0, 0, 0));
+            using var shadowBrush = new SolidBrush(Color.FromArgb(18, 0, 0, 0));
             g.FillRoundedRectangle(shadowBrush, new Rectangle(barRect.X + 1, barRect.Y + 2, barRect.Width, barRect.Height), radius);
 
             using (var bgBrush = new LinearGradientBrush(barRect,
@@ -147,8 +145,8 @@ namespace MyProject.Rendering
 
             DrawSummaryProgressStrip(g, task, barRect, progress);
 
-            Color borderColor = isSelected ? AppTheme.AccentDark : DarkenColor(summaryColor, 30);
-            using var borderPen = new Pen(borderColor, isSelected ? 2f : 1f);
+            Color borderColor = TaskBarColorResolver.GetSummaryBarBorderColor(summaryColor, isSelected);
+            using var borderPen = new Pen(borderColor, TaskBarColorResolver.BarBorderWidth(isSelected));
             g.DrawRoundedRectangle(borderPen, barRect, radius);
 
             if (isSelected)
@@ -167,14 +165,14 @@ namespace MyProject.Rendering
 
             DrawSummaryProgressStrip(g, task, barRect, progress);
 
-            using (var borderPen = new Pen(Color.Black, 1f))
+            using (var borderPen = new Pen(TaskBarColorResolver.GetStrongBarOutlineColor(), TaskBarColorResolver.BarBorderWidth(isSelected)))
                 g.DrawRectangle(borderPen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
 
             // Bracket caps: vertical bars extending below bar at each end
             int capH = Math.Clamp(barRect.Height / 2, 3, 6);
             int capW = Math.Clamp(barRect.Height / 3, 2, 4);
             using var capBrush = new SolidBrush(DarkenColor(summaryColor, 40));
-            using var capPen = new Pen(Color.Black, 1f);
+            using var capPen = new Pen(TaskBarColorResolver.GetStrongBarOutlineColor(), TaskBarColorResolver.BarBorderWidth(false));
 
             // Left bracket
             var leftCap = new Rectangle(barRect.Left, barRect.Bottom - 1, capW, capH);
@@ -220,7 +218,7 @@ namespace MyProject.Rendering
 
             DrawSummaryProgressStrip(g, task, barRect, progress);
 
-            using (var borderPen = new Pen(Color.Black, 1f))
+            using (var borderPen = new Pen(TaskBarColorResolver.GetStrongBarOutlineColor(), TaskBarColorResolver.BarBorderWidth(isSelected)))
                 g.DrawPolygon(borderPen, arrowShape);
 
             if (isSelected)
@@ -285,15 +283,17 @@ namespace MyProject.Rendering
                 new(cx - half, cy)
             };
 
-            using var shadowBrush = new SolidBrush(Color.FromArgb(40, 0, 0, 0));
+            using var shadowBrush = new SolidBrush(Color.FromArgb(24, 0, 0, 0));
             var shadowDiamond = diamond.Select(p => new Point(p.X + 1, p.Y + 2)).ToArray();
             g.FillPolygon(shadowBrush, shadowDiamond);
 
             using var brush = new SolidBrush(GetMilestoneColor(task, isSelected, isHovered));
             g.FillPolygon(brush, diamond);
 
-            Color borderBase = !task.BarColor.IsEmpty ? task.BarColor : AppTheme.TaskBarMilestone;
-            using var pen = new Pen(DarkenColor(borderBase, 40), isSelected ? 2f : 1f);
+            Color milestoneFill = GetMilestoneColor(task, isSelected, isHovered);
+            using var pen = new Pen(
+                TaskBarColorResolver.GetBarBorderColor(milestoneFill, isSelected, isHovered),
+                TaskBarColorResolver.BarBorderWidth(isSelected));
             g.DrawPolygon(pen, diamond);
 
             if (isSelected)

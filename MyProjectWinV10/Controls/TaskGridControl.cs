@@ -140,7 +140,16 @@ namespace MyProject.Controls
         {
             if (_model != null)
                 _model.ModelChanged -= OnModelChanged;
+            CancelEdit();
             _model = null;
+        }
+
+        private bool _shuttingDown;
+
+        public void PrepareForShutdown()
+        {
+            _shuttingDown = true;
+            CancelInteraction();
         }
 
         public void SetModel(ProjectModel model)
@@ -908,10 +917,19 @@ namespace MyProject.Controls
 
         public void CommitPendingEdits() => CommitEdit(forceCommit: true);
 
+        public bool IsInlineEditActive => _inlineEditor != null || _editingProjectName;
+
         private void CommitEdit(bool forceCommit = false)
         {
             if (_isCommittingEdit)
                 return;
+
+            if (_shuttingDown && !forceCommit)
+            {
+                CancelInlineEdit();
+                CancelProjectNameEdit();
+                return;
+            }
 
             _isCommittingEdit = true;
             try

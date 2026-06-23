@@ -511,6 +511,25 @@ namespace MyProject.Controls
       RefreshFromSelection();
     }
 
+    public void DetachModel() => SetModel(null);
+
+    private bool _shuttingDown;
+
+    public void PrepareForShutdown()
+    {
+        _shuttingDown = true;
+        _suppressChanges = true;
+        try
+        {
+            if (_resourceGrid.IsCurrentCellInEditMode)
+                _resourceGrid.CancelEdit();
+        }
+        finally
+        {
+            _suppressChanges = false;
+        }
+    }
+
     public void PrepareForModelRestore()
     {
       _suppressChanges = true;
@@ -1313,7 +1332,7 @@ namespace MyProject.Controls
 
     private void OnModelChanged(object? sender, EventArgs e)
     {
-      if (_applyingToModel || _suppressChanges)
+      if (_shuttingDown || _applyingToModel || _suppressChanges)
         return;
 
       if (_taskId >= 0 && _taskGroup.Visible)

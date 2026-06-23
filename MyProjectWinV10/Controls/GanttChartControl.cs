@@ -224,6 +224,9 @@ namespace MyProject.Controls
 
         private void OnNoteInlineEditorLostFocus(object? sender, EventArgs e)
         {
+            if (_shuttingDown)
+                return;
+
             EndInlineNoteEdit(true);
         }
 
@@ -288,8 +291,11 @@ namespace MyProject.Controls
             _model = null;
         }
 
+        private bool _shuttingDown;
+
         public void PrepareForShutdown()
         {
+            _shuttingDown = true;
             EndInlineNoteEdit(false);
 
             _isDraggingNote = false;
@@ -522,13 +528,16 @@ namespace MyProject.Controls
                 DrawBackground(g, chartArea);
 
             _timeScaleRenderer?.DrawWeekendShading(g, chartArea);
-            _timeScaleRenderer?.DrawVerticalGridLines(g, chartArea);
             DrawHorizontalGridLines(g, chartArea);
-            DrawRows(g, chartArea);
-            _timeScaleRenderer?.DrawTodayLine(g, chartArea);
+            DrawRowHighlights(g, chartArea);
 
             var headerRect = new Rectangle(chartArea.Left, 0, chartArea.Width, AppTheme.TimescaleHeaderHeight);
-            _timeScaleRenderer?.Draw(g, headerRect);
+            _timeScaleRenderer?.DrawHeaderBackground(g, headerRect);
+            _timeScaleRenderer?.DrawVerticalGridLines(g, chartArea, top: 0, bottom: chartArea.Bottom);
+            _timeScaleRenderer?.DrawHeaderLabels(g, headerRect);
+
+            DrawRows(g, chartArea);
+            _timeScaleRenderer?.DrawTodayLine(g, chartArea);
 
             if (drawBorders)
                 DrawBorders(g);
@@ -563,6 +572,31 @@ namespace MyProject.Controls
             }
         }
 
+        private void DrawRowHighlights(Graphics g, Rectangle chartArea)
+        {
+            if (_model == null || _paintExportMode) return;
+
+            var visibleTasks = _model.GetVisibleTasks().ToList();
+            for (int i = 0; i < visibleTasks.Count; i++)
+            {
+                int rowY = AppTheme.TimescaleHeaderHeight + i * AppTheme.RowHeight - _scrollY;
+                if (rowY + AppTheme.RowHeight < AppTheme.TimescaleHeaderHeight) continue;
+                if (rowY > _paintClipBottom) break;
+
+                var task = visibleTasks[i];
+                if (task.Id == _selectedTaskId)
+                {
+                    using var selBrush = new SolidBrush(Color.FromArgb(60, AppTheme.Accent));
+                    g.FillRectangle(selBrush, chartArea.Left, rowY, chartArea.Width, AppTheme.RowHeight);
+                }
+                else if (task.Id == _hoveredTaskId)
+                {
+                    using var hoverBrush = new SolidBrush(Color.FromArgb(30, AppTheme.Accent));
+                    g.FillRectangle(hoverBrush, chartArea.Left, rowY, chartArea.Width, AppTheme.RowHeight);
+                }
+            }
+        }
+
         private void DrawRows(Graphics g, Rectangle chartArea)
         {
             if (_model == null || _taskBarRenderer == null || _depRenderer == null) return;
@@ -578,28 +612,6 @@ namespace MyProject.Controls
             int selectedNoteId = _paintExportMode ? -1 : _selectedNoteId;
             bool linkModeActive = !_paintExportMode && _linkModeActive;
 
-            // Hover/select row highlight
-            if (!_paintExportMode)
-            {
-                foreach (var task in visibleTasks)
-                {
-                    int rowY = rowYByTaskId[task.Id];
-                    if (rowY + AppTheme.RowHeight < AppTheme.TimescaleHeaderHeight) continue;
-                    if (rowY > _paintClipBottom) break;
-
-                    if (task.Id == selectedTaskId)
-                    {
-                        using var selBrush = new SolidBrush(Color.FromArgb(60, AppTheme.Accent));
-                        g.FillRectangle(selBrush, chartArea.Left, rowY, chartArea.Width, AppTheme.RowHeight);
-                    }
-                    else if (task.Id == hoveredTaskId)
-                    {
-                        using var hoverBrush = new SolidBrush(Color.FromArgb(30, AppTheme.Accent));
-                        g.FillRectangle(hoverBrush, chartArea.Left, rowY, chartArea.Width, AppTheme.RowHeight);
-                    }
-                }
-            }
-
             // Dependency arrows (drawn behind bars)
             var clip = g.Clip;
             g.SetClip(chartArea);
@@ -608,8 +620,7 @@ namespace MyProject.Controls
                 _model.Dependencies,
                 visibleTasks,
                 id => rowYByTaskId.GetValueOrDefault(id, -999),
-                ShowCriticalPath,
-                dep => _model.IsDependencyOnCriticalPath(dep));
+                ShowCriticalPath);
 
             if (ShowCriticalPath)
                 _depRenderer.DrawCriticalPathChain(

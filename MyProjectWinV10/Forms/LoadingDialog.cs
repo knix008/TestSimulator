@@ -1,8 +1,11 @@
+using System.Diagnostics;
+
 namespace MyProject.Forms
 {
     public sealed class LoadingDialog : Form
     {
         private readonly Action _work;
+        private volatile bool _closeRequested;
 
         public LoadingDialog(string message, Action work)
         {
@@ -34,14 +37,58 @@ namespace MyProject.Forms
             });
         }
 
-        protected override void OnShown(EventArgs e)
+        protected override async void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            Task.Run(() =>
+
+            try
             {
-                _work();
-                BeginInvoke(Close);
-            });
+                await Task.Run(_work).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"LoadingDialog work failed: {ex}");
+            }
+            finally
+            {
+                RequestClose();
+            }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            _closeRequested = true;
+            base.OnFormClosing(e);
+        }
+
+        private void RequestClose()
+        {
+            if (_closeRequested)
+                return;
+
+            if (IsDisposed)
+            {
+                _closeRequested = true;
+                return;
+            }
+
+            try
+            {
+                if (InvokeRequired)
+                {
+                    BeginInvoke(RequestClose);
+                    return;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                _closeRequested = true;
+                return;
+            }
+
+            _closeRequested = true;
+            if (!IsDisposed)
+                Close();
         }
     }
 }

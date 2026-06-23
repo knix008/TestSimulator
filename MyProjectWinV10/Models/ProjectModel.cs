@@ -40,7 +40,10 @@ namespace MyProject.Models
                 return;
 
             ProjectName = name;
-            IsModified = true;
+            if (IsDatabaseProject)
+                ScheduleLocalStore.Save(this);
+            else
+                IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -55,7 +58,10 @@ namespace MyProject.Models
                 return;
 
             ProjectStart = start;
-            IsModified = true;
+            if (IsDatabaseProject)
+                ScheduleLocalStore.Save(this);
+            else
+                IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -129,7 +135,16 @@ namespace MyProject.Models
 
             if (markModified)
             {
-                IsModified = true;
+                if (IsDatabaseProject)
+                {
+                    ScheduleLocalStore.Save(this);
+                    IsModified = true;
+                }
+                else
+                {
+                    IsModified = true;
+                }
+
                 ModelChanged?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -161,13 +176,23 @@ namespace MyProject.Models
             if (!changed)
                 return false;
 
-            IsModified = true;
+            if (IsDatabaseProject)
+                ScheduleLocalStore.Save(this);
+            else
+                IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
 
         public ProjectViewSettings ViewSettings { get; set; } = ProjectViewSettings.CreateDefault();
         public string FilePath { get; set; } = "";
+        public ProjectStorageKind StorageKind { get; set; } = ProjectStorageKind.LocalFile;
+        public string DatabaseProfileId { get; set; } = "";
+        public int DatabaseProjectId { get; set; }
+        public bool IsDatabaseProject =>
+            StorageKind == ProjectStorageKind.Database && DatabaseProjectId > 0;
+        public bool HasDatabaseScheduleLink =>
+            DatabaseProjectId > 0 && !string.IsNullOrWhiteSpace(DatabaseProfileId);
         public bool IsModified { get; set; } = false;
 
         public IReadOnlyList<ProjectTask> Tasks => _tasks.AsReadOnly();

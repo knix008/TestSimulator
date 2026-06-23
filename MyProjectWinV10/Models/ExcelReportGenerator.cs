@@ -545,7 +545,7 @@ namespace MyProject.Models
         private static Color GetTaskBarColor(ProjectTask task)
         {
             if (task.BarColor != Color.Empty)
-                return task.BarColor;
+                return TaskBarColorResolver.ToPastel(task.BarColor);
             if (task.TaskType == TaskType.Summary)
                 return AppTheme.TaskBarSummary;
             if (task.IsCritical)
@@ -556,7 +556,7 @@ namespace MyProject.Models
         private static Color GetTaskProgressColor(ProjectTask task)
         {
             if (task.ProgressColor != Color.Empty)
-                return task.ProgressColor;
+                return TaskBarColorResolver.ToPastel(task.ProgressColor);
             if (task.IsCritical)
                 return AppTheme.TaskBarCriticalProgress;
             return AppTheme.TaskBarProgress;

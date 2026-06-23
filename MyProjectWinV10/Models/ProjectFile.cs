@@ -36,8 +36,49 @@ namespace MyProject.Models
             if (data.Version != 1)
                 throw new InvalidDataException($"Unsupported project file version: {data.Version}.");
 
-            return FromData(data, path);
+            return FromData(data, ProjectStorageInfo.ForLocalFile(path));
         }
+
+        internal static ProjectFileData ExportData(
+            ProjectModel model,
+            bool includeWindowSettings = true,
+            bool includeViewSettings = true) =>
+            ToData(model, includeWindowSettings, includeViewSettings);
+
+        internal static ProjectModel ImportData(ProjectFileData data, ProjectStorageInfo storage) =>
+            FromData(data, storage);
+
+        internal static void ImportScheduleContentInto(ProjectModel model, ProjectFileData scheduleData)
+        {
+            model.Restore(
+                scheduleData.Tasks,
+                scheduleData.Dependencies,
+                scheduleData.Assignments,
+                scheduleData.Notes);
+            model.IsModified = true;
+        }
+
+        internal static ProjectFileData ExportScheduleData(ProjectModel model) =>
+            ExportScheduleContentData(model);
+
+        internal static ProjectFileData ExportScheduleContentData(ProjectModel model)
+        {
+            var data = ToData(model, includeWindowSettings: false, includeViewSettings: false);
+            return new ProjectFileData
+            {
+                Version = data.Version,
+                Tasks = data.Tasks,
+                Dependencies = data.Dependencies,
+                Assignments = data.Assignments,
+                Notes = data.Notes
+            };
+        }
+
+        internal static SettingsData ExportViewSettingsData(ProjectViewSettings settings, bool includeWindowSettings = true) =>
+            ToSettingsData(settings, includeWindowSettings);
+
+        internal static ProjectViewSettings ImportViewSettingsData(SettingsData? data) =>
+            FromSettingsData(data);
 
         internal static string ToSnapshot(
             ProjectModel model,
@@ -55,7 +96,7 @@ namespace MyProject.Models
         {
             var data = JsonSerializer.Deserialize<ProjectFileData>(json, JsonOptions)
                 ?? throw new InvalidDataException("Snapshot is empty or invalid.");
-            return FromData(data, filePath ?? "");
+            return FromData(data, ProjectStorageInfo.ForLocalFile(filePath ?? ""));
         }
 
         public static string TemplatePath =>
@@ -241,14 +282,17 @@ namespace MyProject.Models
             return settings;
         }
 
-        private static ProjectModel FromData(ProjectFileData data, string path)
+        private static ProjectModel FromData(ProjectFileData data, ProjectStorageInfo storage)
         {
             var model = new ProjectModel
             {
                 ProjectName = data.ProjectName,
                 ProjectStart = data.ProjectStart,
                 ViewSettings = FromSettingsData(data.Settings),
-                FilePath = path,
+                FilePath = storage.Kind == ProjectStorageKind.LocalFile ? storage.LocalFilePath : "",
+                StorageKind = storage.Kind,
+                DatabaseProfileId = storage.DatabaseProfileId,
+                DatabaseProjectId = storage.DatabaseProjectId,
                 IsModified = false
             };
             model.SetWorkingWeek(WorkingWeekSchedule.FromDayFlags(data.WorkingDays));
@@ -263,7 +307,7 @@ namespace MyProject.Models
             return model;
         }
 
-        private sealed class ProjectFileData
+        internal sealed class ProjectFileData
         {
             public int Version { get; set; } = 1;
             public string ProjectName { get; set; } = "New Project";
@@ -276,7 +320,7 @@ namespace MyProject.Models
             public SettingsData? Settings { get; set; }
         }
 
-        private sealed class SettingsData
+        internal sealed class SettingsData
         {
             public int[]? TaskGridColumnWidths { get; set; }
             public string DefaultDependencyType { get; set; } = "FS";

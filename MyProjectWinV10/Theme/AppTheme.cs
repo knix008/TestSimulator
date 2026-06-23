@@ -27,13 +27,13 @@
         public static Color AccentLight { get; } = Color.FromArgb(210, 227, 252);
         public static Color AccentDark { get; } = Color.FromArgb(16, 80, 180);
 
-        // Task bar colors
-        public static Color TaskBarNormal { get; } = Color.FromArgb(26, 115, 232);
-        public static Color TaskBarProgress { get; } = Color.FromArgb(11, 83, 190);
-        public static Color TaskBarSummary { get; } = Color.FromArgb(60, 64, 67);
-        public static Color TaskBarCritical { get; } = Color.FromArgb(217, 48, 37);
-        public static Color TaskBarCriticalProgress { get; } = Color.FromArgb(180, 30, 20);
-        public static Color TaskBarMilestone { get; } = Color.FromArgb(234, 134, 0);
+        // Task bar colors — pastel palette
+        public static Color TaskBarNormal { get; } = Color.FromArgb(168, 208, 245);
+        public static Color TaskBarProgress { get; } = Color.FromArgb(126, 186, 238);
+        public static Color TaskBarSummary { get; } = Color.FromArgb(196, 200, 214);
+        public static Color TaskBarCritical { get; } = Color.FromArgb(255, 183, 178);
+        public static Color TaskBarCriticalProgress { get; } = Color.FromArgb(255, 154, 148);
+        public static Color TaskBarMilestone { get; } = Color.FromArgb(255, 220, 168);
 
         // Toolbar
         public static Color ToolbarBackground { get; } = Color.FromArgb(26, 115, 232);

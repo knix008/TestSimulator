@@ -92,21 +92,10 @@ namespace MyProject.Forms
                 HideSelection = false
             };
 
-            var btnClose = new Button
-            {
-                Text = "Close",
-                AutoSize = true,
-                MinimumSize = new Size(88, 30),
-                DialogResult = DialogResult.Cancel
-            };
+            var btnClose = MakeButton("Close");
+            btnClose.DialogResult = DialogResult.Cancel;
 
-            var btnCopy = new Button
-            {
-                Text = "Copy",
-                AutoSize = true,
-                MinimumSize = new Size(88, 30),
-                Margin = new Padding(0, 0, 8, 0)
-            };
+            var btnCopy = MakeButton("Copy");
             btnCopy.Click += (_, _) => CopyToClipboard(btnCopy);
 
             var buttonPanel = new FlowLayoutPanel
@@ -137,6 +126,8 @@ namespace MyProject.Forms
             CancelButton = btnClose;
         }
 
+        private System.Windows.Forms.Timer? _copyResetTimer;
+
         private void CopyToClipboard(Button copyButton)
         {
             _detailsBox.SelectAll();
@@ -144,14 +135,25 @@ namespace MyProject.Forms
             _detailsBox.SelectionLength = 0;
 
             copyButton.Text = "Copied";
-            var timer = new System.Windows.Forms.Timer { Interval = 1500 };
-            timer.Tick += (_, _) =>
+            _copyResetTimer?.Stop();
+            _copyResetTimer?.Dispose();
+            _copyResetTimer = new System.Windows.Forms.Timer { Interval = 1500 };
+            _copyResetTimer.Tick += (_, _) =>
             {
                 copyButton.Text = "Copy";
-                timer.Stop();
-                timer.Dispose();
+                _copyResetTimer?.Stop();
+                _copyResetTimer?.Dispose();
+                _copyResetTimer = null;
             };
-            timer.Start();
+            _copyResetTimer.Start();
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            _copyResetTimer?.Stop();
+            _copyResetTimer?.Dispose();
+            _copyResetTimer = null;
+            base.OnFormClosed(e);
         }
 
         private static string BuildCopyText(string title, string summary, string details)
@@ -172,6 +174,21 @@ namespace MyProject.Forms
                 sb.Append(details);
 
             return sb.ToString().TrimEnd();
+        }
+
+        private static Button MakeButton(string text)
+        {
+            var button = new Button
+            {
+                Text = text,
+                Size = new Size(88, 30),
+                Margin = new Padding(6, 0, 0, 0),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = AppTheme.SurfaceColor,
+                ForeColor = AppTheme.TextPrimary
+            };
+            button.FlatAppearance.BorderColor = AppTheme.BorderColor;
+            return button;
         }
     }
 }

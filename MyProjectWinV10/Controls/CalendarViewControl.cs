@@ -236,6 +236,17 @@ namespace MyProject.Controls
 
         public void DetachModel() => SetModel(null);
 
+        private bool _shuttingDown;
+
+        public void PrepareForShutdown()
+        {
+            _shuttingDown = true;
+            _isDraggingNote = false;
+            _isPendingNoteDrag = false;
+            _dragNoteId = -1;
+            Capture = false;
+        }
+
         public void SetDisplayUnit(CalendarDisplayUnit unit) => DisplayUnit = unit;
 
         public void SetSelectedTask(int taskId)
@@ -523,6 +534,9 @@ namespace MyProject.Controls
 
         private void OnModelChanged(object? sender, EventArgs e)
         {
+            if (_shuttingDown)
+                return;
+
             SyncScrollbars();
             Invalidate();
         }
@@ -901,9 +915,9 @@ namespace MyProject.Controls
             }
 
             Color borderColor = isSummary
-                ? Color.Black
-                : selected ? AppTheme.AccentDark : TaskBarColorResolver.DarkenColor(barColor, 30);
-            using (var borderPen = new Pen(borderColor, selected ? 2f : 1f))
+                ? TaskBarColorResolver.GetStrongBarOutlineColor()
+                : TaskBarColorResolver.GetBarBorderColor(barColor, selected);
+            using (var borderPen = new Pen(borderColor, TaskBarColorResolver.BarBorderWidth(selected)))
                 g.DrawRectangle(borderPen, fillRect.X, fillRect.Y, fillRect.Width - 1, fillRect.Height - 1);
 
             if (!continuesFromLeft && fillRect.Width > 24)
@@ -941,8 +955,11 @@ namespace MyProject.Controls
             using var brush = new SolidBrush(fillColor);
             g.FillPolygon(brush, diamond);
 
-            Color borderBase = !task.BarColor.IsEmpty ? task.BarColor : AppTheme.TaskBarMilestone;
-            using var pen = new Pen(TaskBarColorResolver.DarkenColor(borderBase, 40), selected ? 2f : 1f);
+            using var pen = new Pen(
+                TaskBarColorResolver.GetBarBorderColor(
+                    !task.BarColor.IsEmpty ? TaskBarColorResolver.ToPastel(task.BarColor) : AppTheme.TaskBarMilestone,
+                    selected),
+                TaskBarColorResolver.BarBorderWidth(selected));
             g.DrawPolygon(pen, diamond);
         }
 

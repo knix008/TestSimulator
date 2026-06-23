@@ -20,6 +20,14 @@ namespace MyProject.Forms
         private bool _isPropertiesPanelExpanded = true;
         private bool _trackViewSettingsChanges;
         private bool _pendingNavigationRestore;
+        private bool _isClosing;
+        private System.Windows.Forms.Timer? _databaseAutoSaveTimer;
+        private bool _databaseAutoSavePending;
+        private bool _suppressDatabaseAutoSave;
+        private System.Windows.Forms.Timer? _databaseAutoRefreshTimer;
+        private bool _databaseAutoRefreshPollInProgress;
+        private long _knownDatabaseVersion;
+        private ToolStripMenuItem? _menuAutoRefreshFromDatabase;
         private ToolStripMenuItem? _menuCalendarWeekly;
         private ToolStripMenuItem? _menuCalendarMonthly;
         private ToolStripMenuItem? _menuCalendarYearly;
@@ -90,8 +98,9 @@ namespace MyProject.Forms
             menuRedo.Image = AppIcons.Redo;
 
             // Top-level menu icons
-            menuFile.Image   = AppIcons.File;
-            menuTask.Image   = AppIcons.Edit;
+            menuFile.Image     = AppIcons.File;
+            menuDatabase.Image = AppIcons.Database;
+            menuTask.Image     = AppIcons.Edit;
             menuView.Image   = AppIcons.View;
             menuReport.Image = AppIcons.Report;
 
@@ -101,6 +110,11 @@ namespace MyProject.Forms
             menuSave.Image   = AppIcons.Save;
             menuSaveAs.Image = AppIcons.SaveAs;
             menuExit.Image   = AppIcons.Exit;
+            menuDatabaseConnection.Image = AppIcons.Database;
+            menuFetchFromDatabase.Image = AppIcons.Fetch;
+            menuRefreshFromDatabase.Image = AppIcons.Refresh;
+            menuSaveToDatabase.Image = AppIcons.Save;
+            menuOpenFromDatabase.Image = AppIcons.Open;
 
             // Task menu
             menuAddTask.Image       = AppIcons.AddTask;
@@ -193,6 +207,11 @@ namespace MyProject.Forms
             menuSave.ToolTipText = "Save the current project";
             menuSaveAs.ToolTipText = "Save the current project under a new file name";
             menuProjectSettings.ToolTipText = "Edit project name, schedule, working days, and dependency defaults";
+            menuDatabaseConnection.ToolTipText = "Configure database connection profiles for shared schedules";
+            menuFetchFromDatabase.ToolTipText = "Fetch schedule data from the database into the current project";
+            menuRefreshFromDatabase.ToolTipText = "Reload the current shared schedule from the database";
+            menuSaveToDatabase.ToolTipText = "Save the current schedule to a shared schedule in the database";
+            menuOpenFromDatabase.ToolTipText = "Open a shared schedule from the database as the current project";
             menuUndo.ToolTipText = "Undo the last edit (Ctrl+Z)";
             menuRedo.ToolTipText = "Redo the last undone edit (Ctrl+Y)";
             menuExportMsProject.ToolTipText = "Export schedule for Microsoft Project (XML or MPX)";
@@ -288,6 +307,12 @@ namespace MyProject.Forms
 
             menuNew.Click        += (_, _) => OnNew();
             menuOpen.Click       += (_, _) => OnOpen();
+            menuDatabaseConnection.Click += (_, _) => OnDatabaseConnectionSettings();
+            menuFetchFromDatabase.Click += (_, _) => OnFetchFromDatabase();
+            menuRefreshFromDatabase.Click += (_, _) => OnRefreshFromDatabase();
+            menuSaveToDatabase.Click += (_, _) => OnSaveToDatabase();
+            menuOpenFromDatabase.Click += (_, _) => OnOpenFromDatabase();
+            SetupDatabaseAutoRefreshMenu();
             menuSave.Click       += (_, _) => OnSave();
             menuSaveAs.Click     += (_, _) => OnSaveAs();
             menuProjectSettings.Click += (_, _) => OnProjectSettings();
@@ -407,7 +432,7 @@ namespace MyProject.Forms
             Shown += (_, _) =>
             {
                 ApplyWindowSettingsFromAppSettings();
-                BeginInvoke(CompleteInitialLayout);
+                SafeBeginInvoke(CompleteInitialLayout);
             };
 
             KeyPreview = true;
@@ -445,8 +470,8 @@ namespace MyProject.Forms
 
         private void OnFormClosing(object? sender, FormClosingEventArgs e)
         {
-            ganttChartControl.PrepareForShutdown();
-            taskGridControl.CancelInteraction();
+            if (_isClosing)
+                return;
 
             bool allowPersistence = true;
             if (NeedsSavePrompt())
@@ -461,21 +486,61 @@ namespace MyProject.Forms
                     allowPersistence = false;
             }
 
+            _isClosing = true;
+            _suppressDatabaseAutoSave = true;
+            _databaseAutoSavePending = false;
+            _databaseAutoSaveTimer?.Stop();
+            if (_databaseAutoSaveTimer != null)
+                _databaseAutoSaveTimer.Tick -= OnDatabaseAutoSaveTimerTick;
+            _databaseAutoSaveTimer?.Dispose();
+            _databaseAutoSaveTimer = null;
+
+            _databaseAutoRefreshTimer?.Stop();
+            if (_databaseAutoRefreshTimer != null)
+                _databaseAutoRefreshTimer.Tick -= OnDatabaseAutoRefreshTimerTick;
+            _databaseAutoRefreshTimer?.Dispose();
+            _databaseAutoRefreshTimer = null;
+
             SaveSessionState(allowPersistence);
+
+            ganttChartControl.PrepareForShutdown();
+            taskGridControl.PrepareForShutdown();
+            calendarViewControl.PrepareForShutdown();
+            selectionPropertiesControl.PrepareForShutdown();
 
             DetachFromModel();
 
-            if (_titleBarModel != null)
-                _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
-
             try { AppSettings.Save(); }
-            catch { /* ignore settings write errors during shutdown */ }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to save application settings during shutdown: {ex}");
+            }
+        }
+
+        private void SafeBeginInvoke(Action action)
+        {
+            if (_isClosing || IsDisposed || !IsHandleCreated)
+                return;
+
+            try
+            {
+                BeginInvoke(action);
+            }
+            catch (InvalidOperationException)
+            {
+                // The main window is closing; ignore late UI callbacks.
+            }
         }
 
         private bool NeedsSavePrompt() => _model.IsModified;
 
         private void DetachFromModel()
         {
+            if (_titleBarModel != null)
+                _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
+
+            selectionPropertiesControl.DetachModel();
+            calendarViewControl.DetachModel();
             taskGridControl.DetachModel();
             ganttChartControl.DetachModel();
         }
@@ -664,9 +729,12 @@ namespace MyProject.Forms
             _model = new ProjectModel
             {
                 ProjectName = "New Project",
-                ViewSettings = ProjectViewSettings.CreateDefault()
+                ViewSettings = ProjectViewSettings.CreateDefault(),
+                StorageKind = ProjectStorageKind.LocalFile,
+                FilePath = ""
             };
             _undoRedo.Clear();
+            ClearRemoteRevisionTracking();
             ApplyModel();
             UpdateUndoRedoState();
             AppSettings.ClearSession();
@@ -737,7 +805,29 @@ namespace MyProject.Forms
                 string? sessionPath = null;
                 bool isRecovery = false;
 
-                if (!string.IsNullOrEmpty(_model.FilePath))
+                if (_model.IsDatabaseProject)
+                {
+                    if (_model.IsModified && allowPersistence)
+                    {
+                        var profile = AppSettings.GetDatabaseProfile(_model.DatabaseProfileId);
+                        if (profile != null)
+                        {
+                            try
+                            {
+                                DatabaseProjectStore.SaveProject(profile, _model);
+                                _model.IsModified = false;
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Database save skipped during shutdown: {ex}");
+                                // fall back to recovery snapshot below
+                            }
+                        }
+                    }
+
+                    ScheduleLocalStore.Save(_model);
+                }
+                else if (!string.IsNullOrEmpty(_model.FilePath))
                 {
                     sessionPath = _model.FilePath;
                     if (_model.IsModified && allowPersistence)
@@ -762,14 +852,17 @@ namespace MyProject.Forms
                 else
                     AppSettings.ClearSession();
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore persistence errors during shutdown
+                Debug.WriteLine($"Session persistence failed during shutdown: {ex}");
             }
         }
 
         private void RestoreNavigationFromViewSettings()
         {
+            if (_isClosing || IsDisposed)
+                return;
+
             if (_isApplyingViewSettings)
                 return;
 
@@ -842,6 +935,7 @@ namespace MyProject.Forms
 
             _trackViewSettingsChanges = false;
             _isApplyingViewSettings = true;
+            _suppressDatabaseAutoSave = true;
             try
             {
                 ApplyViewSettingsFromModel();
@@ -849,6 +943,7 @@ namespace MyProject.Forms
             finally
             {
                 _isApplyingViewSettings = false;
+                _suppressDatabaseAutoSave = false;
             }
 
             _model.IsModified = false;
@@ -859,6 +954,9 @@ namespace MyProject.Forms
 
         private void CompleteInitialLayout()
         {
+            if (_isClosing || IsDisposed)
+                return;
+
             SyncViewSettingsAfterInitialLayout();
             if (!_pendingNavigationRestore)
                 return;
@@ -1171,9 +1269,10 @@ namespace MyProject.Forms
             if (ProjectViewSettings.Equals(_model.ViewSettings, captured))
                 return;
 
-            // Update view settings in the model so they're included in the next explicit save,
-            // but do NOT set IsModified — view-layout changes alone don't warrant a save prompt.
+            // View settings and project settings stay local for shared database schedules.
             _model.ViewSettings = captured;
+            if (_model.IsDatabaseProject)
+                ScheduleLocalStore.Save(_model);
         }
 
         private bool CanDeleteSelectedNote()
@@ -1294,7 +1393,86 @@ namespace MyProject.Forms
             ganttChartControl.ResetZoom();
         }
 
-        private void OnModelChangedForTitleBar(object? sender, EventArgs e) => UpdateTitleBar();
+        private void OnModelChangedForTitleBar(object? sender, EventArgs e)
+        {
+            UpdateTitleBar();
+            QueueDatabaseScheduleAutoSave();
+        }
+
+        private void QueueDatabaseScheduleAutoSave()
+        {
+            if (_suppressDatabaseAutoSave || _isClosing || !_model.IsDatabaseProject || _isApplyingViewSettings)
+                return;
+
+            _databaseAutoSavePending = true;
+            _databaseAutoSaveTimer ??= new System.Windows.Forms.Timer { Interval = 1500 };
+            _databaseAutoSaveTimer.Tick -= OnDatabaseAutoSaveTimerTick;
+            _databaseAutoSaveTimer.Tick += OnDatabaseAutoSaveTimerTick;
+            _databaseAutoSaveTimer.Stop();
+            _databaseAutoSaveTimer.Start();
+        }
+
+        private void OnDatabaseAutoSaveTimerTick(object? sender, EventArgs e)
+        {
+            _databaseAutoSaveTimer?.Stop();
+            if (!_databaseAutoSavePending || _suppressDatabaseAutoSave || _isClosing || !_model.IsDatabaseProject)
+                return;
+
+            _databaseAutoSavePending = false;
+            TryAutoSaveScheduleToDatabase();
+        }
+
+        private bool TryAutoSaveScheduleToDatabase(bool showCompletionPopup = false)
+        {
+            var profile = AppSettings.GetDatabaseProfile(_model.DatabaseProfileId);
+            if (profile == null)
+                return false;
+
+            try
+            {
+                taskGridControl.CommitPendingEdits();
+                selectionPropertiesControl.CommitPendingEdits();
+                CaptureViewSettingsToModel();
+                var result = DatabaseProjectStore.SaveScheduleTo(profile, _model.DatabaseProjectId, _model);
+                ScheduleLocalStore.Save(_model);
+                _model.IsModified = false;
+                RememberRemoteRevision(new DatabaseScheduleRevision
+                {
+                    ProjectId = _model.DatabaseProjectId,
+                    Version = result.Version,
+                    UpdatedUtc = result.UpdatedUtc
+                });
+                UpdateTitleBar();
+                statusLabel.Text = ProjectStorageInfo.ForDatabase(profile.Id, _model.DatabaseProjectId)
+                    .GetDisplayLocation(profile);
+
+                if (showCompletionPopup)
+                {
+                    CompletionDialog.Show(
+                        this,
+                        "Save Complete",
+                        $"The shared schedule \"{_model.ProjectName}\" was saved to the database.",
+                        DatabaseOperationDetails.FormatSaveDetails(profile, _model, result),
+                        "Details:");
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Auto-save to database failed: {ex}");
+                if (showCompletionPopup)
+                {
+                    ErrorDialog.Show(
+                        this,
+                        "Save Error",
+                        DatabaseOperationDetails.FormatFailureSummary(profile, $"save shared schedule #{_model.DatabaseProjectId}"),
+                        DatabaseOperationDetails.FormatFailureDetails(profile, ErrorDialog.FormatException(ex)));
+                }
+
+                return false;
+            }
+        }
 
         // ── Selection ────────────────────────────────────────────────────────
 
@@ -1590,7 +1768,193 @@ namespace MyProject.Forms
 
         private void UpdateTitleBar()
         {
-            Text = $"MyProject - {_model.ProjectName}{(_model.IsModified ? " *" : "")}";
+            string source = _model.IsDatabaseProject ? " [Shared]" : "";
+            Text = $"MyProject - {_model.ProjectName}{source}{(_model.IsModified ? " *" : "")}";
+            UpdateDatabaseMenuState();
+        }
+
+        private void UpdateDatabaseMenuState()
+        {
+            menuRefreshFromDatabase.Enabled = _model.IsDatabaseProject;
+            if (_menuAutoRefreshFromDatabase != null)
+                _menuAutoRefreshFromDatabase.Enabled = _model.IsDatabaseProject;
+            UpdateDatabaseAutoRefreshTimer();
+        }
+
+        private void SetupDatabaseAutoRefreshMenu()
+        {
+            _menuAutoRefreshFromDatabase = new ToolStripMenuItem("&Auto-refresh from Database")
+            {
+                CheckOnClick = true,
+                Checked = AppSettings.DatabaseAutoRefreshEnabled,
+                ToolTipText =
+                    "When a shared schedule is open, check the database every few seconds " +
+                    "and apply updates made by other users."
+            };
+
+            int insertAt = menuDatabase.DropDownItems.IndexOf(menuRefreshFromDatabase);
+            if (insertAt < 0)
+                menuDatabase.DropDownItems.Add(_menuAutoRefreshFromDatabase);
+            else
+                menuDatabase.DropDownItems.Insert(insertAt + 1, _menuAutoRefreshFromDatabase);
+
+            _menuAutoRefreshFromDatabase.Click += (_, _) =>
+            {
+                AppSettings.SetDatabaseAutoRefreshEnabled(_menuAutoRefreshFromDatabase.Checked);
+                UpdateDatabaseAutoRefreshTimer();
+            };
+        }
+
+        private void UpdateDatabaseAutoRefreshTimer()
+        {
+            bool shouldRun = !_isClosing
+                && _model.IsDatabaseProject
+                && AppSettings.DatabaseAutoRefreshEnabled;
+
+            if (!shouldRun)
+            {
+                _databaseAutoRefreshTimer?.Stop();
+                return;
+            }
+
+            int intervalMs = AppSettings.DatabaseAutoRefreshIntervalSeconds * 1000;
+            _databaseAutoRefreshTimer ??= new System.Windows.Forms.Timer { Interval = intervalMs };
+            _databaseAutoRefreshTimer.Interval = intervalMs;
+            _databaseAutoRefreshTimer.Tick -= OnDatabaseAutoRefreshTimerTick;
+            _databaseAutoRefreshTimer.Tick += OnDatabaseAutoRefreshTimerTick;
+            if (!_databaseAutoRefreshTimer.Enabled)
+                _databaseAutoRefreshTimer.Start();
+        }
+
+        private void RememberRemoteRevision(DatabaseScheduleRevision revision)
+        {
+            _knownDatabaseVersion = revision.Version;
+        }
+
+        private void ClearRemoteRevisionTracking()
+        {
+            _knownDatabaseVersion = 0;
+        }
+
+        private void RememberRemoteDatabaseRevision(DatabaseConnectionProfile profile, int projectId)
+        {
+            try
+            {
+                var revision = DatabaseProjectStore.TryGetScheduleRevision(profile, projectId);
+                if (revision != null)
+                    RememberRemoteRevision(revision);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to read shared schedule revision: {ex}");
+            }
+        }
+
+        private bool CanAutoRefreshFromDatabase()
+        {
+            if (_isClosing || !_model.IsDatabaseProject || _databaseAutoRefreshPollInProgress)
+                return false;
+
+            if (!AppSettings.DatabaseAutoRefreshEnabled)
+                return false;
+
+            if (_model.IsModified || _databaseAutoSavePending || _suppressDatabaseAutoSave)
+                return false;
+
+            if (ganttChartControl.IsInlineNoteEditActive
+                || taskGridControl.IsInlineEditActive
+                || selectionPropertiesControl.IsNoteEditorFocused)
+                return false;
+
+            return AppSettings.GetDatabaseProfile(_model.DatabaseProfileId) != null;
+        }
+
+        private void OnDatabaseAutoRefreshTimerTick(object? sender, EventArgs e)
+        {
+            if (!CanAutoRefreshFromDatabase())
+                return;
+
+            var profile = AppSettings.GetDatabaseProfile(_model.DatabaseProfileId);
+            if (profile == null)
+                return;
+
+            int projectId = _model.DatabaseProjectId;
+            long knownVersion = _knownDatabaseVersion;
+            _databaseAutoRefreshPollInProgress = true;
+
+            Task.Run(() =>
+            {
+                DatabaseScheduleRevision? remote = null;
+                try
+                {
+                    remote = DatabaseProjectStore.TryGetScheduleRevision(profile, projectId);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Auto-refresh poll failed: {ex}");
+                }
+
+                SafeBeginInvoke(() =>
+                {
+                    _databaseAutoRefreshPollInProgress = false;
+                    if (!CanAutoRefreshFromDatabase())
+                        return;
+
+                    if (remote == null || remote.Version <= knownVersion)
+                        return;
+
+                    BeginAutoRefreshScheduleFromDatabase(profile, projectId, remote);
+                });
+            });
+        }
+
+        private void BeginAutoRefreshScheduleFromDatabase(
+            DatabaseConnectionProfile profile,
+            int projectId,
+            DatabaseScheduleRevision remoteRevision)
+        {
+            if (_databaseAutoRefreshPollInProgress)
+                return;
+
+            _databaseAutoRefreshPollInProgress = true;
+
+            Task.Run(() =>
+            {
+                ProjectFile.ProjectFileData? scheduleData = null;
+                Exception? error = null;
+                try
+                {
+                    scheduleData = DatabaseProjectStore.LoadScheduleData(profile, projectId);
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+
+                SafeBeginInvoke(() =>
+                {
+                    _databaseAutoRefreshPollInProgress = false;
+
+                    if (error != null)
+                    {
+                        Debug.WriteLine($"Auto-refresh load failed: {error}");
+                        return;
+                    }
+
+                    if (scheduleData == null || !CanAutoRefreshFromDatabase())
+                        return;
+
+                    ApplyScheduleDataFromDatabase(
+                        profile,
+                        projectId,
+                        scheduleData,
+                        remoteRevision,
+                        refreshedCurrentSchedule: true,
+                        showCompletionPopup: false,
+                        showSyncChangePopup: true,
+                        autoSync: true);
+                });
+            });
         }
 
         private void UpdateStatus(int taskId)
@@ -1613,9 +1977,12 @@ namespace MyProject.Forms
             _model = new ProjectModel
             {
                 ProjectName = "New Project",
-                ViewSettings = ProjectViewSettings.CreateDefault()
+                ViewSettings = ProjectViewSettings.CreateDefault(),
+                StorageKind = ProjectStorageKind.LocalFile,
+                FilePath = ""
             };
             _undoRedo.Clear();
+            ClearRemoteRevisionTracking();
             ApplyModel();
             UpdateUndoRedoState();
         }
@@ -1735,11 +2102,12 @@ namespace MyProject.Forms
 
             _model = loaded;
             _undoRedo.Clear();
+            ClearRemoteRevisionTracking();
             ApplyModel();
             UpdateUndoRedoState();
             AppSettings.RememberSession(path, isRecovery: false);
             AppSettings.RememberRecentFile(path);
-            BeginInvoke(RestoreNavigationFromViewSettings);
+            SafeBeginInvoke(RestoreNavigationFromViewSettings);
             statusLabel.Text = MsProjectInterop.CanImport(path) && !path.EndsWith($".{ProjectFile.Extension}", StringComparison.OrdinalIgnoreCase)
                 ? $"Imported from Microsoft Project: {path}"
                 : $"Opened: {path}";
@@ -1792,6 +2160,12 @@ namespace MyProject.Forms
 
         private void OnSave()
         {
+            if (_model.IsDatabaseProject)
+            {
+                SaveProjectToDatabase(showCompletionPopup: true);
+                return;
+            }
+
             if (string.IsNullOrEmpty(_model.FilePath))
             {
                 OnSaveAs();
@@ -1815,6 +2189,424 @@ namespace MyProject.Forms
                 SaveProject(dlg.FileName);
         }
 
+        private void OnDatabaseConnectionSettings()
+        {
+            using var dlg = new DatabaseConnectionDialog();
+            dlg.ShowDialog(this);
+        }
+
+        private void OnOpenFromDatabase()
+        {
+            if (!ConfirmProceedWithoutSaving()) return;
+
+            using var dlg = new DatabaseProjectDialog(DatabaseProjectDialogMode.Open);
+            if (dlg.ShowDialog(this) != DialogResult.OK
+                || dlg.SelectedProfile == null
+                || dlg.SelectedProjectId <= 0)
+                return;
+
+            LoadProjectFromDatabase(dlg.SelectedProfile, dlg.SelectedProjectId, showSuccessPopup: !dlg.CreateRequested);
+        }
+
+        private void OnFetchFromDatabase()
+        {
+            if (!ConfirmFetchSchedule()) return;
+
+            using var dlg = new DatabaseProjectDialog(DatabaseProjectDialogMode.Fetch);
+            if (dlg.ShowDialog(this) != DialogResult.OK
+                || dlg.SelectedProfile == null
+                || dlg.SelectedProjectId <= 0)
+                return;
+
+            FetchScheduleFromDatabase(dlg.SelectedProfile, dlg.SelectedProjectId);
+        }
+
+        private void OnRefreshFromDatabase()
+        {
+            if (!_model.IsDatabaseProject)
+                return;
+
+            var profile = AppSettings.GetDatabaseProfile(_model.DatabaseProfileId);
+            if (profile == null)
+            {
+                ErrorDialog.Show(
+                    this,
+                    "Refresh Error",
+                    "The database connection profile for this shared schedule is missing.",
+                    "Configure the connection under Database > Connection Settings.\n\n" +
+                    $"Profile ID: {_model.DatabaseProfileId}\n" +
+                    $"Schedule ID: #{_model.DatabaseProjectId}");
+                return;
+            }
+
+            if (!ConfirmFetchSchedule(refreshCurrentSchedule: true)) return;
+
+            FetchScheduleFromDatabase(profile, _model.DatabaseProjectId, refreshedCurrentSchedule: true);
+        }
+
+        private void OnSaveToDatabase()
+        {
+            if (_model.IsDatabaseProject)
+            {
+                SaveProjectToDatabase(showCompletionPopup: true);
+                return;
+            }
+
+            if (_model.HasDatabaseScheduleLink)
+            {
+                var linkedProfile = AppSettings.GetDatabaseProfile(_model.DatabaseProfileId);
+                if (linkedProfile != null)
+                {
+                    if (MessageBox.Show(
+                            this,
+                            $"Save the current schedule to shared schedule #{_model.DatabaseProjectId}?\n\n" +
+                            "This will replace that schedule in the database.",
+                            "Save to Shared Schedule",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question) == DialogResult.Yes)
+                    {
+                        SendScheduleToDatabase(linkedProfile, _model.DatabaseProjectId, newlyCreatedSchedule: false);
+                    }
+
+                    return;
+                }
+            }
+
+            using var dlg = new DatabaseProjectDialog(
+                DatabaseProjectDialogMode.Save,
+                _model.DatabaseProfileId,
+                _model.DatabaseProjectId);
+            if (dlg.ShowDialog(this) != DialogResult.OK
+                || dlg.SelectedProfile == null
+                || dlg.SelectedProjectId <= 0)
+                return;
+
+            if (!dlg.CreateRequested)
+            {
+                string scheduleName = dlg.SelectedScheduleName ?? $"Schedule #{dlg.SelectedProjectId}";
+                if (MessageBox.Show(
+                        this,
+                        $"Save the current schedule to \"{scheduleName}\" (#{dlg.SelectedProjectId})?\n\n" +
+                        "This will replace the shared schedule in the database.",
+                        "Save to Shared Schedule",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
+            }
+
+            SendScheduleToDatabase(dlg.SelectedProfile, dlg.SelectedProjectId, dlg.CreateRequested);
+        }
+
+        private void SendScheduleToDatabase(
+            DatabaseConnectionProfile profile,
+            int scheduleId,
+            bool newlyCreatedSchedule)
+        {
+            taskGridControl.CommitPendingEdits();
+            selectionPropertiesControl.CommitPendingEdits();
+            CaptureViewSettingsToModel();
+
+            DatabaseSaveResult? result = null;
+            Exception? error = null;
+
+            using var loading = new LoadingDialog(
+                $"Saving to shared schedule #{scheduleId}",
+                () =>
+                {
+                    try
+                    {
+                        result = DatabaseProjectStore.SaveScheduleTo(profile, scheduleId, _model);
+                    }
+                    catch (Exception ex) { error = ex; }
+                });
+            loading.ShowDialog(this);
+
+            if (error != null)
+            {
+                ErrorDialog.Show(
+                    this,
+                    "Save Error",
+                    DatabaseOperationDetails.FormatFailureSummary(profile, $"save to shared schedule #{scheduleId}"),
+                    DatabaseOperationDetails.FormatFailureDetails(profile, ErrorDialog.FormatException(error)));
+                return;
+            }
+
+            if (result == null)
+                return;
+
+            _model.StorageKind = ProjectStorageKind.Database;
+            _model.DatabaseProfileId = profile.Id;
+            _model.DatabaseProjectId = scheduleId;
+            _model.IsModified = false;
+            RememberRemoteRevision(new DatabaseScheduleRevision
+            {
+                ProjectId = scheduleId,
+                Version = result.Version,
+                UpdatedUtc = result.UpdatedUtc
+            });
+            ScheduleLocalStore.Save(_model);
+            AppSettings.RememberLastDatabaseProfile(profile.Id);
+            UpdateTitleBar();
+            statusLabel.Text = ProjectStorageInfo.ForDatabase(profile.Id, scheduleId)
+                .GetDisplayLocation(profile);
+
+            CompletionDialog.Show(
+                this,
+                "Save Complete",
+                newlyCreatedSchedule
+                    ? $"A new shared schedule was created and the current schedule was saved to the database."
+                    : $"The current schedule was saved to \"{result.ScheduleName}\" in the database.",
+                DatabaseOperationDetails.FormatSaveDetails(profile, _model, result),
+                "Details:");
+        }
+
+        private bool ConfirmFetchSchedule(bool refreshCurrentSchedule = false)
+        {
+            if (!_model.IsModified)
+                return true;
+
+            string message = refreshCurrentSchedule
+                ? "Refreshing will replace the current schedule data with the latest version from the database.\nYour project name and view settings will be kept.\n\nContinue?"
+                : "Fetching will replace the current schedule data with the selected shared schedule.\nYour project name and view settings will be kept.\n\nContinue?";
+
+            return MessageBox.Show(
+                this,
+                message,
+                refreshCurrentSchedule ? "Refresh from Database" : "Fetch Shared Schedule",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question) == DialogResult.Yes;
+        }
+
+        private void FetchScheduleFromDatabase(
+            DatabaseConnectionProfile profile,
+            int projectId,
+            bool refreshedCurrentSchedule = false)
+        {
+            ProjectFile.ProjectFileData? scheduleData = null;
+            string scheduleName = "";
+            Exception? error = null;
+
+            using var loading = new LoadingDialog(
+                refreshedCurrentSchedule
+                    ? $"Refreshing shared schedule #{projectId}"
+                    : $"Fetching shared schedule #{projectId}",
+                () =>
+                {
+                    try
+                    {
+                        scheduleData = DatabaseProjectStore.LoadScheduleData(profile, projectId);
+                        scheduleName = scheduleData.ProjectName;
+                    }
+                    catch (Exception ex) { error = ex; }
+                });
+            loading.ShowDialog(this);
+
+            if (error != null)
+            {
+                ErrorDialog.Show(
+                    this,
+                    refreshedCurrentSchedule ? "Refresh Error" : "Fetch Error",
+                    DatabaseOperationDetails.FormatFailureSummary(
+                        profile,
+                        refreshedCurrentSchedule
+                            ? $"refresh shared schedule #{projectId}"
+                            : $"fetch shared schedule #{projectId}"),
+                    DatabaseOperationDetails.FormatFailureDetails(profile, ErrorDialog.FormatException(error)));
+                return;
+            }
+
+            if (scheduleData == null)
+                return;
+
+            DatabaseScheduleRevision? revision = null;
+            try
+            {
+                revision = DatabaseProjectStore.TryGetScheduleRevision(profile, projectId);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to read schedule revision after fetch: {ex}");
+            }
+
+            ApplyScheduleDataFromDatabase(
+                profile,
+                projectId,
+                scheduleData,
+                revision,
+                refreshedCurrentSchedule,
+                showCompletionPopup: false,
+                showSyncChangePopup: true,
+                autoSync: false,
+                scheduleNameOverride: scheduleName);
+        }
+
+        private void ShowScheduleSyncPopup(
+            DatabaseConnectionProfile profile,
+            DatabaseScheduleRevision? revision,
+            ScheduleSyncChangeReport changeReport,
+            string scheduleName,
+            bool autoSync)
+        {
+            CompletionDialog.Show(
+                this,
+                autoSync ? "Database Sync Update" : "Shared Schedule Updated",
+                DatabaseOperationDetails.FormatSyncUpdateSummary(scheduleName, revision, autoSync),
+                DatabaseOperationDetails.FormatSyncChangeDetails(profile, revision, changeReport, scheduleName),
+                "Changes:");
+
+            if (autoSync && revision != null)
+            {
+                statusLabel.Text =
+                    $"Updated from database by {DatabaseOperationDetails.FormatEditorDisplayName(revision.UpdatedBy)} " +
+                    $"(v{revision.Version}).";
+            }
+        }
+
+        private void ApplyScheduleDataFromDatabase(
+            DatabaseConnectionProfile profile,
+            int projectId,
+            ProjectFile.ProjectFileData scheduleData,
+            DatabaseScheduleRevision? revision,
+            bool refreshedCurrentSchedule,
+            bool showCompletionPopup,
+            bool showSyncChangePopup = false,
+            bool autoSync = false,
+            string? scheduleNameOverride = null)
+        {
+            string scheduleName = scheduleNameOverride ?? scheduleData.ProjectName;
+            var beforeData = ProjectFile.ExportScheduleContentData(_model);
+            var changeReport = ScheduleSyncChangeAnalyzer.Analyze(beforeData, scheduleData);
+
+            string projectName = _model.ProjectName;
+            var viewSettings = _model.ViewSettings;
+            string? filePath = _model.FilePath;
+            var storageKind = _model.StorageKind;
+
+            _suppressDatabaseAutoSave = true;
+            try
+            {
+                var preSnapshot = ProjectFile.ToUndoSnapshot(_model);
+                ProjectFile.ImportScheduleContentInto(_model, scheduleData);
+                _model.ProjectName = projectName;
+                _model.ViewSettings = viewSettings;
+                _model.FilePath = filePath ?? "";
+                _model.StorageKind = storageKind;
+                _model.DatabaseProfileId = profile.Id;
+                _model.DatabaseProjectId = projectId;
+                _model.IsModified = false;
+
+                if (_model.IsDatabaseProject)
+                    ScheduleLocalStore.Save(_model);
+
+                if (revision != null)
+                    RememberRemoteRevision(revision);
+                else
+                    RememberRemoteDatabaseRevision(profile, projectId);
+
+                _undoRedo.PushSnapshot(preSnapshot);
+                ApplyModel();
+                UpdateUndoRedoState();
+                AppSettings.RememberLastDatabaseProfile(profile.Id);
+                UpdateTitleBar();
+                UpdateStatus(_lastSelectedId);
+            }
+            finally
+            {
+                _suppressDatabaseAutoSave = false;
+            }
+
+            if (showSyncChangePopup)
+            {
+                ShowScheduleSyncPopup(profile, revision, changeReport, scheduleName, autoSync);
+                return;
+            }
+
+            if (!showCompletionPopup)
+                return;
+
+            CompletionDialog.Show(
+                this,
+                refreshedCurrentSchedule ? "Refresh Complete" : "Fetch Complete",
+                refreshedCurrentSchedule
+                    ? $"The shared schedule \"{scheduleName}\" was refreshed from the database."
+                    : $"The shared schedule \"{scheduleName}\" was fetched into the current project.",
+                DatabaseOperationDetails.FormatFetchDetails(
+                    profile,
+                    _model,
+                    projectId,
+                    scheduleName,
+                    refreshedCurrentSchedule),
+                "Details:");
+        }
+
+        private void LoadProjectFromDatabase(DatabaseConnectionProfile profile, int projectId, bool showSuccessPopup = true)
+        {
+            ProjectModel? loaded = null;
+            Exception? error = null;
+
+            using var loading = new LoadingDialog(
+                $"Opening database project #{projectId}",
+                () =>
+                {
+                    try { loaded = DatabaseProjectStore.LoadProject(profile, projectId); }
+                    catch (Exception ex) { error = ex; }
+                });
+            loading.ShowDialog(this);
+
+            if (error != null)
+            {
+                ErrorDialog.Show(
+                    this,
+                    "Open Error",
+                    DatabaseOperationDetails.FormatFailureSummary(profile, $"open shared schedule #{projectId}"),
+                    DatabaseOperationDetails.FormatFailureDetails(profile, ErrorDialog.FormatException(error)));
+                return;
+            }
+
+            if (loaded == null) return;
+
+            _model = loaded;
+            _undoRedo.Clear();
+            RememberRemoteDatabaseRevision(profile, projectId);
+            ApplyModel();
+            UpdateUndoRedoState();
+            AppSettings.RememberLastDatabaseProfile(profile.Id);
+            AppSettings.ClearSession();
+            SafeBeginInvoke(RestoreNavigationFromViewSettings);
+            statusLabel.Text = ProjectStorageInfo.ForDatabase(profile.Id, projectId)
+                .GetDisplayLocation(profile);
+
+            if (showSuccessPopup)
+            {
+                CompletionDialog.Show(
+                    this,
+                    "Open Complete",
+                    $"The shared schedule \"{loaded.ProjectName}\" was opened.",
+                    DatabaseOperationDetails.FormatOpenDetails(profile, loaded),
+                    "Details:");
+            }
+        }
+
+        private void SaveProjectToDatabase(bool showCompletionPopup = true)
+        {
+            var profile = AppSettings.GetDatabaseProfile(_model.DatabaseProfileId);
+            if (profile == null)
+            {
+                ErrorDialog.Show(
+                    this,
+                    "Save Error",
+                    "The database connection profile for this shared schedule is missing.",
+                    "Configure the connection under Database > Connection Settings.\n\n" +
+                    $"Profile ID: {_model.DatabaseProfileId}\n" +
+                    $"Schedule ID: #{_model.DatabaseProjectId}");
+                return;
+            }
+
+            _databaseAutoSavePending = false;
+            _databaseAutoSaveTimer?.Stop();
+            TryAutoSaveScheduleToDatabase(showCompletionPopup);
+        }
+
         private void OnProjectSettings()
         {
             taskGridControl.CommitPendingEdits();
@@ -1833,6 +2625,8 @@ namespace MyProject.Forms
             ganttChartControl.Invalidate();
             taskGridControl.Invalidate();
             UpdateStatus(_lastSelectedId);
+            if (_model.IsDatabaseProject)
+                ScheduleLocalStore.Save(_model);
         }
 
         private void SaveProject(string path, bool showCompletionPopup = true)
@@ -1844,7 +2638,11 @@ namespace MyProject.Forms
                 CaptureViewSettingsToModel();
                 ProjectFile.Save(_model, path);
                 _model.FilePath = path;
+                _model.StorageKind = ProjectStorageKind.LocalFile;
+                _model.DatabaseProfileId = "";
+                _model.DatabaseProjectId = 0;
                 _model.IsModified = false;
+                ClearRemoteRevisionTracking();
                 AppSettings.RememberFromPath(path);
                 AppSettings.RememberSession(path, isRecovery: false);
                 AppSettings.RememberRecentFile(path);
@@ -1870,6 +2668,12 @@ namespace MyProject.Forms
         {
             if (!_model.IsModified)
                 return true;
+
+            if (_model.IsDatabaseProject)
+            {
+                SaveProjectToDatabase(showCompletionPopup: false);
+                return !_model.IsModified;
+            }
 
             if (string.IsNullOrEmpty(_model.FilePath))
             {

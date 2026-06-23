@@ -17,6 +17,17 @@ namespace MyProject.Rendering
         public void Draw(Graphics g, Rectangle bounds)
         {
             DrawBackground(g, bounds);
+            DrawLabels(g, bounds);
+        }
+
+        public void DrawHeaderBackground(Graphics g, Rectangle bounds) =>
+            DrawBackground(g, bounds);
+
+        public void DrawHeaderLabels(Graphics g, Rectangle bounds) =>
+            DrawLabels(g, bounds);
+
+        private void DrawLabels(Graphics g, Rectangle bounds)
+        {
             DrawUpperRow(g, bounds);       // Month / Year
             DrawMiddleRow(g, bounds);      // Day number
             DrawLowerRow(g, bounds);       // Weekday
@@ -56,9 +67,6 @@ namespace MyProject.Rendering
                              : width > 30 ? month.ToString("MMM yy", DisplayCulture.English)
                              : month.ToString("M", DisplayCulture.English);
                 g.DrawString(label, AppTheme.FontTimescaleLarge, textBrush, cellRect, sf);
-
-                using var pen = new Pen(AppTheme.TimescaleBorder);
-                g.DrawLine(pen, x + width - 1, topBounds.Y + 2, x + width - 1, topBounds.Bottom - 2);
             }
 
             using var borderPen = new Pen(AppTheme.TimescaleBorder);
@@ -102,16 +110,6 @@ namespace MyProject.Rendering
                         g.DrawString(date.Day.ToString(), font, textBrush,
                             new RectangleF(x, rowY, width, rowH), sf);
                     }
-                }
-
-                // Right border (only for week start or every day if wide enough)
-                bool drawBorder = _viewport.ZoomLevel == ZoomLevel.Days
-                               || (_viewport.ZoomLevel == ZoomLevel.Weeks && date.DayOfWeek == DayOfWeek.Sunday)
-                               || (_viewport.ZoomLevel == ZoomLevel.Months && date.Day == DateTime.DaysInMonth(date.Year, date.Month));
-                if (drawBorder)
-                {
-                    using var pen = new Pen(AppTheme.GridLineColor);
-                    g.DrawLine(pen, x + width - 1, rowY + 2, x + width - 1, rowY + rowH - 2);
                 }
             }
 
@@ -158,12 +156,6 @@ namespace MyProject.Rendering
                             new RectangleF(x, rowY, width, rowH), sf);
                     }
                 }
-
-                if (_viewport.ZoomLevel == ZoomLevel.Days)
-                {
-                    using var pen = new Pen(AppTheme.GridLineColor);
-                    g.DrawLine(pen, x + width - 1, rowY + 2, x + width - 1, rowY + rowH - 2);
-                }
             }
 
             using var borderPen = new Pen(AppTheme.TimescaleBorder);
@@ -193,19 +185,23 @@ namespace MyProject.Rendering
             }
         }
 
-        public void DrawVerticalGridLines(Graphics g, Rectangle chartArea)
+        public void DrawVerticalGridLines(Graphics g, Rectangle chartArea, int? top = null, int? bottom = null)
         {
-            using var pen = new Pen(AppTheme.GridLineColor);
-            pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dot;
+            int yTop = top ?? chartArea.Top;
+            int yBottom = bottom ?? chartArea.Bottom;
+            if (yBottom <= yTop)
+                return;
 
-            foreach (var (date, x, width) in GetDaysInView())
+            using var pen = new Pen(AppTheme.GridLineColor);
+
+            foreach (var (date, x, _) in GetDaysInView())
             {
                 bool drawLine = _viewport.ZoomLevel == ZoomLevel.Days
                     || (_viewport.ZoomLevel == ZoomLevel.Weeks && date.DayOfWeek == DayOfWeek.Monday)
                     || (_viewport.ZoomLevel == ZoomLevel.Months && date.Day == 1);
 
                 if (drawLine)
-                    g.DrawLine(pen, x, chartArea.Top, x, chartArea.Bottom);
+                    g.DrawLine(pen, x, yTop, x, yBottom);
             }
         }
 

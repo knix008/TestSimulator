@@ -15,6 +15,14 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripMenuItem menuRedo;
         private System.Windows.Forms.ToolStripMenuItem menuNew;
         private System.Windows.Forms.ToolStripMenuItem menuOpen;
+        private System.Windows.Forms.ToolStripMenuItem menuDatabase;
+        private System.Windows.Forms.ToolStripMenuItem menuDatabaseConnection;
+        private System.Windows.Forms.ToolStripSeparator menuSepDatabaseActions;
+        private System.Windows.Forms.ToolStripMenuItem menuFetchFromDatabase;
+        private System.Windows.Forms.ToolStripMenuItem menuRefreshFromDatabase;
+        private System.Windows.Forms.ToolStripMenuItem menuSaveToDatabase;
+        private System.Windows.Forms.ToolStripSeparator menuSepDatabaseOpen;
+        private System.Windows.Forms.ToolStripMenuItem menuOpenFromDatabase;
         private System.Windows.Forms.ToolStripSeparator menuSep1;
         private System.Windows.Forms.ToolStripMenuItem menuSave;
         private System.Windows.Forms.ToolStripMenuItem menuSaveAs;
@@ -124,6 +132,14 @@ namespace MyProject.Forms
             menuFile = new ToolStripMenuItem();
             menuNew = new ToolStripMenuItem();
             menuOpen = new ToolStripMenuItem();
+            menuDatabase = new ToolStripMenuItem();
+            menuDatabaseConnection = new ToolStripMenuItem();
+            menuSepDatabaseActions = new ToolStripSeparator();
+            menuFetchFromDatabase = new ToolStripMenuItem();
+            menuRefreshFromDatabase = new ToolStripMenuItem();
+            menuSaveToDatabase = new ToolStripMenuItem();
+            menuSepDatabaseOpen = new ToolStripSeparator();
+            menuOpenFromDatabase = new ToolStripMenuItem();
             menuSep1 = new ToolStripSeparator();
             menuSave = new ToolStripMenuItem();
             menuSaveAs = new ToolStripMenuItem();
@@ -234,7 +250,7 @@ namespace MyProject.Forms
             mainMenuStrip.Font = AppTheme.FontMenu;
             mainMenuStrip.ForeColor = Color.White;
             mainMenuStrip.ImageScalingSize = AppTheme.MenuImageSize;
-            mainMenuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuEdit, menuTask, menuView, menuReport });
+            mainMenuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuDatabase, menuEdit, menuTask, menuView, menuReport });
             mainMenuStrip.Location = new Point(0, 0);
             mainMenuStrip.Name = "mainMenuStrip";
             mainMenuStrip.Size = new Size(1280, AppTheme.MenuStripHeight);
@@ -261,6 +277,63 @@ namespace MyProject.Forms
             menuOpen.ShortcutKeys = Keys.Control | Keys.O;
             menuOpen.Size = new Size(181, 22);
             menuOpen.Text = "&Open...";
+            // 
+            // menuDatabase
+            // 
+            menuDatabase.DropDownItems.AddRange(new ToolStripItem[]
+            {
+                menuDatabaseConnection,
+                menuSepDatabaseActions,
+                menuFetchFromDatabase,
+                menuRefreshFromDatabase,
+                menuSaveToDatabase,
+                menuSepDatabaseOpen,
+                menuOpenFromDatabase
+            });
+            menuDatabase.ForeColor = Color.White;
+            menuDatabase.Name = "menuDatabase";
+            menuDatabase.Size = new Size(66, 20);
+            menuDatabase.Text = "&Database";
+            // 
+            // menuDatabaseConnection
+            // 
+            menuDatabaseConnection.Name = "menuDatabaseConnection";
+            menuDatabaseConnection.Size = new Size(220, 22);
+            menuDatabaseConnection.Text = "&Connection Settings...";
+            // 
+            // menuSepDatabaseActions
+            // 
+            menuSepDatabaseActions.Name = "menuSepDatabaseActions";
+            menuSepDatabaseActions.Size = new Size(220, 6);
+            // 
+            // menuFetchFromDatabase
+            // 
+            menuFetchFromDatabase.Name = "menuFetchFromDatabase";
+            menuFetchFromDatabase.Size = new Size(220, 22);
+            menuFetchFromDatabase.Text = "&Fetch Shared Schedule...";
+            // 
+            // menuRefreshFromDatabase
+            // 
+            menuRefreshFromDatabase.Name = "menuRefreshFromDatabase";
+            menuRefreshFromDatabase.Size = new Size(220, 22);
+            menuRefreshFromDatabase.Text = "&Refresh from Database";
+            // 
+            // menuSaveToDatabase
+            // 
+            menuSaveToDatabase.Name = "menuSaveToDatabase";
+            menuSaveToDatabase.Size = new Size(220, 22);
+            menuSaveToDatabase.Text = "&Save to Shared Schedule...";
+            // 
+            // menuSepDatabaseOpen
+            // 
+            menuSepDatabaseOpen.Name = "menuSepDatabaseOpen";
+            menuSepDatabaseOpen.Size = new Size(220, 6);
+            // 
+            // menuOpenFromDatabase
+            // 
+            menuOpenFromDatabase.Name = "menuOpenFromDatabase";
+            menuOpenFromDatabase.Size = new Size(220, 22);
+            menuOpenFromDatabase.Text = "Open Shared Schedule...";
             // 
             // menuSep1
             // 
