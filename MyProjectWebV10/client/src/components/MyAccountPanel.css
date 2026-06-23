@@ -1,0 +1,95 @@
+.my-account-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.my-account-panel {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px 24px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+.my-account-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.my-account-panel h2 {
+  margin: 0;
+}
+
+.my-account-note {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.my-account-warning {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 13px;
+}
+
+.my-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.my-account-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.my-account-form input {
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.my-account-form input:disabled {
+  background: #f1f5f9;
+}
+
+.my-account-message,
+.my-account-error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.my-account-message {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.my-account-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.my-account-panel footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}

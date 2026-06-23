@@ -1,0 +1,45 @@
+.panel-close-button,
+.panel-footer-button {
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid #94a3b8;
+  background: #f1f5f9;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.panel-close-button {
+  padding: 6px 12px;
+}
+
+.panel-close-button:hover:not(:disabled),
+.panel-footer-button:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #64748b;
+}
+
+.panel-close-button:focus-visible,
+.panel-footer-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.panel-footer-button.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.panel-footer-button.primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.panel-close-button:disabled,
+.panel-footer-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

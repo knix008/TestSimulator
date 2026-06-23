@@ -1,0 +1,331 @@
+import type { DependencyItem, GanttViewSettings, TaskItem } from '../types/project';
+import { GANTT_HEADER_HEIGHT } from '../config/ganttLayout';
+
+export type LineEndStyle = GanttViewSettings['startLineEnd'];
+export type DependencyType = GanttViewSettings['defaultDependencyType'];
+
+const CUSTOM_DEPS_GROUP_CLASS = 'gantt-custom-dependencies';
+const DEPS_CLIP_ID = 'gantt-deps-chart-clip';
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface BarAnchors {
+  left: Point;
+  right: Point;
+  center: Point;
+}
+
+const padding = 12;
+
+function buildOrthogonalPath(type: DependencyType, from: BarAnchors, to: BarAnchors): Point[] {
+  switch (type) {
+    case 'FF': {
+      const x = Math.max(from.right.x, to.right.x) + padding;
+      return [from.right, { x, y: from.right.y }, { x, y: to.right.y }, to.right];
+    }
+    case 'SS': {
+      const x = Math.min(from.left.x, to.left.x) - padding;
+      return [from.left, { x, y: from.left.y }, { x, y: to.left.y }, to.left];
+    }
+    case 'SF': {
+      const midX = (from.left.x + to.right.x) / 2;
+      return [from.left, { x: midX, y: from.left.y }, { x: midX, y: to.right.y }, to.right];
+    }
+    case 'FS':
+    default: {
+      if (to.left.x > from.right.x + padding) {
+        const midX = (from.right.x + to.left.x) / 2;
+        return [from.right, { x: midX, y: from.right.y }, { x: midX, y: to.left.y }, to.left];
+      }
+      const x = from.right.x + padding;
+      return [from.right, { x, y: from.right.y }, { x, y: to.left.y }, to.left];
+    }
+  }
+}
+
+function pointsToPath(points: Point[]): string {
+  if (points.length === 0) return '';
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    d += ` L ${points[i].x} ${points[i].y}`;
+  }
+  return d;
+}
+
+export function buildDependencyPath(
+  type: DependencyType,
+  from: BarAnchors,
+  to: BarAnchors,
+  _pathStyle: GanttViewSettings['pathStyle'],
+  _curve: number,
+): string {
+  return pointsToPath(buildOrthogonalPath(type, from, to));
+}
+
+function angle(from: Point, to: Point): number {
+  return Math.atan2(to.y - from.y, to.x - from.x);
+}
+
+function drawLineEnd(
+  parent: SVGGElement,
+  from: Point,
+  to: Point,
+  style: LineEndStyle,
+  color: string,
+  size: number,
+): void {
+  if (style === 'None') return;
+
+  const tip = to;
+  const a = angle(from, to);
+
+  if (style === 'Dot') {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', String(tip.x));
+    circle.setAttribute('cy', String(tip.y));
+    circle.setAttribute('r', String(size / 2.5));
+    circle.setAttribute('fill', color);
+    parent.appendChild(circle);
+    return;
+  }
+
+  if (style === 'Square') {
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', String(tip.x - size / 2));
+    rect.setAttribute('y', String(tip.y - size / 2));
+    rect.setAttribute('width', String(size));
+    rect.setAttribute('height', String(size));
+    rect.setAttribute('fill', color);
+    parent.appendChild(rect);
+    return;
+  }
+
+  const a1 = a + Math.PI * 0.82;
+  const a2 = a - Math.PI * 0.82;
+  const p1 = { x: tip.x + size * Math.cos(a1), y: tip.y + size * Math.sin(a1) };
+  const p2 = { x: tip.x + size * Math.cos(a2), y: tip.y + size * Math.sin(a2) };
+
+  if (style === 'OpenArrow') {
+    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyline.setAttribute('points', `${p1.x},${p1.y} ${tip.x},${tip.y} ${p2.x},${p2.y}`);
+    polyline.setAttribute('fill', 'none');
+    polyline.setAttribute('stroke', color);
+    polyline.setAttribute('stroke-width', '2');
+    parent.appendChild(polyline);
+    return;
+  }
+
+  const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  polygon.setAttribute('points', `${p1.x},${p1.y} ${tip.x},${tip.y} ${p2.x},${p2.y}`);
+  polygon.setAttribute('fill', color);
+  parent.appendChild(polygon);
+}
+
+function strokeDash(style: GanttViewSettings['lineStyle']): string | null {
+  switch (style) {
+    case 'dash':
+      return '8 5';
+    case 'dot':
+      return '2 4';
+    default:
+      return null;
+  }
+}
+
+export function getBarAnchors(container: HTMLElement, taskId: number): BarAnchors | null {
+  const wrapper = container.querySelector(`.bar-wrapper[data-id="${taskId}"]`);
+  const bar = wrapper?.querySelector('.bar');
+  if (!(bar instanceof SVGGraphicsElement)) return null;
+
+  let x: number;
+  let y: number;
+  let width: number;
+  let height: number;
+  if (bar instanceof SVGRectElement) {
+    x = bar.x.baseVal.value;
+    y = bar.y.baseVal.value;
+    width = bar.width.baseVal.value;
+    height = bar.height.baseVal.value;
+  } else {
+    const box = bar.getBBox();
+    x = box.x;
+    y = box.y;
+    width = box.width;
+    height = box.height;
+  }
+  if (width <= 0) return null;
+
+  const midY = y + height / 2;
+  return {
+    left: { x, y: midY },
+    right: { x: x + width, y: midY },
+    center: { x: x + width / 2, y: midY },
+  };
+}
+
+function ensureDependencyGroup(svg: SVGSVGElement, hostLayer: SVGGElement): SVGGElement {
+  const existing = hostLayer.querySelector(`g.${CUSTOM_DEPS_GROUP_CLASS}`);
+  if (existing instanceof SVGGElement) {
+    return existing;
+  }
+
+  let defs = svg.querySelector('defs');
+  if (!defs) {
+    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    svg.insertBefore(defs, svg.firstChild);
+  }
+
+  if (!svg.querySelector(`#${DEPS_CLIP_ID}`)) {
+    const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+    clipPath.setAttribute('id', DEPS_CLIP_ID);
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', '0');
+    rect.setAttribute('y', String(GANTT_HEADER_HEIGHT));
+    rect.setAttribute('width', '100000');
+    rect.setAttribute('height', '100000');
+    clipPath.appendChild(rect);
+    defs.appendChild(clipPath);
+  }
+
+  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  group.setAttribute('class', CUSTOM_DEPS_GROUP_CLASS);
+  group.setAttribute('clip-path', `url(#${DEPS_CLIP_ID})`);
+  hostLayer.appendChild(group);
+  return group;
+}
+
+export interface FrappeGanttLayers {
+  layers?: { arrow?: SVGGElement; bar?: SVGGElement };
+  $svg?: SVGSVGElement;
+}
+
+export function resolveDependencyLineStyle(
+  dep: DependencyItem,
+  viewSettings: GanttViewSettings,
+  tasks: TaskItem[],
+): {
+  type: DependencyType;
+  color: string;
+  startLineEnd: LineEndStyle;
+  endLineEnd: LineEndStyle;
+} {
+  const predecessor = tasks.find((task) => task.taskId === dep.predecessorId);
+  const successor = tasks.find((task) => task.taskId === dep.successorId);
+  const isCritical =
+    viewSettings.showCriticalPath &&
+    (predecessor?.isCritical ?? false) &&
+    (successor?.isCritical ?? false);
+  return {
+    type: (dep.type as DependencyType) || viewSettings.defaultDependencyType,
+    color: isCritical ? viewSettings.criticalLineColor : viewSettings.lineColor,
+    startLineEnd: (dep.startLineEnd as LineEndStyle) || viewSettings.startLineEnd,
+    endLineEnd: (dep.endLineEnd as LineEndStyle) || viewSettings.endLineEnd,
+  };
+}
+
+export function renderDependencyLines(
+  gantt: FrappeGanttLayers,
+  container: HTMLElement,
+  dependencies: DependencyItem[],
+  tasks: TaskItem[],
+  viewSettings: GanttViewSettings,
+): void {
+  const barLayer = gantt.layers?.bar;
+  const svg = gantt.$svg;
+  if (!barLayer || !svg) return;
+
+  const target = ensureDependencyGroup(svg, barLayer);
+  target.replaceChildren();
+
+  for (const dep of dependencies) {
+    const from = getBarAnchors(container, dep.predecessorId);
+    const to = getBarAnchors(container, dep.successorId);
+    if (!from || !to) continue;
+
+    const style = resolveDependencyLineStyle(dep, viewSettings, tasks);
+    const pathData = buildDependencyPath(
+      style.type,
+      from,
+      to,
+      viewSettings.pathStyle,
+      viewSettings.arrowCurve,
+    );
+    if (!pathData) continue;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', style.color);
+    path.setAttribute('stroke-width', '1.75');
+    path.setAttribute('class', 'gantt-dependency-line');
+    const dash = strokeDash(viewSettings.lineStyle);
+    if (dash) path.setAttribute('stroke-dasharray', dash);
+    target.appendChild(path);
+
+    const points = buildOrthogonalPath(style.type, from, to);
+    if (points.length >= 2) {
+      drawLineEnd(target, points[1], points[0], style.startLineEnd, style.color, 8);
+      drawLineEnd(target, points[points.length - 2], points[points.length - 1], style.endLineEnd, style.color, 8);
+    }
+  }
+}
+
+export function renderDependencyPreview(
+  svg: SVGSVGElement,
+  viewSettings: GanttViewSettings,
+): void {
+  svg.replaceChildren();
+  svg.setAttribute('viewBox', '0 0 320 80');
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '80');
+
+  const from: BarAnchors = {
+    left: { x: 40, y: 40 },
+    right: { x: 120, y: 40 },
+    center: { x: 80, y: 40 },
+  };
+  const to: BarAnchors = {
+    left: { x: 180, y: 40 },
+    right: { x: 280, y: 40 },
+    center: { x: 230, y: 40 },
+  };
+
+  const pathData = buildDependencyPath(
+    viewSettings.defaultDependencyType,
+    from,
+    to,
+    viewSettings.pathStyle,
+    viewSettings.arrowCurve,
+  );
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', pathData);
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', viewSettings.lineColor);
+  path.setAttribute('stroke-width', '2');
+  const dash = strokeDash(viewSettings.lineStyle);
+  if (dash) path.setAttribute('stroke-dasharray', dash);
+  svg.appendChild(path);
+
+  const previewGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  svg.appendChild(previewGroup);
+  const points = buildOrthogonalPath(viewSettings.defaultDependencyType, from, to);
+  if (points.length >= 2) {
+    drawLineEnd(previewGroup, points[1], points[0], viewSettings.startLineEnd, viewSettings.lineColor, 9);
+    drawLineEnd(previewGroup, points[points.length - 2], points[points.length - 1], viewSettings.endLineEnd, viewSettings.lineColor, 9);
+  }
+
+  for (const [x] of [[40], [180]] as const) {
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', String(x));
+    rect.setAttribute('y', '28');
+    rect.setAttribute('width', '80');
+    rect.setAttribute('height', '24');
+    rect.setAttribute('rx', '4');
+    rect.setAttribute('fill', '#93c5fd');
+    svg.appendChild(rect);
+  }
+}

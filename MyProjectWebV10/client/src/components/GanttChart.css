@@ -1,0 +1,250 @@
+.gantt-chart {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  min-height: 0;
+}
+
+.gantt-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding-bottom: var(--split-hscroll-height, 14px);
+}
+
+.gantt-hscroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--split-hscroll-height, 14px);
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  z-index: 3;
+}
+
+.gantt-hscroll-spacer {
+  height: 1px;
+  pointer-events: none;
+}
+
+.gantt-scroll > .gantt-container > .gantt-container {
+  overflow-x: hidden;
+  overflow-y: visible;
+  scrollbar-width: none;
+}
+
+.gantt-scroll > .gantt-container > .gantt-container .grid-header {
+  box-sizing: border-box;
+  height: var(--split-header-height, 62px) !important;
+  min-height: var(--split-header-height, 62px);
+  max-height: var(--split-header-height, 62px);
+}
+
+.gantt-scroll > .gantt-container > .gantt-container::-webkit-scrollbar {
+  display: none;
+}
+
+.gantt-link-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  overflow: visible;
+}
+
+.gantt-scroll > .gantt-container {
+  position: relative;
+  z-index: 1;
+  min-width: 100%;
+}
+
+.gantt-container {
+  --g-bar-color: #a8d0f5;
+  --g-progress-color: #7ebdee;
+}
+
+/* Hide frappe built-in dependency paths only; keep custom gantt-custom-dependencies */
+.gantt-container g.arrow > path {
+  display: none;
+}
+
+.gantt-container .gantt-custom-dependencies .gantt-dependency-line {
+  stroke-width: 1.75;
+  pointer-events: none;
+}
+
+/* Today: red dashed vertical line, dot at top, black pill on day number */
+.gantt-container .current-highlight.gantt-today-line,
+.gantt-container .current-highlight {
+  display: block !important;
+  width: 0 !important;
+  background: transparent !important;
+  border-left: 2px dashed #ff5252;
+  z-index: 999;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.gantt-container .current-ball-highlight.gantt-today-ball,
+.gantt-container .current-ball-highlight {
+  display: block !important;
+  width: 12px !important;
+  height: 12px !important;
+  background: #ff5252 !important;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-sizing: border-box;
+  z-index: 1001;
+  pointer-events: none;
+}
+
+.gantt-container .lower-text.gantt-today-day,
+.gantt-container .lower-text.current-date-highlight {
+  background: #202124 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+.gantt-link-line {
+  stroke: #2563eb;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.gantt-link-mode .gantt-container {
+  cursor: crosshair;
+}
+
+.gantt-readonly .gantt-container {
+  cursor: default;
+}
+
+/* Selection: keep bar colors, add accent glow (Win TaskBarRenderer) */
+.gantt .bar-wrapper.gantt-selected .bar,
+.gantt .bar-wrapper.gantt-selected .bar-progress {
+  filter: drop-shadow(0 0 1px rgba(26, 115, 232, 1))
+    drop-shadow(0 0 4px rgba(26, 115, 232, 0.75))
+    drop-shadow(0 0 8px rgba(26, 115, 232, 0.45));
+}
+
+.gantt .bar-wrapper.gantt-link-pending .bar {
+  stroke: #2563eb;
+  stroke-width: 2;
+}
+
+.gantt-milestone .bar {
+  fill: #ffdc88 !important;
+  opacity: 1;
+  fill-opacity: 1;
+  stroke: #626874;
+  stroke-width: 1.35;
+}
+
+.gantt-milestone .bar-progress {
+  fill: #ffdc88 !important;
+  opacity: 1;
+  fill-opacity: 1;
+  stroke: none;
+}
+
+.gantt .bar-wrapper.gantt-summary .bar {
+  fill: #c4c8d6 !important;
+  opacity: 1;
+  fill-opacity: 1;
+  outline: none;
+  stroke: #30343c;
+  stroke-width: 1.35;
+}
+
+.gantt .bar-wrapper.gantt-summary .bar-progress {
+  fill: #9ea4b2 !important;
+  opacity: 1;
+  fill-opacity: 1;
+  stroke: none;
+}
+
+.gantt .bar-wrapper.gantt-summary .gantt-summary-caps {
+  pointer-events: none;
+}
+
+.gantt-progress-label-summary {
+  fill: #202124;
+  stroke: rgba(255, 255, 255, 0.65);
+  stroke-width: 2px;
+}
+
+.gantt .bar-wrapper.gantt-critical .bar {
+  fill: #ffb7b2;
+  opacity: 1;
+  fill-opacity: 1;
+}
+
+.gantt .bar-wrapper.gantt-critical .bar-progress {
+  fill: #ff9a94;
+  opacity: 1;
+  fill-opacity: 1;
+}
+
+.gantt .bar-wrapper .gantt-summary-caps polygon {
+  opacity: 1;
+  fill-opacity: 1;
+}
+
+.gantt .bar-wrapper .bar {
+  fill: #a8d0f5;
+  opacity: 1;
+  fill-opacity: 1;
+  outline: none;
+  stroke: #626874;
+  stroke-width: 1.35;
+}
+
+.gantt .bar-wrapper.gantt-zero-progress .bar-progress {
+  display: none !important;
+  fill: none !important;
+  width: 0 !important;
+}
+
+.gantt .bar-wrapper .bar-progress {
+  fill: #7ebdee;
+  opacity: 1;
+  fill-opacity: 1;
+  stroke: none;
+}
+
+.gantt .bar-label {
+  display: none;
+}
+
+.gantt-progress-label {
+  fill: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  paint-order: stroke fill;
+  stroke: rgba(15, 23, 42, 0.35);
+  stroke-width: 2px;
+}
+
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle {
+  visibility: hidden;
+}
+
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper:hover .handle,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper.gantt-selected .handle {
+  visibility: visible;
+}

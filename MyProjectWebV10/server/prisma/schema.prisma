@@ -1,0 +1,138 @@
+// Prisma schema aligned with MyProjectWinV10 schedule tables (mp_*).
+// Win app creates mp_projects, mp_tasks, mp_dependencies, mp_assignments, mp_notes
+// with PascalCase column names (EF Core). Web app adds mp_users and
+// mp_user_project_view_settings only; existing Win schedule data is never reset.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model MpProject {
+  id              Int      @id @default(autoincrement()) @map("Id")
+  name            String   @default("New Project") @map("Name") @db.VarChar(256)
+  projectStart    DateTime @map("ProjectStart")
+  workingDaysJson String   @default("[]") @map("WorkingDaysJson") @db.VarChar(64)
+  viewSettingsJson String? @map("ViewSettingsJson") @db.Text
+  updatedUtc      DateTime @default(now()) @map("UpdatedUtc")
+  version         BigInt   @default(1) @map("Version")
+  updatedBy       String?  @map("UpdatedBy") @db.VarChar(256)
+
+  tasks        MpTask[]
+  dependencies MpDependency[]
+  assignments  MpAssignment[]
+  notes        MpNote[]
+  userViewSettings MpUserProjectViewSettings[]
+
+  @@map("mp_projects")
+}
+
+model MpTask {
+  projectId        Int     @map("ProjectId")
+  taskId           Int     @map("TaskId")
+  parentId         Int     @default(-1) @map("ParentId")
+  name             String  @default("New Task") @map("Name") @db.VarChar(512)
+  startDate        DateTime @map("StartDate")
+  durationDays     Int     @default(5) @map("DurationDays")
+  progress         Float   @default(0) @map("Progress")
+  taskType         String  @default("Normal") @map("TaskType") @db.VarChar(32)
+  indentLevel      Int     @default(0) @map("IndentLevel")
+  isExpanded       Boolean @default(true) @map("IsExpanded")
+  assignedTo       String  @default("") @map("AssignedTo") @db.VarChar(256)
+  notes            String  @default("") @map("Notes") @db.Text
+  barColorArgb     Int?    @map("BarColorArgb")
+  progressColorArgb Int?   @map("ProgressColorArgb")
+  bandColorArgb    Int?    @map("BandColorArgb")
+  autoSchedule     Boolean @default(true) @map("AutoSchedule")
+  deliverable      String  @default("") @map("Deliverable") @db.VarChar(512)
+  isCritical       Boolean @default(false) @map("IsCritical")
+  summaryBarStyle  String? @map("SummaryBarStyle") @db.VarChar(32)
+
+  project MpProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, taskId])
+  @@map("mp_tasks")
+}
+
+model MpDependency {
+  projectId     Int    @map("ProjectId")
+  predecessorId Int    @map("PredecessorId")
+  successorId   Int    @map("SuccessorId")
+  type          String @default("FS") @map("Type") @db.VarChar(8)
+  lagDays       Int    @default(0) @map("LagDays")
+  startLineEnd  String? @map("StartLineEnd") @db.VarChar(32)
+  endLineEnd    String? @map("EndLineEnd") @db.VarChar(32)
+
+  project MpProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, predecessorId, successorId])
+  @@map("mp_dependencies")
+}
+
+model MpAssignment {
+  projectId         Int    @map("ProjectId")
+  taskId            Int    @map("TaskId")
+  resourceName      String @map("ResourceName") @db.VarChar(256)
+  allocationPercent Float  @default(100) @map("AllocationPercent")
+
+  project MpProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, taskId, resourceName])
+  @@map("mp_assignments")
+}
+
+model MpNote {
+  projectId  Int      @map("ProjectId")
+  noteId     Int      @map("NoteId")
+  title      String   @default("New Note") @map("Title") @db.VarChar(256)
+  body       String   @default("") @map("Body") @db.Text
+  bodyRtf    String   @default("") @map("BodyRtf") @db.Text
+  taskId     Int      @default(-1) @map("TaskId")
+  offsetDays Int      @default(0) @map("OffsetDays")
+  anchorDate DateTime @map("AnchorDate")
+  contentY   Int      @default(0) @map("ContentY")
+  contentX   Int      @default(0) @map("ContentX")
+
+  project MpProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, noteId])
+  @@map("mp_notes")
+}
+
+// Application users are stored in mp_users (MariaDB / configured DB).
+// app-settings.json holds DB connection settings only.
+
+model MpUser {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique @db.VarChar(64)
+  displayName  String   @default("") @map("DisplayName") @db.VarChar(128)
+  email        String   @default("") @db.VarChar(256)
+  passwordHash String   @map("PasswordHash") @db.VarChar(256)
+  role         String   @default("user") @db.VarChar(16)
+  canRead      Boolean  @default(true) @map("CanRead")
+  canModify    Boolean  @default(false) @map("CanModify")
+  isActive     Boolean  @default(true) @map("IsActive")
+  createdUtc   DateTime @default(now()) @map("CreatedUtc")
+  updatedUtc   DateTime @updatedAt @map("UpdatedUtc")
+
+  viewSettings MpUserProjectViewSettings[]
+
+  @@map("mp_users")
+}
+
+// Per-user Gantt view preferences for each project (line color, shape, style, etc.)
+model MpUserProjectViewSettings {
+  userId           Int      @map("UserId")
+  projectId        Int      @map("ProjectId")
+  viewSettingsJson String   @map("ViewSettingsJson") @db.Text
+  updatedUtc       DateTime @updatedAt @map("UpdatedUtc")
+
+  user    MpUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project MpProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@map("mp_user_project_view_settings")
+}
