@@ -65,6 +65,30 @@ public static class GitWorkflowService
             .Where(entry => IsNewlyStaged(before, entry))
             .ToList();
 
+    public static IReadOnlyList<GitStatusEntry> GetStageCandidates(
+        Repository repo,
+        string relativePath,
+        bool isDirectory) =>
+        GetStatusEntries(repo, relativePath, isDirectory)
+            .Where(entry => !string.IsNullOrEmpty(entry.WorkTree))
+            .ToList();
+
+    public static void StagePaths(Repository repo, IEnumerable<string> paths)
+    {
+        foreach (string path in paths)
+        {
+            Commands.Stage(repo, path);
+        }
+    }
+
+    public static void UnstagePaths(Repository repo, IEnumerable<string> paths)
+    {
+        foreach (string path in paths)
+        {
+            Commands.Unstage(repo, path);
+        }
+    }
+
     public static void Stage(Repository repo, string relativePath, bool isDirectory)
     {
         if (string.IsNullOrEmpty(relativePath))

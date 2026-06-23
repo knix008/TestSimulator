@@ -285,6 +285,8 @@ public partial class MainForm : Form
             (diffWordWrapContextMenuItem, IconFactory.WordWrap(), "Word Wrap"));
         ConfigureContextMenu(repoFilesContextMenu,
             (showFileLogContextMenuItem, IconFactory.History(), "Show Log"),
+            (addToGitIgnoreContextMenuItem, IconFactory.GitIgnore(), "Add to .gitignore"),
+            (removeFromGitIgnoreContextMenuItem, IconFactory.GitReset(), "Remove from .gitignore"),
             (gitAddContextMenuItem, IconFactory.GitAdd(), "Git Add"),
             (gitResetContextMenuItem, IconFactory.GitReset(), "Git Reset (Unstage)"),
             (gitDiscardContextMenuItem, IconFactory.GitDiscard(), "Git Discard Changes"),
@@ -573,6 +575,11 @@ public partial class MainForm : Form
         copyFilePathContextMenuItem.Text = Localization.T("Menu.ChangedFiles.CopyPath");
         copyFilePathContextMenuItem.ToolTipText = Localization.T("Menu.ChangedFiles.CopyPath.Tip");
         openExternalDiffContextMenuItem.ToolTipText = Localization.T("Menu.ChangedFiles.OpenExternal.Tip");
+
+        addToGitIgnoreContextMenuItem.Text = Localization.T("Menu.RepoFiles.AddToGitIgnore");
+        addToGitIgnoreContextMenuItem.ToolTipText = Localization.T("Menu.RepoFiles.AddToGitIgnore.Tip");
+        removeFromGitIgnoreContextMenuItem.Text = Localization.T("Menu.RepoFiles.RemoveFromGitIgnore");
+        removeFromGitIgnoreContextMenuItem.ToolTipText = Localization.T("Menu.RepoFiles.RemoveFromGitIgnore.Tip");
 
         repoFilesListView.NameColumnText = Localization.T("Column.RepoFiles.Name");
         repoFilesListView.StatusColumnText = Localization.T("Column.RepoFiles.Status");
@@ -1809,11 +1816,15 @@ public partial class MainForm : Form
 
         bool canUseGit = CanUseGitWorkflow;
         SetGitSectionVisible(canUseGit);
+        addToGitIgnoreContextMenuItem.Visible = canUseGit;
+        removeFromGitIgnoreContextMenuItem.Visible = canUseGit;
 
         RepositoryFileNodeTag? tag = TryGetGitPathTag();
         if (tag is null)
         {
             showFileLogContextMenuItem.Enabled = false;
+            addToGitIgnoreContextMenuItem.Enabled = false;
+            removeFromGitIgnoreContextMenuItem.Enabled = false;
             copyRepoFilePathContextMenuItem.Enabled = false;
             clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
             if (canUseGit)
@@ -1826,11 +1837,26 @@ public partial class MainForm : Form
 
         showFileLogContextMenuItem.Enabled = true;
         copyRepoFilePathContextMenuItem.Enabled = true;
+        ApplyGitIgnoreMenuState(_gitService.Repo, tag, canUseGit);
         clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
         if (canUseGit)
         {
             ApplyGitMenuItemState(_gitService.Repo, tag, GetFilesGitMenuItems(), _fileTreeStatusIndex);
         }
+    }
+
+    private void ApplyGitIgnoreMenuState(Repository repo, RepositoryFileNodeTag tag, bool canUseGit)
+    {
+        bool canEditPath = canUseGit
+            && !string.IsNullOrEmpty(tag.RelativePath)
+            && !tag.IsMissingFromWorkTree;
+
+        bool isIgnored = canEditPath && GitIgnoreService.IsIgnored(repo, tag.RelativePath, tag.IsDirectory);
+        bool hasRemovablePattern = canEditPath
+            && GitIgnoreService.HasRemovablePattern(repo, tag.RelativePath, tag.IsDirectory);
+
+        addToGitIgnoreContextMenuItem.Enabled = canEditPath && !isIgnored;
+        removeFromGitIgnoreContextMenuItem.Enabled = canEditPath && hasRemovablePattern;
     }
 
     private IEnumerable<ToolStripMenuItem> GetFilesGitMenuItems() =>
@@ -1942,6 +1968,95 @@ public partial class MainForm : Form
 
     private void GitAddContextMenuItem_Click(object? sender, EventArgs e) => TryGitAdd(GetGitPathTagOrRoot());
 
+    private void AddToGitIgnoreContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        RepositoryFileNodeTag? tag = TryGetGitPathTag();
+        if (tag is null)
+        {
+            return;
+        }
+
+        TryAddToGitIgnore(tag);
+    }
+
+    private void RemoveFromGitIgnoreContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        RepositoryFileNodeTag? tag = TryGetGitPathTag();
+        if (tag is null)
+        {
+            return;
+        }
+
+        TryRemoveFromGitIgnore(tag);
+    }
+
+    private void TryRemoveFromGitIgnore(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow || string.IsNullOrEmpty(tag.RelativePath))
+        {
+            return;
+        }
+
+        try
+        {
+            Repository repo = _gitService.Repo;
+            IReadOnlyList<string> removedPatterns = GitIgnoreService.RemoveFromGitIgnore(
+                repo,
+                tag.RelativePath,
+                tag.IsDirectory);
+
+            if (removedPatterns.Count == 0)
+            {
+                GitOperationNotifier.ShowInfo(
+                    this,
+                    "Remove from .gitignore",
+                    "No matching entry was found in .gitignore for the selected path.");
+                return;
+            }
+
+            statusLabel.Text = removedPatterns.Count == 1
+                ? $"Removed {removedPatterns[0]} from .gitignore"
+                : $"Removed {removedPatterns.Count} patterns from .gitignore";
+            _ = RefreshFileTreeStatusAsync();
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Removed from .gitignore",
+                "The selected path was removed from .gitignore.",
+                new OperationDetail("Path", tag.RelativePath),
+                new OperationDetail("Removed patterns", string.Join(", ", removedPatterns)));
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Remove from .gitignore Failed", ex);
+        }
+    }
+
+    private void TryAddToGitIgnore(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow || string.IsNullOrEmpty(tag.RelativePath))
+        {
+            return;
+        }
+
+        try
+        {
+            Repository repo = _gitService.Repo;
+            string pattern = GitIgnoreService.AddToGitIgnore(repo, tag.RelativePath, tag.IsDirectory);
+            statusLabel.Text = $"Added {pattern} to .gitignore";
+            _ = RefreshFileTreeStatusAsync();
+            GitOperationNotifier.ShowSuccess(
+                this,
+                "Added to .gitignore",
+                "The selected path was added to .gitignore.",
+                new OperationDetail("Path", tag.RelativePath),
+                new OperationDetail("Pattern", pattern));
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, "Add to .gitignore Failed", ex);
+        }
+    }
+
     private void TryGitAdd(RepositoryFileNodeTag tag)
     {
         if (_gitService.Repo is null || !CanUseGitWorkflow)
@@ -1952,17 +2067,44 @@ public partial class MainForm : Form
         try
         {
             Repository repo = _gitService.Repo;
-            var before = GitWorkflowService.CreateStatusSnapshot(repo, tag.RelativePath, tag.IsDirectory);
-            GitWorkflowService.Stage(repo, tag.RelativePath, tag.IsDirectory);
-            IReadOnlyList<GitStatusEntry> stagedEntries = GitWorkflowService.GetNewlyStagedEntries(
-                before,
+            string scope = FormatGitPathScope(tag.RelativePath);
+            IReadOnlyList<GitStatusEntry> candidates = GitWorkflowService.GetStageCandidates(
                 repo,
                 tag.RelativePath,
                 tag.IsDirectory);
 
-            statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
-                ? "Staged all changes"
-                : $"Staged {tag.RelativePath}";
+            if (candidates.Count == 0)
+            {
+                GitOperationNotifier.ShowInfo(this, "Git Add", "No changes are available to stage.");
+                return;
+            }
+
+            using var dialog = new GitAddDialog(candidates, scope);
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            IReadOnlyList<string> pathsToStage = dialog.SelectedPaths;
+            if (pathsToStage.Count == 0)
+            {
+                return;
+            }
+
+            var before = GitWorkflowService.CreateStatusSnapshot(repo, tag.RelativePath, tag.IsDirectory);
+            GitWorkflowService.StagePaths(repo, pathsToStage);
+            var stagedPathSet = pathsToStage.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            IReadOnlyList<GitStatusEntry> stagedEntries = GitWorkflowService.GetNewlyStagedEntries(
+                    before,
+                    repo,
+                    tag.RelativePath,
+                    tag.IsDirectory)
+                .Where(entry => stagedPathSet.Contains(entry.FilePath))
+                .ToList();
+
+            statusLabel.Text = stagedEntries.Count == 1
+                ? $"Staged {stagedEntries[0].FilePath}"
+                : $"Staged {stagedEntries.Count} paths";
             _ = RefreshFileTreeStatusAsync();
 
             if (stagedEntries.Count == 0)
@@ -1971,8 +2113,8 @@ public partial class MainForm : Form
                 return;
             }
 
-            using var dialog = new GitAddResultDialog(stagedEntries, before, FormatGitPathScope(tag.RelativePath));
-            dialog.ShowDialog(this);
+            using var resultDialog = new GitAddResultDialog(stagedEntries, before, scope);
+            resultDialog.ShowDialog(this);
         }
         catch (Exception ex)
         {
@@ -2065,9 +2207,16 @@ public partial class MainForm : Form
             return;
         }
 
-        using var dialog = new GitCommitDialog(stagedPaths, _settings);
+        using var dialog = new GitCommitDialog(_gitService.Repo, stagedPaths, _settings);
         if (dialog.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.CommitMessage))
         {
+            return;
+        }
+
+        if (dialog.RemainingStagedPaths.Count == 0)
+        {
+            GitOperationNotifier.ShowInfo(this, "Git Commit", "No staged files remain to commit.");
+            _ = RefreshFileTreeStatusAsync();
             return;
         }
 

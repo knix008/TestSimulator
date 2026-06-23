@@ -11,6 +11,13 @@ public sealed class PathGitStatus
     public bool HasChanges =>
         !string.IsNullOrEmpty(Staged) || !string.IsNullOrEmpty(WorkTree);
 
+    public bool IsIgnoredOnly =>
+        string.Equals(WorkTree, IgnoredWorkTree, StringComparison.Ordinal) && string.IsNullOrEmpty(Staged);
+
+    public const string IgnoredWorkTree = "Ignored";
+
+    public static PathGitStatus Ignored { get; } = new() { WorkTree = IgnoredWorkTree };
+
     public static PathGitStatus Merge(PathGitStatus? current, PathGitStatus incoming)
     {
         if (!incoming.HasChanges)
@@ -34,6 +41,11 @@ public sealed class PathGitStatus
     {
         get
         {
+            if (IsIgnoredOnly)
+            {
+                return "X";
+            }
+
             if (!string.IsNullOrEmpty(WorkTree))
             {
                 return WorkTree switch
@@ -65,6 +77,11 @@ public sealed class PathGitStatus
     {
         get
         {
+            if (IsIgnoredOnly)
+            {
+                return Color.FromArgb(100, 116, 139);
+            }
+
             if (!string.IsNullOrEmpty(WorkTree))
             {
                 return WorkTree switch
@@ -103,6 +120,11 @@ public sealed class PathGitStatus
 
     public string GetSummaryLabel(bool isDirectory)
     {
+        if (IsIgnoredOnly)
+        {
+            return isDirectory ? "Ignored folder" : "Ignored";
+        }
+
         if (!HasChanges)
         {
             return isDirectory
@@ -129,6 +151,11 @@ public sealed class PathGitStatus
 
     public GitFileTreeIconIndex GetFileIconIndex()
     {
+        if (IsIgnoredOnly)
+        {
+            return GitFileTreeIconIndex.FileIgnored;
+        }
+
         if (!string.IsNullOrEmpty(Staged) && !string.IsNullOrEmpty(WorkTree)
             && !string.Equals(Staged, WorkTree, StringComparison.OrdinalIgnoreCase))
         {

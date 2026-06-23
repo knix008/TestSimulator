@@ -16,7 +16,8 @@ public enum GitFileTreeIconIndex
     FileStaged,
     FileRenamed,
     FileMixed,
-    FileConflicted
+    FileConflicted,
+    FileIgnored
 }
 
 public sealed class GitFileTreeImageList : IDisposable
@@ -54,6 +55,11 @@ public sealed class GitFileTreeImageList : IDisposable
 
     public int GetImageIndex(bool isDirectory, PathGitStatus? status)
     {
+        if (status is { IsIgnoredOnly: true })
+        {
+            return (int)GitFileTreeIconIndex.FileIgnored;
+        }
+
         if (status is null || !status.HasChanges)
         {
             return (int)(isDirectory ? GitFileTreeIconIndex.Folder : GitFileTreeIconIndex.File);
@@ -124,6 +130,7 @@ public sealed class GitFileTreeImageList : IDisposable
             GitFileTreeIconIndex.FileRenamed => AddBadge(bitmap, Color.FromArgb(37, 99, 235), "R"),
             GitFileTreeIconIndex.FileMixed => AddBadge(bitmap, Color.FromArgb(217, 119, 6), "~"),
             GitFileTreeIconIndex.FileConflicted => AddBadge(bitmap, Color.FromArgb(220, 38, 38), "!"),
+            GitFileTreeIconIndex.FileIgnored => AddBadge(bitmap, Color.FromArgb(100, 116, 139), "X"),
             _ => bitmap
         };
     }
@@ -147,7 +154,7 @@ public sealed class GitFileTreeImageList : IDisposable
         }
 
         using var textBrush = new SolidBrush(Color.White);
-        float fontSize = letter is "+" or "-" or "±" or "~" or "U" ? 7.5f : 6.75f;
+        float fontSize = letter is "+" or "-" or "±" or "~" or "U" or "X" ? 7.5f : 6.75f;
         using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Point);
         var format = new StringFormat
         {

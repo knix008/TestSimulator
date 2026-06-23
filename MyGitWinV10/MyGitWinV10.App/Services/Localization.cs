@@ -100,6 +100,11 @@ public static class Localization
         ["Column.ChangedFiles.Status"] = ("상태", "Status"),
         ["Column.ChangedFiles.Status.Tip"] = ("변경 종류입니다 (추가, 수정, 삭제, 이름변경 등).", "Kind of change (Added, Modified, Deleted, Renamed, etc.)."),
 
+        ["Menu.RepoFiles.AddToGitIgnore"] = (".gitignore에 추가", "Add to .gitignore"),
+        ["Menu.RepoFiles.AddToGitIgnore.Tip"] = ("선택한 경로를 .gitignore에 추가합니다", "Append the selected path to .gitignore"),
+        ["Menu.RepoFiles.RemoveFromGitIgnore"] = (".gitignore에서 제거", "Remove from .gitignore"),
+        ["Menu.RepoFiles.RemoveFromGitIgnore.Tip"] = ("선택한 경로를 .gitignore에서 제거합니다", "Remove the selected path from .gitignore"),
+
         ["Menu.ChangedFiles.OpenExternal"] = ("외부 뷰어로 보기", "Open in External Viewer"),
         ["Menu.ChangedFiles.OpenExternal.Tip"] = ("환경설정에 지정한 외부 Diff 도구로 선택한 파일을 엽니다.", "Open the selected file in the external diff tool configured in Preferences."),
         ["Menu.ChangedFiles.ExternalNotConfigured"] = ("설정안됨", "not configured"),

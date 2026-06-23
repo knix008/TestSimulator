@@ -10,15 +10,18 @@ public sealed class RepositoryPathStatusIndex
 
     private readonly Dictionary<string, PathGitStatus> _files;
     private readonly Dictionary<string, PathGitStatus> _directories;
+    private readonly Func<string, bool, bool>? _isPathIgnored;
 
     internal RepositoryPathStatusIndex(
         Dictionary<string, PathGitStatus> files,
         Dictionary<string, PathGitStatus> directories,
-        bool canReportStatus)
+        bool canReportStatus,
+        Func<string, bool, bool>? isPathIgnored = null)
     {
         _files = files;
         _directories = directories;
         CanReportStatus = canReportStatus;
+        _isPathIgnored = isPathIgnored;
     }
 
     public bool CanReportStatus { get; }
@@ -68,18 +71,32 @@ public sealed class RepositoryPathStatusIndex
 
         if (isDirectory)
         {
-            return !string.IsNullOrEmpty(Get(normalized, isDirectory: true)?.WorkTree);
+            PathGitStatus? status = Get(normalized, isDirectory: true);
+            return status is not null
+                && !status.IsIgnoredOnly
+                && !string.IsNullOrEmpty(status.WorkTree);
         }
 
-        return _files.TryGetValue(normalized, out PathGitStatus? status)
-            && !string.IsNullOrEmpty(status.WorkTree);
+        return _files.TryGetValue(normalized, out PathGitStatus? fileStatus)
+            && !fileStatus.IsIgnoredOnly
+            && !string.IsNullOrEmpty(fileStatus.WorkTree);
     }
 
     public PathGitStatus? Get(string relativePath, bool isDirectory)
     {
         string normalized = PathCommitHistoryService.NormalizeGitPath(relativePath);
         var map = isDirectory ? _directories : _files;
-        return map.TryGetValue(normalized, out PathGitStatus? status) ? status : null;
+        if (map.TryGetValue(normalized, out PathGitStatus? status))
+        {
+            return status;
+        }
+
+        if (CanReportStatus && _isPathIgnored?.Invoke(normalized, isDirectory) == true)
+        {
+            return PathGitStatus.Ignored;
+        }
+
+        return null;
     }
 
     public IEnumerable<string> GetDirectChildFilePaths(string relativePath)
@@ -131,7 +148,11 @@ public static class RepositoryPathStatusService
             PropagateToParents(directories, path, status);
         }
 
-        return new RepositoryPathStatusIndex(files, directories, canReportStatus: true);
+        return new RepositoryPathStatusIndex(
+            files,
+            directories,
+            canReportStatus: true,
+            (path, isDirectory) => GitIgnoreService.IsIgnored(repo, path, isDirectory));
     }
 
     public static string FormatNodeToolTip(RepositoryFileNodeTag tag, PathGitStatus? status, bool canReportStatus)
@@ -161,6 +182,13 @@ public static class RepositoryPathStatusService
         }
 
         PathGitStatus effectiveStatus = status ?? PathGitStatus.Empty;
+        if (effectiveStatus.IsIgnoredOnly)
+        {
+            lines.Add("Status: Ignored");
+            lines.Add("Listed in .gitignore");
+            return string.Join(Environment.NewLine, lines);
+        }
+
         lines.Add($"Status: {effectiveStatus.GetSummaryLabel(tag.IsDirectory)}");
         lines.Add($"Staged: {PathGitStatus.FormatDisplayValue(effectiveStatus.Staged)}");
         lines.Add($"Work tree: {PathGitStatus.FormatDisplayValue(effectiveStatus.WorkTree)}");

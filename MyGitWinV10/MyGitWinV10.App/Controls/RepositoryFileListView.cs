@@ -605,7 +605,7 @@ public sealed class RepositoryFileListView : Panel
             : Math.Max(Font.SizeInPoints + StatusBadgeFontSizeBoost, StatusBadgeMinimumFontSize);
 
     private static bool IsSymbolStatusBadge(string badge) =>
-        badge is "+" or "±" or "-";
+        badge is "+" or "±" or "-" or "X";
 
     private void HeaderPanel_Paint(object? sender, PaintEventArgs e)
     {

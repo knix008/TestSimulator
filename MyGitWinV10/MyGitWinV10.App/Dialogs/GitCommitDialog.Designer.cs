@@ -28,7 +28,9 @@ namespace MyGitWinV10.App.Dialogs
             previewLabel = new Label();
             previewTextBox = new TextBox();
             stagedFilesLabel = new Label();
-            stagedFilesListBox = new ListBox();
+            stagedFilesListView = new ListView();
+            stagedPathColumnHeader = new ColumnHeader();
+            removeFromCommitButton = new Button();
             commitButton = new Button();
             cancelButton = new Button();
             SuspendLayout();
@@ -127,22 +129,43 @@ namespace MyGitWinV10.App.Dialogs
             stagedFilesLabel.Size = new Size(72, 15);
             stagedFilesLabel.Text = "Staged files";
             //
-            // stagedFilesListBox
+            // stagedFilesListView
             //
-            stagedFilesListBox.FormattingEnabled = true;
-            stagedFilesListBox.ItemHeight = 15;
-            stagedFilesListBox.Location = new Point(20, 342);
-            stagedFilesListBox.Name = "stagedFilesListBox";
-            stagedFilesListBox.Size = new Size(460, 94);
-            stagedFilesListBox.TabIndex = 4;
-            stagedFilesListBox.TabStop = false;
+            stagedFilesListView.Columns.AddRange(new ColumnHeader[] { stagedPathColumnHeader });
+            stagedFilesListView.FullRowSelect = true;
+            stagedFilesListView.GridLines = true;
+            stagedFilesListView.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+            stagedFilesListView.HideSelection = false;
+            stagedFilesListView.MultiSelect = true;
+            stagedFilesListView.Location = new Point(20, 342);
+            stagedFilesListView.Name = "stagedFilesListView";
+            stagedFilesListView.Size = new Size(460, 94);
+            stagedFilesListView.TabIndex = 4;
+            stagedFilesListView.UseCompatibleStateImageBehavior = false;
+            stagedFilesListView.View = View.Details;
+            stagedFilesListView.SelectedIndexChanged += StagedFilesListView_SelectedIndexChanged;
+            //
+            // stagedPathColumnHeader
+            //
+            stagedPathColumnHeader.Text = "Path";
+            stagedPathColumnHeader.Width = 440;
+            //
+            // removeFromCommitButton
+            //
+            removeFromCommitButton.FlatStyle = FlatStyle.Flat;
+            removeFromCommitButton.Location = new Point(20, 444);
+            removeFromCommitButton.Name = "removeFromCommitButton";
+            removeFromCommitButton.Size = new Size(110, 28);
+            removeFromCommitButton.TabIndex = 8;
+            removeFromCommitButton.Text = "Remove Selected";
+            removeFromCommitButton.Click += RemoveFromCommitButton_Click;
             //
             // commitButton
             //
             commitButton.BackColor = Color.FromArgb(37, 99, 235);
             commitButton.FlatStyle = FlatStyle.Flat;
             commitButton.ForeColor = Color.White;
-            commitButton.Location = new Point(324, 452);
+            commitButton.Location = new Point(324, 444);
             commitButton.Name = "commitButton";
             commitButton.Size = new Size(75, 28);
             commitButton.MinimumSize = new Size(75, 28);
@@ -159,7 +182,7 @@ namespace MyGitWinV10.App.Dialogs
             // cancelButton
             //
             cancelButton.FlatStyle = FlatStyle.Flat;
-            cancelButton.Location = new Point(405, 452);
+            cancelButton.Location = new Point(405, 444);
             cancelButton.Name = "cancelButton";
             cancelButton.Size = new Size(75, 28);
             cancelButton.MinimumSize = new Size(75, 28);
@@ -180,7 +203,7 @@ namespace MyGitWinV10.App.Dialogs
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.FromArgb(250, 250, 251);
             CancelButton = cancelButton;
-            ClientSize = new Size(500, 495);
+            ClientSize = new Size(500, 487);
             Controls.Add(categoryLabel);
             Controls.Add(categoryComboBox);
             Controls.Add(manageCategoriesButton);
@@ -191,7 +214,8 @@ namespace MyGitWinV10.App.Dialogs
             Controls.Add(previewLabel);
             Controls.Add(previewTextBox);
             Controls.Add(stagedFilesLabel);
-            Controls.Add(stagedFilesListBox);
+            Controls.Add(stagedFilesListView);
+            Controls.Add(removeFromCommitButton);
             Controls.Add(commitButton);
             Controls.Add(cancelButton);
             Font = new Font("Segoe UI", 9F);
@@ -217,7 +241,9 @@ namespace MyGitWinV10.App.Dialogs
         private Label previewLabel;
         private TextBox previewTextBox;
         private Label stagedFilesLabel;
-        private ListBox stagedFilesListBox;
+        private ListView stagedFilesListView;
+        private ColumnHeader stagedPathColumnHeader;
+        private Button removeFromCommitButton;
         private Button commitButton;
         private Button cancelButton;
     }
