@@ -18,13 +18,17 @@ namespace MyGitWinV10.App.Dialogs
 
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             summaryLabel = new Label();
             pathListView = new ListView();
             pathColumnHeader = new ColumnHeader();
             statusColumnHeader = new ColumnHeader();
+            pathListContextMenu = new ContextMenuStrip(components);
+            removePathContextMenuItem = new ToolStripMenuItem();
             removeButton = new Button();
             stageButton = new Button();
             cancelButton = new Button();
+            pathListContextMenu.SuspendLayout();
             SuspendLayout();
             //
             // summaryLabel
@@ -49,9 +53,25 @@ namespace MyGitWinV10.App.Dialogs
             pathListView.Name = "pathListView";
             pathListView.Size = new Size(560, 280);
             pathListView.TabIndex = 1;
+            pathListView.ContextMenuStrip = pathListContextMenu;
             pathListView.UseCompatibleStateImageBehavior = false;
             pathListView.View = View.Details;
             pathListView.SelectedIndexChanged += PathListView_SelectedIndexChanged;
+            pathListView.MouseDown += PathListView_MouseDown;
+            //
+            // pathListContextMenu
+            //
+            pathListContextMenu.Items.AddRange(new ToolStripItem[] { removePathContextMenuItem });
+            pathListContextMenu.Name = "pathListContextMenu";
+            pathListContextMenu.Size = new Size(153, 26);
+            pathListContextMenu.Opening += PathListContextMenu_Opening;
+            //
+            // removePathContextMenuItem
+            //
+            removePathContextMenuItem.Name = "removePathContextMenuItem";
+            removePathContextMenuItem.Size = new Size(152, 22);
+            removePathContextMenuItem.Text = "Remove Selected";
+            removePathContextMenuItem.Click += RemovePathContextMenuItem_Click;
             //
             // pathColumnHeader
             //
@@ -121,6 +141,7 @@ namespace MyGitWinV10.App.Dialogs
             Name = "GitAddDialog";
             StartPosition = FormStartPosition.CenterParent;
             Text = "Git Add";
+            pathListContextMenu.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -131,6 +152,8 @@ namespace MyGitWinV10.App.Dialogs
         private ListView pathListView;
         private ColumnHeader pathColumnHeader;
         private ColumnHeader statusColumnHeader;
+        private ContextMenuStrip pathListContextMenu;
+        private ToolStripMenuItem removePathContextMenuItem;
         private Button removeButton;
         private Button stageButton;
         private Button cancelButton;

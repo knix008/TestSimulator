@@ -87,6 +87,25 @@ public partial class GitAddDialog : Form
         PopulateList();
     }
 
+    private void PathListView_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right)
+        {
+            return;
+        }
+
+        ListViewItem? hitItem = pathListView.HitTest(e.Location).Item;
+        if (hitItem is not null)
+        {
+            hitItem.Selected = true;
+        }
+    }
+
+    private void PathListContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e) =>
+        removePathContextMenuItem.Enabled = pathListView.SelectedItems.Count > 0;
+
+    private void RemovePathContextMenuItem_Click(object? sender, EventArgs e) => RemoveSelectedPaths();
+
     private void PathListView_SelectedIndexChanged(object? sender, EventArgs e) =>
         removeButton.Enabled = _entries.Count > 0 && pathListView.SelectedItems.Count > 0;
 

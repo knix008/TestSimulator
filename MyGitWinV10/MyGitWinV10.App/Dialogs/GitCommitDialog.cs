@@ -129,7 +129,28 @@ public partial class GitCommitDialog : Form
         UpdatePreview();
     }
 
-    private void RemoveFromCommitButton_Click(object? sender, EventArgs e)
+    private void RemoveFromCommitButton_Click(object? sender, EventArgs e) => RemoveSelectedFromCommit();
+
+    private void StagedFilesListView_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right)
+        {
+            return;
+        }
+
+        ListViewItem? hitItem = stagedFilesListView.HitTest(e.Location).Item;
+        if (hitItem is not null)
+        {
+            hitItem.Selected = true;
+        }
+    }
+
+    private void StagedFilesContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e) =>
+        removePathContextMenuItem.Enabled = stagedFilesListView.SelectedItems.Count > 0;
+
+    private void RemovePathContextMenuItem_Click(object? sender, EventArgs e) => RemoveSelectedFromCommit();
+
+    private void RemoveSelectedFromCommit()
     {
         if (stagedFilesListView.SelectedItems.Count == 0)
         {

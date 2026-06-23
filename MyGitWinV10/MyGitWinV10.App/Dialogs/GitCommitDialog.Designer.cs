@@ -18,6 +18,7 @@ namespace MyGitWinV10.App.Dialogs
 
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             categoryLabel = new Label();
             categoryComboBox = new ComboBox();
             manageCategoriesButton = new Button();
@@ -30,9 +31,12 @@ namespace MyGitWinV10.App.Dialogs
             stagedFilesLabel = new Label();
             stagedFilesListView = new ListView();
             stagedPathColumnHeader = new ColumnHeader();
+            stagedFilesContextMenu = new ContextMenuStrip(components);
+            removePathContextMenuItem = new ToolStripMenuItem();
             removeFromCommitButton = new Button();
             commitButton = new Button();
             cancelButton = new Button();
+            stagedFilesContextMenu.SuspendLayout();
             SuspendLayout();
             //
             // categoryLabel
@@ -141,9 +145,25 @@ namespace MyGitWinV10.App.Dialogs
             stagedFilesListView.Name = "stagedFilesListView";
             stagedFilesListView.Size = new Size(460, 94);
             stagedFilesListView.TabIndex = 4;
+            stagedFilesListView.ContextMenuStrip = stagedFilesContextMenu;
             stagedFilesListView.UseCompatibleStateImageBehavior = false;
             stagedFilesListView.View = View.Details;
             stagedFilesListView.SelectedIndexChanged += StagedFilesListView_SelectedIndexChanged;
+            stagedFilesListView.MouseDown += StagedFilesListView_MouseDown;
+            //
+            // stagedFilesContextMenu
+            //
+            stagedFilesContextMenu.Items.AddRange(new ToolStripItem[] { removePathContextMenuItem });
+            stagedFilesContextMenu.Name = "stagedFilesContextMenu";
+            stagedFilesContextMenu.Size = new Size(153, 26);
+            stagedFilesContextMenu.Opening += StagedFilesContextMenu_Opening;
+            //
+            // removePathContextMenuItem
+            //
+            removePathContextMenuItem.Name = "removePathContextMenuItem";
+            removePathContextMenuItem.Size = new Size(152, 22);
+            removePathContextMenuItem.Text = "Remove Selected";
+            removePathContextMenuItem.Click += RemovePathContextMenuItem_Click;
             //
             // stagedPathColumnHeader
             //
@@ -225,6 +245,7 @@ namespace MyGitWinV10.App.Dialogs
             Name = "GitCommitDialog";
             StartPosition = FormStartPosition.CenterParent;
             Text = "Git Commit";
+            stagedFilesContextMenu.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -243,6 +264,8 @@ namespace MyGitWinV10.App.Dialogs
         private Label stagedFilesLabel;
         private ListView stagedFilesListView;
         private ColumnHeader stagedPathColumnHeader;
+        private ContextMenuStrip stagedFilesContextMenu;
+        private ToolStripMenuItem removePathContextMenuItem;
         private Button removeFromCommitButton;
         private Button commitButton;
         private Button cancelButton;
