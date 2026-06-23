@@ -43,6 +43,9 @@ public static class ModernTheme
     public static readonly Font BaseFont = new("Malgun Gothic", 9.5f, FontStyle.Regular);
     public static readonly Font BoldFont = new("Malgun Gothic", 9.5f, FontStyle.Bold);
 
+    public const int ColumnHeaderHeight = 32;
+    public const int ColumnHeaderMinPadding = 28;
+
     public static void InitializeApplication()
     {
         ToolStripManager.Renderer = new ModernToolStripRenderer();
@@ -167,7 +170,7 @@ public static class ModernTheme
         grid.ColumnHeadersDefaultCellStyle.Font = BoldFont;
         grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = ListHeaderBack;
         grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = ListHeaderFore;
-        grid.ColumnHeadersHeight = 32;
+        ApplySingleLineColumnHeaders(grid);
         grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
         grid.DefaultCellStyle.BackColor = Surface;
         grid.DefaultCellStyle.ForeColor = TextPrimary;
@@ -176,6 +179,50 @@ public static class ModernTheme
         grid.RowTemplate.Height = 28;
         grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
         grid.RowHeadersVisible = false;
+    }
+
+    public static void ApplySingleLineColumnHeaders(DataGridView grid)
+    {
+        grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
+        grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+        grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+        grid.ColumnHeadersHeight = ColumnHeaderHeight;
+    }
+
+    public static int MeasureColumnHeaderMinWidth(
+        DataGridView grid,
+        string headerText,
+        bool sortable = false,
+        int extraPadding = ColumnHeaderMinPadding)
+    {
+        if (string.IsNullOrEmpty(headerText))
+            return 48;
+
+        var font = grid.ColumnHeadersDefaultCellStyle.Font ?? grid.Font ?? BaseFont;
+        var size = TextRenderer.MeasureText(
+            headerText,
+            font,
+            new Size(int.MaxValue, ColumnHeaderHeight),
+            TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+
+        var padding = extraPadding + (sortable ? 16 : 0);
+        return Math.Max(48, size.Width + padding);
+    }
+
+    public static void ApplyColumnHeaderMinWidth(
+        DataGridViewColumn column,
+        DataGridView grid,
+        string? headerText = null)
+    {
+        var text = headerText ?? column.HeaderText;
+        var sortable = column.SortMode != DataGridViewColumnSortMode.NotSortable;
+        column.MinimumWidth = MeasureColumnHeaderMinWidth(grid, text, sortable);
+    }
+
+    public static void ApplyAllColumnHeaderMinWidths(DataGridView grid)
+    {
+        foreach (DataGridViewColumn column in grid.Columns)
+            ApplyColumnHeaderMinWidth(column, grid);
     }
 
     public static void MakePrimary(Button button)

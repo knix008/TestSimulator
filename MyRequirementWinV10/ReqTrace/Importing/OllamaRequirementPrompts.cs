@@ -24,6 +24,75 @@ internal static class OllamaRequirementPrompts
     internal static string BuildRetryPrompt() =>
         LocalizationService.IsEnglish ? EnglishRetryPrompt : KoreanRetryPrompt;
 
+    internal static string BuildDescriptionSystemPrompt() =>
+        LocalizationService.IsEnglish ? EnglishDescriptionSystemPrompt : KoreanDescriptionSystemPrompt;
+
+    internal static string BuildDescriptionRetryPrompt() =>
+        LocalizationService.IsEnglish ? EnglishDescriptionRetryPrompt : KoreanDescriptionRetryPrompt;
+
+    private const string EnglishDescriptionJsonHint = "Return JSON only: {\"description\":\"...\"}";
+    private const string KoreanDescriptionJsonHint = "JSON만 출력하세요: {\"description\":\"...\"}";
+
+    internal static string BuildDescriptionUserPrompt(
+        string fileName,
+        string sheetName,
+        int rowIndex,
+        int rowCount,
+        ExtractedRequirementDto requirement,
+        string categoryContext,
+        string mappingHint,
+        string csvBlock)
+    {
+        var mappingBlock = string.IsNullOrWhiteSpace(mappingHint)
+            ? string.Empty
+            : mappingHint + Environment.NewLine;
+
+        var categoryBlock = string.IsNullOrWhiteSpace(categoryContext)
+            ? string.Empty
+            : LocalizationService.IsEnglish
+                ? $"\nCategory context: {categoryContext}\n"
+                : $"\n카테고리 맥락: {categoryContext}\n";
+
+        if (LocalizationService.IsEnglish)
+        {
+            return $"""
+                Source file: {fileName}
+                Sheet: {sheetName}
+                Row {rowIndex + 1} of {rowCount}
+
+                Requirement already extracted from Excel:
+                - code: {requirement.Code ?? ""}
+                - title: {requirement.Title ?? ""}
+                - category: {requirement.Category ?? ""}
+                {categoryBlock}{mappingBlock}
+                Task: Write ONLY the description field for this requirement.
+                Use the CSV row below as source context. Do not change code, title, category, priority, status, or parentCode.
+                The description must explain what the user/system should do or what must be true. Do not repeat the title alone.
+                {EnglishDescriptionJsonHint}
+
+                {csvBlock}
+                """;
+        }
+
+        return $"""
+            원본 파일: {fileName}
+            시트: {sheetName}
+            행 {rowIndex + 1} / {rowCount}
+
+            Excel에서 이미 읽은 요구사항:
+            - code: {requirement.Code ?? ""}
+            - title: {requirement.Title ?? ""}
+            - category: {requirement.Category ?? ""}
+            {categoryBlock}{mappingBlock}
+            작업: 이 요구사항의 description(설명)만 작성하세요.
+            아래 CSV 행을 근거로 사용하세요. code, title, category, priority, status, parentCode는 변경하지 마세요.
+            description에는 사용자/시스템이 수행할 동작이나 충족해야 할 조건을 구체적으로 쓰고, title만 반복하지 마세요.
+            {KoreanDescriptionJsonHint}
+
+            {csvBlock}
+            """;
+    }
+
     internal static string BuildSingleRowUserPrompt(
         string fileName,
         string sheetName,
@@ -229,5 +298,27 @@ internal static class OllamaRequirementPrompts
     private const string EnglishRetryPrompt = """
         The previous response could not be parsed. Return JSON only, no explanation.
         Requirement schema: {"requirements":[{"code":"","title":"","description":"","category":"","priority":"","status":"","parentCode":""}]}
+        """;
+
+    private const string EnglishDescriptionRetryPrompt = """
+        The previous response could not be parsed. Return JSON only: {"description":"..."}
+        """;
+
+    private const string KoreanDescriptionRetryPrompt = """
+        이전 응답을 파싱할 수 없었습니다. JSON만 다시 출력하세요: {"description":"..."}
+        """;
+
+    private const string EnglishDescriptionSystemPrompt = """
+        You write requirement descriptions for ReqTrace imports.
+        Excel already supplies code, title, category, and other fields.
+        Your job is to produce a clear, testable description from the spreadsheet row context.
+        Return JSON only in the form {"description":"..."}. No markdown or commentary.
+        """;
+
+    private const string KoreanDescriptionSystemPrompt = """
+        ReqTrace Excel 가져오기용 요구사항 설명(description) 작성 전문가입니다.
+        code, title, category 등 다른 필드는 Excel에서 이미 읽혔습니다.
+        스프레드시트 행 맥락을 바탕으로 명확하고 검증 가능한 description만 작성하세요.
+        {"description":"..."} 형식의 JSON만 출력하세요. 마크다운·설명 문장은 금지합니다.
         """;
 }

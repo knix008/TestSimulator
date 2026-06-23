@@ -103,5 +103,6 @@ public partial class RequirementEditForm : Form
         Result.Status = (RequirementStatus)cboStatus.SelectedIndex;
         Result.Source = txtSource.Text.Trim();
         Result.ParentId = cboParent.SelectedItem is Requirement parent ? parent.Id : null;
+        DialogResult = DialogResult.OK;
     }
 }

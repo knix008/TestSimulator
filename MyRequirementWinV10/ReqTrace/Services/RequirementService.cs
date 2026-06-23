@@ -22,6 +22,13 @@ public class RequirementService
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    public void RestoreProject(ProjectData project)
+    {
+        Project = project;
+        IsDirty = true;
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     public void MarkSaved()
     {
         IsDirty = false;

@@ -1221,14 +1221,11 @@ namespace MyGitWinV10.App
             // 
             // wordWrapToolButton
             // 
-            wordWrapToolButton.Checked = true;
-            wordWrapToolButton.CheckOnClick = true;
-            wordWrapToolButton.CheckState = CheckState.Checked;
             wordWrapToolButton.Name = "wordWrapToolButton";
             wordWrapToolButton.Size = new Size(39, 20);
             wordWrapToolButton.Text = "Wrap";
             wordWrapToolButton.ToolTipText = "Toggle word wrap for the diff view";
-            wordWrapToolButton.CheckedChanged += WordWrapToolButton_CheckedChanged;
+            wordWrapToolButton.Click += WordWrapToolButton_Click;
             // 
             // copyDiffToolButton
             // 

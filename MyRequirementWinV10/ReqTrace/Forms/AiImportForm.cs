@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using ReqTrace.Importing;
 using ReqTrace.Localization;
 using ReqTrace.Models;
@@ -40,7 +41,9 @@ public partial class AiImportForm : Form
         InitializeFieldCombos();
         ModernTheme.Apply(this);
         ModernTheme.MakePrimary(btnConvert);
+        chkUseLlm.Checked = LlmConfiguration.ShouldUseLlmImport(_settings);
         ApplyLocalization();
+        UpdateLlmUiState();
         SetupResultGrid();
 
         AcceptButton = btnConvert;
@@ -51,7 +54,6 @@ public partial class AiImportForm : Form
         if (cboSheet.Items.Count > 0)
             cboSheet.SelectedIndex = 0;
 
-        lblOllamaInfo.Text = Loc.T("AiImport_OllamaInfo", _settings.OllamaBaseUrl, GetModelDisplay());
         ResetConvertButton();
     }
 
@@ -77,7 +79,7 @@ public partial class AiImportForm : Form
 
     private void ApplyLocalization()
     {
-        Text = Loc.T("Dlg_AiImportExcel", Path.GetFileName(_filePath));
+        Text = Loc.T("Dlg_ImportExcel", Path.GetFileName(_filePath));
         lblSheet.Text = Loc.T("Import_Sheet");
         lblHeaderRow.Text = Loc.T("Import_HeaderRow");
         lblPreview.Text = Loc.T("Import_Preview");
@@ -92,9 +94,25 @@ public partial class AiImportForm : Form
         lblParentCode.Text = Loc.T("Import_ParentCode");
         lblResults.Text = Loc.T("AiImport_ResultPreview");
         lblHint.Text = Loc.T("AiImport_Hint");
+        chkUseLlm.Text = Loc.T("AiImport_UseLlm");
         chkGenerateIds.Text = Loc.T("Import_GenerateIds");
         chkGenerateTestCases.Text = Loc.T("Import_GenerateTestCases");
         btnCancel.Text = Loc.T("Common_Cancel");
+        UpdateLlmUiState();
+    }
+
+    private void UpdateLlmUiState()
+    {
+        var useLlm = chkUseLlm.Checked;
+        lblOllamaInfo.Visible = useLlm;
+        lblOllamaInfo.Text = Loc.T("AiImport_OllamaInfo", _settings.OllamaBaseUrl, GetModelDisplay());
+        lblHint.Text = Loc.T(useLlm ? "AiImport_HintWithLlm" : "AiImport_HintWithoutLlm");
+    }
+
+    private void chkUseLlm_CheckedChanged(object? sender, EventArgs e)
+    {
+        UpdateLlmUiState();
+        ClearConversionResults();
     }
 
     private void SetupResultGrid()
@@ -112,6 +130,9 @@ public partial class AiImportForm : Form
         resultGrid.ReadOnly = true;
         resultGrid.AllowUserToAddRows = false;
         resultGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        resultGrid.CellBorderStyle = DataGridViewCellBorderStyle.Single;
+        resultGrid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
+        ModernTheme.ApplyAllColumnHeaderMinWidths(resultGrid);
         resultGrid.DataSource = _previewRows;
     }
 
@@ -141,6 +162,7 @@ public partial class AiImportForm : Form
             (int)numHeaderRow.Value,
             _fieldCombos,
             previewGrid);
+        ModernTheme.ApplyAllColumnHeaderMinWidths(previewGrid);
     }
 
     private ColumnMapping BuildMapping() =>
@@ -160,7 +182,7 @@ public partial class AiImportForm : Form
     private void ResetConvertButton()
     {
         _conversionReady = false;
-        btnConvert.Text = Loc.T("AiImport_Convert");
+        btnConvert.Text = Loc.T("Common_Import");
         btnConvert.Enabled = true;
         ModernTheme.MakePrimary(btnConvert);
     }
@@ -186,7 +208,15 @@ public partial class AiImportForm : Form
         if (cboSheet.SelectedItem is not string sheetName)
             return;
 
-        if (string.IsNullOrWhiteSpace(_settings.OllamaModel))
+        var mapping = BuildMapping();
+        if (mapping.TitleColumn is null)
+        {
+            MessageBox.Show(this, Loc.T("Msg_TitleColumnRequired"), Loc.T("Common_Validation"),
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (chkUseLlm.Checked && string.IsNullOrWhiteSpace(_settings.OllamaModel))
         {
             MessageBox.Show(this,
                 Loc.T("Msg_AiImportModelNotConfigured"),
@@ -196,7 +226,6 @@ public partial class AiImportForm : Form
             return;
         }
 
-        var mapping = BuildMapping();
         var headerRow = (int)numHeaderRow.Value;
 
         btnConvert.Enabled = false;
@@ -207,28 +236,50 @@ public partial class AiImportForm : Form
         {
             var reservedCodes = GetReservedRequirementCodes?.Invoke();
             var reservedTestCaseCodes = GetReservedTestCaseCodes?.Invoke();
+            ImportResult importResult;
 
-            var dialogResult = ProgressDialogRunner.Run(
-                this,
-                Loc.T("Dlg_ProgressAiImportTitle"),
-                Loc.T("Dlg_ProgressAiImportMessage", Path.GetFileName(_filePath)),
-                (progress, cancellationToken) => OllamaRequirementImporter.ImportAsync(
-                    _filePath,
-                    sheetName,
-                    _settings.OllamaBaseUrl,
-                    string.IsNullOrWhiteSpace(_settings.OllamaModel) ? null : _settings.OllamaModel,
-                    chkGenerateIds.Checked,
-                    chkGenerateTestCases.Checked,
-                    headerRow,
-                    mapping,
-                    progress,
-                    onRequirementAdded: null,
-                    reservedCodes,
-                    reservedTestCaseCodes,
-                    cancellationToken));
+            if (chkUseLlm.Checked)
+            {
+                var dialogResult = ProgressDialogRunner.Run(
+                    this,
+                    Loc.T("Dlg_ProgressAiImportTitle"),
+                    Loc.T("Dlg_ProgressAiImportMessage", Path.GetFileName(_filePath)),
+                    (progress, cancellationToken) => OllamaRequirementImporter.ImportAsync(
+                        _filePath,
+                        sheetName,
+                        _settings.OllamaBaseUrl,
+                        string.IsNullOrWhiteSpace(_settings.OllamaModel) ? null : _settings.OllamaModel,
+                        chkGenerateIds.Checked,
+                        chkGenerateTestCases.Checked,
+                        headerRow,
+                        mapping,
+                        progress,
+                        onRequirementAdded: null,
+                        reservedCodes,
+                        reservedTestCaseCodes,
+                        cancellationToken));
 
-            _lastConversionElapsed = dialogResult.Elapsed;
-            var importResult = dialogResult.Value;
+                _lastConversionElapsed = dialogResult.Elapsed;
+                importResult = dialogResult.Value;
+            }
+            else
+            {
+                var stopwatch = Stopwatch.StartNew();
+                importResult = ProgressDialogRunner.Run(
+                    this,
+                    Loc.T("Dlg_ProgressImportTitle"),
+                    Loc.T("Dlg_ProgressImportMessage", Path.GetFileName(_filePath)),
+                    progress => ExcelRequirementImporter.Import(
+                        _filePath,
+                        sheetName,
+                        headerRow,
+                        mapping,
+                        progress,
+                        reservedCodes,
+                        reservedTestCaseCodes));
+                stopwatch.Stop();
+                _lastConversionElapsed = stopwatch.Elapsed;
+            }
 
             ImportedRequirements = importResult.Requirements.ToList();
             Warnings = importResult.Warnings.ToList();
@@ -254,7 +305,7 @@ public partial class AiImportForm : Form
 
             var title = WasCancelled
                 ? Loc.T("Msg_AiImportCancelledPartialTitle")
-                : Loc.T("Msg_AiImportConvertDoneTitle");
+                : Loc.T("Msg_AiImportImportDoneTitle");
             var icon = WasCancelled ? MessageBoxIcon.Warning : MessageBoxIcon.Information;
 
             MessageBox.Show(this,
@@ -267,7 +318,7 @@ public partial class AiImportForm : Form
         {
             MessageBox.Show(this,
                 Loc.T("Msg_AiImportCancelled"),
-                Loc.T("Dlg_ProgressAiImportTitle"),
+                chkUseLlm.Checked ? Loc.T("Dlg_ProgressAiImportTitle") : Loc.T("Dlg_ProgressImportTitle"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
@@ -288,7 +339,7 @@ public partial class AiImportForm : Form
     {
         if (ImportedRequirements.Count == 0)
         {
-            MessageBox.Show(this, Loc.T("Msg_AiImportConvertFirst"), Loc.T("Msg_AiImportFailed"),
+            MessageBox.Show(this, Loc.T("Msg_AiImportImportFirst"), Loc.T("Msg_AiImportFailed"),
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
@@ -347,15 +398,16 @@ public partial class AiImportForm : Form
             ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"),
                 new IOException(Loc.T("Msg_ImportReadFailed", Path.GetFileName(_filePath)), root));
         }
-        else if (root.Message.Contains("Ollama", StringComparison.OrdinalIgnoreCase)
-                 || root is HttpRequestException)
+        else if (chkUseLlm.Checked
+                 && (root.Message.Contains("Ollama", StringComparison.OrdinalIgnoreCase)
+                     || root is HttpRequestException))
         {
             ErrorDialog.Show(this, Loc.T("Msg_AiImportFailed"),
                 new InvalidOperationException(Loc.T("Msg_AiImportOllamaUnavailable", _settings.OllamaBaseUrl), root));
         }
         else
         {
-            ErrorDialog.Show(this, Loc.T("Msg_AiImportFailed"), root);
+            ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"), root);
         }
     }
 }

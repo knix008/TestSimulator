@@ -18,11 +18,8 @@ internal static class RequirementCategoryComposer
 
             foreach (var segment in SplitSegments(part))
             {
-                if (segments.Count > 0
-                    && segments[^1].Equals(segment, StringComparison.OrdinalIgnoreCase))
-                {
+                if (segments.Exists(s => s.Equals(segment, StringComparison.OrdinalIgnoreCase)))
                     continue;
-                }
 
                 segments.Add(segment);
             }
@@ -39,14 +36,18 @@ internal static class RequirementCategoryComposer
         int? categoryColumn = null,
         string? categoryContext = null)
     {
+        var hierarchyPathColumns = categoryColumn is int categoryIdx
+            ? hierarchyColumns.Where(column => column != categoryIdx).ToHashSet()
+            : hierarchyColumns;
+
         var hierarchyPath = SpreadsheetForwardFill.BuildHierarchyPath(
             rowValues,
             columnIndexes,
-            hierarchyColumns,
+            hierarchyPathColumns,
             lastHierarchyValues);
 
         var mappedCategory = categoryColumn is int index
-            ? GetCell(rowValues, index)
+            ? SpreadsheetForwardFill.GetEffectiveValue(rowValues, index, hierarchyColumns, lastHierarchyValues)
             : string.Empty;
 
         return Compose(categoryContext, hierarchyPath, mappedCategory);
@@ -55,12 +56,11 @@ internal static class RequirementCategoryComposer
     public static string ComposeFromLlmRow(LlmSheetRow row, ColumnMapping? mapping)
     {
         var mappedCategory = GetLogicalField(row, "category");
-        var hierarchyParts = CollectHierarchyFieldValues(row, mapping);
+        if (!string.IsNullOrWhiteSpace(mappedCategory))
+            return Compose(mappedCategory);
 
-        return Compose(
-            row.CategoryContext,
-            string.Join(Separator, hierarchyParts),
-            mappedCategory);
+        var hierarchyParts = CollectHierarchyFieldValues(row, mapping);
+        return Compose(row.CategoryContext, string.Join(Separator, hierarchyParts));
     }
 
     private static IEnumerable<string> CollectHierarchyFieldValues(LlmSheetRow row, ColumnMapping? mapping)
@@ -77,7 +77,10 @@ internal static class RequirementCategoryComposer
             if (IsMappedDataHeader(header, mapping))
                 continue;
 
-            if (!LooksLikeHierarchyHeader(header) && !string.Equals(header, "category", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(header, "category", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!LooksLikeHierarchyHeader(header))
                 continue;
 
             if (segments.Count > 0 && segments[^1].Equals(value, StringComparison.OrdinalIgnoreCase))

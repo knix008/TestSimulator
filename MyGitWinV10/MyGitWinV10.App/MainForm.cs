@@ -220,6 +220,8 @@ public partial class MainForm : Form
         ConfigureToolStripButton(copyMessageToolButton, IconFactory.Message(tb, IconFactory.Palette.Message), "Copy the selected commit message to the clipboard");
         ConfigureToolStripButton(copyFilePathToolButton, IconFactory.File(tb, IconFactory.Palette.File), "Copy the selected file path to the clipboard");
         ConfigureToolStripButton(wordWrapToolButton, IconFactory.WordWrap(tb, IconFactory.Palette.WordWrap), "Toggle word wrap for the diff view");
+        wordWrapToolButton.CheckOnClick = false;
+        wordWrapToolButton.Checked = false;
         ConfigureToolStripButton(copyDiffToolButton, IconFactory.Diff(tb), "Copy the visible diff text to the clipboard");
         ConfigureToolStripButton(infoToolButton, IconFactory.Info(IconFactory.InfoToolbarIconSize, IconFactory.Palette.Help), "Show application information");
         infoToolButton.Margin = new Padding(2, 1, 2, 1);
@@ -2609,9 +2611,9 @@ public partial class MainForm : Form
         }
     }
 
-    private void WordWrapToolButton_CheckedChanged(object? sender, EventArgs e)
+    private void WordWrapToolButton_Click(object? sender, EventArgs e)
     {
-        SetWordWrap(wordWrapToolButton.Checked);
+        SetWordWrap(!diffTextBox.WordWrap);
     }
 
     private void WordWrapMenuItem_CheckedChanged(object? sender, EventArgs e)
@@ -2622,10 +2624,6 @@ public partial class MainForm : Form
     private void SetWordWrap(bool enabled)
     {
         diffTextBox.WordWrap = enabled;
-        if (wordWrapToolButton.Checked != enabled)
-        {
-            wordWrapToolButton.Checked = enabled;
-        }
 
         if (wordWrapMenuItem.Checked != enabled)
         {

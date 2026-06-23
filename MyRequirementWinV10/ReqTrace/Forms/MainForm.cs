@@ -40,10 +40,21 @@ public partial class MainForm : Form
     private ToolStripMenuItem reqCtxAdd = null!;
     private ToolStripMenuItem reqCtxEdit = null!;
     private ToolStripMenuItem reqCtxDelete = null!;
+    private ToolStripMenuItem reqCtxUndo = null!;
+    private ToolStripMenuItem reqCtxRedo = null!;
     private ToolStripMenuItem tcCtxAdd = null!;
     private ToolStripMenuItem tcCtxEdit = null!;
     private ToolStripMenuItem tcCtxDelete = null!;
     private ToolStripMenuItem tcCtxRecord = null!;
+    private ToolStripMenuItem tcCtxUndo = null!;
+    private ToolStripMenuItem tcCtxRedo = null!;
+    private ToolStripMenuItem undoMenuItem = null!;
+    private ToolStripMenuItem redoMenuItem = null!;
+    private ToolStripButton undoToolButton = null!;
+    private ToolStripButton redoToolButton = null!;
+    private readonly UndoRedoService _undoRedo = new();
+    private bool _isApplyingUndoRedo;
+    private bool _refreshingUi;
     public MainForm(string? startupProjectPath = null)
     {
         _startupProjectPath = startupProjectPath;
@@ -51,6 +62,7 @@ public partial class MainForm : Form
 
         _settings = AppSettingsService.Load();
         LocalizationService.Initialize(_settings.Language);
+        _dbSettings = AppSettingsService.LoadDbConnectionSettings(_settings);
 
         ModernTheme.Apply(this);
         StylePanelHeaders();
@@ -62,12 +74,14 @@ public partial class MainForm : Form
         _requirementService.Changed += (_, _) => RefreshAll();
 
         InitializeRequirementsGrid();
+        InitializeTestCaseGrid();
         InitializeDetailEditors();
         InitializeLanguageMenu();
         InitializeDatabaseMenu();
         InitializeDatabaseToolButtons();
         InitializeAboutToolButton();
         InitializeContextMenus();
+        InitializeUndoRedoCommands();
         AssignIcons();
         WireEvents();
         ApplyLocalization();
@@ -94,16 +108,27 @@ public partial class MainForm : Form
         reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Source", FillWeight = 120 });
         reqGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Parent", FillWeight = 100 });
 
+        foreach (DataGridViewColumn column in reqGrid.Columns)
+            column.SortMode = DataGridViewColumnSortMode.Programmatic;
+
         ModernTheme.StyleGrid(reqGrid);
+        reqGrid.CellBorderStyle = DataGridViewCellBorderStyle.Single;
+        reqGrid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
         UpdateRequirementColumnHeaders();
+    }
+
+    private void InitializeTestCaseGrid()
+    {
+        ModernTheme.StyleGrid(testCaseGrid);
+        testCaseGrid.CellBorderStyle = DataGridViewCellBorderStyle.Single;
+        testCaseGrid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
     }
 
     private void UpdateImportMenuLabels()
     {
-        var useLlm = LlmConfiguration.ShouldUseLlmImport(_settings);
-        importExcelMenuItem.Text = Loc.T(useLlm ? "Menu_ImportExcelLlm" : "Menu_ImportExcelAuto");
-        importExcelToolButton.Text = Loc.T(useLlm ? "Tool_ImportLlm" : "Tool_ImportAuto");
-        importExcelToolButton.ToolTipText = Loc.T(useLlm ? "Tooltip_ImportExcelLlm" : "Tooltip_ImportExcelAuto");
+        importExcelMenuItem.Text = Loc.T("Menu_ImportExcel");
+        importExcelToolButton.Text = Loc.T("Tool_ImportAuto");
+        importExcelToolButton.ToolTipText = Loc.T("Tooltip_ImportExcel");
     }
 
     private void UpdateRequirementColumnHeaders()
@@ -122,10 +147,12 @@ public partial class MainForm : Form
         };
         for (var i = 0; i < reqGrid.Columns.Count && i < names.Length; i++)
         {
-            var suffix = i == _reqSortColumn
-                ? (_reqSortOrder == SortOrder.Ascending ? " ▲" : " ▼")
-                : string.Empty;
-            reqGrid.Columns[i].HeaderText = names[i] + suffix;
+            var column = reqGrid.Columns[i];
+            column.HeaderText = names[i];
+            ModernTheme.ApplyColumnHeaderMinWidth(column, reqGrid, names[i]);
+            column.HeaderCell.SortGlyphDirection = i == _reqSortColumn
+                ? _reqSortOrder
+                : SortOrder.None;
         }
     }
 
@@ -204,6 +231,156 @@ public partial class MainForm : Form
         loadFromDatabaseToolButton.Click += async (_, _) => await LoadFromDatabaseAsync();
     }
 
+    private void InitializeUndoRedoCommands()
+    {
+        undoMenuItem = new ToolStripMenuItem(Loc.T("Menu_Undo"), IconFactory.Undo(), (_, _) => PerformUndo())
+        {
+            ShortcutKeys = Keys.Control | Keys.Z,
+            ShowShortcutKeys = true
+        };
+        redoMenuItem = new ToolStripMenuItem(Loc.T("Menu_Redo"), IconFactory.Redo(), (_, _) => PerformRedo())
+        {
+            ShortcutKeys = Keys.Control | Keys.Y,
+            ShowShortcutKeys = true
+        };
+
+        editMenu.DropDownItems.Insert(0, redoMenuItem);
+        editMenu.DropDownItems.Insert(0, undoMenuItem);
+        editMenu.DropDownItems.Insert(2, new ToolStripSeparator());
+        editMenu.DropDownOpening += (_, _) => UpdateUndoRedoUiState();
+
+        undoToolButton = new ToolStripButton
+        {
+            Image = IconFactory.Undo(),
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            ToolTipText = Loc.T("Tool_Undo")
+        };
+        redoToolButton = new ToolStripButton
+        {
+            Image = IconFactory.Redo(),
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            ToolTipText = Loc.T("Tool_Redo")
+        };
+        undoToolButton.Click += (_, _) => PerformUndo();
+        redoToolButton.Click += (_, _) => PerformRedo();
+
+        var saveIndex = toolStrip1.Items.IndexOf(saveToolButton);
+        toolStrip1.Items.Insert(saveIndex + 1, new ToolStripSeparator());
+        toolStrip1.Items.Insert(saveIndex + 2, undoToolButton);
+        toolStrip1.Items.Insert(saveIndex + 3, redoToolButton);
+
+        reqCtxUndo = new ToolStripMenuItem(Loc.T("Menu_Undo"), IconFactory.Undo(), (_, _) => PerformUndo())
+        {
+            ShortcutKeys = Keys.Control | Keys.Z,
+            ShowShortcutKeys = true
+        };
+        reqCtxRedo = new ToolStripMenuItem(Loc.T("Menu_Redo"), IconFactory.Redo(), (_, _) => PerformRedo())
+        {
+            ShortcutKeys = Keys.Control | Keys.Y,
+            ShowShortcutKeys = true
+        };
+        reqContextMenu.Items.Insert(0, reqCtxRedo);
+        reqContextMenu.Items.Insert(0, reqCtxUndo);
+        reqContextMenu.Items.Insert(2, new ToolStripSeparator());
+
+        tcCtxUndo = new ToolStripMenuItem(Loc.T("Menu_Undo"), IconFactory.Undo(), (_, _) => PerformUndo())
+        {
+            ShortcutKeys = Keys.Control | Keys.Z,
+            ShowShortcutKeys = true
+        };
+        tcCtxRedo = new ToolStripMenuItem(Loc.T("Menu_Redo"), IconFactory.Redo(), (_, _) => PerformRedo())
+        {
+            ShortcutKeys = Keys.Control | Keys.Y,
+            ShowShortcutKeys = true
+        };
+        testCaseContextMenu.Items.Insert(0, tcCtxRedo);
+        testCaseContextMenu.Items.Insert(0, tcCtxUndo);
+        testCaseContextMenu.Items.Insert(2, new ToolStripSeparator());
+
+        _undoRedo.StateChanged += (_, _) => UpdateUndoRedoUiState();
+        UpdateUndoRedoUiState();
+    }
+
+    private void RecordUndoSnapshot()
+    {
+        if (_isApplyingUndoRedo)
+            return;
+
+        _undoRedo.Record(_requirementService.Project);
+    }
+
+    private void ClearUndoHistory()
+    {
+        _undoRedo.Clear();
+    }
+
+    private void PerformUndo()
+    {
+        var selectedId = SelectedRequirement?.Id;
+        var snapshot = _undoRedo.Undo(_requirementService.Project);
+        if (snapshot is null)
+            return;
+
+        ApplyProjectSnapshot(snapshot, selectedId);
+    }
+
+    private void PerformRedo()
+    {
+        var selectedId = SelectedRequirement?.Id;
+        var snapshot = _undoRedo.Redo(_requirementService.Project);
+        if (snapshot is null)
+            return;
+
+        ApplyProjectSnapshot(snapshot, selectedId);
+    }
+
+    private void ApplyProjectSnapshot(ProjectData snapshot, Guid? selectedRequirementId)
+    {
+        _isApplyingUndoRedo = true;
+        try
+        {
+            _loadedDetailRequirementId = null;
+            _requirementService.RestoreProject(snapshot);
+            RefreshAll();
+
+            var targetId = selectedRequirementId;
+            if (targetId is not null)
+            {
+                var requirement = _requirementService.AllRequirements.FirstOrDefault(r => r.Id == targetId);
+                if (requirement is not null)
+                {
+                    SelectRequirementByCode(requirement.Code);
+                    return;
+                }
+            }
+
+            if (_requirementService.Project.Requirements.Count > 0)
+                SelectRequirementByCode(_requirementService.Project.Requirements[0].Code);
+            else
+                RefreshDetailAndGrid();
+        }
+        finally
+        {
+            _isApplyingUndoRedo = false;
+            UpdateUndoRedoUiState();
+        }
+    }
+
+    private void UpdateUndoRedoUiState()
+    {
+        var canUndo = _undoRedo.CanUndo;
+        var canRedo = _undoRedo.CanRedo;
+
+        undoMenuItem.Enabled = canUndo;
+        redoMenuItem.Enabled = canRedo;
+        undoToolButton.Enabled = canUndo;
+        redoToolButton.Enabled = canRedo;
+        reqCtxUndo.Enabled = canUndo;
+        reqCtxRedo.Enabled = canRedo;
+        tcCtxUndo.Enabled = canUndo;
+        tcCtxRedo.Enabled = canRedo;
+    }
+
     private void InitializeAboutToolButton()
     {
         aboutToolButton = new ToolStripButton
@@ -269,7 +446,7 @@ public partial class MainForm : Form
 
     private void ConnectToDatabase()
     {
-        _dbSettings ??= AppSettingsService.LoadDbConnectionSettings(_settings);
+        _dbSettings ??= AppSettingsService.LoadDbConnectionSettings(_settings) ?? new DbConnectionSettings();
 
         using var dlg = new DatabaseConnectionForm(_dbSettings);
         if (dlg.ShowDialog(this) != DialogResult.OK)
@@ -280,21 +457,46 @@ public partial class MainForm : Form
         AppSettingsService.Save(_settings);
     }
 
+    private bool EnsureDatabaseConnected()
+    {
+        if (_dbSettings is not null)
+            return true;
+
+        ConnectToDatabase();
+        if (_dbSettings is not null)
+            return true;
+
+        MessageBox.Show(
+            this,
+            Loc.T("Msg_DbNotConnected"),
+            Loc.T("Title_DatabaseConnection"),
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+        return false;
+    }
+
+    private static string GetDatabaseDisplayName(DbConnectionSettings settings) =>
+        settings.Provider == DbProvider.Sqlite
+            ? (string.IsNullOrWhiteSpace(settings.SqliteFilePath) ? Loc.T("Db_FilePath") : settings.SqliteFilePath)
+            : (string.IsNullOrWhiteSpace(settings.Database) ? Loc.T("Db_Database") : settings.Database);
+
     private async Task SaveToDatabaseAsync()
     {
-        if (_dbSettings is null)
-        {
-            ConnectToDatabase();
-            if (_dbSettings is null)
-                return;
-        }
+        if (!EnsureDatabaseConnected())
+            return;
 
         Cursor = Cursors.WaitCursor;
         try
         {
-            await DatabaseProjectRepository.SaveAsync(_requirementService.Project, _dbSettings);
+            var requirementCount = _requirementService.Project.Requirements.Count;
+            await DatabaseProjectRepository.SaveAsync(_requirementService.Project, _dbSettings!);
             _requirementService.MarkSaved();
-            MessageBox.Show(this, Loc.T("Msg_DbSaveSuccess"), Loc.T("Msg_DbSaveSuccessTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(
+                this,
+                Loc.T("Msg_DbSaveSuccess", GetDatabaseDisplayName(_dbSettings!), requirementCount),
+                Loc.T("Msg_DbSaveSuccessTitle"),
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
@@ -308,12 +510,8 @@ public partial class MainForm : Form
 
     private async Task LoadFromDatabaseAsync()
     {
-        if (_dbSettings is null)
-        {
-            ConnectToDatabase();
-            if (_dbSettings is null)
-                return;
-        }
+        if (!EnsureDatabaseConnected())
+            return;
 
         if (!TryProceedWithUnsavedChanges())
             return;
@@ -321,10 +519,16 @@ public partial class MainForm : Form
         Cursor = Cursors.WaitCursor;
         try
         {
-            var data = await DatabaseProjectRepository.LoadAsync(_dbSettings);
+            var data = await DatabaseProjectRepository.LoadAsync(_dbSettings!);
             _currentFilePath = null;
             _requirementService.ReplaceProject(data);
-            MessageBox.Show(this, Loc.T("Msg_DbLoadSuccess"), Loc.T("Msg_DbLoadSuccessTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ClearUndoHistory();
+            MessageBox.Show(
+                this,
+                Loc.T("Msg_DbLoadSuccess", GetDatabaseDisplayName(_dbSettings!), data.Requirements.Count),
+                Loc.T("Msg_DbLoadSuccessTitle"),
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
@@ -355,6 +559,8 @@ public partial class MainForm : Form
         UpdateLanguageMenuChecks();
 
         editMenu.Text = Loc.T("Menu_Edit");
+        undoMenuItem.Text = Loc.T("Menu_Undo");
+        redoMenuItem.Text = Loc.T("Menu_Redo");
         addRequirementMenuItem.Text = Loc.T("Menu_AddRequirement");
         editRequirementMenuItem.Text = Loc.T("Menu_EditRequirement");
         deleteRequirementMenuItem.Text = Loc.T("Menu_DeleteRequirement");
@@ -366,10 +572,14 @@ public partial class MainForm : Form
         reqCtxAdd.Text = Loc.T("Menu_AddRequirement");
         reqCtxEdit.Text = Loc.T("Menu_EditRequirement");
         reqCtxDelete.Text = Loc.T("Menu_DeleteRequirement");
+        reqCtxUndo.Text = Loc.T("Menu_Undo");
+        reqCtxRedo.Text = Loc.T("Menu_Redo");
         tcCtxAdd.Text = Loc.T("Menu_AddTestCase");
         tcCtxEdit.Text = Loc.T("Menu_EditTestCase");
         tcCtxDelete.Text = Loc.T("Menu_DeleteTestCase");
         tcCtxRecord.Text = Loc.T("Menu_RecordTestRun");
+        tcCtxUndo.Text = Loc.T("Menu_Undo");
+        tcCtxRedo.Text = Loc.T("Menu_Redo");
 
         viewMenu.Text = Loc.T("Menu_View");
         groupByCategoryMenuItem.Text = Loc.T("Menu_GroupByCategory");
@@ -394,6 +604,10 @@ public partial class MainForm : Form
         newToolButton.Text = Loc.T("Tool_New");
         openToolButton.Text = Loc.T("Tool_Open");
         saveToolButton.Text = Loc.T("Tool_Save");
+        undoToolButton.Text = Loc.T("Tool_Undo");
+        undoToolButton.ToolTipText = Loc.T("Menu_Undo");
+        redoToolButton.Text = Loc.T("Tool_Redo");
+        redoToolButton.ToolTipText = Loc.T("Menu_Redo");
         UpdateImportMenuLabels();
         exportReportToolButton.Text = Loc.T("Tool_Export");
         connectDatabaseToolButton.Text = Loc.T("Tool_DbConnect");
@@ -435,13 +649,21 @@ public partial class MainForm : Form
         if (testCaseGrid.Columns.Count == 0)
             return;
 
-        testCaseGrid.Columns["Code"].HeaderText = Loc.T("Col_Code");
-        testCaseGrid.Columns["Title"].HeaderText = Loc.T("Col_Title");
-        testCaseGrid.Columns["Steps"].HeaderText = Loc.T("Col_Steps");
-        testCaseGrid.Columns["ExpectedResult"].HeaderText = Loc.T("Col_ExpectedResult");
-        testCaseGrid.Columns["Status"].HeaderText = Loc.T("Col_LatestStatus");
-        testCaseGrid.Columns["LastRun"].HeaderText = Loc.T("Col_LastRun");
-        testCaseGrid.Columns["LastRunBy"].HeaderText = Loc.T("Col_LastRunBy");
+        foreach (DataGridViewColumn column in testCaseGrid.Columns)
+        {
+            column.HeaderText = column.Name switch
+            {
+                "Code" => Loc.T("Col_Code"),
+                "Title" => Loc.T("Col_Title"),
+                "Steps" => Loc.T("Col_Steps"),
+                "ExpectedResult" => Loc.T("Col_ExpectedResult"),
+                "Status" => Loc.T("Col_LatestStatus"),
+                "LastRun" => Loc.T("Col_LastRun"),
+                "LastRunBy" => Loc.T("Col_LastRunBy"),
+                _ => column.HeaderText
+            };
+            ModernTheme.ApplyColumnHeaderMinWidth(column, testCaseGrid);
+        }
     }
 
     private void EnsureRequirementsListColumns()
@@ -494,6 +716,7 @@ public partial class MainForm : Form
     {
         grid.ColumnHeadersVisible = true;
         grid.EnableHeadersVisualStyles = false;
+        ModernTheme.ApplySingleLineColumnHeaders(grid);
         grid.ColumnHeadersDefaultCellStyle.BackColor = ModernTheme.ListHeaderBack;
         grid.ColumnHeadersDefaultCellStyle.ForeColor = ModernTheme.ListHeaderFore;
         grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = ModernTheme.ListHeaderBack;
@@ -505,6 +728,7 @@ public partial class MainForm : Form
             column.HeaderCell.Style.ForeColor = ModernTheme.ListHeaderFore;
             column.HeaderCell.Style.SelectionBackColor = ModernTheme.ListHeaderBack;
             column.HeaderCell.Style.SelectionForeColor = ModernTheme.ListHeaderFore;
+            column.HeaderCell.Style.WrapMode = DataGridViewTriState.False;
         }
     }
 
@@ -524,6 +748,8 @@ public partial class MainForm : Form
         newToolButton.Image = newProjectMenuItem.Image = IconFactory.New();
         openToolButton.Image = openProjectMenuItem.Image = IconFactory.Open();
         saveToolButton.Image = saveMenuItem.Image = IconFactory.Save();
+        undoMenuItem.Image = undoToolButton.Image = reqCtxUndo.Image = tcCtxUndo.Image = IconFactory.Undo();
+        redoMenuItem.Image = redoToolButton.Image = reqCtxRedo.Image = tcCtxRedo.Image = IconFactory.Redo();
         saveAsMenuItem.Image = IconFactory.SaveAs();
         importExcelToolButton.Image = importExcelMenuItem.Image = IconFactory.ImportExcel();
         exportReportToolButton.Image = exportReportMenuItem.Image = IconFactory.ExportReport();
@@ -618,6 +844,9 @@ public partial class MainForm : Form
 
         reqGrid.SelectionChanged += (_, _) =>
         {
+            if (_refreshingUi)
+                return;
+
             CommitDetailPanel();
             RefreshDetailAndGrid();
         };
@@ -757,7 +986,7 @@ public partial class MainForm : Form
 
     private void CommitDetailPanel()
     {
-        if (_loadingDetail || _loadedDetailRequirementId is not { } id)
+        if (_loadingDetail || _refreshingUi || _isApplyingUndoRedo || _loadedDetailRequirementId is not { } id)
             return;
 
         var req = _requirementService.AllRequirements.FirstOrDefault(r => r.Id == id);
@@ -823,6 +1052,8 @@ public partial class MainForm : Form
 
         listNeedsRefresh = !string.Equals(DetailText(req.Code), newCode, StringComparison.Ordinal)
             || !string.Equals(DetailText(req.Title), newTitle, StringComparison.Ordinal);
+
+        RecordUndoSnapshot();
 
         req.Code = newCode;
         req.Title = newTitle;
@@ -978,6 +1209,7 @@ public partial class MainForm : Form
         AppSettingsService.SetLastProjectPath(_settings, null);
         AppSettingsService.Save(_settings);
         _requirementService.ReplaceProject(ProjectRepository.CreateNew(dlg.Value));
+        ClearUndoHistory();
     }
 
     private void OpenProject()
@@ -1003,6 +1235,7 @@ public partial class MainForm : Form
             var data = ProjectRepository.Load(filePath);
             _currentFilePath = filePath;
             _requirementService.ReplaceProject(data);
+            ClearUndoHistory();
             _settings.LastProjectFolder = Path.GetDirectoryName(filePath) ?? _settings.LastProjectFolder;
             AppSettingsService.AddRecentFile(_settings, filePath);
             AppSettingsService.SetLastProjectPath(_settings, filePath);
@@ -1125,6 +1358,7 @@ public partial class MainForm : Form
         using var dlg = new RequirementEditForm(null, _requirementService.AllRequirements);
         if (dlg.ShowDialog(this) != DialogResult.OK)
             return;
+        RecordUndoSnapshot();
         _requirementService.Add(dlg.Result);
         SelectRequirementByCode(dlg.Result.Code);
     }
@@ -1137,9 +1371,11 @@ public partial class MainForm : Form
         if (req is null)
             return;
 
+        RecordUndoSnapshot();
         using var dlg = new RequirementEditForm(req, _requirementService.AllRequirements.Where(r => r.Id != req.Id));
         if (dlg.ShowDialog(this) != DialogResult.OK)
             return;
+
         _requirementService.Update(req);
         SelectRequirementByCode(req.Code);
     }
@@ -1165,10 +1401,14 @@ public partial class MainForm : Form
         if (result != DialogResult.Yes)
             return;
 
+        CommitDetailPanel();
+        RecordUndoSnapshot();
         if (selected.Count == 1)
             _requirementService.Delete(selected[0]);
         else
             _requirementService.DeleteMany(selected);
+
+        RefreshAll();
     }
 
     private void SelectRequirementByCode(string code)
@@ -1210,6 +1450,7 @@ public partial class MainForm : Form
         using var dlg = new TestCaseEditForm(null, GetExistingTestCaseCodes());
         if (dlg.ShowDialog(this) != DialogResult.OK)
             return;
+        RecordUndoSnapshot();
         _testCaseService.Add(req, dlg.Result);
         RefreshDetailAndGrid();
     }
@@ -1221,9 +1462,11 @@ public partial class MainForm : Form
         if (req is null || tc is null)
             return;
 
+        RecordUndoSnapshot();
         using var dlg = new TestCaseEditForm(tc, GetExistingTestCaseCodes());
         if (dlg.ShowDialog(this) != DialogResult.OK)
             return;
+
         _testCaseService.Update(req);
         RefreshDetailAndGrid();
     }
@@ -1240,6 +1483,8 @@ public partial class MainForm : Form
         if (result != DialogResult.Yes)
             return;
 
+        CommitDetailPanel();
+        RecordUndoSnapshot();
         _testCaseService.Delete(req, tc);
         RefreshDetailAndGrid();
     }
@@ -1257,6 +1502,7 @@ public partial class MainForm : Form
         using var dlg = new TestRunEntryForm(tc);
         if (dlg.ShowDialog(this) != DialogResult.OK)
             return;
+        RecordUndoSnapshot();
         _testRunService.RecordRun(req, tc, dlg.Result);
         RefreshDetailAndGrid();
     }
@@ -1272,84 +1518,10 @@ public partial class MainForm : Form
         _settings.LastImportFolder = Path.GetDirectoryName(ofd.FileName) ?? _settings.LastImportFolder;
         AppSettingsService.Save(_settings);
 
-        if (LlmConfiguration.ShouldUseLlmImport(_settings))
-            ImportFromExcelWithLlm(ofd.FileName);
-        else
-            ImportFromExcelAutomatically(ofd.FileName);
+        ImportFromExcelWithDialog(ofd.FileName);
     }
 
-    private void ImportFromExcelAutomatically(string filePath)
-    {
-        try
-        {
-            var plan = AutoExcelRequirementImporter.TryCreatePlan(filePath);
-            if (plan is null)
-            {
-                ImportFromExcelWithMappingDialog(filePath);
-                return;
-            }
-
-            var importResult = ProgressDialogRunner.Run(
-                this,
-                Loc.T("Dlg_ProgressAutoImportTitle"),
-                Loc.T("Dlg_ProgressAutoImportMessage", Path.GetFileName(filePath)),
-                progress => AutoExcelRequirementImporter.Import(
-                    plan,
-                    progress,
-                    GetExistingRequirementCodes(),
-                    GetExistingTestCaseCodes()));
-
-            FinishImportedRequirements(
-                importResult.Requirements.ToList(),
-                importResult.Warnings.ToList(),
-                importResult.RowsProcessed,
-                importResult.RowsSkipped,
-                plan.Mapping.GenerateTestCases,
-                Loc.T("Msg_ImportNoneImported"));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"),
-                new IOException(Loc.T("Msg_ImportReadFailed", Path.GetFileName(filePath)), ex));
-        }
-        catch (Exception ex)
-        {
-            ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"), ex);
-        }
-    }
-
-    private void ImportFromExcelWithMappingDialog(string filePath)
-    {
-        ImportMappingForm dlg;
-        try
-        {
-            dlg = new ImportMappingForm(filePath);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            ErrorDialog.Show(this, Loc.T("Msg_ImportFailed"),
-                new IOException(Loc.T("Msg_ImportOpenFailed", filePath), ex));
-            return;
-        }
-
-        using (dlg)
-        {
-            dlg.GetReservedRequirementCodes = GetExistingRequirementCodes;
-            dlg.GetReservedTestCaseCodes = GetExistingTestCaseCodes;
-            if (dlg.ShowDialog(this) != DialogResult.OK)
-                return;
-
-            FinishImportedRequirements(
-                dlg.ImportedRequirements,
-                dlg.Warnings,
-                dlg.RowsProcessed,
-                dlg.RowsSkipped,
-                dlg.GeneratedTestCases,
-                Loc.T("Msg_ImportNoneImported"));
-        }
-    }
-
-    private void ImportFromExcelWithLlm(string filePath)
+    private void ImportFromExcelWithDialog(string filePath)
     {
         AiImportForm dlg;
         try
@@ -1377,7 +1549,7 @@ public partial class MainForm : Form
                 dlg.RowsProcessed,
                 dlg.RowsSkipped,
                 dlg.GeneratedTestCases,
-                Loc.T("Msg_AiImportNoneImported"));
+                Loc.T("Msg_ImportNoneImported"));
         }
     }
 
@@ -1454,6 +1626,7 @@ public partial class MainForm : Form
             progress =>
             {
                 progress.Report(10);
+                RecordUndoSnapshot();
                 if (toDelete.Count > 0)
                     _requirementService.DeleteMany(toDelete);
 
@@ -1522,6 +1695,19 @@ public partial class MainForm : Form
     }
 
     private void RefreshRequirementsList()
+    {
+        _refreshingUi = true;
+        try
+        {
+            RefreshRequirementsListCore();
+        }
+        finally
+        {
+            _refreshingUi = false;
+        }
+    }
+
+    private void RefreshRequirementsListCore()
     {
         EnsureRequirementsListColumns();
 
@@ -1650,6 +1836,7 @@ public partial class MainForm : Form
         testCaseGrid.Columns.Add("LastRun", Loc.T("Col_LastRun"));
         testCaseGrid.Columns.Add("LastRunBy", Loc.T("Col_LastRunBy"));
         ApplyGridHeaderStyle(testCaseGrid);
+        UpdateTestCaseGridHeaders();
     }
 
     private void PopulateTestCaseGrid(Requirement req)

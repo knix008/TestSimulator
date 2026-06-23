@@ -267,7 +267,7 @@ partial class RequirementEditForm
         // btnOk
         // 
         btnOk.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnOk.DialogResult = DialogResult.OK;
+        btnOk.DialogResult = DialogResult.None;
         btnOk.Location = new Point(386, 10);
         btnOk.Name = "btnOk";
         btnOk.Size = new Size(75, 25);

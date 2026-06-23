@@ -5,6 +5,7 @@ namespace ReqTrace.Services;
 
 /// <summary>
 /// Renumbers project-wide standard codes after deletions so sequences stay contiguous.
+/// Uses a temporary-code pass first so in-place renames never create duplicate codes.
 /// </summary>
 public static class ProjectCodeRenumberer
 {
@@ -17,14 +18,17 @@ public static class ProjectCodeRenumberer
             .ThenBy(entry => entry.Requirement.Code, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        if (ordered.Count == 0)
+            return;
+
+        var tempPrefix = $"__renumber_{Guid.NewGuid():N}_";
+        for (var i = 0; i < ordered.Count; i++)
+            ordered[i].Requirement.Code = $"{tempPrefix}{i}";
+
         var sequence = 1;
         foreach (var (requirement, _) in ordered)
         {
-            var newCode = RequirementCodeAllocator.Format(sequence++);
-            if (string.Equals(requirement.Code, newCode, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            requirement.Code = newCode;
+            requirement.Code = RequirementCodeAllocator.Format(sequence++);
             requirement.ModifiedUtc = DateTime.UtcNow;
         }
     }
@@ -39,15 +43,16 @@ public static class ProjectCodeRenumberer
             .ThenBy(entry => entry.TestCase.Code, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        if (ordered.Count == 0)
+            return;
+
+        var tempPrefix = $"__renumber_{Guid.NewGuid():N}_";
+        for (var i = 0; i < ordered.Count; i++)
+            ordered[i].TestCase.Code = $"{tempPrefix}{i}";
+
         var sequence = 1;
         foreach (var (testCase, _) in ordered)
-        {
-            var newCode = TestCaseCodeAllocator.Format(sequence++);
-            if (string.Equals(testCase.Code, newCode, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            testCase.Code = newCode;
-        }
+            testCase.Code = TestCaseCodeAllocator.Format(sequence++);
     }
 
     private static int? TryParseRequirementNumber(string code) =>

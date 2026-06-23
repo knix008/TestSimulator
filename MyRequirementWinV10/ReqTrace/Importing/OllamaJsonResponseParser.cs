@@ -11,6 +11,51 @@ internal static class OllamaJsonResponseParser
         PropertyNameCaseInsensitive = true
     };
 
+    internal static string? ParseDescription(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var json = ExtractJsonPayload(raw);
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            var direct = ReadString(root, "description", "Description", "desc", "details", "text", "설명", "내용", "상세", "요구사항내용");
+            if (!string.IsNullOrWhiteSpace(direct))
+                return direct.Trim();
+
+            foreach (var key in new[] { "requirements", "requirement", "items", "data", "results" })
+            {
+                if (!root.TryGetProperty(key, out var nested))
+                    continue;
+
+                if (nested.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in nested.EnumerateArray())
+                    {
+                        var nestedDescription = ReadString(item, "description", "Description", "desc", "details", "text", "설명", "내용", "상세", "요구사항내용");
+                        if (!string.IsNullOrWhiteSpace(nestedDescription))
+                            return nestedDescription.Trim();
+                    }
+                }
+                else if (nested.ValueKind == JsonValueKind.Object)
+                {
+                    var nestedDescription = ReadString(nested, "description", "Description", "desc", "details", "text", "설명", "내용", "상세", "요구사항내용");
+                    if (!string.IsNullOrWhiteSpace(nestedDescription))
+                        return nestedDescription.Trim();
+                }
+            }
+        }
+
+        var parsed = Parse(raw);
+        return parsed.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Description))?.Description?.Trim();
+    }
+
     internal static List<ExtractedRequirementDto> Parse(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))

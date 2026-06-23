@@ -228,11 +228,11 @@ public static class IconFactory
 
     public static Image WordWrap(int size = MenuIconSize, Color? color = null) => Create((g, pen, brush) =>
     {
-        g.DrawLine(pen, 2, 4, 14, 4);
-        g.DrawLine(pen, 2, 8, 11, 8);
-        g.DrawLine(pen, 11, 8, 13.5f, 10.2f);
-        g.DrawLine(pen, 13.5f, 10.2f, 9.5f, 10.2f);
-        g.DrawLine(pen, 2, 12, 8, 12);
+        // Filled line segments + wrap chevron — no stroke frame.
+        g.FillRectangle(brush, 3.5f, 4.5f, 7.5f, 1.8f);
+        g.FillRectangle(brush, 3.5f, 8.2f, 5.5f, 1.8f);
+        g.FillRectangle(brush, 3.5f, 11.9f, 6.5f, 1.8f);
+        g.FillPolygon(brush, new PointF[] { new(9.5f, 8.8f), new(12.8f, 11.8f), new(9.5f, 11.8f) });
     }, color, size: size);
 
     public static Image Message(int size = MenuIconSize, Color? color = null) => Create((g, pen, brush) =>

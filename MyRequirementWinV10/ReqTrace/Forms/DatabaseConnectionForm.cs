@@ -21,6 +21,7 @@ public partial class DatabaseConnectionForm : Form
     private Label lblUsername = null!;
     private Label lblPassword = null!;
     private Label lblProvider = null!;
+    private Label lblConnectionStatus = null!;
     private Button btnTest = null!;
     private Button btnOk = null!;
     private Button btnCancel = null!;
@@ -45,7 +46,7 @@ public partial class DatabaseConnectionForm : Form
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(420, 300);
+        ClientSize = new Size(420, 320);
 
         lblProvider = new Label { Text = "Provider", Location = new Point(16, 20), AutoSize = true };
         cboProvider = new ComboBox
@@ -82,12 +83,20 @@ public partial class DatabaseConnectionForm : Form
         btnBrowseSqlite = new Button { Text = "...", Location = new Point(346, 87), Width = 30, Visible = false };
         btnBrowseSqlite.Click += (_, _) => BrowseSqliteFile();
 
-        btnTest = new Button { Text = "Test Connection", Location = new Point(16, 232), Width = 130 };
+        lblConnectionStatus = new Label
+        {
+            Location = new Point(16, 228),
+            Size = new Size(388, 20),
+            AutoEllipsis = true,
+            Visible = false
+        };
+
+        btnTest = new Button { Text = "Test Connection", Location = new Point(16, 256), Width = 130 };
         btnTest.Click += async (_, _) => await TestConnectionAsync();
 
-        btnOk = new Button { Text = "OK", Location = new Point(228, 232), Width = 80, DialogResult = DialogResult.OK };
-        btnCancel = new Button { Text = "Cancel", Location = new Point(316, 232), Width = 80, DialogResult = DialogResult.Cancel };
-        btnOk.Click += (_, _) => SaveToSettings();
+        btnOk = new Button { Text = "OK", Location = new Point(228, 256), Width = 80, DialogResult = DialogResult.None };
+        btnCancel = new Button { Text = "Cancel", Location = new Point(316, 256), Width = 80, DialogResult = DialogResult.Cancel };
+        btnOk.Click += async (_, _) => await ConfirmAsync();
 
         Controls.AddRange(new Control[]
         {
@@ -97,6 +106,7 @@ public partial class DatabaseConnectionForm : Form
             lblUsername, txtUsername,
             lblPassword, txtPassword,
             chkIntegratedSecurity,
+            lblConnectionStatus,
             btnTest, btnOk, btnCancel
         });
 
@@ -186,26 +196,66 @@ public partial class DatabaseConnectionForm : Form
             txtSqliteFile.Text = dlg.FileName;
     }
 
+    private async Task ConfirmAsync()
+    {
+        SaveToSettings();
+        if (!await TryConnectAsync(showSuccessMessage: true))
+            return;
+
+        DialogResult = DialogResult.OK;
+        Close();
+    }
+
     private async Task TestConnectionAsync()
     {
         SaveToSettings();
+        await TryConnectAsync(showSuccessMessage: true);
+    }
+
+    private async Task<bool> TryConnectAsync(bool showSuccessMessage)
+    {
         Cursor = Cursors.WaitCursor;
         btnTest.Enabled = false;
+        btnOk.Enabled = false;
         try
         {
             await DatabaseSchemaInitializer.EnsureDatabaseExistsAsync(Settings);
             using var connection = await DbConnectionFactory.OpenAsync(Settings);
             await DatabaseSchemaInitializer.EnsureSchemaAsync(connection, Settings.Provider);
-            MessageBox.Show(this, Loc.T("Msg_DbConnectionSuccess"), Loc.T("Title_DatabaseConnection"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ShowConnectionStatus(success: true);
+
+            if (showSuccessMessage)
+            {
+                MessageBox.Show(
+                    this,
+                    Loc.T("Msg_DbConnectionSuccess"),
+                    Loc.T("Msg_DbConnectionSuccessTitle"),
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
+            ShowConnectionStatus(success: false);
             ErrorDialog.Show(this, Loc.T("Msg_DbConnectionFailed"), ex);
+            return false;
         }
         finally
         {
             Cursor = Cursors.Default;
             btnTest.Enabled = true;
+            btnOk.Enabled = true;
         }
+    }
+
+    private void ShowConnectionStatus(bool success)
+    {
+        lblConnectionStatus.Visible = true;
+        lblConnectionStatus.Text = Loc.T(success ? "Db_StatusConnected" : "Db_StatusFailed");
+        lblConnectionStatus.ForeColor = success
+            ? Color.FromArgb(22, 101, 52)
+            : Color.FromArgb(185, 28, 28);
     }
 }

@@ -5,7 +5,7 @@ namespace ReqTrace.Importing;
 
 public static class OllamaRequirementImporter
 {
-    private const int RowMaxTokens = 1536;
+    private const int DescriptionMaxTokens = 768;
     private const int RowProcessingStartPercent = 10;
     private const int RowProcessingEndPercent = 85;
 
@@ -59,8 +59,7 @@ public static class OllamaRequirementImporter
             throw new InvalidOperationException(Loc.T("Msg_AiImportLlmEmpty"));
 
         var mappingHint = MappedSheetContextBuilder.BuildMappingHint(mapping, headers);
-        var systemPrompt = OllamaRequirementPrompts.BuildSystemPrompt()
-            + Environment.NewLine + Environment.NewLine + OllamaRequirementPrompts.BuildCsvFormatNote();
+        var descriptionSystemPrompt = OllamaRequirementPrompts.BuildDescriptionSystemPrompt();
 
         var (usedCodes, sequence) = RequirementCodeAllocator.CreateState(reservedCodes);
         var (testCaseUsedCodes, testCaseNextSequence) = TestCaseCodeAllocator.CreateState(reservedTestCaseCodes);
@@ -68,8 +67,8 @@ public static class OllamaRequirementImporter
         var processedDataRows = 0;
         var fileName = Path.GetFileName(filePath);
 
-        var localConvertedRows = 0;
-        var llmConvertedRows = 0;
+        var excelOnlyRows = 0;
+        var llmDescriptionRows = 0;
 
         try
         {
@@ -87,103 +86,91 @@ public static class OllamaRequirementImporter
                 var rowPercent = RowProcessingStartPercent
                     + (int)(processedDataRows / (double)dataRows.Count * (RowProcessingEndPercent - RowProcessingStartPercent));
 
-                if (LlmRowLocalConverter.TryConvertLocally(row, mapping, out var localDto))
+                Report(progress, rowPercent, "Progress_Ai_AnalyzingRow", [processedDataRows, dataRows.Count]);
+
+                if (!LlmRowLocalConverter.TryConvertFromExcelRow(row, mapping, out var dto))
                 {
-                    localConvertedRows++;
-                    Report(progress, rowPercent, "Progress_Ai_AnalyzingRow", [processedDataRows, dataRows.Count]);
-                    AppendExtractedItems(
-                        result,
-                        [localDto],
-                        sourceName,
-                        generateCodeIfMissing,
-                        generateTestCases,
-                        parentCodeByRequirementCode,
-                        usedCodes,
-                        ref sequence,
-                        testCaseUsedCodes,
-                        ref testCaseNextSequence,
-                        onRequirementAdded);
+                    result.RowsSkipped++;
+                    result.Warnings.Add(Loc.T("Msg_AiImportRowNoTitle", processedDataRows, dataRows.Count));
                     continue;
                 }
 
-                Report(
-                    progress,
-                    rowPercent,
-                    "Progress_Ai_AnalyzingRow",
-                    [processedDataRows, dataRows.Count],
-                    "Progress_Ai_Detail_LlmRowCalling",
-                    [model, processedDataRows, dataRows.Count]);
-
-                try
+                if (LlmRowLocalConverter.NeedsLlmDescription(dto))
                 {
-                    var csvBlock = LlmCsvParser.FormatRow(csvPayload.HeaderLine, row);
-                    var userPrompt = OllamaRequirementPrompts.BuildSingleRowUserPrompt(
-                        fileName,
-                        sheetName,
-                        processedDataRows - 1,
-                        dataRows.Count,
-                        row.CategoryContext,
-                        mappingHint,
-                        csvBlock);
-
-                    var parsed = await ExtractRowAsync(client, model, systemPrompt, userPrompt, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    var collapsed = RowRequirementCollapser.CollapseToSingle(parsed);
-                    if (collapsed is null)
-                    {
-                        result.RowsSkipped++;
-                        result.Warnings.Add(Loc.T("Msg_AiImportRowEmpty", processedDataRows, dataRows.Count));
-                        continue;
-                    }
-
-                    LlmRowLocalConverter.EnsureMeaningfulDescription(collapsed, row, mapping);
-
-                    collapsed.Category = RequirementCategoryComposer.Compose(
-                        row.CategoryContext,
-                        collapsed.Category);
-
-                    if (parsed.Count > 1)
-                    {
-                        result.Warnings.Add(Loc.T(
-                            "Msg_AiImportRowMergedMultiple",
-                            processedDataRows,
-                            dataRows.Count,
-                            parsed.Count));
-                    }
-
-                    AppendExtractedItems(
-                        result,
-                        [collapsed],
-                        sourceName,
-                        generateCodeIfMissing,
-                        generateTestCases,
-                        parentCodeByRequirementCode,
-                        usedCodes,
-                        ref sequence,
-                        testCaseUsedCodes,
-                        ref testCaseNextSequence,
-                        onRequirementAdded);
-
-                    llmConvertedRows++;
-
                     Report(
                         progress,
                         rowPercent,
                         "Progress_Ai_AnalyzingRow",
                         [processedDataRows, dataRows.Count],
-                        "Progress_Ai_Detail_LlmRowDone",
-                        [processedDataRows, dataRows.Count, 1]);
+                        "Progress_Ai_Detail_LlmRowCalling",
+                        [model, processedDataRows, dataRows.Count]);
+
+                    try
+                    {
+                        var csvBlock = LlmCsvParser.FormatRow(csvPayload.HeaderLine, row);
+                        var userPrompt = OllamaRequirementPrompts.BuildDescriptionUserPrompt(
+                            fileName,
+                            sheetName,
+                            processedDataRows - 1,
+                            dataRows.Count,
+                            dto,
+                            row.CategoryContext,
+                            mappingHint,
+                            csvBlock);
+
+                        var generatedDescription = await GenerateDescriptionAsync(
+                            client,
+                            model,
+                            descriptionSystemPrompt,
+                            userPrompt,
+                            cancellationToken).ConfigureAwait(false);
+
+                        if (!string.IsNullOrWhiteSpace(generatedDescription))
+                        {
+                            dto.Description = generatedDescription.Trim();
+                            llmDescriptionRows++;
+                        }
+                        else
+                        {
+                            result.Warnings.Add(Loc.T("Msg_AiImportRowEmpty", processedDataRows, dataRows.Count));
+                            LlmRowLocalConverter.EnsureMeaningfulDescription(dto, row, mapping);
+                        }
+
+                        Report(
+                            progress,
+                            rowPercent,
+                            "Progress_Ai_AnalyzingRow",
+                            [processedDataRows, dataRows.Count],
+                            "Progress_Ai_Detail_LlmRowDone",
+                            [processedDataRows, dataRows.Count]);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Warnings.Add(Loc.T("Msg_AiImportDescriptionFailed", processedDataRows, dataRows.Count, ex.Message));
+                        LlmRowLocalConverter.EnsureMeaningfulDescription(dto, row, mapping);
+                    }
                 }
-                catch (OperationCanceledException)
+                else
                 {
-                    throw;
+                    excelOnlyRows++;
                 }
-                catch (Exception ex)
-                {
-                    result.RowsSkipped++;
-                    result.Warnings.Add(Loc.T("Msg_AiImportRowFailed", processedDataRows, dataRows.Count, ex.Message));
-                }
+
+                AppendExtractedItems(
+                    result,
+                    [dto],
+                    sourceName,
+                    generateCodeIfMissing,
+                    generateTestCases,
+                    parentCodeByRequirementCode,
+                    usedCodes,
+                    ref sequence,
+                    testCaseUsedCodes,
+                    ref testCaseNextSequence,
+                    onRequirementAdded);
             }
         }
         catch (OperationCanceledException)
@@ -198,10 +185,10 @@ public static class OllamaRequirementImporter
         if (result.Requirements.Count == 0 && !wasCancelled)
             throw new InvalidOperationException(Loc.T("Msg_AiImportLlmEmpty"));
 
-        if (localConvertedRows > 0)
-            result.Warnings.Add(Loc.T("Msg_AiImportLocalConverted", localConvertedRows));
-        if (llmConvertedRows > 0)
-            result.Warnings.Add(Loc.T("Msg_AiImportLlmExtracted", result.Requirements.Count, llmConvertedRows, dataRows.Count));
+        if (excelOnlyRows > 0)
+            result.Warnings.Add(Loc.T("Msg_AiImportExcelRowsWithDescription", excelOnlyRows));
+        if (llmDescriptionRows > 0)
+            result.Warnings.Add(Loc.T("Msg_AiImportLlmDescriptionsGenerated", llmDescriptionRows, dataRows.Count));
 
         Report(progress, 90, "Progress_Ai_LinkingParents", detailKey: "Progress_Ai_Detail_LinkingParents");
         LinkParentsByCode(result.Requirements, parentCodeByRequirementCode, result.Warnings);
@@ -211,7 +198,7 @@ public static class OllamaRequirementImporter
         return result;
     }
 
-    private static async Task<List<ExtractedRequirementDto>> ExtractRowAsync(
+    private static async Task<string?> GenerateDescriptionAsync(
         OllamaClient client,
         string model,
         string systemPrompt,
@@ -223,21 +210,21 @@ public static class OllamaRequirementImporter
             systemPrompt,
             userPrompt,
             cancellationToken,
-            RowMaxTokens).ConfigureAwait(false);
+            DescriptionMaxTokens).ConfigureAwait(false);
 
-        var parsed = OllamaJsonResponseParser.Parse(content);
-        if (parsed.Count > 0)
-            return parsed;
+        var description = OllamaJsonResponseParser.ParseDescription(content);
+        if (!string.IsNullOrWhiteSpace(description))
+            return description;
 
-        var retryPrompt = userPrompt + Environment.NewLine + Environment.NewLine + OllamaRequirementPrompts.BuildRetryPrompt();
+        var retryPrompt = userPrompt + Environment.NewLine + Environment.NewLine + OllamaRequirementPrompts.BuildDescriptionRetryPrompt();
         content = await client.ChatJsonAsync(
             model,
             systemPrompt,
             retryPrompt,
             cancellationToken,
-            RowMaxTokens).ConfigureAwait(false);
+            DescriptionMaxTokens).ConfigureAwait(false);
 
-        return OllamaJsonResponseParser.Parse(content);
+        return OllamaJsonResponseParser.ParseDescription(content);
     }
 
     private static void AppendExtractedItems(

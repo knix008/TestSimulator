@@ -38,6 +38,7 @@ partial class AiImportForm
     private DataGridView resultGrid;
     private Label lblHint;
     private Label lblOllamaInfo;
+    private CheckBox chkUseLlm;
     private CheckBox chkGenerateIds;
     private CheckBox chkGenerateTestCases;
     private Button btnConvert;
@@ -72,6 +73,7 @@ partial class AiImportForm
         resultGrid = new DataGridView();
         lblHint = new Label();
         lblOllamaInfo = new Label();
+        chkUseLlm = new CheckBox();
         chkGenerateIds = new CheckBox();
         chkGenerateTestCases = new CheckBox();
         btnConvert = new Button();
@@ -131,7 +133,7 @@ partial class AiImportForm
         // previewGrid
         // 
         previewGrid.AllowUserToAddRows = false;
-        previewGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        previewGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
         previewGrid.Location = new Point(20, 66);
         previewGrid.Name = "previewGrid";
         previewGrid.ReadOnly = true;
@@ -303,7 +305,7 @@ partial class AiImportForm
         // 
         // resultGrid
         // 
-        resultGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        resultGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
         resultGrid.Location = new Point(20, 350);
         resultGrid.Name = "resultGrid";
         resultGrid.Size = new Size(760, 140);
@@ -319,21 +321,32 @@ partial class AiImportForm
         // 
         // lblOllamaInfo
         // 
-        lblOllamaInfo.Location = new Point(20, 530);
+        lblOllamaInfo.Location = new Point(20, 552);
         lblOllamaInfo.Name = "lblOllamaInfo";
         lblOllamaInfo.Size = new Size(760, 20);
         lblOllamaInfo.TabIndex = 26;
         lblOllamaInfo.Text = "Ollama";
+        // 
+        // chkUseLlm
+        // 
+        chkUseLlm.AutoSize = true;
+        chkUseLlm.Location = new Point(20, 530);
+        chkUseLlm.Name = "chkUseLlm";
+        chkUseLlm.Size = new Size(180, 19);
+        chkUseLlm.TabIndex = 27;
+        chkUseLlm.Text = "Use LLM for descriptions";
+        chkUseLlm.UseVisualStyleBackColor = true;
+        chkUseLlm.CheckedChanged += chkUseLlm_CheckedChanged;
         // 
         // chkGenerateIds
         // 
         chkGenerateIds.AutoSize = true;
         chkGenerateIds.Checked = true;
         chkGenerateIds.CheckState = CheckState.Checked;
-        chkGenerateIds.Location = new Point(20, 556);
+        chkGenerateIds.Location = new Point(20, 578);
         chkGenerateIds.Name = "chkGenerateIds";
         chkGenerateIds.Size = new Size(150, 19);
-        chkGenerateIds.TabIndex = 27;
+        chkGenerateIds.TabIndex = 28;
         chkGenerateIds.Text = "Generate IDs if missing";
         chkGenerateIds.UseVisualStyleBackColor = true;
         // 
@@ -342,27 +355,27 @@ partial class AiImportForm
         chkGenerateTestCases.AutoSize = true;
         chkGenerateTestCases.Checked = true;
         chkGenerateTestCases.CheckState = CheckState.Checked;
-        chkGenerateTestCases.Location = new Point(20, 580);
+        chkGenerateTestCases.Location = new Point(20, 602);
         chkGenerateTestCases.Name = "chkGenerateTestCases";
         chkGenerateTestCases.Size = new Size(370, 19);
-        chkGenerateTestCases.TabIndex = 28;
+        chkGenerateTestCases.TabIndex = 29;
         chkGenerateTestCases.Text = "Auto-generate test cases";
         chkGenerateTestCases.UseVisualStyleBackColor = true;
         // 
         // btnConvert
         // 
-        btnConvert.Location = new Point(612, 612);
+        btnConvert.Location = new Point(612, 634);
         btnConvert.Name = "btnConvert";
         btnConvert.Size = new Size(80, 28);
-        btnConvert.TabIndex = 29;
-        btnConvert.Text = "Convert";
+        btnConvert.TabIndex = 30;
+        btnConvert.Text = "Import";
         btnConvert.UseVisualStyleBackColor = true;
         btnConvert.Click += btnConvert_Click;
         // 
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(700, 612);
+        btnCancel.Location = new Point(700, 634);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(88, 28);
         btnCancel.TabIndex = 31;
@@ -374,11 +387,12 @@ partial class AiImportForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(800, 652);
+        ClientSize = new Size(800, 674);
         Controls.Add(btnCancel);
         Controls.Add(btnConvert);
         Controls.Add(chkGenerateTestCases);
         Controls.Add(chkGenerateIds);
+        Controls.Add(chkUseLlm);
         Controls.Add(lblOllamaInfo);
         Controls.Add(lblHint);
         Controls.Add(resultGrid);

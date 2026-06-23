@@ -140,6 +140,26 @@ public static class IconFactory
 
     public static Bitmap Save() => Canvas(g => DrawFloppy(g, Color.SteelBlue, Color.FromArgb(40, 70, 110)));
 
+    public static Bitmap Undo() => Canvas(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(60, 60, 60), 1.5f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.ArrowAnchor
+        };
+        g.DrawArc(pen, 3, 3, 9, 9, 120, 210);
+    });
+
+    public static Bitmap Redo() => Canvas(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(60, 60, 60), 1.5f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.ArrowAnchor
+        };
+        g.DrawArc(pen, 4, 3, 9, 9, -30, 210);
+    });
+
     public static Bitmap SaveAs() => Canvas(g =>
     {
         DrawFloppy(g, Color.SteelBlue, Color.FromArgb(40, 70, 110));
