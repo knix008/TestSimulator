@@ -3,11 +3,35 @@ import { dirname, resolve } from 'node:path';
 import mysql from 'mysql2/promise';
 import pg from 'pg';
 import sql from 'mssql';
+import { createRequire } from 'node:module';
 import {
   buildDatabaseUrl,
   type DatabaseConfig,
   type DbProvider,
 } from '../config/database.js';
+import { formatDatabaseConnectionError } from '../utils/databaseErrors.js';
+
+const require = createRequire(import.meta.url);
+const PrismaClientCtor = require('@prisma/client').PrismaClient as new (args?: {
+  datasources?: { db?: { url?: string } };
+}) => {
+  $connect(): Promise<void>;
+  $disconnect(): Promise<void>;
+};
+
+/** Prisma uses a different MySQL client than mysql2; verify both for MariaDB/MySQL. */
+async function verifyPrismaConnection(databaseUrl: string): Promise<void> {
+  const client = new PrismaClientCtor({
+    datasources: { db: { url: databaseUrl } },
+  });
+  try {
+    await client.$connect();
+  } catch (error) {
+    throw new Error(formatDatabaseConnectionError(error));
+  } finally {
+    await client.$disconnect();
+  }
+}
 
 export interface DatabaseApplyResult {
   databaseCreated: boolean;
@@ -237,28 +261,26 @@ export async function testDatabaseConnection(config: DatabaseConfig): Promise<Da
       break;
     case 'mariadb':
     case 'mysql': {
+      const baseOptions = {
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        password: config.password,
+        connectTimeout: 10_000,
+      };
       if (exists) {
         const connection = await mysql.createConnection({
-          host: config.host,
-          port: config.port,
-          user: config.user,
-          password: config.password,
+          ...baseOptions,
           database: config.database,
-          connectTimeout: 10_000,
         });
         await connection.ping();
         await connection.end();
       } else {
-        const connection = await mysql.createConnection({
-          host: config.host,
-          port: config.port,
-          user: config.user,
-          password: config.password,
-          connectTimeout: 10_000,
-        });
+        const connection = await mysql.createConnection(baseOptions);
         await connection.ping();
         await connection.end();
       }
+      await verifyPrismaConnection(buildDatabaseUrl(config));
       break;
     }
     case 'postgresql': {

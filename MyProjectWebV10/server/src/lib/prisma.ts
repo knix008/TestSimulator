@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import type { PrismaClient } from '@prisma/client';
-import { buildDatabaseUrl } from '../config/database.js';
+import { buildDatabaseUrl, type DatabaseConfig } from '../config/database.js';
 import { loadAppSettings, toDatabaseConfig } from '../services/settingsStore.js';
 
 const PrismaClientCtor = createRequire(import.meta.url)('@prisma/client')
@@ -10,10 +10,16 @@ let prismaInstance: PrismaClient | null = null;
 let databaseReady = false;
 let databaseError: string | null = null;
 
-function createClient(): PrismaClient {
+function resolveDatabaseUrl(config?: DatabaseConfig): string {
+  if (config) {
+    return buildDatabaseUrl(config);
+  }
   const settings = loadAppSettings();
-  const config = toDatabaseConfig(settings.database);
-  process.env.DATABASE_URL = buildDatabaseUrl(config);
+  return buildDatabaseUrl(toDatabaseConfig(settings.database));
+}
+
+function createClient(config?: DatabaseConfig): PrismaClient {
+  process.env.DATABASE_URL = resolveDatabaseUrl(config);
   return new PrismaClientCtor();
 }
 
@@ -31,12 +37,12 @@ export const prisma = new Proxy({} as PrismaClient, {
   },
 });
 
-export async function reconnectPrisma(): Promise<void> {
+export async function reconnectPrisma(config?: DatabaseConfig): Promise<void> {
   if (prismaInstance) {
     await prismaInstance.$disconnect();
     prismaInstance = null;
   }
-  prismaInstance = createClient();
+  prismaInstance = createClient(config);
   await prismaInstance.$connect();
   databaseReady = true;
   databaseError = null;

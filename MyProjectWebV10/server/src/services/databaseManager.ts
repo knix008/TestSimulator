@@ -62,7 +62,7 @@ export async function applyDatabaseSettings(
         throw error;
       }
     }
-    await reconnectPrisma();
+    await reconnectPrisma(config);
     await ensureDefaultAdminUser();
 
     if (options.persist !== false) {
@@ -90,7 +90,7 @@ export async function applyDatabaseSettings(
         'Ignored Prisma generate lock during database apply; using the existing client.',
       );
       try {
-        await reconnectPrisma();
+        await reconnectPrisma(config);
         await ensureDefaultAdminUser();
         if (options.persist !== false) {
           const settings = loadAppSettings();

@@ -109,16 +109,31 @@ Prisma 스키마(`server/prisma/schema.prisma`)와 실제 DB 테이블을 맞출
 - 스키마 변경 후 (새 테이블·컬럼 추가 등)
 - DB 설정 UI의 **저장 및 적용**이 성공하면 앱이 내부에서 자동 적용하기도 합니다.
 
-## MariaDB 인증 오류
+## MariaDB 인증 오류 (`auth_gssapi_client`)
 
-`auth_gssapi_client` 오류가 나면 MariaDB에서:
+MariaDB 10.4+에서는 `mysql.user.plugin`이 `mysql_native_password`로 보이더라도,
+**PC 호스트명 계정**(예: `root@YOUR-PC-NAME`)의 `mysql.global_priv.Priv`에
+`gssapi`가 `auth_or`로 남아 있으면 Node.js/Prisma만 실패할 수 있습니다.
 
-```sql
-ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('your_password');
-FLUSH PRIVILEGES;
+**권장 해결 (PowerShell):**
+
+```powershell
+cd server
+.\scripts\fix-mariadb-auth-from-win.ps1
 ```
 
-`.env`의 `DATABASE_URL` 비밀번호도 동일하게 맞춥니다.
+Win 프로그램과 동일한 비밀번호가 자동 적용됩니다. 모든 `root` 호스트에
+`mysql_native_password`만 남기고 gssapi를 제거합니다.
+
+수동 확인:
+
+```sql
+SELECT Host, User, Priv FROM mysql.global_priv WHERE User='root';
+```
+
+`Priv` JSON에 `"plugin": "gssapi"`가 없어야 합니다.
+
+웹 관리자 → DB 설정에서 **비밀번호**를 Win 프로그램과 동일하게 입력 후 저장합니다.
 
 ## 다른 DB 사용
 
