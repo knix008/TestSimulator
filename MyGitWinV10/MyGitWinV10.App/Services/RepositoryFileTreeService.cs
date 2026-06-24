@@ -96,6 +96,62 @@ public static class RepositoryFileTreeService
         LoadChildren(node, repo, icons, statusIndex);
     }
 
+    public static IReadOnlyList<string> CollectLoadedDirectoryRelativePaths(TreeView treeView)
+    {
+        var paths = new List<string>();
+        foreach (TreeNode root in treeView.Nodes)
+        {
+            CollectLoadedDirectoryRelativePathsRecursive(root, paths);
+        }
+
+        return paths;
+    }
+
+    public static void ReloadDirectories(
+        TreeView treeView,
+        Repository repo,
+        IEnumerable<string> directoryRelativePaths,
+        GitFileTreeImageList? icons,
+        RepositoryPathStatusIndex? statusIndex)
+    {
+        var loadedPaths = CollectLoadedDirectoryRelativePaths(treeView)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string path in directoryRelativePaths
+                     .Select(PathCommitHistoryService.NormalizeGitPath)
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (loadedPaths.Contains(path))
+            {
+                ForceReloadDirectory(treeView, repo, path, icons, statusIndex);
+            }
+        }
+    }
+
+    private static void CollectLoadedDirectoryRelativePathsRecursive(TreeNode node, List<string> paths)
+    {
+        if (node.Tag is not RepositoryFileNodeTag tag || tag.IsPlaceholder || !tag.IsDirectory)
+        {
+            return;
+        }
+
+        if (!IsDirectoryLoaded(node))
+        {
+            return;
+        }
+
+        paths.Add(tag.RelativePath);
+        foreach (TreeNode child in node.Nodes)
+        {
+            CollectLoadedDirectoryRelativePathsRecursive(child, paths);
+        }
+    }
+
+    private static bool IsDirectoryLoaded(TreeNode node) =>
+        node.Nodes.Count > 0
+        && node.Nodes[0].Tag is RepositoryFileNodeTag tag
+        && !tag.IsPlaceholder;
+
     private static TreeNode? FindNodeRecursive(TreeNode node, string relativePath)
     {
         if (node.Tag is RepositoryFileNodeTag tag

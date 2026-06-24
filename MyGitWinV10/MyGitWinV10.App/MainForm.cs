@@ -60,6 +60,7 @@ public partial class MainForm : Form
     private readonly TreeView _repoFilesTreeModel = new();
 
     private readonly GitFileTreeImageList _gitFileTreeImages = new();
+    private readonly RepositoryWorkingTreeWatcher _workingTreeWatcher;
 
     private RepositoryPathStatusIndex? _fileTreeStatusIndex;
 
@@ -108,13 +109,16 @@ public partial class MainForm : Form
         };
         Load += (_, _) => StabilizeSplitContainers();
         fileMenuItem.DropDownOpening += (_, _) => RefreshFileRecentMenu();
+        _gitFileTreeImages.Attach(repoFilesListView);
+        _workingTreeWatcher = new RepositoryWorkingTreeWatcher(this);
+        _workingTreeWatcher.Changed += WorkingTreeWatcher_Changed;
         FormClosed += (_, _) =>
         {
             Localization.LanguageChanged -= ApplyLocalizedShellText;
+            _workingTreeWatcher.Dispose();
             _gitService.Dispose();
             _gitFileTreeImages.Dispose();
         };
-        _gitFileTreeImages.Attach(repoFilesListView);
         repoFilesListView.StatusResolver = node =>
             node.Tag is RepositoryFileNodeTag tag && !tag.IsPlaceholder
                 ? _fileTreeStatusIndex?.Get(tag.RelativePath, tag.IsDirectory)
@@ -1051,6 +1055,85 @@ public partial class MainForm : Form
         ApplyFileTreeStatus(index);
     }
 
+    private void WorkingTreeWatcher_Changed(object? sender, RepositoryWorkingTreeChangeEventArgs e) =>
+        _ = HandleWorkingTreeChangedAsync(e);
+
+    private async Task HandleWorkingTreeChangedAsync(RepositoryWorkingTreeChangeEventArgs e)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow || _repositoryRefreshInProgress)
+        {
+            return;
+        }
+
+        if (e.RequiresStructureRefresh)
+        {
+            await RefreshFileTreeStructureAsync(e.AffectedDirectoryPaths);
+        }
+        else
+        {
+            await RefreshFileTreeStatusAsync();
+        }
+    }
+
+    private async Task RefreshFileTreeStructureAsync(IReadOnlyList<string> affectedDirectoryPaths)
+    {
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        await RefreshFileTreeStatusAsync();
+        if (_gitService.Repo != repo)
+        {
+            return;
+        }
+
+        IReadOnlyList<string> pathsToReload = affectedDirectoryPaths.Count > 0
+            ? ExpandDirectoryPathsWithAncestors(affectedDirectoryPaths)
+            : RepositoryFileTreeService.CollectLoadedDirectoryRelativePaths(_repoFilesTreeModel);
+
+        RepositoryFileTreeService.ReloadDirectories(
+            _repoFilesTreeModel,
+            repo,
+            pathsToReload,
+            _gitFileTreeImages,
+            _fileTreeStatusIndex);
+        repoFilesListView.RebuildPreservingSelection();
+    }
+
+    private static IReadOnlyList<string> ExpandDirectoryPathsWithAncestors(IReadOnlyList<string> paths)
+    {
+        var expanded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string path in paths)
+        {
+            string current = PathCommitHistoryService.NormalizeGitPath(path);
+            expanded.Add(current);
+            while (!string.IsNullOrEmpty(current))
+            {
+                int separatorIndex = current.LastIndexOf('/');
+                current = separatorIndex < 0 ? string.Empty : current[..separatorIndex];
+                expanded.Add(current);
+            }
+        }
+
+        return expanded.ToList();
+    }
+
+    private void UpdateWorkingTreeWatcher()
+    {
+        if (_gitService.Repo?.Info.WorkingDirectory is { } workingDirectory
+            && CanUseGitWorkflow
+            && Directory.Exists(workingDirectory))
+        {
+            _workingTreeWatcher.Watch(workingDirectory);
+        }
+        else
+        {
+            _workingTreeWatcher.Stop();
+        }
+    }
+
     private async Task RefreshAfterGitCommitAsync()
     {
         await RefreshFileTreeStatusAsync();
@@ -1083,6 +1166,7 @@ public partial class MainForm : Form
             _fileTreeStatusIndex = null;
             _repoFilesTreeModel.Nodes.Clear();
             repoFilesListView.SetRoot(null);
+            UpdateWorkingTreeWatcher();
             UpdateGraphTitleLabel();
             return;
         }
@@ -1167,6 +1251,7 @@ public partial class MainForm : Form
             }
 
             repoFilesListView.SetRoot(root);
+            UpdateWorkingTreeWatcher();
         }
         finally
         {
