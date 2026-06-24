@@ -1,11 +1,16 @@
-/** Layout aligned with MyProjectWinV10 AppTheme (RowHeight 32, TimescaleHeaderHeight 62). */
+/** Layout aligned with MyProjectWinV10 AppTheme (RowHeight 32, TimescaleHeaderHeight 68). */
 export const GANTT_BAR_HEIGHT = 22;
 export const GANTT_ROW_PADDING = 10;
 export const GANTT_ROW_HEIGHT = GANTT_BAR_HEIGHT + GANTT_ROW_PADDING;
 export const GANTT_UPPER_HEADER_HEIGHT = 22;
-export const GANTT_LOWER_HEADER_HEIGHT = 30;
+export const GANTT_LOWER_HEADER_HEIGHT = 36;
 export const GANTT_HEADER_HEIGHT =
   GANTT_UPPER_HEADER_HEIGHT + GANTT_LOWER_HEADER_HEIGHT + 10;
+
+/** Task grid project title band; column header fills the rest to match Gantt header height. */
+export const TASK_GRID_PROJECT_BANNER_HEIGHT = 38;
+export const TASK_GRID_COLUMN_HEADER_HEIGHT =
+  GANTT_HEADER_HEIGHT - TASK_GRID_PROJECT_BANNER_HEIGHT;
 
 /** Height of the dedicated horizontal scrollbar under the gantt pane. */
 export const GANTT_HSCROLL_HEIGHT = 14;

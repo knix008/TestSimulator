@@ -5,7 +5,9 @@ import {
   GANTT_DEFAULT_COLUMN_WIDTH,
   getGanttContentHeight,
 } from '../config/ganttLayout';
-import type { DependencyItem, GanttViewSettings, TaskItem } from '../types/project';
+import { createGanttViewModes } from '../config/ganttViewMode';
+import { useLanguage, useTranslation } from '../i18n';
+import type { DependencyItem, GanttViewSettings, NoteItem, TaskItem } from '../types/project';
 import { argbToCss } from '../utils/colorUtils';
 import type { ProjectContextMenuTarget } from '../utils/projectContextMenu';
 import { getVisibleTasks } from '../utils/taskModel';
@@ -15,7 +17,10 @@ import { applyGanttZoomAtPointer, type GanttZoomTarget } from '../utils/ganttZoo
 import { ensureGanttTimelineRange } from '../utils/ganttTimeline';
 import { getGanttWorkingWeekOptions } from '../utils/ganttWorkingWeek';
 import { decorateTodayMarker, scrollGanttToToday } from '../utils/ganttToday';
-import { toFrappeGanttEndDate } from '../utils/ganttTaskDates';
+import { bindGanttHeaderScroll, decorateGanttHeader, type FrappeGanttHeaderApi } from '../utils/ganttHeader';
+import { GanttNotesOverlay } from './GanttNotesOverlay';
+import { SPLIT_PANE_RESIZE_END_EVENT } from './ProjectSplitPane';
+import { toFrappeGanttEndDate, toGanttDateString } from '../utils/ganttTaskDates';
 import '../../../node_modules/frappe-gantt/dist/frappe-gantt.css';
 import './GanttChart.css';
 
@@ -34,9 +39,13 @@ interface FrappeTask {
 interface GanttChartProps {
   tasks: TaskItem[];
   dependencies: DependencyItem[];
+  ganttNotes: NoteItem[];
   workingDaysJson: string;
   ganttViewSettings: GanttViewSettings;
   selectedTaskId: number | null;
+  selectedNoteId: number | null;
+  editingNoteId: number | null;
+  selectedDependency?: { predecessorId: number; successorId: number } | null;
   canModify: boolean;
   linkMode: boolean;
   linkSourceTaskId?: number | null;
@@ -44,6 +53,11 @@ interface GanttChartProps {
   scrollToTodayRef?: RefObject<(() => boolean) | null>;
   zoomRef?: RefObject<{ zoomIn: () => void; zoomOut: () => void } | null>;
   onSelectTask: (taskId: number) => void;
+  onSelectNote: (noteId: number) => void;
+  onSetEditingNoteId: (noteId: number | null) => void;
+  onUpdateNoteBody: (noteId: number, body: string) => void;
+  onUpdateNotePosition: (noteId: number, anchorDate: string, contentY: number) => void;
+  onSelectDependency?: (dependency: { predecessorId: number; successorId: number }) => void;
   onTaskDateChange: (taskId: number, start: Date, end: Date) => void;
   onTaskProgressChange: (taskId: number, progress: number) => void;
   onAddDependency: (predecessorId: number, successorId: number) => void;
@@ -54,9 +68,15 @@ function getGanttContainerHeight(taskCount: number): number {
   return getGanttContentHeight(taskCount);
 }
 
+function getVisibleTaskSignature(visibleTasks: TaskItem[]): string {
+  return visibleTasks.map((task) => task.taskId).join(',');
+}
+
 type FrappeGanttInstance = InstanceType<typeof Gantt> & {
   options: { container_height: number | 'auto' };
 };
+
+const GANTT_RESIZE_REBUILD_DEBOUNCE_MS = 150;
 
 function applyGanttContainerHeight(
   gantt: FrappeGanttInstance | null,
@@ -90,7 +110,7 @@ function scrollSelectedTaskIntoView(
 
 function toGanttTasks(tasks: TaskItem[]): FrappeTask[] {
   return tasks.map((task) => {
-    const start = task.startDate.slice(0, 10);
+    const start = toGanttDateString(task.startDate);
     const barColor = argbToCss(task.barColorArgb);
     const progressColor = argbToCss(task.progressColorArgb);
 
@@ -196,9 +216,13 @@ function getGanttContextTarget(
 export function GanttChart({
   tasks,
   dependencies,
+  ganttNotes,
   workingDaysJson,
   ganttViewSettings,
   selectedTaskId,
+  selectedNoteId,
+  editingNoteId,
+  selectedDependency = null,
   canModify,
   linkMode,
   linkSourceTaskId = null,
@@ -206,11 +230,19 @@ export function GanttChart({
   scrollToTodayRef,
   zoomRef,
   onSelectTask,
+  onSelectNote,
+  onSetEditingNoteId,
+  onUpdateNoteBody,
+  onUpdateNotePosition,
+  onSelectDependency,
   onTaskDateChange,
   onTaskProgressChange,
   onAddDependency,
   onContextMenuRequest,
 }: GanttChartProps) {
+  const { locale } = useLanguage();
+  const t = useTranslation();
+  const viewModes = useMemo(() => createGanttViewModes(locale), [locale]);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const hScrollRef = useRef<HTMLDivElement>(null);
@@ -221,7 +253,12 @@ export function GanttChart({
   const skipRefreshRef = useRef(false);
   const tasksRef = useRef(tasks);
   const visibleTasks = useMemo(() => getVisibleTasks(tasks), [tasks]);
+  const visibleTaskSignature = useMemo(
+    () => getVisibleTaskSignature(visibleTasks),
+    [visibleTasks],
+  );
   const visibleTasksRef = useRef(visibleTasks);
+  const lastRenderedTaskSignatureRef = useRef('');
   const dependenciesRef = useRef(dependencies);
   const workingDaysJsonRef = useRef(workingDaysJson);
   const viewSettingsRef = useRef(ganttViewSettings);
@@ -229,12 +266,17 @@ export function GanttChart({
   const linkModeRef = useRef(linkMode);
   const linkSourceRef = useRef<number | null>(null);
   const linkDragRef = useRef<{ fromId: number } | null>(null);
+  const resizeRebuildTimerRef = useRef<number | null>(null);
+  const pendingFullResizeRef = useRef(false);
 
   const onSelectTaskRef = useRef(onSelectTask);
   const onTaskDateChangeRef = useRef(onTaskDateChange);
   const onTaskProgressChangeRef = useRef(onTaskProgressChange);
   const onAddDependencyRef = useRef(onAddDependency);
   const onContextMenuRequestRef = useRef(onContextMenuRequest);
+
+  const selectedDependencyRef = useRef(selectedDependency);
+  const onSelectDependencyRef = useRef(onSelectDependency);
 
   tasksRef.current = tasks;
   visibleTasksRef.current = visibleTasks;
@@ -246,6 +288,8 @@ export function GanttChart({
   onTaskProgressChangeRef.current = onTaskProgressChange;
   onAddDependencyRef.current = onAddDependency;
   onContextMenuRequestRef.current = onContextMenuRequest;
+  selectedDependencyRef.current = selectedDependency;
+  onSelectDependencyRef.current = onSelectDependency;
   canModifyRef.current = canModify;
   linkModeRef.current = linkMode;
 
@@ -259,6 +303,7 @@ export function GanttChart({
       dependenciesRef.current,
       tasksRef.current,
       viewSettingsRef.current,
+      selectedDependencyRef.current,
     );
   }, []);
 
@@ -269,6 +314,17 @@ export function GanttChart({
       showCriticalPath: viewSettingsRef.current.showCriticalPath,
     });
     decorateTodayMarker(container);
+    const gantt = ganttRef.current as FrappeGanttHeaderApi | null;
+    if (gantt) decorateGanttHeader(container, gantt, workingDaysJsonRef.current);
+  }, []);
+
+  const getGanttLayout = useCallback(() => {
+    const gantt = ganttRef.current as FrappeGanttHeaderApi | null;
+    if (!gantt) return null;
+    return {
+      ganttStart: gantt.gantt_start,
+      columnWidth: columnWidthRef.current,
+    };
   }, []);
 
   const syncOverlaySize = useCallback(() => {
@@ -358,6 +414,62 @@ export function GanttChart({
     }
     return changed;
   }, [decorateBars, renderDependencyOverlay]);
+
+  const syncGanttLayoutAfterResize = useCallback(
+    (fullRebuild: boolean) => {
+      const gantt = ganttRef.current as FrappeGanttInstance | null;
+      const container = containerRef.current;
+      const scrollArea = scrollRef.current;
+      if (!gantt || !container || visibleTasksRef.current.length === 0) return;
+
+      const frappeScroll = getFrappeScrollContainer(container);
+      const viewportWidth = frappeScroll?.clientWidth ?? 0;
+      if (viewportWidth <= 0) {
+        pendingFullResizeRef.current = true;
+        return;
+      }
+
+      applyGanttContainerHeight(gantt, visibleTasksRef.current.length);
+
+      if (fullRebuild || pendingFullResizeRef.current) {
+        pendingFullResizeRef.current = false;
+        const scrollLeft = frappeScroll?.scrollLeft ?? 0;
+        const scrollTop = scrollArea?.scrollTop ?? 0;
+        gantt.refresh(toGanttTasks(visibleTasksRef.current));
+        if (frappeScroll) {
+          frappeScroll.scrollLeft = scrollLeft;
+        }
+        if (scrollArea) {
+          scrollArea.scrollTop = scrollTop;
+        }
+        applyTimelineRange();
+      }
+
+      syncOverlaySize();
+      decorateBars();
+      renderDependencyOverlay();
+      syncHorizontalScrollWidth();
+      syncHScrollFromFrappe();
+    },
+    [
+      applyTimelineRange,
+      decorateBars,
+      renderDependencyOverlay,
+      syncHorizontalScrollWidth,
+      syncHScrollFromFrappe,
+      syncOverlaySize,
+    ],
+  );
+
+  const scheduleFullGanttResizeRebuild = useCallback(() => {
+    if (resizeRebuildTimerRef.current != null) {
+      window.clearTimeout(resizeRebuildTimerRef.current);
+    }
+    resizeRebuildTimerRef.current = window.setTimeout(() => {
+      resizeRebuildTimerRef.current = null;
+      syncGanttLayoutAfterResize(true);
+    }, GANTT_RESIZE_REBUILD_DEBOUNCE_MS);
+  }, [syncGanttLayoutAfterResize]);
 
   const applyGanttZoom = useCallback((zoomIn: boolean) => {
     const mount = containerRef.current;
@@ -484,6 +596,7 @@ export function GanttChart({
     container.innerHTML = '';
     ganttRef.current = new Gantt(container, toGanttTasks(visibleTasksRef.current), {
       view_mode: 'Day',
+      view_modes: viewModes,
       ...GANTT_CHART_OPTIONS,
       ...getGanttWorkingWeekOptions(workingDaysJsonRef.current),
       column_width: columnWidthRef.current,
@@ -519,7 +632,7 @@ export function GanttChart({
       syncHorizontalScrollWidth();
       syncHScrollFromFrappe();
     });
-  }, [applyTimelineRange, decorateBars, handleLinkClick, renderDependencyOverlay, syncHorizontalScrollWidth, syncHScrollFromFrappe, syncOverlaySize, updateLinkPendingStyles]);
+  }, [applyTimelineRange, decorateBars, handleLinkClick, renderDependencyOverlay, syncHorizontalScrollWidth, syncHScrollFromFrappe, syncOverlaySize, updateLinkPendingStyles, viewModes]);
 
   useEffect(() => {
     linkSourceRef.current = null;
@@ -536,12 +649,20 @@ export function GanttChart({
   }, [canModify, mountGantt]);
 
   useEffect(() => {
+    const container = containerRef.current;
+    const gantt = ganttRef.current as FrappeGanttHeaderApi | null;
+    if (!container || !gantt) return;
+    return bindGanttHeaderScroll(container, gantt, workingDaysJson);
+  }, [canModify, visibleTasks.length, dependencies.length, locale, workingDaysJson]);
+
+  useEffect(() => {
     const gantt = ganttRef.current as (InstanceType<typeof Gantt> & {
       update_options?: (options: object) => void;
     }) | null;
     if (!gantt?.update_options || visibleTasks.length === 0) return;
 
     gantt.update_options({
+      view_modes: viewModes,
       ...GANTT_CHART_OPTIONS,
       ...getGanttWorkingWeekOptions(workingDaysJson),
     });
@@ -552,11 +673,16 @@ export function GanttChart({
       syncHorizontalScrollWidth();
       syncHScrollFromFrappe();
       const container = containerRef.current;
-      if (container) decorateTodayMarker(container);
+      if (container) {
+        decorateTodayMarker(container);
+        if (gantt) decorateGanttHeader(container, gantt as FrappeGanttHeaderApi, workingDaysJson);
+      }
     });
   }, [
     workingDaysJson,
     visibleTasks.length,
+    locale,
+    viewModes,
     applyTimelineRange,
     decorateBars,
     renderDependencyOverlay,
@@ -565,20 +691,34 @@ export function GanttChart({
   ]);
 
   useEffect(() => {
-    if (visibleTasks.length === 0) return;
-
-    if (!ganttRef.current) {
-      mountGantt();
+    if (visibleTasks.length === 0) {
+      lastRenderedTaskSignatureRef.current = '';
       return;
     }
 
-    if (skipRefreshRef.current) {
+    const taskListChanged =
+      lastRenderedTaskSignatureRef.current !== visibleTaskSignature;
+
+    if (!ganttRef.current) {
+      mountGantt();
+      lastRenderedTaskSignatureRef.current = visibleTaskSignature;
+      return;
+    }
+
+    if (skipRefreshRef.current && !taskListChanged) {
       skipRefreshRef.current = false;
       applyTimelineRange();
       renderDependencyOverlay();
       decorateBars();
       syncHorizontalScrollWidth();
       syncHScrollFromFrappe();
+      return;
+    }
+    skipRefreshRef.current = false;
+
+    if (taskListChanged) {
+      lastRenderedTaskSignatureRef.current = visibleTaskSignature;
+      syncGanttLayoutAfterResize(true);
       return;
     }
 
@@ -597,7 +737,21 @@ export function GanttChart({
       syncHorizontalScrollWidth();
       syncHScrollFromFrappe();
     });
-  }, [visibleTasks, dependencies, ganttViewSettings, mountGantt, applyTimelineRange, decorateBars, renderDependencyOverlay, syncHorizontalScrollWidth, syncHScrollFromFrappe, syncOverlaySize, updateLinkPendingStyles]);
+  }, [
+    visibleTasks,
+    visibleTaskSignature,
+    dependencies,
+    ganttViewSettings,
+    mountGantt,
+    syncGanttLayoutAfterResize,
+    applyTimelineRange,
+    decorateBars,
+    renderDependencyOverlay,
+    syncHorizontalScrollWidth,
+    syncHScrollFromFrappe,
+    syncOverlaySize,
+    updateLinkPendingStyles,
+  ]);
 
   useEffect(() => {
     const scrollArea = scrollRef.current;
@@ -608,31 +762,32 @@ export function GanttChart({
       if (frame) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         frame = 0;
-        const gantt = ganttRef.current as FrappeGanttInstance | null;
-        if (!gantt || visibleTasksRef.current.length === 0) return;
-        applyGanttContainerHeight(gantt, visibleTasksRef.current.length);
-        gantt.refresh(toGanttTasks(visibleTasksRef.current));
-        syncOverlaySize();
-        decorateBars();
-        renderDependencyOverlay();
-        syncHorizontalScrollWidth();
-        syncHScrollFromFrappe();
+        syncGanttLayoutAfterResize(false);
+        scheduleFullGanttResizeRebuild();
       });
+    };
+
+    const onSplitResizeEnd = () => {
+      if (resizeRebuildTimerRef.current != null) {
+        window.clearTimeout(resizeRebuildTimerRef.current);
+        resizeRebuildTimerRef.current = null;
+      }
+      requestAnimationFrame(() => syncGanttLayoutAfterResize(true));
     };
 
     const observer = new ResizeObserver(onResize);
     observer.observe(scrollArea);
+    window.addEventListener(SPLIT_PANE_RESIZE_END_EVENT, onSplitResizeEnd);
     return () => {
       observer.disconnect();
+      window.removeEventListener(SPLIT_PANE_RESIZE_END_EVENT, onSplitResizeEnd);
       if (frame) cancelAnimationFrame(frame);
+      if (resizeRebuildTimerRef.current != null) {
+        window.clearTimeout(resizeRebuildTimerRef.current);
+        resizeRebuildTimerRef.current = null;
+      }
     };
-  }, [
-    decorateBars,
-    renderDependencyOverlay,
-    syncHorizontalScrollWidth,
-    syncHScrollFromFrappe,
-    syncOverlaySize,
-  ]);
+  }, [scheduleFullGanttResizeRebuild, syncGanttLayoutAfterResize]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -796,6 +951,27 @@ export function GanttChart({
   }, [canModify, clearLinkLine, completeLink, drawLinkLine, updateLinkPendingStyles]);
 
   useEffect(() => {
+    renderDependencyOverlay();
+  }, [renderDependencyOverlay, selectedDependency]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onClick = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      const dependency = findDependencyFromTarget(container, event.target);
+      if (!dependency) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onSelectDependencyRef.current?.(dependency);
+    };
+
+    container.addEventListener('click', onClick);
+    return () => container.removeEventListener('click', onClick);
+  }, [tasks.length, dependencies.length]);
+
+  useEffect(() => {
     const scrollArea = scrollRef.current;
     const container = containerRef.current;
     if (!scrollArea || !container || !onContextMenuRequestRef.current) return;
@@ -809,6 +985,10 @@ export function GanttChart({
       if (target.kind === 'gantt-task') {
         onSelectTaskRef.current(target.taskId);
       } else if (target.kind === 'gantt-dependency') {
+        onSelectDependencyRef.current?.({
+          predecessorId: target.predecessorId,
+          successorId: target.successorId,
+        });
         onSelectTaskRef.current(target.successorId);
       }
       onContextMenuRequestRef.current?.(target, event.clientX, event.clientY);
@@ -831,8 +1011,22 @@ export function GanttChart({
       >
         <svg ref={overlayRef} className="gantt-link-overlay" aria-hidden="true" />
         <div ref={containerRef} className="gantt-container" />
+        <GanttNotesOverlay
+          notes={ganttNotes}
+          tasks={tasks}
+          containerRef={containerRef}
+          getGanttLayout={getGanttLayout}
+          selectedNoteId={selectedNoteId}
+          editingNoteId={editingNoteId}
+          canModify={canModify}
+          onSelectNote={onSelectNote}
+          onSetEditingNoteId={onSetEditingNoteId}
+          onUpdateNoteBody={onUpdateNoteBody}
+          onUpdateNotePosition={onUpdateNotePosition}
+          onContextMenuRequest={onContextMenuRequest}
+        />
       </div>
-      <div ref={hScrollRef} className="gantt-hscroll" aria-label="간트 가로 스크롤">
+      <div ref={hScrollRef} className="gantt-hscroll" aria-label={t('gantt.hScroll')}>
         <div className="gantt-hscroll-spacer" aria-hidden="true" />
       </div>
     </div>

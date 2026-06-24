@@ -1,7 +1,10 @@
+import { useEffect, useRef, useState } from 'react';
 import type { DatabaseConfigInfo, ProjectSummary } from '../types/project';
-
+import type { ProjectExportFormat } from '../api/client';
+import { useToolbarMinWidth } from '../hooks/useToolbarMinWidth';
+import { useTranslation, useLanguage } from '../i18n';
+import { getDateLocaleTag } from '../i18n/translate';
 import { ToolbarButton } from './ToolbarButton';
-
 import './ProjectToolbar.css';
 
 
@@ -46,6 +49,10 @@ interface ProjectToolbarProps {
 
   onCreateProject: () => void;
 
+  onDeleteProject?: () => void;
+
+  canDeleteProject?: boolean;
+
   onRefresh: () => void;
 
   onLogout: () => void;
@@ -63,6 +70,10 @@ interface ProjectToolbarProps {
   onAddTask?: () => void;
 
   onAddSubtask?: () => void;
+
+  onAddNote?: () => void;
+
+  canAddNote?: boolean;
 
   onDeleteTask?: () => void;
 
@@ -84,6 +95,11 @@ interface ProjectToolbarProps {
 
   canGoToToday?: boolean;
 
+  onExport?: (format: ProjectExportFormat) => void;
+
+  onImportExcel?: (file: File) => void;
+
+  exportImportBusy?: boolean;
 }
 
 
@@ -120,6 +136,10 @@ export function ProjectToolbar({
 
   onCreateProject,
 
+  onDeleteProject,
+
+  canDeleteProject = false,
+
   onRefresh,
 
   onLogout,
@@ -137,6 +157,10 @@ export function ProjectToolbar({
   onAddTask,
 
   onAddSubtask,
+
+  onAddNote,
+
+  canAddNote = false,
 
   onDeleteTask,
 
@@ -158,45 +182,105 @@ export function ProjectToolbar({
 
   canGoToToday = false,
 
+  onExport,
+
+  onImportExcel,
+
+  exportImportBusy = false,
+
 }: ProjectToolbarProps) {
+
+  const t = useTranslation();
+  const { locale } = useLanguage();
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+
+    if (!exportMenuOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+
+      if (!exportMenuRef.current?.contains(event.target as Node)) {
+
+        setExportMenuOpen(false);
+
+      }
+
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+
+    return () => document.removeEventListener('mousedown', onPointerDown);
+
+  }, [exportMenuOpen]);
+
+  const exportFormats: Array<{ format: ProjectExportFormat; label: string }> = [
+
+    { format: 'excel', label: 'Excel (.xlsx)' },
+
+    { format: 'word', label: 'Word (.docx)' },
+
+    { format: 'markdown', label: 'Markdown (.md)' },
+
+    { format: 'pdf', label: 'PDF (.pdf)' },
+
+  ];
 
   const saveLabel =
 
     saveStatus === 'saving'
 
-      ? '저장 중…'
+      ? t('common.saving')
 
       : saveStatus === 'saved'
 
-        ? '저장됨'
+        ? t('common.saved')
 
         : saveStatus === 'error'
 
-          ? '저장 실패'
+          ? t('common.saveFailed')
 
           : null;
 
-
+  const { toolbarRef, actionsRef } = useToolbarMinWidth([
+    loading,
+    isAdmin,
+    canModify,
+    canRead,
+    currentProjectId,
+    dbConfig?.requiresAdminSetup,
+    exportImportBusy,
+    saveStatus,
+    hasUnsavedChanges,
+    linkMode,
+    projects.length,
+    dbConfig?.connected,
+    scheduleRevision?.version,
+  ]);
 
   return (
 
-    <header className="project-toolbar">
+    <header className="project-toolbar" ref={toolbarRef}>
 
       <div className="toolbar-brand">
 
         <strong>MyProject Web</strong>
 
-        <span className="toolbar-subtitle">과제 일정 관리</span>
+        <span className="toolbar-subtitle">{t('app.subtitle')}</span>
 
       </div>
 
 
 
-      <div className="toolbar-actions">
+      <div className="toolbar-actions" ref={actionsRef}>
 
         <label className="toolbar-field">
 
-          프로젝트
+          {t('toolbar.project')}
 
           <select
 
@@ -210,7 +294,7 @@ export function ProjectToolbar({
 
             {projects.length === 0 ? (
 
-              <option value="">프로젝트 없음</option>
+              <option value="">{t('toolbar.noProjects')}</option>
 
             ) : (
 
@@ -240,11 +324,27 @@ export function ProjectToolbar({
 
           disabled={loading || dbConfig?.requiresAdminSetup || !canModify}
 
-          title="Win 프로그램에서 만드는 것을 권장합니다"
+          title={t('toolbar.newProjectTitle')}
 
         >
 
-          새 프로젝트
+          {t('toolbar.newProject')}
+
+        </ToolbarButton>
+
+        <ToolbarButton
+
+          icon="deleteTask"
+
+          onClick={onDeleteProject}
+
+          disabled={loading || dbConfig?.requiresAdminSetup || !canDeleteProject}
+
+          title={t('toolbar.deleteProjectTitle')}
+
+        >
+
+          {t('toolbar.deleteProject')}
 
         </ToolbarButton>
 
@@ -256,11 +356,11 @@ export function ProjectToolbar({
 
           disabled={loading}
 
-          title="Win 프로그램 변경 사항 반영"
+          title={t('toolbar.refreshTitle')}
 
         >
 
-          새로고침
+          {t('toolbar.refresh')}
 
         </ToolbarButton>
 
@@ -270,9 +370,119 @@ export function ProjectToolbar({
 
           <ToolbarButton icon="settings" onClick={onOpenProjectSettings} disabled={loading}>
 
-            과제 설정
+            {t('toolbar.projectSettings')}
 
           </ToolbarButton>
+
+        )}
+
+
+
+        {canRead && currentProjectId != null && !dbConfig?.requiresAdminSetup && onExport && (
+
+          <div className="toolbar-export-menu" ref={exportMenuRef}>
+
+            <ToolbarButton
+
+              icon="export"
+
+              onClick={() => setExportMenuOpen((open) => !open)}
+
+              disabled={loading || exportImportBusy}
+
+              title={t('toolbar.exportTitle')}
+
+            >
+
+              {exportImportBusy ? t('toolbar.exporting') : t('toolbar.export')}
+
+            </ToolbarButton>
+
+            {exportMenuOpen && (
+
+              <div className="toolbar-export-dropdown" role="menu">
+
+                {exportFormats.map(({ format, label }) => (
+
+                  <button
+
+                    key={format}
+
+                    type="button"
+
+                    role="menuitem"
+
+                    className="toolbar-export-item"
+
+                    onClick={() => {
+
+                      setExportMenuOpen(false);
+
+                      onExport(format);
+
+                    }}
+
+                  >
+
+                    {label}
+
+                  </button>
+
+                ))}
+
+              </div>
+
+            )}
+
+          </div>
+
+        )}
+
+
+
+        {canModify && currentProjectId != null && !dbConfig?.requiresAdminSetup && onImportExcel && (
+
+          <>
+
+            <input
+
+              ref={importInputRef}
+
+              type="file"
+
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+              className="toolbar-import-input"
+
+              onChange={(event) => {
+
+                const file = event.target.files?.[0];
+
+                event.target.value = '';
+
+                if (file) onImportExcel(file);
+
+              }}
+
+            />
+
+            <ToolbarButton
+
+              icon="import"
+
+              onClick={() => importInputRef.current?.click()}
+
+              disabled={loading || exportImportBusy}
+
+              title={t('toolbar.importExcelTitle')}
+
+            >
+
+              {t('toolbar.importExcel')}
+
+            </ToolbarButton>
+
+          </>
 
         )}
 
@@ -288,11 +498,11 @@ export function ProjectToolbar({
 
             disabled={loading || !canGoToToday}
 
-            title="간트 차트를 오늘 날짜로 스크롤합니다 (Ctrl+T). 빨간 점선·상단 원과 헤더의 검은 배경 숫자가 오늘 날짜입니다."
+            title={t('toolbar.goToTodayTitle')}
 
           >
 
-            오늘로 이동
+            {t('toolbar.goToToday')}
 
           </ToolbarButton>
 
@@ -312,11 +522,11 @@ export function ProjectToolbar({
 
             disabled={loading}
 
-            title="주요 경로(Critical Path) 표시"
+            title={t('toolbar.criticalPathTitle')}
 
           >
 
-            주요 경로
+            {t('toolbar.criticalPath')}
 
           </ToolbarButton>
 
@@ -334,11 +544,11 @@ export function ProjectToolbar({
 
             disabled={loading || saveStatus === 'saving' || !hasUnsavedChanges}
 
-            title="일정을 DB에 저장"
+            title={t('toolbar.saveScheduleTitle')}
 
           >
 
-            {saveStatus === 'saving' ? '저장 중…' : hasUnsavedChanges ? '저장' : '저장됨'}
+            {saveStatus === 'saving' ? t('common.saving') : hasUnsavedChanges ? t('common.save') : t('common.saved')}
 
           </ToolbarButton>
 
@@ -352,14 +562,23 @@ export function ProjectToolbar({
 
             <ToolbarButton icon="addTask" onClick={onAddTask} disabled={loading} title="Insert">
 
-              작업 추가
+              {t('toolbar.addTask')}
 
             </ToolbarButton>
 
-            <ToolbarButton icon="addSubtask" onClick={onAddSubtask} disabled={loading} title="하위 작업 추가">
+            <ToolbarButton icon="addSubtask" onClick={onAddSubtask} disabled={loading} title={t('toolbar.addSubtaskTitle')}>
 
-              하위 작업
+              {t('toolbar.addSubtask')}
 
+            </ToolbarButton>
+
+            <ToolbarButton
+              icon="addNote"
+              onClick={onAddNote}
+              disabled={loading || !canAddNote}
+              title={t('toolbar.addNoteTitle')}
+            >
+              {t('toolbar.addNote')}
             </ToolbarButton>
 
             <ToolbarButton
@@ -374,7 +593,7 @@ export function ProjectToolbar({
 
             >
 
-              작업 삭제
+              {t('toolbar.deleteTask')}
 
             </ToolbarButton>
 
@@ -386,11 +605,11 @@ export function ProjectToolbar({
 
               disabled={loading || !canIndentTask}
 
-              title="하위 작업으로 이동 (Alt+→)"
+              title={t('toolbar.indentTitle')}
 
             >
 
-              들여쓰기
+              {t('toolbar.indent')}
 
             </ToolbarButton>
 
@@ -402,11 +621,11 @@ export function ProjectToolbar({
 
               disabled={loading || !canOutdentTask}
 
-              title="상위 작업으로 이동 (Alt+←)"
+              title={t('toolbar.outdentTitle')}
 
             >
 
-              내어쓰기
+              {t('toolbar.outdent')}
 
             </ToolbarButton>
 
@@ -422,7 +641,7 @@ export function ProjectToolbar({
 
             >
 
-              {linkMode ? '의존성 연결 중' : '의존성 연결'}
+              {linkMode ? t('toolbar.linking') : t('toolbar.linkMode')}
 
             </ToolbarButton>
 
@@ -438,7 +657,7 @@ export function ProjectToolbar({
 
             {saveLabel}
 
-            {hasUnsavedChanges && saveStatus !== 'saving' ? ' · 미저장 변경' : ''}
+            {hasUnsavedChanges && saveStatus !== 'saving' ? t('common.unsavedChanges') : ''}
 
           </span>
 
@@ -452,7 +671,7 @@ export function ProjectToolbar({
 
             <ToolbarButton icon="database" onClick={onOpenDatabaseSettings}>
 
-              DB 설정
+              {t('toolbar.dbSettings')}
 
             </ToolbarButton>
 
@@ -466,7 +685,7 @@ export function ProjectToolbar({
 
             >
 
-              사용자 관리
+              {t('toolbar.userManagement')}
 
             </ToolbarButton>
 
@@ -478,7 +697,7 @@ export function ProjectToolbar({
 
         <ToolbarButton icon="account" onClick={onOpenMyAccount}>
 
-          내 계정
+          {t('toolbar.myAccount')}
 
         </ToolbarButton>
 
@@ -486,7 +705,7 @@ export function ProjectToolbar({
 
         <ToolbarButton icon="logout" onClick={onLogout}>
 
-          로그아웃 ({username})
+          {t('toolbar.logout')} ({username})
 
         </ToolbarButton>
 
@@ -502,7 +721,7 @@ export function ProjectToolbar({
 
             DB: {dbConfig.providerDisplayName} / {dbConfig.database}
 
-            {!dbConfig.connected && ' (연결 안 됨)'}
+            {!dbConfig.connected && t('toolbar.dbDisconnected')}
 
           </div>
 
@@ -510,9 +729,9 @@ export function ProjectToolbar({
 
             <div className="toolbar-revision">
 
-              버전 {scheduleRevision.version} ·{' '}
+              {t('toolbar.version')} {scheduleRevision.version} ·{' '}
 
-              {new Date(scheduleRevision.updatedUtc).toLocaleString('ko-KR')}
+              {new Date(scheduleRevision.updatedUtc).toLocaleString(getDateLocaleTag(locale))}
 
               {scheduleRevision.updatedBy ? ` · ${scheduleRevision.updatedBy}` : ''}
 

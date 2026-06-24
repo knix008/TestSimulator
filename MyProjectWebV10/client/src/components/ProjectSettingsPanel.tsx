@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { getProjectViewSettings, saveProjectViewSettings, updateProject } from '../api/client';
+import { getProjectViewSettings, saveProjectViewSettings, updateProject, deleteProject } from '../api/client';
 import {
   DEFAULT_GANTT_VIEW_SETTINGS,
-  DEPENDENCY_TYPE_OPTIONS,
-  LINE_END_OPTIONS,
-  LINE_STYLE_OPTIONS,
-  PATH_STYLE_OPTIONS,
   normalizeGanttViewSettings,
 } from '../config/ganttViewSettings';
 import type { GanttViewSettings, ProjectDetail } from '../types/project';
+import { useLanguage } from '../i18n';
+import type { AppLocale } from '../i18n/types';
+import {
+  localizedDependencyTypeOptions,
+  localizedLineEndOptions,
+  localizedLineStyleOptions,
+  localizedPathStyleOptions,
+} from '../i18n/options';
+import { getWorkingDayLabels } from '../i18n/translate';
 import { recalculateScheduleForWorkingWeek } from '../utils/scheduleRecalculation';
 import { toUpdatePayload, withRecalculatedSchedule } from '../utils/scheduleUtils';
 import { renderDependencyPreview } from '../utils/dependencyLineRenderer';
 import {
-  WORKING_DAY_LABELS,
   defaultWorkingWeek,
   hasAtLeastOneWorkingDay,
   parseWorkingWeek,
@@ -21,6 +25,8 @@ import {
   workingWeeksEqual,
   type WorkingWeek,
 } from '../utils/workingWeek';
+import { DateInput } from './DateInput';
+import { toDateInputValue } from '../utils/taskDateInput';
 import './ProjectSettingsPanel.css';
 
 type SettingsTab = 'project' | 'gantt';
@@ -33,14 +39,7 @@ interface ProjectSettingsPanelProps {
   onClose: () => void;
   onSavedViewSettings: (settings: GanttViewSettings) => void;
   onSavedProject: (project: ProjectDetail) => void;
-}
-
-function toDateInputValue(iso: string): string {
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  onDeletedProject?: () => void;
 }
 
 function fromDateInputValue(value: string): string {
@@ -58,7 +57,10 @@ export function ProjectSettingsPanel({
   onClose,
   onSavedViewSettings,
   onSavedProject,
+  onDeletedProject,
 }: ProjectSettingsPanelProps) {
+  const { locale, setLocale, t } = useLanguage();
+  const workingDayLabels = getWorkingDayLabels(locale);
   const [tab, setTab] = useState<SettingsTab>('project');
   const [ganttForm, setGanttForm] = useState<GanttViewSettings>(DEFAULT_GANTT_VIEW_SETTINGS);
   const [projectName, setProjectName] = useState('');
@@ -66,6 +68,7 @@ export function ProjectSettingsPanel({
   const [workingDays, setWorkingDays] = useState<WorkingWeek>(defaultWorkingWeek());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const previewRef = useRef<SVGSVGElement>(null);
@@ -85,9 +88,9 @@ export function ProjectSettingsPanel({
 
     getProjectViewSettings(projectId)
       .then((settings) => setGanttForm(normalizeGanttViewSettings(settings)))
-      .catch((err) => setError(err instanceof Error ? err.message : '설정을 불러오지 못했습니다.'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('settings.loadFailed')))
       .finally(() => setLoading(false));
-  }, [open, projectId, project?.id, project?.name, project?.projectStart, project?.workingDaysJson]);
+  }, [open, projectId, project?.id, project?.name, project?.projectStart, project?.workingDaysJson, t]);
 
   useEffect(() => {
     if (!open || !previewRef.current) return;
@@ -127,63 +130,98 @@ export function ProjectSettingsPanel({
       const normalizedView = normalizeGanttViewSettings(viewSaved);
       setGanttForm(normalizedView);
       onSavedViewSettings(normalizedView);
-      messages.push('Gantt 연결선 설정이 저장되었습니다.');
+      messages.push(t('settings.gantt.saved'));
 
       if (canModify && project) {
         const trimmedName = projectName.trim();
         if (!trimmedName) {
-          setError('프로젝트 이름을 입력하세요.');
+          setError(t('settings.project.nameRequired'));
           return;
         }
         if (!hasAtLeastOneWorkingDay(workingDays)) {
-          setError('최소 하나 이상의 근무일을 선택하세요.');
+          setError(t('settings.project.workingDaysRequired'));
           return;
         }
 
         const nextWorkingDaysJson = serializeWorkingWeek(workingDays);
         const nextProjectStart = fromDateInputValue(projectStart);
-        const scheduleChanged =
-          trimmedName !== project.name ||
-          nextProjectStart !== new Date(project.projectStart).toISOString() ||
-          !workingWeeksEqual(workingDays, parseWorkingWeek(project.workingDaysJson));
+        const nameChanged = trimmedName !== project.name;
+        const startChanged =
+          nextProjectStart !== new Date(project.projectStart).toISOString();
+        const weekChanged = !workingWeeksEqual(
+          workingDays,
+          parseWorkingWeek(project.workingDaysJson),
+        );
 
-        if (scheduleChanged) {
-          const recalculatedTasks = recalculateScheduleForWorkingWeek(
-            project.tasks,
-            project.dependencies,
-            {
-              projectStart: nextProjectStart,
-              workingDaysJson: nextWorkingDaysJson,
-            },
-          );
+        if (nameChanged || startChanged || weekChanged) {
+          if (startChanged || weekChanged) {
+            const recalculatedTasks = recalculateScheduleForWorkingWeek(
+              project.tasks,
+              project.dependencies,
+              {
+                projectStart: nextProjectStart,
+                workingDaysJson: nextWorkingDaysJson,
+              },
+            );
 
-          const savedProject = withRecalculatedSchedule(
-            await updateProject(projectId, {
-              expectedVersion: project.version,
-              name: trimmedName,
-              projectStart: nextProjectStart,
-              workingDaysJson: nextWorkingDaysJson,
-              tasks: toUpdatePayload({
-                ...project,
+            const savedProject = withRecalculatedSchedule(
+              await updateProject(projectId, {
+                expectedVersion: project.version,
                 name: trimmedName,
                 projectStart: nextProjectStart,
                 workingDaysJson: nextWorkingDaysJson,
-                tasks: recalculatedTasks,
-              }).tasks,
-              dependencies: project.dependencies,
-            }),
-          );
+                tasks: toUpdatePayload({
+                  ...project,
+                  name: trimmedName,
+                  projectStart: nextProjectStart,
+                  workingDaysJson: nextWorkingDaysJson,
+                  tasks: recalculatedTasks,
+                }).tasks,
+                dependencies: project.dependencies,
+              }),
+            );
 
-          onSavedProject(savedProject);
-          messages.push('프로젝트 일정 설정이 저장되었고 일정이 다시 계산되었습니다.');
+            onSavedProject(savedProject);
+            messages.push(t('settings.project.savedWithRecalc'));
+          } else {
+            const savedProject = withRecalculatedSchedule(
+              await updateProject(projectId, {
+                expectedVersion: project.version,
+                name: trimmedName,
+              }),
+            );
+            onSavedProject(savedProject);
+            messages.push(t('settings.project.saved'));
+          }
         }
       }
 
       setMessage(messages.join(' '));
     } catch (err) {
-      setError(err instanceof Error ? err.message : '설정 저장에 실패했습니다.');
+      setError(err instanceof Error ? err.message : t('settings.saveFailed'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (projectId == null || !project || !canModify) return;
+    const confirmed = window.confirm(
+      t('project.deleteConfirm', { name: project.name }),
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await deleteProject(projectId);
+      onClose();
+      onDeletedProject?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('settings.project.deleteFailed'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -191,9 +229,9 @@ export function ProjectSettingsPanel({
     <div className="project-settings-backdrop">
       <div className="project-settings-panel">
         <header>
-          <h2>과제 설정</h2>
+          <h2>{t('settings.title')}</h2>
           <button type="button" className="panel-close-button" onClick={onClose}>
-            닫기
+            {t('common.close')}
           </button>
         </header>
 
@@ -203,31 +241,40 @@ export function ProjectSettingsPanel({
             className={tab === 'project' ? 'active' : ''}
             onClick={() => setTab('project')}
           >
-            프로젝트 일정
+            {t('settings.tab.project')}
           </button>
           <button
             type="button"
             className={tab === 'gantt' ? 'active' : ''}
             onClick={() => setTab('gantt')}
           >
-            Gantt 표시
+            {t('settings.tab.gantt')}
           </button>
         </div>
 
         {loading ? (
-          <div className="project-settings-loading">설정 불러오는 중…</div>
+          <div className="project-settings-loading">{t('settings.loading')}</div>
         ) : (
           <div className="project-settings-form">
             {tab === 'project' && (
               <section>
-                <h3>프로젝트 일정</h3>
-                <p className="project-settings-section-note">
-                  근무일 설정은 프로젝트 전체에 적용됩니다. 변경 시 작업 날짜와 간트 차트가
-                  다시 계산됩니다.
-                </p>
+                <h3>{t('settings.project.title')}</h3>
+                <p className="project-settings-section-note">{t('settings.project.note')}</p>
 
                 <label>
-                  프로젝트 이름
+                  {t('language.label')}
+                  <select
+                    value={locale}
+                    onChange={(e) => setLocale(e.target.value as AppLocale)}
+                    disabled={saving}
+                  >
+                    <option value="ko">{t('language.ko')}</option>
+                    <option value="en">{t('language.en')}</option>
+                  </select>
+                </label>
+
+                <label>
+                  {t('settings.project.name')}
                   <input
                     type="text"
                     value={projectName}
@@ -237,20 +284,21 @@ export function ProjectSettingsPanel({
                 </label>
 
                 <label>
-                  프로젝트 시작일
-                  <input
-                    type="date"
+                  {t('settings.project.start')}
+                  <DateInput
                     value={projectStart}
-                    onChange={(e) => setProjectStart(e.target.value)}
+                    onChange={setProjectStart}
                     disabled={saving || !canModify}
                   />
                 </label>
 
                 <div className="project-settings-working-days">
-                  <span className="project-settings-working-days-label">주간 근무일</span>
+                  <span className="project-settings-working-days-label">
+                    {t('settings.project.workingDays')}
+                  </span>
                   <div className="project-settings-working-week">
                     <div className="project-settings-working-week-labels" aria-hidden="true">
-                      {WORKING_DAY_LABELS.map((label) => (
+                      {workingDayLabels.map((label) => (
                         <span key={label} className="project-settings-working-week-label">
                           {label}
                         </span>
@@ -259,9 +307,9 @@ export function ProjectSettingsPanel({
                     <div
                       className="project-settings-working-week-buttons"
                       role="group"
-                      aria-label="주간 근무일 선택"
+                      aria-label={t('settings.project.workingDaysGroup')}
                     >
-                      {WORKING_DAY_LABELS.map((label, index) => (
+                      {workingDayLabels.map((label, index) => (
                         <button
                           key={label}
                           type="button"
@@ -272,7 +320,12 @@ export function ProjectSettingsPanel({
                           }
                           onClick={() => toggleWorkingDay(index)}
                           disabled={saving || !canModify}
-                          aria-label={`${label}요일 ${workingDays[index] ? '근무일' : '비근무일'}`}
+                          aria-label={t('settings.project.workingDayAria', {
+                            day: label,
+                            status: workingDays[index]
+                              ? t('settings.project.workingDay')
+                              : t('settings.project.nonWorkingDay'),
+                          })}
                           aria-pressed={workingDays[index]}
                         />
                       ))}
@@ -281,26 +334,37 @@ export function ProjectSettingsPanel({
                 </div>
 
                 {!canModify && (
-                  <p className="project-settings-readonly-note">
-                    프로젝트 일정 설정은 수정 권한이 있는 사용자만 저장할 수 있습니다.
-                  </p>
+                  <p className="project-settings-readonly-note">{t('settings.project.readonlyNote')}</p>
+                )}
+
+                {canModify && project && (
+                  <div className="project-settings-danger-zone">
+                    <h4>{t('settings.project.deleteTitle')}</h4>
+                    <p>{t('settings.project.deleteNote')}</p>
+                    <button
+                      type="button"
+                      className="project-settings-delete-button"
+                      onClick={() => void handleDelete()}
+                      disabled={saving || deleting}
+                    >
+                      {deleting ? t('common.deleting') : t('settings.project.delete')}
+                    </button>
+                  </div>
                 )}
               </section>
             )}
 
             {tab === 'gantt' && (
               <section>
-                <h3>Gantt 연결선</h3>
-                <p className="project-settings-section-note">
-                  연결선 스타일은 <strong>로그인한 사용자마다</strong> 별도로 저장됩니다.
-                </p>
+                <h3>{t('settings.gantt.title')}</h3>
+                <p className="project-settings-section-note">{t('settings.gantt.note')}</p>
 
                 <div className="project-settings-preview">
                   <svg ref={previewRef} className="project-settings-preview-svg" aria-hidden="true" />
                 </div>
 
                 <label>
-                  기본 의존성 종류
+                  {t('settings.gantt.defaultDepType')}
                   <select
                     value={ganttForm.defaultDependencyType}
                     onChange={(e) =>
@@ -311,7 +375,7 @@ export function ProjectSettingsPanel({
                     }
                     disabled={saving}
                   >
-                    {DEPENDENCY_TYPE_OPTIONS.map((option) => (
+                    {localizedDependencyTypeOptions(t).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -320,13 +384,13 @@ export function ProjectSettingsPanel({
                 </label>
 
                 <label>
-                  선 종류
+                  {t('settings.gantt.lineStyle')}
                   <select
                     value={ganttForm.lineStyle}
                     onChange={(e) => updateGanttField('lineStyle', e.target.value as GanttViewSettings['lineStyle'])}
                     disabled={saving}
                   >
-                    {LINE_STYLE_OPTIONS.map((option) => (
+                    {localizedLineStyleOptions(t).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -335,13 +399,13 @@ export function ProjectSettingsPanel({
                 </label>
 
                 <label>
-                  경로 형태
+                  {t('settings.gantt.pathStyle')}
                   <select
                     value={ganttForm.pathStyle}
                     onChange={(e) => updateGanttField('pathStyle', e.target.value as GanttViewSettings['pathStyle'])}
                     disabled={saving}
                   >
-                    {PATH_STYLE_OPTIONS.map((option) => (
+                    {localizedPathStyleOptions(t).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -350,13 +414,13 @@ export function ProjectSettingsPanel({
                 </label>
 
                 <label>
-                  선 시작 도형
+                  {t('settings.gantt.startLineEnd')}
                   <select
                     value={ganttForm.startLineEnd}
                     onChange={(e) => updateGanttField('startLineEnd', e.target.value as GanttViewSettings['startLineEnd'])}
                     disabled={saving}
                   >
-                    {LINE_END_OPTIONS.map((option) => (
+                    {localizedLineEndOptions(t).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -365,13 +429,13 @@ export function ProjectSettingsPanel({
                 </label>
 
                 <label>
-                  선 끝 도형
+                  {t('settings.gantt.endLineEnd')}
                   <select
                     value={ganttForm.endLineEnd}
                     onChange={(e) => updateGanttField('endLineEnd', e.target.value as GanttViewSettings['endLineEnd'])}
                     disabled={saving}
                   >
-                    {LINE_END_OPTIONS.map((option) => (
+                    {localizedLineEndOptions(t).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -380,7 +444,7 @@ export function ProjectSettingsPanel({
                 </label>
 
                 <label>
-                  연결선 색상
+                  {t('settings.gantt.lineColor')}
                   <input
                     type="color"
                     value={ganttForm.lineColor}
@@ -396,11 +460,11 @@ export function ProjectSettingsPanel({
                     onChange={(e) => updateGanttField('showCriticalPath', e.target.checked)}
                     disabled={saving}
                   />
-                  주요 경로(Critical Path) 표시
+                  {t('settings.gantt.showCriticalPath')}
                 </label>
 
                 <label>
-                  주요 경로(Critical) 색상
+                  {t('settings.gantt.criticalColor')}
                   <input
                     type="color"
                     value={ganttForm.criticalLineColor}
@@ -410,7 +474,7 @@ export function ProjectSettingsPanel({
                 </label>
 
                 <label>
-                  곡선 반경 ({ganttForm.arrowCurve})
+                  {t('settings.gantt.curveRadius', { value: ganttForm.arrowCurve })}
                   <input
                     type="range"
                     min={0}
@@ -429,16 +493,16 @@ export function ProjectSettingsPanel({
         {error && <div className="project-settings-error">{error}</div>}
 
         <footer>
-          <button type="button" className="panel-footer-button" onClick={onClose} disabled={saving}>
-            취소
+          <button type="button" className="panel-footer-button" onClick={onClose} disabled={saving || deleting}>
+            {t('common.cancel')}
           </button>
           <button
             type="button"
             className="panel-footer-button primary"
             onClick={() => void handleSave()}
-            disabled={saving || loading}
+            disabled={saving || deleting || loading}
           >
-            저장
+            {saving ? t('common.saving') : t('common.save')}
           </button>
         </footer>
       </div>

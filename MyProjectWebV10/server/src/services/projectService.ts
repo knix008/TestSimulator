@@ -1,5 +1,6 @@
-import type { MpDependency, MpProject, MpTask } from '@prisma/client';
+import type { MpAssignment, MpDependency, MpNote, MpProject, MpTask } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { computeTaskEndDate } from '../utils/workingWeek.js';
 
 export class ScheduleVersionConflictError extends Error {
   readonly currentVersion: string;
@@ -43,6 +44,24 @@ export interface TaskDto {
   progressColorArgb: number | null;
 }
 
+export interface AssignmentDto {
+  taskId: number;
+  resourceName: string;
+  allocationPercent: number;
+}
+
+export interface NoteDto {
+  noteId: number;
+  title: string;
+  body: string;
+  bodyRtf: string;
+  taskId: number;
+  offsetDays: number;
+  anchorDate: string;
+  contentY: number;
+  contentX: number;
+}
+
 export interface DependencyDto {
   predecessorId: number;
   successorId: number;
@@ -62,6 +81,8 @@ export interface ProjectDetailDto {
   updatedBy: string | null;
   tasks: TaskDto[];
   dependencies: DependencyDto[];
+  assignments: AssignmentDto[];
+  ganttNotes: NoteDto[];
 }
 
 export function toProjectSummary(project: MpProject): ProjectSummaryDto {
@@ -74,8 +95,8 @@ export function toProjectSummary(project: MpProject): ProjectSummaryDto {
   };
 }
 
-export function toTaskDto(task: MpTask): TaskDto {
-  const endDate = computeEndDate(task.startDate, task.durationDays, task.taskType);
+export function toTaskDto(task: MpTask, workingDaysJson: string): TaskDto {
+  const endDate = computeTaskEndDate(task.startDate, task.durationDays, task.taskType, workingDaysJson);
   return {
     taskId: task.taskId,
     parentId: task.parentId,
@@ -97,6 +118,28 @@ export function toTaskDto(task: MpTask): TaskDto {
   };
 }
 
+export function toAssignmentDto(assignment: MpAssignment): AssignmentDto {
+  return {
+    taskId: assignment.taskId,
+    resourceName: assignment.resourceName,
+    allocationPercent: assignment.allocationPercent,
+  };
+}
+
+export function toNoteDto(note: MpNote): NoteDto {
+  return {
+    noteId: note.noteId,
+    title: note.title,
+    body: note.body,
+    bodyRtf: note.bodyRtf,
+    taskId: note.taskId,
+    offsetDays: note.offsetDays,
+    anchorDate: note.anchorDate.toISOString(),
+    contentY: note.contentY,
+    contentX: note.contentX,
+  };
+}
+
 export function toDependencyDto(dep: MpDependency): DependencyDto {
   return {
     predecessorId: dep.predecessorId,
@@ -108,14 +151,6 @@ export function toDependencyDto(dep: MpDependency): DependencyDto {
   };
 }
 
-function computeEndDate(startDate: Date, durationDays: number, taskType: string): Date {
-  if (taskType === 'Milestone') {
-    return startDate;
-  }
-  const end = new Date(startDate);
-  end.setDate(end.getDate() + Math.max(1, durationDays) - 1);
-  return end;
-}
 
 export function createTemplateTasks(projectStart: Date): Array<Omit<MpTask, 'projectId'>> {
   const day = (offset: number) => {
@@ -190,7 +225,7 @@ export function createTemplateTasks(projectStart: Date): Array<Omit<MpTask, 'pro
       parentId: -1,
       name: 'Project complete',
       startDate: day(30),
-      durationDays: 1,
+      durationDays: 0,
       progress: 0,
       taskType: 'Milestone',
       indentLevel: 0,
@@ -246,6 +281,22 @@ export interface UpdateScheduleInput {
     startLineEnd?: string | null;
     endLineEnd?: string | null;
   }>;
+  assignments?: Array<{
+    taskId: number;
+    resourceName: string;
+    allocationPercent: number;
+  }>;
+  ganttNotes?: Array<{
+    noteId: number;
+    title: string;
+    body: string;
+    bodyRtf: string;
+    taskId: number;
+    offsetDays: number;
+    anchorDate: string;
+    contentY: number;
+    contentX: number;
+  }>;
 }
 
 export async function listProjects(): Promise<ProjectSummaryDto[]> {
@@ -261,6 +312,8 @@ export async function getProjectById(id: number): Promise<ProjectDetailDto | nul
     include: {
       tasks: { orderBy: { taskId: 'asc' } },
       dependencies: true,
+      assignments: true,
+      notes: true,
     },
   });
 
@@ -274,8 +327,10 @@ export async function getProjectById(id: number): Promise<ProjectDetailDto | nul
     updatedUtc: project.updatedUtc.toISOString(),
     version: project.version.toString(),
     updatedBy: project.updatedBy,
-    tasks: project.tasks.map(toTaskDto),
+    tasks: project.tasks.map((task) => toTaskDto(task, project.workingDaysJson)),
     dependencies: project.dependencies.map(toDependencyDto),
+    assignments: project.assignments.map(toAssignmentDto),
+    ganttNotes: project.notes.map(toNoteDto),
   };
 }
 
@@ -299,6 +354,8 @@ export async function createProject(name?: string): Promise<ProjectDetailDto> {
     include: {
       tasks: { orderBy: { taskId: 'asc' } },
       dependencies: true,
+      assignments: true,
+      notes: true,
     },
   });
 
@@ -310,8 +367,10 @@ export async function createProject(name?: string): Promise<ProjectDetailDto> {
     updatedUtc: created.updatedUtc.toISOString(),
     version: created.version.toString(),
     updatedBy: created.updatedBy,
-    tasks: created.tasks.map(toTaskDto),
+    tasks: created.tasks.map((task) => toTaskDto(task, created.workingDaysJson)),
     dependencies: created.dependencies.map(toDependencyDto),
+    assignments: created.assignments.map(toAssignmentDto),
+    ganttNotes: created.notes.map(toNoteDto),
   };
 }
 
@@ -326,7 +385,8 @@ function preserveWinTaskFields(
     parentId: task.parentId,
     name: task.name,
     startDate: new Date(task.startDate),
-    durationDays: task.durationDays,
+    durationDays:
+      task.taskType === 'Milestone' ? 0 : Math.max(1, task.durationDays),
     progress: task.progress,
     taskType: task.taskType,
     indentLevel: task.indentLevel,
@@ -402,7 +462,49 @@ export async function updateProjectSchedule(
         });
       }
     }
+
+    if (input.assignments) {
+      await tx.mpAssignment.deleteMany({ where: { projectId: id } });
+      if (input.assignments.length > 0) {
+        await tx.mpAssignment.createMany({
+          data: input.assignments.map((assignment) => ({
+            projectId: id,
+            taskId: assignment.taskId,
+            resourceName: assignment.resourceName.slice(0, 256),
+            allocationPercent: Math.max(0, assignment.allocationPercent),
+          })),
+        });
+      }
+    }
+
+    if (input.ganttNotes) {
+      await tx.mpNote.deleteMany({ where: { projectId: id } });
+      if (input.ganttNotes.length > 0) {
+        await tx.mpNote.createMany({
+          data: input.ganttNotes.map((note) => ({
+            projectId: id,
+            noteId: note.noteId,
+            title: note.title.slice(0, 256),
+            body: note.body,
+            bodyRtf: note.bodyRtf,
+            taskId: note.taskId,
+            offsetDays: note.offsetDays,
+            anchorDate: new Date(note.anchorDate),
+            contentY: note.contentY,
+            contentX: note.contentX,
+          })),
+        });
+      }
+    }
   });
 
   return getProjectById(id);
+}
+
+export async function deleteProject(id: number): Promise<boolean> {
+  const existing = await prisma.mpProject.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) return false;
+
+  await prisma.mpProject.delete({ where: { id } });
+  return true;
 }

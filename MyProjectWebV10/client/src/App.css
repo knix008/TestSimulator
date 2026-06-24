@@ -1,6 +1,7 @@
 .app {
   height: 100vh;
-  min-height: 0;
+  min-height: var(--app-min-height, 500px);
+  min-width: var(--app-min-width, 1200px);
   overflow: hidden;
   display: flex;
   flex-direction: column;

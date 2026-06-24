@@ -108,6 +108,20 @@ export function IconAddSubtask(props: IconProps) {
   );
 }
 
+export function IconAddNote(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path
+        d="M7 4h10a2 2 0 0 1 2 2v12l-3-2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        fill="none"
+      />
+      <path d="M9 8h6M9 11h4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
 export function IconDelete(props: IconProps) {
   return (
     <IconBase {...props}>
@@ -277,6 +291,24 @@ export function IconLogout(props: IconProps) {
   );
 }
 
+export function IconExport(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10 2v8M7 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 12v4h12v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconImport(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10 10V2M7 5l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 12v4h12v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
 export type ToolbarIconName =
   | 'newProject'
   | 'refresh'
@@ -286,6 +318,7 @@ export type ToolbarIconName =
   | 'save'
   | 'addTask'
   | 'addSubtask'
+  | 'addNote'
   | 'deleteTask'
   | 'indent'
   | 'outdent'
@@ -302,7 +335,9 @@ export type ToolbarIconName =
   | 'database'
   | 'users'
   | 'account'
-  | 'logout';
+  | 'logout'
+  | 'export'
+  | 'import';
 
 const ICONS: Record<ToolbarIconName, ComponentType<IconProps>> = {
   newProject: IconNewProject,
@@ -313,6 +348,7 @@ const ICONS: Record<ToolbarIconName, ComponentType<IconProps>> = {
   save: IconSave,
   addTask: IconAddTask,
   addSubtask: IconAddSubtask,
+  addNote: IconAddNote,
   deleteTask: IconDelete,
   indent: IconIndent,
   outdent: IconOutdent,
@@ -330,6 +366,8 @@ const ICONS: Record<ToolbarIconName, ComponentType<IconProps>> = {
   users: IconUsers,
   account: IconAccount,
   logout: IconLogout,
+  export: IconExport,
+  import: IconImport,
 };
 
 export function ToolbarIcon({ name, className }: { name: ToolbarIconName; className?: string }) {

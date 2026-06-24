@@ -239,3 +239,41 @@
   padding: 12px 20px 16px;
   border-top: 1px solid #e2e8f0;
 }
+
+.project-settings-danger-zone {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #fecaca;
+}
+
+.project-settings-danger-zone h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: #991b1b;
+}
+
+.project-settings-danger-zone p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #7f1d1d;
+  line-height: 1.45;
+}
+
+.project-settings-delete-button {
+  padding: 7px 12px;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.project-settings-delete-button:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.project-settings-delete-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

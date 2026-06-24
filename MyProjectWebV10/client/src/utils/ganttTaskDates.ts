@@ -1,4 +1,5 @@
 import type { TaskItem } from '../types/project';
+import { toDateInputValue } from './taskDateInput';
 
 export function parseLocalDateString(ymd: string): Date {
   const [y, m, d] = ymd.split('-').map(Number);
@@ -12,18 +13,26 @@ export function formatLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Stored schedule duration for milestones (zero-duration). */
+export const MILESTONE_DURATION_DAYS = 0;
+
+/** Visual/interaction span on the Gantt chart (inclusive calendar days). */
+export const MILESTONE_CHART_DURATION_DAYS = 1;
+
+/** ISO schedule date → local YYYY-MM-DD for Frappe Gantt (avoids UTC slice drift). */
+export function toGanttDateString(iso: string): string {
+  return toDateInputValue(iso);
+}
+
 /**
- * Frappe Gantt uses an exclusive end date (loop: start <= d < end).
- * MyProject stores an inclusive end date — convert for the chart.
+ * Frappe Gantt treats the end date as the last calendar day of the task
+ * (midnight is extended to end-of-day). Milestones are stored as 0-day tasks
+ * but use the same start/end day here so the chart shows a 1-day bar.
  */
 export function toFrappeGanttEndDate(task: TaskItem): string {
-  const start = task.startDate.slice(0, 10);
+  const start = toGanttDateString(task.startDate);
   if (task.taskType === 'Milestone') {
     return start;
   }
-
-  const endInclusive = parseLocalDateString(task.endDate.slice(0, 10));
-  const exclusive = new Date(endInclusive);
-  exclusive.setDate(exclusive.getDate() + 1);
-  return formatLocalDateString(exclusive);
+  return toGanttDateString(task.endDate);
 }

@@ -210,6 +210,12 @@ export function decorateGanttBars(
   tasks: TaskItem[],
   options: DecorateGanttBarsOptions = {},
 ): void {
+  container.querySelectorAll('.ignored-bar, .holiday-highlight').forEach((element) => {
+    if (element instanceof SVGElement) {
+      element.style.pointerEvents = 'none';
+    }
+  });
+
   const taskById = new Map(tasks.map((task) => [task.taskId, task]));
   const showCriticalPath = options.showCriticalPath ?? false;
 

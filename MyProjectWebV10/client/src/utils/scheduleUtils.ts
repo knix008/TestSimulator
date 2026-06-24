@@ -1,8 +1,13 @@
-import type { DependencyItem, ProjectDetail, TaskItem } from '../types/project';
+import type { AssignmentItem, DependencyItem, GanttViewSettings, ProjectDetail, NoteItem, TaskItem } from '../types/project';
 import { applyCriticalPathFlags } from './criticalPathCalculator';
+import { MILESTONE_DURATION_DAYS } from './ganttTaskDates';
 import { updateTaskHierarchy } from './taskModel';
 import { countWorkingDaysInclusive, getTaskEndDate, snapToNextWorkingDay } from './workingDayCalendar';
-import { parseWorkingWeek, type WorkingWeek } from './workingWeek';
+import { defaultWorkingWeek, parseWorkingWeek, type WorkingWeek } from './workingWeek';
+
+function resolveWorkingWeek(week?: WorkingWeek): WorkingWeek {
+  return week ?? defaultWorkingWeek();
+}
 
 export function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -20,22 +25,28 @@ export function computeEndDate(
     return startDate;
   }
   const start = startOfDay(new Date(startDate));
-  if (week) {
-    return getTaskEndDate(start, Math.max(1, durationDays), week).toISOString();
-  }
-  const end = startOfDay(new Date(start));
-  end.setDate(end.getDate() + Math.max(1, durationDays) - 1);
-  return end.toISOString();
+  return getTaskEndDate(start, Math.max(1, durationDays), resolveWorkingWeek(week)).toISOString();
 }
 
 export function inclusiveDayCount(start: Date, end: Date, week?: WorkingWeek): number {
-  if (week) {
-    return Math.max(1, countWorkingDaysInclusive(start, end, week));
-  }
-  const s = startOfDay(start);
-  const e = startOfDay(end);
-  const diff = Math.round((e.getTime() - s.getTime()) / 86_400_000);
-  return Math.max(1, diff + 1);
+  return Math.max(1, countWorkingDaysInclusive(start, end, resolveWorkingWeek(week)));
+}
+
+/** Snap starts and recompute ends from working-day durations (load/import/working-week change). */
+export function normalizeTasksToWorkingWeek(tasks: TaskItem[], workingDaysJson: string): TaskItem[] {
+  const week = parseWorkingWeek(workingDaysJson);
+  return tasks.map((task) => {
+    if (task.taskType === 'Summary') return task;
+    const startDate = snapToNextWorkingDay(startOfDay(new Date(task.startDate)), week).toISOString();
+    const durationDays =
+      task.taskType === 'Milestone' ? MILESTONE_DURATION_DAYS : Math.max(1, task.durationDays);
+    return {
+      ...task,
+      startDate,
+      durationDays,
+      endDate: computeEndDate(startDate, durationDays, task.taskType, week),
+    };
+  });
 }
 
 export function applyTaskStartDateChange(
@@ -43,10 +54,10 @@ export function applyTaskStartDateChange(
   start: Date,
   week?: WorkingWeek,
 ): TaskItem {
-  const schedule = week ?? parseWorkingWeek('[]');
+  const schedule = week ?? defaultWorkingWeek();
   const startDate = snapToNextWorkingDay(startOfDay(start), schedule).toISOString();
   const durationDays =
-    task.taskType === 'Milestone' ? 1 : Math.max(1, task.durationDays);
+    task.taskType === 'Milestone' ? MILESTONE_DURATION_DAYS : Math.max(1, task.durationDays);
   const endDate = computeEndDate(startDate, durationDays, task.taskType, schedule);
   return { ...task, startDate, durationDays, endDate };
 }
@@ -56,16 +67,18 @@ export function applyTaskEndDateChange(
   end: Date,
   week?: WorkingWeek,
 ): TaskItem {
-  const schedule = week ?? parseWorkingWeek('[]');
+  const schedule = week ?? defaultWorkingWeek();
+  if (task.taskType === 'Milestone') {
+    const startDate = snapToNextWorkingDay(startOfDay(end), schedule).toISOString();
+    return { ...task, startDate, endDate: startDate, durationDays: MILESTONE_DURATION_DAYS };
+  }
+
   const startDay = snapToNextWorkingDay(startOfDay(new Date(task.startDate)), schedule);
   let endDay = snapToNextWorkingDay(startOfDay(end), schedule);
   if (endDay < startDay) {
     endDay = startDay;
   }
-  const durationDays =
-    task.taskType === 'Milestone'
-      ? 1
-      : Math.max(1, inclusiveDayCount(startDay, endDay, schedule));
+  const durationDays = Math.max(1, inclusiveDayCount(startDay, endDay, schedule));
   const startDate = startDay.toISOString();
   const endDate = computeEndDate(startDate, durationDays, task.taskType, schedule);
   return { ...task, startDate, durationDays, endDate };
@@ -77,15 +90,25 @@ export function applyTaskDateChange(
   end: Date,
   week?: WorkingWeek,
 ): TaskItem {
-  const schedule = week ?? parseWorkingWeek('[]');
+  if (task.taskType === 'Summary') return task;
+  const schedule = week ?? defaultWorkingWeek();
+  if (task.taskType === 'Milestone') {
+    const startDate = snapToNextWorkingDay(startOfDay(start), schedule).toISOString();
+    return {
+      ...task,
+      startDate,
+      endDate: startDate,
+      durationDays: MILESTONE_DURATION_DAYS,
+    };
+  }
+
   const startDate = snapToNextWorkingDay(startOfDay(start), schedule).toISOString();
-  let endDay = startOfDay(end);
+  let endDay = snapToNextWorkingDay(startOfDay(end), schedule);
   const startDay = startOfDay(new Date(startDate));
   if (endDay < startDay) {
     endDay = startDay;
   }
-  const durationDays =
-    task.taskType === 'Milestone' ? 1 : inclusiveDayCount(startDay, endDay, schedule);
+  const durationDays = inclusiveDayCount(startDay, endDay, schedule);
   const endDate = computeEndDate(startDate, durationDays, task.taskType, schedule);
   return { ...task, startDate, durationDays, endDate };
 }
@@ -197,6 +220,43 @@ export function setDependencyType(
   );
 }
 
+export function setDependencyLineEnd(
+  deps: DependencyItem[],
+  predecessorId: number,
+  successorId: number,
+  which: 'start' | 'end',
+  style: string,
+): DependencyItem[] {
+  const field = which === 'start' ? 'startLineEnd' : 'endLineEnd';
+  return deps.map((dep) =>
+    dep.predecessorId === predecessorId && dep.successorId === successorId
+      ? { ...dep, [field]: style }
+      : dep,
+  );
+}
+
+export function resolveDependencyStartLineEnd(
+  dep: DependencyItem | undefined,
+  viewSettings: Pick<GanttViewSettings, 'startLineEnd'>,
+): GanttViewSettings['startLineEnd'] {
+  const value = dep?.startLineEnd;
+  if (value === 'None' || value === 'Arrow' || value === 'OpenArrow' || value === 'Dot' || value === 'Square') {
+    return value;
+  }
+  return viewSettings.startLineEnd;
+}
+
+export function resolveDependencyEndLineEnd(
+  dep: DependencyItem | undefined,
+  viewSettings: Pick<GanttViewSettings, 'endLineEnd'>,
+): GanttViewSettings['endLineEnd'] {
+  const value = dep?.endLineEnd;
+  if (value === 'None' || value === 'Arrow' || value === 'OpenArrow' || value === 'Dot' || value === 'Square') {
+    return value;
+  }
+  return viewSettings.endLineEnd;
+}
+
 export function getIncomingDependencies(deps: DependencyItem[], taskId: number): DependencyItem[] {
   return deps.filter((dep) => dep.successorId === taskId);
 }
@@ -232,26 +292,65 @@ export function resolveDependencyTypeTarget(
   return null;
 }
 
+export function resolveContextDependencyTarget(
+  deps: DependencyItem[],
+  taskId: number,
+  linkSourceTaskId: number | null,
+  selectedDependency: DependencyLinkKey | null,
+): DependencyLinkKey | null {
+  if (selectedDependency) {
+    const involvesTask =
+      selectedDependency.predecessorId === taskId ||
+      selectedDependency.successorId === taskId;
+    if (
+      involvesTask &&
+      deps.some(
+        (dep) =>
+          dep.predecessorId === selectedDependency.predecessorId &&
+          dep.successorId === selectedDependency.successorId,
+      )
+    ) {
+      return selectedDependency;
+    }
+  }
+
+  return resolveDependencyTypeTarget(deps, taskId, linkSourceTaskId);
+}
+
+function findDependency(
+  deps: DependencyItem[],
+  target: DependencyLinkKey,
+): DependencyItem | undefined {
+  return deps.find(
+    (item) =>
+      item.predecessorId === target.predecessorId && item.successorId === target.successorId,
+  );
+}
+
 export function resolveContextDependencyType(
   deps: DependencyItem[],
   taskId: number,
   linkSourceTaskId: number | null,
   defaultType: string,
+  selectedDependency: DependencyLinkKey | null = null,
 ): string {
-  const target = resolveDependencyTypeTarget(deps, taskId, linkSourceTaskId);
+  const target = resolveContextDependencyTarget(
+    deps,
+    taskId,
+    linkSourceTaskId,
+    selectedDependency,
+  );
   if (!target) return defaultType;
 
-  const dep = deps.find(
-    (item) =>
-      item.predecessorId === target.predecessorId && item.successorId === target.successorId,
-  );
-  return dep?.type || defaultType;
+  return findDependency(deps, target)?.type || defaultType;
 }
 
 export function toUpdatePayload(project: ProjectDetail): {
   expectedVersion: string;
   tasks: Omit<TaskItem, 'endDate'>[];
   dependencies: DependencyItem[];
+  assignments: AssignmentItem[];
+  ganttNotes: NoteItem[];
 } {
   return {
     expectedVersion: project.version,
@@ -260,7 +359,10 @@ export function toUpdatePayload(project: ProjectDetail): {
       parentId: task.parentId,
       name: (task.name.trim() || 'New Task').slice(0, 512),
       startDate: new Date(task.startDate).toISOString(),
-      durationDays: Math.max(1, Math.round(task.durationDays)),
+      durationDays:
+        task.taskType === 'Milestone'
+          ? 0
+          : Math.max(1, Math.round(task.durationDays)),
       progress: Math.min(100, Math.max(0, Math.round(task.progress))),
       taskType: task.taskType,
       indentLevel: Math.max(0, Math.round(task.indentLevel)),
@@ -278,6 +380,22 @@ export function toUpdatePayload(project: ProjectDetail): {
       lagDays: Math.round(dep.lagDays),
       startLineEnd: dep.startLineEnd ?? null,
       endLineEnd: dep.endLineEnd ?? null,
+    })),
+    assignments: (project.assignments ?? []).map((assignment) => ({
+      taskId: assignment.taskId,
+      resourceName: assignment.resourceName.slice(0, 256),
+      allocationPercent: Math.max(0, assignment.allocationPercent),
+    })),
+    ganttNotes: (project.ganttNotes ?? []).map((note) => ({
+      noteId: note.noteId,
+      title: (note.title || 'New Note').slice(0, 256),
+      body: note.body ?? '',
+      bodyRtf: note.bodyRtf ?? '',
+      taskId: note.taskId,
+      offsetDays: note.offsetDays,
+      anchorDate: new Date(note.anchorDate).toISOString(),
+      contentY: Math.round(note.contentY),
+      contentX: Math.round(note.contentX),
     })),
   };
 }
@@ -305,7 +423,16 @@ export function finalizeSchedule(
 }
 
 export function withRecalculatedSchedule(project: ProjectDetail): ProjectDetail {
-  const tasks = finalizeSchedule(project.tasks, project.dependencies, project);
-  if (tasks === project.tasks) return project;
-  return { ...project, tasks };
+  const normalized = {
+    ...project,
+    assignments: project.assignments ?? [],
+    ganttNotes: project.ganttNotes ?? [],
+  };
+  const tasks = finalizeSchedule(
+    normalizeTasksToWorkingWeek(normalized.tasks, normalized.workingDaysJson),
+    normalized.dependencies,
+    normalized,
+  );
+  if (tasks === normalized.tasks) return normalized;
+  return { ...normalized, tasks };
 }

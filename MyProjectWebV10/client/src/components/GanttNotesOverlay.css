@@ -1,0 +1,117 @@
+.gantt-notes-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
+
+.gantt-notes-connectors {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.gantt-note-connector {
+  stroke: #484848;
+  stroke-width: 1.25;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+
+.gantt-note {
+  position: absolute;
+  width: 104px;
+  height: 58px;
+  box-sizing: border-box;
+  padding: 6px 8px 6px 6px;
+  border: 1px solid #484848;
+  background: linear-gradient(180deg, #fffcdc 0%, #ffeeaa 100%);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.16);
+  pointer-events: auto;
+  user-select: none;
+  overflow: hidden;
+}
+
+.gantt-note::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(225deg, #ffe998 0%, #e8d080 55%, transparent 56%);
+  border-left: 1px solid #484848;
+  border-bottom: 1px solid #484848;
+  pointer-events: none;
+}
+
+.gantt-note::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(180deg, #fffcdc 0%, #ffeeaa 100%);
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+  pointer-events: none;
+}
+
+.gantt-note.editable {
+  cursor: grab;
+}
+
+.gantt-note.editable:active,
+.gantt-note.dragging {
+  cursor: grabbing;
+}
+
+.gantt-note.selected {
+  border-width: 2px;
+  border-color: #1d4ed8;
+  box-shadow: 2px 2px 0 rgba(29, 78, 216, 0.25);
+}
+
+.gantt-note.dragging {
+  opacity: 0.72;
+  outline: 1.5px dashed #64748b;
+  outline-offset: 1px;
+}
+
+.gantt-note-text {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  line-height: 1.25;
+  color: #1e293b;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: hidden;
+  max-height: 46px;
+}
+
+.gantt-note-editor {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: none;
+  resize: none;
+  background: transparent;
+  font-size: 11px;
+  line-height: 1.25;
+  font-family: inherit;
+  color: #1e293b;
+  outline: none;
+}
+
+.gantt-note-editor:focus {
+  background: rgba(255, 255, 255, 0.35);
+}

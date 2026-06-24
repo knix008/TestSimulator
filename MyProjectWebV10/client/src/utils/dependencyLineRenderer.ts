@@ -280,6 +280,17 @@ export interface FrappeGanttLayers {
   $svg?: SVGSVGElement;
 }
 
+export function isCriticalDependency(
+  dep: DependencyItem,
+  viewSettings: GanttViewSettings,
+  tasks: TaskItem[],
+): boolean {
+  if (!viewSettings.showCriticalPath) return false;
+  const predecessor = tasks.find((task) => task.taskId === dep.predecessorId);
+  const successor = tasks.find((task) => task.taskId === dep.successorId);
+  return (predecessor?.isCritical ?? false) && (successor?.isCritical ?? false);
+}
+
 export function resolveDependencyLineStyle(
   dep: DependencyItem,
   viewSettings: GanttViewSettings,
@@ -290,12 +301,7 @@ export function resolveDependencyLineStyle(
   startLineEnd: LineEndStyle;
   endLineEnd: LineEndStyle;
 } {
-  const predecessor = tasks.find((task) => task.taskId === dep.predecessorId);
-  const successor = tasks.find((task) => task.taskId === dep.successorId);
-  const isCritical =
-    viewSettings.showCriticalPath &&
-    (predecessor?.isCritical ?? false) &&
-    (successor?.isCritical ?? false);
+  const isCritical = isCriticalDependency(dep, viewSettings, tasks);
   return {
     type: (dep.type as DependencyType) || viewSettings.defaultDependencyType,
     color: isCritical ? viewSettings.criticalLineColor : viewSettings.lineColor,
@@ -310,6 +316,7 @@ export function renderDependencyLines(
   dependencies: DependencyItem[],
   tasks: TaskItem[],
   viewSettings: GanttViewSettings,
+  selectedDependency?: { predecessorId: number; successorId: number } | null,
 ): void {
   const barLayer = gantt.layers?.bar;
   const svg = gantt.$svg;
@@ -318,12 +325,22 @@ export function renderDependencyLines(
   const target = ensureDependencyGroup(svg, barLayer);
   target.replaceChildren();
 
-  for (const dep of dependencies) {
+  const orderedDependencies = [...dependencies].sort((a, b) => {
+    const aCritical = isCriticalDependency(a, viewSettings, tasks);
+    const bCritical = isCriticalDependency(b, viewSettings, tasks);
+    return Number(aCritical) - Number(bCritical);
+  });
+
+  for (const dep of orderedDependencies) {
     const from = getBarAnchors(container, dep.predecessorId);
     const to = getBarAnchors(container, dep.successorId);
     if (!from || !to) continue;
 
     const style = resolveDependencyLineStyle(dep, viewSettings, tasks);
+    const isSelected =
+      selectedDependency != null &&
+      dep.predecessorId === selectedDependency.predecessorId &&
+      dep.successorId === selectedDependency.successorId;
     const pathData = buildDependencyPath(
       style.type,
       from,
@@ -337,8 +354,11 @@ export function renderDependencyLines(
     path.setAttribute('d', pathData);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', style.color);
-    path.setAttribute('stroke-width', '1.75');
-    path.setAttribute('class', 'gantt-dependency-line');
+    path.setAttribute('stroke-width', isSelected ? '2.75' : '1.75');
+    path.setAttribute(
+      'class',
+      isSelected ? 'gantt-dependency-line gantt-dependency-line-selected' : 'gantt-dependency-line',
+    );
     const dash = strokeDash(viewSettings.lineStyle);
     if (dash) path.setAttribute('stroke-dasharray', dash);
 
@@ -347,7 +367,7 @@ export function renderDependencyLines(
     hitPath.setAttribute('fill', 'none');
     hitPath.setAttribute('stroke', 'transparent');
     hitPath.setAttribute('stroke-width', '12');
-    hitPath.setAttribute('class', 'gantt-dependency-line-hit');
+    hitPath.setAttribute('class', isSelected ? 'gantt-dependency-line-hit gantt-dependency-line-hit-selected' : 'gantt-dependency-line-hit');
     hitPath.setAttribute('data-predecessor-id', String(dep.predecessorId));
     hitPath.setAttribute('data-successor-id', String(dep.successorId));
 

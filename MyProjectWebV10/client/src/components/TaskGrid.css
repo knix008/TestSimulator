@@ -16,7 +16,7 @@
 }
 
 .task-grid thead tr {
-  height: var(--task-grid-header-height, var(--split-header-height, 62px));
+  height: var(--task-grid-header-height, 30px);
 }
 
 .task-grid th,
@@ -28,17 +28,72 @@
   overflow: hidden;
 }
 
-.task-grid thead th {
+.task-grid-project-banner {
   position: sticky;
   top: 0;
+  z-index: 4;
+  height: var(--task-grid-project-banner-height, 38px);
+  line-height: var(--task-grid-project-banner-height, 38px);
+  padding: 0 12px;
+  font-weight: 700;
+  font-size: 16px;
+  color: #1e293b;
+  background: #eef2f7;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.task-grid thead th {
+  position: sticky;
+  top: var(--task-grid-project-banner-height, 38px);
   z-index: 1;
-  height: var(--task-grid-header-height, var(--split-header-height, 62px));
-  max-height: var(--task-grid-header-height, var(--split-header-height, 62px));
+  height: var(--task-grid-header-height, 30px);
+  max-height: var(--task-grid-header-height, 30px);
   background: #f8fafc;
-  text-align: left;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 1.2;
   font-weight: 600;
   color: #475569;
   box-shadow: inset 0 -1px 0 #e5e7eb;
+  border-top: none;
+  border-right: none;
+}
+
+.task-grid thead:hover th:not(:last-child),
+.task-grid.is-resizing-columns thead th:not(:last-child) {
+  border-right: 1px solid #cbd5e1;
+}
+
+.task-grid thead th:last-child {
+  border-right: none;
+}
+
+.task-grid-col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  z-index: 2;
+}
+
+.task-grid-col-resizer:hover,
+.task-grid.is-resizing-columns .task-grid-col-resizer {
+  background: linear-gradient(to right, transparent, #94a3b8 45%, #64748b 55%, transparent);
+}
+
+.task-grid.is-resizing-columns {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .task-grid tbody tr {
@@ -66,12 +121,95 @@
   font-weight: 600;
 }
 
-.col-id { width: 48px; }
-.col-name { min-width: 220px; }
-.col-duration { width: 64px; }
-.col-start, .col-end { width: 118px; }
-.col-progress { width: 72px; }
-.col-type { width: 88px; }
+.task-grid td.col-id {
+  text-align: center;
+  font-weight: 700;
+}
+.task-grid td.col-duration {
+  text-align: right;
+}
+.col-duration-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  width: 100%;
+  max-width: 100%;
+}
+.col-duration-unit {
+  font-size: 12px;
+  color: #475569;
+  flex-shrink: 0;
+}
+.task-grid-inline-input.task-grid-duration-input {
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  flex: 0 0 auto;
+  padding-left: 4px;
+  padding-right: 2px;
+  text-align: right;
+}
+.task-grid td.col-start,
+.task-grid td.col-end {
+  text-align: left;
+}
+.task-grid td.col-progress {
+  text-align: center;
+}
+.col-progress-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 100%;
+}
+.col-progress-unit {
+  font-size: 12px;
+  color: #475569;
+}
+.task-grid-progress-input {
+  width: 40px;
+  text-align: center;
+}
+.task-grid td.col-alloc {
+  overflow: visible;
+}
+.col-alloc-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1px;
+  width: 100%;
+}
+.col-alloc-unit {
+  font-size: 12px;
+  color: #475569;
+}
+.task-grid-alloc-input {
+  width: 40px;
+  text-align: right;
+}
+.col-multiline {
+  white-space: normal;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.col-multiline-inner {
+  display: flex;
+  align-items: center;
+  height: var(--task-grid-row-height, var(--split-row-height, 32px));
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+
+.col-multiline-inner .task-grid-multiline,
+.col-multiline-inner .task-grid-textarea {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
 
 .col-name-cell {
   overflow: hidden;
@@ -196,4 +334,38 @@
 
 .task-grid-name-input {
   min-width: 0;
+}
+
+.task-grid-multiline {
+  white-space: pre-line;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.task-grid-alloc-text {
+  text-align: right;
+}
+
+.task-grid-textarea {
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  box-sizing: border-box;
+  padding: 2px 4px;
+  border: 1px solid #94a3b8;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.25;
+  resize: none;
+  overflow: hidden;
+}
+
+.task-grid-alloc-textarea {
+  min-height: 22px;
+  max-height: none;
+  height: auto;
+  overflow: visible;
+  text-align: right;
 }

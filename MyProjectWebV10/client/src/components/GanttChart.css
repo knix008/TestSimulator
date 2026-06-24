@@ -44,9 +44,74 @@
 
 .gantt-scroll > .gantt-container > .gantt-container .grid-header {
   box-sizing: border-box;
-  height: var(--split-header-height, 62px) !important;
-  min-height: var(--split-header-height, 62px);
-  max-height: var(--split-header-height, 62px);
+  height: var(--split-header-height, 68px) !important;
+  min-height: var(--split-header-height, 68px);
+  max-height: var(--split-header-height, 68px);
+}
+
+.gantt-container .side-header {
+  display: none;
+}
+
+.gantt-container .upper-text {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gantt-container .lower-text {
+  white-space: pre-line;
+  line-height: 1.2;
+  font-size: 11px;
+  height: calc(var(--gv-lower-header-height) * 0.92);
+  align-content: center;
+}
+
+.gantt-container .lower-text.gantt-lower-decorated {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  white-space: normal;
+  gap: 1px;
+}
+
+.gantt-container .lower-text .gantt-day-num {
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.gantt-container .lower-text .gantt-weekday {
+  font-size: 10px;
+  line-height: 1.1;
+  color: var(--g-text-muted, #64748b);
+}
+
+.gantt-container .lower-text.gantt-weekend-day {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.gantt-container .lower-text.gantt-weekend-day .gantt-day-num,
+.gantt-container .lower-text.gantt-weekend-day .gantt-weekday {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.gantt-container .lower-text.gantt-today-day .gantt-day-num,
+.gantt-container .lower-text.gantt-today-day .gantt-weekday,
+.gantt-container .lower-text.current-date-highlight .gantt-day-num,
+.gantt-container .lower-text.current-date-highlight .gantt-weekday {
+  color: #ffffff;
+}
+
+.gantt-container .upper-text.current-upper {
+  position: absolute !important;
+  z-index: 3;
+  padding-left: 4px !important;
+  padding-right: 8px !important;
+  background: #f8fafc !important;
+  box-shadow: 6px 0 8px -4px #f8fafc;
 }
 
 .gantt-scroll > .gantt-container > .gantt-container::-webkit-scrollbar {
@@ -74,6 +139,12 @@
   --g-progress-color: #7ebdee;
 }
 
+/* Non-working day hatch overlays are drawn above bar groups in SVG paint order. */
+.gantt-container .ignored-bar,
+.gantt-container .holiday-highlight {
+  pointer-events: none;
+}
+
 /* Hide frappe built-in dependency paths only; keep custom gantt-custom-dependencies */
 .gantt-container g.arrow > path {
   display: none;
@@ -81,12 +152,16 @@
 
 .gantt-container .gantt-custom-dependencies .gantt-dependency-line-hit {
   pointer-events: stroke;
-  cursor: context-menu;
+  cursor: pointer;
 }
 
 .gantt-container .gantt-custom-dependencies .gantt-dependency-line {
   stroke-width: 1.75;
   pointer-events: none;
+}
+
+.gantt-container .gantt-custom-dependencies .gantt-dependency-line-selected {
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
 }
 
 /* Today: red dashed vertical line, dot at top, black pill on day number */
@@ -155,6 +230,11 @@
   fill-opacity: 1;
   stroke: #626874;
   stroke-width: 1.35;
+}
+
+.gantt-milestone .handle {
+  visibility: hidden !important;
+  pointer-events: none;
 }
 
 .gantt-milestone .bar-progress {

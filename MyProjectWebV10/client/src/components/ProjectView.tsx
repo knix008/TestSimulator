@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createProject,
+  deleteProject,
+  downloadProjectExport,
   getDatabaseConfig,
   getProject,
   getProjectViewSettings,
+  importProjectExcel,
   listProjects,
   saveProjectViewSettings,
   updateProject,
+  type ProjectExportFormat,
 } from '../api/client';
 import { DEFAULT_GANTT_VIEW_SETTINGS, normalizeGanttViewSettings } from '../config/ganttViewSettings';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n';
 import type { DatabaseConfigInfo, GanttViewSettings, ProjectDetail, ProjectSummary, TaskItem } from '../types/project';
 import {
   applyTaskDateChange,
@@ -18,11 +23,22 @@ import {
   getPredecessors,
   removeDependency,
   resolveDependencyTypeTarget,
+  setDependencyLineEnd,
   setDependencyType,
   toUpdatePayload,
   tryAddDependency,
   withRecalculatedSchedule,
 } from '../utils/scheduleUtils';
+import { applyTaskResourcesFromColumns } from '../utils/taskResources';
+import {
+  createNoteForTask,
+  nextNoteId,
+  removeNoteFromProject,
+  removeNotesForTaskIds,
+  syncTaskNotesFromLinkedNote,
+  updateNoteBodyInProject,
+  updateNotePositionInProject,
+} from '../utils/projectNotes';
 import { syncSplitScroll } from '../utils/splitScroll';
 import {
   buildProjectContextMenu,
@@ -53,17 +69,26 @@ import { MyAccountPanel } from './MyAccountPanel';
 import { ProjectSettingsPanel } from './ProjectSettingsPanel';
 import { ProjectToolbar } from './ProjectToolbar';
 import { TaskGrid } from './TaskGrid';
+import { ProjectSplitPane } from './ProjectSplitPane';
+import { TaskPropertiesDialog } from './TaskPropertiesDialog';
 import { TaskPropertiesPanel } from './TaskPropertiesPanel';
 import { UserManagementPanel } from './UserManagementPanel';
 import './ProjectView.css';
 
 export function ProjectView() {
   const { isAdmin, canRead, canModify, username, userId, logout, refresh } = useAuth();
+  const t = useTranslation();
   const [dbConfig, setDbConfig] = useState<DatabaseConfigInfo | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [ganttViewSettings, setGanttViewSettings] = useState<GanttViewSettings>(DEFAULT_GANTT_VIEW_SETTINGS);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [selectedDependency, setSelectedDependency] = useState<{
+    predecessorId: number;
+    successorId: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -71,6 +96,7 @@ export function ProjectView() {
   const [userMgmtOpen, setUserMgmtOpen] = useState(false);
   const [myAccountOpen, setMyAccountOpen] = useState(false);
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
+  const [taskPropertiesDialogTaskId, setTaskPropertiesDialogTaskId] = useState<number | null>(null);
   const [linkMode, setLinkMode] = useState(false);
   const [linkSourceTaskId, setLinkSourceTaskId] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -80,6 +106,7 @@ export function ProjectView() {
   } | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [exportImportBusy, setExportImportBusy] = useState(false);
 
   const saveTimerRef = useRef<number | null>(null);
   const pendingSaveRef = useRef<ProjectDetail | null>(null);
@@ -115,14 +142,19 @@ export function ProjectView() {
         setProjects([]);
         setProject(null);
         setSelectedTaskId(null);
-        setError('읽기 권한이 없습니다. 관리자에게 권한을 요청하세요.');
+        setError(t('project.noReadPermission'));
         return;
       }
 
       const projectList = await listProjects();
       setProjects(projectList);
 
-      const targetId = preferredId ?? projectRef.current?.id ?? projectList[0]?.id;
+      const targetId =
+        preferredId ??
+        (projectList.some((entry) => entry.id === projectRef.current?.id)
+          ? projectRef.current?.id
+          : undefined) ??
+        projectList[0]?.id;
       if (targetId) {
         const detail = withRecalculatedSchedule(await getProject(targetId));
         setProject(detail);
@@ -162,7 +194,7 @@ export function ProjectView() {
       return true;
     } catch (err) {
       setSaveStatus('error');
-      const message = err instanceof Error ? err.message : '일정 저장에 실패했습니다.';
+      const message = err instanceof Error ? err.message : t('project.saveFailed');
       setScheduleError(message);
       if (message.includes('다른 프로그램에서 일정이 변경')) {
         try {
@@ -208,6 +240,68 @@ export function ProjectView() {
   const handleSaveNow = useCallback(() => {
     void flushPendingSave();
   }, [flushPendingSave]);
+
+  const handleExport = useCallback(
+    async (format: ProjectExportFormat) => {
+      if (!project?.id) return;
+      setExportImportBusy(true);
+      setScheduleError(null);
+      try {
+        await downloadProjectExport(project.id, format);
+      } catch (err) {
+        setScheduleError(err instanceof Error ? err.message : t('project.exportFailed'));
+      } finally {
+        setExportImportBusy(false);
+      }
+    },
+    [project?.id],
+  );
+
+  const handleImportExcel = useCallback(
+    async (file: File) => {
+      if (!project?.id || !canModify) return;
+
+      if (hasUnsavedChanges) {
+        const proceed = window.confirm(
+          t('project.importConfirm'),
+        );
+        if (!proceed) return;
+      }
+
+      if (saveTimerRef.current != null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      pendingSaveRef.current = null;
+      setHasUnsavedChanges(false);
+
+      setExportImportBusy(true);
+      setScheduleError(null);
+      try {
+        const imported = withRecalculatedSchedule(
+          await importProjectExcel(project.id, file, project.version),
+        );
+        setProject(imported);
+        setSelectedTaskId(imported.tasks[0]?.taskId ?? null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Excel 가져오기에 실패했습니다.';
+        setScheduleError(message);
+        if (message.includes('다른 프로그램에서 일정이 변경')) {
+          try {
+            const fresh = withRecalculatedSchedule(await getProject(project.id));
+            setProject(fresh);
+            setSelectedTaskId(fresh.tasks[0]?.taskId ?? null);
+            setHasUnsavedChanges(false);
+          } catch {
+            // Keep the conflict message visible.
+          }
+        }
+      } finally {
+        setExportImportBusy(false);
+      }
+    },
+    [canModify, hasUnsavedChanges, project?.id, project?.version],
+  );
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -307,6 +401,34 @@ export function ProjectView() {
     }
   };
 
+  const handleDeleteProject = async () => {
+    if (!project?.id || !canModify) return;
+    const confirmed = window.confirm(
+      t('project.deleteConfirm', { name: project.name }),
+    );
+    if (!confirmed) return;
+
+    if (saveTimerRef.current != null) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    pendingSaveRef.current = null;
+    setHasUnsavedChanges(false);
+    setProjectSettingsOpen(false);
+
+    setLoading(true);
+    setError(null);
+    setScheduleError(null);
+    try {
+      await deleteProject(project.id);
+      projectRef.current = null;
+      await loadProjects();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('project.deleteFailed'));
+      setLoading(false);
+    }
+  };
+
   const updateProjectState = useCallback(
     (updater: (current: ProjectDetail) => ProjectDetail) => {
       setProject((current) => {
@@ -375,10 +497,38 @@ export function ProjectView() {
 
   const handleRemoveDependency = useCallback(
     (predecessorId: number, successorId: number) => {
+      setSelectedDependency((current) =>
+        current?.predecessorId === predecessorId && current?.successorId === successorId
+          ? null
+          : current,
+      );
       updateProjectState((current) => ({
         ...current,
         dependencies: removeDependency(current.dependencies, predecessorId, successorId),
       }));
+    },
+    [updateProjectState],
+  );
+
+  const handleSetDependencyLineEnd = useCallback(
+    (
+      which: 'start' | 'end',
+      style: GanttViewSettings['startLineEnd'],
+      predecessorId: number,
+      successorId: number,
+    ) => {
+      setSelectedDependency({ predecessorId, successorId });
+      updateProjectState((current) => ({
+        ...current,
+        dependencies: setDependencyLineEnd(
+          current.dependencies,
+          predecessorId,
+          successorId,
+          which,
+          style,
+        ),
+      }));
+      setScheduleError(null);
     },
     [updateProjectState],
   );
@@ -401,10 +551,31 @@ export function ProjectView() {
     [updateProjectState],
   );
 
+  const handleUpdateTaskResources = useCallback(
+    (taskId: number, namesText: string, allocsText: string) => {
+      updateProjectState((current) => {
+        const { assignments, assignedTo } = applyTaskResourcesFromColumns(
+          taskId,
+          current.assignments ?? [],
+          namesText,
+          allocsText,
+        );
+        const tasks = updateTaskInList(
+          current.tasks,
+          taskId,
+          { assignedTo },
+          current.workingDaysJson,
+        );
+        return { ...current, assignments, tasks };
+      });
+    },
+    [updateProjectState],
+  );
+
   const handleAddTask = useCallback(() => {
     let newTaskId: number | null = null;
     updateProjectState((current) => {
-      const result = addTaskAfter(current.tasks, selectedTaskId);
+      const result = addTaskAfter(current.tasks, selectedTaskId, 'New Task', current.workingDaysJson);
       newTaskId = result.newTaskId;
       return { ...current, tasks: result.tasks };
     });
@@ -422,7 +593,7 @@ export function ProjectView() {
       }
       let newTaskId: number | null = null;
       updateProjectState((current) => {
-        const result = addSubtask(current.tasks, parentId);
+        const result = addSubtask(current.tasks, parentId, 'New Task', current.workingDaysJson);
         newTaskId = result.newTaskId;
         return { ...current, tasks: result.tasks };
       });
@@ -442,14 +613,15 @@ export function ProjectView() {
       const subtreeIds = getSubtreeTaskIds(project.tasks, targetId);
       const message =
         subtreeIds.length > 1
-          ? `"${task.name}" 및 하위 작업 ${subtreeIds.length}개를 삭제하시겠습니까?`
-          : `"${task.name}" 작업을 삭제하시겠습니까?`;
+          ? t('project.deleteTaskConfirmSubtree', { name: task.name, count: subtreeIds.length })
+          : t('project.deleteTaskConfirm', { name: task.name });
       if (!window.confirm(message)) return;
 
       const deletedId = targetId;
       const idx = project.tasks.findIndex((t) => t.taskId === deletedId);
       let nextSelected: number | null = null;
       updateProjectState((current) => {
+        const removeIds = new Set(subtreeIds);
         const { tasks, dependencies } = removeTaskSubtree(
           current.tasks,
           current.dependencies,
@@ -459,9 +631,19 @@ export function ProjectView() {
           tasks[Math.min(idx, tasks.length - 1)]?.taskId ??
           tasks[tasks.length - 1]?.taskId ??
           null;
-        return { ...current, tasks, dependencies };
+        return {
+          ...current,
+          tasks,
+          dependencies,
+          assignments: (current.assignments ?? []).filter(
+            (assignment) => !removeIds.has(assignment.taskId),
+          ),
+          ganttNotes: removeNotesForTaskIds(current.ganttNotes ?? [], removeIds),
+        };
       });
       setSelectedTaskId(nextSelected);
+      setSelectedNoteId(null);
+      setEditingNoteId(null);
     },
     [project, selectedTaskId, updateProjectState],
   );
@@ -526,7 +708,7 @@ export function ProjectView() {
       })
       .catch((err) => {
         setScheduleError(
-          err instanceof Error ? err.message : '주요 경로 표시 설정 저장에 실패했습니다.',
+          err instanceof Error ? err.message : t('project.criticalPathSaveFailed'),
         );
       });
   }, [project?.id]);
@@ -534,20 +716,133 @@ export function ProjectView() {
   const handleGoToToday = useCallback(() => {
     const scrolled = scrollToTodayRef.current?.() ?? false;
     if (!scrolled) {
-      setScheduleError('오늘 날짜가 간트 표시 범위에 없습니다. 프로젝트 일정을 확인하세요.');
+      setScheduleError(t('project.todayOutOfRange'));
     } else {
       setScheduleError(null);
     }
   }, []);
 
+  const handleSelectTask = useCallback((taskId: number) => {
+    setSelectedTaskId(taskId);
+    setSelectedDependency(null);
+    setSelectedNoteId(null);
+    setEditingNoteId(null);
+  }, []);
+
+  const handleSelectNote = useCallback(
+    (noteId: number) => {
+      setSelectedNoteId(noteId);
+      setSelectedDependency(null);
+      const note = project?.ganttNotes?.find((entry) => entry.noteId === noteId);
+      if (note && note.taskId >= 0) {
+        setSelectedTaskId(note.taskId);
+      }
+    },
+    [project?.ganttNotes],
+  );
+
+  const handleAddNoteToTask = useCallback(
+    (taskId: number) => {
+      let newNoteId: number | null = null;
+      updateProjectState((current) => {
+        const task = current.tasks.find((entry) => entry.taskId === taskId);
+        if (!task) return current;
+        const noteId = nextNoteId(current.ganttNotes ?? []);
+        newNoteId = noteId;
+        const note = createNoteForTask(noteId, taskId, task, current.tasks);
+        return {
+          ...current,
+          ganttNotes: [...(current.ganttNotes ?? []), note],
+        };
+      });
+      if (newNoteId != null) {
+        setSelectedNoteId(newNoteId);
+        setSelectedTaskId(taskId);
+        setEditingNoteId(newNoteId);
+      }
+    },
+    [updateProjectState],
+  );
+
+  const handleUpdateNoteBody = useCallback(
+    (noteId: number, body: string) => {
+      updateProjectState((current) => {
+        const notes = updateNoteBodyInProject(current.ganttNotes ?? [], noteId, body);
+        const note = notes.find((entry) => entry.noteId === noteId);
+        let tasks = current.tasks;
+        if (note && note.taskId >= 0) {
+          tasks = syncTaskNotesFromLinkedNote(note.taskId, notes, tasks);
+        }
+        return { ...current, ganttNotes: notes, tasks };
+      });
+    },
+    [updateProjectState],
+  );
+
+  const handleUpdateNotePosition = useCallback(
+    (noteId: number, anchorDate: string, contentY: number) => {
+      updateProjectState((current) => ({
+        ...current,
+        ganttNotes: updateNotePositionInProject(
+          current.ganttNotes ?? [],
+          noteId,
+          anchorDate,
+          contentY,
+        ),
+      }));
+    },
+    [updateProjectState],
+  );
+
+  const handleAddNoteToSelectedTask = useCallback(() => {
+    if (selectedTaskId == null) return;
+    handleAddNoteToTask(selectedTaskId);
+  }, [selectedTaskId, handleAddNoteToTask]);
+
+  const handleEditNote = useCallback(
+    (noteId: number) => {
+      setSelectedNoteId(noteId);
+      setEditingNoteId(noteId);
+      const note = project?.ganttNotes?.find((entry) => entry.noteId === noteId);
+      if (note && note.taskId >= 0) {
+        setSelectedTaskId(note.taskId);
+      }
+    },
+    [project?.ganttNotes],
+  );
+
+  const handleDeleteNote = useCallback(
+    (noteId: number) => {
+      if (!window.confirm(t('project.deleteNoteConfirm'))) return;
+      updateProjectState((current) => {
+        const note = current.ganttNotes?.find((entry) => entry.noteId === noteId);
+        const notes = removeNoteFromProject(current.ganttNotes ?? [], noteId);
+        let tasks = current.tasks;
+        if (note && note.taskId >= 0) {
+          tasks = syncTaskNotesFromLinkedNote(note.taskId, notes, tasks);
+        }
+        return { ...current, ganttNotes: notes, tasks };
+      });
+      if (selectedNoteId === noteId) setSelectedNoteId(null);
+      if (editingNoteId === noteId) setEditingNoteId(null);
+    },
+    [editingNoteId, selectedNoteId, updateProjectState],
+  );
+
+  const handleSelectDependency = useCallback(
+    (dependency: { predecessorId: number; successorId: number }) => {
+      setSelectedDependency(dependency);
+      setSelectedTaskId(dependency.successorId);
+    },
+    [],
+  );
+
   const handleOpenTaskProperties = useCallback((taskId: number) => {
     setSelectedTaskId(taskId);
-    requestAnimationFrame(() => {
-      document.querySelector('.project-properties')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      });
-    });
+    setSelectedDependency(null);
+    setSelectedNoteId(null);
+    setEditingNoteId(null);
+    setTaskPropertiesDialogTaskId(taskId);
   }, []);
 
   const handleLinkFromTask = useCallback((taskId: number) => {
@@ -561,7 +856,7 @@ export function ProjectView() {
       const outgoingCount =
         project?.dependencies.filter((dep) => dep.predecessorId === taskId).length ?? 0;
       if (outgoingCount === 0) {
-        setScheduleError('이 작업에서 나가는 의존성이 없습니다.');
+        setScheduleError(t('project.noOutgoingDeps'));
         return;
       }
       updateProjectState((current) => ({
@@ -598,7 +893,7 @@ export function ProjectView() {
         })
         .catch((err) => {
           setScheduleError(
-            err instanceof Error ? err.message : '의존성 종류 기본값 저장에 실패했습니다.',
+            err instanceof Error ? err.message : t('project.depTypeSaveFailed'),
           );
         });
     },
@@ -677,8 +972,10 @@ export function ProjectView() {
       target: contextMenu.target,
       tasks: project.tasks,
       dependencies: project.dependencies,
+      ganttNotes: project.ganttNotes ?? [],
       ganttViewSettings,
       linkSourceTaskId,
+      selectedDependency,
       canModify,
       actions: {
         openTaskProperties: handleOpenTaskProperties,
@@ -691,18 +988,26 @@ export function ProjectView() {
         unlinkFromTask: handleUnlinkFromTask,
         toggleExpandTask: handleToggleExpand,
         setDependencyType: handleSelectDependencyType,
+        setDependencyLineEnd: handleSetDependencyLineEnd,
         removeDependency: handleRemoveDependency,
         goToToday: handleGoToToday,
         zoomIn: handleGanttZoomIn,
         zoomOut: handleGanttZoomOut,
+        addNoteToTask: handleAddNoteToTask,
+        editNote: handleEditNote,
+        deleteNote: handleDeleteNote,
+        selectTask: handleSelectTask,
       },
+      t,
     });
   }, [
     contextMenu,
     project,
     ganttViewSettings,
     linkSourceTaskId,
+    selectedDependency,
     canModify,
+    t,
     handleOpenTaskProperties,
     handleAddTask,
     handleAddSubtask,
@@ -713,10 +1018,15 @@ export function ProjectView() {
     handleUnlinkFromTask,
     handleToggleExpand,
     handleSelectDependencyType,
+    handleSetDependencyLineEnd,
     handleRemoveDependency,
     handleGoToToday,
     handleGanttZoomIn,
     handleGanttZoomOut,
+    handleAddNoteToTask,
+    handleEditNote,
+    handleDeleteNote,
+    handleSelectTask,
   ]);
 
   useEffect(() => {
@@ -787,8 +1097,24 @@ export function ProjectView() {
   const selectedTask: TaskItem | null =
     project?.tasks.find((task) => task.taskId === selectedTaskId) ?? null;
 
+  const taskPropertiesDialogTask: TaskItem | null =
+    taskPropertiesDialogTaskId != null
+      ? project?.tasks.find((task) => task.taskId === taskPropertiesDialogTaskId) ?? null
+      : null;
+
+  const taskPropertiesDialogPredecessors =
+    project && taskPropertiesDialogTaskId != null
+      ? getPredecessors(project.dependencies, taskPropertiesDialogTaskId)
+      : [];
+
   const predecessors =
     project && selectedTaskId != null ? getPredecessors(project.dependencies, selectedTaskId) : [];
+
+  useEffect(() => {
+    if (taskPropertiesDialogTaskId != null && !taskPropertiesDialogTask) {
+      setTaskPropertiesDialogTaskId(null);
+    }
+  }, [taskPropertiesDialogTaskId, taskPropertiesDialogTask]);
 
   return (
     <div className="project-view">
@@ -807,6 +1133,8 @@ export function ProjectView() {
         onSaveSchedule={handleSaveNow}
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
+        onDeleteProject={handleDeleteProject}
+        canDeleteProject={canModify && project != null}
         onRefresh={async () => {
           await flushPendingSave();
           void loadProjects(project?.id);
@@ -824,6 +1152,8 @@ export function ProjectView() {
         }}
         onAddTask={handleAddTask}
         onAddSubtask={handleAddSubtask}
+        onAddNote={handleAddNoteToSelectedTask}
+        canAddNote={selectedTaskId != null}
         onDeleteTask={handleDeleteTask}
         canDeleteTask={selectedTaskId != null && (project?.tasks.length ?? 0) > 0}
         onIndentTask={handleIndentTask}
@@ -838,6 +1168,9 @@ export function ProjectView() {
         onToggleCriticalPath={handleToggleCriticalPath}
         onGoToToday={handleGoToToday}
         canGoToToday={(project?.tasks.length ?? 0) > 0}
+        onExport={handleExport}
+        onImportExcel={canModify ? handleImportExcel : undefined}
+        exportImportBusy={exportImportBusy}
         scheduleRevision={
           project
             ? {
@@ -849,28 +1182,15 @@ export function ProjectView() {
         }
       />
 
-      {project && !dbConfig?.requiresAdminSetup && (
-        <div className="project-sync-banner">
-          <p>
-            일정 데이터는 <strong>MyProjectWinV10</strong>과 같은 DB를 공유합니다. Win 프로그램에서
-            편집한 내용은 <strong>새로고침</strong>으로 불러옵니다. 웹에서 수정한 내용도 DB에
-            저장되며 Win에서 다시 열면 반영됩니다.
-          </p>
-        </div>
-      )}
-
       {dbConfig?.requiresAdminSetup && (
         <div className="project-setup-banner">
           <div>
-            <strong>DB 연결이 필요합니다.</strong>
-            <p>
-              관리자로 로그인한 뒤 DB 서버 연결을 설정하세요. 기존 myproject DB가 있으면
-              그대로 사용하며, 일정 데이터는 유지됩니다.
-            </p>
+            <strong>{t('project.setupBanner.title')}</strong>
+            <p>{t('project.setupBanner.desc')}</p>
             {dbConfig.connectionError && <p>{dbConfig.connectionError}</p>}
           </div>
           <button type="button" onClick={() => setDbSettingsOpen(true)}>
-            DB 설정 열기
+            {t('project.setupBanner.openDb')}
           </button>
         </div>
       )}
@@ -880,10 +1200,10 @@ export function ProjectView() {
 
       {!error && !project && !loading && !dbConfig?.requiresAdminSetup && canRead && (
         <div className="project-empty">
-          <p>Win 프로그램에서 만든 프로젝트가 여기에 표시됩니다. 프로젝트가 없으면 Win에서 먼저 생성하세요.</p>
+          <p>{t('project.empty')}</p>
           {canModify && (
             <button type="button" onClick={handleCreateProject}>
-              웹에서 새 프로젝트 만들기
+              {t('project.createWeb')}
             </button>
           )}
         </div>
@@ -891,59 +1211,53 @@ export function ProjectView() {
 
       {project && (
         <>
-          {canRead && (
-            <div className="project-schedule-hint">
-              {linkMode
-                ? '선행 작업을 클릭한 뒤 후행 작업을 클릭하거나, Alt+드래그로 의존성을 연결하세요.'
-                : [
-                    canModify
-                      ? '변경 사항은 자동 저장됩니다. 저장 버튼으로 즉시 DB에 반영할 수 있습니다.'
-                      : null,
-                    '빨간 점선·상단 원과 헤더의 검은 배경 숫자가 오늘 날짜입니다.',
-                    '「오늘로 이동」(Ctrl+T)으로 오늘 위치로 스크롤합니다.',
-                    canModify
-                      ? '작업 추가/삭제: Insert·Delete, 계층 변경: Alt+→/←'
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-            </div>
-          )}
-          <div className="project-split">
-            <div className="project-grid-pane">
+          <ProjectSplitPane
+            gridPane={
               <TaskGrid
+                projectName={project.name}
                 tasks={project.tasks}
+                assignments={project.assignments ?? []}
                 selectedTaskId={selectedTaskId}
                 canModify={canModify}
                 showCriticalPath={ganttViewSettings.showCriticalPath}
                 scrollContainerRef={gridScrollRef}
-                onSelectTask={setSelectedTaskId}
+                onSelectTask={handleSelectTask}
                 onUpdateTask={handleUpdateTask}
+                onUpdateTaskResources={handleUpdateTaskResources}
                 onToggleExpand={handleToggleExpand}
                 onContextMenuRequest={handleContextMenuRequest}
               />
-            </div>
-            <div className="project-gantt-pane">
+            }
+            ganttPane={
               <GanttChart
                 tasks={project.tasks}
                 dependencies={project.dependencies}
+                ganttNotes={project.ganttNotes ?? []}
                 workingDaysJson={project.workingDaysJson}
                 ganttViewSettings={ganttViewSettings}
                 selectedTaskId={selectedTaskId}
+                selectedNoteId={selectedNoteId}
+                editingNoteId={editingNoteId}
+                selectedDependency={selectedDependency}
                 canModify={canModify}
                 linkMode={linkMode}
                 linkSourceTaskId={linkSourceTaskId}
                 scrollContainerRef={ganttScrollRef}
                 scrollToTodayRef={scrollToTodayRef}
                 zoomRef={ganttZoomRef}
-                onSelectTask={setSelectedTaskId}
+                onSelectTask={handleSelectTask}
+                onSelectNote={handleSelectNote}
+                onSetEditingNoteId={setEditingNoteId}
+                onUpdateNoteBody={handleUpdateNoteBody}
+                onUpdateNotePosition={handleUpdateNotePosition}
+                onSelectDependency={handleSelectDependency}
                 onTaskDateChange={handleTaskDateChange}
                 onTaskProgressChange={handleTaskProgressChange}
                 onAddDependency={handleAddDependency}
                 onContextMenuRequest={handleContextMenuRequest}
               />
-            </div>
-          </div>
+            }
+          />
 
           <footer className="project-properties">
             <TaskPropertiesPanel
@@ -982,9 +1296,34 @@ export function ProjectView() {
         onSavedViewSettings={setGanttViewSettings}
         onSavedProject={(saved) => {
           setProject(saved);
+          setProjects((current) =>
+            current.map((entry) =>
+              entry.id === saved.id
+                ? {
+                    ...entry,
+                    name: saved.name,
+                    updatedUtc: saved.updatedUtc,
+                    version: saved.version,
+                    updatedBy: saved.updatedBy,
+                  }
+                : entry,
+            ),
+          );
           setHasUnsavedChanges(false);
           pendingSaveRef.current = null;
         }}
+        onDeletedProject={() => void loadProjects()}
+      />
+
+      <TaskPropertiesDialog
+        open={taskPropertiesDialogTaskId != null && taskPropertiesDialogTask != null}
+        task={taskPropertiesDialogTask}
+        tasks={project?.tasks ?? []}
+        predecessors={taskPropertiesDialogPredecessors}
+        canModify={canModify}
+        onClose={() => setTaskPropertiesDialogTaskId(null)}
+        onSave={handleUpdateTask}
+        onRemoveDependency={handleRemoveDependency}
       />
 
       {contextMenu && contextMenuItems.length > 0 && (

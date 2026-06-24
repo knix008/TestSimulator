@@ -1,5 +1,8 @@
 /** Today marker helpers for frappe-gantt (Win: TimescaleToday + GoToToday). */
 
+import { getStoredLocale } from '../i18n/storage';
+import { translate } from '../i18n/translate';
+
 const TODAY_LINE_WIDTH_PX = 2;
 const TODAY_BALL_SIZE_PX = 12;
 
@@ -31,9 +34,10 @@ export function decorateTodayMarker(container: HTMLElement): void {
 
   const dateCell = container.querySelector('.lower-text.current-date-highlight');
   if (dateCell instanceof HTMLElement) {
+    const todayLabel = translate(getStoredLocale(), 'gantt.today');
     dateCell.classList.add('gantt-today-day');
-    dateCell.setAttribute('title', '오늘 날짜');
-    dateCell.setAttribute('aria-label', '오늘 날짜');
+    dateCell.setAttribute('title', todayLabel);
+    dateCell.setAttribute('aria-label', todayLabel);
   }
 
   const highlight = container.querySelector('.current-highlight');

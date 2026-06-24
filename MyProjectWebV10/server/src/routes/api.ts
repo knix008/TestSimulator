@@ -1,7 +1,9 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 import {
   createProject,
+  deleteProject,
   getProjectById,
   listProjects,
   ScheduleVersionConflictError,
@@ -19,6 +21,24 @@ import {
   normalizeGanttViewSettings,
   saveUserProjectViewSettings,
 } from '../services/userProjectViewSettingsService.js';
+import { ExcelImportError, parseExcelImport } from '../services/reports/excelReport.js';
+import { isExportFormat, sendProjectExport } from '../services/reports/projectExportService.js';
+
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const name = file.originalname.toLowerCase();
+    if (
+      name.endsWith('.xlsx') ||
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Excel (.xlsx) 파일만 업로드할 수 있습니다.'));
+  },
+});
 
 export const apiRouter = Router();
 
@@ -98,7 +118,7 @@ const updateScheduleSchema = z.object({
         parentId: z.number().int(),
         name: z.string().min(1).max(512),
         startDate: z.string().datetime(),
-        durationDays: z.number().int().min(1),
+        durationDays: z.number().int().min(0),
         progress: z.number().min(0).max(100),
         taskType: z.enum(['Normal', 'Milestone', 'Summary']),
         indentLevel: z.number().int().min(0),
@@ -120,6 +140,30 @@ const updateScheduleSchema = z.object({
         lagDays: z.number().int(),
         startLineEnd: z.enum(['None', 'Arrow', 'OpenArrow', 'Dot', 'Square']).nullable().optional(),
         endLineEnd: z.enum(['None', 'Arrow', 'OpenArrow', 'Dot', 'Square']).nullable().optional(),
+      }),
+    )
+    .optional(),
+  assignments: z
+    .array(
+      z.object({
+        taskId: z.number().int().positive(),
+        resourceName: z.string().max(256),
+        allocationPercent: z.number().min(0),
+      }),
+    )
+    .optional(),
+  ganttNotes: z
+    .array(
+      z.object({
+        noteId: z.number().int().positive(),
+        title: z.string().max(256),
+        body: z.string(),
+        bodyRtf: z.string(),
+        taskId: z.number().int(),
+        offsetDays: z.number().int(),
+        anchorDate: z.string().datetime(),
+        contentY: z.number().int(),
+        contentX: z.number().int(),
       }),
     )
     .optional(),
@@ -175,12 +219,90 @@ apiRouter.put('/projects/:id/view-settings', requireRead, async (req, res, next)
     }
 
     const body = ganttViewSettingsSchema.parse(req.body ?? {});
-    const saved = await saveUserProjectViewSettings(userId, projectId, body);
+    const saved = await saveUserProjectViewSettings(userId, projectId, normalizeGanttViewSettings(body));
     res.json(saved);
   } catch (error) {
     next(error);
   }
 });
+
+apiRouter.get('/projects/:id/export/:format', requireRead, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const formatRaw = req.params.format;
+    const format = (Array.isArray(formatRaw) ? formatRaw[0] : formatRaw) ?? '';
+    if (!isExportFormat(format)) {
+      res.status(400).json({ error: '지원하지 않는 내보내기 형식입니다. (excel, word, markdown, pdf)' });
+      return;
+    }
+
+    const project = await getProjectById(id);
+    if (!project) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    await sendProjectExport(res, project, format);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post(
+  '/projects/:id/import/excel',
+  requireModify,
+  excelUpload.single('file'),
+  async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const project = await getProjectById(id);
+      if (!project) {
+        res.status(404).json({ error: 'Project not found' });
+        return;
+      }
+
+      if (!req.file) {
+        res.status(400).json({ error: 'Excel 파일이 필요합니다.' });
+        return;
+      }
+
+      const expectedVersion =
+        typeof req.body?.expectedVersion === 'string' && req.body.expectedVersion.trim()
+          ? req.body.expectedVersion.trim()
+          : undefined;
+
+      const parsed = await parseExcelImport(req.file.buffer, project.workingDaysJson);
+      const editorName = req.user?.username?.trim();
+      const updated = await updateProjectSchedule(id, {
+        ...parsed,
+        expectedVersion,
+        updatedBy: editorName ? `web:${editorName}` : 'web',
+      });
+
+      if (!updated) {
+        res.status(404).json({ error: 'Project not found' });
+        return;
+      }
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof ExcelImportError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      if (error instanceof ScheduleVersionConflictError) {
+        res.status(409).json({
+          error: error.message,
+          version: error.currentVersion,
+          updatedUtc: error.updatedUtc,
+          updatedBy: error.updatedBy,
+        });
+        return;
+      }
+      next(error);
+    }
+  },
+);
 
 apiRouter.put('/projects/:id', requireModify, async (req, res, next) => {
   try {
@@ -206,6 +328,34 @@ apiRouter.put('/projects/:id', requireModify, async (req, res, next) => {
       });
       return;
     }
+    next(error);
+  }
+});
+
+apiRouter.delete('/projects/:id', requireModify, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const deleted = await deleteProject(id);
+    if (!deleted) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.delete('/projects/:id', requireModify, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const deleted = await deleteProject(id);
+    if (!deleted) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (error) {
     next(error);
   }
 });

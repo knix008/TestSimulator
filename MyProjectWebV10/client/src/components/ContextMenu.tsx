@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { LineEndPreview } from './LineEndPreview';
 import { DependencyTypePreview } from './DependencyTypePreview';
 import { ToolbarIcon, type ToolbarIconName } from './ToolbarIcons';
 import type { GanttViewSettings } from '../types/project';
@@ -12,6 +13,10 @@ export interface ContextMenuItemDef {
   disabled?: boolean;
   checked?: boolean;
   dependencyTypePreview?: GanttViewSettings['defaultDependencyType'];
+  lineEndPreview?: {
+    style: GanttViewSettings['startLineEnd'];
+    atStart: boolean;
+  };
   onClick: () => void;
 }
 export interface ContextMenuSeparator {
@@ -100,7 +105,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
                 'context-menu-item',
                 entry.checked ? 'context-menu-item-checked' : '',
                 entry.disabled ? 'context-menu-item-disabled' : '',
-                entry.dependencyTypePreview ? 'context-menu-item-with-preview' : '',
+                entry.dependencyTypePreview || entry.lineEndPreview ? 'context-menu-item-with-preview' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -127,6 +132,14 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
               {entry.dependencyTypePreview ? (
                 <span className="context-menu-item-preview" aria-hidden="true">
                   <DependencyTypePreview type={entry.dependencyTypePreview} />
+                </span>
+              ) : null}
+              {entry.lineEndPreview ? (
+                <span className="context-menu-item-preview" aria-hidden="true">
+                  <LineEndPreview
+                    style={entry.lineEndPreview.style}
+                    atStart={entry.lineEndPreview.atStart}
+                  />
                 </span>
               ) : null}
             </button>

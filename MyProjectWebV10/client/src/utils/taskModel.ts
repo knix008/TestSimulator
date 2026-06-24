@@ -5,7 +5,8 @@ import {
   computeEndDate,
   startOfDay,
 } from './scheduleUtils';
-import { countWorkingDaysInclusive } from './workingDayCalendar';
+import { MILESTONE_DURATION_DAYS } from './ganttTaskDates';
+import { countWorkingDaysInclusive, getTaskEndDate, snapToNextWorkingDay } from './workingDayCalendar';
 import { parseWorkingWeek, type WorkingWeek } from './workingWeek';
 
 export function nextTaskId(tasks: TaskItem[]): number {
@@ -93,21 +94,48 @@ function getAllDescendants(tasks: TaskItem[], taskId: number): TaskItem[] {
   return descendants;
 }
 
-function rollupSummaryTask(task: TaskItem, tasks: TaskItem[], week?: WorkingWeek): TaskItem {
+export function getDirectChildren(tasks: TaskItem[], taskId: number): TaskItem[] {
+  const idx = tasks.findIndex((t) => t.taskId === taskId);
+  if (idx < 0) return [];
+  const level = tasks[idx].indentLevel;
+  const children: TaskItem[] = [];
+  for (let i = idx + 1; i < tasks.length; i++) {
+    if (tasks[i].indentLevel <= level) break;
+    if (tasks[i].indentLevel === level + 1) children.push(tasks[i]);
+  }
+  return children;
+}
+
+function getTaskEndForItem(task: TaskItem, week: WorkingWeek): Date {
+  if (task.taskType === 'Milestone') {
+    return startOfDay(new Date(task.startDate));
+  }
+  const start = startOfDay(new Date(task.startDate));
+  return getTaskEndDate(start, Math.max(1, task.durationDays), week);
+}
+
+function sumDirectChildDurations(children: TaskItem[]): number {
+  return children.reduce((sum, child) => {
+    if (child.taskType === 'Milestone') return sum;
+    return sum + Math.max(0, child.durationDays);
+  }, 0);
+}
+
+function rollupSummaryTask(task: TaskItem, tasks: TaskItem[], week: WorkingWeek): TaskItem {
   const descendants = getAllDescendants(tasks, task.taskId);
   if (descendants.length === 0) return task;
 
-  const minStartMs = Math.min(...descendants.map((d) => new Date(d.startDate).getTime()));
-  const maxEndMs = Math.max(...descendants.map((d) => new Date(d.endDate).getTime()));
-  const start = startOfDay(new Date(minStartMs));
-  const end = startOfDay(new Date(maxEndMs));
-  const startDate = start.toISOString();
-  const durationDays = week
-    ? Math.max(1, countWorkingDaysInclusive(start, end, week))
-    : Math.max(
-        1,
-        Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1,
-      );
+  const starts = descendants.map((d) => startOfDay(new Date(d.startDate)));
+  const ends = descendants.map((d) => getTaskEndForItem(d, week));
+  const minStart = startOfDay(new Date(Math.min(...starts.map((d) => d.getTime()))));
+  const maxEnd = startOfDay(new Date(Math.max(...ends.map((d) => d.getTime()))));
+  const startDate = minStart.toISOString();
+  const endDate = maxEnd.toISOString();
+
+  const directChildren = getDirectChildren(tasks, task.taskId);
+  const sumDuration = sumDirectChildDurations(directChildren);
+  const spanDuration = Math.max(1, countWorkingDaysInclusive(minStart, maxEnd, week));
+  const durationDays = sumDuration > 0 ? Math.max(1, sumDuration) : spanDuration;
 
   let totalWeight = 0;
   let weightedProgress = 0;
@@ -116,25 +144,38 @@ function rollupSummaryTask(task: TaskItem, tasks: TaskItem[], week?: WorkingWeek
     totalWeight += weight;
     weightedProgress += child.progress * weight;
   }
+  if (totalWeight === 0) {
+    for (const child of directChildren) {
+      const weight = child.taskType === 'Milestone' ? 1 : Math.max(1, child.durationDays);
+      totalWeight += weight;
+      weightedProgress += child.progress * weight;
+    }
+  }
 
   return {
     ...task,
     startDate,
+    endDate,
     durationDays,
     progress: totalWeight > 0 ? weightedProgress / totalWeight : task.progress,
-    endDate: computeEndDate(startDate, durationDays, 'Summary', week),
   };
 }
 
 export function updateTaskHierarchy(tasks: TaskItem[], workingDaysJson?: string): TaskItem[] {
-  const week = workingDaysJson ? parseWorkingWeek(workingDaysJson) : undefined;
+  const week = parseWorkingWeek(workingDaysJson ?? '[]');
   const withParents = tasks.map((task, index) => ({
     ...task,
     parentId: getParentId(tasks, index),
   }));
 
   let withTypes = withParents.map((task) => {
-    if (task.taskType === 'Milestone') return task;
+    if (task.taskType === 'Milestone') {
+      return {
+        ...task,
+        durationDays: MILESTONE_DURATION_DAYS,
+        endDate: computeEndDate(task.startDate, MILESTONE_DURATION_DAYS, 'Milestone', week),
+      };
+    }
     if (hasChildren(withParents, task.taskId)) {
       return { ...task, taskType: 'Summary' };
     }
@@ -163,12 +204,17 @@ export function createDefaultTask(
     indentLevel?: number;
     taskType?: string;
     durationDays?: number;
+    workingDaysJson?: string;
   } = {},
 ): TaskItem {
   const taskType = options.taskType ?? 'Normal';
-  const startDate = options.startDate ?? startOfDay(new Date()).toISOString();
+  const week = parseWorkingWeek(options.workingDaysJson ?? '[]');
+  const startDate = snapToNextWorkingDay(
+    startOfDay(new Date(options.startDate ?? startOfDay(new Date()).toISOString())),
+    week,
+  ).toISOString();
   const durationDays =
-    options.durationDays ?? (taskType === 'Milestone' ? 1 : 5);
+    options.durationDays ?? (taskType === 'Milestone' ? MILESTONE_DURATION_DAYS : 5);
   return {
     taskId,
     parentId: -1,
@@ -184,7 +230,7 @@ export function createDefaultTask(
     autoSchedule: true,
     deliverable: '',
     isCritical: false,
-    endDate: computeEndDate(startDate, durationDays, taskType),
+    endDate: computeEndDate(startDate, durationDays, taskType, week),
   };
 }
 
@@ -192,6 +238,7 @@ export function addTaskAfter(
   tasks: TaskItem[],
   afterTaskId: number | null,
   name = 'New Task',
+  workingDaysJson?: string,
 ): { tasks: TaskItem[]; newTaskId: number } {
   const taskId = nextTaskId(tasks);
   let insertIndex = tasks.length;
@@ -207,20 +254,21 @@ export function addTaskAfter(
     }
   }
 
-  const newTask = createDefaultTask(taskId, { name, indentLevel, startDate });
+  const newTask = createDefaultTask(taskId, { name, indentLevel, startDate, workingDaysJson });
   const next = [...tasks];
   next.splice(insertIndex, 0, newTask);
-  return { tasks: updateTaskHierarchy(next), newTaskId: taskId };
+  return { tasks: updateTaskHierarchy(next, workingDaysJson), newTaskId: taskId };
 }
 
 export function addSubtask(
   tasks: TaskItem[],
   parentId: number,
   name = 'New Task',
+  workingDaysJson?: string,
 ): { tasks: TaskItem[]; newTaskId: number } {
   const parentIdx = tasks.findIndex((t) => t.taskId === parentId);
   if (parentIdx < 0) {
-    return addTaskAfter(tasks, null, name);
+    return addTaskAfter(tasks, null, name, workingDaysJson);
   }
 
   const parent = tasks[parentIdx];
@@ -234,13 +282,14 @@ export function addSubtask(
     name,
     indentLevel: parent.indentLevel + 1,
     startDate: parent.startDate,
+    workingDaysJson,
   });
 
   const next = tasks.map((t) =>
     t.taskId === parentId && !t.isExpanded ? { ...t, isExpanded: true } : t,
   );
   next.splice(insertIdx, 0, newTask);
-  return { tasks: updateTaskHierarchy(next), newTaskId: taskId };
+  return { tasks: updateTaskHierarchy(next, workingDaysJson), newTaskId: taskId };
 }
 
 export function removeTaskSubtree(
@@ -261,6 +310,17 @@ export function patchTask(
   patch: Partial<TaskItem>,
   workingDaysJson?: string,
 ): TaskItem {
+  if (task.taskType === 'Summary' && isSchedulePatch(patch)) {
+    const nonSchedulePatch = { ...patch };
+    for (const key of SCHEDULE_PATCH_KEYS) {
+      delete nonSchedulePatch[key];
+    }
+    if (Object.keys(nonSchedulePatch).length === 0) {
+      return task;
+    }
+    return patchTask(task, nonSchedulePatch, workingDaysJson);
+  }
+
   const week = workingDaysJson ? parseWorkingWeek(workingDaysJson) : undefined;
   const next = { ...task, ...patch };
 
@@ -281,8 +341,14 @@ export function patchTask(
     patch.durationDays !== undefined ||
     patch.taskType !== undefined
   ) {
-    const durationDays =
-      next.taskType === 'Milestone' ? 1 : Math.max(1, next.durationDays);
+    if (next.taskType === 'Milestone') {
+      return {
+        ...next,
+        durationDays: MILESTONE_DURATION_DAYS,
+        endDate: computeEndDate(next.startDate, MILESTONE_DURATION_DAYS, 'Milestone', week),
+      };
+    }
+    const durationDays = Math.max(1, next.durationDays);
     return {
       ...next,
       durationDays,

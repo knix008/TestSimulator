@@ -1,6 +1,7 @@
 import type {
   AdminDatabaseSettings,
   AppUser,
+  AssignmentItem,
   AuthSession,
   CreateUserInput,
   DatabaseApplyResult,
@@ -8,6 +9,7 @@ import type {
   DatabaseSettingsInput,
   DependencyItem,
   GanttViewSettings,
+  NoteItem,
   ProjectDetail,
   ProjectSummary,
   TaskItem,
@@ -133,6 +135,12 @@ export function createProject(name?: string) {
   });
 }
 
+export function deleteProject(id: number) {
+  return request<{ ok: boolean }>(`/api/projects/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 export function updateProject(
   id: number,
   data: {
@@ -142,6 +150,8 @@ export function updateProject(
     workingDaysJson?: string;
     tasks?: Omit<TaskItem, 'endDate'>[];
     dependencies?: DependencyItem[];
+    assignments?: AssignmentItem[];
+    ganttNotes?: NoteItem[];
   },
 ) {
   return request<ProjectDetail>(`/api/projects/${id}`, {
@@ -159,4 +169,91 @@ export function saveProjectViewSettings(projectId: number, settings: GanttViewSe
     method: 'PUT',
     body: JSON.stringify(settings),
   });
+}
+
+export type ProjectExportFormat = 'excel' | 'word' | 'markdown' | 'pdf';
+
+function parseFilenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1]);
+    } catch {
+      return utf8[1];
+    }
+  }
+  const plain = /filename="([^"]+)"/i.exec(header);
+  return plain?.[1] ?? null;
+}
+
+const EXPORT_DEFAULT_EXT: Record<ProjectExportFormat, string> = {
+  excel: 'xlsx',
+  word: 'docx',
+  markdown: 'md',
+  pdf: 'pdf',
+};
+
+export async function downloadProjectExport(
+  projectId: number,
+  format: ProjectExportFormat,
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/projects/${projectId}/export/${format}`, {
+      credentials: 'include',
+    });
+  } catch {
+    throw new Error(
+      'API 서버에 연결할 수 없습니다. npm run dev 로 서버(포트 3001)가 실행 중인지 확인하세요.',
+    );
+  }
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `내보내기 실패 (${response.status})`);
+  }
+
+  const blob = await response.blob();
+  const filename =
+    parseFilenameFromDisposition(response.headers.get('Content-Disposition')) ??
+    `project.${EXPORT_DEFAULT_EXT[format]}`;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importProjectExcel(
+  projectId: number,
+  file: File,
+  expectedVersion?: string,
+): Promise<ProjectDetail> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (expectedVersion) {
+    formData.append('expectedVersion', expectedVersion);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`/api/projects/${projectId}/import/excel`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+  } catch {
+    throw new Error(
+      'API 서버에 연결할 수 없습니다. npm run dev 로 서버(포트 3001)가 실행 중인지 확인하세요.',
+    );
+  }
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `가져오기 실패 (${response.status})`);
+  }
+
+  return response.json() as Promise<ProjectDetail>;
 }

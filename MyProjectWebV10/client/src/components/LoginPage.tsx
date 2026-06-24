@@ -1,6 +1,7 @@
 import { useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME } from '../config/defaults';
+import { useTranslation } from '../i18n';
 import './LoginPage.css';
 
 function readCapsLock(event: KeyboardEvent | FocusEvent): boolean {
@@ -12,6 +13,7 @@ function readCapsLock(event: KeyboardEvent | FocusEvent): boolean {
 
 export function LoginPage() {
   const { login } = useAuth();
+  const t = useTranslation();
   const [username, setUsername] = useState(DEFAULT_ADMIN_USERNAME);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +37,7 @@ export function LoginPage() {
       await login(username, password);
       setPassword('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
+      setError(err instanceof Error ? err.message : t('login.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -46,21 +48,19 @@ export function LoginPage() {
       <div className="login-page-card">
         <div className="login-page-brand">
           <strong>MyProject Web</strong>
-          <span>과제 일정 관리</span>
+          <span>{t('app.subtitle')}</span>
         </div>
 
-        <h1>로그인</h1>
-        <p className="login-page-desc">
-          계정으로 로그인하여 프로젝트 일정을 확인하고 관리하세요.
-        </p>
+        <h1>{t('login.title')}</h1>
+        <p className="login-page-desc">{t('login.desc')}</p>
         <p className="login-page-default-account">
-          최초 관리자 계정: <strong>{DEFAULT_ADMIN_USERNAME}</strong> /{' '}
+          {t('login.defaultAccount')} <strong>{DEFAULT_ADMIN_USERNAME}</strong> /{' '}
           <strong>{DEFAULT_ADMIN_PASSWORD}</strong>
         </p>
 
         <form onSubmit={handleSubmit}>
           <label>
-            사용자 이름
+            {t('login.username')}
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -70,7 +70,7 @@ export function LoginPage() {
             />
           </label>
           <label>
-            비밀번호
+            {t('login.password')}
             <div className="login-password-wrap">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -88,15 +88,15 @@ export function LoginPage() {
                 className="login-password-toggle"
                 onClick={() => setShowPassword((current) => !current)}
                 disabled={submitting}
-                aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                aria-label={showPassword ? t('login.hidePasswordAria') : t('login.showPasswordAria')}
                 aria-pressed={showPassword}
               >
-                {showPassword ? '숨기기' : '보기'}
+                {showPassword ? t('login.hidePassword') : t('login.showPassword')}
               </button>
             </div>
             {capsLockOn && (
               <span className="login-caps-lock" role="status">
-                Caps Lock이 켜져 있습니다.
+                {t('login.capsLock')}
               </span>
             )}
           </label>
@@ -104,16 +104,11 @@ export function LoginPage() {
           {error && (
             <div className="login-page-error">
               {error}
-              <p className="login-page-error-hint">
-                DB 연결 전에는 <strong>admin / admin</strong>으로 로그인합니다. DB에 이미 다른
-                비밀번호가 저장된 경우에도 동일하게 입력하면 복구됩니다. 서버를 재시작한 뒤 다시
-                시도하세요.
-              </p>
             </div>
           )}
 
           <button type="submit" className="login-page-submit" disabled={submitting}>
-            {submitting ? '로그인 중…' : '로그인'}
+            {submitting ? t('login.submitting') : t('login.submit')}
           </button>
         </form>
       </div>

@@ -1,3 +1,21 @@
+export interface AssignmentItem {
+  taskId: number;
+  resourceName: string;
+  allocationPercent: number;
+}
+
+export interface NoteItem {
+  noteId: number;
+  title: string;
+  body: string;
+  bodyRtf: string;
+  taskId: number;
+  offsetDays: number;
+  anchorDate: string;
+  contentY: number;
+  contentX: number;
+}
+
 export interface ProjectSummary {
   id: number;
   name: string;
@@ -57,6 +75,8 @@ export interface ProjectDetail {
   updatedBy?: string | null;
   tasks: TaskItem[];
   dependencies: DependencyItem[];
+  assignments: AssignmentItem[];
+  ganttNotes: NoteItem[];
 }
 
 export interface DatabaseConfigInfo {

@@ -1,23 +1,47 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
-import type { TaskItem } from '../types/project';
-import { GANTT_HEADER_HEIGHT, GANTT_ROW_HEIGHT } from '../config/ganttLayout';
+import type { AssignmentItem, TaskItem } from '../types/project';
+import {
+  GANTT_HEADER_HEIGHT,
+  GANTT_ROW_HEIGHT,
+  TASK_GRID_COLUMN_HEADER_HEIGHT,
+  TASK_GRID_PROJECT_BANNER_HEIGHT,
+} from '../config/ganttLayout';
+import { useTranslation, useLanguage } from '../i18n';
+import { getDateLocaleTag } from '../i18n/translate';
 import type { ProjectContextMenuTarget } from '../utils/projectContextMenu';
+import { DateInput } from './DateInput';
 import { parseDateInputValue, toDateInputValue } from '../utils/taskDateInput';
 import { getVisibleTasks, taskHasChildren } from '../utils/taskModel';
+import {
+  getTaskResourceAllocText,
+  getTaskResourceNamesText,
+  normalizeAllocationText,
+} from '../utils/taskResources';
 import {
   getTreeGuideSegments,
   getTreeIndentPx,
 } from '../utils/taskTreeLayout';
+import {
+  columnWidthStyle,
+  loadTaskGridColumnWidths,
+  MIN_TASK_GRID_COLUMN_WIDTHS,
+  saveTaskGridColumnWidths,
+  sumTaskGridColumnWidths,
+  type TaskGridColumnId,
+} from '../utils/taskGridColumnWidths';
 import './TaskGrid.css';
 
 interface TaskGridProps {
+  projectName: string;
   tasks: TaskItem[];
+  assignments: AssignmentItem[];
   selectedTaskId: number | null;
   canModify: boolean;
   showCriticalPath?: boolean;
   scrollContainerRef?: RefObject<HTMLDivElement | null>;
   onSelectTask: (taskId: number) => void;
   onUpdateTask: (taskId: number, patch: Partial<TaskItem>) => void;
+  onUpdateTaskResources: (taskId: number, namesText: string, allocsText: string) => void;
   onToggleExpand: (taskId: number) => void;
   onContextMenuRequest?: (target: ProjectContextMenuTarget, clientX: number, clientY: number) => void;
 }
@@ -36,24 +60,130 @@ function commitDateChange(
   });
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ko-KR');
+function countTextLines(text: string): number {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean).length;
+}
+
+function formatDate(iso: string, localeTag: string): string {
+  return new Date(iso).toLocaleDateString(localeTag);
+}
+
+interface ResizableHeaderCellProps {
+  columnId: TaskGridColumnId;
+  className: string;
+  label: string;
+  width: number;
+  onResize: (columnId: TaskGridColumnId, nextWidth: number) => void;
+  onResizeStart: () => void;
+  onResizeEnd: () => void;
+}
+
+function ResizableHeaderCell({
+  columnId,
+  className,
+  label,
+  width,
+  onResize,
+  onResizeStart,
+  onResizeEnd,
+}: ResizableHeaderCellProps) {
+  const startResize = (event: React.MouseEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const startX = event.clientX;
+    const startWidth = width;
+    onResizeStart();
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const nextWidth = Math.max(
+        MIN_TASK_GRID_COLUMN_WIDTHS[columnId],
+        Math.round(startWidth + delta),
+      );
+      onResize(columnId, nextWidth);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      onResizeEnd();
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  return (
+    <th className={className} style={columnWidthStyle(width)}>
+      {label}
+      <span
+        className="task-grid-col-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={label}
+        onMouseDown={startResize}
+      />
+    </th>
+  );
 }
 
 export function TaskGrid({
+  projectName,
   tasks,
+  assignments,
   selectedTaskId,
   canModify,
   showCriticalPath = false,
   scrollContainerRef,
   onSelectTask,
   onUpdateTask,
+  onUpdateTaskResources,
   onToggleExpand,
   onContextMenuRequest,
 }: TaskGridProps) {
+  const t = useTranslation();
+  const { locale } = useLanguage();
+  const dateLocale = getDateLocaleTag(locale);
   const [editingNameId, setEditingNameId] = useState<number | null>(null);
+  const [columnWidths, setColumnWidths] = useState(loadTaskGridColumnWidths);
+  const [isResizingColumns, setIsResizingColumns] = useState(false);
+  const columnWidthsRef = useRef(columnWidths);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const visibleTasks = getVisibleTasks(tasks);
+
+  useEffect(() => {
+    columnWidthsRef.current = columnWidths;
+  }, [columnWidths]);
+
+  const handleColumnResize = (columnId: TaskGridColumnId, nextWidth: number) => {
+    setColumnWidths((current) => ({
+      ...current,
+      [columnId]: nextWidth,
+    }));
+  };
+
+  const handleColumnResizeEnd = () => {
+    setIsResizingColumns(false);
+    saveTaskGridColumnWidths(columnWidthsRef.current);
+  };
+
+  const gridHeaders: Array<{ columnId: TaskGridColumnId; className: string; labelKey: Parameters<typeof t>[0] }> = [
+    { columnId: 'id', className: 'col-id', labelKey: 'grid.col.id' },
+    { columnId: 'name', className: 'col-name', labelKey: 'grid.col.name' },
+    { columnId: 'duration', className: 'col-duration', labelKey: 'grid.col.duration' },
+    { columnId: 'start', className: 'col-start', labelKey: 'grid.col.start' },
+    { columnId: 'end', className: 'col-end', labelKey: 'grid.col.end' },
+    { columnId: 'progress', className: 'col-progress', labelKey: 'grid.col.progress' },
+    { columnId: 'type', className: 'col-type', labelKey: 'grid.col.type' },
+    { columnId: 'resource', className: 'col-resource', labelKey: 'grid.col.resource' },
+    { columnId: 'alloc', className: 'col-alloc', labelKey: 'grid.col.allocation' },
+    { columnId: 'deliverable', className: 'col-deliverable', labelKey: 'grid.col.deliverable' },
+    { columnId: 'notes', className: 'col-notes', labelKey: 'grid.col.notes' },
+  ];
 
   useEffect(() => {
     if (editingNameId != null) {
@@ -64,7 +194,9 @@ export function TaskGrid({
 
   const layoutStyle = {
     '--task-grid-row-height': `${GANTT_ROW_HEIGHT}px`,
-    '--task-grid-header-height': `${GANTT_HEADER_HEIGHT}px`,
+    '--task-grid-header-height': `${TASK_GRID_COLUMN_HEADER_HEIGHT}px`,
+    '--task-grid-project-banner-height': `${TASK_GRID_PROJECT_BANNER_HEIGHT}px`,
+    '--split-header-height': `${GANTT_HEADER_HEIGHT}px`,
   } as CSSProperties;
 
   const commitNameEdit = (task: TaskItem, value: string) => {
@@ -99,21 +231,29 @@ export function TaskGrid({
 
   return (
     <div
-      className="task-grid"
+      className={`task-grid${isResizingColumns ? ' is-resizing-columns' : ''}`}
       ref={scrollContainerRef}
       style={layoutStyle}
       onContextMenu={handleContextMenu}
     >
-      <table>
+      <div className="task-grid-project-banner" title={projectName}>
+        {projectName}
+      </div>
+      <table style={{ minWidth: sumTaskGridColumnWidths(columnWidths) }}>
         <thead>
           <tr>
-            <th className="col-id">ID</th>
-            <th className="col-name">작업 이름</th>
-            <th className="col-duration">기간</th>
-            <th className="col-start">시작</th>
-            <th className="col-end">종료</th>
-            <th className="col-progress">진행률</th>
-            <th className="col-type">유형</th>
+            {gridHeaders.map(({ columnId, className, labelKey }) => (
+              <ResizableHeaderCell
+                key={columnId}
+                columnId={columnId}
+                className={className}
+                label={t(labelKey)}
+                width={columnWidths[columnId]}
+                onResize={handleColumnResize}
+                onResizeStart={() => setIsResizingColumns(true)}
+                onResizeEnd={handleColumnResizeEnd}
+              />
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -123,7 +263,8 @@ export function TaskGrid({
             const isSelected = selectedTaskId === task.taskId;
             const isSummary = task.taskType === 'Summary';
             const isMilestone = task.taskType === 'Milestone';
-            const canEditRow = canModify && !isSummary;
+            const canEditSchedule = canModify && !isSummary;
+            const canEditDetails = canModify;
             const isEditingName = editingNameId === task.taskId;
             const rowClass = [
               isSelected ? 'selected' : '',
@@ -132,7 +273,22 @@ export function TaskGrid({
             ]
               .filter(Boolean)
               .join(' ');
+            const resourceNamesText = getTaskResourceNamesText(
+              task.taskId,
+              assignments,
+              task.assignedTo,
+            );
+            const resourceAllocText = getTaskResourceAllocText(
+              task.taskId,
+              assignments,
+              task.assignedTo,
+            );
+            const notesText = task.notes ?? '';
+            const deliverableText = task.deliverable ?? '';
 
+            const resourceAllocDisplay = normalizeAllocationText(resourceAllocText);
+            const useMultilineAlloc =
+              countTextLines(resourceNamesText) > 1 || countTextLines(resourceAllocDisplay) > 1;
 
             return (
               <tr
@@ -141,7 +297,7 @@ export function TaskGrid({
                 onClick={() => onSelectTask(task.taskId)}
                 data-task-id={task.taskId}
               >
-                <td>{task.taskId}</td>
+                <td className="col-id">{task.taskId}</td>
                 <td className="col-name-cell">
                   <div className="task-tree-row">
                     {getTreeGuideSegments(tasks, taskIndex).map((segment, index) => (
@@ -159,7 +315,7 @@ export function TaskGrid({
                         <button
                           type="button"
                           className="task-tree-toggle"
-                          aria-label={task.isExpanded ? '하위 작업 접기' : '하위 작업 펼치기'}
+                          aria-label={task.isExpanded ? t('grid.collapse') : t('grid.expand')}
                           onClick={(e) => {
                             e.stopPropagation();
                             onToggleExpand(task.taskId);
@@ -188,17 +344,17 @@ export function TaskGrid({
                       ) : (
                         <span
                           className={[
-                            canEditRow ? 'task-grid-name-editable' : '',
+                            canEditSchedule ? 'task-grid-name-editable' : '',
                             isSummary ? 'task-summary-name' : '',
                           ]
                             .filter(Boolean)
                             .join(' ') || undefined}
                           onDoubleClick={(e) => {
-                            if (!canEditRow) return;
+                            if (!canEditSchedule) return;
                             e.stopPropagation();
                             setEditingNameId(task.taskId);
                           }}
-                          title={canEditRow ? '더블클릭하여 이름 편집' : undefined}
+                          title={canEditSchedule ? t('grid.editNameHint') : undefined}
                         >
                           {task.name}
                         </span>
@@ -206,70 +362,183 @@ export function TaskGrid({
                     </div>
                   </div>
                 </td>
-                <td>
-                  {canEditRow && !isMilestone ? (
-                    <input
-                      type="number"
-                      className="task-grid-inline-input task-grid-num-input"
-                      min={1}
-                      value={task.durationDays}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) =>
-                        onUpdateTask(task.taskId, {
-                          durationDays: Math.max(1, Number(e.target.value) || 1),
-                        })
-                      }
-                    />
+                <td className="col-duration">
+                  {canEditSchedule && !isMilestone ? (
+                    <div className="col-duration-edit">
+                      <input
+                        type="number"
+                        className="task-grid-inline-input task-grid-duration-input"
+                        min={1}
+                        max={999}
+                        value={task.durationDays}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) =>
+                          onUpdateTask(task.taskId, {
+                            durationDays: Math.max(1, Number(e.target.value) || 1),
+                          })
+                        }
+                      />
+                      <span className="col-duration-unit">{t('grid.durationUnit')}</span>
+                    </div>
                   ) : (
-                    <span>{isMilestone ? '0일' : `${task.durationDays}일`}</span>
+                    <span>
+                      {t('grid.durationDays', {
+                        count: isMilestone ? 0 : task.durationDays,
+                      })}
+                    </span>
                   )}
                 </td>
-                <td>
-                  {canEditRow ? (
-                    <input
-                      type="date"
+                <td className="col-start">
+                  {canEditSchedule ? (
+                    <DateInput
                       className="task-grid-inline-input task-grid-date-input"
                       value={toDateInputValue(task.startDate)}
                       onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => commitDateChange(onUpdateTask, task, 'startDate', e.target.value)}
+                      onChange={(value) => commitDateChange(onUpdateTask, task, 'startDate', value)}
                     />
                   ) : (
-                    formatDate(task.startDate)
+                    formatDate(task.startDate, dateLocale)
                   )}
                 </td>
-                <td>
-                  {canEditRow && !isMilestone ? (
-                    <input
-                      type="date"
+                <td className="col-end">
+                  {canEditSchedule && !isMilestone ? (
+                    <DateInput
                       className="task-grid-inline-input task-grid-date-input"
                       value={toDateInputValue(task.endDate)}
                       onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => commitDateChange(onUpdateTask, task, 'endDate', e.target.value)}
+                      onChange={(value) => commitDateChange(onUpdateTask, task, 'endDate', value)}
                     />
                   ) : (
-                    formatDate(task.endDate)
+                    formatDate(task.endDate, dateLocale)
                   )}
                 </td>
-                <td>
-                  {canEditRow ? (
-                    <input
-                      type="number"
-                      className="task-grid-inline-input task-grid-num-input"
-                      min={0}
-                      max={100}
-                      value={Math.round(task.progress)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) =>
-                        onUpdateTask(task.taskId, {
-                          progress: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
-                        })
-                      }
-                    />
+                <td className="col-progress">
+                  {canEditSchedule ? (
+                    <div className="col-progress-edit">
+                      <input
+                        type="number"
+                        className="task-grid-inline-input task-grid-progress-input"
+                        min={0}
+                        max={100}
+                        value={Math.round(task.progress)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) =>
+                          onUpdateTask(task.taskId, {
+                            progress: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
+                          })
+                        }
+                      />
+                      <span className="col-progress-unit">%</span>
+                    </div>
                   ) : (
                     <span>{Math.round(task.progress)}%</span>
                   )}
                 </td>
                 <td>{task.taskType}</td>
+                <td className="col-multiline">
+                  <div className="col-multiline-inner">
+                  {canEditDetails ? (
+                    <textarea
+                      key={`${task.taskId}-resource-${resourceNamesText}`}
+                      className="task-grid-textarea"
+                      defaultValue={resourceNamesText}
+                      rows={1}
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={(e) => {
+                        const next = e.target.value;
+                        if (next !== resourceNamesText) {
+                          onUpdateTaskResources(task.taskId, next, resourceAllocText);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="task-grid-multiline">{resourceNamesText}</span>
+                  )}
+                  </div>
+                </td>
+                <td className="col-multiline col-alloc">
+                  <div className="col-multiline-inner">
+                  {canEditDetails ? (
+                    useMultilineAlloc ? (
+                      <textarea
+                        key={`${task.taskId}-alloc-${resourceAllocDisplay}`}
+                        className="task-grid-textarea task-grid-alloc-textarea"
+                        defaultValue={resourceAllocDisplay}
+                        rows={Math.max(1, countTextLines(resourceAllocDisplay))}
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={(e) => {
+                          const normalized = normalizeAllocationText(e.target.value);
+                          if (normalized !== resourceAllocDisplay) {
+                            onUpdateTaskResources(task.taskId, resourceNamesText, normalized);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="col-alloc-edit">
+                        <input
+                          type="number"
+                          className="task-grid-inline-input task-grid-alloc-input"
+                          min={0}
+                          max={100}
+                          defaultValue={resourceAllocDisplay.replace(/%/g, '').trim()}
+                          onClick={(e) => e.stopPropagation()}
+                          onBlur={(e) => {
+                            const normalized = normalizeAllocationText(e.target.value);
+                            if (normalized !== resourceAllocDisplay) {
+                              onUpdateTaskResources(task.taskId, resourceNamesText, normalized);
+                            }
+                          }}
+                        />
+                        <span className="col-alloc-unit">%</span>
+                      </div>
+                    )
+                  ) : (
+                    <span className="task-grid-multiline task-grid-alloc-text">{resourceAllocDisplay}</span>
+                  )}
+                  </div>
+                </td>
+                <td className="col-multiline">
+                  <div className="col-multiline-inner">
+                  {canEditDetails ? (
+                    <textarea
+                      key={`${task.taskId}-deliverable-${deliverableText}`}
+                      className="task-grid-textarea"
+                      defaultValue={deliverableText}
+                      rows={1}
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={(e) => {
+                        const next = e.target.value;
+                        if (next !== deliverableText) {
+                          onUpdateTask(task.taskId, { deliverable: next });
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="task-grid-multiline">{deliverableText}</span>
+                  )}
+                  </div>
+                </td>
+                <td className="col-multiline">
+                  <div className="col-multiline-inner">
+                  {canEditDetails ? (
+                    <textarea
+                      key={`${task.taskId}-notes-${notesText}`}
+                      className="task-grid-textarea"
+                      defaultValue={notesText}
+                      rows={1}
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={(e) => {
+                        const next = e.target.value;
+                        if (next !== notesText) {
+                          onUpdateTask(task.taskId, { notes: next });
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="task-grid-multiline">{notesText}</span>
+                  )}
+                  </div>
+                </td>
               </tr>
             );
           })}
