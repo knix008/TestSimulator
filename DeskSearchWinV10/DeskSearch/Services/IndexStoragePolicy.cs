@@ -10,12 +10,13 @@ internal static class IndexStoragePolicy
 {
     public const string DatabaseFileName = "index.db";
 
-    public const int BulkMergeBatchSize = 16_384;
-    public const int SqliteInsertChunkSize = 512;
-    public const int RegexSearchPageSize = 20_000;
+    public const int BulkMergeBatchSize = 4_096;
+    public const int SqliteInsertChunkSize = 256;
+    public const int RegexSearchPageSize = 10_000;
     public const int FtsCandidateLimit = 2000;
     public const int MaxSearchResults = 2000;
 
-    public const long SqliteMmapBytes = 256L * 1024 * 1024;
-    public const int SqliteCachePages = -65536;
+    public const long SqliteMmapBytes = 128L * 1024 * 1024;
+    public const int SqliteCachePages = -8192;
+    public const int BulkIngestCachePages = -16384;
 }

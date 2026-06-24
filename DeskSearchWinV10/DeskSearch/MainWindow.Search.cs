@@ -101,6 +101,21 @@ public partial class MainWindow
 
     private void RunSearchLoopCore(SearchSession session, int generation)
     {
+        var previousPriority = Thread.CurrentThread.Priority;
+        Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+
+        try
+        {
+            RunSearchLoopCoreInner(session, generation);
+        }
+        finally
+        {
+            Thread.CurrentThread.Priority = previousPriority;
+        }
+    }
+
+    private void RunSearchLoopCoreInner(SearchSession session, int generation)
+    {
         IReadOnlyList<FileEntry> latestResults = [];
         var latestQuery = session.Query;
 

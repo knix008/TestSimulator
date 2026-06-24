@@ -56,10 +56,10 @@ public sealed class IndexStore : IDisposable
 
             _ftsCurrent = false;
             DropFtsTriggers();
-            ExecuteNonQuery("PRAGMA synchronous=OFF");
+            ExecuteNonQuery("PRAGMA synchronous=NORMAL");
             ExecuteNonQuery("PRAGMA locking_mode=EXCLUSIVE");
-            ExecuteNonQuery("PRAGMA temp_store=MEMORY");
-            ExecuteNonQuery("PRAGMA cache_size=-131072");
+            ExecuteNonQuery("PRAGMA temp_store=FILE");
+            ExecuteNonQuery($"PRAGMA cache_size={IndexStoragePolicy.BulkIngestCachePages}");
         }
     }
 
@@ -79,6 +79,7 @@ public sealed class IndexStore : IDisposable
             ExecuteNonQuery("PRAGMA temp_store=FILE");
             ExecuteNonQuery($"PRAGMA cache_size={IndexStoragePolicy.SqliteCachePages}");
             DisposeBulkUpsertCommand();
+            Thread.Sleep(IndexResourcePolicy.BatchCommitDelayMs);
             RefreshFtsTriggers();
             RebuildFts();
             _ftsCurrent = true;

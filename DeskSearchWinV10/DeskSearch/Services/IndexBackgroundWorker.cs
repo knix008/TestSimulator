@@ -21,7 +21,7 @@ internal sealed class IndexBackgroundWorker : IDisposable
         {
             IsBackground = true,
             Name = "DeskSearch.Indexer",
-            Priority = ThreadPriority.BelowNormal
+            Priority = ThreadPriority.Lowest
         };
         _thread.Start();
     }

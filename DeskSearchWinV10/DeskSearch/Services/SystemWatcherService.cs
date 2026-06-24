@@ -49,7 +49,7 @@ public sealed class SystemWatcherService : IDisposable
             watcher.Renamed += OnRenamed;
             watcher.Error += OnWatcherError;
             watcher.EnableRaisingEvents = true;
-            watcher.InternalBufferSize = 64 * 1024;
+            watcher.InternalBufferSize = 32 * 1024;
 
             _watchers.Add(watcher);
         }

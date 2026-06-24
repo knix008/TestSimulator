@@ -296,6 +296,8 @@ public sealed class SystemIndexService : IDisposable
             // 재동기화 실패 시 다음 주기에 재시도
         }
 
+        Thread.Sleep(IndexResourcePolicy.BatchCommitDelayMs);
+
         lock (_resyncLock)
         {
             if (_pendingResyncPaths.Count > 0)
@@ -326,6 +328,8 @@ public sealed class SystemIndexService : IDisposable
 
     private void RunScan(CancellationToken cancellationToken)
     {
+        var previousPriority = Thread.CurrentThread.Priority;
+        Thread.CurrentThread.Priority = ThreadPriority.Lowest;
         _isScanning = true;
         _approximateScanCount = 0;
         _indexStore.BeginBulkIngest();
@@ -350,6 +354,7 @@ public sealed class SystemIndexService : IDisposable
                 cancellationToken.ThrowIfCancellationRequested();
                 ScanAndMerge(path, cancellationToken);
                 EnableSearchIfNeeded();
+                PauseBetweenScanRoots(cancellationToken);
             }
 
             EnableSearchIfNeeded();
@@ -358,6 +363,7 @@ public sealed class SystemIndexService : IDisposable
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 ScanAndMerge(root, cancellationToken);
+                PauseBetweenScanRoots(cancellationToken);
             }
 
             _isScanComplete = true;
@@ -381,6 +387,7 @@ public sealed class SystemIndexService : IDisposable
             _indexStore.EndBulkIngest();
             _isScanning = false;
             _currentScanPath = null;
+            Thread.CurrentThread.Priority = previousPriority;
         }
     }
 
@@ -423,6 +430,7 @@ public sealed class SystemIndexService : IDisposable
 
         _approximateScanCount += batch.Count;
         _indexStore.UpsertBatch(batch);
+        Thread.Sleep(IndexResourcePolicy.BatchCommitDelayMs);
         EnableSearchIfNeeded();
         ReportProgress(_currentScanPath, false);
         NotifyIndexUpdatedIfNeeded();
@@ -590,6 +598,15 @@ public sealed class SystemIndexService : IDisposable
 
         _entriesSinceYield = 0;
         Thread.Sleep(IndexResourcePolicy.ScanYieldDelayMs);
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private static void PauseBetweenScanRoots(CancellationToken cancellationToken)
+    {
+        if (IndexResourcePolicy.ScanDrivePauseMs <= 0)
+            return;
+
+        Thread.Sleep(IndexResourcePolicy.ScanDrivePauseMs);
         cancellationToken.ThrowIfCancellationRequested();
     }
 
