@@ -12,18 +12,23 @@ public partial class MainWindow
 
     internal SettingsProgressSnapshot GetSettingsProgress()
     {
-        var count = _indexService.Count;
-
         if (!_indexService.IsScanComplete)
         {
+            // Count needs the live store's lock, which the active scan holds while
+            // writing — polling it from this UI-thread timer could block the whole
+            // window. ApproximateLiveCount is lock-free and good enough for display.
             var percent = _indexService.ScanProgressPercent;
+            var approxCount = _indexService.ApproximateLiveCount;
             return new SettingsProgressSnapshot
             {
                 Percent = percent,
-                StatusText = LocalizationService.F("Settings_IndexingStatus", percent, count),
+                StatusText = LocalizationService.F("Settings_IndexingStatus", percent, approxCount),
                 IsIndexing = true
             };
         }
+
+        // No scan is writing to the live store here, so Count is cheap/uncontended.
+        var count = _indexService.Count;
 
         SearchSession? session;
         lock (_searchSessionLock)

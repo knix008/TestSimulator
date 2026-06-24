@@ -44,6 +44,14 @@ public sealed class SystemIndexService : IDisposable
 
     private string? _currentScanPath;
 
+    // A lock-free, "good enough for display" stand-in for Count while a scan writes
+    // directly into the live store. The real Count property needs the live store's
+    // lock — the same lock the writer holds during each batch commit — so polling it
+    // from the UI thread (Settings window progress, tray menu) while indexing is active
+    // can block the UI waiting for that lock. This counter is only ever incremented, so
+    // reading it never contends with the writer.
+    private long _approximateLiveCount;
+
     public SystemIndexService()
     {
         _databaseFolder = Path.Combine(
@@ -55,6 +63,7 @@ public sealed class SystemIndexService : IDisposable
         DeleteDatabaseFiles(GetBuildingDatabasePath());
 
         _indexStore = new IndexStore(GetCanonicalDatabasePath());
+        _approximateLiveCount = _indexStore.Count;
 
         lock (_rootsLock)
         {
@@ -64,6 +73,12 @@ public sealed class SystemIndexService : IDisposable
 
         EnableSearchIfNeeded();
     }
+
+    /// <summary>
+    /// Cheap, lock-free, approximate entry count — safe to poll from the UI thread even
+    /// while a scan is actively writing to the live store. See <see cref="_approximateLiveCount"/>.
+    /// </summary>
+    public long ApproximateLiveCount => Interlocked.Read(ref _approximateLiveCount);
 
     private string GetCanonicalDatabasePath() =>
         Path.Combine(_databaseFolder, IndexStoragePolicy.DatabaseFileName);
@@ -506,6 +521,7 @@ public sealed class SystemIndexService : IDisposable
                 PauseBetweenScanRoots(cancellationToken);
             }
 
+            Interlocked.Exchange(ref _approximateLiveCount, _indexStore.Count);
             _isScanComplete = AllScanRootsIndexed();
             _scanProgressPercent = _isScanComplete ? 100 : _scanProgressPercent;
             ReportProgress(null, _isScanComplete, force: _isScanComplete);
@@ -640,6 +656,8 @@ public sealed class SystemIndexService : IDisposable
         {
             if (buildingPath is not null)
                 PromoteBuildingStore(target, buildingPath);
+            else
+                Interlocked.Exchange(ref _approximateLiveCount, _indexStore.Count);
 
             _isScanComplete = true;
             _scanProgressPercent = 100;
@@ -723,6 +741,7 @@ public sealed class SystemIndexService : IDisposable
             DeleteDatabaseFiles(buildingPath);
 
             _indexStore = new IndexStore(canonicalPath);
+            Interlocked.Exchange(ref _approximateLiveCount, _indexStore.Count);
         }
 
         lock (_rootsLock)
@@ -798,6 +817,7 @@ public sealed class SystemIndexService : IDisposable
 
         if (ReferenceEquals(target, _indexStore))
         {
+            Interlocked.Add(ref _approximateLiveCount, batch.Count);
             EnableSearchIfNeeded();
             NotifyIndexUpdatedIfNeeded();
         }
