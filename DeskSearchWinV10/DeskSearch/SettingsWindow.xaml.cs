@@ -18,8 +18,12 @@ public partial class SettingsWindow : Window
     private readonly Func<SettingsProgressSnapshot>? _getProgress;
     private readonly Action? _reSearch;
     private readonly DispatcherTimer? _progressTimer;
+    private readonly DebounceDispatcher _scrollResumeDebounce;
     private readonly Dictionary<string, System.Windows.Controls.CheckBox> _driveCheckBoxes =
         new(StringComparer.OrdinalIgnoreCase);
+    private int _lastProgressPercent = -1;
+    private string? _lastProgressStatus;
+    private bool _progressPausedForScroll;
 
     public SettingsWindow(
         AppSettings current,
@@ -29,6 +33,7 @@ public partial class SettingsWindow : Window
         Settings = current.Clone();
         _getProgress = getProgress;
         _reSearch = reSearch;
+        _scrollResumeDebounce = new DebounceDispatcher(Dispatcher, delayMs: 180);
         InitializeComponent();
         BuildColorSwatches();
         ApplyLocalization();
@@ -38,19 +43,37 @@ public partial class SettingsWindow : Window
         if (_getProgress is null)
         {
             IndexProgressLabel.Visibility = Visibility.Collapsed;
-            IndexProgressBar.Visibility = Visibility.Collapsed;
+            IndexProgressTrack.Visibility = Visibility.Collapsed;
             IndexProgressPercentLabel.Visibility = Visibility.Collapsed;
             IndexProgressStatusLabel.Visibility = Visibility.Collapsed;
             ReSearchButton.Visibility = Visibility.Collapsed;
             return;
         }
 
-        _progressTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(400)
-        };
-        _progressTimer.Tick += (_, _) => UpdateProgressUi();
+        _progressTimer = new DispatcherTimer(
+            TimeSpan.FromMilliseconds(1000),
+            DispatcherPriority.Background,
+            (_, _) => UpdateProgressUi(),
+            Dispatcher);
+        IndexProgressTrack.SizeChanged += (_, _) => UpdateProgressUi();
         _progressTimer.Start();
+        UpdateProgressUi();
+    }
+
+    private void SettingsScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.VerticalChange == 0 || _progressTimer is null)
+            return;
+
+        _progressPausedForScroll = true;
+        _progressTimer.Stop();
+        _scrollResumeDebounce.Debounce(ResumeProgressUpdates);
+    }
+
+    private void ResumeProgressUpdates()
+    {
+        _progressPausedForScroll = false;
+        _progressTimer?.Start();
         UpdateProgressUi();
     }
 
@@ -294,11 +317,23 @@ public partial class SettingsWindow : Window
 
     private void UpdateProgressUi()
     {
-        if (_getProgress is null)
+        if (_getProgress is null || _progressPausedForScroll)
             return;
 
         var snapshot = _getProgress();
-        IndexProgressBar.Value = snapshot.Percent;
+        var trackWidth = IndexProgressTrack.ActualWidth;
+        if (trackWidth > 0)
+            IndexProgressFill.Width = trackWidth * snapshot.Percent / 100.0;
+
+        if (snapshot.Percent == _lastProgressPercent
+            && string.Equals(snapshot.StatusText, _lastProgressStatus, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastProgressPercent = snapshot.Percent;
+        _lastProgressStatus = snapshot.StatusText;
+
         IndexProgressPercentLabel.Text = $"{snapshot.Percent}%";
         IndexProgressStatusLabel.Text = snapshot.StatusText;
     }
@@ -396,15 +431,23 @@ public partial class SettingsWindow : Window
         TextPreview.Foreground = ColorHelper.ToBrush(hex);
     }
 
-    private void OpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void BackgroundOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (!IsLoaded)
             return;
 
         Settings.BackgroundOpacity = (int)BackgroundOpacitySlider.Value;
-        Settings.WindowOpacity = (int)WindowOpacitySlider.Value;
         BackgroundPreview.Background = CreateBackgroundBrush();
-        UpdateOpacityLabels();
+        BackgroundOpacityValueLabel.Text = $"{Settings.BackgroundOpacity}%";
+    }
+
+    private void WindowOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!IsLoaded)
+            return;
+
+        Settings.WindowOpacity = (int)WindowOpacitySlider.Value;
+        WindowOpacityValueLabel.Text = $"{Settings.WindowOpacity}%";
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

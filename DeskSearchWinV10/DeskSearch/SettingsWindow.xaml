@@ -64,11 +64,14 @@
                    FontWeight="SemiBold"
                    Margin="0,0,0,16"/>
 
-        <ScrollViewer Grid.Row="1"
+        <ScrollViewer x:Name="SettingsScrollViewer"
+                      Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       CanContentScroll="False"
-                      Padding="0,0,4,0">
+                      PanningMode="VerticalOnly"
+                      Padding="0,0,4,0"
+                      ScrollChanged="SettingsScrollViewer_ScrollChanged">
             <StackPanel Margin="0,0,12,8">
                 <TextBlock x:Name="LanguageLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <RadioButton x:Name="LanguageKoreanRadio"
@@ -105,7 +108,9 @@
                            Foreground="#888888"
                            Margin="0,0,0,6"
                            TextWrapping="Wrap"/>
-                <WrapPanel x:Name="ExcludedDrivesPanel" Margin="0,0,0,12"/>
+                <WrapPanel x:Name="ExcludedDrivesPanel"
+                           Margin="0,0,0,12"
+                           CacheMode="BitmapCache"/>
 
                 <TextBlock x:Name="ExcludedDirectoriesLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <TextBlock x:Name="ExcludedDirectoriesDescLabel"
@@ -145,11 +150,18 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="48"/>
                     </Grid.ColumnDefinitions>
-                    <ProgressBar x:Name="IndexProgressBar"
-                                 Height="18"
-                                 Minimum="0"
-                                 Maximum="100"
-                                 VerticalAlignment="Center"/>
+                    <Border x:Name="IndexProgressTrack"
+                            Height="18"
+                            Background="#E6E6E6"
+                            CornerRadius="4"
+                            ClipToBounds="True"
+                            VerticalAlignment="Center">
+                        <Border x:Name="IndexProgressFill"
+                                Background="#0078D4"
+                                CornerRadius="4"
+                                HorizontalAlignment="Left"
+                                Width="0"/>
+                    </Border>
                     <TextBlock x:Name="IndexProgressPercentLabel"
                                Grid.Column="1"
                                HorizontalAlignment="Right"
@@ -195,7 +207,9 @@
                             Margin="0,0,0,0"
                             Click="PickBackgroundColor_Click"/>
                 </Grid>
-                <WrapPanel x:Name="BackgroundSwatchPanel" Margin="0,0,0,12"/>
+                <WrapPanel x:Name="BackgroundSwatchPanel"
+                           Margin="0,0,0,12"
+                           CacheMode="BitmapCache"/>
 
                 <TextBlock x:Name="BackgroundOpacityLabel" Margin="0,0,0,4"/>
                 <Grid Margin="0,0,0,12">
@@ -207,7 +221,8 @@
                             Margin="0,0,8,0"
                             VerticalAlignment="Center"
                             Minimum="40" Maximum="100" TickFrequency="5"
-                            ValueChanged="OpacitySlider_ValueChanged"/>
+                            IsMoveToPointEnabled="True"
+                            ValueChanged="BackgroundOpacitySlider_ValueChanged"/>
                     <TextBlock x:Name="BackgroundOpacityValueLabel"
                                Grid.Column="1"
                                HorizontalAlignment="Right"
@@ -234,7 +249,9 @@
                             Margin="0,0,0,0"
                             Click="PickBorderColor_Click"/>
                 </Grid>
-                <WrapPanel x:Name="BorderSwatchPanel" Margin="0,0,0,12"/>
+                <WrapPanel x:Name="BorderSwatchPanel"
+                           Margin="0,0,0,12"
+                           CacheMode="BitmapCache"/>
 
                 <TextBlock x:Name="TextColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,12">
@@ -260,7 +277,9 @@
                             Margin="0,0,0,0"
                             Click="PickTextColor_Click"/>
                 </Grid>
-                <WrapPanel x:Name="TextSwatchPanel" Margin="0,0,0,12"/>
+                <WrapPanel x:Name="TextSwatchPanel"
+                           Margin="0,0,0,12"
+                           CacheMode="BitmapCache"/>
 
                 <TextBlock x:Name="WindowOpacityLabel" Margin="0,0,0,4"/>
                 <Grid Margin="0,0,0,12">
@@ -272,7 +291,8 @@
                             Margin="0,0,8,0"
                             VerticalAlignment="Center"
                             Minimum="50" Maximum="100" TickFrequency="5"
-                            ValueChanged="OpacitySlider_ValueChanged"/>
+                            IsMoveToPointEnabled="True"
+                            ValueChanged="WindowOpacitySlider_ValueChanged"/>
                     <TextBlock x:Name="WindowOpacityValueLabel"
                                Grid.Column="1"
                                HorizontalAlignment="Right"
