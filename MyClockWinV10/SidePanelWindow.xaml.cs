@@ -565,19 +565,28 @@ public partial class SidePanelWindow : Window
     {
         var dlg = new AddAlarmDialog { Owner = Owner ?? this };
         if (dlg.ShowDialog() == true && dlg.Result is not null)
+        {
             ((ObservableCollection<AlarmItem>)AlarmList.ItemsSource!).Add(dlg.Result);
+            OnSettingsChanged?.Invoke();
+        }
     }
 
     private void EditAlarm_Click(object sender, RoutedEventArgs e)
     {
         if (((Button)sender).DataContext is AlarmItem alarm)
-            new AddAlarmDialog(alarm) { Owner = Owner ?? this }.ShowDialog();
+        {
+            if (new AddAlarmDialog(alarm) { Owner = Owner ?? this }.ShowDialog() == true)
+                OnSettingsChanged?.Invoke();
+        }
     }
 
     private void DeleteAlarm_Click(object sender, RoutedEventArgs e)
     {
         if (((Button)sender).DataContext is AlarmItem alarm)
+        {
             ((ObservableCollection<AlarmItem>)AlarmList.ItemsSource!).Remove(alarm);
+            OnSettingsChanged?.Invoke();
+        }
     }
 
     // ── Timers ────────────────────────────────────────────────────────────

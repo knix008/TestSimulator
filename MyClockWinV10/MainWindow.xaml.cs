@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
@@ -37,6 +39,8 @@ public partial class MainWindow : Window
     }
     private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_HIDEWINDOW = 0x0080;
+    private const uint SWP_SHOWWINDOW = 0x0040;
     private const int  WM_WINDOWPOSCHANGING = 0x0046;
 
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
@@ -52,12 +56,15 @@ public partial class MainWindow : Window
     private bool _worldUse24h    = false;
     private bool _rightVisible   = false;
     private bool _panelOpensRight = true;
+    private bool _alwaysOnTop;
     private string _currentTheme = "DarkTheme";
     private string _digitalStyle = "SevenSegment";
     private string _analogStyle  = "Classic";
 
     private SidePanelWindow? _sidePanel;
     private int _sidePanelCloseGeneration;
+    private bool _sidePanelIsClosing;
+    private bool _syncingSidePanelFromWndProc;
     private double _dpiScaleX = 1.0, _dpiScaleY = 1.0;
 
     private System.Windows.Forms.NotifyIcon? _trayIcon;
@@ -240,7 +247,7 @@ public partial class MainWindow : Window
         _isDigital    = s.IsDigital;
         _use24h       = s.Use24h;
         _worldUse24h  = s.WorldUse24h;
-        Topmost       = s.AlwaysOnTop;
+        ApplyAlwaysOnTop(s.AlwaysOnTop);
         _currentTheme = s.Theme;
         _digitColor   = ParseColor(s.DigitColor);
         _amPmColor    = ParseAmPmColor(s.AmPmColor);
@@ -290,7 +297,7 @@ public partial class MainWindow : Window
 
     private void SaveSettings()
     {
-        _settings.AlwaysOnTop = Topmost;
+        _settings.AlwaysOnTop = _alwaysOnTop;
         _settings.Use24h       = _use24h;
         _settings.WorldUse24h  = _worldUse24h;
         _settings.Theme        = _currentTheme;
@@ -339,7 +346,7 @@ public partial class MainWindow : Window
         _worldUse24h  = d.WorldUse24h;
         _currentTheme = d.Theme;
         _isDigital    = d.IsDigital;
-        Topmost       = d.AlwaysOnTop;
+        ApplyAlwaysOnTop(d.AlwaysOnTop);
         _digitColor   = ParseColor(d.DigitColor);
         _amPmColor    = ParseAmPmColor(d.AmPmColor);
 
@@ -722,6 +729,13 @@ public partial class MainWindow : Window
             bool noMove = (pos.flags & SWP_NOMOVE) != 0;
             bool noSize = (pos.flags & SWP_NOSIZE) != 0;
 
+            // Topmost toggle, show/hide, or other z-order-only updates must not move the side panel
+            // from inside this hook — that re-enters SetWindowPos and can hang the UI thread.
+            if (noMove && noSize)
+                return IntPtr.Zero;
+            if ((pos.flags & (SWP_HIDEWINDOW | SWP_SHOWWINDOW)) != 0)
+                return IntPtr.Zero;
+
             double newLeft   = noMove ? Left   : pos.x  / _dpiScaleX;
             double newWidth  = noSize ? Width  : pos.cx / _dpiScaleX;
             double newTop    = noMove ? Top    : pos.y  / _dpiScaleY;
@@ -736,15 +750,29 @@ public partial class MainWindow : Window
             }
 
             // Sync side panel position (uses updated _panelOpensRight)
-            if (_sidePanel != null)
+            if (_sidePanel != null && !_syncingSidePanelFromWndProc)
             {
-                _sidePanel.Left   = _panelOpensRight
-                    ? (newLeft + newWidth)
-                    : (newLeft - _sidePanel.Width);
-                ApplySidePanelPosition(newTop);
+                _syncingSidePanelFromWndProc = true;
+                try
+                {
+                    _sidePanel.Left = _panelOpensRight
+                        ? (newLeft + newWidth)
+                        : (newLeft - _sidePanel.Width);
+                    ApplySidePanelPosition(newTop);
+                }
+                finally
+                {
+                    _syncingSidePanelFromWndProc = false;
+                }
             }
         }
         return IntPtr.Zero;
+    }
+
+    private void ApplyAlwaysOnTop(bool onTop)
+    {
+        _alwaysOnTop = onTop;
+        Topmost = onTop;
     }
 
     // ── System tray ───────────────────────────────────────────────────────
@@ -781,8 +809,12 @@ public partial class MainWindow : Window
         if (!IsVisible) return;
 
         CloseSidePanelImmediate();
-        // Keep Normal state while hidden — Minimized + ShowInTaskbar=false often fails to restore.
         WindowState = WindowState.Normal;
+
+        // Topmost + layered transparent windows can hang if hidden while still topmost.
+        if (Topmost)
+            Topmost = false;
+
         Hide();
         _trayIcon.Visible = true;
         UpdateTrayIcon(DateTime.Now);
@@ -806,7 +838,8 @@ public partial class MainWindow : Window
         if (!_allowClose)
         {
             e.Cancel = true;
-            MinimizeToTray();
+            // Defer tray hide — hiding synchronously inside OnClosing can deadlock with Topmost.
+            Dispatcher.BeginInvoke(MinimizeToTray);
             return;
         }
         base.OnClosing(e);
@@ -825,10 +858,12 @@ public partial class MainWindow : Window
             EnsureWindowOnScreen();
 
             Activate();
-            bool keepTopmost = Topmost;
-            Topmost = true;
-            if (!keepTopmost)
+            ApplyAlwaysOnTop(_alwaysOnTop);
+            if (!_alwaysOnTop)
+            {
+                Topmost = true;
                 Topmost = false;
+            }
             Focus();
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
@@ -1358,9 +1393,10 @@ public partial class MainWindow : Window
             _use24h = v;
             ApplyClockModeMinSize();
             RefreshDigitalAmPmDisplay();
+            SaveSettings();
         };
-        _sidePanel.OnWorldFormatChanged   = v => { _worldUse24h = v; };
-        _sidePanel.OnBrightnessChanged    = ApplyBrightness;
+        _sidePanel.OnWorldFormatChanged   = v => { _worldUse24h = v; SaveSettings(); };
+        _sidePanel.OnBrightnessChanged    = v => { ApplyBrightness(v); SaveSettings(); };
         _sidePanel.OnDigitColorChanged    = c => { ApplyDigitColor(c); SaveSettings(); };
         _sidePanel.OnAmPmColorChanged     = c =>
         {
@@ -1371,21 +1407,24 @@ public partial class MainWindow : Window
         _sidePanel.OnResetRequested       = ResetToDefaults;
         _sidePanel.OnDigitalStyleChanged  = s => { ApplyDigitalStyle(s); SaveSettings(); };
         _sidePanel.OnAnalogStyleChanged   = s => { ApplyAnalogStyle(s); SaveSettings(); };
-        _sidePanel.OnAlwaysOnTopChanged   = v => { Topmost = v; SaveSettings(); };
+        _sidePanel.OnAlwaysOnTopChanged   = v => { ApplyAlwaysOnTop(v); SaveSettings(); };
         _sidePanel.OnSettingsChanged      = SaveSettings;
         _sidePanel.WorldPanel.LoadEntries(_worldCities);
         _sidePanel.WorldPanel.EntriesChanged += OnWorldCitiesChanged;
+        AttachAlarmSaveHooks();
         _sidePanel.Closed += (s, _) =>
         {
             if (s is not SidePanelWindow panel) return;
             if (_sidePanel != null && !ReferenceEquals(panel, _sidePanel)) return;
 
+            DetachAlarmSaveHooks();
             panel.WorldPanel.EntriesChanged -= OnWorldCitiesChanged;
             DetachSidePanelChromeHover(panel);
 
             if (ReferenceEquals(panel, _sidePanel))
                 _sidePanel = null;
 
+            _sidePanelIsClosing = false;
             _rightVisible = false;
             UpdateSettingsMenuItem();
             ScheduleHideChrome();
@@ -1394,7 +1433,7 @@ public partial class MainWindow : Window
         _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(_brightness * 100),
             _digitalStyle, _analogStyle,
             _alarmSounds.SoundId, (int)Math.Round(_alarmSounds.Volume * 100),
-            Topmost, _digitColor, _amPmColor);
+            _alwaysOnTop, _digitColor, _amPmColor);
         PositionSidePanel();
         _sidePanel.ApplyPanelSide(_panelOpensRight);
         AttachSidePanelChromeHover(_sidePanel);
@@ -1421,8 +1460,9 @@ public partial class MainWindow : Window
 
     private void CloseSidePanel()
     {
-        if (_sidePanel == null) return;
+        if (_sidePanel == null || _sidePanelIsClosing) return;
 
+        _sidePanelIsClosing = true;
         _rightVisible = false;
         UpdateSettingsMenuItem();
 
@@ -1441,7 +1481,7 @@ public partial class MainWindow : Window
             {
                 if (!panel.IsLoaded) return;
                 try { panel.Close(); }
-                catch { /* already closed */ }
+                catch { _sidePanelIsClosing = false; }
             });
         });
     }
@@ -1452,6 +1492,7 @@ public partial class MainWindow : Window
         if (_sidePanel == null) return;
 
         _sidePanelCloseGeneration++;
+        _sidePanelIsClosing = false;
         _rightVisible = false;
         UpdateSettingsMenuItem();
 
@@ -1461,6 +1502,7 @@ public partial class MainWindow : Window
         _worldCities = panel.WorldPanel.ToDtos();
         SaveSettings();
 
+        DetachAlarmSaveHooks();
         panel.WorldPanel.EntriesChanged -= OnWorldCitiesChanged;
         DetachSidePanelChromeHover(panel);
         panel.BeginAnimation(WidthProperty, null);
@@ -1473,6 +1515,38 @@ public partial class MainWindow : Window
         }
         catch { /* already closed */ }
     }
+
+    private void AttachAlarmSaveHooks()
+    {
+        _alarms.CollectionChanged += OnAlarmsCollectionChanged;
+        foreach (var alarm in _alarms)
+            alarm.PropertyChanged += OnAlarmPropertyChanged;
+    }
+
+    private void DetachAlarmSaveHooks()
+    {
+        _alarms.CollectionChanged -= OnAlarmsCollectionChanged;
+        foreach (var alarm in _alarms)
+            alarm.PropertyChanged -= OnAlarmPropertyChanged;
+    }
+
+    private void OnAlarmsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems != null)
+        {
+            foreach (AlarmItem alarm in e.NewItems)
+                alarm.PropertyChanged += OnAlarmPropertyChanged;
+        }
+        if (e.OldItems != null)
+        {
+            foreach (AlarmItem alarm in e.OldItems)
+                alarm.PropertyChanged -= OnAlarmPropertyChanged;
+        }
+        SaveSettings();
+    }
+
+    private void OnAlarmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        => SaveSettings();
 
     private void PositionSidePanel()
     {

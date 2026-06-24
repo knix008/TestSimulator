@@ -10,6 +10,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        ExceptionReporter.Install();
 
         var launch = ScreensaverCommandLine.Parse(e.Args);
         switch (launch.Mode)
