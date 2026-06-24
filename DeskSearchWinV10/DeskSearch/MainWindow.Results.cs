@@ -6,7 +6,7 @@ namespace DeskSearch;
 
 public partial class MainWindow
 {
-    private const double ResultsWindowGap = 4;
+    private const double ResultsWindowGap = 0;
     private const int MinVisibleResults = 10;
     private const double ResultItemHeight = 46;
     private const double ResultsChromeHeight = 22;
