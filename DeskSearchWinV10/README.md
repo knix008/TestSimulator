@@ -10,14 +10,18 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 |------|------|
 | 전체 시스템 인덱싱 | 고정·이동·네트워크 드라이브를 백그라운드 스캔 (관리자 권한) |
 | 파일·폴더 검색 | 이름 기준 실시간 자동완성 (최대 12건, 배치 검색·이어하기) |
+| 다국어 파일명 검색 | UI는 한국어/English만 지원; 파일·폴더 이름은 모든 언어(Unicode NFC)로 검색 |
 | 실시간 갱신 | 우선 폴더 FileSystemWatcher + 4시간 주기 재동기화 |
 | 드래그·크기 조절 | ≡ 핸들로 이동, 좌·우 가장자리로 너비 조절 |
 | 창 레이아웃 저장 | 위치·너비·높이를 `%AppData%\DeskSearch\settings.json`에 자동 저장 |
 | 설정 | 배경/테두리/글자색(밝·어두운 프리셋), 불투명도, 대소문자 구분, 항상 위 |
+| 인덱싱 진행률 | 설정 창에서 진행률(%) 확인 및 **재검색** |
+| Windows 시작 시 실행 | 작업 스케줄러(로그온, 최고 권한)로 자동 시작 |
+| 단일 인스턴스 | 이미 실행 중이면 새 창 대신 기존 검색창 표시 |
 | 다크 테마 | 어두운 배경 선택 시 글자·테두리·아이콘 색 자동 조정 |
-| 다국어 | 한국어 / English |
+| 다국어 UI | 한국어 / English |
 | 시스템 트레이 | 작업 표시줄 미표시, 트레이에서 표시·숨기기·설정·종료 |
-| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (바탕화면·시작 메뉴 바로가기 선택) |
+| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (한국어·영어 UI, 바로가기 선택) |
 
 ## 빌드 및 실행
 
@@ -40,12 +44,20 @@ dotnet build DeskSearchWinV10.sln -c Release
 
 | 출력 | 설명 |
 |------|------|
-| `DeskSearch.Installer/bin/Release/DeskSearchSetup.msi` | 설치 패키지 |
+| `DeskSearch.Installer/bin/Release/DeskSearchSetup.msi` | 설치 패키지 (설치 UI: 한국어) |
+| `DeskSearch.Installer/bin/Release/DeskSearchSetup.en-US.msi` | 설치 패키지 (설치 UI: English) |
 | `DeskSearch/bin/Release/net8.0-windows/win-x64/publish/` | self-contained 배포 파일 (~60MB) |
 
 **요구사항:** .NET 8 SDK, [WiX Toolset](https://wixtoolset.org/) MSBuild SDK (`WixToolset.Sdk` — NuGet 복원)
 
 설치 마법사(`WixUI_FeatureTree`)에서 **바탕화면 바로가기**와 **시작 메뉴 바로가기**를 각각 선택할 수 있습니다.
+
+**사용자 데이터 처리**
+
+| 상황 | 동작 |
+|------|------|
+| 업그레이드·변경·복구 | 사용자 데이터 삭제 여부를 선택할 수 있음 |
+| 제거 | `%AppData%\DeskSearch\`에 설정 등이 **있을 때만** 삭제 여부를 질문; 없으면 질문 없이 제거 |
 
 > Debug 구성에서는 WiX 프로젝트가 MSI 빌드를 건너뜁니다. MSI만 따로 빌드하지 않으려면 `-p:SkipInstaller=true`를 사용하세요.
 
@@ -68,6 +80,7 @@ DeskSearchWinV10/
 ├── DeskSearch/                       # WPF 메인 앱
 │   ├── MainWindow.xaml(.cs)          # 검색 UI
 │   ├── MainWindow.Settings.cs        # 설정·창 레이아웃
+│   ├── MainWindow.Settings.Progress.cs # 설정 창 인덱싱 진행률
 │   ├── MainWindow.Tray.cs            # 트레이·숨기기·종료
 │   ├── MainWindow.Search.cs          # 배치 검색·세션 이어하기
 │   ├── MainWindow.Resize.cs          # 창 너비 조절
@@ -76,6 +89,7 @@ DeskSearchWinV10/
 │   ├── SettingsColorPalette.cs       # 색상 프리셋
 │   ├── Helpers/
 │   │   ├── ColorHelper.cs            # 색상·다크 배경 감지
+│   │   ├── SearchTextHelper.cs       # 검색어 NFC 정규화
 │   │   └── WindowTaskbarHelper.cs    # 작업 표시줄 제외
 │   ├── Models/                       # AppSettings, FileEntry, SearchSession 등
 │   ├── Services/
@@ -83,6 +97,8 @@ DeskSearchWinV10/
 │   │   ├── SystemWatcherService.cs   # 파일·폴더 변경 감시
 │   │   ├── FileSearchService.cs      # 검색·점수·배치
 │   │   ├── SettingsService.cs        # 설정 JSON 저장
+│   │   ├── StartupService.cs         # 로그온 시 자동 실행 (schtasks)
+│   │   ├── SingleInstanceService.cs  # 단일 인스턴스
 │   │   ├── TrayIconService.cs        # NotifyIcon
 │   │   ├── LocalizationService.cs    # ko / en
 │   │   └── IndexResourcePolicy.cs    # 스캔·감시 리소스 정책
@@ -90,7 +106,11 @@ DeskSearchWinV10/
 │   ├── Assets/                       # app.ico, app.png, CreateIcon.ps1
 │   └── app.manifest                  # requireAdministrator
 └── DeskSearch.Installer/             # WiX MSI 프로젝트
-    ├── Package.wxs
+    ├── Package.wxs                   # 패키지·사용자 데이터 제거 CA
+    ├── UserDataDlg.wxs               # 사용자 데이터 선택 대화상자
+    ├── WixUI_FeatureTree_Custom.wxs  # 설치 UI 흐름
+    ├── UiStrings.wxl                 # 설치 UI 문자열 (ko-kr)
+    ├── UiStrings.en-us.wxl           # 설치 UI 문자열 (en-us)
     └── DeskSearch.Installer.wixproj
 ```
 
@@ -102,4 +122,4 @@ DeskSearchWinV10/
 %AppData%\DeskSearch\settings.json
 ```
 
-저장 항목: 창 위치·크기, 색상, 불투명도, 언어, 항상 위, 대소문자 구분 등
+저장 항목: 창 위치·크기, 색상, 불투명도, 언어, 항상 위, 대소문자 구분, Windows 시작 시 자동 실행 등

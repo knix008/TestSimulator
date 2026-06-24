@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using DeskSearch.Helpers;
 using DeskSearch.Models;
 using DeskSearch.Services;
@@ -13,14 +14,47 @@ public partial class SettingsWindow : Window
 {
     public AppSettings Settings { get; private set; }
 
-    public SettingsWindow(AppSettings current)
+    private readonly Func<SettingsProgressSnapshot>? _getProgress;
+    private readonly Action? _reSearch;
+    private readonly DispatcherTimer? _progressTimer;
+
+    public SettingsWindow(
+        AppSettings current,
+        Func<SettingsProgressSnapshot>? getProgress = null,
+        Action? reSearch = null)
     {
         Settings = current.Clone();
+        _getProgress = getProgress;
+        _reSearch = reSearch;
         InitializeComponent();
         BuildColorSwatches();
         ApplyLocalization();
         LoadToUi();
         WindowTaskbarHelper.ExcludeFromTaskbar(this);
+
+        if (_getProgress is null)
+        {
+            IndexProgressLabel.Visibility = Visibility.Collapsed;
+            IndexProgressBar.Visibility = Visibility.Collapsed;
+            IndexProgressPercentLabel.Visibility = Visibility.Collapsed;
+            IndexProgressStatusLabel.Visibility = Visibility.Collapsed;
+            ReSearchButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _progressTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(400)
+        };
+        _progressTimer.Tick += (_, _) => UpdateProgressUi();
+        _progressTimer.Start();
+        UpdateProgressUi();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _progressTimer?.Stop();
+        base.OnClosed(e);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -62,6 +96,12 @@ public partial class SettingsWindow : Window
         SearchOptionsLabel.Text = LocalizationService.T("Settings_Search");
         CaseSensitiveSearchCheckBox.Content = LocalizationService.T("Settings_CaseSensitive");
         CaseSensitiveSearchDescLabel.Text = LocalizationService.T("Settings_CaseSensitiveDesc");
+        SearchMultilingualNoteLabel.Text = LocalizationService.T("Settings_SearchMultilingualNote");
+        IndexProgressLabel.Text = LocalizationService.T("Settings_IndexProgress");
+        ReSearchButton.Content = LocalizationService.T("Settings_ReSearch");
+        StartupLabel.Text = LocalizationService.T("Settings_Startup");
+        RunAtStartupCheckBox.Content = LocalizationService.T("Settings_RunAtStartup");
+        RunAtStartupDescLabel.Text = LocalizationService.T("Settings_RunAtStartupDesc");
         BackgroundColorLabel.Text = LocalizationService.T("Settings_BackgroundColor");
         PickBackgroundColorButton.Content = LocalizationService.T("Settings_PickColor");
         BackgroundOpacityLabel.Text = LocalizationService.T("Settings_BackgroundOpacity");
@@ -85,6 +125,7 @@ public partial class SettingsWindow : Window
         LanguageKoreanRadio.IsChecked = Settings.Language != LocalizationService.English;
         LanguageEnglishRadio.IsChecked = Settings.Language == LocalizationService.English;
         CaseSensitiveSearchCheckBox.IsChecked = Settings.CaseSensitiveSearch;
+        RunAtStartupCheckBox.IsChecked = Settings.RunAtStartup;
         BackgroundPreview.Background = CreateBackgroundBrush();
         BorderPreview.Background = ColorHelper.ToBrush(Settings.BorderColor);
         TextPreview.Foreground = ColorHelper.ToBrush(ColorHelper.ResolveDisplayColors(Settings).TextColor);
@@ -102,6 +143,23 @@ public partial class SettingsWindow : Window
         var brush = new SolidColorBrush(withAlpha);
         brush.Freeze();
         return brush;
+    }
+
+    private void UpdateProgressUi()
+    {
+        if (_getProgress is null)
+            return;
+
+        var snapshot = _getProgress();
+        IndexProgressBar.Value = snapshot.Percent;
+        IndexProgressPercentLabel.Text = $"{snapshot.Percent}%";
+        IndexProgressStatusLabel.Text = snapshot.StatusText;
+    }
+
+    private void ReSearch_Click(object sender, RoutedEventArgs e)
+    {
+        _reSearch?.Invoke();
+        UpdateProgressUi();
     }
 
     private void UpdateOpacityLabels()
@@ -208,6 +266,7 @@ public partial class SettingsWindow : Window
             ? LocalizationService.English
             : LocalizationService.Korean;
         Settings.CaseSensitiveSearch = CaseSensitiveSearchCheckBox.IsChecked == true;
+        Settings.RunAtStartup = RunAtStartupCheckBox.IsChecked == true;
         Settings.AlwaysOnTop = PriorityAboveOthersRadio.IsChecked == true;
         Settings.WindowOpacity = (int)WindowOpacitySlider.Value;
         Settings.BackgroundOpacity = (int)BackgroundOpacitySlider.Value;

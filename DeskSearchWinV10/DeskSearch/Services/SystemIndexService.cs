@@ -17,9 +17,14 @@ public sealed class SystemIndexService : IDisposable
     private bool _isSearchEnabled;
     private bool _isScanComplete;
     private volatile bool _isScanning;
+    private int _scanProgressPercent;
+    private int _totalScanSteps;
+    private int _completedScanSteps;
 
     public bool IsSearchEnabled => _isSearchEnabled;
     public bool IsScanComplete => _isScanComplete;
+    public bool IsScanning => _isScanning;
+    public int ScanProgressPercent => _scanProgressPercent;
 
     public int Count
     {
@@ -44,6 +49,8 @@ public sealed class SystemIndexService : IDisposable
         _scanCts = new CancellationTokenSource();
 
         _isScanComplete = false;
+        _scanProgressPercent = 0;
+        _completedScanSteps = 0;
         _ = Task.Run(() => RunScan(_scanCts.Token), _scanCts.Token);
     }
 
@@ -53,8 +60,11 @@ public sealed class SystemIndexService : IDisposable
         {
             _entries.Clear();
             _isScanComplete = false;
+            _isSearchEnabled = false;
         }
 
+        _scanProgressPercent = 0;
+        _completedScanSteps = 0;
         StartBackgroundScan();
     }
 
@@ -175,6 +185,10 @@ public sealed class SystemIndexService : IDisposable
 
         try
         {
+            _totalScanSteps = WatchPaths.Count + ScanRoots.Count;
+            if (_totalScanSteps <= 0)
+                _totalScanSteps = 1;
+
             foreach (var path in WatchPaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -192,6 +206,7 @@ public sealed class SystemIndexService : IDisposable
             }
 
             _isScanComplete = true;
+            _scanProgressPercent = 100;
             ReportProgress(null, true);
         }
         catch (OperationCanceledException)
@@ -208,7 +223,10 @@ public sealed class SystemIndexService : IDisposable
     private void ScanAndMerge(string root, CancellationToken cancellationToken)
     {
         if (!Directory.Exists(root))
+        {
+            AdvanceScanProgress(root);
             return;
+        }
 
         var scanned = ScanTree(root, cancellationToken);
         lock (_lock)
@@ -217,6 +235,13 @@ public sealed class SystemIndexService : IDisposable
                 _entries[entry.FullPath] = entry;
         }
 
+        AdvanceScanProgress(root);
+    }
+
+    private void AdvanceScanProgress(string? root)
+    {
+        _completedScanSteps++;
+        _scanProgressPercent = Math.Min(99, _completedScanSteps * 100 / _totalScanSteps);
         ReportProgress(root, false);
     }
 
@@ -332,7 +357,8 @@ public sealed class SystemIndexService : IDisposable
 
         _lastProgressReport = count;
         _lastProgressTime = now;
-        IndexProgress?.Invoke(this, new IndexProgressEventArgs(count, currentPath, isComplete));
+        var percent = isComplete ? 100 : _scanProgressPercent;
+        IndexProgress?.Invoke(this, new IndexProgressEventArgs(count, currentPath, isComplete, percent));
     }
 
     private void RemoveEntryAndDescendants(string path)

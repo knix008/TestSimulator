@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <UI>
+      <Dialog Id="UserDataDlg"
+              Width="370"
+              Height="270"
+              Title="!(loc.UserDataDlg_Title)">
+        <Control Id="Next"
+                   Type="PushButton"
+                   X="236"
+                   Y="243"
+                   Width="56"
+                   Height="17"
+                   Default="yes"
+                   Text="!(loc.WixUINext)" />
+        <Control Id="Cancel"
+                   Type="PushButton"
+                   X="304"
+                   Y="243"
+                   Width="56"
+                   Height="17"
+                   Cancel="yes"
+                   Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+        <Control Id="Back"
+                   Type="PushButton"
+                   X="180"
+                   Y="243"
+                   Width="56"
+                   Height="17"
+                   Text="!(loc.WixUIBack)" />
+        <Control Id="BannerBitmap"
+                   Type="Bitmap"
+                   X="0"
+                   Y="0"
+                   Width="370"
+                   Height="44"
+                   TabSkip="no"
+                   Text="!(loc.MaintenanceTypeDlgBannerBitmap)" />
+        <Control Id="BannerLine"
+                   Type="Line"
+                   X="0"
+                   Y="44"
+                   Width="373"
+                   Height="0" />
+        <Control Id="BottomLine"
+                   Type="Line"
+                   X="0"
+                   Y="234"
+                   Width="373"
+                   Height="0" />
+        <Control Id="Title"
+                   Type="Text"
+                   X="15"
+                   Y="6"
+                   Width="340"
+                   Height="15"
+                   Transparent="yes"
+                   NoPrefix="yes"
+                   Text="!(loc.UserDataDlgUninstallTitle)"
+                   HideCondition="WixUI_InstallMode &lt;&gt; &quot;Remove&quot;" />
+        <Control Id="TitleReinstall"
+                   Type="Text"
+                   X="15"
+                   Y="6"
+                   Width="340"
+                   Height="15"
+                   Transparent="yes"
+                   NoPrefix="yes"
+                   Text="!(loc.UserDataDlgTitle)"
+                   HideCondition="WixUI_InstallMode = &quot;Remove&quot;" />
+        <Control Id="Description"
+                   Type="Text"
+                   X="25"
+                   Y="55"
+                   Width="320"
+                   Height="40"
+                   Transparent="yes"
+                   NoPrefix="yes"
+                   Text="!(loc.UserDataDlgUninstallDescription)"
+                   HideCondition="WixUI_InstallMode &lt;&gt; &quot;Remove&quot;" />
+        <Control Id="DescriptionReinstall"
+                   Type="Text"
+                   X="25"
+                   Y="55"
+                   Width="320"
+                   Height="40"
+                   Transparent="yes"
+                   NoPrefix="yes"
+                   Text="!(loc.UserDataDlgDescription)"
+                   HideCondition="WixUI_InstallMode = &quot;Remove&quot;" />
+        <Control Id="RemoveUserDataCheckBox"
+                   Type="CheckBox"
+                   X="25"
+                   Y="105"
+                   Width="320"
+                   Height="17"
+                   Property="REMOVEUSERDATA"
+                   CheckBoxValue="1"
+                   Text="!(loc.UserDataDlgCheckBox)" />
+        <Control Id="CheckBoxDescription"
+                   Type="Text"
+                   X="43"
+                   Y="125"
+                   Width="300"
+                   Height="50"
+                   Transparent="yes"
+                   NoPrefix="yes"
+                   Text="!(loc.UserDataDlgCheckBoxDescription)" />
+      </Dialog>
+    </UI>
+  </Fragment>
+</Wix>

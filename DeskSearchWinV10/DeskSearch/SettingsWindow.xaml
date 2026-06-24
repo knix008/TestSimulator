@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Name="SettingsRoot"
         Width="440"
-        Height="620"
+        Height="760"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
@@ -72,6 +72,48 @@
                 <CheckBox x:Name="CaseSensitiveSearchCheckBox"
                           Margin="0,0,0,4"/>
                 <TextBlock x:Name="CaseSensitiveSearchDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="22,0,0,4"
+                           TextWrapping="Wrap"/>
+                <TextBlock x:Name="SearchMultilingualNoteLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="0,0,0,16"
+                           TextWrapping="Wrap"/>
+
+                <TextBlock x:Name="IndexProgressLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="48"/>
+                    </Grid.ColumnDefinitions>
+                    <ProgressBar x:Name="IndexProgressBar"
+                                 Height="18"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 VerticalAlignment="Center"/>
+                    <TextBlock x:Name="IndexProgressPercentLabel"
+                               Grid.Column="1"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock x:Name="IndexProgressStatusLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="0,0,0,8"
+                           TextWrapping="Wrap"/>
+                <Button x:Name="ReSearchButton"
+                        HorizontalAlignment="Left"
+                        MinWidth="100"
+                        Padding="12,4"
+                        Margin="0,0,0,16"
+                        Click="ReSearch_Click"/>
+
+                <TextBlock x:Name="StartupLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <CheckBox x:Name="RunAtStartupCheckBox"
+                          Margin="0,0,0,4"/>
+                <TextBlock x:Name="RunAtStartupDescLabel"
                            FontSize="11"
                            Foreground="#888888"
                            Margin="22,0,0,16"

@@ -34,6 +34,13 @@ public sealed class SettingsService
 
             var json = File.ReadAllText(_settingsPath);
             Current = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+
+            using (var document = JsonDocument.Parse(json))
+            {
+                if (!document.RootElement.TryGetProperty(nameof(AppSettings.RunAtStartup), out _))
+                    Current.RunAtStartup = true;
+            }
+
             return Current;
         }
         catch

@@ -1,4 +1,5 @@
 using DeskSearch.Models;
+using DeskSearch.Helpers;
 
 namespace DeskSearch.Services;
 
@@ -33,8 +34,8 @@ public sealed class FileSearchService
             };
         }
 
-        var trimmed = query.Trim();
-        var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        var trimmed = SearchTextHelper.Normalize(query.Trim());
+        var comparison = SearchTextHelper.GetComparison(caseSensitive);
         var top = existingTop is null ? [] : existingTop.ToList();
 
         var end = Math.Min(startOffset + batchSize, entries.Count);
@@ -108,7 +109,7 @@ public sealed class FileSearchService
 
     private static int Score(FileEntry entry, string query, StringComparison comparison)
     {
-        var fileName = entry.FileName;
+        var fileName = entry.SearchFileName;
 
         if (fileName.Equals(query, comparison))
             return 100;
@@ -119,7 +120,7 @@ public sealed class FileSearchService
         if (fileName.Contains(query, comparison))
             return 60;
 
-        if (entry.Directory.Contains(query, comparison))
+        if (entry.SearchDirectory.Contains(query, comparison))
             return 40;
 
         return 0;

@@ -33,6 +33,7 @@ public partial class MainWindow
         Topmost = settings.AlwaysOnTop;
         _menuAlwaysOnTop.IsChecked = settings.AlwaysOnTop;
         Opacity = Math.Clamp(settings.WindowOpacity, 50, 100) / 100.0;
+        StartupService.Sync(settings.RunAtStartup);
     }
 
     private void ApplyIconBrushes(AppSettings settings)
@@ -188,7 +189,10 @@ public partial class MainWindow
 
     private void MenuSettings_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new SettingsWindow(_settingsService.Current)
+        var dialog = new SettingsWindow(
+            _settingsService.Current,
+            GetSettingsProgress,
+            RequestReSearchFromSettings)
         {
             Owner = this
         };

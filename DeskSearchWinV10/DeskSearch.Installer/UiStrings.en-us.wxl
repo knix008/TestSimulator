@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-us" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="DowngradeErrorMessage" Value="A newer version of DeskSearch is already installed." Overridable="yes" />
+  <String Id="ShortcutDescription" Value="Desktop file and folder search" Overridable="yes" />
+  <String Id="MainFeatureTitle" Value="DeskSearch" Overridable="yes" />
+  <String Id="MainFeatureDescription" Value="DeskSearch application files." Overridable="yes" />
+  <String Id="StartMenuShortcutFeatureTitle" Value="Start Menu shortcut" Overridable="yes" />
+  <String Id="StartMenuShortcutFeatureDescription" Value="Add a shortcut to the Start Menu." Overridable="yes" />
+  <String Id="DesktopShortcutFeatureTitle" Value="Desktop shortcut" Overridable="yes" />
+  <String Id="DesktopShortcutFeatureDescription" Value="Add a shortcut to the Desktop." Overridable="yes" />
+  <String Id="UserDataDlg_Title" Value="DeskSearch user data" Overridable="yes" />
+  <String Id="UserDataDlgTitle" Value="Remove saved user data?" Overridable="yes" />
+  <String Id="UserDataDlgUninstallTitle" Value="Remove user data on uninstall" Overridable="yes" />
+  <String Id="UserDataDlgDescription" Value="DeskSearch is already installed. Choose whether to delete saved settings and start fresh." Overridable="yes" />
+  <String Id="UserDataDlgUninstallDescription" Value="Saved DeskSearch settings were found. Choose whether to delete user data when uninstalling the program." Overridable="yes" />
+  <String Id="UserDataDlgCheckBox" Value="Delete user data (settings and related files)" Overridable="yes" />
+  <String Id="UserDataDlgCheckBoxDescription" Value="Deletes %AppData%\DeskSearch\ (settings.json, etc.). Leave unchecked to keep your current settings." Overridable="yes" />
+</WixLocalization>

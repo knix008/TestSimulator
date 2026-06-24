@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="ko-kr" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="DowngradeErrorMessage" Value="더 새로운 버전의 DeskSearch가 이미 설치되어 있습니다." Overridable="yes" />
+  <String Id="ShortcutDescription" Value="데스크톱 파일 및 폴더 검색" Overridable="yes" />
+  <String Id="MainFeatureTitle" Value="DeskSearch" Overridable="yes" />
+  <String Id="MainFeatureDescription" Value="DeskSearch 프로그램 파일" Overridable="yes" />
+  <String Id="StartMenuShortcutFeatureTitle" Value="시작 메뉴 바로가기" Overridable="yes" />
+  <String Id="StartMenuShortcutFeatureDescription" Value="시작 메뉴에 바로가기를 추가합니다." Overridable="yes" />
+  <String Id="DesktopShortcutFeatureTitle" Value="바탕화면 바로가기" Overridable="yes" />
+  <String Id="DesktopShortcutFeatureDescription" Value="바탕화면에 바로가기를 추가합니다." Overridable="yes" />
+  <String Id="UserDataDlg_Title" Value="DeskSearch 사용자 데이터" Overridable="yes" />
+  <String Id="UserDataDlgTitle" Value="사용자 데이터를 삭제하시겠습니까?" Overridable="yes" />
+  <String Id="UserDataDlgUninstallTitle" Value="제거 시 사용자 데이터 삭제" Overridable="yes" />
+  <String Id="UserDataDlgDescription" Value="DeskSearch가 이미 설치되어 있습니다. 설정·창 위치 등 사용자 데이터를 삭제하고 초기 상태로 다시 설치할지 선택하세요." Overridable="yes" />
+  <String Id="UserDataDlgUninstallDescription" Value="저장된 DeskSearch 설정 데이터가 있습니다. 프로그램 제거 시 사용자 데이터도 함께 삭제할지 선택하세요." Overridable="yes" />
+  <String Id="UserDataDlgCheckBox" Value="사용자 데이터 삭제 (설정 파일 및 관련 데이터)" Overridable="yes" />
+  <String Id="UserDataDlgCheckBoxDescription" Value="삭제 대상: %AppData%\DeskSearch\ (settings.json 등). 체크하지 않으면 기존 설정이 유지됩니다." Overridable="yes" />
+</WixLocalization>

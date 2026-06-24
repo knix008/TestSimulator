@@ -35,12 +35,16 @@ project.fragment.lock.json
 packages/
 artifacts/
 
-# WiX installer
+# WiX installer (build output only; .wxs/.wxl sources are tracked)
 DeskSearch.Installer/bin/
 DeskSearch.Installer/obj/
 *.msi
+*.msm
+*.msp
+*.cab
 *.wixpdb
 *.wixobj
+*.wixmst
 
 # Publish output (Release self-contained)
 **/publish/

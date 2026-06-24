@@ -100,6 +100,9 @@ public partial class MainWindow : Window
 
     {
 
+        if (System.Windows.Application.Current is App app)
+            app.RegisterShowWindowCallback(ShowFromTray);
+
         RestoreWindowLayout();
 
         SearchBox.ToolTip = LocalizationService.T("Index_Starting");

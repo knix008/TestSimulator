@@ -78,6 +78,15 @@
   <data name="Settings_Search" xml:space="preserve"><value>검색</value></data>
   <data name="Settings_CaseSensitive" xml:space="preserve"><value>대소문자 구분</value></data>
   <data name="Settings_CaseSensitiveDesc" xml:space="preserve"><value>켜면 검색어와 파일·폴더 이름의 대소문자가 정확히 일치해야 합니다. (기본: 구분 안 함)</value></data>
+  <data name="Settings_SearchMultilingualNote" xml:space="preserve"><value>파일·폴더 이름은 한국어, 영어, 일본어, 중국어 등 모든 언어로 검색할 수 있습니다. (화면 언어와 무관)</value></data>
+  <data name="Settings_IndexProgress" xml:space="preserve"><value>검색(인덱싱) 진행률</value></data>
+  <data name="Settings_ReSearch" xml:space="preserve"><value>재검색</value></data>
+  <data name="Settings_IndexingStatus" xml:space="preserve"><value>인덱싱 중… {0}% ({1:N0}개 항목)</value></data>
+  <data name="Settings_SearchingStatus" xml:space="preserve"><value>검색 중… {0}% — "{1}"</value></data>
+  <data name="Settings_ReadyStatus" xml:space="preserve"><value>준비 완료 — {0:N0}개 항목 인덱싱됨</value></data>
+  <data name="Settings_Startup" xml:space="preserve"><value>시작</value></data>
+  <data name="Settings_RunAtStartup" xml:space="preserve"><value>Windows 시작 시 자동 실행</value></data>
+  <data name="Settings_RunAtStartupDesc" xml:space="preserve"><value>로그인할 때 DeskSearch가 자동으로 실행됩니다. (관리자 권한으로 등록)</value></data>
   <data name="Settings_BackgroundColor" xml:space="preserve"><value>배경색</value></data>
   <data name="Settings_PickColor" xml:space="preserve"><value>색 선택...</value></data>
   <data name="Settings_Preset_White" xml:space="preserve"><value>흰색</value></data>

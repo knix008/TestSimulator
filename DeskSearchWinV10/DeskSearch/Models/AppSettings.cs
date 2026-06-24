@@ -15,6 +15,7 @@ public sealed class AppSettings
     public double? WindowWidth { get; set; }
     public double? WindowHeight { get; set; }
     public bool CaseSensitiveSearch { get; set; }
+    public bool RunAtStartup { get; set; } = true;
 
     public AppSettings Clone() => new()
     {
@@ -30,6 +31,7 @@ public sealed class AppSettings
         WindowTop = WindowTop,
         WindowWidth = WindowWidth,
         WindowHeight = WindowHeight,
-        CaseSensitiveSearch = CaseSensitiveSearch
+        CaseSensitiveSearch = CaseSensitiveSearch,
+        RunAtStartup = RunAtStartup
     };
 }

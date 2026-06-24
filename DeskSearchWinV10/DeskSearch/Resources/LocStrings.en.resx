@@ -49,6 +49,15 @@
   <data name="Settings_Search" xml:space="preserve"><value>Search</value></data>
   <data name="Settings_CaseSensitive" xml:space="preserve"><value>Case sensitive</value></data>
   <data name="Settings_CaseSensitiveDesc" xml:space="preserve"><value>When enabled, search matches letter case exactly. (Default: off)</value></data>
+  <data name="Settings_SearchMultilingualNote" xml:space="preserve"><value>File and folder names can be searched in any language (e.g. Korean, English, Japanese, Chinese), regardless of the UI language.</value></data>
+  <data name="Settings_IndexProgress" xml:space="preserve"><value>Search (indexing) progress</value></data>
+  <data name="Settings_ReSearch" xml:space="preserve"><value>Re-search</value></data>
+  <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>
+  <data name="Settings_SearchingStatus" xml:space="preserve"><value>Searching… {0}% — "{1}"</value></data>
+  <data name="Settings_ReadyStatus" xml:space="preserve"><value>Ready — {0:N0} items indexed</value></data>
+  <data name="Settings_Startup" xml:space="preserve"><value>Startup</value></data>
+  <data name="Settings_RunAtStartup" xml:space="preserve"><value>Run automatically when Windows starts</value></data>
+  <data name="Settings_RunAtStartupDesc" xml:space="preserve"><value>DeskSearch starts at sign-in. (Registered with administrator privileges)</value></data>
   <data name="Settings_BackgroundColor" xml:space="preserve"><value>Background color</value></data>
   <data name="Settings_PickColor" xml:space="preserve"><value>Pick color...</value></data>
   <data name="Settings_Preset_White" xml:space="preserve"><value>White</value></data>

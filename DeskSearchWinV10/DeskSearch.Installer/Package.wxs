@@ -10,10 +10,49 @@
            Scope="perMachine"
            UpgradeCode="B8F3E2A1-4C5D-6E7F-8901-234567890ABC">
 
-    <MajorUpgrade DowngradeErrorMessage="A newer version of DeskSearch is already installed." />
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeErrorMessage)" />
     <MediaTemplate EmbedCab="yes" />
 
-    <ui:WixUI Id="WixUI_FeatureTree" InstallDirectory="INSTALLFOLDER" />
+    <Property Id="REMOVEUSERDATA" Value="0" />
+
+    <Property Id="USERDATASETTINGS" Secure="yes">
+      <DirectorySearch Id="DeskSearchSettingsDir" Path="[AppDataFolder]DeskSearch" Depth="0">
+        <FileSearch Id="DeskSearchSettingsFile" Name="settings.json" />
+      </DirectorySearch>
+    </Property>
+
+    <InstallUISequence>
+      <Show Dialog="UserDataDlg" Before="ProgressDlg" Condition="REMOVE~=&quot;ALL&quot; AND USERDATASETTINGS" />
+    </InstallUISequence>
+
+    <CustomAction Id="KillDeskSearch"
+                  Directory="SystemFolder"
+                  ExeCommand="taskkill /IM DeskSearch.exe /F"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <CustomAction Id="RemoveUserData"
+                  Directory="SystemFolder"
+                  ExeCommand="cmd.exe /c if exist &quot;%APPDATA%\DeskSearch&quot; rmdir /s /q &quot;%APPDATA%\DeskSearch&quot; &amp; schtasks /Delete /TN DeskSearch /F"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <CustomAction Id="RemoveStartupTask"
+                  Directory="SystemFolder"
+                  ExeCommand="schtasks.exe /Delete /TN DeskSearch /F"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="KillDeskSearch" After="InstallInitialize" Condition="REMOVEUSERDATA=&quot;1&quot;" />
+      <Custom Action="RemoveUserData" After="KillDeskSearch" Condition="REMOVEUSERDATA=&quot;1&quot;" />
+      <Custom Action="RemoveStartupTask" Before="InstallFinalize" Condition="REMOVE~=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+
+    <ui:WixUI Id="DeskSearch_FeatureTree" InstallDirectory="INSTALLFOLDER" />
 
     <!-- Shortcuts use the same app.ico installed under Assets\app.ico -->
     <Icon Id="AppIcon.ico" SourceFile="$(var.PublishDir)\Assets\app.ico" />
@@ -28,7 +67,7 @@
         <Component Id="StartMenuShortcutComponent" Guid="*">
           <Shortcut Id="StartMenuShortcut"
                     Name="DeskSearch"
-                    Description="Desktop file and folder search"
+                    Description="!(loc.ShortcutDescription)"
                     Target="[INSTALLFOLDER]DeskSearch.exe"
                     WorkingDirectory="INSTALLFOLDER"
                     Icon="AppIcon.ico"
@@ -48,7 +87,7 @@
       <Component Id="DesktopShortcutComponent" Guid="*">
         <Shortcut Id="DesktopShortcut"
                   Name="DeskSearch"
-                  Description="Desktop file and folder search"
+                  Description="!(loc.ShortcutDescription)"
                   Target="[INSTALLFOLDER]DeskSearch.exe"
                   WorkingDirectory="INSTALLFOLDER"
                   Icon="AppIcon.ico"
@@ -63,24 +102,24 @@
     </StandardDirectory>
 
     <Feature Id="MainFeature"
-             Title="DeskSearch"
-             Description="DeskSearch application files."
+             Title="!(loc.MainFeatureTitle)"
+             Description="!(loc.MainFeatureDescription)"
              Level="1"
              AllowAbsent="no"
              Display="expand">
       <ComponentGroupRef Id="DeskSearchComponents" />
 
       <Feature Id="StartMenuShortcutFeature"
-               Title="Start Menu shortcut"
-               Description="Add a shortcut to the Start Menu."
+               Title="!(loc.StartMenuShortcutFeatureTitle)"
+               Description="!(loc.StartMenuShortcutFeatureDescription)"
                Level="1"
                AllowAbsent="yes">
         <ComponentRef Id="StartMenuShortcutComponent" />
       </Feature>
 
       <Feature Id="DesktopShortcutFeature"
-               Title="Desktop shortcut"
-               Description="Add a shortcut to the Desktop."
+               Title="!(loc.DesktopShortcutFeatureTitle)"
+               Description="!(loc.DesktopShortcutFeatureDescription)"
                Level="1"
                AllowAbsent="yes">
         <ComponentRef Id="DesktopShortcutComponent" />
@@ -92,6 +131,7 @@
     <ComponentGroup Id="DeskSearchComponents" Directory="INSTALLFOLDER">
       <Files Include="$(var.PublishDir)\**">
         <Exclude Files="$(var.PublishDir)\**\*.pdb" />
+        <Exclude Files="$(var.PublishDir)\createdump.exe" />
       </Files>
     </ComponentGroup>
   </Fragment>
