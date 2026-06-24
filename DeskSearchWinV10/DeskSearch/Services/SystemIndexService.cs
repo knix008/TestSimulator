@@ -58,13 +58,27 @@ public sealed class SystemIndexService : IDisposable
         StartBackgroundScan();
     }
 
-    public IReadOnlyList<FileEntry> Search(string query)
+    public IReadOnlyList<FileEntry> Search(string query, bool caseSensitive)
     {
         FileEntry[] snapshot;
         lock (_lock)
             snapshot = _entries.Values.ToArray();
 
-        return _searchService.Search(snapshot, query);
+        return _searchService.Search(snapshot, query, caseSensitive);
+    }
+
+    public SearchBatchResult SearchBatch(
+        string query,
+        bool caseSensitive,
+        int startOffset,
+        int batchSize,
+        List<(FileEntry Entry, int Score)>? existingTop = null)
+    {
+        FileEntry[] snapshot;
+        lock (_lock)
+            snapshot = _entries.Values.ToArray();
+
+        return _searchService.SearchBatch(snapshot, query, caseSensitive, startOffset, batchSize, existingTop);
     }
 
     public void ApplyBatchChanges(IReadOnlyList<string> removes, IReadOnlyList<string> adds)

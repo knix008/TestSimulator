@@ -11,12 +11,14 @@ public partial class MainWindow
     private MenuItem? _menuOpenDesktop;
     private MenuItem? _menuResetPosition;
     private MenuItem? _menuSettings;
+    private MenuItem? _menuHide;
     private MenuItem? _menuExit;
 
     private void InitializeLocalization()
     {
         Title = LocalizationService.T("App_Title");
         DragHandle.ToolTip = LocalizationService.T("Drag_Tooltip");
+        SettingsButton.ToolTip = LocalizationService.T("Menu_Settings");
         LocalizationService.LanguageChanged += (_, _) => Dispatcher.Invoke(RefreshLocalization);
     }
 
@@ -24,12 +26,14 @@ public partial class MainWindow
     {
         Title = LocalizationService.T("App_Title");
         DragHandle.ToolTip = LocalizationService.T("Drag_Tooltip");
+        SettingsButton.ToolTip = LocalizationService.T("Menu_Settings");
 
         UpdateMenuHeader(_menuClearSearch, "Menu_ClearSearch");
         UpdateMenuHeader(_menuRefreshIndex, "Menu_RefreshIndex");
         UpdateMenuHeader(_menuOpenDesktop, "Menu_OpenDesktop");
         UpdateMenuHeader(_menuResetPosition, "Menu_ResetPosition");
         UpdateMenuHeader(_menuSettings, "Menu_Settings");
+        UpdateMenuHeader(_menuHide, "Menu_Hide");
         UpdateMenuHeader(_menuExit, "Menu_Exit");
         UpdateMenuHeader(_menuAlwaysOnTop, "Menu_AboveOthers");
         UpdateMenuHeader(_menuOpenFile, "Menu_Open");

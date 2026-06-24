@@ -4,9 +4,9 @@ $assetsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pngPath = Join-Path $assetsDir "app.png"
 $icoPath = Join-Path $assetsDir "app.ico"
 
-$PrimaryBlue = [System.Drawing.Color]::FromArgb(255, 0, 120, 212)
-$DarkBlue = [System.Drawing.Color]::FromArgb(255, 0, 90, 158)
-$LightBlue = [System.Drawing.Color]::FromArgb(255, 199, 224, 255)
+$PrimaryBlue = [System.Drawing.Color]::FromArgb(255, 0, 90, 168)
+$DarkBlue = [System.Drawing.Color]::FromArgb(255, 0, 55, 110)
+$LightBlue = [System.Drawing.Color]::FromArgb(255, 170, 205, 235)
 $White = [System.Drawing.Color]::FromArgb(255, 255, 255, 255)
 
 function New-DrawingPen {
@@ -21,6 +21,9 @@ function New-DrawingPen {
 function New-DeskSearchBitmap {
     param([int]$Size = 256)
 
+    # Canvas size stays the same; magnifier graphic is drawn larger within it.
+    $iconScale = 1.32
+
     $bmp = New-Object System.Drawing.Bitmap $Size, $Size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
@@ -29,12 +32,12 @@ function New-DeskSearchBitmap {
     $g.Clear([System.Drawing.Color]::Transparent)
 
     $s = $Size / 256.0
-    $cx = 118 * $s
-    $cy = 108 * $s
-    $radius = 50 * $s
-    $stroke = [Math]::Max(4.0, 10 * $s)
+    $cx = 124 * $s
+    $cy = 112 * $s
+    $radius = 50 * $iconScale * $s
+    $stroke = [Math]::Max(5.0, 12 * $iconScale * $s)
 
-    $outlinePen = New-DrawingPen -Color $DarkBlue -Width ($stroke + (2 * $s))
+    $outlinePen = New-DrawingPen -Color $DarkBlue -Width ($stroke + (3 * $s))
     $outlinePen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
     $outlinePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $outlinePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
@@ -55,17 +58,17 @@ function New-DeskSearchBitmap {
     $g.DrawLine($ringPen, $handleStartX, $handleStartY, $handleEndX, $handleEndY)
 
     if ($Size -ge 24) {
-        $docW = 30 * $s
-        $docH = 36 * $s
+        $docW = 30 * $iconScale * $s
+        $docH = 36 * $iconScale * $s
         $docX = $cx - ($docW / 2)
-        $docY = $cy - ($docH / 2) + (2 * $s)
+        $docY = $cy - ($docH / 2) + (2 * $iconScale * $s)
         $docRect = [System.Drawing.RectangleF]::new($docX, $docY, $docW, $docH)
 
         $docBrush = New-Object System.Drawing.SolidBrush $White
         $g.FillRectangle($docBrush, $docRect)
 
         if ($Size -ge 32) {
-            $fold = 8 * $s
+            $fold = 8 * $iconScale * $s
             $foldPoints = @(
                 [System.Drawing.PointF]::new($docX + $docW - $fold, $docY),
                 [System.Drawing.PointF]::new($docX + $docW, $docY + $fold),
@@ -75,10 +78,10 @@ function New-DeskSearchBitmap {
             $g.FillPolygon($foldBrush, $foldPoints)
             $foldBrush.Dispose()
 
-            $linePen = New-DrawingPen -Color $PrimaryBlue -Width ([Math]::Max(1.5, 2 * $s))
+            $linePen = New-DrawingPen -Color $DarkBlue -Width ([Math]::Max(2.0, 2.8 * $iconScale * $s))
             for ($line = 0; $line -lt 3; $line++) {
-                $ly = $docY + (12 * $s) + ($line * 7 * $s)
-                $g.DrawLine($linePen, $docX + (5 * $s), $ly, $docX + $docW - (6 * $s), $ly)
+                $ly = $docY + (12 * $iconScale * $s) + ($line * 7 * $iconScale * $s)
+                $g.DrawLine($linePen, $docX + (5 * $iconScale * $s), $ly, $docX + $docW - (6 * $iconScale * $s), $ly)
             }
             $linePen.Dispose()
         }

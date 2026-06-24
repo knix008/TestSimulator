@@ -9,6 +9,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImportWindowsFormsImplicitUsings>false</ImportWindowsFormsImplicitUsings>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <NeutralResourcesLanguage>ko-KR</NeutralResourcesLanguage>
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
@@ -36,5 +38,17 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <!-- Release 빌드 후 MSI 생성 (Visual Studio 단일 프로젝트 빌드 포함). -->
+  <Target Name="BuildInstallerOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+    <Message Importance="high" Text="Building MSI installer package (WiX)..." />
+    <Exec Command="cmd /c taskkill /IM DeskSearch.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\DeskSearch.Installer\DeskSearch.Installer.wixproj"
+             Properties="Configuration=Release;Platform=x64;SkipInstaller=true"
+             Targets="Build" />
+    <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\DeskSearch.Installer\bin\Release\DeskSearchSetup.msi" />
+  </Target>
 
 </Project>

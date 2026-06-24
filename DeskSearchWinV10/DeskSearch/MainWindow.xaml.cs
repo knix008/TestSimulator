@@ -10,6 +10,8 @@ using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 using System.Windows.Media;
 
+using DeskSearch.Helpers;
+
 using DeskSearch.Models;
 
 using DeskSearch.Services;
@@ -76,6 +78,20 @@ public partial class MainWindow : Window
 
         InitializeTrayIcon();
 
+        WindowTaskbarHelper.ExcludeFromTaskbar(this);
+
+    }
+
+
+
+    protected override void OnSourceInitialized(EventArgs e)
+
+    {
+
+        base.OnSourceInitialized(e);
+
+        WindowTaskbarHelper.ApplyExStyle(this);
+
     }
 
 
@@ -84,7 +100,7 @@ public partial class MainWindow : Window
 
     {
 
-        RestoreWindowPosition();
+        RestoreWindowLayout();
 
         SearchBox.ToolTip = LocalizationService.T("Index_Starting");
 
@@ -167,6 +183,7 @@ public partial class MainWindow : Window
         _menuOpenDesktop = CreateLocalizedMenuItem("Menu_OpenDesktop", MenuOpenDesktop_Click);
         _menuResetPosition = CreateLocalizedMenuItem("Menu_ResetPosition", MenuResetPosition_Click);
         _menuSettings = CreateLocalizedMenuItem("Menu_Settings", MenuSettings_Click);
+        _menuHide = CreateLocalizedMenuItem("Menu_Hide", MenuHide_Click);
         _menuExit = CreateLocalizedMenuItem("Menu_Exit", MenuExit_Click);
 
         _mainContextMenu = new ContextMenu
@@ -182,6 +199,8 @@ public partial class MainWindow : Window
                 _menuAlwaysOnTop,
                 new Separator(),
                 _menuSettings,
+                new Separator(),
+                _menuHide,
                 new Separator(),
                 _menuIndexStatus,
                 new Separator(),
@@ -211,6 +230,7 @@ public partial class MainWindow : Window
                 CreateLocalizedMenuItem("Menu_ClearSearch", MenuClearSearch_Click),
                 CreateLocalizedMenuItem("Menu_RefreshIndex", MenuRefreshIndex_Click),
                 CreateLocalizedMenuItem("Menu_Settings", MenuSettings_Click),
+                CreateLocalizedMenuItem("Menu_Hide", MenuHide_Click),
                 CreateLocalizedMenuItem("Menu_ResetPosition", MenuResetPosition_Click),
                 new Separator(),
                 CreateLocalizedMenuItem("Menu_Exit", MenuExit_Click)
@@ -352,6 +372,11 @@ public partial class MainWindow : Window
 
 
 
+    private void MenuHide_Click(object sender, RoutedEventArgs e)
+    {
+        HideToTray();
+    }
+
     private void MenuExit_Click(object sender, RoutedEventArgs e)
 
     {
@@ -468,12 +493,14 @@ public partial class MainWindow : Window
                 case RepeatButton:
 
                 case System.Windows.Controls.TextBox:
+                case System.Windows.Controls.Button:
 
                     return false;
 
                 case Border { Name: "DragHandle" }:
-
-                    return true;
+                case Border { Name: "LeftResizeGrip" }:
+                case Border { Name: "RightResizeGrip" }:
+                    return false;
 
             }
 

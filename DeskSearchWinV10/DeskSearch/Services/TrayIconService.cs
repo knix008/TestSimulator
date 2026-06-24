@@ -9,6 +9,7 @@ public sealed class TrayIconService : IDisposable
     private readonly MainWindow _mainWindow;
     private readonly NotifyIcon _notifyIcon;
     private ToolStripMenuItem? _showWindowItem;
+    private ToolStripMenuItem? _hideWindowItem;
     private ToolStripMenuItem? _settingsItem;
     private ToolStripMenuItem? _exitItem;
 
@@ -30,6 +31,10 @@ public sealed class TrayIconService : IDisposable
             LocalizationService.T("Tray_ShowWindow"),
             null,
             (_, _) => ShowMainWindow());
+        _hideWindowItem = new ToolStripMenuItem(
+            LocalizationService.T("Menu_Hide"),
+            null,
+            (_, _) => _mainWindow.Dispatcher.Invoke(_mainWindow.HideToTray));
         _settingsItem = new ToolStripMenuItem(
             LocalizationService.T("Menu_Settings"),
             null,
@@ -40,6 +45,7 @@ public sealed class TrayIconService : IDisposable
             (_, _) => _mainWindow.Dispatcher.Invoke(_mainWindow.RequestApplicationExit));
 
         menu.Items.Add(_showWindowItem);
+        menu.Items.Add(_hideWindowItem);
         menu.Items.Add(_settingsItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_exitItem);
@@ -52,6 +58,8 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.Text = LocalizationService.T("App_Title");
         if (_showWindowItem is not null)
             _showWindowItem.Text = LocalizationService.T("Tray_ShowWindow");
+        if (_hideWindowItem is not null)
+            _hideWindowItem.Text = LocalizationService.T("Menu_Hide");
         if (_settingsItem is not null)
             _settingsItem.Text = LocalizationService.T("Menu_Settings");
         if (_exitItem is not null)

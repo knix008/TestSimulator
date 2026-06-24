@@ -828,7 +828,7 @@ namespace MyGitWinV10.App
             // 
             // repoFilesContextMenu
             // 
-            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { showFileLogContextMenuItem, createNewFileContextMenuItem, createNewFolderContextMenuItem, deleteRepoFileContextMenuItem, repoFilesWorkspaceSeparator, addToGitIgnoreContextMenuItem, removeFromGitIgnoreContextMenuItem, repoFilesGitSeparator, gitAddContextMenuItem, gitResetContextMenuItem, gitDiscardContextMenuItem, gitStagingSeparator, gitCommitContextMenuItem, gitRemoteSeparator, gitFetchContextMenuItem, gitPullContextMenuItem, gitPushContextMenuItem, gitStashSeparator, gitStashContextMenuItem, gitStashPopContextMenuItem, gitStatusContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
+            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { gitAddContextMenuItem, gitResetContextMenuItem, gitDiscardContextMenuItem, gitStagingSeparator, gitCommitContextMenuItem, gitRemoteSeparator, gitFetchContextMenuItem, gitPullContextMenuItem, gitPushContextMenuItem, gitStashSeparator, gitStashContextMenuItem, gitStashPopContextMenuItem, gitStatusContextMenuItem, repoFilesGitSeparator, showFileLogContextMenuItem, createNewFileContextMenuItem, createNewFolderContextMenuItem, deleteRepoFileContextMenuItem, repoFilesWorkspaceSeparator, addToGitIgnoreContextMenuItem, removeFromGitIgnoreContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
             repoFilesContextMenu.Name = "repoFilesContextMenu";
             repoFilesContextMenu.Size = new Size(184, 314);
             repoFilesContextMenu.Opening += RepoFilesContextMenu_Opening;

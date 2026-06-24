@@ -9,14 +9,20 @@
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+  </ItemGroup>
+
   <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="cmd /c taskkill /IM DeskSearch.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
-          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\DeskSearch\DeskSearch.csproj&quot; -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true" />
+          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\DeskSearch\DeskSearch.csproj&quot; -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -p:SkipInstaller=true" />
   </Target>
 
-  <!-- Debug 구성에서는 MSI 빌드 생략 -->
-  <Target Name="Build" Condition="'$(Configuration)' != 'Release'" />
-  <Target Name="Rebuild" Condition="'$(Configuration)' != 'Release'" />
+  <!-- Debug 구성에서는 MSI 빌드 생략 (솔루션 빌드 시 Installer는 Release에서만 Build.0) -->
+  <Target Name="Build" Condition="'$(Configuration)' != 'Release'">
+    <Message Text="DeskSearch.Installer: MSI packaging is skipped in $(Configuration). Use Release configuration." Importance="high" />
+  </Target>
+  <Target Name="Rebuild" Condition="'$(Configuration)' != 'Release'" DependsOnTargets="Build" />
 
 </Project>

@@ -2,21 +2,22 @@
 
 Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 
-화면 상단에 항상 떠 있는 검색창에서 PC 전체의 **파일과 폴더**를 빠르게 찾고, 탐색기에서 바로 열 수 있습니다.
+화면 상단에 항상 떠 있는 검색창에서 PC 전체의 **파일과 폴더**를 빠르게 찾고, 탐색기에서 바로 열 수 있습니다. **작업 표시줄에는 아이콘이 없고** 시스템 트레이에만 상주합니다.
 
 ## 기능
 
 | 기능 | 설명 |
 |------|------|
-| 전체 시스템 인덱싱 | 고정·이동·네트워크 드라이브를 백그라운드 스캔 |
-| 파일·폴더 검색 | 이름 기준 실시간 자동완성 (최대 12건) |
+| 전체 시스템 인덱싱 | 고정·이동·네트워크 드라이브를 백그라운드 스캔 (관리자 권한) |
+| 파일·폴더 검색 | 이름 기준 실시간 자동완성 (최대 12건, 배치 검색·이어하기) |
 | 실시간 갱신 | 우선 폴더 FileSystemWatcher + 4시간 주기 재동기화 |
-| 드래그 이동 | ≡ 핸들 또는 빈 검색 영역 드래그로 창 위치 변경 |
-| 창 위치 저장 | `%AppData%\DeskSearch\settings.json`에 자동 저장 |
-| 설정 | 배경/테두리/글자색, 불투명도, 항상 위 표시 |
+| 드래그·크기 조절 | ≡ 핸들로 이동, 좌·우 가장자리로 너비 조절 |
+| 창 레이아웃 저장 | 위치·너비·높이를 `%AppData%\DeskSearch\settings.json`에 자동 저장 |
+| 설정 | 배경/테두리/글자색(밝·어두운 프리셋), 불투명도, 대소문자 구분, 항상 위 |
+| 다크 테마 | 어두운 배경 선택 시 글자·테두리·아이콘 색 자동 조정 |
 | 다국어 | 한국어 / English |
-| 시스템 트레이 | 닫기 시 트레이로 숨김, 트레이 메뉴에서 표시·설정·종료 |
-| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 생성 |
+| 시스템 트레이 | 작업 표시줄 미표시, 트레이에서 표시·숨기기·설정·종료 |
+| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (바탕화면·시작 메뉴 바로가기 선택) |
 
 ## 빌드 및 실행
 
@@ -26,6 +27,8 @@ dotnet run --project DeskSearch/DeskSearch.csproj
 ```
 
 **요구사항:** .NET 8 SDK, Windows 10 이상
+
+> 실행 시 **관리자 권한(UAC)** 이 필요합니다. 전체 디스크를 인덱싱하기 위해 `app.manifest`에 `requireAdministrator`가 설정되어 있습니다.
 
 ## MSI 설치 패키지 생성
 
@@ -42,7 +45,9 @@ dotnet build DeskSearchWinV10.sln -c Release
 
 **요구사항:** .NET 8 SDK, [WiX Toolset](https://wixtoolset.org/) MSBuild SDK (`WixToolset.Sdk` — NuGet 복원)
 
-> Debug 구성에서는 WiX 프로젝트가 MSI 빌드를 건너뜁니다.
+설치 마법사(`WixUI_FeatureTree`)에서 **바탕화면 바로가기**와 **시작 메뉴 바로가기**를 각각 선택할 수 있습니다.
+
+> Debug 구성에서는 WiX 프로젝트가 MSI 빌드를 건너뜁니다. MSI만 따로 빌드하지 않으려면 `-p:SkipInstaller=true`를 사용하세요.
 
 ## 아이콘 재생성
 
@@ -60,25 +65,33 @@ powershell -ExecutionPolicy Bypass -File DeskSearch/Assets/CreateIcon.ps1
 
 ```
 DeskSearchWinV10/
-├── DeskSearch/                     # WPF 메인 앱
-│   ├── MainWindow.xaml(.cs)        # 검색 UI
-│   ├── MainWindow.Settings.cs      # 설정·창 위치
-│   ├── MainWindow.Tray.cs          # 트레이·종료
-│   ├── MainWindow.Localization.cs  # UI 다국어 갱신
-│   ├── SettingsWindow.xaml(.cs)    # 설정 창
-│   ├── Models/                     # AppSettings, FileEntry 등
+├── DeskSearch/                       # WPF 메인 앱
+│   ├── MainWindow.xaml(.cs)          # 검색 UI
+│   ├── MainWindow.Settings.cs        # 설정·창 레이아웃
+│   ├── MainWindow.Tray.cs            # 트레이·숨기기·종료
+│   ├── MainWindow.Search.cs          # 배치 검색·세션 이어하기
+│   ├── MainWindow.Resize.cs          # 창 너비 조절
+│   ├── MainWindow.Localization.cs    # UI 다국어 갱신
+│   ├── SettingsWindow.xaml(.cs)      # 설정 창
+│   ├── SettingsColorPalette.cs       # 색상 프리셋
+│   ├── Helpers/
+│   │   ├── ColorHelper.cs            # 색상·다크 배경 감지
+│   │   └── WindowTaskbarHelper.cs    # 작업 표시줄 제외
+│   ├── Models/                       # AppSettings, FileEntry, SearchSession 등
 │   ├── Services/
-│   │   ├── SystemIndexService.cs   # 전체 드라이브 인덱싱
-│   │   ├── SystemWatcherService.cs # 파일·폴더 변경 감시
-│   │   ├── FileSearchService.cs    # 검색·점수
-│   │   ├── SettingsService.cs      # 설정 JSON 저장
-│   │   ├── TrayIconService.cs      # NotifyIcon
-│   │   ├── LocalizationService.cs  # ko / en
-│   │   └── IndexResourcePolicy.cs  # 스캔·감시 리소스 정책
-│   ├── Resources/                  # LocStrings.resx (다국어)
-│   └── Assets/                     # app.ico, app.png
-└── DeskSearch.Installer/           # WiX MSI 프로젝트
-    └── Package.wxs
+│   │   ├── SystemIndexService.cs     # 전체 드라이브 인덱싱
+│   │   ├── SystemWatcherService.cs   # 파일·폴더 변경 감시
+│   │   ├── FileSearchService.cs      # 검색·점수·배치
+│   │   ├── SettingsService.cs        # 설정 JSON 저장
+│   │   ├── TrayIconService.cs        # NotifyIcon
+│   │   ├── LocalizationService.cs    # ko / en
+│   │   └── IndexResourcePolicy.cs    # 스캔·감시 리소스 정책
+│   ├── Resources/                    # LocStrings.resx (다국어)
+│   ├── Assets/                       # app.ico, app.png, CreateIcon.ps1
+│   └── app.manifest                  # requireAdministrator
+└── DeskSearch.Installer/             # WiX MSI 프로젝트
+    ├── Package.wxs
+    └── DeskSearch.Installer.wixproj
 ```
 
 ## 설정 파일
@@ -88,3 +101,5 @@ DeskSearchWinV10/
 ```
 %AppData%\DeskSearch\settings.json
 ```
+
+저장 항목: 창 위치·크기, 색상, 불투명도, 언어, 항상 위, 대소문자 구분 등

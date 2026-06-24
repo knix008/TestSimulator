@@ -284,12 +284,6 @@ public partial class MainForm : Form
             (diffCopyContextMenuItem, IconFactory.Copy(), "Copy"),
             (diffWordWrapContextMenuItem, IconFactory.WordWrap(), "Word Wrap"));
         ConfigureContextMenu(repoFilesContextMenu,
-            (showFileLogContextMenuItem, IconFactory.History(), "Show Log"),
-            (createNewFileContextMenuItem, IconFactory.File(), "New File..."),
-            (createNewFolderContextMenuItem, IconFactory.Folder(), "New Folder..."),
-            (deleteRepoFileContextMenuItem, IconFactory.Delete(), "Delete"),
-            (addToGitIgnoreContextMenuItem, IconFactory.GitIgnore(), "Add to .gitignore"),
-            (removeFromGitIgnoreContextMenuItem, IconFactory.GitReset(), "Remove from .gitignore"),
             (gitAddContextMenuItem, IconFactory.GitAdd(), "Git Add"),
             (gitResetContextMenuItem, IconFactory.GitReset(), "Git Reset (Unstage)"),
             (gitDiscardContextMenuItem, IconFactory.GitDiscard(), "Git Discard Changes"),
@@ -300,6 +294,12 @@ public partial class MainForm : Form
             (gitStashContextMenuItem, IconFactory.GitStash(), "Git Stash"),
             (gitStashPopContextMenuItem, IconFactory.GitStash(), "Git Stash Pop"),
             (gitStatusContextMenuItem, IconFactory.GitStatus(), "Git Status..."),
+            (showFileLogContextMenuItem, IconFactory.History(), "Show Log"),
+            (createNewFileContextMenuItem, IconFactory.File(), "New File..."),
+            (createNewFolderContextMenuItem, IconFactory.Folder(), "New Folder..."),
+            (deleteRepoFileContextMenuItem, IconFactory.Delete(), "Delete"),
+            (addToGitIgnoreContextMenuItem, IconFactory.GitIgnore(), "Add to .gitignore"),
+            (removeFromGitIgnoreContextMenuItem, IconFactory.GitReset(), "Remove from .gitignore"),
             (copyRepoFilePathContextMenuItem, IconFactory.File(), "Copy Path"),
             (clearFileLogFilterContextMenuItem, IconFactory.RefreshGraph(), "Show All Commits"));
         ConfigureRepositoryGitMenu();

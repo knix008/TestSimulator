@@ -5,6 +5,7 @@
         Width="440"
         Height="620"
         WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
         ResizeMode="NoResize"
         Background="#FAFAFA">
     <Window.Resources>
@@ -66,6 +67,15 @@
                 <RadioButton x:Name="LanguageEnglishRadio"
                              GroupName="Language"
                              Margin="0,0,0,16"/>
+
+                <TextBlock x:Name="SearchOptionsLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <CheckBox x:Name="CaseSensitiveSearchCheckBox"
+                          Margin="0,0,0,4"/>
+                <TextBlock x:Name="CaseSensitiveSearchDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="22,0,0,16"
+                           TextWrapping="Wrap"/>
 
                 <TextBlock x:Name="BackgroundColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,8">

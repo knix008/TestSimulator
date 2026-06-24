@@ -1,4 +1,5 @@
 using System.Windows;
+using DeskSearch.Helpers;
 using DeskSearch.Services;
 
 namespace DeskSearch;
@@ -15,10 +16,22 @@ public partial class MainWindow
 
     public void ShowFromTray()
     {
-        Show();
+        _settingsService.Load();
+        RestoreWindowLayout();
+        WindowTaskbarHelper.ExcludeFromTaskbar(this);
+
+        if (Visibility != Visibility.Visible)
+            Show();
+
         WindowState = WindowState.Normal;
         Activate();
         SearchBox.Focus();
+    }
+
+    public void HideToTray()
+    {
+        SaveWindowLayout();
+        Hide();
     }
 
     public void OpenSettings() => MenuSettings_Click(this, new RoutedEventArgs());
@@ -45,7 +58,7 @@ public partial class MainWindow
             return;
 
         e.Cancel = true;
-        Hide();
+        HideToTray();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -59,7 +72,7 @@ public partial class MainWindow
 
     private void DisposeApplicationResources()
     {
-        SaveWindowPosition();
+        SaveWindowLayout();
         _trayIconService?.Dispose();
         _watcherService.Dispose();
         _indexService.Dispose();

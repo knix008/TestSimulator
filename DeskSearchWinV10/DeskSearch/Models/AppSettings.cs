@@ -12,6 +12,9 @@ public sealed class AppSettings
     public int WindowOpacity { get; set; } = 100;
     public double? WindowLeft { get; set; }
     public double? WindowTop { get; set; }
+    public double? WindowWidth { get; set; }
+    public double? WindowHeight { get; set; }
+    public bool CaseSensitiveSearch { get; set; }
 
     public AppSettings Clone() => new()
     {
@@ -24,6 +27,9 @@ public sealed class AppSettings
         Language = Language,
         WindowOpacity = WindowOpacity,
         WindowLeft = WindowLeft,
-        WindowTop = WindowTop
+        WindowTop = WindowTop,
+        WindowWidth = WindowWidth,
+        WindowHeight = WindowHeight,
+        CaseSensitiveSearch = CaseSensitiveSearch
     };
 }

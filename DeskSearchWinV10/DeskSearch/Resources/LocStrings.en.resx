@@ -33,6 +33,7 @@
   <data name="Menu_ResetPosition" xml:space="preserve"><value>Reset position</value></data>
   <data name="Menu_AboveOthers" xml:space="preserve"><value>Above other programs</value></data>
   <data name="Menu_Settings" xml:space="preserve"><value>Settings...</value></data>
+  <data name="Menu_Hide" xml:space="preserve"><value>Hide</value></data>
   <data name="Menu_Exit" xml:space="preserve"><value>Exit</value></data>
   <data name="Menu_Open" xml:space="preserve"><value>Open</value></data>
   <data name="Menu_OpenFormat" xml:space="preserve"><value>Open  "{0}"</value></data>
@@ -45,6 +46,9 @@
   <data name="Settings_Language" xml:space="preserve"><value>Language</value></data>
   <data name="Settings_Language_Korean" xml:space="preserve"><value>한국어</value></data>
   <data name="Settings_Language_English" xml:space="preserve"><value>English</value></data>
+  <data name="Settings_Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Settings_CaseSensitive" xml:space="preserve"><value>Case sensitive</value></data>
+  <data name="Settings_CaseSensitiveDesc" xml:space="preserve"><value>When enabled, search matches letter case exactly. (Default: off)</value></data>
   <data name="Settings_BackgroundColor" xml:space="preserve"><value>Background color</value></data>
   <data name="Settings_PickColor" xml:space="preserve"><value>Pick color...</value></data>
   <data name="Settings_Preset_White" xml:space="preserve"><value>White</value></data>

@@ -62,6 +62,7 @@
   <data name="Menu_ResetPosition" xml:space="preserve"><value>위치 초기화</value></data>
   <data name="Menu_AboveOthers" xml:space="preserve"><value>다른 프로그램보다 위</value></data>
   <data name="Menu_Settings" xml:space="preserve"><value>설정...</value></data>
+  <data name="Menu_Hide" xml:space="preserve"><value>숨기기</value></data>
   <data name="Menu_Exit" xml:space="preserve"><value>종료</value></data>
   <data name="Menu_Open" xml:space="preserve"><value>열기</value></data>
   <data name="Menu_OpenFormat" xml:space="preserve"><value>열기  "{0}"</value></data>
@@ -74,6 +75,9 @@
   <data name="Settings_Language" xml:space="preserve"><value>언어</value></data>
   <data name="Settings_Language_Korean" xml:space="preserve"><value>한국어</value></data>
   <data name="Settings_Language_English" xml:space="preserve"><value>English</value></data>
+  <data name="Settings_Search" xml:space="preserve"><value>검색</value></data>
+  <data name="Settings_CaseSensitive" xml:space="preserve"><value>대소문자 구분</value></data>
+  <data name="Settings_CaseSensitiveDesc" xml:space="preserve"><value>켜면 검색어와 파일·폴더 이름의 대소문자가 정확히 일치해야 합니다. (기본: 구분 안 함)</value></data>
   <data name="Settings_BackgroundColor" xml:space="preserve"><value>배경색</value></data>
   <data name="Settings_PickColor" xml:space="preserve"><value>색 선택...</value></data>
   <data name="Settings_Preset_White" xml:space="preserve"><value>흰색</value></data>

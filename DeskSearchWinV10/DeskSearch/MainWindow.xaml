@@ -3,6 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="DeskSearch"
         Width="340"
+        MinWidth="280"
+        MaxWidth="720"
         SizeToContent="Height"
         MinHeight="44"
         MaxHeight="420"
@@ -15,24 +17,59 @@
         Loaded="Window_Loaded"
         Closing="Window_Closing"
         Closed="Window_Closed"
-        LocationChanged="Window_LocationChanged">
+        LocationChanged="Window_LocationChanged"
+        SizeChanged="Window_SizeChanged">
     <Window.Resources>
         <SolidColorBrush x:Key="PrimaryTextBrush" Color="#222222"/>
         <SolidColorBrush x:Key="SubTextBrush" Color="#888888"/>
+        <SolidColorBrush x:Key="IconMutedBrush" Color="#555555"/>
+        <SolidColorBrush x:Key="IconPrimaryBrush" Color="#141414"/>
+        <SolidColorBrush x:Key="IconAccentBrush" Color="#004578"/>
+        <SolidColorBrush x:Key="ListItemHoverBrush" Color="#15000000"/>
+        <SolidColorBrush x:Key="ListItemSelectedBrush" Color="#220078D4"/>
+
+        <Style x:Key="AppIconGlyphStyle" TargetType="TextBlock">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1.1" ScaleY="1.1"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TransparentIconButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
-    <Border x:Name="RootBorder"
-            Background="#F2FFFFFF"
-            BorderBrush="#33000000"
-            BorderThickness="1"
-            CornerRadius="10"
-            Padding="10,8"
-            PreviewMouseLeftButtonDown="RootBorder_PreviewMouseLeftButtonDown">
-        <StackPanel>
+    <Grid>
+        <Border x:Name="RootBorder"
+                Background="#F2FFFFFF"
+                BorderBrush="#33000000"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="10,8"
+                PreviewMouseLeftButtonDown="RootBorder_PreviewMouseLeftButtonDown">
+            <StackPanel>
             <Grid MinHeight="30" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <Border x:Name="DragHandle"
@@ -46,18 +83,18 @@
                         Margin="-4,0,0,0"
                         MouseLeftButtonDown="DragHandle_MouseLeftButtonDown">
                     <TextBlock Text="&#xE700;"
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="12"
-                               Foreground="#999999"
+                               Style="{StaticResource AppIconGlyphStyle}"
+                               FontSize="13"
+                               Foreground="{DynamicResource IconMutedBrush}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"/>
                 </Border>
 
                 <TextBlock Grid.Column="1"
                            Text="&#xE721;"
-                           FontFamily="Segoe MDL2 Assets"
-                           FontSize="14"
-                           Foreground="#666666"
+                           Style="{StaticResource AppIconGlyphStyle}"
+                           FontSize="15"
+                           Foreground="{DynamicResource IconPrimaryBrush}"
                            VerticalAlignment="Center"
                            HorizontalAlignment="Center"
                            Margin="0,0,8,0"/>
@@ -72,11 +109,35 @@
                          FontSize="14"
                          Padding="0"
                          VerticalContentAlignment="Center"
-                         CaretBrush="#333333"
+                         CaretBrush="{DynamicResource PrimaryTextBrush}"
                          Foreground="{DynamicResource PrimaryTextBrush}"
                          IsEnabled="False"
                          TextChanged="SearchBox_TextChanged"
                          KeyDown="SearchBox_KeyDown"/>
+
+                <Button x:Name="SettingsButton"
+                        Grid.Column="3"
+                        Style="{StaticResource TransparentIconButton}"
+                        Width="28"
+                        Height="30"
+                        Margin="6,0,0,0"
+                        Padding="0"
+                        Cursor="Hand"
+                        VerticalAlignment="Center"
+                        Click="MenuSettings_Click">
+                    <Grid Width="17" Height="17">
+                        <TextBlock Text="&#xE713;"
+                                   Style="{StaticResource AppIconGlyphStyle}"
+                                   FontSize="17"
+                                   Foreground="{DynamicResource IconPrimaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center">
+                            <TextBlock.RenderTransform>
+                                <ScaleTransform ScaleX="1.14" ScaleY="1.14"/>
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                    </Grid>
+                </Button>
             </Grid>
 
             <ListBox x:Name="ResultsList"
@@ -94,13 +155,12 @@
                         <StackPanel Margin="4,2">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE8B7;"
-                                       FontFamily="Segoe MDL2 Assets"
-                                       FontSize="13"
-                                       Foreground="#0078D4"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource IconAccentBrush}"
                                        Margin="0,0,6,0"
                                        VerticalAlignment="Center">
                                 <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource AppIconGlyphStyle}">
                                         <Setter Property="Visibility" Value="Collapsed"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsDirectory}" Value="True">
@@ -139,10 +199,10 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#15000000"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#220078D4"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ListItemSelectedBrush}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -152,5 +212,19 @@
                 </ListBox.ItemContainerStyle>
             </ListBox>
         </StackPanel>
-    </Border>
+        </Border>
+
+        <Border x:Name="LeftResizeGrip"
+                Width="8"
+                HorizontalAlignment="Left"
+                Background="Transparent"
+                Cursor="SizeWE"
+                MouseLeftButtonDown="LeftResizeGrip_MouseLeftButtonDown"/>
+        <Border x:Name="RightResizeGrip"
+                Width="8"
+                HorizontalAlignment="Right"
+                Background="Transparent"
+                Cursor="SizeWE"
+                MouseLeftButtonDown="RightResizeGrip_MouseLeftButtonDown"/>
+    </Grid>
 </Window>

@@ -20,12 +20,19 @@ public partial class SettingsWindow : Window
         BuildColorSwatches();
         ApplyLocalization();
         LoadToUi();
+        WindowTaskbarHelper.ExcludeFromTaskbar(this);
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        WindowTaskbarHelper.ApplyExStyle(this);
     }
 
     private void BuildColorSwatches()
     {
-        PopulateSwatches(BackgroundSwatchPanel, SettingsColorPalette.PastelSwatches, PresetBackground_Click);
-        PopulateSwatches(BorderSwatchPanel, SettingsColorPalette.PastelSwatches, PresetBorder_Click);
+        PopulateSwatches(BackgroundSwatchPanel, SettingsColorPalette.BackgroundSwatches, PresetBackground_Click);
+        PopulateSwatches(BorderSwatchPanel, SettingsColorPalette.BackgroundSwatches, PresetBorder_Click);
         PopulateSwatches(TextSwatchPanel, SettingsColorPalette.TextSwatches, PresetText_Click);
     }
 
@@ -52,6 +59,9 @@ public partial class SettingsWindow : Window
         LanguageLabel.Text = LocalizationService.T("Settings_Language");
         LanguageKoreanRadio.Content = LocalizationService.T("Settings_Language_Korean");
         LanguageEnglishRadio.Content = LocalizationService.T("Settings_Language_English");
+        SearchOptionsLabel.Text = LocalizationService.T("Settings_Search");
+        CaseSensitiveSearchCheckBox.Content = LocalizationService.T("Settings_CaseSensitive");
+        CaseSensitiveSearchDescLabel.Text = LocalizationService.T("Settings_CaseSensitiveDesc");
         BackgroundColorLabel.Text = LocalizationService.T("Settings_BackgroundColor");
         PickBackgroundColorButton.Content = LocalizationService.T("Settings_PickColor");
         BackgroundOpacityLabel.Text = LocalizationService.T("Settings_BackgroundOpacity");
@@ -74,9 +84,10 @@ public partial class SettingsWindow : Window
     {
         LanguageKoreanRadio.IsChecked = Settings.Language != LocalizationService.English;
         LanguageEnglishRadio.IsChecked = Settings.Language == LocalizationService.English;
+        CaseSensitiveSearchCheckBox.IsChecked = Settings.CaseSensitiveSearch;
         BackgroundPreview.Background = CreateBackgroundBrush();
         BorderPreview.Background = ColorHelper.ToBrush(Settings.BorderColor);
-        TextPreview.Foreground = ColorHelper.ToBrush(Settings.TextColor);
+        TextPreview.Foreground = ColorHelper.ToBrush(ColorHelper.ResolveDisplayColors(Settings).TextColor);
         BackgroundOpacitySlider.Value = Settings.BackgroundOpacity;
         WindowOpacitySlider.Value = Settings.WindowOpacity;
         PriorityAboveOthersRadio.IsChecked = Settings.AlwaysOnTop;
@@ -105,7 +116,8 @@ public partial class SettingsWindow : Window
             return;
 
         Settings.BackgroundColor = hex;
-        BackgroundPreview.Background = CreateBackgroundBrush();
+        ColorHelper.SyncThemeTextColors(Settings);
+        RefreshThemePreviews();
     }
 
     private void PickBorderColor_Click(object sender, RoutedEventArgs e)
@@ -150,7 +162,15 @@ public partial class SettingsWindow : Window
             return;
 
         Settings.BackgroundColor = hex;
+        ColorHelper.SyncThemeTextColors(Settings);
+        RefreshThemePreviews();
+    }
+
+    private void RefreshThemePreviews()
+    {
         BackgroundPreview.Background = CreateBackgroundBrush();
+        BorderPreview.Background = ColorHelper.ToBrush(Settings.BorderColor);
+        TextPreview.Foreground = ColorHelper.ToBrush(Settings.TextColor);
     }
 
     private void PresetBorder_Click(object sender, RoutedEventArgs e)
@@ -187,9 +207,16 @@ public partial class SettingsWindow : Window
         Settings.Language = LanguageEnglishRadio.IsChecked == true
             ? LocalizationService.English
             : LocalizationService.Korean;
+        Settings.CaseSensitiveSearch = CaseSensitiveSearchCheckBox.IsChecked == true;
         Settings.AlwaysOnTop = PriorityAboveOthersRadio.IsChecked == true;
-        Settings.BackgroundOpacity = (int)BackgroundOpacitySlider.Value;
         Settings.WindowOpacity = (int)WindowOpacitySlider.Value;
+        Settings.BackgroundOpacity = (int)BackgroundOpacitySlider.Value;
+
+        var display = ColorHelper.ResolveDisplayColors(Settings);
+        Settings.TextColor = display.TextColor;
+        Settings.SubTextColor = display.SubTextColor;
+        Settings.BorderColor = display.BorderColor;
+
         DialogResult = true;
         Close();
     }
