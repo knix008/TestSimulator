@@ -106,21 +106,21 @@ public partial class SettingsWindow : Window
         ExcludedDrivesDescLabel.Text = LocalizationService.T("Settings_ExcludedDrivesDesc");
         ExcludedDirectoriesLabel.Text = LocalizationService.T("Settings_ExcludedDirectories");
         ExcludedDirectoriesDescLabel.Text = LocalizationService.T("Settings_ExcludedDirectoriesDesc");
-        BrowseExcludedDirectoryButton.Content = LocalizationService.T("Settings_BrowseFolder");
-        AddExcludedDirectoryButton.Content = LocalizationService.T("Settings_AddExcluded");
-        RemoveExcludedDirectoryButton.Content = LocalizationService.T("Settings_RemoveExcluded");
+        BrowseExcludedDirectoryButton.Content = CreateIconLabel("\uE838", LocalizationService.T("Settings_BrowseFolder"));
+        AddExcludedDirectoryButton.Content = CreateIconLabel("\uE710", LocalizationService.T("Settings_AddExcluded"));
+        RemoveExcludedDirectoryButton.Content = CreateIconLabel("\uE74D", LocalizationService.T("Settings_RemoveExcluded"));
         IndexProgressLabel.Text = LocalizationService.T("Settings_IndexProgress");
-        ReSearchButton.Content = LocalizationService.T("Settings_ReSearch");
+        ReSearchButton.Content = CreateIconLabel("\uE721", LocalizationService.T("Settings_ReSearch"));
         StartupLabel.Text = LocalizationService.T("Settings_Startup");
         RunAtStartupCheckBox.Content = LocalizationService.T("Settings_RunAtStartup");
         RunAtStartupDescLabel.Text = LocalizationService.T("Settings_RunAtStartupDesc");
         BackgroundColorLabel.Text = LocalizationService.T("Settings_BackgroundColor");
-        PickBackgroundColorButton.Content = LocalizationService.T("Settings_PickColor");
+        PickBackgroundColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"));
         BackgroundOpacityLabel.Text = LocalizationService.T("Settings_BackgroundOpacity");
         BorderColorLabel.Text = LocalizationService.T("Settings_BorderColor");
-        PickBorderColorButton.Content = LocalizationService.T("Settings_PickColor");
+        PickBorderColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"));
         TextColorLabel.Text = LocalizationService.T("Settings_TextColor");
-        PickTextColorButton.Content = LocalizationService.T("Settings_PickColor");
+        PickTextColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"));
         TextPreview.Text = LocalizationService.T("Settings_SearchPreview");
         WindowOpacityLabel.Text = LocalizationService.T("Settings_WindowOpacity");
         DisplayPriorityLabel.Text = LocalizationService.T("Settings_DisplayPriority");
@@ -128,9 +128,31 @@ public partial class SettingsWindow : Window
         AboveOthersDescLabel.Text = LocalizationService.T("Settings_AboveOthersDesc");
         PriorityNormalRadio.Content = LocalizationService.T("Settings_NormalPriority");
         NormalPriorityDescLabel.Text = LocalizationService.T("Settings_NormalPriorityDesc");
-        CancelButton.Content = LocalizationService.T("Settings_Cancel");
-        SaveButton.Content = LocalizationService.T("Settings_Save");
+        CancelButton.Content = CreateIconLabel("\uE711", LocalizationService.T("Settings_Cancel"));
+        SaveButton.Content = CreateIconLabel("\uE74E", LocalizationService.T("Settings_Save"));
     }
+
+    private static StackPanel CreateIconLabel(string glyph, string label) =>
+        new()
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = glyph,
+                    FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+                    FontSize = 14,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 6, 0)
+                },
+                new TextBlock
+                {
+                    Text = label,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            }
+        };
 
     private void LoadToUi()
     {

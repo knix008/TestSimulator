@@ -7,72 +7,66 @@ namespace DeskSearch.Services;
 public sealed class FileSearchService
 {
     private const int MaxResults = 12;
-    public const int DefaultBatchSize = 20_000;
+    public const int DefaultBatchSize = IndexStoragePolicy.RegexSearchPageSize;
 
     public IReadOnlyList<FileEntry> Search(
         IEnumerable<FileEntry> entries,
-        string query,
-        bool caseSensitive,
-        bool useRegex,
-        Regex? regex)
+        int totalCount,
+        ResolvedSearchQuery searchQuery,
+        bool caseSensitive)
     {
-        var list = entries as IReadOnlyList<FileEntry> ?? entries.ToList();
-        var batch = SearchBatch(list, query, caseSensitive, useRegex, regex, startOffset: 0, batchSize: int.MaxValue);
+        var batch = SearchBatch(
+            entries, totalCount, searchQuery, caseSensitive, startOffset: 0, batchSize: int.MaxValue);
         return batch.Results;
     }
 
     public SearchBatchResult SearchBatch(
-        IReadOnlyList<FileEntry> entries,
-        string query,
+        IEnumerable<FileEntry> entries,
+        int totalCount,
+        ResolvedSearchQuery searchQuery,
         bool caseSensitive,
-        bool useRegex,
-        Regex? regex,
         int startOffset,
         int batchSize,
         List<(FileEntry Entry, int Score)>? existingTop = null)
     {
-        if (string.IsNullOrWhiteSpace(query))
+        if (searchQuery.IsInvalid || searchQuery.Terms.Count == 0)
         {
             return new SearchBatchResult
             {
                 Results = [],
                 NextOffset = 0,
+                NextScanId = 0,
                 IsComplete = true,
                 TopCandidates = []
             };
         }
 
-        if (useRegex && regex is null)
-        {
-            return new SearchBatchResult
-            {
-                Results = [],
-                NextOffset = entries.Count,
-                IsComplete = true,
-                TopCandidates = []
-            };
-        }
-
-        var trimmed = SearchTextHelper.Normalize(query.Trim());
         var comparison = SearchTextHelper.GetComparison(caseSensitive);
         var top = existingTop is null ? [] : existingTop.ToList();
 
-        var end = Math.Min(startOffset + batchSize, entries.Count);
-        for (var i = startOffset; i < end; i++)
+        var index = 0;
+        var processed = 0;
+        foreach (var entry in entries)
         {
-            var score = useRegex
-                ? ScoreRegex(entries[i], regex!)
-                : ScoreLiteral(entries[i], trimmed, comparison);
+            if (index++ < startOffset)
+                continue;
 
+            var score = ScoreEntry(entry, searchQuery.Terms, comparison);
             if (score > 0)
-                TryAddToTop(top, entries[i], score, comparison);
+                TryAddToTop(top, entry, score, comparison);
+
+            processed++;
+            if (processed >= batchSize)
+                break;
         }
 
+        var nextOffset = startOffset + processed;
         return new SearchBatchResult
         {
             Results = ToSortedResults(top, comparison),
-            NextOffset = end,
-            IsComplete = end >= entries.Count,
+            NextOffset = nextOffset,
+            NextScanId = 0,
+            IsComplete = nextOffset >= totalCount,
             TopCandidates = top
         };
     }
@@ -127,6 +121,31 @@ public sealed class FileSearchService
             .ThenBy(x => x.Entry.FileName, nameComparer)
             .Select(x => x.Entry)
             .ToList();
+    }
+
+    private static int ScoreEntry(
+        FileEntry entry,
+        IReadOnlyList<SearchTerm> terms,
+        StringComparison comparison)
+    {
+        if (terms.Count == 0)
+            return 0;
+
+        var minScore = int.MaxValue;
+
+        foreach (var term in terms)
+        {
+            var score = term.Pattern is not null
+                ? ScoreRegex(entry, term.Pattern)
+                : ScoreLiteral(entry, term.Text, comparison);
+
+            if (score == 0)
+                return 0;
+
+            minScore = Math.Min(minScore, score);
+        }
+
+        return minScore;
     }
 
     private static int ScoreLiteral(FileEntry entry, string query, StringComparison comparison)

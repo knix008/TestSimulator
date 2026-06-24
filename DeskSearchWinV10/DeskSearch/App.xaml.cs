@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using System.Windows.Threading;
 using DeskSearch.Services;
 
 namespace DeskSearch;
@@ -6,6 +7,7 @@ namespace DeskSearch;
 public partial class App : System.Windows.Application
 {
     private SingleInstanceService? _singleInstance;
+    private bool _exceptionHandlersRegistered;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -19,13 +21,47 @@ public partial class App : System.Windows.Application
             SingleInstanceService.SignalExistingInstance();
             _singleInstance.Dispose();
             _singleInstance = null;
-            Shutdown();
+            Environment.Exit(0);
             return;
         }
 
         var settings = new SettingsService();
         LocalizationService.Apply(settings.Current.Language);
+        RegisterExceptionHandlers();
         base.OnStartup(e);
+
+        var mainWindow = new MainWindow();
+        MainWindow = mainWindow;
+        mainWindow.Show();
+    }
+
+    private void RegisterExceptionHandlers()
+    {
+        if (_exceptionHandlersRegistered)
+            return;
+
+        _exceptionHandlersRegistered = true;
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+        AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        ErrorDialogService.Show(LocalizationService.T("Error_Unhandled"), e.Exception);
+        e.Handled = true;
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        e.SetObserved();
+        ErrorDialogService.Show(LocalizationService.T("Error_Unhandled"), e.Exception);
+    }
+
+    private void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception exception)
+            ErrorDialogService.Show(LocalizationService.T("Error_Unhandled"), exception);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -37,6 +73,12 @@ public partial class App : System.Windows.Application
 
     public void RegisterShowWindowCallback(Action callback)
     {
-        _singleInstance?.BeginListeningForShowRequests(() => Dispatcher.Invoke(callback));
+        _singleInstance?.BeginListeningForShowRequests(() =>
+        {
+            if (Dispatcher.CheckAccess())
+                callback();
+            else
+                Dispatcher.BeginInvoke(callback);
+        });
     }
 }

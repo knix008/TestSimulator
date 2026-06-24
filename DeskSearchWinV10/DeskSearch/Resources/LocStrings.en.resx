@@ -86,4 +86,15 @@
   <data name="Settings_NormalPriorityDesc" xml:space="preserve"><value>Displayed in the same order as ordinary windows.</value></data>
   <data name="Settings_Save" xml:space="preserve"><value>Save</value></data>
   <data name="Settings_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="ErrorDialog_Title" xml:space="preserve"><value>Error</value></data>
+  <data name="ErrorDialog_Details" xml:space="preserve"><value>Error details</value></data>
+  <data name="ErrorDialog_Copy" xml:space="preserve"><value>Copy</value></data>
+  <data name="ErrorDialog_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="ErrorDialog_Copied" xml:space="preserve"><value>Copied to clipboard.</value></data>
+  <data name="Error_Unhandled" xml:space="preserve"><value>An unhandled error occurred.</value></data>
+  <data name="Error_IndexScan" xml:space="preserve"><value>An error occurred during indexing.</value></data>
+  <data name="Error_SettingsLoad" xml:space="preserve"><value>Failed to read the settings file. Using default settings.</value></data>
+  <data name="Error_StartupRegistration" xml:space="preserve"><value>Failed to register DeskSearch for automatic startup.</value></data>
+  <data name="Error_Search" xml:space="preserve"><value>An error occurred during search.</value></data>
+  <data name="Error_OutOfMemory" xml:space="preserve"><value>Out of memory. Reduce the indexing scope with search exclusions, close other programs, and try again.</value></data>
 </root>

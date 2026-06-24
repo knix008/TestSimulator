@@ -6,19 +6,17 @@ namespace DeskSearch.Services;
 
 public sealed class SystemIndexService : IDisposable
 {
-    private const int MergeBatchSize = 4096;
-
     private static readonly EnumerationOptions DirectoryEnumerationOptions = new()
     {
         IgnoreInaccessible = true,
         AttributesToSkip = FileAttributes.None
     };
 
-    private readonly object _lock = new();
-    private readonly Dictionary<string, FileEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IndexStore _indexStore;
     private readonly FileSearchService _searchService = new();
-    private readonly HashSet<string> _pendingResyncPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _indexedRoots = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _rootsLock = new();
+    private readonly HashSet<string> _pendingResyncPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _resyncLock = new();
     private IndexExclusionPolicy _exclusions = IndexExclusionPolicy.Empty;
 
@@ -36,19 +34,27 @@ public sealed class SystemIndexService : IDisposable
     private int _completedScanSteps;
     private string? _currentScanPath;
 
+    public SystemIndexService()
+    {
+        var folder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "DeskSearch");
+        _indexStore = new IndexStore(Path.Combine(folder, IndexStoragePolicy.DatabaseFileName));
+
+        lock (_rootsLock)
+        {
+            foreach (var root in _indexStore.LoadIndexedRoots())
+                _indexedRoots.Add(root);
+        }
+
+        EnableSearchIfNeeded();
+    }
+
     public bool IsSearchEnabled => _isSearchEnabled;
     public bool IsScanComplete => _isScanComplete;
     public bool IsScanning => _isScanning;
     public int ScanProgressPercent => _scanProgressPercent;
-
-    public int Count
-    {
-        get
-        {
-            lock (_lock)
-                return _entries.Count;
-        }
-    }
+    public int Count => _indexStore.Count;
 
     public IReadOnlyList<string> WatchPaths => FilterScanPaths(GetPriorityPaths());
     public IReadOnlyList<string> ScanRoots => FilterScanPaths(GetAllScanRoots());
@@ -79,46 +85,94 @@ public sealed class SystemIndexService : IDisposable
 
     public void RestartScan()
     {
-        lock (_lock)
-        {
-            _entries.Clear();
-            _indexedRoots.Clear();
-            _isScanComplete = false;
-        }
+        _indexStore.Clear();
 
+        lock (_rootsLock)
+            _indexedRoots.Clear();
+
+        _isScanComplete = false;
         _scanProgressPercent = 0;
         _completedScanSteps = 0;
         StartBackgroundScan();
     }
 
-    public IReadOnlyList<FileEntry> Search(string query, bool caseSensitive, bool useRegex, Regex? regex)
+    public IReadOnlyList<FileEntry> Search(
+        bool caseSensitive,
+        ResolvedSearchQuery searchQuery)
     {
-        var snapshot = CreateSearchSnapshot();
-        return _searchService.Search(snapshot, query, caseSensitive, useRegex, regex);
+        if (searchQuery.CanUseFts && _indexStore.IsFtsCurrent)
+        {
+            var candidates = searchQuery.IsAndQuery
+                ? _indexStore.SearchLiteralFtsAnd(searchQuery.Terms.Select(term => term.Text).ToList())
+                : _indexStore.SearchLiteralFts(searchQuery.Terms[0].Text);
+
+            return _searchService.Search(
+                candidates,
+                candidates.Count,
+                searchQuery,
+                caseSensitive);
+        }
+
+        return _searchService.Search(
+            _indexStore.EnumerateAll(IndexStoragePolicy.RegexSearchPageSize),
+            _indexStore.Count,
+            searchQuery,
+            caseSensitive);
     }
 
     public SearchBatchResult SearchBatch(
-        string query,
+        ResolvedSearchQuery searchQuery,
         bool caseSensitive,
-        bool useRegex,
-        Regex? regex,
-        int startOffset,
+        long afterScanId,
         int batchSize,
         List<(FileEntry Entry, int Score)>? existingTop = null)
     {
-        var snapshot = CreateSearchSnapshot();
-        return _searchService.SearchBatch(
-            snapshot, query, caseSensitive, useRegex, regex, startOffset, batchSize, existingTop);
-    }
+        var totalCount = _indexStore.Count;
 
-    private FileEntry[] CreateSearchSnapshot()
-    {
-        lock (_lock)
+        if (searchQuery.CanUseFts && _indexStore.IsFtsCurrent && afterScanId == 0)
         {
-            return _entries.Values
-                .OrderBy(static entry => entry.FullPath, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            var candidates = searchQuery.IsAndQuery
+                ? _indexStore.SearchLiteralFtsAnd(searchQuery.Terms.Select(term => term.Text).ToList())
+                : _indexStore.SearchLiteralFts(searchQuery.Terms[0].Text);
+
+            var ftsResult = _searchService.SearchBatch(
+                candidates,
+                candidates.Count,
+                searchQuery,
+                caseSensitive,
+                startOffset: 0,
+                batchSize: candidates.Count,
+                existingTop);
+
+            return new SearchBatchResult
+            {
+                Results = ftsResult.Results,
+                NextOffset = totalCount,
+                NextScanId = 0,
+                IsComplete = true,
+                TopCandidates = ftsResult.TopCandidates
+            };
         }
+
+        var page = _indexStore.ReadPageAfterId(afterScanId, batchSize);
+        var result = _searchService.SearchBatch(
+            page.Entries,
+            totalCount,
+            searchQuery,
+            caseSensitive,
+            startOffset: 0,
+            batchSize: page.Entries.Count,
+            existingTop);
+
+        var isComplete = page.Entries.Count < batchSize;
+        return new SearchBatchResult
+        {
+            Results = result.Results,
+            NextOffset = isComplete ? totalCount : (int)Math.Min(totalCount, afterScanId + page.Entries.Count),
+            NextScanId = page.LastId,
+            IsComplete = isComplete,
+            TopCandidates = result.TopCandidates
+        };
     }
 
     public void RequestResyncAllRoots()
@@ -139,7 +193,7 @@ public sealed class SystemIndexService : IDisposable
                 continue;
 
             bool alreadyIndexed;
-            lock (_lock)
+            lock (_rootsLock)
                 alreadyIndexed = _indexedRoots.Contains(normalizedRoot);
 
             if (!alreadyIndexed)
@@ -152,31 +206,32 @@ public sealed class SystemIndexService : IDisposable
         if (removes.Count == 0 && adds.Count == 0)
             return;
 
-        lock (_lock)
+        foreach (var path in removes)
+            _indexStore.RemovePathAndDescendants(path);
+
+        var upserts = new List<FileEntry>(adds.Count);
+        foreach (var path in adds)
         {
-            foreach (var path in removes)
-                RemoveEntryAndDescendants(path);
+            if (_exclusions.IsPathExcluded(path))
+                continue;
 
-            foreach (var path in adds)
+            if (File.Exists(path))
             {
-                if (_exclusions.IsPathExcluded(path))
-                    continue;
+                var entry = TryCreateEntry(path, isDirectory: false);
+                if (entry is not null)
+                    upserts.Add(entry);
+                continue;
+            }
 
-                if (File.Exists(path))
-                {
-                    var entry = CreateEntry(path, isDirectory: false);
-                    _entries[entry.FullPath] = entry;
-                    continue;
-                }
-
-                if (Directory.Exists(path))
-                {
-                    var entry = CreateEntry(path, isDirectory: true);
-                    _entries[entry.FullPath] = entry;
-                }
+            if (Directory.Exists(path))
+            {
+                var entry = TryCreateEntry(path, isDirectory: true);
+                if (entry is not null)
+                    upserts.Add(entry);
             }
         }
 
+        _indexStore.UpsertBatch(upserts);
         IndexUpdated?.Invoke(this, EventArgs.Empty);
     }
 
@@ -204,6 +259,7 @@ public sealed class SystemIndexService : IDisposable
     {
         _scanCts?.Cancel();
         _scanCts?.Dispose();
+        _indexStore.Dispose();
     }
 
     private void ProcessResyncQueue()
@@ -245,30 +301,30 @@ public sealed class SystemIndexService : IDisposable
         if (normalizedRoot is null)
             return;
 
-        lock (_lock)
+        _indexStore.RemovePathAndDescendants(root);
+        _indexStore.BeginBulkIngest();
+        try
         {
-            var toRemove = _entries.Keys
-                .Where(k => k.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            foreach (var key in toRemove)
-                _entries.Remove(key);
+            ScanTree(root, CancellationToken.None, MergeEntriesBatch);
+        }
+        finally
+        {
+            _indexStore.EndBulkIngest();
         }
 
-        ScanTree(root, CancellationToken.None, MergeEntriesBatch);
-
-        lock (_lock)
-            _indexedRoots.Add(normalizedRoot);
+        MarkRootIndexed(normalizedRoot);
     }
 
     private void RunScan(CancellationToken cancellationToken)
     {
         _isScanning = true;
         Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+        _indexStore.BeginBulkIngest();
 
         try
         {
-            lock (_lock)
+            _indexStore.ClearIndexedRoots();
+            lock (_rootsLock)
                 _indexedRoots.Clear();
 
             var priorityPaths = WatchPaths;
@@ -300,8 +356,17 @@ public sealed class SystemIndexService : IDisposable
         {
             // 새 스캔 시작 시 이전 스캔 취소
         }
+        catch (OutOfMemoryException ex)
+        {
+            ErrorDialogService.Show(LocalizationService.T("Error_OutOfMemory"), ex);
+        }
+        catch (Exception ex)
+        {
+            ErrorDialogService.Show(LocalizationService.T("Error_IndexScan"), ex);
+        }
         finally
         {
+            _indexStore.EndBulkIngest();
             _isScanning = false;
             _currentScanPath = null;
             Thread.CurrentThread.Priority = ThreadPriority.Normal;
@@ -327,12 +392,16 @@ public sealed class SystemIndexService : IDisposable
 
         var normalizedRoot = NormalizeDirectoryPrefix(root);
         if (normalizedRoot is not null)
-        {
-            lock (_lock)
-                _indexedRoots.Add(normalizedRoot);
-        }
+            MarkRootIndexed(normalizedRoot);
 
         AdvanceScanProgress(root);
+    }
+
+    private void MarkRootIndexed(string normalizedRoot)
+    {
+        _indexStore.MarkRootIndexed(normalizedRoot);
+        lock (_rootsLock)
+            _indexedRoots.Add(normalizedRoot);
     }
 
     private void MergeEntriesBatch(IReadOnlyList<FileEntry> batch)
@@ -340,12 +409,7 @@ public sealed class SystemIndexService : IDisposable
         if (batch.Count == 0)
             return;
 
-        lock (_lock)
-        {
-            foreach (var entry in batch)
-                _entries[entry.FullPath] = entry;
-        }
-
+        _indexStore.UpsertBatch(batch);
         EnableSearchIfNeeded();
         ReportProgress(_currentScanPath, false);
         NotifyIndexUpdatedIfNeeded();
@@ -356,8 +420,8 @@ public sealed class SystemIndexService : IDisposable
         var count = Count;
         var now = DateTime.UtcNow;
 
-        if (count - _lastIndexUpdatedCount < 2000
-            && (now - _lastIndexUpdatedTime).TotalSeconds < 1)
+        if (count - _lastIndexUpdatedCount < 5000
+            && (now - _lastIndexUpdatedTime).TotalSeconds < 2)
         {
             return;
         }
@@ -379,7 +443,7 @@ public sealed class SystemIndexService : IDisposable
         CancellationToken cancellationToken,
         Action<IReadOnlyList<FileEntry>> mergeBatch)
     {
-        var batch = new List<FileEntry>(MergeBatchSize);
+        var batch = new List<FileEntry>(IndexStoragePolicy.BulkMergeBatchSize);
         var stack = new Stack<string>();
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         stack.Push(root);
@@ -390,7 +454,7 @@ public sealed class SystemIndexService : IDisposable
                 return;
 
             mergeBatch(batch);
-            batch = new List<FileEntry>(MergeBatchSize);
+            batch = new List<FileEntry>(IndexStoragePolicy.BulkMergeBatchSize);
         }
 
         while (stack.Count > 0)
@@ -411,7 +475,9 @@ public sealed class SystemIndexService : IDisposable
             if (!Directory.Exists(normalizedDir))
                 continue;
 
-            batch.Add(CreateEntry(normalizedDir, isDirectory: true));
+            var directoryEntry = TryCreateEntry(normalizedDir, isDirectory: true);
+            if (directoryEntry is not null)
+                batch.Add(directoryEntry);
 
             try
             {
@@ -424,10 +490,14 @@ public sealed class SystemIndexService : IDisposable
 
                     try
                     {
-                        batch.Add(CreateEntry(filePath, isDirectory: false));
+                        var entry = TryCreateEntry(filePath, isDirectory: false);
+                        if (entry is null)
+                            continue;
+
+                        batch.Add(entry);
                         MaybeYield(cancellationToken);
 
-                        if (batch.Count >= MergeBatchSize)
+                        if (batch.Count >= IndexStoragePolicy.BulkMergeBatchSize)
                             FlushBatch();
                     }
                     catch (UnauthorizedAccessException)
@@ -437,6 +507,10 @@ public sealed class SystemIndexService : IDisposable
                     catch (IOException)
                     {
                         // 경로 오류·잠긴 파일·경로 초과 등
+                    }
+                    catch (Exception)
+                    {
+                        // 예상치 못한 경로 오류
                     }
                 }
             }
@@ -451,6 +525,10 @@ public sealed class SystemIndexService : IDisposable
             catch (IOException)
             {
                 // 경로 오류
+            }
+            catch (Exception)
+            {
+                // 예상치 못한 열거 오류
             }
 
             try
@@ -478,6 +556,10 @@ public sealed class SystemIndexService : IDisposable
             catch (IOException)
             {
                 // 경로 오류
+            }
+            catch (Exception)
+            {
+                // 예상치 못한 열거 오류
             }
         }
 
@@ -546,17 +628,16 @@ public sealed class SystemIndexService : IDisposable
         IndexProgress?.Invoke(this, new IndexProgressEventArgs(count, currentPath, isComplete, percent));
     }
 
-    private void RemoveEntryAndDescendants(string path)
+    private static FileEntry? TryCreateEntry(string fullPath, bool isDirectory)
     {
-        _entries.Remove(path);
-
-        var prefix = path.TrimEnd('\\') + "\\";
-        var descendants = _entries.Keys
-            .Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        foreach (var key in descendants)
-            _entries.Remove(key);
+        try
+        {
+            return CreateEntry(fullPath, isDirectory);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static FileEntry CreateEntry(string fullPath, bool isDirectory)
@@ -597,18 +678,7 @@ public sealed class SystemIndexService : IDisposable
 
     private void PurgeExcludedEntries()
     {
-        List<string> toRemove;
-        lock (_lock)
-        {
-            toRemove = _entries.Keys
-                .Where(_exclusions.IsPathExcluded)
-                .ToList();
-
-            foreach (var key in toRemove)
-                _entries.Remove(key);
-        }
-
-        if (toRemove.Count > 0)
+        if (_indexStore.PurgeExcluded(_exclusions) > 0)
             IndexUpdated?.Invoke(this, EventArgs.Empty);
     }
 

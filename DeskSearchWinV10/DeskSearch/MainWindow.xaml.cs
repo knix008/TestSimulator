@@ -76,7 +76,7 @@ public partial class MainWindow : Window
 
         _indexService.IndexProgress += OnIndexProgress;
 
-        _indexService.IndexUpdated += (_, _) => Dispatcher.Invoke(ScheduleLiveSearchRefresh);
+        _indexService.IndexUpdated += (_, _) => SafeBeginInvoke(ScheduleLiveSearchRefresh);
 
         InitializeTrayIcon();
 
@@ -107,8 +107,6 @@ public partial class MainWindow : Window
 
         RestoreWindowLayout();
 
-        SearchBox.ToolTip = LocalizationService.T("Index_Starting");
-
         _watcherService.Start();
 
         _indexService.StartBackgroundScan();
@@ -117,39 +115,44 @@ public partial class MainWindow : Window
 
 
     private void OnSearchEnabled(object? sender, EventArgs e)
-
     {
-
-        Dispatcher.Invoke(() =>
-
+        SafeBeginInvoke(() =>
         {
-
             SearchBox.IsEnabled = true;
-
             UpdateIndexUi();
-
             SearchBox.Focus();
-
         });
-
     }
 
-
-
     private void OnIndexProgress(object? sender, IndexProgressEventArgs e)
-
     {
-
-        Dispatcher.Invoke(() =>
-
+        SafeBeginInvoke(() =>
         {
-
             UpdateIndexUi();
-
             ScheduleLiveSearchRefresh();
-
         });
+    }
 
+    private void SafeBeginInvoke(Action action)
+    {
+        try
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    ErrorDialogService.Show(LocalizationService.T("Error_Unhandled"), ex);
+                }
+            });
+        }
+        catch
+        {
+            // 앱 종료 중
+        }
     }
 
 
@@ -162,10 +165,6 @@ public partial class MainWindow : Window
         var status = _indexService.IsScanComplete
             ? LocalizationService.F("Index_Complete", count)
             : LocalizationService.F("Index_InProgress", count);
-
-
-
-        SearchBox.ToolTip = status;
 
         _menuIndexStatus.Header = status;
 
@@ -458,13 +457,12 @@ public partial class MainWindow : Window
 
 
     private void SearchBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-
     {
+        if (SearchBox.IsKeyboardFocusWithin)
+            return;
 
-        if (string.IsNullOrEmpty(SearchBox.Text))
-
-            StartDrag(e);
-
+        SearchBox.Focus();
+        e.Handled = true;
     }
 
 

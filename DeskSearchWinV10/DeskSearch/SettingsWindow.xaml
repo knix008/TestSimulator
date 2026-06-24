@@ -2,13 +2,23 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Name="SettingsRoot"
-        Width="440"
+        Width="480"
         Height="820"
+        MinWidth="480"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         Background="#FAFAFA">
     <Window.Resources>
+        <Style x:Key="SettingsActionButton" TargetType="Button">
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
         <Style x:Key="ColorSwatchButton" TargetType="Button">
             <Setter Property="Width" Value="28"/>
             <Setter Property="Height" Value="28"/>
@@ -106,31 +116,28 @@
                 <ListBox x:Name="ExcludedDirectoriesListBox"
                          Height="72"
                          Margin="0,0,0,6"/>
-                <Grid Margin="0,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                <Grid Margin="0,0,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
                     <TextBox x:Name="ExcludedDirectoryTextBox"
-                             MinHeight="24"
+                             Grid.Row="0"
+                             MinHeight="28"
+                             Margin="0,0,0,6"
                              VerticalContentAlignment="Center"/>
-                    <Button x:Name="BrowseExcludedDirectoryButton"
-                            Grid.Column="1"
-                            Margin="6,0,0,0"
-                            Padding="8,4"
-                            Click="BrowseExcludedDirectory_Click"/>
-                    <Button x:Name="AddExcludedDirectoryButton"
-                            Grid.Column="2"
-                            Margin="6,0,0,0"
-                            Padding="8,4"
-                            Click="AddExcludedDirectory_Click"/>
+                    <WrapPanel Grid.Row="1">
+                        <Button x:Name="BrowseExcludedDirectoryButton"
+                                Style="{StaticResource SettingsActionButton}"
+                                Click="BrowseExcludedDirectory_Click"/>
+                        <Button x:Name="AddExcludedDirectoryButton"
+                                Style="{StaticResource SettingsActionButton}"
+                                Click="AddExcludedDirectory_Click"/>
+                        <Button x:Name="RemoveExcludedDirectoryButton"
+                                Style="{StaticResource SettingsActionButton}"
+                                Click="RemoveExcludedDirectory_Click"/>
+                    </WrapPanel>
                 </Grid>
-                <Button x:Name="RemoveExcludedDirectoryButton"
-                        HorizontalAlignment="Left"
-                        Padding="8,4"
-                        Margin="0,0,0,16"
-                        Click="RemoveExcludedDirectory_Click"/>
 
                 <TextBlock x:Name="IndexProgressLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,4">
@@ -154,9 +161,8 @@
                            Margin="0,0,0,8"
                            TextWrapping="Wrap"/>
                 <Button x:Name="ReSearchButton"
+                        Style="{StaticResource SettingsActionButton}"
                         HorizontalAlignment="Left"
-                        MinWidth="100"
-                        Padding="12,4"
                         Margin="0,0,0,16"
                         Click="ReSearch_Click"/>
 
@@ -171,20 +177,22 @@
 
                 <TextBlock x:Name="BackgroundColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
                     <Border x:Name="BackgroundPreview"
+                            Grid.Row="0"
                             Height="32"
                             CornerRadius="6"
                             BorderBrush="#CCCCCC"
                             BorderThickness="1"
-                            Margin="0,0,8,0"/>
+                            Margin="0,0,0,6"/>
                     <Button x:Name="PickBackgroundColorButton"
-                            Grid.Column="1"
-                            MinWidth="90"
-                            Padding="10,4"
+                            Grid.Row="1"
+                            Style="{StaticResource SettingsActionButton}"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,0,0"
                             Click="PickBackgroundColor_Click"/>
                 </Grid>
                 <WrapPanel x:Name="BackgroundSwatchPanel" Margin="0,0,0,12"/>
@@ -208,44 +216,48 @@
 
                 <TextBlock x:Name="BorderColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
                     <Border x:Name="BorderPreview"
+                            Grid.Row="0"
                             Height="32"
                             CornerRadius="6"
                             BorderBrush="#CCCCCC"
                             BorderThickness="1"
-                            Margin="0,0,8,0"/>
+                            Margin="0,0,0,6"/>
                     <Button x:Name="PickBorderColorButton"
-                            Grid.Column="1"
-                            MinWidth="90"
-                            Padding="10,4"
+                            Grid.Row="1"
+                            Style="{StaticResource SettingsActionButton}"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,0,0"
                             Click="PickBorderColor_Click"/>
                 </Grid>
                 <WrapPanel x:Name="BorderSwatchPanel" Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="TextColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Border Height="32"
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0"
+                            Height="32"
                             CornerRadius="6"
                             BorderBrush="#CCCCCC"
                             BorderThickness="1"
                             Background="White"
-                            Margin="0,0,8,0">
+                            Margin="0,0,0,6">
                         <TextBlock x:Name="TextPreview"
                                    VerticalAlignment="Center"
                                    Margin="8,0"/>
                     </Border>
                     <Button x:Name="PickTextColorButton"
-                            Grid.Column="1"
-                            MinWidth="90"
-                            Padding="10,4"
+                            Grid.Row="1"
+                            Style="{StaticResource SettingsActionButton}"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,0,0"
                             Click="PickTextColor_Click"/>
                 </Grid>
                 <WrapPanel x:Name="TextSwatchPanel" Margin="0,0,0,12"/>
@@ -292,13 +304,12 @@
                     HorizontalAlignment="Right"
                     Margin="0,16,12,0">
             <Button x:Name="CancelButton"
-                    MinWidth="80"
-                    Padding="12,4"
+                    Style="{StaticResource SettingsActionButton}"
                     Margin="0,0,8,0"
                     Click="Cancel_Click"/>
             <Button x:Name="SaveButton"
-                    MinWidth="80"
-                    Padding="12,4"
+                    Style="{StaticResource SettingsActionButton}"
+                    Margin="0,0,0,0"
                     IsDefault="True"
                     Click="Save_Click"/>
         </StackPanel>

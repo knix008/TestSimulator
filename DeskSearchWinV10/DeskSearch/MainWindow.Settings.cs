@@ -33,7 +33,9 @@ public partial class MainWindow
         Topmost = settings.AlwaysOnTop;
         _menuAlwaysOnTop.IsChecked = settings.AlwaysOnTop;
         Opacity = Math.Clamp(settings.WindowOpacity, 50, 100) / 100.0;
-        StartupService.Sync(settings.RunAtStartup);
+
+        if (!StartupService.Sync(settings.RunAtStartup) && settings.RunAtStartup)
+            ErrorDialogService.Show(LocalizationService.T("Error_StartupRegistration"));
     }
 
     private void ApplyIconBrushes(AppSettings settings)

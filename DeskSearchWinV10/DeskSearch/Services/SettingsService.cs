@@ -45,9 +45,10 @@ public sealed class SettingsService
 
             return Current;
         }
-        catch
+        catch (Exception ex)
         {
             Current = new AppSettings();
+            ErrorDialogService.Show(LocalizationService.T("Error_SettingsLoad"), ex);
             return Current;
         }
     }

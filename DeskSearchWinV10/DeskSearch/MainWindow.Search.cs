@@ -12,7 +12,7 @@ public partial class MainWindow
     private DebounceDispatcher? _liveSearchRefreshDebounce;
 
     private DebounceDispatcher LiveSearchRefreshDebounce =>
-        _liveSearchRefreshDebounce ??= new DebounceDispatcher(Dispatcher, delayMs: 300);
+        _liveSearchRefreshDebounce ??= new DebounceDispatcher(Dispatcher, delayMs: 500);
 
     private void PerformSearch()
     {
@@ -56,13 +56,14 @@ public partial class MainWindow
                 : null;
 
             var normalizedQuery = SearchTextHelper.Normalize(query.Trim());
-            var isInvalidRegex = false;
-            System.Text.RegularExpressions.Regex? regex = null;
 
-            if (useRegex)
+            if (!SearchTextHelper.TryResolveSearchQuery(
+                    normalizedQuery,
+                    useRegex,
+                    caseSensitive,
+                    out var searchQuery))
             {
-                if (!SearchTextHelper.TryCreateRegex(normalizedQuery, caseSensitive, out regex))
-                    isInvalidRegex = true;
+                searchQuery = ResolvedSearchQuery.Invalid;
             }
 
             _searchSession = new SearchSession
@@ -70,10 +71,10 @@ public partial class MainWindow
                 Query = query,
                 CaseSensitive = caseSensitive,
                 UseRegexSearch = useRegex,
-                Regex = regex,
-                IsInvalidRegex = isInvalidRegex,
+                SearchQuery = searchQuery,
                 Offset = 0,
-                IsComplete = isInvalidRegex,
+                LastScannedId = 0,
+                IsComplete = searchQuery.IsInvalid,
                 LastScannedCount = 0,
                 TopCandidates = previousTop ?? []
             };
@@ -83,12 +84,28 @@ public partial class MainWindow
 
     private void RunSearchLoop(SearchSession session, int generation)
     {
+        try
+        {
+            RunSearchLoopCore(session, generation);
+        }
+        catch (OutOfMemoryException ex)
+        {
+            ErrorDialogService.Show(LocalizationService.T("Error_OutOfMemory"), ex);
+        }
+        catch (Exception ex)
+        {
+            ErrorDialogService.Show(LocalizationService.T("Error_Search"), ex);
+        }
+    }
+
+    private void RunSearchLoopCore(SearchSession session, int generation)
+    {
         while (true)
         {
             if (generation != Volatile.Read(ref _searchGeneration))
                 return;
 
-            int startOffset;
+            long afterScanId;
             List<(FileEntry Entry, int Score)> candidates;
             lock (_searchSessionLock)
             {
@@ -101,16 +118,14 @@ public partial class MainWindow
                     return;
                 }
 
-                startOffset = session.Offset;
+                afterScanId = session.LastScannedId;
                 candidates = session.TopCandidates;
             }
 
             var batch = _indexService.SearchBatch(
-                session.Query,
+                session.SearchQuery,
                 session.CaseSensitive,
-                session.UseRegexSearch,
-                session.Regex,
-                startOffset,
+                afterScanId,
                 FileSearchService.DefaultBatchSize,
                 candidates);
 
@@ -125,6 +140,7 @@ public partial class MainWindow
                 if (!ReferenceEquals(_searchSession, session))
                     return;
 
+                session.LastScannedId = batch.NextScanId;
                 session.Offset = batch.NextOffset;
                 session.TopCandidates = batch.TopCandidates;
             }
@@ -141,6 +157,7 @@ public partial class MainWindow
                             return;
 
                         session.LastScannedCount = indexCount;
+                        session.LastScannedId = 0;
                         session.Offset = 0;
                         session.IsComplete = false;
                     }
@@ -213,6 +230,7 @@ public partial class MainWindow
                 && _searchSession.Query == SearchBox.Text
                 && _searchSession.IsComplete)
             {
+                _searchSession.LastScannedId = 0;
                 _searchSession.Offset = 0;
                 _searchSession.IsComplete = false;
                 _searchSession.LastScannedCount = 0;

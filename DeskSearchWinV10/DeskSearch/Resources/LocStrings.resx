@@ -115,4 +115,15 @@
   <data name="Settings_NormalPriorityDesc" xml:space="preserve"><value>일반 창과 동일한 순서로 표시됩니다.</value></data>
   <data name="Settings_Save" xml:space="preserve"><value>저장</value></data>
   <data name="Settings_Cancel" xml:space="preserve"><value>취소</value></data>
+  <data name="ErrorDialog_Title" xml:space="preserve"><value>오류</value></data>
+  <data name="ErrorDialog_Details" xml:space="preserve"><value>오류 상세</value></data>
+  <data name="ErrorDialog_Copy" xml:space="preserve"><value>복사</value></data>
+  <data name="ErrorDialog_Close" xml:space="preserve"><value>닫기</value></data>
+  <data name="ErrorDialog_Copied" xml:space="preserve"><value>클립보드에 복사했습니다.</value></data>
+  <data name="Error_Unhandled" xml:space="preserve"><value>처리되지 않은 오류가 발생했습니다.</value></data>
+  <data name="Error_IndexScan" xml:space="preserve"><value>인덱싱 중 오류가 발생했습니다.</value></data>
+  <data name="Error_SettingsLoad" xml:space="preserve"><value>설정 파일을 읽는 중 오류가 발생했습니다. 기본 설정을 사용합니다.</value></data>
+  <data name="Error_StartupRegistration" xml:space="preserve"><value>Windows 시작 시 자동 실행 등록에 실패했습니다.</value></data>
+  <data name="Error_Search" xml:space="preserve"><value>검색 중 오류가 발생했습니다.</value></data>
+  <data name="Error_OutOfMemory" xml:space="preserve"><value>메모리가 부족합니다. 검색 제외 설정으로 인덱싱 범위를 줄이거나 다른 프로그램을 종료한 뒤 다시 시도하세요.</value></data>
 </root>

@@ -29,6 +29,10 @@ public sealed class IndexExclusionPolicy : IEquatable<IndexExclusionPolicy>
     public static IndexExclusionPolicy FromSettings(AppSettings settings) =>
         new(settings.ExcludedDrives ?? [], settings.ExcludedDirectories ?? []);
 
+    public IReadOnlyCollection<string> ExcludedDriveRoots => _excludedDriveRoots;
+
+    public IReadOnlyList<string> ExcludedDirectoryPrefixes => _excludedDirectoryPrefixes;
+
     public bool IsDriveExcluded(string driveRoot)
     {
         var normalized = NormalizeDriveRoot(driveRoot);
