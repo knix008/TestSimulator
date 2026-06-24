@@ -529,25 +529,12 @@ public sealed class RepositoryFileListView : Panel
                 continue;
             }
 
-            var rowBounds = new Rectangle(offsetX, rowTop, ContentWidth, RowHeight);
-            if (ReferenceEquals(row.Node, SelectedNode))
-            {
-                g.FillRectangle(selectionBrush, rowBounds);
-            }
-            else
-            {
-                g.FillRectangle(backgroundBrush, rowBounds);
-            }
+            bool isSelected = ReferenceEquals(row.Node, SelectedNode);
+            Color rowBackColor = isSelected ? SelectionColor : BackColor;
+            g.FillRectangle(isSelected ? selectionBrush : backgroundBrush, 0, rowTop, viewportWidth, RowHeight);
 
-            if (contentRight < viewportWidth)
-            {
-                g.FillRectangle(
-                    backgroundBrush,
-                    new Rectangle(Math.Max(0, contentRight), rowTop, viewportWidth - Math.Max(0, contentRight), RowHeight));
-            }
-
-            DrawNameCell(g, row, offsetX, rowTop, linePen, textBrush);
-            DrawStatusCell(g, row, dividerX, rowTop);
+            DrawNameCell(g, row, offsetX, rowTop, linePen, textBrush, rowBackColor);
+            DrawStatusCell(g, row, dividerX, rowTop, rowBackColor);
         }
 
         int gridTop = Math.Max(0, offsetY);
@@ -574,7 +561,7 @@ public sealed class RepositoryFileListView : Panel
         }
     }
 
-    private void DrawNameCell(Graphics g, RowVisual row, int offsetX, int rowTop, Pen linePen, SolidBrush textBrush)
+    private void DrawNameCell(Graphics g, RowVisual row, int offsetX, int rowTop, Pen linePen, SolidBrush textBrush, Color rowBackColor)
     {
         int x = offsetX;
         int rowBottom = rowTop + RowHeight;
@@ -602,7 +589,7 @@ public sealed class RepositoryFileListView : Panel
         {
             string glyph = row.IsExpanded ? "▾" : "▸";
             var glyphRect = new Rectangle(cursorX, rowTop, IndentUnit, RowHeight);
-            TextRenderer.DrawText(g, glyph, Font, glyphRect, SystemColors.ControlDarkDark, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+            TextRenderer.DrawText(g, glyph, Font, glyphRect, SystemColors.ControlDarkDark, rowBackColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
         }
 
         cursorX += IndentUnit;
@@ -622,10 +609,11 @@ public sealed class RepositoryFileListView : Panel
             Font,
             textRect,
             row.Node.ForeColor.IsEmpty ? textBrush.Color : row.Node.ForeColor,
+            rowBackColor,
             TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
     }
 
-    private void DrawStatusCell(Graphics g, RowVisual row, int cellX, int rowTop)
+    private void DrawStatusCell(Graphics g, RowVisual row, int cellX, int rowTop, Color rowBackColor)
     {
         if (row.Status is not { HasChanges: true } status)
         {
@@ -644,6 +632,7 @@ public sealed class RepositoryFileListView : Panel
             badgeFont,
             cellRect,
             status.ForeColor,
+            rowBackColor,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
         g.TextRenderingHint = previousHint;
     }
