@@ -73,19 +73,15 @@ dotnet run --project MyGitWinV10.App
 
 ### Build the installer (MSI)
 
-The installer publishes the app (`win-x64`, framework-dependent) and packages it with WiX Toolset v6. A **Release build** of the app automatically triggers the installer via the `BuildInstallerOnRelease` MSBuild target unless `-p:SkipInstaller=true` is passed.
+The installer publishes the app (`win-x64`, framework-dependent) to `publish/installer/` and packages it with WiX Toolset v6.
+
+**Recommended — build the whole solution in Release:**
 
 ```powershell
-dotnet build MyGitWinV10.App/MyGitWinV10.App.csproj -c Release
+dotnet build MyGitWinV10.slnx -c Release
 ```
 
-Or publish explicitly:
-
-```powershell
-dotnet publish MyGitWinV10.App/MyGitWinV10.App.csproj -c Release -r win-x64 --self-contained false
-```
-
-Or build the installer project directly:
+Or build only the installer project:
 
 ```powershell
 dotnet build installer/MyGitWinV10.Installer.wixproj -c Release -p:Platform=x64

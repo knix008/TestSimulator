@@ -195,22 +195,6 @@ public sealed class FileSearchService
         if (fileName.Contains(query, comparison))
             return 60;
 
-        if (entry.IsDirectory)
-            return 0;
-
-        var directoryName = entry.SearchDirectoryName;
-        if (directoryName.Length == 0 || ContainsPathSeparator(directoryName))
-            return 0;
-
-        if (directoryName.Equals(query, comparison))
-            return 100;
-
-        if (directoryName.StartsWith(query, comparison))
-            return 80;
-
-        if (directoryName.Contains(query, comparison))
-            return 40;
-
         return 0;
     }
 
@@ -218,31 +202,15 @@ public sealed class FileSearchService
     {
         var fileName = entry.SearchFileName;
         var fileMatch = regex.Match(fileName);
-        if (fileMatch.Success)
-        {
-            if (fileMatch.Index == 0 && fileMatch.Length == fileName.Length)
-                return 100;
-
-            if (fileMatch.Index == 0)
-                return 80;
-
-            return 60;
-        }
-
-        if (entry.IsDirectory)
+        if (!fileMatch.Success)
             return 0;
 
-        var directoryName = entry.SearchDirectoryName;
-        if (directoryName.Length == 0 || ContainsPathSeparator(directoryName))
-            return 0;
+        if (fileMatch.Index == 0 && fileMatch.Length == fileName.Length)
+            return 100;
 
-        if (regex.IsMatch(directoryName))
-            return 40;
+        if (fileMatch.Index == 0)
+            return 80;
 
-        return 0;
+        return 60;
     }
-
-    private static bool ContainsPathSeparator(string value) =>
-        value.Contains('\\', StringComparison.Ordinal)
-        || value.Contains('/', StringComparison.Ordinal);
 }

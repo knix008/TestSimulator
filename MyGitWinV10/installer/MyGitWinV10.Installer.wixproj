@@ -7,6 +7,12 @@
     <SuppressValidation>true</SuppressValidation>
     <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
+    <AppProject>$(MSBuildThisFileDirectory)..\MyGitWinV10.App\MyGitWinV10.App.csproj</AppProject>
+    <PublishOutputDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\publish\installer\'))</PublishOutputDir>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);PublishOutputDir=$(PublishOutputDir)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,7 +22,8 @@
   <!-- Publish the app before packaging. Only runs when Configuration=Release. -->
   <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="cmd /c taskkill /IM MyGitWinV10.App.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <RemoveDir Directories="$(PublishOutputDir)" Condition="Exists('$(PublishOutputDir)')" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
-          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\MyGitWinV10.App\MyGitWinV10.App.csproj&quot; -c Release -r win-x64 --self-contained false -p:SkipInstaller=true" />
+          Command="dotnet publish &quot;$(AppProject)&quot; -c Release -r win-x64 --self-contained false -p:Platform=AnyCPU -o &quot;$(PublishOutputDir)&quot;" />
   </Target>
 </Project>

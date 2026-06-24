@@ -90,7 +90,7 @@
   <!-- Application files from publish output -->
   <Fragment>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <Files Include="..\MyGitWinV10.App\bin\Release\net8.0-windows\win-x64\publish\**">
+      <Files Include="$(var.PublishOutputDir)**">
         <Exclude Files="*.pdb" />
       </Files>
     </ComponentGroup>

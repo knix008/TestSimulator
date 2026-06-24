@@ -697,8 +697,7 @@ public sealed partial class IndexStore : IDisposable
                 return null;
 
             var token = EscapeFtsPhrase(normalized);
-            groups.Add(
-                $"(search_file_name : {token} OR search_file_name : {token}* OR search_directory : {token} OR search_directory : {token}*)");
+            groups.Add($"(search_file_name : {token} OR search_file_name : {token}*)");
         }
 
         return string.Join(" AND ", groups);
@@ -710,7 +709,7 @@ public sealed partial class IndexStore : IDisposable
             return null;
 
         var token = EscapeFtsPhrase(normalizedQuery);
-        return $"(search_file_name : {token}* OR search_file_name : {token} OR search_directory : {token}* OR search_directory : {token})";
+        return $"(search_file_name : {token}* OR search_file_name : {token})";
     }
 
     private static string EscapeFtsPhrase(string value) =>
