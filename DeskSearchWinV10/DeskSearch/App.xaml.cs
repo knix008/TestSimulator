@@ -9,6 +9,8 @@ public partial class App : System.Windows.Application
     private SingleInstanceService? _singleInstance;
     private bool _exceptionHandlersRegistered;
 
+    public SettingsService Settings { get; } = new();
+
     protected override void OnStartup(StartupEventArgs e)
     {
         AppContext.SetSwitch("Switch.System.IO.UseLegacyPathHandling", false);
@@ -25,12 +27,11 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        var settings = new SettingsService();
-        LocalizationService.Apply(settings.Current.Language);
+        LocalizationService.Apply(Settings.Current.Language);
         RegisterExceptionHandlers();
         base.OnStartup(e);
 
-        var mainWindow = new MainWindow();
+        var mainWindow = new MainWindow(Settings);
         MainWindow = mainWindow;
         mainWindow.Show();
     }

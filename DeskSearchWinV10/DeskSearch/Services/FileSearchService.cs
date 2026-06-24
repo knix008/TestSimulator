@@ -6,7 +6,6 @@ namespace DeskSearch.Services;
 
 public sealed class FileSearchService
 {
-    private const int MaxResults = 12;
     public const int DefaultBatchSize = IndexStoragePolicy.RegexSearchPageSize;
 
     public IReadOnlyList<FileEntry> Search(
@@ -53,7 +52,7 @@ public sealed class FileSearchService
 
             var score = ScoreEntry(entry, searchQuery.Terms, comparison);
             if (score > 0)
-                TryAddToTop(top, entry, score, comparison);
+                TryAddMatch(top, entry, score);
 
             processed++;
             if (processed >= batchSize)
@@ -71,41 +70,27 @@ public sealed class FileSearchService
         };
     }
 
-    private static void TryAddToTop(
-        List<(FileEntry Entry, int Score)> top,
+    private static void TryAddMatch(
+        List<(FileEntry Entry, int Score)> matches,
         FileEntry entry,
-        int score,
-        StringComparison comparison)
+        int score)
     {
-        var existingIndex = top.FindIndex(x =>
+        var existingIndex = matches.FindIndex(x =>
             x.Entry.FullPath.Equals(entry.FullPath, StringComparison.OrdinalIgnoreCase));
 
         if (existingIndex >= 0)
         {
-            if (score <= top[existingIndex].Score)
+            if (score <= matches[existingIndex].Score)
                 return;
 
-            top[existingIndex] = (entry, score);
-        }
-        else if (top.Count < MaxResults)
-        {
-            top.Add((entry, score));
+            matches[existingIndex] = (entry, score);
             return;
         }
-        else
-        {
-            var minIndex = 0;
-            for (var i = 1; i < top.Count; i++)
-            {
-                if (top[i].Score < top[minIndex].Score)
-                    minIndex = i;
-            }
 
-            if (score <= top[minIndex].Score)
-                return;
+        if (matches.Count >= IndexStoragePolicy.MaxSearchResults)
+            return;
 
-            top[minIndex] = (entry, score);
-        }
+        matches.Add((entry, score));
     }
 
     private static IReadOnlyList<FileEntry> ToSortedResults(

@@ -54,9 +54,11 @@ public partial class MainWindow : Window
 
 
 
-    public MainWindow()
+    public MainWindow(SettingsService settingsService)
 
     {
+
+        _settingsService = settingsService;
 
         InitializeComponent();
 
@@ -76,7 +78,8 @@ public partial class MainWindow : Window
 
         _indexService.IndexProgress += OnIndexProgress;
 
-        _indexService.IndexUpdated += (_, _) => SafeBeginInvoke(ScheduleLiveSearchRefresh);
+        _indexService.IndexUpdated += (_, _) =>
+            SafeBeginInvoke(ScheduleLiveSearchRefresh, System.Windows.Threading.DispatcherPriority.Background);
 
         InitializeTrayIcon();
 
@@ -105,6 +108,7 @@ public partial class MainWindow : Window
         if (System.Windows.Application.Current is App app)
             app.RegisterShowWindowCallback(ShowFromTray);
 
+        RegisterSessionEndingHandler();
         RestoreWindowLayout();
 
         _watcherService.Start();
@@ -124,20 +128,27 @@ public partial class MainWindow : Window
         });
     }
 
+    private DebounceDispatcher? _indexUiDebounce;
+
+    private DebounceDispatcher IndexUiDebounce =>
+        _indexUiDebounce ??= new DebounceDispatcher(Dispatcher, IndexResourcePolicy.IndexUiUpdateDebounceMs);
+
     private void OnIndexProgress(object? sender, IndexProgressEventArgs e)
     {
-        SafeBeginInvoke(() =>
+        IndexUiDebounce.Debounce(() =>
         {
+            if (!IsLoaded)
+                return;
+
             UpdateIndexUi();
-            ScheduleLiveSearchRefresh();
         });
     }
 
-    private void SafeBeginInvoke(Action action)
+    private void SafeBeginInvoke(Action action, System.Windows.Threading.DispatcherPriority priority = System.Windows.Threading.DispatcherPriority.Normal)
     {
         try
         {
-            Dispatcher.BeginInvoke(() =>
+            Dispatcher.BeginInvoke(priority, () =>
             {
                 try
                 {
@@ -257,8 +268,6 @@ public partial class MainWindow : Window
 
         SearchBox.ContextMenu = _mainContextMenu;
 
-        ResultsList.ContextMenu = _mainContextMenu;
-
     }
 
 
@@ -274,37 +283,6 @@ public partial class MainWindow : Window
         _menuAlwaysOnTop.IsChecked = Topmost;
 
         UpdateIndexUi();
-
-    }
-
-
-
-    private void ResultItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ClickCount != 1)
-            return;
-
-        if (sender is ListBoxItem { IsSelected: true, DataContext: FileEntry entry })
-            OpenEntry(entry);
-    }
-
-    private void ResultItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
-
-    {
-
-        if (sender is not ListBoxItem item)
-
-            return;
-
-
-
-        item.IsSelected = true;
-
-        item.Focus();
-
-        _contextFileEntry = item.DataContext as FileEntry;
-
-        item.ContextMenu = _resultItemContextMenu;
 
     }
 
@@ -333,7 +311,7 @@ public partial class MainWindow : Window
 
         SearchBox.Clear();
 
-        ResultsList.Visibility = Visibility.Collapsed;
+        HideSearchResults();
 
         SearchBox.Focus();
 
@@ -511,7 +489,6 @@ public partial class MainWindow : Window
                 case Border { Name: "DragHandle" }:
                 case Border { Name: "LeftResizeGrip" }:
                 case Border { Name: "RightResizeGrip" }:
-                case Border { Name: "BottomResizeGrip" }:
                     return false;
 
             }
@@ -581,17 +558,15 @@ public partial class MainWindow : Window
 
                 SearchBox.Clear();
 
-                ResultsList.Visibility = Visibility.Collapsed;
+                HideSearchResults();
 
                 break;
 
 
 
-            case Key.Down when ResultsList.Items.Count > 0:
+            case Key.Down when _resultsWindow is { IsVisible: true } && _resultsWindow.ResultCount > 0:
 
-                ResultsList.Focus();
-
-                ResultsList.SelectedIndex = 0;
+                _resultsWindow.FocusResults();
 
                 e.Handled = true;
 
@@ -599,60 +574,13 @@ public partial class MainWindow : Window
 
 
 
-            case Key.Enter when ResultsList.SelectedItem is FileEntry entry:
+            case Key.Enter when _resultsWindow?.GetSelectedEntry() is FileEntry entry:
                 OpenEntry(entry);
                 e.Handled = true;
                 break;
 
         }
 
-    }
-
-
-
-    private void ResultsList_KeyDown(object sender, KeyEventArgs e)
-
-    {
-
-        switch (e.Key)
-
-        {
-
-            case Key.Enter when ResultsList.SelectedItem is FileEntry entry:
-                OpenEntry(entry);
-                e.Handled = true;
-                break;
-
-
-
-            case Key.Escape:
-
-                SearchBox.Focus();
-
-                e.Handled = true;
-
-                break;
-
-
-
-            case Key.Up when ResultsList.SelectedIndex == 0:
-
-                SearchBox.Focus();
-
-                e.Handled = true;
-
-                break;
-
-        }
-
-    }
-
-
-
-    private void ResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        if (ResultsList.SelectedItem is FileEntry entry)
-            OpenEntryDefault(entry);
     }
 
 

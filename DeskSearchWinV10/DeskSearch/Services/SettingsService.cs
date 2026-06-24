@@ -34,14 +34,7 @@ public sealed class SettingsService
 
             var json = File.ReadAllText(_settingsPath);
             Current = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
-            Current.ExcludedDrives ??= [];
-            Current.ExcludedDirectories ??= [];
-
-            using (var document = JsonDocument.Parse(json))
-            {
-                if (!document.RootElement.TryGetProperty(nameof(AppSettings.RunAtStartup), out _))
-                    Current.RunAtStartup = true;
-            }
+            NormalizeSettings(Current, json);
 
             return Current;
         }
@@ -56,7 +49,30 @@ public sealed class SettingsService
     public void Save(AppSettings settings)
     {
         Current = settings.Clone();
+        NormalizeSettings(Current);
+
         var json = JsonSerializer.Serialize(Current, JsonOptions);
-        File.WriteAllText(_settingsPath, json);
+        var tempPath = _settingsPath + ".tmp";
+        File.WriteAllText(tempPath, json);
+        File.Move(tempPath, _settingsPath, overwrite: true);
+    }
+
+    private static void NormalizeSettings(AppSettings settings, string? rawJson = null)
+    {
+        settings.ExcludedDrives ??= [];
+        settings.ExcludedDirectories ??= [];
+
+        if (string.IsNullOrWhiteSpace(settings.Language))
+            settings.Language = LocalizationService.Korean;
+
+        settings.WindowOpacity = Math.Clamp(settings.WindowOpacity, 50, 100);
+        settings.BackgroundOpacity = Math.Clamp(settings.BackgroundOpacity, 0, 100);
+
+        if (rawJson is null)
+            return;
+
+        using var document = JsonDocument.Parse(rawJson);
+        if (!document.RootElement.TryGetProperty(nameof(AppSettings.RunAtStartup), out _))
+            settings.RunAtStartup = true;
     }
 }

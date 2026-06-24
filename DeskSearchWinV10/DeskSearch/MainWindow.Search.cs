@@ -9,10 +9,11 @@ public partial class MainWindow
     private readonly object _searchSessionLock = new();
     private SearchSession? _searchSession;
     private int _searchGeneration;
+    private long _lastResultsUiTick;
     private DebounceDispatcher? _liveSearchRefreshDebounce;
 
     private DebounceDispatcher LiveSearchRefreshDebounce =>
-        _liveSearchRefreshDebounce ??= new DebounceDispatcher(Dispatcher, delayMs: 500);
+        _liveSearchRefreshDebounce ??= new DebounceDispatcher(Dispatcher, IndexResourcePolicy.LiveSearchRefreshDebounceMs);
 
     private void PerformSearch()
     {
@@ -100,6 +101,9 @@ public partial class MainWindow
 
     private void RunSearchLoopCore(SearchSession session, int generation)
     {
+        IReadOnlyList<FileEntry> latestResults = [];
+        var latestQuery = session.Query;
+
         while (true)
         {
             if (generation != Volatile.Read(ref _searchGeneration))
@@ -145,7 +149,20 @@ public partial class MainWindow
                 session.TopCandidates = batch.TopCandidates;
             }
 
-            Dispatcher.BeginInvoke(() => ApplySearchResults(batch.Results, generation, session.Query));
+            latestResults = batch.Results;
+            latestQuery = session.Query;
+
+            var now = Environment.TickCount64;
+            if (batch.IsComplete
+                || now - _lastResultsUiTick >= IndexResourcePolicy.SearchResultsUiMinIntervalMs)
+            {
+                _lastResultsUiTick = now;
+                var results = latestResults;
+                var query = latestQuery;
+                Dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Background,
+                    () => ApplySearchResults(results, generation, query));
+            }
 
             if (batch.IsComplete)
             {
@@ -197,6 +214,10 @@ public partial class MainWindow
 
             Thread.Sleep(1);
         }
+
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Background,
+            () => ApplySearchResults(latestResults, generation, latestQuery));
     }
 
     private void ApplySearchResults(IReadOnlyList<FileEntry> results, int generation, string query)
@@ -204,13 +225,7 @@ public partial class MainWindow
         if (generation != _searchGeneration || query != SearchBox.Text)
             return;
 
-        ResultsList.ItemsSource = results;
-        ResultsList.Visibility = results.Count > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-
-        if (results.Count > 0)
-            ResultsList.SelectedIndex = 0;
-
-        AdjustWindowHeightForContent();
+        ShowSearchResults(results);
     }
 
     private void RefreshSearchIfNeeded()
@@ -218,26 +233,30 @@ public partial class MainWindow
         if (string.IsNullOrWhiteSpace(SearchBox.Text))
             return;
 
-        if (_indexService.IsScanComplete)
-        {
-            PerformSearch();
-            return;
-        }
+        SearchSession? sessionToContinue;
+        int generation;
 
         lock (_searchSessionLock)
         {
-            if (_searchSession is not null
-                && _searchSession.Query == SearchBox.Text
-                && _searchSession.IsComplete)
+            if (_searchSession is null
+                || _searchSession.Query != SearchBox.Text)
             {
-                _searchSession.LastScannedId = 0;
-                _searchSession.Offset = 0;
-                _searchSession.IsComplete = false;
-                _searchSession.LastScannedCount = 0;
+                PerformSearch();
+                return;
             }
+
+            if (!_searchSession.IsComplete)
+                return;
+
+            _searchSession.IsComplete = false;
+            _searchSession.LastScannedId = 0;
+            _searchSession.Offset = 0;
+            _searchSession.LastScannedCount = _indexService.Count;
+            sessionToContinue = _searchSession;
+            generation = _searchGeneration;
         }
 
-        PerformSearch();
+        Task.Run(() => RunSearchLoop(sessionToContinue, generation));
     }
 
     private void ScheduleLiveSearchRefresh()

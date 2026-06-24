@@ -8,21 +8,18 @@ namespace DeskSearch;
 
 public partial class MainWindow
 {
-    private const double CompactWindowHeight = 48;
-    private const double ResultsAreaTopChrome = 54;
-    private const double DefaultResultsAreaHeight = 168;
-    private const double ApproxResultItemHeight = 40;
-
-    private readonly SettingsService _settingsService = new();
+    private readonly SettingsService _settingsService;
     private DebounceDispatcher? _positionSaveDebounce;
     private bool _isApplyingWindowLayout;
-    private bool _userResizedHeight;
+    private bool _sessionEndingHandlerRegistered;
 
     private DebounceDispatcher LayoutSaveDebounce =>
         _positionSaveDebounce ??= new DebounceDispatcher(Dispatcher, delayMs: 400);
 
     private void ApplySettings(AppSettings settings)
     {
+        LocalizationService.Apply(settings.Language);
+
         var bgColor = ColorHelper.ParseColor(settings.BackgroundColor);
         var bgWithAlpha = ColorHelper.WithOpacity(bgColor, settings.BackgroundOpacity);
         var display = ColorHelper.ResolveDisplayColors(settings);
@@ -39,6 +36,8 @@ public partial class MainWindow
         Topmost = settings.AlwaysOnTop;
         _menuAlwaysOnTop.IsChecked = settings.AlwaysOnTop;
         Opacity = Math.Clamp(settings.WindowOpacity, 50, 100) / 100.0;
+
+        ApplyThemeToResultsWindow();
 
         if (!StartupService.Sync(settings.RunAtStartup) && settings.RunAtStartup)
             ErrorDialogService.Show(LocalizationService.T("Error_StartupRegistration"));
@@ -62,14 +61,8 @@ public partial class MainWindow
         {
             var settings = _settingsService.Current;
             ApplySavedWindowWidth(settings.WindowWidth);
-            ApplySavedWindowHeight(settings.WindowHeight);
 
-            if (settings.WindowHeight is null)
-            {
-                SizeToContent = SizeToContent.Manual;
-                Height = ClampWindowHeight(CompactWindowHeight);
-                _userResizedHeight = false;
-            }
+            Height = 48;
 
             if (settings.WindowLeft is double left
                 && settings.WindowTop is double top
@@ -83,7 +76,7 @@ public partial class MainWindow
                 PlaceDefaultPosition();
             }
 
-            UpdateResultsListMaxHeight();
+            SyncResultsWindowLayout(show: false);
         }
         finally
         {
@@ -97,61 +90,6 @@ public partial class MainWindow
             return;
 
         Width = ClampWindowWidth(savedWidth);
-    }
-
-    private void ApplySavedWindowHeight(double? height)
-    {
-        if (height is not double savedHeight)
-            return;
-
-        SizeToContent = SizeToContent.Manual;
-        Height = ClampWindowHeight(savedHeight);
-        _userResizedHeight = true;
-    }
-
-    private void AdjustWindowHeightForContent()
-    {
-        if (_isApplyingWindowLayout)
-            return;
-
-        _isApplyingWindowLayout = true;
-        try
-        {
-            var resultsVisible = ResultsList.Visibility == Visibility.Visible;
-            if (_userResizedHeight)
-            {
-                UpdateResultsListMaxHeight();
-                return;
-            }
-
-            SizeToContent = SizeToContent.Manual;
-
-            if (!resultsVisible)
-            {
-                Height = ClampWindowHeight(CompactWindowHeight);
-                _userResizedHeight = false;
-                return;
-            }
-
-            var itemCount = ResultsList.Items.Count;
-            var resultsArea = Math.Min(
-                DefaultResultsAreaHeight,
-                Math.Max(80, itemCount * ApproxResultItemHeight));
-            Height = ClampWindowHeight(ResultsAreaTopChrome + resultsArea);
-            UpdateResultsListMaxHeight();
-        }
-        finally
-        {
-            _isApplyingWindowLayout = false;
-        }
-    }
-
-    private void UpdateResultsListMaxHeight()
-    {
-        if (ResultsList.Visibility != Visibility.Visible)
-            return;
-
-        ResultsList.MaxHeight = Math.Max(80, Height - ResultsAreaTopChrome);
     }
 
     private void PlaceDefaultPosition()
@@ -172,6 +110,7 @@ public partial class MainWindow
         try
         {
             PlaceDefaultPosition();
+            SyncResultsWindowLayout(show: _resultsWindow?.IsVisible == true);
         }
         finally
         {
@@ -184,18 +123,20 @@ public partial class MainWindow
         if (_isApplyingWindowLayout || !IsLoaded)
             return;
 
-        LayoutSaveDebounce.Debounce(SaveWindowLayout);
+        SyncResultsWindowLayout(show: _resultsWindow?.IsVisible == true);
+        LayoutSaveDebounce.Debounce(PersistSettings);
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if ((!e.WidthChanged && !e.HeightChanged) || _isApplyingWindowLayout || !IsLoaded)
+        if (!e.WidthChanged || _isApplyingWindowLayout || !IsLoaded)
             return;
 
-        LayoutSaveDebounce.Debounce(SaveWindowLayout);
+        SyncResultsWindowLayout(show: _resultsWindow?.IsVisible == true);
+        LayoutSaveDebounce.Debounce(PersistSettings);
     }
 
-    private void SaveWindowLayout()
+    internal void PersistSettings()
     {
         if (_isApplyingWindowLayout)
             return;
@@ -205,12 +146,68 @@ public partial class MainWindow
         _settingsService.Save(settings);
     }
 
+    private void ReloadAndApplySettings()
+    {
+        _settingsService.Load();
+        ApplySettings(_settingsService.Current);
+        RestoreWindowLayout();
+        ApplySavedResultsWindowLayout();
+        _indexService.ConfigureExclusions(_settingsService.Current);
+        RefreshLocalization();
+    }
+
+    private void ApplySavedResultsWindowLayout()
+    {
+        if (_resultsWindow is null)
+            return;
+
+        if (_settingsService.Current.WindowHeight is double savedHeight
+            && savedHeight >= ResultsMinHeight)
+        {
+            _resultsWindow.Height = ClampResultsWindowHeight(savedHeight);
+            _userResizedResultsHeight = true;
+        }
+
+        _resultsWindow.ApplyChrome(_settingsService.Current);
+        SyncResultsWindowLayout(show: _resultsWindow.IsVisible);
+    }
+
+    private void RegisterSessionEndingHandler()
+    {
+        if (_sessionEndingHandlerRegistered)
+            return;
+
+        _sessionEndingHandlerRegistered = true;
+        Microsoft.Win32.SystemEvents.SessionEnding += OnSessionEnding;
+    }
+
+    private void UnregisterSessionEndingHandler()
+    {
+        if (!_sessionEndingHandlerRegistered)
+            return;
+
+        _sessionEndingHandlerRegistered = false;
+        Microsoft.Win32.SystemEvents.SessionEnding -= OnSessionEnding;
+    }
+
+    private void OnSessionEnding(object sender, Microsoft.Win32.SessionEndingEventArgs e) =>
+        PersistSettings();
+
     private void ApplyCurrentWindowLayout(AppSettings settings)
     {
         settings.WindowLeft = Left;
         settings.WindowTop = Top;
         settings.WindowWidth = Width;
-        settings.WindowHeight = ActualHeight > 0 ? ActualHeight : Height;
+
+        if (_resultsWindow is null)
+            return;
+
+        var height = _resultsWindow.ActualHeight > 0
+            ? _resultsWindow.ActualHeight
+            : _resultsWindow.Height;
+
+        if (height >= ResultsMinHeight)
+            settings.WindowHeight = height;
     }
 
     private bool IsLayoutOnScreen(double left, double top, double width, double height)
@@ -229,9 +226,6 @@ public partial class MainWindow
         return visible.Width >= 80 && visible.Height >= 30;
     }
 
-    private double ClampWindowHeight(double height) =>
-        Math.Clamp(height, MinHeight, MaxHeight);
-
     private void MenuSettings_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SettingsWindow(
@@ -249,7 +243,6 @@ public partial class MainWindow
 
         ApplyCurrentWindowLayout(dialog.Settings);
         _settingsService.Save(dialog.Settings);
-        LocalizationService.Apply(_settingsService.Current.Language);
         ApplySettings(_settingsService.Current);
 
         var exclusionsChanged = !previousExclusions.Equals(
@@ -272,5 +265,6 @@ public partial class MainWindow
         settings.AlwaysOnTop = Topmost;
         ApplyCurrentWindowLayout(settings);
         _settingsService.Save(settings);
+        ApplyThemeToResultsWindow();
     }
 }

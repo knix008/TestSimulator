@@ -16,8 +16,7 @@ public partial class MainWindow
 
     public void ShowFromTray()
     {
-        _settingsService.Load();
-        RestoreWindowLayout();
+        ReloadAndApplySettings();
         WindowTaskbarHelper.ExcludeFromTaskbar(this);
 
         if (Visibility != Visibility.Visible)
@@ -26,11 +25,13 @@ public partial class MainWindow
         WindowState = WindowState.Normal;
         Activate();
         SearchBox.Focus();
+        ShowResultsIfNeeded();
     }
 
     public void HideToTray()
     {
-        SaveWindowLayout();
+        PersistSettings();
+        HideResultsWithMain();
         Hide();
     }
 
@@ -72,7 +73,8 @@ public partial class MainWindow
 
     private void DisposeApplicationResources()
     {
-        SaveWindowLayout();
+        UnregisterSessionEndingHandler();
+        PersistSettings();
         _trayIconService?.Dispose();
         _watcherService.Dispose();
         _indexService.Dispose();

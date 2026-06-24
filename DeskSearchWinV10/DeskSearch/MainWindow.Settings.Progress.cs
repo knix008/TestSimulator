@@ -54,9 +54,7 @@ public partial class MainWindow
         lock (_searchSessionLock)
             _searchSession = null;
 
-        ResultsList.ItemsSource = null;
-        ResultsList.Visibility = System.Windows.Visibility.Collapsed;
-        AdjustWindowHeightForContent();
+        HideSearchResults();
 
         _indexService.RestartScan();
     }

@@ -6,9 +6,9 @@
         Height="48"
         MinWidth="280"
         MaxWidth="720"
+        MinHeight="48"
+        MaxHeight="48"
         SizeToContent="Manual"
-        MinHeight="44"
-        MaxHeight="420"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -64,7 +64,6 @@
                 CornerRadius="10"
                 Padding="10,8"
                 PreviewMouseLeftButtonDown="RootBorder_PreviewMouseLeftButtonDown">
-            <StackPanel>
             <Grid MinHeight="30" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -140,79 +139,6 @@
                     </Grid>
                 </Button>
             </Grid>
-
-            <ListBox x:Name="ResultsList"
-                     Margin="0,8,0,0"
-                     MaxHeight="168"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     Visibility="Collapsed"
-                     MouseDoubleClick="ResultsList_MouseDoubleClick"
-                     KeyDown="ResultsList_KeyDown">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Margin="4,2">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE8B7;"
-                                       FontSize="14"
-                                       Foreground="{DynamicResource IconAccentBrush}"
-                                       Margin="0,0,6,0"
-                                       VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource AppIconGlyphStyle}">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsDirectory}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBlock Text="{Binding FileName}"
-                                       FontSize="13"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
-                            <TextBlock Text="{Binding Directory}"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource SubTextBrush}"
-                                       TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="Padding" Value="4,6"/>
-                        <EventSetter Event="PreviewMouseRightButtonDown" Handler="ResultItem_PreviewMouseRightButtonDown"/>
-                        <EventSetter Event="PreviewMouseLeftButtonDown" Handler="ResultItem_PreviewMouseLeftButtonDown"/>
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListBoxItem">
-                                    <Border x:Name="ItemBorder"
-                                            Background="Transparent"
-                                            CornerRadius="6"
-                                            Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ListItemHoverBrush}"/>
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ListItemSelectedBrush}"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListBox.ItemContainerStyle>
-            </ListBox>
-        </StackPanel>
         </Border>
 
         <Border x:Name="LeftResizeGrip"
@@ -227,11 +153,5 @@
                 Background="Transparent"
                 Cursor="SizeWE"
                 MouseLeftButtonDown="RightResizeGrip_MouseLeftButtonDown"/>
-        <Border x:Name="BottomResizeGrip"
-                Height="8"
-                VerticalAlignment="Bottom"
-                Background="Transparent"
-                Cursor="SizeNS"
-                MouseLeftButtonDown="BottomResizeGrip_MouseLeftButtonDown"/>
     </Grid>
 </Window>

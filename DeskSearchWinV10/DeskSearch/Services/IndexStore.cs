@@ -13,6 +13,8 @@ public sealed class IndexStore : IDisposable
     private readonly object _lock = new();
     private long _cachedCount = -1;
     private int _bulkIngestDepth;
+    private SqliteCommand? _bulkUpsertCommand;
+    private int _bulkUpsertCommandSize = -1;
     private bool _ftsCurrent = true;
 
     public IndexStore(string databasePath)
@@ -55,6 +57,9 @@ public sealed class IndexStore : IDisposable
             _ftsCurrent = false;
             DropFtsTriggers();
             ExecuteNonQuery("PRAGMA synchronous=OFF");
+            ExecuteNonQuery("PRAGMA locking_mode=EXCLUSIVE");
+            ExecuteNonQuery("PRAGMA temp_store=MEMORY");
+            ExecuteNonQuery("PRAGMA cache_size=-131072");
         }
     }
 
@@ -70,9 +75,14 @@ public sealed class IndexStore : IDisposable
                 return;
 
             ExecuteNonQuery("PRAGMA synchronous=NORMAL");
+            ExecuteNonQuery("PRAGMA locking_mode=NORMAL");
+            ExecuteNonQuery("PRAGMA temp_store=FILE");
+            ExecuteNonQuery($"PRAGMA cache_size={IndexStoragePolicy.SqliteCachePages}");
+            DisposeBulkUpsertCommand();
             RefreshFtsTriggers();
             RebuildFts();
             _ftsCurrent = true;
+            _cachedCount = GetCountLocked();
         }
     }
 
@@ -135,7 +145,17 @@ public sealed class IndexStore : IDisposable
             }
 
             transaction.Commit();
-            _cachedCount = -1;
+            if (_bulkIngestDepth > 0)
+            {
+                if (_cachedCount < 0)
+                    _cachedCount = 0;
+
+                _cachedCount += batch.Count;
+            }
+            else
+            {
+                _cachedCount = -1;
+            }
         }
     }
 
@@ -319,6 +339,7 @@ public sealed class IndexStore : IDisposable
     {
         lock (_lock)
         {
+            DisposeBulkUpsertCommand();
             _connection.Dispose();
         }
     }
@@ -360,8 +381,8 @@ public sealed class IndexStore : IDisposable
         int count,
         SqliteTransaction transaction)
     {
-        var sql = BuildUpsertChunkSql(count);
-        using var command = CreateCommand(sql, transaction);
+        var command = GetOrCreateBulkUpsertCommand(count, transaction);
+        command.Parameters.Clear();
 
         for (var j = 0; j < count; j++)
         {
@@ -376,6 +397,27 @@ public sealed class IndexStore : IDisposable
         }
 
         command.ExecuteNonQuery();
+    }
+
+    private SqliteCommand GetOrCreateBulkUpsertCommand(int count, SqliteTransaction transaction)
+    {
+        if (_bulkUpsertCommand is not null && _bulkUpsertCommandSize == count)
+        {
+            _bulkUpsertCommand.Transaction = transaction;
+            return _bulkUpsertCommand;
+        }
+
+        DisposeBulkUpsertCommand();
+        _bulkUpsertCommand = CreateCommand(BuildUpsertChunkSql(count), transaction);
+        _bulkUpsertCommandSize = count;
+        return _bulkUpsertCommand;
+    }
+
+    private void DisposeBulkUpsertCommand()
+    {
+        _bulkUpsertCommand?.Dispose();
+        _bulkUpsertCommand = null;
+        _bulkUpsertCommandSize = -1;
     }
 
     private static string BuildUpsertChunkSql(int count)
