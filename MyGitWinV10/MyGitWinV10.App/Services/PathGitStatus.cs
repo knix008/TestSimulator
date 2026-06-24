@@ -15,7 +15,7 @@ public sealed class PathGitStatus
         string.Equals(WorkTree, IgnoredWorkTree, StringComparison.Ordinal) && string.IsNullOrEmpty(Staged);
 
     public const string IgnoredWorkTree = "Ignored";
-    public const string ChangedBadge = "+/-";
+    public const string ChangedBadge = "\u00B1";
 
     public static PathGitStatus Ignored { get; } = new() { WorkTree = IgnoredWorkTree };
 

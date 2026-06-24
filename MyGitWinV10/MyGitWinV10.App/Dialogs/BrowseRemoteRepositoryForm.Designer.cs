@@ -51,29 +51,28 @@ namespace MyGitWinV10.App.Dialogs
             infoLabel.Size = new Size(460, 34);
             infoLabel.Text = "Downloads commit history to a temporary cache so you can browse logs and diffs without choosing a local folder.";
             //
-            // progressBar
-            //
-            progressBar.Location = new Point(20, 112);
-            progressBar.Maximum = 100;
-            progressBar.Name = "progressBar";
-            progressBar.Size = new Size(410, 18);
-            progressBar.TabIndex = 1;
-            //
             // progressPercentLabel
             //
-            progressPercentLabel.AutoSize = true;
-            progressPercentLabel.Location = new Point(438, 112);
+            progressPercentLabel.Location = new Point(20, 108);
             progressPercentLabel.Name = "progressPercentLabel";
-            progressPercentLabel.Size = new Size(25, 15);
+            progressPercentLabel.Size = new Size(460, 16);
             progressPercentLabel.TabIndex = 4;
             progressPercentLabel.Text = "0%";
-            progressPercentLabel.TextAlign = ContentAlignment.MiddleRight;
+            progressPercentLabel.TextAlign = ContentAlignment.MiddleCenter;
+            //
+            // progressBar
+            //
+            progressBar.Location = new Point(20, 126);
+            progressBar.Maximum = 100;
+            progressBar.Name = "progressBar";
+            progressBar.Size = new Size(460, 18);
+            progressBar.TabIndex = 1;
             //
             // statusLabel
             //
             statusLabel.AutoSize = true;
             statusLabel.ForeColor = Color.Gray;
-            statusLabel.Location = new Point(20, 137);
+            statusLabel.Location = new Point(20, 151);
             statusLabel.Name = "statusLabel";
             statusLabel.Size = new Size(38, 15);
             statusLabel.Text = "Ready";

@@ -70,29 +70,28 @@ namespace MyGitWinV10.App.Dialogs
             browseButton.Text = "Browse...";
             browseButton.Click += BrowseButton_Click;
             //
-            // progressBar
-            //
-            progressBar.Location = new Point(20, 135);
-            progressBar.Maximum = 100;
-            progressBar.Name = "progressBar";
-            progressBar.Size = new Size(410, 18);
-            progressBar.TabIndex = 3;
-            //
             // progressPercentLabel
             //
-            progressPercentLabel.AutoSize = true;
-            progressPercentLabel.Location = new Point(438, 135);
+            progressPercentLabel.Location = new Point(20, 118);
             progressPercentLabel.Name = "progressPercentLabel";
-            progressPercentLabel.Size = new Size(25, 15);
+            progressPercentLabel.Size = new Size(460, 16);
             progressPercentLabel.TabIndex = 6;
             progressPercentLabel.Text = "0%";
-            progressPercentLabel.TextAlign = ContentAlignment.MiddleRight;
+            progressPercentLabel.TextAlign = ContentAlignment.MiddleCenter;
+            //
+            // progressBar
+            //
+            progressBar.Location = new Point(20, 136);
+            progressBar.Maximum = 100;
+            progressBar.Name = "progressBar";
+            progressBar.Size = new Size(460, 18);
+            progressBar.TabIndex = 3;
             //
             // statusLabel
             //
             statusLabel.AutoSize = true;
             statusLabel.ForeColor = Color.Gray;
-            statusLabel.Location = new Point(20, 160);
+            statusLabel.Location = new Point(20, 161);
             statusLabel.Name = "statusLabel";
             statusLabel.Size = new Size(38, 15);
             statusLabel.Text = "Ready";

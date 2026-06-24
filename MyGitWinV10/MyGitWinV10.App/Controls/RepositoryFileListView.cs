@@ -21,6 +21,7 @@ public sealed class RepositoryFileListView : Panel
     private const float SymbolBadgeFontSizeBoost = 6.5f;
     private const float SymbolBadgeMinimumFontSize = 16f;
     private const int MinNameColumnWidth = 80;
+    private const int StatusColumnWidth = 80;
     private const int ColumnResizeHitWidth = 6;
 
     private static readonly Color ConnectorLineColor = Color.FromArgb(200, 202, 210);
@@ -173,7 +174,7 @@ public sealed class RepositoryFileListView : Panel
         }
 
         int contentHeight = Math.Max(0, _rows.Count * RowHeight);
-        int contentWidth = Math.Max(ViewportWidth, NameColumnWidth + 80);
+        int contentWidth = Math.Max(ViewportWidth, NameColumnWidth + StatusColumnWidth);
         _bodyPanel.AutoScrollMinSize = new Size(contentWidth, contentHeight);
 
         int maxScroll = Math.Max(0, contentHeight - ViewportHeight);
@@ -528,7 +529,7 @@ public sealed class RepositoryFileListView : Panel
             }
 
             DrawNameCell(g, row, offsetX, rowTop, linePen, textBrush);
-            DrawStatusCell(g, row, offsetX + NameColumnWidth, rowTop, viewportWidth);
+            DrawStatusCell(g, row, offsetX + NameColumnWidth, rowTop);
         }
 
         using var rowSeparatorPen = new Pen(RowSeparatorColor);
@@ -599,14 +600,14 @@ public sealed class RepositoryFileListView : Panel
             TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
     }
 
-    private void DrawStatusCell(Graphics g, RowVisual row, int cellX, int rowTop, int viewportWidth)
+    private void DrawStatusCell(Graphics g, RowVisual row, int cellX, int rowTop)
     {
         if (row.Status is not { HasChanges: true } status)
         {
             return;
         }
 
-        var cellRect = new Rectangle(cellX, rowTop, Math.Max(0, viewportWidth - cellX), RowHeight);
+        var cellRect = new Rectangle(cellX, rowTop, StatusColumnWidth, RowHeight);
         float badgeFontSize = GetStatusBadgeFontSize(status.Badge);
         using var badgeFont = new Font(Font.FontFamily, badgeFontSize, FontStyle.Bold, GraphicsUnit.Point);
 
@@ -638,13 +639,13 @@ public sealed class RepositoryFileListView : Panel
 
         DrawHeaderCell(g, new Rectangle(offsetX, 0, NameColumnWidth, HeaderHeight), NameColumnText, drawAccent: true);
         int statusX = offsetX + NameColumnWidth;
-        DrawHeaderCell(g, new Rectangle(statusX, 0, Math.Max(0, viewportWidth - statusX), HeaderHeight), StatusColumnText, drawAccent: false);
+        DrawHeaderCell(g, new Rectangle(statusX, 0, StatusColumnWidth, HeaderHeight), StatusColumnText, drawAccent: false, centerText: true);
 
         using var dividerPen = new Pen(ConnectorLineColor);
         g.DrawLine(dividerPen, statusX, 0, statusX, HeaderHeight);
     }
 
-    private void DrawHeaderCell(Graphics g, Rectangle bounds, string text, bool drawAccent)
+    private void DrawHeaderCell(Graphics g, Rectangle bounds, string text, bool drawAccent, bool centerText = false)
     {
         using (var background = new SolidBrush(HeaderBackColor))
         {
@@ -662,10 +663,11 @@ public sealed class RepositoryFileListView : Panel
             g.DrawLine(border, bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1);
         }
 
+        int leftPadding = (drawAccent ? 3 : 0) + (centerText ? 0 : 6);
         var textRect = new Rectangle(
-            bounds.X + (drawAccent ? 3 : 0) + 6,
+            bounds.X + leftPadding,
             bounds.Y,
-            Math.Max(0, bounds.Width - (drawAccent ? 3 : 0) - 6),
+            Math.Max(0, bounds.Width - leftPadding - (centerText ? 0 : 6)),
             bounds.Height);
         TextRenderer.DrawText(
             g,
@@ -673,7 +675,9 @@ public sealed class RepositoryFileListView : Panel
             Font,
             textRect,
             HeaderForeColor,
-            TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
+            centerText
+                ? TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPrefix
+                : TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
     }
 
     private sealed class DoubleBufferedPanel : Panel
