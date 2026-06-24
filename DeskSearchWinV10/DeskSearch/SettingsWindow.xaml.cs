@@ -247,7 +247,6 @@ public partial class SettingsWindow : Window
         ExcludedDirectoriesLabel.Text = LocalizationService.T("Settings_ExcludedDirectories");
         ExcludedDirectoriesDescLabel.Text = LocalizationService.T("Settings_ExcludedDirectoriesDesc");
         BrowseExcludedDirectoryButton.Content = CreateIconLabel("\uE838", LocalizationService.T("Settings_BrowseFolder"));
-        AddExcludedDirectoryButton.Content = CreateIconLabel("\uE710", LocalizationService.T("Settings_AddExcluded"));
         RemoveExcludedDirectoryButton.Content = CreateIconLabel("\uE74D", LocalizationService.T("Settings_RemoveExcluded"));
         PeriodicResyncLabel.Text = LocalizationService.T("Settings_PeriodicResync");
         PeriodicResyncDescLabel.Text = LocalizationService.T("Settings_PeriodicResyncDesc");
@@ -421,16 +420,17 @@ public partial class SettingsWindow : Window
 
     private void BrowseExcludedDirectory_Click(object sender, RoutedEventArgs e)
     {
-        using var dialog = new Forms.FolderBrowserDialog();
-        if (dialog.ShowDialog() != Forms.DialogResult.OK)
+        var ownerHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        var selectedPaths = MultiFolderBrowserDialog.ShowDialog(ownerHandle);
+        if (selectedPaths is null)
             return;
 
-        ExcludedDirectoryTextBox.Text = dialog.SelectedPath;
+        foreach (var path in selectedPaths)
+            AddExcludedDirectory(path);
     }
 
-    private void AddExcludedDirectory_Click(object sender, RoutedEventArgs e)
+    private void AddExcludedDirectory(string path)
     {
-        var path = ExcludedDirectoryTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(path))
             return;
 
@@ -452,7 +452,6 @@ public partial class SettingsWindow : Window
             return;
 
         ExcludedDirectoriesListBox.Items.Add(display);
-        ExcludedDirectoryTextBox.Clear();
     }
 
     private void RemoveExcludedDirectory_Click(object sender, RoutedEventArgs e)

@@ -140,30 +140,16 @@
                            Margin="0,0,0,6"
                            TextWrapping="Wrap"/>
                 <ListBox x:Name="ExcludedDirectoriesListBox"
-                         Height="72"
+                         Height="112"
                          Margin="0,0,0,6"/>
-                <Grid Margin="0,0,0,16">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <TextBox x:Name="ExcludedDirectoryTextBox"
-                             Grid.Row="0"
-                             MinHeight="28"
-                             Margin="0,0,0,6"
-                             VerticalContentAlignment="Center"/>
-                    <WrapPanel Grid.Row="1">
-                        <Button x:Name="BrowseExcludedDirectoryButton"
-                                Style="{StaticResource SettingsActionButton}"
-                                Click="BrowseExcludedDirectory_Click"/>
-                        <Button x:Name="AddExcludedDirectoryButton"
-                                Style="{StaticResource SettingsActionButton}"
-                                Click="AddExcludedDirectory_Click"/>
-                        <Button x:Name="RemoveExcludedDirectoryButton"
-                                Style="{StaticResource SettingsActionButton}"
-                                Click="RemoveExcludedDirectory_Click"/>
-                    </WrapPanel>
-                </Grid>
+                <WrapPanel Margin="0,0,0,16">
+                    <Button x:Name="BrowseExcludedDirectoryButton"
+                            Style="{StaticResource SettingsActionButton}"
+                            Click="BrowseExcludedDirectory_Click"/>
+                    <Button x:Name="RemoveExcludedDirectoryButton"
+                            Style="{StaticResource SettingsActionButton}"
+                            Click="RemoveExcludedDirectory_Click"/>
+                </WrapPanel>
 
                 <TextBlock x:Name="PeriodicResyncLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <TextBlock x:Name="PeriodicResyncDescLabel"

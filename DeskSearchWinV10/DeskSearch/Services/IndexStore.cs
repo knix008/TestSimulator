@@ -7,7 +7,7 @@ namespace DeskSearch.Services;
 
 public sealed partial class IndexStore : IDisposable
 {
-    private const int SchemaVersion = 5;
+    private const int SchemaVersion = 6;
 
     private readonly SqliteConnection _connection;
     private readonly object _lock = new();
@@ -15,7 +15,6 @@ public sealed partial class IndexStore : IDisposable
     private int _bulkIngestDepth;
     private SqliteCommand? _bulkUpsertCommand;
     private int _bulkUpsertCommandSize = -1;
-    private bool _ftsCurrent = true;
 
     public IndexStore(string databasePath)
     {
@@ -28,15 +27,6 @@ public sealed partial class IndexStore : IDisposable
         InitializeDatabase();
     }
 
-    public bool IsFtsCurrent
-    {
-        get
-        {
-            lock (_lock)
-                return _ftsCurrent && _bulkIngestDepth == 0;
-        }
-    }
-
     public int Count
     {
         get
@@ -46,6 +36,31 @@ public sealed partial class IndexStore : IDisposable
         }
     }
 
+    public bool NeedsFtsMigration
+    {
+        get
+        {
+            lock (_lock)
+                return GetUserVersion() < SchemaVersion;
+        }
+    }
+
+    public void RunFtsMigration(Action<int>? onProgress = null, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            if (GetUserVersion() >= SchemaVersion)
+                return;
+
+            RecreateFtsIndexWithProgressLocked(onProgress, cancellationToken);
+            ExecuteNonQuery($"PRAGMA user_version = {SchemaVersion}");
+        }
+    }
+
+    // FTS triggers stay live through bulk ingest (unlike the old design, which dropped
+    // them and rebuilt once at the end) so every literal search can use the trigram
+    // index immediately, even mid-scan. Indexing pays a small per-row trigger-maintenance
+    // cost in exchange — an explicit trade: indexing time doesn't matter, search latency does.
     public void BeginBulkIngest()
     {
         lock (_lock)
@@ -54,8 +69,6 @@ public sealed partial class IndexStore : IDisposable
             if (_bulkIngestDepth != 1)
                 return;
 
-            _ftsCurrent = false;
-            DropFtsTriggers();
             ExecuteNonQuery("PRAGMA synchronous=NORMAL");
             ExecuteNonQuery("PRAGMA locking_mode=EXCLUSIVE");
             ExecuteNonQuery("PRAGMA temp_store=FILE");
@@ -79,10 +92,6 @@ public sealed partial class IndexStore : IDisposable
             ExecuteNonQuery("PRAGMA temp_store=FILE");
             ExecuteNonQuery($"PRAGMA cache_size={IndexStoragePolicy.SqliteCachePages}");
             DisposeBulkUpsertCommand();
-            Thread.Sleep(IndexResourcePolicy.BatchCommitDelayMs);
-            RefreshFtsTriggers();
-            RebuildFts();
-            _ftsCurrent = true;
             RefreshCountLocked();
         }
     }
@@ -94,8 +103,13 @@ public sealed partial class IndexStore : IDisposable
             ExecuteNonQuery("DELETE FROM entries");
             ExecuteNonQuery("DELETE FROM indexed_roots");
             _cachedCount = 0;
-            _ftsCurrent = _bulkIngestDepth == 0;
         }
+    }
+
+    public void Checkpoint()
+    {
+        lock (_lock)
+            ExecuteNonQuery("PRAGMA wal_checkpoint(TRUNCATE)");
     }
 
     public IReadOnlyCollection<string> LoadIndexedRoots()
@@ -146,7 +160,12 @@ public sealed partial class IndexStore : IDisposable
             }
 
             transaction.Commit();
-            RefreshCountLocked();
+
+            // Invalidate rather than eagerly re-query COUNT(*) here: this runs inside
+            // the write lock on every batch during scanning, and a real recount would
+            // extend how long that lock — which search/UI also need — stays held.
+            // The next reader that actually asks for Count pays for one recompute.
+            _cachedCount = -1;
         }
     }
 
@@ -222,85 +241,6 @@ public sealed partial class IndexStore : IDisposable
         }
     }
 
-    public IReadOnlyList<FileEntry> SearchLiteralFts(string query, int limit = IndexStoragePolicy.FtsCandidateLimit)
-    {
-        var normalized = SearchTextHelper.Normalize(query.Trim());
-        if (string.IsNullOrEmpty(normalized))
-            return [];
-
-        var ftsQuery = BuildFtsQuery(normalized);
-        if (ftsQuery is null)
-            return [];
-
-        lock (_lock)
-        {
-            if (!_ftsCurrent || _bulkIngestDepth > 0)
-                return [];
-
-            try
-            {
-                using var command = CreateCommand(
-                    """
-                    SELECT e.full_path, e.file_name, e.directory, e.is_directory
-                    FROM entries_fts
-                    JOIN entries e ON e.id = entries_fts.rowid
-                    WHERE entries_fts MATCH $query
-                    LIMIT $limit
-                    """);
-
-                command.Parameters.AddWithValue("$query", ftsQuery);
-                command.Parameters.AddWithValue("$limit", limit);
-
-                using var reader = command.ExecuteReader();
-                return ReadEntries(reader, limit);
-            }
-            catch (SqliteException)
-            {
-                return [];
-            }
-        }
-    }
-
-    public IReadOnlyList<FileEntry> SearchLiteralFtsAnd(
-        IReadOnlyList<string> terms,
-        int limit = IndexStoragePolicy.FtsCandidateLimit)
-    {
-        if (terms.Count == 0)
-            return [];
-
-        var ftsQuery = BuildFtsAndQuery(terms);
-        if (ftsQuery is null)
-            return [];
-
-        lock (_lock)
-        {
-            if (!_ftsCurrent || _bulkIngestDepth > 0)
-                return [];
-
-            try
-            {
-                using var command = CreateCommand(
-                    """
-                    SELECT e.full_path, e.file_name, e.directory, e.is_directory
-                    FROM entries_fts
-                    JOIN entries e ON e.id = entries_fts.rowid
-                    WHERE entries_fts MATCH $query
-                    LIMIT $limit
-                    """);
-
-                command.Parameters.AddWithValue("$query", ftsQuery);
-                command.Parameters.AddWithValue("$limit", limit);
-
-                using var reader = command.ExecuteReader();
-                return ReadEntries(reader, limit);
-            }
-            catch (SqliteException)
-            {
-                return [];
-            }
-        }
-    }
-
     public IEnumerable<FileEntry> EnumerateAll(int pageSize)
     {
         if (pageSize <= 0)
@@ -331,6 +271,7 @@ public sealed partial class IndexStore : IDisposable
         lock (_lock)
         {
             DisposeBulkUpsertCommand();
+            SqliteConnection.ClearPool(_connection);
             _connection.Dispose();
         }
     }
@@ -479,9 +420,13 @@ public sealed partial class IndexStore : IDisposable
                     root TEXT PRIMARY KEY COLLATE NOCASE
                 )
                 """);
+            ExecuteNonQuery(
+                "CREATE INDEX IF NOT EXISTS idx_entries_search_file_name ON entries(search_file_name)");
+            ExecuteNonQuery(
+                "CREATE INDEX IF NOT EXISTS idx_entries_search_file_name_nocase ON entries(search_file_name COLLATE NOCASE)");
 
             var version = GetUserVersion();
-            if (version < SchemaVersion)
+            if (version < 5)
             {
                 if (version < 1)
                     EnsureFtsIndex();
@@ -494,11 +439,13 @@ public sealed partial class IndexStore : IDisposable
 
                 if (version < 5)
                     ScrubSearchDirectoryPathsLocked();
-                else if (version < SchemaVersion)
-                    RefreshFtsTriggers();
 
-                ExecuteNonQuery($"PRAGMA user_version = {SchemaVersion}");
+                ExecuteNonQuery("PRAGMA user_version = 5");
             }
+
+            // Rebuilding the trigram FTS index (schema version 6) walks every indexed
+            // entry and can take a while on large indexes, so it is deferred to
+            // RunFtsMigration() — the caller runs it only after the user confirms.
         }
     }
 
@@ -583,10 +530,9 @@ public sealed partial class IndexStore : IDisposable
             """
             CREATE VIRTUAL TABLE entries_fts USING fts5(
                 search_file_name,
-                search_directory,
                 content='entries',
                 content_rowid='id',
-                tokenize='unicode61'
+                tokenize='trigram case_sensitive 0'
             )
             """);
 
@@ -596,16 +542,99 @@ public sealed partial class IndexStore : IDisposable
             RebuildFts();
     }
 
+    private void RecreateFtsIndexWithProgressLocked(Action<int>? onProgress, CancellationToken cancellationToken)
+    {
+        DropFtsTriggers();
+        ExecuteNonQuery("DROP TABLE IF EXISTS entries_fts");
+        ExecuteNonQuery(
+            """
+            CREATE VIRTUAL TABLE entries_fts USING fts5(
+                search_file_name,
+                content='entries',
+                content_rowid='id',
+                tokenize='trigram case_sensitive 0'
+            )
+            """);
+
+        var total = GetCountLocked();
+        if (total > 0)
+            PopulateFtsIndexLocked(total, onProgress, cancellationToken);
+
+        RefreshFtsTriggers();
+        onProgress?.Invoke(100);
+    }
+
+    private void PopulateFtsIndexLocked(long total, Action<int>? onProgress, CancellationToken cancellationToken)
+    {
+        const int batchSize = 5000;
+        long lastId = 0;
+        long processed = 0;
+        var lastReportedPercent = -1;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var batch = new List<(long Id, string Name)>(batchSize);
+            using (var select = CreateCommand(
+                """
+                SELECT id, search_file_name
+                FROM entries
+                WHERE id > $lastId
+                ORDER BY id
+                LIMIT $batchSize
+                """))
+            {
+                select.Parameters.AddWithValue("$lastId", lastId);
+                select.Parameters.AddWithValue("$batchSize", batchSize);
+
+                using var reader = select.ExecuteReader();
+                while (reader.Read())
+                    batch.Add((reader.GetInt64(0), reader.GetString(1)));
+            }
+
+            if (batch.Count == 0)
+                break;
+
+            using (var transaction = _connection.BeginTransaction())
+            {
+                using var insert = CreateCommand(
+                    "INSERT INTO entries_fts(rowid, search_file_name) VALUES ($id, $name)",
+                    transaction);
+                var idParam = insert.Parameters.Add("$id", SqliteType.Integer);
+                var nameParam = insert.Parameters.Add("$name", SqliteType.Text);
+
+                foreach (var (id, name) in batch)
+                {
+                    idParam.Value = id;
+                    nameParam.Value = name;
+                    insert.ExecuteNonQuery();
+                }
+
+                transaction.Commit();
+            }
+
+            lastId = batch[^1].Id;
+            processed += batch.Count;
+
+            var percent = (int)Math.Min(99, processed * 100 / total);
+            if (percent != lastReportedPercent)
+            {
+                lastReportedPercent = percent;
+                onProgress?.Invoke(percent);
+            }
+        }
+    }
+
     private void EnsureFtsIndex()
     {
         ExecuteNonQuery(
             """
             CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
                 search_file_name,
-                search_directory,
                 content='entries',
                 content_rowid='id',
-                tokenize='unicode61'
+                tokenize='trigram case_sensitive 0'
             )
             """);
 
@@ -622,16 +651,16 @@ public sealed partial class IndexStore : IDisposable
         ExecuteNonQuery(
             """
             CREATE TRIGGER entries_fts_insert AFTER INSERT ON entries BEGIN
-                INSERT INTO entries_fts(rowid, search_file_name, search_directory)
-                VALUES (new.id, new.search_file_name, new.search_directory);
+                INSERT INTO entries_fts(rowid, search_file_name)
+                VALUES (new.id, new.search_file_name);
             END
             """);
 
         ExecuteNonQuery(
             """
             CREATE TRIGGER entries_fts_delete AFTER DELETE ON entries BEGIN
-                INSERT INTO entries_fts(entries_fts, rowid, search_file_name, search_directory)
-                VALUES ('delete', old.id, old.search_file_name, old.search_directory);
+                INSERT INTO entries_fts(entries_fts, rowid, search_file_name)
+                VALUES ('delete', old.id, old.search_file_name);
             END
             """);
 
@@ -639,12 +668,11 @@ public sealed partial class IndexStore : IDisposable
             """
             CREATE TRIGGER entries_fts_update AFTER UPDATE ON entries
             WHEN old.search_file_name != new.search_file_name
-              OR old.search_directory != new.search_directory
             BEGIN
-                INSERT INTO entries_fts(entries_fts, rowid, search_file_name, search_directory)
-                VALUES ('delete', old.id, old.search_file_name, old.search_directory);
-                INSERT INTO entries_fts(rowid, search_file_name, search_directory)
-                VALUES (new.id, new.search_file_name, new.search_directory);
+                INSERT INTO entries_fts(entries_fts, rowid, search_file_name)
+                VALUES ('delete', old.id, old.search_file_name);
+                INSERT INTO entries_fts(rowid, search_file_name)
+                VALUES (new.id, new.search_file_name);
             END
             """);
     }
@@ -682,38 +710,6 @@ public sealed partial class IndexStore : IDisposable
 
         return results;
     }
-
-    private static string? BuildFtsAndQuery(IReadOnlyList<string> terms)
-    {
-        if (terms.Count == 0)
-            return null;
-
-        var groups = new List<string>(terms.Count);
-
-        foreach (var term in terms)
-        {
-            var normalized = SearchTextHelper.Normalize(term.Trim());
-            if (string.IsNullOrEmpty(normalized))
-                return null;
-
-            var token = EscapeFtsPhrase(normalized);
-            groups.Add($"(search_file_name : {token} OR search_file_name : {token}*)");
-        }
-
-        return string.Join(" AND ", groups);
-    }
-
-    private static string? BuildFtsQuery(string normalizedQuery)
-    {
-        if (string.IsNullOrWhiteSpace(normalizedQuery))
-            return null;
-
-        var token = EscapeFtsPhrase(normalizedQuery);
-        return $"(search_file_name : {token}* OR search_file_name : {token})";
-    }
-
-    private static string EscapeFtsPhrase(string value) =>
-        "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 
     private long GetCountLocked()
     {

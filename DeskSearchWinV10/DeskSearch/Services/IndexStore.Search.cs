@@ -24,10 +24,10 @@ public sealed partial class IndexStore
         if (normalizedTerms.Count == 0)
             return [];
 
-        var whereClause = BuildLiteralWhereClause(normalizedTerms.Count, requireAllTerms, caseSensitive);
-
         lock (_lock)
         {
+            var whereClause = BuildLiteralWhereClause(normalizedTerms.Count, requireAllTerms);
+
             SetCaseSensitiveLike(caseSensitive);
             try
             {
@@ -77,25 +77,22 @@ public sealed partial class IndexStore
         return ReadEntries(reader, limit);
     }
 
-    private static string BuildLiteralWhereClause(int termCount, bool requireAllTerms, bool caseSensitive)
+    private static string BuildLiteralWhereClause(int termCount, bool requireAllTerms)
     {
-        var eqCollate = caseSensitive ? string.Empty : " COLLATE NOCASE";
-        var likeCollate = caseSensitive ? string.Empty : " COLLATE NOCASE";
         var joiner = requireAllTerms ? " AND " : " OR ";
         var groups = new List<string>(termCount);
 
         for (var i = 0; i < termCount; i++)
-            groups.Add($"({BuildFileNameMatchClause(i, likeCollate, eqCollate)})");
+            groups.Add(BuildFtsContainsClause(i));
 
         return string.Join(joiner, groups);
     }
 
-    private static string BuildFileNameMatchClause(int index, string likeCollate, string eqCollate) =>
-        $"""
-        e.search_file_name LIKE $q{index}c ESCAPE '\'{likeCollate}
-        OR e.search_file_name = $q{index}{eqCollate}
-        OR e.search_file_name LIKE $q{index}p ESCAPE '\'{likeCollate}
-        """;
+    // Trigram FTS index accelerates the substring (contains) check; exact/prefix
+    // are subsets of "contains" so a single LIKE covers all three for scoring. FTS
+    // triggers stay live even during bulk ingest, so this index is always current.
+    private static string BuildFtsContainsClause(int index) =>
+        $"e.id IN (SELECT rowid FROM entries_fts WHERE search_file_name LIKE $q{index}c)";
 
     private static string BuildCombinedScoreExpression(int termCount, bool caseSensitive)
     {

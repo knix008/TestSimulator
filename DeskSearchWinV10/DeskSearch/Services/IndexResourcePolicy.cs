@@ -2,19 +2,25 @@ namespace DeskSearch.Services;
 
 internal static class IndexResourcePolicy
 {
+    // System/GUI responsiveness while indexing matters more than indexing throughput,
+    // but the main lever for that is now BackgroundThreadMode (OS-level CPU/IO/memory
+    // deprioritization on the scanning threads) rather than these manual sleeps — so
+    // they're tuned closer to throughput, not maximal yielding.
+
     /// <summary>Yield after this many enumerated entries during a scan.</summary>
-    public const int ScanYieldEveryEntries = 600;
+    public const int ScanYieldEveryEntries = 400;
 
     /// <summary>Pause length after each yield (ms).</summary>
-    public const int ScanYieldDelayMs = 24;
+    public const int ScanYieldDelayMs = 15;
 
     /// <summary>Pause after each SQLite batch commit during scanning (ms).</summary>
-    public const int BatchCommitDelayMs = 8;
+    public const int BatchCommitDelayMs = 5;
 
     /// <summary>Pause between top-level drive/root scans (ms).</summary>
-    public const int ScanDrivePauseMs = 400;
+    public const int ScanDrivePauseMs = 200;
 
-    public const int ParallelScanRootCount = 1;
+    /// <summary>Max number of top-level roots (e.g. drives) scanned concurrently during a full scan.</summary>
+    public const int MaxParallelRootScans = 3;
 
     public const int ProgressReportMinEntries = 25_000;
     public const int ProgressReportMinSeconds = 5;

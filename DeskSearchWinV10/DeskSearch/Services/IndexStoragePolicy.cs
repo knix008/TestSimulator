@@ -9,11 +9,11 @@ namespace DeskSearch.Services;
 internal static class IndexStoragePolicy
 {
     public const string DatabaseFileName = "index.db";
+    public const string BuildingDatabaseFileName = "index.building.db";
 
     public const int BulkMergeBatchSize = 4_096;
     public const int SqliteInsertChunkSize = 256;
     public const int RegexSearchPageSize = 20_000;
-    public const int FtsCandidateLimit = 2000;
     public const int MaxSearchResults = 2000;
 
     public const long SqliteMmapBytes = 128L * 1024 * 1024;

@@ -80,6 +80,8 @@ public partial class MainWindow : Window
 
         _indexService.IndexProgress += OnIndexProgress;
 
+        _indexService.IndexProgress += OnRescanIndexProgress;
+
         _indexService.IndexUpdated += (_, _) =>
             SafeBeginInvoke(ScheduleLiveSearchRefresh, System.Windows.Threading.DispatcherPriority.Background);
 
@@ -115,8 +117,51 @@ public partial class MainWindow : Window
 
         _watcherService.Start();
 
-        _indexService.StartBackgroundScan();
+        if (_indexService.NeedsFtsMigration)
+            PromptAndRunFtsMigration();
+        else
+            _indexService.StartBackgroundScan();
 
+    }
+
+    private void PromptAndRunFtsMigration()
+    {
+        var proceed = System.Windows.MessageBox.Show(
+            this,
+            LocalizationService.T("Migration_ConfirmMessage"),
+            LocalizationService.T("Migration_ConfirmTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        if (!proceed)
+        {
+            _indexService.StartBackgroundScan();
+            return;
+        }
+
+        var dialog = new MigrationProgressDialog { Owner = this };
+        dialog.Show();
+
+        Task.Run(() =>
+        {
+            try
+            {
+                _indexService.RunFtsMigration(percent =>
+                    SafeBeginInvoke(() => dialog.ReportProgress(percent)));
+            }
+            catch (Exception ex)
+            {
+                SafeBeginInvoke(() => ErrorDialogService.Show(LocalizationService.T("Error_IndexScan"), ex));
+            }
+            finally
+            {
+                SafeBeginInvoke(() =>
+                {
+                    dialog.Close();
+                    _indexService.StartBackgroundScan();
+                });
+            }
+        });
     }
 
 

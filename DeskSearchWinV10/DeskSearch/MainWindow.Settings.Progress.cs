@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using DeskSearch.Models;
 using DeskSearch.Services;
 
@@ -5,6 +6,10 @@ namespace DeskSearch;
 
 public partial class MainWindow
 {
+    private readonly object _rescanLock = new();
+    private Stopwatch? _rescanStopwatch;
+    private TimeSpan? _lastRescanElapsed;
+
     internal SettingsProgressSnapshot GetSettingsProgress()
     {
         var count = _indexService.Count;
@@ -40,10 +45,18 @@ public partial class MainWindow
             };
         }
 
+        TimeSpan? elapsed;
+        lock (_rescanLock)
+            elapsed = _lastRescanElapsed;
+
+        var statusText = elapsed is { } value
+            ? LocalizationService.F("Settings_ReadyStatusWithElapsed", count, FormatElapsed(value))
+            : LocalizationService.F("Settings_ReadyStatus", count);
+
         return new SettingsProgressSnapshot
         {
             Percent = 100,
-            StatusText = LocalizationService.F("Settings_ReadyStatus", count)
+            StatusText = statusText
         };
     }
 
@@ -56,6 +69,32 @@ public partial class MainWindow
 
         HideSearchResults();
 
+        lock (_rescanLock)
+        {
+            _lastRescanElapsed = null;
+            _rescanStopwatch = Stopwatch.StartNew();
+        }
+
         _indexService.RestartScan();
     }
+
+    private void OnRescanIndexProgress(object? sender, IndexProgressEventArgs e)
+    {
+        if (!e.IsScanComplete)
+            return;
+
+        lock (_rescanLock)
+        {
+            if (_rescanStopwatch is not { IsRunning: true } stopwatch)
+                return;
+
+            stopwatch.Stop();
+            _lastRescanElapsed = stopwatch.Elapsed;
+        }
+    }
+
+    private static string FormatElapsed(TimeSpan elapsed) =>
+        elapsed.TotalMinutes >= 1
+            ? LocalizationService.F("Duration_MinutesSeconds", (int)elapsed.TotalMinutes, elapsed.Seconds)
+            : LocalizationService.F("Duration_Seconds", elapsed.TotalSeconds);
 }

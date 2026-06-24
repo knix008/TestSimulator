@@ -57,7 +57,6 @@
   <data name="Settings_ExcludedDirectories" xml:space="preserve"><value>Excluded directories</value></data>
   <data name="Settings_ExcludedDirectoriesDesc" xml:space="preserve"><value>Listed folders and their subfolders are excluded from indexing and search.</value></data>
   <data name="Settings_BrowseFolder" xml:space="preserve"><value>Browse...</value></data>
-  <data name="Settings_AddExcluded" xml:space="preserve"><value>Add</value></data>
   <data name="Settings_RemoveExcluded" xml:space="preserve"><value>Remove</value></data>
   <data name="Settings_PeriodicResync" xml:space="preserve"><value>Indexing interval</value></data>
   <data name="Settings_PeriodicResyncDesc" xml:space="preserve"><value>How often to re-scan all drives in the background. File watching still applies between runs. Set to Off to disable scheduled re-indexing.</value></data>
@@ -69,6 +68,9 @@
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>
   <data name="Settings_SearchingStatus" xml:space="preserve"><value>Searching… {0}% — "{1}"</value></data>
   <data name="Settings_ReadyStatus" xml:space="preserve"><value>Ready — {0:N0} items indexed</value></data>
+  <data name="Settings_ReadyStatusWithElapsed" xml:space="preserve"><value>Ready — {0:N0} items indexed (elapsed: {1})</value></data>
+  <data name="Duration_Seconds" xml:space="preserve"><value>{0:0.0}s</value></data>
+  <data name="Duration_MinutesSeconds" xml:space="preserve"><value>{0}m {1}s</value></data>
   <data name="Settings_Startup" xml:space="preserve"><value>Startup</value></data>
   <data name="Settings_RunAtStartup" xml:space="preserve"><value>Run automatically when Windows starts</value></data>
   <data name="Settings_RunAtStartupDesc" xml:space="preserve"><value>DeskSearch starts at sign-in.</value></data>
@@ -102,4 +104,9 @@
   <data name="Error_StartupRegistration" xml:space="preserve"><value>Failed to register DeskSearch for automatic startup.</value></data>
   <data name="Error_Search" xml:space="preserve"><value>An error occurred during search.</value></data>
   <data name="Error_OutOfMemory" xml:space="preserve"><value>Out of memory. Reduce the indexing scope with search exclusions, close other programs, and try again.</value></data>
+  <data name="Migration_ConfirmTitle" xml:space="preserve"><value>Search Index Upgrade</value></data>
+  <data name="Migration_ConfirmMessage" xml:space="preserve"><value>The search index needs to be upgraded to a new structure to speed up search. This may take a while depending on how many items are indexed. Proceed now? If you skip it, search will keep working, but the speed improvement won't take effect until the next time you start the app.</value></data>
+  <data name="Migration_ProgressTitle" xml:space="preserve"><value>Upgrading Search Index</value></data>
+  <data name="Migration_ProgressMessage" xml:space="preserve"><value>Upgrading the search index to the new structure. Please wait…</value></data>
+  <data name="Migration_ProgressPercent" xml:space="preserve"><value>{0}%</value></data>
 </root>

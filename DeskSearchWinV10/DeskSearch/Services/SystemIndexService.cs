@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Enumeration;
 using DeskSearch.Helpers;
 using DeskSearch.Models;
@@ -12,7 +13,9 @@ public sealed class SystemIndexService : IDisposable
         AttributesToSkip = FileAttributes.ReparsePoint
     };
 
-    private readonly IndexStore _indexStore;
+    private volatile IndexStore _indexStore;
+    private readonly object _indexStoreSwapLock = new();
+    private readonly string _databaseFolder;
     private readonly IndexBackgroundWorker _indexWorker = new();
     private readonly FileSearchService _searchService = new();    private readonly HashSet<string> _indexedRoots = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _rootsLock = new();
@@ -33,15 +36,25 @@ public sealed class SystemIndexService : IDisposable
     private int _scanProgressPercent;
     private int _totalScanSteps;
     private int _completedScanSteps;
-    private int _currentStepIndexedEntries;
+
+    // Keyed by the root path currently being scanned, so multiple roots (e.g. separate
+    // drives) can be scanned concurrently without one root's progress clobbering another's.
+    private readonly ConcurrentDictionary<string, int> _activeStepEntries =
+        new(StringComparer.OrdinalIgnoreCase);
+
     private string? _currentScanPath;
 
     public SystemIndexService()
     {
-        var folder = Path.Combine(
+        _databaseFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "DeskSearch");
-        _indexStore = new IndexStore(Path.Combine(folder, IndexStoragePolicy.DatabaseFileName));
+
+        // A shadow build from a previous run may have been left behind by a crash; it's
+        // incomplete/abandoned, so discard it rather than risk promoting bad data.
+        DeleteDatabaseFiles(GetBuildingDatabasePath());
+
+        _indexStore = new IndexStore(GetCanonicalDatabasePath());
 
         lock (_rootsLock)
         {
@@ -52,11 +65,54 @@ public sealed class SystemIndexService : IDisposable
         EnableSearchIfNeeded();
     }
 
+    private string GetCanonicalDatabasePath() =>
+        Path.Combine(_databaseFolder, IndexStoragePolicy.DatabaseFileName);
+
+    private string GetBuildingDatabasePath() =>
+        Path.Combine(_databaseFolder, IndexStoragePolicy.BuildingDatabaseFileName);
+
+    private static void DeleteDatabaseFiles(string basePath)
+    {
+        foreach (var suffix in DatabaseFileSuffixes)
+        {
+            try
+            {
+                var path = basePath + suffix;
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // best effort cleanup; a leftover file here doesn't corrupt anything
+            }
+        }
+    }
+
+    private static readonly string[] DatabaseFileSuffixes = ["", "-wal", "-shm", "-journal"];
+
+    // Promoting a shadow build disposes the old live store and swaps in the new one;
+    // any reader that grabs the reference must do so through this lock so it can never
+    // observe a store that's mid-disposal (the lock only guards the reference read/swap
+    // itself, not the actual DB work, so it's held for a moment, not the whole query).
+    private IndexStore CurrentStore
+    {
+        get
+        {
+            lock (_indexStoreSwapLock)
+                return _indexStore;
+        }
+    }
+
     public bool IsSearchEnabled => _isSearchEnabled;
     public bool IsScanComplete => _isScanComplete;
     public bool IsScanning => _isScanning;
     public int ScanProgressPercent => _scanProgressPercent;
-    public int Count => _indexStore.Count;
+    public int Count => CurrentStore.Count;
+
+    public bool NeedsFtsMigration => CurrentStore.NeedsFtsMigration;
+
+    public void RunFtsMigration(Action<int>? onProgress = null, CancellationToken cancellationToken = default) =>
+        CurrentStore.RunFtsMigration(onProgress, cancellationToken);
 
     public IReadOnlyList<string> WatchPaths => FilterScanPaths(GetPriorityPaths());
     public IReadOnlyList<string> ScanRoots => FilterScanPaths(GetAllScanRoots());
@@ -84,34 +140,28 @@ public sealed class SystemIndexService : IDisposable
         _scanProgressPercent = 0;
         _completedScanSteps = 0;
 
-        _indexWorker.EnqueueExclusive(ct =>
-        {
-            _indexStore.Clear();
-
-            lock (_rootsLock)
-                _indexedRoots.Clear();
-
-            RunScan(ct);
-        });
+        _indexWorker.EnqueueExclusive(RunScan);
     }
 
     public IReadOnlyList<FileEntry> Search(
         bool caseSensitive,
         ResolvedSearchQuery searchQuery)
     {
+        var store = CurrentStore;
+
         if (searchQuery.CanUseFts)
         {
             var terms = searchQuery.Terms
                 .Select(term => SearchTextHelper.Normalize(term.Text.Trim()))
                 .ToList();
 
-            var sqlResults = _indexStore.SearchSqlScored(terms, searchQuery.IsAndQuery, caseSensitive);
+            var sqlResults = store.SearchSqlScored(terms, searchQuery.IsAndQuery, caseSensitive);
             return _searchService.FilterRanked(sqlResults, searchQuery, caseSensitive);
         }
 
         return _searchService.Search(
-            _indexStore.EnumerateAll(IndexStoragePolicy.RegexSearchPageSize),
-            _indexStore.Count,
+            store.EnumerateAll(IndexStoragePolicy.RegexSearchPageSize),
+            store.Count,
             searchQuery,
             caseSensitive);
     }
@@ -123,7 +173,8 @@ public sealed class SystemIndexService : IDisposable
         int batchSize,
         List<(FileEntry Entry, int Score)>? existingTop = null)
     {
-        var totalCount = _indexStore.Count;
+        var store = CurrentStore;
+        var totalCount = store.Count;
 
         if (searchQuery.CanUseFts && afterScanId == 0)
         {
@@ -131,7 +182,7 @@ public sealed class SystemIndexService : IDisposable
                 .Select(term => SearchTextHelper.Normalize(term.Text.Trim()))
                 .ToList();
 
-            var sqlResults = _indexStore.SearchSqlScored(terms, searchQuery.IsAndQuery, caseSensitive);
+            var sqlResults = store.SearchSqlScored(terms, searchQuery.IsAndQuery, caseSensitive);
             var results = _searchService.FilterRanked(sqlResults, searchQuery, caseSensitive);
 
             return new SearchBatchResult
@@ -144,7 +195,7 @@ public sealed class SystemIndexService : IDisposable
             };
         }
 
-        var page = _indexStore.ReadPageAfterId(afterScanId, batchSize);
+        var page = store.ReadPageAfterId(afterScanId, batchSize);
         var result = _searchService.SearchBatch(
             page.Entries,
             totalCount,
@@ -304,7 +355,7 @@ public sealed class SystemIndexService : IDisposable
         _indexStore.BeginBulkIngest();
         try
         {
-            ScanTree(root, CancellationToken.None, MergeEntriesBatch);
+            ScanTree(root, CancellationToken.None, batch => MergeEntriesBatchInto(_indexStore, root, batch));
         }
         finally
         {
@@ -437,6 +488,7 @@ public sealed class SystemIndexService : IDisposable
     {
         var previousPriority = Thread.CurrentThread.Priority;
         Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+        BackgroundThreadMode.EnterForCurrentThread();
         _isScanning = true;
         BeginScanProgress(paths.Count);
         _indexStore.BeginBulkIngest();
@@ -450,8 +502,7 @@ public sealed class SystemIndexService : IDisposable
             foreach (var path in paths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ScanAndMerge(path, cancellationToken);
-                EnableSearchIfNeeded();
+                ScanAndMerge(path, _indexStore, cancellationToken);
                 PauseBetweenScanRoots(cancellationToken);
             }
 
@@ -476,6 +527,7 @@ public sealed class SystemIndexService : IDisposable
             _indexStore.EndBulkIngest();
             _isScanning = false;
             _currentScanPath = null;
+            BackgroundThreadMode.ExitForCurrentThread();
             Thread.CurrentThread.Priority = previousPriority;
         }
     }
@@ -493,13 +545,31 @@ public sealed class SystemIndexService : IDisposable
         return true;
     }
 
+    // A full rescan with existing live data builds into a separate "shadow" database
+    // instead of writing into the live one, so search keeps using the old (fully
+    // indexed, fast) store without any lock contention from the scan's writes — the
+    // GUI/search stays responsive throughout. The shadow store is promoted to become
+    // the live store only once the scan finishes successfully. The very first scan
+    // (nothing indexed yet) has nothing to protect, so it writes directly into the
+    // live store and lets search become available progressively, as before.
     private void RunScan(CancellationToken cancellationToken)
     {
         var previousPriority = Thread.CurrentThread.Priority;
         Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+        BackgroundThreadMode.EnterForCurrentThread();
         _isScanning = true;
 
-        _indexStore.ClearIndexedRoots();
+        var useShadowBuild = _indexStore.Count > 0;
+        var buildingPath = useShadowBuild ? GetBuildingDatabasePath() : null;
+        if (buildingPath is not null)
+            DeleteDatabaseFiles(buildingPath);
+
+        var target = buildingPath is not null ? new IndexStore(buildingPath) : _indexStore;
+
+        if (!useShadowBuild)
+            target.Clear();
+
+        target.ClearIndexedRoots();
         lock (_rootsLock)
             _indexedRoots.Clear();
 
@@ -509,30 +579,41 @@ public sealed class SystemIndexService : IDisposable
         var priorityPaths = WatchPaths;
         var scanRoots = ScanRoots;
         BeginScanProgress(priorityPaths.Count + scanRoots.Count);
-        _indexStore.BeginBulkIngest();
+        target.BeginBulkIngest();
 
+        var succeeded = false;
         try
         {
             foreach (var path in priorityPaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ScanAndMerge(path, cancellationToken);
-                EnableSearchIfNeeded();
+                ScanAndMerge(path, target, cancellationToken);
                 PauseBetweenScanRoots(cancellationToken);
             }
 
-            EnableSearchIfNeeded();
+            // Separate roots (typically separate physical drives) are I/O-independent,
+            // so scanning them concurrently overlaps their disk-wait time instead of
+            // paying it serially. Each worker still runs at Lowest thread priority and
+            // keeps the existing per-batch/per-yield throttling, so total system impact
+            // stays bounded regardless of how many roots run at once.
+            RunRootScansInParallel(scanRoots, target, cancellationToken);
 
-            foreach (var root in scanRoots)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ScanAndMerge(root, cancellationToken);
-                PauseBetweenScanRoots(cancellationToken);
-            }
+            succeeded = true;
+        }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is OperationCanceledException))
+        {
+            // 새 스캔 시작 시 이전 스캔 취소
+        }
+        catch (AggregateException ex)
+        {
+            var inner = ex.InnerExceptions.FirstOrDefault(e => e is not OperationCanceledException)
+                ?? ex.InnerException
+                ?? ex;
 
-            _isScanComplete = true;
-            _scanProgressPercent = 100;
-            ReportProgress(null, true, force: true);
+            if (inner is OutOfMemoryException oomEx)
+                ErrorDialogService.Show(LocalizationService.T("Error_OutOfMemory"), oomEx);
+            else
+                ErrorDialogService.Show(LocalizationService.T("Error_IndexScan"), inner);
         }
         catch (OperationCanceledException)
         {
@@ -548,14 +629,127 @@ public sealed class SystemIndexService : IDisposable
         }
         finally
         {
-            _indexStore.EndBulkIngest();
+            target.EndBulkIngest();
             _isScanning = false;
             _currentScanPath = null;
+            BackgroundThreadMode.ExitForCurrentThread();
             Thread.CurrentThread.Priority = previousPriority;
+        }
+
+        if (succeeded)
+        {
+            if (buildingPath is not null)
+                PromoteBuildingStore(target, buildingPath);
+
+            _isScanComplete = true;
+            _scanProgressPercent = 100;
+            ReportProgress(null, true, force: true);
+        }
+        else if (buildingPath is not null)
+        {
+            DiscardBuildingStore(target, buildingPath);
         }
     }
 
-    private void ScanAndMerge(string root, CancellationToken cancellationToken)
+    // Runs each root on its own dedicated, Lowest-priority OS thread (not the thread
+    // pool) so priority is guaranteed per worker, bounded by a semaphore so at most
+    // MaxParallelRootScans roots are ever scanning at once. Exceptions from workers are
+    // collected and re-thrown together rather than dropped.
+    private void RunRootScansInParallel(
+        IReadOnlyList<string> roots,
+        IndexStore target,
+        CancellationToken cancellationToken)
+    {
+        if (roots.Count == 0)
+            return;
+
+        var maxParallelism = Math.Max(1, Math.Min(roots.Count, IndexResourcePolicy.MaxParallelRootScans));
+        using var semaphore = new SemaphoreSlim(maxParallelism);
+        var exceptions = new ConcurrentBag<Exception>();
+        var threads = new List<Thread>(roots.Count);
+
+        foreach (var root in roots)
+        {
+            semaphore.Wait(cancellationToken);
+
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+                    BackgroundThreadMode.EnterForCurrentThread();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ScanAndMerge(root, target, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "DeskSearch.RootScan",
+                Priority = ThreadPriority.Lowest
+            };
+
+            threads.Add(thread);
+            thread.Start();
+        }
+
+        foreach (var thread in threads)
+            thread.Join();
+
+        if (!exceptions.IsEmpty)
+            throw new AggregateException(exceptions);
+    }
+
+    private void PromoteBuildingStore(IndexStore buildingStore, string buildingPath)
+    {
+        var canonicalPath = GetCanonicalDatabasePath();
+        buildingStore.Checkpoint();
+
+        lock (_indexStoreSwapLock)
+        {
+            var oldStore = _indexStore;
+            oldStore.Dispose();
+            buildingStore.Dispose();
+
+            DeleteDatabaseFiles(canonicalPath);
+            File.Move(buildingPath, canonicalPath);
+            DeleteDatabaseFiles(buildingPath);
+
+            _indexStore = new IndexStore(canonicalPath);
+        }
+
+        lock (_rootsLock)
+        {
+            _indexedRoots.Clear();
+            foreach (var root in _indexStore.LoadIndexedRoots())
+                _indexedRoots.Add(root);
+        }
+
+        NotifyIndexUpdatedIfNeeded();
+    }
+
+    private static void DiscardBuildingStore(IndexStore buildingStore, string buildingPath)
+    {
+        try
+        {
+            buildingStore.Dispose();
+        }
+        catch
+        {
+            // best effort; the file cleanup below still runs
+        }
+
+        DeleteDatabaseFiles(buildingPath);
+    }
+
+    private void ScanAndMerge(string root, IndexStore target, CancellationToken cancellationToken)
     {
         if (_exclusions.IsPathExcluded(root))
         {
@@ -570,13 +764,16 @@ public sealed class SystemIndexService : IDisposable
         }
 
         _currentScanPath = root;
-        _currentStepIndexedEntries = 0;
-        ScanTree(root, cancellationToken, MergeEntriesBatch);
+        ScanTree(root, cancellationToken, batch => MergeEntriesBatchInto(target, root, batch));
         RememberScannedDirectoryPrefix(root);
 
         var normalizedRoot = NormalizeDirectoryPrefix(root);
         if (normalizedRoot is not null)
-            MarkRootIndexed(normalizedRoot);
+        {
+            target.MarkRootIndexed(normalizedRoot);
+            lock (_rootsLock)
+                _indexedRoots.Add(normalizedRoot);
+        }
 
         AdvanceScanProgress(root);
     }
@@ -588,30 +785,36 @@ public sealed class SystemIndexService : IDisposable
             _indexedRoots.Add(normalizedRoot);
     }
 
-    private void MergeEntriesBatch(IReadOnlyList<FileEntry> batch)
+    private void MergeEntriesBatchInto(IndexStore target, string root, IReadOnlyList<FileEntry> batch)
     {
         if (batch.Count == 0)
             return;
 
-        _indexStore.UpsertBatch(batch);
+        target.UpsertBatch(batch);
         Thread.Sleep(IndexResourcePolicy.BatchCommitDelayMs);
-        _currentStepIndexedEntries += batch.Count;
+        _activeStepEntries.AddOrUpdate(root, batch.Count, (_, existing) => existing + batch.Count);
         UpdateScanProgressPercent();
-        EnableSearchIfNeeded();
-        ReportProgress(_currentScanPath, false);
-        NotifyIndexUpdatedIfNeeded();
+        ReportProgress(root, false);
+
+        if (ReferenceEquals(target, _indexStore))
+        {
+            EnableSearchIfNeeded();
+            NotifyIndexUpdatedIfNeeded();
+        }
     }
 
     private void NotifyIndexUpdatedIfNeeded()
     {
+        // Check the cheap time-based throttle before touching Count: this is called on
+        // every merged batch during scanning, and Count needs the same lock the writer
+        // just used, so querying it unconditionally here would add avoidable contention.
         var now = DateTime.UtcNow;
-        var currentCount = Count;
-
-        if (currentCount - _lastIndexUpdatedCount < IndexResourcePolicy.IndexUpdatedMinEntries
-            && (now - _lastIndexUpdatedTime).TotalSeconds < IndexResourcePolicy.IndexUpdatedMinSeconds)
-        {
+        if ((now - _lastIndexUpdatedTime).TotalSeconds < IndexResourcePolicy.IndexUpdatedMinSeconds)
             return;
-        }
+
+        var currentCount = Count;
+        if (currentCount - _lastIndexUpdatedCount < IndexResourcePolicy.IndexUpdatedMinEntries)
+            return;
 
         _lastIndexUpdatedCount = currentCount;
         _lastIndexUpdatedTime = now;
@@ -622,8 +825,10 @@ public sealed class SystemIndexService : IDisposable
     {
         lock (_progressLock)
         {
+            if (root is not null)
+                _activeStepEntries.TryRemove(root, out _);
+
             _completedScanSteps++;
-            _currentStepIndexedEntries = 0;
             _scanProgressPercent = _totalScanSteps <= 0
                 ? 0
                 : Math.Min(99, _completedScanSteps * 100 / _totalScanSteps);
@@ -641,14 +846,22 @@ public sealed class SystemIndexService : IDisposable
 
             var stepWeight = 100.0 / _totalScanSteps;
             var completed = _completedScanSteps * stepWeight;
-            var intraStep = _currentStepIndexedEntries <= 0
-                ? 0.0
-                : Math.Min(
-                    stepWeight * 0.99,
-                    stepWeight * (1.0 - Math.Exp(-_currentStepIndexedEntries / (double)IndexResourcePolicy.ScanStepProgressEntryScale)));
 
-            var percent = (int)Math.Min(99, completed + intraStep);
-            if (percent < 1 && (_currentStepIndexedEntries > 0 || _completedScanSteps > 0))
+            var bonus = 0.0;
+            var anyActiveEntries = false;
+            foreach (var entries in _activeStepEntries.Values)
+            {
+                if (entries <= 0)
+                    continue;
+
+                anyActiveEntries = true;
+                bonus += Math.Min(
+                    stepWeight * 0.99,
+                    stepWeight * (1.0 - Math.Exp(-entries / (double)IndexResourcePolicy.ScanStepProgressEntryScale)));
+            }
+
+            var percent = (int)Math.Min(99, completed + bonus);
+            if (percent < 1 && (anyActiveEntries || _completedScanSteps > 0))
                 percent = 1;
 
             _scanProgressPercent = percent;
@@ -785,20 +998,19 @@ public sealed class SystemIndexService : IDisposable
 
     private void MaybeYield(CancellationToken cancellationToken)
     {
-        _entriesSinceYield++;
-        if (_entriesSinceYield < IndexResourcePolicy.ScanYieldEveryEntries)
+        // Multiple root-scan threads can call this concurrently, so the counter needs
+        // to be a real atomic increment rather than a plain read-modify-write.
+        var count = Interlocked.Increment(ref _entriesSinceYield);
+        if (count < IndexResourcePolicy.ScanYieldEveryEntries)
             return;
 
-        _entriesSinceYield = 0;
+        Interlocked.Exchange(ref _entriesSinceYield, 0);
         Thread.Sleep(IndexResourcePolicy.ScanYieldDelayMs);
         cancellationToken.ThrowIfCancellationRequested();
     }
 
     private static void PauseBetweenScanRoots(CancellationToken cancellationToken)
     {
-        if (IndexResourcePolicy.ScanDrivePauseMs <= 0)
-            return;
-
         Thread.Sleep(IndexResourcePolicy.ScanDrivePauseMs);
         cancellationToken.ThrowIfCancellationRequested();
     }
@@ -821,7 +1033,7 @@ public sealed class SystemIndexService : IDisposable
         {
             _totalScanSteps = Math.Max(1, totalSteps);
             _completedScanSteps = 0;
-            _currentStepIndexedEntries = 0;
+            _activeStepEntries.Clear();
             _scanProgressPercent = 0;
             _lastProgressReport = -1;
             _lastProgressTime = DateTime.MinValue;
