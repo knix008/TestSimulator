@@ -16,7 +16,11 @@ public sealed class SystemWatcherService : IDisposable
         _indexService = indexService;
         _flushTimer = new System.Threading.Timer(_ => FlushPendingChanges(), null, Timeout.Infinite, Timeout.Infinite);
         _resyncTimer = new System.Threading.Timer(
-            _ => _indexService.RequestResyncPriorityPaths(),
+            _ =>
+            {
+                _indexService.ScanMissingDriveRoots();
+                _indexService.RequestResyncAllRoots();
+            },
             null,
             TimeSpan.FromHours(IndexResourcePolicy.PeriodicResyncHours),
             TimeSpan.FromHours(IndexResourcePolicy.PeriodicResyncHours));
@@ -26,9 +30,12 @@ public sealed class SystemWatcherService : IDisposable
     {
         Stop();
 
-        foreach (var path in _indexService.WatchPaths)
+        foreach (var path in _indexService.ScanRoots)
         {
             if (!Directory.Exists(path))
+                continue;
+
+            if (_indexService.IsPathExcluded(path))
                 continue;
 
             var watcher = new FileSystemWatcher(path)
@@ -68,6 +75,9 @@ public sealed class SystemWatcherService : IDisposable
 
     private void OnCreated(object sender, FileSystemEventArgs e)
     {
+        if (_indexService.IsPathExcluded(e.FullPath))
+            return;
+
         if (!File.Exists(e.FullPath) && !Directory.Exists(e.FullPath))
             return;
 
@@ -84,7 +94,10 @@ public sealed class SystemWatcherService : IDisposable
         QueueRemove(e.OldFullPath);
 
         if (File.Exists(e.FullPath) || Directory.Exists(e.FullPath))
-            QueueAdd(e.FullPath);
+        {
+            if (!_indexService.IsPathExcluded(e.FullPath))
+                QueueAdd(e.FullPath);
+        }
     }
 
     private void OnWatcherError(object sender, ErrorEventArgs e)

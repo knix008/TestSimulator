@@ -70,11 +70,13 @@ public partial class MainWindow : Window
 
         _debounce = new DebounceDispatcher(Dispatcher, delayMs: 100);
 
+        _indexService.ConfigureExclusions(_settingsService.Current);
+
         _indexService.SearchEnabled += OnSearchEnabled;
 
         _indexService.IndexProgress += OnIndexProgress;
 
-        _indexService.IndexUpdated += (_, _) => Dispatcher.Invoke(RefreshSearchIfNeeded);
+        _indexService.IndexUpdated += (_, _) => Dispatcher.Invoke(ScheduleLiveSearchRefresh);
 
         InitializeTrayIcon();
 
@@ -138,7 +140,15 @@ public partial class MainWindow : Window
 
     {
 
-        Dispatcher.Invoke(UpdateIndexUi);
+        Dispatcher.Invoke(() =>
+
+        {
+
+            UpdateIndexUi();
+
+            ScheduleLiveSearchRefresh();
+
+        });
 
     }
 

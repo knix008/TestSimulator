@@ -15,7 +15,10 @@ public sealed class AppSettings
     public double? WindowWidth { get; set; }
     public double? WindowHeight { get; set; }
     public bool CaseSensitiveSearch { get; set; }
+    public bool UseRegexSearch { get; set; }
     public bool RunAtStartup { get; set; } = true;
+    public List<string> ExcludedDrives { get; set; } = [];
+    public List<string> ExcludedDirectories { get; set; } = [];
 
     public AppSettings Clone() => new()
     {
@@ -32,6 +35,9 @@ public sealed class AppSettings
         WindowWidth = WindowWidth,
         WindowHeight = WindowHeight,
         CaseSensitiveSearch = CaseSensitiveSearch,
-        RunAtStartup = RunAtStartup
+        UseRegexSearch = UseRegexSearch,
+        RunAtStartup = RunAtStartup,
+        ExcludedDrives = [.. ExcludedDrives],
+        ExcludedDirectories = [.. ExcludedDirectories]
     };
 }

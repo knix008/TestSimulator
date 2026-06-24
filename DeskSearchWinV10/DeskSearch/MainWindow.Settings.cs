@@ -200,10 +200,23 @@ public partial class MainWindow
         if (dialog.ShowDialog() != true)
             return;
 
+        var previousExclusions = IndexExclusionPolicy.FromSettings(_settingsService.Current);
+
         ApplyCurrentWindowLayout(dialog.Settings);
         _settingsService.Save(dialog.Settings);
         LocalizationService.Apply(_settingsService.Current.Language);
         ApplySettings(_settingsService.Current);
+
+        var exclusionsChanged = !previousExclusions.Equals(
+            IndexExclusionPolicy.FromSettings(_settingsService.Current));
+
+        if (exclusionsChanged)
+        {
+            _indexService.ConfigureExclusions(_settingsService.Current);
+            _watcherService.Start();
+            RequestReSearchFromSettings();
+        }
+
         RefreshLocalization();
         RefreshSearchIfNeeded();
     }

@@ -8,14 +8,17 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 
 | 기능 | 설명 |
 |------|------|
-| 전체 시스템 인덱싱 | 고정·이동·네트워크 드라이브를 백그라운드 스캔 (관리자 권한) |
-| 파일·폴더 검색 | 이름 기준 실시간 자동완성 (최대 12건, 배치 검색·이어하기) |
+| 전체 시스템 인덱싱 | 모든 준비된 드라이브·디렉터리·파일을 백그라운드 스캔 (관리자 권한, 배치 병합) |
+| 인덱싱 중 검색 | 인덱싱이 끝나기 전에도 검색 가능; 인덱스가 늘어나면 결과 자동 갱신 |
+| 파일·폴더 검색 | 이름·경로 기준 실시간 자동완성 (최대 12건, 배치 검색) |
+| 정규식 검색 | 설정에서 켜면 .NET 정규식으로 파일명·경로 검색 |
+| 검색 제외 | 설정에서 드라이브·디렉터리를 인덱싱·검색 대상에서 제외 |
 | 다국어 파일명 검색 | UI는 한국어/English만 지원; 파일·폴더 이름은 모든 언어(Unicode NFC)로 검색 |
-| 실시간 갱신 | 우선 폴더 FileSystemWatcher + 4시간 주기 재동기화 |
+| 실시간 갱신 | 모든 드라이브 FileSystemWatcher + 4시간 주기 전체 재동기화 |
 | 드래그·크기 조절 | ≡ 핸들로 이동, 좌·우 가장자리로 너비 조절 |
 | 창 레이아웃 저장 | 위치·너비·높이를 `%AppData%\DeskSearch\settings.json`에 자동 저장 |
-| 설정 | 배경/테두리/글자색(밝·어두운 프리셋), 불투명도, 대소문자 구분, 항상 위 |
-| 인덱싱 진행률 | 설정 창에서 진행률(%) 확인 및 **재검색** |
+| 설정 | 배경/테두리/글자색, 불투명도, 대소문자 구분, 정규식, 검색 제외, 항상 위 |
+| 인덱싱 진행률 | 설정 창에서 진행률(%)·항목 수 확인 및 **재검색** |
 | Windows 시작 시 실행 | 작업 스케줄러(로그온, 최고 권한)로 자동 시작 |
 | 단일 인스턴스 | 이미 실행 중이면 새 창 대신 기존 검색창 표시 |
 | 다크 테마 | 어두운 배경 선택 시 글자·테두리·아이콘 색 자동 조정 |
@@ -32,7 +35,7 @@ dotnet run --project DeskSearch/DeskSearch.csproj
 
 **요구사항:** .NET 8 SDK, Windows 10 이상
 
-> 실행 시 **관리자 권한(UAC)** 이 필요합니다. 전체 디스크를 인덱싱하기 위해 `app.manifest`에 `requireAdministrator`가 설정되어 있습니다.
+> 실행 시 **관리자 권한(UAC)** 이 필요합니다. 전체 디스크를 인덱싱하기 위해 `app.manifest`에 `requireAdministrator` 및 `longPathAware`가 설정되어 있습니다.
 
 ## MSI 설치 패키지 생성
 
@@ -57,7 +60,7 @@ dotnet build DeskSearchWinV10.sln -c Release
 | 상황 | 동작 |
 |------|------|
 | 업그레이드·변경·복구 | 사용자 데이터 삭제 여부를 선택할 수 있음 |
-| 제거 | `%AppData%\DeskSearch\`에 설정 등이 **있을 때만** 삭제 여부를 질문; 없으면 질문 없이 제거 |
+| 제거 | `%AppData%\DeskSearch\settings.json`이 **있을 때만** 삭제 여부를 질문 |
 
 > Debug 구성에서는 WiX 프로젝트가 MSI 빌드를 건너뜁니다. MSI만 따로 빌드하지 않으려면 `-p:SkipInstaller=true`를 사용하세요.
 
@@ -82,29 +85,30 @@ DeskSearchWinV10/
 │   ├── MainWindow.Settings.cs        # 설정·창 레이아웃
 │   ├── MainWindow.Settings.Progress.cs # 설정 창 인덱싱 진행률
 │   ├── MainWindow.Tray.cs            # 트레이·숨기기·종료
-│   ├── MainWindow.Search.cs          # 배치 검색·세션 이어하기
+│   ├── MainWindow.Search.cs          # 라이브 검색·배치 검색
 │   ├── MainWindow.Resize.cs          # 창 너비 조절
 │   ├── MainWindow.Localization.cs    # UI 다국어 갱신
-│   ├── SettingsWindow.xaml(.cs)      # 설정 창
+│   ├── SettingsWindow.xaml(.cs)      # 설정 창 (검색 제외 포함)
 │   ├── SettingsColorPalette.cs       # 색상 프리셋
 │   ├── Helpers/
 │   │   ├── ColorHelper.cs            # 색상·다크 배경 감지
-│   │   ├── SearchTextHelper.cs       # 검색어 NFC 정규화
+│   │   ├── SearchTextHelper.cs       # 검색어 NFC·정규식
 │   │   └── WindowTaskbarHelper.cs    # 작업 표시줄 제외
 │   ├── Models/                       # AppSettings, FileEntry, SearchSession 등
 │   ├── Services/
-│   │   ├── SystemIndexService.cs     # 전체 드라이브 인덱싱
-│   │   ├── SystemWatcherService.cs   # 파일·폴더 변경 감시
+│   │   ├── SystemIndexService.cs     # 전체 드라이브 인덱싱 (배치 병합)
+│   │   ├── SystemWatcherService.cs   # 모든 드라이브 변경 감시
 │   │   ├── FileSearchService.cs      # 검색·점수·배치
+│   │   ├── IndexExclusionPolicy.cs   # 검색 제외 경로 판별
 │   │   ├── SettingsService.cs        # 설정 JSON 저장
 │   │   ├── StartupService.cs         # 로그온 시 자동 실행 (schtasks)
 │   │   ├── SingleInstanceService.cs  # 단일 인스턴스
 │   │   ├── TrayIconService.cs        # NotifyIcon
 │   │   ├── LocalizationService.cs    # ko / en
-│   │   └── IndexResourcePolicy.cs    # 스캔·감시 리소스 정책
+│   │   └── IndexResourcePolicy.cs    # 스캔·감시·라이브 검색 정책
 │   ├── Resources/                    # LocStrings.resx (다국어)
 │   ├── Assets/                       # app.ico, app.png, CreateIcon.ps1
-│   └── app.manifest                  # requireAdministrator
+│   └── app.manifest                  # requireAdministrator, longPathAware
 └── DeskSearch.Installer/             # WiX MSI 프로젝트
     ├── Package.wxs                   # 패키지·사용자 데이터 제거 CA
     ├── UserDataDlg.wxs               # 사용자 데이터 선택 대화상자
@@ -122,4 +126,4 @@ DeskSearchWinV10/
 %AppData%\DeskSearch\settings.json
 ```
 
-저장 항목: 창 위치·크기, 색상, 불투명도, 언어, 항상 위, 대소문자 구분, Windows 시작 시 자동 실행 등
+저장 항목: 창 위치·크기, 색상, 불투명도, 언어, 항상 위, 대소문자 구분, 정규식 사용, 검색 제외 드라이브·디렉터리, Windows 시작 시 자동 실행 등

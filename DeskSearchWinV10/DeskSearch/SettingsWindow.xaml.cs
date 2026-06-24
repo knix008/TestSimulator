@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -17,6 +18,8 @@ public partial class SettingsWindow : Window
     private readonly Func<SettingsProgressSnapshot>? _getProgress;
     private readonly Action? _reSearch;
     private readonly DispatcherTimer? _progressTimer;
+    private readonly Dictionary<string, System.Windows.Controls.CheckBox> _driveCheckBoxes =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public SettingsWindow(
         AppSettings current,
@@ -96,7 +99,16 @@ public partial class SettingsWindow : Window
         SearchOptionsLabel.Text = LocalizationService.T("Settings_Search");
         CaseSensitiveSearchCheckBox.Content = LocalizationService.T("Settings_CaseSensitive");
         CaseSensitiveSearchDescLabel.Text = LocalizationService.T("Settings_CaseSensitiveDesc");
+        UseRegexSearchCheckBox.Content = LocalizationService.T("Settings_UseRegex");
+        UseRegexSearchDescLabel.Text = LocalizationService.T("Settings_UseRegexDesc");
         SearchMultilingualNoteLabel.Text = LocalizationService.T("Settings_SearchMultilingualNote");
+        ExclusionLabel.Text = LocalizationService.T("Settings_Exclusion");
+        ExcludedDrivesDescLabel.Text = LocalizationService.T("Settings_ExcludedDrivesDesc");
+        ExcludedDirectoriesLabel.Text = LocalizationService.T("Settings_ExcludedDirectories");
+        ExcludedDirectoriesDescLabel.Text = LocalizationService.T("Settings_ExcludedDirectoriesDesc");
+        BrowseExcludedDirectoryButton.Content = LocalizationService.T("Settings_BrowseFolder");
+        AddExcludedDirectoryButton.Content = LocalizationService.T("Settings_AddExcluded");
+        RemoveExcludedDirectoryButton.Content = LocalizationService.T("Settings_RemoveExcluded");
         IndexProgressLabel.Text = LocalizationService.T("Settings_IndexProgress");
         ReSearchButton.Content = LocalizationService.T("Settings_ReSearch");
         StartupLabel.Text = LocalizationService.T("Settings_Startup");
@@ -125,6 +137,7 @@ public partial class SettingsWindow : Window
         LanguageKoreanRadio.IsChecked = Settings.Language != LocalizationService.English;
         LanguageEnglishRadio.IsChecked = Settings.Language == LocalizationService.English;
         CaseSensitiveSearchCheckBox.IsChecked = Settings.CaseSensitiveSearch;
+        UseRegexSearchCheckBox.IsChecked = Settings.UseRegexSearch;
         RunAtStartupCheckBox.IsChecked = Settings.RunAtStartup;
         BackgroundPreview.Background = CreateBackgroundBrush();
         BorderPreview.Background = ColorHelper.ToBrush(Settings.BorderColor);
@@ -133,7 +146,119 @@ public partial class SettingsWindow : Window
         WindowOpacitySlider.Value = Settings.WindowOpacity;
         PriorityAboveOthersRadio.IsChecked = Settings.AlwaysOnTop;
         PriorityNormalRadio.IsChecked = !Settings.AlwaysOnTop;
+        BuildExcludedDrivesUi();
+        LoadExcludedDirectories();
         UpdateOpacityLabels();
+    }
+
+    private void BuildExcludedDrivesUi()
+    {
+        ExcludedDrivesPanel.Children.Clear();
+        _driveCheckBoxes.Clear();
+
+        var excluded = new HashSet<string>(
+            Settings.ExcludedDrives
+                .Select(IndexExclusionPolicy.NormalizeDriveRoot)
+                .Where(static root => root is not null)
+                .Cast<string>(),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var drive in DriveInfo.GetDrives().OrderBy(static d => d.Name))
+        {
+            if (!drive.IsReady)
+                continue;
+
+            var root = IndexExclusionPolicy.NormalizeDriveRoot(drive.Name);
+            if (root is null)
+                continue;
+
+            var volumeLabel = string.IsNullOrWhiteSpace(drive.VolumeLabel)
+                ? string.Empty
+                : $" ({drive.VolumeLabel})";
+
+            var checkBox = new System.Windows.Controls.CheckBox
+            {
+                Content = $"{root}{volumeLabel}",
+                IsChecked = excluded.Contains(root),
+                Margin = new Thickness(0, 0, 12, 4),
+                Tag = root
+            };
+
+            _driveCheckBoxes[root] = checkBox;
+            ExcludedDrivesPanel.Children.Add(checkBox);
+        }
+    }
+
+    private void LoadExcludedDirectories()
+    {
+        ExcludedDirectoriesListBox.Items.Clear();
+
+        foreach (var path in Settings.ExcludedDirectories)
+        {
+            var display = IndexExclusionPolicy.NormalizeDirectoryDisplay(path);
+            if (!string.IsNullOrWhiteSpace(display))
+                ExcludedDirectoriesListBox.Items.Add(display);
+        }
+    }
+
+    private void BrowseExcludedDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new Forms.FolderBrowserDialog();
+        if (dialog.ShowDialog() != Forms.DialogResult.OK)
+            return;
+
+        ExcludedDirectoryTextBox.Text = dialog.SelectedPath;
+    }
+
+    private void AddExcludedDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        var path = ExcludedDirectoryTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        var normalized = IndexExclusionPolicy.NormalizeDirectoryPrefix(path);
+        if (normalized is null)
+            return;
+
+        var display = normalized.TrimEnd('\\');
+        var alreadyListed = ExcludedDirectoriesListBox.Items
+            .Cast<string>()
+            .Any(item =>
+            {
+                var existing = IndexExclusionPolicy.NormalizeDirectoryPrefix(item);
+                return existing is not null
+                    && existing.Equals(normalized, StringComparison.OrdinalIgnoreCase);
+            });
+
+        if (alreadyListed)
+            return;
+
+        ExcludedDirectoriesListBox.Items.Add(display);
+        ExcludedDirectoryTextBox.Clear();
+    }
+
+    private void RemoveExcludedDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        if (ExcludedDirectoriesListBox.SelectedItem is not string)
+            return;
+
+        ExcludedDirectoriesListBox.Items.Remove(ExcludedDirectoriesListBox.SelectedItem);
+    }
+
+    private void SaveExcludedPaths()
+    {
+        Settings.ExcludedDrives = _driveCheckBoxes
+            .Where(static pair => pair.Value.IsChecked == true)
+            .Select(static pair => pair.Key)
+            .OrderBy(static drive => drive, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Settings.ExcludedDirectories = ExcludedDirectoriesListBox.Items
+            .Cast<string>()
+            .Select(IndexExclusionPolicy.NormalizeDirectoryDisplay)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Cast<string>()
+            .ToList();
     }
 
     private SolidColorBrush CreateBackgroundBrush()
@@ -266,7 +391,9 @@ public partial class SettingsWindow : Window
             ? LocalizationService.English
             : LocalizationService.Korean;
         Settings.CaseSensitiveSearch = CaseSensitiveSearchCheckBox.IsChecked == true;
+        Settings.UseRegexSearch = UseRegexSearchCheckBox.IsChecked == true;
         Settings.RunAtStartup = RunAtStartupCheckBox.IsChecked == true;
+        SaveExcludedPaths();
         Settings.AlwaysOnTop = PriorityAboveOthersRadio.IsChecked == true;
         Settings.WindowOpacity = (int)WindowOpacitySlider.Value;
         Settings.BackgroundOpacity = (int)BackgroundOpacitySlider.Value;

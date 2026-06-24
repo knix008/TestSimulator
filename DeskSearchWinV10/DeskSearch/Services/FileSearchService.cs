@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DeskSearch.Models;
 using DeskSearch.Helpers;
 
@@ -8,10 +9,15 @@ public sealed class FileSearchService
     private const int MaxResults = 12;
     public const int DefaultBatchSize = 20_000;
 
-    public IReadOnlyList<FileEntry> Search(IEnumerable<FileEntry> entries, string query, bool caseSensitive)
+    public IReadOnlyList<FileEntry> Search(
+        IEnumerable<FileEntry> entries,
+        string query,
+        bool caseSensitive,
+        bool useRegex,
+        Regex? regex)
     {
         var list = entries as IReadOnlyList<FileEntry> ?? entries.ToList();
-        var batch = SearchBatch(list, query, caseSensitive, startOffset: 0, batchSize: int.MaxValue);
+        var batch = SearchBatch(list, query, caseSensitive, useRegex, regex, startOffset: 0, batchSize: int.MaxValue);
         return batch.Results;
     }
 
@@ -19,6 +25,8 @@ public sealed class FileSearchService
         IReadOnlyList<FileEntry> entries,
         string query,
         bool caseSensitive,
+        bool useRegex,
+        Regex? regex,
         int startOffset,
         int batchSize,
         List<(FileEntry Entry, int Score)>? existingTop = null)
@@ -34,6 +42,17 @@ public sealed class FileSearchService
             };
         }
 
+        if (useRegex && regex is null)
+        {
+            return new SearchBatchResult
+            {
+                Results = [],
+                NextOffset = entries.Count,
+                IsComplete = true,
+                TopCandidates = []
+            };
+        }
+
         var trimmed = SearchTextHelper.Normalize(query.Trim());
         var comparison = SearchTextHelper.GetComparison(caseSensitive);
         var top = existingTop is null ? [] : existingTop.ToList();
@@ -41,7 +60,10 @@ public sealed class FileSearchService
         var end = Math.Min(startOffset + batchSize, entries.Count);
         for (var i = startOffset; i < end; i++)
         {
-            var score = Score(entries[i], trimmed, comparison);
+            var score = useRegex
+                ? ScoreRegex(entries[i], regex!)
+                : ScoreLiteral(entries[i], trimmed, comparison);
+
             if (score > 0)
                 TryAddToTop(top, entries[i], score, comparison);
         }
@@ -107,7 +129,7 @@ public sealed class FileSearchService
             .ToList();
     }
 
-    private static int Score(FileEntry entry, string query, StringComparison comparison)
+    private static int ScoreLiteral(FileEntry entry, string query, StringComparison comparison)
     {
         var fileName = entry.SearchFileName;
 
@@ -122,6 +144,33 @@ public sealed class FileSearchService
 
         if (entry.SearchDirectory.Contains(query, comparison))
             return 40;
+
+        if (entry.SearchFullPath.Contains(query, comparison))
+            return 30;
+
+        return 0;
+    }
+
+    private static int ScoreRegex(FileEntry entry, Regex regex)
+    {
+        var fileName = entry.SearchFileName;
+        var fileMatch = regex.Match(fileName);
+        if (fileMatch.Success)
+        {
+            if (fileMatch.Index == 0 && fileMatch.Length == fileName.Length)
+                return 100;
+
+            if (fileMatch.Index == 0)
+                return 80;
+
+            return 60;
+        }
+
+        if (regex.IsMatch(entry.SearchDirectory))
+            return 40;
+
+        if (regex.IsMatch(entry.SearchFullPath))
+            return 30;
 
         return 0;
     }

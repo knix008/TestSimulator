@@ -34,6 +34,8 @@ public sealed class SettingsService
 
             var json = File.ReadAllText(_settingsPath);
             Current = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            Current.ExcludedDrives ??= [];
+            Current.ExcludedDirectories ??= [];
 
             using (var document = JsonDocument.Parse(json))
             {

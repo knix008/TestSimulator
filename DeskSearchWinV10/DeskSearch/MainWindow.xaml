@@ -111,7 +111,7 @@
                          VerticalContentAlignment="Center"
                          CaretBrush="{DynamicResource PrimaryTextBrush}"
                          Foreground="{DynamicResource PrimaryTextBrush}"
-                         IsEnabled="False"
+                         IsEnabled="True"
                          TextChanged="SearchBox_TextChanged"
                          KeyDown="SearchBox_KeyDown"/>
 

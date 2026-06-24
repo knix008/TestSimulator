@@ -49,7 +49,16 @@
   <data name="Settings_Search" xml:space="preserve"><value>Search</value></data>
   <data name="Settings_CaseSensitive" xml:space="preserve"><value>Case sensitive</value></data>
   <data name="Settings_CaseSensitiveDesc" xml:space="preserve"><value>When enabled, search matches letter case exactly. (Default: off)</value></data>
+  <data name="Settings_UseRegex" xml:space="preserve"><value>Use regular expressions</value></data>
+  <data name="Settings_UseRegexDesc" xml:space="preserve"><value>When enabled, the search query is interpreted as a .NET regular expression. E.g. ^report.*\.pdf$, \d{4}-\d{2}</value></data>
   <data name="Settings_SearchMultilingualNote" xml:space="preserve"><value>File and folder names can be searched in any language (e.g. Korean, English, Japanese, Chinese), regardless of the UI language.</value></data>
+  <data name="Settings_Exclusion" xml:space="preserve"><value>Search exclusions</value></data>
+  <data name="Settings_ExcludedDrivesDesc" xml:space="preserve"><value>Checked drives are excluded from indexing and search.</value></data>
+  <data name="Settings_ExcludedDirectories" xml:space="preserve"><value>Excluded directories</value></data>
+  <data name="Settings_ExcludedDirectoriesDesc" xml:space="preserve"><value>Listed folders and their subfolders are excluded from indexing and search.</value></data>
+  <data name="Settings_BrowseFolder" xml:space="preserve"><value>Browse...</value></data>
+  <data name="Settings_AddExcluded" xml:space="preserve"><value>Add</value></data>
+  <data name="Settings_RemoveExcluded" xml:space="preserve"><value>Remove</value></data>
   <data name="Settings_IndexProgress" xml:space="preserve"><value>Search (indexing) progress</value></data>
   <data name="Settings_ReSearch" xml:space="preserve"><value>Re-search</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>

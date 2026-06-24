@@ -9,6 +9,8 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        AppContext.SetSwitch("Switch.System.IO.UseLegacyPathHandling", false);
+
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         _singleInstance = new SingleInstanceService();

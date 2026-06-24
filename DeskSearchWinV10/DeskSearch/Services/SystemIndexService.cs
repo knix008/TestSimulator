@@ -1,25 +1,40 @@
+using System.IO.Enumeration;
+using System.Text.RegularExpressions;
 using DeskSearch.Models;
 
 namespace DeskSearch.Services;
 
 public sealed class SystemIndexService : IDisposable
 {
+    private const int MergeBatchSize = 4096;
+
+    private static readonly EnumerationOptions DirectoryEnumerationOptions = new()
+    {
+        IgnoreInaccessible = true,
+        AttributesToSkip = FileAttributes.None
+    };
+
     private readonly object _lock = new();
     private readonly Dictionary<string, FileEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
     private readonly FileSearchService _searchService = new();
     private readonly HashSet<string> _pendingResyncPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _indexedRoots = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _resyncLock = new();
+    private IndexExclusionPolicy _exclusions = IndexExclusionPolicy.Empty;
 
     private CancellationTokenSource? _scanCts;
     private int _lastProgressReport;
     private DateTime _lastProgressTime = DateTime.MinValue;
     private int _entriesSinceYield;
+    private int _lastIndexUpdatedCount;
+    private DateTime _lastIndexUpdatedTime = DateTime.MinValue;
     private bool _isSearchEnabled;
     private bool _isScanComplete;
     private volatile bool _isScanning;
     private int _scanProgressPercent;
     private int _totalScanSteps;
     private int _completedScanSteps;
+    private string? _currentScanPath;
 
     public bool IsSearchEnabled => _isSearchEnabled;
     public bool IsScanComplete => _isScanComplete;
@@ -35,8 +50,16 @@ public sealed class SystemIndexService : IDisposable
         }
     }
 
-    public IReadOnlyList<string> WatchPaths { get; } = GetPriorityPaths();
-    public IReadOnlyList<string> ScanRoots { get; } = GetScanRoots();
+    public IReadOnlyList<string> WatchPaths => FilterScanPaths(GetPriorityPaths());
+    public IReadOnlyList<string> ScanRoots => FilterScanPaths(GetAllScanRoots());
+
+    public void ConfigureExclusions(AppSettings settings)
+    {
+        _exclusions = IndexExclusionPolicy.FromSettings(settings);
+        PurgeExcludedEntries();
+    }
+
+    public bool IsPathExcluded(string path) => _exclusions.IsPathExcluded(path);
 
     public event EventHandler? SearchEnabled;
     public event EventHandler<IndexProgressEventArgs>? IndexProgress;
@@ -59,8 +82,8 @@ public sealed class SystemIndexService : IDisposable
         lock (_lock)
         {
             _entries.Clear();
+            _indexedRoots.Clear();
             _isScanComplete = false;
-            _isSearchEnabled = false;
         }
 
         _scanProgressPercent = 0;
@@ -68,27 +91,60 @@ public sealed class SystemIndexService : IDisposable
         StartBackgroundScan();
     }
 
-    public IReadOnlyList<FileEntry> Search(string query, bool caseSensitive)
+    public IReadOnlyList<FileEntry> Search(string query, bool caseSensitive, bool useRegex, Regex? regex)
     {
-        FileEntry[] snapshot;
-        lock (_lock)
-            snapshot = _entries.Values.ToArray();
-
-        return _searchService.Search(snapshot, query, caseSensitive);
+        var snapshot = CreateSearchSnapshot();
+        return _searchService.Search(snapshot, query, caseSensitive, useRegex, regex);
     }
 
     public SearchBatchResult SearchBatch(
         string query,
         bool caseSensitive,
+        bool useRegex,
+        Regex? regex,
         int startOffset,
         int batchSize,
         List<(FileEntry Entry, int Score)>? existingTop = null)
     {
-        FileEntry[] snapshot;
-        lock (_lock)
-            snapshot = _entries.Values.ToArray();
+        var snapshot = CreateSearchSnapshot();
+        return _searchService.SearchBatch(
+            snapshot, query, caseSensitive, useRegex, regex, startOffset, batchSize, existingTop);
+    }
 
-        return _searchService.SearchBatch(snapshot, query, caseSensitive, startOffset, batchSize, existingTop);
+    private FileEntry[] CreateSearchSnapshot()
+    {
+        lock (_lock)
+        {
+            return _entries.Values
+                .OrderBy(static entry => entry.FullPath, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+    }
+
+    public void RequestResyncAllRoots()
+    {
+        foreach (var root in ScanRoots)
+            RequestResyncPath(root);
+    }
+
+    public void ScanMissingDriveRoots()
+    {
+        if (_isScanning)
+            return;
+
+        foreach (var root in ScanRoots)
+        {
+            var normalizedRoot = NormalizeDirectoryPrefix(root);
+            if (normalizedRoot is null)
+                continue;
+
+            bool alreadyIndexed;
+            lock (_lock)
+                alreadyIndexed = _indexedRoots.Contains(normalizedRoot);
+
+            if (!alreadyIndexed)
+                RequestResyncPath(root);
+        }
     }
 
     public void ApplyBatchChanges(IReadOnlyList<string> removes, IReadOnlyList<string> adds)
@@ -103,6 +159,9 @@ public sealed class SystemIndexService : IDisposable
 
             foreach (var path in adds)
             {
+                if (_exclusions.IsPathExcluded(path))
+                    continue;
+
                 if (File.Exists(path))
                 {
                     var entry = CreateEntry(path, isDirectory: false);
@@ -124,6 +183,9 @@ public sealed class SystemIndexService : IDisposable
     public void RequestResyncPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return;
+
+        if (_exclusions.IsPathExcluded(path))
             return;
 
         lock (_resyncLock)
@@ -162,8 +224,7 @@ public sealed class SystemIndexService : IDisposable
         try
         {
             Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
-            var scanned = ScanTree(path, CancellationToken.None);
-            MergePathEntries(path, scanned);
+            ResyncPath(path);
             IndexUpdated?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception)
@@ -178,6 +239,28 @@ public sealed class SystemIndexService : IDisposable
         }
     }
 
+    private void ResyncPath(string root)
+    {
+        var normalizedRoot = NormalizeDirectoryPrefix(root);
+        if (normalizedRoot is null)
+            return;
+
+        lock (_lock)
+        {
+            var toRemove = _entries.Keys
+                .Where(k => k.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var key in toRemove)
+                _entries.Remove(key);
+        }
+
+        ScanTree(root, CancellationToken.None, MergeEntriesBatch);
+
+        lock (_lock)
+            _indexedRoots.Add(normalizedRoot);
+    }
+
     private void RunScan(CancellationToken cancellationToken)
     {
         _isScanning = true;
@@ -185,11 +268,16 @@ public sealed class SystemIndexService : IDisposable
 
         try
         {
-            _totalScanSteps = WatchPaths.Count + ScanRoots.Count;
+            lock (_lock)
+                _indexedRoots.Clear();
+
+            var priorityPaths = WatchPaths;
+            var scanRoots = ScanRoots;
+            _totalScanSteps = priorityPaths.Count + scanRoots.Count;
             if (_totalScanSteps <= 0)
                 _totalScanSteps = 1;
 
-            foreach (var path in WatchPaths)
+            foreach (var path in priorityPaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 ScanAndMerge(path, cancellationToken);
@@ -198,10 +286,9 @@ public sealed class SystemIndexService : IDisposable
 
             EnableSearchIfNeeded();
 
-            foreach (var root in ScanRoots)
+            foreach (var root in scanRoots)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ReportProgress(root, false);
                 ScanAndMerge(root, cancellationToken);
             }
 
@@ -216,26 +303,68 @@ public sealed class SystemIndexService : IDisposable
         finally
         {
             _isScanning = false;
+            _currentScanPath = null;
             Thread.CurrentThread.Priority = ThreadPriority.Normal;
         }
     }
 
     private void ScanAndMerge(string root, CancellationToken cancellationToken)
     {
+        if (_exclusions.IsPathExcluded(root))
+        {
+            AdvanceScanProgress(root);
+            return;
+        }
+
         if (!Directory.Exists(root))
         {
             AdvanceScanProgress(root);
             return;
         }
 
-        var scanned = ScanTree(root, cancellationToken);
-        lock (_lock)
+        _currentScanPath = root;
+        ScanTree(root, cancellationToken, MergeEntriesBatch);
+
+        var normalizedRoot = NormalizeDirectoryPrefix(root);
+        if (normalizedRoot is not null)
         {
-            foreach (var entry in scanned)
-                _entries[entry.FullPath] = entry;
+            lock (_lock)
+                _indexedRoots.Add(normalizedRoot);
         }
 
         AdvanceScanProgress(root);
+    }
+
+    private void MergeEntriesBatch(IReadOnlyList<FileEntry> batch)
+    {
+        if (batch.Count == 0)
+            return;
+
+        lock (_lock)
+        {
+            foreach (var entry in batch)
+                _entries[entry.FullPath] = entry;
+        }
+
+        EnableSearchIfNeeded();
+        ReportProgress(_currentScanPath, false);
+        NotifyIndexUpdatedIfNeeded();
+    }
+
+    private void NotifyIndexUpdatedIfNeeded()
+    {
+        var count = Count;
+        var now = DateTime.UtcNow;
+
+        if (count - _lastIndexUpdatedCount < 2000
+            && (now - _lastIndexUpdatedTime).TotalSeconds < 1)
+        {
+            return;
+        }
+
+        _lastIndexUpdatedCount = count;
+        _lastIndexUpdatedTime = now;
+        IndexUpdated?.Invoke(this, EventArgs.Empty);
     }
 
     private void AdvanceScanProgress(string? root)
@@ -245,80 +374,136 @@ public sealed class SystemIndexService : IDisposable
         ReportProgress(root, false);
     }
 
-    private void MergePathEntries(string root, List<FileEntry> scanned)
+    private void ScanTree(
+        string root,
+        CancellationToken cancellationToken,
+        Action<IReadOnlyList<FileEntry>> mergeBatch)
     {
-        var normalizedRoot = root.TrimEnd('\\') + "\\";
-
-        lock (_lock)
-        {
-            var toRemove = _entries.Keys
-                .Where(k => k.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            foreach (var key in toRemove)
-                _entries.Remove(key);
-
-            foreach (var entry in scanned)
-                _entries[entry.FullPath] = entry;
-        }
-    }
-
-    private List<FileEntry> ScanTree(string root, CancellationToken cancellationToken)
-    {
-        var results = new List<FileEntry>();
+        var batch = new List<FileEntry>(MergeBatchSize);
         var stack = new Stack<string>();
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         stack.Push(root);
+
+        void FlushBatch()
+        {
+            if (batch.Count == 0)
+                return;
+
+            mergeBatch(batch);
+            batch = new List<FileEntry>(MergeBatchSize);
+        }
 
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var directory = stack.Pop();
-            var normalizedDir = NormalizeDirectoryPath(directory);
+            var normalizedDir = TryNormalizeDirectoryPath(directory);
+            if (normalizedDir is null)
+                continue;
 
             if (!visited.Add(normalizedDir))
                 continue;
 
+            if (_exclusions.IsPathExcluded(normalizedDir))
+                continue;
+
+            if (!Directory.Exists(normalizedDir))
+                continue;
+
+            batch.Add(CreateEntry(normalizedDir, isDirectory: true));
+
             try
             {
-                results.Add(CreateEntry(normalizedDir, isDirectory: true));
-
-                foreach (var filePath in Directory.EnumerateFiles(normalizedDir))
+                foreach (var filePath in Directory.EnumerateFiles(normalizedDir, "*", DirectoryEnumerationOptions))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    if (_exclusions.IsPathExcluded(filePath))
+                        continue;
+
                     try
                     {
-                        results.Add(CreateEntry(filePath, isDirectory: false));
+                        batch.Add(CreateEntry(filePath, isDirectory: false));
                         MaybeYield(cancellationToken);
+
+                        if (batch.Count >= MergeBatchSize)
+                            FlushBatch();
                     }
                     catch (UnauthorizedAccessException)
                     {
                         // 접근 불가 파일은 건너뜀
                     }
-                }
-
-                foreach (var subDir in Directory.EnumerateDirectories(normalizedDir))
-                {
-                    stack.Push(subDir);
+                    catch (IOException)
+                    {
+                        // 경로 오류·잠긴 파일·경로 초과 등
+                    }
                 }
             }
             catch (UnauthorizedAccessException)
             {
-                // 접근 불가 폴더는 건너뜀
+                // 접근 불가 폴더의 파일 목록
             }
             catch (DirectoryNotFoundException)
             {
                 // 스캔 중 삭제된 폴더
             }
+            catch (IOException)
+            {
+                // 경로 오류
+            }
+
+            try
+            {
+                foreach (var subDir in Directory.EnumerateDirectories(normalizedDir, "*", DirectoryEnumerationOptions))
+                {
+                    if (_exclusions.IsPathExcluded(subDir))
+                        continue;
+
+                    var normalizedSubDir = TryNormalizeDirectoryPath(subDir);
+                    if (normalizedSubDir is null || visited.Contains(normalizedSubDir))
+                        continue;
+
+                    stack.Push(subDir);
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // 접근 불가 하위 폴더 목록
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // 스캔 중 삭제된 폴더
+            }
+            catch (IOException)
+            {
+                // 경로 오류
+            }
         }
 
-        return results;
+        FlushBatch();
     }
 
-    private static string NormalizeDirectoryPath(string path) =>
-        path.TrimEnd('\\', '/');
+    private static string? TryNormalizeDirectoryPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        try
+        {
+            return Path.GetFullPath(path.TrimEnd('\\', '/'));
+        }
+        catch
+        {
+            return path.TrimEnd('\\', '/');
+        }
+    }
+
+    private static string? NormalizeDirectoryPrefix(string path)
+    {
+        var normalized = TryNormalizeDirectoryPath(path);
+        return normalized is null ? null : normalized.TrimEnd('\\') + "\\";
+    }
 
     private void MaybeYield(CancellationToken cancellationToken)
     {
@@ -349,8 +534,8 @@ public sealed class SystemIndexService : IDisposable
         var now = DateTime.UtcNow;
 
         if (!isComplete
-            && count - _lastProgressReport < 1000
-            && (now - _lastProgressTime).TotalSeconds < 2)
+            && count - _lastProgressReport < 500
+            && (now - _lastProgressTime).TotalSeconds < 1)
         {
             return;
         }
@@ -410,18 +595,49 @@ public sealed class SystemIndexService : IDisposable
         return paths.OrderBy(p => p.Length).ToList();
     }
 
-    private static IReadOnlyList<string> GetScanRoots()
+    private void PurgeExcludedEntries()
+    {
+        List<string> toRemove;
+        lock (_lock)
+        {
+            toRemove = _entries.Keys
+                .Where(_exclusions.IsPathExcluded)
+                .ToList();
+
+            foreach (var key in toRemove)
+                _entries.Remove(key);
+        }
+
+        if (toRemove.Count > 0)
+            IndexUpdated?.Invoke(this, EventArgs.Empty);
+    }
+
+    private IReadOnlyList<string> FilterScanPaths(IEnumerable<string> paths) =>
+        paths.Where(path => !_exclusions.IsPathExcluded(path)).ToList();
+
+    private static IReadOnlyList<string> GetAllScanRoots()
     {
         var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var drive in DriveInfo.GetDrives())
         {
-            if (!drive.IsReady)
-                continue;
+            try
+            {
+                if (!drive.IsReady)
+                    continue;
 
-            var root = drive.RootDirectory.FullName;
-            if (!string.IsNullOrWhiteSpace(root))
-                roots.Add(root);
+                var root = drive.RootDirectory.FullName;
+                if (!string.IsNullOrWhiteSpace(root))
+                    roots.Add(root);
+            }
+            catch (IOException)
+            {
+                // 드라이브 정보를 읽을 수 없음
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // 드라이브 접근 불가
+            }
         }
 
         return roots.OrderBy(r => r, StringComparer.OrdinalIgnoreCase).ToList();

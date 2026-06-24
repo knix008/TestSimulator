@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Name="SettingsRoot"
         Width="440"
-        Height="760"
+        Height="820"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
@@ -76,11 +76,61 @@
                            Foreground="#888888"
                            Margin="22,0,0,4"
                            TextWrapping="Wrap"/>
+                <CheckBox x:Name="UseRegexSearchCheckBox"
+                          Margin="0,0,0,4"/>
+                <TextBlock x:Name="UseRegexSearchDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="22,0,0,4"
+                           TextWrapping="Wrap"/>
                 <TextBlock x:Name="SearchMultilingualNoteLabel"
                            FontSize="11"
                            Foreground="#888888"
                            Margin="0,0,0,16"
                            TextWrapping="Wrap"/>
+
+                <TextBlock x:Name="ExclusionLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="ExcludedDrivesDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="0,0,0,6"
+                           TextWrapping="Wrap"/>
+                <WrapPanel x:Name="ExcludedDrivesPanel" Margin="0,0,0,12"/>
+
+                <TextBlock x:Name="ExcludedDirectoriesLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="ExcludedDirectoriesDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="0,0,0,6"
+                           TextWrapping="Wrap"/>
+                <ListBox x:Name="ExcludedDirectoriesListBox"
+                         Height="72"
+                         Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="ExcludedDirectoryTextBox"
+                             MinHeight="24"
+                             VerticalContentAlignment="Center"/>
+                    <Button x:Name="BrowseExcludedDirectoryButton"
+                            Grid.Column="1"
+                            Margin="6,0,0,0"
+                            Padding="8,4"
+                            Click="BrowseExcludedDirectory_Click"/>
+                    <Button x:Name="AddExcludedDirectoryButton"
+                            Grid.Column="2"
+                            Margin="6,0,0,0"
+                            Padding="8,4"
+                            Click="AddExcludedDirectory_Click"/>
+                </Grid>
+                <Button x:Name="RemoveExcludedDirectoryButton"
+                        HorizontalAlignment="Left"
+                        Padding="8,4"
+                        Margin="0,0,0,16"
+                        Click="RemoveExcludedDirectory_Click"/>
 
                 <TextBlock x:Name="IndexProgressLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,4">

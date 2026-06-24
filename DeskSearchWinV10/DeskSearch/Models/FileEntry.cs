@@ -5,4 +5,6 @@ public sealed record FileEntry(string FullPath, string FileName, string Director
     public string SearchFileName { get; } = Helpers.SearchTextHelper.Normalize(FileName);
 
     public string SearchDirectory { get; } = Helpers.SearchTextHelper.Normalize(Directory);
+
+    public string SearchFullPath { get; } = Helpers.SearchTextHelper.Normalize(FullPath);
 }
