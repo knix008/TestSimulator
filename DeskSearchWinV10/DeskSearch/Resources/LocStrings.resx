@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="App_Title" xml:space="preserve"><value>DeskSearch</value></data>
+  <data name="Drag_Tooltip" xml:space="preserve"><value>드래그하여 이동</value></data>
+  <data name="Index_Starting" xml:space="preserve"><value>전체 시스템 인덱싱 시작...</value></data>
+  <data name="Index_Complete" xml:space="preserve"><value>{0:N0}개 항목 인덱싱 완료</value></data>
+  <data name="Index_InProgress" xml:space="preserve"><value>{0:N0}개 인덱싱 중 (백그라운드)</value></data>
+  <data name="Index_Indexing" xml:space="preserve"><value>인덱싱 중...</value></data>
+  <data name="Menu_ClearSearch" xml:space="preserve"><value>검색 초기화</value></data>
+  <data name="Menu_RefreshIndex" xml:space="preserve"><value>인덱스 새로고침</value></data>
+  <data name="Menu_OpenDesktop" xml:space="preserve"><value>바탕화면 폴더 열기</value></data>
+  <data name="Menu_ResetPosition" xml:space="preserve"><value>위치 초기화</value></data>
+  <data name="Menu_AboveOthers" xml:space="preserve"><value>다른 프로그램보다 위</value></data>
+  <data name="Menu_Settings" xml:space="preserve"><value>설정...</value></data>
+  <data name="Menu_Exit" xml:space="preserve"><value>종료</value></data>
+  <data name="Menu_Open" xml:space="preserve"><value>열기</value></data>
+  <data name="Menu_OpenFormat" xml:space="preserve"><value>열기  "{0}"</value></data>
+  <data name="Menu_ShowInFolder" xml:space="preserve"><value>폴더에서 보기</value></data>
+  <data name="Menu_CopyPath" xml:space="preserve"><value>경로 복사</value></data>
+  <data name="Menu_CopyFileName" xml:space="preserve"><value>파일 이름 복사</value></data>
+  <data name="Tray_ShowWindow" xml:space="preserve"><value>검색창 표시</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>DeskSearch 설정</value></data>
+  <data name="Settings_Header" xml:space="preserve"><value>프로그램 설정</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>언어</value></data>
+  <data name="Settings_Language_Korean" xml:space="preserve"><value>한국어</value></data>
+  <data name="Settings_Language_English" xml:space="preserve"><value>English</value></data>
+  <data name="Settings_BackgroundColor" xml:space="preserve"><value>배경색</value></data>
+  <data name="Settings_PickColor" xml:space="preserve"><value>색 선택...</value></data>
+  <data name="Settings_Preset_White" xml:space="preserve"><value>흰색</value></data>
+  <data name="Settings_Preset_LightGray" xml:space="preserve"><value>연회색</value></data>
+  <data name="Settings_Preset_LightYellow" xml:space="preserve"><value>연노랑</value></data>
+  <data name="Settings_Preset_LightBlue" xml:space="preserve"><value>연파랑</value></data>
+  <data name="Settings_Preset_Dark" xml:space="preserve"><value>어두움</value></data>
+  <data name="Settings_BackgroundOpacity" xml:space="preserve"><value>배경 불투명도</value></data>
+  <data name="Settings_BorderColor" xml:space="preserve"><value>테두리색</value></data>
+  <data name="Settings_TextColor" xml:space="preserve"><value>글자색</value></data>
+  <data name="Settings_SearchPreview" xml:space="preserve"><value>검색어 미리보기</value></data>
+  <data name="Settings_WindowOpacity" xml:space="preserve"><value>창 불투명도</value></data>
+  <data name="Settings_DisplayPriority" xml:space="preserve"><value>창 표시 우선순위</value></data>
+  <data name="Settings_AboveOthers" xml:space="preserve"><value>다른 프로그램보다 위</value></data>
+  <data name="Settings_AboveOthersDesc" xml:space="preserve"><value>검색창이 다른 프로그램 창 위에 항상 표시됩니다.</value></data>
+  <data name="Settings_NormalPriority" xml:space="preserve"><value>일반 우선 순위</value></data>
+  <data name="Settings_NormalPriorityDesc" xml:space="preserve"><value>일반 창과 동일한 순서로 표시됩니다.</value></data>
+  <data name="Settings_Save" xml:space="preserve"><value>저장</value></data>
+  <data name="Settings_Cancel" xml:space="preserve"><value>취소</value></data>
+</root>

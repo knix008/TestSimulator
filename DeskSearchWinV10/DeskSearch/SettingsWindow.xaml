@@ -1,0 +1,204 @@
+<Window x:Class="DeskSearch.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Name="SettingsRoot"
+        Width="440"
+        Height="620"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#FAFAFA">
+    <Window.Resources>
+        <Style x:Key="ColorSwatchButton" TargetType="Button">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#BBBBBB"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="SwatchBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                SnapsToDevicePixels="True"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SwatchBorder" Property="BorderBrush" Value="#666666"/>
+                                <Setter TargetName="SwatchBorder" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="SwatchBorder" Property="BorderBrush" Value="#0078D4"/>
+                                <Setter TargetName="SwatchBorder" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="20,20,16,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="HeaderText"
+                   Grid.Row="0"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,16"/>
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      CanContentScroll="False"
+                      Padding="0,0,4,0">
+            <StackPanel Margin="0,0,12,8">
+                <TextBlock x:Name="LanguageLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <RadioButton x:Name="LanguageKoreanRadio"
+                             GroupName="Language"
+                             Margin="0,0,0,4"/>
+                <RadioButton x:Name="LanguageEnglishRadio"
+                             GroupName="Language"
+                             Margin="0,0,0,16"/>
+
+                <TextBlock x:Name="BackgroundColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="BackgroundPreview"
+                            Height="32"
+                            CornerRadius="6"
+                            BorderBrush="#CCCCCC"
+                            BorderThickness="1"
+                            Margin="0,0,8,0"/>
+                    <Button x:Name="PickBackgroundColorButton"
+                            Grid.Column="1"
+                            MinWidth="90"
+                            Padding="10,4"
+                            Click="PickBackgroundColor_Click"/>
+                </Grid>
+                <WrapPanel x:Name="BackgroundSwatchPanel" Margin="0,0,0,12"/>
+
+                <TextBlock x:Name="BackgroundOpacityLabel" Margin="0,0,0,4"/>
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="48"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider x:Name="BackgroundOpacitySlider"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Minimum="40" Maximum="100" TickFrequency="5"
+                            ValueChanged="OpacitySlider_ValueChanged"/>
+                    <TextBlock x:Name="BackgroundOpacityValueLabel"
+                               Grid.Column="1"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <TextBlock x:Name="BorderColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="BorderPreview"
+                            Height="32"
+                            CornerRadius="6"
+                            BorderBrush="#CCCCCC"
+                            BorderThickness="1"
+                            Margin="0,0,8,0"/>
+                    <Button x:Name="PickBorderColorButton"
+                            Grid.Column="1"
+                            MinWidth="90"
+                            Padding="10,4"
+                            Click="PickBorderColor_Click"/>
+                </Grid>
+                <WrapPanel x:Name="BorderSwatchPanel" Margin="0,0,0,12"/>
+
+                <TextBlock x:Name="TextColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Height="32"
+                            CornerRadius="6"
+                            BorderBrush="#CCCCCC"
+                            BorderThickness="1"
+                            Background="White"
+                            Margin="0,0,8,0">
+                        <TextBlock x:Name="TextPreview"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0"/>
+                    </Border>
+                    <Button x:Name="PickTextColorButton"
+                            Grid.Column="1"
+                            MinWidth="90"
+                            Padding="10,4"
+                            Click="PickTextColor_Click"/>
+                </Grid>
+                <WrapPanel x:Name="TextSwatchPanel" Margin="0,0,0,12"/>
+
+                <TextBlock x:Name="WindowOpacityLabel" Margin="0,0,0,4"/>
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="48"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider x:Name="WindowOpacitySlider"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Minimum="50" Maximum="100" TickFrequency="5"
+                            ValueChanged="OpacitySlider_ValueChanged"/>
+                    <TextBlock x:Name="WindowOpacityValueLabel"
+                               Grid.Column="1"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <TextBlock x:Name="DisplayPriorityLabel" FontWeight="SemiBold" Margin="0,4,0,6"/>
+                <RadioButton x:Name="PriorityAboveOthersRadio"
+                             GroupName="DisplayPriority"
+                             Margin="0,0,0,4"/>
+                <TextBlock x:Name="AboveOthersDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="22,0,0,8"
+                           TextWrapping="Wrap"/>
+                <RadioButton x:Name="PriorityNormalRadio"
+                             GroupName="DisplayPriority"
+                             Margin="0,0,0,4"/>
+                <TextBlock x:Name="NormalPriorityDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="22,0,0,4"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,16,12,0">
+            <Button x:Name="CancelButton"
+                    MinWidth="80"
+                    Padding="12,4"
+                    Margin="0,0,8,0"
+                    Click="Cancel_Click"/>
+            <Button x:Name="SaveButton"
+                    MinWidth="80"
+                    Padding="12,4"
+                    IsDefault="True"
+                    Click="Save_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

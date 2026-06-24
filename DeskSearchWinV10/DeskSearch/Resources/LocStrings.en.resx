@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="App_Title" xml:space="preserve"><value>DeskSearch</value></data>
+  <data name="Drag_Tooltip" xml:space="preserve"><value>Drag to move</value></data>
+  <data name="Index_Starting" xml:space="preserve"><value>Starting full system indexing...</value></data>
+  <data name="Index_Complete" xml:space="preserve"><value>{0:N0} items indexed</value></data>
+  <data name="Index_InProgress" xml:space="preserve"><value>{0:N0} indexing (background)</value></data>
+  <data name="Index_Indexing" xml:space="preserve"><value>Indexing...</value></data>
+  <data name="Menu_ClearSearch" xml:space="preserve"><value>Clear search</value></data>
+  <data name="Menu_RefreshIndex" xml:space="preserve"><value>Refresh index</value></data>
+  <data name="Menu_OpenDesktop" xml:space="preserve"><value>Open Desktop folder</value></data>
+  <data name="Menu_ResetPosition" xml:space="preserve"><value>Reset position</value></data>
+  <data name="Menu_AboveOthers" xml:space="preserve"><value>Above other programs</value></data>
+  <data name="Menu_Settings" xml:space="preserve"><value>Settings...</value></data>
+  <data name="Menu_Exit" xml:space="preserve"><value>Exit</value></data>
+  <data name="Menu_Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Menu_OpenFormat" xml:space="preserve"><value>Open  "{0}"</value></data>
+  <data name="Menu_ShowInFolder" xml:space="preserve"><value>Show in folder</value></data>
+  <data name="Menu_CopyPath" xml:space="preserve"><value>Copy path</value></data>
+  <data name="Menu_CopyFileName" xml:space="preserve"><value>Copy file name</value></data>
+  <data name="Tray_ShowWindow" xml:space="preserve"><value>Show search window</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>DeskSearch Settings</value></data>
+  <data name="Settings_Header" xml:space="preserve"><value>Program Settings</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Settings_Language_Korean" xml:space="preserve"><value>한국어</value></data>
+  <data name="Settings_Language_English" xml:space="preserve"><value>English</value></data>
+  <data name="Settings_BackgroundColor" xml:space="preserve"><value>Background color</value></data>
+  <data name="Settings_PickColor" xml:space="preserve"><value>Pick color...</value></data>
+  <data name="Settings_Preset_White" xml:space="preserve"><value>White</value></data>
+  <data name="Settings_Preset_LightGray" xml:space="preserve"><value>Light gray</value></data>
+  <data name="Settings_Preset_LightYellow" xml:space="preserve"><value>Light yellow</value></data>
+  <data name="Settings_Preset_LightBlue" xml:space="preserve"><value>Light blue</value></data>
+  <data name="Settings_Preset_Dark" xml:space="preserve"><value>Dark</value></data>
+  <data name="Settings_BackgroundOpacity" xml:space="preserve"><value>Background opacity</value></data>
+  <data name="Settings_BorderColor" xml:space="preserve"><value>Border color</value></data>
+  <data name="Settings_TextColor" xml:space="preserve"><value>Text color</value></data>
+  <data name="Settings_SearchPreview" xml:space="preserve"><value>Search preview</value></data>
+  <data name="Settings_WindowOpacity" xml:space="preserve"><value>Window opacity</value></data>
+  <data name="Settings_DisplayPriority" xml:space="preserve"><value>Window display priority</value></data>
+  <data name="Settings_AboveOthers" xml:space="preserve"><value>Above other programs</value></data>
+  <data name="Settings_AboveOthersDesc" xml:space="preserve"><value>The search window stays on top of other program windows.</value></data>
+  <data name="Settings_NormalPriority" xml:space="preserve"><value>Normal priority</value></data>
+  <data name="Settings_NormalPriorityDesc" xml:space="preserve"><value>Displayed in the same order as ordinary windows.</value></data>
+  <data name="Settings_Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Settings_Cancel" xml:space="preserve"><value>Cancel</value></data>
+</root>

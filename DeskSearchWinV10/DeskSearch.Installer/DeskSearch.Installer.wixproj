@@ -1,0 +1,22 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platforms>x64</Platforms>
+    <OutputName>DeskSearchSetup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+
+  <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="cmd /c taskkill /IM DeskSearch.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\DeskSearch\DeskSearch.csproj&quot; -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true" />
+  </Target>
+
+  <!-- Debug 구성에서는 MSI 빌드 생략 -->
+  <Target Name="Build" Condition="'$(Configuration)' != 'Release'" />
+  <Target Name="Rebuild" Condition="'$(Configuration)' != 'Release'" />
+
+</Project>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package Name="DeskSearch"
+           Manufacturer="DeskSearch"
+           Version="1.0.0.0"
+           Scope="perMachine"
+           UpgradeCode="B8F3E2A1-4C5D-6E7F-8901-234567890ABC">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of DeskSearch is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\DeskSearch\Assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="DeskSearch" />
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="DeskSearch" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="DeskSearchComponents" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="DeskSearchComponents" Directory="INSTALLFOLDER">
+      <Files Include="..\DeskSearch\bin\Release\net8.0-windows\win-x64\publish\**">
+        <Exclude Files="..\DeskSearch\bin\Release\net8.0-windows\win-x64\publish\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>

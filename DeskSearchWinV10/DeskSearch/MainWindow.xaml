@@ -1,0 +1,156 @@
+﻿<Window x:Class="DeskSearch.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DeskSearch"
+        Width="340"
+        SizeToContent="Height"
+        MinHeight="44"
+        MaxHeight="420"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="False"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing"
+        Closed="Window_Closed"
+        LocationChanged="Window_LocationChanged">
+    <Window.Resources>
+        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#222222"/>
+        <SolidColorBrush x:Key="SubTextBrush" Color="#888888"/>
+    </Window.Resources>
+    <Border x:Name="RootBorder"
+            Background="#F2FFFFFF"
+            BorderBrush="#33000000"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="10,8"
+            PreviewMouseLeftButtonDown="RootBorder_PreviewMouseLeftButtonDown">
+        <StackPanel>
+            <Grid MinHeight="30" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border x:Name="DragHandle"
+                        Grid.Column="0"
+                        Width="18"
+                        Height="30"
+                        Cursor="SizeAll"
+                        ToolTip=""
+                        Background="Transparent"
+                        VerticalAlignment="Center"
+                        Margin="-4,0,0,0"
+                        MouseLeftButtonDown="DragHandle_MouseLeftButtonDown">
+                    <TextBlock Text="&#xE700;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="12"
+                               Foreground="#999999"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+
+                <TextBlock Grid.Column="1"
+                           Text="&#xE721;"
+                           FontFamily="Segoe MDL2 Assets"
+                           FontSize="14"
+                           Foreground="#666666"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,8,0"/>
+
+                <TextBox x:Name="SearchBox"
+                         Grid.Column="2"
+                         Height="30"
+                         VerticalAlignment="Center"
+                         PreviewMouseLeftButtonDown="SearchBox_PreviewMouseLeftButtonDown"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         FontSize="14"
+                         Padding="0"
+                         VerticalContentAlignment="Center"
+                         CaretBrush="#333333"
+                         Foreground="{DynamicResource PrimaryTextBrush}"
+                         IsEnabled="False"
+                         TextChanged="SearchBox_TextChanged"
+                         KeyDown="SearchBox_KeyDown"/>
+            </Grid>
+
+            <ListBox x:Name="ResultsList"
+                     Margin="0,8,0,0"
+                     MaxHeight="320"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     Visibility="Collapsed"
+                     MouseDoubleClick="ResultsList_MouseDoubleClick"
+                     KeyDown="ResultsList_KeyDown">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="4,2">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8B7;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13"
+                                       Foreground="#0078D4"
+                                       Margin="0,0,6,0"
+                                       VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDirectory}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding FileName}"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                            <TextBlock Text="{Binding Directory}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource SubTextBrush}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding" Value="4,6"/>
+                        <EventSetter Event="PreviewMouseRightButtonDown" Handler="ResultItem_PreviewMouseRightButtonDown"/>
+                        <EventSetter Event="PreviewMouseLeftButtonDown" Handler="ResultItem_PreviewMouseLeftButtonDown"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="ItemBorder"
+                                            Background="Transparent"
+                                            CornerRadius="6"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#15000000"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#220078D4"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+        </StackPanel>
+    </Border>
+</Window>
