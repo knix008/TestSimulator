@@ -628,7 +628,7 @@ public sealed class RepositoryFileListView : Panel
             : Math.Max(Font.SizeInPoints + StatusBadgeFontSizeBoost, StatusBadgeMinimumFontSize);
 
     private static bool IsSymbolStatusBadge(string badge) =>
-        badge is "X";
+        badge is "X" or PathGitStatus.ChangedBadge;
 
     private void HeaderPanel_Paint(object? sender, PaintEventArgs e)
     {

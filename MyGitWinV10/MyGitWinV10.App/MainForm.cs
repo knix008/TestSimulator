@@ -2773,7 +2773,9 @@ public partial class MainForm : Form
         }
     }
 
-    private void ExportCommitContextMenuItem_Click(object? sender, EventArgs e)
+    private void ExportCommitContextMenuItem_Click(object? sender, EventArgs e) => _ = ExportCommitAsync();
+
+    private async Task ExportCommitAsync()
     {
         if (_gitService.Repo is null || _currentCommit is not Commit commit)
         {
@@ -2806,21 +2808,108 @@ public partial class MainForm : Form
             }
         }
 
+        string shortSha = commit.Sha[..7];
+        BeginStatusBarProgress($"Exporting commit {shortSha}... 0%");
         try
         {
-            CommitExportService.Export(_gitService.Repo, commit, destination);
-            statusLabel.Text = $"Exported {commit.Sha[..7]} to {destination}";
-            ShowOperationComplete(
-                "Export Complete",
-                "The commit snapshot was exported successfully.",
-                null,
-                new OperationDetail("Commit", $"{commit.Sha[..7]} — {commit.MessageShort.Trim()}"),
-                new OperationDetail("Author", commit.Author.Name),
-                new OperationDetail("Folder", destination));
+            await OperationProgress.RunAsync(
+                this,
+                $"Exporting commit {shortSha}...",
+                reporter => Task.Run(
+                    () => _gitService.RunLocked(repo => CommitExportService.Export(repo, commit, destination, reporter)),
+                    reporter.CancellationToken),
+                onStatusUpdate: UpdateStatusBarProgress);
+
+            EndStatusBarProgress($"Exported {shortSha} to {destination}");
+            BeginInvoke(() => ShowExportCompleteDialog(shortSha, commit, destination));
+        }
+        catch (OperationCanceledException)
+        {
+            EndStatusBarProgress("Export cancelled");
         }
         catch (Exception ex)
         {
+            EndStatusBarProgress();
             MessageBox.Show(this, ex.Message, "Export Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void ShowExportCompleteDialog(string shortSha, Commit commit, string destination)
+    {
+        ShowOperationComplete(
+            "Export Complete",
+            "The commit snapshot was exported successfully.",
+            null,
+            new OperationDetail("Commit", $"{shortSha} — {commit.MessageShort.Trim()}"),
+            new OperationDetail("Author", commit.Author.Name),
+            new OperationDetail("Folder", destination));
+    }
+
+    private void BeginStatusBarProgress(string message)
+    {
+        statusLabel.Text = message;
+        repoLoadProgressBar.Style = ProgressBarStyle.Marquee;
+        repoLoadProgressBar.Visible = true;
+    }
+
+    private void UpdateStatusBarProgress(OperationProgressUpdate update)
+    {
+        if (update.Percent is int percent)
+        {
+            repoLoadProgressBar.Style = ProgressBarStyle.Continuous;
+            repoLoadProgressBar.Maximum = 100;
+            repoLoadProgressBar.Value = Math.Clamp(percent, 0, 100);
+            repoLoadProgressBar.Visible = true;
+        }
+        else if (!repoLoadProgressBar.Visible)
+        {
+            repoLoadProgressBar.Style = ProgressBarStyle.Marquee;
+            repoLoadProgressBar.Visible = true;
+        }
+
+        if (!string.IsNullOrEmpty(update.Message))
+        {
+            statusLabel.Text = update.Message;
+        }
+        else if (update.Percent is int percentOnly)
+        {
+            statusLabel.Text = AppendPercentToStatus(statusLabel.Text ?? string.Empty, percentOnly);
+        }
+    }
+
+    private static string AppendPercentToStatus(string currentText, int percent)
+    {
+        if (string.IsNullOrWhiteSpace(currentText))
+        {
+            return $"{percent}%";
+        }
+
+        int percentIndex = currentText.LastIndexOf('%');
+        if (percentIndex > 0)
+        {
+            int start = percentIndex - 1;
+            while (start >= 0 && char.IsDigit(currentText[start]))
+            {
+                start--;
+            }
+
+            if (start < percentIndex - 1)
+            {
+                return currentText[..(start + 1)] + $"{percent}%" + currentText[(percentIndex + 1)..];
+            }
+        }
+
+        return $"{currentText.TrimEnd()} — {percent}%";
+    }
+
+    private void EndStatusBarProgress(string? finalMessage = null)
+    {
+        repoLoadProgressBar.Visible = false;
+        repoLoadProgressBar.Style = ProgressBarStyle.Marquee;
+        repoLoadProgressBar.Value = 0;
+        if (finalMessage is not null)
+        {
+            statusLabel.Text = finalMessage;
         }
     }
 

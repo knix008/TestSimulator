@@ -19,7 +19,9 @@ partial class DelayedProgressForm
     private void InitializeComponent()
     {
         messageLabel = new Label();
+        detailLabel = new Label();
         progressBar = new ProgressBar();
+        percentLabel = new Label();
         stopButton = new Button();
         SuspendLayout();
         //
@@ -28,16 +30,35 @@ partial class DelayedProgressForm
         messageLabel.AutoEllipsis = true;
         messageLabel.Location = new Point(20, 20);
         messageLabel.Name = "messageLabel";
-        messageLabel.Size = new Size(380, 40);
+        messageLabel.Size = new Size(380, 32);
         messageLabel.Text = "Working...";
+        //
+        // detailLabel
+        //
+        detailLabel.AutoEllipsis = true;
+        detailLabel.ForeColor = Color.FromArgb(100, 116, 139);
+        detailLabel.Location = new Point(20, 54);
+        detailLabel.Name = "detailLabel";
+        detailLabel.Size = new Size(380, 20);
+        detailLabel.Text = string.Empty;
         //
         // progressBar
         //
-        progressBar.Location = new Point(20, 68);
+        progressBar.Location = new Point(20, 82);
         progressBar.MarqueeAnimationSpeed = 30;
         progressBar.Name = "progressBar";
-        progressBar.Size = new Size(380, 18);
+        progressBar.Size = new Size(320, 18);
         progressBar.Style = ProgressBarStyle.Marquee;
+        //
+        // percentLabel
+        //
+        percentLabel.AutoSize = true;
+        percentLabel.Location = new Point(348, 82);
+        percentLabel.Name = "percentLabel";
+        percentLabel.Size = new Size(28, 15);
+        percentLabel.Text = string.Empty;
+        percentLabel.TextAlign = ContentAlignment.MiddleRight;
+        percentLabel.Visible = false;
         //
         // stopButton
         //
@@ -45,7 +66,7 @@ partial class DelayedProgressForm
         stopButton.BackColor = Color.FromArgb(220, 38, 38);
         stopButton.FlatStyle = FlatStyle.Flat;
         stopButton.ForeColor = Color.White;
-        stopButton.Location = new Point(325, 98);
+        stopButton.Location = new Point(325, 112);
         stopButton.Name = "stopButton";
         stopButton.Size = new Size(75, 28);
         stopButton.TabIndex = 0;
@@ -58,10 +79,12 @@ partial class DelayedProgressForm
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = Color.FromArgb(250, 250, 251);
-        ClientSize = new Size(420, 140);
+        ClientSize = new Size(420, 154);
         ControlBox = false;
         Controls.Add(stopButton);
+        Controls.Add(percentLabel);
         Controls.Add(progressBar);
+        Controls.Add(detailLabel);
         Controls.Add(messageLabel);
         Font = new Font("Segoe UI", 9F);
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -78,6 +101,8 @@ partial class DelayedProgressForm
     #endregion
 
     private Label messageLabel;
+    private Label detailLabel;
     private ProgressBar progressBar;
+    private Label percentLabel;
     private Button stopButton;
 }

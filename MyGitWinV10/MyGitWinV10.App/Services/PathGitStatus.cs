@@ -15,6 +15,7 @@ public sealed class PathGitStatus
         string.Equals(WorkTree, IgnoredWorkTree, StringComparison.Ordinal) && string.IsNullOrEmpty(Staged);
 
     public const string IgnoredWorkTree = "Ignored";
+    public const string ChangedBadge = "+/-";
 
     public static PathGitStatus Ignored { get; } = new() { WorkTree = IgnoredWorkTree };
 
@@ -55,7 +56,7 @@ public sealed class PathGitStatus
                     "Renamed" => "R",
                     "Type Changed" => "T",
                     "Conflicted" => "!",
-                    _ => "C"
+                    _ => ChangedBadge
                 };
             }
 
@@ -64,7 +65,7 @@ public sealed class PathGitStatus
                 "Deleted" => "D",
                 "Renamed" => "R",
                 "Type Changed" => "T",
-                _ => "C"
+                _ => ChangedBadge
             };
         }
     }
