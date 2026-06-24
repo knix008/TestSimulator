@@ -59,6 +59,11 @@
   <data name="Settings_BrowseFolder" xml:space="preserve"><value>Browse...</value></data>
   <data name="Settings_AddExcluded" xml:space="preserve"><value>Add</value></data>
   <data name="Settings_RemoveExcluded" xml:space="preserve"><value>Remove</value></data>
+  <data name="Settings_PeriodicResync" xml:space="preserve"><value>Indexing interval</value></data>
+  <data name="Settings_PeriodicResyncDesc" xml:space="preserve"><value>How often to re-scan all drives in the background. File watching still applies between runs. Set to Off to disable scheduled re-indexing.</value></data>
+  <data name="Settings_Resync_Disabled" xml:space="preserve"><value>Off</value></data>
+  <data name="Settings_Resync_Hours" xml:space="preserve"><value>Every {0} hours</value></data>
+  <data name="Settings_Resync_Weekly" xml:space="preserve"><value>Every week</value></data>
   <data name="Settings_IndexProgress" xml:space="preserve"><value>Search (indexing) progress</value></data>
   <data name="Settings_ReSearch" xml:space="preserve"><value>Re-search</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>

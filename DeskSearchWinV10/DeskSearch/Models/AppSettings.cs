@@ -1,5 +1,7 @@
 namespace DeskSearch.Models;
 
+using DeskSearch.Services;
+
 public sealed class AppSettings
 {
     public string BackgroundColor { get; set; } = "#FFFFFF";
@@ -17,6 +19,7 @@ public sealed class AppSettings
     public bool CaseSensitiveSearch { get; set; }
     public bool UseRegexSearch { get; set; }
     public bool RunAtStartup { get; set; } = true;
+    public int PeriodicResyncHours { get; set; } = IndexResyncPolicy.DefaultPeriodicResyncHours;
     public List<string> ExcludedDrives { get; set; } = [];
     public List<string> ExcludedDirectories { get; set; } = [];
 
@@ -37,6 +40,7 @@ public sealed class AppSettings
         CaseSensitiveSearch = CaseSensitiveSearch,
         UseRegexSearch = UseRegexSearch,
         RunAtStartup = RunAtStartup,
+        PeriodicResyncHours = PeriodicResyncHours,
         ExcludedDrives = [.. ExcludedDrives],
         ExcludedDirectories = [.. ExcludedDirectories]
     };

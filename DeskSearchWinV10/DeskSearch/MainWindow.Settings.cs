@@ -153,6 +153,7 @@ public partial class MainWindow
         RestoreWindowLayout();
         ApplySavedResultsWindowLayout();
         _indexService.ConfigureExclusions(_settingsService.Current);
+        _watcherService.ConfigurePeriodicResync(_settingsService.Current.PeriodicResyncHours);
         RefreshLocalization();
     }
 
@@ -244,6 +245,8 @@ public partial class MainWindow
         ApplyCurrentWindowLayout(dialog.Settings);
         _settingsService.Save(dialog.Settings);
         ApplySettings(_settingsService.Current);
+
+        _watcherService.ConfigurePeriodicResync(_settingsService.Current.PeriodicResyncHours);
 
         var exclusionsChanged = !previousExclusions.Equals(
             IndexExclusionPolicy.FromSettings(_settingsService.Current));

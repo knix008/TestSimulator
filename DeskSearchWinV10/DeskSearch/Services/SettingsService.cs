@@ -67,6 +67,7 @@ public sealed class SettingsService
 
         settings.WindowOpacity = Math.Clamp(settings.WindowOpacity, 50, 100);
         settings.BackgroundOpacity = Math.Clamp(settings.BackgroundOpacity, 0, 100);
+        settings.PeriodicResyncHours = IndexResyncPolicy.Normalize(settings.PeriodicResyncHours);
 
         if (rawJson is null)
             return;

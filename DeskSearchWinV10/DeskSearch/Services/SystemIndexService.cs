@@ -1,4 +1,5 @@
 using System.IO.Enumeration;
+using DeskSearch.Helpers;
 using DeskSearch.Models;
 namespace DeskSearch.Services;
 
@@ -22,7 +23,7 @@ public sealed class SystemIndexService : IDisposable
     private readonly object _progressLock = new();
     private IndexExclusionPolicy _exclusions = IndexExclusionPolicy.Empty;
 
-    private int _lastProgressReport;    private DateTime _lastProgressTime = DateTime.MinValue;
+    private int _lastProgressReport = -1;    private DateTime _lastProgressTime = DateTime.MinValue;
     private int _entriesSinceYield;
     private int _lastIndexUpdatedCount;
     private DateTime _lastIndexUpdatedTime = DateTime.MinValue;
@@ -32,8 +33,8 @@ public sealed class SystemIndexService : IDisposable
     private int _scanProgressPercent;
     private int _totalScanSteps;
     private int _completedScanSteps;
+    private int _currentStepIndexedEntries;
     private string? _currentScanPath;
-    private long _approximateScanCount;
 
     public SystemIndexService()
     {
@@ -74,10 +75,7 @@ public sealed class SystemIndexService : IDisposable
 
     public void StartBackgroundScan()
     {
-        _isScanComplete = false;
-        _scanProgressPercent = 0;
-        _completedScanSteps = 0;
-        _indexWorker.EnqueueExclusive(RunScan);
+        _indexWorker.EnqueueExclusive(RunStartupIndexMaintenance);
     }
 
     public void RestartScan()
@@ -101,17 +99,14 @@ public sealed class SystemIndexService : IDisposable
         bool caseSensitive,
         ResolvedSearchQuery searchQuery)
     {
-        if (searchQuery.CanUseFts && _indexStore.IsFtsCurrent)
+        if (searchQuery.CanUseFts)
         {
-            var candidates = searchQuery.IsAndQuery
-                ? _indexStore.SearchLiteralFtsAnd(searchQuery.Terms.Select(term => term.Text).ToList())
-                : _indexStore.SearchLiteralFts(searchQuery.Terms[0].Text);
+            var terms = searchQuery.Terms
+                .Select(term => SearchTextHelper.Normalize(term.Text.Trim()))
+                .ToList();
 
-            return _searchService.Search(
-                candidates,
-                candidates.Count,
-                searchQuery,
-                caseSensitive);
+            var sqlResults = _indexStore.SearchSqlScored(terms, searchQuery.IsAndQuery, caseSensitive);
+            return _searchService.FilterRanked(sqlResults, searchQuery, caseSensitive);
         }
 
         return _searchService.Search(
@@ -130,28 +125,22 @@ public sealed class SystemIndexService : IDisposable
     {
         var totalCount = _indexStore.Count;
 
-        if (searchQuery.CanUseFts && _indexStore.IsFtsCurrent && afterScanId == 0)
+        if (searchQuery.CanUseFts && afterScanId == 0)
         {
-            var candidates = searchQuery.IsAndQuery
-                ? _indexStore.SearchLiteralFtsAnd(searchQuery.Terms.Select(term => term.Text).ToList())
-                : _indexStore.SearchLiteralFts(searchQuery.Terms[0].Text);
+            var terms = searchQuery.Terms
+                .Select(term => SearchTextHelper.Normalize(term.Text.Trim()))
+                .ToList();
 
-            var ftsResult = _searchService.SearchBatch(
-                candidates,
-                candidates.Count,
-                searchQuery,
-                caseSensitive,
-                startOffset: 0,
-                batchSize: candidates.Count,
-                existingTop);
+            var sqlResults = _indexStore.SearchSqlScored(terms, searchQuery.IsAndQuery, caseSensitive);
+            var results = _searchService.FilterRanked(sqlResults, searchQuery, caseSensitive);
 
             return new SearchBatchResult
             {
-                Results = ftsResult.Results,
+                Results = results,
                 NextOffset = totalCount,
                 NextScanId = 0,
                 IsComplete = true,
-                TopCandidates = ftsResult.TopCandidates
+                TopCandidates = []
             };
         }
 
@@ -326,29 +315,204 @@ public sealed class SystemIndexService : IDisposable
         MarkRootIndexed(normalizedRoot);
     }
 
+    private void RunStartupIndexMaintenance(CancellationToken cancellationToken)
+    {
+        ReconcileIndexMetadata();
+
+        if (Count == 0)
+        {
+            RunScan(cancellationToken);
+            return;
+        }
+
+        var pathsToScan = GetPathsNeedingScan();
+        if (pathsToScan.Count == 0)
+        {
+            CompleteStartupWithExistingIndex();
+            ScanMissingDriveRoots();
+            return;
+        }
+
+        RunPartialScan(pathsToScan, cancellationToken);
+        ScanMissingDriveRoots();
+    }
+
+    private void ReconcileIndexMetadata()
+    {
+        lock (_rootsLock)
+        {
+            if (Count == 0 && _indexedRoots.Count > 0)
+            {
+                _indexStore.ClearIndexedRoots();
+                _indexedRoots.Clear();
+            }
+        }
+
+        RestoreScannedPrefixesFromIndexedRoots();
+    }
+
+    private void RestoreScannedPrefixesFromIndexedRoots()
+    {
+        lock (_scannedPrefixesLock)
+        {
+            _scannedDirectoryPrefixes.Clear();
+
+            lock (_rootsLock)
+            {
+                foreach (var root in _indexedRoots)
+                    _scannedDirectoryPrefixes.Add(root);
+            }
+        }
+    }
+
+    private void CompleteStartupWithExistingIndex()
+    {
+        if (Count == 0)
+            return;
+
+        _isScanComplete = true;
+        _scanProgressPercent = 100;
+        _totalScanSteps = 1;
+        _completedScanSteps = 1;
+        EnableSearchIfNeeded();
+        ReportProgress(null, true, force: true);
+    }
+
+    private IReadOnlyList<string> GetPathsNeedingScan()
+    {
+        var paths = new List<string>();
+
+        foreach (var path in WatchPaths)
+        {
+            if (NeedsScan(path))
+                paths.Add(path);
+        }
+
+        foreach (var root in ScanRoots)
+        {
+            if (NeedsScan(root) && !paths.Contains(root, StringComparer.OrdinalIgnoreCase))
+                paths.Add(root);
+        }
+
+        return paths;
+    }
+
+    private bool NeedsScan(string path)
+    {
+        if (_exclusions.IsPathExcluded(path) || !Directory.Exists(path))
+            return false;
+
+        var normalized = NormalizeDirectoryPrefix(path);
+        if (normalized is null)
+            return false;
+
+        lock (_rootsLock)
+        {
+            if (_indexedRoots.Contains(normalized))
+                return false;
+        }
+
+        return !IsUnderIndexedRoot(path);
+    }
+
+    private bool IsUnderIndexedRoot(string path)
+    {
+        var prefix = NormalizeDirectoryPrefix(path);
+        if (prefix is null)
+            return false;
+
+        lock (_rootsLock)
+        {
+            foreach (var indexedRoot in _indexedRoots)
+            {
+                if (prefix.StartsWith(indexedRoot, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void RunPartialScan(IReadOnlyList<string> paths, CancellationToken cancellationToken)
+    {
+        var previousPriority = Thread.CurrentThread.Priority;
+        Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+        _isScanning = true;
+        BeginScanProgress(paths.Count);
+        _indexStore.BeginBulkIngest();
+
+        try
+        {
+            _totalScanSteps = paths.Count;
+            if (_totalScanSteps <= 0)
+                _totalScanSteps = 1;
+
+            foreach (var path in paths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ScanAndMerge(path, cancellationToken);
+                EnableSearchIfNeeded();
+                PauseBetweenScanRoots(cancellationToken);
+            }
+
+            _isScanComplete = AllScanRootsIndexed();
+            _scanProgressPercent = _isScanComplete ? 100 : _scanProgressPercent;
+            ReportProgress(null, _isScanComplete, force: _isScanComplete);
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer scan
+        }
+        catch (OutOfMemoryException ex)
+        {
+            ErrorDialogService.Show(LocalizationService.T("Error_OutOfMemory"), ex);
+        }
+        catch (Exception ex)
+        {
+            ErrorDialogService.Show(LocalizationService.T("Error_IndexScan"), ex);
+        }
+        finally
+        {
+            _indexStore.EndBulkIngest();
+            _isScanning = false;
+            _currentScanPath = null;
+            Thread.CurrentThread.Priority = previousPriority;
+        }
+    }
+
+    private bool AllScanRootsIndexed()
+    {
+        foreach (var root in ScanRoots)
+        {
+            if (!NeedsScan(root))
+                continue;
+
+            return false;
+        }
+
+        return true;
+    }
+
     private void RunScan(CancellationToken cancellationToken)
     {
         var previousPriority = Thread.CurrentThread.Priority;
         Thread.CurrentThread.Priority = ThreadPriority.Lowest;
         _isScanning = true;
-        _approximateScanCount = 0;
+
+        _indexStore.ClearIndexedRoots();
+        lock (_rootsLock)
+            _indexedRoots.Clear();
+
+        lock (_scannedPrefixesLock)
+            _scannedDirectoryPrefixes.Clear();
+
+        var priorityPaths = WatchPaths;
+        var scanRoots = ScanRoots;
+        BeginScanProgress(priorityPaths.Count + scanRoots.Count);
         _indexStore.BeginBulkIngest();
 
         try
         {
-            _indexStore.ClearIndexedRoots();
-            lock (_rootsLock)
-                _indexedRoots.Clear();
-
-            lock (_scannedPrefixesLock)
-                _scannedDirectoryPrefixes.Clear();
-
-            var priorityPaths = WatchPaths;
-            var scanRoots = ScanRoots;
-            _totalScanSteps = priorityPaths.Count + scanRoots.Count;
-            if (_totalScanSteps <= 0)
-                _totalScanSteps = 1;
-
             foreach (var path in priorityPaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -368,7 +532,7 @@ public sealed class SystemIndexService : IDisposable
 
             _isScanComplete = true;
             _scanProgressPercent = 100;
-            ReportProgress(null, true);
+            ReportProgress(null, true, force: true);
         }
         catch (OperationCanceledException)
         {
@@ -406,6 +570,7 @@ public sealed class SystemIndexService : IDisposable
         }
 
         _currentScanPath = root;
+        _currentStepIndexedEntries = 0;
         ScanTree(root, cancellationToken, MergeEntriesBatch);
         RememberScannedDirectoryPrefix(root);
 
@@ -428,9 +593,10 @@ public sealed class SystemIndexService : IDisposable
         if (batch.Count == 0)
             return;
 
-        _approximateScanCount += batch.Count;
         _indexStore.UpsertBatch(batch);
         Thread.Sleep(IndexResourcePolicy.BatchCommitDelayMs);
+        _currentStepIndexedEntries += batch.Count;
+        UpdateScanProgressPercent();
         EnableSearchIfNeeded();
         ReportProgress(_currentScanPath, false);
         NotifyIndexUpdatedIfNeeded();
@@ -439,14 +605,15 @@ public sealed class SystemIndexService : IDisposable
     private void NotifyIndexUpdatedIfNeeded()
     {
         var now = DateTime.UtcNow;
+        var currentCount = Count;
 
-        if (_approximateScanCount - _lastIndexUpdatedCount < IndexResourcePolicy.IndexUpdatedMinEntries
+        if (currentCount - _lastIndexUpdatedCount < IndexResourcePolicy.IndexUpdatedMinEntries
             && (now - _lastIndexUpdatedTime).TotalSeconds < IndexResourcePolicy.IndexUpdatedMinSeconds)
         {
             return;
         }
 
-        _lastIndexUpdatedCount = (int)Math.Min(int.MaxValue, _approximateScanCount);
+        _lastIndexUpdatedCount = currentCount;
         _lastIndexUpdatedTime = now;
         IndexUpdated?.Invoke(this, EventArgs.Empty);
     }
@@ -456,10 +623,36 @@ public sealed class SystemIndexService : IDisposable
         lock (_progressLock)
         {
             _completedScanSteps++;
-            _scanProgressPercent = Math.Min(99, _completedScanSteps * 100 / _totalScanSteps);
+            _currentStepIndexedEntries = 0;
+            _scanProgressPercent = _totalScanSteps <= 0
+                ? 0
+                : Math.Min(99, _completedScanSteps * 100 / _totalScanSteps);
         }
 
-        ReportProgress(root, false);
+        ReportProgress(root, false, force: true);
+    }
+
+    private void UpdateScanProgressPercent()
+    {
+        lock (_progressLock)
+        {
+            if (_totalScanSteps <= 0)
+                return;
+
+            var stepWeight = 100.0 / _totalScanSteps;
+            var completed = _completedScanSteps * stepWeight;
+            var intraStep = _currentStepIndexedEntries <= 0
+                ? 0.0
+                : Math.Min(
+                    stepWeight * 0.99,
+                    stepWeight * (1.0 - Math.Exp(-_currentStepIndexedEntries / (double)IndexResourcePolicy.ScanStepProgressEntryScale)));
+
+            var percent = (int)Math.Min(99, completed + intraStep);
+            if (percent < 1 && (_currentStepIndexedEntries > 0 || _completedScanSteps > 0))
+                percent = 1;
+
+            _scanProgressPercent = percent;
+        }
     }
 
     private void RememberScannedDirectoryPrefix(string root)
@@ -622,12 +815,29 @@ public sealed class SystemIndexService : IDisposable
         SearchEnabled?.Invoke(this, EventArgs.Empty);
     }
 
-    private void ReportProgress(string? currentPath, bool isComplete)
+    private void BeginScanProgress(int totalSteps)
     {
-        var count = isComplete ? Count : (int)Math.Min(int.MaxValue, _approximateScanCount);
+        lock (_progressLock)
+        {
+            _totalScanSteps = Math.Max(1, totalSteps);
+            _completedScanSteps = 0;
+            _currentStepIndexedEntries = 0;
+            _scanProgressPercent = 0;
+            _lastProgressReport = -1;
+            _lastProgressTime = DateTime.MinValue;
+        }
+
+        _isScanComplete = false;
+        ReportProgress(null, false, force: true);
+    }
+
+    private void ReportProgress(string? currentPath, bool isComplete, bool force = false)
+    {
+        var count = (int)Math.Min(int.MaxValue, Count);
         var now = DateTime.UtcNow;
 
-        if (!isComplete
+        if (!force
+            && !isComplete
             && count - _lastProgressReport < IndexResourcePolicy.ProgressReportMinEntries
             && (now - _lastProgressTime).TotalSeconds < IndexResourcePolicy.ProgressReportMinSeconds)
         {

@@ -174,7 +174,7 @@ public sealed class RepositoryFileListView : Panel
         }
 
         int contentHeight = Math.Max(0, _rows.Count * RowHeight);
-        int contentWidth = Math.Max(ViewportWidth, NameColumnWidth + StatusColumnWidth);
+        int contentWidth = Math.Max(ViewportWidth, ContentWidth);
         _bodyPanel.AutoScrollMinSize = new Size(contentWidth, contentHeight);
 
         int maxScroll = Math.Max(0, contentHeight - ViewportHeight);
@@ -498,6 +498,8 @@ public sealed class RepositoryFileListView : Panel
         _toolTip.Hide(_bodyPanel ?? (Control)this);
     }
 
+    private int ContentWidth => NameColumnWidth + StatusColumnWidth;
+
     private void BodyPanel_Paint(object? sender, PaintEventArgs e)
     {
         Graphics g = e.Graphics;
@@ -507,10 +509,15 @@ public sealed class RepositoryFileListView : Panel
         int offsetY = ScrollOffsetY;
         int viewportHeight = ViewportHeight;
         int viewportWidth = ViewportWidth;
+        int contentRight = offsetX + ContentWidth;
+        int dividerX = offsetX + NameColumnWidth;
 
         using var selectionBrush = new SolidBrush(SelectionColor);
+        using var backgroundBrush = new SolidBrush(BackColor);
         using var linePen = new Pen(ConnectorLineColor);
         using var textBrush = new SolidBrush(ForeColor);
+        using var rowSeparatorPen = new Pen(RowSeparatorColor);
+        using var columnDividerPen = new Pen(HeaderBorderColor);
 
         for (int i = 0; i < _rows.Count; i++)
         {
@@ -522,31 +529,49 @@ public sealed class RepositoryFileListView : Panel
                 continue;
             }
 
-            var rowBounds = new Rectangle(0, rowTop, viewportWidth, RowHeight);
+            var rowBounds = new Rectangle(offsetX, rowTop, ContentWidth, RowHeight);
             if (ReferenceEquals(row.Node, SelectedNode))
             {
                 g.FillRectangle(selectionBrush, rowBounds);
             }
-
-            DrawNameCell(g, row, offsetX, rowTop, linePen, textBrush);
-            DrawStatusCell(g, row, offsetX + NameColumnWidth, rowTop);
-        }
-
-        using var rowSeparatorPen = new Pen(RowSeparatorColor);
-        for (int i = 0; i <= _rows.Count; i++)
-        {
-            int y = offsetY + i * RowHeight;
-            if (y < 0 || y > viewportHeight)
+            else
             {
-                continue;
+                g.FillRectangle(backgroundBrush, rowBounds);
             }
 
-            g.DrawLine(rowSeparatorPen, 0, y, viewportWidth, y);
+            if (contentRight < viewportWidth)
+            {
+                g.FillRectangle(
+                    backgroundBrush,
+                    new Rectangle(Math.Max(0, contentRight), rowTop, viewportWidth - Math.Max(0, contentRight), RowHeight));
+            }
+
+            DrawNameCell(g, row, offsetX, rowTop, linePen, textBrush);
+            DrawStatusCell(g, row, dividerX, rowTop);
         }
 
-        using var dividerPen = new Pen(ConnectorLineColor);
-        int dividerX = offsetX + NameColumnWidth;
-        g.DrawLine(dividerPen, dividerX, 0, dividerX, viewportHeight);
+        int gridTop = Math.Max(0, offsetY);
+        int gridBottom = Math.Min(viewportHeight, offsetY + _rows.Count * RowHeight);
+        if (gridBottom > gridTop)
+        {
+            if (dividerX > 0 && dividerX < viewportWidth)
+            {
+                g.DrawLine(columnDividerPen, dividerX, gridTop, dividerX, gridBottom);
+            }
+
+            for (int i = 0; i <= _rows.Count; i++)
+            {
+                int y = offsetY + i * RowHeight;
+                if (y < 0 || y > viewportHeight)
+                {
+                    continue;
+                }
+
+                int lineLeft = Math.Max(0, offsetX);
+                int lineRight = Math.Max(viewportWidth, contentRight);
+                g.DrawLine(rowSeparatorPen, lineLeft, y, lineRight, y);
+            }
+        }
     }
 
     private void DrawNameCell(Graphics g, RowVisual row, int offsetX, int rowTop, Pen linePen, SolidBrush textBrush)
@@ -636,48 +661,50 @@ public sealed class RepositoryFileListView : Panel
         Graphics g = e.Graphics;
         int offsetX = ScrollOffsetX;
         int viewportWidth = ViewportWidth;
+        int dividerX = offsetX + NameColumnWidth;
 
-        DrawHeaderCell(g, new Rectangle(offsetX, 0, NameColumnWidth, HeaderHeight), NameColumnText, drawAccent: true);
-        int statusX = offsetX + NameColumnWidth;
-        DrawHeaderCell(g, new Rectangle(statusX, 0, StatusColumnWidth, HeaderHeight), StatusColumnText, drawAccent: false, centerText: true);
-
-        using var dividerPen = new Pen(ConnectorLineColor);
-        g.DrawLine(dividerPen, statusX, 0, statusX, HeaderHeight);
-    }
-
-    private void DrawHeaderCell(Graphics g, Rectangle bounds, string text, bool drawAccent, bool centerText = false)
-    {
         using (var background = new SolidBrush(HeaderBackColor))
         {
-            g.FillRectangle(background, bounds);
+            g.FillRectangle(background, 0, 0, viewportWidth, HeaderHeight);
         }
 
-        if (drawAccent)
+        using (var accent = new SolidBrush(HeaderAccentColor))
         {
-            using var accent = new SolidBrush(HeaderAccentColor);
-            g.FillRectangle(accent, bounds.X, bounds.Y, 3, bounds.Height);
+            g.FillRectangle(accent, offsetX, 0, 3, HeaderHeight);
         }
 
         using (var border = new Pen(HeaderBorderColor))
         {
-            g.DrawLine(border, bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1);
+            g.DrawLine(border, 0, HeaderHeight - 1, viewportWidth - 1, HeaderHeight - 1);
+            if (dividerX > 0 && dividerX < viewportWidth)
+            {
+                g.DrawLine(border, dividerX, 0, dividerX, HeaderHeight - 1);
+            }
         }
 
-        int leftPadding = (drawAccent ? 3 : 0) + (centerText ? 0 : 6);
-        var textRect = new Rectangle(
-            bounds.X + leftPadding,
-            bounds.Y,
-            Math.Max(0, bounds.Width - leftPadding - (centerText ? 0 : 6)),
-            bounds.Height);
-        TextRenderer.DrawText(
-            g,
-            text,
-            Font,
-            textRect,
-            HeaderForeColor,
-            centerText
-                ? TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPrefix
-                : TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
+        var nameRect = new Rectangle(offsetX + 9, 0, Math.Max(0, NameColumnWidth - 12), HeaderHeight);
+        if (nameRect.Right > 0 && nameRect.Left < viewportWidth)
+        {
+            TextRenderer.DrawText(
+                g,
+                NameColumnText,
+                Font,
+                nameRect,
+                HeaderForeColor,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
+        }
+
+        var statusRect = new Rectangle(dividerX, 0, StatusColumnWidth, HeaderHeight);
+        if (statusRect.Right > 0 && statusRect.Left < viewportWidth)
+        {
+            TextRenderer.DrawText(
+                g,
+                StatusColumnText,
+                Font,
+                statusRect,
+                HeaderForeColor,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPrefix);
+        }
     }
 
     private sealed class DoubleBufferedPanel : Panel

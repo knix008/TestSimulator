@@ -99,20 +99,8 @@ public partial class MainWindow
         }
     }
 
-    private void RunSearchLoopCore(SearchSession session, int generation)
-    {
-        var previousPriority = Thread.CurrentThread.Priority;
-        Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
-
-        try
-        {
-            RunSearchLoopCoreInner(session, generation);
-        }
-        finally
-        {
-            Thread.CurrentThread.Priority = previousPriority;
-        }
-    }
+    private void RunSearchLoopCore(SearchSession session, int generation) =>
+        RunSearchLoopCoreInner(session, generation);
 
     private void RunSearchLoopCoreInner(SearchSession session, int generation)
     {
@@ -226,8 +214,6 @@ public partial class MainWindow
 
                 break;
             }
-
-            Thread.Sleep(1);
         }
 
         Dispatcher.BeginInvoke(
@@ -248,13 +234,18 @@ public partial class MainWindow
         if (string.IsNullOrWhiteSpace(SearchBox.Text))
             return;
 
+        var caseSensitive = _settingsService.Current.CaseSensitiveSearch;
+        var useRegex = _settingsService.Current.UseRegexSearch;
+
         SearchSession? sessionToContinue;
         int generation;
 
         lock (_searchSessionLock)
         {
             if (_searchSession is null
-                || _searchSession.Query != SearchBox.Text)
+                || _searchSession.Query != SearchBox.Text
+                || _searchSession.CaseSensitive != caseSensitive
+                || _searchSession.UseRegexSearch != useRegex)
             {
                 PerformSearch();
                 return;

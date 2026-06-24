@@ -2,9 +2,19 @@ namespace DeskSearch.Models;
 
 public sealed record FileEntry(string FullPath, string FileName, string Directory, bool IsDirectory = false)
 {
+    public string DirectoryName { get; } = ResolveDirectoryName(Directory);
+
     public string SearchFileName { get; } = Helpers.SearchTextHelper.Normalize(FileName);
 
-    public string SearchDirectory { get; } = Helpers.SearchTextHelper.Normalize(Directory);
+    public string SearchDirectoryName { get; } = Helpers.SearchTextHelper.Normalize(ResolveDirectoryName(Directory));
 
-    public string SearchFullPath { get; } = Helpers.SearchTextHelper.Normalize(FullPath);
+    internal static string ResolveDirectoryName(string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory))
+            return string.Empty;
+
+        var trimmed = directory.TrimEnd('\\', '/');
+        var name = Path.GetFileName(trimmed);
+        return string.IsNullOrEmpty(name) ? trimmed : name;
+    }
 }

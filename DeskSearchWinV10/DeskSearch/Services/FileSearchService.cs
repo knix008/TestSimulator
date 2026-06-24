@@ -19,6 +19,30 @@ public sealed class FileSearchService
         return batch.Results;
     }
 
+    public IReadOnlyList<FileEntry> FilterRanked(
+        IEnumerable<FileEntry> candidates,
+        ResolvedSearchQuery searchQuery,
+        bool caseSensitive,
+        int limit = IndexStoragePolicy.MaxSearchResults)
+    {
+        if (searchQuery.IsInvalid || searchQuery.Terms.Count == 0)
+            return [];
+
+        var comparison = SearchTextHelper.GetComparison(caseSensitive);
+        var nameComparer = comparison == StringComparison.Ordinal
+            ? StringComparer.Ordinal
+            : StringComparer.OrdinalIgnoreCase;
+
+        return candidates
+            .Select(entry => (Entry: entry, Score: ScoreEntry(entry, searchQuery.Terms, comparison)))
+            .Where(match => match.Score > 0)
+            .OrderByDescending(match => match.Score)
+            .ThenBy(match => match.Entry.FileName, nameComparer)
+            .Take(limit)
+            .Select(match => match.Entry)
+            .ToList();
+    }
+
     public SearchBatchResult SearchBatch(
         IEnumerable<FileEntry> entries,
         int totalCount,
@@ -41,7 +65,7 @@ public sealed class FileSearchService
         }
 
         var comparison = SearchTextHelper.GetComparison(caseSensitive);
-        var top = existingTop is null ? [] : existingTop.ToList();
+        var matches = ToMatchMap(existingTop);
 
         var index = 0;
         var processed = 0;
@@ -52,7 +76,7 @@ public sealed class FileSearchService
 
             var score = ScoreEntry(entry, searchQuery.Terms, comparison);
             if (score > 0)
-                TryAddMatch(top, entry, score);
+                TryAddMatch(matches, entry, score);
 
             processed++;
             if (processed >= batchSize)
@@ -60,43 +84,68 @@ public sealed class FileSearchService
         }
 
         var nextOffset = startOffset + processed;
+        var topList = ToCandidateList(matches);
         return new SearchBatchResult
         {
-            Results = ToSortedResults(top, comparison),
+            Results = ToSortedResults(topList, comparison),
             NextOffset = nextOffset,
             NextScanId = 0,
             IsComplete = nextOffset >= totalCount,
-            TopCandidates = top
+            TopCandidates = topList
         };
     }
 
+    private static Dictionary<string, (FileEntry Entry, int Score)> ToMatchMap(
+        List<(FileEntry Entry, int Score)>? existingTop)
+    {
+        if (existingTop is null || existingTop.Count == 0)
+        {
+            return new Dictionary<string, (FileEntry Entry, int Score)>(
+                IndexStoragePolicy.MaxSearchResults,
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        var map = new Dictionary<string, (FileEntry Entry, int Score)>(
+            existingTop.Count,
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (entry, score) in existingTop)
+            map[entry.FullPath] = (entry, score);
+
+        return map;
+    }
+
+    private static List<(FileEntry Entry, int Score)> ToCandidateList(
+        Dictionary<string, (FileEntry Entry, int Score)> matches) =>
+        matches.Values.ToList();
+
     private static void TryAddMatch(
-        List<(FileEntry Entry, int Score)> matches,
+        Dictionary<string, (FileEntry Entry, int Score)> matches,
         FileEntry entry,
         int score)
     {
-        var existingIndex = matches.FindIndex(x =>
-            x.Entry.FullPath.Equals(entry.FullPath, StringComparison.OrdinalIgnoreCase));
-
-        if (existingIndex >= 0)
+        if (matches.TryGetValue(entry.FullPath, out var existing))
         {
-            if (score <= matches[existingIndex].Score)
+            if (score <= existing.Score)
                 return;
 
-            matches[existingIndex] = (entry, score);
+            matches[entry.FullPath] = (entry, score);
             return;
         }
 
         if (matches.Count >= IndexStoragePolicy.MaxSearchResults)
             return;
 
-        matches.Add((entry, score));
+        matches[entry.FullPath] = (entry, score);
     }
 
     private static IReadOnlyList<FileEntry> ToSortedResults(
         List<(FileEntry Entry, int Score)> top,
         StringComparison comparison)
     {
+        if (top.Count <= 1)
+            return top.Count == 1 ? [top[0].Entry] : [];
+
         var nameComparer = comparison == StringComparison.Ordinal
             ? StringComparer.Ordinal
             : StringComparer.OrdinalIgnoreCase;
@@ -146,11 +195,21 @@ public sealed class FileSearchService
         if (fileName.Contains(query, comparison))
             return 60;
 
-        if (entry.SearchDirectory.Contains(query, comparison))
-            return 40;
+        if (entry.IsDirectory)
+            return 0;
 
-        if (entry.SearchFullPath.Contains(query, comparison))
-            return 30;
+        var directoryName = entry.SearchDirectoryName;
+        if (directoryName.Length == 0 || ContainsPathSeparator(directoryName))
+            return 0;
+
+        if (directoryName.Equals(query, comparison))
+            return 100;
+
+        if (directoryName.StartsWith(query, comparison))
+            return 80;
+
+        if (directoryName.Contains(query, comparison))
+            return 40;
 
         return 0;
     }
@@ -170,12 +229,20 @@ public sealed class FileSearchService
             return 60;
         }
 
-        if (regex.IsMatch(entry.SearchDirectory))
-            return 40;
+        if (entry.IsDirectory)
+            return 0;
 
-        if (regex.IsMatch(entry.SearchFullPath))
-            return 30;
+        var directoryName = entry.SearchDirectoryName;
+        if (directoryName.Length == 0 || ContainsPathSeparator(directoryName))
+            return 0;
+
+        if (regex.IsMatch(directoryName))
+            return 40;
 
         return 0;
     }
+
+    private static bool ContainsPathSeparator(string value) =>
+        value.Contains('\\', StringComparison.Ordinal)
+        || value.Contains('/', StringComparison.Ordinal);
 }

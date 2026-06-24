@@ -50,6 +50,27 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="SettingsComboBox" TargetType="ComboBox">
+            <Style.Resources>
+                <Style TargetType="ContentPresenter">
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                </Style>
+            </Style.Resources>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="MinHeight" Value="28"/>
+                        <Setter Property="Padding" Value="8,0"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Grid Margin="20,20,16,20">
         <Grid.RowDefinitions>
@@ -110,8 +131,7 @@
                            Margin="0,0,0,6"
                            TextWrapping="Wrap"/>
                 <WrapPanel x:Name="ExcludedDrivesPanel"
-                           Margin="0,0,0,12"
-                           CacheMode="BitmapCache"/>
+                           Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="ExcludedDirectoriesLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <TextBlock x:Name="ExcludedDirectoriesDescLabel"
@@ -144,6 +164,16 @@
                                 Click="RemoveExcludedDirectory_Click"/>
                     </WrapPanel>
                 </Grid>
+
+                <TextBlock x:Name="PeriodicResyncLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="PeriodicResyncDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="0,0,0,6"
+                           TextWrapping="Wrap"/>
+                <ComboBox x:Name="PeriodicResyncComboBox"
+                          Style="{StaticResource SettingsComboBox}"
+                          Margin="0,0,0,16"/>
 
                 <TextBlock x:Name="IndexProgressLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,4">
@@ -209,8 +239,7 @@
                             Click="PickBackgroundColor_Click"/>
                 </Grid>
                 <WrapPanel x:Name="BackgroundSwatchPanel"
-                           Margin="0,0,0,12"
-                           CacheMode="BitmapCache"/>
+                           Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="BackgroundOpacityLabel" Margin="0,0,0,4"/>
                 <Grid Margin="0,0,0,12">
@@ -251,8 +280,7 @@
                             Click="PickBorderColor_Click"/>
                 </Grid>
                 <WrapPanel x:Name="BorderSwatchPanel"
-                           Margin="0,0,0,12"
-                           CacheMode="BitmapCache"/>
+                           Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="TextColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,12">
@@ -279,8 +307,7 @@
                             Click="PickTextColor_Click"/>
                 </Grid>
                 <WrapPanel x:Name="TextSwatchPanel"
-                           Margin="0,0,0,12"
-                           CacheMode="BitmapCache"/>
+                           Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="WindowOpacityLabel" Margin="0,0,0,4"/>
                 <Grid Margin="0,0,0,12">

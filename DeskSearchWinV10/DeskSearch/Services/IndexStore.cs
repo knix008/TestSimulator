@@ -5,9 +5,9 @@ using Microsoft.Data.Sqlite;
 
 namespace DeskSearch.Services;
 
-public sealed class IndexStore : IDisposable
+public sealed partial class IndexStore : IDisposable
 {
-    private const int SchemaVersion = 2;
+    private const int SchemaVersion = 5;
 
     private readonly SqliteConnection _connection;
     private readonly object _lock = new();
@@ -83,7 +83,7 @@ public sealed class IndexStore : IDisposable
             RefreshFtsTriggers();
             RebuildFts();
             _ftsCurrent = true;
-            _cachedCount = GetCountLocked();
+            RefreshCountLocked();
         }
     }
 
@@ -146,17 +146,7 @@ public sealed class IndexStore : IDisposable
             }
 
             transaction.Commit();
-            if (_bulkIngestDepth > 0)
-            {
-                if (_cachedCount < 0)
-                    _cachedCount = 0;
-
-                _cachedCount += batch.Count;
-            }
-            else
-            {
-                _cachedCount = -1;
-            }
+            RefreshCountLocked();
         }
     }
 
@@ -393,8 +383,8 @@ public sealed class IndexStore : IDisposable
             command.Parameters.AddWithValue($"$dir{j}", entry.Directory);
             command.Parameters.AddWithValue($"$isd{j}", entry.IsDirectory ? 1 : 0);
             command.Parameters.AddWithValue($"$sfn{j}", entry.SearchFileName);
-            command.Parameters.AddWithValue($"$sdn{j}", entry.SearchDirectory);
-            command.Parameters.AddWithValue($"$sfp{j}", entry.SearchFullPath);
+            command.Parameters.AddWithValue($"$sdn{j}", entry.SearchDirectoryName);
+            command.Parameters.AddWithValue($"$sfp{j}", string.Empty);
         }
 
         command.ExecuteNonQuery();
@@ -495,12 +485,115 @@ public sealed class IndexStore : IDisposable
             {
                 if (version < 1)
                     EnsureFtsIndex();
-                else
+
+                if (version < 3)
+                    MigrateSearchDirectoryNamesLocked(rebuildFts: version >= 4);
+
+                if (version < 4)
+                    MigrateSearchScopeLocked();
+
+                if (version < 5)
+                    ScrubSearchDirectoryPathsLocked();
+                else if (version < SchemaVersion)
                     RefreshFtsTriggers();
 
                 ExecuteNonQuery($"PRAGMA user_version = {SchemaVersion}");
             }
         }
+    }
+
+    private void MigrateSearchDirectoryNamesLocked(bool rebuildFts = true)
+    {
+        const int batchSize = 4096;
+        long lastId = 0;
+
+        while (true)
+        {
+            using var select = CreateCommand(
+                """
+                SELECT id, directory, search_directory
+                FROM entries
+                WHERE id > $lastId
+                ORDER BY id
+                LIMIT $limit
+                """);
+            select.Parameters.AddWithValue("$lastId", lastId);
+            select.Parameters.AddWithValue("$limit", batchSize);
+
+            using var reader = select.ExecuteReader();
+            var updates = new List<(long Id, string SearchDirectoryName)>(batchSize);
+            var rowsRead = 0;
+
+            while (reader.Read())
+            {
+                rowsRead++;
+                var id = reader.GetInt64(0);
+                lastId = id;
+                var directory = reader.GetString(1);
+                var currentSearchDirectory = reader.GetString(2);
+                var searchDirectoryName = SearchTextHelper.Normalize(FileEntry.ResolveDirectoryName(directory));
+                if (!string.Equals(currentSearchDirectory, searchDirectoryName, StringComparison.Ordinal))
+                    updates.Add((id, searchDirectoryName));
+            }
+
+            if (rowsRead == 0)
+                break;
+
+            foreach (var (id, searchDirectoryName) in updates)
+            {
+                using var update = CreateCommand(
+                    "UPDATE entries SET search_directory = $name WHERE id = $id");
+                update.Parameters.AddWithValue("$name", searchDirectoryName);
+                update.Parameters.AddWithValue("$id", id);
+                update.ExecuteNonQuery();
+            }
+        }
+
+        if (rebuildFts && GetCountLocked() > 0)
+            RebuildFts();
+    }
+
+    private void MigrateSearchScopeLocked()
+    {
+        MigrateSearchDirectoryNamesLocked(rebuildFts: false);
+        ExecuteNonQuery("UPDATE entries SET search_full_path = ''");
+        RecreateFtsIndexLocked();
+    }
+
+    private void ScrubSearchDirectoryPathsLocked()
+    {
+        MigrateSearchDirectoryNamesLocked(rebuildFts: false);
+        ExecuteNonQuery(
+            """
+            UPDATE entries
+            SET search_directory = ''
+            WHERE search_directory LIKE '%\%' ESCAPE '\'
+               OR search_directory LIKE '%/%' ESCAPE '\'
+            """);
+
+        if (GetCountLocked() > 0)
+            RebuildFts();
+    }
+
+    private void RecreateFtsIndexLocked()
+    {
+        DropFtsTriggers();
+        ExecuteNonQuery("DROP TABLE IF EXISTS entries_fts");
+        ExecuteNonQuery(
+            """
+            CREATE VIRTUAL TABLE entries_fts USING fts5(
+                search_file_name,
+                search_directory,
+                content='entries',
+                content_rowid='id',
+                tokenize='unicode61'
+            )
+            """);
+
+        RefreshFtsTriggers();
+
+        if (GetCountLocked() > 0)
+            RebuildFts();
     }
 
     private void EnsureFtsIndex()
@@ -510,7 +603,6 @@ public sealed class IndexStore : IDisposable
             CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
                 search_file_name,
                 search_directory,
-                search_full_path,
                 content='entries',
                 content_rowid='id',
                 tokenize='unicode61'
@@ -530,16 +622,16 @@ public sealed class IndexStore : IDisposable
         ExecuteNonQuery(
             """
             CREATE TRIGGER entries_fts_insert AFTER INSERT ON entries BEGIN
-                INSERT INTO entries_fts(rowid, search_file_name, search_directory, search_full_path)
-                VALUES (new.id, new.search_file_name, new.search_directory, new.search_full_path);
+                INSERT INTO entries_fts(rowid, search_file_name, search_directory)
+                VALUES (new.id, new.search_file_name, new.search_directory);
             END
             """);
 
         ExecuteNonQuery(
             """
             CREATE TRIGGER entries_fts_delete AFTER DELETE ON entries BEGIN
-                INSERT INTO entries_fts(entries_fts, rowid, search_file_name, search_directory, search_full_path)
-                VALUES ('delete', old.id, old.search_file_name, old.search_directory, old.search_full_path);
+                INSERT INTO entries_fts(entries_fts, rowid, search_file_name, search_directory)
+                VALUES ('delete', old.id, old.search_file_name, old.search_directory);
             END
             """);
 
@@ -548,12 +640,11 @@ public sealed class IndexStore : IDisposable
             CREATE TRIGGER entries_fts_update AFTER UPDATE ON entries
             WHEN old.search_file_name != new.search_file_name
               OR old.search_directory != new.search_directory
-              OR old.search_full_path != new.search_full_path
             BEGIN
-                INSERT INTO entries_fts(entries_fts, rowid, search_file_name, search_directory, search_full_path)
-                VALUES ('delete', old.id, old.search_file_name, old.search_directory, old.search_full_path);
-                INSERT INTO entries_fts(rowid, search_file_name, search_directory, search_full_path)
-                VALUES (new.id, new.search_file_name, new.search_directory, new.search_full_path);
+                INSERT INTO entries_fts(entries_fts, rowid, search_file_name, search_directory)
+                VALUES ('delete', old.id, old.search_file_name, old.search_directory);
+                INSERT INTO entries_fts(rowid, search_file_name, search_directory)
+                VALUES (new.id, new.search_file_name, new.search_directory);
             END
             """);
     }
@@ -607,7 +698,7 @@ public sealed class IndexStore : IDisposable
 
             var token = EscapeFtsPhrase(normalized);
             groups.Add(
-                $"(search_file_name : {token} OR search_file_name : {token}* OR search_directory : {token} OR search_directory : {token}* OR search_full_path : {token} OR search_full_path : {token}*)");
+                $"(search_file_name : {token} OR search_file_name : {token}* OR search_directory : {token} OR search_directory : {token}*)");
         }
 
         return string.Join(" AND ", groups);
@@ -619,7 +710,7 @@ public sealed class IndexStore : IDisposable
             return null;
 
         var token = EscapeFtsPhrase(normalizedQuery);
-        return $"(search_file_name : {token}* OR search_file_name : {token} OR search_directory : {token}* OR search_full_path : {token}*)";
+        return $"(search_file_name : {token}* OR search_file_name : {token} OR search_directory : {token}* OR search_directory : {token})";
     }
 
     private static string EscapeFtsPhrase(string value) =>
@@ -630,9 +721,14 @@ public sealed class IndexStore : IDisposable
         if (_cachedCount >= 0)
             return _cachedCount;
 
+        RefreshCountLocked();
+        return _cachedCount;
+    }
+
+    private void RefreshCountLocked()
+    {
         using var command = CreateCommand("SELECT COUNT(*) FROM entries");
         _cachedCount = (long)(command.ExecuteScalar() ?? 0L);
-        return _cachedCount;
     }
 
     private int DeleteByPrefix(string escapedPrefix)

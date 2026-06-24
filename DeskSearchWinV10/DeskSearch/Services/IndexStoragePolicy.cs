@@ -12,7 +12,7 @@ internal static class IndexStoragePolicy
 
     public const int BulkMergeBatchSize = 4_096;
     public const int SqliteInsertChunkSize = 256;
-    public const int RegexSearchPageSize = 10_000;
+    public const int RegexSearchPageSize = 20_000;
     public const int FtsCandidateLimit = 2000;
     public const int MaxSearchResults = 2000;
 

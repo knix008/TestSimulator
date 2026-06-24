@@ -10,20 +10,20 @@ public sealed class SystemWatcherService : IDisposable
     private readonly Dictionary<string, DateTime> _lastErrorResync = new(StringComparer.OrdinalIgnoreCase);
     private readonly System.Threading.Timer _flushTimer;
     private readonly System.Threading.Timer _resyncTimer;
+    private int _periodicResyncHours = IndexResyncPolicy.DefaultPeriodicResyncHours;
 
-    public SystemWatcherService(SystemIndexService indexService)
+    public SystemWatcherService(SystemIndexService indexService, int periodicResyncHours)
     {
         _indexService = indexService;
         _flushTimer = new System.Threading.Timer(_ => FlushPendingChanges(), null, Timeout.Infinite, Timeout.Infinite);
-        _resyncTimer = new System.Threading.Timer(
-            _ =>
-            {
-                _indexService.ScanMissingDriveRoots();
-                _indexService.RequestResyncAllRoots();
-            },
-            null,
-            TimeSpan.FromHours(IndexResourcePolicy.PeriodicResyncHours),
-            TimeSpan.FromHours(IndexResourcePolicy.PeriodicResyncHours));
+        _resyncTimer = new System.Threading.Timer(_ => RunPeriodicResync());
+        ConfigurePeriodicResync(periodicResyncHours);
+    }
+
+    public void ConfigurePeriodicResync(int hours)
+    {
+        _periodicResyncHours = IndexResyncPolicy.Normalize(hours);
+        ReschedulePeriodicResync();
     }
 
     public void Start()
@@ -71,6 +71,24 @@ public sealed class SystemWatcherService : IDisposable
         Stop();
         _flushTimer.Dispose();
         _resyncTimer.Dispose();
+    }
+
+    private void ReschedulePeriodicResync()
+    {
+        if (_periodicResyncHours <= IndexResyncPolicy.Disabled)
+        {
+            _resyncTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            return;
+        }
+
+        var period = TimeSpan.FromHours(_periodicResyncHours);
+        _resyncTimer.Change(period, period);
+    }
+
+    private void RunPeriodicResync()
+    {
+        _indexService.ScanMissingDriveRoots();
+        _indexService.RequestResyncAllRoots();
     }
 
     private void OnCreated(object sender, FileSystemEventArgs e)

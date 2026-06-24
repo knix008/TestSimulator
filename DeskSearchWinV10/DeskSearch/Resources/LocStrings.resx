@@ -88,6 +88,11 @@
   <data name="Settings_BrowseFolder" xml:space="preserve"><value>찾아보기...</value></data>
   <data name="Settings_AddExcluded" xml:space="preserve"><value>추가</value></data>
   <data name="Settings_RemoveExcluded" xml:space="preserve"><value>제거</value></data>
+  <data name="Settings_PeriodicResync" xml:space="preserve"><value>인덱싱 주기</value></data>
+  <data name="Settings_PeriodicResyncDesc" xml:space="preserve"><value>백그라운드에서 전체 드라이브를 다시 검사하는 주기입니다. 그 사이에는 파일 감시로 변경 사항을 반영합니다. 사용 안 함으로 두면 예약 재인덱싱을 하지 않습니다.</value></data>
+  <data name="Settings_Resync_Disabled" xml:space="preserve"><value>사용 안 함</value></data>
+  <data name="Settings_Resync_Hours" xml:space="preserve"><value>{0}시간마다</value></data>
+  <data name="Settings_Resync_Weekly" xml:space="preserve"><value>1주일마다</value></data>
   <data name="Settings_IndexProgress" xml:space="preserve"><value>검색(인덱싱) 진행률</value></data>
   <data name="Settings_ReSearch" xml:space="preserve"><value>재검색</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>인덱싱 중… {0}% ({1:N0}개 항목)</value></data>

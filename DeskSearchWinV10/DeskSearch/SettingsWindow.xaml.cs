@@ -21,11 +21,14 @@ public partial class SettingsWindow : Window
     private readonly Action? _reSearch;
     private readonly DispatcherTimer? _progressTimer;
     private readonly DebounceDispatcher _scrollResumeDebounce;
+    private readonly DebounceDispatcher _focusRestoreDebounce;
     private readonly Dictionary<string, System.Windows.Controls.CheckBox> _driveCheckBoxes =
         new(StringComparer.OrdinalIgnoreCase);
     private int _lastProgressPercent = -1;
     private string? _lastProgressStatus;
     private bool _progressPausedForScroll;
+    private bool _progressIdle;
+    private IInputElement? _pendingFocusRestore;
 
     public SettingsWindow(
         AppSettings current,
@@ -35,7 +38,8 @@ public partial class SettingsWindow : Window
         Settings = current.Clone();
         _getProgress = getProgress;
         _reSearch = reSearch;
-        _scrollResumeDebounce = new DebounceDispatcher(Dispatcher, delayMs: 180);
+        _scrollResumeDebounce = new DebounceDispatcher(Dispatcher, IndexResourcePolicy.SettingsScrollResumeDebounceMs);
+        _focusRestoreDebounce = new DebounceDispatcher(Dispatcher, IndexResourcePolicy.SettingsFocusRestoreDebounceMs);
         InitializeComponent();
         BuildColorSwatches();
         ApplyLocalization();
@@ -53,13 +57,14 @@ public partial class SettingsWindow : Window
         }
 
         _progressTimer = new DispatcherTimer(
-            TimeSpan.FromMilliseconds(1000),
+            TimeSpan.FromMilliseconds(IndexResourcePolicy.SettingsProgressPollMs),
             DispatcherPriority.Background,
             (_, _) => UpdateProgressUi(),
             Dispatcher);
         IndexProgressTrack.SizeChanged += (_, _) => UpdateProgressUi();
-        _progressTimer.Start();
         UpdateProgressUi();
+        if (!_progressIdle)
+            _progressTimer.Start();
     }
 
     private void SettingsScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -67,12 +72,33 @@ public partial class SettingsWindow : Window
         if (IsWithinKeyboardFocusedScrollable(e.OriginalSource as DependencyObject))
             return;
 
-        var focused = Keyboard.FocusedElement;
+        if (Keyboard.FocusedElement is not DependencyObject focused
+            || !RequiresWheelFocusPreservation(focused))
+        {
+            return;
+        }
+
         var nextOffset = SettingsScrollViewer.VerticalOffset - e.Delta;
         SettingsScrollViewer.ScrollToVerticalOffset(
             Math.Clamp(nextOffset, 0, SettingsScrollViewer.ScrollableHeight));
         e.Handled = true;
-        RestoreKeyboardFocus(focused);
+
+        _pendingFocusRestore = focused as IInputElement;
+        _focusRestoreDebounce.Debounce(RestorePendingFocus);
+    }
+
+    private static bool RequiresWheelFocusPreservation(DependencyObject focused) =>
+        focused is System.Windows.Controls.TextBox
+            or System.Windows.Controls.ComboBox
+            or System.Windows.Controls.Primitives.ButtonBase
+            or System.Windows.Controls.Primitives.ToggleButton
+            or System.Windows.Controls.Primitives.RangeBase;
+
+    private void RestorePendingFocus()
+    {
+        var previous = _pendingFocusRestore;
+        _pendingFocusRestore = null;
+        RestoreKeyboardFocus(previous);
     }
 
     private static bool IsWithinKeyboardFocusedScrollable(DependencyObject? source)
@@ -80,7 +106,7 @@ public partial class SettingsWindow : Window
         while (source is not null)
         {
             if (source is Slider { IsKeyboardFocusWithin: true }
-                or ListBox { IsKeyboardFocusWithin: true })
+                or System.Windows.Controls.ListBox { IsKeyboardFocusWithin: true })
             {
                 return true;
             }
@@ -122,7 +148,7 @@ public partial class SettingsWindow : Window
 
     private void SettingsScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (e.VerticalChange == 0 || _progressTimer is null)
+        if (e.VerticalChange == 0 || _progressTimer is null || _progressIdle)
             return;
 
         _progressPausedForScroll = true;
@@ -133,8 +159,39 @@ public partial class SettingsWindow : Window
     private void ResumeProgressUpdates()
     {
         _progressPausedForScroll = false;
+        if (_progressIdle)
+            return;
+
         _progressTimer?.Start();
         UpdateProgressUi();
+    }
+
+    private void EnterProgressIdleMode()
+    {
+        if (_progressIdle)
+            return;
+
+        _progressIdle = true;
+        _progressPausedForScroll = false;
+        _progressTimer?.Stop();
+    }
+
+    private void ExitProgressIdleMode()
+    {
+        if (!_progressIdle)
+            return;
+
+        _progressIdle = false;
+        if (!_progressPausedForScroll)
+            _progressTimer?.Start();
+    }
+
+    private void SyncProgressActivityMode(SettingsProgressSnapshot snapshot)
+    {
+        if (!snapshot.IsIndexing && !snapshot.IsSearching)
+            EnterProgressIdleMode();
+        else
+            ExitProgressIdleMode();
     }
 
     protected override void OnClosed(EventArgs e)
@@ -192,6 +249,9 @@ public partial class SettingsWindow : Window
         BrowseExcludedDirectoryButton.Content = CreateIconLabel("\uE838", LocalizationService.T("Settings_BrowseFolder"));
         AddExcludedDirectoryButton.Content = CreateIconLabel("\uE710", LocalizationService.T("Settings_AddExcluded"));
         RemoveExcludedDirectoryButton.Content = CreateIconLabel("\uE74D", LocalizationService.T("Settings_RemoveExcluded"));
+        PeriodicResyncLabel.Text = LocalizationService.T("Settings_PeriodicResync");
+        PeriodicResyncDescLabel.Text = LocalizationService.T("Settings_PeriodicResyncDesc");
+        LoadPeriodicResyncOptions();
         IndexProgressLabel.Text = LocalizationService.T("Settings_IndexProgress");
         ReSearchButton.Content = CreateIconLabel("\uE721", LocalizationService.T("Settings_ReSearch"));
         StartupLabel.Text = LocalizationService.T("Settings_Startup");
@@ -253,8 +313,61 @@ public partial class SettingsWindow : Window
         PriorityNormalRadio.IsChecked = !Settings.AlwaysOnTop;
         BuildExcludedDrivesUi();
         LoadExcludedDirectories();
+        SelectPeriodicResyncHours(Settings.PeriodicResyncHours);
         UpdateOpacityLabels();
     }
+
+    private void LoadPeriodicResyncOptions()
+    {
+        var selectedHours = PeriodicResyncComboBox.SelectedItem is ComboBoxItem { Tag: int hours }
+            ? hours
+            : Settings.PeriodicResyncHours;
+
+        PeriodicResyncComboBox.Items.Clear();
+
+        foreach (var allowedHours in IndexResyncPolicy.AllowedHours)
+        {
+            PeriodicResyncComboBox.Items.Add(new ComboBoxItem
+            {
+                Content = FormatResyncInterval(allowedHours),
+                Tag = allowedHours,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Padding = new Thickness(8, 0, 8, 0)
+            });
+        }
+
+        SelectPeriodicResyncHours(selectedHours);
+    }
+
+    private void SelectPeriodicResyncHours(int hours)
+    {
+        hours = IndexResyncPolicy.Normalize(hours);
+
+        foreach (ComboBoxItem item in PeriodicResyncComboBox.Items)
+        {
+            if (item.Tag is int value && value == hours)
+            {
+                PeriodicResyncComboBox.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private int GetSelectedPeriodicResyncHours()
+    {
+        if (PeriodicResyncComboBox.SelectedItem is ComboBoxItem { Tag: int hours })
+            return IndexResyncPolicy.Normalize(hours);
+
+        return IndexResyncPolicy.DefaultPeriodicResyncHours;
+    }
+
+    private static string FormatResyncInterval(int hours) =>
+        hours switch
+        {
+            IndexResyncPolicy.Disabled => LocalizationService.T("Settings_Resync_Disabled"),
+            168 => LocalizationService.T("Settings_Resync_Weekly"),
+            _ => LocalizationService.F("Settings_Resync_Hours", hours)
+        };
 
     private void BuildExcludedDrivesUi()
     {
@@ -381,26 +494,32 @@ public partial class SettingsWindow : Window
             return;
 
         var snapshot = _getProgress();
-        var trackWidth = IndexProgressTrack.ActualWidth;
-        if (trackWidth > 0)
-            IndexProgressFill.Width = trackWidth * snapshot.Percent / 100.0;
 
         if (snapshot.Percent == _lastProgressPercent
             && string.Equals(snapshot.StatusText, _lastProgressStatus, StringComparison.Ordinal))
         {
+            SyncProgressActivityMode(snapshot);
             return;
         }
 
         _lastProgressPercent = snapshot.Percent;
         _lastProgressStatus = snapshot.StatusText;
 
+        var trackWidth = IndexProgressTrack.ActualWidth;
+        if (trackWidth > 0)
+            IndexProgressFill.Width = trackWidth * snapshot.Percent / 100.0;
+
         IndexProgressPercentLabel.Text = $"{snapshot.Percent}%";
         IndexProgressStatusLabel.Text = snapshot.StatusText;
+        SyncProgressActivityMode(snapshot);
     }
 
     private void ReSearch_Click(object sender, RoutedEventArgs e)
     {
+        ExitProgressIdleMode();
         _reSearch?.Invoke();
+        _lastProgressPercent = -1;
+        _lastProgressStatus = null;
         UpdateProgressUi();
     }
 
@@ -518,6 +637,7 @@ public partial class SettingsWindow : Window
         Settings.CaseSensitiveSearch = CaseSensitiveSearchCheckBox.IsChecked == true;
         Settings.UseRegexSearch = UseRegexSearchCheckBox.IsChecked == true;
         Settings.RunAtStartup = RunAtStartupCheckBox.IsChecked == true;
+        Settings.PeriodicResyncHours = GetSelectedPeriodicResyncHours();
         SaveExcludedPaths();
         Settings.AlwaysOnTop = PriorityAboveOthersRadio.IsChecked == true;
         Settings.WindowOpacity = (int)WindowOpacitySlider.Value;

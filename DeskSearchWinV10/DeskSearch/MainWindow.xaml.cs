@@ -68,7 +68,9 @@ public partial class MainWindow : Window
 
         InitializeLocalization();
 
-        _watcherService = new SystemWatcherService(_indexService);
+        _watcherService = new SystemWatcherService(
+            _indexService,
+            _settingsService.Current.PeriodicResyncHours);
 
         _debounce = new DebounceDispatcher(Dispatcher, delayMs: 100);
 
