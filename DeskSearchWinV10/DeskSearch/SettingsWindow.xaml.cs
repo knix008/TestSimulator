@@ -1,6 +1,8 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using DeskSearch.Helpers;
@@ -58,6 +60,64 @@ public partial class SettingsWindow : Window
         IndexProgressTrack.SizeChanged += (_, _) => UpdateProgressUi();
         _progressTimer.Start();
         UpdateProgressUi();
+    }
+
+    private void SettingsScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (IsWithinKeyboardFocusedScrollable(e.OriginalSource as DependencyObject))
+            return;
+
+        var focused = Keyboard.FocusedElement;
+        var nextOffset = SettingsScrollViewer.VerticalOffset - e.Delta;
+        SettingsScrollViewer.ScrollToVerticalOffset(
+            Math.Clamp(nextOffset, 0, SettingsScrollViewer.ScrollableHeight));
+        e.Handled = true;
+        RestoreKeyboardFocus(focused);
+    }
+
+    private static bool IsWithinKeyboardFocusedScrollable(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is Slider { IsKeyboardFocusWithin: true }
+                or ListBox { IsKeyboardFocusWithin: true })
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
+    }
+
+    private void RestoreKeyboardFocus(IInputElement? previous)
+    {
+        if (previous is not DependencyObject element || !IsDescendantOfSettings(element))
+            return;
+
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            () =>
+            {
+                if (previous is UIElement { IsVisible: true, IsEnabled: true })
+                    Keyboard.Focus(previous);
+            });
+    }
+
+    private bool IsDescendantOfSettings(DependencyObject element)
+    {
+        var current = element;
+        while (current is not null)
+        {
+            if (ReferenceEquals(current, this))
+                return true;
+
+            current = LogicalTreeHelper.GetParent(current)
+                ?? VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 
     private void SettingsScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)

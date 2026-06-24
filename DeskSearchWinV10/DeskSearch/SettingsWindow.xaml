@@ -71,6 +71,7 @@
                       CanContentScroll="False"
                       PanningMode="VerticalOnly"
                       Padding="0,0,4,0"
+                      PreviewMouseWheel="SettingsScrollViewer_PreviewMouseWheel"
                       ScrollChanged="SettingsScrollViewer_ScrollChanged">
             <StackPanel Margin="0,0,12,8">
                 <TextBlock x:Name="LanguageLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
