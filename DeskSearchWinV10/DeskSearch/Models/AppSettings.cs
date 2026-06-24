@@ -22,6 +22,7 @@ public sealed class AppSettings
     public int PeriodicResyncHours { get; set; } = IndexResyncPolicy.DefaultPeriodicResyncHours;
     public List<string> ExcludedDrives { get; set; } = [];
     public List<string> ExcludedDirectories { get; set; } = [];
+    public string? LastExcludedDirectoryBrowsePath { get; set; }
 
     public AppSettings Clone() => new()
     {
@@ -42,6 +43,7 @@ public sealed class AppSettings
         RunAtStartup = RunAtStartup,
         PeriodicResyncHours = PeriodicResyncHours,
         ExcludedDrives = [.. ExcludedDrives],
-        ExcludedDirectories = [.. ExcludedDirectories]
+        ExcludedDirectories = [.. ExcludedDirectories],
+        LastExcludedDirectoryBrowsePath = LastExcludedDirectoryBrowsePath
     };
 }

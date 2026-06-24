@@ -52,14 +52,22 @@ public sealed class SystemIndexService : IDisposable
     // reading it never contends with the writer.
     private long _approximateLiveCount;
 
+    // Set when a previous session's shadow-build rescan never finished (the process was
+    // closed mid-rescan), so the abandoned attempt gets automatically retried at startup
+    // instead of silently falling back to whatever the live store had before that rescan.
+    private readonly bool _hasInterruptedRescan;
+
     public SystemIndexService()
     {
         _databaseFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "DeskSearch");
 
-        // A shadow build from a previous run may have been left behind by a crash; it's
-        // incomplete/abandoned, so discard it rather than risk promoting bad data.
+        // A leftover shadow-build file means a rescan was in progress when the process
+        // last exited. Its partial content can't be trusted (no mid-scan resume point is
+        // tracked), so it's discarded — but note that it existed, so the rescan can be
+        // redone from scratch rather than just forgotten.
+        _hasInterruptedRescan = File.Exists(GetBuildingDatabasePath());
         DeleteDatabaseFiles(GetBuildingDatabasePath());
 
         _indexStore = new IndexStore(GetCanonicalDatabasePath());
@@ -387,6 +395,16 @@ public sealed class SystemIndexService : IDisposable
 
         if (Count == 0)
         {
+            RunScan(cancellationToken);
+            return;
+        }
+
+        if (_hasInterruptedRescan)
+        {
+            // The live store still only reflects whatever finished before the last
+            // rescan was interrupted, and indexed_roots already lists everything as
+            // done from that earlier state — GetPathsNeedingScan would find nothing
+            // to do. Redo the rescan instead of silently keeping the stale snapshot.
             RunScan(cancellationToken);
             return;
         }

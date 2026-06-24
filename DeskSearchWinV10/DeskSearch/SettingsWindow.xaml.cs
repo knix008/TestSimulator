@@ -421,12 +421,16 @@ public partial class SettingsWindow : Window
     private void BrowseExcludedDirectory_Click(object sender, RoutedEventArgs e)
     {
         var ownerHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-        var selectedPaths = MultiFolderBrowserDialog.ShowDialog(ownerHandle);
+        var selectedPaths = MultiFolderBrowserDialog.ShowDialog(ownerHandle, Settings.LastExcludedDirectoryBrowsePath);
         if (selectedPaths is null)
             return;
 
         foreach (var path in selectedPaths)
             AddExcludedDirectory(path);
+
+        var lastPath = selectedPaths.LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(lastPath))
+            Settings.LastExcludedDirectoryBrowsePath = lastPath;
     }
 
     private void AddExcludedDirectory(string path)

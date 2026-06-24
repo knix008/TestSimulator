@@ -14,13 +14,35 @@ internal static class MultiFolderBrowserDialog
     private const uint FosAllowMultiSelect = 0x00000200;
     private const uint FosPathMustExist = 0x00000800;
     private const int SigdnFileSysPath = unchecked((int)0x80058000);
+    private static readonly Guid IidIShellItem = new("43826D1E-E718-42EE-BC55-A1E261C37BFE");
 
-    public static string[]? ShowDialog(IntPtr ownerHandle)
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+    private static extern void SHCreateItemFromParsingName(
+        string path,
+        IntPtr pbc,
+        ref Guid riid,
+        out IShellItem ppv);
+
+    public static string[]? ShowDialog(IntPtr ownerHandle, string? initialFolder = null)
     {
         var dialog = (IFileOpenDialog)new FileOpenDialogRcw();
         try
         {
             dialog.SetOptions(FosPickFolders | FosForceFileSystem | FosAllowMultiSelect | FosPathMustExist);
+
+            if (!string.IsNullOrWhiteSpace(initialFolder) && Directory.Exists(initialFolder))
+            {
+                try
+                {
+                    var riid = IidIShellItem;
+                    SHCreateItemFromParsingName(initialFolder, IntPtr.Zero, ref riid, out var folderItem);
+                    dialog.SetFolder(folderItem);
+                }
+                catch
+                {
+                    // not fatal — dialog just opens to its default location instead
+                }
+            }
 
             var hr = dialog.Show(ownerHandle);
             if (hr != 0)
