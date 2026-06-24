@@ -511,6 +511,7 @@ public partial class MainWindow : Window
                 case Border { Name: "DragHandle" }:
                 case Border { Name: "LeftResizeGrip" }:
                 case Border { Name: "RightResizeGrip" }:
+                case Border { Name: "BottomResizeGrip" }:
                     return false;
 
             }

@@ -8,9 +8,15 @@ namespace DeskSearch;
 
 public partial class MainWindow
 {
+    private const double CompactWindowHeight = 48;
+    private const double ResultsAreaTopChrome = 54;
+    private const double DefaultResultsAreaHeight = 168;
+    private const double ApproxResultItemHeight = 40;
+
     private readonly SettingsService _settingsService = new();
     private DebounceDispatcher? _positionSaveDebounce;
     private bool _isApplyingWindowLayout;
+    private bool _userResizedHeight;
 
     private DebounceDispatcher LayoutSaveDebounce =>
         _positionSaveDebounce ??= new DebounceDispatcher(Dispatcher, delayMs: 400);
@@ -58,16 +64,26 @@ public partial class MainWindow
             ApplySavedWindowWidth(settings.WindowWidth);
             ApplySavedWindowHeight(settings.WindowHeight);
 
+            if (settings.WindowHeight is null)
+            {
+                SizeToContent = SizeToContent.Manual;
+                Height = ClampWindowHeight(CompactWindowHeight);
+                _userResizedHeight = false;
+            }
+
             if (settings.WindowLeft is double left
                 && settings.WindowTop is double top
                 && IsLayoutOnScreen(left, top, Width, Height))
             {
                 Left = left;
                 Top = top;
-                return;
+            }
+            else
+            {
+                PlaceDefaultPosition();
             }
 
-            PlaceDefaultPosition();
+            UpdateResultsListMaxHeight();
         }
         finally
         {
@@ -90,6 +106,7 @@ public partial class MainWindow
 
         SizeToContent = SizeToContent.Manual;
         Height = ClampWindowHeight(savedHeight);
+        _userResizedHeight = true;
     }
 
     private void AdjustWindowHeightForContent()
@@ -100,15 +117,41 @@ public partial class MainWindow
         _isApplyingWindowLayout = true;
         try
         {
-            SizeToContent = SizeToContent.Height;
-            UpdateLayout();
-            Height = ClampWindowHeight(ActualHeight);
+            var resultsVisible = ResultsList.Visibility == Visibility.Visible;
+            if (_userResizedHeight)
+            {
+                UpdateResultsListMaxHeight();
+                return;
+            }
+
             SizeToContent = SizeToContent.Manual;
+
+            if (!resultsVisible)
+            {
+                Height = ClampWindowHeight(CompactWindowHeight);
+                _userResizedHeight = false;
+                return;
+            }
+
+            var itemCount = ResultsList.Items.Count;
+            var resultsArea = Math.Min(
+                DefaultResultsAreaHeight,
+                Math.Max(80, itemCount * ApproxResultItemHeight));
+            Height = ClampWindowHeight(ResultsAreaTopChrome + resultsArea);
+            UpdateResultsListMaxHeight();
         }
         finally
         {
             _isApplyingWindowLayout = false;
         }
+    }
+
+    private void UpdateResultsListMaxHeight()
+    {
+        if (ResultsList.Visibility != Visibility.Visible)
+            return;
+
+        ResultsList.MaxHeight = Math.Max(80, Height - ResultsAreaTopChrome);
     }
 
     private void PlaceDefaultPosition()

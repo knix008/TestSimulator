@@ -101,7 +101,7 @@ DeskSearchWinV10/
 │   │   ├── FileSearchService.cs      # 검색·점수·배치
 │   │   ├── IndexExclusionPolicy.cs   # 검색 제외 경로 판별
 │   │   ├── SettingsService.cs        # 설정 JSON 저장
-│   │   ├── StartupService.cs         # 로그온 시 자동 실행 (schtasks)
+│   │   ├── StartupService.cs         # 로그온 시 자동 실행 (HKCU Run 레지스트리)
 │   │   ├── SingleInstanceService.cs  # 단일 인스턴스
 │   │   ├── TrayIconService.cs        # NotifyIcon
 │   │   ├── LocalizationService.cs    # ko / en

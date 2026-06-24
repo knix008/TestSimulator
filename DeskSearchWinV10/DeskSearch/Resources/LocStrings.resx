@@ -95,7 +95,7 @@
   <data name="Settings_ReadyStatus" xml:space="preserve"><value>준비 완료 — {0:N0}개 항목 인덱싱됨</value></data>
   <data name="Settings_Startup" xml:space="preserve"><value>시작</value></data>
   <data name="Settings_RunAtStartup" xml:space="preserve"><value>Windows 시작 시 자동 실행</value></data>
-  <data name="Settings_RunAtStartupDesc" xml:space="preserve"><value>로그인할 때 DeskSearch가 자동으로 실행됩니다. (관리자 권한으로 등록)</value></data>
+  <data name="Settings_RunAtStartupDesc" xml:space="preserve"><value>로그인할 때 DeskSearch가 자동으로 실행됩니다.</value></data>
   <data name="Settings_BackgroundColor" xml:space="preserve"><value>배경색</value></data>
   <data name="Settings_PickColor" xml:space="preserve"><value>색 선택...</value></data>
   <data name="Settings_Preset_White" xml:space="preserve"><value>흰색</value></data>

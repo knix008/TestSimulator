@@ -3,9 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="DeskSearch"
         Width="340"
+        Height="48"
         MinWidth="280"
         MaxWidth="720"
-        SizeToContent="Height"
+        SizeToContent="Manual"
         MinHeight="44"
         MaxHeight="420"
         WindowStyle="None"
@@ -142,7 +143,7 @@
 
             <ListBox x:Name="ResultsList"
                      Margin="0,8,0,0"
-                     MaxHeight="320"
+                     MaxHeight="168"
                      BorderThickness="0"
                      Background="Transparent"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -226,5 +227,11 @@
                 Background="Transparent"
                 Cursor="SizeWE"
                 MouseLeftButtonDown="RightResizeGrip_MouseLeftButtonDown"/>
+        <Border x:Name="BottomResizeGrip"
+                Height="8"
+                VerticalAlignment="Bottom"
+                Background="Transparent"
+                Cursor="SizeNS"
+                MouseLeftButtonDown="BottomResizeGrip_MouseLeftButtonDown"/>
     </Grid>
 </Window>
