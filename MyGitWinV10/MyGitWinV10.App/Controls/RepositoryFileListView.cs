@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Drawing.Text;
 using MyGitWinV10.App.Services;
 
 namespace MyGitWinV10.App.Controls;
@@ -12,7 +13,7 @@ namespace MyGitWinV10.App.Controls;
 public sealed class RepositoryFileListView : Panel
 {
     private const int RowHeight = 26;
-    private const int HeaderHeight = 26;
+    private const int HeaderHeight = 30;
     private const int IndentUnit = 16;
     private const int IconSize = 16;
     private const int IconTextGap = 4;
@@ -21,12 +22,20 @@ public sealed class RepositoryFileListView : Panel
     private const float SymbolBadgeFontSizeBoost = 6.5f;
     private const float SymbolBadgeMinimumFontSize = 16f;
     private const int MinNameColumnWidth = 80;
-    private const int StatusColumnWidth = 80;
+    private const int MinStatusColumnWidth = 80;
     private const int ColumnResizeHitWidth = 6;
 
     private static readonly Color ConnectorLineColor = Color.FromArgb(200, 202, 210);
     private static readonly Color RowSeparatorColor = Color.FromArgb(210, 212, 218);
     private static readonly Color SelectionColor = Color.FromArgb(219, 234, 254);
+
+    private static readonly StringFormat StatusColumnTextFormat = new()
+    {
+        Alignment = StringAlignment.Center,
+        LineAlignment = StringAlignment.Center,
+        Trimming = StringTrimming.None,
+        FormatFlags = StringFormatFlags.NoWrap,
+    };
 
     private readonly HashSet<TreeNode> _expanded = [];
     private readonly List<RowVisual> _rows = [];
@@ -498,7 +507,16 @@ public sealed class RepositoryFileListView : Panel
         _toolTip.Hide(_bodyPanel ?? (Control)this);
     }
 
-    private int ContentWidth => NameColumnWidth + StatusColumnWidth;
+    private int ContentWidth => NameColumnWidth + EffectiveStatusColumnWidth(ViewportWidth);
+
+    private static int EffectiveStatusColumnWidth(int viewportWidth, int nameColumnWidth) =>
+        Math.Max(MinStatusColumnWidth, viewportWidth - nameColumnWidth);
+
+    private int EffectiveStatusColumnWidth(int viewportWidth) =>
+        EffectiveStatusColumnWidth(viewportWidth, NameColumnWidth);
+
+    private static Rectangle GetStatusColumnBounds(int dividerX, int top, int height, int statusColumnWidth) =>
+        new(dividerX, top, statusColumnWidth, height);
 
     private void BodyPanel_Paint(object? sender, PaintEventArgs e)
     {
@@ -511,6 +529,7 @@ public sealed class RepositoryFileListView : Panel
         int viewportWidth = ViewportWidth;
         int contentRight = offsetX + ContentWidth;
         int dividerX = offsetX + NameColumnWidth;
+        int statusColumnWidth = EffectiveStatusColumnWidth(viewportWidth);
 
         using var selectionBrush = new SolidBrush(SelectionColor);
         using var backgroundBrush = new SolidBrush(BackColor);
@@ -534,18 +553,13 @@ public sealed class RepositoryFileListView : Panel
             g.FillRectangle(isSelected ? selectionBrush : backgroundBrush, 0, rowTop, viewportWidth, RowHeight);
 
             DrawNameCell(g, row, offsetX, rowTop, linePen, textBrush, rowBackColor);
-            DrawStatusCell(g, row, dividerX, rowTop, rowBackColor);
+            DrawStatusCell(g, row, dividerX, rowTop, statusColumnWidth, rowBackColor);
         }
 
         int gridTop = Math.Max(0, offsetY);
         int gridBottom = Math.Min(viewportHeight, offsetY + _rows.Count * RowHeight);
         if (gridBottom > gridTop)
         {
-            if (dividerX > 0 && dividerX < viewportWidth)
-            {
-                g.DrawLine(columnDividerPen, dividerX, gridTop, dividerX, gridBottom);
-            }
-
             for (int i = 0; i <= _rows.Count; i++)
             {
                 int y = offsetY + i * RowHeight;
@@ -557,6 +571,11 @@ public sealed class RepositoryFileListView : Panel
                 int lineLeft = Math.Max(0, offsetX);
                 int lineRight = Math.Max(viewportWidth, contentRight);
                 g.DrawLine(rowSeparatorPen, lineLeft, y, lineRight, y);
+            }
+
+            if (dividerX > 0 && dividerX < viewportWidth)
+            {
+                g.DrawLine(columnDividerPen, dividerX, gridTop, dividerX, gridBottom);
             }
         }
     }
@@ -613,28 +632,37 @@ public sealed class RepositoryFileListView : Panel
             TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
     }
 
-    private void DrawStatusCell(Graphics g, RowVisual row, int cellX, int rowTop, Color rowBackColor)
+    private void DrawStatusCell(Graphics g, RowVisual row, int dividerX, int rowTop, int statusColumnWidth, Color rowBackColor)
     {
         if (row.Status is not { HasChanges: true } status)
         {
             return;
         }
 
-        var cellRect = new Rectangle(cellX, rowTop, StatusColumnWidth, RowHeight);
+        Rectangle columnBounds = GetStatusColumnBounds(dividerX, rowTop, RowHeight, statusColumnWidth);
         float badgeFontSize = GetStatusBadgeFontSize(status.Badge);
         using var badgeFont = new Font(Font.FontFamily, badgeFontSize, FontStyle.Bold, GraphicsUnit.Point);
 
         var previousHint = g.TextRenderingHint;
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-        TextRenderer.DrawText(
-            g,
-            status.Badge,
-            badgeFont,
-            cellRect,
-            status.ForeColor,
-            rowBackColor,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
+        g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+        DrawStatusColumnText(g, status.Badge, badgeFont, columnBounds, status.ForeColor);
         g.TextRenderingHint = previousHint;
+    }
+
+    private static void DrawStatusColumnText(
+        Graphics g,
+        string text,
+        Font font,
+        Rectangle columnBounds,
+        Color foreColor)
+    {
+        if (columnBounds.Width <= 0 || columnBounds.Height <= 0)
+        {
+            return;
+        }
+
+        using var foreBrush = new SolidBrush(foreColor);
+        g.DrawString(text, font, foreBrush, columnBounds, StatusColumnTextFormat);
     }
 
     private float GetStatusBadgeFontSize(string badge) =>
@@ -651,6 +679,7 @@ public sealed class RepositoryFileListView : Panel
         int offsetX = ScrollOffsetX;
         int viewportWidth = ViewportWidth;
         int dividerX = offsetX + NameColumnWidth;
+        int statusColumnWidth = EffectiveStatusColumnWidth(viewportWidth);
 
         using (var background = new SolidBrush(HeaderBackColor))
         {
@@ -660,15 +689,6 @@ public sealed class RepositoryFileListView : Panel
         using (var accent = new SolidBrush(HeaderAccentColor))
         {
             g.FillRectangle(accent, offsetX, 0, 3, HeaderHeight);
-        }
-
-        using (var border = new Pen(HeaderBorderColor))
-        {
-            g.DrawLine(border, 0, HeaderHeight - 1, viewportWidth - 1, HeaderHeight - 1);
-            if (dividerX > 0 && dividerX < viewportWidth)
-            {
-                g.DrawLine(border, dividerX, 0, dividerX, HeaderHeight - 1);
-            }
         }
 
         var nameRect = new Rectangle(offsetX + 9, 0, Math.Max(0, NameColumnWidth - 12), HeaderHeight);
@@ -683,16 +703,19 @@ public sealed class RepositoryFileListView : Panel
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
         }
 
-        var statusRect = new Rectangle(dividerX, 0, StatusColumnWidth, HeaderHeight);
+        var statusRect = GetStatusColumnBounds(dividerX, 0, HeaderHeight, statusColumnWidth);
         if (statusRect.Right > 0 && statusRect.Left < viewportWidth)
         {
-            TextRenderer.DrawText(
-                g,
-                StatusColumnText,
-                Font,
-                statusRect,
-                HeaderForeColor,
-                TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPrefix);
+            DrawStatusColumnText(g, StatusColumnText, Font, statusRect, HeaderForeColor);
+        }
+
+        using (var border = new Pen(HeaderBorderColor))
+        {
+            g.DrawLine(border, 0, HeaderHeight - 1, viewportWidth - 1, HeaderHeight - 1);
+            if (dividerX > 0 && dividerX < viewportWidth)
+            {
+                g.DrawLine(border, dividerX, 0, dividerX, HeaderHeight - 1);
+            }
         }
     }
 
