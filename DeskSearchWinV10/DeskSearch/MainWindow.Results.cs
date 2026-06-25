@@ -10,13 +10,10 @@ public partial class MainWindow
     private const int MinVisibleResults = 10;
     private const double ResultItemHeight = 46;
     private const double ResultsChromeHeight = 22;
-    private const double DefaultResultsWindowHeight =
-        ResultsChromeHeight + (MinVisibleResults * ResultItemHeight);
-    private const double ResultsMinHeight = DefaultResultsWindowHeight;
+    private const double ResultsMinHeight = ResultsChromeHeight + ResultItemHeight;
     private const double ResultsMaxHeight = 560;
 
     private ResultsWindow? _resultsWindow;
-    private bool _userResizedResultsHeight;
     private bool _resultsWindowShown;
 
     private ResultsWindow Results => _resultsWindow ??= CreateResultsWindow();
@@ -33,25 +30,16 @@ public partial class MainWindow
         window.EntryOpenRequested += (_, entry) => OpenEntry(entry);
         window.EntryOpenDefaultRequested += (_, entry) => OpenEntryDefault(entry);
         window.ResultItemRightClick += OnResultItemRightClick;
-        window.HeightChangedByUser += (_, _) =>
-        {
-            _userResizedResultsHeight = true;
-            PersistSettings();
-        };
+        window.HeightChangedByUser += (_, _) => PersistSettings();
         window.SetContextMenu(_mainContextMenu);
         window.ApplyTheme(Resources);
         window.ApplyChrome(_settingsService.Current);
 
         if (_settingsService.Current.WindowHeight is double savedHeight
             && savedHeight >= ResultsMinHeight)
-        {
             window.Height = ClampResultsWindowHeight(savedHeight);
-            _userResizedResultsHeight = true;
-        }
         else
-        {
-            window.Height = DefaultResultsWindowHeight;
-        }
+            window.Height = ResultsMinHeight;
 
         WindowTaskbarHelper.ExcludeFromTaskbar(window, noActivate: true);
         return window;
@@ -77,7 +65,8 @@ public partial class MainWindow
         var resultsWindow = Results;
         var firstShow = !_resultsWindowShown;
 
-        if (!resultsWindow.UpdateResults(results) && !firstShow)
+        var changed = resultsWindow.UpdateResults(results);
+        if (!changed && !firstShow)
         {
             if (restoreSearchFocus)
                 SearchBox.Focus();
@@ -85,13 +74,10 @@ public partial class MainWindow
             return;
         }
 
+        ApplyResultsWindowHeight(resultsWindow, results.Count);
+
         if (firstShow)
         {
-            if (!_userResizedResultsHeight)
-                resultsWindow.Height = ClampResultsWindowHeight(DefaultResultsWindowHeight);
-            else if (resultsWindow.Height < ResultsMinHeight)
-                resultsWindow.Height = ResultsMinHeight;
-
             SyncResultsWindowLayout(show: true);
             resultsWindow.Show();
             _resultsWindowShown = true;
@@ -146,6 +132,18 @@ public partial class MainWindow
     private double ClampResultsWindowHeight(double height) =>
         Math.Clamp(height, ResultsMinHeight, ResultsMaxHeight);
 
+    private static double CalculateResultsWindowHeight(int resultCount)
+    {
+        var visibleRows = Math.Clamp(resultCount, 1, MinVisibleResults);
+        return ResultsChromeHeight + (visibleRows * ResultItemHeight);
+    }
+
+    private void ApplyResultsWindowHeight(ResultsWindow window, int resultCount)
+    {
+        window.ConfigureForResultCount(resultCount, MinVisibleResults);
+        window.Height = ClampResultsWindowHeight(CalculateResultsWindowHeight(resultCount));
+    }
+
     private void ApplyThemeToResultsWindow()
     {
         if (_resultsWindow is null)
@@ -166,6 +164,7 @@ public partial class MainWindow
         if (_resultsWindow is null || _resultsWindow.ResultCount == 0)
             return;
 
+        ApplyResultsWindowHeight(_resultsWindow, _resultsWindow.ResultCount);
         SyncResultsWindowLayout(show: true);
         _resultsWindow.ShowActivated = false;
         _resultsWindow.Show();

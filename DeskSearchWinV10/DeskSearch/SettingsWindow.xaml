@@ -240,11 +240,14 @@
                            Foreground="#888888"
                            Margin="0,0,0,8"
                            TextWrapping="Wrap"/>
-                <Button x:Name="ReSearchButton"
-                        Style="{StaticResource SettingsActionButton}"
-                        HorizontalAlignment="Left"
-                        Margin="0,0,0,16"
-                        Click="ReSearch_Click"/>
+                <WrapPanel Margin="0,0,0,16">
+                    <Button x:Name="ReSearchButton"
+                            Style="{StaticResource SettingsActionButton}"
+                            Click="IndexAction_Click"/>
+                    <Button x:Name="ResetIndexButton"
+                            Style="{StaticResource SettingsActionButton}"
+                            Click="ResetIndex_Click"/>
+                </WrapPanel>
 
                 <TextBlock x:Name="StartupLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <CheckBox x:Name="RunAtStartupCheckBox"

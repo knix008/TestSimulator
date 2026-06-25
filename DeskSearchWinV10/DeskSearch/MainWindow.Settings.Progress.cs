@@ -23,7 +23,9 @@ public partial class MainWindow
             {
                 Percent = percent,
                 StatusText = LocalizationService.F("Settings_IndexingStatus", percent, approxCount),
-                IsIndexing = true
+                IsIndexing = true,
+                IsScanRunning = _indexService.IsScanning,
+                CanResetIndex = false
             };
         }
 
@@ -46,7 +48,8 @@ public partial class MainWindow
             {
                 Percent = percent,
                 StatusText = LocalizationService.F("Settings_SearchingStatus", percent, query),
-                IsSearching = true
+                IsSearching = true,
+                CanResetIndex = _indexService.IsScanComplete && !_indexService.IsScanning
             };
         }
 
@@ -61,11 +64,31 @@ public partial class MainWindow
         return new SettingsProgressSnapshot
         {
             Percent = 100,
-            StatusText = statusText
+            StatusText = statusText,
+            CanResetIndex = _indexService.IsScanComplete && !_indexService.IsScanning
         };
     }
 
-    internal void RequestReSearchFromSettings()
+    internal void RequestResetIndexFromSettings()
+    {
+        Interlocked.Increment(ref _searchGeneration);
+
+        lock (_searchSessionLock)
+            _searchSession = null;
+
+        HideSearchResults();
+
+        lock (_rescanLock)
+        {
+            _lastRescanElapsed = null;
+            if (_rescanStopwatch is { IsRunning: true } stopwatch)
+                stopwatch.Stop();
+        }
+
+        _indexService.ResetIndexDatabase();
+    }
+
+    internal void RequestStartIndexingFromSettings()
     {
         Interlocked.Increment(ref _searchGeneration);
 
@@ -81,6 +104,17 @@ public partial class MainWindow
         }
 
         _indexService.RestartScan();
+    }
+
+    internal void RequestStopIndexingFromSettings()
+    {
+        lock (_rescanLock)
+        {
+            if (_rescanStopwatch is { IsRunning: true } stopwatch)
+                stopwatch.Stop();
+        }
+
+        _indexService.StopScan();
     }
 
     private void OnRescanIndexProgress(object? sender, IndexProgressEventArgs e)

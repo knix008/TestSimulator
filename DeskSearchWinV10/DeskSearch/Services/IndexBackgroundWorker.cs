@@ -55,9 +55,17 @@ internal sealed class IndexBackgroundWorker : IDisposable
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
-                // superseded by a newer full scan
+                // superseded by a newer full scan or user stop
             }
         });
+    }
+
+    public void CancelExclusiveWork()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        lock (_cancelLock)
+            _exclusiveWorkCts?.Cancel();
     }
 
     public void Dispose()

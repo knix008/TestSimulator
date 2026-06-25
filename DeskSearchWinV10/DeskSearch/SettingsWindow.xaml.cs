@@ -18,7 +18,9 @@ public partial class SettingsWindow : Window
     public AppSettings Settings { get; private set; }
 
     private readonly Func<SettingsProgressSnapshot>? _getProgress;
-    private readonly Action? _reSearch;
+    private readonly Action? _startIndexing;
+    private readonly Action? _stopIndexing;
+    private readonly Action? _resetIndex;
     private readonly DispatcherTimer? _progressTimer;
     private readonly DebounceDispatcher _scrollResumeDebounce;
     private readonly DebounceDispatcher _focusRestoreDebounce;
@@ -28,16 +30,21 @@ public partial class SettingsWindow : Window
     private string? _lastProgressStatus;
     private bool _progressPausedForScroll;
     private bool _progressIdle;
+    private bool _indexActionIsStopMode;
     private IInputElement? _pendingFocusRestore;
 
     public SettingsWindow(
         AppSettings current,
         Func<SettingsProgressSnapshot>? getProgress = null,
-        Action? reSearch = null)
+        Action? startIndexing = null,
+        Action? stopIndexing = null,
+        Action? resetIndex = null)
     {
         Settings = current.Clone();
         _getProgress = getProgress;
-        _reSearch = reSearch;
+        _startIndexing = startIndexing;
+        _stopIndexing = stopIndexing;
+        _resetIndex = resetIndex;
         _scrollResumeDebounce = new DebounceDispatcher(Dispatcher, IndexResourcePolicy.SettingsScrollResumeDebounceMs);
         _focusRestoreDebounce = new DebounceDispatcher(Dispatcher, IndexResourcePolicy.SettingsFocusRestoreDebounceMs);
         InitializeComponent();
@@ -53,6 +60,7 @@ public partial class SettingsWindow : Window
             IndexProgressPercentLabel.Visibility = Visibility.Collapsed;
             IndexProgressStatusLabel.Visibility = Visibility.Collapsed;
             ReSearchButton.Visibility = Visibility.Collapsed;
+            ResetIndexButton.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -252,7 +260,8 @@ public partial class SettingsWindow : Window
         PeriodicResyncDescLabel.Text = LocalizationService.T("Settings_PeriodicResyncDesc");
         LoadPeriodicResyncOptions();
         IndexProgressLabel.Text = LocalizationService.T("Settings_IndexProgress");
-        ReSearchButton.Content = CreateIconLabel("\uE721", LocalizationService.T("Settings_ReSearch"));
+        ResetIndexButton.Content = CreateIconLabel("\uE894", LocalizationService.T("Settings_ResetIndex"));
+        ApplyIndexActionButtonAppearance(_indexActionIsStopMode);
         StartupLabel.Text = LocalizationService.T("Settings_Startup");
         RunAtStartupCheckBox.Content = LocalizationService.T("Settings_RunAtStartup");
         RunAtStartupDescLabel.Text = LocalizationService.T("Settings_RunAtStartupDesc");
@@ -285,12 +294,14 @@ public partial class SettingsWindow : Window
                     Text = glyph,
                     FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
                     FontSize = 14,
+                    Foreground = System.Windows.SystemColors.ControlTextBrush,
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(0, 0, 6, 0)
                 },
                 new TextBlock
                 {
                     Text = label,
+                    Foreground = System.Windows.SystemColors.ControlTextBrush,
                     VerticalAlignment = VerticalAlignment.Center
                 }
             }
@@ -501,6 +512,8 @@ public partial class SettingsWindow : Window
         if (snapshot.Percent == _lastProgressPercent
             && string.Equals(snapshot.StatusText, _lastProgressStatus, StringComparison.Ordinal))
         {
+            SyncIndexActionButton(snapshot.IsScanRunning);
+            SyncResetIndexButton(snapshot.CanResetIndex);
             SyncProgressActivityMode(snapshot);
             return;
         }
@@ -514,13 +527,101 @@ public partial class SettingsWindow : Window
 
         IndexProgressPercentLabel.Text = $"{snapshot.Percent}%";
         IndexProgressStatusLabel.Text = snapshot.StatusText;
+        SyncIndexActionButton(snapshot.IsScanRunning);
+        SyncResetIndexButton(snapshot.CanResetIndex);
         SyncProgressActivityMode(snapshot);
     }
 
-    private void ReSearch_Click(object sender, RoutedEventArgs e)
+    private void SyncResetIndexButton(bool isEnabled)
     {
+        ResetIndexButton.IsEnabled = isEnabled;
+    }
+
+    private void SyncIndexActionButton(bool isStopMode)
+    {
+        if (_indexActionIsStopMode == isStopMode)
+            return;
+
+        _indexActionIsStopMode = isStopMode;
+        ApplyIndexActionButtonAppearance(isStopMode);
+    }
+
+    private void ApplyIndexActionButtonAppearance(bool isStopMode)
+    {
+        if (isStopMode)
+        {
+            ReSearchButton.Content = CreateStopIconLabel(LocalizationService.T("Settings_StopIndexing"));
+            ReSearchButton.Background = new SolidColorBrush(MediaColor.FromRgb(0xC4, 0x2B, 0x1C));
+            ReSearchButton.Foreground = System.Windows.Media.Brushes.White;
+            ReSearchButton.BorderBrush = new SolidColorBrush(MediaColor.FromRgb(0xA5, 0x24, 0x18));
+            ReSearchButton.BorderThickness = new Thickness(1);
+        }
+        else
+        {
+            ReSearchButton.Content = CreateIconLabel("\uE721", LocalizationService.T("Settings_Indexing"));
+            ReSearchButton.ClearValue(System.Windows.Controls.Control.BackgroundProperty);
+            ReSearchButton.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
+            ReSearchButton.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
+            ReSearchButton.ClearValue(System.Windows.Controls.Control.BorderThicknessProperty);
+        }
+    }
+
+    private static StackPanel CreateStopIconLabel(string label) =>
+        new()
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = "\uE71A",
+                    FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+                    FontSize = 14,
+                    Foreground = System.Windows.Media.Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 6, 0)
+                },
+                new TextBlock
+                {
+                    Text = label,
+                    Foreground = System.Windows.Media.Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            }
+        };
+
+    private void IndexAction_Click(object sender, RoutedEventArgs e)
+    {
+        if (_getProgress?.Invoke() is { IsScanRunning: true })
+            _stopIndexing?.Invoke();
+        else
+        {
+            ExitProgressIdleMode();
+            _startIndexing?.Invoke();
+        }
+
+        _lastProgressPercent = -1;
+        _lastProgressStatus = null;
+        UpdateProgressUi();
+    }
+
+    private void ResetIndex_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ResetIndexButton.IsEnabled)
+            return;
+
+        var confirm = System.Windows.MessageBox.Show(
+            this,
+            LocalizationService.T("Settings_ResetIndex_ConfirmMessage"),
+            LocalizationService.T("Settings_ResetIndex_ConfirmTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
         ExitProgressIdleMode();
-        _reSearch?.Invoke();
+        _resetIndex?.Invoke();
         _lastProgressPercent = -1;
         _lastProgressStatus = null;
         UpdateProgressUi();

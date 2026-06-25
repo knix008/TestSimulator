@@ -6,7 +6,7 @@
         Height="482"
         MinWidth="280"
         MaxWidth="720"
-        MinHeight="482"
+        MinHeight="68"
         MaxHeight="560"
         WindowStyle="None"
         AllowsTransparency="True"

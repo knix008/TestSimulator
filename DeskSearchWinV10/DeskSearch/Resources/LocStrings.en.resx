@@ -64,7 +64,11 @@
   <data name="Settings_Resync_Hours" xml:space="preserve"><value>Every {0} hours</value></data>
   <data name="Settings_Resync_Weekly" xml:space="preserve"><value>Every week</value></data>
   <data name="Settings_IndexProgress" xml:space="preserve"><value>Search (indexing) progress</value></data>
-  <data name="Settings_ReSearch" xml:space="preserve"><value>Re-search</value></data>
+  <data name="Settings_Indexing" xml:space="preserve"><value>Indexing</value></data>
+  <data name="Settings_StopIndexing" xml:space="preserve"><value>Stop</value></data>
+  <data name="Settings_ResetIndex" xml:space="preserve"><value>Reset</value></data>
+  <data name="Settings_ResetIndex_ConfirmTitle" xml:space="preserve"><value>Reset Index</value></data>
+  <data name="Settings_ResetIndex_ConfirmMessage" xml:space="preserve"><value>This will delete the saved search index (index.db). This action cannot be undone. Continue?</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>
   <data name="Settings_SearchingStatus" xml:space="preserve"><value>Searching… {0}% — "{1}"</value></data>
   <data name="Settings_ReadyStatus" xml:space="preserve"><value>Ready — {0:N0} items indexed</value></data>

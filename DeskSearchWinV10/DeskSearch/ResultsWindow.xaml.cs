@@ -81,6 +81,15 @@ public partial class ResultsWindow : Window
 
     public void ClearResults() => _boundResults.Clear();
 
+    public void ConfigureForResultCount(int resultCount, int maxVisibleWithoutScroll)
+    {
+        ResultsList.SetValue(
+            ScrollViewer.VerticalScrollBarVisibilityProperty,
+            resultCount > maxVisibleWithoutScroll
+                ? ScrollBarVisibility.Auto
+                : ScrollBarVisibility.Disabled);
+    }
+
     private static bool ResultsSequenceEquals(
         IReadOnlyList<FileEntry> current,
         IReadOnlyList<FileEntry> next)

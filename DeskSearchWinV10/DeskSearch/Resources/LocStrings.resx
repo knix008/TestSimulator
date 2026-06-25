@@ -93,7 +93,11 @@
   <data name="Settings_Resync_Hours" xml:space="preserve"><value>{0}시간마다</value></data>
   <data name="Settings_Resync_Weekly" xml:space="preserve"><value>1주일마다</value></data>
   <data name="Settings_IndexProgress" xml:space="preserve"><value>검색(인덱싱) 진행률</value></data>
-  <data name="Settings_ReSearch" xml:space="preserve"><value>재검색</value></data>
+  <data name="Settings_Indexing" xml:space="preserve"><value>인덱싱</value></data>
+  <data name="Settings_StopIndexing" xml:space="preserve"><value>멈춤</value></data>
+  <data name="Settings_ResetIndex" xml:space="preserve"><value>초기화</value></data>
+  <data name="Settings_ResetIndex_ConfirmTitle" xml:space="preserve"><value>인덱스 초기화</value></data>
+  <data name="Settings_ResetIndex_ConfirmMessage" xml:space="preserve"><value>저장된 검색 인덱스(index.db)를 삭제합니다. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>인덱싱 중… {0}% ({1:N0}개 항목)</value></data>
   <data name="Settings_SearchingStatus" xml:space="preserve"><value>검색 중… {0}% — "{1}"</value></data>
   <data name="Settings_ReadyStatus" xml:space="preserve"><value>준비 완료 — {0:N0}개 항목 인덱싱됨</value></data>

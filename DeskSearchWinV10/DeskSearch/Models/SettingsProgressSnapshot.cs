@@ -8,5 +8,9 @@ public sealed class SettingsProgressSnapshot
 
     public bool IsIndexing { get; init; }
 
+    public bool IsScanRunning { get; init; }
+
     public bool IsSearching { get; init; }
+
+    public bool CanResetIndex { get; init; }
 }

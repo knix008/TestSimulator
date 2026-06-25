@@ -166,6 +166,55 @@ public sealed class SystemIndexService : IDisposable
         _indexWorker.EnqueueExclusive(RunScan);
     }
 
+    public void StopScan() => _indexWorker.CancelExclusiveWork();
+
+    public void ResetIndexDatabase()
+    {
+        if (_isScanning)
+            return;
+
+        _indexWorker.EnqueueExclusive(_ => ResetIndexDatabaseCore());
+    }
+
+    private void ResetIndexDatabaseCore()
+    {
+        if (_isScanning)
+            return;
+
+        lock (_indexStoreSwapLock)
+        {
+            _indexStore.Dispose();
+            DeleteDatabaseFiles(GetCanonicalDatabasePath());
+            DeleteDatabaseFiles(GetBuildingDatabasePath());
+            _indexStore = new IndexStore(GetCanonicalDatabasePath());
+            Interlocked.Exchange(ref _approximateLiveCount, 0);
+        }
+
+        lock (_rootsLock)
+            _indexedRoots.Clear();
+
+        lock (_scannedPrefixesLock)
+            _scannedDirectoryPrefixes.Clear();
+
+        lock (_resyncLock)
+            _pendingResyncPaths.Clear();
+
+        _isSearchEnabled = false;
+        _isScanComplete = false;
+        _isScanning = false;
+        _scanProgressPercent = 0;
+        _completedScanSteps = 0;
+        _totalScanSteps = 0;
+        _currentScanPath = null;
+        _activeStepEntries.Clear();
+        _lastProgressReport = -1;
+        _lastIndexUpdatedCount = 0;
+        _lastIndexUpdatedTime = DateTime.MinValue;
+
+        ReportProgress(null, false, force: true);
+        IndexUpdated?.Invoke(this, EventArgs.Empty);
+    }
+
     public IReadOnlyList<FileEntry> Search(
         bool caseSensitive,
         ResolvedSearchQuery searchQuery)

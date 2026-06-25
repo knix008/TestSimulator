@@ -162,12 +162,11 @@ public partial class MainWindow
         if (_resultsWindow is null)
             return;
 
-        if (_settingsService.Current.WindowHeight is double savedHeight
-            && savedHeight >= ResultsMinHeight)
-        {
+        if (_resultsWindow.ResultCount > 0)
+            ApplyResultsWindowHeight(_resultsWindow, _resultsWindow.ResultCount);
+        else if (_settingsService.Current.WindowHeight is double savedHeight
+                 && savedHeight >= ResultsMinHeight)
             _resultsWindow.Height = ClampResultsWindowHeight(savedHeight);
-            _userResizedResultsHeight = true;
-        }
 
         _resultsWindow.ApplyChrome(_settingsService.Current);
         SyncResultsWindowLayout(show: _resultsWindow.IsVisible);
@@ -232,7 +231,9 @@ public partial class MainWindow
         var dialog = new SettingsWindow(
             _settingsService.Current,
             GetSettingsProgress,
-            RequestReSearchFromSettings)
+            RequestStartIndexingFromSettings,
+            RequestStopIndexingFromSettings,
+            RequestResetIndexFromSettings)
         {
             Owner = this
         };
@@ -255,7 +256,7 @@ public partial class MainWindow
         {
             _indexService.ConfigureExclusions(_settingsService.Current);
             _watcherService.Start();
-            RequestReSearchFromSettings();
+            RequestStartIndexingFromSettings();
         }
 
         RefreshLocalization();
