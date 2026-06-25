@@ -148,6 +148,8 @@ public static class RepositoryPathStatusService
             PropagateToParents(directories, path, status);
         }
 
+        ApplyUnpushedPaths(repo, files, directories);
+
         return new RepositoryPathStatusIndex(
             files,
             directories,
@@ -192,6 +194,10 @@ public static class RepositoryPathStatusService
         lines.Add($"Status: {effectiveStatus.GetSummaryLabel(tag.IsDirectory)}");
         lines.Add($"Staged: {PathGitStatus.FormatDisplayValue(effectiveStatus.Staged)}");
         lines.Add($"Work tree: {PathGitStatus.FormatDisplayValue(effectiveStatus.WorkTree)}");
+        if (effectiveStatus.IsUnpushed && !effectiveStatus.HasWorkingTreeChanges)
+        {
+            lines.Add("Push: Pending");
+        }
 
         return string.Join(Environment.NewLine, lines);
     }
@@ -332,6 +338,23 @@ public static class RepositoryPathStatusService
             string directoryPath = filePath[..separatorIndex];
             directories[directoryPath] = PathGitStatus.Merge(directories.GetValueOrDefault(directoryPath), status);
             separatorIndex = filePath.IndexOf('/', separatorIndex + 1);
+        }
+    }
+
+    private static void ApplyUnpushedPaths(
+        Repository repo,
+        Dictionary<string, PathGitStatus> files,
+        Dictionary<string, PathGitStatus> directories)
+    {
+        foreach (string path in GitOperationDetails.GetUnpushedFilePaths(repo))
+        {
+            if (files.TryGetValue(path, out PathGitStatus? existing) && existing.HasWorkingTreeChanges)
+            {
+                continue;
+            }
+
+            files[path] = PathGitStatus.Unpushed;
+            PropagateToParents(directories, path, PathGitStatus.Unpushed);
         }
     }
 }

@@ -8,16 +8,24 @@ public sealed class PathGitStatus
 
     public string? WorkTree { get; init; }
 
-    public bool HasChanges =>
+    public bool IsUnpushed { get; init; }
+
+    public bool HasWorkingTreeChanges =>
         !string.IsNullOrEmpty(Staged) || !string.IsNullOrEmpty(WorkTree);
+
+    public bool HasChanges =>
+        HasWorkingTreeChanges || IsUnpushed;
 
     public bool IsIgnoredOnly =>
         string.Equals(WorkTree, IgnoredWorkTree, StringComparison.Ordinal) && string.IsNullOrEmpty(Staged);
 
     public const string IgnoredWorkTree = "Ignored";
     public const string ChangedBadge = "\u00B1";
+    public const string UnpushedBadge = "P";
 
     public static PathGitStatus Ignored { get; } = new() { WorkTree = IgnoredWorkTree };
+
+    public static PathGitStatus Unpushed { get; } = new() { IsUnpushed = true };
 
     public static PathGitStatus Merge(PathGitStatus? current, PathGitStatus incoming)
     {
@@ -34,7 +42,8 @@ public sealed class PathGitStatus
         return new PathGitStatus
         {
             Staged = PickPrimaryLabel(current.Staged, incoming.Staged),
-            WorkTree = PickPrimaryLabel(current.WorkTree, incoming.WorkTree)
+            WorkTree = PickPrimaryLabel(current.WorkTree, incoming.WorkTree),
+            IsUnpushed = current.IsUnpushed || incoming.IsUnpushed,
         };
     }
 
@@ -60,13 +69,23 @@ public sealed class PathGitStatus
                 };
             }
 
-            return Staged switch
+            if (!string.IsNullOrEmpty(Staged))
             {
-                "Deleted" => "D",
-                "Renamed" => "R",
-                "Type Changed" => "T",
-                _ => ChangedBadge
-            };
+                return Staged switch
+                {
+                    "Deleted" => "D",
+                    "Renamed" => "R",
+                    "Type Changed" => "T",
+                    _ => ChangedBadge
+                };
+            }
+
+            if (IsUnpushed)
+            {
+                return UnpushedBadge;
+            }
+
+            return string.Empty;
         }
     }
 
@@ -89,6 +108,16 @@ public sealed class PathGitStatus
                     "Mixed" => Color.FromArgb(217, 119, 6),
                     _ => Color.FromArgb(37, 99, 235)
                 };
+            }
+
+            if (!string.IsNullOrEmpty(Staged))
+            {
+                return Color.FromArgb(124, 58, 237);
+            }
+
+            if (IsUnpushed)
+            {
+                return Color.FromArgb(220, 38, 38);
             }
 
             return Color.FromArgb(124, 58, 237);
@@ -131,7 +160,17 @@ public sealed class PathGitStatus
 
         if (isDirectory)
         {
+            if (IsUnpushed && !HasWorkingTreeChanges)
+            {
+                return "Contains unpushed commits";
+            }
+
             return "Contains changes";
+        }
+
+        if (IsUnpushed && !HasWorkingTreeChanges)
+        {
+            return "Committed (not pushed)";
         }
 
         if (!string.IsNullOrEmpty(Staged) && !string.IsNullOrEmpty(WorkTree)
@@ -173,15 +212,25 @@ public sealed class PathGitStatus
             };
         }
 
-        return Staged switch
+        if (!string.IsNullOrEmpty(Staged))
         {
-            "Added" => GitFileTreeIconIndex.FileAdded,
-            "Modified" => GitFileTreeIconIndex.FileStaged,
-            "Deleted" => GitFileTreeIconIndex.FileDeleted,
-            "Renamed" => GitFileTreeIconIndex.FileRenamed,
-            "Type Changed" => GitFileTreeIconIndex.FileStaged,
-            _ => GitFileTreeIconIndex.FileStaged
-        };
+            return Staged switch
+            {
+                "Added" => GitFileTreeIconIndex.FileAdded,
+                "Modified" => GitFileTreeIconIndex.FileStaged,
+                "Deleted" => GitFileTreeIconIndex.FileDeleted,
+                "Renamed" => GitFileTreeIconIndex.FileRenamed,
+                "Type Changed" => GitFileTreeIconIndex.FileStaged,
+                _ => GitFileTreeIconIndex.FileStaged
+            };
+        }
+
+        if (IsUnpushed)
+        {
+            return GitFileTreeIconIndex.File;
+        }
+
+        return GitFileTreeIconIndex.File;
     }
 
     public static PathGitStatus Empty { get; } = new();

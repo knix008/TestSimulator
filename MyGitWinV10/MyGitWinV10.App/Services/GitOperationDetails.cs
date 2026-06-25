@@ -185,6 +185,25 @@ public static class GitOperationDetails
         }).ToList();
     }
 
+    public static IReadOnlyCollection<string> GetUnpushedFilePaths(Repository repo)
+    {
+        if (!GitWorkflowService.HasOriginRemote(repo))
+        {
+            return [];
+        }
+
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Commit commit in GetCommitsAheadOfTracked(repo))
+        {
+            foreach (string path in GetCommitChangedPaths(repo, commit))
+            {
+                paths.Add(PathCommitHistoryService.NormalizeGitPath(path));
+            }
+        }
+
+        return paths;
+    }
+
     public static string FormatPathScope(string relativePath) =>
         string.IsNullOrEmpty(relativePath) ? "(repository)" : relativePath;
 
