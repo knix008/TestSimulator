@@ -17,10 +17,29 @@ public partial class RepositorySummaryPreviewForm : Form
         _summary = summary;
         _preferredFormat = preferredFormat;
         InitializeComponent();
-        Text = $"Report Preview — {summary.RepositoryName}";
-        subtitleLabel.Text = $"{summary.CurrentBranch}  ·  Generated {summary.GeneratedAt:yyyy-MM-dd HH:mm:ss}";
+        ApplyLocalizedChrome();
         BuildPreview();
         ApplyPreferredFormatHighlight();
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        ApplyLocalizedChrome();
+        BuildPreview();
+    }
+
+    private void ApplyLocalizedChrome()
+    {
+        Text = Localization.Tf("Preview.Title", _summary.RepositoryName);
+        titleLabel.Text = Localization.T("Preview.ReportTitle");
+        subtitleLabel.Text = Localization.Tf("Preview.Subtitle", _summary.CurrentBranch, _summary.GeneratedAt);
+        exportPdfButton.Text = Localization.T("Preview.ExportPdf");
+        exportWordButton.Text = Localization.T("Preview.ExportWord");
+        exportMarkdownButton.Text = Localization.T("Preview.ExportMarkdown");
+        closeButton.Text = Localization.T("Preview.Close");
     }
 
     private void ApplyPreferredFormatHighlight()
@@ -58,18 +77,20 @@ public partial class RepositorySummaryPreviewForm : Form
             Width = Math.Max(200, contentPanel.ClientSize.Width - 24)
         };
 
-        flow.Controls.Add(CreateHeading($"Repository Summary: {_summary.RepositoryName}"));
+        flow.Controls.Add(CreateHeading(Localization.Tf("Preview.RepoSummaryHeading", _summary.RepositoryName)));
         flow.Controls.Add(CreateParagraph(
-            $"Path: {_summary.RepositoryPath}{Environment.NewLine}" +
-            $"Current branch: {_summary.CurrentBranch}{Environment.NewLine}" +
-            $"Local branches: {_summary.LocalBranches.Count}   " +
-            $"Remote branches: {_summary.RemoteBranches.Count}   " +
-            $"Tags: {_summary.Tags.Count}   " +
-            $"Releases: {_summary.Releases.Count}"));
+            Localization.Tf(
+                "Preview.SummaryInfo",
+                _summary.RepositoryPath,
+                _summary.CurrentBranch,
+                _summary.LocalBranches.Count,
+                _summary.RemoteBranches.Count,
+                _summary.Tags.Count,
+                _summary.Releases.Count)));
 
         if (_summary.Charts.Count > 0)
         {
-            flow.Controls.Add(CreateHeading("Charts"));
+            flow.Controls.Add(CreateHeading(Localization.T("Preview.Charts")));
             foreach (var chart in _summary.Charts)
             {
                 flow.Controls.Add(CreateSubheading(chart.Title));
@@ -77,29 +98,31 @@ public partial class RepositorySummaryPreviewForm : Form
             }
         }
 
-        flow.Controls.Add(CreateHeading("HEAD Commit"));
+        flow.Controls.Add(CreateHeading(Localization.T("Preview.HeadCommit")));
         if (_summary.HeadCommitSha is null)
         {
-            flow.Controls.Add(CreateParagraph("(no commits)"));
+            flow.Controls.Add(CreateParagraph(Localization.T("Preview.NoCommits")));
         }
         else
         {
             flow.Controls.Add(CreateParagraph(
-                $"SHA: {_summary.HeadCommitSha}{Environment.NewLine}" +
-                $"Author: {_summary.HeadCommitAuthor}{Environment.NewLine}" +
-                $"Date: {_summary.HeadCommitDate:yyyy-MM-dd HH:mm:ss}{Environment.NewLine}" +
-                $"Message: {_summary.HeadCommitMessage}"));
+                Localization.Tf(
+                    "Preview.HeadInfo",
+                    _summary.HeadCommitSha ?? string.Empty,
+                    _summary.HeadCommitAuthor ?? string.Empty,
+                    _summary.HeadCommitDate ?? DateTimeOffset.MinValue,
+                    _summary.HeadCommitMessage ?? string.Empty)));
         }
 
-        AddListSection(flow, "Remotes", _summary.Remotes);
-        AddListSection(flow, "Local Branches", _summary.LocalBranches);
-        AddListSection(flow, "Remote Branches", _summary.RemoteBranches);
-        AddListSection(flow, "Tags", _summary.Tags);
+        AddListSection(flow, Localization.T("Preview.Remotes"), _summary.Remotes);
+        AddListSection(flow, Localization.T("Preview.LocalBranchesSection"), _summary.LocalBranches);
+        AddListSection(flow, Localization.T("Preview.RemoteBranchesSection"), _summary.RemoteBranches);
+        AddListSection(flow, Localization.T("Preview.TagsSection"), _summary.Tags);
 
-        flow.Controls.Add(CreateHeading("Releases"));
+        flow.Controls.Add(CreateHeading(Localization.T("Preview.ReleasesSection")));
         if (_summary.Releases.Count == 0)
         {
-            flow.Controls.Add(CreateParagraph("(none)"));
+            flow.Controls.Add(CreateParagraph(Localization.T("Preview.None")));
         }
         else
         {
@@ -112,7 +135,7 @@ public partial class RepositorySummaryPreviewForm : Form
             flow.Controls.Add(CreateParagraph(string.Join(Environment.NewLine, releaseLines)));
         }
 
-        flow.Controls.Add(CreateHeading("Recent Commits"));
+        flow.Controls.Add(CreateHeading(Localization.T("Preview.RecentCommits")));
         flow.Controls.Add(CreateRecentCommitsView(_summary.RecentCommits));
 
         contentPanel.Controls.Add(flow);
@@ -124,7 +147,7 @@ public partial class RepositorySummaryPreviewForm : Form
     {
         flow.Controls.Add(CreateHeading(title));
         flow.Controls.Add(items.Count == 0
-            ? CreateParagraph("(none)")
+            ? CreateParagraph(Localization.T("Preview.None"))
             : CreateParagraph(string.Join(Environment.NewLine, items.Select(item => $"• {item}"))));
     }
 
@@ -189,7 +212,7 @@ public partial class RepositorySummaryPreviewForm : Form
     {
         if (commits.Count == 0)
         {
-            return CreateParagraph("(none)");
+            return CreateParagraph(Localization.T("Preview.None"));
         }
 
         var listView = new ListView

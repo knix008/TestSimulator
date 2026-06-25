@@ -21,6 +21,24 @@ public partial class OperationCompleteDetailDialog : Form
         BuildDetailCards(details);
         detailsPanel.Resize += (_, _) => LayoutDetailCards();
         LayoutDetailCards();
+        ApplyLocalizedText();
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (copyButton.Text != Localization.T("OpComplete.Copied"))
+        {
+            ApplyLocalizedText();
+        }
+    }
+
+    private void ApplyLocalizedText()
+    {
+        copyButton.Text = Localization.T("OpComplete.CopyDetails");
+        okButton.Text = Localization.T("Common.OK");
     }
 
     private void BuildDetailCards(IReadOnlyList<GitOperationDetailItem> details)
@@ -114,7 +132,7 @@ public partial class OperationCompleteDetailDialog : Form
     private void CopyButton_Click(object? sender, EventArgs e)
     {
         Clipboard.SetText(_detailsText);
-        copyButton.Text = "Copied";
+        copyButton.Text = Localization.T("OpComplete.Copied");
     }
 
     private sealed record DetailCard(Panel Panel, Label CaptionLabel, Label ValueLabel);

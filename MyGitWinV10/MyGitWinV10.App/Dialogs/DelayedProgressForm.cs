@@ -1,11 +1,19 @@
 namespace MyGitWinV10.App.Dialogs;
 
+using MyGitWinV10.App.Services;
+
 public partial class DelayedProgressForm : Form
 {
     public DelayedProgressForm(string message)
     {
         InitializeComponent();
         messageLabel.Text = message;
+        ApplyLocalizedText();
+    }
+
+    private void ApplyLocalizedText()
+    {
+        stopButton.Text = Localization.T("Progress.Stop");
     }
 
     public event EventHandler? StopRequested;
@@ -107,7 +115,7 @@ public partial class DelayedProgressForm : Form
     private void StopButton_Click(object? sender, EventArgs e)
     {
         stopButton.Enabled = false;
-        stopButton.Text = "Stopping...";
+        stopButton.Text = Localization.T("Progress.Stopping");
         StopRequested?.Invoke(this, EventArgs.Empty);
     }
 }

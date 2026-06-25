@@ -4,8 +4,11 @@ namespace MyGitWinV10.App.Dialogs;
 
 public partial class CredentialsDialog : Form
 {
+    private readonly bool _isGitHub;
+
     public CredentialsDialog(string? suggestedUsername, string? suggestedPassword = null, bool isGitHub = false)
     {
+        _isGitHub = isGitHub;
         InitializeComponent();
         if (!string.IsNullOrWhiteSpace(suggestedUsername))
         {
@@ -16,18 +19,27 @@ public partial class CredentialsDialog : Form
             passwordTextBox.Text = suggestedPassword;
         }
 
-        if (isGitHub)
-        {
-            passwordLabel.Text = "Personal Access Token (PAT)";
-            patHintLabel.Text = "GitHub no longer accepts your account password here — use a PAT\nfrom github.com/settings/tokens (not your login password).";
-            patHintLabel.Visible = true;
-        }
-        else
-        {
-            passwordLabel.Text = "Password or Personal Access Token";
-            patHintLabel.Text = "This host accepts either your account password or a personal\naccess token, depending on how it is configured.";
-            patHintLabel.Visible = true;
-        }
+        ApplyLocalizedText();
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged() => ApplyLocalizedText();
+
+    private void ApplyLocalizedText()
+    {
+        Text = Localization.T("Credentials.Title");
+        infoLabel.Text = Localization.T("Credentials.Info");
+        usernameLabel.Text = Localization.T("Credentials.Username");
+        passwordLabel.Text = _isGitHub
+            ? Localization.T("Credentials.Pat")
+            : Localization.T("Credentials.Password");
+        patHintLabel.Text = _isGitHub
+            ? Localization.T("Credentials.PatHintGitHub")
+            : Localization.T("Credentials.PatHintGeneric");
+        patHintLabel.Visible = true;
+        okButton.Text = Localization.T("Common.OK");
+        cancelButton.Text = Localization.T("Common.Cancel");
     }
 
     public CredentialsDialogResult Result { get; private set; }

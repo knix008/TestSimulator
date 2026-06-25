@@ -16,10 +16,29 @@ public partial class CommitCategoriesDialog : Form
         {
             categoriesListBox.SelectedIndex = 0;
         }
+
+        ApplyLocalizedText();
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
     }
 
     public IReadOnlyList<string> Categories =>
         categoriesListBox.Items.Cast<string>().ToList();
+
+    private void OnLanguageChanged() => ApplyLocalizedText();
+
+    private void ApplyLocalizedText()
+    {
+        Text = Localization.T("Categories.Title");
+        categoriesLabel.Text = Localization.T("Categories.ListLabel");
+        categoryEditLabel.Text = Localization.T("Categories.EditLabel");
+        addCategoryButton.Text = Localization.T("Categories.Add");
+        updateCategoryButton.Text = Localization.T("Categories.Update");
+        removeCategoryButton.Text = Localization.T("Categories.Remove");
+        resetDefaultsButton.Text = Localization.T("Categories.Defaults");
+        okButton.Text = Localization.T("Common.OK");
+        cancelButton.Text = Localization.T("Common.Cancel");
+    }
 
     private void CategoriesListBox_SelectedIndexChanged(object? sender, EventArgs e)
     {
@@ -34,14 +53,14 @@ public partial class CommitCategoriesDialog : Form
         string category = categoryEditTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(category))
         {
-            MessageBox.Show(this, "Enter a category name.", "Add Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Categories.EnterName"), Localization.T("Categories.AddTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             categoryEditTextBox.Focus();
             return;
         }
 
         if (ContainsCategory(category))
         {
-            MessageBox.Show(this, "That category already exists.", "Add Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Categories.AlreadyExists"), Localization.T("Categories.AddTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             SelectCategory(category);
             return;
         }
@@ -54,14 +73,14 @@ public partial class CommitCategoriesDialog : Form
     {
         if (categoriesListBox.SelectedIndex < 0)
         {
-            MessageBox.Show(this, "Select a category to update.", "Update Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Categories.SelectToUpdate"), Localization.T("Categories.UpdateTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         string category = categoryEditTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(category))
         {
-            MessageBox.Show(this, "Enter a category name.", "Update Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Categories.EnterName"), Localization.T("Categories.UpdateTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             categoryEditTextBox.Focus();
             return;
         }
@@ -71,7 +90,7 @@ public partial class CommitCategoriesDialog : Form
         if (!string.Equals(current, category, StringComparison.OrdinalIgnoreCase)
             && ContainsCategory(category))
         {
-            MessageBox.Show(this, "That category already exists.", "Update Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Categories.AlreadyExists"), Localization.T("Categories.UpdateTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -83,13 +102,13 @@ public partial class CommitCategoriesDialog : Form
     {
         if (categoriesListBox.SelectedIndex < 0)
         {
-            MessageBox.Show(this, "Select a category to remove.", "Remove Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Categories.SelectToRemove"), Localization.T("Categories.RemoveTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         if (categoriesListBox.Items.Count <= 1)
         {
-            MessageBox.Show(this, "At least one category is required.", "Remove Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Categories.OneRequired"), Localization.T("Categories.RemoveTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -113,7 +132,7 @@ public partial class CommitCategoriesDialog : Form
     {
         if (categoriesListBox.Items.Count == 0)
         {
-            MessageBox.Show(this, "Add at least one category.", "Commit Categories", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Categories.NeedOne"), Localization.T("Categories.Title"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 

@@ -20,12 +20,12 @@ public static class RepositorySummaryExportDialog
 
         using var dialog = new SaveFileDialog
         {
-            Title = "Export Repository Summary",
+            Title = Localization.T("Export.SummaryTitle"),
             Filter = format switch
             {
-                "pdf" => "PDF document (*.pdf)|*.pdf",
-                "docx" => "Word document (*.docx)|*.docx",
-                "md" => "Markdown document (*.md)|*.md",
+                "pdf" => Localization.T("Export.FilterPdf"),
+                "docx" => Localization.T("Export.FilterWord"),
+                "md" => Localization.T("Export.FilterMarkdown"),
                 _ => "All files (*.*)|*.*"
             },
             FileName = $"{summary.RepositoryName}-summary{extension}",

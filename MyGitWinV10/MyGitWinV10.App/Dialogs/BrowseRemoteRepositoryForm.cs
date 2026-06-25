@@ -7,17 +7,40 @@ public partial class BrowseRemoteRepositoryForm : Form
 {
     private CancellationTokenSource? _browseCts;
     private readonly AppSettingsStore _settings = AppSettingsStore.Load();
+    private bool _busy;
 
     public BrowseRemoteRepositoryForm()
     {
         InitializeComponent();
         ResetProgress();
+        ApplyLocalizedText();
 
         urlTextBox.AutoCompleteMode = AutoCompleteMode.Suggest;
         urlTextBox.AutoCompleteSource = AutoCompleteSource.CustomSource;
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
         RefreshRecentUrlItems();
         RecentUrlComboBoxBehavior.Attach(urlTextBox, () => _settings.RecentCloneUrls, RemoveRecentUrl);
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        ApplyLocalizedText();
+        SetBusy(_busy);
+    }
+
+    private void ApplyLocalizedText()
+    {
+        Text = Localization.T("Browse.Title");
+        urlLabel.Text = Localization.T("Clone.UrlLabel");
+        infoLabel.Text = Localization.T("Browse.Info");
+        cancelButton.Text = Localization.T("Common.Cancel");
+        if (!_busy)
+        {
+            browseButton.Text = Localization.T("Browse.BrowseButton");
+        }
     }
 
     private void RemoveRecentUrl(string url)
@@ -67,7 +90,7 @@ public partial class BrowseRemoteRepositoryForm : Form
 
     private void RequestBrowseCancellation()
     {
-        statusLabel.Text = "Cancelling...";
+        statusLabel.Text = Localization.T("Status.Cancelling");
         cancelButton.Enabled = false;
         browseButton.Enabled = false;
         _browseCts?.Cancel();
@@ -84,7 +107,7 @@ public partial class BrowseRemoteRepositoryForm : Form
         var url = urlTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(url))
         {
-            MessageBox.Show(this, "Please enter a repository URL.", "MyGit", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, Localization.T("Browse.NeedUrl"), Localization.T("App.Title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -99,7 +122,7 @@ public partial class BrowseRemoteRepositoryForm : Form
 
         SetBusy(true);
         ResetProgress();
-        statusLabel.Text = "Downloading... 0%";
+        statusLabel.Text = Localization.Tf("Status.Downloading", 0);
         var prompt = new CredentialsPrompt(this, _lastUsername, _lastPassword);
         try
         {
@@ -121,16 +144,16 @@ public partial class BrowseRemoteRepositoryForm : Form
         }
         catch (OperationCanceledException)
         {
-            statusLabel.Text = "Cancelled.";
+            statusLabel.Text = Localization.T("Status.Cancelled");
         }
         catch (Exception) when (WasBrowseCancelled())
         {
-            statusLabel.Text = "Cancelled.";
+            statusLabel.Text = Localization.T("Status.Cancelled");
         }
         catch (Exception ex)
         {
-            statusLabel.Text = "Failed.";
-            ErrorDetailDialog.Show(this, "Browse Remote Failed", ex);
+            statusLabel.Text = Localization.T("Status.Failed");
+            ErrorDetailDialog.Show(this, Localization.T("Browse.Failed"), ex);
         }
         finally
         {
@@ -148,9 +171,9 @@ public partial class BrowseRemoteRepositoryForm : Form
             if (DialogResult != DialogResult.OK)
             {
                 ResetProgress();
-                if (statusLabel.Text is "Complete." or "")
+                if (statusLabel.Text is var text && (text == Localization.T("Status.Complete") || text == string.Empty))
                 {
-                    statusLabel.Text = "Ready";
+                    statusLabel.Text = Localization.T("Status.Ready");
                 }
             }
         }
@@ -204,14 +227,17 @@ public partial class BrowseRemoteRepositoryForm : Form
         var percent = Math.Clamp((int)Math.Round(progress * 100f), 0, 100);
         progressBar.Value = percent;
         progressPercentLabel.Text = $"{percent}%";
-        statusLabel.Text = percent >= 100 ? "Complete." : $"Downloading... {percent}%";
+        statusLabel.Text = percent >= 100
+            ? Localization.T("Status.Complete")
+            : Localization.Tf("Status.Downloading", percent);
     }
 
     private void SetBusy(bool busy)
     {
+        _busy = busy;
         urlTextBox.Enabled = !busy;
         browseButton.Enabled = true;
-        browseButton.Text = busy ? "Stop" : "Browse";
+        browseButton.Text = busy ? Localization.T("Clone.StopButton") : Localization.T("Browse.BrowseButton");
         browseButton.BackColor = busy
             ? Color.FromArgb(220, 38, 38)
             : Color.FromArgb(37, 99, 235);

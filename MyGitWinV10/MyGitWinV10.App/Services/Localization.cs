@@ -521,9 +521,22 @@ public static class Localization
         ["Preview.RepoSummaryHeading"] = ("저장소 요약: {0}", "Repository Summary: {0}"),
         ["Preview.Charts"] = ("차트", "Charts"),
         ["Preview.HeadCommit"] = ("HEAD 커밋", "HEAD Commit"),
+        ["Preview.None"] = ("(없음)", "(none)"),
+        ["Preview.NoCommits"] = ("(커밋 없음)", "(no commits)"),
+        ["Preview.Remotes"] = ("원격", "Remotes"),
+        ["Preview.LocalBranchesSection"] = ("로컬 브랜치", "Local Branches"),
+        ["Preview.RemoteBranchesSection"] = ("원격 브랜치", "Remote Branches"),
+        ["Preview.TagsSection"] = ("태그", "Tags"),
+        ["Preview.ReleasesSection"] = ("릴리스", "Releases"),
+        ["Preview.RecentCommits"] = ("최근 커밋", "Recent Commits"),
+        ["Preview.SummaryInfo"] = ("경로: {0}\n현재 브랜치: {1}\n로컬 브랜치: {2}   원격 브랜치: {3}   태그: {4}   릴리스: {5}", "Path: {0}\nCurrent branch: {1}\nLocal branches: {2}   Remote branches: {3}   Tags: {4}   Releases: {5}"),
+        ["Preview.HeadInfo"] = ("SHA: {0}\n작성자: {1}\n날짜: {2:yyyy-MM-dd HH:mm:ss}\n메시지: {3}", "SHA: {0}\nAuthor: {1}\nDate: {2:yyyy-MM-dd HH:mm:ss}\nMessage: {3}"),
+        ["Preview.Close"] = ("닫기", "Close"),
 
         ["Detail.Mode"] = ("모드", "Mode"),
+        ["Detail.Value.RemoteBrowse"] = ("원격 둘러보기 (읽기 전용)", "Remote browse (read-only)"),
         ["Detail.Value.Stash"] = ("(stash)", "(stash)"),
+        ["GitCommit.BodyOptional"] = ("본문 (선택)", "Details (optional)"),
         ["GitCommit.RemoveSelected"] = ("선택 항목 제거", "Remove Selected"),
     };
 }

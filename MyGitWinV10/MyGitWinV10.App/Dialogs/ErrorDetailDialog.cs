@@ -16,6 +16,10 @@ public partial class ErrorDetailDialog : Form
         DialogIcons.ApplyError(iconPictureBox);
         detailsPanel.Resize += (_, _) => UpdateDetailsLabelWidth();
         UpdateDetailsLabelWidth();
+        ApplyLocalizedText();
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
     }
 
     public static void Show(IWin32Window? owner, string title, Exception exception)
@@ -27,6 +31,20 @@ public partial class ErrorDetailDialog : Form
         dialog.ShowDialog(owner);
     }
 
+    private void OnLanguageChanged()
+    {
+        if (copyButton.Text != Localization.T("OpComplete.Copied"))
+        {
+            ApplyLocalizedText();
+        }
+    }
+
+    private void ApplyLocalizedText()
+    {
+        copyButton.Text = Localization.T("OpComplete.CopyDetails");
+        okButton.Text = Localization.T("Common.OK");
+    }
+
     private void UpdateDetailsLabelWidth()
     {
         int width = Math.Max(100, detailsPanel.ClientSize.Width - detailsPanel.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
@@ -36,6 +54,6 @@ public partial class ErrorDetailDialog : Form
     private void CopyButton_Click(object? sender, EventArgs e)
     {
         Clipboard.SetText(_details);
-        copyButton.Text = "Copied";
+        copyButton.Text = Localization.T("OpComplete.Copied");
     }
 }

@@ -2204,7 +2204,9 @@ public partial class MainForm : Form
     private void MarkGitCredentialsUnverified() => _gitCredentialsVerified = false;
 
     private static string FormatGitPathScope(string relativePath) =>
-        string.IsNullOrEmpty(relativePath) ? "(repository)" : relativePath;
+        string.IsNullOrEmpty(relativePath)
+            ? Localization.T("Detail.Value.Repository")
+            : relativePath;
 
     private void GitAddContextMenuItem_Click(object? sender, EventArgs e) => TryGitAdd(GetGitPathTagOrRoot());
 

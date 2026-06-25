@@ -39,13 +39,13 @@ public partial class GitCommitDialog : Form
         Text = Localization.T("GitCommit.Title");
         categoryLabel.Text = Localization.T("GitCommit.Category");
         subjectLabel.Text = Localization.T("GitCommit.Subject");
-        bodyLabel.Text = Localization.T("GitCommit.Body");
+        bodyLabel.Text = Localization.T("GitCommit.BodyOptional");
         previewLabel.Text = Localization.T("GitCommit.Preview");
         manageCategoriesButton.Text = Localization.T("GitCommit.ManageCategories");
         commitButton.Text = Localization.T("GitCommit.Commit");
         cancelButton.Text = Localization.T("Common.Cancel");
-        removeFromCommitButton.Text = Localization.T("GitCommit.RemoveFromCommit");
-        removePathContextMenuItem.Text = Localization.T("GitCommit.RemovePath");
+        removeFromCommitButton.Text = Localization.T("GitCommit.RemoveSelected");
+        removePathContextMenuItem.Text = Localization.T("GitCommit.RemoveSelected");
         stagedPathColumnHeader.Text = Localization.T("GitCommit.StagedPath");
     }
 

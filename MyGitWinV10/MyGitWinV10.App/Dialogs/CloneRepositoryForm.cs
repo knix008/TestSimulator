@@ -7,17 +7,41 @@ public partial class CloneRepositoryForm : Form
 {
     private CancellationTokenSource? _cloneCts;
     private readonly AppSettingsStore _settings = AppSettingsStore.Load();
+    private bool _busy;
 
     public CloneRepositoryForm()
     {
         InitializeComponent();
         ResetProgress();
+        ApplyLocalizedText();
 
         urlTextBox.AutoCompleteMode = AutoCompleteMode.Suggest;
         urlTextBox.AutoCompleteSource = AutoCompleteSource.CustomSource;
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
         RefreshRecentUrlItems();
         RecentUrlComboBoxBehavior.Attach(urlTextBox, () => _settings.RecentCloneUrls, RemoveRecentUrl);
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        ApplyLocalizedText();
+        SetBusy(_busy);
+    }
+
+    private void ApplyLocalizedText()
+    {
+        Text = Localization.T("Clone.Title");
+        urlLabel.Text = Localization.T("Clone.UrlLabel");
+        destinationLabel.Text = Localization.T("Clone.DestLabel");
+        browseButton.Text = Localization.T("Clone.BrowseFolder");
+        cancelButton.Text = Localization.T("Common.Cancel");
+        if (!_busy)
+        {
+            cloneButton.Text = Localization.T("Clone.CloneButton");
+        }
     }
 
     private void RemoveRecentUrl(string url)
@@ -36,13 +60,12 @@ public partial class CloneRepositoryForm : Form
 
     public string? RepositoryUrl { get; private set; }
 
-    // Kept in memory only (not persisted to disk) so a failed attempt doesn't force retyping.
     private string? _lastUsername;
     private string? _lastPassword;
 
     private void BrowseButton_Click(object? sender, EventArgs e)
     {
-        using var dialog = new FolderBrowserDialog { Description = "Select an empty destination folder for the clone" };
+        using var dialog = new FolderBrowserDialog { Description = Localization.T("Clone.FolderPrompt") };
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             destinationTextBox.Text = dialog.SelectedPath;
@@ -77,7 +100,7 @@ public partial class CloneRepositoryForm : Form
 
     private void RequestCloneCancellation()
     {
-        statusLabel.Text = "Cancelling...";
+        statusLabel.Text = Localization.T("Status.Cancelling");
         cancelButton.Enabled = false;
         cloneButton.Enabled = false;
         _cloneCts?.Cancel();
@@ -95,12 +118,10 @@ public partial class CloneRepositoryForm : Form
         var destination = destinationTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(destination))
         {
-            MessageBox.Show(this, "Please enter both a repository URL and a destination folder.", "MyGit", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, Localization.T("Clone.NeedUrlAndFolder"), Localization.T("App.Title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
-        // Record the URL up front (not just on success) so a failed attempt doesn't force
-        // the user to retype it — it will still show up in the autocomplete suggestions.
         _settings.RecordRecentCloneUrl(url);
         _settings.Save();
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
@@ -112,7 +133,7 @@ public partial class CloneRepositoryForm : Form
 
         SetBusy(true);
         ResetProgress();
-        statusLabel.Text = "Cloning... 0%";
+        statusLabel.Text = Localization.Tf("Status.Cloning", 0);
         var prompt = new CredentialsPrompt(this, _lastUsername, _lastPassword);
         try
         {
@@ -135,16 +156,16 @@ public partial class CloneRepositoryForm : Form
         }
         catch (OperationCanceledException)
         {
-            statusLabel.Text = "Cancelled.";
+            statusLabel.Text = Localization.T("Status.Cancelled");
         }
         catch (Exception) when (WasCloneCancelled())
         {
-            statusLabel.Text = "Cancelled.";
+            statusLabel.Text = Localization.T("Status.Cancelled");
         }
         catch (Exception ex)
         {
-            statusLabel.Text = "Failed.";
-            ErrorDetailDialog.Show(this, "Clone Failed", ex);
+            statusLabel.Text = Localization.T("Status.Failed");
+            ErrorDetailDialog.Show(this, Localization.T("Clone.Failed"), ex);
         }
         finally
         {
@@ -162,9 +183,9 @@ public partial class CloneRepositoryForm : Form
             if (DialogResult != DialogResult.OK)
             {
                 ResetProgress();
-                if (statusLabel.Text is "Complete." or "")
+                if (statusLabel.Text is var text && (text == Localization.T("Status.Complete") || text == string.Empty))
                 {
-                    statusLabel.Text = "Ready";
+                    statusLabel.Text = Localization.T("Status.Ready");
                 }
             }
         }
@@ -218,16 +239,19 @@ public partial class CloneRepositoryForm : Form
         var percent = Math.Clamp((int)Math.Round(progress * 100f), 0, 100);
         progressBar.Value = percent;
         progressPercentLabel.Text = $"{percent}%";
-        statusLabel.Text = percent >= 100 ? "Complete." : $"Cloning... {percent}%";
+        statusLabel.Text = percent >= 100
+            ? Localization.T("Status.Complete")
+            : Localization.Tf("Status.Cloning", percent);
     }
 
     private void SetBusy(bool busy)
     {
+        _busy = busy;
         urlTextBox.Enabled = !busy;
         destinationTextBox.Enabled = !busy;
         browseButton.Enabled = !busy;
         cloneButton.Enabled = true;
-        cloneButton.Text = busy ? "Stop" : "Clone";
+        cloneButton.Text = busy ? Localization.T("Clone.StopButton") : Localization.T("Clone.CloneButton");
         cloneButton.BackColor = busy
             ? Color.FromArgb(220, 38, 38)
             : Color.FromArgb(37, 99, 235);

@@ -21,5 +21,6 @@ public partial class AboutDialog : Form
         descriptionLabel.Text = Localization.T("About.Description");
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         versionLabel.Text = Localization.Tf("About.Version", version?.ToString(3) ?? "1.0.0");
+        okButton.Text = Localization.T("Common.OK");
     }
 }
