@@ -1,0 +1,71 @@
+## Build outputs
+bin/
+obj/
+[Bb]uild/
+[Dd]ist/
+out/
+artifacts/
+TestResults/
+**/publish/
+
+## Platform-specific build folders
+bin/x64/
+obj/x64/
+
+## Visual Studio / VS Code / Rider
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.cache
+*.log
+*.pubxml.user
+*.DotSettings.user
+
+## NuGet
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+
+## WebView2 runtime cache (Debug/Release output)
+**/*.WebView2/
+**/EBWebView/
+*.exe.WebView2/
+
+## Windows / misc
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.tmp
+*.temp
+~$*
+
+## Tools — icon generator (source tracked, build outputs ignored)
+HWP2DocWinV10/Tools/GenerateIcon/bin/
+HWP2DocWinV10/Tools/GenerateIcon/obj/
+
+## WiX / installer artifacts
+HWP2DocWinV10.Installer/bin/
+HWP2DocWinV10.Installer/obj/
+*.msi
+*.msp
+*.wixobj
+*.wixpdb
+*.wixlog
+*.cab
+
+## Cursor / local tooling (optional)
+.cursor/
+
+## Local scratch / temp conversion output (optional)
+*.hwp.tmp/
+*.hwpx.tmp/
+
+## Local test documents (optional — uncomment if you keep samples in-repo)
+# *.hwp
+# *.hwpx

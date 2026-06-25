@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization xmlns="http://wixtoolset.org/schemas/v4/wxl" Culture="ko-KR" Codepage="949">
+
+  <String Id="AppName"        Value="HWP2Doc" />
+  <String Id="Manufacturer"   Value="HWP2Doc" />
+  <String Id="AppDescription" Value="아래한글(HWP/HWPX) 문서를 Markdown, Word, PDF로 변환" />
+
+  <String Id="FeatureApp"             Value="HWP2Doc 본체" />
+  <String Id="FeatureAppDesc"         Value="HWP2Doc 변환 프로그램 (필수)" />
+  <String Id="FeatureStartMenu"       Value="시작 메뉴 바로 가기" />
+  <String Id="FeatureStartMenuDesc"   Value="시작 메뉴에 HWP2Doc 바로 가기를 추가합니다. (프로그램 아이콘 사용)" />
+  <String Id="FeatureDesktop"         Value="바탕 화면 바로 가기" />
+  <String Id="FeatureDesktopDesc"     Value="바탕 화면에 HWP2Doc 바로 가기를 추가합니다. (프로그램 아이콘 사용)" />
+
+  <String Id="DowngradeError"   Value="더 최신 버전의 HWP2Doc이 이미 설치되어 있습니다." />
+  <String Id="DotNetRequired"   Value=".NET 10 Desktop Runtime이 필요합니다. https://dotnet.microsoft.com/download 에서 설치해 주세요." />
+  <String Id="WebView2Required" Value="Microsoft Edge WebView2 Runtime이 필요합니다. PDF/미리보기 기능에 사용됩니다." />
+
+</WixLocalization>
