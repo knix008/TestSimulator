@@ -26,7 +26,7 @@ public sealed partial class IndexStore
 
         lock (_lock)
         {
-            var whereClause = BuildLiteralWhereClause(normalizedTerms.Count, requireAllTerms);
+            var whereClause = BuildLiteralWhereClause(normalizedTerms, requireAllTerms, caseSensitive);
 
             SetCaseSensitiveLike(caseSensitive);
             try
@@ -77,22 +77,47 @@ public sealed partial class IndexStore
         return ReadEntries(reader, limit);
     }
 
-    private static string BuildLiteralWhereClause(int termCount, bool requireAllTerms)
+    private static string BuildLiteralWhereClause(
+        IReadOnlyList<string> normalizedTerms,
+        bool requireAllTerms,
+        bool caseSensitive)
     {
         var joiner = requireAllTerms ? " AND " : " OR ";
-        var groups = new List<string>(termCount);
+        var groups = new List<string>(normalizedTerms.Count);
 
-        for (var i = 0; i < termCount; i++)
-            groups.Add(BuildFtsContainsClause(i));
+        for (var i = 0; i < normalizedTerms.Count; i++)
+            groups.Add(BuildContainsWhereClause(i, caseSensitive, normalizedTerms[i].Length));
 
         return string.Join(joiner, groups);
     }
 
-    // Trigram FTS index accelerates the substring (contains) check; exact/prefix
-    // are subsets of "contains" so a single LIKE covers all three for scoring. FTS
-    // triggers stay live even during bulk ingest, so this index is always current.
-    private static string BuildFtsContainsClause(int index) =>
-        $"e.id IN (SELECT rowid FROM entries_fts WHERE search_file_name LIKE $q{index}c)";
+    // Trigram FTS (>=3 chars) narrows file-name candidates; the score expression below
+    // re-checks entries.search_file_name/search_directory so only the full contiguous
+    // term matches (e.g. "권수호" never matches "권수.txt"). Shorter terms fall back to
+    // a direct LIKE scan because trigram cannot accelerate them.
+    private static string BuildContainsWhereClause(int index, bool caseSensitive, int termLength)
+    {
+        var likeCollate = caseSensitive ? string.Empty : " COLLATE NOCASE";
+        var directoryMatch =
+            $"(e.search_directory <> '' AND e.search_directory LIKE $q{index}c ESCAPE '\\'{likeCollate})";
+
+        if (termLength >= 3)
+        {
+            return $"""
+                (
+                    e.id IN (SELECT rowid FROM entries_fts WHERE search_file_name LIKE $q{index}c ESCAPE '\')
+                    OR {directoryMatch}
+                )
+                """;
+        }
+
+        return $"""
+            (
+                e.search_file_name LIKE $q{index}c ESCAPE '\'{likeCollate}
+                OR {directoryMatch}
+            )
+            """;
+    }
 
     private static string BuildCombinedScoreExpression(int termCount, bool caseSensitive)
     {
@@ -121,6 +146,7 @@ public sealed partial class IndexStore
                 WHEN e.search_file_name = $q{index}{eqCollate} THEN 100
                 WHEN e.search_file_name LIKE $q{index}p ESCAPE '\'{likeCollate} THEN 80
                 WHEN e.search_file_name LIKE $q{index}c ESCAPE '\'{likeCollate} THEN 60
+                WHEN e.search_directory <> '' AND e.search_directory LIKE $q{index}c ESCAPE '\'{likeCollate} THEN 55
                 ELSE 0
             END
             """;

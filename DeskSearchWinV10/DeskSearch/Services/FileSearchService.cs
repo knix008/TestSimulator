@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
-using DeskSearch.Models;
 using DeskSearch.Helpers;
+using DeskSearch.Models;
 
 namespace DeskSearch.Services;
 
@@ -171,7 +171,11 @@ public sealed class FileSearchService
         {
             var score = term.Pattern is not null
                 ? ScoreRegex(entry, term.Pattern)
-                : ScoreLiteral(entry, term.Text, comparison);
+                : SearchTextHelper.ScoreLiteralEntry(
+                    entry.SearchFileName,
+                    entry.SearchDirectoryName,
+                    term.Text,
+                    comparison);
 
             if (score == 0)
                 return 0;
@@ -182,21 +186,12 @@ public sealed class FileSearchService
         return minScore;
     }
 
-    private static int ScoreLiteral(FileEntry entry, string query, StringComparison comparison)
-    {
-        var fileName = entry.SearchFileName;
-
-        if (fileName.Equals(query, comparison))
-            return 100;
-
-        if (fileName.StartsWith(query, comparison))
-            return 80;
-
-        if (fileName.Contains(query, comparison))
-            return 60;
-
-        return 0;
-    }
+    private static int ScoreLiteral(FileEntry entry, string query, StringComparison comparison) =>
+        SearchTextHelper.ScoreLiteralEntry(
+            entry.SearchFileName,
+            entry.SearchDirectoryName,
+            query,
+            comparison);
 
     private static int ScoreRegex(FileEntry entry, Regex regex)
     {

@@ -424,6 +424,12 @@ public sealed partial class IndexStore : IDisposable
                 "CREATE INDEX IF NOT EXISTS idx_entries_search_file_name ON entries(search_file_name)");
             ExecuteNonQuery(
                 "CREATE INDEX IF NOT EXISTS idx_entries_search_file_name_nocase ON entries(search_file_name COLLATE NOCASE)");
+            ExecuteNonQuery(
+                """
+                CREATE INDEX IF NOT EXISTS idx_entries_search_directory_nocase
+                ON entries(search_directory COLLATE NOCASE)
+                WHERE search_directory <> ''
+                """);
 
             var version = GetUserVersion();
             if (version < 5)

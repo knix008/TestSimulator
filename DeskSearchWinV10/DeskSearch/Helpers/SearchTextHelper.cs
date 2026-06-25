@@ -8,7 +8,7 @@ internal static class SearchTextHelper
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
     private static readonly Regex AndTermSeparator = new(
-        @"\s+x\s+",
+        @"\s+(?:x|\+)\s+",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     /// <summary>
@@ -25,6 +25,37 @@ internal static class SearchTextHelper
 
     public static StringComparison GetComparison(bool caseSensitive) =>
         caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+    public static int ScoreLiteralName(string name, string query, StringComparison comparison)
+    {
+        if (string.IsNullOrEmpty(name))
+            return 0;
+
+        var term = Normalize(query.Trim());
+        if (term.Length == 0)
+            return 0;
+
+        var text = Normalize(name);
+        if (text.Equals(term, comparison))
+            return 100;
+
+        if (text.StartsWith(term, comparison))
+            return 80;
+
+        if (text.Contains(term, comparison))
+            return 60;
+
+        return 0;
+    }
+
+    public static int ScoreLiteralEntry(
+        string searchFileName,
+        string searchDirectoryName,
+        string query,
+        StringComparison comparison) =>
+        Math.Max(
+            ScoreLiteralName(searchFileName, query, comparison),
+            ScoreLiteralName(searchDirectoryName, query, comparison));
 
     public static bool ContainsWildcards(string pattern)
     {
