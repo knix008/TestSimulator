@@ -51,6 +51,56 @@
             </Setter>
         </Style>
 
+        <Style x:Key="ExcludedDirectoryListBoxItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Background="White"
+                                BorderBrush="#D8D8D8"
+                                BorderThickness="0,0,0,1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#E8F4FD"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#F3F3F3"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ExcludedDirectoriesListBoxStyle" TargetType="ListBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource ExcludedDirectoryListBoxItem}"/>
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding}"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="SettingsComboBox" TargetType="ComboBox">
             <Style.Resources>
                 <Style TargetType="ContentPresenter">
@@ -140,6 +190,7 @@
                            Margin="0,0,0,6"
                            TextWrapping="Wrap"/>
                 <ListBox x:Name="ExcludedDirectoriesListBox"
+                         Style="{StaticResource ExcludedDirectoriesListBoxStyle}"
                          Height="112"
                          Margin="0,0,0,6"/>
                 <WrapPanel Margin="0,0,0,16">

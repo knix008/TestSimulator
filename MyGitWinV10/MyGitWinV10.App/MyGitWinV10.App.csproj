@@ -25,4 +25,16 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- Release 단독 빌드(`dotnet build MyGitWinV10.App.csproj -c Release`)에서 MSI 생성.
+       솔루션 빌드 시에는 installer 프로젝트가 담당하므로 중복/잠금을 피합니다. -->
+  <Target Name="BuildInstallerOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true' AND ('$(SolutionPath)' == '' OR '$(SolutionPath)' == '*Undefined*')">
+    <Message Importance="high" Text="Building MSI installer package (WiX)..." />
+    <Exec Command="cmd /c taskkill /IM MyGitWinV10.App.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\..\installer"
+          Command="dotnet build MyGitWinV10.Installer.wixproj -c Release -p:Platform=x64 -p:SkipInstaller=true" />
+    <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\installer\bin\Release\MyGitWinV10Setup.msi" />
+  </Target>
+
 </Project>

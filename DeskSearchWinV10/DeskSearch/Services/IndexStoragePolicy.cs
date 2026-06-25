@@ -16,7 +16,10 @@ internal static class IndexStoragePolicy
     public const int RegexSearchPageSize = 20_000;
     public const int MaxSearchResults = 2000;
 
-    public const long SqliteMmapBytes = 128L * 1024 * 1024;
+    /// <summary>
+    /// SQLite PRAGMA mmap_size upper bound (SQLITE_MAX_MMAP_SIZE on 64-bit Windows).
+    /// </summary>
+    public const long SqliteMmapBytes = 0x7fff0000L; // 2,147,418,112 bytes (~2 GiB)
     public const int SqliteCachePages = -8192;
     public const int BulkIngestCachePages = -16384;
 }

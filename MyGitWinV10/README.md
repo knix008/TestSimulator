@@ -87,6 +87,14 @@ Or build only the installer project:
 dotnet build installer/MyGitWinV10.Installer.wixproj -c Release -p:Platform=x64
 ```
 
+Building the **app project alone** in Release also creates the MSI (via the `BuildInstallerOnRelease` target):
+
+```powershell
+dotnet build MyGitWinV10.App/MyGitWinV10.App.csproj -c Release
+```
+
+In Visual Studio, use **Build Solution** (not Build on the app project only) so the installer project runs, or build `MyGitWinV10.Installer.wixproj` directly.
+
 The resulting `MyGitWinV10Setup.msi` is written to `installer/bin/Release/`.
 
 > Close any running MyGit instance before building Release — a locked `MyGitWinV10.App.exe` can block the build.

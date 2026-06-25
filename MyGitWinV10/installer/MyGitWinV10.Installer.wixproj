@@ -19,11 +19,19 @@
     <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="$(AppProject)">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
   <!-- Publish the app before packaging. Only runs when Configuration=Release. -->
   <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Release'">
     <Exec Command="cmd /c taskkill /IM MyGitWinV10.App.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
     <RemoveDir Directories="$(PublishOutputDir)" Condition="Exists('$(PublishOutputDir)')" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
-          Command="dotnet publish &quot;$(AppProject)&quot; -c Release -r win-x64 --self-contained false -p:Platform=AnyCPU -o &quot;$(PublishOutputDir)&quot;" />
+          Command="dotnet publish &quot;$(AppProject)&quot; -c Release -r win-x64 --self-contained false -p:SkipInstaller=true -p:Platform=AnyCPU -o &quot;$(PublishOutputDir)&quot;" />
   </Target>
 </Project>
