@@ -98,7 +98,6 @@ partial class ErrorDialog
         copyMenuItem.Name = "copyMenuItem";
         copyMenuItem.Size = new Size(180, 22);
         copyMenuItem.Text = "Copy";
-        copyMenuItem.Click += (_, _) => CopySelectedText();
         // 
         // ErrorDialog
         // 
@@ -116,7 +115,6 @@ partial class ErrorDialog
         Name = "ErrorDialog";
         StartPosition = FormStartPosition.CenterParent;
         Text = "Error";
-        Shown += (_, _) => txtDetails.SelectionLength = 0;
         panelDetailsHost.ResumeLayout(false);
         panelDetailsHost.PerformLayout();
         panelButtons.ResumeLayout(false);

@@ -115,7 +115,7 @@ partial class ImportMappingForm
         // lblPreview
         // 
         lblPreview.AutoSize = true;
-        lblPreview.Location = new Point(20, 32);
+        lblPreview.Location = new Point(20, 44);
         lblPreview.Name = "lblPreview";
         lblPreview.Size = new Size(51, 15);
         lblPreview.TabIndex = 4;
@@ -125,17 +125,18 @@ partial class ImportMappingForm
         // 
         previewGrid.AllowUserToAddRows = false;
         previewGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-        previewGrid.Location = new Point(20, 50);
+        previewGrid.Location = new Point(20, 62);
         previewGrid.Name = "previewGrid";
         previewGrid.ReadOnly = true;
         previewGrid.RowHeadersVisible = false;
-        previewGrid.Size = new Size(700, 140);
+        previewGrid.ScrollBars = ScrollBars.Both;
+        previewGrid.Size = new Size(700, 256);
         previewGrid.TabIndex = 5;
         // 
         // lblColumnMapping
         // 
         lblColumnMapping.AutoSize = true;
-        lblColumnMapping.Location = new Point(20, 198);
+        lblColumnMapping.Location = new Point(20, 328);
         lblColumnMapping.Name = "lblColumnMapping";
         lblColumnMapping.Size = new Size(105, 15);
         lblColumnMapping.TabIndex = 6;
@@ -144,7 +145,7 @@ partial class ImportMappingForm
         // lblCode
         // 
         lblCode.AutoSize = true;
-        lblCode.Location = new Point(20, 222);
+        lblCode.Location = new Point(20, 352);
         lblCode.Name = "lblCode";
         lblCode.Size = new Size(38, 15);
         lblCode.TabIndex = 7;
@@ -153,7 +154,7 @@ partial class ImportMappingForm
         // cboCode
         // 
         cboCode.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboCode.Location = new Point(140, 218);
+        cboCode.Location = new Point(140, 348);
         cboCode.Name = "cboCode";
         cboCode.Size = new Size(250, 23);
         cboCode.TabIndex = 8;
@@ -161,7 +162,7 @@ partial class ImportMappingForm
         // lblTitle
         // 
         lblTitle.AutoSize = true;
-        lblTitle.Location = new Point(20, 250);
+        lblTitle.Location = new Point(20, 380);
         lblTitle.Name = "lblTitle";
         lblTitle.Size = new Size(32, 15);
         lblTitle.TabIndex = 9;
@@ -170,7 +171,7 @@ partial class ImportMappingForm
         // cboTitle
         // 
         cboTitle.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboTitle.Location = new Point(140, 246);
+        cboTitle.Location = new Point(140, 376);
         cboTitle.Name = "cboTitle";
         cboTitle.Size = new Size(250, 23);
         cboTitle.TabIndex = 10;
@@ -178,7 +179,7 @@ partial class ImportMappingForm
         // lblDescription
         // 
         lblDescription.AutoSize = true;
-        lblDescription.Location = new Point(20, 278);
+        lblDescription.Location = new Point(20, 408);
         lblDescription.Name = "lblDescription";
         lblDescription.Size = new Size(71, 15);
         lblDescription.TabIndex = 11;
@@ -187,7 +188,7 @@ partial class ImportMappingForm
         // cboDescription
         // 
         cboDescription.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboDescription.Location = new Point(140, 274);
+        cboDescription.Location = new Point(140, 404);
         cboDescription.Name = "cboDescription";
         cboDescription.Size = new Size(250, 23);
         cboDescription.TabIndex = 12;
@@ -195,7 +196,7 @@ partial class ImportMappingForm
         // lblCategory
         // 
         lblCategory.AutoSize = true;
-        lblCategory.Location = new Point(20, 306);
+        lblCategory.Location = new Point(20, 436);
         lblCategory.Name = "lblCategory";
         lblCategory.Size = new Size(58, 15);
         lblCategory.TabIndex = 13;
@@ -204,7 +205,7 @@ partial class ImportMappingForm
         // cboCategory
         // 
         cboCategory.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboCategory.Location = new Point(140, 302);
+        cboCategory.Location = new Point(140, 432);
         cboCategory.Name = "cboCategory";
         cboCategory.Size = new Size(250, 23);
         cboCategory.TabIndex = 14;
@@ -212,7 +213,7 @@ partial class ImportMappingForm
         // lblPriority
         // 
         lblPriority.AutoSize = true;
-        lblPriority.Location = new Point(20, 334);
+        lblPriority.Location = new Point(20, 464);
         lblPriority.Name = "lblPriority";
         lblPriority.Size = new Size(48, 15);
         lblPriority.TabIndex = 15;
@@ -221,7 +222,7 @@ partial class ImportMappingForm
         // cboPriority
         // 
         cboPriority.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboPriority.Location = new Point(140, 330);
+        cboPriority.Location = new Point(140, 460);
         cboPriority.Name = "cboPriority";
         cboPriority.Size = new Size(250, 23);
         cboPriority.TabIndex = 16;
@@ -229,7 +230,7 @@ partial class ImportMappingForm
         // lblStatus
         // 
         lblStatus.AutoSize = true;
-        lblStatus.Location = new Point(400, 222);
+        lblStatus.Location = new Point(400, 352);
         lblStatus.Name = "lblStatus";
         lblStatus.Size = new Size(43, 15);
         lblStatus.TabIndex = 17;
@@ -238,7 +239,7 @@ partial class ImportMappingForm
         // cboStatus
         // 
         cboStatus.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboStatus.Location = new Point(470, 218);
+        cboStatus.Location = new Point(470, 348);
         cboStatus.Name = "cboStatus";
         cboStatus.Size = new Size(250, 23);
         cboStatus.TabIndex = 18;
@@ -246,7 +247,7 @@ partial class ImportMappingForm
         // lblSource
         // 
         lblSource.AutoSize = true;
-        lblSource.Location = new Point(400, 250);
+        lblSource.Location = new Point(400, 380);
         lblSource.Name = "lblSource";
         lblSource.Size = new Size(47, 15);
         lblSource.TabIndex = 19;
@@ -255,7 +256,7 @@ partial class ImportMappingForm
         // cboSource
         // 
         cboSource.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboSource.Location = new Point(470, 246);
+        cboSource.Location = new Point(470, 376);
         cboSource.Name = "cboSource";
         cboSource.Size = new Size(250, 23);
         cboSource.TabIndex = 20;
@@ -263,7 +264,7 @@ partial class ImportMappingForm
         // lblParentCode
         // 
         lblParentCode.AutoSize = true;
-        lblParentCode.Location = new Point(400, 278);
+        lblParentCode.Location = new Point(400, 408);
         lblParentCode.Name = "lblParentCode";
         lblParentCode.Size = new Size(72, 15);
         lblParentCode.TabIndex = 21;
@@ -272,7 +273,7 @@ partial class ImportMappingForm
         // cboParentCode
         // 
         cboParentCode.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboParentCode.Location = new Point(470, 274);
+        cboParentCode.Location = new Point(470, 404);
         cboParentCode.Name = "cboParentCode";
         cboParentCode.Size = new Size(250, 23);
         cboParentCode.TabIndex = 22;
@@ -282,7 +283,7 @@ partial class ImportMappingForm
         chkGenerateIds.AutoSize = true;
         chkGenerateIds.Checked = true;
         chkGenerateIds.CheckState = CheckState.Checked;
-        chkGenerateIds.Location = new Point(20, 360);
+        chkGenerateIds.Location = new Point(20, 492);
         chkGenerateIds.Name = "chkGenerateIds";
         chkGenerateIds.Size = new Size(150, 19);
         chkGenerateIds.TabIndex = 23;
@@ -294,7 +295,7 @@ partial class ImportMappingForm
         chkGenerateTestCases.AutoSize = true;
         chkGenerateTestCases.Checked = true;
         chkGenerateTestCases.CheckState = CheckState.Checked;
-        chkGenerateTestCases.Location = new Point(20, 384);
+        chkGenerateTestCases.Location = new Point(20, 516);
         chkGenerateTestCases.Name = "chkGenerateTestCases";
         chkGenerateTestCases.Size = new Size(370, 19);
         chkGenerateTestCases.TabIndex = 24;
@@ -303,7 +304,7 @@ partial class ImportMappingForm
         // 
         // btnImport
         // 
-        btnImport.Location = new Point(580, 425);
+        btnImport.Location = new Point(580, 548);
         btnImport.Name = "btnImport";
         btnImport.Size = new Size(75, 25);
         btnImport.TabIndex = 25;
@@ -314,7 +315,7 @@ partial class ImportMappingForm
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(660, 425);
+        btnCancel.Location = new Point(660, 548);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(75, 25);
         btnCancel.TabIndex = 26;
@@ -326,7 +327,8 @@ partial class ImportMappingForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(750, 470);
+        ClientSize = new Size(750, 600);
+        MinimumSize = new Size(750, 600);
         Controls.Add(btnCancel);
         Controls.Add(btnImport);
         Controls.Add(chkGenerateTestCases);

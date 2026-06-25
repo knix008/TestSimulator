@@ -3,8 +3,9 @@
   <PropertyGroup>
     <OutputName>ReqTraceSetup-1.0.0</OutputName>
     <OutputType>Package</OutputType>
-    <!-- WiX MSI must be x64 (ProgramFiles64Folder). slnx maps "Any CPU" solution builds to x64. -->
+    <!-- WiX MSI must be x64 (ProgramFiles64Folder). -->
     <Platform>x64</Platform>
+    <InstallerPlatform>x64</InstallerPlatform>
     <OutputPath>Output\</OutputPath>
     <PublishDir>$(MSBuildThisFileDirectory)..\ReqTrace\bin\publish\win-x64\</PublishDir>
     <DefineConstants>PublishDir=$(PublishDir)</DefineConstants>
@@ -26,11 +27,18 @@
     <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
   </ItemGroup>
 
+  <Target Name="EnsureX64InstallerPlatform" BeforeTargets="PrepareForBuild" Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <PropertyGroup>
+      <Platform>x64</Platform>
+      <InstallerPlatform>x64</InstallerPlatform>
+    </PropertyGroup>
+  </Target>
+
   <Target Name="PublishApp" BeforeTargets="PrepareForBuild" Condition="'$(InstallerBuildEnabled)' == 'true'">
     <MSBuild
       Projects="..\ReqTrace\ReqTrace.csproj"
       Targets="Publish"
-      Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(PublishDir);PublishSingleFile=false" />
+      Properties="Configuration=Release;Platform=x64;RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(PublishDir);PublishSingleFile=false" />
   </Target>
 
   <Target Name="SkipNonReleaseBuild" BeforeTargets="Build" Condition="'$(InstallerBuildEnabled)' != 'true'">

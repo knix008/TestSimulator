@@ -9,9 +9,14 @@ namespace ReqTrace.Forms;
 /// </summary>
 public partial class ErrorDialog : Form
 {
-    public ErrorDialog(string title, string details)
+    /// <summary>Designer-only constructor.</summary>
+    public ErrorDialog()
     {
         InitializeComponent();
+    }
+
+    public ErrorDialog(string title, string details) : this()
+    {
         Text = title;
         txtDetails.Text = details;
         ConfigureDetailsTextBox();
@@ -50,6 +55,8 @@ public partial class ErrorDialog : Form
     private void WireCopyHandlers()
     {
         txtDetails.KeyDown += TxtDetails_KeyDown;
+        copyMenuItem.Click += copyMenuItem_Click;
+        Shown += ErrorDialog_Shown;
     }
 
     private void TxtDetails_KeyDown(object? sender, KeyEventArgs e)
@@ -74,6 +81,10 @@ public partial class ErrorDialog : Form
     }
 
     private void btnCopy_Click(object? sender, EventArgs e) => CopyAllText();
+
+    private void copyMenuItem_Click(object? sender, EventArgs e) => CopySelectedText();
+
+    private void ErrorDialog_Shown(object? sender, EventArgs e) => txtDetails.SelectionLength = 0;
 
     private void CopyAllText() => ClipboardHelper.TrySetPersistentText(txtDetails.Text);
 

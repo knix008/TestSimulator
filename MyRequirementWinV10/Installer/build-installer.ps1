@@ -15,12 +15,17 @@ if ($Configuration -ne "Release") {
 }
 
 Write-Host "Building ReqTrace MSI ($Configuration)..." -ForegroundColor Cyan
-dotnet build $InstallerProject -c $Configuration -p:Platform=x64
+dotnet build $InstallerProject -c $Configuration -p:Platform=x64 -p:InstallerPlatform=x64
 
 if ($LASTEXITCODE -ne 0) {
     throw "MSI build failed with exit code $LASTEXITCODE"
 }
 
+$msiFiles = @(Get-ChildItem $OutputDir -Filter "*.msi" -ErrorAction SilentlyContinue)
+if ($msiFiles.Count -eq 0) {
+    throw "MSI build completed but no .msi was found in $OutputDir. Build ReqTrace.Installer in Release configuration (Debug skips MSI packaging)."
+}
+
 Write-Host ""
 Write-Host "Installer output:" -ForegroundColor Green
-Get-ChildItem $OutputDir -Filter "*.msi" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.FullName)" }
+$msiFiles | ForEach-Object { Write-Host "  $($_.FullName)" }
