@@ -53,6 +53,7 @@ public sealed partial class IndexStore : IDisposable
                 return;
 
             RecreateFtsIndexWithProgressLocked(onProgress, cancellationToken);
+            ExecuteNonQuery("ANALYZE");
             ExecuteNonQuery($"PRAGMA user_version = {SchemaVersion}");
         }
     }
@@ -71,7 +72,7 @@ public sealed partial class IndexStore : IDisposable
 
             ExecuteNonQuery("PRAGMA synchronous=NORMAL");
             ExecuteNonQuery("PRAGMA locking_mode=EXCLUSIVE");
-            ExecuteNonQuery("PRAGMA temp_store=FILE");
+            ExecuteNonQuery("PRAGMA temp_store=MEMORY");
             ExecuteNonQuery($"PRAGMA cache_size={IndexStoragePolicy.BulkIngestCachePages}");
         }
     }
@@ -89,7 +90,7 @@ public sealed partial class IndexStore : IDisposable
 
             ExecuteNonQuery("PRAGMA synchronous=NORMAL");
             ExecuteNonQuery("PRAGMA locking_mode=NORMAL");
-            ExecuteNonQuery("PRAGMA temp_store=FILE");
+            ExecuteNonQuery("PRAGMA temp_store=MEMORY");
             ExecuteNonQuery($"PRAGMA cache_size={IndexStoragePolicy.SqliteCachePages}");
             DisposeBulkUpsertCommand();
             RefreshCountLocked();
@@ -110,6 +111,17 @@ public sealed partial class IndexStore : IDisposable
     {
         lock (_lock)
             ExecuteNonQuery("PRAGMA wal_checkpoint(TRUNCATE)");
+    }
+
+    /// <summary>
+    /// Refreshes table/index statistics so the query planner picks good plans for the
+    /// trigram subquery joined against entries — worth doing once after a full rebuild,
+    /// not on every small incremental update.
+    /// </summary>
+    public void Analyze()
+    {
+        lock (_lock)
+            ExecuteNonQuery("ANALYZE");
     }
 
     public IReadOnlyCollection<string> LoadIndexedRoots()
@@ -398,7 +410,7 @@ public sealed partial class IndexStore : IDisposable
         {
             ExecuteNonQuery("PRAGMA journal_mode=WAL");
             ExecuteNonQuery("PRAGMA synchronous=NORMAL");
-            ExecuteNonQuery("PRAGMA temp_store=FILE");
+            ExecuteNonQuery("PRAGMA temp_store=MEMORY");
             ExecuteNonQuery($"PRAGMA mmap_size={IndexStoragePolicy.SqliteMmapBytes}");
             ExecuteNonQuery($"PRAGMA cache_size={IndexStoragePolicy.SqliteCachePages}");
             ExecuteNonQuery(
@@ -424,12 +436,6 @@ public sealed partial class IndexStore : IDisposable
                 "CREATE INDEX IF NOT EXISTS idx_entries_search_file_name ON entries(search_file_name)");
             ExecuteNonQuery(
                 "CREATE INDEX IF NOT EXISTS idx_entries_search_file_name_nocase ON entries(search_file_name COLLATE NOCASE)");
-            ExecuteNonQuery(
-                """
-                CREATE INDEX IF NOT EXISTS idx_entries_search_directory_nocase
-                ON entries(search_directory COLLATE NOCASE)
-                WHERE search_directory <> ''
-                """);
 
             var version = GetUserVersion();
             if (version < 5)

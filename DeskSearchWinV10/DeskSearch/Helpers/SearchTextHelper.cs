@@ -48,14 +48,8 @@ internal static class SearchTextHelper
         return 0;
     }
 
-    public static int ScoreLiteralEntry(
-        string searchFileName,
-        string searchDirectoryName,
-        string query,
-        StringComparison comparison) =>
-        Math.Max(
-            ScoreLiteralName(searchFileName, query, comparison),
-            ScoreLiteralName(searchDirectoryName, query, comparison));
+    public static int ScoreLiteralEntry(string searchFileName, string query, StringComparison comparison) =>
+        ScoreLiteralName(searchFileName, query, comparison);
 
     public static bool ContainsWildcards(string pattern)
     {

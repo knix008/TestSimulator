@@ -14,9 +14,7 @@ public sealed class SettingsService
 
     public SettingsService()
     {
-        var folder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "DeskSearch");
+        var folder = AppStoragePaths.DataFolder;
         Directory.CreateDirectory(folder);
         _settingsPath = Path.Combine(folder, "settings.json");
         Current = Load();

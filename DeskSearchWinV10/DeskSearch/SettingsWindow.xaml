@@ -247,6 +247,9 @@
                     <Button x:Name="ResetIndexButton"
                             Style="{StaticResource SettingsActionButton}"
                             Click="ResetIndex_Click"/>
+                    <Button x:Name="OpenDataFolderButton"
+                            Style="{StaticResource SettingsActionButton}"
+                            Click="OpenDataFolder_Click"/>
                 </WrapPanel>
 
                 <TextBlock x:Name="StartupLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>

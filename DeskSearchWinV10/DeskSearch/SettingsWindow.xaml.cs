@@ -61,6 +61,7 @@ public partial class SettingsWindow : Window
             IndexProgressStatusLabel.Visibility = Visibility.Collapsed;
             ReSearchButton.Visibility = Visibility.Collapsed;
             ResetIndexButton.Visibility = Visibility.Collapsed;
+            OpenDataFolderButton.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -261,6 +262,7 @@ public partial class SettingsWindow : Window
         LoadPeriodicResyncOptions();
         IndexProgressLabel.Text = LocalizationService.T("Settings_IndexProgress");
         ResetIndexButton.Content = CreateIconLabel("\uE894", LocalizationService.T("Settings_ResetIndex"));
+        OpenDataFolderButton.Content = CreateIconLabel("\uE8DA", LocalizationService.T("Settings_OpenDataFolder"));
         ApplyIndexActionButtonAppearance(_indexActionIsStopMode);
         StartupLabel.Text = LocalizationService.T("Settings_Startup");
         RunAtStartupCheckBox.Content = LocalizationService.T("Settings_RunAtStartup");
@@ -625,6 +627,18 @@ public partial class SettingsWindow : Window
         _lastProgressPercent = -1;
         _lastProgressStatus = null;
         UpdateProgressUi();
+    }
+
+    private void OpenDataFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            AppStoragePaths.OpenDataFolderInExplorer();
+        }
+        catch (Exception ex)
+        {
+            ErrorDialogService.Show(LocalizationService.T("Error_OpenDataFolder"), ex);
+        }
     }
 
     private void UpdateOpacityLabels()

@@ -171,11 +171,7 @@ public sealed class FileSearchService
         {
             var score = term.Pattern is not null
                 ? ScoreRegex(entry, term.Pattern)
-                : SearchTextHelper.ScoreLiteralEntry(
-                    entry.SearchFileName,
-                    entry.SearchDirectoryName,
-                    term.Text,
-                    comparison);
+                : SearchTextHelper.ScoreLiteralEntry(entry.SearchFileName, term.Text, comparison);
 
             if (score == 0)
                 return 0;
@@ -187,11 +183,7 @@ public sealed class FileSearchService
     }
 
     private static int ScoreLiteral(FileEntry entry, string query, StringComparison comparison) =>
-        SearchTextHelper.ScoreLiteralEntry(
-            entry.SearchFileName,
-            entry.SearchDirectoryName,
-            query,
-            comparison);
+        SearchTextHelper.ScoreLiteralEntry(entry.SearchFileName, query, comparison);
 
     private static int ScoreRegex(FileEntry entry, Regex regex)
     {

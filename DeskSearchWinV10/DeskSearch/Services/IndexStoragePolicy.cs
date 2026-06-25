@@ -17,9 +17,17 @@ internal static class IndexStoragePolicy
     public const int MaxSearchResults = 2000;
 
     /// <summary>
-    /// SQLite PRAGMA mmap_size upper bound (SQLITE_MAX_MMAP_SIZE on 64-bit Windows).
+    /// Requests the largest mmap SQLite will allow. SQLite clamps this internally to
+    /// whatever SQLITE_MAX_MMAP_SIZE / available address space actually supports (64-bit
+    /// process, so effectively "the whole database file" for any realistic index size) —
+    /// there's no downside to asking for the theoretical max.
     /// </summary>
-    public const long SqliteMmapBytes = 0x7fff0000L; // 2,147,418,112 bytes (~2 GiB)
-    public const int SqliteCachePages = -8192;
-    public const int BulkIngestCachePages = -16384;
+    public const long SqliteMmapBytes = long.MaxValue;
+
+    // mmap already covers most read-only page access at ~2 GiB above; cache_size mainly
+    // matters for hot index B-tree pages and (with temp_store=MEMORY) query temp tables
+    // used when sorting/scoring large candidate sets — both matter more as the index grows
+    // into the millions of rows, where search latency is the priority over memory use.
+    public const int SqliteCachePages = -131_072; // 128 MiB
+    public const int BulkIngestCachePages = -65_536; // 64 MiB
 }

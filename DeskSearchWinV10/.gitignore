@@ -68,3 +68,6 @@ Desktop.ini
 # User-specific / runtime (never commit)
 appsettings.local.json
 **/settings.json
+
+# Claude Code local settings (machine-specific permissions, never commit)
+.claude/settings.local.json

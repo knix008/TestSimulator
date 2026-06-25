@@ -91,32 +91,20 @@ public sealed partial class IndexStore
         return string.Join(joiner, groups);
     }
 
-    // Trigram FTS (>=3 chars) narrows file-name candidates; the score expression below
-    // re-checks entries.search_file_name/search_directory so only the full contiguous
-    // term matches (e.g. "권수호" never matches "권수.txt"). Shorter terms fall back to
-    // a direct LIKE scan because trigram cannot accelerate them.
+    // Trigram FTS (>=3 chars) narrows candidates; the score expression re-checks
+    // entries.search_file_name so only the full contiguous term matches.
     private static string BuildContainsWhereClause(int index, bool caseSensitive, int termLength)
     {
         var likeCollate = caseSensitive ? string.Empty : " COLLATE NOCASE";
-        var directoryMatch =
-            $"(e.search_directory <> '' AND e.search_directory LIKE $q{index}c ESCAPE '\\'{likeCollate})";
 
         if (termLength >= 3)
         {
             return $"""
-                (
-                    e.id IN (SELECT rowid FROM entries_fts WHERE search_file_name LIKE $q{index}c ESCAPE '\')
-                    OR {directoryMatch}
-                )
+                e.id IN (SELECT rowid FROM entries_fts WHERE search_file_name LIKE $q{index}c ESCAPE '\')
                 """;
         }
 
-        return $"""
-            (
-                e.search_file_name LIKE $q{index}c ESCAPE '\'{likeCollate}
-                OR {directoryMatch}
-            )
-            """;
+        return $"e.search_file_name LIKE $q{index}c ESCAPE '\\'{likeCollate}";
     }
 
     private static string BuildCombinedScoreExpression(int termCount, bool caseSensitive)
@@ -146,7 +134,6 @@ public sealed partial class IndexStore
                 WHEN e.search_file_name = $q{index}{eqCollate} THEN 100
                 WHEN e.search_file_name LIKE $q{index}p ESCAPE '\'{likeCollate} THEN 80
                 WHEN e.search_file_name LIKE $q{index}c ESCAPE '\'{likeCollate} THEN 60
-                WHEN e.search_directory <> '' AND e.search_directory LIKE $q{index}c ESCAPE '\'{likeCollate} THEN 55
                 ELSE 0
             END
             """;

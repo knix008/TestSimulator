@@ -59,9 +59,7 @@ public sealed class SystemIndexService : IDisposable
 
     public SystemIndexService()
     {
-        _databaseFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "DeskSearch");
+        _databaseFolder = AppStoragePaths.DataFolder;
 
         // A leftover shadow-build file means a rescan was in progress when the process
         // last exited. Its partial content can't be trusted (no mid-scan resume point is
@@ -722,9 +720,14 @@ public sealed class SystemIndexService : IDisposable
         if (succeeded)
         {
             if (buildingPath is not null)
+            {
                 PromoteBuildingStore(target, buildingPath);
+            }
             else
+            {
+                _indexStore.Analyze();
                 Interlocked.Exchange(ref _approximateLiveCount, _indexStore.Count);
+            }
 
             _isScanComplete = true;
             _scanProgressPercent = 100;
@@ -795,6 +798,7 @@ public sealed class SystemIndexService : IDisposable
     private void PromoteBuildingStore(IndexStore buildingStore, string buildingPath)
     {
         var canonicalPath = GetCanonicalDatabasePath();
+        buildingStore.Analyze();
         buildingStore.Checkpoint();
 
         lock (_indexStoreSwapLock)

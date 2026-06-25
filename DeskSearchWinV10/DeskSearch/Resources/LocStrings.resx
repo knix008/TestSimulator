@@ -98,6 +98,7 @@
   <data name="Settings_ResetIndex" xml:space="preserve"><value>초기화</value></data>
   <data name="Settings_ResetIndex_ConfirmTitle" xml:space="preserve"><value>인덱스 초기화</value></data>
   <data name="Settings_ResetIndex_ConfirmMessage" xml:space="preserve"><value>저장된 검색 인덱스(index.db)를 삭제합니다. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?</value></data>
+  <data name="Settings_OpenDataFolder" xml:space="preserve"><value>데이터 폴더</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>인덱싱 중… {0}% ({1:N0}개 항목)</value></data>
   <data name="Settings_SearchingStatus" xml:space="preserve"><value>검색 중… {0}% — "{1}"</value></data>
   <data name="Settings_ReadyStatus" xml:space="preserve"><value>준비 완료 — {0:N0}개 항목 인덱싱됨</value></data>
@@ -134,6 +135,7 @@
   <data name="Error_Unhandled" xml:space="preserve"><value>처리되지 않은 오류가 발생했습니다.</value></data>
   <data name="Error_IndexScan" xml:space="preserve"><value>인덱싱 중 오류가 발생했습니다.</value></data>
   <data name="Error_SettingsLoad" xml:space="preserve"><value>설정 파일을 읽는 중 오류가 발생했습니다. 기본 설정을 사용합니다.</value></data>
+  <data name="Error_OpenDataFolder" xml:space="preserve"><value>데이터 폴더를 열 수 없습니다.</value></data>
   <data name="Error_StartupRegistration" xml:space="preserve"><value>Windows 시작 시 자동 실행 등록에 실패했습니다.</value></data>
   <data name="Error_Search" xml:space="preserve"><value>검색 중 오류가 발생했습니다.</value></data>
   <data name="Error_OutOfMemory" xml:space="preserve"><value>메모리가 부족합니다. 검색 제외 설정으로 인덱싱 범위를 줄이거나 다른 프로그램을 종료한 뒤 다시 시도하세요.</value></data>
