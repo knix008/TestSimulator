@@ -341,6 +341,7 @@ public static class Localization
         ["Status.ExportedSummary"] = ("요약 내보냄: {0}", "Exported summary to {0}"),
         ["Status.ExportCancelled"] = ("내보내기 취소됨", "Export cancelled"),
         ["Status.ExportingCommit"] = ("커밋 {0} 내보내는 중... {1}%", "Exporting commit {0}... {1}%"),
+        ["Status.ExportingCommitProgress"] = ("커밋 {0} 내보내는 중...", "Exporting commit {0}..."),
         ["Status.ExportedCommit"] = ("{0}을(를) {1}에 내보냄", "Exported {0} to {1}"),
         ["Status.Cancelling"] = ("취소 중...", "Cancelling..."),
         ["Status.Complete"] = ("완료.", "Complete."),
@@ -377,8 +378,8 @@ public static class Localization
         ["GitOp.CommitCompleteSummary"] = ("스테이징된 변경 사항이 성공적으로 커밋되었습니다.", "The staged changes were committed successfully."),
         ["GitOp.FetchCompleteSummary"] = ("origin에서 업데이트를 성공적으로 가져왔습니다.", "Updates were fetched from origin successfully."),
         ["GitOp.PullCompleteSummary"] = ("origin에서 변경 사항을 성공적으로 Pull했습니다.", "Changes were pulled from origin successfully."),
-        ["GitOp.PushCompleteSummary"] = ("커밋을 origin에 성공적으로 Push했습니다.", "Commits were pushed to origin successfully."),
-        ["GitOp.StashCompleteSummary"] = ("커밋되지 않은 변경 사항이 성공적으로 Stash되었습니다.", "The uncommitted changes were stashed successfully."),
+        ["GitOp.PushCompleteSummary"] = ("현재 브랜치가 origin에 성공적으로 Push되었습니다.", "The current branch was pushed to origin successfully."),
+        ["GitOp.StashCompleteSummary"] = ("커밋되지 않은 변경 사항이 성공적으로 Stash되었습니다.", "Uncommitted changes were stashed successfully."),
         ["GitOp.StashPopCompleteSummary"] = ("최신 Stash가 성공적으로 적용되었습니다.", "The latest stash was applied successfully."),
         ["GitOp.FetchProgress"] = ("origin에서 Fetch 중...", "Fetching from origin..."),
         ["GitOp.PullProgress"] = ("origin에서 Pull 중...", "Pulling from origin..."),
@@ -521,7 +522,8 @@ public static class Localization
         ["Preview.Charts"] = ("차트", "Charts"),
         ["Preview.HeadCommit"] = ("HEAD 커밋", "HEAD Commit"),
 
-        ["GitCommit.BodyOptional"] = ("본문 (선택)", "Details (optional)"),
+        ["Detail.Mode"] = ("모드", "Mode"),
+        ["Detail.Value.Stash"] = ("(stash)", "(stash)"),
         ["GitCommit.RemoveSelected"] = ("선택 항목 제거", "Remove Selected"),
     };
 }

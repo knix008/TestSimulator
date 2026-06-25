@@ -4,19 +4,18 @@ namespace MyGitWinV10.App.Dialogs;
 
 public partial class GitAddResultDialog : Form
 {
+    private readonly int _entryCount;
+    private readonly string? _scopeLabel;
+
     public GitAddResultDialog(
         IReadOnlyList<GitStatusEntry> entries,
         IReadOnlyDictionary<string, GitStatusEntry> beforeSnapshot,
         string? scopeLabel = null)
     {
+        _scopeLabel = scopeLabel;
+        _entryCount = entries.Count;
         InitializeComponent();
-        Text = string.IsNullOrWhiteSpace(scopeLabel)
-            ? "Git Add Complete"
-            : $"Git Add Complete — {scopeLabel}";
-
-        summaryLabel.Text = entries.Count == 1
-            ? "1 path was staged."
-            : $"{entries.Count} paths were staged.";
+        ApplyLocalizedText();
 
         DialogIcons.ApplySuccess(iconPictureBox);
 
@@ -25,6 +24,24 @@ public partial class GitAddResultDialog : Form
         {
             addListView.Items[0].Selected = true;
         }
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged() => ApplyLocalizedText();
+
+    private void ApplyLocalizedText()
+    {
+        Text = string.IsNullOrWhiteSpace(_scopeLabel)
+            ? Localization.T("GitAdd.CompleteTitle")
+            : Localization.Tf("GitAdd.CompleteTitleScope", _scopeLabel);
+        summaryLabel.Text = _entryCount == 1
+            ? Localization.T("GitAdd.CompleteOne")
+            : Localization.Tf("GitAdd.CompleteMany", _entryCount);
+        pathColumnHeader.Text = Localization.T("Column.GitStatus.Path");
+        statusColumnHeader.Text = Localization.T("Column.Status");
+        closeButton.Text = Localization.T("Common.Close");
     }
 
     private static ListViewItem CreateListItem(

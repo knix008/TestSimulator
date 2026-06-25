@@ -828,8 +828,8 @@ public partial class MainForm : Form
             completionSummary: Localization.T("OpComplete.CloneSummary"),
             completionDetails:
             [
-                new("URL", dialog.RepositoryUrl ?? string.Empty),
-                new("Folder", dialog.ClonedRepositoryPath)
+                OpDetail("Detail.RemoteUrl", dialog.RepositoryUrl ?? string.Empty),
+                OpDetail("Detail.Folder", dialog.ClonedRepositoryPath)
             ]);
     }
 
@@ -843,12 +843,12 @@ public partial class MainForm : Form
             return;
         }
 
-        statusLabel.Text = "Opening remote repository...";
+        statusLabel.Text = Localization.T("Status.OpeningRemote");
         TryOpenRemoteBrowse(
             dialog.RepositoryPath,
             dialog.RepositoryUrl,
-            completionTitle: "Remote Browse Ready",
-            completionSummary: "The remote repository history is ready to browse.");
+            completionTitle: Localization.T("OpComplete.RemoteBrowseReady"),
+            completionSummary: Localization.T("OpComplete.RemoteBrowseSummary"));
     }
 
     private void ExitMenuItem_Click(object? sender, EventArgs e) => Close();
@@ -885,8 +885,8 @@ public partial class MainForm : Form
             _remoteBrowseUrl = null;
             _pathHistoryFilter = null;
             _gitService.OpenLocal(path);
-            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
-            await RefreshRepositoryViewsAsync("Opening repository...");
+            statusLabel.Text = Localization.Tf("Status.Branch", _gitService.GetCurrentBranchName());
+            await RefreshRepositoryViewsAsync(Localization.T("Status.OpeningRepo"));
 
             if (!string.IsNullOrWhiteSpace(_gitService.RepositoryPath))
             {
@@ -900,10 +900,10 @@ public partial class MainForm : Form
             {
                 ShowOperationComplete(
                     completionTitle,
-                    completionSummary ?? "The operation completed successfully.",
+                    completionSummary ?? Localization.T("OpComplete.DefaultSummary"),
                     completionDetails,
-                    new OperationDetail("Repository", _gitService.RepositoryPath ?? path),
-                    new OperationDetail("Branch", _gitService.GetCurrentBranchName()));
+                    OpDetail("Detail.Repository", _gitService.RepositoryPath ?? path),
+                    OpDetail("Detail.Branch", _gitService.GetCurrentBranchName()));
             }
         }
         catch (Exception ex)
@@ -936,8 +936,8 @@ public partial class MainForm : Form
             _remoteBrowseUrl = remoteUrl;
             _pathHistoryFilter = null;
             _gitService.OpenLocal(cachePath);
-            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()} (remote view)";
-            await RefreshRepositoryViewsAsync("Opening remote repository...");
+            statusLabel.Text = Localization.Tf("Status.BranchRemote", _gitService.GetCurrentBranchName());
+            await RefreshRepositoryViewsAsync(Localization.T("Status.OpeningRemote"));
 
             _settings.RecordSuccessfulRemoteBrowseSession(cachePath, remoteUrl);
             _settings.Save();
@@ -947,12 +947,12 @@ public partial class MainForm : Form
                 var displayName = RemoteRepositoryService.GetDisplayName(remoteUrl) ?? remoteUrl;
                 ShowOperationComplete(
                     completionTitle,
-                    completionSummary ?? "The operation completed successfully.",
+                    completionSummary ?? Localization.T("OpComplete.DefaultSummary"),
                     null,
-                    new OperationDetail("Repository", displayName),
-                    new OperationDetail("URL", remoteUrl),
-                    new OperationDetail("Branch", _gitService.GetCurrentBranchName()),
-                    new OperationDetail("Mode", "Remote browse (read-only)"));
+                    OpDetail("Detail.Repository", displayName),
+                    OpDetail("Detail.RemoteUrl", remoteUrl),
+                    OpDetail("Detail.Branch", _gitService.GetCurrentBranchName()),
+                    OpDetail("Detail.Mode", Localization.T("Detail.Value.RemoteBrowse")));
             }
         }
         catch (Exception ex)
@@ -1119,8 +1119,8 @@ public partial class MainForm : Form
 
             TryOpenRepository(
                 path,
-                completionTitle: "Repository Opened",
-                completionSummary: "The repository was opened successfully.");
+                completionTitle: Localization.T("OpComplete.RepoOpened"),
+                completionSummary: Localization.T("OpComplete.RepoOpenedSummary"));
         }
     }
 
@@ -1414,7 +1414,7 @@ public partial class MainForm : Form
             return;
         }
 
-        statusLabel.Text = "Refreshing branches, tags, and releases...";
+        statusLabel.Text = Localization.T("Status.RefreshingTree");
         _ = RefreshRepositoryViewsAsync("Refreshing branches, tags, and releases...");
     }
 
@@ -1425,7 +1425,7 @@ public partial class MainForm : Form
             return;
         }
 
-        statusLabel.Text = "Refreshing commit graph...";
+        statusLabel.Text = Localization.T("Status.RefreshingGraph");
         _ = LoadCommitGraphAsync();
     }
 
@@ -1487,15 +1487,15 @@ public partial class MainForm : Form
                 return;
             }
 
-            statusLabel.Text = $"Exported summary to {preview.ExportedFilePath}";
+            statusLabel.Text = Localization.Tf("Status.ExportedSummary", preview.ExportedFilePath);
             ShowOperationComplete(
-                "Export Complete",
-                "The repository summary was exported successfully.",
+                Localization.T("OpComplete.ExportComplete"),
+                Localization.T("OpComplete.ExportSummary"),
                 null,
-                new OperationDetail("Repository", summary.RepositoryName),
-                new OperationDetail("Branch", summary.CurrentBranch),
-                new OperationDetail("Format", GetExportFormatDisplayName(preview.ExportedFormat ?? format)),
-                new OperationDetail("File", preview.ExportedFilePath));
+                OpDetail("Detail.Repository", summary.RepositoryName),
+                OpDetail("Detail.Branch", summary.CurrentBranch),
+                OpDetail("Detail.Format", GetExportFormatDisplayName(preview.ExportedFormat ?? format)),
+                OpDetail("Detail.File", preview.ExportedFilePath));
         }
         catch (Exception ex)
         {
@@ -1586,7 +1586,7 @@ public partial class MainForm : Form
             statusLabel.Text = $"Checking out {branch.FriendlyName}...";
             await OperationProgress.RunAsync(
                 this,
-                $"Checking out {branch.FriendlyName}...",
+                Localization.Tf("Status.CheckingOut", branch.FriendlyName),
                 async cancellationToken =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -1599,15 +1599,15 @@ public partial class MainForm : Form
             await RefreshRepositoryViewsAsync(showProgress: false);
             _ = LoadReleasesAsync();
             ShowOperationComplete(
-                "Checkout Complete",
-                "The branch was checked out successfully.",
+                Localization.T("OpComplete.CheckoutComplete"),
+                Localization.T("OpComplete.CheckoutSummary"),
                 null,
-                new OperationDetail("Branch", branch.FriendlyName),
-                new OperationDetail("Repository", _gitService.RepositoryPath ?? string.Empty));
+                OpDetail("Detail.Branch", branch.FriendlyName),
+                OpDetail("Detail.Repository", _gitService.RepositoryPath ?? string.Empty));
         }
         catch (OperationCanceledException)
         {
-            statusLabel.Text = "Checkout cancelled";
+            statusLabel.Text = Localization.T("Status.CheckoutCancelled");
         }
         catch (Exception ex)
         {
@@ -1641,7 +1641,7 @@ public partial class MainForm : Form
             return;
         }
 
-        statusLabel.Text = "Loading GitHub releases...";
+        statusLabel.Text = Localization.T("Status.LoadingReleases");
         try
         {
             var releases = await GitHubReleaseService.GetReleasesAsync(parsed.Value.Owner, parsed.Value.Repo, _gitHubToken);
@@ -1653,7 +1653,7 @@ public partial class MainForm : Form
             }).ToList();
 
             BranchTagTreePopulator.SetReleaseNodes(releasesNode, items);
-            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+            statusLabel.Text = Localization.Tf("Status.Branch", _gitService.GetCurrentBranchName());
         }
         catch (Octokit.ApiException ex) when (ex is Octokit.RateLimitExceededException or Octokit.ForbiddenException)
         {
@@ -1669,7 +1669,7 @@ public partial class MainForm : Form
             [
                 ("(403: GitHub API rate limit/access denied — add a Personal Access Token)", null, null)
             ]);
-            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+            statusLabel.Text = Localization.Tf("Status.Branch", _gitService.GetCurrentBranchName());
         }
         catch (Exception ex)
         {
@@ -1677,7 +1677,7 @@ public partial class MainForm : Form
             [
                 ($"(failed to load: {ex.Message})", null, null)
             ]);
-            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+            statusLabel.Text = Localization.Tf("Status.Branch", _gitService.GetCurrentBranchName());
         }
     }
 
@@ -1764,7 +1764,7 @@ public partial class MainForm : Form
 
             commitGraphView.SetRows(rows);
             UpdateGraphTitleLabel();
-            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+            statusLabel.Text = Localization.Tf("Status.Branch", _gitService.GetCurrentBranchName());
         }
         catch (Exception ex)
         {
@@ -1896,7 +1896,7 @@ public partial class MainForm : Form
         _pathHistoryFilterIsDirectory = false;
         if (_gitService.Repo is not null)
         {
-            statusLabel.Text = $"Branch: {_gitService.GetCurrentBranchName()}";
+            statusLabel.Text = Localization.Tf("Status.Branch", _gitService.GetCurrentBranchName());
             _ = LoadCommitGraphAsync();
         }
         else
@@ -2249,25 +2249,25 @@ public partial class MainForm : Form
             {
                 GitOperationNotifier.ShowInfo(
                     this,
-                    "Remove from .gitignore",
-                    "No matching entry was found in .gitignore for the selected path.");
+                    Localization.T("Gitignore.RemoveTitle"),
+                    Localization.T("Gitignore.RemoveNotFound"));
                 return;
             }
 
             statusLabel.Text = removedPatterns.Count == 1
-                ? $"Removed {removedPatterns[0]} from .gitignore"
-                : $"Removed {removedPatterns.Count} patterns from .gitignore";
+                ? Localization.Tf("Status.RemovedGitignoreOne", removedPatterns[0])
+                : Localization.Tf("Status.RemovedGitignoreMany", removedPatterns.Count);
             _ = RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Removed from .gitignore",
-                "The selected path was removed from .gitignore.",
-                new OperationDetail("Path", tag.RelativePath),
-                new OperationDetail("Removed patterns", string.Join(", ", removedPatterns)));
+                Localization.T("Gitignore.RemoveTitle"),
+                Localization.T("Gitignore.RemoveSummary"),
+                OpDetail("Detail.Path", tag.RelativePath),
+                OpDetail("Detail.RemovedPatterns", string.Join(", ", removedPatterns)));
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Remove from .gitignore Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Gitignore.RemoveFailed"), ex);
         }
     }
 
@@ -2282,18 +2282,18 @@ public partial class MainForm : Form
         {
             Repository repo = _gitService.Repo;
             string pattern = GitIgnoreService.AddToGitIgnore(repo, tag.RelativePath, tag.IsDirectory);
-            statusLabel.Text = $"Added {pattern} to .gitignore";
+            statusLabel.Text = Localization.Tf("Status.AddedGitignore", pattern);
             _ = RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Added to .gitignore",
-                "The selected path was added to .gitignore.",
-                new OperationDetail("Path", tag.RelativePath),
-                new OperationDetail("Pattern", pattern));
+                Localization.T("Gitignore.AddTitle"),
+                Localization.T("Gitignore.AddSummary"),
+                OpDetail("Detail.Path", tag.RelativePath),
+                OpDetail("Detail.Pattern", pattern));
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Add to .gitignore Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Gitignore.AddFailed"), ex);
         }
     }
 
@@ -2315,7 +2315,7 @@ public partial class MainForm : Form
 
             if (candidates.Count == 0)
             {
-            GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.Add"), Localization.T("Msg.GitAdd.NoChanges"));
+                GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.Add"), Localization.T("Msg.GitAdd.NoChanges"));
                 return;
             }
 
@@ -2343,8 +2343,8 @@ public partial class MainForm : Form
                 .ToList();
 
             statusLabel.Text = stagedEntries.Count == 1
-                ? $"Staged {stagedEntries[0].FilePath}"
-                : $"Staged {stagedEntries.Count} paths";
+                ? Localization.Tf("Status.StagedOne", stagedEntries[0].FilePath)
+                : Localization.Tf("Status.StagedMany", stagedEntries.Count);
             _ = RefreshFileTreeStatusAsync();
 
             if (stagedEntries.Count == 0)
@@ -2377,13 +2377,13 @@ public partial class MainForm : Form
             var unstagedPaths = GitOperationDetails.GetStagedPathsAtScope(repo, tag.RelativePath, tag.IsDirectory);
             GitWorkflowService.Unstage(repo, tag.RelativePath, tag.IsDirectory);
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
-                ? "Unstaged all changes"
-                : $"Unstaged {tag.RelativePath}";
+                ? Localization.T("Status.UnstagedAll")
+                : Localization.Tf("Status.UnstagedPath", tag.RelativePath);
             _ = RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Git Reset Complete",
-                "The selected staged changes were unstaged successfully.",
+                Localization.T("GitOp.ResetComplete"),
+                Localization.T("GitOp.ResetCompleteSummary"),
                 GitOperationDetails.ForReset(repo, tag.RelativePath, unstagedPaths));
         }
         catch (Exception ex)
@@ -2418,13 +2418,13 @@ public partial class MainForm : Form
             var discardedEntries = GitOperationDetails.GetWorkTreeEntriesAtScope(repo, tag.RelativePath, tag.IsDirectory);
             GitWorkflowService.DiscardChanges(repo, tag.RelativePath, tag.IsDirectory);
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
-                ? "Discarded all uncommitted changes"
-                : $"Discarded changes in {tag.RelativePath}";
+                ? Localization.T("Status.DiscardedAll")
+                : Localization.Tf("Status.DiscardedPath", tag.RelativePath);
             _ = RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Git Discard Complete",
-                "The uncommitted changes were discarded successfully.",
+                Localization.T("GitOp.DiscardComplete"),
+                Localization.T("GitOp.DiscardCompleteSummary"),
                 GitOperationDetails.ForDiscard(repo, tag.RelativePath, discardedEntries));
         }
         catch (Exception ex)
@@ -2465,11 +2465,11 @@ public partial class MainForm : Form
             Repository repo = _gitService.Repo;
             var commit = GitWorkflowService.CreateCommit(repo, dialog.CommitMessage);
             _ = RefreshAfterGitCommitAsync();
-            statusLabel.Text = $"Committed {commit.Sha[..7]}";
+            statusLabel.Text = Localization.Tf("Status.Committed", commit.Sha[..7]);
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Git Commit Complete",
-                "The staged changes were committed successfully.",
+                Localization.T("GitOp.CommitComplete"),
+                Localization.T("GitOp.CommitCompleteSummary"),
                 GitOperationDetails.ForCommit(repo, commit));
         }
         catch (Exception ex)
@@ -2502,7 +2502,7 @@ public partial class MainForm : Form
         {
             await OperationProgress.RunAsync(
                 this,
-                "Fetching from origin...",
+                Localization.T("GitOp.FetchProgress"),
                 cancellationToken => Task.Run(
                     () => _gitService.RunLocked(activeRepo => GitWorkflowService.Fetch(activeRepo, prompt.Handler, cancellationToken)),
                     cancellationToken),
@@ -2511,17 +2511,17 @@ public partial class MainForm : Form
             MarkGitCredentialsVerified();
             await RefreshRepositoryViewsAsync(showProgress: false);
             _ = LoadReleasesAsync();
-            statusLabel.Text = "Fetched from origin";
+            statusLabel.Text = Localization.T("Status.Fetched");
             var remoteTipsAfter = GitOperationDetails.SnapshotOriginBranchTips(_gitService.Repo ?? repo);
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Git Fetch Complete",
-                "Updates were fetched from origin successfully.",
+                Localization.T("GitOp.FetchComplete"),
+                Localization.T("GitOp.FetchCompleteSummary"),
                 GitOperationDetails.ForFetch(repo, remoteTipsBefore, remoteTipsAfter));
         }
         catch (OperationCanceledException)
         {
-            statusLabel.Text = "Fetch cancelled";
+            statusLabel.Text = Localization.T("Status.FetchCancelled");
             GitOperationNotifier.ShowCancelled(this, Localization.T("GitOp.Fetch"));
         }
         catch (Exception ex)
@@ -2556,7 +2556,7 @@ public partial class MainForm : Form
         {
             var result = await OperationProgress.RunAsync(
                 this,
-                "Pulling from origin...",
+                Localization.T("GitOp.PullProgress"),
                 cancellationToken => Task.Run(
                     () => _gitService.RunLocked(activeRepo => GitWorkflowService.Pull(activeRepo, prompt.Handler, cancellationToken)),
                     cancellationToken),
@@ -2565,17 +2565,17 @@ public partial class MainForm : Form
             MarkGitCredentialsVerified();
             await RefreshRepositoryViewsAsync(showProgress: false);
             _ = LoadReleasesAsync();
-            statusLabel.Text = $"Pulled {_gitService.GetCurrentBranchName()} from origin";
+            statusLabel.Text = Localization.Tf("Status.Pulled", _gitService.GetCurrentBranchName());
             string? headShaAfter = (_gitService.Repo ?? repo).Head?.Tip?.Sha;
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Git Pull Complete",
-                "Updates were pulled from origin successfully.",
+                Localization.T("GitOp.PullComplete"),
+                Localization.T("GitOp.PullCompleteSummary"),
                 GitOperationDetails.ForPull(repo, result, headShaBefore, headShaAfter));
         }
         catch (OperationCanceledException)
         {
-            statusLabel.Text = "Pull cancelled";
+            statusLabel.Text = Localization.T("Status.PullCancelled");
             GitOperationNotifier.ShowCancelled(this, Localization.T("GitOp.Pull"));
         }
         catch (Exception ex)
@@ -2620,7 +2620,7 @@ public partial class MainForm : Form
 
             await OperationProgress.RunAsync(
                 this,
-                "Pushing to origin...",
+                Localization.T("GitOp.PushProgress"),
                 cancellationToken => Task.Run(
                     () => _gitService.RunLocked(activeRepo => GitWorkflowService.Push(activeRepo, prompt.Handler, cancellationToken)),
                     cancellationToken),
@@ -2628,17 +2628,17 @@ public partial class MainForm : Form
                 onCancelled: CancelPendingRepositoryOperations);
             CaptureGitCredentials(prompt);
             MarkGitCredentialsVerified();
-            statusLabel.Text = $"Pushed {_gitService.GetCurrentBranchName()} to origin";
+            statusLabel.Text = Localization.Tf("Status.Pushed", _gitService.GetCurrentBranchName());
             await RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Git Push Complete",
-                "The current branch was pushed to origin successfully.",
+                Localization.T("GitOp.PushComplete"),
+                Localization.T("GitOp.PushCompleteSummary"),
                 GitOperationDetails.ForPush(repo, commitsToPush));
         }
         catch (OperationCanceledException)
         {
-            statusLabel.Text = "Push cancelled";
+            statusLabel.Text = Localization.T("Status.PushCancelled");
             GitOperationNotifier.ShowCancelled(this, Localization.T("GitOp.Push"));
         }
         catch (Exception ex)
@@ -2662,12 +2662,12 @@ public partial class MainForm : Form
             var stashedEntries = GitOperationDetails.GetWorkTreeEntriesAtScope(repo, string.Empty, isDirectory: true);
             GitWorkflowService.Stash(repo);
             _ = RefreshFileTreeStatusAsync();
-            statusLabel.Text = "Stashed uncommitted changes";
-            string stashMessage = repo.Stashes.FirstOrDefault()?.Message ?? "(stash)";
+            statusLabel.Text = Localization.T("Status.Stashed");
+            string stashMessage = repo.Stashes.FirstOrDefault()?.Message ?? Localization.T("Detail.Value.Stash");
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Git Stash Complete",
-                "Uncommitted changes were stashed successfully.",
+                Localization.T("GitOp.StashComplete"),
+                Localization.T("GitOp.StashCompleteSummary"),
                 GitOperationDetails.ForStash(repo, stashMessage, stashedEntries, repo.Stashes.Count()));
         }
         catch (Exception ex)
@@ -2690,11 +2690,11 @@ public partial class MainForm : Form
                 ?? throw new InvalidOperationException("There are no stashed changes.");
             GitWorkflowService.StashPop(repo);
             _ = RefreshFileTreeStatusAsync();
-            statusLabel.Text = "Applied latest stash";
+            statusLabel.Text = Localization.T("Status.StashApplied");
             GitOperationNotifier.ShowSuccess(
                 this,
-                "Git Stash Pop Complete",
-                "The latest stash was applied successfully.",
+                Localization.T("GitOp.StashPopComplete"),
+                Localization.T("GitOp.StashPopCompleteSummary"),
                 GitOperationDetails.ForStashPop(repo, stashMessage, repo.Stashes.Count()));
         }
         catch (Exception ex)
@@ -2760,11 +2760,11 @@ public partial class MainForm : Form
         {
             string createdPath = WorkingTreeFileService.CreateFile(_gitService.Repo, parentPath, fileName);
             _ = ReloadFileTreeDirectoryAsync(parentPath);
-            statusLabel.Text = $"Created {createdPath}";
+            statusLabel.Text = Localization.Tf("Status.Created", createdPath);
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Create File Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.CreateFile"), ex);
         }
     }
 
@@ -2791,11 +2791,11 @@ public partial class MainForm : Form
         {
             string createdPath = WorkingTreeFileService.CreateDirectory(_gitService.Repo, parentPath, folderName);
             _ = ReloadFileTreeDirectoryAsync(parentPath);
-            statusLabel.Text = $"Created {createdPath}";
+            statusLabel.Text = Localization.Tf("Status.Created", createdPath);
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Create Folder Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.CreateFolder"), ex);
         }
     }
 
@@ -2821,7 +2821,7 @@ public partial class MainForm : Form
             string parentPath = WorkingTreeFileService.GetDeleteParentRelativePath(tag);
             WorkingTreeFileService.DeletePath(_gitService.Repo, tag.RelativePath, tag.IsDirectory);
             _ = ReloadFileTreeDirectoryAsync(parentPath);
-            statusLabel.Text = $"Deleted {targetLabel}";
+            statusLabel.Text = Localization.Tf("Status.Deleted", targetLabel);
         }
         catch (Exception ex)
         {
@@ -2888,7 +2888,7 @@ public partial class MainForm : Form
 
         _currentCommit = commit;
         _currentCommitChanges = null;
-        statusLabel.Text = $"{commit.Sha[..7]}  Loading changes...";
+        statusLabel.Text = Localization.Tf("Status.LoadingChanges", commit.Sha[..7]);
         commitMetaLabel.Text = CommitDetailService.FormatMetadata(commit);
         changedFilesListView.BeginUpdate();
         changedFilesListView.Items.Clear();
@@ -2980,7 +2980,7 @@ public partial class MainForm : Form
 
         using var dialog = new FolderBrowserDialog
         {
-            Description = $"Select a folder to export commit {commit.Sha[..7]} into.",
+            Description = Localization.Tf("Export.CommitFolderPrompt", commit.Sha[..7]),
             UseDescriptionForTitle = true,
         };
 
@@ -2994,8 +2994,8 @@ public partial class MainForm : Form
         {
             var confirm = MessageBox.Show(
                 this,
-                $"The folder is not empty:\n{destination}\n\nExisting files may be overwritten. Continue?",
-                "Export Commit",
+                Localization.Tf("Export.FolderNotEmpty", destination),
+                Localization.T("Export.CommitTitle"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
             if (confirm != DialogResult.Yes)
@@ -3005,23 +3005,23 @@ public partial class MainForm : Form
         }
 
         string shortSha = commit.Sha[..7];
-        BeginStatusBarProgress($"Exporting commit {shortSha}... 0%");
+        BeginStatusBarProgress(Localization.Tf("Status.ExportingCommit", shortSha, 0));
         try
         {
             await OperationProgress.RunAsync(
                 this,
-                $"Exporting commit {shortSha}...",
+                Localization.Tf("Status.ExportingCommitProgress", shortSha),
                 reporter => Task.Run(
                     () => _gitService.RunLocked(repo => CommitExportService.Export(repo, commit, destination, reporter)),
                     reporter.CancellationToken),
                 onStatusUpdate: UpdateStatusBarProgress);
 
-            EndStatusBarProgress($"Exported {shortSha} to {destination}");
+            EndStatusBarProgress(Localization.Tf("Status.ExportedCommit", shortSha, destination));
             BeginInvoke(() => ShowExportCompleteDialog(shortSha, commit, destination));
         }
         catch (OperationCanceledException)
         {
-            EndStatusBarProgress("Export cancelled");
+            EndStatusBarProgress(Localization.T("Status.ExportCancelled"));
         }
         catch (Exception ex)
         {
@@ -3033,12 +3033,12 @@ public partial class MainForm : Form
     private void ShowExportCompleteDialog(string shortSha, Commit commit, string destination)
     {
         ShowOperationComplete(
-            "Export Complete",
-            "The commit snapshot was exported successfully.",
+            Localization.T("OpComplete.ExportComplete"),
+            Localization.T("OpComplete.ExportCommitSummary"),
             null,
-            new OperationDetail("Commit", $"{shortSha} — {commit.MessageShort.Trim()}"),
-            new OperationDetail("Author", commit.Author.Name),
-            new OperationDetail("Folder", destination));
+            OpDetail("Detail.Commit", $"{shortSha} — {commit.MessageShort.Trim()}"),
+            OpDetail("Detail.Author", commit.Author.Name),
+            OpDetail("Detail.Folder", destination));
     }
 
     private void BeginStatusBarProgress(string message)

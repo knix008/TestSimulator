@@ -11,7 +11,7 @@ public partial class GitAddDialog : Form
     {
         _scopeLabel = scopeLabel;
         InitializeComponent();
-        ApplyLocalizedTitle();
+        ApplyLocalizedText();
 
         _entries = candidates.ToList();
         PopulateList();
@@ -25,15 +25,21 @@ public partial class GitAddDialog : Form
 
     private void OnLanguageChanged()
     {
-        ApplyLocalizedTitle();
+        ApplyLocalizedText();
         UpdateSummary();
     }
 
-    private void ApplyLocalizedTitle()
+    private void ApplyLocalizedText()
     {
         Text = string.IsNullOrWhiteSpace(_scopeLabel)
             ? Localization.T("GitAdd.Title")
             : Localization.Tf("GitAdd.TitleScope", _scopeLabel);
+        removePathContextMenuItem.Text = Localization.T("GitAdd.RemoveSelected");
+        removeButton.Text = Localization.T("GitAdd.RemoveSelected");
+        pathColumnHeader.Text = Localization.T("Column.GitStatus.Path");
+        statusColumnHeader.Text = Localization.T("Column.Status");
+        stageButton.Text = Localization.T("GitAdd.Stage");
+        cancelButton.Text = Localization.T("Common.Cancel");
     }
 
     private void PopulateList()
@@ -79,9 +85,9 @@ public partial class GitAddDialog : Form
         int count = _entries.Count;
         summaryLabel.Text = count switch
         {
-            0 => "No paths selected to stage.",
-            1 => "1 path will be staged. Remove any paths you do not want to include.",
-            _ => $"{count} paths will be staged. Remove any paths you do not want to include."
+            0 => Localization.T("GitAdd.SummaryNone"),
+            1 => Localization.T("GitAdd.SummaryOne"),
+            _ => Localization.Tf("GitAdd.SummaryMany", count)
         };
         stageButton.Enabled = count > 0;
         removeButton.Enabled = count > 0 && pathListView.SelectedItems.Count > 0;
