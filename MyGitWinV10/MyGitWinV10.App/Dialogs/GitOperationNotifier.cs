@@ -31,8 +31,8 @@ public static class GitOperationNotifier
     {
         MessageBox.Show(
             owner,
-            "The operation was cancelled.",
-            $"{operationName} Cancelled",
+            Localization.T("Msg.Cancelled"),
+            Localization.Tf("Msg.CancelledTitle", operationName),
             MessageBoxButtons.OK,
             MessageBoxIcon.Warning);
     }

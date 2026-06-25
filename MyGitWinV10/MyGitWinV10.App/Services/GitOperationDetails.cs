@@ -8,10 +8,13 @@ public static class GitOperationDetails
 {
     private const int MaxListedPaths = 40;
 
+    private static GitOperationDetailItem Detail(string labelKey, string value) =>
+        new(Localization.T(labelKey), value);
+
     public static IReadOnlyList<GitOperationDetailItem> CommonRepository(Repository repo) =>
     [
-        new("Repository", FormatRepositoryPath(repo)),
-        new("Branch", repo.Head?.FriendlyName ?? "(detached)")
+        Detail("Detail.Repository", FormatRepositoryPath(repo)),
+        Detail("Detail.Branch", repo.Head?.FriendlyName ?? Localization.T("Detail.Value.Detached"))
     ];
 
     public static IReadOnlyList<GitOperationDetailItem> ForReset(
@@ -21,8 +24,8 @@ public static class GitOperationDetails
     {
         var details = new List<GitOperationDetailItem>(CommonRepository(repo))
         {
-            new("Path", FormatPathScope(relativePath)),
-            new("Unstaged paths", FormatPathList(unstagedPaths))
+            Detail("Detail.Path", FormatPathScope(relativePath)),
+            Detail("Detail.UnstagedPaths", FormatPathList(unstagedPaths))
         };
         return details;
     }
@@ -34,8 +37,8 @@ public static class GitOperationDetails
     {
         var details = new List<GitOperationDetailItem>(CommonRepository(repo))
         {
-            new("Path", FormatPathScope(relativePath)),
-            new("Discarded changes", FormatStatusEntries(discardedEntries))
+            Detail("Detail.Path", FormatPathScope(relativePath)),
+            Detail("Detail.DiscardedChanges", FormatStatusEntries(discardedEntries))
         };
         return details;
     }
@@ -44,16 +47,18 @@ public static class GitOperationDetails
     {
         var details = new List<GitOperationDetailItem>(CommonRepository(repo))
         {
-            new("Commit", commit.Sha),
-            new("Short SHA", FormatSha(commit.Sha)),
-            new("Author", $"{commit.Author.Name} <{commit.Author.Email}>"),
-            new("Date", commit.Author.When.ToString("yyyy-MM-dd HH:mm:ss zzz")),
-            new("Message", commit.Message.Trim()),
-            new("Parent", commit.Parents.FirstOrDefault()?.Sha is { } parentSha ? FormatSha(parentSha) : "(root commit)")
+            Detail("Detail.Commit", commit.Sha),
+            Detail("Detail.ShortSha", FormatSha(commit.Sha)),
+            Detail("Detail.Author", $"{commit.Author.Name} <{commit.Author.Email}>"),
+            Detail("Detail.Date", commit.Author.When.ToString("yyyy-MM-dd HH:mm:ss zzz")),
+            Detail("Detail.Message", commit.Message.Trim()),
+            Detail("Detail.Parent", commit.Parents.FirstOrDefault()?.Sha is { } parentSha
+                ? FormatSha(parentSha)
+                : Localization.T("Detail.Value.RootCommit"))
         };
 
         IReadOnlyList<string> changedPaths = GetCommitChangedPaths(repo, commit);
-        details.Add(new("Changed files", FormatPathList(changedPaths)));
+        details.Add(Detail("Detail.ChangedFiles", FormatPathList(changedPaths)));
         return details;
     }
 
@@ -64,9 +69,9 @@ public static class GitOperationDetails
     {
         var details = new List<GitOperationDetailItem>(CommonRepository(repo))
         {
-            new("Remote", "origin"),
-            new("Remote URL", FormatOriginUrl(repo)),
-            new("Updates", FormatRemoteTipChanges(remoteTipsBefore, remoteTipsAfter))
+            Detail("Detail.Remote", "origin"),
+            Detail("Detail.RemoteUrl", FormatOriginUrl(repo)),
+            Detail("Detail.Updates", FormatRemoteTipChanges(remoteTipsBefore, remoteTipsAfter))
         };
         return details;
     }
@@ -79,16 +84,16 @@ public static class GitOperationDetails
     {
         var details = new List<GitOperationDetailItem>(CommonRepository(repo))
         {
-            new("Remote", "origin"),
-            new("Remote URL", FormatOriginUrl(repo)),
-            new("Result", DescribeMergeResult(result)),
-            new("HEAD before", FormatSha(headShaBefore)),
-            new("HEAD after", FormatSha(headShaAfter))
+            Detail("Detail.Remote", "origin"),
+            Detail("Detail.RemoteUrl", FormatOriginUrl(repo)),
+            Detail("Detail.Result", DescribeMergeResult(result)),
+            Detail("Detail.HeadBefore", FormatSha(headShaBefore)),
+            Detail("Detail.HeadAfter", FormatSha(headShaAfter))
         };
 
         if (result.Commit is { } mergeCommit)
         {
-            details.Add(new("Merge commit", $"{FormatSha(mergeCommit.Sha)} — {mergeCommit.MessageShort.Trim()}"));
+            details.Add(Detail("Detail.MergeCommit", $"{FormatSha(mergeCommit.Sha)} — {mergeCommit.MessageShort.Trim()}"));
         }
 
         return details;
@@ -100,10 +105,10 @@ public static class GitOperationDetails
     {
         var details = new List<GitOperationDetailItem>(CommonRepository(repo))
         {
-            new("Remote", "origin"),
-            new("Remote URL", FormatOriginUrl(repo)),
-            new("Ref", repo.Head?.CanonicalName ?? "(unknown)"),
-            new("Commits pushed", FormatCommitList(pushedCommits))
+            Detail("Detail.Remote", "origin"),
+            Detail("Detail.RemoteUrl", FormatOriginUrl(repo)),
+            Detail("Detail.Ref", repo.Head?.CanonicalName ?? Localization.T("Detail.Value.Unknown")),
+            Detail("Detail.CommitsPushed", FormatCommitList(pushedCommits))
         };
         return details;
     }
@@ -116,9 +121,9 @@ public static class GitOperationDetails
     {
         var details = new List<GitOperationDetailItem>(CommonRepository(repo))
         {
-            new("Stash message", stashMessage),
-            new("Stash entries", stashCount.ToString()),
-            new("Stashed changes", FormatStatusEntries(stashedEntries))
+            Detail("Detail.StashMessage", stashMessage),
+            Detail("Detail.StashEntries", stashCount.ToString()),
+            Detail("Detail.StashedChanges", FormatStatusEntries(stashedEntries))
         };
         return details;
     }
@@ -130,8 +135,8 @@ public static class GitOperationDetails
     {
         var details = new List<GitOperationDetailItem>(CommonRepository(repo))
         {
-            new("Applied stash", stashMessage),
-            new("Remaining stashes", remainingStashCount.ToString())
+            Detail("Detail.AppliedStash", stashMessage),
+            Detail("Detail.RemainingStashes", remainingStashCount.ToString())
         };
         return details;
     }
@@ -205,17 +210,21 @@ public static class GitOperationDetails
     }
 
     public static string FormatPathScope(string relativePath) =>
-        string.IsNullOrEmpty(relativePath) ? "(repository)" : relativePath;
+        string.IsNullOrEmpty(relativePath)
+            ? Localization.T("Detail.Value.Repository")
+            : relativePath;
 
     public static string FormatRepositoryPath(Repository repo) =>
         repo.Info.WorkingDirectory?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-        ?? "(bare repository)";
+        ?? Localization.T("Detail.Value.BareRepository");
 
     public static string FormatOriginUrl(Repository repo) =>
-        repo.Network.Remotes["origin"]?.Url ?? "(not configured)";
+        repo.Network.Remotes["origin"]?.Url ?? Localization.T("Detail.Value.NotConfigured");
 
     public static string FormatSha(string? sha) =>
-        string.IsNullOrWhiteSpace(sha) ? "(none)" : sha.Length <= 7 ? sha : sha[..7];
+        string.IsNullOrWhiteSpace(sha)
+            ? Localization.T("Detail.Value.None")
+            : sha.Length <= 7 ? sha : sha[..7];
 
     private static IReadOnlyList<string> GetCommitChangedPaths(Repository repo, Commit commit)
     {
@@ -238,10 +247,10 @@ public static class GitOperationDetails
 
     private static string DescribeMergeResult(MergeResult result) => result.Status switch
     {
-        MergeStatus.UpToDate => "Already up to date",
-        MergeStatus.FastForward => "Fast-forward",
-        MergeStatus.NonFastForward => "Merge commit created",
-        MergeStatus.Conflicts => "Completed with conflicts resolved",
+        MergeStatus.UpToDate => Localization.T("Merge.UpToDate"),
+        MergeStatus.FastForward => Localization.T("Merge.FastForward"),
+        MergeStatus.NonFastForward => Localization.T("Merge.NonFastForward"),
+        MergeStatus.Conflicts => Localization.T("Merge.Conflicts"),
         _ => result.Status.ToString()
     };
 
@@ -261,7 +270,7 @@ public static class GitOperationDetails
 
         if (lines.Count == 0)
         {
-            return "Remote-tracking branches are already up to date.";
+            return Localization.T("Detail.Value.RemoteUpToDate");
         }
 
         return FormatLines(lines);
@@ -271,7 +280,7 @@ public static class GitOperationDetails
     {
         if (commits.Count == 0)
         {
-            return "Everything up-to-date (no new commits).";
+            return Localization.T("Detail.Value.UpToDate");
         }
 
         var lines = commits
@@ -283,7 +292,7 @@ public static class GitOperationDetails
     {
         if (entries.Count == 0)
         {
-            return "(none)";
+            return Localization.T("Detail.Value.None");
         }
 
         var lines = entries.Select(entry =>
@@ -299,7 +308,7 @@ public static class GitOperationDetails
         var list = paths.ToList();
         if (list.Count == 0)
         {
-            return "(none)";
+            return Localization.T("Detail.Value.None");
         }
 
         return FormatLines(list.Select(path => path));
@@ -312,7 +321,7 @@ public static class GitOperationDetails
         var text = string.Join(Environment.NewLine, visible);
         if (list.Count > MaxListedPaths)
         {
-            text += Environment.NewLine + $"  • ... and {list.Count - MaxListedPaths} more";
+            text += Environment.NewLine + Localization.Tf("Detail.Value.AndMore", list.Count - MaxListedPaths);
         }
 
         return text;

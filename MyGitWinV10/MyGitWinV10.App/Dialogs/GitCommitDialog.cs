@@ -17,11 +17,36 @@ public partial class GitCommitDialog : Form
         InitializeComponent();
         LoadCategories(preserveText: null);
         PopulateStagedPaths();
+        ApplyLocalizedText();
 
         categoryComboBox.TextChanged += (_, _) => UpdatePreview();
         categoryComboBox.SelectedIndexChanged += (_, _) => UpdatePreview();
         subjectTextBox.TextChanged += (_, _) => UpdatePreview();
         bodyTextBox.TextChanged += (_, _) => UpdatePreview();
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        ApplyLocalizedText();
+        UpdateStagedSummary();
+    }
+
+    private void ApplyLocalizedText()
+    {
+        Text = Localization.T("GitCommit.Title");
+        categoryLabel.Text = Localization.T("GitCommit.Category");
+        subjectLabel.Text = Localization.T("GitCommit.Subject");
+        bodyLabel.Text = Localization.T("GitCommit.Body");
+        previewLabel.Text = Localization.T("GitCommit.Preview");
+        manageCategoriesButton.Text = Localization.T("GitCommit.ManageCategories");
+        commitButton.Text = Localization.T("GitCommit.Commit");
+        cancelButton.Text = Localization.T("Common.Cancel");
+        removeFromCommitButton.Text = Localization.T("GitCommit.RemoveFromCommit");
+        removePathContextMenuItem.Text = Localization.T("GitCommit.RemovePath");
+        stagedPathColumnHeader.Text = Localization.T("GitCommit.StagedPath");
     }
 
     public string? CommitMessage { get; private set; }
@@ -52,9 +77,9 @@ public partial class GitCommitDialog : Form
         int count = _stagedPaths.Count;
         stagedFilesLabel.Text = count switch
         {
-            0 => "Staged files (none remaining)",
-            1 => "Staged files (1 path)",
-            _ => $"Staged files ({count} paths)"
+            0 => Localization.T("GitCommit.StagedNone"),
+            1 => Localization.T("GitCommit.StagedOne"),
+            _ => Localization.Tf("GitCommit.StagedMany", count)
         };
         commitButton.Enabled = count > 0;
         removeFromCommitButton.Enabled = count > 0 && stagedFilesListView.SelectedItems.Count > 0;
@@ -174,7 +199,7 @@ public partial class GitCommitDialog : Form
     {
         if (_stagedPaths.Count == 0)
         {
-            MessageBox.Show(this, "No staged files remain to commit.", "Git Commit", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Msg.GitCommit.NoneRemaining"), Localization.T("GitOp.Commit"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -184,14 +209,14 @@ public partial class GitCommitDialog : Form
 
         if (string.IsNullOrWhiteSpace(category))
         {
-            MessageBox.Show(this, "Enter or select a commit category.", "Git Commit", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Msg.GitCommit.EnterCategory"), Localization.T("GitOp.Commit"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             categoryComboBox.Focus();
             return;
         }
 
         if (string.IsNullOrWhiteSpace(subject))
         {
-            MessageBox.Show(this, "Enter a commit message.", "Git Commit", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Msg.GitCommit.EnterMessage"), Localization.T("GitOp.Commit"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             subjectTextBox.Focus();
             return;
         }

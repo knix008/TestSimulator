@@ -43,6 +43,20 @@ public partial class MainForm : Form
 
     private readonly List<ToolStripMenuItem> _repositoryGitMenuItems = [];
 
+    private static readonly Dictionary<string, string> GitMenuLocalizationKeys = new(StringComparer.Ordinal)
+    {
+        ["gitAddContextMenuItem"] = "Menu.Git.Add",
+        ["gitResetContextMenuItem"] = "Menu.Git.Reset",
+        ["gitDiscardContextMenuItem"] = "Menu.Git.Discard",
+        ["gitCommitContextMenuItem"] = "Menu.Git.Commit",
+        ["gitFetchContextMenuItem"] = "Menu.Git.Fetch",
+        ["gitPullContextMenuItem"] = "Menu.Git.Pull",
+        ["gitPushContextMenuItem"] = "Menu.Git.Push",
+        ["gitStashContextMenuItem"] = "Menu.Git.Stash",
+        ["gitStashPopContextMenuItem"] = "Menu.Git.StashPop",
+        ["gitStatusContextMenuItem"] = "Menu.Git.Status",
+    };
+
     private static readonly RepositoryFileNodeTag RepositoryRootTag = new()
     {
         RelativePath = string.Empty,
@@ -604,16 +618,102 @@ public partial class MainForm : Form
             (Localization.T("Column.Graph.Author"), Localization.T("Column.Graph.Author.Tip")),
             (Localization.T("Column.Graph.Date"), Localization.T("Column.Graph.Date.Tip"))
         ]);
+
+        repositoryGitMenuItem.Text = Localization.T("Menu.Git");
+        foreach (ToolStripMenuItem item in _repositoryGitMenuItems)
+        {
+            LocalizeGitMenuItem(item);
+        }
+
+        foreach (ToolStripMenuItem item in GetFilesGitMenuItems())
+        {
+            LocalizeGitMenuItem(item);
+        }
+
+        checkoutContextMenuItem.Text = Localization.T("Menu.RepoTree.Checkout");
+        copyBranchNameContextMenuItem.Text = Localization.T("Menu.RepoTree.CopyName");
+        showFileLogContextMenuItem.Text = Localization.T("Menu.RepoFiles.ShowLog");
+        createNewFileContextMenuItem.Text = Localization.T("Menu.RepoFiles.NewFile");
+        createNewFolderContextMenuItem.Text = Localization.T("Menu.RepoFiles.NewFolder");
+        deleteRepoFileContextMenuItem.Text = Localization.T("Menu.RepoFiles.Delete");
+        deleteRepoFileContextMenuItem.ToolTipText = Localization.T("Menu.RepoFiles.Delete.Tip");
+        copyRepoFilePathContextMenuItem.Text = Localization.T("Menu.RepoFiles.CopyPath");
+        clearFileLogFilterContextMenuItem.Text = Localization.T("Menu.RepoFiles.ClearFilter");
+
+        ApplyLocalizedExportSummaryMenu(exportSummaryMenuItem, menuBar: false);
+        ApplyLocalizedExportSummaryMenu(exportSummaryInfoMenuItem, menuBar: false);
+        ApplyLocalizedExportSummaryMenu(exportSummaryToolButton, toolbarButton: true);
+
+        if (_currentCommit is null)
+        {
+            commitMetaLabel.Text = Localization.T("Commit.SelectPrompt");
+        }
+
+        if (_currentCommitChanges is TreeChanges changes)
+        {
+            PopulateChangedFilesList(changes);
+        }
+
+        RefreshFileTreeTooltips();
+        UpdateRepoInfoLabel();
+        UpdateRepoCounts();
+        UpdateGraphTitleLabel();
+    }
+
+    private static void LocalizeGitMenuItem(ToolStripMenuItem item)
+    {
+        if (!string.IsNullOrEmpty(item.Name)
+            && GitMenuLocalizationKeys.TryGetValue(item.Name, out string? key))
+        {
+            item.Text = Localization.T(key);
+        }
+    }
+
+    private static void ApplyLocalizedExportSummaryMenu(ToolStripDropDownItem parent, bool menuBar = false, bool toolbarButton = false)
+    {
+        parent.Text = toolbarButton
+            ? Localization.T("Toolbar.ExportSummary.Button")
+            : menuBar
+                ? Localization.T("Menu.ExportSummary.Bar")
+                : Localization.T("Menu.ExportSummary");
+        parent.ToolTipText = Localization.T("Menu.ExportSummary.Tip");
+
+        foreach (ToolStripItem child in parent.DropDownItems)
+        {
+            if (child is not ToolStripMenuItem menuItem)
+            {
+                continue;
+            }
+
+            menuItem.Text = (menuItem.Tag as string) switch
+            {
+                "pdf" => Localization.T("Menu.ExportSummary.Pdf"),
+                "docx" => Localization.T("Menu.ExportSummary.Word"),
+                "md" => Localization.T("Menu.ExportSummary.Markdown"),
+                _ => menuItem.Text
+            };
+        }
+    }
+
+    private void RefreshFileTreeTooltips()
+    {
+        if (_fileTreeStatusIndex is null)
+        {
+            return;
+        }
+
+        RepositoryPathStatusService.ApplyToTree(_repoFilesTreeModel, _fileTreeStatusIndex, _gitFileTreeImages);
+        repoFilesListView.Invalidate();
     }
 
     private static string FormatChangeKind(ChangeKind kind) => kind switch
     {
-        ChangeKind.Added => "Added",
-        ChangeKind.Modified => "Modified",
-        ChangeKind.Deleted => "Deleted",
-        ChangeKind.Renamed => "Renamed",
-        ChangeKind.Copied => "Copied",
-        ChangeKind.Unmodified => "Unmodified",
+        ChangeKind.Added => Localization.T("ChangeKind.Added"),
+        ChangeKind.Modified => Localization.T("ChangeKind.Modified"),
+        ChangeKind.Deleted => Localization.T("ChangeKind.Deleted"),
+        ChangeKind.Renamed => Localization.T("ChangeKind.Renamed"),
+        ChangeKind.Copied => Localization.T("ChangeKind.Copied"),
+        ChangeKind.Unmodified => Localization.T("ChangeKind.Unmodified"),
         _ => kind.ToString()
     };
 
@@ -689,28 +789,28 @@ public partial class MainForm : Form
                 return;
             }
 
-            statusLabel.Text = "Opening last remote repository...";
+            statusLabel.Text = Localization.T("Status.OpeningLastRemote");
             TryOpenRemoteBrowse(session.Path, session.RemoteUrl, showErrorOnFailure: false);
             return;
         }
 
-        statusLabel.Text = "Opening last repository...";
+        statusLabel.Text = Localization.T("Status.OpeningLastLocal");
         TryOpenRepository(session.Path, showErrorOnFailure: false);
     }
 
     private void OpenRepositoryMenuItem_Click(object? sender, EventArgs e)
     {
-        using var dialog = new FolderBrowserDialog { Description = "Select a Git repository folder" };
+        using var dialog = new FolderBrowserDialog { Description = Localization.T("Dialog.SelectRepoFolder") };
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
             return;
         }
 
-        statusLabel.Text = "Opening repository...";
+        statusLabel.Text = Localization.T("Status.OpeningRepo");
         TryOpenRepository(
             dialog.SelectedPath,
-            completionTitle: "Repository Opened",
-            completionSummary: "The repository was opened successfully.");
+            completionTitle: Localization.T("OpComplete.RepoOpened"),
+            completionSummary: Localization.T("OpComplete.RepoOpenedSummary"));
     }
 
     private void CloneRepositoryMenuItem_Click(object? sender, EventArgs e)
@@ -721,11 +821,11 @@ public partial class MainForm : Form
             return;
         }
 
-        statusLabel.Text = "Opening cloned repository...";
+        statusLabel.Text = Localization.T("Status.OpeningCloned");
         TryOpenRepository(
             dialog.ClonedRepositoryPath,
-            completionTitle: "Clone Complete",
-            completionSummary: "The repository was cloned successfully.",
+            completionTitle: Localization.T("OpComplete.CloneComplete"),
+            completionSummary: Localization.T("OpComplete.CloneSummary"),
             completionDetails:
             [
                 new("URL", dialog.RepositoryUrl ?? string.Empty),
@@ -808,10 +908,10 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            statusLabel.Text = "Ready";
+            statusLabel.Text = Localization.T("Status.Ready");
             if (showErrorOnFailure)
             {
-                MessageBox.Show(this, ex.Message, "Open Repository Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(this, ex.Message, Localization.T("Error.OpenRepository"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
@@ -858,16 +958,19 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             _remoteBrowseUrl = null;
-            statusLabel.Text = "Ready";
+            statusLabel.Text = Localization.T("Status.Ready");
             if (showErrorOnFailure)
             {
-                MessageBox.Show(this, ex.Message, "Browse Remote Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(this, ex.Message, Localization.T("Error.BrowseRemote"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
 
     private bool IsRemoteBrowseMode =>
         !string.IsNullOrWhiteSpace(_remoteBrowseUrl) || _gitService.Repo?.Info.IsBare == true;
+
+    private static OperationDetail OpDetail(string labelKey, string value) =>
+        new(Localization.T(labelKey), value);
 
     private void ShowOperationComplete(
         string title,
@@ -1226,7 +1329,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            statusLabel.Text = "Ready";
+            statusLabel.Text = Localization.T("Status.Ready");
             System.Diagnostics.Debug.WriteLine(ex);
         }
         finally
@@ -1263,7 +1366,7 @@ public partial class MainForm : Form
     {
         if (_gitService.Repo is null || string.IsNullOrWhiteSpace(_gitService.RepositoryPath))
         {
-            repoInfoLabel.Text = "No repository open";
+            repoInfoLabel.Text = Localization.T("Repo.NoRepository");
             exportSummaryToolButton.Enabled = false;
             SetExportSummaryMenuItemsEnabled(false);
             return;
@@ -1273,7 +1376,7 @@ public partial class MainForm : Form
         if (IsRemoteBrowseMode && !string.IsNullOrWhiteSpace(_remoteBrowseUrl))
         {
             string displayName = RemoteRepositoryService.GetDisplayName(_remoteBrowseUrl) ?? _remoteBrowseUrl;
-            repoInfoLabel.Text = $"{displayName}  ·  {branch}  (remote view)\n{_remoteBrowseUrl}";
+            repoInfoLabel.Text = $"{displayName}  ·  {branch}  {Localization.T("Repo.RemoteView")}\n{_remoteBrowseUrl}";
         }
         else
         {
@@ -1295,13 +1398,13 @@ public partial class MainForm : Form
     {
         if (_gitService.Repo is null)
         {
-            repoCountsStatusLabel.Text = "No repository open";
+            repoCountsStatusLabel.Text = Localization.T("Repo.NoRepository");
             return;
         }
 
         int localBranches = _gitService.Repo.Branches.Count(b => !b.IsRemote);
         int tags = _gitService.Repo.Tags.Count();
-        repoCountsStatusLabel.Text = $"{localBranches} branches · {tags} tags";
+        repoCountsStatusLabel.Text = Localization.Tf("Repo.Counts", localBranches, tags);
     }
 
     private void RefreshTreeToolButton_Click(object? sender, EventArgs e)
@@ -1364,7 +1467,7 @@ public partial class MainForm : Form
     {
         if (_gitService.Repo is null || string.IsNullOrWhiteSpace(_gitService.RepositoryPath))
         {
-            MessageBox.Show(this, "Open a repository before exporting a summary.", "Export Summary", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Msg.ExportNeedRepo"), Localization.T("Error.ExportSummary"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -1396,7 +1499,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Export Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, ex.Message, Localization.T("Error.Export"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -1508,8 +1611,8 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            statusLabel.Text = "Ready";
-            MessageBox.Show(this, ex.Message, "Checkout Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            statusLabel.Text = Localization.T("Status.Ready");
+            MessageBox.Show(this, ex.Message, Localization.T("Error.Checkout"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1670,8 +1773,8 @@ public partial class MainForm : Form
                 return;
             }
 
-            statusLabel.Text = "Ready";
-            MessageBox.Show(this, ex.Message, "Load Commit History Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            statusLabel.Text = Localization.T("Status.Ready");
+            MessageBox.Show(this, ex.Message, Localization.T("Error.LoadHistory"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1717,14 +1820,14 @@ public partial class MainForm : Form
             {
                 _currentCommit = null;
                 _currentCommitChanges = null;
-                commitMetaLabel.Text = string.Empty;
+                commitMetaLabel.Text = Localization.T("Commit.SelectPrompt");
                 changedFilesListView.Items.Clear();
                 diffTextBox.Clear();
             }
 
             statusLabel.Text = string.IsNullOrEmpty(path)
-                ? "Showing all commits"
-                : $"Showing commits for {path}";
+                ? Localization.T("Status.ShowingAllCommits")
+                : Localization.Tf("Status.ShowingCommitsFor", path);
         }
         catch (Exception ex)
         {
@@ -1733,8 +1836,8 @@ public partial class MainForm : Form
                 return;
             }
 
-            statusLabel.Text = "Ready";
-            MessageBox.Show(this, ex.Message, "Load Commit History Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            statusLabel.Text = Localization.T("Status.Ready");
+            MessageBox.Show(this, ex.Message, Localization.T("Error.LoadHistory"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1779,7 +1882,7 @@ public partial class MainForm : Form
         commitGraphView.SetRows([]);
         changedFilesListView.Items.Clear();
         diffTextBox.Clear();
-        commitMetaLabel.Text = string.Empty;
+        commitMetaLabel.Text = Localization.T("Commit.SelectPrompt");
         if (!_repositoryRefreshInProgress)
         {
             _ = LoadPathFilteredCommitGraphAsync();
@@ -1834,7 +1937,7 @@ public partial class MainForm : Form
 
         if (tag.IsMissingFromWorkTree || !CanUseGitWorkflow)
         {
-            GitOperationNotifier.ShowInfo(this, "Open File", "The file is not available in the working tree.");
+            GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.OpenFile"), Localization.T("Msg.OpenFileUnavailable"));
             return;
         }
 
@@ -1844,7 +1947,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Open File Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.OpenFile"), ex);
         }
     }
 
@@ -2212,7 +2315,7 @@ public partial class MainForm : Form
 
             if (candidates.Count == 0)
             {
-                GitOperationNotifier.ShowInfo(this, "Git Add", "No changes are available to stage.");
+            GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.Add"), Localization.T("Msg.GitAdd.NoChanges"));
                 return;
             }
 
@@ -2246,7 +2349,7 @@ public partial class MainForm : Form
 
             if (stagedEntries.Count == 0)
             {
-                GitOperationNotifier.ShowInfo(this, "Git Add", "No changes were staged.");
+                GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.Add"), Localization.T("Msg.GitAdd.NoneStaged"));
                 return;
             }
 
@@ -2255,7 +2358,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Git Add Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.AddFailed"), ex);
         }
     }
 
@@ -2285,7 +2388,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Git Reset Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.ResetFailed"), ex);
         }
     }
 
@@ -2301,8 +2404,8 @@ public partial class MainForm : Form
         string scope = FormatGitPathScope(tag.RelativePath);
         if (MessageBox.Show(
                 this,
-                $"Discard uncommitted changes in {scope}?\nThis cannot be undone.",
-                "Git Discard Changes",
+                Localization.Tf("Msg.GitDiscard.Confirm", scope),
+                Localization.T("GitOp.Discard"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning) != DialogResult.Yes)
         {
@@ -2326,7 +2429,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Git Discard Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.DiscardFailed"), ex);
         }
     }
 
@@ -2340,7 +2443,7 @@ public partial class MainForm : Form
         var stagedPaths = GitWorkflowService.GetStagedPaths(_gitService.Repo);
         if (stagedPaths.Count == 0)
         {
-            GitOperationNotifier.ShowInfo(this, "Git Commit", "Stage changes with Git Add before committing.");
+            GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.Commit"), Localization.T("Msg.GitCommit.StageFirst"));
             return;
         }
 
@@ -2352,7 +2455,7 @@ public partial class MainForm : Form
 
         if (dialog.RemainingStagedPaths.Count == 0)
         {
-            GitOperationNotifier.ShowInfo(this, "Git Commit", "No staged files remain to commit.");
+            GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.Commit"), Localization.T("Msg.GitCommit.NoneRemaining"));
             _ = RefreshFileTreeStatusAsync();
             return;
         }
@@ -2371,7 +2474,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Git Commit Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.CommitFailed"), ex);
         }
     }
 
@@ -2419,13 +2522,13 @@ public partial class MainForm : Form
         catch (OperationCanceledException)
         {
             statusLabel.Text = "Fetch cancelled";
-            GitOperationNotifier.ShowCancelled(this, "Git Fetch");
+            GitOperationNotifier.ShowCancelled(this, Localization.T("GitOp.Fetch"));
         }
         catch (Exception ex)
         {
             CaptureGitCredentials(prompt);
             MarkGitCredentialsUnverified();
-            GitOperationNotifier.ShowFailure(this, "Git Fetch Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.FetchFailed"), ex);
         }
     }
 
@@ -2473,13 +2576,13 @@ public partial class MainForm : Form
         catch (OperationCanceledException)
         {
             statusLabel.Text = "Pull cancelled";
-            GitOperationNotifier.ShowCancelled(this, "Git Pull");
+            GitOperationNotifier.ShowCancelled(this, Localization.T("GitOp.Pull"));
         }
         catch (Exception ex)
         {
             CaptureGitCredentials(prompt);
             MarkGitCredentialsUnverified();
-            GitOperationNotifier.ShowFailure(this, "Git Pull Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.PullFailed"), ex);
         }
     }
 
@@ -2536,13 +2639,13 @@ public partial class MainForm : Form
         catch (OperationCanceledException)
         {
             statusLabel.Text = "Push cancelled";
-            GitOperationNotifier.ShowCancelled(this, "Git Push");
+            GitOperationNotifier.ShowCancelled(this, Localization.T("GitOp.Push"));
         }
         catch (Exception ex)
         {
             CaptureGitCredentials(prompt);
             MarkGitCredentialsUnverified();
-            GitOperationNotifier.ShowFailure(this, "Git Push Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.PushFailed"), ex);
         }
     }
 
@@ -2569,7 +2672,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Git Stash Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.StashFailed"), ex);
         }
     }
 
@@ -2596,7 +2699,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Git Stash Pop Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.StashPopFailed"), ex);
         }
     }
 
@@ -2642,8 +2745,12 @@ public partial class MainForm : Form
         }
 
         string parentPath = WorkingTreeFileService.GetCreateParentRelativePath(tag);
-        string parentLabel = string.IsNullOrEmpty(parentPath) ? "(repository root)" : parentPath;
-        string? fileName = NamePromptDialog.Show(this, "New File", $"File name in {parentLabel}:", "new-file.txt");
+        string parentLabel = string.IsNullOrEmpty(parentPath) ? Localization.T("Repo.Root") : parentPath;
+        string? fileName = NamePromptDialog.Show(
+            this,
+            Localization.T("Dialog.NewFile.Title"),
+            Localization.Tf("Dialog.NewFile.Prompt", parentLabel),
+            "new-file.txt");
         if (fileName is null)
         {
             return;
@@ -2669,8 +2776,12 @@ public partial class MainForm : Form
         }
 
         string parentPath = WorkingTreeFileService.GetCreateParentRelativePath(tag);
-        string parentLabel = string.IsNullOrEmpty(parentPath) ? "(repository root)" : parentPath;
-        string? folderName = NamePromptDialog.Show(this, "New Folder", $"Folder name in {parentLabel}:", "NewFolder");
+        string parentLabel = string.IsNullOrEmpty(parentPath) ? Localization.T("Repo.Root") : parentPath;
+        string? folderName = NamePromptDialog.Show(
+            this,
+            Localization.T("Dialog.NewFolder.Title"),
+            Localization.Tf("Dialog.NewFolder.Prompt", parentLabel),
+            "NewFolder");
         if (folderName is null)
         {
             return;
@@ -2697,10 +2808,10 @@ public partial class MainForm : Form
 
         string targetLabel = tag.RelativePath;
         string message = tag.IsDirectory
-            ? $"Delete folder '{targetLabel}' and everything inside it?\nThis cannot be undone."
-            : $"Delete file '{targetLabel}'?\nThis cannot be undone.";
+            ? Localization.Tf("Dialog.DeleteFolder", targetLabel)
+            : Localization.Tf("Dialog.DeleteFile", targetLabel);
 
-        if (MessageBox.Show(this, message, "Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+        if (MessageBox.Show(this, message, Localization.T("Dialog.Delete.Title"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
         {
             return;
         }
@@ -2714,7 +2825,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            GitOperationNotifier.ShowFailure(this, "Delete Failed", ex);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.Delete"), ex);
         }
     }
 
@@ -2811,8 +2922,8 @@ public partial class MainForm : Form
                 return;
             }
 
-            statusLabel.Text = "Ready";
-            MessageBox.Show(this, ex.Message, "Load Commit Details Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            statusLabel.Text = Localization.T("Status.Ready");
+            MessageBox.Show(this, ex.Message, Localization.T("Error.LoadCommitDetails"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -2915,7 +3026,7 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             EndStatusBarProgress();
-            MessageBox.Show(this, ex.Message, "Export Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, ex.Message, Localization.T("Error.Export"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -3068,7 +3179,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "External Diff Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, ex.Message, Localization.T("Error.ExternalDiff"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -3110,7 +3221,7 @@ public partial class MainForm : Form
 
             diffTextBox.Clear();
             statusLabel.Text = $"{commit.Sha[..7]}  {commit.MessageShort}";
-            MessageBox.Show(this, ex.Message, "Load Diff Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, ex.Message, Localization.T("Error.LoadDiff"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

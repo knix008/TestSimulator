@@ -171,32 +171,32 @@ public static class RepositoryPathStatusService
 
         if (!canReportStatus)
         {
-            lines.Add("Status: Unavailable (read-only repository view)");
+            lines.Add(Localization.T("Status.Path.Unavailable"));
             return string.Join(Environment.NewLine, lines);
         }
 
         if (tag.IsMissingFromWorkTree)
         {
-            lines.Add("Status: Deleted");
-            lines.Add("Staged: —");
-            lines.Add("Work tree: Deleted");
+            lines.Add(Localization.T("Status.Tooltip.DeletedStatus"));
+            lines.Add(Localization.Tf("Status.Tooltip.StagedLine", PathGitStatus.FormatDisplayValue(null)));
+            lines.Add(Localization.T("Status.Tooltip.WorkTreeDeleted"));
             return string.Join(Environment.NewLine, lines);
         }
 
         PathGitStatus effectiveStatus = status ?? PathGitStatus.Empty;
         if (effectiveStatus.IsIgnoredOnly)
         {
-            lines.Add("Status: Ignored");
-            lines.Add("Listed in .gitignore");
+            lines.Add(Localization.Tf("Status.Tooltip.StatusLine", Localization.T("Status.Path.Ignored")));
+            lines.Add(Localization.T("Status.Tooltip.ListedInGitignore"));
             return string.Join(Environment.NewLine, lines);
         }
 
-        lines.Add($"Status: {effectiveStatus.GetSummaryLabel(tag.IsDirectory)}");
-        lines.Add($"Staged: {PathGitStatus.FormatDisplayValue(effectiveStatus.Staged)}");
-        lines.Add($"Work tree: {PathGitStatus.FormatDisplayValue(effectiveStatus.WorkTree)}");
+        lines.Add(Localization.Tf("Status.Tooltip.StatusLine", effectiveStatus.GetSummaryLabel(tag.IsDirectory)));
+        lines.Add(Localization.Tf("Status.Tooltip.StagedLine", PathGitStatus.FormatDisplayValue(effectiveStatus.Staged)));
+        lines.Add(Localization.Tf("Status.Tooltip.WorkTreeLine", PathGitStatus.FormatDisplayValue(effectiveStatus.WorkTree)));
         if (effectiveStatus.IsUnpushed && !effectiveStatus.HasWorkingTreeChanges)
         {
-            lines.Add("Push: Pending");
+            lines.Add(Localization.T("Status.Tooltip.PushPending"));
         }
 
         return string.Join(Environment.NewLine, lines);

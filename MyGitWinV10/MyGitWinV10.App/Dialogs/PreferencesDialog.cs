@@ -16,6 +16,19 @@ public partial class PreferencesDialog : Form
 
         ApplyLocalizedText();
         languageComboBox.SelectedIndex = settings.Language == AppLanguage.English ? 1 : 0;
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        int selectedIndex = languageComboBox.SelectedIndex;
+        ApplyLocalizedText();
+        if (selectedIndex >= 0 && selectedIndex < languageComboBox.Items.Count)
+        {
+            languageComboBox.SelectedIndex = selectedIndex;
+        }
     }
 
     private void ApplyLocalizedText()

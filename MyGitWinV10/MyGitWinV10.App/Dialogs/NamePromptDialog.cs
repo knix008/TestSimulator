@@ -1,5 +1,7 @@
 namespace MyGitWinV10.App.Dialogs;
 
+using MyGitWinV10.App.Services;
+
 public sealed class NamePromptDialog : Form
 {
     private readonly TextBox _textBox;
@@ -37,7 +39,7 @@ public sealed class NamePromptDialog : Form
             FlatStyle = FlatStyle.Flat,
             Location = new Point(244, 84),
             Size = new Size(75, 28),
-            Text = "OK",
+            Text = Localization.T("Common.OK"),
             TextAlign = ContentAlignment.MiddleCenter
         };
 
@@ -47,7 +49,7 @@ public sealed class NamePromptDialog : Form
             FlatStyle = FlatStyle.Flat,
             Location = new Point(325, 84),
             Size = new Size(75, 28),
-            Text = "Cancel",
+            Text = Localization.T("Common.Cancel"),
             TextAlign = ContentAlignment.MiddleCenter
         };
 

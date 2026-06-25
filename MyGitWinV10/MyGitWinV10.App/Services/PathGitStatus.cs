@@ -137,9 +137,9 @@ public sealed class PathGitStatus
             lines.Add(relativePath);
         }
 
-        lines.Add($"Status: {GetSummaryLabel(isDirectory: false)}");
-        lines.Add($"Staged: {FormatDisplayValue(Staged)}");
-        lines.Add($"Work tree: {FormatDisplayValue(WorkTree)}");
+        lines.Add(Localization.Tf("Status.Tooltip.StatusLine", GetSummaryLabel(isDirectory: false)));
+        lines.Add(Localization.Tf("Status.Tooltip.StagedLine", FormatDisplayValue(Staged)));
+        lines.Add(Localization.Tf("Status.Tooltip.WorkTreeLine", FormatDisplayValue(WorkTree)));
 
         return string.Join(Environment.NewLine, lines);
     }
@@ -148,38 +148,40 @@ public sealed class PathGitStatus
     {
         if (IsIgnoredOnly)
         {
-            return isDirectory ? "Ignored folder" : "Ignored";
+            return isDirectory
+                ? Localization.T("Status.Path.IgnoredFolder")
+                : Localization.T("Status.Path.Ignored");
         }
 
         if (!HasChanges)
         {
             return isDirectory
-                ? "Unchanged (no changes in this folder)"
-                : "Unchanged";
+                ? Localization.T("Status.Path.UnchangedFolder")
+                : Localization.T("Status.Path.Unchanged");
         }
 
         if (isDirectory)
         {
             if (IsUnpushed && !HasWorkingTreeChanges)
             {
-                return "Contains unpushed commits";
+                return Localization.T("Status.Path.ContainsUnpushed");
             }
 
-            return "Contains changes";
+            return Localization.T("Status.Path.ContainsChanges");
         }
 
         if (IsUnpushed && !HasWorkingTreeChanges)
         {
-            return "Committed (not pushed)";
+            return Localization.T("Status.Path.Unpushed");
         }
 
         if (!string.IsNullOrEmpty(Staged) && !string.IsNullOrEmpty(WorkTree)
             && !string.Equals(Staged, WorkTree, StringComparison.OrdinalIgnoreCase))
         {
-            return "Mixed";
+            return Localization.T("Status.Path.Mixed");
         }
 
-        return WorkTree ?? Staged ?? "Changed";
+        return WorkTree ?? Staged ?? Localization.T("Status.Path.Changed");
     }
 
     public static string FormatDisplayValue(string? value) =>

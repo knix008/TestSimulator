@@ -5,20 +5,36 @@ namespace MyGitWinV10.App.Dialogs;
 public partial class GitAddDialog : Form
 {
     private readonly List<GitStatusEntry> _entries;
+    private readonly string? _scopeLabel;
 
     public GitAddDialog(IReadOnlyList<GitStatusEntry> candidates, string? scopeLabel = null)
     {
+        _scopeLabel = scopeLabel;
         InitializeComponent();
-        Text = string.IsNullOrWhiteSpace(scopeLabel)
-            ? "Git Add"
-            : $"Git Add — {scopeLabel}";
+        ApplyLocalizedTitle();
 
         _entries = candidates.ToList();
         PopulateList();
+
+        Load += (_, _) => Localization.LanguageChanged += OnLanguageChanged;
+        FormClosed += (_, _) => Localization.LanguageChanged -= OnLanguageChanged;
     }
 
     public IReadOnlyList<string> SelectedPaths =>
         _entries.Select(entry => entry.FilePath).ToList();
+
+    private void OnLanguageChanged()
+    {
+        ApplyLocalizedTitle();
+        UpdateSummary();
+    }
+
+    private void ApplyLocalizedTitle()
+    {
+        Text = string.IsNullOrWhiteSpace(_scopeLabel)
+            ? Localization.T("GitAdd.Title")
+            : Localization.Tf("GitAdd.TitleScope", _scopeLabel);
+    }
 
     private void PopulateList()
     {
@@ -115,7 +131,7 @@ public partial class GitAddDialog : Form
     {
         if (_entries.Count == 0)
         {
-            MessageBox.Show(this, "Select at least one path to stage.", "Git Add", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, Localization.T("Msg.GitAdd.SelectPath"), Localization.T("GitAdd.Title"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
