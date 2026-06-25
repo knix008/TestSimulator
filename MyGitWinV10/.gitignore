@@ -3,6 +3,7 @@
 [Oo]bj/
 artifacts/
 build-check/
+publish/
 **/publish/
 
 # Visual Studio / Rider
@@ -27,6 +28,11 @@ build-check/
 *.snupkg
 *.msi
 UpgradeLog.htm
+UpgradeLog*.htm
+
+# WiX / installer intermediates
+*.wixobj
+*.wixpdb
 
 # Test / coverage
 TestResults/
@@ -50,6 +56,6 @@ user-settings.json
 sample-reports/
 **/exports/
 
-# Installer (WiX)
+# Installer (WiX) — MSI output and intermediate build
 installer/bin/
 installer/obj/

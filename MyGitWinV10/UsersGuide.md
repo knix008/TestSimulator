@@ -70,7 +70,7 @@ Open, Clone, Browse Remote 중 **가장 마지막에 성공한 것**이 우선 �
 | 영역 | 설명 |
 |------|------|
 | **Repository** | 로컬/원격 브랜치, 태그, GitHub Release 목록 |
-| **Files** | 저장소 폴더/파일 트리 (로컬: 작업 트리, 원격 보기: HEAD 트리) |
+| **Files** | 저장소 폴더/파일 트리 (로컬: 작업 트리, 원격 보기: HEAD 트리). Git 상태 배지·툴팁, 실시간 갱신 |
 | **Commit History** | 브랜치·머지 그래프와 Message, SHA, Author, Date 컬럼 |
 | **Commit Details** | 선택한 커밋의 작성자, 날짜, 메시지 등 |
 | **Changed Files** | 해당 커밋에서 변경된 파일 목록 |
@@ -169,11 +169,16 @@ Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 *
 | **로컬 저장소** | 작업 디렉터리 (`.git` 제외) |
 | **Browse Remote / bare** | HEAD 커밋 기준 Git 트리 |
 
+### 실시간 갱신
+
+로컬 Clone 저장소에서는 Git 작업(Git Add, Commit, Pull 등) 직후뿐 아니라, 탐색기나 다른 프로그램에서 파일을 수정·추가·삭제해도 Files 패널과 상태 배지가 자동으로 갱신됩니다(짧은 지연 후 반영).
+
 ### 트리 탐색
 
 - 디렉터리 행을 **클릭**하면 펼치기/접기가 토글됩니다 (▸ 접힘 / ▾ 펼쳐짐). 자식이 아직 로드되지 않은 폴더는 처음 펼칠 때 지연 로드됩니다.
+- **파일을 더블클릭**하면 Windows 기본 연결 프로그램으로 열립니다 (작업 트리에 있는 파일만).
 - 들여쓰기와 연결선으로 디렉터리/파일의 계층 구조를 표시합니다.
-- **헤더 컬럼 구분선을 드래그**하면 "디렉토리/파일" 컬럼의 너비를 조절할 수 있습니다.
+- **헤더 컬럼 구분선을 드래그**하면 "디렉토리/파일" 컬럼의 너비를 조절할 수 있습니다. 상태 컬럼 너비는 배지 표시에 맞게 자동 조절됩니다.
 
 ### 경로별 커밋 로그
 
@@ -191,19 +196,21 @@ Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 *
 
 ### 아이콘과 상태 컬럼
 
-각 파일·디렉터리 아이콘은 Git 상태에 따라 다르게 표시됩니다. **상태** 컬럼에는 변경 종류를 나타내는 굵은 색상 문자가 표시됩니다:
+각 파일·디렉터리 아이콘은 Git 상태에 따라 다르게 표시됩니다. **상태** 컬럼에는 변경 종류를 나타내는 **굵은 색상 배지**가 표시됩니다:
 
-| 문자 | 의미 | 색상 |
+| 배지 | 의미 | 색상 |
 |------|------|------|
-| `M` | 수정됨 (Modified) | 파란색 |
-| `A` | 추가됨 (Added) | 보라색 |
+| `±` | 변경됨 (Modified / Staged 등) | 파란색·보라색 |
+| `U` | 미추적 (Untracked) | 초록색 |
+| `P` | 커밋됐으나 아직 Push 안 됨 | 빨간색 |
 | `D` | 삭제됨 (Deleted) | 빨간색 |
 | `R` | 이름변경 (Renamed) | 파란색 |
-| `?` | 추적 안 됨 (Untracked) | 초록색 |
 | `!` | 충돌 (Conflicted) | 빨간색 |
-| `±` | 혼합 상태 — 폴더 내 여러 종류의 변경이 섞여 있음 | 주황색 |
+| `X` | 무시됨 (.gitignore) | 회색 |
 
-마우스를 파일/디렉터리 위에 올리면 잠시 후 해당 경로의 Git 상태가 툴팁으로 표시됩니다.
+폴더 행에는 자식 항목의 변경·미 Push 상태가 요약되어 표시될 수 있습니다.
+
+마우스를 파일/디렉터리 위에 올리면 해당 경로의 Git 상태(스테이징·작업 트리·Push 대기 등)가 툴팁으로 표시됩니다.
 
 ---
 
@@ -280,11 +287,15 @@ Repository 패널 아래에 위치하며, 저장소의 폴더/파일 구조를 *
 
 Files 패널에서 파일 또는 폴더를 **우클릭**하거나, 메뉴 모음의 **Repository → Git**에서 저장소 전체에 대해 실행합니다.
 
+> **Git 명령어 이름**(Git Add, Git Commit, Git Fetch 등)은 UI 언어가 한국어여도 **영어로 표시**됩니다. 설명·상태 표시줄·완료 메시지 등은 선택한 언어(한국어/English)로 표시됩니다.
+
+### Repository → Git / Files 우클릭 (Git)
+
 | 메뉴 | 동작 |
 |------|------|
-| **Git Add** | 선택한 파일/폴더를 stage (저장소 루트 선택 시 전체) |
+| **Git Add** | 선택한 파일/폴더를 stage (저장소 루트 선택 시 전체). 완료 후 스테이징된 경로 목록 대화상자 표시 |
 | **Git Reset (Unstage)** | stage를 취소 |
-| **Git Discard Changes** | 작업 트리의 변경사항을 되돌림 |
+| **Git Discard Changes** | 작업 트리의 변경사항을 되돌림 (확인 대화상자) |
 | **Git Commit...** | staged 변경사항 커밋 (카테고리 형식 메시지) |
 | **Git Fetch** | `origin`에서 변경사항만 가져옴 (병합 없음) |
 | **Git Pull** | `origin`의 변경사항을 가져와 병합 |
@@ -292,6 +303,16 @@ Files 패널에서 파일 또는 폴더를 **우클릭**하거나, 메뉴 모음
 | **Git Stash** | 작업 트리의 변경사항을 임시 보관 |
 | **Git Stash Pop** | 가장 최근 stash를 적용하고 제거 |
 | **Git Status...** | 현재 staged/work tree 상태를 대화상자로 표시 |
+
+### Files 우클릭 (작업 트리)
+
+| 메뉴 | 동작 |
+|------|------|
+| **New File...** | 선택 폴더(또는 저장소 루트) 아래에 새 파일 생성 |
+| **New Folder...** | 선택 위치 아래에 새 폴더 생성 |
+| **Delete** | 선택한 파일 또는 폴더를 디스크에서 삭제 (확인 후, 되돌릴 수 없음) |
+| **Add to .gitignore** | 선택 경로를 `.gitignore`에 추가 |
+| **Remove from .gitignore** | `.gitignore`에서 해당 패턴 제거 |
 
 ### 권장 작업 순서
 
@@ -305,6 +326,10 @@ Git Add → Git Commit... → Git Push
 - 인증에 **성공**하면 username/PAT가 암호화되어 저장되고, 다음부터는 대화상자 없이 자동으로 재사용됩니다.
 - 인증 후 작업이 **실패**하면(예: 403) 다음 시도에 대화상자가 다시 나타나지만, 입력했던 값은 지워지지 않고 그대로 채워져 있습니다 — 값 자체가 아니라 "자동 재사용" 여부만 초기화되기 때문입니다.
 - `403` 오류가 반복되면 PAT 자체가 아니라, GitHub organization의 **SSO(SAML) 정책으로 토큰이 아직 승인되지 않은 경우**가 흔한 원인입니다. GitHub의 Personal access token 설정 페이지에서 해당 조직에 대해 토큰을 "Authorize"했는지 확인하세요.
+
+### Git Add 결과 대화상자
+
+Git Add가 완료되면 **Git Add Complete** 대화상자에 스테이징된 경로와 상태 배지(`U`, `±`, `D`, `R` 등)가 표시됩니다.
 
 ### Git Commit 다이얼로그
 
@@ -409,9 +434,9 @@ Markdown 내보내기 시 차트 PNG는 `{파일명}_charts/` 폴더에 함께 �
 ### 언어 (Language)
 
 - **한국어** (기본값) 또는 **English** 중 선택
-- 변경 사항은 재시작 없이 즉시 적용됩니다
-- 적용 범위: 메인 메뉴, 도구 모음 툴팁, 패널 제목(Repository/Files/Commit History 등), Files 패널과 Commit History의 컬럼 헤더, Commit History 우클릭 메뉴
-- 그 외 일부 대화상자 및 컨텍스트 메뉴는 현재 영어로 고정되어 있습니다
+- 변경 사항은 **재시작 없이 즉시** 적용됩니다 (열려 있는 환경설정·Git 대화상자 포함)
+- **한국어로 번역되는 항목:** 메인 메뉴, 도구 모음, 패널 제목, 컬럼 헤더, 상태 표시줄, 확인/오류/완료 메시지, 클론·원격 탐색·커밋 카테고리 등 대부분의 대화상자
+- **영어로 유지되는 항목:** Git 명령 메뉴 이름 및 완료/실패 제목 (`Git Add`, `Git Commit Complete`, `Git Fetch Failed` 등), GitHub/PAT 관련 고유명사, 저장소 데이터(브랜치명, 커밋 메시지, SHA)
 
 설정한 값은 다음 실행 시에도 유지됩니다 ([설정 및 데이터 저장 위치](#설정-및-데이터-저장-위치) 참고).
 
@@ -435,6 +460,7 @@ Markdown 내보내기 시 차트 PNG는 `{파일명}_charts/` 폴더에 함께 �
 | 항목 | 단축키 | 설명 |
 |------|--------|------|
 | **Refresh Tree** | `F5` | Repository 트리 새로 고침 |
+| **Git** | — | Git Add / Reset / Commit / Fetch / Pull / Push / Stash / Status (로컬 Clone만) |
 | **Export Summary** | `Ctrl+Alt+P/W/M` | PDF / Word / Markdown 요약 내보내기 |
 
 ### History 메뉴
@@ -486,6 +512,10 @@ Markdown 내보내기 시 차트 PNG는 `{파일명}_charts/` 폴더에 함께 �
 | 원격 탐색 | File → Browse Remote... (`Ctrl+Shift+B`) |
 | 브랜치 체크아웃 | Repository → 로컬 브랜치 우클릭 → Checkout |
 | 경로별 로그 | Files → 파일/폴더 클릭 또는 우클릭 → Show Log |
+| 작업 트리 파일 열기 | Files → 파일 **더블클릭** (시스템 기본 앱) |
+| 새 파일/폴더 | Files → 우클릭 → New File... / New Folder... |
+| 파일/폴더 삭제 | Files → 우클릭 → Delete |
+| .gitignore 관리 | Files → 우클릭 → Add to / Remove from .gitignore |
 | Git Add / Commit / Fetch / Pull / Push / Stash | Files → 우클릭, 또는 Repository → Git 메뉴 (로컬 Clone만) |
 | 커밋 diff 보기 | Changed Files에서 파일 선택 |
 | 외부 Diff 도구로 보기 | Changed Files에서 파일 더블클릭 (도구가 설정된 경우) |
@@ -605,6 +635,26 @@ Release 항목을 선택하면 릴리스 이름, 태그, 게시일, 릴리스 �
 ### .NET 런타임 오류
 
 .NET 8 Desktop Runtime 설치 후 다시 실행하세요.
+
+### MSI 설치 파일 빌드
+
+개발자용 — Release MSI는 다음 중 하나로 빌드합니다.
+
+```powershell
+dotnet build MyGitWinV10.slnx -c Release
+```
+
+또는
+
+```powershell
+dotnet build installer/MyGitWinV10.Installer.wixproj -c Release -p:Platform=x64
+```
+
+출력: `installer/bin/Release/MyGitWinV10Setup.msi`
+
+- 빌드 전 실행 중인 MyGit 프로세스를 종료하세요.
+- MSI 크기가 비정상적으로 작으면(수 KB) publish 출력이 비어 있는 것이므로 **솔루션 전체** 또는 **installer 프로젝트**로 다시 빌드하세요.
+- 자세한 내용은 [README.md](README.md)를 참고하세요.
 
 ---
 
