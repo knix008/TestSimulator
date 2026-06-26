@@ -7,8 +7,14 @@ namespace DeskSearch.Helpers;
 internal static class SearchTextHelper
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
+
+    // Operators must be surrounded by whitespace: "a + b", "a x b".
+    private static readonly Regex OrTermSeparator = new(
+        @"\s+\+\s+",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
     private static readonly Regex AndTermSeparator = new(
-        @"\s+(?:x|\+)\s+",
+        @"\s+x\s+",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     /// <summary>
@@ -51,6 +57,75 @@ internal static class SearchTextHelper
     public static int ScoreLiteralEntry(string searchFileName, string query, StringComparison comparison) =>
         ScoreLiteralName(searchFileName, query, comparison);
 
+    public static string WildcardToContainsLike(string pattern)
+    {
+        var builder = new StringBuilder(pattern.Length * 2);
+
+        for (var i = 0; i < pattern.Length; i++)
+        {
+            var c = pattern[i];
+            if (c == '\\' && i + 1 < pattern.Length)
+            {
+                AppendLikeLiteral(builder, pattern[++i]);
+                continue;
+            }
+
+            switch (c)
+            {
+                case '*':
+                    builder.Append('%');
+                    break;
+                case '?':
+                    builder.Append('_');
+                    break;
+                default:
+                    AppendLikeLiteral(builder, c);
+                    break;
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    public static (string? Exact, string PrefixLike, string ContainsLike) GetWildcardLikePatterns(string pattern)
+    {
+        var trimmed = pattern.Trim();
+        var containsLike = WildcardToContainsLike(trimmed);
+
+        if (!ContainsWildcards(trimmed))
+            return (Normalize(trimmed), containsLike, containsLike);
+
+        var startsWithStar = trimmed.StartsWith('*');
+        var endsWithStar = trimmed.EndsWith('*');
+        string? exact = null;
+        string prefixLike = containsLike;
+
+        if (endsWithStar && !startsWithStar && trimmed.IndexOf('?', StringComparison.Ordinal) < 0)
+        {
+            var prefix = trimmed.TrimEnd('*');
+            if (prefix.Length > 0)
+            {
+                exact = Normalize(prefix);
+                prefixLike = EscapeLike(exact) + "%";
+            }
+        }
+
+        return (exact, prefixLike, containsLike);
+    }
+
+    private static void AppendLikeLiteral(StringBuilder builder, char c)
+    {
+        if (c is '%' or '_' or '\\')
+            builder.Append('\\');
+
+        builder.Append(c);
+    }
+
+    private static string EscapeLike(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
+
     public static bool ContainsWildcards(string pattern)
     {
         for (var i = 0; i < pattern.Length; i++)
@@ -79,57 +154,86 @@ internal static class SearchTextHelper
         if (string.IsNullOrWhiteSpace(query))
             return false;
 
-        var parts = SplitAndTerms(query);
-        if (parts.Count == 0)
+        var groupParts = ParseOrGroups(query);
+        if (groupParts.Count == 0)
             return false;
 
-        var terms = new List<SearchTerm>(parts.Count);
+        var orGroups = new List<SearchAndGroup>(groupParts.Count);
 
-        foreach (var part in parts)
+        foreach (var andParts in groupParts)
         {
-            if (useRegexSetting)
-            {
-                if (!TryCreateRegex(part, caseSensitive, out var regex))
-                    return false;
+            var terms = new List<SearchTerm>(andParts.Count);
 
-                terms.Add(new SearchTerm(part, regex));
-                continue;
+            foreach (var part in andParts)
+            {
+                if (useRegexSetting)
+                {
+                    if (!TryCreateRegex(part, caseSensitive, out var regex))
+                        return false;
+
+                    terms.Add(new SearchTerm(part, regex));
+                    continue;
+                }
+
+                if (ContainsWildcards(part))
+                {
+                    if (!TryCreateWildcardRegex(part, caseSensitive, out var regex))
+                        return false;
+
+                    terms.Add(new SearchTerm(part, regex));
+                    continue;
+                }
+
+                terms.Add(new SearchTerm(part, null));
             }
 
-            if (ContainsWildcards(part))
-            {
-                if (!TryCreateWildcardRegex(part, caseSensitive, out var regex))
-                    return false;
-
-                terms.Add(new SearchTerm(part, regex));
-                continue;
-            }
-
-            terms.Add(new SearchTerm(part, null));
+            orGroups.Add(new SearchAndGroup { Terms = terms });
         }
 
         resolved = new ResolvedSearchQuery
         {
-            Terms = terms,
-            IsInvalid = false
+            OrGroups = orGroups,
+            IsInvalid = false,
+            IsRegexQuery = useRegexSetting
         };
 
         return true;
     }
 
-    public static IReadOnlyList<string> SplitAndTerms(string query)
+    /// <summary>
+    /// Splits a query into OR groups of AND term lists.
+    /// "a x b + c" → [["a","b"], ["c"]].
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<string>> ParseOrGroups(string query)
     {
         var normalized = Normalize(query.Trim());
         if (string.IsNullOrEmpty(normalized))
             return [];
 
-        if (!AndTermSeparator.IsMatch(normalized))
-            return [normalized];
-
-        return AndTermSeparator.Split(normalized)
+        var orParts = OrTermSeparator.Split(normalized)
             .Select(part => part.Trim())
             .Where(part => part.Length > 0)
             .ToList();
+
+        if (orParts.Count == 0)
+            return [];
+
+        var groups = new List<IReadOnlyList<string>>(orParts.Count);
+
+        foreach (var orPart in orParts)
+        {
+            IReadOnlyList<string> andParts = AndTermSeparator.IsMatch(orPart)
+                ? AndTermSeparator.Split(orPart)
+                    .Select(part => part.Trim())
+                    .Where(part => part.Length > 0)
+                    .ToList()
+                : [orPart];
+
+            if (andParts.Count > 0)
+                groups.Add(andParts);
+        }
+
+        return groups;
     }
 
     public static bool TryCreateRegex(string pattern, bool caseSensitive, out Regex? regex)

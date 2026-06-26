@@ -28,6 +28,7 @@ public partial class SettingsWindow : Window
         new(StringComparer.OrdinalIgnoreCase);
     private int _lastProgressPercent = -1;
     private string? _lastProgressStatus;
+    private string? _lastProgressPhase;
     private bool _progressPausedForScroll;
     private bool _progressIdle;
     private bool _indexActionIsStopMode;
@@ -56,6 +57,7 @@ public partial class SettingsWindow : Window
         if (_getProgress is null)
         {
             IndexProgressLabel.Visibility = Visibility.Collapsed;
+            IndexProgressPhaseLabel.Visibility = Visibility.Collapsed;
             IndexProgressTrack.Visibility = Visibility.Collapsed;
             IndexProgressPercentLabel.Visibility = Visibility.Collapsed;
             IndexProgressStatusLabel.Visibility = Visibility.Collapsed;
@@ -512,9 +514,10 @@ public partial class SettingsWindow : Window
         var snapshot = _getProgress();
 
         if (snapshot.Percent == _lastProgressPercent
-            && string.Equals(snapshot.StatusText, _lastProgressStatus, StringComparison.Ordinal))
+            && string.Equals(snapshot.StatusText, _lastProgressStatus, StringComparison.Ordinal)
+            && string.Equals(snapshot.PhaseText, _lastProgressPhase, StringComparison.Ordinal))
         {
-            SyncIndexActionButton(snapshot.IsScanRunning);
+            SyncIndexActionButton(snapshot.IsScanRunning, snapshot.IsPostProcessing);
             SyncResetIndexButton(snapshot.CanResetIndex);
             SyncProgressActivityMode(snapshot);
             return;
@@ -522,14 +525,26 @@ public partial class SettingsWindow : Window
 
         _lastProgressPercent = snapshot.Percent;
         _lastProgressStatus = snapshot.StatusText;
+        _lastProgressPhase = snapshot.PhaseText;
 
         var trackWidth = IndexProgressTrack.ActualWidth;
         if (trackWidth > 0)
             IndexProgressFill.Width = trackWidth * snapshot.Percent / 100.0;
 
         IndexProgressPercentLabel.Text = $"{snapshot.Percent}%";
+
+        if (snapshot.IsIndexing && !string.IsNullOrEmpty(snapshot.PhaseText))
+        {
+            IndexProgressPhaseLabel.Text = snapshot.PhaseText;
+            IndexProgressPhaseLabel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            IndexProgressPhaseLabel.Visibility = Visibility.Collapsed;
+        }
+
         IndexProgressStatusLabel.Text = snapshot.StatusText;
-        SyncIndexActionButton(snapshot.IsScanRunning);
+        SyncIndexActionButton(snapshot.IsScanRunning, snapshot.IsPostProcessing);
         SyncResetIndexButton(snapshot.CanResetIndex);
         SyncProgressActivityMode(snapshot);
     }
@@ -539,8 +554,10 @@ public partial class SettingsWindow : Window
         ResetIndexButton.IsEnabled = isEnabled;
     }
 
-    private void SyncIndexActionButton(bool isStopMode)
+    private void SyncIndexActionButton(bool isStopMode, bool isPostProcessing)
     {
+        ReSearchButton.IsEnabled = !isPostProcessing;
+
         if (_indexActionIsStopMode == isStopMode)
             return;
 
@@ -604,6 +621,7 @@ public partial class SettingsWindow : Window
 
         _lastProgressPercent = -1;
         _lastProgressStatus = null;
+        _lastProgressPhase = null;
         UpdateProgressUi();
     }
 
@@ -626,6 +644,7 @@ public partial class SettingsWindow : Window
         _resetIndex?.Invoke();
         _lastProgressPercent = -1;
         _lastProgressStatus = null;
+        _lastProgressPhase = null;
         UpdateProgressUi();
     }
 

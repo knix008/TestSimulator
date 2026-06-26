@@ -11,5 +11,7 @@ public sealed class SearchSession
     public long LastScannedId { get; set; }
     public bool IsComplete { get; set; }
     public int LastScannedCount { get; set; }
+    /// <summary>Index entry count at the start of the current scan pass (LastScannedId == 0).</summary>
+    public int PassStartCount { get; set; } = -1;
     public List<(FileEntry Entry, int Score)> TopCandidates { get; set; } = [];
 }

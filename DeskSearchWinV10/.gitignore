@@ -14,9 +14,10 @@ bld/
 [Ll]ogs/
 *.binlog
 
-# Visual Studio / Rider / VS Code
+# Visual Studio / Rider / VS Code / Cursor
 .vs/
 .vscode/
+.cursor/
 .idea/
 *.user
 *.userosscache
@@ -69,5 +70,12 @@ Desktop.ini
 appsettings.local.json
 **/settings.json
 
+# Local SQLite index (runtime lives in %AppData%\DeskSearch\; ignore if copied into repo)
+index.db
+index.db-*
+index.building.db
+index.building.db-*
+
 # Claude Code local settings (machine-specific permissions, never commit)
+.claude/
 .claude/settings.local.json

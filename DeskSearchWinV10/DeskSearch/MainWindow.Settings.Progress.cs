@@ -14,17 +14,20 @@ public partial class MainWindow
     {
         if (!_indexService.IsScanComplete)
         {
-            // Count needs the live store's lock, which the active scan holds while
-            // writing — polling it from this UI-thread timer could block the whole
-            // window. ApproximateLiveCount is lock-free and good enough for display.
-            var percent = _indexService.ScanProgressPercent;
-            var approxCount = _indexService.ApproximateLiveCount;
+            var phase = _indexService.ProgressPhase;
+            var indexedCount = _indexService.ScanIndexedCount;
+            var baselineCount = _indexService.ScanBaselineCount;
+            var percent = _indexService.IndexDisplayPercent;
+            var isPostProcessing = phase is IndexProgressPhase.Analyzing or IndexProgressPhase.Applying;
+
             return new SettingsProgressSnapshot
             {
                 Percent = percent,
-                StatusText = LocalizationService.F("Settings_IndexingStatus", percent, approxCount),
+                PhaseText = FormatIndexPhaseLabel(phase, _indexService.ScanUsesShadowBuild),
+                StatusText = FormatIndexPhaseStatus(phase, percent, indexedCount, baselineCount, _indexService.ScanUsesShadowBuild),
                 IsIndexing = true,
-                IsScanRunning = _indexService.IsScanning,
+                IsScanRunning = phase == IndexProgressPhase.Scanning && _indexService.IsScanning,
+                IsPostProcessing = isPostProcessing,
                 CanResetIndex = false
             };
         }
@@ -67,6 +70,55 @@ public partial class MainWindow
             StatusText = statusText,
             CanResetIndex = _indexService.IsScanComplete && !_indexService.IsScanning
         };
+    }
+
+    private static string FormatIndexPhaseLabel(IndexProgressPhase phase, bool usesShadowBuild)
+    {
+        if (phase == IndexProgressPhase.Idle)
+            return string.Empty;
+
+        var (step, total) = GetPhaseStepNumbers(phase, usesShadowBuild);
+        var phaseName = phase switch
+        {
+            IndexProgressPhase.Scanning => LocalizationService.T("Settings_IndexPhaseName_Scanning"),
+            IndexProgressPhase.Analyzing => LocalizationService.T("Settings_IndexPhaseName_Analyzing"),
+            IndexProgressPhase.Applying => LocalizationService.T("Settings_IndexPhaseName_Applying"),
+            _ => string.Empty
+        };
+
+        return LocalizationService.F("Settings_IndexPhaseLabel", step, total, phaseName);
+    }
+
+    private static string FormatIndexPhaseStatus(
+        IndexProgressPhase phase,
+        int percent,
+        long indexedCount,
+        long baselineCount,
+        bool usesShadowBuild) =>
+        phase switch
+        {
+            IndexProgressPhase.Scanning when usesShadowBuild && baselineCount > 0 =>
+                LocalizationService.F("Settings_IndexPhaseStatus_ScanningRescan", percent, indexedCount, baselineCount),
+            IndexProgressPhase.Scanning =>
+                LocalizationService.F("Settings_IndexPhaseStatus_Scanning", percent, indexedCount),
+            IndexProgressPhase.Analyzing =>
+                LocalizationService.F("Settings_IndexPhaseStatus_Analyzing", indexedCount),
+            IndexProgressPhase.Applying =>
+                LocalizationService.F("Settings_IndexPhaseStatus_Applying", indexedCount),
+            _ => LocalizationService.F("Settings_IndexingStatus", percent, indexedCount)
+        };
+
+    private static (int step, int total) GetPhaseStepNumbers(IndexProgressPhase phase, bool usesShadowBuild)
+    {
+        var total = usesShadowBuild ? 3 : 2;
+        var step = phase switch
+        {
+            IndexProgressPhase.Scanning => 1,
+            IndexProgressPhase.Analyzing => 2,
+            IndexProgressPhase.Applying => 3,
+            _ => total
+        };
+        return (step, total);
     }
 
     internal void RequestResetIndexFromSettings()

@@ -72,6 +72,16 @@
   <data name="Settings_ResetIndex_ConfirmMessage" xml:space="preserve"><value>This will delete the saved search index (index.db). This action cannot be undone. Continue?</value></data>
   <data name="Settings_OpenDataFolder" xml:space="preserve"><value>Data Folder</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>
+  <data name="Settings_IndexPhaseLabel" xml:space="preserve"><value>{0}/{1} · {2}</value></data>
+  <data name="Settings_IndexPhaseName_Scanning" xml:space="preserve"><value>Scan</value></data>
+  <data name="Settings_IndexPhaseName_Analyzing" xml:space="preserve"><value>Analyze</value></data>
+  <data name="Settings_IndexPhaseName_Applying" xml:space="preserve"><value>Apply index</value></data>
+  <data name="Settings_IndexPhaseStatus_Scanning" xml:space="preserve"><value>{0}% · {1:N0} items indexed</value></data>
+  <data name="Settings_IndexPhaseStatus_ScanningRescan" xml:space="preserve"><value>{0}% · {1:N0} indexed (of ~{2:N0} previous; search uses existing index)</value></data>
+  <data name="Settings_IndexPhaseStatus_Analyzing" xml:space="preserve"><value>Optimizing search statistics · {0:N0} items</value></data>
+  <data name="Settings_IndexPhaseStatus_Applying" xml:space="preserve"><value>Applying new index · {0:N0} items</value></data>
+  <data name="Index_Analyzing" xml:space="preserve"><value>{0:N0} — analyzing</value></data>
+  <data name="Index_Applying" xml:space="preserve"><value>{0:N0} — applying index</value></data>
   <data name="Settings_SearchingStatus" xml:space="preserve"><value>Searching… {0}% — "{1}"</value></data>
   <data name="Settings_ReadyStatus" xml:space="preserve"><value>Ready — {0:N0} items indexed</value></data>
   <data name="Settings_ReadyStatusWithElapsed" xml:space="preserve"><value>Ready — {0:N0} items indexed (elapsed: {1})</value></data>
