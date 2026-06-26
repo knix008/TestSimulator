@@ -12,25 +12,26 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 | 인덱싱 중 검색 | 인덱싱이 끝나기 전에도 검색 가능; 인덱스가 늘어나면 결과 자동 갱신; SQLite 트라이그램(trigram) FTS5 인덱스로 즉시 응답 |
 | 인덱싱 중 시스템 영향 최소화 | Windows 백그라운드 모드(CPU·디스크 I/O·메모리 우선순위 하향)로 인덱싱이 GUI·시스템 반응성을 거의 침범하지 않음 |
 | 이중 DB 인덱싱 | **첫 인덱싱**은 `index.db`에 직접 기록(인덱싱 중에도 검색 가능). **이후 전체 재인덱싱**부터는 `index.building.db`에 별도 구축하고, 검색은 완료 전까지 기존 `index.db`만 사용 |
-| 끊김 없는 재검색 | 재인덱싱 완료 시 새 DB로 교체하고 **기존 `index.db` 파일은 삭제**. 재검색 중에도 검색·GUI는 기존 인덱스로 정상 동작 |
-| 인덱싱 진행 단계 표시 | 설정 창에서 **스캔 → 분석 → 인덱스 적용** 단계와 진행률(%)·항목 수 표시 (재검색 시 0%부터, 검색은 기존 인덱스 사용 안내) |
-| 인덱싱 중단 후 자동 재개 | 재검색이 끝나기 전에 프로그램이 종료되면, 다음 실행 시 자동으로 재검색을 다시 시도 |
-| 파일·폴더 검색 | 파일·폴더 **이름** 기준 실시간 자동완성 (경로는 검색 대상 아님, 최대 12건, 배치 검색); `x`(AND)·`+(OR) 연산자 지원 |
+| 끊김 없는 재인덱싱 | 재인덱싱 완료 시 새 DB로 교체하고 **기존 `index.db` 파일은 삭제**. 재인덱싱 중에도 검색·GUI는 기존 인덱스로 정상 동작 |
+| 인덱싱 진행 단계 표시 | 설정 창에서 **스캔 → 분석 → 인덱스 적용** 단계와 진행률(%)·항목 수 표시 (재인덱싱 시 0%부터, 검색은 기존 인덱스 사용 안내) |
+| 인덱싱 중단 후 자동 재개 | 재인덱싱이 끝나기 전에 프로그램이 종료되면, 다음 실행 시 자동으로 재인덱싱을 다시 시도 |
+| 파일·폴더 검색 | 파일·폴더 **이름**에 검색어가 **연속으로 포함**된 항목 (경로 제외, 최대 2,000건); 결과 창은 1~10개 높이 자동 조절·스크롤; `*`(AND)·`+(OR) 연산자·와일드카드 지원; **검색 결과 정렬** 설정 가능 |
+| 검색 결과 없음 | 일치 항목이 없으면 결과 창에 안내 메시지 표시 |
 | 정규식 검색 | 설정에서 켜면 .NET 정규식으로 파일·폴더 이름 검색; 연산자·와일드카드와 조합 가능 (아래 [검색 문법](#검색-문법) 참고) |
 | 검색 제외 | 설정에서 드라이브·디렉터리를 인덱싱·검색 대상에서 제외; 디렉터리는 찾아보기에서 여러 개 동시 선택해 바로 추가 |
 | 다국어 파일명 검색 | UI는 한국어/English만 지원; 파일·폴더 이름은 모든 언어(Unicode NFC)로 검색 |
-| 실시간 갱신 | 모든 드라이브 FileSystemWatcher + 4시간 주기 전체 재동기화 |
+| 실시간 갱신 | 모든 드라이브 FileSystemWatcher + 설정 가능한 주기적 전체 재동기화 (기본 8시간, 사용 안 함 가능) |
 | 드래그·크기 조절 | ≡ 핸들로 이동, 좌·우 가장자리로 너비 조절 |
 | 창 레이아웃 저장 | 위치·너비·높이를 `%AppData%\DeskSearch\settings.json`에 자동 저장 |
-| 설정 | 배경/테두리/글자색, 불투명도, 대소문자 구분, 정규식, 검색 제외, 항상 위 |
-| 인덱싱 진행률 | 설정 창에서 단계(스캔·분석·인덱스 적용), 진행률(%)·항목 수 확인 및 **재검색** |
-| 검색 인덱스 업그레이드 | 검색 구조 개선이 필요하면 진행 여부를 확인 후 진행률(%)을 표시 (최초 1회, 백그라운드 가능) |
-| Windows 시작 시 실행 | 작업 스케줄러(로그온, 최고 권한)로 자동 시작 |
+| 설정 | 배경/테두리/글자색, 불투명도, 대소문자 구분, 정규식, **검색 결과 정렬**, 검색 제외, 항상 위 |
+| 인덱싱 진행률 | 설정 창에서 단계(스캔·분석·인덱스 적용), 진행률(%)·항목 수 확인; **인덱싱** / **멈춤** / **초기화** / **데이터 폴더** |
+| 검색 인덱스 업그레이드 | 검색 구조 개선이 필요하면 확인 대화상자 후 진행률(%) 표시 (최초 1회, 건너뛰기 가능) |
+| Windows 시작 시 실행 | HKCU `Run` 레지스트리로 로그온 시 자동 시작 (레거시 예약 작업 자동 제거) |
 | 단일 인스턴스 | 이미 실행 중이면 새 창 대신 기존 검색창 표시 |
 | 다크 테마 | 어두운 배경 선택 시 글자·테두리·아이콘 색 자동 조정 |
-| 다국어 UI | 한국어 / English |
+| 다국어 UI | 한국어 / English; 설정에서 **언어 변경 시 즉시 반영** (취소 시 복원) |
 | 시스템 트레이 | 작업 표시줄 미표시, 트레이에서 표시·숨기기·설정·종료 |
-| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (한국어·영어 UI, 바로가기 선택) |
+| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (한국어·영어 UI, 바로가기 선택, 업그레이드·제거 시 사용자 데이터 선택) |
 
 ## 빌드 및 실행
 
@@ -65,8 +66,10 @@ dotnet build DeskSearchWinV10.slnx -c Release
 
 | 상황 | 동작 |
 |------|------|
-| 업그레이드·변경·복구 | 사용자 데이터 삭제 여부를 선택할 수 있음 |
-| 제거 | `%AppData%\DeskSearch\settings.json`이 **있을 때만** 삭제 여부를 질문 |
+| 업그레이드·재설치 | 기존 프로그램 파일을 **완전히 제거**한 뒤 새로 설치. **사용자 데이터 삭제 여부**를 선택할 수 있음 |
+| 제거 | 프로그램 파일 **완전 제거**. **사용자 데이터 삭제 여부**를 항상 선택할 수 있음 |
+
+삭제 대상(선택 시): `%AppData%\DeskSearch\` (`settings.json`, `index.db` 등). 체크하지 않으면 사용자 데이터는 유지됩니다.
 
 > Debug 구성에서는 WiX 프로젝트가 MSI 빌드를 건너뜁니다. MSI만 따로 빌드하지 않으려면 `-p:SkipInstaller=true`를 사용하세요.
 
@@ -88,10 +91,13 @@ powershell -ExecutionPolicy Bypass -File DeskSearch/Assets/CreateIcon.ps1
 
 ### 기본 검색
 
-| 검색어 | 설명 |
-|--------|------|
-| `report` | 이름에 `report`가 **포함**된 항목 |
-| `Report` | 기본은 대소문자 무시 (`report`와 동일). 설정에서 **대소문자 구분**을 켜면 구분 |
+입력한 문자열 전체가 파일·폴더 **이름** 안에 **연속으로** 포함되어야 합니다 (접두어일 필요 없음).
+
+| 검색어 | 설명 | 매칭 예 |
+|--------|------|---------|
+| `report` | 이름에 `report`가 **연속으로 포함** | `my-report.pdf` ✅, `repo.txt` ❌ |
+| `권수호` | 이름에 `권수호`가 **연속으로 포함** | `xxx-권수호.txt` ✅ |
+| `Report` | 기본은 대소문자 무시. 설정에서 **대소문자 구분**을 켜면 구분 | |
 
 공백만 있는 검색어는 무시됩니다. 연산자 없이 입력한 문자열은 **하나의 검색어**로 처리됩니다 (`my file.txt`).
 
@@ -101,19 +107,20 @@ powershell -ExecutionPolicy Bypass -File DeskSearch/Assets/CreateIcon.ps1
 
 | 연산자 | 의미 | 예시 | 매칭 예 |
 |--------|------|------|---------|
-| `x` (대소문자 무관) | **AND** — 모두 포함 | `report x 2024` | `report-2024.pdf`, `2024-annual-report.docx` |
+| `*` (앞뒤 공백) | **AND** — 모두 포함 | `report * 2024` | `report-2024.pdf`, `2024-annual-report.docx` |
 | `+` | **OR** — 하나라도 포함 | `doc + pdf` | `notes.doc`, `readme.pdf` |
 
-혼합 시 `+`로 OR 그룹을 나눈 뒤, 각 그룹 안에서 `x`로 AND를 적용합니다.
+혼합 시 `+`로 OR 그룹을 나눈 뒤, 각 그룹 안에서 `*`(공백 포함)로 AND를 적용합니다.
 
 | 검색어 | 의미 |
 |--------|------|
-| `budget x 2024 + draft` | (`budget` **그리고** `2024`) **또는** `draft` |
-| `a x b + c x d` | (`a` **그리고** `b`) **또는** (`c` **그리고** `d`) |
+| `budget * 2024 + draft` | (`budget` **그리고** `2024`) **또는** `draft` |
+| `a * b + c * d` | (`a` **그리고** `b`) **또는** (`c` **그리고** `d`) |
+| `doc * *.pdf` | `doc` **그리고** `.pdf` 확장자(와일드카드) |
 
 ### 와일드카드 (정규식 **끔**)
 
-`*`·`?`는 파일 시스템식 와일드카드로 해석됩니다. `\`로 이스케이프할 수 있습니다.
+`*`·`?`는 파일 시스템식 와일드카드로 해석됩니다. `\`로 이스케이프할 수 있습니다. AND 연산자 `*`는 **앞뒤 공백**이 있을 때만 적용됩니다.
 
 | 검색어 | 의미 |
 |--------|------|
@@ -142,11 +149,11 @@ powershell -ExecutionPolicy Bypass -File DeskSearch/Assets/CreateIcon.ps1
 | `(draft\|final)` | `draft` 또는 `final` 포함 (정규식 OR — 검색 연산자 `+`와 다름) |
 | `invoice_\d+` | `invoice_` 뒤에 숫자 1개 이상 |
 
-정규식 모드에서도 **검색 연산자** `x` / `+` (공백 포함)는 그대로 동작합니다. 각 조각이 별도의 정규식입니다.
+정규식 모드에서도 **검색 연산자** `*` / `+` (공백 포함)는 그대로 동작합니다. 각 조각이 별도의 정규식입니다.
 
 | 검색어 | 의미 |
 |--------|------|
-| `^report x 2024` | 이름이 `^report` 패턴 **그리고** `2024` 패턴에 모두 맞음 |
+| `^report * 2024` | 이름이 `^report` 패턴 **그리고** `2024` 패턴에 모두 맞음 |
 | `\.doc$ + \.pdf$` | `.doc`로 끝나거나 `.pdf`로 끝남 |
 
 > **참고:** 정규식 모드에서 `*.pdf`의 `*`는 와일드카드가 아니라 정규식 수량자입니다. 확장자 검색은 `.*\.pdf$`를 쓰거나, 정규식을 끄고 `*.pdf` 와일드카드를 사용하세요.
@@ -159,22 +166,34 @@ powershell -ExecutionPolicy Bypass -File DeskSearch/Assets/CreateIcon.ps1
 | `?` | 정확히 한 글자 | 0 또는 1회 |
 | `+` (공백 없음) | 일반 문자 `+` | 정규식 수량자 |
 | `+` (공백 있음) | **OR** 연산자 | **OR** 연산자 |
-| `x` (공백 있음) | **AND** 연산자 | **AND** 연산자 |
+| `*` (공백 있음) | **AND** 연산자 | **AND** 연산자 |
 | `\|` | 일반 문자 | 정규식 **OR** (그룹 안에서) |
 
 ### 빠른 예제 모음
 
 ```
 report                          # 이름에 report 포함
-budget x 2024                   # budget AND 2024
+budget * 2024                   # budget AND 2024
 photo + image                   # photo OR image
 *.pdf                           # 와일드카드: .pdf로 끝
 *.doc + *.pdf                   # 와일드카드 OR
 ^report.*\.pdf$                 # 정규식 (설정에서 정규식 켜기)
 \d{4}-\d{2}-\d{2}               # 날짜 형식 YYYY-MM-DD
 \.doc$ + \.xlsx$                # 정규식 OR: Word 또는 Excel 확장자
-readme x \d+\.\d+               # readme AND 버전 숫자 패턴
+readme * \d+\.\d+               # readme AND 버전 숫자 패턴
 ```
+
+### 검색 결과 정렬
+
+설정 → **검색 결과 정렬**에서 결과 목록의 표시 순서를 선택합니다. 저장 후 같은 검색어로 결과가 다시 정렬됩니다.
+
+| 옵션 | 설명 |
+|------|------|
+| **일치도** (기본) | 완전 일치 → 접두어 일치 → 포함 순, 같으면 이름순 |
+| **이름 (가→하 / 하→가)** | 파일·폴더 이름 기준 오름차순·내림차순 |
+| **경로 (가→하 / 하→가)** | 전체 경로 기준 오름차순·내림차순 |
+| **폴더 먼저** | 폴더를 위에, 그다음 이름순 |
+| **파일 먼저** | 파일을 위에, 그다음 이름순 |
 
 ## 프로젝트 구조
 
@@ -190,22 +209,26 @@ DeskSearchWinV10/
 │   ├── MainWindow.Localization.cs    # UI 다국어 갱신
 │   ├── SettingsWindow.xaml(.cs)      # 설정 창 (검색 제외 포함)
 │   ├── SettingsColorPalette.cs       # 색상 프리셋
-│   ├── MigrationProgressDialog.xaml(.cs) # 검색 인덱스 업그레이드 진행률 창
+│   ├── MigrationConfirmDialog.xaml(.cs) # 검색 인덱스 업그레이드 확인
+│   ├── MigrationProgressDialog.xaml(.cs) # 검색 인덱스 업그레이드 진행률
+│   ├── ErrorDialog.xaml(.cs)             # 오류 상세 대화상자
 │   ├── Helpers/
 │   │   ├── ColorHelper.cs            # 색상·다크 배경 감지
-│   │   ├── SearchTextHelper.cs       # 검색어 NFC·정규식
+│   │   ├── SearchTextHelper.cs       # 검색어 NFC·연산자·와일드카드·정규식
 │   │   ├── MultiFolderBrowserDialog.cs # 다중 선택 폴더 찾아보기 (IFileOpenDialog)
 │   │   └── WindowTaskbarHelper.cs    # 작업 표시줄 제외
-│   ├── Models/                       # AppSettings, FileEntry, SearchSession, IndexProgressPhase 등
+│   ├── Models/                       # AppSettings, FileEntry, SearchSession, SearchResultSortOrder, IndexProgressPhase 등
 │   ├── Services/
-│   │   ├── SystemIndexService.cs     # 전체 드라이브 인덱싱 (배치 병합, 병렬 스캔, 그림자 DB 재검색)
+│   │   ├── SystemIndexService.cs     # 전체 드라이브 인덱싱 (배치 병합, 병렬 스캔, 이중 DB 재인덱싱)
 │   │   ├── SystemWatcherService.cs   # 모든 드라이브 변경 감시
-│   │   ├── FileSearchService.cs      # 검색·점수·배치
+│   │   ├── FileSearchService.cs      # 검색·점수·배치·결과 정렬
+│   │   ├── SearchResultSortPolicy.cs # 검색 결과 정렬 (SQL·메모리)
 │   │   ├── IndexStore.cs / IndexStore.Search.cs # SQLite 저장소 (트라이그램 FTS5 인덱스)
 │   │   ├── IndexExclusionPolicy.cs   # 검색 제외 경로 판별
 │   │   ├── BackgroundThreadMode.cs   # Windows 백그라운드 스레드 모드 (CPU·I/O·메모리 우선순위)
-│   │   ├── SettingsService.cs        # 설정 JSON 저장
-│   │   ├── StartupService.cs         # 로그온 시 자동 실행 (HKCU Run 레지스트리)
+│   │   ├── AppStoragePaths.cs        # %AppData%\DeskSearch 경로
+│   │   ├── SettingsService.cs        # settings.json 저장
+│   │   ├── StartupService.cs         # 로그온 시 자동 실행 (HKCU Run)
 │   │   ├── SingleInstanceService.cs  # 단일 인스턴스
 │   │   ├── TrayIconService.cs        # NotifyIcon
 │   │   ├── LocalizationService.cs    # ko / en
@@ -228,7 +251,7 @@ DeskSearchWinV10/
 
 | 파일 | 용도 |
 |------|------|
-| `settings.json` | 창 위치·크기, 색상, 불투명도, 언어, 항상 위, 대소문자 구분, 정규식, 검색 제외, Windows 시작 시 자동 실행 등 |
+| `settings.json` | 창 위치·크기, 색상, 불투명도, 언어, 항상 위, 대소문자 구분, 정규식, **검색 결과 정렬**, 검색 제외, Windows 시작 시 자동 실행 등 |
 | `index.db` | **검색용** live 인덱스 (SQLite, FTS5 트라이그램) |
 | `index.building.db` | **재인덱싱 중**에만 사용하는 임시 빌드 DB. 완료 시 `index.db`로 교체 후 삭제 |
 

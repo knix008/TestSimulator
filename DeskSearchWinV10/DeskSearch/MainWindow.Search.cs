@@ -30,6 +30,7 @@ public partial class MainWindow
         var query = SearchBox.Text;
         var caseSensitive = _settingsService.Current.CaseSensitiveSearch;
         var useRegex = _settingsService.Current.UseRegexSearch;
+        var resultSort = _settingsService.Current.SearchResultSort;
 
         if (string.IsNullOrWhiteSpace(query))
         {
@@ -42,11 +43,15 @@ public partial class MainWindow
         }
 
         var generation = Interlocked.Increment(ref _searchGeneration);
-        var session = CreateFreshSearchSession(query, caseSensitive, useRegex);
+        var session = CreateFreshSearchSession(query, caseSensitive, useRegex, resultSort);
         Task.Run(() => RunSearchLoop(session, generation));
     }
 
-    private SearchSession CreateFreshSearchSession(string query, bool caseSensitive, bool useRegex)
+    private SearchSession CreateFreshSearchSession(
+        string query,
+        bool caseSensitive,
+        bool useRegex,
+        SearchResultSortOrder resultSort)
     {
         lock (_searchSessionLock)
         {
@@ -66,6 +71,7 @@ public partial class MainWindow
                 Query = query,
                 CaseSensitive = caseSensitive,
                 UseRegexSearch = useRegex,
+                ResultSort = resultSort,
                 SearchQuery = searchQuery,
                 Offset = 0,
                 LastScannedId = 0,
@@ -132,6 +138,7 @@ public partial class MainWindow
             var batch = _indexService.SearchBatch(
                 session.SearchQuery,
                 session.CaseSensitive,
+                session.ResultSort,
                 afterScanId,
                 scannedEntryOffset,
                 FileSearchService.DefaultBatchSize,
@@ -278,6 +285,7 @@ public partial class MainWindow
 
         var caseSensitive = _settingsService.Current.CaseSensitiveSearch;
         var useRegex = _settingsService.Current.UseRegexSearch;
+        var resultSort = _settingsService.Current.SearchResultSort;
 
         SearchSession? sessionToContinue;
         int generation;
@@ -287,7 +295,8 @@ public partial class MainWindow
             if (_searchSession is null
                 || _searchSession.Query != SearchBox.Text
                 || _searchSession.CaseSensitive != caseSensitive
-                || _searchSession.UseRegexSearch != useRegex)
+                || _searchSession.UseRegexSearch != useRegex
+                || _searchSession.ResultSort != resultSort)
             {
                 PerformSearch();
                 return;

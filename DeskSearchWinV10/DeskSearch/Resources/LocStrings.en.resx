@@ -52,6 +52,15 @@
   <data name="Settings_CaseSensitiveDesc" xml:space="preserve"><value>When enabled, search matches letter case exactly. (Default: off)</value></data>
   <data name="Settings_UseRegex" xml:space="preserve"><value>Use regular expressions</value></data>
   <data name="Settings_UseRegexDesc" xml:space="preserve"><value>When enabled, the search query is interpreted as a .NET regular expression. E.g. ^report.*\.pdf$, \d{4}-\d{2}</value></data>
+  <data name="Settings_SearchResultSort" xml:space="preserve"><value>Search result sort</value></data>
+  <data name="Settings_SearchResultSortDesc" xml:space="preserve"><value>Choose how matching items are ordered in the results list.</value></data>
+  <data name="Settings_SearchResultSort_MatchQuality" xml:space="preserve"><value>Match quality (exact → prefix → contains)</value></data>
+  <data name="Settings_SearchResultSort_NameAsc" xml:space="preserve"><value>Name (A→Z)</value></data>
+  <data name="Settings_SearchResultSort_NameDesc" xml:space="preserve"><value>Name (Z→A)</value></data>
+  <data name="Settings_SearchResultSort_PathAsc" xml:space="preserve"><value>Path (A→Z)</value></data>
+  <data name="Settings_SearchResultSort_PathDesc" xml:space="preserve"><value>Path (Z→A)</value></data>
+  <data name="Settings_SearchResultSort_FoldersFirst" xml:space="preserve"><value>Folders first, then name</value></data>
+  <data name="Settings_SearchResultSort_FilesFirst" xml:space="preserve"><value>Files first, then name</value></data>
   <data name="Settings_SearchMultilingualNote" xml:space="preserve"><value>File and folder names can be searched in any language (e.g. Korean, English, Japanese, Chinese), regardless of the UI language.</value></data>
   <data name="Settings_Exclusion" xml:space="preserve"><value>Search exclusions</value></data>
   <data name="Settings_ExcludedDrivesDesc" xml:space="preserve"><value>Checked drives are excluded from indexing and search.</value></data>

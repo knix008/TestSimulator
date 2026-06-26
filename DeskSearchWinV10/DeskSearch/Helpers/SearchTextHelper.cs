@@ -8,14 +8,14 @@ internal static class SearchTextHelper
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
 
-    // Operators must be surrounded by whitespace: "a + b", "a x b".
+    // Operators must be surrounded by whitespace: "a + b" (OR), "a * b" (AND).
     private static readonly Regex OrTermSeparator = new(
         @"\s+\+\s+",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     private static readonly Regex AndTermSeparator = new(
-        @"\s+x\s+",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        @"\s+\*\s+",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     /// <summary>
     /// Normalizes text for cross-language file name matching (NFC).
@@ -202,7 +202,7 @@ internal static class SearchTextHelper
 
     /// <summary>
     /// Splits a query into OR groups of AND term lists.
-    /// "a x b + c" → [["a","b"], ["c"]].
+    /// "a * b + c" → [["a","b"], ["c"]].
     /// </summary>
     public static IReadOnlyList<IReadOnlyList<string>> ParseOrGroups(string query)
     {

@@ -148,10 +148,12 @@
                 <TextBlock x:Name="LanguageLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <RadioButton x:Name="LanguageKoreanRadio"
                              GroupName="Language"
-                             Margin="0,0,0,4"/>
+                             Margin="0,0,0,4"
+                             Checked="LanguageRadio_Checked"/>
                 <RadioButton x:Name="LanguageEnglishRadio"
                              GroupName="Language"
-                             Margin="0,0,0,16"/>
+                             Margin="0,0,0,16"
+                             Checked="LanguageRadio_Checked"/>
 
                 <TextBlock x:Name="SearchOptionsLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <CheckBox x:Name="CaseSensitiveSearchCheckBox"
@@ -168,6 +170,17 @@
                            Foreground="#888888"
                            Margin="22,0,0,4"
                            TextWrapping="Wrap"/>
+                <TextBlock x:Name="SearchResultSortLabel"
+                           FontWeight="SemiBold"
+                           Margin="0,8,0,6"/>
+                <TextBlock x:Name="SearchResultSortDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="0,0,0,6"
+                           TextWrapping="Wrap"/>
+                <ComboBox x:Name="SearchResultSortComboBox"
+                          Style="{StaticResource SettingsComboBox}"
+                          Margin="0,0,0,4"/>
                 <TextBlock x:Name="SearchMultilingualNoteLabel"
                            FontSize="11"
                            Foreground="#888888"

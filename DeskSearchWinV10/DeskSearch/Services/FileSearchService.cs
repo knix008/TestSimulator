@@ -12,10 +12,12 @@ public sealed class FileSearchService
         IEnumerable<FileEntry> entries,
         int totalCount,
         ResolvedSearchQuery searchQuery,
-        bool caseSensitive)
+        bool caseSensitive,
+        SearchResultSortOrder sortOrder)
     {
         var batch = SearchBatch(
-            entries, totalCount, searchQuery, caseSensitive, startOffset: 0, batchSize: int.MaxValue);
+            entries, totalCount, searchQuery, caseSensitive, sortOrder,
+            startOffset: 0, batchSize: int.MaxValue);
         return batch.Results;
     }
 
@@ -23,24 +25,21 @@ public sealed class FileSearchService
         IEnumerable<FileEntry> candidates,
         ResolvedSearchQuery searchQuery,
         bool caseSensitive,
+        SearchResultSortOrder sortOrder,
         int limit = IndexStoragePolicy.MaxSearchResults)
     {
         if (searchQuery.IsInvalid || searchQuery.Terms.Count == 0)
             return [];
 
         var comparison = SearchTextHelper.GetComparison(caseSensitive);
-        var nameComparer = comparison == StringComparison.Ordinal
-            ? StringComparer.Ordinal
-            : StringComparer.OrdinalIgnoreCase;
 
-        return candidates
-            .Select(entry => (Entry: entry, Score: ScoreQuery(entry, searchQuery, comparison)))
-            .Where(match => match.Score > 0)
-            .OrderByDescending(match => match.Score)
-            .ThenBy(match => match.Entry.FileName, nameComparer)
-            .Take(limit)
-            .Select(match => match.Entry)
-            .ToList();
+        return SearchResultSortPolicy.SortScored(
+            candidates
+                .Select(entry => (Entry: entry, Score: ScoreQuery(entry, searchQuery, comparison)))
+                .Where(match => match.Score > 0)
+                .Take(limit),
+            sortOrder,
+            comparison);
     }
 
     public SearchBatchResult SearchBatch(
@@ -48,6 +47,7 @@ public sealed class FileSearchService
         int totalCount,
         ResolvedSearchQuery searchQuery,
         bool caseSensitive,
+        SearchResultSortOrder sortOrder,
         int startOffset,
         int batchSize,
         List<(FileEntry Entry, int Score)>? existingTop = null)
@@ -87,7 +87,7 @@ public sealed class FileSearchService
         var topList = ToCandidateList(matches);
         return new SearchBatchResult
         {
-            Results = ToSortedResults(topList, comparison),
+            Results = ToSortedResults(topList, sortOrder, comparison),
             NextOffset = nextOffset,
             NextScanId = 0,
             IsComplete = nextOffset >= totalCount,
@@ -159,21 +159,9 @@ public sealed class FileSearchService
 
     private static IReadOnlyList<FileEntry> ToSortedResults(
         List<(FileEntry Entry, int Score)> top,
-        StringComparison comparison)
-    {
-        if (top.Count <= 1)
-            return top.Count == 1 ? [top[0].Entry] : [];
-
-        var nameComparer = comparison == StringComparison.Ordinal
-            ? StringComparer.Ordinal
-            : StringComparer.OrdinalIgnoreCase;
-
-        return top
-            .OrderByDescending(x => x.Score)
-            .ThenBy(x => x.Entry.FileName, nameComparer)
-            .Select(x => x.Entry)
-            .ToList();
-    }
+        SearchResultSortOrder sortOrder,
+        StringComparison comparison) =>
+        SearchResultSortPolicy.SortScored(top, sortOrder, comparison);
 
     private static int ScoreQuery(
         FileEntry entry,

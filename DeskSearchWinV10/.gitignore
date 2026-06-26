@@ -1,4 +1,8 @@
-# Build output (.NET)
+# =============================================================================
+# DeskSearch — Git ignore (소스만 추적, 빌드·로컬·런타임 산출물 제외)
+# =============================================================================
+
+# .NET build output
 bin/
 obj/
 [Dd]ebug/
@@ -36,7 +40,7 @@ project.fragment.lock.json
 packages/
 artifacts/
 
-# WiX installer (build output only; .wxs/.wxl sources are tracked)
+# WiX installer (소스 .wxs/.wxl은 추적, bin/obj·MSI 산출물은 제외)
 DeskSearch.Installer/bin/
 DeskSearch.Installer/obj/
 *.msi
@@ -47,7 +51,7 @@ DeskSearch.Installer/obj/
 *.wixobj
 *.wixmst
 
-# Publish output (Release self-contained)
+# dotnet publish (Release self-contained 배포물)
 **/publish/
 
 # Test / coverage
@@ -66,16 +70,20 @@ Desktop.ini
 *.tmp
 *.bak
 
-# User-specific / runtime (never commit)
+# 로컬 설정·런타임 (커밋 금지)
 appsettings.local.json
 **/settings.json
 
-# Local SQLite index (runtime lives in %AppData%\DeskSearch\; ignore if copied into repo)
+# SQLite 인덱스 (실제 위치: %AppData%\DeskSearch\; 워크스페이스에 복사된 경우 대비)
 index.db
+index.db-shm
+index.db-wal
 index.db-*
 index.building.db
+index.building.db-shm
+index.building.db-wal
 index.building.db-*
 
-# Claude Code local settings (machine-specific permissions, never commit)
+# Claude Code 로컬 설정
 .claude/
 .claude/settings.local.json

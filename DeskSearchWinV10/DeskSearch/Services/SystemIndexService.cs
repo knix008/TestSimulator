@@ -251,7 +251,8 @@ public sealed class SystemIndexService : IDisposable
 
     public IReadOnlyList<FileEntry> Search(
         bool caseSensitive,
-        ResolvedSearchQuery searchQuery)
+        ResolvedSearchQuery searchQuery,
+        SearchResultSortOrder sortOrder)
     {
         if (!_isSearchEnabled)
             return [];
@@ -260,19 +261,21 @@ public sealed class SystemIndexService : IDisposable
 
         if (searchQuery.CanUseSqlScored)
         {
-            return store.SearchSqlScored(searchQuery, caseSensitive);
+            return store.SearchSqlScored(searchQuery, caseSensitive, sortOrder);
         }
 
         return _searchService.Search(
             store.EnumerateAll(IndexStoragePolicy.RegexSearchPageSize),
             store.Count,
             searchQuery,
-            caseSensitive);
+            caseSensitive,
+            sortOrder);
     }
 
     public SearchBatchResult SearchBatch(
         ResolvedSearchQuery searchQuery,
         bool caseSensitive,
+        SearchResultSortOrder sortOrder,
         long afterScanId,
         int scannedEntryOffset,
         int batchSize,
@@ -295,7 +298,7 @@ public sealed class SystemIndexService : IDisposable
 
         if (searchQuery.CanUseSqlScored && afterScanId == 0)
         {
-            var results = store.SearchSqlScored(searchQuery, caseSensitive);
+            var results = store.SearchSqlScored(searchQuery, caseSensitive, sortOrder);
 
             return new SearchBatchResult
             {
@@ -313,6 +316,7 @@ public sealed class SystemIndexService : IDisposable
             totalCount,
             searchQuery,
             caseSensitive,
+            sortOrder,
             startOffset: 0,
             batchSize: page.Entries.Count,
             existingTop);

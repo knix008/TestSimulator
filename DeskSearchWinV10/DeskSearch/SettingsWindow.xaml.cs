@@ -33,6 +33,8 @@ public partial class SettingsWindow : Window
     private bool _progressIdle;
     private bool _indexActionIsStopMode;
     private IInputElement? _pendingFocusRestore;
+    private readonly string _initialLanguage;
+    private bool _suppressLanguageLiveApply;
 
     public SettingsWindow(
         AppSettings current,
@@ -42,6 +44,7 @@ public partial class SettingsWindow : Window
         Action? resetIndex = null)
     {
         Settings = current.Clone();
+        _initialLanguage = Settings.Language;
         _getProgress = getProgress;
         _startIndexing = startIndexing;
         _stopIndexing = stopIndexing;
@@ -208,6 +211,13 @@ public partial class SettingsWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _progressTimer?.Stop();
+
+        if (DialogResult != true
+            && !string.Equals(LocalizationService.CurrentLanguage, _initialLanguage, StringComparison.Ordinal))
+        {
+            LocalizationService.Apply(_initialLanguage);
+        }
+
         base.OnClosed(e);
     }
 
@@ -252,6 +262,9 @@ public partial class SettingsWindow : Window
         CaseSensitiveSearchDescLabel.Text = LocalizationService.T("Settings_CaseSensitiveDesc");
         UseRegexSearchCheckBox.Content = LocalizationService.T("Settings_UseRegex");
         UseRegexSearchDescLabel.Text = LocalizationService.T("Settings_UseRegexDesc");
+        SearchResultSortLabel.Text = LocalizationService.T("Settings_SearchResultSort");
+        SearchResultSortDescLabel.Text = LocalizationService.T("Settings_SearchResultSortDesc");
+        LoadSearchResultSortOptions();
         SearchMultilingualNoteLabel.Text = LocalizationService.T("Settings_SearchMultilingualNote");
         ExclusionLabel.Text = LocalizationService.T("Settings_Exclusion");
         ExcludedDrivesDescLabel.Text = LocalizationService.T("Settings_ExcludedDrivesDesc");
@@ -313,10 +326,19 @@ public partial class SettingsWindow : Window
 
     private void LoadToUi()
     {
-        LanguageKoreanRadio.IsChecked = Settings.Language != LocalizationService.English;
-        LanguageEnglishRadio.IsChecked = Settings.Language == LocalizationService.English;
+        _suppressLanguageLiveApply = true;
+        try
+        {
+            LanguageKoreanRadio.IsChecked = Settings.Language != LocalizationService.English;
+            LanguageEnglishRadio.IsChecked = Settings.Language == LocalizationService.English;
+        }
+        finally
+        {
+            _suppressLanguageLiveApply = false;
+        }
         CaseSensitiveSearchCheckBox.IsChecked = Settings.CaseSensitiveSearch;
         UseRegexSearchCheckBox.IsChecked = Settings.UseRegexSearch;
+        SelectSearchResultSort(Settings.SearchResultSort);
         RunAtStartupCheckBox.IsChecked = Settings.RunAtStartup;
         BackgroundPreview.Background = CreateBackgroundBrush();
         BorderPreview.Background = ColorHelper.ToBrush(Settings.BorderColor);
@@ -351,6 +373,53 @@ public partial class SettingsWindow : Window
         }
 
         SelectPeriodicResyncHours(selectedHours);
+    }
+
+    private void LoadSearchResultSortOptions()
+    {
+        var selected = SearchResultSortComboBox.SelectedItem is ComboBoxItem { Tag: SearchResultSortOrder sort }
+            ? sort
+            : Settings.SearchResultSort;
+
+        SearchResultSortComboBox.Items.Clear();
+
+        foreach (var option in SearchResultSortPolicy.All)
+        {
+            SearchResultSortComboBox.Items.Add(new ComboBoxItem
+            {
+                Content = LocalizationService.T(SearchResultSortPolicy.GetLabelKey(option)),
+                Tag = option,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Padding = new Thickness(8, 0, 8, 0)
+            });
+        }
+
+        SelectSearchResultSort(selected);
+    }
+
+    private void SelectSearchResultSort(SearchResultSortOrder sort)
+    {
+        sort = SearchResultSortPolicy.Normalize(sort);
+
+        foreach (ComboBoxItem item in SearchResultSortComboBox.Items)
+        {
+            if (item.Tag is SearchResultSortOrder value && value == sort)
+            {
+                SearchResultSortComboBox.SelectedItem = item;
+                return;
+            }
+        }
+
+        if (SearchResultSortComboBox.Items.Count > 0)
+            SearchResultSortComboBox.SelectedIndex = 0;
+    }
+
+    private SearchResultSortOrder GetSelectedSearchResultSort()
+    {
+        if (SearchResultSortComboBox.SelectedItem is ComboBoxItem { Tag: SearchResultSortOrder sort })
+            return SearchResultSortPolicy.Normalize(sort);
+
+        return SearchResultSortOrder.MatchQuality;
     }
 
     private void SelectPeriodicResyncHours(int hours)
@@ -766,6 +835,24 @@ public partial class SettingsWindow : Window
         WindowOpacityValueLabel.Text = $"{Settings.WindowOpacity}%";
     }
 
+    private void LanguageRadio_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_suppressLanguageLiveApply)
+            return;
+
+        var language = LanguageEnglishRadio.IsChecked == true
+            ? LocalizationService.English
+            : LocalizationService.Korean;
+
+        if (string.Equals(language, LocalizationService.CurrentLanguage, StringComparison.Ordinal))
+            return;
+
+        Settings.Language = language;
+        LocalizationService.Apply(language);
+        ApplyLocalization();
+        UpdateProgressUi();
+    }
+
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         Settings.Language = LanguageEnglishRadio.IsChecked == true
@@ -773,6 +860,7 @@ public partial class SettingsWindow : Window
             : LocalizationService.Korean;
         Settings.CaseSensitiveSearch = CaseSensitiveSearchCheckBox.IsChecked == true;
         Settings.UseRegexSearch = UseRegexSearchCheckBox.IsChecked == true;
+        Settings.SearchResultSort = GetSelectedSearchResultSort();
         Settings.RunAtStartup = RunAtStartupCheckBox.IsChecked == true;
         Settings.PeriodicResyncHours = GetSelectedPeriodicResyncHours();
         SaveExcludedPaths();

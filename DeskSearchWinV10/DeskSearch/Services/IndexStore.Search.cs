@@ -8,6 +8,7 @@ public sealed partial class IndexStore
     public IReadOnlyList<FileEntry> SearchSqlScored(
         ResolvedSearchQuery query,
         bool caseSensitive,
+        SearchResultSortOrder sortOrder,
         int limit = IndexStoragePolicy.MaxSearchResults)
     {
         if (query.IsInvalid || query.Terms.Count == 0)
@@ -28,6 +29,7 @@ public sealed partial class IndexStore
                     """,
                     query,
                     caseSensitive,
+                    sortOrder,
                     limit);
             }
             finally
@@ -44,17 +46,18 @@ public sealed partial class IndexStore
         string selectFromWhere,
         ResolvedSearchQuery query,
         bool caseSensitive,
+        SearchResultSortOrder sortOrder,
         int limit,
         Action<Microsoft.Data.Sqlite.SqliteCommand>? configure = null)
     {
         var scoreExpression = BuildCombinedScoreExpression(query, caseSensitive);
-        var nameOrder = caseSensitive ? "e.search_file_name" : "e.search_file_name COLLATE NOCASE";
+        var orderBy = SearchResultSortPolicy.BuildSqlOrderBy(sortOrder, caseSensitive, scoreExpression);
 
         using var command = CreateCommand(
             $"""
             {selectFromWhere}
             AND ({scoreExpression}) > 0
-            ORDER BY {scoreExpression} DESC, {nameOrder}
+            ORDER BY {orderBy}
             LIMIT $limit
             """);
 
