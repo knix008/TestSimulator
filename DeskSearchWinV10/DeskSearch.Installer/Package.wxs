@@ -16,6 +16,13 @@
     <MediaTemplate EmbedCab="yes" />
 
     <Property Id="REMOVEUSERDATA" Value="0" Secure="yes" />
+    <Property Id="USERDATAPROMPTSHOWN" Value="0" Secure="yes" />
+
+    <InstallUISequence>
+      <Show Dialog="UserDataDlg"
+            Before="ProgressDlg"
+            Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT USERDATAPROMPTSHOWN" />
+    </InstallUISequence>
 
     <CustomAction Id="KillDeskSearch"
                   Directory="SystemFolder"

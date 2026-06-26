@@ -47,4 +47,4 @@
   <Target Name="Rebuild" Condition="'$(Configuration)' != 'Release'" DependsOnTargets="Build" />
 
 </Project>
-
+

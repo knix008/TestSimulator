@@ -60,7 +60,7 @@
                    Transparent="yes"
                    NoPrefix="yes"
                    Text="!(loc.UserDataDlgUninstallTitle)"
-                   HideCondition="WixUI_InstallMode &lt;&gt; &quot;Remove&quot;" />
+                   HideCondition="WixUI_InstallMode &lt;&gt; &quot;Remove&quot; AND NOT REMOVE~=&quot;ALL&quot;" />
         <Control Id="TitleReinstall"
                    Type="Text"
                    X="15"
@@ -70,31 +70,31 @@
                    Transparent="yes"
                    NoPrefix="yes"
                    Text="!(loc.UserDataDlgTitle)"
-                   HideCondition="WixUI_InstallMode = &quot;Remove&quot;" />
+                   HideCondition="WixUI_InstallMode = &quot;Remove&quot; OR REMOVE~=&quot;ALL&quot;" />
         <Control Id="Description"
                    Type="Text"
                    X="25"
                    Y="55"
                    Width="320"
-                   Height="40"
+                   Height="60"
                    Transparent="yes"
                    NoPrefix="yes"
                    Text="!(loc.UserDataDlgUninstallDescription)"
-                   HideCondition="WixUI_InstallMode &lt;&gt; &quot;Remove&quot;" />
+                   HideCondition="WixUI_InstallMode &lt;&gt; &quot;Remove&quot; AND NOT REMOVE~=&quot;ALL&quot;" />
         <Control Id="DescriptionReinstall"
                    Type="Text"
                    X="25"
                    Y="55"
                    Width="320"
-                   Height="40"
+                   Height="60"
                    Transparent="yes"
                    NoPrefix="yes"
                    Text="!(loc.UserDataDlgDescription)"
-                   HideCondition="WixUI_InstallMode = &quot;Remove&quot;" />
+                   HideCondition="WixUI_InstallMode = &quot;Remove&quot; OR REMOVE~=&quot;ALL&quot;" />
         <Control Id="RemoveUserDataCheckBox"
                    Type="CheckBox"
                    X="25"
-                   Y="105"
+                   Y="125"
                    Width="320"
                    Height="17"
                    Property="REMOVEUSERDATA"
@@ -103,7 +103,7 @@
         <Control Id="CheckBoxDescription"
                    Type="Text"
                    X="43"
-                   Y="125"
+                   Y="145"
                    Width="300"
                    Height="50"
                    Transparent="yes"
