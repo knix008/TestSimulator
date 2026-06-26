@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using HWP2DocWinV10.Export;
 
 namespace HWP2DocWinV10.Services;
 
@@ -39,7 +40,33 @@ internal static class HwpConversionService
 
         Directory.CreateDirectory(outputDirectory);
 
-        progress?.Report("HWP 문서를 Markdown으로 변환하는 중...");
+        if (RhwpLocator.IsAvailable())
+        {
+            try
+            {
+                return await RhwpConversionService.ConvertAsync(
+                    inputPath,
+                    outputDirectory,
+                    progress,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or FileNotFoundException)
+            {
+                progress?.Report($"rhwp 변환 실패 ({ex.Message.Split('\n')[0]}), unhwp로 재시도합니다...");
+            }
+        }
+
+        return await ConvertWithUnhwpAsync(inputPath, outputDirectory, progress, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<HwpConversionResult> ConvertWithUnhwpAsync(
+        string inputPath,
+        string outputDirectory,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        progress?.Report("unhwp로 문서를 Markdown으로 변환하는 중...");
         await RunUnhwpConvertAsync(inputPath, outputDirectory, cancellationToken).ConfigureAwait(false);
 
         string baseName = Path.GetFileNameWithoutExtension(inputPath);
@@ -61,6 +88,10 @@ internal static class HwpConversionService
 
         string markdown = await File.ReadAllTextAsync(markdownPath, Encoding.UTF8, cancellationToken)
             .ConfigureAwait(false);
+        markdown = MarkdownHeadingNormalizer.Normalize(markdown);
+        markdown = MarkdownPipeTableNormalizer.Normalize(markdown);
+        markdown = MarkdownImageConsolidator.Consolidate(markdown, outputDirectory);
+        markdown = MarkdownAssetPathResolver.RewriteMarkdownImages(markdown, outputDirectory);
 
         return new HwpConversionResult
         {
@@ -81,7 +112,7 @@ internal static class HwpConversionService
     private static async Task RunUnhwpMarkdownAsync(string inputPath, string markdownPath, CancellationToken cancellationToken)
     {
         await RunUnhwpAsync(
-            $"markdown \"{inputPath}\" -o \"{markdownPath}\" --table-mode html --cleanup standard",
+            $"markdown \"{inputPath}\" -o \"{markdownPath}\" --table-mode html --max-heading 6 --cleanup standard",
             cancellationToken).ConfigureAwait(false);
     }
 

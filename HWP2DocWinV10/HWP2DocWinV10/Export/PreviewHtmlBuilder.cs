@@ -14,12 +14,7 @@ internal static class PreviewHtmlBuilder
 
     public static string BuildFullPage(string markdown, string? assetDirectory, float fontSizePt = AppUserSettings.DefaultFontSize)
     {
-        string normalized = MarkdownPreviewNormalizer.Normalize(markdown);
-        string anchored = MarkdownLineAnchorInjector.Inject(normalized);
-        string body = Markdown.ToHtml(anchored, Pipeline);
-        body = RewriteRelativeImages(body, assetDirectory);
-        body = WrapHtmlTables(body);
-        return WrapPage(body, fontSizePt, forExport: false, isEditor: false);
+        return BuildRenderedPage(markdown, assetDirectory, fontSizePt, forExport: false, useVirtualHost: true);
     }
 
     public static string BuildEditorPage(string markdown, float fontSizePt = AppUserSettings.DefaultFontSize)
@@ -31,13 +26,37 @@ internal static class PreviewHtmlBuilder
 
     public static string BuildForExport(string markdown, string? assetDirectory, float fontSizePt)
     {
+        return BuildRenderedPage(markdown, assetDirectory, fontSizePt, forExport: true, useVirtualHost: false);
+    }
+
+    public static string BuildForPdfExport(string markdown, string? assetDirectory, float fontSizePt)
+    {
+        return BuildRenderedPage(markdown, assetDirectory, fontSizePt, forExport: true, useVirtualHost: true);
+    }
+
+    private static string BuildRenderedPage(
+        string markdown,
+        string? assetDirectory,
+        float fontSizePt,
+        bool forExport,
+        bool useVirtualHost)
+    {
         string normalized = MarkdownPreviewNormalizer.Normalize(markdown);
+        normalized = useVirtualHost
+            ? MarkdownAssetPathResolver.RewriteMarkdownImagesForVirtualHost(normalized, assetDirectory)
+            : MarkdownAssetPathResolver.RewriteMarkdownImages(normalized, assetDirectory);
+
         string anchored = MarkdownLineAnchorInjector.Inject(normalized);
         string body = Markdown.ToHtml(anchored, Pipeline);
-        body = RewriteRelativeImages(body, assetDirectory);
+        body = useVirtualHost
+            ? MarkdownAssetPathResolver.RewriteHtmlImagesForVirtualHost(body, assetDirectory)
+            : MarkdownAssetPathResolver.RewriteHtmlImages(body, assetDirectory);
+
         body = WrapHtmlTables(body);
-        body = ApplyExportFontStyles(body, fontSizePt);
-        return WrapPage(body, fontSizePt, forExport: true, isEditor: false);
+        if (forExport)
+            body = ApplyExportFontStyles(body, fontSizePt);
+
+        return WrapPage(body, fontSizePt, forExport, isEditor: false);
     }
 
     private static string EncodeHtmlText(string text)
@@ -74,32 +93,11 @@ internal static class PreviewHtmlBuilder
             RegexOptions.IgnoreCase);
     }
 
-    private static string RewriteRelativeImages(string html, string? assetDirectory)
-    {
-        if (string.IsNullOrWhiteSpace(assetDirectory))
-            return html;
-
-        return Regex.Replace(
-            html,
-            """(<img\b[^>]*\bsrc\s*=\s*["'])(?!https?:|data:|file:)([^"']+)(["'])""",
-            match =>
-            {
-                string relativePath = match.Groups[2].Value.Replace('/', Path.DirectorySeparatorChar);
-                string absolutePath = Path.GetFullPath(Path.Combine(assetDirectory, relativePath));
-                if (!File.Exists(absolutePath))
-                    return match.Value;
-
-                string fileUri = new Uri(absolutePath).AbsoluteUri;
-                return match.Groups[1].Value + fileUri + match.Groups[3].Value;
-            },
-            RegexOptions.IgnoreCase);
-    }
-
     private static string WrapHtmlTables(string html)
     {
         return Regex.Replace(
             html,
-            @"<table\b",
+            @"(?<!<div class=""table-wrap"">)<table\b",
             "<div class=\"table-wrap\"><table",
             RegexOptions.IgnoreCase);
     }
@@ -133,15 +131,45 @@ internal static class PreviewHtmlBuilder
         string printFontRule = forExport
             ? $"                  .markdown-body {{ font-size: {fontSizeCss}pt !important; }}"
             : string.Empty;
+        string shellStyles = forExport
+            ? """
+                body {
+                  padding: 24px 16px 32px;
+                }
+              """
+            : """
+                html, body {
+                  height: 100%;
+                }
+                body {
+                  min-height: 100%;
+                  display: flex;
+                  flex-direction: column;
+                  padding: 12px 10px 12px;
+                }
+                .page {
+                  flex: 1 1 auto;
+                  min-height: 100%;
+                  display: flex;
+                  flex-direction: column;
+                }
+                .markdown-body {
+                  flex: 1 1 auto;
+                  min-height: 100%;
+                }
+              """;
         string editorStyles = isEditor
             ? """
                 article.markdown-body.is-editor {
-                  min-height: 0;
+                  display: flex;
+                  flex-direction: column;
+                  min-height: 100%;
                 }
                 textarea.markdown-editor {
                   display: block;
                   width: 100%;
-                  min-height: 0;
+                  flex: 1 1 auto;
+                  min-height: 100%;
                   border: none;
                   outline: none;
                   padding: 0;
@@ -167,7 +195,7 @@ internal static class PreviewHtmlBuilder
 
                 const syncEditorHeight = () => {
                   if (editor.value.length === 0) {
-                    editor.style.height = '0px';
+                    editor.style.height = '';
                     return;
                   }
 
@@ -238,11 +266,11 @@ internal static class PreviewHtmlBuilder
                 html { background: #f3f4f6; }
                 body {
                   margin: 0;
-                  padding: 24px 16px 32px;
                   background: #f3f4f6;
                   -webkit-font-smoothing: antialiased;
                   text-rendering: optimizeLegibility;
                 }
+            {{shellStyles}}
                 .page {
                   width: 100%;
                   max-width: 920px;

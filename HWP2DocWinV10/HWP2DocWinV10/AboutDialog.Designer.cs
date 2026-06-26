@@ -121,7 +121,7 @@ partial class AboutDialog
         lblCopyright.Name = "lblCopyright";
         lblCopyright.Size = new Size(164, 15);
         lblCopyright.TabIndex = 6;
-        lblCopyright.Text = "Copyright © 2026 HWP2Doc";
+        lblCopyright.Text = "Copyright © 2026 SHKWON (knix008@naver.com)";
         // 
         // btnOk
         // 

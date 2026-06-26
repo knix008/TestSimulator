@@ -18,15 +18,18 @@ internal static class AppUserSettings
 
     public static StructurePanelSide StructurePanelSide { get; private set; } = StructurePanelSide.Right;
 
-    public static bool StructurePanelVisible { get; private set; } = true;
+    public static bool StructurePanelVisible { get; private set; } = false;
 
     public static float FontSize { get; private set; } = DefaultFontSize;
+
+    public static string? LastDirectory { get; private set; }
 
     public static void Load()
     {
         StructurePanelSide = StructurePanelSide.Right;
-        StructurePanelVisible = true;
+        StructurePanelVisible = false;
         FontSize = DefaultFontSize;
+        LastDirectory = null;
 
         try
         {
@@ -54,14 +57,30 @@ internal static class AppUserSettings
                     if (float.TryParse(fontSize, out float parsedFontSize))
                         FontSize = Math.Clamp(parsedFontSize, 8f, 24f);
                 }
+                else if (line.StartsWith("LastDirectory=", StringComparison.OrdinalIgnoreCase))
+                {
+                    string directory = line["LastDirectory=".Length..].Trim();
+                    if (Directory.Exists(directory))
+                        LastDirectory = directory;
+                }
             }
         }
         catch
         {
             StructurePanelSide = StructurePanelSide.Right;
-            StructurePanelVisible = true;
+            StructurePanelVisible = false;
             FontSize = DefaultFontSize;
+            LastDirectory = null;
         }
+    }
+
+    public static void SetLastDirectory(string? directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            return;
+
+        LastDirectory = directory;
+        Save();
     }
 
     public static void SetStructurePanelSide(StructurePanelSide side)
@@ -92,7 +111,8 @@ internal static class AppUserSettings
                 [
                     $"StructurePanelSide={StructurePanelSide}",
                     $"StructurePanelVisible={StructurePanelVisible}",
-                    $"FontSize={FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+                    $"FontSize={FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+                    $"LastDirectory={LastDirectory ?? string.Empty}"
                 ]);
         }
         catch
