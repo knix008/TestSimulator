@@ -6,7 +6,7 @@
         Height="482"
         MinWidth="280"
         MaxWidth="720"
-        MinHeight="68"
+        MinHeight="76"
         MaxHeight="560"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -38,13 +38,14 @@
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="8,6"
-                ClipToBounds="True">
+                ClipToBounds="False">
             <Grid>
                 <ListBox x:Name="ResultsList"
                          VerticalAlignment="Stretch"
                          HorizontalAlignment="Stretch"
                          BorderThickness="0"
                          Background="Transparent"
+                         Padding="0,0,0,4"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"
                          ScrollViewer.CanContentScroll="False"
@@ -78,7 +79,8 @@
                             <TextBlock Text="{Binding Directory}"
                                        FontSize="11"
                                        Foreground="{DynamicResource SubTextBrush}"
-                                       TextTrimming="CharacterEllipsis"/>
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,0,1"/>
                         </StackPanel>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

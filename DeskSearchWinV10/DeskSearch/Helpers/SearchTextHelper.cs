@@ -29,10 +29,58 @@ internal static class SearchTextHelper
         return value.Normalize(NormalizationForm.FormC);
     }
 
+    /// <summary>
+    /// Normalizes a user search term. Path-like input (e.g. pasted from Explorer) is reduced
+    /// to the final name segment so search never runs against full paths.
+    /// </summary>
+    public static string NormalizeSearchTerm(string term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return string.Empty;
+
+        var trimmed = term.Trim();
+        if ((trimmed.Contains('\\') || trimmed.Contains('/')) && !ContainsWildcards(trimmed))
+        {
+            var last = Path.GetFileName(trimmed.TrimEnd('\\', '/'));
+            if (!string.IsNullOrEmpty(last))
+                trimmed = last;
+        }
+
+        return Normalize(trimmed);
+    }
+
+    /// <summary>
+    /// Immediate parent folder name only — a single path segment, never a full path.
+    /// </summary>
+    public static string NormalizeParentDirectoryName(string parentDirectoryPath)
+    {
+        var segment = FileEntry.ResolveDirectoryName(parentDirectoryPath);
+        if (string.IsNullOrEmpty(segment))
+            return string.Empty;
+
+        if (segment.Contains('\\') || segment.Contains('/'))
+            segment = Path.GetFileName(segment.TrimEnd('\\', '/')) ?? string.Empty;
+
+        return Normalize(segment);
+    }
+
     public static StringComparison GetComparison(bool caseSensitive) =>
         caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
-    public static int ScoreLiteralName(string name, string query, StringComparison comparison)
+    public static int ScoreLiteralFileName(string name, string query, StringComparison comparison) =>
+        ScoreLiteralNameSegment(name, query, comparison, exact: 100, prefix: 80, contains: 60);
+
+    /// <summary>Scores against the entry name: file name for files, folder name for directories.</summary>
+    public static int ScoreLiteralEntry(FileEntry entry, string query, StringComparison comparison) =>
+        ScoreLiteralFileName(entry.SearchFileName, query, comparison);
+
+    private static int ScoreLiteralNameSegment(
+        string name,
+        string query,
+        StringComparison comparison,
+        int exact,
+        int prefix,
+        int contains)
     {
         if (string.IsNullOrEmpty(name))
             return 0;
@@ -43,19 +91,16 @@ internal static class SearchTextHelper
 
         var text = Normalize(name);
         if (text.Equals(term, comparison))
-            return 100;
+            return exact;
 
         if (text.StartsWith(term, comparison))
-            return 80;
+            return prefix;
 
         if (text.Contains(term, comparison))
-            return 60;
+            return contains;
 
         return 0;
     }
-
-    public static int ScoreLiteralEntry(string searchFileName, string query, StringComparison comparison) =>
-        ScoreLiteralName(searchFileName, query, comparison);
 
     public static string WildcardToContainsLike(string pattern)
     {
@@ -93,7 +138,7 @@ internal static class SearchTextHelper
         var containsLike = WildcardToContainsLike(trimmed);
 
         if (!ContainsWildcards(trimmed))
-            return (Normalize(trimmed), containsLike, containsLike);
+            return (NormalizeSearchTerm(trimmed), containsLike, containsLike);
 
         var startsWithStar = trimmed.StartsWith('*');
         var endsWithStar = trimmed.EndsWith('*');
@@ -105,7 +150,7 @@ internal static class SearchTextHelper
             var prefix = trimmed.TrimEnd('*');
             if (prefix.Length > 0)
             {
-                exact = Normalize(prefix);
+                exact = NormalizeSearchTerm(prefix);
                 prefixLike = EscapeLike(exact) + "%";
             }
         }

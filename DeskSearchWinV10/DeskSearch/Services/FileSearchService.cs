@@ -195,8 +195,8 @@ public sealed class FileSearchService
         foreach (var term in terms)
         {
             var score = term.Pattern is not null
-                ? ScoreRegex(entry, term.Pattern)
-                : SearchTextHelper.ScoreLiteralEntry(entry.SearchFileName, term.NormalizedText, comparison);
+                ? ScoreRegexName(entry.SearchFileName, term.Pattern)
+                : SearchTextHelper.ScoreLiteralEntry(entry, term.NormalizedText, comparison);
 
             if (score == 0)
                 return 0;
@@ -207,20 +207,19 @@ public sealed class FileSearchService
         return minScore;
     }
 
-    private static int ScoreLiteral(FileEntry entry, string query, StringComparison comparison) =>
-        SearchTextHelper.ScoreLiteralEntry(entry.SearchFileName, query, comparison);
-
-    private static int ScoreRegex(FileEntry entry, Regex regex)
+    private static int ScoreRegexName(string text, Regex regex)
     {
-        var fileName = entry.SearchFileName;
-        var fileMatch = regex.Match(fileName);
-        if (!fileMatch.Success)
+        if (string.IsNullOrEmpty(text))
             return 0;
 
-        if (fileMatch.Index == 0 && fileMatch.Length == fileName.Length)
+        var match = regex.Match(text);
+        if (!match.Success)
+            return 0;
+
+        if (match.Index == 0 && match.Length == text.Length)
             return 100;
 
-        if (fileMatch.Index == 0)
+        if (match.Index == 0)
             return 80;
 
         return 60;

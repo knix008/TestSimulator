@@ -11,7 +11,9 @@ public sealed record FileEntry(
 
     public string SearchFileName { get; } = Helpers.SearchTextHelper.Normalize(FileName);
 
-    public string SearchDirectoryName { get; } = Helpers.SearchTextHelper.Normalize(ResolveDirectoryName(Directory));
+    /// <summary>Parent folder name stored for indexing metadata only; not used in search.</summary>
+    public string SearchDirectoryName { get; } =
+        Helpers.SearchTextHelper.NormalizeParentDirectoryName(Directory);
 
     internal static string ResolveDirectoryName(string directory)
     {

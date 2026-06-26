@@ -49,6 +49,6 @@ public sealed record SearchTerm
     {
         Text = text;
         Pattern = pattern;
-        NormalizedText = Helpers.SearchTextHelper.Normalize(text.Trim());
+        NormalizedText = Helpers.SearchTextHelper.NormalizeSearchTerm(text);
     }
 }

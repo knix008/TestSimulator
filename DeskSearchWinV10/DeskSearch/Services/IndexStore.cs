@@ -432,6 +432,8 @@ public sealed partial class IndexStore : IDisposable
                 "CREATE INDEX IF NOT EXISTS idx_entries_search_file_name ON entries(search_file_name)");
             ExecuteNonQuery(
                 "CREATE INDEX IF NOT EXISTS idx_entries_search_file_name_nocase ON entries(search_file_name COLLATE NOCASE)");
+            ExecuteNonQuery(
+                "CREATE INDEX IF NOT EXISTS idx_entries_search_directory_nocase ON entries(search_directory COLLATE NOCASE)");
 
             var version = GetUserVersion();
             if (version < 5)
@@ -505,7 +507,7 @@ public sealed partial class IndexStore : IDisposable
                 lastId = id;
                 var directory = reader.GetString(1);
                 var currentSearchDirectory = reader.GetString(2);
-                var searchDirectoryName = SearchTextHelper.Normalize(FileEntry.ResolveDirectoryName(directory));
+                var searchDirectoryName = SearchTextHelper.NormalizeParentDirectoryName(directory);
                 if (!string.Equals(currentSearchDirectory, searchDirectoryName, StringComparison.Ordinal))
                     updates.Add((id, searchDirectoryName));
             }

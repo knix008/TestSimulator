@@ -106,6 +106,34 @@ public partial class ResultsWindow : Window
                 : ScrollBarVisibility.Disabled);
     }
 
+    /// <summary>Window height for <paramref name="resultCount"/> rows using measured item height when available.</summary>
+    public double CalculateHeightForResultCount(int resultCount, int maxVisibleWithoutScroll, double fallbackItemHeight, double chromeHeight)
+    {
+        var visibleRows = Math.Clamp(resultCount, 1, maxVisibleWithoutScroll);
+        var itemHeight = MeasureItemHeight(fallbackItemHeight);
+        return chromeHeight + (visibleRows * itemHeight);
+    }
+
+    private double MeasureItemHeight(double fallback)
+    {
+        if (_boundResults.Count == 0)
+            return fallback;
+
+        ResultsList.UpdateLayout();
+
+        if (ResultsList.ItemContainerGenerator.ContainerFromIndex(0) is FrameworkElement item)
+        {
+            if (item.ActualHeight > 0)
+                return item.ActualHeight;
+
+            item.Measure(new System.Windows.Size(ResultsList.ActualWidth > 0 ? ResultsList.ActualWidth : Width, double.PositiveInfinity));
+            if (item.DesiredSize.Height > 0)
+                return item.DesiredSize.Height;
+        }
+
+        return fallback;
+    }
+
     private static bool ResultsSequenceEquals(
         IReadOnlyList<FileEntry> current,
         IReadOnlyList<FileEntry> next)

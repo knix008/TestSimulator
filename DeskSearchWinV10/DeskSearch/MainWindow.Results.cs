@@ -9,8 +9,8 @@ public partial class MainWindow
 {
     private const double ResultsWindowGap = 0;
     private const int MinVisibleResults = 10;
-    private const double ResultItemHeight = 46;
-    private const double ResultsChromeHeight = 22;
+    private const double ResultItemHeight = 52;
+    private const double ResultsChromeHeight = 26;
     private const double ResultsMinHeight = ResultsChromeHeight + ResultItemHeight;
     private const double ResultsMaxHeight = 560;
 
@@ -155,16 +155,28 @@ public partial class MainWindow
     private double ClampResultsWindowHeight(double height) =>
         Math.Clamp(height, ResultsMinHeight, ResultsMaxHeight);
 
-    private static double CalculateResultsWindowHeight(int resultCount)
-    {
-        var visibleRows = Math.Clamp(resultCount, 1, MinVisibleResults);
-        return ResultsChromeHeight + (visibleRows * ResultItemHeight);
-    }
+    private static double CalculateResultsWindowHeight(ResultsWindow window, int resultCount) =>
+        window.CalculateHeightForResultCount(resultCount, MinVisibleResults, ResultItemHeight, ResultsChromeHeight);
 
     private void ApplyResultsWindowHeight(ResultsWindow window, int resultCount)
     {
-        window.ConfigureForResultCount(resultCount, MinVisibleResults);
-        window.Height = ClampResultsWindowHeight(CalculateResultsWindowHeight(resultCount));
+        var calculated = CalculateResultsWindowHeight(window, resultCount);
+        var height = ClampResultsWindowHeight(calculated);
+
+        var maxVisibleWithoutScroll = MinVisibleResults;
+        if (height < calculated - 0.5)
+        {
+            var itemHeight = window.CalculateHeightForResultCount(1, 1, ResultItemHeight, 0);
+            if (itemHeight > 0)
+            {
+                maxVisibleWithoutScroll = Math.Max(
+                    1,
+                    (int)Math.Floor((height - ResultsChromeHeight) / itemHeight));
+            }
+        }
+
+        window.ConfigureForResultCount(resultCount, maxVisibleWithoutScroll);
+        window.Height = height;
     }
 
     private void ApplyThemeToResultsWindow()
