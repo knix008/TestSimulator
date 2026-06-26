@@ -15,8 +15,9 @@ Windows용 아래한글(HWP/HWPX) 문서 변환 도구입니다. 한컴 SDK 없�
 |------|-----------|
 | Release MSI 설치 패키지 빌드 | [WiX Toolset](https://wixtoolset.org/) 6.x (`WixToolset.Sdk` NuGet으로 자동 복원) |
 | UI 디자이너 편집 | Visual Studio 2022 이상 (WinForms Designer) |
-| 표·그림 고품질 변환 (rhwp) | `Tools/rhwp/rhwp.exe` (저장소에 번들, MSI 포함) |
-| LLM Markdown 정리 | [Ollama](https://ollama.com/) 로컬 실행 (`http://localhost:11434`) |
+| **rhwp** 엔진 | `Tools/rhwp/rhwp.exe` (저장소에 번들, MSI 포함) |
+| **hwp2md** 엔진 (roboco / hephaex) | 각 `Tools/hwp2md-*/hwp2md.exe` (로컬 빌드·복사, MSI 미포함) |
+| LLM Markdown 구조화 | [Ollama](https://ollama.com/) 로컬 실행 (`http://localhost:11434`) |
 
 ## 빌드 / 실행
 
@@ -51,6 +52,8 @@ Release 빌드는 경고를 오류로 처리합니다(`TreatWarningsAsErrors=tru
 | 사전 요구 | .NET 10 Desktop Runtime, WebView2 Runtime |
 | 번들 도구 | `Tools\rhwp\rhwp.exe` (표·그림 변환) |
 
+`hwp2md` 엔진 바이너리는 MSI에 **포함되지 않습니다**. 개발·비교용으로 별도 설치합니다.
+
 MSI만 별도로 빌드하려면:
 
 ```powershell
@@ -60,7 +63,8 @@ dotnet build HWP2DocWinV10.Installer\HWP2DocWinV10.Installer.wixproj -c Release
 ## 주요 기능
 
 - **HWP / HWPX 열기**: `.hwp`, `.hwpx` 파일을 Markdown으로 변환
-- **변환 옵션**: rhwp 사용 여부, LLM Markdown 정리 (Ollama) 선택
+- **변환 엔진 선택**: unhwp(기본), rhwp, hwp2md(roboco-io), hwp2md(hephaex)
+- **변환 옵션**: 엔진·LLM 구조화(표·제목·목록·HTML 대상 선택, 빠른 모드)
 - **Markdown 편집 + 미리보기**: WebView2 기반 — 좌측 원문 편집, 우측 렌더링 미리보기
 - **문서 구조 패널**: 제목·표·목록 등을 트리로 표시 (기본 **숨김**, 툴바 토글)
 - **보기 옵션**: 문서 구조 표시/숨김, 왼쪽/오른쪽 배치, 폰트 크기(8~24 pt, 기본 10 pt)
@@ -69,51 +73,58 @@ dotnet build HWP2DocWinV10.Installer\HWP2DocWinV10.Installer.wixproj -c Release
 - **오류 상세 표시**: 실패 시 상세 내용 팝업 및 클립보드 복사
 - **프로그램 정보**: 메뉴 **정보** 및 툴바 **정보** 버튼 (F1)
 
-## 화면 구성
+## 변환 엔진
 
-기본 배치(문서 구조 패널은 **숨김**):
+변환 옵션 대화 상자에서 **라디오 버튼**으로 엔진을 선택합니다. 모든 엔진은 unhwp로 문서 구조를 분석한 뒤, 선택 엔진으로 Markdown을 생성하고 공통 후처리를 적용합니다.
 
+| 엔진 | 설명 | 필요 파일 |
+|------|------|-----------|
+| **unhwp** (기본) | NuGet 내장. 별도 설치 없음 | — |
+| **rhwp** | 표·그림·본문 변환 | `Tools\rhwp\rhwp.exe` |
+| **hwp2md (roboco-io)** | MIT CLI, 복잡한 표·레이아웃 비교용 | `Tools\hwp2md-roboco\hwp2md.exe` |
+| **hwp2md (hephaex)** | GPL-3.0 CLI, colspan·CommonMark 표 | `Tools\hwp2md-hephaex\hwp2md.exe` |
+
+시작 시 상태 표시줄 예: `준비 — 엔진: unhwp, rhwp, hwp2md-roboco, hwp2md-hephaex`
+
+### hwp2md 설치 (선택)
+
+```powershell
+# roboco-io (MIT)
+go install github.com/roboco-io/hwp2md/cmd/hwp2md@latest
+# → %USERPROFILE%\go\bin\hwp2md.exe 를 Tools\hwp2md-roboco\ 에 복사
+
+# hephaex (GPL-3.0) — Rust 필요
+cargo install hwp2md
+# → %USERPROFILE%\.cargo\bin\hwp2md.exe 를 Tools\hwp2md-hephaex\ 에 복사
 ```
-[ Markdown 편집 (WebView2) ] | [ 미리보기 (WebView2) ]
-```
 
-문서 구조 패널을 켜면 Markdown·미리보기 옆(왼쪽 또는 오른쪽)에 트리 패널이 표시됩니다.
-
-- **Markdown**: Markdig와 동일한 HTML/CSS 껍데기 안에서 원문을 편집합니다.
-- **미리보기**: 변환된 Markdown을 HTML로 렌더링합니다.
-- **문서 구조**: 툴바 **문서 구조** 또는 **보기** 메뉴에서 표시/숨김·위치 변경. 숨김 시 Markdown과 미리보기가 **50:50** 너비입니다.
-
-### 툴바
-
-열기 · 변환 · Markdown/Word/PDF 보내기 · 글꼴 · **문서 구조** · 정보
+자세한 안내: [Tools/hwp2md-roboco/README.md](Tools/hwp2md-roboco/README.md), [Tools/hwp2md-hephaex/README.md](Tools/hwp2md-hephaex/README.md)
 
 ## 변환 파이프라인
 
-열기·변환 시 **변환 옵션** 대화 상자가 표시됩니다.
-
 ```
 1. unhwp — 문서 구조(JSON) 분석, 제목 힌트 추출
-2. rhwp (옵션 ON && rhwp.exe 있음)
-     → export-markdown: 표·그림·본문 Markdown 생성
-     → unhwp: 임베드 그림 자산 보조 추출
-   rhwp OFF 또는 실패
-     → unhwp ToMarkdown
-3. 후처리 — 줄바꿈 복원, 표 정규화, 이미지 경로 통합
-4. LLM (옵션 ON) — Ollama로 Markdown 서식 정리 (내용 유지)
+2. 선택 엔진으로 Markdown 생성
+     unhwp  → ToMarkdown()
+     rhwp   → export-markdown + unhwp 자산 보조 추출
+     hwp2md → 외부 CLI (roboco / hephaex)
+3. 제목 구조 반영 (unhwp JSON 힌트)
+4. 규칙 기반 후처리 — HTML 표→GFM 파이프 표, 표 정규화, 제목·줄바꿈·이미지 경로
+5. LLM (옵션) — Ollama로 선택 대상(표·제목·목록·HTML) 구조화
 ```
 
 | 구성 요소 | 역할 |
 |-----------|------|
-| [unhwp](https://www.nuget.org/packages/Unhwp) 0.5.1 (MIT) | HWP/HWPX 파싱, Markdown 변환(폴백), 제목 구조·자산 추출 |
-| [rhwp](https://github.com/edwardkim/rhwp) v0.7.17 (MIT) | 표·그림·본문 Markdown (`Tools/rhwp/rhwp.exe`, MSI 번들) |
-| [Ollama](https://ollama.com/) (선택) | 로컬 LLM — Markdown 서식 정리 (`OllamaClient`) |
+| [unhwp](https://www.nuget.org/packages/Unhwp) 0.5.1 (MIT) | HWP/HWPX 파싱, 구조 분석, 기본 변환, 자산 추출 |
+| [rhwp](https://github.com/edwardkim/rhwp) v0.7.17 (MIT) | 표·그림·본문 Markdown (`Tools/rhwp/rhwp.exe`) |
+| [roboco-io/hwp2md](https://github.com/roboco-io/hwp2md) (MIT) | 대체 Markdown CLI |
+| [hephaex/hwp2md](https://github.com/hephaex/hwp2md) (GPL-3.0) | 대체 Markdown CLI |
+| [Ollama](https://ollama.com/) (선택) | 로컬 LLM — Markdown 구조화 (`OllamaClient`) |
 | Markdig | Markdown → HTML 미리보기 |
 | Microsoft WebView2 | Markdown 편집 UI, HTML 미리보기, PDF 생성 |
 | DocumentFormat.OpenXml | Word(`.docx`) 보내기 (HTML AltChunk) |
 
-시작 시 상태 표시줄: `준비 — rhwp 사용 가능` / `준비 — rhwp 없음 (unhwp만 사용)`
-
-> 한컴 SDK를 사용하지 않으므로, 복잡한 머리글·번호 매기기·세밀한 레이아웃은 원본과 다를 수 있습니다. rhwp v0.7은 병합 셀·중첩 표 등에 한계가 있습니다.
+> 한컴 SDK를 사용하지 않으므로, 복잡한 머리글·번호 매기기·세밀한 레이아웃은 원본과 다를 수 있습니다.
 
 ## rhwp 바이너리
 
@@ -121,7 +132,7 @@ dotnet build HWP2DocWinV10.Installer\HWP2DocWinV10.Installer.wixproj -c Release
 |------|------|
 | 위치 | `Tools/rhwp/rhwp.exe` |
 | 출처 | [edwardkim/rhwp releases](https://github.com/edwardkim/rhwp/releases) |
-| 빌드 | `HWP2DocWinV10.csproj`가 출력 폴더 `Tools\rhwp\`로 복사 |
+| 빌드 | `HWP2DocWinV10.csproj`가 출력 폴더 `Tools\` 하위로 복사 |
 | MSI | `VerifyInstallerPayload`에서 필수 파일로 검증 |
 
 자세한 내용은 [Tools/rhwp/README.md](Tools/rhwp/README.md)를 참고하세요.
@@ -141,6 +152,8 @@ dotnet run --project Tools\GenerateIcon\GenerateIcon.csproj -- HWP2DocWinV10\Ass
 dotnet run --project Tools\VerifyUnhwp\VerifyUnhwp.csproj -c Release -- path\to\sample.hwp
 ```
 
+로컬 샘플 HWP는 `Tools\test-samples\`에 두고 사용할 수 있습니다 (`.gitignore`로 제외).
+
 ## 문서
 
 - [UsersGuide.md](UsersGuide.md) — 기능별 상세 사용 설명
@@ -154,22 +167,25 @@ HWP2DocWinV10/
 ├── UsersGuide.md
 ├── HWP2DocWinV10/
 │   ├── HWP2DocForm.cs              # 메인 UI (편집·미리보기·구조·보내기)
-│   ├── ConvertOptionsDialog.cs     # 변환 옵션 (rhwp / LLM)
-│   ├── LlmSettingsDialog.cs        # Ollama 모델 설정
+│   ├── ConvertOptionsDialog.cs     # 변환 옵션 (엔진 / LLM)
+│   ├── LlmSettingsDialog.cs        # Ollama 모델·처리 대상 설정
 │   ├── AboutDialog.cs              # 프로그램 정보
-│   ├── ErrorDialog.cs              # 오류 상세 팝업
 │   ├── AppUserSettings.cs          # 사용자 설정 저장/로드
 │   ├── Export/                     # Markdown 후처리·미리보기·보내기
-│   ├── Services/
-│   │   ├── HwpConversionService.cs # HWP 변환 파이프라인
-│   │   ├── RhwpConversionService.cs
-│   │   ├── RhwpLocator.cs
-│   │   └── OllamaClient.cs         # LLM 정리
-│   └── Assets/                     # 앱 아이콘, 툴바 아이콘
+│   └── Services/
+│       ├── HwpConversionService.cs # HWP 변환 파이프라인
+│       ├── HwpConversionEngine.cs  # 엔진 목록·탐색
+│       ├── Hwp2MdConversionService.cs
+│       ├── RhwpConversionService.cs
+│       ├── ExternalToolLocator.cs
+│       └── OllamaClient.cs         # LLM 구조화
 ├── Tools/
 │   ├── GenerateIcon/               # 앱·툴바 아이콘 생성
 │   ├── VerifyUnhwp/                # unhwp 변환 검증 (개발용)
-│   └── rhwp/                       # rhwp.exe (MSI 번들)
+│   ├── rhwp/                       # rhwp.exe (MSI 번들)
+│   ├── hwp2md-roboco/              # hwp2md roboco-io (선택)
+│   ├── hwp2md-hephaex/             # hwp2md hephaex (선택)
+│   └── test-samples/               # 로컬 테스트 HWP (git 제외)
 └── HWP2DocWinV10.Installer/        # WiX MSI 설치 패키지
 ```
 
@@ -182,5 +198,7 @@ HWP2DocWinV10/
 | HWP2DocWinV10 | (저장소 정책) |
 | unhwp | MIT |
 | rhwp | MIT |
+| hwp2md (roboco-io) | MIT |
+| hwp2md (hephaex) | GPL-3.0 |
 | Markdig | BSD-2-Clause |
 | DocumentFormat.OpenXml | MIT |

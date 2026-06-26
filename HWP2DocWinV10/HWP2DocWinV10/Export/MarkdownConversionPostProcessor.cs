@@ -10,9 +10,13 @@ internal static class MarkdownConversionPostProcessor
         if (string.IsNullOrWhiteSpace(markdown))
             return string.Empty;
 
-        string text = markdown;
+        string text = markdown.Replace("\r\n", "\n").Replace('\r', '\n');
+        text = MarkdownJunkCharacterSanitizer.Sanitize(text);
+        text = MarkdownLineBreakRestorer.Restore(text);
+        text = MarkdownHtmlTableConverter.Convert(text);
+        text = MarkdownPipeTableNormalizer.Normalize(text);
         text = MarkdownHeadingNormalizer.Normalize(text);
-        text = MarkdownPreviewNormalizer.Normalize(text);
+        text = MarkdownPreviewNormalizer.NormalizeLayout(text);
         return text.Trim();
     }
 }

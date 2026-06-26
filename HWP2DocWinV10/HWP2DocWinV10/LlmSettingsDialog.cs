@@ -4,10 +4,36 @@ namespace HWP2DocWinV10;
 
 sealed partial class LlmSettingsDialog : Form
 {
+    private readonly Dictionary<LlmProcessingTargets, CheckBox> _targetChecks = new();
+
     public LlmSettingsDialog()
     {
         InitializeComponent();
         cboModel.Text = AppUserSettings.LlmModel;
+        BuildTargetCheckboxes();
+    }
+
+    private void BuildTargetCheckboxes()
+    {
+        LlmProcessingTargets saved = AppUserSettings.LlmProcessingTargets;
+
+        foreach (LlmProcessingTargetCatalog.Entry entry in LlmProcessingTargetCatalog.Entries)
+        {
+            var chk = new CheckBox
+            {
+                AutoSize = true,
+                Checked = saved.HasFlag(entry.Flag),
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(31, 35, 40),
+                Margin = new Padding(0, 0, 0, 6),
+                Tag = entry.Flag,
+                Text = $"{entry.Label} — {entry.Description}",
+                UseVisualStyleBackColor = true,
+                Width = flpTargets.ClientSize.Width - 8,
+            };
+            _targetChecks[entry.Flag] = chk;
+            flpTargets.Controls.Add(chk);
+        }
     }
 
     private async void btnTest_Click(object? sender, EventArgs e)
@@ -44,7 +70,26 @@ sealed partial class LlmSettingsDialog : Form
 
     private void btnOk_Click(object? sender, EventArgs e)
     {
+        LlmProcessingTargets targets = LlmProcessingTargets.None;
+        foreach ((LlmProcessingTargets flag, CheckBox check) in _targetChecks)
+        {
+            if (check.Checked)
+                targets |= flag;
+        }
+
+        if (targets == LlmProcessingTargets.None)
+        {
+            MessageBox.Show(
+                this,
+                "LLM 처리 대상을 하나 이상 선택하세요.",
+                "처리 대상 필요",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
+
         AppUserSettings.SetLlmModel(cboModel.Text);
+        AppUserSettings.SetLlmProcessingTargets(targets);
         DialogResult = DialogResult.OK;
     }
 }

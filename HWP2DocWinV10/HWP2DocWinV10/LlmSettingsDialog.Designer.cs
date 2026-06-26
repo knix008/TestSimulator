@@ -20,6 +20,8 @@ partial class LlmSettingsDialog
         cboModel = new ComboBox();
         btnTest = new Button();
         lblTestResult = new Label();
+        lblTargetsCaption = new Label();
+        flpTargets = new FlowLayoutPanel();
         btnOk = new Button();
         btnCancel = new Button();
         SuspendLayout();
@@ -74,7 +76,7 @@ partial class LlmSettingsDialog
         cboModel.Font = new Font("Segoe UI", 9F);
         cboModel.Location = new Point(110, 89);
         cboModel.Name = "cboModel";
-        cboModel.Size = new Size(210, 23);
+        cboModel.Size = new Size(300, 23);
         cboModel.TabIndex = 4;
         //
         // btnTest
@@ -98,6 +100,27 @@ partial class LlmSettingsDialog
         lblTestResult.Size = new Size(190, 15);
         lblTestResult.TabIndex = 6;
         //
+        // lblTargetsCaption
+        //
+        lblTargetsCaption.AutoSize = true;
+        lblTargetsCaption.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        lblTargetsCaption.ForeColor = Color.FromArgb(31, 35, 40);
+        lblTargetsCaption.Location = new Point(20, 172);
+        lblTargetsCaption.Name = "lblTargetsCaption";
+        lblTargetsCaption.Size = new Size(200, 15);
+        lblTargetsCaption.TabIndex = 7;
+        lblTargetsCaption.Text = "처리 대상 (하나 이상 선택)";
+        //
+        // flpTargets
+        //
+        flpTargets.AutoScroll = true;
+        flpTargets.FlowDirection = FlowDirection.TopDown;
+        flpTargets.Location = new Point(20, 194);
+        flpTargets.Name = "flpTargets";
+        flpTargets.Size = new Size(390, 118);
+        flpTargets.TabIndex = 8;
+        flpTargets.WrapContents = false;
+        //
         // btnOk
         //
         btnOk.BackColor = Color.FromArgb(37, 99, 235);
@@ -106,10 +129,10 @@ partial class LlmSettingsDialog
         btnOk.FlatStyle = FlatStyle.Flat;
         btnOk.Font = new Font("Segoe UI", 9.5F);
         btnOk.ForeColor = Color.White;
-        btnOk.Location = new Point(140, 175);
+        btnOk.Location = new Point(230, 328);
         btnOk.Name = "btnOk";
         btnOk.Size = new Size(90, 32);
-        btnOk.TabIndex = 7;
+        btnOk.TabIndex = 9;
         btnOk.Text = "저장";
         btnOk.UseVisualStyleBackColor = false;
         btnOk.Click += btnOk_Click;
@@ -118,10 +141,10 @@ partial class LlmSettingsDialog
         //
         btnCancel.DialogResult = DialogResult.Cancel;
         btnCancel.Font = new Font("Segoe UI", 9.5F);
-        btnCancel.Location = new Point(236, 175);
+        btnCancel.Location = new Point(326, 328);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(84, 32);
-        btnCancel.TabIndex = 8;
+        btnCancel.TabIndex = 10;
         btnCancel.Text = "취소";
         btnCancel.UseVisualStyleBackColor = true;
         //
@@ -132,7 +155,7 @@ partial class LlmSettingsDialog
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.White;
-        ClientSize = new Size(340, 222);
+        ClientSize = new Size(430, 378);
         Controls.Add(lblTitle);
         Controls.Add(lblEndpointCaption);
         Controls.Add(lblEndpoint);
@@ -140,6 +163,8 @@ partial class LlmSettingsDialog
         Controls.Add(cboModel);
         Controls.Add(btnTest);
         Controls.Add(lblTestResult);
+        Controls.Add(lblTargetsCaption);
+        Controls.Add(flpTargets);
         Controls.Add(btnOk);
         Controls.Add(btnCancel);
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -150,6 +175,7 @@ partial class LlmSettingsDialog
         StartPosition = FormStartPosition.CenterParent;
         Text = "LLM 설정";
         ResumeLayout(false);
+        PerformLayout();
     }
 
     private Label lblTitle;
@@ -159,6 +185,8 @@ partial class LlmSettingsDialog
     private ComboBox cboModel;
     private Button btnTest;
     private Label lblTestResult;
+    private Label lblTargetsCaption;
+    private FlowLayoutPanel flpTargets;
     private Button btnOk;
     private Button btnCancel;
 }

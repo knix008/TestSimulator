@@ -15,15 +15,18 @@ internal static class MarkdownPipeTableNormalizer
 
         string text = markdown.Replace("\r\n", "\n").Replace('\r', '\n');
         text = JoinMultilineTableRows(text);
-        text = RemoveEmptyTableArtifacts(text);
+        text = RepairPipeTableRows(text);
+        text = NormalizeBrInPipeRows(text);
+        text = AlignPipeTableColumns(text);
         text = RemoveEmptyPipeRows(text);
         text = RemoveOrphanSeparators(text);
         text = EnsureSeparators(text);
+        text = AlignPipeTableColumns(text);
         text = RemoveOrphanSeparators(text);
+        text = RemoveEmptyTableArtifacts(text);
         text = RemoveEmptyPipeRows(text);
         text = EnsureBlankLinesAroundImages(text);
         text = EnsureBlankLinesAroundTables(text);
-        text = RemoveEmptyPipeRows(text);
         text = RemoveOrphanSeparators(text);
         return text;
     }
@@ -94,6 +97,188 @@ internal static class MarkdownPipeTableNormalizer
         return string.Join('\n', result);
     }
 
+    private static readonly Regex BrTagRegex = new(
+        @"<br\s*/?>",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static string RepairPipeTableRows(string text)
+    {
+        var lines = text.Split('\n');
+        var result = new List<string>(lines.Length);
+        bool inHtmlTable = false;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i];
+            if (ContainsHtmlTableStart(line))
+                inHtmlTable = true;
+
+            if (inHtmlTable)
+            {
+                result.Add(line);
+                if (ContainsHtmlTableEnd(line))
+                    inHtmlTable = false;
+
+                continue;
+            }
+
+            result.Add(RepairPipeRow(line));
+        }
+
+        return string.Join('\n', result);
+    }
+
+    private static string RepairPipeRow(string line)
+    {
+        string trimmed = line.Trim();
+        if (trimmed.Length == 0 ||
+            IsPipeTableSeparator(trimmed) ||
+            IsPipeTableRow(trimmed) ||
+            trimmed.StartsWith("```", StringComparison.Ordinal) ||
+            trimmed.StartsWith("<!--", StringComparison.Ordinal))
+            return line;
+
+        int pipeCount = trimmed.Count(static c => c == '|');
+        if (pipeCount < 2)
+            return line;
+
+        string[] cells = trimmed
+            .Trim('|')
+            .Split('|')
+            .Select(static cell => cell.Trim())
+            .ToArray();
+
+        if (cells.Length < 2 || cells.All(static cell => cell.Length == 0))
+            return line;
+
+        return BuildPipeRow(cells);
+    }
+
+    private static string NormalizeBrInPipeRows(string text)
+    {
+        var lines = text.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string trimmed = lines[i].Trim();
+            if (IsPipeTableRow(lines[i]) || IsPipeTableSeparator(trimmed))
+                lines[i] = BrTagRegex.Replace(lines[i], " ");
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    private static string AlignPipeTableColumns(string text)
+    {
+        var lines = text.Split('\n');
+        var result = new List<string>(lines.Length);
+        bool inHtmlTable = false;
+        int i = 0;
+
+        while (i < lines.Length)
+        {
+            string line = lines[i];
+            if (ContainsHtmlTableStart(line))
+                inHtmlTable = true;
+
+            if (inHtmlTable)
+            {
+                result.Add(line);
+                if (ContainsHtmlTableEnd(line))
+                    inHtmlTable = false;
+
+                i++;
+                continue;
+            }
+
+            if (!IsPipeTableRow(line) && !IsPipeTableSeparator(line))
+            {
+                result.Add(line);
+                i++;
+                continue;
+            }
+
+            int start = i;
+            while (i < lines.Length)
+            {
+                string current = lines[i].Trim();
+                if (current.Length == 0)
+                    break;
+
+                if (!IsPipeTableRow(lines[i]) && !IsPipeTableSeparator(lines[i]))
+                    break;
+
+                i++;
+            }
+
+            result.AddRange(AlignTableBlock(lines, start, i));
+        }
+
+        return string.Join('\n', result);
+    }
+
+    private static IEnumerable<string> AlignTableBlock(string[] lines, int start, int end)
+    {
+        var parsedRows = new List<(bool IsSeparator, string[] Cells)>();
+        int maxColumns = 0;
+
+        for (int index = start; index < end; index++)
+        {
+            bool isSeparator = IsPipeTableSeparator(lines[index]);
+            string[] cells = ParsePipeCells(lines[index]);
+            maxColumns = Math.Max(maxColumns, cells.Length);
+            parsedRows.Add((isSeparator, cells));
+        }
+
+        if (maxColumns == 0)
+        {
+            for (int index = start; index < end; index++)
+                yield return lines[index];
+
+            yield break;
+        }
+
+        foreach ((bool isSeparator, string[] cells) in parsedRows)
+        {
+            if (isSeparator)
+                yield return BuildAlignedSeparator(maxColumns);
+            else
+                yield return BuildPipeRow(PadCells(cells, maxColumns));
+        }
+    }
+
+    private static string[] ParsePipeCells(string line)
+    {
+        string trimmed = line.Trim().Trim('|');
+        if (trimmed.Length == 0)
+            return [];
+
+        return trimmed.Split('|').Select(static cell => UnescapePipeCharacters(cell.Trim())).ToArray();
+    }
+
+    private static string[] PadCells(string[] cells, int columnCount)
+    {
+        var padded = new string[columnCount];
+        for (int index = 0; index < columnCount; index++)
+            padded[index] = index < cells.Length ? cells[index] : string.Empty;
+
+        return padded;
+    }
+
+    private static string BuildPipeRow(IReadOnlyList<string> cells) =>
+        "| " + string.Join(" | ", cells.Select(EscapePipeCharacters)) + " |";
+
+    private static string BuildAlignedSeparator(int columns)
+    {
+        var cells = Enumerable.Repeat("---", Math.Max(columns, 1));
+        return "| " + string.Join(" | ", cells) + " |";
+    }
+
+    private static string EscapePipeCharacters(string text) =>
+        text.Replace("|", "\\|", StringComparison.Ordinal);
+
+    private static string UnescapePipeCharacters(string text) =>
+        text.Replace("\\|", "|", StringComparison.Ordinal);
+
     private static string RemoveEmptyTableArtifacts(string text)
     {
         var lines = text.Split('\n');
@@ -130,12 +315,8 @@ internal static class MarkdownPipeTableNormalizer
                     bool nextIsSeparator = i + 1 < lines.Length && IsPipeTableSeparator(lines[i + 1]);
                     if (nextIsSeparator)
                     {
-                        // 헤더+구분선만 있고 실제 데이터 행이 하나도 없는 표는 통째로 제거합니다.
-                        bool hasDataRow = i + 2 < lines.Length &&
-                            !IsPipeTableSeparator(lines[i + 2]) &&
-                            IsPipeTableRow(lines[i + 2]);
-
-                        if (!hasDataRow)
+                        int dataRowIndex = FindNextPipeTableRowIndex(lines, i + 2);
+                        if (dataRowIndex < 0)
                         {
                             i++;
                             continue;
@@ -151,6 +332,26 @@ internal static class MarkdownPipeTableNormalizer
         }
 
         return string.Join('\n', result);
+    }
+
+    private static int FindNextPipeTableRowIndex(string[] lines, int startIndex)
+    {
+        for (int i = startIndex; i < lines.Length; i++)
+        {
+            string trimmed = lines[i].Trim();
+            if (trimmed.Length == 0)
+                continue;
+
+            if (IsPipeTableSeparator(trimmed))
+                continue;
+
+            if (IsPipeTableRow(lines[i]))
+                return i;
+
+            break;
+        }
+
+        return -1;
     }
 
     private static string RemoveEmptyPipeRows(string text)
@@ -328,7 +529,7 @@ internal static class MarkdownPipeTableNormalizer
 
             int columns = CountPipeColumns(line);
             if (columns >= 1)
-                result.Add(BuildPipeSeparator(columns));
+                result.Add(BuildAlignedSeparator(columns));
         }
 
         return string.Join('\n', result);
@@ -476,11 +677,5 @@ internal static class MarkdownPipeTableNormalizer
             return 0;
 
         return trimmed.Split('|').Length;
-    }
-
-    private static string BuildPipeSeparator(int columns)
-    {
-        var cells = Enumerable.Repeat("---", Math.Max(columns, 1));
-        return "| " + string.Join(" | ", cells) + " |";
     }
 }

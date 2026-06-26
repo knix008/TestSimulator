@@ -1,3 +1,5 @@
+using HWP2DocWinV10.Services;
+
 namespace HWP2DocWinV10;
 
 internal enum StructurePanelSide
@@ -31,9 +33,15 @@ internal static class AppUserSettings
 
     public static bool LlmEnabled { get; private set; }
 
-    public static bool RhwpEnabled { get; private set; } = true;
+    public static bool LlmFastMode { get; private set; } = true;
+
+    public static bool RhwpEnabled { get; private set; }
+
+    public static HwpConversionEngine ConversionEngine { get; private set; } = HwpConversionEngine.Unhwp;
 
     public static string LlmModel { get; private set; } = string.Empty;
+
+    public static LlmProcessingTargets LlmProcessingTargets { get; private set; } = LlmProcessingTargetCatalog.Default;
 
     /// <summary>WebView2 cache/profile folder (writable; not under Program Files).</summary>
     public static string GetWebView2UserDataFolder()
@@ -49,13 +57,18 @@ internal static class AppUserSettings
         FontSize = DefaultFontSize;
         LastDirectory = null;
         LlmEnabled = false;
-        RhwpEnabled = true;
+        LlmFastMode = true;
+        RhwpEnabled = false;
+        ConversionEngine = HwpConversionEngine.Unhwp;
         LlmModel = string.Empty;
+        LlmProcessingTargets = LlmProcessingTargetCatalog.Default;
 
         try
         {
             if (!File.Exists(SettingsPath))
                 return;
+
+            bool conversionEngineSet = false;
 
             foreach (string rawLine in File.ReadAllLines(SettingsPath))
             {
@@ -84,17 +97,39 @@ internal static class AppUserSettings
                     if (bool.TryParse(enabled, out bool parsedEnabled))
                         LlmEnabled = parsedEnabled;
                 }
+                else if (line.StartsWith("LlmFastMode=", StringComparison.OrdinalIgnoreCase))
+                {
+                    string enabled = line["LlmFastMode=".Length..].Trim();
+                    if (bool.TryParse(enabled, out bool parsedEnabled))
+                        LlmFastMode = parsedEnabled;
+                }
                 else if (line.StartsWith("RhwpEnabled=", StringComparison.OrdinalIgnoreCase))
                 {
                     string enabled = line["RhwpEnabled=".Length..].Trim();
                     if (bool.TryParse(enabled, out bool parsedEnabled))
                         RhwpEnabled = parsedEnabled;
                 }
+                else if (line.StartsWith("ConversionEngine=", StringComparison.OrdinalIgnoreCase))
+                {
+                    string value = line["ConversionEngine=".Length..].Trim();
+                    if (Enum.TryParse(value, ignoreCase: true, out HwpConversionEngine parsedEngine))
+                    {
+                        ConversionEngine = parsedEngine;
+                        conversionEngineSet = true;
+                    }
+                }
                 else if (line.StartsWith("LlmModel=", StringComparison.OrdinalIgnoreCase))
                 {
                     LlmModel = line["LlmModel=".Length..].Trim();
                 }
+                else if (line.StartsWith("LlmTargets=", StringComparison.OrdinalIgnoreCase))
+                {
+                    LlmProcessingTargets = ParseLlmProcessingTargets(line["LlmTargets=".Length..].Trim());
+                }
             }
+
+            if (!conversionEngineSet)
+                ConversionEngine = HwpConversionEngine.Unhwp;
         }
         catch
         {
@@ -103,9 +138,36 @@ internal static class AppUserSettings
             FontSize = DefaultFontSize;
             LastDirectory = null;
             LlmEnabled = false;
-            RhwpEnabled = true;
+            RhwpEnabled = false;
+            ConversionEngine = HwpConversionEngine.Unhwp;
             LlmModel = string.Empty;
+            LlmProcessingTargets = LlmProcessingTargetCatalog.Default;
         }
+    }
+
+    private static LlmProcessingTargets ParseLlmProcessingTargets(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return LlmProcessingTargetCatalog.Default;
+
+        if (int.TryParse(value, out int flags))
+        {
+            var parsed = (LlmProcessingTargets)flags;
+            return parsed == LlmProcessingTargets.None
+                ? LlmProcessingTargetCatalog.Default
+                : parsed;
+        }
+
+        LlmProcessingTargets result = LlmProcessingTargets.None;
+        foreach (string part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (Enum.TryParse(part, ignoreCase: true, out LlmProcessingTargets flag))
+                result |= flag;
+        }
+
+        return result == LlmProcessingTargets.None
+            ? LlmProcessingTargetCatalog.Default
+            : result;
     }
 
     public static void SetLastDirectory(string? directory)
@@ -140,15 +202,36 @@ internal static class AppUserSettings
         Save();
     }
 
+    public static void SetLlmFastMode(bool enabled)
+    {
+        LlmFastMode = enabled;
+        Save();
+    }
+
     public static void SetRhwpEnabled(bool enabled)
     {
         RhwpEnabled = enabled;
         Save();
     }
 
+    public static void SetConversionEngine(HwpConversionEngine engine)
+    {
+        ConversionEngine = engine;
+        RhwpEnabled = engine == HwpConversionEngine.Rhwp;
+        Save();
+    }
+
     public static void SetLlmModel(string model)
     {
         LlmModel = model.Trim();
+        Save();
+    }
+
+    public static void SetLlmProcessingTargets(LlmProcessingTargets targets)
+    {
+        LlmProcessingTargets = targets == LlmProcessingTargets.None
+            ? LlmProcessingTargetCatalog.Default
+            : targets;
         Save();
     }
 
@@ -164,8 +247,11 @@ internal static class AppUserSettings
                     $"FontSize={FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
                     $"LastDirectory={LastDirectory ?? string.Empty}",
                     $"LlmEnabled={LlmEnabled}",
+                    $"LlmFastMode={LlmFastMode}",
                     $"RhwpEnabled={RhwpEnabled}",
-                    $"LlmModel={LlmModel}"
+                    $"ConversionEngine={ConversionEngine}",
+                    $"LlmModel={LlmModel}",
+                    $"LlmTargets={(int)LlmProcessingTargets}"
                 ]);
         }
         catch

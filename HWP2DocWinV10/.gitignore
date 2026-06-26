@@ -50,10 +50,24 @@ Tools/GenerateIcon/bin/
 Tools/GenerateIcon/obj/
 Tools/VerifyUnhwp/bin/
 Tools/VerifyUnhwp/obj/
-HWP2DocWinV10/Tools/**/bin/
-HWP2DocWinV10/Tools/**/obj/
 
-# Tools/rhwp/rhwp.exe — Windows CLI 바이너리 (MSI 번들용, 의도적으로 추적)
+# 잘못된 경로에 생긴 GenerateIcon 빌드 산출물
+HWP2DocWinV10/Tools/
+
+# 로컬 스크래치·일회성 검증 (dotnet build -o _build_verify* 등)
+_build_verify/
+_build_verify*/
+Tools/test-samples/engine-runs/
+
+# 로컬 테스트 문서 (샘플 HWP/HWPX는 각자 배치)
+Tools/test-samples/*.hwp
+Tools/test-samples/*.hwpx
+
+# 선택 변환 엔진 바이너리 (README 설치 안내 참고, 용량 큼)
+Tools/hwp2md-roboco/hwp2md.exe
+Tools/hwp2md-hephaex/hwp2md.exe
+
+# Tools/rhwp/rhwp.exe — MSI 번들용, 의도적으로 추적
 
 ## WiX / installer artifacts
 HWP2DocWinV10.Installer/bin/
@@ -71,7 +85,3 @@ HWP2DocWinV10.Installer/obj/
 ## Local scratch / temp conversion output (optional)
 *.hwp.tmp/
 *.hwpx.tmp/
-
-## Local test documents (optional — uncomment if you keep samples in-repo)
-# *.hwp
-# *.hwpx

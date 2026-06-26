@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using HWP2DocWinV10.Services;
 
 namespace HWP2DocWinV10.Export;
 
@@ -14,6 +15,14 @@ internal static class MarkdownLlmAnalyzer
         @"^\s*<h[1-6]\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    private static readonly Regex HtmlTableTagRegex = new(
+        @"<table\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex HtmlMarkupRegex = new(
+        @"</?(?:p|div|span|br|h[1-6]|table|thead|tbody|tr|td|th)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static readonly Regex BoldOnlyLineRegex = new(
         @"^\s*\*\*.+\*\*\s*$",
         RegexOptions.Compiled);
@@ -26,7 +35,216 @@ internal static class MarkdownLlmAnalyzer
         @"^\s*[•·∙○◦▪▫]\s+",
         RegexOptions.Compiled);
 
-    private const int IssueThreshold = 2;
+    private const int IssueThreshold = 1;
+    private const int FastIssueThreshold = 2;
+    private const int MinSectionChars = 16;
+
+    public static bool HasSubstantiveContent(MarkdownSection section)
+    {
+        string combined = string.IsNullOrEmpty(section.HeadingLine)
+            ? section.Body
+            : section.HeadingLine + "\n" + section.Body;
+        return combined.Trim().Length >= MinSectionChars;
+    }
+
+    public static bool NeedsLlmProcessing(
+        MarkdownSection section,
+        LlmProcessingTargets targets,
+        bool fastMode = false)
+    {
+        if (!HasSubstantiveContent(section) || targets == LlmProcessingTargets.None)
+            return false;
+
+        string combined = string.IsNullOrEmpty(section.HeadingLine)
+            ? section.Body
+            : section.HeadingLine + "\n" + section.Body;
+
+        int threshold = fastMode ? FastIssueThreshold : IssueThreshold;
+
+        if (targets.HasFlag(LlmProcessingTargets.Tables) && ScoreTableIssues(combined) >= threshold)
+            return true;
+
+        if (targets.HasFlag(LlmProcessingTargets.Headings) && ScoreHeadingIssues(combined) >= threshold)
+            return true;
+
+        if (targets.HasFlag(LlmProcessingTargets.Lists) && ScoreListIssues(combined) >= threshold)
+            return true;
+
+        return targets.HasFlag(LlmProcessingTargets.HtmlMarkup) &&
+               ScoreHtmlMarkupIssues(combined) >= threshold;
+    }
+
+    public static bool NeedsTableRestructuring(MarkdownSection section, bool fastMode = false)
+        => NeedsLlmProcessing(section, LlmProcessingTargets.Tables, fastMode);
+
+    public static bool NeedsRestructuring(MarkdownSection section, bool fastMode = false)
+        => NeedsLlmProcessing(section, LlmProcessingTargetCatalog.Default, fastMode);
+
+    public static int ScoreForTargets(string sectionText, LlmProcessingTargets targets)
+    {
+        if (string.IsNullOrWhiteSpace(sectionText) || targets == LlmProcessingTargets.None)
+            return 0;
+
+        int score = 0;
+        if (targets.HasFlag(LlmProcessingTargets.Tables))
+            score += ScoreTableIssues(sectionText);
+        if (targets.HasFlag(LlmProcessingTargets.Headings))
+            score += ScoreHeadingIssues(sectionText);
+        if (targets.HasFlag(LlmProcessingTargets.Lists))
+            score += ScoreListIssues(sectionText);
+        if (targets.HasFlag(LlmProcessingTargets.HtmlMarkup))
+            score += ScoreHtmlMarkupIssues(sectionText);
+        return score;
+    }
+
+    public static int ScoreTableIssues(string sectionText)
+    {
+        if (string.IsNullOrWhiteSpace(sectionText))
+            return 0;
+
+        int score = 0;
+        bool inFence = false;
+        bool hasPipeRow = false;
+        int pipeLineCount = 0;
+
+        foreach (string rawLine in sectionText.Split('\n'))
+        {
+            string line = rawLine.TrimEnd();
+            string trimmed = line.Trim();
+
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence || trimmed.Length == 0)
+                continue;
+
+            if (HtmlTableTagRegex.IsMatch(trimmed))
+                score += 3;
+
+            if (MarkdownPipeTableNormalizer.IsPipeTableSeparator(trimmed) &&
+                !IsLikelyValidTableContext(sectionText, trimmed))
+            {
+                score += 4;
+                continue;
+            }
+
+            if (MarkdownPipeTableNormalizer.IsPipeTableRow(trimmed))
+            {
+                hasPipeRow = true;
+                pipeLineCount++;
+                continue;
+            }
+
+            if (trimmed.StartsWith('|') || trimmed.Contains('|'))
+            {
+                score += 3;
+                if (trimmed.Count(c => c == '|') >= 2)
+                    pipeLineCount++;
+            }
+        }
+
+        if (hasPipeRow && !HasValidGfmTableBlock(sectionText))
+            score += 4;
+
+        if (pipeLineCount >= 2 && !HasValidGfmTableBlock(sectionText))
+            score += 2;
+
+        return score;
+    }
+
+    public static int ScoreHeadingIssues(string sectionText)
+    {
+        if (string.IsNullOrWhiteSpace(sectionText))
+            return 0;
+
+        int score = 0;
+        bool inFence = false;
+
+        foreach (string rawLine in sectionText.Split('\n'))
+        {
+            string trimmed = rawLine.Trim();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence || trimmed.Length == 0)
+                continue;
+
+            if (HtmlHeadingRegex.IsMatch(trimmed))
+                score += 3;
+
+            if (LooksLikePlainHeading(trimmed))
+                score += 2;
+        }
+
+        return score;
+    }
+
+    public static int ScoreListIssues(string sectionText)
+    {
+        if (string.IsNullOrWhiteSpace(sectionText))
+            return 0;
+
+        int score = 0;
+        bool inFence = false;
+
+        foreach (string rawLine in sectionText.Split('\n'))
+        {
+            string line = rawLine.TrimEnd();
+            string trimmed = line.Trim();
+
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence || trimmed.Length == 0)
+                continue;
+
+            if (BulletCharRegex.IsMatch(line))
+                score += 2;
+
+            if (Regex.IsMatch(trimmed, @"^\d+\)\s+") && !Regex.IsMatch(trimmed, @"^\d+\.\s+"))
+                score += 1;
+        }
+
+        return score;
+    }
+
+    public static int ScoreHtmlMarkupIssues(string sectionText)
+    {
+        if (string.IsNullOrWhiteSpace(sectionText))
+            return 0;
+
+        int score = 0;
+        bool inFence = false;
+
+        foreach (string rawLine in sectionText.Split('\n'))
+        {
+            string trimmed = rawLine.Trim();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence || trimmed.Length == 0)
+                continue;
+
+            if (HtmlMarkupRegex.IsMatch(trimmed))
+                score += 2;
+        }
+
+        return score;
+    }
+
+    public static int ScoreIssues(string sectionText) => ScoreTableIssues(sectionText);
 
     public static IReadOnlyList<MarkdownSection> SplitSections(string markdown)
     {
@@ -68,58 +286,11 @@ internal static class MarkdownLlmAnalyzer
         return sections;
     }
 
-    public static int ScoreIssues(string sectionText)
-    {
-        if (string.IsNullOrWhiteSpace(sectionText))
-            return 0;
+    public static bool NeedsCleanup(string sectionText) =>
+        ScoreTableIssues(sectionText) >= IssueThreshold;
 
-        int score = 0;
-        bool inFence = false;
-
-        foreach (string rawLine in sectionText.Split('\n'))
-        {
-            string line = rawLine.TrimEnd();
-            string trimmed = line.Trim();
-
-            if (trimmed.StartsWith("```", StringComparison.Ordinal))
-            {
-                inFence = !inFence;
-                continue;
-            }
-
-            if (inFence || trimmed.Length == 0)
-                continue;
-
-            if (HtmlHeadingRegex.IsMatch(trimmed))
-                score += 3;
-
-            if (BulletCharRegex.IsMatch(line))
-                score += 2;
-
-            if (MarkdownPipeTableNormalizer.IsPipeTableSeparator(trimmed) &&
-                !IsLikelyValidTableContext(sectionText, trimmed))
-                score += 4;
-
-            if (trimmed.StartsWith('|') && !trimmed.EndsWith('|') &&
-                !MarkdownPipeTableNormalizer.IsPipeTableSeparator(trimmed))
-                score += 3;
-
-            if (LooksLikePlainHeading(trimmed))
-                score += 2;
-        }
-
-        return score;
-    }
-
-    public static bool NeedsCleanup(string sectionText) => ScoreIssues(sectionText) >= IssueThreshold;
-
-    public static bool NeedsCleanup(MarkdownSection section)
-    {
-        string combined = string.IsNullOrEmpty(section.HeadingLine)
-            ? section.Body
-            : section.HeadingLine + "\n" + section.Body;
-        return NeedsCleanup(combined);
-    }
+    public static bool NeedsCleanup(MarkdownSection section) =>
+        NeedsLlmProcessing(section, LlmProcessingTargetCatalog.Default);
 
     private static bool LooksLikePlainHeading(string trimmed)
     {
@@ -143,9 +314,9 @@ internal static class MarkdownLlmAnalyzer
             return true;
 
         if (trimmed.Length <= 48 &&
-               !EndsWithPunctuation(trimmed) &&
-               !trimmed.Contains('。') &&
-               char.IsLetterOrDigit(trimmed[0]))
+            !EndsWithPunctuation(trimmed) &&
+            !trimmed.Contains('。') &&
+            char.IsLetterOrDigit(trimmed[0]))
             return true;
 
         return false;
@@ -158,6 +329,19 @@ internal static class MarkdownLlmAnalyzer
 
         char last = text[^1];
         return last is '.' or ',' or ';' or ':' or ')' or ']' or '】' or '」';
+    }
+
+    private static bool HasValidGfmTableBlock(string sectionText)
+    {
+        string[] lines = sectionText.Split('\n');
+        for (int i = 0; i < lines.Length - 1; i++)
+        {
+            if (MarkdownPipeTableNormalizer.IsPipeTableRow(lines[i]) &&
+                MarkdownPipeTableNormalizer.IsPipeTableSeparator(lines[i + 1]))
+                return true;
+        }
+
+        return false;
     }
 
     private static bool IsLikelyValidTableContext(string sectionText, string separatorLine)

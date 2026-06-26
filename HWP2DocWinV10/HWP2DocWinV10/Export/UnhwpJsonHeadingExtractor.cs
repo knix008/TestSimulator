@@ -58,8 +58,13 @@ internal static class UnhwpJsonHeadingExtractor
 
             foreach (JsonElement item in cellContent.EnumerateArray())
             {
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
+
                 if (item.TryGetProperty("Paragraph", out JsonElement paragraph))
                     TryAddParagraphHint(hints, paragraph, inTable: true);
+                else if (item.TryGetProperty("content", out _))
+                    TryAddParagraphHint(hints, item, inTable: true);
             }
         }
     }
@@ -134,8 +139,13 @@ internal static class UnhwpJsonHeadingExtractor
         var builder = new System.Text.StringBuilder();
         foreach (JsonElement item in content.EnumerateArray())
         {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
             if (item.TryGetProperty("Paragraph", out JsonElement paragraph))
                 builder.Append(ExtractPlainText(paragraph));
+            else if (item.TryGetProperty("content", out _))
+                builder.Append(ExtractPlainText(item));
         }
 
         return builder.ToString();
@@ -149,6 +159,9 @@ internal static class UnhwpJsonHeadingExtractor
         var builder = new System.Text.StringBuilder();
         foreach (JsonElement item in content.EnumerateArray())
         {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
             if (item.TryGetProperty("Text", out JsonElement textNode) &&
                 textNode.TryGetProperty("text", out JsonElement textValue))
             {
@@ -167,6 +180,9 @@ internal static class UnhwpJsonHeadingExtractor
         bool hasText = false;
         foreach (JsonElement item in content.EnumerateArray())
         {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
             if (!item.TryGetProperty("Text", out JsonElement textNode))
                 continue;
 

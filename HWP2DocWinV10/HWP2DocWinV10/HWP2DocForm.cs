@@ -44,7 +44,7 @@ public partial class HWP2DocForm : Form
             ApplyEqualEditorPreviewSplit();
 
         RefreshWebViewPanels();
-        UpdateRhwpAvailabilityStatus();
+        UpdateEngineAvailabilityStatus();
     }
 
     private void WireWebViewSplitRefresh()
@@ -240,8 +240,9 @@ public partial class HWP2DocForm : Form
             return;
 
         bool useLlm = optionsDialog.UseLlm;
-        bool useRhwp = optionsDialog.UseRhwp;
-        var conversionOptions = new Services.HwpConversionOptions(UseRhwp: useRhwp);
+        HwpConversionEngine selectedEngine = optionsDialog.SelectedEngine;
+        bool useLlmFastMode = optionsDialog.UseLlmFastMode;
+        var conversionOptions = new Services.HwpConversionOptions(Engine: selectedEngine);
         var stopwatch = useLlm ? System.Diagnostics.Stopwatch.StartNew() : null;
 
         SetBusy(true, "문서 변환 중...");
@@ -256,6 +257,7 @@ public partial class HWP2DocForm : Form
             string markdown = result.Markdown;
             ApplyConversionResult(markdown, result);
 
+            string engineLabel = Services.HwpConversionEngineCatalog.FormatLabel(result.EngineUsed);
             string fileName = Path.GetFileName(result.SourceFilePath);
             if (useLlm)
             {
@@ -268,43 +270,48 @@ public partial class HWP2DocForm : Form
                     LlmCleanupResult llmResult = await Services.OllamaClient.CleanupMarkdownAsync(
                         markdown,
                         AppUserSettings.LlmModel,
-                        llmProgress);
+                        llmProgress,
+                        options: new Services.LlmCleanupOptions(
+                            FastMode: useLlmFastMode,
+                            Targets: AppUserSettings.LlmProcessingTargets));
 
                     ApplyConversionResult(llmResult.Markdown, result);
                     llmStopwatch.Stop();
 
+                    string targetSummary = Services.LlmProcessingTargetCatalog.FormatSummary(AppUserSettings.LlmProcessingTargets);
                     string? totalSeconds = stopwatch != null
                         ? $"총 {stopwatch.Elapsed.TotalSeconds:0.0}초"
                         : null;
                     string llmSeconds = $"LLM {llmStopwatch.Elapsed.TotalSeconds:0.0}초";
                     string llmDetail = llmResult.SkippedEntireDocument
                         ? "규칙 기반 정리만 적용했습니다. (LLM 생략)"
-                        : $"{llmResult.CleanedSections}/{llmResult.TotalSections}개 구간 정리";
+                        : $"{llmResult.CleanedSections}/{llmResult.TotalSections}개 구간 처리 ({targetSummary})";
 
                     MessageBox.Show(
                         this,
-                        $"Markdown 문서 정리가 완료되었습니다.\n\n" +
+                        $"Markdown LLM 구조화가 완료되었습니다.\n\n" +
                         $"모델: {AppUserSettings.LlmModel}\n" +
+                        $"대상: {targetSummary}\n" +
                         $"처리: {llmDetail}\n" +
                         $"소요: {llmSeconds}" +
                         (totalSeconds != null ? $" ({totalSeconds})" : string.Empty),
-                        "LLM 정리 완료",
+                        "LLM 구조화 완료",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
 
                     SetStatus(stopwatch != null
-                        ? $"변환 완료: {fileName} (LLM 정리 포함, {totalSeconds})"
-                        : $"변환 완료: {fileName} (LLM 정리 포함)");
+                        ? $"변환 완료: {fileName} ({engineLabel}, LLM 포함, {totalSeconds})"
+                        : $"변환 완료: {fileName} ({engineLabel}, LLM 포함)");
                 }
                 catch (Exception ex)
                 {
                     ResetProgressBar();
-                    SetStatus($"LLM 정리 실패, 변환 결과를 유지합니다 ({ex.Message})");
+                    SetStatus($"LLM 구조화 실패, 변환 결과를 유지합니다 ({ex.Message})");
                 }
             }
             else
             {
-                SetStatus($"변환 완료: {fileName}");
+                SetStatus($"변환 완료: {fileName} ({engineLabel})");
             }
         }
         catch (Exception ex)
@@ -916,15 +923,23 @@ public partial class HWP2DocForm : Form
         if (!string.IsNullOrWhiteSpace(statusMessage))
             SetStatus(statusMessage);
         else if (!busy)
-            UpdateRhwpAvailabilityStatus();
+            UpdateEngineAvailabilityStatus();
     }
 
-    private void UpdateRhwpAvailabilityStatus()
+    private void UpdateEngineAvailabilityStatus()
     {
         RhwpLocator.Refresh();
-        SetStatus(RhwpLocator.IsAvailable()
-            ? "준비 — rhwp 사용 가능"
-            : "준비 — rhwp 없음 (unhwp만 사용)");
+        Hwp2MdRobocoLocator.Refresh();
+        Hwp2MdHephaexLocator.Refresh();
+
+        var available = Services.HwpConversionEngineCatalog.Entries
+            .Where(entry => entry.IsAvailable())
+            .Select(entry => entry.ShortName)
+            .ToList();
+
+        SetStatus(available.Count > 0
+            ? $"준비 — 엔진: {string.Join(", ", available)}"
+            : "준비 — unhwp만 사용 가능");
     }
 
     private void BeginLlmProgress()
@@ -940,7 +955,7 @@ public partial class HWP2DocForm : Form
         statusProgress.Value = 0;
         lblProgressPercent.Visible = true;
         lblProgressPercent.Text = "0%";
-        SetStatus("LLM 정리 [1/4] 준비 — 시작");
+        SetStatus("LLM 구조화 [1/4] 준비 — 시작");
     }
 
     private void SetLlmCleanupProgress(LlmCleanupProgress progress)

@@ -10,6 +10,6 @@ internal sealed class LlmCleanupProgress
     public string? Detail { get; init; }
 
     public string StatusText => Detail is null
-        ? $"LLM 정리 [{Step}/{TotalSteps}] {StepTitle}"
-        : $"LLM 정리 [{Step}/{TotalSteps}] {StepTitle} — {Detail}";
+        ? $"LLM 구조화 [{Step}/{TotalSteps}] {StepTitle}"
+        : $"LLM 구조화 [{Step}/{TotalSteps}] {StepTitle} — {Detail}";
 }

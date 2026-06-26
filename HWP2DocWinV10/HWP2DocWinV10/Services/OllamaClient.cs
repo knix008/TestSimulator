@@ -7,38 +7,37 @@ using System.Text.RegularExpressions;
 namespace HWP2DocWinV10.Services;
 
 /// <summary>
-/// 로컬 Ollama 서버를 호출해 변환 Markdown의 문제 구간만 선택적으로 정리합니다.
+/// 로컬 Ollama 서버를 호출해 변환 Markdown을 사용자가 선택한 대상(표·제목·목록·HTML)에 맞게 구조화합니다.
 /// </summary>
 internal static class OllamaClient
 {
     private const string BaseUrl = "http://localhost:11434";
+    private const string KeepAlive = "15m";
     private const int StreamPercentStart = 20;
     private const int StreamPercentEnd = 90;
-    private const int MaxSectionChars = 6000;
+    private const int BalancedMaxBatchChars = 3200;
+    private const int FastMaxBatchChars = 6400;
+    private const int SinglePassCharLimit = 4200;
+    private const int BalancedMaxPredictTokens = 2048;
+    private const int FastMaxPredictTokens = 1536;
+    private const int StreamProgressIntervalMs = 200;
+
+    private static readonly HttpClient SharedHttp = new()
+    {
+        Timeout = TimeSpan.FromMinutes(10)
+    };
 
     private static readonly Regex MarkdownFenceRegex = new(
         @"^\s*```(?:markdown|md)?\s*\r?\n([\s\S]*?)\r?\n```\s*$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    private const string SystemPrompt =
-        """
-        You repair Markdown formatting produced from Korean HWP documents.
-        Fix ONLY these issues when present:
-        - missing heading markers (#, ##, ###) on obvious section titles
-        - broken GFM pipe tables (split rows, missing separator, empty | | rows)
-        - bullet symbols (•, ·) that should be "- " list items
-        - HTML headings (<h1>..</h1>) that should become Markdown headings
-
-        Hard rules:
-        - Do NOT add, delete, paraphrase, translate, or summarize any words or numbers.
-        - Keep every image path (![...](...)) exactly unchanged.
-        - Output ONLY the repaired Markdown section. No explanation, no code fences.
-        """;
+    private static readonly Regex ExcessBlankLineRegex = new(
+        @"\n{3,}",
+        RegexOptions.Compiled);
 
     public static async Task<List<string>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        using var response = await http.GetAsync($"{BaseUrl}/api/tags", cancellationToken).ConfigureAwait(false);
+        using var response = await SharedHttp.GetAsync($"{BaseUrl}/api/tags", cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -65,7 +64,8 @@ internal static class OllamaClient
         string markdown,
         string model,
         IProgress<LlmCleanupProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        LlmCleanupOptions options = default)
     {
         if (string.IsNullOrWhiteSpace(model))
             throw new InvalidOperationException("LLM 설정에서 모델 이름을 먼저 입력하세요.");
@@ -73,10 +73,21 @@ internal static class OllamaClient
         if (string.IsNullOrWhiteSpace(markdown))
             return new LlmCleanupResult(markdown, 0, 0, SkippedEntireDocument: false);
 
+        bool fastMode = options.FastMode;
+        LlmProcessingTargets targets = options.Targets;
+        string targetSummary = LlmProcessingTargetCatalog.FormatSummary(targets);
+        string stepTitle = "LLM 구조화";
+
         ReportStep(progress, 1, "준비", 5, "규칙 기반 정리");
         string prepared = MarkdownConversionPostProcessor.Apply(markdown);
 
-        ReportStep(progress, 2, "문서 분석", 12, "문제 구간 검색");
+        if (targets == LlmProcessingTargets.None)
+        {
+            ReportStep(progress, 4, "완료", 100, "LLM 생략 (처리 대상 없음)");
+            return new LlmCleanupResult(prepared, 0, 0, SkippedEntireDocument: true);
+        }
+
+        ReportStep(progress, 2, "문서 분석", 12, fastMode ? $"빠른 모드 — {targetSummary}" : $"{targetSummary} 대상 검색");
         IReadOnlyList<MarkdownSection> sections = MarkdownLlmAnalyzer.SplitSections(prepared);
         if (sections.Count == 0)
             return new LlmCleanupResult(prepared, 0, 0, SkippedEntireDocument: true);
@@ -84,33 +95,66 @@ internal static class OllamaClient
         var targetIndexes = new List<int>();
         for (int i = 0; i < sections.Count; i++)
         {
-            if (MarkdownLlmAnalyzer.NeedsCleanup(sections[i]))
+            if (MarkdownLlmAnalyzer.NeedsLlmProcessing(sections[i], targets, fastMode))
                 targetIndexes.Add(i);
         }
 
         if (targetIndexes.Count == 0)
         {
-            ReportStep(progress, 4, "완료", 100, "LLM 생략 (규칙 정리로 충분)");
+            ReportStep(progress, 4, "완료", 100, $"LLM 생략 ({targetSummary} 작업 없음)");
             return new LlmCleanupResult(prepared, sections.Count, 0, SkippedEntireDocument: true);
         }
 
-        var cleanedSections = sections.ToArray();
-        int completed = 0;
+        string systemPrompt = BuildSystemPrompt(targets);
+        int issueThreshold = fastMode ? 2 : 1;
+        if (prepared.Length <= SinglePassCharLimit &&
+            MarkdownLlmAnalyzer.ScoreForTargets(prepared, targets) >= issueThreshold)
+        {
+            string singleInput = CompressForLlm(prepared);
+            ReportStep(progress, 3, stepTitle, 20, "단일 호출");
 
-        foreach (int sectionIndex in targetIndexes)
+            string singleCleaned = await GenerateChatStreamingAsync(
+                model,
+                systemPrompt,
+                BuildDocumentPrompt(singleInput, targets),
+                EstimateNumPredict(singleInput.Length, fastMode),
+                EstimateNumCtx(singleInput.Length),
+                progress,
+                stepTitle,
+                20,
+                cancellationToken).ConfigureAwait(false);
+
+            singleCleaned = NormalizeResponse(singleCleaned);
+            singleCleaned = MarkdownConversionPostProcessor.Apply(singleCleaned);
+
+            if (LlmContentGuard.IsAcceptable(singleInput, singleCleaned))
+            {
+                ReportStep(progress, 4, "완료", 100, $"단일 호출 ({targetSummary})");
+                return new LlmCleanupResult(singleCleaned, sections.Count, targetIndexes.Count, SkippedEntireDocument: false);
+            }
+        }
+
+        int maxBatchChars = fastMode ? FastMaxBatchChars : BalancedMaxBatchChars;
+        var batches = BuildBatches(sections, targetIndexes, maxBatchChars);
+        var cleanedSections = sections.ToArray();
+        int completedBatches = 0;
+
+        foreach (IReadOnlyList<int> batch in batches)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            MarkdownSection section = sections[sectionIndex];
-            string input = ComposeSectionText(section);
-            string prompt = BuildSectionPrompt(input);
-            int percentBase = 15 + (int)(completed / (double)targetIndexes.Count * 70);
+            string input = CompressForLlm(ComposeBatchText(sections, batch));
+            string prompt = BuildBatchPrompt(input, targets);
+            int percentBase = 15 + (int)(completedBatches / (double)batches.Count * 70);
 
             string cleaned = await GenerateChatStreamingAsync(
                 model,
+                systemPrompt,
                 prompt,
-                Math.Min(MaxSectionChars, Math.Max(512, input.Length + 256)),
+                EstimateNumPredict(input.Length, fastMode),
+                EstimateNumCtx(input.Length),
                 progress,
+                stepTitle,
                 percentBase,
                 cancellationToken).ConfigureAwait(false);
 
@@ -118,22 +162,186 @@ internal static class OllamaClient
             cleaned = MarkdownConversionPostProcessor.Apply(cleaned);
 
             if (LlmContentGuard.IsAcceptable(input, cleaned))
-                cleanedSections[sectionIndex] = ParseCleanedSection(section, cleaned);
+                ApplyBatchResult(cleanedSections, sections, batch, cleaned);
 
-            completed++;
+            completedBatches++;
             ReportStep(
                 progress,
                 3,
-                "구간 정리",
-                15 + (int)(completed / (double)targetIndexes.Count * 75),
-                $"{completed}/{targetIndexes.Count} 구간");
+                stepTitle,
+                15 + (int)(completedBatches / (double)batches.Count * 75),
+                $"{completedBatches}/{batches.Count}회 ({batch.Count}구간)");
         }
 
         ReportStep(progress, 4, "결과 적용", 96, "문서 병합");
         string merged = MergeSections(cleanedSections);
         merged = MarkdownConversionPostProcessor.Apply(merged);
-        ReportStep(progress, 4, "완료", 100, $"{targetIndexes.Count}개 구간 정리");
+        ReportStep(progress, 4, "완료", 100, $"{targetIndexes.Count}개 구간 ({targetSummary})");
+
         return new LlmCleanupResult(merged, sections.Count, targetIndexes.Count, SkippedEntireDocument: false);
+    }
+
+    private static string BuildSystemPrompt(LlmProcessingTargets targets)
+    {
+        var parts = new List<string>
+        {
+            "You fix Korean HWP-converted Markdown.",
+        };
+
+        if (targets.HasFlag(LlmProcessingTargets.Tables))
+        {
+            parts.Add(
+                "Build/fix GFM pipe tables: header row (| A | B |), separator (| --- | --- |), matching data rows. " +
+                "Fix broken | lines, missing separators, misaligned columns, and HTML <table>.");
+        }
+
+        if (targets.HasFlag(LlmProcessingTargets.Headings))
+        {
+            parts.Add(
+                "Fix heading hierarchy with # levels. Convert bold-only lines and outline-number lines that look like headings.");
+        }
+
+        if (targets.HasFlag(LlmProcessingTargets.Lists))
+        {
+            parts.Add(
+                "Convert bullet characters (•·) and broken numbered lists to Markdown lists (- or 1.).");
+        }
+
+        if (targets.HasFlag(LlmProcessingTargets.HtmlMarkup))
+        {
+            parts.Add(
+                "Convert remaining HTML tags (p, div, br, h1-h6, table) to Markdown. Do not leave raw HTML.");
+        }
+
+        var untouched = new List<string>();
+        if (!targets.HasFlag(LlmProcessingTargets.Tables))
+            untouched.Add("tables");
+        if (!targets.HasFlag(LlmProcessingTargets.Headings))
+            untouched.Add("headings");
+        if (!targets.HasFlag(LlmProcessingTargets.Lists))
+            untouched.Add("lists");
+        if (!targets.HasFlag(LlmProcessingTargets.HtmlMarkup))
+            untouched.Add("HTML markup");
+
+        if (untouched.Count > 0)
+            parts.Add($"Do not rewrite {string.Join(", ", untouched)}.");
+
+        parts.Add("Keep every cell value, number, and image path (![...](...)) unchanged.");
+        parts.Add("Output Markdown only. No code fences or commentary.");
+        return string.Join(' ', parts);
+    }
+
+    private static string BuildDocumentPrompt(string markdown, LlmProcessingTargets targets)
+    {
+        var hints = new List<string> { "다음 HWP 변환 Markdown을 정리하세요." };
+        AppendTargetHints(hints, targets, markdown);
+        hints.Add("선택하지 않은 요소는 수정하지 마세요.");
+
+        return $"{string.Join(' ', hints)}\n\n---BEGIN---\n{markdown}\n---END---";
+    }
+
+    private static string BuildBatchPrompt(string sectionMarkdown, LlmProcessingTargets targets)
+    {
+        var hints = new List<string> { "이 구간만 정리하세요." };
+        AppendTargetHints(hints, targets, sectionMarkdown);
+        hints.Add("선택하지 않은 요소는 수정하지 마세요.");
+
+        return $"{string.Join(' ', hints)}\n\n---BEGIN---\n{sectionMarkdown}\n---END---";
+    }
+
+    private static void AppendTargetHints(List<string> hints, LlmProcessingTargets targets, string text)
+    {
+        if (targets.HasFlag(LlmProcessingTargets.Tables))
+        {
+            hints.Add("표 데이터는 GFM 파이프 표(| 헤더 | + | --- | + 데이터 행)로 만드세요.");
+            if (text.Contains("<table", StringComparison.OrdinalIgnoreCase))
+                hints.Add("HTML <table>은 GFM 파이프 표로 변환하세요.");
+            if (text.Contains('|') && MarkdownLlmAnalyzer.ScoreTableIssues(text) > 0)
+                hints.Add("깨진 | 줄·구분선 누락·열 불일치를 복구하세요.");
+        }
+
+        if (targets.HasFlag(LlmProcessingTargets.Headings))
+            hints.Add("제목 계층(#)을 정리하고 제목처럼 보이는 줄에 #을 부여하세요.");
+
+        if (targets.HasFlag(LlmProcessingTargets.Lists))
+            hints.Add("글머리 기호(•)와 번호 목록을 Markdown 목록으로 정리하세요.");
+
+        if (targets.HasFlag(LlmProcessingTargets.HtmlMarkup))
+            hints.Add("남아 있는 HTML 태그를 Markdown으로 변환하세요.");
+    }
+
+    private static string CompressForLlm(string text) =>
+        ExcessBlankLineRegex.Replace(text.Trim(), "\n\n");
+
+    private static int EstimateNumPredict(int inputLength, bool fastMode)
+    {
+        int cap = fastMode ? FastMaxPredictTokens : BalancedMaxPredictTokens;
+        int floor = fastMode ? 384 : 512;
+        int estimate = fastMode
+            ? inputLength / 2 + 96
+            : inputLength + 128;
+        return Math.Min(cap, Math.Max(floor, estimate));
+    }
+
+    private static int EstimateNumCtx(int inputLength) =>
+        Math.Clamp(inputLength / 2 + 768, 1536, 8192);
+
+    private static List<IReadOnlyList<int>> BuildBatches(
+        IReadOnlyList<MarkdownSection> sections,
+        IReadOnlyList<int> targetIndexes,
+        int maxChars)
+    {
+        var batches = new List<IReadOnlyList<int>>();
+        var current = new List<int>();
+        int currentChars = 0;
+
+        foreach (int index in targetIndexes)
+        {
+            int sectionChars = ComposeSectionText(sections[index]).Length;
+            if (current.Count > 0 && currentChars + sectionChars + 2 > maxChars)
+            {
+                batches.Add(current.ToArray());
+                current.Clear();
+                currentChars = 0;
+            }
+
+            current.Add(index);
+            currentChars += sectionChars + 2;
+        }
+
+        if (current.Count > 0)
+            batches.Add(current.ToArray());
+
+        return batches;
+    }
+
+    private static string ComposeBatchText(IReadOnlyList<MarkdownSection> sections, IReadOnlyList<int> indexes)
+    {
+        if (indexes.Count == 1)
+            return ComposeSectionText(sections[indexes[0]]);
+
+        var parts = new List<string>(indexes.Count);
+        foreach (int index in indexes)
+            parts.Add(ComposeSectionText(sections[index]));
+
+        return string.Join("\n\n", parts);
+    }
+
+    private static void ApplyBatchResult(
+        MarkdownSection[] cleanedSections,
+        IReadOnlyList<MarkdownSection> originalSections,
+        IReadOnlyList<int> batch,
+        string cleaned)
+    {
+        if (batch.Count == 1)
+        {
+            cleanedSections[batch[0]] = ParseCleanedSection(originalSections[batch[0]], cleaned);
+            return;
+        }
+
+        cleanedSections[batch[0]] = ParseCleanedSection(originalSections[batch[0]], cleaned);
+        for (int i = 1; i < batch.Count; i++)
+            cleanedSections[batch[i]] = originalSections[batch[i]] with { HeadingLine = string.Empty, Body = string.Empty };
     }
 
     private static string ComposeSectionText(MarkdownSection section)
@@ -186,35 +394,14 @@ internal static class OllamaClient
         return builder.ToString();
     }
 
-    private static string BuildSectionPrompt(string sectionMarkdown)
-    {
-        var issues = new List<string>();
-        if (MarkdownLlmAnalyzer.ScoreIssues(sectionMarkdown) >= 4)
-            issues.Add("표 형식이 깨져 있을 수 있습니다.");
-        if (sectionMarkdown.Contains('<') && sectionMarkdown.Contains('>'))
-            issues.Add("HTML 제목 태그가 남아 있을 수 있습니다.");
-        if (sectionMarkdown.Contains('•') || sectionMarkdown.Contains('·'))
-            issues.Add("글머리 기호(•)가 목록으로 바뀌지 않았을 수 있습니다.");
-
-        string hint = issues.Count == 0
-            ? "제목(#) 누락 여부를 확인하세요."
-            : string.Join(' ', issues);
-
-        return
-            $"""
-             다음 Markdown 구간의 서식만 고칩니다. {hint}
-
-             ---BEGIN---
-             {sectionMarkdown}
-             ---END---
-             """;
-    }
-
     private static async Task<string> GenerateChatStreamingAsync(
         string model,
+        string systemPrompt,
         string userPrompt,
         int numPredict,
+        int numCtx,
         IProgress<LlmCleanupProgress>? progress,
+        string stepTitle,
         int percentBase,
         CancellationToken cancellationToken)
     {
@@ -222,22 +409,23 @@ internal static class OllamaClient
         {
             model,
             stream = true,
+            keep_alive = KeepAlive,
             messages = new[]
             {
-                new { role = "system", content = SystemPrompt },
+                new { role = "system", content = systemPrompt },
                 new { role = "user", content = userPrompt }
             },
             options = new
             {
                 temperature = 0,
                 top_p = 0.9,
-                num_predict = numPredict
+                num_predict = numPredict,
+                num_ctx = numCtx
             }
         });
 
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         using var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-        using var response = await http.PostAsync($"{BaseUrl}/api/chat", content, cancellationToken)
+        using var response = await SharedHttp.PostAsync($"{BaseUrl}/api/chat", content, cancellationToken)
             .ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
@@ -251,6 +439,7 @@ internal static class OllamaClient
 
         var builder = new StringBuilder();
         int adaptiveEstimate = Math.Max(numPredict / 2, 256);
+        long lastProgressTick = 0;
 
         while (true)
         {
@@ -278,10 +467,15 @@ internal static class OllamaClient
 
             if (builder.Length > 0)
             {
-                int percent = done
-                    ? StreamPercentEnd
-                    : StreamPercentStart + (int)(builder.Length / (double)adaptiveEstimate * (StreamPercentEnd - StreamPercentStart));
-                ReportStep(progress, 3, "구간 생성", Math.Min(95, percentBase + percent / 10), $"{builder.Length:N0}자");
+                long now = Environment.TickCount64;
+                if (done || now - lastProgressTick >= StreamProgressIntervalMs)
+                {
+                    lastProgressTick = now;
+                    int percent = done
+                        ? StreamPercentEnd
+                        : StreamPercentStart + (int)(builder.Length / (double)adaptiveEstimate * (StreamPercentEnd - StreamPercentStart));
+                    ReportStep(progress, 3, stepTitle, Math.Min(95, percentBase + percent / 10), $"{builder.Length:N0}자");
+                }
             }
 
             if (done)
@@ -339,36 +533,38 @@ internal static class LlmContentGuard
         if (string.IsNullOrWhiteSpace(cleaned))
             return false;
 
-        string orig = NormalizeForCompare(original);
-        string clean = NormalizeForCompare(cleaned);
+        if (!ExtractImagePaths(original).SetEquals(ExtractImagePaths(cleaned)))
+            return false;
+
+        string orig = StripForContentCompare(original);
+        string clean = StripForContentCompare(cleaned);
         if (orig.Length == 0)
             return clean.Length > 0;
 
-        int origChars = CountSignificantChars(orig);
-        int cleanChars = CountSignificantChars(clean);
-        if (origChars == 0)
-            return cleanChars == 0;
-
-        double ratio = cleanChars / (double)origChars;
-        if (ratio < 0.92 || ratio > 1.08)
-            return false;
-
-        return ExtractImagePaths(original).SetEquals(ExtractImagePaths(cleaned));
+        double ratio = clean.Length / (double)orig.Length;
+        return ratio is >= 0.90 and <= 1.10;
     }
 
-    private static string NormalizeForCompare(string text)
-        => Regex.Replace(text, @"\s+", string.Empty);
-
-    private static int CountSignificantChars(string text)
+    private static string StripForContentCompare(string text)
     {
-        int count = 0;
-        foreach (char ch in text)
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var builder = new StringBuilder(text.Length);
+
+        foreach (string rawLine in lines)
         {
-            if (!char.IsWhiteSpace(ch) && ch is not '#' and not '|' and not '-' and not '*')
-                count++;
+            string line = rawLine.Trim();
+            if (line.Length == 0)
+                continue;
+
+            line = Regex.Replace(line, @"^#{1,6}\s+", string.Empty);
+            line = Regex.Replace(line, @"^[-*+]\s+", string.Empty);
+            line = Regex.Replace(line, @"^\d+[.)]\s+", string.Empty);
+            line = Regex.Replace(line, @"<[^>]+>", string.Empty);
+            line = line.Replace("|", " ").Replace("**", string.Empty).Replace("__", string.Empty);
+            builder.Append(line);
         }
 
-        return count;
+        return Regex.Replace(builder.ToString(), @"\s+", string.Empty);
     }
 
     private static HashSet<string> ExtractImagePaths(string markdown)

@@ -41,6 +41,14 @@
       <Link>Tools\rhwp\rhwp.exe</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\Tools\hwp2md-roboco\hwp2md.exe" Condition="Exists('..\Tools\hwp2md-roboco\hwp2md.exe')">
+      <Link>Tools\hwp2md-roboco\hwp2md.exe</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Tools\hwp2md-hephaex\hwp2md.exe" Condition="Exists('..\Tools\hwp2md-hephaex\hwp2md.exe')">
+      <Link>Tools\hwp2md-hephaex\hwp2md.exe</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
