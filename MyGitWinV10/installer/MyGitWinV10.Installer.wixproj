@@ -1,14 +1,30 @@
 <Project Sdk="WixToolset.Sdk/6.0.2">
   <PropertyGroup>
     <OutputType>Package</OutputType>
-    <Platforms>x64</Platforms>
     <OutputName>MyGitWinV10Setup</OutputName>
+    <Platform>x64</Platform>
+    <Platforms>x64</Platforms>
     <InstallerPlatform>x64</InstallerPlatform>
     <SuppressValidation>true</SuppressValidation>
     <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
     <AppProject>$(MSBuildThisFileDirectory)..\MyGitWinV10.App\MyGitWinV10.App.csproj</AppProject>
     <PublishOutputDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\publish\installer\'))</PublishOutputDir>
+    <MsiOutputPath>$(OutputPath)$(OutputName).msi</MsiOutputPath>
+    <InstallerBuildEnabled>false</InstallerBuildEnabled>
+  </PropertyGroup>
+
+  <!-- Release MSI runs only when explicitly requested (App post-build, dotnet build installer, or BuildMsiPackage=true). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' AND ('$(BuildingMsiPackage)' == 'true' OR '$(BuildMsiPackage)' == 'true' OR ('$(BuildingProject)' == 'true' AND ('$(SolutionPath)' == '' OR '$(SolutionPath)' == '*Undefined*')))">
+    <InstallerBuildEnabled>true</InstallerBuildEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' != 'Release'">
+    <OutputType>None</OutputType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' AND '$(InstallerBuildEnabled)' != 'true'">
+    <OutputType>None</OutputType>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -24,14 +40,42 @@
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
       <Private>false</Private>
+      <Properties>SkipInstaller=true;BuildingMsiPackage=true</Properties>
     </ProjectReference>
   </ItemGroup>
 
-  <!-- Publish the app before packaging. Only runs when Configuration=Release. -->
-  <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Release'">
+  <Target Name="EnsureX64InstallerPlatform"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <PropertyGroup>
+      <Platform>x64</Platform>
+      <Platforms>x64</Platforms>
+      <InstallerPlatform>x64</InstallerPlatform>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="PublishForInstaller"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
     <Exec Command="cmd /c taskkill /IM MyGitWinV10.App.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
     <RemoveDir Directories="$(PublishOutputDir)" Condition="Exists('$(PublishOutputDir)')" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
-          Command="dotnet publish &quot;$(AppProject)&quot; -c Release -r win-x64 --self-contained false -p:SkipInstaller=true -p:Platform=AnyCPU -o &quot;$(PublishOutputDir)&quot;" />
+          Command="dotnet publish &quot;$(AppProject)&quot; -c Release -r win-x64 --self-contained false -p:SkipInstaller=true -p:BuildingMsiPackage=true -p:Platform=AnyCPU -o &quot;$(PublishOutputDir)&quot;" />
+    <Error Condition="!Exists('$(PublishOutputDir)MyGitWinV10.App.exe')"
+           Text="Publish output was not created at $(PublishOutputDir). Close any running MyGitWinV10.App.exe and rebuild." />
+  </Target>
+
+  <Target Name="SkipNonReleaseBuild"
+          BeforeTargets="Build"
+          Condition="'$(InstallerBuildEnabled)' != 'true'">
+    <Message Importance="high" Text="MyGitWinV10.Installer: skipped (Release MSI is built by MyGitWinV10.App or: dotnet build installer\MyGitWinV10.Installer.wixproj -c Release -p:Platform=x64 -p:BuildMsiPackage=true)" />
+  </Target>
+
+  <Target Name="VerifyMsiOutput"
+          AfterTargets="Build"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Error Condition="!Exists('$(MsiOutputPath)')"
+           Text="MSI was not created at $(MsiOutputPath). Close any running MyGitWinV10.App.exe and rebuild." />
+    <Message Importance="high" Text="MSI created: $(MsiOutputPath)" />
   </Target>
 </Project>
