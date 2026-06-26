@@ -43,10 +43,12 @@ partial class HWP2DocForm
         btnExportWord = new ToolStripButton();
         btnExportPdf = new ToolStripButton();
         toolSep2 = new ToolStripSeparator();
+        btnToggleStructure = new ToolStripButton();
         lblFontSize = new ToolStripLabel();
         cboFontSize = new ToolStripComboBox();
         btnProgramInfo = new ToolStripButton();
         splitContainerMain = new SplitContainer();
+        pnlContent = new Panel();
         splitContainer1 = new SplitContainer();
         pnlStructure = new Panel();
         webViewMarkdown = new Microsoft.Web.WebView2.WinForms.WebView2();
@@ -63,6 +65,7 @@ partial class HWP2DocForm
         previewTimer = new System.Windows.Forms.Timer(components);
         menuStrip1.SuspendLayout();
         toolStrip1.SuspendLayout();
+        pnlContent.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)splitContainerMain).BeginInit();
         splitContainerMain.Panel1.SuspendLayout();
         splitContainerMain.Panel2.SuspendLayout();
@@ -174,7 +177,7 @@ partial class HWP2DocForm
         // 
         // structurePanelVisibleToolStripMenuItem
         // 
-        structurePanelVisibleToolStripMenuItem.Checked = true;
+        structurePanelVisibleToolStripMenuItem.Checked = false;
         structurePanelVisibleToolStripMenuItem.CheckOnClick = true;
         structurePanelVisibleToolStripMenuItem.Name = "structurePanelVisibleToolStripMenuItem";
         structurePanelVisibleToolStripMenuItem.Size = new Size(220, 22);
@@ -222,7 +225,7 @@ partial class HWP2DocForm
         // 
         // toolStrip1
         // 
-        toolStrip1.Items.AddRange(new ToolStripItem[] { btnOpen, btnConvert, toolSep1, btnExportMarkdown, btnExportWord, btnExportPdf, toolSep2, lblFontSize, cboFontSize, btnProgramInfo });
+        toolStrip1.Items.AddRange(new ToolStripItem[] { btnOpen, btnConvert, toolSep1, btnExportMarkdown, btnExportWord, btnExportPdf, toolSep2, btnToggleStructure, lblFontSize, cboFontSize, btnProgramInfo });
         toolStrip1.Location = new Point(0, 24);
         toolStrip1.Name = "toolStrip1";
         toolStrip1.Size = new Size(1184, 25);
@@ -315,11 +318,34 @@ partial class HWP2DocForm
         btnProgramInfo.TextImageRelation = TextImageRelation.ImageBeforeText;
         btnProgramInfo.Click += programInfoToolStripMenuItem_Click;
         // 
+        // btnToggleStructure
+        // 
+        btnToggleStructure.CheckOnClick = true;
+        btnToggleStructure.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        btnToggleStructure.ImageTransparentColor = Color.Magenta;
+        btnToggleStructure.Name = "btnToggleStructure";
+        btnToggleStructure.Size = new Size(84, 22);
+        btnToggleStructure.Text = "문서 구조";
+        btnToggleStructure.TextImageRelation = TextImageRelation.ImageBeforeText;
+        btnToggleStructure.ToolTipText = "문서 구조 패널 표시/숨김";
+        btnToggleStructure.Click += btnToggleStructure_Click;
+        // 
+        // pnlContent
+        // 
+        pnlContent.BackColor = Color.FromArgb(243, 244, 246);
+        pnlContent.Controls.Add(splitContainerMain);
+        pnlContent.Dock = DockStyle.Fill;
+        pnlContent.Location = new Point(0, 49);
+        pnlContent.Name = "pnlContent";
+        pnlContent.Padding = new Padding(10, 8, 10, 8);
+        pnlContent.Size = new Size(1184, 610);
+        pnlContent.TabIndex = 4;
+        // 
         // splitContainerMain
         // 
         splitContainerMain.Dock = DockStyle.Fill;
         splitContainerMain.FixedPanel = FixedPanel.Panel2;
-        splitContainerMain.Location = new Point(0, 49);
+        splitContainerMain.Location = new Point(10, 8);
         splitContainerMain.Name = "splitContainerMain";
         // 
         // splitContainerMain.Panel1
@@ -331,8 +357,8 @@ partial class HWP2DocForm
         // 
         splitContainerMain.Panel2.Controls.Add(pnlStructure);
         splitContainerMain.Panel2MinSize = 180;
-        splitContainerMain.Size = new Size(1184, 610);
-        splitContainerMain.SplitterDistance = 900;
+        splitContainerMain.Size = new Size(1164, 594);
+        splitContainerMain.SplitterDistance = 880;
         splitContainerMain.TabIndex = 2;
         // 
         // pnlStructure
@@ -484,10 +510,10 @@ partial class HWP2DocForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1184, 681);
-        Controls.Add(splitContainerMain);
+        Controls.Add(pnlContent);
+        Controls.Add(statusStrip1);
         Controls.Add(toolStrip1);
         Controls.Add(menuStrip1);
-        Controls.Add(statusStrip1);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip1;
         MinimumSize = new Size(900, 600);
@@ -503,6 +529,7 @@ partial class HWP2DocForm
         splitContainerMain.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitContainerMain).EndInit();
         splitContainerMain.ResumeLayout(false);
+        pnlContent.ResumeLayout(false);
         pnlStructure.ResumeLayout(false);
         splitContainer1.Panel1.ResumeLayout(false);
         splitContainer1.Panel2.ResumeLayout(false);
@@ -544,10 +571,12 @@ partial class HWP2DocForm
     private ToolStripButton btnExportWord;
     private ToolStripButton btnExportPdf;
     private ToolStripSeparator toolSep2;
+    private ToolStripButton btnToggleStructure;
     private ToolStripLabel lblFontSize;
     private ToolStripComboBox cboFontSize;
     private ToolStripButton btnProgramInfo;
     private SplitContainer splitContainerMain;
+    private Panel pnlContent;
     private SplitContainer splitContainer1;
     private Panel pnlStructure;
     private Label lblMarkdown;

@@ -34,7 +34,7 @@ public sealed class FileSearchService
             : StringComparer.OrdinalIgnoreCase;
 
         return candidates
-            .Select(entry => (Entry: entry, Score: ScoreEntry(entry, searchQuery.Terms, comparison)))
+            .Select(entry => (Entry: entry, Score: ScoreQuery(entry, searchQuery, comparison)))
             .Where(match => match.Score > 0)
             .OrderByDescending(match => match.Score)
             .ThenBy(match => match.Entry.FileName, nameComparer)
@@ -74,7 +74,7 @@ public sealed class FileSearchService
             if (index++ < startOffset)
                 continue;
 
-            var score = ScoreEntry(entry, searchQuery.Terms, comparison);
+            var score = ScoreQuery(entry, searchQuery, comparison);
             if (score > 0)
                 TryAddMatch(matches, entry, score);
 
@@ -133,10 +133,28 @@ public sealed class FileSearchService
             return;
         }
 
-        if (matches.Count >= IndexStoragePolicy.MaxSearchResults)
+        if (matches.Count < IndexStoragePolicy.MaxSearchResults)
+        {
+            matches[entry.FullPath] = (entry, score);
             return;
+        }
 
-        matches[entry.FullPath] = (entry, score);
+        var weakestPath = string.Empty;
+        var weakestScore = int.MaxValue;
+        foreach (var (path, candidate) in matches)
+        {
+            if (candidate.Score >= weakestScore)
+                continue;
+
+            weakestScore = candidate.Score;
+            weakestPath = path;
+        }
+
+        if (weakestPath.Length > 0 && score > weakestScore)
+        {
+            matches.Remove(weakestPath);
+            matches[entry.FullPath] = (entry, score);
+        }
     }
 
     private static IReadOnlyList<FileEntry> ToSortedResults(
@@ -157,7 +175,26 @@ public sealed class FileSearchService
             .ToList();
     }
 
-    private static int ScoreEntry(
+    private static int ScoreQuery(
+        FileEntry entry,
+        ResolvedSearchQuery query,
+        StringComparison comparison)
+    {
+        if (query.OrGroups.Count == 0)
+            return 0;
+
+        var best = 0;
+        foreach (var group in query.OrGroups)
+        {
+            var groupScore = ScoreAndGroup(entry, group.Terms, comparison);
+            if (groupScore > best)
+                best = groupScore;
+        }
+
+        return best;
+    }
+
+    private static int ScoreAndGroup(
         FileEntry entry,
         IReadOnlyList<SearchTerm> terms,
         StringComparison comparison)
@@ -171,7 +208,7 @@ public sealed class FileSearchService
         {
             var score = term.Pattern is not null
                 ? ScoreRegex(entry, term.Pattern)
-                : SearchTextHelper.ScoreLiteralEntry(entry.SearchFileName, term.Text, comparison);
+                : SearchTextHelper.ScoreLiteralEntry(entry.SearchFileName, term.NormalizedText, comparison);
 
             if (score == 0)
                 return 0;

@@ -101,6 +101,16 @@
   <data name="Settings_ResetIndex_ConfirmMessage" xml:space="preserve"><value>저장된 검색 인덱스(index.db)를 삭제합니다. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?</value></data>
   <data name="Settings_OpenDataFolder" xml:space="preserve"><value>데이터 폴더</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>인덱싱 중… {0}% ({1:N0}개 항목)</value></data>
+  <data name="Settings_IndexPhaseLabel" xml:space="preserve"><value>{0}/{1} · {2}</value></data>
+  <data name="Settings_IndexPhaseName_Scanning" xml:space="preserve"><value>스캔</value></data>
+  <data name="Settings_IndexPhaseName_Analyzing" xml:space="preserve"><value>분석</value></data>
+  <data name="Settings_IndexPhaseName_Applying" xml:space="preserve"><value>인덱스 적용</value></data>
+  <data name="Settings_IndexPhaseStatus_Scanning" xml:space="preserve"><value>{0}% · {1:N0}개 항목 인덱싱됨</value></data>
+  <data name="Settings_IndexPhaseStatus_ScanningRescan" xml:space="preserve"><value>{0}% · {1:N0}개 인덱싱됨 (기존 {2:N0}개 기준, 검색은 기존 인덱스 사용)</value></data>
+  <data name="Settings_IndexPhaseStatus_Analyzing" xml:space="preserve"><value>검색 통계 최적화 중 · {0:N0}개 항목</value></data>
+  <data name="Settings_IndexPhaseStatus_Applying" xml:space="preserve"><value>새 인덱스를 반영하는 중 · {0:N0}개 항목</value></data>
+  <data name="Index_Analyzing" xml:space="preserve"><value>{0:N0}개 — 분석 중</value></data>
+  <data name="Index_Applying" xml:space="preserve"><value>{0:N0}개 — 인덱스 적용 중</value></data>
   <data name="Settings_SearchingStatus" xml:space="preserve"><value>검색 중… {0}% — "{1}"</value></data>
   <data name="Settings_ReadyStatus" xml:space="preserve"><value>준비 완료 — {0:N0}개 항목 인덱싱됨</value></data>
   <data name="Settings_ReadyStatusWithElapsed" xml:space="preserve"><value>준비 완료 — {0:N0}개 항목 인덱싱됨 (소요 시간: {1})</value></data>

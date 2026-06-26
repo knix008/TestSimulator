@@ -33,6 +33,7 @@ internal static class ToolbarIcons
         ToolStripButton btnExportMarkdown,
         ToolStripButton btnExportWord,
         ToolStripButton btnExportPdf,
+        ToolStripButton btnToggleStructure,
         ToolStripButton btnProgramInfo)
     {
         ConfigureMenuItem(fileMenu, "file");
@@ -62,6 +63,7 @@ internal static class ToolbarIcons
         ConfigureToolbarButton(btnExportMarkdown, "markdown", "Markdown", "Markdown 파일로 내보내기");
         ConfigureToolbarButton(btnExportWord, "word", "Word", "Word 문서로 내보내기");
         ConfigureToolbarButton(btnExportPdf, "pdf", "PDF", "PDF 파일로 내보내기");
+        ConfigureToolbarButton(btnToggleStructure, "structure", "문서 구조", "문서 구조 패널 표시/숨김");
         ConfigureToolbarButton(btnProgramInfo, "about", "정보", "프로그램 정보");
     }
 

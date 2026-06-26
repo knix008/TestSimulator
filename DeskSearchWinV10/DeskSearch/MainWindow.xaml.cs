@@ -214,14 +214,22 @@ public partial class MainWindow : Window
     {
 
         var isComplete = _indexService.IsScanComplete;
-        // Count contends with the active scan's lock while indexing; use the lock-free
-        // approximate count then so this UI-thread update can't block on it.
-        var count = isComplete ? _indexService.Count : _indexService.ApproximateLiveCount;
+        var count = isComplete
+            ? _indexService.Count
+            : _indexService.ScanIndexedCount;
+        var phase = _indexService.ProgressPhase;
         var status = isComplete
             ? LocalizationService.F("Index_Complete", count)
-            : LocalizationService.F("Index_InProgress", count);
+            : phase switch
+            {
+                IndexProgressPhase.Analyzing => LocalizationService.F("Index_Analyzing", count),
+                IndexProgressPhase.Applying => LocalizationService.F("Index_Applying", count),
+                _ => LocalizationService.F("Index_InProgress", count)
+            };
 
         _menuIndexStatus.Header = status;
+
+        SearchBox.IsEnabled = _indexService.IsSearchEnabled;
 
     }
 

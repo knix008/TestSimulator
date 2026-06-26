@@ -213,6 +213,11 @@
                           Margin="0,0,0,16"/>
 
                 <TextBlock x:Name="IndexProgressLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="IndexProgressPhaseLabel"
+                           FontWeight="SemiBold"
+                           Foreground="#0078D4"
+                           Margin="0,0,0,4"
+                           Visibility="Collapsed"/>
                 <Grid Margin="0,0,0,4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

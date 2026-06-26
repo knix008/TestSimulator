@@ -29,20 +29,48 @@ internal static class MarkdownPreviewNormalizer
         text = YamlFrontmatterRegex.Replace(text, string.Empty);
         text = SectionMarkerRegex.Replace(text, string.Empty);
         text = BulletRegex.Replace(text, "$1- ");
+        text = MarkdownHeadingNormalizer.Normalize(text);
         text = NormalizeOrderedListMarkers(text);
         text = EnsureBlankLineBeforeBlockElements(text);
-        text = FixPipeTables(text);
+        text = EnsureBlankLineAfterHtmlTables(text);
+        text = MarkdownPipeTableNormalizer.Normalize(text);
         text = CollapseExcessiveBlankLines(text);
         return text.Trim();
     }
 
     private static string NormalizeOrderedListMarkers(string text)
     {
-        return Regex.Replace(
-            text,
-            @"^(\s*)(\d+)[.)]\s+",
-            "$1$2. ",
-            RegexOptions.Multiline);
+        var lines = text.Split('\n');
+        var result = new List<string>(lines.Length);
+
+        foreach (string line in lines)
+        {
+            if (IsMarkdownHeadingLine(line) || IsOutlineNumberLine(line))
+            {
+                result.Add(line);
+                continue;
+            }
+
+            result.Add(OrderedListLineRegex.Replace(line, "$1$2. "));
+        }
+
+        return string.Join('\n', result);
+    }
+
+    private static readonly Regex OrderedListLineRegex = new(
+        @"^(\s*)(\d+)[.)]\s+",
+        RegexOptions.Compiled);
+
+    private static bool IsMarkdownHeadingLine(string line)
+    {
+        string trimmed = line.TrimStart();
+        return trimmed.StartsWith('#') && Regex.IsMatch(trimmed, @"^#{1,6}\s+\S");
+    }
+
+    private static bool IsOutlineNumberLine(string line)
+    {
+        string trimmed = line.Trim();
+        return Regex.IsMatch(trimmed, @"^(?:제\s*)?\d+\.\d+(?:\.\d+)*\s+\S");
     }
 
     private static string EnsureBlankLineBeforeBlockElements(string text)
@@ -54,10 +82,7 @@ internal static class MarkdownPreviewNormalizer
         {
             string line = lines[i];
             if (i > 0 && NeedsLeadingBlankLine(line) && result.Count > 0 && result[^1].Length > 0)
-            {
-                if (result[^1].Length > 0)
-                    result.Add(string.Empty);
-            }
+                result.Add(string.Empty);
 
             result.Add(line);
         }
@@ -88,61 +113,22 @@ internal static class MarkdownPreviewNormalizer
             line.StartsWith("<h2", StringComparison.OrdinalIgnoreCase))
             return true;
 
+        if (line.StartsWith("<img", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (line.StartsWith("![", StringComparison.Ordinal))
+            return true;
+
         return false;
     }
 
-    private static string FixPipeTables(string text)
+    private static string EnsureBlankLineAfterHtmlTables(string text)
     {
-        var lines = text.Split('\n');
-        var result = new List<string>(lines.Length + 4);
-
-        for (int i = 0; i < lines.Length; i++)
-        {
-            string line = lines[i];
-            result.Add(line);
-
-            if (!IsPipeTableRow(line))
-                continue;
-
-            if (i + 1 < lines.Length && IsPipeTableSeparator(lines[i + 1]))
-                continue;
-
-            int columns = CountPipeColumns(line);
-            if (columns >= 2)
-                result.Add(BuildPipeSeparator(columns));
-        }
-
-        return string.Join('\n', result);
-    }
-
-    private static bool IsPipeTableRow(string line)
-    {
-        string trimmed = line.Trim();
-        return trimmed.Contains('|') &&
-               trimmed.Trim('|').Contains('|') &&
-               !trimmed.StartsWith("```", StringComparison.Ordinal);
-    }
-
-    private static bool IsPipeTableSeparator(string line)
-    {
-        string trimmed = line.Trim();
-        return trimmed.Contains('|') &&
-               Regex.IsMatch(trimmed, @"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$");
-    }
-
-    private static int CountPipeColumns(string line)
-    {
-        string trimmed = line.Trim().Trim('|');
-        if (string.IsNullOrEmpty(trimmed))
-            return 0;
-
-        return trimmed.Split('|').Length;
-    }
-
-    private static string BuildPipeSeparator(int columns)
-    {
-        var cells = Enumerable.Repeat("---", columns);
-        return "| " + string.Join(" | ", cells) + " |";
+        return Regex.Replace(
+            text,
+            @"(</table>)(\s*)(?=[^\r\n])",
+            "$1\n\n",
+            RegexOptions.IgnoreCase);
     }
 
     private static string CollapseExcessiveBlankLines(string text)

@@ -15,7 +15,7 @@ public partial class HWP2DocForm : Form
     private bool _isUpdatingStructure;
     private bool _isBusy;
     private StructurePanelSide _structurePanelSide = StructurePanelSide.Right;
-    private bool _structurePanelVisible = true;
+    private bool _structurePanelVisible = false;
     private int _savedStructurePanelWidth;
     private float _fontSize = AppUserSettings.DefaultFontSize;
     private bool _isUpdatingFontSizeUi;
@@ -35,6 +35,15 @@ public partial class HWP2DocForm : Form
         ApplyFontSize(AppUserSettings.FontSize, save: false);
         ApplyCommandIcons();
         TryLoadApplicationIcon();
+        Shown += HWP2DocForm_Shown;
+    }
+
+    private void HWP2DocForm_Shown(object? sender, EventArgs e)
+    {
+        if (!_structurePanelVisible)
+            ApplyEqualEditorPreviewSplit();
+
+        RefreshWebViewPanels();
     }
 
     private void WireWebViewSplitRefresh()
@@ -132,6 +141,7 @@ public partial class HWP2DocForm : Form
             btnExportMarkdown,
             btnExportWord,
             btnExportPdf,
+            btnToggleStructure,
             btnProgramInfo);
     }
 
@@ -180,9 +190,11 @@ public partial class HWP2DocForm : Form
         if (!EnsureNotBusy())
             return;
 
+        ApplyLastDirectory(openFileDialog1);
         if (openFileDialog1.ShowDialog(this) != DialogResult.OK)
             return;
 
+        AppUserSettings.SetLastDirectory(Path.GetDirectoryName(openFileDialog1.FileName));
         await ConvertFileAsync(openFileDialog1.FileName);
     }
 
@@ -214,6 +226,7 @@ public partial class HWP2DocForm : Form
 
             _sourceFilePath = result.SourceFilePath;
             _assetDirectory = result.AssetDirectory;
+            PreviewAssetHost.Configure(webViewPreview, _assetDirectory);
             _isUpdatingEditor = true;
             _markdownText = MarkdownLineBreakRestorer.FormatForEditor(result.Markdown);
             UpdateMarkdownEditor();
@@ -290,6 +303,7 @@ public partial class HWP2DocForm : Form
         if (webViewPreview.CoreWebView2 == null)
             return;
 
+        PreviewAssetHost.Configure(webViewPreview, _assetDirectory);
         string html = PreviewHtmlBuilder.BuildFullPage(_markdownText, _assetDirectory, _fontSize);
         webViewPreview.NavigateToString(html);
     }
@@ -482,6 +496,7 @@ public partial class HWP2DocForm : Form
         saveFileDialog1.FileName = string.IsNullOrWhiteSpace(_sourceFilePath)
             ? "document"
             : Path.GetFileNameWithoutExtension(_sourceFilePath);
+        ApplyLastDirectory(saveFileDialog1);
 
         if (saveFileDialog1.ShowDialog(this) != DialogResult.OK)
             return;
@@ -493,6 +508,7 @@ public partial class HWP2DocForm : Form
         try
         {
             await exportAction(saveFileDialog1.FileName);
+            AppUserSettings.SetLastDirectory(Path.GetDirectoryName(saveFileDialog1.FileName));
             MessageBox.Show(
                 $"저장했습니다.\n\n{saveFileDialog1.FileName}",
                 "내보내기 완료",
@@ -517,8 +533,7 @@ public partial class HWP2DocForm : Form
 
     private async Task ExportMarkdownAsync(string outputPath)
     {
-        await File.WriteAllTextAsync(outputPath, _markdownText, Encoding.UTF8);
-        await CopyAssetDirectoryAsync(Path.GetDirectoryName(outputPath)!);
+        await MarkdownExportService.ExportAsync(_markdownText, _assetDirectory, outputPath);
     }
 
     private Task ExportWordAsync(string outputPath)
@@ -533,7 +548,8 @@ public partial class HWP2DocForm : Form
         if (webViewPreview.CoreWebView2 == null)
             throw new InvalidOperationException("미리보기(WebView2)가 준비되지 않았습니다.");
 
-        string html = PreviewHtmlBuilder.BuildForExport(_markdownText, _assetDirectory, _fontSize);
+        PreviewAssetHost.Configure(webViewPreview, _assetDirectory);
+        string html = PreviewHtmlBuilder.BuildForPdfExport(_markdownText, _assetDirectory, _fontSize);
         var navigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
@@ -555,21 +571,14 @@ public partial class HWP2DocForm : Form
             throw new InvalidOperationException("PDF 생성에 실패했습니다.");
     }
 
-    private async Task CopyAssetDirectoryAsync(string destinationDirectory)
+    private static void ApplyLastDirectory(FileDialog dialog)
     {
-        if (string.IsNullOrWhiteSpace(_assetDirectory) || !Directory.Exists(_assetDirectory))
+        string? directory = AppUserSettings.LastDirectory;
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
             return;
 
-        foreach (string sourceFile in Directory.EnumerateFiles(_assetDirectory, "*", SearchOption.AllDirectories))
-        {
-            if (sourceFile.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            string relativePath = Path.GetRelativePath(_assetDirectory, sourceFile);
-            string targetPath = Path.Combine(destinationDirectory, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-            await Task.Run(() => File.Copy(sourceFile, targetPath, overwrite: true));
-        }
+        dialog.InitialDirectory = directory;
+        dialog.RestoreDirectory = true;
     }
 
     private void programInfoToolStripMenuItem_Click(object? sender, EventArgs e)
@@ -586,6 +595,9 @@ public partial class HWP2DocForm : Form
 
     private void structurePanelVisibleToolStripMenuItem_Click(object? sender, EventArgs e)
         => ApplyStructurePanelVisibility(structurePanelVisibleToolStripMenuItem.Checked);
+
+    private void btnToggleStructure_Click(object? sender, EventArgs e)
+        => ApplyStructurePanelVisibility(btnToggleStructure.Checked);
 
     private void FontSizeMenuItem_Click(object? sender, EventArgs e)
     {
@@ -728,6 +740,7 @@ public partial class HWP2DocForm : Form
         }
 
         structurePanelVisibleToolStripMenuItem.Checked = visible;
+        btnToggleStructure.Checked = visible;
         structurePositionToolStripMenuItem.Enabled = visible;
         structurePanelLeftToolStripMenuItem.Enabled = visible;
         structurePanelRightToolStripMenuItem.Enabled = visible;

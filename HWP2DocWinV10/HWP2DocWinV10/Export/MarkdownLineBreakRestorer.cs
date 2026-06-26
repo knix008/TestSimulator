@@ -39,6 +39,14 @@ internal static class MarkdownLineBreakRestorer
         @"(?<=[^\r\n])\s+(?=\|[^\r\n|]+\|)",
         RegexOptions.Compiled);
 
+    private static readonly Regex MarkdownImageInlineRegex = new(
+        @"(?<=[^\r\n])\s*(?=!\[[^\]]*\]\([^)]+\))",
+        RegexOptions.Compiled);
+
+    private static readonly Regex HtmlImageInlineRegex = new(
+        @"(?<=[^\r\n])\s*(?=<img\b)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static readonly Regex HtmlBlockEndRegex = new(
         @"(</(?:p|div|table|thead|tbody|tr|h[1-6])>)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -53,19 +61,23 @@ internal static class MarkdownLineBreakRestorer
             return string.Empty;
 
         string text = markdown.Replace("\r\n", "\n").Replace('\r', '\n');
-        if (!NeedsRestore(text))
-            return text;
 
         text = HtmlBreakRegex.Replace(text, match => match.Value + "\n");
         text = HtmlBlockEndRegex.Replace(text, "$1\n");
-        text = HeadingInlineRegex.Replace(text, "\n");
-        text = SectionMarkerInlineRegex.Replace(text, "\n");
-        text = HtmlHeadingInlineRegex.Replace(text, "\n");
         text = HtmlTableInlineRegex.Replace(text, "\n");
-        text = PipeTableInlineRegex.Replace(text, "\n");
-        text = BulletInlineRegex.Replace(text, "\n");
-        text = DashListInlineRegex.Replace(text, "\n");
-        text = OrderedListInlineRegex.Replace(text, "\n");
+        text = MarkdownImageInlineRegex.Replace(text, "\n");
+        text = HtmlImageInlineRegex.Replace(text, "\n");
+        text = HeadingInlineRegex.Replace(text, "\n");
+        text = HtmlHeadingInlineRegex.Replace(text, "\n");
+
+        if (NeedsRestore(text))
+        {
+            text = SectionMarkerInlineRegex.Replace(text, "\n");
+            text = PipeTableInlineRegex.Replace(text, "\n");
+            text = BulletInlineRegex.Replace(text, "\n");
+            text = DashListInlineRegex.Replace(text, "\n");
+            text = OrderedListInlineRegex.Replace(text, "\n");
+        }
 
         return Regex.Replace(text, @"\n{3,}", "\n\n").Trim();
     }
@@ -73,7 +85,7 @@ internal static class MarkdownLineBreakRestorer
     public static string FormatForEditor(string markdown)
     {
         string restored = Restore(markdown);
-        restored = MarkdownPreviewNormalizer.Normalize(restored);
+        restored = MarkdownPipeTableNormalizer.Normalize(restored);
         return restored.Replace("\n", Environment.NewLine);
     }
 
