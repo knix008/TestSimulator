@@ -50,6 +50,8 @@ Tools/GenerateIcon/bin/
 Tools/GenerateIcon/obj/
 Tools/VerifyUnhwp/bin/
 Tools/VerifyUnhwp/obj/
+HWP2DocWinV10/Tools/**/bin/
+HWP2DocWinV10/Tools/**/obj/
 
 # Tools/rhwp/rhwp.exe — Windows CLI 바이너리 (MSI 번들용, 의도적으로 추적)
 

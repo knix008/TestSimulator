@@ -17,6 +17,10 @@
   <ItemGroup>
     <Compile Remove="Assets\obj\**" />
     <Compile Remove="Assets\bin\**" />
+    <Compile Remove="Tools\**\obj\**" />
+    <Compile Remove="Tools\**\bin\**" />
+    <Compile Remove="Tools\GenerateIcon\**" />
+    <None Include="Tools\GenerateIcon\GenerateIcon.csproj" Condition="Exists('Tools\GenerateIcon\GenerateIcon.csproj')" />
   </ItemGroup>
 
   <ItemGroup>
