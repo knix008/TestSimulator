@@ -11,6 +11,8 @@
     <SuppressIces>ICE61</SuppressIces>
     <!-- Installer UI: Korean and English only -->
     <Cultures>ko-kr;en-us</Cultures>
+    <!-- Parallel culture binds can race on shared cabinet intermediates (WIX0103 #cab1.cab). -->
+    <BuildCulturesInParallel>false</BuildCulturesInParallel>
   </PropertyGroup>
 
   <ItemGroup>
