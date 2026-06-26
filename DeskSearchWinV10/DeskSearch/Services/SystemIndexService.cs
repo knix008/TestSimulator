@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.IO.Enumeration;
 using DeskSearch.Helpers;
 using DeskSearch.Models;
+using Microsoft.Data.Sqlite;
+
 namespace DeskSearch.Services;
 
 public sealed class SystemIndexService : IDisposable
@@ -65,6 +67,17 @@ public sealed class SystemIndexService : IDisposable
     // instead of silently falling back to whatever the live store had before that rescan.
     private readonly bool _hasInterruptedRescan;
 
+    // A full-scan request received while indexing is already running is deferred instead of
+    // cancelling the active scan (EnqueueExclusive would abort mid-drive and leave a partial index).
+    private volatile bool _deferredFullScan;
+
+    // Set when the user explicitly stops indexing; suppresses automatic rescan retry.
+    private volatile bool _userStoppedScan;
+
+    // After a database reset the next build must finish on the live store (no shadow DB)
+    // until every scan root is indexed once.
+    private volatile bool _requiresFullFirstIndexBuild;
+
     public SystemIndexService()
     {
         _databaseFolder = AppStoragePaths.DataFolder;
@@ -111,10 +124,36 @@ public sealed class SystemIndexService : IDisposable
             return _indexStore.Count > 0;
     }
 
+    /// <summary>Shadow rebuild only after a prior full live index; never during the first build after reset.</summary>
+    private bool ShouldUseShadowBuild() =>
+        HasEstablishedSearchIndex() && !_requiresFullFirstIndexBuild;
+
+    private bool AreAllScanRootsIndexed()
+    {
+        foreach (var root in ScanRoots)
+        {
+            if (_exclusions.IsPathExcluded(root) || !Directory.Exists(root))
+                continue;
+
+            var normalized = NormalizeDirectoryPrefix(root);
+            if (normalized is null)
+                continue;
+
+            lock (_rootsLock)
+            {
+                if (!_indexedRoots.Contains(normalized))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>During shadow re-index, only <c>index.building.db</c> is written; search keeps reading <c>index.db</c>.</summary>
     private bool IsShadowIndexingActive() => _isScanning && _scanUsesShadowBuild;
 
-    private bool CanUpdateLiveSearchIndex() => !IsShadowIndexingActive();
+    private bool CanUpdateLiveSearchIndex() =>
+        !IsShadowIndexingActive() && !_requiresFullFirstIndexBuild;
 
     private static void DeleteDatabaseFiles(string basePath)
     {
@@ -129,6 +168,38 @@ public sealed class SystemIndexService : IDisposable
             catch
             {
                 // best effort cleanup; a leftover file here doesn't corrupt anything
+            }
+        }
+    }
+
+    /// <summary>Removes every index database file in the data folder (main DB, shadow build, WAL/SHM sidecars).</summary>
+    private void DeleteAllIndexDatabaseFiles()
+    {
+        DeleteDatabaseFiles(GetCanonicalDatabasePath());
+        DeleteDatabaseFiles(GetBuildingDatabasePath());
+
+        if (!Directory.Exists(_databaseFolder))
+            return;
+
+        foreach (var file in Directory.EnumerateFiles(_databaseFolder))
+        {
+            var name = Path.GetFileName(file);
+            if (!name.StartsWith("index", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!name.EndsWith(".db", StringComparison.OrdinalIgnoreCase)
+                && !name.Contains(".db-", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            try
+            {
+                File.Delete(file);
+            }
+            catch
+            {
+                // best effort
             }
         }
     }
@@ -185,38 +256,61 @@ public sealed class SystemIndexService : IDisposable
 
     public void RestartScan()
     {
+        _userStoppedScan = false;
+        _deferredFullScan = false;
         _isScanComplete = false;
         _scanProgressPercent = 0;
         _completedScanSteps = 0;
-        _scanUsesShadowBuild = HasEstablishedSearchIndex();
-        _scanBaselineCount = _scanUsesShadowBuild ? _indexStore.Count : 0;
+
+        if (_requiresFullFirstIndexBuild)
+        {
+            _scanUsesShadowBuild = false;
+            _scanBaselineCount = 0;
+        }
+        else
+        {
+            _scanUsesShadowBuild = ShouldUseShadowBuild();
+            _scanBaselineCount = _scanUsesShadowBuild ? CurrentStore.Count : 0;
+        }
+
         Interlocked.Exchange(ref _scanIndexedCount, 0);
         SetProgressPhase(IndexProgressPhase.Scanning, forceReport: false);
         ReportProgress(null, false, force: true);
 
-        _indexWorker.EnqueueExclusive(RunScan);
+        EnqueueFullScan(cancelCurrent: true);
     }
 
-    public void StopScan() => _indexWorker.CancelExclusiveWork();
+    public void StopScan()
+    {
+        _userStoppedScan = true;
+        _deferredFullScan = false;
+        _indexWorker.CancelExclusiveWork();
+    }
 
     public void ResetIndexDatabase()
     {
-        if (_isScanning)
-            return;
-
+        _userStoppedScan = true;
+        _deferredFullScan = false;
+        _indexWorker.CancelExclusiveWork();
         _indexWorker.EnqueueExclusive(_ => ResetIndexDatabaseCore());
     }
 
     private void ResetIndexDatabaseCore()
     {
-        if (_isScanning)
-            return;
-
         lock (_indexStoreSwapLock)
         {
+            try
+            {
+                _indexStore.Checkpoint();
+            }
+            catch
+            {
+                // best effort before file deletion
+            }
+
             _indexStore.Dispose();
-            DeleteDatabaseFiles(GetCanonicalDatabasePath());
-            DeleteDatabaseFiles(GetBuildingDatabasePath());
+            SqliteConnection.ClearAllPools();
+            DeleteAllIndexDatabaseFiles();
             _indexStore = new IndexStore(GetCanonicalDatabasePath());
             Interlocked.Exchange(ref _approximateLiveCount, 0);
         }
@@ -234,6 +328,9 @@ public sealed class SystemIndexService : IDisposable
         _isScanComplete = false;
         _isScanning = false;
         _scanUsesShadowBuild = false;
+        _requiresFullFirstIndexBuild = true;
+        _userStoppedScan = false;
+        _deferredFullScan = false;
         _scanBaselineCount = 0;
         Interlocked.Exchange(ref _scanIndexedCount, 0);
         _scanProgressPercent = 0;
@@ -245,7 +342,8 @@ public sealed class SystemIndexService : IDisposable
         _lastIndexUpdatedCount = 0;
         _lastIndexUpdatedTime = DateTime.MinValue;
 
-        SetProgressPhase(IndexProgressPhase.Idle);
+        SetProgressPhase(IndexProgressPhase.Idle, forceReport: false);
+        ReportProgress(null, false, force: true);
         IndexUpdated?.Invoke(this, EventArgs.Empty);
     }
 
@@ -337,9 +435,9 @@ public sealed class SystemIndexService : IDisposable
 
     public void RequestResyncAllRoots()
     {
-        if (HasEstablishedSearchIndex())
+        if (ShouldUseShadowBuild())
         {
-            _indexWorker.EnqueueExclusive(RunScan);
+            EnqueueFullScan();
             return;
         }
 
@@ -370,14 +468,47 @@ public sealed class SystemIndexService : IDisposable
         if (missingRoots.Count == 0)
             return;
 
-        if (HasEstablishedSearchIndex())
+        if (ShouldUseShadowBuild())
         {
-            _indexWorker.EnqueueExclusive(RunScan);
+            EnqueueFullScan();
             return;
         }
 
         foreach (var root in missingRoots)
             RequestResyncPath(root);
+    }
+
+    /// <summary>
+    /// Queues a full <see cref="RunScan"/>. While a scan is already active, the request is
+    /// deferred until it finishes instead of cancelling it mid-way.
+    /// </summary>
+    private void EnqueueFullScan(bool cancelCurrent = false)
+    {
+        if (cancelCurrent)
+        {
+            _deferredFullScan = false;
+            _userStoppedScan = false;
+            _indexWorker.EnqueueExclusive(RunScan);
+            return;
+        }
+
+        if (_isScanning)
+        {
+            _deferredFullScan = true;
+            return;
+        }
+
+        _userStoppedScan = false;
+        _indexWorker.EnqueueExclusive(RunScan);
+    }
+
+    private void TryRunDeferredFullScan()
+    {
+        if (!_deferredFullScan || _isScanning || _userStoppedScan)
+            return;
+
+        _deferredFullScan = false;
+        _indexWorker.EnqueueExclusive(RunScan);
     }
 
     public void ApplyBatchChanges(IReadOnlyList<string> removes, IReadOnlyList<string> adds)
@@ -578,6 +709,13 @@ public sealed class SystemIndexService : IDisposable
             return;
 
         EnsureLiveIndexAnalyzedForSearch();
+
+        if (!AreAllScanRootsIndexed())
+        {
+            EnqueueFullScan();
+            return;
+        }
+
         _isScanComplete = true;
         _scanProgressPercent = 100;
         _totalScanSteps = 1;
@@ -654,7 +792,7 @@ public sealed class SystemIndexService : IDisposable
         BackgroundThreadMode.EnterForCurrentThread();
         _isScanning = true;
 
-        var useShadowBuild = HasEstablishedSearchIndex();
+        var useShadowBuild = ShouldUseShadowBuild();
         _scanUsesShadowBuild = useShadowBuild;
         if (useShadowBuild)
         {
@@ -689,6 +827,7 @@ public sealed class SystemIndexService : IDisposable
         target.BeginBulkIngest();
 
         var succeeded = false;
+        var scanCancelled = false;
         try
         {
             foreach (var path in priorityPaths)
@@ -709,7 +848,7 @@ public sealed class SystemIndexService : IDisposable
         }
         catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is OperationCanceledException))
         {
-            // 새 스캔 시작 시 이전 스캔 취소
+            scanCancelled = true;
         }
         catch (AggregateException ex)
         {
@@ -724,7 +863,7 @@ public sealed class SystemIndexService : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // 새 스캔 시작 시 이전 스캔 취소
+            scanCancelled = true;
         }
         catch (OutOfMemoryException ex)
         {
@@ -742,6 +881,9 @@ public sealed class SystemIndexService : IDisposable
             BackgroundThreadMode.ExitForCurrentThread();
             Thread.CurrentThread.Priority = previousPriority;
         }
+
+        if (succeeded && !AreAllScanRootsIndexed())
+            succeeded = false;
 
         if (succeeded)
         {
@@ -766,6 +908,7 @@ public sealed class SystemIndexService : IDisposable
             }
 
             EnableSearchIfNeeded();
+            _requiresFullFirstIndexBuild = false;
             _isScanComplete = true;
             _scanUsesShadowBuild = false;
             _scanBaselineCount = 0;
@@ -777,7 +920,17 @@ public sealed class SystemIndexService : IDisposable
         {
             DiscardBuildingStore(target, buildingPath);
             RestoreAfterAbortedShadowBuild();
+
+            if (!succeeded && !scanCancelled && !_userStoppedScan)
+                EnqueueFullScan();
         }
+        else if (!succeeded && !scanCancelled && !_userStoppedScan)
+        {
+            // First-time index interrupted by an error — schedule another attempt.
+            EnqueueFullScan();
+        }
+
+        TryRunDeferredFullScan();
     }
 
     private void RestoreAfterAbortedShadowBuild()
@@ -788,6 +941,17 @@ public sealed class SystemIndexService : IDisposable
 
         if (_indexStore.Count <= 0)
             return;
+
+        if (!AreAllScanRootsIndexed())
+        {
+            _isScanComplete = false;
+            SetProgressPhase(IndexProgressPhase.Idle, forceReport: false);
+            ReportProgress(null, false, force: true);
+
+            if (!_userStoppedScan)
+                EnqueueFullScan();
+            return;
+        }
 
         _isScanComplete = true;
         Interlocked.Exchange(ref _approximateLiveCount, _indexStore.Count);
@@ -1282,7 +1446,7 @@ public sealed class SystemIndexService : IDisposable
         }
     }
 
-    private static FileEntry CreateEntry(string fullPath, bool isDirectory)
+    private static FileEntry CreateEntry(string fullPath, bool isDirectory, DateTime? lastWriteTimeUtc = null)
     {
         var normalizedPath = isDirectory ? fullPath.TrimEnd('\\') : fullPath;
         var fileName = Path.GetFileName(normalizedPath);
@@ -1294,7 +1458,37 @@ public sealed class SystemIndexService : IDisposable
             ? Path.GetDirectoryName(normalizedPath) ?? string.Empty
             : Path.GetDirectoryName(fullPath) ?? string.Empty;
 
-        return new FileEntry(normalizedPath, fileName, directory, isDirectory);
+        var modifiedUtc = ToModifiedUtc(lastWriteTimeUtc, fullPath, isDirectory);
+
+        return new FileEntry(normalizedPath, fileName, directory, isDirectory, modifiedUtc);
+    }
+
+    private static long ToModifiedUtc(DateTime? lastWriteTimeUtc, string fullPath, bool isDirectory)
+    {
+        if (lastWriteTimeUtc.HasValue)
+            return ToUnixTimeSeconds(lastWriteTimeUtc.Value);
+
+        try
+        {
+            var utc = isDirectory
+                ? Directory.GetLastWriteTimeUtc(fullPath)
+                : File.GetLastWriteTimeUtc(fullPath);
+            return ToUnixTimeSeconds(utc);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static long ToUnixTimeSeconds(DateTime utc)
+    {
+        if (utc.Kind == DateTimeKind.Local)
+            utc = utc.ToUniversalTime();
+        else if (utc.Kind == DateTimeKind.Unspecified)
+            utc = DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+
+        return new DateTimeOffset(utc).ToUnixTimeSeconds();
     }
 
     private static IReadOnlyList<string> GetPriorityPaths()

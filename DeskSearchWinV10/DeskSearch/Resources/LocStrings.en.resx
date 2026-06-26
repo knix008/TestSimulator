@@ -44,6 +44,13 @@
   <data name="Tray_ShowWindow" xml:space="preserve"><value>Show search window</value></data>
   <data name="Settings_Title" xml:space="preserve"><value>DeskSearch Settings</value></data>
   <data name="Settings_Header" xml:space="preserve"><value>Program Settings</value></data>
+  <data name="Settings_Info" xml:space="preserve"><value>Info</value></data>
+  <data name="About_Title" xml:space="preserve"><value>About DeskSearch</value></data>
+  <data name="About_ProductName" xml:space="preserve"><value>DeskSearch</value></data>
+  <data name="About_Version" xml:space="preserve"><value>Version {0}</value></data>
+  <data name="About_Description" xml:space="preserve"><value>A file and folder search widget for Windows. Search from the top of your screen and open results in Explorer.</value></data>
+  <data name="About_Author" xml:space="preserve"><value>Author · SHKWON(knix008@naver.com)</value></data>
+  <data name="About_Ok" xml:space="preserve"><value>OK</value></data>
   <data name="Settings_Language" xml:space="preserve"><value>Language</value></data>
   <data name="Settings_Language_Korean" xml:space="preserve"><value>한국어</value></data>
   <data name="Settings_Language_English" xml:space="preserve"><value>English</value></data>
@@ -61,6 +68,7 @@
   <data name="Settings_SearchResultSort_PathDesc" xml:space="preserve"><value>Path (Z→A)</value></data>
   <data name="Settings_SearchResultSort_FoldersFirst" xml:space="preserve"><value>Folders first, then name</value></data>
   <data name="Settings_SearchResultSort_FilesFirst" xml:space="preserve"><value>Files first, then name</value></data>
+  <data name="Settings_SearchResultSort_ModifiedDesc" xml:space="preserve"><value>Modified date (newest first)</value></data>
   <data name="Settings_SearchMultilingualNote" xml:space="preserve"><value>File and folder names can be searched in any language (e.g. Korean, English, Japanese, Chinese), regardless of the UI language.</value></data>
   <data name="Settings_Exclusion" xml:space="preserve"><value>Search exclusions</value></data>
   <data name="Settings_ExcludedDrivesDesc" xml:space="preserve"><value>Checked drives are excluded from indexing and search.</value></data>
@@ -78,7 +86,7 @@
   <data name="Settings_StopIndexing" xml:space="preserve"><value>Stop</value></data>
   <data name="Settings_ResetIndex" xml:space="preserve"><value>Reset</value></data>
   <data name="Settings_ResetIndex_ConfirmTitle" xml:space="preserve"><value>Reset Index</value></data>
-  <data name="Settings_ResetIndex_ConfirmMessage" xml:space="preserve"><value>This will delete the saved search index (index.db). This action cannot be undone. Continue?</value></data>
+  <data name="Settings_ResetIndex_ConfirmMessage" xml:space="preserve"><value>This will delete all saved search index database files (index.db, index.building.db, and related files). This action cannot be undone. Continue?</value></data>
   <data name="Settings_OpenDataFolder" xml:space="preserve"><value>Data Folder</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>
   <data name="Settings_IndexPhaseLabel" xml:space="preserve"><value>{0}/{1} · {2}</value></data>

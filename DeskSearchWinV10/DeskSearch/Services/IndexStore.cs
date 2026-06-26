@@ -7,7 +7,7 @@ namespace DeskSearch.Services;
 
 public sealed partial class IndexStore : IDisposable
 {
-    private const int SchemaVersion = 6;
+    private const int SchemaVersion = 7;
 
     private readonly SqliteConnection _connection;
     private readonly object _lock = new();
@@ -225,7 +225,7 @@ public sealed partial class IndexStore : IDisposable
         {
             using var command = CreateCommand(
                 """
-                SELECT id, full_path, file_name, directory, is_directory
+                SELECT id, full_path, file_name, directory, is_directory, modified_utc
                 FROM entries
                 WHERE id > $afterId
                 ORDER BY id
@@ -242,11 +242,7 @@ public sealed partial class IndexStore : IDisposable
             while (reader.Read())
             {
                 lastId = reader.GetInt64(0);
-                results.Add(new FileEntry(
-                    reader.GetString(1),
-                    reader.GetString(2),
-                    reader.GetString(3),
-                    reader.GetInt32(4) != 0));
+                results.Add(ReadEntry(reader, 1));
             }
 
             return new IndexPage(results, lastId);
@@ -292,7 +288,7 @@ public sealed partial class IndexStore : IDisposable
     {
         using var command = CreateCommand(
             """
-            SELECT id, full_path, file_name, directory, is_directory
+            SELECT id, full_path, file_name, directory, is_directory, modified_utc
             FROM entries
             WHERE id > $afterId
             ORDER BY id
@@ -309,11 +305,7 @@ public sealed partial class IndexStore : IDisposable
         while (reader.Read())
         {
             lastId = reader.GetInt64(0);
-            results.Add(new FileEntry(
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetInt32(4) != 0));
+            results.Add(ReadEntry(reader, 1));
         }
 
         return new IndexPage(results, lastId);
@@ -338,6 +330,7 @@ public sealed partial class IndexStore : IDisposable
             command.Parameters.AddWithValue($"$sfn{j}", entry.SearchFileName);
             command.Parameters.AddWithValue($"$sdn{j}", entry.SearchDirectoryName);
             command.Parameters.AddWithValue($"$sfp{j}", string.Empty);
+            command.Parameters.AddWithValue($"$mut{j}", entry.ModifiedUtc);
         }
 
         command.ExecuteNonQuery();
@@ -371,7 +364,7 @@ public sealed partial class IndexStore : IDisposable
             """
             INSERT INTO entries(
                 full_path, file_name, directory, is_directory,
-                search_file_name, search_directory, search_full_path)
+                search_file_name, search_directory, search_full_path, modified_utc)
             VALUES 
             """);
 
@@ -381,7 +374,7 @@ public sealed partial class IndexStore : IDisposable
                 builder.Append(',');
 
             builder.Append(
-                $"($fp{j},$fn{j},$dir{j},$isd{j},$sfn{j},$sdn{j},$sfp{j})");
+                $"($fp{j},$fn{j},$dir{j},$isd{j},$sfn{j},$sdn{j},$sfp{j},$mut{j})");
         }
 
         builder.Append(
@@ -392,13 +385,15 @@ public sealed partial class IndexStore : IDisposable
                 is_directory = excluded.is_directory,
                 search_file_name = excluded.search_file_name,
                 search_directory = excluded.search_directory,
-                search_full_path = excluded.search_full_path
+                search_full_path = excluded.search_full_path,
+                modified_utc = excluded.modified_utc
              WHERE entries.file_name != excluded.file_name
                 OR entries.directory != excluded.directory
                 OR entries.is_directory != excluded.is_directory
                 OR entries.search_file_name != excluded.search_file_name
                 OR entries.search_directory != excluded.search_directory
                 OR entries.search_full_path != excluded.search_full_path
+                OR entries.modified_utc != excluded.modified_utc
             """);
 
         return builder.ToString();
@@ -423,7 +418,8 @@ public sealed partial class IndexStore : IDisposable
                     is_directory INTEGER NOT NULL,
                     search_file_name TEXT NOT NULL,
                     search_directory TEXT NOT NULL,
-                    search_full_path TEXT NOT NULL
+                    search_full_path TEXT NOT NULL,
+                    modified_utc INTEGER NOT NULL DEFAULT 0
                 )
                 """);
             ExecuteNonQuery(
@@ -458,7 +454,26 @@ public sealed partial class IndexStore : IDisposable
             // Rebuilding the trigram FTS index (schema version 6) walks every indexed
             // entry and can take a while on large indexes, so it is deferred to
             // RunFtsMigration() — the caller runs it only after the user confirms.
+
+            if (version >= 6 && version < 7)
+            {
+                EnsureModifiedUtcColumnLocked();
+                ExecuteNonQuery("PRAGMA user_version = 7");
+            }
         }
+    }
+
+    private void EnsureModifiedUtcColumnLocked()
+    {
+        using var command = CreateCommand("PRAGMA table_info(entries)");
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), "modified_utc", StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+
+        ExecuteNonQuery("ALTER TABLE entries ADD COLUMN modified_utc INTEGER NOT NULL DEFAULT 0");
     }
 
     private void MigrateSearchDirectoryNamesLocked(bool rebuildFts = true)
@@ -712,15 +727,23 @@ public sealed partial class IndexStore : IDisposable
         var results = new List<FileEntry>(Math.Min(capacity, 64));
 
         while (reader.Read())
-        {
-            results.Add(new FileEntry(
-                reader.GetString(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetInt32(3) != 0));
-        }
+            results.Add(ReadEntry(reader, 0));
 
         return results;
+    }
+
+    private static FileEntry ReadEntry(SqliteDataReader reader, int pathOrdinal)
+    {
+        var modified = reader.FieldCount > pathOrdinal + 4 && !reader.IsDBNull(pathOrdinal + 4)
+            ? reader.GetInt64(pathOrdinal + 4)
+            : 0L;
+
+        return new FileEntry(
+            reader.GetString(pathOrdinal),
+            reader.GetString(pathOrdinal + 1),
+            reader.GetString(pathOrdinal + 2),
+            reader.GetInt32(pathOrdinal + 3) != 0,
+            modified);
     }
 
     private long GetCountLocked()

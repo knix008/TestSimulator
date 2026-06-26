@@ -8,5 +8,6 @@ public enum SearchResultSortOrder
     PathAsc,
     PathDesc,
     FoldersFirst,
-    FilesFirst
+    FilesFirst,
+    ModifiedDesc
 }

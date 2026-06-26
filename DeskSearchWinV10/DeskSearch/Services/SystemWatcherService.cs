@@ -87,7 +87,7 @@ public sealed class SystemWatcherService : IDisposable
 
     private void RunPeriodicResync()
     {
-        _indexService.ScanMissingDriveRoots();
+        // Full rescan also picks up any drives that were not indexed yet.
         _indexService.RequestResyncAllRoots();
     }
 

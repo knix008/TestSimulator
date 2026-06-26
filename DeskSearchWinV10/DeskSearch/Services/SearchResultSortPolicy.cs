@@ -12,7 +12,8 @@ internal static class SearchResultSortPolicy
         SearchResultSortOrder.PathAsc,
         SearchResultSortOrder.PathDesc,
         SearchResultSortOrder.FoldersFirst,
-        SearchResultSortOrder.FilesFirst
+        SearchResultSortOrder.FilesFirst,
+        SearchResultSortOrder.ModifiedDesc
     ];
 
     public static SearchResultSortOrder Normalize(SearchResultSortOrder value) =>
@@ -35,6 +36,7 @@ internal static class SearchResultSortPolicy
             SearchResultSortOrder.PathDesc => $"{path} DESC, {name} DESC",
             SearchResultSortOrder.FoldersFirst => $"e.is_directory DESC, {name}, {path}",
             SearchResultSortOrder.FilesFirst => $"e.is_directory ASC, {name}, {path}",
+            SearchResultSortOrder.ModifiedDesc => $"e.modified_utc DESC, {name}",
             _ => $"{scoreExpression} DESC, {name}"
         };
     }
@@ -74,6 +76,10 @@ internal static class SearchResultSortPolicy
                 .ThenBy(x => x.Entry.FullPath, pathComparer),
             SearchResultSortOrder.FilesFirst => list
                 .OrderBy(x => x.Entry.IsDirectory)
+                .ThenBy(x => x.Entry.FileName, nameComparer)
+                .ThenBy(x => x.Entry.FullPath, pathComparer),
+            SearchResultSortOrder.ModifiedDesc => list
+                .OrderByDescending(x => x.Entry.ModifiedUtc)
                 .ThenBy(x => x.Entry.FileName, nameComparer)
                 .ThenBy(x => x.Entry.FullPath, pathComparer),
             _ => list

@@ -23,7 +23,7 @@ public sealed partial class IndexStore
             {
                 return ExecuteScoredSearch(
                     $"""
-                    SELECT e.full_path, e.file_name, e.directory, e.is_directory
+                    SELECT e.full_path, e.file_name, e.directory, e.is_directory, e.modified_utc
                     FROM entries e
                     WHERE {whereClause}
                     """,

@@ -254,6 +254,7 @@ public partial class SettingsWindow : Window
     {
         Title = LocalizationService.T("Settings_Title");
         HeaderText.Text = LocalizationService.T("Settings_Header");
+        InfoButton.Content = CreateIconLabel("\uE946", LocalizationService.T("Settings_Info"));
         LanguageLabel.Text = LocalizationService.T("Settings_Language");
         LanguageKoreanRadio.Content = LocalizationService.T("Settings_Language_Korean");
         LanguageEnglishRadio.Content = LocalizationService.T("Settings_Language_English");
@@ -851,6 +852,12 @@ public partial class SettingsWindow : Window
         LocalizationService.Apply(language);
         ApplyLocalization();
         UpdateProgressUi();
+    }
+
+    private void InfoButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new AboutDialog { Owner = this };
+        dialog.ShowDialog();
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
