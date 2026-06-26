@@ -168,6 +168,27 @@ public static class GitOperationDetails
             .OrderBy(entry => entry.FilePath, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+    public static Branch? ResolveUpstreamBranch(Repository repo)
+    {
+        Branch? head = repo.Head;
+        if (head is null)
+        {
+            return null;
+        }
+
+        if (head.TrackedBranch is not null)
+        {
+            return head.TrackedBranch;
+        }
+
+        if (!GitWorkflowService.HasOriginRemote(repo))
+        {
+            return null;
+        }
+
+        return repo.Branches[$"origin/{head.FriendlyName}"];
+    }
+
     public static IReadOnlyList<Commit> GetCommitsAheadOfTracked(Repository repo)
     {
         Branch? head = repo.Head;
@@ -176,16 +197,21 @@ public static class GitOperationDetails
             return [];
         }
 
-        Branch? tracked = head.TrackedBranch;
-        if (tracked?.Tip is null)
+        Branch? upstream = ResolveUpstreamBranch(repo);
+        if (upstream?.Tip is null)
         {
-            return [head.Tip];
+            return [];
+        }
+
+        if (string.Equals(head.Tip.Sha, upstream.Tip.Sha, StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
         }
 
         return repo.Commits.QueryBy(new CommitFilter
         {
             IncludeReachableFrom = head,
-            ExcludeReachableFrom = tracked,
+            ExcludeReachableFrom = upstream,
             SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time
         }).ToList();
     }

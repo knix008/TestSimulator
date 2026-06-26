@@ -1,4 +1,5 @@
 using LibGit2Sharp;
+using LibGit2Sharp.Handlers;
 using MyGitWinV10.App.Controls;
 using MyGitWinV10.App.Dialogs;
 using MyGitWinV10.App.Services;
@@ -1262,6 +1263,34 @@ public partial class MainForm : Form
         repoFilesListView.RebuildPreservingSelection();
     }
 
+    /// <summary>
+    /// Refreshes origin/* refs so file status can compare local HEAD with the remote tip.
+    /// Uses saved credentials when available; otherwise attempts an anonymous fetch (public repos).
+    /// </summary>
+    private async Task SyncRemoteTrackingRefsAsync()
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow || !GitWorkflowService.HasOriginRemote(_gitService.Repo))
+        {
+            return;
+        }
+
+        CredentialsPrompt? prompt = _gitCredentialsVerified ? CreateGitCredentialsPrompt() : null;
+
+        try
+        {
+            await Task.Run(() =>
+                _gitService.RunLocked(repo =>
+                    GitWorkflowService.TryFetchOrigin(
+                        repo,
+                        prompt is not null ? prompt.Handler : null,
+                        CancellationToken.None)));
+        }
+        catch (OperationCanceledException)
+        {
+            // Credential dialog cancelled — continue with cached remote-tracking refs.
+        }
+    }
+
     private async Task RefreshRepositoryViewsAsync(string progressMessage = "Refreshing repository...", bool showProgress = true)
     {
         if (_gitService.Repo is null)
@@ -1281,6 +1310,17 @@ public partial class MainForm : Form
         _repositoryRefreshInProgress = true;
         try
         {
+            if (CanUseGitWorkflow && GitWorkflowService.HasOriginRemote(repo))
+            {
+                if (showProgress)
+                {
+                    statusLabel.Text = Localization.T("Status.SyncingRemote");
+                    repoLoadProgressBar.Visible = true;
+                }
+
+                await SyncRemoteTrackingRefsAsync();
+            }
+
             RepositoryPathStatusIndex statusIndex;
             if (showProgress)
             {

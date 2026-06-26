@@ -156,6 +156,35 @@ public static class GitWorkflowService
         Commands.Fetch(repo, remote.Name, Array.Empty<string>(), CreateFetchOptions(credentialsHandler, cancellationToken), logMessage: null);
     }
 
+    /// <summary>
+    /// Updates local remote-tracking refs from origin. Failures (network, auth) are ignored so
+    /// callers can still build status from the last known remote state.
+    /// </summary>
+    public static bool TryFetchOrigin(
+        Repository repo,
+        CredentialsHandler? credentialsHandler = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!HasOriginRemote(repo))
+        {
+            return false;
+        }
+
+        try
+        {
+            Fetch(repo, credentialsHandler, cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static MergeResult Pull(Repository repo, CredentialsHandler? credentialsHandler = null, CancellationToken cancellationToken = default)
     {
         var (name, email) = GetSignatureIdentity(repo);

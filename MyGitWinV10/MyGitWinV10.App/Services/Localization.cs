@@ -308,6 +308,7 @@ public static class Localization
         ["Status.OpeningLastRemote"] = ("마지막 원격 저장소 여는 중...", "Opening last remote repository..."),
         ["Status.OpeningLastLocal"] = ("마지막 저장소 여는 중...", "Opening last repository..."),
         ["Status.OpeningRepo"] = ("저장소 여는 중...", "Opening repository..."),
+        ["Status.SyncingRemote"] = ("원격 저장소와 동기화 중...", "Syncing with remote..."),
         ["Status.OpeningCloned"] = ("클론된 저장소 여는 중...", "Opening cloned repository..."),
         ["Status.OpeningRemote"] = ("원격 저장소 여는 중...", "Opening remote repository..."),
         ["Status.Branch"] = ("브랜치: {0}", "Branch: {0}"),
