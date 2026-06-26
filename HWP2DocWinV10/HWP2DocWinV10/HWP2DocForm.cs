@@ -170,13 +170,17 @@ public partial class HWP2DocForm : Form
     {
         try
         {
-            await webViewMarkdown.EnsureCoreWebView2Async();
+            var webViewEnvironment = await CoreWebView2Environment.CreateAsync(
+                browserExecutableFolder: null,
+                userDataFolder: AppUserSettings.GetWebView2UserDataFolder());
+
+            await webViewMarkdown.EnsureCoreWebView2Async(webViewEnvironment);
             webViewMarkdown.CoreWebView2.Settings.IsWebMessageEnabled = true;
             webViewMarkdown.CoreWebView2.WebMessageReceived += MarkdownEditor_WebMessageReceived;
             webViewMarkdown.CoreWebView2.NavigationCompleted += MarkdownEditor_NavigationCompleted;
             UpdateMarkdownEditor();
 
-            await webViewPreview.EnsureCoreWebView2Async();
+            await webViewPreview.EnsureCoreWebView2Async(webViewEnvironment);
             UpdatePreview();
             UpdateStructure();
             if (!_structurePanelVisible)

@@ -60,7 +60,7 @@ partial class ConvertOptionsDialog
         mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 1F));
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         mainLayout.Size = new Size(440, 340);
         mainLayout.TabIndex = 0;
         //
@@ -123,10 +123,11 @@ partial class ConvertOptionsDialog
         // lblRhwpDescription
         //
         lblRhwpDescription.AutoSize = true;
-        lblRhwpDescription.Dock = DockStyle.Fill;
+        lblRhwpDescription.Dock = DockStyle.Top;
         lblRhwpDescription.Font = new Font("Segoe UI", 8.75F);
         lblRhwpDescription.ForeColor = Color.FromArgb(100, 116, 139);
         lblRhwpDescription.Margin = new Padding(20, 0, 0, 4);
+        lblRhwpDescription.MaximumSize = new Size(340, 0);
         lblRhwpDescription.Name = "lblRhwpDescription";
         lblRhwpDescription.Size = new Size(356, 15);
         lblRhwpDescription.TabIndex = 1;
@@ -135,7 +136,7 @@ partial class ConvertOptionsDialog
         // lblRhwpHint
         //
         lblRhwpHint.AutoSize = true;
-        lblRhwpHint.Dock = DockStyle.Fill;
+        lblRhwpHint.Dock = DockStyle.Top;
         lblRhwpHint.Font = new Font("Segoe UI", 8.25F);
         lblRhwpHint.ForeColor = Color.FromArgb(100, 116, 139);
         lblRhwpHint.Margin = new Padding(20, 0, 0, 0);
@@ -190,10 +191,11 @@ partial class ConvertOptionsDialog
         // lblLlmDescription
         //
         lblLlmDescription.AutoSize = true;
-        lblLlmDescription.Dock = DockStyle.Fill;
+        lblLlmDescription.Dock = DockStyle.Top;
         lblLlmDescription.Font = new Font("Segoe UI", 8.75F);
         lblLlmDescription.ForeColor = Color.FromArgb(100, 116, 139);
         lblLlmDescription.Margin = new Padding(20, 0, 0, 8);
+        lblLlmDescription.MaximumSize = new Size(340, 0);
         lblLlmDescription.Name = "lblLlmDescription";
         lblLlmDescription.Size = new Size(356, 15);
         lblLlmDescription.TabIndex = 1;
@@ -208,33 +210,35 @@ partial class ConvertOptionsDialog
         llmFooterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         llmFooterLayout.Controls.Add(lblModelHint, 0, 0);
         llmFooterLayout.Controls.Add(btnLlmSettings, 1, 0);
-        llmFooterLayout.Dock = DockStyle.Fill;
+        llmFooterLayout.Dock = DockStyle.Top;
         llmFooterLayout.Location = new Point(0, 46);
-        llmFooterLayout.Margin = new Padding(0);
+        llmFooterLayout.Margin = new Padding(0, 4, 0, 0);
         llmFooterLayout.Name = "llmFooterLayout";
         llmFooterLayout.RowCount = 1;
         llmFooterLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        llmFooterLayout.Size = new Size(376, 27);
+        llmFooterLayout.Size = new Size(376, 31);
         llmFooterLayout.TabIndex = 2;
         //
         // lblModelHint
         //
-        lblModelHint.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        lblModelHint.Anchor = AnchorStyles.Left | AnchorStyles.Top;
         lblModelHint.AutoEllipsis = true;
-        lblModelHint.AutoSize = true;
+        lblModelHint.AutoSize = false;
         lblModelHint.Font = new Font("Segoe UI", 8.25F);
         lblModelHint.ForeColor = Color.FromArgb(100, 116, 139);
-        lblModelHint.Margin = new Padding(20, 4, 8, 0);
+        lblModelHint.Margin = new Padding(20, 6, 8, 0);
         lblModelHint.Name = "lblModelHint";
-        lblModelHint.Size = new Size(262, 15);
+        lblModelHint.Size = new Size(262, 23);
         lblModelHint.TabIndex = 0;
         lblModelHint.TextAlign = ContentAlignment.MiddleLeft;
         //
         // btnLlmSettings
         //
+        btnLlmSettings.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnLlmSettings.AutoSize = true;
         btnLlmSettings.Font = new Font("Segoe UI", 8.5F);
-        btnLlmSettings.Margin = new Padding(0, 0, 0, 0);
+        btnLlmSettings.Margin = new Padding(0, 2, 0, 0);
+        btnLlmSettings.MinimumSize = new Size(86, 27);
         btnLlmSettings.Name = "btnLlmSettings";
         btnLlmSettings.Size = new Size(86, 27);
         btnLlmSettings.TabIndex = 1;
@@ -255,7 +259,7 @@ partial class ConvertOptionsDialog
         //
         buttonPanel.Controls.Add(btnOk);
         buttonPanel.Controls.Add(btnCancel);
-        buttonPanel.Dock = DockStyle.Fill;
+        buttonPanel.Dock = DockStyle.Top;
         buttonPanel.FlowDirection = FlowDirection.RightToLeft;
         buttonPanel.Location = new Point(23, 297);
         buttonPanel.Margin = new Padding(0, 8, 0, 0);
@@ -305,12 +309,12 @@ partial class ConvertOptionsDialog
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.White;
         CancelButton = btnCancel;
-        ClientSize = new Size(500, 380);
+        ClientSize = new Size(500, 400);
         Controls.Add(mainLayout);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
-        MinimumSize = new Size(500, 380);
+        MinimumSize = new Size(500, 400);
         Name = "ConvertOptionsDialog";
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterParent;

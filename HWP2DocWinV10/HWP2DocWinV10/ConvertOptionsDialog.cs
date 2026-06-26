@@ -24,16 +24,15 @@ sealed partial class ConvertOptionsDialog : Form
     private void AdjustDialogSize()
     {
         mainLayout.PerformLayout();
+        llmLayout.PerformLayout();
+        llmFooterLayout.PerformLayout();
 
-        const int buttonRowHeight = 42;
-        int height = mainLayout.Padding.Vertical + buttonRowHeight + 1;
-        height += lblTitle.PreferredSize.Height + lblTitle.Margin.Vertical;
-        height += rhwpPanel.PreferredSize.Height + rhwpPanel.Margin.Vertical;
-        height += llmPanel.PreferredSize.Height + llmPanel.Margin.Vertical;
-        height += dividerPanel.Margin.Vertical;
+        int width = 500;
+        var preferred = mainLayout.GetPreferredSize(new Size(width - mainLayout.Padding.Horizontal, 0));
+        int height = preferred.Height + mainLayout.Padding.Vertical + 8;
 
-        ClientSize = new Size(500, height);
-        MinimumSize = new Size(500, height);
+        ClientSize = new Size(width, height);
+        MinimumSize = new Size(width, height);
     }
 
     private void RefreshRhwpOptionState()

@@ -14,6 +14,11 @@ internal static class AppUserSettings
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "HWP2DocWinV10");
 
+    private static readonly string WebView2DataDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "HWP2DocWinV10",
+        "WebView2");
+
     private static readonly string SettingsPath = Path.Combine(SettingsDirectory, "settings.txt");
 
     public static StructurePanelSide StructurePanelSide { get; private set; } = StructurePanelSide.Right;
@@ -29,6 +34,13 @@ internal static class AppUserSettings
     public static bool RhwpEnabled { get; private set; } = true;
 
     public static string LlmModel { get; private set; } = string.Empty;
+
+    /// <summary>WebView2 cache/profile folder (writable; not under Program Files).</summary>
+    public static string GetWebView2UserDataFolder()
+    {
+        Directory.CreateDirectory(WebView2DataDirectory);
+        return WebView2DataDirectory;
+    }
 
     public static void Load()
     {

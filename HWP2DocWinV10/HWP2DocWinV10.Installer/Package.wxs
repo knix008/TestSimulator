@@ -14,6 +14,8 @@
       Schedule="afterInstallInitialize"
       DowngradeErrorMessage="!(loc.DowngradeError)" />
 
+    <MediaTemplate EmbedCab="yes" />
+
     <ui:WixUI Id="WixUI_Mondo" />
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
