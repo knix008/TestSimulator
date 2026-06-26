@@ -197,7 +197,7 @@ partial class ConvertOptionsDialog
         lblLlmDescription.Name = "lblLlmDescription";
         lblLlmDescription.Size = new Size(356, 15);
         lblLlmDescription.TabIndex = 1;
-        lblLlmDescription.Text = "내용은 유지하고 제목·표·목록 등 Markdown 서식만 다듬습니다.";
+        lblLlmDescription.Text = "문제 구간만 LLM으로 정리합니다. 먼저 규칙 기반 정리를 적용해 속도와 품질을 높입니다.";
         //
         // llmFooterLayout
         //

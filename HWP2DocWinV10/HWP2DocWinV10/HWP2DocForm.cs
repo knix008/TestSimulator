@@ -261,23 +261,27 @@ public partial class HWP2DocForm : Form
                 try
                 {
                     var llmProgress = new Progress<LlmCleanupProgress>(SetLlmCleanupProgress);
-                    string cleanedMarkdown = await Services.OllamaClient.CleanupMarkdownAsync(
+                    LlmCleanupResult llmResult = await Services.OllamaClient.CleanupMarkdownAsync(
                         markdown,
                         AppUserSettings.LlmModel,
                         llmProgress);
 
-                    ApplyConversionResult(cleanedMarkdown, result);
+                    ApplyConversionResult(llmResult.Markdown, result);
                     llmStopwatch.Stop();
 
                     string? totalSeconds = stopwatch != null
                         ? $"총 {stopwatch.Elapsed.TotalSeconds:0.0}초"
                         : null;
                     string llmSeconds = $"LLM {llmStopwatch.Elapsed.TotalSeconds:0.0}초";
+                    string llmDetail = llmResult.SkippedEntireDocument
+                        ? "규칙 기반 정리만 적용했습니다. (LLM 생략)"
+                        : $"{llmResult.CleanedSections}/{llmResult.TotalSections}개 구간 정리";
 
                     MessageBox.Show(
                         this,
-                        $"Markdown 문서 LLM 정리가 완료되었습니다.\n\n" +
+                        $"Markdown 문서 정리가 완료되었습니다.\n\n" +
                         $"모델: {AppUserSettings.LlmModel}\n" +
+                        $"처리: {llmDetail}\n" +
                         $"소요: {llmSeconds}" +
                         (totalSeconds != null ? $" ({totalSeconds})" : string.Empty),
                         "LLM 정리 완료",

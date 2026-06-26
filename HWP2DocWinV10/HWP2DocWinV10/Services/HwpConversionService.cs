@@ -88,7 +88,7 @@ internal static class HwpConversionService
         }
 
         markdown = MarkdownLineBreakRestorer.Restore(markdown);
-        markdown = MarkdownPipeTableNormalizer.Normalize(markdown);
+        markdown = MarkdownConversionPostProcessor.Apply(markdown);
         markdown = MarkdownImageConsolidator.Consolidate(markdown, outputDirectory);
         markdown = MarkdownAssetPathResolver.RewriteMarkdownImages(markdown, outputDirectory);
 
