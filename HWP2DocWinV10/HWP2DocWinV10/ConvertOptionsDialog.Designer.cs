@@ -44,8 +44,6 @@ partial class ConvertOptionsDialog
         //
         // mainLayout
         //
-        mainLayout.AutoSize = true;
-        mainLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         mainLayout.ColumnCount = 1;
         mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         mainLayout.Controls.Add(lblTitle, 0, 0);
@@ -53,16 +51,16 @@ partial class ConvertOptionsDialog
         mainLayout.Controls.Add(llmPanel, 0, 2);
         mainLayout.Controls.Add(dividerPanel, 0, 3);
         mainLayout.Controls.Add(buttonPanel, 0, 4);
-        mainLayout.Dock = DockStyle.Top;
+        mainLayout.Dock = DockStyle.Fill;
         mainLayout.Location = new Point(0, 0);
         mainLayout.Name = "mainLayout";
-        mainLayout.Padding = new Padding(20, 18, 20, 20);
+        mainLayout.Padding = new Padding(20, 18, 20, 16);
         mainLayout.RowCount = 5;
         mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 1F));
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
         mainLayout.Size = new Size(440, 340);
         mainLayout.TabIndex = 0;
         //
@@ -84,7 +82,7 @@ partial class ConvertOptionsDialog
         rhwpPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         rhwpPanel.BackColor = Color.FromArgb(248, 250, 252);
         rhwpPanel.Controls.Add(rhwpLayout);
-        rhwpPanel.Dock = DockStyle.Fill;
+        rhwpPanel.Dock = DockStyle.Top;
         rhwpPanel.Margin = new Padding(0, 0, 0, 10);
         rhwpPanel.Name = "rhwpPanel";
         rhwpPanel.Padding = new Padding(12, 10, 12, 10);
@@ -151,7 +149,7 @@ partial class ConvertOptionsDialog
         llmPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         llmPanel.BackColor = Color.FromArgb(248, 250, 252);
         llmPanel.Controls.Add(llmLayout);
-        llmPanel.Dock = DockStyle.Fill;
+        llmPanel.Dock = DockStyle.Top;
         llmPanel.Margin = new Padding(0, 0, 0, 14);
         llmPanel.Name = "llmPanel";
         llmPanel.Padding = new Padding(12, 10, 12, 10);
@@ -248,23 +246,22 @@ partial class ConvertOptionsDialog
         //
         dividerPanel.BackColor = Color.FromArgb(226, 232, 240);
         dividerPanel.Dock = DockStyle.Fill;
-        dividerPanel.Margin = new Padding(0, 0, 0, 14);
+        dividerPanel.Margin = new Padding(0, 0, 0, 12);
         dividerPanel.Name = "dividerPanel";
         dividerPanel.Size = new Size(400, 1);
         dividerPanel.TabIndex = 3;
         //
         // buttonPanel
         //
-        buttonPanel.AutoSize = true;
         buttonPanel.Controls.Add(btnOk);
         buttonPanel.Controls.Add(btnCancel);
         buttonPanel.Dock = DockStyle.Fill;
         buttonPanel.FlowDirection = FlowDirection.RightToLeft;
-        buttonPanel.Location = new Point(23, 293);
-        buttonPanel.Margin = new Padding(0);
+        buttonPanel.Location = new Point(23, 297);
+        buttonPanel.Margin = new Padding(0, 8, 0, 0);
         buttonPanel.Name = "buttonPanel";
-        buttonPanel.Padding = new Padding(0, 2, 0, 0);
-        buttonPanel.Size = new Size(397, 36);
+        buttonPanel.Padding = new Padding(0);
+        buttonPanel.Size = new Size(454, 34);
         buttonPanel.TabIndex = 4;
         buttonPanel.WrapContents = false;
         //
@@ -306,17 +303,14 @@ partial class ConvertOptionsDialog
         AcceptButton = btnOk;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        AutoSize = true;
-        AutoSizeMode = AutoSizeMode.GrowAndShrink;
         BackColor = Color.White;
         CancelButton = btnCancel;
-        ClientSize = new Size(480, 360);
+        ClientSize = new Size(500, 380);
         Controls.Add(mainLayout);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
-        MaximumSize = new Size(480, 0);
         MinimizeBox = false;
-        MinimumSize = new Size(480, 320);
+        MinimumSize = new Size(500, 380);
         Name = "ConvertOptionsDialog";
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterParent;
@@ -334,7 +328,6 @@ partial class ConvertOptionsDialog
         buttonPanel.ResumeLayout(false);
         buttonPanel.PerformLayout();
         ResumeLayout(false);
-        PerformLayout();
     }
 
     private TableLayoutPanel mainLayout;

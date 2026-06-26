@@ -930,6 +930,8 @@ public partial class HWP2DocForm : Form
         statusProgress.Visible = true;
         statusProgress.Style = ProgressBarStyle.Continuous;
         statusProgress.Value = 0;
+        lblProgressPercent.Visible = true;
+        lblProgressPercent.Text = "0%";
         SetStatus("LLM 정리 [1/4] 준비 — 시작");
     }
 
@@ -941,8 +943,11 @@ public partial class HWP2DocForm : Form
             return;
         }
 
+        int percent = Math.Clamp(progress.Percent, 0, 100);
         statusProgress.Style = ProgressBarStyle.Continuous;
-        statusProgress.Value = Math.Clamp(progress.Percent, 0, 100);
+        statusProgress.Value = percent;
+        lblProgressPercent.Visible = true;
+        lblProgressPercent.Text = $"{percent}%";
         SetStatus(progress.StatusText);
     }
 
@@ -956,6 +961,8 @@ public partial class HWP2DocForm : Form
 
         statusProgress.Style = ProgressBarStyle.Marquee;
         statusProgress.Value = 0;
+        lblProgressPercent.Visible = false;
+        lblProgressPercent.Text = string.Empty;
     }
 
     private void SetStatus(string message) => lblStatus.Text = message;

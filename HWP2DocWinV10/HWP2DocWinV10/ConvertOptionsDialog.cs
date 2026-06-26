@@ -15,6 +15,27 @@ sealed partial class ConvertOptionsDialog : Form
         UpdateModelHint();
     }
 
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        AdjustDialogSize();
+    }
+
+    private void AdjustDialogSize()
+    {
+        mainLayout.PerformLayout();
+
+        const int buttonRowHeight = 42;
+        int height = mainLayout.Padding.Vertical + buttonRowHeight + 1;
+        height += lblTitle.PreferredSize.Height + lblTitle.Margin.Vertical;
+        height += rhwpPanel.PreferredSize.Height + rhwpPanel.Margin.Vertical;
+        height += llmPanel.PreferredSize.Height + llmPanel.Margin.Vertical;
+        height += dividerPanel.Margin.Vertical;
+
+        ClientSize = new Size(500, height);
+        MinimumSize = new Size(500, height);
+    }
+
     private void RefreshRhwpOptionState()
     {
         RhwpLocator.Refresh();

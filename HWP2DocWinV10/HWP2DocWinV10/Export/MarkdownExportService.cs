@@ -18,7 +18,7 @@ internal static class MarkdownExportService
 
         Directory.CreateDirectory(exportDirectory);
 
-        string prepared = markdown;
+        string prepared = MarkdownPipeTableNormalizer.Normalize(markdown);
         if (!string.IsNullOrWhiteSpace(sourceAssetDirectory) && Directory.Exists(sourceAssetDirectory))
         {
             prepared = MarkdownImageConsolidator.Consolidate(markdown, sourceAssetDirectory, exportDirectory);

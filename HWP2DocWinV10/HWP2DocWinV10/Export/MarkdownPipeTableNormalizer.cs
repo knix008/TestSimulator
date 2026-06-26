@@ -16,10 +16,15 @@ internal static class MarkdownPipeTableNormalizer
         string text = markdown.Replace("\r\n", "\n").Replace('\r', '\n');
         text = JoinMultilineTableRows(text);
         text = RemoveEmptyTableArtifacts(text);
+        text = RemoveEmptyPipeRows(text);
         text = RemoveOrphanSeparators(text);
         text = EnsureSeparators(text);
+        text = RemoveOrphanSeparators(text);
+        text = RemoveEmptyPipeRows(text);
         text = EnsureBlankLinesAroundImages(text);
         text = EnsureBlankLinesAroundTables(text);
+        text = RemoveEmptyPipeRows(text);
+        text = RemoveOrphanSeparators(text);
         return text;
     }
 
@@ -148,18 +153,16 @@ internal static class MarkdownPipeTableNormalizer
         return string.Join('\n', result);
     }
 
-    private static string RemoveOrphanSeparators(string text)
+    private static string RemoveEmptyPipeRows(string text)
     {
-        // 짝이 되는 헤더 행 없이 홀로 남았거나 연속으로 중복된 구분선("| --- | --- |")은
-        // Markdig가 표로 인식하지 못해 그대로 텍스트로 노출되므로 제거합니다. 헤더와 구분선
-        // 사이에 빈 줄이 하나 끼어 있는 경우는 짝으로 인정합니다.
+        // "| |", "|  |  |" 등 내용 없는 파이프 행은 본문에 그대로 노출되므로 제거합니다.
         var lines = text.Split('\n');
         var result = new List<string>(lines.Length);
         bool inHtmlTable = false;
-        bool pendingHeader = false;
 
-        foreach (string line in lines)
+        for (int i = 0; i < lines.Length; i++)
         {
+            string line = lines[i];
             if (ContainsHtmlTableStart(line))
                 inHtmlTable = true;
 
@@ -172,23 +175,107 @@ internal static class MarkdownPipeTableNormalizer
                 continue;
             }
 
-            bool isSeparator = IsPipeTableSeparator(line);
-            bool isRow = !isSeparator && IsPipeTableRow(line);
+            if (IsEmptyPipeRow(line))
+            {
+                int next = i + 1;
+                if (next < lines.Length && lines[next].Trim().Length == 0)
+                    next++;
 
-            if (isSeparator && !pendingHeader)
+                if (next < lines.Length && IsPipeTableSeparator(lines[next]))
+                    i = next;
+
                 continue;
+            }
 
             result.Add(line);
+        }
 
-            if (isRow)
-                pendingHeader = true;
-            else if (isSeparator)
-                pendingHeader = false;
-            else if (line.Trim().Length > 0)
-                pendingHeader = false;
+        return CollapseExtraBlankLines(string.Join('\n', result));
+    }
+
+    private static bool IsEmptyPipeRow(string line)
+    {
+        string trimmed = line.Trim();
+        if (!trimmed.StartsWith('|'))
+            return false;
+
+        if (IsPipeTableSeparator(trimmed))
+            return false;
+
+        return IsAllCellsEmpty(trimmed);
+    }
+
+    private static string CollapseExtraBlankLines(string text)
+    {
+        return Regex.Replace(text, @"\n{3,}", "\n\n").TrimEnd();
+    }
+
+    private static string RemoveOrphanSeparators(string text)
+    {
+        // 짝이 되는 헤더 행 바로 다음이 아닌 구분선(| --- |, | :--- | 등)은
+        // Markdig가 표로 인식하지 못해 그대로 텍스트로 노출되므로 제거합니다.
+        var lines = text.Split('\n');
+        var result = new List<string>(lines.Length);
+        bool inHtmlTable = false;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i];
+            if (ContainsHtmlTableStart(line))
+                inHtmlTable = true;
+
+            if (inHtmlTable)
+            {
+                result.Add(line);
+                if (ContainsHtmlTableEnd(line))
+                    inHtmlTable = false;
+
+                continue;
+            }
+
+            if (IsPipeTableSeparator(line))
+            {
+                if (!IsValidSeparatorPosition(lines, i))
+                    continue;
+
+                if (result.Count > 0 && IsPipeTableSeparator(result[^1]))
+                    continue;
+            }
+
+            result.Add(line);
         }
 
         return string.Join('\n', result);
+    }
+
+    private static bool IsValidSeparatorPosition(string[] lines, int separatorIndex)
+    {
+        int headerIndex = FindPreviousNonEmptyLineIndex(lines, separatorIndex);
+        if (headerIndex < 0)
+            return false;
+
+        if (!IsPipeTableRow(lines[headerIndex]) || IsPipeTableSeparator(lines[headerIndex]))
+            return false;
+
+        int beforeHeader = FindPreviousNonEmptyLineIndex(lines, headerIndex);
+        if (beforeHeader < 0)
+            return true;
+
+        if (IsPipeTableSeparator(lines[beforeHeader]))
+            return false;
+
+        return !IsPipeTableRow(lines[beforeHeader]);
+    }
+
+    private static int FindPreviousNonEmptyLineIndex(string[] lines, int fromIndex)
+    {
+        for (int i = fromIndex - 1; i >= 0; i--)
+        {
+            if (lines[i].Trim().Length > 0)
+                return i;
+        }
+
+        return -1;
     }
 
     private static bool IsAllCellsEmpty(string line)
@@ -342,6 +429,9 @@ internal static class MarkdownPipeTableNormalizer
 
     internal static bool IsPipeTableRow(string line)
     {
+        if (IsPipeTableSeparator(line))
+            return false;
+
         string trimmed = line.Trim();
         if (trimmed.Length == 0)
             return false;
@@ -349,9 +439,13 @@ internal static class MarkdownPipeTableNormalizer
         if (trimmed.StartsWith('<') || trimmed.Contains("<table", StringComparison.OrdinalIgnoreCase))
             return false;
 
-        return trimmed.Contains('|') &&
-               trimmed.Trim('|').Contains('|') &&
-               !trimmed.StartsWith("```", StringComparison.Ordinal);
+        if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            return false;
+
+        if (!trimmed.StartsWith('|') || !trimmed.EndsWith('|'))
+            return false;
+
+        return trimmed.Count(c => c == '|') >= 2;
     }
 
     internal static bool IsPipeTableSeparator(string line)
@@ -360,9 +454,19 @@ internal static class MarkdownPipeTableNormalizer
         if (!trimmed.Contains('|'))
             return false;
 
-        return Regex.IsMatch(
-            trimmed,
-            @"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$");
+        if (!Regex.IsMatch(
+                trimmed,
+                @"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$"))
+            return false;
+
+        // 구분선 셀만 있는지 확인합니다. "| :--- |" 형태의 정렬 구분선도 포함합니다.
+        foreach (string cell in trimmed.Trim('|').Split('|'))
+        {
+            if (!Regex.IsMatch(cell.Trim(), @"^:?-{3,}:?$"))
+                return false;
+        }
+
+        return true;
     }
 
     private static int CountPipeColumns(string line)

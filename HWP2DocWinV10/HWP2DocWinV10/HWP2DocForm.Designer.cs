@@ -67,6 +67,7 @@ partial class HWP2DocForm
         statusStrip1 = new StatusStrip();
         lblStatus = new ToolStripStatusLabel();
         statusProgress = new ToolStripProgressBar();
+        lblProgressPercent = new ToolStripStatusLabel();
         openFileDialog1 = new OpenFileDialog();
         saveFileDialog1 = new SaveFileDialog();
         previewTimer = new System.Windows.Forms.Timer(components);
@@ -558,7 +559,7 @@ partial class HWP2DocForm
         // 
         // statusStrip1
         // 
-        statusStrip1.Items.AddRange(new ToolStripItem[] { lblStatus, statusProgress });
+        statusStrip1.Items.AddRange(new ToolStripItem[] { lblStatus, statusProgress, lblProgressPercent });
         statusStrip1.Location = new Point(0, 659);
         statusStrip1.Name = "statusStrip1";
         statusStrip1.Size = new Size(1184, 22);
@@ -580,7 +581,17 @@ partial class HWP2DocForm
         statusProgress.Size = new Size(180, 16);
         statusProgress.Style = ProgressBarStyle.Marquee;
         statusProgress.Visible = false;
-        // 
+        //
+        // lblProgressPercent
+        //
+        lblProgressPercent.AutoSize = false;
+        lblProgressPercent.Margin = new Padding(0, 0, 4, 0);
+        lblProgressPercent.Name = "lblProgressPercent";
+        lblProgressPercent.Size = new Size(44, 17);
+        lblProgressPercent.Text = "";
+        lblProgressPercent.TextAlign = ContentAlignment.MiddleRight;
+        lblProgressPercent.Visible = false;
+        //
         // openFileDialog1
         // 
         openFileDialog1.Filter = "한글 문서 (*.hwp;*.hwpx)|*.hwp;*.hwpx|모든 파일 (*.*)|*.*";
@@ -691,6 +702,7 @@ partial class HWP2DocForm
     private StatusStrip statusStrip1;
     private ToolStripStatusLabel lblStatus;
     private ToolStripProgressBar statusProgress;
+    private ToolStripStatusLabel lblProgressPercent;
     private OpenFileDialog openFileDialog1;
     private SaveFileDialog saveFileDialog1;
     private System.Windows.Forms.Timer previewTimer;
