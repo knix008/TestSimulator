@@ -45,12 +45,6 @@ internal static class AppUserSettings
                     if (Enum.TryParse(side, ignoreCase: true, out StructurePanelSide parsedSide))
                         StructurePanelSide = parsedSide;
                 }
-                else if (line.StartsWith("StructurePanelVisible=", StringComparison.OrdinalIgnoreCase))
-                {
-                    string visible = line["StructurePanelVisible=".Length..].Trim();
-                    if (bool.TryParse(visible, out bool parsedVisible))
-                        StructurePanelVisible = parsedVisible;
-                }
                 else if (line.StartsWith("FontSize=", StringComparison.OrdinalIgnoreCase))
                 {
                     string fontSize = line["FontSize=".Length..].Trim();
@@ -92,7 +86,6 @@ internal static class AppUserSettings
     public static void SetStructurePanelVisible(bool visible)
     {
         StructurePanelVisible = visible;
-        Save();
     }
 
     public static void SetFontSize(float fontSize)
@@ -110,7 +103,6 @@ internal static class AppUserSettings
                 SettingsPath,
                 [
                     $"StructurePanelSide={StructurePanelSide}",
-                    $"StructurePanelVisible={StructurePanelVisible}",
                     $"FontSize={FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
                     $"LastDirectory={LastDirectory ?? string.Empty}"
                 ]);

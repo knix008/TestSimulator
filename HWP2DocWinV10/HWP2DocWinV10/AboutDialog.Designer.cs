@@ -110,7 +110,7 @@ partial class AboutDialog
         lblLibraries.Name = "lblLibraries";
         lblLibraries.Size = new Size(287, 60);
         lblLibraries.TabIndex = 1;
-        lblLibraries.Text = "unhwp — HWP/HWPX → Markdown 변환 (MIT)\r\nMarkdig — Markdown 미리보기\r\nMicrosoft WebView2 — HTML/PDF 렌더링\r\nDocumentFormat.OpenXml — Word 내보내기";
+        lblLibraries.Text = "Unhwp — HWP/HWPX → Markdown 변환 (오픈소스, MIT)\r\nMarkdig — Markdown 미리보기\r\nMicrosoft WebView2 — HTML/PDF 렌더링\r\nDocumentFormat.OpenXml — Word 내보내기";
         // 
         // lblCopyright
         // 
@@ -118,13 +118,14 @@ partial class AboutDialog
         lblCopyright.Font = new Font("Segoe UI", 8.5F);
         lblCopyright.ForeColor = Color.FromArgb(148, 163, 184);
         lblCopyright.Location = new Point(28, 268);
+        lblCopyright.MaximumSize = new Size(368, 0);
         lblCopyright.Name = "lblCopyright";
         lblCopyright.Size = new Size(164, 15);
         lblCopyright.TabIndex = 6;
-        lblCopyright.Text = "Copyright © 2026 SHKWON (knix008@naver.com)";
-        // 
+        lblCopyright.Text = "Copyright © 2026 SHKWON (knix008@naver.com) · 일부 구성 요소는 오픈소스(Open Source, MIT License)입니다.";
+        //
         // btnOk
-        // 
+        //
         btnOk.BackColor = Color.FromArgb(37, 99, 235);
         btnOk.DialogResult = DialogResult.OK;
         btnOk.FlatAppearance.BorderSize = 0;
@@ -132,20 +133,20 @@ partial class AboutDialog
         btnOk.FlatStyle = FlatStyle.Flat;
         btnOk.Font = new Font("Segoe UI", 9.5F);
         btnOk.ForeColor = Color.White;
-        btnOk.Location = new Point(300, 292);
+        btnOk.Location = new Point(300, 308);
         btnOk.Name = "btnOk";
         btnOk.Size = new Size(96, 34);
         btnOk.TabIndex = 7;
         btnOk.Text = "확인";
         btnOk.UseVisualStyleBackColor = false;
-        // 
+        //
         // AboutDialog
-        // 
+        //
         AcceptButton = btnOk;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         BackColor = Color.White;
-        ClientSize = new Size(424, 344);
+        ClientSize = new Size(424, 360);
         Controls.Add(btnOk);
         Controls.Add(lblCopyright);
         Controls.Add(pnlLibraries);

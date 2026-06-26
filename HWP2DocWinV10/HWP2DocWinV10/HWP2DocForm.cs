@@ -142,7 +142,8 @@ public partial class HWP2DocForm : Form
             btnExportWord,
             btnExportPdf,
             btnToggleStructure,
-            btnProgramInfo);
+            btnProgramInfo,
+            lblFontSize);
     }
 
     private void TryLoadApplicationIcon()

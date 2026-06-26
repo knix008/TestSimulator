@@ -39,13 +39,14 @@ partial class HWP2DocForm
         btnOpen = new ToolStripButton();
         btnConvert = new ToolStripButton();
         toolSep1 = new ToolStripSeparator();
+        lblFontSize = new ToolStripLabel();
+        cboFontSize = new ToolStripComboBox();
+        toolSepFont = new ToolStripSeparator();
         btnExportMarkdown = new ToolStripButton();
         btnExportWord = new ToolStripButton();
         btnExportPdf = new ToolStripButton();
         toolSep2 = new ToolStripSeparator();
         btnToggleStructure = new ToolStripButton();
-        lblFontSize = new ToolStripLabel();
-        cboFontSize = new ToolStripComboBox();
         btnProgramInfo = new ToolStripButton();
         splitContainerMain = new SplitContainer();
         pnlContent = new Panel();
@@ -225,7 +226,7 @@ partial class HWP2DocForm
         // 
         // toolStrip1
         // 
-        toolStrip1.Items.AddRange(new ToolStripItem[] { btnOpen, btnConvert, toolSep1, btnExportMarkdown, btnExportWord, btnExportPdf, toolSep2, btnToggleStructure, lblFontSize, cboFontSize, btnProgramInfo });
+        toolStrip1.Items.AddRange(new ToolStripItem[] { btnOpen, btnConvert, toolSep1, lblFontSize, cboFontSize, toolSepFont, btnExportMarkdown, btnExportWord, btnExportPdf, toolSep2, btnToggleStructure, btnProgramInfo });
         toolStrip1.Location = new Point(0, 24);
         toolStrip1.Name = "toolStrip1";
         toolStrip1.Size = new Size(1184, 25);
@@ -253,10 +254,30 @@ partial class HWP2DocForm
         btnConvert.Click += convertToolStripMenuItem_Click;
         // 
         // toolSep1
-        // 
+        //
         toolSep1.Name = "toolSep1";
         toolSep1.Size = new Size(6, 25);
-        // 
+        //
+        // lblFontSize
+        //
+        lblFontSize.Name = "lblFontSize";
+        lblFontSize.Size = new Size(31, 22);
+        lblFontSize.Text = "글꼴";
+        //
+        // cboFontSize
+        //
+        cboFontSize.AutoSize = false;
+        cboFontSize.DropDownStyle = ComboBoxStyle.DropDownList;
+        cboFontSize.Name = "cboFontSize";
+        cboFontSize.Size = new Size(52, 25);
+        cboFontSize.ToolTipText = "폰트 크기";
+        cboFontSize.SelectedIndexChanged += cboFontSize_SelectedIndexChanged;
+        //
+        // toolSepFont
+        //
+        toolSepFont.Name = "toolSepFont";
+        toolSepFont.Size = new Size(6, 25);
+        //
         // btnExportMarkdown
         // 
         btnExportMarkdown.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
@@ -291,22 +312,7 @@ partial class HWP2DocForm
         // 
         toolSep2.Name = "toolSep2";
         toolSep2.Size = new Size(6, 25);
-        // 
-        // lblFontSize
-        // 
-        lblFontSize.Name = "lblFontSize";
-        lblFontSize.Size = new Size(31, 22);
-        lblFontSize.Text = "글꼴";
-        // 
-        // cboFontSize
-        // 
-        cboFontSize.AutoSize = false;
-        cboFontSize.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboFontSize.Name = "cboFontSize";
-        cboFontSize.Size = new Size(52, 25);
-        cboFontSize.ToolTipText = "폰트 크기";
-        cboFontSize.SelectedIndexChanged += cboFontSize_SelectedIndexChanged;
-        // 
+        //
         // btnProgramInfo
         // 
         btnProgramInfo.Alignment = ToolStripItemAlignment.Right;
@@ -567,13 +573,14 @@ partial class HWP2DocForm
     private ToolStripButton btnOpen;
     private ToolStripButton btnConvert;
     private ToolStripSeparator toolSep1;
+    private ToolStripLabel lblFontSize;
+    private ToolStripComboBox cboFontSize;
+    private ToolStripSeparator toolSepFont;
     private ToolStripButton btnExportMarkdown;
     private ToolStripButton btnExportWord;
     private ToolStripButton btnExportPdf;
     private ToolStripSeparator toolSep2;
     private ToolStripButton btnToggleStructure;
-    private ToolStripLabel lblFontSize;
-    private ToolStripComboBox cboFontSize;
     private ToolStripButton btnProgramInfo;
     private SplitContainer splitContainerMain;
     private Panel pnlContent;

@@ -34,7 +34,8 @@ internal static class ToolbarIcons
         ToolStripButton btnExportWord,
         ToolStripButton btnExportPdf,
         ToolStripButton btnToggleStructure,
-        ToolStripButton btnProgramInfo)
+        ToolStripButton btnProgramInfo,
+        ToolStripLabel lblFontSize)
     {
         ConfigureMenuItem(fileMenu, "file");
         ConfigureMenuItem(infoMenu, "about");
@@ -65,6 +66,14 @@ internal static class ToolbarIcons
         ConfigureToolbarButton(btnExportPdf, "pdf", "PDF", "PDF 파일로 내보내기");
         ConfigureToolbarButton(btnToggleStructure, "structure", "문서 구조", "문서 구조 패널 표시/숨김");
         ConfigureToolbarButton(btnProgramInfo, "about", "정보", "프로그램 정보");
+        ConfigureToolbarLabel(lblFontSize, "fontsize");
+    }
+
+    private static void ConfigureToolbarLabel(ToolStripLabel label, string key)
+    {
+        label.Image = GetIcon(key);
+        label.TextImageRelation = TextImageRelation.ImageBeforeText;
+        label.ImageScaling = ToolStripItemImageScaling.None;
     }
 
     public static void ConfigureMenuItem(ToolStripMenuItem item, string key)

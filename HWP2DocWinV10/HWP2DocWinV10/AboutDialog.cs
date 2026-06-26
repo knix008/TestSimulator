@@ -2,7 +2,8 @@ namespace HWP2DocWinV10;
 
 sealed partial class AboutDialog : Form
 {
-    private const string CopyrightText = "Copyright © 2026 SHKWON (knix008@naver.com)";
+    private const string CopyrightText =
+        "Copyright © 2026 SHKWON (knix008@naver.com) · 일부 구성 요소는 오픈소스(Open Source, MIT License)입니다.";
 
     public AboutDialog()
     {
@@ -44,8 +45,7 @@ sealed partial class AboutDialog : Form
             lblVersion.Text = $"버전 {version.Major}.{version.Minor}.{version.Build}";
 
         lblLibraries.Text =
-            "rhwp — HWP/HWPX 표·그림·레이아웃 변환 (MIT)\r\n" +
-            "unhwp — HWP/HWPX Markdown 변환 (MIT, 보조)\r\n" +
+            "Unhwp — HWP/HWPX → Markdown 변환 (오픈소스, MIT)\r\n" +
             "Markdig — Markdown 미리보기\r\n" +
             "Microsoft WebView2 — HTML/PDF 렌더링\r\n" +
             "DocumentFormat.OpenXml — Word보내기";

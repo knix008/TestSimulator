@@ -65,19 +65,28 @@ internal static class MarkdownPipeTableNormalizer
         var lines = text.Split('\n');
         var result = new List<string>(lines.Length + 12);
         bool inHtmlTable = false;
+        bool inTableBody = false;
 
         for (int i = 0; i < lines.Length; i++)
         {
             string line = lines[i];
-            bool isPipeTableLine = IsPipeTableRow(line) || IsPipeTableSeparator(line);
+            bool isSeparator = IsPipeTableSeparator(line);
+            bool isHeaderRow = !isSeparator && IsPipeTableRow(line);
+            bool isPipeTableLine = isHeaderRow || isSeparator;
 
             if (ContainsHtmlTableStart(line))
                 inHtmlTable = true;
 
-            if (!inHtmlTable && isPipeTableLine && result.Count > 0 && result[^1].Length > 0)
+            if (!inHtmlTable && result.Count > 0 && result[^1].Length > 0)
             {
                 bool previousIsTable = IsPipeTableRow(result[^1]) || IsPipeTableSeparator(result[^1]);
-                if (!previousIsTable)
+
+                // 새 표의 헤더(다음 줄이 구분선)가 이전 표 본문 바로 뒤에 빈 줄 없이 이어지면
+                // Markdig가 이를 별개 표로 인식하지 못하고 이전 표의 데이터 행으로 합쳐버립니다.
+                bool startsNewAdjacentTable = inTableBody && isHeaderRow &&
+                    i + 1 < lines.Length && IsPipeTableSeparator(lines[i + 1]);
+
+                if ((isPipeTableLine && !previousIsTable) || startsNewAdjacentTable)
                     result.Add(string.Empty);
             }
 
@@ -85,6 +94,14 @@ internal static class MarkdownPipeTableNormalizer
 
             if (inHtmlTable && ContainsHtmlTableEnd(line))
                 inHtmlTable = false;
+
+            if (!inHtmlTable)
+            {
+                if (isSeparator)
+                    inTableBody = true;
+                else if (!isHeaderRow)
+                    inTableBody = false;
+            }
 
             if (!inHtmlTable && isPipeTableLine)
             {

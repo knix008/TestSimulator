@@ -138,8 +138,9 @@ internal static class PreviewHtmlBuilder
                 }
               """
             : """
-                html, body {
+                html {
                   height: 100%;
+                  overflow-y: auto;
                 }
                 body {
                   min-height: 100%;

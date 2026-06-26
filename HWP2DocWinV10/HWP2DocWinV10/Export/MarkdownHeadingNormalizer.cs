@@ -44,6 +44,12 @@ internal static class MarkdownHeadingNormalizer
             string line = lines[i];
             string? nextLine = i + 1 < lines.Length ? lines[i + 1] : null;
 
+            if (TryConvertTableHeadingRow(line, out string tableHeading))
+            {
+                result.Add(tableHeading);
+                continue;
+            }
+
             if (ShouldSkipHeadingProcessing(line))
             {
                 result.Add(line);
@@ -131,6 +137,67 @@ internal static class MarkdownHeadingNormalizer
 
         heading = $"{match.Groups["indent"].Value}{new string('#', level)} {title}";
         return true;
+    }
+
+    private static bool TryConvertTableHeadingRow(string line, out string heading)
+    {
+        // 양식 문서는 본문 전체가 하나의 표로 감싸여 있고, 챕터/섹션 제목도 표의 한 행(셀 하나만
+        // 채워진 행)으로 표현됩니다. unhwp는 이런 셀을 굵은 글씨 텍스트로만 내보내므로, 여기서
+        // 표 행 형태를 직접 검사해 "#"/"##" 제목으로 바꿔 표 밖으로 끌어냅니다.
+        heading = string.Empty;
+        string trimmed = line.Trim();
+        if (!trimmed.StartsWith('|') || trimmed.StartsWith("<table", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (MarkdownPipeTableNormalizer.IsPipeTableSeparator(trimmed))
+            return false;
+
+        string[] cells = trimmed.Trim('|').Split('|');
+        string? onlyCellText = null;
+        int nonEmptyCount = 0;
+        foreach (string cell in cells)
+        {
+            string cellText = cell.Trim();
+            if (cellText.Length == 0)
+                continue;
+
+            nonEmptyCount++;
+            if (nonEmptyCount > 1)
+                return false;
+
+            onlyCellText = cellText;
+        }
+
+        if (nonEmptyCount != 1 || onlyCellText == null)
+            return false;
+
+        var boldMatch = BoldOnlyLineRegex.Match(onlyCellText);
+        string unwrapped = boldMatch.Success ? boldMatch.Groups["title"].Value.Trim() : onlyCellText;
+
+        var outlineMatch = OutlineNumberPrefixRegex.Match(unwrapped);
+        if (outlineMatch.Success)
+        {
+            string number = outlineMatch.Groups["prefix"].Value.Replace("제", string.Empty, StringComparison.Ordinal).Trim();
+            string title = CleanHeadingTitle(unwrapped[outlineMatch.Length..]);
+            if (title.Length == 0 || title.Length > 64)
+                return false;
+
+            int level = Math.Clamp(number.Split('.', StringSplitOptions.RemoveEmptyEntries).Length, 1, 6);
+            heading = $"{new string('#', level)} {title}";
+            return true;
+        }
+
+        if (boldMatch.Success)
+        {
+            string title = CleanHeadingTitle(unwrapped);
+            if (title.Length == 0 || title.Length > 64)
+                return false;
+
+            heading = $"## {title}";
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryConvertOutlineLineToHeading(string line, string? nextLine, out string heading)

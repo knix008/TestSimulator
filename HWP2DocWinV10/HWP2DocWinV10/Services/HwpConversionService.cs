@@ -1,6 +1,6 @@
-using System.Diagnostics;
 using System.Text;
 using HWP2DocWinV10.Export;
+using Unhwp;
 
 namespace HWP2DocWinV10.Services;
 
@@ -40,22 +40,6 @@ internal static class HwpConversionService
 
         Directory.CreateDirectory(outputDirectory);
 
-        if (RhwpLocator.IsAvailable())
-        {
-            try
-            {
-                return await RhwpConversionService.ConvertAsync(
-                    inputPath,
-                    outputDirectory,
-                    progress,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is InvalidOperationException or FileNotFoundException)
-            {
-                progress?.Report($"rhwp 변환 실패 ({ex.Message.Split('\n')[0]}), unhwp로 재시도합니다...");
-            }
-        }
-
         return await ConvertWithUnhwpAsync(inputPath, outputDirectory, progress, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -67,27 +51,14 @@ internal static class HwpConversionService
         CancellationToken cancellationToken)
     {
         progress?.Report("unhwp로 문서를 Markdown으로 변환하는 중...");
-        await RunUnhwpConvertAsync(inputPath, outputDirectory, cancellationToken).ConfigureAwait(false);
 
         string baseName = Path.GetFileNameWithoutExtension(inputPath);
         string markdownPath = Path.Combine(outputDirectory, $"{baseName}.md");
-        try
-        {
-            await RunUnhwpMarkdownAsync(inputPath, markdownPath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (InvalidOperationException)
-        {
-            // convert 결과 Markdown을 사용합니다.
-        }
-
-        if (!File.Exists(markdownPath))
-        {
-            markdownPath = FindMarkdownFile(outputDirectory)
-                ?? throw new InvalidOperationException("변환 결과 Markdown 파일을 찾을 수 없습니다.");
-        }
-
-        string markdown = await File.ReadAllTextAsync(markdownPath, Encoding.UTF8, cancellationToken)
+        string markdown = await Task.Run(() => ParseAndExtractAssets(inputPath, outputDirectory), cancellationToken)
             .ConfigureAwait(false);
+
+        await File.WriteAllTextAsync(markdownPath, markdown, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+
         markdown = MarkdownHeadingNormalizer.Normalize(markdown);
         markdown = MarkdownPipeTableNormalizer.Normalize(markdown);
         markdown = MarkdownImageConsolidator.Consolidate(markdown, outputDirectory);
@@ -102,56 +73,29 @@ internal static class HwpConversionService
         };
     }
 
-    private static async Task RunUnhwpConvertAsync(string inputPath, string outputDirectory, CancellationToken cancellationToken)
+    private static string ParseAndExtractAssets(string inputPath, string outputDirectory)
     {
-        await RunUnhwpAsync(
-            $"convert \"{inputPath}\" -o \"{outputDirectory}\" -q --cleanup standard",
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async Task RunUnhwpMarkdownAsync(string inputPath, string markdownPath, CancellationToken cancellationToken)
-    {
-        await RunUnhwpAsync(
-            $"markdown \"{inputPath}\" -o \"{markdownPath}\" --table-mode html --max-heading 6 --cleanup standard",
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async Task RunUnhwpAsync(string arguments, CancellationToken cancellationToken)
-    {
-        string executable = UnhwpLocator.GetExecutablePath();
-        var startInfo = new ProcessStartInfo
+        try
         {
-            FileName = executable,
-            Arguments = arguments,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
-        };
+            using var document = UnhwpDocument.ParseFile(inputPath);
+            string markdown = document.ToMarkdown(new MarkdownOptions());
 
-        using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-        if (!process.Start())
-            throw new InvalidOperationException("HWP 변환 프로세스를 시작하지 못했습니다.");
+            string assetsDirectory = Path.Combine(outputDirectory, "assets");
+            foreach (string resourceId in document.GetResourceIds())
+            {
+                byte[]? data = document.GetResourceData(resourceId);
+                if (data == null)
+                    continue;
 
-        var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                Directory.CreateDirectory(assetsDirectory);
+                File.WriteAllBytes(Path.Combine(assetsDirectory, resourceId), data);
+            }
 
-        if (process.ExitCode != 0)
-        {
-            string error = await stderr.ConfigureAwait(false);
-            string output = await stdout.ConfigureAwait(false);
-            throw new InvalidOperationException(
-                $"HWP 변환에 실패했습니다. (코드 {process.ExitCode})\n{error}\n{output}".Trim());
+            return markdown;
         }
-    }
-
-    private static string? FindMarkdownFile(string directory)
-    {
-        return Directory.EnumerateFiles(directory, "*.md", SearchOption.AllDirectories)
-            .OrderBy(path => path.Length)
-            .FirstOrDefault();
+        catch (UnhwpException ex)
+        {
+            throw new InvalidOperationException($"HWP 변환에 실패했습니다.\n{ex.Message}", ex);
+        }
     }
 }
