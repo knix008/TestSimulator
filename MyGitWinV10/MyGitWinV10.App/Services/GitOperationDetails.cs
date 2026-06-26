@@ -216,6 +216,33 @@ public static class GitOperationDetails
         }).ToList();
     }
 
+    public static IReadOnlyList<Commit> GetCommitsBehindTracked(Repository repo)
+    {
+        Branch? head = repo.Head;
+        if (head?.Tip is null)
+        {
+            return [];
+        }
+
+        Branch? upstream = ResolveUpstreamBranch(repo);
+        if (upstream?.Tip is null)
+        {
+            return [];
+        }
+
+        if (string.Equals(head.Tip.Sha, upstream.Tip.Sha, StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        return repo.Commits.QueryBy(new CommitFilter
+        {
+            IncludeReachableFrom = upstream,
+            ExcludeReachableFrom = head,
+            SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time
+        }).ToList();
+    }
+
     public static IReadOnlyCollection<string> GetUnpushedFilePaths(Repository repo)
     {
         if (!GitWorkflowService.HasOriginRemote(repo))

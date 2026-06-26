@@ -277,6 +277,7 @@ public static class Localization
         ["GitOp.PullFailed"] = ("Git Pull 실패", "Git Pull Failed"),
         ["GitOp.PushComplete"] = ("Git Push 완료", "Git Push Complete"),
         ["GitOp.PushFailed"] = ("Git Push 실패", "Git Push Failed"),
+        ["GitOp.PushRejectedNonFf"] = ("'{0}' 브랜치를 Push할 수 없습니다. origin에 로컬에 없는 커밋이 있어 non-fast-forward Push가 거부되었습니다.\n\n먼저 Git Pull을 실행한 뒤 다시 Push하세요.\n(원격보다 {1}커밋 뒤, {2}커밋 앞)", "Cannot push branch '{0}'. The remote on origin has commits that your local branch does not contain (non-fast-forward).\n\nRun Git Pull first, then push again.\n({1} commit(s) behind, {2} ahead)"),
         ["GitOp.StashComplete"] = ("Git Stash 완료", "Git Stash Complete"),
         ["GitOp.StashFailed"] = ("Git Stash 실패", "Git Stash Failed"),
         ["GitOp.StashPopComplete"] = ("Git Stash Pop 완료", "Git Stash Pop Complete"),

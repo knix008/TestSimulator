@@ -2647,7 +2647,6 @@ public partial class MainForm : Form
 
         Repository repo = _gitService.Repo;
         var prompt = CreateGitCredentialsPrompt();
-        var commitsToPush = GitOperationDetails.GetCommitsAheadOfTracked(repo);
         try
         {
             // Resolve credentials up front, on the UI thread, before the progress dialog's
@@ -2659,6 +2658,25 @@ public partial class MainForm : Form
             {
                 prompt.Handler(remoteUrl, null, SupportedCredentialTypes.UsernamePassword);
             }
+
+            await Task.Run(() =>
+                _gitService.RunLocked(activeRepo =>
+                    GitWorkflowService.TryFetchOrigin(activeRepo, prompt.Handler, CancellationToken.None)));
+
+            Repository activeRepo = _gitService.Repo ?? repo;
+            string branchName = activeRepo.Head?.FriendlyName ?? _gitService.GetCurrentBranchName();
+            var commitsBehind = GitOperationDetails.GetCommitsBehindTracked(activeRepo);
+            if (commitsBehind.Count > 0)
+            {
+                int commitsAhead = GitOperationDetails.GetCommitsAheadOfTracked(activeRepo).Count;
+                GitOperationNotifier.ShowInfo(
+                    this,
+                    Localization.T("GitOp.PushFailed"),
+                    Localization.Tf("GitOp.PushRejectedNonFf", branchName, commitsBehind.Count, commitsAhead));
+                return;
+            }
+
+            var commitsToPush = GitOperationDetails.GetCommitsAheadOfTracked(activeRepo);
 
             await OperationProgress.RunAsync(
                 this,
@@ -2676,7 +2694,7 @@ public partial class MainForm : Form
                 this,
                 Localization.T("GitOp.PushComplete"),
                 Localization.T("GitOp.PushCompleteSummary"),
-                GitOperationDetails.ForPush(repo, commitsToPush));
+                GitOperationDetails.ForPush(activeRepo, commitsToPush));
         }
         catch (OperationCanceledException)
         {

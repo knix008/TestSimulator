@@ -227,10 +227,22 @@ public static class GitWorkflowService
         {
             repo.Network.Push(remote, repo.Head.CanonicalName, pushOptions);
         }
+        catch (NonFastForwardException ex)
+        {
+            throw new InvalidOperationException(FormatPushRejectedMessage(repo), ex);
+        }
         catch (Exception ex) when (IsNothingToPush(ex))
         {
             throw new InvalidOperationException("There are no commits to push.", ex);
         }
+    }
+
+    public static string FormatPushRejectedMessage(Repository repo)
+    {
+        string branch = repo.Head?.FriendlyName ?? Localization.T("Detail.Value.Unknown");
+        int behind = GitOperationDetails.GetCommitsBehindTracked(repo).Count;
+        int ahead = GitOperationDetails.GetCommitsAheadOfTracked(repo).Count;
+        return Localization.Tf("GitOp.PushRejectedNonFf", branch, behind, ahead);
     }
 
     public static void Stash(Repository repo, string? message = null)
