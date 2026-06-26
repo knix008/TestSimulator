@@ -1,48 +1,50 @@
-<Project Sdk="WixToolset.Sdk/6.0.2">
-
-  <PropertyGroup>
-    <OutputType>Package</OutputType>
-    <Platforms>x64</Platforms>
-    <OutputName>DeskSearchSetup</OutputName>
-    <InstallerPlatform>x64</InstallerPlatform>
-    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
-    <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
-    <!-- Installer UI: Korean and English only -->
-    <Cultures>ko-kr;en-us</Cultures>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <WixLocalization Include="UiStrings.wxl" Culture="ko-kr" />
-    <WixLocalization Include="UiStrings.en-us.wxl" Culture="en-us" />
-  </ItemGroup>
-
-  <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Release'">
-    <Exec Command="cmd /c taskkill /IM DeskSearch.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
-    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
-          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\DeskSearch\DeskSearch.csproj&quot; -c Release -r win-x64 --self-contained true -p:SkipInstaller=true" />
-  </Target>
-
-  <!-- Copy culture-specific MSIs to stable output names (ko-kr is default). -->
-  <Target Name="CopyLocalizedInstallers" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Copy SourceFiles="$(OutputPath)ko-kr\$(OutputName).msi"
-          DestinationFiles="$(OutputPath)$(OutputName).msi"
-          Condition="Exists('$(OutputPath)ko-kr\$(OutputName).msi')"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(OutputPath)en-us\$(OutputName).msi"
-          DestinationFiles="$(OutputPath)$(OutputName).en-US.msi"
-          Condition="Exists('$(OutputPath)en-us\$(OutputName).msi')"
-          SkipUnchangedFiles="true" />
-  </Target>
-
-  <!-- Debug 구성에서는 MSI 빌드 생략 (솔루션 빌드 시 Installer는 Release에서만 Build.0) -->
-  <Target Name="Build" Condition="'$(Configuration)' != 'Release'">
-    <Message Text="DeskSearch.Installer: MSI packaging is skipped in $(Configuration). Use Release configuration." Importance="high" />
-  </Target>
-  <Target Name="Rebuild" Condition="'$(Configuration)' != 'Release'" DependsOnTargets="Build" />
-
-</Project>
+<Project Sdk="WixToolset.Sdk/6.0.2">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platforms>x64</Platforms>
+    <OutputName>DeskSearchSetup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
+    <!-- AllowSameVersionUpgrades intentionally permits same-version reinstall; ICE61 flags that by design. -->
+    <SuppressIces>ICE61</SuppressIces>
+    <!-- Installer UI: Korean and English only -->
+    <Cultures>ko-kr;en-us</Cultures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <WixLocalization Include="UiStrings.wxl" Culture="ko-kr" />
+    <WixLocalization Include="UiStrings.en-us.wxl" Culture="en-us" />
+  </ItemGroup>
+
+  <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="cmd /c taskkill /IM DeskSearch.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\DeskSearch\DeskSearch.csproj&quot; -c Release -r win-x64 --self-contained true -p:SkipInstaller=true" />
+  </Target>
+
+  <!-- Copy culture-specific MSIs to stable output names (ko-kr is default). -->
+  <Target Name="CopyLocalizedInstallers" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Copy SourceFiles="$(OutputPath)ko-kr\$(OutputName).msi"
+          DestinationFiles="$(OutputPath)$(OutputName).msi"
+          Condition="Exists('$(OutputPath)ko-kr\$(OutputName).msi')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(OutputPath)en-us\$(OutputName).msi"
+          DestinationFiles="$(OutputPath)$(OutputName).en-US.msi"
+          Condition="Exists('$(OutputPath)en-us\$(OutputName).msi')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Debug 구성에서는 MSI 빌드 생략 (솔루션 빌드 시 Installer는 Release에서만 Build.0) -->
+  <Target Name="Build" Condition="'$(Configuration)' != 'Release'">
+    <Message Text="DeskSearch.Installer: MSI packaging is skipped in $(Configuration). Use Release configuration." Importance="high" />
+  </Target>
+  <Target Name="Rebuild" Condition="'$(Configuration)' != 'Release'" DependsOnTargets="Build" />
+
+</Project>
 

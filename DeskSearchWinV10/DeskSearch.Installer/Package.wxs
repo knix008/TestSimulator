@@ -10,20 +10,12 @@
            Scope="perMachine"
            UpgradeCode="B8F3E2A1-4C5D-6E7F-8901-234567890ABC">
 
-    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeErrorMessage)" />
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeErrorMessage)"
+                  Schedule="afterInstallValidate"
+                  AllowSameVersionUpgrades="yes" />
     <MediaTemplate EmbedCab="yes" />
 
-    <Property Id="REMOVEUSERDATA" Value="0" />
-
-    <Property Id="USERDATASETTINGS" Secure="yes">
-      <DirectorySearch Id="DeskSearchSettingsDir" Path="[AppDataFolder]DeskSearch" Depth="0">
-        <FileSearch Id="DeskSearchSettingsFile" Name="settings.json" />
-      </DirectorySearch>
-    </Property>
-
-    <InstallUISequence>
-      <Show Dialog="UserDataDlg" Before="ProgressDlg" Condition="REMOVE~=&quot;ALL&quot; AND USERDATASETTINGS" />
-    </InstallUISequence>
+    <Property Id="REMOVEUSERDATA" Value="0" Secure="yes" />
 
     <CustomAction Id="KillDeskSearch"
                   Directory="SystemFolder"
@@ -34,7 +26,7 @@
 
     <CustomAction Id="RemoveUserData"
                   Directory="SystemFolder"
-                  ExeCommand="cmd.exe /c if exist &quot;%APPDATA%\DeskSearch&quot; rmdir /s /q &quot;%APPDATA%\DeskSearch&quot; &amp; schtasks /Delete /TN DeskSearch /F"
+                  ExeCommand="cmd.exe /c if exist &quot;%APPDATA%\DeskSearch&quot; rmdir /s /q &quot;%APPDATA%\DeskSearch&quot;"
                   Execute="deferred"
                   Impersonate="yes"
                   Return="ignore" />
@@ -47,9 +39,15 @@
                   Return="ignore" />
 
     <InstallExecuteSequence>
-      <Custom Action="KillDeskSearch" After="InstallInitialize" Condition="REMOVEUSERDATA=&quot;1&quot;" />
-      <Custom Action="RemoveUserData" After="KillDeskSearch" Condition="REMOVEUSERDATA=&quot;1&quot;" />
-      <Custom Action="RemoveStartupTask" Before="InstallFinalize" Condition="REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="KillDeskSearch"
+              After="InstallInitialize"
+              Condition="(WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;) AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RemoveStartupTask"
+              After="KillDeskSearch"
+              Condition="WIX_UPGRADE_DETECTED OR (REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE)" />
+      <Custom Action="RemoveUserData"
+              After="RemoveStartupTask"
+              Condition="REMOVEUSERDATA=&quot;1&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
     <ui:WixUI Id="DeskSearch_FeatureTree" InstallDirectory="INSTALLFOLDER" />

@@ -28,6 +28,7 @@
   <data name="Index_InProgress" xml:space="preserve"><value>{0:N0} indexing (background)</value></data>
   <data name="Index_Indexing" xml:space="preserve"><value>Indexing...</value></data>
   <data name="Menu_ClearSearch" xml:space="preserve"><value>Clear search</value></data>
+  <data name="Search_NoResults" xml:space="preserve"><value>No matching items.</value></data>
   <data name="Menu_RefreshIndex" xml:space="preserve"><value>Refresh index</value></data>
   <data name="Menu_OpenDesktop" xml:space="preserve"><value>Open Desktop folder</value></data>
   <data name="Menu_ResetPosition" xml:space="preserve"><value>Reset position</value></data>
@@ -112,6 +113,8 @@
   <data name="Error_OutOfMemory" xml:space="preserve"><value>Out of memory. Reduce the indexing scope with search exclusions, close other programs, and try again.</value></data>
   <data name="Migration_ConfirmTitle" xml:space="preserve"><value>Search Index Upgrade</value></data>
   <data name="Migration_ConfirmMessage" xml:space="preserve"><value>The search index needs to be upgraded to a new structure to speed up search. This may take a while depending on how many items are indexed. Proceed now? If you skip it, search will keep working, but the speed improvement won't take effect until the next time you start the app.</value></data>
+  <data name="Migration_ConfirmYes" xml:space="preserve"><value>Yes</value></data>
+  <data name="Migration_ConfirmNo" xml:space="preserve"><value>No</value></data>
   <data name="Migration_ProgressTitle" xml:space="preserve"><value>Upgrading Search Index</value></data>
   <data name="Migration_ProgressMessage" xml:space="preserve"><value>Upgrading the search index to the new structure. Please wait…</value></data>
   <data name="Migration_ProgressPercent" xml:space="preserve"><value>{0}%</value></data>

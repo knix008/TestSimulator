@@ -11,8 +11,8 @@
   <String Id="UserDataDlg_Title" Value="DeskSearch user data" Overridable="yes" />
   <String Id="UserDataDlgTitle" Value="Remove saved user data?" Overridable="yes" />
   <String Id="UserDataDlgUninstallTitle" Value="Remove user data on uninstall" Overridable="yes" />
-  <String Id="UserDataDlgDescription" Value="DeskSearch is already installed. Choose whether to delete saved settings and start fresh." Overridable="yes" />
-  <String Id="UserDataDlgUninstallDescription" Value="Saved DeskSearch settings were found. Choose whether to delete user data when uninstalling the program." Overridable="yes" />
-  <String Id="UserDataDlgCheckBox" Value="Delete user data (settings and related files)" Overridable="yes" />
-  <String Id="UserDataDlgCheckBoxDescription" Value="Deletes %AppData%\DeskSearch\ (settings.json, etc.). Leave unchecked to keep your current settings." Overridable="yes" />
+  <String Id="UserDataDlgDescription" Value="DeskSearch is already installed. Program files will be removed completely and reinstalled. Choose whether to delete saved settings and the search index." Overridable="yes" />
+  <String Id="UserDataDlgUninstallDescription" Value="DeskSearch program files will be removed completely. Choose whether to delete saved settings and the search index as well." Overridable="yes" />
+  <String Id="UserDataDlgCheckBox" Value="Delete user data (settings and search index)" Overridable="yes" />
+  <String Id="UserDataDlgCheckBoxDescription" Value="Deletes %AppData%\DeskSearch\ (settings.json, index.db, etc.). Leave unchecked to keep your user data." Overridable="yes" />
 </WixLocalization>

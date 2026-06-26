@@ -39,16 +39,17 @@
                 CornerRadius="10"
                 Padding="8,6"
                 ClipToBounds="True">
-            <ListBox x:Name="ResultsList"
-                     VerticalAlignment="Stretch"
-                     HorizontalAlignment="Stretch"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     ScrollViewer.CanContentScroll="False"
-                     MouseDoubleClick="ResultsList_MouseDoubleClick"
-                     KeyDown="ResultsList_KeyDown">
+            <Grid>
+                <ListBox x:Name="ResultsList"
+                         VerticalAlignment="Stretch"
+                         HorizontalAlignment="Stretch"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.CanContentScroll="False"
+                         MouseDoubleClick="ResultsList_MouseDoubleClick"
+                         KeyDown="ResultsList_KeyDown">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Margin="4,2">
@@ -110,6 +111,16 @@
                     </Style>
                 </ListBox.ItemContainerStyle>
             </ListBox>
+                <TextBlock x:Name="EmptyResultsLabel"
+                           Visibility="Collapsed"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Foreground="{DynamicResource SubTextBrush}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           Margin="8"/>
+            </Grid>
         </Border>
 
         <Border x:Name="BottomResizeGrip"

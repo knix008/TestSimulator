@@ -1,6 +1,7 @@
 using System.Windows;
 using DeskSearch.Helpers;
 using DeskSearch.Models;
+using DeskSearch.Services;
 
 namespace DeskSearch;
 
@@ -53,16 +54,38 @@ public partial class MainWindow
 
     private void ShowSearchResults(IReadOnlyList<FileEntry> results)
     {
+        var restoreSearchFocus = SearchBox.IsKeyboardFocused;
+        var resultsWindow = Results;
+
         if (results.Count == 0)
         {
             if (string.IsNullOrWhiteSpace(SearchBox.Text))
+            {
                 HideSearchResults();
+                return;
+            }
+
+            resultsWindow.ShowNoResults(LocalizationService.T("Search_NoResults"));
+            resultsWindow.ConfigureForResultCount(0, MinVisibleResults);
+            resultsWindow.Height = ClampResultsWindowHeight(ResultsMinHeight);
+
+            if (!_resultsWindowShown)
+            {
+                SyncResultsWindowLayout(show: true);
+                resultsWindow.Show();
+                _resultsWindowShown = true;
+            }
+            else
+            {
+                SyncResultsWindowLayoutIfChanged();
+            }
+
+            if (restoreSearchFocus)
+                SearchBox.Focus();
 
             return;
         }
 
-        var restoreSearchFocus = SearchBox.IsKeyboardFocused;
-        var resultsWindow = Results;
         var firstShow = !_resultsWindowShown;
 
         var changed = resultsWindow.UpdateResults(results);

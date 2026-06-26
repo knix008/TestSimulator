@@ -11,8 +11,8 @@
   <String Id="UserDataDlg_Title" Value="DeskSearch 사용자 데이터" Overridable="yes" />
   <String Id="UserDataDlgTitle" Value="사용자 데이터를 삭제하시겠습니까?" Overridable="yes" />
   <String Id="UserDataDlgUninstallTitle" Value="제거 시 사용자 데이터 삭제" Overridable="yes" />
-  <String Id="UserDataDlgDescription" Value="DeskSearch가 이미 설치되어 있습니다. 설정·창 위치 등 사용자 데이터를 삭제하고 초기 상태로 다시 설치할지 선택하세요." Overridable="yes" />
-  <String Id="UserDataDlgUninstallDescription" Value="저장된 DeskSearch 설정 데이터가 있습니다. 프로그램 제거 시 사용자 데이터도 함께 삭제할지 선택하세요." Overridable="yes" />
-  <String Id="UserDataDlgCheckBox" Value="사용자 데이터 삭제 (설정 파일 및 관련 데이터)" Overridable="yes" />
-  <String Id="UserDataDlgCheckBoxDescription" Value="삭제 대상: %AppData%\DeskSearch\ (settings.json 등). 체크하지 않으면 기존 설정이 유지됩니다." Overridable="yes" />
+  <String Id="UserDataDlgDescription" Value="기존 DeskSearch가 설치되어 있습니다. 프로그램 파일은 완전히 제거한 뒤 새로 설치합니다. 설정·검색 인덱스 등 사용자 데이터를 삭제할지 선택하세요." Overridable="yes" />
+  <String Id="UserDataDlgUninstallDescription" Value="DeskSearch 프로그램 파일을 완전히 제거합니다. 저장된 설정·검색 인덱스 등 사용자 데이터도 함께 삭제할지 선택하세요." Overridable="yes" />
+  <String Id="UserDataDlgCheckBox" Value="사용자 데이터 삭제 (설정 및 검색 인덱스)" Overridable="yes" />
+  <String Id="UserDataDlgCheckBoxDescription" Value="삭제 대상: %AppData%\DeskSearch\ (settings.json, index.db 등). 체크하지 않으면 사용자 데이터는 유지됩니다." Overridable="yes" />
 </WixLocalization>

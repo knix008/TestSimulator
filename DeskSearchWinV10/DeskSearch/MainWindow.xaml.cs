@@ -126,14 +126,8 @@ public partial class MainWindow : Window
 
     private void PromptAndRunFtsMigration()
     {
-        var proceed = System.Windows.MessageBox.Show(
-            this,
-            LocalizationService.T("Migration_ConfirmMessage"),
-            LocalizationService.T("Migration_ConfirmTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question) == MessageBoxResult.Yes;
-
-        if (!proceed)
+        var confirm = new MigrationConfirmDialog { Owner = this };
+        if (confirm.ShowDialog() != true)
         {
             _indexService.StartBackgroundScan();
             return;

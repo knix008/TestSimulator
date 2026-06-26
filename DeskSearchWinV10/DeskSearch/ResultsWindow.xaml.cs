@@ -54,6 +54,9 @@ public partial class ResultsWindow : Window
     /// <returns>True when the visible list changed.</returns>
     public bool UpdateResults(IReadOnlyList<FileEntry> results)
     {
+        EmptyResultsLabel.Visibility = Visibility.Collapsed;
+        ResultsList.Visibility = Visibility.Visible;
+
         if (ResultsSequenceEquals(_boundResults, results))
             return false;
 
@@ -79,7 +82,20 @@ public partial class ResultsWindow : Window
         return true;
     }
 
-    public void ClearResults() => _boundResults.Clear();
+    public void ClearResults()
+    {
+        _boundResults.Clear();
+        EmptyResultsLabel.Visibility = Visibility.Collapsed;
+        ResultsList.Visibility = Visibility.Visible;
+    }
+
+    public void ShowNoResults(string message)
+    {
+        _boundResults.Clear();
+        EmptyResultsLabel.Text = message;
+        EmptyResultsLabel.Visibility = Visibility.Visible;
+        ResultsList.Visibility = Visibility.Collapsed;
+    }
 
     public void ConfigureForResultCount(int resultCount, int maxVisibleWithoutScroll)
     {
