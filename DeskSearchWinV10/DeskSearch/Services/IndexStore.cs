@@ -157,6 +157,67 @@ public sealed partial class IndexStore : IDisposable
         }
     }
 
+    public bool HasScanCheckpoints()
+    {
+        lock (_lock)
+        {
+            using var command = CreateCommand("SELECT 1 FROM scan_checkpoints LIMIT 1");
+            return command.ExecuteScalar() is not null;
+        }
+    }
+
+    public void SaveScanCheckpoint(string normalizedRoot, string lastPath)
+    {
+        lock (_lock)
+        {
+            using var command = CreateCommand(
+                """
+                INSERT INTO scan_checkpoints(root, last_path) VALUES ($root, $path)
+                ON CONFLICT(root) DO UPDATE SET last_path = excluded.last_path
+                """);
+            command.Parameters.AddWithValue("$root", normalizedRoot);
+            command.Parameters.AddWithValue("$path", lastPath);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public bool TryLoadScanCheckpoint(string normalizedRoot, out string lastPath)
+    {
+        lock (_lock)
+        {
+            using var command = CreateCommand(
+                "SELECT last_path FROM scan_checkpoints WHERE root = $root COLLATE NOCASE");
+            command.Parameters.AddWithValue("$root", normalizedRoot);
+            var value = command.ExecuteScalar();
+            if (value is string path && path.Length > 0)
+            {
+                lastPath = path;
+                return true;
+            }
+        }
+
+        lastPath = string.Empty;
+        return false;
+    }
+
+    public void ClearScanCheckpoint(string normalizedRoot)
+    {
+        lock (_lock)
+        {
+            using var command = CreateCommand("DELETE FROM scan_checkpoints WHERE root = $root COLLATE NOCASE");
+            command.Parameters.AddWithValue("$root", normalizedRoot);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public void ClearAllScanCheckpoints()
+    {
+        lock (_lock)
+        {
+            ExecuteNonQuery("DELETE FROM scan_checkpoints");
+        }
+    }
+
     public void UpsertBatch(IReadOnlyList<FileEntry> batch)
     {
         if (batch.Count == 0)
@@ -426,6 +487,13 @@ public sealed partial class IndexStore : IDisposable
                 """
                 CREATE TABLE IF NOT EXISTS indexed_roots(
                     root TEXT PRIMARY KEY COLLATE NOCASE
+                )
+                """);
+            ExecuteNonQuery(
+                """
+                CREATE TABLE IF NOT EXISTS scan_checkpoints(
+                    root TEXT PRIMARY KEY COLLATE NOCASE,
+                    last_path TEXT NOT NULL
                 )
                 """);
             ExecuteNonQuery(

@@ -190,8 +190,11 @@ public partial class MainWindow
         Microsoft.Win32.SystemEvents.SessionEnding -= OnSessionEnding;
     }
 
-    private void OnSessionEnding(object sender, Microsoft.Win32.SessionEndingEventArgs e) =>
+    private void OnSessionEnding(object sender, Microsoft.Win32.SessionEndingEventArgs e)
+    {
         PersistSettings();
+        _indexService.AbortIndexingForShutdown();
+    }
 
     private void ApplyCurrentWindowLayout(AppSettings settings)
     {

@@ -8,11 +8,11 @@ namespace DeskSearch.Services;
 /// </summary>
 internal static class IndexStoragePolicy
 {
-    /// <summary>Live search index (<c>index.db</c>). Used for all queries after the first index is built.</summary>
+    /// <summary>Completed search index (<c>index.db</c>). Exists only after a successful full index build.</summary>
     public const string DatabaseFileName = "index.db";
 
-    /// <summary>Separate build index (<c>index.building.db</c>) for every full re-index after the first.
-    /// On success it replaces <see cref="DatabaseFileName"/> and the old file is deleted.</summary>
+    /// <summary>Build index (<c>index.building.db</c>) for every full scan. On success it replaces
+    /// <see cref="DatabaseFileName"/> and the old file is deleted.</summary>
     public const string BuildingDatabaseFileName = "index.building.db";
 
     public const int BulkMergeBatchSize = 4_096;

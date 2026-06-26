@@ -22,6 +22,9 @@ internal static class IndexResourcePolicy
     /// <summary>Max number of top-level roots (e.g. drives) scanned concurrently during a full scan.</summary>
     public const int MaxParallelRootScans = 3;
 
+    /// <summary>Pause before retrying a failed or interrupted full scan (ms).</summary>
+    public const int FailedScanRetryDelayMs = 8_000;
+
     public const int ProgressReportMinEntries = 25_000;
     public const int ProgressReportMinSeconds = 5;
     /// <summary>Indexed entries needed within one root scan to approach that step's share of 100%.</summary>
