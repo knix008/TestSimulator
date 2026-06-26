@@ -24,7 +24,16 @@
       Description="!(loc.FeatureAppDesc)"
       Level="1"
       AllowAbsent="no">
-      <ComponentGroupRef Id="AppComponents" />
+      <!-- Release 빌드 출력 전체를 수집합니다. 새 DLL·Tools\rhwp 등이 자동 포함됩니다. -->
+      <Files
+        Include="$(var.HWP2DocWinV10.TargetDir)**"
+        Directory="INSTALLFOLDER">
+        <Exclude Files="$(var.HWP2DocWinV10.TargetDir)**\*.pdb" />
+        <Exclude Files="$(var.HWP2DocWinV10.TargetDir)runtimes\linux-musl-x64\**" />
+        <Exclude Files="$(var.HWP2DocWinV10.TargetDir)runtimes\linux-x64\**" />
+        <Exclude Files="$(var.HWP2DocWinV10.TargetDir)runtimes\osx-arm64\**" />
+        <Exclude Files="$(var.HWP2DocWinV10.TargetDir)runtimes\osx-x64\**" />
+      </Files>
 
       <Feature
         Id="FeatureStartMenu"
@@ -73,16 +82,7 @@
 
   <Fragment>
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="!(loc.AppName)">
-        <Directory Id="RuntimesFolder" Name="runtimes">
-          <Directory Id="WinX64Folder" Name="win-x64">
-            <Directory Id="NativeFolder" Name="native" />
-          </Directory>
-        </Directory>
-        <Directory Id="AssetsFolder" Name="Assets">
-          <Directory Id="IconsFolder" Name="Icons" />
-        </Directory>
-      </Directory>
+      <Directory Id="INSTALLFOLDER" Name="!(loc.AppName)" />
     </StandardDirectory>
 
     <StandardDirectory Id="ProgramMenuFolder">
@@ -96,95 +96,6 @@
     <Icon Id="AppIcon" SourceFile="$(var.HWP2DocWinV10.ProjectDir)Assets\app.ico" />
     <Icon Id="AppShortcutIcon" SourceFile="$(var.HWP2DocWinV10.TargetDir)HWP2DocWinV10.exe" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
-  </Fragment>
-
-  <Fragment>
-    <ComponentGroup Id="AppComponents" Directory="INSTALLFOLDER">
-
-      <Component Id="MainExecutable">
-        <File
-          Id="HWP2DocExe"
-          Source="$(var.HWP2DocWinV10.TargetDir)HWP2DocWinV10.exe"
-          KeyPath="yes" />
-      </Component>
-
-      <Component Id="MainAssembly" Guid="A7B8C9D0-E1F2-4A3B-8C9D-0E1F2A3B4C5D">
-        <File Source="$(var.HWP2DocWinV10.TargetPath)" KeyPath="yes" />
-      </Component>
-
-      <Component Id="RuntimeConfig" Guid="24852551-3F5F-4013-88D0-CD38AF9378C7">
-        <File Source="$(var.HWP2DocWinV10.TargetDir)HWP2DocWinV10.runtimeconfig.json" KeyPath="yes" />
-      </Component>
-
-      <Component Id="Markdig" Guid="F26D57EF-D326-4B65-BA3E-F0522D3E20E9">
-        <File Source="$(var.HWP2DocWinV10.TargetDir)Markdig.dll" KeyPath="yes" />
-      </Component>
-
-      <Component Id="OpenXml" Guid="A1B2C3D4-E5F6-4A70-8B9C-0D1E2F3A4B5C">
-        <File Source="$(var.HWP2DocWinV10.TargetDir)DocumentFormat.OpenXml.dll" KeyPath="yes" />
-      </Component>
-
-      <Component Id="OpenXmlFramework" Guid="B2C3D4E5-F6A7-4B81-9C0D-1E2F3A4B5C6D">
-        <File Source="$(var.HWP2DocWinV10.TargetDir)DocumentFormat.OpenXml.Framework.dll" KeyPath="yes" />
-      </Component>
-
-      <Component Id="WebView2Core" Guid="12F921E7-C173-4922-A061-A79A8E058A3C">
-        <File Source="$(var.HWP2DocWinV10.TargetDir)Microsoft.Web.WebView2.Core.dll" KeyPath="yes" />
-      </Component>
-
-      <Component Id="WebView2WinForms" Guid="FA466A25-1BD8-4177-86A3-83C5D1C50AE5">
-        <File Source="$(var.HWP2DocWinV10.TargetDir)Microsoft.Web.WebView2.WinForms.dll" KeyPath="yes" />
-      </Component>
-
-      <Component Id="AppIconFile" Directory="AssetsFolder" Guid="E1F2A3B4-C5D6-4E7F-8091-A2B3C4D5E6F7">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\app.ico" KeyPath="yes" />
-      </Component>
-
-      <Component Id="IconFile" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F1">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\file.png" KeyPath="yes" />
-      </Component>
-      <Component Id="IconOpen" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F2">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\open.png" KeyPath="yes" />
-      </Component>
-      <Component Id="IconConvert" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F3">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\convert.png" KeyPath="yes" />
-      </Component>
-      <Component Id="IconMarkdown" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F4">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\markdown.png" KeyPath="yes" />
-      </Component>
-      <Component Id="IconWord" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F5">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\word.png" KeyPath="yes" />
-      </Component>
-      <Component Id="IconPdf" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F6">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\pdf.png" KeyPath="yes" />
-      </Component>
-      <Component Id="IconExit" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F7">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\exit.png" KeyPath="yes" />
-      </Component>
-      <Component Id="IconHelp" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F8">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\help.png" KeyPath="yes" />
-      </Component>
-      <Component Id="IconAbout" Directory="IconsFolder" Guid="F1A2B3C4-D5E6-4F70-8191-A2B3C4D5E6F9">
-        <File Source="$(var.HWP2DocWinV10.ProjectDir)Assets\Icons\about.png" KeyPath="yes" />
-      </Component>
-
-      <Component Id="UnhwpNet" Guid="C4D5E6F7-A8B9-4C0D-1E2F-3A4B5C6D7E8F">
-        <File Source="$(var.HWP2DocWinV10.TargetDir)Unhwp.Net.dll" KeyPath="yes" />
-      </Component>
-
-      <Component Id="WebView2Loader" Directory="NativeFolder" Guid="D5E6F7A8-B9C0-4D1E-2F3A-4B5C6D7E8F9A">
-        <File
-          Source="$(var.HWP2DocWinV10.TargetDir)runtimes\win-x64\native\WebView2Loader.dll"
-          KeyPath="yes" />
-      </Component>
-
-      <Component Id="UnhwpNative" Directory="NativeFolder" Guid="B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E">
-        <File
-          Source="$(var.HWP2DocWinV10.TargetDir)runtimes\win-x64\native\unhwp.dll"
-          KeyPath="yes" />
-      </Component>
-
-    </ComponentGroup>
   </Fragment>
 
   <Fragment>

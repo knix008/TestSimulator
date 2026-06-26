@@ -45,7 +45,8 @@ sealed partial class AboutDialog : Form
             lblVersion.Text = $"버전 {version.Major}.{version.Minor}.{version.Build}";
 
         lblLibraries.Text =
-            "Unhwp — HWP/HWPX → Markdown 변환 (오픈소스, MIT)\r\n" +
+            "Unhwp — 문서 구조·제목 분석 (오픈소스, MIT)\r\n" +
+            "rhwp — 표·그림 변환 (선택, Tools\\rhwp\\rhwp.exe)\r\n" +
             "Markdig — Markdown 미리보기\r\n" +
             "Microsoft WebView2 — HTML/PDF 렌더링\r\n" +
             "DocumentFormat.OpenXml — Word보내기";

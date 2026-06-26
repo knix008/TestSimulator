@@ -19,6 +19,7 @@ partial class HWP2DocForm
         fileToolStripMenuItem = new ToolStripMenuItem();
         openToolStripMenuItem = new ToolStripMenuItem();
         convertToolStripMenuItem = new ToolStripMenuItem();
+        llmSettingsToolStripMenuItem = new ToolStripMenuItem();
         menuSepExport = new ToolStripSeparator();
         exportMarkdownToolStripMenuItem = new ToolStripMenuItem();
         exportWordToolStripMenuItem = new ToolStripMenuItem();
@@ -52,11 +53,16 @@ partial class HWP2DocForm
         pnlContent = new Panel();
         splitContainer1 = new SplitContainer();
         pnlStructure = new Panel();
+        pnlStructureHeader = new Panel();
+        btnCloseStructure = new Button();
         webViewMarkdown = new Microsoft.Web.WebView2.WinForms.WebView2();
         lblMarkdown = new Label();
+        picMarkdownIcon = new PictureBox();
         webViewPreview = new Microsoft.Web.WebView2.WinForms.WebView2();
         lblPreview = new Label();
+        picPreviewIcon = new PictureBox();
         lblStructure = new Label();
+        picStructureIcon = new PictureBox();
         treeStructure = new TreeView();
         statusStrip1 = new StatusStrip();
         lblStatus = new ToolStripStatusLabel();
@@ -76,8 +82,12 @@ partial class HWP2DocForm
         splitContainer1.Panel2.SuspendLayout();
         splitContainer1.SuspendLayout();
         pnlStructure.SuspendLayout();
+        pnlStructureHeader.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)webViewMarkdown).BeginInit();
         ((System.ComponentModel.ISupportInitialize)webViewPreview).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)picMarkdownIcon).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)picPreviewIcon).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)picStructureIcon).BeginInit();
         statusStrip1.SuspendLayout();
         SuspendLayout();
         // 
@@ -92,7 +102,7 @@ partial class HWP2DocForm
         // 
         // fileToolStripMenuItem
         // 
-        fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { openToolStripMenuItem, convertToolStripMenuItem, menuSepExport, exportMarkdownToolStripMenuItem, exportWordToolStripMenuItem, exportPdfToolStripMenuItem, menuSepExit, exitToolStripMenuItem });
+        fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { openToolStripMenuItem, convertToolStripMenuItem, llmSettingsToolStripMenuItem, menuSepExport, exportMarkdownToolStripMenuItem, exportWordToolStripMenuItem, exportPdfToolStripMenuItem, menuSepExit, exitToolStripMenuItem });
         fileToolStripMenuItem.Name = "fileToolStripMenuItem";
         fileToolStripMenuItem.Size = new Size(57, 20);
         fileToolStripMenuItem.Text = "파일(&F)";
@@ -112,7 +122,14 @@ partial class HWP2DocForm
         convertToolStripMenuItem.Size = new Size(313, 22);
         convertToolStripMenuItem.Text = "변환(&C)";
         convertToolStripMenuItem.Click += convertToolStripMenuItem_Click;
-        // 
+        //
+        // llmSettingsToolStripMenuItem
+        //
+        llmSettingsToolStripMenuItem.Name = "llmSettingsToolStripMenuItem";
+        llmSettingsToolStripMenuItem.Size = new Size(313, 22);
+        llmSettingsToolStripMenuItem.Text = "LLM 설정(&L)...";
+        llmSettingsToolStripMenuItem.Click += llmSettingsToolStripMenuItem_Click;
+        //
         // menuSepExport
         // 
         menuSepExport.Name = "menuSepExport";
@@ -368,14 +385,46 @@ partial class HWP2DocForm
         splitContainerMain.TabIndex = 2;
         // 
         // pnlStructure
-        // 
+        //
+        pnlStructure.BackColor = Color.FromArgb(243, 244, 246);
         pnlStructure.Controls.Add(treeStructure);
-        pnlStructure.Controls.Add(lblStructure);
+        pnlStructure.Controls.Add(pnlStructureHeader);
         pnlStructure.Dock = DockStyle.Fill;
         pnlStructure.Location = new Point(0, 0);
         pnlStructure.Name = "pnlStructure";
+        pnlStructure.Padding = new Padding(6, 0, 6, 6);
         pnlStructure.Size = new Size(280, 610);
         pnlStructure.TabIndex = 0;
+        //
+        // pnlStructureHeader
+        //
+        pnlStructureHeader.BackColor = Color.FromArgb(243, 244, 246);
+        pnlStructureHeader.Controls.Add(lblStructure);
+        pnlStructureHeader.Controls.Add(btnCloseStructure);
+        lblStructure.Controls.Add(picStructureIcon);
+        pnlStructureHeader.Dock = DockStyle.Top;
+        pnlStructureHeader.Location = new Point(6, 0);
+        pnlStructureHeader.Name = "pnlStructureHeader";
+        pnlStructureHeader.Size = new Size(268, 28);
+        pnlStructureHeader.TabIndex = 2;
+        //
+        // btnCloseStructure
+        //
+        btnCloseStructure.AutoSize = true;
+        btnCloseStructure.Dock = DockStyle.Right;
+        btnCloseStructure.FlatAppearance.BorderSize = 0;
+        btnCloseStructure.FlatStyle = FlatStyle.Flat;
+        btnCloseStructure.Font = new Font("Segoe UI", 8.5F);
+        btnCloseStructure.ForeColor = Color.FromArgb(100, 116, 139);
+        btnCloseStructure.Location = new Point(218, 0);
+        btnCloseStructure.Margin = new Padding(0);
+        btnCloseStructure.Name = "btnCloseStructure";
+        btnCloseStructure.Padding = new Padding(4, 0, 2, 0);
+        btnCloseStructure.Size = new Size(50, 28);
+        btnCloseStructure.TabIndex = 1;
+        btnCloseStructure.Text = "닫기";
+        btnCloseStructure.UseVisualStyleBackColor = true;
+        btnCloseStructure.Click += btnCloseStructure_Click;
         // 
         // splitContainer1
         // 
@@ -387,14 +436,18 @@ partial class HWP2DocForm
         // 
         splitContainer1.Panel1.Controls.Add(webViewMarkdown);
         splitContainer1.Panel1.Controls.Add(lblMarkdown);
+        lblMarkdown.Controls.Add(picMarkdownIcon);
         splitContainer1.Panel1.BackColor = Color.FromArgb(243, 244, 246);
+        splitContainer1.Panel1.Padding = new Padding(6, 0, 6, 6);
         splitContainer1.Panel1MinSize = 200;
-        // 
+        //
         // splitContainer1.Panel2
-        // 
+        //
         splitContainer1.Panel2.Controls.Add(webViewPreview);
         splitContainer1.Panel2.Controls.Add(lblPreview);
+        lblPreview.Controls.Add(picPreviewIcon);
         splitContainer1.Panel2.BackColor = Color.FromArgb(243, 244, 246);
+        splitContainer1.Panel2.Padding = new Padding(6, 0, 6, 6);
         splitContainer1.Panel2MinSize = 200;
         splitContainer1.Size = new Size(900, 610);
         splitContainer1.SplitterDistance = 420;
@@ -413,16 +466,26 @@ partial class HWP2DocForm
         webViewMarkdown.ZoomFactor = 1D;
         // 
         // lblMarkdown
-        // 
+        //
         lblMarkdown.BackColor = Color.FromArgb(243, 244, 246);
         lblMarkdown.Dock = DockStyle.Top;
         lblMarkdown.Location = new Point(0, 0);
         lblMarkdown.Name = "lblMarkdown";
-        lblMarkdown.Padding = new Padding(8, 6, 8, 4);
+        lblMarkdown.Padding = new Padding(28, 6, 8, 4);
         lblMarkdown.Size = new Size(420, 28);
         lblMarkdown.TabIndex = 0;
         lblMarkdown.Text = "Markdown";
-        // 
+        //
+        // picMarkdownIcon
+        //
+        picMarkdownIcon.BackColor = Color.Transparent;
+        picMarkdownIcon.Location = new Point(6, 4);
+        picMarkdownIcon.Name = "picMarkdownIcon";
+        picMarkdownIcon.Size = new Size(20, 20);
+        picMarkdownIcon.SizeMode = PictureBoxSizeMode.CenterImage;
+        picMarkdownIcon.TabIndex = 9;
+        picMarkdownIcon.TabStop = false;
+        //
         // webViewPreview
         // 
         webViewPreview.AllowExternalDrop = false;
@@ -436,26 +499,47 @@ partial class HWP2DocForm
         webViewPreview.ZoomFactor = 1D;
         // 
         // lblPreview
-        // 
+        //
         lblPreview.BackColor = Color.FromArgb(243, 244, 246);
         lblPreview.Dock = DockStyle.Top;
         lblPreview.Location = new Point(0, 0);
         lblPreview.Name = "lblPreview";
-        lblPreview.Padding = new Padding(8, 6, 8, 4);
+        lblPreview.Padding = new Padding(28, 6, 8, 4);
         lblPreview.Size = new Size(476, 28);
         lblPreview.TabIndex = 0;
         lblPreview.Text = "미리보기";
-        // 
+        //
+        // picPreviewIcon
+        //
+        picPreviewIcon.BackColor = Color.Transparent;
+        picPreviewIcon.Location = new Point(6, 4);
+        picPreviewIcon.Name = "picPreviewIcon";
+        picPreviewIcon.Size = new Size(20, 20);
+        picPreviewIcon.SizeMode = PictureBoxSizeMode.CenterImage;
+        picPreviewIcon.TabIndex = 9;
+        picPreviewIcon.TabStop = false;
+        //
         // lblStructure
-        // 
-        lblStructure.Dock = DockStyle.Top;
+        //
+        lblStructure.BackColor = Color.FromArgb(243, 244, 246);
+        lblStructure.Dock = DockStyle.Fill;
         lblStructure.Location = new Point(0, 0);
         lblStructure.Name = "lblStructure";
-        lblStructure.Padding = new Padding(8, 6, 8, 4);
-        lblStructure.Size = new Size(280, 28);
+        lblStructure.Padding = new Padding(28, 6, 4, 4);
+        lblStructure.Size = new Size(218, 28);
         lblStructure.TabIndex = 0;
         lblStructure.Text = "문서 구조";
-        // 
+        //
+        // picStructureIcon
+        //
+        picStructureIcon.BackColor = Color.Transparent;
+        picStructureIcon.Location = new Point(6, 4);
+        picStructureIcon.Name = "picStructureIcon";
+        picStructureIcon.Size = new Size(20, 20);
+        picStructureIcon.SizeMode = PictureBoxSizeMode.CenterImage;
+        picStructureIcon.TabIndex = 9;
+        picStructureIcon.TabStop = false;
+        //
         // treeStructure
         // 
         treeStructure.Dock = DockStyle.Fill;
@@ -491,8 +575,9 @@ partial class HWP2DocForm
         // 
         // statusProgress
         // 
+        statusProgress.MarqueeAnimationSpeed = 30;
         statusProgress.Name = "statusProgress";
-        statusProgress.Size = new Size(100, 16);
+        statusProgress.Size = new Size(180, 16);
         statusProgress.Style = ProgressBarStyle.Marquee;
         statusProgress.Visible = false;
         // 
@@ -537,12 +622,17 @@ partial class HWP2DocForm
         splitContainerMain.ResumeLayout(false);
         pnlContent.ResumeLayout(false);
         pnlStructure.ResumeLayout(false);
+        pnlStructureHeader.ResumeLayout(false);
+        pnlStructureHeader.PerformLayout();
         splitContainer1.Panel1.ResumeLayout(false);
         splitContainer1.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitContainer1).EndInit();
         splitContainer1.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)webViewMarkdown).EndInit();
         ((System.ComponentModel.ISupportInitialize)webViewPreview).EndInit();
+        ((System.ComponentModel.ISupportInitialize)picMarkdownIcon).EndInit();
+        ((System.ComponentModel.ISupportInitialize)picPreviewIcon).EndInit();
+        ((System.ComponentModel.ISupportInitialize)picStructureIcon).EndInit();
         statusStrip1.ResumeLayout(false);
         statusStrip1.PerformLayout();
         ResumeLayout(false);
@@ -553,6 +643,7 @@ partial class HWP2DocForm
     private ToolStripMenuItem fileToolStripMenuItem;
     private ToolStripMenuItem openToolStripMenuItem;
     private ToolStripMenuItem convertToolStripMenuItem;
+    private ToolStripMenuItem llmSettingsToolStripMenuItem;
     private ToolStripSeparator menuSepExport;
     private ToolStripMenuItem exportMarkdownToolStripMenuItem;
     private ToolStripMenuItem exportWordToolStripMenuItem;
@@ -586,11 +677,16 @@ partial class HWP2DocForm
     private Panel pnlContent;
     private SplitContainer splitContainer1;
     private Panel pnlStructure;
+    private Panel pnlStructureHeader;
+    private Button btnCloseStructure;
     private Label lblMarkdown;
+    private PictureBox picMarkdownIcon;
     private Microsoft.Web.WebView2.WinForms.WebView2 webViewMarkdown;
     private Label lblPreview;
+    private PictureBox picPreviewIcon;
     private Microsoft.Web.WebView2.WinForms.WebView2 webViewPreview;
     private Label lblStructure;
+    private PictureBox picStructureIcon;
     private TreeView treeStructure;
     private StatusStrip statusStrip1;
     private ToolStripStatusLabel lblStatus;

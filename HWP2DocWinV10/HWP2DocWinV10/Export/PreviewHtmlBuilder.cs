@@ -223,7 +223,7 @@ internal static class PreviewHtmlBuilder
                   const editorTop = editor.getBoundingClientRect().top + window.scrollY;
                   const absoluteLineTop = editorTop + lineTopInEditor;
                   window.scrollTo({
-                    top: Math.max(0, absoluteLineTop - window.innerHeight / 3),
+                    top: Math.max(0, absoluteLineTop - 20),
                     behavior: 'smooth'
                   });
                   return true;

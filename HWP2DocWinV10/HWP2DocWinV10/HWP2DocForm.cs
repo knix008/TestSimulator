@@ -44,6 +44,7 @@ public partial class HWP2DocForm : Form
             ApplyEqualEditorPreviewSplit();
 
         RefreshWebViewPanels();
+        UpdateRhwpAvailabilityStatus();
     }
 
     private void WireWebViewSplitRefresh()
@@ -126,6 +127,7 @@ public partial class HWP2DocForm : Form
             viewToolStripMenuItem,
             openToolStripMenuItem,
             convertToolStripMenuItem,
+            llmSettingsToolStripMenuItem,
             exportMarkdownToolStripMenuItem,
             exportWordToolStripMenuItem,
             exportPdfToolStripMenuItem,
@@ -144,6 +146,10 @@ public partial class HWP2DocForm : Form
             btnToggleStructure,
             btnProgramInfo,
             lblFontSize);
+
+        picMarkdownIcon.Image = ToolbarIcons.GetIcon("markdown");
+        picPreviewIcon.Image = ToolbarIcons.GetIcon("view");
+        picStructureIcon.Image = ToolbarIcons.GetIcon("structure");
     }
 
     private void TryLoadApplicationIcon()
@@ -214,28 +220,84 @@ public partial class HWP2DocForm : Form
         await ConvertFileAsync(_sourceFilePath);
     }
 
+    private void llmSettingsToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new LlmSettingsDialog();
+        dialog.ShowDialog(this);
+    }
+
     private async Task ConvertFileAsync(string inputPath)
     {
         if (!EnsureNotBusy())
             return;
 
+        using var optionsDialog = new ConvertOptionsDialog();
+        if (optionsDialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        bool useLlm = optionsDialog.UseLlm;
+        bool useRhwp = optionsDialog.UseRhwp;
+        var conversionOptions = new Services.HwpConversionOptions(UseRhwp: useRhwp);
+        var stopwatch = useLlm ? System.Diagnostics.Stopwatch.StartNew() : null;
+
         SetBusy(true, "문서 변환 중...");
         try
         {
             var progress = new Progress<string>(message => SetStatus(message));
-            HwpConversionResult result = await HwpConversionService.ConvertAsync(inputPath, progress);
+            HwpConversionResult result = await HwpConversionService.ConvertAsync(
+                inputPath,
+                conversionOptions,
+                progress);
 
-            _sourceFilePath = result.SourceFilePath;
-            _assetDirectory = result.AssetDirectory;
-            PreviewAssetHost.Configure(webViewPreview, _assetDirectory);
-            _isUpdatingEditor = true;
-            _markdownText = MarkdownLineBreakRestorer.FormatForEditor(result.Markdown);
-            UpdateMarkdownEditor();
+            string markdown = result.Markdown;
+            ApplyConversionResult(markdown, result);
 
-            UpdatePreview();
-            UpdateStructure();
-            Text = $"HWP2Doc - {Path.GetFileName(result.SourceFilePath)}";
-            SetStatus($"변환 완료: {Path.GetFileName(result.SourceFilePath)}");
+            string fileName = Path.GetFileName(result.SourceFilePath);
+            if (useLlm)
+            {
+                BeginLlmProgress();
+                var llmStopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+                try
+                {
+                    var llmProgress = new Progress<LlmCleanupProgress>(SetLlmCleanupProgress);
+                    string cleanedMarkdown = await Services.OllamaClient.CleanupMarkdownAsync(
+                        markdown,
+                        AppUserSettings.LlmModel,
+                        llmProgress);
+
+                    ApplyConversionResult(cleanedMarkdown, result);
+                    llmStopwatch.Stop();
+
+                    string? totalSeconds = stopwatch != null
+                        ? $"총 {stopwatch.Elapsed.TotalSeconds:0.0}초"
+                        : null;
+                    string llmSeconds = $"LLM {llmStopwatch.Elapsed.TotalSeconds:0.0}초";
+
+                    MessageBox.Show(
+                        this,
+                        $"Markdown 문서 LLM 정리가 완료되었습니다.\n\n" +
+                        $"모델: {AppUserSettings.LlmModel}\n" +
+                        $"소요: {llmSeconds}" +
+                        (totalSeconds != null ? $" ({totalSeconds})" : string.Empty),
+                        "LLM 정리 완료",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+
+                    SetStatus(stopwatch != null
+                        ? $"변환 완료: {fileName} (LLM 정리 포함, {totalSeconds})"
+                        : $"변환 완료: {fileName} (LLM 정리 포함)");
+                }
+                catch (Exception ex)
+                {
+                    ResetProgressBar();
+                    SetStatus($"LLM 정리 실패, 변환 결과를 유지합니다 ({ex.Message})");
+                }
+            }
+            else
+            {
+                SetStatus($"변환 완료: {fileName}");
+            }
         }
         catch (Exception ex)
         {
@@ -250,6 +312,19 @@ public partial class HWP2DocForm : Form
         {
             SetBusy(false);
         }
+    }
+
+    private void ApplyConversionResult(string markdown, HwpConversionResult result)
+    {
+        _sourceFilePath = result.SourceFilePath;
+        _assetDirectory = result.AssetDirectory;
+        PreviewAssetHost.Configure(webViewPreview, _assetDirectory);
+        _isUpdatingEditor = true;
+        _markdownText = MarkdownLineBreakRestorer.FormatForEditor(markdown);
+        UpdateMarkdownEditor();
+        UpdatePreview();
+        UpdateStructure();
+        Text = $"HWP2Doc - {Path.GetFileName(result.SourceFilePath)}";
     }
 
     private void MarkdownEditor_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -600,6 +675,9 @@ public partial class HWP2DocForm : Form
     private void btnToggleStructure_Click(object? sender, EventArgs e)
         => ApplyStructurePanelVisibility(btnToggleStructure.Checked);
 
+    private void btnCloseStructure_Click(object? sender, EventArgs e)
+        => ApplyStructurePanelVisibility(false);
+
     private void FontSizeMenuItem_Click(object? sender, EventArgs e)
     {
         if (sender is not ToolStripMenuItem menuItem || menuItem.Tag is not int size)
@@ -824,10 +902,60 @@ public partial class HWP2DocForm : Form
         toolStrip1.Enabled = !busy;
         _ = SetEditorReadOnlyAsync(busy);
 
+        if (!busy)
+            ResetProgressBar();
+
         if (!string.IsNullOrWhiteSpace(statusMessage))
             SetStatus(statusMessage);
         else if (!busy)
-            SetStatus("준비");
+            UpdateRhwpAvailabilityStatus();
+    }
+
+    private void UpdateRhwpAvailabilityStatus()
+    {
+        RhwpLocator.Refresh();
+        SetStatus(RhwpLocator.IsAvailable()
+            ? "준비 — rhwp 사용 가능"
+            : "준비 — rhwp 없음 (unhwp만 사용)");
+    }
+
+    private void BeginLlmProgress()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke(BeginLlmProgress);
+            return;
+        }
+
+        statusProgress.Visible = true;
+        statusProgress.Style = ProgressBarStyle.Continuous;
+        statusProgress.Value = 0;
+        SetStatus("LLM 정리 [1/4] 준비 — 시작");
+    }
+
+    private void SetLlmCleanupProgress(LlmCleanupProgress progress)
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke(SetLlmCleanupProgress, progress);
+            return;
+        }
+
+        statusProgress.Style = ProgressBarStyle.Continuous;
+        statusProgress.Value = Math.Clamp(progress.Percent, 0, 100);
+        SetStatus(progress.StatusText);
+    }
+
+    private void ResetProgressBar()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke(ResetProgressBar);
+            return;
+        }
+
+        statusProgress.Style = ProgressBarStyle.Marquee;
+        statusProgress.Value = 0;
     }
 
     private void SetStatus(string message) => lblStatus.Text = message;

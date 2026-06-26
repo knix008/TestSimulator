@@ -24,12 +24,21 @@ internal static class AppUserSettings
 
     public static string? LastDirectory { get; private set; }
 
+    public static bool LlmEnabled { get; private set; }
+
+    public static bool RhwpEnabled { get; private set; } = true;
+
+    public static string LlmModel { get; private set; } = string.Empty;
+
     public static void Load()
     {
         StructurePanelSide = StructurePanelSide.Right;
         StructurePanelVisible = false;
         FontSize = DefaultFontSize;
         LastDirectory = null;
+        LlmEnabled = false;
+        RhwpEnabled = true;
+        LlmModel = string.Empty;
 
         try
         {
@@ -57,6 +66,22 @@ internal static class AppUserSettings
                     if (Directory.Exists(directory))
                         LastDirectory = directory;
                 }
+                else if (line.StartsWith("LlmEnabled=", StringComparison.OrdinalIgnoreCase))
+                {
+                    string enabled = line["LlmEnabled=".Length..].Trim();
+                    if (bool.TryParse(enabled, out bool parsedEnabled))
+                        LlmEnabled = parsedEnabled;
+                }
+                else if (line.StartsWith("RhwpEnabled=", StringComparison.OrdinalIgnoreCase))
+                {
+                    string enabled = line["RhwpEnabled=".Length..].Trim();
+                    if (bool.TryParse(enabled, out bool parsedEnabled))
+                        RhwpEnabled = parsedEnabled;
+                }
+                else if (line.StartsWith("LlmModel=", StringComparison.OrdinalIgnoreCase))
+                {
+                    LlmModel = line["LlmModel=".Length..].Trim();
+                }
             }
         }
         catch
@@ -65,6 +90,9 @@ internal static class AppUserSettings
             StructurePanelVisible = false;
             FontSize = DefaultFontSize;
             LastDirectory = null;
+            LlmEnabled = false;
+            RhwpEnabled = true;
+            LlmModel = string.Empty;
         }
     }
 
@@ -94,6 +122,24 @@ internal static class AppUserSettings
         Save();
     }
 
+    public static void SetLlmEnabled(bool enabled)
+    {
+        LlmEnabled = enabled;
+        Save();
+    }
+
+    public static void SetRhwpEnabled(bool enabled)
+    {
+        RhwpEnabled = enabled;
+        Save();
+    }
+
+    public static void SetLlmModel(string model)
+    {
+        LlmModel = model.Trim();
+        Save();
+    }
+
     private static void Save()
     {
         try
@@ -104,7 +150,10 @@ internal static class AppUserSettings
                 [
                     $"StructurePanelSide={StructurePanelSide}",
                     $"FontSize={FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
-                    $"LastDirectory={LastDirectory ?? string.Empty}"
+                    $"LastDirectory={LastDirectory ?? string.Empty}",
+                    $"LlmEnabled={LlmEnabled}",
+                    $"RhwpEnabled={RhwpEnabled}",
+                    $"LlmModel={LlmModel}"
                 ]);
         }
         catch

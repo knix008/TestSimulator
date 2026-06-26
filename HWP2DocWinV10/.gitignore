@@ -45,9 +45,13 @@ $RECYCLE.BIN/
 *.temp
 ~$*
 
-## Tools — icon generator (source tracked, build outputs ignored)
-HWP2DocWinV10/Tools/GenerateIcon/bin/
-HWP2DocWinV10/Tools/GenerateIcon/obj/
+## Tools — dev utilities (source tracked; build outputs ignored)
+Tools/GenerateIcon/bin/
+Tools/GenerateIcon/obj/
+Tools/VerifyUnhwp/bin/
+Tools/VerifyUnhwp/obj/
+
+# Tools/rhwp/rhwp.exe — Windows CLI 바이너리 (MSI 번들용, 의도적으로 추적)
 
 ## WiX / installer artifacts
 HWP2DocWinV10.Installer/bin/

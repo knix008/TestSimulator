@@ -59,13 +59,39 @@ internal static class MarkdownStructureParser
         string prepared = MarkdownPreviewNormalizer.Normalize(markdown);
         string[] lines = prepared.Split('\n');
         var nodes = new List<MarkdownStructureNode>();
+        bool inTable = false;
 
         for (int i = 0; i < lines.Length; i++)
         {
             string line = lines[i];
             string trimmed = line.Trim();
             if (trimmed.Length == 0)
+            {
+                inTable = false;
                 continue;
+            }
+
+            // 표는 행마다가 아니라 표 하나당 노드 하나만 추가합니다 (연속된 표 행은 건너뜁니다).
+            bool isTableLine = TableStartRegex.IsMatch(trimmed) &&
+                !trimmed.StartsWith("<!--", StringComparison.Ordinal);
+            if (isTableLine)
+            {
+                if (!inTable)
+                {
+                    nodes.Add(new MarkdownStructureNode
+                    {
+                        Kind = MarkdownStructureKind.Table,
+                        Title = SummarizeTableLine(trimmed),
+                        LineNumber = i,
+                        HeadingLevel = 0
+                    });
+                    inTable = true;
+                }
+
+                continue;
+            }
+
+            inTable = false;
 
             var headingMatch = MarkdownHeadingRegex.Match(trimmed);
             if (headingMatch.Success)
@@ -102,19 +128,6 @@ internal static class MarkdownStructureParser
                     Title = $"섹션 {sectionMatch.Groups[1].Value}",
                     LineNumber = i,
                     HeadingLevel = 1
-                });
-                continue;
-            }
-
-            if (TableStartRegex.IsMatch(trimmed) &&
-                !trimmed.StartsWith("<!--", StringComparison.Ordinal))
-            {
-                nodes.Add(new MarkdownStructureNode
-                {
-                    Kind = MarkdownStructureKind.Table,
-                    Title = SummarizeTableLine(trimmed),
-                    LineNumber = i,
-                    HeadingLevel = 0
                 });
                 continue;
             }

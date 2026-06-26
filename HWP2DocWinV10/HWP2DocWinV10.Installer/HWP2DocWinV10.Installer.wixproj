@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputName>HWP2Doc-Setup</OutputName>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <AppPayloadDir>$(MSBuildThisFileDirectory)..\HWP2DocWinV10\bin\$(Configuration)\net10.0-windows\</AppPayloadDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,5 +21,41 @@
     <Content Include="Strings.ko-KR.wxl" />
     <Content Include="License.rtf" />
   </ItemGroup>
+
+  <!-- MSI에 포함될 빌드 출력이 준비되었는지 확인합니다. -->
+  <Target Name="VerifyInstallerPayload" BeforeTargets="CoreCompile">
+    <RemoveDir Directories="$(AppPayloadDir)HWP2DocWinV10.exe.WebView2" Condition="Exists('$(AppPayloadDir)HWP2DocWinV10.exe.WebView2')" />
+    <ItemGroup>
+      <RequiredPayloadFile Include="$(AppPayloadDir)HWP2DocWinV10.exe" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)HWP2DocWinV10.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)HWP2DocWinV10.deps.json" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)HWP2DocWinV10.runtimeconfig.json" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Markdig.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)DocumentFormat.OpenXml.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)DocumentFormat.OpenXml.Framework.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Microsoft.Web.WebView2.Core.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Microsoft.Web.WebView2.WinForms.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Unhwp.Net.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)runtimes\win-x64\native\unhwp.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)runtimes\win-x64\native\WebView2Loader.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)runtimes\win-x86\native\WebView2Loader.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)runtimes\win-arm64\native\WebView2Loader.dll" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\app.ico" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\file.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\open.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\convert.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\markdown.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\word.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\pdf.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\exit.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\help.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\about.png" />
+      <RequiredPayloadFile Include="$(AppPayloadDir)Tools\rhwp\rhwp.exe" />
+    </ItemGroup>
+
+    <Error
+      Condition="!Exists('%(RequiredPayloadFile.Identity)')"
+      Text="MSI 페이로드 파일이 없습니다. 먼저 HWP2DocWinV10 Release 빌드를 실행하세요: %(RequiredPayloadFile.Identity)" />
+  </Target>
 
 </Project>

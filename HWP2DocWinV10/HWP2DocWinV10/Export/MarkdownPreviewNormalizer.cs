@@ -29,7 +29,6 @@ internal static class MarkdownPreviewNormalizer
         text = YamlFrontmatterRegex.Replace(text, string.Empty);
         text = SectionMarkerRegex.Replace(text, string.Empty);
         text = BulletRegex.Replace(text, "$1- ");
-        text = MarkdownHeadingNormalizer.Normalize(text);
         text = NormalizeOrderedListMarkers(text);
         text = EnsureBlankLineBeforeBlockElements(text);
         text = EnsureBlankLineAfterHtmlTables(text);

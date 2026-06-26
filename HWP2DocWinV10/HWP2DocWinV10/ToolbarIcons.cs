@@ -18,6 +18,7 @@ internal static class ToolbarIcons
         ToolStripMenuItem viewMenu,
         ToolStripMenuItem openMenu,
         ToolStripMenuItem convertMenu,
+        ToolStripMenuItem llmSettingsMenu,
         ToolStripMenuItem exportMarkdownMenu,
         ToolStripMenuItem exportWordMenu,
         ToolStripMenuItem exportPdfMenu,
@@ -42,6 +43,7 @@ internal static class ToolbarIcons
         ConfigureMenuItem(viewMenu, "view");
         ConfigureMenuItem(openMenu, "open");
         ConfigureMenuItem(convertMenu, "convert");
+        ConfigureMenuItem(llmSettingsMenu, "llm");
         ConfigureMenuItem(exportMarkdownMenu, "markdown");
         ConfigureMenuItem(exportWordMenu, "word");
         ConfigureMenuItem(exportPdfMenu, "pdf");
@@ -104,7 +106,7 @@ internal static class ToolbarIcons
 
     private static IEnumerable<string> AllIconKeys =>
     [
-        "file", "open", "convert", "markdown", "word", "pdf", "exit", "help", "about",
+        "file", "open", "convert", "llm", "markdown", "word", "pdf", "exit", "help", "about",
         "view", "structure", "structure-left", "structure-right", "fontsize"
     ];
 
@@ -129,8 +131,16 @@ internal static class ToolbarIcons
         if (!File.Exists(path))
             return null;
 
-        using var stream = File.OpenRead(path);
-        return new Bitmap(stream);
+        using var source = new Bitmap(path);
+        if (source.Width == IconSize && source.Height == IconSize)
+            return new Bitmap(source);
+
+        var resized = new Bitmap(IconSize, IconSize, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var graphics = Graphics.FromImage(resized);
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        graphics.DrawImage(source, 0, 0, IconSize, IconSize);
+        return resized;
     }
 
     private static Bitmap CreateBuiltInIcon(string key)
@@ -145,6 +155,7 @@ internal static class ToolbarIcons
             "file" => DrawFileIcon(),
             "open" => DrawOpenIcon(),
             "convert" => DrawConvertIcon(),
+            "llm" => DrawLlmIcon(),
             "markdown" => DrawMarkdownIcon(),
             "word" => DrawWordIcon(),
             "pdf" => DrawPdfIcon(),
@@ -215,6 +226,23 @@ internal static class ToolbarIcons
         g.FillPolygon(head, [new Point(10, 17), new Point(13, 14), new Point(7, 14)]);
     });
 
+    private static Bitmap DrawLlmIcon() => DrawIcon(g =>
+    {
+        using var body = new SolidBrush(Color.FromArgb(124, 58, 237));
+        using var pen = new Pen(Color.FromArgb(91, 33, 182), 1.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        g.FillRectangle(body, 5, 5, 10, 10);
+        g.DrawRectangle(pen, 5, 5, 10, 10);
+
+        g.DrawLine(pen, 7, 2, 7, 5);
+        g.DrawLine(pen, 13, 2, 13, 5);
+        g.DrawLine(pen, 7, 15, 7, 18);
+        g.DrawLine(pen, 13, 15, 13, 18);
+        g.DrawLine(pen, 2, 7, 5, 7);
+        g.DrawLine(pen, 2, 13, 5, 13);
+        g.DrawLine(pen, 15, 7, 18, 7);
+        g.DrawLine(pen, 15, 13, 18, 13);
+    });
+
     private static Bitmap DrawMarkdownIcon() => DrawIcon(g =>
     {
         using var card = new SolidBrush(Color.FromArgb(16, 185, 129));
@@ -276,10 +304,10 @@ internal static class ToolbarIcons
 
     private static Bitmap DrawAboutIcon() => DrawIcon(g =>
     {
-        using var circle = new SolidBrush(Color.FromArgb(99, 102, 241));
-        g.FillEllipse(circle, 2, 2, 16, 16);
-        using var font = new Font("Segoe UI", 10f, FontStyle.Bold);
-        using var brush = new SolidBrush(Color.White);
+        using var pen = new Pen(Color.FromArgb(99, 102, 241), 1.6f);
+        g.DrawEllipse(pen, 2.5f, 2.5f, 15f, 15f);
+        using var font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        using var brush = new SolidBrush(Color.FromArgb(99, 102, 241));
         g.DrawString("i", font, brush, new RectangleF(0, -1, 20, 20),
             new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center });
     });
