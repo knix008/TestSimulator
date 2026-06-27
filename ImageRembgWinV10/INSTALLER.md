@@ -30,10 +30,22 @@ Visual Studio 2026에서 Release 빌드로 MSI 설치 파일을 만드는 방법
 ImageRembgWinV10.Installer\bin\x64\Release\en-us\ImageRembgWinV10.msi
 ```
 
+VS 구성에 따라 다음 경로일 수 있습니다:
+
+```
+ImageRembgWinV10.Installer\bin\Release\en-us\ImageRembgWinV10.msi
+```
+
 ## 명령줄 빌드
 
 ```powershell
 cd d:\Home\Projects\TestSimulator\ImageRembgWinV10
+dotnet build ImageRembgWinV10.sln -c Release
+```
+
+또는 Installer만:
+
+```powershell
 dotnet build ImageRembgWinV10.Installer\ImageRembgWinV10.Installer.wixproj -c Release -p:Platform=x64
 ```
 
@@ -66,7 +78,7 @@ dotnet build ImageRembgWinV10.Installer\ImageRembgWinV10.Installer.wixproj -c Re
 | `.slnx`만 사용 | **`ImageRembgWinV10.sln`** 사용 권장 |
 | 구성 관리에서 Installer 체크 해제 | **빌드 → 구성 관리자**에서 `ImageRembgWinV10.Installer` **빌드** 체크 |
 | HeatWave 미설치 | [HeatWave](https://marketplace.visualstudio.com/items?itemName=FireGiant.FireGiantHeatWaveDev17) 설치 (Designer용, CLI 빌드는 NuGet만으로 가능) |
-| 출력 경로 오해 | `bin\Release\`가 아니라 **`ImageRembgWinV10.Installer\bin\x64\Release\en-us\`** 확인 |
+| 출력 경로 오해 | `bin\Release\`가 아니라 **`ImageRembgWinV10.Installer\bin\x64\Release\en-us\`** 또는 **`bin\Release\en-us\`** 확인 |
 
 ## 참고
 

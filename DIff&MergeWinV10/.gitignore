@@ -33,6 +33,8 @@ UpgradeLog*.htm
 # WiX / installer intermediates
 *.wixobj
 *.wixpdb
+installer/bin/
+installer/obj/
 
 # Test / coverage
 TestResults/
@@ -51,7 +53,3 @@ Desktop.ini
 .claude/
 .cursor/
 user-settings.json
-
-# Installer (WiX) — MSI output and intermediate build
-installer/bin/
-installer/obj/

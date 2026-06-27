@@ -19,6 +19,12 @@ Image Rembg는 이미지에서 객체를 분리하고 배경을 제거하는 Win
 
 오프라인 환경에서는 `Assets\Models\README.txt` 안내에 따라 `u2net.onnx` 파일을 직접 배치할 수 있습니다.
 
+### UI 언어
+
+- **보기 → 언어 → 한국어** 또는 **English**
+- 선택한 언어는 `%LOCALAPPDATA%\ImageRembgWinV10\settings.json`에 저장되며, 다음 실행 시 자동 적용됩니다.
+- 메뉴, 툴바, 상태 표시줄, 대화상자 등 UI 전체에 즉시 반영됩니다.
+
 ---
 
 ## 기본 작업 흐름
@@ -129,14 +135,20 @@ OpenCV 알고리즘(GrabCut, 색상 키잉 등)에서 특히 효과적입니다.
 
 ## MSI 설치 (관리자용 요약)
 
+Visual Studio에서 **`ImageRembgWinV10.sln`** 을 **Release**로 **솔루션 빌드**하면 MSI가 생성됩니다. 자세한 방법은 [INSTALLER.md](INSTALLER.md)를 참고하세요.
+
 설치 마법사 **기능 선택** 화면에서 다음을 선택할 수 있습니다.
 
 - **Start Menu shortcut** — 시작 메뉴 바로가기
 - **Desktop shortcut** — 바탕화면 바로가기
 
-설치 후 프로그램은 `Program Files\Image Rembg`에 배치됩니다. .NET 10 Desktop Runtime (x64)이 필요합니다.
+| 항목 | 내용 |
+|------|------|
+| MSI 출력 | `ImageRembgWinV10.Installer\bin\x64\Release\en-us\ImageRembgWinV10.msi` (VS 구성에 따라 `bin\Release\en-us\`일 수 있음) |
+| 설치 위치 | `Program Files\Image Rembg` |
+| 런타임 | .NET 10 Desktop Runtime (x64) 필요 |
 
-자세한 빌드·배포 방법은 [INSTALLER.md](INSTALLER.md)를 참고하세요.
+앱 프로젝트만 단독 빌드하면 EXE/DLL만 생성되고 MSI는 만들어지지 않습니다.
 
 ---
 
@@ -157,6 +169,11 @@ OpenCV 알고리즘(GrabCut, 색상 키잉 등)에서 특히 효과적입니다.
 ### AI 결과가 선택 영역 밖까지 나옵니다
 
 rembg는 전체 이미지를 분석합니다. 선택 영역과 교차하는 부분만 최종 결과에 반영되므로, 영역을 객체에 맞게 조정해 보세요.
+
+### Release 빌드에서 MSI가 생성되지 않음
+
+- **`ImageRembgWinV10.sln`** 을 연 뒤 **솔루션 빌드** (Release)를 사용하세요.
+- [INSTALLER.md](INSTALLER.md)의 문제 해결 표를 참고하세요.
 
 ---
 

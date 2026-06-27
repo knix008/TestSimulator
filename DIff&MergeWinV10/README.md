@@ -16,7 +16,8 @@ Windows WinForms tool for resolving Git merge conflicts via 3-way diff/merge (Ba
 ### User interface
 
 - **Line numbers** in every source/result pane, with row backgrounds synced to the text
-- **List-style row backgrounds** — alternating zebra stripes on clean lines; yellow for unresolved conflicts, green for resolved hunks (matching the conflict list)
+- **List-style row backgrounds** — alternating zebra stripes on clean lines; pastel red for unresolved conflicts, pastel green for resolved hunks in the result/conflict list; source panes keep conflict regions highlighted in pastel red
+- **Pastel panel headers** tinted by each pane’s accent color
 - **Resizable panes** — drag splitters between the top three-way view and bottom conflict/result area, and between the conflict list and result editor
 - **Toolbar font size** — adjust pane font size without opening Preferences
 - **Word wrap** toggle for source and result panes
@@ -36,16 +37,20 @@ Windows WinForms tool for resolving Git merge conflicts via 3-way diff/merge (Ba
 ## Build
 
 ```powershell
-dotnet build DiffMergeWinV10.slnx
+dotnet build DiffMergeWinV10.sln
 ```
 
 ### Release build (with MSI)
 
+Visual Studio: open **`DiffMergeWinV10.sln`**, set **Release**, then **Build → Build Solution**.
+
 ```powershell
-dotnet build DiffMergeWinV10.App/DiffMergeWinV10.App.csproj -c Release
+dotnet build DiffMergeWinV10.sln -c Release
 ```
 
 MSI output: `installer/bin/Release/DiffMergeWinV10Setup.msi`
+
+See [INSTALLER.md](INSTALLER.md) for Visual Studio setup, troubleshooting, and CLI options.
 
 > Close any running Diff & Merge instance before a Release build — a locked executable can block the publish step.
 
@@ -88,11 +93,12 @@ See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface 
 |------|-------------|
 | `DiffMergeWinV10.App/` | Main WinForms application |
 | `DiffMergeWinV10.App/Core/` | Merge model, 3-way diff, conflict marker parser, session I/O |
-| `DiffMergeWinV10.App/Controls/` | `SyncRichTextBox`, `LineNumberGutter`, icons, pane theme |
+| `DiffMergeWinV10.App/Controls/` | `SyncLineListBox`, `LineNumberGutter`, icons, pane theme |
 | `DiffMergeWinV10.App/Services/` | Settings persistence, Korean/English string table |
 | `DiffMergeWinV10.App/Dialogs/` | Preferences dialog |
 | `Assets/` | Application icon generator |
 | `installer/` | WiX MSI installer project |
+| `DiffMergeWinV10.sln` | Visual Studio solution (App + Installer) |
 
 ## Key source files
 
@@ -103,9 +109,9 @@ See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface 
 | `Core/ThreeWayDiff.cs` | LCS-anchor diff3-style 3-way merge from separate files |
 | `Core/MergeDocument.cs` | In-memory model — clean/conflict regions, resolution state |
 | `Core/MergeSession.cs` | File I/O, line-ending preservation |
-| `Controls/SyncRichTextBox.cs` | Scroll-synchronized read-only panes |
+| `Controls/SyncLineListBox.cs` | Scroll-synchronized owner-draw list panes |
 | `Controls/LineNumberGutter.cs` | Line numbers and per-row gutter backgrounds |
-| `Controls/PaneTheme.cs` | Shared row/conflict colors |
+| `Controls/PaneTheme.cs` | Shared row/conflict colors and header tints |
 | `Controls/IconFactory.cs` | Runtime-drawn menu/toolbar glyphs |
 | `Services/Strings.cs` | Korean/English UI strings |
 | `Services/AppSettingsStore.cs` | User settings persistence |

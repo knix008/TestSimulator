@@ -78,9 +78,11 @@ Diff & Merge는 Windows용 Git 3-way 병합 충돌 해결 도구입니다. Base(
 | 색상 | 의미 |
 |------|------|
 | 흰색 / 연한 회색 (교차) | 충돌이 없는 일반 줄 (zebra striping) |
-| 노란색 | 아직 해결되지 않은 충돌 구간 |
-| 녹색 | 해결된 충돌 구간 |
+| 연한 빨강 (pastel red) | 충돌 구간 — Base/Local/Remote 패널에서는 해결 후에도 충돌 위치가 빨간색으로 유지됨 |
+| 연한 녹색 (pastel green) | 결과·충돌 목록에서 **해결된** 충돌 구간 |
 | 충돌 목록에서 선택 | 연한 파란색 (선택 강조) |
+
+각 패널 **제목 영역**은 해당 패널 색상을 섞은 **파스텔 톤 배경**으로 표시됩니다.
 
 ---
 
@@ -152,7 +154,7 @@ DiffMergeWinV10.App.exe <BASE> <LOCAL> <REMOTE> <MERGED>   # git mergetool 규�
 
 해결 방법은 **편집** 메뉴, 도구 모음, 패널 헤더 버튼, 컨텍스트 메뉴(우클릭)에서 모두 사용할 수 있습니다.
 
-해결된 충돌은 목록에서 상태가 `Local`, `Remote`, `Base`, `둘 다` 등으로 바뀌고, 결과 패널의 해당 구간 배경이 **녹색**으로 표시됩니다.
+해결된 충돌은 목록에서 상태가 `Local`, `Remote`, `Base`, `둘 다` 등으로 바뀌고, **결과** 패널과 **충돌 목록**의 해당 구간 배경이 **연한 녹색**으로 표시됩니다. Base/Local/Remote 소스 패널의 충돌 위치는 **연한 빨강**으로 계속 표시되어 원래 충돌 구간을 구분할 수 있습니다.
 
 ---
 
@@ -286,6 +288,21 @@ Git이 `$BASE`, `$LOCAL`, `$REMOTE`, `$MERGED` 경로를 인자로 넘깁니다.
 
 ---
 
+## MSI 설치 (관리자용 요약)
+
+Release 솔루션 빌드로 MSI를 만들 수 있습니다. 자세한 방법은 [INSTALLER.md](INSTALLER.md)를 참고하세요.
+
+| 항목 | 내용 |
+|------|------|
+| 솔루션 파일 | `DiffMergeWinV10.sln` (`.slnx`보다 VS Release/MSI 빌드에 적합) |
+| MSI 출력 | `installer\bin\Release\DiffMergeWinV10Setup.msi` |
+| 설치 위치 | `Program Files\DiffMergeWinV10` |
+| 기능 선택 | 시작 메뉴 바로가기, 바탕화면 바로가기 (설치 마법사에서 선택) |
+
+앱 프로젝트만 단독 빌드하면 EXE/DLL만 생성되고 MSI는 만들어지지 않습니다.
+
+---
+
 ## 문제 해결
 
 ### 앱이 시작되지 않음
@@ -310,6 +327,12 @@ Git이 `$BASE`, `$LOCAL`, `$REMOTE`, `$MERGED` 경로를 인자로 넘깁니다.
 ### 영어 UI로 전환
 
 **파일 → 환경 설정... → 언어 → English → 확인**
+
+### Release 빌드에서 MSI가 생성되지 않음
+
+- **`DiffMergeWinV10.sln`** 을 연 뒤 **솔루션 빌드** (Release)를 사용하세요.
+- 실행 중인 `DiffMergeWinV10.App.exe`가 있으면 종료 후 다시 빌드하세요.
+- [INSTALLER.md](INSTALLER.md)의 문제 해결 표를 참고하세요.
 
 ---
 

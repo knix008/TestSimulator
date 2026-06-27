@@ -1,67 +1,72 @@
-# Build outputs
-bin/
-obj/
-artifacts/
-out/
-publish/
-
-# Installer outputs
-ImageRembgWinV10.Installer/bin/
-ImageRembgWinV10.Installer/obj/
-*.msi
-*.wixpdb
-*.wixobj
-
-# Tool build outputs
-Tools/**/bin/
-Tools/**/obj/
-
-# Visual Studio / Rider / VS Code
-.vs/
-.vscode/
-*.user
-*.userosscache
-*.suo
-*.sln.docstates
-*.rsuser
-.idea/
-
-# NuGet
-*.nupkg
-*.snupkg
-packages/
-project.lock.json
-
-# Test / coverage
-TestResults/
-coverage/
-*.coverage
-*.coveragexml
-
-# Logs and diagnostics
-*.log
-*.tlog
-*.cache
-
-# OS files
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-.DS_Store
-
-# Local secrets and environment
-.env
-.env.*
-*.pfx
-secrets.json
-
-# AI model cache (downloaded at runtime; optional local bundle)
-Assets/Models/*.onnx
-Assets/Models/*.download
-
-# Temporary files
-*.tmp
-*.temp
-~$*
-*.swp
+# Build outputs
+bin/
+obj/
+artifacts/
+out/
+publish/
+**/publish/
+
+# Installer outputs
+ImageRembgWinV10.Installer/bin/
+ImageRembgWinV10.Installer/obj/
+*.msi
+*.wixpdb
+*.wixobj
+
+# Tool build outputs
+Tools/**/bin/
+Tools/**/obj/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.rsuser
+.idea/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Logs and diagnostics
+*.log
+*.tlog
+*.cache
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Local secrets and environment
+.env
+.env.*
+*.pfx
+secrets.json
+
+# AI model cache (downloaded at runtime; optional local bundle)
+Assets/Models/*.onnx
+Assets/Models/*.download
+
+# Local / AI tooling (not part of the product)
+.claude/
+.cursor/
+
+# Temporary files
+*.tmp
+*.temp
+~$*
+*.swp
