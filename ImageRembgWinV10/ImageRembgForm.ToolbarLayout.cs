@@ -48,6 +48,7 @@ public partial class ImageRembgForm
     {
         panelToolbar.AutoScroll = true;
         btnInfo.Anchor = AnchorStyles.None;
+        btnInfo.ContentAlignRight = true;
         lblHint.Visible = false;
         cboResultSize.Anchor = AnchorStyles.None;
         cboAlgorithm.Anchor = AnchorStyles.None;

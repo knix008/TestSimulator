@@ -62,7 +62,8 @@ internal static class CenteredIconTextPainter
         ButtonBase control,
         Rectangle bounds,
         Color textColor,
-        Color disabledImageBackColor)
+        Color disabledImageBackColor,
+        bool alignRight)
     {
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
@@ -86,7 +87,10 @@ internal static class CenteredIconTextPainter
         var imageWidth = image?.Width ?? 0;
         var imageHeight = image?.Height ?? 0;
         var contentHeight = Math.Max(imageHeight, textSize.Height);
-        var startX = bounds.X;
+        var contentWidth = (image != null ? imageWidth + IconTextGap : 0) + textSize.Width;
+        var startX = alignRight
+            ? Math.Max(bounds.X, bounds.Right - contentWidth)
+            : bounds.X;
         var startY = bounds.Y + Math.Max(0, (bounds.Height - contentHeight) / 2);
 
         if (image != null)
@@ -122,6 +126,10 @@ internal static class CenteredIconTextPainter
 
 public class CenteredToolbarButton : Button
 {
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    [System.ComponentModel.Browsable(false)]
+    public bool ContentAlignRight { get; set; }
+
     public CenteredToolbarButton()
     {
         ConfigureToolbarStyle();
