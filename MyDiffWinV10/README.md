@@ -8,11 +8,16 @@ Windows desktop 2-way line diff viewer built with WinForms (.NET 8). Designed to
 
 - Side-by-side Left/Right panes with line-level diff highlighting (added / removed / modified)
 - Synchronized scrolling between the two panes, with line numbers
+- **Diff overview bar** next to each pane's scrollbar — a minimap of where every
+  difference sits in the file, with a viewport indicator and click-to-jump
 - Previous/Next difference navigation (toolbar, menu, or **F3** / **Shift+F3**)
 - Word wrap toggle, adjustable pane font size
 - Status bar with added/removed/modified counts
 - Korean/English UI language, switchable without restart (**File → Preferences...**)
 - Restores the last-opened Left/Right pair on standalone startup
+- Tooltips on every menu, menu item, and toolbar button
+- Errors are reported in a copyable popup dialog (type/message/source/stack trace),
+  not silently swallowed
 
 This is a **read-only diff viewer**, not a merge tool. For resolving 3-way merge conflicts,
 use the sibling app [DiffMergeWinV10](../DIff&MergeWinV10), which already covers that role —
@@ -115,3 +120,7 @@ of MyGitWinV10's built-in diff panel.
 
 Settings include window size, pane font size, word wrap, UI language (Korean by default), and
 the last-opened Left/Right file pair (restored on standalone startup).
+
+## User documentation
+
+See [UsersGuide.md](UsersGuide.md) for a full walkthrough of the user interface and workflows (Korean).
