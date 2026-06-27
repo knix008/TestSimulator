@@ -174,6 +174,49 @@ public sealed class SystemIndexService : IDisposable
         return true;
     }
 
+    private bool AreAllScanStepsIndexed()
+    {
+        foreach (var path in WatchPaths)
+        {
+            if (_exclusions.IsPathExcluded(path) || !Directory.Exists(path))
+                continue;
+
+            var normalized = NormalizeDirectoryPrefix(path);
+            if (normalized is null)
+                continue;
+
+            lock (_rootsLock)
+            {
+                if (!_indexedRoots.Contains(normalized))
+                    return false;
+            }
+        }
+
+        return AreAllScanRootsIndexed();
+    }
+
+    private bool IsBuildingStoreReadyToPromote(IndexStore buildingStore)
+    {
+        if (buildingStore.Count <= 0)
+            return false;
+
+        if (!_scanUsesShadowBuild)
+            return true;
+
+        var baseline = _scanBaselineCount;
+        if (baseline <= 0)
+        {
+            lock (_indexStoreSwapLock)
+                baseline = _indexStore?.Count ?? 0;
+        }
+
+        if (baseline <= 0)
+            return true;
+
+        var minimum = (long)(baseline * IndexResourcePolicy.MinPromoteEntryCountRatio);
+        return buildingStore.Count >= minimum;
+    }
+
     private static void DeleteDatabaseFiles(string basePath)
     {
         foreach (var suffix in DatabaseFileSuffixes)
@@ -1242,7 +1285,10 @@ public sealed class SystemIndexService : IDisposable
             Thread.CurrentThread.Priority = previousPriority;
         }
 
-        if (succeeded && !AreAllScanRootsIndexed())
+        if (succeeded && !AreAllScanStepsIndexed())
+            succeeded = false;
+
+        if (succeeded && !IsBuildingStoreReadyToPromote(target))
             succeeded = false;
 
         if (succeeded)
@@ -1444,20 +1490,14 @@ public sealed class SystemIndexService : IDisposable
         }
 
         _currentScanPath = root;
-
-        string? resumeAfterPath = null;
-        var normalizedRoot = NormalizeDirectoryPrefix(root);
-        if (normalizedRoot is not null && target.TryLoadScanCheckpoint(normalizedRoot, out var checkpointPath))
-            resumeAfterPath = checkpointPath;
-
         ScanTree(
             root,
             cancellationToken,
-            batch => MergeEntriesBatchInto(target, root, batch),
-            resumeAfterPath);
+            batch => MergeEntriesBatchInto(target, root, batch));
 
         RememberScannedDirectoryPrefix(root);
 
+        var normalizedRoot = NormalizeDirectoryPrefix(root);
         if (normalizedRoot is not null)
         {
             target.MarkRootIndexed(normalizedRoot);
@@ -1487,10 +1527,6 @@ public sealed class SystemIndexService : IDisposable
         _activeStepEntries.AddOrUpdate(root, batch.Count, (_, existing) => existing + batch.Count);
         UpdateScanProgressPercent();
         ReportProgress(root, false);
-
-        var normalizedRoot = NormalizeDirectoryPrefix(root);
-        if (normalizedRoot is not null)
-            target.SaveScanCheckpoint(normalizedRoot, batch[^1].FullPath);
 
         if (ReferenceEquals(target, _activeBuildingStore) && !HasCompletedSearchIndex())
         {
@@ -1595,8 +1631,7 @@ public sealed class SystemIndexService : IDisposable
     private void ScanTree(
         string root,
         CancellationToken cancellationToken,
-        Action<IReadOnlyList<FileEntry>> mergeBatch,
-        string? resumeAfterPath = null)
+        Action<IReadOnlyList<FileEntry>> mergeBatch)
     {
         if (!Directory.Exists(root))
             return;
@@ -1621,21 +1656,11 @@ public sealed class SystemIndexService : IDisposable
             ShouldRecursePredicate = ShouldRecurseIntoDirectory
         };
 
-        var skipping = !string.IsNullOrEmpty(resumeAfterPath);
         try
         {
             foreach (var entry in enumerable)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                if (skipping)
-                {
-                    if (string.Compare(entry.FullPath, resumeAfterPath, StringComparison.OrdinalIgnoreCase) <= 0)
-                        continue;
-
-                    skipping = false;
-                }
-
                 batch.Add(entry);
                 MaybeYield(cancellationToken);
 
@@ -1679,7 +1704,7 @@ public sealed class SystemIndexService : IDisposable
                 if (_exclusions.IsPathExcluded(path))
                     return false;
 
-                return !IsUnderScannedSubtree(path);
+                return !IsUnderIndexedRoot(path);
             }
             catch
             {
