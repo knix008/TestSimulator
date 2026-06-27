@@ -16,11 +16,13 @@ Visual Studio 2026에서 Release 빌드로 MSI 설치 파일을 만드는 방법
 
 ## Visual Studio 2026에서 MSI 빌드
 
-1. `ImageRembgWinV10.sln` 또는 `ImageRembgWinV10.slnx` 열기
+1. **`ImageRembgWinV10.sln`** 열기 (`.slnx`보다 VS 구성 관리와 MSI 빌드에 적합)
 2. 구성: **Release**
-3. 플랫폼: **x64** (Installer 프로젝트 기준)
-4. 솔루션 탐색기에서 **`ImageRembgWinV10.Installer`** 프로젝트 선택
-5. **빌드 → ImageRembgWinV10.Installer 빌드**
+3. 플랫폼: **Any CPU** 또는 **x64** (둘 다 Installer MSI 빌드 포함)
+4. **빌드 → 솔루션 빌드** (또는 `ImageRembgWinV10.Installer` 프로젝트만 빌드)
+
+> **주의:** `ImageRembgWinV10` 앱 프로젝트만 단독 빌드하면 EXE/DLL만 생성되고 MSI는 만들어지지 않습니다.  
+> MSI가 필요하면 **솔루션 빌드** 또는 **`ImageRembgWinV10.Installer` 빌드**를 사용하세요.
 
 ### MSI 출력 경로
 
@@ -55,6 +57,16 @@ dotnet build ImageRembgWinV10.Installer\ImageRembgWinV10.Installer.wixproj -c Re
 ## 버전 변경
 
 `Directory.Build.props`의 `Version`, `AssemblyVersion`을 수정한 뒤 Installer 프로젝트를 다시 Release\|x64로 빌드합니다.
+
+## MSI가 생성되지 않을 때
+
+| 원인 | 해결 |
+|------|------|
+| 앱 프로젝트만 빌드 | **솔루션 빌드** 또는 **`ImageRembgWinV10.Installer`** 빌드 |
+| `.slnx`만 사용 | **`ImageRembgWinV10.sln`** 사용 권장 |
+| 구성 관리에서 Installer 체크 해제 | **빌드 → 구성 관리자**에서 `ImageRembgWinV10.Installer` **빌드** 체크 |
+| HeatWave 미설치 | [HeatWave](https://marketplace.visualstudio.com/items?itemName=FireGiant.FireGiantHeatWaveDev17) 설치 (Designer용, CLI 빌드는 NuGet만으로 가능) |
+| 출력 경로 오해 | `bin\Release\`가 아니라 **`ImageRembgWinV10.Installer\bin\x64\Release\en-us\`** 확인 |
 
 ## 참고
 

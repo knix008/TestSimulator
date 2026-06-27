@@ -28,7 +28,7 @@ public sealed class AppSettings
     public int WindowHeight { get; set; } = 800;
     public bool Maximized { get; set; }
 
-    public float PaneFontSize { get; set; } = 9.5f;
+    public float PaneFontSize { get; set; } = 10f;
     public bool WordWrap { get; set; }
     public AppLanguage Language { get; set; } = AppLanguage.Korean;
 

@@ -1,83 +1,83 @@
 namespace DiffMergeWinV10.App.Controls;
 
 /// <summary>
-/// A narrow column painted with 1-based line numbers for a paired RichTextBox,
-/// kept in sync by repainting whenever the box scrolls, resizes, or its text changes.
+/// A narrow column painted with 1-based line numbers for a paired scroll source,
+/// kept in sync by repainting whenever the pane scrolls, resizes, or its content changes.
 /// </summary>
 public sealed class LineNumberGutter : Control
 {
-    private static readonly Color GutterBackColor = Color.FromArgb(241, 245, 249);
-    private static readonly Color GutterTextColor = Color.FromArgb(100, 116, 139);
-    private static readonly Color GutterDividerColor = Color.FromArgb(226, 232, 240);
+    private static readonly Color GutterTextColor = PaneTheme.GutterTextColor;
 
-    private RichTextBox? _target;
+    private ILineScrollSource? _source;
 
     public LineNumberGutter()
     {
         Width = 44;
         DoubleBuffered = true;
-        BackColor = GutterBackColor;
-    }
-
-    public RichTextBox? Target
-    {
-        get => _target;
-        set
-        {
-            _target = value;
-            Invalidate();
-        }
+        BackColor = PaneTheme.GutterBackgroundColor;
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
 
-        var box = _target;
-        if (box == null || !box.IsHandleCreated)
+        var bounds = ClientRectangle;
+        using (var background = new SolidBrush(BackColor))
+        {
+            e.Graphics.FillRectangle(background, bounds);
+        }
+
+        var source = _source;
+        if (source == null)
         {
             return;
         }
 
-        e.Graphics.Clear(BackColor);
-
-        int firstCharIndex = box.GetCharIndexFromPosition(new Point(1, 1));
-        int firstLine = box.GetLineFromCharIndex(firstCharIndex);
-        int totalLines = box.Lines.Length == 0 ? 1 : box.Lines.Length;
+        int firstLine = source.GetFirstVisibleLine();
+        int contentLines = source.ContentLineCount;
+        var font = source.LineFont;
 
         using var brush = new SolidBrush(GutterTextColor);
-        for (int line = firstLine; line < totalLines; line++)
+        for (int line = firstLine; line < contentLines; line++)
         {
-            int charIndex = box.GetFirstCharIndexFromLine(line);
-            if (charIndex < 0)
-            {
-                break;
-            }
-
-            var position = box.GetPositionFromCharIndex(charIndex);
-            if (position.Y > Height)
+            int top = source.GetLineTop(line);
+            if (top < 0 || top >= bounds.Bottom)
             {
                 break;
             }
 
             string text = (line + 1).ToString();
-            var size = e.Graphics.MeasureString(text, box.Font);
-            e.Graphics.DrawString(text, box.Font, brush, Width - size.Width - 6, position.Y);
+            var size = e.Graphics.MeasureString(text, font);
+            e.Graphics.DrawString(text, font, brush, bounds.Width - size.Width - 6, top);
         }
 
-        using var dividerPen = new Pen(GutterDividerColor);
-        e.Graphics.DrawLine(dividerPen, Width - 1, 0, Width - 1, Height);
+        using var dividerPen = new Pen(PaneTheme.GutterDividerColor);
+        e.Graphics.DrawLine(dividerPen, bounds.Width - 1, 0, bounds.Width - 1, bounds.Height);
     }
 
-    public void Sync(RichTextBox box)
+    public void Sync(SyncLineListBox listBox)
     {
-        Target = box;
-        if (box is SyncRichTextBox sync)
+        Unsubscribe();
+        _source = listBox;
+        listBox.Scrolled += OnSourceChanged;
+        listBox.Resize += OnSourceChanged;
+        listBox.FontChanged += OnSourceChanged;
+        listBox.LinesChanged += OnSourceChanged;
+        Invalidate();
+    }
+
+    private void OnSourceChanged(object? sender, EventArgs e) => Invalidate();
+
+    private void Unsubscribe()
+    {
+        if (_source is SyncLineListBox listBox)
         {
-            sync.Scrolled += (_, _) => Invalidate();
+            listBox.Scrolled -= OnSourceChanged;
+            listBox.Resize -= OnSourceChanged;
+            listBox.FontChanged -= OnSourceChanged;
+            listBox.LinesChanged -= OnSourceChanged;
         }
-        box.TextChanged += (_, _) => Invalidate();
-        box.Resize += (_, _) => Invalidate();
-        box.FontChanged += (_, _) => Invalidate();
+
+        _source = null;
     }
 }

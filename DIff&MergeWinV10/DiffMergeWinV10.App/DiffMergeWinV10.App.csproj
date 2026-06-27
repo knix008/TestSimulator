@@ -21,8 +21,8 @@
     </None>
   </ItemGroup>
 
-  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and '$(DesignTimeBuild)' != 'true'">
-    <Exec Command="dotnet build &quot;$(InstallerProjectPath)&quot; -c Release" />
+  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(BuildInstaller)' == 'true' and '$(SkipInstaller)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="dotnet build &quot;$(InstallerProjectPath)&quot; -c Release" ContinueOnError="true" IgnoreExitCode="true" />
   </Target>
 
 </Project>

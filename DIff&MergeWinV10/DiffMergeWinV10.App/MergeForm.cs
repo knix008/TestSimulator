@@ -10,15 +10,16 @@ public sealed class MergeForm : Form
     private static readonly Color CardBorderColor = Color.FromArgb(226, 232, 240);
     private static readonly Color CanvasColor = Color.FromArgb(241, 243, 247);
 
-    private readonly SyncRichTextBox _rtbBase = new();
-    private readonly SyncRichTextBox _rtbLocal = new();
-    private readonly SyncRichTextBox _rtbRemote = new();
-    private readonly SyncRichTextBox _rtbResult = new();
+    private readonly SyncLineListBox _lstBase = new();
+    private readonly SyncLineListBox _lstLocal = new();
+    private readonly SyncLineListBox _lstRemote = new();
+    private readonly SyncLineListBox _lstResult = new();
     private readonly LineNumberGutter _gutterBase = new();
     private readonly LineNumberGutter _gutterLocal = new();
     private readonly LineNumberGutter _gutterRemote = new();
     private readonly LineNumberGutter _gutterResult = new();
-    private readonly ListBox _lstConflicts = new();
+    private readonly SyncLineListBox _lstConflicts = new() { ShowSelectionAccent = true };
+    private readonly LineNumberGutter _gutterConflicts = new();
     private readonly ToolStripStatusLabel _statusLabel = new();
 
     private readonly ToolStripButton _tsbOpenThree = new() { Image = IconFactory.OpenFiles() };
@@ -59,12 +60,18 @@ public sealed class MergeForm : Form
     private readonly AppSettings _settings = AppSettingsStore.Load();
     private MergeSession? _session;
     private List<ConflictHunk> _conflicts = new();
-    private readonly Dictionary<ConflictHunk, int> _resultHunkOffsets = new();
+    private readonly Dictionary<ConflictHunk, int> _resultHunkLineIndexes = new();
     private Func<MergeSession>? _initialSessionFactory;
     private bool _restoreLastSessionOnLoad;
     private TableLayoutPanel? _topPanel;
+    private SplitContainer? _mainSplit;
     private SplitContainer? _bottomSplit;
     private Control? _remotePaneCard;
+    private System.Windows.Forms.Timer? _paneLayoutRefreshTimer;
+    private ToolStrip? _toolStrip;
+
+    private bool _isFormShown;
+    private int _alignBottomSplitterRetries;
 
     public bool Saved { get; private set; }
 
@@ -72,7 +79,7 @@ public sealed class MergeForm : Form
     {
         Strings.Language = _settings.Language;
         StartPosition = FormStartPosition.CenterScreen;
-        Font = new Font("Segoe UI", 9f);
+        Font = new Font("Segoe UI", 10f);
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         ApplyWindowBounds();
 
@@ -81,6 +88,7 @@ public sealed class MergeForm : Form
         ApplyPanePreferences();
         WireEvents();
         UpdateActionItemsEnabled();
+        UpdateMinimumWindowSize();
     }
 
     // The SplitContainer/TableLayoutPanel hierarchy doesn't finish settling its child
@@ -91,6 +99,8 @@ public sealed class MergeForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        _isFormShown = true;
+        UpdateMinimumWindowSize();
         AlignBottomSplitterToRemotePane();
 
         try
@@ -108,29 +118,48 @@ public sealed class MergeForm : Form
         {
             ErrorDialog.Show(this, ex);
         }
+
+        if (_session == null)
+        {
+            EnsureAllPaneViewportFill();
+        }
     }
 
     private void RefreshPaneContentsAfterLayout()
     {
-        if (_session == null)
-        {
-            return;
-        }
-
-        int baseLine = GetFirstVisibleLine(_rtbBase);
-        int localLine = GetFirstVisibleLine(_rtbLocal);
-        int remoteLine = GetFirstVisibleLine(_rtbRemote);
-        int resultLine = GetFirstVisibleLine(_rtbResult);
+        int resultLine = _lstResult.GetFirstVisibleLine();
         int selectedConflict = SelectedConflictIndex();
 
-        RenderSourcePanes();
-        RenderResultPane();
-        RenderConflictList(selectedConflict);
+        if (_session != null && _settings.WordWrap)
+        {
+            RenderSourcePanes();
+            RenderResultPane();
+            RenderConflictList(selectedConflict);
+        }
+        else
+        {
+            EnsureAllPaneViewportFill();
+            if (_session != null)
+            {
+                RenderConflictList(selectedConflict);
+            }
+        }
 
-        ScrollToLine(_rtbBase, baseLine);
-        ScrollToLine(_rtbLocal, localLine);
-        ScrollToLine(_rtbRemote, remoteLine);
-        ScrollToLine(_rtbResult, resultLine);
+        _lstResult.TopIndex = Math.Clamp(resultLine, 0, Math.Max(0, _lstResult.Items.Count - 1));
+    }
+
+    private void EnsureAllPaneViewportFill()
+    {
+        _lstBase.EnsureViewportFill();
+        _lstLocal.EnsureViewportFill();
+        _lstRemote.EnsureViewportFill();
+        _lstResult.EnsureViewportFill();
+        _lstConflicts.EnsureViewportFill();
+        _gutterBase.Invalidate();
+        _gutterLocal.Invalidate();
+        _gutterRemote.Invalidate();
+        _gutterConflicts.Invalidate();
+        _gutterResult.Invalidate();
     }
 
     public static MergeForm Standalone()
@@ -160,6 +189,7 @@ public sealed class MergeForm : Form
 
         var menu = BuildMenu();
         var toolStrip = BuildToolStrip();
+        _toolStrip = toolStrip;
 
         var topPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, BackColor = CanvasColor, Padding = new Padding(8, 8, 8, 4) };
         _topPanel = topPanel;
@@ -168,55 +198,50 @@ public sealed class MergeForm : Form
         topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
         topPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-        ConfigureReadOnlyPane(_rtbBase);
-        ConfigureReadOnlyPane(_rtbLocal);
-        ConfigureReadOnlyPane(_rtbRemote);
-        _rtbBase.Partners.AddRange(new[] { _rtbLocal, _rtbRemote });
-        _rtbLocal.Partners.AddRange(new[] { _rtbBase, _rtbRemote });
-        _rtbRemote.Partners.AddRange(new[] { _rtbBase, _rtbLocal });
+        ConfigureSourcePane(_lstBase);
+        ConfigureSourcePane(_lstLocal);
+        ConfigureSourcePane(_lstRemote);
+        _lstBase.Partners.AddRange(new[] { _lstLocal, _lstRemote });
+        _lstLocal.Partners.AddRange(new[] { _lstBase, _lstRemote });
+        _lstRemote.Partners.AddRange(new[] { _lstBase, _lstLocal });
 
-        _rtbBase.ContextMenuStrip = BuildPaneContextMenu(_rtbBase);
-        _rtbLocal.ContextMenuStrip = BuildPaneContextMenu(_rtbLocal);
-        _rtbRemote.ContextMenuStrip = BuildPaneContextMenu(_rtbRemote);
+        _lstBase.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstBase);
+        _lstLocal.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstLocal);
+        _lstRemote.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstRemote);
 
-        _gutterBase.Sync(_rtbBase);
-        _gutterLocal.Sync(_rtbLocal);
-        _gutterRemote.Sync(_rtbRemote);
+        _gutterBase.Sync(_lstBase);
+        _gutterLocal.Sync(_lstLocal);
+        _gutterRemote.Sync(_lstRemote);
 
-        var remoteCard = MakePaneCard(Color.FromArgb(37, 99, 235), _btnHeaderTakeRemote, _gutterRemote, _rtbRemote, out _lblPaneRemote);
+        var remoteCard = MakePaneCard(Color.FromArgb(37, 99, 235), _btnHeaderTakeRemote, _gutterRemote, _lstRemote, out _lblPaneRemote);
         _remotePaneCard = remoteCard;
-        topPanel.Controls.Add(MakePaneCard(Color.FromArgb(100, 116, 139), _btnHeaderTakeBase, _gutterBase, _rtbBase, out _lblPaneBase), 0, 0);
-        topPanel.Controls.Add(MakePaneCard(Color.FromArgb(22, 163, 74), _btnHeaderTakeLocal, _gutterLocal, _rtbLocal, out _lblPaneLocal), 1, 0);
+        topPanel.Controls.Add(MakePaneCard(Color.FromArgb(100, 116, 139), _btnHeaderTakeBase, _gutterBase, _lstBase, out _lblPaneBase), 0, 0);
+        topPanel.Controls.Add(MakePaneCard(Color.FromArgb(22, 163, 74), _btnHeaderTakeLocal, _gutterLocal, _lstLocal, out _lblPaneLocal), 1, 0);
         topPanel.Controls.Add(remoteCard, 2, 0);
 
         var bottomSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Vertical, BackColor = CanvasColor, SplitterWidth = 8 };
         _bottomSplit = bottomSplit;
-        _lstConflicts.Dock = DockStyle.Fill;
-        _lstConflicts.BackColor = PaneTheme.RowColorEven;
-        _lstConflicts.BorderStyle = BorderStyle.None;
-        _lstConflicts.IntegralHeight = false;
-        _lstConflicts.Font = new Font("Segoe UI", 9.5f);
-        _lstConflicts.DrawMode = DrawMode.OwnerDrawFixed;
-        _lstConflicts.ItemHeight = (int)(_lstConflicts.Font.Height * 1.7f);
-        _lstConflicts.DrawItem += OnDrawConflictItem;
-        _lstConflicts.ContextMenuStrip = BuildPaneContextMenu(box: null);
+        ConfigureSourcePane(_lstConflicts);
+        _lstConflicts.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstConflicts);
         _lstConflicts.MouseDown += OnConflictListMouseDown;
-        var conflictListCard = MakeCardWithRows(MakeCardHeader(Color.FromArgb(15, 23, 42), out _lblPaneConflicts), MakeContentFrame(_lstConflicts));
+        _gutterConflicts.Sync(_lstConflicts);
         bottomSplit.Panel1.Padding = new Padding(8, 4, 4, 8);
-        bottomSplit.Panel1.Controls.Add(conflictListCard);
+        bottomSplit.Panel1.Controls.Add(MakePaneCard(Color.FromArgb(15, 23, 42), takeButton: null, _gutterConflicts, _lstConflicts, out _lblPaneConflicts));
 
-        ConfigureReadOnlyPane(_rtbResult);
-        _rtbResult.ReadOnly = false;
-        _rtbResult.ContextMenuStrip = BuildPaneContextMenu(_rtbResult);
-        _gutterResult.Sync(_rtbResult);
+        ConfigureSourcePane(_lstResult);
+        _lstResult.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstResult);
+        _gutterResult.Sync(_lstResult);
         bottomSplit.Panel2.Padding = new Padding(4, 4, 8, 8);
-        bottomSplit.Panel2.Controls.Add(MakePaneCard(Color.FromArgb(15, 23, 42), _btnHeaderTakeBoth, _gutterResult, _rtbResult, out _lblPaneResult));
+        bottomSplit.Panel2.Controls.Add(MakePaneCard(Color.FromArgb(15, 23, 42), _btnHeaderTakeBoth, _gutterResult, _lstResult, out _lblPaneResult));
 
         RegisterPaneLocalizedText();
 
         var mainSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 380, BackColor = CanvasColor, SplitterWidth = 6 };
+        _mainSplit = mainSplit;
+        mainSplit.SplitterMoved += (_, _) => QueuePaneLayoutRefresh();
         mainSplit.Panel1.Controls.Add(topPanel);
         mainSplit.Panel2.Controls.Add(bottomSplit);
+        bottomSplit.SplitterMoved += (_, _) => QueuePaneLayoutRefresh();
 
         var statusStrip = new StatusStrip { SizingGrip = false, BackColor = CanvasColor };
         statusStrip.Items.Add(_statusLabel);
@@ -243,7 +268,11 @@ public sealed class MergeForm : Form
             int[] columnWidths = _topPanel.GetColumnWidths();
             if (columnWidths.Length < 3 || columnWidths[2] <= 0 || _bottomSplit.Width <= 0)
             {
-                BeginInvoke(AlignBottomSplitterToRemotePane);
+                if (_alignBottomSplitterRetries++ < 8)
+                {
+                    BeginInvoke(AlignBottomSplitterToRemotePane);
+                }
+
                 return;
             }
 
@@ -252,10 +281,15 @@ public sealed class MergeForm : Form
 
         if (_bottomSplit.Width <= 0)
         {
-            BeginInvoke(AlignBottomSplitterToRemotePane);
+            if (_alignBottomSplitterRetries++ < 8)
+            {
+                BeginInvoke(AlignBottomSplitterToRemotePane);
+            }
+
             return;
         }
 
+        _alignBottomSplitterRetries = 0;
         int panel2Padding = _bottomSplit.Panel2.Padding.Horizontal;
         int panel2Width = remoteCardWidth + panel2Padding;
         int splitterDistance = _bottomSplit.Width - _bottomSplit.SplitterWidth - panel2Width;
@@ -311,6 +345,7 @@ public sealed class MergeForm : Form
         {
             Dock = DockStyle.Top,
             GripStyle = ToolStripGripStyle.Hidden,
+            CanOverflow = false,
             ImageScalingSize = new Size(16, 16),
             Renderer = new ModernToolStripRenderer(),
             BackColor = Color.White,
@@ -383,7 +418,7 @@ public sealed class MergeForm : Form
         return toolStrip;
     }
 
-    private ContextMenuStrip BuildPaneContextMenu(RichTextBox? box)
+    private ContextMenuStrip BuildPaneContextMenu(SyncLineListBox? listBox = null)
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add(MakeMenuItem(() => Strings.TakeBase, IconFactory.TakeBase(), () => Strings.TipTakeBaseShort, (_, _) => ApplyResolution(ConflictResolution.Base)));
@@ -393,10 +428,10 @@ public sealed class MergeForm : Form
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(MakeMenuItem(() => Strings.PreviousConflict, IconFactory.PrevConflict(), () => Strings.TipPrevConflict, (_, _) => SelectConflict(SelectedConflictIndex() - 1)));
         menu.Items.Add(MakeMenuItem(() => Strings.NextConflict, IconFactory.NextConflict(), () => Strings.TipNextConflict, (_, _) => SelectConflict(SelectedConflictIndex() + 1)));
-        if (box != null)
+        if (listBox != null)
         {
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(MakeMenuItem(() => Strings.Copy, IconFactory.Copy(), () => Strings.TipCopy, (_, _) => box.Copy()));
+            menu.Items.Add(MakeMenuItem(() => Strings.Copy, IconFactory.Copy(), () => Strings.TipCopy, (_, _) => listBox.CopySelectedLine()));
         }
         return menu;
     }
@@ -424,19 +459,72 @@ public sealed class MergeForm : Form
             ? Strings.AppTitle
             : string.Format(Strings.WindowTitleFormat, Path.GetFileName(_session.MergedPath));
 
-        _rtbBase.ContextMenuStrip = BuildPaneContextMenu(_rtbBase);
-        _rtbLocal.ContextMenuStrip = BuildPaneContextMenu(_rtbLocal);
-        _rtbRemote.ContextMenuStrip = BuildPaneContextMenu(_rtbRemote);
-        _rtbResult.ContextMenuStrip = BuildPaneContextMenu(_rtbResult);
-        _lstConflicts.ContextMenuStrip = BuildPaneContextMenu(box: null);
+        _lstBase.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstBase);
+        _lstLocal.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstLocal);
+        _lstRemote.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstRemote);
+        _lstResult.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstResult);
+        _lstConflicts.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstConflicts);
 
         if (_session != null)
         {
             RenderSourcePanes();
+            RenderResultPane();
             RenderConflictList();
         }
 
         UpdateStatus();
+        UpdateMinimumWindowSize();
+    }
+
+    private void UpdateMinimumWindowSize()
+    {
+        if (_toolStrip == null || MainMenuStrip == null)
+        {
+            return;
+        }
+
+        _toolStrip.PerformLayout();
+        MainMenuStrip.PerformLayout();
+
+        int toolbarWidth = MeasureToolStripWidth(_toolStrip) + _toolStrip.Padding.Horizontal;
+        int menuWidth = MainMenuStrip.GetPreferredSize(Size.Empty).Width;
+        int frameWidth = (SystemInformation.Border3DSize.Width * 2) + 8;
+        int minWidth = Math.Max(toolbarWidth, menuWidth) + frameWidth;
+
+        int chromeHeight = SystemInformation.CaptionHeight
+            + (SystemInformation.Border3DSize.Height * 2)
+            + MainMenuStrip.PreferredSize.Height
+            + _toolStrip.PreferredSize.Height
+            + 28;
+        const int minContentHeight = 360;
+        int minHeight = chromeHeight + minContentHeight;
+
+        MinimumSize = new Size(minWidth, minHeight);
+
+        if (WindowState == FormWindowState.Normal)
+        {
+            if (Width < MinimumSize.Width)
+            {
+                Width = MinimumSize.Width;
+            }
+
+            if (Height < MinimumSize.Height)
+            {
+                Height = MinimumSize.Height;
+            }
+        }
+    }
+
+    private static int MeasureToolStripWidth(ToolStrip strip)
+    {
+        int width = 0;
+        foreach (ToolStripItem item in strip.Items)
+        {
+            Size preferred = item.GetPreferredSize(Size.Empty);
+            width += item.Margin.Horizontal + preferred.Width;
+        }
+
+        return width;
     }
 
     private void RegisterPaneLocalizedText()
@@ -489,56 +577,17 @@ public sealed class MergeForm : Form
             return;
         }
         int index = _lstConflicts.IndexFromPoint(e.Location);
-        if (index >= 0)
+        if (index >= 0 && index < _conflicts.Count)
         {
             _lstConflicts.SelectedIndex = index;
         }
     }
 
-    private void OnDrawConflictItem(object? sender, DrawItemEventArgs e)
-    {
-        if (e.Index < 0 || e.Index >= _lstConflicts.Items.Count)
-        {
-            e.DrawBackground();
-            return;
-        }
-
-        if (_lstConflicts.Items[e.Index] is not ConflictHunk hunk)
-        {
-            e.DrawBackground();
-            return;
-        }
-
-        bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-        var rowColor = hunk.Resolution == ConflictResolution.Unresolved
-            ? PaneTheme.ConflictListUnresolvedColor
-            : PaneTheme.ConflictListResolvedColor;
-        using (var rowBrush = new SolidBrush(rowColor))
-        {
-            e.Graphics.FillRectangle(rowBrush, e.Bounds);
-        }
-
-        if (selected)
-        {
-            using var accentBrush = new SolidBrush(PaneTheme.SelectedConflictColor);
-            e.Graphics.FillRectangle(accentBrush, e.Bounds.X, e.Bounds.Y, 4, e.Bounds.Height);
-        }
-
-        var textBounds = new Rectangle(e.Bounds.X + (selected ? 12 : 8), e.Bounds.Y, e.Bounds.Width - 12, e.Bounds.Height);
-        TextRenderer.DrawText(
-            e.Graphics,
-            DescribeConflict(e.Index),
-            e.Font ?? _lstConflicts.Font,
-            textBounds,
-            Color.FromArgb(30, 41, 59),
-            TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
-    }
-
     private void CopyFromActivePane()
     {
-        if (ActiveControl is RichTextBox box)
+        if (ActiveControl is SyncLineListBox listBox)
         {
-            box.Copy();
+            listBox.CopySelectedLine();
         }
     }
 
@@ -567,30 +616,45 @@ public sealed class MergeForm : Form
         return item;
     }
 
-    private const int HeaderHeight = 58;
+    private const int HeaderHeight = 64;
+    private const float PaneTitleFontSize = 13f;
 
-    private static Control MakePaneHeader(Color accent, Button takeButton, out Label titleLabel)
+    private static Control MakePaneHeader(Color accent, Button? takeButton, out Label titleLabel)
     {
+        var headerBg = PaneTheme.PastelHeaderBackground(accent);
+        titleLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            Font = new Font("Segoe UI", PaneTitleFontSize, FontStyle.Bold),
+            ForeColor = accent,
+            BackColor = headerBg,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(0, 0, 8, 0),
+            Margin = Padding.Empty,
+        };
+
+        if (takeButton == null)
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = headerBg,
+                Padding = new Padding(6, 8, 8, 8),
+            };
+            panel.Controls.Add(titleLabel);
+            return panel;
+        }
+
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.White,
+            BackColor = headerBg,
             ColumnCount = 2,
             RowCount = 1,
             Padding = new Padding(6, 8, 8, 8),
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-
-        titleLabel = new Label
-        {
-            Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            ForeColor = accent,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(0, 0, 8, 0),
-            Margin = Padding.Empty,
-        };
 
         takeButton.AutoSize = true;
         takeButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
@@ -601,21 +665,6 @@ public sealed class MergeForm : Form
         layout.Controls.Add(titleLabel, 0, 0);
         layout.Controls.Add(takeButton, 1, 0);
         return layout;
-    }
-
-    private static Label MakeCardHeader(Color accent, out Label titleLabel)
-    {
-        titleLabel = new Label
-        {
-            Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            ForeColor = accent,
-            BackColor = Color.White,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(6, 0, 0, 0),
-            Margin = Padding.Empty,
-        };
-        return titleLabel;
     }
 
     /// <summary>
@@ -644,27 +693,34 @@ public sealed class MergeForm : Form
         return card;
     }
 
-    private static Control MakePaneCard(Color accent, Button takeButton, LineNumberGutter gutter, RichTextBox box, out Label titleLabel)
+    private static Control MakePaneCard(Color accent, Button? takeButton, LineNumberGutter? gutter, Control paneContent, out Label titleLabel)
     {
         var content = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             BackColor = PaneTheme.RowColorEven,
-            ColumnCount = 2,
+            ColumnCount = gutter == null ? 1 : 2,
             RowCount = 1,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
-        gutter.Dock = DockStyle.Fill;
-        gutter.Margin = Padding.Empty;
-        box.Dock = DockStyle.Fill;
-        box.Margin = Padding.Empty;
+        if (gutter != null)
+        {
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            gutter.Dock = DockStyle.Fill;
+            gutter.Margin = Padding.Empty;
+            content.Controls.Add(gutter, 0, 0);
+        }
+        else
+        {
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        }
 
-        content.Controls.Add(gutter, 0, 0);
-        content.Controls.Add(box, 1, 0);
+        paneContent.Dock = DockStyle.Fill;
+        paneContent.Margin = Padding.Empty;
+        content.Controls.Add(paneContent, gutter == null ? 0 : 1, 0);
 
         var header = MakePaneHeader(accent, takeButton, out titleLabel);
         return MakeCardWithRows(header, MakeContentFrame(content));
@@ -694,18 +750,18 @@ public sealed class MergeForm : Form
         BackColor = Color.White,
     };
 
-    private static void ConfigureReadOnlyPane(RichTextBox box)
+    private static void ConfigureSourcePane(SyncLineListBox box)
     {
         box.Dock = DockStyle.Fill;
-        box.ReadOnly = true;
         box.BorderStyle = BorderStyle.None;
         box.BackColor = PaneTheme.RowColorEven;
+        box.ForeColor = Color.FromArgb(30, 41, 59);
     }
 
     private void ApplyPanePreferences()
     {
         var font = new Font(FontFamily.GenericMonospace, _settings.PaneFontSize);
-        foreach (var box in new RichTextBox[] { _rtbBase, _rtbLocal, _rtbRemote, _rtbResult })
+        foreach (var box in new SyncLineListBox[] { _lstBase, _lstLocal, _lstRemote, _lstResult, _lstConflicts })
         {
             box.Font = font;
             box.WordWrap = _settings.WordWrap;
@@ -715,7 +771,15 @@ public sealed class MergeForm : Form
             _wordWrapMenuItem.Checked = _settings.WordWrap;
         }
 
-        RefreshPaneContentsAfterLayout();
+        if (_session != null)
+        {
+            RenderSourcePanes();
+            RenderResultPane();
+        }
+        else if (_isFormShown)
+        {
+            EnsureAllPaneViewportFill();
+        }
     }
 
     private void ApplyWindowBounds()
@@ -814,6 +878,29 @@ public sealed class MergeForm : Form
         _lstConflicts.SelectedIndexChanged += (_, _) => ScrollResultToSelectedConflict();
         FormClosing += OnFormClosing;
         FormClosed += (_, _) => SaveWindowBounds();
+        ResizeEnd += (_, _) => QueuePaneLayoutRefresh();
+    }
+
+    private void QueuePaneLayoutRefresh()
+    {
+        _paneLayoutRefreshTimer ??= new System.Windows.Forms.Timer { Interval = 120 };
+        _paneLayoutRefreshTimer.Tick -= OnPaneLayoutRefreshTimer;
+        _paneLayoutRefreshTimer.Tick += OnPaneLayoutRefreshTimer;
+        _paneLayoutRefreshTimer.Stop();
+        _paneLayoutRefreshTimer.Start();
+    }
+
+    private void OnPaneLayoutRefreshTimer(object? sender, EventArgs e)
+    {
+        _paneLayoutRefreshTimer?.Stop();
+
+        if (_session != null && _settings.WordWrap)
+        {
+            RefreshPaneContentsAfterLayout();
+            return;
+        }
+
+        EnsureAllPaneViewportFill();
     }
 
     private void SaveWindowBounds()
@@ -925,157 +1012,101 @@ public sealed class MergeForm : Form
 
     private void RenderSourcePanes()
     {
-        _rtbBase.ClearContent();
-        _rtbLocal.ClearContent();
-        _rtbRemote.ClearContent();
+        int baseTop = _lstBase.GetFirstVisibleLine();
+        int localTop = _lstLocal.GetFirstVisibleLine();
+        int remoteTop = _lstRemote.GetFirstVisibleLine();
+
+        _lstBase.ClearLines();
+        _lstLocal.ClearLines();
+        _lstRemote.ClearLines();
         int baseLine = 0, localLine = 0, remoteLine = 0;
 
         foreach (var region in _session!.Document.Regions)
         {
             if (region.Hunk is { } hunk)
             {
-                AppendLines(_rtbBase, hunk.HasBase ? hunk.BaseLines : new List<string> { Strings.BaseUnavailable }, PaneTheme.ConflictColor, ref baseLine);
-                AppendLines(_rtbLocal, hunk.LocalLines, PaneTheme.ConflictColor, ref localLine);
-                AppendLines(_rtbRemote, hunk.RemoteLines, PaneTheme.ConflictColor, ref remoteLine);
+                AppendListLines(_lstBase, hunk.HasBase ? hunk.BaseLines : new List<string> { Strings.BaseUnavailable }, PaneTheme.ConflictColor, ref baseLine);
+                AppendListLines(_lstLocal, hunk.LocalLines, PaneTheme.ConflictColor, ref localLine);
+                AppendListLines(_lstRemote, hunk.RemoteLines, PaneTheme.ConflictColor, ref remoteLine);
             }
             else if (region.CleanLines != null)
             {
-                AppendLines(_rtbBase, region.CleanLines, null, ref baseLine);
-                AppendLines(_rtbLocal, region.CleanLines, null, ref localLine);
-                AppendLines(_rtbRemote, region.CleanLines, null, ref remoteLine);
+                AppendListLines(_lstBase, region.CleanLines, null, ref baseLine);
+                AppendListLines(_lstLocal, region.CleanLines, null, ref localLine);
+                AppendListLines(_lstRemote, region.CleanLines, null, ref remoteLine);
             }
         }
 
-        PadEmptyViewportLines(_rtbBase, ref baseLine);
-        PadEmptyViewportLines(_rtbLocal, ref localLine);
-        PadEmptyViewportLines(_rtbRemote, ref remoteLine);
+        _lstBase.FinishBatch();
+        _lstLocal.FinishBatch();
+        _lstRemote.FinishBatch();
 
-        ResetScrollToTop(_rtbBase);
-        ResetScrollToTop(_rtbLocal);
-        ResetScrollToTop(_rtbRemote);
-        InvalidateGutters(_gutterBase, _gutterLocal, _gutterRemote);
-    }
-
-    private static void ResetScrollToTop(SyncRichTextBox box)
-    {
-        box.ScrollToTopLeft();
+        _lstBase.TopIndex = Math.Clamp(baseTop, 0, Math.Max(0, _lstBase.Items.Count - 1));
+        _lstLocal.TopIndex = Math.Clamp(localTop, 0, Math.Max(0, _lstLocal.Items.Count - 1));
+        _lstRemote.TopIndex = Math.Clamp(remoteTop, 0, Math.Max(0, _lstRemote.Items.Count - 1));
     }
 
     private void RenderResultPane()
     {
-        _resultHunkOffsets.Clear();
-        _rtbResult.ClearContent();
+        _resultHunkLineIndexes.Clear();
+        _lstResult.ClearLines();
         int resultLine = 0;
 
         foreach (var region in _session!.Document.Regions)
         {
             if (region.Hunk is { } hunk)
             {
-                _resultHunkOffsets[hunk] = _rtbResult.TextLength;
-                var color = hunk.Resolution == ConflictResolution.Unresolved ? PaneTheme.ConflictColor : PaneTheme.ResolvedColor;
-                AppendLines(_rtbResult, hunk.GetResolvedLines(), color, ref resultLine);
+                _resultHunkLineIndexes[hunk] = resultLine;
+                var color = PaneTheme.ColorForConflict(hunk.Resolution == ConflictResolution.Unresolved);
+                AppendListLines(_lstResult, hunk.GetResolvedLines(), color, ref resultLine);
             }
             else if (region.CleanLines != null)
             {
-                AppendLines(_rtbResult, region.CleanLines, null, ref resultLine);
+                AppendListLines(_lstResult, region.CleanLines, null, ref resultLine);
             }
         }
 
-        PadEmptyViewportLines(_rtbResult, ref resultLine);
-
-        ResetScrollToTop(_rtbResult);
-        InvalidateGutters(_gutterResult);
+        _lstResult.FinishBatch();
+        _gutterResult.Invalidate();
     }
 
     private void RenderConflictList(int? preserveSelectedIndex = null)
     {
-        int selected = preserveSelectedIndex ?? _lstConflicts.SelectedIndex;
-        _lstConflicts.BeginUpdate();
-        try
+        int selected = preserveSelectedIndex ?? SelectedConflictIndex();
+        _lstConflicts.ClearLines();
+        for (int i = 0; i < _conflicts.Count; i++)
         {
-            _lstConflicts.Items.Clear();
-            foreach (var hunk in _conflicts)
-            {
-                _lstConflicts.Items.Add(hunk);
-            }
+            var hunk = _conflicts[i];
+            var color = PaneTheme.ColorForConflict(hunk.Resolution == ConflictResolution.Unresolved);
+            _lstConflicts.AddLine(DescribeConflict(i), color);
         }
-        finally
-        {
-            _lstConflicts.EndUpdate();
-        }
+
+        _lstConflicts.FinishBatch();
+        _gutterConflicts.Invalidate();
 
         if (selected >= 0 && selected < _conflicts.Count)
         {
             _lstConflicts.SelectedIndex = selected;
         }
-
-        _lstConflicts.Invalidate();
     }
 
     private string DescribeConflict(int index) => Strings.FormatConflict(index, _conflicts[index].Resolution);
 
-    private static void AppendLines(SyncRichTextBox box, IEnumerable<string> lines, Color? backColor, ref int lineIndex)
+    private static void AppendListLines(SyncLineListBox box, IEnumerable<string> lines, Color? backColor, ref int lineIndex)
     {
         foreach (string line in lines)
         {
             var rowColor = backColor ?? PaneTheme.ZebraForLine(lineIndex);
-            box.AddLineBackground(rowColor);
-            int start = box.TextLength;
-            box.AppendText(line + Environment.NewLine);
-            RichTextRowBackground.Apply(box, start, box.TextLength - start, rowColor);
+            box.AddLine(line, rowColor);
             lineIndex++;
         }
-
-        box.Invalidate();
     }
 
-    private static void PadEmptyViewportLines(SyncRichTextBox box, ref int lineIndex)
+    private int SelectedConflictIndex()
     {
-        int lineHeight = Math.Max(1, TextRenderer.MeasureText("Ag", box.Font).Height);
-        int visibleLines = Math.Max(1, box.ClientSize.Height / lineHeight + 1);
-        int currentLines = box.Lines.Length;
-        if (currentLines >= visibleLines)
-        {
-            return;
-        }
-
-        AppendLines(box, Enumerable.Repeat(string.Empty, visibleLines - currentLines), null, ref lineIndex);
+        int index = _lstConflicts.SelectedIndex;
+        return index >= 0 && index < _conflicts.Count ? index : -1;
     }
-
-    private static int GetFirstVisibleLine(RichTextBox box)
-    {
-        if (!box.IsHandleCreated)
-        {
-            return 0;
-        }
-
-        return box.GetLineFromCharIndex(box.GetCharIndexFromPosition(new Point(1, 1)));
-    }
-
-    private static void ScrollToLine(RichTextBox box, int line)
-    {
-        if (!box.IsHandleCreated || line <= 0)
-        {
-            return;
-        }
-
-        int charIndex = box.GetFirstCharIndexFromLine(line);
-        if (charIndex >= 0)
-        {
-            box.Select(charIndex, 0);
-            box.ScrollToCaret();
-        }
-    }
-
-    private static void InvalidateGutters(params LineNumberGutter[] gutters)
-    {
-        foreach (var gutter in gutters)
-        {
-            gutter.Invalidate();
-        }
-    }
-
-    private int SelectedConflictIndex() => _lstConflicts.SelectedIndex;
 
     private void SelectConflict(int index)
     {
@@ -1095,10 +1126,9 @@ public sealed class MergeForm : Form
             return;
         }
         var hunk = _conflicts[index];
-        if (_resultHunkOffsets.TryGetValue(hunk, out int offset))
+        if (_resultHunkLineIndexes.TryGetValue(hunk, out int lineIndex))
         {
-            _rtbResult.Select(offset, 0);
-            _rtbResult.ScrollToCaret();
+            _lstResult.TopIndex = Math.Clamp(lineIndex, 0, Math.Max(0, _lstResult.Items.Count - 1));
         }
     }
 
@@ -1111,6 +1141,7 @@ public sealed class MergeForm : Form
         }
 
         _conflicts[index].Resolution = resolution;
+        RenderSourcePanes();
         RenderResultPane();
         RenderConflictList();
         _lstConflicts.SelectedIndex = index;
@@ -1155,7 +1186,7 @@ public sealed class MergeForm : Form
 
         try
         {
-            File.WriteAllText(_session.MergedPath, _rtbResult.Text);
+            _session.Save();
             Saved = true;
             UpdateStatus();
             MessageBox.Show(string.Format(Strings.SavedToFormat, _session.MergedPath), Strings.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1186,7 +1217,7 @@ public sealed class MergeForm : Form
 
         try
         {
-            File.WriteAllText(dialog.FileName, _rtbResult.Text);
+            _session.SaveAs(dialog.FileName);
             Saved = true;
             UpdateStatus();
         }

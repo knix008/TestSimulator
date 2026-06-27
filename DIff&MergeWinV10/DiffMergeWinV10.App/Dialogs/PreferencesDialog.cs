@@ -38,6 +38,7 @@ public sealed class PreferencesDialog : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
+        Font = new Font("Segoe UI", 10f);
         Width = 400;
         Height = 260;
 

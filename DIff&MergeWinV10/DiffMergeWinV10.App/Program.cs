@@ -20,6 +20,13 @@ internal static class Program
         Strings.Language = AppSettingsStore.Load().Language;
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => ErrorDialog.Show(null, e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+            {
+                ErrorDialog.Show(null, ex);
+            }
+        };
 
         MergeForm form;
         try

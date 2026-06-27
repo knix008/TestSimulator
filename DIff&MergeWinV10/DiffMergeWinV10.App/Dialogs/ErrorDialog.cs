@@ -73,7 +73,7 @@ public sealed class ErrorDialog : Form
         MinimizeBox = false;
         RightToLeft = RightToLeft.No;
         RightToLeftLayout = false;
-        Font = new Font("Segoe UI", 9f);
+        Font = new Font("Segoe UI", 10f);
         BackColor = Color.White;
 
         var summaryLabel = new Label
@@ -94,7 +94,7 @@ public sealed class ErrorDialog : Form
             ScrollBars = ScrollBars.Both,
             WordWrap = false,
             Dock = DockStyle.Fill,
-            Font = new Font(FontFamily.GenericMonospace, 9f),
+            Font = new Font(FontFamily.GenericMonospace, 10f),
             BackColor = Color.White,
             ForeColor = Color.FromArgb(30, 41, 59),
             BorderStyle = BorderStyle.FixedSingle,
