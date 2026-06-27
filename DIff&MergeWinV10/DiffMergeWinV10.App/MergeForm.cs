@@ -7,10 +7,6 @@ namespace DiffMergeWinV10.App;
 
 public sealed class MergeForm : Form
 {
-    private static readonly Color ConflictColor = Color.FromArgb(255, 244, 180);
-    private static readonly Color ResolvedColor = Color.FromArgb(214, 245, 214);
-    private static readonly Color SelectedConflictColor = Color.FromArgb(222, 234, 252);
-    private static readonly Color ZebraColor = Color.FromArgb(238, 241, 246);
     private static readonly Color CardBorderColor = Color.FromArgb(226, 232, 240);
     private static readonly Color CanvasColor = Color.FromArgb(241, 243, 247);
 
@@ -25,18 +21,18 @@ public sealed class MergeForm : Form
     private readonly ListBox _lstConflicts = new();
     private readonly ToolStripStatusLabel _statusLabel = new();
 
-    private readonly ToolStripButton _tsbOpenThree = new("Open Base/Local/Remote") { Image = IconFactory.OpenFiles() };
-    private readonly ToolStripButton _tsbOpenConflicted = new("Open Conflicted") { Image = IconFactory.OpenConflicted() };
-    private readonly ToolStripButton _tsbSave = new("Save") { Image = IconFactory.Save() };
-    private readonly ToolStripButton _tsbSaveAs = new("Save As") { Image = IconFactory.SaveAs() };
-    private readonly ToolStripButton _tsbTakeBase = new("Take Base") { Image = IconFactory.TakeBase() };
-    private readonly ToolStripButton _tsbTakeLocal = new("Take Local") { Image = IconFactory.TakeLocal() };
-    private readonly ToolStripButton _tsbTakeRemote = new("Take Remote") { Image = IconFactory.TakeRemote() };
-    private readonly ToolStripButton _tsbTakeBoth = new("Take Both") { Image = IconFactory.TakeBoth() };
-    private readonly ToolStripButton _tsbPrev = new("Prev Conflict") { Image = IconFactory.PrevConflict() };
-    private readonly ToolStripButton _tsbNext = new("Next Conflict") { Image = IconFactory.NextConflict() };
-    private readonly ToolStripButton _tsbInfo = new("Info") { Image = IconFactory.Info(), Alignment = ToolStripItemAlignment.Right };
-    private readonly ToolStripLabel _tslFontSize = new("Font size:");
+    private readonly ToolStripButton _tsbOpenThree = new() { Image = IconFactory.OpenFiles() };
+    private readonly ToolStripButton _tsbOpenConflicted = new() { Image = IconFactory.OpenConflicted() };
+    private readonly ToolStripButton _tsbSave = new() { Image = IconFactory.Save() };
+    private readonly ToolStripButton _tsbSaveAs = new() { Image = IconFactory.SaveAs() };
+    private readonly ToolStripButton _tsbTakeBase = new() { Image = IconFactory.TakeBase() };
+    private readonly ToolStripButton _tsbTakeLocal = new() { Image = IconFactory.TakeLocal() };
+    private readonly ToolStripButton _tsbTakeRemote = new() { Image = IconFactory.TakeRemote() };
+    private readonly ToolStripButton _tsbTakeBoth = new() { Image = IconFactory.TakeBoth() };
+    private readonly ToolStripButton _tsbPrev = new() { Image = IconFactory.PrevConflict() };
+    private readonly ToolStripButton _tsbNext = new() { Image = IconFactory.NextConflict() };
+    private readonly ToolStripButton _tsbInfo = new() { Image = IconFactory.Info(), Alignment = ToolStripItemAlignment.Right };
+    private readonly ToolStripLabel _tslFontSize = new();
     private readonly NumericUpDown _nudFontSize = new()
     {
         DecimalPlaces = 1,
@@ -45,11 +41,20 @@ public sealed class MergeForm : Form
         Maximum = 32m,
         Width = 55,
     };
-    private readonly Button _btnHeaderTakeBase = MakeHeaderButton("Take Base", IconFactory.TakeBase());
-    private readonly Button _btnHeaderTakeLocal = MakeHeaderButton("Take Local", IconFactory.TakeLocal());
-    private readonly Button _btnHeaderTakeRemote = MakeHeaderButton("Take Remote", IconFactory.TakeRemote());
-    private readonly Button _btnHeaderTakeBoth = MakeHeaderButton("Take Both", IconFactory.TakeBoth());
+    private readonly Button _btnHeaderTakeBase = MakeHeaderButton(IconFactory.TakeBase());
+    private readonly Button _btnHeaderTakeLocal = MakeHeaderButton(IconFactory.TakeLocal());
+    private readonly Button _btnHeaderTakeRemote = MakeHeaderButton(IconFactory.TakeRemote());
+    private readonly Button _btnHeaderTakeBoth = MakeHeaderButton(IconFactory.TakeBoth());
     private ToolStripMenuItem _wordWrapMenuItem = null!;
+    private Label _lblPaneBase = null!;
+    private Label _lblPaneLocal = null!;
+    private Label _lblPaneRemote = null!;
+    private Label _lblPaneResult = null!;
+    private Label _lblPaneConflicts = null!;
+
+    private readonly List<(Control Control, Func<string> GetText)> _localizedControls = new();
+    private readonly List<(ToolStripItem Item, Func<string> GetText)> _localizedItems = new();
+    private readonly List<(ToolStripItem Item, Func<string> GetToolTip)> _localizedToolTips = new();
 
     private readonly AppSettings _settings = AppSettingsStore.Load();
     private MergeSession? _session;
@@ -57,18 +62,22 @@ public sealed class MergeForm : Form
     private readonly Dictionary<ConflictHunk, int> _resultHunkOffsets = new();
     private Func<MergeSession>? _initialSessionFactory;
     private bool _restoreLastSessionOnLoad;
+    private TableLayoutPanel? _topPanel;
+    private SplitContainer? _bottomSplit;
+    private Control? _remotePaneCard;
 
     public bool Saved { get; private set; }
 
     private MergeForm()
     {
-        Text = "Diff & Merge";
+        Strings.Language = _settings.Language;
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 9f);
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         ApplyWindowBounds();
 
         BuildLayout();
+        ApplyLocalization();
         ApplyPanePreferences();
         WireEvents();
         UpdateActionItemsEnabled();
@@ -82,17 +91,46 @@ public sealed class MergeForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        AlignBottomSplitterToRemotePane();
 
-        if (_initialSessionFactory != null)
+        try
         {
-            LoadSession(_initialSessionFactory());
+            if (_initialSessionFactory != null)
+            {
+                LoadSession(_initialSessionFactory());
+            }
+            else if (_restoreLastSessionOnLoad)
+            {
+                RestoreLastSessionIfAvailable();
+            }
         }
-        else if (_restoreLastSessionOnLoad)
+        catch (Exception ex)
         {
-            RestoreLastSessionIfAvailable();
+            ErrorDialog.Show(this, ex);
+        }
+    }
+
+    private void RefreshPaneContentsAfterLayout()
+    {
+        if (_session == null)
+        {
+            return;
         }
 
-        MessageBox.Show($"gutter={_gutterBase.Bounds} box={_rtbBase.Bounds} parent={_rtbBase.Parent?.Bounds} gutterParent={_gutterBase.Parent?.Bounds}", "DEBUG");
+        int baseLine = GetFirstVisibleLine(_rtbBase);
+        int localLine = GetFirstVisibleLine(_rtbLocal);
+        int remoteLine = GetFirstVisibleLine(_rtbRemote);
+        int resultLine = GetFirstVisibleLine(_rtbResult);
+        int selectedConflict = SelectedConflictIndex();
+
+        RenderSourcePanes();
+        RenderResultPane();
+        RenderConflictList(selectedConflict);
+
+        ScrollToLine(_rtbBase, baseLine);
+        ScrollToLine(_rtbLocal, localLine);
+        ScrollToLine(_rtbRemote, remoteLine);
+        ScrollToLine(_rtbResult, resultLine);
     }
 
     public static MergeForm Standalone()
@@ -124,6 +162,7 @@ public sealed class MergeForm : Form
         var toolStrip = BuildToolStrip();
 
         var topPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, BackColor = CanvasColor, Padding = new Padding(8, 8, 8, 4) };
+        _topPanel = topPanel;
         topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
         topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
         topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
@@ -144,12 +183,16 @@ public sealed class MergeForm : Form
         _gutterLocal.Sync(_rtbLocal);
         _gutterRemote.Sync(_rtbRemote);
 
-        topPanel.Controls.Add(MakePaneCard("Base (common ancestor)", Color.FromArgb(100, 116, 139), _btnHeaderTakeBase, _gutterBase, _rtbBase), 0, 0);
-        topPanel.Controls.Add(MakePaneCard("Local (ours)", Color.FromArgb(22, 163, 74), _btnHeaderTakeLocal, _gutterLocal, _rtbLocal), 1, 0);
-        topPanel.Controls.Add(MakePaneCard("Remote (theirs)", Color.FromArgb(37, 99, 235), _btnHeaderTakeRemote, _gutterRemote, _rtbRemote), 2, 0);
+        var remoteCard = MakePaneCard(Color.FromArgb(37, 99, 235), _btnHeaderTakeRemote, _gutterRemote, _rtbRemote, out _lblPaneRemote);
+        _remotePaneCard = remoteCard;
+        topPanel.Controls.Add(MakePaneCard(Color.FromArgb(100, 116, 139), _btnHeaderTakeBase, _gutterBase, _rtbBase, out _lblPaneBase), 0, 0);
+        topPanel.Controls.Add(MakePaneCard(Color.FromArgb(22, 163, 74), _btnHeaderTakeLocal, _gutterLocal, _rtbLocal, out _lblPaneLocal), 1, 0);
+        topPanel.Controls.Add(remoteCard, 2, 0);
 
-        var bottomSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Vertical, SplitterDistance = 260, BackColor = CanvasColor, SplitterWidth = 8 };
+        var bottomSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Vertical, BackColor = CanvasColor, SplitterWidth = 8 };
+        _bottomSplit = bottomSplit;
         _lstConflicts.Dock = DockStyle.Fill;
+        _lstConflicts.BackColor = PaneTheme.RowColorEven;
         _lstConflicts.BorderStyle = BorderStyle.None;
         _lstConflicts.IntegralHeight = false;
         _lstConflicts.Font = new Font("Segoe UI", 9.5f);
@@ -158,7 +201,7 @@ public sealed class MergeForm : Form
         _lstConflicts.DrawItem += OnDrawConflictItem;
         _lstConflicts.ContextMenuStrip = BuildPaneContextMenu(box: null);
         _lstConflicts.MouseDown += OnConflictListMouseDown;
-        var conflictListCard = MakeCardWithRows(MakeCardHeader("Conflicts", Color.FromArgb(15, 23, 42)), _lstConflicts);
+        var conflictListCard = MakeCardWithRows(MakeCardHeader(Color.FromArgb(15, 23, 42), out _lblPaneConflicts), MakeContentFrame(_lstConflicts));
         bottomSplit.Panel1.Padding = new Padding(8, 4, 4, 8);
         bottomSplit.Panel1.Controls.Add(conflictListCard);
 
@@ -167,7 +210,9 @@ public sealed class MergeForm : Form
         _rtbResult.ContextMenuStrip = BuildPaneContextMenu(_rtbResult);
         _gutterResult.Sync(_rtbResult);
         bottomSplit.Panel2.Padding = new Padding(4, 4, 8, 8);
-        bottomSplit.Panel2.Controls.Add(MakePaneCard("Result (editable)", Color.FromArgb(15, 23, 42), _btnHeaderTakeBoth, _gutterResult, _rtbResult));
+        bottomSplit.Panel2.Controls.Add(MakePaneCard(Color.FromArgb(15, 23, 42), _btnHeaderTakeBoth, _gutterResult, _rtbResult, out _lblPaneResult));
+
+        RegisterPaneLocalizedText();
 
         var mainSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 380, BackColor = CanvasColor, SplitterWidth = 6 };
         mainSplit.Panel1.Controls.Add(topPanel);
@@ -182,39 +227,75 @@ public sealed class MergeForm : Form
         Controls.Add(menu);
     }
 
+    /// <summary>
+    /// Sizes the bottom split so the Result pane matches the Remote column width above it.
+    /// </summary>
+    private void AlignBottomSplitterToRemotePane()
+    {
+        if (_topPanel == null || _bottomSplit == null)
+        {
+            return;
+        }
+
+        int remoteCardWidth = _remotePaneCard?.Width ?? 0;
+        if (remoteCardWidth <= 0)
+        {
+            int[] columnWidths = _topPanel.GetColumnWidths();
+            if (columnWidths.Length < 3 || columnWidths[2] <= 0 || _bottomSplit.Width <= 0)
+            {
+                BeginInvoke(AlignBottomSplitterToRemotePane);
+                return;
+            }
+
+            remoteCardWidth = columnWidths[2];
+        }
+
+        if (_bottomSplit.Width <= 0)
+        {
+            BeginInvoke(AlignBottomSplitterToRemotePane);
+            return;
+        }
+
+        int panel2Padding = _bottomSplit.Panel2.Padding.Horizontal;
+        int panel2Width = remoteCardWidth + panel2Padding;
+        int splitterDistance = _bottomSplit.Width - _bottomSplit.SplitterWidth - panel2Width;
+        int maxDistance = _bottomSplit.Width - _bottomSplit.SplitterWidth - _bottomSplit.Panel2MinSize;
+        _bottomSplit.SplitterDistance = Math.Clamp(splitterDistance, _bottomSplit.Panel1MinSize, maxDistance);
+    }
+
     private MenuStrip BuildMenu()
     {
         var menu = new MenuStrip { ShowItemToolTips = true, BackColor = Color.White, Renderer = new ModernToolStripRenderer() };
 
-        var fileMenu = new ToolStripMenuItem("File") { Image = IconFactory.OpenFiles() };
-        fileMenu.DropDownItems.Add(MakeMenuItem("Open Base/Local/Remote...", IconFactory.OpenFiles(), "Load separate BASE, LOCAL and REMOTE files and diff them", (_, _) => OpenThreeFiles()));
-        fileMenu.DropDownItems.Add(MakeMenuItem("Open Conflicted File...", IconFactory.OpenConflicted(), "Open a file that already contains <<<<<<< conflict markers", (_, _) => OpenConflictedFile()));
+        var fileMenu = RegisterLocalizedItem(new ToolStripMenuItem { Image = IconFactory.OpenFiles() }, () => Strings.MenuFile);
+        fileMenu.DropDownItems.Add(MakeMenuItem(() => Strings.OpenThreeFiles, IconFactory.OpenFiles(), () => Strings.TipOpenThreeFiles, (_, _) => OpenThreeFiles()));
+        fileMenu.DropDownItems.Add(MakeMenuItem(() => Strings.OpenConflictedFile, IconFactory.OpenConflicted(), () => Strings.TipOpenConflictedFile, (_, _) => OpenConflictedFile()));
         fileMenu.DropDownItems.Add(new ToolStripSeparator());
-        fileMenu.DropDownItems.Add(MakeMenuItem("Save", IconFactory.Save(), "Save the resolved result to the merged file path", (_, _) => Save()));
-        fileMenu.DropDownItems.Add(MakeMenuItem("Save As...", IconFactory.SaveAs(), "Save the resolved result to a new file", (_, _) => SaveAs()));
+        fileMenu.DropDownItems.Add(MakeMenuItem(() => Strings.Save, IconFactory.Save(), () => Strings.TipSave, (_, _) => Save()));
+        fileMenu.DropDownItems.Add(MakeMenuItem(() => Strings.SaveAs, IconFactory.SaveAs(), () => Strings.TipSaveAs, (_, _) => SaveAs()));
         fileMenu.DropDownItems.Add(new ToolStripSeparator());
-        fileMenu.DropDownItems.Add(MakeMenuItem("Preferences...", IconFactory.Preferences(), "Edit pane font size, word wrap, and the remembered last session", (_, _) => OpenPreferences()));
+        fileMenu.DropDownItems.Add(MakeMenuItem(() => Strings.Preferences, IconFactory.Preferences(), () => Strings.TipPreferences, (_, _) => OpenPreferences()));
         fileMenu.DropDownItems.Add(new ToolStripSeparator());
-        fileMenu.DropDownItems.Add(MakeMenuItem("Exit", IconFactory.Exit(), "Close Diff & Merge", (_, _) => Close()));
+        fileMenu.DropDownItems.Add(MakeMenuItem(() => Strings.Exit, IconFactory.Exit(), () => Strings.TipExit, (_, _) => Close()));
 
-        var editMenu = new ToolStripMenuItem("Edit") { Image = IconFactory.Edit() };
-        editMenu.DropDownItems.Add(MakeMenuItem("Take Base", IconFactory.TakeBase(), "Resolve the selected conflict using the BASE (common ancestor) content", (_, _) => ApplyResolution(ConflictResolution.Base)));
-        editMenu.DropDownItems.Add(MakeMenuItem("Take Local", IconFactory.TakeLocal(), "Resolve the selected conflict using the LOCAL (ours) content", (_, _) => ApplyResolution(ConflictResolution.Local)));
-        editMenu.DropDownItems.Add(MakeMenuItem("Take Remote", IconFactory.TakeRemote(), "Resolve the selected conflict using the REMOTE (theirs) content", (_, _) => ApplyResolution(ConflictResolution.Remote)));
-        editMenu.DropDownItems.Add(MakeMenuItem("Take Both", IconFactory.TakeBoth(), "Resolve the selected conflict by keeping both LOCAL and REMOTE content", (_, _) => ApplyResolution(ConflictResolution.Both)));
+        var editMenu = RegisterLocalizedItem(new ToolStripMenuItem { Image = IconFactory.Edit() }, () => Strings.MenuEdit);
+        editMenu.DropDownItems.Add(MakeMenuItem(() => Strings.TakeBase, IconFactory.TakeBase(), () => Strings.TipTakeBase, (_, _) => ApplyResolution(ConflictResolution.Base)));
+        editMenu.DropDownItems.Add(MakeMenuItem(() => Strings.TakeLocal, IconFactory.TakeLocal(), () => Strings.TipTakeLocal, (_, _) => ApplyResolution(ConflictResolution.Local)));
+        editMenu.DropDownItems.Add(MakeMenuItem(() => Strings.TakeRemote, IconFactory.TakeRemote(), () => Strings.TipTakeRemote, (_, _) => ApplyResolution(ConflictResolution.Remote)));
+        editMenu.DropDownItems.Add(MakeMenuItem(() => Strings.TakeBoth, IconFactory.TakeBoth(), () => Strings.TipTakeBoth, (_, _) => ApplyResolution(ConflictResolution.Both)));
         editMenu.DropDownItems.Add(new ToolStripSeparator());
-        editMenu.DropDownItems.Add(MakeMenuItem("Previous Conflict", IconFactory.PrevConflict(), "Jump to the previous conflict in the list", (_, _) => SelectConflict(SelectedConflictIndex() - 1)));
-        editMenu.DropDownItems.Add(MakeMenuItem("Next Conflict", IconFactory.NextConflict(), "Jump to the next conflict in the list", (_, _) => SelectConflict(SelectedConflictIndex() + 1)));
+        editMenu.DropDownItems.Add(MakeMenuItem(() => Strings.PreviousConflict, IconFactory.PrevConflict(), () => Strings.TipPrevConflict, (_, _) => SelectConflict(SelectedConflictIndex() - 1)));
+        editMenu.DropDownItems.Add(MakeMenuItem(() => Strings.NextConflict, IconFactory.NextConflict(), () => Strings.TipNextConflict, (_, _) => SelectConflict(SelectedConflictIndex() + 1)));
         editMenu.DropDownItems.Add(new ToolStripSeparator());
-        editMenu.DropDownItems.Add(MakeMenuItem("Copy", IconFactory.Copy(), "Copy the selected text from the focused pane", (_, _) => CopyFromActivePane()));
+        editMenu.DropDownItems.Add(MakeMenuItem(() => Strings.Copy, IconFactory.Copy(), () => Strings.TipCopyFocused, (_, _) => CopyFromActivePane()));
 
-        var viewMenu = new ToolStripMenuItem("View") { Image = IconFactory.View() };
-        _wordWrapMenuItem = MakeMenuItem("Word Wrap", IconFactory.WordWrap(), "Toggle word wrap in the source and result panes", (_, _) => ToggleWordWrap());
+        var viewMenu = RegisterLocalizedItem(new ToolStripMenuItem { Image = IconFactory.View() }, () => Strings.MenuView);
+        _wordWrapMenuItem = MakeMenuItem(() => Strings.WordWrap, IconFactory.WordWrap(), () => Strings.TipWordWrap, (_, _) => ToggleWordWrap());
         _wordWrapMenuItem.CheckOnClick = false;
         viewMenu.DropDownItems.Add(_wordWrapMenuItem);
 
-        var helpMenu = new ToolStripMenuItem("Help") { Image = IconFactory.Info() };
-        helpMenu.DropDownItems.Add(MakeMenuItem("About Diff & Merge", IconFactory.Info(), "Show application information", (_, _) => ShowAbout()));
+        var helpMenu = RegisterLocalizedItem(new ToolStripMenuItem { Image = IconFactory.Info() }, () => Strings.MenuHelp);
+        helpMenu.DropDownItems.Add(MakeMenuItem(() => Strings.About, IconFactory.Info(), () => Strings.TipAbout, (_, _) => ShowAbout()));
 
         menu.Items.Add(fileMenu);
         menu.Items.Add(editMenu);
@@ -236,16 +317,16 @@ public sealed class MergeForm : Form
             Padding = new Padding(4),
         };
 
-        _tsbOpenThree.ToolTipText = "Load separate BASE, LOCAL and REMOTE files and diff them";
-        _tsbOpenConflicted.ToolTipText = "Open a file that already contains <<<<<<< conflict markers";
-        _tsbSave.ToolTipText = "Save the resolved result to the merged file path";
-        _tsbSaveAs.ToolTipText = "Save the resolved result to a new file";
-        _tsbPrev.ToolTipText = "Jump to the previous conflict in the list";
-        _tsbNext.ToolTipText = "Jump to the next conflict in the list";
-        _tsbTakeBase.ToolTipText = "Resolve the selected conflict using the BASE (common ancestor) content";
-        _tsbTakeLocal.ToolTipText = "Resolve the selected conflict using the LOCAL (ours) content";
-        _tsbTakeRemote.ToolTipText = "Resolve the selected conflict using the REMOTE (theirs) content";
-        _tsbTakeBoth.ToolTipText = "Resolve the selected conflict by keeping both LOCAL and REMOTE content";
+        RegisterLocalizedToolTip(_tsbOpenThree, () => Strings.TipOpenThreeFiles);
+        RegisterLocalizedToolTip(_tsbOpenConflicted, () => Strings.TipOpenConflictedFile);
+        RegisterLocalizedToolTip(_tsbSave, () => Strings.TipSave);
+        RegisterLocalizedToolTip(_tsbSaveAs, () => Strings.TipSaveAs);
+        RegisterLocalizedToolTip(_tsbPrev, () => Strings.TipPrevConflict);
+        RegisterLocalizedToolTip(_tsbNext, () => Strings.TipNextConflict);
+        RegisterLocalizedToolTip(_tsbTakeBase, () => Strings.TipTakeBase);
+        RegisterLocalizedToolTip(_tsbTakeLocal, () => Strings.TipTakeLocal);
+        RegisterLocalizedToolTip(_tsbTakeRemote, () => Strings.TipTakeRemote);
+        RegisterLocalizedToolTip(_tsbTakeBoth, () => Strings.TipTakeBoth);
 
         foreach (var item in new ToolStripItem[] { _tsbOpenThree, _tsbOpenConflicted, _tsbSave, _tsbSaveAs, _tsbPrev, _tsbNext, _tsbTakeBase, _tsbTakeLocal, _tsbTakeRemote, _tsbTakeBoth })
         {
@@ -253,6 +334,17 @@ public sealed class MergeForm : Form
             item.TextImageRelation = TextImageRelation.ImageBeforeText;
             item.Padding = new Padding(4, 2, 6, 2);
         }
+
+        RegisterLocalizedItem(_tsbOpenThree, () => Strings.TsbOpenThree);
+        RegisterLocalizedItem(_tsbOpenConflicted, () => Strings.TsbOpenConflicted);
+        RegisterLocalizedItem(_tsbSave, () => Strings.Save);
+        RegisterLocalizedItem(_tsbSaveAs, () => Strings.SaveAs);
+        RegisterLocalizedItem(_tsbPrev, () => Strings.TsbPrevConflict);
+        RegisterLocalizedItem(_tsbNext, () => Strings.TsbNextConflict);
+        RegisterLocalizedItem(_tsbTakeBase, () => Strings.TakeBase);
+        RegisterLocalizedItem(_tsbTakeLocal, () => Strings.TakeLocal);
+        RegisterLocalizedItem(_tsbTakeRemote, () => Strings.TakeRemote);
+        RegisterLocalizedItem(_tsbTakeBoth, () => Strings.TakeBoth);
 
         toolStrip.Items.Add(_tsbOpenThree);
         toolStrip.Items.Add(_tsbOpenConflicted);
@@ -276,10 +368,12 @@ public sealed class MergeForm : Form
             AppSettingsStore.Save(_settings);
         };
         var fontSizeHost = new ToolStripControlHost(_nudFontSize) { Margin = new Padding(2, 4, 6, 4) };
+        RegisterLocalizedItem(_tslFontSize, () => Strings.FontSizeLabel);
         toolStrip.Items.Add(_tslFontSize);
         toolStrip.Items.Add(fontSizeHost);
 
-        _tsbInfo.ToolTipText = "About Diff & Merge";
+        RegisterLocalizedToolTip(_tsbInfo, () => Strings.TipAboutButton);
+        RegisterLocalizedItem(_tsbInfo, () => Strings.TsbInfo);
         _tsbInfo.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
         _tsbInfo.TextImageRelation = TextImageRelation.ImageBeforeText;
         _tsbInfo.Padding = new Padding(4, 2, 6, 2);
@@ -292,19 +386,100 @@ public sealed class MergeForm : Form
     private ContextMenuStrip BuildPaneContextMenu(RichTextBox? box)
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add(MakeMenuItem("Take Base", IconFactory.TakeBase(), "Resolve the selected conflict using the BASE content", (_, _) => ApplyResolution(ConflictResolution.Base)));
-        menu.Items.Add(MakeMenuItem("Take Local", IconFactory.TakeLocal(), "Resolve the selected conflict using the LOCAL content", (_, _) => ApplyResolution(ConflictResolution.Local)));
-        menu.Items.Add(MakeMenuItem("Take Remote", IconFactory.TakeRemote(), "Resolve the selected conflict using the REMOTE content", (_, _) => ApplyResolution(ConflictResolution.Remote)));
-        menu.Items.Add(MakeMenuItem("Take Both", IconFactory.TakeBoth(), "Resolve the selected conflict by keeping both LOCAL and REMOTE content", (_, _) => ApplyResolution(ConflictResolution.Both)));
+        menu.Items.Add(MakeMenuItem(() => Strings.TakeBase, IconFactory.TakeBase(), () => Strings.TipTakeBaseShort, (_, _) => ApplyResolution(ConflictResolution.Base)));
+        menu.Items.Add(MakeMenuItem(() => Strings.TakeLocal, IconFactory.TakeLocal(), () => Strings.TipTakeLocalShort, (_, _) => ApplyResolution(ConflictResolution.Local)));
+        menu.Items.Add(MakeMenuItem(() => Strings.TakeRemote, IconFactory.TakeRemote(), () => Strings.TipTakeRemoteShort, (_, _) => ApplyResolution(ConflictResolution.Remote)));
+        menu.Items.Add(MakeMenuItem(() => Strings.TakeBoth, IconFactory.TakeBoth(), () => Strings.TipTakeBoth, (_, _) => ApplyResolution(ConflictResolution.Both)));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(MakeMenuItem("Previous Conflict", IconFactory.PrevConflict(), "Jump to the previous conflict in the list", (_, _) => SelectConflict(SelectedConflictIndex() - 1)));
-        menu.Items.Add(MakeMenuItem("Next Conflict", IconFactory.NextConflict(), "Jump to the next conflict in the list", (_, _) => SelectConflict(SelectedConflictIndex() + 1)));
+        menu.Items.Add(MakeMenuItem(() => Strings.PreviousConflict, IconFactory.PrevConflict(), () => Strings.TipPrevConflict, (_, _) => SelectConflict(SelectedConflictIndex() - 1)));
+        menu.Items.Add(MakeMenuItem(() => Strings.NextConflict, IconFactory.NextConflict(), () => Strings.TipNextConflict, (_, _) => SelectConflict(SelectedConflictIndex() + 1)));
         if (box != null)
         {
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(MakeMenuItem("Copy", IconFactory.Copy(), "Copy the selected text", (_, _) => box.Copy()));
+            menu.Items.Add(MakeMenuItem(() => Strings.Copy, IconFactory.Copy(), () => Strings.TipCopy, (_, _) => box.Copy()));
         }
         return menu;
+    }
+
+    private void ApplyLocalization()
+    {
+        Strings.Language = _settings.Language;
+
+        foreach (var (control, getText) in _localizedControls)
+        {
+            control.Text = getText();
+        }
+
+        foreach (var (item, getText) in _localizedItems)
+        {
+            item.Text = getText();
+        }
+
+        foreach (var (item, getToolTip) in _localizedToolTips)
+        {
+            item.ToolTipText = getToolTip();
+        }
+
+        Text = _session == null
+            ? Strings.AppTitle
+            : string.Format(Strings.WindowTitleFormat, Path.GetFileName(_session.MergedPath));
+
+        _rtbBase.ContextMenuStrip = BuildPaneContextMenu(_rtbBase);
+        _rtbLocal.ContextMenuStrip = BuildPaneContextMenu(_rtbLocal);
+        _rtbRemote.ContextMenuStrip = BuildPaneContextMenu(_rtbRemote);
+        _rtbResult.ContextMenuStrip = BuildPaneContextMenu(_rtbResult);
+        _lstConflicts.ContextMenuStrip = BuildPaneContextMenu(box: null);
+
+        if (_session != null)
+        {
+            RenderSourcePanes();
+            RenderConflictList();
+        }
+
+        UpdateStatus();
+    }
+
+    private void RegisterPaneLocalizedText()
+    {
+        RegisterLocalizedControl(_lblPaneBase, () => Strings.PaneBase);
+        RegisterLocalizedControl(_lblPaneLocal, () => Strings.PaneLocal);
+        RegisterLocalizedControl(_lblPaneRemote, () => Strings.PaneRemote);
+        RegisterLocalizedControl(_lblPaneResult, () => Strings.PaneResult);
+        RegisterLocalizedControl(_lblPaneConflicts, () => Strings.PaneConflicts);
+        RegisterLocalizedControl(_btnHeaderTakeBase, () => Strings.TakeBase);
+        RegisterLocalizedControl(_btnHeaderTakeLocal, () => Strings.TakeLocal);
+        RegisterLocalizedControl(_btnHeaderTakeRemote, () => Strings.TakeRemote);
+        RegisterLocalizedControl(_btnHeaderTakeBoth, () => Strings.TakeBoth);
+    }
+
+    private void RegisterLocalizedControl(Control control, Func<string> getText)
+    {
+        if (!_localizedControls.Any(entry => ReferenceEquals(entry.Control, control)))
+        {
+            _localizedControls.Add((control, getText));
+            control.Text = getText();
+        }
+    }
+
+    private T RegisterLocalizedItem<T>(T item, Func<string> getText) where T : ToolStripItem
+    {
+        if (!_localizedItems.Any(entry => ReferenceEquals(entry.Item, item)))
+        {
+            _localizedItems.Add((item, getText));
+        }
+
+        item.Text = getText();
+        return item;
+    }
+
+    private void RegisterLocalizedToolTip(ToolStripItem item, Func<string> getToolTip)
+    {
+        if (!_localizedToolTips.Any(entry => ReferenceEquals(entry.Item, item)))
+        {
+            _localizedToolTips.Add((item, getToolTip));
+        }
+
+        item.ToolTipText = getToolTip();
     }
 
     private void OnConflictListMouseDown(object? sender, MouseEventArgs e)
@@ -322,23 +497,37 @@ public sealed class MergeForm : Form
 
     private void OnDrawConflictItem(object? sender, DrawItemEventArgs e)
     {
-        if (e.Index < 0 || e.Index >= _conflicts.Count)
+        if (e.Index < 0 || e.Index >= _lstConflicts.Items.Count)
+        {
+            e.DrawBackground();
+            return;
+        }
+
+        if (_lstConflicts.Items[e.Index] is not ConflictHunk hunk)
         {
             e.DrawBackground();
             return;
         }
 
         bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-        var rowColor = selected
-            ? SelectedConflictColor
-            : _conflicts[e.Index].Resolution == ConflictResolution.Unresolved ? ConflictColor : ResolvedColor;
-        using var rowBrush = new SolidBrush(rowColor);
-        e.Graphics.FillRectangle(rowBrush, e.Bounds);
+        var rowColor = hunk.Resolution == ConflictResolution.Unresolved
+            ? PaneTheme.ConflictListUnresolvedColor
+            : PaneTheme.ConflictListResolvedColor;
+        using (var rowBrush = new SolidBrush(rowColor))
+        {
+            e.Graphics.FillRectangle(rowBrush, e.Bounds);
+        }
 
-        var textBounds = new Rectangle(e.Bounds.X + 8, e.Bounds.Y, e.Bounds.Width - 8, e.Bounds.Height);
+        if (selected)
+        {
+            using var accentBrush = new SolidBrush(PaneTheme.SelectedConflictColor);
+            e.Graphics.FillRectangle(accentBrush, e.Bounds.X, e.Bounds.Y, 4, e.Bounds.Height);
+        }
+
+        var textBounds = new Rectangle(e.Bounds.X + (selected ? 12 : 8), e.Bounds.Y, e.Bounds.Width - 12, e.Bounds.Height);
         TextRenderer.DrawText(
             e.Graphics,
-            _lstConflicts.Items[e.Index].ToString(),
+            DescribeConflict(e.Index),
             e.Font ?? _lstConflicts.Font,
             textBounds,
             Color.FromArgb(30, 41, 59),
@@ -364,55 +553,70 @@ public sealed class MergeForm : Form
     {
         MessageBox.Show(
             this,
-            "Diff & Merge Win V10\nGit 3-way merge conflict resolution tool.\n\nCopyright (c) SHKWON(knix008@naver.com)",
-            "About Diff & Merge",
+            Strings.AboutBody,
+            Strings.About,
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
     }
 
-    private static ToolStripMenuItem MakeMenuItem(string text, Image image, string tooltip, EventHandler onClick)
+    private ToolStripMenuItem MakeMenuItem(Func<string> getText, Image image, Func<string> getTooltip, EventHandler onClick)
     {
-        return new ToolStripMenuItem(text, image, onClick) { ToolTipText = tooltip };
+        var item = new ToolStripMenuItem(getText(), image, onClick);
+        RegisterLocalizedItem(item, getText);
+        RegisterLocalizedToolTip(item, getTooltip);
+        return item;
     }
 
-    private const int HeaderHeight = 40;
+    private const int HeaderHeight = 58;
 
-    private static Control MakePaneHeader(string text, Color accent, Button takeButton)
+    private static Control MakePaneHeader(Color accent, Button takeButton, out Label titleLabel)
     {
-        var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Color.White };
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        header.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-
-        var label = new Label
+        var layout = new TableLayoutPanel
         {
-            Text = text,
+            Dock = DockStyle.Fill,
+            BackColor = Color.White,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(6, 8, 8, 8),
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        titleLabel = new Label
+        {
             Dock = DockStyle.Fill,
             Font = new Font("Segoe UI", 9f, FontStyle.Bold),
             ForeColor = accent,
             TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(6, 0, 0, 0),
+            Padding = new Padding(0, 0, 8, 0),
+            Margin = Padding.Empty,
         };
 
-        takeButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        int verticalGap = Math.Max(0, (HeaderHeight - takeButton.PreferredSize.Height) / 2);
-        takeButton.Margin = new Padding(0, verticalGap, 6, 0);
+        takeButton.AutoSize = true;
+        takeButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        takeButton.Margin = Padding.Empty;
+        takeButton.Dock = DockStyle.None;
+        takeButton.Anchor = AnchorStyles.None;
 
-        header.Controls.Add(label, 0, 0);
-        header.Controls.Add(takeButton, 1, 0);
-        return header;
+        layout.Controls.Add(titleLabel, 0, 0);
+        layout.Controls.Add(takeButton, 1, 0);
+        return layout;
     }
 
-    private static Label MakeCardHeader(string text, Color accent) => new()
+    private static Label MakeCardHeader(Color accent, out Label titleLabel)
     {
-        Text = text,
-        Dock = DockStyle.Fill,
-        Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-        ForeColor = accent,
-        BackColor = Color.White,
-        TextAlign = ContentAlignment.MiddleLeft,
-        Padding = new Padding(6, 0, 0, 0),
-    };
+        titleLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            ForeColor = accent,
+            BackColor = Color.White,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(6, 0, 0, 0),
+            Margin = Padding.Empty,
+        };
+        return titleLabel;
+    }
 
     /// <summary>
     /// A bordered "card" with a fixed-height header row and a content row that fills the
@@ -440,20 +644,47 @@ public sealed class MergeForm : Form
         return card;
     }
 
-    private static Control MakePaneCard(string title, Color accent, Button takeButton, LineNumberGutter gutter, RichTextBox box)
+    private static Control MakePaneCard(Color accent, Button takeButton, LineNumberGutter gutter, RichTextBox box, out Label titleLabel)
     {
-        var content = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
-        gutter.Dock = DockStyle.Left;
-        box.Dock = DockStyle.Fill;
-        content.Controls.Add(gutter);
-        content.Controls.Add(box);
+        var content = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = PaneTheme.RowColorEven,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+        };
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
-        return MakeCardWithRows(MakePaneHeader(title, accent, takeButton), content);
+        gutter.Dock = DockStyle.Fill;
+        gutter.Margin = Padding.Empty;
+        box.Dock = DockStyle.Fill;
+        box.Margin = Padding.Empty;
+
+        content.Controls.Add(gutter, 0, 0);
+        content.Controls.Add(box, 1, 0);
+
+        var header = MakePaneHeader(accent, takeButton, out titleLabel);
+        return MakeCardWithRows(header, MakeContentFrame(content));
     }
 
-    private static Button MakeHeaderButton(string text, Image icon) => new IconTextButton
+    private static Panel MakeContentFrame(Control content)
     {
-        Text = text,
+        var frame = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = CardBorderColor,
+            Padding = new Padding(1),
+        };
+        content.Dock = DockStyle.Fill;
+        frame.Controls.Add(content);
+        return frame;
+    }
+
+    private static Button MakeHeaderButton(Image icon) => new IconTextButton
+    {
         Icon = icon,
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
@@ -468,7 +699,7 @@ public sealed class MergeForm : Form
         box.Dock = DockStyle.Fill;
         box.ReadOnly = true;
         box.BorderStyle = BorderStyle.None;
-        box.BackColor = Color.White;
+        box.BackColor = PaneTheme.RowColorEven;
     }
 
     private void ApplyPanePreferences()
@@ -483,6 +714,8 @@ public sealed class MergeForm : Form
         {
             _wordWrapMenuItem.Checked = _settings.WordWrap;
         }
+
+        RefreshPaneContentsAfterLayout();
     }
 
     private void ApplyWindowBounds()
@@ -500,10 +733,20 @@ public sealed class MergeForm : Form
     private void OpenPreferences()
     {
         using var dialog = new PreferencesDialog(_settings);
+        dialog.SettingsChanged += (_, _) =>
+        {
+            ApplyLocalization();
+            ApplyPanePreferences();
+        };
+
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
-            ApplyPanePreferences();
             AppSettingsStore.Save(_settings);
+        }
+        else
+        {
+            ApplyLocalization();
+            ApplyPanePreferences();
         }
     }
 
@@ -528,8 +771,9 @@ public sealed class MergeForm : Form
                     break;
             }
         }
-        catch (IOException)
+        catch (Exception ex)
         {
+            ErrorDialog.Show(this, Strings.ErrorRestoreSession, ex);
         }
     }
 
@@ -591,8 +835,8 @@ public sealed class MergeForm : Form
         }
 
         var choice = MessageBox.Show(
-            "The merge has not been saved. Close without saving?",
-            "Diff & Merge",
+            Strings.CloseWithoutSaving,
+            Strings.AppTitle,
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Warning);
         if (choice == DialogResult.No)
@@ -603,39 +847,54 @@ public sealed class MergeForm : Form
 
     private void OpenThreeFiles()
     {
-        string? basePath = PromptOpenFile("Select the BASE (common ancestor) file");
+        string? basePath = PromptOpenFile(Strings.DialogSelectBaseFile);
         if (basePath == null)
         {
             return;
         }
-        string? localPath = PromptOpenFile("Select the LOCAL (ours) file");
+        string? localPath = PromptOpenFile(Strings.DialogSelectLocalFile);
         if (localPath == null)
         {
             return;
         }
-        string? remotePath = PromptOpenFile("Select the REMOTE (theirs) file");
+        string? remotePath = PromptOpenFile(Strings.DialogSelectRemoteFile);
         if (remotePath == null)
         {
             return;
         }
 
-        using var saveDialog = new SaveFileDialog { Title = "Save merged result as", FileName = Path.GetFileName(localPath) };
+        using var saveDialog = new SaveFileDialog { Title = Strings.DialogSaveMergedAs, FileName = Path.GetFileName(localPath) };
         if (saveDialog.ShowDialog(this) != DialogResult.OK)
         {
             return;
         }
 
-        LoadSession(MergeSession.FromThreeFiles(basePath, localPath, remotePath, saveDialog.FileName));
+        try
+        {
+            LoadSession(MergeSession.FromThreeFiles(basePath, localPath, remotePath, saveDialog.FileName));
+        }
+        catch (Exception ex)
+        {
+            ErrorDialog.Show(this, ex);
+        }
     }
 
     private void OpenConflictedFile()
     {
-        string? path = PromptOpenFile("Select the conflicted file");
+        string? path = PromptOpenFile(Strings.DialogSelectConflictedFile);
         if (path == null)
         {
             return;
         }
-        LoadSession(MergeSession.FromConflictedFile(path, path));
+
+        try
+        {
+            LoadSession(MergeSession.FromConflictedFile(path, path));
+        }
+        catch (Exception ex)
+        {
+            ErrorDialog.Show(this, ex);
+        }
     }
 
     private static string? PromptOpenFile(string title)
@@ -649,11 +908,11 @@ public sealed class MergeForm : Form
         _session = session;
         _conflicts = session.Document.Conflicts.ToList();
         Saved = false;
-        Text = $"Diff & Merge - {Path.GetFileName(session.MergedPath)}";
+        Text = string.Format(Strings.WindowTitleFormat, Path.GetFileName(session.MergedPath));
 
+        RenderConflictList();
         RenderSourcePanes();
         RenderResultPane();
-        RenderConflictList();
         UpdateStatus();
         UpdateActionItemsEnabled();
         SaveLastSession();
@@ -666,18 +925,18 @@ public sealed class MergeForm : Form
 
     private void RenderSourcePanes()
     {
-        _rtbBase.Clear();
-        _rtbLocal.Clear();
-        _rtbRemote.Clear();
+        _rtbBase.ClearContent();
+        _rtbLocal.ClearContent();
+        _rtbRemote.ClearContent();
         int baseLine = 0, localLine = 0, remoteLine = 0;
 
         foreach (var region in _session!.Document.Regions)
         {
             if (region.Hunk is { } hunk)
             {
-                AppendLines(_rtbBase, hunk.HasBase ? hunk.BaseLines : new List<string> { "(base unavailable)" }, ConflictColor, ref baseLine);
-                AppendLines(_rtbLocal, hunk.LocalLines, ConflictColor, ref localLine);
-                AppendLines(_rtbRemote, hunk.RemoteLines, ConflictColor, ref remoteLine);
+                AppendLines(_rtbBase, hunk.HasBase ? hunk.BaseLines : new List<string> { Strings.BaseUnavailable }, PaneTheme.ConflictColor, ref baseLine);
+                AppendLines(_rtbLocal, hunk.LocalLines, PaneTheme.ConflictColor, ref localLine);
+                AppendLines(_rtbRemote, hunk.RemoteLines, PaneTheme.ConflictColor, ref remoteLine);
             }
             else if (region.CleanLines != null)
             {
@@ -687,9 +946,14 @@ public sealed class MergeForm : Form
             }
         }
 
+        PadEmptyViewportLines(_rtbBase, ref baseLine);
+        PadEmptyViewportLines(_rtbLocal, ref localLine);
+        PadEmptyViewportLines(_rtbRemote, ref remoteLine);
+
         ResetScrollToTop(_rtbBase);
         ResetScrollToTop(_rtbLocal);
         ResetScrollToTop(_rtbRemote);
+        InvalidateGutters(_gutterBase, _gutterLocal, _gutterRemote);
     }
 
     private static void ResetScrollToTop(SyncRichTextBox box)
@@ -700,7 +964,7 @@ public sealed class MergeForm : Form
     private void RenderResultPane()
     {
         _resultHunkOffsets.Clear();
-        _rtbResult.Clear();
+        _rtbResult.ClearContent();
         int resultLine = 0;
 
         foreach (var region in _session!.Document.Regions)
@@ -708,7 +972,7 @@ public sealed class MergeForm : Form
             if (region.Hunk is { } hunk)
             {
                 _resultHunkOffsets[hunk] = _rtbResult.TextLength;
-                var color = hunk.Resolution == ConflictResolution.Unresolved ? ConflictColor : ResolvedColor;
+                var color = hunk.Resolution == ConflictResolution.Unresolved ? PaneTheme.ConflictColor : PaneTheme.ResolvedColor;
                 AppendLines(_rtbResult, hunk.GetResolvedLines(), color, ref resultLine);
             }
             else if (region.CleanLines != null)
@@ -717,47 +981,99 @@ public sealed class MergeForm : Form
             }
         }
 
+        PadEmptyViewportLines(_rtbResult, ref resultLine);
+
         ResetScrollToTop(_rtbResult);
+        InvalidateGutters(_gutterResult);
     }
 
-    private void RenderConflictList()
+    private void RenderConflictList(int? preserveSelectedIndex = null)
     {
-        _lstConflicts.Items.Clear();
-        for (int i = 0; i < _conflicts.Count; i++)
+        int selected = preserveSelectedIndex ?? _lstConflicts.SelectedIndex;
+        _lstConflicts.BeginUpdate();
+        try
         {
-            _lstConflicts.Items.Add(DescribeConflict(i));
+            _lstConflicts.Items.Clear();
+            foreach (var hunk in _conflicts)
+            {
+                _lstConflicts.Items.Add(hunk);
+            }
         }
+        finally
+        {
+            _lstConflicts.EndUpdate();
+        }
+
+        if (selected >= 0 && selected < _conflicts.Count)
+        {
+            _lstConflicts.SelectedIndex = selected;
+        }
+
+        _lstConflicts.Invalidate();
     }
 
-    private string DescribeConflict(int index) => $"Conflict #{index + 1} - {_conflicts[index].Resolution}";
+    private string DescribeConflict(int index) => Strings.FormatConflict(index, _conflicts[index].Resolution);
 
-    private static void AppendLines(RichTextBox box, IEnumerable<string> lines, Color? backColor, ref int lineIndex)
+    private static void AppendLines(SyncRichTextBox box, IEnumerable<string> lines, Color? backColor, ref int lineIndex)
     {
-        // RichTextBox.SelectionBackColor only paints behind the actual characters, not the
-        // rest of the line out to the right edge. Padding with trailing spaces (when not
-        // word-wrapping) extends the colored selection far enough to look like a full-width
-        // row background instead of a highlight that stops where the text ends.
-        // Stay strictly under the visible width: padding past the right edge would make the
-        // RichTextBox's content wider than the viewport, which makes it auto-scroll
-        // horizontally while the long padded lines are being appended (the caret trails the
-        // text being typed) and that scroll position doesn't reliably reset afterwards,
-        // clipping the start of every line behind the gutter.
-        int padTo = box.WordWrap ? 0 : Math.Max(0, (int)(box.ClientSize.Width / (float)Math.Max(1, MeasureSpaceWidth(box))) - 1);
-
         foreach (string line in lines)
         {
-            string paddedLine = padTo > line.Length ? line.PadRight(padTo) : line;
+            var rowColor = backColor ?? PaneTheme.ZebraForLine(lineIndex);
+            box.AddLineBackground(rowColor);
             int start = box.TextLength;
-            box.AppendText(paddedLine + Environment.NewLine);
-            var rowColor = backColor ?? (lineIndex % 2 == 0 ? Color.White : ZebraColor);
-            box.Select(start, box.TextLength - start);
-            box.SelectionBackColor = rowColor;
-            box.Select(box.TextLength, 0);
+            box.AppendText(line + Environment.NewLine);
+            RichTextRowBackground.Apply(box, start, box.TextLength - start, rowColor);
             lineIndex++;
+        }
+
+        box.Invalidate();
+    }
+
+    private static void PadEmptyViewportLines(SyncRichTextBox box, ref int lineIndex)
+    {
+        int lineHeight = Math.Max(1, TextRenderer.MeasureText("Ag", box.Font).Height);
+        int visibleLines = Math.Max(1, box.ClientSize.Height / lineHeight + 1);
+        int currentLines = box.Lines.Length;
+        if (currentLines >= visibleLines)
+        {
+            return;
+        }
+
+        AppendLines(box, Enumerable.Repeat(string.Empty, visibleLines - currentLines), null, ref lineIndex);
+    }
+
+    private static int GetFirstVisibleLine(RichTextBox box)
+    {
+        if (!box.IsHandleCreated)
+        {
+            return 0;
+        }
+
+        return box.GetLineFromCharIndex(box.GetCharIndexFromPosition(new Point(1, 1)));
+    }
+
+    private static void ScrollToLine(RichTextBox box, int line)
+    {
+        if (!box.IsHandleCreated || line <= 0)
+        {
+            return;
+        }
+
+        int charIndex = box.GetFirstCharIndexFromLine(line);
+        if (charIndex >= 0)
+        {
+            box.Select(charIndex, 0);
+            box.ScrollToCaret();
         }
     }
 
-    private static int MeasureSpaceWidth(RichTextBox box) => TextRenderer.MeasureText(" ", box.Font).Width;
+    private static void InvalidateGutters(params LineNumberGutter[] gutters)
+    {
+        foreach (var gutter in gutters)
+        {
+            gutter.Invalidate();
+        }
+    }
 
     private int SelectedConflictIndex() => _lstConflicts.SelectedIndex;
 
@@ -805,11 +1121,11 @@ public sealed class MergeForm : Form
     {
         if (_session == null)
         {
-            _statusLabel.Text = "Open a base/local/remote set or a conflicted file to begin.";
+            _statusLabel.Text = Strings.StatusNoSession;
             return;
         }
         int resolved = _conflicts.Count(c => c.Resolution != ConflictResolution.Unresolved);
-        _statusLabel.Text = $"{resolved} of {_conflicts.Count} conflicts resolved - {_session.MergedPath}";
+        _statusLabel.Text = Strings.FormatStatusResolved(resolved, _conflicts.Count, _session.MergedPath);
     }
 
     private void UpdateActionItemsEnabled()
@@ -837,10 +1153,17 @@ public sealed class MergeForm : Form
             return;
         }
 
-        File.WriteAllText(_session.MergedPath, _rtbResult.Text);
-        Saved = true;
-        UpdateStatus();
-        MessageBox.Show($"Saved to {_session.MergedPath}", "Diff & Merge", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        try
+        {
+            File.WriteAllText(_session.MergedPath, _rtbResult.Text);
+            Saved = true;
+            UpdateStatus();
+            MessageBox.Show(string.Format(Strings.SavedToFormat, _session.MergedPath), Strings.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorDialog.Show(this, Strings.ErrorSave, ex);
+        }
     }
 
     private void SaveAs()
@@ -861,9 +1184,16 @@ public sealed class MergeForm : Form
             return;
         }
 
-        File.WriteAllText(dialog.FileName, _rtbResult.Text);
-        Saved = true;
-        UpdateStatus();
+        try
+        {
+            File.WriteAllText(dialog.FileName, _rtbResult.Text);
+            Saved = true;
+            UpdateStatus();
+        }
+        catch (Exception ex)
+        {
+            ErrorDialog.Show(this, Strings.ErrorSave, ex);
+        }
     }
 
     private bool ConfirmUnresolvedConflicts()
@@ -875,8 +1205,8 @@ public sealed class MergeForm : Form
         }
 
         var choice = MessageBox.Show(
-            $"{unresolved} conflict(s) are still unresolved. They will be saved with <<<<<<< conflict markers. Save anyway?",
-            "Diff & Merge",
+            string.Format(Strings.UnresolvedSaveFormat, unresolved),
+            Strings.AppTitle,
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Warning);
         return choice == DialogResult.Yes;

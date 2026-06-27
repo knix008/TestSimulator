@@ -6,13 +6,17 @@ namespace DiffMergeWinV10.App.Controls;
 /// </summary>
 public sealed class LineNumberGutter : Control
 {
+    private static readonly Color GutterBackColor = Color.FromArgb(241, 245, 249);
+    private static readonly Color GutterTextColor = Color.FromArgb(100, 116, 139);
+    private static readonly Color GutterDividerColor = Color.FromArgb(226, 232, 240);
+
     private RichTextBox? _target;
 
     public LineNumberGutter()
     {
         Width = 44;
         DoubleBuffered = true;
-        BackColor = Color.FromArgb(241, 245, 249);
+        BackColor = GutterBackColor;
     }
 
     public RichTextBox? Target
@@ -41,7 +45,7 @@ public sealed class LineNumberGutter : Control
         int firstLine = box.GetLineFromCharIndex(firstCharIndex);
         int totalLines = box.Lines.Length == 0 ? 1 : box.Lines.Length;
 
-        using var brush = new SolidBrush(Color.FromArgb(100, 116, 139));
+        using var brush = new SolidBrush(GutterTextColor);
         for (int line = firstLine; line < totalLines; line++)
         {
             int charIndex = box.GetFirstCharIndexFromLine(line);
@@ -61,7 +65,7 @@ public sealed class LineNumberGutter : Control
             e.Graphics.DrawString(text, box.Font, brush, Width - size.Width - 6, position.Y);
         }
 
-        using var dividerPen = new Pen(Color.FromArgb(226, 232, 240));
+        using var dividerPen = new Pen(GutterDividerColor);
         e.Graphics.DrawLine(dividerPen, Width - 1, 0, Width - 1, Height);
     }
 

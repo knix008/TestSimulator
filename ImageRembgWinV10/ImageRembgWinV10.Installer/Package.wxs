@@ -1,109 +1,217 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
-     xmlns:netfx="http://wixtoolset.org/schemas/v4/wxs/netfx"
-     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
-
-  <Package
-    Name="$(ProductName)"
-    Manufacturer="$(Manufacturer)"
-    Version="$(ProductVersion)"
-    UpgradeCode="A4E8B2C1-7F3D-4A91-9C6E-2B5D8F1A0E47"
-    Scope="perMachine"
-    Compressed="yes">
-
-    <SummaryInformation Description="Image Rembg background removal tool installer" />
-
-    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
-
-    <MediaTemplate EmbedCab="yes" />
-
-    <Icon Id="AppIcon.ico" SourceFile="..\Assets\AppIcon.ico" />
-    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
-
-    <netfx:DotNetCompatibilityCheck
-      Property="DOTNETDESKTOP10"
-      RuntimeType="desktop"
-      Version="10.0.0.0"
-      Platform="x64"
-      RollForward="latestMajor" />
-
-    <Launch Condition="Installed OR DOTNETDESKTOP10" Message="!(loc.DotNetMissingError)" />
-
-    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
-
-    <ui:WixUI Id="WixUI_Mondo" InstallDirectory="INSTALLFOLDER" />
-
-    <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="Image Rembg" />
-    </StandardDirectory>
-
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="ApplicationProgramsFolder" Name="Image Rembg">
-        <Component Id="StartMenuShortcutComponent" Guid="C8E4F2A1-6B3D-4C9E-8F2A-1D5B7C9E4A20">
-          <Shortcut
-            Id="StartMenuShortcut"
-            Name="$(ProductName)"
-            Description="Remove image backgrounds interactively"
-            Target="[INSTALLFOLDER]ImageRembgWinV10.exe"
-            WorkingDirectory="INSTALLFOLDER"
-            Icon="AppIcon.ico" />
-          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
-          <RegistryValue
-            Root="HKCU"
-            Key="Software\ImageRembg"
-            Name="StartMenuShortcut"
-            Type="integer"
-            Value="1"
-            KeyPath="yes" />
-        </Component>
-      </Directory>
-    </StandardDirectory>
-
-    <StandardDirectory Id="DesktopFolder">
-      <Component Id="DesktopShortcutComponent" Guid="D9F5A3B2-7C4E-4D0F-9A3B-2E6C8D0F5B31">
-        <Shortcut
-          Id="DesktopShortcut"
-          Name="$(ProductName)"
-          Description="Remove image backgrounds interactively"
-          Target="[INSTALLFOLDER]ImageRembgWinV10.exe"
-          WorkingDirectory="INSTALLFOLDER"
-          Icon="AppIcon.ico" />
-        <RegistryValue
-          Root="HKCU"
-          Key="Software\ImageRembg"
-          Name="DesktopShortcut"
-          Type="integer"
-          Value="1"
-          KeyPath="yes" />
-      </Component>
-    </StandardDirectory>
-
-    <Feature
-      Id="ProductFeature"
-      Title="$(ProductName)"
-      Description="!(loc.ProductFeatureDescription)"
-      Level="1"
-      Display="expand"
-      AllowAbsent="no">
-      <ComponentGroupRef Id="AppFiles" />
-      <Feature
-        Id="StartMenuShortcutFeature"
-        Title="!(loc.StartMenuShortcutFeatureTitle)"
-        Description="!(loc.StartMenuShortcutFeatureDescription)"
-        Level="1"
-        AllowAbsent="yes">
-        <ComponentRef Id="StartMenuShortcutComponent" />
-      </Feature>
-      <Feature
-        Id="DesktopShortcutFeature"
-        Title="!(loc.DesktopShortcutFeatureTitle)"
-        Description="!(loc.DesktopShortcutFeatureDescription)"
-        Level="1"
-        AllowAbsent="yes">
-        <ComponentRef Id="DesktopShortcutComponent" />
-      </Feature>
-    </Feature>
-  </Package>
-</Wix>
-
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+
+     xmlns:netfx="http://wixtoolset.org/schemas/v4/wxs/netfx"
+
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+
+
+  <Package
+
+    Name="$(ProductName)"
+
+    Manufacturer="$(Manufacturer)"
+
+    Version="$(ProductVersion)"
+
+    UpgradeCode="A4E8B2C1-7F3D-4A91-9C6E-2B5D8F1A0E47"
+
+    Scope="perMachine"
+
+    Compressed="yes">
+
+
+
+    <SummaryInformation Description="Image Rembg background removal tool installer" />
+
+
+
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
+
+
+
+    <MediaTemplate EmbedCab="yes" />
+
+
+
+    <Icon Id="AppIcon.ico" SourceFile="..\Assets\AppIcon.ico" />
+
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+
+
+
+    <netfx:DotNetCompatibilityCheck
+
+      Property="DOTNETDESKTOP10"
+
+      RuntimeType="desktop"
+
+      Version="10.0.0.0"
+
+      Platform="x64"
+
+      RollForward="latestMajor" />
+
+
+
+    <Launch Condition="Installed OR DOTNETDESKTOP10" Message="!(loc.DotNetMissingError)" />
+
+
+
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+
+
+    <ui:WixUI Id="WixUI_Mondo" InstallDirectory="INSTALLFOLDER" />
+
+
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+
+      <Directory Id="INSTALLFOLDER" Name="Image Rembg" />
+
+    </StandardDirectory>
+
+
+
+    <StandardDirectory Id="ProgramMenuFolder">
+
+      <Directory Id="ApplicationProgramsFolder" Name="Image Rembg">
+
+        <Component Id="StartMenuShortcutComponent" Guid="C8E4F2A1-6B3D-4C9E-8F2A-1D5B7C9E4A20">
+
+          <Shortcut
+
+            Id="StartMenuShortcut"
+
+            Name="$(ProductName)"
+
+            Description="Remove image backgrounds interactively"
+
+            Target="[INSTALLFOLDER]ImageRembgWinV10.exe"
+
+            WorkingDirectory="INSTALLFOLDER"
+
+            Icon="AppIcon.ico" />
+
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+
+          <RegistryValue
+
+            Root="HKCU"
+
+            Key="Software\ImageRembg"
+
+            Name="StartMenuShortcut"
+
+            Type="integer"
+
+            Value="1"
+
+            KeyPath="yes" />
+
+        </Component>
+
+      </Directory>
+
+    </StandardDirectory>
+
+
+
+    <StandardDirectory Id="DesktopFolder">
+
+      <Component Id="DesktopShortcutComponent" Guid="D9F5A3B2-7C4E-4D0F-9A3B-2E6C8D0F5B31">
+
+        <Shortcut
+
+          Id="DesktopShortcut"
+
+          Name="$(ProductName)"
+
+          Description="Remove image backgrounds interactively"
+
+          Target="[INSTALLFOLDER]ImageRembgWinV10.exe"
+
+          WorkingDirectory="INSTALLFOLDER"
+
+          Icon="AppIcon.ico" />
+
+        <RegistryValue
+
+          Root="HKCU"
+
+          Key="Software\ImageRembg"
+
+          Name="DesktopShortcut"
+
+          Type="integer"
+
+          Value="1"
+
+          KeyPath="yes" />
+
+      </Component>
+
+    </StandardDirectory>
+
+
+
+    <Feature
+
+      Id="ProductFeature"
+
+      Title="$(ProductName)"
+
+      Description="!(loc.ProductFeatureDescription)"
+
+      Level="1"
+
+      Display="expand"
+
+      AllowAbsent="no">
+
+      <ComponentGroupRef Id="AppFiles" />
+
+      <Feature
+
+        Id="StartMenuShortcutFeature"
+
+        Title="!(loc.StartMenuShortcutFeatureTitle)"
+
+        Description="!(loc.StartMenuShortcutFeatureDescription)"
+
+        Level="1"
+
+        AllowAbsent="yes">
+
+        <ComponentRef Id="StartMenuShortcutComponent" />
+
+      </Feature>
+
+      <Feature
+
+        Id="DesktopShortcutFeature"
+
+        Title="!(loc.DesktopShortcutFeatureTitle)"
+
+        Description="!(loc.DesktopShortcutFeatureDescription)"
+
+        Level="1"
+
+        AllowAbsent="yes">
+
+        <ComponentRef Id="DesktopShortcutComponent" />
+
+      </Feature>
+
+    </Feature>
+
+  </Package>
+
+</Wix>
+
+

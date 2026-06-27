@@ -30,6 +30,7 @@ public sealed class AppSettings
 
     public float PaneFontSize { get; set; } = 9.5f;
     public bool WordWrap { get; set; }
+    public AppLanguage Language { get; set; } = AppLanguage.Korean;
 
     public LastSessionInfo? LastSession { get; set; }
 }

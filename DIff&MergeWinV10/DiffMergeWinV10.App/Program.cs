@@ -1,3 +1,6 @@
+using DiffMergeWinV10.App.Dialogs;
+using DiffMergeWinV10.App.Services;
+
 namespace DiffMergeWinV10.App;
 
 internal static class Program
@@ -14,6 +17,9 @@ internal static class Program
     private static int Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+        Strings.Language = AppSettingsStore.Load().Language;
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        Application.ThreadException += (_, e) => ErrorDialog.Show(null, e.Exception);
 
         MergeForm form;
         try
@@ -22,7 +28,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Diff & Merge", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ErrorDialog.Show(null, ex);
             return 1;
         }
 
@@ -37,8 +43,7 @@ internal static class Program
             4 => MergeForm.FromMergeTool(baseFile: args[0], localFile: args[1], remoteFile: args[2], mergedFile: args[3]),
             1 => MergeForm.FromConflictedFile(args[0]),
             0 => MergeForm.Standalone(),
-            _ => throw new ArgumentException(
-                "Usage: DiffMergeWinV10.App.exe [BASE LOCAL REMOTE MERGED] | [conflicted-file] | (no args for standalone mode)"),
+            _ => throw new ArgumentException(Strings.UsageError),
         };
     }
 }

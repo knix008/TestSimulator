@@ -1,8 +1,22 @@
-bin/
-obj/
+# Build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+build-check/
+publish/
+**/publish/
+
+# Visual Studio / Rider
 .vs/
+.idea/
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.DotSettings.user
+
+# Build artifacts
 *.cache
 *.log
 *.tmp
@@ -12,10 +26,32 @@ obj/
 *.aps
 *.nupkg
 *.snupkg
-artifacts/
+*.msi
+UpgradeLog.htm
+UpgradeLog*.htm
+
+# WiX / installer intermediates
+*.wixobj
+*.wixpdb
+
+# Test / coverage
 TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+
+# Local / AI tooling (not part of the product)
+.claude/
+.cursor/
 user-settings.json
+
+# Installer (WiX) — MSI output and intermediate build
 installer/bin/
 installer/obj/
-*.msi
-publish/
