@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <Company>ImageRembg</Company>
+    <Product>Image Rembg</Product>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <Copyright>Copyright (c) ImageRembg</Copyright>
+  </PropertyGroup>
+</Project>

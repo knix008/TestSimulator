@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Diff &amp; Merge Win V10"
+           Manufacturer="DiffMergeWinV10"
+           Version="1.0.0.0"
+           Scope="perMachine"
+           InstallerVersion="500"
+           UpgradeCode="EAA54A71-5AF8-4DDB-8923-34AE537B4ACF">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\DiffMergeWinV10.App\DiffMergeWinV10.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="DiffMergeWinV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuAppFolder" Name="Diff &amp; Merge Win V10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="ProductFeature" Title="Diff &amp; Merge Win V10" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <Feature Id="StartMenuShortcutFeature"
+             Title="Start Menu Shortcut"
+             Description="Create a Start Menu shortcut."
+             Level="1"
+             AllowAbsent="yes">
+      <ComponentRef Id="StartMenuShortcutComponent" />
+    </Feature>
+
+    <Feature Id="DesktopShortcutFeature"
+             Title="Desktop Shortcut"
+             Description="Create a Desktop shortcut."
+             Level="1"
+             AllowAbsent="yes">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+  </Package>
+
+  <!-- Application files from publish output -->
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Files Include="..\DiffMergeWinV10.App\bin\Release\net8.0-windows\win-x64\publish\**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- Start Menu shortcut -->
+  <Fragment>
+    <DirectoryRef Id="ProgramMenuAppFolder">
+      <Component Id="StartMenuShortcutComponent" Guid="*">
+        <Shortcut Id="StartMenuShortcut"
+                  Name="Diff &amp; Merge Win V10"
+                  Description="Git 3-way merge conflict resolution tool"
+                  Target="[INSTALLFOLDER]DiffMergeWinV10.App.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RemoveFolder Id="ProgramMenuAppFolderRemove" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\DiffMergeWinV10"
+                       Name="StartMenuShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <!-- Desktop shortcut -->
+  <Fragment>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut Id="DesktopShortcut"
+                  Name="Diff &amp; Merge Win V10"
+                  Description="Git 3-way merge conflict resolution tool"
+                  Target="[INSTALLFOLDER]DiffMergeWinV10.App.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\DiffMergeWinV10"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+
+</Wix>

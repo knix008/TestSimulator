@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>DiffMergeWinV10.ico</ApplicationIcon>
+    <AssemblyTitle>Diff &amp; Merge Win V10</AssemblyTitle>
+    <Product>Diff &amp; Merge Win V10</Product>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <InstallerProjectPath>$(MSBuildProjectDirectory)\..\installer\DiffMergeWinV10.Installer.wixproj</InstallerProjectPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="DiffMergeWinV10.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="dotnet build &quot;$(InstallerProjectPath)&quot; -c Release" />
+  </Target>
+
+</Project>

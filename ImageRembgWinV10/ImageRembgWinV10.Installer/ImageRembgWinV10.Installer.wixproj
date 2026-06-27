@@ -1,0 +1,35 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputName>ImageRembgWinV10</OutputName>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <DefineConstants>
+      ProductVersion=$(AssemblyVersion);
+      ProductName=$(Product);
+      Manufacturer=$(Company);
+    </DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImageRembgWinV10.csproj" Publish="true" PublishProfile="Installer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <HarvestDirectory Include="$(IntermediateOutputPath)publish\ImageRembgWinV10">
+      <ComponentGroupName>AppFiles</ComponentGroupName>
+      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+      <SuppressCom>true</SuppressCom>
+    </HarvestDirectory>
+    <BindPath Include="$(IntermediateOutputPath)publish\ImageRembgWinV10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Netfx.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+</Project>

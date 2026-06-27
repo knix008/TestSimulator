@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="DiffMergeWinV10.App/DiffMergeWinV10.App.csproj" />
+  <Project Path="installer/DiffMergeWinV10.Installer.wixproj" />
+</Solution>

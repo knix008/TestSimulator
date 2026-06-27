@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-us" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="DowngradeError" Value="A newer version of Image Rembg is already installed." />
+  <String Id="DotNetMissingError" Value="This application requires the .NET 10 Desktop Runtime (x64). Please install it and run setup again." />
+  <String Id="ProductFeatureDescription" Value="Interactive image background removal application." />
+  <String Id="StartMenuShortcutFeatureTitle" Value="Start Menu shortcut" />
+  <String Id="StartMenuShortcutFeatureDescription" Value="Create a shortcut in the Start Menu." />
+  <String Id="DesktopShortcutFeatureTitle" Value="Desktop shortcut" />
+  <String Id="DesktopShortcutFeatureDescription" Value="Create a shortcut on the Desktop." />
+</WixLocalization>
