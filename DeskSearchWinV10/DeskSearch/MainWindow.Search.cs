@@ -189,26 +189,37 @@ public partial class MainWindow
 
             if (!indexComplete)
             {
-                lock (_searchSessionLock)
+                if (!_indexService.HasStableSearchIndex)
                 {
-                    if (!ReferenceEquals(_searchSession, session))
+                    lock (_searchSessionLock)
+                    {
+                        if (!ReferenceEquals(_searchSession, session))
+                            return;
+
+                        session.LastScannedCount = indexCount;
+                        ResetSearchScanCursor(session);
+                    }
+
+                    WaitForIndexGrowthOrCompletion(session, generation);
+                    if (generation != Volatile.Read(ref _searchGeneration))
                         return;
 
-                    session.LastScannedCount = indexCount;
-                    ResetSearchScanCursor(session);
-                }
+                    lock (_searchSessionLock)
+                    {
+                        if (!ReferenceEquals(_searchSession, session))
+                            return;
+                    }
 
-                WaitForIndexGrowthOrCompletion(session, generation);
-                if (generation != Volatile.Read(ref _searchGeneration))
-                    return;
+                    continue;
+                }
 
                 lock (_searchSessionLock)
                 {
-                    if (!ReferenceEquals(_searchSession, session))
-                        return;
+                    if (ReferenceEquals(_searchSession, session))
+                        session.IsComplete = true;
                 }
 
-                continue;
+                break;
             }
 
             if (indexCount > passStartCount)
@@ -261,6 +272,9 @@ public partial class MainWindow
 
             var currentCount = _indexService.Count;
             if (currentCount > session.LastScannedCount)
+                return;
+
+            if (_indexService.HasStableSearchIndex && _indexService.IsScanning)
                 return;
 
             if (_indexService.IsScanComplete && !_indexService.IsScanning)

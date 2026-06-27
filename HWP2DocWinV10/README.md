@@ -50,9 +50,9 @@ Release 빌드는 경고를 오류로 처리합니다(`TreatWarningsAsErrors=tru
 | 설치 위치 | `C:\Program Files\HWP2Doc\` |
 | 바로 가기 | 시작 메뉴 (기본), 바탕 화면 (선택) |
 | 사전 요구 | .NET 10 Desktop Runtime, WebView2 Runtime |
-| 번들 도구 | `Tools\rhwp\rhwp.exe` (표·그림 변환) |
+| 번들 도구 | `Tools\rhwp\rhwp.exe` (필수), `Tools\hwp2md-*\hwp2md.exe` (빌드 시 존재하면 포함) |
 
-`hwp2md` 엔진 바이너리는 MSI에 **포함되지 않습니다**. 개발·비교용으로 별도 설치합니다.
+`hwp2md` 엔진은 Release 빌드 시 `Tools\hwp2md-*\hwp2md.exe`가 있으면 MSI에 **함께 포함**됩니다. 없으면 MSI 빌드 시 경고만 표시되고 unhwp·rhwp만 번들됩니다.
 
 MSI만 별도로 빌드하려면:
 

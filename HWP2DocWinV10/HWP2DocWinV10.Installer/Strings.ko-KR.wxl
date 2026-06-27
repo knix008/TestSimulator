@@ -12,7 +12,13 @@
   <String Id="FeatureDesktop"         Value="바탕 화면 바로 가기" />
   <String Id="FeatureDesktopDesc"     Value="바탕 화면에 HWP2Doc 바로 가기를 추가합니다. (프로그램 아이콘 사용)" />
 
+  <String Id="ConfirmRemoveDlgTitle"       Value="기존 설치 확인" />
+  <String Id="ConfirmRemoveDlgDescription" Value="HWP2Doc이(가) 이미 설치되어 있습니다.&#xD;&#xA;&#xD;&#xA;기존 설치를 제거한 후 새로 설치하시겠습니까?" />
+  <String Id="ConfirmRemoveDlgYes"         Value="예" />
+  <String Id="ConfirmRemoveDlgNo"          Value="아니오" />
+
   <String Id="DowngradeError"   Value="더 최신 버전의 HWP2Doc이 이미 설치되어 있습니다." />
+  <String Id="CloseAppDescription" Value="HWP2Doc을(를) 종료해야 설치를 계속할 수 있습니다." />
   <String Id="DotNetRequired"   Value=".NET 10 Desktop Runtime이 필요합니다. https://dotnet.microsoft.com/download 에서 설치해 주세요." />
   <String Id="WebView2Required" Value="Microsoft Edge WebView2 Runtime이 필요합니다. PDF/미리보기 기능에 사용됩니다." />
 

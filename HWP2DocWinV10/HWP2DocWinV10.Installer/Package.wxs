@@ -1,5 +1,6 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
   <Package
     Name="!(loc.AppName)"
@@ -10,13 +11,24 @@
     Language="1042"
     Scope="perMachine">
 
+    <!-- 사용자 확인(ConfirmRemoveDlg) 후 기존 설치를 제거하고 새 파일을 설치합니다. -->
     <MajorUpgrade
       Schedule="afterInstallInitialize"
+      AllowSameVersionUpgrades="yes"
       DowngradeErrorMessage="!(loc.DowngradeError)" />
+
+    <Property Id="WIX_CLEANUP_PATH" Secure="yes">
+      <RegistrySearch
+        Id="InstallPathSearch"
+        Root="HKLM"
+        Key="Software\!(loc.Manufacturer)\!(loc.AppName)"
+        Name="InstallPath"
+        Type="raw" />
+    </Property>
 
     <MediaTemplate EmbedCab="yes" />
 
-    <ui:WixUI Id="WixUI_Mondo" />
+    <ui:WixUI Id="WixUI_Mondo_HWP2Doc" />
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 
@@ -36,6 +48,8 @@
         <Exclude Files="$(var.HWP2DocWinV10.TargetDir)runtimes\osx-arm64\**" />
         <Exclude Files="$(var.HWP2DocWinV10.TargetDir)runtimes\osx-x64\**" />
       </Files>
+
+      <ComponentRef Id="InstallFolderCleanup" />
 
       <Feature
         Id="FeatureStartMenu"
@@ -59,15 +73,52 @@
   </Package>
 
   <Fragment>
+    <util:CloseApplication
+      Id="CloseRunningApp"
+      Target="HWP2DocWinV10.exe"
+      Description="!(loc.CloseAppDescription)"
+      CloseMessage="yes"
+      RebootPrompt="no"
+      TerminateProcess="1" />
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="InstallFolderCleanup" Guid="B4E8F1A2-3C5D-4E6F-9012-ABCDEF123456">
+        <RegistryValue
+          Root="HKLM"
+          Key="Software\!(loc.Manufacturer)\!(loc.AppName)"
+          Name="InstallPath"
+          Type="string"
+          Value="[INSTALLFOLDER]"
+          KeyPath="yes" />
+        <RemoveFolder Id="RemoveInstallFolderMarker" Directory="INSTALLFOLDER" On="uninstall" />
+        <util:RemoveFolderEx
+          Id="RemoveInstallFolderEx"
+          On="uninstall"
+          Property="WIX_CLEANUP_PATH" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <Fragment>
+    <!-- Desktop Runtime 10.x: WOW6432Node sharedfx (실제 설치 환경) -->
     <Property Id="DOTNET10DESKTOP">
       <RegistrySearch
         Root="HKLM"
-        Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App"
-        Name="10.0.0"
+        Key="SOFTWARE\WOW6432Node\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App"
+        Name="10.0.9"
+        Type="raw" />
+    </Property>
+    <Property Id="DOTNET10DESKTOP_ALT">
+      <RegistrySearch
+        Root="HKLM"
+        Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedhost"
+        Name="Version"
         Type="raw" />
     </Property>
     <Launch
-      Condition="Installed OR DOTNET10DESKTOP"
+      Condition="Installed OR DOTNET10DESKTOP OR (DOTNET10DESKTOP_ALT &gt;= &quot;10.0.0&quot;)"
       Message="!(loc.DotNetRequired)" />
 
     <Property Id="WEBVIEW2INSTALLED">

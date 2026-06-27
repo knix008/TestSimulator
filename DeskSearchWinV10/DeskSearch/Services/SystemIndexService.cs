@@ -102,6 +102,8 @@ public sealed class SystemIndexService : IDisposable
                     foreach (var root in probe.LoadIndexedRoots())
                         _indexedRoots.Add(root);
                 }
+
+                EnableSearchIfNeeded();
             }
             else
             {
@@ -137,11 +139,16 @@ public sealed class SystemIndexService : IDisposable
         Path.Combine(_databaseFolder, IndexStoragePolicy.BuildingDatabaseFileName);
 
     /// <summary>True when a completed <see cref="IndexStoragePolicy.DatabaseFileName"/> exists with entries.</summary>
-    private bool HasCompletedSearchIndex()
+    public bool HasStableSearchIndex
     {
-        lock (_indexStoreSwapLock)
-            return _indexStore is not null && _indexStore.Count > 0;
+        get
+        {
+            lock (_indexStoreSwapLock)
+                return _indexStore is not null && _indexStore.Count > 0;
+        }
     }
+
+    private bool HasCompletedSearchIndex() => HasStableSearchIndex;
 
     private bool CanUpdateLiveSearchIndex() =>
         !_isScanning && HasCompletedSearchIndex();
@@ -239,7 +246,7 @@ public sealed class SystemIndexService : IDisposable
         }
     }
 
-    public bool IsSearchEnabled => _isSearchEnabled;
+    public bool IsSearchEnabled => HasStableSearchIndex || _isSearchEnabled;
     public bool IsScanComplete => _isScanComplete;
     public bool IsIndexingPaused => _indexingPaused;
     public bool CanResumeIndexing => CanResumeBuildingIndex();
@@ -296,6 +303,10 @@ public sealed class SystemIndexService : IDisposable
         _indexWorker.EnqueueExclusive(RunStartupIndexMaintenance);
     }
 
+    /// <summary>
+    /// Starts a user-requested full index from scratch. Cancels any automatic/background
+    /// indexing, deletes <c>index.building.db</c>, then builds a new index in the building DB.
+    /// </summary>
     public void RestartScan()
     {
         _indexingPaused = false;
@@ -303,25 +314,33 @@ public sealed class SystemIndexService : IDisposable
         _deferredFullScan = false;
         _isScanComplete = false;
 
-        var resuming = CanResumeBuildingIndex();
-        if (!resuming)
+        Interlocked.Increment(ref _scanGeneration);
+        _indexWorker.CancelExclusiveWork();
+
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (_isScanning && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
+
+        DiscardActiveBuildingDatabase();
+
+        lock (_resyncLock)
+            _pendingResyncPaths.Clear();
+
+        if (HasCompletedSearchIndex())
         {
-            _scanProgressPercent = 0;
-            _completedScanSteps = 0;
-            Interlocked.Exchange(ref _scanIndexedCount, 0);
-            _scanUsesShadowBuild = HasCompletedSearchIndex();
-            _scanBaselineCount = _scanUsesShadowBuild ? Count : 0;
+            ReloadIndexedRootsFromSearchDatabase();
+            Interlocked.Exchange(ref _approximateLiveCount, _indexStore!.Count);
+            EnableSearchIfNeeded();
         }
-        else
-        {
-            if (_scanUsesShadowBuild && _scanBaselineCount <= 0)
-                _scanBaselineCount = _indexStore?.Count ?? 0;
-            else if (!_scanUsesShadowBuild && HasCompletedSearchIndex())
-            {
-                _scanUsesShadowBuild = true;
-                _scanBaselineCount = _indexStore?.Count ?? 0;
-            }
-        }
+
+        _scanProgressPercent = 0;
+        _completedScanSteps = 0;
+        _totalScanSteps = 0;
+        _currentScanPath = null;
+        _activeStepEntries.Clear();
+        Interlocked.Exchange(ref _scanIndexedCount, 0);
+        _scanUsesShadowBuild = HasCompletedSearchIndex();
+        _scanBaselineCount = _scanUsesShadowBuild ? Count : 0;
 
         SetProgressPhase(IndexProgressPhase.Scanning, forceReport: false);
         ReportProgress(null, false, force: true);
@@ -428,6 +447,7 @@ public sealed class SystemIndexService : IDisposable
 
         _isSearchEnabled = false;
         _isScanComplete = false;
+        _liveIndexAnalyzeScheduled = false;
         _isScanning = false;
         _scanUsesShadowBuild = false;
         _indexingPaused = false;
@@ -454,7 +474,8 @@ public sealed class SystemIndexService : IDisposable
         ResolvedSearchQuery searchQuery,
         SearchResultSortOrder sortOrder)
     {
-        if (!_isSearchEnabled)
+        EnableSearchIfNeeded();
+        if (!IsSearchEnabled)
             return [];
 
         var store = GetSearchStore();
@@ -481,7 +502,8 @@ public sealed class SystemIndexService : IDisposable
         int batchSize,
         List<(FileEntry Entry, int Score)>? existingTop = null)
     {
-        if (!_isSearchEnabled)
+        EnableSearchIfNeeded();
+        if (!IsSearchEnabled)
         {
             return new SearchBatchResult
             {
@@ -535,17 +557,11 @@ public sealed class SystemIndexService : IDisposable
         };
     }
 
-    public void RequestResyncAllRoots()
-    {
-        if (!HasCompletedSearchIndex())
-        {
-            EnqueueFullScan();
-            return;
-        }
-
-        foreach (var root in ScanRoots)
-            RequestResyncPath(root);
-    }
+    /// <summary>
+    /// Schedules a full re-index into <c>index.building.db</c>. The live search index
+    /// (<c>index.db</c>) is replaced only after the scan completes successfully.
+    /// </summary>
+    public void RequestResyncAllRoots() => EnqueueFullScan();
 
     public void ScanMissingDriveRoots()
     {
@@ -682,7 +698,7 @@ public sealed class SystemIndexService : IDisposable
 
         if (!HasCompletedSearchIndex())
         {
-            _isSearchEnabled = false;
+            DisableSearch();
             _isScanComplete = false;
             SetProgressPhase(IndexProgressPhase.Idle, forceReport: false);
             ReportProgress(null, false, force: true);
@@ -1714,6 +1730,16 @@ public sealed class SystemIndexService : IDisposable
 
     private void EnableSearchIfNeeded()
     {
+        if (HasStableSearchIndex)
+        {
+            if (_isSearchEnabled)
+                return;
+
+            _isSearchEnabled = true;
+            SearchEnabled?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
         if (_isSearchEnabled)
             return;
 
@@ -1724,25 +1750,57 @@ public sealed class SystemIndexService : IDisposable
         SearchEnabled?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Runs SQLite ANALYZE on the live index before any query uses it.</summary>
+    private void DisableSearch()
+    {
+        if (HasStableSearchIndex)
+            return;
+
+        _isSearchEnabled = false;
+    }
+
+    private volatile bool _liveIndexAnalyzeScheduled;
+
+    /// <summary>
+    /// Enables search on the live index immediately and runs SQLite ANALYZE in the
+    /// background (statistics only — search does not wait for it).
+    /// </summary>
     private void EnsureLiveIndexAnalyzedForSearch()
     {
-        if (_isSearchEnabled || _indexStore is null || _indexStore.Count == 0)
+        if (_indexStore is null || _indexStore.Count == 0)
+            return;
+
+        EnableSearchIfNeeded();
+
+        if (_liveIndexAnalyzeScheduled)
+            return;
+
+        _liveIndexAnalyzeScheduled = true;
+        _indexWorker.Enqueue(AnalyzeLiveIndexInBackground);
+    }
+
+    private void AnalyzeLiveIndexInBackground()
+    {
+        if (_indexStore is null || _indexStore.Count == 0)
             return;
 
         var restorePhase = _progressPhase;
-        SetProgressPhase(IndexProgressPhase.Analyzing, forceReport: true);
+        var reportUi = !_isScanning && restorePhase == IndexProgressPhase.Idle;
+        if (reportUi)
+            SetProgressPhase(IndexProgressPhase.Analyzing, forceReport: true);
+
         try
         {
             _indexStore.Analyze();
         }
+        catch
+        {
+            // Search remains available even if ANALYZE fails.
+        }
         finally
         {
-            if (restorePhase != IndexProgressPhase.Analyzing)
+            if (reportUi && restorePhase != IndexProgressPhase.Analyzing)
                 SetProgressPhase(restorePhase, forceReport: restorePhase != IndexProgressPhase.Idle);
         }
-
-        EnableSearchIfNeeded();
     }
 
     private void BeginScanProgress(int totalSteps, int completedSteps = 0)
@@ -1761,7 +1819,9 @@ public sealed class SystemIndexService : IDisposable
 
         _isScanComplete = false;
         if (!HasCompletedSearchIndex())
-            _isSearchEnabled = false;
+            DisableSearch();
+        else
+            EnableSearchIfNeeded();
 
         SetProgressPhase(IndexProgressPhase.Scanning, forceReport: false);
         ReportProgress(null, false, force: true);

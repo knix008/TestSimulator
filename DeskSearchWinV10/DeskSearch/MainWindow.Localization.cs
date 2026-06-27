@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using DeskSearch.Helpers;
 using DeskSearch.Services;
 
 namespace DeskSearch;
@@ -63,12 +64,13 @@ public partial class MainWindow
             item.Header = LocalizationService.T(key);
     }
 
-    private MenuItem CreateLocalizedMenuItem(string key, RoutedEventHandler handler)
+    private static MenuItem CreateLocalizedMenuItem(string key, string glyph, RoutedEventHandler handler)
     {
         var item = new MenuItem
         {
             Header = LocalizationService.T(key),
-            Tag = key
+            Tag = key,
+            Icon = MenuGlyphIcons.CreateWpfIcon(glyph)
         };
         item.Click += handler;
         return item;

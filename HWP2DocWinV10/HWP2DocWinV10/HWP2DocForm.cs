@@ -243,7 +243,7 @@ public partial class HWP2DocForm : Form
         HwpConversionEngine selectedEngine = optionsDialog.SelectedEngine;
         bool useLlmFastMode = optionsDialog.UseLlmFastMode;
         var conversionOptions = new Services.HwpConversionOptions(Engine: selectedEngine);
-        var stopwatch = useLlm ? System.Diagnostics.Stopwatch.StartNew() : null;
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         SetBusy(true, "문서 변환 중...");
         try
@@ -279,9 +279,8 @@ public partial class HWP2DocForm : Form
                     llmStopwatch.Stop();
 
                     string targetSummary = Services.LlmProcessingTargetCatalog.FormatSummary(AppUserSettings.LlmProcessingTargets);
-                    string? totalSeconds = stopwatch != null
-                        ? $"총 {stopwatch.Elapsed.TotalSeconds:0.0}초"
-                        : null;
+                    stopwatch.Stop();
+                    string totalSeconds = $"총 {stopwatch.Elapsed.TotalSeconds:0.0}초";
                     string llmSeconds = $"LLM {llmStopwatch.Elapsed.TotalSeconds:0.0}초";
                     string llmDetail = llmResult.SkippedEntireDocument
                         ? "규칙 기반 정리만 적용했습니다. (LLM 생략)"
@@ -293,15 +292,12 @@ public partial class HWP2DocForm : Form
                         $"모델: {AppUserSettings.LlmModel}\n" +
                         $"대상: {targetSummary}\n" +
                         $"처리: {llmDetail}\n" +
-                        $"소요: {llmSeconds}" +
-                        (totalSeconds != null ? $" ({totalSeconds})" : string.Empty),
+                        $"소요: {llmSeconds} ({totalSeconds})",
                         "LLM 구조화 완료",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
 
-                    SetStatus(stopwatch != null
-                        ? $"변환 완료: {fileName} ({engineLabel}, LLM 포함, {totalSeconds})"
-                        : $"변환 완료: {fileName} ({engineLabel}, LLM 포함)");
+                    SetStatus($"변환 완료: {fileName} ({engineLabel}, LLM 포함, {totalSeconds})");
                 }
                 catch (Exception ex)
                 {
@@ -311,6 +307,17 @@ public partial class HWP2DocForm : Form
             }
             else
             {
+                stopwatch.Stop();
+                MessageBox.Show(
+                    this,
+                    $"문서 변환이 완료되었습니다.\n\n" +
+                    $"파일: {fileName}\n" +
+                    $"엔진: {engineLabel}\n" +
+                    $"소요: {stopwatch.Elapsed.TotalSeconds:0.0}초",
+                    "변환 완료",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+
                 SetStatus($"변환 완료: {fileName} ({engineLabel})");
             }
         }

@@ -85,6 +85,8 @@ public partial class MainWindow : Window
         _indexService.IndexUpdated += (_, _) =>
             SafeBeginInvoke(ScheduleLiveSearchRefresh, System.Windows.Threading.DispatcherPriority.Background);
 
+        UpdateIndexUi();
+
         InitializeTrayIcon();
 
         WindowTaskbarHelper.ExcludeFromTaskbar(this);
@@ -243,23 +245,25 @@ public partial class MainWindow : Window
         {
             Header = LocalizationService.T("Menu_AboveOthers"),
             IsCheckable = true,
-            IsChecked = true
+            IsChecked = true,
+            Icon = MenuGlyphIcons.CreateWpfIcon(MenuGlyphIcons.AlwaysOnTop)
         };
         _menuAlwaysOnTop.Click += MenuAlwaysOnTop_Click;
 
         _menuIndexStatus = new MenuItem
         {
             Header = LocalizationService.T("Index_Indexing"),
-            IsEnabled = false
+            IsEnabled = false,
+            Icon = MenuGlyphIcons.CreateWpfIcon(MenuGlyphIcons.IndexStatus)
         };
 
-        _menuClearSearch = CreateLocalizedMenuItem("Menu_ClearSearch", MenuClearSearch_Click);
-        _menuRefreshIndex = CreateLocalizedMenuItem("Menu_RefreshIndex", MenuRefreshIndex_Click);
-        _menuOpenDesktop = CreateLocalizedMenuItem("Menu_OpenDesktop", MenuOpenDesktop_Click);
-        _menuResetPosition = CreateLocalizedMenuItem("Menu_ResetPosition", MenuResetPosition_Click);
-        _menuSettings = CreateLocalizedMenuItem("Menu_Settings", MenuSettings_Click);
-        _menuHide = CreateLocalizedMenuItem("Menu_Hide", MenuHide_Click);
-        _menuExit = CreateLocalizedMenuItem("Menu_Exit", MenuExit_Click);
+        _menuClearSearch = CreateLocalizedMenuItem("Menu_ClearSearch", MenuGlyphIcons.ClearSearch, MenuClearSearch_Click);
+        _menuRefreshIndex = CreateLocalizedMenuItem("Menu_RefreshIndex", MenuGlyphIcons.RefreshIndex, MenuRefreshIndex_Click);
+        _menuOpenDesktop = CreateLocalizedMenuItem("Menu_OpenDesktop", MenuGlyphIcons.OpenDesktop, MenuOpenDesktop_Click);
+        _menuResetPosition = CreateLocalizedMenuItem("Menu_ResetPosition", MenuGlyphIcons.ResetPosition, MenuResetPosition_Click);
+        _menuSettings = CreateLocalizedMenuItem("Menu_Settings", MenuGlyphIcons.Settings, MenuSettings_Click);
+        _menuHide = CreateLocalizedMenuItem("Menu_Hide", MenuGlyphIcons.Hide, MenuHide_Click);
+        _menuExit = CreateLocalizedMenuItem("Menu_Exit", MenuGlyphIcons.Exit, MenuExit_Click);
 
         _mainContextMenu = new ContextMenu
         {
@@ -287,10 +291,10 @@ public partial class MainWindow : Window
 
 
 
-        _menuOpenFile = CreateLocalizedMenuItem("Menu_Open", MenuOpenFile_Click);
-        _menuShowInFolder = CreateLocalizedMenuItem("Menu_ShowInFolder", MenuShowInFolder_Click);
-        _menuCopyPath = CreateLocalizedMenuItem("Menu_CopyPath", MenuCopyPath_Click);
-        _menuCopyFileName = CreateLocalizedMenuItem("Menu_CopyFileName", MenuCopyFileName_Click);
+        _menuOpenFile = CreateLocalizedMenuItem("Menu_Open", MenuGlyphIcons.Open, MenuOpenFile_Click);
+        _menuShowInFolder = CreateLocalizedMenuItem("Menu_ShowInFolder", MenuGlyphIcons.ShowInFolder, MenuShowInFolder_Click);
+        _menuCopyPath = CreateLocalizedMenuItem("Menu_CopyPath", MenuGlyphIcons.CopyPath, MenuCopyPath_Click);
+        _menuCopyFileName = CreateLocalizedMenuItem("Menu_CopyFileName", MenuGlyphIcons.CopyFileName, MenuCopyFileName_Click);
 
         _resultItemContextMenu = new ContextMenu
         {
@@ -302,13 +306,13 @@ public partial class MainWindow : Window
                 _menuCopyPath,
                 _menuCopyFileName,
                 new Separator(),
-                CreateLocalizedMenuItem("Menu_ClearSearch", MenuClearSearch_Click),
-                CreateLocalizedMenuItem("Menu_RefreshIndex", MenuRefreshIndex_Click),
-                CreateLocalizedMenuItem("Menu_Settings", MenuSettings_Click),
-                CreateLocalizedMenuItem("Menu_Hide", MenuHide_Click),
-                CreateLocalizedMenuItem("Menu_ResetPosition", MenuResetPosition_Click),
+                CreateLocalizedMenuItem("Menu_ClearSearch", MenuGlyphIcons.ClearSearch, MenuClearSearch_Click),
+                CreateLocalizedMenuItem("Menu_RefreshIndex", MenuGlyphIcons.RefreshIndex, MenuRefreshIndex_Click),
+                CreateLocalizedMenuItem("Menu_Settings", MenuGlyphIcons.Settings, MenuSettings_Click),
+                CreateLocalizedMenuItem("Menu_Hide", MenuGlyphIcons.Hide, MenuHide_Click),
+                CreateLocalizedMenuItem("Menu_ResetPosition", MenuGlyphIcons.ResetPosition, MenuResetPosition_Click),
                 new Separator(),
-                CreateLocalizedMenuItem("Menu_Exit", MenuExit_Click)
+                CreateLocalizedMenuItem("Menu_Exit", MenuGlyphIcons.Exit, MenuExit_Click)
             }
         };
 

@@ -4,7 +4,13 @@
     <OutputName>HWP2Doc-Setup</OutputName>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
     <AppPayloadDir>$(MSBuildThisFileDirectory)..\HWP2DocWinV10\bin\$(Configuration)\net10.0-windows\</AppPayloadDir>
+    <!-- AllowSameVersionUpgrades intentionally sets Maximum=1.0.0; ICE61/WIX1076 is expected. -->
+    <SuppressSpecificWarnings>1076</SuppressSpecificWarnings>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="WixToolset.Util.wixext" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\HWP2DocWinV10\HWP2DocWinV10.csproj">
@@ -14,10 +20,12 @@
 
   <ItemGroup>
     <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Package.wxs" />
+    <Content Include="WixUI_Mondo_HWP2Doc.wxs" />
     <Content Include="Strings.ko-KR.wxl" />
     <Content Include="License.rtf" />
   </ItemGroup>
@@ -51,11 +59,17 @@
       <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\help.png" />
       <RequiredPayloadFile Include="$(AppPayloadDir)Assets\Icons\about.png" />
       <RequiredPayloadFile Include="$(AppPayloadDir)Tools\rhwp\rhwp.exe" />
+      <OptionalPayloadFile Include="$(AppPayloadDir)Tools\hwp2md-roboco\hwp2md.exe" />
+      <OptionalPayloadFile Include="$(AppPayloadDir)Tools\hwp2md-hephaex\hwp2md.exe" />
     </ItemGroup>
 
     <Error
       Condition="!Exists('%(RequiredPayloadFile.Identity)')"
       Text="MSI 페이로드 파일이 없습니다. 먼저 HWP2DocWinV10 Release 빌드를 실행하세요: %(RequiredPayloadFile.Identity)" />
+
+    <Warning
+      Condition="!Exists('%(OptionalPayloadFile.Identity)')"
+      Text="선택 엔진 바이너리가 빌드 출력에 없습니다 (MSI에 미포함): %(OptionalPayloadFile.Identity)" />
   </Target>
 
 </Project>

@@ -35,7 +35,7 @@ internal static class Hwp2MdConversionService
             _ => throw new ArgumentOutOfRangeException(nameof(engine)),
         };
 
-        await RunAsync(executable, arguments, engine, cancellationToken).ConfigureAwait(false);
+        await RunAsync(executable, arguments, outputDirectory, engine, cancellationToken).ConfigureAwait(false);
 
         if (!File.Exists(markdownPath))
         {
@@ -49,6 +49,7 @@ internal static class Hwp2MdConversionService
     private static async Task RunAsync(
         string executable,
         string arguments,
+        string outputDirectory,
         HwpConversionEngine engine,
         CancellationToken cancellationToken)
     {
@@ -62,14 +63,21 @@ internal static class Hwp2MdConversionService
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
+            WorkingDirectory = Path.GetDirectoryName(executable) ?? outputDirectory,
         };
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("hwp2md 변환 프로세스를 시작하지 못했습니다.");
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        string output = await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-        string error = await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        Task<string> errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        await Task.WhenAll(
+            process.WaitForExitAsync(cancellationToken),
+            outputTask,
+            errorTask).ConfigureAwait(false);
+
+        string output = await outputTask.ConfigureAwait(false);
+        string error = await errorTask.ConfigureAwait(false);
 
         if (process.ExitCode != 0)
         {

@@ -325,7 +325,9 @@ MSI 설치 시 .NET·WebView2 런타임이 없으면 설치 프로그램이 안�
 3. 설치 기능 선택 (시작 메뉴, 바탕 화면 바로 가기 등)
 4. 설치 완료 후 시작 메뉴에서 **HWP2Doc** 실행
 
-MSI에는 `Tools\rhwp\rhwp.exe`가 포함됩니다. **hwp2md** 엔진은 MSI에 포함되지 않으며, 필요 시 [README.md](README.md)의 설치 안내를 따르세요.
+MSI에는 `Tools\rhwp\rhwp.exe`가 포함됩니다. Release 빌드 시 `Tools\hwp2md-*\hwp2md.exe`가 있으면 **hwp2md 엔진도 함께** MSI에 포함됩니다.
+
+**재설치(업그레이드)**: 이미 HWP2Doc가 설치되어 있으면 MSI 실행 시 **기존 버전을 먼저 완전히 제거**한 뒤 새 파일을 설치합니다. 실행 중인 HWP2Doc은 종료 안내 후 설치가 진행됩니다. 같은 버전(1.0.0) MSI를 다시 실행해도 전체 교체 설치가 가능합니다.
 
 ### 제거
 

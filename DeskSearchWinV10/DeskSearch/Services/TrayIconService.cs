@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Windows.Forms;
+using DeskSearch.Helpers;
 using DeskSearch.Services;
 
 namespace DeskSearch.Services;
@@ -8,6 +9,7 @@ public sealed class TrayIconService : IDisposable
 {
     private readonly MainWindow _mainWindow;
     private readonly NotifyIcon _notifyIcon;
+    private readonly List<Bitmap> _menuImages = [];
     private ToolStripMenuItem? _showWindowItem;
     private ToolStripMenuItem? _hideWindowItem;
     private ToolStripMenuItem? _settingsItem;
@@ -27,21 +29,21 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.DoubleClick += (_, _) => ShowMainWindow();
 
         var menu = new ContextMenuStrip();
-        _showWindowItem = new ToolStripMenuItem(
+        _showWindowItem = CreateTrayMenuItem(
             LocalizationService.T("Tray_ShowWindow"),
-            null,
+            MenuGlyphIcons.ShowWindow,
             (_, _) => ShowMainWindow());
-        _hideWindowItem = new ToolStripMenuItem(
+        _hideWindowItem = CreateTrayMenuItem(
             LocalizationService.T("Menu_Hide"),
-            null,
+            MenuGlyphIcons.Hide,
             (_, _) => _mainWindow.Dispatcher.Invoke(_mainWindow.HideToTray));
-        _settingsItem = new ToolStripMenuItem(
+        _settingsItem = CreateTrayMenuItem(
             LocalizationService.T("Menu_Settings"),
-            null,
+            MenuGlyphIcons.Settings,
             (_, _) => _mainWindow.Dispatcher.Invoke(_mainWindow.OpenSettings));
-        _exitItem = new ToolStripMenuItem(
+        _exitItem = CreateTrayMenuItem(
             LocalizationService.T("Menu_Exit"),
-            null,
+            MenuGlyphIcons.Exit,
             (_, _) => _mainWindow.Dispatcher.Invoke(_mainWindow.RequestApplicationExit));
 
         menu.Items.Add(_showWindowItem);
@@ -75,6 +77,18 @@ public sealed class TrayIconService : IDisposable
     {
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
+
+        foreach (var image in _menuImages)
+            image.Dispose();
+
+        _menuImages.Clear();
+    }
+
+    private ToolStripMenuItem CreateTrayMenuItem(string text, string glyph, EventHandler onClick)
+    {
+        var image = MenuGlyphIcons.CreateWinFormsIcon(glyph);
+        _menuImages.Add(image);
+        return new ToolStripMenuItem(text, image, onClick);
     }
 
     private static Icon LoadAppIcon()
