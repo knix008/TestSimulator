@@ -102,37 +102,37 @@ partial class ImageRembgForm
 
         panelToolbar = new Panel();
 
-        btnOpen = new Button();
+        btnOpen = new Controls.CenteredToolbarButton();
 
-        btnPreview = new Button();
+        btnPreview = new Controls.CenteredToolbarButton();
 
-        btnRemoveBackground = new Button();
+        btnRemoveBackground = new Controls.CenteredToolbarButton();
 
-        btnSave = new Button();
+        btnSave = new Controls.CenteredToolbarButton();
 
-        btnReset = new Button();
+        btnReset = new Controls.CenteredToolbarButton();
 
-        btnZoomOut = new Button();
+        btnZoomOut = new Controls.CenteredToolbarButton();
 
-        btnZoomIn = new Button();
+        btnZoomIn = new Controls.CenteredToolbarButton();
 
-        btnFit = new Button();
+        btnFit = new Controls.CenteredToolbarButton();
 
-        btnInfo = new Button();
+        btnInfo = new Controls.CenteredToolbarButton();
 
-        rbSelectFreehand = new RadioButton();
+        rbSelectFreehand = new Controls.CenteredToolbarRadioButton();
 
-        rbSelectRect = new RadioButton();
+        rbSelectRect = new Controls.CenteredToolbarRadioButton();
 
-        rbForeground = new RadioButton();
+        rbForeground = new Controls.CenteredToolbarRadioButton();
 
-        rbBackground = new RadioButton();
+        rbBackground = new Controls.CenteredToolbarRadioButton();
 
-        rbPan = new RadioButton();
+        rbPan = new Controls.CenteredToolbarRadioButton();
 
-        chkShowMask = new CheckBox();
+        chkShowMask = new Controls.CenteredToolbarCheckBox();
 
-        chkShowResult = new CheckBox();
+        chkShowResult = new Controls.CenteredToolbarCheckBox();
 
         lblResultSize = new Label();
 
@@ -178,7 +178,7 @@ partial class ImageRembgForm
 
         menuStrip.Name = "menuStrip";
 
-        menuStrip.Size = new Size(1184, 24);
+        menuStrip.Size = new Size(1184, 28);
 
         menuStrip.TabIndex = 3;
 
@@ -590,7 +590,7 @@ partial class ImageRembgForm
 
         imageListIcons.ColorDepth = ColorDepth.Depth32Bit;
 
-        imageListIcons.ImageSize = new Size(16, 16);
+        imageListIcons.ImageSize = new Size(18, 18);
 
         imageListIcons.TransparentColor = Color.Transparent;
 
@@ -600,7 +600,7 @@ partial class ImageRembgForm
 
         // 
 
-        panelToolbar.AutoScroll = false;
+        panelToolbar.AutoScroll = true;
 
         panelToolbar.Controls.Add(btnOpen);
 
@@ -650,9 +650,9 @@ partial class ImageRembgForm
 
         panelToolbar.Name = "panelToolbar";
 
-        panelToolbar.Padding = new Padding(8, 6, 8, 6);
+        panelToolbar.Padding = new Padding(10, 8, 10, 8);
 
-        panelToolbar.Size = new Size(1184, 104);
+        panelToolbar.Size = new Size(1184, 124);
 
         panelToolbar.TabIndex = 0;
 
@@ -842,7 +842,7 @@ partial class ImageRembgForm
 
         // 
 
-        rbSelectFreehand.AutoSize = true;
+        rbSelectFreehand.AutoSize = false;
 
         rbSelectFreehand.Location = new Point(8, 44);
 
@@ -866,7 +866,7 @@ partial class ImageRembgForm
 
         // 
 
-        rbSelectRect.AutoSize = true;
+        rbSelectRect.AutoSize = false;
 
         rbSelectRect.Location = new Point(108, 44);
 
@@ -890,7 +890,7 @@ partial class ImageRembgForm
 
         // 
 
-        rbForeground.AutoSize = true;
+        rbForeground.AutoSize = false;
 
         rbForeground.Location = new Point(190, 44);
 
@@ -912,7 +912,7 @@ partial class ImageRembgForm
 
         // 
 
-        rbBackground.AutoSize = true;
+        rbBackground.AutoSize = false;
 
         rbBackground.Location = new Point(350, 44);
 
@@ -934,7 +934,7 @@ partial class ImageRembgForm
 
         // 
 
-        rbPan.AutoSize = true;
+        rbPan.AutoSize = false;
 
         rbPan.Checked = true;
 
@@ -958,7 +958,7 @@ partial class ImageRembgForm
 
         // 
 
-        chkShowMask.AutoSize = true;
+        chkShowMask.AutoSize = false;
 
         chkShowMask.Checked = true;
 
@@ -984,7 +984,7 @@ partial class ImageRembgForm
 
         // 
 
-        chkShowResult.AutoSize = true;
+        chkShowResult.AutoSize = false;
 
         chkShowResult.Location = new Point(150, 76);
 
@@ -1006,7 +1006,7 @@ partial class ImageRembgForm
 
         // 
 
-        lblResultSize.AutoSize = true;
+        lblResultSize.AutoSize = false;
 
         lblResultSize.Location = new Point(304, 80);
 
@@ -1042,7 +1042,7 @@ partial class ImageRembgForm
 
         // 
 
-        lblAlgorithm.AutoSize = true;
+        lblAlgorithm.AutoSize = false;
 
         lblAlgorithm.Location = new Point(280, 80);
 
@@ -1334,37 +1334,37 @@ partial class ImageRembgForm
 
     private Panel panelToolbar;
 
-    private Button btnOpen;
+    private Controls.CenteredToolbarButton btnOpen;
 
-    private Button btnPreview;
+    private Controls.CenteredToolbarButton btnPreview;
 
-    private Button btnRemoveBackground;
+    private Controls.CenteredToolbarButton btnRemoveBackground;
 
-    private Button btnSave;
+    private Controls.CenteredToolbarButton btnSave;
 
-    private Button btnReset;
+    private Controls.CenteredToolbarButton btnReset;
 
-    private Button btnZoomOut;
+    private Controls.CenteredToolbarButton btnZoomOut;
 
-    private Button btnZoomIn;
+    private Controls.CenteredToolbarButton btnZoomIn;
 
-    private Button btnFit;
+    private Controls.CenteredToolbarButton btnFit;
 
-    private Button btnInfo;
+    private Controls.CenteredToolbarButton btnInfo;
 
-    private RadioButton rbSelectFreehand;
+    private Controls.CenteredToolbarRadioButton rbSelectFreehand;
 
-    private RadioButton rbSelectRect;
+    private Controls.CenteredToolbarRadioButton rbSelectRect;
 
-    private RadioButton rbForeground;
+    private Controls.CenteredToolbarRadioButton rbForeground;
 
-    private RadioButton rbBackground;
+    private Controls.CenteredToolbarRadioButton rbBackground;
 
-    private RadioButton rbPan;
+    private Controls.CenteredToolbarRadioButton rbPan;
 
-    private CheckBox chkShowMask;
+    private Controls.CenteredToolbarCheckBox chkShowMask;
 
-    private CheckBox chkShowResult;
+    private Controls.CenteredToolbarCheckBox chkShowResult;
 
     private Label lblResultSize;
 

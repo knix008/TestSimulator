@@ -7,4 +7,5 @@
   <String Id="StartMenuShortcutFeatureDescription" Value="Create a shortcut in the Start Menu." />
   <String Id="DesktopShortcutFeatureTitle" Value="Desktop shortcut" />
   <String Id="DesktopShortcutFeatureDescription" Value="Create a shortcut on the Desktop." />
+  <String Id="ShortcutDescription" Value="Remove image backgrounds interactively" />
 </WixLocalization>

@@ -14,6 +14,8 @@ public static class L
 
     public static string Get(string key) => LocalizationService.Get(key);
 
+    public static string Get(AppLanguage language, string key) => LocalizationService.Get(language, key);
+
     public static string F(string key, params object?[] args) => LocalizationService.Format(key, args);
 
     public static void SetLanguage(AppLanguage language) => LocalizationService.SetLanguage(language);
@@ -60,10 +62,51 @@ internal static class LocalizationService
         ["Menu.Pan"] = ("끌기", "Pan"),
         ["Menu.PanDrag"] = ("끌기 (드래그)", "Pan (Drag)"),
 
+        ["Toolbar.PreviewShort"] = ("미리보기", "Preview"),
+        ["Toolbar.RemoveBackgroundShort"] = ("배경제거", "Remove BG"),
+        ["Toolbar.ShowMaskShort"] = ("마스크", "Mask"),
+        ["Toolbar.ShowResultShort"] = ("결과", "Result"),
+        ["Toolbar.SelectFreehandShort"] = ("자유선택", "Freehand"),
+        ["Toolbar.ForegroundShort"] = ("전경", "FG"),
+        ["Toolbar.BackgroundShort"] = ("배경", "BG"),
+
         ["Form.Title"] = ("Image Rembg - 배경 제거", "Image Rembg - Background Removal"),
         ["Label.ResultSize"] = ("결과 크기:", "Output Size:"),
         ["Label.Algorithm"] = ("알고리즘:", "Algorithm:"),
         ["Hint.Workflow"] = ("끌기 → 자유/사각형 선택 → 미리보기 → 배경 제거", "Pan → Select → Preview → Remove Background"),
+
+        ["Tooltip.Menu.File"] = ("파일 열기, 저장, 종료", "Open, save, and exit"),
+        ["Tooltip.Menu.Edit"] = ("미리보기, 배경 제거, 초기화", "Preview, remove background, and reset"),
+        ["Tooltip.Menu.View"] = ("확대/축소, 표시 옵션, UI 언어", "Zoom, display options, and UI language"),
+        ["Tooltip.Menu.Tools"] = ("영역 선택 및 편집 도구", "Selection and editing tools"),
+        ["Tooltip.Menu.Algorithm"] = ("배경 분리 알고리즘 선택", "Choose a background removal algorithm"),
+        ["Tooltip.Menu.Help"] = ("프로그램 정보 및 도움말", "Program information and help"),
+        ["Tooltip.Open"] = ("이미지 파일을 엽니다 (Ctrl+O)", "Open an image file (Ctrl+O)"),
+        ["Tooltip.Save"] = ("배경 제거 결과를 저장합니다 (Ctrl+S)", "Save the background removal result (Ctrl+S)"),
+        ["Tooltip.Exit"] = ("프로그램을 종료합니다", "Exit the application"),
+        ["Tooltip.Preview"] = ("선택 영역의 외곽선과 마스크를 미리 봅니다", "Preview the outline and mask for the selected region"),
+        ["Tooltip.RemoveBackground"] = ("선택 영역을 기준으로 배경을 제거합니다", "Remove the background using the selected region"),
+        ["Tooltip.Reset"] = ("선택, 표시 점, 미리보기, 결과를 모두 지웁니다", "Clear selection, marks, preview, and result"),
+        ["Tooltip.ZoomIn"] = ("이미지를 확대합니다 (마우스 휠)", "Zoom in on the image (mouse wheel)"),
+        ["Tooltip.ZoomOut"] = ("이미지를 축소합니다 (마우스 휠)", "Zoom out on the image (mouse wheel)"),
+        ["Tooltip.Fit"] = ("이미지 전체가 보이도록 화면에 맞춥니다", "Fit the entire image to the window"),
+        ["Tooltip.ShowMask"] = ("분리 마스크 미리보기를 켜거나 끕니다", "Show or hide the segmentation mask preview"),
+        ["Tooltip.ShowResult"] = ("배경 제거 결과를 원본과 전환해 봅니다", "Toggle between the original and the removed-background result"),
+        ["Tooltip.SelectFreehand"] = ("마우스로 자유롭게 영역을 그려 선택합니다", "Draw a freehand region around the object"),
+        ["Tooltip.SelectRect"] = ("사각형으로 영역을 선택합니다", "Select a rectangular region"),
+        ["Tooltip.Foreground"] = ("남길 전경 영역을 브러시로 표시합니다", "Mark foreground areas to keep with the brush"),
+        ["Tooltip.Background"] = ("제거할 배경 영역을 브러시로 표시합니다", "Mark background areas to remove with the brush"),
+        ["Tooltip.Pan"] = ("이미지를 끌어 이동합니다 (확대 시 스크롤)", "Pan the image (scroll when zoomed in)"),
+        ["Tooltip.Language"] = ("UI 표시 언어를 선택합니다", "Choose the UI display language"),
+        ["Tooltip.LanguageKorean"] = ("한국어 UI로 전환합니다", "Switch the UI to Korean"),
+        ["Tooltip.LanguageEnglish"] = ("English UI로 전환합니다", "Switch the UI to English"),
+        ["Tooltip.About"] = ("버전 및 저작권 정보를 표시합니다", "Show version and copyright information"),
+        ["Tooltip.Info"] = ("프로그램 정보 대화상자를 엽니다", "Open the about dialog"),
+        ["Tooltip.ResultSize"] = ("저장할 결과 이미지의 크기 방식", "Output image size mode for saving"),
+        ["Tooltip.ResultSizeCombo"] = ("원본 크기 또는 선택 영역만 잘라 저장", "Save at original size or crop to the selection"),
+        ["Tooltip.Algorithm"] = ("배경 분리에 사용할 알고리즘", "Algorithm used for background removal"),
+        ["Tooltip.AlgorithmCombo"] = ("rembg AI 또는 OpenCV 알고리즘 중 선택", "Choose rembg AI or an OpenCV algorithm"),
+        ["Tooltip.WorkflowHint"] = ("권장 작업 순서 안내", "Recommended workflow steps"),
 
         ["Status.Ready"] = ("시작 준비 완료. 이미지를 열어 주세요.", "Ready. Open an image to begin."),
         ["Status.LoadingImage"] = ("이미지를 불러오는 중...", "Loading image..."),
@@ -239,14 +282,16 @@ internal static class LocalizationService
         Changed?.Invoke(null, EventArgs.Empty);
     }
 
-    public static string Get(string key)
+    public static string Get(string key) => Get(_current, key);
+
+    public static string Get(AppLanguage language, string key)
     {
         if (!Strings.TryGetValue(key, out var pair))
         {
             return key;
         }
 
-        return _current == AppLanguage.English ? pair.En : pair.Ko;
+        return language == AppLanguage.English ? pair.En : pair.Ko;
     }
 
     public static string Format(string key, params object?[] args)

@@ -26,15 +26,22 @@ Visual Studio 2026에서 Release 빌드로 MSI 설치 파일을 만드는 방법
 
 ### MSI 출력 경로
 
-```
-ImageRembgWinV10.Installer\bin\x64\Release\en-us\ImageRembgWinV10.msi
-```
-
-VS 구성에 따라 다음 경로일 수 있습니다:
+기본 MSI는 **한국어(ko-kr)** 입니다.
 
 ```
-ImageRembgWinV10.Installer\bin\Release\en-us\ImageRembgWinV10.msi
+ImageRembgWinV10.Installer\bin\x64\Release\ImageRembgWinV10.msi
 ```
+
+언어별 빌드 결과:
+
+| 파일 | 언어 |
+|------|------|
+| `ImageRembgWinV10.msi` | 한국어 (기본, `ko-kr`에서 복사) |
+| `ko-kr\ImageRembgWinV10.msi` | 한국어 |
+| `ImageRembgWinV10.en-US.msi` | English (`en-us`에서 복사) |
+| `en-us\ImageRembgWinV10.msi` | English |
+
+VS 구성에 따라 `bin\Release\` 아래에 동일한 구조로 생성될 수 있습니다.
 
 ## 명령줄 빌드
 
@@ -55,6 +62,8 @@ dotnet build ImageRembgWinV10.Installer\ImageRembgWinV10.Installer.wixproj -c Re
 |------|------|
 | `ImageRembgWinV10.Installer\ImageRembgWinV10.Installer.wixproj` | WiX MSI 프로젝트 |
 | `ImageRembgWinV10.Installer\Package.wxs` | 설치 UI, 바로가기, .NET 런타임 검사 |
+| `ImageRembgWinV10.Installer\Package.ko-kr.wxl` | 설치 UI 한국어 문자열 (기본) |
+| `ImageRembgWinV10.Installer\Package.en-us.wxl` | 설치 UI English 문자열 |
 | `Properties\PublishProfiles\Installer.pubxml` | Release publish 설정 (win-x64) |
 | `Directory.Build.props` | 제품명/버전/제조사 공통 메타데이터 |
 
@@ -78,7 +87,7 @@ dotnet build ImageRembgWinV10.Installer\ImageRembgWinV10.Installer.wixproj -c Re
 | `.slnx`만 사용 | **`ImageRembgWinV10.sln`** 사용 권장 |
 | 구성 관리에서 Installer 체크 해제 | **빌드 → 구성 관리자**에서 `ImageRembgWinV10.Installer` **빌드** 체크 |
 | HeatWave 미설치 | [HeatWave](https://marketplace.visualstudio.com/items?itemName=FireGiant.FireGiantHeatWaveDev17) 설치 (Designer용, CLI 빌드는 NuGet만으로 가능) |
-| 출력 경로 오해 | `bin\Release\`가 아니라 **`ImageRembgWinV10.Installer\bin\x64\Release\en-us\`** 또는 **`bin\Release\en-us\`** 확인 |
+| 출력 경로 오해 | 기본 MSI는 **`ImageRembgWinV10.msi`** (한국어). English는 **`ImageRembgWinV10.en-US.msi`** 또는 **`en-us\`** 폴더 확인 |
 
 ## 참고
 

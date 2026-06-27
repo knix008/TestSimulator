@@ -82,7 +82,7 @@ internal sealed class CanvasContextMenuBuilder
         AlgoRembg = CreateCheckItem(L.Get("Algo.Rembg.Name"), "remove", imageList, bindings.AlgoRembg);
         AlgoGrabCut = CreateCheckItem(L.Get("Algo.GrabCut.Name"), "preview", imageList, bindings.AlgoGrabCut);
         AlgoColorKey = CreateCheckItem(L.Get("Algo.ColorKey.Name"), "background", imageList, bindings.AlgoColorKey);
-        AlgoEdgeFill = CreateCheckItem(L.Get("Algo.EdgeFill.Name"), "select", imageList, bindings.AlgoEdgeFill);
+        AlgoEdgeFill = CreateCheckItem(L.Get("Algo.EdgeFill.Name"), "select-rect", imageList, bindings.AlgoEdgeFill);
         AlgoThreshold = CreateCheckItem(L.Get("Algo.Threshold.Name"), "mask", imageList, bindings.AlgoThreshold);
         AlgorithmMenu.DropDownItems.AddRange([AlgoRembg, AlgoGrabCut, AlgoColorKey, AlgoEdgeFill, AlgoThreshold]);
 
@@ -98,8 +98,8 @@ internal sealed class CanvasContextMenuBuilder
         ToolsMenu = CreateParent(L.Get("Menu.Tools"), "tools", imageList);
         Pan = CreateCheckItem(L.Get("Menu.PanDrag"), "pan", imageList, bindings.Pan);
         Pan.Checked = true;
-        SelectFreehand = CreateCheckItem(L.Get("Menu.SelectFreehand"), "select", imageList, bindings.SelectFreehand);
-        SelectRect = CreateCheckItem(L.Get("Menu.SelectRect"), "select", imageList, bindings.SelectRect);
+        SelectFreehand = CreateCheckItem(L.Get("Menu.SelectFreehand"), "select-freehand", imageList, bindings.SelectFreehand);
+        SelectRect = CreateCheckItem(L.Get("Menu.SelectRect"), "select-rect", imageList, bindings.SelectRect);
         Foreground = CreateCheckItem(L.Get("Menu.Foreground"), "foreground", imageList, bindings.Foreground);
         Background = CreateCheckItem(L.Get("Menu.Background"), "background", imageList, bindings.Background);
 

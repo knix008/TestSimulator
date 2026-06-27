@@ -13,10 +13,11 @@ public sealed class ImageCanvas : Control
     private const int MaxStrokePoints = 4096;
     private const int MinStrokeDistance = 2;
     private const int MaxDrawPoints = 512;
-    private const float MinClientStrokeDistance = 0f;
-    private const float SelectionOutlineWidth = 3.5f;
-    private const float SelectionDashLength = 5f;
-    private const float SelectionGapLength = 3f;
+    private const float MinClientStrokeDistance = 2f;
+    private const float SelectionOutlineWidth = 5.5f;
+    private const float LiveFreehandOutlineWidth = 6f;
+    private const float SelectionDashLength = 6f;
+    private const float SelectionGapLength = 4f;
     private static readonly Color SelectionOutlineColor = Color.FromArgb(255, 255, 215, 0);
 
     private Bitmap? _sourceImage;
@@ -35,6 +36,7 @@ public sealed class ImageCanvas : Control
     private bool _isDrawingStroke;
     private float _zoom = 1f;
     private PointF _panOffset;
+    private System.Drawing.Size _lastViewportSize;
     private bool _showResult;
     private bool _showMaskPreview = true;
     private InteractionMode _interactionMode = InteractionMode.Pan;
@@ -42,6 +44,7 @@ public sealed class ImageCanvas : Control
     private bool _isPanning;
     private bool _isProcessing;
     private System.Drawing.Point _lastPanClient;
+    private System.Drawing.Point _lastClientMousePoint;
     private PointF? _strokePreviewClient;
 
     public ImageCanvas()
@@ -54,8 +57,30 @@ public sealed class ImageCanvas : Control
             true);
 
         BackColor = Color.FromArgb(45, 45, 48);
-        Cursor = Cursors.Hand;
+        Cursor = Cursors.Default;
         TabStop = true;
+    }
+
+    private void UpdateHoverCursor(System.Drawing.Point clientPoint)
+    {
+        if (_isPanning)
+        {
+            return;
+        }
+
+        if (_sourceImage == null || !TryGetImagePoint(clientPoint, out _))
+        {
+            Cursor = Cursors.Default;
+            return;
+        }
+
+        Cursor = _interactionMode switch
+        {
+            InteractionMode.Pan => Cursors.Hand,
+            InteractionMode.SelectFreehand or InteractionMode.SelectRectangle
+                or InteractionMode.MarkForeground or InteractionMode.MarkBackground => Cursors.Cross,
+            _ => Cursors.Default
+        };
     }
 
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -66,12 +91,7 @@ public sealed class ImageCanvas : Control
         set
         {
             _interactionMode = value;
-            Cursor = value switch
-            {
-                InteractionMode.Pan => Cursors.Hand,
-                InteractionMode.SelectFreehand or InteractionMode.SelectRectangle or InteractionMode.MarkForeground or InteractionMode.MarkBackground => Cursors.Cross,
-                _ => Cursors.Default
-            };
+            UpdateHoverCursor(_lastClientMousePoint);
         }
     }
 
@@ -83,6 +103,7 @@ public sealed class ImageCanvas : Control
         set
         {
             _showResult = value;
+            RequestHostLayout();
             Invalidate();
         }
     }
@@ -114,6 +135,25 @@ public sealed class ImageCanvas : Control
     public bool HasImage => _sourceImage != null;
 
     public System.Drawing.Size ImageSize => _sourceImage?.Size ?? System.Drawing.Size.Empty;
+
+    public SizeF GetDisplaySize()
+    {
+        var image = CurrentDisplayImage;
+        if (image == null)
+        {
+            return SizeF.Empty;
+        }
+
+        return GetImageDisplaySize(image.Size);
+    }
+
+    private Bitmap? CurrentDisplayImage => _showResult && _resultImage != null ? _resultImage : _sourceImage;
+
+    internal void SyncViewAfterLayout()
+    {
+        ConstrainViewTransform();
+        Invalidate();
+    }
 
     public event EventHandler? ImageChanged;
     public event EventHandler? SelectionChanged;
@@ -155,6 +195,7 @@ public sealed class ImageCanvas : Control
         FitToWindow();
         ImageChanged?.Invoke(this, EventArgs.Empty);
         SelectionChanged?.Invoke(this, EventArgs.Empty);
+        UpdateHoverCursor(_lastClientMousePoint);
         Invalidate();
     }
 
@@ -162,6 +203,11 @@ public sealed class ImageCanvas : Control
     {
         _resultImage?.Dispose();
         _resultImage = bitmap == null ? null : new Bitmap(bitmap);
+        if (_showResult)
+        {
+            RequestHostLayout();
+        }
+
         Invalidate();
     }
 
@@ -236,14 +282,21 @@ public sealed class ImageCanvas : Control
 
     public void FitToWindow()
     {
-        if (_sourceImage == null || ClientSize.Width <= 0 || ClientSize.Height <= 0)
+        if (_sourceImage == null)
         {
             return;
         }
 
-        var scaleX = ClientSize.Width / (float)_sourceImage.Width;
-        var scaleY = ClientSize.Height / (float)_sourceImage.Height;
+        var viewport = GetViewportSize();
+        if (viewport.Width <= 0 || viewport.Height <= 0)
+        {
+            return;
+        }
+
+        var scaleX = viewport.Width / (float)_sourceImage.Width;
+        var scaleY = viewport.Height / (float)_sourceImage.Height;
         _zoom = Math.Clamp(Math.Min(scaleX, scaleY) * 0.95f, 0.05f, 20f);
+        RequestHostLayout();
         ConstrainViewTransform();
         NotifyViewChanged();
         Invalidate();
@@ -271,6 +324,7 @@ public sealed class ImageCanvas : Control
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
+        _lastClientMousePoint = e.Location;
         Focus();
 
         if (_sourceImage == null)
@@ -348,6 +402,8 @@ public sealed class ImageCanvas : Control
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        _lastClientMousePoint = e.Location;
+
         if (_isPanning)
         {
             if (!CanPan())
@@ -363,15 +419,16 @@ public sealed class ImageCanvas : Control
             {
                 _panOffset.X += deltaX;
                 _panOffset.Y += deltaY;
-                _lastPanClient = e.Location;
                 ConstrainViewTransform();
+
+                _lastPanClient = e.Location;
                 Invalidate();
             }
 
             return;
         }
 
-        base.OnMouseMove(e);
+        UpdateHoverCursor(e.Location);
 
         if (!_isDrawingStroke || _sourceImage == null)
         {
@@ -418,6 +475,21 @@ public sealed class ImageCanvas : Control
         Invalidate();
     }
 
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        if (!_isPanning)
+        {
+            Cursor = Cursors.Default;
+        }
+    }
+
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        base.OnMouseEnter(e);
+        UpdateHoverCursor(PointToClient(Control.MousePosition));
+    }
+
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
@@ -426,7 +498,7 @@ public sealed class ImageCanvas : Control
         {
             _isPanning = false;
             EndInteractionCapture();
-            InteractionMode = _interactionMode;
+            UpdateHoverCursor(e.Location);
             return;
         }
 
@@ -436,13 +508,17 @@ public sealed class ImageCanvas : Control
         }
 
         _isDrawingStroke = false;
-        _strokePreviewClient = null;
         EndInteractionCapture();
 
         if (_strokeInteractionMode is InteractionMode.SelectFreehand or InteractionMode.SelectRectangle)
         {
             if (_strokeInteractionMode == InteractionMode.SelectFreehand)
             {
+                if (_strokePreviewClient.HasValue)
+                {
+                    AppendClientStrokePoint(_strokePreviewClient.Value);
+                }
+
                 PopulateImageStrokeFromClient();
                 FinalizeLassoSelection();
                 _activeStrokeClient.Clear();
@@ -455,6 +531,9 @@ public sealed class ImageCanvas : Control
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        _strokePreviewClient = null;
+
+        UpdateHoverCursor(e.Location);
         Invalidate();
     }
 
@@ -466,22 +545,81 @@ public sealed class ImageCanvas : Control
         }
 
         base.OnMouseWheel(e);
-        var factor = e.Delta > 0 ? 1.15f : 1f / 1.15f;
-        ApplyZoomAtViewportCenter(_zoom * factor);
+
+        if (ModifierKeys.HasFlag(Keys.Control))
+        {
+            var factor = e.Delta > 0 ? 1.15f : 1f / 1.15f;
+            ApplyZoomAtClientPoint(_zoom * factor, e.Location);
+            return;
+        }
+
+        if (!CanPan())
+        {
+            return;
+        }
+
+        if (ModifierKeys.HasFlag(Keys.Shift))
+        {
+            _panOffset.X += e.Delta;
+        }
+        else
+        {
+            _panOffset.Y += e.Delta;
+        }
+
+        ConstrainViewTransform();
+        Invalidate();
     }
 
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        PreserveViewportCenterAnchor();
         ConstrainViewTransform();
         Invalidate();
+    }
+
+    private void PreserveViewportCenterAnchor()
+    {
+        if (_sourceImage == null)
+        {
+            return;
+        }
+
+        var newViewport = GetViewportSize();
+        if (newViewport.Width <= 0 || newViewport.Height <= 0)
+        {
+            return;
+        }
+
+        if (_lastViewportSize.Width <= 0 || _lastViewportSize.Height <= 0 ||
+            _lastViewportSize == newViewport)
+        {
+            return;
+        }
+
+        var anchorImage = new PointF(
+            (_lastViewportSize.Width / 2f - _panOffset.X) / _zoom,
+            (_lastViewportSize.Height / 2f - _panOffset.Y) / _zoom);
+        _panOffset.X = newViewport.Width / 2f - anchorImage.X * _zoom;
+        _panOffset.Y = newViewport.Height / 2f - anchorImage.Y * _zoom;
+    }
+
+    private System.Drawing.Size GetViewportSize() => ClientSize;
+
+    private void RequestHostLayout()
+    {
+        if (Parent is ImageCanvasHost host)
+        {
+            host.UpdateCanvasLayout();
+        }
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
 
-        var image = _showResult && _resultImage != null ? _resultImage : _sourceImage;
+        var image = CurrentDisplayImage;
         if (image == null)
         {
             DrawPlaceholder(e.Graphics);
@@ -797,82 +935,101 @@ public sealed class ImageCanvas : Control
 
         var anchorImage = GetImagePointAtViewportCenter();
         _zoom = Math.Clamp(newZoom, 0.05f, 20f);
-
-        if (IsImageSmallerThanViewport())
-        {
-            ConstrainViewTransform();
-        }
-        else
-        {
-            var center = GetViewportCenter();
-            _panOffset.X = center.X - anchorImage.X * _zoom;
-            _panOffset.Y = center.Y - anchorImage.Y * _zoom;
-            ConstrainViewTransform();
-        }
-
+        ApplyPanForViewportAnchor(anchorImage);
+        RequestHostLayout();
         NotifyViewChanged();
         Invalidate();
     }
 
-    private PointF GetViewportCenter() =>
-        new(ClientSize.Width / 2f, ClientSize.Height / 2f);
+    private void ApplyZoomAtClientPoint(float newZoom, System.Drawing.Point clientPoint)
+    {
+        if (_sourceImage == null)
+        {
+            return;
+        }
+
+        var anchorImage = new PointF(
+            (clientPoint.X - _panOffset.X) / _zoom,
+            (clientPoint.Y - _panOffset.Y) / _zoom);
+        _zoom = Math.Clamp(newZoom, 0.05f, 20f);
+        _panOffset.X = clientPoint.X - anchorImage.X * _zoom;
+        _panOffset.Y = clientPoint.Y - anchorImage.Y * _zoom;
+        ConstrainViewTransform();
+        RequestHostLayout();
+        NotifyViewChanged();
+        Invalidate();
+    }
+
+    private void ApplyPanForViewportAnchor(PointF anchorImage)
+    {
+        var center = GetViewportCenter();
+        _panOffset.X = center.X - anchorImage.X * _zoom;
+        _panOffset.Y = center.Y - anchorImage.Y * _zoom;
+        ConstrainViewTransform();
+    }
+
+    private PointF GetViewportCenter()
+    {
+        var viewport = GetViewportSize();
+        return new PointF(viewport.Width / 2f, viewport.Height / 2f);
+    }
 
     private PointF GetImagePointAtViewportCenter()
     {
         var center = GetViewportCenter();
-        var imageX = (center.X - _panOffset.X) / _zoom;
-        var imageY = (center.Y - _panOffset.Y) / _zoom;
-
-        if (_sourceImage != null)
-        {
-            imageX = Math.Clamp(imageX, 0, _sourceImage.Width);
-            imageY = Math.Clamp(imageY, 0, _sourceImage.Height);
-        }
-
-        return new PointF(imageX, imageY);
+        return new PointF(
+            (center.X - _panOffset.X) / _zoom,
+            (center.Y - _panOffset.Y) / _zoom);
     }
+
+    internal static int GetDisplayPixelSize(float value) =>
+        Math.Max(1, (int)Math.Ceiling(value));
 
     private bool IsImageSmallerThanViewport()
     {
-        if (_sourceImage == null || ClientSize.Width <= 0 || ClientSize.Height <= 0)
+        if (_sourceImage == null)
         {
             return true;
         }
 
-        var displayWidth = _sourceImage.Width * _zoom;
-        var displayHeight = _sourceImage.Height * _zoom;
-        return displayWidth <= ClientSize.Width && displayHeight <= ClientSize.Height;
+        var viewport = GetViewportSize();
+        if (viewport.Width <= 0 || viewport.Height <= 0)
+        {
+            return true;
+        }
+
+        var display = GetDisplaySize();
+        return display.Width <= viewport.Width && display.Height <= viewport.Height;
     }
 
     private bool CanPan() => _sourceImage != null && !IsImageSmallerThanViewport();
 
     private void ConstrainViewTransform()
     {
-        if (_sourceImage == null || ClientSize.Width <= 0 || ClientSize.Height <= 0)
+        var image = CurrentDisplayImage;
+        if (image == null)
         {
             return;
         }
 
-        var displayWidth = _sourceImage.Width * _zoom;
-        var displayHeight = _sourceImage.Height * _zoom;
-
-        if (displayWidth <= ClientSize.Width)
+        var viewport = GetViewportSize();
+        if (viewport.Width <= 0 || viewport.Height <= 0)
         {
-            _panOffset.X = (ClientSize.Width - displayWidth) / 2f;
-        }
-        else
-        {
-            _panOffset.X = Math.Clamp(_panOffset.X, ClientSize.Width - displayWidth, 0);
+            return;
         }
 
-        if (displayHeight <= ClientSize.Height)
-        {
-            _panOffset.Y = (ClientSize.Height - displayHeight) / 2f;
-        }
-        else
-        {
-            _panOffset.Y = Math.Clamp(_panOffset.Y, ClientSize.Height - displayHeight, 0);
-        }
+        var displayWidth = image.Width * _zoom;
+        var displayHeight = image.Height * _zoom;
+
+        _panOffset.X = displayWidth <= viewport.Width
+            ? (viewport.Width - displayWidth) / 2f
+            : Math.Min(0f, Math.Max(viewport.Width - displayWidth, _panOffset.X));
+
+        _panOffset.Y = displayHeight <= viewport.Height
+            ? (viewport.Height - displayHeight) / 2f
+            : Math.Min(0f, Math.Max(viewport.Height - displayHeight, _panOffset.Y));
+
+        _lastViewportSize = viewport;
     }
 
     private void NotifyViewChanged()
@@ -932,9 +1089,14 @@ public sealed class ImageCanvas : Control
                 : [];
         }
 
+        if (!_strokePreviewClient.HasValue)
+        {
+            return _activeStrokeClient.ToArray();
+        }
+
         var points = new PointF[_activeStrokeClient.Count + 1];
-        _activeStrokeClient.CopyTo(points);
-        points[^1] = _strokePreviewClient ?? _activeStrokeClient[^1];
+        _activeStrokeClient.CopyTo(points, 0);
+        points[^1] = _strokePreviewClient.Value;
         return points;
     }
 
@@ -1175,30 +1337,39 @@ public sealed class ImageCanvas : Control
             return;
         }
 
-        if (points.Length == 1)
+        if (points.Length >= 2)
         {
-            DrawSelectionHandle(g, points[0]);
-            return;
+            DrawYellowDashedPolyline(g, points, closed: false, LiveFreehandOutlineWidth);
+        }
+        else if (_strokePreviewClient.HasValue)
+        {
+            DrawSelectionHandle(g, _strokePreviewClient.Value, LiveFreehandOutlineWidth);
+        }
+        else
+        {
+            DrawSelectionHandle(g, points[0], LiveFreehandOutlineWidth);
         }
 
-        DrawYellowDashedPolyline(g, points, closed: false);
+        if (_strokePreviewClient.HasValue && points.Length >= 2)
+        {
+            DrawSelectionHandle(g, _strokePreviewClient.Value, LiveFreehandOutlineWidth);
+        }
     }
 
-    private static void DrawSelectionHandle(Graphics g, PointF point)
+    private static void DrawSelectionHandle(Graphics g, PointF point, float radius)
     {
-        var radius = SelectionOutlineWidth;
         using var brush = new SolidBrush(SelectionOutlineColor);
         g.FillEllipse(brush, point.X - radius, point.Y - radius, radius * 2f, radius * 2f);
     }
 
-    private static void DrawYellowDashedPolyline(Graphics g, PointF[] points, bool closed)
+    private static void DrawYellowDashedPolyline(Graphics g, PointF[] points, bool closed, float lineWidth)
     {
         if (points.Length < 2)
         {
             return;
         }
 
-        using var pen = new Pen(SelectionOutlineColor, SelectionOutlineWidth)
+        using var pen = new Pen(SelectionOutlineColor, lineWidth)
         {
             LineJoin = System.Drawing.Drawing2D.LineJoin.Round,
             StartCap = System.Drawing.Drawing2D.LineCap.Flat,
@@ -1218,6 +1389,13 @@ public sealed class ImageCanvas : Control
             var segmentLength = MathF.Sqrt(dx * dx + dy * dy);
             if (segmentLength < 0.01f)
             {
+                continue;
+            }
+
+            var isRubberBandSegment = !closed && i == segmentCount - 1;
+            if (isRubberBandSegment && segmentLength < SelectionDashLength)
+            {
+                g.DrawLine(pen, from, to);
                 continue;
             }
 
@@ -1250,6 +1428,9 @@ public sealed class ImageCanvas : Control
             pathDistance += segmentLength;
         }
     }
+
+    private static void DrawYellowDashedPolyline(Graphics g, PointF[] points, bool closed) =>
+        DrawYellowDashedPolyline(g, points, closed, SelectionOutlineWidth);
 
     private void DrawDashedPolyline(Graphics g, PointF[] points, bool closed)
     {

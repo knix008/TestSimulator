@@ -4,7 +4,28 @@ namespace ImageRembgWinV10.Resources;
 
 public static class AppIconFactory
 {
-    public const int Size = 16;
+    public const int Size = 18;
+
+    private static readonly Color Blue = Color.FromArgb(37, 99, 235);
+    private static readonly Color BlueLight = Color.FromArgb(219, 234, 254);
+    private static readonly Color Green = Color.FromArgb(22, 163, 74);
+    private static readonly Color GreenLight = Color.FromArgb(220, 252, 231);
+    private static readonly Color Red = Color.FromArgb(220, 38, 38);
+    private static readonly Color RedLight = Color.FromArgb(254, 226, 226);
+    private static readonly Color Purple = Color.FromArgb(147, 51, 234);
+    private static readonly Color PurpleLight = Color.FromArgb(243, 232, 255);
+    private static readonly Color Orange = Color.FromArgb(234, 88, 12);
+    private static readonly Color OrangeLight = Color.FromArgb(255, 237, 213);
+    private static readonly Color Amber = Color.FromArgb(245, 158, 11);
+    private static readonly Color AmberLight = Color.FromArgb(254, 243, 199);
+    private static readonly Color Teal = Color.FromArgb(13, 148, 136);
+    private static readonly Color TealLight = Color.FromArgb(204, 251, 241);
+    private static readonly Color Indigo = Color.FromArgb(79, 70, 229);
+    private static readonly Color IndigoLight = Color.FromArgb(224, 231, 255);
+    private static readonly Color Pink = Color.FromArgb(219, 39, 119);
+    private static readonly Color PinkLight = Color.FromArgb(252, 231, 243);
+    private static readonly Color Slate = Color.FromArgb(100, 116, 139);
+    private static readonly Color SlateLight = Color.FromArgb(241, 245, 249);
 
     public static ImageList CreateImageList()
     {
@@ -27,194 +48,254 @@ public static class AppIconFactory
         list.Images.Add("zoom-in", CreateZoomInIcon());
         list.Images.Add("zoom-out", CreateZoomOutIcon());
         list.Images.Add("fit", CreateFitIcon());
-        list.Images.Add("select", CreateSelectRectIcon());
+        list.Images.Add("select-freehand", CreateSelectFreehandIcon());
+        list.Images.Add("select-rect", CreateSelectRectIcon());
         list.Images.Add("foreground", CreateForegroundIcon());
         list.Images.Add("background", CreateBackgroundIcon());
         list.Images.Add("pan", CreatePanIcon());
         list.Images.Add("mask", CreateMaskIcon());
         list.Images.Add("result", CreateResultIcon());
+        list.Images.Add("algorithm", CreateAlgorithmMenuIcon());
+        list.Images.Add("info", CreateInfoIcon());
+        list.Images.Add("language", CreateLanguageIcon());
 
         return list;
     }
 
     public static Bitmap CreateFileMenuIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(70, 110, 180));
-        g.FillRectangle(Brushes.White, 2, 4, 12, 10);
-        g.DrawRectangle(pen, 2, 4, 12, 10);
-        g.FillRectangle(new SolidBrush(Color.FromArgb(90, 130, 200)), 2, 4, 12, 3);
+        FillBadge(g, BlueLight, Blue);
+        g.FillRectangle(new SolidBrush(Blue), 4, 6, 10, 8);
+        g.FillRectangle(Brushes.White, 5, 7, 8, 5);
+        g.FillRectangle(new SolidBrush(Color.FromArgb(96, 165, 250)), 4, 6, 10, 3);
     });
 
     public static Bitmap CreateEditMenuIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(180, 90, 40));
-        g.DrawLines(pen, new[] { new Point(3, 13), new Point(8, 3), new Point(13, 5), new Point(8, 15), new Point(3, 13) });
-        g.DrawLine(pen, 10, 4, 13, 5);
+        FillBadge(g, OrangeLight, Orange);
+        using var pen = CreatePen(Orange, 2f);
+        g.DrawLines(pen, [new Point(4, 14), new Point(9, 4), new Point(14, 6), new Point(9, 15), new Point(4, 14)]);
+        g.DrawLine(pen, 11, 5, 14, 6);
     });
 
     public static Bitmap CreateViewMenuIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(60, 130, 90));
-        g.DrawEllipse(pen, 3, 4, 10, 8);
-        g.FillEllipse(Brushes.White, 5, 6, 4, 3);
-        g.DrawLine(pen, 9, 9, 12, 12);
+        FillBadge(g, TealLight, Teal);
+        using var pen = CreatePen(Teal, 1.8f);
+        g.DrawEllipse(pen, 3, 5, 12, 8);
+        g.FillEllipse(new SolidBrush(Teal), 7, 8, 4, 3);
     });
 
     public static Bitmap CreateToolsMenuIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(90, 90, 90));
-        g.DrawRectangle(pen, 3, 3, 10, 10);
-        g.DrawLine(pen, 8, 3, 8, 13);
-        g.DrawLine(pen, 3, 8, 13, 8);
+        FillBadge(g, IndigoLight, Indigo);
+        using var pen = CreatePen(Indigo, 1.8f);
+        g.DrawRectangle(pen, 4, 4, 10, 10);
+        g.DrawLine(pen, 9, 4, 9, 14);
+        g.DrawLine(pen, 4, 9, 14, 9);
+        g.FillEllipse(new SolidBrush(Indigo), 7, 7, 4, 4);
     });
 
     public static Bitmap CreateOpenIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(55, 105, 185));
-        g.FillRectangle(new SolidBrush(Color.FromArgb(235, 242, 252)), 2, 5, 11, 9);
-        g.DrawRectangle(pen, 2, 5, 11, 9);
-        g.FillRectangle(new SolidBrush(Color.FromArgb(100, 145, 210)), 2, 5, 11, 3);
-        g.DrawLine(pen, 8, 2, 8, 6);
-        g.DrawLine(pen, 6, 2, 10, 2);
+        FillBadge(g, BlueLight, Blue);
+        g.FillRectangle(new SolidBrush(Blue), 3, 7, 12, 8);
+        g.FillRectangle(Brushes.White, 4, 8, 10, 5);
+        g.FillRectangle(new SolidBrush(Color.FromArgb(96, 165, 250)), 3, 7, 12, 3);
+        g.DrawLine(CreatePen(Blue, 2f), 9, 4, 9, 8);
+        g.DrawLine(CreatePen(Blue, 2f), 7, 4, 11, 4);
     });
 
     public static Bitmap CreateSaveIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(55, 105, 185));
-        g.FillRectangle(new SolidBrush(Color.FromArgb(235, 242, 252)), 3, 2, 10, 12);
-        g.DrawRectangle(pen, 3, 2, 10, 12);
-        g.FillRectangle(new SolidBrush(Color.FromArgb(100, 145, 210)), 3, 2, 10, 3);
-        g.FillRectangle(Brushes.White, 5, 6, 6, 6);
-        g.DrawRectangle(pen, 5, 6, 6, 6);
+        FillBadge(g, BlueLight, Blue);
+        g.FillRectangle(new SolidBrush(Blue), 4, 3, 10, 13);
+        g.FillRectangle(new SolidBrush(Color.FromArgb(96, 165, 250)), 4, 3, 10, 4);
+        g.FillRectangle(Brushes.White, 6, 8, 6, 6);
+        g.FillRectangle(new SolidBrush(Green), 7, 9, 4, 4);
     });
 
     public static Bitmap CreateExitIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(190, 70, 70));
-        g.DrawRectangle(pen, 3, 3, 10, 10);
-        g.DrawLine(pen, 5, 5, 11, 11);
-        g.DrawLine(pen, 11, 5, 5, 11);
+        FillBadge(g, RedLight, Red);
+        using var pen = CreatePen(Red, 2f);
+        g.DrawRectangle(pen, 4, 4, 10, 10);
+        g.DrawLine(pen, 6, 6, 12, 12);
+        g.DrawLine(pen, 12, 6, 6, 12);
     });
 
     public static Bitmap CreatePreviewIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(0, 150, 90));
-        g.DrawRectangle(pen, 2, 4, 12, 9);
-        g.DrawPolygon(pen, new[] { new Point(4, 12), new Point(7, 8), new Point(9, 10), new Point(12, 6) });
-        g.DrawEllipse(CreatePen(Color.FromArgb(0, 180, 110)), 9, 5, 4, 4);
+        FillBadge(g, GreenLight, Green);
+        using var pen = CreatePen(Green, 1.8f);
+        g.DrawRectangle(pen, 3, 5, 12, 9);
+        using var accent = CreatePen(Color.FromArgb(16, 185, 129), 2f);
+        g.DrawLines(accent, [new Point(5, 12), new Point(8, 9), new Point(10, 11), new Point(13, 7)]);
+        g.FillEllipse(new SolidBrush(Amber), 11, 6, 4, 4);
     });
 
     public static Bitmap CreateRemoveBackgroundIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(170, 80, 200));
-        g.DrawRectangle(CreatePen(Color.FromArgb(120, 120, 120)), 2, 3, 12, 10);
-        g.FillEllipse(new SolidBrush(Color.FromArgb(170, 80, 200)), 4, 5, 8, 6);
-        g.DrawLine(CreatePen(Color.White, 2), 4, 11, 12, 3);
+        FillBadge(g, PurpleLight, Purple);
+        g.FillRectangle(new SolidBrush(SlateLight), 3, 4, 12, 11);
+        g.FillEllipse(new SolidBrush(Purple), 5, 7, 8, 6);
+        g.DrawLine(CreatePen(Red, 2.2f), 5, 13, 14, 4);
     });
 
     public static Bitmap CreateResetIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(110, 110, 110));
-        g.DrawArc(pen, 3, 3, 10, 10, 30, 300);
-        g.DrawLines(pen, new[] { new Point(3, 6), new Point(3, 3), new Point(6, 3) });
+        FillBadge(g, OrangeLight, Orange);
+        using var pen = CreatePen(Orange, 2f);
+        g.DrawArc(pen, 4, 4, 10, 10, 45, 270);
+        g.DrawLines(pen, [new Point(4, 7), new Point(4, 4), new Point(7, 4)]);
     });
 
     public static Bitmap CreateZoomInIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(70, 110, 170));
-        g.DrawEllipse(pen, 2, 2, 9, 9);
-        g.DrawLine(pen, 9, 9, 13, 13);
-        g.DrawLine(CreatePen(Color.FromArgb(70, 110, 170), 2), 6, 5, 6, 9);
-        g.DrawLine(CreatePen(Color.FromArgb(70, 110, 170), 2), 4, 7, 8, 7);
+        FillBadge(g, IndigoLight, Indigo);
+        using var pen = CreatePen(Indigo, 1.8f);
+        g.DrawEllipse(pen, 3, 3, 10, 10);
+        g.DrawLine(pen, 11, 11, 15, 15);
+        using var plus = CreatePen(Indigo, 2f);
+        g.DrawLine(plus, 8, 6, 8, 11);
+        g.DrawLine(plus, 5, 8, 11, 8);
     });
 
     public static Bitmap CreateZoomOutIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(70, 110, 170));
-        g.DrawEllipse(pen, 2, 2, 9, 9);
-        g.DrawLine(pen, 9, 9, 13, 13);
-        g.DrawLine(CreatePen(Color.FromArgb(70, 110, 170), 2), 4, 7, 8, 7);
+        FillBadge(g, IndigoLight, Indigo);
+        using var pen = CreatePen(Indigo, 1.8f);
+        g.DrawEllipse(pen, 3, 3, 10, 10);
+        g.DrawLine(pen, 11, 11, 15, 15);
+        g.DrawLine(CreatePen(Indigo, 2f), 5, 8, 11, 8);
     });
 
     public static Bitmap CreateFitIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(70, 110, 170));
-        g.DrawRectangle(pen, 2, 3, 12, 10);
-        g.DrawLine(pen, 5, 8, 2, 8);
-        g.DrawLine(pen, 11, 8, 14, 8);
-        g.DrawLine(pen, 8, 5, 8, 2);
-        g.DrawLine(pen, 8, 11, 8, 14);
+        FillBadge(g, TealLight, Teal);
+        using var pen = CreatePen(Teal, 1.8f);
+        g.DrawRectangle(pen, 3, 4, 12, 10);
+        g.DrawLine(pen, 6, 9, 3, 9);
+        g.DrawLine(pen, 12, 9, 15, 9);
+        g.DrawLine(pen, 9, 6, 9, 3);
+        g.DrawLine(pen, 9, 12, 9, 15);
+    });
+
+    public static Bitmap CreateSelectFreehandIcon() => Draw(g =>
+    {
+        FillBadge(g, AmberLight, Amber);
+        using var pen = CreatePen(Amber, 2f);
+        pen.DashStyle = DashStyle.Dash;
+        g.DrawLines(pen, [new Point(4, 12), new Point(6, 5), new Point(10, 4), new Point(13, 8), new Point(11, 13), new Point(4, 12)]);
     });
 
     public static Bitmap CreateSelectRectIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(220, 170, 0), 2);
+        FillBadge(g, AmberLight, Amber);
+        using var pen = CreatePen(Orange, 2f);
         pen.DashStyle = DashStyle.Dash;
-        g.DrawRectangle(pen, 3, 3, 10, 10);
+        g.DrawRectangle(pen, 4, 4, 10, 10);
     });
 
     public static Bitmap CreateForegroundIcon() => Draw(g =>
     {
-        g.FillEllipse(new SolidBrush(Color.FromArgb(70, 200, 90)), 4, 4, 8, 8);
-        g.DrawEllipse(CreatePen(Color.FromArgb(30, 120, 50)), 4, 4, 8, 8);
+        FillBadge(g, GreenLight, Green);
+        g.FillEllipse(new SolidBrush(Green), 5, 5, 8, 8);
+        g.FillEllipse(Brushes.White, 7, 7, 4, 4);
     });
 
     public static Bitmap CreateBackgroundIcon() => Draw(g =>
     {
-        g.FillEllipse(new SolidBrush(Color.FromArgb(230, 80, 80)), 4, 4, 8, 8);
-        g.DrawEllipse(CreatePen(Color.FromArgb(150, 30, 30)), 4, 4, 8, 8);
+        FillBadge(g, RedLight, Red);
+        g.FillEllipse(new SolidBrush(Red), 5, 5, 8, 8);
+        g.DrawLine(CreatePen(Brushes.White, 2f), 6, 6, 12, 12);
+        g.DrawLine(CreatePen(Brushes.White, 2f), 12, 6, 6, 12);
     });
 
     public static Bitmap CreatePanIcon() => Draw(g =>
     {
-        using var brush = new SolidBrush(Color.FromArgb(110, 110, 110));
-        g.FillEllipse(brush, 3, 3, 7, 7);
-        g.FillRectangle(brush, 5, 9, 2, 4);
-        g.FillRectangle(brush, 3, 12, 6, 2);
+        FillBadge(g, BlueLight, Blue);
+        using var brush = new SolidBrush(Blue);
+        g.FillEllipse(brush, 4, 3, 8, 8);
+        g.FillRectangle(brush, 7, 10, 3, 5);
+        g.FillRectangle(brush, 5, 14, 7, 2);
     });
 
     public static Bitmap CreateMaskIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(0, 160, 120));
-        g.DrawRectangle(pen, 2, 4, 12, 9);
-        g.FillRectangle(new SolidBrush(Color.FromArgb(90, 0, 200, 120)), 4, 6, 8, 5);
+        FillBadge(g, TealLight, Teal);
+        using var pen = CreatePen(Teal, 1.8f);
+        g.DrawRectangle(pen, 3, 5, 12, 9);
+        g.FillRectangle(new SolidBrush(Color.FromArgb(160, 20, 184, 166)), 5, 7, 8, 5);
     });
 
     public static Bitmap CreateAlgorithmMenuIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(90, 90, 90));
-        g.DrawRectangle(pen, 3, 3, 10, 10);
-        g.DrawLine(pen, 5, 6, 11, 6);
-        g.DrawLine(pen, 5, 9, 11, 9);
-        using var knob = new SolidBrush(Color.FromArgb(70, 110, 170));
-        g.FillEllipse(knob, 9, 5, 3, 3);
-        g.FillEllipse(knob, 6, 8, 3, 3);
+        FillBadge(g, PurpleLight, Purple);
+        using var pen = CreatePen(Purple, 1.8f);
+        g.DrawRectangle(pen, 4, 4, 10, 10);
+        g.DrawLine(pen, 6, 7, 12, 7);
+        g.DrawLine(pen, 6, 11, 12, 11);
+        g.FillEllipse(new SolidBrush(Blue), 10, 6, 3, 3);
+        g.FillEllipse(new SolidBrush(Green), 7, 10, 3, 3);
     });
 
     public static Bitmap CreateResultIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(70, 110, 170));
-        g.DrawRectangle(pen, 2, 3, 12, 10);
-        g.FillEllipse(new SolidBrush(Color.FromArgb(220, 170, 0)), 10, 4, 3, 3);
+        FillBadge(g, PinkLight, Pink);
+        using var pen = CreatePen(Pink, 1.8f);
+        g.DrawRectangle(pen, 3, 4, 12, 10);
+        g.FillEllipse(new SolidBrush(Amber), 11, 5, 4, 4);
+        g.FillEllipse(new SolidBrush(Green), 5, 8, 4, 4);
     });
 
     public static Bitmap CreateInfoIcon() => Draw(g =>
     {
-        using var pen = CreatePen(Color.FromArgb(70, 110, 180), 1.6f);
-        g.DrawEllipse(pen, 2, 2, 12, 12);
-        using var font = new Font("Segoe UI", 9f, FontStyle.Bold);
-        g.DrawString("i", font, new SolidBrush(Color.FromArgb(70, 110, 180)), 5.5f, 1.5f);
+        FillBadge(g, BlueLight, Blue);
+        g.FillEllipse(new SolidBrush(Blue), 3, 3, 12, 12);
+        using var font = new Font("Segoe UI", 10f, FontStyle.Bold);
+        g.DrawString("i", font, Brushes.White, 6.5f, 2f);
     });
 
-    private static Pen CreatePen(Color color, float width = 1.5f)
+    public static Bitmap CreateLanguageIcon() => Draw(g =>
     {
-        return new Pen(color, width)
+        FillBadge(g, IndigoLight, Indigo);
+        using var pen = CreatePen(Indigo, 1.8f);
+        g.DrawEllipse(pen, 3, 4, 12, 10);
+        g.DrawLine(pen, 3, 9, 15, 9);
+        g.DrawArc(pen, 6, 4, 6, 10, 270, 180);
+    });
+
+    private static void FillBadge(Graphics g, Color fill, Color border)
+    {
+        using var path = RoundedRect(1.5f, 1.5f, Size - 3, Size - 3, 3f);
+        using var brush = new SolidBrush(fill);
+        using var pen = CreatePen(border, 1f);
+        g.FillPath(brush, path);
+        g.DrawPath(pen, path);
+    }
+
+    private static GraphicsPath RoundedRect(float x, float y, float width, float height, float radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(x, y, diameter, diameter, 180, 90);
+        path.AddArc(x + width - diameter, y, diameter, diameter, 270, 90);
+        path.AddArc(x + width - diameter, y + height - diameter, diameter, diameter, 0, 90);
+        path.AddArc(x, y + height - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private static Pen CreatePen(Color color, float width = 1.5f) => CreatePen(new SolidBrush(color), width);
+
+    private static Pen CreatePen(Brush brush, float width = 1.5f) =>
+        new(brush, width)
         {
             StartCap = LineCap.Round,
             EndCap = LineCap.Round,
             LineJoin = LineJoin.Round
         };
-    }
 
     private static Bitmap Draw(Action<Graphics> draw)
     {

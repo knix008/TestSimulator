@@ -22,10 +22,11 @@ public partial class ImageRembgForm : Form
     public ImageRembgForm()
     {
         InitializeComponent();
-        InitializeLanguageMenu();
         InitializeApplicationIcon();
         InitializeIcons();
+        InitializeLanguageMenu();
         InitializeAboutUi();
+        InitializeTooltips();
         InitializeResultSizeOptions();
         InitializeToolbarLayout();
         panelCanvasHost.AttachCanvas(imageCanvas);
@@ -64,27 +65,16 @@ public partial class ImageRembgForm : Form
 
     private void InitializeIcons()
     {
-        imageListIcons.Images.Add("file", AppIconFactory.CreateFileMenuIcon());
-        imageListIcons.Images.Add("edit", AppIconFactory.CreateEditMenuIcon());
-        imageListIcons.Images.Add("view", AppIconFactory.CreateViewMenuIcon());
-        imageListIcons.Images.Add("tools", AppIconFactory.CreateToolsMenuIcon());
-        imageListIcons.Images.Add("open", AppIconFactory.CreateOpenIcon());
-        imageListIcons.Images.Add("save", AppIconFactory.CreateSaveIcon());
-        imageListIcons.Images.Add("exit", AppIconFactory.CreateExitIcon());
-        imageListIcons.Images.Add("preview", AppIconFactory.CreatePreviewIcon());
-        imageListIcons.Images.Add("remove", AppIconFactory.CreateRemoveBackgroundIcon());
-        imageListIcons.Images.Add("reset", AppIconFactory.CreateResetIcon());
-        imageListIcons.Images.Add("zoom-in", AppIconFactory.CreateZoomInIcon());
-        imageListIcons.Images.Add("zoom-out", AppIconFactory.CreateZoomOutIcon());
-        imageListIcons.Images.Add("fit", AppIconFactory.CreateFitIcon());
-        imageListIcons.Images.Add("select", AppIconFactory.CreateSelectRectIcon());
-        imageListIcons.Images.Add("foreground", AppIconFactory.CreateForegroundIcon());
-        imageListIcons.Images.Add("background", AppIconFactory.CreateBackgroundIcon());
-        imageListIcons.Images.Add("pan", AppIconFactory.CreatePanIcon());
-        imageListIcons.Images.Add("mask", AppIconFactory.CreateMaskIcon());
-        imageListIcons.Images.Add("result", AppIconFactory.CreateResultIcon());
-        imageListIcons.Images.Add("algorithm", AppIconFactory.CreateAlgorithmMenuIcon());
-        imageListIcons.Images.Add("info", AppIconFactory.CreateInfoIcon());
+        var sourceIcons = AppIconFactory.CreateImageList();
+        imageListIcons.ImageSize = sourceIcons.ImageSize;
+        imageListIcons.ColorDepth = sourceIcons.ColorDepth;
+        imageListIcons.TransparentColor = Color.Transparent;
+        foreach (var keyObj in sourceIcons.Images.Keys)
+        {
+            var key = keyObj as string ?? keyObj?.ToString() ?? "";
+            if (key.Length == 0) continue;
+            imageListIcons.Images.Add(key, (Image)sourceIcons.Images[key]!);
+        }
 
         AppIconProvider.ConfigureMenuStrip(menuStrip);
 
@@ -98,11 +88,11 @@ public partial class ImageRembgForm : Form
         AppIconProvider.ApplyToolbarButton(btnFit, imageListIcons, "fit");
         AppIconProvider.ApplyToolbarButton(btnInfo, imageListIcons, "info");
 
-        AppIconProvider.ApplyOptionButton(rbSelectFreehand, imageListIcons, "select");
-        AppIconProvider.ApplyOptionButton(rbSelectRect, imageListIcons, "select");
+        AppIconProvider.ApplyOptionButton(rbPan, imageListIcons, "pan");
+        AppIconProvider.ApplyOptionButton(rbSelectFreehand, imageListIcons, "select-freehand");
+        AppIconProvider.ApplyOptionButton(rbSelectRect, imageListIcons, "select-rect");
         AppIconProvider.ApplyOptionButton(rbForeground, imageListIcons, "foreground");
         AppIconProvider.ApplyOptionButton(rbBackground, imageListIcons, "background");
-        AppIconProvider.ApplyOptionButton(rbPan, imageListIcons, "pan");
         AppIconProvider.ApplyOptionButton(chkShowMask, imageListIcons, "mask");
         AppIconProvider.ApplyOptionButton(chkShowResult, imageListIcons, "result");
 
@@ -122,53 +112,16 @@ public partial class ImageRembgForm : Form
         AppIconProvider.ApplyMenuItem(mnuFit, imageListIcons, "fit");
         AppIconProvider.ApplyMenuItem(mnuShowMask, imageListIcons, "mask");
         AppIconProvider.ApplyMenuItem(mnuShowResult, imageListIcons, "result");
-        AppIconProvider.ApplyMenuItem(mnuSelectFreehand, imageListIcons, "select");
-        AppIconProvider.ApplyMenuItem(mnuSelectRect, imageListIcons, "select");
+        AppIconProvider.ApplyMenuItem(mnuSelectFreehand, imageListIcons, "select-freehand");
+        AppIconProvider.ApplyMenuItem(mnuSelectRect, imageListIcons, "select-rect");
         AppIconProvider.ApplyMenuItem(mnuForeground, imageListIcons, "foreground");
         AppIconProvider.ApplyMenuItem(mnuBackground, imageListIcons, "background");
         AppIconProvider.ApplyMenuItem(mnuPan, imageListIcons, "pan");
         AppIconProvider.ApplyMenuItem(mnuAlgoRembg, imageListIcons, "remove");
         AppIconProvider.ApplyMenuItem(mnuAlgoGrabCut, imageListIcons, "preview");
         AppIconProvider.ApplyMenuItem(mnuAlgoColorKey, imageListIcons, "background");
-        AppIconProvider.ApplyMenuItem(mnuAlgoEdgeFill, imageListIcons, "select");
+        AppIconProvider.ApplyMenuItem(mnuAlgoEdgeFill, imageListIcons, "select-rect");
         AppIconProvider.ApplyMenuItem(mnuAlgoThreshold, imageListIcons, "mask");
-    }
-
-    private static void LayoutToolbarControl(Control control, ref int x, int y, int width, int height, int gap)
-    {
-        control.AutoSize = false;
-        control.Size = new System.Drawing.Size(width, height);
-        control.Location = new System.Drawing.Point(x, y);
-
-        switch (control)
-        {
-            case CheckBox checkBox:
-                checkBox.TextAlign = ContentAlignment.MiddleCenter;
-                break;
-            case RadioButton radioButton:
-                radioButton.TextAlign = ContentAlignment.MiddleCenter;
-                break;
-        }
-
-        x += width + gap;
-    }
-
-    private static void LayoutToolbarLabel(Label label, ref int x, int y, int height, int gap)
-    {
-        label.AutoSize = false;
-        label.TextAlign = ContentAlignment.MiddleLeft;
-        var width = TextRenderer.MeasureText(label.Text, label.Font).Width + 8;
-        label.Size = new System.Drawing.Size(width, height);
-        label.Location = new System.Drawing.Point(x, y);
-        x += width + gap;
-    }
-
-    private static void LayoutToolbarHint(Label label, int x, int y, int height)
-    {
-        label.AutoSize = false;
-        label.TextAlign = ContentAlignment.MiddleLeft;
-        label.Location = new System.Drawing.Point(x, y);
-        label.Height = height;
     }
 
     private void InitializeResultSizeOptions()

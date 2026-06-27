@@ -144,7 +144,8 @@ Visual Studio에서 **`ImageRembgWinV10.sln`** 을 **Release**로 **솔루션 �
 
 | 항목 | 내용 |
 |------|------|
-| MSI 출력 | `ImageRembgWinV10.Installer\bin\x64\Release\en-us\ImageRembgWinV10.msi` (VS 구성에 따라 `bin\Release\en-us\`일 수 있음) |
+| 기본 MSI | **한국어** — `ImageRembgWinV10.Installer\bin\x64\Release\ImageRembgWinV10.msi` |
+| English MSI | `ImageRembgWinV10.en-US.msi` (같은 폴더) |
 | 설치 위치 | `Program Files\Image Rembg` |
 | 런타임 | .NET 10 Desktop Runtime (x64) 필요 |
 

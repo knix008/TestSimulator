@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="ko-kr" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="DowngradeError" Value="더 새로운 버전의 Image Rembg가 이미 설치되어 있습니다." />
+  <String Id="DotNetMissingError" Value="이 프로그램을 실행하려면 .NET 10 Desktop Runtime (x64)이 필요합니다. 설치한 후 setup을 다시 실행해 주세요." />
+  <String Id="ProductFeatureDescription" Value="대화형 이미지 배경 제거 프로그램입니다." />
+  <String Id="StartMenuShortcutFeatureTitle" Value="시작 메뉴 바로가기" />
+  <String Id="StartMenuShortcutFeatureDescription" Value="시작 메뉴에 바로가기를 만듭니다." />
+  <String Id="DesktopShortcutFeatureTitle" Value="바탕화면 바로가기" />
+  <String Id="DesktopShortcutFeatureDescription" Value="바탕화면에 바로가기를 만듭니다." />
+  <String Id="ShortcutDescription" Value="대화형 이미지 배경 제거" />
+</WixLocalization>

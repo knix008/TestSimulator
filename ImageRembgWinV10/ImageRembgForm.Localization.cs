@@ -17,9 +17,6 @@ public partial class ImageRembgForm
         mnuLanguage = new ToolStripMenuItem();
         mnuLangKorean = new ToolStripMenuItem { CheckOnClick = true };
         mnuLangEnglish = new ToolStripMenuItem { CheckOnClick = true };
-        AppIconProvider.ApplyMenuItem(mnuLanguage, imageListIcons, "view");
-        AppIconProvider.ApplyMenuItem(mnuLangKorean, imageListIcons, "view");
-        AppIconProvider.ApplyMenuItem(mnuLangEnglish, imageListIcons, "view");
         mnuLangKorean.Click += (_, _) => SetLanguage(AppLanguage.Korean);
         mnuLangEnglish.Click += (_, _) => SetLanguage(AppLanguage.English);
         mnuLanguage.DropDownItems.AddRange([mnuLangKorean, mnuLangEnglish]);
@@ -81,8 +78,8 @@ public partial class ImageRembgForm
         }
 
         btnOpen.Text = L.Get("Menu.Open");
-        btnPreview.Text = L.Get("Menu.Preview");
-        btnRemoveBackground.Text = L.Get("Menu.RemoveBackground");
+        btnPreview.Text = L.Get("Toolbar.PreviewShort");
+        btnRemoveBackground.Text = L.Get("Toolbar.RemoveBackgroundShort");
         btnSave.Text = L.Get("Menu.Save");
         btnReset.Text = L.Get("Menu.Reset");
         btnZoomOut.Text = L.Get("Menu.ZoomOut");
@@ -90,16 +87,15 @@ public partial class ImageRembgForm
         btnFit.Text = L.Get("Menu.FitShort");
         btnInfo.Text = L.Get("Menu.Info");
 
-        rbSelectFreehand.Text = L.Get("Menu.SelectFreehand");
+        rbSelectFreehand.Text = L.Get("Toolbar.SelectFreehandShort");
         rbSelectRect.Text = L.Get("Menu.SelectRectShort");
-        rbForeground.Text = L.Get("Menu.Foreground");
-        rbBackground.Text = L.Get("Menu.Background");
+        rbForeground.Text = L.Get("Toolbar.ForegroundShort");
+        rbBackground.Text = L.Get("Toolbar.BackgroundShort");
         rbPan.Text = L.Get("Menu.Pan");
-        chkShowMask.Text = L.Get("Menu.ShowMask");
-        chkShowResult.Text = L.Get("Menu.ShowResult");
+        chkShowMask.Text = L.Get("Toolbar.ShowMaskShort");
+        chkShowResult.Text = L.Get("Toolbar.ShowResultShort");
         lblResultSize.Text = L.Get("Label.ResultSize");
         lblAlgorithm.Text = L.Get("Label.Algorithm");
-        lblHint.Text = L.Get("Hint.Workflow");
 
         if (mnuLanguage != null)
         {
@@ -130,6 +126,7 @@ public partial class ImageRembgForm
         }
 
         imageCanvas.Invalidate();
+        ApplyTooltips();
         InitializeToolbarLayout();
         UpdateToolbarDynamicLayout();
     }

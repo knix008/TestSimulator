@@ -22,7 +22,11 @@
 
     Scope="perMachine"
 
-    Compressed="yes">
+    Compressed="yes"
+
+    Codepage="949"
+
+    Language="1042">
 
 
 
@@ -90,7 +94,7 @@
 
             Name="$(ProductName)"
 
-            Description="Remove image backgrounds interactively"
+            Description="!(loc.ShortcutDescription)"
 
             Target="[INSTALLFOLDER]ImageRembgWinV10.exe"
 
@@ -132,7 +136,7 @@
 
           Name="$(ProductName)"
 
-          Description="Remove image backgrounds interactively"
+          Description="!(loc.ShortcutDescription)"
 
           Target="[INSTALLFOLDER]ImageRembgWinV10.exe"
 
