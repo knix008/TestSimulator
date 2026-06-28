@@ -253,6 +253,10 @@ internal static class LocalizationService
         ["Exception.RembgDownloadCorrupt"] = ("rembg 모델 다운로드가 손상되었습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.", "rembg model download is corrupted. Check network connection and try again."),
         ["Exception.RembgOutputUnreadable"] = ("rembg 모델 출력을 읽을 수 없습니다.", "Cannot read rembg model output."),
         ["Exception.Rembg2ModelMissing"] = ("rembg2(RMBG-2.0) 모델 파일을 찾을 수 없습니다: {0}. 라이선스 동의 후 Hugging Face에서 받은 onnx 파일을 이 경로에 배치해 주세요.", "rembg2 (RMBG-2.0) model file was not found: {0}. Place the ONNX file you downloaded from Hugging Face (after accepting the license) at this path."),
+        ["Msg.Rembg2ModelMissingTitle"] = ("rembg2 모델 필요", "rembg2 model required"),
+        ["Msg.Rembg2ModelMissingBody"] = (
+            "rembg2(RMBG-2.0) 모델 파일이 없습니다:\n{0}\n\n라이선스(비상업적 용도)에 동의한 뒤 onnx 파일을 받아 위 경로에 \"rembg2.onnx\"로 저장해야 사용할 수 있습니다.\n\n지금 다운로드 페이지를 여시겠습니까?",
+            "The rembg2 (RMBG-2.0) model file is missing:\n{0}\n\nYou need to accept the license (non-commercial use) and save the downloaded ONNX file at the path above as \"rembg2.onnx\" before this algorithm can be used.\n\nOpen the download page now?"),
         ["Exception.FileNotFound"] = ("이미지 파일을 찾을 수 없습니다.", "Image file not found."),
         ["Exception.UnsupportedExtension"] = ("지원하지 않는 형식입니다: {0}", "Unsupported format: {0}"),
         ["Exception.UnsupportedImageFormat"] = ("OpenCV 처리에 필요한 이미지 형식이 아닙니다. (채널 수: {0}, 형식: {1})", "Image format is not suitable for OpenCV processing. (Channels: {0}, Type: {1})"),

@@ -753,29 +753,16 @@ public sealed class ImageCanvas : Control
 
         base.OnMouseWheel(e);
 
-        if (ModifierKeys.HasFlag(Keys.Control))
-        {
-            var factor = e.Delta > 0 ? 1.15f : 1f / 1.15f;
-            ApplyZoomAtClientPoint(_zoom * factor, e.Location);
-            return;
-        }
-
-        if (!CanPan())
-        {
-            return;
-        }
-
-        if (ModifierKeys.HasFlag(Keys.Shift))
+        if (ModifierKeys.HasFlag(Keys.Shift) && CanPan())
         {
             _panOffset.X += e.Delta;
-        }
-        else
-        {
-            _panOffset.Y += e.Delta;
+            ConstrainViewTransform();
+            Invalidate();
+            return;
         }
 
-        ConstrainViewTransform();
-        Invalidate();
+        var factor = e.Delta > 0 ? 1.15f : 1f / 1.15f;
+        ApplyZoomAtClientPoint(_zoom * factor, e.Location);
     }
 
     protected override void OnResize(EventArgs e)

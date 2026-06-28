@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ImageRembgWinV10.Controls;
 using ImageRembgWinV10.Localization;
 using ImageRembgWinV10.Resources;
@@ -524,10 +525,46 @@ public partial class ImageRembgForm : Form
 
     private void mnuAlgoThreshold_Click(object? sender, EventArgs e) => SetSelectedAlgorithm(SegmentationAlgorithm.Threshold, clearPreview: true);
 
+    private const string Rembg2DownloadUrl = "https://huggingface.co/briaai/RMBG-2.0/tree/main/onnx";
+
     private void SetSelectedAlgorithm(SegmentationAlgorithm algorithm, bool clearPreview)
     {
         _selectedAlgorithm = algorithm;
         SyncAlgorithmUi(algorithm, clearPreview);
+
+        if (algorithm == SegmentationAlgorithm.Rembg2 && !Rembg2ModelProvider.IsModelAvailable())
+        {
+            PromptRembg2ModelDownload();
+        }
+    }
+
+    private void PromptRembg2ModelDownload()
+    {
+        var answer = MessageBox.Show(
+            this,
+            L.F("Msg.Rembg2ModelMissingBody", Rembg2ModelProvider.ModelPath),
+            L.Get("Msg.Rembg2ModelMissingTitle"),
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning);
+
+        if (answer != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(Rembg2DownloadUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ErrorDialogService.ShowError(
+                this,
+                L.Get("Error.Unhandled"),
+                L.Get("Error.UnhandledBody"),
+                ex,
+                new Dictionary<string, string?> { [L.Get("Context.File")] = Rembg2DownloadUrl });
+        }
     }
 
     private void SyncAlgorithmUi(SegmentationAlgorithm algorithm, bool clearPreview)

@@ -16,6 +16,10 @@ internal sealed class Rembg2ModelProvider : IDisposable
 
     public static Rembg2ModelProvider Instance => _instance ??= new Rembg2ModelProvider();
 
+    public static string ModelPath => Path.Combine(AppContext.BaseDirectory, "Assets", "Models", ModelFileName);
+
+    public static bool IsModelAvailable() => File.Exists(ModelPath);
+
     public string InputName => _inputName ?? throw new InvalidOperationException(L.Get("Exception.RembgNotReady"));
 
     public InferenceSession Session => _session ?? throw new InvalidOperationException(L.Get("Exception.RembgNotReady"));
@@ -29,7 +33,7 @@ internal sealed class Rembg2ModelProvider : IDisposable
                 return;
             }
 
-            var modelPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Models", ModelFileName);
+            var modelPath = ModelPath;
             if (!File.Exists(modelPath))
             {
                 throw new InvalidOperationException(L.F("Exception.Rembg2ModelMissing", modelPath));

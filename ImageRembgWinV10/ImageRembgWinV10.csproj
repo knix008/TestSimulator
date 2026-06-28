@@ -53,4 +53,19 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
+  <!--
+    Some referenced NuGet packages (notably Microsoft.ML.OnnxRuntime) ship native binaries for
+    every platform (iOS, Android, macOS, Linux, win-x86, win-arm64) and publish doesn't trim them
+    for a framework-dependent single-RID publish. This app is win-x64 only, so strip every other
+    RID's "runtimes" folder from the publish output to keep the MSI from bundling ~200MB of
+    binaries that can never run on the target machine.
+  -->
+  <Target Name="TrimUnusedRuntimeAssets" AfterTargets="Publish">
+    <ItemGroup>
+      <_AllRuntimeDirs Include="$([System.IO.Directory]::GetDirectories('$(PublishDir)runtimes'))" Condition="Exists('$(PublishDir)runtimes')" />
+      <_UnusedRuntimeDirs Include="@(_AllRuntimeDirs)" Condition="'%(Filename)' != 'win-x64'" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_UnusedRuntimeDirs)" Condition="'@(_UnusedRuntimeDirs)' != ''" />
+  </Target>
+
 </Project>
