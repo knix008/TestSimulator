@@ -57,9 +57,12 @@ public partial class GitAddResultDialog : Form
         GitStatusEntry entry,
         IReadOnlyDictionary<string, GitStatusEntry> beforeSnapshot)
     {
+        // This dialog reports the post-stage result, not the live Files-panel status — a file
+        // that was untracked a moment ago is now staged as "Added", so it shows "A" here even
+        // though the tree's own badge (PathGitStatus.Badge) still uses "U" for untracked.
         if (GitWorkflowService.WasUntrackedBeforeStage(beforeSnapshot, entry))
         {
-            return "U";
+            return "A";
         }
 
         return entry.Staged switch

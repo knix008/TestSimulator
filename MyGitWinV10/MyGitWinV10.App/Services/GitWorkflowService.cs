@@ -223,6 +223,17 @@ public static class GitWorkflowService
             return true;
         };
 
+        // The remote can reject a ref update server-side (file-size limit, branch protection,
+        // pre-receive hook) after the objects have already uploaded successfully. libgit2 only
+        // reports that through this callback — without it, Network.Push() returns normally and
+        // the rejection is silently lost, which is exactly what made large-file push failures
+        // look like nothing happened.
+        var rejections = new List<string>();
+        pushOptions.OnPushStatusError = error => rejections.Add(
+            string.IsNullOrWhiteSpace(error.Message)
+                ? Localization.Tf("GitOp.PushRejectedRefBare", error.Reference)
+                : Localization.Tf("GitOp.PushRejectedRef", error.Reference, error.Message));
+
         try
         {
             repo.Network.Push(remote, repo.Head.CanonicalName, pushOptions);
@@ -234,6 +245,11 @@ public static class GitWorkflowService
         catch (Exception ex) when (IsNothingToPush(ex))
         {
             throw new InvalidOperationException("There are no commits to push.", ex);
+        }
+
+        if (rejections.Count > 0)
+        {
+            throw new InvalidOperationException(Localization.Tf("GitOp.PushRejectedByRemote", string.Join("\n", rejections)));
         }
     }
 

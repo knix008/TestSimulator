@@ -52,6 +52,7 @@ namespace MyGitWinV10.App.Dialogs
             categoryComboBox.AutoCompleteMode = AutoCompleteMode.Suggest;
             categoryComboBox.AutoCompleteSource = AutoCompleteSource.ListItems;
             categoryComboBox.DropDownStyle = ComboBoxStyle.DropDown;
+            categoryComboBox.Font = new Font("Malgun Gothic", 9F);
             categoryComboBox.Location = new Point(20, 38);
             categoryComboBox.Name = "categoryComboBox";
             categoryComboBox.Size = new Size(370, 23);
@@ -81,6 +82,12 @@ namespace MyGitWinV10.App.Dialogs
             //
             // subjectTextBox
             //
+            // Malgun Gothic instead of the inherited Segoe UI — Segoe UI doesn't cover Hangul,
+            // so Windows silently font-links to a fallback per glyph, which during IME
+            // composition redraws can show characters at inconsistent widths ("multi-cell").
+            // Malgun Gothic has complete, consistent Hangul+Latin metrics, so no fallback ever
+            // kicks in here.
+            subjectTextBox.Font = new Font("Malgun Gothic", 9F);
             subjectTextBox.Location = new Point(20, 90);
             subjectTextBox.Name = "subjectTextBox";
             subjectTextBox.PlaceholderText = "Short summary of the change";
@@ -97,6 +104,7 @@ namespace MyGitWinV10.App.Dialogs
             //
             // bodyTextBox
             //
+            bodyTextBox.Font = new Font("Malgun Gothic", 9F);
             bodyTextBox.Location = new Point(20, 142);
             bodyTextBox.Multiline = true;
             bodyTextBox.Name = "bodyTextBox";
@@ -116,6 +124,7 @@ namespace MyGitWinV10.App.Dialogs
             // previewTextBox
             //
             previewTextBox.BackColor = Color.FromArgb(248, 250, 252);
+            previewTextBox.Font = new Font("Malgun Gothic", 9F);
             previewTextBox.Location = new Point(20, 242);
             previewTextBox.Multiline = true;
             previewTextBox.Name = "previewTextBox";

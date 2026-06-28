@@ -110,6 +110,7 @@ namespace MyGitWinV10.App
             gitAddContextMenuItem = new ToolStripMenuItem();
             gitResetContextMenuItem = new ToolStripMenuItem();
             gitDiscardContextMenuItem = new ToolStripMenuItem();
+            resolveConflictContextMenuItem = new ToolStripMenuItem();
             gitStagingSeparator = new ToolStripSeparator();
             gitCommitContextMenuItem = new ToolStripMenuItem();
             gitRemoteSeparator = new ToolStripSeparator();
@@ -828,7 +829,7 @@ namespace MyGitWinV10.App
             // 
             // repoFilesContextMenu
             // 
-            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { gitAddContextMenuItem, gitResetContextMenuItem, gitDiscardContextMenuItem, gitStagingSeparator, gitCommitContextMenuItem, gitRemoteSeparator, gitFetchContextMenuItem, gitPullContextMenuItem, gitPushContextMenuItem, gitStashSeparator, gitStashContextMenuItem, gitStashPopContextMenuItem, gitStatusContextMenuItem, repoFilesGitSeparator, showFileLogContextMenuItem, createNewFileContextMenuItem, createNewFolderContextMenuItem, deleteRepoFileContextMenuItem, repoFilesWorkspaceSeparator, addToGitIgnoreContextMenuItem, removeFromGitIgnoreContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
+            repoFilesContextMenu.Items.AddRange(new ToolStripItem[] { gitAddContextMenuItem, gitResetContextMenuItem, gitDiscardContextMenuItem, resolveConflictContextMenuItem, gitStagingSeparator, gitCommitContextMenuItem, gitRemoteSeparator, gitFetchContextMenuItem, gitPullContextMenuItem, gitPushContextMenuItem, gitStashSeparator, gitStashContextMenuItem, gitStashPopContextMenuItem, gitStatusContextMenuItem, repoFilesGitSeparator, showFileLogContextMenuItem, createNewFileContextMenuItem, createNewFolderContextMenuItem, deleteRepoFileContextMenuItem, repoFilesWorkspaceSeparator, addToGitIgnoreContextMenuItem, removeFromGitIgnoreContextMenuItem, copyRepoFilePathContextMenuItem, clearFileLogFilterContextMenuItem });
             repoFilesContextMenu.Name = "repoFilesContextMenu";
             repoFilesContextMenu.Size = new Size(184, 314);
             repoFilesContextMenu.Opening += RepoFilesContextMenu_Opening;
@@ -914,7 +915,15 @@ namespace MyGitWinV10.App
             gitDiscardContextMenuItem.Text = "Git Discard Changes";
             gitDiscardContextMenuItem.ToolTipText = "Discard uncommitted changes in the selected path";
             gitDiscardContextMenuItem.Click += GitDiscardContextMenuItem_Click;
-            // 
+            //
+            // resolveConflictContextMenuItem
+            //
+            resolveConflictContextMenuItem.Name = "resolveConflictContextMenuItem";
+            resolveConflictContextMenuItem.Size = new Size(183, 22);
+            resolveConflictContextMenuItem.Text = "Resolve Conflict in Merge Tool...";
+            resolveConflictContextMenuItem.ToolTipText = "Launch the configured external merge tool for this conflicted file";
+            resolveConflictContextMenuItem.Click += ResolveConflictContextMenuItem_Click;
+            //
             // gitStagingSeparator
             // 
             gitStagingSeparator.Name = "gitStagingSeparator";
@@ -1400,6 +1409,7 @@ namespace MyGitWinV10.App
         private ToolStripMenuItem gitAddContextMenuItem;
         private ToolStripMenuItem gitResetContextMenuItem;
         private ToolStripMenuItem gitDiscardContextMenuItem;
+        private ToolStripMenuItem resolveConflictContextMenuItem;
         private ToolStripSeparator gitStagingSeparator;
         private ToolStripMenuItem gitCommitContextMenuItem;
         private ToolStripSeparator gitRemoteSeparator;

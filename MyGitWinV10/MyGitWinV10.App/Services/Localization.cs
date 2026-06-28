@@ -131,6 +131,11 @@ public static class Localization
         ["Preferences.Diff.Browse"] = ("찾아보기...", "Browse..."),
         ["Preferences.Diff.Arguments"] = ("인수", "Arguments"),
         ["Preferences.Diff.Hint"] = ("{left}와 {right}는 비교할 두 임시 파일 경로로 대체됩니다.", "{left} and {right} are replaced with the two temp file paths to compare."),
+        ["Preferences.Merge.Group"] = ("외부 Merge 도구", "External Merge Tool"),
+        ["Preferences.Merge.Path"] = ("도구 경로", "Tool Path"),
+        ["Preferences.Merge.Browse"] = ("찾아보기...", "Browse..."),
+        ["Preferences.Merge.Arguments"] = ("인수", "Arguments"),
+        ["Preferences.Merge.Hint"] = ("{base}/{local}/{remote}/{merged}는 각각 공통 조상, 내 변경, 상대 변경, 작업 트리의 충돌 파일로 대체됩니다.", "{base}/{local}/{remote}/{merged} are replaced with the common ancestor, your changes, their changes, and the working-tree conflicted file."),
         ["Preferences.Language.Group"] = ("언어", "Language"),
         ["Preferences.Language.Korean"] = ("한국어", "Korean"),
         ["Preferences.Language.English"] = ("영어", "English"),
@@ -278,6 +283,11 @@ public static class Localization
         ["GitOp.PushComplete"] = ("Git Push 완료", "Git Push Complete"),
         ["GitOp.PushFailed"] = ("Git Push 실패", "Git Push Failed"),
         ["GitOp.PushRejectedNonFf"] = ("'{0}' 브랜치를 Push할 수 없습니다. origin에 로컬에 없는 커밋이 있어 non-fast-forward Push가 거부되었습니다.\n\n먼저 Git Pull을 실행한 뒤 다시 Push하세요.\n(원격보다 {1}커밋 뒤, {2}커밋 앞)", "Cannot push branch '{0}'. The remote on origin has commits that your local branch does not contain (non-fast-forward).\n\nRun Git Pull first, then push again.\n({1} commit(s) behind, {2} ahead)"),
+        ["GitOp.PushRejectedRef"] = ("{0}: {1}", "{0}: {1}"),
+        ["GitOp.PushRejectedRefBare"] = ("{0}: 원격이 이 참조에 대한 업데이트를 거부했습니다.", "{0}: the remote rejected the update for this reference."),
+        ["GitOp.PushRejectedByRemote"] = (
+            "원격 저장소가 커밋 업로드 후 Push를 거부했습니다:\n\n{0}\n\n흔한 원인과 해결 방법:\n• 파일 크기 초과 — GitHub는 100MB를 넘는 파일을 거부합니다. 큰 파일은 Git LFS로 추적하거나 히스토리에서 제거하세요.\n• 브랜치 보호 규칙 또는 서버 측 pre-receive 훅에 의해 거부됨 — 저장소 관리자에게 확인하세요.\n\n위 원격 메시지에 구체적인 원인이 포함되어 있을 수 있습니다.",
+            "The remote rejected the push after the commits were already uploaded:\n\n{0}\n\nCommon causes and fixes:\n• A file exceeds the size limit — GitHub blocks files over 100MB. Track large files with Git LFS or remove them from history.\n• Blocked by a branch protection rule or a server-side pre-receive hook — check with the repository administrator.\n\nThe remote message above may contain the specific reason."),
         ["GitOp.StashComplete"] = ("Git Stash 완료", "Git Stash Complete"),
         ["GitOp.StashFailed"] = ("Git Stash 실패", "Git Stash Failed"),
         ["GitOp.StashPopComplete"] = ("Git Stash Pop 완료", "Git Stash Pop Complete"),
@@ -407,6 +417,14 @@ public static class Localization
         ["GitAdd.CompleteOne"] = ("1개 경로가 스테이징되었습니다.", "1 path was staged."),
         ["GitAdd.CompleteMany"] = ("{0}개 경로가 스테이징되었습니다.", "{0} paths were staged."),
         ["Column.Status"] = ("상태", "Status"),
+
+        ["Menu.Files.ResolveConflict"] = ("Merge 도구로 충돌 해결...", "Resolve Conflict in Merge Tool..."),
+        ["MergeTool.NotConfigured"] = ("환경설정에서 외부 Merge 도구를 먼저 설정하세요.", "Configure an external merge tool in Preferences first."),
+        ["MergeTool.NoConflict"] = ("'{0}' 경로에 충돌이 없습니다.", "'{0}' has no conflict."),
+        ["MergeTool.LaunchFailed"] = ("Merge 도구를 시작하지 못했습니다.", "Failed to launch the merge tool."),
+        ["MergeTool.ResolvedTitle"] = ("충돌 해결됨", "Conflict Resolved"),
+        ["MergeTool.ResolvedMessage"] = ("'{0}' 의 충돌을 해결하고 스테이징했습니다.", "Resolved and staged '{0}'."),
+        ["MergeTool.Failed"] = ("Merge 도구 실행 실패", "Merge Tool Failed"),
 
         // Git operation detail labels
         ["Detail.Repository"] = ("저장소", "Repository"),

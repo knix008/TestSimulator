@@ -306,6 +306,7 @@ public partial class MainForm : Form
             (gitAddContextMenuItem, IconFactory.GitAdd(), "Git Add"),
             (gitResetContextMenuItem, IconFactory.GitReset(), "Git Reset (Unstage)"),
             (gitDiscardContextMenuItem, IconFactory.GitDiscard(), "Git Discard Changes"),
+            (resolveConflictContextMenuItem, IconFactory.Diff(), "Resolve Conflict in Merge Tool..."),
             (gitCommitContextMenuItem, IconFactory.GitCommit(), "Git Commit..."),
             (gitFetchContextMenuItem, IconFactory.GitFetch(), "Git Fetch"),
             (gitPullContextMenuItem, IconFactory.GitPull(), "Git Pull"),
@@ -640,6 +641,7 @@ public partial class MainForm : Form
         deleteRepoFileContextMenuItem.ToolTipText = Localization.T("Menu.RepoFiles.Delete.Tip");
         copyRepoFilePathContextMenuItem.Text = Localization.T("Menu.RepoFiles.CopyPath");
         clearFileLogFilterContextMenuItem.Text = Localization.T("Menu.RepoFiles.ClearFilter");
+        resolveConflictContextMenuItem.Text = Localization.T("Menu.Files.ResolveConflict");
 
         ApplyLocalizedExportSummaryMenu(exportSummaryMenuItem, menuBar: false);
         ApplyLocalizedExportSummaryMenu(exportSummaryInfoMenuItem, menuBar: false);
@@ -2086,6 +2088,7 @@ public partial class MainForm : Form
             removeFromGitIgnoreContextMenuItem.Enabled = false;
             copyRepoFilePathContextMenuItem.Enabled = false;
             clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
+            resolveConflictContextMenuItem.Enabled = false;
             if (canUseGit)
             {
                 ApplyGitMenuItemState(_gitService.Repo, RepositoryRootTag, GetFilesGitMenuItems(), _fileTreeStatusIndex);
@@ -2099,6 +2102,10 @@ public partial class MainForm : Form
         ApplyWorkspaceMenuState(tag, canUseGit);
         ApplyGitIgnoreMenuState(_gitService.Repo, tag, canUseGit);
         clearFileLogFilterContextMenuItem.Enabled = _pathHistoryFilter is not null;
+        resolveConflictContextMenuItem.Enabled = canUseGit
+            && !tag.IsDirectory
+            && ExternalMergeToolService.IsConfigured(_settings)
+            && ExternalMergeToolService.HasConflict(_gitService.Repo, PathCommitHistoryService.NormalizeGitPath(tag.RelativePath));
         if (canUseGit)
         {
             ApplyGitMenuItemState(_gitService.Repo, tag, GetFilesGitMenuItems(), _fileTreeStatusIndex);
@@ -2159,6 +2166,7 @@ public partial class MainForm : Form
         gitAddContextMenuItem.Visible = visible;
         gitResetContextMenuItem.Visible = visible;
         gitDiscardContextMenuItem.Visible = visible;
+        resolveConflictContextMenuItem.Visible = visible;
         gitStagingSeparator.Visible = visible;
         gitCommitContextMenuItem.Visible = visible;
         gitRemoteSeparator.Visible = visible;
@@ -2472,6 +2480,40 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             GitOperationNotifier.ShowFailure(this, Localization.T("GitOp.DiscardFailed"), ex);
+        }
+    }
+
+    private void ResolveConflictContextMenuItem_Click(object? sender, EventArgs e)
+    {
+        RepositoryFileNodeTag? tag = TryGetGitPathTag();
+        if (tag is not null)
+        {
+            _ = TryResolveConflictAsync(tag);
+        }
+    }
+
+    private async Task TryResolveConflictAsync(RepositoryFileNodeTag tag)
+    {
+        if (_gitService.Repo is null || !CanUseGitWorkflow || !ExternalMergeToolService.IsConfigured(_settings))
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        string path = PathCommitHistoryService.NormalizeGitPath(tag.RelativePath);
+        try
+        {
+            await ExternalMergeToolService.LaunchAsync(_settings, repo, path);
+            statusLabel.Text = Localization.Tf("Status.StagedOne", path);
+            _ = RefreshFileTreeStatusAsync();
+            GitOperationNotifier.ShowSuccess(
+                this,
+                Localization.T("MergeTool.ResolvedTitle"),
+                Localization.Tf("MergeTool.ResolvedMessage", path));
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, Localization.T("MergeTool.Failed"), ex);
         }
     }
 

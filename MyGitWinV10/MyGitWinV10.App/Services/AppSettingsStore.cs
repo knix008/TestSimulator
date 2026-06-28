@@ -55,6 +55,13 @@ public sealed class AppSettingsStore
     // {left} and {right} are substituted with the two temp file paths at launch time.
     public string ExternalDiffToolArguments { get; set; } = "\"{left}\" \"{right}\"";
 
+    public string? ExternalMergeToolPath { get; set; }
+
+    // {base}/{local}/{remote} are the common-ancestor, "ours", and "theirs" versions; {merged}
+    // is the working-tree conflicted file itself — the tool edits it in place and we stage it
+    // once the tool process exits.
+    public string ExternalMergeToolArguments { get; set; } = "\"{base}\" \"{local}\" \"{remote}\" \"{merged}\"";
+
     public AppLanguage Language { get; set; } = AppLanguage.Korean;
 
     // PAT is encrypted with Windows DPAPI (current user + machine) before it touches disk —

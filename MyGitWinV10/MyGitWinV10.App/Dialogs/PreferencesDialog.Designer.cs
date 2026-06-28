@@ -24,11 +24,19 @@ namespace MyGitWinV10.App.Dialogs
             diffToolArgumentsLabel = new Label();
             diffToolArgumentsTextBox = new TextBox();
             diffToolHintLabel = new Label();
+            mergeToolGroupBox = new GroupBox();
+            mergeToolPathLabel = new Label();
+            mergeToolPathTextBox = new TextBox();
+            mergeToolBrowseButton = new Button();
+            mergeToolArgumentsLabel = new Label();
+            mergeToolArgumentsTextBox = new TextBox();
+            mergeToolHintLabel = new Label();
             languageGroupBox = new GroupBox();
             languageComboBox = new ComboBox();
             okButton = new Button();
             cancelButton = new Button();
             diffToolGroupBox.SuspendLayout();
+            mergeToolGroupBox.SuspendLayout();
             languageGroupBox.SuspendLayout();
             SuspendLayout();
             //
@@ -95,13 +103,76 @@ namespace MyGitWinV10.App.Dialogs
             diffToolHintLabel.Size = new Size(370, 15);
             diffToolHintLabel.Text = "{left} and {right} are replaced with the two temp file paths to compare.";
             //
+            // mergeToolGroupBox
+            //
+            mergeToolGroupBox.Controls.Add(mergeToolPathLabel);
+            mergeToolGroupBox.Controls.Add(mergeToolPathTextBox);
+            mergeToolGroupBox.Controls.Add(mergeToolBrowseButton);
+            mergeToolGroupBox.Controls.Add(mergeToolArgumentsLabel);
+            mergeToolGroupBox.Controls.Add(mergeToolArgumentsTextBox);
+            mergeToolGroupBox.Controls.Add(mergeToolHintLabel);
+            mergeToolGroupBox.Location = new Point(20, 175);
+            mergeToolGroupBox.Name = "mergeToolGroupBox";
+            mergeToolGroupBox.Size = new Size(400, 150);
+            mergeToolGroupBox.TabIndex = 1;
+            mergeToolGroupBox.Text = "External Merge Tool";
+            //
+            // mergeToolPathLabel
+            //
+            mergeToolPathLabel.AutoSize = true;
+            mergeToolPathLabel.Location = new Point(15, 25);
+            mergeToolPathLabel.Name = "mergeToolPathLabel";
+            mergeToolPathLabel.Size = new Size(63, 15);
+            mergeToolPathLabel.Text = "Tool Path";
+            //
+            // mergeToolPathTextBox
+            //
+            mergeToolPathTextBox.Location = new Point(15, 44);
+            mergeToolPathTextBox.Name = "mergeToolPathTextBox";
+            mergeToolPathTextBox.Size = new Size(290, 23);
+            mergeToolPathTextBox.TabIndex = 0;
+            //
+            // mergeToolBrowseButton
+            //
+            mergeToolBrowseButton.FlatStyle = FlatStyle.Flat;
+            mergeToolBrowseButton.Location = new Point(312, 43);
+            mergeToolBrowseButton.Name = "mergeToolBrowseButton";
+            mergeToolBrowseButton.Size = new Size(73, 25);
+            mergeToolBrowseButton.TabIndex = 1;
+            mergeToolBrowseButton.Text = "Browse...";
+            mergeToolBrowseButton.Click += MergeToolBrowseButton_Click;
+            //
+            // mergeToolArgumentsLabel
+            //
+            mergeToolArgumentsLabel.AutoSize = true;
+            mergeToolArgumentsLabel.Location = new Point(15, 78);
+            mergeToolArgumentsLabel.Name = "mergeToolArgumentsLabel";
+            mergeToolArgumentsLabel.Size = new Size(60, 15);
+            mergeToolArgumentsLabel.Text = "Arguments";
+            //
+            // mergeToolArgumentsTextBox
+            //
+            mergeToolArgumentsTextBox.Location = new Point(15, 97);
+            mergeToolArgumentsTextBox.Name = "mergeToolArgumentsTextBox";
+            mergeToolArgumentsTextBox.Size = new Size(370, 23);
+            mergeToolArgumentsTextBox.TabIndex = 2;
+            //
+            // mergeToolHintLabel
+            //
+            mergeToolHintLabel.AutoSize = true;
+            mergeToolHintLabel.ForeColor = Color.Gray;
+            mergeToolHintLabel.Location = new Point(15, 124);
+            mergeToolHintLabel.Name = "mergeToolHintLabel";
+            mergeToolHintLabel.Size = new Size(370, 15);
+            mergeToolHintLabel.Text = "{base}/{local}/{remote}/{merged} are replaced with the ancestor, ours, theirs, and working-tree paths.";
+            //
             // languageGroupBox
             //
             languageGroupBox.Controls.Add(languageComboBox);
-            languageGroupBox.Location = new Point(20, 175);
+            languageGroupBox.Location = new Point(20, 335);
             languageGroupBox.Name = "languageGroupBox";
             languageGroupBox.Size = new Size(400, 60);
-            languageGroupBox.TabIndex = 1;
+            languageGroupBox.TabIndex = 2;
             languageGroupBox.Text = "Language";
             //
             // languageComboBox
@@ -118,10 +189,10 @@ namespace MyGitWinV10.App.Dialogs
             okButton.DialogResult = DialogResult.OK;
             okButton.FlatStyle = FlatStyle.Flat;
             okButton.ForeColor = Color.White;
-            okButton.Location = new Point(264, 250);
+            okButton.Location = new Point(264, 410);
             okButton.Name = "okButton";
             okButton.Size = new Size(75, 28);
-            okButton.TabIndex = 2;
+            okButton.TabIndex = 3;
             okButton.Text = "OK";
             okButton.Click += OkButton_Click;
             //
@@ -129,10 +200,10 @@ namespace MyGitWinV10.App.Dialogs
             //
             cancelButton.DialogResult = DialogResult.Cancel;
             cancelButton.FlatStyle = FlatStyle.Flat;
-            cancelButton.Location = new Point(345, 250);
+            cancelButton.Location = new Point(345, 410);
             cancelButton.Name = "cancelButton";
             cancelButton.Size = new Size(75, 28);
-            cancelButton.TabIndex = 3;
+            cancelButton.TabIndex = 4;
             cancelButton.Text = "Cancel";
             //
             // PreferencesDialog
@@ -142,8 +213,9 @@ namespace MyGitWinV10.App.Dialogs
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.FromArgb(250, 250, 251);
-            ClientSize = new Size(440, 295);
+            ClientSize = new Size(440, 455);
             Controls.Add(diffToolGroupBox);
+            Controls.Add(mergeToolGroupBox);
             Controls.Add(languageGroupBox);
             Controls.Add(okButton);
             Controls.Add(cancelButton);
@@ -158,6 +230,8 @@ namespace MyGitWinV10.App.Dialogs
             Text = "Preferences";
             diffToolGroupBox.ResumeLayout(false);
             diffToolGroupBox.PerformLayout();
+            mergeToolGroupBox.ResumeLayout(false);
+            mergeToolGroupBox.PerformLayout();
             languageGroupBox.ResumeLayout(false);
             ResumeLayout(false);
         }
@@ -171,6 +245,13 @@ namespace MyGitWinV10.App.Dialogs
         private Label diffToolArgumentsLabel;
         private TextBox diffToolArgumentsTextBox;
         private Label diffToolHintLabel;
+        private GroupBox mergeToolGroupBox;
+        private Label mergeToolPathLabel;
+        private TextBox mergeToolPathTextBox;
+        private Button mergeToolBrowseButton;
+        private Label mergeToolArgumentsLabel;
+        private TextBox mergeToolArgumentsTextBox;
+        private Label mergeToolHintLabel;
         private GroupBox languageGroupBox;
         private ComboBox languageComboBox;
         private Button okButton;
