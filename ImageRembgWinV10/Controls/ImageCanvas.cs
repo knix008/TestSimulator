@@ -28,6 +28,10 @@ public sealed class ImageCanvas : Control
     private Mat? _selectionMask;
     private Mat? _foregroundHintMask;
     private Mat? _backgroundHintMask;
+    private const int MaxUndoHistory = 30;
+    private readonly List<SelectionSnapshot> _undoStack = [];
+    private readonly List<SelectionSnapshot> _redoStack = [];
+    private SelectionSnapshot? _pendingSnapshot;
     private readonly List<System.Drawing.Point> _activeStroke = [];
     private readonly List<PointF> _activeStrokeClient = [];
     private System.Drawing.Point _selectStartImage;
@@ -186,6 +190,7 @@ public sealed class ImageCanvas : Control
 
         _sourceImage?.Dispose();
         _resultImage?.Dispose();
+        _resultImage = null;
         ClearPreview();
         ClearMasksInternal();
 
@@ -252,11 +257,13 @@ public sealed class ImageCanvas : Control
 
     public void ClearSelection()
     {
+        BeginUndoableChange();
         ResetMask(_selectionMask);
         _activeStroke.Clear();
         _activeStrokeClient.Clear();
         _draftSelectionRect = System.Drawing.Rectangle.Empty;
         _selectionOutlineContours = [];
+        CommitUndoableChange();
         ClearPreview();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
@@ -264,10 +271,206 @@ public sealed class ImageCanvas : Control
 
     public void ClearMarkers()
     {
+        BeginUndoableChange();
         ResetMask(_foregroundHintMask);
         ResetMask(_backgroundHintMask);
+        CommitUndoableChange();
         MarkersChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
+    }
+
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    [System.ComponentModel.Browsable(false)]
+    public bool CanUndo => _undoStack.Count > 0;
+
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    [System.ComponentModel.Browsable(false)]
+    public bool CanRedo => _redoStack.Count > 0;
+
+    public event EventHandler? UndoRedoStateChanged;
+
+    public event EventHandler? StateRestored;
+
+    public Mat? GetPreviewMaskClone() => _previewMask?.Clone();
+
+    public Bitmap? GetResultImageClone() => _resultImage == null ? null : new Bitmap(_resultImage);
+
+    public void Undo()
+    {
+        if (_undoStack.Count == 0)
+        {
+            return;
+        }
+
+        var previous = PopLast(_undoStack);
+        PushBounded(_redoStack, CaptureSnapshot());
+        RestoreSnapshot(previous);
+        previous.Dispose();
+
+        FinishUndoRedo();
+    }
+
+    public void Redo()
+    {
+        if (_redoStack.Count == 0)
+        {
+            return;
+        }
+
+        var next = PopLast(_redoStack);
+        PushBounded(_undoStack, CaptureSnapshot());
+        RestoreSnapshot(next);
+        next.Dispose();
+
+        FinishUndoRedo();
+    }
+
+    private void FinishUndoRedo()
+    {
+        UpdateSelectionOutlineContours();
+        StateRestored?.Invoke(this, EventArgs.Empty);
+        UndoRedoStateChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+    }
+
+    public void BeginUndoableChange()
+    {
+        _pendingSnapshot?.Dispose();
+        _pendingSnapshot = CaptureSnapshot();
+    }
+
+    public void CommitUndoableChange()
+    {
+        if (_pendingSnapshot == null)
+        {
+            return;
+        }
+
+        PushBounded(_undoStack, _pendingSnapshot);
+        _pendingSnapshot = null;
+        ClearRedoStack();
+        UndoRedoStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void DiscardPendingChange()
+    {
+        _pendingSnapshot?.Dispose();
+        _pendingSnapshot = null;
+    }
+
+    private void ClearUndoHistory()
+    {
+        DiscardPendingChange();
+        foreach (var snapshot in _undoStack)
+        {
+            snapshot.Dispose();
+        }
+
+        _undoStack.Clear();
+        ClearRedoStack();
+        UndoRedoStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ClearRedoStack()
+    {
+        foreach (var snapshot in _redoStack)
+        {
+            snapshot.Dispose();
+        }
+
+        _redoStack.Clear();
+    }
+
+    private static T PopLast<T>(List<T> list)
+    {
+        var item = list[^1];
+        list.RemoveAt(list.Count - 1);
+        return item;
+    }
+
+    private static void PushBounded(List<SelectionSnapshot> stack, SelectionSnapshot snapshot)
+    {
+        stack.Add(snapshot);
+        while (stack.Count > MaxUndoHistory)
+        {
+            stack[0].Dispose();
+            stack.RemoveAt(0);
+        }
+    }
+
+    private SelectionSnapshot CaptureSnapshot() =>
+        new(_selectionMask, _foregroundHintMask, _backgroundHintMask, _previewMask, _resultImage, _showResult, _contours);
+
+    private void RestoreSnapshot(SelectionSnapshot snapshot)
+    {
+        RestoreMask(ref _selectionMask, snapshot.SelectionMask);
+        RestoreMask(ref _foregroundHintMask, snapshot.ForegroundMask);
+        RestoreMask(ref _backgroundHintMask, snapshot.BackgroundMask);
+
+        _previewMask?.Dispose();
+        _previewMask = snapshot.PreviewMask?.Clone();
+
+        _resultImage?.Dispose();
+        _resultImage = snapshot.ResultImage == null ? null : new Bitmap(snapshot.ResultImage);
+
+        _showResult = snapshot.ShowResult;
+        _contours = snapshot.Contours;
+        RequestHostLayout();
+    }
+
+    private static void RestoreMask(ref Mat? target, Mat? source)
+    {
+        if (source == null)
+        {
+            ResetMask(target);
+            return;
+        }
+
+        if (target == null)
+        {
+            target = source.Clone();
+            return;
+        }
+
+        source.CopyTo(target);
+    }
+
+    private sealed class SelectionSnapshot : IDisposable
+    {
+        public SelectionSnapshot(
+            Mat? selection,
+            Mat? foreground,
+            Mat? background,
+            Mat? preview,
+            Bitmap? resultImage,
+            bool showResult,
+            CvPoint[][] contours)
+        {
+            SelectionMask = selection?.Clone();
+            ForegroundMask = foreground?.Clone();
+            BackgroundMask = background?.Clone();
+            PreviewMask = preview?.Clone();
+            ResultImage = resultImage == null ? null : new Bitmap(resultImage);
+            ShowResult = showResult;
+            Contours = contours.Select(contour => contour.ToArray()).ToArray();
+        }
+
+        public Mat? SelectionMask { get; }
+        public Mat? ForegroundMask { get; }
+        public Mat? BackgroundMask { get; }
+        public Mat? PreviewMask { get; }
+        public Bitmap? ResultImage { get; }
+        public bool ShowResult { get; }
+        public CvPoint[][] Contours { get; }
+
+        public void Dispose()
+        {
+            SelectionMask?.Dispose();
+            ForegroundMask?.Dispose();
+            BackgroundMask?.Dispose();
+            PreviewMask?.Dispose();
+            ResultImage?.Dispose();
+        }
     }
 
     public void ZoomIn()
@@ -367,14 +570,12 @@ public sealed class ImageCanvas : Control
                 _isDrawingStroke = true;
                 _strokeInteractionMode = InteractionMode.SelectRectangle;
                 BeginInteractionCapture();
+                BeginUndoableChange();
                 _selectStartImage = imagePoint;
                 _strokePreviewClient = new PointF(e.X, e.Y);
                 _draftSelectionRect = new System.Drawing.Rectangle(imagePoint.X, imagePoint.Y, 0, 0);
                 _activeStroke.Clear();
-                _selectionOutlineContours = [];
-                ResetMask(_selectionMask);
                 ClearPreviewWithoutInvalidate();
-                SelectionChanged?.Invoke(this, EventArgs.Empty);
                 Update();
                 break;
 
@@ -382,6 +583,7 @@ public sealed class ImageCanvas : Control
                 _isDrawingStroke = true;
                 _strokeInteractionMode = InteractionMode.MarkForeground;
                 BeginInteractionCapture();
+                BeginUndoableChange();
                 PaintBrush(EnsureHintMask(ref _foregroundHintMask), imagePoint, imagePoint);
                 ClearPreview();
                 MarkersChanged?.Invoke(this, EventArgs.Empty);
@@ -392,6 +594,7 @@ public sealed class ImageCanvas : Control
                 _isDrawingStroke = true;
                 _strokeInteractionMode = InteractionMode.MarkBackground;
                 BeginInteractionCapture();
+                BeginUndoableChange();
                 PaintBrush(EnsureHintMask(ref _backgroundHintMask), imagePoint, imagePoint);
                 ClearPreview();
                 MarkersChanged?.Invoke(this, EventArgs.Empty);
@@ -530,6 +733,10 @@ public sealed class ImageCanvas : Control
 
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
+        else if (_strokeInteractionMode is InteractionMode.MarkForeground or InteractionMode.MarkBackground)
+        {
+            CommitUndoableChange();
+        }
 
         _strokePreviewClient = null;
 
@@ -662,6 +869,7 @@ public sealed class ImageCanvas : Control
             _selectionMask?.Dispose();
             _foregroundHintMask?.Dispose();
             _backgroundHintMask?.Dispose();
+            ClearUndoHistory();
         }
 
         base.Dispose(disposing);
@@ -689,6 +897,7 @@ public sealed class ImageCanvas : Control
         _activeStroke.Clear();
         _activeStrokeClient.Clear();
         _selectionOutlineContours = [];
+        ClearUndoHistory();
     }
 
     private void AppendClientStrokePoint(PointF clientPoint)
@@ -811,18 +1020,16 @@ public sealed class ImageCanvas : Control
     {
         if (_selectionMask == null || _activeStroke.Count < MinLassoPoints)
         {
+            DiscardPendingChange();
             _activeStroke.Clear();
-            _selectionOutlineContours = [];
-            ResetMask(_selectionMask);
             return;
         }
 
         var contour = BuildLassoContour(_activeStroke);
         if (contour.Length < MinLassoPoints)
         {
+            DiscardPendingChange();
             _activeStroke.Clear();
-            _selectionOutlineContours = [];
-            ResetMask(_selectionMask);
             return;
         }
 
@@ -831,14 +1038,14 @@ public sealed class ImageCanvas : Control
 
         if (Cv2.CountNonZero(temp) < MinSelectionPixels)
         {
-            ResetMask(_selectionMask);
+            DiscardPendingChange();
             _activeStroke.Clear();
-            _selectionOutlineContours = [];
             return;
         }
 
-        temp.CopyTo(_selectionMask);
+        Cv2.BitwiseOr(_selectionMask, temp, _selectionMask);
         UpdateSelectionOutlineContours();
+        CommitUndoableChange();
         _activeStroke.Clear();
     }
 
@@ -883,24 +1090,25 @@ public sealed class ImageCanvas : Control
     {
         if (_selectionMask == null)
         {
+            DiscardPendingChange();
             _draftSelectionRect = System.Drawing.Rectangle.Empty;
             return;
         }
 
         if (_draftSelectionRect.Width < 4 || _draftSelectionRect.Height < 4)
         {
-            ResetMask(_selectionMask);
+            DiscardPendingChange();
             _draftSelectionRect = System.Drawing.Rectangle.Empty;
             return;
         }
 
-        ResetMask(_selectionMask);
         Cv2.Rectangle(
             _selectionMask,
             new Rect(_draftSelectionRect.X, _draftSelectionRect.Y, _draftSelectionRect.Width, _draftSelectionRect.Height),
             Scalar.White,
             -1);
         UpdateSelectionOutlineContours();
+        CommitUndoableChange();
         _draftSelectionRect = System.Drawing.Rectangle.Empty;
     }
 
@@ -1047,15 +1255,13 @@ public sealed class ImageCanvas : Control
         _isDrawingStroke = true;
         _strokeInteractionMode = InteractionMode.SelectFreehand;
         BeginInteractionCapture();
+        BeginUndoableChange();
         _activeStroke.Clear();
         _activeStrokeClient.Clear();
         _strokePreviewClient = new PointF(e.X, e.Y);
         _activeStrokeClient.Add(_strokePreviewClient.Value);
         _draftSelectionRect = System.Drawing.Rectangle.Empty;
-        _selectionOutlineContours = [];
-        ResetMask(_selectionMask);
         ClearPreviewWithoutInvalidate();
-        SelectionChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
         Update();
     }
@@ -1259,20 +1465,6 @@ public sealed class ImageCanvas : Control
         var previousSmoothing = g.SmoothingMode;
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-        if (_isDrawingStroke && _strokeInteractionMode == InteractionMode.SelectFreehand)
-        {
-            DrawLiveFreehandSelection(g);
-            g.SmoothingMode = previousSmoothing;
-            return;
-        }
-
-        if (_isDrawingStroke && _strokeInteractionMode == InteractionMode.SelectRectangle)
-        {
-            DrawLiveRectangleSelection(g);
-            g.SmoothingMode = previousSmoothing;
-            return;
-        }
-
         if (_selectionOutlineContours.Length > 0)
         {
             DrawSelectionContours(g, _selectionOutlineContours);
@@ -1280,6 +1472,15 @@ public sealed class ImageCanvas : Control
         else if (HasSelection)
         {
             DrawSelectionBoundsFallback(g);
+        }
+
+        if (_isDrawingStroke && _strokeInteractionMode == InteractionMode.SelectFreehand)
+        {
+            DrawLiveFreehandSelection(g);
+        }
+        else if (_isDrawingStroke && _strokeInteractionMode == InteractionMode.SelectRectangle)
+        {
+            DrawLiveRectangleSelection(g);
         }
 
         g.SmoothingMode = previousSmoothing;

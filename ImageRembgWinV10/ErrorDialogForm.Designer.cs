@@ -53,7 +53,7 @@ partial class ErrorDialogForm
         txtDetails.Name = "txtDetails";
         txtDetails.ReadOnly = true;
         txtDetails.ScrollBars = ScrollBars.Vertical;
-        txtDetails.Size = new Size(560, 226);
+        txtDetails.Size = new Size(560, 194);
         txtDetails.TabIndex = 1;
         txtDetails.WordWrap = true;
         // 

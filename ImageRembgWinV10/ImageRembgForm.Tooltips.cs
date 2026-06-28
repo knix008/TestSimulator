@@ -33,6 +33,8 @@ public partial class ImageRembgForm
         SetMenuToolTip(mnuExit, "Tooltip.Exit");
 
         SetMenuToolTip(mnuEdit, "Tooltip.Menu.Edit");
+        SetMenuToolTip(mnuUndo, "Tooltip.Undo");
+        SetMenuToolTip(mnuRedo, "Tooltip.Redo");
         SetMenuToolTip(mnuPreview, "Tooltip.Preview");
         SetMenuToolTip(mnuRemoveBackground, "Tooltip.RemoveBackground");
         SetMenuToolTip(mnuReset, "Tooltip.Reset");
@@ -53,24 +55,15 @@ public partial class ImageRembgForm
 
         SetMenuToolTip(mnuAlgorithm, "Tooltip.Menu.Algorithm");
         SetMenuToolTip(mnuAlgoRembg, "Algo.Rembg.Desc");
+        SetMenuToolTip(mnuAlgoRembg2, "Algo.Rembg2.Desc");
         SetMenuToolTip(mnuAlgoGrabCut, "Algo.GrabCut.Desc");
         SetMenuToolTip(mnuAlgoColorKey, "Algo.ColorKey.Desc");
         SetMenuToolTip(mnuAlgoEdgeFill, "Algo.EdgeFill.Desc");
         SetMenuToolTip(mnuAlgoThreshold, "Algo.Threshold.Desc");
 
-        if (mnuLanguage != null)
+        if (mnuPreferences != null)
         {
-            SetMenuToolTip(mnuLanguage, "Tooltip.Language");
-        }
-
-        if (mnuLangKorean != null)
-        {
-            SetMenuToolTip(mnuLangKorean, "Tooltip.LanguageKorean");
-        }
-
-        if (mnuLangEnglish != null)
-        {
-            SetMenuToolTip(mnuLangEnglish, "Tooltip.LanguageEnglish");
+            SetMenuToolTip(mnuPreferences, "Tooltip.Preferences");
         }
 
         if (mnuHelp != null)
@@ -84,6 +77,8 @@ public partial class ImageRembgForm
         }
 
         SetControlToolTip(btnOpen, "Tooltip.Open");
+        SetControlToolTip(btnUndo, "Tooltip.Undo");
+        SetControlToolTip(btnRedo, "Tooltip.Redo");
         SetControlToolTip(btnPreview, "Tooltip.Preview");
         SetControlToolTip(btnRemoveBackground, "Tooltip.RemoveBackground");
         SetControlToolTip(btnSave, "Tooltip.Save");

@@ -42,6 +42,8 @@ public static class AppIconFactory
         list.Images.Add("open", CreateOpenIcon());
         list.Images.Add("save", CreateSaveIcon());
         list.Images.Add("exit", CreateExitIcon());
+        list.Images.Add("undo", CreateUndoIcon());
+        list.Images.Add("redo", CreateRedoIcon());
         list.Images.Add("preview", CreatePreviewIcon());
         list.Images.Add("remove", CreateRemoveBackgroundIcon());
         list.Images.Add("reset", CreateResetIcon());
@@ -58,6 +60,7 @@ public static class AppIconFactory
         list.Images.Add("algorithm", CreateAlgorithmMenuIcon());
         list.Images.Add("info", CreateInfoIcon());
         list.Images.Add("language", CreateLanguageIcon());
+        list.Images.Add("settings", CreateSettingsIcon());
 
         return list;
     }
@@ -122,6 +125,22 @@ public static class AppIconFactory
         g.DrawRectangle(pen, 4, 4, 10, 10);
         g.DrawLine(pen, 6, 6, 12, 12);
         g.DrawLine(pen, 12, 6, 6, 12);
+    });
+
+    public static Bitmap CreateUndoIcon() => Draw(g =>
+    {
+        FillBadge(g, SlateLight, Slate);
+        using var pen = CreatePen(Slate, 2f);
+        g.DrawArc(pen, 4, 4, 10, 10, -30, -240);
+        g.DrawLines(pen, [new Point(8, 3), new Point(4, 5), new Point(7, 8)]);
+    });
+
+    public static Bitmap CreateRedoIcon() => Draw(g =>
+    {
+        FillBadge(g, SlateLight, Slate);
+        using var pen = CreatePen(Slate, 2f);
+        g.DrawArc(pen, 4, 4, 10, 10, 210, 240);
+        g.DrawLines(pen, [new Point(10, 3), new Point(14, 5), new Point(11, 8)]);
     });
 
     public static Bitmap CreatePreviewIcon() => Draw(g =>
@@ -264,6 +283,22 @@ public static class AppIconFactory
         g.DrawEllipse(pen, 3, 4, 12, 10);
         g.DrawLine(pen, 3, 9, 15, 9);
         g.DrawArc(pen, 6, 4, 6, 10, 270, 180);
+    });
+
+    public static Bitmap CreateSettingsIcon() => Draw(g =>
+    {
+        FillBadge(g, SlateLight, Slate);
+        using var pen = CreatePen(Slate, 1.8f);
+        g.DrawEllipse(pen, 6, 6, 6, 6);
+        for (var angle = 0; angle < 360; angle += 45)
+        {
+            var radians = angle * Math.PI / 180.0;
+            var x1 = 9f + (float)(Math.Cos(radians) * 4);
+            var y1 = 9f + (float)(Math.Sin(radians) * 4);
+            var x2 = 9f + (float)(Math.Cos(radians) * 7);
+            var y2 = 9f + (float)(Math.Sin(radians) * 7);
+            g.DrawLine(pen, x1, y1, x2, y2);
+        }
     });
 
     private static void FillBadge(Graphics g, Color fill, Color border)

@@ -52,7 +52,7 @@ public static class SegmentationService
         using var normalizedForegroundHint = NormalizeOptionalMask(foregroundHintMask, normalizedBgr.Size());
         using var normalizedBackgroundHint = NormalizeOptionalMask(backgroundHintMask, normalizedBgr.Size());
 
-        if (algorithm == SegmentationAlgorithm.Rembg)
+        if (algorithm is SegmentationAlgorithm.Rembg or SegmentationAlgorithm.Rembg2)
         {
             using var binary = SegmentationAlgorithmRunner.Run(
                 algorithm,

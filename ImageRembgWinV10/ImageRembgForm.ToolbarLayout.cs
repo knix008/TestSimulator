@@ -24,6 +24,8 @@ public partial class ImageRembgForm
     [
         "Menu.Open",
         "Menu.Save",
+        "Menu.Undo",
+        "Menu.Redo",
         "Toolbar.PreviewShort",
         "Toolbar.RemoveBackgroundShort",
         "Menu.Reset",
@@ -122,6 +124,8 @@ public partial class ImageRembgForm
         LayoutToolbarButton(btnZoomOut, ref x, ToolbarRow3Y, _toolbarUniformButtonWidth);
         LayoutToolbarButton(btnZoomIn, ref x, ToolbarRow3Y, _toolbarUniformButtonWidth);
         LayoutToolbarButton(btnFit, ref x, ToolbarRow3Y, _toolbarUniformButtonWidth);
+        LayoutToolbarButton(btnUndo, ref x, ToolbarRow3Y, _toolbarUniformButtonWidth);
+        LayoutToolbarButton(btnRedo, ref x, ToolbarRow3Y, _toolbarUniformButtonWidth);
 
         var row3FixedWidth = x + panelToolbar.Padding.Right;
 
@@ -191,7 +195,7 @@ public partial class ImageRembgForm
             + ToolbarResultSizeComboWidth + ToolbarGap
             + _toolbarUniformLabelWidth + ToolbarGap
             + ToolbarAlgorithmComboWidth + ToolbarGap
-            + (_toolbarUniformButtonWidth + ToolbarGap) * 3
+            + (_toolbarUniformButtonWidth + ToolbarGap) * 5
             + panelToolbar.Padding.Right;
 
         var row1WithInfoWidth = row1Width

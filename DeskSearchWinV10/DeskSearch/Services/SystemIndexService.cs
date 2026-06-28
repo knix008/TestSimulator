@@ -217,6 +217,36 @@ public sealed class SystemIndexService : IDisposable
         return buildingStore.Count >= minimum;
     }
 
+    // GetAllScanRoots() silently drops not-ready drives (unplugged USB, unreachable
+    // network share) from ScanRoots, so neither AreAllScanRootsIndexed() nor the overall
+    // entry-count ratio guard ever sees them as missing if they're a small fraction of
+    // the total. This catches that case specifically: a drive that was fully indexed
+    // before this scan but isn't covered by it at all should block promotion outright,
+    // rather than silently dropping that drive's entries from the live index.
+    private bool HasMissingPreviouslyIndexedDrive(IReadOnlyCollection<string> previouslyIndexedRoots)
+    {
+        if (previouslyIndexedRoots.Count == 0)
+            return false;
+
+        foreach (var oldRoot in previouslyIndexedRoots)
+        {
+            if (!IsDriveRoot(oldRoot) || _exclusions.IsPathExcluded(oldRoot))
+                continue;
+
+            bool stillIndexed;
+            lock (_rootsLock)
+                stillIndexed = _indexedRoots.Contains(oldRoot);
+
+            if (!stillIndexed)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsDriveRoot(string normalizedPath) =>
+        normalizedPath.Length == 3 && normalizedPath[1] == ':' && normalizedPath[2] == '\\';
+
     private static void DeleteDatabaseFiles(string basePath)
     {
         foreach (var suffix in DatabaseFileSuffixes)
@@ -1195,6 +1225,14 @@ public sealed class SystemIndexService : IDisposable
         if (_scanUsesShadowBuild && _scanBaselineCount <= 0)
             _scanBaselineCount = _indexStore?.Count ?? 0;
 
+        // Snapshot before this build's own bookkeeping repurposes _indexedRoots: if a
+        // previously-indexed drive is temporarily unready (unplugged USB/disconnected
+        // network share) it silently drops out of ScanRoots, and a full rebuild would
+        // otherwise promote a smaller index that's missing that drive's entries entirely.
+        var previouslyIndexedRoots = _scanUsesShadowBuild
+            ? _indexStore?.LoadIndexedRoots() ?? []
+            : [];
+
         var buildingPath = GetBuildingDatabasePath();
         TryPrepareBuildingScanTarget(buildingPath, out var target, out var isResume);
         if (!isResume)
@@ -1289,6 +1327,9 @@ public sealed class SystemIndexService : IDisposable
             succeeded = false;
 
         if (succeeded && !IsBuildingStoreReadyToPromote(target))
+            succeeded = false;
+
+        if (succeeded && HasMissingPreviouslyIndexedDrive(previouslyIndexedRoots))
             succeeded = false;
 
         if (succeeded)

@@ -19,6 +19,8 @@ public sealed class DiffForm : Form
     private readonly LineNumberGutter _gutterRight = new();
     private readonly DiffOverviewBar _overviewLeft = new();
     private readonly DiffOverviewBar _overviewRight = new();
+    private readonly PaneVScrollBar _vscrollLeft = new();
+    private readonly PaneVScrollBar _vscrollRight = new();
     private readonly ToolStripStatusLabel _statusLabel = new();
 
     private readonly ToolStripButton _tsbOpenLeft = new() { Image = IconFactory.OpenLeft() };
@@ -141,13 +143,16 @@ public sealed class DiffForm : Form
         _gutterLeft.Sync(_lstLeft);
         _gutterRight.Sync(_lstRight);
 
+        _vscrollLeft.AttachTarget(_lstLeft);
+        _vscrollRight.AttachTarget(_lstRight);
+
         _overviewLeft.AttachTarget(_lstLeft);
         _overviewRight.AttachTarget(_lstRight);
         _overviewLeft.LineClicked += (_, line) => JumpToLine(line);
         _overviewRight.LineClicked += (_, line) => JumpToLine(line);
 
-        topPanel.Controls.Add(MakePaneCard(LeftAccent, _gutterLeft, _lstLeft, _overviewLeft, out _lblPaneLeft), 0, 0);
-        topPanel.Controls.Add(MakePaneCard(RightAccent, _gutterRight, _lstRight, _overviewRight, out _lblPaneRight), 1, 0);
+        topPanel.Controls.Add(MakePaneCard(LeftAccent, _gutterLeft, _lstLeft, _vscrollLeft, _overviewLeft, out _lblPaneLeft), 0, 0);
+        topPanel.Controls.Add(MakePaneCard(RightAccent, _gutterRight, _lstRight, _vscrollRight, _overviewRight, out _lblPaneRight), 1, 0);
 
         var statusStrip = new StatusStrip { SizingGrip = false, BackColor = CanvasColor };
         statusStrip.Items.Add(_statusLabel);
@@ -167,7 +172,7 @@ public sealed class DiffForm : Form
         listBox.BorderStyle = BorderStyle.None;
     }
 
-    private static Control MakePaneCard(Color accent, LineNumberGutter gutter, SyncLineListBox listBox, DiffOverviewBar overviewBar, out Label titleLabel)
+    private static Control MakePaneCard(Color accent, LineNumberGutter gutter, SyncLineListBox listBox, PaneVScrollBar scrollBar, DiffOverviewBar overviewBar, out Label titleLabel)
     {
         var headerBg = PaneTheme.PastelHeaderBackground(accent);
         titleLabel = new Label
@@ -183,10 +188,12 @@ public sealed class DiffForm : Form
 
         gutter.Dock = DockStyle.Left;
         overviewBar.Dock = DockStyle.Right;
+        scrollBar.Dock = DockStyle.Right;
 
         var body = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
         body.Controls.Add(listBox);
         body.Controls.Add(gutter);
+        body.Controls.Add(scrollBar);
         body.Controls.Add(overviewBar);
 
         var card = new Panel
@@ -435,6 +442,7 @@ public sealed class DiffForm : Form
 
         _overviewLeft.SetRows(document.Rows);
         _overviewRight.SetRows(document.Rows);
+        RefreshScrollIndicators();
     }
 
     private void GoToDiff(int direction)
@@ -469,6 +477,15 @@ public sealed class DiffForm : Form
         _lstLeft.TopIndex = clamped;
         _lstRight.TopIndex = clamped;
         _lstLeft.SyncPartners();
+        RefreshScrollIndicators();
+    }
+
+    private void RefreshScrollIndicators()
+    {
+        _vscrollLeft.SyncFromTarget();
+        _vscrollRight.SyncFromTarget();
+        _gutterLeft.Invalidate();
+        _gutterRight.Invalidate();
         _overviewLeft.Invalidate();
         _overviewRight.Invalidate();
     }

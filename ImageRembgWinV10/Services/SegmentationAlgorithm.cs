@@ -5,6 +5,7 @@ namespace ImageRembgWinV10.Services;
 public enum SegmentationAlgorithm
 {
     Rembg,
+    Rembg2,
     GrabCut,
     ColorKey,
     EdgeFill,
@@ -28,6 +29,10 @@ public static class SegmentationAlgorithmCatalog
                 SegmentationAlgorithm.Rembg,
                 L.Get("Algo.Rembg.Name"),
                 L.Get("Algo.Rembg.Desc")),
+            new(
+                SegmentationAlgorithm.Rembg2,
+                L.Get("Algo.Rembg2.Name"),
+                L.Get("Algo.Rembg2.Desc")),
             new(
                 SegmentationAlgorithm.GrabCut,
                 L.Get("Algo.GrabCut.Name"),

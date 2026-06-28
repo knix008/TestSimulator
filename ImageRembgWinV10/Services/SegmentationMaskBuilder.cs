@@ -77,6 +77,38 @@ internal static class SegmentationMaskBuilder
         Cv2.BitwiseAnd(binary, selectionMask, binary);
     }
 
+    public static List<MaskRegion> GetMaskRegions(Mat mask)
+    {
+        var regions = new List<MaskRegion>();
+        if (mask.Empty() || Cv2.CountNonZero(mask) == 0)
+        {
+            return regions;
+        }
+
+        using var maskCopy = mask.Clone();
+        Cv2.FindContours(
+            maskCopy,
+            out var contours,
+            out _,
+            RetrievalModes.External,
+            ContourApproximationModes.ApproxSimple);
+
+        foreach (var contour in contours)
+        {
+            var rect = Cv2.BoundingRect(contour);
+            if (rect.Width < 1 || rect.Height < 1)
+            {
+                continue;
+            }
+
+            var regionMask = new Mat(mask.Size(), MatType.CV_8UC1, Scalar.Black);
+            Cv2.DrawContours(regionMask, [contour], -1, Scalar.White, -1);
+            regions.Add(new MaskRegion(new DrawingRectangle(rect.X, rect.Y, rect.Width, rect.Height), regionMask));
+        }
+
+        return regions;
+    }
+
     public static DrawingRectangle? GetMaskBounds(Mat? mask)
     {
         if (mask == null || mask.Empty() || Cv2.CountNonZero(mask) == 0)
@@ -273,3 +305,5 @@ internal static class SegmentationMaskBuilder
         return fullMask;
     }
 }
+
+internal sealed record MaskRegion(DrawingRectangle Bounds, Mat Mask);

@@ -15,7 +15,7 @@ public partial class ErrorDialogForm : Form
         {
             lblMessage.Visible = false;
             txtDetails.Location = new Point(12, 58);
-            txtDetails.Size = new Size(560, 270);
+            txtDetails.Size = new Size(560, 238);
         }
         else
         {

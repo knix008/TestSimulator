@@ -54,6 +54,12 @@ partial class ImageRembgForm
 
         mnuEdit = new ToolStripMenuItem();
 
+        mnuUndo = new ToolStripMenuItem();
+
+        mnuRedo = new ToolStripMenuItem();
+
+        toolStripSeparatorEdit = new ToolStripSeparator();
+
         mnuPreview = new ToolStripMenuItem();
 
         mnuRemoveBackground = new ToolStripMenuItem();
@@ -90,6 +96,8 @@ partial class ImageRembgForm
 
         mnuAlgoRembg = new ToolStripMenuItem();
 
+        mnuAlgoRembg2 = new ToolStripMenuItem();
+
         mnuAlgoGrabCut = new ToolStripMenuItem();
 
         mnuAlgoColorKey = new ToolStripMenuItem();
@@ -103,6 +111,10 @@ partial class ImageRembgForm
         panelToolbar = new Panel();
 
         btnOpen = new Controls.CenteredToolbarButton();
+
+        btnUndo = new Controls.CenteredToolbarButton();
+
+        btnRedo = new Controls.CenteredToolbarButton();
 
         btnPreview = new Controls.CenteredToolbarButton();
 
@@ -250,7 +262,7 @@ partial class ImageRembgForm
 
         // 
 
-        mnuEdit.DropDownItems.AddRange(new ToolStripItem[] { mnuPreview, mnuRemoveBackground, mnuReset });
+        mnuEdit.DropDownItems.AddRange(new ToolStripItem[] { mnuUndo, mnuRedo, toolStripSeparatorEdit, mnuPreview, mnuRemoveBackground, mnuReset });
 
         mnuEdit.Name = "mnuEdit";
 
@@ -258,7 +270,39 @@ partial class ImageRembgForm
 
         mnuEdit.Text = "편집";
 
-        // 
+        //
+
+        // mnuUndo
+
+        //
+
+        mnuUndo.Name = "mnuUndo";
+
+        mnuUndo.ShortcutKeys = Keys.Control | Keys.Z;
+
+        mnuUndo.Size = new Size(180, 22);
+
+        mnuUndo.Text = "실행 취소";
+
+        mnuUndo.Click += mnuUndo_Click;
+
+        //
+
+        // mnuRedo
+
+        //
+
+        mnuRedo.Name = "mnuRedo";
+
+        mnuRedo.ShortcutKeys = Keys.Control | Keys.Y;
+
+        mnuRedo.Size = new Size(180, 22);
+
+        mnuRedo.Text = "다시 실행";
+
+        mnuRedo.Click += mnuRedo_Click;
+
+        //
 
         // mnuPreview
 
@@ -492,7 +536,7 @@ partial class ImageRembgForm
 
         // 
 
-        mnuAlgorithm.DropDownItems.AddRange(new ToolStripItem[] { mnuAlgoRembg, mnuAlgoGrabCut, mnuAlgoColorKey, mnuAlgoEdgeFill, mnuAlgoThreshold });
+        mnuAlgorithm.DropDownItems.AddRange(new ToolStripItem[] { mnuAlgoRembg, mnuAlgoRembg2, mnuAlgoGrabCut, mnuAlgoColorKey, mnuAlgoEdgeFill, mnuAlgoThreshold });
 
         mnuAlgorithm.Name = "mnuAlgorithm";
 
@@ -506,8 +550,6 @@ partial class ImageRembgForm
 
         // 
 
-        mnuAlgoRembg.Checked = true;
-
         mnuAlgoRembg.CheckOnClick = true;
 
         mnuAlgoRembg.Name = "mnuAlgoRembg";
@@ -518,7 +560,25 @@ partial class ImageRembgForm
 
         mnuAlgoRembg.Click += mnuAlgoRembg_Click;
 
-        // 
+        //
+
+        // mnuAlgoRembg2
+
+        //
+
+        mnuAlgoRembg2.Checked = true;
+
+        mnuAlgoRembg2.CheckOnClick = true;
+
+        mnuAlgoRembg2.Name = "mnuAlgoRembg2";
+
+        mnuAlgoRembg2.Size = new Size(220, 22);
+
+        mnuAlgoRembg2.Text = "rembg2 (AI, RMBG-2.0)";
+
+        mnuAlgoRembg2.Click += mnuAlgoRembg2_Click;
+
+        //
 
         // mnuAlgoGrabCut
 
@@ -604,6 +664,10 @@ partial class ImageRembgForm
 
         panelToolbar.Controls.Add(btnOpen);
 
+        panelToolbar.Controls.Add(btnUndo);
+
+        panelToolbar.Controls.Add(btnRedo);
+
         panelToolbar.Controls.Add(btnPreview);
 
         panelToolbar.Controls.Add(btnRemoveBackground);
@@ -676,7 +740,47 @@ partial class ImageRembgForm
 
         btnOpen.Click += btnOpen_Click;
 
-        // 
+        //
+
+        // btnUndo
+
+        //
+
+        btnUndo.Location = new Point(8, 44);
+
+        btnUndo.Name = "btnUndo";
+
+        btnUndo.Size = new Size(100, 28);
+
+        btnUndo.TabIndex = 18;
+
+        btnUndo.Text = "실행 취소";
+
+        btnUndo.UseVisualStyleBackColor = true;
+
+        btnUndo.Click += mnuUndo_Click;
+
+        //
+
+        // btnRedo
+
+        //
+
+        btnRedo.Location = new Point(116, 44);
+
+        btnRedo.Name = "btnRedo";
+
+        btnRedo.Size = new Size(100, 28);
+
+        btnRedo.TabIndex = 19;
+
+        btnRedo.Text = "다시 실행";
+
+        btnRedo.UseVisualStyleBackColor = true;
+
+        btnRedo.Click += mnuRedo_Click;
+
+        //
 
         // btnPreview
 
@@ -1136,6 +1240,10 @@ partial class ImageRembgForm
 
         imageCanvas.MarkersChanged += imageCanvas_MarkersChanged;
 
+        imageCanvas.UndoRedoStateChanged += imageCanvas_UndoRedoStateChanged;
+
+        imageCanvas.StateRestored += imageCanvas_StateRestored;
+
         imageCanvas.ViewChanged += imageCanvas_ViewChanged;
 
         // 
@@ -1286,6 +1394,12 @@ partial class ImageRembgForm
 
     private ToolStripMenuItem mnuEdit;
 
+    private ToolStripMenuItem mnuUndo;
+
+    private ToolStripMenuItem mnuRedo;
+
+    private ToolStripSeparator toolStripSeparatorEdit;
+
     private ToolStripMenuItem mnuPreview;
 
     private ToolStripMenuItem mnuRemoveBackground;
@@ -1322,6 +1436,8 @@ partial class ImageRembgForm
 
     private ToolStripMenuItem mnuAlgoRembg;
 
+    private ToolStripMenuItem mnuAlgoRembg2;
+
     private ToolStripMenuItem mnuAlgoGrabCut;
 
     private ToolStripMenuItem mnuAlgoColorKey;
@@ -1335,6 +1451,10 @@ partial class ImageRembgForm
     private Panel panelToolbar;
 
     private Controls.CenteredToolbarButton btnOpen;
+
+    private Controls.CenteredToolbarButton btnUndo;
+
+    private Controls.CenteredToolbarButton btnRedo;
 
     private Controls.CenteredToolbarButton btnPreview;
 

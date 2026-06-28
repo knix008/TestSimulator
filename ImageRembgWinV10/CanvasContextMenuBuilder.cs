@@ -23,6 +23,7 @@ internal sealed class CanvasContextMenuBindings
     public required EventHandler Background { get; init; }
     public required EventHandler Pan { get; init; }
     public required EventHandler AlgoRembg { get; init; }
+    public required EventHandler AlgoRembg2 { get; init; }
     public required EventHandler AlgoGrabCut { get; init; }
     public required EventHandler AlgoColorKey { get; init; }
     public required EventHandler AlgoEdgeFill { get; init; }
@@ -56,6 +57,7 @@ internal sealed class CanvasContextMenuBuilder
     public ToolStripMenuItem Background { get; }
     public ToolStripMenuItem Pan { get; }
     public ToolStripMenuItem AlgoRembg { get; }
+    public ToolStripMenuItem AlgoRembg2 { get; }
     public ToolStripMenuItem AlgoGrabCut { get; }
     public ToolStripMenuItem AlgoColorKey { get; }
     public ToolStripMenuItem AlgoEdgeFill { get; }
@@ -80,11 +82,12 @@ internal sealed class CanvasContextMenuBuilder
 
         AlgorithmMenu = CreateParent(L.Get("Menu.Algorithm"), "algorithm", imageList);
         AlgoRembg = CreateCheckItem(L.Get("Algo.Rembg.Name"), "remove", imageList, bindings.AlgoRembg);
+        AlgoRembg2 = CreateCheckItem(L.Get("Algo.Rembg2.Name"), "remove", imageList, bindings.AlgoRembg2);
         AlgoGrabCut = CreateCheckItem(L.Get("Algo.GrabCut.Name"), "preview", imageList, bindings.AlgoGrabCut);
         AlgoColorKey = CreateCheckItem(L.Get("Algo.ColorKey.Name"), "background", imageList, bindings.AlgoColorKey);
         AlgoEdgeFill = CreateCheckItem(L.Get("Algo.EdgeFill.Name"), "select-rect", imageList, bindings.AlgoEdgeFill);
         AlgoThreshold = CreateCheckItem(L.Get("Algo.Threshold.Name"), "mask", imageList, bindings.AlgoThreshold);
-        AlgorithmMenu.DropDownItems.AddRange([AlgoRembg, AlgoGrabCut, AlgoColorKey, AlgoEdgeFill, AlgoThreshold]);
+        AlgorithmMenu.DropDownItems.AddRange([AlgoRembg, AlgoRembg2, AlgoGrabCut, AlgoColorKey, AlgoEdgeFill, AlgoThreshold]);
 
         ViewMenu = CreateParent(L.Get("Menu.View"), "view", imageList);
         ZoomIn = CreateItem(L.Get("Menu.ZoomIn"), "zoom-in", imageList, bindings.ZoomIn);
@@ -130,6 +133,7 @@ internal sealed class CanvasContextMenuBuilder
         Reset.Text = L.Get("Menu.Reset");
         AlgorithmMenu.Text = L.Get("Menu.Algorithm");
         AlgoRembg.Text = L.Get("Algo.Rembg.Name");
+        AlgoRembg2.Text = L.Get("Algo.Rembg2.Name");
         AlgoGrabCut.Text = L.Get("Algo.GrabCut.Name");
         AlgoColorKey.Text = L.Get("Algo.ColorKey.Name");
         AlgoEdgeFill.Text = L.Get("Algo.EdgeFill.Name");

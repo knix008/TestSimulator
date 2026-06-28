@@ -7,22 +7,27 @@ namespace ImageRembgWinV10;
 
 public partial class ImageRembgForm
 {
-    private ToolStripMenuItem? mnuLanguage;
-    private ToolStripMenuItem? mnuLangKorean;
-    private ToolStripMenuItem? mnuLangEnglish;
-    private ToolStripSeparator? toolStripSeparatorLanguage;
+    private ToolStripMenuItem? mnuPreferences;
+    private ToolStripSeparator? toolStripSeparatorPreferences;
 
-    private void InitializeLanguageMenu()
+    private void InitializePreferencesMenu()
     {
-        mnuLanguage = new ToolStripMenuItem();
-        mnuLangKorean = new ToolStripMenuItem { CheckOnClick = true };
-        mnuLangEnglish = new ToolStripMenuItem { CheckOnClick = true };
-        mnuLangKorean.Click += (_, _) => SetLanguage(AppLanguage.Korean);
-        mnuLangEnglish.Click += (_, _) => SetLanguage(AppLanguage.English);
-        mnuLanguage.DropDownItems.AddRange([mnuLangKorean, mnuLangEnglish]);
-        toolStripSeparatorLanguage = new ToolStripSeparator();
-        mnuView.DropDownItems.Add(toolStripSeparatorLanguage);
-        mnuView.DropDownItems.Add(mnuLanguage);
+        mnuPreferences = new ToolStripMenuItem();
+        mnuPreferences.Click += (_, _) => ShowPreferences();
+        toolStripSeparatorPreferences = new ToolStripSeparator();
+
+        var exitIndex = mnuFile.DropDownItems.IndexOf(mnuExit);
+        mnuFile.DropDownItems.Insert(exitIndex, mnuPreferences);
+        mnuFile.DropDownItems.Insert(exitIndex + 1, toolStripSeparatorPreferences);
+    }
+
+    private void ShowPreferences()
+    {
+        var selected = PreferencesForm.ShowPreferences(this, L.Current);
+        if (selected != null)
+        {
+            SetLanguage(selected.Value);
+        }
     }
 
     private void SetLanguage(AppLanguage language)
@@ -46,6 +51,8 @@ public partial class ImageRembgForm
         mnuSave.Text = L.Get("Menu.Save");
         mnuExit.Text = L.Get("Menu.Exit");
         mnuEdit.Text = L.Get("Menu.Edit");
+        mnuUndo.Text = L.Get("Menu.Undo");
+        mnuRedo.Text = L.Get("Menu.Redo");
         mnuPreview.Text = L.Get("Menu.Preview");
         mnuRemoveBackground.Text = L.Get("Menu.RemoveBackground");
         mnuReset.Text = L.Get("Menu.Reset");
@@ -63,6 +70,7 @@ public partial class ImageRembgForm
         mnuPan.Text = L.Get("Menu.PanDrag");
         mnuAlgorithm.Text = L.Get("Menu.Algorithm");
         mnuAlgoRembg.Text = L.Get("Algo.Rembg.Name");
+        mnuAlgoRembg2.Text = L.Get("Algo.Rembg2.Name");
         mnuAlgoGrabCut.Text = L.Get("Algo.GrabCut.Name");
         mnuAlgoColorKey.Text = L.Get("Algo.ColorKey.Name");
         mnuAlgoEdgeFill.Text = L.Get("Algo.EdgeFill.Name");
@@ -78,6 +86,8 @@ public partial class ImageRembgForm
         }
 
         btnOpen.Text = L.Get("Menu.Open");
+        btnUndo.Text = L.Get("Menu.Undo");
+        btnRedo.Text = L.Get("Menu.Redo");
         btnPreview.Text = L.Get("Toolbar.PreviewShort");
         btnRemoveBackground.Text = L.Get("Toolbar.RemoveBackgroundShort");
         btnSave.Text = L.Get("Menu.Save");
@@ -97,21 +107,9 @@ public partial class ImageRembgForm
         lblResultSize.Text = L.Get("Label.ResultSize");
         lblAlgorithm.Text = L.Get("Label.Algorithm");
 
-        if (mnuLanguage != null)
+        if (mnuPreferences != null)
         {
-            mnuLanguage.Text = L.Get("Menu.Language");
-        }
-
-        if (mnuLangKorean != null)
-        {
-            mnuLangKorean.Text = L.Get("Menu.LanguageKorean");
-            mnuLangKorean.Checked = L.Current == AppLanguage.Korean;
-        }
-
-        if (mnuLangEnglish != null)
-        {
-            mnuLangEnglish.Text = L.Get("Menu.LanguageEnglish");
-            mnuLangEnglish.Checked = L.Current == AppLanguage.English;
+            mnuPreferences.Text = L.Get("Menu.Preferences");
         }
 
         RefreshAlgorithmCombo();

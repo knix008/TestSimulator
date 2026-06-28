@@ -26,6 +26,12 @@ internal static class SegmentationAlgorithmRunner
                 foregroundHintMask,
                 backgroundHintMask,
                 progress),
+            SegmentationAlgorithm.Rembg2 => Rembg2SegmentationService.GenerateMask(
+                bgr,
+                selectionMask,
+                foregroundHintMask,
+                backgroundHintMask,
+                progress),
             SegmentationAlgorithm.GrabCut => RunGrabCut(bgr, selectionMask, bounds, foregroundHintMask, backgroundHintMask),
             SegmentationAlgorithm.ColorKey => RunColorKey(bgr, selectionMask, bounds, foregroundHintMask, backgroundHintMask),
             SegmentationAlgorithm.EdgeFill => RunEdgeFill(bgr, selectionMask, bounds, foregroundHintMask),
@@ -141,27 +147,125 @@ internal static class SegmentationAlgorithmRunner
         DrawingRectangle selectionBounds,
         Mat? foregroundHintMask)
     {
-        var cvRect = new Rect(selectionBounds.X, selectionBounds.Y, selectionBounds.Width, selectionBounds.Height);
-        using var roi = new Mat(bgr, cvRect);
-        using var gray = new Mat();
-        Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
-        Cv2.GaussianBlur(gray, gray, new OpenCvSharp.Size(5, 5), 0);
-
-        using var edges = new Mat();
-        Cv2.Canny(gray, edges, 40, 120);
-        using var closed = new Mat();
-        using var kernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(3, 3));
-        Cv2.MorphologyEx(edges, closed, MorphTypes.Close, kernel, iterations: 2);
-
-        Cv2.FindContours(closed, out var contours, out _, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
-        if (contours.Length == 0)
+        var regions = SegmentationMaskBuilder.GetMaskRegions(selectionMask);
+        if (regions.Count == 0)
         {
-            throw new InvalidOperationException(L.Get("Exception.ContourNotFound"));
+            throw new InvalidOperationException(L.Get("Exception.NoSelection"));
         }
 
-        var seed = GetSeedPoint(selectionMask, foregroundHintMask, selectionBounds);
-        var center = new CvPoint(seed.X - selectionBounds.X, seed.Y - selectionBounds.Y);
+        var binary = new Mat(bgr.Size(), MatType.CV_8UC1, Scalar.Black);
+        try
+        {
+            var foundAny = false;
+            foreach (var region in regions)
+            {
+                var cvRect = new Rect(region.Bounds.X, region.Bounds.Y, region.Bounds.Width, region.Bounds.Height);
+                using var roi = new Mat(bgr, cvRect);
+                using var gray = new Mat();
+                Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
+                Cv2.GaussianBlur(gray, gray, new OpenCvSharp.Size(5, 5), 0);
 
+                using var edges = new Mat();
+                Cv2.Canny(gray, edges, 40, 120);
+                using var closed = new Mat();
+                using var kernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(3, 3));
+                Cv2.MorphologyEx(edges, closed, MorphTypes.Close, kernel, iterations: 2);
+
+                Cv2.FindContours(closed, out var contours, out _, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+                if (contours.Length == 0)
+                {
+                    continue;
+                }
+
+                var seed = GetSeedPoint(region.Mask, foregroundHintMask, region.Bounds);
+                var center = new CvPoint(seed.X - region.Bounds.X, seed.Y - region.Bounds.Y);
+
+                var bestContour = SelectBestContour(contours, center);
+                if (bestContour == null)
+                {
+                    continue;
+                }
+
+                using var roiMask = new Mat(roi.Size(), MatType.CV_8UC1, Scalar.Black);
+                Cv2.DrawContours(roiMask, [bestContour], -1, Scalar.White, -1);
+                using var placed = SegmentationMaskBuilder.PlaceRoiMask(bgr.Size(), region.Bounds, roiMask);
+                Cv2.BitwiseOr(binary, placed, binary);
+                foundAny = true;
+            }
+
+            if (!foundAny)
+            {
+                throw new InvalidOperationException(L.Get("Exception.ContourNotFound"));
+            }
+
+            SegmentationMaskBuilder.ApplyPostProcessMasks(binary, selectionMask, foregroundHintMask, null);
+            return binary.Clone();
+        }
+        finally
+        {
+            binary.Dispose();
+            foreach (var region in regions)
+            {
+                region.Mask.Dispose();
+            }
+        }
+    }
+
+    private static Mat RunThreshold(
+        Mat bgr,
+        Mat selectionMask,
+        DrawingRectangle selectionBounds,
+        Mat? foregroundHintMask)
+    {
+        var regions = SegmentationMaskBuilder.GetMaskRegions(selectionMask);
+        if (regions.Count == 0)
+        {
+            throw new InvalidOperationException(L.Get("Exception.NoSelection"));
+        }
+
+        var binary = new Mat(bgr.Size(), MatType.CV_8UC1, Scalar.Black);
+        try
+        {
+            foreach (var region in regions)
+            {
+                var cvRect = new Rect(region.Bounds.X, region.Bounds.Y, region.Bounds.Width, region.Bounds.Height);
+                using var roi = new Mat(bgr, cvRect);
+                using var gray = new Mat();
+                Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
+                Cv2.GaussianBlur(gray, gray, new OpenCvSharp.Size(5, 5), 0);
+
+                using var thresholded = new Mat();
+                Cv2.Threshold(gray, thresholded, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+
+                var seed = GetSeedPoint(region.Mask, foregroundHintMask, region.Bounds);
+                var samplePoint = new CvPoint(seed.X - region.Bounds.X, seed.Y - region.Bounds.Y);
+                samplePoint.X = Math.Clamp(samplePoint.X, 0, thresholded.Width - 1);
+                samplePoint.Y = Math.Clamp(samplePoint.Y, 0, thresholded.Height - 1);
+
+                if (thresholded.At<byte>(samplePoint.Y, samplePoint.X) == 0)
+                {
+                    Cv2.BitwiseNot(thresholded, thresholded);
+                }
+
+                using var placed = SegmentationMaskBuilder.PlaceRoiMask(bgr.Size(), region.Bounds, thresholded);
+                Cv2.BitwiseOr(binary, placed, binary);
+            }
+
+            SegmentationMaskBuilder.ApplyPostProcessMasks(binary, selectionMask, foregroundHintMask, null);
+            return binary.Clone();
+        }
+        finally
+        {
+            binary.Dispose();
+            foreach (var region in regions)
+            {
+                region.Mask.Dispose();
+            }
+        }
+    }
+
+    private static CvPoint[]? SelectBestContour(CvPoint[][] contours, CvPoint center)
+    {
         CvPoint[]? bestContour = null;
         var bestArea = 0.0;
 
@@ -180,71 +284,37 @@ internal static class SegmentationAlgorithmRunner
             }
         }
 
-        if (bestContour == null)
+        if (bestContour != null)
         {
-            foreach (var contour in contours)
+            return bestContour;
+        }
+
+        foreach (var contour in contours)
+        {
+            var area = Cv2.ContourArea(contour);
+            if (area > bestArea)
             {
-                var area = Cv2.ContourArea(contour);
-                if (area > bestArea)
-                {
-                    bestArea = area;
-                    bestContour = contour;
-                }
+                bestArea = area;
+                bestContour = contour;
             }
         }
 
-        if (bestContour == null)
-        {
-            throw new InvalidOperationException(L.Get("Exception.ContourNotFound"));
-        }
-
-        using var roiMask = new Mat(roi.Size(), MatType.CV_8UC1, Scalar.Black);
-        Cv2.DrawContours(roiMask, [bestContour], -1, Scalar.White, -1);
-        using var placed = SegmentationMaskBuilder.PlaceRoiMask(bgr.Size(), selectionBounds, roiMask);
-        var binary = placed.Clone();
-        SegmentationMaskBuilder.ApplyPostProcessMasks(binary, selectionMask, foregroundHintMask, null);
-        return binary;
+        return bestContour;
     }
 
-    private static Mat RunThreshold(
-        Mat bgr,
-        Mat selectionMask,
-        DrawingRectangle selectionBounds,
-        Mat? foregroundHintMask)
+    private static CvPoint GetSeedPoint(Mat regionMask, Mat? foregroundHintMask, DrawingRectangle regionBounds)
     {
-        var cvRect = new Rect(selectionBounds.X, selectionBounds.Y, selectionBounds.Width, selectionBounds.Height);
-        using var roi = new Mat(bgr, cvRect);
-        using var gray = new Mat();
-        Cv2.CvtColor(roi, gray, ColorConversionCodes.BGR2GRAY);
-        Cv2.GaussianBlur(gray, gray, new OpenCvSharp.Size(5, 5), 0);
-
-        using var thresholded = new Mat();
-        Cv2.Threshold(gray, thresholded, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
-
-        var seed = GetSeedPoint(selectionMask, foregroundHintMask, selectionBounds);
-        var samplePoint = new CvPoint(seed.X - selectionBounds.X, seed.Y - selectionBounds.Y);
-        samplePoint.X = Math.Clamp(samplePoint.X, 0, thresholded.Width - 1);
-        samplePoint.Y = Math.Clamp(samplePoint.Y, 0, thresholded.Height - 1);
-
-        if (thresholded.At<byte>(samplePoint.Y, samplePoint.X) == 0)
+        if (foregroundHintMask != null)
         {
-            Cv2.BitwiseNot(thresholded, thresholded);
+            using var hintInRegion = new Mat();
+            Cv2.BitwiseAnd(foregroundHintMask, regionMask, hintInRegion);
+            if (SegmentationMaskBuilder.HasMaskContent(hintInRegion))
+            {
+                return SegmentationMaskBuilder.GetMaskCentroid(hintInRegion);
+            }
         }
 
-        using var placed = SegmentationMaskBuilder.PlaceRoiMask(bgr.Size(), selectionBounds, thresholded);
-        var binary = placed.Clone();
-        SegmentationMaskBuilder.ApplyPostProcessMasks(binary, selectionMask, foregroundHintMask, null);
-        return binary;
-    }
-
-    private static CvPoint GetSeedPoint(Mat selectionMask, Mat? foregroundHintMask, DrawingRectangle selectionBounds)
-    {
-        if (SegmentationMaskBuilder.HasMaskContent(foregroundHintMask))
-        {
-            return SegmentationMaskBuilder.GetMaskCentroid(foregroundHintMask!);
-        }
-
-        return SegmentationMaskBuilder.GetMaskCentroid(selectionMask);
+        return SegmentationMaskBuilder.GetMaskCentroid(regionMask);
     }
 
     private static double Median(IReadOnlyList<byte> values)

@@ -42,31 +42,11 @@ public partial class ImageRembgForm
 
     {
 
-        if (mnuLanguage != null)
+        if (mnuPreferences != null)
 
         {
 
-            AppIconProvider.ApplyMenuItem(mnuLanguage, imageListIcons, "language");
-
-        }
-
-
-
-        if (mnuLangKorean != null)
-
-        {
-
-            AppIconProvider.ApplyMenuItem(mnuLangKorean, imageListIcons, "language");
-
-        }
-
-
-
-        if (mnuLangEnglish != null)
-
-        {
-
-            AppIconProvider.ApplyMenuItem(mnuLangEnglish, imageListIcons, "language");
+            AppIconProvider.ApplyMenuItem(mnuPreferences, imageListIcons, "settings");
 
         }
 

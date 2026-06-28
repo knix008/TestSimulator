@@ -1,54 +1,54 @@
-<Project Sdk="WixToolset.Sdk/5.0.2">
-  <PropertyGroup>
-    <OutputName>ImageRembgWinV10</OutputName>
-    <OutputType>Package</OutputType>
-    <Platform>x64</Platform>
-    <InstallerPlatform>x64</InstallerPlatform>
-    <Cultures>ko-kr;en-us</Cultures>
-    <BuildCulturesInParallel>false</BuildCulturesInParallel>
-    <DefineConstants>
-      ProductVersion=$(AssemblyVersion);
-      ProductName=$(Product);
-      Manufacturer=$(Company);
-    </DefineConstants>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\ImageRembgWinV10.csproj" Publish="true" PublishProfile="Installer" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <HarvestDirectory Include="$(IntermediateOutputPath)publish\ImageRembgWinV10">
-      <ComponentGroupName>AppFiles</ComponentGroupName>
-      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-      <SuppressCom>true</SuppressCom>
-    </HarvestDirectory>
-    <BindPath Include="$(IntermediateOutputPath)publish\ImageRembgWinV10" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <WixLocalization Include="Package.ko-kr.wxl" Culture="ko-kr" />
-    <WixLocalization Include="Package.en-us.wxl" Culture="en-us" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
-    <PackageReference Include="WixToolset.Netfx.wixext" Version="5.0.2" />
-    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
-    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
-  </ItemGroup>
-
-  <!-- ko-kr MSI is the default; en-us is copied with a language suffix. -->
-  <Target Name="CopyLocalizedInstallers" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Copy SourceFiles="$(OutputPath)ko-kr\$(OutputName).msi"
-          DestinationFiles="$(OutputPath)$(OutputName).msi"
-          Condition="Exists('$(OutputPath)ko-kr\$(OutputName).msi')"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(OutputPath)en-us\$(OutputName).msi"
-          DestinationFiles="$(OutputPath)$(OutputName).en-US.msi"
-          Condition="Exists('$(OutputPath)en-us\$(OutputName).msi')"
-          SkipUnchangedFiles="true" />
-  </Target>
-</Project>
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputName>ImageRembgWinV10</OutputName>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <Cultures>ko-kr;en-us</Cultures>
+    <BuildCulturesInParallel>false</BuildCulturesInParallel>
+    <DefineConstants>
+      ProductVersion=$(AssemblyVersion);
+      ProductName=$(Product);
+      Manufacturer=$(Company);
+    </DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImageRembgWinV10.csproj" Publish="true" PublishProfile="Installer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <HarvestDirectory Include="$(IntermediateOutputPath)publish\ImageRembgWinV10">
+      <ComponentGroupName>AppFiles</ComponentGroupName>
+      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+      <SuppressCom>true</SuppressCom>
+    </HarvestDirectory>
+    <BindPath Include="$(IntermediateOutputPath)publish\ImageRembgWinV10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <WixLocalization Include="Package.ko-kr.wxl" Culture="ko-kr" />
+    <WixLocalization Include="Package.en-us.wxl" Culture="en-us" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Netfx.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <!-- ko-kr MSI is the default; en-us is copied with a language suffix. -->
+  <Target Name="CopyLocalizedInstallers" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)ko-kr\$(OutputName).msi"
+          DestinationFiles="$(OutputPath)$(OutputName).msi"
+          Condition="Exists('$(OutputPath)ko-kr\$(OutputName).msi')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(OutputPath)en-us\$(OutputName).msi"
+          DestinationFiles="$(OutputPath)$(OutputName).en-US.msi"
+          Condition="Exists('$(OutputPath)en-us\$(OutputName).msi')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

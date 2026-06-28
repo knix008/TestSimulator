@@ -12,6 +12,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
     private const int WM_MOUSEWHEEL = 0x020A;
     private const int WM_ERASEBKGND = 0x0014;
     private const int LB_SETHORIZONTALEXTENT = 0x0194;
+    private const int SB_VERT = 1;
 
     private bool _suppressSync;
     private bool _wordWrap;
@@ -42,6 +43,13 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     public bool ShowSelectionAccent { get; set; }
 
+    /// <summary>
+    /// Hides the listbox's own (narrow, fixed-width) native vertical scrollbar so a wider
+    /// <see cref="PaneVScrollBar"/> can be docked next to it instead — Windows doesn't expose
+    /// a way to widen a ListBox's built-in scrollbar directly.
+    /// </summary>
+    public bool HideNativeVerticalScrollbar { get; set; }
+
     public SyncLineListBox()
     {
         IntegralHeight = false;
@@ -52,6 +60,17 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
         UpdateStyles();
     }
+
+    private void ApplyNativeVerticalScrollbarVisibility()
+    {
+        if (HideNativeVerticalScrollbar && IsHandleCreated)
+        {
+            ShowScrollBar(Handle, SB_VERT, false);
+        }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowScrollBar(IntPtr hWnd, int wBar, bool bShow);
 
     public bool WordWrap
     {
@@ -122,6 +141,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             _isEnsuringViewport = false;
         }
 
+        ApplyNativeVerticalScrollbarVisibility();
         Invalidate();
     }
 
@@ -223,6 +243,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
+        ApplyNativeVerticalScrollbarVisibility();
         ScheduleViewportFill();
     }
 
@@ -241,6 +262,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             RefreshLineMetrics();
         }
 
+        ApplyNativeVerticalScrollbarVisibility();
         ScheduleViewportFill();
     }
 

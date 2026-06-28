@@ -16,6 +16,20 @@ static class Program
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
         Application.ApplicationExit += (_, _) => RembgModelProvider.Instance.Dispose();
+        Application.ApplicationExit += (_, _) => Rembg2ModelProvider.Instance.Dispose();
+
+        Task.Run(() =>
+        {
+            try
+            {
+                Rembg2ModelProvider.Instance.EnsureReady();
+            }
+            catch
+            {
+                // Ignore — any real failure surfaces with a proper error message on first actual use.
+            }
+        });
+
         Application.Run(new ImageRembgForm());
     }
 

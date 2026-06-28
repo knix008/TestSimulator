@@ -14,7 +14,7 @@ public partial class ImageRembgForm : Form
     private Bitmap? _resultBitmap;
     private string? _loadedFilePath;
     private bool _syncingUi;
-    private SegmentationAlgorithm _selectedAlgorithm = SegmentationAlgorithm.Rembg;
+    private SegmentationAlgorithm _selectedAlgorithm = SegmentationAlgorithm.Rembg2;
     private bool _syncingAlgorithm;
     private bool _syncingResultSize;
     private CanvasContextMenuBuilder? _canvasContextMenu;
@@ -24,7 +24,7 @@ public partial class ImageRembgForm : Form
         InitializeComponent();
         InitializeApplicationIcon();
         InitializeIcons();
-        InitializeLanguageMenu();
+        InitializePreferencesMenu();
         InitializeAboutUi();
         InitializeTooltips();
         InitializeResultSizeOptions();
@@ -79,6 +79,8 @@ public partial class ImageRembgForm : Form
         AppIconProvider.ConfigureMenuStrip(menuStrip);
 
         AppIconProvider.ApplyToolbarButton(btnOpen, imageListIcons, "open");
+        AppIconProvider.ApplyToolbarButton(btnUndo, imageListIcons, "undo");
+        AppIconProvider.ApplyToolbarButton(btnRedo, imageListIcons, "redo");
         AppIconProvider.ApplyToolbarButton(btnPreview, imageListIcons, "preview");
         AppIconProvider.ApplyToolbarButton(btnRemoveBackground, imageListIcons, "remove");
         AppIconProvider.ApplyToolbarButton(btnSave, imageListIcons, "save");
@@ -118,6 +120,7 @@ public partial class ImageRembgForm : Form
         AppIconProvider.ApplyMenuItem(mnuBackground, imageListIcons, "background");
         AppIconProvider.ApplyMenuItem(mnuPan, imageListIcons, "pan");
         AppIconProvider.ApplyMenuItem(mnuAlgoRembg, imageListIcons, "remove");
+        AppIconProvider.ApplyMenuItem(mnuAlgoRembg2, imageListIcons, "remove");
         AppIconProvider.ApplyMenuItem(mnuAlgoGrabCut, imageListIcons, "preview");
         AppIconProvider.ApplyMenuItem(mnuAlgoColorKey, imageListIcons, "background");
         AppIconProvider.ApplyMenuItem(mnuAlgoEdgeFill, imageListIcons, "select-rect");
@@ -190,6 +193,7 @@ public partial class ImageRembgForm : Form
                 Background = mnuBackground_Click,
                 Pan = mnuPan_Click,
                 AlgoRembg = mnuAlgoRembg_Click,
+                AlgoRembg2 = mnuAlgoRembg2_Click,
                 AlgoGrabCut = mnuAlgoGrabCut_Click,
                 AlgoColorKey = mnuAlgoColorKey_Click,
                 AlgoEdgeFill = mnuAlgoEdgeFill_Click,
@@ -247,7 +251,9 @@ public partial class ImageRembgForm : Form
         }
     }
 
-    private void btnPreview_Click(object? sender, EventArgs e)
+    private async void btnPreview_Click(object? sender, EventArgs e) => await RunPreviewAsync();
+
+    private async Task RunPreviewAsync()
     {
         if (!EnsureSourceReady(out var source))
         {
@@ -265,34 +271,41 @@ public partial class ImageRembgForm : Form
             return;
         }
 
+        ProgressDialogForm? progressDialog = null;
         try
         {
             ToggleBusy(true, L.Get("Status.AnalyzingOutline"));
             imageCanvas.SetProcessing(true);
+            progressDialog = ProgressDialogForm.ShowFor(this, L.Get("Status.AnalyzingOutline"));
 
             var progress = new Progress<string>(message =>
             {
                 statusLabel.Text = message;
+                progressDialog?.UpdateStatus(message);
             });
 
             using var sourceMat = OpenCvImageHelper.BitmapToBgr8(source);
             using var selectionMask = imageCanvas.GetSelectionMaskClone();
             using var foregroundHintMask = imageCanvas.GetForegroundHintMaskClone();
             using var backgroundHintMask = imageCanvas.GetBackgroundHintMaskClone();
-            using var result = SegmentationService.Segment(
-                _selectedAlgorithm,
+            var algorithm = _selectedAlgorithm;
+
+            using var result = await Task.Run(() => SegmentationService.Segment(
+                algorithm,
                 sourceMat,
                 selectionMask,
                 foregroundHintMask,
                 backgroundHintMask,
-                progress);
+                progress));
 
             _confirmedMask?.Dispose();
             _confirmedMask = result.Mask.Clone();
 
+            imageCanvas.BeginUndoableChange();
             imageCanvas.SetContours(result.Contours);
             imageCanvas.SetPreviewMask(_confirmedMask);
             imageCanvas.ShowResult = false;
+            imageCanvas.CommitUndoableChange();
             chkShowResult.Checked = false;
 
             statusLabel.Text = L.F(
@@ -313,12 +326,15 @@ public partial class ImageRembgForm : Form
         }
         finally
         {
+            progressDialog?.Close();
             imageCanvas.SetProcessing(false);
             ToggleBusy(false, statusLabel.Text);
         }
     }
 
-    private void btnRemoveBackground_Click(object? sender, EventArgs e)
+    private async void btnRemoveBackground_Click(object? sender, EventArgs e) => await RunRemoveBackgroundAsync();
+
+    private async Task RunRemoveBackgroundAsync()
     {
         if (!EnsureSourceReady(out var source))
         {
@@ -339,37 +355,45 @@ public partial class ImageRembgForm : Form
                 return;
             }
 
-            btnPreview_Click(sender, e);
+            await RunPreviewAsync();
             if (_confirmedMask == null)
             {
                 return;
             }
         }
 
+        if (!imageCanvas.HasSelection)
+        {
+            MessageBox.Show(
+                this,
+                L.Get("Msg.SelectionRequiredShort"),
+                L.Get("Msg.SelectionRequired"),
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        ProgressDialogForm? progressDialog = null;
         try
         {
             ToggleBusy(true, L.Get("Status.RemovingBackground"));
-            Application.DoEvents();
-
-            if (!imageCanvas.HasSelection)
-            {
-                MessageBox.Show(
-                    this,
-                    L.Get("Msg.SelectionRequiredShort"),
-                    L.Get("Msg.SelectionRequired"),
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
+            progressDialog = ProgressDialogForm.ShowFor(this, L.Get("Status.RemovingBackground"));
 
             using var selectionMask = imageCanvas.GetSelectionMaskClone();
             var outputSizeMode = GetOutputSizeMode();
             Mat? cropMask = outputSizeMode == OutputSizeMode.SelectionCrop ? selectionMask : null;
-            _resultBitmap?.Dispose();
-            _resultBitmap = BackgroundRemovalService.RemoveBackground(source, _confirmedMask!, cropMask);
+            var confirmedMask = _confirmedMask!;
 
+            var newResultBitmap = await Task.Run(() =>
+                BackgroundRemovalService.RemoveBackground(source, confirmedMask, cropMask));
+
+            _resultBitmap?.Dispose();
+            _resultBitmap = newResultBitmap;
+
+            imageCanvas.BeginUndoableChange();
             imageCanvas.SetResultImage(_resultBitmap);
             imageCanvas.ShowResult = true;
+            imageCanvas.CommitUndoableChange();
             chkShowResult.Checked = true;
 
             statusLabel.Text = L.F(
@@ -391,6 +415,7 @@ public partial class ImageRembgForm : Form
         }
         finally
         {
+            progressDialog?.Close();
             ToggleBusy(false, statusLabel.Text);
         }
     }
@@ -452,8 +477,10 @@ public partial class ImageRembgForm : Form
     {
         imageCanvas.ClearSelection();
         imageCanvas.ClearMarkers();
+        imageCanvas.BeginUndoableChange();
         imageCanvas.SetResultImage(null);
         imageCanvas.ShowResult = false;
+        imageCanvas.CommitUndoableChange();
         chkShowResult.Checked = false;
 
         _confirmedMask?.Dispose();
@@ -464,6 +491,10 @@ public partial class ImageRembgForm : Form
         statusLabel.Text = L.Get("Status.Reset");
         UpdateUiState();
     }
+
+    private void mnuUndo_Click(object? sender, EventArgs e) => imageCanvas.Undo();
+
+    private void mnuRedo_Click(object? sender, EventArgs e) => imageCanvas.Redo();
 
     private void btnZoomIn_Click(object? sender, EventArgs e) => imageCanvas.ZoomIn();
 
@@ -482,6 +513,8 @@ public partial class ImageRembgForm : Form
     }
 
     private void mnuAlgoRembg_Click(object? sender, EventArgs e) => SetSelectedAlgorithm(SegmentationAlgorithm.Rembg, clearPreview: true);
+
+    private void mnuAlgoRembg2_Click(object? sender, EventArgs e) => SetSelectedAlgorithm(SegmentationAlgorithm.Rembg2, clearPreview: true);
 
     private void mnuAlgoGrabCut_Click(object? sender, EventArgs e) => SetSelectedAlgorithm(SegmentationAlgorithm.GrabCut, clearPreview: true);
 
@@ -512,6 +545,7 @@ public partial class ImageRembgForm : Form
         }
 
         mnuAlgoRembg.Checked = algorithm == SegmentationAlgorithm.Rembg;
+        mnuAlgoRembg2.Checked = algorithm == SegmentationAlgorithm.Rembg2;
         mnuAlgoGrabCut.Checked = algorithm == SegmentationAlgorithm.GrabCut;
         mnuAlgoColorKey.Checked = algorithm == SegmentationAlgorithm.ColorKey;
         mnuAlgoEdgeFill.Checked = algorithm == SegmentationAlgorithm.EdgeFill;
@@ -520,6 +554,7 @@ public partial class ImageRembgForm : Form
         if (_canvasContextMenu != null)
         {
             _canvasContextMenu.AlgoRembg.Checked = mnuAlgoRembg.Checked;
+            _canvasContextMenu.AlgoRembg2.Checked = mnuAlgoRembg2.Checked;
             _canvasContextMenu.AlgoGrabCut.Checked = mnuAlgoGrabCut.Checked;
             _canvasContextMenu.AlgoColorKey.Checked = mnuAlgoColorKey.Checked;
             _canvasContextMenu.AlgoEdgeFill.Checked = mnuAlgoEdgeFill.Checked;
@@ -744,13 +779,6 @@ public partial class ImageRembgForm : Form
         _confirmedMask = null;
         imageCanvas.SetContours([]);
         imageCanvas.SetPreviewMask(null);
-
-        if (imageCanvas.HasSelection &&
-            imageCanvas.InteractionMode is InteractionMode.SelectFreehand or InteractionMode.SelectRectangle)
-        {
-            SetInteractionMode(InteractionMode.Pan);
-        }
-
         UpdateUiState();
     }
 
@@ -760,6 +788,22 @@ public partial class ImageRembgForm : Form
         _confirmedMask = null;
         imageCanvas.SetContours([]);
         imageCanvas.SetPreviewMask(null);
+        UpdateUiState();
+    }
+
+    private void imageCanvas_StateRestored(object? sender, EventArgs e)
+    {
+        _confirmedMask?.Dispose();
+        _confirmedMask = imageCanvas.GetPreviewMaskClone();
+
+        _resultBitmap?.Dispose();
+        _resultBitmap = imageCanvas.GetResultImageClone();
+
+        ApplyShowResult(imageCanvas.ShowResult);
+    }
+
+    private void imageCanvas_UndoRedoStateChanged(object? sender, EventArgs e)
+    {
         UpdateUiState();
     }
 
@@ -908,6 +952,8 @@ public partial class ImageRembgForm : Form
         var hasPreview = _confirmedMask != null;
         var hasResult = _resultBitmap != null;
 
+        btnUndo.Enabled = imageCanvas.CanUndo;
+        btnRedo.Enabled = imageCanvas.CanRedo;
         btnPreview.Enabled = hasImage && hasSelection;
         btnRemoveBackground.Enabled = hasImage && (hasPreview || hasSelection);
         btnSave.Enabled = hasResult;
@@ -919,6 +965,8 @@ public partial class ImageRembgForm : Form
         chkShowMask.Enabled = hasImage && !chkShowResult.Checked;
 
         mnuOpen.Enabled = true;
+        mnuUndo.Enabled = imageCanvas.CanUndo;
+        mnuRedo.Enabled = imageCanvas.CanRedo;
         mnuSave.Enabled = hasResult;
         mnuPreview.Enabled = hasImage && hasSelection;
         mnuRemoveBackground.Enabled = hasImage && (hasPreview || hasSelection);
@@ -973,6 +1021,7 @@ public partial class ImageRembgForm : Form
         menu.ShowMask.Checked = mnuShowMask.Checked;
         menu.ShowResult.Checked = mnuShowResult.Checked;
         menu.AlgoRembg.Checked = mnuAlgoRembg.Checked;
+        menu.AlgoRembg2.Checked = mnuAlgoRembg2.Checked;
         menu.AlgoGrabCut.Checked = mnuAlgoGrabCut.Checked;
         menu.AlgoColorKey.Checked = mnuAlgoColorKey.Checked;
         menu.AlgoEdgeFill.Checked = mnuAlgoEdgeFill.Checked;
