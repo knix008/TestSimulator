@@ -32,7 +32,13 @@
     <Content Include="Assets\Models\README.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Assets\Models\rembg2.onnx">
+    <!--
+      rembg2.onnx (RMBG-2.0) is gated/non-commercial-licensed on Hugging Face and cannot be
+      redistributed via the public installer. It is copied for local dev/test builds, but
+      excluded from the Installer publish profile (see Installer.pubxml) so the MSI stays
+      small and doesn't bundle a model users must individually accept the license for.
+    -->
+    <Content Include="Assets\Models\rembg2.onnx" Condition="'$(ExcludeRembg2ModelFromPublish)' != 'true'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
