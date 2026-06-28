@@ -18,7 +18,7 @@ Windows용 대화형 이미지 배경 제거 도구입니다. rembg2(RMBG-2.0)·
 
 - Windows 10/11 (x64)
 - [.NET 10 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/10.0)
-- 기본 알고리즘 **rembg2 (RMBG-2.0)** 사용 시: Hugging Face 라이선스(비상업적 용도) 동의 후 받은 `rembg2.onnx` 파일을 `Assets\Models\`에 직접 배치해야 합니다 (게이트 모델이라 자동 다운로드/설치 프로그램에 포함 불가). 자세한 내용은 [아래 섹션](#rembg-ai-모델) 참고.
+- 기본 알고리즘 **rembg2 (RMBG-2.0)** 사용 시: Hugging Face 라이선스(비상업적 용도) 동의 후 받은 `rembg2.onnx` 파일을 프로그램 내 안내 대화상자에서 선택(자동 설치, 권한 불필요) 또는 `%LOCALAPPDATA%\ImageRembgWinV10\models\rembg2.onnx`에 직접 배치해야 합니다 (게이트 모델이라 자동 다운로드/설치 프로그램에 포함 불가). 자세한 내용은 [아래 섹션](#rembg-ai-모델) 참고.
 - **rembg (U2Net)** 사용 시: 첫 실행 때 **u2net.onnx** 모델 자동 다운로드 (약 176MB, 인터넷 필요)
 
 ## 빠른 시작
@@ -96,7 +96,9 @@ English MSI: `ImageRembgWinV10.en-US.msi` (같은 폴더)
 ### rembg2 (RMBG-2.0) — 기본 알고리즘
 
 - Hugging Face 게이트(라이선스 동의 필요) 모델이라 **자동 다운로드/MSI 포함이 불가능**합니다.
-- [briaai/RMBG-2.0 (onnx)](https://huggingface.co/briaai/RMBG-2.0/tree/main/onnx)에서 라이선스(비상업적 용도)에 동의한 뒤 onnx 파일을 받아 `Assets\Models\rembg2.onnx`로 저장하세요.
+- [briaai/RMBG-2.0 (onnx)](https://huggingface.co/briaai/RMBG-2.0/tree/main/onnx)에서 라이선스(비상업적 용도)에 동의한 뒤 onnx 파일을 받습니다.
+- rembg2 선택 시 표시되는 안내 대화상자에서 받은 파일을 선택하면 `%LOCALAPPDATA%\ImageRembgWinV10\models\rembg2.onnx`로 자동 복사됩니다 (관리자 권한 불필요, MSI 설치본에서도 동작).
+- 직접 배치하려면 위 경로에 저장하거나, (개발/포터블 빌드에서만 쓰기 가능한) `Assets\Models\rembg2.onnx`에 저장해도 인식됩니다.
 - 파일이 없으면 rembg2 선택 시 안내 오류 메시지가 표시됩니다. 자세한 안내는 `Assets\Models\README.txt` 참고.
 
 ### rembg (U2Net)

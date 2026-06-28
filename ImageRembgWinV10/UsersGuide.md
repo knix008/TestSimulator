@@ -14,8 +14,8 @@ Image Rembg는 이미지에서 객체를 분리하고 배경을 제거하는 Win
 기본 알고리즘 **rembg2 (AI, RMBG-2.0)** 은 Hugging Face의 라이선스 동의가 필요한 모델이라 자동으로 다운로드되지 않습니다.
 
 1. [briaai/RMBG-2.0 (onnx)](https://huggingface.co/briaai/RMBG-2.0/tree/main/onnx)에서 라이선스(비상업적 용도)에 동의한 뒤 onnx 파일을 받습니다.
-2. 받은 파일을 `Assets\Models\rembg2.onnx`로 저장합니다 (자세한 안내는 `Assets\Models\README.txt`).
-3. 프로그램을 다시 시작하면 사용할 수 있습니다. 모델 파일이 없으면 선택 시 안내 오류가 표시됩니다.
+2. **알고리즘** 메뉴/툴바에서 rembg2를 선택하면 모델이 없다는 안내 대화상자가 표시됩니다. **예**를 누르고 받은 파일을 선택하면 `%LOCALAPPDATA%\ImageRembgWinV10\models\rembg2.onnx`로 자동 복사됩니다 (관리자 권한 불필요, MSI로 설치한 경우에도 동작).
+3. 직접 배치하려면 위 경로에 "rembg2.onnx"로 저장하거나, (개발/포터블 빌드에서만) `Assets\Models\rembg2.onnx`에 저장해도 인식됩니다 (자세한 안내는 `Assets\Models\README.txt`).
 4. 처음 추론을 실행할 때 모델을 메모리에 올리는 동안 **진행률 대화상자**가 표시됩니다 (모델이 커서 다소 시간이 걸릴 수 있습니다).
 
 ### rembg (U2Net) — 보조 알고리즘
@@ -182,7 +182,7 @@ Visual Studio에서 **`ImageRembgWinV10.sln`** 을 **Release**로 **솔루션 �
 
 ### rembg2를 선택했는데 오류가 납니다
 
-rembg2(RMBG-2.0)는 라이선스 동의가 필요한 모델이라 자동 다운로드/설치 프로그램에 포함되지 않습니다. [Hugging Face](https://huggingface.co/briaai/RMBG-2.0/tree/main/onnx)에서 라이선스에 동의한 뒤 받은 onnx 파일을 `Assets\Models\rembg2.onnx`로 저장하세요.
+rembg2(RMBG-2.0)는 라이선스 동의가 필요한 모델이라 자동 다운로드/설치 프로그램에 포함되지 않습니다. [Hugging Face](https://huggingface.co/briaai/RMBG-2.0/tree/main/onnx)에서 라이선스에 동의한 뒤 받은 onnx 파일을, rembg2 선택 시 표시되는 안내 대화상자에서 선택하세요 (자동으로 `%LOCALAPPDATA%\ImageRembgWinV10\models\rembg2.onnx`에 복사됩니다).
 
 ### rembg2를 적용하면 프로그램이 멈춘 것처럼 보여요
 

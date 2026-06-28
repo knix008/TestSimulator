@@ -544,14 +544,60 @@ public partial class ImageRembgForm : Form
             this,
             L.F("Msg.Rembg2ModelMissingBody", Rembg2ModelProvider.ModelPath),
             L.Get("Msg.Rembg2ModelMissingTitle"),
-            MessageBoxButtons.YesNo,
+            MessageBoxButtons.YesNoCancel,
             MessageBoxIcon.Warning);
 
-        if (answer != DialogResult.Yes)
+        switch (answer)
+        {
+            case DialogResult.Yes:
+                BrowseForRembg2Model();
+                break;
+            case DialogResult.No:
+                OpenRembg2DownloadPage();
+                break;
+        }
+    }
+
+    private void BrowseForRembg2Model()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = L.Get("Msg.Rembg2SelectFileTitle"),
+            Filter = L.Get("Msg.Rembg2OnnxFilter"),
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
         {
             return;
         }
 
+        try
+        {
+            var targetPath = Rembg2ModelProvider.ModelPath;
+            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+            File.Copy(dialog.FileName, targetPath, overwrite: true);
+
+            MessageBox.Show(
+                this,
+                L.Get("Msg.Rembg2ModelInstalledBody"),
+                L.Get("Msg.Rembg2ModelInstalledTitle"),
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorDialogService.ShowError(
+                this,
+                L.Get("Error.Unhandled"),
+                L.Get("Error.UnhandledBody"),
+                ex,
+                new Dictionary<string, string?> { [L.Get("Context.File")] = dialog.FileName });
+        }
+    }
+
+    private void OpenRembg2DownloadPage()
+    {
         try
         {
             Process.Start(new ProcessStartInfo(Rembg2DownloadUrl) { UseShellExecute = true });
