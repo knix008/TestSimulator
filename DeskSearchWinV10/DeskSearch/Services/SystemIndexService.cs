@@ -1368,9 +1368,18 @@ public sealed class SystemIndexService : IDisposable
             }
             else
             {
-                CleanupAbortedScan(target, buildingPath);
+                // Promotion failed (or a gate above rejected it, e.g. a previously-indexed
+                // drive went missing) — keep the building store's progress so the retry
+                // resumes instead of rescanning every root from scratch.
                 if (ShouldRetryScan(succeeded: false, scanGeneration))
+                {
+                    PreservePausedScanState(target);
                     ScheduleScanRetry(scanGeneration);
+                }
+                else
+                {
+                    CleanupAbortedScan(target, buildingPath);
+                }
             }
         }
         else if (_indexingPaused || _userStoppedScan)
@@ -1379,10 +1388,19 @@ public sealed class SystemIndexService : IDisposable
         }
         else
         {
-            CleanupAbortedScan(target, buildingPath);
-
+            // A scan-time error (e.g. one bad root) shouldn't discard the work already
+            // done for every other root — preserve it so the retry resumes instead of
+            // restarting, and so progress doesn't misreport 100%/"complete" in the
+            // meantime (CleanupAbortedScan falls back to the old index and would do that).
             if (ShouldRetryScan(succeeded, scanGeneration))
+            {
+                PreservePausedScanState(target);
                 ScheduleScanRetry(scanGeneration);
+            }
+            else
+            {
+                CleanupAbortedScan(target, buildingPath);
+            }
         }
 
         TryRunDeferredFullScan();
@@ -1702,7 +1720,14 @@ public sealed class SystemIndexService : IDisposable
             foreach (var entry in enumerable)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                batch.Add(entry);
+
+                // TransformEntry returns FileEntry.Failed for an entry it couldn't read
+                // (e.g. a malformed/too-long path) instead of throwing — throwing there
+                // would escape this foreach and abort the rest of this root's scan over
+                // one bad item.
+                if (!ReferenceEquals(entry, FileEntry.Failed))
+                    batch.Add(entry);
+
                 MaybeYield(cancellationToken);
 
                 if (batch.Count >= IndexStoragePolicy.BulkMergeBatchSize)
@@ -1718,8 +1743,15 @@ public sealed class SystemIndexService : IDisposable
 
         FileEntry TransformEntry(ref FileSystemEntry entry)
         {
-            var fullPath = entry.ToFullPath();
-            return CreateEntry(fullPath, entry.IsDirectory);
+            try
+            {
+                var fullPath = entry.ToFullPath();
+                return CreateEntry(fullPath, entry.IsDirectory);
+            }
+            catch
+            {
+                return FileEntry.Failed;
+            }
         }
 
         bool ShouldIncludeEntry(ref FileSystemEntry entry)

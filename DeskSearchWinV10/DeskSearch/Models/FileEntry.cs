@@ -7,6 +7,13 @@ public sealed record FileEntry(
     bool IsDirectory = false,
     long ModifiedUtc = 0)
 {
+    /// <summary>
+    /// Sentinel returned by a scan transform when an entry couldn't be read (e.g. a
+    /// malformed/too-long path). Callers check for this by reference, not by value, and
+    /// skip it instead of indexing it.
+    /// </summary>
+    public static readonly FileEntry Failed = new(string.Empty, string.Empty, string.Empty);
+
     public string DirectoryName { get; } = ResolveDirectoryName(Directory);
 
     public string SearchFileName { get; } = Helpers.SearchTextHelper.Normalize(FileName);
