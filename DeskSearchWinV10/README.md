@@ -11,10 +11,11 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 | 전체 시스템 인덱싱 | 모든 준비된 드라이브·디렉터리·파일을 백그라운드 스캔 (관리자 권한, 배치 병합, 드라이브별 병렬 스캔) |
 | 인덱싱 중 검색 | 인덱싱이 끝나기 전에도 검색 가능; 인덱스가 늘어나면 결과 자동 갱신; SQLite 트라이그램(trigram) FTS5 인덱스로 즉시 응답 |
 | 인덱싱 중 시스템 영향 최소화 | Windows 백그라운드 모드(CPU·디스크 I/O·메모리 우선순위 하향)로 인덱싱이 GUI·시스템 반응성을 거의 침범하지 않음 |
-| 이중 DB 인덱싱 | **모든 전체 인덱싱**은 `index.building.db`에 구축. 완료 시 `index.db`로 교체. 완료 전 검색 DB가 없으면 **구축 중 DB**로 검색 |
-| 끊김 없는 재인덱싱 | 재인덱싱 완료 시 새 DB로 교체하고 **기존 `index.db` 파일은 삭제**. 재인덱싱 중에도 검색·GUI는 기존 인덱스로 정상 동작 |
-| 인덱싱 진행 단계 표시 | 설정 창에서 **스캔 → 분석 → 인덱스 적용** 단계와 진행률(%)·항목 수 표시 (재인덱싱 시 0%부터, 검색은 기존 인덱스 사용 안내) |
-| 인덱싱 중단 후 자동 재개 | 재인덱싱이 끝나기 전에 프로그램이 종료되면, 다음 실행 시 자동으로 재인덱싱을 다시 시도 |
+| 이중 DB 인덱싱 | **모든 전체 인덱싱**은 `index.building.db`에 구축. 완료 시 `index.db`로 교체. `index.db`가 있으면 **항상 검색 가능** (재인덱싱 중에도 기존 DB 사용) |
+| 끊김 없는 재인덱싱 | 재인덱싱 완료 시 새 DB로 교체. 재인덱싱 중 검색·GUI는 **기존 `index.db`** 로 정상 동작 |
+| 인덱싱 제어 | **멈춤**: 일시 중지(building DB 보존). **인덱싱**: building 삭제 후 처음부터. **초기화**: 모든 DB 삭제 |
+| 종료·재시작 | 인덱싱 중 종료 시 building DB는 디스크에 남김. **다음 실행 시 building은 삭제**되고, 중단되었으면 **자동으로 전체 재스캔** 시작 |
+| 실패 루트 재시도 | 드라이브·경로 스캔·DB 병합 실패 시 해당 루트를 완료 처리하지 않음. 패스 내 최대 3회 재시도 후, 필요 시 8초 간격 전체 재시도 |
 | 파일·폴더 검색 | 파일·폴더 **이름**에 검색어가 **연속으로 포함**된 항목 (경로 제외, 최대 2,000건); 결과 창은 1~10개 높이 자동 조절·스크롤; `*`(AND)·`+(OR) 연산자·와일드카드 지원; **검색 결과 정렬** 설정 가능 |
 | 검색 결과 없음 | 일치 항목이 없으면 결과 창에 안내 메시지 표시 |
 | 정규식 검색 | 설정에서 켜면 .NET 정규식으로 파일·폴더 이름 검색; 연산자·와일드카드와 조합 가능 (아래 [검색 문법](#검색-문법) 참고) |
@@ -31,7 +32,7 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 | 다크 테마 | 어두운 배경 선택 시 글자·테두리·아이콘 색 자동 조정 |
 | 다국어 UI | 한국어 / English; 설정에서 **언어 변경 시 즉시 반영** (취소 시 복원) |
 | 시스템 트레이 | 작업 표시줄 미표시, 트레이에서 표시·숨기기·설정·종료 |
-| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (한국어·영어 UI, 바로가기 선택, 업그레이드·제거 시 사용자 데이터 선택) |
+| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (~52MB, self-contained, per-machine·관리자 권한, 한국어·영어 UI) |
 
 ## 빌드 및 실행
 
@@ -54,9 +55,11 @@ dotnet build DeskSearchWinV10.slnx -c Release
 
 | 출력 | 설명 |
 |------|------|
-| `DeskSearch.Installer/bin/Release/DeskSearchSetup.msi` | 설치 패키지 (설치 UI: 한국어) |
+| `DeskSearch.Installer/bin/Release/DeskSearchSetup.msi` | 설치 패키지 (설치 UI: 한국어, ~52MB) |
 | `DeskSearch.Installer/bin/Release/DeskSearchSetup.en-US.msi` | 설치 패키지 (설치 UI: English) |
-| `DeskSearch/bin/Release/net8.0-windows/win-x64/publish/` | self-contained 배포 파일 (~60MB) |
+| `DeskSearch/bin/Release/net8.0-windows/win-x64/publish/` | self-contained 배포 파일 (~141MB, 디버그·HTTP3 등 불필요 런타임 파일 제외 후) |
+
+Release publish 시 `PruneUnnecessaryPublishFiles` 대상으로 디버그/덤프용 파일(`createdump`, `mscordaccore*`, `mscordbi`, `msquic` 등)을 제거합니다. WiX `Package.wxs`에서도 동일 항목을 MSI에 포함하지 않습니다.
 
 **요구사항:** .NET 8 SDK, [WiX Toolset](https://wixtoolset.org/) MSBuild SDK (`WixToolset.Sdk` — NuGet 복원)
 
@@ -215,6 +218,7 @@ DeskSearchWinV10/
 │   ├── Helpers/
 │   │   ├── ColorHelper.cs            # 색상·다크 배경 감지
 │   │   ├── SearchTextHelper.cs       # 검색어 NFC·연산자·와일드카드·정규식
+│   │   ├── MenuGlyphIcons.cs         # 컨텍스트·트레이 메뉴 MDL2 아이콘
 │   │   ├── MultiFolderBrowserDialog.cs # 다중 선택 폴더 찾아보기 (IFileOpenDialog)
 │   │   └── WindowTaskbarHelper.cs    # 작업 표시줄 제외
 │   ├── Models/                       # AppSettings, FileEntry, SearchSession, SearchResultSortOrder, IndexProgressPhase 등
@@ -258,12 +262,19 @@ DeskSearchWinV10/
 ### 인덱싱 DB 동작
 
 ```
-[첫 실행·초기화 후]  기존 DB 삭제 → 스캔 ──► index.building.db ──► 검색(구축 중 DB)
+[첫 실행·초기화 후]  기존 DB 삭제 → 스캔 ──► index.building.db ──► 검색(구축 중 DB 또는 index.db)
                 완료 ──► building → index.db 교체
 
 [재인덱싱]      스캔 ──► index.building.db
                 검색 ──► index.db (기존 완료 DB, 변경 없음)
-                완료 ──► building → index.db 교체, 기존 index.db 삭제
+                완료 ──► building → index.db 교체
+
+[멈춤]          스캔 중단, index.building.db 보존 (같은 세션)
+
+[인덱싱 버튼]   building 삭제 → 처음부터 전체 스캔
+
+[종료(인덱싱 중)] building 유지 → 다음 실행 시 building 삭제 후 자동 전체 재스캔
+                (index.db가 있으면 그동안 검색 계속 가능)
 ```
 
-재인덱싱·주기적 전체 재동기화·누락 드라이브 보완·검색 제외 변경 후 재구축·**초기화** 후 **인덱싱** 등 **전체 스캔**은 위 규칙을 따릅니다. **초기화**는 `index.db`·`index.building.db`를 모두 삭제합니다. 첫 실행 시 완료된 `index.db`가 없으면 기존 DB 파일도 정리한 뒤 새로 인덱싱합니다. 인덱싱 중에는 파일 감시 증분 갱신이 일시 중단됩니다(완료 후 재개).
+재인덱싱·주기적 전체 재동기화·누락 드라이브 보완·검색 제외 변경 후 재구축·**초기화** 후 **인덱싱** 등 **전체 스캔**은 위 규칙을 따릅니다. **초기화**는 `index.db`·`index.building.db`를 모두 삭제합니다. 스캔 중 일부 드라이브·경로가 실패하면 해당 루트만 미완료로 남기고 패스 내 최대 3회 재시도합니다. 인덱싱 중에는 파일 감시 증분 갱신이 일시 중단됩니다(완료 후 재개).

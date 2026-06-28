@@ -54,6 +54,9 @@ DeskSearch.Installer/obj/
 # dotnet publish (Release self-contained 배포물)
 **/publish/
 
+# 로컬 publish 실험·용량 테스트 출력
+_publish_*/
+
 # Test / coverage
 TestResults/
 coverage/
@@ -79,6 +82,8 @@ index.db
 index.db-shm
 index.db-wal
 index.db-*
+index.db.previous
+index.db.previous-*
 index.building.db
 index.building.db-shm
 index.building.db-wal

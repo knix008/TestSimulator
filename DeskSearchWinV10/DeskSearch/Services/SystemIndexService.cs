@@ -8,6 +8,9 @@ namespace DeskSearch.Services;
 
 public sealed class SystemIndexService : IDisposable
 {
+    // FileSystemEnumerable defaults to skipping Hidden | System | ReparsePoint.
+    // Only reparse points (junctions/symlinks) are skipped so hidden/system files
+    // and dot-prefixed names (e.g. .gitignore, .env) remain indexed and searchable.
     private static readonly EnumerationOptions ScanEnumerationOptions = new()
     {
         RecurseSubdirectories = true,
@@ -45,6 +48,11 @@ public sealed class SystemIndexService : IDisposable
     // Keyed by the root path currently being scanned, so multiple roots (e.g. separate
     // drives) can be scanned concurrently without one root's progress clobbering another's.
     private readonly ConcurrentDictionary<string, int> _activeStepEntries =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    // Per-root error counts during the active scan pass; roots with errors stay
+    // unmarked in indexed_roots so RetryPendingScanSteps can pick them up again.
+    private readonly ConcurrentDictionary<string, int> _rootScanErrors =
         new(StringComparer.OrdinalIgnoreCase);
 
     private string? _currentScanPath;
@@ -1245,6 +1253,7 @@ public sealed class SystemIndexService : IDisposable
             lock (_scannedPrefixesLock)
                 _scannedDirectoryPrefixes.Clear();
 
+            _rootScanErrors.Clear();
             Interlocked.Exchange(ref _scanIndexedCount, 0);
         }
         else
@@ -1272,7 +1281,7 @@ public sealed class SystemIndexService : IDisposable
                     continue;
                 }
 
-                ScanAndMerge(path, target, cancellationToken);
+                TryScanAndMerge(path, target, cancellationToken);
                 PauseBetweenScanRoots(cancellationToken);
             }
 
@@ -1287,21 +1296,12 @@ public sealed class SystemIndexService : IDisposable
 
             RunRootScansInParallel(pendingRoots, target, cancellationToken);
 
+            RetryPendingScanSteps(priorityPaths, scanRoots, target, cancellationToken);
+
             succeeded = true;
         }
         catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is OperationCanceledException))
         {
-        }
-        catch (AggregateException ex)
-        {
-            var inner = ex.InnerExceptions.FirstOrDefault(e => e is not OperationCanceledException)
-                ?? ex.InnerException
-                ?? ex;
-
-            if (inner is OutOfMemoryException oomEx)
-                ErrorDialogService.Show(LocalizationService.T("Error_OutOfMemory"), oomEx);
-            else
-                ErrorDialogService.Show(LocalizationService.T("Error_IndexScan"), inner);
         }
         catch (OperationCanceledException)
         {
@@ -1410,8 +1410,8 @@ public sealed class SystemIndexService : IDisposable
 
     // Runs each root on its own dedicated, Lowest-priority OS thread (not the thread
     // pool) so priority is guaranteed per worker, bounded by a semaphore so at most
-    // MaxParallelRootScans roots are ever scanning at once. Exceptions from workers are
-    // collected and re-thrown together rather than dropped.
+    // MaxParallelRootScans roots are ever scanning at once. A failure on one root does
+    // not abort the others; only cancellation propagates to the caller.
     private void RunRootScansInParallel(
         IReadOnlyList<string> roots,
         IndexStore target,
@@ -1422,7 +1422,7 @@ public sealed class SystemIndexService : IDisposable
 
         var maxParallelism = Math.Max(1, Math.Min(roots.Count, IndexResourcePolicy.MaxParallelRootScans));
         using var semaphore = new SemaphoreSlim(maxParallelism);
-        var exceptions = new ConcurrentBag<Exception>();
+        var cancellations = new ConcurrentBag<OperationCanceledException>();
         var threads = new List<Thread>(roots.Count);
 
         foreach (var root in roots)
@@ -1436,14 +1436,15 @@ public sealed class SystemIndexService : IDisposable
                     Thread.CurrentThread.Priority = ThreadPriority.Lowest;
                     BackgroundThreadMode.EnterForCurrentThread();
                     cancellationToken.ThrowIfCancellationRequested();
-                    ScanAndMerge(root, target, cancellationToken);
+                    TryScanAndMerge(root, target, cancellationToken);
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException ex)
                 {
-                    exceptions.Add(ex);
+                    cancellations.Add(ex);
                 }
                 finally
                 {
+                    BackgroundThreadMode.ExitForCurrentThread();
                     semaphore.Release();
                 }
             })
@@ -1460,8 +1461,71 @@ public sealed class SystemIndexService : IDisposable
         foreach (var thread in threads)
             thread.Join();
 
-        if (!exceptions.IsEmpty)
-            throw new AggregateException(exceptions);
+        if (!cancellations.IsEmpty)
+            throw new AggregateException(cancellations);
+    }
+
+    private bool ShouldAttemptScanStep(string path)
+    {
+        if (_exclusions.IsPathExcluded(path) || !Directory.Exists(path))
+            return false;
+
+        return !IsRootScanComplete(path);
+    }
+
+    private void ClearRootScanErrors(string root) => _rootScanErrors.TryRemove(root, out _);
+
+    private void NoteRootScanError(string root) =>
+        _rootScanErrors.AddOrUpdate(root, 1, (_, count) => count + 1);
+
+    private bool RootHadScanErrors(string root) =>
+        _rootScanErrors.TryGetValue(root, out var count) && count > 0;
+
+    /// <summary>
+    /// Re-scans roots that failed or finished with batch errors before the pass ends,
+    /// so a single bad drive/path does not leave the rest of the system unindexed.
+    /// </summary>
+    private void RetryPendingScanSteps(
+        IReadOnlyList<string> priorityPaths,
+        IReadOnlyList<string> scanRoots,
+        IndexStore target,
+        CancellationToken cancellationToken)
+    {
+        for (var round = 0; round < IndexResourcePolicy.FailedRootScanRetryRounds; round++)
+        {
+            var pendingPriority = new List<string>();
+            var pendingDrives = new List<string>();
+
+            foreach (var path in priorityPaths)
+            {
+                if (ShouldAttemptScanStep(path))
+                    pendingPriority.Add(path);
+            }
+
+            foreach (var root in scanRoots)
+            {
+                if (ShouldAttemptScanStep(root))
+                    pendingDrives.Add(root);
+            }
+
+            if (pendingPriority.Count == 0 && pendingDrives.Count == 0)
+                return;
+
+            if (round > 0)
+            {
+                Thread.Sleep(IndexResourcePolicy.FailedRootScanRetryDelayMs);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            foreach (var path in pendingPriority)
+            {
+                TryScanAndMerge(path, target, cancellationToken);
+                PauseBetweenScanRoots(cancellationToken);
+            }
+
+            if (pendingDrives.Count > 0)
+                RunRootScansInParallel(pendingDrives, target, cancellationToken);
+        }
     }
 
     private void PromoteBuildingStore(IndexStore buildingStore, string buildingPath)
@@ -1534,6 +1598,33 @@ public sealed class SystemIndexService : IDisposable
         DeleteDatabaseFiles(buildingPath);
     }
 
+    private void TryScanAndMerge(string root, IndexStore target, CancellationToken cancellationToken)
+    {
+        try
+        {
+            ScanAndMerge(root, target, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (OutOfMemoryException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportScanRootError(root, ex);
+            NoteRootScanError(root);
+        }
+    }
+
+    private static void ReportScanRootError(string root, Exception ex)
+    {
+        System.Diagnostics.Trace.WriteLine(
+            $"DeskSearch index scan skipped '{root}': {ex.GetType().Name}: {ex.Message}");
+    }
+
     private void ScanAndMerge(string root, IndexStore target, CancellationToken cancellationToken)
     {
         if (_exclusions.IsPathExcluded(root))
@@ -1549,10 +1640,15 @@ public sealed class SystemIndexService : IDisposable
         }
 
         _currentScanPath = root;
+        ClearRootScanErrors(root);
+
         ScanTree(
             root,
             cancellationToken,
             batch => MergeEntriesBatchInto(target, root, batch));
+
+        if (RootHadScanErrors(root))
+            return;
 
         RememberScannedDirectoryPrefix(root);
 
@@ -1580,7 +1676,18 @@ public sealed class SystemIndexService : IDisposable
         if (batch.Count == 0)
             return;
 
-        target.UpsertBatch(batch);
+        try
+        {
+            target.UpsertBatch(batch);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine(
+                $"DeskSearch index upsert skipped for '{root}': {ex.GetType().Name}: {ex.Message}");
+            NoteRootScanError(root);
+            return;
+        }
+
         Thread.Sleep(IndexResourcePolicy.BatchCommitDelayMs);
         Interlocked.Add(ref _scanIndexedCount, batch.Count);
         _activeStepEntries.AddOrUpdate(root, batch.Count, (_, existing) => existing + batch.Count);
@@ -1702,8 +1809,17 @@ public sealed class SystemIndexService : IDisposable
             if (batch.Count == 0)
                 return;
 
-            mergeBatch(batch);
+            var toMerge = batch;
             batch = new List<FileEntry>(IndexStoragePolicy.BulkMergeBatchSize);
+            try
+            {
+                mergeBatch(toMerge);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    $"DeskSearch index batch skipped under '{root}': {ex.GetType().Name}: {ex.Message}");
+            }
         }
 
         var enumerable = new FileSystemEnumerable<FileEntry>(
@@ -1719,20 +1835,38 @@ public sealed class SystemIndexService : IDisposable
         {
             foreach (var entry in enumerable)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                // TransformEntry returns FileEntry.Failed for an entry it couldn't read
-                // (e.g. a malformed/too-long path) instead of throwing — throwing there
-                // would escape this foreach and abort the rest of this root's scan over
-                // one bad item.
-                if (!ReferenceEquals(entry, FileEntry.Failed))
-                    batch.Add(entry);
+                    if (!ReferenceEquals(entry, FileEntry.Failed))
+                        batch.Add(entry);
 
-                MaybeYield(cancellationToken);
+                    MaybeYield(cancellationToken);
 
-                if (batch.Count >= IndexStoragePolicy.BulkMergeBatchSize)
-                    FlushBatch();
+                    if (batch.Count >= IndexStoragePolicy.BulkMergeBatchSize)
+                        FlushBatch();
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.WriteLine(
+                        $"DeskSearch index entry skipped under '{root}': {ex.GetType().Name}: {ex.Message}");
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine(
+                $"DeskSearch index enumeration interrupted under '{root}': {ex.GetType().Name}: {ex.Message}");
+            throw;
         }
         finally
         {

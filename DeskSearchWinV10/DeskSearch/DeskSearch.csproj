@@ -23,7 +23,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>false</PublishSingleFile>
-    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <!-- UI strings: ko/en only. Search matches file names in any language (Unicode). -->
@@ -46,6 +46,21 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <!-- Release publish: drop runtime files not needed to run DeskSearch (debug/dump/HTTP3). -->
+  <Target Name="PruneUnnecessaryPublishFiles" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <UnnecessaryPublishFile Include="$(PublishDir)createdump.exe" />
+      <UnnecessaryPublishFile Include="$(PublishDir)mscordaccore.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)mscordaccore_*.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)mscordbi.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)Microsoft.DiaSymReader.Native.amd64.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)msquic.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)clrgc.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)dbgshim.dll" />
+    </ItemGroup>
+    <Delete Files="@(UnnecessaryPublishFile)" TreatErrorsAsWarnings="true" />
+  </Target>
 
   <!-- Release 빌드 후 MSI 생성 (Visual Studio 단일 프로젝트 빌드 포함). -->
   <Target Name="BuildInstallerOnRelease"

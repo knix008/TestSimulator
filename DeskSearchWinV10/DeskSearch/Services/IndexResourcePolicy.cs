@@ -25,6 +25,12 @@ internal static class IndexResourcePolicy
     /// <summary>Pause before retrying a failed or interrupted full scan (ms).</summary>
     public const int FailedScanRetryDelayMs = 8_000;
 
+    /// <summary>How many times to retry incomplete roots within a single scan pass.</summary>
+    public const int FailedRootScanRetryRounds = 3;
+
+    /// <summary>Pause between in-pass root retry rounds (ms).</summary>
+    public const int FailedRootScanRetryDelayMs = 2_000;
+
     /// <summary>
     /// Minimum fraction of the previous live index entry count required before a shadow
     /// build may replace <c>index.db</c>. Prevents promoting an incomplete re-index.
