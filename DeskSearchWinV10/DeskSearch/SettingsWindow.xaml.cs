@@ -597,7 +597,7 @@ public partial class SettingsWindow : Window
 
         if (_resetUiPending)
         {
-            if (snapshot.IsIndexing)
+            if (snapshot.IsIndexing || !snapshot.CanResetIndex)
                 _resetUiPending = false;
             else
             {

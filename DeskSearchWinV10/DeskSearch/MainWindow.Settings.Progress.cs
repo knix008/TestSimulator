@@ -16,13 +16,12 @@ public partial class MainWindow
         {
             var phase = _indexService.ProgressPhase;
             var indexedCount = _indexService.ScanIndexedCount;
-            var baselineCount = _indexService.ScanBaselineCount;
             var percent = _indexService.IndexDisplayPercent;
             var isPostProcessing = phase is IndexProgressPhase.Analyzing or IndexProgressPhase.Applying;
             var isScanRunning = phase == IndexProgressPhase.Scanning && _indexService.IsScanning;
-            var indexingStatus = !isScanRunning && phase == IndexProgressPhase.Idle && _indexService.Count == 0
+            var indexingStatus = !isScanRunning && phase == IndexProgressPhase.Idle && !_indexService.HasStableSearchIndex
                 ? LocalizationService.T("Settings_IndexResetStatus")
-                : FormatIndexPhaseStatus(phase, percent, indexedCount, baselineCount, _indexService.ScanUsesShadowBuild);
+                : FormatIndexPhaseStatus(phase, percent, indexedCount);
 
             return new SettingsProgressSnapshot
             {
@@ -32,6 +31,17 @@ public partial class MainWindow
                 IsIndexing = true,
                 IsScanRunning = isScanRunning,
                 IsPostProcessing = isPostProcessing,
+                CanResetIndex = false
+            };
+        }
+
+        if (!_indexService.HasStableSearchIndex)
+        {
+            return new SettingsProgressSnapshot
+            {
+                Percent = 0,
+                StatusText = LocalizationService.T("Settings_IndexResetStatus"),
+                IsIndexing = true,
                 CanResetIndex = false
             };
         }
@@ -96,13 +106,9 @@ public partial class MainWindow
     private static string FormatIndexPhaseStatus(
         IndexProgressPhase phase,
         int percent,
-        long indexedCount,
-        long baselineCount,
-        bool usesShadowBuild) =>
+        long indexedCount) =>
         phase switch
         {
-            IndexProgressPhase.Scanning when usesShadowBuild && baselineCount > 0 =>
-                LocalizationService.F("Settings_IndexPhaseStatus_ScanningRescan", percent, indexedCount, baselineCount),
             IndexProgressPhase.Scanning =>
                 LocalizationService.F("Settings_IndexPhaseStatus_Scanning", percent, indexedCount),
             IndexProgressPhase.Analyzing =>
@@ -127,12 +133,7 @@ public partial class MainWindow
 
     internal void RequestResetIndexFromSettings()
     {
-        Interlocked.Increment(ref _searchGeneration);
-
-        lock (_searchSessionLock)
-            _searchSession = null;
-
-        HideSearchResults();
+        InvalidateSearchForIndexRebuild();
 
         lock (_rescanLock)
         {
@@ -146,12 +147,7 @@ public partial class MainWindow
 
     internal void RequestStartIndexingFromSettings()
     {
-        Interlocked.Increment(ref _searchGeneration);
-
-        lock (_searchSessionLock)
-            _searchSession = null;
-
-        HideSearchResults();
+        InvalidateSearchForIndexRebuild();
 
         lock (_rescanLock)
         {

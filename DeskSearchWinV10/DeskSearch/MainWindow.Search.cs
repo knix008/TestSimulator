@@ -15,6 +15,16 @@ public partial class MainWindow
     private DebounceDispatcher LiveSearchRefreshDebounce =>
         _liveSearchRefreshDebounce ??= new DebounceDispatcher(Dispatcher, IndexResourcePolicy.LiveSearchRefreshDebounceMs);
 
+    internal void InvalidateSearchForIndexRebuild()
+    {
+        Interlocked.Increment(ref _searchGeneration);
+
+        lock (_searchSessionLock)
+            _searchSession = null;
+
+        HideSearchResults();
+    }
+
     private void PerformSearch()
     {
         if (!_indexService.IsSearchEnabled)

@@ -82,6 +82,9 @@ public partial class MainWindow : Window
 
         _indexService.IndexProgress += OnRescanIndexProgress;
 
+        _indexService.FullIndexRebuildStarted += (_, _) =>
+            SafeBeginInvoke(InvalidateSearchForIndexRebuild);
+
         _indexService.IndexUpdated += (_, _) =>
             SafeBeginInvoke(ScheduleLiveSearchRefresh, System.Windows.Threading.DispatcherPriority.Background);
 

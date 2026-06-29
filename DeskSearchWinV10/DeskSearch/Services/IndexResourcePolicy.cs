@@ -31,12 +31,6 @@ internal static class IndexResourcePolicy
     /// <summary>Pause between in-pass root retry rounds (ms).</summary>
     public const int FailedRootScanRetryDelayMs = 2_000;
 
-    /// <summary>
-    /// Minimum fraction of the previous live index entry count required before a shadow
-    /// build may replace <c>index.db</c>. Prevents promoting an incomplete re-index.
-    /// </summary>
-    public const double MinPromoteEntryCountRatio = 0.90;
-
     public const int ProgressReportMinEntries = 25_000;
     public const int ProgressReportMinSeconds = 5;
     /// <summary>Indexed entries needed within one root scan to approach that step's share of 100%.</summary>

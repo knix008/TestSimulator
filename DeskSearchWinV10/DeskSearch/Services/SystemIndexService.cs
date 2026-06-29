@@ -68,9 +68,6 @@ public sealed class SystemIndexService : IDisposable
     // Entries written during the active scan pass (building DB for re-index, live DB for first index).
     private long _scanIndexedCount;
 
-    // Live index size when a shadow re-index started; used to estimate scan progress.
-    private long _scanBaselineCount;
-
     // Set when a previous session's shadow-build rescan never finished (the process was
     // closed mid-rescan), so the abandoned attempt gets automatically retried at startup
     // instead of silently falling back to whatever the live store had before that rescan.
@@ -82,9 +79,6 @@ public sealed class SystemIndexService : IDisposable
 
     // Set when the user pauses indexing; suppresses automatic rescan retry until resumed.
     private volatile bool _indexingPaused;
-
-    // When true, the next full scan ignores indexed-root metadata and any partial building DB.
-    private volatile bool _forceFreshFullScan;
 
     // Set when indexing is cancelled for shutdown/reset.
     private volatile bool _userStoppedScan;
@@ -140,8 +134,8 @@ public sealed class SystemIndexService : IDisposable
     /// <summary>Entries indexed in the current scan pass (0 at re-index start).</summary>
     public long ScanIndexedCount => Interlocked.Read(ref _scanIndexedCount);
 
-    /// <summary>Previous live index size when a shadow re-index began; 0 for a first-time index.</summary>
-    public long ScanBaselineCount => _scanBaselineCount;
+    /// <summary>Always zero; kept for API compatibility. Progress uses scan steps only.</summary>
+    public long ScanBaselineCount => 0;
 
     private string GetCanonicalDatabasePath() =>
         Path.Combine(_databaseFolder, IndexStoragePolicy.DatabaseFileName);
@@ -206,62 +200,14 @@ public sealed class SystemIndexService : IDisposable
         return AreAllScanRootsIndexed();
     }
 
-    private bool IsBuildingStoreReadyToPromote(IndexStore buildingStore, bool forceFreshFullScan)
+    private bool IsBuildingStoreReadyToPromote(IndexStore buildingStore)
     {
         if (buildingStore.Count <= 0)
             return false;
 
-        if (!_scanUsesShadowBuild)
-            return true;
-
-        // A deliberate full rebuild that finished every scan step replaces the live index
-        // even when the new entry count is lower than the previous (stale) index.
-        if (forceFreshFullScan && AreAllScanStepsIndexed())
-            return true;
-
-        var baseline = _scanBaselineCount;
-        if (baseline <= 0)
-        {
-            lock (_indexStoreSwapLock)
-                baseline = _indexStore?.Count ?? 0;
-        }
-
-        if (baseline <= 0)
-            return true;
-
-        var minimum = (long)(baseline * IndexResourcePolicy.MinPromoteEntryCountRatio);
-        return buildingStore.Count >= minimum;
+        // Every triggered rebuild must finish all scan steps; never promote a partial pass.
+        return AreAllScanStepsIndexed();
     }
-
-    // GetAllScanRoots() silently drops not-ready drives (unplugged USB, unreachable
-    // network share) from ScanRoots, so neither AreAllScanRootsIndexed() nor the overall
-    // entry-count ratio guard ever sees them as missing if they're a small fraction of
-    // the total. This catches that case specifically: a drive that was fully indexed
-    // before this scan but isn't covered by it at all should block promotion outright,
-    // rather than silently dropping that drive's entries from the live index.
-    private bool HasMissingPreviouslyIndexedDrive(IReadOnlyCollection<string> previouslyIndexedRoots)
-    {
-        if (previouslyIndexedRoots.Count == 0)
-            return false;
-
-        foreach (var oldRoot in previouslyIndexedRoots)
-        {
-            if (!IsDriveRoot(oldRoot) || _exclusions.IsPathExcluded(oldRoot))
-                continue;
-
-            bool stillIndexed;
-            lock (_rootsLock)
-                stillIndexed = _indexedRoots.Contains(oldRoot);
-
-            if (!stillIndexed)
-                return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsDriveRoot(string normalizedPath) =>
-        normalizedPath.Length == 3 && normalizedPath[1] == ':' && normalizedPath[2] == '\\';
 
     private static void DeleteDatabaseFiles(string basePath)
     {
@@ -294,12 +240,6 @@ public sealed class SystemIndexService : IDisposable
             var name = Path.GetFileName(file);
             if (!name.StartsWith("index", StringComparison.OrdinalIgnoreCase))
                 continue;
-
-            if (!name.EndsWith(".db", StringComparison.OrdinalIgnoreCase)
-                && !name.Contains(".db-", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
 
             try
             {
@@ -386,6 +326,8 @@ public sealed class SystemIndexService : IDisposable
     public event EventHandler? SearchEnabled;
     public event EventHandler<IndexProgressEventArgs>? IndexProgress;
     public event EventHandler? IndexUpdated;
+    /// <summary>Raised when a full index rebuild starts (manual, scheduled, or startup).</summary>
+    public event EventHandler? FullIndexRebuildStarted;
 
     public void StartBackgroundScan()
     {
@@ -448,7 +390,6 @@ public sealed class SystemIndexService : IDisposable
 
         _isScanning = false;
         _scanUsesShadowBuild = false;
-        _scanBaselineCount = 0;
         Interlocked.Exchange(ref _scanIndexedCount, 0);
     }
 
@@ -457,11 +398,15 @@ public sealed class SystemIndexService : IDisposable
         _userStoppedScan = true;
         _deferredFullScan = false;
         _indexWorker.CancelExclusiveWork();
-        _indexWorker.EnqueueExclusive(_ => ResetIndexDatabaseCore());
+        // Must not use EnqueueExclusive: a subsequent Indexing click cancels the token
+        // before this runs, leaving the old index.db in place.
+        _indexWorker.Enqueue(ResetIndexDatabaseCore);
     }
 
     private void ResetIndexDatabaseCore()
     {
+        DiscardActiveBuildingDatabase();
+
         lock (_indexStoreSwapLock)
         {
             try
@@ -507,7 +452,6 @@ public sealed class SystemIndexService : IDisposable
         _indexingPaused = false;
         _userStoppedScan = false;
         _deferredFullScan = false;
-        _scanBaselineCount = 0;
         Interlocked.Exchange(ref _scanIndexedCount, 0);
         _scanProgressPercent = 0;
         _completedScanSteps = 0;
@@ -621,12 +565,12 @@ public sealed class SystemIndexService : IDisposable
         if (_indexingPaused)
             return;
 
-        BeginFullIndexScan(cancelCurrent: false, reportProgress: false);
+        BeginFullIndexScan(cancelCurrent: true, reportProgress: false);
     }
 
     public void ScanMissingDriveRoots()
     {
-        if (_isScanning || _indexingPaused)
+        if (_indexingPaused)
             return;
 
         var missingRoots = new List<string>();
@@ -647,7 +591,7 @@ public sealed class SystemIndexService : IDisposable
         if (missingRoots.Count == 0)
             return;
 
-        BeginFullIndexScan(cancelCurrent: false, reportProgress: false);
+        BeginFullIndexScan(cancelCurrent: true, reportProgress: false);
     }
 
     /// <summary>
@@ -703,11 +647,24 @@ public sealed class SystemIndexService : IDisposable
             Thread.Sleep(50);
     }
 
+    private void WipeCanonicalSearchIndex()
+    {
+        lock (_indexStoreSwapLock)
+        {
+            _indexStore?.Dispose();
+            _indexStore = null;
+        }
+
+        DeleteDatabaseFiles(GetCanonicalDatabasePath());
+        Interlocked.Exchange(ref _approximateLiveCount, 0);
+    }
+
     private void PrepareFreshFullScanState()
     {
-        _forceFreshFullScan = true;
-
         DiscardActiveBuildingDatabase();
+
+        if (!HasStableSearchIndex)
+            WipeCanonicalSearchIndex();
 
         lock (_resyncLock)
             _pendingResyncPaths.Clear();
@@ -726,8 +683,7 @@ public sealed class SystemIndexService : IDisposable
         _currentScanPath = null;
         _activeStepEntries.Clear();
         Interlocked.Exchange(ref _scanIndexedCount, 0);
-        _scanUsesShadowBuild = HasCompletedSearchIndex();
-        _scanBaselineCount = _scanUsesShadowBuild ? Count : 0;
+        _scanUsesShadowBuild = HasStableSearchIndex;
     }
 
     private void TryRunDeferredFullScan()
@@ -800,7 +756,6 @@ public sealed class SystemIndexService : IDisposable
     private void RestoreSearchIndexAfterAbortedBuild()
     {
         _scanUsesShadowBuild = false;
-        _scanBaselineCount = 0;
         Interlocked.Exchange(ref _scanIndexedCount, 0);
 
         if (!HasCompletedSearchIndex())
@@ -853,92 +808,14 @@ public sealed class SystemIndexService : IDisposable
         }
     }
 
-    private bool TryPrepareBuildingScanTarget(string buildingPath, out IndexStore target, out bool isResume)
-    {
-        if (_forceFreshFullScan)
-        {
-            ReleaseActiveBuildingStoreConnection();
-            DeleteDatabaseFiles(buildingPath);
-        }
-
-        lock (_indexStoreSwapLock)
-        {
-            if (_activeBuildingStore is not null && !_forceFreshFullScan)
-            {
-                target = _activeBuildingStore;
-                isResume = true;
-                return true;
-            }
-        }
-
-        if (!File.Exists(buildingPath))
-        {
-            target = new IndexStore(buildingPath);
-            isResume = false;
-            lock (_indexStoreSwapLock)
-                _activeBuildingStore = target;
-            return true;
-        }
-
-        try
-        {
-            if (!_forceFreshFullScan)
-            {
-                var opened = new IndexStore(buildingPath);
-                if (opened.Count > 0 || opened.LoadIndexedRoots().Count > 0 || opened.HasScanCheckpoints())
-                {
-                    target = opened;
-                    isResume = true;
-                    lock (_indexStoreSwapLock)
-                        _activeBuildingStore = target;
-                    return true;
-                }
-
-                opened.Dispose();
-            }
-        }
-        catch
-        {
-            DeleteDatabaseFiles(buildingPath);
-        }
-
-        DeleteDatabaseFiles(buildingPath);
-        target = new IndexStore(buildingPath);
-        isResume = false;
-        lock (_indexStoreSwapLock)
-            _activeBuildingStore = target;
-        return true;
-    }
-
     private bool IsRootScanComplete(string root)
     {
-        if (_forceFreshFullScan)
-            return false;
-
         var normalized = NormalizeDirectoryPrefix(root);
         if (normalized is null)
             return false;
 
         lock (_rootsLock)
             return _indexedRoots.Contains(normalized);
-    }
-
-    private int CountCompletedScanSteps(IReadOnlyList<string> priorityPaths, IReadOnlyList<string> scanRoots)
-    {
-        var completed = 0;
-        foreach (var path in priorityPaths)
-        {
-            if (IsRootScanComplete(path))
-                completed++;
-        }
-
-        foreach (var root in scanRoots)
-        {
-            if (IsRootScanComplete(root))
-                completed++;
-        }
-
-        return completed;
     }
 
     private void PauseActiveScan(IndexStore target) => PreservePausedScanState(target);
@@ -1136,9 +1013,9 @@ public sealed class SystemIndexService : IDisposable
             return;
         }
 
-        var needsFullScan = !HasCompletedSearchIndex()
+        // Every indexing run scans all configured roots from scratch in a new building DB.
+        var needsFullScan = !HasStableSearchIndex
             || _hasInterruptedRescan
-            || GetPathsNeedingScan().Count > 0
             || !AreAllScanStepsIndexed();
 
         if (needsFullScan)
@@ -1189,7 +1066,7 @@ public sealed class SystemIndexService : IDisposable
 
         if (!AreAllScanRootsIndexed())
         {
-            BeginFullIndexScan(cancelCurrent: false, reportProgress: false);
+            BeginFullIndexScan(cancelCurrent: true, reportProgress: false);
             return;
         }
 
@@ -1200,112 +1077,42 @@ public sealed class SystemIndexService : IDisposable
         ReportProgress(null, true, force: true);
     }
 
-    private IReadOnlyList<string> GetPathsNeedingScan()
-    {
-        var paths = new List<string>();
-
-        foreach (var path in WatchPaths)
-        {
-            if (NeedsScan(path))
-                paths.Add(path);
-        }
-
-        foreach (var root in ScanRoots)
-        {
-            if (NeedsScan(root) && !paths.Contains(root, StringComparer.OrdinalIgnoreCase))
-                paths.Add(root);
-        }
-
-        return paths;
-    }
-
-    private bool NeedsScan(string path)
-    {
-        if (_exclusions.IsPathExcluded(path) || !Directory.Exists(path))
-            return false;
-
-        var normalized = NormalizeDirectoryPrefix(path);
-        if (normalized is null)
-            return false;
-
-        lock (_rootsLock)
-        {
-            if (_indexedRoots.Contains(normalized))
-                return false;
-        }
-
-        return !IsUnderIndexedRoot(path);
-    }
-
-    private bool IsUnderIndexedRoot(string path)
-    {
-        var prefix = NormalizeDirectoryPrefix(path);
-        if (prefix is null)
-            return false;
-
-        lock (_rootsLock)
-        {
-            foreach (var indexedRoot in _indexedRoots)
-            {
-                if (prefix.StartsWith(indexedRoot, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
-    // Every full scan writes into index.building.db. Search reads index.db when a
+    // Every full scan writes into a fresh index.building.db. Search reads index.db when a
     // completed index exists; otherwise it reads the in-progress building database.
     private void RunScan(CancellationToken cancellationToken, int scanGeneration)
     {
-        var forceFreshFullScan = _forceFreshFullScan;
+        FullIndexRebuildStarted?.Invoke(this, EventArgs.Empty);
+
         var previousPriority = Thread.CurrentThread.Priority;
         Thread.CurrentThread.Priority = ThreadPriority.Lowest;
         BackgroundThreadMode.EnterForCurrentThread();
         _isScanning = true;
 
-        _scanUsesShadowBuild = HasCompletedSearchIndex();
-        if (_scanUsesShadowBuild && _scanBaselineCount <= 0)
-            _scanBaselineCount = _indexStore?.Count ?? 0;
+        _scanUsesShadowBuild = HasStableSearchIndex;
 
-        // Snapshot before this build's own bookkeeping repurposes _indexedRoots: if a
-        // previously-indexed drive is temporarily unready (unplugged USB/disconnected
-        // network share) it silently drops out of ScanRoots, and a full rebuild would
-        // otherwise promote a smaller index that's missing that drive's entries entirely.
-        var previouslyIndexedRoots = _scanUsesShadowBuild
-            ? _indexStore?.LoadIndexedRoots() ?? []
-            : [];
-
+        ReleaseActiveBuildingStoreConnection();
         var buildingPath = GetBuildingDatabasePath();
-        TryPrepareBuildingScanTarget(buildingPath, out var target, out var isResume);
-        if (forceFreshFullScan)
-            isResume = false;
+        DeleteDatabaseFiles(buildingPath);
 
-        if (!isResume)
-        {
-            target.ClearIndexedRoots();
-            target.ClearAllScanCheckpoints();
-            lock (_rootsLock)
-                _indexedRoots.Clear();
+        var target = new IndexStore(buildingPath);
+        lock (_indexStoreSwapLock)
+            _activeBuildingStore = target;
 
-            lock (_scannedPrefixesLock)
-                _scannedDirectoryPrefixes.Clear();
+        target.Clear();
+        target.ClearIndexedRoots();
+        target.ClearAllScanCheckpoints();
+        lock (_rootsLock)
+            _indexedRoots.Clear();
 
-            _rootScanErrors.Clear();
-            Interlocked.Exchange(ref _scanIndexedCount, 0);
-        }
-        else
-        {
-            ReloadIndexedRootsFromStore(target);
-            Interlocked.Exchange(ref _scanIndexedCount, target.Count);
-        }
+        lock (_scannedPrefixesLock)
+            _scannedDirectoryPrefixes.Clear();
+
+        _rootScanErrors.Clear();
+        Interlocked.Exchange(ref _scanIndexedCount, 0);
 
         var priorityPaths = WatchPaths;
         var scanRoots = ScanRoots;
-        BeginScanProgress(
-            priorityPaths.Count + scanRoots.Count,
-            forceFreshFullScan ? 0 : CountCompletedScanSteps(priorityPaths, scanRoots));
+        BeginScanProgress(priorityPaths.Count + scanRoots.Count, completedSteps: 0);
         target.BeginBulkIngest();
 
         var succeeded = false;
@@ -1314,26 +1121,11 @@ public sealed class SystemIndexService : IDisposable
             foreach (var path in priorityPaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (IsRootScanComplete(path))
-                {
-                    AdvanceScanProgress(path);
-                    continue;
-                }
-
                 TryScanAndMerge(path, target, cancellationToken);
                 PauseBetweenScanRoots(cancellationToken);
             }
 
-            var pendingRoots = new List<string>();
-            foreach (var root in scanRoots)
-            {
-                if (!IsRootScanComplete(root))
-                    pendingRoots.Add(root);
-                else
-                    AdvanceScanProgress(root);
-            }
-
-            RunRootScansInParallel(pendingRoots, target, cancellationToken);
+            RunRootScansInParallel(scanRoots, target, cancellationToken);
 
             RetryPendingScanSteps(priorityPaths, scanRoots, target, cancellationToken);
 
@@ -1358,7 +1150,6 @@ public sealed class SystemIndexService : IDisposable
             target.EndBulkIngest();
             _isScanning = false;
             _currentScanPath = null;
-            _forceFreshFullScan = false;
             BackgroundThreadMode.ExitForCurrentThread();
             Thread.CurrentThread.Priority = previousPriority;
         }
@@ -1366,10 +1157,7 @@ public sealed class SystemIndexService : IDisposable
         if (succeeded && !AreAllScanStepsIndexed())
             succeeded = false;
 
-        if (succeeded && !IsBuildingStoreReadyToPromote(target, forceFreshFullScan))
-            succeeded = false;
-
-        if (succeeded && !forceFreshFullScan && HasMissingPreviouslyIndexedDrive(previouslyIndexedRoots))
+        if (succeeded && !IsBuildingStoreReadyToPromote(target))
             succeeded = false;
 
         if (succeeded)
@@ -1401,7 +1189,6 @@ public sealed class SystemIndexService : IDisposable
                 EnableSearchIfNeeded();
                 _isScanComplete = true;
                 _scanUsesShadowBuild = false;
-                _scanBaselineCount = 0;
                 _scanProgressPercent = 100;
                 Interlocked.Exchange(ref _approximateLiveCount, _indexStore?.Count ?? 0);
                 ReportProgress(null, true, force: true);
@@ -1598,7 +1385,6 @@ public sealed class SystemIndexService : IDisposable
             _indexStore = new IndexStore(canonicalPath);
             Interlocked.Exchange(ref _approximateLiveCount, _indexStore.Count);
             Interlocked.Exchange(ref _scanIndexedCount, 0);
-            _scanBaselineCount = 0;
         }
 
         lock (_rootsLock)
@@ -2113,19 +1899,7 @@ public sealed class SystemIndexService : IDisposable
         IndexProgress?.Invoke(this, new IndexProgressEventArgs(count, currentPath, isComplete, percent, phase));
     }
 
-    private int ComputeActiveScanPercent()
-    {
-        var stepPercent = _scanProgressPercent;
-        var indexed = Interlocked.Read(ref _scanIndexedCount);
-
-        if (_scanBaselineCount > 0)
-        {
-            var entryPercent = (int)Math.Min(99, indexed * 100L / _scanBaselineCount);
-            return Math.Max(stepPercent, entryPercent);
-        }
-
-        return stepPercent;
-    }
+    private int ComputeActiveScanPercent() => _scanProgressPercent;
 
     private static int MapDisplayPercent(IndexProgressPhase phase, int scanPercent) =>
         phase switch
