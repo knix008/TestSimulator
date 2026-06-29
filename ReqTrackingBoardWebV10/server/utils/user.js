@@ -1,3 +1,5 @@
+import { mapContentPermission } from './roles.js';
+
 export function mapUser(row) {
   return {
     id: row.id,
@@ -5,8 +7,10 @@ export function mapUser(row) {
     displayName: row.display_name,
     email: row.email || '',
     role: row.role,
-    permission: row.permission,
+    permission: mapContentPermission(row),
     theme: row.theme || 'default',
+    menuLayout: row.menu_layout || 'vertical',
+    language: row.language || 'ko',
   };
 }
 

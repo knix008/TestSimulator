@@ -1,7 +1,30 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+client/dist/
+
+# Environment & secrets
 .env
+.env.*
+!.env.example
 server/.env
+server/.env.local
+
+# Database config & local data (Setup Wizard / SQLite)
 server/config/database.json
 server/data/
+
+# OS & editor
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs & debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

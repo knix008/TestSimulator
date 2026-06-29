@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import { execute, queryOne, now } from '../db.js';
 import { authMiddleware, signToken } from '../middleware/auth.js';
 import { VALID_THEMES } from '../utils/themes.js';
+import { VALID_MENU_LAYOUTS } from '../utils/menuLayout.js';
+import { VALID_LANGUAGES } from '../utils/language.js';
 import { mapUser, validateEmail, normalizeEmail } from '../utils/user.js';
 import {
   userHasDefaultCredentials,
@@ -11,6 +13,7 @@ import {
 } from '../utils/credentials.js';
 import { notifyPasswordChangedAndWait } from '../utils/passwordNotify.js';
 import { sendPasswordChangeVerificationCode } from '../utils/mail.js';
+import { isPasswordVerificationRequired } from '../utils/passwordVerificationPolicy.js';
 import {
   canSendVerificationCode,
   createVerificationCode,
@@ -30,22 +33,35 @@ const router = Router();
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const user = await queryOne(
-      'SELECT id, username, display_name, email, role, permission, theme FROM users WHERE id = ?',
+      'SELECT id, username, display_name, email, role, permission, theme, menu_layout, language FROM users WHERE id = ?',
       [req.user.id]
     );
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ theme: user.theme || 'default', user: mapUser(user) });
+    res.json({
+      theme: user.theme || 'default',
+      menuLayout: user.menu_layout || 'vertical',
+      language: user.language || 'ko',
+      passwordVerificationRequired: isPasswordVerificationRequired(),
+      user: mapUser(user),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 router.get('/password-verification/status', authMiddleware, (req, res) => {
-  res.json(getVerificationStatus(req.user.id));
+  const required = isPasswordVerificationRequired();
+  if (!required) {
+    return res.json({ verified: true, required: false });
+  }
+  res.json({ ...getVerificationStatus(req.user.id), required: true });
 });
 
 router.post('/password-verification/send', authMiddleware, async (req, res) => {
   try {
+    if (!isPasswordVerificationRequired()) {
+      return res.status(400).json({ error: 'Email verification is not available without SMTP configuration' });
+    }
     const { currentPassword, email } = req.body;
     if (!currentPassword) {
       return res.status(400).json({ error: 'Current password is required' });
@@ -84,6 +100,9 @@ router.post('/password-verification/send', authMiddleware, async (req, res) => {
 
 router.post('/password-verification/verify', authMiddleware, async (req, res) => {
   try {
+    if (!isPasswordVerificationRequired()) {
+      return res.status(400).json({ error: 'Email verification is not available without SMTP configuration' });
+    }
     const { code, email } = req.body;
     if (!code || !email) {
       return res.status(400).json({ error: 'Verification code and email are required' });
@@ -108,6 +127,32 @@ router.put('/theme', authMiddleware, async (req, res) => {
     }
     await execute('UPDATE users SET theme = ? WHERE id = ?', [theme, req.user.id]);
     res.json({ theme });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/menu-layout', authMiddleware, async (req, res) => {
+  try {
+    const { menuLayout } = req.body;
+    if (!menuLayout || !VALID_MENU_LAYOUTS.includes(menuLayout)) {
+      return res.status(400).json({ error: `Invalid menu layout. Valid: ${VALID_MENU_LAYOUTS.join(', ')}` });
+    }
+    await execute('UPDATE users SET menu_layout = ? WHERE id = ?', [menuLayout, req.user.id]);
+    res.json({ menuLayout });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/language', authMiddleware, async (req, res) => {
+  try {
+    const { language } = req.body;
+    if (!language || !VALID_LANGUAGES.includes(language)) {
+      return res.status(400).json({ error: `Invalid language. Valid: ${VALID_LANGUAGES.join(', ')}` });
+    }
+    await execute('UPDATE users SET language = ? WHERE id = ?', [language, req.user.id]);
+    res.json({ language });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -147,7 +192,7 @@ router.put('/account', authMiddleware, async (req, res) => {
     }
 
     if (passwordChanging) {
-      if (!consumePasswordChangeVerification(user.id, nextEmail)) {
+      if (isPasswordVerificationRequired() && !consumePasswordChangeVerification(user.id, nextEmail)) {
         return res.status(403).json({
           error: 'Email verification required before password change',
           needsEmailVerification: true,
@@ -180,7 +225,7 @@ router.put('/account', authMiddleware, async (req, res) => {
     }
 
     const updated = await queryOne(
-      'SELECT id, username, display_name, email, role, permission, theme FROM users WHERE id = ?',
+      'SELECT id, username, display_name, email, role, permission, theme, menu_layout, language FROM users WHERE id = ?',
       [user.id]
     );
     const mapped = mapUser(updated);

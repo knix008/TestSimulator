@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useMenuLayout } from '../context/MenuLayoutContext';
 
 const NAV_ITEMS = [
   { path: '/', icon: '📊', key: 'dashboard' },
@@ -11,9 +12,27 @@ const NAV_ITEMS = [
   { path: '/settings', icon: '⚙️', key: 'settings' },
 ];
 
+function NavItems({ className = 'nav-link' }) {
+  const { t } = useTranslation();
+  const { isAdmin } = useAuth();
+
+  return NAV_ITEMS.filter(item => !item.adminOnly || isAdmin).map(item => (
+    <NavLink
+      key={item.path}
+      to={item.path}
+      end={item.path === '/'}
+      className={({ isActive }) => `${className}${isActive ? ' active' : ''}`}
+    >
+      <span className="nav-icon">{item.icon}</span>
+      {t(`nav.${item.key}`)}
+    </NavLink>
+  ));
+}
+
 export default function Layout({ children }) {
   const { t } = useTranslation();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout } = useAuth();
+  const { menuLayout } = useMenuLayout();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -21,25 +40,38 @@ export default function Layout({ children }) {
     navigate('/login');
   };
 
+  if (menuLayout === 'horizontal') {
+    return (
+      <div className="app-layout app-layout-horizontal">
+        <header className="topbar">
+          <div className="topbar-brand">
+            <h1 className="app-brand-title">{t('app.title')}</h1>
+            <p className="app-brand-subtitle">{t('app.subtitle')}</p>
+          </div>
+          <nav className="topbar-nav">
+            <NavItems className="topbar-link" />
+          </nav>
+          <div className="topbar-user">
+            <span>{user?.displayName || user?.username}</span>
+            <button className="btn btn-sm btn-secondary" onClick={handleLogout}>
+              {t('nav.logout')}
+            </button>
+          </div>
+        </header>
+        <main className="main-content main-content-horizontal">{children}</main>
+      </div>
+    );
+  }
+
   return (
     <div className="app-layout">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h1>{t('app.title')}</h1>
-          <p>{t('app.subtitle')}</p>
+          <h1 className="app-brand-title">{t('app.title')}</h1>
+          <p className="app-brand-subtitle">{t('app.subtitle')}</p>
         </div>
         <nav className="sidebar-nav">
-          {NAV_ITEMS.filter(item => !item.adminOnly || isAdmin).map(item => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              {t(`nav.${item.key}`)}
-            </NavLink>
-          ))}
+          <NavItems />
         </nav>
         <div className="sidebar-footer">
           <div>{user?.displayName || user?.username}</div>

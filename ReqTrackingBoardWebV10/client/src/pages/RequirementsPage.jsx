@@ -1,11 +1,45 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import { StatusBadge, PriorityBadge } from '../components/Badge';
 import { useAuth } from '../context/AuthContext';
-import { REQ_STATUSES, PRIORITIES, CATEGORIES } from '../utils/helpers';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useDataSync } from '../context/DataSyncContext';
+import { REQ_STATUSES, PRIORITIES, CATEGORIES, formatDate } from '../utils/helpers';
+
+const HISTORY_FIELD_KEYS = {
+  reqId: 'reqId',
+  title: 'reqTitle',
+  description: 'description',
+  category: 'category',
+  priority: 'priority',
+  status: 'status',
+  owner: 'owner',
+  version: 'version',
+};
+
+function formatHistorySummary(entry, t) {
+  if (entry.action === 'create') {
+    const snap = entry.changes?.snapshot;
+    return snap ? `${snap.reqId} — ${snap.title}` : t('requirements.historyCreated');
+  }
+  if (entry.action === 'delete') {
+    const snap = entry.changes?.snapshot;
+    return snap ? `${snap.reqId} — ${snap.title}` : t('requirements.historyDeleted');
+  }
+  const parts = Object.entries(entry.changes || {})
+    .filter(([key]) => key !== 'snapshot')
+    .map(([key, val]) => {
+      const label = t(`requirements.${HISTORY_FIELD_KEYS[key] || key}`);
+      return `${label}: "${val.old}" → "${val.new}"`;
+    });
+  if (entry.note === 'id_shift' || entry.note === 'id_renumber') {
+    parts.push(t(`requirements.historyNotes.${entry.note}`));
+  }
+  return parts.length ? parts.join('; ') : '-';
+}
 
 const emptyForm = {
   reqId: '', title: '', description: '', category: 'General',
@@ -23,6 +57,14 @@ export default function RequirementsPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [importMsg, setImportMsg] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyTitle, setHistoryTitle] = useState('');
+  const [historyTarget, setHistoryTarget] = useState(null);
+  const fileRef = useRef();
+  const { refreshToken } = useDataSync();
 
   const load = useCallback(() => {
     const params = {};
@@ -33,11 +75,34 @@ export default function RequirementsPage() {
       .finally(() => setLoading(false));
   }, [search, filterStatus]);
 
-  useEffect(() => { load(); }, [load]);
+  useAutoRefresh(load);
 
-  const openAdd = () => {
+  const fetchHistory = useCallback(async (item = null) => {
+    setHistoryLoading(true);
+    setHistoryTitle(item ? `${item.reqId} — ${item.title}` : t('requirements.historyAll'));
+    try {
+      const url = item ? `/requirements/${item.id}/history` : '/requirements/history';
+      const res = await api.get(url, { params: { limit: 200 } });
+      setHistoryItems(res.data);
+    } catch {
+      setHistoryItems([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (historyOpen) fetchHistory(historyTarget);
+  }, [refreshToken, historyOpen, historyTarget, fetchHistory]);
+
+  const openAdd = async () => {
     setEditing(null);
-    setForm(emptyForm);
+    try {
+      const res = await api.get('/requirements/next-id');
+      setForm({ ...emptyForm, reqId: res.data.reqId });
+    } catch {
+      setForm(emptyForm);
+    }
     setModalOpen(true);
   };
 
@@ -54,10 +119,14 @@ export default function RequirementsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      let res;
       if (editing) {
-        await api.put(`/requirements/${editing.id}`, form);
+        res = await api.put(`/requirements/${editing.id}`, form);
       } else {
-        await api.post('/requirements', form);
+        res = await api.post('/requirements', form);
+      }
+      if (res.data.shiftedCount > 0) {
+        alert(t('requirements.idShifted', { count: res.data.shiftedCount }));
       }
       setModalOpen(false);
       load();
@@ -71,7 +140,10 @@ export default function RequirementsPage() {
   const handleDelete = async (item) => {
     if (!confirm(t('requirements.confirmDelete'))) return;
     try {
-      await api.delete(`/requirements/${item.id}`);
+      const res = await api.delete(`/requirements/${item.id}`);
+      if (res.data.renumberedCount > 0) {
+        alert(t('requirements.idRenumbered', { count: res.data.renumberedCount }));
+      }
       load();
     } catch (err) {
       alert(err.response?.data?.error || t('common.error'));
@@ -80,14 +152,70 @@ export default function RequirementsPage() {
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
+  const openHistory = (item = null) => {
+    setHistoryTarget(item);
+    setHistoryOpen(true);
+    fetchHistory(item);
+  };
+
+  const exportExcel = async () => {
+    const res = await api.get('/excel/export', { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'requirements_export.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importExcel = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await api.post('/excel/import', formData);
+      setImportMsg(`${t('requirements.importSuccess')}: ${res.data.requirements} reqs, ${res.data.testCases} TCs`);
+      if (res.data.errors?.length) setImportMsg(prev => prev + ' (' + res.data.errors.join(', ') + ')');
+      load();
+    } catch (err) {
+      setImportMsg(t('requirements.importError') + ': ' + (err.response?.data?.error || err.message));
+    }
+    fileRef.current.value = '';
+  };
+
   return (
     <Layout>
       <div className="page-header">
         <h2>{t('requirements.title')}</h2>
-        {canEdit && (
-          <button className="btn btn-primary" onClick={openAdd}>+ {t('requirements.add')}</button>
-        )}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={() => openHistory()}>
+            <span className="btn-icon" aria-hidden="true">📜</span>
+            {t('requirements.history')}
+          </button>
+          <button className="btn btn-secondary" onClick={exportExcel}>
+            <span className="btn-icon" aria-hidden="true">📤</span>
+            {t('requirements.export')}
+          </button>
+          {canEdit && (
+            <>
+              <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>
+                <span className="btn-icon" aria-hidden="true">📥</span>
+                {t('requirements.import')}
+              </button>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={importExcel} />
+              <button className="btn btn-primary" onClick={openAdd}>
+                <span className="btn-icon" aria-hidden="true">➕</span>
+                {t('requirements.add')}
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {importMsg && (
+        <div className="card" style={{ marginBottom: 20, background: 'var(--accent-light)' }}>{importMsg}</div>
+      )}
 
       <div className="toolbar">
         <input
@@ -120,6 +248,7 @@ export default function RequirementsPage() {
                 <th>{t('requirements.passed')}</th>
                 <th>{t('requirements.failed')}</th>
                 {canEdit && <th>{t('common.actions')}</th>}
+                <th>{t('requirements.history')}</th>
               </tr>
             </thead>
             <tbody>
@@ -135,10 +264,22 @@ export default function RequirementsPage() {
                   <td style={{ color: 'var(--danger)' }}>{item.failedCount}</td>
                   {canEdit && (
                     <td className="actions-cell">
-                      <button className="btn btn-sm btn-secondary" onClick={() => openEdit(item)}>{t('common.edit')}</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item)}>{t('common.delete')}</button>
+                      <button className="btn btn-sm btn-secondary" onClick={() => openEdit(item)}>
+                        <span className="btn-icon" aria-hidden="true">✏️</span>
+                        {t('common.edit')}
+                      </button>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item)}>
+                        <span className="btn-icon" aria-hidden="true">🗑️</span>
+                        {t('common.delete')}
+                      </button>
                     </td>
                   )}
+                  <td>
+                    <button className="btn btn-sm btn-secondary" onClick={() => openHistory(item)}>
+                      <span className="btn-icon" aria-hidden="true">📜</span>
+                      {t('requirements.historyView')}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -152,8 +293,12 @@ export default function RequirementsPage() {
         title={editing ? t('requirements.edit') : t('requirements.add')}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</button>
+            <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>
+              <span className="btn-icon" aria-hidden="true">✖️</span>
+              {t('common.cancel')}
+            </button>
             <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              <span className="btn-icon" aria-hidden="true">💾</span>
               {saving ? t('common.loading') : t('common.save')}
             </button>
           </>
@@ -163,6 +308,11 @@ export default function RequirementsPage() {
           <div className="form-group">
             <label>{t('requirements.reqId')} *</label>
             <input className="form-control" value={form.reqId} onChange={set('reqId')} required />
+            {!editing && (
+              <small style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                {t('requirements.reqIdAutoHint')}
+              </small>
+            )}
           </div>
           <div className="form-group">
             <label>{t('requirements.version')}</label>
@@ -203,6 +353,49 @@ export default function RequirementsPage() {
             <input className="form-control" value={form.owner} onChange={set('owner')} />
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        title={t('requirements.historyTitle', { target: historyTitle })}
+        footer={
+          <button className="btn btn-secondary" onClick={() => setHistoryOpen(false)}>
+            <span className="btn-icon" aria-hidden="true">✖️</span>
+            {t('common.close')}
+          </button>
+        }
+      >
+        {historyLoading ? (
+          <div className="empty-state">{t('common.loading')}</div>
+        ) : historyItems.length === 0 ? (
+          <div className="empty-state">{t('requirements.historyEmpty')}</div>
+        ) : (
+          <div className="table-container" style={{ maxHeight: 420, overflow: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('requirements.historyWhen')}</th>
+                  <th>{t('requirements.historyWho')}</th>
+                  <th>{t('requirements.reqId')}</th>
+                  <th>{t('requirements.historyAction')}</th>
+                  <th>{t('requirements.historyDetails')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyItems.map(entry => (
+                  <tr key={entry.id}>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatDate(entry.changedAt)}</td>
+                    <td>{entry.changedByName || '-'}</td>
+                    <td><strong>{entry.reqId}</strong></td>
+                    <td>{t(`requirements.historyActions.${entry.action}`)}</td>
+                    <td style={{ fontSize: 12, maxWidth: 360 }}>{formatHistorySummary(entry, t)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Modal>
     </Layout>
   );

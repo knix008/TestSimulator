@@ -112,8 +112,8 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  const canEdit = user?.role === 'admin' || user?.permission === 'edit';
   const isAdmin = user?.role === 'admin';
+  const canEdit = isAdmin || user?.permission === 'edit';
 
   return (
     <AuthContext.Provider value={{

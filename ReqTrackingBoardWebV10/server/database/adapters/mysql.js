@@ -1,5 +1,5 @@
 import mysql from 'mysql2/promise';
-import { convertPlaceholders, mysqlSchema, ensureAdminUser, migrateThemeColumn, migrateEmailColumn } from '../schemas.js';
+import { convertPlaceholders, mysqlSchema, ensureAdminUser, migrateThemeColumn, migrateEmailColumn, migrateMenuLayoutColumn, migrateLanguageColumn, migrateRequirementHistoryTable } from '../schemas.js';
 
 function serverConfigFrom(config) {
   return {
@@ -74,6 +74,9 @@ export function createMysqlAdapter(config) {
       pool = null;
       await migrateThemeColumn(adapter, dialect);
       await migrateEmailColumn(adapter, dialect);
+      await migrateMenuLayoutColumn(adapter, dialect);
+      await migrateLanguageColumn(adapter, dialect);
+      await migrateRequirementHistoryTable(adapter, dialect);
       const bcrypt = await import('bcryptjs');
       await ensureAdminUser(adapter, bcrypt.default);
     },

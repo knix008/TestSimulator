@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { isAdminRole } from '../utils/roles.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'req-tracking-secret-key-change-in-production';
 
@@ -27,14 +28,14 @@ export function authMiddleware(req, res, next) {
 }
 
 export function adminMiddleware(req, res, next) {
-  if (req.user?.role !== 'admin') {
+  if (!isAdminRole(req.user?.role)) {
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();
 }
 
 export function editMiddleware(req, res, next) {
-  if (req.user?.role === 'admin' || req.user?.permission === 'edit') {
+  if (isAdminRole(req.user?.role) || req.user?.permission === 'edit') {
     return next();
   }
   return res.status(403).json({ error: 'Edit permission required' });

@@ -65,7 +65,7 @@ router.post('/complete', authMiddleware, async (req, res) => {
     const config = normalizeDbConfig(req.body);
     const saved = await setupDatabase(config);
     const admin = await queryOne(
-      'SELECT id, username, display_name, email, role, permission, theme FROM users WHERE username = ?',
+      'SELECT id, username, display_name, email, role, permission, theme, menu_layout, language FROM users WHERE username = ?',
       ['admin']
     );
     const token = signToken(admin);

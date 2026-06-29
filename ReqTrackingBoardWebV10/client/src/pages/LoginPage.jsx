@@ -29,8 +29,8 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>{t('app.title')}</h1>
-        <p className="subtitle">{t('app.subtitle')}</p>
+        <h1 className="app-brand-title">{t('app.title')}</h1>
+        <p className="app-brand-subtitle login-subtitle">{t('app.subtitle')}</p>
         <form onSubmit={handleSubmit}>
           {error && <div className="login-error">{error}</div>}
           <div className="form-group">

@@ -30,8 +30,10 @@ router.post('/login', async (req, res) => {
           displayName: 'Administrator',
           email: 'admin@localhost',
           role: 'admin',
-          permission: 'edit',
+          permission: null,
           theme: 'default',
+          menuLayout: 'vertical',
+          language: 'ko',
         },
       });
     }
@@ -68,8 +70,10 @@ router.get('/me', authMiddleware, async (req, res) => {
           displayName: 'Administrator',
           email: 'admin@localhost',
           role: 'admin',
-          permission: 'edit',
+          permission: null,
           theme: 'default',
+          menuLayout: 'vertical',
+          language: 'ko',
           needsSetup: true,
         });
       }
@@ -81,7 +85,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 
     const user = await queryOne(
-      'SELECT id, username, display_name, email, role, permission, theme FROM users WHERE id = ?',
+      'SELECT id, username, display_name, email, role, permission, theme, menu_layout, language FROM users WHERE id = ?',
       [req.user.id]
     );
     if (!user) return res.status(404).json({ error: 'User not found' });

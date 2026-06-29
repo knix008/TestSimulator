@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import api from '../api';
 import Layout from '../components/Layout';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
@@ -11,9 +12,13 @@ export default function DashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api.get('/dashboard').then(res => setData(res.data)).finally(() => setLoading(false));
+  const load = useCallback(() => {
+    api.get('/dashboard')
+      .then(res => setData(res.data))
+      .finally(() => setLoading(false));
   }, []);
+
+  useAutoRefresh(load);
 
   if (loading) return <Layout><div className="empty-state">{t('common.loading')}</div></Layout>;
   if (!data) return <Layout><div className="empty-state">{t('common.error')}</div></Layout>;

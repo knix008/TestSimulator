@@ -3,14 +3,15 @@ import bcrypt from 'bcryptjs';
 import { query, queryOne, insert, execute, now } from '../db.js';
 import { authMiddleware, adminMiddleware } from '../middleware/auth.js';
 import { validateNewCredentials } from '../utils/credentials.js';
-import { validateEmail, normalizeEmail } from '../utils/user.js';
+import { validateEmail, normalizeEmail, mapUser } from '../utils/user.js';
+import { isAdminRole, resolveUserRolePermission, mapContentPermission } from '../utils/roles.js';
 import { notifyPasswordChangedAndWait } from '../utils/passwordNotify.js';
 import { sendPasswordChangeVerificationCode } from '../utils/mail.js';
+import { isPasswordVerificationRequired } from '../utils/passwordVerificationPolicy.js';
 import {
   canSendVerificationCode,
   createVerificationCode,
   verifyCode,
-  consumePasswordChangeVerification,
   getVerificationStatus,
   getResendCooldownSeconds,
   clearVerification,
@@ -30,7 +31,7 @@ function mapUserRow(u) {
     displayName: u.display_name,
     email: u.email || '',
     role: u.role,
-    permission: u.permission,
+    permission: mapContentPermission(u),
     isActive: !!u.is_active,
     createdAt: u.created_at,
     updatedAt: u.updated_at,
@@ -53,7 +54,11 @@ router.get('/:id/password-verification/status', async (req, res) => {
   try {
     const user = await queryOne('SELECT id FROM users WHERE id = ?', [req.params.id]);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(getVerificationStatus(parseInt(req.params.id, 10)));
+    const required = isPasswordVerificationRequired();
+    if (!required) {
+      return res.json({ verified: true, required: false });
+    }
+    res.json({ ...getVerificationStatus(parseInt(req.params.id, 10)), required: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -61,6 +66,9 @@ router.get('/:id/password-verification/status', async (req, res) => {
 
 router.post('/:id/password-verification/send', async (req, res) => {
   try {
+    if (!isPasswordVerificationRequired()) {
+      return res.status(400).json({ error: 'Email verification is not available without SMTP configuration' });
+    }
     const userId = parseInt(req.params.id, 10);
     const user = await queryOne('SELECT * FROM users WHERE id = ?', [userId]);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -114,6 +122,9 @@ router.post('/:id/password-verification/verify', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    if (!isAdminRole(req.user?.role)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     const { username, password, displayName, email, role = 'user', permission = 'view' } = req.body;
     if (!username || !password || !displayName) {
       return res.status(400).json({ error: 'Username, password, and display name required' });
@@ -128,13 +139,21 @@ router.post('/', async (req, res) => {
     const credErr = validateNewCredentials(username, password);
     if (credErr) return res.status(400).json({ error: credErr });
 
+    const resolved = resolveUserRolePermission(role, permission);
     const hash = bcrypt.hashSync(password, 10);
     const id = await insert(
       'INSERT INTO users (username, password, display_name, email, role, permission) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, hash, displayName, normalizedEmail, role, permission]
+      [username, hash, displayName, normalizedEmail, resolved.role, resolved.permission]
     );
 
-    res.status(201).json({ id, username, displayName, email: normalizedEmail, role, permission });
+    res.status(201).json({
+      id,
+      username,
+      displayName,
+      email: normalizedEmail,
+      role: resolved.role,
+      permission: mapContentPermission({ role: resolved.role, permission: resolved.permission }),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -157,20 +176,21 @@ router.put('/:id', async (req, res) => {
       updates.push('email = ?');
       params.push(normalizeEmail(email));
     }
-    if (role !== undefined) { updates.push('role = ?'); params.push(role); }
-    if (permission !== undefined) { updates.push('permission = ?'); params.push(permission); }
+    const nextRole = role !== undefined ? role : user.role;
+    const nextPermission = permission !== undefined ? permission : user.permission;
+    const resolved = resolveUserRolePermission(nextRole, nextPermission);
+    if (role !== undefined || permission !== undefined) {
+      updates.push('role = ?');
+      params.push(resolved.role);
+      updates.push('permission = ?');
+      params.push(resolved.permission);
+    }
     if (isActive !== undefined) { updates.push('is_active = ?'); params.push(isActive ? 1 : 0); }
 
     const passwordChanging = !!password;
     const notifyEmail = email !== undefined ? normalizeEmail(email) : (user.email || '');
 
     if (passwordChanging) {
-      if (!consumePasswordChangeVerification(userId, notifyEmail)) {
-        return res.status(403).json({
-          error: 'Email verification required before password change',
-          needsEmailVerification: true,
-        });
-      }
       const credErr = validateNewCredentials(user.username, password);
       if (credErr) return res.status(400).json({ error: credErr });
       updates.push('password = ?');

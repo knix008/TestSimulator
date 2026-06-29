@@ -18,6 +18,8 @@ export function mysqlSchema(database) {
       permission VARCHAR(50) NOT NULL DEFAULT 'view',
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       theme VARCHAR(50) NOT NULL DEFAULT 'default',
+      menu_layout VARCHAR(50) NOT NULL DEFAULT 'vertical',
+      language VARCHAR(10) NOT NULL DEFAULT 'ko',
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -55,6 +57,17 @@ export function mysqlSchema(database) {
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (requirement_id) REFERENCES requirements(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    `CREATE TABLE IF NOT EXISTS requirement_history (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      requirement_id INT NULL,
+      req_id VARCHAR(100) NOT NULL,
+      action VARCHAR(20) NOT NULL,
+      changes TEXT,
+      note VARCHAR(100) NULL,
+      changed_by INT NULL,
+      changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   ];
 }
 
@@ -70,6 +83,8 @@ export function postgresSchema() {
       permission VARCHAR(50) NOT NULL DEFAULT 'view',
       is_active BOOLEAN NOT NULL DEFAULT true,
       theme VARCHAR(50) NOT NULL DEFAULT 'default',
+      menu_layout VARCHAR(50) NOT NULL DEFAULT 'vertical',
+      language VARCHAR(10) NOT NULL DEFAULT 'ko',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -104,6 +119,16 @@ export function postgresSchema() {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS requirement_history (
+      id SERIAL PRIMARY KEY,
+      requirement_id INT NULL,
+      req_id VARCHAR(100) NOT NULL,
+      action VARCHAR(20) NOT NULL,
+      changes TEXT,
+      note VARCHAR(100) NULL,
+      changed_by INT REFERENCES users(id) ON DELETE SET NULL,
+      changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`,
   ];
 }
 
@@ -119,6 +144,8 @@ export function sqliteSchema() {
       permission TEXT NOT NULL DEFAULT 'view',
       is_active INTEGER NOT NULL DEFAULT 1,
       theme TEXT NOT NULL DEFAULT 'default',
+      menu_layout TEXT NOT NULL DEFAULT 'vertical',
+      language TEXT NOT NULL DEFAULT 'ko',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
@@ -155,6 +182,17 @@ export function sqliteSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (requirement_id) REFERENCES requirements(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS requirement_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      requirement_id INTEGER,
+      req_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      changes TEXT,
+      note TEXT,
+      changed_by INTEGER,
+      changed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
     )`,
   ];
 }
@@ -199,6 +237,88 @@ export async function migrateEmailColumn(adapter, dialect) {
   await adapter.execute(
     `UPDATE users SET email = 'admin@localhost' WHERE username = 'admin' AND (email IS NULL OR email = '')`
   ).catch(() => {});
+}
+
+export async function migrateMenuLayoutColumn(adapter, dialect) {
+  if (dialect === 'sqlite3') {
+    try {
+      await adapter.execute(`ALTER TABLE users ADD COLUMN menu_layout TEXT NOT NULL DEFAULT 'vertical'`);
+    } catch (err) {
+      if (!String(err.message).includes('duplicate column')) throw err;
+    }
+    return;
+  }
+  if (dialect === 'postgresql') {
+    try {
+      await adapter.execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS menu_layout VARCHAR(50) NOT NULL DEFAULT 'vertical'`);
+    } catch { /* ignore */ }
+    return;
+  }
+  try {
+    await adapter.execute(`ALTER TABLE users ADD COLUMN menu_layout VARCHAR(50) NOT NULL DEFAULT 'vertical'`);
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+  }
+}
+
+export async function migrateLanguageColumn(adapter, dialect) {
+  if (dialect === 'sqlite3') {
+    try {
+      await adapter.execute(`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'ko'`);
+    } catch (err) {
+      if (!String(err.message).includes('duplicate column')) throw err;
+    }
+    return;
+  }
+  if (dialect === 'postgresql') {
+    try {
+      await adapter.execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(10) NOT NULL DEFAULT 'ko'`);
+    } catch { /* ignore */ }
+    return;
+  }
+  try {
+    await adapter.execute(`ALTER TABLE users ADD COLUMN language VARCHAR(10) NOT NULL DEFAULT 'ko'`);
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+  }
+}
+
+export async function migrateRequirementHistoryTable(adapter, dialect) {
+  const ddl = dialect === 'sqlite3'
+    ? `CREATE TABLE IF NOT EXISTS requirement_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      requirement_id INTEGER,
+      req_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      changes TEXT,
+      note TEXT,
+      changed_by INTEGER,
+      changed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
+    )`
+    : dialect === 'postgresql'
+      ? `CREATE TABLE IF NOT EXISTS requirement_history (
+        id SERIAL PRIMARY KEY,
+        requirement_id INT NULL,
+        req_id VARCHAR(100) NOT NULL,
+        action VARCHAR(20) NOT NULL,
+        changes TEXT,
+        note VARCHAR(100) NULL,
+        changed_by INT REFERENCES users(id) ON DELETE SET NULL,
+        changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`
+      : `CREATE TABLE IF NOT EXISTS requirement_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        requirement_id INT NULL,
+        req_id VARCHAR(100) NOT NULL,
+        action VARCHAR(20) NOT NULL,
+        changes TEXT,
+        note VARCHAR(100) NULL,
+        changed_by INT NULL,
+        changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`;
+  await adapter.execute(ddl);
 }
 
 export async function migrateThemeColumn(adapter, dialect) {

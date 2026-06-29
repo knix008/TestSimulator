@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { MenuLayoutProvider } from './context/MenuLayoutContext';
+import { LanguageProvider } from './context/LanguageContext';
+import { DataSyncProvider } from './context/DataSyncContext';
 import LoginPage from './pages/LoginPage';
 import SetupPage from './pages/SetupPage';
 import DashboardPage from './pages/DashboardPage';
@@ -47,9 +50,15 @@ export default function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <MenuLayoutProvider>
+          <LanguageProvider>
+            <DataSyncProvider>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </DataSyncProvider>
+          </LanguageProvider>
+        </MenuLayoutProvider>
       </ThemeProvider>
     </AuthProvider>
   );

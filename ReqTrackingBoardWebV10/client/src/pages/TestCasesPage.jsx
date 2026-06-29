@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import { StatusBadge } from '../components/Badge';
 import { useAuth } from '../context/AuthContext';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { TC_STATUSES, formatDate } from '../utils/helpers';
 
 const emptyForm = {
@@ -38,11 +39,16 @@ export default function TestCasesPage() {
     }).finally(() => setLoading(false));
   }, [filterStatus, filterReq]);
 
-  useEffect(() => { load(); }, [load]);
+  useAutoRefresh(load);
 
-  const openAdd = () => {
+  const openAdd = async () => {
     setEditing(null);
-    setForm({ ...emptyForm, requirementId: requirements[0]?.id || '' });
+    try {
+      const res = await api.get('/test-cases/next-id');
+      setForm({ ...emptyForm, tcId: res.data.tcId, requirementId: requirements[0]?.id || '' });
+    } catch {
+      setForm({ ...emptyForm, requirementId: requirements[0]?.id || '' });
+    }
     setModalOpen(true);
   };
 
@@ -60,10 +66,14 @@ export default function TestCasesPage() {
     setSaving(true);
     try {
       const payload = { ...form, requirementId: parseInt(form.requirementId) };
+      let res;
       if (editing) {
-        await api.put(`/test-cases/${editing.id}`, payload);
+        res = await api.put(`/test-cases/${editing.id}`, payload);
       } else {
-        await api.post('/test-cases', payload);
+        res = await api.post('/test-cases', payload);
+      }
+      if (res.data.shiftedCount > 0) {
+        alert(t('testCases.idShifted', { count: res.data.shiftedCount }));
       }
       setModalOpen(false);
       load();
@@ -77,7 +87,10 @@ export default function TestCasesPage() {
   const handleDelete = async (item) => {
     if (!confirm(t('testCases.confirmDelete'))) return;
     try {
-      await api.delete(`/test-cases/${item.id}`);
+      const res = await api.delete(`/test-cases/${item.id}`);
+      if (res.data.renumberedCount > 0) {
+        alert(t('testCases.idRenumbered', { count: res.data.renumberedCount }));
+      }
       load();
     } catch (err) {
       alert(err.response?.data?.error || t('common.error'));
@@ -167,6 +180,11 @@ export default function TestCasesPage() {
           <div className="form-group">
             <label>{t('testCases.tcId')} *</label>
             <input className="form-control" value={form.tcId} onChange={set('tcId')} required />
+            {!editing && (
+              <small style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                {t('testCases.tcIdAutoHint')}
+              </small>
+            )}
           </div>
           <div className="form-group">
             <label>{t('testCases.requirement')} *</label>

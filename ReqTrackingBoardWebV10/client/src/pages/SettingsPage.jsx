@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Layout from '../components/Layout';
 import { useTheme } from '../context/ThemeContext';
+import { useMenuLayout } from '../context/MenuLayoutContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import DbSetupForm from '../components/DbSetupForm';
 import { themes } from '../themes';
@@ -18,6 +20,8 @@ const THEME_PREVIEWS = {
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
+  const { menuLayout, setMenuLayout } = useMenuLayout();
+  const { language, setLanguage } = useLanguage();
   const { user, updateAccount, isAdmin, finishReconfigure } = useAuth();
   const [dbInfo, setDbInfo] = useState(null);
 
@@ -37,6 +41,7 @@ export default function SettingsPage() {
   const [accountErr, setAccountErr] = useState('');
   const [saving, setSaving] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [passwordVerificationRequired, setPasswordVerificationRequired] = useState(false);
 
   const resetPasswordVerification = useCallback(() => {
     setPasswordVerified(false);
@@ -50,6 +55,12 @@ export default function SettingsPage() {
   const loadVerificationStatus = useCallback(async () => {
     try {
       const res = await api.get('/settings/password-verification/status');
+      if (!res.data.required) {
+        setPasswordVerificationRequired(false);
+        setPasswordVerified(true);
+        return;
+      }
+      setPasswordVerificationRequired(true);
       if (res.data.verified) {
         setPasswordVerified(true);
         setVerifiedEmail(res.data.email || email);
@@ -58,6 +69,12 @@ export default function SettingsPage() {
       /* ignore */
     }
   }, [email]);
+
+  useEffect(() => {
+    api.get('/settings')
+      .then(res => setPasswordVerificationRequired(!!res.data.passwordVerificationRequired))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -73,11 +90,13 @@ export default function SettingsPage() {
 
   const handleEmailChange = (e) => {
     const next = e.target.value;
-    if (passwordVerified && !normalizeCompare(next, verifiedEmail)) {
+    if (passwordVerificationRequired && passwordVerified && !normalizeCompare(next, verifiedEmail)) {
       resetPasswordVerification();
     }
     setEmail(next);
   };
+
+  const canChangePassword = !passwordVerificationRequired || passwordVerified;
 
   useEffect(() => {
     if (isAdmin) {
@@ -92,8 +111,7 @@ export default function SettingsPage() {
   }, [cooldown]);
 
   const changeLang = (lng) => {
-    i18n.changeLanguage(lng);
-    localStorage.setItem('language', lng);
+    setLanguage(lng);
   };
 
   const showDefaultWarning = user?.username === 'admin';
@@ -149,7 +167,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setAccountMsg('');
     setAccountErr('');
-    if (newPassword && !passwordVerified) {
+    if (newPassword && passwordVerificationRequired && !passwordVerified) {
       setAccountErr(t('settings.passwordChangeNeedsVerification'));
       return;
     }
@@ -215,45 +233,53 @@ export default function SettingsPage() {
             </div>
 
             <div className="password-verify-box">
-              <h4>{t('settings.passwordVerificationTitle')}</h4>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>
-                {t('settings.passwordVerificationHint')}
-              </p>
-              <div className="form-row">
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>{t('settings.verificationCode')}</label>
-                  <input
-                    className="form-control"
-                    value={verificationCode}
-                    onChange={e => setVerificationCode(e.target.value)}
-                    placeholder="000000"
-                    disabled={passwordVerified}
-                  />
-                </div>
-                <div className="form-group" style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={handleSendVerificationCode}
-                    disabled={sendingCode || cooldown > 0}
-                  >
-                    {sendingCode ? t('common.loading') : (cooldown > 0 ? `${cooldown}s` : t('settings.sendVerificationCode'))}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={handleVerifyCode}
-                    disabled={verifyingCode || passwordVerified || !verificationCode.trim()}
-                  >
-                    {verifyingCode ? t('common.loading') : t('settings.verifyCode')}
-                  </button>
-                </div>
-              </div>
-              {passwordVerified && (
-                <div className="setup-success">{t('settings.passwordChangeEnabled')}</div>
+              {passwordVerificationRequired ? (
+                <>
+                  <h4>{t('settings.passwordVerificationTitle')}</h4>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>
+                    {t('settings.passwordVerificationHint')}
+                  </p>
+                  <div className="form-row">
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label>{t('settings.verificationCode')}</label>
+                      <input
+                        className="form-control"
+                        value={verificationCode}
+                        onChange={e => setVerificationCode(e.target.value)}
+                        placeholder="000000"
+                        disabled={passwordVerified}
+                      />
+                    </div>
+                    <div className="form-group settings-action-buttons">
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleSendVerificationCode}
+                        disabled={sendingCode || cooldown > 0}
+                      >
+                        {sendingCode ? t('common.loading') : (cooldown > 0 ? `${cooldown}s` : t('settings.sendVerificationCode'))}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleVerifyCode}
+                        disabled={verifyingCode || passwordVerified || !verificationCode.trim()}
+                      >
+                        {verifyingCode ? t('common.loading') : t('settings.verifyCode')}
+                      </button>
+                    </div>
+                  </div>
+                  {passwordVerified && (
+                    <div className="setup-success">{t('settings.passwordChangeEnabled')}</div>
+                  )}
+                  {verifyErr && <div className="login-error">{verifyErr}</div>}
+                  {verifyMsg && !passwordVerified && <div className="setup-success">{verifyMsg}</div>}
+                </>
+              ) : (
+                <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 0 }}>
+                  {t('settings.passwordNoVerificationHint')}
+                </p>
               )}
-              {verifyErr && <div className="login-error">{verifyErr}</div>}
-              {verifyMsg && !passwordVerified && <div className="setup-success">{verifyMsg}</div>}
             </div>
 
             <div className="form-group">
@@ -263,10 +289,10 @@ export default function SettingsPage() {
                 type="password"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                disabled={!passwordVerified}
+                disabled={!canChangePassword}
               />
               <small style={{ color: 'var(--text-secondary)', marginTop: 6, display: 'block' }}>
-                {passwordVerified ? t('settings.newPasswordHint') : t('settings.newPasswordLockedHint')}
+                {canChangePassword ? t('settings.newPasswordHint') : t('settings.newPasswordLockedHint')}
               </small>
             </div>
 
@@ -316,16 +342,32 @@ export default function SettingsPage() {
         )}
 
         <div className="card">
+          <h3 style={{ marginBottom: 20 }}>{t('settings.menuLayout')}</h3>
+          <div className="layout-options">
+            {['vertical', 'horizontal'].map(key => (
+              <div
+                key={key}
+                className={`layout-option${menuLayout === key ? ' active' : ''}`}
+                onClick={() => setMenuLayout(key)}
+              >
+                <div className={`layout-preview layout-preview-${key}`} />
+                {t(`settings.menuLayouts.${key}`)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
           <h3 style={{ marginBottom: 20 }}>{t('settings.language')}</h3>
           <div className="lang-options">
             <button
-              className={`lang-btn${i18n.language === 'ko' ? ' active' : ''}`}
+              className={`lang-btn${language === 'ko' ? ' active' : ''}`}
               onClick={() => changeLang('ko')}
             >
               🇰🇷 한국어
             </button>
             <button
-              className={`lang-btn${i18n.language === 'en' ? ' active' : ''}`}
+              className={`lang-btn${language === 'en' ? ' active' : ''}`}
               onClick={() => changeLang('en')}
             >
               🇺🇸 English

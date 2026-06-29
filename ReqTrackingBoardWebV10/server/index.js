@@ -15,6 +15,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import reportRoutes from './routes/reports.js';
 import excelRoutes from './routes/excel.js';
 import settingsRoutes from './routes/settings.js';
+import syncRoutes from './routes/sync.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -47,6 +48,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/excel', excelRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/sync', syncRoutes);
 
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(clientDist)) {

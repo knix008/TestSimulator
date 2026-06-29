@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { sqliteSchema, ensureAdminUser, migrateThemeColumn, migrateEmailColumn } from '../schemas.js';
+import { sqliteSchema, ensureAdminUser, migrateThemeColumn, migrateEmailColumn, migrateMenuLayoutColumn, migrateLanguageColumn, migrateRequirementHistoryTable } from '../schemas.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +49,9 @@ export function createSqliteAdapter(config) {
       }
       await migrateThemeColumn(adapter, 'sqlite3');
       await migrateEmailColumn(adapter, 'sqlite3');
+      await migrateMenuLayoutColumn(adapter, 'sqlite3');
+      await migrateLanguageColumn(adapter, 'sqlite3');
+      await migrateRequirementHistoryTable(adapter, 'sqlite3');
       const bcrypt = await import('bcryptjs');
       await ensureAdminUser(adapter, bcrypt.default);
     },

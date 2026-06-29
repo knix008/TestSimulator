@@ -22,7 +22,7 @@ const SAMPLE_TEST_CASES = [
   { tcId: 'TC-004', reqId: 'REQ-003', title: 'Viewer read-only', description: 'Viewer cannot edit requirements', steps: '1. Login as viewer\n2. Try to add requirement', expectedResult: '403 Forbidden', status: 'Passed', result: 'OK', executedBy: 'Tester B' },
   { tcId: 'TC-005', reqId: 'REQ-003', title: 'Editor can edit', description: 'Editor can modify requirements', steps: '1. Login as editor\n2. Edit requirement', expectedResult: 'Changes saved', status: 'Passed', result: 'OK', executedBy: 'Tester B' },
   { tcId: 'TC-006', reqId: 'REQ-004', title: 'Update TC status', description: 'Change test case status to Passed', steps: '1. Open test case\n2. Set status Passed', expectedResult: 'Status and executed_at saved', status: 'In Progress', result: '', executedBy: '' },
-  { tcId: 'TC-007', reqId: 'REQ-005', title: 'Excel export', description: 'Export all data to Excel', steps: '1. Go to Reports\n2. Click Export', expectedResult: 'xlsx file downloaded', status: 'Not Run', result: '', executedBy: '' },
+  { tcId: 'TC-007', reqId: 'REQ-005', title: 'Excel export', description: 'Export all data to Excel', steps: '1. Go to Requirements\n2. Click Export Excel', expectedResult: 'xlsx file downloaded', status: 'Not Run', result: '', executedBy: '' },
 ];
 
 async function seedUsers(adminId) {

@@ -3,6 +3,7 @@ import multer from 'multer';
 import * as XLSX from 'xlsx';
 import { query, queryOne, insert, execute, now } from '../db.js';
 import { authMiddleware, editMiddleware } from '../middleware/auth.js';
+import { resolveTcIdForCreate } from '../utils/tcId.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -119,11 +120,21 @@ router.post('/import', authMiddleware, editMiddleware, upload.single('file'), as
             row['Result'] || '', row['Executed By'] || '', row['Notes'] || '', now(), tcId
           ]);
         } else {
+          let resolvedTcId;
+          try {
+            ({ tcId: resolvedTcId } = await resolveTcIdForCreate(tcId));
+          } catch (err) {
+            if (err.status === 409) {
+              stats.errors.push(`TC ID ${tcId} already exists (non-standard ID)`);
+              continue;
+            }
+            throw err;
+          }
           await insert(`
             INSERT INTO test_cases (tc_id, requirement_id, title, description, steps, expected_result, status, result, executed_by, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            tcId, reqRow.id, title, row['Description'] || '', row['Steps'] || '',
+            resolvedTcId, reqRow.id, title, row['Description'] || '', row['Steps'] || '',
             row['Expected Result'] || '', row['Status'] || 'Not Run',
             row['Result'] || '', row['Executed By'] || '', row['Notes'] || ''
           ]);

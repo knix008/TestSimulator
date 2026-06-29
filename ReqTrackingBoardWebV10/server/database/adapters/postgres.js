@@ -1,6 +1,6 @@
 import pg from 'pg';
 import path from 'path';
-import { convertPlaceholders, postgresSchema, ensureAdminUser, migrateThemeColumn, migrateEmailColumn } from '../schemas.js';
+import { convertPlaceholders, postgresSchema, ensureAdminUser, migrateThemeColumn, migrateEmailColumn, migrateMenuLayoutColumn, migrateLanguageColumn, migrateRequirementHistoryTable } from '../schemas.js';
 
 const { Pool } = pg;
 
@@ -77,6 +77,9 @@ export function createPostgresAdapter(config) {
 
       await migrateThemeColumn(adapter, 'postgresql');
       await migrateEmailColumn(adapter, 'postgresql');
+      await migrateMenuLayoutColumn(adapter, 'postgresql');
+      await migrateLanguageColumn(adapter, 'postgresql');
+      await migrateRequirementHistoryTable(adapter, 'postgresql');
       const bcrypt = await import('bcryptjs');
       await ensureAdminUser(adapter, bcrypt.default);
     },

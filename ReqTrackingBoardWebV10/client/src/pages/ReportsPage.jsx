@@ -1,10 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Layout from '../components/Layout';
+import ReportCharts from '../components/ReportCharts';
 import { StatusBadge } from '../components/Badge';
-import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../utils/helpers';
+import { captureReportCharts } from '../utils/reportChartCapture';
+import { exportReportMarkdown, exportReportWord, exportReportPdf } from '../utils/reportExport';
+import { useDataSync } from '../context/DataSyncContext';
 
 const REPORT_STORAGE_KEY = 'reqtracking_report_summary';
 
@@ -27,77 +30,133 @@ export function clearStoredReport() {
 
 export default function ReportsPage() {
   const { t } = useTranslation();
-  const { canEdit } = useAuth();
+  const { refreshToken } = useDataSync();
   const [report, setReport] = useState(loadStoredReport);
   const [loading, setLoading] = useState(false);
-  const [importMsg, setImportMsg] = useState('');
-  const fileRef = useRef();
+  const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const chartsRef = useRef(null);
 
-  const generateReport = async () => {
-    setLoading(true);
+  const generateReport = useCallback(async ({ silent = false } = {}) => {
+    if (silent) setRefreshing(true);
+    else setLoading(true);
     try {
       const res = await api.get('/reports/summary');
       setReport(res.data);
       saveStoredReport(res.data);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => {
+    generateReport({ silent: !!loadStoredReport() });
+  }, [generateReport]);
+
+  useEffect(() => {
+    if (refreshToken === 0) return undefined;
+    generateReport({ silent: true });
+    return undefined;
+  }, [refreshToken, generateReport]);
+
+  const exportLabels = () => ({
+    title: t('reports.title'),
+    generatedAt: t('reports.generatedAt'),
+    overview: t('reports.overview'),
+    charts: t('reports.charts'),
+    reqSummary: t('reports.reqSummary'),
+    tcSummary: t('reports.tcSummary'),
+    totalRequirements: t('dashboard.totalRequirements'),
+    totalTestCases: t('dashboard.totalTestCases'),
+    reqByStatus: t('dashboard.reqByStatus'),
+    tcByStatus: t('dashboard.tcByStatus'),
+    reqByPriority: t('dashboard.reqByPriority'),
+    reqByCategory: t('dashboard.reqByCategory'),
+    noChartData: t('reports.noChartData'),
+    reqId: t('requirements.reqId'),
+    reqTitle: t('requirements.reqTitle'),
+    status: t('requirements.status'),
+    priority: t('requirements.priority'),
+    testCases: t('requirements.testCases'),
+    passed: t('requirements.passed'),
+    failed: t('requirements.failed'),
+    tcId: t('testCases.tcId'),
+    requirement: t('testCases.requirement'),
+    tcTitle: t('testCases.tcTitle'),
+    result: t('testCases.result'),
+    executedBy: t('testCases.executedBy'),
+    chartTitles: {
+      reqByStatus: t('dashboard.reqByStatus'),
+      tcByStatus: t('dashboard.tcByStatus'),
+      reqByPriority: t('dashboard.reqByPriority'),
+      reqByCategory: t('dashboard.reqByCategory'),
+    },
+  });
+
+  const requireReport = () => {
+    if (!report) {
+      alert(t('reports.exportNoReport'));
+      return false;
+    }
+    return true;
   };
 
-  const exportExcel = async () => {
-    const res = await api.get('/excel/export', { responseType: 'blob' });
-    const url = URL.createObjectURL(res.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'requirements_export.xlsx';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const importExcel = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
+  const runExport = async (exporter) => {
+    if (!requireReport()) return;
+    setExporting(true);
     try {
-      const res = await api.post('/excel/import', formData);
-      setImportMsg(`${t('reports.importSuccess')}: ${res.data.requirements} reqs, ${res.data.testCases} TCs`);
-      if (res.data.errors?.length) setImportMsg(prev => prev + ' (' + res.data.errors.join(', ') + ')');
+      const chartImages = await captureReportCharts(chartsRef.current);
+      await exporter(report, exportLabels(), chartImages);
     } catch (err) {
-      setImportMsg(t('reports.importError') + ': ' + (err.response?.data?.error || err.message));
+      alert(err.message || t('common.error'));
+    } finally {
+      setExporting(false);
     }
-    fileRef.current.value = '';
   };
+
+  const exportMarkdown = () => runExport(exportReportMarkdown);
+  const exportWord = () => runExport(exportReportWord);
+  const exportPdf = () => runExport(exportReportPdf);
+
+  const labels = exportLabels();
 
   return (
     <Layout>
       <div className="page-header">
         <h2>{t('reports.title')}</h2>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button className="btn btn-primary" onClick={generateReport} disabled={loading}>
-            {loading ? t('common.loading') : t('reports.generate')}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-primary"
+            onClick={() => generateReport({ silent: !!report })}
+            disabled={loading || exporting || refreshing}
+          >
+            <span className="btn-icon" aria-hidden="true">🔄</span>
+            {loading || refreshing ? t('common.loading') : t('reports.refresh')}
           </button>
-          <button className="btn btn-secondary" onClick={exportExcel}>{t('reports.export')}</button>
-          {canEdit && (
-            <>
-              <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>{t('reports.import')}</button>
-              <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={importExcel} />
-            </>
-          )}
+          <button className="btn btn-secondary" onClick={exportWord} disabled={!report || exporting}>
+            <span className="btn-icon" aria-hidden="true">📘</span>
+            {exporting ? t('common.loading') : t('reports.exportWord')}
+          </button>
+          <button className="btn btn-secondary" onClick={exportMarkdown} disabled={!report || exporting}>
+            <span className="btn-icon" aria-hidden="true">📝</span>
+            {exporting ? t('common.loading') : t('reports.exportMarkdown')}
+          </button>
+          <button className="btn btn-secondary" onClick={exportPdf} disabled={!report || exporting}>
+            <span className="btn-icon" aria-hidden="true">📕</span>
+            {exporting ? t('common.loading') : t('reports.exportPdf')}
+          </button>
         </div>
       </div>
 
-      {importMsg && (
-        <div className="card" style={{ marginBottom: 20, background: 'var(--accent-light)' }}>{importMsg}</div>
-      )}
-
       {report && (
         <>
-          {loading && (
+          {refreshing && (
             <div className="card" style={{ marginBottom: 16, padding: '10px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
               {t('reports.refreshing')}
             </div>
           )}
+
           <div className="report-section">
             <h3>{t('reports.overview')}</h3>
             <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
@@ -125,6 +184,11 @@ export default function ReportsPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="report-section" ref={chartsRef}>
+            <h3>{t('reports.charts')}</h3>
+            <ReportCharts report={report} labels={labels} />
           </div>
 
           <div className="report-section">
@@ -189,6 +253,10 @@ export default function ReportsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {!report && loading && (
+        <div className="empty-state">{t('common.loading')}</div>
       )}
 
       {!report && !loading && (
