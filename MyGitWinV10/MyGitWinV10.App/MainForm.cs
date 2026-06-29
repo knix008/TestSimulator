@@ -1175,9 +1175,43 @@ public partial class MainForm : Form
         {
             await RefreshFileTreeStructureAsync(e.AffectedDirectoryPaths);
         }
-        else
+        else if (e.RequiresStatusRefresh)
         {
             await RefreshFileTreeStatusAsync();
+        }
+
+        if (e.RequiresRepositoryRefresh)
+        {
+            await RefreshRepositoryMetadataAsync();
+        }
+    }
+
+    private async Task RefreshRepositoryMetadataAsync()
+    {
+        if (_gitService.Repo is null || _repositoryRefreshInProgress)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        BranchTagTreePopulator.Populate(repoTreeView, repo);
+        if (_gitService.Repo != repo)
+        {
+            return;
+        }
+
+        if (_pathHistoryFilter is not null)
+        {
+            await LoadPathFilteredCommitGraphAsync();
+        }
+        else
+        {
+            await LoadCommitGraphAsync();
+        }
+
+        if (_gitService.Repo == repo)
+        {
+            UpdateRepoCounts();
         }
     }
 
@@ -1232,7 +1266,7 @@ public partial class MainForm : Form
             && CanUseGitWorkflow
             && Directory.Exists(workingDirectory))
         {
-            _workingTreeWatcher.Watch(workingDirectory);
+            _workingTreeWatcher.Watch(workingDirectory, _gitService.Repo.Info.Path);
         }
         else
         {
