@@ -50,6 +50,8 @@
                          ScrollViewer.VerticalScrollBarVisibility="Auto"
                          ScrollViewer.CanContentScroll="False"
                          MouseDoubleClick="ResultsList_MouseDoubleClick"
+                         MouseMove="ResultsList_MouseMove"
+                         MouseLeave="ResultsList_MouseLeave"
                          KeyDown="ResultsList_KeyDown">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -132,5 +134,25 @@
                 Background="Transparent"
                 Cursor="SizeNS"
                 MouseLeftButtonDown="BottomResizeGrip_MouseLeftButtonDown"/>
+
+        <Popup x:Name="ResultToolTipPopup"
+               AllowsTransparency="True"
+               Placement="Absolute"
+               StaysOpen="True"
+               IsOpen="False"
+               PopupAnimation="None">
+            <Border x:Name="ResultToolTipBorder"
+                    Background="#F5FFFFFF"
+                    BorderBrush="#33000000"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8,6"
+                    MaxWidth="560">
+                <TextBlock x:Name="ResultToolTipText"
+                           TextWrapping="Wrap"
+                           FontSize="12"
+                           Foreground="#222222"/>
+            </Border>
+        </Popup>
     </Grid>
 </Window>

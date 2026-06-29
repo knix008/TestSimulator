@@ -8,14 +8,14 @@ namespace DeskSearch.Services;
 
 public sealed class SystemIndexService : IDisposable
 {
-    // FileSystemEnumerable defaults to skipping Hidden | System | ReparsePoint.
-    // Only reparse points (junctions/symlinks) are skipped so hidden/system files
-    // and dot-prefixed names (e.g. .gitignore, .env) remain indexed and searchable.
+    // Default skips Hidden | System | ReparsePoint. We clear AttributesToSkip so hidden/system
+    // and dot-prefixed names stay indexed. Junctions/symlinks under C:\Users (Desktop, Documents,
+    // OneDrive redirects, AppData links) must be followed; ShouldRecurseIntoDirectory blocks cycles.
     private static readonly EnumerationOptions ScanEnumerationOptions = new()
     {
         RecurseSubdirectories = true,
         IgnoreInaccessible = true,
-        AttributesToSkip = FileAttributes.ReparsePoint
+        AttributesToSkip = FileAttributes.None
     };
 
     private IndexStore? _indexStore;
@@ -1600,6 +1600,7 @@ public sealed class SystemIndexService : IDisposable
         if (!Directory.Exists(root))
             return;
 
+        var visitedReparseTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var batch = new List<FileEntry>(IndexStoragePolicy.BulkMergeBatchSize);
 
         void FlushBatch()
@@ -1712,12 +1713,33 @@ public sealed class SystemIndexService : IDisposable
                 if (!_disableScannedPrefixSkip && IsUnderScannedSubtree(path))
                     return false;
 
+                var reparseTargetKey = TryGetReparseTargetDirectoryKey(path);
+                if (reparseTargetKey is not null && !visitedReparseTargets.Add(reparseTargetKey))
+                    return false;
+
                 return true;
             }
             catch
             {
                 return false;
             }
+        }
+    }
+
+    private static string? TryGetReparseTargetDirectoryKey(string directoryPath)
+    {
+        try
+        {
+            var info = new DirectoryInfo(directoryPath);
+            if ((info.Attributes & FileAttributes.ReparsePoint) == 0)
+                return null;
+
+            var target = info.ResolveLinkTarget(returnFinalTarget: true);
+            return target is null ? null : NormalizeDirectoryPrefix(target.FullName);
+        }
+        catch
+        {
+            return null;
         }
     }
 
