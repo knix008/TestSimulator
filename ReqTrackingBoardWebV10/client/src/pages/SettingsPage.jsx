@@ -239,8 +239,8 @@ export default function SettingsPage() {
                   <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>
                     {t('settings.passwordVerificationHint')}
                   </p>
-                  <div className="form-row">
-                    <div className="form-group" style={{ flex: 1 }}>
+                  <div className="form-row password-verify-row">
+                    <div className="form-group">
                       <label>{t('settings.verificationCode')}</label>
                       <input
                         className="form-control"
