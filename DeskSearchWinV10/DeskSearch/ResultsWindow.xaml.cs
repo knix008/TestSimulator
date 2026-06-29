@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using DeskSearch.Helpers;
@@ -23,11 +24,13 @@ public partial class ResultsWindow : Window
     private Point _resizeStartScreenPoint;
     private double _resizeStartHeight;
     private readonly ObservableCollection<FileEntry> _boundResults = [];
+    private FileEntry? _toolTipEntry;
 
     public ResultsWindow()
     {
         InitializeComponent();
         ResultsList.ItemsSource = _boundResults;
+        ResultToolTipPopup.PlacementTarget = ResultsList;
         WindowTaskbarHelper.ExcludeFromTaskbar(this);
     }
 
@@ -35,6 +38,9 @@ public partial class ResultsWindow : Window
     {
         foreach (var key in themeResources.Keys)
             Resources[key] = themeResources[key];
+
+        if (Resources["PrimaryTextBrush"] is System.Windows.Media.Brush textBrush)
+            ResultToolTipText.Foreground = textBrush;
     }
 
     public void ApplyChrome(AppSettings settings)
@@ -45,6 +51,8 @@ public partial class ResultsWindow : Window
 
         RootBorder.Background = new SolidColorBrush(bgWithAlpha);
         RootBorder.BorderBrush = ColorHelper.ToBrush(display.BorderColor);
+        ResultToolTipBorder.Background = new SolidColorBrush(ColorHelper.WithOpacity(bgColor, Math.Min(100, settings.BackgroundOpacity + 5)));
+        ResultToolTipBorder.BorderBrush = ColorHelper.ToBrush(display.BorderColor);
         Topmost = settings.AlwaysOnTop;
         Opacity = Math.Clamp(settings.WindowOpacity, 50, 100) / 100.0;
     }
@@ -84,6 +92,7 @@ public partial class ResultsWindow : Window
 
     public void ClearResults()
     {
+        HideResultToolTip();
         _boundResults.Clear();
         EmptyResultsLabel.Visibility = Visibility.Collapsed;
         ResultsList.Visibility = Visibility.Visible;
@@ -91,6 +100,7 @@ public partial class ResultsWindow : Window
 
     public void ShowNoResults(string message)
     {
+        HideResultToolTip();
         _boundResults.Clear();
         EmptyResultsLabel.Text = message;
         EmptyResultsLabel.Visibility = Visibility.Visible;
@@ -188,6 +198,84 @@ public partial class ResultsWindow : Window
 
     public void SetContextMenu(ContextMenu menu) => ResultsList.ContextMenu = menu;
 
+    private void ResultsList_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_isResizingHeight)
+        {
+            HideResultToolTip();
+            return;
+        }
+
+        var item = FindVisualParent<ListBoxItem>(e.OriginalSource as DependencyObject);
+        if (item?.DataContext is FileEntry entry)
+        {
+            if (!ReferenceEquals(_toolTipEntry, entry))
+            {
+                _toolTipEntry = entry;
+                ResultToolTipText.Text = entry.FullPath;
+            }
+
+            UpdateResultToolTipPosition(e);
+            ResultToolTipPopup.IsOpen = true;
+            return;
+        }
+
+        HideResultToolTip();
+    }
+
+    private void UpdateResultToolTipPosition(MouseEventArgs e)
+    {
+        const double offsetX = 14;
+        const double offsetY = 20;
+
+        var screenPoint = ResultsList.PointToScreen(e.GetPosition(ResultsList));
+
+        ResultToolTipBorder.Measure(new System.Windows.Size(ResultToolTipBorder.MaxWidth, double.PositiveInfinity));
+        var popupSize = ResultToolTipBorder.DesiredSize;
+        if (popupSize.Width <= 0)
+            popupSize = new System.Windows.Size(200, 32);
+
+        var workArea = SystemParameters.WorkArea;
+
+        var x = screenPoint.X + offsetX;
+        var y = screenPoint.Y + offsetY;
+
+        if (x + popupSize.Width > workArea.Right)
+            x = Math.Max(workArea.Left, screenPoint.X - popupSize.Width - offsetX);
+
+        if (y + popupSize.Height > workArea.Bottom)
+            y = Math.Max(workArea.Top, screenPoint.Y - popupSize.Height - offsetY);
+
+        ResultToolTipPopup.Placement = PlacementMode.Absolute;
+        ResultToolTipPopup.PlacementTarget = null;
+        ResultToolTipPopup.HorizontalOffset = x;
+        ResultToolTipPopup.VerticalOffset = y;
+    }
+
+    private void ResultsList_MouseLeave(object sender, MouseEventArgs e)
+    {
+        HideResultToolTip();
+    }
+
+    private void HideResultToolTip()
+    {
+        _toolTipEntry = null;
+        ResultToolTipPopup.IsOpen = false;
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+    {
+        while (child is not null)
+        {
+            if (child is T match)
+                return match;
+
+            child = VisualTreeHelper.GetParent(child);
+        }
+
+        return null;
+    }
+
     private void ResultsList_KeyDown(object sender, KeyEventArgs e)
     {
         switch (e.Key)
@@ -233,6 +321,7 @@ public partial class ResultsWindow : Window
 
     private void BottomResizeGrip_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        HideResultToolTip();
         _isResizingHeight = true;
         _resizeStartScreenPoint = PointToScreen(e.GetPosition(this));
         _resizeStartHeight = Height;
