@@ -26,20 +26,24 @@ internal static class MenuGlyphIcons
 
     private static readonly MediaFontFamily WpfGlyphFont = new("Segoe MDL2 Assets");
 
-    public static TextBlock CreateWpfIcon(string glyph) =>
-        new()
+    public static TextBlock CreateWpfIcon(string glyph, string? colorHex = null)
+    {
+        var color = colorHex ?? MenuIconColors.ForGlyph(glyph);
+        return new()
         {
             Text = glyph,
             FontFamily = WpfGlyphFont,
             FontSize = 14,
             Width = 16,
             Height = 16,
+            Foreground = ColorHelper.ToBrush(color),
             TextAlignment = TextAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = System.Windows.HorizontalAlignment.Center
         };
+    }
 
-    public static Bitmap CreateWinFormsIcon(string glyph)
+    public static Bitmap CreateWinFormsIcon(string glyph, string? colorHex = null)
     {
         const int size = 16;
         var bitmap = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -47,7 +51,8 @@ internal static class MenuGlyphIcons
         graphics.Clear(System.Drawing.Color.Transparent);
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         using var font = new Font("Segoe MDL2 Assets", 9f, System.Drawing.FontStyle.Regular, GraphicsUnit.Point);
-        using var brush = new SolidBrush(System.Drawing.Color.FromArgb(0x22, 0x22, 0x22));
+        var mediaColor = ColorHelper.ParseColor(colorHex ?? MenuIconColors.ForGlyph(glyph));
+        using var brush = new SolidBrush(System.Drawing.Color.FromArgb(mediaColor.R, mediaColor.G, mediaColor.B));
         graphics.DrawString(glyph, font, brush, -1f, 0f);
         return bitmap;
     }

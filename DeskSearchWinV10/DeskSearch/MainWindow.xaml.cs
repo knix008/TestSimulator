@@ -42,8 +42,6 @@ public partial class MainWindow : Window
 
     private MenuItem _menuAlwaysOnTop = null!;
 
-    private MenuItem _menuIndexStatus = null!;
-
     private MenuItem _menuOpenFile = null!;
 
     private MenuItem _menuShowInFolder = null!;
@@ -190,6 +188,7 @@ public partial class MainWindow : Window
     private void OnIndexProgress(object? sender, IndexProgressEventArgs e)
     {
         var scanComplete = e.IsScanComplete;
+        var indexedCount = e.IndexedCount;
         IndexUiDebounce.Debounce(() =>
         {
             if (!IsLoaded)
@@ -199,7 +198,10 @@ public partial class MainWindow : Window
             _openSettingsWindow?.RefreshProgressUi();
 
             if (scanComplete)
+            {
                 ScheduleLiveSearchRefresh();
+                HandleIndexProgressCompletion(indexedCount);
+            }
         });
     }
 
@@ -228,27 +230,8 @@ public partial class MainWindow : Window
 
 
     private void UpdateIndexUi()
-
     {
-
-        var isComplete = _indexService.IsScanComplete;
-        var count = isComplete || _indexService.HasStableSearchIndex
-            ? _indexService.Count
-            : _indexService.ScanIndexedCount;
-        var phase = _indexService.ProgressPhase;
-        var status = isComplete || _indexService.HasStableSearchIndex
-            ? LocalizationService.F("Index_Complete", count)
-            : phase switch
-            {
-                IndexProgressPhase.Analyzing => LocalizationService.F("Index_Analyzing", count),
-                IndexProgressPhase.Applying => LocalizationService.F("Index_Applying", count),
-                _ => LocalizationService.F("Index_InProgress", count)
-            };
-
-        _menuIndexStatus.Header = status;
-
         SearchBox.IsEnabled = _indexService.IsSearchEnabled;
-
     }
 
 
@@ -262,16 +245,9 @@ public partial class MainWindow : Window
             Header = LocalizationService.T("Menu_AboveOthers"),
             IsCheckable = true,
             IsChecked = true,
-            Icon = MenuGlyphIcons.CreateWpfIcon(MenuGlyphIcons.AlwaysOnTop)
+            Icon = MenuGlyphIcons.CreateWpfIcon(MenuGlyphIcons.AlwaysOnTop, MenuIconColors.ForMenuKey("Menu_AboveOthers"))
         };
         _menuAlwaysOnTop.Click += MenuAlwaysOnTop_Click;
-
-        _menuIndexStatus = new MenuItem
-        {
-            Header = LocalizationService.T("Index_Indexing"),
-            IsEnabled = false,
-            Icon = MenuGlyphIcons.CreateWpfIcon(MenuGlyphIcons.IndexStatus)
-        };
 
         _menuClearSearch = CreateLocalizedMenuItem("Menu_ClearSearch", MenuGlyphIcons.ClearSearch, MenuClearSearch_Click);
         _menuRefreshIndex = CreateLocalizedMenuItem("Menu_RefreshIndex", MenuGlyphIcons.RefreshIndex, MenuRefreshIndex_Click);
@@ -297,8 +273,6 @@ public partial class MainWindow : Window
                 new Separator(),
                 _menuHide,
                 new Separator(),
-                _menuIndexStatus,
-                new Separator(),
                 _menuExit
             }
         };
@@ -320,15 +294,7 @@ public partial class MainWindow : Window
                 _menuShowInFolder,
                 new Separator(),
                 _menuCopyPath,
-                _menuCopyFileName,
-                new Separator(),
-                CreateLocalizedMenuItem("Menu_ClearSearch", MenuGlyphIcons.ClearSearch, MenuClearSearch_Click),
-                CreateLocalizedMenuItem("Menu_RefreshIndex", MenuGlyphIcons.RefreshIndex, MenuRefreshIndex_Click),
-                CreateLocalizedMenuItem("Menu_Settings", MenuGlyphIcons.Settings, MenuSettings_Click),
-                CreateLocalizedMenuItem("Menu_Hide", MenuGlyphIcons.Hide, MenuHide_Click),
-                CreateLocalizedMenuItem("Menu_ResetPosition", MenuGlyphIcons.ResetPosition, MenuResetPosition_Click),
-                new Separator(),
-                CreateLocalizedMenuItem("Menu_Exit", MenuGlyphIcons.Exit, MenuExit_Click)
+                _menuCopyFileName
             }
         };
 

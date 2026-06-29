@@ -597,7 +597,7 @@ public partial class SettingsWindow : Window
 
     private void SyncIndexActionButton(bool isStopMode, bool isPostProcessing)
     {
-        ReSearchButton.IsEnabled = !isPostProcessing;
+        ReSearchButton.IsEnabled = true;
 
         if (_indexActionIsStopMode == isStopMode)
             return;
@@ -655,12 +655,15 @@ public partial class SettingsWindow : Window
 
     private void IndexAction_Click(object sender, RoutedEventArgs e)
     {
-        if (_getProgress?.Invoke() is { IsScanRunning: true })
+        var snapshot = _getProgress?.Invoke();
+        if (snapshot is { IsScanRunning: true })
             _stopIndexing?.Invoke();
         else
         {
             ExitProgressIdleMode();
             _startIndexing?.Invoke();
+            _indexActionIsStopMode = false;
+            SyncIndexActionButton(isStopMode: true, isPostProcessing: false);
         }
 
         _lastProgressPercent = -1;

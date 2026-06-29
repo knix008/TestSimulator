@@ -764,7 +764,7 @@ public sealed class SystemIndexService : IDisposable
         BeginFullIndexScan(cancelCurrent: true, reportProgress: false);
     }
 
-    private void CleanupAbortedScan(IndexStore target, string buildingPath)
+    private void CleanupAbortedScan(IndexStore target, string buildingPath, bool allowCompleteStatus = false)
     {
         try
         {
@@ -776,7 +776,25 @@ public sealed class SystemIndexService : IDisposable
         }
 
         DiscardActiveBuildingDatabase();
-        RestoreSearchIndexAfterAbortedBuild(allowCompleteStatus: false);
+        RestoreSearchIndexAfterAbortedBuild(allowCompleteStatus);
+    }
+
+    /// <summary>
+    /// User pressed Stop: discard partial building work entirely so the next Index run starts fresh.
+    /// </summary>
+    private void HandleUserStoppedScan(IndexStore target, string buildingPath)
+    {
+        CleanupAbortedScan(target, buildingPath, allowCompleteStatus: HasStableSearchIndex);
+
+        if (!HasStableSearchIndex)
+            return;
+
+        _awaitingFreshFullScan = false;
+        _isScanComplete = true;
+        _scanProgressPercent = 100;
+        _scanUsesShadowBuild = false;
+        SetProgressPhase(IndexProgressPhase.Idle, forceReport: false);
+        ReportProgress(null, true, force: true);
     }
 
     private bool HasInterruptedBuildingWork() =>
@@ -1195,7 +1213,11 @@ public sealed class SystemIndexService : IDisposable
                 CleanupAbortedScan(target, buildingPath);
             }
         }
-        else if (_indexingPaused || _userStoppedScan)
+        else if (_indexingPaused)
+        {
+            HandleUserStoppedScan(target, buildingPath);
+        }
+        else if (_userStoppedScan)
         {
             PauseActiveScan(target);
         }

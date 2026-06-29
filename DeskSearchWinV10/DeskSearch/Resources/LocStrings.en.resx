@@ -109,6 +109,10 @@
   <data name="Settings_SearchingStatus" xml:space="preserve"><value>Searching… {0}% — "{1}"</value></data>
   <data name="Settings_ReadyStatus" xml:space="preserve"><value>Ready — {0:N0} items indexed</value></data>
   <data name="Settings_ReadyStatusWithElapsed" xml:space="preserve"><value>Ready — {0:N0} items indexed (elapsed: {1})</value></data>
+  <data name="IndexComplete_Title" xml:space="preserve"><value>Indexing complete</value></data>
+  <data name="IndexComplete_Message" xml:space="preserve"><value>{0:N0} items have been indexed.&#xA;Elapsed: {1}</value></data>
+  <data name="IndexComplete_MessageNoElapsed" xml:space="preserve"><value>{0:N0} items have been indexed.</value></data>
+  <data name="IndexComplete_Ok" xml:space="preserve"><value>OK</value></data>
   <data name="Duration_Seconds" xml:space="preserve"><value>{0:0.0}s</value></data>
   <data name="Duration_MinutesSeconds" xml:space="preserve"><value>{0}m {1}s</value></data>
   <data name="Settings_Startup" xml:space="preserve"><value>Startup</value></data>

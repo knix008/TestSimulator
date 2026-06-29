@@ -32,18 +32,22 @@ public sealed class TrayIconService : IDisposable
         _showWindowItem = CreateTrayMenuItem(
             LocalizationService.T("Tray_ShowWindow"),
             MenuGlyphIcons.ShowWindow,
+            MenuIconColors.ForMenuKey("Tray_ShowWindow"),
             (_, _) => ShowMainWindow());
         _hideWindowItem = CreateTrayMenuItem(
             LocalizationService.T("Menu_Hide"),
             MenuGlyphIcons.Hide,
+            MenuIconColors.ForMenuKey("Menu_Hide"),
             (_, _) => _mainWindow.Dispatcher.Invoke(_mainWindow.HideToTray));
         _settingsItem = CreateTrayMenuItem(
             LocalizationService.T("Menu_Settings"),
             MenuGlyphIcons.Settings,
+            MenuIconColors.ForMenuKey("Menu_Settings"),
             (_, _) => _mainWindow.Dispatcher.Invoke(_mainWindow.OpenSettings));
         _exitItem = CreateTrayMenuItem(
             LocalizationService.T("Menu_Exit"),
             MenuGlyphIcons.Exit,
+            MenuIconColors.ForMenuKey("Menu_Exit"),
             (_, _) => _mainWindow.Dispatcher.Invoke(_mainWindow.RequestApplicationExit));
 
         menu.Items.Add(_showWindowItem);
@@ -84,9 +88,9 @@ public sealed class TrayIconService : IDisposable
         _menuImages.Clear();
     }
 
-    private ToolStripMenuItem CreateTrayMenuItem(string text, string glyph, EventHandler onClick)
+    private ToolStripMenuItem CreateTrayMenuItem(string text, string glyph, string colorHex, EventHandler onClick)
     {
-        var image = MenuGlyphIcons.CreateWinFormsIcon(glyph);
+        var image = MenuGlyphIcons.CreateWinFormsIcon(glyph, colorHex);
         _menuImages.Add(image);
         return new ToolStripMenuItem(text, image, onClick);
     }

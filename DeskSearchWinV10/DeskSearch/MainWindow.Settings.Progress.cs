@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Windows;
 using DeskSearch.Models;
 using DeskSearch.Services;
 
@@ -9,6 +10,7 @@ public partial class MainWindow
     private readonly object _rescanLock = new();
     private Stopwatch? _rescanStopwatch;
     private TimeSpan? _lastRescanElapsed;
+    private volatile bool _notifyOnIndexComplete;
 
     internal SettingsProgressSnapshot GetSettingsProgress()
     {
@@ -22,7 +24,8 @@ public partial class MainWindow
             var indexedCount = _indexService.ScanIndexedCount;
             var percent = _indexService.IndexDisplayPercent;
             var isPostProcessing = phase is IndexProgressPhase.Analyzing or IndexProgressPhase.Applying;
-            var isScanRunning = phase == IndexProgressPhase.Scanning && _indexService.IsScanning;
+            var isScanRunning = !_indexService.IsScanComplete
+                && (_indexService.IsScanning || phase != IndexProgressPhase.Idle);
             var indexingStatus = !isScanRunning && phase == IndexProgressPhase.Idle && !_indexService.HasStableSearchIndex
                 ? LocalizationService.T("Settings_IndexResetStatus")
                 : FormatIndexPhaseStatus(phase, percent, indexedCount);
@@ -137,6 +140,8 @@ public partial class MainWindow
 
     internal void RequestResetIndexFromSettings(ResetScope scope)
     {
+        _notifyOnIndexComplete = false;
+
         InvalidateSearchForIndexRebuild();
 
         lock (_rescanLock)
@@ -170,6 +175,8 @@ public partial class MainWindow
         if (!_indexService.HasStableSearchIndex)
             InvalidateSearchForIndexRebuild();
 
+        _notifyOnIndexComplete = true;
+
         lock (_rescanLock)
         {
             _lastRescanElapsed = null;
@@ -181,6 +188,8 @@ public partial class MainWindow
 
     internal void RequestStopIndexingFromSettings()
     {
+        _notifyOnIndexComplete = false;
+
         lock (_rescanLock)
         {
             if (_rescanStopwatch is { IsRunning: true } stopwatch)
@@ -188,6 +197,34 @@ public partial class MainWindow
         }
 
         _indexService.StopScan();
+    }
+
+    internal void HandleIndexProgressCompletion(int itemCount)
+    {
+        if (!_notifyOnIndexComplete)
+            return;
+
+        _notifyOnIndexComplete = false;
+
+        TimeSpan? elapsed;
+        lock (_rescanLock)
+            elapsed = _lastRescanElapsed;
+
+        var message = elapsed is { } value
+            ? LocalizationService.F("IndexComplete_Message", itemCount, FormatElapsed(value))
+            : LocalizationService.F("IndexComplete_MessageNoElapsed", itemCount);
+
+        Window? owner = null;
+        if (_openSettingsWindow is { IsVisible: true })
+            owner = _openSettingsWindow;
+        else if (IsVisible)
+            owner = this;
+
+        var dialog = new IndexCompleteDialog(message);
+        if (owner is not null)
+            dialog.Owner = owner;
+
+        dialog.ShowDialog();
     }
 
     private void OnRescanIndexProgress(object? sender, IndexProgressEventArgs e)

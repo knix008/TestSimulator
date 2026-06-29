@@ -70,7 +70,7 @@ public partial class MainWindow
         {
             Header = LocalizationService.T(key),
             Tag = key,
-            Icon = MenuGlyphIcons.CreateWpfIcon(glyph)
+            Icon = MenuGlyphIcons.CreateWpfIcon(glyph, MenuIconColors.ForMenuKey(key))
         };
         item.Click += handler;
         return item;
