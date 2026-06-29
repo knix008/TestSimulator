@@ -74,7 +74,6 @@ export default function RequirementsPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [importMsg, setImportMsg] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -210,11 +209,13 @@ export default function RequirementsPage() {
     formData.append('file', file);
     try {
       const res = await api.post(`/excel/import?projectId=${activeProjectId}`, formData);
-      setImportMsg(`${t('requirements.importSuccess')}: ${res.data.requirements} reqs, ${res.data.testCases} TCs`);
-      if (res.data.errors?.length) setImportMsg(prev => prev + ' (' + res.data.errors.join(', ') + ')');
+      alert(t('requirements.importSuccessMessage', {
+        reqs: res.data.requirements,
+        tcs: res.data.testCases,
+      }));
       load();
     } catch (err) {
-      setImportMsg(t('requirements.importError') + ': ' + (err.response?.data?.error || err.message));
+      alert(t('requirements.importError') + ': ' + (err.response?.data?.error || err.message));
     }
     fileRef.current.value = '';
   };
@@ -251,10 +252,6 @@ export default function RequirementsPage() {
           )}
         </div>
       </div>
-
-      {importMsg && (
-        <div className="card" style={{ marginBottom: 20, background: 'var(--accent-light)' }}>{importMsg}</div>
-      )}
 
       <div className="toolbar" style={{ marginBottom: 12 }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

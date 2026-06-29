@@ -6,10 +6,41 @@ import { authMiddleware } from '../middleware/auth.js';
 import { resolveTcIdForCreate } from '../utils/tcId.js';
 import { canAccessProject, canEditProjectContent, parseProjectId, getProjectById } from '../utils/projectAccess.js';
 import { buildExportFilename, sanitizeExportPrefix } from '../utils/exportPrefix.js';
-import { validateRequirementOwner } from '../utils/requirementOwner.js';
+import { resolveRequirementOwnerForImport } from '../utils/requirementOwner.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
+function normalizeImportRow(row) {
+  const normalized = {};
+  for (const [key, value] of Object.entries(row)) {
+    normalized[String(key).trim()] = value;
+  }
+  return normalized;
+}
+
+function cellText(value) {
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
+}
+
+function pickCell(row, ...keys) {
+  for (const key of keys) {
+    const text = cellText(row[key]);
+    if (text) return text;
+  }
+  return '';
+}
+
+function findRequirementsSheet(wb) {
+  const preferred = wb.SheetNames.find((name) => name.trim().toLowerCase() === 'requirements');
+  return wb.Sheets[preferred] || wb.Sheets['Requirements'] || wb.Sheets[wb.SheetNames[0]];
+}
+
+function findTestCasesSheet(wb) {
+  const preferred = wb.SheetNames.find((name) => name.trim().toLowerCase() === 'testcases');
+  return wb.Sheets[preferred] || wb.Sheets['TestCases'] || wb.Sheets[wb.SheetNames[1]];
+}
 
 router.get('/export', authMiddleware, async (req, res) => {
   try {
@@ -83,61 +114,64 @@ router.post('/import', authMiddleware, upload.single('file'), async (req, res) =
 
   try {
     const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const stats = { requirements: 0, testCases: 0, errors: [] };
+    const stats = { requirements: 0, testCases: 0, errors: [], warnings: [] };
 
-    const importReqs = wb.Sheets['Requirements'] || wb.Sheets[wb.SheetNames[0]];
+    const importReqs = findRequirementsSheet(wb);
     if (importReqs) {
-      const rows = XLSX.utils.sheet_to_json(importReqs);
+      const rows = XLSX.utils.sheet_to_json(importReqs).map(normalizeImportRow);
       for (const row of rows) {
-        const reqId = row['Req ID'] || row['req_id'] || row['ReqID'];
-        const title = row['Title'] || row['title'];
+        const reqId = pickCell(row, 'Req ID', 'req_id', 'ReqID', 'Req Id', '요구사항 ID');
+        const title = pickCell(row, 'Title', 'title', '제목');
         if (!reqId || !title) continue;
 
-        let resolvedOwner = '';
-        try {
-          resolvedOwner = await validateRequirementOwner(row['Owner'] || '', projectId);
-        } catch (err) {
-          if (err.status === 400) {
-            stats.errors.push(`${reqId}: ${err.message}`);
-            continue;
-          }
-          throw err;
-        }
+        const { owner: resolvedOwner, warning } = await resolveRequirementOwnerForImport(
+          pickCell(row, 'Owner', 'owner', '담당자'),
+          projectId
+        );
+        if (warning) stats.warnings.push(`${reqId}: ${warning}`);
 
         const existing = await queryOne(
           'SELECT id FROM requirements WHERE req_id = ? AND project_id = ?',
           [reqId, projectId]
         );
+        const fields = [
+          title,
+          pickCell(row, 'Description', 'description', '설명'),
+          pickCell(row, 'Category', 'category', '카테고리') || 'General',
+          pickCell(row, 'Priority', 'priority', '우선순위') || 'Medium',
+          pickCell(row, 'Status', 'status', '상태') || 'Draft',
+          resolvedOwner,
+          pickCell(row, 'Version', 'version', '버전') || '1.0',
+          now(),
+          reqId,
+          projectId,
+        ];
+
         if (existing) {
           await execute(`
             UPDATE requirements SET title=?, description=?, category=?, priority=?, status=?, owner=?, version=?, updated_at=?
             WHERE req_id=? AND project_id=?
-          `, [
-            title, row['Description'] || '', row['Category'] || 'General',
-            row['Priority'] || 'Medium', row['Status'] || 'Draft',
-            resolvedOwner, row['Version'] || '1.0', now(), reqId, projectId
-          ]);
+          `, fields);
         } else {
           await insert(`
             INSERT INTO requirements (project_id, req_id, title, description, category, priority, status, owner, version, created_by, updated_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            projectId, reqId, title, row['Description'] || '', row['Category'] || 'General',
-            row['Priority'] || 'Medium', row['Status'] || 'Draft',
-            resolvedOwner, row['Version'] || '1.0', req.user.id, req.user.id
+            projectId, reqId, title, fields[1], fields[2], fields[3], fields[4],
+            resolvedOwner, fields[6], req.user.id, req.user.id,
           ]);
         }
         stats.requirements++;
       }
     }
 
-    const importTCs = wb.Sheets['TestCases'] || wb.Sheets[wb.SheetNames[1]];
+    const importTCs = findTestCasesSheet(wb);
     if (importTCs) {
-      const rows = XLSX.utils.sheet_to_json(importTCs);
+      const rows = XLSX.utils.sheet_to_json(importTCs).map(normalizeImportRow);
       for (const row of rows) {
-        const tcId = row['TC ID'] || row['tc_id'] || row['TCID'];
-        const reqId = row['Req ID'] || row['req_id'];
-        const title = row['Title'] || row['title'];
+        const tcId = pickCell(row, 'TC ID', 'tc_id', 'TCID', 'TC Id');
+        const reqId = pickCell(row, 'Req ID', 'req_id', 'ReqID', 'Req Id', '요구사항 ID');
+        const title = pickCell(row, 'Title', 'title', '제목');
         if (!tcId || !reqId || !title) continue;
 
         const reqRow = await queryOne(
@@ -159,9 +193,15 @@ router.post('/import', authMiddleware, upload.single('file'), async (req, res) =
               status=?, result=?, executed_by=?, notes=?, updated_at=?
             WHERE tc_id=? AND project_id=?
           `, [
-            reqRow.id, title, row['Description'] || '', row['Steps'] || '',
-            row['Expected Result'] || '', row['Status'] || 'Not Run',
-            row['Result'] || '', row['Executed By'] || '', row['Notes'] || '', now(), tcId, projectId
+            reqRow.id, title,
+            pickCell(row, 'Description', 'description', '설명'),
+            pickCell(row, 'Steps', 'steps', '단계'),
+            pickCell(row, 'Expected Result', 'expected_result', 'ExpectedResult', '기대 결과'),
+            pickCell(row, 'Status', 'status', '상태') || 'Not Run',
+            pickCell(row, 'Result', 'result', '결과'),
+            pickCell(row, 'Executed By', 'executed_by', 'ExecutedBy', '실행자'),
+            pickCell(row, 'Notes', 'notes', '비고'),
+            now(), tcId, projectId,
           ]);
         } else {
           let resolvedTcId;
@@ -178,13 +218,22 @@ router.post('/import', authMiddleware, upload.single('file'), async (req, res) =
             INSERT INTO test_cases (project_id, tc_id, requirement_id, title, description, steps, expected_result, status, result, executed_by, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            projectId, resolvedTcId, reqRow.id, title, row['Description'] || '', row['Steps'] || '',
-            row['Expected Result'] || '', row['Status'] || 'Not Run',
-            row['Result'] || '', row['Executed By'] || '', row['Notes'] || ''
+            projectId, resolvedTcId, reqRow.id, title,
+            pickCell(row, 'Description', 'description', '설명'),
+            pickCell(row, 'Steps', 'steps', '단계'),
+            pickCell(row, 'Expected Result', 'expected_result', 'ExpectedResult', '기대 결과'),
+            pickCell(row, 'Status', 'status', '상태') || 'Not Run',
+            pickCell(row, 'Result', 'result', '결과'),
+            pickCell(row, 'Executed By', 'executed_by', 'ExecutedBy', '실행자'),
+            pickCell(row, 'Notes', 'notes', '비고'),
           ]);
         }
         stats.testCases++;
       }
+    }
+
+    if (stats.requirements === 0 && stats.testCases === 0 && stats.errors.length === 0) {
+      stats.errors.push('No valid rows found. Check sheet names (Requirements, TestCases) and column headers.');
     }
 
     res.json(stats);
