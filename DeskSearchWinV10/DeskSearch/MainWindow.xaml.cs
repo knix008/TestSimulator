@@ -184,6 +184,7 @@ public partial class MainWindow : Window
                 return;
 
             UpdateIndexUi();
+            _openSettingsWindow?.RefreshProgressUi();
         });
     }
 

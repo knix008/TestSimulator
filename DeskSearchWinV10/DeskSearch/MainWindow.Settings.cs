@@ -229,6 +229,8 @@ public partial class MainWindow
         return visible.Width >= 80 && visible.Height >= 30;
     }
 
+    private SettingsWindow? _openSettingsWindow;
+
     private void MenuSettings_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SettingsWindow(
@@ -241,8 +243,16 @@ public partial class MainWindow
             Owner = this
         };
 
-        if (dialog.ShowDialog() != true)
-            return;
+        _openSettingsWindow = dialog;
+        try
+        {
+            if (dialog.ShowDialog() != true)
+                return;
+        }
+        finally
+        {
+            _openSettingsWindow = null;
+        }
 
         var previousExclusions = IndexExclusionPolicy.FromSettings(_settingsService.Current);
 

@@ -32,6 +32,7 @@ public partial class SettingsWindow : Window
     private bool _progressPausedForScroll;
     private bool _progressIdle;
     private bool _indexActionIsStopMode;
+    private bool _resetUiPending;
     private IInputElement? _pendingFocusRestore;
     private readonly string _initialLanguage;
     private bool _suppressLanguageLiveApply;
@@ -202,10 +203,21 @@ public partial class SettingsWindow : Window
 
     private void SyncProgressActivityMode(SettingsProgressSnapshot snapshot)
     {
-        if (!snapshot.IsIndexing && !snapshot.IsSearching)
-            EnterProgressIdleMode();
-        else
+        if (_resetUiPending || snapshot.IsIndexing || snapshot.IsSearching)
             ExitProgressIdleMode();
+        else
+            EnterProgressIdleMode();
+    }
+
+    internal void RefreshProgressUi()
+    {
+        if (_getProgress is null)
+            return;
+
+        _lastProgressPercent = -1;
+        _lastProgressStatus = null;
+        _lastProgressPhase = null;
+        UpdateProgressUi();
     }
 
     protected override void OnClosed(EventArgs e)
@@ -583,6 +595,18 @@ public partial class SettingsWindow : Window
 
         var snapshot = _getProgress();
 
+        if (_resetUiPending)
+        {
+            if (snapshot.IsIndexing)
+                _resetUiPending = false;
+            else
+            {
+                SyncIndexActionButton(snapshot.IsScanRunning, snapshot.IsPostProcessing);
+                SyncResetIndexButton(false);
+                return;
+            }
+        }
+
         if (snapshot.Percent == _lastProgressPercent
             && string.Equals(snapshot.StatusText, _lastProgressStatus, StringComparison.Ordinal)
             && string.Equals(snapshot.PhaseText, _lastProgressPhase, StringComparison.Ordinal))
@@ -710,12 +734,30 @@ public partial class SettingsWindow : Window
         if (confirm != MessageBoxResult.Yes)
             return;
 
+        _resetUiPending = true;
         ExitProgressIdleMode();
         _resetIndex?.Invoke();
-        _lastProgressPercent = -1;
-        _lastProgressStatus = null;
-        _lastProgressPhase = null;
-        UpdateProgressUi();
+        ApplyResetProgressUi();
+    }
+
+    private void ApplyResetProgressUi()
+    {
+        var status = LocalizationService.T("Settings_IndexResetStatus");
+
+        _lastProgressPercent = 0;
+        _lastProgressStatus = status;
+        _lastProgressPhase = string.Empty;
+
+        var trackWidth = IndexProgressTrack.ActualWidth;
+        if (trackWidth > 0)
+            IndexProgressFill.Width = 0;
+
+        IndexProgressPercentLabel.Text = "0%";
+        IndexProgressPhaseLabel.Visibility = Visibility.Collapsed;
+        IndexProgressStatusLabel.Text = status;
+        SyncIndexActionButton(isStopMode: false, isPostProcessing: false);
+        SyncResetIndexButton(isEnabled: false);
+        ExitProgressIdleMode();
     }
 
     private void OpenDataFolder_Click(object sender, RoutedEventArgs e)

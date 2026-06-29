@@ -88,6 +88,7 @@
   <data name="Settings_ResetIndex_ConfirmTitle" xml:space="preserve"><value>Reset Index</value></data>
   <data name="Settings_ResetIndex_ConfirmMessage" xml:space="preserve"><value>This will delete all saved search index database files (index.db, index.building.db, and related files). This action cannot be undone. Continue?</value></data>
   <data name="Settings_OpenDataFolder" xml:space="preserve"><value>Data Folder</value></data>
+  <data name="Settings_IndexResetStatus" xml:space="preserve"><value>Index has been reset. Press Indexing to start again.</value></data>
   <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>
   <data name="Settings_IndexPhaseLabel" xml:space="preserve"><value>{0}/{1} · {2}</value></data>
   <data name="Settings_IndexPhaseName_Scanning" xml:space="preserve"><value>Scan</value></data>

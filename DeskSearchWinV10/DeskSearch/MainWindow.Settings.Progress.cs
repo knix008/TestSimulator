@@ -19,14 +19,18 @@ public partial class MainWindow
             var baselineCount = _indexService.ScanBaselineCount;
             var percent = _indexService.IndexDisplayPercent;
             var isPostProcessing = phase is IndexProgressPhase.Analyzing or IndexProgressPhase.Applying;
+            var isScanRunning = phase == IndexProgressPhase.Scanning && _indexService.IsScanning;
+            var indexingStatus = !isScanRunning && phase == IndexProgressPhase.Idle && _indexService.Count == 0
+                ? LocalizationService.T("Settings_IndexResetStatus")
+                : FormatIndexPhaseStatus(phase, percent, indexedCount, baselineCount, _indexService.ScanUsesShadowBuild);
 
             return new SettingsProgressSnapshot
             {
                 Percent = percent,
                 PhaseText = FormatIndexPhaseLabel(phase, _indexService.ScanUsesShadowBuild),
-                StatusText = FormatIndexPhaseStatus(phase, percent, indexedCount, baselineCount, _indexService.ScanUsesShadowBuild),
+                StatusText = indexingStatus,
                 IsIndexing = true,
-                IsScanRunning = phase == IndexProgressPhase.Scanning && _indexService.IsScanning,
+                IsScanRunning = isScanRunning,
                 IsPostProcessing = isPostProcessing,
                 CanResetIndex = false
             };
