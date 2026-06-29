@@ -6,6 +6,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { resolveTcIdForCreate } from '../utils/tcId.js';
 import { canAccessProject, canEditProjectContent, parseProjectId, getProjectById } from '../utils/projectAccess.js';
 import { buildExportFilename, sanitizeExportPrefix } from '../utils/exportPrefix.js';
+import { validateRequirementOwner } from '../utils/requirementOwner.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -92,6 +93,17 @@ router.post('/import', authMiddleware, upload.single('file'), async (req, res) =
         const title = row['Title'] || row['title'];
         if (!reqId || !title) continue;
 
+        let resolvedOwner = '';
+        try {
+          resolvedOwner = await validateRequirementOwner(row['Owner'] || '', projectId);
+        } catch (err) {
+          if (err.status === 400) {
+            stats.errors.push(`${reqId}: ${err.message}`);
+            continue;
+          }
+          throw err;
+        }
+
         const existing = await queryOne(
           'SELECT id FROM requirements WHERE req_id = ? AND project_id = ?',
           [reqId, projectId]
@@ -103,7 +115,7 @@ router.post('/import', authMiddleware, upload.single('file'), async (req, res) =
           `, [
             title, row['Description'] || '', row['Category'] || 'General',
             row['Priority'] || 'Medium', row['Status'] || 'Draft',
-            row['Owner'] || '', row['Version'] || '1.0', now(), reqId, projectId
+            resolvedOwner, row['Version'] || '1.0', now(), reqId, projectId
           ]);
         } else {
           await insert(`
@@ -112,7 +124,7 @@ router.post('/import', authMiddleware, upload.single('file'), async (req, res) =
           `, [
             projectId, reqId, title, row['Description'] || '', row['Category'] || 'General',
             row['Priority'] || 'Medium', row['Status'] || 'Draft',
-            row['Owner'] || '', row['Version'] || '1.0', req.user.id, req.user.id
+            resolvedOwner, row['Version'] || '1.0', req.user.id, req.user.id
           ]);
         }
         stats.requirements++;
