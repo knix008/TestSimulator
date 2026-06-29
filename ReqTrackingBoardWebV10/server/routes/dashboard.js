@@ -1,18 +1,42 @@
 import { Router } from 'express';
 import { query, queryOne } from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { canAccessProject, parseProjectId } from '../utils/projectAccess.js';
 
 const router = Router();
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const [reqTotal] = await query('SELECT COUNT(*) as c FROM requirements');
-    const reqByStatus = await query('SELECT status, COUNT(*) as count FROM requirements GROUP BY status');
-    const reqByPriority = await query('SELECT priority, COUNT(*) as count FROM requirements GROUP BY priority');
-    const reqByCategory = await query('SELECT category, COUNT(*) as count FROM requirements GROUP BY category');
+    const projectId = parseProjectId(req.query.projectId);
+    if (!projectId) {
+      return res.status(400).json({ error: 'projectId required' });
+    }
+    if (!(await canAccessProject(req.user, projectId))) {
+      return res.status(403).json({ error: 'Project access denied' });
+    }
 
-    const [tcTotal] = await query('SELECT COUNT(*) as c FROM test_cases');
-    const tcByStatus = await query('SELECT status, COUNT(*) as count FROM test_cases GROUP BY status');
+    const reqFilter = 'WHERE project_id = ?';
+    const params = [projectId];
+
+    const [reqTotal] = await query(`SELECT COUNT(*) as c FROM requirements ${reqFilter}`, params);
+    const reqByStatus = await query(
+      `SELECT status, COUNT(*) as count FROM requirements ${reqFilter} GROUP BY status`,
+      params
+    );
+    const reqByPriority = await query(
+      `SELECT priority, COUNT(*) as count FROM requirements ${reqFilter} GROUP BY priority`,
+      params
+    );
+    const reqByCategory = await query(
+      `SELECT category, COUNT(*) as count FROM requirements ${reqFilter} GROUP BY category`,
+      params
+    );
+
+    const [tcTotal] = await query(`SELECT COUNT(*) as c FROM test_cases ${reqFilter}`, params);
+    const tcByStatus = await query(
+      `SELECT status, COUNT(*) as count FROM test_cases ${reqFilter} GROUP BY status`,
+      params
+    );
 
     const coverage = await queryOne(`
       SELECT
@@ -21,12 +45,14 @@ router.get('/', authMiddleware, async (req, res) => {
         COUNT(DISTINCT CASE WHEN tc.status = 'Passed' THEN r.id END) as reqs_all_passed
       FROM requirements r
       LEFT JOIN test_cases tc ON tc.requirement_id = r.id
-    `);
+      WHERE r.project_id = ?
+    `, [projectId]);
 
     const recentActivity = await query(`
       SELECT 'requirement' as type, req_id as ref_id, title, updated_at
-      FROM requirements ORDER BY updated_at DESC LIMIT 5
-    `);
+      FROM requirements WHERE project_id = ?
+      ORDER BY updated_at DESC LIMIT 5
+    `, [projectId]);
 
     const reqStats = {
       total: reqTotal.c,

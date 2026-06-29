@@ -25,7 +25,7 @@ export default function SetupPage() {
 
   const handleComplete = (data) => {
     completeSetup(data.token, data.user);
-    navigate('/', { replace: true });
+    navigate('/projects', { replace: true });
   };
 
   if (!user || !needsSetup) return null;

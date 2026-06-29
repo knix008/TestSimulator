@@ -4,10 +4,11 @@ import api from '../api';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import { StatusBadge, PriorityBadge } from '../components/Badge';
-import { useAuth } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { useDataSync } from '../context/DataSyncContext';
 import { REQ_STATUSES, PRIORITIES, CATEGORIES, formatDate } from '../utils/helpers';
+import { buildExportFilename, sanitizeExportPrefix } from '../utils/exportPrefix';
 
 const HISTORY_FIELD_KEYS = {
   reqId: 'reqId',
@@ -48,7 +49,7 @@ const emptyForm = {
 
 export default function RequirementsPage() {
   const { t } = useTranslation();
-  const { canEdit } = useAuth();
+  const { canEditProject, activeProjectId, activeProject } = useProject();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -63,33 +64,43 @@ export default function RequirementsPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyTitle, setHistoryTitle] = useState('');
   const [historyTarget, setHistoryTarget] = useState(null);
+  const [exportPrefix, setExportPrefix] = useState('');
   const fileRef = useRef();
   const { refreshToken } = useDataSync();
 
   const load = useCallback(() => {
-    const params = {};
+    if (!activeProjectId) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    const params = { projectId: activeProjectId };
     if (search) params.search = search;
     if (filterStatus) params.status = filterStatus;
     api.get('/requirements', { params })
       .then(res => setItems(res.data))
       .finally(() => setLoading(false));
-  }, [search, filterStatus]);
+  }, [search, filterStatus, activeProjectId]);
 
   useAutoRefresh(load);
+
+  useEffect(() => {
+    setExportPrefix(activeProject?.name ?? '');
+  }, [activeProjectId, activeProject?.name]);
 
   const fetchHistory = useCallback(async (item = null) => {
     setHistoryLoading(true);
     setHistoryTitle(item ? `${item.reqId} — ${item.title}` : t('requirements.historyAll'));
     try {
       const url = item ? `/requirements/${item.id}/history` : '/requirements/history';
-      const res = await api.get(url, { params: { limit: 200 } });
+      const res = await api.get(url, { params: { limit: 200, projectId: activeProjectId } });
       setHistoryItems(res.data);
     } catch {
       setHistoryItems([]);
     } finally {
       setHistoryLoading(false);
     }
-  }, [t]);
+  }, [t, activeProjectId]);
 
   useEffect(() => {
     if (historyOpen) fetchHistory(historyTarget);
@@ -98,7 +109,7 @@ export default function RequirementsPage() {
   const openAdd = async () => {
     setEditing(null);
     try {
-      const res = await api.get('/requirements/next-id');
+      const res = await api.get('/requirements/next-id', { params: { projectId: activeProjectId } });
       setForm({ ...emptyForm, reqId: res.data.reqId });
     } catch {
       setForm(emptyForm);
@@ -123,7 +134,7 @@ export default function RequirementsPage() {
       if (editing) {
         res = await api.put(`/requirements/${editing.id}`, form);
       } else {
-        res = await api.post('/requirements', form);
+        res = await api.post('/requirements', { ...form, projectId: activeProjectId });
       }
       if (res.data.shiftedCount > 0) {
         alert(t('requirements.idShifted', { count: res.data.shiftedCount }));
@@ -159,11 +170,15 @@ export default function RequirementsPage() {
   };
 
   const exportExcel = async () => {
-    const res = await api.get('/excel/export', { responseType: 'blob' });
+    const prefix = sanitizeExportPrefix(exportPrefix);
+    const res = await api.get('/excel/export', {
+      params: { projectId: activeProjectId, prefix: prefix || undefined },
+      responseType: 'blob',
+    });
     const url = URL.createObjectURL(res.data);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'requirements_export.xlsx';
+    a.download = buildExportFilename(prefix, 'requirements_export', 'xlsx');
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -174,7 +189,7 @@ export default function RequirementsPage() {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await api.post('/excel/import', formData);
+      const res = await api.post(`/excel/import?projectId=${activeProjectId}`, formData);
       setImportMsg(`${t('requirements.importSuccess')}: ${res.data.requirements} reqs, ${res.data.testCases} TCs`);
       if (res.data.errors?.length) setImportMsg(prev => prev + ' (' + res.data.errors.join(', ') + ')');
       load();
@@ -186,8 +201,12 @@ export default function RequirementsPage() {
 
   return (
     <Layout>
+      {!activeProjectId ? (
+        <div className="empty-state">{t('projects.selectProject')}</div>
+      ) : (
+      <>
       <div className="page-header">
-        <h2>{t('requirements.title')}</h2>
+        <h2>{t('requirements.title')}{activeProject ? ` — ${activeProject.name}` : ''}</h2>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => openHistory()}>
             <span className="btn-icon" aria-hidden="true">📜</span>
@@ -197,7 +216,7 @@ export default function RequirementsPage() {
             <span className="btn-icon" aria-hidden="true">📤</span>
             {t('requirements.export')}
           </button>
-          {canEdit && (
+          {canEditProject && (
             <>
               <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>
                 <span className="btn-icon" aria-hidden="true">📥</span>
@@ -216,6 +235,19 @@ export default function RequirementsPage() {
       {importMsg && (
         <div className="card" style={{ marginBottom: 20, background: 'var(--accent-light)' }}>{importMsg}</div>
       )}
+
+      <div className="toolbar" style={{ marginBottom: 12 }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span>{t('common.exportPrefix')}</span>
+          <input
+            className="form-control"
+            style={{ maxWidth: 240 }}
+            value={exportPrefix}
+            onChange={e => setExportPrefix(e.target.value)}
+            placeholder={activeProject?.name ?? ''}
+          />
+        </label>
+      </div>
 
       <div className="toolbar">
         <input
@@ -247,7 +279,7 @@ export default function RequirementsPage() {
                 <th>{t('requirements.testCases')}</th>
                 <th>{t('requirements.passed')}</th>
                 <th>{t('requirements.failed')}</th>
-                {canEdit && <th>{t('common.actions')}</th>}
+                {canEditProject && <th>{t('common.actions')}</th>}
                 <th>{t('requirements.history')}</th>
               </tr>
             </thead>
@@ -262,7 +294,7 @@ export default function RequirementsPage() {
                   <td>{item.testCaseCount}</td>
                   <td style={{ color: 'var(--success)' }}>{item.passedCount}</td>
                   <td style={{ color: 'var(--danger)' }}>{item.failedCount}</td>
-                  {canEdit && (
+                  {canEditProject && (
                     <td className="actions-cell">
                       <button className="btn btn-sm btn-secondary" onClick={() => openEdit(item)}>
                         <span className="btn-icon" aria-hidden="true">✏️</span>
@@ -397,6 +429,8 @@ export default function RequirementsPage() {
           </div>
         )}
       </Modal>
+      </>
+      )}
     </Layout>
   );
 }

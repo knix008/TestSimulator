@@ -2,7 +2,7 @@ import { loadDbConfig, saveDbConfig, normalizeDbConfig, isDbInstalled } from './
 import { createMysqlAdapter } from './adapters/mysql.js';
 import { createPostgresAdapter } from './adapters/postgres.js';
 import { createSqliteAdapter } from './adapters/sqlite.js';
-import { migrateThemeColumn, migrateEmailColumn, migrateMenuLayoutColumn, migrateLanguageColumn, migrateRequirementHistoryTable, ensureAdminUser } from './schemas.js';
+import { migrateThemeColumn, migrateEmailColumn, migrateMenuLayoutColumn, migrateLanguageColumn, migrateRequirementHistoryTable, migrateProjectsSchema, migrateProjectHistoryTable, ensureAdminUser } from './schemas.js';
 
 let adapter = null;
 let dbReady = false;
@@ -90,6 +90,8 @@ export async function initDatabase() {
     await migrateMenuLayoutColumn(adapter, config.type === 'mysql' ? 'mysql' : config.type);
     await migrateLanguageColumn(adapter, config.type === 'mysql' ? 'mysql' : config.type);
     await migrateRequirementHistoryTable(adapter, config.type === 'mysql' ? 'mysql' : config.type);
+    await migrateProjectsSchema(adapter, config.type === 'mysql' ? 'mysql' : config.type);
+    await migrateProjectHistoryTable(adapter, config.type === 'mysql' ? 'mysql' : config.type);
     const bcrypt = await import('bcryptjs');
     await ensureAdminUser(adapter, bcrypt.default);
     dbReady = true;

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ProjectProvider } from './context/ProjectContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { MenuLayoutProvider } from './context/MenuLayoutContext';
 import { LanguageProvider } from './context/LanguageContext';
@@ -12,13 +13,16 @@ import TestCasesPage from './pages/TestCasesPage';
 import UsersPage from './pages/UsersPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
+import ProjectsPage from './pages/ProjectsPage';
+import ProjectAdminPage from './pages/ProjectAdminPage';
+import AdminProjectsPage from './pages/AdminProjectsPage';
 
 function PrivateRoute({ children, adminOnly }) {
   const { user, loading, isAdmin, needsSetup } = useAuth();
   if (loading) return <div className="empty-state" style={{ minHeight: '100vh' }}>Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (needsSetup) return <Navigate to="/setup" replace />;
-  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to="/projects" replace />;
   return children;
 }
 
@@ -26,7 +30,7 @@ function SetupRoute() {
   const { user, loading, needsSetup } = useAuth();
   if (loading) return <div className="empty-state" style={{ minHeight: '100vh' }}>Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (!needsSetup) return <Navigate to="/" replace />;
+  if (!needsSetup) return <Navigate to="/projects" replace />;
   return <SetupPage />;
 }
 
@@ -35,13 +39,17 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup" element={<SetupRoute />} />
-      <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+      <Route path="/projects" element={<PrivateRoute><ProjectsPage /></PrivateRoute>} />
+      <Route path="/projects/:id/admin" element={<PrivateRoute><ProjectAdminPage /></PrivateRoute>} />
+      <Route path="/admin/projects" element={<PrivateRoute adminOnly><AdminProjectsPage /></PrivateRoute>} />
+      <Route path="/" element={<Navigate to="/projects" replace />} />
+      <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
       <Route path="/requirements" element={<PrivateRoute><RequirementsPage /></PrivateRoute>} />
       <Route path="/test-cases" element={<PrivateRoute><TestCasesPage /></PrivateRoute>} />
       <Route path="/users" element={<PrivateRoute adminOnly><UsersPage /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><ReportsPage /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/projects" replace />} />
     </Routes>
   );
 }
@@ -49,7 +57,8 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <ThemeProvider>
+      <ProjectProvider>
+        <ThemeProvider>
         <MenuLayoutProvider>
           <LanguageProvider>
             <DataSyncProvider>
@@ -59,7 +68,8 @@ export default function App() {
             </DataSyncProvider>
           </LanguageProvider>
         </MenuLayoutProvider>
-      </ThemeProvider>
+        </ThemeProvider>
+      </ProjectProvider>
     </AuthProvider>
   );
 }

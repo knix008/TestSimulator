@@ -342,3 +342,212 @@ export async function migrateThemeColumn(adapter, dialect) {
     if (err.code !== 'ER_DUP_FIELDNAME') throw err;
   }
 }
+
+function projectsTableDdl(dialect) {
+  if (dialect === 'sqlite3') {
+    return [
+      `CREATE TABLE IF NOT EXISTS projects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'active',
+        created_by INTEGER,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS project_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        role TEXT NOT NULL DEFAULT 'member',
+        permission TEXT NOT NULL DEFAULT 'view',
+        joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(project_id, user_id),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      `CREATE TABLE IF NOT EXISTS project_join_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        message TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending',
+        reviewed_by INTEGER,
+        reviewed_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+      )`,
+    ];
+  }
+  if (dialect === 'postgresql') {
+    return [
+      `CREATE TABLE IF NOT EXISTS projects (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(100) UNIQUE NOT NULL,
+        name VARCHAR(300) NOT NULL,
+        description TEXT DEFAULT '',
+        status VARCHAR(50) NOT NULL DEFAULT 'active',
+        created_by INT REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS project_members (
+        id SERIAL PRIMARY KEY,
+        project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL DEFAULT 'member',
+        permission VARCHAR(50) NOT NULL DEFAULT 'view',
+        joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(project_id, user_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS project_join_requests (
+        id SERIAL PRIMARY KEY,
+        project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message TEXT DEFAULT '',
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        reviewed_by INT REFERENCES users(id) ON DELETE SET NULL,
+        reviewed_at TIMESTAMP NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+    ];
+  }
+  return [
+    `CREATE TABLE IF NOT EXISTS projects (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      code VARCHAR(100) UNIQUE NOT NULL,
+      name VARCHAR(300) NOT NULL,
+      description TEXT,
+      status VARCHAR(50) NOT NULL DEFAULT 'active',
+      created_by INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    `CREATE TABLE IF NOT EXISTS project_members (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      project_id INT NOT NULL,
+      user_id INT NOT NULL,
+      role VARCHAR(50) NOT NULL DEFAULT 'member',
+      permission VARCHAR(50) NOT NULL DEFAULT 'view',
+      joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_project_user (project_id, user_id),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    `CREATE TABLE IF NOT EXISTS project_join_requests (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      project_id INT NOT NULL,
+      user_id INT NOT NULL,
+      message TEXT,
+      status VARCHAR(50) NOT NULL DEFAULT 'pending',
+      reviewed_by INT NULL,
+      reviewed_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  ];
+}
+
+async function addColumnIfMissing(adapter, dialect, table, column, ddl) {
+  if (dialect === 'sqlite3') {
+    try {
+      await adapter.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+    } catch (err) {
+      if (!String(err.message).includes('duplicate column')) throw err;
+    }
+    return;
+  }
+  if (dialect === 'postgresql') {
+    try {
+      await adapter.execute(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${ddl}`);
+    } catch { /* ignore */ }
+    return;
+  }
+  try {
+    await adapter.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+  }
+}
+
+export async function migrateProjectsSchema(adapter, dialect) {
+  const d = dialect === 'mysql' ? 'mysql' : dialect;
+  for (const ddl of projectsTableDdl(d)) {
+    await adapter.execute(ddl);
+  }
+
+  const projectIdType = d === 'sqlite3' ? 'INTEGER NOT NULL DEFAULT 1' : 'INT NOT NULL DEFAULT 1';
+  await addColumnIfMissing(adapter, d, 'requirements', 'project_id', projectIdType);
+  await addColumnIfMissing(adapter, d, 'test_cases', 'project_id', projectIdType);
+
+  let defaultProject = await adapter.queryOne('SELECT id FROM projects ORDER BY id LIMIT 1');
+  if (!defaultProject) {
+    const admin = await adapter.queryOne('SELECT id FROM users WHERE username = ?', ['admin']);
+    const defaultId = await adapter.insert(
+      'INSERT INTO projects (code, name, description, status, created_by) VALUES (?, ?, ?, ?, ?)',
+      ['DEFAULT', 'Default Project', 'Migrated legacy data', 'active', admin?.id ?? null]
+    );
+    defaultProject = { id: defaultId };
+    if (admin?.id) {
+      await adapter.execute(
+        'INSERT INTO project_members (project_id, user_id, role, permission) VALUES (?, ?, ?, ?)',
+        [defaultId, admin.id, 'project_admin', 'edit']
+      ).catch(() => {});
+    }
+  }
+
+  const pid = defaultProject.id;
+  await adapter.execute('UPDATE requirements SET project_id = ? WHERE project_id IS NULL OR project_id = 0', [pid]).catch(() => {});
+  await adapter.execute(
+    `UPDATE test_cases SET project_id = (
+      SELECT project_id FROM requirements r WHERE r.id = test_cases.requirement_id
+    ) WHERE project_id IS NULL OR project_id = 0`
+  ).catch(() => {});
+}
+
+export async function migrateProjectHistoryTable(adapter, dialect) {
+  const ddl = dialect === 'sqlite3'
+    ? `CREATE TABLE IF NOT EXISTS project_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      project_code TEXT NOT NULL,
+      action TEXT NOT NULL,
+      changes TEXT,
+      note TEXT,
+      changed_by INTEGER,
+      changed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
+    )`
+    : dialect === 'postgresql'
+      ? `CREATE TABLE IF NOT EXISTS project_history (
+        id SERIAL PRIMARY KEY,
+        project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        project_code VARCHAR(100) NOT NULL,
+        action VARCHAR(40) NOT NULL,
+        changes TEXT,
+        note VARCHAR(255) NULL,
+        changed_by INT REFERENCES users(id) ON DELETE SET NULL,
+        changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`
+      : `CREATE TABLE IF NOT EXISTS project_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        project_code VARCHAR(100) NOT NULL,
+        action VARCHAR(40) NOT NULL,
+        changes TEXT,
+        note VARCHAR(255) NULL,
+        changed_by INT NULL,
+        changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`;
+  await adapter.execute(ddl);
+}

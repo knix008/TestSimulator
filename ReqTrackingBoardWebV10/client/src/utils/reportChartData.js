@@ -1,5 +1,15 @@
 export function mapCountObject(obj) {
+  if (Array.isArray(obj)) {
+    return obj.map(({ name, count, value }) => ({ name, value: Number(count ?? value ?? 0) }));
+  }
   return Object.entries(obj || {}).map(([name, value]) => ({ name, value: Number(value) }));
+}
+
+export function statusOverviewEntries(byStatus) {
+  if (Array.isArray(byStatus)) {
+    return byStatus.map(({ name, count }) => [name, count]);
+  }
+  return Object.entries(byStatus || {});
 }
 
 export function groupRequirements(requirements, field) {

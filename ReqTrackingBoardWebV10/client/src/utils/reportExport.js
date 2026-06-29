@@ -18,6 +18,8 @@ const MARKDOWN_CHART_MAX_WIDTH = 320;
 const MARKDOWN_CHART_MAX_HEIGHT = 240;
 let pdfFontsReady = false;
 
+import { buildExportFilename } from './exportPrefix.js';
+
 function downloadBlob(content, filename, mimeType) {
   const blob = content instanceof Blob
     ? content
@@ -31,6 +33,9 @@ function downloadBlob(content, filename, mimeType) {
 }
 
 function buildStatusLines(obj) {
+  if (Array.isArray(obj)) {
+    return obj.map(({ name, count }) => `${name}: ${count}`).join(', ');
+  }
   return Object.entries(obj || {}).map(([k, v]) => `${k}: ${v}`).join(', ');
 }
 
@@ -333,13 +338,15 @@ export async function exportReportMarkdown(report, labels, chartImages = {}) {
   }
 
   const blob = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(blob, 'summary_report.zip', 'application/zip');
+  const prefix = labels.filePrefix || '';
+  downloadBlob(blob, buildExportFilename(prefix, 'summary_report', 'zip'), 'application/zip');
 }
 
 export async function exportReportWord(report, labels, chartImages = {}) {
   const wordCharts = await prepareWordChartImages(chartImages);
   const html = buildReportHtml(report, labels, wordCharts, { fixedCharts: true });
-  downloadBlob('\ufeff' + html, 'summary_report.doc', 'application/msword');
+  const prefix = labels.filePrefix || '';
+  downloadBlob('\ufeff' + html, buildExportFilename(prefix, 'summary_report', 'doc'), 'application/msword');
 }
 
 async function renderReportCanvas(container) {
@@ -424,7 +431,7 @@ export async function exportReportPdf(report, labels, chartImages = {}) {
     const canvas = await renderReportCanvas(container);
     const doc = new jsPDF({ orientation: PDF_ORIENTATION, unit: 'mm', format: PDF_FORMAT });
     addCanvasPagesToPdf(doc, canvas, PDF_PAGE_MARGIN_MM);
-    doc.save('summary_report.pdf');
+    doc.save(buildExportFilename(labels.filePrefix || '', 'summary_report', 'pdf'));
   } finally {
     document.body.removeChild(container);
   }

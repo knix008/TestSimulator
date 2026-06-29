@@ -206,7 +206,7 @@ export default function SettingsPage() {
         <h2>{t('settings.title')}</h2>
       </div>
 
-      <div className="settings-grid">
+      <div className={`settings-grid settings-grid--${menuLayout}`}>
         <div className="card">
           <h3 style={{ marginBottom: 20 }}>{t('settings.account')}</h3>
           {showDefaultWarning && (

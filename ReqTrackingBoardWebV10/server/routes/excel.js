@@ -2,19 +2,35 @@ import { Router } from 'express';
 import multer from 'multer';
 import * as XLSX from 'xlsx';
 import { query, queryOne, insert, execute, now } from '../db.js';
-import { authMiddleware, editMiddleware } from '../middleware/auth.js';
+import { authMiddleware } from '../middleware/auth.js';
 import { resolveTcIdForCreate } from '../utils/tcId.js';
+import { canAccessProject, canEditProjectContent, parseProjectId, getProjectById } from '../utils/projectAccess.js';
+import { buildExportFilename, sanitizeExportPrefix } from '../utils/exportPrefix.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.get('/export', authMiddleware, async (req, res) => {
   try {
-    const requirements = await query('SELECT * FROM requirements ORDER BY req_id');
+    const projectId = parseProjectId(req.query.projectId);
+    if (!projectId) return res.status(400).json({ error: 'projectId required' });
+    if (!(await canAccessProject(req.user, projectId))) {
+      return res.status(403).json({ error: 'Project access denied' });
+    }
+
+    const project = await getProjectById(projectId);
+    const prefix = sanitizeExportPrefix(req.query.prefix) || sanitizeExportPrefix(project?.name);
+
+    const requirements = await query(
+      'SELECT * FROM requirements WHERE project_id = ? ORDER BY req_id',
+      [projectId]
+    );
     const testCases = await query(`
       SELECT tc.*, r.req_id FROM test_cases tc
-      JOIN requirements r ON r.id = tc.requirement_id ORDER BY tc.tc_id
-    `);
+      JOIN requirements r ON r.id = tc.requirement_id
+      WHERE tc.project_id = ?
+      ORDER BY tc.tc_id
+    `, [projectId]);
 
     const reqSheet = requirements.map(r => ({
       'Req ID': r.req_id,
@@ -46,16 +62,23 @@ router.get('/export', authMiddleware, async (req, res) => {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tcSheet), 'TestCases');
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const filename = buildExportFilename(prefix, 'requirements_export', 'xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=requirements_export.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/import', authMiddleware, editMiddleware, upload.single('file'), async (req, res) => {
+router.post('/import', authMiddleware, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+  const projectId = parseProjectId(req.query.projectId);
+  if (!projectId) return res.status(400).json({ error: 'projectId required' });
+  if (!(await canEditProjectContent(req.user, projectId))) {
+    return res.status(403).json({ error: 'Project edit permission required' });
+  }
 
   try {
     const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -69,22 +92,25 @@ router.post('/import', authMiddleware, editMiddleware, upload.single('file'), as
         const title = row['Title'] || row['title'];
         if (!reqId || !title) continue;
 
-        const existing = await queryOne('SELECT id FROM requirements WHERE req_id = ?', [reqId]);
+        const existing = await queryOne(
+          'SELECT id FROM requirements WHERE req_id = ? AND project_id = ?',
+          [reqId, projectId]
+        );
         if (existing) {
           await execute(`
             UPDATE requirements SET title=?, description=?, category=?, priority=?, status=?, owner=?, version=?, updated_at=?
-            WHERE req_id=?
+            WHERE req_id=? AND project_id=?
           `, [
             title, row['Description'] || '', row['Category'] || 'General',
             row['Priority'] || 'Medium', row['Status'] || 'Draft',
-            row['Owner'] || '', row['Version'] || '1.0', now(), reqId
+            row['Owner'] || '', row['Version'] || '1.0', now(), reqId, projectId
           ]);
         } else {
           await insert(`
-            INSERT INTO requirements (req_id, title, description, category, priority, status, owner, version, created_by, updated_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO requirements (project_id, req_id, title, description, category, priority, status, owner, version, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            reqId, title, row['Description'] || '', row['Category'] || 'General',
+            projectId, reqId, title, row['Description'] || '', row['Category'] || 'General',
             row['Priority'] || 'Medium', row['Status'] || 'Draft',
             row['Owner'] || '', row['Version'] || '1.0', req.user.id, req.user.id
           ]);
@@ -102,27 +128,33 @@ router.post('/import', authMiddleware, editMiddleware, upload.single('file'), as
         const title = row['Title'] || row['title'];
         if (!tcId || !reqId || !title) continue;
 
-        const reqRow = await queryOne('SELECT id FROM requirements WHERE req_id = ?', [reqId]);
+        const reqRow = await queryOne(
+          'SELECT id FROM requirements WHERE req_id = ? AND project_id = ?',
+          [reqId, projectId]
+        );
         if (!reqRow) {
           stats.errors.push(`Requirement ${reqId} not found for TC ${tcId}`);
           continue;
         }
 
-        const existing = await queryOne('SELECT id FROM test_cases WHERE tc_id = ?', [tcId]);
+        const existing = await queryOne(
+          'SELECT id FROM test_cases WHERE tc_id = ? AND project_id = ?',
+          [tcId, projectId]
+        );
         if (existing) {
           await execute(`
             UPDATE test_cases SET requirement_id=?, title=?, description=?, steps=?, expected_result=?,
               status=?, result=?, executed_by=?, notes=?, updated_at=?
-            WHERE tc_id=?
+            WHERE tc_id=? AND project_id=?
           `, [
             reqRow.id, title, row['Description'] || '', row['Steps'] || '',
             row['Expected Result'] || '', row['Status'] || 'Not Run',
-            row['Result'] || '', row['Executed By'] || '', row['Notes'] || '', now(), tcId
+            row['Result'] || '', row['Executed By'] || '', row['Notes'] || '', now(), tcId, projectId
           ]);
         } else {
           let resolvedTcId;
           try {
-            ({ tcId: resolvedTcId } = await resolveTcIdForCreate(tcId));
+            ({ tcId: resolvedTcId } = await resolveTcIdForCreate(tcId, projectId));
           } catch (err) {
             if (err.status === 409) {
               stats.errors.push(`TC ID ${tcId} already exists (non-standard ID)`);
@@ -131,10 +163,10 @@ router.post('/import', authMiddleware, editMiddleware, upload.single('file'), as
             throw err;
           }
           await insert(`
-            INSERT INTO test_cases (tc_id, requirement_id, title, description, steps, expected_result, status, result, executed_by, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO test_cases (project_id, tc_id, requirement_id, title, description, steps, expected_result, status, result, executed_by, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            resolvedTcId, reqRow.id, title, row['Description'] || '', row['Steps'] || '',
+            projectId, resolvedTcId, reqRow.id, title, row['Description'] || '', row['Steps'] || '',
             row['Expected Result'] || '', row['Status'] || 'Not Run',
             row['Result'] || '', row['Executed By'] || '', row['Notes'] || ''
           ]);

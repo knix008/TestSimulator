@@ -2,11 +2,14 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useMenuLayout } from '../context/MenuLayoutContext';
+import { useProject } from '../context/ProjectContext';
 
 const NAV_ITEMS = [
-  { path: '/', icon: '📊', key: 'dashboard' },
+  { path: '/projects', icon: '📁', key: 'projects' },
+  { path: '/dashboard', icon: '📊', key: 'dashboard' },
   { path: '/requirements', icon: '📋', key: 'requirements' },
   { path: '/test-cases', icon: '🧪', key: 'testCases' },
+  { path: '/admin/projects', icon: '🏢', key: 'adminProjects', adminOnly: true },
   { path: '/users', icon: '👥', key: 'users', adminOnly: true },
   { path: '/reports', icon: '📄', key: 'reports' },
   { path: '/settings', icon: '⚙️', key: 'settings' },
@@ -20,7 +23,7 @@ function NavItems({ className = 'nav-link' }) {
     <NavLink
       key={item.path}
       to={item.path}
-      end={item.path === '/'}
+      end={item.path === '/projects'}
       className={({ isActive }) => `${className}${isActive ? ' active' : ''}`}
     >
       <span className="nav-icon">{item.icon}</span>
@@ -33,12 +36,33 @@ export default function Layout({ children }) {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { menuLayout } = useMenuLayout();
+  const { projects, activeProjectId, setActiveProjectId } = useProject();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  const projectSwitcher = (
+    <div className="project-switcher">
+      <label htmlFor="active-project-select">{t('projects.activeProject')}</label>
+      {projects.length > 0 ? (
+        <select
+          id="active-project-select"
+          className="form-control project-switcher-select"
+          value={activeProjectId ?? ''}
+          onChange={(e) => setActiveProjectId(Number(e.target.value))}
+        >
+          {projects.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      ) : (
+        <p className="project-switcher-empty">{t('projects.noMembership')}</p>
+      )}
+    </div>
+  );
 
   if (menuLayout === 'horizontal') {
     return (
@@ -48,6 +72,7 @@ export default function Layout({ children }) {
             <h1 className="app-brand-title">{t('app.title')}</h1>
             <p className="app-brand-subtitle">{t('app.subtitle')}</p>
           </div>
+          {projectSwitcher}
           <nav className="topbar-nav">
             <NavItems className="topbar-link" />
           </nav>
@@ -70,6 +95,7 @@ export default function Layout({ children }) {
           <h1 className="app-brand-title">{t('app.title')}</h1>
           <p className="app-brand-subtitle">{t('app.subtitle')}</p>
         </div>
+        {projectSwitcher}
         <nav className="sidebar-nav">
           <NavItems />
         </nav>

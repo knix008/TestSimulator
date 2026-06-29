@@ -108,7 +108,7 @@ export function mapHistoryRow(row) {
   };
 }
 
-export async function fetchRequirementHistory({ requirementId, reqId, limit = 100 } = {}) {
+export async function fetchRequirementHistory({ requirementId, reqId, projectId, limit = 100 } = {}) {
   let sql = `
     SELECT h.*,
       u.display_name AS changed_by_name,
@@ -119,6 +119,10 @@ export async function fetchRequirementHistory({ requirementId, reqId, limit = 10
   `;
   const params = [];
 
+  if (projectId != null) {
+    sql += ` AND h.requirement_id IN (SELECT id FROM requirements WHERE project_id = ?)`;
+    params.push(projectId);
+  }
   if (requirementId != null) {
     sql += ` AND h.requirement_id = ?`;
     params.push(requirementId);

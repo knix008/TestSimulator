@@ -208,7 +208,7 @@ export default function UsersPage() {
 
 
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/projects" replace />;
 
 
 

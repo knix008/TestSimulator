@@ -4,21 +4,37 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import api from '../api';
 import Layout from '../components/Layout';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useProject } from '../context/ProjectContext';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
 export default function DashboardPage() {
   const { t } = useTranslation();
+  const { activeProjectId, activeProject } = useProject();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api.get('/dashboard')
+    if (!activeProjectId) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    api.get('/dashboard', { params: { projectId: activeProjectId } })
       .then(res => setData(res.data))
       .finally(() => setLoading(false));
-  }, []);
+  }, [activeProjectId]);
 
   useAutoRefresh(load);
+
+  if (!activeProjectId) {
+    return (
+      <Layout>
+        <div className="empty-state">{t('projects.selectProject')}</div>
+      </Layout>
+    );
+  }
 
   if (loading) return <Layout><div className="empty-state">{t('common.loading')}</div></Layout>;
   if (!data) return <Layout><div className="empty-state">{t('common.error')}</div></Layout>;
@@ -31,7 +47,7 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="page-header">
-        <h2>{t('dashboard.title')}</h2>
+        <h2>{t('dashboard.title')}{activeProject ? ` — ${activeProject.name}` : ''}</h2>
       </div>
 
       <div className="card-grid">

@@ -4,7 +4,7 @@ import api from '../api';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import { StatusBadge } from '../components/Badge';
-import { useAuth } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { TC_STATUSES, formatDate } from '../utils/helpers';
 
@@ -15,7 +15,7 @@ const emptyForm = {
 
 export default function TestCasesPage() {
   const { t } = useTranslation();
-  const { canEdit } = useAuth();
+  const { canEditProject, activeProjectId, activeProject } = useProject();
   const [items, setItems] = useState([]);
   const [requirements, setRequirements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,24 +27,30 @@ export default function TestCasesPage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
-    const params = {};
+    if (!activeProjectId) {
+      setItems([]);
+      setRequirements([]);
+      setLoading(false);
+      return;
+    }
+    const params = { projectId: activeProjectId };
     if (filterStatus) params.status = filterStatus;
     if (filterReq) params.requirementId = filterReq;
     Promise.all([
       api.get('/test-cases', { params }),
-      api.get('/requirements'),
+      api.get('/requirements', { params: { projectId: activeProjectId } }),
     ]).then(([tcRes, reqRes]) => {
       setItems(tcRes.data);
       setRequirements(reqRes.data);
     }).finally(() => setLoading(false));
-  }, [filterStatus, filterReq]);
+  }, [filterStatus, filterReq, activeProjectId]);
 
   useAutoRefresh(load);
 
   const openAdd = async () => {
     setEditing(null);
     try {
-      const res = await api.get('/test-cases/next-id');
+      const res = await api.get('/test-cases/next-id', { params: { projectId: activeProjectId } });
       setForm({ ...emptyForm, tcId: res.data.tcId, requirementId: requirements[0]?.id || '' });
     } catch {
       setForm({ ...emptyForm, requirementId: requirements[0]?.id || '' });
@@ -65,7 +71,7 @@ export default function TestCasesPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = { ...form, requirementId: parseInt(form.requirementId) };
+      const payload = { ...form, requirementId: parseInt(form.requirementId), projectId: activeProjectId };
       let res;
       if (editing) {
         res = await api.put(`/test-cases/${editing.id}`, payload);
@@ -101,9 +107,13 @@ export default function TestCasesPage() {
 
   return (
     <Layout>
+      {!activeProjectId ? (
+        <div className="empty-state">{t('projects.selectProject')}</div>
+      ) : (
+      <>
       <div className="page-header">
-        <h2>{t('testCases.title')}</h2>
-        {canEdit && (
+        <h2>{t('testCases.title')}{activeProject ? ` — ${activeProject.name}` : ''}</h2>
+        {canEditProject && (
           <button className="btn btn-primary" onClick={openAdd} disabled={requirements.length === 0}>
             + {t('testCases.add')}
           </button>
@@ -137,7 +147,7 @@ export default function TestCasesPage() {
                 <th>{t('testCases.result')}</th>
                 <th>{t('testCases.executedBy')}</th>
                 <th>{t('testCases.executedAt')}</th>
-                {canEdit && <th>{t('common.actions')}</th>}
+                {canEditProject && <th>{t('common.actions')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -150,7 +160,7 @@ export default function TestCasesPage() {
                   <td>{item.result || '-'}</td>
                   <td>{item.executedBy || '-'}</td>
                   <td>{formatDate(item.executedAt)}</td>
-                  {canEdit && (
+                  {canEditProject && (
                     <td className="actions-cell">
                       <button className="btn btn-sm btn-secondary" onClick={() => openEdit(item)}>{t('common.edit')}</button>
                       <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item)}>{t('common.delete')}</button>
@@ -226,6 +236,8 @@ export default function TestCasesPage() {
           <textarea className="form-control" value={form.notes} onChange={set('notes')} rows={2} />
         </div>
       </Modal>
+      </>
+      )}
     </Layout>
   );
 }

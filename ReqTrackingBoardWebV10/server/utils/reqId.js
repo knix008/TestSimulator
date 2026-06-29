@@ -13,8 +13,13 @@ export function formatStandardReqId(num) {
   return `REQ-${String(num).padStart(3, '0')}`;
 }
 
-export async function getNextStandardReqId() {
-  const rows = await query('SELECT req_id FROM requirements');
+function projectFilter(projectId) {
+  return projectId ? { sql: ' AND project_id = ?', params: [projectId] } : { sql: '', params: [] };
+}
+
+export async function getNextStandardReqId(projectId = null) {
+  const filter = projectFilter(projectId);
+  const rows = await query(`SELECT req_id FROM requirements WHERE 1=1${filter.sql}`, filter.params);
   let max = 0;
   for (const row of rows) {
     const n = parseStandardReqNum(row.req_id);
@@ -23,8 +28,9 @@ export async function getNextStandardReqId() {
   return formatStandardReqId(max + 1);
 }
 
-async function shiftStandardReqIdsFrom(targetNum, excludeDbId = null, userId = null) {
-  const rows = await query('SELECT id, req_id FROM requirements');
+async function shiftStandardReqIdsFrom(targetNum, excludeDbId = null, userId = null, projectId = null) {
+  const filter = projectFilter(projectId);
+  const rows = await query(`SELECT id, req_id FROM requirements WHERE 1=1${filter.sql}`, filter.params);
   const toShift = rows
     .filter((row) => {
       if (excludeDbId != null && Number(row.id) === Number(excludeDbId)) return false;
@@ -56,8 +62,9 @@ async function shiftStandardReqIdsFrom(targetNum, excludeDbId = null, userId = n
   return toShift.length;
 }
 
-export async function renumberAllStandardReqIds(userId = null) {
-  const rows = await query('SELECT id, req_id FROM requirements');
+export async function renumberAllStandardReqIds(userId = null, projectId = null) {
+  const filter = projectFilter(projectId);
+  const rows = await query(`SELECT id, req_id FROM requirements WHERE 1=1${filter.sql}`, filter.params);
   const standard = rows
     .map((row) => ({ id: row.id, num: parseStandardReqNum(row.req_id), oldReqId: row.req_id }))
     .filter((item) => item.num !== null)
@@ -91,49 +98,55 @@ export async function renumberAllStandardReqIds(userId = null) {
   return renumberedCount;
 }
 
-export async function resolveReqIdForCreate(reqId, userId = null) {
+async function findDuplicateReqId(reqId, excludeDbId = null, projectId = null) {
+  const filter = projectFilter(projectId);
+  const params = [reqId, ...filter.params];
+  let sql = 'SELECT id FROM requirements WHERE req_id = ?';
+  if (excludeDbId != null) {
+    sql += ' AND id != ?';
+    params.splice(1, 0, excludeDbId);
+  }
+  sql += filter.sql;
+  return queryOne(sql, params);
+}
+
+export async function resolveReqIdForCreate(reqId, userId = null, projectId = null) {
   const trimmed = String(reqId).trim();
   if (!trimmed) throw Object.assign(new Error('reqId required'), { status: 400 });
 
   const targetNum = parseStandardReqNum(trimmed);
   if (targetNum === null) {
-    const existing = await queryOne('SELECT id FROM requirements WHERE req_id = ?', [trimmed]);
+    const existing = await findDuplicateReqId(trimmed, null, projectId);
     if (existing) throw Object.assign(new Error('Requirement ID already exists'), { status: 409 });
     return { reqId: trimmed, shiftedCount: 0 };
   }
 
   const normalized = formatStandardReqId(targetNum);
-  const existing = await queryOne('SELECT id FROM requirements WHERE req_id = ?', [normalized]);
+  const existing = await findDuplicateReqId(normalized, null, projectId);
   let shiftedCount = 0;
   if (existing) {
-    shiftedCount = await shiftStandardReqIdsFrom(targetNum, null, userId);
+    shiftedCount = await shiftStandardReqIdsFrom(targetNum, null, userId, projectId);
   }
   return { reqId: normalized, shiftedCount };
 }
 
-export async function resolveReqIdForUpdate(dbId, newReqId, oldReqId, userId = null) {
+export async function resolveReqIdForUpdate(dbId, newReqId, oldReqId, userId = null, projectId = null) {
   const trimmed = String(newReqId).trim();
   if (!trimmed) throw Object.assign(new Error('reqId required'), { status: 400 });
   if (trimmed === oldReqId) return { reqId: oldReqId, shiftedCount: 0 };
 
   const targetNum = parseStandardReqNum(trimmed);
   if (targetNum === null) {
-    const dup = await queryOne(
-      'SELECT id FROM requirements WHERE req_id = ? AND id != ?',
-      [trimmed, dbId]
-    );
+    const dup = await findDuplicateReqId(trimmed, dbId, projectId);
     if (dup) throw Object.assign(new Error('Requirement ID already exists'), { status: 409 });
     return { reqId: trimmed, shiftedCount: 0 };
   }
 
   const normalized = formatStandardReqId(targetNum);
-  const dup = await queryOne(
-    'SELECT id FROM requirements WHERE req_id = ? AND id != ?',
-    [normalized, dbId]
-  );
+  const dup = await findDuplicateReqId(normalized, dbId, projectId);
   let shiftedCount = 0;
   if (dup) {
-    shiftedCount = await shiftStandardReqIdsFrom(targetNum, dbId, userId);
+    shiftedCount = await shiftStandardReqIdsFrom(targetNum, dbId, userId, projectId);
   }
   return { reqId: normalized, shiftedCount };
 }

@@ -7,7 +7,10 @@ import { StatusBadge } from '../components/Badge';
 import { formatDate } from '../utils/helpers';
 import { captureReportCharts } from '../utils/reportChartCapture';
 import { exportReportMarkdown, exportReportWord, exportReportPdf } from '../utils/reportExport';
+import { sanitizeExportPrefix } from '../utils/exportPrefix';
+import { statusOverviewEntries } from '../utils/reportChartData';
 import { useDataSync } from '../context/DataSyncContext';
+import { useProject } from '../context/ProjectContext';
 
 const REPORT_STORAGE_KEY = 'reqtracking_report_summary';
 
@@ -31,28 +34,46 @@ export function clearStoredReport() {
 export default function ReportsPage() {
   const { t } = useTranslation();
   const { refreshToken } = useDataSync();
+  const { activeProjectId, activeProject } = useProject();
   const [report, setReport] = useState(loadStoredReport);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportPrefix, setExportPrefix] = useState('');
   const chartsRef = useRef(null);
 
+  useEffect(() => {
+    setExportPrefix(activeProject?.name ?? '');
+  }, [activeProjectId, activeProject?.name]);
+
   const generateReport = useCallback(async ({ silent = false } = {}) => {
+    if (!activeProjectId) return;
     if (silent) setRefreshing(true);
     else setLoading(true);
     try {
-      const res = await api.get('/reports/summary');
+      const res = await api.get('/reports/summary', { params: { projectId: activeProjectId } });
       setReport(res.data);
       saveStoredReport(res.data);
+    } catch (err) {
+      setReport(null);
+      alert(err.response?.data?.error || t('common.error'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [activeProjectId, t]);
 
   useEffect(() => {
-    generateReport({ silent: !!loadStoredReport() });
-  }, [generateReport]);
+    if (!activeProjectId) {
+      setReport(null);
+      return;
+    }
+    const stored = loadStoredReport();
+    if (stored?.projectId !== activeProjectId) {
+      setReport(null);
+    }
+    generateReport({ silent: stored?.projectId === activeProjectId });
+  }, [activeProjectId, generateReport]);
 
   useEffect(() => {
     if (refreshToken === 0) return undefined;
@@ -60,9 +81,13 @@ export default function ReportsPage() {
     return undefined;
   }, [refreshToken, generateReport]);
 
-  const exportLabels = () => ({
-    title: t('reports.title'),
-    generatedAt: t('reports.generatedAt'),
+  const exportLabels = () => {
+    const prefix = sanitizeExportPrefix(exportPrefix);
+    const baseTitle = t('reports.title');
+    return {
+      title: prefix ? `${prefix} — ${baseTitle}` : baseTitle,
+      filePrefix: prefix,
+      generatedAt: t('reports.generatedAt'),
     overview: t('reports.overview'),
     charts: t('reports.charts'),
     reqSummary: t('reports.reqSummary'),
@@ -92,7 +117,8 @@ export default function ReportsPage() {
       reqByPriority: t('dashboard.reqByPriority'),
       reqByCategory: t('dashboard.reqByCategory'),
     },
-  });
+    };
+  };
 
   const requireReport = () => {
     if (!report) {
@@ -123,8 +149,12 @@ export default function ReportsPage() {
 
   return (
     <Layout>
+      {!activeProjectId ? (
+        <div className="empty-state">{t('projects.selectProject')}</div>
+      ) : (
+      <>
       <div className="page-header">
-        <h2>{t('reports.title')}</h2>
+        <h2>{t('reports.title')}{activeProject ? ` — ${activeProject.name}` : ''}</h2>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <button
             className="btn btn-primary"
@@ -149,6 +179,19 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      <div className="toolbar" style={{ marginBottom: 16 }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span>{t('common.exportPrefix')}</span>
+          <input
+            className="form-control"
+            style={{ maxWidth: 240 }}
+            value={exportPrefix}
+            onChange={e => setExportPrefix(e.target.value)}
+            placeholder={activeProject?.name ?? ''}
+          />
+        </label>
+      </div>
+
       {report && (
         <>
           {refreshing && (
@@ -171,13 +214,13 @@ export default function ReportsPage() {
                 <div className="num">{report.totalTestCases}</div>
                 <div className="lbl">{t('dashboard.totalTestCases')}</div>
               </div>
-              {Object.entries(report.reqByStatus).map(([k, v]) => (
+              {statusOverviewEntries(report.reqByStatus).map(([k, v]) => (
                 <div className="report-stat" key={k}>
                   <div className="num">{v}</div>
                   <div className="lbl">Req: {k}</div>
                 </div>
               ))}
-              {Object.entries(report.tcByStatus).map(([k, v]) => (
+              {statusOverviewEntries(report.tcByStatus).map(([k, v]) => (
                 <div className="report-stat" key={'tc-' + k}>
                   <div className="num">{v}</div>
                   <div className="lbl">TC: {k}</div>
@@ -261,6 +304,8 @@ export default function ReportsPage() {
 
       {!report && !loading && (
         <div className="empty-state">{t('reports.emptyHint')}</div>
+      )}
+      </>
       )}
     </Layout>
   );

@@ -16,6 +16,7 @@ import reportRoutes from './routes/reports.js';
 import excelRoutes from './routes/excel.js';
 import settingsRoutes from './routes/settings.js';
 import syncRoutes from './routes/sync.js';
+import projectRoutes from './routes/projects.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,6 +42,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use(requireDb);
+app.use('/api/projects', projectRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/requirements', requirementRoutes);
 app.use('/api/test-cases', testCaseRoutes);

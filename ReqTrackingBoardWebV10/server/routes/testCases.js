@@ -7,8 +7,32 @@ import {
   resolveTcIdForUpdate,
   renumberAllStandardTcIds,
 } from '../utils/tcId.js';
+import {
+  canAccessProject,
+  canEditProjectContent,
+  assertTestCaseProjectAccess,
+  assertRequirementProjectAccess,
+  parseProjectId,
+} from '../utils/projectAccess.js';
 
 const router = Router();
+
+async function resolveProjectContext(req, res, needsEdit = false) {
+  const projectId = parseProjectId(req.query.projectId ?? req.body?.projectId);
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId required' });
+    return null;
+  }
+  if (!(await canAccessProject(req.user, projectId))) {
+    res.status(403).json({ error: 'Project access denied' });
+    return null;
+  }
+  if (needsEdit && !(await canEditProjectContent(req.user, projectId))) {
+    res.status(403).json({ error: 'Project edit permission required' });
+    return null;
+  }
+  return projectId;
+}
 
 function mapTestCase(row) {
   return {
@@ -32,12 +56,16 @@ function mapTestCase(row) {
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    const projectId = await resolveProjectContext(req, res);
+    if (!projectId) return;
+
     const { requirementId, status } = req.query;
     let sql = `
       SELECT tc.*, r.req_id FROM test_cases tc
-      JOIN requirements r ON r.id = tc.requirement_id WHERE 1=1
+      JOIN requirements r ON r.id = tc.requirement_id
+      WHERE r.project_id = ?
     `;
-    const params = [];
+    const params = [projectId];
     if (requirementId) { sql += ` AND tc.requirement_id = ?`; params.push(requirementId); }
     if (status) { sql += ` AND tc.status = ?`; params.push(status); }
     sql += ` ORDER BY tc.tc_id`;
@@ -50,7 +78,9 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.get('/next-id', authMiddleware, async (req, res) => {
   try {
-    const tcId = await getNextStandardTcId();
+    const projectId = await resolveProjectContext(req, res);
+    if (!projectId) return;
+    const tcId = await getNextStandardTcId(projectId);
     res.json({ tcId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -59,33 +89,36 @@ router.get('/next-id', authMiddleware, async (req, res) => {
 
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
+    const access = await assertTestCaseProjectAccess(req.user, req.params.id);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
     const row = await queryOne(`
       SELECT tc.*, r.req_id FROM test_cases tc
       JOIN requirements r ON r.id = tc.requirement_id WHERE tc.id = ?
     `, [req.params.id]);
-    if (!row) return res.status(404).json({ error: 'Test case not found' });
     res.json(mapTestCase(row));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/', authMiddleware, editMiddleware, async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { tcId, requirementId, title, description, steps, expectedResult, status, result, notes } = req.body;
     if (!requirementId || !title) {
       return res.status(400).json({ error: 'requirementId and title required' });
     }
-    const reqRow = await queryOne('SELECT id FROM requirements WHERE id = ?', [requirementId]);
-    if (!reqRow) return res.status(404).json({ error: 'Requirement not found' });
 
-    const { tcId: resolvedTcId, shiftedCount } = await resolveTcIdForCreate(tcId);
+    const reqAccess = await assertRequirementProjectAccess(req.user, requirementId, true);
+    if (!reqAccess.ok) return res.status(reqAccess.status).json({ error: reqAccess.error });
+    const projectId = reqAccess.projectId;
+
+    const { tcId: resolvedTcId, shiftedCount } = await resolveTcIdForCreate(tcId, projectId);
 
     const id = await insert(`
-      INSERT INTO test_cases (tc_id, requirement_id, title, description, steps, expected_result, status, result, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO test_cases (project_id, tc_id, requirement_id, title, description, steps, expected_result, status, result, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      resolvedTcId, requirementId, title, description || '', steps || '', expectedResult || '',
+      projectId, resolvedTcId, requirementId, title, description || '', steps || '', expectedResult || '',
       status || 'Not Run', result || '', notes || ''
     ]);
 
@@ -100,17 +133,20 @@ router.post('/', authMiddleware, editMiddleware, async (req, res) => {
   }
 });
 
-router.put('/:id', authMiddleware, editMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
+    const access = await assertTestCaseProjectAccess(req.user, req.params.id, true);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
+
     const { id } = req.params;
     const row = await queryOne('SELECT * FROM test_cases WHERE id = ?', [id]);
-    if (!row) return res.status(404).json({ error: 'Test case not found' });
 
     const { tcId, title, description, steps, expectedResult, status, result, executedBy, notes } = req.body;
     const { tcId: resolvedTcId, shiftedCount } = await resolveTcIdForUpdate(
       Number(id),
       tcId ?? row.tc_id,
-      row.tc_id
+      row.tc_id,
+      row.project_id
     );
 
     const newStatus = status ?? row.status;
@@ -140,11 +176,15 @@ router.put('/:id', authMiddleware, editMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id', authMiddleware, editMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
+    const access = await assertTestCaseProjectAccess(req.user, req.params.id, true);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
+
+    const row = await queryOne('SELECT project_id FROM test_cases WHERE id = ?', [req.params.id]);
     const result = await execute('DELETE FROM test_cases WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Test case not found' });
-    const renumberedCount = await renumberAllStandardTcIds();
+    const renumberedCount = await renumberAllStandardTcIds(null, row?.project_id);
     res.json({ success: true, renumberedCount });
   } catch (err) {
     res.status(500).json({ error: err.message });

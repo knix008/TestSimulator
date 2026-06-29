@@ -14,8 +14,31 @@ import {
   logRequirementHistory,
   fetchRequirementHistory,
 } from '../utils/requirementHistory.js';
+import {
+  canAccessProject,
+  canEditProjectContent,
+  assertRequirementProjectAccess,
+  parseProjectId,
+} from '../utils/projectAccess.js';
 
 const router = Router();
+
+async function resolveProjectContext(req, res, needsEdit = false) {
+  const projectId = parseProjectId(req.query.projectId ?? req.body?.projectId);
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId required' });
+    return null;
+  }
+  if (!(await canAccessProject(req.user, projectId))) {
+    res.status(403).json({ error: 'Project access denied' });
+    return null;
+  }
+  if (needsEdit && !(await canEditProjectContent(req.user, projectId))) {
+    res.status(403).json({ error: 'Project edit permission required' });
+    return null;
+  }
+  return projectId;
+}
 
 function mapRequirement(row) {
   return {
@@ -38,15 +61,18 @@ function mapRequirement(row) {
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    const projectId = await resolveProjectContext(req, res);
+    if (!projectId) return;
+
     const { search, status, category } = req.query;
     let sql = `
       SELECT r.*,
         (SELECT COUNT(*) FROM test_cases tc WHERE tc.requirement_id = r.id) as test_case_count,
         (SELECT COUNT(*) FROM test_cases tc WHERE tc.requirement_id = r.id AND tc.status = 'Passed') as passed_count,
         (SELECT COUNT(*) FROM test_cases tc WHERE tc.requirement_id = r.id AND tc.status = 'Failed') as failed_count
-      FROM requirements r WHERE 1=1
+      FROM requirements r WHERE r.project_id = ?
     `;
-    const params = [];
+    const params = [projectId];
     if (search) {
       sql += ` AND (r.req_id LIKE ? OR r.title LIKE ? OR r.description LIKE ?)`;
       const s = `%${search}%`;
@@ -64,7 +90,10 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.get('/history', authMiddleware, async (req, res) => {
   try {
+    const projectId = await resolveProjectContext(req, res);
+    if (!projectId) return;
     const history = await fetchRequirementHistory({
+      projectId,
       requirementId: req.query.requirementId ? Number(req.query.requirementId) : undefined,
       reqId: req.query.reqId,
       limit: req.query.limit,
@@ -77,7 +106,9 @@ router.get('/history', authMiddleware, async (req, res) => {
 
 router.get('/next-id', authMiddleware, async (req, res) => {
   try {
-    const reqId = await getNextStandardReqId();
+    const projectId = await resolveProjectContext(req, res);
+    if (!projectId) return;
+    const reqId = await getNextStandardReqId(projectId);
     res.json({ reqId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -86,8 +117,8 @@ router.get('/next-id', authMiddleware, async (req, res) => {
 
 router.get('/:id/history', authMiddleware, async (req, res) => {
   try {
-    const row = await queryOne('SELECT id, req_id FROM requirements WHERE id = ?', [req.params.id]);
-    if (!row) return res.status(404).json({ error: 'Requirement not found' });
+    const access = await assertRequirementProjectAccess(req.user, req.params.id);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
     const history = await fetchRequirementHistory({
       requirementId: Number(req.params.id),
       limit: req.query.limit,
@@ -100,27 +131,31 @@ router.get('/:id/history', authMiddleware, async (req, res) => {
 
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
+    const access = await assertRequirementProjectAccess(req.user, req.params.id);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
     const row = await queryOne('SELECT * FROM requirements WHERE id = ?', [req.params.id]);
-    if (!row) return res.status(404).json({ error: 'Requirement not found' });
     res.json(mapRequirement(row));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/', authMiddleware, editMiddleware, async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
+    const projectId = await resolveProjectContext(req, res, true);
+    if (!projectId) return;
+
     const { reqId, title, description, category, priority, status, owner, version } = req.body;
     if (!reqId || !title) return res.status(400).json({ error: 'reqId and title required' });
 
     const userId = req.user.id;
-    const { reqId: resolvedReqId, shiftedCount } = await resolveReqIdForCreate(reqId, userId);
+    const { reqId: resolvedReqId, shiftedCount } = await resolveReqIdForCreate(reqId, userId, projectId);
 
     const id = await insert(`
-      INSERT INTO requirements (req_id, title, description, category, priority, status, owner, version, created_by, updated_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO requirements (project_id, req_id, title, description, category, priority, status, owner, version, created_by, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      resolvedReqId, title, description || '', category || 'General', priority || 'Medium',
+      projectId, resolvedReqId, title, description || '', category || 'General', priority || 'Medium',
       status || 'Draft', owner || '', version || '1.0', userId, userId
     ]);
 
@@ -140,11 +175,13 @@ router.post('/', authMiddleware, editMiddleware, async (req, res) => {
   }
 });
 
-router.put('/:id', authMiddleware, editMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
+    const access = await assertRequirementProjectAccess(req.user, req.params.id, true);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
+
     const { id } = req.params;
-    const row = await queryOne('SELECT * FROM requirements WHERE id = ?', [id]);
-    if (!row) return res.status(404).json({ error: 'Requirement not found' });
+    const row = access.row ?? await queryOne('SELECT * FROM requirements WHERE id = ?', [id]);
 
     const userId = req.user.id;
     const { reqId, title, description, category, priority, status, owner, version } = req.body;
@@ -152,7 +189,8 @@ router.put('/:id', authMiddleware, editMiddleware, async (req, res) => {
       Number(id),
       reqId ?? row.req_id,
       row.req_id,
-      userId
+      userId,
+      row.project_id
     );
 
     const before = rowToSnapshot(row);
@@ -198,10 +236,12 @@ router.put('/:id', authMiddleware, editMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id', authMiddleware, editMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
+    const access = await assertRequirementProjectAccess(req.user, req.params.id, true);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
+
     const row = await queryOne('SELECT * FROM requirements WHERE id = ?', [req.params.id]);
-    if (!row) return res.status(404).json({ error: 'Requirement not found' });
 
     const userId = req.user.id;
     await logRequirementHistory({
@@ -213,7 +253,7 @@ router.delete('/:id', authMiddleware, editMiddleware, async (req, res) => {
     });
 
     await execute('DELETE FROM requirements WHERE id = ?', [req.params.id]);
-    const renumberedCount = await renumberAllStandardReqIds(userId);
+    const renumberedCount = await renumberAllStandardReqIds(userId, row.project_id);
     res.json({ success: true, renumberedCount });
   } catch (err) {
     res.status(500).json({ error: err.message });

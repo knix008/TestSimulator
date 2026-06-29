@@ -25,7 +25,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await login(username, password);
-      navigate(res.needsSetup ? '/setup' : '/');
+      navigate(res.needsSetup ? '/setup' : '/projects');
     } catch (err) {
       setError(err.response?.data?.error || t('login.error'));
     } finally {
