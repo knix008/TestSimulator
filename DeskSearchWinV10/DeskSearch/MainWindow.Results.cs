@@ -49,6 +49,7 @@ public partial class MainWindow
     private void OnResultItemRightClick(object? sender, System.Windows.Controls.ListBoxItem item)
     {
         _contextFileEntry = item.DataContext as FileEntry;
+        PrepareResultItemContextMenu();
         item.ContextMenu = _resultItemContextMenu;
     }
 

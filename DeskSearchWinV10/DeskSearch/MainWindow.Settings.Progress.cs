@@ -13,9 +13,10 @@ public partial class MainWindow
     internal SettingsProgressSnapshot GetSettingsProgress()
     {
         var scanStillActive = _indexService.IsScanning
-            || _indexService.ProgressPhase != IndexProgressPhase.Idle;
+            || (_indexService.ProgressPhase != IndexProgressPhase.Idle && !_indexService.IsScanComplete);
 
-        if (!_indexService.IsScanComplete || scanStillActive)
+        if ((!_indexService.IsScanComplete || scanStillActive)
+            && !(_indexService.HasStableSearchIndex && !_indexService.IsScanning && _indexService.ProgressPhase == IndexProgressPhase.Idle))
         {
             var phase = _indexService.ProgressPhase;
             var indexedCount = _indexService.ScanIndexedCount;

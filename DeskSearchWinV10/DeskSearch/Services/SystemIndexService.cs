@@ -107,6 +107,8 @@ public sealed class SystemIndexService : IDisposable
                 }
 
                 EnableSearchIfNeeded();
+                _isScanComplete = true;
+                _scanProgressPercent = 100;
             }
             else
             {
@@ -1037,14 +1039,7 @@ public sealed class SystemIndexService : IDisposable
 
         EnsureLiveIndexAnalyzedForSearch();
 
-        if (!AreAllScanRootsIndexed() || !HasStoreIndexedAllScannableRoots(_indexStore!))
-        {
-            _isScanComplete = false;
-            SetProgressPhase(IndexProgressPhase.Idle, forceReport: false);
-            ReportProgress(null, false, force: true);
-            return;
-        }
-
+        // Existing search DB is usable immediately; full re-index is manual only.
         _isScanComplete = true;
         _scanProgressPercent = 100;
         _totalScanSteps = 1;
@@ -1799,11 +1794,6 @@ public sealed class SystemIndexService : IDisposable
         if (_indexStore is null || _indexStore.Count == 0)
             return;
 
-        var restorePhase = _progressPhase;
-        var reportUi = !_isScanning && restorePhase == IndexProgressPhase.Idle;
-        if (reportUi)
-            SetProgressPhase(IndexProgressPhase.Analyzing, forceReport: true);
-
         try
         {
             _indexStore.Analyze();
@@ -1811,11 +1801,6 @@ public sealed class SystemIndexService : IDisposable
         catch
         {
             // Search remains available even if ANALYZE fails.
-        }
-        finally
-        {
-            if (reportUi && restorePhase != IndexProgressPhase.Analyzing)
-                SetProgressPhase(restorePhase, forceReport: restorePhase != IndexProgressPhase.Idle);
         }
     }
 

@@ -172,9 +172,15 @@ public partial class MainWindow : Window
         {
             SearchBox.IsEnabled = true;
             UpdateIndexUi();
+            if (IsAnyContextMenuOpen())
+                return;
+
             SearchBox.Focus();
         });
     }
+
+    private bool IsAnyContextMenuOpen() =>
+        _mainContextMenu.IsOpen || _resultItemContextMenu.IsOpen;
 
     private DebounceDispatcher? _indexUiDebounce;
 
@@ -226,11 +232,11 @@ public partial class MainWindow : Window
     {
 
         var isComplete = _indexService.IsScanComplete;
-        var count = isComplete
+        var count = isComplete || _indexService.HasStableSearchIndex
             ? _indexService.Count
             : _indexService.ScanIndexedCount;
         var phase = _indexService.ProgressPhase;
-        var status = isComplete
+        var status = isComplete || _indexService.HasStableSearchIndex
             ? LocalizationService.F("Index_Complete", count)
             : phase switch
             {
@@ -326,8 +332,6 @@ public partial class MainWindow : Window
             }
         };
 
-        _resultItemContextMenu.Opened += ResultItemContextMenu_Opened;
-
 
 
         RootBorder.ContextMenu = _mainContextMenu;
@@ -338,23 +342,12 @@ public partial class MainWindow : Window
 
 
 
-    private void UpdateIndexStatusMenu() => UpdateIndexUi();
-
-
-
-    private void MainContextMenu_Opened(object sender, RoutedEventArgs e)
-
+    private void MainContextMenu_Opened(object? sender, RoutedEventArgs e)
     {
-
         _menuAlwaysOnTop.IsChecked = Topmost;
-
-        UpdateIndexUi();
-
     }
 
-
-
-    private void ResultItemContextMenu_Opened(object sender, RoutedEventArgs e)
+    private void PrepareResultItemContextMenu()
     {
         var entry = _contextFileEntry;
         var hasFile = entry is not null;

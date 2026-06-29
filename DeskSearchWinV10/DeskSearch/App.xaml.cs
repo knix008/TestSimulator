@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Diagnostics;
+using System.Windows;
 using System.Windows.Threading;
 using DeskSearch.Services;
 
@@ -49,6 +50,13 @@ public partial class App : System.Windows.Application
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        if (IsBenignWpfPopupException(e.Exception))
+        {
+            Trace.WriteLine($"DeskSearch: suppressed WPF popup exception: {e.Exception}");
+            e.Handled = true;
+            return;
+        }
+
         ErrorDialogService.Show(LocalizationService.T("Error_Unhandled"), e.Exception);
         e.Handled = true;
     }
@@ -70,6 +78,25 @@ public partial class App : System.Windows.Application
         _singleInstance?.Dispose();
         _singleInstance = null;
         base.OnExit(e);
+    }
+
+    private static bool IsBenignWpfPopupException(Exception ex)
+    {
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is not FileNotFoundException)
+                continue;
+
+            var trace = current.StackTrace;
+            if (trace is null)
+                continue;
+
+            if (trace.Contains("PopupSecurityHelper", StringComparison.Ordinal)
+                || trace.Contains("Popup.CreateWindow", StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
     }
 
     public void RegisterShowWindowCallback(Action callback)

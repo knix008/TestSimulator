@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Windows;
+using System.Windows.Threading;
 using DeskSearch.Helpers;
 
 namespace DeskSearch.Services;
@@ -39,6 +41,6 @@ public static class ErrorDialogService
         if (dispatcher.CheckAccess())
             action();
         else
-            dispatcher.Invoke(action);
+            dispatcher.BeginInvoke(DispatcherPriority.Normal, action);
     }
 }
