@@ -96,12 +96,13 @@
                            FontSize="15"
                            Foreground="{DynamicResource IconPrimaryBrush}"
                            VerticalAlignment="Center"
-                           HorizontalAlignment="Center"
-                           Margin="0,0,8,0"/>
+                           HorizontalAlignment="Left"
+                           Margin="3,0,0,0"/>
 
                 <TextBox x:Name="SearchBox"
                          Grid.Column="2"
                          Height="30"
+                         Margin="6,0,0,0"
                          VerticalAlignment="Center"
                          PreviewMouseLeftButtonDown="SearchBox_PreviewMouseLeftButtonDown"
                          BorderThickness="0"
