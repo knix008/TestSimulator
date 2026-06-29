@@ -7,15 +7,7 @@ import { useMenuLayout } from '../context/MenuLayoutContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import DbSetupForm from '../components/DbSetupForm';
-import { themes } from '../themes';
-
-const THEME_PREVIEWS = {
-  default: ['#1e3a5f', '#3b82f6'],
-  dark: ['#020617', '#60a5fa'],
-  emerald: ['#064e3b', '#10b981'],
-  sunset: ['#7c2d12', '#f97316'],
-  purple: ['#4c1d95', '#8b5cf6'],
-};
+import { themes, getThemePreview } from '../themes';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -307,7 +299,9 @@ export default function SettingsPage() {
         <div className="card">
           <h3 style={{ marginBottom: 20 }}>{t('settings.theme')}</h3>
           <div className="theme-options">
-            {Object.keys(themes).map(key => (
+            {Object.keys(themes).map(key => {
+              const [previewFrom, previewTo] = getThemePreview(key);
+              return (
               <div
                 key={key}
                 className={`theme-option${theme === key ? ' active' : ''}`}
@@ -315,11 +309,12 @@ export default function SettingsPage() {
               >
                 <div
                   className="theme-preview"
-                  style={{ background: `linear-gradient(135deg, ${THEME_PREVIEWS[key][0]}, ${THEME_PREVIEWS[key][1]})` }}
+                  style={{ background: `linear-gradient(135deg, ${previewFrom}, ${previewTo})` }}
                 />
                 {t(`settings.themes.${key}`)}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

@@ -20,6 +20,7 @@ import {
   assertRequirementProjectAccess,
   parseProjectId,
 } from '../utils/projectAccess.js';
+import { validateRequirementOwner } from '../utils/requirementOwner.js';
 
 const router = Router();
 
@@ -150,13 +151,14 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const userId = req.user.id;
     const { reqId: resolvedReqId, shiftedCount } = await resolveReqIdForCreate(reqId, userId, projectId);
+    const resolvedOwner = await validateRequirementOwner(owner, projectId);
 
     const id = await insert(`
       INSERT INTO requirements (project_id, req_id, title, description, category, priority, status, owner, version, created_by, updated_by)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       projectId, resolvedReqId, title, description || '', category || 'General', priority || 'Medium',
-      status || 'Draft', owner || '', version || '1.0', userId, userId
+      status || 'Draft', resolvedOwner, version || '1.0', userId, userId
     ]);
 
     const row = await queryOne('SELECT * FROM requirements WHERE id = ?', [id]);
@@ -193,9 +195,14 @@ router.put('/:id', authMiddleware, async (req, res) => {
       row.project_id
     );
 
+    const resolvedOwner = await validateRequirementOwner(
+      owner !== undefined ? owner : row.owner,
+      row.project_id
+    );
+
     const before = rowToSnapshot(row);
     const after = bodyToSnapshot(
-      { reqId, title, description, category, priority, status, owner, version },
+      { reqId, title, description, category, priority, status, owner: resolvedOwner, version },
       resolvedReqId
     );
     after.title = title ?? row.title;
@@ -203,7 +210,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     after.category = category ?? row.category;
     after.priority = priority ?? row.priority;
     after.status = status ?? row.status;
-    after.owner = owner ?? row.owner;
+    after.owner = resolvedOwner;
     after.version = version ?? row.version;
 
     await execute(`

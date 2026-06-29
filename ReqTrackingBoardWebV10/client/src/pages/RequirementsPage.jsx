@@ -47,9 +47,25 @@ const emptyForm = {
   priority: 'Medium', status: 'Draft', owner: '', version: '1.0',
 };
 
+function participantLabel(member) {
+  return (member.displayName || member.username || '').trim();
+}
+
+function resolveOwnerForForm(owner, participants) {
+  const trimmed = String(owner ?? '').trim();
+  if (!trimmed) return '';
+  const labels = participants.map(participantLabel);
+  if (labels.includes(trimmed)) return trimmed;
+  const match = participants.find(
+    (p) => participantLabel(p).toLowerCase() === trimmed.toLowerCase()
+  );
+  return match ? participantLabel(match) : '';
+}
+
 export default function RequirementsPage() {
   const { t } = useTranslation();
   const { canEditProject, activeProjectId, activeProject } = useProject();
+  const participants = activeProject?.members ?? [];
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -122,12 +138,16 @@ export default function RequirementsPage() {
     setForm({
       reqId: item.reqId, title: item.title, description: item.description,
       category: item.category, priority: item.priority, status: item.status,
-      owner: item.owner, version: item.version,
+      owner: resolveOwnerForForm(item.owner, participants), version: item.version,
     });
     setModalOpen(true);
   };
 
   const handleSave = async () => {
+    if (form.owner && !participants.some((p) => participantLabel(p) === form.owner)) {
+      alert(t('requirements.ownerMustBeParticipant'));
+      return;
+    }
     setSaving(true);
     try {
       let res;
@@ -382,7 +402,20 @@ export default function RequirementsPage() {
           </div>
           <div className="form-group">
             <label>{t('requirements.owner')}</label>
-            <input className="form-control" value={form.owner} onChange={set('owner')} />
+            <select className="form-control" value={form.owner} onChange={set('owner')}>
+              <option value="">{t('requirements.ownerNone')}</option>
+              {participants.map((member) => {
+                const label = participantLabel(member);
+                return (
+                  <option key={member.userId} value={label}>
+                    {label}{member.username && member.displayName ? ` (${member.username})` : ''}
+                  </option>
+                );
+              })}
+            </select>
+            <small style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+              {t('requirements.ownerHint')}
+            </small>
           </div>
         </div>
       </Modal>

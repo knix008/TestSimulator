@@ -77,7 +77,7 @@ export default function Layout({ children }) {
             <NavItems className="topbar-link" />
           </nav>
           <div className="topbar-user">
-            <span>{user?.displayName || user?.username}</span>
+            <span className="current-user-name">{user?.displayName || user?.username}</span>
             <button className="btn btn-sm btn-secondary" onClick={handleLogout}>
               {t('nav.logout')}
             </button>
@@ -100,7 +100,7 @@ export default function Layout({ children }) {
           <NavItems />
         </nav>
         <div className="sidebar-footer">
-          <div>{user?.displayName || user?.username}</div>
+          <div className="current-user-name">{user?.displayName || user?.username}</div>
           <button className="btn btn-sm btn-secondary" style={{ marginTop: 8, width: '100%' }} onClick={handleLogout}>
             {t('nav.logout')}
           </button>

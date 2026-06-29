@@ -166,8 +166,15 @@ button, input, select, textarea {
 .sidebar-footer {
   padding: 16px 20px;
   border-top: 1px solid rgba(255,255,255,0.1);
-  font-size: 12px;
-  opacity: 0.7;
+}
+
+.current-user-name {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #fff;
+  letter-spacing: -0.01em;
+  word-break: break-word;
 }
 
 .main-content {
@@ -242,8 +249,10 @@ button, input, select, textarea {
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
-  font-size: 12px;
-  opacity: 0.85;
+}
+
+.topbar-user .current-user-name {
+  font-size: 16px;
 }
 
 .main-content-horizontal {
@@ -916,20 +925,20 @@ tr:hover td { background: var(--bg-primary); }
 
 .theme-options {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 128px), 1fr));
+  gap: 12px;
 }
 
 .theme-option {
-  padding: 18px 20px;
+  padding: 14px 12px;
   border: 2px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
   text-align: center;
   transition: all 0.2s;
   font-weight: 600;
-  font-size: 13px;
-  min-height: 96px;
+  font-size: 12px;
+  min-height: 88px;
 }
 
 .theme-option:hover { border-color: var(--accent); }
