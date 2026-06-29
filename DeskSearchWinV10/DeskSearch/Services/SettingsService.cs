@@ -65,7 +65,6 @@ public sealed class SettingsService
 
         settings.WindowOpacity = Math.Clamp(settings.WindowOpacity, 50, 100);
         settings.BackgroundOpacity = Math.Clamp(settings.BackgroundOpacity, 0, 100);
-        settings.PeriodicResyncHours = IndexResyncPolicy.Normalize(settings.PeriodicResyncHours);
         settings.SearchResultSort = SearchResultSortPolicy.Normalize(settings.SearchResultSort);
 
         if (rawJson is null)
@@ -74,5 +73,21 @@ public sealed class SettingsService
         using var document = JsonDocument.Parse(rawJson);
         if (!document.RootElement.TryGetProperty(nameof(AppSettings.RunAtStartup), out _))
             settings.RunAtStartup = true;
+    }
+
+    public void ResetToDefaults()
+    {
+        try
+        {
+            if (File.Exists(_settingsPath))
+                File.Delete(_settingsPath);
+        }
+        catch
+        {
+            // best effort; in-memory defaults still apply
+        }
+
+        Current = new AppSettings();
+        NormalizeSettings(Current);
     }
 }

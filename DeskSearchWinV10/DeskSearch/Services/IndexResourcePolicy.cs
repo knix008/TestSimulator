@@ -22,9 +22,6 @@ internal static class IndexResourcePolicy
     /// <summary>Max number of top-level roots (e.g. drives) scanned concurrently during a full scan.</summary>
     public const int MaxParallelRootScans = 3;
 
-    /// <summary>Pause before retrying a failed or interrupted full scan (ms).</summary>
-    public const int FailedScanRetryDelayMs = 8_000;
-
     /// <summary>How many times to retry incomplete roots within a single scan pass.</summary>
     public const int FailedRootScanRetryRounds = 3;
 
@@ -43,7 +40,6 @@ internal static class IndexResourcePolicy
     public const int SearchResultsUiMinIntervalMs = 150;
 
     public const int WatcherFlushDelayMs = 3000;
-    public const int WatcherErrorResyncDelayMinutes = 15;
     public const int LiveSearchPollMs = 750;
 
     public const int SettingsProgressPollMs = 1000;

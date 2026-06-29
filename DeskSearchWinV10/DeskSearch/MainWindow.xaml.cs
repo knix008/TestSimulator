@@ -68,9 +68,7 @@ public partial class MainWindow : Window
 
         InitializeLocalization();
 
-        _watcherService = new SystemWatcherService(
-            _indexService,
-            _settingsService.Current.PeriodicResyncHours);
+        _watcherService = new SystemWatcherService(_indexService);
 
         _debounce = new DebounceDispatcher(Dispatcher, delayMs: 100);
 
@@ -83,7 +81,11 @@ public partial class MainWindow : Window
         _indexService.IndexProgress += OnRescanIndexProgress;
 
         _indexService.FullIndexRebuildStarted += (_, _) =>
-            SafeBeginInvoke(InvalidateSearchForIndexRebuild);
+            SafeBeginInvoke(() =>
+            {
+                if (!_indexService.HasStableSearchIndex)
+                    InvalidateSearchForIndexRebuild();
+            });
 
         _indexService.IndexUpdated += (_, _) =>
             SafeBeginInvoke(ScheduleLiveSearchRefresh, System.Windows.Threading.DispatcherPriority.Background);
@@ -181,6 +183,7 @@ public partial class MainWindow : Window
 
     private void OnIndexProgress(object? sender, IndexProgressEventArgs e)
     {
+        var scanComplete = e.IsScanComplete;
         IndexUiDebounce.Debounce(() =>
         {
             if (!IsLoaded)
@@ -188,6 +191,9 @@ public partial class MainWindow : Window
 
             UpdateIndexUi();
             _openSettingsWindow?.RefreshProgressUi();
+
+            if (scanComplete)
+                ScheduleLiveSearchRefresh();
         });
     }
 
@@ -381,9 +387,7 @@ public partial class MainWindow : Window
 
     private void MenuRefreshIndex_Click(object sender, RoutedEventArgs e)
     {
-        _menuIndexStatus.Header = LocalizationService.T("Index_Indexing");
-        UpdateIndexUi();
-        _indexService.RestartScan();
+        RequestStartIndexingFromSettings();
     }
 
 

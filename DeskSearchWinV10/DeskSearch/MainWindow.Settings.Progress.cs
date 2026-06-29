@@ -134,7 +134,7 @@ public partial class MainWindow
         return (step, total);
     }
 
-    internal void RequestResetIndexFromSettings()
+    internal void RequestResetIndexFromSettings(ResetScope scope)
     {
         InvalidateSearchForIndexRebuild();
 
@@ -146,11 +146,28 @@ public partial class MainWindow
         }
 
         _indexService.ResetIndexDatabase();
+
+        if (scope != ResetScope.IndexDatabaseAndSettings)
+            return;
+
+        _settingsService.ResetToDefaults();
+        _settingsService.Save(_settingsService.Current);
+        ApplySettings(_settingsService.Current);
+        RestoreWindowLayout();
+        _indexService.ConfigureExclusions(_settingsService.Current);
+        _watcherService.Start();
+        RefreshLocalization();
+        _openSettingsWindow?.ApplyFactorySettings(_settingsService.Current);
     }
 
     internal void RequestStartIndexingFromSettings()
     {
-        InvalidateSearchForIndexRebuild();
+        var phase = _indexService.ProgressPhase;
+        if (phase is IndexProgressPhase.Analyzing or IndexProgressPhase.Applying)
+            return;
+
+        if (!_indexService.HasStableSearchIndex)
+            InvalidateSearchForIndexRebuild();
 
         lock (_rescanLock)
         {

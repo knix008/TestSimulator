@@ -140,7 +140,7 @@ public partial class MainWindow
                 afterScanId = session.LastScannedId;
                 scannedEntryOffset = session.Offset;
                 if (afterScanId == 0)
-                    session.PassStartCount = _indexService.Count;
+                    session.PassStartCount = _indexService.SearchIndexCount;
 
                 candidates = session.TopCandidates;
             }
@@ -157,8 +157,9 @@ public partial class MainWindow
             if (generation != Volatile.Read(ref _searchGeneration))
                 return;
 
-            var indexCount = _indexService.Count;
+            var indexCount = _indexService.SearchIndexCount;
             var indexComplete = _indexService.IsScanComplete;
+            var stableSearchIndex = _indexService.HasStableSearchIndex;
 
             lock (_searchSessionLock)
             {
@@ -186,7 +187,53 @@ public partial class MainWindow
             }
 
             if (!batch.IsComplete)
+            {
+                if (!indexComplete && !stableSearchIndex)
+                {
+                    lock (_searchSessionLock)
+                    {
+                        if (!ReferenceEquals(_searchSession, session))
+                            return;
+
+                        session.LastScannedCount = indexCount;
+                    }
+
+                    WaitForIndexGrowthOrCompletion(session, generation);
+                    if (generation != Volatile.Read(ref _searchGeneration))
+                        return;
+                }
+
                 continue;
+            }
+
+            if (!indexComplete && !stableSearchIndex)
+            {
+                lock (_searchSessionLock)
+                {
+                    if (!ReferenceEquals(_searchSession, session))
+                        return;
+
+                    session.LastScannedCount = indexCount;
+                    ResetSearchScanCursor(session);
+                }
+
+                WaitForIndexGrowthOrCompletion(session, generation);
+                if (generation != Volatile.Read(ref _searchGeneration))
+                    return;
+
+                continue;
+            }
+
+            if (!indexComplete && stableSearchIndex)
+            {
+                lock (_searchSessionLock)
+                {
+                    if (ReferenceEquals(_searchSession, session))
+                        session.IsComplete = true;
+                }
+
+                break;
+            }
 
             int passStartCount;
             lock (_searchSessionLock)
@@ -195,41 +242,6 @@ public partial class MainWindow
                     return;
 
                 passStartCount = session.PassStartCount;
-            }
-
-            if (!indexComplete)
-            {
-                if (!_indexService.HasStableSearchIndex)
-                {
-                    lock (_searchSessionLock)
-                    {
-                        if (!ReferenceEquals(_searchSession, session))
-                            return;
-
-                        session.LastScannedCount = indexCount;
-                        ResetSearchScanCursor(session);
-                    }
-
-                    WaitForIndexGrowthOrCompletion(session, generation);
-                    if (generation != Volatile.Read(ref _searchGeneration))
-                        return;
-
-                    lock (_searchSessionLock)
-                    {
-                        if (!ReferenceEquals(_searchSession, session))
-                            return;
-                    }
-
-                    continue;
-                }
-
-                lock (_searchSessionLock)
-                {
-                    if (ReferenceEquals(_searchSession, session))
-                        session.IsComplete = true;
-                }
-
-                break;
             }
 
             if (indexCount > passStartCount)
@@ -280,11 +292,8 @@ public partial class MainWindow
                     return;
             }
 
-            var currentCount = _indexService.Count;
+            var currentCount = _indexService.SearchIndexCount;
             if (currentCount > session.LastScannedCount)
-                return;
-
-            if (_indexService.HasStableSearchIndex && _indexService.IsScanning)
                 return;
 
             if (_indexService.IsScanComplete && !_indexService.IsScanning)
@@ -334,7 +343,7 @@ public partial class MainWindow
             _searchSession.LastScannedId = 0;
             _searchSession.Offset = 0;
             _searchSession.PassStartCount = -1;
-            _searchSession.LastScannedCount = _indexService.Count;
+            _searchSession.LastScannedCount = _indexService.SearchIndexCount;
             _searchSession.TopCandidates.Clear();
             sessionToContinue = _searchSession;
         }

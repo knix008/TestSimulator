@@ -20,7 +20,7 @@ public partial class SettingsWindow : Window
     private readonly Func<SettingsProgressSnapshot>? _getProgress;
     private readonly Action? _startIndexing;
     private readonly Action? _stopIndexing;
-    private readonly Action? _resetIndex;
+    private readonly Action<ResetScope>? _resetIndex;
     private readonly DispatcherTimer? _progressTimer;
     private readonly DebounceDispatcher _scrollResumeDebounce;
     private readonly DebounceDispatcher _focusRestoreDebounce;
@@ -42,7 +42,7 @@ public partial class SettingsWindow : Window
         Func<SettingsProgressSnapshot>? getProgress = null,
         Action? startIndexing = null,
         Action? stopIndexing = null,
-        Action? resetIndex = null)
+        Action<ResetScope>? resetIndex = null)
     {
         Settings = current.Clone();
         _initialLanguage = Settings.Language;
@@ -266,7 +266,7 @@ public partial class SettingsWindow : Window
     {
         Title = LocalizationService.T("Settings_Title");
         HeaderText.Text = LocalizationService.T("Settings_Header");
-        InfoButton.Content = CreateIconLabel("\uE946", LocalizationService.T("Settings_Info"));
+        InfoButton.Content = CreateIconLabel("\uE946", LocalizationService.T("Settings_Info"), SettingsIconColors.Info);
         LanguageLabel.Text = LocalizationService.T("Settings_Language");
         LanguageKoreanRadio.Content = LocalizationService.T("Settings_Language_Korean");
         LanguageEnglishRadio.Content = LocalizationService.T("Settings_Language_English");
@@ -283,25 +283,22 @@ public partial class SettingsWindow : Window
         ExcludedDrivesDescLabel.Text = LocalizationService.T("Settings_ExcludedDrivesDesc");
         ExcludedDirectoriesLabel.Text = LocalizationService.T("Settings_ExcludedDirectories");
         ExcludedDirectoriesDescLabel.Text = LocalizationService.T("Settings_ExcludedDirectoriesDesc");
-        BrowseExcludedDirectoryButton.Content = CreateIconLabel("\uE838", LocalizationService.T("Settings_BrowseFolder"));
-        RemoveExcludedDirectoryButton.Content = CreateIconLabel("\uE74D", LocalizationService.T("Settings_RemoveExcluded"));
-        PeriodicResyncLabel.Text = LocalizationService.T("Settings_PeriodicResync");
-        PeriodicResyncDescLabel.Text = LocalizationService.T("Settings_PeriodicResyncDesc");
-        LoadPeriodicResyncOptions();
+        BrowseExcludedDirectoryButton.Content = CreateIconLabel("\uE838", LocalizationService.T("Settings_BrowseFolder"), SettingsIconColors.BrowseFolder);
+        RemoveExcludedDirectoryButton.Content = CreateIconLabel("\uE74D", LocalizationService.T("Settings_RemoveExcluded"), SettingsIconColors.Remove);
         IndexProgressLabel.Text = LocalizationService.T("Settings_IndexProgress");
-        ResetIndexButton.Content = CreateIconLabel("\uE894", LocalizationService.T("Settings_ResetIndex"));
-        OpenDataFolderButton.Content = CreateIconLabel("\uE8DA", LocalizationService.T("Settings_OpenDataFolder"));
+        ResetIndexButton.Content = CreateIconLabel("\uE894", LocalizationService.T("Settings_ResetIndex"), SettingsIconColors.Reset);
+        OpenDataFolderButton.Content = CreateIconLabel("\uE8DA", LocalizationService.T("Settings_OpenDataFolder"), SettingsIconColors.OpenDataFolder);
         ApplyIndexActionButtonAppearance(_indexActionIsStopMode);
         StartupLabel.Text = LocalizationService.T("Settings_Startup");
         RunAtStartupCheckBox.Content = LocalizationService.T("Settings_RunAtStartup");
         RunAtStartupDescLabel.Text = LocalizationService.T("Settings_RunAtStartupDesc");
         BackgroundColorLabel.Text = LocalizationService.T("Settings_BackgroundColor");
-        PickBackgroundColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"));
+        PickBackgroundColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"), SettingsIconColors.PickBackground);
         BackgroundOpacityLabel.Text = LocalizationService.T("Settings_BackgroundOpacity");
         BorderColorLabel.Text = LocalizationService.T("Settings_BorderColor");
-        PickBorderColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"));
+        PickBorderColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"), SettingsIconColors.PickBorder);
         TextColorLabel.Text = LocalizationService.T("Settings_TextColor");
-        PickTextColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"));
+        PickTextColorButton.Content = CreateIconLabel("\uE790", LocalizationService.T("Settings_PickColor"), SettingsIconColors.PickText);
         TextPreview.Text = LocalizationService.T("Settings_SearchPreview");
         WindowOpacityLabel.Text = LocalizationService.T("Settings_WindowOpacity");
         DisplayPriorityLabel.Text = LocalizationService.T("Settings_DisplayPriority");
@@ -309,12 +306,14 @@ public partial class SettingsWindow : Window
         AboveOthersDescLabel.Text = LocalizationService.T("Settings_AboveOthersDesc");
         PriorityNormalRadio.Content = LocalizationService.T("Settings_NormalPriority");
         NormalPriorityDescLabel.Text = LocalizationService.T("Settings_NormalPriorityDesc");
-        CancelButton.Content = CreateIconLabel("\uE711", LocalizationService.T("Settings_Cancel"));
-        SaveButton.Content = CreateIconLabel("\uE74E", LocalizationService.T("Settings_Save"));
+        CancelButton.Content = CreateIconLabel("\uE711", LocalizationService.T("Settings_Cancel"), SettingsIconColors.Cancel);
+        SaveButton.Content = CreateIconLabel("\uE74E", LocalizationService.T("Settings_Save"), SettingsIconColors.Save);
     }
 
-    private static StackPanel CreateIconLabel(string glyph, string label) =>
-        new()
+    private static StackPanel CreateIconLabel(string glyph, string label, string iconColorHex)
+    {
+        var iconBrush = ColorHelper.ToBrush(iconColorHex);
+        return new StackPanel
         {
             Orientation = System.Windows.Controls.Orientation.Horizontal,
             Children =
@@ -324,7 +323,7 @@ public partial class SettingsWindow : Window
                     Text = glyph,
                     FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
                     FontSize = 14,
-                    Foreground = System.Windows.SystemColors.ControlTextBrush,
+                    Foreground = iconBrush,
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(0, 0, 6, 0)
                 },
@@ -336,6 +335,7 @@ public partial class SettingsWindow : Window
                 }
             }
         };
+    }
 
     private void LoadToUi()
     {
@@ -362,30 +362,7 @@ public partial class SettingsWindow : Window
         PriorityNormalRadio.IsChecked = !Settings.AlwaysOnTop;
         BuildExcludedDrivesUi();
         LoadExcludedDirectories();
-        SelectPeriodicResyncHours(Settings.PeriodicResyncHours);
         UpdateOpacityLabels();
-    }
-
-    private void LoadPeriodicResyncOptions()
-    {
-        var selectedHours = PeriodicResyncComboBox.SelectedItem is ComboBoxItem { Tag: int hours }
-            ? hours
-            : Settings.PeriodicResyncHours;
-
-        PeriodicResyncComboBox.Items.Clear();
-
-        foreach (var allowedHours in IndexResyncPolicy.AllowedHours)
-        {
-            PeriodicResyncComboBox.Items.Add(new ComboBoxItem
-            {
-                Content = FormatResyncInterval(allowedHours),
-                Tag = allowedHours,
-                VerticalContentAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(8, 0, 8, 0)
-            });
-        }
-
-        SelectPeriodicResyncHours(selectedHours);
     }
 
     private void LoadSearchResultSortOptions()
@@ -434,36 +411,6 @@ public partial class SettingsWindow : Window
 
         return SearchResultSortOrder.MatchQuality;
     }
-
-    private void SelectPeriodicResyncHours(int hours)
-    {
-        hours = IndexResyncPolicy.Normalize(hours);
-
-        foreach (ComboBoxItem item in PeriodicResyncComboBox.Items)
-        {
-            if (item.Tag is int value && value == hours)
-            {
-                PeriodicResyncComboBox.SelectedItem = item;
-                return;
-            }
-        }
-    }
-
-    private int GetSelectedPeriodicResyncHours()
-    {
-        if (PeriodicResyncComboBox.SelectedItem is ComboBoxItem { Tag: int hours })
-            return IndexResyncPolicy.Normalize(hours);
-
-        return IndexResyncPolicy.DefaultPeriodicResyncHours;
-    }
-
-    private static string FormatResyncInterval(int hours) =>
-        hours switch
-        {
-            IndexResyncPolicy.Disabled => LocalizationService.T("Settings_Resync_Disabled"),
-            168 => LocalizationService.T("Settings_Resync_Weekly"),
-            _ => LocalizationService.F("Settings_Resync_Hours", hours)
-        };
 
     private void BuildExcludedDrivesUi()
     {
@@ -671,7 +618,7 @@ public partial class SettingsWindow : Window
         }
         else
         {
-            ReSearchButton.Content = CreateIconLabel("\uE721", LocalizationService.T("Settings_Indexing"));
+            ReSearchButton.Content = CreateIconLabel("\uE721", LocalizationService.T("Settings_Indexing"), SettingsIconColors.Indexing);
             ReSearchButton.ClearValue(System.Windows.Controls.Control.BackgroundProperty);
             ReSearchButton.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
             ReSearchButton.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
@@ -679,8 +626,10 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private static StackPanel CreateStopIconLabel(string label) =>
-        new()
+    private static StackPanel CreateStopIconLabel(string label)
+    {
+        var iconBrush = ColorHelper.ToBrush(SettingsIconColors.Stop);
+        return new StackPanel
         {
             Orientation = System.Windows.Controls.Orientation.Horizontal,
             Children =
@@ -690,7 +639,7 @@ public partial class SettingsWindow : Window
                     Text = "\uE71A",
                     FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
                     FontSize = 14,
-                    Foreground = System.Windows.Media.Brushes.White,
+                    Foreground = iconBrush,
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(0, 0, 6, 0)
                 },
@@ -702,6 +651,7 @@ public partial class SettingsWindow : Window
                 }
             }
         };
+    }
 
     private void IndexAction_Click(object sender, RoutedEventArgs e)
     {
@@ -724,20 +674,22 @@ public partial class SettingsWindow : Window
         if (!ResetIndexButton.IsEnabled)
             return;
 
-        var confirm = System.Windows.MessageBox.Show(
-            this,
-            LocalizationService.T("Settings_ResetIndex_ConfirmMessage"),
-            LocalizationService.T("Settings_ResetIndex_ConfirmTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-
-        if (confirm != MessageBoxResult.Yes)
+        var choiceDialog = new ResetChoiceDialog { Owner = this };
+        if (choiceDialog.ShowDialog() != true)
             return;
 
         _resetUiPending = true;
         ExitProgressIdleMode();
-        _resetIndex?.Invoke();
+        _resetIndex?.Invoke(choiceDialog.Scope);
         ApplyResetProgressUi();
+    }
+
+    internal void ApplyFactorySettings(AppSettings defaults)
+    {
+        Settings = defaults.Clone();
+        LoadToUi();
+        ApplyLocalization();
+        UpdateProgressUi();
     }
 
     private void ApplyResetProgressUi()
@@ -911,7 +863,6 @@ public partial class SettingsWindow : Window
         Settings.UseRegexSearch = UseRegexSearchCheckBox.IsChecked == true;
         Settings.SearchResultSort = GetSelectedSearchResultSort();
         Settings.RunAtStartup = RunAtStartupCheckBox.IsChecked == true;
-        Settings.PeriodicResyncHours = GetSelectedPeriodicResyncHours();
         SaveExcludedPaths();
         Settings.AlwaysOnTop = PriorityAboveOthersRadio.IsChecked == true;
         Settings.WindowOpacity = (int)WindowOpacitySlider.Value;
