@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="ko-kr" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="DowngradeError" Value="이미 더 새로운 버전이 설치되어 있습니다." />
+  <String Id="FeatureStartMenuTitle" Value="시작 메뉴 바로 가기" />
+  <String Id="FeatureStartMenuDescription" Value="시작 메뉴에 MyWorkspace 바로 가기를 만듭니다." />
+  <String Id="FeatureDesktopTitle" Value="바탕 화면 바로 가기" />
+  <String Id="FeatureDesktopDescription" Value="바탕 화면에 MyWorkspace 바로 가기를 만듭니다." />
+</WixLocalization>

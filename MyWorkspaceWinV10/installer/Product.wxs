@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <?define ProductName = "MyWorkspace v1.0" ?>
+  <?define Manufacturer = "MyWorkspace" ?>
+  <?define UpgradeCode = "A7B8C9D0-E1F2-4A3B-8C7D-9E0F1A2B3C4D" ?>
+  <?define PublishDir = "..\src\MyWorkspace.Win\bin\Release\net10.0-windows\win-x64\publish" ?>
+
+  <Package Name="$(var.ProductName)"
+           Manufacturer="$(var.Manufacturer)"
+           Version="1.0.0.0"
+           Scope="perMachine"
+           UpgradeCode="$(var.UpgradeCode)"
+           Language="1042">
+
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)"
+                  Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MyWorkspaceWinV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuAppFolder" Name="MyWorkspace" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="ProductFeature" Title="$(var.ProductName)" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <Feature Id="StartMenuShortcutFeature"
+             Title="!(loc.FeatureStartMenuTitle)"
+             Description="!(loc.FeatureStartMenuDescription)"
+             Level="1">
+      <ComponentRef Id="StartMenuShortcutComponent" />
+    </Feature>
+
+    <Feature Id="DesktopShortcutFeature"
+             Title="!(loc.FeatureDesktopTitle)"
+             Description="!(loc.FeatureDesktopDescription)"
+             Level="10">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="ProgramMenuAppFolder">
+      <Component Id="StartMenuShortcutComponent" Guid="B1C2D3E4-F5A6-7890-BCDE-F12345678901">
+        <Shortcut Id="StartMenuShortcut"
+                  Name="$(var.ProductName)"
+                  Description="Notion-style workspace and markdown editor"
+                  Target="[INSTALLFOLDER]MyWorkspaceWinV10.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\$(var.Manufacturer)\MyWorkspaceWinV10"
+                       Name="StartMenu"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+        <RemoveFolder Id="RemoveProgramMenuAppFolder" Directory="ProgramMenuAppFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="C2D3E4F5-A6B7-8901-CDEF-123456789012">
+        <Shortcut Id="DesktopShortcut"
+                  Name="$(var.ProductName)"
+                  Description="Notion-style workspace and markdown editor"
+                  Target="[INSTALLFOLDER]MyWorkspaceWinV10.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\$(var.Manufacturer)\MyWorkspaceWinV10"
+                       Name="Desktop"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+
+</Wix>
