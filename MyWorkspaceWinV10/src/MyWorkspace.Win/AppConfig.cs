@@ -111,7 +111,7 @@ internal static class AppConfig
     private static void ApplyUiSettings(UiSettings settings, bool persist)
     {
         Localization.SetLanguage(settings.Language);
-        AppTheme.ApplyTheme(settings.Theme);
+        AppTheme.ApplyAppearance(settings.Theme, settings.FontScaleStep);
 
         if (!persist)
             return;
@@ -129,7 +129,10 @@ internal static class AppConfig
         {
             ["Theme"] = settings.Theme.ToString(),
             ["Language"] = settings.Language.ToString(),
-            ["LastLoginUsername"] = settings.LastLoginUsername
+            ["LastLoginUsername"] = settings.LastLoginUsername,
+            ["FontScaleStep"] = settings.FontScaleStep,
+            ["LastExportDirectory"] = settings.LastExportDirectory,
+            ["LastOpenDirectory"] = settings.LastOpenDirectory
         };
 
         File.WriteAllText(LocalSettingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
@@ -155,6 +158,11 @@ internal static class AppConfig
             settings.Language = language;
 
         settings.LastLoginUsername = section["LastLoginUsername"]?.Trim() ?? string.Empty;
+        settings.LastExportDirectory = section["LastExportDirectory"]?.Trim() ?? string.Empty;
+        settings.LastOpenDirectory = section["LastOpenDirectory"]?.Trim() ?? string.Empty;
+
+        if (int.TryParse(section["FontScaleStep"], out var fontScaleStep))
+            settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
         return settings;
     }
@@ -170,6 +178,12 @@ internal static class AppConfig
             settings.Language = language;
 
         settings.LastLoginUsername = section["LastLoginUsername"]?.GetValue<string>()?.Trim() ?? string.Empty;
+        settings.LastExportDirectory = section["LastExportDirectory"]?.GetValue<string>()?.Trim() ?? string.Empty;
+        settings.LastOpenDirectory = section["LastOpenDirectory"]?.GetValue<string>()?.Trim() ?? string.Empty;
+
+        if (section["FontScaleStep"] is JsonValue fontScaleValue &&
+            fontScaleValue.TryGetValue(out int fontScaleStep))
+            settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
         return settings;
     }

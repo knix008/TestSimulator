@@ -48,11 +48,13 @@ partial class ChangePasswordForm
         txtConfirm.Size = new Size(220, 23);
 
         btnSave.Location = new Point(140, 128);
+        btnSave.Name = "btnSave";
         btnSave.Size = new Size(96, 32);
         btnSave.Text = "변경";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(270, 128);
+        btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;

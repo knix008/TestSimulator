@@ -47,6 +47,7 @@ partial class NewPageForm
 
         btnReloadTemplates.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnReloadTemplates.Location = new Point(432, 44);
+        btnReloadTemplates.Name = "btnReloadTemplates";
         btnReloadTemplates.Size = new Size(96, 32);
         btnReloadTemplates.Text = "새로고침";
         btnReloadTemplates.UseVisualStyleBackColor = true;
@@ -54,6 +55,7 @@ partial class NewPageForm
 
         btnOpenTemplateFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnOpenTemplateFolder.Location = new Point(518, 44);
+        btnOpenTemplateFolder.Name = "btnOpenTemplateFolder";
         btnOpenTemplateFolder.Size = new Size(160, 32);
         btnOpenTemplateFolder.Text = "양식 폴더 열기";
         btnOpenTemplateFolder.UseVisualStyleBackColor = true;
@@ -99,6 +101,7 @@ partial class NewPageForm
 
         btnOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnOk.Location = new Point(512, 476);
+        btnOk.Name = "btnOk";
         btnOk.Size = new Size(96, 32);
         btnOk.Text = "만들기";
         btnOk.Click += btnOk_Click;
@@ -106,6 +109,7 @@ partial class NewPageForm
         btnCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnCancel.DialogResult = DialogResult.Cancel;
         btnCancel.Location = new Point(592, 476);
+        btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;

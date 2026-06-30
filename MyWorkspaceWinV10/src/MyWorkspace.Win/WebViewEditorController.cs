@@ -1,5 +1,7 @@
+using System.Drawing;
 using System.Text.Json;
 using Markdig;
+using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using ReverseMarkdown;
 
@@ -34,9 +36,29 @@ internal sealed class WebViewEditorController
     public void ResetScriptSuspension() =>
         Interlocked.Exchange(ref _scriptSuspendDepth, 0);
 
+    public void ApplyWebViewChrome()
+    {
+        _webView.DefaultBackgroundColor = AppTheme.EditorBackground;
+        if (_webView.CoreWebView2 != null)
+        {
+            _webView.CoreWebView2.Profile.PreferredColorScheme = AppTheme.IsDark
+                ? CoreWebView2PreferredColorScheme.Dark
+                : CoreWebView2PreferredColorScheme.Light;
+        }
+    }
+
+    public async Task ApplyThemeChromeAsync()
+    {
+        if (!IsReady || IsScriptSuspended)
+            return;
+
+        await ExecuteScriptExclusiveAsync(BuildThemeChromeScript());
+    }
+
     public async Task InitializeAsync(MarkdownPipeline pipeline)
     {
         await _webView.EnsureCoreWebView2Async();
+        ApplyWebViewChrome();
 
         var settings = _webView.CoreWebView2.Settings;
         settings.AreDefaultContextMenusEnabled = false;
@@ -87,6 +109,7 @@ internal sealed class WebViewEditorController
         if (_webView.CoreWebView2 == null)
             return;
 
+        ApplyWebViewChrome();
         _isReady = false;
         var normalized = pageId.HasValue
             ? PageMarkdownNormalizer.ExpandAssetReferences(markdown, pageId.Value)
@@ -128,6 +151,8 @@ internal sealed class WebViewEditorController
     public Task CopyAsync() => ApplyFormatAsync("copy");
     public Task PasteAsync() => ApplyFormatAsync("paste");
     public Task SelectAllAsync() => ApplyFormatAsync("selectAll");
+    public Task UndoAsync() => RunApiAsync("window.editorApi.undo();");
+    public Task RedoAsync() => RunApiAsync("window.editorApi.redo();");
 
     public Task ApplyBlockquoteAsync() =>
         RunApiAsync("window.editorApi.applyBlockquote();");
@@ -143,6 +168,9 @@ internal sealed class WebViewEditorController
 
     public Task FocusAsync() =>
         RunApiAsync("window.editorApi.focus();");
+
+    public Task SetFirstHeadingTitleAsync(string title) =>
+        RunApiAsync($"window.editorApi.setFirstHeadingTitle('{EscapeJs(title)}');");
 
     public async Task ScrollToHeadingAsync(string headingId)
     {
@@ -255,6 +283,34 @@ internal sealed class WebViewEditorController
 
     private static string EscapeJs(string value) =>
         value.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", "\\n");
+
+    private static string BuildThemeChromeScript()
+    {
+        var chrome = EditorChromeOptions.CreateCurrent();
+        var p = chrome.Palette;
+        var themeJson = JsonSerializer.Serialize(new
+        {
+            bg = ToCss(p.EditorBackground),
+            text = ToCss(p.EditorText),
+            caret = ToCss(p.EditorCaret),
+            placeholder = ToCss(p.EditorPlaceholder),
+            focus = ToCssAlpha(p.EditorFocusRing, 51),
+            codeBg = ToCss(p.EditorCodeBackground),
+            border = ToCss(p.Border),
+            borderLight = ToCss(p.BorderLight),
+            accent = ToCss(p.Accent),
+            muted = ToCss(p.TextSecondary),
+            selection = ToCssAlpha(p.Accent, 51),
+            colorScheme = AppTheme.IsDark ? "dark" : "light"
+        });
+        return $"window.editorApi.applyThemeChrome({themeJson});";
+    }
+
+    private static string ToCss(Color color) =>
+        $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+
+    private static string ToCssAlpha(Color color, int alpha) =>
+        $"#{color.R:X2}{color.G:X2}{color.B:X2}{alpha:X2}";
 
     private static Converter CreateConverter()
     {

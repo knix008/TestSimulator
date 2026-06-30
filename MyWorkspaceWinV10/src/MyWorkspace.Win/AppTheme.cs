@@ -15,6 +15,14 @@ internal enum PanelEdges
     All = Left | Top | Right | Bottom
 }
 
+internal enum PanelHeaderKind
+{
+    Workspace,
+    Outline,
+    Editor,
+    PageTitle
+}
+
 internal static class AppTheme
 {
     private static ThemePalette _palette = ThemePalette.Light;
@@ -39,22 +47,69 @@ internal static class AppTheme
     public static Color Success => _palette.Success;
     public static Color Warning => _palette.Warning;
     public static Color Danger => _palette.Danger;
+    public static Color EditorCodeBackground => _palette.EditorCodeBackground;
+    public static Color EditorBackground => _palette.EditorBackground;
+    public static Color EditorText => _palette.EditorText;
+    public static Color PanelHeaderWorkspace => _palette.PanelHeaderWorkspace;
+    public static Color PanelHeaderOutline => _palette.PanelHeaderOutline;
+    public static Color PanelHeaderEditor => _palette.PanelHeaderEditor;
+    public static Color PanelHeaderPageTitle => _palette.PanelHeaderPageTitle;
 
-    public static Font UiFont { get; } = new("Segoe UI", 9F);
-    public static Font UiFontSmall { get; } = new("Segoe UI", 8.25F);
-    public static Font UiFontSemibold { get; } = new("Segoe UI Semibold", 9F);
-    public static Font HeaderFont { get; } = new("Segoe UI Semibold", 9.5F);
-    public static Font TitleFont { get; } = new("Segoe UI Semibold", 15F);
+    private const float BaseUiFontSize = 9F;
+    private const float BaseUiFontSmallSize = 8.25F;
+    private const float BaseUiFontSemiboldSize = 9F;
+    private const float BaseHeaderFontSize = 9.5F;
+    private const float BasePanelTitleFontSize = 11F;
+    private const float BasePageTitleCaptionFontSize = 13F;
+    private const float BasePageTitleTextFontSize = 12F;
+    private const float BaseTitleFontSize = 15F;
+    private const float BaseEditorContentFontSize = 15F;
+
+    private static float _fontScaleFactor = 1F;
+    private static int _fontScaleStep;
+
+    private static Font _uiFont = null!;
+    private static Font _uiFontSmall = null!;
+    private static Font _uiFontSemibold = null!;
+    private static Font _headerFont = null!;
+    private static Font _panelTitleFont = null!;
+    private static Font _pageTitleCaptionFont = null!;
+    private static Font _pageTitleTextFont = null!;
+    private static Font _titleFont = null!;
+
+    static AppTheme()
+    {
+        RefreshFonts();
+    }
+
+    public static Font UiFont => _uiFont;
+    public static Font UiFontSmall => _uiFontSmall;
+    public static Font UiFontSemibold => _uiFontSemibold;
+    public static Font HeaderFont => _headerFont;
+    public static Font PanelTitleFont => _panelTitleFont;
+    public static Font PageTitleCaptionFont => _pageTitleCaptionFont;
+    public static Font PageTitleTextFont => _pageTitleTextFont;
+    public static Font TitleFont => _titleFont;
+    public static Font CloneUiFont() => (Font)_uiFont.Clone();
+    public static float FontScaleFactor => _fontScaleFactor;
+    public static int FontScaleStep => _fontScaleStep;
+    public static float EditorContentFontSize => ScaleSize(BaseEditorContentFontSize);
 
     public static event Action? Changed;
 
-    public static void ApplyTheme(AppThemeKind theme)
+    public static void ApplyAppearance(AppThemeKind theme, int fontScaleStep)
     {
         _palette = theme == AppThemeKind.Dark ? ThemePalette.Dark : ThemePalette.Light;
+        _fontScaleStep = UiFontScale.Normalize(fontScaleStep);
+        _fontScaleFactor = UiFontScale.GetFactor(_fontScaleStep);
+        RefreshFonts();
         _colorTable = new ModernColorTable();
         _renderer = new ModernToolStripRenderer(_colorTable);
         Changed?.Invoke();
     }
+
+    public static void ApplyTheme(AppThemeKind theme) =>
+        ApplyAppearance(theme, _fontScaleStep);
 
     public static Color GetSaveStatusColor(SaveStatusKind kind) =>
         kind switch
@@ -231,8 +286,9 @@ internal static class AppTheme
     }
 
     private static bool IsPrimaryButton(Button button) =>
-        button.Name is "btnOk" or "btnLogin" or "btnSave"
-        || button.DialogResult == DialogResult.OK;
+        button.Name is "btnOk" or "btnLogin" or "btnSave" or "btnRestore"
+        || button.DialogResult == DialogResult.OK
+        || ReferenceEquals(button.FindForm()?.AcceptButton, button);
 
     private static bool IsButtonFooterPanel(Panel panel) =>
         panel.Dock == DockStyle.Bottom &&
@@ -454,7 +510,8 @@ internal static class AppTheme
     {
         ApplyToolStrip(strip);
         strip.GripStyle = ToolStripGripStyle.Hidden;
-        strip.Padding = new Padding(8, 4, 8, 4);
+        strip.ImageScalingSize = new Size(AppIcons.ToolbarIconSize, AppIcons.ToolbarIconSize);
+        strip.Padding = new Padding(8, 6, 8, 6);
     }
 
     public static void ApplyStatusStrip(StatusStrip strip)
@@ -539,6 +596,7 @@ internal static class AppTheme
         if (comboBox is ThemedComboBox themedComboBox)
         {
             themedComboBox.ApplyTheme();
+            AttachComboBoxBorder(comboBox);
             return;
         }
 
@@ -546,11 +604,33 @@ internal static class AppTheme
         comboBox.ForeColor = TextPrimary;
         comboBox.FlatStyle = FlatStyle.Flat;
         comboBox.DrawMode = DrawMode.OwnerDrawFixed;
+        comboBox.Font = CloneUiFont();
         comboBox.ItemHeight = Math.Max(22, comboBox.Font.Height + 8);
         comboBox.DrawItem -= DrawComboBoxItem;
         comboBox.DrawItem += DrawComboBoxItem;
-        if (comboBox.Font?.Name == "Microsoft Sans Serif")
-            comboBox.Font = UiFont;
+
+        AttachComboBoxBorder(comboBox);
+    }
+
+    internal static void AttachComboBoxBorder(ComboBox comboBox)
+    {
+        comboBox.Paint -= PaintComboBoxBorder;
+        comboBox.Paint += PaintComboBoxBorder;
+    }
+
+    private static void PaintComboBoxBorder(object? sender, PaintEventArgs e)
+    {
+        if (sender is not ComboBox comboBox)
+            return;
+
+        var rect = comboBox.ClientRectangle;
+        if (rect.Width <= 0 || rect.Height <= 0)
+            return;
+
+        rect.Width -= 1;
+        rect.Height -= 1;
+        using var pen = new Pen(Border);
+        e.Graphics.DrawRectangle(pen, rect);
     }
 
     private static void DrawComboBoxItem(object? sender, DrawItemEventArgs e)
@@ -610,7 +690,7 @@ internal static class AppTheme
         button.UseVisualStyleBackColor = false;
         button.FlatAppearance.MouseOverBackColor = _palette.AccentHoverButton;
         button.FlatAppearance.MouseDownBackColor = _palette.AccentPressedButton;
-        button.Padding = new Padding(12, 2, 12, 2);
+        ApplyDialogButtonIcon(button, primary: true);
         EnsureButtonHeight(button);
     }
 
@@ -626,9 +706,83 @@ internal static class AppTheme
         button.UseVisualStyleBackColor = false;
         button.FlatAppearance.MouseOverBackColor = IsDark ? Border : Background;
         button.FlatAppearance.MouseDownBackColor = IsDark ? TextMuted : BorderLight;
-        button.Padding = new Padding(10, 2, 10, 2);
+        ApplyDialogButtonIcon(button, primary: false);
         EnsureButtonHeight(button);
     }
+
+    private static void ApplyDialogButtonContentAlignment(Button button)
+    {
+        button.UseCompatibleTextRendering = true;
+
+        if (button.Image != null)
+        {
+            button.TextImageRelation = TextImageRelation.ImageBeforeText;
+            button.ImageAlign = ContentAlignment.MiddleLeft;
+            button.TextAlign = ContentAlignment.MiddleLeft;
+            button.Padding = new Padding(10, 4, 12, 4);
+            return;
+        }
+
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.Padding = new Padding(14, 4, 14, 4);
+    }
+
+    private static void ApplyDialogButtonIcon(Button button, bool primary)
+    {
+        var iconName = ResolveDialogButtonIconName(button);
+        if (iconName == null)
+        {
+            if (button.Image != null)
+            {
+                button.Image.Dispose();
+                button.Image = null;
+            }
+
+            ApplyDialogButtonContentAlignment(button);
+            return;
+        }
+
+        button.Image?.Dispose();
+        button.Image = IconAssets.LoadDialogButtonIcon(16, iconName, primary);
+        ApplyDialogButtonContentAlignment(button);
+    }
+
+    private static string? ResolveDialogButtonIconName(Button button)
+    {
+        if (!string.IsNullOrEmpty(button.Name))
+        {
+            var mapped = MapDialogButtonIconName(button.Name);
+            if (mapped != null)
+                return mapped;
+        }
+
+        var form = button.FindForm();
+        if (ReferenceEquals(form?.CancelButton, button))
+            return "exit";
+
+        if (ReferenceEquals(form?.AcceptButton, button))
+            return button.Name is "btnLogin" ? "login" : "save";
+
+        return null;
+    }
+
+    private static string? MapDialogButtonIconName(string name) => name switch
+    {
+        "btnSave" or "btnOk" => "save",
+        "btnLogin" => "login",
+        "btnCancel" => "exit",
+        "btnClose" => "exit",
+        "btnAdd" => "page_plus",
+        "btnEdit" => "rename",
+        "btnDelete" or "btnRemove" => "delete",
+        "btnCopy" => "copy",
+        "btnTest" => "refresh",
+        "btnBrowseSqlite" => "database",
+        "btnReloadTemplates" => "refresh",
+        "btnOpenTemplateFolder" => "workspace",
+        "btnRestore" => "history",
+        _ => null
+    };
 
     public static void FitButtonSize(Button button, int minWidth = 84, int height = 32)
     {
@@ -644,10 +798,16 @@ internal static class AppTheme
             button.Font,
             new Size(int.MaxValue, int.MaxValue),
             flags);
-        var horizontalPadding = button.Padding.Horizontal + 28;
+        const int iconGap = 6;
+        var iconWidth = button.Image?.Width ?? 0;
+        var iconHeight = button.Image?.Height ?? 0;
+        var iconExtra = iconWidth > 0 ? iconWidth + iconGap : 0;
+        var contentWidth = textSize.Width + iconExtra;
+        var contentHeight = Math.Max(textSize.Height, iconHeight);
+        var horizontalPadding = button.Padding.Horizontal + 8;
         var verticalPadding = button.Padding.Vertical + 8;
-        var width = Math.Max(minWidth, textSize.Width + horizontalPadding);
-        var fittedHeight = Math.Max(height, textSize.Height + verticalPadding);
+        var width = Math.Max(minWidth, contentWidth + horizontalPadding);
+        var fittedHeight = Math.Max(height, contentHeight + verticalPadding);
 
         button.AutoSize = false;
         button.Size = new Size(width, fittedHeight);
@@ -687,6 +847,67 @@ internal static class AppTheme
         StyleBorderedPanel(panel, PanelEdges.Bottom);
     }
 
+    public static Color GetPanelHeaderColor(PanelHeaderKind kind) =>
+        kind switch
+        {
+            PanelHeaderKind.Workspace => PanelHeaderWorkspace,
+            PanelHeaderKind.Outline => PanelHeaderOutline,
+            PanelHeaderKind.Editor => PanelHeaderEditor,
+            PanelHeaderKind.PageTitle => PanelHeaderPageTitle,
+            _ => Surface
+        };
+
+    public static void StylePanelTitleHeader(Panel header, Label titleLabel, PanelHeaderKind kind)
+    {
+        header.BackColor = GetPanelHeaderColor(kind);
+        header.MinimumSize = new Size(0, 38);
+        if (header.Height < 38)
+            header.Height = 38;
+
+        StyleBorderedPanel(header, PanelEdges.Bottom);
+
+        titleLabel.BackColor = Color.Transparent;
+        titleLabel.ForeColor = TextPrimary;
+        titleLabel.Font = PanelTitleFont;
+        titleLabel.TextAlign = ContentAlignment.MiddleLeft;
+    }
+
+    public static void StylePageTitlePanel(Panel panel, Label caption, TextBox textBox)
+    {
+        panel.BackColor = GetPanelHeaderColor(PanelHeaderKind.PageTitle);
+        StyleBorderedPanel(panel, PanelEdges.Bottom);
+
+        caption.BackColor = Color.Transparent;
+        caption.ForeColor = TextPrimary;
+        caption.Font = PageTitleCaptionFont;
+        caption.TextAlign = ContentAlignment.MiddleLeft;
+
+        StyleTextBox(textBox);
+        textBox.Font = PageTitleTextFont;
+    }
+
+    private static float ScaleSize(float baseSize) =>
+        Math.Max(7F, baseSize * _fontScaleFactor);
+
+    private static void RefreshFonts()
+    {
+        ReplaceFont(ref _uiFont, "Segoe UI", BaseUiFontSize);
+        ReplaceFont(ref _uiFontSmall, "Segoe UI", BaseUiFontSmallSize);
+        ReplaceFont(ref _uiFontSemibold, "Segoe UI Semibold", BaseUiFontSemiboldSize);
+        ReplaceFont(ref _headerFont, "Segoe UI Semibold", BaseHeaderFontSize);
+        ReplaceFont(ref _panelTitleFont, "Segoe UI", BasePanelTitleFontSize, FontStyle.Bold);
+        ReplaceFont(ref _pageTitleCaptionFont, "Segoe UI", BasePageTitleCaptionFontSize, FontStyle.Bold);
+        ReplaceFont(ref _pageTitleTextFont, "Segoe UI", BasePageTitleTextFontSize);
+        ReplaceFont(ref _titleFont, "Segoe UI Semibold", BaseTitleFontSize);
+    }
+
+    private static void ReplaceFont(ref Font field, string family, float baseSize, FontStyle style = FontStyle.Regular)
+    {
+        var created = new Font(family, ScaleSize(baseSize), style);
+        field?.Dispose();
+        field = created;
+    }
+
     public static void StyleBorderedPanel(Panel panel, PanelEdges edges)
     {
         panel.Paint -= DrawPanelBorder;
@@ -712,6 +933,16 @@ internal static class AppTheme
         split.Panel2.BackColor = Surface;
     }
 
+    public static void StyleTabControl(TabControl tabControl)
+    {
+        tabControl.Font = UiFont;
+        tabControl.Padding = new Point(10, 4);
+        tabControl.BackColor = EditorBackground;
+
+        foreach (TabPage page in tabControl.TabPages)
+            page.BackColor = EditorBackground;
+    }
+
     public static void StyleSectionLabel(Label label)
     {
         label.Font = HeaderFont;
@@ -725,15 +956,21 @@ internal static class AppTheme
         StatusStrip statusStrip,
         ContextMenuStrip treeContextMenu,
         TreeView workspaceTree,
+        Panel workspaceHeader,
+        Label workspaceHeaderLabel,
         TreeView outlineTree,
         Panel outlineSidebar,
         Panel outlineHeader,
         Label outlineLabel,
         Button toggleOutlineButton,
+        Panel editorHeader,
+        Label editorHeaderLabel,
+        Panel markdownHost,
         Panel titlePanel,
         Label titleCaption,
         TextBox titleBox,
         Panel workspaceHost,
+        Panel editorHost,
         Panel rightPanel,
         SplitContainer outerSplit,
         SplitContainer editorSplit,
@@ -749,34 +986,40 @@ internal static class AppTheme
         StyleTreeView(workspaceTree);
         StyleTreeView(outlineTree);
 
-        outlineSidebar.BackColor = Sidebar;
-        StyleBorderedPanel(outlineSidebar, PanelEdges.All);
-        outlineHeader.Padding = new Padding(10, 4, 8, 4);
-        outlineHeader.MinimumSize = new Size(0, 36);
-        outlineHeader.Height = Math.Max(outlineHeader.Height, 36);
-        StyleHeaderPanel(outlineHeader);
-        StyleSectionLabel(outlineLabel);
-        StyleOutlineToggleButton(toggleOutlineButton);
+        StylePanelTitleHeader(workspaceHeader, workspaceHeaderLabel, PanelHeaderKind.Workspace);
 
-        titlePanel.Height = 48;
-        titlePanel.Padding = new Padding(16, 10, 16, 10);
-        StyleHeaderPanel(titlePanel);
-        StyleSectionLabel(titleCaption);
-        StyleTextBox(titleBox);
-        titleBox.Font = new Font("Segoe UI", 11F);
+        outlineSidebar.BackColor = Sidebar;
+        outlineSidebar.Padding = new Padding(1);
+        StyleBorderedPanel(outlineSidebar, PanelEdges.All);
+        outlineHeader.Padding = new Padding(10, 0, 4, 0);
+        outlineHeader.MinimumSize = new Size(0, 38);
+        outlineHeader.Height = Math.Max(outlineHeader.Height, 38);
+        StylePanelTitleHeader(outlineHeader, outlineLabel, PanelHeaderKind.Outline);
+        StyleOutlineToggleButton(toggleOutlineButton);
+        toggleOutlineButton.BackColor = Color.Transparent;
+
+        markdownHost.BackColor = Surface;
+        markdownHost.Padding = new Padding(1);
+        StyleBorderedPanel(markdownHost, PanelEdges.All);
+        StylePanelTitleHeader(editorHeader, editorHeaderLabel, PanelHeaderKind.Editor);
+
+        StylePageTitlePanel(titlePanel, titleCaption, titleBox);
 
         rightPanel.BackColor = Surface;
-        rightPanel.Padding = new Padding(0, 0, 12, 0);
+        rightPanel.Padding = Padding.Empty;
         StyleBorderedPanel(rightPanel, PanelEdges.Top | PanelEdges.Right | PanelEdges.Bottom);
+
+        editorHost.BackColor = Surface;
+        editorHost.Padding = new Padding(4, 8, 12, 8);
 
         StyleSplitContainer(outerSplit);
         workspaceHost.BackColor = Sidebar;
         workspaceHost.Padding = new Padding(12, 8, 4, 8);
-        StyleBorderedPanel(outerSplit.Panel1, PanelEdges.Top | PanelEdges.Left | PanelEdges.Bottom);
+        StyleBorderedPanel(workspaceHost, PanelEdges.All);
+        outerSplit.Panel1.Padding = Padding.Empty;
 
         StyleSplitContainer(editorSplit);
-        StyleBorderedPanel(editorSplit.Panel2, PanelEdges.Top | PanelEdges.Right | PanelEdges.Bottom);
-        webViewEditor.DefaultBackgroundColor = Surface;
+        webViewEditor.DefaultBackgroundColor = EditorBackground;
 
         statusLabel.ForeColor = TextSecondary;
         saveStatusLabel.ForeColor = TextMuted;

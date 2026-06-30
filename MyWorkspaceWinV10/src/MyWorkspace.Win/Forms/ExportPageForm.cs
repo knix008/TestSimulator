@@ -9,14 +9,23 @@ internal enum PageExportFormat
 
 internal sealed class ExportPageForm : Form
 {
+    private readonly string _titleKey;
+    private readonly string _promptKey;
     private readonly RadioButton _rbMarkdown = new() { AutoSize = true };
     private readonly RadioButton _rbWord = new() { AutoSize = true };
     private readonly RadioButton _rbPdf = new() { AutoSize = true };
     private readonly Button _btnOk = new() { Name = "btnOk", DialogResult = DialogResult.OK };
     private readonly Button _btnCancel = new() { Name = "btnCancel", DialogResult = DialogResult.Cancel };
 
-    public ExportPageForm()
+    public ExportPageForm() : this(K.ExportPageTitle, K.ExportPagePrompt)
     {
+    }
+
+    public ExportPageForm(string titleKey, string promptKey)
+    {
+        _titleKey = titleKey;
+        _promptKey = promptKey;
+
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -42,7 +51,7 @@ internal sealed class ExportPageForm : Form
 
         layout.Controls.Add(new Label
         {
-            Text = Localization.Get(K.ExportPagePrompt),
+            Text = Localization.Get(_promptKey),
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 8)
         }, 0, 0);
@@ -75,7 +84,7 @@ internal sealed class ExportPageForm : Form
 
     private void ApplyLocalization()
     {
-        Text = Localization.Get(K.ExportPageTitle);
+        Text = Localization.Get(_titleKey);
         _rbMarkdown.Text = Localization.Get(K.ExportFormatMarkdown);
         _rbWord.Text = Localization.Get(K.ExportFormatWord);
         _rbPdf.Text = Localization.Get(K.ExportFormatPdf);

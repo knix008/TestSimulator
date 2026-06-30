@@ -33,6 +33,7 @@
 
     <Feature Id="ProductFeature" Title="$(var.ProductName)" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="WspFileAssociationComponent" />
     </Feature>
 
     <Feature Id="StartMenuShortcutFeature"
@@ -73,6 +74,30 @@
                        Value="1"
                        KeyPath="yes" />
         <RemoveFolder Id="RemoveProgramMenuAppFolder" Directory="ProgramMenuAppFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="WspFileAssociationComponent" Guid="D4E5F6A7-B8C9-0123-DEF4-567890ABCDEF">
+        <RegistryValue Root="HKCR"
+                       Key=".wsp"
+                       Type="string"
+                       Value="MyWorkspace.Wsp"
+                       KeyPath="yes" />
+        <RegistryValue Root="HKCR"
+                       Key="MyWorkspace.Wsp"
+                       Type="string"
+                       Value="!(loc.WspFileDescription)" />
+        <RegistryValue Root="HKCR"
+                       Key="MyWorkspace.Wsp\DefaultIcon"
+                       Type="string"
+                       Value="[INSTALLFOLDER]wsp.ico,0" />
+        <RegistryValue Root="HKCR"
+                       Key="MyWorkspace.Wsp\shell\open\command"
+                       Type="string"
+                       Value="&quot;[INSTALLFOLDER]MyWorkspaceWinV10.exe&quot; --import-wsp &quot;%1&quot;" />
       </Component>
     </DirectoryRef>
   </Fragment>

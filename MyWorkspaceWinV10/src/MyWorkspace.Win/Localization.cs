@@ -70,12 +70,18 @@ internal static class Localization
         Add(K.SaveStatusFailed, "저장 실패", "Save failed");
 
         Add(K.MenuFile, "파일(&F)", "&File");
+        Add(K.MenuEdit, "편집(&E)", "&Edit");
+        Add(K.MenuUndo, "실행 취소(&U)", "&Undo");
+        Add(K.MenuRedo, "다시 실행(&R)", "&Redo");
         Add(K.MenuSavePage, "Page 저장(&S)", "&Save Page");
         Add(K.MenuSavePageAsMarkdown, "Markdown 파일로 저장(&M)...", "Save Page as &Markdown...");
         Add(K.MenuExportPage, "Page 내보내기(&E)...", "E&xport Page...");
+        Add(K.MenuExportWorkspace, "Workspace 내보내기(&X)...", "E&xport Workspace...");
         Add(K.MenuPageHistory, "버전 이력(&H)", "Page &History");
         Add(K.MenuPageLog, "변경 Log(&L)", "Change &Log");
         Add(K.MenuRefreshTree, "트리 새로고침(&R)", "&Refresh Tree");
+        Add(K.MenuSaveWorkspace, "Workspace 저장(&W)...", "Save &Workspace...");
+        Add(K.MenuLoadWorkspace, "Workspace 불러오기(&O)...", "L&oad Workspace...");
         Add(K.MenuPreferences, "환경 설정(&P)...", "&Preferences...");
         Add(K.MenuLogin, "로그인(&L)...", "&Sign In...");
         Add(K.MenuLogout, "로그아웃(&L)", "Sign &Out");
@@ -112,12 +118,14 @@ internal static class Localization
         Add(K.CtxMembers, "멤버 관리", "Manage Members");
 
         Add(K.LabelTitle, "제목", "Title");
-        Add(K.LabelOutline, "문서 구조", "Outline");
+        Add(K.LabelWorkspace, "Workspace", "Workspace");
+        Add(K.LabelOutline, "문서 구조", "Document Outline");
+        Add(K.LabelMarkdownEditor, "Markdown 편집", "Markdown Editor");
         Add(K.OutlineCollapse, "◀ 접기", "◀ Collapse");
         Add(K.OutlineExpand, "▶ 펼치기", "▶ Expand");
         Add(K.FavoritesRoot, "즐겨찾기", "Favorites");
         Add(K.OutlineUntitled, "(제목 없음)", "(Untitled)");
-        Add(K.UntitledPageTitle, "제목 없음", "Untitled");
+        Add(K.UntitledPageTitle, "제목없음", "Untitled");
 
         Add(K.ToolbarHeading1, "제목 1", "Heading 1");
         Add(K.ToolbarHeading2, "제목 2", "Heading 2");
@@ -137,6 +145,8 @@ internal static class Localization
         Add(K.ToolbarQuote, "인용", "Quote");
         Add(K.ToolbarHorizontalRule, "구분선", "Horizontal Rule");
         Add(K.ToolbarTable, "표", "Table");
+        Add(K.ToolbarUndo, "실행 취소 (Ctrl+Z)", "Undo (Ctrl+Z)");
+        Add(K.ToolbarRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.ToolbarDocumentStructure, "문서 구조", "Document Outline");
         Add(K.ToolbarAbout, "프로그램 정보", "About");
         Add(K.ToolbarSave, "Page 저장 (Ctrl+S)", "Save Page (Ctrl+S)");
@@ -146,6 +156,9 @@ internal static class Localization
         Add(K.ToolbarPageLog, "Page 변경 Log", "Page Change Log");
 
         Add(K.TipMenuFile, "파일 저장, 내보내기, 환경 설정", "Save, export, and preferences");
+        Add(K.TipMenuEdit, "실행 취소, 다시 실행", "Undo and redo");
+        Add(K.TipMenuUndo, "실행 취소 (Ctrl+Z)", "Undo (Ctrl+Z)");
+        Add(K.TipMenuRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.TipMenuWorkspace, "Workspace와 Page 관리", "Manage workspaces and pages");
         Add(K.TipMenuView, "보기 및 문서 구조", "View and document outline");
         Add(K.TipMenuAdmin, "사용자 및 시스템 관리 (관리자)", "User and system administration");
@@ -187,6 +200,8 @@ internal static class Localization
         Add(K.EditorCut, "잘라내기", "Cut");
         Add(K.EditorCopy, "복사", "Copy");
         Add(K.EditorPaste, "붙여넣기", "Paste");
+        Add(K.EditorUndo, "실행 취소", "Undo");
+        Add(K.EditorRedo, "다시 실행", "Redo");
         Add(K.EditorSelectAll, "모두 선택", "Select All");
         Add(K.EditorBold, "굵게", "Bold");
         Add(K.EditorItalic, "기울임", "Italic");
@@ -202,6 +217,14 @@ internal static class Localization
         Add(K.PreferencesAppearance, "모양", "Appearance");
         Add(K.PreferencesTheme, "테마", "Theme");
         Add(K.PreferencesLanguage, "언어", "Language");
+        Add(K.PreferencesFontScale, "글꼴 크기", "Font size");
+        Add(K.MenuClosePageTab, "탭 닫기(&C)", "Close &Tab");
+        Add(K.ConfirmCloseDirtyPageTab, "변경 내용이 있습니다. 저장하시겠습니까?", "Save changes before closing this tab?");
+        Add(K.FontScaleMuchSmaller, "매우 작게", "Much smaller");
+        Add(K.FontScaleSmaller, "작게", "Smaller");
+        Add(K.FontScaleNormal, "보통 (기본)", "Normal (default)");
+        Add(K.FontScaleLarger, "크게", "Larger");
+        Add(K.FontScaleMuchLarger, "매우 크게", "Much larger");
         Add(K.ThemeLight, "밝게", "Light");
         Add(K.ThemeDark, "어둡게", "Dark");
         Add(K.LanguageKorean, "한국어", "Korean");
@@ -210,7 +233,7 @@ internal static class Localization
         Add(K.ButtonCancel, "취소", "Cancel");
         Add(K.PreferencesRestartHint, "일부 변경 사항은 열려 있는 대화상자를 다시 열면 반영됩니다.", "Some changes apply when you reopen dialogs.");
 
-        Add(K.EditorPlaceholder, "여기에 내용을 입력하세요. 툴바로 서식을 적용할 수 있습니다.", "Start typing here. Use the toolbar to apply formatting.");
+        Add(K.EditorPlaceholder, "제목 1로 페이지 제목을 입력하고 내용을 작성하세요. 툴바로 서식을 적용할 수 있습니다.", "Use Heading 1 for the page title, then write your content. Use the toolbar to apply formatting.");
         Add(K.EditorInitFailed, "편집기 초기화 실패", "Editor initialization failed");
         Add(K.EditorClearFailed, "편집기 초기화 실패", "Editor reset failed");
         Add(K.PageLoadFailed, "Page를 불러올 수 없습니다.", "Unable to load the page.");
@@ -231,6 +254,7 @@ internal static class Localization
         Add(K.NewTitlePrompt, "새 제목:", "New title:");
         Add(K.ConfirmDeletePage, "선택한 Page를 삭제할까요?", "Delete the selected page?");
         Add(K.ConfirmDeleteWorkspace, "선택한 Workspace를 삭제할까요?", "Delete the selected workspace?");
+        Add(K.ConfirmLogout, "로그아웃하시겠습니까?", "Do you want to sign out?");
         Add(K.Confirm, "확인", "Confirm");
         Add(K.DialogLinkTitle, "링크", "Link");
         Add(K.DialogImageTitle, "이미지", "Image");
@@ -243,6 +267,20 @@ internal static class Localization
         Add(K.ExportFormatWord, "Word (.docx)", "Word (.docx)");
         Add(K.ExportFormatPdf, "PDF (.pdf)", "PDF (.pdf)");
         Add(K.ExportSucceeded, "Page를 내보냈습니다.", "Page exported successfully.");
+        Add(K.ExportWorkspaceTitle, "Workspace 내보내기", "Export Workspace");
+        Add(K.ExportWorkspacePrompt, "내보낼 형식을 선택하세요.", "Choose an export format.");
+        Add(K.ExportWorkspaceChooseFolder, "Workspace를 내보낼 폴더를 선택하세요.", "Choose a folder to export the workspace into.");
+        Add(K.ExportWorkspaceSucceeded, "Workspace를 내보냈습니다.\nWorkspace {0}개, Page {1}개\n저장 위치: {2}", "Workspace exported successfully.\n{0} workspace(s), {1} page(s)\nSaved to: {2}");
+        Add(K.ExportWorkspaceFailed, "Workspace 내보내기 실패", "Workspace export failed");
+        Add(K.SelectWorkspaceToExport, "내보낼 Workspace를 선택하세요.", "Select a workspace to export.");
+        Add(K.WorkspaceAccessRequired, "Workspace에 접근할 수 없습니다.", "You do not have access to this workspace.");
+        Add(K.WorkspaceArchiveFileFilterLabel, "MyWorkspace 파일", "MyWorkspace Files");
+        Add(K.WorkspaceSaveSucceeded, "Workspace를 저장했습니다.", "Workspace saved successfully.");
+        Add(K.WorkspaceLoadSucceeded, "Workspace {0}개, Page {1}개를 불러왔습니다.", "Loaded {0} workspace(s) and {1} page(s).");
+        Add(K.WorkspaceSaveFailed, "Workspace 저장 실패", "Workspace save failed");
+        Add(K.WorkspaceLoadFailed, "Workspace 불러오기 실패", "Workspace load failed");
+        Add(K.SelectWorkspaceToSave, "저장할 Workspace를 선택하세요.", "Select a workspace to save.");
+        Add(K.WorkspaceManageRequired, "Workspace를 저장하거나 불러오려면 관리 권한이 필요합니다.", "Manage permission is required to save or load a workspace.");
         Add(K.ExportFailed, "내보내기 실패", "Export failed");
         Add(K.SaveMarkdownSucceeded, "Markdown 파일을 저장했습니다.", "Markdown file saved successfully.");
         Add(K.SaveMarkdownFailed, "Markdown 저장 실패", "Markdown save failed");
@@ -409,12 +447,18 @@ internal static class K
     public const string SaveStatusFailed = "SaveStatusFailed";
 
     public const string MenuFile = "MenuFile";
+    public const string MenuEdit = "MenuEdit";
+    public const string MenuUndo = "MenuUndo";
+    public const string MenuRedo = "MenuRedo";
     public const string MenuSavePage = "MenuSavePage";
     public const string MenuSavePageAsMarkdown = "MenuSavePageAsMarkdown";
     public const string MenuExportPage = "MenuExportPage";
+    public const string MenuExportWorkspace = "MenuExportWorkspace";
     public const string MenuPageHistory = "MenuPageHistory";
     public const string MenuPageLog = "MenuPageLog";
     public const string MenuRefreshTree = "MenuRefreshTree";
+    public const string MenuSaveWorkspace = "MenuSaveWorkspace";
+    public const string MenuLoadWorkspace = "MenuLoadWorkspace";
     public const string MenuPreferences = "MenuPreferences";
     public const string MenuLogin = "MenuLogin";
     public const string MenuLogout = "MenuLogout";
@@ -451,7 +495,9 @@ internal static class K
     public const string CtxMembers = "CtxMembers";
 
     public const string LabelTitle = "LabelTitle";
+    public const string LabelWorkspace = "LabelWorkspace";
     public const string LabelOutline = "LabelOutline";
+    public const string LabelMarkdownEditor = "LabelMarkdownEditor";
     public const string OutlineCollapse = "OutlineCollapse";
     public const string OutlineExpand = "OutlineExpand";
     public const string FavoritesRoot = "FavoritesRoot";
@@ -476,6 +522,8 @@ internal static class K
     public const string ToolbarQuote = "ToolbarQuote";
     public const string ToolbarHorizontalRule = "ToolbarHorizontalRule";
     public const string ToolbarTable = "ToolbarTable";
+    public const string ToolbarUndo = "ToolbarUndo";
+    public const string ToolbarRedo = "ToolbarRedo";
     public const string ToolbarDocumentStructure = "ToolbarDocumentStructure";
     public const string ToolbarAbout = "ToolbarAbout";
     public const string ToolbarSave = "ToolbarSave";
@@ -485,6 +533,9 @@ internal static class K
     public const string ToolbarPageLog = "ToolbarPageLog";
 
     public const string TipMenuFile = "TipMenuFile";
+    public const string TipMenuEdit = "TipMenuEdit";
+    public const string TipMenuUndo = "TipMenuUndo";
+    public const string TipMenuRedo = "TipMenuRedo";
     public const string TipMenuWorkspace = "TipMenuWorkspace";
     public const string TipMenuView = "TipMenuView";
     public const string TipMenuAdmin = "TipMenuAdmin";
@@ -524,6 +575,8 @@ internal static class K
     public const string AboutCopyrightFormat = "AboutCopyrightFormat";
 
     public const string EditorCut = "EditorCut";
+    public const string EditorUndo = "EditorUndo";
+    public const string EditorRedo = "EditorRedo";
     public const string EditorCopy = "EditorCopy";
     public const string EditorPaste = "EditorPaste";
     public const string EditorSelectAll = "EditorSelectAll";
@@ -541,6 +594,14 @@ internal static class K
     public const string PreferencesAppearance = "PreferencesAppearance";
     public const string PreferencesTheme = "PreferencesTheme";
     public const string PreferencesLanguage = "PreferencesLanguage";
+    public const string PreferencesFontScale = "PreferencesFontScale";
+    public const string FontScaleMuchSmaller = "FontScaleMuchSmaller";
+    public const string FontScaleSmaller = "FontScaleSmaller";
+    public const string FontScaleNormal = "FontScaleNormal";
+    public const string FontScaleLarger = "FontScaleLarger";
+    public const string FontScaleMuchLarger = "FontScaleMuchLarger";
+    public const string MenuClosePageTab = "MenuClosePageTab";
+    public const string ConfirmCloseDirtyPageTab = "ConfirmCloseDirtyPageTab";
     public const string ThemeLight = "ThemeLight";
     public const string ThemeDark = "ThemeDark";
     public const string LanguageKorean = "LanguageKorean";
@@ -570,6 +631,7 @@ internal static class K
     public const string NewTitlePrompt = "NewTitlePrompt";
     public const string ConfirmDeletePage = "ConfirmDeletePage";
     public const string ConfirmDeleteWorkspace = "ConfirmDeleteWorkspace";
+    public const string ConfirmLogout = "ConfirmLogout";
     public const string Confirm = "Confirm";
     public const string DialogLinkTitle = "DialogLinkTitle";
     public const string DialogImageTitle = "DialogImageTitle";
@@ -582,6 +644,20 @@ internal static class K
     public const string ExportFormatWord = "ExportFormatWord";
     public const string ExportFormatPdf = "ExportFormatPdf";
     public const string ExportSucceeded = "ExportSucceeded";
+    public const string ExportWorkspaceTitle = "ExportWorkspaceTitle";
+    public const string ExportWorkspacePrompt = "ExportWorkspacePrompt";
+    public const string ExportWorkspaceChooseFolder = "ExportWorkspaceChooseFolder";
+    public const string ExportWorkspaceSucceeded = "ExportWorkspaceSucceeded";
+    public const string ExportWorkspaceFailed = "ExportWorkspaceFailed";
+    public const string SelectWorkspaceToExport = "SelectWorkspaceToExport";
+    public const string WorkspaceAccessRequired = "WorkspaceAccessRequired";
+    public const string WorkspaceArchiveFileFilterLabel = "WorkspaceArchiveFileFilterLabel";
+    public const string WorkspaceSaveSucceeded = "WorkspaceSaveSucceeded";
+    public const string WorkspaceLoadSucceeded = "WorkspaceLoadSucceeded";
+    public const string WorkspaceSaveFailed = "WorkspaceSaveFailed";
+    public const string WorkspaceLoadFailed = "WorkspaceLoadFailed";
+    public const string SelectWorkspaceToSave = "SelectWorkspaceToSave";
+    public const string WorkspaceManageRequired = "WorkspaceManageRequired";
     public const string ExportFailed = "ExportFailed";
     public const string SaveMarkdownSucceeded = "SaveMarkdownSucceeded";
     public const string SaveMarkdownFailed = "SaveMarkdownFailed";
@@ -764,11 +840,13 @@ internal sealed class EditorChromeOptions
 {
     public string Placeholder { get; init; } = string.Empty;
     public ThemePalette Palette { get; init; } = ThemePalette.Light;
+    public float FontScaleFactor { get; init; } = 1F;
 
     public static EditorChromeOptions CreateCurrent() =>
         new()
         {
             Placeholder = L.EditorPlaceholder,
-            Palette = AppTheme.CurrentPalette
+            Palette = AppTheme.CurrentPalette,
+            FontScaleFactor = AppTheme.FontScaleFactor
         };
 }

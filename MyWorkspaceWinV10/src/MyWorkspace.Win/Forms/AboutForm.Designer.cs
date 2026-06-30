@@ -52,6 +52,7 @@ partial class AboutForm
         lblCopyright.Text = "Copyright";
 
         btnClose.Location = new Point(316, 200);
+        btnClose.Name = "btnClose";
         btnClose.Size = new Size(84, 32);
         btnClose.Text = "Close";
         btnClose.Click += btnClose_Click;

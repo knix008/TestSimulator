@@ -55,6 +55,7 @@ internal static class EditorHtmlBuilder
         var selection = ToCssAlpha(p.Accent, 51);
         var lang = Localization.Current == AppLanguage.Korean ? "ko" : "en";
         var colorScheme = AppTheme.IsDark ? "dark" : "light";
+        var bodyFontSize = (15F * chrome.FontScaleFactor).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
 
         return $$"""
         <!DOCTYPE html>
@@ -63,50 +64,72 @@ internal static class EditorHtmlBuilder
           <meta charset="utf-8">
           <meta name="color-scheme" content="{{colorScheme}}">
           <style>
-            html, body { height: 100%; margin: 0; }
+            :root {
+              --editor-bg: {{bg}};
+              --editor-text: {{text}};
+              --editor-caret: {{caret}};
+              --editor-placeholder: {{placeholder}};
+              --editor-focus: {{focus}};
+              --editor-code-bg: {{codeBg}};
+              --editor-border: {{border}};
+              --editor-border-light: {{borderLight}};
+              --editor-accent: {{accent}};
+              --editor-muted: {{muted}};
+              --editor-selection: {{selection}};
+            }
+            html, body { height: 100%; margin: 0; background: var(--editor-bg); }
+            html { color-scheme: {{colorScheme}}; }
             body {
               font-family: "Segoe UI", "Malgun Gothic", sans-serif;
-              font-size: 15px; line-height: 1.75; color: {{text}};
-              background: {{bg}}; overflow: hidden;
+              font-size: {{bodyFontSize}}px; line-height: 1.75; color: var(--editor-text);
+              background: var(--editor-bg); overflow: hidden;
             }
-            ::selection { background: {{selection}}; }
+            ::selection { background: var(--editor-selection); }
             #editor::-webkit-scrollbar { width: 10px; }
             #editor::-webkit-scrollbar-thumb {
-              background: {{border}}; border-radius: 999px; border: 2px solid {{bg}};
+              background: var(--editor-border); border-radius: 999px; border: 2px solid var(--editor-bg);
             }
             #editor::-webkit-scrollbar-track { background: transparent; }
             #editor {
               height: 100%; box-sizing: border-box;
               padding: 24px 32px; outline: none; overflow-y: auto;
-              caret-color: {{caret}};
+              caret-color: var(--editor-caret);
+              background-color: var(--editor-bg); color: var(--editor-text);
             }
-            #editor:focus { box-shadow: inset 0 0 0 1px {{focus}}; }
+            #editor:focus { box-shadow: inset 0 0 0 1px var(--editor-focus); }
             #editor[data-empty="true"]:before {
               content: "{{PlaceholderToken}}";
-              color: {{placeholder}}; pointer-events: none;
+              color: var(--editor-placeholder); pointer-events: none;
             }
-            h1,h2,h3,h4,h5,h6 { font-weight: 600; margin: 24px 0 12px; scroll-margin-top: 12px; }
-            h1 { font-size: 1.8em; border-bottom: 1px solid {{border}}; padding-bottom: 0.3em; }
-            h2 { font-size: 1.5em; border-bottom: 1px solid {{borderLight}}; padding-bottom: 0.25em; }
+            #editor p, #editor li, #editor td, #editor th, #editor div, #editor span,
+            #editor strong, #editor b, #editor em, #editor i {
+              color: var(--editor-text) !important;
+            }
+            h1,h2,h3,h4,h5,h6 { font-weight: 600; margin: 24px 0 12px; scroll-margin-top: 12px; display: block; width: 100%; box-sizing: border-box; color: var(--editor-text) !important; }
+            h1 { font-size: 1.8em; border-bottom: none; padding-bottom: 0.3em; }
+            h1::after { content: ""; display: block; border-bottom: 1px solid var(--editor-border); margin: 0.3em -32px 0; }
+            h2 { font-size: 1.5em; border-bottom: none; padding-bottom: 0.25em; }
+            h2::after { content: ""; display: block; border-bottom: 1px solid var(--editor-border-light); margin: 0.25em -32px 0; }
             h3 { font-size: 1.25em; }
             h4 { font-size: 1.1em; }
-            h5 { font-size: 1em; color: {{muted}}; }
-            h6 { font-size: 0.95em; color: {{muted}}; text-transform: uppercase; letter-spacing: 0.02em; }
+            h5 { font-size: 1em; }
+            h6 { font-size: 0.95em; text-transform: uppercase; letter-spacing: 0.02em; }
+            h1 a, h2 a, h3 a, h4 a, h5 a, h6 a { color: var(--editor-accent) !important; }
             p { margin: 0 0 14px; min-height: 1em; }
             strong, b { font-weight: 700; }
             em, i { font-style: italic; }
-            s, strike, del { text-decoration: line-through; color: {{muted}}; }
-            code { background: {{codeBg}}; padding: 0.15em 0.4em; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.92em; }
-            pre { background: {{codeBg}}; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 14px; }
+            s, strike, del { text-decoration: line-through; color: var(--editor-muted) !important; }
+            code { background: var(--editor-code-bg); padding: 0.15em 0.4em; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.92em; color: var(--editor-text) !important; }
+            pre { background: var(--editor-code-bg); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 14px; }
             pre code { background: none; padding: 0; }
-            blockquote { border-left: 4px solid {{accent}}; padding: 8px 16px; color: {{muted}}; background: {{codeBg}}; margin: 0 0 14px; }
+            blockquote { border-left: 4px solid var(--editor-accent); padding: 8px 16px; color: var(--editor-muted) !important; background: var(--editor-code-bg); margin: 0 0 14px; }
             table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
-            th, td { border: 1px solid {{border}}; padding: 8px 12px; min-width: 40px; }
-            th { background: {{codeBg}}; font-weight: 600; }
+            th, td { border: 1px solid var(--editor-border); padding: 8px 12px; min-width: 40px; }
+            th { background: var(--editor-code-bg); font-weight: 600; }
             ul, ol { margin: 0 0 14px; padding-left: 28px; }
-            a { color: {{accent}}; text-decoration: underline; }
+            a { color: var(--editor-accent) !important; text-decoration: underline; }
             img { max-width: 100%; border-radius: 4px; }
-            hr { border: none; border-top: 1px solid {{border}}; margin: 20px 0; }
+            hr { border: none; border-top: 1px solid var(--editor-border); margin: 20px 0; }
           </style>
         </head>
         <body>
@@ -114,6 +137,53 @@ internal static class EditorHtmlBuilder
           <script>
             const editor = document.getElementById('editor');
             const defaultCodeText = '{{DefaultCodeToken}}';
+            const defaultTheme = {
+              bg: '{{bg}}',
+              text: '{{text}}',
+              caret: '{{caret}}',
+              placeholder: '{{placeholder}}',
+              focus: '{{focus}}',
+              codeBg: '{{codeBg}}',
+              border: '{{border}}',
+              borderLight: '{{borderLight}}',
+              accent: '{{accent}}',
+              muted: '{{muted}}',
+              selection: '{{selection}}',
+              colorScheme: '{{colorScheme}}'
+            };
+
+            function setThemeVars(theme) {
+              const root = document.documentElement;
+              root.style.setProperty('--editor-bg', theme.bg);
+              root.style.setProperty('--editor-text', theme.text);
+              root.style.setProperty('--editor-caret', theme.caret);
+              root.style.setProperty('--editor-placeholder', theme.placeholder);
+              root.style.setProperty('--editor-focus', theme.focus);
+              root.style.setProperty('--editor-code-bg', theme.codeBg);
+              root.style.setProperty('--editor-border', theme.border);
+              root.style.setProperty('--editor-border-light', theme.borderLight);
+              root.style.setProperty('--editor-accent', theme.accent);
+              root.style.setProperty('--editor-muted', theme.muted);
+              root.style.setProperty('--editor-selection', theme.selection);
+              root.style.colorScheme = theme.colorScheme;
+              const meta = document.querySelector('meta[name="color-scheme"]');
+              if (meta) meta.content = theme.colorScheme;
+              document.body.style.background = theme.bg;
+              document.body.style.color = theme.text;
+              editor.style.backgroundColor = theme.bg;
+              editor.style.color = theme.text;
+              editor.style.caretColor = theme.caret;
+            }
+
+            function clearStaleInlineColors() {
+              editor.querySelectorAll('*').forEach(el => {
+                if (el.tagName === 'A') return;
+                el.style.removeProperty('color');
+                if (el.tagName !== 'CODE' && el.tagName !== 'PRE')
+                  el.style.removeProperty('background-color');
+              });
+            }
+
             function notifyChanged() { window.chrome.webview.postMessage('changed'); }
             function notifyCaret() { window.chrome.webview.postMessage('caret'); }
 
@@ -169,6 +239,8 @@ internal static class EditorHtmlBuilder
 
             editor.addEventListener('keydown', (e) => {
               if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); window.editorApi.undo(); return; }
+                if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); window.editorApi.redo(); return; }
                 if (e.key === 'b') { e.preventDefault(); window.editorApi.applyFormat('bold'); return; }
                 if (e.key === 'i') { e.preventDefault(); window.editorApi.applyFormat('italic'); return; }
                 if (e.key === 'u') { e.preventDefault(); window.editorApi.applyFormat('underline'); return; }
@@ -191,6 +263,18 @@ internal static class EditorHtmlBuilder
               applyFormat(command) {
                 editor.focus();
                 document.execCommand(command, false, null);
+                updateEmptyState();
+                notifyChanged();
+              },
+              undo() {
+                editor.focus();
+                document.execCommand('undo', false, null);
+                updateEmptyState();
+                notifyChanged();
+              },
+              redo() {
+                editor.focus();
+                document.execCommand('redo', false, null);
                 updateEmptyState();
                 notifyChanged();
               },
@@ -272,11 +356,40 @@ internal static class EditorHtmlBuilder
                   else break;
                 }
                 return last;
+              },
+              setFirstHeadingTitle(title) {
+                const text = (title || '').trim();
+                let h1 = editor.querySelector('h1');
+                if (!h1) {
+                  h1 = document.createElement('h1');
+                  if (text) h1.textContent = text;
+                  else h1.innerHTML = '<br>';
+                  if (editor.firstChild)
+                    editor.insertBefore(h1, editor.firstChild);
+                  else
+                    editor.appendChild(h1);
+                } else if (text) {
+                  h1.textContent = text;
+                } else {
+                  h1.innerHTML = '<br>';
+                }
+                updateEmptyState();
+                notifyChanged();
+              },
+              applyThemeChrome(overrides) {
+                const theme = Object.assign({}, defaultTheme, overrides || {});
+                setThemeVars(theme);
+                clearStaleInlineColors();
               }
             };
 
+            setThemeVars(defaultTheme);
+            clearStaleInlineColors();
             updateEmptyState();
-            window.addEventListener('load', () => placeCaretAtEnd(editor));
+            window.addEventListener('load', () => {
+              clearStaleInlineColors();
+              placeCaretAtEnd(editor);
+            });
           </script>
         </body>
         </html>

@@ -104,4 +104,14 @@ internal static class PageAssetStore
             string.Join(";", SupportedExtensions.Select(static e => $"*{e}")),
             Localization.Get(K.AllFilesFilterLabel),
             "*.*");
+
+    public static void WriteAssetBytes(int pageId, string fileName, byte[] content)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) || fileName.Contains("..", StringComparison.Ordinal))
+            throw new InvalidOperationException("Invalid asset file name.");
+
+        var folder = GetPageFolder(pageId);
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(Path.Combine(folder, fileName), content);
+    }
 }

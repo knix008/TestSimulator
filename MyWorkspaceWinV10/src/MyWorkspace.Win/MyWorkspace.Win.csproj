@@ -80,7 +80,7 @@
 
 
 
-  <Target Name="GenerateIconsIfMissing" BeforeTargets="PrepareForBuild" Condition="!Exists('$(MSBuildProjectDirectory)\Assets\Icons\s16\workspace.png') or !Exists('$(MSBuildProjectDirectory)\Assets\app.ico')">
+  <Target Name="GenerateIconsIfMissing" BeforeTargets="PrepareForBuild" Condition="!Exists('$(MSBuildProjectDirectory)\Assets\Icons\s16\workspace.png') or !Exists('$(MSBuildProjectDirectory)\Assets\app.ico') or !Exists('$(MSBuildProjectDirectory)\Assets\wsp.ico')">
 
     <Message Importance="high" Text="Generating application icons..." />
 
@@ -97,6 +97,28 @@
     <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj&quot; -c Release -p:Platform=x64" />
 
     <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\..\installer\bin\Release\ko-kr\MyWorkspaceWinV10Setup.msi" />
+
+  </Target>
+
+
+
+  <Target Name="CopyWspIconToOutput" AfterTargets="Build">
+
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\wsp.ico"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(MSBuildProjectDirectory)\Assets\wsp.ico')" />
+
+  </Target>
+
+
+
+  <Target Name="CopyWspIconToPublish" AfterTargets="Publish">
+
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\wsp.ico"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(MSBuildProjectDirectory)\Assets\wsp.ico')" />
 
   </Target>
 

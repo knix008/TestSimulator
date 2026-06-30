@@ -80,6 +80,7 @@ partial class PageHistoryForm
 
         btnRestore.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnRestore.Location = new Point(572, 422);
+        btnRestore.Name = "btnRestore";
         btnRestore.Size = new Size(100, 32);
         btnRestore.Text = "복원";
         btnRestore.Enabled = false;
@@ -87,6 +88,7 @@ partial class PageHistoryForm
 
         btnClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnClose.Location = new Point(672, 422);
+        btnClose.Name = "btnClose";
         btnClose.Size = new Size(100, 32);
         btnClose.Text = "닫기";
         btnClose.Click += btnClose_Click;

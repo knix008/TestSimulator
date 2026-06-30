@@ -113,12 +113,14 @@ partial class DatabaseSettingsForm
 
         btnBrowseSqlite.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnBrowseSqlite.Location = new Point(316, 11);
+        btnBrowseSqlite.Name = "btnBrowseSqlite";
         btnBrowseSqlite.Size = new Size(96, 32);
         btnBrowseSqlite.Text = "...";
         btnBrowseSqlite.UseVisualStyleBackColor = true;
         btnBrowseSqlite.Click += btnBrowseSqlite_Click;
 
         btnTest.Location = new Point(120, 232);
+        btnTest.Name = "btnTest";
         btnTest.Size = new Size(100, 32);
         btnTest.Text = "연결 테스트";
         btnTest.Click += btnTest_Click;
@@ -129,11 +131,13 @@ partial class DatabaseSettingsForm
         lblResult.Text = string.Empty;
 
         btnSave.Location = new Point(220, 276);
+        btnSave.Name = "btnSave";
         btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(315, 276);
+        btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;

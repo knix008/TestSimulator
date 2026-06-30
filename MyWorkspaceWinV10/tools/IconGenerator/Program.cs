@@ -13,17 +13,24 @@ internal static class Program
         [
             "h1", "h2", "h3", "h4", "h5", "h6",
             "bold", "italic", "strike", "code", "codeblock", "link", "image", "ul", "ol", "quote", "hr", "table",
-            "outline", "info",
+            "undo", "redo", "outline", "info",
             "save", "history", "refresh", "login", "logout", "exit", "preferences", "export",
             "folder_plus_workspace", "folder_plus_sub", "page_plus", "rename", "delete",
-            "members", "users", "database", "email", "profile", "password", "bell", "star", "log",
+            "members", "users", "database", "email", "profile", "password", "bell", "star", "log", "copy",
             "workspace", "workspace_fav", "favorite", "page"
         ]),
         (20,
         [
             "h1", "h2", "h3", "h4", "h5", "h6",
             "bold", "italic", "strike", "code", "codeblock", "link", "image", "ul", "ol", "quote", "hr", "table",
-            "outline", "info",
+            "undo", "redo", "outline", "info",
+            "save", "page", "export", "history", "log"
+        ]),
+        (28,
+        [
+            "h1", "h2", "h3", "h4", "h5", "h6",
+            "bold", "italic", "strike", "code", "codeblock", "link", "image", "ul", "ol", "quote", "hr", "table",
+            "undo", "redo", "outline", "info",
             "save", "page", "export", "history", "log"
         ])
     ];
@@ -61,7 +68,17 @@ internal static class Program
         IcoWriter.Save(appIconPath, icon16, icon32, icon48, icon64, icon128, icon256);
         Console.WriteLine($"Generated {appIconPath}");
 
-        Console.WriteLine($"Done. Generated {generated} PNG icons and app.ico in {AssetsRoot}.");
+        var wspIconPath = Path.Combine(AssetsRoot, "wsp.ico");
+        using var wsp16 = IconDrawing.WspFile(16);
+        using var wsp32 = IconDrawing.WspFile(32);
+        using var wsp48 = IconDrawing.WspFile(48);
+        using var wsp64 = IconDrawing.WspFile(64);
+        using var wsp128 = IconDrawing.WspFile(128);
+        using var wsp256 = IconDrawing.WspFile(256);
+        IcoWriter.Save(wspIconPath, wsp16, wsp32, wsp48, wsp64, wsp128, wsp256);
+        Console.WriteLine($"Generated {wspIconPath}");
+
+        Console.WriteLine($"Done. Generated {generated} PNG icons, app.ico, and wsp.ico in {AssetsRoot}.");
         return 0;
     }
 

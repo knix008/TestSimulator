@@ -3,7 +3,7 @@ namespace MyWorkspace.Win;
 internal static class AppIcons
 {
     private const int MenuIconSize = 16;
-    private const int ToolbarIconSize = 20;
+    public const int ToolbarIconSize = 28;
 
     public static ImageList CreateToolbarImageList() =>
         IconAssets.CreateImageList(
@@ -27,6 +27,8 @@ internal static class AppIcons
             ("quote", "quote"),
             ("hr", "hr"),
             ("table", "table"),
+            ("undo", "undo"),
+            ("redo", "redo"),
             ("outline", "outline"),
             ("info", "info"),
             ("save", "save"),
@@ -57,9 +59,6 @@ internal static class AppIcons
         ToolStripMenuItem menuEditProfile,
         ToolStripMenuItem menuChangePassword,
         ToolStripMenuItem menuNotificationSettings,
-        ToolStripMenuItem menuAccountLogout,
-        ToolStripMenuItem menuBarLogin,
-        ToolStripMenuItem menuBarLogout,
         ToolStripMenuItem ctxNewSubWorkspace,
         ToolStripMenuItem ctxNewPage,
         ToolStripMenuItem ctxRename,
@@ -88,9 +87,6 @@ internal static class AppIcons
         menuEditProfile.Image = IconAssets.Load(MenuIconSize, "profile");
         menuChangePassword.Image = IconAssets.Load(MenuIconSize, "password");
         menuNotificationSettings.Image = IconAssets.Load(MenuIconSize, "bell");
-        menuAccountLogout.Image = IconAssets.Load(MenuIconSize, "logout");
-        menuBarLogin.Image = IconAssets.Load(MenuIconSize, "login");
-        menuBarLogout.Image = IconAssets.Load(MenuIconSize, "logout");
         ctxNewSubWorkspace.Image = menuNewSubWorkspace.Image;
         ctxNewPage.Image = menuNewPage.Image;
         ctxRename.Image = menuRename.Image;

@@ -3,7 +3,7 @@ namespace MyWorkspace.Win;
 static class Program
 {
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
@@ -12,6 +12,6 @@ static class Program
 
         AppConfig.LoadUiPreferences();
 
-        Application.Run(new Forms.MainForm());
+        Application.Run(new Forms.MainForm(args));
     }
 }

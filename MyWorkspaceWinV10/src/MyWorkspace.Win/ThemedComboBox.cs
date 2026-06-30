@@ -49,10 +49,10 @@ internal sealed class ThemedComboBox : ComboBox
     {
         BackColor = AppTheme.Surface;
         ForeColor = AppTheme.TextPrimary;
+        Font = AppTheme.CloneUiFont();
         ItemHeight = Math.Max(22, Font.Height + 8);
-        if (Font?.Name == "Microsoft Sans Serif")
-            Font = AppTheme.UiFont;
 
+        AppTheme.AttachComboBoxBorder(this);
         Invalidate();
     }
 

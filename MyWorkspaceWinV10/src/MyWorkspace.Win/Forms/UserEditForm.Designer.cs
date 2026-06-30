@@ -48,11 +48,13 @@ partial class UserEditForm
         cboRole.Size = new Size(220, 23);
 
         btnSave.Location = new Point(120, 132);
+        btnSave.Name = "btnSave";
         btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(250, 132);
+        btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;

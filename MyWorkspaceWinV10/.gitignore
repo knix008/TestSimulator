@@ -3,6 +3,7 @@
 [Oo]bj/
 [Bb]uild/
 [Oo]ut/
+_build_out/
 publish/
 artifacts/
 
@@ -95,5 +96,5 @@ coverage/
 scratch/
 export/
 
-# Note: src/MyWorkspace.Win/Assets/ (app.ico, Icons/**/*.png) is tracked in git.
+# Note: src/MyWorkspace.Win/Assets/ (app.ico, Icons/s16·s20·s28 PNG) is tracked in git.
 # Regenerate with: dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release

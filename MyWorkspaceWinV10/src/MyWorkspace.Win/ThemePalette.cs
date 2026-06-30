@@ -24,6 +24,10 @@ internal sealed class ThemePalette
     public required Color EditorPlaceholder { get; init; }
     public required Color EditorFocusRing { get; init; }
     public required Color EditorCodeBackground { get; init; }
+    public required Color PanelHeaderWorkspace { get; init; }
+    public required Color PanelHeaderOutline { get; init; }
+    public required Color PanelHeaderEditor { get; init; }
+    public required Color PanelHeaderPageTitle { get; init; }
 
     public static ThemePalette Light { get; } = new()
     {
@@ -44,11 +48,15 @@ internal sealed class ThemePalette
         Warning = Color.FromArgb(191, 87, 0),
         Danger = Color.FromArgb(207, 34, 46),
         EditorBackground = Color.White,
-        EditorText = Color.FromArgb(31, 35, 40),
+        EditorText = Color.Black,
         EditorCaret = Color.FromArgb(9, 105, 218),
         EditorPlaceholder = Color.FromArgb(140, 149, 159),
         EditorFocusRing = Color.FromArgb(9, 105, 218),
-        EditorCodeBackground = Color.FromArgb(246, 248, 250)
+        EditorCodeBackground = Color.FromArgb(246, 248, 250),
+        PanelHeaderWorkspace = Color.FromArgb(219, 234, 254),
+        PanelHeaderOutline = Color.FromArgb(209, 250, 229),
+        PanelHeaderEditor = Color.FromArgb(237, 233, 254),
+        PanelHeaderPageTitle = Color.FromArgb(254, 243, 199)
     };
 
     public static ThemePalette Dark { get; } = new()
@@ -69,11 +77,15 @@ internal sealed class ThemePalette
         Success = Color.FromArgb(63, 185, 80),
         Warning = Color.FromArgb(210, 153, 34),
         Danger = Color.FromArgb(248, 81, 73),
-        EditorBackground = Color.FromArgb(22, 27, 34),
-        EditorText = Color.FromArgb(230, 237, 243),
-        EditorCaret = Color.FromArgb(47, 129, 247),
-        EditorPlaceholder = Color.FromArgb(110, 118, 129),
+        EditorBackground = Color.Black,
+        EditorText = Color.White,
+        EditorCaret = Color.White,
+        EditorPlaceholder = Color.FromArgb(128, 128, 128),
         EditorFocusRing = Color.FromArgb(47, 129, 247),
-        EditorCodeBackground = Color.FromArgb(13, 17, 23)
+        EditorCodeBackground = Color.FromArgb(28, 28, 28),
+        PanelHeaderWorkspace = Color.FromArgb(37, 52, 73),
+        PanelHeaderOutline = Color.FromArgb(26, 60, 52),
+        PanelHeaderEditor = Color.FromArgb(52, 44, 82),
+        PanelHeaderPageTitle = Color.FromArgb(72, 56, 32)
     };
 }

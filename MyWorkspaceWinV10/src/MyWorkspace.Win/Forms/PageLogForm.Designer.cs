@@ -54,6 +54,7 @@ partial class PageLogForm
 
         btnClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnClose.Location = new Point(672, 422);
+        btnClose.Name = "btnClose";
         btnClose.Size = new Size(100, 32);
         btnClose.Text = "닫기";
         btnClose.Click += btnClose_Click;

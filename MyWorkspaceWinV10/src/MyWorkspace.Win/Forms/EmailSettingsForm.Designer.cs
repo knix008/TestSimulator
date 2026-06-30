@@ -93,11 +93,13 @@ partial class EmailSettingsForm
         txtFromDisplayName.Size = new Size(340, 23);
 
         btnSave.Location = new Point(280, 276);
+        btnSave.Name = "btnSave";
         btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(375, 276);
+        btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;

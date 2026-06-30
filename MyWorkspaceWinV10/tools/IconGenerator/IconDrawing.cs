@@ -7,12 +7,12 @@ internal static class IconDrawing
     public static Bitmap Draw(string name, int size) =>
         name switch
         {
-            "h1" => Heading(size, 1, Color.FromArgb(220, 38, 38)),
-            "h2" => Heading(size, 2, Color.FromArgb(234, 88, 12)),
-            "h3" => Heading(size, 3, Color.FromArgb(37, 99, 235)),
-            "h4" => Heading(size, 4, Color.FromArgb(124, 58, 237)),
-            "h5" => Heading(size, 5, Color.FromArgb(20, 184, 166)),
-            "h6" => Heading(size, 6, Color.FromArgb(107, 114, 128)),
+            "h1" => Heading(size, 1, Color.FromArgb(196, 30, 30)),
+            "h2" => Heading(size, 2, Color.FromArgb(16, 130, 58)),
+            "h3" => Heading(size, 3, Color.FromArgb(24, 82, 200)),
+            "h4" => Heading(size, 4, Color.FromArgb(115, 45, 200)),
+            "h5" => Heading(size, 5, Color.FromArgb(200, 95, 10)),
+            "h6" => Heading(size, 6, Color.FromArgb(75, 85, 99)),
             "bold" => Bold(size),
             "italic" => Italic(size),
             "strike" => Strike(size),
@@ -25,6 +25,8 @@ internal static class IconDrawing
             "quote" => Quote(size),
             "hr" => HorizontalRule(size),
             "table" => Table(size),
+            "undo" => Undo(size),
+            "redo" => Redo(size),
             "outline" => Outline(size),
             "info" => Info(size),
             "save" => Save(size),
@@ -47,6 +49,7 @@ internal static class IconDrawing
             "profile" => Profile(size),
             "password" => Password(size),
             "bell" => Bell(size),
+            "copy" => Copy(size),
             "log" => Log(size),
             "star" => Star(size),
             "workspace" => Folder(size, Color.FromArgb(255, 196, 120)),
@@ -59,14 +62,27 @@ internal static class IconDrawing
     private static Bitmap Heading(int size, int level, Color color) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            IconCanvas.FillEllipse(g, c, 0.5f, 0.5f, 11f, 11f, color);
-            var fontSize = level switch
+            const float x = 0.75f;
+            const float y = 0.75f;
+            const float boxSize = 10.5f;
+
+            IconCanvas.FillRectangle(g, c, x, y, boxSize, boxSize, color);
+            IconCanvas.DrawRectangle(g, c, x, y, boxSize, boxSize, Color.FromArgb(180, 0, 0, 0), Math.Max(0.6f, size * 0.04f));
+
+            var label = $"H{level}";
+            var fontSize = size * level switch
             {
-                1 => size * 0.55f,
-                2 or 3 => size * 0.5f,
-                _ => size * 0.45f
+                1 or 2 => 0.30f,
+                3 or 4 => 0.27f,
+                _ => 0.24f
             };
-            IconCanvas.DrawStringCentered(g, c, level.ToString(), fontSize, Color.White, FontStyle.Bold);
+            IconCanvas.DrawStringCentered(
+                g,
+                IconCanvas.Box(c, x, y, boxSize, boxSize),
+                label,
+                fontSize,
+                Color.White,
+                FontStyle.Bold);
         });
 
     private static Bitmap Bold(int size) =>
@@ -92,10 +108,25 @@ internal static class IconDrawing
     private static Bitmap CodeBlock(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            IconCanvas.FillRectangle(g, c, 0.5f, 1f, 11f, 10f, Color.FromArgb(45, 55, 72));
-            IconCanvas.DrawLine(g, c, 2.5f, 3.5f, 9.5f, 3.5f, Color.FromArgb(104, 211, 145), 1f);
-            IconCanvas.DrawLine(g, c, 2.5f, 6f, 8.5f, 6f, Color.FromArgb(104, 211, 145), 1f);
-            IconCanvas.DrawLine(g, c, 2.5f, 8.5f, 7f, 8.5f, Color.FromArgb(104, 211, 145), 1f);
+            var frame = Color.FromArgb(51, 65, 85);
+            var panel = Color.FromArgb(241, 245, 249);
+            var bracket = Color.FromArgb(217, 119, 6);
+            var code = Color.FromArgb(8, 145, 178);
+            var fence = Color.FromArgb(109, 40, 217);
+
+            IconCanvas.FillRectangle(g, c, 2.1f, 1.2f, 7.8f, 9.6f, panel);
+            IconCanvas.DrawRectangle(g, c, 2.1f, 1.2f, 7.8f, 9.6f, frame, Math.Max(0.8f, size * 0.06f));
+
+            IconCanvas.DrawStringCentered(g, IconCanvas.Box(c, 0f, 1.2f, 2.1f, 9.6f), "{", size * 0.36f, bracket, FontStyle.Bold);
+            IconCanvas.DrawStringCentered(g, IconCanvas.Box(c, 9.9f, 1.2f, 2.1f, 9.6f), "}", size * 0.36f, bracket, FontStyle.Bold);
+
+            IconCanvas.DrawLine(g, c, 3.1f, 2.4f, 3.1f, 3.4f, fence, 0.9f);
+            IconCanvas.DrawLine(g, c, 3.9f, 2.4f, 3.9f, 3.4f, fence, 0.9f);
+            IconCanvas.DrawLine(g, c, 4.7f, 2.4f, 4.7f, 3.4f, fence, 0.9f);
+
+            IconCanvas.DrawLine(g, c, 3.2f, 4.8f, 9.1f, 4.8f, code, 1.05f);
+            IconCanvas.DrawLine(g, c, 3.2f, 6.8f, 8.2f, 6.8f, code, 1.05f);
+            IconCanvas.DrawLine(g, c, 3.2f, 8.8f, 6.7f, 8.8f, code, 1.05f);
         });
 
     private static Bitmap Link(int size) =>
@@ -153,6 +184,24 @@ internal static class IconDrawing
             IconCanvas.DrawLine(g, c, 0.5f, 4.5f, 11.5f, 4.5f, color, 1f);
             IconCanvas.DrawLine(g, c, 4.5f, 1.5f, 4.5f, 10.5f, color, 1f);
             IconCanvas.DrawLine(g, c, 8f, 1.5f, 8f, 10.5f, color, 1f);
+        });
+
+    private static Bitmap Undo(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var color = Color.FromArgb(71, 85, 105);
+            IconCanvas.DrawArc(g, c, 1.5f, 1.5f, 9f, 9f, 135f, 225f, color, size * 0.12f);
+            IconCanvas.DrawLine(g, c, 2.5f, 3f, 4.5f, 1.5f, color, size * 0.12f);
+            IconCanvas.DrawLine(g, c, 2.5f, 3f, 4.5f, 4.5f, color, size * 0.12f);
+        });
+
+    private static Bitmap Redo(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var color = Color.FromArgb(71, 85, 105);
+            IconCanvas.DrawArc(g, c, 1.5f, 1.5f, 9f, 9f, -45f, 225f, color, size * 0.12f);
+            IconCanvas.DrawLine(g, c, 9.5f, 3f, 7.5f, 1.5f, color, size * 0.12f);
+            IconCanvas.DrawLine(g, c, 9.5f, 3f, 7.5f, 4.5f, color, size * 0.12f);
         });
 
     private static Bitmap Outline(int size) =>
@@ -328,6 +377,14 @@ internal static class IconDrawing
             IconCanvas.FillEllipse(g, c, 5.2f, 9.8f, 1.6f, 1.6f, Color.FromArgb(251, 191, 36));
         });
 
+    private static Bitmap Copy(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var color = Color.FromArgb(59, 130, 246);
+            IconCanvas.DrawRectangle(g, c, 2f, 2.5f, 6.5f, 7.5f, color, 1f);
+            IconCanvas.DrawRectangle(g, c, 4.5f, 4.5f, 6.5f, 7.5f, color, 1f);
+        });
+
     private static Bitmap Log(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
@@ -362,6 +419,27 @@ internal static class IconDrawing
             IconCanvas.FillPolygon(g, c, Color.White, (7f, 0.5f), (9.5f, 0.5f), (9.5f, 3f));
             IconCanvas.DrawLine(g, c, 4f, 5f, 8f, 5f, Color.White, 1f);
             IconCanvas.DrawLine(g, c, 4f, 7.5f, 8f, 7.5f, Color.White, 1f);
+        });
+
+    public static Bitmap WspFile(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var folderColor = Color.FromArgb(255, 196, 120);
+            IconCanvas.FillRectangle(g, c, 0.5f, 4.2f, 11f, 6.8f, folderColor);
+            IconCanvas.FillRectangle(g, c, 0.5f, 2.8f, 5.5f, 2.2f, folderColor);
+
+            IconCanvas.FillRoundedRectangle(g, c, 3f, 4.8f, 8.6f, 7.2f, 0.6f, Color.White);
+            IconCanvas.DrawRoundedRectangle(
+                g, c, 3f, 4.8f, 8.6f, 7.2f, 0.6f,
+                Color.FromArgb(37, 99, 235), Math.Max(0.6f, size * 0.045f));
+
+            IconCanvas.DrawStringCentered(
+                g,
+                IconCanvas.Box(c, 3f, 4.8f, 8.6f, 7.2f),
+                "WSP",
+                size * 0.22f,
+                Color.FromArgb(37, 99, 235),
+                FontStyle.Bold);
         });
 
     public static Bitmap AppIcon(int size) =>

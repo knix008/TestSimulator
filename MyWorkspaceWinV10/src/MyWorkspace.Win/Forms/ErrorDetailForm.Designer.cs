@@ -45,6 +45,7 @@ partial class ErrorDetailForm
 
         btnCopy.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnCopy.Location = new Point(332, 8);
+        btnCopy.Name = "btnCopy";
         btnCopy.Size = new Size(96, 32);
         btnCopy.Text = "복사";
         btnCopy.UseVisualStyleBackColor = true;
@@ -53,6 +54,7 @@ partial class ErrorDetailForm
         btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnClose.DialogResult = DialogResult.OK;
         btnClose.Location = new Point(428, 8);
+        btnClose.Name = "btnClose";
         btnClose.Size = new Size(96, 32);
         btnClose.Text = "닫기";
         btnClose.UseVisualStyleBackColor = true;

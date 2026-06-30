@@ -18,6 +18,8 @@ partial class PreferencesForm
         cboTheme = new ThemedComboBox();
         lblLanguage = new Label();
         cboLanguage = new ThemedComboBox();
+        lblFontScale = new Label();
+        cboFontScale = new ThemedComboBox();
         lblHint = new Label();
         btnOk = new Button();
         btnCancel = new Button();
@@ -50,34 +52,47 @@ partial class PreferencesForm
         cboLanguage.Size = new Size(220, 23);
         cboLanguage.TabIndex = 1;
 
+        lblFontScale.AutoSize = true;
+        lblFontScale.Location = new Point(36, 124);
+        lblFontScale.Name = "lblFontScale";
+
+        cboFontScale.DropDownStyle = ComboBoxStyle.DropDownList;
+        cboFontScale.FormattingEnabled = true;
+        cboFontScale.Location = new Point(120, 120);
+        cboFontScale.Name = "cboFontScale";
+        cboFontScale.Size = new Size(220, 23);
+        cboFontScale.TabIndex = 2;
+
         lblHint.AutoSize = true;
-        lblHint.Location = new Point(20, 124);
+        lblHint.Location = new Point(20, 160);
         lblHint.MaximumSize = new Size(320, 0);
         lblHint.Name = "lblHint";
         lblHint.ForeColor = Color.Gray;
 
-        btnOk.Location = new Point(164, 168);
+        btnOk.Location = new Point(164, 204);
         btnOk.Name = "btnOk";
         btnOk.Size = new Size(84, 32);
-        btnOk.TabIndex = 2;
+        btnOk.TabIndex = 3;
         btnOk.UseVisualStyleBackColor = true;
         btnOk.Click += btnOk_Click;
 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(256, 168);
+        btnCancel.Location = new Point(256, 204);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(84, 32);
-        btnCancel.TabIndex = 3;
+        btnCancel.TabIndex = 4;
         btnCancel.UseVisualStyleBackColor = true;
 
         AcceptButton = btnOk;
         CancelButton = btnCancel;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(360, 236);
+        ClientSize = new Size(360, 272);
         Controls.Add(btnCancel);
         Controls.Add(btnOk);
         Controls.Add(lblHint);
+        Controls.Add(cboFontScale);
+        Controls.Add(lblFontScale);
         Controls.Add(cboLanguage);
         Controls.Add(lblLanguage);
         Controls.Add(cboTheme);
@@ -98,6 +113,8 @@ partial class PreferencesForm
     private ThemedComboBox cboTheme;
     private Label lblLanguage;
     private ThemedComboBox cboLanguage;
+    private Label lblFontScale;
+    private ThemedComboBox cboFontScale;
     private Label lblHint;
     private Button btnOk;
     private Button btnCancel;

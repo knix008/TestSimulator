@@ -1,6 +1,6 @@
 # MyWorkspace
 
-Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이션입니다. 계층형 Workspace, Markdown Page 편집·미리보기, 버전 이력, 다중 DB 지원, 사용자·관리자 권한, Workspace 즐겨찾기, 밝기/어두운 테마, 선택적 이메일 알림을 제공합니다.
+Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이션입니다. 계층형 Workspace, WYSIWYG Markdown Page 편집, 버전 이력·변경 Log, 내보내기, 다중 DB 지원, 사용자·관리자 권한, Workspace 즐겨찾기, 밝기/어두운 테마, 선택적 이메일 알림을 제공합니다.
 
 **사용자 가이드**: 상세 사용법은 [UsersGuide.md](UsersGuide.md)를 참고하세요.
 
@@ -10,7 +10,7 @@ Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이�
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Visual Studio 2026 / 2022 (WinForms 디자이너 권장) 또는 `dotnet` CLI
 - MSI 빌드: [WiX Toolset v4+](https://wixtoolset.org/) (`installer` 프로젝트)
-- WebView2 Runtime (Markdown 미리보기, Windows 11에는 기본 포함)
+- WebView2 Runtime (Markdown WYSIWYG 편집기, Windows 11에는 기본 포함)
 
 ## 빌드 / 실행
 
@@ -25,6 +25,12 @@ Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이�
 ```bash
 dotnet build MyWorkspaceWinV10.slnx -c Debug
 dotnet run --project src/MyWorkspace.Win/MyWorkspace.Win.csproj -c Debug
+```
+
+로컬 출력 폴더로 빌드하려면:
+
+```bash
+dotnet build src/MyWorkspace.Win/MyWorkspace.Win.csproj -o _build_out
 ```
 
 ### Release + MSI
@@ -56,14 +62,17 @@ dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
 | 영역 | 설명 |
 |------|------|
 | **Workspace** | 계층 구조, Page와 하위 Workspace 공존, 드래그 앤 드롭 이동, 멤버 관리 |
-| **Page** | Markdown 편집, WebView2 실시간 미리보기, 자동 저장(2초) |
-| **빠른 Page 작성** | Workspace 선택 후 바로 편집하면 `제목 없음` Page 자동 생성 |
+| **Page** | WebView2 기반 WYSIWYG Markdown 편집, 자동 저장(2초) |
+| **빠른 Page 작성** | Workspace 선택 후 **제목** 또는 **본문** 입력 시 즉시 Page 생성 (제목 없으면 `제목없음`) |
+| **문서 구조** | H1~H6 제목 Outline, 편집 위치 연동 |
+| **내보내기** | Markdown(.md), Word(.docx), PDF(.pdf) |
+| **변경 Log** | Page 생성·제목·내용 변경·삭제 이력 조회 |
 | **템플릿** | 내장·사용자 Page 템플릿 (`.mdtemplate`) |
 | **버전 이력** | Page당 최대 50개 스냅샷, 복원 |
-| **인증** | 관리자 / 일반 사용자, DB 기반 계정 |
+| **인증** | 관리자 / 일반 사용자, DB 기반 계정, 로그아웃 확인 |
 | **DB** | MariaDB, MySQL, PostgreSQL, SQL Server, SQLite 3 |
 | **즐겨찾기** | 등록된 Workspace 즐겨찾기 (DB 저장) |
-| **테마** | 밝게 / 어둡게 (환경 설정), 다크 모드 Markdown 툴바 아이콘 자동 보정 |
+| **테마** | 밝게 / 어둡게 (환경 설정), 다크 모드 툴바 아이콘 자동 보정 |
 | **알림** | SMTP 설정 시 Page·Workspace 변경 이메일 (선택) |
 
 ## 데이터베이스
@@ -90,7 +99,7 @@ MyWorkspaceWinV10/
 │   ├── MyWorkspace.Core/     # 엔티티, enum, 서비스 인터페이스, 모델
 │   ├── MyWorkspace.Data/     # EF Core, DbContext, 서비스 구현
 │   └── MyWorkspace.Win/      # WinForms UI, appsettings.json, Page 템플릿
-│       └── Assets/           # app.ico, Icons/s16·s20 PNG (임베드 리소스)
+│       └── Assets/           # app.ico, Icons/s16·s20·s28 PNG (임베드 리소스)
 ├── tools/
 │   └── IconGenerator/        # PNG·ICO 아이콘 생성 도구
 ├── database/
@@ -119,16 +128,17 @@ MyWorkspaceWinV10/
 | Microsoft.EntityFrameworkCore.SqlServer | Data | SQL Server |
 | Microsoft.EntityFrameworkCore.Sqlite | Data | SQLite |
 | Markdig | Win | Markdown → HTML |
-| Microsoft.Web.WebView2 | Win | 미리보기 |
+| Microsoft.Web.WebView2 | Win | WYSIWYG 편집기 |
 | Microsoft.Extensions.Configuration.Json | Win | 설정 로드 |
-| ReverseMarkdown | Win | HTML → Markdown (붙여넣기 등) |
+| ReverseMarkdown | Win | HTML → Markdown (저장·붙여넣기) |
 
 ## 아키텍처 메모
 
 - **Core / Data / Win** 3계층 분리 — 향후 웹 버전 재사용을 고려
 - WinForms: 로직은 `Form.cs`, 레이아웃은 `Form.Designer.cs` (Visual Studio 디자이너 편집 가능)
 - `AppServices`가 Data 계층 서비스를 수동 조립 (`AppConfig`에서 로드)
-- UI 테마: `AppTheme`, `ThemePalette`, `ThemedTreeView` — 트리 연결선·선택 하이라이트·다크 모드 일괄 적용
+- UI 테마: `AppTheme`, `ThemePalette` — 패널 헤더·테두리·다크 모드·Dialog 버튼 스타일 일괄 적용
+- 편집기: `WebViewEditorController` + `EditorHtmlBuilder` (contenteditable HTML ↔ Markdown)
 - 아이콘: `IconAssets`가 `Assets` 임베드 리소스 로드, `IconGenerator`로 일괄 생성
 
 ## 라이선스
