@@ -82,18 +82,24 @@ internal sealed class WebViewEditorController
             ShowMenu();
     }
 
-    public async Task LoadMarkdownAsync(string markdown, MarkdownPipeline pipeline)
+    public async Task LoadMarkdownAsync(string markdown, MarkdownPipeline pipeline, int? pageId = null)
     {
+        if (_webView.CoreWebView2 == null)
+            return;
+
         _isReady = false;
-        var html = EditorHtmlBuilder.BuildEditablePage(markdown, pipeline);
+        var normalized = pageId.HasValue
+            ? PageMarkdownNormalizer.ExpandAssetReferences(markdown, pageId.Value)
+            : markdown;
+        var html = EditorHtmlBuilder.BuildEditablePage(normalized, pipeline);
         _webView.NavigateToString(html);
         await WaitForReadyAsync();
     }
 
-    public Task ClearAsync(MarkdownPipeline pipeline) =>
-        LoadMarkdownAsync(string.Empty, pipeline);
+    public Task ClearAsync(MarkdownPipeline pipeline, int? pageId = null) =>
+        LoadMarkdownAsync(string.Empty, pipeline, pageId);
 
-    public async Task<string> GetMarkdownAsync()
+    public async Task<string> GetMarkdownAsync(int? pageId = null)
     {
         if (IsScriptSuspended)
             return string.Empty;
@@ -102,8 +108,14 @@ internal sealed class WebViewEditorController
         if (string.IsNullOrWhiteSpace(html))
             return string.Empty;
 
+        if (pageId.HasValue)
+            html = PageMarkdownNormalizer.CollapseHtmlImages(html, pageId.Value);
+
         var normalized = NormalizeHtml(html);
-        return MarkdownConverter.Convert(normalized).Trim();
+        var markdown = MarkdownConverter.Convert(normalized).Trim();
+        return pageId.HasValue
+            ? PageMarkdownNormalizer.CollapseEditorImages(markdown, pageId.Value)
+            : markdown;
     }
 
     public Task ApplyHeadingAsync(int level) =>

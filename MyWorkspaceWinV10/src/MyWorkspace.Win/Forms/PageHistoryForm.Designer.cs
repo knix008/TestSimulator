@@ -78,12 +78,14 @@ partial class PageHistoryForm
         splitMain.Panel2.Controls.Add(txtPreview);
         splitMain.Panel2.Controls.Add(lblPreview);
 
+        btnRestore.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnRestore.Location = new Point(572, 422);
         btnRestore.Size = new Size(100, 32);
         btnRestore.Text = "복원";
         btnRestore.Enabled = false;
         btnRestore.Click += btnRestore_Click;
 
+        btnClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnClose.Location = new Point(672, 422);
         btnClose.Size = new Size(100, 32);
         btnClose.Text = "닫기";

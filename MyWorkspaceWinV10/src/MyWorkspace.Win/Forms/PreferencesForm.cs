@@ -7,11 +7,11 @@ public partial class PreferencesForm : Form
     public PreferencesForm()
     {
         InitializeComponent();
+        AppTheme.ApplyStandardDialog(this);
     }
 
     private void PreferencesForm_Load(object? sender, EventArgs e)
     {
-        AppTheme.ApplyStandardDialog(this);
         ApplyLocalization();
 
         cboTheme.Items.Clear();
@@ -33,11 +33,9 @@ public partial class PreferencesForm : Form
             cboLanguage.SelectedItem is not LanguageListItem languageItem)
             return;
 
-        SelectedSettings = new UiSettings
-        {
-            Theme = themeItem.Value,
-            Language = languageItem.Value
-        };
+        SelectedSettings = AppConfig.UiSettings.Clone();
+        SelectedSettings.Theme = themeItem.Value;
+        SelectedSettings.Language = languageItem.Value;
         DialogResult = DialogResult.OK;
         Close();
     }

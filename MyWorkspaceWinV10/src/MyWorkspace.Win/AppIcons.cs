@@ -28,7 +28,12 @@ internal static class AppIcons
             ("hr", "hr"),
             ("table", "table"),
             ("outline", "outline"),
-            ("info", "info"));
+            ("info", "info"),
+            ("save", "save"),
+            ("page", "page"),
+            ("export", "export"),
+            ("history", "history"),
+            ("log", "log"));
 
     public static void ApplyMenuIcons(
         ToolStripMenuItem menuSavePage,
@@ -52,6 +57,9 @@ internal static class AppIcons
         ToolStripMenuItem menuEditProfile,
         ToolStripMenuItem menuChangePassword,
         ToolStripMenuItem menuNotificationSettings,
+        ToolStripMenuItem menuAccountLogout,
+        ToolStripMenuItem menuBarLogin,
+        ToolStripMenuItem menuBarLogout,
         ToolStripMenuItem ctxNewSubWorkspace,
         ToolStripMenuItem ctxNewPage,
         ToolStripMenuItem ctxRename,
@@ -80,6 +88,9 @@ internal static class AppIcons
         menuEditProfile.Image = IconAssets.Load(MenuIconSize, "profile");
         menuChangePassword.Image = IconAssets.Load(MenuIconSize, "password");
         menuNotificationSettings.Image = IconAssets.Load(MenuIconSize, "bell");
+        menuAccountLogout.Image = IconAssets.Load(MenuIconSize, "logout");
+        menuBarLogin.Image = IconAssets.Load(MenuIconSize, "login");
+        menuBarLogout.Image = IconAssets.Load(MenuIconSize, "logout");
         ctxNewSubWorkspace.Image = menuNewSubWorkspace.Image;
         ctxNewPage.Image = menuNewPage.Image;
         ctxRename.Image = menuRename.Image;

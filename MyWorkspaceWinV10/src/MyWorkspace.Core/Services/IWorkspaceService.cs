@@ -15,6 +15,7 @@ public interface IWorkspaceService
     IReadOnlyList<WorkspaceMember> GetMembers(User currentUser, int workspaceId);
     void AddMember(User currentUser, int workspaceId, int userId, WorkspaceMemberRole role);
     void RemoveMember(User currentUser, int workspaceId, int userId);
+    void UpdateMemberRole(User currentUser, int workspaceId, int userId, WorkspaceMemberRole role);
     bool CanAccessWorkspace(User currentUser, int workspaceId);
     bool HasPages(int workspaceId);
     bool CanFavoriteWorkspace(User currentUser, int workspaceId);

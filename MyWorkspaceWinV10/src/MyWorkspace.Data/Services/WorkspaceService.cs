@@ -276,6 +276,27 @@ public sealed class WorkspaceService : IWorkspaceService
         _notifications?.NotifyWorkspaceMemberRemoved(currentUser, workspaceId, workspace.Name, removedUser);
     }
 
+    public void UpdateMemberRole(User currentUser, int workspaceId, int userId, WorkspaceMemberRole role)
+    {
+        EnsureCanManage(currentUser, workspaceId);
+
+        if (role == WorkspaceMemberRole.Owner)
+            throw new InvalidOperationException("Owner 역할은 변경할 수 없습니다.");
+
+        var member = _db.WorkspaceMembers
+            .FirstOrDefault(m => m.WorkspaceId == workspaceId && m.UserId == userId)
+            ?? throw new InvalidOperationException("멤버를 찾을 수 없습니다.");
+
+        if (member.Role == WorkspaceMemberRole.Owner)
+            throw new InvalidOperationException("Owner 역할은 변경할 수 없습니다.");
+
+        if (member.Role == role)
+            return;
+
+        member.Role = role;
+        _db.SaveChanges();
+    }
+
     public bool CanAccessWorkspace(User currentUser, int workspaceId) =>
         GetAccessibleWorkspaceIds(currentUser).Contains(workspaceId);
 

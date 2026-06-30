@@ -10,17 +10,20 @@ public sealed class PageService : IPageService
     private readonly AppDbContext _db;
     private readonly IWorkspaceService _workspaceService;
     private readonly IPageVersionService _pageVersionService;
+    private readonly IPageChangeLogService _pageChangeLogs;
     private readonly INotificationService? _notifications;
 
     public PageService(
         AppDbContext db,
         IWorkspaceService workspaceService,
         IPageVersionService pageVersionService,
+        IPageChangeLogService pageChangeLogs,
         INotificationService? notifications = null)
     {
         _db = db;
         _workspaceService = workspaceService;
         _pageVersionService = pageVersionService;
+        _pageChangeLogs = pageChangeLogs;
         _notifications = notifications;
     }
 
@@ -57,6 +60,7 @@ public sealed class PageService : IPageService
 
         _db.Pages.Add(page);
         _db.SaveChanges();
+        _pageChangeLogs.Append(currentUser, page.Id, PageChangeAction.Created, newTitle: trimmed, newContentLength: content.Length);
         _notifications?.NotifyPageCreated(currentUser, page);
         return page;
     }
@@ -75,6 +79,20 @@ public sealed class PageService : IPageService
 
         if (page.Title != trimmed || page.Content != content)
             _pageVersionService.SaveVersion(currentUser, pageId, page.Title, page.Content);
+
+        var titleChanged = page.Title != trimmed;
+        var contentChanged = page.Content != content;
+        if (titleChanged || contentChanged)
+        {
+            _pageChangeLogs.Append(
+                currentUser,
+                pageId,
+                PageChangeLogHelper.ResolveUpdateAction(titleChanged, contentChanged),
+                oldTitle: page.Title,
+                newTitle: trimmed,
+                oldContentLength: page.Content.Length,
+                newContentLength: content.Length);
+        }
 
         page.Title = trimmed;
         page.Content = content;
@@ -98,9 +116,17 @@ public sealed class PageService : IPageService
         if (page.WorkspaceId == targetWorkspaceId)
             return;
 
+        var sourceWorkspace = _db.Workspaces.AsNoTracking().First(w => w.Id == page.WorkspaceId);
+        var targetWorkspace = _db.Workspaces.AsNoTracking().First(w => w.Id == targetWorkspaceId);
+
         page.WorkspaceId = targetWorkspaceId;
         page.UpdatedAt = DateTime.UtcNow;
         _db.SaveChanges();
+        _pageChangeLogs.Append(
+            currentUser,
+            pageId,
+            PageChangeAction.Moved,
+            note: $"{sourceWorkspace.Name} -> {targetWorkspace.Name}");
     }
 
     public void DeletePage(User currentUser, int pageId)
@@ -114,6 +140,7 @@ public sealed class PageService : IPageService
 
         var workspaceId = page.WorkspaceId;
         var pageTitle = page.Title;
+        _pageChangeLogs.Append(currentUser, pageId, PageChangeAction.Deleted, oldTitle: pageTitle);
         _db.Pages.Remove(page);
         _db.SaveChanges();
         _notifications?.NotifyPageDeleted(currentUser, workspaceId, pageTitle);

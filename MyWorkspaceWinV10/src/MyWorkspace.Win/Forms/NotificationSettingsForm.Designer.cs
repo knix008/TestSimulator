@@ -37,17 +37,18 @@ partial class NotificationSettingsForm
         chkNotifyWorkspaceChange.Location = new Point(120, 78);
         chkNotifyWorkspaceChange.Text = "Workspace 변경·멤버 변경 알림";
 
+        lblEmailStatus.AutoSize = true;
         lblEmailStatus.Location = new Point(120, 108);
-        lblEmailStatus.Size = new Size(280, 40);
+        lblEmailStatus.MaximumSize = new Size(280, 0);
         lblEmailStatus.Text = string.Empty;
 
         btnSave.Location = new Point(220, 160);
-        btnSave.Size = new Size(85, 30);
+        btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(315, 160);
-        btnCancel.Size = new Size(85, 30);
+        btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;
 

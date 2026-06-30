@@ -27,12 +27,12 @@ partial class AccountProfileForm
         txtUsername.Size = new Size(220, 23);
 
         btnSave.Location = new Point(120, 64);
-        btnSave.Size = new Size(90, 30);
+        btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(250, 64);
-        btnCancel.Size = new Size(90, 30);
+        btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;
 

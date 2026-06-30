@@ -15,9 +15,9 @@ partial class PreferencesForm
     {
         lblAppearance = new Label();
         lblTheme = new Label();
-        cboTheme = new ComboBox();
+        cboTheme = new ThemedComboBox();
         lblLanguage = new Label();
-        cboLanguage = new ComboBox();
+        cboLanguage = new ThemedComboBox();
         lblHint = new Label();
         btnOk = new Button();
         btnCancel = new Button();
@@ -50,9 +50,10 @@ partial class PreferencesForm
         cboLanguage.Size = new Size(220, 23);
         cboLanguage.TabIndex = 1;
 
+        lblHint.AutoSize = true;
         lblHint.Location = new Point(20, 124);
+        lblHint.MaximumSize = new Size(320, 0);
         lblHint.Name = "lblHint";
-        lblHint.Size = new Size(320, 32);
         lblHint.ForeColor = Color.Gray;
 
         btnOk.Location = new Point(164, 168);
@@ -73,7 +74,7 @@ partial class PreferencesForm
         CancelButton = btnCancel;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(360, 220);
+        ClientSize = new Size(360, 236);
         Controls.Add(btnCancel);
         Controls.Add(btnOk);
         Controls.Add(lblHint);
@@ -94,9 +95,9 @@ partial class PreferencesForm
 
     private Label lblAppearance;
     private Label lblTheme;
-    private ComboBox cboTheme;
+    private ThemedComboBox cboTheme;
     private Label lblLanguage;
-    private ComboBox cboLanguage;
+    private ThemedComboBox cboLanguage;
     private Label lblHint;
     private Button btnOk;
     private Button btnCancel;

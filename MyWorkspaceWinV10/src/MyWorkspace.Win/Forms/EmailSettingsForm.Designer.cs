@@ -33,12 +33,13 @@ partial class EmailSettingsForm
         ((System.ComponentModel.ISupportInitialize)numPort).BeginInit();
         SuspendLayout();
 
+        lblHint.AutoSize = true;
         lblHint.Location = new Point(16, 12);
-        lblHint.Size = new Size(420, 32);
+        lblHint.MaximumSize = new Size(420, 0);
         lblHint.Text = "이메일 서버 설정은 선택 사항입니다. 설정하지 않아도 애플리케이션을 사용할 수 있습니다.";
 
         chkEnabled.AutoSize = true;
-        chkEnabled.Location = new Point(16, 48);
+        chkEnabled.Location = new Point(16, 58);
         chkEnabled.Text = "이메일 알림 사용";
 
         lblSmtpHost.AutoSize = true;
@@ -92,12 +93,12 @@ partial class EmailSettingsForm
         txtFromDisplayName.Size = new Size(340, 23);
 
         btnSave.Location = new Point(280, 276);
-        btnSave.Size = new Size(85, 30);
+        btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(375, 276);
-        btnCancel.Size = new Size(85, 30);
+        btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;
 

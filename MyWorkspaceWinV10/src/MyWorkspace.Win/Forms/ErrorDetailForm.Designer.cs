@@ -23,6 +23,7 @@ partial class ErrorDetailForm
         pnlButtons.SuspendLayout();
         SuspendLayout();
 
+        lblSummary.AutoEllipsis = true;
         lblSummary.Dock = DockStyle.Top;
         lblSummary.Padding = new Padding(8, 8, 8, 4);
         lblSummary.Height = 48;
@@ -39,12 +40,12 @@ partial class ErrorDetailForm
         pnlButtons.Controls.Add(btnCopy);
         pnlButtons.Controls.Add(btnClose);
         pnlButtons.Dock = DockStyle.Bottom;
-        pnlButtons.Height = 44;
+        pnlButtons.Height = 48;
         pnlButtons.Padding = new Padding(8, 6, 8, 6);
 
         btnCopy.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnCopy.Location = new Point(332, 8);
-        btnCopy.Size = new Size(90, 30);
+        btnCopy.Size = new Size(96, 32);
         btnCopy.Text = "복사";
         btnCopy.UseVisualStyleBackColor = true;
         btnCopy.Click += btnCopy_Click;
@@ -52,7 +53,7 @@ partial class ErrorDetailForm
         btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnClose.DialogResult = DialogResult.OK;
         btnClose.Location = new Point(428, 8);
-        btnClose.Size = new Size(90, 30);
+        btnClose.Size = new Size(96, 32);
         btnClose.Text = "닫기";
         btnClose.UseVisualStyleBackColor = true;
         btnClose.Click += btnClose_Click;

@@ -19,6 +19,7 @@ public partial class ErrorDetailForm : Form
         AppTheme.ApplyStandardDialog(this);
 
         AppTheme.StyleTextBox(txtDetails);
+        AppTheme.StyleSecondaryButton(btnCopy);
 
         txtDetails.BackColor = AppTheme.Background;
 

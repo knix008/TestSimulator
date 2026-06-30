@@ -19,8 +19,9 @@ public sealed class AppServices : IDisposable
         Users = new Services.UserService(Db);
         Notifications = new Services.NotificationService(Db, EmailSettings);
         Workspaces = new Services.WorkspaceService(Db, Notifications);
-        PageVersions = new Services.PageVersionService(Db, Workspaces);
-        Pages = new Services.PageService(Db, Workspaces, PageVersions, Notifications);
+        PageChangeLogs = new Services.PageChangeLogService(Db, Workspaces);
+        PageVersions = new Services.PageVersionService(Db, Workspaces, PageChangeLogs);
+        Pages = new Services.PageService(Db, Workspaces, PageVersions, PageChangeLogs, Notifications);
     }
 
     public DatabaseSettings Settings { get; }
@@ -32,6 +33,7 @@ public sealed class AppServices : IDisposable
     public IWorkspaceService Workspaces { get; }
     public IPageService Pages { get; }
     public IPageVersionService PageVersions { get; }
+    public IPageChangeLogService PageChangeLogs { get; }
 
     public void Dispose() => Db.Dispose();
 }
