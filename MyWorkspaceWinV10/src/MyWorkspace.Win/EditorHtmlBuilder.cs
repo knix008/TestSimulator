@@ -42,7 +42,7 @@ internal static class EditorHtmlBuilder
     private static string WrapEditablePage(EditorChromeOptions chrome)
     {
         var p = chrome.Palette;
-        var bg = ToCss(p.EditorBackground);
+        var bg = ToCss(p.Surface);
         var text = ToCss(p.EditorText);
         var caret = ToCss(p.EditorCaret);
         var placeholder = ToCss(p.EditorPlaceholder);
@@ -77,12 +77,12 @@ internal static class EditorHtmlBuilder
               --editor-muted: {{muted}};
               --editor-selection: {{selection}};
             }
-            html, body { height: 100%; margin: 0; background: var(--editor-bg); }
-            html { color-scheme: {{colorScheme}}; }
+            html, body { height: 100%; margin: 0; background: var(--editor-bg) !important; color: var(--editor-text) !important; }
+            html { color-scheme: {{colorScheme}}; background: var(--editor-bg) !important; }
             body {
               font-family: "Segoe UI", "Malgun Gothic", sans-serif;
               font-size: {{bodyFontSize}}px; line-height: 1.75; color: var(--editor-text);
-              background: var(--editor-bg); overflow: hidden;
+              background: var(--editor-bg) !important; overflow: hidden;
             }
             ::selection { background: var(--editor-selection); }
             #editor::-webkit-scrollbar { width: 10px; }
@@ -94,7 +94,7 @@ internal static class EditorHtmlBuilder
               height: 100%; box-sizing: border-box;
               padding: 24px 32px; outline: none; overflow-y: auto;
               caret-color: var(--editor-caret);
-              background-color: var(--editor-bg); color: var(--editor-text);
+              background-color: var(--editor-bg) !important; color: var(--editor-text) !important;
             }
             #editor:focus { box-shadow: inset 0 0 0 1px var(--editor-focus); }
             #editor[data-empty="true"]:before {
@@ -104,6 +104,9 @@ internal static class EditorHtmlBuilder
             #editor p, #editor li, #editor td, #editor th, #editor div, #editor span,
             #editor strong, #editor b, #editor em, #editor i {
               color: var(--editor-text) !important;
+            }
+            #editor p, #editor div, #editor span, #editor li, #editor ul, #editor ol {
+              background-color: transparent !important;
             }
             h1,h2,h3,h4,h5,h6 { font-weight: 600; margin: 24px 0 12px; scroll-margin-top: 12px; display: block; width: 100%; box-sizing: border-box; color: var(--editor-text) !important; }
             h1 { font-size: 1.8em; border-bottom: none; padding-bottom: 0.3em; }
@@ -179,7 +182,8 @@ internal static class EditorHtmlBuilder
               editor.querySelectorAll('*').forEach(el => {
                 if (el.tagName === 'A') return;
                 el.style.removeProperty('color');
-                if (el.tagName !== 'CODE' && el.tagName !== 'PRE')
+                el.removeAttribute('bgcolor');
+                if (el.tagName !== 'CODE' && el.tagName !== 'PRE' && el.tagName !== 'BLOCKQUOTE' && el.tagName !== 'TH')
                   el.style.removeProperty('background-color');
               });
             }

@@ -26,6 +26,7 @@ internal sealed class CloseableTabControl : TabControl
         Padding = new Point(10, 4);
         HotTrack = false;
         DoubleBuffered = true;
+        BackColor = AppTheme.EditorBackground;
         AppTheme.Changed += OnThemeChanged;
     }
 
@@ -44,19 +45,7 @@ internal sealed class CloseableTabControl : TabControl
 
     protected override void OnPaintBackground(PaintEventArgs pevent)
     {
-        using (var brush = new SolidBrush(AppTheme.EditorBackground))
-            pevent.Graphics.FillRectangle(brush, ClientRectangle);
-
-        if (TabCount == 0)
-            return;
-
-        var tabRowHeight = GetTabRect(0).Bottom;
-        if (tabRowHeight <= 0)
-            return;
-
-        var stripRect = new Rectangle(0, 0, ClientSize.Width, tabRowHeight);
-        using (var stripBrush = new SolidBrush(AppTheme.Sidebar))
-            pevent.Graphics.FillRectangle(stripBrush, stripRect);
+        PaintEditorSurface(pevent.Graphics);
     }
 
     protected override void OnResize(EventArgs e)
@@ -69,8 +58,18 @@ internal sealed class CloseableTabControl : TabControl
     {
         // Remove the default TabControl content-area inset border.
         const int tcmAdjustRect = 0x1328;
+        const int wmEraseBkgnd = 0x0014;
+
         if (m.Msg == tcmAdjustRect && !DesignMode)
         {
+            m.Result = (IntPtr)1;
+            return;
+        }
+
+        if (m.Msg == wmEraseBkgnd && !DesignMode)
+        {
+            using var graphics = Graphics.FromHdc((IntPtr)m.WParam);
+            PaintEditorSurface(graphics);
             m.Result = (IntPtr)1;
             return;
         }
@@ -202,5 +201,26 @@ internal sealed class CloseableTabControl : TabControl
         Invalidate(GetTabRect(index));
     }
 
-    private void OnThemeChanged() => Invalidate();
+    private void OnThemeChanged()
+    {
+        BackColor = AppTheme.EditorBackground;
+        Invalidate(true);
+    }
+
+    private void PaintEditorSurface(Graphics graphics)
+    {
+        using var surfaceBrush = new SolidBrush(AppTheme.EditorBackground);
+        graphics.FillRectangle(surfaceBrush, ClientRectangle);
+
+        if (TabCount == 0)
+            return;
+
+        var tabRowHeight = GetTabRect(0).Bottom;
+        if (tabRowHeight <= 0)
+            return;
+
+        var stripRect = new Rectangle(0, 0, ClientSize.Width, tabRowHeight);
+        using var stripBrush = new SolidBrush(AppTheme.Sidebar);
+        graphics.FillRectangle(stripBrush, stripRect);
+    }
 }

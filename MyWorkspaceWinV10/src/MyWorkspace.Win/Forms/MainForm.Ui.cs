@@ -14,63 +14,39 @@ public partial class MainForm
 
     {
 
+        ApplyStartupTheme();
+
+        if (_ctxEditor != null)
+            AppTheme.StyleContextMenu(_ctxEditor);
+
+        RefreshToolbarIcons();
+
+        _ = RefreshEditorChromeAsync();
+    }
+
+    private void ApplyStartupTheme()
+    {
         AppTheme.ApplyFormChrome(this);
 
         AppTheme.ApplyMenuStrip(menuStrip1);
-
         AppTheme.ApplyToolbar(toolStripMarkdown);
-
         AppTheme.ApplyStatusStrip(statusStrip1);
-
         AppTheme.StyleContextMenu(ctxTree);
-
         AppTheme.StyleTreeView(treeWorkspace);
-
         AppTheme.StyleTreeView(treeOutline);
 
-        AppTheme.StyleSplitContainer(outerSplit);
-
-        AppTheme.StyleSplitContainer(editorAreaSplit);
-
-        AppTheme.StyleTabControl(tabPageEditors);
-        ApplyEditorHostTheme();
-
-
-
         pnlWorkspaceSidebar.BackColor = AppTheme.Sidebar;
-
         AppTheme.StyleBorderedPanel(pnlWorkspaceSidebar, PanelEdges.All);
 
-        pnlWorkspaceHeader.Padding = new Padding(10, 0, 4, 0);
-
-        pnlWorkspaceHeader.MinimumSize = new Size(0, 38);
-
-        AppTheme.StylePanelTitleHeader(pnlWorkspaceHeader, lblWorkspace, PanelHeaderKind.Workspace);
-
-
-
         pnlOutlineSidebar.BackColor = AppTheme.Sidebar;
-
         AppTheme.StyleBorderedPanel(pnlOutlineSidebar, PanelEdges.All);
-
-        pnlOutlineHeader.Padding = new Padding(10, 0, 4, 0);
-
-        pnlOutlineHeader.MinimumSize = new Size(0, 38);
-
-        AppTheme.StylePanelTitleHeader(pnlOutlineHeader, lblOutline, PanelHeaderKind.Outline);
-
-        AppTheme.StyleOutlineToggleButton(btnToggleOutline);
-
-        btnToggleOutline.BackColor = Color.Transparent;
-
-
 
         pnlEditorColumn.BackColor = AppTheme.Surface;
         pnlEditorColumn.Padding = Padding.Empty;
         pnlEditorColumn.Margin = Padding.Empty;
         AppTheme.StyleBorderedPanel(pnlEditorColumn, PanelEdges.Top | PanelEdges.Right | PanelEdges.Bottom);
 
-        pnlEditorHost.BackColor = AppTheme.EditorBackground;
+        pnlEditorHost.BackColor = AppTheme.Surface;
         pnlEditorHost.Padding = Padding.Empty;
         pnlEditorHost.Margin = Padding.Empty;
 
@@ -78,25 +54,30 @@ public partial class MainForm
         editorAreaSplit.Panel2.Padding = Padding.Empty;
         outerSplit.Panel2.Padding = Padding.Empty;
 
+        AppTheme.StyleSplitContainer(outerSplit);
+        AppTheme.StyleSplitContainer(editorAreaSplit);
+        AppTheme.StyleTabControl(tabPageEditors);
+        tabPageEditors.RefreshTabLayout();
+
+        pnlWorkspaceHeader.Padding = new Padding(10, 0, 4, 0);
+        pnlWorkspaceHeader.MinimumSize = new Size(0, 38);
+        AppTheme.StylePanelTitleHeader(pnlWorkspaceHeader, lblWorkspace, PanelHeaderKind.Workspace);
+
+        pnlOutlineHeader.Padding = new Padding(10, 0, 4, 0);
+        pnlOutlineHeader.MinimumSize = new Size(0, 38);
+        AppTheme.StylePanelTitleHeader(pnlOutlineHeader, lblOutline, PanelHeaderKind.Outline);
+        AppTheme.StyleOutlineToggleButton(btnToggleOutline);
+        btnToggleOutline.BackColor = Color.Transparent;
+
         pnlEditorHeader.Padding = new Padding(10, 0, 4, 0);
-
         pnlEditorHeader.MinimumSize = new Size(0, 38);
-
         AppTheme.StylePanelTitleHeader(pnlEditorHeader, lblEditor, PanelHeaderKind.Editor);
 
+        lblStatus.ForeColor = AppTheme.TextSecondary;
+        lblSaveStatus.ForeColor = AppTheme.TextMuted;
+
+        ApplyEditorHostTheme();
         UpdateEditorHostTabLayout();
-
-
-
-        if (_ctxEditor != null)
-
-            AppTheme.StyleContextMenu(_ctxEditor);
-
-
-
-        RefreshToolbarIcons();
-
-        _ = RefreshEditorChromeAsync();
     }
 
 
@@ -401,11 +382,17 @@ public partial class MainForm
     {
         tabPageEditors.BackColor = AppTheme.EditorBackground;
 
+        if (_editorEmptySurface != null)
+            _editorEmptySurface.BackColor = AppTheme.EditorBackground;
+
         foreach (TabPage page in tabPageEditors.TabPages)
             page.BackColor = AppTheme.EditorBackground;
 
         foreach (var session in _pageSessions)
+        {
             session.Editor.ApplyWebViewChrome();
+            _ = session.Editor.ApplyThemeChromeAsync();
+        }
     }
 }
 

@@ -16,7 +16,7 @@ internal static class PreviewHtmlBuilder
             : title.Trim());
 
         var p = chrome.Palette;
-        var bg = ToCss(p.EditorBackground);
+        var bg = ToCss(p.Surface);
         var text = ToCss(p.EditorText);
         var border = ToCss(p.Border);
         var borderLight = ToCss(p.BorderLight);

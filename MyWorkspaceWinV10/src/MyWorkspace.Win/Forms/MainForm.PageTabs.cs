@@ -10,6 +10,7 @@ public partial class MainForm
     private bool _suppressTabSelection;
     private ContextMenuStrip? _ctxPageTabs;
     private ToolStripMenuItem? menuClosePageTab;
+    private Panel? _editorEmptySurface;
 
     private void EnsurePageTabMenuItems()
     {
@@ -74,6 +75,39 @@ public partial class MainForm
         var targetBounds = new Rectangle(0, headerHeight, width, height);
         if (tabPageEditors.Bounds != targetBounds)
             tabPageEditors.Bounds = targetBounds;
+
+        UpdateEditorEmptySurface();
+    }
+
+    private void EnsureEditorEmptySurface()
+    {
+        if (_editorEmptySurface != null)
+            return;
+
+        _editorEmptySurface = new Panel
+        {
+            Name = "pnlEditorEmptySurface",
+            BackColor = AppTheme.EditorBackground,
+            TabStop = false,
+            Visible = false
+        };
+        pnlEditorHost.Controls.Add(_editorEmptySurface);
+    }
+
+    private void UpdateEditorEmptySurface()
+    {
+        EnsureEditorEmptySurface();
+
+        var show = tabPageEditors.TabCount == 0;
+        _editorEmptySurface!.BackColor = AppTheme.EditorBackground;
+        _editorEmptySurface.Visible = show;
+
+        if (!show)
+            return;
+
+        _editorEmptySurface.Bounds = tabPageEditors.Bounds;
+        _editorEmptySurface.BringToFront();
+        pnlEditorHeader.BringToFront();
     }
 
     private void tabPageEditors_SelectedIndexChanged(object? sender, EventArgs e) =>
@@ -206,6 +240,7 @@ public partial class MainForm
 
         tabPage.Controls.Add(webView);
         tabPageEditors.TabPages.Add(tabPage);
+        UpdateEditorEmptySurface();
 
         var editor = new WebViewEditorController(webView);
         var session = new PageEditorSession(tabPage, webView, editor)
@@ -433,6 +468,8 @@ public partial class MainForm
         _isDirty = false;
         SetSaveStatus(SaveStatusKind.None);
         UpdateEditorChromeEnabled();
+        tabPageEditors.RefreshTabLayout();
+        UpdateEditorHostTabLayout();
     }
 
     private async Task CloseActivePageTabAsync()
@@ -508,6 +545,8 @@ public partial class MainForm
 
         if (selectAnother && tabPageEditors.TabCount > 0 && _activePageSession == null)
             tabPageEditors.SelectedIndex = Math.Max(0, tabPageEditors.TabCount - 1);
+
+        UpdateEditorEmptySurface();
     }
 
     private async Task SavePageSessionAsync(

@@ -68,8 +68,18 @@ internal sealed class WebViewEditorController
 
         _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
         _webView.CoreWebView2.ContextMenuRequested += OnContextMenuRequested;
-        _webView.CoreWebView2.NavigationCompleted += (_, _) => _isReady = true;
+        _webView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
         await LoadMarkdownAsync(string.Empty, pipeline);
+    }
+
+    private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        _isReady = e.IsSuccess;
+        if (!e.IsSuccess)
+            return;
+
+        ApplyWebViewChrome();
+        _ = ApplyThemeChromeAsync();
     }
 
     private void OnWebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs args)
@@ -118,6 +128,7 @@ internal sealed class WebViewEditorController
         var html = EditorHtmlBuilder.BuildEditablePage(normalized, pipeline);
         _webView.NavigateToString(html);
         await WaitForReadyAsync();
+        await ApplyThemeChromeAsync();
     }
 
     public Task ClearAsync(MarkdownPipeline pipeline, int? pageId = null) =>
@@ -291,7 +302,7 @@ internal sealed class WebViewEditorController
         var p = chrome.Palette;
         var themeJson = JsonSerializer.Serialize(new
         {
-            bg = ToCss(p.EditorBackground),
+            bg = ToCss(p.Surface),
             text = ToCss(p.EditorText),
             caret = ToCss(p.EditorCaret),
             placeholder = ToCss(p.EditorPlaceholder),

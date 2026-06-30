@@ -48,7 +48,7 @@ internal static class AppTheme
     public static Color Warning => _palette.Warning;
     public static Color Danger => _palette.Danger;
     public static Color EditorCodeBackground => _palette.EditorCodeBackground;
-    public static Color EditorBackground => _palette.EditorBackground;
+    public static Color EditorBackground => Surface;
     public static Color EditorText => _palette.EditorText;
     public static Color PanelHeaderWorkspace => _palette.PanelHeaderWorkspace;
     public static Color PanelHeaderOutline => _palette.PanelHeaderOutline;
@@ -388,6 +388,8 @@ internal static class AppTheme
             textBounds,
             fg,
             TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+
+        e.DrawDefault = false;
     }
 
     private static Image? GetTreeNodeImage(TreeView tree, TreeNode node)

@@ -330,6 +330,7 @@ partial class MainForm
         ctxTree.Name = "ctxTree";
         ctxTree.Size = new Size(189, 154);
         ctxTree.Opening += ctxTree_Opening;
+        ctxTree.Closed += ctxTree_Closed;
         // 
         // ctxNewRootWorkspace
         // 
@@ -562,7 +563,6 @@ partial class MainForm
         // 
         // treeWorkspace
         // 
-        treeWorkspace.ContextMenuStrip = ctxTree;
         treeWorkspace.Dock = DockStyle.Fill;
         treeWorkspace.HideSelection = false;
         treeWorkspace.Location = new Point(0, 36);
@@ -570,7 +570,6 @@ partial class MainForm
         treeWorkspace.Size = new Size(232, 679);
         treeWorkspace.TabIndex = 0;
         treeWorkspace.AfterSelect += treeWorkspace_AfterSelect;
-        treeWorkspace.MouseDown += treeWorkspace_MouseDown;
         treeWorkspace.NodeMouseDoubleClick += treeWorkspace_NodeMouseDoubleClick;
         // 
         // pnlWorkspaceHeader

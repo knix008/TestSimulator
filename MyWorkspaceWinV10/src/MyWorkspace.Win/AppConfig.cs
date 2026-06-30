@@ -76,25 +76,16 @@ internal static class AppConfig
 
     public static void LoadUiPreferences()
     {
-        if (File.Exists(LocalSettingsPath))
+        try
         {
-            try
-            {
-                var root = JsonNode.Parse(File.ReadAllText(LocalSettingsPath))?.AsObject();
-                if (root?["Ui"] != null)
-                {
-                    UiSettings = ParseUiSettings(root["Ui"]!.AsObject());
-                    ApplyUiSettings(UiSettings, persist: false);
-                    return;
-                }
-            }
-            catch
-            {
-                // fall back to defaults
-            }
+            var config = BuildConfiguration();
+            UiSettings = LoadUiSettings(config);
+        }
+        catch
+        {
+            UiSettings = UiSettings.Default.Clone();
         }
 
-        UiSettings = UiSettings.Default.Clone();
         ApplyUiSettings(UiSettings, persist: false);
     }
 

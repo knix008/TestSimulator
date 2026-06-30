@@ -17,6 +17,7 @@ public partial class MainForm : Form
     private bool _isDirty;
     private bool _suppressOutlineNavigation;
     private bool _suppressWorkspaceSelection;
+    private TreeNode? _workspaceContextMenuNode;
     private bool _pageCreateInProgress;
     private string _lastActiveHeadingId = string.Empty;
     private int _savedOutlineWidth = 110;
@@ -42,8 +43,15 @@ public partial class MainForm : Form
         _pendingWspImportPath = StartupArguments.TryGetWspImportPath(args);
         InitializeComponent();
         KeyPreview = true;
+        ApplyStartupTheme();
         AppTheme.Changed += OnAppThemeChanged;
         FormClosed += (_, _) => AppTheme.Changed -= OnAppThemeChanged;
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        ApplyStartupTheme();
     }
 
     private void OnAppThemeChanged()
@@ -117,6 +125,8 @@ public partial class MainForm : Form
         SetupWysiwygToolbar();
 
         SetupTreeDragDrop();
+
+        treeWorkspace.RightNodeClick += treeWorkspace_RightNodeClick;
 
         editorAreaSplit.SplitterMoved += (_, _) =>
         {
@@ -199,6 +209,10 @@ public partial class MainForm : Form
         SetShellEnabled(false);
         UpdateEditorChromeEnabled();
         UpdateMenuForLoginState(false);
+        ApplyStartupTheme();
+        ApplyEditorHostTheme();
+        tabPageEditors.RefreshTabLayout();
+        UpdateEditorHostTabLayout();
     }
 
     private void ApplyLoggedInState()
@@ -888,6 +902,9 @@ public partial class MainForm : Form
     private TreeNodeData? GetSelectedNodeData() =>
         treeWorkspace.SelectedNode?.Tag as TreeNodeData;
 
+    private TreeNodeData? GetWorkspaceContextMenuNodeData() =>
+        (_workspaceContextMenuNode ?? treeWorkspace.SelectedNode)?.Tag as TreeNodeData;
+
     private int? GetSelectedWorkspaceId()
     {
         var data = GetSelectedNodeData();
@@ -1157,12 +1174,99 @@ public partial class MainForm : Form
         form.ShowDialog();
     }
 
-    private void treeWorkspace_MouseDown(object? sender, MouseEventArgs e)
+    private void treeWorkspace_RightNodeClick(object? sender, TreeViewRightClickEventArgs e) =>
+        ShowWorkspaceContextMenu(e.Node, e.Location);
+
+    private void ShowWorkspaceContextMenu(TreeNode? node, Point location)
     {
-        if (e.Button != MouseButtons.Right)
+        if (!SessionContext.IsLoggedIn)
             return;
 
-        treeWorkspace.SelectedNode = treeWorkspace.GetNodeAt(e.X, e.Y);
+        _workspaceContextMenuNode = node;
+
+        if (node != null && !ReferenceEquals(treeWorkspace.SelectedNode, node))
+        {
+            _suppressWorkspaceSelection = true;
+            try
+            {
+                treeWorkspace.SelectedNode = node;
+            }
+            finally
+            {
+                _suppressWorkspaceSelection = false;
+            }
+        }
+        else if (node == null)
+        {
+            _suppressWorkspaceSelection = true;
+            try
+            {
+                treeWorkspace.SelectedNode = null;
+            }
+            finally
+            {
+                _suppressWorkspaceSelection = false;
+            }
+        }
+
+        ConfigureWorkspaceContextMenu();
+        ctxTree.Show(treeWorkspace, location);
+    }
+
+    private void ctxTree_Closed(object? sender, ToolStripDropDownClosedEventArgs e) =>
+        _workspaceContextMenuNode = null;
+
+    private void ConfigureWorkspaceContextMenu()
+    {
+        var data = GetWorkspaceContextMenuNodeData();
+        var isEmptyArea = data == null;
+        var isFavoritesRoot = data?.Kind == TreeNodeKind.FavoritesRoot;
+        var isWorkspace = data?.Kind == TreeNodeKind.Workspace;
+        var isPageOrWorkspace = data?.Kind is TreeNodeKind.Workspace or TreeNodeKind.Page;
+
+        ctxNewRootWorkspace.Visible = isEmptyArea || isFavoritesRoot;
+        ctxNewSubWorkspace.Visible = isWorkspace;
+        ctxNewPage.Visible = isPageOrWorkspace;
+        ctxRename.Visible = isPageOrWorkspace;
+        ctxDelete.Visible = isPageOrWorkspace;
+        ctxSep1.Visible = isPageOrWorkspace;
+        ctxSep2.Visible = isPageOrWorkspace;
+        ctxMembers.Visible = isWorkspace;
+
+        var canFavorite = false;
+        if (isWorkspace && data!.Id > 0)
+        {
+            try
+            {
+                canFavorite = AppConfig.Services.Workspaces.CanFavoriteWorkspace(SessionContext.CurrentUser, data.Id);
+            }
+            catch
+            {
+                canFavorite = false;
+            }
+        }
+
+        ctxToggleFavorite.Visible = canFavorite;
+        ctxSep3.Visible = canFavorite;
+
+        if (canFavorite)
+        {
+            try
+            {
+                var isFavorite = AppConfig.Services.Workspaces.IsFavorite(SessionContext.CurrentUser, data!.Id);
+                ctxToggleFavorite.Text = isFavorite
+                    ? Localization.Get(K.CtxToggleFavoriteRemove)
+                    : Localization.Get(K.CtxToggleFavoriteAdd);
+            }
+            catch
+            {
+                ctxToggleFavorite.Visible = false;
+                ctxSep3.Visible = false;
+            }
+        }
+
+        if (!ctxTree.Items.Cast<ToolStripItem>().Any(item => item.Visible && item is not ToolStripSeparator))
+            ctxNewRootWorkspace.Visible = true;
     }
 
     private void ctxTree_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -1173,36 +1277,7 @@ public partial class MainForm : Form
             return;
         }
 
-        var data = GetSelectedNodeData();
-        var isEmptyArea = data == null;
-        var isWorkspace = data?.Kind == TreeNodeKind.Workspace;
-        var isPageOrWorkspace = data?.Kind is TreeNodeKind.Workspace or TreeNodeKind.Page;
-
-        ctxNewRootWorkspace.Visible = isEmptyArea;
-        ctxNewSubWorkspace.Visible = isWorkspace;
-        ctxNewPage.Visible = isPageOrWorkspace;
-        ctxRename.Visible = isPageOrWorkspace;
-        ctxDelete.Visible = isPageOrWorkspace;
-        ctxSep1.Visible = isPageOrWorkspace;
-        ctxSep2.Visible = isPageOrWorkspace;
-        ctxMembers.Visible = isWorkspace;
-
-        var canFavorite = isWorkspace &&
-                          data!.Id > 0 &&
-                          AppConfig.Services.Workspaces.CanFavoriteWorkspace(SessionContext.CurrentUser, data.Id);
-
-        ctxToggleFavorite.Visible = canFavorite;
-        ctxSep3.Visible = canFavorite;
-
-        if (canFavorite)
-        {
-            var isFavorite = AppConfig.Services.Workspaces.IsFavorite(SessionContext.CurrentUser, data!.Id);
-            ctxToggleFavorite.Text = isFavorite
-                ? Localization.Get(K.CtxToggleFavoriteRemove)
-                : Localization.Get(K.CtxToggleFavoriteAdd);
-        }
-
-        e.Cancel = !ctxTree.Items.Cast<ToolStripItem>().Any(item => item.Visible && item is not ToolStripSeparator);
+        ConfigureWorkspaceContextMenu();
     }
 
     private void ctxToggleFavorite_Click(object sender, EventArgs e)
