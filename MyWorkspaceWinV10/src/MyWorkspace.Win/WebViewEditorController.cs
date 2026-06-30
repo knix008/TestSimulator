@@ -57,7 +57,8 @@ internal sealed class WebViewEditorController
 
     public async Task InitializeAsync(MarkdownPipeline pipeline)
     {
-        await _webView.EnsureCoreWebView2Async();
+        var environment = await WebView2EnvironmentProvider.GetSharedEnvironmentAsync().ConfigureAwait(true);
+        await _webView.EnsureCoreWebView2Async(environment).ConfigureAwait(true);
         ApplyWebViewChrome();
 
         var settings = _webView.CoreWebView2.Settings;

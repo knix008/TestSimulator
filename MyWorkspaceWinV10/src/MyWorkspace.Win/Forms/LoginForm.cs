@@ -1,4 +1,5 @@
 using MyWorkspace.Core.Entities;
+using MyWorkspace.Data;
 
 namespace MyWorkspace.Win.Forms;
 
@@ -10,6 +11,22 @@ public partial class LoginForm : Form
     {
         InitializeComponent();
         ApplyLoginAppearance();
+        AppTheme.Changed += OnAppThemeChanged;
+        FormClosed += (_, _) => AppTheme.Changed -= OnAppThemeChanged;
+    }
+
+    private void OnAppThemeChanged()
+    {
+        if (IsDisposed)
+            return;
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(ApplyLoginAppearance);
+            return;
+        }
+
+        ApplyLoginAppearance();
     }
 
     private void btnLogin_Click(object sender, EventArgs e)
@@ -18,7 +35,7 @@ public partial class LoginForm : Form
 
         if (AuthLoginHelper.TryLogin(this, txtUsername.Text, txtPassword.Text, out var user, out var error))
         {
-            AppConfig.SaveLastLoginUsername(txtUsername.Text);
+            AppConfig.RecordSuccessfulLogin(txtUsername.Text);
             LoggedInUser = user;
             DialogResult = DialogResult.OK;
             Close();
@@ -43,17 +60,53 @@ public partial class LoginForm : Form
     {
         AcceptButton = btnLogin;
         CancelButton = btnCancel;
+        ApplyFirstRunDefaults();
+    }
 
-        var lastUsername = AppConfig.UiSettings.LastLoginUsername;
-        if (!string.IsNullOrWhiteSpace(lastUsername))
+    private static bool ShouldShowDefaultAdminCredentials() =>
+        !AppConfig.UiSettings.HasLoggedInOnce;
+
+    private void ApplyFirstRunDefaults()
+    {
+        var showDefaultAdmin = ShouldShowDefaultAdminCredentials();
+
+        if (showDefaultAdmin)
         {
-            txtUsername.Text = lastUsername;
+            txtUsername.Text = DbInitializer.DefaultAdminUsername;
+            txtPassword.Text = DbInitializer.DefaultAdminPassword;
             txtPassword.Focus();
+            txtPassword.SelectAll();
         }
         else
         {
-            txtUsername.Focus();
+            txtUsername.Text = AppConfig.UiSettings.LastLoginUsername;
+            txtPassword.Clear();
+            txtPassword.Focus();
         }
+
+        ApplyFirstRunLayout(showDefaultAdmin);
+        UpdateDefaultAdminHint(showDefaultAdmin);
+    }
+
+    private void ApplyFirstRunLayout(bool isFirstRun)
+    {
+        const int compactTop = 72;
+        const int expandedTop = 96;
+        var top = isFirstRun ? expandedTop : compactTop;
+        var fieldTop = top - 4;
+
+        lblDefaultAdminHint.Visible = isFirstRun;
+        lblDefaultAdminHint.Location = new Point(34, 48);
+        lblDefaultAdminHint.MaximumSize = new Size(360, 0);
+
+        lblUsername.Location = new Point(34, top);
+        txtUsername.Location = new Point(120, fieldTop);
+        lblPassword.Location = new Point(34, top + 36);
+        txtPassword.Location = new Point(120, fieldTop + 36);
+        lblMessage.Location = new Point(120, fieldTop + 68);
+        btnLogin.Location = new Point(120, fieldTop + 84);
+        btnCancel.Location = new Point(btnLogin.Right + 8, btnLogin.Top);
+        ClientSize = new Size(420, isFirstRun ? 280 : 240);
     }
 
     private void ApplyLoginAppearance()
@@ -66,7 +119,7 @@ public partial class LoginForm : Form
         AppTheme.StyleSecondaryButton(btnCancel);
         AppTheme.FitButtonSize(btnLogin);
         AppTheme.FitButtonSize(btnCancel);
-        btnCancel.Location = new Point(btnLogin.Right + 8, btnLogin.Top);
+        ApplyFirstRunLayout(ShouldShowDefaultAdminCredentials());
     }
 
     private void ApplyLoginLocalization()
@@ -77,10 +130,28 @@ public partial class LoginForm : Form
         lblUsername.ForeColor = AppTheme.TextSecondary;
         lblPassword.ForeColor = AppTheme.TextSecondary;
         lblMessage.ForeColor = AppTheme.Danger;
+        lblDefaultAdminHint.ForeColor = AppTheme.TextPrimary;
+        lblDefaultAdminHint.Font = AppTheme.UiFontSemibold;
         lblTitle.Text = Localization.Get(K.LoginTitle);
         lblUsername.Text = Localization.Get(K.LoginUsername);
         lblPassword.Text = Localization.Get(K.LoginPassword);
         btnLogin.Text = Localization.Get(K.LoginSubmit);
         btnCancel.Text = Localization.Get(K.LoginCancel);
+        UpdateDefaultAdminHint(ShouldShowDefaultAdminCredentials());
+    }
+
+    private void UpdateDefaultAdminHint(bool showDefaultAdmin)
+    {
+        lblDefaultAdminHint.Visible = showDefaultAdmin;
+        if (!showDefaultAdmin)
+        {
+            lblDefaultAdminHint.Text = string.Empty;
+            return;
+        }
+
+        lblDefaultAdminHint.Text = Localization.Format(
+            K.LoginDefaultAdminHint,
+            DbInitializer.DefaultAdminUsername,
+            DbInitializer.DefaultAdminPassword);
     }
 }

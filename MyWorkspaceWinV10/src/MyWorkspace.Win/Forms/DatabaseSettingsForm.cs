@@ -24,9 +24,7 @@ public partial class DatabaseSettingsForm : Form
         cboProvider.DisplayMember = nameof(ProviderListItem.DisplayName);
         cboProvider.ValueMember = nameof(ProviderListItem.Provider);
 
-        var current = AppConfig.HasLocalDatabaseSettings
-            ? AppConfig.DatabaseSettings.Clone()
-            : DatabaseSettings.CreateDefault(DatabaseProviderType.MariaDB);
+        var current = AppConfig.DatabaseSettings.Clone();
         SelectProvider(current.Provider);
         ApplySettingsToForm(current);
         UpdateProviderUi();

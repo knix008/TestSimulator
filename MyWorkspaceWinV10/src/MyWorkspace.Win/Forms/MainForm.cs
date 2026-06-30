@@ -42,6 +42,22 @@ public partial class MainForm : Form
         _pendingWspImportPath = StartupArguments.TryGetWspImportPath(args);
         InitializeComponent();
         KeyPreview = true;
+        AppTheme.Changed += OnAppThemeChanged;
+        FormClosed += (_, _) => AppTheme.Changed -= OnAppThemeChanged;
+    }
+
+    private void OnAppThemeChanged()
+    {
+        if (IsDisposed)
+            return;
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(ApplyModernTheme);
+            return;
+        }
+
+        ApplyModernTheme();
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -1141,12 +1157,28 @@ public partial class MainForm : Form
         form.ShowDialog();
     }
 
+    private void treeWorkspace_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right)
+            return;
+
+        treeWorkspace.SelectedNode = treeWorkspace.GetNodeAt(e.X, e.Y);
+    }
+
     private void ctxTree_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        if (!SessionContext.IsLoggedIn)
+        {
+            e.Cancel = true;
+            return;
+        }
+
         var data = GetSelectedNodeData();
+        var isEmptyArea = data == null;
         var isWorkspace = data?.Kind == TreeNodeKind.Workspace;
         var isPageOrWorkspace = data?.Kind is TreeNodeKind.Workspace or TreeNodeKind.Page;
 
+        ctxNewRootWorkspace.Visible = isEmptyArea;
         ctxNewSubWorkspace.Visible = isWorkspace;
         ctxNewPage.Visible = isPageOrWorkspace;
         ctxRename.Visible = isPageOrWorkspace;
@@ -1169,6 +1201,8 @@ public partial class MainForm : Form
                 ? Localization.Get(K.CtxToggleFavoriteRemove)
                 : Localization.Get(K.CtxToggleFavoriteAdd);
         }
+
+        e.Cancel = !ctxTree.Items.Cast<ToolStripItem>().Any(item => item.Visible && item is not ToolStripSeparator);
     }
 
     private void ctxToggleFavorite_Click(object sender, EventArgs e)
@@ -1191,8 +1225,39 @@ public partial class MainForm : Form
 
     private void menuDatabaseSettings_Click(object sender, EventArgs e)
     {
+        if (!SessionContext.IsAdmin)
+        {
+            MessageBox.Show(
+                Localization.Get(K.DbSettingsAdminOnly),
+                L.AppName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
         using var form = new DatabaseSettingsForm();
-        form.ShowDialog();
+        if (form.ShowDialog() != DialogResult.OK)
+            return;
+
+        var username = SessionContext.CurrentUser.Username;
+        var refreshed = AppConfig.Services.Users.GetByUsername(username);
+        if (refreshed == null)
+        {
+            MessageBox.Show(
+                Localization.Get(K.DbSavedReloginRequired),
+                L.AppName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            ApplyLoggedOutState();
+            ShowLoginDialog();
+            return;
+        }
+
+        SessionContext.SetUser(refreshed);
+        LoadWorkspaceTree();
+        lblStatus.Text = SessionContext.IsAdmin
+            ? Localization.Get(K.StatusAdmin)
+            : Localization.Get(K.StatusUser);
     }
 
     private void menuRefreshTree_Click(object sender, EventArgs e)
@@ -1244,6 +1309,7 @@ public partial class MainForm : Form
         }
     }
 
+    private void ctxNewRootWorkspace_Click(object sender, EventArgs e) => menuNewRootWorkspace_Click(sender, e);
     private void ctxNewSubWorkspace_Click(object sender, EventArgs e) => menuNewSubWorkspace_Click(sender, e);
     private void ctxNewPage_Click(object sender, EventArgs e) => menuNewPage_Click(sender, e);
     private void ctxRename_Click(object sender, EventArgs e) => menuRename_Click(sender, e);

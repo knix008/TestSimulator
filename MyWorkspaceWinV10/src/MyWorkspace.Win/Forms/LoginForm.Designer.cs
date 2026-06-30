@@ -42,6 +42,8 @@ partial class LoginForm
 
         btnCancel = new Button();
 
+        lblDefaultAdminHint = new Label();
+
         lblMessage = new Label();
 
         SuspendLayout();
@@ -140,6 +142,14 @@ partial class LoginForm
 
 
 
+        lblDefaultAdminHint.AutoSize = true;
+
+        lblDefaultAdminHint.Location = new Point(34, 54);
+
+        lblDefaultAdminHint.Name = "lblDefaultAdminHint";
+
+
+
         lblMessage.AutoSize = true;
 
         lblMessage.ForeColor = Color.Firebrick;
@@ -156,7 +166,9 @@ partial class LoginForm
 
         AutoScaleMode = AutoScaleMode.Font;
 
-        ClientSize = new Size(420, 220);
+        ClientSize = new Size(420, 240);
+
+        Controls.Add(lblDefaultAdminHint);
 
         Controls.Add(lblMessage);
 
@@ -209,6 +221,8 @@ partial class LoginForm
     private Button btnLogin;
 
     private Button btnCancel;
+
+    private Label lblDefaultAdminHint;
 
     private Label lblMessage;
 

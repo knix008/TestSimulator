@@ -52,6 +52,7 @@ partial class MainForm
         menuSepAccount1 = new ToolStripSeparator();
         menuNotificationSettings = new ToolStripMenuItem();
         ctxTree = new ContextMenuStrip(components);
+        ctxNewRootWorkspace = new ToolStripMenuItem();
         ctxNewSubWorkspace = new ToolStripMenuItem();
         ctxNewPage = new ToolStripMenuItem();
         ctxSep1 = new ToolStripSeparator();
@@ -325,10 +326,17 @@ partial class MainForm
         // 
         // ctxTree
         // 
-        ctxTree.Items.AddRange(new ToolStripItem[] { ctxNewSubWorkspace, ctxNewPage, ctxSep1, ctxRename, ctxDelete, ctxSep2, ctxToggleFavorite, ctxSep3, ctxMembers });
+        ctxTree.Items.AddRange(new ToolStripItem[] { ctxNewRootWorkspace, ctxNewSubWorkspace, ctxNewPage, ctxSep1, ctxRename, ctxDelete, ctxSep2, ctxToggleFavorite, ctxSep3, ctxMembers });
         ctxTree.Name = "ctxTree";
         ctxTree.Size = new Size(189, 154);
         ctxTree.Opening += ctxTree_Opening;
+        // 
+        // ctxNewRootWorkspace
+        // 
+        ctxNewRootWorkspace.Name = "ctxNewRootWorkspace";
+        ctxNewRootWorkspace.Size = new Size(188, 22);
+        ctxNewRootWorkspace.Text = "새 Workspace";
+        ctxNewRootWorkspace.Click += ctxNewRootWorkspace_Click;
         // 
         // ctxNewSubWorkspace
         // 
@@ -562,6 +570,7 @@ partial class MainForm
         treeWorkspace.Size = new Size(232, 679);
         treeWorkspace.TabIndex = 0;
         treeWorkspace.AfterSelect += treeWorkspace_AfterSelect;
+        treeWorkspace.MouseDown += treeWorkspace_MouseDown;
         treeWorkspace.NodeMouseDoubleClick += treeWorkspace_NodeMouseDoubleClick;
         // 
         // pnlWorkspaceHeader
@@ -686,6 +695,7 @@ partial class MainForm
     private ToolStripSeparator menuSepAccount1;
     private ToolStripMenuItem menuNotificationSettings;
     private ContextMenuStrip ctxTree;
+    private ToolStripMenuItem ctxNewRootWorkspace;
     private ToolStripMenuItem ctxNewSubWorkspace;
     private ToolStripMenuItem ctxNewPage;
     private ToolStripSeparator ctxSep1;

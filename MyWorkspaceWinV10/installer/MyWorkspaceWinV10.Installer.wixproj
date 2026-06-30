@@ -1,12 +1,32 @@
 <Project Sdk="WixToolset.Sdk/6.0.2">
   <PropertyGroup>
     <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
     <Platforms>x64</Platforms>
     <OutputName>MyWorkspaceWinV10Setup</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
     <SuppressValidation>true</SuppressValidation>
     <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
+    <MsiOutputPath>$(OutputPath)$(OutputName).msi</MsiOutputPath>
+    <AppProject>$(MSBuildThisFileDirectory)..\src\MyWorkspace.Win\MyWorkspace.Win.csproj</AppProject>
+    <PublishOutputDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\publish\installer\'))</PublishOutputDir>
+    <InstallerBuildEnabled>false</InstallerBuildEnabled>
+    <!-- Parallel culture binds can race on shared cabinet intermediates (WIX0103 / MSI 1631). -->
+    <BuildCulturesInParallel>false</BuildCulturesInParallel>
+  </PropertyGroup>
+
+  <!-- Release MSI: App post-build, explicit BuildMsiPackage, or direct installer project build only. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' AND ('$(BuildingMsiPackage)' == 'true' OR '$(BuildMsiPackage)' == 'true' OR ('$(BuildingProject)' == 'true' AND ('$(SolutionPath)' == '' OR '$(SolutionPath)' == '*Undefined*')))">
+    <InstallerBuildEnabled>true</InstallerBuildEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' != 'Release'">
+    <InstallerBuildEnabled>false</InstallerBuildEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);PublishOutputDir=$(PublishOutputDir)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,9 +37,56 @@
     <WixLocalization Include="ko-KR.wxl" Culture="ko-kr" />
   </ItemGroup>
 
-  <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild">
-    <Exec Command="cmd /c taskkill /IM MyWorkspaceWinV10.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
-    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
-          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\src\MyWorkspace.Win\MyWorkspace.Win.csproj&quot; -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:SkipInstaller=true" />
+  <Target Name="EnsureX64InstallerPlatform"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <PropertyGroup>
+      <Platform>x64</Platform>
+      <Platforms>x64</Platforms>
+      <InstallerPlatform>x64</InstallerPlatform>
+    </PropertyGroup>
   </Target>
+
+  <Target Name="PublishForInstaller"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Exec Command="cmd /c taskkill /IM MyWorkspaceWinV10.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <MSBuild Projects="$(AppProject)"
+             Targets="Publish"
+             BuildInParallel="false"
+             Properties="Configuration=Release;RuntimeIdentifier=win-x64;Platform=AnyCPU;SkipInstaller=true;BuildingMsiPackage=true;PublishDir=$(PublishOutputDir);SelfContained=true;PublishSingleFile=false" />
+    <Error Condition="!Exists('$(PublishOutputDir)MyWorkspaceWinV10.exe')"
+           Text="Publish output was not created at $(PublishOutputDir). Close any running MyWorkspaceWinV10.exe and rebuild." />
+  </Target>
+
+  <Target Name="CopyLocalizedInstallers"
+          AfterTargets="Build"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Copy SourceFiles="$(OutputPath)ko-kr\$(OutputName).msi"
+          DestinationFiles="$(MsiOutputPath)"
+          Condition="Exists('$(OutputPath)ko-kr\$(OutputName).msi')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="VerifyMsiOutput"
+          AfterTargets="Build"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Error Condition="!Exists('$(MsiOutputPath)')"
+           Text="MSI was not created at $(MsiOutputPath). Close any running MyWorkspaceWinV10.exe and rebuild." />
+    <Message Importance="high" Text="MSI created: $(MsiOutputPath)" />
+  </Target>
+
+  <Target Name="SkipNonReleaseBuild"
+          BeforeTargets="Build"
+          Condition="'$(InstallerBuildEnabled)' != 'true'">
+    <Message Importance="high" Text="MyWorkspaceWinV10.Installer: skipped (Release MSI is built by MyWorkspace.Win or: dotnet build installer\MyWorkspaceWinV10.Installer.wixproj -c Release -p:Platform=x64 -p:BuildMsiPackage=true)" />
+  </Target>
+
+  <Target Name="Build"
+          Condition="'$(InstallerBuildEnabled)' != 'true'"
+          DependsOnTargets="SkipNonReleaseBuild" />
+
+  <Target Name="Rebuild"
+          Condition="'$(InstallerBuildEnabled)' != 'true'"
+          DependsOnTargets="Build" />
 </Project>

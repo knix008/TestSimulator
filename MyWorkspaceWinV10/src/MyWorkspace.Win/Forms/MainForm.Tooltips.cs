@@ -94,6 +94,8 @@ public partial class MainForm
 
 
 
+        SetTip(ctxNewRootWorkspace, K.TipMenuNewRootWorkspace);
+
         SetTip(ctxNewSubWorkspace, K.TipMenuNewSubWorkspace);
 
         SetTip(ctxNewPage, K.TipMenuNewPage);

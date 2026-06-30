@@ -30,6 +30,16 @@
 
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <SatelliteResourceLanguages>ko;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
 
 
   <ItemGroup>
@@ -90,14 +100,54 @@
 
 
 
-  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and Exists('$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj')">
+  <!-- Release publish: remove debug/dump helpers and non-Windows runtime assets from MSI payload. -->
+  <Target Name="PruneUnnecessaryPublishFiles" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <UnnecessaryPublishFile Include="$(PublishDir)createdump.exe" />
+      <UnnecessaryPublishFile Include="$(PublishDir)mscordaccore.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)mscordaccore_*.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)mscordbi.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)Microsoft.DiaSymReader.Native.amd64.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)msquic.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)clrgc.dll" />
+      <UnnecessaryPublishFile Include="$(PublishDir)dbgshim.dll" />
+    </ItemGroup>
+    <Delete Files="@(UnnecessaryPublishFile)" TreatErrorsAsWarnings="true" />
+  </Target>
 
-    <Message Importance="high" Text="Building MSI installer (WiX)..." />
+  <Target Name="PruneForeignRuntimeAssets" AfterTargets="PruneUnnecessaryPublishFiles" Condition="'$(Configuration)' == 'Release' AND Exists('$(PublishDir)runtimes')">
+    <ItemGroup>
+      <ForeignRuntimeDir Include="$(PublishDir)runtimes\android-*" />
+      <ForeignRuntimeDir Include="$(PublishDir)runtimes\browser-wasm" />
+      <ForeignRuntimeDir Include="$(PublishDir)runtimes\ios*" />
+      <ForeignRuntimeDir Include="$(PublishDir)runtimes\iossimulator-*" />
+      <ForeignRuntimeDir Include="$(PublishDir)runtimes\linux-*" />
+      <ForeignRuntimeDir Include="$(PublishDir)runtimes\maccatalyst-*" />
+      <ForeignRuntimeDir Include="$(PublishDir)runtimes\osx-*" />
+      <ForeignRuntimeDir Include="$(PublishDir)runtimes\unix" Condition="Exists('$(PublishDir)runtimes\unix')" />
+    </ItemGroup>
+    <RemoveDir Directories="@(ForeignRuntimeDir)" ContinueOnError="true" />
+  </Target>
 
-    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj&quot; -c Release -p:Platform=x64" />
 
-    <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\..\installer\bin\Release\ko-kr\MyWorkspaceWinV10Setup.msi" />
 
+  <!-- Release 빌드 시 MSI 생성. SkipInstaller=true 로 순환 참조 방지. -->
+  <Target Name="BuildInstallerOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'
+                     AND '$(SkipInstaller)' != 'true'
+                     AND '$(BuildingMsiPackage)' != 'true'
+                     AND '$(DesignTimeBuild)' != 'true'
+                     AND Exists('$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj')">
+    <Message Importance="high" Text="Building MSI installer package (WiX)..." />
+    <Exec Command="cmd /c taskkill /IM MyWorkspaceWinV10.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj"
+             Targets="Restore;Build"
+             BuildInParallel="false"
+             Properties="Configuration=Release;Platform=x64;SkipInstaller=true;BuildingMsiPackage=true" />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)\..\..\installer\bin\Release\MyWorkspaceWinV10Setup.msi')"
+           Text="MSI was not created. Close any running MyWorkspaceWinV10.exe and rebuild Release." />
+    <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\..\installer\bin\Release\MyWorkspaceWinV10Setup.msi" />
   </Target>
 
 

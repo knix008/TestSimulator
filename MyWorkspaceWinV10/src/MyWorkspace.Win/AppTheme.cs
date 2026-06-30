@@ -125,7 +125,37 @@ internal static class AppTheme
         ApplyFormChrome(form);
         form.Load += (_, _) => FinalizeDialogLayout(form);
         form.Shown += (_, _) => FinalizeDialogLayout(form);
+        SubscribeFormTheme(form, () => FinalizeDialogLayout(form));
         FinalizeDialogLayout(form);
+    }
+
+    private static void SubscribeFormTheme(Form form, Action refresh)
+    {
+        Action? handler = null;
+        handler = () =>
+        {
+            if (form.IsDisposed)
+            {
+                if (handler != null)
+                    Changed -= handler;
+                return;
+            }
+
+            if (form.InvokeRequired)
+                form.BeginInvoke(refresh);
+            else
+                refresh();
+        };
+
+        Changed += handler;
+        form.FormClosed += OnFormClosed;
+
+        void OnFormClosed(object? sender, FormClosedEventArgs e)
+        {
+            if (handler != null)
+                Changed -= handler;
+            form.FormClosed -= OnFormClosed;
+        }
     }
 
     public static void FinalizeDialogLayout(Form form)
@@ -839,6 +869,7 @@ internal static class AppTheme
         button.MinimumSize = new Size(84, 24);
         button.FlatAppearance.MouseOverBackColor = Background;
         button.FlatAppearance.MouseDownBackColor = BorderLight;
+        button.UseCompatibleTextRendering = true;
     }
 
     public static void StyleHeaderPanel(Panel panel)
@@ -903,9 +934,7 @@ internal static class AppTheme
 
     private static void ReplaceFont(ref Font field, string family, float baseSize, FontStyle style = FontStyle.Regular)
     {
-        var created = new Font(family, ScaleSize(baseSize), style);
-        field?.Dispose();
-        field = created;
+        field = new Font(family, ScaleSize(baseSize), style);
     }
 
     public static void StyleBorderedPanel(Panel panel, PanelEdges edges)

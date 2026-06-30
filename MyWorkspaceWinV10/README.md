@@ -39,13 +39,19 @@ dotnet build src/MyWorkspace.Win/MyWorkspace.Win.csproj -o _build_out
 dotnet build src/MyWorkspace.Win/MyWorkspace.Win.csproj -c Release
 ```
 
+또는 MSI만 직접 빌드:
+
+```bash
+dotnet build installer/MyWorkspaceWinV10.Installer.wixproj -c Release -p:Platform=x64 -p:BuildMsiPackage=true
+```
+
 Release 빌드 시 WiX MSI가 자동 생성됩니다. MSI만 건너뛰려면:
 
 ```bash
 dotnet build src/MyWorkspace.Win/MyWorkspace.Win.csproj -c Release -p:SkipInstaller=true
 ```
 
-- MSI 경로: `installer/bin/Release/ko-kr/MyWorkspaceWinV10Setup.msi`
+- MSI 경로: `installer/bin/Release/MyWorkspaceWinV10Setup.msi` (로컬화 빌드: `installer/bin/Release/ko-kr/MyWorkspaceWinV10Setup.msi`)
 
 ### 아이콘 재생성
 
@@ -78,8 +84,8 @@ dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
 ## 데이터베이스
 
 - 스키마 참고: [`database/schema.sql`](database/schema.sql)
-- 최초 실행: **로그인 화면** 표시 → MariaDB(`appsettings.json` 기본값) 연결 → `admin` / `admin` 로그인 → 필요 시 **관리 → DB 연결 설정...**
-- 사용자·관리자 계정은 **DB `users` 테이블**에서 관리 (파일/하드코딩 아님)
+- 최초 실행: **로그인 화면** → **DB 연결 설정**(로그인 전 가능) → DB 연결 → 기본 관리자 `admin` / `admin` 로그인 → 이후 **관리 → 사용자 관리** 또는 **계정 → 비밀번호 변경**에서 변경
+- 사용자·관리자 계정은 **DB `users` 테이블**에서 관리 (파일/하드코딩 아님). DB에 사용자가 없을 때만 `admin` / `admin` 자동 생성
 - 연결 설정 저장: `%LocalAppData%\MyWorkspaceWinV10\appsettings.local.json`
 
 지원 DB 및 기본 포트:

@@ -212,6 +212,7 @@ internal static class Localization
         Add(K.LoginPassword, "비밀번호", "Password");
         Add(K.LoginSubmit, "로그인", "Sign In");
         Add(K.LoginCancel, "취소", "Cancel");
+        Add(K.LoginDefaultAdminHint, "기본 관리자: {0} / {1}\n로그인 후 [관리] → [DB 연결 설정]에서 DB를 설정하세요.", "Default administrator: {0} / {1}\nAfter sign-in, configure the database via [Admin] → [Database Settings].");
 
         Add(K.PreferencesTitle, "환경 설정", "Preferences");
         Add(K.PreferencesAppearance, "모양", "Appearance");
@@ -368,6 +369,7 @@ internal static class Localization
         Add(K.DbEnterServerDatabase, "서버와 데이터베이스 이름을 입력하세요.", "Enter server and database name.");
         Add(K.DbEnterSqlitePath, "SQLite 파일 경로를 입력하세요.", "Enter SQLite file path.");
         Add(K.DbSaved, "데이터베이스 설정이 저장되었습니다.", "Database settings saved.");
+        Add(K.DbSavedReloginRequired, "데이터베이스가 변경되었습니다. 새 DB에 동일한 계정이 없어 다시 로그인해야 합니다.", "The database was changed. Sign in again because your account was not found in the new database.");
         Add(K.DbSavedWizard, "데이터베이스 설정이 저장되었습니다.\n\n사용자·관리자 계정은 DB에서 관리됩니다.\n최초 실행 시 기본 관리자({0} / {1})가 DB에 등록됩니다.", "Database settings saved.\n\nUsers and administrators are managed in the database.\nOn first run, the default admin ({0} / {1}) is registered.");
         Add(K.SqliteFileDialogTitle, "SQLite 데이터베이스 파일 선택", "Select SQLite Database File");
 
@@ -416,6 +418,8 @@ internal static class Localization
         Add(K.DbConnectionError, "데이터베이스 연결 오류", "Database Connection Error");
         Add(K.LoginError, "로그인 오류", "Sign-in Error");
         Add(K.DbConnectionFailedGeneric, "데이터베이스에 연결할 수 없습니다.", "Unable to connect to the database.");
+        Add(K.DbConnectionRequiresAdmin, "DB 설정은 관리자로 로그인한 뒤 [관리] → [DB 연결 설정]에서 할 수 있습니다.", "Database settings can be configured after signing in as an administrator via [Admin] → [Database Settings].");
+        Add(K.DbSettingsAdminOnly, "DB 연결 설정은 관리자만 사용할 수 있습니다.", "Database settings are available to administrators only.");
 
         Add(K.ErrorDetailTitle, "오류", "Error");
         Add(K.InputDialogDefaultTitle, "입력", "Input");
@@ -589,6 +593,7 @@ internal static class K
     public const string LoginPassword = "LoginPassword";
     public const string LoginSubmit = "LoginSubmit";
     public const string LoginCancel = "LoginCancel";
+    public const string LoginDefaultAdminHint = "LoginDefaultAdminHint";
 
     public const string PreferencesTitle = "PreferencesTitle";
     public const string PreferencesAppearance = "PreferencesAppearance";
@@ -745,6 +750,7 @@ internal static class K
     public const string DbEnterServerDatabase = "DbEnterServerDatabase";
     public const string DbEnterSqlitePath = "DbEnterSqlitePath";
     public const string DbSaved = "DbSaved";
+    public const string DbSavedReloginRequired = "DbSavedReloginRequired";
     public const string DbSavedWizard = "DbSavedWizard";
     public const string SqliteFileDialogTitle = "SqliteFileDialogTitle";
 
@@ -792,6 +798,8 @@ internal static class K
     public const string DbConnectionError = "DbConnectionError";
     public const string LoginError = "LoginError";
     public const string DbConnectionFailedGeneric = "DbConnectionFailedGeneric";
+    public const string DbConnectionRequiresAdmin = "DbConnectionRequiresAdmin";
+    public const string DbSettingsAdminOnly = "DbSettingsAdminOnly";
 
     public const string ErrorDetailTitle = "ErrorDetailTitle";
     public const string InputDialogDefaultTitle = "InputDialogDefaultTitle";

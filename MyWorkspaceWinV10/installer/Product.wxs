@@ -5,7 +5,6 @@
   <?define ProductName = "MyWorkspace v1.0" ?>
   <?define Manufacturer = "MyWorkspace" ?>
   <?define UpgradeCode = "A7B8C9D0-E1F2-4A3B-8C7D-9E0F1A2B3C4D" ?>
-  <?define PublishDir = "..\src\MyWorkspace.Win\bin\Release\net10.0-windows\win-x64\publish" ?>
 
   <Package Name="$(var.ProductName)"
            Manufacturer="$(var.Manufacturer)"
@@ -16,6 +15,9 @@
 
     <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)"
                   Schedule="afterInstallInitialize" />
+
+    <Icon Id="AppIcon.ico" SourceFile="..\src\MyWorkspace.Win\Assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
 
     <MediaTemplate EmbedCab="yes" />
 
@@ -53,8 +55,16 @@
 
   <Fragment>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <Files Include="$(var.PublishDir)\**">
-        <Exclude Files="*.pdb" />
+      <Files Include="$(var.PublishOutputDir)**">
+        <Exclude Files="$(var.PublishOutputDir)**\*.pdb" />
+        <Exclude Files="$(var.PublishOutputDir)createdump.exe" />
+        <Exclude Files="$(var.PublishOutputDir)mscordaccore.dll" />
+        <Exclude Files="$(var.PublishOutputDir)mscordaccore_*.dll" />
+        <Exclude Files="$(var.PublishOutputDir)mscordbi.dll" />
+        <Exclude Files="$(var.PublishOutputDir)Microsoft.DiaSymReader.Native.amd64.dll" />
+        <Exclude Files="$(var.PublishOutputDir)msquic.dll" />
+        <Exclude Files="$(var.PublishOutputDir)clrgc.dll" />
+        <Exclude Files="$(var.PublishOutputDir)dbgshim.dll" />
       </Files>
     </ComponentGroup>
   </Fragment>
@@ -66,7 +76,8 @@
                   Name="$(var.ProductName)"
                   Description="Notion-style workspace and markdown editor"
                   Target="[INSTALLFOLDER]MyWorkspaceWinV10.exe"
-                  WorkingDirectory="INSTALLFOLDER" />
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU"
                        Key="Software\$(var.Manufacturer)\MyWorkspaceWinV10"
                        Name="StartMenu"
@@ -109,7 +120,8 @@
                   Name="$(var.ProductName)"
                   Description="Notion-style workspace and markdown editor"
                   Target="[INSTALLFOLDER]MyWorkspaceWinV10.exe"
-                  WorkingDirectory="INSTALLFOLDER" />
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU"
                        Key="Software\$(var.Manufacturer)\MyWorkspaceWinV10"
                        Name="Desktop"

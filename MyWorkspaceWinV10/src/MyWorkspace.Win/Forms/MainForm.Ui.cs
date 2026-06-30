@@ -182,6 +182,8 @@ public partial class MainForm
 
 
 
+        ctxNewRootWorkspace.Text = Localization.Get(K.MenuNewRootWorkspace);
+
         ctxNewSubWorkspace.Text = Localization.Get(K.CtxNewSubWorkspace);
 
         ctxNewPage.Text = Localization.Get(K.CtxNewPage);
@@ -349,8 +351,6 @@ public partial class MainForm
 
 
         AppConfig.SaveUiSettings(form.SelectedSettings);
-
-        ApplyModernTheme();
 
         ApplyLocalization();
 

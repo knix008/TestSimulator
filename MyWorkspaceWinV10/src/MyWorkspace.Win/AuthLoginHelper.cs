@@ -20,7 +20,8 @@ internal static class AuthLoginHelper
             if (owner != null)
             {
                 var summary = details.Split('\n', '\r')[0];
-                ErrorDetailForm.Show(owner, Localization.Get(K.DbConnectionError), summary, details);
+                var message = $"{Localization.TranslateServiceMessage(summary)}\n\n{Localization.Get(K.DbConnectionRequiresAdmin)}";
+                ErrorDetailForm.Show(owner, Localization.Get(K.DbConnectionError), message, details);
             }
 
             errorMessage = Localization.TranslateServiceMessage(details.Split('\n', '\r')[0]);

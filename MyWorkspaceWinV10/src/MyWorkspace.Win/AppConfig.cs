@@ -64,6 +64,9 @@ internal static class AppConfig
     {
         var config = BuildConfiguration();
         DatabaseSettings = LoadDatabaseSettings(config);
+        if (!HasLocalDatabaseSettings)
+            DatabaseSettings = DatabaseSettings.CreateDefault(DatabaseProviderType.SQLite);
+
         EmailSettings = LoadEmailSettings(config);
         UiSettings = LoadUiSettings(config);
         ApplyUiSettings(UiSettings, persist: false);
@@ -101,10 +104,11 @@ internal static class AppConfig
         ApplyUiSettings(UiSettings, persist: true);
     }
 
-    public static void SaveLastLoginUsername(string username)
+    public static void RecordSuccessfulLogin(string username)
     {
         var settings = UiSettings.Clone();
         settings.LastLoginUsername = username.Trim();
+        settings.HasLoggedInOnce = true;
         SaveUiSettings(settings);
     }
 
@@ -130,6 +134,7 @@ internal static class AppConfig
             ["Theme"] = settings.Theme.ToString(),
             ["Language"] = settings.Language.ToString(),
             ["LastLoginUsername"] = settings.LastLoginUsername,
+            ["HasLoggedInOnce"] = settings.HasLoggedInOnce,
             ["FontScaleStep"] = settings.FontScaleStep,
             ["LastExportDirectory"] = settings.LastExportDirectory,
             ["LastOpenDirectory"] = settings.LastOpenDirectory
@@ -161,6 +166,11 @@ internal static class AppConfig
         settings.LastExportDirectory = section["LastExportDirectory"]?.Trim() ?? string.Empty;
         settings.LastOpenDirectory = section["LastOpenDirectory"]?.Trim() ?? string.Empty;
 
+        if (bool.TryParse(section["HasLoggedInOnce"], out var hasLoggedInOnce))
+            settings.HasLoggedInOnce = hasLoggedInOnce;
+        else if (!string.IsNullOrWhiteSpace(settings.LastLoginUsername))
+            settings.HasLoggedInOnce = true;
+
         if (int.TryParse(section["FontScaleStep"], out var fontScaleStep))
             settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
@@ -180,6 +190,12 @@ internal static class AppConfig
         settings.LastLoginUsername = section["LastLoginUsername"]?.GetValue<string>()?.Trim() ?? string.Empty;
         settings.LastExportDirectory = section["LastExportDirectory"]?.GetValue<string>()?.Trim() ?? string.Empty;
         settings.LastOpenDirectory = section["LastOpenDirectory"]?.GetValue<string>()?.Trim() ?? string.Empty;
+
+        if (section["HasLoggedInOnce"] is JsonValue hasLoggedInOnceValue &&
+            hasLoggedInOnceValue.TryGetValue(out bool hasLoggedInOnce))
+            settings.HasLoggedInOnce = hasLoggedInOnce;
+        else if (!string.IsNullOrWhiteSpace(settings.LastLoginUsername))
+            settings.HasLoggedInOnce = true;
 
         if (section["FontScaleStep"] is JsonValue fontScaleValue &&
             fontScaleValue.TryGetValue(out int fontScaleStep))
