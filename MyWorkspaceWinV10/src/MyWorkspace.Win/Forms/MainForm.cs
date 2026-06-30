@@ -17,6 +17,8 @@ public partial class MainForm : Form
     private bool _isDirty;
     private bool _suppressOutlineNavigation;
     private bool _suppressWorkspaceSelection;
+    private bool _workspaceContextMenuOpen;
+    private TreeNode? _contextMenuTargetNode;
     private bool _pageCreateInProgress;
     private string _lastActiveHeadingId = string.Empty;
     private int _savedOutlineWidth = 110;
@@ -68,6 +70,7 @@ public partial class MainForm : Form
             menuPreferences, menuDocumentStructure, menuNewRootWorkspace, menuNewSubWorkspace, menuNewPage, menuRename, menuDelete,
             menuWorkspaceMembers, menuAdminUserManagement, menuAdminDatabaseSettings,
             menuAdminEmailSettings, menuEditProfile, menuChangePassword, menuNotificationSettings,
+            menuAccountLogout, menuBarLogin, menuBarLogout,
             ctxNewSubWorkspace, ctxNewPage, ctxRename, ctxDelete, ctxToggleFavorite, ctxMembers);
 
         menuView.Image = menuDocumentStructure.Image;
@@ -153,12 +156,23 @@ public partial class MainForm : Form
     private void ShowLoginDialog()
     {
         using var loginForm = new LoginForm();
-        loginForm.StartPosition = FormStartPosition.CenterParent;
+        loginForm.StartPosition = Visible ? FormStartPosition.CenterParent : FormStartPosition.CenterScreen;
         if (loginForm.ShowDialog(this) == DialogResult.OK && loginForm.LoggedInUser != null)
         {
             SessionContext.SetUser(loginForm.LoggedInUser);
             ApplyLoggedInState();
         }
+    }
+
+    private void PromptLoginAfterLogout()
+    {
+        BeginInvoke(() =>
+        {
+            if (!IsHandleCreated || IsDisposed || SessionContext.IsLoggedIn)
+                return;
+
+            ShowLoginDialog();
+        });
     }
 
     private void menuLogin_Click(object? sender, EventArgs e) => ShowLoginDialog();
@@ -231,7 +245,37 @@ public partial class MainForm : Form
         menuAdminUserManagement.Visible = loggedIn && SessionContext.IsAdmin;
         menuAdminDatabaseSettings.Visible = loggedIn && SessionContext.IsAdmin;
         menuAdminEmailSettings.Visible = loggedIn && SessionContext.IsAdmin;
+        UpdateMenuBarSession();
         RefreshMenuTheme();
+    }
+
+    private void UpdateMenuBarSession()
+    {
+        if (SessionContext.IsLoggedIn)
+        {
+            var roleLabel = SessionContext.IsAdmin
+                ? Localization.Get(K.StatusAdmin)
+                : Localization.Get(K.StatusUser);
+            lblMenuSession.Text = Localization.Format(
+                K.MenuBarSessionLoggedInFormat,
+                SessionContext.CurrentUser.Username,
+                roleLabel);
+            lblMenuSession.ForeColor = AppTheme.TextSecondary;
+            lblMenuSession.Visible = true;
+            menuBarLogin.Visible = false;
+            menuBarLogout.Visible = true;
+            menuAccountLogout.Visible = true;
+            menuSepAccount2.Visible = true;
+            return;
+        }
+
+        lblMenuSession.Text = Localization.Get(K.MenuBarSessionLoggedOut);
+        lblMenuSession.ForeColor = AppTheme.TextMuted;
+        lblMenuSession.Visible = true;
+        menuBarLogin.Visible = true;
+        menuBarLogout.Visible = false;
+        menuAccountLogout.Visible = false;
+        menuSepAccount2.Visible = false;
     }
 
     private void RefreshMenuTheme()
@@ -292,13 +336,26 @@ public partial class MainForm : Form
     private void HookDropDownScriptSuspension(ToolStripDropDown dropDown)
     {
         dropDown.Opening += (_, _) => _editor.SuspendScripts();
-        dropDown.Closed += (_, _) => OnDropDownClosed();
+        dropDown.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(dropDown, ctxTree))
+                ClearWorkspaceContextMenuState();
+
+            OnDropDownClosed();
+        };
 
         foreach (ToolStripItem item in dropDown.Items)
         {
             if (item is ToolStripMenuItem menuItem && menuItem.HasDropDownItems)
                 HookDropDownScriptSuspension(menuItem.DropDown);
         }
+    }
+
+    private void ClearWorkspaceContextMenuState()
+    {
+        _workspaceContextMenuOpen = false;
+        _contextMenuTargetNode = null;
+        _suppressWorkspaceSelection = false;
     }
 
     private void OnDropDownClosed()
@@ -488,9 +545,33 @@ public partial class MainForm : Form
         return null;
     }
 
+    private void treeWorkspace_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right)
+            return;
+
+        var node = treeWorkspace.GetNodeAt(e.X, e.Y);
+        _contextMenuTargetNode = node;
+        _workspaceContextMenuOpen = true;
+
+        if (node == null)
+            return;
+
+        treeWorkspace.Focus();
+
+        if (treeWorkspace.SelectedNode == node)
+            return;
+
+        _suppressWorkspaceSelection = true;
+        treeWorkspace.SelectedNode = node;
+    }
+
     private void treeWorkspace_AfterSelect(object sender, TreeViewEventArgs e)
     {
-        if (_suppressWorkspaceSelection)
+        if (_suppressWorkspaceSelection || _workspaceContextMenuOpen)
+            return;
+
+        if ((Control.MouseButtons & MouseButtons.Right) != 0)
             return;
 
         if (e.Node?.Tag is not TreeNodeData data)
@@ -896,6 +977,22 @@ public partial class MainForm : Form
     private TreeNodeData? GetSelectedNodeData() =>
         treeWorkspace.SelectedNode?.Tag as TreeNodeData;
 
+    private TreeNode? ResolveContextMenuTargetNode()
+    {
+        if (_contextMenuTargetNode != null)
+            return _contextMenuTargetNode;
+
+        var point = treeWorkspace.PointToClient(Cursor.Position);
+        var nodeAtCursor = treeWorkspace.GetNodeAt(point);
+        if (nodeAtCursor != null)
+            return nodeAtCursor;
+
+        return treeWorkspace.SelectedNode;
+    }
+
+    private TreeNodeData? ResolveContextMenuTargetData() =>
+        ResolveContextMenuTargetNode()?.Tag as TreeNodeData;
+
     private int? GetSelectedWorkspaceId()
     {
         var data = GetSelectedNodeData();
@@ -1136,9 +1233,25 @@ public partial class MainForm : Form
 
     private void ctxTree_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        var data = GetSelectedNodeData();
-        var isWorkspace = data?.Kind == TreeNodeKind.Workspace;
-        var isPageOrWorkspace = data?.Kind is TreeNodeKind.Workspace or TreeNodeKind.Page;
+        _workspaceContextMenuOpen = true;
+
+        var targetNode = ResolveContextMenuTargetNode();
+        if (targetNode != null && treeWorkspace.SelectedNode != targetNode)
+        {
+            _suppressWorkspaceSelection = true;
+            treeWorkspace.SelectedNode = targetNode;
+        }
+
+        var data = targetNode?.Tag as TreeNodeData;
+        if (data == null || data.Kind == TreeNodeKind.FavoritesRoot)
+        {
+            e.Cancel = true;
+            ClearWorkspaceContextMenuState();
+            return;
+        }
+
+        var isWorkspace = data.Kind == TreeNodeKind.Workspace;
+        var isPageOrWorkspace = data.Kind is TreeNodeKind.Workspace or TreeNodeKind.Page;
 
         ctxNewSubWorkspace.Visible = isWorkspace;
         ctxNewPage.Visible = isPageOrWorkspace;
@@ -1201,7 +1314,7 @@ public partial class MainForm : Form
 
         await SaveCurrentPageAsync(refreshTree: false);
         ApplyLoggedOutState();
-        ShowLoginDialog();
+        PromptLoginAfterLogout();
     }
 
     private async void menuExit_Click(object sender, EventArgs e)
@@ -1288,8 +1401,7 @@ public partial class MainForm : Form
         _toolbarOutlineButton = AddToolbarButton(
             "outline",
             Localization.Get(K.ToolbarDocumentStructure),
-            (_, _) => ToggleOutlinePanel(),
-            ToolStripItemAlignment.Right);
+            (_, _) => ToggleOutlinePanel());
         _toolbarInfoButton = AddToolbarButton("info", Localization.Get(K.ToolbarAbout), (_, _) => ShowAboutDialog(), ToolStripItemAlignment.Right);
         SetShellEnabled(SessionContext.IsLoggedIn);
     }

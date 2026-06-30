@@ -9,6 +9,7 @@ public partial class LoginForm : Form
     public LoginForm()
     {
         InitializeComponent();
+        ApplyLoginAppearance();
     }
 
     private void btnLogin_Click(object sender, EventArgs e)
@@ -17,6 +18,7 @@ public partial class LoginForm : Form
 
         if (AuthLoginHelper.TryLogin(this, txtUsername.Text, txtPassword.Text, out var user, out var error))
         {
+            AppConfig.SaveLastLoginUsername(txtUsername.Text);
             LoggedInUser = user;
             DialogResult = DialogResult.OK;
             Close();
@@ -39,16 +41,32 @@ public partial class LoginForm : Form
 
     private void LoginForm_Load(object sender, EventArgs e)
     {
+        AcceptButton = btnLogin;
+        CancelButton = btnCancel;
+
+        var lastUsername = AppConfig.UiSettings.LastLoginUsername;
+        if (!string.IsNullOrWhiteSpace(lastUsername))
+        {
+            txtUsername.Text = lastUsername;
+            txtPassword.Focus();
+        }
+        else
+        {
+            txtUsername.Focus();
+        }
+    }
+
+    private void ApplyLoginAppearance()
+    {
         AppTheme.ApplyFormChrome(this);
         ApplyLoginLocalization();
         AppTheme.StyleTextBox(txtUsername);
         AppTheme.StyleTextBox(txtPassword);
         AppTheme.StylePrimaryButton(btnLogin);
         AppTheme.StyleSecondaryButton(btnCancel);
-
-        AcceptButton = btnLogin;
-        CancelButton = btnCancel;
-        txtUsername.Focus();
+        AppTheme.FitButtonSize(btnLogin);
+        AppTheme.FitButtonSize(btnCancel);
+        btnCancel.Location = new Point(btnLogin.Right + 8, btnLogin.Top);
     }
 
     private void ApplyLoginLocalization()

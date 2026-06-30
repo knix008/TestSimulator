@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MyWorkspace.Core.Entities;
+using MyWorkspace.Core.Enums;
 using MyWorkspace.Core.Models;
 using MyWorkspace.Core.Services;
 
@@ -10,11 +11,16 @@ public sealed class PageVersionService : IPageVersionService
     private const int MaxVersionsPerPage = 50;
     private readonly AppDbContext _db;
     private readonly IWorkspaceService _workspaceService;
+    private readonly IPageChangeLogService _pageChangeLogs;
 
-    public PageVersionService(AppDbContext db, IWorkspaceService workspaceService)
+    public PageVersionService(
+        AppDbContext db,
+        IWorkspaceService workspaceService,
+        IPageChangeLogService pageChangeLogs)
     {
         _db = db;
         _workspaceService = workspaceService;
+        _pageChangeLogs = pageChangeLogs;
     }
 
     public IReadOnlyList<PageVersionListItem> GetVersions(User currentUser, int pageId)
@@ -77,6 +83,16 @@ public sealed class PageVersionService : IPageVersionService
         var page = version.Page;
         if (page.Title != version.Title || page.Content != version.Content)
             SaveVersionInternal(currentUser, page);
+
+        _pageChangeLogs.Append(
+            currentUser,
+            version.PageId,
+            PageChangeAction.Restored,
+            oldTitle: page.Title,
+            newTitle: version.Title,
+            oldContentLength: page.Content.Length,
+            newContentLength: version.Content.Length,
+            note: version.SavedAt.ToUniversalTime().ToString("O"));
 
         page.Title = version.Title;
         page.Content = version.Content;

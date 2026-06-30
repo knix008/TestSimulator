@@ -18,7 +18,7 @@ partial class UserEditForm
         lblRole = new Label();
         txtUsername = new TextBox();
         txtPassword = new TextBox();
-        cboRole = new ComboBox();
+        cboRole = new ThemedComboBox();
         btnSave = new Button();
         btnCancel = new Button();
         SuspendLayout();
@@ -48,12 +48,12 @@ partial class UserEditForm
         cboRole.Size = new Size(220, 23);
 
         btnSave.Location = new Point(120, 132);
-        btnSave.Size = new Size(90, 30);
+        btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(250, 132);
-        btnCancel.Size = new Size(90, 30);
+        btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;
 
@@ -84,7 +84,7 @@ partial class UserEditForm
     private Label lblRole;
     private TextBox txtUsername;
     private TextBox txtPassword;
-    private ComboBox cboRole;
+    private ThemedComboBox cboRole;
     private Button btnSave;
     private Button btnCancel;
 }

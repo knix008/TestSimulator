@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Workspace> Workspaces => Set<Workspace>();
     public DbSet<Page> Pages => Set<Page>();
     public DbSet<PageVersion> PageVersions => Set<PageVersion>();
+    public DbSet<PageChangeLog> PageChangeLogs => Set<PageChangeLog>();
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<WorkspaceFavorite> WorkspaceFavorites => Set<WorkspaceFavorite>();
 
@@ -96,6 +97,33 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.SavedByUser)
                 .WithMany()
                 .HasForeignKey(e => e.SavedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PageChangeLog>(entity =>
+        {
+            entity.ToTable("page_change_logs");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.PageId).HasColumnName("page_id");
+            entity.Property(e => e.ChangedByUserId).HasColumnName("changed_by_user_id");
+            entity.Property(e => e.ChangedAt).HasColumnName("changed_at");
+            entity.Property(e => e.Action).HasColumnName("action").HasConversion<string>().HasMaxLength(40);
+            entity.Property(e => e.OldTitle).HasColumnName("old_title").HasMaxLength(200);
+            entity.Property(e => e.NewTitle).HasColumnName("new_title").HasMaxLength(200);
+            entity.Property(e => e.OldContentLength).HasColumnName("old_content_length");
+            entity.Property(e => e.NewContentLength).HasColumnName("new_content_length");
+            entity.Property(e => e.Note).HasColumnName("note").HasMaxLength(500);
+            entity.HasIndex(e => new { e.PageId, e.ChangedAt });
+
+            entity.HasOne(e => e.Page)
+                .WithMany()
+                .HasForeignKey(e => e.PageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ChangedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.ChangedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

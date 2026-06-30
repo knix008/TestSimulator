@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Web.WebView2.WinForms;
+using MyWorkspace.Core.Enums;
 
 namespace MyWorkspace.Win;
 
@@ -67,7 +68,16 @@ internal static class AppTheme
     public static void ApplyStandardDialog(Form form)
     {
         ApplyFormChrome(form);
+        form.Load += (_, _) => FinalizeDialogLayout(form);
+        form.Shown += (_, _) => FinalizeDialogLayout(form);
+        FinalizeDialogLayout(form);
+    }
+
+    public static void FinalizeDialogLayout(Form form)
+    {
         StyleControlTree(form.Controls);
+        FitAllButtons(form.Controls);
+        AlignDialogButtonLayout(form);
     }
 
     private static void StyleControlTree(Control.ControlCollection controls)
@@ -86,11 +96,31 @@ internal static class AppTheme
                     StyleTextBox(textBox);
                     break;
                 case Label label:
-                    label.ForeColor = label.Font.Bold ? TextPrimary : TextSecondary;
-                    label.BackColor = Color.Transparent;
+                    StyleDialogLabel(label);
+                    break;
+                case RadioButton radio:
+                    radio.ForeColor = TextPrimary;
+                    radio.BackColor = Color.Transparent;
+                    break;
+                case CheckBox checkBox:
+                    checkBox.ForeColor = TextPrimary;
+                    checkBox.BackColor = Color.Transparent;
+                    break;
+                case GroupBox groupBox:
+                    groupBox.ForeColor = TextPrimary;
+                    groupBox.BackColor = Background;
+                    break;
+                case DataGridView grid:
+                    StyleDataGridView(grid);
+                    break;
+                case ListBox listBox:
+                    StyleListBox(listBox);
+                    break;
+                case ComboBox comboBox:
+                    StyleComboBox(comboBox);
                     break;
                 case Panel panel:
-                    StyleBorderedPanel(panel, PanelEdges.All);
+                    StylePanel(panel);
                     break;
             }
 
@@ -99,8 +129,125 @@ internal static class AppTheme
         }
     }
 
+    private static void StyleDialogLabel(Label label)
+    {
+        label.ForeColor = label.Font.Bold ? TextPrimary : TextSecondary;
+        label.BackColor = Color.Transparent;
+
+        if (label.AutoSize)
+            return;
+
+        if (label.Width <= 0)
+            return;
+
+        if (label.Height <= label.Font.Height + 6)
+        {
+            label.AutoEllipsis = true;
+            return;
+        }
+
+        var maxWidth = label.Width;
+        label.AutoSize = true;
+        label.MaximumSize = new Size(maxWidth, 0);
+    }
+
+    private static void FitAllButtons(Control.ControlCollection controls)
+    {
+        foreach (Control control in controls)
+        {
+            if (control is Button button)
+                FitButtonSize(button);
+
+            if (control.HasChildren)
+                FitAllButtons(control.Controls);
+        }
+    }
+
+    private static void AlignDialogButtonLayout(Form form)
+    {
+        AlignFooterPanels(form.Controls);
+        AlignAnchoredBottomButtons(form);
+    }
+
+    private static void AlignFooterPanels(Control.ControlCollection controls)
+    {
+        foreach (Control control in controls)
+        {
+            if (control is Panel panel && IsButtonFooterPanel(panel))
+                AlignFooterPanelButtons(panel);
+
+            if (control.HasChildren)
+                AlignFooterPanels(control.Controls);
+        }
+    }
+
+    private static void AlignFooterPanelButtons(Panel footer)
+    {
+        const int rightPadding = 12;
+        const int gap = 8;
+
+        var rightAnchored = footer.Controls.OfType<Button>()
+            .Where(button => (button.Anchor & AnchorStyles.Right) != 0)
+            .OrderBy(button => button.Left)
+            .ToList();
+
+        if (rightAnchored.Count == 0)
+            return;
+
+        var x = footer.ClientSize.Width - rightPadding;
+        for (var index = rightAnchored.Count - 1; index >= 0; index--)
+        {
+            var button = rightAnchored[index];
+            x -= button.Width;
+            button.Location = new Point(x, button.Top);
+            x -= gap;
+        }
+    }
+
+    private static void AlignAnchoredBottomButtons(Control container)
+    {
+        const int bottomPadding = 12;
+        const int rightPadding = 12;
+        const int gap = 8;
+
+        var bottomButtons = container.Controls.OfType<Button>()
+            .Where(button => (button.Anchor & AnchorStyles.Bottom) != 0)
+            .OrderBy(button => button.Left)
+            .ToList();
+
+        if (bottomButtons.Count == 0)
+            return;
+
+        var bottom = container.ClientSize.Height - bottomPadding;
+        var x = container.ClientSize.Width - rightPadding;
+
+        for (var index = bottomButtons.Count - 1; index >= 0; index--)
+        {
+            var button = bottomButtons[index];
+            x -= button.Width;
+            button.Location = new Point(x, bottom - button.Height);
+            x -= gap;
+        }
+    }
+
     private static bool IsPrimaryButton(Button button) =>
-        button.Name is "btnOk" or "btnLogin" or "btnSave";
+        button.Name is "btnOk" or "btnLogin" or "btnSave"
+        || button.DialogResult == DialogResult.OK;
+
+    private static bool IsButtonFooterPanel(Panel panel) =>
+        panel.Dock == DockStyle.Bottom &&
+        panel.Controls.Count > 0 &&
+        panel.Controls.Cast<Control>().All(static c => c is Button);
+
+    private static void StylePanel(Panel panel)
+    {
+        panel.BackColor = Background;
+
+        if (IsButtonFooterPanel(panel))
+            StyleBorderedPanel(panel, PanelEdges.Top);
+        else
+            StyleBorderedPanel(panel, PanelEdges.All);
+    }
 
     public static void ApplyFormChrome(Form form)
     {
@@ -192,9 +339,9 @@ internal static class AppTheme
 
         using var pen = new Pen(Border);
 
-        for (var level = 0; level < node.Level; level++)
+        for (var level = 0; level < node.Level - 1; level++)
         {
-            if (HasYoungerSiblingAtLevel(node, level))
+            if (HasSiblingBelowAtLevel(node, level))
             {
                 var x = level * indent + lineXOffset;
                 graphics.DrawLine(pen, x, top, x, bottom);
@@ -217,24 +364,20 @@ internal static class AppTheme
             graphics.DrawLine(pen, connectorX, top, connectorX, bottom);
     }
 
-    private static bool HasYoungerSiblingAtLevel(TreeNode node, int level)
-    {
-        var ancestor = node;
-        while (ancestor.Level > level)
-            ancestor = ancestor.Parent!;
-
-        if (ancestor.Parent == null)
-            return ancestor.TreeView!.Nodes.IndexOf(ancestor) < ancestor.TreeView.Nodes.Count - 1;
-
-        return ancestor.Parent.Nodes.IndexOf(ancestor) < ancestor.Parent.Nodes.Count - 1;
-    }
-
     private static bool IsLastSibling(TreeNode node)
     {
-        if (node.Parent == null)
-            return node.TreeView!.Nodes.IndexOf(node) == node.TreeView.Nodes.Count - 1;
+        var siblings = node.Parent?.Nodes ?? node.TreeView!.Nodes;
+        return siblings.IndexOf(node) == siblings.Count - 1;
+    }
 
-        return node.Parent.Nodes.IndexOf(node) == node.Parent.Nodes.Count - 1;
+    private static bool HasSiblingBelowAtLevel(TreeNode node, int level)
+    {
+        var ancestor = node;
+        while (ancestor.Level > level + 1)
+            ancestor = ancestor.Parent!;
+
+        var siblings = ancestor.Parent?.Nodes ?? ancestor.TreeView!.Nodes;
+        return siblings.IndexOf(ancestor) < siblings.Count - 1;
     }
 
     private static int GetTreeNodeTextLeft(TreeView tree, TreeNode node, bool hasIcon)
@@ -266,6 +409,7 @@ internal static class AppTheme
     public static void ApplyToolStrip(ToolStrip strip)
     {
         EnsureRenderer();
+        strip.ShowItemToolTips = true;
         strip.BackColor = Surface;
         strip.ForeColor = TextPrimary;
         strip.RenderMode = ToolStripRenderMode.Professional;
@@ -302,7 +446,8 @@ internal static class AppTheme
     public static void ApplyMenuStrip(MenuStrip menuStrip)
     {
         ApplyToolStrip(menuStrip);
-        menuStrip.Padding = new Padding(6, 2, 6, 2);
+        menuStrip.Padding = new Padding(8, 5, 8, 5);
+        menuStrip.ImageScalingSize = new Size(18, 18);
     }
 
     public static void ApplyToolbar(ToolStrip strip)
@@ -316,7 +461,7 @@ internal static class AppTheme
     {
         ApplyToolStrip(strip);
         strip.Font = UiFontSmall;
-        strip.Padding = new Padding(8, 0, 8, 0);
+        strip.Padding = new Padding(10, 5, 10, 5);
         strip.SizingGrip = false;
         strip.BackColor = Surface;
     }
@@ -354,6 +499,106 @@ internal static class AppTheme
             textBox.Font = UiFont;
     }
 
+    public static void StyleDataGridView(DataGridView grid)
+    {
+        grid.EnableHeadersVisualStyles = false;
+        grid.BackgroundColor = Surface;
+        grid.GridColor = Border;
+        grid.BorderStyle = BorderStyle.FixedSingle;
+        grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+        grid.RowHeadersVisible = false;
+        grid.DefaultCellStyle.BackColor = Surface;
+        grid.DefaultCellStyle.ForeColor = TextPrimary;
+        grid.DefaultCellStyle.SelectionBackColor = AccentHover;
+        grid.DefaultCellStyle.SelectionForeColor = Accent;
+        grid.DefaultCellStyle.Font = UiFont;
+
+        grid.ColumnHeadersDefaultCellStyle.BackColor = IsDark ? BorderLight : Background;
+        grid.ColumnHeadersDefaultCellStyle.ForeColor = TextPrimary;
+        grid.ColumnHeadersDefaultCellStyle.Font = UiFontSemibold;
+        grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = grid.ColumnHeadersDefaultCellStyle.BackColor;
+        grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = TextPrimary;
+
+        grid.AlternatingRowsDefaultCellStyle.BackColor = IsDark ? BorderLight : Sidebar;
+        grid.AlternatingRowsDefaultCellStyle.ForeColor = TextPrimary;
+        grid.AlternatingRowsDefaultCellStyle.SelectionBackColor = AccentHover;
+        grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = Accent;
+    }
+
+    public static void StyleListBox(ListBox listBox)
+    {
+        listBox.BackColor = Surface;
+        listBox.ForeColor = TextPrimary;
+        listBox.BorderStyle = BorderStyle.FixedSingle;
+        if (listBox.Font?.Name == "Microsoft Sans Serif")
+            listBox.Font = UiFont;
+    }
+
+    public static void StyleComboBox(ComboBox comboBox)
+    {
+        if (comboBox is ThemedComboBox themedComboBox)
+        {
+            themedComboBox.ApplyTheme();
+            return;
+        }
+
+        comboBox.BackColor = Surface;
+        comboBox.ForeColor = TextPrimary;
+        comboBox.FlatStyle = FlatStyle.Flat;
+        comboBox.DrawMode = DrawMode.OwnerDrawFixed;
+        comboBox.ItemHeight = Math.Max(22, comboBox.Font.Height + 8);
+        comboBox.DrawItem -= DrawComboBoxItem;
+        comboBox.DrawItem += DrawComboBoxItem;
+        if (comboBox.Font?.Name == "Microsoft Sans Serif")
+            comboBox.Font = UiFont;
+    }
+
+    private static void DrawComboBoxItem(object? sender, DrawItemEventArgs e)
+    {
+        if (sender is not ComboBox comboBox || e.Index < 0)
+            return;
+
+        var selected = (e.State & DrawItemState.Selected) != 0;
+        var background = selected ? AccentHover : Surface;
+        var foreground = TextPrimary;
+
+        using (var backgroundBrush = new SolidBrush(background))
+            e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
+
+        var text = GetComboBoxItemText(comboBox, e.Index);
+        var font = e.Font ?? comboBox.Font;
+        var textBounds = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 8, e.Bounds.Height);
+        TextRenderer.DrawText(
+            e.Graphics,
+            text,
+            font,
+            textBounds,
+            foreground,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+        if ((e.State & DrawItemState.Focus) == DrawItemState.Focus)
+            e.DrawFocusRectangle();
+    }
+
+    private static string GetComboBoxItemText(ComboBox comboBox, int index)
+    {
+        if (index < 0 || index >= comboBox.Items.Count)
+            return string.Empty;
+
+        var item = comboBox.Items[index];
+        if (item == null)
+            return string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(comboBox.DisplayMember))
+        {
+            var property = item.GetType().GetProperty(comboBox.DisplayMember);
+            if (property?.GetValue(item) is { } value)
+                return value.ToString() ?? string.Empty;
+        }
+
+        return item.ToString() ?? string.Empty;
+    }
+
     public static void StylePrimaryButton(Button button)
     {
         button.FlatStyle = FlatStyle.Flat;
@@ -365,22 +610,57 @@ internal static class AppTheme
         button.UseVisualStyleBackColor = false;
         button.FlatAppearance.MouseOverBackColor = _palette.AccentHoverButton;
         button.FlatAppearance.MouseDownBackColor = _palette.AccentPressedButton;
-        button.Padding = new Padding(12, 4, 12, 4);
+        button.Padding = new Padding(12, 2, 12, 2);
+        EnsureButtonHeight(button);
     }
 
     public static void StyleSecondaryButton(Button button)
     {
         button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderColor = Border;
         button.FlatAppearance.BorderSize = 1;
-        button.BackColor = Surface;
+        button.FlatAppearance.BorderColor = IsDark ? TextMuted : Border;
+        button.BackColor = IsDark ? BorderLight : Surface;
         button.ForeColor = TextPrimary;
         button.Font = UiFont;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
-        button.FlatAppearance.MouseOverBackColor = Background;
-        button.FlatAppearance.MouseDownBackColor = BorderLight;
-        button.Padding = new Padding(10, 4, 10, 4);
+        button.FlatAppearance.MouseOverBackColor = IsDark ? Border : Background;
+        button.FlatAppearance.MouseDownBackColor = IsDark ? TextMuted : BorderLight;
+        button.Padding = new Padding(10, 2, 10, 2);
+        EnsureButtonHeight(button);
+    }
+
+    public static void FitButtonSize(Button button, int minWidth = 84, int height = 32)
+    {
+        if (string.IsNullOrEmpty(button.Text))
+        {
+            EnsureButtonHeight(button);
+            return;
+        }
+
+        const TextFormatFlags flags = TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
+        var textSize = TextRenderer.MeasureText(
+            button.Text,
+            button.Font,
+            new Size(int.MaxValue, int.MaxValue),
+            flags);
+        var horizontalPadding = button.Padding.Horizontal + 28;
+        var verticalPadding = button.Padding.Vertical + 8;
+        var width = Math.Max(minWidth, textSize.Width + horizontalPadding);
+        var fittedHeight = Math.Max(height, textSize.Height + verticalPadding);
+
+        button.AutoSize = false;
+        button.Size = new Size(width, fittedHeight);
+        button.MinimumSize = new Size(width, fittedHeight);
+    }
+
+    private static void EnsureButtonHeight(Button button)
+    {
+        const int minHeight = 32;
+        if (button.Height < minHeight)
+            button.Height = minHeight;
+        if (button.MinimumSize.Height < minHeight)
+            button.MinimumSize = new Size(button.MinimumSize.Width, minHeight);
     }
 
     public static void StyleOutlineToggleButton(Button button)
@@ -453,6 +733,7 @@ internal static class AppTheme
         Panel titlePanel,
         Label titleCaption,
         TextBox titleBox,
+        Panel workspaceHost,
         Panel rightPanel,
         SplitContainer outerSplit,
         SplitContainer editorSplit,
@@ -485,9 +766,12 @@ internal static class AppTheme
         titleBox.Font = new Font("Segoe UI", 11F);
 
         rightPanel.BackColor = Surface;
+        rightPanel.Padding = new Padding(0, 0, 12, 0);
         StyleBorderedPanel(rightPanel, PanelEdges.Top | PanelEdges.Right | PanelEdges.Bottom);
 
         StyleSplitContainer(outerSplit);
+        workspaceHost.BackColor = Sidebar;
+        workspaceHost.Padding = new Padding(12, 8, 4, 8);
         StyleBorderedPanel(outerSplit.Panel1, PanelEdges.Top | PanelEdges.Left | PanelEdges.Bottom);
 
         StyleSplitContainer(editorSplit);

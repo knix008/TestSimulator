@@ -20,6 +20,7 @@ public partial class MainForm
             pnlTitle,
             lblTitleCaption,
             txtTitle,
+            outerSplit.Panel1,
             rightPanel,
             outerSplit,
             editorAreaSplit,
@@ -29,6 +30,8 @@ public partial class MainForm
 
         if (_ctxEditor != null)
             AppTheme.StyleContextMenu(_ctxEditor);
+
+        RefreshToolbarIcons();
     }
 
     private void ApplyLocalization()
@@ -44,6 +47,9 @@ public partial class MainForm
         menuPreferences.Text = Localization.Get(K.MenuPreferences);
         menuLogin.Text = Localization.Get(K.MenuLogin);
         menuLogout.Text = Localization.Get(K.MenuLogout);
+        menuAccountLogout.Text = Localization.Get(K.MenuLogout);
+        menuBarLogin.Text = Localization.Get(K.MenuBarLogin);
+        menuBarLogout.Text = Localization.Get(K.MenuBarLogout);
         menuAbout.Text = Localization.Get(K.MenuAbout);
         menuExit.Text = Localization.Get(K.MenuExit);
         menuWorkspace.Text = Localization.Get(K.MenuWorkspace);
@@ -76,6 +82,8 @@ public partial class MainForm
 
         SetupEditorContextMenuTexts();
         SetupWysiwygToolbar();
+        ApplyUiTooltips();
+        UpdateMenuBarSession();
         RefreshStatusTexts();
     }
 
@@ -129,10 +137,13 @@ public partial class MainForm
 
         if (_toolbarOutlineButton != null)
         {
-            _toolbarOutlineButton.ToolTipText = collapsed
-                ? expandText
-                : collapseText;
+            var tip = collapsed
+                ? Localization.Get(K.OutlineExpand)
+                : Localization.Get(K.OutlineCollapse);
+            _toolbarOutlineButton.ToolTipText = tip;
         }
+
+        ApplyToolbarTooltips();
     }
 
     private async void menuPreferences_Click(object? sender, EventArgs e)
@@ -168,7 +179,7 @@ public partial class MainForm
         _isLoadingPage = true;
         try
         {
-            await _editor.LoadMarkdownAsync(page.Content, _pipeline);
+            await _editor.LoadMarkdownAsync(page.Content, _pipeline, _currentPageId);
         }
         finally
         {

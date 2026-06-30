@@ -16,13 +16,15 @@ public sealed class UiSettings
 {
     public AppThemeKind Theme { get; set; } = AppThemeKind.Light;
     public AppLanguage Language { get; set; } = AppLanguage.Korean;
+    public string LastLoginUsername { get; set; } = string.Empty;
 
     public static UiSettings Default { get; } = new();
 
     public UiSettings Clone() => new()
     {
         Theme = Theme,
-        Language = Language
+        Language = Language,
+        LastLoginUsername = LastLoginUsername
     };
 }
 

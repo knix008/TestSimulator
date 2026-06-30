@@ -14,7 +14,7 @@ partial class DatabaseSettingsForm
     private void InitializeComponent()
     {
         lblProvider = new Label();
-        cboProvider = new ComboBox();
+        cboProvider = new ThemedComboBox();
         pnlServerFields = new Panel();
         lblServer = new Label();
         lblPort = new Label();
@@ -107,17 +107,19 @@ partial class DatabaseSettingsForm
         lblSqliteFile.Location = new Point(16, 16);
         lblSqliteFile.Text = "DB 파일";
 
+        txtSqliteFilePath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         txtSqliteFilePath.Location = new Point(120, 12);
-        txtSqliteFilePath.Size = new Size(220, 23);
+        txtSqliteFilePath.Size = new Size(188, 23);
 
-        btnBrowseSqlite.Location = new Point(346, 11);
-        btnBrowseSqlite.Size = new Size(54, 25);
+        btnBrowseSqlite.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnBrowseSqlite.Location = new Point(316, 11);
+        btnBrowseSqlite.Size = new Size(96, 32);
         btnBrowseSqlite.Text = "...";
         btnBrowseSqlite.UseVisualStyleBackColor = true;
         btnBrowseSqlite.Click += btnBrowseSqlite_Click;
 
         btnTest.Location = new Point(120, 232);
-        btnTest.Size = new Size(100, 30);
+        btnTest.Size = new Size(100, 32);
         btnTest.Text = "연결 테스트";
         btnTest.Click += btnTest_Click;
 
@@ -127,12 +129,12 @@ partial class DatabaseSettingsForm
         lblResult.Text = string.Empty;
 
         btnSave.Location = new Point(220, 276);
-        btnSave.Size = new Size(85, 30);
+        btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
         btnCancel.Location = new Point(315, 276);
-        btnCancel.Size = new Size(85, 30);
+        btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;
 
@@ -163,7 +165,7 @@ partial class DatabaseSettingsForm
     }
 
     private Label lblProvider;
-    private ComboBox cboProvider;
+    private ThemedComboBox cboProvider;
     private Panel pnlServerFields;
     private Label lblServer;
     private Label lblPort;

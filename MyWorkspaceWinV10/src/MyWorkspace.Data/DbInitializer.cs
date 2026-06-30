@@ -17,6 +17,7 @@ public static class DbInitializer
     {
         db.Database.EnsureCreated();
         EnsurePageVersionsTable(db);
+        EnsurePageChangeLogsTable(db);
         EnsureWorkspaceFavoritesTable(db);
         EnsureUserNotificationColumns(db);
 
@@ -113,6 +114,104 @@ public static class DbInitializer
                     FOREIGN KEY (saved_by_user_id) REFERENCES users(id)
                 );
                 CREATE INDEX IF NOT EXISTS ix_page_versions_page_saved ON page_versions (page_id, saved_at);
+                """);
+        }
+    }
+
+    private static void EnsurePageChangeLogsTable(AppDbContext db)
+    {
+        if (TableExists(db, "page_change_logs"))
+            return;
+
+        var provider = db.Database.ProviderName ?? string.Empty;
+
+        if (provider.Contains("MySql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_change_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    page_id INT NOT NULL,
+                    changed_by_user_id INT NOT NULL,
+                    changed_at DATETIME(6) NOT NULL,
+                    action VARCHAR(40) NOT NULL,
+                    old_title VARCHAR(200) NULL,
+                    new_title VARCHAR(200) NULL,
+                    old_content_length INT NULL,
+                    new_content_length INT NULL,
+                    note VARCHAR(500) NULL,
+                    INDEX ix_page_change_logs_page_changed (page_id, changed_at),
+                    CONSTRAINT fk_page_change_logs_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_page_change_logs_user FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON DELETE RESTRICT
+                ) ENGINE=InnoDB;
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_change_logs (
+                    id SERIAL PRIMARY KEY,
+                    page_id INT NOT NULL,
+                    changed_by_user_id INT NOT NULL,
+                    changed_at TIMESTAMP NOT NULL,
+                    action VARCHAR(40) NOT NULL,
+                    old_title VARCHAR(200) NULL,
+                    new_title VARCHAR(200) NULL,
+                    old_content_length INT NULL,
+                    new_content_length INT NULL,
+                    note VARCHAR(500) NULL,
+                    CONSTRAINT fk_page_change_logs_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_page_change_logs_user FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON DELETE RESTRICT
+                );
+                CREATE INDEX IF NOT EXISTS ix_page_change_logs_page_changed ON page_change_logs (page_id, changed_at);
+                """);
+            return;
+        }
+
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID(N'page_change_logs', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE page_change_logs (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        page_id INT NOT NULL,
+                        changed_by_user_id INT NOT NULL,
+                        changed_at DATETIME2 NOT NULL,
+                        action NVARCHAR(40) NOT NULL,
+                        old_title NVARCHAR(200) NULL,
+                        new_title NVARCHAR(200) NULL,
+                        old_content_length INT NULL,
+                        new_content_length INT NULL,
+                        note NVARCHAR(500) NULL,
+                        CONSTRAINT fk_page_change_logs_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+                        CONSTRAINT fk_page_change_logs_user FOREIGN KEY (changed_by_user_id) REFERENCES users(id)
+                    );
+                    CREATE INDEX ix_page_change_logs_page_changed ON page_change_logs (page_id, changed_at);
+                END
+                """);
+            return;
+        }
+
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_change_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    page_id INTEGER NOT NULL,
+                    changed_by_user_id INTEGER NOT NULL,
+                    changed_at TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    old_title TEXT NULL,
+                    new_title TEXT NULL,
+                    old_content_length INTEGER NULL,
+                    new_content_length INTEGER NULL,
+                    note TEXT NULL,
+                    FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+                    FOREIGN KEY (changed_by_user_id) REFERENCES users(id)
+                );
+                CREATE INDEX IF NOT EXISTS ix_page_change_logs_page_changed ON page_change_logs (page_id, changed_at);
                 """);
         }
     }

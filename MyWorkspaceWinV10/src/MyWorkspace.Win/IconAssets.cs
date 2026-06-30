@@ -93,6 +93,10 @@ internal static class IconAssets
         if (max < 145 && delta < 40)
             return Color.FromArgb(color.A, 176, 186, 196);
 
+        // Dark saturated strokes (legacy purple italic, etc.) — use light neutral for contrast.
+        if (max < 200 && delta >= 25)
+            return Color.FromArgb(color.A, 230, 237, 243);
+
         if (max < 90)
         {
             return Color.FromArgb(

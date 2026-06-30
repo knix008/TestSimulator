@@ -32,7 +32,7 @@ partial class InputDialogForm
 
         btnOk.Location = new Point(160, 80);
         btnOk.Name = "btnOk";
-        btnOk.Size = new Size(80, 28);
+        btnOk.Size = new Size(96, 32);
         btnOk.TabIndex = 1;
         btnOk.Text = "확인";
         btnOk.UseVisualStyleBackColor = true;
@@ -41,7 +41,7 @@ partial class InputDialogForm
         btnCancel.DialogResult = DialogResult.Cancel;
         btnCancel.Location = new Point(256, 80);
         btnCancel.Name = "btnCancel";
-        btnCancel.Size = new Size(80, 28);
+        btnCancel.Size = new Size(96, 32);
         btnCancel.TabIndex = 2;
         btnCancel.Text = "취소";
         btnCancel.UseVisualStyleBackColor = true;

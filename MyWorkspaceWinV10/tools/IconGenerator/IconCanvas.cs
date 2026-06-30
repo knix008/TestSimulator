@@ -70,7 +70,19 @@ internal static class IconCanvas
 
     public static void DrawStringCentered(Graphics graphics, RectangleF content, string text, float fontSize, Color color, FontStyle style = FontStyle.Regular)
     {
-        using var font = new Font("Segoe UI", fontSize, style, GraphicsUnit.Pixel);
+        DrawStringCentered(graphics, content, text, "Segoe UI", fontSize, color, style);
+    }
+
+    public static void DrawStringCentered(
+        Graphics graphics,
+        RectangleF rect,
+        string text,
+        string fontFamily,
+        float fontSize,
+        Color color,
+        FontStyle style = FontStyle.Regular)
+    {
+        using var font = new Font(fontFamily, fontSize, style, GraphicsUnit.Pixel);
         using var brush = new SolidBrush(color);
         using var format = new StringFormat
         {
@@ -78,7 +90,7 @@ internal static class IconCanvas
             LineAlignment = StringAlignment.Center,
             Trimming = StringTrimming.None
         };
-        graphics.DrawString(text, font, brush, content, format);
+        graphics.DrawString(text, font, brush, rect, format);
     }
 
     public static void FillPolygon(Graphics graphics, RectangleF content, Color color, params (float x, float y)[] points)
@@ -140,6 +152,29 @@ internal static class IconCanvas
             SurroundColors = [outerColor]
         };
         graphics.FillPath(brush, path);
+    }
+
+    public static void FillRoundedRectangleGloss(
+        Graphics graphics,
+        RectangleF content,
+        float x,
+        float y,
+        float width,
+        float height,
+        float cornerRadius,
+        Color topColor,
+        Color bottomColor)
+    {
+        var rect = Box(content, x, y, width, height);
+        var radius = cornerRadius * content.Width / Grid;
+        using var tilePath = RoundedRect(rect, radius);
+        var glossRect = new RectangleF(rect.X, rect.Y, rect.Width, rect.Height * 0.5f);
+        using var glossBrush = new LinearGradientBrush(glossRect, topColor, bottomColor, LinearGradientMode.Vertical);
+        using var region = new Region(tilePath);
+        var state = graphics.Save();
+        graphics.SetClip(region, CombineMode.Intersect);
+        graphics.FillRectangle(glossBrush, glossRect);
+        graphics.Restore(state);
     }
 
     private static GraphicsPath RoundedRect(RectangleF rect, float radius)

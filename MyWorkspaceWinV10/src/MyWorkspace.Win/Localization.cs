@@ -71,11 +71,18 @@ internal static class Localization
 
         Add(K.MenuFile, "파일(&F)", "&File");
         Add(K.MenuSavePage, "Page 저장(&S)", "&Save Page");
+        Add(K.MenuSavePageAsMarkdown, "Markdown 파일로 저장(&M)...", "Save Page as &Markdown...");
+        Add(K.MenuExportPage, "Page 내보내기(&E)...", "E&xport Page...");
         Add(K.MenuPageHistory, "버전 이력(&H)", "Page &History");
+        Add(K.MenuPageLog, "변경 Log(&L)", "Change &Log");
         Add(K.MenuRefreshTree, "트리 새로고침(&R)", "&Refresh Tree");
         Add(K.MenuPreferences, "환경 설정(&P)...", "&Preferences...");
         Add(K.MenuLogin, "로그인(&L)...", "&Sign In...");
         Add(K.MenuLogout, "로그아웃(&L)", "Sign &Out");
+        Add(K.MenuBarSessionLoggedInFormat, "{0} ({1})", "{0} ({1})");
+        Add(K.MenuBarSessionLoggedOut, "로그인되지 않음", "Not signed in");
+        Add(K.MenuBarLogin, "로그인", "Sign In");
+        Add(K.MenuBarLogout, "로그아웃", "Sign Out");
         Add(K.MenuAbout, "프로그램 정보(&A)...", "&About...");
         Add(K.MenuExit, "종료(&X)", "E&xit");
         Add(K.MenuWorkspace, "Workspace(&W)", "&Workspace");
@@ -132,6 +139,46 @@ internal static class Localization
         Add(K.ToolbarTable, "표", "Table");
         Add(K.ToolbarDocumentStructure, "문서 구조", "Document Outline");
         Add(K.ToolbarAbout, "프로그램 정보", "About");
+        Add(K.ToolbarSave, "Page 저장 (Ctrl+S)", "Save Page (Ctrl+S)");
+        Add(K.ToolbarSaveMarkdown, "Markdown 파일로 저장", "Save as Markdown");
+        Add(K.ToolbarExport, "Page 내보내기", "Export Page");
+        Add(K.ToolbarHistory, "Page 버전 이력", "Page History");
+        Add(K.ToolbarPageLog, "Page 변경 Log", "Page Change Log");
+
+        Add(K.TipMenuFile, "파일 저장, 내보내기, 환경 설정", "Save, export, and preferences");
+        Add(K.TipMenuWorkspace, "Workspace와 Page 관리", "Manage workspaces and pages");
+        Add(K.TipMenuView, "보기 및 문서 구조", "View and document outline");
+        Add(K.TipMenuAdmin, "사용자 및 시스템 관리 (관리자)", "User and system administration");
+        Add(K.TipMenuAccount, "계정 및 알림 설정", "Account and notification settings");
+        Add(K.TipMenuRefreshTree, "Workspace 트리 새로고침 (F5)", "Refresh workspace tree (F5)");
+        Add(K.TipMenuPreferences, "테마·언어 등 환경 설정", "Theme, language, and preferences");
+        Add(K.TipMenuLogin, "로그인", "Sign in to your account");
+        Add(K.TipMenuLogout, "로그아웃", "Sign out");
+        Add(K.TipMenuBarLogin, "로그인", "Sign in to your account");
+        Add(K.TipMenuBarLogout, "로그아웃", "Sign out");
+        Add(K.TipMenuBarSession, "현재 로그인 계정", "Current signed-in account");
+        Add(K.TipMenuExit, "프로그램 종료", "Exit the application");
+        Add(K.TipMenuNewRootWorkspace, "최상위 Workspace 생성", "Create a root workspace");
+        Add(K.TipMenuNewSubWorkspace, "선택한 Workspace 아래 하위 Workspace 생성", "Create a sub-workspace");
+        Add(K.TipMenuNewPage, "양식에서 새 Page 만들기", "Create a new page from a template");
+        Add(K.TipMenuRename, "선택한 Workspace 또는 Page 이름 변경", "Rename the selected item");
+        Add(K.TipMenuDelete, "선택한 Workspace 또는 Page 삭제", "Delete the selected item");
+        Add(K.TipMenuWorkspaceMembers, "Workspace 멤버 관리", "Manage workspace members");
+        Add(K.TipMenuAdminUsers, "사용자 계정 관리", "Manage user accounts");
+        Add(K.TipMenuAdminDatabase, "데이터베이스 연결 설정", "Configure database connection");
+        Add(K.TipMenuAdminEmail, "이메일 서버 설정", "Configure email server");
+        Add(K.TipMenuEditProfile, "프로필 정보 수정", "Edit your profile");
+        Add(K.TipMenuChangePassword, "비밀번호 변경", "Change your password");
+        Add(K.TipMenuNotificationSettings, "알림 수신 설정", "Configure notification preferences");
+        Add(K.TipCtxToggleFavoriteAdd, "Workspace를 즐겨찾기에 추가", "Add workspace to favorites");
+        Add(K.TipCtxToggleFavoriteRemove, "Workspace를 즐겨찾기에서 제거", "Remove workspace from favorites");
+        Add(K.TipEditorCut, "선택 영역 잘라내기 (Ctrl+X)", "Cut selection (Ctrl+X)");
+        Add(K.TipEditorCopy, "선택 영역 복사 (Ctrl+C)", "Copy selection (Ctrl+C)");
+        Add(K.TipEditorPaste, "클립보드 내용 붙여넣기 (Ctrl+V)", "Paste from clipboard (Ctrl+V)");
+        Add(K.TipEditorSelectAll, "전체 선택 (Ctrl+A)", "Select all (Ctrl+A)");
+        Add(K.TipEditorBold, "굵게 (Ctrl+B)", "Bold (Ctrl+B)");
+        Add(K.TipEditorItalic, "기울임 (Ctrl+I)", "Italic (Ctrl+I)");
+
         Add(K.AboutTitle, "프로그램 정보", "About");
         Add(K.AboutDescription, "Notion 스타일의 Workspace·Page 관리 데스크톱 애플리케이션입니다.", "A Notion-style desktop app for managing workspaces and pages.");
         Add(K.AboutVersionFormat, "버전 {0}", "Version {0}");
@@ -187,6 +234,21 @@ internal static class Localization
         Add(K.Confirm, "확인", "Confirm");
         Add(K.DialogLinkTitle, "링크", "Link");
         Add(K.DialogImageTitle, "이미지", "Image");
+        Add(K.DialogImageFilePrompt, "이미지 파일을 선택하세요.", "Select an image file.");
+        Add(K.ImageFileFilterLabel, "이미지 파일", "Image Files");
+        Add(K.AllFilesFilterLabel, "모든 파일", "All Files");
+        Add(K.ExportPageTitle, "Page 내보내기", "Export Page");
+        Add(K.ExportPagePrompt, "내보낼 형식을 선택하세요.", "Choose an export format.");
+        Add(K.ExportFormatMarkdown, "Markdown (.md)", "Markdown (.md)");
+        Add(K.ExportFormatWord, "Word (.docx)", "Word (.docx)");
+        Add(K.ExportFormatPdf, "PDF (.pdf)", "PDF (.pdf)");
+        Add(K.ExportSucceeded, "Page를 내보냈습니다.", "Page exported successfully.");
+        Add(K.ExportFailed, "내보내기 실패", "Export failed");
+        Add(K.SaveMarkdownSucceeded, "Markdown 파일을 저장했습니다.", "Markdown file saved successfully.");
+        Add(K.SaveMarkdownFailed, "Markdown 저장 실패", "Markdown save failed");
+        Add(K.MarkdownFileFilterLabel, "Markdown 파일", "Markdown Files");
+        Add(K.WordFileFilterLabel, "Word 문서", "Word Documents");
+        Add(K.PdfFileFilterLabel, "PDF 문서", "PDF Documents");
         Add(K.DialogUrlPrompt, "URL:", "URL:");
         Add(K.DialogInputRequired, "값을 입력하세요.", "Enter a value.");
         Add(K.DefaultCodeText, "코드", "code");
@@ -212,6 +274,8 @@ internal static class Localization
         Add(K.ButtonOpenTemplateFolder, "양식 폴더 열기", "Open Template Folder");
         Add(K.ButtonAddMember, "멤버 추가", "Add Member");
         Add(K.ButtonRemoveMember, "멤버 제거", "Remove Member");
+        Add(K.ConfirmDiscardMemberChanges, "저장하지 않은 멤버 변경 사항이 있습니다. 취소하시겠습니까?", "You have unsaved member changes. Discard them?");
+        Add(K.MemberRoleOwner, "Owner", "Owner");
         Add(K.ButtonExit, "종료", "Exit");
 
         Add(K.LabelUsername, "사용자 ID", "User ID");
@@ -283,6 +347,8 @@ internal static class Localization
 
         Add(K.SelectUserToAdd, "추가할 사용자를 선택하세요.", "Select a user to add.");
         Add(K.SelectMemberToRemove, "제거할 멤버를 선택하세요.", "Select a member to remove.");
+        Add(K.ErrCannotRemoveOwner, "Owner는 제거할 수 없습니다.", "The owner cannot be removed.");
+        Add(K.ErrMemberAlreadyAdded, "이미 등록된 멤버입니다.", "This user is already a member.");
 
         Add(K.NewPageTitle, "새 Page", "New Page");
         Add(K.NoTemplates, "사용 가능한 Page 양식이 없습니다.\n\n양식 폴더에 .mdtemplate 파일을 추가하세요.", "No page templates available.\n\nAdd .mdtemplate files to the template folder.");
@@ -293,6 +359,18 @@ internal static class Localization
         Add(K.TemplateSourceBuiltIn, "기본 양식", "Built-in template");
 
         Add(K.PageHistoryTitleFormat, "버전 이력 - {0}", "Version History - {0}");
+        Add(K.PageLogTitleFormat, "변경 Log - {0}", "Change Log - {0}");
+        Add(K.LabelPageChangeLog, "변경 내역", "Change History");
+        Add(K.ColChangedAt, "변경 시각", "Changed At");
+        Add(K.ColChangedBy, "변경자", "Changed By");
+        Add(K.ColChangeDescription, "변경 내용", "Change");
+        Add(K.PageLogActionCreated, "Page 생성 (제목: {0})", "Page created (title: {0})");
+        Add(K.PageLogTitleChangedFormat, "제목 변경: \"{0}\" → \"{1}\"", "Title changed: \"{0}\" → \"{1}\"");
+        Add(K.PageLogContentChangedFormat, "내용 변경 ({0}자 → {1}자)", "Content changed ({0} → {1} chars)");
+        Add(K.PageLogTitleAndContentChangedFormat, "제목·내용 변경: \"{0}\" → \"{1}\" ({2}자 → {3}자)", "Title and content changed: \"{0}\" → \"{1}\" ({2} → {3} chars)");
+        Add(K.PageLogRestoredFormat, "이전 버전으로 복원: \"{0}\" → \"{1}\"", "Restored previous version: \"{0}\" → \"{1}\"");
+        Add(K.PageLogMovedFormat, "Workspace 이동: {0}", "Moved workspace: {0}");
+        Add(K.PageLogActionDeleted, "Page 삭제 (제목: {0})", "Page deleted (title: {0})");
         Add(K.ColSavedAt, "저장 시각", "Saved At");
         Add(K.ColSavedBy, "저장자", "Saved By");
         Add(K.ConfirmRestoreVersion, "선택한 버전으로 복원할까요?\n현재 내용은 복원 전 버전으로 저장됩니다.", "Restore the selected version?\nCurrent content will be saved before restore.");
@@ -332,11 +410,18 @@ internal static class K
 
     public const string MenuFile = "MenuFile";
     public const string MenuSavePage = "MenuSavePage";
+    public const string MenuSavePageAsMarkdown = "MenuSavePageAsMarkdown";
+    public const string MenuExportPage = "MenuExportPage";
     public const string MenuPageHistory = "MenuPageHistory";
+    public const string MenuPageLog = "MenuPageLog";
     public const string MenuRefreshTree = "MenuRefreshTree";
     public const string MenuPreferences = "MenuPreferences";
     public const string MenuLogin = "MenuLogin";
     public const string MenuLogout = "MenuLogout";
+    public const string MenuBarSessionLoggedInFormat = "MenuBarSessionLoggedInFormat";
+    public const string MenuBarSessionLoggedOut = "MenuBarSessionLoggedOut";
+    public const string MenuBarLogin = "MenuBarLogin";
+    public const string MenuBarLogout = "MenuBarLogout";
     public const string MenuAbout = "MenuAbout";
     public const string MenuExit = "MenuExit";
     public const string MenuWorkspace = "MenuWorkspace";
@@ -393,6 +478,46 @@ internal static class K
     public const string ToolbarTable = "ToolbarTable";
     public const string ToolbarDocumentStructure = "ToolbarDocumentStructure";
     public const string ToolbarAbout = "ToolbarAbout";
+    public const string ToolbarSave = "ToolbarSave";
+    public const string ToolbarSaveMarkdown = "ToolbarSaveMarkdown";
+    public const string ToolbarExport = "ToolbarExport";
+    public const string ToolbarHistory = "ToolbarHistory";
+    public const string ToolbarPageLog = "ToolbarPageLog";
+
+    public const string TipMenuFile = "TipMenuFile";
+    public const string TipMenuWorkspace = "TipMenuWorkspace";
+    public const string TipMenuView = "TipMenuView";
+    public const string TipMenuAdmin = "TipMenuAdmin";
+    public const string TipMenuAccount = "TipMenuAccount";
+    public const string TipMenuRefreshTree = "TipMenuRefreshTree";
+    public const string TipMenuPreferences = "TipMenuPreferences";
+    public const string TipMenuLogin = "TipMenuLogin";
+    public const string TipMenuLogout = "TipMenuLogout";
+    public const string TipMenuBarLogin = "TipMenuBarLogin";
+    public const string TipMenuBarLogout = "TipMenuBarLogout";
+    public const string TipMenuBarSession = "TipMenuBarSession";
+    public const string TipMenuExit = "TipMenuExit";
+    public const string TipMenuNewRootWorkspace = "TipMenuNewRootWorkspace";
+    public const string TipMenuNewSubWorkspace = "TipMenuNewSubWorkspace";
+    public const string TipMenuNewPage = "TipMenuNewPage";
+    public const string TipMenuRename = "TipMenuRename";
+    public const string TipMenuDelete = "TipMenuDelete";
+    public const string TipMenuWorkspaceMembers = "TipMenuWorkspaceMembers";
+    public const string TipMenuAdminUsers = "TipMenuAdminUsers";
+    public const string TipMenuAdminDatabase = "TipMenuAdminDatabase";
+    public const string TipMenuAdminEmail = "TipMenuAdminEmail";
+    public const string TipMenuEditProfile = "TipMenuEditProfile";
+    public const string TipMenuChangePassword = "TipMenuChangePassword";
+    public const string TipMenuNotificationSettings = "TipMenuNotificationSettings";
+    public const string TipCtxToggleFavoriteAdd = "TipCtxToggleFavoriteAdd";
+    public const string TipCtxToggleFavoriteRemove = "TipCtxToggleFavoriteRemove";
+    public const string TipEditorCut = "TipEditorCut";
+    public const string TipEditorCopy = "TipEditorCopy";
+    public const string TipEditorPaste = "TipEditorPaste";
+    public const string TipEditorSelectAll = "TipEditorSelectAll";
+    public const string TipEditorBold = "TipEditorBold";
+    public const string TipEditorItalic = "TipEditorItalic";
+
     public const string AboutTitle = "AboutTitle";
     public const string AboutDescription = "AboutDescription";
     public const string AboutVersionFormat = "AboutVersionFormat";
@@ -448,6 +573,21 @@ internal static class K
     public const string Confirm = "Confirm";
     public const string DialogLinkTitle = "DialogLinkTitle";
     public const string DialogImageTitle = "DialogImageTitle";
+    public const string DialogImageFilePrompt = "DialogImageFilePrompt";
+    public const string ImageFileFilterLabel = "ImageFileFilterLabel";
+    public const string AllFilesFilterLabel = "AllFilesFilterLabel";
+    public const string ExportPageTitle = "ExportPageTitle";
+    public const string ExportPagePrompt = "ExportPagePrompt";
+    public const string ExportFormatMarkdown = "ExportFormatMarkdown";
+    public const string ExportFormatWord = "ExportFormatWord";
+    public const string ExportFormatPdf = "ExportFormatPdf";
+    public const string ExportSucceeded = "ExportSucceeded";
+    public const string ExportFailed = "ExportFailed";
+    public const string SaveMarkdownSucceeded = "SaveMarkdownSucceeded";
+    public const string SaveMarkdownFailed = "SaveMarkdownFailed";
+    public const string MarkdownFileFilterLabel = "MarkdownFileFilterLabel";
+    public const string WordFileFilterLabel = "WordFileFilterLabel";
+    public const string PdfFileFilterLabel = "PdfFileFilterLabel";
     public const string DialogUrlPrompt = "DialogUrlPrompt";
     public const string DialogInputRequired = "DialogInputRequired";
     public const string DefaultCodeText = "DefaultCodeText";
@@ -473,6 +613,8 @@ internal static class K
     public const string ButtonOpenTemplateFolder = "ButtonOpenTemplateFolder";
     public const string ButtonAddMember = "ButtonAddMember";
     public const string ButtonRemoveMember = "ButtonRemoveMember";
+    public const string ConfirmDiscardMemberChanges = "ConfirmDiscardMemberChanges";
+    public const string MemberRoleOwner = "MemberRoleOwner";
     public const string ButtonExit = "ButtonExit";
 
     public const string LabelUsername = "LabelUsername";
@@ -544,6 +686,7 @@ internal static class K
 
     public const string SelectUserToAdd = "SelectUserToAdd";
     public const string SelectMemberToRemove = "SelectMemberToRemove";
+    public const string ErrMemberAlreadyAdded = "ErrMemberAlreadyAdded";
 
     public const string NewPageTitle = "NewPageTitle";
     public const string NoTemplates = "NoTemplates";
@@ -554,6 +697,18 @@ internal static class K
     public const string TemplateSourceBuiltIn = "TemplateSourceBuiltIn";
 
     public const string PageHistoryTitleFormat = "PageHistoryTitleFormat";
+    public const string PageLogTitleFormat = "PageLogTitleFormat";
+    public const string LabelPageChangeLog = "LabelPageChangeLog";
+    public const string ColChangedAt = "ColChangedAt";
+    public const string ColChangedBy = "ColChangedBy";
+    public const string ColChangeDescription = "ColChangeDescription";
+    public const string PageLogActionCreated = "PageLogActionCreated";
+    public const string PageLogTitleChangedFormat = "PageLogTitleChangedFormat";
+    public const string PageLogContentChangedFormat = "PageLogContentChangedFormat";
+    public const string PageLogTitleAndContentChangedFormat = "PageLogTitleAndContentChangedFormat";
+    public const string PageLogRestoredFormat = "PageLogRestoredFormat";
+    public const string PageLogMovedFormat = "PageLogMovedFormat";
+    public const string PageLogActionDeleted = "PageLogActionDeleted";
     public const string ColSavedAt = "ColSavedAt";
     public const string ColSavedBy = "ColSavedBy";
     public const string ConfirmRestoreVersion = "ConfirmRestoreVersion";

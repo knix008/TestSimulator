@@ -101,6 +101,13 @@ internal static class AppConfig
         ApplyUiSettings(UiSettings, persist: true);
     }
 
+    public static void SaveLastLoginUsername(string username)
+    {
+        var settings = UiSettings.Clone();
+        settings.LastLoginUsername = username.Trim();
+        SaveUiSettings(settings);
+    }
+
     private static void ApplyUiSettings(UiSettings settings, bool persist)
     {
         Localization.SetLanguage(settings.Language);
@@ -121,7 +128,8 @@ internal static class AppConfig
         root["Ui"] = new JsonObject
         {
             ["Theme"] = settings.Theme.ToString(),
-            ["Language"] = settings.Language.ToString()
+            ["Language"] = settings.Language.ToString(),
+            ["LastLoginUsername"] = settings.LastLoginUsername
         };
 
         File.WriteAllText(LocalSettingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
@@ -146,6 +154,8 @@ internal static class AppConfig
         if (Enum.TryParse<AppLanguage>(section["Language"], true, out var language))
             settings.Language = language;
 
+        settings.LastLoginUsername = section["LastLoginUsername"]?.Trim() ?? string.Empty;
+
         return settings;
     }
 
@@ -158,6 +168,8 @@ internal static class AppConfig
 
         if (Enum.TryParse<AppLanguage>(section["Language"]?.GetValue<string>(), true, out var language))
             settings.Language = language;
+
+        settings.LastLoginUsername = section["LastLoginUsername"]?.GetValue<string>()?.Trim() ?? string.Empty;
 
         return settings;
     }

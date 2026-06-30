@@ -47,14 +47,14 @@ partial class NewPageForm
 
         btnReloadTemplates.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnReloadTemplates.Location = new Point(432, 44);
-        btnReloadTemplates.Size = new Size(80, 28);
+        btnReloadTemplates.Size = new Size(96, 32);
         btnReloadTemplates.Text = "새로고침";
         btnReloadTemplates.UseVisualStyleBackColor = true;
         btnReloadTemplates.Click += btnReloadTemplates_Click;
 
         btnOpenTemplateFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnOpenTemplateFolder.Location = new Point(518, 44);
-        btnOpenTemplateFolder.Size = new Size(154, 28);
+        btnOpenTemplateFolder.Size = new Size(160, 32);
         btnOpenTemplateFolder.Text = "양식 폴더 열기";
         btnOpenTemplateFolder.UseVisualStyleBackColor = true;
         btnOpenTemplateFolder.Click += btnOpenTemplateFolder_Click;
@@ -68,6 +68,7 @@ partial class NewPageForm
         lstTemplates.IntegralHeight = false;
         lstTemplates.SelectedIndexChanged += lstTemplates_SelectedIndexChanged;
 
+        lblTemplateDesc.AutoSize = true;
         lblTemplateDesc.Dock = DockStyle.Top;
         lblTemplateDesc.ForeColor = Color.DimGray;
         lblTemplateDesc.Padding = new Padding(0, 0, 0, 6);
@@ -90,6 +91,7 @@ partial class NewPageForm
         splitMain.Panel2.Controls.Add(lblTemplateDesc);
 
         lblTemplateFolder.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        lblTemplateFolder.AutoEllipsis = true;
         lblTemplateFolder.ForeColor = Color.DimGray;
         lblTemplateFolder.Location = new Point(12, 440);
         lblTemplateFolder.Size = new Size(660, 32);
@@ -97,14 +99,14 @@ partial class NewPageForm
 
         btnOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnOk.Location = new Point(512, 476);
-        btnOk.Size = new Size(80, 32);
+        btnOk.Size = new Size(96, 32);
         btnOk.Text = "만들기";
         btnOk.Click += btnOk_Click;
 
         btnCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         btnCancel.DialogResult = DialogResult.Cancel;
         btnCancel.Location = new Point(592, 476);
-        btnCancel.Size = new Size(80, 32);
+        btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
         btnCancel.Click += btnCancel_Click;
 

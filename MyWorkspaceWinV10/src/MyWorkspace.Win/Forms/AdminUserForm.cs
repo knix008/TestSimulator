@@ -13,25 +13,17 @@ public partial class AdminUserForm : Form
 {
 
     public AdminUserForm()
-
     {
-
         InitializeComponent();
-
         AppTheme.ApplyStandardDialog(this);
-
     }
 
-
-
     private void AdminUserForm_Load(object sender, EventArgs e)
-
     {
-
         ApplyLocalization();
-
+        btnEdit.Margin = new Padding(8, 0, 0, 0);
+        btnDelete.Margin = new Padding(8, 0, 0, 0);
         LoadUsers();
-
     }
 
 
@@ -61,27 +53,18 @@ public partial class AdminUserForm : Form
 
 
     private void LoadUsers()
-
     {
-
         gridUsers.Rows.Clear();
-
         foreach (var user in AppConfig.Services.Users.GetAllUsers())
-
         {
-
             gridUsers.Rows.Add(
-
                 user.Id,
-
                 user.Username,
-
                 LocalizationDisplay.FormatUserRole(user.Role),
-
                 user.CreatedAt.ToLocalTime());
-
         }
 
+        AppTheme.StyleDataGridView(gridUsers);
     }
 
 

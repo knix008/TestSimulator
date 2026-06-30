@@ -14,16 +14,17 @@ internal static class Program
             "h1", "h2", "h3", "h4", "h5", "h6",
             "bold", "italic", "strike", "code", "codeblock", "link", "image", "ul", "ol", "quote", "hr", "table",
             "outline", "info",
-            "save", "history", "refresh", "login", "logout", "exit", "preferences",
+            "save", "history", "refresh", "login", "logout", "exit", "preferences", "export",
             "folder_plus_workspace", "folder_plus_sub", "page_plus", "rename", "delete",
-            "members", "users", "database", "email", "profile", "password", "bell", "star",
+            "members", "users", "database", "email", "profile", "password", "bell", "star", "log",
             "workspace", "workspace_fav", "favorite", "page"
         ]),
         (20,
         [
             "h1", "h2", "h3", "h4", "h5", "h6",
             "bold", "italic", "strike", "code", "codeblock", "link", "image", "ul", "ol", "quote", "hr", "table",
-            "outline", "info"
+            "outline", "info",
+            "save", "page", "export", "history", "log"
         ])
     ];
 
