@@ -14,14 +14,20 @@
 
     <MediaTemplate EmbedCab="yes" />
 
-    <Icon Id="AppIcon" SourceFile="..\Assets\MyProject.ico" />
-    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <!-- Use the published EXE icon so Add/Remove Programs shows the app icon during uninstall. -->
+    <Icon Id="ProductIcon.ico" SourceFile="MyProject.exe" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon.ico" />
+
+    <Property Id="INSTALLDESKTOPSHORTCUT" Value="1" />
+    <Property Id="INSTALLSTARTMENUSHORTCUT" Value="1" />
 
     <ui:WixUI Id="MyProject_InstallDir" InstallDirectory="INSTALLFOLDER" />
 
     <Feature Id="ProductFeature" Title="MyProject" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
       <ComponentRef Id="InstallFolderCleanup" />
+      <ComponentRef Id="PreviousInstallFolderCleanup" />
+      <ComponentRef Id="UserDataFolderCleanup" />
       <ComponentRef Id="LegacyX86InstallFolderCleanup" />
       <ComponentRef Id="LegacyX86RegistryCleanup" />
       <ComponentRef Id="ApplicationShortcutDesktop" />
@@ -64,12 +70,42 @@
                Directory="INSTALLFOLDER"
                Guid="D4E5F6A7-B8C9-4012-DEF0-1234567890AB">
       <CreateFolder />
+      <!-- Remove orphaned program files in the target folder before reinstall and on uninstall. -->
       <util:RemoveFolderEx On="both" Property="INSTALLFOLDER_CLEANUP" />
       <RegistryValue Root="HKLM"
                      Key="Software\MyProject"
                      Name="InstallPath"
                      Type="string"
                      Value="[INSTALLFOLDER]"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="PreviousInstallFolderCleanup"
+               Directory="INSTALLFOLDER"
+               Guid="A3B4C5D6-E7F8-4901-ABCD-EF0123456789"
+               Condition="PREVIOUSINSTALLFOLDER_CLEANUP">
+      <CreateFolder />
+      <!-- Remove a previous install folder when the user picks a different path. -->
+      <util:RemoveFolderEx On="install" Property="PREVIOUSINSTALLFOLDER_CLEANUP" />
+      <RegistryValue Root="HKLM"
+                     Key="Software\MyProject"
+                     Name="PreviousInstallCleaned"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="UserDataFolderCleanup"
+               Directory="INSTALLFOLDER"
+               Guid="B4C5D6E7-F809-4123-BCDE-F1234567890A">
+      <CreateFolder />
+      <!-- Remove %LocalAppData%\MyProject on reinstall and uninstall. -->
+      <util:RemoveFolderEx On="both" Property="USERDATAFOLDER_CLEANUP" />
+      <RegistryValue Root="HKLM"
+                     Key="Software\MyProject"
+                     Name="UserDataCleaned"
+                     Type="integer"
+                     Value="1"
                      KeyPath="yes" />
     </Component>
 
@@ -89,13 +125,16 @@
                          Action="removeOnInstall" />
     </Component>
 
-    <Component Id="ApplicationShortcutDesktop" Directory="DesktopFolder" Guid="B1C2D3E4-F5A6-4789-BCDE-F12345678901">
+    <Component Id="ApplicationShortcutDesktop"
+               Directory="DesktopFolder"
+               Guid="B1C2D3E4-F5A6-4789-BCDE-F12345678901"
+               Condition="INSTALLDESKTOPSHORTCUT">
       <Shortcut Id="DesktopShortcut"
                 Name="MyProject"
                 Description="MyProject Project Manager"
                 Target="[INSTALLFOLDER]MyProject.exe"
                 WorkingDirectory="INSTALLFOLDER"
-                Icon="AppIcon" />
+                Icon="ProductIcon.ico" />
       <RegistryValue Root="HKCU"
                      Key="Software\MyProject"
                      Name="DesktopShortcut"
@@ -104,13 +143,16 @@
                      KeyPath="yes" />
     </Component>
 
-    <Component Id="ApplicationShortcutStartMenu" Directory="ApplicationProgramsFolder" Guid="C2D3E4F5-A6B7-4890-CDEF-123456789012">
+    <Component Id="ApplicationShortcutStartMenu"
+               Directory="ApplicationProgramsFolder"
+               Guid="C2D3E4F5-A6B7-4890-CDEF-123456789012"
+               Condition="INSTALLSTARTMENUSHORTCUT">
       <Shortcut Id="StartMenuShortcut"
                 Name="MyProject"
                 Description="MyProject Project Manager"
                 Target="[INSTALLFOLDER]MyProject.exe"
                 WorkingDirectory="INSTALLFOLDER"
-                Icon="AppIcon" />
+                Icon="ProductIcon.ico" />
       <RemoveFolder Id="ApplicationProgramsFolderRemove" On="uninstall" />
       <RegistryValue Root="HKCU"
                      Key="Software\MyProject"

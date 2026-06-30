@@ -4,7 +4,8 @@
     "MyProject": {
       "commandName": "Project",
       "hotReloadEnabled": false,
-      "nativeDebugging": false
+      "nativeDebugging": false,
+      "enableNativeCodeDebugging": false
     }
   }
 }

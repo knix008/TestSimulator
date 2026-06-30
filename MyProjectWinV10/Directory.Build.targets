@@ -1,0 +1,62 @@
+<Project>
+
+  <!-- Skip MPXJ.Net Java translation during VS design-time builds (IntelliSense, designer). -->
+  <PropertyGroup Condition="'$(DesignTimeBuild)' == 'true'">
+    <UseIkvmTasks>false</UseIkvmTasks>
+    <ResolveIkvmReferencesDependsOn />
+    <CompileIkvmReferencesDependsOn />
+    <GetMavenIkvmReferenceItemsDependsOn />
+  </PropertyGroup>
+
+  <!-- Release: build MSI after the app unless explicitly disabled (-p:BuildMsi=false). -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'MyProject' and '$(Configuration)' == 'Release' and '$(BuildMsi)' == ''">
+    <BuildMsi>true</BuildMsi>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'MyProject' and '$(Configuration)' != 'Release'">
+    <BuildMsi>false</BuildMsi>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'MyProject'">
+    <_InstallerProject>$(MSBuildThisFileDirectory)Installer\MyProject.Installer.wixproj</_InstallerProject>
+    <_MsiOutputPath>$(MSBuildThisFileDirectory)Installer\bin\$(Configuration)\MyProject_Setup.msi</_MsiOutputPath>
+    <_MsiCopyPath>$(OutputPath)MyProject_Setup.msi</_MsiCopyPath>
+  </PropertyGroup>
+
+  <Target Name="EnsureIkvmDirectories"
+          BeforeTargets="_GetMavenIkvmReferenceItems"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(MSBuildProjectExtension)' == '.csproj'">
+    <MakeDir Directories="$(LOCALAPPDATA)\IKVM;$(IkvmCacheDir);$(LOCALAPPDATA)\IKVM\stage;$(LOCALAPPDATA)\IKVM\expstage" />
+  </Target>
+
+  <Target Name="BuildMsiPackage"
+          AfterTargets="Build"
+          Condition="'$(MSBuildProjectName)' == 'MyProject'
+                     and '$(BuildMsi)' == 'true'
+                     and '$(DesignTimeBuild)' != 'true'
+                     and '$(BuildingMsiPackage)' != 'true'">
+    <Message Importance="high" Text="Building MSI installer (Release)..." />
+    <MSBuild Projects="$(_InstallerProject)"
+             Targets="Restore"
+             Properties="Configuration=$(Configuration);BuildingMsiPackage=true"
+             BuildInParallel="false"
+             RunEachTargetSeparately="true" />
+    <MSBuild Projects="$(_InstallerProject)"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);BuildingMsiPackage=true"
+             BuildInParallel="false"
+             RunEachTargetSeparately="true" />
+    <Copy SourceFiles="$(_MsiOutputPath)"
+          DestinationFiles="$(_MsiCopyPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(_MsiOutputPath)')" />
+    <Message Importance="high"
+             Text="MSI ready: $(_MsiOutputPath)"
+             Condition="Exists('$(_MsiOutputPath)')" />
+    <Message Importance="high"
+             Text="MSI copy: $(_MsiCopyPath)"
+             Condition="Exists('$(_MsiCopyPath)')" />
+    <Warning Text="MSI build finished but output was not found at $(_MsiOutputPath)."
+             Condition="!Exists('$(_MsiOutputPath)')" />
+  </Target>
+
+</Project>

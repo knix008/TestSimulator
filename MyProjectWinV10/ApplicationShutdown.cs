@@ -1,8 +1,11 @@
+using System.Diagnostics;
+
 namespace MyProject;
 
 /// <summary>
-/// Ensures the process exits cleanly. MPXJ.Net (IKVM) can leave JVM threads running after
-/// the WinForms message loop ends, which makes Visual Studio's debugger appear frozen.
+/// Ensures the process exits cleanly when hosted under the Visual Studio debugger.
+/// MPXJ.Net (IKVM) can leave JVM threads running after the WinForms message loop ends,
+/// which makes the debugger appear frozen.
 /// </summary>
 internal static class ApplicationShutdown
 {
@@ -13,6 +16,8 @@ internal static class ApplicationShutdown
         if (Interlocked.Exchange(ref _exitRequested, 1) != 0)
             return;
 
-        Environment.Exit(0);
+        // Only force-terminate when debugging; normal runs should shut down gracefully.
+        if (Debugger.IsAttached)
+            Environment.Exit(0);
     }
 }

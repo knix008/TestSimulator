@@ -6,11 +6,8 @@
     <RootNamespace>MyProject</RootNamespace>
     <AssemblyName>MyProject</AssemblyName>
     <StartupObject>MyProject.Program</StartupObject>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\MyProject.ico</ApplicationIcon>
-    <UseAppHost>true</UseAppHost>
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
@@ -19,37 +16,6 @@
     <Company>MyProject</Company>
     <Product>MyProject Project Manager</Product>
     <Copyright>Copyright © 2026 SH KWON (knix008@naver.com)</Copyright>
-    <!-- Required so MSI publish (win-x64) can restore MPXJ/IKVM assets without affecting normal Release output. -->
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
-  </PropertyGroup>
-
-  <!-- IKVM: shared cache + unique stage dir per build so concurrent VS/CLI builds do not lock the same .log files. -->
-  <PropertyGroup>
-    <_IkvmBuildId Condition="'$(DesignTimeBuild)' == 'true'">DesignTime</_IkvmBuildId>
-    <_IkvmBuildId Condition="'$(DesignTimeBuild)' != 'true'">$([System.Guid]::NewGuid())</_IkvmBuildId>
-    <IkvmCacheDir>$(LOCALAPPDATA)\IKVM\cache\</IkvmCacheDir>
-    <IkvmStageDir>$(LOCALAPPDATA)\IKVM\stage\$(_IkvmBuildId)\</IkvmStageDir>
-    <IkvmExportStageDir>$(LOCALAPPDATA)\IKVM\expstage\$(_IkvmBuildId)\</IkvmExportStageDir>
-    <MavenCacheFile>$(LOCALAPPDATA)\IKVM\$(AssemblyName).maven.cache</MavenCacheFile>
-  </PropertyGroup>
-
-  <Target Name="EnsureIkvmDirectories"
-          BeforeTargets="_GetMavenIkvmReferenceItems"
-          Condition="'$(DesignTimeBuild)' != 'true'">
-    <MakeDir Directories="$(LOCALAPPDATA)\IKVM;$(IkvmCacheDir);$(LOCALAPPDATA)\IKVM\stage;$(LOCALAPPDATA)\IKVM\expstage" />
-  </Target>
-
-  <!-- WinForms: avoid hot reload and keep a native exe for reliable VS debug stop. -->
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <HotReloadEnabled>false</HotReloadEnabled>
-    <DebugType>portable</DebugType>
-  </PropertyGroup>
-
-  <!-- MSI publish only (MyProject.Installer sets BuildingMsiPackage=true). -->
-  <PropertyGroup Condition="'$(BuildingMsiPackage)' == 'true'">
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>false</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
@@ -66,12 +32,6 @@
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
   </ItemGroup>
 
-  <!-- Incomplete calendar/note-connector UI; excluded until wired to current APIs. -->
-  <ItemGroup>
-    <Compile Remove="Controls\NoteConnectorPreviewControl.cs" />
-    <Compile Remove="Controls\NoteLineStyleSelector.cs" />
-  </ItemGroup>
-
   <ItemGroup>
     <Content Include="Assets\MyProject.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -84,30 +44,5 @@
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
-
-  <PropertyGroup>
-    <SetupProjectPath>$(MSBuildThisFileDirectory)Installer\MyProject.Installer.wixproj</SetupProjectPath>
-    <MsiOutputPath>$(MSBuildThisFileDirectory)Installer\bin\$(Configuration)\MyProject_Setup.msi</MsiOutputPath>
-  </PropertyGroup>
-
-  <!-- Visual Studio often cannot build WixToolset.Sdk projects without the WiX extension.
-       Build MSI via dotnet after a normal Release build of this project. -->
-  <Target Name="BuildInstallerMsi"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release'
-                     and '$(BuildingMsiPackage)' != 'true'
-                     and '$(DesignTimeBuild)' != 'true'
-                     and Exists('$(SetupProjectPath)')">
-    <Message Importance="high" Text="Building MSI installer..." />
-    <Exec Command="dotnet build &quot;$(SetupProjectPath)&quot; -c Release -p:BuildingMsiPackage=true -p:InstallerPlatform=x64 -m:1 -v minimal"
-          WorkingDirectory="$(MSBuildProjectDirectory)" />
-    <Error Condition="!Exists('$(MsiOutputPath)')"
-           Text="MSI was not created at $(MsiOutputPath). Install the WiX Toolset VS extension, or run: dotnet build Installer\MyProject.Installer.wixproj -c Release" />
-    <Copy SourceFiles="$(MsiOutputPath)"
-          DestinationFiles="$(OutputPath)MyProject_Setup.msi"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(MsiOutputPath)')" />
-    <Message Importance="high" Text="MSI ready: $(OutputPath)MyProject_Setup.msi" Condition="Exists('$(MsiOutputPath)')" />
-  </Target>
 
 </Project>

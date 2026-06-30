@@ -11,8 +11,6 @@
                       IncludeMaximum="yes" />
     </Upgrade>
 
-    <Property Id="KEEPUSERSETTINGS" Value="1" />
-
     <Property Id="LOCALAPPDATAFOLDER" Secure="yes">
       <RegistrySearch Id="LocalAppDataSearch"
                       Root="HKCU"
@@ -20,28 +18,6 @@
                       Name="Local AppData"
                       Type="raw" />
     </Property>
-
-    <Property Id="EXISTINGUSERSETTINGS">
-      <DirectorySearch Id="SearchUserDataDir"
-                       Path="[LOCALAPPDATAFOLDER]MyProject"
-                       Depth="0">
-        <FileSearch Id="SearchSettingsFile" Name="settings.json" />
-      </DirectorySearch>
-    </Property>
-
-    <Property Id="EXISTINGRECOVERY">
-      <DirectorySearch Id="SearchRecoveryDir"
-                       Path="[LOCALAPPDATAFOLDER]MyProject"
-                       Depth="0">
-        <FileSearch Id="SearchRecoveryFile" Name="session_recovery.myprj" />
-      </DirectorySearch>
-    </Property>
-
-    <SetProperty Id="SHOW_SETTINGS_DIALOG"
-                 Value="1"
-                 Before="FindRelatedProducts"
-                 Sequence="ui"
-                 Condition="EXISTINGUSERSETTINGS OR EXISTINGRECOVERY" />
 
     <Property Id="ARPINSTALLLOCATION">
       <RegistrySearch Id="SearchArpInstallLocation"
@@ -66,6 +42,17 @@
                  Before="CostInitialize"
                  Sequence="both" />
 
+    <SetProperty Id="USERDATAFOLDER_CLEANUP"
+                 Value="[LOCALAPPDATAFOLDER]MyProject"
+                 Before="CostInitialize"
+                 Sequence="both" />
+
+    <SetProperty Id="PREVIOUSINSTALLFOLDER_CLEANUP"
+                 Value="[ARPINSTALLLOCATION]"
+                 Before="CostInitialize"
+                 Sequence="both"
+                 Condition="ARPINSTALLLOCATION" />
+
     <SetProperty Id="LEGACY_X86_FOLDER_CLEANUP"
                  Value="[LEGACY_X86_INSTALLFOLDER]"
                  Before="CostInitialize"
@@ -86,6 +73,7 @@
                   Impersonate="no"
                   Return="ignore" />
 
+    <!-- Belt-and-suspenders user-data purge using the app itself (install + uninstall). -->
     <CustomAction Id="PurgeUserSettings"
                   FileRef="MyProjectExe"
                   ExeCommand="--purge-settings"
@@ -98,9 +86,14 @@
               After="InstallInitialize"
               Condition="PREVIOUSX86PRODUCT AND NOT UPGRADINGPRODUCTCODE AND NOT REMOVE=&quot;ALL&quot;" />
 
+      <!-- Always purge user settings on reinstall and on full uninstall. -->
       <Custom Action="PurgeUserSettings"
               After="InstallFiles"
-              Condition="KEEPUSERSETTINGS=&quot;0&quot;" />
+              Condition="NOT REMOVE=&quot;ALL&quot;" />
+
+      <Custom Action="PurgeUserSettings"
+              Before="RemoveFiles"
+              Condition='REMOVE="ALL"' />
     </InstallExecuteSequence>
   </Fragment>
 
