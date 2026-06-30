@@ -137,21 +137,34 @@
 
         <Popup x:Name="ResultToolTipPopup"
                AllowsTransparency="True"
-               Placement="Absolute"
+               Placement="Relative"
                StaysOpen="True"
                IsOpen="False"
                PopupAnimation="None">
             <Border x:Name="ResultToolTipBorder"
+                    IsHitTestVisible="False"
                     Background="#F5FFFFFF"
                     BorderBrush="#33000000"
                     BorderThickness="1"
                     CornerRadius="4"
-                    Padding="8,6"
+                    Padding="10,8"
                     MaxWidth="560">
-                <TextBlock x:Name="ResultToolTipText"
-                           TextWrapping="Wrap"
-                           FontSize="12"
-                           Foreground="#222222"/>
+                <StackPanel>
+                    <TextBlock x:Name="ResultToolTipNameText"
+                               TextTrimming="CharacterEllipsis"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#222222"/>
+                    <TextBlock x:Name="ResultToolTipPathText"
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"
+                               LineStackingStrategy="BlockLineHeight"
+                               LineHeight="16"
+                               MaxHeight="32"
+                               FontSize="11"
+                               Foreground="#888888"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
             </Border>
         </Popup>
     </Grid>

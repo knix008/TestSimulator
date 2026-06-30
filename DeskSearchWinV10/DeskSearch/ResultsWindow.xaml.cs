@@ -30,7 +30,8 @@ public partial class ResultsWindow : Window
     {
         InitializeComponent();
         ResultsList.ItemsSource = _boundResults;
-        ResultToolTipPopup.PlacementTarget = ResultsList;
+        ResultToolTipPopup.PlacementTarget = this;
+        ResultToolTipBorder.IsHitTestVisible = false;
         WindowTaskbarHelper.ExcludeFromTaskbar(this);
     }
 
@@ -40,7 +41,10 @@ public partial class ResultsWindow : Window
             Resources[key] = themeResources[key];
 
         if (Resources["PrimaryTextBrush"] is System.Windows.Media.Brush textBrush)
-            ResultToolTipText.Foreground = textBrush;
+            ResultToolTipNameText.Foreground = textBrush;
+
+        if (Resources["SubTextBrush"] is System.Windows.Media.Brush subBrush)
+            ResultToolTipPathText.Foreground = subBrush;
     }
 
     public void ApplyChrome(AppSettings settings)
@@ -212,7 +216,7 @@ public partial class ResultsWindow : Window
             if (!ReferenceEquals(_toolTipEntry, entry))
             {
                 _toolTipEntry = entry;
-                ResultToolTipText.Text = entry.FullPath;
+                UpdateResultToolTipContent(entry);
             }
 
             UpdateResultToolTipPosition(e);
@@ -223,33 +227,43 @@ public partial class ResultsWindow : Window
         HideResultToolTip();
     }
 
+    private void UpdateResultToolTipContent(FileEntry entry)
+    {
+        ResultToolTipNameText.Text = entry.FileName;
+        ResultToolTipPathText.Text = entry.FullPath;
+    }
+
     private void UpdateResultToolTipPosition(MouseEventArgs e)
     {
-        const double offsetX = 14;
-        const double offsetY = 20;
+        const double offsetX = 16;
+        const double offsetY = 18;
 
-        var screenPoint = ResultsList.PointToScreen(e.GetPosition(ResultsList));
+        var mouseInList = e.GetPosition(ResultsList);
+        var screenPoint = ResultsList.PointToScreen(mouseInList);
+        var windowPoint = PointFromScreen(screenPoint);
 
         ResultToolTipBorder.Measure(new System.Windows.Size(ResultToolTipBorder.MaxWidth, double.PositiveInfinity));
         var popupSize = ResultToolTipBorder.DesiredSize;
         if (popupSize.Width <= 0)
-            popupSize = new System.Windows.Size(200, 32);
+            popupSize = new System.Windows.Size(320, 40);
 
-        var workArea = SystemParameters.WorkArea;
+        var relX = windowPoint.X + offsetX;
+        var relY = windowPoint.Y + offsetY;
 
-        var x = screenPoint.X + offsetX;
-        var y = screenPoint.Y + offsetY;
+        var workArea = ScreenHelper.GetMonitorWorkAreaInScreenDips(this, screenPoint);
+        var popupScreenX = screenPoint.X + offsetX;
+        var popupScreenY = screenPoint.Y + offsetY;
 
-        if (x + popupSize.Width > workArea.Right)
-            x = Math.Max(workArea.Left, screenPoint.X - popupSize.Width - offsetX);
+        if (popupScreenX + popupSize.Width > workArea.Right)
+            relX = PointFromScreen(new Point(screenPoint.X - popupSize.Width - offsetX, screenPoint.Y)).X;
 
-        if (y + popupSize.Height > workArea.Bottom)
-            y = Math.Max(workArea.Top, screenPoint.Y - popupSize.Height - offsetY);
+        if (popupScreenY + popupSize.Height > workArea.Bottom)
+            relY = PointFromScreen(new Point(screenPoint.X, screenPoint.Y - popupSize.Height - offsetY)).Y;
 
-        ResultToolTipPopup.Placement = PlacementMode.Absolute;
-        ResultToolTipPopup.PlacementTarget = null;
-        ResultToolTipPopup.HorizontalOffset = x;
-        ResultToolTipPopup.VerticalOffset = y;
+        ResultToolTipPopup.PlacementTarget = this;
+        ResultToolTipPopup.Placement = PlacementMode.Relative;
+        ResultToolTipPopup.HorizontalOffset = relX;
+        ResultToolTipPopup.VerticalOffset = relY;
     }
 
     private void ResultsList_MouseLeave(object sender, MouseEventArgs e)
