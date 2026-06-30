@@ -10,6 +10,7 @@ import { useTranslation, useLanguage } from '../i18n';
 import { getDateLocaleTag } from '../i18n/translate';
 import type { ProjectContextMenuTarget } from '../utils/projectContextMenu';
 import { DateInput } from './DateInput';
+import { PercentInput } from './PercentInput';
 import { parseDateInputValue, toDateInputValue } from '../utils/taskDateInput';
 import { getVisibleTasks, taskHasChildren } from '../utils/taskModel';
 import {
@@ -415,18 +416,14 @@ export function TaskGrid({
                 <td className="col-progress">
                   {canEditSchedule ? (
                     <div className="col-progress-edit">
-                      <input
-                        type="number"
+                      <PercentInput
+                        inputKey={task.taskId}
                         className="task-grid-inline-input task-grid-progress-input"
                         min={0}
                         max={100}
-                        value={Math.round(task.progress)}
+                        value={task.progress}
                         onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          onUpdateTask(task.taskId, {
-                            progress: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
-                          })
-                        }
+                        onCommit={(progress) => onUpdateTask(task.taskId, { progress })}
                       />
                       <span className="col-progress-unit">%</span>
                     </div>

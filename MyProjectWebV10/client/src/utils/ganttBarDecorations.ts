@@ -1,4 +1,5 @@
 import type { TaskItem } from '../types/project';
+import { applyGanttBarResizeHandles } from './ganttBarResizeHandles';
 import { argbToCss } from './colorUtils';
 
 interface DecorateGanttBarsOptions {
@@ -252,4 +253,6 @@ export function decorateGanttBars(
     applyProgressOverlayVisibility(wrapper, barGroup, getTaskProgressPercent(task));
     decorateProgressLabel(barGroup, task, isSummary);
   });
+
+  applyGanttBarResizeHandles(container);
 }

@@ -169,6 +169,9 @@
 .gantt-container .current-highlight {
   display: block !important;
   width: 0 !important;
+  height: auto !important;
+  top: var(--split-header-height, 68px) !important;
+  bottom: 0 !important;
   background: transparent !important;
   border-left: 2px dashed #ff5252;
   z-index: 999;
@@ -197,14 +200,27 @@
   border-radius: 4px;
 }
 
+.gantt-link-mode .gantt-link-overlay {
+  z-index: 10;
+}
+
+.gantt-container .gantt-link-preview-path {
+  pointer-events: none;
+}
+
 .gantt-link-line {
   stroke: #2563eb;
-  stroke-width: 2;
+  stroke-width: 2.5;
   stroke-dasharray: 6 4;
 }
 
 .gantt-link-mode .gantt-container {
   cursor: crosshair;
+}
+
+.gantt-link-mode .popup-wrapper {
+  display: none !important;
+  pointer-events: none !important;
 }
 
 .gantt-readonly .gantt-container {
@@ -222,6 +238,12 @@
 .gantt .bar-wrapper.gantt-link-pending .bar {
   stroke: #2563eb;
   stroke-width: 2;
+}
+
+.gantt .bar-wrapper.gantt-link-target .bar,
+.gantt .bar-wrapper.gantt-link-target .bar-progress {
+  filter: drop-shadow(0 0 2px rgba(37, 99, 235, 0.85))
+    drop-shadow(0 0 6px rgba(37, 99, 235, 0.55));
 }
 
 .gantt-milestone .bar {
@@ -325,11 +347,32 @@
   stroke-width: 2px;
 }
 
-.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle {
-  visibility: hidden;
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle.left,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle.right {
+  fill: rgba(37, 99, 235, 0.55);
+  opacity: 0;
+  visibility: visible;
+  pointer-events: auto;
+  cursor: ew-resize;
 }
 
-.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper:hover .handle,
-.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper.gantt-selected .handle {
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper:hover .handle.left,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper:hover .handle.right,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper.gantt-selected .handle.left,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper.gantt-selected .handle.right,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle.left.active,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle.right.active,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle.left.visible,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle.right.visible {
+  opacity: 1;
+}
+
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper .handle.progress {
+  visibility: hidden;
+  pointer-events: auto;
+}
+
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper:hover .handle.progress,
+.gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper.gantt-selected .handle.progress {
   visibility: visible;
 }

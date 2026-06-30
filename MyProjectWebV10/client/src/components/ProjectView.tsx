@@ -97,7 +97,6 @@ export function ProjectView() {
   const [myAccountOpen, setMyAccountOpen] = useState(false);
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
   const [taskPropertiesDialogTaskId, setTaskPropertiesDialogTaskId] = useState<number | null>(null);
-  const [linkMode, setLinkMode] = useState(false);
   const [linkSourceTaskId, setLinkSourceTaskId] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -374,7 +373,6 @@ export function ProjectView() {
     setLoading(true);
     setError(null);
     setScheduleError(null);
-    setLinkMode(false);
     setLinkSourceTaskId(null);
     setHasUnsavedChanges(false);
     pendingSaveRef.current = null;
@@ -848,7 +846,10 @@ export function ProjectView() {
   const handleLinkFromTask = useCallback((taskId: number) => {
     setSelectedTaskId(taskId);
     setLinkSourceTaskId(taskId);
-    setLinkMode(true);
+  }, []);
+
+  const handleCancelLinkMode = useCallback(() => {
+    setLinkSourceTaskId(null);
   }, []);
 
   const handleUnlinkFromTask = useCallback(
@@ -1127,7 +1128,7 @@ export function ProjectView() {
         canModify={canModify}
         canRead={canRead}
         username={username}
-        linkMode={linkMode}
+        linkMode={linkSourceTaskId != null}
         saveStatus={saveStatus}
         hasUnsavedChanges={hasUnsavedChanges}
         onSaveSchedule={handleSaveNow}
@@ -1144,12 +1145,7 @@ export function ProjectView() {
         onOpenUserManagement={() => setUserMgmtOpen(true)}
         onOpenMyAccount={() => setMyAccountOpen(true)}
         onOpenProjectSettings={() => setProjectSettingsOpen(true)}
-        onToggleLinkMode={() => {
-          setLinkMode((current) => {
-            if (current) setLinkSourceTaskId(null);
-            return !current;
-          });
-        }}
+        onToggleLinkMode={handleCancelLinkMode}
         onAddTask={handleAddTask}
         onAddSubtask={handleAddSubtask}
         onAddNote={handleAddNoteToSelectedTask}
@@ -1240,7 +1236,6 @@ export function ProjectView() {
                 editingNoteId={editingNoteId}
                 selectedDependency={selectedDependency}
                 canModify={canModify}
-                linkMode={linkMode}
                 linkSourceTaskId={linkSourceTaskId}
                 scrollContainerRef={ganttScrollRef}
                 scrollToTodayRef={scrollToTodayRef}
@@ -1254,21 +1249,25 @@ export function ProjectView() {
                 onTaskDateChange={handleTaskDateChange}
                 onTaskProgressChange={handleTaskProgressChange}
                 onAddDependency={handleAddDependency}
+                onClearLinkSource={() => setLinkSourceTaskId(null)}
+                onCancelLinkMode={handleCancelLinkMode}
                 onContextMenuRequest={handleContextMenuRequest}
               />
             }
           />
 
-          <footer className="project-properties">
-            <TaskPropertiesPanel
-              task={selectedTask}
-              tasks={project.tasks}
-              predecessors={predecessors}
-              canModify={canModify}
-              onUpdateTask={handleUpdateTask}
-              onRemoveDependency={handleRemoveDependency}
-            />
-          </footer>
+          {linkSourceTaskId == null && (
+            <footer className="project-properties">
+              <TaskPropertiesPanel
+                task={selectedTask}
+                tasks={project.tasks}
+                predecessors={predecessors}
+                canModify={canModify}
+                onUpdateTask={handleUpdateTask}
+                onRemoveDependency={handleRemoveDependency}
+              />
+            </footer>
+          )}
         </>
       )}
 

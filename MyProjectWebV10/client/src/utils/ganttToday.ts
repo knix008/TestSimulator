@@ -1,5 +1,6 @@
 /** Today marker helpers for frappe-gantt (Win: TimescaleToday + GoToToday). */
 
+import { GANTT_HEADER_HEIGHT } from '../config/ganttLayout';
 import { getStoredLocale } from '../i18n/storage';
 import { translate } from '../i18n/translate';
 
@@ -44,6 +45,9 @@ export function decorateTodayMarker(container: HTMLElement): void {
   const ball = container.querySelector('.current-ball-highlight');
   if (highlight instanceof HTMLElement) {
     highlight.style.display = '';
+    highlight.style.top = `${GANTT_HEADER_HEIGHT}px`;
+    highlight.style.height = '';
+    highlight.style.bottom = '0';
     highlight.classList.add('gantt-today-line');
     highlight.setAttribute('aria-hidden', 'true');
   }

@@ -1,5 +1,7 @@
 /** Layout aligned with MyProjectWinV10 AppTheme (RowHeight 32, TimescaleHeaderHeight 68). */
 export const GANTT_BAR_HEIGHT = 22;
+/** Wider grab zone at each bar end (MyProjectWinV10 uses ±6px; 12px total centered on edge). */
+export const GANTT_BAR_RESIZE_HANDLE_WIDTH = 12;
 export const GANTT_ROW_PADDING = 10;
 export const GANTT_ROW_HEIGHT = GANTT_BAR_HEIGHT + GANTT_ROW_PADDING;
 export const GANTT_UPPER_HEADER_HEIGHT = 22;

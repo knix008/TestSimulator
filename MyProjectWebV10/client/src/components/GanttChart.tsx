@@ -3,6 +3,7 @@ import Gantt from 'frappe-gantt';
 import {
   GANTT_CHART_OPTIONS,
   GANTT_DEFAULT_COLUMN_WIDTH,
+  GANTT_HEADER_HEIGHT,
   getGanttContentHeight,
 } from '../config/ganttLayout';
 import { createGanttViewModes } from '../config/ganttViewMode';
@@ -12,7 +13,8 @@ import { argbToCss } from '../utils/colorUtils';
 import type { ProjectContextMenuTarget } from '../utils/projectContextMenu';
 import { getVisibleTasks } from '../utils/taskModel';
 import { decorateGanttBars } from '../utils/ganttBarDecorations';
-import { renderDependencyLines, type FrappeGanttLayers } from '../utils/dependencyLineRenderer';
+import { patchFrappeGanttResizeHandles } from '../utils/ganttBarResizeHandles';
+import { renderDependencyLines, renderLinkPreview, clearLinkPreview, type FrappeGanttLayers } from '../utils/dependencyLineRenderer';
 import { applyGanttZoomAtPointer, type GanttZoomTarget } from '../utils/ganttZoom';
 import { ensureGanttTimelineRange } from '../utils/ganttTimeline';
 import { getGanttWorkingWeekOptions } from '../utils/ganttWorkingWeek';
@@ -47,7 +49,6 @@ interface GanttChartProps {
   editingNoteId: number | null;
   selectedDependency?: { predecessorId: number; successorId: number } | null;
   canModify: boolean;
-  linkMode: boolean;
   linkSourceTaskId?: number | null;
   scrollContainerRef?: RefObject<HTMLDivElement | null>;
   scrollToTodayRef?: RefObject<(() => boolean) | null>;
@@ -61,6 +62,8 @@ interface GanttChartProps {
   onTaskDateChange: (taskId: number, start: Date, end: Date) => void;
   onTaskProgressChange: (taskId: number, progress: number) => void;
   onAddDependency: (predecessorId: number, successorId: number) => void;
+  onClearLinkSource?: () => void;
+  onCancelLinkMode?: () => void;
   onContextMenuRequest?: (target: ProjectContextMenuTarget, clientX: number, clientY: number) => void;
 }
 
@@ -72,8 +75,64 @@ function getVisibleTaskSignature(visibleTasks: TaskItem[]): string {
   return visibleTasks.map((task) => task.taskId).join(',');
 }
 
+type FrappeGanttPopupContext = {
+  task: {
+    name: string;
+    description?: string;
+    _start: Date;
+    _end: Date;
+    actual_duration?: number;
+    progress: number;
+  };
+  set_title: (title: string) => void;
+  set_subtitle: (subtitle: string) => void;
+  set_details: (details: string) => void;
+};
+
+function isLinkingInteraction(
+  linkSourceTaskId: number | null | undefined,
+  linkSourceRef: RefObject<number | null>,
+  linkDragRef: RefObject<{ fromId: number } | null>,
+): boolean {
+  return (
+    linkSourceTaskId != null ||
+    linkSourceRef.current != null ||
+    linkDragRef.current != null
+  );
+}
+
+function renderGanttTaskPopup(ctx: FrappeGanttPopupContext): void {
+  ctx.set_title(ctx.task.name);
+  ctx.set_subtitle(ctx.task.description ?? '');
+  const start = ctx.task._start.toLocaleDateString();
+  const end = ctx.task._end.toLocaleDateString();
+  const duration = ctx.task.actual_duration ?? 0;
+  ctx.set_details(`${start} - ${end} (${duration}d)<br/>Progress: ${Math.round(ctx.task.progress)}%`);
+}
+
+function createGanttPopupHandler(
+  linkSourceTaskIdRef: RefObject<number | null | undefined>,
+  linkSourceRef: RefObject<number | null>,
+  linkDragRef: RefObject<{ fromId: number } | null>,
+): (ctx: FrappeGanttPopupContext) => false | undefined {
+  return (ctx) => {
+    if (
+      isLinkingInteraction(
+        linkSourceTaskIdRef.current,
+        linkSourceRef,
+        linkDragRef,
+      )
+    ) {
+      return false;
+    }
+    renderGanttTaskPopup(ctx);
+    return undefined;
+  };
+}
+
 type FrappeGanttInstance = InstanceType<typeof Gantt> & {
   options: { container_height: number | 'auto' };
+  $container?: HTMLElement;
 };
 
 const GANTT_RESIZE_REBUILD_DEBOUNCE_MS = 150;
@@ -83,7 +142,10 @@ function applyGanttContainerHeight(
   taskCount: number,
 ): void {
   if (!gantt) return;
-  gantt.options.container_height = getGanttContainerHeight(taskCount);
+  const height = getGanttContainerHeight(taskCount);
+  gantt.options.container_height = height;
+  // frappe-gantt sets --gv-grid-height only in setup_options(); keep it in sync on row changes.
+  gantt.$container?.style.setProperty('--gv-grid-height', `${height}px`);
 }
 
 function scrollSelectedTaskIntoView(
@@ -150,21 +212,6 @@ function toOverlayPoint(
   };
 }
 
-function getBarEndPoint(container: HTMLElement, taskId: number): { x: number; y: number } | null {
-  const wrapper = container.querySelector(`.bar-wrapper[data-id="${taskId}"]`);
-  const bar = wrapper?.querySelector('.bar');
-  if (!bar || !(bar instanceof SVGGraphicsElement)) return null;
-
-  const scrollArea = getScrollArea(container);
-  const frappeScroll = getFrappeScrollContainer(container);
-  const scrollRect = scrollArea.getBoundingClientRect();
-  const barRect = bar.getBoundingClientRect();
-  return {
-    x: barRect.right - scrollRect.left + (frappeScroll?.scrollLeft ?? 0),
-    y: barRect.top - scrollRect.top + barRect.height / 2 + scrollArea.scrollTop,
-  };
-}
-
 function findTaskIdFromTarget(container: HTMLElement, target: EventTarget | null): number | null {
   if (!(target instanceof Element)) return null;
   const wrapper = target.closest('.bar-wrapper');
@@ -224,7 +271,6 @@ export function GanttChart({
   editingNoteId,
   selectedDependency = null,
   canModify,
-  linkMode,
   linkSourceTaskId = null,
   scrollContainerRef,
   scrollToTodayRef,
@@ -238,6 +284,8 @@ export function GanttChart({
   onTaskDateChange,
   onTaskProgressChange,
   onAddDependency,
+  onClearLinkSource,
+  onCancelLinkMode,
   onContextMenuRequest,
 }: GanttChartProps) {
   const { locale } = useLanguage();
@@ -263,9 +311,10 @@ export function GanttChart({
   const workingDaysJsonRef = useRef(workingDaysJson);
   const viewSettingsRef = useRef(ganttViewSettings);
   const canModifyRef = useRef(canModify);
-  const linkModeRef = useRef(linkMode);
+  const linkSourceTaskIdRef = useRef(linkSourceTaskId);
   const linkSourceRef = useRef<number | null>(null);
   const linkDragRef = useRef<{ fromId: number } | null>(null);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const resizeRebuildTimerRef = useRef<number | null>(null);
   const pendingFullResizeRef = useRef(false);
 
@@ -273,6 +322,8 @@ export function GanttChart({
   const onTaskDateChangeRef = useRef(onTaskDateChange);
   const onTaskProgressChangeRef = useRef(onTaskProgressChange);
   const onAddDependencyRef = useRef(onAddDependency);
+  const onClearLinkSourceRef = useRef(onClearLinkSource);
+  const onCancelLinkModeRef = useRef(onCancelLinkMode);
   const onContextMenuRequestRef = useRef(onContextMenuRequest);
 
   const selectedDependencyRef = useRef(selectedDependency);
@@ -287,11 +338,42 @@ export function GanttChart({
   onTaskDateChangeRef.current = onTaskDateChange;
   onTaskProgressChangeRef.current = onTaskProgressChange;
   onAddDependencyRef.current = onAddDependency;
+  onClearLinkSourceRef.current = onClearLinkSource;
+  onCancelLinkModeRef.current = onCancelLinkMode;
   onContextMenuRequestRef.current = onContextMenuRequest;
   selectedDependencyRef.current = selectedDependency;
   onSelectDependencyRef.current = onSelectDependency;
   canModifyRef.current = canModify;
-  linkModeRef.current = linkMode;
+  linkSourceTaskIdRef.current = linkSourceTaskId;
+
+  const ganttPopupHandler = useMemo(
+    () => createGanttPopupHandler(linkSourceTaskIdRef, linkSourceRef, linkDragRef),
+    [],
+  );
+
+  const hideGanttTaskPopup = useCallback(() => {
+    const gantt = ganttRef.current as (FrappeGanttInstance & { hide_popup?: () => void }) | null;
+    gantt?.hide_popup?.();
+  }, []);
+
+  const resolveLinkSourceId = useCallback((): number | null => {
+    if (linkDragRef.current) return linkDragRef.current.fromId;
+    return linkSourceRef.current ?? linkSourceTaskIdRef.current ?? null;
+  }, []);
+
+  const updateLinkTargetHighlight = useCallback((target: EventTarget | null, fromId: number | null) => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.querySelectorAll('.bar-wrapper.gantt-link-target').forEach((el) => {
+      el.classList.remove('gantt-link-target');
+    });
+    if (fromId == null || linkSourceTaskIdRef.current == null) return;
+    const toId = findTaskIdFromTarget(container, target);
+    if (toId == null || toId === fromId) return;
+    container
+      .querySelector(`.bar-wrapper[data-id="${toId}"]`)
+      ?.classList.add('gantt-link-target');
+  }, []);
 
   const renderDependencyOverlay = useCallback(() => {
     const container = containerRef.current;
@@ -513,29 +595,51 @@ export function GanttChart({
   }, [applyGanttZoom, zoomRef]);
 
   const clearLinkLine = useCallback(() => {
+    const gantt = ganttRef.current as FrappeGanttLayers | null;
+    if (gantt) clearLinkPreview(gantt);
     overlayRef.current?.querySelectorAll('.gantt-link-line').forEach((line) => line.remove());
   }, []);
 
   const drawLinkLine = useCallback(
-    (fromId: number, toX: number, toY: number) => {
+    (
+      fromId: number,
+      clientX: number,
+      clientY: number,
+      targetTaskId: number | null = null,
+    ) => {
       const container = containerRef.current;
-      const overlay = overlayRef.current;
-      if (!container || !overlay) return;
+      const gantt = ganttRef.current as FrappeGanttLayers | null;
+      if (!container || !gantt) return;
 
-      syncOverlaySize();
-      const from = getBarEndPoint(container, fromId);
-      if (!from) return;
-
-      clearLinkLine();
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('class', 'gantt-link-line');
-      line.setAttribute('x1', String(from.x));
-      line.setAttribute('y1', String(from.y));
-      line.setAttribute('x2', String(toX));
-      line.setAttribute('y2', String(toY));
-      overlay.appendChild(line);
+      renderLinkPreview(
+        gantt,
+        container,
+        fromId,
+        clientX,
+        clientY,
+        viewSettingsRef.current,
+        targetTaskId,
+      );
     },
-    [clearLinkLine, syncOverlaySize],
+    [],
+  );
+
+  const drawLinkPreviewAtClient = useCallback(
+    (
+      fromId: number,
+      clientX: number,
+      clientY: number,
+      target: EventTarget | null = null,
+    ) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const hoverId = findTaskIdFromTarget(container, target);
+      const sourceId = resolveLinkSourceId();
+      const targetTaskId =
+        hoverId != null && hoverId !== fromId && hoverId !== sourceId ? hoverId : null;
+      drawLinkLine(fromId, clientX, clientY, targetTaskId);
+    },
+    [drawLinkLine, resolveLinkSourceId],
   );
 
   const updateLinkPendingStyles = useCallback(() => {
@@ -544,50 +648,103 @@ export function GanttChart({
     container.querySelectorAll('.bar-wrapper').forEach((el) => {
       el.classList.remove('gantt-link-pending');
     });
-    if (linkSourceRef.current != null) {
+    const sourceId = resolveLinkSourceId();
+    if (sourceId != null) {
       container
-        .querySelector(`.bar-wrapper[data-id="${linkSourceRef.current}"]`)
+        .querySelector(`.bar-wrapper[data-id="${sourceId}"]`)
         ?.classList.add('gantt-link-pending');
     }
+  }, [resolveLinkSourceId]);
+
+  const clearLinkSession = useCallback(() => {
+    linkSourceRef.current = null;
+    linkDragRef.current = null;
+    onClearLinkSourceRef.current?.();
+    clearLinkLine();
+    updateLinkTargetHighlight(null, null);
+    updateLinkPendingStyles();
+  }, [clearLinkLine, updateLinkPendingStyles, updateLinkTargetHighlight]);
+
+  const cancelLinkMode = useCallback(() => {
+    clearLinkSession();
+    onCancelLinkModeRef.current?.();
+  }, [clearLinkSession]);
+
+  const isLinkSessionActive = useCallback((): boolean => {
+    return linkSourceTaskIdRef.current != null || linkDragRef.current != null;
   }, []);
 
   useEffect(() => {
-    if (!linkMode || linkSourceTaskId == null) return;
+    if (!canModify) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      if (!isLinkSessionActive()) return;
+
+      event.preventDefault();
+      cancelLinkMode();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [canModify, cancelLinkMode, isLinkSessionActive]);
+
+  useEffect(() => {
+    if (linkSourceTaskId == null) return;
     linkSourceRef.current = linkSourceTaskId;
     updateLinkPendingStyles();
-  }, [linkMode, linkSourceTaskId, updateLinkPendingStyles]);
+
+    requestAnimationFrame(() => {
+      const pointer = lastPointerRef.current;
+      if (pointer) {
+        drawLinkPreviewAtClient(linkSourceTaskId, pointer.x, pointer.y);
+        return;
+      }
+      const container = containerRef.current;
+      const scrollArea = scrollRef.current;
+      if (!container || !scrollArea) return;
+      const rect = scrollArea.getBoundingClientRect();
+      drawLinkPreviewAtClient(
+        linkSourceTaskId,
+        rect.left + rect.width / 2,
+        rect.top + GANTT_HEADER_HEIGHT + 40,
+      );
+    });
+  }, [linkSourceTaskId, drawLinkPreviewAtClient, updateLinkPendingStyles]);
 
   const completeLink = useCallback(
     (predecessorId: number, successorId: number) => {
       if (predecessorId === successorId) return;
       onAddDependencyRef.current(predecessorId, successorId);
-      linkSourceRef.current = null;
-      clearLinkLine();
-      updateLinkPendingStyles();
+      clearLinkSession();
     },
-    [clearLinkLine, updateLinkPendingStyles],
+    [clearLinkSession],
   );
 
   const handleLinkClick = useCallback((taskId: number) => {
     if (!canModifyRef.current) return;
 
-    if (linkSourceRef.current == null) {
-      linkSourceRef.current = taskId;
-      onSelectTaskRef.current(taskId);
-      updateLinkPendingStyles();
+    const sourceId = resolveLinkSourceId();
+    if (sourceId == null) return;
+
+    if (sourceId === taskId) {
+      cancelLinkMode();
+      hideGanttTaskPopup();
       return;
     }
 
-    if (linkSourceRef.current === taskId) {
-      linkSourceRef.current = null;
-      clearLinkLine();
-      updateLinkPendingStyles();
-      return;
-    }
-
-    completeLink(linkSourceRef.current, taskId);
-    onSelectTaskRef.current(taskId);
-  }, [clearLinkLine, completeLink, updateLinkPendingStyles]);
+    completeLink(sourceId, taskId);
+    hideGanttTaskPopup();
+  }, [cancelLinkMode, completeLink, hideGanttTaskPopup, resolveLinkSourceId]);
 
   const mountGantt = useCallback(() => {
     const container = containerRef.current;
@@ -605,9 +762,10 @@ export function GanttChart({
       readonly_dates: !canModifyRef.current,
       readonly_progress: !canModifyRef.current,
       move_dependencies: false,
+      popup: ganttPopupHandler,
       on_click: (task: { id: string }) => {
         const taskId = Number(task.id);
-        if (linkModeRef.current && canModifyRef.current) {
+        if (linkSourceTaskIdRef.current != null && canModifyRef.current) {
           handleLinkClick(taskId);
           return;
         }
@@ -622,6 +780,7 @@ export function GanttChart({
         onTaskProgressChangeRef.current(Number(task.id), progress);
       },
     });
+    patchFrappeGanttResizeHandles(ganttRef.current);
     syncOverlaySize();
     updateLinkPendingStyles();
     renderDependencyOverlay();
@@ -632,13 +791,29 @@ export function GanttChart({
       syncHorizontalScrollWidth();
       syncHScrollFromFrappe();
     });
-  }, [applyTimelineRange, decorateBars, handleLinkClick, renderDependencyOverlay, syncHorizontalScrollWidth, syncHScrollFromFrappe, syncOverlaySize, updateLinkPendingStyles, viewModes]);
+  }, [applyTimelineRange, decorateBars, ganttPopupHandler, handleLinkClick, renderDependencyOverlay, syncHorizontalScrollWidth, syncHScrollFromFrappe, syncOverlaySize, updateLinkPendingStyles, viewModes]);
 
   useEffect(() => {
+    const trackPointer = (event: MouseEvent) => {
+      lastPointerRef.current = { x: event.clientX, y: event.clientY };
+    };
+    window.addEventListener('mousemove', trackPointer, { passive: true });
+    return () => window.removeEventListener('mousemove', trackPointer);
+  }, []);
+
+  useEffect(() => {
+    hideGanttTaskPopup();
+  }, [hideGanttTaskPopup, linkSourceTaskId]);
+
+  useEffect(() => {
+    if (linkSourceTaskId != null) return;
     linkSourceRef.current = null;
+    linkDragRef.current = null;
     clearLinkLine();
+    updateLinkTargetHighlight(null, null);
+    hideGanttTaskPopup();
     updateLinkPendingStyles();
-  }, [linkMode, clearLinkLine, updateLinkPendingStyles]);
+  }, [linkSourceTaskId, clearLinkLine, hideGanttTaskPopup, updateLinkPendingStyles, updateLinkTargetHighlight]);
 
   useEffect(() => {
     mountGantt();
@@ -727,6 +902,7 @@ export function GanttChart({
       visibleTasksRef.current.length,
     );
     ganttRef.current.refresh(toGanttTasks(visibleTasks));
+    patchFrappeGanttResizeHandles(ganttRef.current);
     syncOverlaySize();
     updateLinkPendingStyles();
     renderDependencyOverlay();
@@ -904,51 +1080,25 @@ export function GanttChart({
     const scrollArea = scrollRef.current;
     if (!container || !scrollArea || !canModify) return;
 
-    const onMouseDown = (event: MouseEvent) => {
-      if (!event.altKey && !linkModeRef.current) return;
-      const taskId = findTaskIdFromTarget(container, event.target);
-      if (taskId == null) return;
-
-      event.preventDefault();
-      linkDragRef.current = { fromId: taskId };
-      linkSourceRef.current = taskId;
-      updateLinkPendingStyles();
-
-      const point = toOverlayPoint(scrollArea, container, event.clientX, event.clientY);
-      drawLinkLine(taskId, point.x, point.y);
-    };
-
     const onMouseMove = (event: MouseEvent) => {
-      if (!linkDragRef.current) return;
-      const point = toOverlayPoint(scrollArea, container, event.clientX, event.clientY);
-      drawLinkLine(linkDragRef.current.fromId, point.x, point.y);
+      lastPointerRef.current = { x: event.clientX, y: event.clientY };
+      const fromId = resolveLinkSourceId();
+      if (fromId == null) return;
+      drawLinkPreviewAtClient(fromId, event.clientX, event.clientY, event.target);
+      updateLinkTargetHighlight(event.target, fromId);
     };
 
-    const onMouseUp = (event: MouseEvent) => {
-      if (!linkDragRef.current) return;
-      const fromId = linkDragRef.current.fromId;
-      linkDragRef.current = null;
-
-      const toId = findTaskIdFromTarget(container, event.target);
-      if (toId != null && toId !== fromId) {
-        completeLink(fromId, toId);
-      } else {
-        linkSourceRef.current = null;
-        clearLinkLine();
-        updateLinkPendingStyles();
-      }
-    };
-
-    container.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
 
     return () => {
-      container.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [canModify, clearLinkLine, completeLink, drawLinkLine, updateLinkPendingStyles]);
+  }, [
+    canModify,
+    drawLinkPreviewAtClient,
+    resolveLinkSourceId,
+    updateLinkTargetHighlight,
+  ]);
 
   useEffect(() => {
     renderDependencyOverlay();
@@ -999,7 +1149,7 @@ export function GanttChart({
   }, [tasks.length]);
 
   return (
-    <div className={`gantt-chart ${linkMode ? 'gantt-link-mode' : ''} ${canModify ? '' : 'gantt-readonly'}`}>
+    <div className={`gantt-chart ${linkSourceTaskId != null ? 'gantt-link-mode' : ''} ${canModify ? '' : 'gantt-readonly'}`}>
       <div
         ref={(node) => {
           scrollRef.current = node;

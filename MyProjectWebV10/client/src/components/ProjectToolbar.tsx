@@ -637,7 +637,7 @@ export function ProjectToolbar({
 
               onClick={onToggleLinkMode}
 
-              disabled={loading}
+              disabled={loading || !linkMode}
 
             >
 

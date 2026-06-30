@@ -5,6 +5,7 @@ export type LineEndStyle = GanttViewSettings['startLineEnd'];
 export type DependencyType = GanttViewSettings['defaultDependencyType'];
 
 const CUSTOM_DEPS_GROUP_CLASS = 'gantt-custom-dependencies';
+const LINK_PREVIEW_GROUP_CLASS = 'gantt-link-preview';
 const DEPS_CLIP_ID = 'gantt-deps-chart-clip';
 
 export interface Point {
@@ -380,6 +381,97 @@ export function renderDependencyLines(
       drawLineEnd(target, points[points.length - 2], points[points.length - 1], style.endLineEnd, style.color, 8);
     }
   }
+}
+
+export function clientPointToGanttSvg(svg: SVGSVGElement, clientX: number, clientY: number): Point {
+  const pt = svg.createSVGPoint();
+  pt.x = clientX;
+  pt.y = clientY;
+  const matrix = svg.getScreenCTM();
+  if (!matrix) return { x: 0, y: 0 };
+  const local = pt.matrixTransform(matrix.inverse());
+  return { x: local.x, y: local.y };
+}
+
+function cursorBarAnchors(svg: SVGSVGElement, clientX: number, clientY: number): BarAnchors {
+  const cursor = clientPointToGanttSvg(svg, clientX, clientY);
+  return {
+    left: cursor,
+    right: { x: cursor.x + 8, y: cursor.y },
+    center: cursor,
+  };
+}
+
+function ensureLinkPreviewGroup(barLayer: SVGGElement): SVGGElement {
+  const existing = barLayer.querySelector(`g.${LINK_PREVIEW_GROUP_CLASS}`);
+  if (existing instanceof SVGGElement) return existing;
+
+  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  group.setAttribute('class', LINK_PREVIEW_GROUP_CLASS);
+  group.setAttribute('pointer-events', 'none');
+  barLayer.appendChild(group);
+  return group;
+}
+
+/** Orthogonal preview while linking tasks (same geometry as finished dependency lines). */
+export function renderLinkPreview(
+  gantt: FrappeGanttLayers,
+  container: HTMLElement,
+  fromTaskId: number,
+  clientX: number,
+  clientY: number,
+  viewSettings: GanttViewSettings,
+  targetTaskId: number | null = null,
+): void {
+  const barLayer = gantt.layers?.bar;
+  const svg = gantt.$svg;
+  if (!barLayer || !svg) return;
+
+  const from = getBarAnchors(container, fromTaskId);
+  if (!from) return;
+
+  const to =
+    targetTaskId != null ? getBarAnchors(container, targetTaskId) : null;
+  const toAnchors = to ?? cursorBarAnchors(svg, clientX, clientY);
+
+  const depType = viewSettings.defaultDependencyType as DependencyType;
+  const pathData = buildDependencyPath(
+    depType,
+    from,
+    toAnchors,
+    viewSettings.pathStyle,
+    viewSettings.arrowCurve,
+  );
+  if (!pathData) return;
+
+  const group = ensureLinkPreviewGroup(barLayer);
+  group.replaceChildren();
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', pathData);
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', '#2563eb');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-dasharray', '6 4');
+  path.setAttribute('class', 'gantt-link-preview-path');
+  group.appendChild(path);
+
+  const points = buildOrthogonalPath(depType, from, toAnchors);
+  if (points.length >= 2) {
+    drawLineEnd(group, points[1], points[0], viewSettings.startLineEnd, '#2563eb', 8);
+    drawLineEnd(
+      group,
+      points[points.length - 2],
+      points[points.length - 1],
+      viewSettings.endLineEnd,
+      '#2563eb',
+      8,
+    );
+  }
+}
+
+export function clearLinkPreview(gantt: FrappeGanttLayers): void {
+  gantt.layers?.bar?.querySelector(`g.${LINK_PREVIEW_GROUP_CLASS}`)?.remove();
 }
 
 export function renderDependencyPreview(

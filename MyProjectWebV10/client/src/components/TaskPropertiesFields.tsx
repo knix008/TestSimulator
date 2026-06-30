@@ -4,6 +4,7 @@ import { getTaskName } from '../utils/scheduleUtils';
 import { getParentTask } from '../utils/taskModel';
 import type { TaskPropertiesDraft } from '../utils/taskPropertiesDraft';
 import { DateInput } from './DateInput';
+import { PercentInput } from './PercentInput';
 
 interface TaskPropertiesFieldsProps {
   task: TaskItem;
@@ -101,18 +102,13 @@ export function TaskPropertiesFields({
 
       <label className="task-prop-field">
         <span>{t('taskProps.progress')}</span>
-        <input
-          type="number"
+        <PercentInput
+          inputKey={task.taskId}
           min={0}
           max={100}
           value={values.progress}
           readOnly={readOnly}
-          onChange={(e) =>
-            setField(
-              'progress',
-              Math.min(100, Math.max(0, Number(e.target.value) || 0)),
-            )
-          }
+          onCommit={(progress) => setField('progress', progress)}
         />
       </label>
 
