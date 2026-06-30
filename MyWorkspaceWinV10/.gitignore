@@ -43,7 +43,7 @@ installer/obj/
 # Publish profiles
 **/Properties/PublishProfiles/
 
-# Generated MSBuild / designer (optional caches)
+# Generated MSBuild / designer caches
 *.g.cs
 *.g.i.cs
 *.AssemblyAttributes.cs
@@ -80,9 +80,10 @@ appsettings.local.json
 *.db-shm
 *.db-wal
 
-# WebView2 user-data caches (if created beside output)
+# WebView2 user-data caches (beside output or executable name)
 **/EBWebView/
 **/WebView2/
+**/*.exe.WebView2/
 
 # Crash dumps
 *.dmp
@@ -93,3 +94,6 @@ TestResults/
 coverage/
 scratch/
 export/
+
+# Note: src/MyWorkspace.Win/Assets/ (app.ico, Icons/**/*.png) is tracked in git.
+# Regenerate with: dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release

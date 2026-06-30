@@ -16,6 +16,7 @@ partial class AboutForm
         lblAppName = new Label();
         lblVersion = new Label();
         lblDescription = new Label();
+        lblCopyright = new Label();
         btnClose = new Button();
         SuspendLayout();
 
@@ -32,10 +33,16 @@ partial class AboutForm
 
         lblDescription.Location = new Point(24, 88);
         lblDescription.Name = "lblDescription";
-        lblDescription.Size = new Size(376, 72);
+        lblDescription.Size = new Size(376, 56);
         lblDescription.Text = "Description";
 
-        btnClose.Location = new Point(316, 176);
+        lblCopyright.AutoSize = true;
+        lblCopyright.ForeColor = SystemColors.GrayText;
+        lblCopyright.Location = new Point(24, 152);
+        lblCopyright.Name = "lblCopyright";
+        lblCopyright.Text = "Copyright";
+
+        btnClose.Location = new Point(316, 188);
         btnClose.Size = new Size(84, 32);
         btnClose.Text = "Close";
         btnClose.Click += btnClose_Click;
@@ -43,8 +50,9 @@ partial class AboutForm
         AcceptButton = btnClose;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(424, 224);
+        ClientSize = new Size(424, 236);
         Controls.Add(btnClose);
+        Controls.Add(lblCopyright);
         Controls.Add(lblDescription);
         Controls.Add(lblVersion);
         Controls.Add(lblAppName);
@@ -62,5 +70,6 @@ partial class AboutForm
     private Label lblAppName;
     private Label lblVersion;
     private Label lblDescription;
+    private Label lblCopyright;
     private Button btnClose;
 }

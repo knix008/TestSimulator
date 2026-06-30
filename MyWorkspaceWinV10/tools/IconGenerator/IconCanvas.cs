@@ -8,7 +8,10 @@ internal static class IconCanvas
 {
     private const float Grid = 12f;
 
-    public static Bitmap Create(int size, Action<Graphics, RectangleF> draw)
+    public static Bitmap Create(int size, Action<Graphics, RectangleF> draw) =>
+        Create(size, 0.1f, draw);
+
+    public static Bitmap Create(int size, float insetRatio, Action<Graphics, RectangleF> draw)
     {
         var bitmap = new Bitmap(size, size);
         using var graphics = Graphics.FromImage(bitmap);
@@ -17,7 +20,7 @@ internal static class IconCanvas
         graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
 
-        var inset = size * 0.1f;
+        var inset = size * insetRatio;
         var content = new RectangleF(inset, inset, size - inset * 2f, size - inset * 2f);
         draw(graphics, content);
         return bitmap;
@@ -82,5 +85,72 @@ internal static class IconCanvas
     {
         using var brush = new SolidBrush(color);
         graphics.FillPolygon(brush, points.Select(p => Point(content, p.x, p.y)).ToArray());
+    }
+
+    public static void FillRoundedRectangle(Graphics graphics, RectangleF content, float x, float y, float width, float height, float cornerRadius, Color color)
+    {
+        var rect = Box(content, x, y, width, height);
+        using var path = RoundedRect(rect, cornerRadius * content.Width / Grid);
+        using var brush = new SolidBrush(color);
+        graphics.FillPath(brush, path);
+    }
+
+    public static void DrawRoundedRectangle(Graphics graphics, RectangleF content, float x, float y, float width, float height, float cornerRadius, Color color, float thickness)
+    {
+        var rect = Box(content, x, y, width, height);
+        using var path = RoundedRect(rect, cornerRadius * content.Width / Grid);
+        using var pen = new Pen(color, thickness) { LineJoin = LineJoin.Round };
+        graphics.DrawPath(pen, path);
+    }
+
+    public static void FillRoundedRectangleGradient(
+        Graphics graphics,
+        RectangleF content,
+        float x,
+        float y,
+        float width,
+        float height,
+        float cornerRadius,
+        Color startColor,
+        Color endColor,
+        float angleDegrees = 45f)
+    {
+        var rect = Box(content, x, y, width, height);
+        using var path = RoundedRect(rect, cornerRadius * content.Width / Grid);
+        using var brush = new LinearGradientBrush(rect, startColor, endColor, angleDegrees);
+        graphics.FillPath(brush, path);
+    }
+
+    public static void FillEllipseGradient(
+        Graphics graphics,
+        RectangleF content,
+        float x,
+        float y,
+        float width,
+        float height,
+        Color innerColor,
+        Color outerColor)
+    {
+        var rect = Box(content, x, y, width, height);
+        using var path = new GraphicsPath();
+        path.AddEllipse(rect);
+        using var brush = new PathGradientBrush(path)
+        {
+            CenterColor = innerColor,
+            SurroundColors = [outerColor]
+        };
+        graphics.FillPath(brush, path);
+    }
+
+    private static GraphicsPath RoundedRect(RectangleF rect, float radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = Math.Min(radius * 2f, Math.Min(rect.Width, rect.Height));
+        path.AddArc(rect.X, rect.Y, diameter, diameter, 180f, 90f);
+        path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270f, 90f);
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0f, 90f);
+        path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90f, 90f);
+        path.CloseFigure();
+        return path;
     }
 }

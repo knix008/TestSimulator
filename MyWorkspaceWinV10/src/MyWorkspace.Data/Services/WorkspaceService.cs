@@ -123,9 +123,6 @@ public sealed class WorkspaceService : IWorkspaceService
         if (parentId.HasValue && !CanAccessWorkspace(currentUser, parentId.Value))
             throw new InvalidOperationException("상위 Workspace에 접근할 수 없습니다.");
 
-        if (parentId.HasValue)
-            EnsureParentAllowsChildWorkspace(parentId.Value);
-
         var now = DateTime.UtcNow;
         var workspace = new Workspace
         {
@@ -185,8 +182,6 @@ public sealed class WorkspaceService : IWorkspaceService
 
             if (IsDescendantOf(newParentId.Value, workspaceId))
                 throw new InvalidOperationException("하위 Workspace로는 이동할 수 없습니다.");
-
-            EnsureParentAllowsChildWorkspace(newParentId.Value);
         }
 
         var workspace = _db.Workspaces.First(w => w.Id == workspaceId);
@@ -330,12 +325,6 @@ public sealed class WorkspaceService : IWorkspaceService
     {
         if (!CanManageWorkspace(currentUser, workspaceId))
             throw new InvalidOperationException("Workspace를 관리할 권한이 없습니다.");
-    }
-
-    private void EnsureParentAllowsChildWorkspace(int parentWorkspaceId)
-    {
-        if (HasPages(parentWorkspaceId))
-            throw new InvalidOperationException("Page가 있는 Workspace에는 하위 Workspace를 만들 수 없습니다.");
     }
 
     private bool IsDescendantOf(int nodeId, int potentialAncestorId)

@@ -12,9 +12,12 @@ public partial class MainForm : Form
     private ImageList _toolbarIcons = null!;
 
     private int? _currentPageId;
+    private int? _draftWorkspaceId;
     private bool _isLoadingPage;
     private bool _isDirty;
     private bool _suppressOutlineNavigation;
+    private bool _suppressWorkspaceSelection;
+    private bool _pageCreateInProgress;
     private string _lastActiveHeadingId = string.Empty;
     private int _savedOutlineWidth = 110;
 
@@ -61,7 +64,7 @@ public partial class MainForm : Form
         treeOutline.ImageList = OutlineIcons.CreateImageList();
 
         AppIcons.ApplyMenuIcons(
-            menuSavePage, menuPageHistory, menuRefreshTree, menuLogin, menuLogout, menuExit,
+            menuSavePage, menuPageHistory, menuRefreshTree, menuLogin, menuLogout, menuAbout, menuExit,
             menuPreferences, menuDocumentStructure, menuNewRootWorkspace, menuNewSubWorkspace, menuNewPage, menuRename, menuDelete,
             menuWorkspaceMembers, menuAdminUserManagement, menuAdminDatabaseSettings,
             menuAdminEmailSettings, menuEditProfile, menuChangePassword, menuNotificationSettings,
@@ -81,8 +84,6 @@ public partial class MainForm : Form
         menuAdmin.Image = menuAdminUserManagement.Image;
         menuAccount.Image = menuEditProfile.Image;
 
-        _toolbarIcons = AppIcons.CreateToolbarImageList();
-        toolStripMarkdown.ImageList = _toolbarIcons;
         SetupWysiwygToolbar();
 
         SetupTreeDragDrop();
@@ -173,6 +174,7 @@ public partial class MainForm : Form
         treeOutline.Nodes.Clear();
         txtTitle.Clear();
         _currentPageId = null;
+        _draftWorkspaceId = null;
         _isDirty = false;
 
         _ = _editor.ClearAsync(_pipeline);
@@ -248,7 +250,12 @@ public partial class MainForm : Form
             return;
         }
 
-        MarkPageDirty();
+        _ = OnEditorContentChangedAsync();
+    }
+
+    private async Task OnEditorContentChangedAsync()
+    {
+        await MarkPageDirtyAsync();
         ScheduleOutlineUpdate();
     }
 
@@ -369,7 +376,21 @@ public partial class MainForm : Form
 
     private void MarkPageDirty()
     {
-        if (_isLoadingPage || !_currentPageId.HasValue)
+        if (_isLoadingPage)
+            return;
+
+        _ = MarkPageDirtyAsync();
+    }
+
+    private async Task MarkPageDirtyAsync()
+    {
+        if (_isLoadingPage)
+            return;
+
+        if (!await EnsurePageCreatedAsync())
+            return;
+
+        if (!_currentPageId.HasValue)
             return;
 
         _isDirty = true;
@@ -469,6 +490,9 @@ public partial class MainForm : Form
 
     private void treeWorkspace_AfterSelect(object sender, TreeViewEventArgs e)
     {
+        if (_suppressWorkspaceSelection)
+            return;
+
         if (e.Node?.Tag is not TreeNodeData data)
             return;
 
@@ -479,7 +503,16 @@ public partial class MainForm : Form
         }
 
         if (data.Kind == TreeNodeKind.Page)
+        {
+            if (_currentPageId == data.Id)
+                return;
+
             _ = LoadPageAsync(data.Id);
+            return;
+        }
+
+        if (data.Kind == TreeNodeKind.Workspace)
+            _ = PrepareWorkspaceEditAsync(data.Id);
         else
             _ = ClearEditorAsync();
     }
@@ -497,6 +530,7 @@ public partial class MainForm : Form
 
         _isLoadingPage = true;
         _currentPageId = page.Id;
+        _draftWorkspaceId = null;
         txtTitle.Text = page.Title;
 
         try
@@ -520,6 +554,7 @@ public partial class MainForm : Form
     {
         await SaveCurrentPageAsync(refreshTree: false);
         _currentPageId = null;
+        _draftWorkspaceId = null;
         _isLoadingPage = true;
         txtTitle.Clear();
 
@@ -539,6 +574,88 @@ public partial class MainForm : Form
         lblStatus.Text = SessionContext.IsAdmin
             ? Localization.Get(K.StatusAdmin)
             : Localization.Get(K.StatusUser);
+    }
+
+    private async Task PrepareWorkspaceEditAsync(int workspaceId)
+    {
+        await SaveCurrentPageAsync(refreshTree: false);
+
+        _currentPageId = null;
+        _draftWorkspaceId = workspaceId;
+        _isLoadingPage = true;
+        txtTitle.Text = Localization.Get(K.UntitledPageTitle);
+
+        try
+        {
+            await _editor.ClearAsync(_pipeline);
+            await _editor.FocusAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.EditorClearFailed), ex);
+        }
+
+        _isLoadingPage = false;
+        _isDirty = false;
+        SetSaveStatus(SaveStatusKind.None);
+        treeOutline.Nodes.Clear();
+        lblStatus.Text = Localization.Format(K.StatusPage, txtTitle.Text.Trim());
+    }
+
+    private async Task<bool> EnsurePageCreatedAsync()
+    {
+        if (_currentPageId.HasValue)
+            return true;
+
+        if (!_draftWorkspaceId.HasValue || !SessionContext.IsLoggedIn)
+            return false;
+
+        if (_pageCreateInProgress)
+            return false;
+
+        _pageCreateInProgress = true;
+        try
+        {
+            var title = txtTitle.Text.Trim();
+            if (string.IsNullOrEmpty(title))
+                title = Localization.Get(K.UntitledPageTitle);
+
+            var content = await _editor.GetMarkdownAsync();
+            if (string.IsNullOrWhiteSpace(content))
+                content = " ";
+
+            var page = AppConfig.Services.Pages.CreatePage(
+                SessionContext.CurrentUser,
+                _draftWorkspaceId.Value,
+                title,
+                content);
+
+            _currentPageId = page.Id;
+            _draftWorkspaceId = null;
+
+            _suppressWorkspaceSelection = true;
+            try
+            {
+                LoadWorkspaceTree(selectPageId: page.Id);
+            }
+            finally
+            {
+                _suppressWorkspaceSelection = false;
+            }
+
+            lblStatus.Text = Localization.Format(K.StatusPage, title);
+            await UpdateOutlineAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, L.AppName, ex);
+            return false;
+        }
+        finally
+        {
+            _pageCreateInProgress = false;
+        }
     }
 
     private async Task UpdateOutlineAsync()
@@ -685,6 +802,8 @@ public partial class MainForm : Form
         form.ShowDialog(this);
     }
 
+    private void menuAbout_Click(object? sender, EventArgs e) => ShowAboutDialog();
+
     private void btnToggleOutline_Click(object? sender, EventArgs e) => ToggleOutlinePanel();
 
     private void ToggleOutlinePanel()
@@ -788,7 +907,7 @@ public partial class MainForm : Form
 
     private async void menuSavePage_Click(object sender, EventArgs e)
     {
-        if (!_currentPageId.HasValue)
+        if (!await EnsurePageCreatedAsync() || !_currentPageId.HasValue)
         {
             MessageBox.Show(Localization.Get(K.SelectPageToSave), L.AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
@@ -1126,8 +1245,16 @@ public partial class MainForm : Form
 
     private void menuDocumentStructure_Click(object? sender, EventArgs e) => ToggleOutlinePanel();
 
+    private void RefreshToolbarIcons()
+    {
+        _toolbarIcons?.Dispose();
+        _toolbarIcons = AppIcons.CreateToolbarImageList();
+        toolStripMarkdown.ImageList = _toolbarIcons;
+    }
+
     private void SetupWysiwygToolbar()
     {
+        RefreshToolbarIcons();
         toolStripMarkdown.GripStyle = ToolStripGripStyle.Hidden;
         toolStripMarkdown.Items.Clear();
 
@@ -1277,7 +1404,7 @@ public partial class MainForm : Form
             if (sourceData.Id == targetData.Id)
                 return false;
 
-            return !AppConfig.Services.Workspaces.HasPages(targetData.Id);
+            return AppConfig.Services.Workspaces.CanManageWorkspace(SessionContext.CurrentUser, targetData.Id);
         }
 
         return false;

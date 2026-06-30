@@ -10,6 +10,7 @@ internal static class OutlineIcons
     public static ImageList CreateImageList() =>
         IconAssets.CreateImageList(
             16,
+            false,
             ("h1", "h1"),
             ("h2", "h2"),
             ("h3", "h3"));

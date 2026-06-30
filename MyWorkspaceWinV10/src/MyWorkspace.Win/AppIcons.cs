@@ -8,6 +8,7 @@ internal static class AppIcons
     public static ImageList CreateToolbarImageList() =>
         IconAssets.CreateImageList(
             ToolbarIconSize,
+            AppTheme.IsDark,
             ("h1", "h1"),
             ("h2", "h2"),
             ("h3", "h3"),
@@ -35,6 +36,7 @@ internal static class AppIcons
         ToolStripMenuItem menuRefreshTree,
         ToolStripMenuItem menuLogin,
         ToolStripMenuItem menuLogout,
+        ToolStripMenuItem menuAbout,
         ToolStripMenuItem menuExit,
         ToolStripMenuItem menuPreferences,
         ToolStripMenuItem menuDocumentStructure,
@@ -62,6 +64,7 @@ internal static class AppIcons
         menuRefreshTree.Image = IconAssets.Load(MenuIconSize, "refresh");
         menuLogin.Image = IconAssets.Load(MenuIconSize, "login");
         menuLogout.Image = IconAssets.Load(MenuIconSize, "logout");
+        menuAbout.Image = IconAssets.Load(MenuIconSize, "info");
         menuExit.Image = IconAssets.Load(MenuIconSize, "exit");
         menuPreferences.Image = IconAssets.Load(MenuIconSize, "preferences");
         menuDocumentStructure.Image = IconAssets.Load(MenuIconSize, "outline");

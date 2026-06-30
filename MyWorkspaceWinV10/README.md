@@ -1,6 +1,6 @@
 # MyWorkspace
 
-Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이션입니다. 계층형 Workspace, Markdown Page 편집·미리보기, 버전 이력, 다중 DB 지원, 사용자·관리자 권한, Workspace 즐겨찾기, 선택적 이메일 알림을 제공합니다.
+Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이션입니다. 계층형 Workspace, Markdown Page 편집·미리보기, 버전 이력, 다중 DB 지원, 사용자·관리자 권한, Workspace 즐겨찾기, 밝기/어두운 테마, 선택적 이메일 알림을 제공합니다.
 
 **사용자 가이드**: 상세 사용법은 [UsersGuide.md](UsersGuide.md)를 참고하세요.
 
@@ -41,17 +41,29 @@ dotnet build src/MyWorkspace.Win/MyWorkspace.Win.csproj -c Release -p:SkipInstal
 
 - MSI 경로: `installer/bin/Release/ko-kr/MyWorkspaceWinV10Setup.msi`
 
+### 아이콘 재생성
+
+UI·프로그램 아이콘(`Assets/app.ico`, `Assets/Icons/**/*.png`)을 수정·재생성하려면:
+
+```bash
+dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
+```
+
+`Assets` 파일이 없으면 Win 프로젝트 빌드 시 위 도구가 자동 실행됩니다 (`GenerateIconsIfMissing` MSBuild 타깃).
+
 ## 주요 기능
 
 | 영역 | 설명 |
 |------|------|
-| **Workspace** | 계층 구조, 드래그 앤 드롭 이동, 멤버 관리 |
+| **Workspace** | 계층 구조, Page와 하위 Workspace 공존, 드래그 앤 드롭 이동, 멤버 관리 |
 | **Page** | Markdown 편집, WebView2 실시간 미리보기, 자동 저장(2초) |
+| **빠른 Page 작성** | Workspace 선택 후 바로 편집하면 `제목 없음` Page 자동 생성 |
 | **템플릿** | 내장·사용자 Page 템플릿 (`.mdtemplate`) |
 | **버전 이력** | Page당 최대 50개 스냅샷, 복원 |
 | **인증** | 관리자 / 일반 사용자, DB 기반 계정 |
 | **DB** | MariaDB, MySQL, PostgreSQL, SQL Server, SQLite 3 |
 | **즐겨찾기** | 등록된 Workspace 즐겨찾기 (DB 저장) |
+| **테마** | 밝게 / 어둡게 (환경 설정), 다크 모드 Markdown 툴바 아이콘 자동 보정 |
 | **알림** | SMTP 설정 시 Page·Workspace 변경 이메일 (선택) |
 
 ## 데이터베이스
@@ -78,6 +90,9 @@ MyWorkspaceWinV10/
 │   ├── MyWorkspace.Core/     # 엔티티, enum, 서비스 인터페이스, 모델
 │   ├── MyWorkspace.Data/     # EF Core, DbContext, 서비스 구현
 │   └── MyWorkspace.Win/      # WinForms UI, appsettings.json, Page 템플릿
+│       └── Assets/           # app.ico, Icons/s16·s20 PNG (임베드 리소스)
+├── tools/
+│   └── IconGenerator/        # PNG·ICO 아이콘 생성 도구
 ├── database/
 │   └── schema.sql            # MariaDB DDL 참고
 ├── installer/                # WiX MSI
@@ -91,7 +106,7 @@ MyWorkspaceWinV10/
 | 파일 | 용도 |
 |------|------|
 | `src/MyWorkspace.Win/appsettings.json` | 기본 DB·Email 설정 (저장소에 포함) |
-| `%LocalAppData%\MyWorkspaceWinV10\appsettings.local.json` | 사용자 DB·SMTP 오버라이드 (로컬, git 제외) |
+| `%LocalAppData%\MyWorkspaceWinV10\appsettings.local.json` | 사용자 DB·SMTP·테마·언어 오버라이드 (로컬, git 제외) |
 | `%LocalAppData%\MyWorkspaceWinV10\Templates\Pages\` | 사용자 Page 템플릿 |
 
 ## 의존성 (NuGet)
@@ -106,13 +121,16 @@ MyWorkspaceWinV10/
 | Markdig | Win | Markdown → HTML |
 | Microsoft.Web.WebView2 | Win | 미리보기 |
 | Microsoft.Extensions.Configuration.Json | Win | 설정 로드 |
+| ReverseMarkdown | Win | HTML → Markdown (붙여넣기 등) |
 
 ## 아키텍처 메모
 
 - **Core / Data / Win** 3계층 분리 — 향후 웹 버전 재사용을 고려
 - WinForms: 로직은 `Form.cs`, 레이아웃은 `Form.Designer.cs` (Visual Studio 디자이너 편집 가능)
 - `AppServices`가 Data 계층 서비스를 수동 조립 (`AppConfig`에서 로드)
+- UI 테마: `AppTheme`, `ThemePalette`, `ThemedTreeView` — 트리 연결선·선택 하이라이트·다크 모드 일괄 적용
+- 아이콘: `IconAssets`가 `Assets` 임베드 리소스 로드, `IconGenerator`로 일괄 생성
 
 ## 라이선스
 
-Copyright © 2026 MyWorkspace
+Copyright © 2026 SHKWON(knix008@naver.com)

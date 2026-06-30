@@ -27,6 +27,8 @@ partial class MainForm
         menuSepFilePref = new ToolStripSeparator();
         menuLogin = new ToolStripMenuItem();
         menuLogout = new ToolStripMenuItem();
+        menuSepFileAbout = new ToolStripSeparator();
+        menuAbout = new ToolStripMenuItem();
         menuExit = new ToolStripMenuItem();
         menuWorkspace = new ToolStripMenuItem();
         menuNewRootWorkspace = new ToolStripMenuItem();
@@ -104,7 +106,7 @@ partial class MainForm
         // 
         // menuFile
         // 
-        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuSavePage, menuPageHistory, menuRefreshTree, menuSepFile1, menuPreferences, menuSepFilePref, menuLogin, menuLogout, menuExit });
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuSavePage, menuPageHistory, menuRefreshTree, menuSepFile1, menuPreferences, menuSepFilePref, menuLogin, menuLogout, menuSepFileAbout, menuAbout, menuExit });
         menuFile.Name = "menuFile";
         menuFile.Size = new Size(57, 20);
         menuFile.Text = "파일(&F)";
@@ -161,6 +163,18 @@ partial class MainForm
         menuLogout.Size = new Size(185, 22);
         menuLogout.Text = "로그아웃(&L)";
         menuLogout.Click += menuLogout_Click;
+        // 
+        // menuSepFileAbout
+        // 
+        menuSepFileAbout.Name = "menuSepFileAbout";
+        menuSepFileAbout.Size = new Size(182, 6);
+        // 
+        // menuAbout
+        // 
+        menuAbout.Name = "menuAbout";
+        menuAbout.Size = new Size(185, 22);
+        menuAbout.Text = "프로그램 정보(&A)...";
+        menuAbout.Click += menuAbout_Click;
         // 
         // menuExit
         // 
@@ -608,6 +622,8 @@ partial class MainForm
     private ToolStripSeparator menuSepFilePref;
     private ToolStripMenuItem menuLogin;
     private ToolStripMenuItem menuLogout;
+    private ToolStripSeparator menuSepFileAbout;
+    private ToolStripMenuItem menuAbout;
     private ToolStripMenuItem menuExit;
     private ToolStripMenuItem menuView;
     private ToolStripMenuItem menuDocumentStructure;

@@ -54,8 +54,10 @@ internal static class Program
         using var icon16 = IconDrawing.AppIcon(16);
         using var icon32 = IconDrawing.AppIcon(32);
         using var icon48 = IconDrawing.AppIcon(48);
+        using var icon64 = IconDrawing.AppIcon(64);
+        using var icon128 = IconDrawing.AppIcon(128);
         using var icon256 = IconDrawing.AppIcon(256);
-        IcoWriter.Save(appIconPath, icon16, icon32, icon48, icon256);
+        IcoWriter.Save(appIconPath, icon16, icon32, icon48, icon64, icon128, icon256);
         Console.WriteLine($"Generated {appIconPath}");
 
         Console.WriteLine($"Done. Generated {generated} PNG icons and app.ico in {AssetsRoot}.");

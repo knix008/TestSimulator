@@ -18,6 +18,9 @@ public partial class AboutForm : Form
         lblVersion.Text = string.Format(
             Localization.Get(K.AboutVersionFormat),
             version?.ToString(3) ?? "1.0.0");
+        lblCopyright.Text = string.Format(
+            Localization.Get(K.AboutCopyrightFormat),
+            DateTime.Now.Year);
     }
 
     private void ApplyLocalization()
@@ -25,6 +28,9 @@ public partial class AboutForm : Form
         Text = Localization.Get(K.AboutTitle);
         lblAppName.Text = Localization.Get(K.AppName);
         lblDescription.Text = Localization.Get(K.AboutDescription);
+        lblCopyright.Text = string.Format(
+            Localization.Get(K.AboutCopyrightFormat),
+            DateTime.Now.Year);
         btnClose.Text = Localization.Get(K.ButtonClose);
     }
 

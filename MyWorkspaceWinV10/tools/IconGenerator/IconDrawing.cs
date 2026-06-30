@@ -340,12 +340,56 @@ internal static class IconDrawing
         });
 
     public static Bitmap AppIcon(int size) =>
-        IconCanvas.Create(size, (g, c) =>
+        IconCanvas.Create(size, 0.04f, (g, c) =>
         {
-            IconCanvas.FillEllipse(g, c, 0.5f, 0.5f, 11f, 11f, Color.FromArgb(9, 105, 218));
-            IconCanvas.FillRectangle(g, c, 3.5f, 2.5f, 5f, 7.5f, Color.White);
-            IconCanvas.FillPolygon(g, c, Color.FromArgb(218, 232, 252), (6.5f, 2.5f), (8.5f, 2.5f), (8.5f, 4.5f));
-            IconCanvas.DrawLine(g, c, 4.5f, 5.5f, 7.5f, 5.5f, Color.FromArgb(9, 105, 218), Math.Max(1f, size * 0.08f));
-            IconCanvas.DrawLine(g, c, 4.5f, 7.5f, 7f, 7.5f, Color.FromArgb(9, 105, 218), Math.Max(1f, size * 0.08f));
+            // Vibrant gradient tile — fills nearly the full canvas.
+            IconCanvas.FillRoundedRectangleGradient(
+                g, c, 0.2f, 0.2f, 11.6f, 11.6f, 2.8f,
+                Color.FromArgb(124, 58, 237),
+                Color.FromArgb(14, 165, 233),
+                135f);
+
+            // Golden accent ring.
+            IconCanvas.DrawRoundedRectangle(
+                g, c, 0.6f, 0.6f, 10.8f, 10.8f, 2.6f,
+                Color.FromArgb(250, 204, 21), Math.Max(1.2f, size * 0.045f));
+
+            // Soft inner glow.
+            IconCanvas.FillEllipseGradient(
+                g, c, 1.5f, 1.2f, 9f, 4.5f,
+                Color.FromArgb(90, 255, 255, 255),
+                Color.FromArgb(0, 255, 255, 255));
+
+            // Large workspace folder (back layer).
+            var folderOrange = Color.FromArgb(251, 146, 60);
+            var folderGold = Color.FromArgb(253, 186, 116);
+            IconCanvas.FillRoundedRectangle(g, c, 0.8f, 4.8f, 10.4f, 6.8f, 0.9f, folderOrange);
+            IconCanvas.FillRoundedRectangle(g, c, 0.8f, 3.2f, 5.2f, 2.4f, 0.6f, folderGold);
+
+            // Large document (front layer).
+            IconCanvas.FillRoundedRectangle(g, c, 3.2f, 1.4f, 7.6f, 9.8f, 0.7f, Color.White);
+            IconCanvas.FillPolygon(
+                g, c, Color.FromArgb(219, 234, 254),
+                (8.2f, 1.4f), (10.8f, 1.4f), (10.8f, 4f));
+            IconCanvas.DrawLine(g, c, 4.6f, 5.2f, 9.4f, 5.2f, Color.FromArgb(59, 130, 246), Math.Max(1f, size * 0.07f));
+            IconCanvas.DrawLine(g, c, 4.6f, 7.2f, 8.8f, 7.2f, Color.FromArgb(96, 165, 250), Math.Max(1f, size * 0.07f));
+            IconCanvas.DrawLine(g, c, 4.6f, 9.2f, 8f, 9.2f, Color.FromArgb(147, 197, 253), Math.Max(1f, size * 0.07f));
+
+            // Bold "M" monogram badge.
+            IconCanvas.FillEllipse(g, c, 1.2f, 1.2f, 3.6f, 3.6f, Color.FromArgb(236, 72, 153));
+            IconCanvas.DrawStringCentered(g, IconCanvas.Box(c, 1.2f, 1.2f, 3.6f, 3.6f), "M", size * 0.28f, Color.White, FontStyle.Bold);
+
+            // Sparkle accents.
+            DrawSparkle(g, c, 10.2f, 2.4f, size, Color.FromArgb(254, 240, 138));
+            DrawSparkle(g, c, 9.6f, 10.4f, size, Color.FromArgb(255, 255, 255));
+            DrawSparkle(g, c, 1.8f, 10.6f, size, Color.FromArgb(253, 224, 71));
         });
+
+    private static void DrawSparkle(Graphics g, RectangleF c, float x, float y, int size, Color color)
+    {
+        var arm = Math.Max(1f, size * 0.06f);
+        IconCanvas.DrawLine(g, c, x - 0.5f, y, x + 0.5f, y, color, arm);
+        IconCanvas.DrawLine(g, c, x, y - 0.5f, x, y + 0.5f, color, arm);
+        IconCanvas.FillEllipse(g, c, x - 0.35f, y - 0.35f, 0.7f, 0.7f, color);
+    }
 }

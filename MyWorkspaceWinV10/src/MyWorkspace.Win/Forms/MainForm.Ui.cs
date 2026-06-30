@@ -44,6 +44,7 @@ public partial class MainForm
         menuPreferences.Text = Localization.Get(K.MenuPreferences);
         menuLogin.Text = Localization.Get(K.MenuLogin);
         menuLogout.Text = Localization.Get(K.MenuLogout);
+        menuAbout.Text = Localization.Get(K.MenuAbout);
         menuExit.Text = Localization.Get(K.MenuExit);
         menuWorkspace.Text = Localization.Get(K.MenuWorkspace);
         menuNewRootWorkspace.Text = Localization.Get(K.MenuNewRootWorkspace);

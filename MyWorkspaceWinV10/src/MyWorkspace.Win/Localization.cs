@@ -76,6 +76,7 @@ internal static class Localization
         Add(K.MenuPreferences, "환경 설정(&P)...", "&Preferences...");
         Add(K.MenuLogin, "로그인(&L)...", "&Sign In...");
         Add(K.MenuLogout, "로그아웃(&L)", "Sign &Out");
+        Add(K.MenuAbout, "프로그램 정보(&A)...", "&About...");
         Add(K.MenuExit, "종료(&X)", "E&xit");
         Add(K.MenuWorkspace, "Workspace(&W)", "&Workspace");
         Add(K.MenuNewRootWorkspace, "새 Workspace", "New Workspace");
@@ -109,6 +110,7 @@ internal static class Localization
         Add(K.OutlineExpand, "▶ 펼치기", "▶ Expand");
         Add(K.FavoritesRoot, "즐겨찾기", "Favorites");
         Add(K.OutlineUntitled, "(제목 없음)", "(Untitled)");
+        Add(K.UntitledPageTitle, "제목 없음", "Untitled");
 
         Add(K.ToolbarHeading1, "제목 1", "Heading 1");
         Add(K.ToolbarHeading2, "제목 2", "Heading 2");
@@ -133,6 +135,7 @@ internal static class Localization
         Add(K.AboutTitle, "프로그램 정보", "About");
         Add(K.AboutDescription, "Notion 스타일의 Workspace·Page 관리 데스크톱 애플리케이션입니다.", "A Notion-style desktop app for managing workspaces and pages.");
         Add(K.AboutVersionFormat, "버전 {0}", "Version {0}");
+        Add(K.AboutCopyrightFormat, "Copyright © {0} SHKWON(knix008@naver.com)", "Copyright © {0} SHKWON(knix008@naver.com)");
 
         Add(K.EditorCut, "잘라내기", "Cut");
         Add(K.EditorCopy, "복사", "Copy");
@@ -334,6 +337,7 @@ internal static class K
     public const string MenuPreferences = "MenuPreferences";
     public const string MenuLogin = "MenuLogin";
     public const string MenuLogout = "MenuLogout";
+    public const string MenuAbout = "MenuAbout";
     public const string MenuExit = "MenuExit";
     public const string MenuWorkspace = "MenuWorkspace";
     public const string MenuNewRootWorkspace = "MenuNewRootWorkspace";
@@ -367,6 +371,7 @@ internal static class K
     public const string OutlineExpand = "OutlineExpand";
     public const string FavoritesRoot = "FavoritesRoot";
     public const string OutlineUntitled = "OutlineUntitled";
+    public const string UntitledPageTitle = "UntitledPageTitle";
 
     public const string ToolbarHeading1 = "ToolbarHeading1";
     public const string ToolbarHeading2 = "ToolbarHeading2";
@@ -391,6 +396,7 @@ internal static class K
     public const string AboutTitle = "AboutTitle";
     public const string AboutDescription = "AboutDescription";
     public const string AboutVersionFormat = "AboutVersionFormat";
+    public const string AboutCopyrightFormat = "AboutCopyrightFormat";
 
     public const string EditorCut = "EditorCut";
     public const string EditorCopy = "EditorCopy";
