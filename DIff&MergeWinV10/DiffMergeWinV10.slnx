@@ -1,7 +1,0 @@
-<Solution>
-  <Project Path="DiffMergeWinV10.App/DiffMergeWinV10.App.csproj" />
-  <Project Path="installer/DiffMergeWinV10.Installer.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0">
-    <Platform Solution="Any CPU" Project="x64" />
-    <Platform Solution="x64" Project="x64" />
-  </Project>
-</Solution>

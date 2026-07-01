@@ -17,4 +17,16 @@
     </None>
   </ItemGroup>
 
+  <!-- Release build in Visual Studio: publish + WiX MSI (SkipInstaller=true avoids recursion from wixproj). -->
+  <Target Name="BuildMsiPackage"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'
+                     and '$(SkipInstaller)' != 'true'
+                     and '$(DesignTimeBuild)' != 'true'
+                     and '$(BuildingProject)' == 'true'">
+    <Message Importance="high" Text="Building MSI: installer\bin\Release\DiffMergeWinV10Setup.msi" />
+    <Exec WorkingDirectory="$(MSBuildThisFileDirectory).."
+          Command="dotnet build &quot;$(MSBuildThisFileDirectory)..\installer\DiffMergeWinV10.Installer.wixproj&quot; -c Release -p:Platform=x64 -p:BuildProjectReferences=false" />
+  </Target>
+
 </Project>
