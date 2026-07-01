@@ -32,7 +32,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(PkgWixToolset_UI_wixext)' != ''">$(PkgWixToolset_UI_wixext)\wixext6\WixToolset.UI.wixext.dll</_UiWixExtDll>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.ui.wixext\6.0.2\wixext6\WixToolset.UI.wixext.dll</_UiWixExtDll>
+  </PropertyGroup>
+  <ItemGroup>
+    <WixExtension Include="$(_UiWixExtDll)" Condition="Exists('$(_UiWixExtDll)')" />
   </ItemGroup>
 
   <ItemGroup>
