@@ -111,6 +111,13 @@ public partial class BrowseRemoteRepositoryForm : Form
             return;
         }
 
+        url = RemoteUrlNormalizer.Normalize(url);
+        if (RemoteUrlNormalizer.RequiresHttpsScheme(urlTextBox.Text.Trim()))
+        {
+            MessageBox.Show(this, Localization.T("Clone.Error.UnsupportedUrl"), Localization.T("App.Title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         _settings.RecordRecentCloneUrl(url);
         _settings.Save();
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
@@ -123,7 +130,14 @@ public partial class BrowseRemoteRepositoryForm : Form
         SetBusy(true);
         ResetProgress();
         statusLabel.Text = Localization.Tf("Status.Downloading", 0);
-        var prompt = new CredentialsPrompt(this, _lastUsername, _lastPassword);
+        string? savedToken = _settings.GetGitHubToken();
+        bool hasSavedCredentials = !string.IsNullOrWhiteSpace(_settings.GitHubUsername)
+            && !string.IsNullOrWhiteSpace(savedToken);
+        var prompt = new CredentialsPrompt(
+            this,
+            _settings.GitHubUsername ?? _lastUsername,
+            savedToken ?? _lastPassword,
+            allowSilentReuse: hasSavedCredentials);
         try
         {
             var path = await Task.Run(

@@ -122,6 +122,20 @@ public partial class CloneRepositoryForm : Form
             return;
         }
 
+        url = RemoteUrlNormalizer.Normalize(url);
+        if (RemoteUrlNormalizer.RequiresHttpsScheme(urlTextBox.Text.Trim()))
+        {
+            MessageBox.Show(this, Localization.T("Clone.Error.UnsupportedUrl"), Localization.T("App.Title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        string parentFolder = destination;
+        if (!RemoteUrlNormalizer.TryResolveCloneDestination(parentFolder, url, out string clonePath, out string? resolveError))
+        {
+            MessageBox.Show(this, resolveError ?? Localization.T("Clone.Failed"), Localization.T("App.Title"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         _settings.RecordRecentCloneUrl(url);
         _settings.Save();
         urlTextBox.AutoCompleteCustomSource = CreateRecentUrlSource();
@@ -134,20 +148,27 @@ public partial class CloneRepositoryForm : Form
         SetBusy(true);
         ResetProgress();
         statusLabel.Text = Localization.Tf("Status.Cloning", 0);
-        var prompt = new CredentialsPrompt(this, _lastUsername, _lastPassword);
+        string? savedToken = _settings.GetGitHubToken();
+        bool hasSavedCredentials = !string.IsNullOrWhiteSpace(_settings.GitHubUsername)
+            && !string.IsNullOrWhiteSpace(savedToken);
+        var prompt = new CredentialsPrompt(
+            this,
+            _settings.GitHubUsername ?? _lastUsername,
+            savedToken ?? _lastPassword,
+            allowSilentReuse: hasSavedCredentials);
         try
         {
             await Task.Run(
                 () => GitRepositoryService.Clone(
                     url,
-                    destination,
+                    parentFolder,
                     prompt.Handler,
                     ReportCloneProgress,
                     cancellationToken),
                 cancellationToken);
 
             UpdateProgress(1f);
-            ClonedRepositoryPath = destination;
+            ClonedRepositoryPath = clonePath;
             RepositoryUrl = url;
             _cloneCts?.Dispose();
             _cloneCts = null;

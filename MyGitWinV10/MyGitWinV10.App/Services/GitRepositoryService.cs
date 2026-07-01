@@ -56,6 +56,9 @@ public sealed class GitRepositoryService : IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        string normalizedUrl = RemoteUrlNormalizer.Normalize(url);
+        string clonePath = RemoteUrlNormalizer.ResolveCloneDestination(destinationPath, normalizedUrl);
+
         var options = new CloneOptions();
         if (credentialsHandler is not null)
         {
@@ -81,15 +84,36 @@ public sealed class GitRepositoryService : IDisposable
 
         try
         {
-            Repository.Clone(url, destinationPath, options);
+            Repository.Clone(normalizedUrl, clonePath, options);
         }
         catch (Exception ex) when (cancellationToken.IsCancellationRequested)
         {
+            TryDeleteDirectory(clonePath);
             throw new OperationCanceledException("Clone was cancelled.", ex, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            TryDeleteDirectory(clonePath);
+            throw GitRemoteExceptionHelper.WrapForClone(ex, normalizedUrl);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
         onProgress?.Invoke(1f);
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup of a partial clone.
+        }
     }
 
     public string GetCurrentBranchName()

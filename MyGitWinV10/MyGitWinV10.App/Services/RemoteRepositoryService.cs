@@ -14,7 +14,7 @@ public static class RemoteRepositoryService
 
     public static string GetCachePath(string url)
     {
-        var normalized = NormalizeUrl(url);
+        var normalized = RemoteUrlNormalizer.Normalize(url);
         var parsed = GitHubReleaseService.ParseGitHubRemote(normalized);
         string folderName = parsed is not null
             ? $"{parsed.Value.Owner}_{parsed.Value.Repo}"
@@ -30,7 +30,7 @@ public static class RemoteRepositoryService
 
     public static string? GetDisplayName(string url)
     {
-        var parsed = GitHubReleaseService.ParseGitHubRemote(NormalizeUrl(url));
+        var parsed = GitHubReleaseService.ParseGitHubRemote(RemoteUrlNormalizer.Normalize(url));
         return parsed is not null ? $"{parsed.Value.Owner}/{parsed.Value.Repo}" : null;
     }
 
@@ -42,6 +42,7 @@ public static class RemoteRepositoryService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        url = RemoteUrlNormalizer.Normalize(url);
         var cachePath = GetCachePath(url);
         if (Repository.IsValid(cachePath))
         {
@@ -54,10 +55,10 @@ public static class RemoteRepositoryService
         {
             CloneBare(url, cachePath, credentialsHandler, onProgress, cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
             TryDeleteDirectory(cachePath);
-            throw;
+            throw GitRemoteExceptionHelper.WrapForClone(ex, url);
         }
 
         return cachePath;
@@ -151,8 +152,6 @@ public static class RemoteRepositoryService
             return true;
         };
     }
-
-    private static string NormalizeUrl(string url) => url.Trim().TrimEnd('/');
 
     private static void TryDeleteDirectory(string path)
     {

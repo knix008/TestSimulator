@@ -2,6 +2,14 @@ namespace MyGitWinV10.App.Services;
 
 public static class GitRemoteExceptionHelper
 {
+    public static Exception WrapForClone(Exception ex, string? remoteUrl = null)
+    {
+        string? friendly = TryGetCloneFriendlyMessage(ex, remoteUrl);
+        return friendly is not null
+            ? new InvalidOperationException(friendly, ex)
+            : Wrap(ex, remoteUrl);
+    }
+
     public static Exception Wrap(Exception ex, string? remoteUrl = null)
     {
         string host = ResolveHost(remoteUrl, ex);
@@ -70,6 +78,51 @@ public static class GitRemoteExceptionHelper
         if (IsRemoteOperationException(ex))
         {
             return Localization.Tf("GitOp.Network.Generic", host);
+        }
+
+        return null;
+    }
+
+    private static string? TryGetCloneFriendlyMessage(Exception ex, string? remoteUrl)
+    {
+        foreach (Exception current in EnumerateExceptions(ex))
+        {
+            string text = current.Message;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                continue;
+            }
+
+            if (ContainsAny(text, "unsupported URL protocol"))
+            {
+                return Localization.T("Clone.Error.UnsupportedUrl");
+            }
+
+            if (ContainsAny(text,
+                    "authentication failed",
+                    "invalid username or password",
+                    "access denied",
+                    "401",
+                    "403 forbidden",
+                    "repository not found"))
+            {
+                return Localization.T("Clone.Error.Authentication");
+            }
+
+            if (ContainsAny(text,
+                    "exists and is not an empty directory",
+                    "already exists"))
+            {
+                return Localization.T("Clone.Error.DestinationExists");
+            }
+
+            if (ContainsAny(text,
+                    "could not read refs",
+                    "failed to connect",
+                    "permission denied (publickey)"))
+            {
+                return Localization.T("Clone.Error.SshOrAuth");
+            }
         }
 
         return null;
