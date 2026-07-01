@@ -70,7 +70,7 @@ public partial class MainWindow : Window
 
         _debounce = new DebounceDispatcher(Dispatcher, delayMs: 100);
 
-        _indexService.ConfigureExclusions(_settingsService.Current);
+        _indexService.ConfigureIndexScope(_settingsService.Current);
 
         _indexService.SearchEnabled += OnSearchEnabled;
 

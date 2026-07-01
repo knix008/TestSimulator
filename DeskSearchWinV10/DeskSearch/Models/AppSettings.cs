@@ -18,9 +18,9 @@ public sealed class AppSettings
     public bool UseRegexSearch { get; set; }
     public SearchResultSortOrder SearchResultSort { get; set; } = SearchResultSortOrder.MatchQuality;
     public bool RunAtStartup { get; set; } = true;
-    public List<string> ExcludedDrives { get; set; } = [];
-    public List<string> ExcludedDirectories { get; set; } = [];
-    public string? LastExcludedDirectoryBrowsePath { get; set; }
+    public List<string> IncludedDrives { get; set; } = [];
+    public List<string> IncludedDirectories { get; set; } = [];
+    public string? LastIncludedDirectoryBrowsePath { get; set; }
 
     public AppSettings Clone() => new()
     {
@@ -40,8 +40,8 @@ public sealed class AppSettings
         UseRegexSearch = UseRegexSearch,
         SearchResultSort = SearchResultSort,
         RunAtStartup = RunAtStartup,
-        ExcludedDrives = [.. ExcludedDrives],
-        ExcludedDirectories = [.. ExcludedDirectories],
-        LastExcludedDirectoryBrowsePath = LastExcludedDirectoryBrowsePath
+        IncludedDrives = [.. IncludedDrives],
+        IncludedDirectories = [.. IncludedDirectories],
+        LastIncludedDirectoryBrowsePath = LastIncludedDirectoryBrowsePath
     };
 }

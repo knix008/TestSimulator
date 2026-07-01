@@ -261,22 +261,44 @@ public sealed partial class IndexStore : IDisposable
         }
     }
 
-    public int PurgeExcluded(IndexExclusionPolicy exclusions)
+    public int PurgeOutsideScope(IndexInclusionPolicy inclusion)
     {
         lock (_lock)
         {
-            var removed = 0;
+            var scanRoots = inclusion.ScanRoots;
+            if (scanRoots.Count == 0)
+            {
+                using var deleteAll = CreateCommand("DELETE FROM entries");
+                var removed = deleteAll.ExecuteNonQuery();
+                if (removed > 0)
+                    _cachedCount = -1;
 
-            foreach (var driveRoot in exclusions.ExcludedDriveRoots)
-                removed += DeleteByPrefix(EscapeLikePrefix(driveRoot));
+                return removed;
+            }
 
-            foreach (var directoryPrefix in exclusions.ExcludedDirectoryPrefixes)
-                removed += DeleteByPrefix(EscapeLikePrefix(directoryPrefix));
+            var conditions = new List<string>();
+            for (var i = 0; i < scanRoots.Count; i++)
+            {
+                var root = scanRoots[i].TrimEnd('\\');
+                conditions.Add(
+                    $"(full_path LIKE $root{i} ESCAPE '\\' COLLATE NOCASE OR full_path = $rootExact{i} COLLATE NOCASE)");
+            }
 
-            if (removed > 0)
+            var sql = $"DELETE FROM entries WHERE NOT ({string.Join(" OR ", conditions)})";
+            using var command = CreateCommand(sql);
+
+            for (var i = 0; i < scanRoots.Count; i++)
+            {
+                var root = scanRoots[i].TrimEnd('\\');
+                command.Parameters.AddWithValue($"$root{i}", EscapeLikePrefix(root + "\\") + "%");
+                command.Parameters.AddWithValue($"$rootExact{i}", root);
+            }
+
+            var purged = command.ExecuteNonQuery();
+            if (purged > 0)
                 _cachedCount = -1;
 
-            return removed;
+            return purged;
         }
     }
 

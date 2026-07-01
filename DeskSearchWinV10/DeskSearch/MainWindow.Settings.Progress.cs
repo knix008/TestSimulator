@@ -160,7 +160,7 @@ public partial class MainWindow
         _settingsService.Save(_settingsService.Current);
         ApplySettings(_settingsService.Current);
         RestoreWindowLayout();
-        _indexService.ConfigureExclusions(_settingsService.Current);
+        _indexService.ConfigureIndexScope(_settingsService.Current);
         _watcherService.Start();
         RefreshLocalization();
         _openSettingsWindow?.ApplyFactorySettings(_settingsService.Current);

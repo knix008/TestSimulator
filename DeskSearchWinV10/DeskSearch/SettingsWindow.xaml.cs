@@ -360,8 +360,8 @@ public partial class SettingsWindow : Window
         WindowOpacitySlider.Value = Settings.WindowOpacity;
         PriorityAboveOthersRadio.IsChecked = Settings.AlwaysOnTop;
         PriorityNormalRadio.IsChecked = !Settings.AlwaysOnTop;
-        BuildExcludedDrivesUi();
-        LoadExcludedDirectories();
+        BuildIncludedDrivesUi();
+        LoadIncludedDirectories();
         UpdateOpacityLabels();
     }
 
@@ -412,14 +412,14 @@ public partial class SettingsWindow : Window
         return SearchResultSortOrder.MatchQuality;
     }
 
-    private void BuildExcludedDrivesUi()
+    private void BuildIncludedDrivesUi()
     {
         ExcludedDrivesPanel.Children.Clear();
         _driveCheckBoxes.Clear();
 
-        var excluded = new HashSet<string>(
-            Settings.ExcludedDrives
-                .Select(IndexExclusionPolicy.NormalizeDriveRoot)
+        var included = new HashSet<string>(
+            Settings.IncludedDrives
+                .Select(IndexInclusionPolicy.NormalizeDriveRoot)
                 .Where(static root => root is not null)
                 .Cast<string>(),
             StringComparer.OrdinalIgnoreCase);
@@ -429,7 +429,7 @@ public partial class SettingsWindow : Window
             if (!drive.IsReady)
                 continue;
 
-            var root = IndexExclusionPolicy.NormalizeDriveRoot(drive.Name);
+            var root = IndexInclusionPolicy.NormalizeDriveRoot(drive.Name);
             if (root is null)
                 continue;
 
@@ -440,7 +440,7 @@ public partial class SettingsWindow : Window
             var checkBox = new System.Windows.Controls.CheckBox
             {
                 Content = $"{root}{volumeLabel}",
-                IsChecked = excluded.Contains(root),
+                IsChecked = included.Contains(root),
                 Margin = new Thickness(0, 0, 12, 4),
                 Tag = root
             };
@@ -450,13 +450,13 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void LoadExcludedDirectories()
+    private void LoadIncludedDirectories()
     {
         ExcludedDirectoriesListBox.Items.Clear();
 
-        foreach (var path in Settings.ExcludedDirectories)
+        foreach (var path in Settings.IncludedDirectories)
         {
-            var display = IndexExclusionPolicy.NormalizeDirectoryDisplay(path);
+            var display = IndexInclusionPolicy.NormalizeDirectoryDisplay(path);
             if (!string.IsNullOrWhiteSpace(display))
                 ExcludedDirectoriesListBox.Items.Add(display);
         }
@@ -465,24 +465,24 @@ public partial class SettingsWindow : Window
     private void BrowseExcludedDirectory_Click(object sender, RoutedEventArgs e)
     {
         var ownerHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-        var selectedPaths = MultiFolderBrowserDialog.ShowDialog(ownerHandle, Settings.LastExcludedDirectoryBrowsePath);
+        var selectedPaths = MultiFolderBrowserDialog.ShowDialog(ownerHandle, Settings.LastIncludedDirectoryBrowsePath);
         if (selectedPaths is null)
             return;
 
         foreach (var path in selectedPaths)
-            AddExcludedDirectory(path);
+            AddIncludedDirectory(path);
 
         var lastPath = selectedPaths.LastOrDefault();
         if (!string.IsNullOrWhiteSpace(lastPath))
-            Settings.LastExcludedDirectoryBrowsePath = lastPath;
+            Settings.LastIncludedDirectoryBrowsePath = lastPath;
     }
 
-    private void AddExcludedDirectory(string path)
+    private void AddIncludedDirectory(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
             return;
 
-        var normalized = IndexExclusionPolicy.NormalizeDirectoryPrefix(path);
+        var normalized = IndexInclusionPolicy.NormalizeDirectoryPrefix(path);
         if (normalized is null)
             return;
 
@@ -491,7 +491,7 @@ public partial class SettingsWindow : Window
             .Cast<string>()
             .Any(item =>
             {
-                var existing = IndexExclusionPolicy.NormalizeDirectoryPrefix(item);
+                var existing = IndexInclusionPolicy.NormalizeDirectoryPrefix(item);
                 return existing is not null
                     && existing.Equals(normalized, StringComparison.OrdinalIgnoreCase);
             });
@@ -510,17 +510,17 @@ public partial class SettingsWindow : Window
         ExcludedDirectoriesListBox.Items.Remove(ExcludedDirectoriesListBox.SelectedItem);
     }
 
-    private void SaveExcludedPaths()
+    private void SaveIncludedPaths()
     {
-        Settings.ExcludedDrives = _driveCheckBoxes
+        Settings.IncludedDrives = _driveCheckBoxes
             .Where(static pair => pair.Value.IsChecked == true)
             .Select(static pair => pair.Key)
             .OrderBy(static drive => drive, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        Settings.ExcludedDirectories = ExcludedDirectoriesListBox.Items
+        Settings.IncludedDirectories = ExcludedDirectoriesListBox.Items
             .Cast<string>()
-            .Select(IndexExclusionPolicy.NormalizeDirectoryDisplay)
+            .Select(IndexInclusionPolicy.NormalizeDirectoryDisplay)
             .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Cast<string>()
             .ToList();
@@ -866,7 +866,7 @@ public partial class SettingsWindow : Window
         Settings.UseRegexSearch = UseRegexSearchCheckBox.IsChecked == true;
         Settings.SearchResultSort = GetSelectedSearchResultSort();
         Settings.RunAtStartup = RunAtStartupCheckBox.IsChecked == true;
-        SaveExcludedPaths();
+        SaveIncludedPaths();
         Settings.AlwaysOnTop = PriorityAboveOthersRadio.IsChecked == true;
         Settings.WindowOpacity = (int)WindowOpacitySlider.Value;
         Settings.BackgroundOpacity = (int)BackgroundOpacitySlider.Value;

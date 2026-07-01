@@ -27,6 +27,8 @@ public sealed class SettingsService
             if (!File.Exists(_settingsPath))
             {
                 Current = new AppSettings();
+                NormalizeSettings(Current);
+                ApplyDefaultIndexScopeIfEmpty(Current);
                 return Current;
             }
 
@@ -57,8 +59,8 @@ public sealed class SettingsService
 
     private static void NormalizeSettings(AppSettings settings, string? rawJson = null)
     {
-        settings.ExcludedDrives ??= [];
-        settings.ExcludedDirectories ??= [];
+        settings.IncludedDrives ??= [];
+        settings.IncludedDirectories ??= [];
 
         if (string.IsNullOrWhiteSpace(settings.Language))
             settings.Language = LocalizationService.Korean;
@@ -73,6 +75,57 @@ public sealed class SettingsService
         using var document = JsonDocument.Parse(rawJson);
         if (!document.RootElement.TryGetProperty(nameof(AppSettings.RunAtStartup), out _))
             settings.RunAtStartup = true;
+
+        MigrateIndexScope(settings, document.RootElement);
+    }
+
+    private static void MigrateIndexScope(AppSettings settings, JsonElement root)
+    {
+        if (root.TryGetProperty(nameof(AppSettings.IncludedDrives), out _))
+            return;
+
+        if (root.TryGetProperty("ExcludedDrives", out var excludedDrivesElement)
+            && excludedDrivesElement.ValueKind == JsonValueKind.Array)
+        {
+            var excluded = ReadStringArray(excludedDrivesElement)
+                .Select(IndexInclusionPolicy.NormalizeDriveRoot)
+                .Where(static root => root is not null)
+                .Cast<string>()
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            settings.IncludedDrives = IndexInclusionPolicy.GetAllReadyDriveRoots()
+                .Where(drive => !excluded.Contains(drive))
+                .ToList();
+
+            if (root.TryGetProperty("LastExcludedDirectoryBrowsePath", out var browsePathElement)
+                && browsePathElement.ValueKind == JsonValueKind.String)
+            {
+                settings.LastIncludedDirectoryBrowsePath = browsePathElement.GetString();
+            }
+
+            return;
+        }
+
+        ApplyDefaultIndexScopeIfEmpty(settings);
+    }
+
+    private static void ApplyDefaultIndexScopeIfEmpty(AppSettings settings)
+    {
+        if (settings.IncludedDrives.Count == 0 && settings.IncludedDirectories.Count == 0)
+            settings.IncludedDrives = IndexInclusionPolicy.GetAllReadyDriveRoots().ToList();
+    }
+
+    private static IEnumerable<string> ReadStringArray(JsonElement arrayElement)
+    {
+        foreach (var item in arrayElement.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                var value = item.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                    yield return value;
+            }
+        }
     }
 
     public void ResetToDefaults()
@@ -89,5 +142,6 @@ public sealed class SettingsService
 
         Current = new AppSettings();
         NormalizeSettings(Current);
+        ApplyDefaultIndexScopeIfEmpty(Current);
     }
 }

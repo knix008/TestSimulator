@@ -70,10 +70,10 @@
   <data name="Settings_SearchResultSort_FilesFirst" xml:space="preserve"><value>Files first, then name</value></data>
   <data name="Settings_SearchResultSort_ModifiedDesc" xml:space="preserve"><value>Modified date (newest first)</value></data>
   <data name="Settings_SearchMultilingualNote" xml:space="preserve"><value>File and folder names can be searched in any language (e.g. Korean, English, Japanese, Chinese), regardless of the UI language.</value></data>
-  <data name="Settings_Exclusion" xml:space="preserve"><value>Search exclusions</value></data>
-  <data name="Settings_ExcludedDrivesDesc" xml:space="preserve"><value>Checked drives are excluded from indexing and search.</value></data>
-  <data name="Settings_ExcludedDirectories" xml:space="preserve"><value>Excluded directories</value></data>
-  <data name="Settings_ExcludedDirectoriesDesc" xml:space="preserve"><value>Listed folders and their subfolders are excluded from indexing and search.</value></data>
+  <data name="Settings_Exclusion" xml:space="preserve"><value>Indexing scope</value></data>
+  <data name="Settings_ExcludedDrivesDesc" xml:space="preserve"><value>Checked drives are included in indexing and search.</value></data>
+  <data name="Settings_ExcludedDirectories" xml:space="preserve"><value>Additional folders to index</value></data>
+  <data name="Settings_ExcludedDirectoriesDesc" xml:space="preserve"><value>Listed folders and their subfolders are also indexed and searchable.</value></data>
   <data name="Settings_BrowseFolder" xml:space="preserve"><value>Browse...</value></data>
   <data name="Settings_RemoveExcluded" xml:space="preserve"><value>Remove</value></data>
   <data name="Settings_PeriodicResync" xml:space="preserve"><value>Indexing interval</value></data>

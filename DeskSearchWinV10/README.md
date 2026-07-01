@@ -228,7 +228,7 @@ DeskSearchWinV10/
 │   │   ├── FileSearchService.cs      # 검색·점수·배치·결과 정렬
 │   │   ├── SearchResultSortPolicy.cs # 검색 결과 정렬 (SQL·메모리)
 │   │   ├── IndexStore.cs / IndexStore.Search.cs # SQLite 저장소 (트라이그램 FTS5 인덱스)
-│   │   ├── IndexExclusionPolicy.cs   # 검색 제외 경로 판별
+│   │   ├── IndexInclusionPolicy.cs   # 인덱싱 포함 경로 판별
 │   │   ├── BackgroundThreadMode.cs   # Windows 백그라운드 스레드 모드 (CPU·I/O·메모리 우선순위)
 │   │   ├── AppStoragePaths.cs        # %AppData%\DeskSearch 경로
 │   │   ├── SettingsService.cs        # settings.json 저장

@@ -28,7 +28,7 @@ public sealed class SystemIndexService : IDisposable
     private readonly HashSet<string> _scannedDirectoryPrefixes = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _scannedPrefixesLock = new();
     private readonly object _progressLock = new();
-    private IndexExclusionPolicy _exclusions = IndexExclusionPolicy.Empty;
+    private IndexInclusionPolicy _inclusion = IndexInclusionPolicy.Empty;
 
     private int _lastProgressReport = -1;    private DateTime _lastProgressTime = DateTime.MinValue;
     private int _entriesSinceYield;
@@ -201,7 +201,7 @@ public sealed class SystemIndexService : IDisposable
         var scannable = 0;
         foreach (var root in ScanRoots)
         {
-            if (_exclusions.IsPathExcluded(root) || !Directory.Exists(root))
+            if (!Directory.Exists(root))
                 continue;
 
             scannable++;
@@ -218,7 +218,7 @@ public sealed class SystemIndexService : IDisposable
         var count = 0;
         foreach (var root in roots)
         {
-            if (_exclusions.IsPathExcluded(root) || !Directory.Exists(root))
+            if (!Directory.Exists(root))
                 continue;
 
             count++;
@@ -389,16 +389,16 @@ public sealed class SystemIndexService : IDisposable
         _indexStore.RunFtsMigration(onProgress, cancellationToken);
     }
 
-    public IReadOnlyList<string> WatchPaths => FilterScanPaths(GetPriorityPaths());
-    public IReadOnlyList<string> ScanRoots => FilterScanPaths(GetAllScanRoots());
+    public IReadOnlyList<string> WatchPaths => FilterPathsInScope(GetPriorityPaths());
+    public IReadOnlyList<string> ScanRoots => _inclusion.ScanRoots;
 
-    public void ConfigureExclusions(AppSettings settings)
+    public void ConfigureIndexScope(AppSettings settings)
     {
-        _exclusions = IndexExclusionPolicy.FromSettings(settings);
-        _indexWorker.Enqueue(PurgeExcludedEntries);
+        _inclusion = IndexInclusionPolicy.FromSettings(settings);
+        _indexWorker.Enqueue(PurgeOutsideScopeEntries);
     }
 
-    public bool IsPathExcluded(string path) => _exclusions.IsPathExcluded(path);
+    public bool IsPathExcluded(string path) => _inclusion.IsPathExcluded(path);
 
     public event EventHandler? SearchEnabled;
     public event EventHandler<IndexProgressEventArgs>? IndexProgress;
@@ -966,7 +966,7 @@ public sealed class SystemIndexService : IDisposable
         var upserts = new List<FileEntry>(adds.Count);
         foreach (var path in adds)
         {
-            if (_exclusions.IsPathExcluded(path))
+            if (!_inclusion.IsPathInScope(path))
                 continue;
 
             if (File.Exists(path))
@@ -1291,7 +1291,7 @@ public sealed class SystemIndexService : IDisposable
 
     private bool ShouldAttemptScanStep(string path)
     {
-        if (_exclusions.IsPathExcluded(path) || !Directory.Exists(path))
+        if (!_inclusion.IsPathInScope(path) || !Directory.Exists(path))
             return false;
 
         return !IsRootScanComplete(path);
@@ -1436,7 +1436,7 @@ public sealed class SystemIndexService : IDisposable
 
     private void ScanAndMerge(string root, IndexStore target, CancellationToken cancellationToken)
     {
-        if (_exclusions.IsPathExcluded(root))
+        if (!_inclusion.IsPathInScope(root))
             return;
 
         if (!Directory.Exists(root))
@@ -1691,7 +1691,7 @@ public sealed class SystemIndexService : IDisposable
         {
             try
             {
-                return !_exclusions.IsPathExcluded(entry.ToFullPath());
+                return _inclusion.IsPathInScope(entry.ToFullPath());
             }
             catch
             {
@@ -1707,7 +1707,7 @@ public sealed class SystemIndexService : IDisposable
             try
             {
                 var path = entry.ToFullPath();
-                if (_exclusions.IsPathExcluded(path))
+                if (!_inclusion.IsPathInScope(path))
                     return false;
 
                 if (!_disableScannedPrefixSkip && IsUnderScannedSubtree(path))
@@ -1996,7 +1996,7 @@ public sealed class SystemIndexService : IDisposable
         return paths.OrderBy(p => p.Length).ToList();
     }
 
-    private void PurgeExcludedEntries()
+    private void PurgeOutsideScopeEntries()
     {
         var targets = GetIncrementalUpdateTargets();
         if (targets.Count == 0)
@@ -2004,42 +2004,14 @@ public sealed class SystemIndexService : IDisposable
 
         var purged = 0;
         foreach (var target in targets)
-            purged += target.PurgeExcluded(_exclusions);
+            purged += target.PurgeOutsideScope(_inclusion);
 
         if (purged > 0)
             IndexUpdated?.Invoke(this, EventArgs.Empty);
     }
 
-    private IReadOnlyList<string> FilterScanPaths(IEnumerable<string> paths) =>
-        paths.Where(path => !_exclusions.IsPathExcluded(path)).ToList();
-
-    private static IReadOnlyList<string> GetAllScanRoots()
-    {
-        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var drive in DriveInfo.GetDrives())
-        {
-            try
-            {
-                if (!drive.IsReady)
-                    continue;
-
-                var root = drive.RootDirectory.FullName;
-                if (!string.IsNullOrWhiteSpace(root))
-                    roots.Add(root);
-            }
-            catch (IOException)
-            {
-                // 드라이브 정보를 읽을 수 없음
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // 드라이브 접근 불가
-            }
-        }
-
-        return roots.OrderBy(r => r, StringComparer.OrdinalIgnoreCase).ToList();
-    }
+    private IReadOnlyList<string> FilterPathsInScope(IEnumerable<string> paths) =>
+        paths.Where(path => _inclusion.IsPathInScope(path)).ToList();
 
     private static void AddIfExists(HashSet<string> paths, string path)
     {

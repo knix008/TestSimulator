@@ -152,7 +152,7 @@ public partial class MainWindow
         ApplySettings(_settingsService.Current);
         RestoreWindowLayout();
         ApplySavedResultsWindowLayout();
-        _indexService.ConfigureExclusions(_settingsService.Current);
+        _indexService.ConfigureIndexScope(_settingsService.Current);
         _watcherService.Start();
         RefreshLocalization();
     }
@@ -254,18 +254,18 @@ public partial class MainWindow
             _openSettingsWindow = null;
         }
 
-        var previousExclusions = IndexExclusionPolicy.FromSettings(_settingsService.Current);
+        var previousScope = IndexInclusionPolicy.FromSettings(_settingsService.Current);
 
         ApplyCurrentWindowLayout(dialog.Settings);
         _settingsService.Save(dialog.Settings);
         ApplySettings(_settingsService.Current);
 
-        var exclusionsChanged = !previousExclusions.Equals(
-            IndexExclusionPolicy.FromSettings(_settingsService.Current));
+        var scopeChanged = !previousScope.Equals(
+            IndexInclusionPolicy.FromSettings(_settingsService.Current));
 
-        if (exclusionsChanged)
+        if (scopeChanged)
         {
-            _indexService.ConfigureExclusions(_settingsService.Current);
+            _indexService.ConfigureIndexScope(_settingsService.Current);
             _watcherService.Start();
         }
 
