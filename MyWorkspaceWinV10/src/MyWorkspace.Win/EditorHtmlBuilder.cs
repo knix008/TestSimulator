@@ -215,6 +215,15 @@ internal static class EditorHtmlBuilder
             #editor.is-image-move-target {
               box-shadow: inset 0 0 0 1px var(--editor-accent);
             }
+            .editor-image-drop-caret {
+              position: fixed; width: 2px; background: var(--editor-caret);
+              pointer-events: none; z-index: 9999; display: none;
+              border-radius: 1px;
+              animation: editor-drop-caret-blink 1s step-end infinite;
+            }
+            @keyframes editor-drop-caret-blink {
+              50% { opacity: 0; }
+            }
             .editor-file-attachment {
               display: inline-flex; align-items: center; gap: 6px;
               padding: 6px 10px; margin: 0 4px 14px 0;
@@ -301,6 +310,57 @@ internal static class EditorHtmlBuilder
             let imageMoveSession = null;
             let suppressNextImageClick = false;
             let caretNormalizeTimer = null;
+            let imageDropCaret = null;
+
+            function ensureImageDropCaret() {
+              if (imageDropCaret) return imageDropCaret;
+              imageDropCaret = document.createElement('div');
+              imageDropCaret.className = 'editor-image-drop-caret';
+              imageDropCaret.setAttribute('aria-hidden', 'true');
+              document.body.appendChild(imageDropCaret);
+              return imageDropCaret;
+            }
+
+            function hideImageDropCaret() {
+              if (imageDropCaret) imageDropCaret.style.display = 'none';
+              if (imageMoveSession) imageMoveSession.dropRange = null;
+            }
+
+            function getCaretRectFromRange(range) {
+              const rects = range.getClientRects();
+              if (rects.length > 0) return rects[0];
+
+              const marker = document.createElement('span');
+              marker.textContent = ZWSP;
+              marker.style.display = 'inline-block';
+              marker.style.width = '0';
+              marker.style.overflow = 'hidden';
+              range.insertNode(marker);
+              const rect = marker.getBoundingClientRect();
+              marker.remove();
+              return rect;
+            }
+
+            function updateImageDropCaret(clientX, clientY) {
+              const marker = ensureImageDropCaret();
+              const range = document.caretRangeFromPoint(clientX, clientY);
+              if (!range || !editor.contains(range.startContainer)) {
+                marker.style.display = 'none';
+                if (imageMoveSession) imageMoveSession.dropRange = null;
+                return;
+              }
+
+              range.collapse(true);
+              if (imageMoveSession) imageMoveSession.dropRange = range.cloneRange();
+
+              const rect = getCaretRectFromRange(range);
+              const lineHeight = parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
+              const height = Math.max(rect.height || 0, lineHeight, 14);
+              marker.style.display = 'block';
+              marker.style.left = Math.round(rect.left) + 'px';
+              marker.style.top = Math.round(rect.top) + 'px';
+              marker.style.height = Math.round(height) + 'px';
+            }
 
             function placeCaretBefore(node) {
               editor.focus();
@@ -425,6 +485,7 @@ internal static class EditorHtmlBuilder
                 }
                 clearImageMoveStyles(wrap);
                 editor.classList.remove('is-image-move-target');
+                hideImageDropCaret();
                 imageMoveSession = null;
                 wrap.classList.add('is-selected');
                 e.preventDefault();
@@ -480,7 +541,8 @@ internal static class EditorHtmlBuilder
                 savedParent: null,
                 savedNext: null,
                 offsetX: 0,
-                offsetY: 0
+                offsetY: 0,
+                dropRange: null
               };
             }
 
@@ -491,12 +553,14 @@ internal static class EditorHtmlBuilder
               wrap.style.top = '';
               wrap.style.margin = '';
               wrap.style.zIndex = '';
+              wrap.style.pointerEvents = '';
             }
 
             function finishImageMove(e) {
               const session = imageMoveSession;
               imageMoveSession = null;
               editor.classList.remove('is-image-move-target');
+              hideImageDropCaret();
               if (!session) return;
 
               const wrap = session.wrap;
@@ -507,7 +571,12 @@ internal static class EditorHtmlBuilder
               suppressNextImageClick = true;
               wrap.remove();
 
-              const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+              let range = session.dropRange;
+              if (!range) {
+                const pointRange = document.caretRangeFromPoint(e.clientX, e.clientY);
+                if (pointRange && editor.contains(pointRange.startContainer))
+                  range = pointRange;
+              }
               if (range && editor.contains(range.startContainer)) {
                 range.collapse(true);
                 range.insertNode(wrap);
@@ -546,12 +615,16 @@ internal static class EditorHtmlBuilder
                 wrap.style.top = rect.top + 'px';
                 wrap.style.margin = '0';
                 wrap.style.zIndex = '10000';
+                wrap.style.pointerEvents = 'none';
                 document.body.appendChild(wrap);
                 editor.classList.add('is-image-move-target');
               }
 
               wrap.style.left = (e.clientX - session.offsetX) + 'px';
               wrap.style.top = (e.clientY - session.offsetY) + 'px';
+
+              if (session.dragging)
+                updateImageDropCaret(e.clientX, e.clientY);
             });
 
             document.addEventListener('mouseup', (e) => {
@@ -593,6 +666,7 @@ internal static class EditorHtmlBuilder
               handle.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
                 imageMoveSession = null;
+                hideImageDropCaret();
                 e.preventDefault();
                 e.stopPropagation();
                 wrap.classList.add('is-selected');
