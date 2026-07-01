@@ -56,6 +56,7 @@ internal sealed class PdfExportHostForm : Form
     {
         var environment = await WebView2EnvironmentProvider.GetSharedEnvironmentAsync().ConfigureAwait(true);
         await _webView.EnsureCoreWebView2Async(environment).ConfigureAwait(true);
+        PageAssetStore.ConfigureEditorWebView(_webView.CoreWebView2!);
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
         {

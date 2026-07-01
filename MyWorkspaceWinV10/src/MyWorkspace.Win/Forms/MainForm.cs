@@ -424,6 +424,7 @@ public partial class MainForm : Form
         _ctxEditor.Items.Add(new ToolStripSeparator());
         AddEditorMenuItem(K.ToolbarLink, null, async (_, _) => await InsertLinkAsync(), "link");
         AddEditorMenuItem(K.ToolbarImage, null, async (_, _) => await InsertImageAsync(), "image");
+        AddEditorMenuItem(K.ToolbarAttachFile, null, async (_, _) => await InsertFileAsync(), "attach");
         _ctxEditor.Items.Add(new ToolStripSeparator());
         AddEditorMenuItem(K.ToolbarBulletList, null, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("insertUnorderedList")), "ul");
         AddEditorMenuItem(K.ToolbarNumberList, null, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("insertOrderedList")), "ol");
@@ -1522,6 +1523,7 @@ public partial class MainForm : Form
         toolStripMarkdown.Items.Add(new ToolStripSeparator());
         AddToolbarButton("link", Localization.Get(K.ToolbarLink), async (_, _) => await InsertLinkAsync());
         AddToolbarButton("image", Localization.Get(K.ToolbarImage), async (_, _) => await InsertImageAsync());
+        AddToolbarButton("attach", Localization.Get(K.ToolbarAttachFile), async (_, _) => await InsertFileAsync());
         toolStripMarkdown.Items.Add(new ToolStripSeparator());
         AddToolbarButton("ul", Localization.Get(K.ToolbarBulletList), async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("insertUnorderedList")));
         AddToolbarButton("ol", Localization.Get(K.ToolbarNumberList), async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("insertOrderedList")));
@@ -1557,34 +1559,142 @@ public partial class MainForm : Form
 
     private async Task InsertLinkAsync()
     {
-        using var dialog = new InputDialogForm(
-            Localization.Get(K.DialogLinkTitle),
-            Localization.Get(K.DialogUrlPrompt),
-            "https://");
+        var selectedText = string.Empty;
+        if (_editor != null && _editor.IsReady && !_editor.IsScriptSuspended)
+            selectedText = await _editor.GetSelectedTextAsync();
+
+        using var dialog = new LinkDialogForm(selectedText);
         if (dialog.ShowDialog() != DialogResult.OK)
             return;
 
-        var url = dialog.InputText.Trim();
+        var url = dialog.LinkUrl;
         if (string.IsNullOrWhiteSpace(url))
             return;
 
-        await RunEditorAsync(e => e.CreateLinkAsync(url));
+        var text = dialog.LinkText;
+        if (string.IsNullOrWhiteSpace(text))
+            text = url;
+
+        await RunEditorAsync(e => e.CreateLinkAsync(text, url));
+    }
+
+    private async Task<int?> EnsurePageIdForAssetsAsync()
+    {
+        if (!_currentPageId.HasValue && !_draftWorkspaceId.HasValue)
+        {
+            MessageBox.Show(
+                Localization.Get(K.AttachmentRequiresPage),
+                L.AppName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return null;
+        }
+
+        if (!await EnsurePageCreatedAsync())
+            return null;
+
+        return _currentPageId;
     }
 
     private async Task InsertImageAsync()
     {
-        using var dialog = new InputDialogForm(
-            Localization.Get(K.DialogImageTitle),
-            Localization.Get(K.DialogUrlPrompt),
-            "https://");
+        using var dialog = new OpenFileDialog
+        {
+            Title = Localization.Get(K.DialogImageFilePrompt),
+            Filter = PageAssetStore.BuildOpenFileFilter(),
+            Multiselect = false
+        };
+
         if (dialog.ShowDialog() != DialogResult.OK)
             return;
 
-        var url = dialog.InputText.Trim();
-        if (string.IsNullOrWhiteSpace(url))
+        var pageId = await EnsurePageIdForAssetsAsync();
+        if (!pageId.HasValue)
             return;
 
-        await RunEditorAsync(e => e.InsertHtmlAsync($"""<img src="{url}" alt="{Localization.Get(K.DefaultImageAlt)}"/>"""));
+        try
+        {
+            await ImportAndInsertAssetAsync(pageId.Value, dialog.FileName);
+            MarkPageDirty();
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.DialogImageTitle), ex);
+        }
+    }
+
+    private async Task InsertFileAsync()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = Localization.Get(K.DialogAttachFilePrompt),
+            Filter = PageAssetStore.BuildOpenAttachmentFilter(),
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog() != DialogResult.OK)
+            return;
+
+        var pageId = await EnsurePageIdForAssetsAsync();
+        if (!pageId.HasValue)
+            return;
+
+        try
+        {
+            await ImportAndInsertAssetAsync(pageId.Value, dialog.FileName);
+            MarkPageDirty();
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.ToolbarAttachFile), ex);
+        }
+    }
+
+    private async Task HandleEditorFilesDroppedAsync(string[] paths, Point clientPoint)
+    {
+        if (_editor == null || !CanEditActivePage())
+            return;
+
+        var pageId = await EnsurePageIdForAssetsAsync();
+        if (!pageId.HasValue)
+            return;
+
+        await _editor.FocusCaretAtPointAsync(clientPoint);
+
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path) || Directory.Exists(path))
+                continue;
+
+            try
+            {
+                await ImportAndInsertAssetAsync(pageId.Value, path);
+            }
+            catch (Exception ex)
+            {
+                ErrorDetailForm.Show(this, Path.GetFileName(path), ex);
+            }
+        }
+
+        MarkPageDirty();
+    }
+
+    private async Task ImportAndInsertAssetAsync(int pageId, string sourcePath)
+    {
+        var extension = Path.GetExtension(sourcePath);
+        if (PageAssetStore.IsSupportedImageExtension(extension))
+        {
+            var fileName = PageAssetStore.ImportImage(pageId, sourcePath);
+            var fileUri = PageAssetStore.ToEditorUri(pageId, fileName);
+            var alt = Path.GetFileNameWithoutExtension(sourcePath);
+            await RunEditorAsync(e => e.InsertImageAsync(fileUri, alt));
+            return;
+        }
+
+        var attachmentName = PageAssetStore.ImportFile(pageId, sourcePath);
+        var attachmentUri = PageAssetStore.ToEditorUri(pageId, attachmentName);
+        var displayName = Path.GetFileName(sourcePath);
+        await RunEditorAsync(e => e.InsertFileAttachmentAsync(attachmentUri, displayName));
     }
 
     private void SetupTreeDragDrop()
@@ -1620,11 +1730,27 @@ public partial class MainForm : Form
 
     private void treeWorkspace_DragEnter(object? sender, DragEventArgs e)
     {
+        if (CanAcceptMarkdownFileDrop(e))
+        {
+            e.Effect = DragDropEffects.Copy;
+            return;
+        }
+
         e.Effect = GetDragEffect(e) ? DragDropEffects.Move : DragDropEffects.None;
     }
 
     private void treeWorkspace_DragOver(object? sender, DragEventArgs e)
     {
+        if (CanAcceptMarkdownFileDrop(e))
+        {
+            e.Effect = DragDropEffects.Copy;
+            var clientPoint = treeWorkspace.PointToClient(new Point(e.X, e.Y));
+            var targetNode = treeWorkspace.GetNodeAt(clientPoint);
+            if (targetNode != null)
+                treeWorkspace.SelectedNode = targetNode;
+            return;
+        }
+
         e.Effect = GetDragEffect(e) ? DragDropEffects.Move : DragDropEffects.None;
     }
 
@@ -1665,6 +1791,13 @@ public partial class MainForm : Form
 
     private void treeWorkspace_DragDrop(object? sender, DragEventArgs e)
     {
+        if (CanAcceptMarkdownFileDrop(e) &&
+            e.Data?.GetData(DataFormats.FileDrop) is string[] markdownPaths)
+        {
+            ImportMarkdownFilesFromDrop(markdownPaths, e);
+            return;
+        }
+
         if (e.Data?.GetData(typeof(TreeNode)) is not TreeNode sourceNode || sourceNode.Tag is not TreeNodeData sourceData)
             return;
 

@@ -591,7 +591,7 @@ partial class MainForm
         // 
         // webViewEditor
         // 
-        webViewEditor.AllowExternalDrop = true;
+        webViewEditor.AllowExternalDrop = false;
         webViewEditor.CreationProperties = null;
         webViewEditor.DefaultBackgroundColor = Color.White;
         webViewEditor.Dock = DockStyle.Fill;

@@ -263,11 +263,8 @@ internal static class MarkdownDocxExporter
         {
             ".png" => ImagePartType.Png,
             ".gif" => ImagePartType.Gif,
-            ".bmp" => ImagePartType.Bmp,
             ".webp" => ImagePartType.Png,
             ".avif" => ImagePartType.Png,
-            ".tif" or ".tiff" => ImagePartType.Tiff,
-            ".ico" => ImagePartType.Icon,
             _ => ImagePartType.Jpeg
         };
 }

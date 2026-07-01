@@ -172,6 +172,8 @@ public partial class MainForm
 
                 "toolbar_image" => Localization.Get(K.ToolbarImage),
 
+                "toolbar_attach" => Localization.Get(K.ToolbarAttachFile),
+
                 "toolbar_ul" => Localization.Get(K.ToolbarBulletList),
 
                 "toolbar_ol" => Localization.Get(K.ToolbarNumberList),

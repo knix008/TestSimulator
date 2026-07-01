@@ -24,6 +24,7 @@ internal static class AppIcons
             ("codeblock", "codeblock"),
             ("link", "link"),
             ("image", "image"),
+            ("attach", "attach"),
             ("ul", "ul"),
             ("ol", "ol"),
             ("quote", "quote"),

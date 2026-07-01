@@ -145,6 +145,7 @@ internal static class Localization
         Add(K.ToolbarCodeBlock, "코드 블록", "Code Block");
         Add(K.ToolbarLink, "링크", "Link");
         Add(K.ToolbarImage, "이미지", "Image");
+        Add(K.ToolbarAttachFile, "파일", "File");
         Add(K.ToolbarBulletList, "글머리 목록", "Bullet List");
         Add(K.ToolbarNumberList, "번호 목록", "Numbered List");
         Add(K.ToolbarQuote, "인용", "Quote");
@@ -269,9 +270,15 @@ internal static class Localization
         Add(K.ConfirmLogout, "로그아웃하시겠습니까?", "Do you want to sign out?");
         Add(K.Confirm, "확인", "Confirm");
         Add(K.DialogLinkTitle, "링크", "Link");
+        Add(K.DialogLinkTextPrompt, "표시 이름:", "Display text:");
+        Add(K.DialogLinkUrlPrompt, "URL:", "URL:");
+        Add(K.DialogLinkUrlRequired, "URL을 입력하세요.", "Enter a URL.");
         Add(K.DialogImageTitle, "이미지", "Image");
-        Add(K.DialogImageFilePrompt, "이미지 파일을 선택하세요.", "Select an image file.");
-        Add(K.ImageFileFilterLabel, "이미지 파일", "Image Files");
+        Add(K.DialogImageFilePrompt, "JPEG, PNG, GIF, WebP, AVIF 이미지 파일을 선택하세요.", "Select a JPEG, PNG, GIF, WebP, or AVIF image.");
+        Add(K.DialogAttachFilePrompt, "첨부할 파일을 선택하세요.", "Select a file to attach.");
+        Add(K.AttachmentRequiresPage, "이미지나 파일을 추가하려면 먼저 Page를 열어 주세요.", "Open a page before inserting images or files.");
+        Add(K.ImageFileFilterLabel, "이미지 (JPEG, PNG, GIF, WebP, AVIF)", "Images (JPEG, PNG, GIF, WebP, AVIF)");
+        Add(K.UnsupportedImageFormat, "지원하지 않는 이미지 형식입니다: {0}", "Unsupported image format: {0}");
         Add(K.AllFilesFilterLabel, "모든 파일", "All Files");
         Add(K.ExportPageTitle, "Page 내보내기", "Export Page");
         Add(K.ExportPagePrompt, "내보낼 형식을 선택하세요.", "Choose an export format.");
@@ -537,6 +544,7 @@ internal static class K
     public const string ToolbarCodeBlock = "ToolbarCodeBlock";
     public const string ToolbarLink = "ToolbarLink";
     public const string ToolbarImage = "ToolbarImage";
+    public const string ToolbarAttachFile = "ToolbarAttachFile";
     public const string ToolbarBulletList = "ToolbarBulletList";
     public const string ToolbarNumberList = "ToolbarNumberList";
     public const string ToolbarQuote = "ToolbarQuote";
@@ -661,8 +669,14 @@ internal static class K
     public const string ConfirmLogout = "ConfirmLogout";
     public const string Confirm = "Confirm";
     public const string DialogLinkTitle = "DialogLinkTitle";
+    public const string DialogLinkTextPrompt = "DialogLinkTextPrompt";
+    public const string DialogLinkUrlPrompt = "DialogLinkUrlPrompt";
+    public const string DialogLinkUrlRequired = "DialogLinkUrlRequired";
     public const string DialogImageTitle = "DialogImageTitle";
     public const string DialogImageFilePrompt = "DialogImageFilePrompt";
+    public const string UnsupportedImageFormat = "UnsupportedImageFormat";
+    public const string DialogAttachFilePrompt = "DialogAttachFilePrompt";
+    public const string AttachmentRequiresPage = "AttachmentRequiresPage";
     public const string ImageFileFilterLabel = "ImageFileFilterLabel";
     public const string AllFilesFilterLabel = "AllFilesFilterLabel";
     public const string ExportPageTitle = "ExportPageTitle";

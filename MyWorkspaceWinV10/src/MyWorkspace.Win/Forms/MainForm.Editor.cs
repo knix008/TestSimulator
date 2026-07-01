@@ -13,6 +13,12 @@ public partial class MainForm
         _editor.ContentChanged += OnEditorContentChanged;
         _editor.CaretMoved += OnEditorCaretMoved;
         _editor.ContextMenuRequested += OnEditorContextMenuRequested;
+        _editor.ConfigureFileDrop(
+            pnlEditorHost,
+            HandleEditorFilesDroppedAsync,
+            () => SessionContext.IsLoggedIn
+                  && (_currentPageId.HasValue || _draftWorkspaceId.HasValue)
+                  && CanEditActivePage());
     }
 
     private void UpdateEditorEmptySurface()
@@ -88,6 +94,7 @@ public partial class MainForm
         try
         {
             var content = PageTitleHelper.EnsureTitleHeading(page.Title, page.Content);
+            PageAssetStore.EnsureAssetsMaterialized(pageId, content);
             await _editor!.LoadMarkdownAsync(content, _pipeline, pageId);
             await _editor.FocusAsync();
         }
@@ -181,6 +188,7 @@ public partial class MainForm
         {
             _currentPageTitle = page.Title;
             var content = PageTitleHelper.EnsureTitleHeading(page.Title, page.Content);
+            PageAssetStore.EnsureAssetsMaterialized(pageId, content);
             await _editor.LoadMarkdownAsync(content, _pipeline, pageId);
             _isDirty = false;
             SetSaveStatus(SaveStatusKind.Saved);
@@ -222,6 +230,8 @@ public partial class MainForm
                 _currentPageId.Value,
                 title,
                 content);
+
+            PageAssetStore.SyncAssetsWithContent(_currentPageId.Value, content);
 
             _currentPageTitle = title;
             _isDirty = false;

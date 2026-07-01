@@ -22,6 +22,7 @@ internal static class IconDrawing
             "codeblock" => CodeBlock(size),
             "link" => Link(size),
             "image" => ImageIcon(size),
+            "attach" => Attach(size),
             "ul" => List(size, false),
             "ol" => List(size, true),
             "quote" => Quote(size),
@@ -154,6 +155,16 @@ internal static class IconDrawing
             IconCanvas.DrawLine(g, c, 1f, 9.5f, 4.5f, 6.5f, Color.White, 1f);
             IconCanvas.DrawLine(g, c, 4.5f, 6.5f, 7.5f, 9f, Color.White, 1f);
             IconCanvas.DrawLine(g, c, 7.5f, 9f, 11f, 4.5f, Color.White, 1f);
+        });
+
+    private static Bitmap Attach(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var color = Color.FromArgb(14, 116, 144);
+            IconCanvas.DrawLine(g, c, 4.5f, 2.5f, 4.5f, 7.5f, color, size * 0.12f);
+            IconCanvas.DrawLine(g, c, 7.5f, 4.5f, 7.5f, 9.5f, color, size * 0.12f);
+            IconCanvas.DrawArc(g, c, 2.5f, 1.5f, 4f, 4f, 180f, 180f, color, size * 0.12f);
+            IconCanvas.DrawArc(g, c, 5.5f, 3.5f, 4f, 4f, 0f, 180f, color, size * 0.12f);
         });
 
     private static Bitmap List(int size, bool ordered) =>

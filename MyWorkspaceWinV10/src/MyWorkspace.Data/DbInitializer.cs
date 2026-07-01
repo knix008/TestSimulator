@@ -22,6 +22,7 @@ public static class DbInitializer
         EnsureWorkspaceLockColumns(db);
         EnsurePageLockColumns(db);
         EnsureUserNotificationColumns(db);
+        EnsurePageAssetsTable(db);
 
         if (db.Users.Any())
             return;
@@ -284,6 +285,84 @@ public static class DbInitializer
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
                 );
+                """);
+        }
+    }
+
+    private static void EnsurePageAssetsTable(AppDbContext db)
+    {
+        if (TableExists(db, "page_assets"))
+            return;
+
+        var provider = db.Database.ProviderName ?? string.Empty;
+
+        if (provider.Contains("MySql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_assets (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    page_id INT NOT NULL,
+                    file_name VARCHAR(260) NOT NULL,
+                    content LONGBLOB NOT NULL,
+                    created_at DATETIME(6) NOT NULL,
+                    updated_at DATETIME(6) NOT NULL,
+                    UNIQUE INDEX ux_page_assets_page_file (page_id, file_name),
+                    CONSTRAINT fk_page_assets_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB;
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_assets (
+                    id SERIAL PRIMARY KEY,
+                    page_id INT NOT NULL,
+                    file_name VARCHAR(260) NOT NULL,
+                    content BYTEA NOT NULL,
+                    created_at TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMP NOT NULL,
+                    CONSTRAINT fk_page_assets_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_page_assets_page_file ON page_assets (page_id, file_name);
+                """);
+            return;
+        }
+
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID(N'page_assets', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE page_assets (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        page_id INT NOT NULL,
+                        file_name NVARCHAR(260) NOT NULL,
+                        content VARBINARY(MAX) NOT NULL,
+                        created_at DATETIME2 NOT NULL,
+                        updated_at DATETIME2 NOT NULL,
+                        CONSTRAINT fk_page_assets_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
+                    );
+                    CREATE UNIQUE INDEX ux_page_assets_page_file ON page_assets (page_id, file_name);
+                END
+                """);
+            return;
+        }
+
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_assets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    page_id INTEGER NOT NULL,
+                    file_name TEXT NOT NULL,
+                    content BLOB NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_page_assets_page_file ON page_assets (page_id, file_name);
                 """);
         }
     }

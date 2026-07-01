@@ -1,11 +1,10 @@
 using System.IO.Compression;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using MyWorkspace.Core.Models;
 
 namespace MyWorkspace.Win;
 
-internal static partial class WorkspaceArchiveFileIO
+internal static class WorkspaceArchiveFileIO
 {
     private const string ManifestEntry = "workspace.json";
     private const string AssetsFolder = "assets/";
@@ -75,17 +74,24 @@ internal static partial class WorkspaceArchiveFileIO
                 continue;
 
             var assets = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-            foreach (Match match in PageAssetUriRegex().Matches(page.Content))
+            foreach (var uri in PageMarkdownNormalizer.EnumerateAssetUriReferences(page.Content))
             {
-                if (!PageAssetStore.TryParseAssetUri(match.Groups["url"].Value, out var pageId, out var fileName))
+                if (!PageAssetStore.TryParseAssetUri(uri, out var pageId, out var fileName))
                     continue;
 
                 if (pageId == 0 || string.IsNullOrWhiteSpace(fileName))
                     continue;
 
                 var path = PageAssetStore.TryGetAssetPath(pageId, fileName);
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    var bytes = PageAssetStore.TryGetAssetBytes(pageId, fileName);
+                    if (bytes == null)
+                        continue;
+
+                    assets[fileName] = bytes;
                     continue;
+                }
 
                 assets[fileName] = File.ReadAllBytes(path);
             }
@@ -116,16 +122,18 @@ internal static partial class WorkspaceArchiveFileIO
 
     private static string RewritePageAssetUris(string content, string pageKey)
     {
-        return PageAssetUriRegex().Replace(content, match =>
+        foreach (var uri in PageMarkdownNormalizer.EnumerateAssetUriReferences(content).Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            if (!PageAssetStore.TryParseAssetUri(match.Groups["url"].Value, out _, out var fileName))
-                return match.Value;
+            if (!PageAssetStore.TryParseAssetUri(uri, out _, out var fileName))
+                continue;
 
-            return match.Value.Replace(
-                match.Groups["url"].Value,
+            content = content.Replace(
+                uri,
                 $"archive-asset:{pageKey}/{fileName}",
                 StringComparison.OrdinalIgnoreCase);
-        });
+        }
+
+        return content;
     }
 
     private static void WriteManifest(ZipArchive archive, WorkspaceArchiveDocument document)
@@ -185,7 +193,4 @@ internal static partial class WorkspaceArchiveFileIO
             pair => (IReadOnlyDictionary<string, byte[]>)pair.Value,
             StringComparer.OrdinalIgnoreCase);
     }
-
-    [GeneratedRegex(@"!\[(?<alt>[^\]]*)\]\((?<url>page-asset:\d+/[^)]+)\)", RegexOptions.IgnoreCase)]
-    private static partial Regex PageAssetUriRegex();
 }

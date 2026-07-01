@@ -12,7 +12,7 @@ internal static class Program
         (16,
         [
             "h1", "h2", "h3", "h4", "h5", "h6",
-            "bold", "italic", "strike", "code", "codeblock", "link", "image", "ul", "ol", "quote", "hr", "table",
+            "bold", "italic", "strike", "code", "codeblock", "link", "image", "attach", "ul", "ol", "quote", "hr", "table",
             "undo", "redo", "outline", "info",
             "save", "history", "refresh", "login", "logout", "exit", "preferences", "export",
             "folder_plus_workspace", "folder_plus_sub", "page_plus", "rename", "delete",
@@ -22,14 +22,14 @@ internal static class Program
         (20,
         [
             "h1", "h2", "h3", "h4", "h5", "h6",
-            "bold", "italic", "strike", "code", "codeblock", "link", "image", "ul", "ol", "quote", "hr", "table",
+            "bold", "italic", "strike", "code", "codeblock", "link", "image", "attach", "ul", "ol", "quote", "hr", "table",
             "undo", "redo", "outline", "info",
             "save", "page", "export", "history", "log"
         ]),
         (28,
         [
             "h1", "h2", "h3", "h4", "h5", "h6",
-            "bold", "italic", "strike", "code", "codeblock", "link", "image", "ul", "ol", "quote", "hr", "table",
+            "bold", "italic", "strike", "code", "codeblock", "link", "image", "attach", "ul", "ol", "quote", "hr", "table",
             "undo", "redo", "outline", "info",
             "save", "page", "export", "history", "log"
         ])

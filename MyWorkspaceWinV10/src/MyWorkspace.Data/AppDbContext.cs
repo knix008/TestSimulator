@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Page> Pages => Set<Page>();
     public DbSet<PageVersion> PageVersions => Set<PageVersion>();
     public DbSet<PageChangeLog> PageChangeLogs => Set<PageChangeLog>();
+    public DbSet<PageAsset> PageAssets => Set<PageAsset>();
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<WorkspaceFavorite> WorkspaceFavorites => Set<WorkspaceFavorite>();
 
@@ -139,6 +140,24 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.ChangedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PageAsset>(entity =>
+        {
+            entity.ToTable("page_assets");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.PageId).HasColumnName("page_id");
+            entity.Property(e => e.FileName).HasColumnName("file_name").HasMaxLength(260).IsRequired();
+            entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            entity.HasIndex(e => new { e.PageId, e.FileName }).IsUnique();
+
+            entity.HasOne(e => e.Page)
+                .WithMany()
+                .HasForeignKey(e => e.PageId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<WorkspaceMember>(entity =>
