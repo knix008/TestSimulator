@@ -210,7 +210,8 @@ public sealed class SystemIndexService : IDisposable
                 return false;
         }
 
-        return scannable > 0;
+        // No reachable roots (empty scope or all offline) — nothing left to wait for.
+        return true;
     }
 
     private int CountScannableScanRoots(IReadOnlyList<string> roots)
