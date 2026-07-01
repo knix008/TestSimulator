@@ -46,6 +46,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.ParentId).HasColumnName("parent_id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
             entity.Property(e => e.OwnerId).HasColumnName("owner_id");
+            entity.Property(e => e.LockedByUserId).HasColumnName("locked_by_user_id");
+            entity.Property(e => e.LockedAt).HasColumnName("locked_at");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
@@ -58,6 +60,11 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.LockedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.LockedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Page>(entity =>
@@ -68,6 +75,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.WorkspaceId).HasColumnName("workspace_id");
             entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
             entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.LockedByUserId).HasColumnName("locked_by_user_id");
+            entity.Property(e => e.LockedAt).HasColumnName("locked_at");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
@@ -75,6 +84,11 @@ public class AppDbContext : DbContext
                 .WithMany(e => e.Pages)
                 .HasForeignKey(e => e.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.LockedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.LockedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<PageVersion>(entity =>

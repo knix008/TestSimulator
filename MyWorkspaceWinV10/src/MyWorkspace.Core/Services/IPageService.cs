@@ -9,4 +9,11 @@ public interface IPageService
     void UpdatePage(User currentUser, int pageId, string title, string content);
     void MovePage(User currentUser, int pageId, int targetWorkspaceId);
     void DeletePage(User currentUser, int pageId);
+    bool IsPageLocked(int pageId);
+    bool CanEditPageContent(User currentUser, int pageId);
+    bool CanLockPage(User currentUser, int pageId);
+    bool CanUnlockPage(User currentUser, int pageId);
+    void LockPage(User currentUser, int pageId);
+    void UnlockPage(User currentUser, int pageId);
+    string? GetPageLockHolderUsername(int pageId);
 }

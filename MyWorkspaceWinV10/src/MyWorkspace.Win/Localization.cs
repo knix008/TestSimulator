@@ -115,6 +115,11 @@ internal static class Localization
         Add(K.CtxDelete, "삭제", "Delete");
         Add(K.CtxToggleFavoriteAdd, "즐겨찾기 추가", "Add to Favorites");
         Add(K.CtxToggleFavoriteRemove, "즐겨찾기 제거", "Remove from Favorites");
+        Add(K.CtxLockWorkspace, "Workspace 잠금", "Lock Workspace");
+        Add(K.CtxUnlockWorkspace, "Workspace 잠금 해제", "Unlock Workspace");
+        Add(K.CtxLockPage, "Page 잠금", "Lock Page");
+        Add(K.CtxUnlockPage, "Page 잠금 해제", "Unlock Page");
+        Add(K.WorkspaceLockedSuffix, " 🔒", " 🔒");
         Add(K.CtxMembers, "멤버 관리", "Manage Members");
 
         Add(K.LabelTitle, "제목", "Title");
@@ -185,6 +190,12 @@ internal static class Localization
         Add(K.TipMenuNotificationSettings, "알림 수신 설정", "Configure notification preferences");
         Add(K.TipCtxToggleFavoriteAdd, "Workspace를 즐겨찾기에 추가", "Add workspace to favorites");
         Add(K.TipCtxToggleFavoriteRemove, "Workspace를 즐겨찾기에서 제거", "Remove workspace from favorites");
+        Add(K.TipCtxLockWorkspace, "다른 사용자의 편집을 막습니다", "Prevent other users from editing");
+        Add(K.TipCtxUnlockWorkspace, "Workspace 잠금을 해제합니다", "Release the workspace lock");
+        Add(K.TipCtxLockPage, "다른 사용자의 Page 편집을 막습니다", "Prevent other users from editing this page");
+        Add(K.TipCtxUnlockPage, "Page 잠금을 해제합니다", "Release the page lock");
+        Add(K.StatusWorkspaceLockedReadOnly, "{0}님이 잠근 Workspace입니다. 읽기 전용입니다.", "This workspace is locked by {0}. Read-only.");
+        Add(K.StatusPageLockedReadOnly, "{0}님이 잠근 Page입니다. 읽기 전용입니다.", "This page is locked by {0}. Read-only.");
         Add(K.TipEditorCut, "선택 영역 잘라내기 (Ctrl+X)", "Cut selection (Ctrl+X)");
         Add(K.TipEditorCopy, "선택 영역 복사 (Ctrl+C)", "Copy selection (Ctrl+C)");
         Add(K.TipEditorPaste, "클립보드 내용 붙여넣기 (Ctrl+V)", "Paste from clipboard (Ctrl+V)");
@@ -496,6 +507,11 @@ internal static class K
     public const string CtxDelete = "CtxDelete";
     public const string CtxToggleFavoriteAdd = "CtxToggleFavoriteAdd";
     public const string CtxToggleFavoriteRemove = "CtxToggleFavoriteRemove";
+    public const string CtxLockWorkspace = "CtxLockWorkspace";
+    public const string CtxUnlockWorkspace = "CtxUnlockWorkspace";
+    public const string CtxLockPage = "CtxLockPage";
+    public const string CtxUnlockPage = "CtxUnlockPage";
+    public const string WorkspaceLockedSuffix = "WorkspaceLockedSuffix";
     public const string CtxMembers = "CtxMembers";
 
     public const string LabelTitle = "LabelTitle";
@@ -566,6 +582,12 @@ internal static class K
     public const string TipMenuNotificationSettings = "TipMenuNotificationSettings";
     public const string TipCtxToggleFavoriteAdd = "TipCtxToggleFavoriteAdd";
     public const string TipCtxToggleFavoriteRemove = "TipCtxToggleFavoriteRemove";
+    public const string TipCtxLockWorkspace = "TipCtxLockWorkspace";
+    public const string TipCtxUnlockWorkspace = "TipCtxUnlockWorkspace";
+    public const string TipCtxLockPage = "TipCtxLockPage";
+    public const string TipCtxUnlockPage = "TipCtxUnlockPage";
+    public const string StatusWorkspaceLockedReadOnly = "StatusWorkspaceLockedReadOnly";
+    public const string StatusPageLockedReadOnly = "StatusPageLockedReadOnly";
     public const string TipEditorCut = "TipEditorCut";
     public const string TipEditorCopy = "TipEditorCopy";
     public const string TipEditorPaste = "TipEditorPaste";

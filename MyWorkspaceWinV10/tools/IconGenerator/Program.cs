@@ -16,8 +16,8 @@ internal static class Program
             "undo", "redo", "outline", "info",
             "save", "history", "refresh", "login", "logout", "exit", "preferences", "export",
             "folder_plus_workspace", "folder_plus_sub", "page_plus", "rename", "delete",
-            "members", "users", "database", "email", "profile", "password", "bell", "star", "log", "copy",
-            "workspace", "workspace_fav", "favorite", "page"
+            "members", "users", "database", "email", "profile", "password", "bell", "star", "log", "copy", "cut", "paste", "selectall", "lock", "unlock",
+            "workspace", "workspace_fav", "workspace_locked", "workspace_fav_locked", "favorite", "page", "page_locked"
         ]),
         (20,
         [

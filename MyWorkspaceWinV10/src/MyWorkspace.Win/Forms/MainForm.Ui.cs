@@ -28,15 +28,20 @@ public partial class MainForm
     {
         AppTheme.ApplyFormChrome(this);
 
+        pnlMainContent.BackColor = AppTheme.Background;
+        pnlMainContent.Padding = Padding.Empty;
+
         AppTheme.ApplyMenuStrip(menuStrip1);
-        AppTheme.ApplyToolbar(toolStripMarkdown);
+        AppTheme.ApplyVerticalToolbar(toolStripMarkdown);
+        toolStripMarkdown.Padding = new Padding(4, 8 + ToolbarTopGap, 4, 8);
         AppTheme.ApplyStatusStrip(statusStrip1);
         AppTheme.StyleContextMenu(ctxTree);
         AppTheme.StyleTreeView(treeWorkspace);
         AppTheme.StyleTreeView(treeOutline);
 
         pnlWorkspaceSidebar.BackColor = AppTheme.Sidebar;
-        AppTheme.StyleBorderedPanel(pnlWorkspaceSidebar, PanelEdges.All);
+        pnlWorkspaceSidebar.Padding = new Padding(NavWorkspaceGap, WorkspaceTopGap + 1, 0, 1);
+        AppTheme.StyleBorderedPanel(pnlWorkspaceSidebar, PanelEdges.Top | PanelEdges.Bottom);
 
         pnlOutlineSidebar.BackColor = AppTheme.Sidebar;
         AppTheme.StyleBorderedPanel(pnlOutlineSidebar, PanelEdges.All);
@@ -47,8 +52,9 @@ public partial class MainForm
         AppTheme.StyleBorderedPanel(pnlEditorColumn, PanelEdges.Top | PanelEdges.Right | PanelEdges.Bottom);
 
         pnlEditorHost.BackColor = AppTheme.Surface;
-        pnlEditorHost.Padding = Padding.Empty;
+        pnlEditorHost.Padding = new Padding(1);
         pnlEditorHost.Margin = Padding.Empty;
+        AppTheme.StyleBorderedPanel(pnlEditorHost, PanelEdges.All);
 
         editorAreaSplit.Panel1.Padding = Padding.Empty;
         editorAreaSplit.Panel2.Padding = Padding.Empty;
@@ -56,12 +62,6 @@ public partial class MainForm
 
         AppTheme.StyleSplitContainer(outerSplit);
         AppTheme.StyleSplitContainer(editorAreaSplit);
-        AppTheme.StyleTabControl(tabPageEditors);
-        tabPageEditors.RefreshTabLayout();
-
-        pnlWorkspaceHeader.Padding = new Padding(10, 0, 4, 0);
-        pnlWorkspaceHeader.MinimumSize = new Size(0, 38);
-        AppTheme.StylePanelTitleHeader(pnlWorkspaceHeader, lblWorkspace, PanelHeaderKind.Workspace);
 
         pnlOutlineHeader.Padding = new Padding(10, 0, 4, 0);
         pnlOutlineHeader.MinimumSize = new Size(0, 38);
@@ -69,15 +69,12 @@ public partial class MainForm
         AppTheme.StyleOutlineToggleButton(btnToggleOutline);
         btnToggleOutline.BackColor = Color.Transparent;
 
-        pnlEditorHeader.Padding = new Padding(10, 0, 4, 0);
-        pnlEditorHeader.MinimumSize = new Size(0, 38);
-        AppTheme.StylePanelTitleHeader(pnlEditorHeader, lblEditor, PanelHeaderKind.Editor);
-
         lblStatus.ForeColor = AppTheme.TextSecondary;
         lblSaveStatus.ForeColor = AppTheme.TextMuted;
 
         ApplyEditorHostTheme();
-        UpdateEditorHostTabLayout();
+        UpdateEditorEmptySurface();
+        RefreshNavRailTheme();
     }
 
 
@@ -97,9 +94,6 @@ public partial class MainForm
         menuFile.Text = Localization.Get(K.MenuFile);
 
         menuSavePage.Text = Localization.Get(K.MenuSavePage);
-
-        if (menuClosePageTab != null)
-            menuClosePageTab.Text = Localization.Get(K.MenuClosePageTab);
 
         menuPageHistory.Text = Localization.Get(K.MenuPageHistory);
 
@@ -177,11 +171,7 @@ public partial class MainForm
 
 
 
-        lblWorkspace.Text = Localization.Get(K.LabelWorkspace);
-
         lblOutline.Text = Localization.Get(K.LabelOutline);
-
-        lblEditor.Text = Localization.Get(K.LabelMarkdownEditor);
 
         UpdateOutlineToggleButtonText();
 
@@ -192,6 +182,8 @@ public partial class MainForm
         SetupWysiwygToolbar();
 
         ApplyUiTooltips();
+
+        RefreshNavRailTooltips();
 
         RefreshStatusTexts();
 
@@ -215,9 +207,9 @@ public partial class MainForm
 
 
 
-        if (_currentPageId.HasValue && _activePageSession != null && !string.IsNullOrWhiteSpace(_activePageSession.Title))
+        if (_currentPageId.HasValue && !string.IsNullOrWhiteSpace(_currentPageTitle))
 
-            lblStatus.Text = Localization.Format(K.StatusPage, _activePageSession.Title.Trim());
+            lblStatus.Text = Localization.Format(K.StatusPage, _currentPageTitle.Trim());
 
         else
 
@@ -273,9 +265,9 @@ public partial class MainForm
 
             SessionContext.IsLoggedIn &&
 
-            _activePageSession != null)
+            !string.IsNullOrWhiteSpace(_currentPageTitle))
 
-            lblStatus.Text = Localization.Format(K.StatusPage, _activePageSession.Title.Trim());
+            lblStatus.Text = Localization.Format(K.StatusPage, _currentPageTitle.Trim());
 
     }
 
@@ -353,24 +345,21 @@ public partial class MainForm
     {
         ApplyEditorHostTheme();
 
-        if (_pageSessions.Count == 0)
+        if (_editor == null)
             return;
 
         var suppressLoading = _isLoadingPage;
         _isLoadingPage = true;
         try
         {
-            foreach (var session in _pageSessions)
-            {
-                session.Editor.ApplyWebViewChrome();
-                session.Editor.ResetScriptSuspension();
+            _editor.ApplyWebViewChrome();
+            _editor.ResetScriptSuspension();
 
-                if (!session.Editor.IsReady)
-                    continue;
+            if (!_editor.IsReady)
+                return;
 
-                var markdown = await session.Editor.GetMarkdownAsync(session.PageId);
-                await session.Editor.LoadMarkdownAsync(markdown, _pipeline, session.PageId);
-            }
+            var markdown = await _editor.GetMarkdownAsync(_currentPageId);
+            await _editor.LoadMarkdownAsync(markdown, _pipeline, _currentPageId);
         }
         finally
         {
@@ -380,19 +369,12 @@ public partial class MainForm
 
     private void ApplyEditorHostTheme()
     {
-        tabPageEditors.BackColor = AppTheme.EditorBackground;
+        webViewEditor.DefaultBackgroundColor = AppTheme.EditorBackground;
+        pnlEditorEmptySurface.BackColor = AppTheme.EditorBackground;
 
-        if (_editorEmptySurface != null)
-            _editorEmptySurface.BackColor = AppTheme.EditorBackground;
-
-        foreach (TabPage page in tabPageEditors.TabPages)
-            page.BackColor = AppTheme.EditorBackground;
-
-        foreach (var session in _pageSessions)
-        {
-            session.Editor.ApplyWebViewChrome();
-            _ = session.Editor.ApplyThemeChromeAsync();
-        }
+        _editor?.ApplyWebViewChrome();
+        if (_editor != null)
+            _ = _editor.ApplyThemeChromeAsync();
     }
 }
 

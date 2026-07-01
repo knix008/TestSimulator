@@ -55,6 +55,16 @@ internal sealed class WebViewEditorController
         await ExecuteScriptExclusiveAsync(BuildThemeChromeScript());
     }
 
+    public async Task SetEditingEnabledAsync(bool enabled)
+    {
+        if (!IsReady || IsScriptSuspended)
+            return;
+
+        var value = enabled ? "true" : "false";
+        await ExecuteScriptExclusiveAsync(
+            "(function(){var editor=document.getElementById('editor');if(editor){editor.contentEditable=" + value + ";}})();");
+    }
+
     public async Task InitializeAsync(MarkdownPipeline pipeline)
     {
         var environment = await WebView2EnvironmentProvider.GetSharedEnvironmentAsync().ConfigureAwait(true);

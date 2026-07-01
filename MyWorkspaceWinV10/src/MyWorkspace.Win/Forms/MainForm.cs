@@ -20,7 +20,7 @@ public partial class MainForm : Form
     private TreeNode? _workspaceContextMenuNode;
     private bool _pageCreateInProgress;
     private string _lastActiveHeadingId = string.Empty;
-    private int _savedOutlineWidth = 110;
+    private int _savedOutlineWidth = 329;
 
     private const int MaxOutlineLevel = 6;
 
@@ -42,6 +42,7 @@ public partial class MainForm : Form
     {
         _pendingWspImportPath = StartupArguments.TryGetWspImportPath(args);
         InitializeComponent();
+        ApplyLayoutConstraints();
         KeyPreview = true;
         ApplyStartupTheme();
         AppTheme.Changed += OnAppThemeChanged;
@@ -51,6 +52,7 @@ public partial class MainForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
+        ApplyLayoutConstraints();
         ApplyStartupTheme();
     }
 
@@ -68,17 +70,6 @@ public partial class MainForm : Form
         ApplyModernTheme();
     }
 
-    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
-    {
-        if (keyData == (Keys.Control | Keys.W) && SessionContext.IsLoggedIn && _activePageSession != null)
-        {
-            _ = CloseActivePageTabAsync();
-            return true;
-        }
-
-        return base.ProcessCmdKey(ref msg, keyData);
-    }
-
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
@@ -93,6 +84,9 @@ public partial class MainForm : Form
     protected override void OnDeactivate(EventArgs e)
     {
         base.OnDeactivate(e);
+        if (_navMenuOpen || _openEditorOverlayCount > 0)
+            return;
+
         _editor?.ResetScriptSuspension();
     }
 
@@ -106,14 +100,16 @@ public partial class MainForm : Form
             menuPreferences, menuDocumentStructure, menuNewRootWorkspace, menuNewSubWorkspace, menuNewPage, menuRename, menuDelete,
             menuWorkspaceMembers, menuAdminUserManagement, menuAdminDatabaseSettings,
             menuAdminEmailSettings, menuEditProfile, menuChangePassword, menuNotificationSettings,
-            ctxNewSubWorkspace, ctxNewPage, ctxRename, ctxDelete, ctxToggleFavorite, ctxMembers);
+            ctxNewRootWorkspace, ctxNewSubWorkspace, ctxNewPage, ctxRename, ctxDelete, ctxToggleFavorite,
+            ctxToggleWorkspaceLock, ctxTogglePageLock, ctxMembers);
 
         EnsureWorkspaceArchiveMenuItems();
         EnsureWorkspaceExportMenuItems();
 
         menuView.Image = menuDocumentStructure.Image;
 
-        InitializePageTabs();
+        InitializeEditor();
+        InitializeNavRail();
         SetupEditorContextMenu();
         HookMenuScriptSuspension();
 
@@ -174,6 +170,15 @@ public partial class MainForm : Form
             await SaveCurrentPageAsync(showStatus: true, refreshTree: true);
         };
 
+        try
+        {
+            await _editor!.InitializeAsync(_pipeline);
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.EditorInitFailed), ex);
+        }
+
         ApplyModernTheme();
         ApplyLocalization();
         ApplyLoggedOutState();
@@ -194,7 +199,7 @@ public partial class MainForm : Form
 
     private void ApplyLoggedOutState()
     {
-        CloseAllPageTabsImmediate();
+        _ = ClearEditorImmediateAsync();
         SessionContext.Clear();
         Text = Localization.Get(K.AppTitleLoggedOut);
         lblStatus.Text = Localization.Get(K.StatusLoginRequired);
@@ -204,6 +209,7 @@ public partial class MainForm : Form
         treeOutline.Nodes.Clear();
         _currentPageId = null;
         _draftWorkspaceId = null;
+        _currentPageTitle = string.Empty;
         _isDirty = false;
 
         SetShellEnabled(false);
@@ -211,8 +217,7 @@ public partial class MainForm : Form
         UpdateMenuForLoginState(false);
         ApplyStartupTheme();
         ApplyEditorHostTheme();
-        tabPageEditors.RefreshTabLayout();
-        UpdateEditorHostTabLayout();
+        UpdateEditorEmptySurface();
     }
 
     private void ApplyLoggedInState()
@@ -245,10 +250,29 @@ public partial class MainForm : Form
 
     private void UpdateEditorChromeEnabled()
     {
-        var enabled = SessionContext.IsLoggedIn && _activePageSession != null;
+        var enabled = SessionContext.IsLoggedIn
+                      && (_currentPageId.HasValue || _draftWorkspaceId.HasValue)
+                      && CanEditActivePage();
         foreach (ToolStripItem item in toolStripMarkdown.Items)
         {
             if (ReferenceEquals(item, _toolbarInfoButton) || ReferenceEquals(item, _toolbarOutlineButton))
+            {
+                item.Enabled = true;
+                continue;
+            }
+
+            item.Enabled = enabled;
+        }
+
+        if (_ctxEditor == null)
+            return;
+
+        foreach (ToolStripItem item in _ctxEditor.Items)
+        {
+            if (item is ToolStripSeparator)
+                continue;
+
+            if (item.Tag is string key && key == K.ToolbarDocumentStructure)
             {
                 item.Enabled = true;
                 continue;
@@ -261,8 +285,6 @@ public partial class MainForm : Form
     private void UpdateMenuForLoginState(bool loggedIn)
     {
         menuSavePage.Visible = loggedIn;
-        if (menuClosePageTab != null)
-            menuClosePageTab.Visible = loggedIn;
         menuPageHistory.Visible = loggedIn;
         menuRefreshTree.Visible = loggedIn;
         if (menuSepWorkspaceArchive != null)
@@ -278,6 +300,7 @@ public partial class MainForm : Form
         menuSepFilePref.Visible = true;
         menuLogin.Visible = !loggedIn;
         menuLogout.Visible = loggedIn;
+        menuSepAccount2.Visible = loggedIn;
         menuWorkspace.Visible = loggedIn;
         menuView.Visible = true;
         menuDocumentStructure.Visible = true;
@@ -288,6 +311,7 @@ public partial class MainForm : Form
         menuAdminUserManagement.Visible = loggedIn && SessionContext.IsAdmin;
         menuAdminDatabaseSettings.Visible = loggedIn && SessionContext.IsAdmin;
         menuAdminEmailSettings.Visible = loggedIn && SessionContext.IsAdmin;
+        UpdateNavRailForLoginState(loggedIn);
         RefreshMenuTheme();
     }
 
@@ -297,6 +321,14 @@ public partial class MainForm : Form
         AppTheme.StyleContextMenu(ctxTree);
         if (_ctxEditor != null)
             AppTheme.StyleContextMenu(_ctxEditor);
+
+        AppIcons.ApplyMenuIcons(
+            menuSavePage, menuPageHistory, menuRefreshTree, menuLogin, menuLogout, menuAbout, menuExit,
+            menuPreferences, menuDocumentStructure, menuNewRootWorkspace, menuNewSubWorkspace, menuNewPage, menuRename, menuDelete,
+            menuWorkspaceMembers, menuAdminUserManagement, menuAdminDatabaseSettings,
+            menuAdminEmailSettings, menuEditProfile, menuChangePassword, menuNotificationSettings,
+            ctxNewRootWorkspace, ctxNewSubWorkspace, ctxNewPage, ctxRename, ctxDelete, ctxToggleFavorite,
+            ctxToggleWorkspaceLock, ctxTogglePageLock, ctxMembers);
     }
 
     private void OnEditorContentChanged()
@@ -312,7 +344,7 @@ public partial class MainForm : Form
 
     private async Task OnEditorContentChangedAsync()
     {
-        await SyncPageTitleFromEditorAsync(_activePageSession);
+        await SyncPageTitleFromEditorAsync();
         await MarkPageDirtyAsync();
         ScheduleOutlineUpdate();
     }
@@ -327,19 +359,31 @@ public partial class MainForm : Form
 
     private void HookMenuScriptSuspension()
     {
-        foreach (ToolStripItem item in menuStrip1.Items)
-        {
-            if (item is ToolStripMenuItem menuItem)
-                HookDropDownScriptSuspension(menuItem.DropDown);
-        }
-
         HookDropDownScriptSuspension(ctxTree);
+    }
+
+    private int _openEditorOverlayCount;
+
+    private void EnterEditorOverlay()
+    {
+        _openEditorOverlayCount++;
+        _editor?.SuspendScripts();
+    }
+
+    private void ExitEditorOverlay()
+    {
+        if (_openEditorOverlayCount > 0)
+            _openEditorOverlayCount--;
+
+        _editor?.ResumeScripts();
+        ScheduleOutlineUpdate();
+        ScheduleOutlineHighlight();
     }
 
     private void HookDropDownScriptSuspension(ToolStripDropDown dropDown)
     {
-        dropDown.Opening += (_, _) => _editor?.SuspendScripts();
-        dropDown.Closed += (_, _) => OnDropDownClosed();
+        dropDown.Opening += (_, _) => EnterEditorOverlay();
+        dropDown.Closed += (_, _) => ExitEditorOverlay();
 
         foreach (ToolStripItem item in dropDown.Items)
         {
@@ -348,33 +392,50 @@ public partial class MainForm : Form
         }
     }
 
-    private void OnDropDownClosed()
-    {
-        _editor?.ResumeScripts();
-        ScheduleOutlineUpdate();
-        ScheduleOutlineHighlight();
-    }
-
     private void SetupEditorContextMenu()
     {
         _ctxEditor = new ContextMenuStrip(components);
-        _ctxEditor.Closed += (_, _) => OnDropDownClosed();
+        _ctxEditor.Opening += (_, _) => EnterEditorOverlay();
+        _ctxEditor.Closed += (_, _) => ExitEditorOverlay();
 
-        AddEditorMenuItem(K.EditorCut, Keys.Control | Keys.X, async (_, _) => await RunEditorAsync(e => e.CutAsync()));
-        AddEditorMenuItem(K.EditorCopy, Keys.Control | Keys.C, async (_, _) => await RunEditorAsync(e => e.CopyAsync()));
-        AddEditorMenuItem(K.EditorPaste, Keys.Control | Keys.V, async (_, _) => await RunEditorAsync(e => e.PasteAsync()));
+        AddEditorMenuItem(K.EditorCut, Keys.Control | Keys.X, async (_, _) => await RunEditorAsync(e => e.CutAsync()), "cut");
+        AddEditorMenuItem(K.EditorCopy, Keys.Control | Keys.C, async (_, _) => await RunEditorAsync(e => e.CopyAsync()), "copy");
+        AddEditorMenuItem(K.EditorPaste, Keys.Control | Keys.V, async (_, _) => await RunEditorAsync(e => e.PasteAsync()), "paste");
         _ctxEditor.Items.Add(new ToolStripSeparator());
-        AddEditorMenuItem(K.EditorSelectAll, Keys.Control | Keys.A, async (_, _) => await RunEditorAsync(e => e.SelectAllAsync()));
+        AddEditorMenuItem(K.EditorSelectAll, Keys.Control | Keys.A, async (_, _) => await RunEditorAsync(e => e.SelectAllAsync()), "selectall");
         _ctxEditor.Items.Add(new ToolStripSeparator());
-        AddEditorMenuItem(K.EditorBold, Keys.Control | Keys.B, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("bold")));
-        AddEditorMenuItem(K.EditorItalic, Keys.Control | Keys.I, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("italic")));
+        AddEditorMenuItem(K.ToolbarUndo, Keys.Control | Keys.Z, async (_, _) => await RunEditorAsync(e => e.UndoAsync()), "undo");
+        AddEditorMenuItem(K.ToolbarRedo, Keys.Control | Keys.Y, async (_, _) => await RunEditorAsync(e => e.RedoAsync()), "redo");
         _ctxEditor.Items.Add(new ToolStripSeparator());
-        AddEditorMenuItem(K.ToolbarHeading1, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(1)));
-        AddEditorMenuItem(K.ToolbarHeading2, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(2)));
-        AddEditorMenuItem(K.ToolbarHeading3, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(3)));
-        AddEditorMenuItem(K.ToolbarHeading4, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(4)));
-        AddEditorMenuItem(K.ToolbarHeading5, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(5)));
-        AddEditorMenuItem(K.ToolbarHeading6, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(6)));
+        AddEditorMenuItem(K.ToolbarHeading1, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(1)), "h1");
+        AddEditorMenuItem(K.ToolbarHeading2, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(2)), "h2");
+        AddEditorMenuItem(K.ToolbarHeading3, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(3)), "h3");
+        AddEditorMenuItem(K.ToolbarHeading4, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(4)), "h4");
+        AddEditorMenuItem(K.ToolbarHeading5, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(5)), "h5");
+        AddEditorMenuItem(K.ToolbarHeading6, null, async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(6)), "h6");
+        _ctxEditor.Items.Add(new ToolStripSeparator());
+        AddEditorMenuItem(K.EditorBold, Keys.Control | Keys.B, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("bold")), "bold");
+        AddEditorMenuItem(K.EditorItalic, Keys.Control | Keys.I, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("italic")), "italic");
+        AddEditorMenuItem(K.ToolbarStrike, null, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("strikeThrough")), "strike");
+        _ctxEditor.Items.Add(new ToolStripSeparator());
+        AddEditorMenuItem(K.ToolbarInlineCode, null, async (_, _) => await RunEditorAsync(e => e.WrapInlineCodeAsync()), "code");
+        AddEditorMenuItem(K.ToolbarCodeBlock, null, async (_, _) =>
+            await RunEditorAsync(e => e.InsertHtmlAsync($"<pre><code>{Localization.Get(K.DefaultCodeText)}</code></pre><p><br></p>")), "codeblock");
+        _ctxEditor.Items.Add(new ToolStripSeparator());
+        AddEditorMenuItem(K.ToolbarLink, null, async (_, _) => await InsertLinkAsync(), "link");
+        AddEditorMenuItem(K.ToolbarImage, null, async (_, _) => await InsertImageAsync(), "image");
+        _ctxEditor.Items.Add(new ToolStripSeparator());
+        AddEditorMenuItem(K.ToolbarBulletList, null, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("insertUnorderedList")), "ul");
+        AddEditorMenuItem(K.ToolbarNumberList, null, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("insertOrderedList")), "ol");
+        AddEditorMenuItem(K.ToolbarQuote, null, async (_, _) => await RunEditorAsync(e => e.ApplyBlockquoteAsync()), "quote");
+        _ctxEditor.Items.Add(new ToolStripSeparator());
+        AddEditorMenuItem(K.ToolbarHorizontalRule, null, async (_, _) => await RunEditorAsync(e => e.InsertHtmlAsync("<hr/><p><br></p>")), "hr");
+        AddEditorMenuItem(K.ToolbarTable, null, async (_, _) =>
+            await RunEditorAsync(e => e.InsertHtmlAsync(
+                $"""<table><thead><tr><th>{Localization.Get(K.TableHeader1)}</th><th>{Localization.Get(K.TableHeader2)}</th></tr></thead><tbody><tr><td></td><td></td></tr></tbody></table><p><br></p>""")), "table");
+        _ctxEditor.Items.Add(new ToolStripSeparator());
+        AddEditorMenuItem(K.ToolbarDocumentStructure, null, (_, _) => ToggleOutlinePanel(), "outline");
+
         AppTheme.StyleContextMenu(_ctxEditor);
     }
 
@@ -390,7 +451,7 @@ public partial class MainForm : Form
         }
     }
 
-    private void AddEditorMenuItem(string textKey, Keys? shortcut, EventHandler click)
+    private void AddEditorMenuItem(string textKey, Keys? shortcut, EventHandler click, string? iconName = null)
     {
         var item = new ToolStripMenuItem(Localization.Get(textKey))
         {
@@ -399,8 +460,32 @@ public partial class MainForm : Form
         };
         if (shortcut.HasValue)
             item.ShortcutKeys = shortcut.Value;
+        if (!string.IsNullOrEmpty(iconName))
+        {
+            item.Name = $"ctx_{iconName}";
+            item.Image = IconAssets.Load(16, iconName);
+        }
+
         item.Click += click;
         _ctxEditor!.Items.Add(item);
+    }
+
+    private void RefreshEditorContextMenuIcons()
+    {
+        if (_ctxEditor == null)
+            return;
+
+        foreach (ToolStripItem item in _ctxEditor.Items)
+        {
+            if (item is not ToolStripMenuItem menuItem
+                || string.IsNullOrEmpty(menuItem.Name)
+                || !menuItem.Name.StartsWith("ctx_", StringComparison.Ordinal))
+                continue;
+
+            var iconName = menuItem.Name["ctx_".Length..];
+            menuItem.Image?.Dispose();
+            menuItem.Image = IconAssets.Load(16, iconName);
+        }
     }
 
     private void ScheduleOutlineUpdate()
@@ -441,12 +526,6 @@ public partial class MainForm : Form
             return;
 
         _isDirty = true;
-        if (_activePageSession != null)
-        {
-            _activePageSession.IsDirty = true;
-            UpdatePageTabCaption(_activePageSession);
-        }
-
         SetSaveStatus(SaveStatusKind.Modified);
         saveTimer.Stop();
         saveTimer.Start();
@@ -505,8 +584,8 @@ public partial class MainForm : Form
     {
         var isWorkspace = item.Kind == TreeNodeKind.Workspace;
         var imageKey = isWorkspace
-            ? item.IsFavorite ? "workspace_fav" : "workspace"
-            : "page";
+            ? TreeIcons.ResolveWorkspaceIconKey(item.IsFavorite, item.IsLocked)
+            : TreeIcons.ResolvePageIconKey(item.IsLocked);
 
         var node = new TreeNode(item.Name)
         {
@@ -569,25 +648,16 @@ public partial class MainForm : Form
 
         if (data.Kind == TreeNodeKind.Page)
         {
-            var existing = FindSessionByPageId(data.Id);
-            if (existing != null && ReferenceEquals(existing, _activePageSession))
+            if (_currentPageId == data.Id)
                 return;
 
-            _ = OpenPageTabAsync(data.Id);
+            _ = LoadPageAsync(data.Id);
             return;
         }
 
         if (data.Kind == TreeNodeKind.Workspace)
-            _ = OpenDraftPageTabAsync(data.Id);
-        else
-            _ = CloseAllPageTabsAsync();
+            return;
     }
-
-    private Task LoadPageAsync(int pageId) => OpenPageTabAsync(pageId);
-
-    private Task ClearEditorAsync() => CloseAllPageTabsAsync();
-
-    private Task PrepareWorkspaceEditAsync(int workspaceId) => OpenDraftPageTabAsync(workspaceId);
 
     private async Task<bool> EnsurePageCreatedAsync()
     {
@@ -595,6 +665,9 @@ public partial class MainForm : Form
             return true;
 
         if (!_draftWorkspaceId.HasValue || !SessionContext.IsLoggedIn)
+            return false;
+
+        if (!CanEditWorkspace(_draftWorkspaceId))
             return false;
 
         if (_pageCreateInProgress)
@@ -619,15 +692,8 @@ public partial class MainForm : Form
 
             _currentPageId = page.Id;
             _draftWorkspaceId = null;
-
-            if (_activePageSession != null)
-            {
-                _activePageSession.PageId = page.Id;
-                _activePageSession.DraftWorkspaceId = null;
-                _activePageSession.Title = title;
-                _activePageSession.IsDirty = false;
-                UpdatePageTabCaption(_activePageSession);
-            }
+            _currentPageTitle = title;
+            _isDirty = false;
 
             _suppressWorkspaceSelection = true;
             try
@@ -822,6 +888,7 @@ public partial class MainForm : Form
         }
 
         UpdateOutlineToggleButtonText();
+        UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed);
     }
 
     private void menuPageHistory_Click(object sender, EventArgs e)
@@ -839,61 +906,12 @@ public partial class MainForm : Form
     {
         await SaveCurrentPageAsync(refreshTree: false);
 
-        var pageTitle = _activePageSession?.Title.Trim() ?? Localization.Get(K.UntitledPageTitle);
+        var pageTitle = string.IsNullOrWhiteSpace(_currentPageTitle)
+            ? Localization.Get(K.UntitledPageTitle)
+            : _currentPageTitle.Trim();
         using var form = new PageHistoryForm(_currentPageId!.Value, pageTitle);
         if (form.ShowDialog() == DialogResult.OK && form.Restored && _currentPageId.HasValue)
-            await ReloadOpenPageTabAsync(_currentPageId.Value);
-    }
-
-    private async Task ReloadOpenPageTabAsync(int pageId)
-    {
-        var session = FindSessionByPageId(pageId);
-        var page = AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId);
-        if (session == null || page == null)
-            return;
-
-        session.IsLoading = true;
-        _isLoadingPage = true;
-        try
-        {
-            session.Title = page.Title;
-            UpdatePageTabCaption(session);
-
-            var content = PageTitleHelper.EnsureTitleHeading(page.Title, page.Content);
-            await session.Editor.LoadMarkdownAsync(content, _pipeline, pageId);
-            session.IsDirty = false;
-            if (ReferenceEquals(session, _activePageSession))
-            {
-                _isDirty = false;
-                SetSaveStatus(SaveStatusKind.Saved);
-                await UpdateOutlineAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            ErrorDetailForm.Show(this, Localization.Get(K.PageLoadFailedTitle), ex);
-        }
-        finally
-        {
-            session.IsLoading = false;
-            _isLoadingPage = false;
-        }
-    }
-
-    private async Task SaveCurrentPageAsync(bool showStatus = false, bool refreshTree = false)
-    {
-        PersistActiveSessionFromUi();
-        if (_activePageSession == null)
-            return;
-
-        if (_activePageSession.Editor.IsScriptSuspended)
-        {
-            saveTimer.Stop();
-            saveTimer.Start();
-            return;
-        }
-
-        await SavePageSessionAsync(_activePageSession, showStatus, refreshTree);
+            await ReloadCurrentPageAsync();
     }
 
     private void SaveCurrentPage(bool showStatus = false, bool refreshTree = false) =>
@@ -1035,20 +1053,10 @@ public partial class MainForm : Form
         {
             var newTitle = pageDialog.InputText.Trim();
             string content;
-            var openSession = FindSessionByPageId(data.Id);
-            if (openSession != null)
+            if (_currentPageId == data.Id && _editor != null)
             {
-                if (ReferenceEquals(openSession, _activePageSession))
-                {
-                    await openSession.Editor.SetFirstHeadingTitleAsync(newTitle);
-                    content = await openSession.Editor.GetMarkdownAsync(data.Id);
-                }
-                else
-                {
-                    var current = await openSession.Editor.GetMarkdownAsync(data.Id);
-                    content = PageTitleHelper.ReplaceFirstHeadingTitle(current, newTitle);
-                    await openSession.Editor.LoadMarkdownAsync(content, _pipeline, data.Id);
-                }
+                await _editor.SetFirstHeadingTitleAsync(newTitle);
+                content = await _editor.GetMarkdownAsync(data.Id);
             }
             else
             {
@@ -1062,16 +1070,12 @@ public partial class MainForm : Form
                 newTitle,
                 content);
 
-            if (openSession != null)
+            if (_currentPageId == data.Id)
             {
-                openSession.Title = newTitle;
-                openSession.IsDirty = false;
-                UpdatePageTabCaption(openSession);
-                if (ReferenceEquals(openSession, _activePageSession))
-                    _isDirty = false;
+                _currentPageTitle = newTitle;
+                _isDirty = false;
             }
 
-            RefreshOpenPageTabTitles();
             LoadWorkspaceTree(selectPageId: data.Id);
             lblStatus.Text = Localization.Format(K.StatusPage, newTitle);
         }
@@ -1100,7 +1104,8 @@ public partial class MainForm : Form
             {
                 SaveCurrentPage(refreshTree: false);
                 AppConfig.Services.Pages.DeletePage(SessionContext.CurrentUser, data.Id);
-                ClosePageTabByPageId(data.Id);
+                if (_currentPageId == data.Id)
+                    _ = ClearEditorImmediateAsync();
                 LoadWorkspaceTree();
             }
             catch (Exception ex)
@@ -1249,6 +1254,80 @@ public partial class MainForm : Form
         ctxToggleFavorite.Visible = canFavorite;
         ctxSep3.Visible = canFavorite;
 
+        var workspaceId = GetContextWorkspaceId(data);
+        var canEditWorkspace = CanEditWorkspace(workspaceId);
+        var isPage = data?.Kind == TreeNodeKind.Page;
+        var canEditPage = isPage && CanEditPage(data!.Id);
+        var canEditTarget = isPage ? canEditPage : isWorkspace && canEditWorkspace;
+
+        ctxNewSubWorkspace.Enabled = isWorkspace && canEditWorkspace;
+        ctxNewPage.Enabled = isPageOrWorkspace && canEditWorkspace;
+        ctxRename.Enabled = isPageOrWorkspace && canEditTarget;
+        ctxDelete.Enabled = isPageOrWorkspace && canEditTarget;
+        ctxMembers.Enabled = isWorkspace && canEditWorkspace;
+
+        var showLockMenu = false;
+        if (isWorkspace && data!.Id > 0)
+        {
+            try
+            {
+                var workspaces = AppConfig.Services.Workspaces;
+                if (workspaces.IsWorkspaceLocked(data.Id))
+                    showLockMenu = workspaces.CanUnlockWorkspace(SessionContext.CurrentUser, data.Id);
+                else
+                    showLockMenu = workspaces.CanLockWorkspace(SessionContext.CurrentUser, data.Id);
+            }
+            catch
+            {
+                showLockMenu = false;
+            }
+        }
+
+        ctxToggleWorkspaceLock.Visible = showLockMenu;
+        ctxSep4.Visible = showLockMenu;
+        if (showLockMenu)
+        {
+            var isLocked = AppConfig.Services.Workspaces.IsWorkspaceLocked(data!.Id);
+            ctxToggleWorkspaceLock.Text = isLocked
+                ? Localization.Get(K.CtxUnlockWorkspace)
+                : Localization.Get(K.CtxLockWorkspace);
+            ctxToggleWorkspaceLock.Image = AppIcons.LoadMenuIcon(isLocked ? "unlock" : "lock");
+            ctxToggleWorkspaceLock.ToolTipText = isLocked
+                ? Localization.Get(K.TipCtxUnlockWorkspace)
+                : Localization.Get(K.TipCtxLockWorkspace);
+        }
+
+        var showPageLockMenu = false;
+        if (isPage && data!.Id > 0)
+        {
+            try
+            {
+                var pages = AppConfig.Services.Pages;
+                if (pages.IsPageLocked(data.Id))
+                    showPageLockMenu = pages.CanUnlockPage(SessionContext.CurrentUser, data.Id);
+                else
+                    showPageLockMenu = pages.CanLockPage(SessionContext.CurrentUser, data.Id);
+            }
+            catch
+            {
+                showPageLockMenu = false;
+            }
+        }
+
+        ctxTogglePageLock.Visible = showPageLockMenu;
+        ctxSep5.Visible = showPageLockMenu;
+        if (showPageLockMenu)
+        {
+            var isPageLocked = AppConfig.Services.Pages.IsPageLocked(data!.Id);
+            ctxTogglePageLock.Text = isPageLocked
+                ? Localization.Get(K.CtxUnlockPage)
+                : Localization.Get(K.CtxLockPage);
+            ctxTogglePageLock.Image = AppIcons.LoadMenuIcon(isPageLocked ? "unlock" : "lock");
+            ctxTogglePageLock.ToolTipText = isPageLocked
+                ? Localization.Get(K.TipCtxUnlockPage)
+                : Localization.Get(K.TipCtxLockPage);
+        }
+
         if (canFavorite)
         {
             try
@@ -1346,7 +1425,14 @@ public partial class MainForm : Form
         if (!SessionContext.IsLoggedIn)
             return;
 
-        await SaveAllDirtyPageTabsAsync(refreshTree: false);
+        if (MessageBox.Show(
+                Localization.Get(K.ConfirmLogout),
+                Localization.Get(K.Confirm),
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question) != DialogResult.Yes)
+            return;
+
+        await SaveCurrentPageAsync(refreshTree: false);
         ApplyLoggedOutState();
         ShowLoginDialog();
     }
@@ -1354,7 +1440,7 @@ public partial class MainForm : Form
     private async void menuExit_Click(object sender, EventArgs e)
     {
         if (SessionContext.IsLoggedIn)
-            await SaveAllDirtyPageTabsAsync(refreshTree: false);
+            await SaveCurrentPageAsync(refreshTree: false);
 
         _isClosing = true;
         Close();
@@ -1365,7 +1451,7 @@ public partial class MainForm : Form
         if (_isClosing)
             return;
 
-        if (!SessionContext.IsLoggedIn || !AnyDirtyPageTab())
+        if (!SessionContext.IsLoggedIn || !_isDirty)
             return;
 
         e.Cancel = true;
@@ -1375,7 +1461,7 @@ public partial class MainForm : Form
 
         try
         {
-            await SaveAllDirtyPageTabsAsync();
+            await SaveCurrentPageAsync();
         }
         finally
         {
@@ -1398,6 +1484,7 @@ public partial class MainForm : Form
         _toolbarIcons?.Dispose();
         _toolbarIcons = AppIcons.CreateToolbarImageList();
         toolStripMarkdown.ImageList = _toolbarIcons;
+        RefreshEditorContextMenuIcons();
     }
 
     private async Task RunEditorAsync(Func<WebViewEditorController, Task> action)
@@ -1411,7 +1498,8 @@ public partial class MainForm : Form
     private void SetupWysiwygToolbar()
     {
         RefreshToolbarIcons();
-        toolStripMarkdown.GripStyle = ToolStripGripStyle.Hidden;
+        AppTheme.ApplyVerticalToolbar(toolStripMarkdown);
+        toolStripMarkdown.Padding = new Padding(4, 8 + ToolbarTopGap, 4, 8);
         toolStripMarkdown.Items.Clear();
 
         AddToolbarButton("undo", Localization.Get(K.ToolbarUndo), async (_, _) => await RunEditorAsync(e => e.UndoAsync()));
@@ -1525,10 +1613,9 @@ public partial class MainForm : Form
             return false;
 
         if (data.Kind == TreeNodeKind.Workspace)
-            return AppConfig.Services.Workspaces.CanManageWorkspace(SessionContext.CurrentUser, data.Id);
+            return AppConfig.Services.Workspaces.CanEditWorkspaceContent(SessionContext.CurrentUser, data.Id);
 
-        return data.WorkspaceId.HasValue &&
-               AppConfig.Services.Workspaces.CanManageWorkspace(SessionContext.CurrentUser, data.WorkspaceId.Value);
+        return data.WorkspaceId.HasValue && CanEditPage(data.Id);
     }
 
     private void treeWorkspace_DragEnter(object? sender, DragEventArgs e)
@@ -1552,7 +1639,15 @@ public partial class MainForm : Form
             return false;
 
         if (sourceData.Kind == TreeNodeKind.Page)
-            return targetData.Kind == TreeNodeKind.Workspace;
+        {
+            if (targetData.Kind != TreeNodeKind.Workspace)
+                return false;
+
+            if (!AppConfig.Services.Pages.CanEditPageContent(SessionContext.CurrentUser, sourceData.Id))
+                return false;
+
+            return AppConfig.Services.Workspaces.CanEditWorkspaceContent(SessionContext.CurrentUser, targetData.Id);
+        }
 
         if (sourceData.Kind == TreeNodeKind.Workspace)
         {
@@ -1562,7 +1657,7 @@ public partial class MainForm : Form
             if (sourceData.Id == targetData.Id)
                 return false;
 
-            return AppConfig.Services.Workspaces.CanManageWorkspace(SessionContext.CurrentUser, targetData.Id);
+            return AppConfig.Services.Workspaces.CanEditWorkspaceContent(SessionContext.CurrentUser, targetData.Id);
         }
 
         return false;

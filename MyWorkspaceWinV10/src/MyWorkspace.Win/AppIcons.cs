@@ -5,6 +5,8 @@ internal static class AppIcons
     private const int MenuIconSize = 16;
     public const int ToolbarIconSize = 28;
 
+    public static Bitmap LoadMenuIcon(string name) => IconAssets.Load(MenuIconSize, name);
+
     public static ImageList CreateToolbarImageList() =>
         IconAssets.CreateImageList(
             ToolbarIconSize,
@@ -59,39 +61,45 @@ internal static class AppIcons
         ToolStripMenuItem menuEditProfile,
         ToolStripMenuItem menuChangePassword,
         ToolStripMenuItem menuNotificationSettings,
+        ToolStripMenuItem ctxNewRootWorkspace,
         ToolStripMenuItem ctxNewSubWorkspace,
         ToolStripMenuItem ctxNewPage,
         ToolStripMenuItem ctxRename,
         ToolStripMenuItem ctxDelete,
         ToolStripMenuItem ctxToggleFavorite,
+        ToolStripMenuItem ctxToggleWorkspaceLock,
+        ToolStripMenuItem ctxTogglePageLock,
         ToolStripMenuItem ctxMembers)
     {
-        menuSavePage.Image = IconAssets.Load(MenuIconSize, "save");
-        menuPageHistory.Image = IconAssets.Load(MenuIconSize, "history");
-        menuRefreshTree.Image = IconAssets.Load(MenuIconSize, "refresh");
-        menuLogin.Image = IconAssets.Load(MenuIconSize, "login");
-        menuLogout.Image = IconAssets.Load(MenuIconSize, "logout");
-        menuAbout.Image = IconAssets.Load(MenuIconSize, "info");
-        menuExit.Image = IconAssets.Load(MenuIconSize, "exit");
-        menuPreferences.Image = IconAssets.Load(MenuIconSize, "preferences");
-        menuDocumentStructure.Image = IconAssets.Load(MenuIconSize, "outline");
-        menuNewRootWorkspace.Image = IconAssets.Load(MenuIconSize, "folder_plus_workspace");
-        menuNewSubWorkspace.Image = IconAssets.Load(MenuIconSize, "folder_plus_sub");
-        menuNewPage.Image = IconAssets.Load(MenuIconSize, "page_plus");
-        menuRename.Image = IconAssets.Load(MenuIconSize, "rename");
-        menuDelete.Image = IconAssets.Load(MenuIconSize, "delete");
-        menuWorkspaceMembers.Image = IconAssets.Load(MenuIconSize, "members");
-        menuAdminUserManagement.Image = IconAssets.Load(MenuIconSize, "users");
-        menuAdminDatabaseSettings.Image = IconAssets.Load(MenuIconSize, "database");
-        menuAdminEmailSettings.Image = IconAssets.Load(MenuIconSize, "email");
-        menuEditProfile.Image = IconAssets.Load(MenuIconSize, "profile");
-        menuChangePassword.Image = IconAssets.Load(MenuIconSize, "password");
-        menuNotificationSettings.Image = IconAssets.Load(MenuIconSize, "bell");
+        menuSavePage.Image = LoadMenuIcon("save");
+        menuPageHistory.Image = LoadMenuIcon("history");
+        menuRefreshTree.Image = LoadMenuIcon("refresh");
+        menuLogin.Image = LoadMenuIcon("login");
+        menuLogout.Image = LoadMenuIcon("logout");
+        menuAbout.Image = LoadMenuIcon("info");
+        menuExit.Image = LoadMenuIcon("exit");
+        menuPreferences.Image = LoadMenuIcon("preferences");
+        menuDocumentStructure.Image = LoadMenuIcon("outline");
+        menuNewRootWorkspace.Image = LoadMenuIcon("folder_plus_workspace");
+        menuNewSubWorkspace.Image = LoadMenuIcon("folder_plus_sub");
+        menuNewPage.Image = LoadMenuIcon("page_plus");
+        menuRename.Image = LoadMenuIcon("rename");
+        menuDelete.Image = LoadMenuIcon("delete");
+        menuWorkspaceMembers.Image = LoadMenuIcon("members");
+        menuAdminUserManagement.Image = LoadMenuIcon("users");
+        menuAdminDatabaseSettings.Image = LoadMenuIcon("database");
+        menuAdminEmailSettings.Image = LoadMenuIcon("email");
+        menuEditProfile.Image = LoadMenuIcon("profile");
+        menuChangePassword.Image = LoadMenuIcon("password");
+        menuNotificationSettings.Image = LoadMenuIcon("bell");
+        ctxNewRootWorkspace.Image = menuNewRootWorkspace.Image;
         ctxNewSubWorkspace.Image = menuNewSubWorkspace.Image;
         ctxNewPage.Image = menuNewPage.Image;
         ctxRename.Image = menuRename.Image;
         ctxDelete.Image = menuDelete.Image;
-        ctxToggleFavorite.Image = IconAssets.Load(MenuIconSize, "star");
+        ctxToggleFavorite.Image = LoadMenuIcon("star");
+        ctxToggleWorkspaceLock.Image = LoadMenuIcon("lock");
+        ctxTogglePageLock.Image = LoadMenuIcon("lock");
         ctxMembers.Image = menuWorkspaceMembers.Image;
     }
 }

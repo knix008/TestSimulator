@@ -12,6 +12,13 @@ public interface IWorkspaceService
     void MoveWorkspace(User currentUser, int workspaceId, int? newParentId);
     void DeleteWorkspace(User currentUser, int workspaceId);
     bool CanManageWorkspace(User currentUser, int workspaceId);
+    bool IsWorkspaceLocked(int workspaceId);
+    bool CanEditWorkspaceContent(User currentUser, int workspaceId);
+    bool CanLockWorkspace(User currentUser, int workspaceId);
+    bool CanUnlockWorkspace(User currentUser, int workspaceId);
+    void LockWorkspace(User currentUser, int workspaceId);
+    void UnlockWorkspace(User currentUser, int workspaceId);
+    string? GetWorkspaceLockHolderUsername(int workspaceId);
     IReadOnlyList<WorkspaceMember> GetMembers(User currentUser, int workspaceId);
     void AddMember(User currentUser, int workspaceId, int userId, WorkspaceMemberRole role);
     void RemoveMember(User currentUser, int workspaceId, int userId);

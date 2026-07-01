@@ -19,6 +19,8 @@ public static class DbInitializer
         EnsurePageVersionsTable(db);
         EnsurePageChangeLogsTable(db);
         EnsureWorkspaceFavoritesTable(db);
+        EnsureWorkspaceLockColumns(db);
+        EnsurePageLockColumns(db);
         EnsureUserNotificationColumns(db);
 
         if (db.Users.Any())
@@ -284,6 +286,18 @@ public static class DbInitializer
                 );
                 """);
         }
+    }
+
+    private static void EnsureWorkspaceLockColumns(AppDbContext db)
+    {
+        AddColumnIfMissing(db, "workspaces", "locked_by_user_id", "INT NULL", "INTEGER NULL", "INT NULL", "INTEGER NULL");
+        AddColumnIfMissing(db, "workspaces", "locked_at", "DATETIME(6) NULL", "TIMESTAMP NULL", "DATETIME2 NULL", "TEXT NULL");
+    }
+
+    private static void EnsurePageLockColumns(AppDbContext db)
+    {
+        AddColumnIfMissing(db, "pages", "locked_by_user_id", "INT NULL", "INTEGER NULL", "INT NULL", "INTEGER NULL");
+        AddColumnIfMissing(db, "pages", "locked_at", "DATETIME(6) NULL", "TIMESTAMP NULL", "DATETIME2 NULL", "TEXT NULL");
     }
 
     private static void EnsureUserNotificationColumns(AppDbContext db)

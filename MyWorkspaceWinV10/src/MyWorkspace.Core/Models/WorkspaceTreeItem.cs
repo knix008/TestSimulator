@@ -9,5 +9,8 @@ public sealed class WorkspaceTreeItem
     public string Name { get; init; } = string.Empty;
     public int? ParentWorkspaceId { get; init; }
     public bool IsFavorite { get; init; }
+    public bool IsLocked { get; init; }
+    public int? LockedByUserId { get; init; }
+    public string? LockedByUsername { get; init; }
     public List<WorkspaceTreeItem> Children { get; init; } = new();
 }

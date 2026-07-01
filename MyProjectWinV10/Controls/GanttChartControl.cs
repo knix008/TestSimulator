@@ -561,12 +561,10 @@ namespace MyProject.Controls
                 if (rowY + AppTheme.RowHeight < AppTheme.TimescaleHeaderHeight) continue;
                 if (rowY > _paintClipBottom) break;
 
-                // Alternate row coloring
-                if (i % 2 == 1)
-                {
-                    using var altBrush = new SolidBrush(AppTheme.RowAltColor);
-                    g.FillRectangle(altBrush, chartArea.Left, rowY, chartArea.Width, AppTheme.RowHeight);
-                }
+                // Always fill row background so export bitmaps have no transparent (black) cells
+                Color rowBg = i % 2 == 1 ? AppTheme.RowAltColor : AppTheme.SurfaceColor;
+                using var rowBrush = new SolidBrush(rowBg);
+                g.FillRectangle(rowBrush, chartArea.Left, rowY, chartArea.Width, AppTheme.RowHeight);
 
                 g.DrawLine(pen, chartArea.Left, rowY + AppTheme.RowHeight - 1, chartArea.Right, rowY + AppTheme.RowHeight - 1);
             }

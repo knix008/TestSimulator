@@ -92,7 +92,7 @@ internal static class EditorHtmlBuilder
             #editor::-webkit-scrollbar-track { background: transparent; }
             #editor {
               height: 100%; box-sizing: border-box;
-              padding: 24px 32px; outline: none; overflow-y: auto;
+              padding: 8px 32px 24px 32px; outline: none; overflow-y: auto;
               caret-color: var(--editor-caret);
               background-color: var(--editor-bg) !important; color: var(--editor-text) !important;
             }
@@ -108,7 +108,8 @@ internal static class EditorHtmlBuilder
             #editor p, #editor div, #editor span, #editor li, #editor ul, #editor ol {
               background-color: transparent !important;
             }
-            h1,h2,h3,h4,h5,h6 { font-weight: 600; margin: 24px 0 12px; scroll-margin-top: 12px; display: block; width: 100%; box-sizing: border-box; color: var(--editor-text) !important; }
+            h1,h2,h3,h4,h5,h6 { font-weight: 600; margin: 24px 0 12px; scroll-margin-top: 8px; display: block; width: 100%; box-sizing: border-box; color: var(--editor-text) !important; }
+            #editor > :first-child { margin-top: 0; }
             h1 { font-size: 1.8em; border-bottom: none; padding-bottom: 0.3em; }
             h1::after { content: ""; display: block; border-bottom: 1px solid var(--editor-border); margin: 0.3em -32px 0; }
             h2 { font-size: 1.5em; border-bottom: none; padding-bottom: 0.25em; }

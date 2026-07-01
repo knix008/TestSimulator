@@ -312,8 +312,10 @@ namespace MyProject.Rendering
         {
             string label = $"{progress:0}%";
             Font font = AppTheme.FontSmall;
-            const TextFormatFlags measureFlags = TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-            int textWidth = TextRenderer.MeasureText(g, label, font, new Size(int.MaxValue, barRect.Height), measureFlags).Width;
+
+            // Use GDI+ measurement to avoid GetHdc() which corrupts alpha on ARGB export bitmaps
+            SizeF measured = g.MeasureString(label, font, int.MaxValue, StringFormat.GenericTypographic);
+            int textWidth = (int)Math.Ceiling(measured.Width) + 2;
             const int pad = 6;
 
             int progressWidth = Math.Max(0, (int)(barRect.Width * progress / 100.0));
@@ -347,18 +349,21 @@ namespace MyProject.Rendering
                 alignNear = true;
             }
 
-            TextFormatFlags drawFlags = TextFormatFlags.SingleLine
-                | TextFormatFlags.NoPadding
-                | TextFormatFlags.VerticalCenter
-                | TextFormatFlags.EndEllipsis
-                | (alignNear ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter);
-
-            Color textColor = useLightText ? Color.FromArgb(245, 255, 255, 255) : AppTheme.TextPrimary;
+            Color textColor  = useLightText ? Color.FromArgb(245, 255, 255, 255) : AppTheme.TextPrimary;
             Color shadowColor = useLightText ? Color.FromArgb(120, 0, 0, 0) : Color.FromArgb(140, 255, 255, 255);
 
-            var shadowRect = new Rectangle(textRect.X, textRect.Y + 1, textRect.Width, textRect.Height);
-            TextRenderer.DrawText(g, label, font, shadowRect, shadowColor, drawFlags);
-            TextRenderer.DrawText(g, label, font, textRect, textColor, drawFlags);
+            var drawSf = new StringFormat
+            {
+                Alignment     = alignNear ? StringAlignment.Near : StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+                Trimming      = StringTrimming.EllipsisCharacter,
+                FormatFlags   = StringFormatFlags.NoWrap
+            };
+            var shadowRect = new RectangleF(textRect.X, textRect.Y + 1, textRect.Width, textRect.Height);
+            using (var shadowBrushLabel = new SolidBrush(shadowColor))
+                g.DrawString(label, font, shadowBrushLabel, shadowRect, drawSf);
+            using (var textBrushLabel = new SolidBrush(textColor))
+                g.DrawString(label, font, textBrushLabel, new RectangleF(textRect.X, textRect.Y, textRect.Width, textRect.Height), drawSf);
         }
 
         private static void DrawAssigneeLabel(Graphics g, int textX, int rowY, string? assigneeText)

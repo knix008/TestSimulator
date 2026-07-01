@@ -25,17 +25,19 @@ public sealed class WorkspaceService : IWorkspaceService
 
         var favoriteIds = GetFavoriteWorkspaceIds(currentUser);
         var workspaces = _db.Workspaces.AsNoTracking()
+            .Include(w => w.LockedByUser)
             .Where(w => accessibleIds.Contains(w.Id))
             .OrderBy(w => w.Name)
             .ToList();
 
         var pages = _db.Pages.AsNoTracking()
+            .Include(p => p.LockedByUser)
             .Where(p => accessibleIds.Contains(p.WorkspaceId))
             .OrderBy(p => p.Title)
             .ToList();
 
         var roots = workspaces.Where(w => w.ParentId == null || !accessibleIds.Contains(w.ParentId.Value)).ToList();
-        return roots.Select(w => BuildWorkspaceNode(w, workspaces, pages, favoriteIds)).ToList();
+        return roots.Select(w => BuildWorkspaceNode(w, workspaces, pages, favoriteIds, ancestorLocked: false)).ToList();
     }
 
     public IReadOnlyList<WorkspaceTreeItem> GetFavoriteWorkspaceTree(User currentUser)
@@ -50,11 +52,13 @@ public sealed class WorkspaceService : IWorkspaceService
             return Array.Empty<WorkspaceTreeItem>();
 
         var workspaces = _db.Workspaces.AsNoTracking()
+            .Include(w => w.LockedByUser)
             .Where(w => accessibleIds.Contains(w.Id))
             .OrderBy(w => w.Name)
             .ToList();
 
         var pages = _db.Pages.AsNoTracking()
+            .Include(p => p.LockedByUser)
             .Where(p => accessibleIds.Contains(p.WorkspaceId))
             .OrderBy(p => p.Title)
             .ToList();
@@ -62,7 +66,7 @@ public sealed class WorkspaceService : IWorkspaceService
         return validFavoriteIds
             .Select(id => workspaces.First(w => w.Id == id))
             .OrderBy(w => w.Name)
-            .Select(w => BuildWorkspaceNode(w, workspaces, pages, favoriteIds))
+            .Select(w => BuildWorkspaceNode(w, workspaces, pages, favoriteIds, ancestorLocked: false))
             .ToList();
     }
 
@@ -133,6 +137,16 @@ public sealed class WorkspaceService : IWorkspaceService
             UpdatedAt = now
         };
 
+        if (parentId.HasValue)
+        {
+            var inheritedLockUserId = GetEffectiveWorkspaceLockUserId(parentId.Value);
+            if (inheritedLockUserId.HasValue)
+            {
+                workspace.LockedByUserId = inheritedLockUserId.Value;
+                workspace.LockedAt = now;
+            }
+        }
+
         _db.Workspaces.Add(workspace);
         _db.SaveChanges();
 
@@ -149,7 +163,7 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public void RenameWorkspace(User currentUser, int workspaceId, string name)
     {
-        EnsureCanManage(currentUser, workspaceId);
+        EnsureCanEditContent(currentUser, workspaceId);
 
         var trimmed = name.Trim();
         if (string.IsNullOrEmpty(trimmed))
@@ -167,7 +181,7 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public void MoveWorkspace(User currentUser, int workspaceId, int? newParentId)
     {
-        EnsureCanManage(currentUser, workspaceId);
+        EnsureCanEditContent(currentUser, workspaceId);
 
         if (newParentId == workspaceId)
             throw new InvalidOperationException("자기 자신 아래로 이동할 수 없습니다.");
@@ -177,7 +191,7 @@ public sealed class WorkspaceService : IWorkspaceService
             if (!CanAccessWorkspace(currentUser, newParentId.Value))
                 throw new InvalidOperationException("대상 Workspace에 접근할 수 없습니다.");
 
-            if (!CanManageWorkspace(currentUser, newParentId.Value))
+            if (!CanEditWorkspaceContent(currentUser, newParentId.Value))
                 throw new InvalidOperationException("대상 Workspace를 관리할 권한이 없습니다.");
 
             if (IsDescendantOf(newParentId.Value, workspaceId))
@@ -192,7 +206,7 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public void DeleteWorkspace(User currentUser, int workspaceId)
     {
-        EnsureCanManage(currentUser, workspaceId);
+        EnsureCanEditContent(currentUser, workspaceId);
 
         var workspace = _db.Workspaces
             .Include(w => w.Children)
@@ -220,9 +234,133 @@ public sealed class WorkspaceService : IWorkspaceService
                 && m.Role >= WorkspaceMemberRole.Editor);
     }
 
+    public bool IsWorkspaceLocked(int workspaceId) =>
+        IsWorkspaceDirectlyLocked(workspaceId) || HasLockedAncestorWorkspace(workspaceId);
+
+    public bool CanEditWorkspaceContent(User currentUser, int workspaceId)
+    {
+        if (!CanManageWorkspace(currentUser, workspaceId))
+            return false;
+
+        var lockedByUserId = GetEffectiveWorkspaceLockUserId(workspaceId);
+        if (!lockedByUserId.HasValue)
+            return true;
+
+        if (currentUser.Role == UserRole.Admin)
+            return true;
+
+        return lockedByUserId.Value == currentUser.Id;
+    }
+
+    public bool CanLockWorkspace(User currentUser, int workspaceId) =>
+        CanManageWorkspace(currentUser, workspaceId) && !IsWorkspaceLocked(workspaceId);
+
+    public bool CanUnlockWorkspace(User currentUser, int workspaceId)
+    {
+        if (!IsWorkspaceDirectlyLocked(workspaceId))
+            return false;
+
+        if (HasLockedAncestorWorkspace(workspaceId))
+            return false;
+
+        if (currentUser.Role == UserRole.Admin)
+            return true;
+
+        var lockedByUserId = _db.Workspaces.AsNoTracking()
+            .Where(w => w.Id == workspaceId)
+            .Select(w => w.LockedByUserId)
+            .FirstOrDefault();
+
+        return lockedByUserId == currentUser.Id;
+    }
+
+    public void LockWorkspace(User currentUser, int workspaceId)
+    {
+        if (!CanLockWorkspace(currentUser, workspaceId))
+            throw new InvalidOperationException("Workspace를 잠글 권한이 없습니다.");
+
+        var subtreeWorkspaceIds = GetSubtreeWorkspaceIds(workspaceId);
+        var now = DateTime.UtcNow;
+
+        foreach (var id in subtreeWorkspaceIds)
+        {
+            var workspace = _db.Workspaces.First(w => w.Id == id);
+            if (workspace.LockedByUserId.HasValue)
+                continue;
+
+            workspace.LockedByUserId = currentUser.Id;
+            workspace.LockedAt = now;
+            workspace.UpdatedAt = now;
+        }
+
+        foreach (var page in _db.Pages.Where(p => subtreeWorkspaceIds.Contains(p.WorkspaceId)))
+        {
+            if (page.LockedByUserId.HasValue)
+                continue;
+
+            page.LockedByUserId = currentUser.Id;
+            page.LockedAt = now;
+            page.UpdatedAt = now;
+        }
+
+        _db.SaveChanges();
+    }
+
+    public void UnlockWorkspace(User currentUser, int workspaceId)
+    {
+        if (!CanUnlockWorkspace(currentUser, workspaceId))
+            throw new InvalidOperationException("Workspace 잠금을 해제할 권한이 없습니다.");
+
+        var subtreeWorkspaceIds = GetSubtreeWorkspaceIds(workspaceId);
+
+        foreach (var id in subtreeWorkspaceIds)
+        {
+            var workspace = _db.Workspaces.First(w => w.Id == id);
+            if (!workspace.LockedByUserId.HasValue)
+                continue;
+
+            workspace.LockedByUserId = null;
+            workspace.LockedAt = null;
+            workspace.UpdatedAt = DateTime.UtcNow;
+        }
+
+        foreach (var page in _db.Pages.Where(p => subtreeWorkspaceIds.Contains(p.WorkspaceId)))
+        {
+            if (!page.LockedByUserId.HasValue)
+                continue;
+
+            page.LockedByUserId = null;
+            page.LockedAt = null;
+            page.UpdatedAt = DateTime.UtcNow;
+        }
+
+        _db.SaveChanges();
+    }
+
+    public string? GetWorkspaceLockHolderUsername(int workspaceId)
+    {
+        var currentId = workspaceId;
+        while (true)
+        {
+            var workspace = _db.Workspaces.AsNoTracking()
+                .Include(w => w.LockedByUser)
+                .FirstOrDefault(w => w.Id == currentId);
+            if (workspace == null)
+                return null;
+
+            if (workspace.LockedByUserId.HasValue)
+                return workspace.LockedByUser?.Username;
+
+            if (!workspace.ParentId.HasValue)
+                return null;
+
+            currentId = workspace.ParentId.Value;
+        }
+    }
+
     public IReadOnlyList<WorkspaceMember> GetMembers(User currentUser, int workspaceId)
     {
-        EnsureCanManage(currentUser, workspaceId);
+        EnsureCanEditContent(currentUser, workspaceId);
 
         return _db.WorkspaceMembers.AsNoTracking()
             .Include(m => m.User)
@@ -233,7 +371,7 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public void AddMember(User currentUser, int workspaceId, int userId, WorkspaceMemberRole role)
     {
-        EnsureCanManage(currentUser, workspaceId);
+        EnsureCanEditContent(currentUser, workspaceId);
 
         if (role == WorkspaceMemberRole.Owner)
             throw new InvalidOperationException("Owner 역할은 Workspace 생성 시 자동으로 지정됩니다.");
@@ -256,7 +394,7 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public void RemoveMember(User currentUser, int workspaceId, int userId)
     {
-        EnsureCanManage(currentUser, workspaceId);
+        EnsureCanEditContent(currentUser, workspaceId);
 
         var member = _db.WorkspaceMembers
             .FirstOrDefault(m => m.WorkspaceId == workspaceId && m.UserId == userId);
@@ -278,7 +416,7 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public void UpdateMemberRole(User currentUser, int workspaceId, int userId, WorkspaceMemberRole role)
     {
-        EnsureCanManage(currentUser, workspaceId);
+        EnsureCanEditContent(currentUser, workspaceId);
 
         if (role == WorkspaceMemberRole.Owner)
             throw new InvalidOperationException("Owner 역할은 변경할 수 없습니다.");
@@ -342,6 +480,12 @@ public sealed class WorkspaceService : IWorkspaceService
         return result;
     }
 
+    private void EnsureCanEditContent(User currentUser, int workspaceId)
+    {
+        if (!CanEditWorkspaceContent(currentUser, workspaceId))
+            throw new InvalidOperationException("Workspace가 잠겨 있거나 편집 권한이 없습니다.");
+    }
+
     private void EnsureCanManage(User currentUser, int workspaceId)
     {
         if (!CanManageWorkspace(currentUser, workspaceId))
@@ -371,15 +515,22 @@ public sealed class WorkspaceService : IWorkspaceService
         Workspace workspace,
         IReadOnlyList<Workspace> allWorkspaces,
         IReadOnlyList<Page> allPages,
-        IReadOnlySet<int> favoriteIds)
+        IReadOnlySet<int> favoriteIds,
+        bool ancestorLocked)
     {
+        var selfLocked = workspace.LockedByUserId.HasValue;
+        var effectivelyLocked = ancestorLocked || selfLocked;
+
         var node = new WorkspaceTreeItem
         {
             Kind = TreeNodeKind.Workspace,
             Id = workspace.Id,
             Name = workspace.Name,
             ParentWorkspaceId = workspace.ParentId,
-            IsFavorite = favoriteIds.Contains(workspace.Id)
+            IsFavorite = favoriteIds.Contains(workspace.Id),
+            IsLocked = effectivelyLocked,
+            LockedByUserId = selfLocked ? workspace.LockedByUserId : null,
+            LockedByUsername = selfLocked ? workspace.LockedByUser?.Username : null
         };
 
         var childWorkspaces = allWorkspaces
@@ -387,19 +538,98 @@ public sealed class WorkspaceService : IWorkspaceService
             .OrderBy(w => w.Name);
 
         foreach (var child in childWorkspaces)
-            node.Children.Add(BuildWorkspaceNode(child, allWorkspaces, allPages, favoriteIds));
+            node.Children.Add(BuildWorkspaceNode(child, allWorkspaces, allPages, favoriteIds, effectivelyLocked));
 
         foreach (var page in allPages.Where(p => p.WorkspaceId == workspace.Id).OrderBy(p => p.Title))
         {
+            var pageSelfLocked = page.LockedByUserId.HasValue;
             node.Children.Add(new WorkspaceTreeItem
             {
                 Kind = TreeNodeKind.Page,
                 Id = page.Id,
                 Name = page.Title,
-                ParentWorkspaceId = workspace.Id
+                ParentWorkspaceId = workspace.Id,
+                IsLocked = effectivelyLocked || pageSelfLocked,
+                LockedByUserId = pageSelfLocked ? page.LockedByUserId : null,
+                LockedByUsername = pageSelfLocked ? page.LockedByUser?.Username : null
             });
         }
 
         return node;
+    }
+
+    private bool IsWorkspaceDirectlyLocked(int workspaceId) =>
+        _db.Workspaces.AsNoTracking().Any(w => w.Id == workspaceId && w.LockedByUserId != null);
+
+    private bool HasLockedAncestorWorkspace(int workspaceId)
+    {
+        var current = _db.Workspaces.AsNoTracking()
+            .Where(w => w.Id == workspaceId)
+            .Select(w => w.ParentId)
+            .FirstOrDefault();
+
+        while (current.HasValue)
+        {
+            var parent = _db.Workspaces.AsNoTracking()
+                .Where(w => w.Id == current.Value)
+                .Select(w => new { w.ParentId, w.LockedByUserId })
+                .FirstOrDefault();
+
+            if (parent == null)
+                return false;
+
+            if (parent.LockedByUserId.HasValue)
+                return true;
+
+            current = parent.ParentId;
+        }
+
+        return false;
+    }
+
+    private int? GetEffectiveWorkspaceLockUserId(int workspaceId)
+    {
+        var currentId = workspaceId;
+        while (true)
+        {
+            var workspace = _db.Workspaces.AsNoTracking()
+                .Where(w => w.Id == currentId)
+                .Select(w => new { w.ParentId, w.LockedByUserId })
+                .FirstOrDefault();
+
+            if (workspace == null)
+                return null;
+
+            if (workspace.LockedByUserId.HasValue)
+                return workspace.LockedByUserId;
+
+            if (!workspace.ParentId.HasValue)
+                return null;
+
+            currentId = workspace.ParentId.Value;
+        }
+    }
+
+    private List<int> GetSubtreeWorkspaceIds(int rootWorkspaceId)
+    {
+        var all = _db.Workspaces.AsNoTracking()
+            .Select(w => new { w.Id, w.ParentId })
+            .ToList();
+
+        var result = new List<int> { rootWorkspaceId };
+        var queue = new Queue<int>();
+        queue.Enqueue(rootWorkspaceId);
+
+        while (queue.Count > 0)
+        {
+            var id = queue.Dequeue();
+            foreach (var child in all.Where(w => w.ParentId == id))
+            {
+                result.Add(child.Id);
+                queue.Enqueue(child.Id);
+            }
+        }
+
+        return result;
     }
 }

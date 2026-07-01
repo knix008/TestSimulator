@@ -65,7 +65,7 @@ public partial class MainForm
 
         try
         {
-            await SaveAllDirtyPageTabsAsync(refreshTree: false);
+            await SaveCurrentPageAsync(refreshTree: false);
 
             var result = await WorkspaceExportService.ExportAsync(
                 SessionContext.CurrentUser,

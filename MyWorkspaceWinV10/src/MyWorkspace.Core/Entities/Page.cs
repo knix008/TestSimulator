@@ -6,8 +6,11 @@ public class Page
     public int WorkspaceId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+    public int? LockedByUserId { get; set; }
+    public DateTime? LockedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
     public Workspace Workspace { get; set; } = null!;
+    public User? LockedByUser { get; set; }
 }

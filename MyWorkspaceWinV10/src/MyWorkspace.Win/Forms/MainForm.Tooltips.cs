@@ -240,6 +240,32 @@ public partial class MainForm
 
                 K.EditorItalic => Localization.Get(K.TipEditorItalic),
 
+                K.ToolbarUndo => Localization.Get(K.ToolbarUndo),
+
+                K.ToolbarRedo => Localization.Get(K.ToolbarRedo),
+
+                K.ToolbarStrike => Localization.Get(K.ToolbarStrike),
+
+                K.ToolbarInlineCode => Localization.Get(K.ToolbarInlineCode),
+
+                K.ToolbarCodeBlock => Localization.Get(K.ToolbarCodeBlock),
+
+                K.ToolbarLink => Localization.Get(K.ToolbarLink),
+
+                K.ToolbarImage => Localization.Get(K.ToolbarImage),
+
+                K.ToolbarBulletList => Localization.Get(K.ToolbarBulletList),
+
+                K.ToolbarNumberList => Localization.Get(K.ToolbarNumberList),
+
+                K.ToolbarQuote => Localization.Get(K.ToolbarQuote),
+
+                K.ToolbarHorizontalRule => Localization.Get(K.ToolbarHorizontalRule),
+
+                K.ToolbarTable => Localization.Get(K.ToolbarTable),
+
+                K.ToolbarDocumentStructure => Localization.Get(K.ToolbarDocumentStructure),
+
                 K.ToolbarHeading1 => Localization.Get(K.ToolbarHeading1),
 
                 K.ToolbarHeading2 => Localization.Get(K.ToolbarHeading2),

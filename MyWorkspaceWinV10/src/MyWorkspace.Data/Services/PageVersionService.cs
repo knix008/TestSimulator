@@ -141,7 +141,12 @@ public sealed class PageVersionService : IPageVersionService
         var page = _db.Pages.AsNoTracking().FirstOrDefault(p => p.Id == pageId)
             ?? throw new InvalidOperationException("Page를 찾을 수 없습니다.");
 
-        if (!_workspaceService.CanManageWorkspace(currentUser, page.WorkspaceId))
+        if (!_workspaceService.CanEditWorkspaceContent(currentUser, page.WorkspaceId))
             throw new InvalidOperationException("Page를 수정할 권한이 없습니다.");
+
+        if (page.LockedByUserId.HasValue
+            && currentUser.Role != UserRole.Admin
+            && page.LockedByUserId.Value != currentUser.Id)
+            throw new InvalidOperationException("Page가 잠겨 있거나 편집 권한이 없습니다.");
     }
 }

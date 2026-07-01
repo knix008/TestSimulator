@@ -11,7 +11,29 @@ internal static class IconAssets
     private static readonly Assembly Assembly = typeof(IconAssets).Assembly;
     private static Icon? _appIcon;
 
-    public static Bitmap Load(int size, string name) => LoadRaw(size, name);
+    private static readonly int[] AvailableIconSizes = [16, 20, 28];
+
+    public static Bitmap Load(int size, string name)
+    {
+        if (TryLoadRaw(size, name, out var exact))
+            return exact;
+
+        int? sourceSize = null;
+        foreach (var candidate in AvailableIconSizes.OrderBy(candidate => Math.Abs(candidate - size)))
+        {
+            if (IconResourceExists(candidate, name))
+            {
+                sourceSize = candidate;
+                break;
+            }
+        }
+
+        if (!sourceSize.HasValue)
+            throw new InvalidOperationException($"Icon resource not found: {Prefix}s{{size}}.{name}.png");
+
+        using var source = LoadRaw(sourceSize.Value, name);
+        return sourceSize.Value == size ? new Bitmap(source) : ScaleToSize(source, size);
+    }
 
     public static Bitmap LoadDialogButtonIcon(int size, string name, bool onPrimaryBackground)
     {
@@ -276,11 +298,40 @@ internal static class IconAssets
 
     private static Bitmap LoadRaw(int size, string name)
     {
-        var resourceName = $"{Prefix}s{size}.{name}.png";
-        var stream = Assembly.GetManifestResourceStream(resourceName)
-            ?? throw new InvalidOperationException($"Icon resource not found: {resourceName}");
+        if (!TryLoadRaw(size, name, out var bitmap))
+            throw new InvalidOperationException($"Icon resource not found: {GetIconResourceName(size, name)}");
 
-        return new Bitmap(stream);
+        return bitmap;
+    }
+
+    private static bool TryLoadRaw(int size, string name, out Bitmap bitmap)
+    {
+        var stream = Assembly.GetManifestResourceStream(GetIconResourceName(size, name));
+        if (stream == null)
+        {
+            bitmap = null!;
+            return false;
+        }
+
+        bitmap = new Bitmap(stream);
+        return true;
+    }
+
+    private static bool IconResourceExists(int size, string name) =>
+        Assembly.GetManifestResourceStream(GetIconResourceName(size, name)) != null;
+
+    private static string GetIconResourceName(int size, string name) =>
+        $"{Prefix}s{size}.{name}.png";
+
+    private static Bitmap ScaleToSize(Bitmap source, int targetSize)
+    {
+        var scaled = new Bitmap(targetSize, targetSize, PixelFormat.Format32bppArgb);
+        using var graphics = Graphics.FromImage(scaled);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+        graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+        graphics.DrawImage(source, 0, 0, targetSize, targetSize);
+        return scaled;
     }
 
     private static Icon LoadAppIconFromResource()

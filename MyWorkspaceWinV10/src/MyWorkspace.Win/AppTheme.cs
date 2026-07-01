@@ -546,6 +546,16 @@ internal static class AppTheme
         strip.Padding = new Padding(8, 6, 8, 6);
     }
 
+    public static void ApplyVerticalToolbar(ToolStrip strip)
+    {
+        ApplyToolbar(strip);
+        strip.LayoutStyle = ToolStripLayoutStyle.VerticalStackWithOverflow;
+        strip.Dock = DockStyle.Right;
+        strip.AutoSize = false;
+        strip.Width = 52;
+        strip.Padding = new Padding(4, 8, 4, 8);
+    }
+
     public static void ApplyStatusStrip(StatusStrip strip)
     {
         ApplyToolStrip(strip);
@@ -874,6 +884,18 @@ internal static class AppTheme
         button.UseCompatibleTextRendering = true;
     }
 
+    public static void StyleNavRailButton(Button button)
+    {
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = 0;
+        button.BackColor = Sidebar;
+        button.ForeColor = TextPrimary;
+        button.Cursor = Cursors.Hand;
+        button.UseVisualStyleBackColor = false;
+        button.FlatAppearance.MouseOverBackColor = AccentHover;
+        button.FlatAppearance.MouseDownBackColor = AccentPressed;
+    }
+
     public static void StyleHeaderPanel(Panel panel)
     {
         panel.BackColor = Surface;
@@ -884,7 +906,7 @@ internal static class AppTheme
         kind switch
         {
             PanelHeaderKind.Workspace => PanelHeaderWorkspace,
-            PanelHeaderKind.Outline => PanelHeaderOutline,
+            PanelHeaderKind.Outline => Surface,
             PanelHeaderKind.Editor => PanelHeaderEditor,
             PanelHeaderKind.PageTitle => PanelHeaderPageTitle,
             _ => Surface
@@ -942,6 +964,7 @@ internal static class AppTheme
     public static void StyleBorderedPanel(Panel panel, PanelEdges edges)
     {
         panel.Paint -= DrawPanelBorder;
+        panel.Resize -= InvalidateBorderedPanel;
         PanelBorderEdges.Remove(panel);
 
         if (edges == PanelEdges.None)
@@ -949,7 +972,14 @@ internal static class AppTheme
 
         PanelBorderEdges.Add(panel, new PanelBorderState(edges));
         panel.Paint += DrawPanelBorder;
+        panel.Resize += InvalidateBorderedPanel;
         panel.Invalidate();
+    }
+
+    private static void InvalidateBorderedPanel(object? sender, EventArgs e)
+    {
+        if (sender is Control control && !control.IsDisposed)
+            control.Invalidate(true);
     }
 
     private sealed class PanelBorderState(PanelEdges edges)
@@ -967,7 +997,7 @@ internal static class AppTheme
     public static void StyleTabControl(TabControl tabControl)
     {
         tabControl.Font = UiFont;
-        tabControl.Padding = new Point(10, 4);
+        tabControl.Padding = new Point(0, 4);
         tabControl.BackColor = EditorBackground;
 
         foreach (TabPage page in tabControl.TabPages)
@@ -1108,6 +1138,9 @@ internal static class AppTheme
         var height = control.ClientSize.Height;
         if (width <= 0 || height <= 0)
             return;
+
+        using (var background = new SolidBrush(control.BackColor))
+            e.Graphics.FillRectangle(background, 0, 0, width, height);
 
         using var pen = new Pen(Border);
         if ((edges & PanelEdges.Left) != 0)

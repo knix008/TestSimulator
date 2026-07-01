@@ -1,4 +1,6 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace IconGenerator;
 
@@ -50,10 +52,18 @@ internal static class IconDrawing
             "password" => Password(size),
             "bell" => Bell(size),
             "copy" => Copy(size),
+            "cut" => Cut(size),
+            "paste" => Paste(size),
+            "selectall" => SelectAll(size),
+            "lock" => Lock(size),
+            "unlock" => Unlock(size),
             "log" => Log(size),
             "star" => Star(size),
             "workspace" => Folder(size, Color.FromArgb(255, 196, 120)),
             "workspace_fav" => Folder(size, Color.FromArgb(255, 215, 80)),
+            "workspace_locked" => WorkspaceLocked(size),
+            "workspace_fav_locked" => WorkspaceFavLocked(size),
+            "page_locked" => PageLocked(size),
             "favorite" => Star(size),
             "page" => Page(size, Color.FromArgb(96, 165, 250)),
             _ => throw new ArgumentException($"Unknown icon: {name}", nameof(name))
@@ -187,22 +197,30 @@ internal static class IconDrawing
         });
 
     private static Bitmap Undo(int size) =>
-        IconCanvas.Create(size, (g, c) =>
-        {
-            var color = Color.FromArgb(71, 85, 105);
-            IconCanvas.DrawArc(g, c, 1.5f, 1.5f, 9f, 9f, 135f, 225f, color, size * 0.12f);
-            IconCanvas.DrawLine(g, c, 2.5f, 3f, 4.5f, 1.5f, color, size * 0.12f);
-            IconCanvas.DrawLine(g, c, 2.5f, 3f, 4.5f, 4.5f, color, size * 0.12f);
-        });
+        DrawStraightArrow(size, left: true);
 
     private static Bitmap Redo(int size) =>
-        IconCanvas.Create(size, (g, c) =>
+        DrawStraightArrow(size, left: false);
+
+    private static Bitmap DrawStraightArrow(int size, bool left)
+    {
+        var color = Color.FromArgb(51, 65, 85);
+        var stroke = Math.Max(1.25f, size * 0.105f);
+
+        return IconCanvas.Create(size, (g, c) =>
         {
-            var color = Color.FromArgb(71, 85, 105);
-            IconCanvas.DrawArc(g, c, 1.5f, 1.5f, 9f, 9f, -45f, 225f, color, size * 0.12f);
-            IconCanvas.DrawLine(g, c, 9.5f, 3f, 7.5f, 1.5f, color, size * 0.12f);
-            IconCanvas.DrawLine(g, c, 9.5f, 3f, 7.5f, 4.5f, color, size * 0.12f);
+            if (left)
+            {
+                IconCanvas.DrawLine(g, c, 10.2f, 6f, 4.4f, 6f, color, stroke);
+                IconCanvas.FillPolygon(g, c, color, (1.8f, 6f), (4.8f, 3.9f), (4.8f, 8.1f));
+            }
+            else
+            {
+                IconCanvas.DrawLine(g, c, 1.8f, 6f, 7.6f, 6f, color, stroke);
+                IconCanvas.FillPolygon(g, c, color, (10.2f, 6f), (7.2f, 3.9f), (7.2f, 8.1f));
+            }
         });
+    }
 
     private static Bitmap Outline(int size) =>
         IconCanvas.Create(size, (g, c) =>
@@ -385,6 +403,59 @@ internal static class IconDrawing
             IconCanvas.DrawRectangle(g, c, 4.5f, 4.5f, 6.5f, 7.5f, color, 1f);
         });
 
+    private static Bitmap Cut(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var color = Color.FromArgb(239, 68, 68);
+            var stroke = Math.Max(1f, size * 0.09f);
+            IconCanvas.DrawLine(g, c, 2f, 9.5f, 10f, 3f, color, stroke);
+            IconCanvas.DrawLine(g, c, 2f, 3f, 10f, 9.5f, color, stroke);
+            IconCanvas.FillEllipse(g, c, 1.2f, 7.8f, 2.4f, 2.4f, color);
+            IconCanvas.FillEllipse(g, c, 8.4f, 1.8f, 2.4f, 2.4f, color);
+        });
+
+    private static Bitmap Paste(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var board = Color.FromArgb(100, 116, 139);
+            var clip = Color.FromArgb(148, 163, 184);
+            IconCanvas.FillRectangle(g, c, 3.5f, 2.5f, 5f, 1.8f, clip);
+            IconCanvas.FillRectangle(g, c, 2.5f, 4f, 7f, 7.5f, board);
+            IconCanvas.DrawLine(g, c, 4f, 6.5f, 8f, 6.5f, Color.White, 1f);
+            IconCanvas.DrawLine(g, c, 4f, 8.5f, 7.5f, 8.5f, Color.White, 1f);
+        });
+
+    private static Bitmap SelectAll(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var color = Color.FromArgb(59, 130, 246);
+            IconCanvas.DrawRectangle(g, c, 3f, 3f, 6f, 6f, color, 1.1f);
+            IconCanvas.FillRectangle(g, c, 1.5f, 1.5f, 1.5f, 1.5f, color);
+            IconCanvas.FillRectangle(g, c, 9f, 1.5f, 1.5f, 1.5f, color);
+            IconCanvas.FillRectangle(g, c, 1.5f, 9f, 1.5f, 1.5f, color);
+            IconCanvas.FillRectangle(g, c, 9f, 9f, 1.5f, 1.5f, color);
+        });
+
+    private static Bitmap Lock(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var body = Color.FromArgb(100, 116, 139);
+            var shackle = Color.FromArgb(51, 65, 85);
+            var stroke = Math.Max(0.85f, size * 0.08f);
+            IconCanvas.DrawArc(g, c, 4f, 2.5f, 4f, 4f, 180f, 180f, shackle, stroke);
+            IconCanvas.FillRectangle(g, c, 3.6f, 5.8f, 4.8f, 5.2f, body);
+        });
+
+    private static Bitmap Unlock(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var body = Color.FromArgb(100, 116, 139);
+            var shackle = Color.FromArgb(51, 65, 85);
+            var stroke = Math.Max(0.85f, size * 0.08f);
+            IconCanvas.DrawArc(g, c, 5.5f, 2.2f, 4f, 4f, 180f, 180f, shackle, stroke);
+            IconCanvas.FillRectangle(g, c, 3.6f, 5.8f, 4.8f, 5.2f, body);
+        });
+
     private static Bitmap Log(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
@@ -411,6 +482,44 @@ internal static class IconDrawing
             IconCanvas.FillRectangle(g, c, 0.5f, 4f, 11f, 6.5f, color);
             IconCanvas.FillRectangle(g, c, 0.5f, 2.5f, 5.5f, 2.2f, color);
         });
+
+    private static Bitmap WorkspaceLocked(int size) =>
+        WithLockBadge(size, s => Folder(s, Color.FromArgb(255, 196, 120)));
+
+    private static Bitmap WorkspaceFavLocked(int size) =>
+        WithLockBadge(size, s => Folder(s, Color.FromArgb(255, 215, 80)));
+
+    private static Bitmap PageLocked(int size) =>
+        WithLockBadge(size, s => Page(s, Color.FromArgb(96, 165, 250)));
+
+    private static Bitmap WithLockBadge(int size, Func<int, Bitmap> drawBase)
+    {
+        using var baseIcon = drawBase(size);
+        var composite = new Bitmap(baseIcon.Width, baseIcon.Height, PixelFormat.Format32bppArgb);
+        using (var graphics = Graphics.FromImage(composite))
+        {
+            graphics.DrawImage(baseIcon, 0, 0);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+            var inset = size * 0.1f;
+            var content = new RectangleF(inset, inset, size - inset * 2, size - inset * 2);
+            DrawLockBadge(graphics, content, size);
+        }
+
+        return composite;
+    }
+
+    private static void DrawLockBadge(Graphics graphics, RectangleF content, int size)
+    {
+        var body = Color.FromArgb(100, 116, 139);
+        var shackle = Color.FromArgb(51, 65, 85);
+        var stroke = Math.Max(0.75f, size * 0.07f);
+
+        IconCanvas.FillEllipse(graphics, content, 7.2f, 7f, 4.6f, 4.6f, Color.FromArgb(248, 250, 252));
+        IconCanvas.DrawArc(graphics, content, 8.2f, 7.4f, 2.9f, 2.7f, 180f, 180f, shackle, stroke);
+        IconCanvas.FillRectangle(graphics, content, 8f, 9.1f, 3.3f, 2.6f, body);
+    }
 
     private static Bitmap Page(int size, Color color) =>
         IconCanvas.Create(size, (g, c) =>
