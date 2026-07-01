@@ -41,6 +41,8 @@ public partial class MainForm : Form
     private bool _suppressFileTreePathLog;
 
     private readonly List<ToolStripMenuItem> _fileRecentMenuItems = [];
+    private ToolStripSeparator? _fileRecentClearSeparator;
+    private ToolStripMenuItem? _fileRecentClearMenuItem;
 
     private readonly List<ToolStripMenuItem> _repositoryGitMenuItems = [];
 
@@ -136,7 +138,8 @@ public partial class MainForm : Form
         };
         repoFilesListView.StatusResolver = node =>
             node.Tag is RepositoryFileNodeTag tag && !tag.IsPlaceholder
-                ? tag.CachedGitStatus ?? _fileTreeStatusIndex?.Get(tag.RelativePath, tag.IsDirectory)
+                && _fileTreeStatusIndex?.CanReportStatus == true
+                ? _fileTreeStatusIndex.Get(tag.RelativePath, tag.IsDirectory)
                 : null;
         Shown += (_, _) =>
         {
@@ -1010,6 +1013,22 @@ public partial class MainForm : Form
         }
 
         _fileRecentMenuItems.Clear();
+
+        if (_fileRecentClearMenuItem is not null)
+        {
+            fileMenuItem.DropDownItems.Remove(_fileRecentClearMenuItem);
+            _fileRecentClearMenuItem.Click -= ClearRecentRepositoriesMenuItem_Click;
+            _fileRecentClearMenuItem.Dispose();
+            _fileRecentClearMenuItem = null;
+        }
+
+        if (_fileRecentClearSeparator is not null)
+        {
+            fileMenuItem.DropDownItems.Remove(_fileRecentClearSeparator);
+            _fileRecentClearSeparator.Dispose();
+            _fileRecentClearSeparator = null;
+        }
+
         fileRecentSeparator.Visible = validPaths.Count > 0;
 
         if (validPaths.Count == 0)
@@ -1026,6 +1045,18 @@ public partial class MainForm : Form
             fileMenuItem.DropDownItems.Insert(insertIndex++, item);
             _fileRecentMenuItems.Add(item);
         }
+
+        _fileRecentClearSeparator = new ToolStripSeparator { Name = "fileRecentClearSeparator" };
+        fileMenuItem.DropDownItems.Insert(insertIndex++, _fileRecentClearSeparator);
+
+        _fileRecentClearMenuItem = new ToolStripMenuItem { Name = "clearRecentRepositoriesMenuItem" };
+        ConfigureMenuItem(
+            _fileRecentClearMenuItem,
+            IconFactory.Delete(IconFactory.MenuBarIconSize),
+            Localization.T("Menu.File.Recent.Clear"),
+            menuBar: true);
+        _fileRecentClearMenuItem.Click += ClearRecentRepositoriesMenuItem_Click;
+        fileMenuItem.DropDownItems.Insert(insertIndex, _fileRecentClearMenuItem);
     }
 
     private ToolStripMenuItem CreateRecentRepositoryMenuItem(
@@ -1042,7 +1073,53 @@ public partial class MainForm : Form
         };
         ConfigureMenuItem(item, IconFactory.Folder(IconFactory.MenuBarIconSize, IconFactory.Palette.Folder), label, menuBar: true);
         item.Click += RecentRepositoryMenuItem_Click;
+        AttachRecentRepositoryContextMenu(item, path);
         return item;
+    }
+
+    private void AttachRecentRepositoryContextMenu(ToolStripMenuItem item, string path)
+    {
+        var removeMenuItem = new ToolStripMenuItem { Name = "removeRecentRepositoryMenuItem" };
+        removeMenuItem.Click += (_, _) => RemoveRecentRepositoryFromMenu(path);
+
+        var contextMenu = new ContextMenuStrip { Name = "recentRepositoryContextMenu" };
+        ConfigureContextMenu(
+            contextMenu,
+            (removeMenuItem, IconFactory.Delete(IconFactory.MenuBarIconSize), Localization.T("Menu.File.Recent.Remove")));
+
+        item.MouseUp += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Right)
+            {
+                return;
+            }
+
+            contextMenu.Show(Cursor.Position);
+        };
+    }
+
+    private void RemoveRecentRepositoryFromMenu(string path)
+    {
+        _settings.RemoveRecentRepository(path);
+        _settings.Save();
+        RefreshFileRecentMenu();
+    }
+
+    private void ClearRecentRepositoriesMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (MessageBox.Show(
+                this,
+                Localization.T("Menu.File.Recent.ClearConfirm"),
+                Localization.T("Menu.File.Recent.ClearTitle"),
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question) != DialogResult.Yes)
+        {
+            return;
+        }
+
+        _settings.ClearRecentRepositories();
+        _settings.Save();
+        RefreshFileRecentMenu();
     }
 
     private List<string> GetValidRecentRepositoryPaths()

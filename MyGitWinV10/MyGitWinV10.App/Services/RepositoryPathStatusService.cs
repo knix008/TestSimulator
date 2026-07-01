@@ -11,14 +11,18 @@ public sealed class RepositoryPathStatusIndex
     private readonly Dictionary<string, PathGitStatus> _files;
     private readonly Dictionary<string, PathGitStatus> _directories;
 
+    private readonly Func<string, bool, bool>? _isPathIgnored;
+
     internal RepositoryPathStatusIndex(
         Dictionary<string, PathGitStatus> files,
         Dictionary<string, PathGitStatus> directories,
-        bool canReportStatus)
+        bool canReportStatus,
+        Func<string, bool, bool>? isPathIgnored = null)
     {
         _files = files;
         _directories = directories;
         CanReportStatus = canReportStatus;
+        _isPathIgnored = isPathIgnored;
     }
 
     public bool CanReportStatus { get; }
@@ -95,6 +99,11 @@ public sealed class RepositoryPathStatusIndex
             return status;
         }
 
+        if (CanReportStatus && _isPathIgnored?.Invoke(normalized, isDirectory) == true)
+        {
+            return PathGitStatus.Ignored;
+        }
+
         return null;
     }
 
@@ -124,11 +133,6 @@ public sealed class RepositoryPathStatusIndex
 
 public static class RepositoryPathStatusService
 {
-    private static readonly StatusOptions DefaultStatusOptions = new()
-    {
-        IncludeIgnored = true,
-    };
-
     public static RepositoryPathStatusIndex Build(Repository repo, UnpushedPathsCache? unpushedCache = null)
     {
         if (repo.Info.IsBare || string.IsNullOrWhiteSpace(repo.Info.WorkingDirectory))
@@ -139,29 +143,26 @@ public static class RepositoryPathStatusService
         var files = new Dictionary<string, PathGitStatus>(StringComparer.OrdinalIgnoreCase);
         var directories = new Dictionary<string, PathGitStatus>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (StatusEntry entry in repo.RetrieveStatus(DefaultStatusOptions))
+        foreach (StatusEntry entry in repo.RetrieveStatus(new StatusOptions()))
         {
-            string path = PathCommitHistoryService.NormalizeGitPath(entry.FilePath);
-            if (entry.State.HasFlag(FileStatus.Ignored))
-            {
-                files[path] = PathGitStatus.Ignored;
-                PropagateToParents(directories, path, PathGitStatus.Ignored);
-                continue;
-            }
-
             var status = ToPathStatus(entry);
             if (!status.HasChanges)
             {
                 continue;
             }
 
+            string path = PathCommitHistoryService.NormalizeGitPath(entry.FilePath);
             files[path] = status;
             PropagateToParents(directories, path, status);
         }
 
         ApplyUnpushedPaths(repo, files, directories, unpushedCache);
 
-        return new RepositoryPathStatusIndex(files, directories, canReportStatus: true);
+        return new RepositoryPathStatusIndex(
+            files,
+            directories,
+            canReportStatus: true,
+            (path, isDirectory) => GitIgnoreService.IsIgnored(repo, path, isDirectory));
     }
 
     public static string FormatNodeToolTip(RepositoryFileNodeTag tag, PathGitStatus? status, bool canReportStatus)
@@ -339,6 +340,11 @@ public static class RepositoryPathStatusService
         string filePath,
         PathGitStatus status)
     {
+        if (status.IsIgnoredOnly)
+        {
+            return;
+        }
+
         directories[string.Empty] = PathGitStatus.Merge(directories.GetValueOrDefault(string.Empty), status);
 
         int separatorIndex = filePath.IndexOf('/');

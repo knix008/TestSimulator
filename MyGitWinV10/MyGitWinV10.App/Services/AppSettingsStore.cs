@@ -218,6 +218,13 @@ public sealed class AppSettingsStore
         }
     }
 
+    public void ClearRecentRepositories()
+    {
+        RecentRepositoryPaths.Clear();
+        LastRepositoryPath = null;
+        LastSuccessfulSession = null;
+    }
+
     public void RecordRecentCloneUrl(string url)
     {
         if (string.IsNullOrWhiteSpace(url))

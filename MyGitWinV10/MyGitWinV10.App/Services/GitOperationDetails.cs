@@ -261,16 +261,21 @@ public static class GitOperationDetails
             return [];
         }
 
-        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Commit commit in GetCommitsAheadOfTracked(repo))
+        Branch? head = repo.Head;
+        Branch? upstream = ResolveUpstreamBranch(repo);
+        if (head?.Tip is null || upstream?.Tip is null)
         {
-            foreach (string path in GetCommitChangedPaths(repo, commit))
-            {
-                paths.Add(PathCommitHistoryService.NormalizeGitPath(path));
-            }
+            return [];
         }
 
-        return paths;
+        if (string.Equals(head.Tip.Sha, upstream.Tip.Sha, StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        return repo.Diff.Compare<TreeChanges>(upstream.Tip.Tree, head.Tip.Tree)
+            .Select(change => PathCommitHistoryService.NormalizeGitPath(change.Path))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     public static string FormatPathScope(string relativePath) =>

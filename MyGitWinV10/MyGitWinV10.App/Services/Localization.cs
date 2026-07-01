@@ -40,6 +40,10 @@ public static class Localization
         ["Menu.File.Preferences.Tip"] = ("외부 Diff 도구와 언어를 설정합니다", "Configure the external diff tool and language"),
         ["Menu.File.Exit"] = ("끝내기", "E&xit"),
         ["Menu.File.Exit.Tip"] = ("애플리케이션을 닫습니다", "Close the application"),
+        ["Menu.File.Recent.Remove"] = ("목록에서 제거", "Remove from List"),
+        ["Menu.File.Recent.Clear"] = ("최근 목록 지우기...", "Clear Recent List..."),
+        ["Menu.File.Recent.ClearTitle"] = ("최근 저장소 목록", "Recent Repositories"),
+        ["Menu.File.Recent.ClearConfirm"] = ("최근에 연 저장소 목록을 모두 지울까요?\n(현재 열린 저장소는 닫히지 않습니다.)", "Remove all recently opened repositories from the list?\n(The repository currently open will stay open.)"),
 
         ["Menu.Repository"] = ("저장소", "Repository"),
         ["Menu.Repository.RefreshTree"] = ("트리 새로고침", "Refresh &Tree"),
