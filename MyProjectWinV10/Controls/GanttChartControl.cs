@@ -527,7 +527,6 @@ namespace MyProject.Controls
             else
                 DrawBackground(g, chartArea);
 
-            _timeScaleRenderer?.DrawWeekendShading(g, chartArea);
             DrawHorizontalGridLines(g, chartArea);
             DrawRowHighlights(g, chartArea);
 
@@ -555,18 +554,26 @@ namespace MyProject.Controls
             var visibleTasks = _model.GetVisibleTasks().ToList();
             using var pen = new Pen(AppTheme.GridLineColor);
 
+            int lastRowBottom = AppTheme.TimescaleHeaderHeight;
             for (int i = 0; i < visibleTasks.Count; i++)
             {
                 int rowY = AppTheme.TimescaleHeaderHeight + i * AppTheme.RowHeight - _scrollY;
                 if (rowY + AppTheme.RowHeight < AppTheme.TimescaleHeaderHeight) continue;
                 if (rowY > _paintClipBottom) break;
 
-                // Always fill row background so export bitmaps have no transparent (black) cells
-                Color rowBg = i % 2 == 1 ? AppTheme.RowAltColor : AppTheme.SurfaceColor;
-                using var rowBrush = new SolidBrush(rowBg);
-                g.FillRectangle(rowBrush, chartArea.Left, rowY, chartArea.Width, AppTheme.RowHeight);
+                // Per-day columns so weekend shading appears behind task bars.
+                _timeScaleRenderer?.DrawDayColumnBackgrounds(
+                    g, chartArea, rowY, AppTheme.RowHeight, isAltRow: i % 2 == 1);
 
                 g.DrawLine(pen, chartArea.Left, rowY + AppTheme.RowHeight - 1, chartArea.Right, rowY + AppTheme.RowHeight - 1);
+                lastRowBottom = Math.Max(lastRowBottom, rowY + AppTheme.RowHeight);
+            }
+
+            int fillBottom = Math.Min(_paintClipBottom, chartArea.Bottom);
+            if (lastRowBottom < fillBottom)
+            {
+                _timeScaleRenderer?.DrawDayColumnBackgrounds(
+                    g, chartArea, lastRowBottom, fillBottom - lastRowBottom, isAltRow: false);
             }
         }
 

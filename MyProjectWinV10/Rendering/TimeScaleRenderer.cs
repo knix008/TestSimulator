@@ -61,12 +61,6 @@ namespace MyProject.Rendering
 
                 var cellRect = new Rectangle(x + 4, topBounds.Y, width - 8, rowH);
                 using var textBrush = new SolidBrush(AppTheme.TimescaleText);
-                var sf = new StringFormat
-                {
-                    Alignment = StringAlignment.Center,
-                    LineAlignment = StringAlignment.Center,
-                    Trimming = StringTrimming.EllipsisCharacter
-                };
 
                 string text;
                 if (_viewport.ZoomLevel == ZoomLevel.Months)
@@ -80,7 +74,7 @@ namespace MyProject.Rendering
                          : label.ToString("M", DisplayCulture.Current);
                 }
 
-                g.DrawString(text, AppTheme.FontTimescaleLarge, textBrush, cellRect, sf);
+                TryDrawSingleLineLabel(g, text, AppTheme.FontTimescaleLarge, textBrush, cellRect);
             }
 
             using var borderPen = new Pen(AppTheme.TimescaleBorder);
@@ -98,7 +92,7 @@ namespace MyProject.Rendering
             {
                 bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                 bool isToday   = date.Date == DateTime.Today;
-                Color cellBg   = isToday   ? AppTheme.TimescaleToday
+                Color cellBg   = isToday   ? AppTheme.TimescaleTodayHeaderBackground
                                : isWeekend ? AppTheme.TimescaleWeekend
                                : AppTheme.TimescaleBackground;
                 using var cellBrush = new SolidBrush(cellBg);
@@ -120,7 +114,7 @@ namespace MyProject.Rendering
                     bool isToday   = date.Date == DateTime.Today;
                     bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                     var  font      = isToday ? AppTheme.FontTimescaleLarge : AppTheme.FontTimescaleSmall;
-                    Color textCol  = isToday   ? AppTheme.GridLineToday
+                    Color textCol  = isToday   ? AppTheme.TimescaleTodayHeaderText
                                    : isWeekend ? Color.FromArgb(140, 150, 170)
                                    : AppTheme.TimescaleText;
                     using var textBrush = new SolidBrush(textCol);
@@ -173,7 +167,7 @@ namespace MyProject.Rendering
             {
                 bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                 bool isToday   = date.Date == DateTime.Today;
-                Color cellBg   = isToday   ? AppTheme.TimescaleToday
+                Color cellBg   = isToday   ? AppTheme.TimescaleTodayHeaderBackground
                                : isWeekend ? AppTheme.TimescaleWeekend
                                : AppTheme.TimescaleBackground;
                 using var cellBrush = new SolidBrush(cellBg);
@@ -197,7 +191,7 @@ namespace MyProject.Rendering
                     string weekday = width >= 22
                         ? WeekdayAbbr[(int)date.DayOfWeek]
                         : WeekdayAbbr[(int)date.DayOfWeek][0].ToString();
-                    Color textCol = isToday   ? AppTheme.GridLineToday
+                    Color textCol = isToday   ? AppTheme.TimescaleTodayHeaderText
                                   : isWeekend ? Color.FromArgb(160, 100, 100)
                                   : Color.FromArgb(130, 140, 160);
                     using var textBrush = new SolidBrush(textCol);
@@ -235,16 +229,61 @@ namespace MyProject.Rendering
             }
         }
 
-        public void DrawWeekendShading(Graphics g, Rectangle chartArea)
+        public void DrawWeekendShading(Graphics g, Rectangle chartArea, int? top = null, int? bottom = null)
         {
+            int yTop = top ?? chartArea.Top;
+            int yBottom = bottom ?? chartArea.Bottom;
+            if (yBottom <= yTop)
+                return;
+
             foreach (var (date, x, width) in GetDaysInView())
             {
-                if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
-                {
-                    using var brush = new SolidBrush(AppTheme.GridLineWeekend);
-                    g.FillRectangle(brush, x, chartArea.Top, width, chartArea.Height);
-                }
+                if (date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
+                    continue;
+
+                FillDayColumn(g, chartArea, x, width, yTop, yBottom - yTop, AppTheme.TimescaleWeekend);
             }
+        }
+
+        /// <summary>
+        /// Fills a horizontal band with per-day backgrounds so weekend columns show behind task rows.
+        /// </summary>
+        public void DrawDayColumnBackgrounds(
+            Graphics g,
+            Rectangle chartArea,
+            int top,
+            int height,
+            bool isAltRow)
+        {
+            if (height <= 0)
+                return;
+
+            foreach (var (date, x, width) in GetDaysInView())
+            {
+                bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+                Color bg = isWeekend
+                    ? AppTheme.TimescaleWeekend
+                    : isAltRow ? AppTheme.RowAltColor : AppTheme.SurfaceColor;
+                FillDayColumn(g, chartArea, x, width, top, height, bg);
+            }
+        }
+
+        private static void FillDayColumn(
+            Graphics g,
+            Rectangle chartArea,
+            int x,
+            int width,
+            int top,
+            int height,
+            Color color)
+        {
+            int drawLeft = Math.Max(x, chartArea.Left);
+            int drawRight = Math.Min(x + width, chartArea.Right);
+            if (drawRight <= drawLeft)
+                return;
+
+            using var brush = new SolidBrush(color);
+            g.FillRectangle(brush, drawLeft, top, drawRight - drawLeft, height);
         }
 
         public void DrawVerticalGridLines(Graphics g, Rectangle chartArea, int? top = null, int? bottom = null)
@@ -268,6 +307,35 @@ namespace MyProject.Rendering
         }
 
         // ── Data helpers ──────────────────────────────────────────────────────
+
+        private static bool TryDrawSingleLineLabel(
+            Graphics g,
+            string text,
+            Font font,
+            Brush textBrush,
+            Rectangle bounds)
+        {
+            if (string.IsNullOrEmpty(text) || bounds.Width <= 0 || bounds.Height <= 0)
+                return false;
+
+            var measureFormat = StringFormat.GenericTypographic;
+            measureFormat.FormatFlags |= StringFormatFlags.NoWrap;
+            measureFormat.Trimming = StringTrimming.None;
+
+            SizeF size = g.MeasureString(text, font, bounds.Width, measureFormat);
+            if (size.Width > bounds.Width || size.Height > bounds.Height)
+                return false;
+
+            var drawFormat = new StringFormat
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.None,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
+            g.DrawString(text, font, textBrush, bounds, drawFormat);
+            return true;
+        }
 
         private IEnumerable<(DateTime month, int x, int width)> GetMonthsInView()
         {
@@ -320,10 +388,15 @@ namespace MyProject.Rendering
             while (current <= endDate)
             {
                 var nextMonday = current.AddDays(7);
-                int xStart = Math.Max(_viewport.DateToX(current), _viewport.ChartLeft);
-                int xEnd   = Math.Min(_viewport.DateToX(nextMonday), _viewport.ChartLeft + _viewport.ChartWidth);
-                if (xEnd > xStart)
-                    result.Add((current, xStart, xEnd - xStart));
+                int mondayX = _viewport.DateToX(current);
+                int xEnd    = Math.Min(_viewport.DateToX(nextMonday), _viewport.ChartLeft + _viewport.ChartWidth);
+
+                // Only emit a week label when Monday itself is within the visible area.
+                // If Monday is off-screen the label would appear at a wrong column (e.g.
+                // "Jun 2 / Mo" rendered in a Wednesday cell), causing date/weekday mismatch.
+                if (mondayX >= _viewport.ChartLeft && xEnd > mondayX)
+                    result.Add((current, mondayX, xEnd - mondayX));
+
                 current = nextMonday;
             }
             return result;

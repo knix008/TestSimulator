@@ -48,6 +48,8 @@
         public static Color TimescaleText { get; } = Color.FromArgb(60, 70, 90);
         public static Color TimescaleWeekend { get; } = Color.FromArgb(235, 236, 242);
         public static Color TimescaleToday { get; } = Color.FromArgb(255, 235, 235);
+        public static Color TimescaleTodayHeaderBackground { get; } = Color.FromArgb(32, 33, 36);
+        public static Color TimescaleTodayHeaderText { get; } = Color.White;
         public static Color TimescaleTodayLine { get; } = Color.FromArgb(255, 82, 82);
         public static Color CalendarWeekendText { get; } = Color.FromArgb(217, 48, 37);
         public static Color CalendarWeekendTextMuted { get; } = Color.FromArgb(190, 90, 85);
