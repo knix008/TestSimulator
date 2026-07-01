@@ -37,6 +37,15 @@
     <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
   </ItemGroup>
 
+  <Target Name="VerifyWixExtensionPackages"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Error Condition="!Exists('$(NuGetPackageRoot)wixtoolset.util.wixext\6.0.2\wixext6\WixToolset.Util.wixext.dll')"
+           Text="WixToolset.Util.wixext was not restored (required for util:RemoveFolderEx in UserData.wxs). Run: dotnet restore installer\MyGitWinV10.Installer.wixproj" />
+    <Error Condition="!Exists('$(NuGetPackageRoot)wixtoolset.ui.wixext\6.0.2\wixext6\WixToolset.UI.wixext.dll')"
+           Text="WixToolset.UI.wixext was not restored. Run: dotnet restore installer\MyGitWinV10.Installer.wixproj" />
+  </Target>
+
   <ItemGroup>
     <ProjectReference Include="$(AppProject)">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

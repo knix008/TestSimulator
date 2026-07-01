@@ -35,10 +35,8 @@
                      AND '$(DesignTimeBuild)' != 'true'">
     <Message Importance="high" Text="Building MSI installer package (WiX)..." />
     <Exec Command="cmd /c taskkill /IM MyGitWinV10.App.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
-    <MSBuild Projects="$(MSBuildProjectDirectory)\..\installer\MyGitWinV10.Installer.wixproj"
-             Targets="Restore;Build"
-             Properties="Configuration=Release;Platform=x64;SkipInstaller=true;BuildingMsiPackage=true"
-             BuildInParallel="false" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="dotnet build &quot;$(MSBuildProjectDirectory)\..\installer\MyGitWinV10.Installer.wixproj&quot; -c Release -p:Platform=x64 -p:SkipInstaller=true -p:BuildingMsiPackage=true -p:BuildMsiPackage=true -m:1" />
     <Error Condition="!Exists('$(MSBuildProjectDirectory)\..\installer\bin\Release\MyGitWinV10Setup.msi')"
            Text="MSI was not created. Close any running MyGitWinV10.App.exe and rebuild Release, or run: .\installer\build-installer.ps1" />
     <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\installer\bin\Release\MyGitWinV10Setup.msi" />

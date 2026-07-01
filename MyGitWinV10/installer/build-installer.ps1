@@ -13,7 +13,8 @@ Get-Process -Name 'MyGitWinV10.App' -ErrorAction SilentlyContinue | Stop-Process
 Start-Sleep -Seconds 1
 
 Write-Host "Building MSI ($Configuration | x64)..." -ForegroundColor Cyan
-dotnet build $InstallerProject -c $Configuration -p:Platform=x64 -p:BuildMsiPackage=true -m:1
+dotnet restore $InstallerProject
+dotnet build $InstallerProject -c $Configuration -p:Platform=x64 -p:BuildMsiPackage=true -m:1 --no-restore
 
 if ($Configuration -ne 'Release') {
     Write-Host "Debug configuration skips MSI packaging." -ForegroundColor Yellow

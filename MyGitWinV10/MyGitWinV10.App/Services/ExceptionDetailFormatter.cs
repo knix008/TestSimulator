@@ -6,6 +6,11 @@ public static class ExceptionDetailFormatter
 {
     public static string GetSummary(Exception ex)
     {
+        if (GitRemoteExceptionHelper.TryGetFriendlyMessage(ex, out string friendly))
+        {
+            return friendly;
+        }
+
         for (var current = ex; current is not null; current = current.InnerException)
         {
             if (!string.IsNullOrWhiteSpace(current.Message))

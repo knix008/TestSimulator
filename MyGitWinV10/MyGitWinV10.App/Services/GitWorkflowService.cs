@@ -172,7 +172,18 @@ public static class GitWorkflowService
     public static void Fetch(Repository repo, CredentialsHandler? credentialsHandler = null, CancellationToken cancellationToken = default)
     {
         Remote remote = GetOriginRemote(repo);
-        Commands.Fetch(repo, remote.Name, Array.Empty<string>(), CreateFetchOptions(credentialsHandler, cancellationToken), logMessage: null);
+        try
+        {
+            Commands.Fetch(repo, remote.Name, Array.Empty<string>(), CreateFetchOptions(credentialsHandler, cancellationToken), logMessage: null);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw GitRemoteExceptionHelper.Wrap(ex, remote.Url);
+        }
     }
 
     /// <summary>
@@ -213,7 +224,18 @@ public static class GitWorkflowService
             FetchOptions = CreateFetchOptions(credentialsHandler, cancellationToken)
         };
 
-        return Commands.Pull(repo, signature, pullOptions);
+        try
+        {
+            return Commands.Pull(repo, signature, pullOptions);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw GitRemoteExceptionHelper.Wrap(ex, repo.Network.Remotes["origin"]?.Url);
+        }
     }
 
     public static void Push(Repository repo, CredentialsHandler? credentialsHandler = null, CancellationToken cancellationToken = default)
@@ -264,6 +286,14 @@ public static class GitWorkflowService
         catch (Exception ex) when (IsNothingToPush(ex))
         {
             throw new InvalidOperationException(Localization.T("Msg.GitPush.NothingToPush"), ex);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw GitRemoteExceptionHelper.Wrap(ex, remote.Url);
         }
 
         if (rejections.Count > 0)
