@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-us"
+                 xmlns="http://wixtoolset.org/schemas/v4/wxl"
+                 Codepage="1252">
+  <String Id="UserDataDlg_Title" Value="User Settings" Overridable="yes" />
+  <String Id="UserDataDlgTitle" Value="{\WixUI_Font_Title}Saved application data" Overridable="yes" />
+  <String Id="UserDataDlgBannerBitmap" Value="WixUIBannerBmp" Overridable="yes" />
+  <String Id="UserDataDlgUpgradeDescription"
+          Value="An existing version of MyGit V1.0.0 will be removed before the new version is installed."
+          Overridable="yes" />
+  <String Id="UserDataDlgRemoveDescription"
+          Value="MyGit V1.0.0 will be removed from this computer."
+          Overridable="yes" />
+  <String Id="UserDataDlgInstallDescription"
+          Value="Choose whether to keep or remove saved application data before installation continues."
+          Overridable="yes" />
+  <String Id="UserDataDlgFolderDescription"
+          Value="Settings are stored in %AppData%\MyGitWinV10 (preferences, recent repositories, and optional GitHub credentials)."
+          Overridable="yes" />
+  <String Id="UserDataDlgCheckBox"
+          Value="Remove saved user settings and credentials from this computer"
+          Overridable="yes" />
+</WixLocalization>

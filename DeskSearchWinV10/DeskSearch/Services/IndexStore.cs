@@ -295,6 +295,10 @@ public sealed partial class IndexStore : IDisposable
             }
 
             var purged = command.ExecuteNonQuery();
+
+            foreach (var excludedPrefix in inclusion.LegacyExcludedDirectoryPrefixes)
+                purged += DeleteByPrefix(EscapeLikePrefix(excludedPrefix));
+
             if (purged > 0)
                 _cachedCount = -1;
 

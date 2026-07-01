@@ -31,6 +31,12 @@ public sealed class RepositoryWorkingTreeWatcher : IDisposable
     private bool _requiresStatusRefresh;
     private bool _requiresRepositoryRefresh;
     private bool _disposed;
+    private DateTime _suppressEventsUntilUtc;
+
+    public void Suppress(TimeSpan duration) =>
+        _suppressEventsUntilUtc = DateTime.UtcNow.Add(duration);
+
+    private bool IsSuppressed => DateTime.UtcNow < _suppressEventsUntilUtc;
 
     public RepositoryWorkingTreeWatcher(Control syncControl)
     {
@@ -171,7 +177,7 @@ public sealed class RepositoryWorkingTreeWatcher : IDisposable
 
     private void ScheduleNotify(bool requiresStructureRefresh, bool requiresStatusRefresh, bool requiresRepositoryRefresh, string? relativeDirectory)
     {
-        if (_disposed)
+        if (_disposed || IsSuppressed)
         {
             return;
         }

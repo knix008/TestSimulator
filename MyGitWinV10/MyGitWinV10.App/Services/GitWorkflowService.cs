@@ -5,6 +5,8 @@ namespace MyGitWinV10.App.Services;
 
 public static class GitWorkflowService
 {
+    private static readonly StatusOptions DefaultStatusOptions = new();
+
     public static bool CanUseWorkflow(Repository repo, bool isRemoteBrowse) =>
         !isRemoteBrowse
         && !repo.Info.IsBare
@@ -28,14 +30,14 @@ public static class GitWorkflowService
         GetStatusEntries(repo, relativePath, isDirectory).Any(entry => !string.IsNullOrEmpty(entry.WorkTree));
 
     public static IReadOnlyList<string> GetStagedPaths(Repository repo) =>
-        repo.RetrieveStatus(new StatusOptions())
+        RetrieveStatusEntries(repo)
             .Where(entry => IsStaged(entry.State))
             .Select(entry => entry.FilePath)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
     public static IReadOnlyList<GitStatusEntry> GetStatusEntries(Repository repo) =>
-        repo.RetrieveStatus(new StatusOptions())
+        RetrieveStatusEntries(repo)
             .Select(ToStatusEntry)
             .Where(entry => !string.IsNullOrEmpty(entry.Staged) || !string.IsNullOrEmpty(entry.WorkTree))
             .OrderBy(entry => entry.FilePath, StringComparer.OrdinalIgnoreCase)
@@ -44,10 +46,19 @@ public static class GitWorkflowService
     public static IReadOnlyList<GitStatusEntry> GetStatusEntries(
         Repository repo,
         string relativePath,
-        bool isDirectory) =>
-        GetStatusEntries(repo)
-            .Where(entry => MatchesPath(entry.FilePath, relativePath, isDirectory))
+        bool isDirectory)
+    {
+        if (string.IsNullOrEmpty(relativePath))
+        {
+            return GetStatusEntries(repo);
+        }
+
+        return RetrieveStatusEntries(repo, relativePath, isDirectory)
+            .Select(ToStatusEntry)
+            .Where(entry => !string.IsNullOrEmpty(entry.Staged) || !string.IsNullOrEmpty(entry.WorkTree))
+            .OrderBy(entry => entry.FilePath, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
 
     public static Dictionary<string, GitStatusEntry> CreateStatusSnapshot(
         Repository repo,
@@ -61,7 +72,12 @@ public static class GitWorkflowService
         Repository repo,
         string relativePath,
         bool isDirectory) =>
-        GetStatusEntries(repo, relativePath, isDirectory)
+        GetNewlyStagedEntries(before, GetStatusEntries(repo, relativePath, isDirectory));
+
+    public static IReadOnlyList<GitStatusEntry> GetNewlyStagedEntries(
+        IReadOnlyDictionary<string, GitStatusEntry> before,
+        IEnumerable<GitStatusEntry> afterEntries) =>
+        afterEntries
             .Where(entry => IsNewlyStaged(before, entry))
             .ToList();
 
@@ -75,18 +91,24 @@ public static class GitWorkflowService
 
     public static void StagePaths(Repository repo, IEnumerable<string> paths)
     {
-        foreach (string path in paths)
+        var list = paths as IList<string> ?? paths.ToList();
+        if (list.Count == 0)
         {
-            Commands.Stage(repo, path);
+            return;
         }
+
+        Commands.Stage(repo, list);
     }
 
     public static void UnstagePaths(Repository repo, IEnumerable<string> paths)
     {
-        foreach (string path in paths)
+        var list = paths as IList<string> ?? paths.ToList();
+        if (list.Count == 0)
         {
-            Commands.Unstage(repo, path);
+            return;
         }
+
+        Commands.Unstage(repo, list);
     }
 
     public static void Stage(Repository repo, string relativePath, bool isDirectory)
@@ -102,10 +124,7 @@ public static class GitWorkflowService
 
     public static void Unstage(Repository repo, string relativePath, bool isDirectory)
     {
-        foreach (string path in GetPathsForUnstage(repo, relativePath, isDirectory))
-        {
-            Commands.Unstage(repo, path);
-        }
+        UnstagePaths(repo, GetPathsForUnstage(repo, relativePath, isDirectory));
     }
 
     public static void DiscardChanges(Repository repo, string relativePath, bool isDirectory)
@@ -244,7 +263,7 @@ public static class GitWorkflowService
         }
         catch (Exception ex) when (IsNothingToPush(ex))
         {
-            throw new InvalidOperationException("There are no commits to push.", ex);
+            throw new InvalidOperationException(Localization.T("Msg.GitPush.NothingToPush"), ex);
         }
 
         if (rejections.Count > 0)
@@ -256,8 +275,7 @@ public static class GitWorkflowService
     public static string FormatPushRejectedMessage(Repository repo)
     {
         string branch = repo.Head?.FriendlyName ?? Localization.T("Detail.Value.Unknown");
-        int behind = GitOperationDetails.GetCommitsBehindTracked(repo).Count;
-        int ahead = GitOperationDetails.GetCommitsAheadOfTracked(repo).Count;
+        (int ahead, int behind) = GitOperationDetails.GetTrackingAheadBehind(repo);
         return Localization.Tf("GitOp.PushRejectedNonFf", branch, behind, ahead);
     }
 
@@ -297,9 +315,30 @@ public static class GitWorkflowService
     private static IEnumerable<StatusEntry> GetStatusEntriesForPath(
         Repository repo,
         string relativePath,
+        bool isDirectory)
+    {
+        if (string.IsNullOrEmpty(relativePath))
+        {
+            return RetrieveStatusEntries(repo);
+        }
+
+        return RetrieveStatusEntries(repo, relativePath, isDirectory);
+    }
+
+    private static IEnumerable<StatusEntry> RetrieveStatusEntries(Repository repo) =>
+        repo.RetrieveStatus(DefaultStatusOptions);
+
+    private static IEnumerable<StatusEntry> RetrieveStatusEntries(
+        Repository repo,
+        string relativePath,
         bool isDirectory) =>
-        repo.RetrieveStatus(new StatusOptions())
-            .Where(entry => MatchesPath(entry.FilePath, relativePath, isDirectory));
+        repo.RetrieveStatus(CreateScopedStatusOptions(relativePath, isDirectory));
+
+    private static StatusOptions CreateScopedStatusOptions(string relativePath, bool isDirectory) =>
+        new()
+        {
+            PathSpec = [ToGitPath(relativePath, isDirectory)],
+        };
 
     private static Remote GetOriginRemote(Repository repo) =>
         repo.Network.Remotes["origin"]
@@ -431,22 +470,6 @@ public static class GitWorkflowService
         return string.Empty;
     }
 
-    private static bool MatchesPath(string statusPath, string relativePath, bool isDirectory)
-    {
-        if (string.IsNullOrEmpty(relativePath))
-        {
-            return true;
-        }
-
-        string normalized = PathCommitHistoryService.NormalizeGitPath(relativePath);
-        if (isDirectory)
-        {
-            return string.Equals(statusPath, normalized, StringComparison.OrdinalIgnoreCase)
-                || statusPath.StartsWith(normalized + "/", StringComparison.OrdinalIgnoreCase);
-        }
-
-        return string.Equals(statusPath, normalized, StringComparison.OrdinalIgnoreCase);
-    }
 
     private static string ToGitPath(string relativePath, bool isDirectory)
     {
@@ -489,8 +512,17 @@ public static class GitWorkflowService
 
     private static bool IsNothingToPush(Exception ex)
     {
-        string message = ex.Message;
-        return message.Contains("Everything up-to-date", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("up to date", StringComparison.OrdinalIgnoreCase);
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            string message = current.Message;
+            if (message.Contains("Everything up-to-date", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("up to date", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("no commits to push", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -20,6 +20,8 @@ public sealed class AppSettings
     public bool RunAtStartup { get; set; } = true;
     public List<string> IncludedDrives { get; set; } = [];
     public List<string> IncludedDirectories { get; set; } = [];
+    /// <summary>Legacy folder exclusions migrated from older settings; still honored at index time.</summary>
+    public List<string> ExcludedDirectories { get; set; } = [];
     public string? LastIncludedDirectoryBrowsePath { get; set; }
 
     public AppSettings Clone() => new()
@@ -42,6 +44,7 @@ public sealed class AppSettings
         RunAtStartup = RunAtStartup,
         IncludedDrives = [.. IncludedDrives],
         IncludedDirectories = [.. IncludedDirectories],
+        ExcludedDirectories = [.. ExcludedDirectories],
         LastIncludedDirectoryBrowsePath = LastIncludedDirectoryBrowsePath
     };
 }

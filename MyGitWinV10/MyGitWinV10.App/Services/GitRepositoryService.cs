@@ -9,16 +9,17 @@ public sealed class GitRepositoryService : IDisposable
 
     public Repository? Repo { get; private set; }
     public string? RepositoryPath { get; private set; }
+    public UnpushedPathsCache UnpushedPathsCache { get; } = new();
 
     public T RunLocked<T>(Func<Repository, T> action)
     {
-        if (Repo is null)
-        {
-            throw new InvalidOperationException("No repository is open.");
-        }
-
         lock (_sync)
         {
+            if (Repo is null)
+            {
+                throw new InvalidOperationException("No repository is open.");
+            }
+
             return action(Repo);
         }
     }
@@ -34,9 +35,16 @@ public sealed class GitRepositoryService : IDisposable
     {
         var repoPath = Repository.Discover(path)
             ?? throw new InvalidOperationException($"'{path}' is not a Git repository.");
-        Close();
-        Repo = new Repository(repoPath);
-        RepositoryPath = repoPath;
+
+        lock (_sync)
+        {
+            Repo?.Dispose();
+            Repo = new Repository(repoPath);
+            UnpushedPathsCache.Invalidate();
+            RepositoryPath = !Repo.Info.IsBare && !string.IsNullOrWhiteSpace(Repo.Info.WorkingDirectory)
+                ? Repo.Info.WorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                : repoPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
     }
 
     public static void Clone(
@@ -84,13 +92,22 @@ public sealed class GitRepositoryService : IDisposable
         onProgress?.Invoke(1f);
     }
 
-    public string GetCurrentBranchName() => Repo?.Head?.FriendlyName ?? "(no branch)";
+    public string GetCurrentBranchName()
+    {
+        lock (_sync)
+        {
+            return Repo?.Head?.FriendlyName ?? "(no branch)";
+        }
+    }
 
     public void Close()
     {
-        Repo?.Dispose();
-        Repo = null;
-        RepositoryPath = null;
+        lock (_sync)
+        {
+            Repo?.Dispose();
+            Repo = null;
+            RepositoryPath = null;
+        }
     }
 
     public void Dispose() => Close();

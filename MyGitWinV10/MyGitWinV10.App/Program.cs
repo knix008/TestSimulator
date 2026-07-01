@@ -1,3 +1,4 @@
+using MyGitWinV10.App.Dialogs;
 using QuestPDF.Infrastructure;
 
 namespace MyGitWinV10.App;
@@ -40,11 +41,7 @@ internal static class Program
     {
         try
         {
-            MessageBox.Show(
-                ex.ToString(),
-                AppInfo.Title,
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
+            ErrorDetailDialog.Show(null, AppInfo.Title, ex);
         }
         catch
         {

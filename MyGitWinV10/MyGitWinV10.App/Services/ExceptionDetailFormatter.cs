@@ -6,8 +6,15 @@ public static class ExceptionDetailFormatter
 {
     public static string GetSummary(Exception ex)
     {
-        var root = GetRootException(ex);
-        return string.IsNullOrWhiteSpace(root.Message) ? root.GetType().Name : root.Message;
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+            {
+                return current.Message;
+            }
+        }
+
+        return ex.GetType().Name;
     }
 
     public static string Format(Exception ex)
@@ -15,16 +22,6 @@ public static class ExceptionDetailFormatter
         var sb = new StringBuilder();
         AppendException(sb, ex);
         return sb.ToString().TrimEnd();
-    }
-
-    private static Exception GetRootException(Exception ex)
-    {
-        while (ex.InnerException is { } inner)
-        {
-            ex = inner;
-        }
-
-        return ex;
     }
 
     private static void AppendException(StringBuilder sb, Exception ex)

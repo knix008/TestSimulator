@@ -433,21 +433,46 @@ public partial class SettingsWindow : Window
             if (root is null)
                 continue;
 
-            var volumeLabel = string.IsNullOrWhiteSpace(drive.VolumeLabel)
-                ? string.Empty
-                : $" ({drive.VolumeLabel})";
-
-            var checkBox = new System.Windows.Controls.CheckBox
-            {
-                Content = $"{root}{volumeLabel}",
-                IsChecked = included.Contains(root),
-                Margin = new Thickness(0, 0, 12, 4),
-                Tag = root
-            };
-
-            _driveCheckBoxes[root] = checkBox;
-            ExcludedDrivesPanel.Children.Add(checkBox);
+            AddIncludedDriveCheckBox(root, included.Contains(root), FormatDriveLabel(drive, root));
         }
+
+        foreach (var root in Settings.IncludedDrives
+                     .Select(IndexInclusionPolicy.NormalizeDriveRoot)
+                     .Where(static root => root is not null)
+                     .Cast<string>()
+                     .OrderBy(static root => root, StringComparer.OrdinalIgnoreCase))
+        {
+            if (_driveCheckBoxes.ContainsKey(root))
+                continue;
+
+            AddIncludedDriveCheckBox(
+                root,
+                isChecked: true,
+                $"{root} ({LocalizationService.T("Settings_DriveUnavailable")})");
+        }
+    }
+
+    private void AddIncludedDriveCheckBox(string root, bool isChecked, string label)
+    {
+        var checkBox = new System.Windows.Controls.CheckBox
+        {
+            Content = label,
+            IsChecked = isChecked,
+            Margin = new Thickness(0, 0, 12, 4),
+            Tag = root
+        };
+
+        _driveCheckBoxes[root] = checkBox;
+        ExcludedDrivesPanel.Children.Add(checkBox);
+    }
+
+    private static string FormatDriveLabel(DriveInfo drive, string root)
+    {
+        var volumeLabel = string.IsNullOrWhiteSpace(drive.VolumeLabel)
+            ? string.Empty
+            : $" ({drive.VolumeLabel})";
+
+        return $"{root}{volumeLabel}";
     }
 
     private void LoadIncludedDirectories()

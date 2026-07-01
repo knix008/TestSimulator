@@ -136,7 +136,7 @@ public partial class MainForm : Form
         };
         repoFilesListView.StatusResolver = node =>
             node.Tag is RepositoryFileNodeTag tag && !tag.IsPlaceholder
-                ? _fileTreeStatusIndex?.Get(tag.RelativePath, tag.IsDirectory)
+                ? tag.CachedGitStatus ?? _fileTreeStatusIndex?.Get(tag.RelativePath, tag.IsDirectory)
                 : null;
         Shown += (_, _) =>
         {
@@ -885,6 +885,8 @@ public partial class MainForm : Form
     {
         try
         {
+            CancelPendingRepositoryOperations();
+            _workingTreeWatcher.Stop();
             _remoteBrowseUrl = null;
             _pathHistoryFilter = null;
             _gitService.OpenLocal(path);
@@ -914,7 +916,7 @@ public partial class MainForm : Form
             statusLabel.Text = Localization.T("Status.Ready");
             if (showErrorOnFailure)
             {
-                MessageBox.Show(this, ex.Message, Localization.T("Error.OpenRepository"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                GitOperationNotifier.ShowFailure(this, Localization.T("Error.OpenRepository"), ex);
             }
         }
     }
@@ -936,6 +938,8 @@ public partial class MainForm : Form
     {
         try
         {
+            CancelPendingRepositoryOperations();
+            _workingTreeWatcher.Stop();
             _remoteBrowseUrl = remoteUrl;
             _pathHistoryFilter = null;
             _gitService.OpenLocal(cachePath);
@@ -964,7 +968,7 @@ public partial class MainForm : Form
             statusLabel.Text = Localization.T("Status.Ready");
             if (showErrorOnFailure)
             {
-                MessageBox.Show(this, ex.Message, Localization.T("Error.BrowseRemote"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                GitOperationNotifier.ShowFailure(this, Localization.T("Error.BrowseRemote"), ex);
             }
         }
     }
@@ -1137,6 +1141,12 @@ public partial class MainForm : Form
         _commitGraphLoadGeneration++;
     }
 
+    private void SuppressWorkingTreeWatcher() =>
+        _workingTreeWatcher.Suppress(TimeSpan.FromSeconds(1));
+
+    private void InvalidateGitRemoteCaches() =>
+        _gitService.UnpushedPathsCache.Invalidate();
+
     /// <summary>Rebuilds the Git status index and repaints every loaded file-tree row without
     /// collapsing the tree or reloading the commit graph.</summary>
     private async Task RefreshFileTreeStatusAsync()
@@ -1151,7 +1161,8 @@ public partial class MainForm : Form
         Repository repo = _gitService.Repo;
         int refreshGeneration = ++_fileTreeStatusRefreshGeneration;
         RepositoryPathStatusIndex index = await Task.Run(
-            () => _gitService.RunLocked(RepositoryPathStatusService.Build));
+            () => _gitService.RunLocked(activeRepo =>
+                RepositoryPathStatusService.Build(activeRepo, _gitService.UnpushedPathsCache)));
 
         if (refreshGeneration != _fileTreeStatusRefreshGeneration || _gitService.Repo != repo)
         {
@@ -1274,8 +1285,46 @@ public partial class MainForm : Form
         }
     }
 
+    private async Task RefreshAfterRemoteSyncAsync()
+    {
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        InvalidateGitRemoteCaches();
+        await RefreshFileTreeStatusAsync();
+        if (_gitService.Repo != repo)
+        {
+            return;
+        }
+
+        BranchTagTreePopulator.Populate(repoTreeView, repo);
+        if (_gitService.Repo != repo)
+        {
+            return;
+        }
+
+        if (_pathHistoryFilter is not null)
+        {
+            await LoadPathFilteredCommitGraphAsync();
+        }
+        else
+        {
+            await LoadCommitGraphAsync();
+        }
+
+        if (_gitService.Repo == repo)
+        {
+            UpdateRepoCounts();
+        }
+    }
+
     private async Task RefreshAfterGitCommitAsync()
     {
+        SuppressWorkingTreeWatcher();
+        InvalidateGitRemoteCaches();
         await RefreshFileTreeStatusAsync();
         if (_gitService.Repo is null)
         {
@@ -1327,7 +1376,10 @@ public partial class MainForm : Form
         }
     }
 
-    private async Task RefreshRepositoryViewsAsync(string progressMessage = "Refreshing repository...", bool showProgress = true)
+    private async Task RefreshRepositoryViewsAsync(
+        string progressMessage = "Refreshing repository...",
+        bool showProgress = true,
+        bool skipRemoteSync = false)
     {
         if (_gitService.Repo is null)
         {
@@ -1346,7 +1398,7 @@ public partial class MainForm : Form
         _repositoryRefreshInProgress = true;
         try
         {
-            if (CanUseGitWorkflow && GitWorkflowService.HasOriginRemote(repo))
+            if (!skipRemoteSync && CanUseGitWorkflow && GitWorkflowService.HasOriginRemote(repo))
             {
                 if (showProgress)
                 {
@@ -1355,6 +1407,7 @@ public partial class MainForm : Form
                 }
 
                 await SyncRemoteTrackingRefsAsync();
+                InvalidateGitRemoteCaches();
             }
 
             RepositoryPathStatusIndex statusIndex;
@@ -1365,7 +1418,8 @@ public partial class MainForm : Form
                 try
                 {
                     statusIndex = await Task.Run(
-                        () => _gitService.RunLocked(RepositoryPathStatusService.Build));
+                        () => _gitService.RunLocked(activeRepo =>
+                            RepositoryPathStatusService.Build(activeRepo, _gitService.UnpushedPathsCache)));
                 }
                 finally
                 {
@@ -1375,7 +1429,8 @@ public partial class MainForm : Form
             else
             {
                 statusIndex = await Task.Run(
-                    () => _gitService.RunLocked(RepositoryPathStatusService.Build));
+                    () => _gitService.RunLocked(activeRepo =>
+                        RepositoryPathStatusService.Build(activeRepo, _gitService.UnpushedPathsCache)));
             }
 
             if (refreshGeneration != _repositoryRefreshGeneration || _gitService.Repo != repo)
@@ -1575,7 +1630,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, Localization.T("Error.Export"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.Export"), ex);
         }
         finally
         {
@@ -1672,6 +1727,7 @@ public partial class MainForm : Form
                     cancellationToken.ThrowIfCancellationRequested();
                 },
                 onCancelled: CancelPendingRepositoryOperations);
+            InvalidateGitRemoteCaches();
             await RefreshRepositoryViewsAsync(showProgress: false);
             _ = LoadReleasesAsync();
             ShowOperationComplete(
@@ -1688,7 +1744,7 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             statusLabel.Text = Localization.T("Status.Ready");
-            MessageBox.Show(this, ex.Message, Localization.T("Error.Checkout"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.Checkout"), ex);
         }
     }
 
@@ -1705,7 +1761,16 @@ public partial class MainForm : Form
             return;
         }
 
-        var remoteUrl = _gitService.Repo.Network.Remotes["origin"]?.Url;
+        string? remoteUrl;
+        try
+        {
+            remoteUrl = _gitService.RunLocked(repo => repo.Network.Remotes["origin"]?.Url);
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
         var parsed = GitHubReleaseService.ParseGitHubRemote(remoteUrl);
 
         if (parsed is null)
@@ -1850,7 +1915,7 @@ public partial class MainForm : Form
             }
 
             statusLabel.Text = Localization.T("Status.Ready");
-            MessageBox.Show(this, ex.Message, Localization.T("Error.LoadHistory"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.LoadHistory"), ex);
         }
     }
 
@@ -1913,7 +1978,7 @@ public partial class MainForm : Form
             }
 
             statusLabel.Text = Localization.T("Status.Ready");
-            MessageBox.Show(this, ex.Message, Localization.T("Error.LoadHistory"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.LoadHistory"), ex);
         }
     }
 
@@ -2105,7 +2170,10 @@ public partial class MainForm : Form
             return;
         }
 
-        _fileTreeStatusIndex ??= RepositoryPathStatusService.Build(_gitService.Repo);
+        if (_fileTreeStatusIndex is null && CanUseGitWorkflow)
+        {
+            _ = RefreshFileTreeStatusAsync();
+        }
 
         bool canUseGit = CanUseGitWorkflow;
         SetGitSectionVisible(canUseGit);
@@ -2416,13 +2484,14 @@ public partial class MainForm : Form
             }
 
             var before = GitWorkflowService.CreateStatusSnapshot(repo, tag.RelativePath, tag.IsDirectory);
+            SuppressWorkingTreeWatcher();
             GitWorkflowService.StagePaths(repo, pathsToStage);
+            IReadOnlyList<GitStatusEntry> afterEntries = GitWorkflowService.GetStatusEntries(
+                repo,
+                tag.RelativePath,
+                tag.IsDirectory);
             var stagedPathSet = pathsToStage.ToHashSet(StringComparer.OrdinalIgnoreCase);
-            IReadOnlyList<GitStatusEntry> stagedEntries = GitWorkflowService.GetNewlyStagedEntries(
-                    before,
-                    repo,
-                    tag.RelativePath,
-                    tag.IsDirectory)
+            IReadOnlyList<GitStatusEntry> stagedEntries = GitWorkflowService.GetNewlyStagedEntries(before, afterEntries)
                 .Where(entry => stagedPathSet.Contains(entry.FilePath))
                 .ToList();
 
@@ -2459,6 +2528,7 @@ public partial class MainForm : Form
         {
             Repository repo = _gitService.Repo;
             var unstagedPaths = GitOperationDetails.GetStagedPathsAtScope(repo, tag.RelativePath, tag.IsDirectory);
+            SuppressWorkingTreeWatcher();
             GitWorkflowService.Unstage(repo, tag.RelativePath, tag.IsDirectory);
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
                 ? Localization.T("Status.UnstagedAll")
@@ -2500,6 +2570,7 @@ public partial class MainForm : Form
         {
             Repository repo = _gitService.Repo;
             var discardedEntries = GitOperationDetails.GetWorkTreeEntriesAtScope(repo, tag.RelativePath, tag.IsDirectory);
+            SuppressWorkingTreeWatcher();
             GitWorkflowService.DiscardChanges(repo, tag.RelativePath, tag.IsDirectory);
             statusLabel.Text = string.IsNullOrEmpty(tag.RelativePath)
                 ? Localization.T("Status.DiscardedAll")
@@ -2538,6 +2609,7 @@ public partial class MainForm : Form
         try
         {
             await ExternalMergeToolService.LaunchAsync(_settings, repo, path);
+            SuppressWorkingTreeWatcher();
             statusLabel.Text = Localization.Tf("Status.StagedOne", path);
             _ = RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
@@ -2558,7 +2630,13 @@ public partial class MainForm : Form
             return;
         }
 
-        var stagedPaths = GitWorkflowService.GetStagedPaths(_gitService.Repo);
+        if (_fileTreeStatusIndex?.HasAnyStagedChanges != true)
+        {
+            GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.Commit"), Localization.T("Msg.GitCommit.StageFirst"));
+            return;
+        }
+
+        var stagedPaths = _fileTreeStatusIndex.GetStagedPaths();
         if (stagedPaths.Count == 0)
         {
             GitOperationNotifier.ShowInfo(this, Localization.T("GitOp.Commit"), Localization.T("Msg.GitCommit.StageFirst"));
@@ -2627,7 +2705,8 @@ public partial class MainForm : Form
                 onCancelled: CancelPendingRepositoryOperations);
             CaptureGitCredentials(prompt);
             MarkGitCredentialsVerified();
-            await RefreshRepositoryViewsAsync(showProgress: false);
+            SuppressWorkingTreeWatcher();
+            await RefreshAfterRemoteSyncAsync();
             _ = LoadReleasesAsync();
             statusLabel.Text = Localization.T("Status.Fetched");
             var remoteTipsAfter = GitOperationDetails.SnapshotOriginBranchTips(_gitService.Repo ?? repo);
@@ -2681,7 +2760,8 @@ public partial class MainForm : Form
                 onCancelled: CancelPendingRepositoryOperations);
             CaptureGitCredentials(prompt);
             MarkGitCredentialsVerified();
-            await RefreshRepositoryViewsAsync(showProgress: false);
+            SuppressWorkingTreeWatcher();
+            await RefreshAfterRemoteSyncAsync();
             _ = LoadReleasesAsync();
             statusLabel.Text = Localization.Tf("Status.Pulled", _gitService.GetCurrentBranchName());
             string? headShaAfter = (_gitService.Repo ?? repo).Head?.Tip?.Sha;
@@ -2741,14 +2821,22 @@ public partial class MainForm : Form
 
             Repository activeRepo = _gitService.Repo ?? repo;
             string branchName = activeRepo.Head?.FriendlyName ?? _gitService.GetCurrentBranchName();
-            var commitsBehind = GitOperationDetails.GetCommitsBehindTracked(activeRepo);
-            if (commitsBehind.Count > 0)
+            (int ahead, int behind) = GitOperationDetails.GetTrackingAheadBehind(activeRepo);
+            if (behind > 0)
             {
-                int commitsAhead = GitOperationDetails.GetCommitsAheadOfTracked(activeRepo).Count;
                 GitOperationNotifier.ShowInfo(
                     this,
                     Localization.T("GitOp.PushFailed"),
-                    Localization.Tf("GitOp.PushRejectedNonFf", branchName, commitsBehind.Count, commitsAhead));
+                    Localization.Tf("GitOp.PushRejectedNonFf", branchName, behind, ahead));
+                return;
+            }
+
+            if (ahead == 0)
+            {
+                GitOperationNotifier.ShowInfo(
+                    this,
+                    Localization.T("GitOp.Push"),
+                    Localization.T("Msg.GitPush.NothingToPush"));
                 return;
             }
 
@@ -2764,6 +2852,8 @@ public partial class MainForm : Form
                 onCancelled: CancelPendingRepositoryOperations);
             CaptureGitCredentials(prompt);
             MarkGitCredentialsVerified();
+            SuppressWorkingTreeWatcher();
+            InvalidateGitRemoteCaches();
             statusLabel.Text = Localization.Tf("Status.Pushed", _gitService.GetCurrentBranchName());
             await RefreshFileTreeStatusAsync();
             GitOperationNotifier.ShowSuccess(
@@ -2796,6 +2886,7 @@ public partial class MainForm : Form
         {
             Repository repo = _gitService.Repo;
             var stashedEntries = GitOperationDetails.GetWorkTreeEntriesAtScope(repo, string.Empty, isDirectory: true);
+            SuppressWorkingTreeWatcher();
             GitWorkflowService.Stash(repo);
             _ = RefreshFileTreeStatusAsync();
             statusLabel.Text = Localization.T("Status.Stashed");
@@ -2824,6 +2915,7 @@ public partial class MainForm : Form
             Repository repo = _gitService.Repo;
             string stashMessage = repo.Stashes.FirstOrDefault()?.Message
                 ?? throw new InvalidOperationException("There are no stashed changes.");
+            SuppressWorkingTreeWatcher();
             GitWorkflowService.StashPop(repo);
             _ = RefreshFileTreeStatusAsync();
             statusLabel.Text = Localization.T("Status.StashApplied");
@@ -3059,7 +3151,7 @@ public partial class MainForm : Form
             }
 
             statusLabel.Text = Localization.T("Status.Ready");
-            MessageBox.Show(this, ex.Message, Localization.T("Error.LoadCommitDetails"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.LoadCommitDetails"), ex);
         }
     }
 
@@ -3162,7 +3254,7 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             EndStatusBarProgress();
-            MessageBox.Show(this, ex.Message, Localization.T("Error.Export"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.Export"), ex);
         }
     }
 
@@ -3315,7 +3407,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, Localization.T("Error.ExternalDiff"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.ExternalDiff"), ex);
         }
     }
 
@@ -3357,7 +3449,7 @@ public partial class MainForm : Form
 
             diffTextBox.Clear();
             statusLabel.Text = $"{commit.Sha[..7]}  {commit.MessageShort}";
-            MessageBox.Show(this, ex.Message, Localization.T("Error.LoadDiff"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            GitOperationNotifier.ShowFailure(this, Localization.T("Error.LoadDiff"), ex);
         }
     }
 

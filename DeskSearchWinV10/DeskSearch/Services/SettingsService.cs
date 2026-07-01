@@ -34,7 +34,10 @@ public sealed class SettingsService
 
             var json = File.ReadAllText(_settingsPath);
             Current = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
-            NormalizeSettings(Current, json);
+            var migrated = NormalizeSettings(Current, json);
+
+            if (migrated)
+                PersistWithoutNormalization(Current);
 
             return Current;
         }
@@ -50,17 +53,22 @@ public sealed class SettingsService
     {
         Current = settings.Clone();
         NormalizeSettings(Current);
+        PersistWithoutNormalization(Current);
+    }
 
-        var json = JsonSerializer.Serialize(Current, JsonOptions);
+    private void PersistWithoutNormalization(AppSettings settings)
+    {
+        var json = JsonSerializer.Serialize(settings, JsonOptions);
         var tempPath = _settingsPath + ".tmp";
         File.WriteAllText(tempPath, json);
         File.Move(tempPath, _settingsPath, overwrite: true);
     }
 
-    private static void NormalizeSettings(AppSettings settings, string? rawJson = null)
+    private static bool NormalizeSettings(AppSettings settings, string? rawJson = null)
     {
         settings.IncludedDrives ??= [];
         settings.IncludedDirectories ??= [];
+        settings.ExcludedDirectories ??= [];
 
         if (string.IsNullOrWhiteSpace(settings.Language))
             settings.Language = LocalizationService.Korean;
@@ -70,43 +78,62 @@ public sealed class SettingsService
         settings.SearchResultSort = SearchResultSortPolicy.Normalize(settings.SearchResultSort);
 
         if (rawJson is null)
-            return;
+            return false;
 
         using var document = JsonDocument.Parse(rawJson);
         if (!document.RootElement.TryGetProperty(nameof(AppSettings.RunAtStartup), out _))
             settings.RunAtStartup = true;
 
-        MigrateIndexScope(settings, document.RootElement);
+        return MigrateIndexScope(settings, document.RootElement);
     }
 
-    private static void MigrateIndexScope(AppSettings settings, JsonElement root)
+    private static bool MigrateIndexScope(AppSettings settings, JsonElement root)
     {
         if (root.TryGetProperty(nameof(AppSettings.IncludedDrives), out _))
-            return;
+            return false;
+
+        var migrated = false;
 
         if (root.TryGetProperty("ExcludedDrives", out var excludedDrivesElement)
             && excludedDrivesElement.ValueKind == JsonValueKind.Array)
         {
             var excluded = ReadStringArray(excludedDrivesElement)
                 .Select(IndexInclusionPolicy.NormalizeDriveRoot)
-                .Where(static root => root is not null)
+                .Where(static drive => drive is not null)
                 .Cast<string>()
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             settings.IncludedDrives = IndexInclusionPolicy.GetAllReadyDriveRoots()
                 .Where(drive => !excluded.Contains(drive))
                 .ToList();
-
-            if (root.TryGetProperty("LastExcludedDirectoryBrowsePath", out var browsePathElement)
-                && browsePathElement.ValueKind == JsonValueKind.String)
-            {
-                settings.LastIncludedDirectoryBrowsePath = browsePathElement.GetString();
-            }
-
-            return;
+            migrated = true;
         }
 
-        ApplyDefaultIndexScopeIfEmpty(settings);
+        if (root.TryGetProperty("ExcludedDirectories", out var excludedDirectoriesElement)
+            && excludedDirectoriesElement.ValueKind == JsonValueKind.Array)
+        {
+            settings.ExcludedDirectories = ReadStringArray(excludedDirectoriesElement)
+                .Select(IndexInclusionPolicy.NormalizeDirectoryDisplay)
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .Cast<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            migrated = true;
+        }
+
+        if (root.TryGetProperty("LastExcludedDirectoryBrowsePath", out var browsePathElement)
+            && browsePathElement.ValueKind == JsonValueKind.String)
+        {
+            settings.LastIncludedDirectoryBrowsePath = browsePathElement.GetString();
+            migrated = true;
+        }
+
+        if (!migrated)
+            ApplyDefaultIndexScopeIfEmpty(settings);
+        else if (settings.IncludedDrives.Count == 0 && settings.IncludedDirectories.Count == 0)
+            ApplyDefaultIndexScopeIfEmpty(settings);
+
+        return migrated;
     }
 
     private static void ApplyDefaultIndexScopeIfEmpty(AppSettings settings)

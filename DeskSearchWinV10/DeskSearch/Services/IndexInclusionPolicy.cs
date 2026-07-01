@@ -4,13 +4,17 @@ namespace DeskSearch.Services;
 
 public sealed class IndexInclusionPolicy : IEquatable<IndexInclusionPolicy>
 {
-    public static IndexInclusionPolicy Empty { get; } = new([], []);
+    public static IndexInclusionPolicy Empty { get; } = new([], [], []);
 
     private readonly HashSet<string> _includedDriveRoots;
     private readonly List<string> _includedDirectoryPrefixes;
+    private readonly List<string> _excludedDirectoryPrefixes;
     private readonly IReadOnlyList<string> _scanRoots;
 
-    public IndexInclusionPolicy(IEnumerable<string> includedDrives, IEnumerable<string> includedDirectories)
+    public IndexInclusionPolicy(
+        IEnumerable<string> includedDrives,
+        IEnumerable<string> includedDirectories,
+        IEnumerable<string>? legacyExcludedDirectories = null)
     {
         _includedDriveRoots = includedDrives
             .Select(NormalizeDriveRoot)
@@ -26,15 +30,28 @@ public sealed class IndexInclusionPolicy : IEquatable<IndexInclusionPolicy>
             .OrderByDescending(static prefix => prefix.Length)
             .ToList();
 
+        _excludedDirectoryPrefixes = (legacyExcludedDirectories ?? [])
+            .Select(NormalizeDirectoryPrefix)
+            .Where(static prefix => prefix is not null)
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(static prefix => prefix.Length)
+            .ToList();
+
         _scanRoots = BuildScanRoots();
     }
 
     public static IndexInclusionPolicy FromSettings(AppSettings settings) =>
-        new(settings.IncludedDrives ?? [], settings.IncludedDirectories ?? []);
+        new(
+            settings.IncludedDrives ?? [],
+            settings.IncludedDirectories ?? [],
+            settings.ExcludedDirectories ?? []);
 
     public IReadOnlyCollection<string> IncludedDriveRoots => _includedDriveRoots;
 
     public IReadOnlyList<string> IncludedDirectoryPrefixes => _includedDirectoryPrefixes;
+
+    public IReadOnlyList<string> LegacyExcludedDirectoryPrefixes => _excludedDirectoryPrefixes;
 
     public IReadOnlyList<string> ScanRoots => _scanRoots;
 
@@ -57,6 +74,7 @@ public sealed class IndexInclusionPolicy : IEquatable<IndexInclusionPolicy>
         }
 
         var prefix = normalized.TrimEnd('\\') + "\\";
+        var included = false;
         foreach (var root in _scanRoots)
         {
             var rootPrefix = root.EndsWith('\\')
@@ -66,11 +84,24 @@ public sealed class IndexInclusionPolicy : IEquatable<IndexInclusionPolicy>
             if (prefix.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)
                 || normalized.Equals(root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
             {
-                return true;
+                included = true;
+                break;
             }
         }
 
-        return false;
+        if (!included)
+            return false;
+
+        foreach (var excludedPrefix in _excludedDirectoryPrefixes)
+        {
+            if (prefix.StartsWith(excludedPrefix, StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals(excludedPrefix.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public bool IsPathExcluded(string? fullPath) => !IsPathInScope(fullPath);
@@ -159,7 +190,8 @@ public sealed class IndexInclusionPolicy : IEquatable<IndexInclusionPolicy>
             return false;
 
         if (_includedDriveRoots.Count != other._includedDriveRoots.Count
-            || _includedDirectoryPrefixes.Count != other._includedDirectoryPrefixes.Count)
+            || _includedDirectoryPrefixes.Count != other._includedDirectoryPrefixes.Count
+            || _excludedDirectoryPrefixes.Count != other._excludedDirectoryPrefixes.Count)
         {
             return false;
         }
@@ -167,6 +199,9 @@ public sealed class IndexInclusionPolicy : IEquatable<IndexInclusionPolicy>
         return _includedDriveRoots.SetEquals(other._includedDriveRoots)
             && _includedDirectoryPrefixes.SequenceEqual(
                 other._includedDirectoryPrefixes,
+                StringComparer.OrdinalIgnoreCase)
+            && _excludedDirectoryPrefixes.SequenceEqual(
+                other._excludedDirectoryPrefixes,
                 StringComparer.OrdinalIgnoreCase);
     }
 
@@ -179,6 +214,9 @@ public sealed class IndexInclusionPolicy : IEquatable<IndexInclusionPolicy>
             hash.Add(drive, StringComparer.OrdinalIgnoreCase);
 
         foreach (var directory in _includedDirectoryPrefixes)
+            hash.Add(directory, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var directory in _excludedDirectoryPrefixes)
             hash.Add(directory, StringComparer.OrdinalIgnoreCase);
 
         return hash.ToHashCode();

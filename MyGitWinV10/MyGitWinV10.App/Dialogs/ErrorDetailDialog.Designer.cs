@@ -21,26 +21,25 @@ namespace MyGitWinV10.App.Dialogs
             headerPanel = new Panel();
             iconPictureBox = new PictureBox();
             summaryLabel = new Label();
-            detailsPanel = new Panel();
-            detailsLabel = new Label();
+            hintLabel = new Label();
             copyButton = new Button();
             okButton = new Button();
             buttonPanel = new Panel();
             headerPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)iconPictureBox).BeginInit();
-            detailsPanel.SuspendLayout();
             buttonPanel.SuspendLayout();
             SuspendLayout();
             //
             // headerPanel
             //
+            headerPanel.Controls.Add(hintLabel);
             headerPanel.Controls.Add(summaryLabel);
             headerPanel.Controls.Add(iconPictureBox);
-            headerPanel.Dock = DockStyle.Top;
+            headerPanel.Dock = DockStyle.Fill;
             headerPanel.Location = new Point(12, 12);
             headerPanel.Name = "headerPanel";
             headerPanel.Padding = new Padding(0, 0, 0, 8);
-            headerPanel.Size = new Size(536, 56);
+            headerPanel.Size = new Size(536, 96);
             headerPanel.TabIndex = 0;
             //
             // iconPictureBox
@@ -54,34 +53,24 @@ namespace MyGitWinV10.App.Dialogs
             // summaryLabel
             //
             summaryLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            summaryLabel.AutoSize = true;
             summaryLabel.ForeColor = Color.FromArgb(30, 41, 59);
             summaryLabel.Location = new Point(40, 0);
+            summaryLabel.MaximumSize = new Size(496, 0);
             summaryLabel.Name = "summaryLabel";
-            summaryLabel.Size = new Size(496, 48);
+            summaryLabel.Size = new Size(0, 15);
             summaryLabel.Text = "An error occurred.";
             //
-            // detailsPanel
+            // hintLabel
             //
-            detailsPanel.AutoScroll = true;
-            detailsPanel.BackColor = Color.FromArgb(250, 250, 251);
-            detailsPanel.Controls.Add(detailsLabel);
-            detailsPanel.Dock = DockStyle.Fill;
-            detailsPanel.Location = new Point(12, 68);
-            detailsPanel.Name = "detailsPanel";
-            detailsPanel.Padding = new Padding(0, 4, 0, 0);
-            detailsPanel.Size = new Size(536, 292);
-            detailsPanel.TabIndex = 1;
-            //
-            // detailsLabel
-            //
-            detailsLabel.AutoSize = true;
-            detailsLabel.Font = new Font("Consolas", 9F);
-            detailsLabel.ForeColor = Color.FromArgb(51, 65, 85);
-            detailsLabel.Location = new Point(0, 4);
-            detailsLabel.Name = "detailsLabel";
-            detailsLabel.Size = new Size(0, 14);
-            detailsLabel.TabIndex = 0;
-            detailsLabel.UseMnemonic = false;
+            hintLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            hintLabel.AutoSize = true;
+            hintLabel.ForeColor = Color.FromArgb(100, 116, 139);
+            hintLabel.Location = new Point(40, 24);
+            hintLabel.MaximumSize = new Size(496, 0);
+            hintLabel.Name = "hintLabel";
+            hintLabel.Size = new Size(0, 15);
+            hintLabel.TabIndex = 2;
             //
             // copyButton
             //
@@ -112,10 +101,10 @@ namespace MyGitWinV10.App.Dialogs
             buttonPanel.Controls.Add(copyButton);
             buttonPanel.Controls.Add(okButton);
             buttonPanel.Dock = DockStyle.Bottom;
-            buttonPanel.Location = new Point(12, 360);
+            buttonPanel.Location = new Point(12, 108);
             buttonPanel.Name = "buttonPanel";
             buttonPanel.Size = new Size(536, 44);
-            buttonPanel.TabIndex = 2;
+            buttonPanel.TabIndex = 1;
             //
             // ErrorDetailDialog
             //
@@ -123,15 +112,14 @@ namespace MyGitWinV10.App.Dialogs
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.FromArgb(250, 250, 251);
-            ClientSize = new Size(560, 416);
-            Controls.Add(detailsPanel);
-            Controls.Add(buttonPanel);
+            ClientSize = new Size(560, 164);
             Controls.Add(headerPanel);
+            Controls.Add(buttonPanel);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             MinimizeBox = false;
-            MinimumSize = new Size(480, 320);
+            MinimumSize = new Size(480, 140);
             Name = "ErrorDetailDialog";
             Padding = new Padding(12);
             ShowIcon = false;
@@ -139,9 +127,8 @@ namespace MyGitWinV10.App.Dialogs
             StartPosition = FormStartPosition.CenterParent;
             Text = "Error";
             headerPanel.ResumeLayout(false);
+            headerPanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)iconPictureBox).EndInit();
-            detailsPanel.ResumeLayout(false);
-            detailsPanel.PerformLayout();
             buttonPanel.ResumeLayout(false);
             ResumeLayout(false);
         }
@@ -151,8 +138,7 @@ namespace MyGitWinV10.App.Dialogs
         private Panel headerPanel;
         private PictureBox iconPictureBox;
         private Label summaryLabel;
-        private Panel detailsPanel;
-        private Label detailsLabel;
+        private Label hintLabel;
         private Panel buttonPanel;
         private Button copyButton;
         private Button okButton;

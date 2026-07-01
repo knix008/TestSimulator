@@ -10,18 +10,15 @@ public sealed class RepositoryPathStatusIndex
 
     private readonly Dictionary<string, PathGitStatus> _files;
     private readonly Dictionary<string, PathGitStatus> _directories;
-    private readonly Func<string, bool, bool>? _isPathIgnored;
 
     internal RepositoryPathStatusIndex(
         Dictionary<string, PathGitStatus> files,
         Dictionary<string, PathGitStatus> directories,
-        bool canReportStatus,
-        Func<string, bool, bool>? isPathIgnored = null)
+        bool canReportStatus)
     {
         _files = files;
         _directories = directories;
         CanReportStatus = canReportStatus;
-        _isPathIgnored = isPathIgnored;
     }
 
     public bool CanReportStatus { get; }
@@ -33,6 +30,13 @@ public sealed class RepositoryPathStatusIndex
 
     public bool HasAnyWorkTreeChanges =>
         CanReportStatus && _files.Values.Any(status => !string.IsNullOrEmpty(status.WorkTree));
+
+    public IReadOnlyList<string> GetStagedPaths() =>
+        _files
+            .Where(entry => !string.IsNullOrEmpty(entry.Value.Staged))
+            .Select(entry => entry.Key)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     public bool HasStagedChangesAtPath(string relativePath, bool isDirectory)
     {
@@ -91,11 +95,6 @@ public sealed class RepositoryPathStatusIndex
             return status;
         }
 
-        if (CanReportStatus && _isPathIgnored?.Invoke(normalized, isDirectory) == true)
-        {
-            return PathGitStatus.Ignored;
-        }
-
         return null;
     }
 
@@ -125,7 +124,12 @@ public sealed class RepositoryPathStatusIndex
 
 public static class RepositoryPathStatusService
 {
-    public static RepositoryPathStatusIndex Build(Repository repo)
+    private static readonly StatusOptions DefaultStatusOptions = new()
+    {
+        IncludeIgnored = true,
+    };
+
+    public static RepositoryPathStatusIndex Build(Repository repo, UnpushedPathsCache? unpushedCache = null)
     {
         if (repo.Info.IsBare || string.IsNullOrWhiteSpace(repo.Info.WorkingDirectory))
         {
@@ -135,26 +139,29 @@ public static class RepositoryPathStatusService
         var files = new Dictionary<string, PathGitStatus>(StringComparer.OrdinalIgnoreCase);
         var directories = new Dictionary<string, PathGitStatus>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (StatusEntry entry in repo.RetrieveStatus(new StatusOptions()))
+        foreach (StatusEntry entry in repo.RetrieveStatus(DefaultStatusOptions))
         {
+            string path = PathCommitHistoryService.NormalizeGitPath(entry.FilePath);
+            if (entry.State.HasFlag(FileStatus.Ignored))
+            {
+                files[path] = PathGitStatus.Ignored;
+                PropagateToParents(directories, path, PathGitStatus.Ignored);
+                continue;
+            }
+
             var status = ToPathStatus(entry);
             if (!status.HasChanges)
             {
                 continue;
             }
 
-            string path = PathCommitHistoryService.NormalizeGitPath(entry.FilePath);
             files[path] = status;
             PropagateToParents(directories, path, status);
         }
 
-        ApplyUnpushedPaths(repo, files, directories);
+        ApplyUnpushedPaths(repo, files, directories, unpushedCache);
 
-        return new RepositoryPathStatusIndex(
-            files,
-            directories,
-            canReportStatus: true,
-            (path, isDirectory) => GitIgnoreService.IsIgnored(repo, path, isDirectory));
+        return new RepositoryPathStatusIndex(files, directories, canReportStatus: true);
     }
 
     public static string FormatNodeToolTip(RepositoryFileNodeTag tag, PathGitStatus? status, bool canReportStatus)
@@ -216,6 +223,8 @@ public static class RepositoryPathStatusService
         PathGitStatus? status = canReportStatus
             ? statusIndex!.Get(tag.RelativePath, tag.IsDirectory)
             : null;
+
+        tag.CachedGitStatus = status;
 
         node.Text = tag.DisplayName;
         node.ForeColor = SystemColors.ControlText;
@@ -344,9 +353,14 @@ public static class RepositoryPathStatusService
     private static void ApplyUnpushedPaths(
         Repository repo,
         Dictionary<string, PathGitStatus> files,
-        Dictionary<string, PathGitStatus> directories)
+        Dictionary<string, PathGitStatus> directories,
+        UnpushedPathsCache? unpushedCache)
     {
-        foreach (string path in GitOperationDetails.GetUnpushedFilePaths(repo))
+        IReadOnlyCollection<string> unpushedPaths = unpushedCache is not null
+            ? unpushedCache.Get(repo)
+            : GitOperationDetails.GetUnpushedFilePaths(repo);
+
+        foreach (string path in unpushedPaths)
         {
             if (files.TryGetValue(path, out PathGitStatus? existing) && existing.HasWorkingTreeChanges)
             {

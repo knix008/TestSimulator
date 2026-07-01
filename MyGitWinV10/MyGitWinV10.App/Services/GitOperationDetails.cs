@@ -189,6 +189,17 @@ public static class GitOperationDetails
         return repo.Branches[$"origin/{head.FriendlyName}"];
     }
 
+    public static (int Ahead, int Behind) GetTrackingAheadBehind(Repository repo)
+    {
+        BranchTrackingDetails? tracking = repo.Head?.TrackingDetails;
+        if (tracking is not null)
+        {
+            return (tracking.AheadBy ?? 0, tracking.BehindBy ?? 0);
+        }
+
+        return (GetCommitsAheadOfTracked(repo).Count, GetCommitsBehindTracked(repo).Count);
+    }
+
     public static IReadOnlyList<Commit> GetCommitsAheadOfTracked(Repository repo)
     {
         Branch? head = repo.Head;

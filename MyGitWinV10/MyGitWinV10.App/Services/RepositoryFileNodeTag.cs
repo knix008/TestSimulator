@@ -16,4 +16,6 @@ public sealed class RepositoryFileNodeTag
     public bool IsDirectory { get; init; }
 
     public bool IsMissingFromWorkTree { get; init; }
+
+    public PathGitStatus? CachedGitStatus { get; set; }
 }

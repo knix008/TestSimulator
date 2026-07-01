@@ -76,6 +76,7 @@
   <data name="Settings_ExcludedDirectoriesDesc" xml:space="preserve"><value>Listed folders and their subfolders are also indexed and searchable.</value></data>
   <data name="Settings_BrowseFolder" xml:space="preserve"><value>Browse...</value></data>
   <data name="Settings_RemoveExcluded" xml:space="preserve"><value>Remove</value></data>
+  <data name="Settings_DriveUnavailable" xml:space="preserve"><value>not connected</value></data>
   <data name="Settings_PeriodicResync" xml:space="preserve"><value>Indexing interval</value></data>
   <data name="Settings_PeriodicResyncDesc" xml:space="preserve"><value>How often to re-scan all drives in the background. File watching still applies between runs. Set to Off to disable scheduled re-indexing.</value></data>
   <data name="Settings_Resync_Disabled" xml:space="preserve"><value>Off</value></data>

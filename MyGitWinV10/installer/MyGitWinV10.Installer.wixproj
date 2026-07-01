@@ -10,7 +10,7 @@
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
     <AppProject>$(MSBuildThisFileDirectory)..\MyGitWinV10.App\MyGitWinV10.App.csproj</AppProject>
     <PublishOutputDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\publish\installer\'))</PublishOutputDir>
-    <MsiOutputPath>$(OutputPath)$(OutputName).msi</MsiOutputPath>
+    <MsiOutputPath>$(OutputPath)en-us\$(OutputName).msi</MsiOutputPath>
     <InstallerBuildEnabled>false</InstallerBuildEnabled>
   </PropertyGroup>
 
@@ -29,10 +29,12 @@
 
   <PropertyGroup>
     <DefineConstants>$(DefineConstants);PublishOutputDir=$(PublishOutputDir)</DefineConstants>
+    <Cultures>en-us;ko-kr</Cultures>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -76,6 +78,10 @@
           Condition="'$(InstallerBuildEnabled)' == 'true'">
     <Error Condition="!Exists('$(MsiOutputPath)')"
            Text="MSI was not created at $(MsiOutputPath). Close any running MyGitWinV10.App.exe and rebuild." />
+    <Copy SourceFiles="$(MsiOutputPath)"
+          DestinationFiles="$(OutputPath)$(OutputName).msi"
+          Condition="Exists('$(MsiOutputPath)')" />
     <Message Importance="high" Text="MSI created: $(MsiOutputPath)" />
+    <Message Importance="high" Text="MSI copied: $(OutputPath)$(OutputName).msi" Condition="Exists('$(OutputPath)$(OutputName).msi')" />
   </Target>
 </Project>

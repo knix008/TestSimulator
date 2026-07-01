@@ -27,6 +27,11 @@ public static class GitOperationNotifier
         ErrorDetailDialog.Show(owner, title, exception);
     }
 
+    public static void ShowFailure(IWin32Window? owner, string title, string summary, string? details = null)
+    {
+        ErrorDetailDialog.Show(owner, title, summary, details);
+    }
+
     public static void ShowCancelled(IWin32Window? owner, string operationName)
     {
         MessageBox.Show(
