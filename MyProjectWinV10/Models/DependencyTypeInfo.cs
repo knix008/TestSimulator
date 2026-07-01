@@ -1,13 +1,15 @@
+using MyProject.Theme;
+
 namespace MyProject.Models
 {
     public static class DependencyTypeInfo
     {
         public static string GetDisplayName(DependencyType type) => type switch
         {
-            DependencyType.FS => "Finish-to-Start (FS)",
-            DependencyType.FF => "Finish-to-Finish (FF)",
-            DependencyType.SS => "Start-to-Start (SS)",
-            DependencyType.SF => "Start-to-Finish (SF)",
+            DependencyType.FS => AppLocalizer.Get("Dep.FS.Name"),
+            DependencyType.FF => AppLocalizer.Get("Dep.FF.Name"),
+            DependencyType.SS => AppLocalizer.Get("Dep.SS.Name"),
+            DependencyType.SF => AppLocalizer.Get("Dep.SF.Name"),
             _ => type.ToString()
         };
 
@@ -22,10 +24,10 @@ namespace MyProject.Models
 
         public static string GetDescription(DependencyType type) => type switch
         {
-            DependencyType.FS => "Successor starts after predecessor finishes",
-            DependencyType.FF => "Successor finishes when predecessor finishes",
-            DependencyType.SS => "Successor starts when predecessor starts",
-            DependencyType.SF => "Successor finishes when predecessor starts",
+            DependencyType.FS => AppLocalizer.Get("Dep.FS.Desc"),
+            DependencyType.FF => AppLocalizer.Get("Dep.FF.Desc"),
+            DependencyType.SS => AppLocalizer.Get("Dep.SS.Desc"),
+            DependencyType.SF => AppLocalizer.Get("Dep.SF.Desc"),
             _ => ""
         };
 

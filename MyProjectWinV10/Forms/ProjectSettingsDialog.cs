@@ -20,21 +20,44 @@ namespace MyProject.Forms
         private DependencyLineEndSelector _defaultStartLineEnd = null!;
         private DependencyLineEndSelector _defaultEndLineEnd = null!;
 
-        private static readonly string[] WorkingDayLabels =
-        {
-            "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-        };
+        private TabControl _tabs = null!;
+        private TabPage _generalTab = null!;
+        private TabPage _scheduleTab = null!;
+        private TabPage _defaultsTab = null!;
+        private Label _lblProjectName = null!;
+        private Label _lblProjectStart = null!;
+        private Label _scheduleTitle = null!;
+        private Button _btnOk = null!;
+        private Button _btnCancel = null!;
+
+        private static string GetWorkingDayLabel(int dayIndex) =>
+            AppLocalizer.CurrentCulture.DateTimeFormat.GetDayName((DayOfWeek)dayIndex);
 
         public ProjectSettingsDialog(ProjectModel model)
         {
             _model = model;
             Build();
             LoadValues();
+            ApplyLocalization();
+        }
+
+        private void ApplyLocalization()
+        {
+            Text = AppLocalizer.Get("ProjectSettings.Title");
+            _generalTab.Text = AppLocalizer.Get("ProjectSettings.General");
+            _scheduleTab.Text = AppLocalizer.Get("ProjectSettings.Schedule");
+            _defaultsTab.Text = AppLocalizer.Get("ProjectSettings.Defaults");
+            _lblProjectName.Text = AppLocalizer.Get("ProjectSettings.ProjectName");
+            _lblProjectStart.Text = AppLocalizer.Get("ProjectSettings.ProjectStart");
+            _scheduleTitle.Text = AppLocalizer.Get("ProjectSettings.WorkingDaysTitle");
+            _btnOk.Text = AppLocalizer.Get("Common.OK");
+            _btnCancel.Text = AppLocalizer.Get("Common.Cancel");
+            for (int i = 0; i < 7; i++)
+                _workingDayChecks[i].Text = GetWorkingDayLabel(i);
         }
 
         private void Build()
         {
-            Text = "Project Settings";
             Size = new Size(LabelColumnWidth + ValueColumnWidth + 80, 500);
             MinimumSize = Size;
             MaximumSize = new Size(Size.Width, 600);
@@ -45,16 +68,16 @@ namespace MyProject.Forms
             BackColor = AppTheme.SurfaceColor;
             Font = AppTheme.FontNormal;
 
-            var tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 4) };
-            tabs.TabPages.Add(BuildGeneralTab());
-            tabs.TabPages.Add(BuildScheduleTab());
-            tabs.TabPages.Add(BuildDefaultsTab());
+            var tabs = _tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 4) };
+            tabs.TabPages.Add(_generalTab = BuildGeneralTab());
+            tabs.TabPages.Add(_scheduleTab = BuildScheduleTab());
+            tabs.TabPages.Add(_defaultsTab = BuildDefaultsTab());
 
-            var btnOk = MakeButton("OK", true);
-            var btnCancel = MakeButton("Cancel", false);
-            btnOk.DialogResult = DialogResult.None;
-            btnCancel.DialogResult = DialogResult.Cancel;
-            btnOk.Click += (_, _) =>
+            _btnOk = MakeButton(AppLocalizer.Get("Common.OK"), true);
+            _btnCancel = MakeButton(AppLocalizer.Get("Common.Cancel"), false);
+            _btnOk.DialogResult = DialogResult.None;
+            _btnCancel.DialogResult = DialogResult.Cancel;
+            _btnOk.Click += (_, _) =>
             {
                 if (TryApply())
                     DialogResult = DialogResult.OK;
@@ -67,12 +90,12 @@ namespace MyProject.Forms
                 FlowDirection = FlowDirection.RightToLeft,
                 Padding = new Padding(8)
             };
-            btnPanel.Controls.AddRange(new Control[] { btnCancel, btnOk });
+            btnPanel.Controls.AddRange(new Control[] { _btnCancel, _btnOk });
 
             Controls.Add(tabs);
             Controls.Add(btnPanel);
-            AcceptButton = btnOk;
-            CancelButton = btnCancel;
+            AcceptButton = _btnOk;
+            CancelButton = _btnCancel;
         }
 
         private TabPage BuildGeneralTab()
@@ -81,11 +104,11 @@ namespace MyProject.Forms
             var layout = CreateTwoColumnLayout(2);
 
             _projectName = new TextBox();
-            _projectStart = new DateTimePicker { Format = DateTimePickerFormat.Short };
+            _projectStart = new DateTimePicker { Format = DateTimePickerFormat.Short, Enabled = false };
 
-            layout.Controls.Add(MakeLabel("Project name:"), 0, 0);
+            layout.Controls.Add(_lblProjectName = MakeLabel(""), 0, 0);
             layout.Controls.Add(_projectName, 1, 0);
-            layout.Controls.Add(MakeLabel("Project start:"), 0, 1);
+            layout.Controls.Add(_lblProjectStart = MakeLabel(""), 0, 1);
             layout.Controls.Add(_projectStart, 1, 1);
 
             page.Controls.Add(layout);
@@ -106,9 +129,9 @@ namespace MyProject.Forms
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-            var title = new Label
+            _scheduleTitle = new Label
             {
-                Text = "Select which days count as working days for this project.",
+                Text = "",
                 AutoSize = true,
                 Dock = DockStyle.Top,
                 ForeColor = AppTheme.TextSecondary,
@@ -128,7 +151,7 @@ namespace MyProject.Forms
             {
                 _workingDayChecks[i] = new CheckBox
                 {
-                    Text = WorkingDayLabels[i],
+                    Text = GetWorkingDayLabel(i),
                     AutoSize = true,
                     Margin = new Padding(0, 2, 0, 2)
                 };
@@ -144,7 +167,7 @@ namespace MyProject.Forms
                 Padding = new Padding(0, 8, 0, 0)
             };
 
-            layout.Controls.Add(title, 0, 0);
+            layout.Controls.Add(_scheduleTitle, 0, 0);
             layout.Controls.Add(daysPanel, 0, 1);
             layout.Controls.Add(note, 0, 2);
             page.Controls.Add(layout);
@@ -176,6 +199,7 @@ namespace MyProject.Forms
 
         private void LoadValues()
         {
+            _model.EnsureProjectStartSynced();
             _projectName.Text = _model.ProjectName;
             _projectStart.Value = _model.ProjectStart;
 
@@ -194,7 +218,7 @@ namespace MyProject.Forms
             string name = _projectName.Text.Trim();
             if (string.IsNullOrEmpty(name))
             {
-                MessageBox.Show(this, "Project name cannot be empty.", "Project Settings",
+                MessageBox.Show(this, AppLocalizer.Get("ProjectSettings.EmptyName"), AppLocalizer.Get("ProjectSettings.Title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _projectName.Focus();
                 return false;
@@ -202,13 +226,12 @@ namespace MyProject.Forms
 
             if (!_workingDayChecks.Any(c => c.Checked))
             {
-                MessageBox.Show(this, "Select at least one working day.", "Project Settings",
+                MessageBox.Show(this, AppLocalizer.Get("ProjectSettings.NoWorkingDay"), AppLocalizer.Get("ProjectSettings.Title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
             _model.SetProjectName(name);
-            _model.SetProjectStart(_projectStart.Value.Date);
             _model.SetWorkingWeek(WorkingWeekSchedule.FromDayFlags(
                 _workingDayChecks.Select(c => c.Checked).ToArray()));
             _model.ApplyProjectDependencyDefaults(

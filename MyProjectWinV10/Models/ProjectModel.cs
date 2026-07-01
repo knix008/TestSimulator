@@ -53,6 +53,12 @@ namespace MyProject.Models
 
         public void SetProjectStart(DateTime start)
         {
+            if (_tasks.Count > 0)
+            {
+                SyncProjectStartFromTasks();
+                return;
+            }
+
             start = start.Date;
             if (ProjectStart.Date == start)
                 return;
@@ -64,6 +70,14 @@ namespace MyProject.Models
                 IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
+
+        /// <summary>Earliest task start date, or today when the schedule is empty.</summary>
+        public DateTime GetEarliestTaskStartDate() =>
+            _tasks.Count == 0
+                ? DateTime.Today
+                : _tasks.Min(t => t.StartDate.Date);
+
+        public void EnsureProjectStartSynced() => SyncProjectStartFromTasks();
 
         public void SetWorkingWeek(WorkingWeekSchedule schedule)
         {
@@ -1189,6 +1203,7 @@ namespace MyProject.Models
                 RemoveInvalidHierarchyDependencies();
                 UpdateSummaryTypes();
                 UpdateSummaryRollups();
+                SyncProjectStartFromTasks();
                 UpdateVisibility();
                 UpdateCriticalPath();
             }
@@ -1196,6 +1211,18 @@ namespace MyProject.Models
             {
                 _isUpdatingHierarchy = false;
             }
+        }
+
+        private void SyncProjectStartFromTasks()
+        {
+            if (_tasks.Count == 0)
+                return;
+
+            DateTime earliest = GetEarliestTaskStartDate();
+            if (ProjectStart.Date == earliest)
+                return;
+
+            ProjectStart = earliest;
         }
 
         private void UpdateCriticalPath()
@@ -1424,6 +1451,7 @@ namespace MyProject.Models
             _criticalTaskIds.Clear();
             _criticalDependencies.Clear();
             _criticalPathLinks.Clear();
+            ProjectStart = DateTime.Today;
             IsModified = false;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }

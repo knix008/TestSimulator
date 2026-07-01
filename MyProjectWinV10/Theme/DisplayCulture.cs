@@ -4,6 +4,8 @@ namespace MyProject.Theme
 {
     public static class DisplayCulture
     {
-        public static readonly CultureInfo English = CultureInfo.GetCultureInfo("en-US");
+        public static CultureInfo Current => AppLocalizer.CurrentCulture;
+
+        public static CultureInfo English => CultureInfo.GetCultureInfo("en-US");
     }
 }

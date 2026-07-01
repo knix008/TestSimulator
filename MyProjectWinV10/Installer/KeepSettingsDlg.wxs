@@ -1,0 +1,24 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Fragment>
+    <UI>
+      <Dialog Id="KeepSettingsDlg" Width="370" Height="270" Title="[ProductName] 설치">
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="15" Width="340" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}사용자 데이터 및 설정" />
+        <Control Id="Description" Type="Text" X="25" Y="54" Width="330" Height="40" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Normal}설치 시 기존 사용자 데이터와 설정을 유지할지, 삭제할지 선택하세요." />
+        <Control Id="Body" Type="Text" X="25" Y="98" Width="330" Height="30" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Normal}설정에는 언어, 창 크기, 마지막 폴더, 열 너비, 세션 복구 정보 등이 포함됩니다." />
+        <Control Id="SettingsChoice" Type="RadioButtonGroup" X="20" Y="138" Width="330" Height="44" Property="KEEPUSERSETTINGS" Text="Options">
+          <RadioButtonGroup Property="KEEPUSERSETTINGS">
+            <RadioButton Value="1" X="0" Y="0" Width="320" Height="17" Text="기존 데이터 및 설정 유지" />
+            <RadioButton Value="0" X="0" Y="20" Width="320" Height="17" Text="데이터 및 설정 삭제 후 새로 시작" />
+          </RadioButtonGroup>
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;뒤로" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;다음" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="취소" />
+      </Dialog>
+    </UI>
+  </Fragment>
+
+</Wix>

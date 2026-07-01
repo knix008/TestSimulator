@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Windows.Forms;
+using MyProject.Theme;
 
 namespace MyProject.Models
 {
@@ -35,6 +36,7 @@ namespace MyProject.Models
         public static bool DatabaseAutoRefreshEnabled { get; private set; } = true;
         public const int DatabaseAutoRefreshIntervalSeconds = 5;
         public static string? DatabaseEditorName { get; private set; }
+        public static AppLanguage UiLanguage { get; private set; } = AppLanguage.Korean;
 
         public const int MaxRecentFiles = 10;
 
@@ -161,6 +163,9 @@ namespace MyProject.Models
 
             if (!string.IsNullOrWhiteSpace(data.DatabaseEditorName))
                 DatabaseEditorName = data.DatabaseEditorName.Trim();
+
+            if (!string.IsNullOrWhiteSpace(data.UiLanguage))
+                UiLanguage = AppLanguageExtensions.Parse(data.UiLanguage);
         }
 
         public static void Save()
@@ -201,7 +206,8 @@ namespace MyProject.Models
                     : null,
                 LastDatabaseProfileId = LastDatabaseProfileId,
                 DatabaseAutoRefreshEnabled = DatabaseAutoRefreshEnabled,
-                DatabaseEditorName = DatabaseEditorName
+                DatabaseEditorName = DatabaseEditorName,
+                UiLanguage = UiLanguage.ToStorageCode()
             };
             var json = JsonSerializer.Serialize(data, JsonOptions);
             File.WriteAllText(SettingsPath, json, System.Text.Encoding.UTF8);
@@ -423,6 +429,16 @@ namespace MyProject.Models
             Save();
         }
 
+        public static void SetUiLanguage(AppLanguage language)
+        {
+            if (UiLanguage == language)
+                return;
+
+            UiLanguage = language;
+            Save();
+            AppLocalizer.Apply(language);
+        }
+
         public static string GetDatabaseEditorName()
         {
             if (!string.IsNullOrWhiteSpace(DatabaseEditorName))
@@ -472,6 +488,7 @@ namespace MyProject.Models
             public string? LastDatabaseProfileId { get; set; }
             public bool? DatabaseAutoRefreshEnabled { get; set; }
             public string? DatabaseEditorName { get; set; }
+            public string? UiLanguage { get; set; }
         }
 
         private sealed class DatabaseProfileData

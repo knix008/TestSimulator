@@ -97,10 +97,11 @@
 
     <Component Id="UserDataFolderCleanup"
                Directory="INSTALLFOLDER"
-               Guid="B4C5D6E7-F809-4123-BCDE-F1234567890A">
+               Guid="B4C5D6E7-F809-4123-BCDE-F1234567890A"
+               Condition="KEEPUSERSETTINGS=&quot;0&quot;">
       <CreateFolder />
-      <!-- Remove %LocalAppData%\MyProject on reinstall and uninstall. -->
-      <util:RemoveFolderEx On="both" Property="USERDATAFOLDER_CLEANUP" />
+      <!-- Remove %LocalAppData%\MyProject when the user chooses to delete settings. -->
+      <util:RemoveFolderEx On="install" Property="USERDATAFOLDER_CLEANUP" />
       <RegistryValue Root="HKLM"
                      Key="Software\MyProject"
                      Name="UserDataCleaned"

@@ -27,6 +27,7 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripMenuItem menuSave;
         private System.Windows.Forms.ToolStripMenuItem menuSaveAs;
         private System.Windows.Forms.ToolStripMenuItem menuProjectSettings;
+        private System.Windows.Forms.ToolStripMenuItem menuPreferences;
         private System.Windows.Forms.ToolStripSeparator menuSepExportMs;
         private System.Windows.Forms.ToolStripMenuItem menuExportMsProject;
         private System.Windows.Forms.ToolStripSeparator menuSep2;
@@ -144,6 +145,7 @@ namespace MyProject.Forms
             menuSave = new ToolStripMenuItem();
             menuSaveAs = new ToolStripMenuItem();
             menuProjectSettings = new ToolStripMenuItem();
+            menuPreferences = new ToolStripMenuItem();
             menuSepExportMs = new ToolStripSeparator();
             menuExportMsProject = new ToolStripMenuItem();
             menuSep2 = new ToolStripSeparator();
@@ -258,7 +260,7 @@ namespace MyProject.Forms
             // 
             // menuFile
             // 
-            menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuNew, menuOpen, menuSep1, menuSave, menuSaveAs, menuProjectSettings, menuSepExportMs, menuExportMsProject, menuSep2, menuExit });
+            menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuNew, menuOpen, menuSep1, menuSave, menuSaveAs, menuProjectSettings, menuPreferences, menuSepExportMs, menuExportMsProject, menuSep2, menuExit });
             menuFile.ForeColor = Color.White;
             menuFile.Name = "menuFile";
             menuFile.Size = new Size(37, 20);
@@ -358,6 +360,12 @@ namespace MyProject.Forms
             menuProjectSettings.Name = "menuProjectSettings";
             menuProjectSettings.Size = new Size(181, 22);
             menuProjectSettings.Text = "Project &Settings...";
+            // 
+            // menuPreferences
+            // 
+            menuPreferences.Name = "menuPreferences";
+            menuPreferences.Size = new Size(181, 22);
+            menuPreferences.Text = "Preferences(&P)...";
             // 
             // menuSepExportMs
             // 

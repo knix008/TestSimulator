@@ -643,10 +643,10 @@ namespace MyProject.Controls
                 CalendarDisplayUnit.Week =>
                     $"{GetWeekStart(_focusDate):yyyy-MM-dd} – {GetWeekStart(_focusDate).AddDays(6):yyyy-MM-dd}",
                 CalendarDisplayUnit.Month =>
-                    _focusDate.ToString("Y", DisplayCulture.English),
+                    _focusDate.ToString("Y", DisplayCulture.Current),
                 CalendarDisplayUnit.Year =>
-                    _focusDate.ToString("yyyy", DisplayCulture.English),
-                _ => _focusDate.ToString("Y", DisplayCulture.English)
+                    _focusDate.ToString("yyyy", DisplayCulture.Current),
+                _ => _focusDate.ToString("Y", DisplayCulture.Current)
             };
         }
 
@@ -1013,7 +1013,7 @@ namespace MyProject.Controls
             var titleRect = new Rectangle(tile.X + YearTileInnerPadding + 2, tile.Y + 4, tile.Width - (YearTileInnerPadding + 2) * 2, 16);
             using var titleBrush = new SolidBrush(AppTheme.TextPrimary);
             using var titleFont = new Font(Font, FontStyle.Bold);
-            g.DrawString(monthStart.ToString("MMM", DisplayCulture.English), titleFont, titleBrush, titleRect);
+            g.DrawString(monthStart.ToString("MMM", DisplayCulture.Current), titleFont, titleBrush, titleRect);
 
             DrawMiniMonth(g, mini, monthStart);
         }
@@ -1125,8 +1125,8 @@ namespace MyProject.Controls
                 }
 
                 string label = showWeekdayOnly
-                    ? day.ToString("ddd", DisplayCulture.English)
-                    : $"{day.ToString("ddd", DisplayCulture.English)}\n{day.ToString("M/d", DisplayCulture.English)}";
+                    ? day.ToString("ddd", DisplayCulture.Current)
+                    : $"{day.ToString("ddd", DisplayCulture.Current)}\n{day.ToString("M/d", DisplayCulture.Current)}";
                 using var brush = new SolidBrush(GetCalendarDayTextColor(day));
                 var sf = new StringFormat
                 {

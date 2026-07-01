@@ -240,7 +240,17 @@ namespace MyProject.Controls
             using (var columnBg = new SolidBrush(AppTheme.TimescaleBackground))
                 g.FillRectangle(columnBg, columnRect);
 
-            string[] headers = { "ID", "Task Name", "Start", "Days", "Progress", "Resource", "Alloc %", "Deliverable" };
+            string[] headers =
+            {
+                AppLocalizer.Get("Grid.Id"),
+                AppLocalizer.Get("Grid.TaskName"),
+                AppLocalizer.Get("Grid.Start"),
+                AppLocalizer.Get("Grid.Days"),
+                AppLocalizer.Get("Grid.Progress"),
+                AppLocalizer.Get("Grid.Resource"),
+                AppLocalizer.Get("Grid.Alloc"),
+                AppLocalizer.Get("Grid.Deliverable")
+            };
             for (int i = 0; i < ColumnCount; i++)
                 DrawColumnHeader(g, ColumnLeft(i), headers[i], _colWidths[i], columnTop, columnRowH, i);
 

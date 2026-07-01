@@ -51,6 +51,8 @@ namespace MyProject.Forms
             PostInitializeComponent();
             ApplyRenderers();
             SetupEventHandlers();
+            ApplyLocalization();
+            AppLocalizer.LanguageChanged += (_, _) => ApplyLocalization();
             RestoreSessionOrNewProject();
         }
 
@@ -146,13 +148,10 @@ namespace MyProject.Forms
             menuPrint.Image     = AppIcons.Print;
 
             // Tooltips
-            ConfigureToolbarToolTips();
             SetupCalendarUnitMenu();
             SetupCalendarUnitToolbar();
             SetupRecentFilesMenu();
-
-            // Update status bar date
-            lblDateToday.Text = "Today: " + DateTime.Today.ToString("yyyy-MM-dd");
+            // Update status bar date in ApplyLocalization()
 
             // Keep the task grid panel fixed in width so that maximizing the window
             // gives more space to the Gantt chart rather than widening the grid.
@@ -202,12 +201,13 @@ namespace MyProject.Forms
             SetToolbarTip(btnExportGanttImage, "Export Gantt chart as PNG, JPEG, GIF, or WebP");
             SetToolbarTip(btnPrint, "Print Schedule (Ctrl+P)");
 
-            menuNew.ToolTipText = "Create a new empty project";
-            menuOpen.ToolTipText = "Open a MyProject or Microsoft Project file";
-            menuSave.ToolTipText = "Save the current project";
-            menuSaveAs.ToolTipText = "Save the current project under a new file name";
-            menuProjectSettings.ToolTipText = "Edit project name, schedule, working days, and dependency defaults";
-            menuDatabaseConnection.ToolTipText = "Configure database connection profiles for shared schedules";
+            menuNew.ToolTipText = AppLocalizer.Get("Tip.New");
+            menuOpen.ToolTipText = AppLocalizer.Get("Tip.Open");
+            menuSave.ToolTipText = AppLocalizer.Get("Tip.Save");
+            menuSaveAs.ToolTipText = AppLocalizer.Get("Tip.SaveAs");
+            menuProjectSettings.ToolTipText = AppLocalizer.Get("Tip.ProjectSettings");
+            menuPreferences.ToolTipText = AppLocalizer.Get("Tip.Preferences");
+            menuDatabaseConnection.ToolTipText = AppLocalizer.Get("Menu.DbConnection");
             menuFetchFromDatabase.ToolTipText = "Fetch schedule data from the database into the current project";
             menuRefreshFromDatabase.ToolTipText = "Reload the current shared schedule from the database";
             menuSaveToDatabase.ToolTipText = "Save the current schedule to a shared schedule in the database";
@@ -316,6 +316,7 @@ namespace MyProject.Forms
             menuSave.Click       += (_, _) => OnSave();
             menuSaveAs.Click     += (_, _) => OnSaveAs();
             menuProjectSettings.Click += (_, _) => OnProjectSettings();
+            menuPreferences.Click += (_, _) => OnPreferences();
             menuExportMsProject.Click += (_, _) => OnExportMsProject();
             menuExit.Click       += (_, _) => Close();
 
@@ -1768,7 +1769,7 @@ namespace MyProject.Forms
 
         private void UpdateTitleBar()
         {
-            string source = _model.IsDatabaseProject ? " [Shared]" : "";
+            string source = _model.IsDatabaseProject ? AppLocalizer.Get("Main.SharedTag") : "";
             Text = $"MyProject - {_model.ProjectName}{source}{(_model.IsModified ? " *" : "")}";
             UpdateDatabaseMenuState();
         }
@@ -1783,13 +1784,11 @@ namespace MyProject.Forms
 
         private void SetupDatabaseAutoRefreshMenu()
         {
-            _menuAutoRefreshFromDatabase = new ToolStripMenuItem("&Auto-refresh from Database")
+            _menuAutoRefreshFromDatabase = new ToolStripMenuItem(AppLocalizer.Get("Menu.DbAutoRefresh"))
             {
                 CheckOnClick = true,
                 Checked = AppSettings.DatabaseAutoRefreshEnabled,
-                ToolTipText =
-                    "When a shared schedule is open, check the database every few seconds " +
-                    "and apply updates made by other users."
+                ToolTipText = AppLocalizer.Get("Tip.DbAutoRefresh")
             };
 
             int insertAt = menuDatabase.DropDownItems.IndexOf(menuRefreshFromDatabase);

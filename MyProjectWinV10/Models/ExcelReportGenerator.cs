@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using MyProject.Rendering;
 using MyProject.Theme;
 using System.Drawing;
+using System.Text;
 
 namespace MyProject.Models
 {
@@ -10,7 +11,8 @@ namespace MyProject.Models
         private const int MaxDailyColumns = 160;
         private const double GanttColumnWidth = 2.6;
         private const int GanttFirstColumn = 12;
-        private const int NoteMarkerColumns = 3;
+        private const int TaskNotesPreviewLength = 60;
+        private const int GanttNoteLabelLength = 16;
 
         public static void Export(ProjectModel model, string path)
         {
@@ -98,12 +100,21 @@ namespace MyProject.Models
                 sheet.Cell(row, 7).Value = task.Progress / 100.0;
                 sheet.Cell(row, 8).Value = model.GetTaskAssigneeDisplay(task.Id);
                 sheet.Cell(row, 9).Value = task.Deliverable;
-                sheet.Cell(row, 10).Value = task.Notes;
+                string taskNotes = task.Notes?.Trim() ?? "";
+                if (string.IsNullOrEmpty(taskNotes))
+                {
+                    sheet.Cell(row, 10).Value = "";
+                }
+                else
+                {
+                    sheet.Cell(row, 10).Value = TruncateSingleLine(taskNotes, TaskNotesPreviewLength);
+                    SetCellComment(sheet.Cell(row, 10), taskNotes);
+                }
 
                 sheet.Cell(row, 4).Style.DateFormat.Format = "yyyy-mm-dd";
                 sheet.Cell(row, 5).Style.DateFormat.Format = "yyyy-mm-dd";
                 sheet.Cell(row, 7).Style.NumberFormat.Format = "0.0%";
-                sheet.Cell(row, 10).Style.Alignment.WrapText = true;
+                sheet.Cell(row, 10).Style.Alignment.WrapText = false;
 
                 if (task.TaskType == TaskType.Summary)
                     sheet.Row(row).Style.Font.Bold = true;
@@ -115,6 +126,7 @@ namespace MyProject.Models
 
             DrawCriticalDependencyMarkers(sheet, model, chartStart, chartEnd, useWeekly, timelineStartCol, taskRows);
             DrawNoteMarkers(sheet, model, chartStart, chartEnd, useWeekly, timelineStartCol, taskRows, row - 1);
+            ApplyLinkedTaskNoteComments(sheet, model, taskRows);
 
             sheet.Column(11).Width = 1.5;
             for (int c = timelineStartCol; c < timelineStartCol + timelineUnits; c++)
@@ -146,14 +158,16 @@ namespace MyProject.Models
 
                 sheet.Cell(row, 1).Value = note.Id;
                 sheet.Cell(row, 2).Value = note.Title;
-                sheet.Cell(row, 3).Value = note.Body;
+                sheet.Cell(row, 3).Value = GetNotePlainBody(note);
                 sheet.Cell(row, 4).Value = note.TaskId >= 0 ? note.TaskId : "";
                 sheet.Cell(row, 5).Value = linkedTask?.Name ?? "";
                 sheet.Cell(row, 6).Value = note.AnchorDate;
                 sheet.Cell(row, 6).Style.DateFormat.Format = "yyyy-mm-dd";
                 sheet.Cell(row, 7).Value = GetNoteTimelineRowLabel(note, model);
 
-                sheet.Cell(row, 3).Style.Alignment.WrapText = true;
+                SetCellComment(sheet.Cell(row, 2), FormatProjectNoteComment(note, linkedTask?.Name));
+
+                sheet.Cell(row, 3).Style.Alignment.WrapText = false;
                 sheet.Row(row).Style.Fill.BackgroundColor = noteFill;
                 sheet.Row(row).Style.Font.FontColor = XLColor.FromArgb(32, 32, 32);
 
@@ -213,7 +227,7 @@ namespace MyProject.Models
                     continue;
 
                 string label = GetNoteExportLabel(note);
-                int span = useWeekly ? 1 : NoteMarkerColumns;
+                int span = useWeekly ? 1 : 1;
 
                 for (int w = 0; w < span; w++)
                 {
@@ -228,11 +242,13 @@ namespace MyProject.Models
                     {
                         cell.Style.Border.LeftBorder = XLBorderStyleValues.Medium;
                         cell.Style.Border.LeftBorderColor = noteBorder;
-                        cell.Value = label;
+                        cell.Value = TruncateSingleLine(label, GanttNoteLabelLength);
                         cell.Style.Font.FontSize = 8;
                         cell.Style.Font.FontColor = noteText;
-                        cell.Style.Alignment.WrapText = true;
+                        cell.Style.Alignment.WrapText = false;
+                        cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                         cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                        SetCellComment(cell, FormatProjectNoteComment(note, GetLinkedTaskName(model, note)));
                     }
 
                     if (w == span - 1)
@@ -270,6 +286,85 @@ namespace MyProject.Models
             int rowIndex = (note.ContentY - AppTheme.TimescaleHeaderHeight) / AppTheme.RowHeight;
             int row = 2 + rowIndex;
             return Math.Clamp(row, 2, lastTaskRow);
+        }
+
+        private static void ApplyLinkedTaskNoteComments(
+            IXLWorksheet sheet,
+            ProjectModel model,
+            Dictionary<int, int> taskRows)
+        {
+            foreach (var group in model.Notes.Where(n => n.TaskId >= 0).GroupBy(n => n.TaskId))
+            {
+                if (!taskRows.TryGetValue(group.Key, out int row))
+                    continue;
+
+                var linkedTaskName = model.GetTask(group.Key)?.Name;
+                var comment = new StringBuilder();
+                foreach (var note in group.OrderBy(n => n.Id))
+                {
+                    if (comment.Length > 0)
+                        comment.AppendLine().AppendLine("---").AppendLine();
+
+                    comment.Append(FormatProjectNoteComment(note, linkedTaskName));
+                }
+
+                SetCellComment(sheet.Cell(row, 2), comment.ToString());
+            }
+        }
+
+        private static string GetLinkedTaskName(ProjectModel model, ProjectNote note)
+        {
+            if (note.TaskId < 0)
+                return "";
+
+            return model.GetTask(note.TaskId)?.Name ?? "";
+        }
+
+        private static string GetNotePlainBody(ProjectNote note) =>
+            NoteRtfHelper.GetPlainText(note.BodyRtf, note.Body).Trim();
+
+        private static string FormatProjectNoteComment(ProjectNote note, string? linkedTaskName)
+        {
+            var body = GetNotePlainBody(note);
+            var sb = new StringBuilder();
+
+            if (!string.IsNullOrWhiteSpace(note.Title))
+            {
+                sb.AppendLine(note.Title.Trim());
+                sb.AppendLine();
+            }
+
+            if (!string.IsNullOrWhiteSpace(body))
+                sb.AppendLine(body);
+
+            if (!string.IsNullOrWhiteSpace(linkedTaskName))
+                sb.AppendLine().Append("Linked task: ").Append(linkedTaskName);
+
+            sb.AppendLine().Append("Anchor date: ").Append(note.AnchorDate.ToString("yyyy-MM-dd"));
+            return sb.ToString().TrimEnd();
+        }
+
+        private static void SetCellComment(IXLCell cell, string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            var comment = cell.CreateComment();
+            comment.AddText(text.Trim());
+            comment.Style.Size.SetAutomaticSize();
+            comment.Style.Size.SetWidth(36);
+            comment.Style.ColorsAndLines.SetFillColor(XlColor(NoteRenderer.GradientTop));
+            comment.Style.ColorsAndLines.SetFillTransparency(0.1);
+            comment.Style.ColorsAndLines.SetLineColor(XlColor(NoteRenderer.BorderColor));
+        }
+
+        private static string TruncateSingleLine(string text, int maxLength)
+        {
+            string singleLine = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            if (singleLine.Length <= maxLength)
+                return singleLine;
+
+            return singleLine[..Math.Max(0, maxLength - 1)] + "…";
         }
 
         private static string GetNoteExportLabel(ProjectNote note)

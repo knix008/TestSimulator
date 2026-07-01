@@ -667,8 +667,7 @@ namespace MyProject.Controls
       _projectName = new TextBox();
       _projectName.Leave += (_, _) => ApplyProjectName();
 
-      _projectStart = new DateTimePicker { Format = DateTimePickerFormat.Short };
-      _projectStart.ValueChanged += (_, _) => ApplyProjectStart();
+      _projectStart = new DateTimePicker { Format = DateTimePickerFormat.Short, Enabled = false };
 
       AddLabeledField(layout, "Name:", _projectName, StandardRowHeight);
       AddLabeledField(layout, "Start:", _projectStart, StandardRowHeight);
@@ -938,13 +937,14 @@ namespace MyProject.Controls
       _projectGroup.Visible = true;
       _noteGroup.Visible = false;
       _taskGroup.Visible = false;
-      _headerLabel.Text = "Project Properties";
+      _headerLabel.Text = AppLocalizer.Get("Props.ProjectTitle");
       SyncContentSize();
 
       _suppressChanges = true;
       try
       {
-        _projectName.Text = _model!.ProjectName;
+        _model!.EnsureProjectStartSynced();
+        _projectName.Text = _model.ProjectName;
         _projectStart.Value = _model.ProjectStart;
       }
       finally
@@ -1040,19 +1040,6 @@ namespace MyProject.Controls
 
       RequestUndoSnapshot?.Invoke();
       _model.SetProjectName(name);
-    }
-
-    private void ApplyProjectStart()
-    {
-      if (_suppressChanges || _model == null)
-        return;
-
-      DateTime start = _projectStart.Value.Date;
-      if (_model.ProjectStart.Date == start)
-        return;
-
-      RequestUndoSnapshot?.Invoke();
-      _model.SetProjectStart(start);
     }
 
     private void ReloadLinkedTaskChoices()
@@ -1822,6 +1809,20 @@ namespace MyProject.Controls
       {
         Id = id;
         Name = name;
+      }
+    }
+
+    public void ApplyLocalization()
+    {
+      _headerLabel.Text = AppLocalizer.Get("Props.Title");
+      _emptyLabel.Text = AppLocalizer.Get("Props.Empty");
+      _projectGroup.Text = AppLocalizer.Get("Props.Project");
+      if (_projectFieldsLayout.Controls.Count >= 4)
+      {
+        if (_projectFieldsLayout.GetControlFromPosition(0, 0) is Label nameLabel)
+          nameLabel.Text = AppLocalizer.Get("Props.Name");
+        if (_projectFieldsLayout.GetControlFromPosition(0, 1) is Label startLabel)
+          startLabel.Text = AppLocalizer.Get("Props.Start");
       }
     }
   }

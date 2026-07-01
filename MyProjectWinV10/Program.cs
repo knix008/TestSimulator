@@ -33,12 +33,13 @@ static class Program
             return;
         }
 
+        AppSettings.Load();
+        AppLocalizer.Apply(AppSettings.UiLanguage);
+
         ApplicationConfiguration.Initialize();
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.ApplicationExit += (_, _) => ApplicationShutdown.RequestProcessExit();
-
-        AppSettings.Load();
         Application.Run(new MainForm());
         ApplicationShutdown.RequestProcessExit();
     }

@@ -5,6 +5,10 @@ namespace MyProject.Forms
 {
     public sealed class AboutDialog : Form
     {
+        private readonly Label _lblVersion;
+        private readonly Label _lblDescription;
+        private readonly Button _btnOk;
+
         public AboutDialog()
         {
             var asm = Assembly.GetExecutingAssembly();
@@ -14,7 +18,6 @@ namespace MyProject.Forms
             string copyright = asm.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright
                 ?? $"Copyright © {DateTime.Now.Year} SH KWON (knix008@naver.com)";
 
-            Text = "About";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -54,9 +57,8 @@ namespace MyProject.Forms
                 ForeColor = AppTheme.TextPrimary
             };
 
-            var lblVersion = new Label
+            _lblVersion = new Label
             {
-                Text = $"Version {version}",
                 Location = new Point(84, 56),
                 AutoSize = true,
                 MaximumSize = new Size(320, 0),
@@ -64,9 +66,8 @@ namespace MyProject.Forms
                 ForeColor = AppTheme.TextPrimary
             };
 
-            var lblDescription = new Label
+            _lblDescription = new Label
             {
-                Text = "Windows Gantt chart project manager for tasks, dependencies, resources, progress, and chart notes.",
                 Location = new Point(24, 96),
                 Size = new Size(372, 56),
                 ForeColor = AppTheme.TextPrimary
@@ -81,9 +82,8 @@ namespace MyProject.Forms
                 ForeColor = AppTheme.TextSecondary
             };
 
-            var btnOk = new Button
+            _btnOk = new Button
             {
-                Text = "OK",
                 DialogResult = DialogResult.OK,
                 Size = new Size(80, 28),
                 Location = new Point(316, 198),
@@ -91,18 +91,32 @@ namespace MyProject.Forms
                 BackColor = AppTheme.Accent,
                 ForeColor = Color.White
             };
-            btnOk.FlatAppearance.BorderColor = AppTheme.AccentDark;
+            _btnOk.FlatAppearance.BorderColor = AppTheme.AccentDark;
 
             Controls.AddRange(new Control[]
             {
                 iconBox,
                 lblProduct,
-                lblVersion,
-                lblDescription,
+                _lblVersion,
+                _lblDescription,
                 lblCopyright,
-                btnOk
+                _btnOk
             });
-            AcceptButton = btnOk;
+            AcceptButton = _btnOk;
+
+            ApplyLocalization();
+            AppLocalizer.LanguageChanged += OnLanguageChanged;
+            FormClosed += (_, _) => AppLocalizer.LanguageChanged -= OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged(object? sender, EventArgs e) => ApplyLocalization();
+
+        private void ApplyLocalization()
+        {
+            Text = AppLocalizer.Get("About.Title");
+            _lblVersion.Text = AppLocalizer.Format("About.Version", AppVersion.DisplayVersion);
+            _lblDescription.Text = AppLocalizer.Get("About.Description");
+            _btnOk.Text = AppLocalizer.Get("Common.OK");
         }
 
         public static void ShowAbout(IWin32Window? owner)
