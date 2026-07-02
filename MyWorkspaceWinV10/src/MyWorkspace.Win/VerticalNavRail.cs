@@ -155,6 +155,9 @@ internal sealed class VerticalNavRail : Panel
         if (!menuRoot.Enabled || !button.Visible || !menuRoot.HasDropDownItems)
             return;
 
+        if (TryActivateSingleLeafMenu(menuRoot))
+            return;
+
         BeginInvoke(() =>
         {
             if (!button.Visible || !menuRoot.Enabled)
@@ -164,13 +167,42 @@ internal sealed class VerticalNavRail : Panel
         });
     }
 
+    private static bool TryActivateSingleLeafMenu(ToolStripMenuItem menuRoot)
+    {
+        ToolStripMenuItem? singleLeaf = null;
+        var leafCount = 0;
+
+        foreach (ToolStripItem item in menuRoot.DropDownItems)
+        {
+            if (item is ToolStripSeparator)
+                continue;
+
+            if (item is not ToolStripMenuItem menuItem)
+                return false;
+
+            if (menuItem.HasDropDownItems)
+                return false;
+
+            singleLeaf = menuItem;
+            leafCount++;
+            if (leafCount > 1)
+                return false;
+        }
+
+        if (singleLeaf == null)
+            return false;
+
+        MenuItemClickForwarder.Invoke(singleLeaf);
+        return true;
+    }
+
     private static void OnBottomActionClick(object? sender, EventArgs e)
     {
         if (sender is not Button button || button.Tag is not ToolStripMenuItem menuItem)
             return;
 
         if (menuItem.Enabled)
-            menuItem.PerformClick();
+            MenuItemClickForwarder.Invoke(menuItem);
     }
 
     private void ShowMenuAtButton(ToolStripMenuItem menuRoot, Button button)
@@ -209,9 +241,6 @@ internal sealed class VerticalNavRail : Panel
 
     private static ToolStripItem? CreatePopupItem(ToolStripItem sourceItem)
     {
-        if (!sourceItem.Available)
-            return null;
-
         if (sourceItem is ToolStripSeparator)
             return new ToolStripSeparator();
 
@@ -231,11 +260,7 @@ internal sealed class VerticalNavRail : Panel
             ToolTipText = sourceMenuItem.ToolTipText
         };
 
-        popupItem.Click += (_, _) =>
-        {
-            if (sourceMenuItem.Enabled)
-                sourceMenuItem.PerformClick();
-        };
+        popupItem.Click += (_, _) => MenuItemClickForwarder.Invoke(sourceMenuItem);
 
         foreach (ToolStripItem child in sourceMenuItem.DropDownItems)
         {

@@ -1,6 +1,8 @@
 namespace MyWorkspace.Win;
 
 using System.Globalization;
+using Microsoft.Web.WebView2.Core;
+using MyWorkspace.Data;
 
 internal static class PageAssetStore
 {
@@ -13,24 +15,43 @@ internal static class PageAssetStore
 
     public static readonly string[] SupportedImageExtensions =
     [
-        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg"
     ];
 
     private static readonly HashSet<string> WordRasterizationExtensions =
-        new(StringComparer.OrdinalIgnoreCase) { ".webp", ".avif" };
+        new(StringComparer.OrdinalIgnoreCase) { ".webp", ".avif", ".svg" };
 
     public static string GetPageFolder(int pageId) =>
         Path.Combine(Root, pageId.ToString(CultureInfo.InvariantCulture));
 
     public static string AssetsRoot => Root;
 
-    public static void ConfigureEditorWebView(Microsoft.Web.WebView2.Core.CoreWebView2 webView)
+    public static void ConfigureEditorWebView(CoreWebView2 webView)
     {
         Directory.CreateDirectory(Root);
         webView.SetVirtualHostNameToFolderMapping(
             EditorAssetHost,
             Root,
-            Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            CoreWebView2HostResourceAccessKind.Allow);
+
+        webView.AddWebResourceRequestedFilter(
+            $"https://{EditorAssetHost}/*",
+            CoreWebView2WebResourceContext.All);
+
+        webView.WebResourceRequested += (_, args) =>
+        {
+            if (!TryParseEditorUri(args.Request.Uri, out var pageId, out var fileName))
+                return;
+
+            var bytes = TryGetAssetBytes(pageId, fileName);
+            if (bytes == null || bytes.Length == 0)
+                return;
+
+            var contentType = GetAssetContentType(fileName);
+            var headers = $"Content-Type: {contentType}\r\nCache-Control: no-cache";
+            var stream = new MemoryStream(bytes, writable: false);
+            args.Response = webView.Environment.CreateWebResourceResponse(stream, 200, "OK", headers);
+        };
     }
 
     public static string ImportImage(int pageId, string sourcePath) =>
@@ -42,13 +63,18 @@ internal static class PageAssetStore
     public static string ImportAsset(int pageId, string sourcePath, bool imageOnly)
     {
         var extension = Path.GetExtension(sourcePath);
-        if (string.IsNullOrWhiteSpace(extension))
-            throw new InvalidOperationException("File extension is required.");
+        if (imageOnly)
+        {
+            if (string.IsNullOrWhiteSpace(extension))
+                throw new InvalidOperationException(Localization.Format(K.UnsupportedImageFormat, extension));
 
-        if (imageOnly && !IsSupportedImageExtension(extension))
-            throw new InvalidOperationException(Localization.Format(K.UnsupportedImageFormat, extension));
+            if (!IsSupportedImageExtension(extension))
+                throw new InvalidOperationException(Localization.Format(K.UnsupportedImageFormat, extension));
+        }
 
-        var fileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        var fileName = string.IsNullOrWhiteSpace(extension)
+            ? Guid.NewGuid().ToString("N")
+            : $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
         var content = File.ReadAllBytes(sourcePath);
         SaveAsset(pageId, fileName, content);
         return fileName;
@@ -121,10 +147,51 @@ internal static class PageAssetStore
 
     public static string? TryGetAssetPathFromUri(string uri)
     {
-        if (!TryParseAssetUri(uri, out var pageId, out var fileName))
+        if (TryParseAssetUri(uri, out var pageId, out var fileName))
+            return TryGetAssetPath(pageId, fileName);
+
+        if (TryParseEditorUri(uri, out pageId, out fileName))
+            return TryGetAssetPath(pageId, fileName);
+
+        return null;
+    }
+
+    public static string? TryResolveExportAssetPath(string url, string exportFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(url))
             return null;
 
-        return TryGetAssetPath(pageId, fileName);
+        var fromUri = TryGetAssetPathFromUri(url);
+        if (!string.IsNullOrWhiteSpace(fromUri) && File.Exists(fromUri))
+            return fromUri;
+
+        if (File.Exists(url))
+            return Path.GetFullPath(url);
+
+        if (url.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var localPath = new Uri(url).LocalPath;
+                if (File.Exists(localPath))
+                    return localPath;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        var outputDirectory = Path.GetDirectoryName(exportFilePath);
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+            return null;
+
+        var relativePath = url.Replace('/', Path.DirectorySeparatorChar);
+        var combined = Path.GetFullPath(Path.Combine(outputDirectory, relativePath));
+        if (!combined.StartsWith(Path.GetFullPath(outputDirectory), StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return File.Exists(combined) ? combined : null;
     }
 
     public static bool TryParseAssetUri(string uri, out int pageId, out string fileName)
@@ -151,12 +218,20 @@ internal static class PageAssetStore
         return IsValidFileName(fileName);
     }
 
+    public static string BuildEditorUri(int pageId, string fileName)
+    {
+        if (!IsValidFileName(fileName))
+            throw new InvalidOperationException("Invalid asset file name.");
+
+        return $"https://{EditorAssetHost}/{pageId}/{Uri.EscapeDataString(fileName)}";
+    }
+
     public static string ToEditorUri(int pageId, string fileName)
     {
         if (TryGetAssetPath(pageId, fileName) == null)
             throw new FileNotFoundException("Page asset not found.", fileName);
 
-        return $"https://{EditorAssetHost}/{pageId}/{fileName}";
+        return BuildEditorUri(pageId, fileName);
     }
 
     public static bool TryParseEditorUri(string url, out int pageId, out string fileName)
@@ -196,16 +271,17 @@ internal static class PageAssetStore
             TryGetAssetPath(pageId, fileName);
     }
 
-    public static void SyncAssetsWithContent(int pageId, string markdown)
+    public static void SyncAssetsWithContent(int pageId, string markdown, AppServices? services = null)
     {
-        if (!SessionContext.IsLoggedIn || AppConfig.Services == null)
+        services ??= AppConfig.Services;
+        if (!SessionContext.IsLoggedIn || services == null)
             return;
 
         var referenced = PageMarkdownNormalizer.GetReferencedFileNames(markdown, pageId);
         foreach (var fileName in referenced)
-            MigrateLocalAssetToDatabase(pageId, fileName);
+            MigrateLocalAssetToDatabase(pageId, fileName, services);
 
-        AppConfig.Services.PageAssets.PruneUnreferencedAssets(
+        services.PageAssets.PruneUnreferencedAssets(
             SessionContext.CurrentUser,
             pageId,
             referenced);
@@ -243,19 +319,20 @@ internal static class PageAssetStore
         WriteLocalCache(pageId, fileName, content);
     }
 
-    private static void MigrateLocalAssetToDatabase(int pageId, string fileName)
+    private static void MigrateLocalAssetToDatabase(int pageId, string fileName, AppServices? services = null)
     {
-        if (!SessionContext.IsLoggedIn || AppConfig.Services == null)
+        services ??= AppConfig.Services;
+        if (!SessionContext.IsLoggedIn || services == null)
             return;
 
-        if (AppConfig.Services.PageAssets.AssetExists(SessionContext.CurrentUser, pageId, fileName))
+        if (services.PageAssets.AssetExists(SessionContext.CurrentUser, pageId, fileName))
             return;
 
         var localPath = GetLocalCachePath(pageId, fileName);
         if (!File.Exists(localPath))
             return;
 
-        AppConfig.Services.PageAssets.SaveAsset(
+        services.PageAssets.SaveAsset(
             SessionContext.CurrentUser,
             pageId,
             fileName,
@@ -274,4 +351,17 @@ internal static class PageAssetStore
 
     private static bool IsValidFileName(string fileName) =>
         !string.IsNullOrWhiteSpace(fileName) && !fileName.Contains("..", StringComparison.Ordinal);
+
+    private static string GetAssetContentType(string fileName) =>
+        Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".svg" => "image/svg+xml",
+            ".avif" => "image/avif",
+            ".bmp" => "image/bmp",
+            _ => "application/octet-stream"
+        };
 }

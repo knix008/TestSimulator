@@ -53,10 +53,56 @@ internal static class EditorHtmlBuilder
         Regex.Replace(
             html,
             @"<img\b([^>]*?)\/?>",
-            match => match.Value.Contains("editor-image-wrap", StringComparison.OrdinalIgnoreCase)
-                ? match.Value
-                : $"""<span class="editor-image-wrap" contenteditable="false"><img{match.Groups[1].Value}><span class="editor-image-resize-handle" contenteditable="false"></span></span>""",
+            match =>
+            {
+                if (match.Value.Contains("editor-image-wrap", StringComparison.OrdinalIgnoreCase))
+                    return match.Value;
+
+                var attrs = match.Groups[1].Value;
+                if (!TryGetImageWidthPx(attrs, out var widthPx))
+                    return $"""<span class="editor-image-wrap" contenteditable="false"><img {attrs.Trim()}><span class="editor-image-resize-handle" contenteditable="false"></span></span>""";
+
+                attrs = EnsureImgAttrsHaveDisplayWidth(attrs, widthPx);
+                return $"""<span class="editor-image-wrap is-sized" contenteditable="false" style="width: {widthPx}px;"><img{attrs}><span class="editor-image-resize-handle" contenteditable="false"></span></span>""";
+            },
             RegexOptions.IgnoreCase);
+
+    private static bool TryGetImageWidthPx(string attrs, out int widthPx)
+    {
+        widthPx = 0;
+
+        var dataWidthMatch = Regex.Match(attrs, """\bdata-editor-width\s*=\s*("(?<w>\d+)"|'(?<w>\d+)')""", RegexOptions.IgnoreCase);
+        if (dataWidthMatch.Success && int.TryParse(dataWidthMatch.Groups["w"].Value, out widthPx) && widthPx > 0)
+            return true;
+
+        var styleMatch = Regex.Match(attrs, @"\bwidth\s*:\s*(?<w>\d+)\s*px", RegexOptions.IgnoreCase);
+        if (styleMatch.Success && int.TryParse(styleMatch.Groups["w"].Value, out widthPx) && widthPx > 0)
+            return true;
+
+        var widthMatch = Regex.Match(attrs, """\bwidth\s*=\s*("(?<w>\d+)"|'(?<w>\d+)')""", RegexOptions.IgnoreCase);
+        if (widthMatch.Success && int.TryParse(widthMatch.Groups["w"].Value, out widthPx) && widthPx > 0)
+            return true;
+
+        widthPx = 0;
+        return false;
+    }
+
+    private static string EnsureImgAttrsHaveDisplayWidth(string attrs, int widthPx)
+    {
+        var srcMatch = Regex.Match(attrs, """\bsrc\s*=\s*("(?<v>[^"]*)"|'(?<v>[^']*)')""", RegexOptions.IgnoreCase);
+        if (!srcMatch.Success)
+            return attrs;
+
+        var src = srcMatch.Groups["v"].Value;
+        var altMatch = Regex.Match(attrs, """\balt\s*=\s*("(?<v>[^"]*)"|'(?<v>[^']*)')""", RegexOptions.IgnoreCase);
+        var alt = altMatch.Success ? altMatch.Groups["v"].Value : string.Empty;
+        var altAttr = alt.Length > 0
+            ? " alt=\"" + System.Net.WebUtility.HtmlEncode(alt) + "\""
+            : string.Empty;
+        return " src=\"" + System.Net.WebUtility.HtmlEncode(src) + "\"" + altAttr
+            + " data-editor-width=\"" + widthPx + "\""
+            + " style=\"width: " + widthPx + "px; height: auto; max-width: none;\"";
+    }
 
     private static string WrapFileLinksForEditing(string html) =>
         Regex.Replace(
@@ -125,11 +171,14 @@ internal static class EditorHtmlBuilder
               background: var(--editor-bg) !important; overflow: hidden;
             }
             ::selection { background: var(--editor-selection); }
-            #editor::-webkit-scrollbar { width: 10px; }
+            #editor::-webkit-scrollbar { width: 16px; cursor: default; }
+            #editor::-webkit-scrollbar-track { background: transparent; cursor: default; }
             #editor::-webkit-scrollbar-thumb {
-              background: var(--editor-border); border-radius: 999px; border: 2px solid var(--editor-bg);
+              background: var(--editor-border); border-radius: 999px; border: 3px solid var(--editor-bg);
+              cursor: grab;
             }
-            #editor::-webkit-scrollbar-track { background: transparent; }
+            #editor::-webkit-scrollbar-thumb:hover { cursor: grab; }
+            #editor::-webkit-scrollbar-thumb:active { cursor: grabbing; }
             #editor {
               height: 100%; box-sizing: border-box;
               padding: 8px 32px 24px 32px; outline: none; overflow-y: auto;
@@ -176,23 +225,38 @@ internal static class EditorHtmlBuilder
             th { background: var(--editor-code-bg); font-weight: 600; }
             ul, ol { margin: 0 0 14px; padding-left: 28px; }
             a { color: var(--editor-accent) !important; text-decoration: underline; }
-            #editor img { border-radius: 2px; vertical-align: text-bottom; }
+            #editor a[href] { cursor: pointer; }
+            #editor img { border-radius: 2px; }
             .editor-image-wrap {
               display: inline-block; position: relative;
-              margin: 0 1px; vertical-align: text-bottom; line-height: 1;
+              vertical-align: baseline; max-width: 100%;
+              margin: 0 2px; line-height: 0;
+              cursor: pointer;
             }
             .editor-image-wrap.is-sized { max-width: none; }
+            .editor-image-wrap.is-sized > img {
+              max-width: none;
+              max-height: none;
+            }
             .editor-image-wrap img {
               height: auto; border-radius: 2px;
               border: 1px solid var(--editor-border-light);
-              display: inline-block; vertical-align: text-bottom;
+              display: inline-block; vertical-align: baseline;
+              max-width: 100%;
+              cursor: pointer;
             }
-            .editor-image-wrap:not(.is-sized) img {
-              max-height: 1.25em; width: auto; max-width: none;
+            .editor-image-wrap:not(.is-sized) img:not([width]) {
+              width: auto; height: auto;
+              max-width: 100%; max-height: none;
             }
             .editor-image-wrap.is-sized img,
+            .editor-image-wrap img[data-editor-width],
+            .editor-image-wrap img[width],
             .editor-image-wrap img[style*="width"] {
               max-width: none; max-height: none;
+            }
+            p.editor-image-block {
+              margin: 0 0 14px;
             }
             .editor-image-wrap.is-selected img {
               outline: 2px solid var(--editor-accent); outline-offset: 1px;
@@ -230,6 +294,7 @@ internal static class EditorHtmlBuilder
               border: 1px solid var(--editor-border); border-radius: 6px;
               background: var(--editor-code-bg); color: var(--editor-text) !important;
               text-decoration: none !important; font-size: 0.95em;
+              cursor: pointer;
             }
             .editor-file-attachment:before {
               content: "📎"; font-size: 1em; line-height: 1;
@@ -292,6 +357,32 @@ internal static class EditorHtmlBuilder
 
             function notifyChanged() { window.chrome.webview.postMessage('changed'); }
             function notifyCaret() { window.chrome.webview.postMessage('caret'); }
+            function notifyOpen(href) {
+              if (!href) return;
+              window.chrome.webview.postMessage(JSON.stringify({ type: 'open', href: href }));
+            }
+            function isOpenModifier(e) {
+              return !!(e && (e.ctrlKey || e.metaKey));
+            }
+
+            function tryOpenImageFromTarget(target) {
+              const wrap = target.closest('.editor-image-wrap');
+              if (!wrap || !editor.contains(wrap)) return false;
+              const img = wrap.querySelector('img');
+              const src = img ? (img.getAttribute('src') || img.src) : '';
+              if (!src) return false;
+              notifyOpen(src);
+              return true;
+            }
+
+            function tryOpenLinkFromTarget(target) {
+              const link = target.closest('a[href]');
+              if (!link || !editor.contains(link)) return false;
+              const href = link.getAttribute('href') || link.href;
+              if (!href) return false;
+              notifyOpen(href);
+              return true;
+            }
 
             let caretNotifyTimer = null;
             function notifyCaretDebounced() {
@@ -301,6 +392,56 @@ internal static class EditorHtmlBuilder
                 notifyCaret();
               }, 200);
             }
+
+            const editorScrollbarWidth = 16;
+
+            function editorHasVerticalScrollbar() {
+              return editor.scrollHeight > editor.clientHeight + 1;
+            }
+
+            function isOverEditorScrollbar(clientX, clientY) {
+              if (!editorHasVerticalScrollbar()) return false;
+              const rect = editor.getBoundingClientRect();
+              return clientX >= rect.right - editorScrollbarWidth
+                && clientX <= rect.right
+                && clientY >= rect.top
+                && clientY <= rect.bottom;
+            }
+
+            let editorScrollbarCursorActive = false;
+
+            function updateEditorScrollbarCursor(e) {
+              if (isOverEditorScrollbar(e.clientX, e.clientY)) {
+                if (!editorScrollbarCursorActive) {
+                  editor.style.cursor = 'grab';
+                  editorScrollbarCursorActive = true;
+                }
+                return;
+              }
+
+              if (editorScrollbarCursorActive) {
+                editor.style.removeProperty('cursor');
+                editorScrollbarCursorActive = false;
+              }
+            }
+
+            function resetEditorScrollbarCursor() {
+              if (!editorScrollbarCursorActive) return;
+              editor.style.removeProperty('cursor');
+              editorScrollbarCursorActive = false;
+            }
+
+            editor.addEventListener('mousemove', updateEditorScrollbarCursor);
+            editor.addEventListener('mouseleave', resetEditorScrollbarCursor);
+            editor.addEventListener('mousedown', (e) => {
+              if (e.button !== 0 || !isOverEditorScrollbar(e.clientX, e.clientY)) return;
+              editor.style.cursor = 'grabbing';
+              function onUp() {
+                document.removeEventListener('mouseup', onUp);
+                resetEditorScrollbarCursor();
+              }
+              document.addEventListener('mouseup', onUp);
+            });
 
             function escapeHtml(text) {
               return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -448,6 +589,68 @@ internal static class EditorHtmlBuilder
               sel.addRange(range);
             }
 
+            let fileDropDepth = 0;
+
+            function isExternalFileDrag(e) {
+              const types = e.dataTransfer?.types;
+              if (!types) return false;
+              return Array.from(types).includes('Files');
+            }
+
+            function focusCaretAtClientPoint(x, y) {
+              const range = document.caretRangeFromPoint(x, y);
+              if (!range || !editor.contains(range.startContainer)) return false;
+              range.collapse(true);
+              const sel = window.getSelection();
+              if (!sel) return false;
+              sel.removeAllRanges();
+              sel.addRange(range);
+              return true;
+            }
+
+            function postFileDropMessage(files, clientX, clientY) {
+              if (!files || files.length === 0) return;
+              const payload = JSON.stringify({
+                type: 'file-drop',
+                x: Math.round(clientX),
+                y: Math.round(clientY)
+              });
+              if (window.chrome?.webview?.postMessageWithAdditionalObjects)
+                window.chrome.webview.postMessageWithAdditionalObjects(payload, files);
+            }
+
+            editor.addEventListener('dragenter', (e) => {
+              if (!isExternalFileDrag(e)) return;
+              e.preventDefault();
+              fileDropDepth++;
+              editor.classList.add('is-file-drop-target');
+            });
+
+            editor.addEventListener('dragleave', (e) => {
+              if (!isExternalFileDrag(e)) return;
+              fileDropDepth = Math.max(0, fileDropDepth - 1);
+              if (fileDropDepth === 0)
+                editor.classList.remove('is-file-drop-target');
+            });
+
+            editor.addEventListener('dragover', (e) => {
+              if (!isExternalFileDrag(e)) return;
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+              editor.classList.add('is-file-drop-target');
+              focusCaretAtClientPoint(e.clientX, e.clientY);
+            });
+
+            editor.addEventListener('drop', (e) => {
+              if (!isExternalFileDrag(e)) return;
+              e.preventDefault();
+              e.stopPropagation();
+              fileDropDepth = 0;
+              editor.classList.remove('is-file-drop-target');
+              focusCaretAtClientPoint(e.clientX, e.clientY);
+              postFileDropMessage(e.dataTransfer?.files, e.clientX, e.clientY);
+            });
+
             editor.addEventListener('input', () => {
               updateEmptyState();
               notifyChanged();
@@ -462,11 +665,36 @@ internal static class EditorHtmlBuilder
                 suppressNextImageClick = false;
                 return;
               }
+              if (e.button === 0 && isOpenModifier(e)) {
+                if (tryOpenLinkFromTarget(e.target)) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                if (tryOpenImageFromTarget(e.target)) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+              }
               if (e.button === 0) {
                 if (!e.target.closest('.editor-image-wrap'))
                   editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => w.classList.remove('is-selected'));
                 notifyCaretDebounced();
               }
+            });
+            editor.addEventListener('dblclick', (e) => {
+              if (imageMoveSession) return;
+              if (tryOpenLinkFromTarget(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+              const wrap = e.target.closest('.editor-image-wrap');
+              if (!wrap || !editor.contains(wrap)) return;
+              e.preventDefault();
+              e.stopPropagation();
+              tryOpenImageFromTarget(e.target);
             });
             editor.addEventListener('focus', ensureParagraph);
             editor.addEventListener('compositionend', () => { updateEmptyState(); notifyChanged(); });
@@ -492,7 +720,10 @@ internal static class EditorHtmlBuilder
                 return;
               }
               const selectedImage = editor.querySelector('.editor-image-wrap.is-selected');
-              if (selectedImage && (e.key === 'Backspace' || e.key === 'Delete')) {
+              const sel = window.getSelection();
+              const hasTextSelection = sel && !sel.isCollapsed &&
+                sel.rangeCount > 0 && editor.contains(sel.anchorNode);
+              if (selectedImage && !hasTextSelection && (e.key === 'Backspace' || e.key === 'Delete')) {
                 e.preventDefault();
                 selectedImage.remove();
                 updateEmptyState();
@@ -524,8 +755,21 @@ internal static class EditorHtmlBuilder
             });
 
             editor.addEventListener('paste', (e) => {
+              const clipboard = e.clipboardData || window.clipboardData;
+              const html = clipboard ? clipboard.getData('text/html') : '';
+              const text = clipboard ? clipboard.getData('text/plain') : '';
+
+              if (html && (html.includes('editor-image-wrap') || /<img\b/i.test(html))) {
+                e.preventDefault();
+                document.execCommand('insertHTML', false, html);
+                upgradeEditorBlocks();
+                updateEmptyState();
+                notifyChanged();
+                scheduleCaretAnchorNormalize();
+                return;
+              }
+
               e.preventDefault();
-              const text = (e.clipboardData || window.clipboardData).getData('text/plain');
               document.execCommand('insertText', false, text);
               updateEmptyState();
               notifyChanged();
@@ -538,8 +782,8 @@ internal static class EditorHtmlBuilder
                 startX: e.clientX,
                 startY: e.clientY,
                 dragging: false,
-                savedParent: null,
-                savedNext: null,
+                savedParent: wrap.parentNode,
+                savedNext: wrap.nextSibling,
                 offsetX: 0,
                 offsetY: 0,
                 dropRange: null
@@ -604,8 +848,8 @@ internal static class EditorHtmlBuilder
               if (!session.dragging) {
                 if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
                 session.dragging = true;
-                session.savedParent = wrap.parentNode;
-                session.savedNext = wrap.nextSibling;
+                const sel = window.getSelection();
+                if (sel) sel.removeAllRanges();
                 const rect = wrap.getBoundingClientRect();
                 session.offsetX = e.clientX - rect.left;
                 session.offsetY = e.clientY - rect.top;
@@ -632,39 +876,81 @@ internal static class EditorHtmlBuilder
               finishImageMove(e);
             });
 
+            function parsePositivePx(value) {
+              const parsed = parseInt(String(value || '').trim(), 10);
+              return !Number.isNaN(parsed) && parsed > 0 ? parsed : 0;
+            }
+
+            function parseCssWidthPx(styleValue) {
+              if (!styleValue) return 0;
+              const match = String(styleValue).match(/\bwidth\s*:\s*(\d+)\s*px/i);
+              return match ? parsePositivePx(match[1]) : 0;
+            }
+
+            function readSavedImageWidthPx(wrap, img) {
+              const dataWidth = parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
+              if (dataWidth) return dataWidth;
+
+              const wrapWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'));
+              if (wrapWidth) return wrapWidth;
+
+              const inlineWidth = parseCssWidthPx(img.style.width);
+              if (inlineWidth) return inlineWidth;
+
+              return parseCssWidthPx(img.getAttribute('style'));
+            }
+
             function applyImageSizeState(wrap, img) {
-              if (img.style.width || img.getAttribute('width')) {
-                wrap.classList.add('is-sized');
-                img.style.maxWidth = 'none';
-              }
+              const savedWidth = readSavedImageWidthPx(wrap, img);
+              if (!savedWidth) return;
+
+              wrap.classList.add('is-sized');
+              img.dataset.editorWidth = String(savedWidth);
+              img.setAttribute('data-editor-width', String(savedWidth));
+              img.style.width = savedWidth + 'px';
+              img.style.height = 'auto';
+              img.style.maxWidth = 'none';
+              wrap.style.width = savedWidth + 'px';
+              img.removeAttribute('width');
+              img.removeAttribute('height');
+            }
+
+            function reapplyAllImageSizes() {
+              editor.querySelectorAll('.editor-image-wrap').forEach(wrap => {
+                const img = wrap.querySelector('img');
+                if (img) applyImageSizeState(wrap, img);
+              });
             }
 
             function setupImageResize(wrap, img, handle) {
               wrap.addEventListener('mousedown', (e) => {
-                if (e.button !== 0 || e.target === handle) return;
+                if (e.button !== 0 || e.target === handle || isOpenModifier(e)) return;
                 const rect = wrap.getBoundingClientRect();
                 const localX = e.clientX - rect.left;
                 const edge = Math.min(10, rect.width * 0.15);
                 if (localX <= edge) {
-                  e.preventDefault();
-                  wrap.classList.remove('is-selected');
-                  placeCaretBefore(wrap);
+                  if (!e.shiftKey) {
+                    wrap.classList.remove('is-selected');
+                    placeCaretBefore(wrap);
+                  }
                   return;
                 }
                 if (localX >= rect.width - edge) {
-                  e.preventDefault();
-                  wrap.classList.remove('is-selected');
-                  placeCaretAfter(wrap);
+                  if (!e.shiftKey) {
+                    wrap.classList.remove('is-selected');
+                    placeCaretAfter(wrap);
+                  }
                   return;
                 }
-                editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => w.classList.remove('is-selected'));
-                wrap.classList.add('is-selected');
+                if (!e.shiftKey) {
+                  editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => w.classList.remove('is-selected'));
+                  wrap.classList.add('is-selected');
+                }
                 beginImageMoveTracking(wrap, e);
-                e.preventDefault();
               });
 
               handle.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
+                if (e.button !== 0 || isOpenModifier(e)) return;
                 imageMoveSession = null;
                 hideImageDropCaret();
                 e.preventDefault();
@@ -680,6 +966,10 @@ internal static class EditorHtmlBuilder
                   img.style.width = width + 'px';
                   img.style.height = 'auto';
                   img.style.maxWidth = 'none';
+                  img.setAttribute('data-editor-width', String(width));
+                  img.dataset.editorWidth = String(width);
+                  img.removeAttribute('width');
+                  img.removeAttribute('height');
                   wrap.classList.add('is-sized');
                   wrap.style.width = width + 'px';
                 }
@@ -687,6 +977,13 @@ internal static class EditorHtmlBuilder
                 function onUp() {
                   document.removeEventListener('mousemove', onMove);
                   document.removeEventListener('mouseup', onUp);
+                  const width = parseInt(img.style.width, 10);
+                  if (!Number.isNaN(width) && width > 0) {
+                    img.setAttribute('data-editor-width', String(width));
+                    img.dataset.editorWidth = String(width);
+                    img.removeAttribute('width');
+                    img.removeAttribute('height');
+                  }
                   notifyChanged();
                 }
 
@@ -711,8 +1008,11 @@ internal static class EditorHtmlBuilder
               setupImageResize(wrap, img, handle);
               ensureCaretAnchors(wrap);
               wrap.dataset.resizeReady = '1';
-              if (!img.complete) {
-                img.addEventListener('load', () => applyImageSizeState(wrap, img), { once: true });
+              const reapplySize = () => applyImageSizeState(wrap, img);
+              if (!img.complete)
+                img.addEventListener('load', reapplySize, { once: true });
+              if (typeof img.decode === 'function') {
+                img.decode().then(reapplySize).catch(() => {});
               }
             }
 
@@ -730,9 +1030,33 @@ internal static class EditorHtmlBuilder
               ensureImageWrapReady(wrap);
             }
 
+            function getMeaningfulParagraphNodes(container) {
+              return Array.from(container.childNodes).filter(node => {
+                if (node.nodeType === Node.TEXT_NODE)
+                  return node.textContent.replace(/\u200b/g, '').trim().length > 0;
+                if (node.nodeType === Node.ELEMENT_NODE)
+                  return true;
+                return false;
+              });
+            }
+
+            function unwrapStandaloneImageBlocks() {
+              editor.querySelectorAll('p.editor-image-block').forEach(block => {
+                block.classList.remove('editor-image-block');
+              });
+
+              editor.querySelectorAll(':scope > .editor-image-wrap').forEach(wrap => {
+                const p = document.createElement('p');
+                editor.insertBefore(p, wrap);
+                p.appendChild(wrap);
+                ensureCaretAnchors(wrap);
+              });
+            }
+
             function upgradeEditorBlocks() {
               editor.querySelectorAll('img').forEach(img => wrapImage(img));
               editor.querySelectorAll('.editor-image-wrap').forEach(wrap => ensureImageWrapReady(wrap));
+              unwrapStandaloneImageBlocks();
               editor.querySelectorAll('a[href]').forEach(link => {
                 if (link.classList.contains('editor-file-attachment')) return;
                 if (link.querySelector('img')) return;
@@ -807,12 +1131,15 @@ internal static class EditorHtmlBuilder
                 ensureParagraph();
                 const safeSrc = escapeHtml(src);
                 const safeAlt = escapeHtml(alt || '');
-                document.execCommand('insertHTML', false, '&#8203;<span class="editor-image-wrap" contenteditable="false"><img src="' + safeSrc + '" alt="' + safeAlt + '"><span class="editor-image-resize-handle" contenteditable="false"></span></span>&#8203;');
+                document.execCommand(
+                  'insertHTML',
+                  false,
+                  '&#8203;<span class="editor-image-wrap" contenteditable="false"><img src="' + safeSrc + '" alt="' + safeAlt + '"><span class="editor-image-resize-handle" contenteditable="false"></span></span>&#8203;');
                 upgradeEditorBlocks();
                 const wraps = editor.querySelectorAll('.editor-image-wrap');
                 if (wraps.length > 0) {
                   const lastWrap = wraps[wraps.length - 1];
-                  ensureCaretAnchors(lastWrap);
+                  ensureImageWrapReady(lastWrap);
                   placeCaretAfter(lastWrap);
                 }
                 updateEmptyState();
@@ -917,10 +1244,15 @@ internal static class EditorHtmlBuilder
             setThemeVars(defaultTheme);
             clearStaleInlineColors();
             upgradeEditorBlocks();
+            reapplyAllImageSizes();
             updateEmptyState();
             window.addEventListener('load', () => {
               clearStaleInlineColors();
               upgradeEditorBlocks();
+              reapplyAllImageSizes();
+              requestAnimationFrame(reapplyAllImageSizes);
+              setTimeout(reapplyAllImageSizes, 0);
+              setTimeout(reapplyAllImageSizes, 100);
               placeCaretAtEnd(editor);
             });
           </script>

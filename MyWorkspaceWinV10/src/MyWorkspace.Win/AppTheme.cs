@@ -117,6 +117,7 @@ internal static class AppTheme
             SaveStatusKind.Modified => Warning,
             SaveStatusKind.Failed => Danger,
             SaveStatusKind.Saved or SaveStatusKind.AutoSaved => Success,
+            SaveStatusKind.OfflineSaved => Warning,
             _ => TextMuted
         };
 
@@ -840,13 +841,13 @@ internal static class AppTheme
             button.Font,
             new Size(int.MaxValue, int.MaxValue),
             flags);
-        const int iconGap = 6;
+        const int iconGap = 8;
         var iconWidth = button.Image?.Width ?? 0;
         var iconHeight = button.Image?.Height ?? 0;
-        var iconExtra = iconWidth > 0 ? iconWidth + iconGap : 0;
+        var iconExtra = iconWidth > 0 ? iconWidth + iconGap + 4 : 0;
         var contentWidth = textSize.Width + iconExtra;
         var contentHeight = Math.Max(textSize.Height, iconHeight);
-        var horizontalPadding = button.Padding.Horizontal + 8;
+        var horizontalPadding = button.Padding.Horizontal + (iconWidth > 0 ? 16 : 8);
         var verticalPadding = button.Padding.Vertical + 8;
         var width = Math.Max(minWidth, contentWidth + horizontalPadding);
         var fittedHeight = Math.Max(height, contentHeight + verticalPadding);

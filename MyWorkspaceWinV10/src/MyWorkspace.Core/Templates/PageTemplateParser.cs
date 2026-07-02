@@ -12,6 +12,7 @@ public static class PageTemplateParser
         {
             Id = template.Id,
             Name = template.Name,
+            DefaultTitle = template.DefaultTitle,
             Description = template.Description,
             ContentPattern = template.ContentPattern,
             Order = template.Order,
@@ -52,6 +53,7 @@ public static class PageTemplateParser
 
         var id = GetMeta(metadata, "id") ?? Slugify(fallbackName);
         var name = GetMeta(metadata, "name") ?? fallbackName;
+        var defaultTitle = GetMeta(metadata, "defaultTitle") ?? GetMeta(metadata, "title") ?? name;
         var description = GetMeta(metadata, "description") ?? string.Empty;
         var order = int.TryParse(GetMeta(metadata, "order"), out var parsedOrder) ? parsedOrder : 100;
 
@@ -62,6 +64,7 @@ public static class PageTemplateParser
         {
             Id = id,
             Name = name,
+            DefaultTitle = defaultTitle,
             Description = description,
             ContentPattern = content,
             Order = order,

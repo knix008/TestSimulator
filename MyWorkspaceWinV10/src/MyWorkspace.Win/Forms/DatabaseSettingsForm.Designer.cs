@@ -121,22 +121,22 @@ partial class DatabaseSettingsForm
 
         btnTest.Location = new Point(120, 232);
         btnTest.Name = "btnTest";
-        btnTest.Size = new Size(100, 32);
+        btnTest.Size = new Size(120, 32);
         btnTest.Text = "연결 테스트";
         btnTest.Click += btnTest_Click;
 
         lblResult.AutoSize = true;
-        lblResult.Location = new Point(228, 238);
-        lblResult.MaximumSize = new Size(172, 0);
+        lblResult.Location = new Point(120, 272);
+        lblResult.MaximumSize = new Size(280, 0);
         lblResult.Text = string.Empty;
 
-        btnSave.Location = new Point(220, 276);
+        btnSave.Location = new Point(220, 312);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(96, 32);
         btnSave.Text = "저장";
         btnSave.Click += btnSave_Click;
 
-        btnCancel.Location = new Point(315, 276);
+        btnCancel.Location = new Point(315, 312);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(96, 32);
         btnCancel.Text = "취소";
@@ -144,7 +144,7 @@ partial class DatabaseSettingsForm
 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(420, 324);
+        ClientSize = new Size(420, 360);
         Controls.Add(lblResult);
         Controls.Add(btnCancel);
         Controls.Add(btnSave);

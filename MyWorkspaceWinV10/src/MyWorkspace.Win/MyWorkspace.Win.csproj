@@ -64,6 +64,8 @@
 
     <PackageReference Include="ReverseMarkdown" Version="4.6.0" />
 
+    <PackageReference Include="Svg.Skia" Version="2.0.0.1" />
+
   </ItemGroup>
 
 
@@ -132,21 +134,11 @@
 
 
   <!-- Release 빌드 시 MSI 생성. SkipInstaller=true 로 순환 참조 방지. -->
-  <Target Name="BuildInstallerOnRelease"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release'
-                     AND '$(SkipInstaller)' != 'true'
-                     AND '$(BuildingMsiPackage)' != 'true'
-                     AND '$(DesignTimeBuild)' != 'true'
-                     AND Exists('$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj')">
+  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'&#xD;&#xA;                     AND '$(SkipInstaller)' != 'true'&#xD;&#xA;                     AND '$(BuildingMsiPackage)' != 'true'&#xD;&#xA;                     AND '$(DesignTimeBuild)' != 'true'&#xD;&#xA;                     AND Exists('$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj')">
     <Message Importance="high" Text="Building MSI installer package (WiX)..." />
     <Exec Command="cmd /c taskkill /IM MyWorkspaceWinV10.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
-    <MSBuild Projects="$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj"
-             Targets="Restore;Build"
-             BuildInParallel="false"
-             Properties="Configuration=Release;Platform=x64;SkipInstaller=true;BuildingMsiPackage=true" />
-    <Error Condition="!Exists('$(MSBuildProjectDirectory)\..\..\installer\bin\Release\MyWorkspaceWinV10Setup.msi')"
-           Text="MSI was not created. Close any running MyWorkspaceWinV10.exe and rebuild Release." />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\..\installer\MyWorkspaceWinV10.Installer.wixproj" Targets="Restore;Build" BuildInParallel="false" Properties="Configuration=Release;Platform=x64;SkipInstaller=true;BuildingMsiPackage=true" />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)\..\..\installer\bin\Release\MyWorkspaceWinV10Setup.msi')" Text="MSI was not created. Close any running MyWorkspaceWinV10.exe and rebuild Release." />
     <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\..\installer\bin\Release\MyWorkspaceWinV10Setup.msi" />
   </Target>
 
@@ -154,10 +146,7 @@
 
   <Target Name="CopyWspIconToOutput" AfterTargets="Build">
 
-    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\wsp.ico"
-          DestinationFolder="$(OutputPath)"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(MSBuildProjectDirectory)\Assets\wsp.ico')" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\wsp.ico" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" Condition="Exists('$(MSBuildProjectDirectory)\Assets\wsp.ico')" />
 
   </Target>
 
@@ -165,10 +154,7 @@
 
   <Target Name="CopyWspIconToPublish" AfterTargets="Publish">
 
-    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\wsp.ico"
-          DestinationFolder="$(PublishDir)"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(MSBuildProjectDirectory)\Assets\wsp.ico')" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\wsp.ico" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="Exists('$(MSBuildProjectDirectory)\Assets\wsp.ico')" />
 
   </Target>
 

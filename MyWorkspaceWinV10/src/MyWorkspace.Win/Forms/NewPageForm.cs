@@ -6,6 +6,8 @@ namespace MyWorkspace.Win.Forms;
 public partial class NewPageForm : Form
 {
     private PageTemplate? _selectedTemplate;
+    private string? _initialTitleOverride;
+    private bool _suppressTitleChange;
 
     public string PageTitle => txtTitle.Text.Trim();
 
@@ -18,15 +20,18 @@ public partial class NewPageForm : Form
     {
         InitializeComponent();
         AppTheme.ApplyStandardDialog(this);
-        Shown += (_, _) => AlignTemplateToolbarButtons();
-        if (!string.IsNullOrWhiteSpace(defaultTitle))
-            txtTitle.Text = defaultTitle;
+        Shown += (_, _) => LayoutTemplateToolbarButtons();
+        Resize += (_, _) => LayoutTemplateToolbarButtons();
+        AppTheme.Changed += OnAppThemeChanged;
+        FormClosed += (_, _) => AppTheme.Changed -= OnAppThemeChanged;
+        _initialTitleOverride = defaultTitle;
     }
 
     private void NewPageForm_Load(object sender, EventArgs e)
     {
         ApplyLocalization();
         ReloadTemplateList();
+        LayoutTemplateToolbarButtons();
     }
 
     private void ApplyLocalization()
@@ -40,6 +45,7 @@ public partial class NewPageForm : Form
         lblPreview.Text = Localization.Get(K.LabelPreview);
         btnOk.Text = Localization.Get(K.ButtonCreate);
         btnCancel.Text = Localization.Get(K.ButtonCancel);
+        LayoutTemplateToolbarButtons();
     }
 
     private void ReloadTemplateList()
@@ -80,12 +86,41 @@ public partial class NewPageForm : Form
         }
 
         lstTemplates.SelectedIndex = index;
+        ApplyTitleForSelectedTemplate(preferInitialOverride: true);
         UpdatePreview();
     }
 
-    private void lstTemplates_SelectedIndexChanged(object sender, EventArgs e) => UpdatePreview();
+    private void lstTemplates_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        ApplyTitleForSelectedTemplate(preferInitialOverride: false);
+        UpdatePreview();
+    }
 
-    private void txtTitle_TextChanged(object sender, EventArgs e) => UpdatePreview();
+    private void ApplyTitleForSelectedTemplate(bool preferInitialOverride)
+    {
+        if (preferInitialOverride && !string.IsNullOrWhiteSpace(_initialTitleOverride))
+        {
+            SetTitleText(_initialTitleOverride);
+            _initialTitleOverride = null;
+            return;
+        }
+
+        if (lstTemplates.SelectedItem is PageTemplate template)
+            SetTitleText(template.DefaultTitle);
+    }
+
+    private void SetTitleText(string title)
+    {
+        _suppressTitleChange = true;
+        txtTitle.Text = title;
+        _suppressTitleChange = false;
+    }
+
+    private void txtTitle_TextChanged(object sender, EventArgs e)
+    {
+        if (!_suppressTitleChange)
+            UpdatePreview();
+    }
 
     private void UpdatePreview()
     {
@@ -100,7 +135,7 @@ public partial class NewPageForm : Form
             return;
 
         var title = string.IsNullOrWhiteSpace(txtTitle.Text)
-            ? Localization.Get(K.DefaultNewPageTitle)
+            ? _selectedTemplate.DefaultTitle
             : txtTitle.Text.Trim();
         txtPreview.Text = PageTemplateProvider.BuildContent(_selectedTemplate, title);
     }
@@ -145,10 +180,37 @@ public partial class NewPageForm : Form
         Close();
     }
 
-    private void AlignTemplateToolbarButtons()
+    private void OnAppThemeChanged()
     {
-        var right = ClientSize.Width - 12;
-        btnOpenTemplateFolder.Location = new Point(right - btnOpenTemplateFolder.Width, btnOpenTemplateFolder.Top);
-        btnReloadTemplates.Location = new Point(btnOpenTemplateFolder.Left - 8 - btnReloadTemplates.Width, btnReloadTemplates.Top);
+        if (IsDisposed)
+            return;
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(LayoutTemplateToolbarButtons);
+            return;
+        }
+
+        LayoutTemplateToolbarButtons();
+    }
+
+    private void LayoutTemplateToolbarButtons()
+    {
+        if (!IsHandleCreated)
+            return;
+
+        AppTheme.FitButtonSize(btnReloadTemplates);
+        AppTheme.FitButtonSize(btnOpenTemplateFolder);
+
+        const int rightPadding = 12;
+        const int gap = 8;
+        var right = ClientSize.Width - rightPadding;
+
+        btnOpenTemplateFolder.Location = new Point(
+            Math.Max(12, right - btnOpenTemplateFolder.Width),
+            btnOpenTemplateFolder.Top);
+        btnReloadTemplates.Location = new Point(
+            Math.Max(12, btnOpenTemplateFolder.Left - gap - btnReloadTemplates.Width),
+            btnReloadTemplates.Top);
     }
 }

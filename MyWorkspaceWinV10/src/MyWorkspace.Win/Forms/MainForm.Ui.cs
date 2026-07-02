@@ -243,6 +243,8 @@ public partial class MainForm
 
             SaveStatusKind.AutoSaved => Localization.Get(K.SaveStatusAutoSaved),
 
+            SaveStatusKind.OfflineSaved => Localization.Get(K.SaveStatusOfflineSaved),
+
             SaveStatusKind.Failed => Localization.Get(K.SaveStatusFailed),
 
             _ => string.Empty
@@ -259,7 +261,7 @@ public partial class MainForm
 
 
 
-        if (kind is SaveStatusKind.Saved or SaveStatusKind.AutoSaved &&
+        if (kind is SaveStatusKind.Saved or SaveStatusKind.AutoSaved or SaveStatusKind.OfflineSaved &&
 
             _currentPageId.HasValue &&
 

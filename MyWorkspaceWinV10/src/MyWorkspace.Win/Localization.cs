@@ -67,6 +67,10 @@ internal static class Localization
         Add(K.SaveStatusModified, "수정됨", "Modified");
         Add(K.SaveStatusSaved, "저장됨", "Saved");
         Add(K.SaveStatusAutoSaved, "자동 저장됨", "Auto-saved");
+        Add(K.SaveStatusOfflineSaved, "로컬 SQLite에 저장됨", "Saved to local SQLite");
+        Add(K.StatusPageOfflineSaved, "Page: {0} (로컬 SQLite)", "Page: {0} (local SQLite)");
+        Add(K.StatusOfflineFallbackMode, "로컬 SQLite 모드 (DB 연결 불가)", "Local SQLite mode (database unavailable)");
+        Add(K.OfflineSaveContextMissing, "오프라인 저장에 필요한 Page 정보가 없습니다.", "Page context required for offline save is missing.");
         Add(K.SaveStatusFailed, "저장 실패", "Save failed");
 
         Add(K.MenuFile, "파일(&F)", "&File");
@@ -144,8 +148,8 @@ internal static class Localization
         Add(K.ToolbarInlineCode, "인라인 코드", "Inline Code");
         Add(K.ToolbarCodeBlock, "코드 블록", "Code Block");
         Add(K.ToolbarLink, "링크", "Link");
-        Add(K.ToolbarImage, "이미지", "Image");
-        Add(K.ToolbarAttachFile, "파일", "File");
+        Add(K.ToolbarImage, "이미지 불러오기", "Import Image");
+        Add(K.ToolbarAttachFile, "파일 불러오기", "Load File");
         Add(K.ToolbarBulletList, "글머리 목록", "Bullet List");
         Add(K.ToolbarNumberList, "번호 목록", "Numbered List");
         Add(K.ToolbarQuote, "인용", "Quote");
@@ -277,7 +281,8 @@ internal static class Localization
         Add(K.DialogImageFilePrompt, "JPEG, PNG, GIF, WebP, AVIF 이미지 파일을 선택하세요.", "Select a JPEG, PNG, GIF, WebP, or AVIF image.");
         Add(K.DialogAttachFilePrompt, "첨부할 파일을 선택하세요.", "Select a file to attach.");
         Add(K.AttachmentRequiresPage, "이미지나 파일을 추가하려면 먼저 Page를 열어 주세요.", "Open a page before inserting images or files.");
-        Add(K.ImageFileFilterLabel, "이미지 (JPEG, PNG, GIF, WebP, AVIF)", "Images (JPEG, PNG, GIF, WebP, AVIF)");
+        Add(K.OpenResourceFailed, "링크나 파일을 열 수 없습니다.", "Unable to open the link or file.");
+        Add(K.ImageFileFilterLabel, "이미지 (JPEG, PNG, GIF, WebP, AVIF, SVG)", "Images (JPEG, PNG, GIF, WebP, AVIF, SVG)");
         Add(K.UnsupportedImageFormat, "지원하지 않는 이미지 형식입니다: {0}", "Unsupported image format: {0}");
         Add(K.AllFilesFilterLabel, "모든 파일", "All Files");
         Add(K.ExportPageTitle, "Page 내보내기", "Export Page");
@@ -466,6 +471,10 @@ internal static class K
     public const string SaveStatusModified = "SaveStatusModified";
     public const string SaveStatusSaved = "SaveStatusSaved";
     public const string SaveStatusAutoSaved = "SaveStatusAutoSaved";
+    public const string SaveStatusOfflineSaved = "SaveStatusOfflineSaved";
+    public const string StatusPageOfflineSaved = "StatusPageOfflineSaved";
+    public const string StatusOfflineFallbackMode = "StatusOfflineFallbackMode";
+    public const string OfflineSaveContextMissing = "OfflineSaveContextMissing";
     public const string SaveStatusFailed = "SaveStatusFailed";
 
     public const string MenuFile = "MenuFile";
@@ -677,6 +686,7 @@ internal static class K
     public const string UnsupportedImageFormat = "UnsupportedImageFormat";
     public const string DialogAttachFilePrompt = "DialogAttachFilePrompt";
     public const string AttachmentRequiresPage = "AttachmentRequiresPage";
+    public const string OpenResourceFailed = "OpenResourceFailed";
     public const string ImageFileFilterLabel = "ImageFileFilterLabel";
     public const string AllFilesFilterLabel = "AllFilesFilterLabel";
     public const string ExportPageTitle = "ExportPageTitle";

@@ -1,8 +1,12 @@
+using MyWorkspace.Core.Models;
+using MyWorkspace.Data;
+
 namespace MyWorkspace.Win.Forms;
 
 public partial class MainForm
 {
     private string _currentPageTitle = string.Empty;
+    private OfflinePageContext? _offlinePageContext;
 
     private void InitializeEditor()
     {
@@ -13,8 +17,8 @@ public partial class MainForm
         _editor.ContentChanged += OnEditorContentChanged;
         _editor.CaretMoved += OnEditorCaretMoved;
         _editor.ContextMenuRequested += OnEditorContextMenuRequested;
+        _editor.OpenRequested += OnEditorOpenRequested;
         _editor.ConfigureFileDrop(
-            pnlEditorHost,
             HandleEditorFilesDroppedAsync,
             () => SessionContext.IsLoggedIn
                   && (_currentPageId.HasValue || _draftWorkspaceId.HasValue)
@@ -32,6 +36,25 @@ public partial class MainForm
             pnlEditorEmptySurface.BringToFront();
         else
             webViewEditor.BringToFront();
+    }
+
+    private void OnEditorOpenRequested(string href)
+    {
+        try
+        {
+            if (EditorResourceOpener.TryOpen(href))
+                return;
+
+            MessageBox.Show(
+                Localization.Get(K.OpenResourceFailed),
+                L.AppName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.OpenResourceFailed), ex);
+        }
     }
 
     private void OnEditorContextMenuRequested(Point location)
@@ -96,6 +119,10 @@ public partial class MainForm
             var content = PageTitleHelper.EnsureTitleHeading(page.Title, page.Content);
             PageAssetStore.EnsureAssetsMaterialized(pageId, content);
             await _editor!.LoadMarkdownAsync(content, _pipeline, pageId);
+            _offlinePageContext = OfflinePageContextBuilder.TryBuild(
+                AppConfig.Services,
+                SessionContext.CurrentUser,
+                pageId);
             await _editor.FocusAsync();
         }
         catch (Exception ex)
@@ -111,6 +138,7 @@ public partial class MainForm
             await UpdateOutlineAsync();
             lblStatus.Text = Localization.Format(K.StatusPage, page.Title);
             RefreshWorkspaceEditState();
+            RecordCurrentPageForSession();
         }
     }
 
@@ -121,6 +149,7 @@ public partial class MainForm
         _currentPageId = null;
         _draftWorkspaceId = null;
         _currentPageTitle = string.Empty;
+        _offlinePageContext = null;
         _isLoadingPage = true;
         UpdateEditorEmptySurface();
 
@@ -152,6 +181,7 @@ public partial class MainForm
         _currentPageId = null;
         _draftWorkspaceId = null;
         _currentPageTitle = string.Empty;
+        _offlinePageContext = null;
         _isLoadingPage = true;
         UpdateEditorEmptySurface();
 
@@ -190,6 +220,10 @@ public partial class MainForm
             var content = PageTitleHelper.EnsureTitleHeading(page.Title, page.Content);
             PageAssetStore.EnsureAssetsMaterialized(pageId, content);
             await _editor.LoadMarkdownAsync(content, _pipeline, pageId);
+            _offlinePageContext = OfflinePageContextBuilder.TryBuild(
+                AppConfig.Services,
+                SessionContext.CurrentUser,
+                pageId);
             _isDirty = false;
             SetSaveStatus(SaveStatusKind.Saved);
             await UpdateOutlineAsync();
@@ -225,20 +259,23 @@ public partial class MainForm
         {
             var content = await _editor.GetMarkdownAsync(_currentPageId);
             var title = PageTitleHelper.ExtractTitleFromMarkdown(content);
-            AppConfig.Services.Pages.UpdatePage(
+            var saveResult = AppConfigPageSave.TrySavePage(
                 SessionContext.CurrentUser,
                 _currentPageId.Value,
                 title,
-                content);
-
-            PageAssetStore.SyncAssetsWithContent(_currentPageId.Value, content);
+                content,
+                _offlinePageContext);
 
             _currentPageTitle = title;
             _isDirty = false;
             if (showStatus)
             {
-                SetSaveStatus(SaveStatusKind.AutoSaved);
-                lblStatus.Text = Localization.Format(K.StatusPage, title);
+                SetSaveStatus(saveResult == PageSaveResult.OfflineFallback
+                    ? SaveStatusKind.OfflineSaved
+                    : SaveStatusKind.AutoSaved);
+                lblStatus.Text = saveResult == PageSaveResult.OfflineFallback
+                    ? Localization.Format(K.StatusPageOfflineSaved, title)
+                    : Localization.Format(K.StatusPage, title);
             }
 
             if (refreshTree)

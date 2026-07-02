@@ -48,7 +48,7 @@ partial class NewPageForm
         btnReloadTemplates.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnReloadTemplates.Location = new Point(432, 44);
         btnReloadTemplates.Name = "btnReloadTemplates";
-        btnReloadTemplates.Size = new Size(96, 32);
+        btnReloadTemplates.Size = new Size(120, 32);
         btnReloadTemplates.Text = "새로고침";
         btnReloadTemplates.UseVisualStyleBackColor = true;
         btnReloadTemplates.Click += btnReloadTemplates_Click;
@@ -56,7 +56,7 @@ partial class NewPageForm
         btnOpenTemplateFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnOpenTemplateFolder.Location = new Point(518, 44);
         btnOpenTemplateFolder.Name = "btnOpenTemplateFolder";
-        btnOpenTemplateFolder.Size = new Size(160, 32);
+        btnOpenTemplateFolder.Size = new Size(180, 32);
         btnOpenTemplateFolder.Text = "양식 폴더 열기";
         btnOpenTemplateFolder.UseVisualStyleBackColor = true;
         btnOpenTemplateFolder.Click += btnOpenTemplateFolder_Click;

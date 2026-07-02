@@ -13,13 +13,18 @@ internal static class PageExportService
         File.WriteAllText(outputPath, content);
     }
 
-    public static void ExportWord(string markdownBody, string outputPath, MarkdownPipeline pipeline)
+    public static void ExportWord(string title, string markdownBody, string outputPath, MarkdownPipeline pipeline, int pageId)
     {
-        MarkdownDocxExporter.Export(markdownBody, outputPath, pipeline);
+        PageAssetStore.EnsureAssetsMaterialized(pageId, markdownBody);
+        var prepared = PageMarkdownNormalizer.MaterializeAssetsForExport(markdownBody, pageId, outputPath);
+        var withTitle = PageTitleHelper.EnsureTitleHeading(title, prepared);
+        MarkdownDocxExporter.Export(withTitle, outputPath, pipeline);
     }
 
     public static async Task ExportPdfAsync(string title, string markdownBody, string outputPath, MarkdownPipeline pipeline, int pageId)
     {
+        PageAssetStore.EnsureAssetsMaterialized(pageId, markdownBody);
+        PageMarkdownNormalizer.MaterializeAssetsForExport(markdownBody, pageId, outputPath);
         var expanded = PageMarkdownNormalizer.ExpandAssetReferences(markdownBody, pageId);
         var html = PreviewHtmlBuilder.Build(title, expanded, pipeline);
         await PdfExportHelper.ExportAsync(html, outputPath);
@@ -67,11 +72,47 @@ internal sealed class PdfExportHostForm : Form
         _webView.CoreWebView2!.NavigationCompleted += OnCompleted;
         _webView.NavigateToString(html);
         await tcs.Task.ConfigureAwait(true);
+        await WaitForImagesAsync().ConfigureAwait(true);
 
         var settings = _webView.CoreWebView2.Environment.CreatePrintSettings();
         settings.ShouldPrintBackgrounds = true;
         await _webView.CoreWebView2.PrintToPdfAsync(outputPath, settings).ConfigureAwait(true);
         _navigationCompleted = true;
+    }
+
+    private async Task WaitForImagesAsync()
+    {
+        if (_webView.CoreWebView2 == null)
+            return;
+
+        await _webView.CoreWebView2.ExecuteScriptAsync(
+            """
+            (function () {
+              return new Promise(function (resolve) {
+                var images = Array.from(document.images || []);
+                if (images.length === 0) {
+                  resolve(true);
+                  return;
+                }
+                var remaining = images.length;
+                function done() {
+                  remaining -= 1;
+                  if (remaining <= 0)
+                    resolve(true);
+                }
+                images.forEach(function (img) {
+                  if (img.complete)
+                    done();
+                  else {
+                    img.onload = done;
+                    img.onerror = done;
+                  }
+                });
+              });
+            })();
+            """).ConfigureAwait(true);
+
+        await Task.Delay(150).ConfigureAwait(true);
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)

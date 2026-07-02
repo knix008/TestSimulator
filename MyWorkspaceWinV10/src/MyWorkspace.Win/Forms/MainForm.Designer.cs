@@ -519,7 +519,7 @@ partial class MainForm
         // 
         editorAreaSplit.Panel2.Controls.Add(pnlEditorHost);
         editorAreaSplit.Size = new Size(1044, 899);
-        editorAreaSplit.SplitterDistance = 329;
+        editorAreaSplit.SplitterDistance = 219;
         editorAreaSplit.TabIndex = 0;
         // 
         // pnlOutlineSidebar
@@ -529,7 +529,7 @@ partial class MainForm
         pnlOutlineSidebar.Dock = DockStyle.Fill;
         pnlOutlineSidebar.Location = new Point(0, 0);
         pnlOutlineSidebar.Name = "pnlOutlineSidebar";
-        pnlOutlineSidebar.Size = new Size(329, 100);
+        pnlOutlineSidebar.Size = new Size(219, 100);
         pnlOutlineSidebar.TabIndex = 0;
         // 
         // treeOutline
@@ -539,7 +539,7 @@ partial class MainForm
         treeOutline.HideSelection = false;
         treeOutline.Location = new Point(0, 36);
         treeOutline.Name = "treeOutline";
-        treeOutline.Size = new Size(329, 64);
+        treeOutline.Size = new Size(219, 64);
         treeOutline.TabIndex = 0;
         treeOutline.AfterSelect += treeOutline_AfterSelect;
         // 
@@ -551,7 +551,7 @@ partial class MainForm
         pnlOutlineHeader.Location = new Point(0, 0);
         pnlOutlineHeader.Name = "pnlOutlineHeader";
         pnlOutlineHeader.Padding = new Padding(4);
-        pnlOutlineHeader.Size = new Size(329, 36);
+        pnlOutlineHeader.Size = new Size(219, 36);
         pnlOutlineHeader.TabIndex = 1;
         // 
         // lblOutline
@@ -591,7 +591,7 @@ partial class MainForm
         // 
         // webViewEditor
         // 
-        webViewEditor.AllowExternalDrop = false;
+        webViewEditor.AllowExternalDrop = true;
         webViewEditor.CreationProperties = null;
         webViewEditor.DefaultBackgroundColor = Color.White;
         webViewEditor.Dock = DockStyle.Fill;

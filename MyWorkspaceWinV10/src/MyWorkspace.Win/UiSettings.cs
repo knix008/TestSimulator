@@ -21,6 +21,7 @@ public sealed class UiSettings
     public int FontScaleStep { get; set; }
     public string LastExportDirectory { get; set; } = string.Empty;
     public string LastOpenDirectory { get; set; } = string.Empty;
+    public Dictionary<string, int> LastPageIdsByUserId { get; set; } = new(StringComparer.Ordinal);
 
     public static UiSettings Default { get; } = new();
 
@@ -32,7 +33,8 @@ public sealed class UiSettings
         HasLoggedInOnce = HasLoggedInOnce,
         FontScaleStep = FontScaleStep,
         LastExportDirectory = LastExportDirectory,
-        LastOpenDirectory = LastOpenDirectory
+        LastOpenDirectory = LastOpenDirectory,
+        LastPageIdsByUserId = new Dictionary<string, int>(LastPageIdsByUserId, StringComparer.Ordinal)
     };
 }
 
@@ -42,5 +44,6 @@ public enum SaveStatusKind
     Modified,
     Saved,
     AutoSaved,
+    OfflineSaved,
     Failed
 }

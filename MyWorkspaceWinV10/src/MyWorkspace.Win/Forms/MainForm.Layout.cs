@@ -10,6 +10,7 @@ public partial class MainForm
     private const int ToolbarMinWidth = 52;
     private const int EditorMinWidth = 420;
     private const int OutlineMinWidth = 180;
+    private const int OutlineDefaultWidth = 219;
     private const int MainContentMinHeight = 480;
 
     private void ApplyLayoutConstraints() => UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed);

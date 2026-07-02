@@ -17,16 +17,16 @@ internal sealed class WebViewEditorController
     private bool _isReady;
     private int _scriptSuspendDepth;
     private bool _fileDropHooksInstalled;
-    private Control? _fileDropHost;
     private Func<string[], Point, Task>? _fileDropHandler;
     private Func<bool>? _canAcceptFileDrop;
     private DateTime _lastDragCaretUpdateUtc = DateTime.MinValue;
+    private DateTime _lastFileDropUtc = DateTime.MinValue;
+    private string _lastFileDropKey = string.Empty;
 
     public WebViewEditorController(WebView2 webView) => _webView = webView;
 
-    public void ConfigureFileDrop(Control dropHost, Func<string[], Point, Task> handler, Func<bool>? canAccept = null)
+    public void ConfigureFileDrop(Func<string[], Point, Task> handler, Func<bool>? canAccept = null)
     {
-        _fileDropHost = dropHost;
         _fileDropHandler = handler;
         _canAcceptFileDrop = canAccept;
         EnsureHostFileDropHooks();
@@ -35,6 +35,7 @@ internal sealed class WebViewEditorController
     public event Action? ContentChanged;
     public event Action? CaretMoved;
     public event Action<Point>? ContextMenuRequested;
+    public event Action<string>? OpenRequested;
 
     public bool IsReady => _isReady && _webView.CoreWebView2 != null;
     public bool IsScriptSuspended => _scriptSuspendDepth > 0;
@@ -90,9 +91,13 @@ internal sealed class WebViewEditorController
         settings.AreDefaultContextMenusEnabled = false;
         settings.AreDevToolsEnabled = false;
         settings.IsStatusBarEnabled = false;
+        settings.IsWebMessageEnabled = true;
+
+        _webView.AllowExternalDrop = true;
 
         _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
         _webView.CoreWebView2.ContextMenuRequested += OnContextMenuRequested;
+        _webView.CoreWebView2.NavigationStarting += OnNavigationStarting;
         _webView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
         EnsureHostFileDropHooks();
         await LoadMarkdownAsync(string.Empty, pipeline);
@@ -114,23 +119,19 @@ internal sealed class WebViewEditorController
 
     private void EnsureHostFileDropHooks()
     {
-        if (_fileDropHooksInstalled || _fileDropHost == null)
+        if (_fileDropHooksInstalled || _fileDropHandler == null)
             return;
 
         _fileDropHooksInstalled = true;
-        _fileDropHost.AllowDrop = true;
-        _webView.AllowExternalDrop = false;
-        _fileDropHost.DragEnter += OnWebViewDragEnter;
-        _fileDropHost.DragOver += OnWebViewDragOver;
-        _fileDropHost.DragLeave += OnWebViewDragLeave;
-        _fileDropHost.DragDrop += OnWebViewDragDrop;
+        _webView.AllowExternalDrop = true;
+        _webView.DragEnter += OnWebViewDragEnter;
+        _webView.DragOver += OnWebViewDragOver;
+        _webView.DragLeave += OnWebViewDragLeave;
+        _webView.DragDrop += OnWebViewDragDrop;
     }
 
-    private Point ToWebViewClientPoint(int dragX, int dragY)
-    {
-        var screenPoint = _fileDropHost!.PointToScreen(new Point(dragX, dragY));
-        return _webView.PointToClient(screenPoint);
-    }
+    private static Point ToWebViewClientPoint(int dragX, int dragY) =>
+        new(dragX, dragY);
 
     private bool CanAcceptHostFileDrop() =>
         _fileDropHandler != null &&
@@ -191,8 +192,19 @@ internal sealed class WebViewEditorController
 
     private async Task InvokeFileDropHandlerAsync(string[] paths, Point point)
     {
-        if (_fileDropHandler == null)
+        if (_fileDropHandler == null || paths.Length == 0)
             return;
+
+        var key = string.Join("|", paths.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase));
+        var now = DateTime.UtcNow;
+        if (string.Equals(key, _lastFileDropKey, StringComparison.Ordinal) &&
+            (now - _lastFileDropUtc).TotalMilliseconds < 750)
+        {
+            return;
+        }
+
+        _lastFileDropKey = key;
+        _lastFileDropUtc = now;
 
         try
         {
@@ -214,7 +226,13 @@ internal sealed class WebViewEditorController
         _ = ApplyThemeChromeAsync();
     }
 
-    private void OnWebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs args)
+    private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (e.IsUserInitiated)
+            e.Cancel = true;
+    }
+
+    private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
     {
         var message = args.TryGetWebMessageAsString();
         void Handle()
@@ -223,12 +241,88 @@ internal sealed class WebViewEditorController
                 ContentChanged?.Invoke();
             else if (message == "caret")
                 CaretMoved?.Invoke();
+            else if (TryHandleFileDropMessage(args, message))
+                return;
+            else
+                TryHandleOpenMessage(message);
         }
 
         if (_webView.InvokeRequired)
             _webView.BeginInvoke(Handle);
         else
             Handle();
+    }
+
+    private bool TryHandleFileDropMessage(CoreWebView2WebMessageReceivedEventArgs args, string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message) || !CanAcceptHostFileDrop())
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement) ||
+                !string.Equals(typeElement.GetString(), "file-drop", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var x = root.TryGetProperty("x", out var xElement) ? xElement.GetInt32() : 0;
+            var y = root.TryGetProperty("y", out var yElement) ? yElement.GetInt32() : 0;
+
+            var paths = new List<string>();
+            foreach (var obj in args.AdditionalObjects)
+            {
+                if (obj is CoreWebView2File file && !string.IsNullOrWhiteSpace(file.Path))
+                    paths.Add(file.Path);
+            }
+
+            if (paths.Count == 0)
+                return true;
+
+            var zoom = _webView.ZoomFactor;
+            var point = new Point(
+                (int)Math.Round(x / zoom, MidpointRounding.AwayFromZero),
+                (int)Math.Round(y / zoom, MidpointRounding.AwayFromZero));
+
+            _ = InvokeFileDropHandlerAsync(paths.ToArray(), point);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private void TryHandleOpenMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement))
+                return;
+
+            if (!string.Equals(typeElement.GetString(), "open", StringComparison.Ordinal))
+                return;
+
+            if (!root.TryGetProperty("href", out var hrefElement))
+                return;
+
+            var href = hrefElement.GetString();
+            if (string.IsNullOrWhiteSpace(href))
+                return;
+
+            OpenRequested?.Invoke(href);
+        }
+        catch (JsonException)
+        {
+            // Ignore non-JSON editor messages.
+        }
     }
 
     private void OnContextMenuRequested(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2ContextMenuRequestedEventArgs args)
@@ -278,13 +372,23 @@ internal sealed class WebViewEditorController
         if (pageId.HasValue)
             html = PageMarkdownNormalizer.PrepareHtmlForMarkdown(html, pageId.Value);
 
+        IReadOnlyList<string> preservedSizedImages = Array.Empty<string>();
+        if (pageId.HasValue)
+        {
+            (html, preservedSizedImages) = PageMarkdownNormalizer.ExtractSizedImages(html);
+        }
+
         var normalized = NormalizeHtml(html);
         var markdown = MarkdownConverter.Convert(normalized).Trim();
-        if (!pageId.HasValue)
-            return markdown;
 
-        markdown = PageMarkdownNormalizer.CollapseEditorImages(markdown, pageId.Value);
-        return PageMarkdownNormalizer.CollapseEditorFileLinks(markdown, pageId.Value);
+        if (pageId.HasValue)
+        {
+            markdown = PageMarkdownNormalizer.RestoreSizedImages(markdown, preservedSizedImages);
+            markdown = PageMarkdownNormalizer.CollapseEditorImages(markdown, pageId.Value);
+            return PageMarkdownNormalizer.CollapseEditorFileLinks(markdown, pageId.Value);
+        }
+
+        return markdown;
     }
 
     public Task ApplyHeadingAsync(int level) =>

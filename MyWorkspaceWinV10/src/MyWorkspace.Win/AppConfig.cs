@@ -19,6 +19,12 @@ internal static class AppConfig
 
     public static AppServices Services { get; private set; } = null!;
 
+    public static DatabaseSettings PrimaryDatabaseSettings { get; private set; } = DatabaseSettings.CreateDefault();
+
+    public static bool IsOfflineFallbackActive { get; private set; }
+
+    public static bool HasPendingOfflineSaves { get; private set; }
+
     public static string LocalSettingsPath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -71,7 +77,98 @@ internal static class AppConfig
         UiSettings = LoadUiSettings(config);
         ApplyUiSettings(UiSettings, persist: false);
         PageTemplateProvider.Initialize(BuiltInTemplateDirectory, UserTemplateDirectory);
-        ReloadServices();
+        PrimaryDatabaseSettings = DatabaseSettings.Clone();
+
+        if (TryReloadPrimaryServices())
+        {
+            IsOfflineFallbackActive = false;
+            return;
+        }
+
+        if (!TryReloadOfflineFallbackServices())
+            throw new InvalidOperationException(Localization.Get(K.DbConnectionFailedGeneric));
+
+        IsOfflineFallbackActive = true;
+    }
+
+    internal static bool ShouldTryOfflineSave(Exception exception)
+    {
+        if (IsOfflineFallbackActive)
+            return false;
+
+        if (OfflineFallbackDatabase.IsSameDatabaseFile(PrimaryDatabaseSettings))
+            return false;
+
+        return IsDatabaseRelatedException(exception);
+    }
+
+    internal static void MarkOfflineSaveUsed() => HasPendingOfflineSaves = true;
+
+    private static bool TryReloadPrimaryServices()
+    {
+        if (OfflineFallbackDatabase.IsSameDatabaseFile(PrimaryDatabaseSettings))
+            return false;
+
+        try
+        {
+            Services?.Dispose();
+            Services = new AppServices(PrimaryDatabaseSettings, EmailSettings);
+            if (!Services.Db.Database.CanConnect())
+            {
+                Services.Dispose();
+                Services = null!;
+                return false;
+            }
+
+            return true;
+        }
+        catch
+        {
+            Services?.Dispose();
+            Services = null!;
+            return false;
+        }
+    }
+
+    private static bool TryReloadOfflineFallbackServices()
+    {
+        try
+        {
+            Services?.Dispose();
+            Services = OfflineFallbackDatabase.GetServices();
+            return Services.Db.Database.CanConnect();
+        }
+        catch
+        {
+            Services?.Dispose();
+            Services = null!;
+            return false;
+        }
+    }
+
+    private static bool IsDatabaseRelatedException(Exception exception)
+    {
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            var typeName = current.GetType().FullName ?? string.Empty;
+            if (typeName.Contains("MySql", StringComparison.OrdinalIgnoreCase) ||
+                typeName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) ||
+                typeName.Contains("SqlException", StringComparison.OrdinalIgnoreCase) ||
+                typeName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) ||
+                typeName.Contains("DbUpdate", StringComparison.OrdinalIgnoreCase) ||
+                typeName.Contains("DbException", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (current is InvalidOperationException &&
+                current.Message.Contains("database", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static void LoadUiPreferences()
@@ -103,6 +200,31 @@ internal static class AppConfig
         SaveUiSettings(settings);
     }
 
+    public static void RecordLastActivePage(int userId, int pageId)
+    {
+        if (userId <= 0 || pageId <= 0)
+            return;
+
+        var key = userId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (UiSettings.LastPageIdsByUserId.TryGetValue(key, out var existing) && existing == pageId)
+            return;
+
+        var settings = UiSettings.Clone();
+        settings.LastPageIdsByUserId[key] = pageId;
+        SaveUiSettings(settings);
+    }
+
+    public static int? GetLastActivePageId(int userId)
+    {
+        if (userId <= 0)
+            return null;
+
+        var key = userId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return UiSettings.LastPageIdsByUserId.TryGetValue(key, out var pageId) && pageId > 0
+            ? pageId
+            : null;
+    }
+
     private static void ApplyUiSettings(UiSettings settings, bool persist)
     {
         Localization.SetLanguage(settings.Language);
@@ -128,7 +250,8 @@ internal static class AppConfig
             ["HasLoggedInOnce"] = settings.HasLoggedInOnce,
             ["FontScaleStep"] = settings.FontScaleStep,
             ["LastExportDirectory"] = settings.LastExportDirectory,
-            ["LastOpenDirectory"] = settings.LastOpenDirectory
+            ["LastOpenDirectory"] = settings.LastOpenDirectory,
+            ["LastPageIdsByUserId"] = SerializeLastPageIds(settings.LastPageIdsByUserId)
         };
 
         File.WriteAllText(LocalSettingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
@@ -165,7 +288,53 @@ internal static class AppConfig
         if (int.TryParse(section["FontScaleStep"], out var fontScaleStep))
             settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
+        ApplyLastPageIds(settings, section.GetSection("LastPageIdsByUserId"));
+
         return settings;
+    }
+
+    private static JsonObject SerializeLastPageIds(Dictionary<string, int> lastPageIdsByUserId)
+    {
+        var json = new JsonObject();
+        foreach (var (userId, pageId) in lastPageIdsByUserId)
+        {
+            if (pageId > 0)
+                json[userId] = pageId;
+        }
+
+        return json;
+    }
+
+    private static void ApplyLastPageIds(UiSettings settings, IConfigurationSection section)
+    {
+        if (!section.Exists())
+            return;
+
+        foreach (var child in section.GetChildren())
+        {
+            if (int.TryParse(child.Key, out var userId) &&
+                userId > 0 &&
+                int.TryParse(child.Value, out var pageId) &&
+                pageId > 0)
+            {
+                settings.LastPageIdsByUserId[userId.ToString(System.Globalization.CultureInfo.InvariantCulture)] = pageId;
+            }
+        }
+    }
+
+    private static void ApplyLastPageIds(UiSettings settings, JsonObject? section)
+    {
+        if (section == null)
+            return;
+
+        foreach (var (key, value) in section)
+        {
+            if (!int.TryParse(key, out var userId) || userId <= 0)
+                continue;
+
+            if (value is JsonValue jsonValue && jsonValue.TryGetValue(out int pageId) && pageId > 0)
+                settings.LastPageIdsByUserId[userId.ToString(System.Globalization.CultureInfo.InvariantCulture)] = pageId;
+        }
     }
 
     private static UiSettings ParseUiSettings(JsonObject section)
@@ -192,13 +361,25 @@ internal static class AppConfig
             fontScaleValue.TryGetValue(out int fontScaleStep))
             settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
+        ApplyLastPageIds(settings, section["LastPageIdsByUserId"] as JsonObject);
+
         return settings;
     }
 
     public static void ReloadServices()
     {
-        Services?.Dispose();
-        Services = new AppServices(DatabaseSettings, EmailSettings);
+        PrimaryDatabaseSettings = DatabaseSettings.Clone();
+
+        if (TryReloadPrimaryServices())
+        {
+            IsOfflineFallbackActive = false;
+            return;
+        }
+
+        if (!TryReloadOfflineFallbackServices())
+            throw new InvalidOperationException(Localization.Get(K.DbConnectionFailedGeneric));
+
+        IsOfflineFallbackActive = true;
     }
 
     public static bool TestConnection(DatabaseSettings settings, bool createIfNotExists, out string errorMessage, out bool databaseCreated) =>

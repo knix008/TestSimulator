@@ -16,6 +16,15 @@ public partial class App : System.Windows.Application
     {
         AppContext.SetSwitch("Switch.System.IO.UseLegacyPathHandling", false);
 
+        try
+        {
+            Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+        }
+        catch
+        {
+            // Best effort; assets resolve via BaseDirectory regardless.
+        }
+
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         _singleInstance = new SingleInstanceService();
@@ -29,6 +38,10 @@ public partial class App : System.Windows.Application
         }
 
         LocalizationService.Apply(Settings.Current.Language);
+
+        if (Settings.Current.RunAtStartup && !StartupService.Sync(true))
+            Trace.WriteLine("DeskSearch: failed to register automatic startup.");
+
         RegisterExceptionHandlers();
         base.OnStartup(e);
 

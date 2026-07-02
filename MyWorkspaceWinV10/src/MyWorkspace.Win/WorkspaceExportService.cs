@@ -67,7 +67,7 @@ internal static class WorkspaceExportService
                     PageExportService.ExportMarkdown(page.Title, page.Content, outputPath, page.Id);
                     break;
                 case PageExportFormat.Word:
-                    PageExportService.ExportWord(page.Content, outputPath, pipeline);
+                    PageExportService.ExportWord(page.Title, page.Content, outputPath, pipeline, page.Id);
                     break;
                 case PageExportFormat.Pdf:
                     await PageExportService.ExportPdfAsync(page.Title, page.Content, outputPath, pipeline, page.Id)

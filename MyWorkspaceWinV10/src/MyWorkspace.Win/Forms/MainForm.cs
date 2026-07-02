@@ -1,6 +1,7 @@
 using Markdig;
 using MyWorkspace.Core.Enums;
 using MyWorkspace.Core.Models;
+using MyWorkspace.Data;
 
 namespace MyWorkspace.Win.Forms;
 
@@ -20,7 +21,7 @@ public partial class MainForm : Form
     private TreeNode? _workspaceContextMenuNode;
     private bool _pageCreateInProgress;
     private string _lastActiveHeadingId = string.Empty;
-    private int _savedOutlineWidth = 329;
+    private int _savedOutlineWidth = OutlineDefaultWidth;
 
     private const int MaxOutlineLevel = 6;
 
@@ -223,15 +224,61 @@ public partial class MainForm : Form
     private void ApplyLoggedInState()
     {
         Text = Localization.Format(K.AppTitleLoggedIn, SessionContext.CurrentUser.Username);
-        lblStatus.Text = SessionContext.IsAdmin
-            ? Localization.Get(K.StatusAdmin)
-            : Localization.Get(K.StatusUser);
+        lblStatus.Text = AppConfig.IsOfflineFallbackActive
+            ? Localization.Get(K.StatusOfflineFallbackMode)
+            : SessionContext.IsAdmin
+                ? Localization.Get(K.StatusAdmin)
+                : Localization.Get(K.StatusUser);
 
         SetShellEnabled(true);
         UpdateEditorChromeEnabled();
         UpdateMenuForLoginState(true);
-        LoadWorkspaceTree();
+
+        var hadPendingImport = !string.IsNullOrWhiteSpace(_pendingWspImportPath);
+        var lastPageId = TryResolveRestorableLastPageId();
+
+        _suppressWorkspaceSelection = true;
+        try
+        {
+            LoadWorkspaceTree(selectPageId: lastPageId);
+        }
+        finally
+        {
+            _suppressWorkspaceSelection = false;
+        }
+
         TryImportPendingWspIfAny();
+
+        if (!hadPendingImport && lastPageId.HasValue)
+            _ = RestoreLastActivePageAsync(lastPageId.Value);
+    }
+
+    private int? TryResolveRestorableLastPageId()
+    {
+        if (!SessionContext.IsLoggedIn)
+            return null;
+
+        var pageId = AppConfig.GetLastActivePageId(SessionContext.CurrentUser.Id);
+        if (!pageId.HasValue)
+            return null;
+
+        return AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId.Value)?.Id;
+    }
+
+    private async Task RestoreLastActivePageAsync(int pageId)
+    {
+        if (_editor == null || _currentPageId == pageId)
+            return;
+
+        await LoadPageAsync(pageId);
+    }
+
+    private void RecordCurrentPageForSession()
+    {
+        if (!SessionContext.IsLoggedIn || !_currentPageId.HasValue)
+            return;
+
+        AppConfig.RecordLastActivePage(SessionContext.CurrentUser.Id, _currentPageId.Value);
     }
 
     private void SetShellEnabled(bool enabled)
@@ -708,6 +755,7 @@ public partial class MainForm : Form
 
             lblStatus.Text = Localization.Format(K.StatusPage, title);
             await UpdateOutlineAsync();
+            RecordCurrentPageForSession();
             return true;
         }
         catch (Exception ex)
@@ -1065,11 +1113,15 @@ public partial class MainForm : Form
                 content = PageTitleHelper.ReplaceFirstHeadingTitle(page?.Content ?? string.Empty, newTitle);
             }
 
-            AppConfig.Services.Pages.UpdatePage(
+            AppConfigPageSave.TrySavePage(
                 SessionContext.CurrentUser,
                 data.Id,
                 newTitle,
-                content);
+                content,
+                _currentPageId == data.Id ? _offlinePageContext : OfflinePageContextBuilder.TryBuild(
+                    AppConfig.Services,
+                    SessionContext.CurrentUser,
+                    data.Id));
 
             if (_currentPageId == data.Id)
             {
@@ -1089,7 +1141,10 @@ public partial class MainForm : Form
     private void menuDelete_Click(object sender, EventArgs e)
     {
         var data = GetSelectedNodeData();
-        if (data == null)
+        if (data?.Kind is not (TreeNodeKind.Page or TreeNodeKind.Workspace))
+            return;
+
+        if (!CanDeleteTreeNode(data))
             return;
 
         if (data.Kind == TreeNodeKind.Page)
@@ -1409,7 +1464,20 @@ public partial class MainForm : Form
         }
 
         SessionContext.SetUser(refreshed);
-        LoadWorkspaceTree();
+        var lastPageId = TryResolveRestorableLastPageId();
+
+        _suppressWorkspaceSelection = true;
+        try
+        {
+            LoadWorkspaceTree(selectPageId: lastPageId);
+        }
+        finally
+        {
+            _suppressWorkspaceSelection = false;
+        }
+
+        if (lastPageId.HasValue)
+            _ = RestoreLastActivePageAsync(lastPageId.Value);
         lblStatus.Text = SessionContext.IsAdmin
             ? Localization.Get(K.StatusAdmin)
             : Localization.Get(K.StatusUser);
@@ -1434,6 +1502,7 @@ public partial class MainForm : Form
             return;
 
         await SaveCurrentPageAsync(refreshTree: false);
+        RecordCurrentPageForSession();
         ApplyLoggedOutState();
         ShowLoginDialog();
     }
@@ -1451,6 +1520,8 @@ public partial class MainForm : Form
     {
         if (_isClosing)
             return;
+
+        RecordCurrentPageForSession();
 
         if (!SessionContext.IsLoggedIn || !_isDirty)
             return;
@@ -1478,7 +1549,13 @@ public partial class MainForm : Form
     private void ctxDelete_Click(object sender, EventArgs e) => menuDelete_Click(sender, e);
     private void ctxMembers_Click(object sender, EventArgs e) => menuWorkspaceMembers_Click(sender, e);
 
-    private void menuDocumentStructure_Click(object? sender, EventArgs e) => ToggleOutlinePanel();
+    private void menuDocumentStructure_Click(object? sender, EventArgs e)
+    {
+        if (IsDisposed)
+            return;
+
+        BeginInvoke(ToggleOutlinePanel);
+    }
 
     private void RefreshToolbarIcons()
     {
@@ -1700,11 +1777,41 @@ public partial class MainForm : Form
     private void SetupTreeDragDrop()
     {
         treeWorkspace.AllowDrop = true;
+        treeWorkspace.KeyDown += treeWorkspace_KeyDown;
         treeWorkspace.ItemDrag += treeWorkspace_ItemDrag;
         treeWorkspace.DragEnter += treeWorkspace_DragEnter;
         treeWorkspace.DragOver += treeWorkspace_DragOver;
         treeWorkspace.DragDrop += treeWorkspace_DragDrop;
     }
+
+    private void treeWorkspace_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode != Keys.Delete)
+            return;
+
+        var data = GetSelectedNodeData();
+        if (data?.Kind is not (TreeNodeKind.Page or TreeNodeKind.Workspace))
+            return;
+
+        if (!CanDeleteTreeNode(data))
+        {
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
+
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+        menuDelete_Click(this, e);
+    }
+
+    private bool CanDeleteTreeNode(TreeNodeData data) =>
+        data.Kind switch
+        {
+            TreeNodeKind.Page => CanEditPage(data.Id),
+            TreeNodeKind.Workspace => CanEditWorkspace(data.Id),
+            _ => false
+        };
 
     private void treeWorkspace_ItemDrag(object? sender, ItemDragEventArgs e)
     {
