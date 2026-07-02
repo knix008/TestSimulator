@@ -883,7 +883,6 @@ internal static class AppTheme
             if (item is ToolStripButton button)
             {
                 button.AutoSize = false;
-                button.CanOverflow = false;
                 button.DisplayStyle = ToolStripItemDisplayStyle.Image;
                 button.ImageScaling = ToolStripItemImageScaling.None;
                 button.Size = new Size(VerticalToolbarButtonSize, VerticalToolbarButtonSize);
