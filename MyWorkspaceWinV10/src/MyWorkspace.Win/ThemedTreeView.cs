@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace MyWorkspace.Win;
 
 internal sealed class TreeViewRightClickEventArgs(TreeNode? node, Point location) : EventArgs
@@ -11,28 +13,56 @@ internal class ThemedTreeView : TreeView
 {
     private const int WmContextMenu = 0x007B;
     private const int WmEraseBkgnd = 0x0014;
+    private const int WmLButtonDown = 0x0201;
 
     public ThemedTreeView()
     {
         DoubleBuffered = true;
-        SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
+        SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
         UpdateStyles();
         AppTheme.Changed += OnAppThemeChanged;
-        AfterExpand += OnTreeStructureChanged;
-        AfterCollapse += OnTreeStructureChanged;
+        AfterExpand += OnTreeLayoutChanged;
+        AfterCollapse += OnTreeLayoutChanged;
     }
 
     public event EventHandler<TreeViewRightClickEventArgs>? RightNodeClick;
 
-    internal void ApplyNativeTheme() => NativeControlTheme.ApplyTreeViewTheme(this);
+    [DefaultValue(true)]
+    public bool SuppressHorizontalScrollbar { get; set; } = true;
+
+    public string? ActiveNodeKey { get; private set; }
+
+    public void SetActiveNodeKey(string? key)
+    {
+        if (string.Equals(ActiveNodeKey, key, StringComparison.Ordinal))
+            return;
+
+        ActiveNodeKey = key;
+        if (IsHandleCreated)
+            Invalidate();
+    }
+
+    internal void ApplyNativeTheme(bool broadcastThemeChange = false) =>
+        NativeControlTheme.ApplyTreeViewTheme(this, broadcastThemeChange);
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            var cp = base.CreateParams;
+            if (SuppressHorizontalScrollbar)
+                cp.Style |= TreeViewScrollBarHelper.TvsNoHscroll;
+            return cp;
+        }
+    }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
             AppTheme.Changed -= OnAppThemeChanged;
-            AfterExpand -= OnTreeStructureChanged;
-            AfterCollapse -= OnTreeStructureChanged;
+            AfterExpand -= OnTreeLayoutChanged;
+            AfterCollapse -= OnTreeLayoutChanged;
         }
 
         base.Dispose(disposing);
@@ -42,13 +72,17 @@ internal class ThemedTreeView : TreeView
     {
         base.OnHandleCreated(e);
         ApplyNativeTheme();
+        CommitHorizontalScrollbarSuppression();
     }
 
     protected override void OnSizeChanged(EventArgs e)
     {
         base.OnSizeChanged(e);
-        QueueNativeThemeRefresh();
+        CommitHorizontalScrollbarSuppression();
     }
+
+    private void OnTreeLayoutChanged(object? sender, TreeViewEventArgs e) =>
+        CommitHorizontalScrollbarSuppression();
 
     private void OnAppThemeChanged()
     {
@@ -56,23 +90,23 @@ internal class ThemedTreeView : TreeView
             return;
 
         if (InvokeRequired)
-            BeginInvoke(ApplyNativeTheme);
+            BeginInvoke(OnAppThemeChangedCore);
         else
-            ApplyNativeTheme();
+            OnAppThemeChangedCore();
     }
 
-    private void OnTreeStructureChanged(object? sender, TreeViewEventArgs e) =>
-        QueueNativeThemeRefresh();
-
-    private void QueueNativeThemeRefresh()
+    private void OnAppThemeChangedCore()
     {
-        if (IsDisposed || !IsHandleCreated)
+        ApplyNativeTheme(broadcastThemeChange: true);
+        CommitHorizontalScrollbarSuppression();
+    }
+
+    internal void CommitHorizontalScrollbarSuppression()
+    {
+        if (!SuppressHorizontalScrollbar || !IsHandleCreated)
             return;
 
-        if (InvokeRequired)
-            BeginInvoke(ApplyNativeTheme);
-        else
-            ApplyNativeTheme();
+        TreeViewScrollBarHelper.SuppressHorizontalScrollbars(Handle);
     }
 
     public TreeNode? GetNodeAtClientPoint(Point clientPoint)
@@ -127,8 +161,68 @@ internal class ThemedTreeView : TreeView
         }
     }
 
+    internal bool TryGetNodeRowBounds(TreeNode node, out Rectangle rowBounds)
+    {
+        if (TreeViewNativeHelper.TryGetItemRowBounds(this, node, out rowBounds))
+        {
+            if (rowBounds.Height < ItemHeight)
+                rowBounds = new Rectangle(rowBounds.X, rowBounds.Y, ClientSize.Width, ItemHeight);
+            else
+                rowBounds = new Rectangle(0, rowBounds.Top, ClientSize.Width, rowBounds.Height);
+            return true;
+        }
+
+        var bounds = node.Bounds;
+        var height = Math.Max(bounds.Height > 0 ? bounds.Height : ItemHeight, ItemHeight);
+
+        if (bounds.Height > 0)
+        {
+            rowBounds = new Rectangle(0, bounds.Top, ClientSize.Width, height);
+            return true;
+        }
+
+        foreach (var visible in EnumerateVisibleNodes(Nodes))
+        {
+            if (!ReferenceEquals(visible, node))
+                continue;
+
+            if (TreeViewNativeHelper.TryGetItemRowBounds(this, visible, out rowBounds))
+            {
+                rowBounds = new Rectangle(0, rowBounds.Top, ClientSize.Width, Math.Max(rowBounds.Height, ItemHeight));
+                return true;
+            }
+
+            var visibleBounds = visible.Bounds;
+            var visibleHeight = Math.Max(visibleBounds.Height > 0 ? visibleBounds.Height : ItemHeight, ItemHeight);
+            rowBounds = visibleBounds.Height > 0
+                ? new Rectangle(0, visibleBounds.Top, ClientSize.Width, visibleHeight)
+                : new Rectangle(0, 0, ClientSize.Width, visibleHeight);
+            return true;
+        }
+
+        rowBounds = default;
+        return false;
+    }
+
+    private bool TryHandleExpandMouseDown(Point clientPoint)
+    {
+        if (!AppTheme.TryHandleTreeExpandClick(this, clientPoint, out var toggledNode))
+            return false;
+
+        Focus();
+        SelectedNode = toggledNode;
+        return true;
+    }
+
     protected override void WndProc(ref Message m)
     {
+        if (SuppressHorizontalScrollbar && TreeViewScrollBarHelper.ShouldSuppressMessage(m.Msg))
+            return;
+
+        if (m.Msg == WmLButtonDown &&
+            TryHandleExpandMouseDown(TreeViewNativeHelper.GetClientPointFromLParam(m.LParam)))
+            return;
+
         if (m.Msg == WmContextMenu)
         {
             var screenPoint = new Point(m.LParam.ToInt32());
@@ -156,8 +250,18 @@ internal class ThemedTreeView : TreeView
             return;
 
         if (NativeControlTheme.IsParentNotifyCreate(m))
-            NativeControlTheme.ApplyScrollbarTheme(m.LParam);
+        {
+            var childHandle = m.LParam;
+            base.WndProc(ref m);
+            if (TreeViewScrollBarHelper.IsVerticalScrollBar(childHandle))
+                NativeControlTheme.ApplyScrollbarTheme(childHandle);
+            CommitHorizontalScrollbarSuppression();
+            return;
+        }
 
         base.WndProc(ref m);
+
+        if (SuppressHorizontalScrollbar && m.Msg == 0x0005)
+            CommitHorizontalScrollbarSuppression();
     }
 }

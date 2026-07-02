@@ -14,7 +14,7 @@ internal static class Program
             "h1", "h2", "h3", "h4", "h5", "h6",
             "bold", "italic", "strike", "code", "codeblock", "link", "image", "attach", "ul", "ol", "quote", "hr", "table",
             "undo", "redo", "outline", "info",
-            "save", "history", "refresh", "login", "logout", "exit", "preferences", "export",
+            "save", "history", "refresh", "login", "logout", "exit", "file", "preferences", "export",
             "folder_plus_workspace", "folder_plus_sub", "page_plus", "rename", "delete",
             "members", "users", "database", "email", "profile", "password", "bell", "star", "log", "copy", "cut", "paste", "selectall", "lock", "unlock",
             "workspace", "workspace_fav", "workspace_locked", "workspace_fav_locked", "favorite", "page", "page_locked"
@@ -24,14 +24,14 @@ internal static class Program
             "h1", "h2", "h3", "h4", "h5", "h6",
             "bold", "italic", "strike", "code", "codeblock", "link", "image", "attach", "ul", "ol", "quote", "hr", "table",
             "undo", "redo", "outline", "info",
-            "save", "page", "export", "history", "log"
+            "save", "page", "file", "export", "history", "log"
         ]),
         (28,
         [
             "h1", "h2", "h3", "h4", "h5", "h6",
             "bold", "italic", "strike", "code", "codeblock", "link", "image", "attach", "ul", "ol", "quote", "hr", "table",
             "undo", "redo", "outline", "info",
-            "save", "page", "export", "history", "log"
+            "save", "page", "file", "export", "history", "log"
         ])
     ];
 

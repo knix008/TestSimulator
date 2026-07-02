@@ -82,10 +82,6 @@ public partial class MainForm
 
         SetTip(menuAdminEmailSettings, K.TipMenuAdminEmail);
 
-
-
-        SetTip(menuAccount, K.TipMenuAccount);
-
         SetTip(menuEditProfile, K.TipMenuEditProfile);
 
         SetTip(menuChangePassword, K.TipMenuChangePassword);

@@ -15,6 +15,9 @@ public enum AppLanguage
 public sealed class UiSettings
 {
     public AppThemeKind Theme { get; set; } = AppThemeKind.Light;
+    public int ColorThemeIndex { get; set; } = 4;
+    public bool UseCustomAccentColor { get; set; }
+    public int CustomAccentArgb { get; set; } = PastelThemeCatalog.DefaultAccent.ToArgb();
     public AppLanguage Language { get; set; } = AppLanguage.Korean;
     public string LastLoginUsername { get; set; } = string.Empty;
     public bool HasLoggedInOnce { get; set; }
@@ -28,6 +31,9 @@ public sealed class UiSettings
     public UiSettings Clone() => new()
     {
         Theme = Theme,
+        ColorThemeIndex = ColorThemeIndex,
+        UseCustomAccentColor = UseCustomAccentColor,
+        CustomAccentArgb = CustomAccentArgb,
         Language = Language,
         LastLoginUsername = LastLoginUsername,
         HasLoggedInOnce = HasLoggedInOnce,

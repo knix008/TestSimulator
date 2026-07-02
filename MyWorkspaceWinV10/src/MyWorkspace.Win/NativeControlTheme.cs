@@ -23,15 +23,15 @@ internal static class NativeControlTheme
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
-    public static void ApplyTreeViewTheme(Control tree)
+    public static void ApplyTreeViewTheme(Control tree, bool broadcastThemeChange = false)
     {
         if (!tree.IsHandleCreated)
             return;
 
-        ApplyTreeViewTheme(tree.Handle);
+        ApplyTreeViewTheme(tree.Handle, broadcastThemeChange);
     }
 
-    public static void ApplyTreeViewTheme(IntPtr treeHandle)
+    public static void ApplyTreeViewTheme(IntPtr treeHandle, bool broadcastThemeChange = false)
     {
         if (treeHandle == IntPtr.Zero)
             return;
@@ -41,11 +41,13 @@ internal static class NativeControlTheme
         else
             SetWindowTheme(treeHandle, "Explorer", null);
 
-        ThemeScrollBars(treeHandle);
-        SendMessage(treeHandle, WmThemeChanged, IntPtr.Zero, IntPtr.Zero);
+        ThemeScrollBars(treeHandle, broadcastThemeChange);
+        TreeViewScrollBarHelper.SuppressHorizontalScrollbars(treeHandle);
+        if (broadcastThemeChange)
+            SendMessage(treeHandle, WmThemeChanged, IntPtr.Zero, IntPtr.Zero);
     }
 
-    public static void ApplyScrollbarTheme(IntPtr scrollbarHandle)
+    public static void ApplyScrollbarTheme(IntPtr scrollbarHandle, bool broadcastThemeChange = false)
     {
         if (scrollbarHandle == IntPtr.Zero || !IsScrollBarClass(scrollbarHandle))
             return;
@@ -55,7 +57,8 @@ internal static class NativeControlTheme
         else
             SetWindowTheme(scrollbarHandle, "Explorer", "ScrollBar");
 
-        SendMessage(scrollbarHandle, WmThemeChanged, IntPtr.Zero, IntPtr.Zero);
+        if (broadcastThemeChange)
+            SendMessage(scrollbarHandle, WmThemeChanged, IntPtr.Zero, IntPtr.Zero);
     }
 
     public static bool IsScrollBarClass(IntPtr hwnd) =>
@@ -64,11 +67,20 @@ internal static class NativeControlTheme
     public static bool IsParentNotifyCreate(Message m) =>
         m.Msg == WmParentNotify && (m.WParam.ToInt32() & 0xFFFF) == WmCreate;
 
-    private static void ThemeScrollBars(IntPtr parentHandle)
+    private static void ThemeScrollBars(IntPtr parentHandle, bool broadcastThemeChange)
     {
         EnumChildWindows(parentHandle, (hWnd, _) =>
         {
-            ApplyScrollbarTheme(hWnd);
+            if (!IsScrollBarClass(hWnd))
+                return true;
+
+            if (TreeViewScrollBarHelper.IsHorizontalScrollBar(hWnd))
+            {
+                TreeViewScrollBarHelper.SuppressHorizontalScrollbars(parentHandle);
+                return true;
+            }
+
+            ApplyScrollbarTheme(hWnd, broadcastThemeChange);
             return true;
         }, IntPtr.Zero);
     }

@@ -45,7 +45,8 @@ public partial class MainForm
         var statusHeight = statusStrip1.PreferredSize.Height > 0
             ? statusStrip1.PreferredSize.Height
             : 22;
-        var clientMinHeight = MainContentMinHeight + statusHeight;
+        const int titleBarHeight = 36;
+        var clientMinHeight = MainContentMinHeight + statusHeight + titleBarHeight;
 
         var nonClient = new Size(Width - ClientSize.Width, Height - ClientSize.Height);
         MinimumSize = new Size(

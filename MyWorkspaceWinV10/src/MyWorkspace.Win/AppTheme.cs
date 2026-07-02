@@ -26,12 +26,19 @@ internal enum PanelHeaderKind
 internal static class AppTheme
 {
     private static ThemePalette _palette = ThemePalette.Light;
+    private static AppThemeKind _themeKind = AppThemeKind.Light;
+    private static Color _pastelAccent = PastelThemeCatalog.DefaultAccent;
     private static ModernColorTable? _colorTable;
     private static ToolStripProfessionalRenderer? _renderer;
+    private static ModernColorTable? _sidebarToolbarColorTable;
+    private static ToolStripProfessionalRenderer? _sidebarToolbarRenderer;
     private static readonly ConditionalWeakTable<Control, PanelBorderState> PanelBorderEdges = new();
 
     public static ThemePalette CurrentPalette => _palette;
-    public static bool IsDark => ReferenceEquals(_palette, ThemePalette.Dark);
+    public static bool IsDark => _themeKind == AppThemeKind.Dark;
+    public static Color PastelAccent => _pastelAccent;
+    public static Color TitleBarBackground => _palette.Sidebar;
+    public static Color TitleBarText => _palette.TextPrimary;
 
     public static Color Background => _palette.Background;
     public static Color Surface => _palette.Surface;
@@ -54,6 +61,63 @@ internal static class AppTheme
     public static Color PanelHeaderOutline => _palette.PanelHeaderOutline;
     public static Color PanelHeaderEditor => _palette.PanelHeaderEditor;
     public static Color PanelHeaderPageTitle => _palette.PanelHeaderPageTitle;
+
+    public static Color MenuIconColor => ResolveIconForeground(Surface);
+    public static Color ToolbarIconColor => ResolveIconForeground(Sidebar);
+    public static Color TreeIconColor => ResolveIconForeground(Sidebar);
+
+    public const int ShellBorderWidth = 1;
+    public const int SplitterBorderWidth = 1;
+
+    public static Pen CreateShellBorderPen() => new(Border, ShellBorderWidth);
+
+    public static Color ResolveIconForeground(Color background)
+    {
+        foreach (var candidate in GetIconForegroundCandidates())
+        {
+            if (GetContrastRatio(candidate, background) >= 3.0)
+                return candidate;
+        }
+
+        return GetRelativeLuminance(background) > 0.5
+            ? Color.FromArgb(31, 35, 40)
+            : Color.FromArgb(230, 237, 243);
+    }
+
+    private static IEnumerable<Color> GetIconForegroundCandidates()
+    {
+        yield return TextPrimary;
+        yield return TextSecondary;
+        if (IsDark)
+            yield return Color.FromArgb(196, 204, 214);
+        else
+            yield return Color.FromArgb(55, 62, 72);
+    }
+
+    private static double GetContrastRatio(Color foreground, Color background)
+    {
+        var l1 = GetRelativeLuminance(foreground);
+        var l2 = GetRelativeLuminance(background);
+        var lighter = Math.Max(l1, l2);
+        var darker = Math.Min(l1, l2);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double GetRelativeLuminance(Color color)
+    {
+        static double Channel(int value)
+        {
+            var channel = value / 255d;
+            return channel <= 0.03928
+                ? channel / 12.92
+                : Math.Pow((channel + 0.055) / 1.055, 2.4);
+        }
+
+        var r = Channel(color.R);
+        var g = Channel(color.G);
+        var b = Channel(color.B);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
 
     private const float BaseUiFontSize = 9F;
     private const float BaseUiFontSmallSize = 8.25F;
@@ -97,19 +161,26 @@ internal static class AppTheme
 
     public static event Action? Changed;
 
-    public static void ApplyAppearance(AppThemeKind theme, int fontScaleStep)
+    public static void ApplyAppearance(AppThemeKind theme, int fontScaleStep, Color? pastelAccent = null)
     {
-        _palette = theme == AppThemeKind.Dark ? ThemePalette.Dark : ThemePalette.Light;
+        _themeKind = theme;
+        _pastelAccent = pastelAccent ?? PastelThemeCatalog.DefaultAccent;
+        _palette = PastelThemePaletteBuilder.Build(_pastelAccent, theme == AppThemeKind.Dark);
         _fontScaleStep = UiFontScale.Normalize(fontScaleStep);
         _fontScaleFactor = UiFontScale.GetFactor(_fontScaleStep);
         RefreshFonts();
-        _colorTable = new ModernColorTable();
+        _colorTable = new ModernColorTable(Surface);
         _renderer = new ModernToolStripRenderer(_colorTable);
+        _sidebarToolbarColorTable = new ModernColorTable(Sidebar);
+        _sidebarToolbarRenderer = new ModernToolStripRenderer(_sidebarToolbarColorTable);
         Changed?.Invoke();
     }
 
+    public static void ApplyAppearance(UiSettings settings) =>
+        ApplyAppearance(settings.Theme, settings.FontScaleStep, PastelThemeResolver.ResolveAccent(settings));
+
     public static void ApplyTheme(AppThemeKind theme) =>
-        ApplyAppearance(theme, _fontScaleStep);
+        ApplyAppearance(theme, _fontScaleStep, _pastelAccent);
 
     public static Color GetSaveStatusColor(SaveStatusKind kind) =>
         kind switch
@@ -217,7 +288,7 @@ internal static class AppTheme
 
     private static void StyleDialogLabel(Label label)
     {
-        label.ForeColor = label.Font.Bold ? TextPrimary : TextSecondary;
+        label.ForeColor = IsMutedDialogLabel(label) ? TextMuted : TextPrimary;
         label.BackColor = Color.Transparent;
 
         if (label.AutoSize)
@@ -236,6 +307,10 @@ internal static class AppTheme
         label.AutoSize = true;
         label.MaximumSize = new Size(maxWidth, 0);
     }
+
+    private static bool IsMutedDialogLabel(Label label) =>
+        string.Equals(label.Tag as string, "muted", StringComparison.Ordinal)
+        || string.Equals(label.Name, "lblHint", StringComparison.Ordinal);
 
     private static void FitAllButtons(Control.ControlCollection controls)
     {
@@ -328,7 +403,13 @@ internal static class AppTheme
 
     private static void StylePanel(Panel panel)
     {
+        if (string.Equals(panel.Tag as string, "swatch", StringComparison.Ordinal))
+            return;
+
         panel.BackColor = Background;
+
+        if (string.Equals(panel.Tag as string, "layout", StringComparison.Ordinal))
+            return;
 
         if (IsButtonFooterPanel(panel))
             StyleBorderedPanel(panel, PanelEdges.Top);
@@ -346,14 +427,148 @@ internal static class AppTheme
             form.Icon = IconAssets.CreateAppIcon();
     }
 
+    private static Color BlendColors(Color foreground, Color background, float amountForeground)
+    {
+        amountForeground = Math.Clamp(amountForeground, 0f, 1f);
+        var amountBackground = 1f - amountForeground;
+        return Color.FromArgb(
+            255,
+            (int)(foreground.R * amountForeground + background.R * amountBackground),
+            (int)(foreground.G * amountForeground + background.G * amountBackground),
+            (int)(foreground.B * amountForeground + background.B * amountBackground));
+    }
+
+    private const int TreeIndent = 24;
+    private const int TreeGlyphSize = 16;
+    private const int TreeGlyphHitSlop = 8;
+
+    public static bool TryHandleTreeExpandClick(TreeView tree, Point clientPoint, out TreeNode? toggledNode)
+    {
+        toggledNode = null;
+        if (!tree.ShowPlusMinus || tree is not ThemedTreeView themedTree)
+            return false;
+
+        var node = ResolveTreeExpandNode(themedTree, clientPoint);
+        if (node == null || node.Nodes.Count == 0)
+            return false;
+
+        if (!themedTree.TryGetNodeRowBounds(node, out var rowBounds))
+            return false;
+
+        if (!IsTreeExpandClick(tree, node, clientPoint, rowBounds))
+            return false;
+
+        toggledNode = node;
+        BeginExpandToggle(node);
+        tree.Invalidate();
+        return true;
+    }
+
+    private static void BeginExpandToggle(TreeNode node)
+    {
+        var tree = node.TreeView;
+        if (tree == null)
+            return;
+
+        tree.BeginUpdate();
+        try
+        {
+            if (node.IsExpanded)
+                node.Collapse();
+            else
+                node.Expand();
+        }
+        finally
+        {
+            tree.EndUpdate();
+        }
+    }
+
+    private static TreeNode? ResolveTreeExpandNode(ThemedTreeView tree, Point clientPoint)
+    {
+        var node = tree.GetNodeAtClientPoint(clientPoint);
+        if (node?.Nodes.Count > 0)
+            return node;
+
+        var hit = tree.HitTest(clientPoint);
+        if (hit.Node?.Nodes.Count > 0)
+            return hit.Node;
+
+        return null;
+    }
+
+    private static bool IsTreeExpandClick(TreeView tree, TreeNode node, Point clientPoint, Rectangle rowBounds)
+    {
+        if (clientPoint.Y < rowBounds.Top || clientPoint.Y >= rowBounds.Bottom)
+            return false;
+
+        var glyphBounds = GetTreeExpandGlyphBounds(tree, node, rowBounds);
+        var hitBounds = glyphBounds;
+        hitBounds.Inflate(TreeGlyphHitSlop, TreeGlyphHitSlop);
+        if (hitBounds.Contains(clientPoint))
+            return true;
+
+        var hit = tree.HitTest(clientPoint);
+        if (ReferenceEquals(hit.Node, node) &&
+            (hit.Location & TreeViewHitTestLocations.PlusMinus) != 0)
+            return true;
+
+        var bandLeft = node.Level * tree.Indent;
+        var bandRight = bandLeft + tree.Indent;
+        return clientPoint.X >= bandLeft && clientPoint.X < bandRight;
+    }
+
+    private static int GetTreeGlyphLeft(TreeView tree, int level) =>
+        level * tree.Indent + Math.Max(0, (tree.Indent - TreeGlyphSize) / 2);
+
+    private static int GetTreeColumnCenter(TreeView tree, int level) =>
+        level * tree.Indent + tree.Indent / 2;
+
+    internal static Rectangle GetTreeExpandGlyphBounds(TreeView tree, TreeNode node, Rectangle rowBounds)
+    {
+        var left = GetTreeGlyphLeft(tree, node.Level);
+        var top = rowBounds.Top + (rowBounds.Height - TreeGlyphSize) / 2;
+        return new Rectangle(left, top, TreeGlyphSize, TreeGlyphSize);
+    }
+
+    private static int GetTreeNodeContentLeft(TreeView tree, TreeNode node)
+    {
+        var left = (node.Level + 1) * tree.Indent;
+        if (!tree.ShowPlusMinus)
+            left = node.Level * tree.Indent;
+
+        return left;
+    }
+
     public static void StyleTreeNodeDraw(object? sender, DrawTreeNodeEventArgs e)
     {
         if (sender is not TreeView tree || e.Node == null)
             return;
 
         var selected = (e.State & TreeNodeStates.Selected) != 0;
-        var bg = selected ? AccentHover : tree.BackColor;
-        var fg = selected ? Accent : tree.ForeColor;
+        var activeKey = tree is ThemedTreeView themedTree ? themedTree.ActiveNodeKey : null;
+        var isActive = !selected
+                       && activeKey != null
+                       && e.Node.Tag is OutlineTarget outlineTarget
+                       && string.Equals(outlineTarget.HeadingId, activeKey, StringComparison.Ordinal);
+
+        Color bg;
+        Color fg;
+        if (selected)
+        {
+            bg = AccentHover;
+            fg = Accent;
+        }
+        else if (isActive)
+        {
+            bg = BlendColors(AccentHover, tree.BackColor, 0.45f);
+            fg = Accent;
+        }
+        else
+        {
+            bg = tree.BackColor;
+            fg = tree.ForeColor;
+        }
 
         e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
         e.Graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
@@ -365,7 +580,7 @@ internal static class AppTheme
         DrawTreeLines(e.Graphics, tree, e.Node, rowBounds);
 
         if (tree.ShowPlusMinus && e.Node.Nodes.Count > 0)
-            DrawTreeExpandGlyph(e.Graphics, tree, e.Node, rowBounds, fg);
+            DrawTreeExpandGlyph(e.Graphics, tree, e.Node, rowBounds, fg, bg);
 
         var icon = GetTreeNodeImage(tree, e.Node);
         var textLeft = GetTreeNodeTextLeft(tree, e.Node, icon != null);
@@ -405,14 +620,8 @@ internal static class AppTheme
         return tree.ImageList.Images[key];
     }
 
-    private static int GetTreeNodeIconLeft(TreeView tree, TreeNode node)
-    {
-        var left = node.Level * tree.Indent;
-        if (tree.ShowPlusMinus)
-            left += 9;
-
-        return left;
-    }
+    private static int GetTreeNodeIconLeft(TreeView tree, TreeNode node) =>
+        GetTreeNodeContentLeft(tree, node);
 
     private static void DrawTreeLines(Graphics graphics, TreeView tree, TreeNode node, Rectangle rowBounds)
     {
@@ -422,9 +631,10 @@ internal static class AppTheme
         var top = rowBounds.Top;
         var bottom = rowBounds.Bottom;
         var centerY = top + rowBounds.Height / 2;
-        var indent = tree.Indent;
-        const int glyphWidth = 9;
-        var lineXOffset = indent / 2;
+        var hasExpandGlyph = tree.ShowPlusMinus && node.Nodes.Count > 0;
+        Rectangle? glyphRect = hasExpandGlyph
+            ? GetTreeExpandGlyphBounds(tree, node, rowBounds)
+            : null;
 
         using var pen = new Pen(Border);
 
@@ -432,8 +642,8 @@ internal static class AppTheme
         {
             if (HasSiblingBelowAtLevel(node, level))
             {
-                var x = level * indent + lineXOffset;
-                graphics.DrawLine(pen, x, top, x, bottom);
+                var x = GetTreeColumnCenter(tree, level);
+                DrawVerticalAvoidingGlyph(graphics, pen, x, top, bottom, glyphRect);
             }
         }
 
@@ -441,16 +651,54 @@ internal static class AppTheme
             return;
 
         var connectorX = node.Level > 0
-            ? (node.Level - 1) * indent + lineXOffset
-            : lineXOffset;
-        var nodeX = node.Level * indent + glyphWidth / 2;
+            ? GetTreeColumnCenter(tree, node.Level - 1)
+            : GetTreeColumnCenter(tree, 0);
+        var lineEndX = hasExpandGlyph
+            ? GetTreeGlyphLeft(tree, node.Level)
+            : GetTreeColumnCenter(tree, node.Level);
 
-        graphics.DrawLine(pen, connectorX, centerY, nodeX, centerY);
+        graphics.DrawLine(pen, connectorX, centerY, lineEndX, centerY);
+
+        if (node.Level == 0)
+        {
+            if (!IsLastSibling(node))
+            {
+                var verticalStart = glyphRect?.Bottom ?? centerY;
+                DrawVerticalSegment(graphics, pen, connectorX, verticalStart, bottom);
+            }
+
+            return;
+        }
 
         if (IsLastSibling(node))
-            graphics.DrawLine(pen, connectorX, top, connectorX, centerY);
+            DrawVerticalAvoidingGlyph(graphics, pen, connectorX, top, centerY, glyphRect);
         else
-            graphics.DrawLine(pen, connectorX, top, connectorX, bottom);
+            DrawVerticalAvoidingGlyph(graphics, pen, connectorX, top, bottom, glyphRect);
+    }
+
+    private static bool HorizontalIntersectsGlyph(int x, Rectangle glyph) =>
+        x >= glyph.Left && x < glyph.Right;
+
+    private static void DrawVerticalSegment(Graphics graphics, Pen pen, int x, int y1, int y2)
+    {
+        if (y2 > y1)
+            graphics.DrawLine(pen, x, y1, x, y2);
+    }
+
+    private static void DrawVerticalAvoidingGlyph(Graphics graphics, Pen pen, int x, int y1, int y2, Rectangle? glyphRect)
+    {
+        if (!glyphRect.HasValue || !HorizontalIntersectsGlyph(x, glyphRect.Value))
+        {
+            DrawVerticalSegment(graphics, pen, x, y1, y2);
+            return;
+        }
+
+        var glyph = glyphRect.Value;
+        if (y1 < glyph.Top)
+            DrawVerticalSegment(graphics, pen, x, y1, Math.Min(y2, glyph.Top));
+
+        if (y2 > glyph.Bottom)
+            DrawVerticalSegment(graphics, pen, x, Math.Max(y1, glyph.Bottom), y2);
     }
 
     private static bool IsLastSibling(TreeNode node)
@@ -473,26 +721,26 @@ internal static class AppTheme
     {
         var left = GetTreeNodeIconLeft(tree, node);
         if (hasIcon && tree.ImageList != null)
-            left += tree.ImageList.ImageSize.Width + 3;
+            left += tree.ImageList.ImageSize.Width + 4;
 
         return left;
     }
 
-    private static void DrawTreeExpandGlyph(Graphics graphics, TreeView tree, TreeNode node, Rectangle rowBounds, Color color)
+    private static void DrawTreeExpandGlyph(Graphics graphics, TreeView tree, TreeNode node, Rectangle rowBounds, Color color, Color background)
     {
-        const int glyphSize = 9;
-        var left = node.Level * tree.Indent;
-        var top = rowBounds.Top + (rowBounds.Height - glyphSize) / 2;
-        var rect = new Rectangle(left, top, glyphSize, glyphSize);
+        var rect = GetTreeExpandGlyphBounds(tree, node, rowBounds);
 
-        using var pen = new Pen(color, 1f);
-        graphics.DrawRectangle(pen, rect);
+        using (var brush = new SolidBrush(background))
+            graphics.FillRectangle(brush, rect);
+
+        using var pen = new Pen(color, 1.25f);
+        graphics.DrawRectangle(pen, rect.X, rect.Y, rect.Width - 1, rect.Height - 1);
 
         var midY = rect.Top + rect.Height / 2;
         var midX = rect.Left + rect.Width / 2;
-        graphics.DrawLine(pen, rect.Left + 2, midY, rect.Right - 2, midY);
+        graphics.DrawLine(pen, rect.Left + 3, midY, rect.Right - 4, midY);
         if (!node.IsExpanded)
-            graphics.DrawLine(pen, midX, rect.Top + 2, midX, rect.Bottom - 2);
+            graphics.DrawLine(pen, midX, rect.Top + 3, midX, rect.Bottom - 4);
     }
 
     public static void ApplyToolStrip(ToolStrip strip)
@@ -555,6 +803,8 @@ internal static class AppTheme
         strip.AutoSize = false;
         strip.Width = 52;
         strip.Padding = new Padding(4, 8, 4, 8);
+        strip.BackColor = Sidebar;
+        strip.Renderer = EnsureSidebarToolbarRenderer();
     }
 
     public static void ApplyStatusStrip(StatusStrip strip)
@@ -563,7 +813,8 @@ internal static class AppTheme
         strip.Font = UiFontSmall;
         strip.Padding = new Padding(10, 5, 10, 5);
         strip.SizingGrip = false;
-        strip.BackColor = Surface;
+        strip.BackColor = Sidebar;
+        strip.Renderer = EnsureSidebarToolbarRenderer();
     }
 
     public static void StyleContextMenu(ContextMenuStrip menu)
@@ -578,8 +829,8 @@ internal static class AppTheme
         tree.BackColor = Sidebar;
         tree.ForeColor = TextPrimary;
         tree.Font = UiFont;
-        tree.ItemHeight = 26;
-        tree.Indent = 16;
+        tree.ItemHeight = 28;
+        tree.Indent = TreeIndent;
         tree.ShowLines = true;
         tree.ShowRootLines = true;
         tree.ShowPlusMinus = true;
@@ -588,9 +839,6 @@ internal static class AppTheme
         tree.DrawMode = TreeViewDrawMode.OwnerDrawAll;
         tree.DrawNode -= TreeView_DrawNode;
         tree.DrawNode += TreeView_DrawNode;
-
-        if (tree is ThemedTreeView themedTree)
-            themedTree.ApplyNativeTheme();
     }
 
     public static void StyleTextBox(TextBox textBox)
@@ -661,8 +909,12 @@ internal static class AppTheme
     internal static void AttachComboBoxBorder(ComboBox comboBox)
     {
         comboBox.Paint -= PaintComboBoxBorder;
-        comboBox.Paint += PaintComboBoxBorder;
+        if (ShouldDrawComboBoxBorder(comboBox))
+            comboBox.Paint += PaintComboBoxBorder;
     }
+
+    private static bool ShouldDrawComboBoxBorder(ComboBox comboBox) =>
+        !string.Equals(comboBox.Tag as string, "noborder", StringComparison.Ordinal);
 
     private static void PaintComboBoxBorder(object? sender, PaintEventArgs e)
     {
@@ -869,25 +1121,6 @@ internal static class AppTheme
             button.MinimumSize = new Size(button.MinimumSize.Width, minHeight);
     }
 
-    public static void StyleOutlineToggleButton(Button button)
-    {
-        button.AutoSize = false;
-        button.Dock = DockStyle.Right;
-        button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderSize = 0;
-        button.BackColor = Surface;
-        button.ForeColor = TextSecondary;
-        button.Font = UiFontSmall;
-        button.Cursor = Cursors.Hand;
-        button.UseVisualStyleBackColor = false;
-        button.TextAlign = ContentAlignment.MiddleRight;
-        button.Padding = new Padding(4, 0, 0, 0);
-        button.MinimumSize = new Size(84, 24);
-        button.FlatAppearance.MouseOverBackColor = Background;
-        button.FlatAppearance.MouseDownBackColor = BorderLight;
-        button.UseCompatibleTextRendering = true;
-    }
-
     public static void StyleNavRailButton(Button button)
     {
         button.FlatStyle = FlatStyle.Flat;
@@ -983,7 +1216,7 @@ internal static class AppTheme
     private static void InvalidateBorderedPanel(object? sender, EventArgs e)
     {
         if (sender is Control control && !control.IsDisposed)
-            control.Invalidate(true);
+            control.Invalidate(false);
     }
 
     private sealed class PanelBorderState(PanelEdges edges)
@@ -993,6 +1226,8 @@ internal static class AppTheme
 
     public static void StyleSplitContainer(SplitContainer split)
     {
+        split.BorderStyle = BorderStyle.None;
+        split.SplitterWidth = SplitterBorderWidth;
         split.BackColor = Border;
         split.Panel1.BackColor = Sidebar;
         split.Panel2.BackColor = Surface;
@@ -1025,9 +1260,6 @@ internal static class AppTheme
         Label workspaceHeaderLabel,
         TreeView outlineTree,
         Panel outlineSidebar,
-        Panel outlineHeader,
-        Label outlineLabel,
-        Button toggleOutlineButton,
         Panel editorHeader,
         Label editorHeaderLabel,
         Panel markdownHost,
@@ -1054,14 +1286,8 @@ internal static class AppTheme
         StylePanelTitleHeader(workspaceHeader, workspaceHeaderLabel, PanelHeaderKind.Workspace);
 
         outlineSidebar.BackColor = Sidebar;
-        outlineSidebar.Padding = new Padding(1);
-        StyleBorderedPanel(outlineSidebar, PanelEdges.All);
-        outlineHeader.Padding = new Padding(10, 0, 4, 0);
-        outlineHeader.MinimumSize = new Size(0, 38);
-        outlineHeader.Height = Math.Max(outlineHeader.Height, 38);
-        StylePanelTitleHeader(outlineHeader, outlineLabel, PanelHeaderKind.Outline);
-        StyleOutlineToggleButton(toggleOutlineButton);
-        toggleOutlineButton.BackColor = Color.Transparent;
+        outlineSidebar.Padding = new Padding(8, 9, 0, 1);
+        StyleBorderedPanel(outlineSidebar, PanelEdges.Right);
 
         markdownHost.BackColor = Surface;
         markdownHost.Padding = new Padding(1);
@@ -1092,8 +1318,15 @@ internal static class AppTheme
 
     private static void EnsureRenderer()
     {
-        _colorTable ??= new ModernColorTable();
+        _colorTable ??= new ModernColorTable(Surface);
         _renderer ??= new ModernToolStripRenderer(_colorTable);
+    }
+
+    private static ToolStripProfessionalRenderer EnsureSidebarToolbarRenderer()
+    {
+        _sidebarToolbarColorTable ??= new ModernColorTable(Sidebar);
+        _sidebarToolbarRenderer ??= new ModernToolStripRenderer(_sidebarToolbarColorTable);
+        return _sidebarToolbarRenderer;
     }
 
     private sealed class ModernToolStripRenderer : ToolStripProfessionalRenderer
@@ -1146,7 +1379,7 @@ internal static class AppTheme
         using (var background = new SolidBrush(control.BackColor))
             e.Graphics.FillRectangle(background, 0, 0, width, height);
 
-        using var pen = new Pen(Border);
+        using var pen = CreateShellBorderPen();
         if ((edges & PanelEdges.Left) != 0)
             e.Graphics.DrawLine(pen, 0, 0, 0, height - 1);
         if ((edges & PanelEdges.Top) != 0)
@@ -1162,9 +1395,14 @@ internal static class AppTheme
 
     private sealed class ModernColorTable : ProfessionalColorTable
     {
-        public override Color ToolStripGradientBegin => Surface;
-        public override Color ToolStripGradientMiddle => Surface;
-        public override Color ToolStripGradientEnd => Surface;
+        private readonly Color _chromeBackground;
+
+        public ModernColorTable(Color chromeBackground) =>
+            _chromeBackground = chromeBackground;
+
+        public override Color ToolStripGradientBegin => _chromeBackground;
+        public override Color ToolStripGradientMiddle => _chromeBackground;
+        public override Color ToolStripGradientEnd => _chromeBackground;
         public override Color MenuBorder => Border;
         public override Color MenuItemBorder => AccentHover;
         public override Color MenuItemSelected => AccentHover;
@@ -1173,15 +1411,15 @@ internal static class AppTheme
         public override Color MenuItemPressedGradientBegin => AccentPressed;
         public override Color MenuItemPressedGradientMiddle => AccentPressed;
         public override Color MenuItemPressedGradientEnd => AccentPressed;
-        public override Color MenuStripGradientBegin => Surface;
-        public override Color MenuStripGradientEnd => Surface;
-        public override Color ImageMarginGradientBegin => Surface;
-        public override Color ImageMarginGradientMiddle => Surface;
-        public override Color ImageMarginGradientEnd => Surface;
+        public override Color MenuStripGradientBegin => _chromeBackground;
+        public override Color MenuStripGradientEnd => _chromeBackground;
+        public override Color ImageMarginGradientBegin => _chromeBackground;
+        public override Color ImageMarginGradientMiddle => _chromeBackground;
+        public override Color ImageMarginGradientEnd => _chromeBackground;
         public override Color SeparatorDark => Border;
         public override Color SeparatorLight => BorderLight;
-        public override Color StatusStripGradientBegin => Surface;
-        public override Color StatusStripGradientEnd => Surface;
+        public override Color StatusStripGradientBegin => _chromeBackground;
+        public override Color StatusStripGradientEnd => _chromeBackground;
         public override Color ToolStripBorder => Border;
         public override Color ButtonSelectedBorder => Accent;
         public override Color ButtonCheckedGradientBegin => AccentHover;
@@ -1193,8 +1431,8 @@ internal static class AppTheme
         public override Color ButtonPressedGradientBegin => AccentPressed;
         public override Color ButtonPressedGradientMiddle => AccentPressed;
         public override Color ButtonPressedGradientEnd => AccentPressed;
-        public override Color OverflowButtonGradientBegin => Surface;
-        public override Color OverflowButtonGradientMiddle => Surface;
-        public override Color OverflowButtonGradientEnd => Surface;
+        public override Color OverflowButtonGradientBegin => _chromeBackground;
+        public override Color OverflowButtonGradientMiddle => _chromeBackground;
+        public override Color OverflowButtonGradientEnd => _chromeBackground;
     }
 }

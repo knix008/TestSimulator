@@ -27,7 +27,11 @@ public partial class MainForm
     private void ApplyStartupTheme()
     {
         AppTheme.ApplyFormChrome(this);
+        titleBar.ApplyTheme();
+        UpdateTitleBarCaption();
 
+        pnlRoot.BackColor = AppTheme.Background;
+        pnlShellBody.BackColor = AppTheme.Background;
         pnlMainContent.BackColor = AppTheme.Background;
         pnlMainContent.Padding = Padding.Empty;
 
@@ -36,25 +40,27 @@ public partial class MainForm
         toolStripMarkdown.Padding = new Padding(4, 8 + ToolbarTopGap, 4, 8);
         AppTheme.ApplyStatusStrip(statusStrip1);
         AppTheme.StyleContextMenu(ctxTree);
+        AppTheme.StyleContextMenu(ctxAppSettings);
         AppTheme.StyleTreeView(treeWorkspace);
         AppTheme.StyleTreeView(treeOutline);
 
         pnlWorkspaceSidebar.BackColor = AppTheme.Sidebar;
         pnlWorkspaceSidebar.Padding = new Padding(NavWorkspaceGap, WorkspaceTopGap + 1, 0, 1);
-        AppTheme.StyleBorderedPanel(pnlWorkspaceSidebar, PanelEdges.Top | PanelEdges.Bottom);
+        AppTheme.StyleBorderedPanel(pnlWorkspaceSidebar, PanelEdges.None);
 
         pnlOutlineSidebar.BackColor = AppTheme.Sidebar;
-        AppTheme.StyleBorderedPanel(pnlOutlineSidebar, PanelEdges.All);
+        pnlOutlineSidebar.Padding = new Padding(NavWorkspaceGap, WorkspaceTopGap + 1, 0, 1);
+        AppTheme.StyleBorderedPanel(pnlOutlineSidebar, PanelEdges.Right);
 
         pnlEditorColumn.BackColor = AppTheme.Surface;
         pnlEditorColumn.Padding = Padding.Empty;
         pnlEditorColumn.Margin = Padding.Empty;
-        AppTheme.StyleBorderedPanel(pnlEditorColumn, PanelEdges.Top | PanelEdges.Right | PanelEdges.Bottom);
+        AppTheme.StyleBorderedPanel(pnlEditorColumn, PanelEdges.None);
 
         pnlEditorHost.BackColor = AppTheme.Surface;
-        pnlEditorHost.Padding = new Padding(1);
+        pnlEditorHost.Padding = new Padding(0);
         pnlEditorHost.Margin = Padding.Empty;
-        AppTheme.StyleBorderedPanel(pnlEditorHost, PanelEdges.All);
+        AppTheme.StyleBorderedPanel(pnlEditorHost, PanelEdges.None);
 
         editorAreaSplit.Panel1.Padding = Padding.Empty;
         editorAreaSplit.Panel2.Padding = Padding.Empty;
@@ -62,12 +68,6 @@ public partial class MainForm
 
         AppTheme.StyleSplitContainer(outerSplit);
         AppTheme.StyleSplitContainer(editorAreaSplit);
-
-        pnlOutlineHeader.Padding = new Padding(10, 0, 4, 0);
-        pnlOutlineHeader.MinimumSize = new Size(0, 38);
-        AppTheme.StylePanelTitleHeader(pnlOutlineHeader, lblOutline, PanelHeaderKind.Outline);
-        AppTheme.StyleOutlineToggleButton(btnToggleOutline);
-        btnToggleOutline.BackColor = Color.Transparent;
 
         lblStatus.ForeColor = AppTheme.TextSecondary;
         lblSaveStatus.ForeColor = AppTheme.TextMuted;
@@ -83,11 +83,7 @@ public partial class MainForm
 
     {
 
-        Text = SessionContext.IsLoggedIn
-
-            ? Localization.Format(K.AppTitleLoggedIn, SessionContext.CurrentUser.Username)
-
-            : Localization.Get(K.AppTitleLoggedOut);
+        UpdateTitleBarCaption();
 
 
 
@@ -111,6 +107,7 @@ public partial class MainForm
 
             menuExportWorkspace.Text = Localization.Get(K.MenuExportWorkspace);
 
+        titleBar.SetMarkTooltip(Localization.Get(K.TipAppSettingsMark));
         menuPreferences.Text = Localization.Get(K.MenuPreferences);
 
         menuLogin.Text = Localization.Get(K.MenuLogin);
@@ -147,8 +144,6 @@ public partial class MainForm
 
         menuAdminEmailSettings.Text = Localization.Get(K.MenuAdminEmail);
 
-        menuAccount.Text = Localization.Get(K.MenuAccount);
-
         menuEditProfile.Text = Localization.Get(K.MenuEditProfile);
 
         menuChangePassword.Text = Localization.Get(K.MenuChangePassword);
@@ -168,10 +163,6 @@ public partial class MainForm
         ctxDelete.Text = Localization.Get(K.CtxDelete);
 
         ctxMembers.Text = Localization.Get(K.CtxMembers);
-
-
-
-        lblOutline.Text = Localization.Get(K.LabelOutline);
 
         UpdateOutlineToggleButtonText();
 
@@ -276,39 +267,15 @@ public partial class MainForm
 
 
     private void UpdateOutlineToggleButtonText()
-
     {
+        if (_toolbarOutlineButton == null)
+            return;
 
-        var expandText = Localization.Get(K.OutlineExpand);
-
-        var collapseText = Localization.Get(K.OutlineCollapse);
-
-        var collapsed = editorAreaSplit.Panel1Collapsed;
-
-
-
-        btnToggleOutline.Text = collapsed ? expandText : collapseText;
-
-
-
-        if (_toolbarOutlineButton != null)
-
-        {
-
-            var tip = collapsed
-
-                ? Localization.Get(K.OutlineExpand)
-
-                : Localization.Get(K.OutlineCollapse);
-
-            _toolbarOutlineButton.ToolTipText = tip;
-
-        }
-
-
+        _toolbarOutlineButton.ToolTipText = editorAreaSplit.Panel1Collapsed
+            ? Localization.Get(K.OutlineExpand)
+            : Localization.Get(K.OutlineCollapse);
 
         ApplyToolbarTooltips();
-
     }
 
 
@@ -328,17 +295,21 @@ public partial class MainForm
         AppConfig.SaveUiSettings(form.SelectedSettings);
 
         ApplyLocalization();
-
-
+        ApplyModernTheme();
 
         if (SessionContext.IsLoggedIn)
-
             LoadWorkspaceTree(_currentPageId, null);
-
         else
-
             ApplyLoggedOutState();
+    }
 
+    private void UpdateTitleBarCaption()
+    {
+        var appName = Localization.Get(K.AppName);
+        titleBar.SetAppName(appName);
+        Text = SessionContext.IsLoggedIn
+            ? Localization.Format(K.AppTitleLoggedIn, SessionContext.CurrentUser.Username)
+            : Localization.Get(K.AppTitleLoggedOut);
     }
 
 

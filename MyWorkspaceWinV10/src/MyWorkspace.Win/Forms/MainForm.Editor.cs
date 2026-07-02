@@ -167,7 +167,7 @@ public partial class MainForm
             _isLoadingPage = false;
             _isDirty = false;
             SetSaveStatus(SaveStatusKind.None);
-            treeOutline.Nodes.Clear();
+            ClearOutlinePanel();
             UpdateEditorEmptySurface();
             UpdateEditorChromeEnabled();
             lblStatus.Text = SessionContext.IsLoggedIn
@@ -198,7 +198,7 @@ public partial class MainForm
         {
             _isLoadingPage = false;
             _isDirty = false;
-            treeOutline.Nodes.Clear();
+            ClearOutlinePanel();
             UpdateEditorEmptySurface();
         }
     }

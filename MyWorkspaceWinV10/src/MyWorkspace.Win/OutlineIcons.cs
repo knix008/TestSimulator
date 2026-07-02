@@ -8,9 +8,9 @@ internal sealed class OutlineTarget(string headingId)
 internal static class OutlineIcons
 {
     public static ImageList CreateImageList() =>
-        IconAssets.CreateImageList(
+        IconAssets.CreateMonochromeImageList(
             16,
-            false,
+            UiIconPlacement.Tree,
             ("h1", "h1"),
             ("h2", "h2"),
             ("h3", "h3"),

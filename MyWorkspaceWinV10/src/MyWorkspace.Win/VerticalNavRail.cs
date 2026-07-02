@@ -9,6 +9,7 @@ internal sealed class VerticalNavRail : Panel
     {
         public required Button Button { get; init; }
         public required ToolStripMenuItem MenuRoot { get; init; }
+        public required string IconName { get; init; }
         public required string TooltipKey { get; init; }
     }
 
@@ -16,6 +17,7 @@ internal sealed class VerticalNavRail : Panel
     {
         public required Button Button { get; init; }
         public required ToolStripMenuItem MenuItem { get; init; }
+        public required string IconName { get; init; }
         public required string TooltipKey { get; init; }
     }
 
@@ -49,7 +51,7 @@ internal sealed class VerticalNavRail : Panel
         base.Dispose(disposing);
     }
 
-    public void AddMenu(ToolStripMenuItem menuRoot, Bitmap icon, string tooltipKey)
+    public void AddMenu(ToolStripMenuItem menuRoot, string iconName, string tooltipKey)
     {
         var button = new Button
         {
@@ -61,7 +63,7 @@ internal sealed class VerticalNavRail : Panel
         };
 
         button.Click += OnButtonClick;
-        SetButtonIcon(button, icon);
+        SetButtonIcon(button, IconAssets.LoadMonochrome(24, iconName, UiIconPlacement.Toolbar));
         AppTheme.StyleNavRailButton(button);
         _toolTip.SetToolTip(button, Localization.Get(tooltipKey));
 
@@ -69,6 +71,7 @@ internal sealed class VerticalNavRail : Panel
         {
             Button = button,
             MenuRoot = menuRoot,
+            IconName = iconName,
             TooltipKey = tooltipKey
         });
         Controls.Add(button);
@@ -85,7 +88,7 @@ internal sealed class VerticalNavRail : Panel
         Relayout();
     }
 
-    public void AddBottomAction(ToolStripMenuItem menuItem, Bitmap icon, string tooltipKey)
+    public void AddBottomAction(ToolStripMenuItem menuItem, string iconName, string tooltipKey)
     {
         if (_bottomAction != null)
         {
@@ -105,7 +108,7 @@ internal sealed class VerticalNavRail : Panel
         };
 
         button.Click += OnBottomActionClick;
-        SetButtonIcon(button, icon);
+        SetButtonIcon(button, IconAssets.LoadMonochrome(24, iconName, UiIconPlacement.Toolbar));
         AppTheme.StyleNavRailButton(button);
         _toolTip.SetToolTip(button, Localization.Get(tooltipKey));
 
@@ -113,6 +116,7 @@ internal sealed class VerticalNavRail : Panel
         {
             Button = button,
             MenuItem = menuItem,
+            IconName = iconName,
             TooltipKey = tooltipKey
         };
 
@@ -127,6 +131,15 @@ internal sealed class VerticalNavRail : Panel
 
         _bottomAction.Button.Visible = visible;
         Relayout();
+    }
+
+    public void RefreshIcons()
+    {
+        foreach (var entry in _entries)
+            SetButtonIcon(entry.Button, IconAssets.LoadMonochrome(24, entry.IconName, UiIconPlacement.Toolbar));
+
+        if (_bottomAction != null)
+            SetButtonIcon(_bottomAction.Button, IconAssets.LoadMonochrome(24, _bottomAction.IconName, UiIconPlacement.Toolbar));
     }
 
     public void RefreshTheme()

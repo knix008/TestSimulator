@@ -18,6 +18,9 @@ partial class MainForm
     {
         components = new System.ComponentModel.Container();
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
+        titleBar = new CustomTitleBar();
+        pnlRoot = new FramelessRootPanel();
+        pnlShellBody = new Panel();
         menuStrip1 = new MenuStrip();
         menuFile = new ToolStripMenuItem();
         menuSavePage = new ToolStripMenuItem();
@@ -25,7 +28,7 @@ partial class MainForm
         menuRefreshTree = new ToolStripMenuItem();
         menuSepFile1 = new ToolStripSeparator();
         menuPreferences = new ToolStripMenuItem();
-        menuSepFilePref = new ToolStripSeparator();
+        ctxAppSettings = new ContextMenuStrip(components);
         menuLogin = new ToolStripMenuItem();
         menuLogout = new ToolStripMenuItem();
         menuSepFileAbout = new ToolStripSeparator();
@@ -46,7 +49,6 @@ partial class MainForm
         menuAdminUserManagement = new ToolStripMenuItem();
         menuAdminDatabaseSettings = new ToolStripMenuItem();
         menuAdminEmailSettings = new ToolStripMenuItem();
-        menuAccount = new ToolStripMenuItem();
         menuEditProfile = new ToolStripMenuItem();
         menuChangePassword = new ToolStripMenuItem();
         menuSepAccount1 = new ToolStripSeparator();
@@ -76,9 +78,6 @@ partial class MainForm
         editorAreaSplit = new SplitContainer();
         pnlOutlineSidebar = new Panel();
         treeOutline = new ThemedTreeView();
-        pnlOutlineHeader = new Panel();
-        lblOutline = new Label();
-        btnToggleOutline = new Button();
         pnlEditorHost = new Panel();
         webViewEditor = new WebView2();
         pnlEditorEmptySurface = new Panel();
@@ -89,6 +88,8 @@ partial class MainForm
         saveTimer = new System.Windows.Forms.Timer(components);
         menuStrip1.SuspendLayout();
         ctxTree.SuspendLayout();
+        pnlRoot.SuspendLayout();
+        pnlShellBody.SuspendLayout();
         pnlMainContent.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)outerSplit).BeginInit();
         outerSplit.Panel1.SuspendLayout();
@@ -101,7 +102,6 @@ partial class MainForm
         editorAreaSplit.Panel2.SuspendLayout();
         editorAreaSplit.SuspendLayout();
         pnlOutlineSidebar.SuspendLayout();
-        pnlOutlineHeader.SuspendLayout();
         pnlEditorHost.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)webViewEditor).BeginInit();
         statusStrip1.SuspendLayout();
@@ -110,7 +110,7 @@ partial class MainForm
         // menuStrip1
         // 
         menuStrip1.Dock = DockStyle.None;
-        menuStrip1.Items.AddRange(new ToolStripItem[] { menuFile, menuWorkspace, menuView, menuAdmin, menuAccount });
+        menuStrip1.Items.AddRange(new ToolStripItem[] { menuFile, menuWorkspace, menuView, menuAdmin });
         menuStrip1.Location = new Point(0, 0);
         menuStrip1.Name = "menuStrip1";
         menuStrip1.Size = new Size(338, 24);
@@ -119,7 +119,7 @@ partial class MainForm
         // 
         // menuFile
         // 
-        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuSavePage, menuPageHistory, menuRefreshTree, menuSepFile1, menuPreferences, menuSepFilePref, menuLogin, menuSepFileAbout, menuAbout, menuExit });
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuSavePage, menuPageHistory, menuRefreshTree, menuSepFile1, menuLogin, menuSepFileAbout, menuAbout, menuExit });
         menuFile.Name = "menuFile";
         menuFile.Size = new Size(57, 20);
         menuFile.Text = "파일(&F)";
@@ -158,10 +158,10 @@ partial class MainForm
         menuPreferences.Size = new Size(185, 22);
         menuPreferences.Click += menuPreferences_Click;
         // 
-        // menuSepFilePref
+        // ctxAppSettings
         // 
-        menuSepFilePref.Name = "menuSepFilePref";
-        menuSepFilePref.Size = new Size(182, 6);
+        ctxAppSettings.Name = "ctxAppSettings";
+        ctxAppSettings.Size = new Size(61, 4);
         // 
         // menuLogin
         // 
@@ -296,13 +296,6 @@ partial class MainForm
         menuAdminEmailSettings.Size = new Size(166, 22);
         menuAdminEmailSettings.Text = "이메일 서버 설정";
         menuAdminEmailSettings.Click += menuAdminEmailSettings_Click;
-        // 
-        // menuAccount
-        // 
-        menuAccount.DropDownItems.AddRange(new ToolStripItem[] { menuEditProfile, menuChangePassword, menuSepAccount1, menuNotificationSettings, menuSepAccount2, menuLogout });
-        menuAccount.Name = "menuAccount";
-        menuAccount.Size = new Size(59, 20);
-        menuAccount.Text = "계정(&C)";
         // 
         // menuEditProfile
         // 
@@ -443,6 +436,22 @@ partial class MainForm
         toolStripMarkdown.Size = new Size(52, 899);
         toolStripMarkdown.TabIndex = 1;
         // 
+        // pnlRoot
+        // 
+        pnlRoot.Controls.Add(pnlShellBody);
+        pnlRoot.Controls.Add(titleBar);
+        pnlRoot.Controls.Add(statusStrip1);
+        pnlRoot.Dock = DockStyle.Fill;
+        pnlRoot.Name = "pnlRoot";
+        pnlRoot.Size = new Size(1384, 921);
+        pnlRoot.TabIndex = 6;
+        // 
+        // titleBar
+        // 
+        titleBar.Dock = DockStyle.Top;
+        titleBar.Name = "titleBar";
+        titleBar.TabIndex = 4;
+        // 
         // pnlMainContent
         // 
         pnlMainContent.Controls.Add(outerSplit);
@@ -488,6 +497,7 @@ partial class MainForm
         treeWorkspace.Location = new Point(0, 0);
         treeWorkspace.Name = "treeWorkspace";
         treeWorkspace.Size = new Size(232, 899);
+        treeWorkspace.SuppressHorizontalScrollbar = true;
         treeWorkspace.TabIndex = 0;
         treeWorkspace.AfterSelect += treeWorkspace_AfterSelect;
         treeWorkspace.NodeMouseDoubleClick += treeWorkspace_NodeMouseDoubleClick;
@@ -525,7 +535,6 @@ partial class MainForm
         // pnlOutlineSidebar
         // 
         pnlOutlineSidebar.Controls.Add(treeOutline);
-        pnlOutlineSidebar.Controls.Add(pnlOutlineHeader);
         pnlOutlineSidebar.Dock = DockStyle.Fill;
         pnlOutlineSidebar.Location = new Point(0, 0);
         pnlOutlineSidebar.Name = "pnlOutlineSidebar";
@@ -537,46 +546,12 @@ partial class MainForm
         treeOutline.Dock = DockStyle.Fill;
         treeOutline.Font = new Font("Segoe UI", 8.25F);
         treeOutline.HideSelection = false;
-        treeOutline.Location = new Point(0, 36);
+        treeOutline.Location = new Point(0, 0);
         treeOutline.Name = "treeOutline";
-        treeOutline.Size = new Size(219, 64);
+        treeOutline.Size = new Size(219, 100);
+        treeOutline.SuppressHorizontalScrollbar = true;
         treeOutline.TabIndex = 0;
         treeOutline.AfterSelect += treeOutline_AfterSelect;
-        // 
-        // pnlOutlineHeader
-        // 
-        pnlOutlineHeader.Controls.Add(lblOutline);
-        pnlOutlineHeader.Controls.Add(btnToggleOutline);
-        pnlOutlineHeader.Dock = DockStyle.Top;
-        pnlOutlineHeader.Location = new Point(0, 0);
-        pnlOutlineHeader.Name = "pnlOutlineHeader";
-        pnlOutlineHeader.Padding = new Padding(4);
-        pnlOutlineHeader.Size = new Size(219, 36);
-        pnlOutlineHeader.TabIndex = 1;
-        // 
-        // lblOutline
-        // 
-        lblOutline.Dock = DockStyle.Fill;
-        lblOutline.Font = new Font("Segoe UI", 8.25F);
-        lblOutline.Location = new Point(4, 4);
-        lblOutline.Name = "lblOutline";
-        lblOutline.Size = new Size(237, 28);
-        lblOutline.TabIndex = 0;
-        lblOutline.Text = "문서 구조";
-        lblOutline.TextAlign = ContentAlignment.MiddleLeft;
-        // 
-        // btnToggleOutline
-        // 
-        btnToggleOutline.Dock = DockStyle.Right;
-        btnToggleOutline.Location = new Point(241, 4);
-        btnToggleOutline.Margin = new Padding(0);
-        btnToggleOutline.MinimumSize = new Size(84, 24);
-        btnToggleOutline.Name = "btnToggleOutline";
-        btnToggleOutline.Size = new Size(84, 28);
-        btnToggleOutline.TabIndex = 1;
-        btnToggleOutline.Text = "▶ 펼치기";
-        btnToggleOutline.UseVisualStyleBackColor = true;
-        btnToggleOutline.Click += btnToggleOutline_Click;
         // 
         // pnlEditorHost
         // 
@@ -617,11 +592,22 @@ partial class MainForm
         navRail.MinimumSize = new Size(52, 0);
         navRail.Name = "navRail";
         navRail.Padding = new Padding(0, 8, 0, 8);
-        navRail.Size = new Size(52, 899);
+        navRail.Size = new Size(52, 863);
         navRail.TabIndex = 1;
+        // 
+        // pnlShellBody
+        // 
+        pnlShellBody.Controls.Add(pnlMainContent);
+        pnlShellBody.Controls.Add(navRail);
+        pnlShellBody.Dock = DockStyle.Fill;
+        pnlShellBody.Location = new Point(0, 36);
+        pnlShellBody.Name = "pnlShellBody";
+        pnlShellBody.Size = new Size(1384, 863);
+        pnlShellBody.TabIndex = 5;
         // 
         // statusStrip1
         // 
+        statusStrip1.Dock = DockStyle.Bottom;
         statusStrip1.Items.AddRange(new ToolStripItem[] { lblStatus, lblSaveStatus });
         statusStrip1.Location = new Point(0, 899);
         statusStrip1.Name = "statusStrip1";
@@ -652,10 +638,9 @@ partial class MainForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1384, 921);
-        Controls.Add(pnlMainContent);
-        Controls.Add(navRail);
-        Controls.Add(statusStrip1);
+        Controls.Add(pnlRoot);
         Controls.Add(menuStrip1);
+        FormBorderStyle = FormBorderStyle.None;
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip1;
         Name = "MainForm";
@@ -666,6 +651,9 @@ partial class MainForm
         menuStrip1.ResumeLayout(false);
         menuStrip1.PerformLayout();
         ctxTree.ResumeLayout(false);
+        pnlRoot.ResumeLayout(false);
+        pnlRoot.PerformLayout();
+        pnlShellBody.ResumeLayout(false);
         pnlMainContent.ResumeLayout(false);
         outerSplit.Panel1.ResumeLayout(false);
         outerSplit.Panel2.ResumeLayout(false);
@@ -678,7 +666,6 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)editorAreaSplit).EndInit();
         editorAreaSplit.ResumeLayout(false);
         pnlOutlineSidebar.ResumeLayout(false);
-        pnlOutlineHeader.ResumeLayout(false);
         pnlEditorHost.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)webViewEditor).EndInit();
         statusStrip1.ResumeLayout(false);
@@ -687,6 +674,9 @@ partial class MainForm
         PerformLayout();
     }
 
+    private CustomTitleBar titleBar;
+    private FramelessRootPanel pnlRoot;
+    private Panel pnlShellBody;
     private MenuStrip menuStrip1;
     private Panel pnlMainContent;
     private VerticalNavRail navRail;
@@ -696,7 +686,7 @@ partial class MainForm
     private ToolStripMenuItem menuRefreshTree;
     private ToolStripSeparator menuSepFile1;
     private ToolStripMenuItem menuPreferences;
-    private ToolStripSeparator menuSepFilePref;
+    private ContextMenuStrip ctxAppSettings;
     private ToolStripMenuItem menuLogin;
     private ToolStripMenuItem menuLogout;
     private ToolStripSeparator menuSepFileAbout;
@@ -717,7 +707,6 @@ partial class MainForm
     private ToolStripMenuItem menuAdminUserManagement;
     private ToolStripMenuItem menuAdminDatabaseSettings;
     private ToolStripMenuItem menuAdminEmailSettings;
-    private ToolStripMenuItem menuAccount;
     private ToolStripMenuItem menuEditProfile;
     private ToolStripMenuItem menuChangePassword;
     private ToolStripSeparator menuSepAccount1;
@@ -742,9 +731,6 @@ partial class MainForm
     private Panel pnlEditorColumn;
     private SplitContainer editorAreaSplit;
     private Panel pnlOutlineSidebar;
-    private Panel pnlOutlineHeader;
-    private Label lblOutline;
-    private Button btnToggleOutline;
     private ThemedTreeView treeOutline;
     private SplitContainer outerSplit;
     private Panel pnlWorkspaceSidebar;

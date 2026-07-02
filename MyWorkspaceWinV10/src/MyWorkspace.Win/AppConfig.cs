@@ -228,7 +228,7 @@ internal static class AppConfig
     private static void ApplyUiSettings(UiSettings settings, bool persist)
     {
         Localization.SetLanguage(settings.Language);
-        AppTheme.ApplyAppearance(settings.Theme, settings.FontScaleStep);
+        AppTheme.ApplyAppearance(settings);
 
         if (!persist)
             return;
@@ -245,6 +245,9 @@ internal static class AppConfig
         root["Ui"] = new JsonObject
         {
             ["Theme"] = settings.Theme.ToString(),
+            ["ColorThemeIndex"] = settings.ColorThemeIndex,
+            ["UseCustomAccentColor"] = settings.UseCustomAccentColor,
+            ["CustomAccentArgb"] = settings.CustomAccentArgb,
             ["Language"] = settings.Language.ToString(),
             ["LastLoginUsername"] = settings.LastLoginUsername,
             ["HasLoggedInOnce"] = settings.HasLoggedInOnce,
@@ -272,6 +275,15 @@ internal static class AppConfig
 
         if (Enum.TryParse<AppThemeKind>(section["Theme"], true, out var theme))
             settings.Theme = theme;
+
+        if (int.TryParse(section["ColorThemeIndex"], out var colorThemeIndex))
+            settings.ColorThemeIndex = PastelThemeCatalog.NormalizeIndex(colorThemeIndex);
+
+        if (bool.TryParse(section["UseCustomAccentColor"], out var useCustomAccentColor))
+            settings.UseCustomAccentColor = useCustomAccentColor;
+
+        if (int.TryParse(section["CustomAccentArgb"], out var customAccentArgb))
+            settings.CustomAccentArgb = customAccentArgb;
 
         if (Enum.TryParse<AppLanguage>(section["Language"], true, out var language))
             settings.Language = language;

@@ -4,6 +4,13 @@ using System.Runtime.InteropServices;
 
 namespace MyWorkspace.Win;
 
+internal enum UiIconPlacement
+{
+    Menu,
+    Toolbar,
+    Tree
+}
+
 internal static class IconAssets
 {
     private const string Prefix = "MyWorkspace.Win.Assets.Icons.";
@@ -33,6 +40,76 @@ internal static class IconAssets
 
         using var source = LoadRaw(sourceSize.Value, name);
         return sourceSize.Value == size ? new Bitmap(source) : ScaleToSize(source, size);
+    }
+
+    public static Bitmap LoadMonochrome(int size, string name, UiIconPlacement placement = UiIconPlacement.Menu)
+    {
+        using var source = Load(size, name);
+        return ApplyMonochromeTint(source, name, placement);
+    }
+
+    public static ImageList CreateMonochromeImageList(
+        int size,
+        UiIconPlacement placement,
+        params (string Key, string Name)[] icons)
+    {
+        var list = new ImageList
+        {
+            ColorDepth = ColorDepth.Depth32Bit,
+            ImageSize = new Size(size, size)
+        };
+
+        foreach (var (key, name) in icons)
+        {
+            using var source = Load(size, name);
+            list.Images.Add(key, ApplyMonochromeTint(source, name, placement));
+        }
+
+        return list;
+    }
+
+    private static Bitmap ApplyMonochromeTint(Bitmap source, string name, UiIconPlacement placement)
+    {
+        var foreground = ResolveIconForeground(placement);
+        if (!UsesDetailPreservingTint(name))
+            return Tint(source, foreground);
+
+        var background = ResolveIconBackground(placement);
+        var lightTone = ResolveIconLightTone(background, foreground);
+        return TintPreserveLuminance(source, foreground, lightTone);
+    }
+
+    private static bool UsesDetailPreservingTint(string name) =>
+        name is "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "table"
+            or "code" or "codeblock" or "image"
+            or "workspace" or "workspace_fav" or "workspace_locked" or "workspace_fav_locked" or "folder_plus_workspace"
+            or "users" or "profile";
+
+    private static Color ResolveIconForeground(UiIconPlacement placement) =>
+        placement switch
+        {
+            UiIconPlacement.Toolbar => AppTheme.ToolbarIconColor,
+            UiIconPlacement.Tree => AppTheme.TreeIconColor,
+            _ => AppTheme.MenuIconColor
+        };
+
+    private static Color ResolveIconBackground(UiIconPlacement placement) =>
+        placement switch
+        {
+            UiIconPlacement.Toolbar => AppTheme.Sidebar,
+            UiIconPlacement.Tree => AppTheme.Sidebar,
+            _ => AppTheme.Surface
+        };
+
+    private static Color ResolveIconLightTone(Color background, Color foreground)
+    {
+        var light = AppTheme.IsDark ? Color.FromArgb(240, 244, 248) : Color.White;
+        if (GetContrastRatio(foreground, light) >= 2.5)
+            return light;
+
+        return GetRelativeLuminance(background) > 0.5
+            ? Color.White
+            : Color.FromArgb(230, 237, 243);
     }
 
     public static Bitmap LoadDialogButtonIcon(int size, string name, bool onPrimaryBackground)
@@ -81,6 +158,103 @@ internal static class IconAssets
         }
 
         return tinted;
+    }
+
+    private static Bitmap TintPreserveLuminance(Bitmap source, Color darkTone, Color lightTone)
+    {
+        var tinted = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb);
+        var rect = new Rectangle(0, 0, source.Width, source.Height);
+
+        var sourceBits = source.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        var tintedBits = tinted.LockBits(rect, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+
+        try
+        {
+            var sourceStride = sourceBits.Stride;
+            var tintedStride = tintedBits.Stride;
+
+            for (var y = 0; y < source.Height; y++)
+            {
+                for (var x = 0; x < source.Width; x++)
+                {
+                    var sourceOffset = y * sourceStride + x * 4;
+                    var alpha = Marshal.ReadByte(sourceBits.Scan0, sourceOffset + 3);
+                    if (alpha == 0)
+                        continue;
+
+                    var pixel = Color.FromArgb(
+                        alpha,
+                        Marshal.ReadByte(sourceBits.Scan0, sourceOffset + 2),
+                        Marshal.ReadByte(sourceBits.Scan0, sourceOffset + 1),
+                        Marshal.ReadByte(sourceBits.Scan0, sourceOffset + 0));
+
+                    var amount = MapDetailLuminance(GetRelativeLuminance(pixel));
+                    var mapped = BlendColors(darkTone, lightTone, amount);
+                    var tintedOffset = y * tintedStride + x * 4;
+                    Marshal.WriteByte(tintedBits.Scan0, tintedOffset + 0, mapped.B);
+                    Marshal.WriteByte(tintedBits.Scan0, tintedOffset + 1, mapped.G);
+                    Marshal.WriteByte(tintedBits.Scan0, tintedOffset + 2, mapped.R);
+                    Marshal.WriteByte(tintedBits.Scan0, tintedOffset + 3, alpha);
+                }
+            }
+        }
+        finally
+        {
+            source.UnlockBits(sourceBits);
+            tinted.UnlockBits(tintedBits);
+        }
+
+        return tinted;
+    }
+
+    private static double MapDetailLuminance(double luminance)
+    {
+        const double darkCutoff = 0.16;
+        const double lightCutoff = 0.70;
+
+        if (luminance <= darkCutoff)
+            return 0;
+
+        if (luminance >= lightCutoff)
+            return 1;
+
+        return (luminance - darkCutoff) / (lightCutoff - darkCutoff);
+    }
+
+    private static Color BlendColors(Color from, Color to, double amount)
+    {
+        amount = Math.Clamp(amount, 0, 1);
+        var inverse = 1 - amount;
+        return Color.FromArgb(
+            255,
+            (int)(from.R * inverse + to.R * amount),
+            (int)(from.G * inverse + to.G * amount),
+            (int)(from.B * inverse + to.B * amount));
+    }
+
+    private static double GetContrastRatio(Color foreground, Color background)
+    {
+        var l1 = GetRelativeLuminance(foreground);
+        var l2 = GetRelativeLuminance(background);
+        var lighter = Math.Max(l1, l2);
+        var darker = Math.Min(l1, l2);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double GetRelativeLuminance(Color color)
+    {
+        static double Channel(int value)
+        {
+            var channel = value / 255d;
+            return channel <= 0.03928
+                ? channel / 12.92
+                : Math.Pow((channel + 0.055) / 1.055, 2.4);
+        }
+
+        var r = Channel(color.R);
+        var g = Channel(color.G);
+        var b = Channel(color.B);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     }
 
     public static Icon CreateAppIcon()

@@ -18,12 +18,11 @@ public partial class MainForm
             ExitEditorOverlay();
         };
 
-        navRail.AddMenu(menuFile, IconAssets.Load(24, "save"), K.TipMenuFile);
-        navRail.AddMenu(menuWorkspace, IconAssets.Load(24, "folder_plus_workspace"), K.TipMenuWorkspace);
-        navRail.AddMenu(menuView, IconAssets.Load(24, "outline"), K.TipMenuView);
-        navRail.AddMenu(menuAdmin, IconAssets.Load(24, "users"), K.TipMenuAdmin);
-        navRail.AddMenu(menuAccount, IconAssets.Load(24, "profile"), K.TipMenuAccount);
-        navRail.AddBottomAction(menuLogout, IconAssets.Load(24, "logout"), K.TipMenuBarLogout);
+        navRail.AddMenu(menuFile, "file", K.TipMenuFile);
+        navRail.AddMenu(menuWorkspace, "folder_plus_workspace", K.TipMenuWorkspace);
+        navRail.AddMenu(menuView, "outline", K.TipMenuView);
+        navRail.AddMenu(menuAdmin, "users", K.TipMenuAdmin);
+        navRail.AddBottomAction(menuLogout, "logout", K.TipMenuBarLogout);
         navRail.RefreshTheme();
         UpdateNavRailForLoginState(SessionContext.IsLoggedIn);
     }
@@ -31,7 +30,6 @@ public partial class MainForm
     private void UpdateNavRailForLoginState(bool loggedIn)
     {
         navRail.SetEntryVisible(menuWorkspace, loggedIn);
-        navRail.SetEntryVisible(menuAccount, loggedIn);
         navRail.SetEntryVisible(menuAdmin, loggedIn && SessionContext.IsAdmin);
         navRail.SetBottomActionVisible(menuLogout, loggedIn);
     }

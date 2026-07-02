@@ -1,4 +1,4 @@
-using Markdig;
+﻿using Markdig;
 using MyWorkspace.Core.Enums;
 using MyWorkspace.Core.Models;
 using MyWorkspace.Data;
@@ -43,11 +43,18 @@ public partial class MainForm : Form
     {
         _pendingWspImportPath = StartupArguments.TryGetWspImportPath(args);
         InitializeComponent();
+        FramelessWindowHelper.Configure(this);
+        titleBar.Attach(this);
         ApplyLayoutConstraints();
         KeyPreview = true;
         ApplyStartupTheme();
         AppTheme.Changed += OnAppThemeChanged;
-        FormClosed += (_, _) => AppTheme.Changed -= OnAppThemeChanged;
+        Localization.Changed += OnLocalizationChanged;
+        FormClosed += (_, _) =>
+        {
+            AppTheme.Changed -= OnAppThemeChanged;
+            Localization.Changed -= OnLocalizationChanged;
+        };
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -69,6 +76,20 @@ public partial class MainForm : Form
         }
 
         ApplyModernTheme();
+    }
+
+    private void OnLocalizationChanged()
+    {
+        if (IsDisposed)
+            return;
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(ApplyLocalization);
+            return;
+        }
+
+        ApplyLocalization();
     }
 
     protected override void OnShown(EventArgs e)
@@ -111,13 +132,13 @@ public partial class MainForm : Form
 
         InitializeEditor();
         InitializeNavRail();
+        InitializeAppSettingsMenu();
         SetupEditorContextMenu();
         HookMenuScriptSuspension();
 
-        menuFile.Image = menuSavePage.Image;
+        menuFile.Image = AppIcons.LoadMenuIcon("file");
         menuWorkspace.Image = menuNewRootWorkspace.Image;
         menuAdmin.Image = menuAdminUserManagement.Image;
-        menuAccount.Image = menuEditProfile.Image;
 
         SetupWysiwygToolbar();
 
@@ -131,7 +152,7 @@ public partial class MainForm : Form
                 _savedOutlineWidth = editorAreaSplit.SplitterDistance;
         };
 
-        _outlineUpdateTimer = new System.Windows.Forms.Timer(components) { Interval = 300 };
+        _outlineUpdateTimer = new System.Windows.Forms.Timer(components) { Interval = 450 };
         _outlineUpdateTimer.Tick += async (_, _) =>
         {
             _outlineUpdateTimer!.Stop();
@@ -152,7 +173,7 @@ public partial class MainForm : Form
             }
         };
 
-        _outlineHighlightTimer = new System.Windows.Forms.Timer(components) { Interval = 250 };
+        _outlineHighlightTimer = new System.Windows.Forms.Timer(components) { Interval = 350 };
         _outlineHighlightTimer.Tick += async (_, _) =>
         {
             _outlineHighlightTimer!.Stop();
@@ -202,12 +223,12 @@ public partial class MainForm : Form
     {
         _ = ClearEditorImmediateAsync();
         SessionContext.Clear();
-        Text = Localization.Get(K.AppTitleLoggedOut);
+        UpdateTitleBarCaption();
         lblStatus.Text = Localization.Get(K.StatusLoginRequired);
         SetSaveStatus(SaveStatusKind.None);
 
         treeWorkspace.Nodes.Clear();
-        treeOutline.Nodes.Clear();
+        ClearOutlinePanel();
         _currentPageId = null;
         _draftWorkspaceId = null;
         _currentPageTitle = string.Empty;
@@ -223,7 +244,7 @@ public partial class MainForm : Form
 
     private void ApplyLoggedInState()
     {
-        Text = Localization.Format(K.AppTitleLoggedIn, SessionContext.CurrentUser.Username);
+        UpdateTitleBarCaption();
         lblStatus.Text = AppConfig.IsOfflineFallbackActive
             ? Localization.Get(K.StatusOfflineFallbackMode)
             : SessionContext.IsAdmin
@@ -343,16 +364,16 @@ public partial class MainForm : Form
         if (menuExportWorkspace != null)
             menuExportWorkspace.Visible = loggedIn;
         menuSepFile1.Visible = loggedIn;
-        menuPreferences.Visible = true;
-        menuSepFilePref.Visible = true;
         menuLogin.Visible = !loggedIn;
         menuLogout.Visible = loggedIn;
-        menuSepAccount2.Visible = loggedIn;
+        menuSepAccount1.Visible = loggedIn;
+        menuEditProfile.Visible = loggedIn;
+        menuChangePassword.Visible = loggedIn;
+        menuNotificationSettings.Visible = loggedIn;
         menuWorkspace.Visible = loggedIn;
         menuView.Visible = true;
         menuDocumentStructure.Visible = true;
         menuDocumentStructure.Enabled = true;
-        menuAccount.Visible = loggedIn;
 
         menuAdmin.Visible = loggedIn && SessionContext.IsAdmin;
         menuAdminUserManagement.Visible = loggedIn && SessionContext.IsAdmin;
@@ -366,6 +387,7 @@ public partial class MainForm : Form
     {
         AppTheme.ApplyMenuStrip(menuStrip1);
         AppTheme.StyleContextMenu(ctxTree);
+        AppTheme.StyleContextMenu(ctxAppSettings);
         if (_ctxEditor != null)
             AppTheme.StyleContextMenu(_ctxEditor);
 
@@ -511,7 +533,7 @@ public partial class MainForm : Form
         if (!string.IsNullOrEmpty(iconName))
         {
             item.Name = $"ctx_{iconName}";
-            item.Image = IconAssets.Load(16, iconName);
+            item.Image = IconAssets.LoadMonochrome(16, iconName);
         }
 
         item.Click += click;
@@ -532,7 +554,7 @@ public partial class MainForm : Form
 
             var iconName = menuItem.Name["ctx_".Length..];
             menuItem.Image?.Dispose();
-            menuItem.Image = IconAssets.Load(16, iconName);
+            menuItem.Image = IconAssets.LoadMonochrome(16, iconName);
         }
     }
 
@@ -585,46 +607,45 @@ public partial class MainForm : Form
             return;
 
         treeWorkspace.BeginUpdate();
-        treeWorkspace.Nodes.Clear();
-
-        var favorites = AppConfig.Services.Workspaces.GetFavoriteWorkspaceTree(SessionContext.CurrentUser);
-        if (favorites.Count > 0)
-        {
-            var favoritesRoot = new TreeNode(Localization.Get(K.FavoritesRoot))
-            {
-                Tag = new TreeNodeData { Kind = TreeNodeKind.FavoritesRoot, Id = 0 },
-                ImageKey = "favorite",
-                SelectedImageKey = "favorite"
-            };
-
-            foreach (var item in favorites)
-                favoritesRoot.Nodes.Add(CreateTreeNode(item));
-
-            treeWorkspace.Nodes.Add(favoritesRoot);
-        }
-
-        var items = AppConfig.Services.Workspaces.GetWorkspaceTree(SessionContext.CurrentUser);
-        foreach (var item in items)
-            treeWorkspace.Nodes.Add(CreateTreeNode(item));
-
-        treeWorkspace.EndUpdate();
-        treeWorkspace.ExpandAll();
-
-        treeWorkspace.BeginUpdate();
         try
         {
+            treeWorkspace.Nodes.Clear();
+
+            var favorites = AppConfig.Services.Workspaces.GetFavoriteWorkspaceTree(SessionContext.CurrentUser);
+            if (favorites.Count > 0)
+            {
+                var favoritesRoot = new TreeNode(Localization.Get(K.FavoritesRoot))
+                {
+                    Tag = new TreeNodeData { Kind = TreeNodeKind.FavoritesRoot, Id = 0 },
+                    ImageKey = "favorite",
+                    SelectedImageKey = "favorite"
+                };
+
+                foreach (var item in favorites)
+                    favoritesRoot.Nodes.Add(CreateTreeNode(item));
+
+                treeWorkspace.Nodes.Add(favoritesRoot);
+            }
+
+            var items = AppConfig.Services.Workspaces.GetWorkspaceTree(SessionContext.CurrentUser);
+            foreach (var item in items)
+                treeWorkspace.Nodes.Add(CreateTreeNode(item));
+
+            treeWorkspace.ExpandAll();
+
             var target = selectPageId.HasValue
                 ? FindNode(treeWorkspace.Nodes, TreeNodeKind.Page, selectPageId.Value)
                 : selectWorkspaceId.HasValue
                     ? FindNode(treeWorkspace.Nodes, TreeNodeKind.Workspace, selectWorkspaceId.Value)
                     : null;
 
-            if (target != null)
+            if (target != null && !ReferenceEquals(treeWorkspace.SelectedNode, target))
                 treeWorkspace.SelectedNode = target;
         }
         finally
         {
             treeWorkspace.EndUpdate();
+            treeWorkspace.CommitHorizontalScrollbarSuppression();
         }
     }
 
@@ -769,11 +790,26 @@ public partial class MainForm : Form
         }
     }
 
+    private void ClearOutlinePanel()
+    {
+        treeOutline.SetActiveNodeKey(null);
+        treeOutline.BeginUpdate();
+        try
+        {
+            treeOutline.Nodes.Clear();
+        }
+        finally
+        {
+            treeOutline.EndUpdate();
+            treeOutline.CommitHorizontalScrollbarSuppression();
+        }
+    }
+
     private async Task UpdateOutlineAsync()
     {
         if (!_currentPageId.HasValue || _editor == null || !_editor.IsReady)
         {
-            treeOutline.Nodes.Clear();
+            ClearOutlinePanel();
             return;
         }
 
@@ -790,6 +826,13 @@ public partial class MainForm : Form
 
         var preserveId = (treeOutline.SelectedNode?.Tag as OutlineTarget)?.HeadingId
                          ?? _lastActiveHeadingId;
+
+        if (TryUpdateOutlineInPlace(headings, preserveId))
+        {
+            if (!string.IsNullOrWhiteSpace(preserveId))
+                treeOutline.SetActiveNodeKey(preserveId);
+            return;
+        }
 
         _suppressOutlineNavigation = true;
         treeOutline.BeginUpdate();
@@ -839,12 +882,67 @@ public partial class MainForm : Form
         if (!string.IsNullOrWhiteSpace(preserveId))
         {
             var node = FindOutlineNode(treeOutline.Nodes, preserveId);
-            if (node != null)
+            if (node != null && !ReferenceEquals(treeOutline.SelectedNode, node))
                 treeOutline.SelectedNode = node;
+            treeOutline.SetActiveNodeKey(preserveId);
         }
 
         treeOutline.EndUpdate();
+        treeOutline.CommitHorizontalScrollbarSuppression();
         _suppressOutlineNavigation = false;
+    }
+
+    private bool TryUpdateOutlineInPlace(IReadOnlyList<EditorHeading> headings, string? preserveId)
+    {
+        var filtered = headings.Where(static h => h.Level <= MaxOutlineLevel).ToList();
+        var existing = FlattenOutlineNodes(treeOutline.Nodes);
+        if (existing.Count != filtered.Count)
+            return false;
+
+        for (var i = 0; i < filtered.Count; i++)
+        {
+            if (existing[i].Tag is not OutlineTarget target ||
+                !string.Equals(target.HeadingId, filtered[i].Id, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        treeOutline.BeginUpdate();
+        try
+        {
+            for (var i = 0; i < filtered.Count; i++)
+            {
+                var label = string.IsNullOrWhiteSpace(filtered[i].Text)
+                    ? Localization.Get(K.OutlineUntitled)
+                    : filtered[i].Text.Trim();
+                if (existing[i].Text != label)
+                    existing[i].Text = label;
+            }
+        }
+        finally
+        {
+            treeOutline.EndUpdate();
+            treeOutline.CommitHorizontalScrollbarSuppression();
+        }
+
+        return true;
+    }
+
+    private static List<TreeNode> FlattenOutlineNodes(TreeNodeCollection nodes)
+    {
+        var list = new List<TreeNode>();
+        CollectOutlineNodes(nodes, list);
+        return list;
+    }
+
+    private static void CollectOutlineNodes(TreeNodeCollection nodes, List<TreeNode> destination)
+    {
+        foreach (TreeNode node in nodes)
+        {
+            destination.Add(node);
+            CollectOutlineNodes(node.Nodes, destination);
+        }
     }
 
     private void treeOutline_AfterSelect(object? sender, TreeViewEventArgs e)
@@ -853,7 +951,11 @@ public partial class MainForm : Form
             return;
 
         if (e.Node?.Tag is OutlineTarget target)
+        {
+            _lastActiveHeadingId = target.HeadingId;
+            treeOutline.SetActiveNodeKey(target.HeadingId);
             _ = NavigateToOutlineTargetAsync(target);
+        }
     }
 
     private async Task NavigateToOutlineTargetAsync(OutlineTarget target)
@@ -876,21 +978,10 @@ public partial class MainForm : Form
             return;
 
         _lastActiveHeadingId = activeId;
+        treeOutline.SetActiveNodeKey(activeId);
+
         var node = FindOutlineNode(treeOutline.Nodes, activeId);
-        if (node != null && node != treeOutline.SelectedNode)
-        {
-            _suppressOutlineNavigation = true;
-            treeOutline.BeginUpdate();
-            try
-            {
-                treeOutline.SelectedNode = node;
-            }
-            finally
-            {
-                treeOutline.EndUpdate();
-                _suppressOutlineNavigation = false;
-            }
-        }
+        node?.EnsureVisible();
     }
 
     private static TreeNode? FindOutlineNode(TreeNodeCollection nodes, string headingId)
@@ -915,8 +1006,6 @@ public partial class MainForm : Form
     }
 
     private void menuAbout_Click(object? sender, EventArgs e) => ShowAboutDialog();
-
-    private void btnToggleOutline_Click(object? sender, EventArgs e) => ToggleOutlinePanel();
 
     private void ToggleOutlinePanel()
     {
@@ -1214,7 +1303,7 @@ public partial class MainForm : Form
     {
         using var form = new AccountProfileForm();
         if (form.ShowDialog() == DialogResult.OK)
-            Text = $"MyWorkspace - {SessionContext.CurrentUser.Username}";
+            UpdateTitleBarCaption();
     }
 
     private void menuChangePassword_Click(object sender, EventArgs e)
@@ -1563,6 +1652,49 @@ public partial class MainForm : Form
         _toolbarIcons = AppIcons.CreateToolbarImageList();
         toolStripMarkdown.ImageList = _toolbarIcons;
         RefreshEditorContextMenuIcons();
+        RefreshTreeIcons();
+        AppIcons.ApplyMenuIcons(
+            menuSavePage,
+            menuPageHistory,
+            menuRefreshTree,
+            menuLogin,
+            menuLogout,
+            menuAbout,
+            menuExit,
+            menuPreferences,
+            menuDocumentStructure,
+            menuNewRootWorkspace,
+            menuNewSubWorkspace,
+            menuNewPage,
+            menuRename,
+            menuDelete,
+            menuWorkspaceMembers,
+            menuAdminUserManagement,
+            menuAdminDatabaseSettings,
+            menuAdminEmailSettings,
+            menuEditProfile,
+            menuChangePassword,
+            menuNotificationSettings,
+            ctxNewRootWorkspace,
+            ctxNewSubWorkspace,
+            ctxNewPage,
+            ctxRename,
+            ctxDelete,
+            ctxToggleFavorite,
+            ctxToggleWorkspaceLock,
+            ctxTogglePageLock,
+            ctxMembers);
+        navRail.RefreshIcons();
+    }
+
+    private void RefreshTreeIcons()
+    {
+        treeWorkspace.ImageList?.Dispose();
+        treeOutline.ImageList?.Dispose();
+        treeWorkspace.ImageList = TreeIcons.CreateImageList();
+        treeOutline.ImageList = OutlineIcons.CreateImageList();
+        treeWorkspace.Invalidate();
+        treeOutline.Invalidate();
     }
 
     private async Task RunEditorAsync(Func<WebViewEditorController, Task> action)
