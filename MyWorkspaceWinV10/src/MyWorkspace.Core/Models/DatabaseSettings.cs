@@ -4,7 +4,7 @@ namespace MyWorkspace.Core.Models;
 
 public sealed class DatabaseSettings
 {
-    public DatabaseProviderType Provider { get; set; } = DatabaseProviderType.MariaDB;
+    public DatabaseProviderType Provider { get; set; } = DatabaseProviderType.SQLite;
     public string Server { get; set; } = "localhost";
     public string Port { get; set; } = "3306";
     public string Database { get; set; } = "myworkspace";
@@ -12,7 +12,7 @@ public sealed class DatabaseSettings
     public string Password { get; set; } = string.Empty;
     public string SqliteFilePath { get; set; } = string.Empty;
 
-    public static DatabaseSettings CreateDefault(DatabaseProviderType provider = DatabaseProviderType.MariaDB) =>
+    public static DatabaseSettings CreateDefault(DatabaseProviderType provider = DatabaseProviderType.SQLite) =>
         new()
         {
             Provider = provider,

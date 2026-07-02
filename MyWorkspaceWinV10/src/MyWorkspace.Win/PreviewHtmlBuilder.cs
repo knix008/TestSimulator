@@ -8,14 +8,20 @@ internal static partial class PreviewHtmlBuilder
     [GeneratedRegex(@"<a\b(?<attrs>[^>]*?\shref=[""'](?<href>[^""']+)[""'][^>]*)>", RegexOptions.IgnoreCase)]
     private static partial Regex ExportFileLinkRegex();
 
-    public static string Build(string title, string markdown, MarkdownPipeline pipeline, string? resourceBaseDirectory = null, EditorChromeOptions? chrome = null)
+    public static string Build(string title, string markdown, MarkdownPipeline pipeline, string? resourceBaseDirectory = null, EditorChromeOptions? chrome = null, int? pdfPageId = null, bool pdfInlineAllImages = false)
     {
         chrome ??= EditorChromeOptions.CreateCurrent();
         var body = Markdown.ToHtml(markdown, pipeline);
         if (string.IsNullOrWhiteSpace(body))
             body = "<p></p>";
         else
+        {
             body = EnhanceExportBody(body);
+            if (pdfInlineAllImages)
+                body = PdfExportImageInliner.InlineAllImages(body);
+            else if (pdfPageId.HasValue)
+                body = PdfExportImageInliner.InlineImages(body, pdfPageId.Value);
+        }
 
         var safeTitle = System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(title)
             ? Localization.Get(K.UntitledPageTitle)

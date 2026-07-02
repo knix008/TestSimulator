@@ -1,10 +1,10 @@
-using MyWorkspace.Core.Enums;
 using MyWorkspace.Core.Models;
 
 namespace MyWorkspace.Win.Forms;
 
 public partial class MainForm
 {
+    private ToolStripMenuItem? menuNewProject;
     private ToolStripMenuItem? menuSaveWorkspace;
     private ToolStripMenuItem? menuLoadWorkspace;
     private ToolStripMenuItem? menuRecentProjects;
@@ -20,6 +20,11 @@ public partial class MainForm
             return;
 
         menuSepWorkspaceArchive = new ToolStripSeparator { Name = "menuSepWorkspaceArchive" };
+        menuNewProject = new ToolStripMenuItem
+        {
+            Name = "menuNewProject",
+            Image = IconAssets.Load(16, "page_plus")
+        };
         menuSaveWorkspace = new ToolStripMenuItem
         {
             Name = "menuSaveWorkspace",
@@ -31,6 +36,7 @@ public partial class MainForm
             Image = IconAssets.Load(16, "folder_plus_workspace")
         };
 
+        menuNewProject.Click += menuNewProject_Click;
         menuSaveWorkspace.Click += menuSaveWorkspace_Click;
         menuLoadWorkspace.Click += menuLoadWorkspace_Click;
 
@@ -56,9 +62,10 @@ public partial class MainForm
 
         var insertIndex = menuFile.DropDownItems.IndexOf(menuRefreshTree) + 1;
         menuFile.DropDownItems.Insert(insertIndex, menuSepWorkspaceArchive);
-        menuFile.DropDownItems.Insert(insertIndex + 1, menuSaveWorkspace);
-        menuFile.DropDownItems.Insert(insertIndex + 2, menuLoadWorkspace);
-        menuFile.DropDownItems.Insert(insertIndex + 3, menuRecentProjects);
+        menuFile.DropDownItems.Insert(insertIndex + 1, menuNewProject);
+        menuFile.DropDownItems.Insert(insertIndex + 2, menuSaveWorkspace);
+        menuFile.DropDownItems.Insert(insertIndex + 3, menuLoadWorkspace);
+        menuFile.DropDownItems.Insert(insertIndex + 4, menuRecentProjects);
 
         ApplyRecentProjectsMenuLocalization();
         RefreshRecentProjectsMenu();
@@ -154,6 +161,65 @@ public partial class MainForm
         }
 
         ImportWorkspaceFromFile(path);
+    }
+
+    private async void menuNewProject_Click(object? sender, EventArgs e)
+    {
+        if (!SessionContext.IsLoggedIn)
+            return;
+
+        using var nameDialog = new InputDialogForm(
+            Localization.Get(K.MenuNewProject),
+            Localization.Get(K.NewProjectNamePrompt),
+            Localization.Get(K.DefaultNewProjectName));
+        if (nameDialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        var projectName = nameDialog.InputText;
+        var safeFileName = string.Join("_", projectName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Trim();
+        if (string.IsNullOrWhiteSpace(safeFileName))
+            safeFileName = Localization.Get(K.DefaultNewProjectName);
+
+        using var saveDialog = new SaveFileDialog
+        {
+            Filter = WorkspaceArchiveFileIO.BuildSaveFileFilter(),
+            DefaultExt = "wsp",
+            FileName = $"{safeFileName}.wsp",
+            Title = Localization.Get(K.MenuNewProject)
+        };
+        DialogPathHelper.ApplyProjectDirectory(saveDialog);
+
+        if (saveDialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            await SaveCurrentPageAsync(refreshTree: false, force: true, autoSaveToSqliteOnly: false);
+
+            var workspace = AppConfig.Services.Workspaces.CreateWorkspace(
+                SessionContext.CurrentUser,
+                projectName,
+                parentId: null);
+
+            SaveProjectToFile(saveDialog.FileName, workspace.Id);
+            BindActiveProject(saveDialog.FileName, workspace.Id);
+            DialogPathHelper.RememberProjectPath(saveDialog.FileName);
+            RecentProjectFiles.Record(saveDialog.FileName);
+            RefreshRecentProjectsMenu();
+
+            LoadWorkspaceTree(selectPageId: null, selectWorkspaceId: workspace.Id);
+            await ClearEditorAsync();
+
+            MessageBox.Show(
+                string.Format(Localization.Get(K.NewProjectSucceeded), saveDialog.FileName),
+                L.AppName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.NewProjectFailed), ex);
+        }
     }
 
     private void menuSaveWorkspace_Click(object? sender, EventArgs e)
@@ -325,15 +391,10 @@ public partial class MainForm
         exportRootWorkspaceId = 0;
         filePath = string.Empty;
 
-        if (!SessionContext.IsLoggedIn || AppConfig.IsOfflineFallbackActive)
+        if (!SessionContext.IsLoggedIn)
             return false;
 
         if (string.IsNullOrWhiteSpace(_boundProjectFilePath) || !_boundProjectRootWorkspaceId.HasValue)
-            return false;
-
-        var pageWorkspaceId = GetCurrentPageWorkspaceId();
-        if (!pageWorkspaceId.HasValue ||
-            !IsWithinBoundProjectWorkspace(pageWorkspaceId.Value, _boundProjectRootWorkspaceId.Value))
             return false;
 
         if (!AppConfig.Services.Workspaces.CanAccessWorkspace(
@@ -344,52 +405,5 @@ public partial class MainForm
         exportRootWorkspaceId = _boundProjectRootWorkspaceId.Value;
         filePath = _boundProjectFilePath;
         return true;
-    }
-
-    private int? GetCurrentPageWorkspaceId()
-    {
-        if (!_currentPageId.HasValue)
-            return null;
-
-        return AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, _currentPageId.Value)?.WorkspaceId;
-    }
-
-    private bool IsWithinBoundProjectWorkspace(int workspaceId, int exportRootWorkspaceId)
-    {
-        if (workspaceId == exportRootWorkspaceId)
-            return true;
-
-        var parentById = BuildWorkspaceParentMap();
-        var currentId = workspaceId;
-        while (parentById.TryGetValue(currentId, out var parentId) && parentId.HasValue)
-        {
-            if (parentId.Value == exportRootWorkspaceId)
-                return true;
-
-            currentId = parentId.Value;
-        }
-
-        return false;
-    }
-
-    private Dictionary<int, int?> BuildWorkspaceParentMap()
-    {
-        var parentById = new Dictionary<int, int?>();
-        CollectWorkspaceParents(AppConfig.Services.Workspaces.GetWorkspaceTree(SessionContext.CurrentUser), parentById);
-        return parentById;
-    }
-
-    private static void CollectWorkspaceParents(
-        IEnumerable<WorkspaceTreeItem> items,
-        Dictionary<int, int?> parentById)
-    {
-        foreach (var item in items)
-        {
-            if (item.Kind == TreeNodeKind.Workspace)
-            {
-                parentById[item.Id] = item.ParentWorkspaceId;
-                CollectWorkspaceParents(item.Children, parentById);
-            }
-        }
     }
 }

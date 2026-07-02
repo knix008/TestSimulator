@@ -271,6 +271,12 @@ internal static class PageAssetStore
             TryGetAssetPath(pageId, fileName);
     }
 
+    public static void EnsureCombinedAssetsMaterialized(string markdown)
+    {
+        foreach (var (pageId, fileName) in PageMarkdownNormalizer.GetAllReferencedAssets(markdown))
+            TryGetAssetPath(pageId, fileName);
+    }
+
     public static void SyncAssetsWithContent(int pageId, string markdown, AppServices? services = null)
     {
         services ??= AppConfig.Services;

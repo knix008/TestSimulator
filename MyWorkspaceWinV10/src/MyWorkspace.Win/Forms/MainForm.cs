@@ -126,11 +126,13 @@ public partial class MainForm : Form
             ctxToggleWorkspaceLock, ctxTogglePageLock, ctxMembers);
 
         EnsureWorkspaceArchiveMenuItems();
-        EnsureWorkspaceExportMenuItems();
+        EnsurePageExportMenuItems();
+        EnsureExportContextMenuItems();
 
         menuView.Image = menuDocumentStructure.Image;
 
         InitializeEditor();
+        EnsureSettingsMenuItems();
         InitializeNavRail();
         InitializeAppSettingsMenu();
         SetupEditorContextMenu();
@@ -191,7 +193,7 @@ public partial class MainForm : Form
         saveTimer.Tick += async (_, _) =>
         {
             saveTimer.Stop();
-            await SaveCurrentPageAsync(showStatus: true, refreshTree: true);
+            await SaveCurrentPageAsync(showStatus: true, refreshTree: true, autoSaveToSqliteOnly: true);
         };
 
         try
@@ -362,14 +364,20 @@ public partial class MainForm : Form
         menuRefreshTree.Visible = loggedIn;
         if (menuSepWorkspaceArchive != null)
             menuSepWorkspaceArchive.Visible = loggedIn;
+        if (menuNewProject != null)
+            menuNewProject.Visible = loggedIn;
         if (menuSaveWorkspace != null)
             menuSaveWorkspace.Visible = loggedIn;
         if (menuLoadWorkspace != null)
             menuLoadWorkspace.Visible = loggedIn;
         if (menuRecentProjects != null)
             menuRecentProjects.Visible = loggedIn;
-        if (menuExportWorkspace != null)
-            menuExportWorkspace.Visible = loggedIn;
+        if (menuSettings != null)
+            menuSettings.Visible = loggedIn;
+        if (menuProfile != null)
+            menuProfile.Visible = loggedIn;
+        if (menuSavePageAsMarkdown != null)
+            menuSavePageAsMarkdown.Visible = loggedIn;
         menuSepFile1.Visible = loggedIn;
         menuLogin.Visible = !loggedIn;
         menuLogout.Visible = loggedIn;
@@ -1086,9 +1094,19 @@ public partial class MainForm : Form
             return;
         }
 
-        await SaveCurrentPageAsync(showStatus: true, refreshTree: true);
+        if (!await SaveCurrentPageAsync(
+                showStatus: true,
+                refreshTree: true,
+                force: true,
+                autoSaveToSqliteOnly: false))
+        {
+            return;
+        }
+
         TrySaveBoundProjectFile();
         SetSaveStatus(SaveStatusKind.Saved);
+        if (!string.IsNullOrWhiteSpace(_currentPageTitle))
+            lblStatus.Text = Localization.Format(K.StatusPage, _currentPageTitle.Trim());
     }
 
     private void menuNewRootWorkspace_Click(object sender, EventArgs e) =>
@@ -1498,6 +1516,8 @@ public partial class MainForm : Form
             }
         }
 
+        ConfigureExportContextMenu(data);
+
         if (!ctxTree.Items.Cast<ToolStripItem>().Any(item => item.Visible && item is not ToolStripSeparator))
             ctxNewRootWorkspace.Visible = true;
     }
@@ -1733,6 +1753,9 @@ public partial class MainForm : Form
         toolStripMarkdown.Padding = new Padding(4, 8, 4, 8);
         toolStripMarkdown.Items.Clear();
 
+        AddToolbarButton("save", Localization.Get(K.ToolbarSave), (_, _) => menuSavePage_Click(this, EventArgs.Empty));
+        AddToolbarButton("page", Localization.Get(K.ToolbarSaveMarkdown), async (_, _) => await SaveCurrentPageAsMarkdownAsync());
+        AddToolbarButton("export", Localization.Get(K.ToolbarExport), async (_, _) => await ExportCurrentPageAsync());
         AddToolbarButton("undo", Localization.Get(K.ToolbarUndo), async (_, _) => await RunEditorAsync(e => e.UndoAsync()));
         AddToolbarButton("redo", Localization.Get(K.ToolbarRedo), async (_, _) => await RunEditorAsync(e => e.RedoAsync()));
         AddToolbarButton("h1", Localization.Get(K.ToolbarHeading1), async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(1)));

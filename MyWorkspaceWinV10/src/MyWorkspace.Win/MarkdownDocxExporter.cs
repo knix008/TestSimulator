@@ -108,13 +108,17 @@ internal static partial class MarkdownDocxExporter
         if (props.HasChildren)
             run.Append(props);
 
+        var pendingEmbeds = new List<(string Path, string Label)>();
         if (inline == null)
             run.Append(new Text(string.Empty));
         else
-            AppendInlines(mainPart, run, inline, outputPath, bold);
+            AppendInlines(mainPart, run, inline, outputPath, bold, pendingEmbeds);
 
         paragraph.Append(run);
         body.Append(paragraph);
+
+        foreach (var (path, label) in pendingEmbeds)
+            WordPackageEmbedder.AppendEmbeddedFile(mainPart, body, path, label);
     }
 
     private static bool TryGetStandaloneFileLink(ContainerInline inline, out LinkInline link)
@@ -127,13 +131,25 @@ internal static partial class MarkdownDocxExporter
         return true;
     }
 
-    private static void AppendInlines(MainDocumentPart mainPart, Run run, ContainerInline inline, string outputPath, bool inheritedBold)
+    private static void AppendInlines(
+        MainDocumentPart mainPart,
+        Run run,
+        ContainerInline inline,
+        string outputPath,
+        bool inheritedBold,
+        List<(string Path, string Label)> pendingEmbeds)
     {
         foreach (var child in inline)
-            AppendInline(mainPart, run, child, outputPath, inheritedBold);
+            AppendInline(mainPart, run, child, outputPath, inheritedBold, pendingEmbeds);
     }
 
-    private static void AppendInline(MainDocumentPart mainPart, Run run, Markdig.Syntax.Inlines.Inline inline, string outputPath, bool inheritedBold)
+    private static void AppendInline(
+        MainDocumentPart mainPart,
+        Run run,
+        Markdig.Syntax.Inlines.Inline inline,
+        string outputPath,
+        bool inheritedBold,
+        List<(string Path, string Label)> pendingEmbeds)
     {
         switch (inline)
         {
@@ -144,7 +160,7 @@ internal static partial class MarkdownDocxExporter
                 foreach (var child in emphasis)
                 {
                     var childRun = new Run(new RunProperties(new Bold()));
-                    AppendInline(mainPart, childRun, child, outputPath, true);
+                    AppendInline(mainPart, childRun, child, outputPath, true, pendingEmbeds);
                     run.Append(childRun);
                 }
                 break;
@@ -152,7 +168,7 @@ internal static partial class MarkdownDocxExporter
                 foreach (var child in emphasis)
                 {
                     var childRun = new Run(new RunProperties(new Strike()));
-                    AppendInline(mainPart, childRun, child, outputPath, inheritedBold);
+                    AppendInline(mainPart, childRun, child, outputPath, inheritedBold, pendingEmbeds);
                     run.Append(childRun);
                 }
                 break;
@@ -163,6 +179,14 @@ internal static partial class MarkdownDocxExporter
                 break;
             case LinkInline link when link.IsImage:
                 AppendImage(mainPart, run, link.Url, link.Title, null, outputPath);
+                break;
+            case LinkInline link when TryResolveAttachmentAssetPath(link.Url, outputPath, out var attachmentPath):
+                run.Append(new Run(
+                    new RunProperties(
+                        new Underline { Val = UnderlineValues.Single },
+                        new DocumentFormat.OpenXml.Wordprocessing.Color { Val = "0563C1" }),
+                    new Text(GetLinkLabel(link)) { Space = SpaceProcessingModeValues.Preserve }));
+                pendingEmbeds.Add((attachmentPath, GetLinkLabel(link)));
                 break;
             case LinkInline link:
                 run.Append(new Run(
@@ -175,7 +199,7 @@ internal static partial class MarkdownDocxExporter
                 run.Append(new Break());
                 break;
             case ContainerInline container:
-                AppendInlines(mainPart, run, container, outputPath, inheritedBold);
+                AppendInlines(mainPart, run, container, outputPath, inheritedBold, pendingEmbeds);
                 break;
         }
     }
@@ -232,20 +256,17 @@ internal static partial class MarkdownDocxExporter
             return;
         }
 
-        var relationship = mainPart.AddHyperlinkRelationship(new Uri(Path.GetFullPath(assetPath)), true);
-        var paragraph = new Paragraph();
-        var hyperlink = new Hyperlink(
-            new Run(
-                new RunProperties(
-                    new Underline { Val = UnderlineValues.Single },
-                    new DocumentFormat.OpenXml.Wordprocessing.Color { Val = "0563C1" }),
-                new Text(label) { Space = SpaceProcessingModeValues.Preserve }))
+        if (PageAssetStore.IsSupportedImageExtension(Path.GetExtension(assetPath)))
         {
-            Id = relationship.Id,
-            History = OnOffValue.FromBoolean(true)
-        };
-        paragraph.Append(hyperlink);
-        body.Append(paragraph);
+            var paragraph = new Paragraph();
+            var run = new Run();
+            AppendImage(mainPart, run, url, label, null, outputPath);
+            paragraph.Append(run);
+            body.Append(paragraph);
+            return;
+        }
+
+        WordPackageEmbedder.AppendEmbeddedFile(mainPart, body, assetPath, label);
     }
 
     private static void AppendImage(
@@ -391,6 +412,15 @@ internal static partial class MarkdownDocxExporter
 
     private static string GetLinkLabel(LinkInline link) =>
         link.FirstChild?.ToString() ?? link.Title ?? Path.GetFileName(link.Url ?? "file");
+
+    private static bool TryResolveAttachmentAssetPath(string? url, string outputPath, out string assetPath)
+    {
+        assetPath = PageAssetStore.TryResolveExportAssetPath(url ?? string.Empty, outputPath) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(assetPath) || !File.Exists(assetPath))
+            return false;
+
+        return !PageAssetStore.IsSupportedImageExtension(Path.GetExtension(assetPath));
+    }
 
     private static string? ExtractHtmlAttribute(string attrs, string name)
     {

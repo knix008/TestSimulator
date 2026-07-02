@@ -26,6 +26,7 @@ public sealed class OfflineWorkspaceSnapshot
 public enum PageSaveResult
 {
     Primary,
+    LocalSqliteAutoSave,
     OfflineFallback,
     Failed
 }

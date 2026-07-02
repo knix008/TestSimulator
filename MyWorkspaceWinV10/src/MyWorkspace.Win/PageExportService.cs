@@ -16,17 +16,37 @@ internal static class PageExportService
     public static void ExportWord(string title, string markdownBody, string outputPath, MarkdownPipeline pipeline, int pageId)
     {
         PageAssetStore.EnsureAssetsMaterialized(pageId, markdownBody);
-        var prepared = PageMarkdownNormalizer.MaterializeAssetsForExport(markdownBody, pageId, outputPath);
-        var withTitle = PageTitleHelper.EnsureTitleHeading(title, prepared);
+        var withTitle = PageTitleHelper.EnsureTitleHeading(title, markdownBody);
         MarkdownDocxExporter.Export(withTitle, outputPath, pipeline);
     }
 
     public static async Task ExportPdfAsync(string title, string markdownBody, string outputPath, MarkdownPipeline pipeline, int pageId)
     {
-        PageAssetStore.EnsureAssetsMaterialized(pageId, markdownBody);
-        PageMarkdownNormalizer.MaterializeAssetsForExport(markdownBody, pageId, outputPath);
-        var expanded = PageMarkdownNormalizer.ExpandAssetReferences(markdownBody, pageId);
-        var html = PreviewHtmlBuilder.Build(title, expanded, pipeline);
+        var prepared = PageMarkdownNormalizer.PrepareMarkdownForPdfExport(markdownBody, pageId, outputPath);
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        var html = PreviewHtmlBuilder.Build(title, prepared, pipeline, outputDirectory, pdfPageId: pageId);
+        await PdfExportHelper.ExportAsync(html, outputPath);
+    }
+
+    public static void ExportCombinedMarkdown(string title, string markdownBody, string outputPath)
+    {
+        var materialized = PageMarkdownNormalizer.MaterializeCombinedAssetsForExport(markdownBody, outputPath);
+        var content = PageDocumentBuilder.BuildMarkdownFile(title, materialized);
+        File.WriteAllText(outputPath, content);
+    }
+
+    public static void ExportCombinedWord(string title, string markdownBody, string outputPath, MarkdownPipeline pipeline)
+    {
+        PageAssetStore.EnsureCombinedAssetsMaterialized(markdownBody);
+        var withTitle = PageTitleHelper.EnsureTitleHeading(title, markdownBody);
+        MarkdownDocxExporter.Export(withTitle, outputPath, pipeline);
+    }
+
+    public static async Task ExportCombinedPdfAsync(string title, string markdownBody, string outputPath, MarkdownPipeline pipeline)
+    {
+        var prepared = PageMarkdownNormalizer.PrepareMarkdownForCombinedPdfExport(markdownBody, outputPath);
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        var html = PreviewHtmlBuilder.Build(title, prepared, pipeline, outputDirectory, pdfInlineAllImages: true);
         await PdfExportHelper.ExportAsync(html, outputPath);
     }
 }

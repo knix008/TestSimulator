@@ -46,6 +46,18 @@ internal static partial class PageTitleHelper
         return CreateInitialMarkdown(safeTitle) + markdown.TrimStart();
     }
 
+    public static string NormalizeTitleForExport(string title) => NormalizeTitle(title);
+
+    public static string StripLeadingH1(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return string.Empty;
+
+        return FirstH1Regex().IsMatch(markdown)
+            ? FirstH1Regex().Replace(markdown, string.Empty, 1).TrimStart()
+            : markdown;
+    }
+
     private static string NormalizeTitle(string title)
     {
         var trimmed = title.Trim();

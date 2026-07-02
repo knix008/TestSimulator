@@ -109,6 +109,9 @@ public partial class MainForm
 
         menuRefreshTree.Text = Localization.Get(K.MenuRefreshTree);
 
+        if (menuNewProject != null)
+            menuNewProject.Text = Localization.Get(K.MenuNewProject);
+
         if (menuSaveWorkspace != null)
 
             menuSaveWorkspace.Text = Localization.Get(K.MenuSaveWorkspace);
@@ -119,9 +122,20 @@ public partial class MainForm
 
         ApplyRecentProjectsMenuLocalization();
 
-        if (menuExportWorkspace != null)
+        if (menuSavePageAsMarkdown != null)
+            menuSavePageAsMarkdown.Text = Localization.Get(K.MenuSavePageAsMarkdown);
 
-            menuExportWorkspace.Text = Localization.Get(K.MenuExportWorkspace);
+        if (ctxExportPage != null)
+            ctxExportPage.Text = Localization.Get(K.MenuExportPage);
+
+        if (ctxExportWorkspace != null)
+            ctxExportWorkspace.Text = Localization.Get(K.MenuExportWorkspace);
+
+        if (menuSettings != null)
+            menuSettings.Text = Localization.Get(K.MenuSettings);
+
+        if (menuProfile != null)
+            menuProfile.Text = Localization.Get(K.MenuProfile);
 
         titleBar.SetMarkTooltip(Localization.Get(K.TipAppSettingsMark));
         menuPreferences.Text = Localization.Get(K.MenuPreferences);

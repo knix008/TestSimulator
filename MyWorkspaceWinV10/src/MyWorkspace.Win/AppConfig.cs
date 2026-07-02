@@ -74,8 +74,9 @@ internal static class AppConfig
     {
         var config = BuildConfiguration();
         IsDatabaseConnectionDisabled = LoadDatabaseConnectionDisabled(config);
+        var useDefaultSqlite = !HasLocalDatabaseSettings && !IsDatabaseConnectionDisabled;
         DatabaseSettings = LoadDatabaseSettings(config);
-        if (!HasLocalDatabaseSettings)
+        if (useDefaultSqlite)
             DatabaseSettings = DatabaseSettings.CreateDefault(DatabaseProviderType.SQLite);
 
         EmailSettings = LoadEmailSettings(config);
@@ -95,6 +96,8 @@ internal static class AppConfig
         if (TryReloadPrimaryServices())
         {
             IsOfflineFallbackActive = false;
+            if (useDefaultSqlite && DatabaseSettings.Provider == DatabaseProviderType.SQLite)
+                SaveLocalDatabaseSettings(DatabaseSettings, reloadServices: false);
             return;
         }
 
@@ -102,6 +105,23 @@ internal static class AppConfig
             throw new InvalidOperationException(Localization.Get(K.DbConnectionFailedGeneric));
 
         IsOfflineFallbackActive = true;
+    }
+
+    public static bool IsPrimarySqlite =>
+        PrimaryDatabaseSettings.Provider == DatabaseProviderType.SQLite;
+
+    public static AppServices GetAutoSaveSqliteServices()
+    {
+        if (Services != null &&
+            !IsDatabaseConnectionDisabled &&
+            IsPrimarySqlite &&
+            LocalAutoSaveDatabase.IsSameDatabaseFile(PrimaryDatabaseSettings) &&
+            !IsOfflineFallbackActive)
+        {
+            return Services;
+        }
+
+        return LocalAutoSaveDatabase.GetServices();
     }
 
     internal static bool ShouldTryOfflineSave(Exception exception)
@@ -477,7 +497,17 @@ internal static class AppConfig
         return true;
     }
 
-    public static void SaveLocalDatabaseSettings(DatabaseSettings settings)
+    public static void SaveLocalDatabaseSettings(DatabaseSettings settings, bool reloadServices = true)
+    {
+        WriteLocalDatabaseSettings(settings);
+        DatabaseSettings = settings.Clone();
+        IsDatabaseConnectionDisabled = false;
+
+        if (reloadServices)
+            ReloadServices();
+    }
+
+    private static void WriteLocalDatabaseSettings(DatabaseSettings settings)
     {
         var directory = Path.GetDirectoryName(LocalSettingsPath)!;
         Directory.CreateDirectory(directory);
@@ -501,9 +531,6 @@ internal static class AppConfig
         };
 
         File.WriteAllText(LocalSettingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        DatabaseSettings = settings.Clone();
-        IsDatabaseConnectionDisabled = false;
-        ReloadServices();
     }
 
     public static void DisconnectDatabase()
@@ -593,10 +620,11 @@ internal static class AppConfig
         var section = config.GetSection("Database");
         if (section.Exists())
         {
-            var provider = DatabaseProviderType.MariaDB;
+            var provider = DatabaseProviderType.SQLite;
             if (Enum.TryParse<DatabaseProviderType>(section["Provider"], true, out var parsedProvider))
                 provider = parsedProvider;
 
+            var sqlitePath = section["SqliteFilePath"];
             return new DatabaseSettings
             {
                 Provider = provider,
@@ -605,7 +633,9 @@ internal static class AppConfig
                 Database = section["Database"] ?? "myworkspace",
                 User = section["User"] ?? "root",
                 Password = section["Password"] ?? string.Empty,
-                SqliteFilePath = section["SqliteFilePath"] ?? DatabaseSettings.GetDefaultSqlitePath()
+                SqliteFilePath = string.IsNullOrWhiteSpace(sqlitePath)
+                    ? DatabaseSettings.GetDefaultSqlitePath()
+                    : sqlitePath.Trim()
             };
         }
 
@@ -613,7 +643,7 @@ internal static class AppConfig
         if (!string.IsNullOrWhiteSpace(legacyConnection))
             return ParseLegacyMariaConnectionString(legacyConnection);
 
-        throw new InvalidOperationException("appsettings.json에 Database 설정이 필요합니다.");
+        return DatabaseSettings.CreateDefault(DatabaseProviderType.SQLite);
     }
 
     private static DatabaseSettings ParseLegacyMariaConnectionString(string connectionString)

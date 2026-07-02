@@ -1,6 +1,6 @@
 # MyWorkspace
 
-Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이션입니다. 계층형 Workspace, WYSIWYG Markdown Page 편집, 버전 이력·변경 Log, 내보내기, 다중 DB 지원, 사용자·관리자 권한, Workspace 즐겨찾기, 밝기/어두운 테마, 선택적 이메일 알림을 제공합니다.
+Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이션입니다. 계층형 Workspace, WYSIWYG Markdown Page 편집, 버전 이력, Page/Workspace 내보내기, 다중 DB 지원, 사용자·관리자 권한, Workspace 즐겨찾기, 밝기/어두운 테마, 선택적 이메일 알림을 제공합니다.
 
 **사용자 가이드**: 상세 사용법은 [UsersGuide.md](UsersGuide.md)를 참고하세요.
 
@@ -30,7 +30,7 @@ dotnet run --project src/MyWorkspace.Win/MyWorkspace.Win.csproj -c Debug
 로컬 출력 폴더로 빌드하려면:
 
 ```bash
-dotnet build src/MyWorkspace.Win/MyWorkspace.Win.csproj -o _build_out
+dotnet build src/MyWorkspace.Win/MyWorkspace.Win.csproj -o .build-out
 ```
 
 ### Release + MSI
@@ -72,21 +72,27 @@ dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
 | **Page** | WebView2 기반 WYSIWYG Markdown 편집, DB 자동 저장(2초) |
 | **빠른 Page 작성** | Workspace 선택 후 **제목** 또는 **본문** 입력 시 즉시 Page 생성 (제목 없으면 `제목없음`) |
 | **문서 구조** | H1~H6 제목 Outline, 편집 위치 연동 |
-| **내보내기** | Markdown(.md), Word(.docx), PDF(.pdf) |
-| **프로젝트 (.wsp)** | Workspace 전체를 로컬 `.wsp` 파일로 저장·열기 (파일 메뉴에서만 저장, 마지막 폴더 기억) |
-| **변경 Log** | Page 생성·제목·내용 변경·삭제 이력 조회 |
-| **템플릿** | 내장·사용자 Page 템플릿 (`.mdtemplate`) |
+| **내보내기** | Page·Workspace를 Markdown(.md), Word(.docx), PDF(.pdf)로 내보내기 (Workspace 트리 우클릭). 편집 중 Page는 툴바에서도 내보내기 가능 |
+| **프로젝트 (.wsp)** | Workspace 전체를 로컬 `.wsp` 파일로 저장·열기 (파일 메뉴, 마지막 폴더 기억) |
 | **버전 이력** | Page당 최대 50개 스냅샷, 복원 |
 | **인증** | 관리자 / 일반 사용자, DB 기반 계정, 로그아웃 확인 |
 | **DB** | MariaDB, MySQL, PostgreSQL, SQL Server, SQLite 3 |
 | **즐겨찾기** | 등록된 Workspace 즐겨찾기 (DB 저장) |
-| **테마** | 밝게 / 어둡게 (환경 설정), 다크 모드 툴바 아이콘 자동 보정 |
+| **테마** | 밝게 / 어둡게 (설정 메뉴), 다크 모드 툴바 아이콘 자동 보정 |
 | **알림** | SMTP 설정 시 Page·Workspace 변경 이메일 (선택) |
+
+### 내보내기 형식 요약
+
+| 형식 | Page | Workspace | 첨부·이미지 처리 |
+|------|------|-----------|------------------|
+| **Markdown** | 단일 `.md` + `{파일명}_assets/` | 하위 폴더 구조 유지, Page별 `.md` + assets | 이미지·파일을 assets 폴더에 복사 |
+| **Word** | 단일 `.docx` | Page별 `.docx` | 이미지·첨부 파일을 문서에 포함(OLE) |
+| **PDF** | 단일 `.pdf` | Page별 `.pdf` | 이미지는 본문에 표시, 기타 파일은 `_assets` + 파일명 링크 |
 
 ## 데이터베이스
 
 - 스키마 참고: [`database/schema.sql`](database/schema.sql)
-- 최초 실행: **로그인 화면** → **DB 연결 설정**(로그인 전 가능) → DB 연결 → 기본 관리자 `admin` / `admin` 로그인 → 이후 **관리 → 사용자 관리** 또는 **계정 → 비밀번호 변경**에서 변경
+- 최초 실행: **로그인 화면** → 기본 관리자 `admin` / `admin` 로그인 → DB 연결 실패 시 **제목 표시줄 `|||` → DB 연결 설정...** (관리자) → 이후 **관리 → 사용자 관리** 또는 **프로필 → 비밀번호 변경**에서 변경
 - 사용자·관리자 계정은 **DB `users` 테이블**에서 관리 (파일/하드코딩 아님). DB에 사용자가 없을 때만 `admin` / `admin` 자동 생성
 - 연결 설정 저장: `%LocalAppData%\MyWorkspaceWinV10\appsettings.local.json`
 
@@ -107,7 +113,10 @@ MyWorkspaceWinV10/
 │   ├── MyWorkspace.Core/     # 엔티티, enum, 서비스 인터페이스, 모델
 │   ├── MyWorkspace.Data/     # EF Core, DbContext, 서비스 구현
 │   └── MyWorkspace.Win/      # WinForms UI, appsettings.json, Page 템플릿
-│       └── Assets/           # app.ico, Icons/s16·s20·s28 PNG (임베드 리소스)
+│       ├── Assets/           # app.ico, Icons/s16·s20·s28 PNG (임베드 리소스)
+│       ├── PageExportService.cs
+│       ├── WorkspaceExportService.cs
+│       └── MarkdownDocxExporter.cs
 ├── tools/
 │   └── IconGenerator/        # PNG·ICO 아이콘 생성 도구
 ├── database/
@@ -123,8 +132,9 @@ MyWorkspaceWinV10/
 | 파일 | 용도 |
 |------|------|
 | `src/MyWorkspace.Win/appsettings.json` | 기본 DB·Email 설정 (저장소에 포함) |
-| `%LocalAppData%\MyWorkspaceWinV10\appsettings.local.json` | 사용자 DB·SMTP·테마·언어 오버라이드 (로컬, git 제외) |
+| `%LocalAppData%\MyWorkspaceWinV10\appsettings.local.json` | 사용자 DB·SMTP·테마·언어·최근 프로젝트 경로 (로컬, git 제외) |
 | `%LocalAppData%\MyWorkspaceWinV10\Templates\Pages\` | 사용자 Page 템플릿 |
+| `%LocalAppData%\MyWorkspaceWinV10\PageAssets\` | Page별 이미지·첨부 캐시 (로컬, git 제외) |
 
 ## 의존성 (NuGet)
 
@@ -136,17 +146,21 @@ MyWorkspaceWinV10/
 | Microsoft.EntityFrameworkCore.SqlServer | Data | SQL Server |
 | Microsoft.EntityFrameworkCore.Sqlite | Data | SQLite |
 | Markdig | Win | Markdown → HTML |
-| Microsoft.Web.WebView2 | Win | WYSIWYG 편집기 |
-| Microsoft.Extensions.Configuration.Json | Win | 설정 로드 |
+| DocumentFormat.OpenXml | Win | Word(.docx) 내보내기 |
+| Svg.Skia | Win | SVG → Word/PDF용 래스터 변환 |
 | ReverseMarkdown | Win | HTML → Markdown (저장·붙여넣기) |
+| Microsoft.Web.WebView2 | Win | WYSIWYG 편집기, PDF 인쇄 |
+| Microsoft.Extensions.Configuration.Json | Win | 설정 로드 |
 
 ## 아키텍처 메모
 
 - **Core / Data / Win** 3계층 분리 — 향후 웹 버전 재사용을 고려
 - WinForms: 로직은 `Form.cs`, 레이아웃은 `Form.Designer.cs` (Visual Studio 디자이너 편집 가능)
+- 좌측 **VerticalNavRail**: 파일·Workspace·보기·관리 메뉴 및 하단 **프로필 / 설정 / 로그아웃**
 - `AppServices`가 Data 계층 서비스를 수동 조립 (`AppConfig`에서 로드)
 - UI 테마: `AppTheme`, `ThemePalette` — 패널 헤더·테두리·다크 모드·Dialog 버튼 스타일 일괄 적용
 - 편집기: `WebViewEditorController` + `EditorHtmlBuilder` (contenteditable HTML ↔ Markdown)
+- 내보내기: Workspace 트리 컨텍스트 메뉴 + 편집 툴바; `PageMarkdownNormalizer`가 assets 폴더·PDF 링크 처리
 - 아이콘: `IconAssets`가 `Assets` 임베드 리소스 로드, `IconGenerator`로 일괄 생성
 
 ## 라이선스

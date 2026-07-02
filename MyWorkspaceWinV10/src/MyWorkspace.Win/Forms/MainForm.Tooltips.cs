@@ -28,6 +28,9 @@ public partial class MainForm
 
         SetTip(menuRefreshTree, K.TipMenuRefreshTree);
 
+        if (menuNewProject != null)
+            SetTip(menuNewProject, K.TipMenuNewProject);
+
         if (menuSaveWorkspace != null)
 
             SetTip(menuSaveWorkspace, K.TipMenuSaveProject);
@@ -40,9 +43,20 @@ public partial class MainForm
 
             SetTip(menuRecentProjects, K.TipMenuRecentProjects);
 
-        if (menuExportWorkspace != null)
+        if (menuSavePageAsMarkdown != null)
+            SetTip(menuSavePageAsMarkdown, K.MenuSavePageAsMarkdown);
 
-            SetTip(menuExportWorkspace, K.MenuExportWorkspace);
+        if (ctxExportPage != null)
+            SetTip(ctxExportPage, K.MenuExportPage);
+
+        if (ctxExportWorkspace != null)
+            SetTip(ctxExportWorkspace, K.MenuExportWorkspace);
+
+        if (menuSettings != null)
+            SetTip(menuSettings, K.TipMenuSettings);
+
+        if (menuProfile != null)
+            SetTip(menuProfile, K.TipMenuProfile);
 
         SetTip(menuPreferences, K.TipMenuPreferences);
 

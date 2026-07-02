@@ -4,6 +4,7 @@
 [Bb]uild/
 [Oo]ut/
 _build_out/
+.build-out/
 publish/
 artifacts/
 
@@ -90,11 +91,14 @@ appsettings.local.json
 *.dmp
 *.mdmp
 
-# Test / scratch
+# Test / scratch / local export output
 TestResults/
 coverage/
 scratch/
 export/
+
+# Local project archives and ad-hoc export folders (keep tracked samples if any)
+*.wsp
 
 # Note: src/MyWorkspace.Win/Assets/ (app.ico, Icons/s16·s20·s28 PNG) is tracked in git.
 # Regenerate with: dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release

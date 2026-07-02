@@ -239,19 +239,23 @@ public partial class MainForm
         }
     }
 
-    private async Task SaveCurrentPageAsync(bool showStatus = false, bool refreshTree = false, bool force = false)
+    private async Task<bool> SaveCurrentPageAsync(
+        bool showStatus = false,
+        bool refreshTree = false,
+        bool force = false,
+        bool autoSaveToSqliteOnly = false)
     {
         if ((!_isDirty && !force) || !_currentPageId.HasValue || _saveInProgress || _editor == null)
-            return;
+            return true;
 
         if (!CanEditActivePage())
-            return;
+            return false;
 
         if (_editor.IsScriptSuspended)
         {
             saveTimer.Stop();
             saveTimer.Start();
-            return;
+            return false;
         }
 
         _saveInProgress = true;
@@ -264,15 +268,18 @@ public partial class MainForm
                 _currentPageId.Value,
                 title,
                 content,
-                _offlinePageContext);
+                _offlinePageContext,
+                autoSaveToSqliteOnly);
 
             _currentPageTitle = title;
             _isDirty = false;
             if (showStatus)
             {
-                SetSaveStatus(saveResult == PageSaveResult.OfflineFallback
-                    ? SaveStatusKind.OfflineSaved
-                    : SaveStatusKind.AutoSaved);
+                SetSaveStatus(saveResult switch
+                {
+                    PageSaveResult.OfflineFallback => SaveStatusKind.OfflineSaved,
+                    _ => SaveStatusKind.AutoSaved
+                });
                 lblStatus.Text = saveResult == PageSaveResult.OfflineFallback
                     ? Localization.Format(K.StatusPageOfflineSaved, title)
                     : Localization.Format(K.StatusPage, title);
@@ -280,12 +287,16 @@ public partial class MainForm
 
             if (refreshTree)
                 LoadWorkspaceTree(selectPageId: _currentPageId);
+
+            return true;
         }
         catch (Exception ex)
         {
             SetSaveStatus(SaveStatusKind.Failed);
             if (showStatus)
                 ErrorDetailForm.Show(this, Localization.Get(K.SaveFailed), ex);
+
+            return false;
         }
         finally
         {

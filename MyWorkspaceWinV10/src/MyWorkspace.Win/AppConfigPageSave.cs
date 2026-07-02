@@ -11,8 +11,12 @@ internal static class AppConfigPageSave
         int pageId,
         string title,
         string content,
-        OfflinePageContext? context)
+        OfflinePageContext? context,
+        bool autoSaveToSqliteOnly = false)
     {
+        if (autoSaveToSqliteOnly)
+            return TryAutoSaveToSqlite(currentUser, pageId, title, content, context);
+
         if (AppConfig.IsOfflineFallbackActive)
         {
             if (context == null)
@@ -40,5 +44,24 @@ internal static class AppConfigPageSave
             AppConfig.MarkOfflineSaveUsed();
             return PageSaveResult.OfflineFallback;
         }
+    }
+
+    private static PageSaveResult TryAutoSaveToSqlite(
+        User currentUser,
+        int pageId,
+        string title,
+        string content,
+        OfflinePageContext? context)
+    {
+        if (context == null)
+            throw new InvalidOperationException(Localization.Get(K.OfflineSaveContextMissing));
+
+        var sqliteServices = AppConfig.GetAutoSaveSqliteServices();
+        OfflinePageSaveService.SavePage(sqliteServices, currentUser, context, title, content);
+        PageAssetStore.SyncAssetsWithContent(pageId, content, sqliteServices);
+
+        return ReferenceEquals(sqliteServices, AppConfig.Services)
+            ? PageSaveResult.Primary
+            : PageSaveResult.LocalSqliteAutoSave;
     }
 }

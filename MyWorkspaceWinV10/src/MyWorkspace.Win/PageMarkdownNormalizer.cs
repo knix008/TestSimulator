@@ -87,6 +87,264 @@ internal static partial class PageMarkdownNormalizer
         return fileNames;
     }
 
+    public static IReadOnlyList<(int PageId, string FileName)> GetAllReferencedAssets(string markdown)
+    {
+        var assets = new List<(int PageId, string FileName)>();
+        foreach (var uri in EnumerateAssetUriReferences(markdown))
+        {
+            if (!TryParseAnyPageAssetReference(uri, out var pageId, out var fileName))
+                continue;
+
+            if (assets.Any(item => item.PageId == pageId &&
+                                   item.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            assets.Add((pageId, fileName));
+        }
+
+        return assets;
+    }
+
+    internal static bool TryParseAnyPageAssetReference(string url, out int pageId, out string fileName)
+    {
+        fileName = string.Empty;
+        pageId = 0;
+
+        url = NormalizeMarkdownLinkUrl(url);
+        if (PageAssetStore.TryParseAssetUri(url, out pageId, out fileName))
+            return true;
+
+        return PageAssetStore.TryParseEditorUri(url, out pageId, out fileName);
+    }
+
+    public static string MaterializeCombinedAssetsForExport(string markdown, string exportFilePath)
+    {
+        PageAssetStore.EnsureCombinedAssetsMaterialized(markdown);
+
+        var directory = Path.GetDirectoryName(exportFilePath);
+        if (string.IsNullOrWhiteSpace(directory))
+            return markdown;
+
+        var assetsFolderName = Path.GetFileNameWithoutExtension(exportFilePath) + "_assets";
+        var assetsFolder = Path.Combine(directory, assetsFolderName);
+
+        markdown = SanitizeBrokenImagePlaceholders(markdown);
+        markdown = MaterializeCombinedHtmlImageAssets(markdown, assetsFolderName, assetsFolder);
+        markdown = MaterializeCombinedHtmlAnchorAssets(markdown, assetsFolderName, assetsFolder);
+        markdown = MaterializeCombinedAssetMatches(markdown, assetsFolderName, assetsFolder, MarkdownImageRegex(),
+            static (alt, relativePath) => $"![{alt}]({relativePath})");
+        return MaterializeCombinedAssetMatches(markdown, assetsFolderName, assetsFolder, MarkdownFileLinkRegex(),
+            static (title, relativePath) => $"[{title}]({relativePath})");
+    }
+
+    public static string PrepareMarkdownForCombinedPdfExport(string markdown, string exportFilePath)
+    {
+        PageAssetStore.EnsureCombinedAssetsMaterialized(markdown);
+
+        var directory = Path.GetDirectoryName(exportFilePath);
+        if (string.IsNullOrWhiteSpace(directory))
+            return markdown;
+
+        var assetsFolderName = Path.GetFileNameWithoutExtension(exportFilePath) + "_assets";
+        var assetsFolder = Path.Combine(directory, assetsFolderName);
+
+        markdown = SanitizeBrokenImagePlaceholders(markdown);
+        markdown = ExpandCombinedImageAssetReferences(markdown);
+        markdown = ExpandCombinedHtmlImageAssetReferences(markdown);
+        return MaterializeCombinedNonImageFileAssetsForExport(markdown, assetsFolderName, assetsFolder);
+    }
+
+    private static string ExpandCombinedImageAssetReferences(string markdown) =>
+        MarkdownImageRegex().Replace(markdown, match =>
+        {
+            var url = NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
+            var alt = match.Groups["alt"].Value;
+            var title = match.Groups["title"].Success ? match.Groups["title"].Value : string.Empty;
+            var width = TryParseEditorWidthTitle(title);
+
+            if (!TryParseAnyPageAssetReference(url, out var pageId, out var fileName))
+                return match.Value;
+
+            if (!PageAssetStore.IsSupportedImageExtension(Path.GetExtension(fileName)))
+                return match.Value;
+
+            var editorUri = PageAssetStore.BuildEditorUri(pageId, fileName);
+            if (width.HasValue)
+                return BuildSizedImageTag(editorUri, width.Value, alt);
+
+            return $"![{alt}]({editorUri})";
+        });
+
+    private static string ExpandCombinedHtmlImageAssetReferences(string markdown) =>
+        HtmlImgTagRegex().Replace(markdown, match =>
+        {
+            var attrs = match.Groups["attrs"].Value;
+            var src = ExtractAttributeValue(attrs, "src");
+            if (string.IsNullOrWhiteSpace(src) ||
+                !TryParseAnyPageAssetReference(src, out var pageId, out var fileName))
+            {
+                return match.Value;
+            }
+
+            var width = ExtractWidthPxFromAttrs(attrs);
+            var alt = ExtractAttributeValue(attrs, "alt") ?? string.Empty;
+            var fileUri = PageAssetStore.BuildEditorUri(pageId, fileName);
+            return width.HasValue
+                ? BuildSizedImageTag(fileUri, width.Value, alt)
+                : $"""<img src="{EscapeHtmlAttribute(fileUri)}" alt="{EscapeHtmlAttribute(alt)}">""";
+        });
+
+    private static string MaterializeCombinedNonImageFileAssetsForExport(
+        string markdown,
+        string assetsFolderName,
+        string assetsFolder)
+    {
+        static bool IsNonImageFile(string fileName) =>
+            !PageAssetStore.IsSupportedImageExtension(Path.GetExtension(fileName));
+
+        markdown = MaterializeCombinedAssetMatches(
+            markdown,
+            assetsFolderName,
+            assetsFolder,
+            MarkdownFileLinkRegex(),
+            static (title, relativePath) => $"[{title}]({relativePath})",
+            IsNonImageFile);
+
+        markdown = HtmlFileAttachmentRegex().Replace(markdown, match =>
+        {
+            var url = match.Groups["url"].Value;
+            if (!TryParseAnyPageAssetReference(url, out var pageId, out var fileName) || !IsNonImageFile(fileName))
+                return match.Value;
+
+            if (!TryWriteCombinedAssetToFolder(pageId, fileName, assetsFolder, out _))
+                return match.Value;
+
+            var relativePath = BuildCombinedRelativeAssetPath(assetsFolderName, pageId, fileName);
+            var text = StripHtml(match.Groups["text"].Value);
+            if (string.IsNullOrWhiteSpace(text))
+                text = fileName;
+
+            return $"""<a class="file-attachment" href="{EscapeHtmlAttribute(relativePath)}">{EscapeHtml(text)}</a>""";
+        });
+
+        return MaterializeCombinedHtmlAnchorAssets(
+            markdown,
+            assetsFolderName,
+            assetsFolder,
+            IsNonImageFile);
+    }
+
+    private static string MaterializeCombinedHtmlImageAssets(string markdown, string assetsFolderName, string assetsFolder) =>
+        HtmlImgTagRegex().Replace(markdown, match =>
+        {
+            var attrs = match.Groups["attrs"].Value;
+            var src = ExtractAttributeValue(attrs, "src");
+            if (string.IsNullOrWhiteSpace(src) ||
+                !TryParseAnyPageAssetReference(src, out var pageId, out var fileName))
+            {
+                return match.Value;
+            }
+
+            if (!TryWriteCombinedAssetToFolder(pageId, fileName, assetsFolder, out _))
+                return match.Value;
+
+            var relativePath = BuildCombinedRelativeAssetPath(assetsFolderName, pageId, fileName);
+            attrs = SetAttributeValue(attrs, "src", relativePath);
+            return attrs.Length > 0 ? $"<img {attrs}>" : $"""<img src="{EscapeHtmlAttribute(relativePath)}">""";
+        });
+
+    private static string MaterializeCombinedHtmlAnchorAssets(string markdown, string assetsFolderName, string assetsFolder) =>
+        MaterializeCombinedHtmlAnchorAssets(markdown, assetsFolderName, assetsFolder, static _ => true);
+
+    private static string MaterializeCombinedHtmlAnchorAssets(
+        string markdown,
+        string assetsFolderName,
+        string assetsFolder,
+        Func<string, bool> includeFile)
+    {
+        return HtmlAnchorRegex().Replace(markdown, match =>
+        {
+            var url = match.Groups["url"].Value;
+            if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+            {
+                return match.Value;
+            }
+
+            if (!TryParseAnyPageAssetReference(url, out var pageId, out var fileName) || !includeFile(fileName))
+                return match.Value;
+
+            if (!TryWriteCombinedAssetToFolder(pageId, fileName, assetsFolder, out _))
+                return match.Value;
+
+            var relativePath = BuildCombinedRelativeAssetPath(assetsFolderName, pageId, fileName);
+            var before = match.Groups["before"].Value;
+            var after = match.Groups["after"].Value;
+            var text = match.Groups["text"].Value;
+            if (string.IsNullOrWhiteSpace(text))
+                text = fileName;
+
+            return $"<a{before}{relativePath}{after}>{text}</a>";
+        });
+    }
+
+    private static string MaterializeCombinedAssetMatches(
+        string markdown,
+        string assetsFolderName,
+        string assetsFolder,
+        Regex regex,
+        Func<string, string, string> format,
+        Func<string, bool>? includeFile = null)
+    {
+        return regex.Replace(markdown, match =>
+        {
+            var url = NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
+            if (!TryParseAnyPageAssetReference(url, out var pageId, out var fileName))
+                return match.Value;
+
+            if (includeFile != null && !includeFile(fileName))
+                return match.Value;
+
+            if (!TryWriteCombinedAssetToFolder(pageId, fileName, assetsFolder, out _))
+                return match.Value;
+
+            var relativePath = BuildCombinedRelativeAssetPath(assetsFolderName, pageId, fileName);
+            var label = match.Groups["alt"].Success
+                ? match.Groups["alt"].Value
+                : match.Groups["title"].Value;
+            if (string.IsNullOrWhiteSpace(label))
+                label = fileName;
+
+            return format(label, relativePath);
+        });
+    }
+
+    private static string BuildCombinedRelativeAssetPath(string assetsFolderName, int pageId, string fileName) =>
+        $"{assetsFolderName}/{pageId}/{fileName}".Replace('\\', '/');
+
+    private static bool TryWriteCombinedAssetToFolder(int pageId, string fileName, string assetsFolder, out string destinationPath)
+    {
+        var pageFolder = Path.Combine(assetsFolder, pageId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        destinationPath = Path.Combine(pageFolder, fileName);
+
+        var sourcePath = PageAssetStore.TryGetAssetPath(pageId, fileName);
+        byte[]? assetBytes = null;
+        if (!string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath))
+            assetBytes = File.ReadAllBytes(sourcePath);
+        else
+            assetBytes = PageAssetStore.TryGetAssetBytes(pageId, fileName);
+
+        if (assetBytes == null)
+            return false;
+
+        Directory.CreateDirectory(pageFolder);
+        File.WriteAllBytes(destinationPath, assetBytes);
+        return true;
+    }
+
     private static bool TryParseReferencedAsset(string uri, int pageId, out string fileName)
     {
         fileName = string.Empty;
@@ -190,6 +448,8 @@ internal static partial class PageMarkdownNormalizer
 
     public static string MaterializeAssetsForExport(string markdown, int pageId, string exportFilePath)
     {
+        PageAssetStore.EnsureAssetsMaterialized(pageId, markdown);
+
         var directory = Path.GetDirectoryName(exportFilePath);
         if (string.IsNullOrWhiteSpace(directory))
             return markdown;
@@ -198,12 +458,30 @@ internal static partial class PageMarkdownNormalizer
         var assetsFolder = Path.Combine(directory, assetsFolderName);
         Directory.CreateDirectory(assetsFolder);
 
+        markdown = SanitizeBrokenImagePlaceholders(markdown);
         markdown = MaterializeHtmlImageAssets(markdown, pageId, assetsFolderName, assetsFolder);
         markdown = MaterializeHtmlAnchorAssets(markdown, pageId, assetsFolderName, assetsFolder);
-        markdown = MaterializeAssetMatches(markdown, pageId, assetsFolderName, assetsFolder, MarkdownImageAssetRegex(),
+        markdown = MaterializeAssetMatches(markdown, pageId, assetsFolderName, assetsFolder, MarkdownImageRegex(),
             static (alt, relativePath) => $"![{alt}]({relativePath})");
-        return MaterializeAssetMatches(markdown, pageId, assetsFolderName, assetsFolder, MarkdownFileAssetRegex(),
+        return MaterializeAssetMatches(markdown, pageId, assetsFolderName, assetsFolder, MarkdownFileLinkRegex(),
             static (title, relativePath) => $"[{title}]({relativePath})");
+    }
+
+    public static string PrepareMarkdownForPdfExport(string markdown, int pageId, string exportFilePath)
+    {
+        PageAssetStore.EnsureAssetsMaterialized(pageId, markdown);
+
+        var directory = Path.GetDirectoryName(exportFilePath);
+        if (string.IsNullOrWhiteSpace(directory))
+            return ExpandAssetReferences(markdown, pageId);
+
+        var assetsFolderName = Path.GetFileNameWithoutExtension(exportFilePath) + "_assets";
+        var assetsFolder = Path.Combine(directory, assetsFolderName);
+
+        markdown = SanitizeBrokenImagePlaceholders(markdown);
+        markdown = ExpandImageAssetReferences(markdown, pageId);
+        markdown = ExpandHtmlImageAssetReferences(markdown, pageId);
+        return MaterializeNonImageFileAssetsForExport(markdown, pageId, assetsFolderName, assetsFolder);
     }
 
     internal static int? TryGetHtmlImageWidthPx(string imgTagOrAttrs)
@@ -238,31 +516,22 @@ internal static partial class PageMarkdownNormalizer
     private static string ExpandImageAssetReferences(string markdown, int pageId) =>
         MarkdownImageRegex().Replace(markdown, match =>
         {
-            var url = match.Groups["url"].Value;
+            var url = NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
             var alt = match.Groups["alt"].Value;
             var title = match.Groups["title"].Success ? match.Groups["title"].Value : string.Empty;
             var width = TryParseEditorWidthTitle(title);
 
-            if (PageAssetStore.TryParseAssetUri(url, out var assetPageId, out var fileName) &&
-                assetPageId == pageId)
-            {
-                var editorUri = PageAssetStore.BuildEditorUri(pageId, fileName);
-                if (width.HasValue)
-                    return BuildSizedImageTag(editorUri, width.Value, alt);
-
-                return $"![{alt}]({editorUri})";
-            }
-
-            if (PageAssetStore.TryParseEditorUri(url, out assetPageId, out fileName) &&
-                assetPageId == pageId)
-            {
-                if (width.HasValue)
-                    return BuildSizedImageTag(url, width.Value, alt);
-
+            if (!TryParsePageAssetReference(url, pageId, out var fileName))
                 return match.Value;
-            }
 
-            return match.Value;
+            if (!PageAssetStore.IsSupportedImageExtension(Path.GetExtension(fileName)))
+                return match.Value;
+
+            var editorUri = PageAssetStore.BuildEditorUri(pageId, fileName);
+            if (width.HasValue)
+                return BuildSizedImageTag(editorUri, width.Value, alt);
+
+            return $"![{alt}]({editorUri})";
         });
 
     private static int? TryParseEditorWidthTitle(string? title)
@@ -386,7 +655,16 @@ internal static partial class PageMarkdownNormalizer
         });
 
     private static string MaterializeHtmlAnchorAssets(string markdown, int pageId, string assetsFolderName, string assetsFolder) =>
-        HtmlAnchorRegex().Replace(markdown, match =>
+        MaterializeHtmlAnchorAssets(markdown, pageId, assetsFolderName, assetsFolder, static _ => true);
+
+    private static string MaterializeHtmlAnchorAssets(
+        string markdown,
+        int pageId,
+        string assetsFolderName,
+        string assetsFolder,
+        Func<string, bool> includeFile)
+    {
+        return HtmlAnchorRegex().Replace(markdown, match =>
         {
             var url = match.Groups["url"].Value;
             if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
@@ -396,7 +674,7 @@ internal static partial class PageMarkdownNormalizer
                 return match.Value;
             }
 
-            if (!TryParsePageAssetReference(url, pageId, out var fileName))
+            if (!TryParsePageAssetReference(url, pageId, out var fileName) || !includeFile(fileName))
                 return match.Value;
 
             if (!TryWriteAssetToFolder(pageId, fileName, assetsFolder, out _))
@@ -406,8 +684,56 @@ internal static partial class PageMarkdownNormalizer
             var before = match.Groups["before"].Value;
             var after = match.Groups["after"].Value;
             var text = match.Groups["text"].Value;
+            if (string.IsNullOrWhiteSpace(text))
+                text = fileName;
+
             return $"<a{before}{relativePath}{after}>{text}</a>";
         });
+    }
+
+    private static string MaterializeNonImageFileAssetsForExport(
+        string markdown,
+        int pageId,
+        string assetsFolderName,
+        string assetsFolder)
+    {
+        static bool IsNonImageFile(string fileName) =>
+            !PageAssetStore.IsSupportedImageExtension(Path.GetExtension(fileName));
+
+        markdown = MaterializeAssetMatches(
+            markdown,
+            pageId,
+            assetsFolderName,
+            assetsFolder,
+            MarkdownFileLinkRegex(),
+            static (title, relativePath) => $"[{title}]({relativePath})",
+            IsNonImageFile);
+
+        markdown = HtmlFileAttachmentRegex().Replace(markdown, match =>
+        {
+            var url = match.Groups["url"].Value;
+            if (!TryParsePageAssetReference(url, pageId, out var fileName) || !IsNonImageFile(fileName))
+                return match.Value;
+
+            if (!TryWriteAssetToFolder(pageId, fileName, assetsFolder, out _))
+                return match.Value;
+
+            var relativePath = BuildRelativeAssetPath(assetsFolderName, fileName);
+            var text = StripHtml(match.Groups["text"].Value);
+            if (string.IsNullOrWhiteSpace(text))
+                text = fileName;
+
+            return $"""<a class="file-attachment" href="{EscapeHtmlAttribute(relativePath)}">{EscapeHtml(text)}</a>""";
+        });
+
+        return MaterializeHtmlAnchorAssets(markdown, pageId, assetsFolderName, assetsFolder, IsNonImageFile);
+    }
+
+    private static string StripHtml(string value) =>
+        Regex.Replace(value, "<[^>]+>", string.Empty).Trim();
+
+    private static string EscapeHtml(string value) =>
+        System.Net.WebUtility.HtmlEncode(value);
 
     private static string BuildRelativeAssetPath(string assetsFolderName, string fileName) =>
         $"{assetsFolderName}/{fileName}".Replace('\\', '/');
@@ -426,6 +752,7 @@ internal static partial class PageMarkdownNormalizer
         if (assetBytes == null)
             return false;
 
+        Directory.CreateDirectory(assetsFolder);
         File.WriteAllBytes(destinationPath, assetBytes);
         return true;
     }
@@ -443,12 +770,16 @@ internal static partial class PageMarkdownNormalizer
         string assetsFolderName,
         string assetsFolder,
         Regex regex,
-        Func<string, string, string> format)
+        Func<string, string, string> format,
+        Func<string, bool>? includeFile = null)
     {
         return regex.Replace(markdown, match =>
         {
-            var url = match.Groups["url"].Value;
-            if (!PageAssetStore.TryParseAssetUri(url, out var assetPageId, out var fileName) || assetPageId != pageId)
+            var url = NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
+            if (!TryParsePageAssetReference(url, pageId, out var fileName))
+                return match.Value;
+
+            if (includeFile != null && !includeFile(fileName))
                 return match.Value;
 
             if (!TryWriteAssetToFolder(pageId, fileName, assetsFolder, out _))
@@ -458,8 +789,25 @@ internal static partial class PageMarkdownNormalizer
             var label = match.Groups["alt"].Success
                 ? match.Groups["alt"].Value
                 : match.Groups["title"].Value;
+            if (string.IsNullOrWhiteSpace(label))
+                label = fileName;
+
             return format(label, relativePath);
         });
+    }
+
+    private static string NormalizeMarkdownLinkUrl(string url)
+    {
+        url = url.Trim().Trim('"', '\'');
+        var spaceIndex = url.IndexOf(' ');
+        if (spaceIndex <= 0)
+            return url;
+
+        var remainder = url[spaceIndex..].TrimStart();
+        if (remainder.StartsWith("\"", StringComparison.Ordinal) || remainder.StartsWith("'", StringComparison.Ordinal))
+            return url[..spaceIndex].Trim();
+
+        return url;
     }
 
     private static string PromoteImageWrapWidths(string html) =>
