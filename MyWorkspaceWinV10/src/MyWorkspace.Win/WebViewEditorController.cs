@@ -355,6 +355,7 @@ internal sealed class WebViewEditorController
         _webView.NavigateToString(html);
         await WaitForReadyAsync();
         await ApplyThemeChromeAsync();
+        await RunApiAsync("window.editorApi.finalizeImageSizes();");
     }
 
     public Task ClearAsync(MarkdownPipeline pipeline, int? pageId = null) =>
@@ -384,6 +385,7 @@ internal sealed class WebViewEditorController
         if (pageId.HasValue)
         {
             markdown = PageMarkdownNormalizer.RestoreSizedImages(markdown, preservedSizedImages);
+            markdown = PageMarkdownNormalizer.PersistSizedImagesInMarkdown(markdown, pageId.Value);
             markdown = PageMarkdownNormalizer.CollapseEditorImages(markdown, pageId.Value);
             return PageMarkdownNormalizer.CollapseEditorFileLinks(markdown, pageId.Value);
         }
@@ -553,6 +555,7 @@ internal sealed class WebViewEditorController
     {
         var chrome = EditorChromeOptions.CreateCurrent();
         var p = chrome.Palette;
+        var fontSizePx = (15F * chrome.FontScaleFactor).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
         var themeJson = JsonSerializer.Serialize(new
         {
             bg = ToCss(p.Surface),
@@ -566,7 +569,8 @@ internal sealed class WebViewEditorController
             accent = ToCss(p.Accent),
             muted = ToCss(p.TextSecondary),
             selection = ToCssAlpha(p.Accent, 51),
-            colorScheme = AppTheme.IsDark ? "dark" : "light"
+            colorScheme = AppTheme.IsDark ? "dark" : "light",
+            fontSizePx
         });
         return $"window.editorApi.applyThemeChrome({themeJson});";
     }

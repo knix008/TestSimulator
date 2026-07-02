@@ -347,26 +347,11 @@ public partial class MainForm
     {
         ApplyEditorHostTheme();
 
-        if (_editor == null)
+        if (_editor == null || !_editor.IsReady)
             return;
 
-        var suppressLoading = _isLoadingPage;
-        _isLoadingPage = true;
-        try
-        {
-            _editor.ApplyWebViewChrome();
-            _editor.ResetScriptSuspension();
-
-            if (!_editor.IsReady)
-                return;
-
-            var markdown = await _editor.GetMarkdownAsync(_currentPageId);
-            await _editor.LoadMarkdownAsync(markdown, _pipeline, _currentPageId);
-        }
-        finally
-        {
-            _isLoadingPage = suppressLoading;
-        }
+        _editor.ResetScriptSuspension();
+        await _editor.ApplyThemeChromeAsync();
     }
 
     private void ApplyEditorHostTheme()

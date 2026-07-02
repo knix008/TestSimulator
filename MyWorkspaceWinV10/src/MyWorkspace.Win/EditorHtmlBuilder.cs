@@ -63,7 +63,7 @@ internal static class EditorHtmlBuilder
                     return $"""<span class="editor-image-wrap" contenteditable="false"><img {attrs.Trim()}><span class="editor-image-resize-handle" contenteditable="false"></span></span>""";
 
                 attrs = EnsureImgAttrsHaveDisplayWidth(attrs, widthPx);
-                return $"""<span class="editor-image-wrap is-sized" contenteditable="false" style="width: {widthPx}px;"><img{attrs}><span class="editor-image-resize-handle" contenteditable="false"></span></span>""";
+                return $"""<span class="editor-image-wrap is-sized" contenteditable="false" data-editor-width="{widthPx}" style="width: {widthPx}px;"><img{attrs}><span class="editor-image-resize-handle" contenteditable="false"></span></span>""";
             },
             RegexOptions.IgnoreCase);
 
@@ -162,12 +162,13 @@ internal static class EditorHtmlBuilder
               --editor-accent: {{accent}};
               --editor-muted: {{muted}};
               --editor-selection: {{selection}};
+              --editor-font-size: {{bodyFontSize}}px;
             }
             html, body { height: 100%; margin: 0; background: var(--editor-bg) !important; color: var(--editor-text) !important; }
             html { color-scheme: {{colorScheme}}; background: var(--editor-bg) !important; }
             body {
               font-family: "Segoe UI", "Malgun Gothic", sans-serif;
-              font-size: {{bodyFontSize}}px; line-height: 1.75; color: var(--editor-text);
+              font-size: var(--editor-font-size, {{bodyFontSize}}px); line-height: 1.75; color: var(--editor-text);
               background: var(--editor-bg) !important; overflow: hidden;
             }
             ::selection { background: var(--editor-selection); }
@@ -233,13 +234,26 @@ internal static class EditorHtmlBuilder
               margin: 0 2px; line-height: 0;
               cursor: pointer;
             }
-            .editor-image-wrap.is-sized { max-width: none; overflow: hidden; }
-            .editor-image-wrap.is-sized > img {
+            .editor-image-wrap.is-sized,
+            .editor-image-wrap[data-editor-width] {
+              max-width: none;
+              overflow: hidden;
+            }
+            .editor-image-wrap.is-sized > img,
+            .editor-image-wrap[data-editor-width] > img {
               display: block;
               width: 100% !important;
               height: auto !important;
               max-width: none !important;
               max-height: none !important;
+              min-width: 0 !important;
+            }
+            .editor-image-wrap.is-sized > img[width],
+            .editor-image-wrap.is-sized > img[height],
+            .editor-image-wrap[data-editor-width] > img[width],
+            .editor-image-wrap[data-editor-width] > img[height] {
+              width: 100% !important;
+              height: auto !important;
             }
             .editor-image-wrap img {
               height: auto; border-radius: 2px;
@@ -322,7 +336,8 @@ internal static class EditorHtmlBuilder
               accent: '{{accent}}',
               muted: '{{muted}}',
               selection: '{{selection}}',
-              colorScheme: '{{colorScheme}}'
+              colorScheme: '{{colorScheme}}',
+              fontSizePx: '{{bodyFontSize}}'
             };
 
             function setThemeVars(theme) {
@@ -338,6 +353,8 @@ internal static class EditorHtmlBuilder
               root.style.setProperty('--editor-accent', theme.accent);
               root.style.setProperty('--editor-muted', theme.muted);
               root.style.setProperty('--editor-selection', theme.selection);
+              if (theme.fontSizePx)
+                root.style.setProperty('--editor-font-size', theme.fontSizePx + 'px');
               root.style.colorScheme = theme.colorScheme;
               const meta = document.querySelector('meta[name="color-scheme"]');
               if (meta) meta.content = theme.colorScheme;
@@ -891,23 +908,22 @@ internal static class EditorHtmlBuilder
             }
 
             function readSavedImageWidthPx(wrap, img) {
-              const dataWidth = parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
-              if (dataWidth) return dataWidth;
+              const wrapDataWidth = parsePositivePx(wrap.getAttribute('data-editor-width') || wrap.dataset.editorWidth);
+              if (wrapDataWidth) return wrapDataWidth;
 
-              const widthAttr = parsePositivePx(img.getAttribute('width'));
-              if (widthAttr) return widthAttr;
+              const wrapStyleWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'));
+              if (wrapStyleWidth) return wrapStyleWidth;
 
-              const wrapWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'));
-              if (wrapWidth) return wrapWidth;
+              const imgDataWidth = parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
+              if (imgDataWidth) return imgDataWidth;
 
-              const inlineWidth = parseCssWidthPx(img.style.width);
-              if (inlineWidth) return inlineWidth;
-
-              return parseCssWidthPx(img.getAttribute('style'));
+              return 0;
             }
 
             function resolveImageWidthForSave(wrap, img) {
-              if (wrap.classList.contains('is-sized') || wrap.dataset.userSized === '1') {
+              const saved = readSavedImageWidthPx(wrap, img);
+              if (wrap.classList.contains('is-sized') || wrap.dataset.userSized === '1' || saved) {
+                if (saved) return saved;
                 const measured = Math.round(wrap.getBoundingClientRect().width);
                 if (measured > 0) return measured;
               }
@@ -915,16 +931,15 @@ internal static class EditorHtmlBuilder
               const wrapWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'));
               if (wrapWidth) return wrapWidth;
 
-              const widthAttr = parsePositivePx(img.getAttribute('width'));
-              if (widthAttr) return widthAttr;
-
-              return parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
+              return saved;
             }
 
             function commitImageWidth(wrap, img, width) {
               if (!width) return;
               wrap.classList.add('is-sized');
               wrap.dataset.userSized = '1';
+              wrap.dataset.editorWidth = String(width);
+              wrap.setAttribute('data-editor-width', String(width));
               img.dataset.editorWidth = String(width);
               img.setAttribute('data-editor-width', String(width));
               wrap.style.width = width + 'px';
@@ -937,19 +952,23 @@ internal static class EditorHtmlBuilder
               img.removeAttribute('height');
             }
 
-            function applyImageSizeState(wrap, img) {
-              const savedWidth = readSavedImageWidthPx(wrap, img);
-              if (!savedWidth) return;
+            function finalizeImageSizeFromMarkup(wrap, img) {
+              const width = readSavedImageWidthPx(wrap, img);
+              if (!width) return;
 
-              const currentDataWidth = parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
-              const currentWrapWidth = parseCssWidthPx(wrap.style.width);
-              if (wrap.classList.contains('is-sized')
-                  && currentDataWidth === savedWidth
-                  && currentWrapWidth === savedWidth) {
-                return;
-              }
-
-              commitImageWidth(wrap, img, savedWidth);
+              wrap.classList.add('is-sized');
+              wrap.dataset.editorWidth = String(width);
+              wrap.setAttribute('data-editor-width', String(width));
+              wrap.style.width = width + 'px';
+              wrap.setAttribute('style', 'width: ' + width + 'px;');
+              img.dataset.editorWidth = String(width);
+              img.setAttribute('data-editor-width', String(width));
+              img.removeAttribute('width');
+              img.removeAttribute('height');
+              img.style.width = '100%';
+              img.style.height = 'auto';
+              img.style.maxWidth = 'none';
+              img.style.display = 'block';
             }
 
             function prepareImagesForSave() {
@@ -966,17 +985,26 @@ internal static class EditorHtmlBuilder
             function attachImageSizeGuard(wrap, img) {
               if (img.dataset.sizeGuard === '1') return;
               img.dataset.sizeGuard = '1';
-              const reapply = () => applyImageSizeState(wrap, img);
+
+              function stabilizeImageSize() {
+                finalizeImageSizeFromMarkup(wrap, img);
+                requestAnimationFrame(() => finalizeImageSizeFromMarkup(wrap, img));
+              }
+
               if (!img.complete)
-                img.addEventListener('load', reapply, { once: true });
+                img.addEventListener('load', stabilizeImageSize, { once: true });
               else
-                reapply();
+                stabilizeImageSize();
+
+              if (typeof img.decode === 'function') {
+                img.decode().then(() => finalizeImageSizeFromMarkup(wrap, img)).catch(() => {});
+              }
             }
 
             function reapplyAllImageSizes() {
               editor.querySelectorAll('.editor-image-wrap').forEach(wrap => {
                 const img = wrap.querySelector('img');
-                if (img) applyImageSizeState(wrap, img);
+                if (img) finalizeImageSizeFromMarkup(wrap, img);
               });
             }
 
@@ -1051,7 +1079,7 @@ internal static class EditorHtmlBuilder
                 wrap.appendChild(handle);
               }
               if (wrap.contentEditable !== 'false') wrap.contentEditable = 'false';
-              applyImageSizeState(wrap, img);
+              finalizeImageSizeFromMarkup(wrap, img);
               setupImageResize(wrap, img, handle);
               ensureCaretAnchors(wrap);
               attachImageSizeGuard(wrap, img);
@@ -1283,6 +1311,10 @@ internal static class EditorHtmlBuilder
                 const theme = Object.assign({}, defaultTheme, overrides || {});
                 setThemeVars(theme);
                 clearStaleInlineColors();
+                finalizeImageSizes();
+              },
+              finalizeImageSizes() {
+                reapplyAllImageSizes();
               }
             };
 
@@ -1295,6 +1327,9 @@ internal static class EditorHtmlBuilder
               clearStaleInlineColors();
               upgradeEditorBlocks();
               reapplyAllImageSizes();
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => reapplyAllImageSizes());
+              });
               placeCaretAtEnd(editor);
             });
           </script>

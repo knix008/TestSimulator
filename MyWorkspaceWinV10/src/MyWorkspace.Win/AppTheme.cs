@@ -588,6 +588,9 @@ internal static class AppTheme
         tree.DrawMode = TreeViewDrawMode.OwnerDrawAll;
         tree.DrawNode -= TreeView_DrawNode;
         tree.DrawNode += TreeView_DrawNode;
+
+        if (tree is ThemedTreeView themedTree)
+            themedTree.ApplyNativeTheme();
     }
 
     public static void StyleTextBox(TextBox textBox)

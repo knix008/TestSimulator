@@ -1523,7 +1523,7 @@ public partial class MainForm : Form
 
         RecordCurrentPageForSession();
 
-        if (!SessionContext.IsLoggedIn || !_isDirty)
+        if (!SessionContext.IsLoggedIn || !_currentPageId.HasValue)
             return;
 
         e.Cancel = true;
@@ -1533,7 +1533,7 @@ public partial class MainForm : Form
 
         try
         {
-            await SaveCurrentPageAsync();
+            await SaveCurrentPageAsync(force: true);
         }
         finally
         {

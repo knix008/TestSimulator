@@ -162,11 +162,31 @@ internal static partial class PageMarkdownNormalizer
         return markdown;
     }
 
+    public static string PersistSizedImagesInMarkdown(string markdown, int pageId) =>
+        HtmlImgTagRegex().Replace(markdown, match =>
+        {
+            var attrs = match.Groups["attrs"].Value;
+            var width = ExtractWidthPxFromAttrs(attrs);
+            if (!width.HasValue)
+                return match.Value;
+
+            var src = ExtractAttributeValue(attrs, "src");
+            if (string.IsNullOrWhiteSpace(src) || !TryResolveStoredAssetUri(src, pageId, out var assetUri))
+                return match.Value;
+
+            var alt = ExtractAttributeValue(attrs, "alt") ?? string.Empty;
+            return BuildSizedMarkdownImageReference(assetUri, width.Value, alt);
+        });
+
     public static string CollapseEditorImages(string markdown, int pageId) =>
-        CollapseLocalAssetLinks(markdown, pageId, MarkdownImageRegex(), static (alt, uri) => $"![{alt}]({uri})");
+        CollapseLocalAssetLinks(markdown, pageId, MarkdownImageRegex(), CollapseMarkdownImageLink);
 
     public static string CollapseEditorFileLinks(string markdown, int pageId) =>
-        CollapseLocalAssetLinks(markdown, pageId, MarkdownFileLinkRegex(), static (title, uri) => $"[{title}]({uri})");
+        CollapseLocalAssetLinks(markdown, pageId, MarkdownFileLinkRegex(), static (match, uri) =>
+        {
+            var label = match.Groups["title"].Value;
+            return $"[{label}]({uri})";
+        });
 
     public static string MaterializeAssetsForExport(string markdown, int pageId, string exportFilePath)
     {
@@ -297,7 +317,7 @@ internal static partial class PageMarkdownNormalizer
         string markdown,
         int pageId,
         Regex regex,
-        Func<string, string, string> format)
+        Func<Match, string, string> format)
     {
         var normalizedFolder = GetNormalizedPageFolder(pageId);
         return regex.Replace(markdown, match =>
@@ -309,11 +329,44 @@ internal static partial class PageMarkdownNormalizer
             if (!TryMapPathToAsset(url, normalizedFolder, pageId, out var assetUri))
                 return match.Value;
 
-            var label = match.Groups["alt"].Success
-                ? match.Groups["alt"].Value
-                : match.Groups["title"].Value;
-            return format(label, assetUri);
+            return format(match, assetUri);
         });
+    }
+
+    private static string CollapseMarkdownImageLink(Match match, string assetUri)
+    {
+        var alt = match.Groups["alt"].Value;
+        if (match.Groups["title"].Success && !string.IsNullOrWhiteSpace(match.Groups["title"].Value))
+            return $"![{alt}]({assetUri} \"{EscapeMarkdownTitle(match.Groups["title"].Value)}\")";
+
+        return $"![{alt}]({assetUri})";
+    }
+
+    private static string BuildSizedMarkdownImageReference(string assetUri, int widthPx, string alt) =>
+        $"![{alt}]({assetUri} \"editor-width:{widthPx}\")";
+
+    private static string EscapeMarkdownTitle(string title) =>
+        title.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+    private static bool TryResolveStoredAssetUri(string src, int pageId, out string assetUri)
+    {
+        assetUri = string.Empty;
+
+        if (PageAssetStore.TryParseAssetUri(src, out var assetPageId, out var fileName) &&
+            assetPageId == pageId)
+        {
+            assetUri = PageAssetStore.BuildAssetUri(pageId, fileName);
+            return true;
+        }
+
+        if (PageAssetStore.TryParseEditorUri(src, out assetPageId, out fileName) &&
+            assetPageId == pageId)
+        {
+            assetUri = PageAssetStore.BuildAssetUri(pageId, fileName);
+            return true;
+        }
+
+        return false;
     }
 
     private static string MaterializeHtmlImageAssets(string markdown, int pageId, string assetsFolderName, string assetsFolder) =>
@@ -444,16 +497,20 @@ internal static partial class PageMarkdownNormalizer
         if (wrapWidth.HasValue)
             return wrapWidth;
 
+        var wrapDataWidth = ExtractAttributeValue(wrapAttrs, "data-editor-width");
+        if (int.TryParse(wrapDataWidth, out var parsedWrapData) && parsedWrapData > 0)
+            return parsedWrapData;
+
         var dataWidth = ExtractAttributeValue(imgAttrs, "data-editor-width");
         if (int.TryParse(dataWidth, out var parsedData) && parsedData > 0)
             return parsedData;
 
         var imgStyleWidth = ExtractWidthPxFromStyle(ExtractAttributeValue(imgAttrs, "style"));
-        if (imgStyleWidth.HasValue)
+        if (imgStyleWidth.HasValue && imgStyleWidth.Value <= 4096)
             return imgStyleWidth;
 
         var widthAttr = ExtractAttributeValue(imgAttrs, "width");
-        if (int.TryParse(widthAttr, out var parsedWidth) && parsedWidth > 0)
+        if (int.TryParse(widthAttr, out var parsedWidth) && parsedWidth > 0 && parsedWidth <= 4096)
             return parsedWidth;
 
         return null;

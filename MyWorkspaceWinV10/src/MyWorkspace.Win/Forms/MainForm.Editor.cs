@@ -98,7 +98,7 @@ public partial class MainForm
             return;
         }
 
-        await SaveCurrentPageAsync(refreshTree: false);
+        await SaveCurrentPageAsync(refreshTree: false, force: true);
 
         var page = AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId);
         if (page == null)
@@ -144,7 +144,7 @@ public partial class MainForm
 
     private async Task ClearEditorAsync()
     {
-        await SaveCurrentPageAsync(refreshTree: false);
+        await SaveCurrentPageAsync(refreshTree: false, force: true);
 
         _currentPageId = null;
         _draftWorkspaceId = null;
@@ -239,9 +239,9 @@ public partial class MainForm
         }
     }
 
-    private async Task SaveCurrentPageAsync(bool showStatus = false, bool refreshTree = false)
+    private async Task SaveCurrentPageAsync(bool showStatus = false, bool refreshTree = false, bool force = false)
     {
-        if (!_isDirty || !_currentPageId.HasValue || _saveInProgress || _editor == null)
+        if ((!_isDirty && !force) || !_currentPageId.HasValue || _saveInProgress || _editor == null)
             return;
 
         if (!CanEditActivePage())

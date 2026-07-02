@@ -17,9 +17,63 @@ internal class ThemedTreeView : TreeView
         DoubleBuffered = true;
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
         UpdateStyles();
+        AppTheme.Changed += OnAppThemeChanged;
+        AfterExpand += OnTreeStructureChanged;
+        AfterCollapse += OnTreeStructureChanged;
     }
 
     public event EventHandler<TreeViewRightClickEventArgs>? RightNodeClick;
+
+    internal void ApplyNativeTheme() => NativeControlTheme.ApplyTreeViewTheme(this);
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            AppTheme.Changed -= OnAppThemeChanged;
+            AfterExpand -= OnTreeStructureChanged;
+            AfterCollapse -= OnTreeStructureChanged;
+        }
+
+        base.Dispose(disposing);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        ApplyNativeTheme();
+    }
+
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        QueueNativeThemeRefresh();
+    }
+
+    private void OnAppThemeChanged()
+    {
+        if (IsDisposed || !IsHandleCreated)
+            return;
+
+        if (InvokeRequired)
+            BeginInvoke(ApplyNativeTheme);
+        else
+            ApplyNativeTheme();
+    }
+
+    private void OnTreeStructureChanged(object? sender, TreeViewEventArgs e) =>
+        QueueNativeThemeRefresh();
+
+    private void QueueNativeThemeRefresh()
+    {
+        if (IsDisposed || !IsHandleCreated)
+            return;
+
+        if (InvokeRequired)
+            BeginInvoke(ApplyNativeTheme);
+        else
+            ApplyNativeTheme();
+    }
 
     public TreeNode? GetNodeAtClientPoint(Point clientPoint)
     {
@@ -100,6 +154,9 @@ internal class ThemedTreeView : TreeView
 
         if (m.Msg == WmEraseBkgnd)
             return;
+
+        if (NativeControlTheme.IsParentNotifyCreate(m))
+            NativeControlTheme.ApplyScrollbarTheme(m.LParam);
 
         base.WndProc(ref m);
     }
