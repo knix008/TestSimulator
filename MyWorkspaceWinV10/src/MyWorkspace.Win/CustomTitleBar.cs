@@ -121,6 +121,7 @@ internal sealed class CustomTitleBar : Panel
         StyleWindowButton(_btnMaximize, hover, pressed);
         StyleWindowButton(_btnClose, hover, pressed);
         _btnClose.ForeColor = AppTheme.TitleBarText;
+        AppTheme.StyleToolTip(_toolTip);
 
         Invalidate(true);
     }

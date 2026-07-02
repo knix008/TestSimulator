@@ -15,12 +15,12 @@ public partial class MainForm
         menuSaveWorkspace = new ToolStripMenuItem
         {
             Name = "menuSaveWorkspace",
-            Image = IconAssets.LoadMonochrome(16, "workspace")
+            Image = IconAssets.Load(16, "workspace")
         };
         menuLoadWorkspace = new ToolStripMenuItem
         {
             Name = "menuLoadWorkspace",
-            Image = IconAssets.LoadMonochrome(16, "folder_plus_workspace")
+            Image = IconAssets.Load(16, "folder_plus_workspace")
         };
 
         menuSaveWorkspace.Click += menuSaveWorkspace_Click;

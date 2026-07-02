@@ -12,7 +12,7 @@ public partial class MainForm
         menuExportWorkspace = new ToolStripMenuItem
         {
             Name = "menuExportWorkspace",
-            Image = IconAssets.LoadMonochrome(16, "export")
+            Image = IconAssets.Load(16, "export")
         };
         menuExportWorkspace.Click += menuExportWorkspace_Click;
 

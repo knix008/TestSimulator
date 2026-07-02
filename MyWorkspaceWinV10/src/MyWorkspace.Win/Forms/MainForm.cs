@@ -533,7 +533,7 @@ public partial class MainForm : Form
         if (!string.IsNullOrEmpty(iconName))
         {
             item.Name = $"ctx_{iconName}";
-            item.Image = IconAssets.LoadMonochrome(16, iconName);
+            item.Image = IconAssets.Load(16, iconName);
         }
 
         item.Click += click;
@@ -554,7 +554,7 @@ public partial class MainForm : Form
 
             var iconName = menuItem.Name["ctx_".Length..];
             menuItem.Image?.Dispose();
-            menuItem.Image = IconAssets.LoadMonochrome(16, iconName);
+            menuItem.Image = IconAssets.Load(16, iconName);
         }
     }
 

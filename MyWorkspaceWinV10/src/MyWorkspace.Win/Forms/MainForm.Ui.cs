@@ -27,7 +27,9 @@ public partial class MainForm
     private void ApplyStartupTheme()
     {
         AppTheme.ApplyFormChrome(this);
+        FramelessWindowHelper.ApplyShellChrome(this);
         titleBar.ApplyTheme();
+        AppTheme.StyleBorderedPanel(titleBar, PanelEdges.Bottom);
         UpdateTitleBarCaption();
 
         pnlRoot.BackColor = AppTheme.Background;
@@ -50,7 +52,7 @@ public partial class MainForm
 
         pnlOutlineSidebar.BackColor = AppTheme.Sidebar;
         pnlOutlineSidebar.Padding = new Padding(NavWorkspaceGap, WorkspaceTopGap + 1, 0, 1);
-        AppTheme.StyleBorderedPanel(pnlOutlineSidebar, PanelEdges.Right);
+        AppTheme.StyleBorderedPanel(pnlOutlineSidebar, PanelEdges.None);
 
         pnlEditorColumn.BackColor = AppTheme.Surface;
         pnlEditorColumn.Padding = Padding.Empty;

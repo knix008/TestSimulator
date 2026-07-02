@@ -4,6 +4,10 @@ namespace MyWorkspace.Win;
 
 internal sealed class PastelColorThemePicker : Panel
 {
+    private const int SwatchesPerRow = 10;
+    private const int SwatchSize = 28;
+    private const int SwatchGap = 6;
+
     public event EventHandler? SelectionChanged;
 
     private readonly List<ColorSwatchButton> _presetButtons = [];
@@ -20,46 +24,67 @@ internal sealed class PastelColorThemePicker : Panel
         Padding = new Padding(0);
         Tag = "layout";
 
-        var flow = new FlowLayoutPanel
+        var layout = new TableLayoutPanel
         {
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
             Dock = DockStyle.Top,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = true,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+            BackColor = Color.Transparent,
+            Tag = "layout"
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        layout.Controls.Add(CreateSwatchGrid(), 0, 0);
+
+        _btnCustom.AutoSize = false;
+        _btnCustom.Size = new Size(104, 28);
+        _btnCustom.Margin = new Padding(0, 4, 0, 8);
+        _btnCustom.UseVisualStyleBackColor = true;
+        _btnCustom.Click += OnCustomClick;
+        layout.Controls.Add(_btnCustom, 0, 1);
+
+        Controls.Add(layout);
+    }
+
+    private TableLayoutPanel CreateSwatchGrid()
+    {
+        var cell = SwatchSize + SwatchGap;
+        var grid = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = SwatchesPerRow,
+            RowCount = 2,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
             BackColor = Color.Transparent,
             Tag = "layout"
         };
 
+        for (var col = 0; col < SwatchesPerRow; col++)
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, cell));
+
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, cell));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, cell));
+
         foreach (var preset in PastelThemeCatalog.All)
         {
             var button = new ColorSwatchButton(preset.Accent, preset.Index)
             {
-                Margin = new Padding(0, 0, 6, 6)
+                Margin = new Padding(0, 0, SwatchGap, SwatchGap)
             };
             button.Click += (_, _) => SelectPreset(preset.Index);
             _presetButtons.Add(button);
-            flow.Controls.Add(button);
+            grid.Controls.Add(button, preset.Index % SwatchesPerRow, preset.Index / SwatchesPerRow);
         }
 
-        _btnCustom.AutoSize = false;
-        _btnCustom.Size = new Size(104, 28);
-        _btnCustom.Margin = new Padding(0, 0, 6, 6);
-        _btnCustom.UseVisualStyleBackColor = true;
-        _btnCustom.Click += OnCustomClick;
-        flow.Controls.Add(_btnCustom);
-
-        Controls.Add(flow);
-    }
-
-    protected override void OnSizeChanged(EventArgs e)
-    {
-        base.OnSizeChanged(e);
-
-        if (Controls.Count > 0 && Controls[0] is FlowLayoutPanel flow && ClientSize.Width > 0)
-            flow.MaximumSize = new Size(ClientSize.Width, 0);
+        return grid;
     }
 
     public void LoadFromSettings(UiSettings settings)
@@ -139,8 +164,9 @@ internal sealed class PastelColorThemePicker : Panel
         {
             _accentColor = color;
             ThemeIndex = themeIndex;
-            Size = new Size(28, 28);
-            MinimumSize = new Size(28, 28);
+            Size = new Size(SwatchSize, SwatchSize);
+            MinimumSize = new Size(SwatchSize, SwatchSize);
+            MaximumSize = new Size(SwatchSize, SwatchSize);
             BackColor = color;
             Cursor = Cursors.Hand;
             TabStop = false;
@@ -157,11 +183,13 @@ internal sealed class PastelColorThemePicker : Panel
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             var bounds = new Rectangle(0, 0, Width - 1, Height - 1);
             using (var path = CreateRoundedRect(bounds, 4))
-            using (var brush = new SolidBrush(_accentColor))
-                e.Graphics.FillPath(brush, path);
+            {
+                using (var brush = new SolidBrush(_accentColor))
+                    e.Graphics.FillPath(brush, path);
 
-            using (var borderPen = new Pen(AppTheme.Border))
-                e.Graphics.DrawPath(borderPen, path);
+                using (var borderPen = new Pen(AppTheme.Border))
+                    e.Graphics.DrawPath(borderPen, path);
+            }
 
             if (IsSelected)
             {

@@ -63,7 +63,7 @@ internal sealed class VerticalNavRail : Panel
         };
 
         button.Click += OnButtonClick;
-        SetButtonIcon(button, IconAssets.LoadMonochrome(24, iconName, UiIconPlacement.Toolbar));
+        SetButtonIcon(button, IconAssets.Load(24, iconName));
         AppTheme.StyleNavRailButton(button);
         _toolTip.SetToolTip(button, Localization.Get(tooltipKey));
 
@@ -108,7 +108,7 @@ internal sealed class VerticalNavRail : Panel
         };
 
         button.Click += OnBottomActionClick;
-        SetButtonIcon(button, IconAssets.LoadMonochrome(24, iconName, UiIconPlacement.Toolbar));
+        SetButtonIcon(button, IconAssets.Load(24, iconName));
         AppTheme.StyleNavRailButton(button);
         _toolTip.SetToolTip(button, Localization.Get(tooltipKey));
 
@@ -136,16 +136,17 @@ internal sealed class VerticalNavRail : Panel
     public void RefreshIcons()
     {
         foreach (var entry in _entries)
-            SetButtonIcon(entry.Button, IconAssets.LoadMonochrome(24, entry.IconName, UiIconPlacement.Toolbar));
+            SetButtonIcon(entry.Button, IconAssets.Load(24, entry.IconName));
 
         if (_bottomAction != null)
-            SetButtonIcon(_bottomAction.Button, IconAssets.LoadMonochrome(24, _bottomAction.IconName, UiIconPlacement.Toolbar));
+            SetButtonIcon(_bottomAction.Button, IconAssets.Load(24, _bottomAction.IconName));
     }
 
     public void RefreshTheme()
     {
         BackColor = AppTheme.Sidebar;
         AppTheme.StyleBorderedPanel(this, PanelEdges.Right);
+        AppTheme.StyleToolTip(_toolTip);
         foreach (var entry in _entries)
             AppTheme.StyleNavRailButton(entry.Button);
         if (_bottomAction != null)
@@ -249,6 +250,7 @@ internal sealed class VerticalNavRail : Panel
                 popup.Items.Add(cloned);
         }
 
+        AppTheme.ApplyToolStripItems(popup.Items);
         return popup;
     }
 

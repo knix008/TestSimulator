@@ -3,9 +3,8 @@ namespace MyWorkspace.Win;
 internal static class TreeIcons
 {
     public static ImageList CreateImageList() =>
-        IconAssets.CreateMonochromeImageList(
+        IconAssets.CreateImageList(
             16,
-            UiIconPlacement.Tree,
             ("workspace", "workspace"),
             ("workspace_locked", "workspace_locked"),
             ("workspace_fav", "workspace_fav"),

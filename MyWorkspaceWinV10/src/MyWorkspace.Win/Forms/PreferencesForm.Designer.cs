@@ -16,9 +16,9 @@ partial class PreferencesForm
         tblMain = new TableLayoutPanel();
         lblAppearance = new Label();
         lblTheme = new Label();
-        pnlAppearanceBody = new Panel();
         cboTheme = new ThemedComboBox();
         lblColorTheme = new Label();
+        pnlColorTheme = new Panel();
         lblLanguage = new Label();
         cboLanguage = new ThemedComboBox();
         lblFontScale = new Label();
@@ -36,8 +36,9 @@ partial class PreferencesForm
         tblMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         tblMain.Controls.Add(lblAppearance, 0, 0);
         tblMain.Controls.Add(lblTheme, 0, 1);
-        tblMain.Controls.Add(pnlAppearanceBody, 1, 1);
+        tblMain.Controls.Add(cboTheme, 1, 1);
         tblMain.Controls.Add(lblColorTheme, 0, 2);
+        tblMain.Controls.Add(pnlColorTheme, 1, 2);
         tblMain.Controls.Add(lblLanguage, 0, 3);
         tblMain.Controls.Add(cboLanguage, 1, 3);
         tblMain.Controls.Add(lblFontScale, 0, 4);
@@ -52,14 +53,13 @@ partial class PreferencesForm
         tblMain.RowCount = 7;
         tblMain.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         tblMain.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        tblMain.RowStyles.Add(new RowStyle(SizeType.Absolute, 120F));
+        tblMain.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         tblMain.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         tblMain.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         tblMain.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         tblMain.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
         tblMain.SetColumnSpan(lblAppearance, 2);
         tblMain.SetColumnSpan(pnlButtons, 2);
-        tblMain.SetRowSpan(pnlAppearanceBody, 2);
         tblMain.Size = new Size(520, 440);
         tblMain.TabIndex = 0;
 
@@ -70,63 +70,66 @@ partial class PreferencesForm
 
         lblTheme.AutoSize = false;
         lblTheme.Dock = DockStyle.Fill;
-        lblTheme.Margin = new Padding(0, 4, 10, 4);
+        lblTheme.Margin = new Padding(0, 4, 10, 12);
         lblTheme.Name = "lblTheme";
+        lblTheme.Tag = "field-label";
         lblTheme.TextAlign = ContentAlignment.MiddleRight;
-
-        pnlAppearanceBody.Controls.Add(cboTheme);
-        pnlAppearanceBody.Dock = DockStyle.Fill;
-        pnlAppearanceBody.Margin = new Padding(0, 4, 0, 4);
-        pnlAppearanceBody.Name = "pnlAppearanceBody";
-        pnlAppearanceBody.Padding = Padding.Empty;
-        pnlAppearanceBody.Tag = "layout";
 
         cboTheme.Dock = DockStyle.Top;
         cboTheme.DropDownStyle = ComboBoxStyle.DropDownList;
         cboTheme.FormattingEnabled = true;
-        cboTheme.Margin = new Padding(0, 0, 0, 10);
+        cboTheme.Margin = new Padding(0, 4, 0, 12);
         cboTheme.Name = "cboTheme";
         cboTheme.TabIndex = 0;
         cboTheme.Tag = "noborder";
 
         lblColorTheme.AutoSize = false;
         lblColorTheme.Dock = DockStyle.Fill;
-        lblColorTheme.Margin = new Padding(0, 4, 10, 4);
+        lblColorTheme.Margin = new Padding(0, 0, 10, 4);
         lblColorTheme.Name = "lblColorTheme";
-        lblColorTheme.TextAlign = ContentAlignment.MiddleRight;
+        lblColorTheme.Tag = "field-label";
+        lblColorTheme.TextAlign = ContentAlignment.TopRight;
+
+        pnlColorTheme.Dock = DockStyle.Top;
+        pnlColorTheme.Margin = new Padding(0, 0, 0, 4);
+        pnlColorTheme.Name = "pnlColorTheme";
+        pnlColorTheme.Padding = Padding.Empty;
+        pnlColorTheme.Tag = "layout";
 
         lblLanguage.AutoSize = false;
         lblLanguage.Dock = DockStyle.Fill;
-        lblLanguage.Margin = new Padding(0, 4, 10, 4);
+        lblLanguage.Margin = new Padding(0, 4, 10, 12);
         lblLanguage.Name = "lblLanguage";
+        lblLanguage.Tag = "field-label";
         lblLanguage.TextAlign = ContentAlignment.MiddleRight;
 
-        cboLanguage.Dock = DockStyle.Fill;
+        cboLanguage.Dock = DockStyle.Top;
         cboLanguage.DropDownStyle = ComboBoxStyle.DropDownList;
         cboLanguage.FormattingEnabled = true;
-        cboLanguage.Margin = new Padding(0, 4, 0, 4);
+        cboLanguage.Margin = new Padding(0, 4, 0, 12);
         cboLanguage.Name = "cboLanguage";
         cboLanguage.TabIndex = 1;
 
         lblFontScale.AutoSize = false;
         lblFontScale.Dock = DockStyle.Fill;
-        lblFontScale.Margin = new Padding(0, 4, 10, 4);
+        lblFontScale.Margin = new Padding(0, 0, 10, 4);
         lblFontScale.Name = "lblFontScale";
+        lblFontScale.Tag = "field-label";
         lblFontScale.TextAlign = ContentAlignment.MiddleRight;
 
-        cboFontScale.Dock = DockStyle.Fill;
+        cboFontScale.Dock = DockStyle.Top;
         cboFontScale.DropDownStyle = ComboBoxStyle.DropDownList;
         cboFontScale.FormattingEnabled = true;
-        cboFontScale.Margin = new Padding(0, 4, 0, 4);
+        cboFontScale.Margin = new Padding(0, 0, 0, 4);
         cboFontScale.Name = "cboFontScale";
         cboFontScale.TabIndex = 2;
 
         lblHint.AutoSize = false;
         lblHint.Dock = DockStyle.Fill;
-        lblHint.Margin = new Padding(0, 4, 0, 0);
+        lblHint.Margin = new Padding(0, 12, 0, 0);
         lblHint.Name = "lblHint";
         lblHint.Tag = "muted";
-        lblHint.TextAlign = ContentAlignment.MiddleLeft;
+        lblHint.TextAlign = ContentAlignment.TopLeft;
 
         pnlButtons.Controls.Add(btnCancel);
         pnlButtons.Controls.Add(btnOk);
@@ -181,9 +184,9 @@ partial class PreferencesForm
     private TableLayoutPanel tblMain;
     private Label lblAppearance;
     private Label lblTheme;
-    private Panel pnlAppearanceBody;
     private ThemedComboBox cboTheme;
     private Label lblColorTheme;
+    private Panel pnlColorTheme;
     private Label lblLanguage;
     private ThemedComboBox cboLanguage;
     private Label lblFontScale;

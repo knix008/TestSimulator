@@ -5,12 +5,11 @@ internal static class AppIcons
     private const int MenuIconSize = 16;
     public const int ToolbarIconSize = 28;
 
-    public static Bitmap LoadMenuIcon(string name) => IconAssets.LoadMonochrome(MenuIconSize, name);
+    public static Bitmap LoadMenuIcon(string name) => IconAssets.Load(MenuIconSize, name);
 
     public static ImageList CreateToolbarImageList() =>
-        IconAssets.CreateMonochromeImageList(
+        IconAssets.CreateImageList(
             ToolbarIconSize,
-            UiIconPlacement.Toolbar,
             ("h1", "h1"),
             ("h2", "h2"),
             ("h3", "h3"),

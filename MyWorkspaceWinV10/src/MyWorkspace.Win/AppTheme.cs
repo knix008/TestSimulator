@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.Web.WebView2.WinForms;
 using MyWorkspace.Core.Enums;
@@ -62,36 +63,30 @@ internal static class AppTheme
     public static Color PanelHeaderEditor => _palette.PanelHeaderEditor;
     public static Color PanelHeaderPageTitle => _palette.PanelHeaderPageTitle;
 
-    public static Color MenuIconColor => ResolveIconForeground(Surface);
-    public static Color ToolbarIconColor => ResolveIconForeground(Sidebar);
-    public static Color TreeIconColor => ResolveIconForeground(Sidebar);
-
     public const int ShellBorderWidth = 1;
     public const int SplitterBorderWidth = 1;
 
-    public static Pen CreateShellBorderPen() => new(Border, ShellBorderWidth);
+    public static Color ShellBorder => ResolveShellBorder();
 
-    public static Color ResolveIconForeground(Color background)
+    public static Pen CreateShellBorderPen() => new(ShellBorder, ShellBorderWidth);
+
+    public static Pen CreatePanelDividerPen() => new(BorderLight, ShellBorderWidth);
+
+    private static Color ResolveShellBorder()
     {
-        foreach (var candidate in GetIconForegroundCandidates())
-        {
-            if (GetContrastRatio(candidate, background) >= 3.0)
-                return candidate;
-        }
+        const double minContrast = 1.35;
+        if (GetContrastRatio(Border, Background) >= minContrast)
+            return Border;
 
-        return GetRelativeLuminance(background) > 0.5
-            ? Color.FromArgb(31, 35, 40)
-            : Color.FromArgb(230, 237, 243);
-    }
+        var adjusted = IsDark
+            ? BlendColors(Border, TextSecondary, 0.55f)
+            : BlendColors(Border, TextMuted, 0.65f);
+        if (GetContrastRatio(adjusted, Background) >= minContrast)
+            return adjusted;
 
-    private static IEnumerable<Color> GetIconForegroundCandidates()
-    {
-        yield return TextPrimary;
-        yield return TextSecondary;
-        if (IsDark)
-            yield return Color.FromArgb(196, 204, 214);
-        else
-            yield return Color.FromArgb(55, 62, 72);
+        return IsDark
+            ? BlendColors(TextSecondary, Border, 0.35f)
+            : BlendColors(TextMuted, Border, 0.45f);
     }
 
     private static double GetContrastRatio(Color foreground, Color background)
@@ -291,7 +286,7 @@ internal static class AppTheme
         label.ForeColor = IsMutedDialogLabel(label) ? TextMuted : TextPrimary;
         label.BackColor = Color.Transparent;
 
-        if (label.AutoSize)
+        if (label.AutoSize || IsFieldDialogLabel(label))
             return;
 
         if (label.Width <= 0)
@@ -311,6 +306,9 @@ internal static class AppTheme
     private static bool IsMutedDialogLabel(Label label) =>
         string.Equals(label.Tag as string, "muted", StringComparison.Ordinal)
         || string.Equals(label.Name, "lblHint", StringComparison.Ordinal);
+
+    private static bool IsFieldDialogLabel(Label label) =>
+        string.Equals(label.Tag as string, "field-label", StringComparison.Ordinal);
 
     private static void FitAllButtons(Control.ControlCollection controls)
     {
@@ -426,6 +424,22 @@ internal static class AppTheme
         if (form.ShowIcon)
             form.Icon = IconAssets.CreateAppIcon();
     }
+
+    public static void StyleToolTip(ToolTip toolTip)
+    {
+        toolTip.BackColor = Surface;
+        toolTip.ForeColor = TextPrimary;
+        toolTip.OwnerDraw = false;
+    }
+
+    public static void StyleToolStripToolTips(ToolStrip strip)
+    {
+        if (ToolStripToolTipField?.GetValue(strip) is ToolTip toolTip)
+            StyleToolTip(toolTip);
+    }
+
+    private static readonly FieldInfo? ToolStripToolTipField =
+        typeof(ToolStrip).GetField("toolTip", BindingFlags.Instance | BindingFlags.NonPublic);
 
     private static Color BlendColors(Color foreground, Color background, float amountForeground)
     {
@@ -753,6 +767,7 @@ internal static class AppTheme
         strip.Renderer = _renderer!;
         strip.Font = UiFont;
         ApplyToolStripItems(strip.Items);
+        StyleToolStripToolTips(strip);
     }
 
     public static void ApplyToolStripItems(ToolStripItemCollection items)
@@ -1228,7 +1243,7 @@ internal static class AppTheme
     {
         split.BorderStyle = BorderStyle.None;
         split.SplitterWidth = SplitterBorderWidth;
-        split.BackColor = Border;
+        split.BackColor = BorderLight;
         split.Panel1.BackColor = Sidebar;
         split.Panel2.BackColor = Surface;
     }
@@ -1358,6 +1373,15 @@ internal static class AppTheme
                 return;
             }
 
+            if (e.ToolStrip.LayoutStyle == ToolStripLayoutStyle.VerticalStackWithOverflow
+                && e.ToolStrip.Dock == DockStyle.Right)
+            {
+                using var pen = new Pen(BorderLight);
+                var height = Math.Max(0, e.ToolStrip.Height - 1);
+                e.Graphics.DrawLine(pen, 0, 0, 0, height);
+                return;
+            }
+
             base.OnRenderToolStripBorder(e);
         }
     }
@@ -1379,7 +1403,7 @@ internal static class AppTheme
         using (var background = new SolidBrush(control.BackColor))
             e.Graphics.FillRectangle(background, 0, 0, width, height);
 
-        using var pen = CreateShellBorderPen();
+        using var pen = CreatePanelDividerPen();
         if ((edges & PanelEdges.Left) != 0)
             e.Graphics.DrawLine(pen, 0, 0, 0, height - 1);
         if ((edges & PanelEdges.Top) != 0)

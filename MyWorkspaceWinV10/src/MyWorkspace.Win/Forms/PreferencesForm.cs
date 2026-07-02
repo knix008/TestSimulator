@@ -31,7 +31,7 @@ public partial class PreferencesForm : Form
         _colorThemePicker.Margin = Padding.Empty;
         _colorThemePicker.SelectionChanged += (_, _) => ApplyLivePreview();
         _colorThemePicker.LoadFromSettings(SelectedSettings);
-        pnlAppearanceBody.Controls.Add(_colorThemePicker);
+        pnlColorTheme.Controls.Add(_colorThemePicker);
         _colorThemePicker.ApplyTheme();
     }
 
