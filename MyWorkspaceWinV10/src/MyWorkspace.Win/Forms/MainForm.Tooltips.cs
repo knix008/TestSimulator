@@ -22,7 +22,7 @@ public partial class MainForm
 
         SetTip(menuFile, K.TipMenuFile);
 
-        SetTip(menuSavePage, K.ToolbarSave);
+        SetTip(menuSavePage, K.TipMenuSavePage);
 
         SetTip(menuPageHistory, K.ToolbarHistory);
 
@@ -30,11 +30,15 @@ public partial class MainForm
 
         if (menuSaveWorkspace != null)
 
-            SetTip(menuSaveWorkspace, K.MenuSaveWorkspace);
+            SetTip(menuSaveWorkspace, K.TipMenuSaveProject);
 
         if (menuLoadWorkspace != null)
 
-            SetTip(menuLoadWorkspace, K.MenuLoadWorkspace);
+            SetTip(menuLoadWorkspace, K.TipMenuOpenProject);
+
+        if (menuRecentProjects != null)
+
+            SetTip(menuRecentProjects, K.TipMenuRecentProjects);
 
         if (menuExportWorkspace != null)
 

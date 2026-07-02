@@ -29,17 +29,18 @@ public partial class MainForm
         AppTheme.ApplyFormChrome(this);
         FramelessWindowHelper.ApplyShellChrome(this);
         titleBar.ApplyTheme();
-        AppTheme.StyleBorderedPanel(titleBar, PanelEdges.Bottom);
+        AppTheme.StyleBorderedPanel(titleBar, PanelEdges.None);
         UpdateTitleBarCaption();
 
         pnlRoot.BackColor = AppTheme.Background;
-        pnlShellBody.BackColor = AppTheme.Background;
-        pnlMainContent.BackColor = AppTheme.Background;
+        pnlShellBody.BackColor = AppTheme.Sidebar;
+        pnlMainContent.BackColor = AppTheme.Sidebar;
         pnlMainContent.Padding = Padding.Empty;
 
         AppTheme.ApplyMenuStrip(menuStrip1);
         AppTheme.ApplyVerticalToolbar(toolStripMarkdown);
-        toolStripMarkdown.Padding = new Padding(4, 8 + ToolbarTopGap, 4, 8);
+        toolStripMarkdown.Padding = new Padding(4, 8, 4, 8);
+        AppTheme.StyleVerticalToolbarItems(toolStripMarkdown.Items);
         AppTheme.ApplyStatusStrip(statusStrip1);
         AppTheme.StyleContextMenu(ctxTree);
         AppTheme.StyleContextMenu(ctxAppSettings);
@@ -54,12 +55,12 @@ public partial class MainForm
         pnlOutlineSidebar.Padding = new Padding(NavWorkspaceGap, WorkspaceTopGap + 1, 0, 1);
         AppTheme.StyleBorderedPanel(pnlOutlineSidebar, PanelEdges.None);
 
-        pnlEditorColumn.BackColor = AppTheme.Surface;
+        pnlEditorColumn.BackColor = AppTheme.EditorBackground;
         pnlEditorColumn.Padding = Padding.Empty;
         pnlEditorColumn.Margin = Padding.Empty;
         AppTheme.StyleBorderedPanel(pnlEditorColumn, PanelEdges.None);
 
-        pnlEditorHost.BackColor = AppTheme.Surface;
+        pnlEditorHost.BackColor = AppTheme.EditorBackground;
         pnlEditorHost.Padding = new Padding(0);
         pnlEditorHost.Margin = Padding.Empty;
         AppTheme.StyleBorderedPanel(pnlEditorHost, PanelEdges.None);
@@ -70,6 +71,7 @@ public partial class MainForm
 
         AppTheme.StyleSplitContainer(outerSplit);
         AppTheme.StyleSplitContainer(editorAreaSplit);
+        outerSplit.BackColor = AppTheme.EditorBackground;
 
         lblStatus.ForeColor = AppTheme.TextSecondary;
         lblSaveStatus.ForeColor = AppTheme.TextMuted;
@@ -77,6 +79,16 @@ public partial class MainForm
         ApplyEditorHostTheme();
         UpdateEditorEmptySurface();
         RefreshNavRailTheme();
+        UpdateTitleBarEditorRegion();
+    }
+
+    private void UpdateTitleBarEditorRegion()
+    {
+        if (!IsHandleCreated || titleBar.IsDisposed || pnlEditorColumn.IsDisposed)
+            return;
+
+        var clientOrigin = titleBar.PointToClient(pnlEditorColumn.PointToScreen(Point.Empty));
+        titleBar.SetEditorRegionLeft(clientOrigin.X);
     }
 
 
@@ -104,6 +116,8 @@ public partial class MainForm
         if (menuLoadWorkspace != null)
 
             menuLoadWorkspace.Text = Localization.Get(K.MenuLoadWorkspace);
+
+        ApplyRecentProjectsMenuLocalization();
 
         if (menuExportWorkspace != null)
 

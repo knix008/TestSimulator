@@ -271,7 +271,7 @@ partial class MainForm
         // 
         // menuAdmin
         // 
-        menuAdmin.DropDownItems.AddRange(new ToolStripItem[] { menuAdminUserManagement, menuAdminDatabaseSettings, menuAdminEmailSettings });
+        menuAdmin.DropDownItems.AddRange(new ToolStripItem[] { menuAdminUserManagement });
         menuAdmin.Name = "menuAdmin";
         menuAdmin.Size = new Size(59, 20);
         menuAdmin.Text = "관리(&A)";

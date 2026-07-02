@@ -25,6 +25,10 @@ internal static class AppConfig
 
     public static bool HasPendingOfflineSaves { get; private set; }
 
+    public static bool IsDatabaseConnectionDisabled { get; private set; }
+
+    public static bool IsDatabaseConnected => !IsDatabaseConnectionDisabled && Services != null;
+
     public static string LocalSettingsPath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -69,6 +73,7 @@ internal static class AppConfig
     public static void Initialize()
     {
         var config = BuildConfiguration();
+        IsDatabaseConnectionDisabled = LoadDatabaseConnectionDisabled(config);
         DatabaseSettings = LoadDatabaseSettings(config);
         if (!HasLocalDatabaseSettings)
             DatabaseSettings = DatabaseSettings.CreateDefault(DatabaseProviderType.SQLite);
@@ -78,6 +83,14 @@ internal static class AppConfig
         ApplyUiSettings(UiSettings, persist: false);
         PageTemplateProvider.Initialize(BuiltInTemplateDirectory, UserTemplateDirectory);
         PrimaryDatabaseSettings = DatabaseSettings.Clone();
+
+        if (IsDatabaseConnectionDisabled)
+        {
+            Services?.Dispose();
+            Services = null!;
+            IsOfflineFallbackActive = false;
+            return;
+        }
 
         if (TryReloadPrimaryServices())
         {
@@ -254,6 +267,8 @@ internal static class AppConfig
             ["FontScaleStep"] = settings.FontScaleStep,
             ["LastExportDirectory"] = settings.LastExportDirectory,
             ["LastOpenDirectory"] = settings.LastOpenDirectory,
+            ["LastProjectDirectory"] = settings.LastProjectDirectory,
+            ["RecentProjectPaths"] = SerializeRecentProjectPaths(settings.RecentProjectPaths),
             ["LastPageIdsByUserId"] = SerializeLastPageIds(settings.LastPageIdsByUserId)
         };
 
@@ -291,6 +306,7 @@ internal static class AppConfig
         settings.LastLoginUsername = section["LastLoginUsername"]?.Trim() ?? string.Empty;
         settings.LastExportDirectory = section["LastExportDirectory"]?.Trim() ?? string.Empty;
         settings.LastOpenDirectory = section["LastOpenDirectory"]?.Trim() ?? string.Empty;
+        settings.LastProjectDirectory = section["LastProjectDirectory"]?.Trim() ?? string.Empty;
 
         if (bool.TryParse(section["HasLoggedInOnce"], out var hasLoggedInOnce))
             settings.HasLoggedInOnce = hasLoggedInOnce;
@@ -301,8 +317,47 @@ internal static class AppConfig
             settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
         ApplyLastPageIds(settings, section.GetSection("LastPageIdsByUserId"));
+        ApplyRecentProjectPaths(settings, section.GetSection("RecentProjectPaths"));
 
         return settings;
+    }
+
+    private static JsonArray SerializeRecentProjectPaths(IReadOnlyList<string> recentProjectPaths)
+    {
+        var json = new JsonArray();
+        foreach (var path in recentProjectPaths)
+        {
+            if (!string.IsNullOrWhiteSpace(path))
+                json.Add(path);
+        }
+
+        return json;
+    }
+
+    private static void ApplyRecentProjectPaths(UiSettings settings, IConfigurationSection section)
+    {
+        if (!section.Exists())
+            return;
+
+        foreach (var child in section.GetChildren())
+        {
+            var path = child.Value?.Trim();
+            if (!string.IsNullOrWhiteSpace(path))
+                settings.RecentProjectPaths.Add(path);
+        }
+    }
+
+    private static void ApplyRecentProjectPaths(UiSettings settings, JsonArray? section)
+    {
+        if (section == null)
+            return;
+
+        foreach (var node in section)
+        {
+            var path = node?.GetValue<string>()?.Trim();
+            if (!string.IsNullOrWhiteSpace(path))
+                settings.RecentProjectPaths.Add(path);
+        }
     }
 
     private static JsonObject SerializeLastPageIds(Dictionary<string, int> lastPageIdsByUserId)
@@ -362,6 +417,7 @@ internal static class AppConfig
         settings.LastLoginUsername = section["LastLoginUsername"]?.GetValue<string>()?.Trim() ?? string.Empty;
         settings.LastExportDirectory = section["LastExportDirectory"]?.GetValue<string>()?.Trim() ?? string.Empty;
         settings.LastOpenDirectory = section["LastOpenDirectory"]?.GetValue<string>()?.Trim() ?? string.Empty;
+        settings.LastProjectDirectory = section["LastProjectDirectory"]?.GetValue<string>()?.Trim() ?? string.Empty;
 
         if (section["HasLoggedInOnce"] is JsonValue hasLoggedInOnceValue &&
             hasLoggedInOnceValue.TryGetValue(out bool hasLoggedInOnce))
@@ -374,6 +430,7 @@ internal static class AppConfig
             settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
         ApplyLastPageIds(settings, section["LastPageIdsByUserId"] as JsonObject);
+        ApplyRecentProjectPaths(settings, section["RecentProjectPaths"] as JsonArray);
 
         return settings;
     }
@@ -381,6 +438,14 @@ internal static class AppConfig
     public static void ReloadServices()
     {
         PrimaryDatabaseSettings = DatabaseSettings.Clone();
+
+        if (IsDatabaseConnectionDisabled)
+        {
+            Services?.Dispose();
+            Services = null!;
+            IsOfflineFallbackActive = false;
+            return;
+        }
 
         if (TryReloadPrimaryServices())
         {
@@ -423,6 +488,7 @@ internal static class AppConfig
         else
             root = new JsonObject();
 
+        root["DatabaseConnectionDisabled"] = false;
         root["Database"] = new JsonObject
         {
             ["Provider"] = settings.Provider.ToString(),
@@ -436,8 +502,33 @@ internal static class AppConfig
 
         File.WriteAllText(LocalSettingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         DatabaseSettings = settings.Clone();
+        IsDatabaseConnectionDisabled = false;
         ReloadServices();
     }
+
+    public static void DisconnectDatabase()
+    {
+        Services?.Dispose();
+        Services = null!;
+        IsOfflineFallbackActive = false;
+        HasPendingOfflineSaves = false;
+        IsDatabaseConnectionDisabled = true;
+
+        var directory = Path.GetDirectoryName(LocalSettingsPath)!;
+        Directory.CreateDirectory(directory);
+
+        JsonObject root;
+        if (File.Exists(LocalSettingsPath))
+            root = JsonNode.Parse(File.ReadAllText(LocalSettingsPath))?.AsObject() ?? new JsonObject();
+        else
+            root = new JsonObject();
+
+        root["DatabaseConnectionDisabled"] = true;
+        File.WriteAllText(LocalSettingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static bool LoadDatabaseConnectionDisabled(IConfiguration config) =>
+        bool.TryParse(config["DatabaseConnectionDisabled"], out var disabled) && disabled;
 
     public static void SaveLocalEmailSettings(EmailSettings settings)
     {

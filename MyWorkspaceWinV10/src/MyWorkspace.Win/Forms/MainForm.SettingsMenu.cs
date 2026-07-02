@@ -10,7 +10,11 @@ public partial class MainForm
         ctxAppSettings.Items.Add(menuEditProfile);
         ctxAppSettings.Items.Add(menuChangePassword);
         ctxAppSettings.Items.Add(menuNotificationSettings);
+        ctxAppSettings.Items.Add(menuSepAccount2);
+        ctxAppSettings.Items.Add(menuAdminDatabaseSettings);
+        ctxAppSettings.Items.Add(menuAdminEmailSettings);
 
+        ctxAppSettings.ShowItemToolTips = true;
         titleBar.SettingsMenu = ctxAppSettings;
         titleBar.SetMarkTooltip(Localization.Get(K.TipAppSettingsMark));
 

@@ -5,7 +5,6 @@ public partial class MainForm
     private const int NavRailWidth = 52;
     private const int NavWorkspaceGap = 8;
     private const int WorkspaceTopGap = 8;
-    private const int ToolbarTopGap = 8;
     private const int WorkspaceMinWidth = 160;
     private const int ToolbarMinWidth = 52;
     private const int EditorMinWidth = 420;

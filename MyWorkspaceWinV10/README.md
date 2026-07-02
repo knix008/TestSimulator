@@ -52,6 +52,7 @@ dotnet build src/MyWorkspace.Win/MyWorkspace.Win.csproj -c Release -p:SkipInstal
 ```
 
 - MSI 경로: `installer/bin/Release/MyWorkspaceWinV10Setup.msi` (로컬화 빌드: `installer/bin/Release/ko-kr/MyWorkspaceWinV10Setup.msi`)
+- MSI 설치 시 `.wsp` 확장자와 `wsp.ico` 아이콘이 Windows에 등록되며, `.wsp` 파일 더블 클릭으로 프로젝트를 열 수 있습니다.
 
 ### 아이콘 재생성
 
@@ -68,10 +69,11 @@ dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
 | 영역 | 설명 |
 |------|------|
 | **Workspace** | 계층 구조, Page와 하위 Workspace 공존, 드래그 앤 드롭 이동, 멤버 관리 |
-| **Page** | WebView2 기반 WYSIWYG Markdown 편집, 자동 저장(2초) |
+| **Page** | WebView2 기반 WYSIWYG Markdown 편집, DB 자동 저장(2초) |
 | **빠른 Page 작성** | Workspace 선택 후 **제목** 또는 **본문** 입력 시 즉시 Page 생성 (제목 없으면 `제목없음`) |
 | **문서 구조** | H1~H6 제목 Outline, 편집 위치 연동 |
 | **내보내기** | Markdown(.md), Word(.docx), PDF(.pdf) |
+| **프로젝트 (.wsp)** | Workspace 전체를 로컬 `.wsp` 파일로 저장·열기 (파일 메뉴에서만 저장, 마지막 폴더 기억) |
 | **변경 Log** | Page 생성·제목·내용 변경·삭제 이력 조회 |
 | **템플릿** | 내장·사용자 Page 템플릿 (`.mdtemplate`) |
 | **버전 이력** | Page당 최대 50개 스냅샷, 복원 |

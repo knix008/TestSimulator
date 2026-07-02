@@ -145,7 +145,7 @@ internal sealed class VerticalNavRail : Panel
     public void RefreshTheme()
     {
         BackColor = AppTheme.Sidebar;
-        AppTheme.StyleBorderedPanel(this, PanelEdges.Right);
+        AppTheme.StyleBorderedPanel(this, PanelEdges.None);
         AppTheme.StyleToolTip(_toolTip);
         foreach (var entry in _entries)
             AppTheme.StyleNavRailButton(entry.Button);

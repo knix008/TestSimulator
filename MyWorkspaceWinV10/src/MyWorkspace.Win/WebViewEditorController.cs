@@ -558,7 +558,7 @@ internal sealed class WebViewEditorController
         var fontSizePx = (15F * chrome.FontScaleFactor).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
         var themeJson = JsonSerializer.Serialize(new
         {
-            bg = ToCss(p.Surface),
+            bg = ToCss(p.Sidebar),
             text = ToCss(p.EditorText),
             caret = ToCss(p.EditorCaret),
             placeholder = ToCss(p.EditorPlaceholder),

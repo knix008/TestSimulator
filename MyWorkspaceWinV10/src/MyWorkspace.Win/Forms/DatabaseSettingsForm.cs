@@ -15,6 +15,8 @@ public partial class DatabaseSettingsForm : Form
 
     public bool SetupWizardMode { get; }
 
+    public bool DatabaseDisconnected { get; private set; }
+
     private void DatabaseSettingsForm_Load(object sender, EventArgs e)
     {
         cboProvider.Items.Clear();
@@ -29,6 +31,7 @@ public partial class DatabaseSettingsForm : Form
         ApplySettingsToForm(current);
         UpdateProviderUi();
         ApplyLocalization();
+        UpdateConnectionStateUi();
     }
 
     private void ApplyLocalization()
@@ -43,8 +46,29 @@ public partial class DatabaseSettingsForm : Form
         lblSqliteFile.Text = Localization.Get(K.LabelSqliteFile);
         btnBrowseSqlite.Text = Localization.Get(K.ButtonBrowse);
         btnTest.Text = Localization.Get(K.ButtonTestConnection);
+        btnDisconnect.Text = Localization.Get(K.ButtonDisconnectDatabase);
         btnSave.Text = Localization.Get(K.ButtonSave);
         btnCancel.Text = Localization.Get(SetupWizardMode ? K.ButtonExit : K.ButtonCancel);
+    }
+
+    private void UpdateConnectionStateUi()
+    {
+        btnDisconnect.Visible = !SetupWizardMode;
+
+        if (AppConfig.IsDatabaseConnectionDisabled || AppConfig.Services == null)
+        {
+            btnDisconnect.Enabled = false;
+            lblResult.Text = Localization.Get(K.DbConnectionDisconnectedStatus);
+            lblResult.ForeColor = Color.Gray;
+            return;
+        }
+
+        btnDisconnect.Enabled = true;
+        if (string.IsNullOrWhiteSpace(lblResult.Text))
+        {
+            lblResult.Text = Localization.Get(K.DbConnectionActiveStatus);
+            lblResult.ForeColor = Color.ForestGreen;
+        }
     }
 
     private void cboProvider_SelectedIndexChanged(object sender, EventArgs e)
@@ -188,6 +212,24 @@ public partial class DatabaseSettingsForm : Form
             lblResult.ForeColor = Color.Firebrick;
             ErrorDetailForm.Show(this, Text, Localization.Get(K.DbConnectionFailedMsg), error);
         }
+    }
+
+    private void btnDisconnect_Click(object sender, EventArgs e)
+    {
+        if (AppConfig.IsDatabaseConnectionDisabled || AppConfig.Services == null)
+            return;
+
+        if (MessageBox.Show(
+                Localization.Get(K.ConfirmDisconnectDatabase),
+                Text,
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question) != DialogResult.Yes)
+            return;
+
+        AppConfig.DisconnectDatabase();
+        DatabaseDisconnected = true;
+        DialogResult = DialogResult.OK;
+        Close();
     }
 
     private void btnSave_Click(object sender, EventArgs e)

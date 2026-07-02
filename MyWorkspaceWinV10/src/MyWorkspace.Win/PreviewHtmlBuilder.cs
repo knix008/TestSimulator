@@ -29,7 +29,7 @@ internal static partial class PreviewHtmlBuilder
         }
 
         var p = chrome.Palette;
-        var bg = ToCss(p.Surface);
+        var bg = ToCss(p.Sidebar);
         var text = ToCss(p.EditorText);
         var border = ToCss(p.Border);
         var borderLight = ToCss(p.BorderLight);

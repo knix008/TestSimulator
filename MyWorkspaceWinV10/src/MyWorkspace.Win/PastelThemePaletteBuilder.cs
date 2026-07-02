@@ -10,12 +10,13 @@ internal static class PastelThemePaletteBuilder
         var accent = DeriveAccent(pastel, dark: false);
         var accentHover = Mix(pastel, Color.White, 0.35f);
         var accentPressed = Mix(accent, Color.Black, 0.12f);
+        var sidebar = Mix(pastel, Color.White, 0.72f);
 
         return new ThemePalette
         {
             Background = Mix(pastel, Color.White, 0.90f),
             Surface = Color.White,
-            Sidebar = Mix(pastel, Color.White, 0.72f),
+            Sidebar = sidebar,
             Border = Mix(pastel, Color.FromArgb(208, 215, 222), 0.22f),
             BorderLight = Mix(pastel, Color.FromArgb(234, 238, 242), 0.35f),
             TextPrimary = Color.FromArgb(31, 35, 40),
@@ -29,7 +30,7 @@ internal static class PastelThemePaletteBuilder
             Success = Color.FromArgb(26, 127, 55),
             Warning = Color.FromArgb(191, 87, 0),
             Danger = Color.FromArgb(207, 34, 46),
-            EditorBackground = Color.White,
+            EditorBackground = sidebar,
             EditorText = Color.Black,
             EditorCaret = accent,
             EditorPlaceholder = Color.FromArgb(140, 149, 159),
@@ -49,12 +50,13 @@ internal static class PastelThemePaletteBuilder
         var accentPressed = Mix(accent, Color.Black, 0.18f);
         var background = Mix(pastel, Color.FromArgb(13, 17, 23), 0.88f);
         var surface = Mix(pastel, Color.FromArgb(22, 27, 34), 0.82f);
+        var sidebar = Mix(pastel, Color.FromArgb(13, 17, 23), 0.90f);
 
         return new ThemePalette
         {
             Background = background,
             Surface = surface,
-            Sidebar = Mix(pastel, Color.FromArgb(13, 17, 23), 0.90f),
+            Sidebar = sidebar,
             Border = Mix(pastel, Color.FromArgb(48, 54, 61), 0.55f),
             BorderLight = Mix(pastel, Color.FromArgb(33, 38, 45), 0.65f),
             TextPrimary = Color.FromArgb(230, 237, 243),
@@ -68,7 +70,7 @@ internal static class PastelThemePaletteBuilder
             Success = Color.FromArgb(63, 185, 80),
             Warning = Color.FromArgb(210, 153, 34),
             Danger = Color.FromArgb(248, 81, 73),
-            EditorBackground = surface,
+            EditorBackground = sidebar,
             EditorText = Color.FromArgb(230, 237, 243),
             EditorCaret = Color.FromArgb(230, 237, 243),
             EditorPlaceholder = Color.FromArgb(110, 118, 129),

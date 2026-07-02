@@ -120,7 +120,7 @@ partial class LoginForm
 
         btnLogin.Text = "로그인";
 
-        btnLogin.UseVisualStyleBackColor = true;
+        btnLogin.UseVisualStyleBackColor = false;
 
         btnLogin.Click += btnLogin_Click;
 
@@ -136,7 +136,7 @@ partial class LoginForm
 
         btnCancel.Text = "취소";
 
-        btnCancel.UseVisualStyleBackColor = true;
+        btnCancel.UseVisualStyleBackColor = false;
 
         btnCancel.Click += btnCancel_Click;
 

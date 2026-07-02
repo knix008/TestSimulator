@@ -31,6 +31,7 @@ partial class DatabaseSettingsForm
         txtSqliteFilePath = new TextBox();
         btnBrowseSqlite = new Button();
         btnTest = new Button();
+        btnDisconnect = new Button();
         btnSave = new Button();
         btnCancel = new Button();
         lblResult = new Label();
@@ -125,6 +126,13 @@ partial class DatabaseSettingsForm
         btnTest.Text = "연결 테스트";
         btnTest.Click += btnTest_Click;
 
+        btnDisconnect.Location = new Point(16, 312);
+        btnDisconnect.Name = "btnDisconnect";
+        btnDisconnect.Size = new Size(120, 32);
+        btnDisconnect.Text = "연결 끊기";
+        btnDisconnect.UseVisualStyleBackColor = true;
+        btnDisconnect.Click += btnDisconnect_Click;
+
         lblResult.AutoSize = true;
         lblResult.Location = new Point(120, 272);
         lblResult.MaximumSize = new Size(280, 0);
@@ -148,6 +156,7 @@ partial class DatabaseSettingsForm
         Controls.Add(lblResult);
         Controls.Add(btnCancel);
         Controls.Add(btnSave);
+        Controls.Add(btnDisconnect);
         Controls.Add(btnTest);
         Controls.Add(pnlSqliteFields);
         Controls.Add(pnlServerFields);
@@ -186,6 +195,7 @@ partial class DatabaseSettingsForm
     private TextBox txtSqliteFilePath;
     private Button btnBrowseSqlite;
     private Button btnTest;
+    private Button btnDisconnect;
     private Button btnSave;
     private Button btnCancel;
     private Label lblResult;

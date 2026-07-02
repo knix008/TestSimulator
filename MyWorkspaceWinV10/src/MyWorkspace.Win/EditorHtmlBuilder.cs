@@ -128,7 +128,7 @@ internal static class EditorHtmlBuilder
     private static string WrapEditablePage(EditorChromeOptions chrome)
     {
         var p = chrome.Palette;
-        var bg = ToCss(p.Surface);
+        var bg = ToCss(p.Sidebar);
         var text = ToCss(p.EditorText);
         var caret = ToCss(p.EditorCaret);
         var placeholder = ToCss(p.EditorPlaceholder);
@@ -186,7 +186,7 @@ internal static class EditorHtmlBuilder
               caret-color: var(--editor-caret);
               background-color: var(--editor-bg) !important; color: var(--editor-text) !important;
             }
-            #editor:focus { box-shadow: inset 0 0 0 1px var(--editor-focus); }
+            #editor:focus { outline: none; box-shadow: none; }
             #editor.is-file-drop-target {
               box-shadow: inset 0 0 0 2px var(--editor-accent);
               background-color: color-mix(in srgb, var(--editor-accent) 8%, var(--editor-bg));

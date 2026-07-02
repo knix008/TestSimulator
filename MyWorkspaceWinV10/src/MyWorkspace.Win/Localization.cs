@@ -77,15 +77,21 @@ internal static class Localization
         Add(K.MenuEdit, "편집(&E)", "&Edit");
         Add(K.MenuUndo, "실행 취소(&U)", "&Undo");
         Add(K.MenuRedo, "다시 실행(&R)", "&Redo");
-        Add(K.MenuSavePage, "Page 저장(&S)", "&Save Page");
+        Add(K.MenuSavePage, "저장(&S)", "&Save");
         Add(K.MenuSavePageAsMarkdown, "Markdown 파일로 저장(&M)...", "Save Page as &Markdown...");
         Add(K.MenuExportPage, "Page 내보내기(&E)...", "E&xport Page...");
         Add(K.MenuExportWorkspace, "Workspace 내보내기(&X)...", "E&xport Workspace...");
         Add(K.MenuPageHistory, "버전 이력(&H)", "Page &History");
         Add(K.MenuPageLog, "변경 Log(&L)", "Change &Log");
         Add(K.MenuRefreshTree, "트리 새로고침(&R)", "&Refresh Tree");
-        Add(K.MenuSaveWorkspace, "Workspace 저장(&W)...", "Save &Workspace...");
-        Add(K.MenuLoadWorkspace, "Workspace 불러오기(&O)...", "L&oad Workspace...");
+        Add(K.MenuSaveWorkspace, "프로젝트 저장(&P)...", "Save &Project...");
+        Add(K.MenuLoadWorkspace, "프로젝트 열기(&O)...", "Open &Project...");
+        Add(K.MenuRecentProjects, "최근 프로젝트", "Recent Projects");
+        Add(K.RecentProjectsEmpty, "(최근 프로젝트 없음)", "(No recent projects)");
+        Add(K.RecentProjectsClearAll, "최근 목록 모두 지우기", "Clear Recent List");
+        Add(K.RecentProjectRemove, "목록에서 제거", "Remove from List");
+        Add(K.RecentProjectMissing, "프로젝트 파일을 찾을 수 없습니다.\n{0}\n\n최근 목록에서 제거할까요?", "Project file not found:\n{0}\n\nRemove it from the recent list?");
+        Add(K.TipMenuRecentProjects, "최근에 연 .wsp 프로젝트 파일을 엽니다. 항목을 우클릭하면 목록에서 제거할 수 있습니다.", "Open a recently used .wsp project file. Right-click an item to remove it from the list.");
         Add(K.MenuPreferences, "환경 설정(&P)...", "&Preferences...");
         Add(K.MenuLogin, "로그인(&L)...", "&Sign In...");
         Add(K.MenuLogout, "로그아웃(&L)", "Sign &Out");
@@ -159,7 +165,8 @@ internal static class Localization
         Add(K.ToolbarRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.ToolbarDocumentStructure, "문서 구조", "Document Outline");
         Add(K.ToolbarAbout, "프로그램 정보", "About");
-        Add(K.ToolbarSave, "Page 저장 (Ctrl+S)", "Save Page (Ctrl+S)");
+        Add(K.ToolbarSave, "저장 (Ctrl+S)", "Save (Ctrl+S)");
+        Add(K.TipMenuSavePage, "현재 Page를 DB에 저장합니다. 프로젝트 파일을 연 상태이면 같은 .wsp 파일에도 함께 저장합니다. (DB 연결 불가 시 DB 저장만)", "Save the current page to the database. When a project file is open, also updates the same .wsp file. Skips project file when the database is unavailable.");
         Add(K.ToolbarSaveMarkdown, "Markdown 파일로 저장", "Save as Markdown");
         Add(K.ToolbarExport, "Page 내보내기", "Export Page");
         Add(K.ToolbarHistory, "Page 버전 이력", "Page History");
@@ -171,14 +178,15 @@ internal static class Localization
         Add(K.TipMenuRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.TipMenuWorkspace, "Workspace와 Page 관리", "Manage workspaces and pages");
         Add(K.TipMenuView, "보기 및 문서 구조", "View and document outline");
-        Add(K.TipMenuAdmin, "사용자 및 시스템 관리 (관리자)", "User and system administration");
+        Add(K.TipMenuAdmin, "사용자 관리 (관리자)", "User management (administrator)");
         Add(K.TipMenuAccount, "계정 및 알림 설정", "Account and notification settings");
         Add(K.TipMenuRefreshTree, "Workspace 트리 새로고침 (F5)", "Refresh workspace tree (F5)");
         Add(K.TipMenuPreferences, "테마·언어 등 환경 설정", "Theme, language, and preferences");
-        Add(K.TipAppSettingsMark, "프로그램 설정", "Program settings");
+        Add(K.TipAppSettingsMark, "프로그램 설정 (환경설정·DB·이메일)", "Program settings (preferences, database, email)");
         Add(K.TipMenuLogin, "로그인", "Sign in to your account");
         Add(K.TipMenuLogout, "로그아웃", "Sign out");
-        Add(K.TipMenuBarLogin, "로그인", "Sign in to your account");
+        Add(K.TipMenuSaveProject, "선택한 Workspace 전체(하위 Workspace·Page·첨부 파일)를 .wsp 프로젝트 파일로 로컬에 저장합니다. 자동 저장은 DB에만 적용됩니다.", "Save the selected workspace tree (sub-workspaces, pages, attachments) as a local .wsp project file. Auto-save writes to the database only.");
+        Add(K.TipMenuOpenProject, ".wsp 프로젝트 파일을 열어 Workspace를 DB에 불러옵니다. 마지막으로 사용한 프로젝트 폴더가 다시 열기·저장 대화상자에 사용됩니다.", "Open a .wsp project file to import workspaces into the database. The last project folder is reused for open and save dialogs.");
         Add(K.TipMenuBarLogout, "로그아웃", "Sign out");
         Add(K.TipMenuBarSession, "현재 로그인 계정", "Current signed-in account");
         Add(K.TipMenuExit, "프로그램 종료", "Exit the application");
@@ -229,7 +237,7 @@ internal static class Localization
         Add(K.LoginPassword, "비밀번호", "Password");
         Add(K.LoginSubmit, "로그인", "Sign In");
         Add(K.LoginCancel, "취소", "Cancel");
-        Add(K.LoginDefaultAdminHint, "기본 관리자: {0} / {1}\n로그인 후 [관리] → [DB 연결 설정]에서 DB를 설정하세요.", "Default administrator: {0} / {1}\nAfter sign-in, configure the database via [Admin] → [Database Settings].");
+        Add(K.LoginDefaultAdminHint, "기본 관리자: {0} / {1}\n로그인 후 제목 표시줄 ||| → [DB 연결 설정]에서 DB를 설정하세요.", "Default administrator: {0} / {1}\nAfter sign-in, configure the database via the title bar ||| menu → [Database Settings].");
 
         Add(K.PreferencesTitle, "환경 설정", "Preferences");
         Add(K.PreferencesAppearance, "모양", "Appearance");
@@ -325,12 +333,12 @@ internal static class Localization
         Add(K.ExportWorkspaceFailed, "Workspace 내보내기 실패", "Workspace export failed");
         Add(K.SelectWorkspaceToExport, "내보낼 Workspace를 선택하세요.", "Select a workspace to export.");
         Add(K.WorkspaceAccessRequired, "Workspace에 접근할 수 없습니다.", "You do not have access to this workspace.");
-        Add(K.WorkspaceArchiveFileFilterLabel, "MyWorkspace 파일", "MyWorkspace Files");
-        Add(K.WorkspaceSaveSucceeded, "Workspace를 저장했습니다.", "Workspace saved successfully.");
-        Add(K.WorkspaceLoadSucceeded, "Workspace {0}개, Page {1}개를 불러왔습니다.", "Loaded {0} workspace(s) and {1} page(s).");
-        Add(K.WorkspaceSaveFailed, "Workspace 저장 실패", "Workspace save failed");
-        Add(K.WorkspaceLoadFailed, "Workspace 불러오기 실패", "Workspace load failed");
-        Add(K.SelectWorkspaceToSave, "저장할 Workspace를 선택하세요.", "Select a workspace to save.");
+        Add(K.WorkspaceArchiveFileFilterLabel, "MyWorkspace 프로젝트 (*.wsp)", "MyWorkspace Project (*.wsp)");
+        Add(K.WorkspaceSaveSucceeded, "프로젝트를 저장했습니다.", "Project saved successfully.");
+        Add(K.WorkspaceLoadSucceeded, "프로젝트에서 Workspace {0}개, Page {1}개를 불러왔습니다.", "Loaded {0} workspace(s) and {1} page(s) from the project.");
+        Add(K.WorkspaceSaveFailed, "프로젝트 저장 실패", "Project save failed");
+        Add(K.WorkspaceLoadFailed, "프로젝트 열기 실패", "Project open failed");
+        Add(K.SelectWorkspaceToSave, "프로젝트로 저장할 Workspace를 선택하세요.", "Select a workspace to save as a project.");
         Add(K.WorkspaceManageRequired, "Workspace를 저장하거나 불러오려면 관리 권한이 필요합니다.", "Manage permission is required to save or load a workspace.");
         Add(K.ExportFailed, "내보내기 실패", "Export failed");
         Add(K.SaveMarkdownSucceeded, "Markdown 파일을 저장했습니다.", "Markdown file saved successfully.");
@@ -344,6 +352,9 @@ internal static class Localization
         Add(K.DefaultImageAlt, "이미지", "image");
         Add(K.TableHeader1, "열1", "Col 1");
         Add(K.TableHeader2, "열2", "Col 2");
+        Add(K.TableInsertTitle, "표 삽입", "Insert Table");
+        Add(K.TableInsertHint, "행과 열 크기를 선택하세요.", "Select the table size.");
+        Add(K.TableInsertSizeFormat, "{0}행 x {1}열", "{0} rows x {1} columns");
         Add(K.ErrorTitle, "오류", "Error");
         Add(K.SessionLoginRequired, "로그인이 필요합니다.", "Sign-in is required.");
 
@@ -421,6 +432,13 @@ internal static class Localization
         Add(K.DbSaved, "데이터베이스 설정이 저장되었습니다.", "Database settings saved.");
         Add(K.DbSavedReloginRequired, "데이터베이스가 변경되었습니다. 새 DB에 동일한 계정이 없어 다시 로그인해야 합니다.", "The database was changed. Sign in again because your account was not found in the new database.");
         Add(K.DbSavedWizard, "데이터베이스 설정이 저장되었습니다.\n\n사용자·관리자 계정은 DB에서 관리됩니다.\n최초 실행 시 기본 관리자({0} / {1})가 DB에 등록됩니다.", "Database settings saved.\n\nUsers and administrators are managed in the database.\nOn first run, the default admin ({0} / {1}) is registered.");
+        Add(K.ButtonDisconnectDatabase, "연결 끊기", "Disconnect");
+        Add(K.ConfirmDisconnectDatabase, "데이터베이스 연결을 끊을까요?\n\n연결을 끊으면 로그아웃되며, 다시 사용하려면 DB 연결 설정에서 저장해야 합니다.", "Disconnect from the database?\n\nYou will be signed out. Save database settings again to reconnect.");
+        Add(K.DbDisconnected, "데이터베이스 연결이 끊어졌습니다.", "Database connection disconnected.");
+        Add(K.DbConnectionDisconnectedStatus, "DB 연결이 끊어진 상태입니다.", "Database connection is disconnected.");
+        Add(K.DbConnectionActiveStatus, "DB에 연결되어 있습니다.", "Connected to the database.");
+        Add(K.DbConnectionDisconnectedLogin, "데이터베이스에 연결되어 있지 않습니다. 관리자로 로그인한 뒤 제목 표시줄 ||| → [DB 연결 설정]에서 연결하세요.", "Not connected to a database. Sign in as an administrator and connect via the title bar ||| menu → [Database Settings].");
+        Add(K.StatusDbDisconnected, "DB 연결 끊김", "Database disconnected");
         Add(K.SqliteFileDialogTitle, "SQLite 데이터베이스 파일 선택", "Select SQLite Database File");
 
         Add(K.EmailSettingsHint, "이메일 서버 설정은 선택 사항입니다. 설정하지 않아도 애플리케이션을 사용할 수 있습니다.", "Email server settings are optional. The app works without them.");
@@ -468,7 +486,7 @@ internal static class Localization
         Add(K.DbConnectionError, "데이터베이스 연결 오류", "Database Connection Error");
         Add(K.LoginError, "로그인 오류", "Sign-in Error");
         Add(K.DbConnectionFailedGeneric, "데이터베이스에 연결할 수 없습니다.", "Unable to connect to the database.");
-        Add(K.DbConnectionRequiresAdmin, "DB 설정은 관리자로 로그인한 뒤 [관리] → [DB 연결 설정]에서 할 수 있습니다.", "Database settings can be configured after signing in as an administrator via [Admin] → [Database Settings].");
+        Add(K.DbConnectionRequiresAdmin, "DB 설정은 관리자로 로그인한 뒤 제목 표시줄 ||| → [DB 연결 설정]에서 할 수 있습니다.", "Database settings can be configured after signing in as an administrator via the title bar ||| menu → [Database Settings].");
         Add(K.DbSettingsAdminOnly, "DB 연결 설정은 관리자만 사용할 수 있습니다.", "Database settings are available to administrators only.");
 
         Add(K.ErrorDetailTitle, "오류", "Error");
@@ -517,6 +535,12 @@ internal static class K
     public const string MenuRefreshTree = "MenuRefreshTree";
     public const string MenuSaveWorkspace = "MenuSaveWorkspace";
     public const string MenuLoadWorkspace = "MenuLoadWorkspace";
+    public const string MenuRecentProjects = "MenuRecentProjects";
+    public const string RecentProjectsEmpty = "RecentProjectsEmpty";
+    public const string RecentProjectsClearAll = "RecentProjectsClearAll";
+    public const string RecentProjectRemove = "RecentProjectRemove";
+    public const string RecentProjectMissing = "RecentProjectMissing";
+    public const string TipMenuRecentProjects = "TipMenuRecentProjects";
     public const string MenuPreferences = "MenuPreferences";
     public const string MenuLogin = "MenuLogin";
     public const string MenuLogout = "MenuLogout";
@@ -610,6 +634,9 @@ internal static class K
     public const string TipMenuLogin = "TipMenuLogin";
     public const string TipMenuLogout = "TipMenuLogout";
     public const string TipMenuBarLogin = "TipMenuBarLogin";
+    public const string TipMenuSaveProject = "TipMenuSaveProject";
+    public const string TipMenuSavePage = "TipMenuSavePage";
+    public const string TipMenuOpenProject = "TipMenuOpenProject";
     public const string TipMenuBarLogout = "TipMenuBarLogout";
     public const string TipMenuBarSession = "TipMenuBarSession";
     public const string TipMenuExit = "TipMenuExit";
@@ -775,6 +802,9 @@ internal static class K
     public const string DefaultImageAlt = "DefaultImageAlt";
     public const string TableHeader1 = "TableHeader1";
     public const string TableHeader2 = "TableHeader2";
+    public const string TableInsertTitle = "TableInsertTitle";
+    public const string TableInsertHint = "TableInsertHint";
+    public const string TableInsertSizeFormat = "TableInsertSizeFormat";
     public const string ErrorTitle = "ErrorTitle";
     public const string SessionLoginRequired = "SessionLoginRequired";
 
@@ -852,6 +882,13 @@ internal static class K
     public const string DbSaved = "DbSaved";
     public const string DbSavedReloginRequired = "DbSavedReloginRequired";
     public const string DbSavedWizard = "DbSavedWizard";
+    public const string ButtonDisconnectDatabase = "ButtonDisconnectDatabase";
+    public const string ConfirmDisconnectDatabase = "ConfirmDisconnectDatabase";
+    public const string DbDisconnected = "DbDisconnected";
+    public const string DbConnectionDisconnectedStatus = "DbConnectionDisconnectedStatus";
+    public const string DbConnectionActiveStatus = "DbConnectionActiveStatus";
+    public const string DbConnectionDisconnectedLogin = "DbConnectionDisconnectedLogin";
+    public const string StatusDbDisconnected = "StatusDbDisconnected";
     public const string SqliteFileDialogTitle = "SqliteFileDialogTitle";
 
     public const string EmailSettingsHint = "EmailSettingsHint";

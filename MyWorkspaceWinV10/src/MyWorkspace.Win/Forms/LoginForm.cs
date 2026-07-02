@@ -10,9 +10,10 @@ public partial class LoginForm : Form
     public LoginForm()
     {
         InitializeComponent();
-        ApplyLoginAppearance();
+        AppTheme.ApplyStandardDialog(this);
         AppTheme.Changed += OnAppThemeChanged;
         FormClosed += (_, _) => AppTheme.Changed -= OnAppThemeChanged;
+        ApplyLoginAppearance();
     }
 
     private void OnAppThemeChanged()
@@ -111,14 +112,10 @@ public partial class LoginForm : Form
 
     private void ApplyLoginAppearance()
     {
-        AppTheme.ApplyFormChrome(this);
         ApplyLoginLocalization();
         AppTheme.StyleTextBox(txtUsername);
         AppTheme.StyleTextBox(txtPassword);
-        AppTheme.StylePrimaryButton(btnLogin);
-        AppTheme.StyleSecondaryButton(btnCancel);
-        AppTheme.FitButtonSize(btnLogin);
-        AppTheme.FitButtonSize(btnCancel);
+        AppTheme.FinalizeDialogLayout(this);
         ApplyFirstRunLayout(ShouldShowDefaultAdminCredentials());
     }
 

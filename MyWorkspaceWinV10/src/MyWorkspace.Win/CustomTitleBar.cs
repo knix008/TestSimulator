@@ -19,6 +19,7 @@ internal sealed class CustomTitleBar : Panel
 
     private Form? _hostForm;
     private ContextMenuStrip? _settingsMenu;
+    private int? _editorRegionLeft;
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public ContextMenuStrip? SettingsMenu
@@ -102,6 +103,16 @@ internal sealed class CustomTitleBar : Panel
     public void SetMarkTooltip(string text) =>
         _toolTip.SetToolTip(_mark, text);
 
+    public void SetEditorRegionLeft(int clientX)
+    {
+        var clamped = Math.Clamp(clientX, 0, ClientSize.Width > 0 ? ClientSize.Width : clientX);
+        if (_editorRegionLeft == clamped)
+            return;
+
+        _editorRegionLeft = clamped;
+        Invalidate();
+    }
+
     public void ApplyTheme()
     {
         BackColor = AppTheme.TitleBarBackground;
@@ -117,13 +128,32 @@ internal sealed class CustomTitleBar : Panel
             ? Color.FromArgb(68, 76, 86)
             : Color.FromArgb(208, 212, 218);
 
-        StyleWindowButton(_btnMinimize, hover, pressed);
-        StyleWindowButton(_btnMaximize, hover, pressed);
-        StyleWindowButton(_btnClose, hover, pressed);
+        StyleWindowButton(_btnMinimize, AppTheme.EditorBackground, hover, pressed);
+        StyleWindowButton(_btnMaximize, AppTheme.EditorBackground, hover, pressed);
+        StyleWindowButton(_btnClose, AppTheme.EditorBackground, hover, pressed);
         _btnClose.ForeColor = AppTheme.TitleBarText;
         AppTheme.StyleToolTip(_toolTip);
 
         Invalidate(true);
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        var width = ClientSize.Width;
+        var height = ClientSize.Height;
+        if (width <= 0 || height <= 0)
+            return;
+
+        var splitX = Math.Clamp(_editorRegionLeft ?? width, 0, width);
+
+        using (var sidebarBrush = new SolidBrush(AppTheme.TitleBarBackground))
+            e.Graphics.FillRectangle(sidebarBrush, 0, 0, splitX, height);
+
+        if (splitX < width)
+        {
+            using var editorBrush = new SolidBrush(AppTheme.EditorBackground);
+            e.Graphics.FillRectangle(editorBrush, splitX, 0, width - splitX, height);
+        }
     }
 
     protected override void OnResize(EventArgs eventargs)
@@ -165,10 +195,10 @@ internal sealed class CustomTitleBar : Panel
         button.Click += onClick;
     }
 
-    private static void StyleWindowButton(BorderlessIconButton button, Color hover, Color pressed)
+    private static void StyleWindowButton(BorderlessIconButton button, Color normalBack, Color hover, Color pressed)
     {
-        button.NormalBackColor = AppTheme.TitleBarBackground;
-        button.BackColor = AppTheme.TitleBarBackground;
+        button.NormalBackColor = normalBack;
+        button.BackColor = normalBack;
         button.ForeColor = AppTheme.TitleBarText;
         button.FlatAppearance.MouseOverBackColor = hover;
         button.FlatAppearance.MouseDownBackColor = pressed;

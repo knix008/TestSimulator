@@ -14,7 +14,7 @@ internal static class IconDrawing
             "h3" => Heading(size, 3, Color.FromArgb(24, 82, 200)),
             "h4" => Heading(size, 4, Color.FromArgb(115, 45, 200)),
             "h5" => Heading(size, 5, Color.FromArgb(200, 95, 10)),
-            "h6" => Heading(size, 6, Color.FromArgb(75, 85, 99)),
+            "h6" => Heading(size, 6, Color.FromArgb(139, 92, 246)),
             "bold" => Bold(size),
             "italic" => Italic(size),
             "strike" => Strike(size),
@@ -99,22 +99,22 @@ internal static class IconDrawing
 
     private static Bitmap Bold(int size) =>
         IconCanvas.Create(size, (g, c) =>
-            IconCanvas.DrawStringCentered(g, c, "B", size * 0.62f, Color.Black, FontStyle.Bold));
+            IconCanvas.DrawStringCentered(g, c, "B", size * 0.62f, Color.FromArgb(220, 38, 38), FontStyle.Bold));
 
     private static Bitmap Italic(int size) =>
         IconCanvas.Create(size, (g, c) =>
-            IconCanvas.DrawStringCentered(g, c, "I", size * 0.62f, Color.Black, FontStyle.Italic));
+            IconCanvas.DrawStringCentered(g, c, "I", size * 0.62f, Color.FromArgb(124, 58, 237), FontStyle.Italic));
 
     private static Bitmap Strike(int size) =>
         IconCanvas.Create(size, (g, c) =>
-            IconCanvas.DrawStringCentered(g, c, "S", size * 0.58f, Color.Gray, FontStyle.Strikeout));
+            IconCanvas.DrawStringCentered(g, c, "S", size * 0.58f, Color.FromArgb(234, 88, 12), FontStyle.Strikeout));
 
     private static Bitmap Code(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var frame = Color.FromArgb(51, 65, 85);
-            var fill = Color.FromArgb(226, 232, 240);
-            var accent = Color.FromArgb(100, 116, 139);
+            var frame = Color.FromArgb(37, 99, 235);
+            var fill = Color.FromArgb(219, 234, 254);
+            var accent = Color.FromArgb(59, 130, 246);
             var stroke = Math.Max(0.85f, size * 0.07f);
 
             IconCanvas.DrawStringCentered(g, IconCanvas.Box(c, 0.4f, 3.8f, 2.2f, 4.4f), "`", size * 0.34f, frame, FontStyle.Bold);
@@ -128,10 +128,10 @@ internal static class IconDrawing
     private static Bitmap CodeBlock(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var frame = Color.FromArgb(51, 65, 85);
-            var panel = Color.FromArgb(241, 245, 249);
-            var fence = Color.FromArgb(100, 116, 139);
-            var code = Color.FromArgb(71, 85, 105);
+            var frame = Color.FromArgb(22, 163, 74);
+            var panel = Color.FromArgb(220, 252, 231);
+            var fence = Color.FromArgb(34, 197, 94);
+            var code = Color.FromArgb(21, 128, 61);
             var stroke = Math.Max(0.8f, size * 0.06f);
 
             IconCanvas.FillRoundedRectangle(g, c, 1.8f, 2.2f, 8.4f, 7.6f, 0.55f, panel);
@@ -164,11 +164,11 @@ internal static class IconDrawing
     private static Bitmap ImageIcon(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var frame = Color.FromArgb(51, 65, 85);
-            var sky = Color.FromArgb(226, 232, 240);
-            var sun = Color.FromArgb(148, 163, 184);
-            var hillBack = Color.FromArgb(180, 188, 198);
-            var hillFront = Color.FromArgb(100, 116, 139);
+            var frame = Color.FromArgb(14, 165, 233);
+            var sky = Color.FromArgb(186, 230, 253);
+            var sun = Color.FromArgb(251, 191, 36);
+            var hillBack = Color.FromArgb(74, 222, 128);
+            var hillFront = Color.FromArgb(22, 163, 74);
             var stroke = Math.Max(0.85f, size * 0.07f);
 
             IconCanvas.FillRoundedRectangle(g, c, 1.1f, 1.8f, 9.8f, 8.4f, 0.75f, sky);
@@ -200,7 +200,7 @@ internal static class IconDrawing
         IconCanvas.Create(size, (g, c) =>
         {
             var markerColor = ordered ? Color.FromArgb(234, 88, 12) : Color.FromArgb(22, 163, 74);
-            var lineColor = Color.FromArgb(100, 116, 139);
+            var lineColor = Color.FromArgb(59, 130, 246);
             for (var i = 0; i < 3; i++)
             {
                 var y = 2.5f + i * 3.5f;
@@ -217,14 +217,14 @@ internal static class IconDrawing
         IconCanvas.Create(size, (g, c) =>
         {
             IconCanvas.FillRectangle(g, c, 1f, 1f, 2.2f, 10f, Color.FromArgb(9, 105, 218));
-            IconCanvas.DrawLine(g, c, 4.5f, 3.5f, 11f, 3.5f, Color.FromArgb(87, 96, 106), 1f);
-            IconCanvas.DrawLine(g, c, 4.5f, 6f, 10.5f, 6f, Color.FromArgb(87, 96, 106), 1f);
-            IconCanvas.DrawLine(g, c, 4.5f, 8.5f, 9.5f, 8.5f, Color.FromArgb(87, 96, 106), 1f);
+            IconCanvas.DrawLine(g, c, 4.5f, 3.5f, 11f, 3.5f, Color.FromArgb(59, 130, 246), 1f);
+            IconCanvas.DrawLine(g, c, 4.5f, 6f, 10.5f, 6f, Color.FromArgb(59, 130, 246), 1f);
+            IconCanvas.DrawLine(g, c, 4.5f, 8.5f, 9.5f, 8.5f, Color.FromArgb(59, 130, 246), 1f);
         });
 
     private static Bitmap HorizontalRule(int size) =>
         IconCanvas.Create(size, (g, c) =>
-            IconCanvas.DrawLine(g, c, 0.5f, 6f, 11.5f, 6f, Color.FromArgb(148, 163, 184), size * 0.12f));
+            IconCanvas.DrawLine(g, c, 0.5f, 6f, 11.5f, 6f, Color.FromArgb(236, 72, 153), size * 0.12f));
 
     private static Bitmap Table(int size) =>
         IconCanvas.Create(size, (g, c) =>
@@ -237,14 +237,13 @@ internal static class IconDrawing
         });
 
     private static Bitmap Undo(int size) =>
-        DrawStraightArrow(size, left: true);
+        DrawStraightArrow(size, left: true, Color.FromArgb(37, 99, 235));
 
     private static Bitmap Redo(int size) =>
-        DrawStraightArrow(size, left: false);
+        DrawStraightArrow(size, left: false, Color.FromArgb(22, 163, 74));
 
-    private static Bitmap DrawStraightArrow(int size, bool left)
+    private static Bitmap DrawStraightArrow(int size, bool left, Color color)
     {
-        var color = Color.FromArgb(51, 65, 85);
         var stroke = Math.Max(1.25f, size * 0.105f);
 
         return IconCanvas.Create(size, (g, c) =>
@@ -343,8 +342,8 @@ internal static class IconDrawing
     private static Bitmap FileDocument(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var color = Color.FromArgb(51, 65, 85);
-            var fold = Color.FromArgb(148, 163, 184);
+            var color = Color.FromArgb(37, 99, 235);
+            var fold = Color.FromArgb(147, 197, 253);
             var stroke = Math.Max(0.85f, size * 0.075f);
 
             using var path = new GraphicsPath(FillMode.Winding);
@@ -375,7 +374,7 @@ internal static class IconDrawing
             const float outerRadius = 4.9f;
             const float innerRadius = 3.35f;
             const float holeRadius = 1.35f;
-            var color = Color.FromArgb(51, 65, 85);
+            var color = Color.FromArgb(99, 102, 241);
 
             var gearPoints = new PointF[teeth * 2];
             for (var i = 0; i < teeth * 2; i++)
@@ -401,7 +400,7 @@ internal static class IconDrawing
             IconCanvas.FillRectangle(g, c, 0.5f, 4.5f, 11f, 6.5f, color);
             IconCanvas.FillRectangle(g, c, 0.5f, 2.5f, 5.5f, 2.5f, color);
             DrawWorkspaceLetter(g, c, size, 0.5f, 5f, 9f, 5f, 0.34f);
-            var accent = Color.FromArgb(51, 65, 85);
+            var accent = Color.White;
             var stroke = Math.Max(0.9f, size * 0.09f);
             IconCanvas.DrawLine(g, c, 9.1f, 2.7f, 9.1f, 4.3f, accent, stroke);
             IconCanvas.DrawLine(g, c, 8.3f, 3.5f, 9.9f, 3.5f, accent, stroke);
@@ -443,8 +442,8 @@ internal static class IconDrawing
     private static Bitmap Users(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var primary = Color.FromArgb(51, 65, 85);
-            var secondary = Color.FromArgb(148, 163, 184);
+            var primary = Color.FromArgb(37, 99, 235);
+            var secondary = Color.FromArgb(20, 184, 166);
 
             IconCanvas.FillEllipse(g, c, 0.5f, 2.4f, 4f, 4f, secondary);
             IconCanvas.FillEllipse(g, c, 0.1f, 6.7f, 5.2f, 3.8f, secondary);
@@ -472,7 +471,7 @@ internal static class IconDrawing
     private static Bitmap Profile(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var color = Color.FromArgb(51, 65, 85);
+            var color = Color.FromArgb(236, 72, 153);
             var stroke = Math.Max(1.0f, size * 0.085f);
 
             IconCanvas.DrawArc(g, c, 1.1f, 0.7f, 9.8f, 9.8f, 0f, 360f, color, stroke);
@@ -517,8 +516,8 @@ internal static class IconDrawing
     private static Bitmap Paste(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var board = Color.FromArgb(100, 116, 139);
-            var clip = Color.FromArgb(148, 163, 184);
+            var board = Color.FromArgb(59, 130, 246);
+            var clip = Color.FromArgb(251, 191, 36);
             IconCanvas.FillRectangle(g, c, 3.5f, 2.5f, 5f, 1.8f, clip);
             IconCanvas.FillRectangle(g, c, 2.5f, 4f, 7f, 7.5f, board);
             IconCanvas.DrawLine(g, c, 4f, 6.5f, 8f, 6.5f, Color.White, 1f);
@@ -539,8 +538,8 @@ internal static class IconDrawing
     private static Bitmap Lock(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var body = Color.FromArgb(100, 116, 139);
-            var shackle = Color.FromArgb(51, 65, 85);
+            var body = Color.FromArgb(245, 158, 11);
+            var shackle = Color.FromArgb(234, 88, 12);
             var stroke = Math.Max(0.85f, size * 0.08f);
             IconCanvas.DrawArc(g, c, 4f, 2.5f, 4f, 4f, 180f, 180f, shackle, stroke);
             IconCanvas.FillRectangle(g, c, 3.6f, 5.8f, 4.8f, 5.2f, body);
@@ -549,8 +548,8 @@ internal static class IconDrawing
     private static Bitmap Unlock(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            var body = Color.FromArgb(100, 116, 139);
-            var shackle = Color.FromArgb(51, 65, 85);
+            var body = Color.FromArgb(34, 197, 94);
+            var shackle = Color.FromArgb(22, 163, 74);
             var stroke = Math.Max(0.85f, size * 0.08f);
             IconCanvas.DrawArc(g, c, 5.5f, 2.2f, 4f, 4f, 180f, 180f, shackle, stroke);
             IconCanvas.FillRectangle(g, c, 3.6f, 5.8f, 4.8f, 5.2f, body);
@@ -559,7 +558,7 @@ internal static class IconDrawing
     private static Bitmap Log(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            IconCanvas.FillRectangle(g, c, 2f, 0.5f, 8f, 11f, Color.FromArgb(100, 116, 139));
+            IconCanvas.FillRectangle(g, c, 2f, 0.5f, 8f, 11f, Color.FromArgb(99, 102, 241));
             IconCanvas.DrawLine(g, c, 4f, 3.5f, 8f, 3.5f, Color.White, 1f);
             IconCanvas.DrawLine(g, c, 4f, 6f, 8f, 6f, Color.White, 1f);
             IconCanvas.DrawLine(g, c, 4f, 8.5f, 7f, 8.5f, Color.White, 1f);
@@ -599,7 +598,7 @@ internal static class IconDrawing
             IconCanvas.Box(content, x, y, width, height),
             "W",
             size * fontScale,
-            Color.FromArgb(51, 65, 85),
+            Color.White,
             FontStyle.Bold);
     }
 
@@ -632,8 +631,8 @@ internal static class IconDrawing
 
     private static void DrawLockBadge(Graphics graphics, RectangleF content, int size)
     {
-        var body = Color.FromArgb(100, 116, 139);
-        var shackle = Color.FromArgb(51, 65, 85);
+        var body = Color.FromArgb(245, 158, 11);
+        var shackle = Color.FromArgb(234, 88, 12);
         var stroke = Math.Max(0.75f, size * 0.07f);
 
         IconCanvas.FillEllipse(graphics, content, 7.2f, 7f, 4.6f, 4.6f, Color.FromArgb(248, 250, 252));
@@ -718,6 +717,6 @@ internal static class IconDrawing
             IconCanvas.DrawStringCentered(
                 g, shadowBox, "M", "Times New Roman", size * 0.54f, Color.FromArgb(90, 148, 163, 184), FontStyle.Bold);
             IconCanvas.DrawStringCentered(
-                g, letterBox, "M", "Times New Roman", size * 0.54f, Color.FromArgb(31, 35, 40), FontStyle.Bold);
+                g, letterBox, "M", "Times New Roman", size * 0.54f, Color.FromArgb(37, 99, 235), FontStyle.Bold);
         });
 }

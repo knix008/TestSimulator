@@ -19,10 +19,7 @@ public partial class LinkDialogForm : Form
         ApplyLocalization();
         AppTheme.StyleTextBox(txtLinkText);
         AppTheme.StyleTextBox(txtLinkUrl);
-        AppTheme.StylePrimaryButton(btnOk);
-        AppTheme.StyleSecondaryButton(btnCancel);
-        AppTheme.FitButtonSize(btnOk);
-        AppTheme.FitButtonSize(btnCancel);
+        AppTheme.FinalizeDialogLayout(this);
     }
 
     private void ApplyLocalization()

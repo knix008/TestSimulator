@@ -152,6 +152,8 @@ public partial class MainForm : Form
                 _savedOutlineWidth = editorAreaSplit.SplitterDistance;
         };
 
+        outerSplit.SplitterMoved += (_, _) => UpdateTitleBarEditorRegion();
+
         _outlineUpdateTimer = new System.Windows.Forms.Timer(components) { Interval = 450 };
         _outlineUpdateTimer.Tick += async (_, _) =>
         {
@@ -224,7 +226,9 @@ public partial class MainForm : Form
         _ = ClearEditorImmediateAsync();
         SessionContext.Clear();
         UpdateTitleBarCaption();
-        lblStatus.Text = Localization.Get(K.StatusLoginRequired);
+        lblStatus.Text = AppConfig.IsDatabaseConnectionDisabled
+            ? Localization.Get(K.StatusDbDisconnected)
+            : Localization.Get(K.StatusLoginRequired);
         SetSaveStatus(SaveStatusKind.None);
 
         treeWorkspace.Nodes.Clear();
@@ -233,6 +237,7 @@ public partial class MainForm : Form
         _draftWorkspaceId = null;
         _currentPageTitle = string.Empty;
         _isDirty = false;
+        ClearActiveProjectBinding();
 
         SetShellEnabled(false);
         UpdateEditorChromeEnabled();
@@ -361,6 +366,8 @@ public partial class MainForm : Form
             menuSaveWorkspace.Visible = loggedIn;
         if (menuLoadWorkspace != null)
             menuLoadWorkspace.Visible = loggedIn;
+        if (menuRecentProjects != null)
+            menuRecentProjects.Visible = loggedIn;
         if (menuExportWorkspace != null)
             menuExportWorkspace.Visible = loggedIn;
         menuSepFile1.Visible = loggedIn;
@@ -370,6 +377,9 @@ public partial class MainForm : Form
         menuEditProfile.Visible = loggedIn;
         menuChangePassword.Visible = loggedIn;
         menuNotificationSettings.Visible = loggedIn;
+        menuSepAccount2.Visible = loggedIn && SessionContext.IsAdmin;
+        menuAdminDatabaseSettings.Visible = loggedIn && SessionContext.IsAdmin;
+        menuAdminEmailSettings.Visible = loggedIn && SessionContext.IsAdmin;
         menuWorkspace.Visible = loggedIn;
         menuView.Visible = true;
         menuDocumentStructure.Visible = true;
@@ -377,8 +387,6 @@ public partial class MainForm : Form
 
         menuAdmin.Visible = loggedIn && SessionContext.IsAdmin;
         menuAdminUserManagement.Visible = loggedIn && SessionContext.IsAdmin;
-        menuAdminDatabaseSettings.Visible = loggedIn && SessionContext.IsAdmin;
-        menuAdminEmailSettings.Visible = loggedIn && SessionContext.IsAdmin;
         UpdateNavRailForLoginState(loggedIn);
         RefreshMenuTheme();
     }
@@ -388,6 +396,8 @@ public partial class MainForm : Form
         AppTheme.ApplyMenuStrip(menuStrip1);
         AppTheme.StyleContextMenu(ctxTree);
         AppTheme.StyleContextMenu(ctxAppSettings);
+        if (_ctxRecentProject != null)
+            AppTheme.StyleContextMenu(_ctxRecentProject);
         if (_ctxEditor != null)
             AppTheme.StyleContextMenu(_ctxEditor);
 
@@ -500,9 +510,7 @@ public partial class MainForm : Form
         AddEditorMenuItem(K.ToolbarQuote, null, async (_, _) => await RunEditorAsync(e => e.ApplyBlockquoteAsync()), "quote");
         _ctxEditor.Items.Add(new ToolStripSeparator());
         AddEditorMenuItem(K.ToolbarHorizontalRule, null, async (_, _) => await RunEditorAsync(e => e.InsertHtmlAsync("<hr/><p><br></p>")), "hr");
-        AddEditorMenuItem(K.ToolbarTable, null, async (_, _) =>
-            await RunEditorAsync(e => e.InsertHtmlAsync(
-                $"""<table><thead><tr><th>{Localization.Get(K.TableHeader1)}</th><th>{Localization.Get(K.TableHeader2)}</th></tr></thead><tbody><tr><td></td><td></td></tr></tbody></table><p><br></p>""")), "table");
+        AddEditorMenuItem(K.ToolbarTable, null, async (_, _) => await InsertTableAsync(), "table");
         _ctxEditor.Items.Add(new ToolStripSeparator());
         AddEditorMenuItem(K.ToolbarDocumentStructure, null, (_, _) => ToggleOutlinePanel(), "outline");
 
@@ -1079,6 +1087,7 @@ public partial class MainForm : Form
         }
 
         await SaveCurrentPageAsync(showStatus: true, refreshTree: true);
+        TrySaveBoundProjectFile();
         SetSaveStatus(SaveStatusKind.Saved);
     }
 
@@ -1538,6 +1547,18 @@ public partial class MainForm : Form
         if (form.ShowDialog() != DialogResult.OK)
             return;
 
+        if (form.DatabaseDisconnected)
+        {
+            ApplyLoggedOutState();
+            lblStatus.Text = Localization.Get(K.StatusDbDisconnected);
+            MessageBox.Show(
+                Localization.Get(K.DbDisconnected),
+                L.AppName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
         var username = SessionContext.CurrentUser.Username;
         var refreshed = AppConfig.Services.Users.GetByUsername(username);
         if (refreshed == null)
@@ -1709,45 +1730,37 @@ public partial class MainForm : Form
     {
         RefreshToolbarIcons();
         AppTheme.ApplyVerticalToolbar(toolStripMarkdown);
-        toolStripMarkdown.Padding = new Padding(4, 8 + ToolbarTopGap, 4, 8);
+        toolStripMarkdown.Padding = new Padding(4, 8, 4, 8);
         toolStripMarkdown.Items.Clear();
 
         AddToolbarButton("undo", Localization.Get(K.ToolbarUndo), async (_, _) => await RunEditorAsync(e => e.UndoAsync()));
         AddToolbarButton("redo", Localization.Get(K.ToolbarRedo), async (_, _) => await RunEditorAsync(e => e.RedoAsync()));
-        toolStripMarkdown.Items.Add(new ToolStripSeparator());
         AddToolbarButton("h1", Localization.Get(K.ToolbarHeading1), async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(1)));
         AddToolbarButton("h2", Localization.Get(K.ToolbarHeading2), async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(2)));
         AddToolbarButton("h3", Localization.Get(K.ToolbarHeading3), async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(3)));
         AddToolbarButton("h4", Localization.Get(K.ToolbarHeading4), async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(4)));
         AddToolbarButton("h5", Localization.Get(K.ToolbarHeading5), async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(5)));
         AddToolbarButton("h6", Localization.Get(K.ToolbarHeading6), async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(6)));
-        toolStripMarkdown.Items.Add(new ToolStripSeparator());
         AddToolbarButton("bold", Localization.Get(K.ToolbarBold), async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("bold")));
         AddToolbarButton("italic", Localization.Get(K.ToolbarItalic), async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("italic")));
         AddToolbarButton("strike", Localization.Get(K.ToolbarStrike), async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("strikeThrough")));
-        toolStripMarkdown.Items.Add(new ToolStripSeparator());
         AddToolbarButton("code", Localization.Get(K.ToolbarInlineCode), async (_, _) => await RunEditorAsync(e => e.WrapInlineCodeAsync()));
         AddToolbarButton("codeblock", Localization.Get(K.ToolbarCodeBlock), async (_, _) =>
             await RunEditorAsync(e => e.InsertHtmlAsync($"<pre><code>{Localization.Get(K.DefaultCodeText)}</code></pre><p><br></p>")));
-        toolStripMarkdown.Items.Add(new ToolStripSeparator());
         AddToolbarButton("link", Localization.Get(K.ToolbarLink), async (_, _) => await InsertLinkAsync());
         AddToolbarButton("image", Localization.Get(K.ToolbarImage), async (_, _) => await InsertImageAsync());
         AddToolbarButton("attach", Localization.Get(K.ToolbarAttachFile), async (_, _) => await InsertFileAsync());
-        toolStripMarkdown.Items.Add(new ToolStripSeparator());
         AddToolbarButton("ul", Localization.Get(K.ToolbarBulletList), async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("insertUnorderedList")));
         AddToolbarButton("ol", Localization.Get(K.ToolbarNumberList), async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("insertOrderedList")));
         AddToolbarButton("quote", Localization.Get(K.ToolbarQuote), async (_, _) => await RunEditorAsync(e => e.ApplyBlockquoteAsync()));
-        toolStripMarkdown.Items.Add(new ToolStripSeparator());
         AddToolbarButton("hr", Localization.Get(K.ToolbarHorizontalRule), async (_, _) => await RunEditorAsync(e => e.InsertHtmlAsync("<hr/><p><br></p>")));
-        AddToolbarButton("table", Localization.Get(K.ToolbarTable), async (_, _) =>
-            await RunEditorAsync(e => e.InsertHtmlAsync(
-                $"""<table><thead><tr><th>{Localization.Get(K.TableHeader1)}</th><th>{Localization.Get(K.TableHeader2)}</th></tr></thead><tbody><tr><td></td><td></td></tr></tbody></table><p><br></p>""")));
+        AddToolbarButton("table", Localization.Get(K.ToolbarTable), async (_, _) => await InsertTableAsync());
         _toolbarOutlineButton = AddToolbarButton(
             "outline",
             Localization.Get(K.ToolbarDocumentStructure),
             (_, _) => ToggleOutlinePanel());
-        toolStripMarkdown.Items.Add(new ToolStripSeparator());
         _toolbarInfoButton = AddToolbarButton("info", Localization.Get(K.ToolbarAbout), (_, _) => ShowAboutDialog(), ToolStripItemAlignment.Right);
+        AppTheme.StyleVerticalToolbarItems(toolStripMarkdown.Items);
         SetShellEnabled(SessionContext.IsLoggedIn);
     }
 
@@ -1785,6 +1798,19 @@ public partial class MainForm : Form
             text = url;
 
         await RunEditorAsync(e => e.CreateLinkAsync(text, url));
+    }
+
+    private async Task InsertTableAsync()
+    {
+        var anchor = toolStripMarkdown.Items
+            .OfType<ToolStripButton>()
+            .FirstOrDefault(item => string.Equals(item.Name, "toolbar_table", StringComparison.Ordinal));
+
+        if (!TableInsertPopupForm.TryShow(this, toolStripMarkdown, anchor, out var rows, out var columns))
+            return;
+
+        var html = EditorTableHtmlBuilder.BuildInsertTableHtml(rows, columns);
+        await RunEditorAsync(e => e.InsertHtmlAsync(html));
     }
 
     private async Task<int?> EnsurePageIdForAssetsAsync()

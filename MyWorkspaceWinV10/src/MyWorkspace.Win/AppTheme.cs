@@ -56,13 +56,16 @@ internal static class AppTheme
     public static Color Warning => _palette.Warning;
     public static Color Danger => _palette.Danger;
     public static Color EditorCodeBackground => _palette.EditorCodeBackground;
-    public static Color EditorBackground => Surface;
+    public static Color EditorBackground => Sidebar;
     public static Color EditorText => _palette.EditorText;
     public static Color PanelHeaderWorkspace => _palette.PanelHeaderWorkspace;
     public static Color PanelHeaderOutline => _palette.PanelHeaderOutline;
     public static Color PanelHeaderEditor => _palette.PanelHeaderEditor;
     public static Color PanelHeaderPageTitle => _palette.PanelHeaderPageTitle;
 
+    public const int VerticalToolbarWidth = 52;
+    public const int VerticalToolbarButtonSize = 44;
+    public const int VerticalToolbarIconSize = 24;
     public const int ShellBorderWidth = 1;
     public const int SplitterBorderWidth = 1;
 
@@ -167,7 +170,7 @@ internal static class AppTheme
         _colorTable = new ModernColorTable(Surface);
         _renderer = new ModernToolStripRenderer(_colorTable);
         _sidebarToolbarColorTable = new ModernColorTable(Sidebar);
-        _sidebarToolbarRenderer = new ModernToolStripRenderer(_sidebarToolbarColorTable);
+        _sidebarToolbarRenderer = new ModernToolStripRenderer(_sidebarToolbarColorTable, sidebarStyle: true);
         Changed?.Invoke();
     }
 
@@ -229,6 +232,7 @@ internal static class AppTheme
     {
         StyleControlTree(form.Controls);
         FitAllButtons(form.Controls);
+        NormalizeDialogChoiceButtonSizes(form.Controls);
         AlignDialogButtonLayout(form);
     }
 
@@ -238,6 +242,9 @@ internal static class AppTheme
         {
             switch (control)
             {
+                case Button button when IsDialogChoiceButton(button):
+                    StyleDialogChoiceButton(button);
+                    break;
                 case Button button when IsPrimaryButton(button):
                     StylePrimaryButton(button);
                     break;
@@ -322,6 +329,37 @@ internal static class AppTheme
         }
     }
 
+    private static void NormalizeDialogChoiceButtonSizes(Control.ControlCollection controls)
+    {
+        NormalizeDialogChoiceButtonGroup(controls);
+
+        foreach (Control control in controls)
+        {
+            if (control.HasChildren)
+                NormalizeDialogChoiceButtonSizes(control.Controls);
+        }
+    }
+
+    private static void NormalizeDialogChoiceButtonGroup(Control.ControlCollection controls)
+    {
+        var dialogButtons = controls.OfType<Button>()
+            .Where(IsDialogChoiceButton)
+            .ToList();
+
+        if (dialogButtons.Count < 2)
+            return;
+
+        var width = dialogButtons.Max(button => button.Width);
+        var height = dialogButtons.Max(button => button.Height);
+
+        foreach (var button in dialogButtons)
+        {
+            button.AutoSize = false;
+            button.Size = new Size(width, height);
+            button.MinimumSize = new Size(width, height);
+        }
+    }
+
     private static void AlignDialogButtonLayout(Form form)
     {
         AlignFooterPanels(form.Controls);
@@ -389,10 +427,22 @@ internal static class AppTheme
         }
     }
 
+    private static bool IsDialogChoiceButton(Button button)
+    {
+        if (button.Name is "btnOk" or "btnCancel" or "btnSave" or "btnLogin" or "btnClose")
+            return true;
+
+        var form = button.FindForm();
+        if (form != null &&
+            (ReferenceEquals(form.AcceptButton, button) || ReferenceEquals(form.CancelButton, button)))
+            return true;
+
+        return button.DialogResult is DialogResult.OK or DialogResult.Cancel
+            or DialogResult.Yes or DialogResult.No or DialogResult.Abort or DialogResult.Retry;
+    }
+
     private static bool IsPrimaryButton(Button button) =>
-        button.Name is "btnOk" or "btnLogin" or "btnSave" or "btnRestore"
-        || button.DialogResult == DialogResult.OK
-        || ReferenceEquals(button.FindForm()?.AcceptButton, button);
+        !IsDialogChoiceButton(button) && button.Name is "btnRestore";
 
     private static bool IsButtonFooterPanel(Panel panel) =>
         panel.Dock == DockStyle.Bottom &&
@@ -812,14 +862,38 @@ internal static class AppTheme
 
     public static void ApplyVerticalToolbar(ToolStrip strip)
     {
-        ApplyToolbar(strip);
+        ApplyToolStrip(strip);
         strip.LayoutStyle = ToolStripLayoutStyle.VerticalStackWithOverflow;
         strip.Dock = DockStyle.Right;
         strip.AutoSize = false;
-        strip.Width = 52;
+        strip.Width = VerticalToolbarWidth;
         strip.Padding = new Padding(4, 8, 4, 8);
         strip.BackColor = Sidebar;
+        strip.GripStyle = ToolStripGripStyle.Hidden;
+        strip.CanOverflow = false;
+        strip.ImageScalingSize = new Size(VerticalToolbarIconSize, VerticalToolbarIconSize);
         strip.Renderer = EnsureSidebarToolbarRenderer();
+        StyleVerticalToolbarItems(strip.Items);
+    }
+
+    public static void StyleVerticalToolbarItems(ToolStripItemCollection items)
+    {
+        foreach (ToolStripItem item in items)
+        {
+            if (item is ToolStripButton button)
+            {
+                button.AutoSize = false;
+                button.CanOverflow = false;
+                button.DisplayStyle = ToolStripItemDisplayStyle.Image;
+                button.ImageScaling = ToolStripItemImageScaling.None;
+                button.Size = new Size(VerticalToolbarButtonSize, VerticalToolbarButtonSize);
+                button.Margin = new Padding(0, 0, 0, 4);
+                continue;
+            }
+
+            if (item is ToolStripSeparator separator)
+                separator.Margin = new Padding(0, 4, 0, 4);
+        }
     }
 
     public static void ApplyStatusStrip(StatusStrip strip)
@@ -1007,20 +1081,32 @@ internal static class AppTheme
         EnsureButtonHeight(button);
     }
 
-    public static void StyleSecondaryButton(Button button)
+    public static void StyleDialogChoiceButton(Button button)
+    {
+        StyleSidebarActionButton(button);
+    }
+
+    public static void StyleSidebarActionButton(Button button)
     {
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderSize = 1;
-        button.FlatAppearance.BorderColor = IsDark ? TextMuted : Border;
-        button.BackColor = IsDark ? BorderLight : Surface;
+        button.FlatAppearance.BorderColor = Border;
+        button.BackColor = Sidebar;
         button.ForeColor = TextPrimary;
-        button.Font = UiFont;
+        button.Font = UiFontSemibold;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
-        button.FlatAppearance.MouseOverBackColor = IsDark ? Border : Background;
-        button.FlatAppearance.MouseDownBackColor = IsDark ? TextMuted : BorderLight;
+        button.UseCompatibleTextRendering = true;
+        button.FlatAppearance.MouseOverBackColor = AccentHover;
+        button.FlatAppearance.MouseDownBackColor = AccentPressed;
         ApplyDialogButtonIcon(button, primary: false);
         EnsureButtonHeight(button);
+    }
+
+    public static void StyleSecondaryButton(Button button)
+    {
+        StyleSidebarActionButton(button);
+        button.Font = UiFont;
     }
 
     private static void ApplyDialogButtonContentAlignment(Button button)
@@ -1074,15 +1160,14 @@ internal static class AppTheme
             return "exit";
 
         if (ReferenceEquals(form?.AcceptButton, button))
-            return button.Name is "btnLogin" ? "login" : "save";
+            return "save";
 
         return null;
     }
 
     private static string? MapDialogButtonIconName(string name) => name switch
     {
-        "btnSave" or "btnOk" => "save",
-        "btnLogin" => "login",
+        "btnSave" or "btnOk" or "btnLogin" => "save",
         "btnCancel" => "exit",
         "btnClose" => "exit",
         "btnAdd" => "page_plus",
@@ -1243,9 +1328,9 @@ internal static class AppTheme
     {
         split.BorderStyle = BorderStyle.None;
         split.SplitterWidth = SplitterBorderWidth;
-        split.BackColor = BorderLight;
         split.Panel1.BackColor = Sidebar;
-        split.Panel2.BackColor = Surface;
+        split.Panel2.BackColor = EditorBackground;
+        split.BackColor = split.Panel1.BackColor;
     }
 
     public static void StyleTabControl(TabControl tabControl)
@@ -1315,7 +1400,7 @@ internal static class AppTheme
         rightPanel.Padding = Padding.Empty;
         StyleBorderedPanel(rightPanel, PanelEdges.Top | PanelEdges.Right | PanelEdges.Bottom);
 
-        editorHost.BackColor = Surface;
+        editorHost.BackColor = Sidebar;
         editorHost.Padding = new Padding(4, 8, 12, 8);
 
         StyleSplitContainer(outerSplit);
@@ -1340,15 +1425,70 @@ internal static class AppTheme
     private static ToolStripProfessionalRenderer EnsureSidebarToolbarRenderer()
     {
         _sidebarToolbarColorTable ??= new ModernColorTable(Sidebar);
-        _sidebarToolbarRenderer ??= new ModernToolStripRenderer(_sidebarToolbarColorTable);
+        _sidebarToolbarRenderer ??= new ModernToolStripRenderer(_sidebarToolbarColorTable, sidebarStyle: true);
         return _sidebarToolbarRenderer;
     }
 
     private sealed class ModernToolStripRenderer : ToolStripProfessionalRenderer
     {
-        public ModernToolStripRenderer(ProfessionalColorTable colorTable)
+        private readonly bool _sidebarStyle;
+
+        public ModernToolStripRenderer(ProfessionalColorTable colorTable, bool sidebarStyle = false)
             : base(colorTable)
         {
+            _sidebarStyle = sidebarStyle;
+        }
+
+        protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+        {
+            if (_sidebarStyle)
+            {
+                using var brush = new SolidBrush(Sidebar);
+                e.Graphics.FillRectangle(brush, e.AffectedBounds);
+                return;
+            }
+
+            base.OnRenderToolStripBackground(e);
+        }
+
+        protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (_sidebarStyle && e.Item is ToolStripButton)
+            {
+                var bounds = new Rectangle(Point.Empty, e.Item.Size);
+                bounds.Inflate(-1, -1);
+
+                if (e.Item.Pressed)
+                {
+                    using var brush = new SolidBrush(AccentPressed);
+                    e.Graphics.FillRectangle(brush, bounds);
+                }
+                else if (e.Item.Selected)
+                {
+                    using var brush = new SolidBrush(AccentHover);
+                    e.Graphics.FillRectangle(brush, bounds);
+                }
+
+                return;
+            }
+
+            base.OnRenderButtonBackground(e);
+        }
+
+        protected override void OnRenderGrip(ToolStripGripRenderEventArgs e)
+        {
+            if (_sidebarStyle)
+                return;
+
+            base.OnRenderGrip(e);
+        }
+
+        protected override void OnRenderOverflowButtonBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (_sidebarStyle)
+                return;
+
+            base.OnRenderOverflowButtonBackground(e);
         }
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
@@ -1363,6 +1503,9 @@ internal static class AppTheme
 
         protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
         {
+            if (e.ToolStrip is StatusStrip)
+                return;
+
             if (e.ToolStrip is MenuStrip or ContextMenuStrip or ToolStripDropDown)
             {
                 using var pen = new Pen(Border);
@@ -1375,12 +1518,7 @@ internal static class AppTheme
 
             if (e.ToolStrip.LayoutStyle == ToolStripLayoutStyle.VerticalStackWithOverflow
                 && e.ToolStrip.Dock == DockStyle.Right)
-            {
-                using var pen = new Pen(BorderLight);
-                var height = Math.Max(0, e.ToolStrip.Height - 1);
-                e.Graphics.DrawLine(pen, 0, 0, 0, height);
                 return;
-            }
 
             base.OnRenderToolStripBorder(e);
         }

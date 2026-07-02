@@ -36,7 +36,13 @@ internal sealed class FramelessResizeEdge : Panel
         base.Dispose(disposing);
     }
 
-    internal void ApplyTheme() => BackColor = AppTheme.Background;
+    internal void ApplyTheme() =>
+        BackColor = IsTopResizeEdge(_hitTest) ? AppTheme.TitleBarBackground : AppTheme.Background;
+
+    private static bool IsTopResizeEdge(int hitTest) =>
+        hitTest is FramelessWindowHelper.HtTop
+            or FramelessWindowHelper.HtTopLeft
+            or FramelessWindowHelper.HtTopRight;
 
     private void OnAppThemeChanged()
     {

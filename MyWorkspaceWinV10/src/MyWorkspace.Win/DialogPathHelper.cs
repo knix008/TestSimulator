@@ -51,6 +51,27 @@ internal static class DialogPathHelper
         AppConfig.SaveUiSettings(settings);
     }
 
+    public static void ApplyProjectDirectory(FileDialog dialog)
+    {
+        var directory = AppConfig.UiSettings.LastProjectDirectory;
+        if (IsExistingDirectory(directory))
+            dialog.InitialDirectory = directory;
+    }
+
+    public static void RememberProjectPath(string? path)
+    {
+        var directory = ResolveDirectory(path);
+        if (directory == null)
+            return;
+
+        var settings = AppConfig.UiSettings.Clone();
+        if (string.Equals(settings.LastProjectDirectory, directory, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        settings.LastProjectDirectory = directory;
+        AppConfig.SaveUiSettings(settings);
+    }
+
     internal static string? ResolveDirectory(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))

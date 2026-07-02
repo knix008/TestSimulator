@@ -17,6 +17,7 @@
                   Schedule="afterInstallInitialize" />
 
     <Icon Id="AppIcon.ico" SourceFile="..\src\MyWorkspace.Win\Assets\app.ico" />
+    <Icon Id="WspIcon.ico" SourceFile="..\src\MyWorkspace.Win\Assets\wsp.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
 
     <MediaTemplate EmbedCab="yes" />
@@ -104,7 +105,7 @@
         <RegistryValue Root="HKCR"
                        Key="MyWorkspace.Wsp\DefaultIcon"
                        Type="string"
-                       Value="[INSTALLFOLDER]wsp.ico,0" />
+                       Value="[#WspIcon.ico],0" />
         <RegistryValue Root="HKCR"
                        Key="MyWorkspace.Wsp\shell\open\command"
                        Type="string"

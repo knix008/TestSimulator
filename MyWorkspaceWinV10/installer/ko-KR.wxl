@@ -5,5 +5,5 @@
   <String Id="FeatureStartMenuDescription" Value="시작 메뉴에 MyWorkspace 바로 가기를 만듭니다." />
   <String Id="FeatureDesktopTitle" Value="바탕 화면 바로 가기" />
   <String Id="FeatureDesktopDescription" Value="바탕 화면에 MyWorkspace 바로 가기를 만듭니다." />
-  <String Id="WspFileDescription" Value="MyWorkspace Workspace 패키지" />
+  <String Id="WspFileDescription" Value="MyWorkspace 프로젝트" />
 </WixLocalization>

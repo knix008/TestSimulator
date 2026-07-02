@@ -3,7 +3,7 @@ namespace MyWorkspace.Win;
 internal static class AppIcons
 {
     private const int MenuIconSize = 16;
-    public const int ToolbarIconSize = 28;
+    public const int ToolbarIconSize = 24;
 
     public static Bitmap LoadMenuIcon(string name) => IconAssets.Load(MenuIconSize, name);
 

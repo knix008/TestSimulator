@@ -28,6 +28,12 @@ internal static class AuthLoginHelper
             return false;
         }
 
+        if (AppConfig.IsDatabaseConnectionDisabled || AppConfig.Services == null)
+        {
+            errorMessage = Localization.Get(K.DbConnectionDisconnectedLogin);
+            return false;
+        }
+
         try
         {
             var result = AppConfig.Services.Auth.Login(username, password);

@@ -103,6 +103,8 @@ internal static class ThemedMessageBox
             foreach (var button in buttonRow)
                 buttonPanel.Controls.Add(button);
 
+            NormalizeMessageBoxButtons(buttonRow);
+
             Controls.Add(_messageLabel);
             Controls.Add(_iconBox);
             Controls.Add(buttonPanel);
@@ -146,32 +148,32 @@ internal static class ThemedMessageBox
             {
                 MessageBoxButtons.OK => new List<Button>
                 {
-                    CreateButton(Localization.Get(K.ButtonOk), DialogResult.OK, primary: true)
+                    CreateButton(Localization.Get(K.ButtonOk), DialogResult.OK)
                 },
                 MessageBoxButtons.OKCancel => new List<Button>
                 {
-                    CreateButton(Localization.Get(K.ButtonOk), DialogResult.OK, primary: true),
-                    CreateButton(Localization.Get(K.ButtonCancel), DialogResult.Cancel, primary: false)
+                    CreateButton(Localization.Get(K.ButtonOk), DialogResult.OK),
+                    CreateButton(Localization.Get(K.ButtonCancel), DialogResult.Cancel)
                 },
                 MessageBoxButtons.YesNo => new List<Button>
                 {
-                    CreateButton(Localization.Get(K.ButtonYes), DialogResult.Yes, primary: true),
-                    CreateButton(Localization.Get(K.ButtonNo), DialogResult.No, primary: false)
+                    CreateButton(Localization.Get(K.ButtonYes), DialogResult.Yes),
+                    CreateButton(Localization.Get(K.ButtonNo), DialogResult.No)
                 },
                 MessageBoxButtons.YesNoCancel => new List<Button>
                 {
-                    CreateButton(Localization.Get(K.ButtonYes), DialogResult.Yes, primary: true),
-                    CreateButton(Localization.Get(K.ButtonNo), DialogResult.No, primary: false),
-                    CreateButton(Localization.Get(K.ButtonCancel), DialogResult.Cancel, primary: false)
+                    CreateButton(Localization.Get(K.ButtonYes), DialogResult.Yes),
+                    CreateButton(Localization.Get(K.ButtonNo), DialogResult.No),
+                    CreateButton(Localization.Get(K.ButtonCancel), DialogResult.Cancel)
                 },
                 MessageBoxButtons.RetryCancel => new List<Button>
                 {
-                    CreateButton(Localization.Get(K.ButtonRetry), DialogResult.Retry, primary: true),
-                    CreateButton(Localization.Get(K.ButtonCancel), DialogResult.Cancel, primary: false)
+                    CreateButton(Localization.Get(K.ButtonRetry), DialogResult.Retry),
+                    CreateButton(Localization.Get(K.ButtonCancel), DialogResult.Cancel)
                 },
                 _ => new List<Button>
                 {
-                    CreateButton(Localization.Get(K.ButtonOk), DialogResult.OK, primary: true)
+                    CreateButton(Localization.Get(K.ButtonOk), DialogResult.OK)
                 }
             };
 
@@ -195,7 +197,7 @@ internal static class ThemedMessageBox
             return created;
         }
 
-        private static Button CreateButton(string text, DialogResult result, bool primary)
+        private static Button CreateButton(string text, DialogResult result)
         {
             var button = new Button
             {
@@ -204,13 +206,25 @@ internal static class ThemedMessageBox
                 AutoSize = false
             };
 
-            if (primary)
-                AppTheme.StylePrimaryButton(button);
-            else
-                AppTheme.StyleSecondaryButton(button);
-
+            AppTheme.StyleDialogChoiceButton(button);
             AppTheme.FitButtonSize(button);
             return button;
+        }
+
+        private static void NormalizeMessageBoxButtons(IReadOnlyList<Button> buttons)
+        {
+            if (buttons.Count < 2)
+                return;
+
+            var width = buttons.Max(button => button.Width);
+            var height = buttons.Max(button => button.Height);
+
+            foreach (var button in buttons)
+            {
+                button.AutoSize = false;
+                button.Size = new Size(width, height);
+                button.MinimumSize = new Size(width, height);
+            }
         }
 
         private static Image? GetIconImage(MessageBoxIcon icon) =>
