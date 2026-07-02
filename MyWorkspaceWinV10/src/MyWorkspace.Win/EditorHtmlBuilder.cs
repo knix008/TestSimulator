@@ -101,7 +101,7 @@ internal static class EditorHtmlBuilder
             : string.Empty;
         return " src=\"" + System.Net.WebUtility.HtmlEncode(src) + "\"" + altAttr
             + " data-editor-width=\"" + widthPx + "\""
-            + " style=\"width: " + widthPx + "px; height: auto; max-width: none;\"";
+            + " style=\"width: 100%; height: auto; max-width: none; display: block;\"";
     }
 
     private static string WrapFileLinksForEditing(string html) =>
@@ -175,10 +175,10 @@ internal static class EditorHtmlBuilder
             #editor::-webkit-scrollbar-track { background: transparent; cursor: default; }
             #editor::-webkit-scrollbar-thumb {
               background: var(--editor-border); border-radius: 999px; border: 3px solid var(--editor-bg);
-              cursor: grab;
+              cursor: default;
             }
-            #editor::-webkit-scrollbar-thumb:hover { cursor: grab; }
-            #editor::-webkit-scrollbar-thumb:active { cursor: grabbing; }
+            #editor::-webkit-scrollbar-thumb:hover { cursor: default; }
+            #editor::-webkit-scrollbar-thumb:active { cursor: default; }
             #editor {
               height: 100%; box-sizing: border-box;
               padding: 8px 32px 24px 32px; outline: none; overflow-y: auto;
@@ -233,10 +233,13 @@ internal static class EditorHtmlBuilder
               margin: 0 2px; line-height: 0;
               cursor: pointer;
             }
-            .editor-image-wrap.is-sized { max-width: none; }
+            .editor-image-wrap.is-sized { max-width: none; overflow: hidden; }
             .editor-image-wrap.is-sized > img {
-              max-width: none;
-              max-height: none;
+              display: block;
+              width: 100% !important;
+              height: auto !important;
+              max-width: none !important;
+              max-height: none !important;
             }
             .editor-image-wrap img {
               height: auto; border-radius: 2px;
@@ -413,7 +416,7 @@ internal static class EditorHtmlBuilder
             function updateEditorScrollbarCursor(e) {
               if (isOverEditorScrollbar(e.clientX, e.clientY)) {
                 if (!editorScrollbarCursorActive) {
-                  editor.style.cursor = 'grab';
+                  editor.style.cursor = 'default';
                   editorScrollbarCursorActive = true;
                 }
                 return;
@@ -435,7 +438,7 @@ internal static class EditorHtmlBuilder
             editor.addEventListener('mouseleave', resetEditorScrollbarCursor);
             editor.addEventListener('mousedown', (e) => {
               if (e.button !== 0 || !isOverEditorScrollbar(e.clientX, e.clientY)) return;
-              editor.style.cursor = 'grabbing';
+              editor.style.cursor = 'default';
               function onUp() {
                 document.removeEventListener('mouseup', onUp);
                 resetEditorScrollbarCursor();
@@ -891,6 +894,9 @@ internal static class EditorHtmlBuilder
               const dataWidth = parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
               if (dataWidth) return dataWidth;
 
+              const widthAttr = parsePositivePx(img.getAttribute('width'));
+              if (widthAttr) return widthAttr;
+
               const wrapWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'));
               if (wrapWidth) return wrapWidth;
 
@@ -900,19 +906,71 @@ internal static class EditorHtmlBuilder
               return parseCssWidthPx(img.getAttribute('style'));
             }
 
+            function resolveImageWidthForSave(wrap, img) {
+              if (wrap.classList.contains('is-sized') || wrap.dataset.userSized === '1') {
+                const measured = Math.round(wrap.getBoundingClientRect().width);
+                if (measured > 0) return measured;
+              }
+
+              const wrapWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'));
+              if (wrapWidth) return wrapWidth;
+
+              const widthAttr = parsePositivePx(img.getAttribute('width'));
+              if (widthAttr) return widthAttr;
+
+              return parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
+            }
+
+            function commitImageWidth(wrap, img, width) {
+              if (!width) return;
+              wrap.classList.add('is-sized');
+              wrap.dataset.userSized = '1';
+              img.dataset.editorWidth = String(width);
+              img.setAttribute('data-editor-width', String(width));
+              wrap.style.width = width + 'px';
+              wrap.setAttribute('style', 'width: ' + width + 'px;');
+              img.style.width = '100%';
+              img.style.height = 'auto';
+              img.style.maxWidth = 'none';
+              img.style.display = 'block';
+              img.removeAttribute('width');
+              img.removeAttribute('height');
+            }
+
             function applyImageSizeState(wrap, img) {
               const savedWidth = readSavedImageWidthPx(wrap, img);
               if (!savedWidth) return;
 
-              wrap.classList.add('is-sized');
-              img.dataset.editorWidth = String(savedWidth);
-              img.setAttribute('data-editor-width', String(savedWidth));
-              img.style.width = savedWidth + 'px';
-              img.style.height = 'auto';
-              img.style.maxWidth = 'none';
-              wrap.style.width = savedWidth + 'px';
-              img.removeAttribute('width');
-              img.removeAttribute('height');
+              const currentDataWidth = parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
+              const currentWrapWidth = parseCssWidthPx(wrap.style.width);
+              if (wrap.classList.contains('is-sized')
+                  && currentDataWidth === savedWidth
+                  && currentWrapWidth === savedWidth) {
+                return;
+              }
+
+              commitImageWidth(wrap, img, savedWidth);
+            }
+
+            function prepareImagesForSave() {
+              editor.querySelectorAll('.editor-image-wrap').forEach(wrap => {
+                const img = wrap.querySelector('img');
+                if (!img) return;
+                const width = resolveImageWidthForSave(wrap, img);
+                if (!width) return;
+                commitImageWidth(wrap, img, width);
+                img.setAttribute('width', String(width));
+              });
+            }
+
+            function attachImageSizeGuard(wrap, img) {
+              if (img.dataset.sizeGuard === '1') return;
+              img.dataset.sizeGuard = '1';
+              const reapply = () => applyImageSizeState(wrap, img);
+              if (!img.complete)
+                img.addEventListener('load', reapply, { once: true });
+              else
+                reapply();
             }
 
             function reapplyAllImageSizes() {
@@ -957,33 +1015,22 @@ internal static class EditorHtmlBuilder
                 e.stopPropagation();
                 wrap.classList.add('is-selected');
                 const startX = e.clientX;
-                const rectWidth = img.getBoundingClientRect().width;
-                const startWidth = rectWidth > 0 ? rectWidth : (img.naturalWidth || img.offsetWidth || 200);
+                const rectWidth = wrap.getBoundingClientRect().width;
+                const startWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'))
+                  || (rectWidth > 0 ? Math.round(rectWidth) : 0)
+                  || (img.naturalWidth || img.offsetWidth || 200);
                 img.style.maxWidth = 'none';
 
                 function onMove(ev) {
                   const width = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
-                  img.style.width = width + 'px';
-                  img.style.height = 'auto';
-                  img.style.maxWidth = 'none';
-                  img.setAttribute('data-editor-width', String(width));
-                  img.dataset.editorWidth = String(width);
-                  img.removeAttribute('width');
-                  img.removeAttribute('height');
-                  wrap.classList.add('is-sized');
-                  wrap.style.width = width + 'px';
+                  commitImageWidth(wrap, img, width);
                 }
 
                 function onUp() {
                   document.removeEventListener('mousemove', onMove);
                   document.removeEventListener('mouseup', onUp);
-                  const width = parseInt(img.style.width, 10);
-                  if (!Number.isNaN(width) && width > 0) {
-                    img.setAttribute('data-editor-width', String(width));
-                    img.dataset.editorWidth = String(width);
-                    img.removeAttribute('width');
-                    img.removeAttribute('height');
-                  }
+                  const width = resolveImageWidthForSave(wrap, img);
+                  if (width) commitImageWidth(wrap, img, width);
                   notifyChanged();
                 }
 
@@ -1007,13 +1054,8 @@ internal static class EditorHtmlBuilder
               applyImageSizeState(wrap, img);
               setupImageResize(wrap, img, handle);
               ensureCaretAnchors(wrap);
+              attachImageSizeGuard(wrap, img);
               wrap.dataset.resizeReady = '1';
-              const reapplySize = () => applyImageSizeState(wrap, img);
-              if (!img.complete)
-                img.addEventListener('load', reapplySize, { once: true });
-              if (typeof img.decode === 'function') {
-                img.decode().then(reapplySize).catch(() => {});
-              }
             }
 
             function wrapImage(img) {
@@ -1195,7 +1237,10 @@ internal static class EditorHtmlBuilder
                   };
                 }));
               },
-              getHtml() { return editor.innerHTML; },
+              getHtml() {
+                prepareImagesForSave();
+                return editor.innerHTML;
+              },
               getActiveHeadingId() {
                 const sel = window.getSelection();
                 if (!sel || sel.rangeCount === 0) return '';
@@ -1250,9 +1295,6 @@ internal static class EditorHtmlBuilder
               clearStaleInlineColors();
               upgradeEditorBlocks();
               reapplyAllImageSizes();
-              requestAnimationFrame(reapplyAllImageSizes);
-              setTimeout(reapplyAllImageSizes, 0);
-              setTimeout(reapplyAllImageSizes, 100);
               placeCaretAtEnd(editor);
             });
           </script>

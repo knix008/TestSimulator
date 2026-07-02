@@ -10,7 +10,7 @@ internal static partial class PageMarkdownNormalizer
     [GeneratedRegex(@"(?<!!)\[(?<title>[^\]]*)\]\((?<url>page-asset:\d+/[^)]+)\)", RegexOptions.IgnoreCase)]
     private static partial Regex MarkdownFileAssetRegex();
 
-    [GeneratedRegex(@"!\[(?<alt>[^\]]*)\]\((?<url>[^)]+)\)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"!\[(?<alt>[^\]]*)\]\(\s*(?<url>[^)\s]+)\s*(?:""(?<title>[^""]*)"")?\s*\)", RegexOptions.IgnoreCase)]
     private static partial Regex MarkdownImageRegex();
 
     [GeneratedRegex(@"(?<!!)\[(?<title>[^\]]*)\]\((?<url>[^)]+)\)", RegexOptions.IgnoreCase)]
@@ -25,7 +25,7 @@ internal static partial class PageMarkdownNormalizer
     [GeneratedRegex(@"\bwidth\s*:\s*(?<width>\d+)\s*px", RegexOptions.IgnoreCase)]
     private static partial Regex CssWidthPxRegex();
 
-    [GeneratedRegex(@"<span\b(?<wrapattrs>[^>]*\beditor-image-wrap\b[^>]*)>(?<inner><img\b[^>]*>(?:\s*<span\b[^>]*\beditor-image-resize-handle\b[^>]*>\s*</span>)?)\s*</span>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    [GeneratedRegex(@"<span\b(?<wrapattrs>[^>]*\beditor-image-wrap\b[^>]*)>(?<inner><img\b[^>]*>[\s\S]*?)</span>", RegexOptions.IgnoreCase)]
     private static partial Regex EditorImageWrapRegex();
 
     [GeneratedRegex(@"<a\b[^>]*class=[""']editor-file-attachment[""'][^>]*\shref=[""'](?<url>[^""']+)[""'][^>]*>(?<text>.*?)</a>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
@@ -111,6 +111,7 @@ internal static partial class PageMarkdownNormalizer
 
     public static string PrepareHtmlForMarkdown(string html, int pageId)
     {
+        html = PromoteImageWrapWidths(html);
         html = UnwrapResizableImages(html);
         html = NormalizeImageWidthAttributes(html);
         html = CollapseHtmlImages(html, pageId);
@@ -120,6 +121,8 @@ internal static partial class PageMarkdownNormalizer
 
     public static (string Html, IReadOnlyList<string> PreservedImages) ExtractSizedImages(string html)
     {
+        html = PromoteImageWrapWidths(html);
+        html = UnwrapResizableImages(html);
         var preserved = new List<string>();
         var index = 0;
 
@@ -216,21 +219,42 @@ internal static partial class PageMarkdownNormalizer
         MarkdownImageRegex().Replace(markdown, match =>
         {
             var url = match.Groups["url"].Value;
+            var alt = match.Groups["alt"].Value;
+            var title = match.Groups["title"].Success ? match.Groups["title"].Value : string.Empty;
+            var width = TryParseEditorWidthTitle(title);
+
             if (PageAssetStore.TryParseAssetUri(url, out var assetPageId, out var fileName) &&
                 assetPageId == pageId)
             {
-                var alt = match.Groups["alt"].Value;
-                return $"![{alt}]({PageAssetStore.BuildEditorUri(pageId, fileName)})";
+                var editorUri = PageAssetStore.BuildEditorUri(pageId, fileName);
+                if (width.HasValue)
+                    return BuildSizedImageTag(editorUri, width.Value, alt);
+
+                return $"![{alt}]({editorUri})";
             }
 
-            if (PageAssetStore.TryParseEditorUri(url, out assetPageId, out _) &&
+            if (PageAssetStore.TryParseEditorUri(url, out assetPageId, out fileName) &&
                 assetPageId == pageId)
             {
+                if (width.HasValue)
+                    return BuildSizedImageTag(url, width.Value, alt);
+
                 return match.Value;
             }
 
             return match.Value;
         });
+
+    private static int? TryParseEditorWidthTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
+
+        var match = Regex.Match(title, @"(?:editor-width|width)\s*:\s*(\d+)", RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups[1].Value, out var width) && width > 0
+            ? width
+            : null;
+    }
 
     private static string ExpandHtmlImageAssetReferences(string markdown, int pageId) =>
         HtmlImgTagRegex().Replace(markdown, match =>
@@ -385,6 +409,20 @@ internal static partial class PageMarkdownNormalizer
         });
     }
 
+    private static string PromoteImageWrapWidths(string html) =>
+        EditorImageWrapRegex().Replace(html, match =>
+        {
+            var inner = match.Groups["inner"].Value;
+            var imgMatch = HtmlImgTagRegex().Match(inner);
+            if (!imgMatch.Success)
+                return match.Value;
+
+            var width = ExtractEditorSavedWidthPx(match.Groups["wrapattrs"].Value, imgMatch.Groups["attrs"].Value);
+            return width.HasValue
+                ? EnsureImgTagWidth(imgMatch.Value, width.Value)
+                : imgMatch.Value;
+        });
+
     private static string UnwrapResizableImages(string html) =>
         EditorImageWrapRegex().Replace(html, match =>
         {
@@ -402,13 +440,13 @@ internal static partial class PageMarkdownNormalizer
 
     private static int? ExtractEditorSavedWidthPx(string wrapAttrs, string imgAttrs)
     {
-        var dataWidth = ExtractAttributeValue(imgAttrs, "data-editor-width");
-        if (int.TryParse(dataWidth, out var parsedData) && parsedData > 0)
-            return parsedData;
-
         var wrapWidth = ExtractWidthPxFromStyle(ExtractAttributeValue(wrapAttrs, "style"));
         if (wrapWidth.HasValue)
             return wrapWidth;
+
+        var dataWidth = ExtractAttributeValue(imgAttrs, "data-editor-width");
+        if (int.TryParse(dataWidth, out var parsedData) && parsedData > 0)
+            return parsedData;
 
         var imgStyleWidth = ExtractWidthPxFromStyle(ExtractAttributeValue(imgAttrs, "style"));
         if (imgStyleWidth.HasValue)
@@ -441,7 +479,7 @@ internal static partial class PageMarkdownNormalizer
         $"{SizedImagePlaceholderPrefix}{index}{SizedImagePlaceholderSuffix}";
 
     private static string BuildSizedImageTag(string src, int width, string alt) =>
-        $"<img src=\"{EscapeHtmlAttribute(src)}\" data-editor-width=\"{width}\" style=\"width: {width}px; height: auto; max-width: none;\" alt=\"{EscapeHtmlAttribute(alt)}\">";
+        $"<img src=\"{EscapeHtmlAttribute(src)}\" width=\"{width}\" data-editor-width=\"{width}\" style=\"width: {width}px; height: auto; max-width: none;\" alt=\"{EscapeHtmlAttribute(alt)}\">";
 
     private static int? ExtractWidthPxFromStyle(string? style)
     {
