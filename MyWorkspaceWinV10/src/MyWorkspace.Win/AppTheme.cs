@@ -57,6 +57,8 @@ internal static class AppTheme
         IsDark ? Color.FromArgb(48, 54, 61) : Color.FromArgb(225, 228, 232);
     public static Color ChromeButtonPressedBackground =>
         IsDark ? Color.FromArgb(68, 76, 86) : Color.FromArgb(208, 212, 218);
+    public static Color ChromeButtonIconColor => TitleBarText;
+    public static Color ChromeButtonHoverIconColor => Color.FromArgb(232, 17, 35);
     public static Color SidebarButtonHoverBackground => ChromeButtonHoverBackground;
     public static Color SidebarButtonPressedBackground => ChromeButtonPressedBackground;
     public static Color Success => _palette.Success;
@@ -1671,12 +1673,8 @@ internal static class AppTheme
                 && e.ToolStrip is { LayoutStyle: ToolStripLayoutStyle.VerticalStackWithOverflow, Dock: DockStyle.Right })
             {
                 var bounds = new Rectangle(Point.Empty, e.Item.Size);
-                using (var separator = new Pen(Border))
-                    e.Graphics.DrawLine(separator, 8, 0, bounds.Width - 8, 0);
-
                 var buttonBounds = bounds;
                 buttonBounds.Inflate(-1, -1);
-                buttonBounds.Y += 1;
 
                 if (e.Item.Pressed)
                 {

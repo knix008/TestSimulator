@@ -8,10 +8,10 @@ internal static class PageAssetStore
 {
     public const string EditorAssetHost = "page-assets.myworkspace";
 
-    private static readonly string Root = Path.Combine(
+    private static readonly string Root = Path.GetFullPath(Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "MyWorkspaceWinV10",
-        "PageAssets");
+        "PageAssets"));
 
     public static readonly string[] SupportedImageExtensions =
     [
@@ -33,29 +33,23 @@ internal static class PageAssetStore
             EditorAssetHost,
             Root,
             CoreWebView2HostResourceAccessKind.Allow);
-
-        webView.AddWebResourceRequestedFilter(
-            $"https://{EditorAssetHost}/*",
-            CoreWebView2WebResourceContext.All);
-
-        webView.WebResourceRequested += (_, args) =>
-        {
-            if (!TryParseEditorUri(args.Request.Uri, out var pageId, out var fileName))
-                return;
-
-            var bytes = TryGetAssetBytes(pageId, fileName);
-            if (bytes == null || bytes.Length == 0)
-                return;
-
-            var contentType = GetAssetContentType(fileName);
-            var headers = $"Content-Type: {contentType}\r\nCache-Control: no-cache";
-            var stream = new MemoryStream(bytes, writable: false);
-            args.Response = webView.Environment.CreateWebResourceResponse(stream, 200, "OK", headers);
-        };
     }
 
     public static string ImportImage(int pageId, string sourcePath) =>
         ImportAsset(pageId, sourcePath, imageOnly: true);
+
+    public static string ImportImageBytes(int pageId, byte[] content, string extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension))
+            throw new InvalidOperationException(Localization.Format(K.UnsupportedImageFormat, extension));
+
+        if (!IsSupportedImageExtension(extension))
+            throw new InvalidOperationException(Localization.Format(K.UnsupportedImageFormat, extension));
+
+        var fileName = $"{Guid.NewGuid():N}{NormalizeExtension(extension)}";
+        SaveAsset(pageId, fileName, content);
+        return fileName;
+    }
 
     public static string ImportFile(int pageId, string sourcePath) =>
         ImportAsset(pageId, sourcePath, imageOnly: false);

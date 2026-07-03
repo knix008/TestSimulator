@@ -45,6 +45,7 @@ public partial class MainForm : Form
         InitializeComponent();
         FramelessWindowHelper.Configure(this, pnlRoot);
         titleBar.Attach(this);
+        ConfigureTitleBarPageSearch();
         ApplyLayoutConstraints();
         KeyPreview = true;
         ApplyStartupTheme();
@@ -135,7 +136,6 @@ public partial class MainForm : Form
 
         EnsureWorkspaceArchiveMenuItems();
         EnsurePageExportMenuItems();
-        EnsureExportContextMenuItems();
 
         menuView.Image = menuDocumentStructure.Image;
 
@@ -252,6 +252,7 @@ public partial class MainForm : Form
         SetShellEnabled(false);
         UpdateEditorChromeEnabled();
         UpdateMenuForLoginState(false);
+        ConfigureTitleBarPageSearch();
         ApplyStartupTheme();
         ApplyEditorHostTheme();
         UpdateEditorEmptySurface();
@@ -269,6 +270,7 @@ public partial class MainForm : Form
         SetShellEnabled(true);
         UpdateEditorChromeEnabled();
         UpdateMenuForLoginState(true);
+        ConfigureTitleBarPageSearch();
 
         var hadPendingImport = !string.IsNullOrWhiteSpace(_pendingWspImportPath);
         var lastPageId = TryResolveRestorableLastPageId();
@@ -384,8 +386,10 @@ public partial class MainForm : Form
             menuProfile.Visible = loggedIn;
         if (menuSepAppSettingsAdmin != null)
             menuSepAppSettingsAdmin.Visible = loggedIn && SessionContext.IsAdmin;
-        if (menuSavePageAsMarkdown != null)
-            menuSavePageAsMarkdown.Visible = loggedIn;
+        if (menuTitleBarPageSearch != null)
+            menuTitleBarPageSearch.Visible = loggedIn;
+        if (menuExport != null)
+            menuExport.Visible = loggedIn;
         menuSepFile1.Visible = loggedIn;
         menuLogin.Visible = !loggedIn;
         menuLogout.Visible = loggedIn;
@@ -665,6 +669,13 @@ public partial class MainForm : Form
 
             if (target != null && !ReferenceEquals(treeWorkspace.SelectedNode, target))
                 treeWorkspace.SelectedNode = target;
+
+            if (target != null)
+            {
+                target.EnsureVisible();
+                if (target.Parent != null)
+                    target.Parent.Expand();
+            }
         }
         finally
         {
@@ -730,6 +741,8 @@ public partial class MainForm : Form
         if (_suppressWorkspaceSelection)
             return;
 
+        _workspaceContextMenuNode = null;
+
         if (e.Node?.Tag is not TreeNodeData data)
             return;
 
@@ -749,7 +762,11 @@ public partial class MainForm : Form
         }
 
         if (data.Kind == TreeNodeKind.Workspace)
+        {
+            if (CanEditWorkspace(data.Id))
+                _ = PrepareWorkspaceDraftAsync(data.Id);
             return;
+        }
     }
 
     private async Task<bool> EnsurePageCreatedAsync()
@@ -785,20 +802,24 @@ public partial class MainForm : Form
 
             _currentPageId = page.Id;
             _draftWorkspaceId = null;
-            _currentPageTitle = title;
+            _currentPageTitle = page.Title;
             _isDirty = false;
+
+            if (_editor != null && !string.Equals(page.Content, content, StringComparison.Ordinal))
+                await _editor.LoadMarkdownAsync(page.Content, _pipeline, page.Id);
 
             _suppressWorkspaceSelection = true;
             try
             {
                 LoadWorkspaceTree(selectPageId: page.Id);
+                SelectPageInTree(page.Id);
             }
             finally
             {
                 _suppressWorkspaceSelection = false;
             }
 
-            lblStatus.Text = Localization.Format(K.StatusPage, title);
+            lblStatus.Text = Localization.Format(K.StatusPage, page.Title);
             await UpdateOutlineAsync();
             RecordCurrentPageForSession();
             return true;
@@ -1085,18 +1106,26 @@ public partial class MainForm : Form
     private TreeNodeData? GetWorkspaceContextMenuNodeData() =>
         (_workspaceContextMenuNode ?? treeWorkspace.SelectedNode)?.Tag as TreeNodeData;
 
-    private TreeNodeData? ResolveTreeActionTarget()
-    {
-        if (_workspaceContextMenuNode?.Tag is TreeNodeData contextData
-            && contextData.Kind is TreeNodeKind.Page or TreeNodeKind.Workspace)
-        {
-            return contextData;
-        }
+    private TreeNodeData? ResolveTreeActionTarget() =>
+        GetSelectedNodeData() is TreeNodeData selected
+        && selected.Kind is TreeNodeKind.Page or TreeNodeKind.Workspace
+            ? selected
+            : null;
 
-        if (treeWorkspace.SelectedNode?.Tag is TreeNodeData selectedData
-            && selectedData.Kind is TreeNodeKind.Page or TreeNodeKind.Workspace)
+    private int? GetTargetWorkspaceIdForNewPage()
+    {
+        var fromSelection = GetSelectedWorkspaceId();
+        if (fromSelection.HasValue)
+            return fromSelection;
+
+        if (_draftWorkspaceId.HasValue)
+            return _draftWorkspaceId;
+
+        if (_currentPageId is int pageId)
         {
-            return selectedData;
+            var page = AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId);
+            if (page != null)
+                return page.WorkspaceId;
         }
 
         return null;
@@ -1113,6 +1142,14 @@ public partial class MainForm : Form
 
     private string GetDeleteTargetDisplayName(TreeNodeData data)
     {
+        if (treeWorkspace.SelectedNode?.Tag is TreeNodeData selected
+            && selected.Kind == data.Kind
+            && selected.Id == data.Id
+            && !string.IsNullOrWhiteSpace(treeWorkspace.SelectedNode.Text))
+        {
+            return treeWorkspace.SelectedNode.Text.Trim();
+        }
+
         var node = GetTreeNodeForData(data);
         if (!string.IsNullOrWhiteSpace(node?.Text))
             return node.Text.Trim();
@@ -1204,14 +1241,14 @@ public partial class MainForm : Form
 
     private void menuNewPage_Click(object sender, EventArgs e)
     {
-        var workspaceId = GetSelectedWorkspaceId();
+        var workspaceId = GetTargetWorkspaceIdForNewPage();
         if (!workspaceId.HasValue)
         {
             MessageBox.Show(Localization.Get(K.SelectWorkspaceForPage), L.AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
-        using var dialog = new NewPageForm();
+        using var dialog = new NewPageForm(defaultTemplateId: AppConfig.GetLastPageTemplateId());
         if (dialog.ShowDialog() != DialogResult.OK)
             return;
 
@@ -1222,7 +1259,9 @@ public partial class MainForm : Form
                 workspaceId.Value,
                 dialog.PageTitle,
                 dialog.PageContent);
+            AppConfig.RecordLastPageTemplateId(dialog.SelectedTemplate.Id);
             LoadWorkspaceTree(selectPageId: page.Id);
+            SelectPageInTree(page.Id);
             _ = LoadPageAsync(page.Id);
         }
         catch (Exception ex)
@@ -1310,11 +1349,12 @@ public partial class MainForm : Form
     }
 
     private void menuDelete_Click(object sender, EventArgs e) =>
-        DeleteTreeNode(ResolveTreeActionTarget());
+        DeleteTreeNode();
 
-    private void DeleteTreeNode(TreeNodeData? data)
+    private void DeleteTreeNode()
     {
-        if (data?.Kind is not (TreeNodeKind.Page or TreeNodeKind.Workspace))
+        var data = ResolveTreeActionTarget();
+        if (data == null)
         {
             MessageBox.Show(
                 Localization.Get(K.SelectWorkspaceOrPage),
@@ -1584,8 +1624,6 @@ public partial class MainForm : Form
             }
         }
 
-        ConfigureExportContextMenu(data);
-
         if (!ctxTree.Items.Cast<ToolStripItem>().Any(item => item.Visible && item is not ToolStripSeparator))
             ctxNewRootWorkspace.Visible = true;
     }
@@ -1744,11 +1782,7 @@ public partial class MainForm : Form
     private void ctxNewSubWorkspace_Click(object sender, EventArgs e) => menuNewSubWorkspace_Click(sender, e);
     private void ctxNewPage_Click(object sender, EventArgs e) => menuNewPage_Click(sender, e);
     private void ctxRename_Click(object sender, EventArgs e) => menuRename_Click(sender, e);
-    private void ctxDelete_Click(object? sender, EventArgs e)
-    {
-        var node = _workspaceContextMenuNode ?? treeWorkspace.SelectedNode;
-        DeleteTreeNode(node?.Tag as TreeNodeData);
-    }
+    private void ctxDelete_Click(object? sender, EventArgs e) => DeleteTreeNode();
     private void ctxMembers_Click(object sender, EventArgs e) => menuWorkspaceMembers_Click(sender, e);
 
     private void menuDocumentStructure_Click(object? sender, EventArgs e)
@@ -1825,9 +1859,6 @@ public partial class MainForm : Form
         toolStripMarkdown.Padding = new Padding(4, 8, 4, 8);
         toolStripMarkdown.Items.Clear();
 
-        AddToolbarButton("save", Localization.Get(K.ToolbarSave), (_, _) => menuSavePage_Click(this, EventArgs.Empty));
-        AddToolbarButton("page", Localization.Get(K.ToolbarSaveMarkdown), async (_, _) => await SaveCurrentPageAsMarkdownAsync());
-        AddToolbarButton("export", Localization.Get(K.ToolbarExport), async (_, _) => await ExportCurrentPageAsync());
         AddToolbarButton("undo", Localization.Get(K.ToolbarUndo), async (_, _) => await RunEditorAsync(e => e.UndoAsync()));
         AddToolbarButton("redo", Localization.Get(K.ToolbarRedo), async (_, _) => await RunEditorAsync(e => e.RedoAsync()));
         AddToolbarButton("h1", Localization.Get(K.ToolbarHeading1), async (_, _) => await RunEditorAsync(e => e.ApplyHeadingAsync(1)));
@@ -2010,20 +2041,61 @@ public partial class MainForm : Form
         MarkPageDirty();
     }
 
+    private async Task HandleEditorImageDataDroppedAsync(
+        byte[] imageBytes,
+        string extension,
+        string? fileName,
+        Point cssPoint)
+    {
+        if (_editor == null || !CanEditActivePage() || imageBytes.Length == 0)
+            return;
+
+        var pageId = await EnsurePageIdForAssetsAsync();
+        if (!pageId.HasValue)
+            return;
+
+        await _editor.CommitFileDropCaretAtPointAsync(cssPoint).ConfigureAwait(true);
+
+        try
+        {
+            var resolvedExtension = Path.GetExtension(fileName ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(resolvedExtension))
+                resolvedExtension = extension;
+
+            var importedName = PageAssetStore.ImportImageBytes(pageId.Value, imageBytes, resolvedExtension);
+            var fileUri = PageAssetStore.BuildEditorUri(pageId.Value, importedName);
+            var alt = Path.GetFileNameWithoutExtension(fileName ?? importedName);
+            await RunEditorAsync(async e =>
+            {
+                await e.InsertImageAsync(fileUri, alt);
+                await e.FinalizeImageSizesAsync();
+            });
+            MarkPageDirty();
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.DialogImageTitle), ex);
+        }
+    }
+
     private async Task ImportAndInsertAssetAsync(int pageId, string sourcePath)
     {
         var extension = Path.GetExtension(sourcePath);
         if (PageAssetStore.IsSupportedImageExtension(extension))
         {
             var fileName = PageAssetStore.ImportImage(pageId, sourcePath);
-            var fileUri = PageAssetStore.ToEditorUri(pageId, fileName);
+            var fileUri = PageAssetStore.BuildEditorUri(pageId, fileName);
             var alt = Path.GetFileNameWithoutExtension(sourcePath);
-            await RunEditorAsync(e => e.InsertImageAsync(fileUri, alt));
+            await RunEditorAsync(async e =>
+            {
+                await e.InsertImageAsync(fileUri, alt);
+                await e.FinalizeImageSizesAsync();
+            });
             return;
         }
 
         var attachmentName = PageAssetStore.ImportFile(pageId, sourcePath);
-        var attachmentUri = PageAssetStore.ToEditorUri(pageId, attachmentName);
+        var attachmentUri = PageAssetStore.BuildEditorUri(pageId, attachmentName);
         var displayName = Path.GetFileName(sourcePath);
         await RunEditorAsync(e => e.InsertFileAttachmentAsync(attachmentUri, displayName));
     }
@@ -2056,7 +2128,7 @@ public partial class MainForm : Form
 
         e.Handled = true;
         e.SuppressKeyPress = true;
-        DeleteTreeNode(data);
+        DeleteTreeNode();
     }
 
     private bool CanDeleteTreeNode(TreeNodeData data) =>

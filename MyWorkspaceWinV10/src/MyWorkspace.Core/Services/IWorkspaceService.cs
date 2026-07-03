@@ -24,6 +24,7 @@ public interface IWorkspaceService
     void RemoveMember(User currentUser, int workspaceId, int userId);
     void UpdateMemberRole(User currentUser, int workspaceId, int userId, WorkspaceMemberRole role);
     bool CanAccessWorkspace(User currentUser, int workspaceId);
+    IReadOnlyCollection<int> GetAccessibleWorkspaceIds(User currentUser);
     bool HasPages(int workspaceId);
     bool CanFavoriteWorkspace(User currentUser, int workspaceId);
     bool IsFavorite(User currentUser, int workspaceId);

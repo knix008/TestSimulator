@@ -1,4 +1,5 @@
 using MyWorkspace.Core.Entities;
+using MyWorkspace.Core.Models;
 
 namespace MyWorkspace.Core.Services;
 
@@ -16,4 +17,5 @@ public interface IPageService
     void LockPage(User currentUser, int pageId);
     void UnlockPage(User currentUser, int pageId);
     string? GetPageLockHolderUsername(int pageId);
+    IReadOnlyList<PageSearchResult> SearchPages(User currentUser, string query, int maxResults = 20);
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MyWorkspace.Core;
 using MyWorkspace.Core.Entities;
 using MyWorkspace.Core.Enums;
 using MyWorkspace.Core.Models;
@@ -24,17 +25,19 @@ public sealed class WorkspaceService : IWorkspaceService
             return Array.Empty<WorkspaceTreeItem>();
 
         var favoriteIds = GetFavoriteWorkspaceIds(currentUser);
-        var workspaces = _db.Workspaces.AsNoTracking()
-            .Include(w => w.LockedByUser)
-            .Where(w => accessibleIds.Contains(w.Id))
-            .OrderBy(w => w.Name)
-            .ToList();
+        var workspaces = NameSortHelper.OrderByName(
+            _db.Workspaces.AsNoTracking()
+                .Include(w => w.LockedByUser)
+                .Where(w => accessibleIds.Contains(w.Id))
+                .ToList(),
+            w => w.Name);
 
-        var pages = _db.Pages.AsNoTracking()
-            .Include(p => p.LockedByUser)
-            .Where(p => accessibleIds.Contains(p.WorkspaceId))
-            .OrderBy(p => p.Title)
-            .ToList();
+        var pages = NameSortHelper.OrderByName(
+            _db.Pages.AsNoTracking()
+                .Include(p => p.LockedByUser)
+                .Where(p => accessibleIds.Contains(p.WorkspaceId))
+                .ToList(),
+            p => p.Title);
 
         var roots = workspaces.Where(w => w.ParentId == null || !accessibleIds.Contains(w.ParentId.Value)).ToList();
         return roots.Select(w => BuildWorkspaceNode(w, workspaces, pages, favoriteIds, ancestorLocked: false)).ToList();
@@ -51,21 +54,24 @@ public sealed class WorkspaceService : IWorkspaceService
         if (validFavoriteIds.Count == 0)
             return Array.Empty<WorkspaceTreeItem>();
 
-        var workspaces = _db.Workspaces.AsNoTracking()
-            .Include(w => w.LockedByUser)
-            .Where(w => accessibleIds.Contains(w.Id))
-            .OrderBy(w => w.Name)
-            .ToList();
+        var workspaces = NameSortHelper.OrderByName(
+            _db.Workspaces.AsNoTracking()
+                .Include(w => w.LockedByUser)
+                .Where(w => accessibleIds.Contains(w.Id))
+                .ToList(),
+            w => w.Name);
 
-        var pages = _db.Pages.AsNoTracking()
-            .Include(p => p.LockedByUser)
-            .Where(p => accessibleIds.Contains(p.WorkspaceId))
-            .OrderBy(p => p.Title)
-            .ToList();
+        var pages = NameSortHelper.OrderByName(
+            _db.Pages.AsNoTracking()
+                .Include(p => p.LockedByUser)
+                .Where(p => accessibleIds.Contains(p.WorkspaceId))
+                .ToList(),
+            p => p.Title);
 
-        return validFavoriteIds
-            .Select(id => workspaces.First(w => w.Id == id))
-            .OrderBy(w => w.Name)
+        return NameSortHelper.OrderByName(
+                validFavoriteIds
+                    .Select(id => workspaces.First(w => w.Id == id)),
+                w => w.Name)
             .Select(w => BuildWorkspaceNode(w, workspaces, pages, favoriteIds, ancestorLocked: false))
             .ToList();
     }
@@ -127,10 +133,17 @@ public sealed class WorkspaceService : IWorkspaceService
         if (parentId.HasValue && !CanAccessWorkspace(currentUser, parentId.Value))
             throw new InvalidOperationException("상위 Workspace에 접근할 수 없습니다.");
 
+        var siblingNames = NameSortHelper.OrderNames(
+            _db.Workspaces.AsNoTracking()
+                .Where(w => w.ParentId == parentId)
+                .Select(w => w.Name)
+                .ToList());
+        var uniqueName = UniqueNameHelper.MakeUnique(trimmed, siblingNames);
+
         var now = DateTime.UtcNow;
         var workspace = new Workspace
         {
-            Name = trimmed,
+            Name = uniqueName,
             ParentId = parentId,
             OwnerId = currentUser.Id,
             CreatedAt = now,
@@ -438,6 +451,9 @@ public sealed class WorkspaceService : IWorkspaceService
     public bool CanAccessWorkspace(User currentUser, int workspaceId) =>
         GetAccessibleWorkspaceIds(currentUser).Contains(workspaceId);
 
+    public IReadOnlyCollection<int> GetAccessibleWorkspaceIds(User currentUser) =>
+        GetAccessibleWorkspaceIdsInternal(currentUser);
+
     public bool HasPages(int workspaceId) =>
         _db.Pages.AsNoTracking().Any(p => p.WorkspaceId == workspaceId);
 
@@ -447,7 +463,7 @@ public sealed class WorkspaceService : IWorkspaceService
             .Select(f => f.WorkspaceId)
             .ToHashSet();
 
-    private HashSet<int> GetAccessibleWorkspaceIds(User currentUser)
+    private HashSet<int> GetAccessibleWorkspaceIdsInternal(User currentUser)
     {
         if (currentUser.Role == UserRole.Admin)
             return _db.Workspaces.AsNoTracking().Select(w => w.Id).ToHashSet();
@@ -535,12 +551,14 @@ public sealed class WorkspaceService : IWorkspaceService
 
         var childWorkspaces = allWorkspaces
             .Where(w => w.ParentId == workspace.Id)
-            .OrderBy(w => w.Name);
+            .OrderBy(w => w.Name, NameSortHelper.Comparer);
 
         foreach (var child in childWorkspaces)
             node.Children.Add(BuildWorkspaceNode(child, allWorkspaces, allPages, favoriteIds, effectivelyLocked));
 
-        foreach (var page in allPages.Where(p => p.WorkspaceId == workspace.Id).OrderBy(p => p.Title))
+        foreach (var page in allPages
+                     .Where(p => p.WorkspaceId == workspace.Id)
+                     .OrderBy(p => p.Title, NameSortHelper.Comparer))
         {
             var pageSelfLocked = page.LockedByUserId.HasValue;
             node.Children.Add(new WorkspaceTreeItem

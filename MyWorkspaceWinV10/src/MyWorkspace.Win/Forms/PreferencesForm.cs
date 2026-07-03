@@ -33,6 +33,7 @@ public partial class PreferencesForm : Form
         _colorThemePicker.LoadFromSettings(SelectedSettings);
         pnlColorTheme.Controls.Add(_colorThemePicker);
         _colorThemePicker.ApplyTheme();
+        AppTheme.FinalizeDialogLayout(this);
     }
 
     private void PopulateThemeCombo()

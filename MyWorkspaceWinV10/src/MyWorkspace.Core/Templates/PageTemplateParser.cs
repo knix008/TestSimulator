@@ -4,10 +4,22 @@ namespace MyWorkspace.Core.Templates;
 
 public static class PageTemplateParser
 {
+    public static string GetTemplateFileStem(string filePath)
+    {
+        var name = Path.GetFileName(filePath);
+        if (name.EndsWith(".page.md", StringComparison.OrdinalIgnoreCase))
+            return name[..^8];
+
+        if (name.EndsWith(".mdtemplate", StringComparison.OrdinalIgnoreCase))
+            return name[..^11];
+
+        return Path.GetFileNameWithoutExtension(name);
+    }
+
     public static PageTemplate ParseFile(string filePath, bool isUserDefined)
     {
         var text = File.ReadAllText(filePath);
-        var template = Parse(text, Path.GetFileNameWithoutExtension(filePath), isUserDefined);
+        var template = Parse(text, GetTemplateFileStem(filePath), isUserDefined, filePath);
         return new PageTemplate
         {
             Id = template.Id,
@@ -21,7 +33,7 @@ public static class PageTemplateParser
         };
     }
 
-    public static PageTemplate Parse(string text, string fallbackName, bool isUserDefined)
+    public static PageTemplate Parse(string text, string fallbackName, bool isUserDefined, string? sourcePath = null)
     {
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var content = text;
@@ -52,6 +64,8 @@ public static class PageTemplateParser
         }
 
         var id = GetMeta(metadata, "id") ?? Slugify(fallbackName);
+        if (string.Equals(id, "template", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(sourcePath))
+            id = Slugify(GetTemplateFileStem(sourcePath));
         var name = GetMeta(metadata, "name") ?? fallbackName;
         var defaultTitle = GetMeta(metadata, "defaultTitle") ?? GetMeta(metadata, "title") ?? name;
         var description = GetMeta(metadata, "description") ?? string.Empty;
@@ -75,10 +89,20 @@ public static class PageTemplateParser
     private static string? GetMeta(IReadOnlyDictionary<string, string> metadata, string key) =>
         metadata.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : null;
 
+    internal static string SlugifyForId(string value) => Slugify(value);
+
     private static string Slugify(string value)
     {
-        var chars = value.Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_').ToArray();
-        var slug = new string(chars).Trim('-', '_').ToLowerInvariant();
+        var builder = new System.Text.StringBuilder(value.Length);
+        foreach (var ch in value)
+        {
+            if (char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_')
+                builder.Append(char.IsAsciiLetter(ch) ? char.ToLowerInvariant(ch) : ch);
+            else if (char.IsLetter(ch))
+                builder.Append(ch);
+        }
+
+        var slug = builder.ToString().Trim('-', '_');
         return string.IsNullOrEmpty(slug) ? "template" : slug;
     }
 }

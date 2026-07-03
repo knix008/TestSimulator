@@ -43,19 +43,22 @@ public partial class MainForm
 
             SetTip(menuRecentProjects, K.TipMenuRecentProjects);
 
-        if (menuSavePageAsMarkdown != null)
-            SetTip(menuSavePageAsMarkdown, K.MenuSavePageAsMarkdown);
+        if (menuExport != null)
+            SetTip(menuExport, K.TipMenuExport);
 
-        if (ctxExportPage != null)
-            SetTip(ctxExportPage, K.MenuExportPage);
+        if (menuExportPage != null)
+            SetTip(menuExportPage, K.MenuExportPage);
 
-        if (ctxExportWorkspace != null)
-            SetTip(ctxExportWorkspace, K.MenuExportWorkspace);
+        if (menuExportWorkspace != null)
+            SetTip(menuExportWorkspace, K.MenuExportWorkspace);
 
         if (menuProfile != null)
             SetTip(menuProfile, K.TipMenuProfile);
 
         SetTip(menuPreferences, K.TipMenuPreferences);
+
+        if (menuTitleBarPageSearch != null)
+            SetTip(menuTitleBarPageSearch, K.TipMenuTitleBarPageSearch);
 
         SetTip(menuLogin, K.TipMenuLogin);
 
@@ -146,12 +149,6 @@ public partial class MainForm
             button.ToolTipText = button.Name switch
 
             {
-
-                "toolbar_save" => Localization.Get(K.ToolbarSave),
-
-                "toolbar_page" => Localization.Get(K.ToolbarSaveMarkdown),
-
-                "toolbar_export" => Localization.Get(K.ToolbarExport),
 
                 "toolbar_history" => Localization.Get(K.ToolbarHistory),
 

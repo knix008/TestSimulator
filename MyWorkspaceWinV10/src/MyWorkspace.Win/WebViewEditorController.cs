@@ -332,7 +332,7 @@ internal sealed class WebViewEditorController
         settings.IsStatusBarEnabled = false;
         settings.IsWebMessageEnabled = true;
 
-        _webView.AllowExternalDrop = false;
+        _webView.AllowExternalDrop = true;
 
         _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
         _webView.CoreWebView2.ContextMenuRequested += OnContextMenuRequested;
@@ -378,7 +378,7 @@ internal sealed class WebViewEditorController
             return;
 
         _fileDropHooksInstalled = true;
-        _webView.AllowExternalDrop = false;
+        _webView.AllowExternalDrop = true;
     }
 
     private bool CanAcceptHostFileDrop() =>
@@ -481,6 +481,7 @@ internal sealed class WebViewEditorController
 
             var x = root.TryGetProperty("x", out var xElement) ? xElement.GetInt32() : 0;
             var y = root.TryGetProperty("y", out var yElement) ? yElement.GetInt32() : 0;
+            var cssPoint = new Point(x, y);
 
             var paths = new List<string>();
             foreach (var obj in args.AdditionalObjects)
@@ -496,16 +497,92 @@ internal sealed class WebViewEditorController
                 }
             }
 
-            if (paths.Count == 0)
-                return false;
+            if (paths.Count > 0)
+            {
+                _ = InvokeFileDropHandlerFromCssPointAsync(paths.ToArray(), cssPoint);
+                return true;
+            }
 
-            var cssPoint = new Point(x, y);
+            if (root.TryGetProperty("dataUri", out var dataUriElement) &&
+                TryParseDataUriImage(dataUriElement.GetString(), out var imageBytes, out var extension))
+            {
+                var fileName = root.TryGetProperty("fileName", out var fileNameElement)
+                    ? fileNameElement.GetString()
+                    : null;
+                _ = InvokeImageDataDropHandlerAsync(imageBytes, extension, fileName, cssPoint);
+                return true;
+            }
 
-            _ = InvokeFileDropHandlerFromCssPointAsync(paths.ToArray(), cssPoint);
-            return true;
+            return false;
         }
         catch (JsonException)
         {
+            return false;
+        }
+    }
+
+    private Func<byte[], string, string?, Point, Task>? _imageDataDropHandler;
+
+    public void ConfigureImageDataDrop(Func<byte[], string, string?, Point, Task> handler) =>
+        _imageDataDropHandler = handler;
+
+    private async Task InvokeImageDataDropHandlerAsync(
+        byte[] imageBytes,
+        string extension,
+        string? fileName,
+        Point cssPoint)
+    {
+        if (_imageDataDropHandler == null || imageBytes.Length == 0)
+            return;
+
+        try
+        {
+            await _imageDataDropHandler(imageBytes, extension, fileName, cssPoint).ConfigureAwait(true);
+        }
+        catch
+        {
+            // MainForm shows user-facing errors.
+        }
+    }
+
+    private static bool TryParseDataUriImage(string? dataUri, out byte[] bytes, out string extension)
+    {
+        bytes = Array.Empty<byte>();
+        extension = ".png";
+
+        if (string.IsNullOrWhiteSpace(dataUri) ||
+            !dataUri.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var commaIndex = dataUri.IndexOf(',');
+        if (commaIndex <= 0)
+            return false;
+
+        var metadata = dataUri[..commaIndex];
+        var payload = dataUri[(commaIndex + 1)..];
+        if (string.IsNullOrWhiteSpace(payload))
+            return false;
+
+        extension = metadata.Contains("image/jpeg", StringComparison.OrdinalIgnoreCase) ? ".jpg"
+            : metadata.Contains("image/gif", StringComparison.OrdinalIgnoreCase) ? ".gif"
+            : metadata.Contains("image/webp", StringComparison.OrdinalIgnoreCase) ? ".webp"
+            : metadata.Contains("image/avif", StringComparison.OrdinalIgnoreCase) ? ".avif"
+            : metadata.Contains("image/svg+xml", StringComparison.OrdinalIgnoreCase) ? ".svg"
+            : ".png";
+
+        try
+        {
+            if (!metadata.Contains(";base64", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            bytes = Convert.FromBase64String(payload);
+            return bytes.Length > 0;
+        }
+        catch (FormatException)
+        {
+            bytes = Array.Empty<byte>();
             return false;
         }
     }
@@ -633,6 +710,9 @@ internal sealed class WebViewEditorController
     public Task InsertImageAsync(string src, string alt) =>
         RunApiAsync($"window.editorApi.insertImage('{EscapeJs(src)}','{EscapeJs(alt)}');");
 
+    public Task FinalizeImageSizesAsync() =>
+        RunApiAsync("window.editorApi.finalizeImageSizes();");
+
     public Task InsertFileAttachmentAsync(string href, string fileName) =>
         RunApiAsync($"window.editorApi.insertFileAttachment('{EscapeJs(href)}','{EscapeJs(fileName)}');");
 
@@ -661,6 +741,17 @@ internal sealed class WebViewEditorController
 
         await ExecuteScriptExclusiveAsync(
             $"window.editorApi.scrollToHeading('{EscapeJs(headingId)}');");
+    }
+
+    public async Task<bool> ScrollToSearchTextAsync(string query, bool matchInContent)
+    {
+        if (!IsReady || string.IsNullOrWhiteSpace(query) || IsScriptSuspended)
+            return false;
+
+        await WaitForReadyAsync();
+        var result = await ExecuteScriptExclusiveAsync(
+            $"window.editorApi.scrollToSearchText('{EscapeJs(query)}',{(matchInContent ? "true" : "false")});");
+        return string.Equals(DeserializeScriptResult(result), "true", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<IReadOnlyList<EditorHeading>> GetHeadingsAsync()

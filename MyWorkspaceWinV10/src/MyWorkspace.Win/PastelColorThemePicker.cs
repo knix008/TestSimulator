@@ -43,8 +43,8 @@ internal sealed class PastelColorThemePicker : Panel
         layout.Controls.Add(CreateSwatchGrid(), 0, 0);
 
         _btnCustom.AutoSize = false;
-        _btnCustom.Size = new Size(104, 28);
         _btnCustom.Margin = new Padding(0, 4, 0, 8);
+        _btnCustom.MinimumSize = new Size(136, 32);
         _btnCustom.UseVisualStyleBackColor = true;
         _btnCustom.Click += OnCustomClick;
         layout.Controls.Add(_btnCustom, 0, 1);
@@ -150,7 +150,11 @@ internal sealed class PastelColorThemePicker : Panel
         AppTheme.StyleSecondaryButton(_btnCustom);
         UpdateCustomButtonText();
         RefreshSelectionVisuals();
+        FitCustomButtonSize();
     }
+
+    private void FitCustomButtonSize() =>
+        AppTheme.FitButtonSize(_btnCustom, minWidth: 136, height: 32);
 
     private sealed class ColorSwatchButton : Panel
     {

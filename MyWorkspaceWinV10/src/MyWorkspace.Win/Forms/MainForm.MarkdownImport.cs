@@ -41,6 +41,7 @@ public partial class MainForm
         if (lastImportedPageId.HasValue)
         {
             LoadWorkspaceTree(selectPageId: lastImportedPageId.Value);
+            SelectPageInTree(lastImportedPageId.Value);
             _ = LoadPageAsync(lastImportedPageId.Value);
             return;
         }
@@ -59,15 +60,16 @@ public partial class MainForm
             prepared.Title,
             initialContent);
 
+        var pageTitle = page.Title;
         var finalContent = PageMarkdownImporter.ImportLocalAssets(prepared.Body, markdownFilePath, page.Id);
-        finalContent = PageTitleHelper.EnsureTitleHeading(prepared.Title, finalContent);
+        finalContent = PageTitleHelper.EnsureTitleHeading(pageTitle, finalContent);
 
         if (!string.Equals(page.Content, finalContent, StringComparison.Ordinal))
         {
             AppConfig.Services.Pages.UpdatePage(
                 SessionContext.CurrentUser,
                 page.Id,
-                prepared.Title,
+                pageTitle,
                 finalContent);
         }
 

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using MyWorkspace.Core.Models;
 
 namespace MyWorkspace.Win;
 
@@ -15,11 +16,14 @@ internal sealed class CustomTitleBar : Panel
     private readonly BorderlessIconButton _btnMinimize = new();
     private readonly BorderlessIconButton _btnMaximize = new();
     private readonly BorderlessIconButton _btnClose = new();
+    private readonly TitleBarPageSearchBox _pageSearch = new();
     private readonly ToolTip _toolTip = new();
 
     private Form? _hostForm;
     private ContextMenuStrip? _settingsMenu;
     private int? _editorRegionLeft;
+
+    public event EventHandler<PageSearchSelection>? PageSearchSelected;
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public ContextMenuStrip? SettingsMenu
@@ -58,11 +62,10 @@ internal sealed class CustomTitleBar : Panel
         ConfigureWindowButton(_btnMinimize, WindowChromeGlyph.Minimize, OnMinimizeClick);
         ConfigureWindowButton(_btnMaximize, WindowChromeGlyph.Maximize, OnMaximizeClick);
         ConfigureWindowButton(_btnClose, WindowChromeGlyph.Close, OnCloseClick);
-        _btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(232, 17, 35);
-        _btnClose.FlatAppearance.MouseDownBackColor = Color.FromArgb(200, 15, 30);
 
         Controls.Add(_mark);
         Controls.Add(_lblAppName);
+        Controls.Add(_pageSearch);
         Controls.Add(_btnClose);
         Controls.Add(_btnMaximize);
         Controls.Add(_btnMinimize);
@@ -70,6 +73,7 @@ internal sealed class CustomTitleBar : Panel
         MouseDown += OnDragMouseDown;
         _lblAppName.MouseDown += OnDragMouseDown;
         _mark.SettingsMenuRequested += OnSettingsMenuRequested;
+        _pageSearch.PageSelected += (_, selection) => PageSearchSelected?.Invoke(this, selection);
 
         if (!DesignMode)
             AppTheme.Changed += OnThemeChanged;
@@ -87,11 +91,35 @@ internal sealed class CustomTitleBar : Panel
         base.Dispose(disposing);
     }
 
+    public void SetPageSearchProvider(Func<string, IReadOnlyList<PageSearchResult>>? provider) =>
+        _pageSearch.SetSearchProvider(provider);
+
+    public void ClearPageSearch() => _pageSearch.ClearSearch();
+
+    public void SetPageSearchEnabled(bool enabled)
+    {
+        _pageSearch.Enabled = enabled;
+        if (!enabled)
+        {
+            _pageSearch.ClearSearch();
+            _pageSearch.Visible = false;
+            LayoutControls();
+            return;
+        }
+
+        LayoutControls();
+    }
+
     public void Attach(Form hostForm)
     {
         _hostForm = hostForm;
-        hostForm.Resize += (_, _) => UpdateMaximizeGlyph();
+        hostForm.Resize += (_, _) =>
+        {
+            UpdateMaximizeGlyph();
+            LayoutControls();
+        };
         UpdateMaximizeGlyph();
+        LayoutControls();
     }
 
     public void SetAppName(string appName)
@@ -110,6 +138,7 @@ internal sealed class CustomTitleBar : Panel
             return;
 
         _editorRegionLeft = clamped;
+        LayoutControls();
         Invalidate();
     }
 
@@ -127,7 +156,7 @@ internal sealed class CustomTitleBar : Panel
         StyleWindowButton(_btnMinimize, AppTheme.EditorBackground, hover, pressed);
         StyleWindowButton(_btnMaximize, AppTheme.EditorBackground, hover, pressed);
         StyleWindowButton(_btnClose, AppTheme.EditorBackground, hover, pressed);
-        _btnClose.ForeColor = AppTheme.TitleBarText;
+        _pageSearch.ApplyTheme();
         AppTheme.StyleToolTip(_toolTip);
 
         Invalidate(true);
@@ -174,11 +203,39 @@ internal sealed class CustomTitleBar : Panel
         _btnMaximize.SetBounds(right - ButtonWidth * 2, 0, ButtonWidth, BarHeight);
         _btnMinimize.SetBounds(right - ButtonWidth * 3, 0, ButtonWidth, BarHeight);
 
-        var textRight = right - ButtonWidth * 3 - 8;
+        const int searchMarginRight = 12;
+        const int searchPreferredWidth = 280;
+        const int searchMinWidth = 160;
+        const int searchHeight = 30;
+        const int appNameLeft = 12 + MarkWidth + 8;
+        const int appNameMinWidth = 72;
+
+        var chromeRight = right - ButtonWidth * 3 - searchMarginRight;
+        var appNameRight = appNameLeft + appNameMinWidth;
+        var maxSearchWidth = Math.Max(0, chromeRight - appNameRight - 12);
+        var searchWidth = Math.Min(searchPreferredWidth, maxSearchWidth);
+        var showSearch = _pageSearch.Enabled && searchWidth >= searchMinWidth;
+
+        if (showSearch)
+        {
+            _pageSearch.Visible = true;
+            _pageSearch.SetBounds(
+                chromeRight - searchWidth,
+                (BarHeight - searchHeight) / 2,
+                searchWidth,
+                searchHeight);
+            _pageSearch.BringToFront();
+        }
+        else
+        {
+            _pageSearch.Visible = false;
+        }
+
+        var textRight = showSearch ? _pageSearch.Left - 8 : chromeRight;
         _lblAppName.SetBounds(
-            12 + MarkWidth + 8,
+            appNameLeft,
             0,
-            Math.Max(80, textRight - (12 + MarkWidth + 8)),
+            Math.Max(appNameMinWidth, textRight - appNameLeft),
             BarHeight);
     }
 
@@ -195,7 +252,7 @@ internal sealed class CustomTitleBar : Panel
     {
         button.NormalBackColor = normalBack;
         button.BackColor = normalBack;
-        button.ForeColor = AppTheme.TitleBarText;
+        button.ForeColor = AppTheme.ChromeButtonIconColor;
         button.FlatAppearance.MouseOverBackColor = hover;
         button.FlatAppearance.MouseDownBackColor = pressed;
         button.Invalidate();

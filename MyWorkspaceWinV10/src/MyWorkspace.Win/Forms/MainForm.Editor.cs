@@ -24,6 +24,7 @@ public partial class MainForm
                   && (_currentPageId.HasValue || _draftWorkspaceId.HasValue)
                   && CanEditActivePage(),
             pnlEditorHost);
+        _editor.ConfigureImageDataDrop(HandleEditorImageDataDroppedAsync);
     }
 
     private void UpdateEditorEmptySurface()
@@ -142,6 +143,49 @@ public partial class MainForm
             RefreshWorkspaceEditState();
             SelectPageInTree(pageId);
             RecordCurrentPageForSession();
+        }
+    }
+
+    private async Task PrepareWorkspaceDraftAsync(int workspaceId)
+    {
+        if (_draftWorkspaceId == workspaceId && !_currentPageId.HasValue)
+        {
+            SelectWorkspaceInTree(workspaceId);
+            return;
+        }
+
+        if (_currentPageId.HasValue)
+        {
+            await SaveCurrentPageAsync(refreshTree: false, force: true);
+            _currentPageId = null;
+        }
+
+        _draftWorkspaceId = workspaceId;
+        _currentPageTitle = string.Empty;
+        _offlinePageContext = null;
+        _isLoadingPage = true;
+
+        try
+        {
+            if (_editor != null)
+                await _editor.ClearAsync(_pipeline);
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.EditorClearFailed), ex);
+        }
+        finally
+        {
+            _isLoadingPage = false;
+            _isDirty = false;
+            SetSaveStatus(SaveStatusKind.None);
+            ClearOutlinePanel();
+            UpdateEditorEmptySurface();
+            RefreshWorkspaceEditState();
+
+            var title = FindWorkspaceNameInTree(workspaceId) ?? Localization.Get(K.LabelWorkspace);
+            lblStatus.Text = Localization.Format(K.StatusWorkspace, title);
+            LoadWorkspaceTree(selectWorkspaceId: workspaceId);
         }
     }
 
@@ -266,6 +310,7 @@ public partial class MainForm
         {
             var content = await _editor.GetMarkdownAsync(_currentPageId);
             var title = PageTitleHelper.ExtractTitleFromMarkdown(content);
+            var titleChanged = !string.Equals(_currentPageTitle, title, StringComparison.Ordinal);
             var saveResult = AppConfigPageSave.TrySavePage(
                 SessionContext.CurrentUser,
                 _currentPageId.Value,
@@ -288,7 +333,7 @@ public partial class MainForm
                     : Localization.Format(K.StatusPage, title);
             }
 
-            if (refreshTree)
+            if (refreshTree || titleChanged)
                 LoadWorkspaceTree(selectPageId: _currentPageId);
 
             return true;

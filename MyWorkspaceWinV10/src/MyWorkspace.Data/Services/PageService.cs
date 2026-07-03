@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using MyWorkspace.Core;
 using MyWorkspace.Core.Entities;
 using MyWorkspace.Core.Enums;
+using MyWorkspace.Core.Models;
 using MyWorkspace.Core.Services;
 
 namespace MyWorkspace.Data.Services;
@@ -48,11 +50,20 @@ public sealed class PageService : IPageService
         if (string.IsNullOrWhiteSpace(content))
             throw new InvalidOperationException("Page 내용이 비어 있습니다.");
 
+        var existingTitles = NameSortHelper.OrderNames(
+            _db.Pages.AsNoTracking()
+                .Where(p => p.WorkspaceId == workspaceId)
+                .Select(p => p.Title)
+                .ToList());
+        var uniqueTitle = UniqueNameHelper.MakeUnique(trimmed, existingTitles);
+        if (!string.Equals(uniqueTitle, trimmed, StringComparison.Ordinal))
+            content = PageMarkdownTitleHelper.ReplaceFirstHeadingTitle(content, uniqueTitle);
+
         var now = DateTime.UtcNow;
         var page = new Page
         {
             WorkspaceId = workspaceId,
-            Title = trimmed,
+            Title = uniqueTitle,
             Content = content,
             CreatedAt = now,
             UpdatedAt = now
@@ -67,9 +78,42 @@ public sealed class PageService : IPageService
 
         _db.Pages.Add(page);
         _db.SaveChanges();
-        _pageChangeLogs.Append(currentUser, page.Id, PageChangeAction.Created, newTitle: trimmed, newContentLength: content.Length);
+        _pageChangeLogs.Append(currentUser, page.Id, PageChangeAction.Created, newTitle: uniqueTitle, newContentLength: content.Length);
         _notifications?.NotifyPageCreated(currentUser, page);
         return page;
+    }
+
+    public IReadOnlyList<PageSearchResult> SearchPages(User currentUser, string query, int maxResults = 20)
+    {
+        var term = query.Trim();
+        if (term.Length == 0 || maxResults <= 0)
+            return Array.Empty<PageSearchResult>();
+
+        var accessibleWorkspaceIds = _workspaceService.GetAccessibleWorkspaceIds(currentUser);
+        if (accessibleWorkspaceIds.Count == 0)
+            return Array.Empty<PageSearchResult>();
+
+        var candidates = _db.Pages.AsNoTracking()
+            .Include(p => p.Workspace)
+            .Where(p => accessibleWorkspaceIds.Contains(p.WorkspaceId))
+            .Where(p => p.Title.Contains(term) || p.Content.Contains(term))
+            .Take(Math.Max(maxResults * 4, maxResults))
+            .ToList();
+
+        return candidates
+            .OrderByDescending(p => p.Title.StartsWith(term, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(p => p.Title.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(p => p.Title, NameSortHelper.Comparer)
+            .Take(maxResults)
+            .Select(p => new PageSearchResult
+            {
+                PageId = p.Id,
+                PageTitle = p.Title,
+                WorkspaceName = p.Workspace.Name,
+                Snippet = PageSearchSnippetBuilder.Build(p.Content, term),
+                MatchInContent = p.Content.Contains(term, StringComparison.OrdinalIgnoreCase)
+            })
+            .ToList();
     }
 
     public void UpdatePage(User currentUser, int pageId, string title, string content)

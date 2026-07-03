@@ -191,6 +191,11 @@ internal static class Localization
         Add(K.TipMenuRefreshTree, "Workspace 트리 새로고침 (F5)", "Refresh workspace tree (F5)");
         Add(K.TipMenuPreferences, "테마·언어 등 환경 설정", "Theme, language, and preferences");
         Add(K.TipAppSettingsMark, "프로그램 설정 (환경 설정, DB·이메일)", "Program settings (preferences, database and email)");
+        Add(K.TitleBarPageSearchPlaceholder, "Page 검색...", "Search pages...");
+        Add(K.TitleBarPageSearchNoResults, "검색 결과 없음", "No results");
+        Add(K.TipTitleBarPageSearch, "Page 제목 및 내용 검색", "Search page titles and content");
+        Add(K.MenuTitleBarPageSearch, "Page 검색창 표시", "Show page search box");
+        Add(K.TipMenuTitleBarPageSearch, "타이틀바 Page 검색창 표시/숨김", "Show or hide the title bar page search box");
         Add(K.TipMenuLogin, "로그인", "Sign in to your account");
         Add(K.TipMenuLogout, "로그아웃", "Sign out");
         Add(K.TipMenuNewProject, "새 Workspace를 만들고 .wsp 프로젝트 파일로 저장합니다. 이후 Ctrl+S로 DB와 프로젝트 파일에 함께 저장할 수 있습니다.", "Create a new workspace and save it as a .wsp project file. Use Ctrl+S later to save to the database and project file together.");
@@ -652,6 +657,11 @@ internal static class K
     public const string TipMenuRefreshTree = "TipMenuRefreshTree";
     public const string TipMenuPreferences = "TipMenuPreferences";
     public const string TipAppSettingsMark = "TipAppSettingsMark";
+    public const string TitleBarPageSearchPlaceholder = "TitleBarPageSearchPlaceholder";
+    public const string TitleBarPageSearchNoResults = "TitleBarPageSearchNoResults";
+    public const string TipTitleBarPageSearch = "TipTitleBarPageSearch";
+    public const string MenuTitleBarPageSearch = "MenuTitleBarPageSearch";
+    public const string TipMenuTitleBarPageSearch = "TipMenuTitleBarPageSearch";
     public const string TipMenuLogin = "TipMenuLogin";
     public const string TipMenuLogout = "TipMenuLogout";
     public const string TipMenuBarLogin = "TipMenuBarLogin";

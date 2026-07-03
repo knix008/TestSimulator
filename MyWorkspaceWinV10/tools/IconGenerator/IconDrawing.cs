@@ -36,6 +36,7 @@ internal static class IconDrawing
             "export" => Export(size),
             "history" => History(size),
             "refresh" => Refresh(size),
+            "search" => Search(size),
             "login" => Login(size),
             "logout" => Logout(size),
             "exit" => Exit(size),
@@ -313,6 +314,15 @@ internal static class IconDrawing
             IconCanvas.DrawArc(g, c, 1f, 1f, 10f, 10f, 45f, 270f, Color.FromArgb(14, 165, 233), size * 0.12f);
             IconCanvas.DrawLine(g, c, 9f, 2f, 11f, 0.5f, Color.FromArgb(14, 165, 233), size * 0.12f);
             IconCanvas.DrawLine(g, c, 9f, 2f, 7.5f, 3.5f, Color.FromArgb(14, 165, 233), size * 0.12f);
+        });
+
+    private static Bitmap Search(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var color = Color.FromArgb(71, 85, 105);
+            var stroke = Math.Max(1f, size * 0.1f);
+            IconCanvas.DrawArc(g, c, 1.6f, 1.6f, 7.2f, 7.2f, 0f, 360f, color, stroke);
+            IconCanvas.DrawLine(g, c, 6.8f, 6.8f, 10.4f, 10.4f, color, stroke);
         });
 
     private static Bitmap Login(int size) =>

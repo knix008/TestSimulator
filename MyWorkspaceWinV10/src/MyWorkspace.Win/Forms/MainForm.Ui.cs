@@ -123,20 +123,23 @@ public partial class MainForm
 
         ApplyRecentProjectsMenuLocalization();
 
-        if (menuSavePageAsMarkdown != null)
-            menuSavePageAsMarkdown.Text = Localization.Get(K.MenuSavePageAsMarkdown);
+        if (menuExport != null)
+            menuExport.Text = Localization.Get(K.MenuExport);
 
-        if (ctxExportPage != null)
-            ctxExportPage.Text = Localization.Get(K.MenuExportPage);
+        if (menuExportPage != null)
+            menuExportPage.Text = Localization.Get(K.MenuExportPage);
 
-        if (ctxExportWorkspace != null)
-            ctxExportWorkspace.Text = Localization.Get(K.MenuExportWorkspace);
+        if (menuExportWorkspace != null)
+            menuExportWorkspace.Text = Localization.Get(K.MenuExportWorkspace);
 
         if (menuProfile != null)
             menuProfile.Text = Localization.Get(K.MenuProfile);
 
         titleBar.SetMarkTooltip(Localization.Get(K.TipAppSettingsMark));
         menuPreferences.Text = Localization.Get(K.MenuPreferences);
+
+        if (menuTitleBarPageSearch != null)
+            menuTitleBarPageSearch.Text = Localization.Get(K.MenuTitleBarPageSearch);
 
         menuLogin.Text = Localization.Get(K.MenuLogin);
 

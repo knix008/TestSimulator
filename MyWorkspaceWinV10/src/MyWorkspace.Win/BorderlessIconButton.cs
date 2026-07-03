@@ -134,8 +134,8 @@ internal sealed class BorderlessIconButton : Button
 
     private Color ResolveForeColor(Color backColor)
     {
-        if (ChromeGlyph == WindowChromeGlyph.Close && (_hover || _pressed))
-            return Color.White;
+        if (ChromeGlyph != WindowChromeGlyph.None && (_hover || _pressed))
+            return AppTheme.ChromeButtonHoverIconColor;
 
         return ForeColor;
     }

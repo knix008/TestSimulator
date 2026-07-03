@@ -121,7 +121,7 @@ public sealed class WorkspaceArchiveService : IWorkspaceArchiveService
 
             var rewritten = RewriteArchiveAssets(content, archivePage.Key, page.Id, assets);
             if (!string.Equals(rewritten, content, StringComparison.Ordinal))
-                _pages.UpdatePage(currentUser, page.Id, title, rewritten);
+                _pages.UpdatePage(currentUser, page.Id, page.Title, rewritten);
         }
 
         foreach (var child in node.Children)

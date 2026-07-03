@@ -2,47 +2,43 @@ namespace MyWorkspace.Win.Forms;
 
 public partial class MainForm
 {
-    private ToolStripMenuItem? menuSavePageAsMarkdown;
+    private ToolStripMenuItem? menuExport;
+    private ToolStripMenuItem? menuExportPage;
+    private ToolStripMenuItem? menuExportWorkspace;
 
     private void EnsurePageExportMenuItems()
     {
-        if (menuSavePageAsMarkdown != null)
+        if (menuExport != null)
             return;
 
-        menuSavePageAsMarkdown = new ToolStripMenuItem
+        menuExportPage = new ToolStripMenuItem
         {
-            Name = "menuSavePageAsMarkdown",
-            Image = IconAssets.Load(16, "page")
+            Name = "menuExportPage",
+            Image = IconAssets.Load(16, "export")
         };
-        menuSavePageAsMarkdown.Click += menuSavePageAsMarkdown_Click;
+        menuExportPage.Click += menuExportPage_Click;
+
+        menuExportWorkspace = new ToolStripMenuItem
+        {
+            Name = "menuExportWorkspace",
+            Image = IconAssets.Load(16, "export")
+        };
+        menuExportWorkspace.Click += menuExportWorkspace_Click;
+
+        menuExport = new ToolStripMenuItem
+        {
+            Name = "menuExport",
+            Image = IconAssets.Load(16, "export")
+        };
+        menuExport.DropDownItems.Add(menuExportPage);
+        menuExport.DropDownItems.Add(menuExportWorkspace);
 
         var insertIndex = menuFile.DropDownItems.IndexOf(menuSavePage) + 1;
-        menuFile.DropDownItems.Insert(insertIndex, menuSavePageAsMarkdown);
+        menuFile.DropDownItems.Insert(insertIndex, menuExport);
     }
 
-    private async void menuSavePageAsMarkdown_Click(object? sender, EventArgs e) =>
-        await SaveCurrentPageAsMarkdownAsync();
-
-    private async Task SaveCurrentPageAsMarkdownAsync()
-    {
-        if (!SessionContext.IsLoggedIn)
-            return;
-
-        if (!await EnsurePageCreatedAsync() || !_currentPageId.HasValue || _editor == null)
-        {
-            MessageBox.Show(
-                Localization.Get(K.SelectPageToSave),
-                L.AppName,
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-            return;
-        }
-
-        if (!await SaveCurrentPageAsync(refreshTree: false, force: true))
-            return;
-
-        await SavePageAsMarkdownAsync(_currentPageId.Value, await _editor.GetMarkdownAsync(_currentPageId));
-    }
+    private async void menuExportPage_Click(object? sender, EventArgs e) =>
+        await ExportCurrentPageAsync();
 
     private async Task ExportPageAsync(int pageId)
     {
@@ -145,40 +141,6 @@ public partial class MainForm
         }
 
         await ExportPageAsync(_currentPageId.Value);
-    }
-
-    private async Task SavePageAsMarkdownAsync(int pageId, string content)
-    {
-        var title = GetPageTitleForExport(
-            _currentPageId == pageId ? _currentPageTitle : AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId)?.Title);
-
-        using var saveDialog = new SaveFileDialog
-        {
-            Title = Localization.Get(K.MenuSavePageAsMarkdown),
-            Filter = BuildExportFileFilter(PageExportFormat.Markdown),
-            DefaultExt = "md",
-            FileName = PageDocumentBuilder.SanitizeFileName(title) + ".md"
-        };
-        DialogPathHelper.ApplyExportDirectory(saveDialog);
-
-        if (saveDialog.ShowDialog(this) != DialogResult.OK)
-            return;
-
-        DialogPathHelper.RememberExportPath(saveDialog.FileName);
-
-        try
-        {
-            PageExportService.ExportMarkdown(title, content, saveDialog.FileName, pageId);
-            MessageBox.Show(
-                FormatExportSavedMessage(K.SaveMarkdownSucceeded, saveDialog.FileName),
-                L.AppName,
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-        }
-        catch (Exception ex)
-        {
-            ErrorDetailForm.Show(this, Localization.Get(K.SaveMarkdownFailed), ex);
-        }
     }
 
     private static string FormatExportSavedMessage(string messageKey, string outputPath)

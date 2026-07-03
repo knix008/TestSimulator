@@ -258,6 +258,36 @@ internal static class AppConfig
             : null;
     }
 
+    public static string? GetLastPageTemplateId()
+    {
+        var templateId = UiSettings.LastPageTemplateId?.Trim();
+        return string.IsNullOrEmpty(templateId) ? null : templateId;
+    }
+
+    public static void RecordLastPageTemplateId(string templateId)
+    {
+        var trimmed = templateId.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return;
+
+        if (string.Equals(UiSettings.LastPageTemplateId, trimmed, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var settings = UiSettings.Clone();
+        settings.LastPageTemplateId = trimmed;
+        SaveUiSettings(settings);
+    }
+
+    public static void SetTitleBarPageSearchVisible(bool visible)
+    {
+        if (UiSettings.ShowTitleBarPageSearch == visible)
+            return;
+
+        var settings = UiSettings.Clone();
+        settings.ShowTitleBarPageSearch = visible;
+        SaveUiSettings(settings);
+    }
+
     private static void ApplyUiSettings(UiSettings settings, bool persist)
     {
         Localization.SetLanguage(settings.Language);
@@ -289,7 +319,9 @@ internal static class AppConfig
             ["LastOpenDirectory"] = settings.LastOpenDirectory,
             ["LastProjectDirectory"] = settings.LastProjectDirectory,
             ["RecentProjectPaths"] = SerializeRecentProjectPaths(settings.RecentProjectPaths),
-            ["LastPageIdsByUserId"] = SerializeLastPageIds(settings.LastPageIdsByUserId)
+            ["LastPageIdsByUserId"] = SerializeLastPageIds(settings.LastPageIdsByUserId),
+            ["LastPageTemplateId"] = settings.LastPageTemplateId,
+            ["ShowTitleBarPageSearch"] = settings.ShowTitleBarPageSearch
         };
 
         File.WriteAllText(LocalSettingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
@@ -338,6 +370,10 @@ internal static class AppConfig
 
         ApplyLastPageIds(settings, section.GetSection("LastPageIdsByUserId"));
         ApplyRecentProjectPaths(settings, section.GetSection("RecentProjectPaths"));
+        settings.LastPageTemplateId = section["LastPageTemplateId"]?.Trim() ?? string.Empty;
+
+        if (bool.TryParse(section["ShowTitleBarPageSearch"], out var showTitleBarPageSearch))
+            settings.ShowTitleBarPageSearch = showTitleBarPageSearch;
 
         return settings;
     }
@@ -451,6 +487,11 @@ internal static class AppConfig
 
         ApplyLastPageIds(settings, section["LastPageIdsByUserId"] as JsonObject);
         ApplyRecentProjectPaths(settings, section["RecentProjectPaths"] as JsonArray);
+        settings.LastPageTemplateId = section["LastPageTemplateId"]?.GetValue<string>()?.Trim() ?? string.Empty;
+
+        if (section["ShowTitleBarPageSearch"] is JsonValue showTitleBarPageSearchValue &&
+            showTitleBarPageSearchValue.TryGetValue(out bool showTitleBarPageSearch))
+            settings.ShowTitleBarPageSearch = showTitleBarPageSearch;
 
         return settings;
     }

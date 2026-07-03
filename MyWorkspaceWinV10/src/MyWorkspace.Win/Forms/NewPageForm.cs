@@ -7,6 +7,8 @@ public partial class NewPageForm : Form
 {
     private PageTemplate? _selectedTemplate;
     private string? _initialTitleOverride;
+    private string? _initialTemplateId;
+    private string? _confirmedPageContent;
     private bool _suppressTitleChange;
 
     public string PageTitle => txtTitle.Text.Trim();
@@ -14,9 +16,10 @@ public partial class NewPageForm : Form
     public PageTemplate SelectedTemplate =>
         _selectedTemplate ?? PageTemplateProvider.All.First();
 
-    public string PageContent => PageTemplateProvider.BuildContent(SelectedTemplate, PageTitle);
+    public string PageContent => _confirmedPageContent
+        ?? PageTemplateProvider.BuildContent(SelectedTemplate, PageTitle);
 
-    public NewPageForm(string? defaultTitle = null)
+    public NewPageForm(string? defaultTitle = null, string? defaultTemplateId = null)
     {
         InitializeComponent();
         AppTheme.ApplyStandardDialog(this);
@@ -25,6 +28,7 @@ public partial class NewPageForm : Form
         AppTheme.Changed += OnAppThemeChanged;
         FormClosed += (_, _) => AppTheme.Changed -= OnAppThemeChanged;
         _initialTitleOverride = defaultTitle;
+        _initialTemplateId = defaultTemplateId;
     }
 
     private void NewPageForm_Load(object sender, EventArgs e)
@@ -52,7 +56,9 @@ public partial class NewPageForm : Form
     {
         PageTemplateProvider.Reload();
 
-        var selectedId = (_selectedTemplate ?? lstTemplates.SelectedItem as PageTemplate)?.Id;
+        var selectedId = _selectedTemplate?.Id
+            ?? _initialTemplateId
+            ?? (lstTemplates.SelectedItem as PageTemplate)?.Id;
         lstTemplates.DisplayMember = nameof(PageTemplate.Name);
         lstTemplates.Items.Clear();
 
@@ -124,20 +130,29 @@ public partial class NewPageForm : Form
 
     private void UpdatePreview()
     {
-        if (lstTemplates.SelectedItem is PageTemplate template)
-        {
-            _selectedTemplate = template;
-            var source = Localization.Get(template.IsUserDefined ? K.TemplateSourceUser : K.TemplateSourceBuiltIn);
-            lblTemplateDesc.Text = $"[{source}] {template.Description}";
-        }
-
-        if (_selectedTemplate == null)
+        var template = ResolveSelectedTemplate();
+        if (template == null)
             return;
 
+        _selectedTemplate = template;
+        var source = Localization.Get(template.IsUserDefined ? K.TemplateSourceUser : K.TemplateSourceBuiltIn);
+        lblTemplateDesc.Text = $"[{source}] {template.Description}";
+
         var title = string.IsNullOrWhiteSpace(txtTitle.Text)
-            ? _selectedTemplate.DefaultTitle
+            ? template.DefaultTitle
             : txtTitle.Text.Trim();
-        txtPreview.Text = PageTemplateProvider.BuildContent(_selectedTemplate, title);
+        txtPreview.Text = PageTemplateProvider.BuildContent(template, title);
+    }
+
+    private PageTemplate? ResolveSelectedTemplate()
+    {
+        if (lstTemplates.SelectedItem is PageTemplate selected)
+            return PageTemplateProvider.GetById(selected.Id) ?? selected;
+
+        if (_selectedTemplate != null)
+            return PageTemplateProvider.GetById(_selectedTemplate.Id) ?? _selectedTemplate;
+
+        return PageTemplateProvider.All.FirstOrDefault();
     }
 
     private void btnReloadTemplates_Click(object sender, EventArgs e) => ReloadTemplateList();
@@ -167,8 +182,17 @@ public partial class NewPageForm : Form
             return;
         }
 
-        if (lstTemplates.SelectedItem is PageTemplate template)
-            _selectedTemplate = template;
+        var template = ResolveSelectedTemplate();
+        if (template == null)
+        {
+            MessageBox.Show(Localization.Get(K.NoTemplatesShort), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        _selectedTemplate = template;
+        _initialTemplateId = template.Id;
+        _confirmedPageContent = PageTemplateProvider.BuildContent(template, PageTitle);
+        txtPreview.Text = _confirmedPageContent;
 
         DialogResult = DialogResult.OK;
         Close();

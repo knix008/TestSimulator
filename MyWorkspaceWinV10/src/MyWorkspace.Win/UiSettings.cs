@@ -27,6 +27,8 @@ public sealed class UiSettings
     public string LastProjectDirectory { get; set; } = string.Empty;
     public List<string> RecentProjectPaths { get; set; } = new();
     public Dictionary<string, int> LastPageIdsByUserId { get; set; } = new(StringComparer.Ordinal);
+    public string LastPageTemplateId { get; set; } = string.Empty;
+    public bool ShowTitleBarPageSearch { get; set; } = true;
 
     public static UiSettings Default { get; } = new();
 
@@ -44,7 +46,9 @@ public sealed class UiSettings
         LastOpenDirectory = LastOpenDirectory,
         LastProjectDirectory = LastProjectDirectory,
         RecentProjectPaths = new List<string>(RecentProjectPaths),
-        LastPageIdsByUserId = new Dictionary<string, int>(LastPageIdsByUserId, StringComparer.Ordinal)
+        LastPageIdsByUserId = new Dictionary<string, int>(LastPageIdsByUserId, StringComparer.Ordinal),
+        LastPageTemplateId = LastPageTemplateId,
+        ShowTitleBarPageSearch = ShowTitleBarPageSearch
     };
 }
 

@@ -595,10 +595,11 @@ internal static class EditorHtmlBuilder
             }
 
             function updateEmptyState() {
-              const text = editor.innerText.replace(/\u00a0/g, ' ').trim();
-              const empty = text.length === 0;
+              const hasMedia = !!editor.querySelector('img, table, hr, .editor-file-attachment, ul, ol, blockquote, pre');
+              const text = editor.innerText.replace(/\u00a0/g, ' ').replace(/\u200b/gi, '').trim();
+              const empty = text.length === 0 && !hasMedia;
               editor.dataset.empty = empty ? 'true' : 'false';
-              if (empty && editor.innerHTML.replace(/<[^>]+>/g, '').trim() === '') {
+              if (empty && editor.innerHTML.replace(/<[^>]+>/g, '').replace(/\u200b/gi, '').trim() === '') {
                 if (!editor.querySelector('p, h1, h2, h3, h4, h5, h6, ul, ol, table, blockquote, pre')) {
                   editor.innerHTML = '<p><br></p>';
                 }
@@ -723,6 +724,29 @@ internal static class EditorHtmlBuilder
               return commitFileDropCaretAtPoint(x, y);
             }
 
+            function isDroppedImageFile(file) {
+              if (!file) return false;
+              const type = String(file.type || '').toLowerCase();
+              if (type.startsWith('image/')) return true;
+              const name = String(file.name || '').toLowerCase();
+              return /\.(jpe?g|png|gif|webp|avif|svg)$/.test(name);
+            }
+
+            function postImageFileAsDataUri(webview, imageFile, clientX, clientY) {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const fallbackPayload = JSON.stringify({
+                  type: 'file-drop',
+                  x: Math.round(clientX),
+                  y: Math.round(clientY),
+                  dataUri: String(reader.result || ''),
+                  fileName: imageFile.name || 'image.png'
+                });
+                webview.postMessage(fallbackPayload);
+              };
+              reader.readAsDataURL(imageFile);
+            }
+
             function postFileDropMessage(files, clientX, clientY) {
               if (!files || files.length === 0) return;
               const payload = JSON.stringify({
@@ -731,15 +755,26 @@ internal static class EditorHtmlBuilder
                 y: Math.round(clientY)
               });
               const webview = window.chrome?.webview;
-              if (webview?.postMessageWithAdditionalObjects) {
+              if (!webview) return;
+
+              if (webview.postMessageWithAdditionalObjects) {
                 try {
+                  // WebView2 expects one ArrayLike second argument (FileList), not spread File items.
                   webview.postMessageWithAdditionalObjects(payload, files);
                   return;
                 } catch {
-                  // Fall through to host WinForms drop handling.
+                  // Fall through to data-uri fallback for images.
                 }
               }
-              if (webview?.postMessage)
+
+              const fileList = Array.from(files);
+              const imageFile = fileList.find(isDroppedImageFile);
+              if (imageFile && webview.postMessage) {
+                postImageFileAsDataUri(webview, imageFile, clientX, clientY);
+                return;
+              }
+
+              if (webview.postMessage)
                 webview.postMessage(payload);
             }
 
@@ -779,6 +814,12 @@ internal static class EditorHtmlBuilder
 
             editor.addEventListener('dragover', handleExternalFileDragOver);
             document.addEventListener('dragover', handleExternalFileDragOver, true);
+
+            document.addEventListener('dragenter', (e) => {
+              if (!isExternalFileDrag(e)) return;
+              e.preventDefault();
+              setFileDropHighlightActive(true);
+            }, true);
 
             editor.addEventListener('drop', handleExternalFileDrop);
             document.addEventListener('drop', handleExternalFileDrop, true);
@@ -1092,7 +1133,39 @@ internal static class EditorHtmlBuilder
               });
             }
 
+            function applyDefaultImageDisplaySize(wrap, img) {
+              if (!wrap || !img || readSavedImageWidthPx(wrap, img) > 0) return;
+              if (wrap.classList.contains('is-sized')) return;
+              const naturalWidth = img.naturalWidth || 0;
+              if (naturalWidth <= 0) return;
+              const maxWidth = Math.max(120, editor.clientWidth - 64);
+              const width = Math.min(naturalWidth, maxWidth);
+              img.style.width = width + 'px';
+              img.style.height = 'auto';
+              img.style.maxWidth = '100%';
+              img.style.display = 'block';
+            }
+
+            function attachImageLoadHandlers(wrap, img) {
+              if (!img || img.dataset.loadHandlers === '1') return;
+              img.dataset.loadHandlers = '1';
+              img.addEventListener('load', () => {
+                applyDefaultImageDisplaySize(wrap, img);
+                finalizeImageSizeFromMarkup(wrap, img);
+              }, { once: true });
+              img.addEventListener('error', () => {
+                const src = img.getAttribute('src');
+                if (!src || img.dataset.retried === '1') return;
+                img.dataset.retried = '1';
+                const retryUrl = src + (src.includes('?') ? '&' : '?') + 't=' + Date.now();
+                img.setAttribute('src', retryUrl);
+              }, { once: true });
+              if (img.complete && img.naturalWidth > 0)
+                applyDefaultImageDisplaySize(wrap, img);
+            }
+
             function attachImageSizeGuard(wrap, img) {
+              attachImageLoadHandlers(wrap, img);
               if (img.dataset.sizeGuard === '1') return;
               img.dataset.sizeGuard = '1';
 
@@ -1114,7 +1187,10 @@ internal static class EditorHtmlBuilder
             function reapplyAllImageSizes() {
               editor.querySelectorAll('.editor-image-wrap').forEach(wrap => {
                 const img = wrap.querySelector('img');
-                if (img) finalizeImageSizeFromMarkup(wrap, img);
+                if (!img) return;
+                attachImageLoadHandlers(wrap, img);
+                finalizeImageSizeFromMarkup(wrap, img);
+                applyDefaultImageDisplaySize(wrap, img);
               });
             }
 
@@ -1320,7 +1396,9 @@ internal static class EditorHtmlBuilder
                 const wraps = editor.querySelectorAll('.editor-image-wrap');
                 if (wraps.length > 0) {
                   const lastWrap = wraps[wraps.length - 1];
+                  const img = lastWrap.querySelector('img');
                   ensureImageWrapReady(lastWrap);
+                  if (img) attachImageLoadHandlers(lastWrap, img);
                   placeCaretAfter(lastWrap);
                 }
                 updateEmptyState();
@@ -1390,6 +1468,67 @@ internal static class EditorHtmlBuilder
               },
               scrollToHeading(id) {
                 document.getElementById(id)?.scrollIntoView({ behavior: 'auto', block: 'start' });
+              },
+              scrollToSearchText(query, matchInContent) {
+                const q = (query || '').trim();
+                if (!q) return false;
+
+                const lower = q.toLowerCase();
+                const roots = matchInContent
+                  ? [editor]
+                  : Array.from(editor.querySelectorAll('h1')).length > 0
+                    ? Array.from(editor.querySelectorAll('h1'))
+                    : [editor];
+
+                function findMatchRange(root) {
+                  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+                    acceptNode(node) {
+                      if (!node.textContent || !node.textContent.trim())
+                        return NodeFilter.FILTER_REJECT;
+                      const parent = node.parentElement;
+                      if (!parent)
+                        return NodeFilter.FILTER_REJECT;
+                      if (parent.closest('.editor-image-wrap, .editor-image-resize-handle, .editor-file-attachment'))
+                        return NodeFilter.FILTER_REJECT;
+                      return NodeFilter.FILTER_ACCEPT;
+                    }
+                  });
+
+                  let textNode;
+                  while (textNode = walker.nextNode()) {
+                    const text = textNode.textContent || '';
+                    const idx = text.toLowerCase().indexOf(lower);
+                    if (idx < 0)
+                      continue;
+
+                    const range = document.createRange();
+                    range.setStart(textNode, idx);
+                    range.setEnd(textNode, Math.min(text.length, idx + q.length));
+                    return range;
+                  }
+                  return null;
+                }
+
+                for (const root of roots) {
+                  const range = findMatchRange(root);
+                  if (!range)
+                    continue;
+
+                  const sel = window.getSelection();
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+
+                  const rect = range.getBoundingClientRect();
+                  const editorRect = editor.getBoundingClientRect();
+                  const targetTop = editor.scrollTop + (rect.top - editorRect.top) - (editor.clientHeight / 3);
+                  editor.scrollTop = Math.max(0, targetTop);
+                  editor.focus();
+                  notifyCaret();
+                  return true;
+                }
+
+                editor.focus();
+                return false;
               },
               getHeadings() {
                 const hs = editor.querySelectorAll('h1,h2,h3,h4,h5,h6');

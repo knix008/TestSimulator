@@ -81,12 +81,72 @@ public static class PageTemplateProvider
             try
             {
                 var template = PageTemplateParser.ParseFile(file, isUserDefined);
-                merged[template.Id] = template;
+                MergeTemplate(merged, template);
             }
             catch
             {
                 // 손상된 양식 파일은 건너뜁니다.
             }
+        }
+    }
+
+    private static void MergeTemplate(IDictionary<string, PageTemplate> merged, PageTemplate template)
+    {
+        var id = template.Id;
+        if (!merged.TryGetValue(id, out var existing))
+        {
+            merged[id] = template;
+            return;
+        }
+
+        if (string.Equals(existing.SourcePath, template.SourcePath, StringComparison.OrdinalIgnoreCase))
+        {
+            merged[id] = template;
+            return;
+        }
+
+        if (template.IsUserDefined && !existing.IsUserDefined)
+        {
+            merged[id] = template;
+            return;
+        }
+
+        if (!template.IsUserDefined && existing.IsUserDefined)
+            return;
+
+        var uniqueId = AllocateUniqueTemplateId(id, template.SourcePath, merged);
+        merged[uniqueId] = new PageTemplate
+        {
+            Id = uniqueId,
+            Name = template.Name,
+            DefaultTitle = template.DefaultTitle,
+            Description = template.Description,
+            ContentPattern = template.ContentPattern,
+            Order = template.Order,
+            IsUserDefined = template.IsUserDefined,
+            SourcePath = template.SourcePath
+        };
+    }
+
+    private static string AllocateUniqueTemplateId(
+        string baseId,
+        string? sourcePath,
+        IDictionary<string, PageTemplate> merged)
+    {
+        var stem = sourcePath != null ? PageTemplateParser.GetTemplateFileStem(sourcePath) : baseId;
+        var candidate = PageTemplateParser.SlugifyForId(stem);
+        if (!string.IsNullOrEmpty(candidate)
+            && !string.Equals(candidate, baseId, StringComparison.OrdinalIgnoreCase)
+            && !merged.ContainsKey(candidate))
+        {
+            return candidate;
+        }
+
+        for (var index = 2; ; index++)
+        {
+            candidate = $"{baseId}-{index}";
+            if (!merged.ContainsKey(candidate))
+                return candidate;
         }
     }
 
