@@ -138,13 +138,18 @@ public static class OfflinePageSaveService
         if (!provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
             return;
 
-        db.Database.ExecuteSqlRaw(
-            """
-            INSERT INTO sqlite_sequence(name, seq)
-            VALUES ({0}, {1})
-            ON CONFLICT(name) DO UPDATE SET seq = MAX(seq, excluded.seq);
-            """,
+        // sqlite_sequence.name has no PRIMARY KEY/UNIQUE constraint, so ON CONFLICT is invalid.
+        var updated = db.Database.ExecuteSqlRaw(
+            "UPDATE sqlite_sequence SET seq = MAX(seq, {1}) WHERE name = {0};",
             tableName,
             lastId);
+
+        if (updated == 0)
+        {
+            db.Database.ExecuteSqlRaw(
+                "INSERT INTO sqlite_sequence(name, seq) VALUES ({0}, {1});",
+                tableName,
+                lastId);
+        }
     }
 }

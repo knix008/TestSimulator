@@ -1,3 +1,4 @@
+using System.Drawing.Drawing2D;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.Web.WebView2.WinForms;
@@ -52,6 +53,12 @@ internal static class AppTheme
     public static Color Accent => _palette.Accent;
     public static Color AccentHover => _palette.AccentHover;
     public static Color AccentPressed => _palette.AccentPressed;
+    public static Color ChromeButtonHoverBackground =>
+        IsDark ? Color.FromArgb(48, 54, 61) : Color.FromArgb(225, 228, 232);
+    public static Color ChromeButtonPressedBackground =>
+        IsDark ? Color.FromArgb(68, 76, 86) : Color.FromArgb(208, 212, 218);
+    public static Color SidebarButtonHoverBackground => ChromeButtonHoverBackground;
+    public static Color SidebarButtonPressedBackground => ChromeButtonPressedBackground;
     public static Color Success => _palette.Success;
     public static Color Warning => _palette.Warning;
     public static Color Danger => _palette.Danger;
@@ -1015,10 +1022,24 @@ internal static class AppTheme
         strip.Padding = new Padding(4, 8, 4, 8);
         strip.BackColor = Sidebar;
         strip.GripStyle = ToolStripGripStyle.Hidden;
-        strip.CanOverflow = false;
+        strip.CanOverflow = true;
         strip.ImageScalingSize = new Size(VerticalToolbarIconSize, VerticalToolbarIconSize);
         strip.Renderer = EnsureSidebarToolbarRenderer();
         StyleVerticalToolbarItems(strip.Items);
+        ConfigureVerticalToolbarOverflow(strip);
+    }
+
+    public static void ConfigureVerticalToolbarOverflow(ToolStrip strip)
+    {
+        if (strip.LayoutStyle != ToolStripLayoutStyle.VerticalStackWithOverflow)
+            return;
+
+        var overflow = strip.OverflowButton;
+        overflow.AutoSize = false;
+        overflow.DisplayStyle = ToolStripItemDisplayStyle.None;
+        overflow.Size = new Size(VerticalToolbarButtonSize, VerticalToolbarButtonSize);
+        overflow.Margin = new Padding(0, 4, 0, 0);
+        overflow.Padding = Padding.Empty;
     }
 
     public static void StyleVerticalToolbarItems(ToolStripItemCollection items)
@@ -1388,8 +1409,8 @@ internal static class AppTheme
         button.ForeColor = TextPrimary;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
-        button.FlatAppearance.MouseOverBackColor = AccentHover;
-        button.FlatAppearance.MouseDownBackColor = AccentPressed;
+        button.FlatAppearance.MouseOverBackColor = SidebarButtonHoverBackground;
+        button.FlatAppearance.MouseDownBackColor = SidebarButtonPressedBackground;
         button.Padding = Padding.Empty;
         button.Margin = Padding.Empty;
     }
@@ -1621,12 +1642,12 @@ internal static class AppTheme
 
                 if (e.Item.Pressed)
                 {
-                    using var brush = new SolidBrush(AccentPressed);
+                    using var brush = new SolidBrush(SidebarButtonPressedBackground);
                     e.Graphics.FillRectangle(brush, bounds);
                 }
                 else if (e.Item.Selected)
                 {
-                    using var brush = new SolidBrush(AccentHover);
+                    using var brush = new SolidBrush(SidebarButtonHoverBackground);
                     e.Graphics.FillRectangle(brush, bounds);
                 }
 
@@ -1646,10 +1667,60 @@ internal static class AppTheme
 
         protected override void OnRenderOverflowButtonBackground(ToolStripItemRenderEventArgs e)
         {
-            if (_sidebarStyle)
+            if (_sidebarStyle
+                && e.ToolStrip is { LayoutStyle: ToolStripLayoutStyle.VerticalStackWithOverflow, Dock: DockStyle.Right })
+            {
+                var bounds = new Rectangle(Point.Empty, e.Item.Size);
+                using (var separator = new Pen(Border))
+                    e.Graphics.DrawLine(separator, 8, 0, bounds.Width - 8, 0);
+
+                var buttonBounds = bounds;
+                buttonBounds.Inflate(-1, -1);
+                buttonBounds.Y += 1;
+
+                if (e.Item.Pressed)
+                {
+                    using var brush = new SolidBrush(SidebarButtonPressedBackground);
+                    e.Graphics.FillRectangle(brush, buttonBounds);
+                }
+                else if (e.Item.Selected)
+                {
+                    using var brush = new SolidBrush(SidebarButtonHoverBackground);
+                    e.Graphics.FillRectangle(brush, buttonBounds);
+                }
+
+                DrawVerticalToolbarOverflowGlyph(
+                    e.Graphics,
+                    buttonBounds,
+                    e.Item.Selected || e.Item.Pressed);
                 return;
+            }
 
             base.OnRenderOverflowButtonBackground(e);
+        }
+
+        protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e)
+        {
+            if (_sidebarStyle && e.Item is ToolStripOverflowButton)
+                return;
+
+            base.OnRenderArrow(e);
+        }
+
+        private static void DrawVerticalToolbarOverflowGlyph(Graphics graphics, Rectangle bounds, bool highlighted)
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            var color = highlighted ? Accent : TextSecondary;
+            using var brush = new SolidBrush(color);
+            const float dotRadius = 1.75f;
+            var centerX = bounds.Left + bounds.Width / 2f;
+            var centerY = bounds.Top + bounds.Height / 2f;
+
+            for (var index = 0; index < 3; index++)
+            {
+                var y = centerY - 6f + index * 6f;
+                graphics.FillEllipse(brush, centerX - dotRadius, y - dotRadius, dotRadius * 2f, dotRadius * 2f);
+            }
         }
 
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)

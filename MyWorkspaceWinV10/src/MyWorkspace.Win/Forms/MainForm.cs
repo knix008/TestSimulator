@@ -112,6 +112,14 @@ public partial class MainForm : Form
         _editor?.ResetScriptSuspension();
     }
 
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Escape && navRail.CloseActiveMenu())
+            return true;
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
     private async void MainForm_Load(object sender, EventArgs e)
     {
         treeWorkspace.ImageList = TreeIcons.CreateImageList();
@@ -1077,6 +1085,53 @@ public partial class MainForm : Form
     private TreeNodeData? GetWorkspaceContextMenuNodeData() =>
         (_workspaceContextMenuNode ?? treeWorkspace.SelectedNode)?.Tag as TreeNodeData;
 
+    private TreeNodeData? ResolveTreeActionTarget()
+    {
+        if (_workspaceContextMenuNode?.Tag is TreeNodeData contextData
+            && contextData.Kind is TreeNodeKind.Page or TreeNodeKind.Workspace)
+        {
+            return contextData;
+        }
+
+        if (treeWorkspace.SelectedNode?.Tag is TreeNodeData selectedData
+            && selectedData.Kind is TreeNodeKind.Page or TreeNodeKind.Workspace)
+        {
+            return selectedData;
+        }
+
+        return null;
+    }
+
+    private TreeNode? GetTreeNodeForData(TreeNodeData data) =>
+        FindNode(treeWorkspace.Nodes, data.Kind, data.Id);
+
+    private static string? GetTreeNodeDisplayText(TreeNodeData data, TreeView treeView)
+    {
+        var node = FindNode(treeView.Nodes, data.Kind, data.Id);
+        return node?.Text;
+    }
+
+    private string GetDeleteTargetDisplayName(TreeNodeData data)
+    {
+        var node = GetTreeNodeForData(data);
+        if (!string.IsNullOrWhiteSpace(node?.Text))
+            return node.Text.Trim();
+
+        if (data.Kind == TreeNodeKind.Page)
+        {
+            if (_currentPageId == data.Id && !string.IsNullOrWhiteSpace(_currentPageTitle))
+                return _currentPageTitle.Trim();
+
+            var page = AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, data.Id);
+            if (!string.IsNullOrWhiteSpace(page?.Title))
+                return page.Title.Trim();
+
+            return Localization.Get(K.UntitledPageTitle);
+        }
+
+        return FindWorkspaceNameInTree(data.Id) ?? Localization.Get(K.LabelWorkspace);
+    }
+
     private int? GetSelectedWorkspaceId()
     {
         var data = GetSelectedNodeData();
@@ -1178,7 +1233,7 @@ public partial class MainForm : Form
 
     private async void menuRename_Click(object sender, EventArgs e)
     {
-        var data = GetSelectedNodeData();
+        var data = ResolveTreeActionTarget();
         if (data == null)
         {
             MessageBox.Show(Localization.Get(K.SelectWorkspaceOrPage), L.AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1190,7 +1245,7 @@ public partial class MainForm : Form
             using var dialog = new InputDialogForm(
                 Localization.Get(K.RenameWorkspaceTitle),
                 Localization.Get(K.NewNamePrompt),
-                treeWorkspace.SelectedNode?.Text);
+                GetTreeNodeDisplayText(data, treeWorkspace));
             if (dialog.ShowDialog() != DialogResult.OK)
                 return;
 
@@ -1210,7 +1265,7 @@ public partial class MainForm : Form
         using var pageDialog = new InputDialogForm(
             Localization.Get(K.RenamePageTitle),
             Localization.Get(K.NewTitlePrompt),
-            treeWorkspace.SelectedNode?.Text);
+            GetTreeNodeDisplayText(data, treeWorkspace));
         if (pageDialog.ShowDialog() != DialogResult.OK)
             return;
 
@@ -1254,19 +1309,29 @@ public partial class MainForm : Form
         }
     }
 
-    private void menuDelete_Click(object sender, EventArgs e)
+    private void menuDelete_Click(object sender, EventArgs e) =>
+        DeleteTreeNode(ResolveTreeActionTarget());
+
+    private void DeleteTreeNode(TreeNodeData? data)
     {
-        var data = GetSelectedNodeData();
         if (data?.Kind is not (TreeNodeKind.Page or TreeNodeKind.Workspace))
+        {
+            MessageBox.Show(
+                Localization.Get(K.SelectWorkspaceOrPage),
+                L.AppName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
             return;
+        }
 
         if (!CanDeleteTreeNode(data))
             return;
 
         if (data.Kind == TreeNodeKind.Page)
         {
+            var pageName = GetDeleteTargetDisplayName(data);
             if (MessageBox.Show(
-                    Localization.Get(K.ConfirmDeletePage),
+                    Localization.Format(K.ConfirmDeletePage, pageName),
                     Localization.Get(K.Confirm),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question) != DialogResult.Yes)
@@ -1278,7 +1343,9 @@ public partial class MainForm : Form
                 AppConfig.Services.Pages.DeletePage(SessionContext.CurrentUser, data.Id);
                 if (_currentPageId == data.Id)
                     _ = ClearEditorImmediateAsync();
-                LoadWorkspaceTree();
+                LoadWorkspaceTree(selectWorkspaceId: data.WorkspaceId);
+                if (_currentPageId.HasValue && _currentPageId != data.Id)
+                    SelectPageInTree(_currentPageId.Value);
             }
             catch (Exception ex)
             {
@@ -1288,8 +1355,9 @@ public partial class MainForm : Form
             return;
         }
 
+        var workspaceName = GetDeleteTargetDisplayName(data);
         if (MessageBox.Show(
-                Localization.Get(K.ConfirmDeleteWorkspace),
+                Localization.Format(K.ConfirmDeleteWorkspace, workspaceName),
                 Localization.Get(K.Confirm),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question) != DialogResult.Yes)
@@ -1676,7 +1744,11 @@ public partial class MainForm : Form
     private void ctxNewSubWorkspace_Click(object sender, EventArgs e) => menuNewSubWorkspace_Click(sender, e);
     private void ctxNewPage_Click(object sender, EventArgs e) => menuNewPage_Click(sender, e);
     private void ctxRename_Click(object sender, EventArgs e) => menuRename_Click(sender, e);
-    private void ctxDelete_Click(object sender, EventArgs e) => menuDelete_Click(sender, e);
+    private void ctxDelete_Click(object? sender, EventArgs e)
+    {
+        var node = _workspaceContextMenuNode ?? treeWorkspace.SelectedNode;
+        DeleteTreeNode(node?.Tag as TreeNodeData);
+    }
     private void ctxMembers_Click(object sender, EventArgs e) => menuWorkspaceMembers_Click(sender, e);
 
     private void menuDocumentStructure_Click(object? sender, EventArgs e)
@@ -1784,6 +1856,7 @@ public partial class MainForm : Form
             (_, _) => ToggleOutlinePanel());
         _toolbarInfoButton = AddToolbarButton("info", Localization.Get(K.ToolbarAbout), (_, _) => ShowAboutDialog(), ToolStripItemAlignment.Right);
         AppTheme.StyleVerticalToolbarItems(toolStripMarkdown.Items);
+        AppTheme.ConfigureVerticalToolbarOverflow(toolStripMarkdown);
         SetShellEnabled(SessionContext.IsLoggedIn);
     }
 
@@ -1917,7 +1990,7 @@ public partial class MainForm : Form
         if (!pageId.HasValue)
             return;
 
-        await _editor.FocusCaretAtPointAsync(clientPoint);
+        await _editor.CommitFileDropCaretAtPointAsync(clientPoint).ConfigureAwait(true);
 
         foreach (var path in paths)
         {
@@ -1970,7 +2043,7 @@ public partial class MainForm : Form
         if (e.KeyCode != Keys.Delete)
             return;
 
-        var data = GetSelectedNodeData();
+        var data = treeWorkspace.SelectedNode?.Tag as TreeNodeData;
         if (data?.Kind is not (TreeNodeKind.Page or TreeNodeKind.Workspace))
             return;
 
@@ -1983,7 +2056,7 @@ public partial class MainForm : Form
 
         e.Handled = true;
         e.SuppressKeyPress = true;
-        menuDelete_Click(this, e);
+        DeleteTreeNode(data);
     }
 
     private bool CanDeleteTreeNode(TreeNodeData data) =>

@@ -213,6 +213,7 @@ public partial class MainForm
 
         }
 
+        toolStripMarkdown.OverflowButton.ToolTipText = Localization.Get(K.TipToolbarMoreTools);
     }
 
 

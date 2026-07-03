@@ -94,6 +94,7 @@ public partial class MainForm
     {
         if (_currentPageId == pageId)
         {
+            SelectPageInTree(pageId);
             if (_editor != null)
                 await _editor.FocusAsync();
             return;
@@ -139,6 +140,7 @@ public partial class MainForm
             await UpdateOutlineAsync();
             lblStatus.Text = Localization.Format(K.StatusPage, page.Title);
             RefreshWorkspaceEditState();
+            SelectPageInTree(pageId);
             RecordCurrentPageForSession();
         }
     }

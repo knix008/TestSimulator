@@ -34,6 +34,7 @@ internal sealed class VerticalNavRail : Panel
     private readonly List<NavEntry> _entries = [];
     private readonly List<BottomEntry> _bottomEntries = [];
     private readonly ToolTip _toolTip = new();
+    private NavRailPopupMenu? _activePopup;
 
     public VerticalNavRail()
     {
@@ -179,6 +180,14 @@ internal sealed class VerticalNavRail : Panel
             _toolTip.SetToolTip(entry.Button, Localization.Get(entry.TooltipKey));
     }
 
+    public bool CloseActiveMenu()
+    {
+        if (_activePopup == null)
+            return false;
+
+        return _activePopup.CloseIfVisible();
+    }
+
     private Button CreateRailButton(string iconName, string tooltipKey, object tag)
     {
         var button = new Button
@@ -294,6 +303,8 @@ internal sealed class VerticalNavRail : Panel
 
     private void ShowMenuAtButton(ToolStripMenuItem menuRoot, Button button)
     {
+        CloseActiveMenu();
+
         var popupMenu = BuildPopupMenu(menuRoot);
         if (popupMenu.Items.Count == 0)
         {
@@ -303,18 +314,29 @@ internal sealed class VerticalNavRail : Panel
 
         var anchorPoint = button.PointToScreen(new Point(button.Width, 0));
         MenuPopupOpening?.Invoke(this, EventArgs.Empty);
-        popupMenu.Closed += (_, _) =>
-        {
-            if (!popupMenu.IsDisposed)
-                popupMenu.BeginInvoke(new Action(popupMenu.Dispose));
-            MenuPopupClosed?.Invoke(this, EventArgs.Empty);
-        };
-        popupMenu.Show(anchorPoint);
+        _activePopup = popupMenu;
+        popupMenu.Closed += OnActivePopupClosed;
+        popupMenu.ShowAt(button, anchorPoint);
     }
 
-    private static ContextMenuStrip BuildPopupMenu(ToolStripMenuItem menuRoot)
+    private void OnActivePopupClosed(object? sender, ToolStripDropDownClosedEventArgs e)
     {
-        var popup = new ContextMenuStrip();
+        if (sender is NavRailPopupMenu popupMenu)
+        {
+            popupMenu.Closed -= OnActivePopupClosed;
+            if (!popupMenu.IsDisposed)
+                popupMenu.BeginInvoke(new Action(popupMenu.Dispose));
+        }
+
+        if (ReferenceEquals(_activePopup, sender))
+            _activePopup = null;
+
+        MenuPopupClosed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static NavRailPopupMenu BuildPopupMenu(ToolStripMenuItem menuRoot)
+    {
+        var popup = new NavRailPopupMenu();
         AppTheme.StyleContextMenu(popup);
 
         foreach (ToolStripItem sourceItem in menuRoot.DropDownItems)

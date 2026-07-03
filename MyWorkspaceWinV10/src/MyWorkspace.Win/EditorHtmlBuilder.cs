@@ -187,9 +187,20 @@ internal static class EditorHtmlBuilder
               background-color: var(--editor-bg) !important; color: var(--editor-text) !important;
             }
             #editor:focus { outline: none; box-shadow: none; }
-            #editor.is-file-drop-target {
-              box-shadow: inset 0 0 0 2px var(--editor-accent);
-              background-color: color-mix(in srgb, var(--editor-accent) 8%, var(--editor-bg));
+            #editor-file-drop-overlay {
+              position: fixed;
+              inset: 0;
+              pointer-events: none;
+              box-sizing: border-box;
+              border: 2px solid transparent;
+              z-index: 100000;
+            }
+            body.is-file-drop-target #editor-file-drop-overlay {
+              border-color: var(--editor-accent);
+              background: color-mix(in srgb, var(--editor-accent) 8%, transparent);
+            }
+            body.is-file-drop-target #editor {
+              caret-color: transparent;
             }
             #editor[data-empty="true"]:before {
               content: "{{PlaceholderToken}}";
@@ -298,7 +309,7 @@ internal static class EditorHtmlBuilder
             }
             .editor-image-drop-caret {
               position: fixed; width: 2px; background: var(--editor-caret);
-              pointer-events: none; z-index: 9999; display: none;
+              pointer-events: none; z-index: 100001; display: none;
               border-radius: 1px;
               animation: editor-drop-caret-blink 1s step-end infinite;
             }
@@ -320,6 +331,7 @@ internal static class EditorHtmlBuilder
           </style>
         </head>
         <body>
+          <div id="editor-file-drop-overlay" aria-hidden="true"></div>
           <div id="editor" contenteditable="true" spellcheck="true" data-empty="true">{{BodyPlaceholder}}</div>
           <script>
             const editor = document.getElementById('editor');
@@ -610,6 +622,82 @@ internal static class EditorHtmlBuilder
             }
 
             let fileDropDepth = 0;
+            let fileDropCaretRange = null;
+            let fileDropFeedbackEpoch = 0;
+
+            function invalidateFileDropFeedback() {
+              fileDropFeedbackEpoch++;
+              hideFileDropCaret();
+              document.body.classList.remove('is-file-drop-target');
+            }
+
+            function setFileDropHighlightActive(active, hideCaret = true) {
+              document.body.classList.toggle('is-file-drop-target', !!active);
+              if (!active && hideCaret)
+                invalidateFileDropFeedback();
+            }
+
+            function hideFileDropCaret() {
+              if (imageDropCaret) imageDropCaret.style.display = 'none';
+              fileDropCaretRange = null;
+            }
+
+            function showFileDropCaretAtClientPoint(x, y) {
+              const epoch = fileDropFeedbackEpoch;
+              editor.blur();
+              const sel = window.getSelection();
+              if (sel) sel.removeAllRanges();
+
+              const range = caretRangeFromClientPoint(x, y);
+              if (!range || !editor.contains(range.startContainer)) {
+                if (epoch === fileDropFeedbackEpoch) hideFileDropCaret();
+                return false;
+              }
+              if (epoch !== fileDropFeedbackEpoch) return false;
+
+              range.collapse(true);
+              fileDropCaretRange = range.cloneRange();
+
+              const rect = getCaretRectFromRange(range);
+              if (epoch !== fileDropFeedbackEpoch) return false;
+
+              const marker = ensureImageDropCaret();
+              const lineHeight = parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
+              const height = Math.max(rect.height || 0, lineHeight, 14);
+              marker.style.display = 'block';
+              marker.style.left = Math.round(rect.left) + 'px';
+              marker.style.top = Math.round(rect.top) + 'px';
+              marker.style.height = Math.round(height) + 'px';
+              return true;
+            }
+
+            function commitFileDropCaretAtPoint(x, y) {
+              fileDropFeedbackEpoch++;
+              const savedRange = fileDropCaretRange;
+              if (imageDropCaret) imageDropCaret.style.display = 'none';
+              fileDropCaretRange = null;
+              document.body.classList.remove('is-file-drop-target');
+
+              let range = savedRange;
+              if (!range) {
+                range = caretRangeFromClientPoint(x, y);
+                if (range) range.collapse(true);
+              }
+
+              if (!range || !editor.contains(range.startContainer))
+                return false;
+
+              editor.focus();
+              const sel = window.getSelection();
+              if (!sel) return false;
+              sel.removeAllRanges();
+              sel.addRange(range);
+              return true;
+            }
+
+            function cancelFileDropFeedback() {
+              invalidateFileDropFeedback();
+            }
 
             function isExternalFileDrag(e) {
               const types = e.dataTransfer?.types;
@@ -632,14 +720,7 @@ internal static class EditorHtmlBuilder
             }
 
             function focusCaretAtClientPoint(x, y) {
-              const range = caretRangeFromClientPoint(x, y);
-              if (!range || !editor.contains(range.startContainer)) return false;
-              range.collapse(true);
-              const sel = window.getSelection();
-              if (!sel) return false;
-              sel.removeAllRanges();
-              sel.addRange(range);
-              return true;
+              return commitFileDropCaretAtPoint(x, y);
             }
 
             function postFileDropMessage(files, clientX, clientY) {
@@ -649,11 +730,14 @@ internal static class EditorHtmlBuilder
                 x: Math.round(clientX),
                 y: Math.round(clientY)
               });
-              const fileArray = Array.from(files);
               const webview = window.chrome?.webview;
-              if (webview?.postMessageWithAdditionalObjects && fileArray.length > 0) {
-                webview.postMessageWithAdditionalObjects(payload, ...fileArray);
-                return;
+              if (webview?.postMessageWithAdditionalObjects) {
+                try {
+                  webview.postMessageWithAdditionalObjects(payload, files);
+                  return;
+                } catch {
+                  // Fall through to host WinForms drop handling.
+                }
               }
               if (webview?.postMessage)
                 webview.postMessage(payload);
@@ -663,8 +747,8 @@ internal static class EditorHtmlBuilder
               if (!isExternalFileDrag(e)) return;
               e.preventDefault();
               if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-              editor.classList.add('is-file-drop-target');
-              focusCaretAtClientPoint(e.clientX, e.clientY);
+              setFileDropHighlightActive(true, false);
+              showFileDropCaretAtClientPoint(e.clientX, e.clientY);
             }
 
             function handleExternalFileDrop(e) {
@@ -672,8 +756,9 @@ internal static class EditorHtmlBuilder
               e.preventDefault();
               e.stopPropagation();
               fileDropDepth = 0;
-              editor.classList.remove('is-file-drop-target');
-              focusCaretAtClientPoint(e.clientX, e.clientY);
+              document.body.classList.remove('is-file-drop-target');
+              showFileDropCaretAtClientPoint(e.clientX, e.clientY);
+              commitFileDropCaretAtPoint(e.clientX, e.clientY);
               postFileDropMessage(e.dataTransfer?.files, e.clientX, e.clientY);
             }
 
@@ -681,21 +766,22 @@ internal static class EditorHtmlBuilder
               if (!isExternalFileDrag(e)) return;
               e.preventDefault();
               fileDropDepth++;
-              editor.classList.add('is-file-drop-target');
+              setFileDropHighlightActive(true);
             });
 
             editor.addEventListener('dragleave', (e) => {
               if (!isExternalFileDrag(e)) return;
               fileDropDepth = Math.max(0, fileDropDepth - 1);
-              if (fileDropDepth === 0)
-                editor.classList.remove('is-file-drop-target');
+              if (fileDropDepth === 0) {
+                cancelFileDropFeedback();
+              }
             });
 
             editor.addEventListener('dragover', handleExternalFileDragOver);
-            document.body.addEventListener('dragover', handleExternalFileDragOver);
+            document.addEventListener('dragover', handleExternalFileDragOver, true);
 
             editor.addEventListener('drop', handleExternalFileDrop);
-            document.body.addEventListener('drop', handleExternalFileDrop);
+            document.addEventListener('drop', handleExternalFileDrop, true);
 
             editor.addEventListener('input', () => {
               updateEmptyState();
@@ -863,9 +949,7 @@ internal static class EditorHtmlBuilder
 
               let range = session.dropRange;
               if (!range) {
-                const pointRange = document.caretRangeFromPoint(e.clientX, e.clientY);
-                if (pointRange && editor.contains(pointRange.startContainer))
-                  range = pointRange;
+                range = caretRangeFromClientPoint(e.clientX, e.clientY);
               }
               if (range && editor.contains(range.startContainer)) {
                 range.collapse(true);
@@ -1223,6 +1307,7 @@ internal static class EditorHtmlBuilder
                 notifyChanged();
               },
               insertImage(src, alt) {
+                hideFileDropCaret();
                 editor.focus();
                 ensureParagraph();
                 const safeSrc = escapeHtml(src);
@@ -1242,6 +1327,7 @@ internal static class EditorHtmlBuilder
                 notifyChanged();
               },
               insertFileAttachment(href, fileName) {
+                hideFileDropCaret();
                 editor.focus();
                 ensureParagraph();
                 const safeHref = escapeHtml(href);
@@ -1264,18 +1350,43 @@ internal static class EditorHtmlBuilder
                 return sel ? sel.toString() : '';
               },
               focusCaretAtPoint(x, y) {
+                return commitFileDropCaretAtPoint(x, y);
+              },
+              showFileDropCaretAtPoint(x, y) {
+                return showFileDropCaretAtClientPoint(x, y);
+              },
+              commitFileDropCaretAtPoint(x, y) {
+                fileDropFeedbackEpoch++;
+                const savedRange = fileDropCaretRange;
+                if (imageDropCaret) imageDropCaret.style.display = 'none';
+                fileDropCaretRange = null;
+                document.body.classList.remove('is-file-drop-target');
+
+                let range = savedRange;
+                if (!range) {
+                  range = caretRangeFromClientPoint(x, y);
+                  if (range) range.collapse(true);
+                }
+
+                if (!range || !editor.contains(range.startContainer))
+                  return false;
+
                 editor.focus();
-                const range = caretRangeFromClientPoint(x, y);
-                if (!range || !editor.contains(range.startContainer)) return false;
-                range.collapse(true);
                 const sel = window.getSelection();
                 if (!sel) return false;
                 sel.removeAllRanges();
                 sel.addRange(range);
                 return true;
               },
-              setFileDropHighlight(active) {
-                editor.classList.toggle('is-file-drop-target', !!active);
+              hideFileDropCaret() {
+                if (imageDropCaret) imageDropCaret.style.display = 'none';
+                fileDropCaretRange = null;
+              },
+              cancelFileDropFeedback() {
+                invalidateFileDropFeedback();
+              },
+              setFileDropHighlight(active, hideCaret = true) {
+                setFileDropHighlightActive(active, hideCaret);
               },
               scrollToHeading(id) {
                 document.getElementById(id)?.scrollIntoView({ behavior: 'auto', block: 'start' });

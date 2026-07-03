@@ -121,12 +121,8 @@ internal sealed class CustomTitleBar : Panel
         _lblAppName.ForeColor = AppTheme.TitleBarText;
         _mark.Invalidate();
 
-        var hover = AppTheme.IsDark
-            ? Color.FromArgb(48, 54, 61)
-            : Color.FromArgb(225, 228, 232);
-        var pressed = AppTheme.IsDark
-            ? Color.FromArgb(68, 76, 86)
-            : Color.FromArgb(208, 212, 218);
+        var hover = AppTheme.ChromeButtonHoverBackground;
+        var pressed = AppTheme.ChromeButtonPressedBackground;
 
         StyleWindowButton(_btnMinimize, AppTheme.EditorBackground, hover, pressed);
         StyleWindowButton(_btnMaximize, AppTheme.EditorBackground, hover, pressed);
@@ -323,8 +319,8 @@ internal sealed class CustomTitleBar : Panel
             if (_hover || _pressed)
             {
                 var backColor = _pressed
-                    ? AppTheme.IsDark ? Color.FromArgb(68, 76, 86) : Color.FromArgb(208, 212, 218)
-                    : AppTheme.IsDark ? Color.FromArgb(48, 54, 61) : Color.FromArgb(225, 228, 232);
+                    ? AppTheme.ChromeButtonPressedBackground
+                    : AppTheme.ChromeButtonHoverBackground;
                 using var brush = new SolidBrush(backColor);
                 e.Graphics.FillRectangle(brush, ClientRectangle);
             }

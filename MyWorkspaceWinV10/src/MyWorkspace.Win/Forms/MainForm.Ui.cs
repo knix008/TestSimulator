@@ -41,6 +41,7 @@ public partial class MainForm
         AppTheme.ApplyVerticalToolbar(toolStripMarkdown);
         toolStripMarkdown.Padding = new Padding(4, 8, 4, 8);
         AppTheme.StyleVerticalToolbarItems(toolStripMarkdown.Items);
+        AppTheme.ConfigureVerticalToolbarOverflow(toolStripMarkdown);
         AppTheme.ApplyStatusStrip(statusStrip1);
         AppTheme.StyleContextMenu(ctxTree);
         AppTheme.StyleContextMenu(ctxAppSettings);

@@ -22,6 +22,8 @@ internal sealed class WebViewEditorController
     private DateTime _lastDragCaretUpdateUtc = DateTime.MinValue;
     private DateTime _lastFileDropUtc = DateTime.MinValue;
     private string _lastFileDropKey = string.Empty;
+    private int _hostFileDragDepth;
+    private System.Windows.Forms.Timer? _fileDragLeaveTimer;
 
     public WebViewEditorController(WebView2 webView) => _webView = webView;
 
@@ -34,6 +36,7 @@ internal sealed class WebViewEditorController
     }
 
     private Control? _hostDropSurface;
+    private EditorDropTargetPanel? _dropTargetOverlay;
     private bool _hostDropSurfaceHooksInstalled;
 
     private void EnsureHostDropSurfaceHooks(Control? hostDropSurface)
@@ -48,6 +51,32 @@ internal sealed class WebViewEditorController
         _hostDropSurface.DragOver += OnHostDropSurfaceDragOver;
         _hostDropSurface.DragLeave += OnHostDropSurfaceDragLeave;
         _hostDropSurface.DragDrop += OnHostDropSurfaceDragDrop;
+
+        _dropTargetOverlay = new EditorDropTargetPanel
+        {
+            Dock = DockStyle.Fill
+        };
+        _hostDropSurface.Controls.Add(_dropTargetOverlay);
+        _dropTargetOverlay.FileDragEnter += OnDropOverlayDragEnter;
+        _dropTargetOverlay.FileDragOver += OnDropOverlayDragOver;
+        _dropTargetOverlay.FileDragLeave += OnDropOverlayDragLeave;
+        _dropTargetOverlay.FileDragDrop += OnDropOverlayDragDrop;
+    }
+
+    private bool IsPointerOverHostDropSurface()
+    {
+        if (_hostDropSurface == null || _hostDropSurface.IsDisposed)
+            return false;
+
+        var clientPoint = _hostDropSurface.PointToClient(Control.MousePosition);
+        return _hostDropSurface.ClientRectangle.Contains(clientPoint);
+    }
+
+    private Point ToWebViewPointFromDropSurface(DragEventArgs e, Control dropSurface)
+    {
+        var surfacePoint = new Point(e.X, e.Y);
+        var screenPoint = dropSurface.PointToScreen(surfacePoint);
+        return _webView.PointToClient(screenPoint);
     }
 
     private bool TryAcceptHostDropSurfaceDrag(DragEventArgs e, out DragDropEffects effect)
@@ -60,55 +89,187 @@ internal sealed class WebViewEditorController
         return true;
     }
 
-    private Point ToWebViewPointFromDropSurface(DragEventArgs e)
-    {
-        if (_hostDropSurface == null)
-            return Point.Empty;
+    private Point ToWebViewPointFromDropSurface(DragEventArgs e) =>
+        ToWebViewPointFromDropSurface(
+            e,
+            _dropTargetOverlay is { Visible: true } ? _dropTargetOverlay : _hostDropSurface!);
 
-        var surfacePoint = new Point(e.X, e.Y);
-        var screenPoint = _hostDropSurface.PointToScreen(surfacePoint);
-        return _webView.PointToClient(screenPoint);
-    }
-
-    private void OnHostDropSurfaceDragEnter(object? sender, DragEventArgs e)
+    private void ShowDropTargetOverlay()
     {
-        if (!TryAcceptHostDropSurfaceDrag(e, out var effect))
+        if (_dropTargetOverlay == null || _dropTargetOverlay.IsDisposed)
             return;
 
-        e.Effect = effect;
+        if (!_dropTargetOverlay.Visible)
+            _dropTargetOverlay.Visible = true;
+
+        _dropTargetOverlay.BringToFront();
+    }
+
+    private void HideDropTargetOverlay()
+    {
+        if (_dropTargetOverlay == null || _dropTargetOverlay.IsDisposed)
+            return;
+
+        _dropTargetOverlay.Visible = false;
+        if (_webView.Visible && !_webView.IsDisposed)
+            _webView.BringToFront();
+    }
+
+    private void BeginFileDragFeedback(DragEventArgs e)
+    {
+        CancelFileDragLeaveTimer();
+        _hostFileDragDepth++;
+        ShowDropTargetOverlay();
+        e.Effect = DragDropEffects.Copy;
         _ = SetFileDropHighlightAsync(true);
     }
 
-    private void OnHostDropSurfaceDragOver(object? sender, DragEventArgs e)
+    private void UpdateFileDragFeedback(DragEventArgs e, Control dropSurface)
     {
-        if (!TryAcceptHostDropSurfaceDrag(e, out var effect))
-            return;
-
-        e.Effect = effect;
+        e.Effect = DragDropEffects.Copy;
 
         var now = DateTime.UtcNow;
         if ((now - _lastDragCaretUpdateUtc).TotalMilliseconds < 50)
             return;
 
         _lastDragCaretUpdateUtc = now;
-        _ = FocusCaretAtPointAsync(ToWebViewPointFromDropSurface(e));
+        _ = FocusCaretAtPointAsync(ToWebViewPointFromDropSurface(e, dropSurface));
+    }
+
+    private void EndFileDragFeedback(bool hideCaret = true)
+    {
+        CancelFileDragLeaveTimer();
+        HideDropTargetOverlay();
+        if (hideCaret)
+        {
+            _hostFileDragDepth = 0;
+            _ = RunDragFeedbackScriptAsync("window.editorApi.cancelFileDropFeedback();");
+        }
+        else
+        {
+            _ = SetFileDropHighlightAsync(false, hideCaret: false);
+        }
+    }
+
+    private void CancelFileDragLeaveTimer() => _fileDragLeaveTimer?.Stop();
+
+    private void ScheduleFileDragLeaveEnd()
+    {
+        _fileDragLeaveTimer ??= new System.Windows.Forms.Timer { Interval = 150 };
+        _fileDragLeaveTimer.Stop();
+        _fileDragLeaveTimer.Tick -= OnFileDragLeaveTimerTick;
+        _fileDragLeaveTimer.Tick += OnFileDragLeaveTimerTick;
+        _fileDragLeaveTimer.Start();
+    }
+
+    private void OnFileDragLeaveTimerTick(object? sender, EventArgs e)
+    {
+        CancelFileDragLeaveTimer();
+        if (IsPointerOverHostDropSurface())
+            return;
+
+        _hostFileDragDepth = 0;
+        EndFileDragFeedback();
+    }
+
+    private void DecrementHostFileDragDepth() => ScheduleFileDragLeaveEnd();
+
+    private static bool TryExtractFileDropPaths(DragEventArgs e, out string[] paths)
+    {
+        paths = Array.Empty<string>();
+        if (e.Data?.GetDataPresent(DataFormats.FileDrop, autoConvert: true) != true)
+            return false;
+
+        return e.Data.GetData(DataFormats.FileDrop, autoConvert: true) switch
+        {
+            string[] files when files.Length > 0 => Set(out paths, files),
+            string file when !string.IsNullOrWhiteSpace(file) => Set(out paths, [file]),
+            _ => false
+        };
+
+        static bool Set(out string[] target, string[] value)
+        {
+            target = value;
+            return true;
+        }
+    }
+
+    private void HandleHostFileDrop(DragEventArgs e, Point webViewClientPoint)
+    {
+        CancelFileDragLeaveTimer();
+        e.Effect = DragDropEffects.Copy;
+
+        if (!TryExtractFileDropPaths(e, out var paths) || !CanAcceptHostFileDrop())
+        {
+            _hostFileDragDepth = 0;
+            EndFileDragFeedback();
+            return;
+        }
+
+        _hostFileDragDepth = 0;
+        _ = CompleteHostFileDropAsync(paths, webViewClientPoint);
+    }
+
+    private async Task CompleteHostFileDropAsync(string[] paths, Point webViewClientPoint)
+    {
+        try
+        {
+            await InvokeFileDropHandlerAsync(paths, webViewClientPoint).ConfigureAwait(true);
+        }
+        finally
+        {
+            void Finish() => EndFileDragFeedback();
+
+            if (_webView.InvokeRequired)
+                _webView.BeginInvoke(Finish);
+            else
+                Finish();
+        }
+    }
+
+    private void OnHostDropSurfaceDragEnter(object? sender, DragEventArgs e)
+    {
+        if (!TryAcceptHostDropSurfaceDrag(e, out _))
+            return;
+
+        BeginFileDragFeedback(e);
+    }
+
+    private void OnHostDropSurfaceDragOver(object? sender, DragEventArgs e)
+    {
+        if (!TryAcceptHostDropSurfaceDrag(e, out _))
+            return;
+
+        UpdateFileDragFeedback(e, _hostDropSurface!);
     }
 
     private void OnHostDropSurfaceDragLeave(object? sender, EventArgs e) =>
-        _ = SetFileDropHighlightAsync(false);
+        DecrementHostFileDragDepth();
 
-    private void OnHostDropSurfaceDragDrop(object? sender, DragEventArgs e)
+    private void OnHostDropSurfaceDragDrop(object? sender, DragEventArgs e) =>
+        HandleHostFileDrop(e, ToWebViewPointFromDropSurface(e));
+
+    private void OnDropOverlayDragEnter(object? sender, DragEventArgs e)
     {
-        _ = SetFileDropHighlightAsync(false);
-
-        if (!CanAcceptHostFileDrop() || !IsFileDrag(e))
+        if (!TryAcceptHostDropSurfaceDrag(e, out _))
             return;
 
-        if (e.Data?.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0)
-            return;
-
-        _ = InvokeFileDropHandlerAsync(paths, ToWebViewPointFromDropSurface(e));
+        BeginFileDragFeedback(e);
     }
+
+    private void OnDropOverlayDragOver(object? sender, DragEventArgs e)
+    {
+        if (!TryAcceptHostDropSurfaceDrag(e, out _))
+            return;
+
+        UpdateFileDragFeedback(e, _dropTargetOverlay!);
+    }
+
+    private void OnDropOverlayDragLeave(object? sender, EventArgs e) =>
+        DecrementHostFileDragDepth();
+
+    private void OnDropOverlayDragDrop(object? sender, DragEventArgs e) =>
+        HandleHostFileDrop(e, ToWebViewPointFromDropSurface(e, _dropTargetOverlay!));
 
     public event Action? ContentChanged;
     public event Action? CaretMoved;
@@ -171,7 +332,7 @@ internal sealed class WebViewEditorController
         settings.IsStatusBarEnabled = false;
         settings.IsWebMessageEnabled = true;
 
-        _webView.AllowExternalDrop = true;
+        _webView.AllowExternalDrop = false;
 
         _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
         _webView.CoreWebView2.ContextMenuRequested += OnContextMenuRequested;
@@ -181,19 +342,35 @@ internal sealed class WebViewEditorController
         await LoadMarkdownAsync(string.Empty, pipeline);
     }
 
-    public Task FocusCaretAtPointAsync(Point clientPoint)
+    private Point ToWebViewCssPoint(Point webViewClientPoint)
+    {
+        var zoom = _webView.ZoomFactor;
+        return new Point(
+            (int)Math.Round(webViewClientPoint.X / zoom, MidpointRounding.AwayFromZero),
+            (int)Math.Round(webViewClientPoint.Y / zoom, MidpointRounding.AwayFromZero));
+    }
+
+    public Task FocusCaretAtPointAsync(Point webViewClientPoint)
     {
         if (!IsReady || IsScriptSuspended)
             return Task.CompletedTask;
 
-        var zoom = _webView.ZoomFactor;
-        var x = (int)Math.Round(clientPoint.X / zoom, MidpointRounding.AwayFromZero);
-        var y = (int)Math.Round(clientPoint.Y / zoom, MidpointRounding.AwayFromZero);
-        return RunApiAsync($"window.editorApi.focusCaretAtPoint({x},{y});");
+        var css = ToWebViewCssPoint(webViewClientPoint);
+        return RunDragFeedbackScriptAsync($"window.editorApi.showFileDropCaretAtPoint({css.X},{css.Y});");
     }
 
-    public Task SetFileDropHighlightAsync(bool active) =>
-        RunApiAsync($"window.editorApi.setFileDropHighlight({(active ? "true" : "false")});");
+    public async Task CommitFileDropCaretAtPointAsync(Point cssPoint)
+    {
+        if (!IsReady || IsScriptSuspended)
+            return;
+
+        await ExecuteScriptExclusiveAsync(
+            $"window.editorApi.commitFileDropCaretAtPoint({cssPoint.X},{cssPoint.Y});");
+    }
+
+    public Task SetFileDropHighlightAsync(bool active, bool hideCaret = true) =>
+        RunDragFeedbackScriptAsync(
+            $"window.editorApi.setFileDropHighlight({(active ? "true" : "false")},{(hideCaret ? "true" : "false")});");
 
     private void EnsureHostFileDropHooks()
     {
@@ -201,15 +378,8 @@ internal sealed class WebViewEditorController
             return;
 
         _fileDropHooksInstalled = true;
-        _webView.AllowExternalDrop = true;
-        _webView.DragEnter += OnWebViewDragEnter;
-        _webView.DragOver += OnWebViewDragOver;
-        _webView.DragLeave += OnWebViewDragLeave;
-        _webView.DragDrop += OnWebViewDragDrop;
+        _webView.AllowExternalDrop = false;
     }
-
-    private static Point ToWebViewClientPoint(DragEventArgs e) =>
-        new(e.X, e.Y);
 
     private bool CanAcceptHostFileDrop() =>
         _fileDropHandler != null &&
@@ -220,55 +390,18 @@ internal sealed class WebViewEditorController
     private static bool IsFileDrag(DragEventArgs e) =>
         e.Data?.GetDataPresent(DataFormats.FileDrop) == true;
 
-    private void OnWebViewDragEnter(object? sender, DragEventArgs e)
-    {
-        if (!CanAcceptHostFileDrop() || !IsFileDrag(e))
-        {
-            e.Effect = DragDropEffects.None;
-            return;
-        }
+    private Task InvokeFileDropHandlerFromCssPointAsync(string[] paths, Point cssPoint) =>
+        InvokeFileDropHandlerCoreAsync(paths, cssPoint);
 
-        e.Effect = DragDropEffects.Copy;
-        _ = SetFileDropHighlightAsync(true);
+    private async Task InvokeFileDropHandlerAsync(string[] paths, Point webViewClientPoint)
+    {
+        if (_fileDropHandler == null || paths.Length == 0)
+            return;
+
+        await InvokeFileDropHandlerCoreAsync(paths, ToWebViewCssPoint(webViewClientPoint)).ConfigureAwait(true);
     }
 
-    private void OnWebViewDragOver(object? sender, DragEventArgs e)
-    {
-        if (!CanAcceptHostFileDrop() || !IsFileDrag(e))
-        {
-            e.Effect = DragDropEffects.None;
-            return;
-        }
-
-        e.Effect = DragDropEffects.Copy;
-
-        var now = DateTime.UtcNow;
-        if ((now - _lastDragCaretUpdateUtc).TotalMilliseconds < 50)
-            return;
-
-        _lastDragCaretUpdateUtc = now;
-        var point = ToWebViewClientPoint(e);
-        _ = FocusCaretAtPointAsync(point);
-    }
-
-    private void OnWebViewDragLeave(object? sender, EventArgs e) =>
-        _ = SetFileDropHighlightAsync(false);
-
-    private void OnWebViewDragDrop(object? sender, DragEventArgs e)
-    {
-        _ = SetFileDropHighlightAsync(false);
-
-        if (!CanAcceptHostFileDrop() || !IsFileDrag(e))
-            return;
-
-        if (e.Data?.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0)
-            return;
-
-        var point = ToWebViewClientPoint(e);
-        _ = InvokeFileDropHandlerAsync(paths, point);
-    }
-
-    private async Task InvokeFileDropHandlerAsync(string[] paths, Point point)
+    private async Task InvokeFileDropHandlerCoreAsync(string[] paths, Point cssPoint)
     {
         if (_fileDropHandler == null || paths.Length == 0)
             return;
@@ -286,7 +419,7 @@ internal sealed class WebViewEditorController
 
         try
         {
-            await _fileDropHandler(paths, point).ConfigureAwait(true);
+            await _fileDropHandler(paths, cssPoint).ConfigureAwait(true);
         }
         catch
         {
@@ -352,19 +485,23 @@ internal sealed class WebViewEditorController
             var paths = new List<string>();
             foreach (var obj in args.AdditionalObjects)
             {
-                if (obj is CoreWebView2File file && !string.IsNullOrWhiteSpace(file.Path))
-                    paths.Add(file.Path);
+                switch (obj)
+                {
+                    case CoreWebView2File file when !string.IsNullOrWhiteSpace(file.Path):
+                        paths.Add(file.Path);
+                        break;
+                    case FileInfo fileInfo when !string.IsNullOrWhiteSpace(fileInfo.FullName):
+                        paths.Add(fileInfo.FullName);
+                        break;
+                }
             }
 
             if (paths.Count == 0)
                 return false;
 
-            var zoom = _webView.ZoomFactor;
-            var point = new Point(
-                (int)Math.Round(x / zoom, MidpointRounding.AwayFromZero),
-                (int)Math.Round(y / zoom, MidpointRounding.AwayFromZero));
+            var cssPoint = new Point(x, y);
 
-            _ = InvokeFileDropHandlerAsync(paths.ToArray(), point);
+            _ = InvokeFileDropHandlerFromCssPointAsync(paths.ToArray(), cssPoint);
             return true;
         }
         catch (JsonException)
@@ -542,6 +679,14 @@ internal sealed class WebViewEditorController
 
         var result = await ExecuteScriptExclusiveAsync("window.editorApi.getActiveHeadingId();");
         return DeserializeScriptResult(result);
+    }
+
+    private Task RunDragFeedbackScriptAsync(string script)
+    {
+        if (!IsReady || IsScriptSuspended || _webView.CoreWebView2 == null)
+            return Task.CompletedTask;
+
+        return _webView.CoreWebView2.ExecuteScriptAsync(script);
     }
 
     private async Task RunApiAsync(string script)

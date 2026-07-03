@@ -169,6 +169,7 @@ internal static class Localization
         Add(K.ToolbarRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.ToolbarDocumentStructure, "문서 구조", "Document Outline");
         Add(K.ToolbarAbout, "프로그램 정보", "About");
+        Add(K.TipToolbarMoreTools, "더 많은 도구 보기", "Show more tools");
         Add(K.ToolbarSave, "저장 (Ctrl+S)", "Save (Ctrl+S)");
         Add(K.TipMenuSavePage, "현재 Page를 설정된 DB에 저장합니다. 프로젝트 파일(.wsp)을 연 상태이면 같은 파일에도 함께 저장합니다. 자동 저장은 SQLite 3에만 기록됩니다.", "Save the current page to the configured database. When a .wsp project file is open, also updates that file. Auto-save writes to SQLite 3 only.");
         Add(K.ToolbarSaveMarkdown, "Markdown 파일로 저장", "Save as Markdown");
@@ -312,8 +313,8 @@ internal static class Localization
         Add(K.RenamePageTitle, "Page 제목 변경", "Rename Page");
         Add(K.NewNamePrompt, "새 이름:", "New name:");
         Add(K.NewTitlePrompt, "새 제목:", "New title:");
-        Add(K.ConfirmDeletePage, "선택한 Page를 삭제할까요?", "Delete the selected page?");
-        Add(K.ConfirmDeleteWorkspace, "선택한 Workspace를 삭제할까요?", "Delete the selected workspace?");
+        Add(K.ConfirmDeletePage, "\"{0}\" Page를 삭제할까요?", "Delete page \"{0}\"?");
+        Add(K.ConfirmDeleteWorkspace, "\"{0}\" Workspace를 삭제할까요?", "Delete workspace \"{0}\"?");
         Add(K.ConfirmLogout, "로그아웃하시겠습니까?", "Do you want to sign out?");
         Add(K.Confirm, "확인", "Confirm");
         Add(K.DialogLinkTitle, "링크", "Link");
@@ -630,6 +631,7 @@ internal static class K
     public const string ToolbarRedo = "ToolbarRedo";
     public const string ToolbarDocumentStructure = "ToolbarDocumentStructure";
     public const string ToolbarAbout = "ToolbarAbout";
+    public const string TipToolbarMoreTools = "TipToolbarMoreTools";
     public const string ToolbarSave = "ToolbarSave";
     public const string ToolbarSaveMarkdown = "ToolbarSaveMarkdown";
     public const string ToolbarExport = "ToolbarExport";
