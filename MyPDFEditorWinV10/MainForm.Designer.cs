@@ -51,7 +51,6 @@ partial class MainForm
 	private ToolStripButton btnAbout;
 
 	private Panel panelPdf;
-	private Label labelPdfHeader;
 	private PdfViewerPanel pdfViewerPanel;
 
 	private StatusStrip statusStripMain;
@@ -97,20 +96,19 @@ partial class MainForm
         menuAbout = new ToolStripMenuItem();
         toolStripMain = new ToolStrip();
         btnOpen = new ToolStripButton();
+        btnSavePdf = new ToolStripButton();
+        toolStripSep1 = new ToolStripSeparator();
         btnSelectText = new ToolStripButton();
         btnSelectImage = new ToolStripButton();
         btnCopyImage = new ToolStripButton();
-        toolStripSep1 = new ToolStripSeparator();
+        toolStripSep2 = new ToolStripSeparator();
         btnPrevPage = new ToolStripButton();
         btnNextPage = new ToolStripButton();
-        toolStripSep2 = new ToolStripSeparator();
-        btnSavePdf = new ToolStripButton();
         btnExportMd = new ToolStripButton();
         btnExportWord = new ToolStripButton();
         toolStripSepAbout = new ToolStripSeparator();
         btnAbout = new ToolStripButton();
         panelPdf = new Panel();
-        labelPdfHeader = new Label();
         pdfViewerPanel = new PdfViewerPanel();
         statusStripMain = new StatusStrip();
         statusLabel = new ToolStripStatusLabel();
@@ -190,52 +188,52 @@ partial class MainForm
         // menuImportText
         // 
         menuImportText.Name = "menuImportText";
-        menuImportText.Size = new Size(319, 22);
+        menuImportText.Size = new Size(256, 22);
         menuImportText.Text = "텍스트 재추출(&R)...";
         // 
         // menuEditSep1
         // 
         menuEditSep1.Name = "menuEditSep1";
-        menuEditSep1.Size = new Size(316, 6);
+        menuEditSep1.Size = new Size(253, 6);
         // 
         // menuSelectText
         // 
         menuSelectText.CheckOnClick = true;
         menuSelectText.Name = "menuSelectText";
-        menuSelectText.Size = new Size(319, 22);
+        menuSelectText.Size = new Size(256, 22);
         menuSelectText.Text = "텍스트 선택(&G)";
         // 
         // menuSelectImage
         // 
         menuSelectImage.CheckOnClick = true;
         menuSelectImage.Name = "menuSelectImage";
-        menuSelectImage.Size = new Size(319, 22);
+        menuSelectImage.Size = new Size(256, 22);
         menuSelectImage.Text = "그림 선택(&P)";
         // 
         // menuEditSepText
         // 
         menuEditSepText.Name = "menuEditSepText";
-        menuEditSepText.Size = new Size(316, 6);
+        menuEditSepText.Size = new Size(253, 6);
         // 
         // menuCopyText
         // 
         menuCopyText.Name = "menuCopyText";
         menuCopyText.ShortcutKeys = Keys.Control | Keys.Shift | Keys.C;
-        menuCopyText.Size = new Size(319, 22);
+        menuCopyText.Size = new Size(256, 22);
         menuCopyText.Text = "선택 텍스트 복사(&Y)";
         // 
         // menuEditText
         // 
         menuEditText.Name = "menuEditText";
         menuEditText.ShortcutKeys = Keys.F2;
-        menuEditText.Size = new Size(319, 22);
+        menuEditText.Size = new Size(256, 22);
         menuEditText.Text = "선택 영역 편집(&E)";
         // 
         // menuCopyImage
         // 
         menuCopyImage.Name = "menuCopyImage";
         menuCopyImage.ShortcutKeys = Keys.Control | Keys.Shift | Keys.I;
-        menuCopyImage.Size = new Size(319, 22);
+        menuCopyImage.Size = new Size(256, 22);
         menuCopyImage.Text = "이미지 복사(&C)";
         // 
         // menuView
@@ -304,6 +302,20 @@ partial class MainForm
         btnOpen.Text = "열기";
         btnOpen.ToolTipText = "PDF 열기";
         // 
+        // btnSavePdf
+        // 
+        btnSavePdf.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        btnSavePdf.ImageTransparentColor = Color.Magenta;
+        btnSavePdf.Name = "btnSavePdf";
+        btnSavePdf.Size = new Size(23, 22);
+        btnSavePdf.Text = "저장";
+        btnSavePdf.ToolTipText = "저장 (Ctrl+S) — 편집 내용을 별도 PDF 파일로 저장";
+        // 
+        // toolStripSep1
+        // 
+        toolStripSep1.Name = "toolStripSep1";
+        toolStripSep1.Size = new Size(6, 25);
+        // 
         // btnSelectText
         // 
         btnSelectText.CheckOnClick = true;
@@ -333,10 +345,10 @@ partial class MainForm
         btnCopyImage.Text = "이미지 복사";
         btnCopyImage.ToolTipText = "선택한 이미지 복사";
         // 
-        // toolStripSep1
+        // toolStripSep2
         // 
-        toolStripSep1.Name = "toolStripSep1";
-        toolStripSep1.Size = new Size(6, 25);
+        toolStripSep2.Name = "toolStripSep2";
+        toolStripSep2.Size = new Size(6, 25);
         // 
         // btnPrevPage
         // 
@@ -355,20 +367,6 @@ partial class MainForm
         btnNextPage.Size = new Size(23, 22);
         btnNextPage.Text = "다음";
         btnNextPage.ToolTipText = "다음 페이지";
-        // 
-        // toolStripSep2
-        // 
-        toolStripSep2.Name = "toolStripSep2";
-        toolStripSep2.Size = new Size(6, 25);
-        // 
-        // btnSavePdf
-        // 
-        btnSavePdf.DisplayStyle = ToolStripItemDisplayStyle.Image;
-        btnSavePdf.ImageTransparentColor = Color.Magenta;
-        btnSavePdf.Name = "btnSavePdf";
-        btnSavePdf.Size = new Size(23, 22);
-        btnSavePdf.Text = "저장";
-        btnSavePdf.ToolTipText = "저장 (Ctrl+S) — 편집 내용을 별도 PDF 파일로 저장";
         // 
         // btnExportMd
         // 
@@ -405,7 +403,6 @@ partial class MainForm
         // 
         // panelPdf
         // 
-        panelPdf.Controls.Add(labelPdfHeader);
         panelPdf.Controls.Add(pdfViewerPanel);
         panelPdf.Dock = DockStyle.Fill;
         panelPdf.Location = new Point(0, 49);
@@ -414,25 +411,12 @@ partial class MainForm
         panelPdf.Size = new Size(1400, 829);
         panelPdf.TabIndex = 2;
         // 
-        // labelPdfHeader
-        // 
-        labelPdfHeader.BackColor = Color.FromArgb(245, 245, 245);
-        labelPdfHeader.BorderStyle = BorderStyle.FixedSingle;
-        labelPdfHeader.Dock = DockStyle.Top;
-        labelPdfHeader.Location = new Point(0, 0);
-        labelPdfHeader.Name = "labelPdfHeader";
-        labelPdfHeader.Padding = new Padding(8, 0, 0, 0);
-        labelPdfHeader.Size = new Size(1392, 28);
-        labelPdfHeader.TabIndex = 0;
-        labelPdfHeader.Text = "PDF — 텍스트 더블클릭 또는 F2로 직접 편집";
-        labelPdfHeader.TextAlign = ContentAlignment.MiddleLeft;
-        // 
         // pdfViewerPanel
         // 
         pdfViewerPanel.Dock = DockStyle.Fill;
-        pdfViewerPanel.Location = new Point(0, 0);
+        pdfViewerPanel.Location = new Point(4, 4);
         pdfViewerPanel.Name = "pdfViewerPanel";
-        pdfViewerPanel.Size = new Size(1392, 793);
+        pdfViewerPanel.Size = new Size(1392, 821);
         pdfViewerPanel.TabIndex = 1;
         // 
         // statusStripMain

@@ -637,12 +637,6 @@ public partial class MainForm : Form
 	private void SyncInteractionMode(PdfInteractionMode mode)
 	{
 		pdfViewerPanel.InteractionMode = mode;
-		labelPdfHeader.Text = mode switch
-		{
-			PdfInteractionMode.TextSelect => "PDF — 텍스트 더블클릭 또는 F2로 직접 편집",
-			PdfInteractionMode.ImageSelect => "PDF — 그림 선택 (드래그 또는 내장 이미지 클릭)",
-			_ => "PDF"
-		};
 
 		statusLabel.Text = mode switch
 		{

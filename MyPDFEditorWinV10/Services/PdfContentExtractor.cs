@@ -7,6 +7,7 @@ namespace MyPDFEditorWinV10.Services;
 public static class PdfContentExtractor
 {
 	private const double LineGroupingThreshold = 3d;
+	private const double MinColumnGapThreshold = 20d;
 
 	private static PdfDocument OpenDocument(string filePath, string password)
 	{
@@ -60,16 +61,44 @@ public static class PdfContentExtractor
 		foreach (List<Word> line in lines)
 		{
 			line.Sort((a, b) => a.BoundingBox.Left.CompareTo(b.BoundingBox.Left));
-			string text = string.Join(" ", line.Select(w => w.Text)).Trim();
+			foreach (PdfTextBlock block in CreateBlocksFromLineClusters(line, pageIndex))
+			{
+				yield return block;
+			}
+		}
+	}
+
+	private static IEnumerable<PdfTextBlock> CreateBlocksFromLineClusters(List<Word> sortedLine, int pageIndex)
+	{
+		double avgWordHeight = sortedLine.Average(w => w.BoundingBox.Height);
+		double gapThreshold = Math.Max(MinColumnGapThreshold, avgWordHeight * 2.0d);
+
+		List<List<Word>> clusters = new List<List<Word>>();
+		List<Word> current = new List<Word> { sortedLine[0] };
+		for (int i = 1; i < sortedLine.Count; i++)
+		{
+			double gap = sortedLine[i].BoundingBox.Left - sortedLine[i - 1].BoundingBox.Right;
+			if (gap > gapThreshold)
+			{
+				clusters.Add(current);
+				current = new List<Word>();
+			}
+			current.Add(sortedLine[i]);
+		}
+		clusters.Add(current);
+
+		foreach (List<Word> cluster in clusters)
+		{
+			string text = string.Join(" ", cluster.Select(w => w.Text)).Trim();
 			if (string.IsNullOrEmpty(text))
 			{
 				continue;
 			}
 
-			List<Letter> letters = line.SelectMany(word => word.Letters).ToList();
+			List<Letter> letters = cluster.SelectMany(word => word.Letters).ToList();
 			double fontSize = letters.Count > 0
 				? letters.Average(letter => letter.PointSize)
-				: Math.Max(8d, (line.Max(word => word.BoundingBox.Top) - line.Min(word => word.BoundingBox.Bottom)) * 0.85d);
+				: Math.Max(8d, (cluster.Max(word => word.BoundingBox.Top) - cluster.Min(word => word.BoundingBox.Bottom)) * 0.85d);
 			Letter sampleLetter = SelectRepresentativeLetter(letters);
 			string fontName = sampleLetter?.FontName;
 			bool isBold = sampleLetter?.FontDetails?.IsBold ?? false;
@@ -77,10 +106,10 @@ public static class PdfContentExtractor
 			string fontFamilyName = sampleLetter?.FontDetails?.Name;
 			PdfTextBlockRenderHelper.ApplyFontStyleFromNames(fontName, fontFamilyName, ref isBold, ref isItalic, ref fontFamilyName);
 			(byte fillColorR, byte fillColorG, byte fillColorB) = ExtractFillColor(sampleLetter);
-			double left = line.Min(w => w.BoundingBox.Left);
-			double bottom = line.Min(w => w.BoundingBox.Bottom);
-			double right = line.Max(w => w.BoundingBox.Right);
-			double top = line.Max(w => w.BoundingBox.Top);
+			double left = cluster.Min(w => w.BoundingBox.Left);
+			double bottom = cluster.Min(w => w.BoundingBox.Bottom);
+			double right = cluster.Max(w => w.BoundingBox.Right);
+			double top = cluster.Max(w => w.BoundingBox.Top);
 			double originalLeft = letters.Min(letter => letter.GlyphRectangleLoose.Left);
 			double originalBottom = letters.Min(letter => letter.GlyphRectangleLoose.Bottom);
 			double originalRight = letters.Max(letter => letter.GlyphRectangleLoose.Right);
@@ -114,6 +143,17 @@ public static class PdfContentExtractor
 			foreach (int sequence in letters.Select(letter => letter.TextSequence).Distinct())
 			{
 				block.SourceTextSequences.Add(sequence);
+			}
+
+			foreach (IGrouping<int, Letter> sequenceGroup in letters.GroupBy(letter => letter.TextSequence).OrderBy(group => group.Key))
+			{
+				block.SourceSequenceParts.Add(new PdfTextSequencePart
+				{
+					Sequence = sequenceGroup.Key,
+					Text = string.Concat(sequenceGroup
+						.OrderBy(letter => letter.GlyphRectangleLoose.Left)
+						.Select(letter => letter.Value))
+				});
 			}
 
 			yield return block;

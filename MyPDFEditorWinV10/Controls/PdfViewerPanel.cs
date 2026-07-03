@@ -24,6 +24,8 @@ internal enum ImageSelectionKind
 public partial class PdfViewerPanel : UserControl
 {
 	private const int ClickDragThreshold = 5;
+	private const float MinEditorFontSize = 10f;
+	private const float MaxEditorFontSize = 18f;
 
 	private PdfViewer _viewer;
 	private SelectionOverlay _selectionOverlay;
@@ -41,6 +43,7 @@ public partial class PdfViewerPanel : UserControl
 	private IList<PdfTextBlock> _textBlocks;
 	private TextBox _inlineTextBox;
 	private PdfTextBlock _editingBlock;
+	private Font _inlineEditorFont;
 
 	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 	[Browsable(false)]
@@ -980,6 +983,7 @@ public partial class PdfViewerPanel : UserControl
 		textBox.LostFocus -= InlineTextBox_LostFocus;
 		Controls.Remove(textBox);
 		textBox.Dispose();
+		DisposeInlineEditorFont();
 
 		if (changed)
 		{
@@ -1044,7 +1048,7 @@ public partial class PdfViewerPanel : UserControl
 		}
 
 		float fontSize = EstimateEditorFontSize(blockBounds, block);
-		using Font font = PdfTextBlockRenderHelper.CreateEditorFont(block, fontSize);
+		using Font font = CreateReadableEditorFont(fontSize);
 		string measureText = string.IsNullOrEmpty(text) ? " " : text.Replace("\r\n", "\n");
 		Size textSize = TextRenderer.MeasureText(
 			measureText,
@@ -1074,11 +1078,35 @@ public partial class PdfViewerPanel : UserControl
 	{
 		_inlineTextBox.SetBounds(editorBounds.X, editorBounds.Y, editorBounds.Width, editorBounds.Height);
 		float fontSize = EstimateEditorFontSize(blockBounds, block);
-		Font newFont = PdfTextBlockRenderHelper.CreateEditorFont(block, fontSize);
-		Font oldFont = _inlineTextBox.Font;
+		Font newFont = CreateReadableEditorFont(fontSize);
+		Font previousFont = _inlineEditorFont;
+		_inlineEditorFont = newFont;
 		_inlineTextBox.Font = newFont;
-		oldFont?.Dispose();
-		_inlineTextBox.ForeColor = PdfTextBlockRenderHelper.GetEditorForeColor(block);
+		if (!ReferenceEquals(previousFont, newFont))
+		{
+			previousFont?.Dispose();
+		}
+		_inlineTextBox.ForeColor = Color.Black;
+	}
+
+	private static Font CreateReadableEditorFont(float fontSize)
+	{
+		float normalized = Math.Clamp(fontSize, MinEditorFontSize, MaxEditorFontSize);
+		try
+		{
+			return new Font("Malgun Gothic", normalized, FontStyle.Regular, GraphicsUnit.Point);
+		}
+		catch
+		{
+			return new Font(FontFamily.GenericSansSerif, normalized, FontStyle.Regular, GraphicsUnit.Point);
+		}
+	}
+
+	private void DisposeInlineEditorFont()
+	{
+		Font font = _inlineEditorFont;
+		_inlineEditorFont = null;
+		font?.Dispose();
 	}
 
 	private static float EstimateEditorFontSize(Rectangle blockBounds, PdfTextBlock block)
@@ -1087,10 +1115,10 @@ public partial class PdfViewerPanel : UserControl
 		float scale = pdfHeight > 0 ? blockBounds.Height / (float)pdfHeight : 1f;
 		if (block.FontSize > 0)
 		{
-			return Math.Max(9f, Math.Min((float)block.FontSize * scale, 48f));
+			return Math.Max(MinEditorFontSize, Math.Min((float)block.FontSize * scale, MaxEditorFontSize));
 		}
 
-		return Math.Max(9f, Math.Min(blockBounds.Height * 0.78f, 48f));
+		return Math.Max(MinEditorFontSize, Math.Min(blockBounds.Height * 0.55f, MaxEditorFontSize));
 	}
 
 	private bool TryGetTextBlockAt(Point rendererPoint, out PdfTextBlock block)

@@ -1,4 +1,5 @@
 using System.Reflection;
+using UglyToad.PdfPig.Graphics.Operations;
 using UglyToad.PdfPig.Tokens;
 using UglyToad.PdfPig.Writer;
 
@@ -8,6 +9,37 @@ internal static class PdfPigBuilderAccess
 {
 	private static readonly FieldInfo ContextField = typeof(PdfDocumentBuilder).GetField("context", BindingFlags.Instance | BindingFlags.NonPublic);
 	private static readonly FieldInfo PageDictionaryField = typeof(PdfPageBuilder).GetField("pageDictionary", BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly FieldInfo ContentStreamsField = typeof(PdfPageBuilder).GetField("contentStreams", BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly FieldInfo CurrentStreamField = typeof(PdfPageBuilder).GetField("currentStream", BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly Type DefaultContentStreamType = typeof(PdfPageBuilder).GetNestedType("DefaultContentStream", BindingFlags.NonPublic);
+
+	public static bool TryReplacePrimaryContentOperations(PdfPageBuilder pageBuilder, IList<IGraphicsStateOperation> operations)
+	{
+		if (pageBuilder == null || operations == null || DefaultContentStreamType == null ||
+			ContentStreamsField == null || CurrentStreamField == null)
+		{
+			return false;
+		}
+
+		if (Activator.CreateInstance(DefaultContentStreamType, operations) is not object replacementStream)
+		{
+			return false;
+		}
+
+		if (ContentStreamsField.GetValue(pageBuilder) is not System.Collections.IList contentStreams || contentStreams.Count == 0)
+		{
+			return false;
+		}
+
+		contentStreams[0] = replacementStream;
+		if (contentStreams.Count > 1)
+		{
+			contentStreams.RemoveAt(contentStreams.Count - 1);
+		}
+
+		CurrentStreamField.SetValue(pageBuilder, replacementStream);
+		return true;
+	}
 
 	public static bool TryReplaceXObjectStream(PdfDocumentBuilder builder, PdfPageBuilder pageBuilder, string xObjectName, byte[] rawContent)
 	{

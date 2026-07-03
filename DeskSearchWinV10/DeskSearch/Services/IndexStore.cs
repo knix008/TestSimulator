@@ -269,22 +269,76 @@ public sealed partial class IndexStore : IDisposable
         }
     }
 
+    public void RemovePath(string path)
+    {
+        lock (_lock)
+            RemovePathLocked(path);
+    }
+
     public void RemovePathAndDescendants(string path)
     {
         lock (_lock)
+            RemovePathAndDescendantsLocked(path);
+    }
+
+    /// <summary>
+    /// Removes a watcher-reported deletion: exact row for files; path + descendants for directories.
+    /// </summary>
+    public void RemoveWatcherDeletedPath(string path)
+    {
+        lock (_lock)
         {
-            var normalized = path.TrimEnd('\\');
-            using var exact = CreateCommand("DELETE FROM entries WHERE full_path = $path COLLATE NOCASE");
-            exact.Parameters.AddWithValue("$path", normalized);
-            exact.ExecuteNonQuery();
+            if (ShouldRemoveDeletedPathWithDescendantsLocked(path))
+                RemovePathAndDescendantsLocked(path);
+            else
+                RemovePathLocked(path);
+        }
+    }
 
-            var prefix = EscapeLikePrefix(normalized.TrimEnd('\\') + "\\");
-            using var descendants = CreateCommand(
-                "DELETE FROM entries WHERE full_path LIKE $prefix ESCAPE '\\' COLLATE NOCASE");
-            descendants.Parameters.AddWithValue("$prefix", prefix + "%");
-            descendants.ExecuteNonQuery();
+    private void RemovePathLocked(string path)
+    {
+        var normalized = path.TrimEnd('\\');
+        using var exact = CreateCommand("DELETE FROM entries WHERE full_path = $path COLLATE NOCASE");
+        exact.Parameters.AddWithValue("$path", normalized);
+        exact.ExecuteNonQuery();
+        _cachedCount = -1;
+    }
 
-            _cachedCount = -1;
+    private void RemovePathAndDescendantsLocked(string path)
+    {
+        var normalized = path.TrimEnd('\\');
+        using var exact = CreateCommand("DELETE FROM entries WHERE full_path = $path COLLATE NOCASE");
+        exact.Parameters.AddWithValue("$path", normalized);
+        exact.ExecuteNonQuery();
+
+        var prefix = EscapeLikePrefix(normalized + "\\");
+        using var descendants = CreateCommand(
+            "DELETE FROM entries WHERE full_path LIKE $prefix ESCAPE '\\' COLLATE NOCASE");
+        descendants.Parameters.AddWithValue("$prefix", prefix + "%");
+        descendants.ExecuteNonQuery();
+
+        _cachedCount = -1;
+    }
+
+    private bool ShouldRemoveDeletedPathWithDescendantsLocked(string path)
+    {
+        var normalized = path.TrimEnd('\\');
+
+        using (var command = CreateCommand(
+                   "SELECT is_directory FROM entries WHERE full_path = $path COLLATE NOCASE LIMIT 1"))
+        {
+            command.Parameters.AddWithValue("$path", normalized);
+            using var reader = command.ExecuteReader();
+            if (reader.Read())
+                return reader.GetInt32(0) != 0;
+        }
+
+        var descendantPrefix = EscapeLikePrefix(normalized + "\\") + "%";
+        using (var command = CreateCommand(
+                   "SELECT 1 FROM entries WHERE full_path LIKE $prefix ESCAPE '\\' COLLATE NOCASE LIMIT 1"))
+        {
+            command.Parameters.AddWithValue("$prefix", descendantPrefix);
+            return command.ExecuteScalar() is not null;
         }
     }
 
@@ -897,6 +951,15 @@ public sealed partial class IndexStore : IDisposable
     {
         lock (_lock)
             RefreshCountLocked();
+    }
+
+    public void Vacuum()
+    {
+        lock (_lock)
+        {
+            ExecuteNonQuery("VACUUM");
+            _cachedCount = -1;
+        }
     }
 
     private int DeleteByPrefix(string escapedPrefix)

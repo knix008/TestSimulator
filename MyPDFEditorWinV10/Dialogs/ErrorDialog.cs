@@ -22,8 +22,41 @@ public sealed class ErrorDialog : Form
 
 	public static void Show(IWin32Window owner, string title, string summary, Exception ex)
 	{
-		using ErrorDialog dialog = new ErrorDialog(title, summary, FormatException(ex));
+		using ErrorDialog dialog = new ErrorDialog(title, BuildSummary(summary, ex), FormatException(ex));
 		dialog.ShowDialog(owner);
+	}
+
+	private static string BuildSummary(string summary, Exception ex)
+	{
+		string baseSummary = string.IsNullOrWhiteSpace(summary)
+			? "오류가 발생했습니다."
+			: summary.Trim();
+
+		string exceptionMessage = GetFirstMeaningfulExceptionMessage(ex);
+		if (string.IsNullOrWhiteSpace(exceptionMessage))
+		{
+			return baseSummary;
+		}
+
+		if (baseSummary.Contains(exceptionMessage, StringComparison.Ordinal))
+		{
+			return baseSummary;
+		}
+
+		return $"{baseSummary}{Environment.NewLine}원인: {exceptionMessage}";
+	}
+
+	private static string GetFirstMeaningfulExceptionMessage(Exception ex)
+	{
+		for (Exception current = ex; current != null; current = current.InnerException)
+		{
+			if (!string.IsNullOrWhiteSpace(current.Message))
+			{
+				return current.Message.Trim();
+			}
+		}
+
+		return string.Empty;
 	}
 
 	private static string FormatException(Exception ex)
@@ -92,8 +125,8 @@ public sealed class ErrorDialog : Form
 
 		Label summaryLabel = new Label
 		{
-			AutoSize = false,
-			Dock = DockStyle.Fill,
+			AutoSize = true,
+			MaximumSize = new Size(540, 0),
 			Text = string.IsNullOrWhiteSpace(normalizedSummary) ? "오류가 발생했습니다." : normalizedSummary,
 			UseMnemonic = false,
 			BackColor = SystemColors.Control,

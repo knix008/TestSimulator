@@ -23,43 +23,81 @@ public static class PdfContentStreamTextReplacer
 		StackDepthGuard.Infinite,
 		true);
 
-	public static void ApplyTextReplacements(
+	public static HashSet<PdfTextBlock> ApplyToSourcePage(
 		PdfPageBuilder pageBuilder,
 		PdfDocumentBuilder documentBuilder,
-		PdfDocument sourceDocument,
 		Page sourcePage,
 		IReadOnlyList<PdfTextBlock> modifiedBlocks)
 	{
-		if (pageBuilder == null || modifiedBlocks == null || modifiedBlocks.Count == 0)
+		if (pageBuilder == null || sourcePage == null || modifiedBlocks == null || modifiedBlocks.Count == 0)
 		{
-			return;
+			return new HashSet<PdfTextBlock>();
+		}
+
+		List<IGraphicsStateOperation> operations = sourcePage.Operations.ToList();
+		HashSet<PdfTextBlock> replacedBlocks = ApplyToOperations(
+			operations,
+			pageBuilder,
+			documentBuilder,
+			sourcePage,
+			modifiedBlocks);
+
+		if (replacedBlocks.Count > 0)
+		{
+			PdfPigBuilderAccess.TryReplacePrimaryContentOperations(pageBuilder, operations);
+		}
+
+		return replacedBlocks;
+	}
+
+	public static HashSet<PdfTextBlock> ApplyToOperations(
+		IList<IGraphicsStateOperation> operations,
+		PdfPageBuilder pageBuilder,
+		PdfDocumentBuilder documentBuilder,
+		Page sourcePage,
+		IReadOnlyList<PdfTextBlock> modifiedBlocks)
+	{
+		HashSet<PdfTextBlock> replacedBlocks = new HashSet<PdfTextBlock>();
+		if (operations == null || operations.Count == 0 || modifiedBlocks == null || modifiedBlocks.Count == 0 || sourcePage == null)
+		{
+			return replacedBlocks;
 		}
 
 		Dictionary<int, PdfTextBlock> ownerBySequence = BuildSequenceOwnerMap(modifiedBlocks);
 		Dictionary<PdfTextBlock, string> replacementTextByBlock = modifiedBlocks.ToDictionary(
 			block => block,
 			block => block.Text ?? string.Empty);
+		HashSet<int> modifiedSequences = new HashSet<int>();
+		HashSet<string> visitedForms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		int textSequence = 0;
 		HashSet<string> updatedForms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		ProcessOperationList(
+			operations,
+			pageBuilder,
+			documentBuilder,
+			sourcePage,
+			ownerBySequence,
+			replacementTextByBlock,
+			ref textSequence,
+			updatedForms,
+			visitedForms,
+			modifiedSequences);
 
-		foreach (PdfPageBuilder.IContentStream contentStream in pageBuilder.ContentStreams)
+		foreach (PdfTextBlock block in modifiedBlocks)
 		{
-			IList<IGraphicsStateOperation> operations = TryGetWritableOperations(contentStream);
-			if (operations == null || operations.Count == 0)
+			if (block.SourceTextSequences.Count == 0)
 			{
 				continue;
 			}
 
-			ProcessOperationList(
-				operations,
-				pageBuilder,
-				documentBuilder,
-				ownerBySequence,
-				replacementTextByBlock,
-				ref textSequence,
-				updatedForms);
+			if (block.SourceTextSequences.All(modifiedSequences.Contains))
+			{
+				replacedBlocks.Add(block);
+			}
 		}
+
+		return replacedBlocks;
 	}
 
 	private static Dictionary<int, PdfTextBlock> BuildSequenceOwnerMap(IReadOnlyList<PdfTextBlock> modifiedBlocks)
@@ -80,13 +118,14 @@ public static class PdfContentStreamTextReplacer
 		IList<IGraphicsStateOperation> operations,
 		PdfPageBuilder pageBuilder,
 		PdfDocumentBuilder documentBuilder,
+		Page sourcePage,
 		IReadOnlyDictionary<int, PdfTextBlock> ownerBySequence,
 		IReadOnlyDictionary<PdfTextBlock, string> replacementTextByBlock,
 		ref int textSequence,
-		ISet<string> updatedForms)
+		ISet<string> updatedForms,
+		ISet<string> visitedForms,
+		ISet<int> modifiedSequences)
 	{
-		List<IGraphicsStateOperation> filtered = new List<IGraphicsStateOperation>(operations.Count);
-		Dictionary<PdfTextBlock, int> insertAtIndex = new Dictionary<PdfTextBlock, int>();
 		bool changed = false;
 
 		for (int index = 0; index < operations.Count; index++)
@@ -97,84 +136,64 @@ public static class PdfContentStreamTextReplacer
 				string formName = invokeNamedXObject.Name.Data;
 				if (updatedForms.Contains(formName))
 				{
-					AdvanceTextSequenceCount(formName, pageBuilder, documentBuilder, ref textSequence);
+					AdvanceTextSequenceCountFromSource(sourcePage, formName, ref textSequence, visitedForms);
 				}
 				else if (TryProcessFormXObject(
 					pageBuilder,
 					documentBuilder,
+					sourcePage,
 					formName,
 					ownerBySequence,
 					replacementTextByBlock,
 					ref textSequence,
-					updatedForms))
+					updatedForms,
+					visitedForms,
+					modifiedSequences))
 				{
 					changed = true;
 				}
+				else
+				{
+					AdvanceTextSequenceCountFromSource(sourcePage, formName, ref textSequence, visitedForms);
+				}
 
-				filtered.Add(operation);
 				continue;
 			}
 
-			int sequenceCount = GetTextSequenceCount(operation);
+			int sequenceCount = PdfContentStreamWalker.GetTextSequenceCount(operation);
 			if (sequenceCount == 0)
 			{
-				filtered.Add(operation);
 				continue;
 			}
 
 			if (OperationMatchesModifiedText(textSequence, sequenceCount, ownerBySequence))
 			{
-				for (int offset = 0; offset < sequenceCount; offset++)
+				if (ownerBySequence.TryGetValue(textSequence, out PdfTextBlock owner))
 				{
-					if (ownerBySequence.TryGetValue(textSequence + offset, out PdfTextBlock owner) &&
-						!insertAtIndex.ContainsKey(owner))
+					string replacementPart = TextReplacementDistribution.GetReplacementPart(owner, textSequence);
+					if (replacementPart != null)
 					{
-						insertAtIndex[owner] = filtered.Count;
+						operations[index] = ModifyOperationText(operation, replacementPart);
+						modifiedSequences.Add(textSequence);
+						changed = true;
 					}
 				}
-
-				changed = true;
-			}
-			else
-			{
-				filtered.Add(operation);
 			}
 
 			textSequence += sequenceCount;
 		}
 
-		foreach (KeyValuePair<PdfTextBlock, int> insert in insertAtIndex.OrderByDescending(pair => pair.Value))
-		{
-			if (!replacementTextByBlock.TryGetValue(insert.Key, out string replacementText) || string.IsNullOrEmpty(replacementText))
-			{
-				continue;
-			}
-
-			filtered.Insert(insert.Value, new ShowText(replacementText));
-			changed = true;
-		}
-
-		if (!changed)
-		{
-			return false;
-		}
-
-		operations.Clear();
-		foreach (IGraphicsStateOperation operation in filtered)
-		{
-			operations.Add(operation);
-		}
-
-		return true;
+		return changed;
 	}
 
-	private static void AdvanceTextSequenceCount(
+	private static void AdvanceTextSequenceCountFromSource(
+		Page sourcePage,
 		string formName,
-		PdfPageBuilder pageBuilder,
-		PdfDocumentBuilder documentBuilder,
-		ref int textSequence)
+		ref int textSequence,
+		ISet<string> visitedForms)
 	{
-		if (!TryLoadOutputFormOperations(pageBuilder, documentBuilder, formName, out List<IGraphicsStateOperation> formOperations))
+		if (!visitedForms.Add(formName) ||
+			!PdfContentStreamWalker.TryLoadSourceFormOperations(sourcePage, formName, out List<IGraphicsStateOperation> formOperations))
 		{
 			return;
 		}
@@ -183,22 +202,25 @@ public static class PdfContentStreamTextReplacer
 		{
 			if (operation is InvokeNamedXObject nestedForm)
 			{
-				AdvanceTextSequenceCount(nestedForm.Name.Data, pageBuilder, documentBuilder, ref textSequence);
+				AdvanceTextSequenceCountFromSource(sourcePage, nestedForm.Name.Data, ref textSequence, visitedForms);
 				continue;
 			}
 
-			textSequence += GetTextSequenceCount(operation);
+			textSequence += PdfContentStreamWalker.GetTextSequenceCount(operation);
 		}
 	}
 
 	private static bool TryProcessFormXObject(
 		PdfPageBuilder pageBuilder,
 		PdfDocumentBuilder documentBuilder,
+		Page sourcePage,
 		string formName,
 		IReadOnlyDictionary<int, PdfTextBlock> ownerBySequence,
 		IReadOnlyDictionary<PdfTextBlock, string> replacementTextByBlock,
 		ref int textSequence,
-		ISet<string> updatedForms)
+		ISet<string> updatedForms,
+		ISet<string> visitedForms,
+		ISet<int> modifiedSequences)
 	{
 		if (!TryLoadOutputFormOperations(pageBuilder, documentBuilder, formName, out List<IGraphicsStateOperation> formOperations))
 		{
@@ -210,10 +232,13 @@ public static class PdfContentStreamTextReplacer
 			formOperations,
 			pageBuilder,
 			documentBuilder,
+			sourcePage,
 			ownerBySequence,
 			replacementTextByBlock,
 			ref textSequence,
-			updatedForms);
+			updatedForms,
+			visitedForms,
+			modifiedSequences);
 
 		if (!changed)
 		{
@@ -284,18 +309,6 @@ public static class PdfContentStreamTextReplacer
 		return true;
 	}
 
-	private static IList<IGraphicsStateOperation> TryGetWritableOperations(PdfPageBuilder.IContentStream contentStream)
-	{
-		try
-		{
-			return contentStream.Operations;
-		}
-		catch (NotSupportedException)
-		{
-			return null;
-		}
-	}
-
 	private static bool OperationMatchesModifiedText(
 		int startSequence,
 		int sequenceCount,
@@ -312,19 +325,39 @@ public static class PdfContentStreamTextReplacer
 		return false;
 	}
 
-	private static int GetTextSequenceCount(IGraphicsStateOperation operation)
+	private static IGraphicsStateOperation ModifyOperationText(IGraphicsStateOperation operation, string text)
 	{
-		switch (operation)
+		text ??= string.Empty;
+		return operation switch
 		{
-			case ShowText:
-			case MoveToNextLineShowText:
-			case MoveToNextLineShowTextWithSpacing:
-				return 1;
-			case ShowTextsWithPositioning showTextsWithPositioning:
-				return 1 + showTextsWithPositioning.Array.Count(token => token is StringToken or HexToken);
-			default:
-				return 0;
+			ShowText => new ShowText(text),
+			MoveToNextLineShowText => new MoveToNextLineShowText(text),
+			MoveToNextLineShowTextWithSpacing => new MoveToNextLineShowText(text),
+			ShowTextsWithPositioning positioning => ReplacePrimaryTextInPositioning(positioning, text),
+			_ => operation
+		};
+	}
+
+	private static ShowTextsWithPositioning ReplacePrimaryTextInPositioning(ShowTextsWithPositioning positioning, string text)
+	{
+		List<IToken> updated = new List<IToken>(positioning.Array);
+		bool replaced = false;
+		for (int i = 0; i < updated.Count; i++)
+		{
+			if (updated[i] is StringToken or HexToken)
+			{
+				updated[i] = new StringToken(text);
+				replaced = true;
+				break;
+			}
 		}
+
+		if (!replaced)
+		{
+			updated.Insert(0, new StringToken(text));
+		}
+
+		return new ShowTextsWithPositioning(updated);
 	}
 
 	private sealed class SilentLog : ILog
