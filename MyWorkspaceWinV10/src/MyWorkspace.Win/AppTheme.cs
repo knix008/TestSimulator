@@ -77,6 +77,7 @@ internal static class AppTheme
     public const int VerticalToolbarIconSize = 24;
     public const int ShellBorderWidth = 1;
     public const int SplitterBorderWidth = 1;
+    public const int SplitterGrabWidth = 8;
 
     public static Color ShellBorder => ResolveShellBorder();
 
@@ -1106,6 +1107,12 @@ internal static class AppTheme
             textBox.Font = UiFont;
     }
 
+    public static void StyleNameTextBox(TextBox textBox)
+    {
+        StyleTextBox(textBox);
+        ImeInputHelper.ConfigureNameTextBox(textBox);
+    }
+
     public static void StyleDataGridView(DataGridView grid)
     {
         grid.EnableHeadersVisualStyles = false;
@@ -1510,11 +1517,62 @@ internal static class AppTheme
 
     public static void StyleSplitContainer(SplitContainer split)
     {
+        StyleSplitContainer(split, SplitterBorderWidth, useDividerBackground: false);
+    }
+
+    public static void StyleGrabSplitContainer(SplitContainer split)
+    {
+        StyleSplitContainer(split, SplitterGrabWidth, useDividerBackground: true);
+        split.Paint -= PaintVerticalSplitterGrip;
+        split.Paint += PaintVerticalSplitterGrip;
+        split.Resize -= InvalidateGrabSplitter;
+        split.Resize += InvalidateGrabSplitter;
+        SplitContainerLiveResizeHelper.Attach(split);
+        split.Invalidate();
+    }
+
+    public static void StyleCommentsSplitContainer(SplitContainer split) =>
+        StyleGrabSplitContainer(split);
+
+    private static void InvalidateGrabSplitter(object? sender, EventArgs e)
+    {
+        if (sender is Control control && !control.IsDisposed)
+            control.Invalidate();
+    }
+
+    private static void PaintVerticalSplitterGrip(object? sender, PaintEventArgs e)
+    {
+        if (sender is not SplitContainer split || split.Orientation != Orientation.Vertical)
+            return;
+
+        var splitterWidth = split.SplitterWidth;
+        if (splitterWidth <= 0 || split.Height <= 0)
+            return;
+
+        var splitterLeft = split.Panel1.Width;
+        var gripColor = IsDark ? TextMuted : TextSecondary;
+        var dotSize = 3;
+        var dotGap = 4;
+        var centerX = splitterLeft + splitterWidth / 2;
+        var totalHeight = dotSize * 3 + dotGap * 2;
+        var startY = Math.Max(0, (split.Height - totalHeight) / 2);
+
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var brush = new SolidBrush(gripColor);
+        for (var i = 0; i < 3; i++)
+        {
+            var y = startY + i * (dotSize + dotGap);
+            e.Graphics.FillEllipse(brush, centerX - dotSize / 2, y, dotSize, dotSize);
+        }
+    }
+
+    private static void StyleSplitContainer(SplitContainer split, int splitterWidth, bool useDividerBackground)
+    {
         split.BorderStyle = BorderStyle.None;
-        split.SplitterWidth = SplitterBorderWidth;
+        split.SplitterWidth = splitterWidth;
         split.Panel1.BackColor = Sidebar;
         split.Panel2.BackColor = EditorBackground;
-        split.BackColor = split.Panel1.BackColor;
+        split.BackColor = useDividerBackground ? Border : split.Panel1.BackColor;
     }
 
     public static void StyleTabControl(TabControl tabControl)
@@ -1587,13 +1645,13 @@ internal static class AppTheme
         editorHost.BackColor = Sidebar;
         editorHost.Padding = new Padding(4, 8, 12, 8);
 
-        StyleSplitContainer(outerSplit);
+        StyleGrabSplitContainer(outerSplit);
         workspaceHost.BackColor = Sidebar;
         workspaceHost.Padding = new Padding(12, 8, 4, 8);
         StyleBorderedPanel(workspaceHost, PanelEdges.All);
         outerSplit.Panel1.Padding = Padding.Empty;
 
-        StyleSplitContainer(editorSplit);
+        StyleGrabSplitContainer(editorSplit);
         webViewEditor.DefaultBackgroundColor = EditorBackground;
 
         statusLabel.ForeColor = TextSecondary;

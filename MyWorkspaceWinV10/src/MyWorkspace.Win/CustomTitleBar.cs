@@ -71,7 +71,9 @@ internal sealed class CustomTitleBar : Panel
         Controls.Add(_btnMinimize);
 
         MouseDown += OnDragMouseDown;
+        DoubleClick += OnTitleBarDoubleClick;
         _lblAppName.MouseDown += OnDragMouseDown;
+        _lblAppName.DoubleClick += OnTitleBarDoubleClick;
         _mark.SettingsMenuRequested += OnSettingsMenuRequested;
         _pageSearch.PageSelected += (_, selection) => PageSearchSelected?.Invoke(this, selection);
 
@@ -262,11 +264,14 @@ internal sealed class CustomTitleBar : Panel
 
     private void OnDragMouseDown(object? sender, MouseEventArgs e)
     {
-        if (e.Button != MouseButtons.Left || _hostForm == null)
+        if (e.Button != MouseButtons.Left || _hostForm == null || e.Clicks > 1)
             return;
 
         FramelessWindowHelper.BeginDrag(_hostForm);
     }
+
+    private void OnTitleBarDoubleClick(object? sender, EventArgs e) =>
+        ToggleMaximizeWindow();
 
     private void OnSettingsMenuRequested(object? sender, EventArgs e)
     {
@@ -280,7 +285,10 @@ internal sealed class CustomTitleBar : Panel
     private void OnMinimizeClick(object? sender, EventArgs e) =>
         _hostForm!.WindowState = FormWindowState.Minimized;
 
-    private void OnMaximizeClick(object? sender, EventArgs e)
+    private void OnMaximizeClick(object? sender, EventArgs e) =>
+        ToggleMaximizeWindow();
+
+    private void ToggleMaximizeWindow()
     {
         if (_hostForm == null)
             return;

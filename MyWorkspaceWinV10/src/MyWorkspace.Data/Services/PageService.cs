@@ -130,6 +130,8 @@ public sealed class PageService : IPageService
         if (string.IsNullOrEmpty(trimmed))
             throw new InvalidOperationException("Page 제목을 입력하세요.");
 
+        (trimmed, content) = EnsureUniquePageTitleInWorkspace(page.WorkspaceId, pageId, trimmed, content);
+
         if (page.Title != trimmed || page.Content != content)
             _pageVersionService.SaveVersion(currentUser, pageId, page.Title, page.Content);
 
@@ -174,6 +176,17 @@ public sealed class PageService : IPageService
         var sourceWorkspace = _db.Workspaces.AsNoTracking().First(w => w.Id == page.WorkspaceId);
         var targetWorkspace = _db.Workspaces.AsNoTracking().First(w => w.Id == targetWorkspaceId);
 
+        var existingTitles = _db.Pages.AsNoTracking()
+            .Where(p => p.WorkspaceId == targetWorkspaceId)
+            .Select(p => p.Title)
+            .ToList();
+        var uniqueTitle = UniqueNameHelper.MakeUnique(page.Title, existingTitles);
+        if (!string.Equals(uniqueTitle, page.Title, StringComparison.Ordinal))
+        {
+            page.Title = uniqueTitle;
+            page.Content = PageMarkdownTitleHelper.ReplaceFirstHeadingTitle(page.Content, uniqueTitle);
+        }
+
         page.WorkspaceId = targetWorkspaceId;
         page.UpdatedAt = DateTime.UtcNow;
         _db.SaveChanges();
@@ -184,8 +197,11 @@ public sealed class PageService : IPageService
             note: $"{sourceWorkspace.Name} -> {targetWorkspace.Name}");
     }
 
-    public void DeletePage(User currentUser, int pageId)
+    public void DeletePage(User currentUser, int pageId, bool userConfirmed)
     {
+        if (!userConfirmed)
+            throw new InvalidOperationException("Page 삭제는 사용자 확인 후에만 가능합니다.");
+
         var page = _db.Pages.FirstOrDefault(p => p.Id == pageId);
         if (page == null)
             return;
@@ -364,6 +380,25 @@ public sealed class PageService : IPageService
             return page.LockedByUserId;
 
         return GetEffectiveWorkspaceLockUserId(page.WorkspaceId);
+    }
+
+    private (string Title, string Content) EnsureUniquePageTitleInWorkspace(
+        int workspaceId,
+        int pageId,
+        string title,
+        string content)
+    {
+        var trimmed = title.Trim();
+        var siblingTitles = _db.Pages.AsNoTracking()
+            .Where(p => p.WorkspaceId == workspaceId && p.Id != pageId)
+            .Select(p => p.Title)
+            .ToList();
+
+        var uniqueTitle = UniqueNameHelper.MakeUnique(trimmed, siblingTitles);
+        if (string.Equals(uniqueTitle, trimmed, StringComparison.Ordinal))
+            return (trimmed, content);
+
+        return (uniqueTitle, PageMarkdownTitleHelper.ReplaceFirstHeadingTitle(content, uniqueTitle));
     }
 
     private void EnsureCanEditPage(User currentUser, int pageId)

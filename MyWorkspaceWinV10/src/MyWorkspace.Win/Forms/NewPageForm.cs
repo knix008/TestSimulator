@@ -22,7 +22,10 @@ public partial class NewPageForm : Form
     public NewPageForm(string? defaultTitle = null, string? defaultTemplateId = null)
     {
         InitializeComponent();
+        ImeMode = ImeMode.NoControl;
         AppTheme.ApplyStandardDialog(this);
+        AppTheme.StyleNameTextBox(txtTitle);
+        Shown += (_, _) => BeginInvoke(() => ImeInputHelper.FocusNameTextBox(txtTitle));
         Shown += (_, _) => LayoutTemplateToolbarButtons();
         Resize += (_, _) => LayoutTemplateToolbarButtons();
         AppTheme.Changed += OnAppThemeChanged;

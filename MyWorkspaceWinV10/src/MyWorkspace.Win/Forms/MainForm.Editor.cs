@@ -11,6 +11,7 @@ public partial class MainForm
     private void InitializeEditor()
     {
         webViewEditor.DefaultBackgroundColor = AppTheme.EditorBackground;
+        webViewEditor.ImeMode = ImeMode.NoControl;
         UpdateEditorEmptySurface();
 
         _editor = new WebViewEditorController(webViewEditor);
@@ -25,6 +26,15 @@ public partial class MainForm
                   && CanEditActivePage(),
             pnlEditorHost);
         _editor.ConfigureImageDataDrop(HandleEditorImageDataDroppedAsync);
+        _editor.ConfigurePasteHtmlClone(ClonePastedEditorHtml);
+    }
+
+    private string? ClonePastedEditorHtml(string html)
+    {
+        if (!_currentPageId.HasValue)
+            return html;
+
+        return PageAssetStore.CloneEmbeddedPageAssetHtml(html, _currentPageId.Value);
     }
 
     private void UpdateEditorEmptySurface()
@@ -61,16 +71,96 @@ public partial class MainForm
 
     private void OnEditorContextMenuRequested(Point location)
     {
-        if (_ctxEditor == null || !SessionContext.IsLoggedIn)
+        if (!SessionContext.IsLoggedIn)
             return;
 
         if (!_currentPageId.HasValue && !_draftWorkspaceId.HasValue)
             return;
 
+        if (_ctxEditor == null && _ctxEditorImage == null)
+            return;
+
+        _ = ShowEditorContextMenuAsync(location);
+    }
+
+    private async Task ShowEditorContextMenuAsync(Point location)
+    {
+        if (_editor == null)
+            return;
+
+        var context = await _editor.GetContextMenuContextAsync(location);
         _outlineUpdateTimer?.Stop();
         _outlineHighlightTimer?.Stop();
-        _editor?.SuspendScripts();
-        _ctxEditor.Show(webViewEditor, location);
+        _editor.SuspendScripts();
+
+        if (context.IsImage && _ctxEditorImage != null)
+        {
+            _editorContextMenuImageSrc = context.ImageSrc ?? string.Empty;
+            _editorContextMenuImageQuote = BuildImageCommentQuote(context.ImageSrc, context.ImageAlt);
+            UpdateEditorChromeEnabled();
+            _ctxEditorImage.Show(webViewEditor, location);
+            return;
+        }
+
+        var selectedText = (await _editor.GetSelectedTextAsync()).Trim();
+        _editorContextMenuSelectedText = selectedText;
+        _editorContextMenuLineQuote = context.LineQuote?.Trim() ?? string.Empty;
+        UpdateEditorCommentOnSelectionMenuItem();
+        UpdateEditorCommentOnLineMenuItem();
+        _ctxEditor!.Show(webViewEditor, location);
+    }
+
+    private void OpenEditorContextMenuImage()
+    {
+        if (string.IsNullOrWhiteSpace(_editorContextMenuImageSrc))
+            return;
+
+        OnEditorOpenRequested(_editorContextMenuImageSrc);
+    }
+
+    private static string BuildImageCommentQuote(string? src, string? alt)
+    {
+        if (string.IsNullOrWhiteSpace(src))
+            return string.Empty;
+
+        var safeSrc = src.Trim();
+        var safeAlt = alt?.Trim() ?? string.Empty;
+        return string.IsNullOrEmpty(safeAlt)
+            ? $"![]({safeSrc})"
+            : $"![{safeAlt}]({safeSrc})";
+    }
+
+    private async Task ReplaceSelectedImageAsync()
+    {
+        if (!CanEditActivePage() || !_currentPageId.HasValue)
+            return;
+
+        using var dialog = new OpenFileDialog
+        {
+            Title = Localization.Get(K.DialogImageFilePrompt),
+            Filter = PageAssetStore.BuildOpenFileFilter(),
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog() != DialogResult.OK)
+            return;
+
+        try
+        {
+            var fileName = PageAssetStore.ImportImage(_currentPageId.Value, dialog.FileName);
+            var fileUri = PageAssetStore.BuildEditorUri(_currentPageId.Value, fileName);
+            var alt = Path.GetFileNameWithoutExtension(dialog.FileName);
+            await RunEditorAsync(async e =>
+            {
+                await e.ReplaceSelectedImageAsync(fileUri, alt);
+                await e.FinalizeImageSizesAsync();
+            });
+            MarkPageDirty();
+        }
+        catch (Exception ex)
+        {
+            ErrorDetailForm.Show(this, Localization.Get(K.DialogImageTitle), ex);
+        }
     }
 
     private async Task SyncPageTitleFromEditorAsync()

@@ -12,7 +12,7 @@ internal static class EditorTableHtmlBuilder
         var html = new StringBuilder();
         html.Append("<table><thead><tr>");
         for (var column = 0; column < columns; column++)
-            html.Append("<th></th>");
+            html.Append("<th><p><br></p></th>");
         html.Append("</tr></thead>");
 
         if (rows > 1)
@@ -22,7 +22,7 @@ internal static class EditorTableHtmlBuilder
             {
                 html.Append("<tr>");
                 for (var column = 0; column < columns; column++)
-                    html.Append("<td></td>");
+                    html.Append("<td><p><br></p></td>");
                 html.Append("</tr>");
             }
 

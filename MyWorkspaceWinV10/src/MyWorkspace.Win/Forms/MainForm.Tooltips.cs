@@ -17,6 +17,8 @@ public partial class MainForm
         ctxTree.ShowItemToolTips = true;
 
         _ctxEditor?.ShowItemToolTips = true;
+        if (_ctxEditorImage != null)
+            _ctxEditorImage.ShowItemToolTips = true;
 
 
 
@@ -249,6 +251,10 @@ public partial class MainForm
 
                 K.EditorPaste => Localization.Get(K.TipEditorPaste),
 
+                K.EditorCommentOnSelection => Localization.Get(K.TipEditorCommentOnSelection),
+
+                K.EditorCommentOnLine => Localization.Get(K.TipEditorCommentOnLine),
+
                 K.EditorSelectAll => Localization.Get(K.TipEditorSelectAll),
 
                 K.EditorBold => Localization.Get(K.TipEditorBold),
@@ -297,6 +303,26 @@ public partial class MainForm
 
             };
 
+        }
+
+        if (_ctxEditorImage == null)
+            return;
+
+        foreach (ToolStripItem item in _ctxEditorImage.Items)
+        {
+            if (item.Tag is not string key)
+                continue;
+
+            item.ToolTipText = key switch
+            {
+                K.EditorImageOpen => Localization.Get(K.TipEditorImageOpen),
+                K.EditorCommentOnSelection => Localization.Get(K.TipEditorCommentOnSelection),
+                K.EditorCut => Localization.Get(K.TipEditorCut),
+                K.EditorCopy => Localization.Get(K.TipEditorCopy),
+                K.EditorImageReplace => Localization.Get(K.TipEditorImageReplace),
+                K.EditorImageDelete => Localization.Get(K.TipEditorImageDelete),
+                _ => item.ToolTipText
+            };
         }
 
     }

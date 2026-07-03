@@ -167,7 +167,7 @@ internal static class Localization
         Add(K.ToolbarHorizontalRule, "구분선", "Horizontal Rule");
         Add(K.ToolbarTable, "표", "Table");
         Add(K.ToolbarUndo, "실행 취소 (Ctrl+Z)", "Undo (Ctrl+Z)");
-        Add(K.ToolbarRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
+        Add(K.ToolbarRedo, "다시 실행 (Ctrl+Y / Ctrl+Shift+Z)", "Redo (Ctrl+Y / Ctrl+Shift+Z)");
         Add(K.ToolbarDocumentStructure, "문서 구조", "Document Outline");
         Add(K.ToolbarComments, "댓글", "Comments");
         Add(K.ToolbarAbout, "프로그램 정보", "About");
@@ -245,9 +245,14 @@ internal static class Localization
         Add(K.TipEditorCut, "선택 영역 잘라내기 (Ctrl+X)", "Cut selection (Ctrl+X)");
         Add(K.TipEditorCopy, "선택 영역 복사 (Ctrl+C)", "Copy selection (Ctrl+C)");
         Add(K.TipEditorPaste, "클립보드 내용 붙여넣기 (Ctrl+V)", "Paste from clipboard (Ctrl+V)");
+        Add(K.TipEditorCommentOnSelection, "선택한 텍스트에 댓글을 작성합니다", "Add a comment on the selected text");
+        Add(K.TipEditorCommentOnLine, "클릭한 줄에 댓글을 작성합니다", "Add a comment on the clicked line");
         Add(K.TipEditorSelectAll, "전체 선택 (Ctrl+A)", "Select all (Ctrl+A)");
         Add(K.TipEditorBold, "굵게 (Ctrl+B)", "Bold (Ctrl+B)");
         Add(K.TipEditorItalic, "기울임 (Ctrl+I)", "Italic (Ctrl+I)");
+        Add(K.TipEditorImageOpen, "이미지 원본 열기", "Open the image");
+        Add(K.TipEditorImageReplace, "선택한 이미지를 다른 파일로 교체", "Replace the selected image with another file");
+        Add(K.TipEditorImageDelete, "선택한 이미지 삭제", "Delete the selected image");
 
         Add(K.AboutTitle, "프로그램 정보", "About");
         Add(K.AboutDescription, "Notion 스타일의 Workspace·Page 관리 데스크톱 애플리케이션입니다.", "A Notion-style desktop app for managing workspaces and pages.");
@@ -257,11 +262,16 @@ internal static class Localization
         Add(K.EditorCut, "잘라내기", "Cut");
         Add(K.EditorCopy, "복사", "Copy");
         Add(K.EditorPaste, "붙여넣기", "Paste");
+        Add(K.EditorCommentOnSelection, "선택 영역에 댓글", "Comment on Selection");
+        Add(K.EditorCommentOnLine, "이 라인에 댓글", "Comment on Line");
         Add(K.EditorUndo, "실행 취소", "Undo");
         Add(K.EditorRedo, "다시 실행", "Redo");
         Add(K.EditorSelectAll, "모두 선택", "Select All");
         Add(K.EditorBold, "굵게", "Bold");
         Add(K.EditorItalic, "기울임", "Italic");
+        Add(K.EditorImageOpen, "이미지 열기", "Open Image");
+        Add(K.EditorImageReplace, "이미지 바꾸기", "Replace Image");
+        Add(K.EditorImageDelete, "삭제", "Delete");
 
         Add(K.LoginTitle, "MyWorkspace", "MyWorkspace");
         Add(K.LoginWindowTitle, "MyWorkspace - 로그인", "MyWorkspace - Sign In");
@@ -338,6 +348,7 @@ internal static class Localization
         Add(K.NewTitlePrompt, "새 제목:", "New title:");
         Add(K.ConfirmDeletePage, "\"{0}\" Page를 삭제할까요?", "Delete page \"{0}\"?");
         Add(K.ConfirmDeleteWorkspace, "\"{0}\" Workspace를 삭제할까요?", "Delete workspace \"{0}\"?");
+        Add(K.ConfirmDeleteWorkspaceWithPages, "\"{0}\" Workspace와 포함된 Page {1}개를 모두 삭제할까요?", "Delete workspace \"{0}\" and all {1} page(s)?");
         Add(K.ConfirmLogout, "로그아웃하시겠습니까?", "Do you want to sign out?");
         Add(K.Confirm, "확인", "Confirm");
         Add(K.DialogLinkTitle, "링크", "Link");
@@ -715,9 +726,14 @@ internal static class K
     public const string TipEditorCut = "TipEditorCut";
     public const string TipEditorCopy = "TipEditorCopy";
     public const string TipEditorPaste = "TipEditorPaste";
+    public const string TipEditorCommentOnSelection = "TipEditorCommentOnSelection";
+    public const string TipEditorCommentOnLine = "TipEditorCommentOnLine";
     public const string TipEditorSelectAll = "TipEditorSelectAll";
     public const string TipEditorBold = "TipEditorBold";
     public const string TipEditorItalic = "TipEditorItalic";
+    public const string TipEditorImageOpen = "TipEditorImageOpen";
+    public const string TipEditorImageReplace = "TipEditorImageReplace";
+    public const string TipEditorImageDelete = "TipEditorImageDelete";
 
     public const string AboutTitle = "AboutTitle";
     public const string AboutDescription = "AboutDescription";
@@ -729,9 +745,14 @@ internal static class K
     public const string EditorRedo = "EditorRedo";
     public const string EditorCopy = "EditorCopy";
     public const string EditorPaste = "EditorPaste";
+    public const string EditorCommentOnSelection = "EditorCommentOnSelection";
+    public const string EditorCommentOnLine = "EditorCommentOnLine";
     public const string EditorSelectAll = "EditorSelectAll";
     public const string EditorBold = "EditorBold";
     public const string EditorItalic = "EditorItalic";
+    public const string EditorImageOpen = "EditorImageOpen";
+    public const string EditorImageReplace = "EditorImageReplace";
+    public const string EditorImageDelete = "EditorImageDelete";
 
     public const string LoginTitle = "LoginTitle";
     public const string LoginWindowTitle = "LoginWindowTitle";
@@ -808,6 +829,7 @@ internal static class K
     public const string NewTitlePrompt = "NewTitlePrompt";
     public const string ConfirmDeletePage = "ConfirmDeletePage";
     public const string ConfirmDeleteWorkspace = "ConfirmDeleteWorkspace";
+    public const string ConfirmDeleteWorkspaceWithPages = "ConfirmDeleteWorkspaceWithPages";
     public const string ConfirmLogout = "ConfirmLogout";
     public const string Confirm = "Confirm";
     public const string DialogLinkTitle = "DialogLinkTitle";

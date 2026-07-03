@@ -24,6 +24,8 @@ internal sealed class CenteredSingleLineTextBox : Panel
         _inner.Multiline = false;
         _inner.WordWrap = false;
         _inner.AutoSize = false;
+        _inner.ImeMode = ImeMode.NoControl;
+        ImeMode = ImeMode.NoControl;
         _inner.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
         _inner.HandleCreated += (_, _) =>
         {

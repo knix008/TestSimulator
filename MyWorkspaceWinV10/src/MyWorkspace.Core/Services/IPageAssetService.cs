@@ -10,5 +10,7 @@ public interface IPageAssetService
 
     bool AssetExists(User currentUser, int pageId, string fileName);
 
+    IReadOnlyList<string> GetAssetFileNames(User currentUser, int pageId);
+
     void PruneUnreferencedAssets(User currentUser, int pageId, IReadOnlyCollection<string> referencedFileNames);
 }

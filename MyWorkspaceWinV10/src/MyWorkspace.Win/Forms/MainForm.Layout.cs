@@ -40,6 +40,8 @@ public partial class MainForm
         editorAreaSplit.Panel1MinSize = OutlineMinWidth;
         editorAreaSplit.Panel2MinSize = EditorMinWidth;
 
+        ApplyCommentsSplitConstraints(includeCommentsPanel);
+
         var clientMinWidth = NavRailWidth
             + NavWorkspaceGap
             + WorkspaceMinWidth
@@ -58,5 +60,54 @@ public partial class MainForm
         MinimumSize = new Size(
             clientMinWidth + resizeInset + nonClient.Width,
             clientMinHeight + nonClient.Height);
+    }
+
+    private void ConfigureSplitterLiveResize()
+    {
+        SplitContainerLiveResizeHelper.SetCallbacks(
+            outerSplit,
+            duringDrag: _ => UpdateTitleBarEditorRegion(),
+            dragCompleted: _ => UpdateTitleBarEditorRegion());
+
+        SplitContainerLiveResizeHelper.SetCallbacks(
+            editorAreaSplit,
+            dragCompleted: _ =>
+            {
+                if (!editorAreaSplit.Panel1Collapsed)
+                    _savedOutlineWidth = editorAreaSplit.SplitterDistance;
+            });
+
+        if (pageCommentsPanel == null)
+            return;
+
+        SplitContainerLiveResizeHelper.SetCallbacks(
+            commentsEditorSplit,
+            dragCompleted: _ =>
+            {
+                if (!commentsEditorSplit.Panel2Collapsed)
+                    _savedCommentsWidth = commentsEditorSplit.Panel2.Width;
+            });
+    }
+
+    private void ApplyCommentsSplitConstraints(bool includeCommentsPanel)
+    {
+        if (pageCommentsPanel == null || !commentsEditorSplit.IsHandleCreated)
+            return;
+
+        if (commentsEditorSplit.Width <= 0)
+            return;
+
+        try
+        {
+            commentsEditorSplit.Panel1MinSize = 0;
+            commentsEditorSplit.Panel2MinSize = 0;
+            commentsEditorSplit.Panel1MinSize = EditorMinWidth;
+            if (includeCommentsPanel)
+                commentsEditorSplit.Panel2MinSize = CommentsMinWidth;
+        }
+        catch (InvalidOperationException)
+        {
+            // SplitContainer is not sized yet; constraints will be applied on resize/toggle.
+        }
     }
 }

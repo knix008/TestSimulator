@@ -136,6 +136,7 @@ internal static class EditorHtmlBuilder
         var codeBg = ToCss(p.EditorCodeBackground);
         var border = ToCss(p.Border);
         var borderLight = ToCss(p.BorderLight);
+        var surface = ToCss(p.Surface);
         var accent = ToCss(p.Accent);
         var muted = ToCss(p.TextSecondary);
         var selection = ToCssAlpha(p.Accent, 51);
@@ -159,6 +160,7 @@ internal static class EditorHtmlBuilder
               --editor-code-bg: {{codeBg}};
               --editor-border: {{border}};
               --editor-border-light: {{borderLight}};
+              --editor-surface: {{surface}};
               --editor-accent: {{accent}};
               --editor-muted: {{muted}};
               --editor-selection: {{selection}};
@@ -228,22 +230,35 @@ internal static class EditorHtmlBuilder
             strong, b { font-weight: 700; }
             em, i { font-style: italic; }
             s, strike, del { text-decoration: line-through; color: var(--editor-muted) !important; }
-            code { background: var(--editor-code-bg); padding: 0.15em 0.4em; border-radius: 4px; font-family: Consolas, monospace; font-size: 0.92em; color: var(--editor-text) !important; }
-            pre { background: var(--editor-code-bg); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 14px; }
-            pre code { background: none; padding: 0; }
-            blockquote { border-left: 4px solid var(--editor-accent); padding: 8px 16px; color: var(--editor-muted) !important; background: var(--editor-code-bg); margin: 0 0 14px; }
-            table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+            code { background: var(--editor-code-bg); padding: 0.15em 0.4em; border-radius: 4px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; color: var(--editor-text) !important; border: 1px solid var(--editor-border); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--editor-border-light) 70%, transparent); }
+            pre { background: var(--editor-code-bg); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 14px; border: 1px solid var(--editor-border); }
+            pre code { background: none; padding: 0; border: none; box-shadow: none; }
+            blockquote { border-left: 4px solid var(--editor-accent); padding: 8px 16px; color: var(--editor-muted) !important; background: var(--editor-code-bg); margin: 0 0 14px; border: 1px solid var(--editor-border-light); border-left-width: 4px; }
+            table { border-collapse: collapse; width: 100%; margin-bottom: 16px; border: 1px solid var(--editor-border); }
             th, td { border: 1px solid var(--editor-border); padding: 8px 12px; min-width: 40px; }
-            th { background: var(--editor-code-bg); font-weight: 600; }
+            th { background: color-mix(in srgb, var(--editor-code-bg) 78%, var(--editor-border)); font-weight: 600; }
+            #editor td { background: color-mix(in srgb, var(--editor-surface) 72%, var(--editor-bg)); }
+            #editor tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--editor-code-bg) 82%, var(--editor-bg)); }
+            #editor td .editor-image-wrap,
+            #editor th .editor-image-wrap {
+              max-width: 100%;
+              vertical-align: middle;
+            }
+            #editor td .editor-image-wrap.is-sized,
+            #editor th .editor-image-wrap.is-sized,
+            #editor td .editor-image-wrap[data-editor-width],
+            #editor th .editor-image-wrap[data-editor-width] {
+              max-width: 100%;
+            }
             ul, ol { margin: 0 0 14px; padding-left: 28px; }
             a { color: var(--editor-accent) !important; text-decoration: underline; }
             #editor a[href] { cursor: pointer; }
             #editor img { border-radius: 2px; }
             .editor-image-wrap {
               display: inline-block; position: relative;
-              vertical-align: baseline; max-width: 100%;
-              margin: 0 2px; line-height: 0;
-              cursor: pointer;
+              vertical-align: text-bottom; max-width: 100%;
+              margin: 0 1px; line-height: inherit;
+              cursor: text;
             }
             .editor-image-wrap.is-sized,
             .editor-image-wrap[data-editor-width] {
@@ -304,6 +319,10 @@ internal static class EditorHtmlBuilder
             .editor-image-wrap.is-dragging {
               opacity: 0.75; cursor: grabbing !important; z-index: 10000;
             }
+            .editor-image-wrap.is-move-source {
+              opacity: 0.2;
+              pointer-events: none;
+            }
             #editor.is-image-move-target {
               box-shadow: inset 0 0 0 1px var(--editor-accent);
             }
@@ -345,6 +364,7 @@ internal static class EditorHtmlBuilder
               codeBg: '{{codeBg}}',
               border: '{{border}}',
               borderLight: '{{borderLight}}',
+              surface: '{{surface}}',
               accent: '{{accent}}',
               muted: '{{muted}}',
               selection: '{{selection}}',
@@ -362,6 +382,7 @@ internal static class EditorHtmlBuilder
               root.style.setProperty('--editor-code-bg', theme.codeBg);
               root.style.setProperty('--editor-border', theme.border);
               root.style.setProperty('--editor-border-light', theme.borderLight);
+              root.style.setProperty('--editor-surface', theme.surface || theme.bg);
               root.style.setProperty('--editor-accent', theme.accent);
               root.style.setProperty('--editor-muted', theme.muted);
               root.style.setProperty('--editor-selection', theme.selection);
@@ -388,6 +409,151 @@ internal static class EditorHtmlBuilder
             }
 
             function notifyChanged() { window.chrome.webview.postMessage('changed'); }
+
+            function selectNode(node) {
+              if (!node) return false;
+              const range = document.createRange();
+              range.selectNode(node);
+              const sel = window.getSelection();
+              if (!sel) return false;
+              sel.removeAllRanges();
+              sel.addRange(range);
+              return true;
+            }
+
+            function getSelectedImageWrap() {
+              return editor.querySelector('.editor-image-wrap.is-selected');
+            }
+
+            function findCommentBlockElement(node) {
+              let el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+              while (el && el !== editor) {
+                const tag = el.tagName;
+                if (/^(P|H[1-6]|LI|BLOCKQUOTE|PRE|TD|TH|DIV)$/i.test(tag))
+                  return el;
+                el = el.parentElement;
+              }
+              return null;
+            }
+
+            function extractBlockQuoteText(block) {
+              if (!block) return '';
+              const clone = block.cloneNode(true);
+              clone.querySelectorAll('.editor-image-wrap').forEach(wrap => {
+                const img = wrap.querySelector('img');
+                const alt = img?.getAttribute('alt') || '';
+                const src = img?.getAttribute('src') || img?.src || '';
+                const md = src ? (alt ? `![${alt}](${src})` : `![](${src})`) : '[image]';
+                wrap.replaceWith(document.createTextNode(md));
+              });
+              clone.querySelectorAll('.editor-file-attachment').forEach(link => {
+                link.replaceWith(document.createTextNode(link.textContent || '[file]'));
+              });
+              return clone.innerText.replace(/\u200b/gi, '').replace(/\s+/g, ' ').trim();
+            }
+
+            function extractVisualLineQuote(block, x, y) {
+              const clickY = y;
+              let bestTop = null;
+              let bestDist = Infinity;
+              const chars = [];
+              const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+              let textNode;
+              while (textNode = walker.nextNode()) {
+                const content = textNode.textContent || '';
+                for (let i = 0; i < content.length; i++) {
+                  if (content[i] === '\u200B') continue;
+                  const r = document.createRange();
+                  r.setStart(textNode, i);
+                  r.setEnd(textNode, i + 1);
+                  const rects = r.getClientRects();
+                  for (const rect of rects) {
+                    if (rect.width <= 0 && rect.height <= 0) continue;
+                    const midY = rect.top + rect.height / 2;
+                    const dist = Math.abs(midY - clickY);
+                    const top = Math.round(rect.top);
+                    chars.push({ textNode, offset: i, top, char: content[i] });
+                    if (dist < bestDist) {
+                      bestDist = dist;
+                      bestTop = top;
+                    }
+                  }
+                }
+              }
+
+              if (bestTop === null) return '';
+
+              const lineChars = chars
+                .filter(c => c.top === bestTop)
+                .sort((a, b) => {
+                  if (a.textNode === b.textNode) return a.offset - b.offset;
+                  const pos = a.textNode.compareDocumentPosition(b.textNode);
+                  return pos & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+                });
+
+              return lineChars.map(c => c.char).join('').trim();
+            }
+
+            function getLineQuoteAtPoint(x, y) {
+              const range = caretRangeFromClientPoint(x, y);
+              if (!range || !editor.contains(range.startContainer))
+                return '';
+
+              const block = findCommentBlockElement(range.startContainer);
+              if (!block || !editor.contains(block))
+                return '';
+
+              const visualLine = extractVisualLineQuote(block, x, y);
+              if (visualLine)
+                return visualLine;
+
+              return extractBlockQuoteText(block);
+            }
+
+            function deleteNodeWithUndo(node) {
+              if (!node || !selectNode(node)) return false;
+              editor.focus();
+              return document.execCommand('delete', false, null);
+            }
+
+            function insertHtmlWithUndo(html, range) {
+              editor.focus();
+              const sel = window.getSelection();
+              if (!sel) return false;
+              if (range) {
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+              const ok = document.execCommand('insertHTML', false, html);
+              if (ok) {
+                upgradeEditorBlocks();
+                scheduleCaretAnchorNormalize();
+              }
+              return ok;
+            }
+
+            function runEditorUndo() {
+              editor.focus();
+              const ok = document.execCommand('undo', false, null);
+              if (ok) {
+                upgradeEditorBlocks();
+                updateEmptyState();
+                notifyChanged();
+              }
+              return ok;
+            }
+
+            function runEditorRedo() {
+              editor.focus();
+              const ok = document.execCommand('redo', false, null);
+              if (ok) {
+                upgradeEditorBlocks();
+                updateEmptyState();
+                notifyChanged();
+              }
+              return ok;
+            }
             function notifyCaret() { window.chrome.webview.postMessage('caret'); }
             function notifyOpen(href) {
               if (!href) return;
@@ -514,9 +680,12 @@ internal static class EditorHtmlBuilder
               return rect;
             }
 
-            function updateImageDropCaret(clientX, clientY) {
+            function updateImageDropCaret(clientX, clientY, ignoreNode) {
               const marker = ensureImageDropCaret();
-              const range = document.caretRangeFromPoint(clientX, clientY);
+              const ignore = [ignoreNode, marker];
+              if (imageMoveSession?.wrap)
+                ignore.push(imageMoveSession.wrap);
+              const range = resolveEditorCaretRange(clientX, clientY, ignore);
               if (!range || !editor.contains(range.startContainer)) {
                 marker.style.display = 'none';
                 if (imageMoveSession) imageMoveSession.dropRange = null;
@@ -540,7 +709,11 @@ internal static class EditorHtmlBuilder
               const range = document.createRange();
               if (node.previousSibling && node.previousSibling.nodeType === Node.TEXT_NODE) {
                 const textNode = node.previousSibling;
-                range.setStart(textNode, textNode.textContent.length);
+                const text = textNode.textContent || '';
+                let offset = text.length;
+                while (offset > 0 && text[offset - 1] === ZWSP)
+                  offset--;
+                range.setStart(textNode, offset);
               } else {
                 range.setStartBefore(node);
               }
@@ -554,7 +727,12 @@ internal static class EditorHtmlBuilder
               editor.focus();
               const range = document.createRange();
               if (node.nextSibling && node.nextSibling.nodeType === Node.TEXT_NODE) {
-                range.setStart(node.nextSibling, 0);
+                const textNode = node.nextSibling;
+                const text = textNode.textContent || '';
+                let offset = 0;
+                while (offset < text.length && text[offset] === ZWSP)
+                  offset++;
+                range.setStart(textNode, offset);
               } else {
                 range.setStartAfter(node);
               }
@@ -562,6 +740,142 @@ internal static class EditorHtmlBuilder
               const sel = window.getSelection();
               sel.removeAllRanges();
               sel.addRange(range);
+            }
+
+            function isZwspOnlyText(value) {
+              return !(value || '').replace(/\u200B/g, '').length;
+            }
+
+            function isEditorImageWrap(node) {
+              return !!node
+                && node.nodeType === Node.ELEMENT_NODE
+                && node.classList?.contains('editor-image-wrap');
+            }
+
+            function findImageWrapBeforeCaret(range) {
+              if (!range || !range.collapsed)
+                return null;
+
+              const { startContainer, startOffset } = range;
+              if (startContainer.nodeType === Node.TEXT_NODE) {
+                const beforeText = (startContainer.textContent || '').slice(0, startOffset);
+                if (beforeText.length > 0 && !isZwspOnlyText(beforeText))
+                  return null;
+
+                let prev = startContainer.previousSibling;
+                while (prev) {
+                  if (isEditorImageWrap(prev))
+                    return prev;
+                  if (prev.nodeType === Node.TEXT_NODE) {
+                    if (!isZwspOnlyText(prev.textContent))
+                      return null;
+                  } else if (prev.nodeType === Node.ELEMENT_NODE) {
+                    return null;
+                  }
+                  prev = prev.previousSibling;
+                }
+                return null;
+              }
+
+              if (startContainer.nodeType === Node.ELEMENT_NODE && editor.contains(startContainer) && startOffset > 0) {
+                let prev = startContainer.childNodes[startOffset - 1];
+                if (isEditorImageWrap(prev))
+                  return prev;
+                if (prev?.nodeType === Node.TEXT_NODE && isZwspOnlyText(prev.textContent)) {
+                  prev = prev.previousSibling;
+                  if (isEditorImageWrap(prev))
+                    return prev;
+                }
+              }
+
+              return null;
+            }
+
+            function findImageWrapAfterCaret(range) {
+              if (!range || !range.collapsed)
+                return null;
+
+              const { startContainer, startOffset } = range;
+              if (startContainer.nodeType === Node.TEXT_NODE) {
+                const afterText = (startContainer.textContent || '').slice(startOffset);
+                if (afterText.length > 0 && !isZwspOnlyText(afterText))
+                  return null;
+
+                let next = startContainer.nextSibling;
+                while (next) {
+                  if (isEditorImageWrap(next))
+                    return next;
+                  if (next.nodeType === Node.TEXT_NODE) {
+                    if (!isZwspOnlyText(next.textContent))
+                      return null;
+                  } else if (next.nodeType === Node.ELEMENT_NODE) {
+                    return null;
+                  }
+                  next = next.nextSibling;
+                }
+                return null;
+              }
+
+              if (startContainer.nodeType === Node.ELEMENT_NODE && editor.contains(startContainer)) {
+                let next = startContainer.childNodes[startOffset];
+                if (isEditorImageWrap(next))
+                  return next;
+                if (next?.nodeType === Node.TEXT_NODE && isZwspOnlyText(next.textContent)) {
+                  next = next.nextSibling;
+                  if (isEditorImageWrap(next))
+                    return next;
+                }
+              }
+
+              return null;
+            }
+
+            function removeZwspOnlyTextNode(node) {
+              if (node?.nodeType === Node.TEXT_NODE && isZwspOnlyText(node.textContent))
+                node.remove();
+            }
+
+            function restoreCaretBeforeRemovedImage(wrap) {
+              const sel = window.getSelection();
+              if (!sel)
+                return;
+
+              const prev = wrap.previousSibling;
+              if (prev?.nodeType === Node.TEXT_NODE) {
+                const text = prev.textContent || '';
+                let offset = text.length;
+                while (offset > 0 && text[offset - 1] === ZWSP)
+                  offset--;
+                const range = document.createRange();
+                range.setStart(prev, offset);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                return;
+              }
+
+              placeCaretBefore(wrap);
+            }
+
+            function removeInlineImageWrap(wrap) {
+              if (!wrap || !editor.contains(wrap))
+                return false;
+
+              editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => w.classList.remove('is-selected'));
+              const trailing = wrap.nextSibling;
+              restoreCaretBeforeRemovedImage(wrap);
+
+              let removed = deleteNodeWithUndo(wrap);
+              if (!removed) {
+                wrap.remove();
+                removed = true;
+              }
+
+              removeZwspOnlyTextNode(trailing);
+              scheduleCaretAnchorNormalize();
+              updateEmptyState();
+              notifyChanged();
+              return removed;
             }
 
             function ensureCaretAnchors(wrap) {
@@ -612,6 +926,221 @@ internal static class EditorHtmlBuilder
               }
             }
 
+            function ensureTableCellEditable(cell) {
+              if (!cell || !editor.contains(cell))
+                return;
+              if (cell.querySelector(':scope > table'))
+                return;
+
+              const hasDirectBlock = cell.querySelector(
+                ':scope > p, :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, :scope > ul, :scope > ol, :scope > blockquote, :scope > pre');
+              if (hasDirectBlock)
+                return;
+
+              const p = document.createElement('p');
+              if (cell.childNodes.length === 0)
+                p.appendChild(document.createElement('br'));
+              else
+                while (cell.firstChild)
+                  p.appendChild(cell.firstChild);
+              cell.appendChild(p);
+            }
+
+            function getTableCellInsertBlock(cell) {
+              if (!cell)
+                return null;
+              ensureTableCellEditable(cell);
+              return cell.querySelector('p') || cell;
+            }
+
+            function caretRangeFromCellPoint(cell, x, y) {
+              const block = getTableCellInsertBlock(cell);
+              if (!block)
+                return null;
+
+              for (const child of Array.from(block.childNodes)) {
+                if (child.nodeType === Node.ELEMENT_NODE && child.classList?.contains('editor-image-wrap')) {
+                  const rect = child.getBoundingClientRect();
+                  if (x <= rect.left + rect.width / 2) {
+                    const range = document.createRange();
+                    range.setStartBefore(child);
+                    range.collapse(true);
+                    return range;
+                  }
+                  if (x <= rect.right) {
+                    const range = document.createRange();
+                    range.setStartAfter(child);
+                    range.collapse(true);
+                    return range;
+                  }
+                  continue;
+                }
+
+                if (child.nodeType === Node.TEXT_NODE) {
+                  const text = child.textContent || '';
+                  for (let i = 0; i < text.length; i++) {
+                    if (text[i] === ZWSP) continue;
+                    const probe = document.createRange();
+                    probe.setStart(child, i);
+                    probe.setEnd(child, i + 1);
+                    const rect = probe.getBoundingClientRect();
+                    if (rect.width <= 0 && rect.height <= 0) continue;
+                    if (x <= rect.left + rect.width / 2) {
+                      probe.collapse(true);
+                      return probe;
+                    }
+                  }
+                }
+              }
+
+              const blockRect = block.getBoundingClientRect();
+              const fallback = document.createRange();
+              fallback.selectNodeContents(block);
+              fallback.collapse(x <= blockRect.left + blockRect.width / 2);
+              return fallback;
+            }
+
+            function normalizeRangeForTableInsert(range) {
+              if (!range)
+                return null;
+
+              let node = range.startContainer;
+              if (node.nodeType === Node.TEXT_NODE)
+                node = node.parentNode;
+
+              const cell = node?.closest?.('td, th');
+              if (!cell || !editor.contains(cell))
+                return range;
+
+              const block = getTableCellInsertBlock(cell);
+              const normalized = range.cloneRange();
+              normalized.collapse(true);
+
+              if (block.contains(normalized.startContainer))
+                return normalized;
+
+              if (normalized.startContainer === cell || normalized.startContainer === block) {
+                const offset = normalized.startOffset;
+                const candidates = normalized.startContainer === cell
+                  ? Array.from(cell.childNodes)
+                  : Array.from(block.childNodes);
+                const child = candidates[offset] || candidates[candidates.length - 1];
+                if (child?.nodeType === Node.TEXT_NODE) {
+                  normalized.setStart(child, Math.min(offset, child.textContent?.length || 0));
+                  normalized.collapse(true);
+                  return normalized;
+                }
+                if (child) {
+                  normalized.setStartAfter(child);
+                  normalized.collapse(true);
+                  return normalized;
+                }
+                normalized.selectNodeContents(block);
+                normalized.collapse(false);
+                return normalized;
+              }
+
+              normalized.selectNodeContents(block);
+              normalized.collapse(false);
+              return normalized;
+            }
+
+            function upgradeTableCells() {
+              editor.querySelectorAll('td, th').forEach(cell => ensureTableCellEditable(cell));
+            }
+
+            function ensureInsertLocation() {
+              ensureParagraph();
+              upgradeTableCells();
+              const sel = window.getSelection();
+              if (!sel || sel.rangeCount === 0)
+                return;
+
+              let anchor = sel.anchorNode;
+              if (anchor?.nodeType === Node.TEXT_NODE)
+                anchor = anchor.parentElement;
+
+              const cell = anchor?.closest?.('td, th');
+              if (!cell || !editor.contains(cell))
+                return;
+
+              ensureTableCellEditable(cell);
+              const block = cell.querySelector('p') || cell;
+              if (!block.contains(sel.anchorNode))
+                placeCaretAtEnd(block);
+            }
+
+            function isIgnoredHitTarget(el, ignored) {
+              return (ignored || []).some(node => node && (node === el || node.contains?.(el)));
+            }
+
+            function caretRangeBeforeAfterImageWrap(wrap, clientX) {
+              const rect = wrap.getBoundingClientRect();
+              const range = document.createRange();
+              if (clientX <= rect.left + rect.width / 2)
+                range.setStartBefore(wrap);
+              else
+                range.setStartAfter(wrap);
+              range.collapse(true);
+              return range;
+            }
+
+            function resolveEditorCaretRange(x, y, ignoreNodes) {
+              const ignored = (ignoreNodes || []).filter(Boolean);
+
+              let range = caretRangeFromClientPoint(x, y);
+              if (range && editor.contains(range.startContainer)) {
+                let container = range.startContainer;
+                if (container.nodeType === Node.TEXT_NODE)
+                  container = container.parentNode;
+                const hitWrap = container?.closest?.('.editor-image-wrap');
+                if (hitWrap && editor.contains(hitWrap) && !isIgnoredHitTarget(hitWrap, ignored))
+                  return caretRangeBeforeAfterImageWrap(hitWrap, x);
+                if (!isIgnoredHitTarget(container, ignored))
+                  return range;
+              }
+
+              if (typeof document.elementsFromPoint !== 'function')
+                return null;
+
+              const stack = document.elementsFromPoint(x, y);
+              for (const el of stack) {
+                if (isIgnoredHitTarget(el, ignored))
+                  continue;
+
+                const imageWrap = el.closest?.('.editor-image-wrap');
+                if (imageWrap && editor.contains(imageWrap) && !isIgnoredHitTarget(imageWrap, ignored))
+                  return caretRangeBeforeAfterImageWrap(imageWrap, x);
+
+                if (!editor.contains(el))
+                  continue;
+
+                const cell = el.closest?.('td, th');
+                if (cell && editor.contains(cell)) {
+                  const cellRange = caretRangeFromCellPoint(cell, x, y);
+                  if (cellRange && editor.contains(cellRange.startContainer))
+                    return cellRange;
+                }
+
+                const retry = caretRangeFromClientPoint(x, y);
+                if (retry && editor.contains(retry.startContainer))
+                  return retry;
+              }
+
+              return null;
+            }
+
+            function caretRangeFromEditorPoint(x, y, ignoreNodes) {
+              return resolveEditorCaretRange(x, y, ignoreNodes);
+            }
+
+            function getImageMaxWidthForWrap(wrap) {
+              const cell = wrap?.closest?.('td, th');
+              if (cell)
+                return Math.max(40, cell.clientWidth - 16);
+              return Math.max(120, editor.clientWidth - 64);
+            }
+
             function placeCaretAtEnd(el) {
               el.focus();
               const range = document.createRange();
@@ -625,6 +1154,8 @@ internal static class EditorHtmlBuilder
             let fileDropDepth = 0;
             let fileDropCaretRange = null;
             let fileDropFeedbackEpoch = 0;
+            let pendingFileDropInsertRange = null;
+            let lastFileDropPoint = null;
 
             function invalidateFileDropFeedback() {
               fileDropFeedbackEpoch++;
@@ -649,7 +1180,7 @@ internal static class EditorHtmlBuilder
               const sel = window.getSelection();
               if (sel) sel.removeAllRanges();
 
-              const range = caretRangeFromClientPoint(x, y);
+              const range = caretRangeFromEditorPoint(x, y, [imageDropCaret]);
               if (!range || !editor.contains(range.startContainer)) {
                 if (epoch === fileDropFeedbackEpoch) hideFileDropCaret();
                 return false;
@@ -672,27 +1203,160 @@ internal static class EditorHtmlBuilder
               return true;
             }
 
-            function commitFileDropCaretAtPoint(x, y) {
+            function consumePendingInsertRange() {
+              const range = pendingFileDropInsertRange;
+              pendingFileDropInsertRange = null;
+              return range;
+            }
+
+            function hasValidEditorSelection() {
+              const sel = window.getSelection();
+              return !!(sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode));
+            }
+
+            function createImageWrapElement(instanceId, src, alt) {
+              const wrap = document.createElement('span');
+              wrap.className = 'editor-image-wrap';
+              wrap.contentEditable = 'false';
+              wrap.dataset.editorInstanceId = instanceId;
+              const img = document.createElement('img');
+              img.src = src;
+              img.alt = alt || '';
+              wrap.appendChild(img);
+              const handle = document.createElement('span');
+              handle.className = 'editor-image-resize-handle';
+              handle.contentEditable = 'false';
+              wrap.appendChild(handle);
+              return wrap;
+            }
+
+            function insertImageWrapAtRange(range, instanceId, src, alt) {
+              if (!range || !editor.contains(range.startContainer))
+                return null;
+
+              range.collapse(true);
+              const wrap = createImageWrapElement(instanceId, src, alt);
+              const fragment = document.createDocumentFragment();
+              fragment.appendChild(document.createTextNode(ZWSP));
+              fragment.appendChild(wrap);
+              fragment.appendChild(document.createTextNode(ZWSP));
+              range.insertNode(fragment);
+              return wrap;
+            }
+
+            function finalizeInsertedImageWrap(insertedWrap) {
+              if (!insertedWrap || !editor.contains(insertedWrap))
+                return null;
+
+              const img = insertedWrap.querySelector('img');
+              ensureImageWrapReady(insertedWrap);
+              if (img) attachImageLoadHandlers(insertedWrap, img);
+              placeCaretAfter(insertedWrap);
+              pendingFileDropInsertRange = null;
+              lastFileDropPoint = null;
+
+              upgradeEditorBlocks();
+              updateEmptyState();
+              notifyChanged();
+              scheduleCaretAnchorNormalize();
+              return insertedWrap;
+            }
+
+            function insertImageAtCaret(src, alt, preferredRange, usePendingDropRange) {
+              hideFileDropCaret();
+              editor.focus();
+
+              let range = preferredRange ? preferredRange.cloneRange() : null;
+              if (!range && usePendingDropRange)
+                range = consumePendingInsertRange();
+              if (!range && !hasValidEditorSelection() && lastFileDropPoint) {
+                commitFileDropCaretAtPointImpl(lastFileDropPoint.x, lastFileDropPoint.y);
+                range = consumePendingInsertRange();
+              }
+              if (!range && hasValidEditorSelection()) {
+                range = window.getSelection().getRangeAt(0).cloneRange();
+              }
+
+              if (range && editor.contains(range.startContainer)) {
+                let anchor = range.startContainer;
+                if (anchor.nodeType === Node.TEXT_NODE)
+                  anchor = anchor.parentElement;
+                const cell = anchor?.closest?.('td, th');
+                if (cell)
+                  ensureTableCellEditable(cell);
+                range = normalizeRangeForTableInsert(range) || range;
+              }
+              const instanceId = 'img-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+              let insertedWrap = null;
+
+              if (range && editor.contains(range.startContainer)) {
+                const sel = window.getSelection();
+                if (sel) {
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
+                insertedWrap = insertImageWrapAtRange(range, instanceId, src, alt);
+              }
+
+              if (!insertedWrap) {
+                ensureInsertLocation();
+                const safeSrc = escapeHtml(src);
+                const safeAlt = escapeHtml(alt || '');
+                document.execCommand(
+                  'insertHTML',
+                  false,
+                  '&#8203;<span class="editor-image-wrap" contenteditable="false" data-editor-instance-id="' + instanceId + '"><img src="' + safeSrc + '" alt="' + safeAlt + '"><span class="editor-image-resize-handle" contenteditable="false"></span></span>&#8203;');
+                insertedWrap = editor.querySelector('.editor-image-wrap[data-editor-instance-id="' + instanceId + '"]');
+              }
+
+              return finalizeInsertedImageWrap(insertedWrap);
+            }
+
+            function commitFileDropCaretAtPointImpl(x, y) {
               fileDropFeedbackEpoch++;
               const savedRange = fileDropCaretRange;
               if (imageDropCaret) imageDropCaret.style.display = 'none';
               fileDropCaretRange = null;
               document.body.classList.remove('is-file-drop-target');
+              lastFileDropPoint = { x, y };
 
               let range = savedRange;
-              if (!range) {
-                range = caretRangeFromClientPoint(x, y);
-                if (range) range.collapse(true);
+              if (!range)
+                range = caretRangeFromEditorPoint(x, y, [imageDropCaret]);
+              else
+                range = range.cloneRange();
+
+              if (range)
+                range.collapse(true);
+
+              if (!range || !editor.contains(range.startContainer)) {
+                pendingFileDropInsertRange = null;
+                return false;
               }
 
-              if (!range || !editor.contains(range.startContainer))
+              let anchor = range.startContainer;
+              if (anchor.nodeType === Node.TEXT_NODE)
+                anchor = anchor.parentElement;
+              const cell = anchor?.closest?.('td, th');
+              if (cell)
+                ensureTableCellEditable(cell);
+
+              range = normalizeRangeForTableInsert(range) || range;
+
+              if (!range || !editor.contains(range.startContainer)) {
+                pendingFileDropInsertRange = null;
                 return false;
+              }
 
               editor.focus();
               const sel = window.getSelection();
-              if (!sel) return false;
+              if (!sel) {
+                pendingFileDropInsertRange = null;
+                return false;
+              }
               sel.removeAllRanges();
               sel.addRange(range);
+              pendingFileDropInsertRange = range.cloneRange();
               return true;
             }
 
@@ -721,7 +1385,7 @@ internal static class EditorHtmlBuilder
             }
 
             function focusCaretAtClientPoint(x, y) {
-              return commitFileDropCaretAtPoint(x, y);
+              return commitFileDropCaretAtPointImpl(x, y);
             }
 
             function isDroppedImageFile(file) {
@@ -793,7 +1457,7 @@ internal static class EditorHtmlBuilder
               fileDropDepth = 0;
               document.body.classList.remove('is-file-drop-target');
               showFileDropCaretAtClientPoint(e.clientX, e.clientY);
-              commitFileDropCaretAtPoint(e.clientX, e.clientY);
+              commitFileDropCaretAtPointImpl(e.clientX, e.clientY);
               postFileDropMessage(e.dataTransfer?.files, e.clientX, e.clientY);
             }
 
@@ -851,6 +1515,9 @@ internal static class EditorHtmlBuilder
                 }
               }
               if (e.button === 0) {
+                const cell = e.target.closest('td, th');
+                if (cell && editor.contains(cell) && !e.target.closest('.editor-image-wrap'))
+                  ensureTableCellEditable(cell);
                 if (!e.target.closest('.editor-image-wrap'))
                   editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => w.classList.remove('is-selected'));
                 notifyCaretDebounced();
@@ -870,25 +1537,25 @@ internal static class EditorHtmlBuilder
               tryOpenImageFromTarget(e.target);
             });
             editor.addEventListener('focus', ensureParagraph);
+            editor.addEventListener('compositionstart', () => {
+              const selectedImage = editor.querySelector('.editor-image-wrap.is-selected');
+              if (!selectedImage)
+                return;
+              selectedImage.classList.remove('is-selected');
+              placeCaretBefore(selectedImage);
+            });
             editor.addEventListener('compositionend', () => { updateEmptyState(); notifyChanged(); });
             editor.addEventListener('contextmenu', (e) => { e.preventDefault(); });
 
             editor.addEventListener('keydown', (e) => {
               if (e.key === 'Escape' && imageMoveSession) {
                 const session = imageMoveSession;
-                const wrap = session.wrap;
-                if (session.dragging && session.savedParent) {
-                  wrap.remove();
-                  if (session.savedNext && session.savedNext.parentNode === session.savedParent)
-                    session.savedParent.insertBefore(wrap, session.savedNext);
-                  else
-                    session.savedParent.appendChild(wrap);
-                }
-                clearImageMoveStyles(wrap);
+                removeImageMoveGhost(session);
+                session.wrap.classList.remove('is-move-source');
                 editor.classList.remove('is-image-move-target');
                 hideImageDropCaret();
                 imageMoveSession = null;
-                wrap.classList.add('is-selected');
+                session.wrap.classList.add('is-selected');
                 e.preventDefault();
                 return;
               }
@@ -896,11 +1563,29 @@ internal static class EditorHtmlBuilder
               const sel = window.getSelection();
               const hasTextSelection = sel && !sel.isCollapsed &&
                 sel.rangeCount > 0 && editor.contains(sel.anchorNode);
+              const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+
+              if (!hasTextSelection && range && (e.key === 'Backspace' || e.key === 'Delete')) {
+                const adjacentWrap = e.key === 'Backspace'
+                  ? findImageWrapBeforeCaret(range)
+                  : findImageWrapAfterCaret(range);
+                if (adjacentWrap) {
+                  e.preventDefault();
+                  removeInlineImageWrap(adjacentWrap);
+                  return;
+                }
+              }
+
               if (selectedImage && !hasTextSelection && (e.key === 'Backspace' || e.key === 'Delete')) {
                 e.preventDefault();
-                selectedImage.remove();
-                updateEmptyState();
-                notifyChanged();
+                removeInlineImageWrap(selectedImage);
+                return;
+              }
+              if (selectedImage && !hasTextSelection && !e.ctrlKey && !e.metaKey && !e.altKey &&
+                  e.key.length === 1 && e.key !== 'Enter' && !e.key.startsWith('Arrow') &&
+                  e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
+                selectedImage.classList.remove('is-selected');
+                placeCaretBefore(selectedImage);
                 return;
               }
               if (selectedImage && e.key === 'ArrowLeft') {
@@ -918,9 +1603,27 @@ internal static class EditorHtmlBuilder
               if (selectedImage && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
                 selectedImage.classList.remove('is-selected');
               }
+              if (!hasTextSelection && !selectedImage && range) {
+                if (e.key === 'ArrowLeft') {
+                  const wrap = findImageWrapBeforeCaret(range);
+                  if (wrap) {
+                    e.preventDefault();
+                    placeCaretBefore(wrap);
+                    return;
+                  }
+                }
+                if (e.key === 'ArrowRight') {
+                  const wrap = findImageWrapAfterCaret(range);
+                  if (wrap) {
+                    e.preventDefault();
+                    placeCaretAfter(wrap);
+                    return;
+                  }
+                }
+              }
               if (e.ctrlKey || e.metaKey) {
-                if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); window.editorApi.undo(); return; }
-                if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); window.editorApi.redo(); return; }
+                if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); runEditorUndo(); return; }
+                if (e.key === 'y' || (e.key === 'z' && e.shiftKey) || (e.key === 'Z' && e.shiftKey)) { e.preventDefault(); runEditorRedo(); return; }
                 if (e.key === 'b') { e.preventDefault(); window.editorApi.applyFormat('bold'); return; }
                 if (e.key === 'i') { e.preventDefault(); window.editorApi.applyFormat('italic'); return; }
                 if (e.key === 'u') { e.preventDefault(); window.editorApi.applyFormat('underline'); return; }
@@ -932,8 +1635,17 @@ internal static class EditorHtmlBuilder
               const html = clipboard ? clipboard.getData('text/html') : '';
               const text = clipboard ? clipboard.getData('text/plain') : '';
 
+              function htmlContainsPageAssetReference(value) {
+                return /page-asset:|page-assets\.myworkspace/i.test(value || '');
+              }
+
               if (html && (html.includes('editor-image-wrap') || /<img\b/i.test(html))) {
                 e.preventDefault();
+                if (htmlContainsPageAssetReference(html) && window.chrome?.webview?.postMessage) {
+                  window.chrome.webview.postMessage(JSON.stringify({ type: 'clone-pasted-html', html }));
+                  scheduleCaretAnchorNormalize();
+                  return;
+                }
                 document.execCommand('insertHTML', false, html);
                 upgradeEditorBlocks();
                 updateEmptyState();
@@ -952,6 +1664,9 @@ internal static class EditorHtmlBuilder
             function beginImageMoveTracking(wrap, e) {
               imageMoveSession = {
                 wrap,
+                html: wrap.outerHTML,
+                ghost: null,
+                moveToken: null,
                 startX: e.clientX,
                 startY: e.clientY,
                 dragging: false,
@@ -963,49 +1678,168 @@ internal static class EditorHtmlBuilder
               };
             }
 
-            function clearImageMoveStyles(wrap) {
-              wrap.classList.remove('is-dragging');
-              wrap.style.position = '';
-              wrap.style.left = '';
-              wrap.style.top = '';
-              wrap.style.margin = '';
-              wrap.style.zIndex = '';
-              wrap.style.pointerEvents = '';
+            function removeImageMoveGhost(session) {
+              if (!session?.ghost?.parentNode)
+                return;
+              session.ghost.parentNode.removeChild(session.ghost);
+              session.ghost = null;
+            }
+
+            function rangeIntersectsNode(range, node) {
+              if (!range || !node) return false;
+              if (node === range.startContainer || node === range.endContainer) return true;
+              return node.contains(range.startContainer);
+            }
+
+            function normalizeImageDropRange(range, clientX) {
+              if (!range) return null;
+              const normalized = range.cloneRange();
+              normalized.collapse(true);
+
+              let container = normalized.startContainer;
+              if (container.nodeType === Node.TEXT_NODE)
+                container = container.parentNode;
+
+              const targetWrap = container?.closest?.('.editor-image-wrap');
+              if (targetWrap && editor.contains(targetWrap)) {
+                if (typeof clientX === 'number')
+                  return caretRangeBeforeAfterImageWrap(targetWrap, clientX);
+                normalized.setStartAfter(targetWrap);
+                normalized.collapse(true);
+                container = normalized.startContainer;
+                if (container.nodeType === Node.TEXT_NODE)
+                  container = container.parentNode;
+              }
+
+              if (container && (container.tagName === 'TD' || container.tagName === 'TH')) {
+                ensureTableCellEditable(container);
+                if (typeof clientX === 'number') {
+                  const cellRange = caretRangeFromCellPoint(container, clientX, 0);
+                  if (cellRange)
+                    return cellRange;
+                }
+                const block = getTableCellInsertBlock(container);
+                if (block) {
+                  normalized.selectNodeContents(block);
+                  normalized.collapse(true);
+                }
+              }
+
+              return normalized;
+            }
+
+            function isValidImageDropRange(range, movingWrap) {
+              return !!range
+                && editor.contains(range.startContainer)
+                && !rangeIntersectsNode(range, movingWrap);
+            }
+
+            function resolveImageDropRangeAtPoint(session, clientX, clientY) {
+              const wrap = session.wrap;
+              const ignore = [session.ghost, wrap, imageDropCaret];
+              const prevVisibility = wrap.style.visibility;
+              wrap.style.visibility = 'hidden';
+              let dropRange = resolveEditorCaretRange(clientX, clientY, ignore);
+              wrap.style.visibility = prevVisibility;
+              return normalizeImageDropRange(dropRange, clientX);
+            }
+
+            function pickImageDropRange(session, clientX, clientY, savedDropRange) {
+              const wrap = session.wrap;
+              const candidates = [];
+
+              const atPoint = resolveImageDropRangeAtPoint(session, clientX, clientY);
+              if (atPoint) candidates.push(atPoint);
+
+              if (savedDropRange) {
+                const saved = normalizeImageDropRange(savedDropRange.cloneRange(), clientX);
+                if (saved) candidates.push(saved);
+              }
+
+              for (const range of candidates) {
+                if (isValidImageDropRange(range, wrap))
+                  return range;
+              }
+              return null;
+            }
+
+            function moveImageWrapDom(wrap, range, session) {
+              if (!wrap?.parentNode || !range || !editor.contains(range.startContainer))
+                return false;
+
+              const savedParent = wrap.parentNode;
+              const savedNext = wrap.nextSibling;
+              const marker = document.createElement('span');
+              marker.setAttribute('data-image-drop-marker', '1');
+              marker.textContent = ZWSP;
+
+              try {
+                range.collapse(true);
+                range.insertNode(marker);
+              } catch {
+                return false;
+              }
+
+              if (!marker.parentNode) {
+                marker.remove();
+                return false;
+              }
+
+              wrap.classList.remove('is-move-source', 'is-dragging', 'is-selected');
+              savedParent.removeChild(wrap);
+
+              try {
+                marker.parentNode.insertBefore(wrap, marker);
+              } catch {
+                if (savedNext && savedNext.parentNode === savedParent)
+                  savedParent.insertBefore(wrap, savedNext);
+                else if (session?.savedParent && editor.contains(session.savedParent))
+                  session.savedParent.appendChild(wrap);
+                else
+                  savedParent.appendChild(wrap);
+                marker.remove();
+                return false;
+              }
+
+              marker.remove();
+              ensureImageWrapReady(wrap);
+              ensureCaretAnchors(wrap);
+              return true;
+            }
+
+            function selectMovedImageWrap(wrap, moveToken) {
+              editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => w.classList.remove('is-selected'));
+              if (!wrap || !editor.contains(wrap)) return;
+              wrap.classList.add('is-selected');
+              wrap.removeAttribute('data-transient-move-id');
             }
 
             function finishImageMove(e) {
               const session = imageMoveSession;
               imageMoveSession = null;
               editor.classList.remove('is-image-move-target');
+              const savedDropRange = session?.dropRange ? session.dropRange.cloneRange() : null;
               hideImageDropCaret();
               if (!session) return;
 
               const wrap = session.wrap;
-              clearImageMoveStyles(wrap);
+              removeImageMoveGhost(session);
+              wrap.classList.remove('is-move-source');
 
               if (!session.dragging) return;
 
               suppressNextImageClick = true;
-              wrap.remove();
+              const dropRange = pickImageDropRange(session, e.clientX, e.clientY, savedDropRange);
 
-              let range = session.dropRange;
-              if (!range) {
-                range = caretRangeFromClientPoint(e.clientX, e.clientY);
-              }
-              if (range && editor.contains(range.startContainer)) {
-                range.collapse(true);
-                range.insertNode(wrap);
-              } else if (session.savedParent) {
-                if (session.savedNext && session.savedNext.parentNode === session.savedParent)
-                  session.savedParent.insertBefore(wrap, session.savedNext);
-                else
-                  session.savedParent.appendChild(wrap);
+              if (dropRange && moveImageWrapDom(wrap, dropRange, session)) {
+                selectMovedImageWrap(wrap, session.moveToken);
+                updateEmptyState();
+                notifyChanged();
+                return;
               }
 
-              ensureCaretAnchors(wrap);
               wrap.classList.add('is-selected');
               updateEmptyState();
-              notifyChanged();
             }
 
             document.addEventListener('mousemove', (e) => {
@@ -1017,29 +1851,39 @@ internal static class EditorHtmlBuilder
               const dy = e.clientY - session.startY;
 
               if (!session.dragging) {
-                if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+                if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
                 session.dragging = true;
+                session.moveToken = 'm' + Date.now();
+                wrap.dataset.transientMoveId = session.moveToken;
+                session.html = wrap.outerHTML;
                 const sel = window.getSelection();
                 if (sel) sel.removeAllRanges();
                 const rect = wrap.getBoundingClientRect();
                 session.offsetX = e.clientX - rect.left;
                 session.offsetY = e.clientY - rect.top;
-                wrap.classList.add('is-dragging');
-                wrap.style.position = 'fixed';
-                wrap.style.left = rect.left + 'px';
-                wrap.style.top = rect.top + 'px';
-                wrap.style.margin = '0';
-                wrap.style.zIndex = '10000';
-                wrap.style.pointerEvents = 'none';
-                document.body.appendChild(wrap);
+                const ghost = wrap.cloneNode(true);
+                ghost.classList.add('is-dragging');
+                ghost.classList.remove('is-selected');
+                ghost.style.position = 'fixed';
+                ghost.style.left = rect.left + 'px';
+                ghost.style.top = rect.top + 'px';
+                ghost.style.margin = '0';
+                ghost.style.zIndex = '10000';
+                ghost.style.pointerEvents = 'none';
+                document.body.appendChild(ghost);
+                session.ghost = ghost;
+                wrap.classList.add('is-move-source');
                 editor.classList.add('is-image-move-target');
               }
 
-              wrap.style.left = (e.clientX - session.offsetX) + 'px';
-              wrap.style.top = (e.clientY - session.offsetY) + 'px';
+              e.preventDefault();
 
-              if (session.dragging)
-                updateImageDropCaret(e.clientX, e.clientY);
+              if (session.ghost) {
+                session.ghost.style.left = (e.clientX - session.offsetX) + 'px';
+                session.ghost.style.top = (e.clientY - session.offsetY) + 'px';
+              }
+
+              updateImageDropCaret(e.clientX, e.clientY, session.ghost);
             });
 
             document.addEventListener('mouseup', (e) => {
@@ -1138,7 +1982,7 @@ internal static class EditorHtmlBuilder
               if (wrap.classList.contains('is-sized')) return;
               const naturalWidth = img.naturalWidth || 0;
               if (naturalWidth <= 0) return;
-              const maxWidth = Math.max(120, editor.clientWidth - 64);
+              const maxWidth = getImageMaxWidthForWrap(wrap);
               const width = Math.min(naturalWidth, maxWidth);
               img.style.width = width + 'px';
               img.style.height = 'auto';
@@ -1197,23 +2041,8 @@ internal static class EditorHtmlBuilder
             function setupImageResize(wrap, img, handle) {
               wrap.addEventListener('mousedown', (e) => {
                 if (e.button !== 0 || e.target === handle || isOpenModifier(e)) return;
-                const rect = wrap.getBoundingClientRect();
-                const localX = e.clientX - rect.left;
-                const edge = Math.min(10, rect.width * 0.15);
-                if (localX <= edge) {
-                  if (!e.shiftKey) {
-                    wrap.classList.remove('is-selected');
-                    placeCaretBefore(wrap);
-                  }
-                  return;
-                }
-                if (localX >= rect.width - edge) {
-                  if (!e.shiftKey) {
-                    wrap.classList.remove('is-selected');
-                    placeCaretAfter(wrap);
-                  }
-                  return;
-                }
+                e.preventDefault();
+                e.stopPropagation();
                 if (!e.shiftKey) {
                   editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => w.classList.remove('is-selected'));
                   wrap.classList.add('is-selected');
@@ -1237,14 +2066,19 @@ internal static class EditorHtmlBuilder
 
                 function onMove(ev) {
                   const width = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
-                  commitImageWidth(wrap, img, width);
+                  wrap.style.width = width + 'px';
+                  wrap.style.maxWidth = 'none';
+                  img.style.width = '100%';
+                  img.style.height = 'auto';
+                  img.style.maxWidth = 'none';
+                  img.style.display = 'block';
                 }
 
-                function onUp() {
+                function onUp(ev) {
                   document.removeEventListener('mousemove', onMove);
                   document.removeEventListener('mouseup', onUp);
-                  const width = resolveImageWidthForSave(wrap, img);
-                  if (width) commitImageWidth(wrap, img, width);
+                  const width = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
+                  commitImageWidth(wrap, img, width);
                   notifyChanged();
                 }
 
@@ -1312,6 +2146,7 @@ internal static class EditorHtmlBuilder
             function upgradeEditorBlocks() {
               editor.querySelectorAll('img').forEach(img => wrapImage(img));
               editor.querySelectorAll('.editor-image-wrap').forEach(wrap => ensureImageWrapReady(wrap));
+              upgradeTableCells();
               unwrapStandaloneImageBlocks();
               editor.querySelectorAll('a[href]').forEach(link => {
                 if (link.classList.contains('editor-file-attachment')) return;
@@ -1338,16 +2173,10 @@ internal static class EditorHtmlBuilder
                 notifyChanged();
               },
               undo() {
-                editor.focus();
-                document.execCommand('undo', false, null);
-                updateEmptyState();
-                notifyChanged();
+                return runEditorUndo();
               },
               redo() {
-                editor.focus();
-                document.execCommand('redo', false, null);
-                updateEmptyState();
-                notifyChanged();
+                return runEditorRedo();
               },
               applyHeading(level) {
                 editor.focus();
@@ -1383,31 +2212,16 @@ internal static class EditorHtmlBuilder
                 notifyChanged();
               },
               insertImage(src, alt) {
-                hideFileDropCaret();
-                editor.focus();
-                ensureParagraph();
-                const safeSrc = escapeHtml(src);
-                const safeAlt = escapeHtml(alt || '');
-                document.execCommand(
-                  'insertHTML',
-                  false,
-                  '&#8203;<span class="editor-image-wrap" contenteditable="false"><img src="' + safeSrc + '" alt="' + safeAlt + '"><span class="editor-image-resize-handle" contenteditable="false"></span></span>&#8203;');
-                upgradeEditorBlocks();
-                const wraps = editor.querySelectorAll('.editor-image-wrap');
-                if (wraps.length > 0) {
-                  const lastWrap = wraps[wraps.length - 1];
-                  const img = lastWrap.querySelector('img');
-                  ensureImageWrapReady(lastWrap);
-                  if (img) attachImageLoadHandlers(lastWrap, img);
-                  placeCaretAfter(lastWrap);
-                }
-                updateEmptyState();
-                notifyChanged();
+                return insertImageAtCaret(src, alt, null, false);
+              },
+              insertImageAtDropPoint(x, y, src, alt) {
+                commitFileDropCaretAtPointImpl(x, y);
+                return insertImageAtCaret(src, alt, null, true);
               },
               insertFileAttachment(href, fileName) {
                 hideFileDropCaret();
                 editor.focus();
-                ensureParagraph();
+                ensureInsertLocation();
                 const safeHref = escapeHtml(href);
                 const safeName = escapeHtml(fileName || href);
                 document.execCommand('insertHTML', false, '&#8203;<a class="editor-file-attachment" href="' + safeHref + '" contenteditable="false">' + safeName + '</a>&#8203;');
@@ -1427,34 +2241,81 @@ internal static class EditorHtmlBuilder
                 const sel = window.getSelection();
                 return sel ? sel.toString() : '';
               },
+              getContextMenuContext(x, y) {
+                const hit = document.elementFromPoint(x, y);
+                const wrap = hit?.closest('.editor-image-wrap');
+                if (wrap && editor.contains(wrap)) {
+                  editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => {
+                    if (w !== wrap) w.classList.remove('is-selected');
+                  });
+                  wrap.classList.add('is-selected');
+                  const img = wrap.querySelector('img');
+                return JSON.stringify({
+                  target: 'image',
+                  src: img?.getAttribute('src') || img?.src || '',
+                  alt: img?.getAttribute('alt') || ''
+                });
+              }
+
+              return JSON.stringify({
+                target: 'editor',
+                lineQuote: getLineQuoteAtPoint(x, y)
+              });
+            },
+              cutSelectedImage() {
+                const wrap = getSelectedImageWrap();
+                if (!wrap || !selectNode(wrap)) return false;
+                editor.focus();
+                const ok = document.execCommand('cut', false, null);
+                if (ok) {
+                  updateEmptyState();
+                  notifyChanged();
+                }
+                return ok;
+              },
+              copySelectedImage() {
+                const wrap = getSelectedImageWrap();
+                if (!wrap || !selectNode(wrap)) return false;
+                editor.focus();
+                return document.execCommand('copy', false, null);
+              },
+              deleteSelectedImage() {
+                const wrap = getSelectedImageWrap();
+                if (!wrap) return false;
+                const ok = deleteNodeWithUndo(wrap);
+                if (ok) {
+                  updateEmptyState();
+                  notifyChanged();
+                }
+                return ok;
+              },
+              replaceSelectedImage(src, alt) {
+                const wrap = getSelectedImageWrap();
+                if (!wrap) return false;
+                const img = wrap.querySelector('img');
+                if (!img) return false;
+                const safeSrc = String(src || '').trim();
+                if (!safeSrc) return false;
+                img.src = safeSrc;
+                img.setAttribute('src', safeSrc);
+                img.alt = alt || '';
+                img.setAttribute('alt', alt || '');
+                finalizeImageSizeFromMarkup(wrap, img);
+                applyDefaultImageDisplaySize(wrap, img);
+                attachImageLoadHandlers(wrap, img);
+                wrap.classList.add('is-selected');
+                updateEmptyState();
+                notifyChanged();
+                return true;
+              },
               focusCaretAtPoint(x, y) {
-                return commitFileDropCaretAtPoint(x, y);
+                return commitFileDropCaretAtPointImpl(x, y);
               },
               showFileDropCaretAtPoint(x, y) {
                 return showFileDropCaretAtClientPoint(x, y);
               },
               commitFileDropCaretAtPoint(x, y) {
-                fileDropFeedbackEpoch++;
-                const savedRange = fileDropCaretRange;
-                if (imageDropCaret) imageDropCaret.style.display = 'none';
-                fileDropCaretRange = null;
-                document.body.classList.remove('is-file-drop-target');
-
-                let range = savedRange;
-                if (!range) {
-                  range = caretRangeFromClientPoint(x, y);
-                  if (range) range.collapse(true);
-                }
-
-                if (!range || !editor.contains(range.startContainer))
-                  return false;
-
-                editor.focus();
-                const sel = window.getSelection();
-                if (!sel) return false;
-                sel.removeAllRanges();
-                sel.addRange(range);
-                return true;
+                return commitFileDropCaretAtPointImpl(x, y);
               },
               hideFileDropCaret() {
                 if (imageDropCaret) imageDropCaret.style.display = 'none';

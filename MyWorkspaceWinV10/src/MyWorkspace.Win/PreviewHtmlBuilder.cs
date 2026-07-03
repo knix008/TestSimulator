@@ -42,6 +42,7 @@ internal static partial class PreviewHtmlBuilder
         var accent = ToCss(p.Accent);
         var muted = ToCss(p.TextSecondary);
         var codeBg = ToCss(p.EditorCodeBackground);
+        var surface = ToCss(p.Surface);
         var lang = Localization.Current == AppLanguage.Korean ? "ko" : "en";
         var colorScheme = AppTheme.IsDark ? "dark" : "light";
         var bodyFontSize = (15F * chrome.FontScaleFactor).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
@@ -70,12 +71,15 @@ internal static partial class PreviewHtmlBuilder
                 h5 { font-size: 1em; }
                 h6 { font-size: 0.95em; text-transform: uppercase; letter-spacing: 0.02em; }
                 h1 a, h2 a, h3 a, h4 a, h5 a, h6 a { color: {{accent}}; }
-                code { background: {{codeBg}}; padding: 0.15em 0.4em; border-radius: 4px; font-family: Consolas, monospace; }
-                pre { background: {{codeBg}}; padding: 16px; border-radius: 8px; overflow-x: auto; }
-                blockquote { border-left: 4px solid {{accent}}; padding: 8px 16px; color: {{muted}}; background: {{codeBg}}; }
-                table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+                code { background: {{codeBg}}; padding: 0.15em 0.4em; border-radius: 4px; font-family: Consolas, "Cascadia Mono", monospace; color: {{text}}; border: 1px solid {{border}}; }
+                pre { background: {{codeBg}}; padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid {{border}}; }
+                pre code { border: none; background: none; }
+                blockquote { border-left: 4px solid {{accent}}; padding: 8px 16px; color: {{muted}}; background: {{codeBg}}; border: 1px solid {{borderLight}}; border-left-width: 4px; }
+                table { border-collapse: collapse; width: 100%; margin-bottom: 16px; border: 1px solid {{border}}; }
                 th, td { border: 1px solid {{border}}; padding: 8px 12px; }
-                th { background: {{codeBg}}; }
+                th { background: {{codeBg}}; font-weight: 600; }
+                td { background: color-mix(in srgb, {{surface}} 72%, {{bg}}); }
+                tbody tr:nth-child(even) td { background: color-mix(in srgb, {{codeBg}} 82%, {{bg}}); }
                 img { max-width: 100%; height: auto; border-radius: 4px; margin: 8px 0; }
                 img[width] { max-width: none; }
                 a { color: {{accent}}; }

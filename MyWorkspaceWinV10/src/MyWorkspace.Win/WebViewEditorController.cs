@@ -19,6 +19,7 @@ internal sealed class WebViewEditorController
     private bool _fileDropHooksInstalled;
     private Func<string[], Point, Task>? _fileDropHandler;
     private Func<bool>? _canAcceptFileDrop;
+    private Func<string, string?>? _pasteHtmlCloneHandler;
     private DateTime _lastDragCaretUpdateUtc = DateTime.MinValue;
     private DateTime _lastFileDropUtc = DateTime.MinValue;
     private string _lastFileDropKey = string.Empty;
@@ -34,6 +35,9 @@ internal sealed class WebViewEditorController
         EnsureHostFileDropHooks();
         EnsureHostDropSurfaceHooks(hostDropSurface);
     }
+
+    public void ConfigurePasteHtmlClone(Func<string, string?> cloneHtml) =>
+        _pasteHtmlCloneHandler = cloneHtml;
 
     private Control? _hostDropSurface;
     private EditorDropTargetPanel? _dropTargetOverlay;
@@ -454,6 +458,8 @@ internal sealed class WebViewEditorController
                 CaretMoved?.Invoke();
             else if (TryHandleFileDropMessage(args, message))
                 return;
+            else if (TryHandleClonePastedHtmlMessage(message))
+                return;
             else
                 TryHandleOpenMessage(message);
         }
@@ -518,6 +524,53 @@ internal sealed class WebViewEditorController
         catch (JsonException)
         {
             return false;
+        }
+    }
+
+    private bool TryHandleClonePastedHtmlMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message) || _pasteHtmlCloneHandler == null)
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement) ||
+                !string.Equals(typeElement.GetString(), "clone-pasted-html", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var html = root.TryGetProperty("html", out var htmlElement)
+                ? htmlElement.GetString()
+                : null;
+            if (string.IsNullOrWhiteSpace(html))
+                return true;
+
+            _ = InvokePasteHtmlCloneAsync(html);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private async Task InvokePasteHtmlCloneAsync(string html)
+    {
+        if (_pasteHtmlCloneHandler == null)
+            return;
+
+        try
+        {
+            var rewritten = _pasteHtmlCloneHandler(html) ?? html;
+            await RunApiAsync($"window.editorApi.insertHtml('{EscapeJs(rewritten)}');").ConfigureAwait(true);
+            await RunApiAsync("window.editorApi.finalizeImageSizes();").ConfigureAwait(true);
+        }
+        catch
+        {
+            // MainForm clone handler should not throw; ignore unexpected failures.
         }
     }
 
@@ -710,6 +763,13 @@ internal sealed class WebViewEditorController
     public Task InsertImageAsync(string src, string alt) =>
         RunApiAsync($"window.editorApi.insertImage('{EscapeJs(src)}','{EscapeJs(alt)}');");
 
+    public Task InsertImageAtDropPointAsync(Point cssPoint, string src, string alt)
+    {
+        var css = ToWebViewCssPoint(cssPoint);
+        return RunApiAsync(
+            $"window.editorApi.insertImageAtDropPoint({css.X},{css.Y},'{EscapeJs(src)}','{EscapeJs(alt)}');");
+    }
+
     public Task FinalizeImageSizesAsync() =>
         RunApiAsync("window.editorApi.finalizeImageSizes();");
 
@@ -727,6 +787,29 @@ internal sealed class WebViewEditorController
         var result = await ExecuteScriptExclusiveAsync("window.editorApi.getSelectedText();");
         return DeserializeScriptResult(result) ?? string.Empty;
     }
+
+    public async Task<EditorContextMenuContext> GetContextMenuContextAsync(Point webViewClientPoint)
+    {
+        if (!IsReady || IsScriptSuspended)
+            return EditorContextMenuContext.ForEditor();
+
+        var css = ToWebViewCssPoint(webViewClientPoint);
+        var result = await ExecuteScriptExclusiveAsync(
+            $"window.editorApi.getContextMenuContext({css.X},{css.Y});");
+        return EditorContextMenuContext.Parse(DeserializeScriptResult(result));
+    }
+
+    public Task CutSelectedImageAsync() =>
+        RunApiAsync("window.editorApi.cutSelectedImage();");
+
+    public Task CopySelectedImageAsync() =>
+        RunApiAsync("window.editorApi.copySelectedImage();");
+
+    public Task DeleteSelectedImageAsync() =>
+        RunApiAsync("window.editorApi.deleteSelectedImage();");
+
+    public Task ReplaceSelectedImageAsync(string src, string alt) =>
+        RunApiAsync($"window.editorApi.replaceSelectedImage('{EscapeJs(src)}','{EscapeJs(alt)}');");
 
     public Task FocusAsync() =>
         RunApiAsync("window.editorApi.focus();");
@@ -880,6 +963,7 @@ internal sealed class WebViewEditorController
             codeBg = ToCss(p.EditorCodeBackground),
             border = ToCss(p.Border),
             borderLight = ToCss(p.BorderLight),
+            surface = ToCss(p.Surface),
             accent = ToCss(p.Accent),
             muted = ToCss(p.TextSecondary),
             selection = ToCssAlpha(p.Accent, 51),
@@ -918,4 +1002,56 @@ internal sealed class EditorHeading
     public int Level { get; set; }
     public string Text { get; set; } = string.Empty;
     public string Id { get; set; } = string.Empty;
+}
+
+internal sealed class EditorContextMenuContext
+{
+    public string Target { get; init; } = "editor";
+    public string? ImageSrc { get; init; }
+    public string? ImageAlt { get; init; }
+    public string? LineQuote { get; init; }
+
+    public bool IsImage => string.Equals(Target, "image", StringComparison.OrdinalIgnoreCase);
+
+    public static EditorContextMenuContext ForEditor() => new();
+
+    public static EditorContextMenuContext Parse(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return ForEditor();
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var target = root.TryGetProperty("target", out var targetElement)
+                ? targetElement.GetString() ?? "editor"
+                : "editor";
+
+            if (!string.Equals(target, "image", StringComparison.OrdinalIgnoreCase))
+            {
+                var lineQuote = root.TryGetProperty("lineQuote", out var lineQuoteElement)
+                    ? lineQuoteElement.GetString()
+                    : null;
+                return new EditorContextMenuContext
+                {
+                    Target = "editor",
+                    LineQuote = lineQuote
+                };
+            }
+
+            var src = root.TryGetProperty("src", out var srcElement) ? srcElement.GetString() : null;
+            var alt = root.TryGetProperty("alt", out var altElement) ? altElement.GetString() : null;
+            return new EditorContextMenuContext
+            {
+                Target = "image",
+                ImageSrc = src,
+                ImageAlt = alt
+            };
+        }
+        catch
+        {
+            return ForEditor();
+        }
+    }
 }

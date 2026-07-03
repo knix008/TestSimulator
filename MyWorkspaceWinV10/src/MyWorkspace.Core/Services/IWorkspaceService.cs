@@ -10,7 +10,7 @@ public interface IWorkspaceService
     Workspace CreateWorkspace(User currentUser, string name, int? parentId);
     void RenameWorkspace(User currentUser, int workspaceId, string name);
     void MoveWorkspace(User currentUser, int workspaceId, int? newParentId);
-    void DeleteWorkspace(User currentUser, int workspaceId);
+    void DeleteWorkspace(User currentUser, int workspaceId, bool userConfirmed);
     bool CanManageWorkspace(User currentUser, int workspaceId);
     bool IsWorkspaceLocked(int workspaceId);
     bool CanEditWorkspaceContent(User currentUser, int workspaceId);
@@ -26,6 +26,8 @@ public interface IWorkspaceService
     bool CanAccessWorkspace(User currentUser, int workspaceId);
     IReadOnlyCollection<int> GetAccessibleWorkspaceIds(User currentUser);
     bool HasPages(int workspaceId);
+    int GetPageCountInWorkspace(int workspaceId);
+    bool HasChildWorkspaces(int workspaceId);
     bool CanFavoriteWorkspace(User currentUser, int workspaceId);
     bool IsFavorite(User currentUser, int workspaceId);
     void SetFavorite(User currentUser, int workspaceId, bool isFavorite);

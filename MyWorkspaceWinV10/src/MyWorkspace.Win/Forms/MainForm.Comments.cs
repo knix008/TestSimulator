@@ -27,13 +27,12 @@ public partial class MainForm
 
     private void InitializeCommentsPanel()
     {
-        commentsEditorSplit = new SplitContainer
+        commentsEditorSplit = new LiveResizeSplitContainer
         {
             Dock = DockStyle.Fill,
             Name = "commentsEditorSplit",
             Panel2Collapsed = true,
-            FixedPanel = FixedPanel.Panel2,
-            Panel2MinSize = CommentsMinWidth
+            FixedPanel = FixedPanel.Panel2
         };
 
         pnlEditorColumn.Controls.Remove(editorAreaSplit);
@@ -47,7 +46,6 @@ public partial class MainForm
             Padding = Padding.Empty,
             Margin = Padding.Empty
         };
-        AppTheme.StyleBorderedPanel(pnlCommentsSidebar, PanelEdges.Left);
 
         pageCommentsPanel = new PageCommentsPanel
         {
@@ -64,6 +62,7 @@ public partial class MainForm
         commentsEditorSplit.Panel2.Controls.Add(pnlCommentsSidebar);
         pnlEditorColumn.Controls.Add(commentsEditorSplit);
         commentsEditorSplit.BringToFront();
+        AppTheme.StyleGrabSplitContainer(commentsEditorSplit);
 
         commentsEditorSplit.SplitterMoved += (_, _) =>
         {
@@ -76,27 +75,51 @@ public partial class MainForm
     {
         if (commentsEditorSplit.Panel2Collapsed)
         {
-            commentsEditorSplit.Panel2Collapsed = false;
-            BeginInvoke(() =>
-            {
-                if (_savedCommentsWidth < commentsEditorSplit.Panel2MinSize)
-                    _savedCommentsWidth = CommentsDefaultWidth;
-
-                var distance = commentsEditorSplit.Width - _savedCommentsWidth - commentsEditorSplit.SplitterWidth;
-                if (distance < commentsEditorSplit.Panel1MinSize)
-                    distance = Math.Max(0, commentsEditorSplit.Width - commentsEditorSplit.Panel2MinSize - commentsEditorSplit.SplitterWidth);
-
-                commentsEditorSplit.SplitterDistance = Math.Max(commentsEditorSplit.Panel1MinSize, distance);
-                UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: true);
-                UpdateCommentsToolbarTooltip();
-            });
+            ExpandCommentsPanel();
             return;
         }
 
+        CollapseCommentsPanel();
+    }
+
+    internal void ExpandCommentsPanel()
+    {
+        if (!commentsEditorSplit.Panel2Collapsed)
+            return;
+
+        ApplyCommentsSplitConstraints(includeCommentsPanel: true);
+        commentsEditorSplit.Panel2Collapsed = false;
+        BeginInvoke(() =>
+        {
+            if (_savedCommentsWidth < CommentsMinWidth)
+                _savedCommentsWidth = CommentsDefaultWidth;
+
+            var distance = commentsEditorSplit.Width - _savedCommentsWidth - commentsEditorSplit.SplitterWidth;
+            if (distance < commentsEditorSplit.Panel1MinSize)
+                distance = Math.Max(0, commentsEditorSplit.Width - CommentsMinWidth - commentsEditorSplit.SplitterWidth);
+
+            commentsEditorSplit.SplitterDistance = Math.Max(commentsEditorSplit.Panel1MinSize, distance);
+            UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: true);
+            UpdateCommentsToolbarTooltip();
+        });
+    }
+
+    private void CollapseCommentsPanel()
+    {
         _savedCommentsWidth = commentsEditorSplit.Panel2.Width;
         commentsEditorSplit.Panel2Collapsed = true;
         UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: false);
         UpdateCommentsToolbarTooltip();
+    }
+
+    internal void CommentOnEditorSelection(string selectedText)
+    {
+        if (string.IsNullOrWhiteSpace(selectedText) || !_currentPageId.HasValue || pageCommentsPanel == null)
+            return;
+
+        ExpandCommentsPanel();
+        pageCommentsPanel.BeginComposeWithQuote(selectedText);
+        BeginInvoke(() => pageCommentsPanel.FocusCompose());
     }
 
     private async Task RefreshCommentsPanelAsync()
@@ -122,7 +145,7 @@ public partial class MainForm
     private void ApplyCommentsTheme()
     {
         pageCommentsPanel?.ApplyTheme();
-        AppTheme.StyleSplitContainer(commentsEditorSplit);
+        AppTheme.StyleGrabSplitContainer(commentsEditorSplit);
     }
 
     private void UpdateCommentsToolbarTooltip()

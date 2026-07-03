@@ -64,6 +64,17 @@ public sealed class PageAssetService : IPageAssetService
             .Any(a => a.PageId == pageId && a.FileName == fileName);
     }
 
+    public IReadOnlyList<string> GetAssetFileNames(User currentUser, int pageId)
+    {
+        if (!CanAccessPage(currentUser, pageId))
+            return Array.Empty<string>();
+
+        return _db.PageAssets.AsNoTracking()
+            .Where(a => a.PageId == pageId)
+            .Select(a => a.FileName)
+            .ToList();
+    }
+
     public void PruneUnreferencedAssets(User currentUser, int pageId, IReadOnlyCollection<string> referencedFileNames)
     {
         EnsureCanAccessPage(currentUser, pageId);

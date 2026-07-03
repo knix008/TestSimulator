@@ -8,6 +8,7 @@ namespace MyWorkspace.Data.Services;
 public sealed class PageCommentService : IPageCommentService
 {
     private const int MaxContentLength = 8000;
+    private const int MaxQuotedTextLength = 2000;
     private readonly AppDbContext _db;
     private readonly IWorkspaceService _workspaceService;
     private readonly IPageService _pageService;
@@ -35,6 +36,7 @@ public sealed class PageCommentService : IPageCommentService
                 UserId = c.UserId,
                 AuthorUsername = c.User.Username,
                 Content = c.Content,
+                QuotedText = c.QuotedText,
                 CreatedAt = c.CreatedAt,
                 UpdatedAt = c.UpdatedAt,
                 CanEdit = c.UserId == currentUser.Id,
@@ -43,17 +45,19 @@ public sealed class PageCommentService : IPageCommentService
             .ToList();
     }
 
-    public PageCommentListItem AddComment(User currentUser, int pageId, string content)
+    public PageCommentListItem AddComment(User currentUser, int pageId, string content, string? quotedText = null)
     {
         EnsurePageAccess(currentUser, pageId);
 
         var normalized = NormalizeContent(content);
+        var normalizedQuote = NormalizeQuotedText(quotedText);
         var now = DateTime.UtcNow;
         var comment = new PageComment
         {
             PageId = pageId,
             UserId = currentUser.Id,
             Content = normalized,
+            QuotedText = normalizedQuote,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -104,6 +108,7 @@ public sealed class PageCommentService : IPageCommentService
             UserId = comment.UserId,
             AuthorUsername = comment.User?.Username ?? currentUser.Username,
             Content = comment.Content,
+            QuotedText = comment.QuotedText,
             CreatedAt = comment.CreatedAt,
             UpdatedAt = comment.UpdatedAt,
             CanEdit = comment.UserId == currentUser.Id,
@@ -118,6 +123,18 @@ public sealed class PageCommentService : IPageCommentService
 
         if (normalized.Length > MaxContentLength)
             normalized = normalized[..MaxContentLength];
+
+        return normalized;
+    }
+
+    private static string? NormalizeQuotedText(string? quotedText)
+    {
+        if (string.IsNullOrWhiteSpace(quotedText))
+            return null;
+
+        var normalized = quotedText.Trim();
+        if (normalized.Length > MaxQuotedTextLength)
+            normalized = normalized[..MaxQuotedTextLength];
 
         return normalized;
     }

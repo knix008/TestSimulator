@@ -169,6 +169,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.PageId).HasColumnName("page_id");
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.QuotedText).HasColumnName("quoted_text");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
             entity.HasIndex(e => new { e.PageId, e.CreatedAt });

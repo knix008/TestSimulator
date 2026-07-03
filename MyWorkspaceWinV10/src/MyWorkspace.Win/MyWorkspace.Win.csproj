@@ -50,6 +50,12 @@
 
   </ItemGroup>
 
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>MyWorkspace.MultiImage.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 
 
   <ItemGroup>

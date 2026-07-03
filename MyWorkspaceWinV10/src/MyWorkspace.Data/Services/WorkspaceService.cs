@@ -217,8 +217,11 @@ public sealed class WorkspaceService : IWorkspaceService
         _db.SaveChanges();
     }
 
-    public void DeleteWorkspace(User currentUser, int workspaceId)
+    public void DeleteWorkspace(User currentUser, int workspaceId, bool userConfirmed)
     {
+        if (!userConfirmed)
+            throw new InvalidOperationException("Workspace 삭제는 사용자 확인 후에만 가능합니다.");
+
         EnsureCanEditContent(currentUser, workspaceId);
 
         var workspace = _db.Workspaces
@@ -229,12 +232,32 @@ public sealed class WorkspaceService : IWorkspaceService
         if (workspace.Children.Count > 0)
             throw new InvalidOperationException("하위 Workspace가 있으면 삭제할 수 없습니다.");
 
-        if (_db.Pages.Any(p => p.WorkspaceId == workspaceId))
-            throw new InvalidOperationException("Page가 있으면 삭제할 수 없습니다. Page를 먼저 삭제하세요.");
+        var pages = _db.Pages.Where(p => p.WorkspaceId == workspaceId).ToList();
+        if (pages.Count > 0)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var page in pages)
+            {
+                _db.PageChangeLogs.Add(new PageChangeLog
+                {
+                    PageId = page.Id,
+                    ChangedByUserId = currentUser.Id,
+                    ChangedAt = now,
+                    Action = PageChangeAction.Deleted,
+                    OldTitle = TruncatePageTitle(page.Title)
+                });
+                _notifications?.NotifyPageDeleted(currentUser, workspaceId, page.Title);
+            }
+
+            _db.Pages.RemoveRange(pages);
+        }
 
         _db.Workspaces.Remove(workspace);
         _db.SaveChanges();
     }
+
+    private static string TruncatePageTitle(string title) =>
+        title.Length <= 200 ? title : title[..200];
 
     public bool CanManageWorkspace(User currentUser, int workspaceId)
     {
@@ -456,6 +479,12 @@ public sealed class WorkspaceService : IWorkspaceService
 
     public bool HasPages(int workspaceId) =>
         _db.Pages.AsNoTracking().Any(p => p.WorkspaceId == workspaceId);
+
+    public int GetPageCountInWorkspace(int workspaceId) =>
+        _db.Pages.AsNoTracking().Count(p => p.WorkspaceId == workspaceId);
+
+    public bool HasChildWorkspaces(int workspaceId) =>
+        _db.Workspaces.AsNoTracking().Any(w => w.ParentId == workspaceId);
 
     private HashSet<int> GetFavoriteWorkspaceIds(User currentUser) =>
         _db.WorkspaceFavorites.AsNoTracking()

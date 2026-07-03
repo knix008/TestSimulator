@@ -172,7 +172,7 @@ public partial class MainForm
             Localization.Get(K.MenuNewProject),
             Localization.Get(K.NewProjectNamePrompt),
             Localization.Get(K.DefaultNewProjectName));
-        if (nameDialog.ShowDialog(this) != DialogResult.OK)
+        if (ShowNameInputDialog(nameDialog) != DialogResult.OK)
             return;
 
         var projectName = nameDialog.InputText;

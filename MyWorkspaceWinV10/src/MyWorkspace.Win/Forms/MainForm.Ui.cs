@@ -18,6 +18,8 @@ public partial class MainForm
 
         if (_ctxEditor != null)
             AppTheme.StyleContextMenu(_ctxEditor);
+        if (_ctxEditorImage != null)
+            AppTheme.StyleContextMenu(_ctxEditorImage);
 
         RefreshToolbarIcons();
 
@@ -70,9 +72,8 @@ public partial class MainForm
         editorAreaSplit.Panel2.Padding = Padding.Empty;
         outerSplit.Panel2.Padding = Padding.Empty;
 
-        AppTheme.StyleSplitContainer(outerSplit);
-        AppTheme.StyleSplitContainer(editorAreaSplit);
-        outerSplit.BackColor = AppTheme.EditorBackground;
+        AppTheme.StyleGrabSplitContainer(outerSplit);
+        AppTheme.StyleGrabSplitContainer(editorAreaSplit);
 
         lblStatus.ForeColor = AppTheme.TextSecondary;
         lblSaveStatus.ForeColor = AppTheme.TextMuted;

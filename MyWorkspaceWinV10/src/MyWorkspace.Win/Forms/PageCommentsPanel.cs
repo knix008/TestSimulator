@@ -8,10 +8,14 @@ namespace MyWorkspace.Win.Forms;
 
 internal sealed class PageCommentsPanel : UserControl
 {
+    private const int ComposeBaseHeight = 132;
+    private const int QuotePreviewHeight = 58;
+
     private readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
     private readonly Label _lblHeader = new();
     private readonly WebView2 _webView = new();
     private readonly Panel _pnlCompose = new();
+    private readonly TextBox _txtQuotePreview = new();
     private readonly TextBox _txtCompose = new();
     private readonly FlowLayoutPanel _composeButtons = new();
     private readonly Button _btnAttachImage = new();
@@ -19,6 +23,7 @@ internal sealed class PageCommentsPanel : UserControl
     private readonly Button _btnPost = new();
     private bool _webViewReady;
     private int? _pageId;
+    private string? _pendingQuotedText;
 
     public PageCommentsPanel()
     {
@@ -37,7 +42,17 @@ internal sealed class PageCommentsPanel : UserControl
 
         _pnlCompose.Dock = DockStyle.Bottom;
         _pnlCompose.Padding = new Padding(10, 8, 10, 10);
-        _pnlCompose.Height = 132;
+        _pnlCompose.Height = ComposeBaseHeight;
+
+        _txtQuotePreview.Multiline = true;
+        _txtQuotePreview.ReadOnly = true;
+        _txtQuotePreview.Dock = DockStyle.Top;
+        _txtQuotePreview.Height = QuotePreviewHeight;
+        _txtQuotePreview.Visible = false;
+        _txtQuotePreview.BorderStyle = BorderStyle.None;
+        _txtQuotePreview.Font = new Font("Segoe UI", 9F, FontStyle.Italic);
+        _txtQuotePreview.ScrollBars = ScrollBars.Vertical;
+        _txtQuotePreview.TabStop = false;
 
         _txtCompose.Multiline = true;
         _txtCompose.Dock = DockStyle.Fill;
@@ -64,6 +79,7 @@ internal sealed class PageCommentsPanel : UserControl
         composeHost.Controls.Add(_composeButtons);
 
         _pnlCompose.Controls.Add(composeHost);
+        _pnlCompose.Controls.Add(_txtQuotePreview);
 
         Controls.Add(_webView);
         Controls.Add(_pnlCompose);
@@ -86,6 +102,7 @@ internal sealed class PageCommentsPanel : UserControl
     {
         _pageId = pageId;
         _txtCompose.Clear();
+        ClearQuotePreview();
         SetComposeEnabled(pageId.HasValue && SessionContext.IsLoggedIn);
 
         if (!pageId.HasValue || !_webViewReady)
@@ -126,12 +143,36 @@ internal sealed class PageCommentsPanel : UserControl
         _txtCompose.PlaceholderText = Localization.Get(K.CommentsComposePlaceholder);
     }
 
+    public void BeginComposeWithQuote(string quotedText)
+    {
+        if (string.IsNullOrWhiteSpace(quotedText))
+            return;
+
+        _pendingQuotedText = quotedText.Trim();
+        if (_pendingQuotedText.Length > 2000)
+            _pendingQuotedText = _pendingQuotedText[..2000];
+
+        _txtQuotePreview.Text = _pendingQuotedText;
+        _txtQuotePreview.Visible = true;
+        _pnlCompose.Height = ComposeBaseHeight + QuotePreviewHeight;
+        _txtCompose.Clear();
+        _txtCompose.Focus();
+    }
+
+    public void FocusCompose()
+    {
+        if (_txtCompose.CanFocus)
+            _txtCompose.Focus();
+    }
+
     public void ApplyTheme()
     {
         BackColor = AppTheme.Sidebar;
         _lblHeader.ForeColor = AppTheme.TextPrimary;
         _lblHeader.BackColor = AppTheme.Sidebar;
         _pnlCompose.BackColor = AppTheme.Sidebar;
+        _txtQuotePreview.BackColor = AppTheme.EditorCodeBackground;
+        _txtQuotePreview.ForeColor = AppTheme.TextSecondary;
         _txtCompose.BackColor = AppTheme.EditorBackground;
         _txtCompose.ForeColor = AppTheme.EditorText;
         _webView.DefaultBackgroundColor = AppTheme.Sidebar;
@@ -267,9 +308,14 @@ internal sealed class PageCommentsPanel : UserControl
 
         try
         {
-            AppConfig.Services.PageComments.AddComment(SessionContext.CurrentUser, _pageId.Value, content);
+            AppConfig.Services.PageComments.AddComment(
+                SessionContext.CurrentUser,
+                _pageId.Value,
+                content,
+                _pendingQuotedText);
             PageCommentAssetSync.SyncForPage(_pageId.Value);
             _txtCompose.Clear();
+            ClearQuotePreview();
             await RefreshAsync();
             CommentsChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -407,6 +453,14 @@ internal sealed class PageCommentsPanel : UserControl
         _btnPost.Enabled = enabled;
         _btnAttachImage.Enabled = enabled;
         _btnAttachFile.Enabled = enabled;
+    }
+
+    private void ClearQuotePreview()
+    {
+        _pendingQuotedText = null;
+        _txtQuotePreview.Clear();
+        _txtQuotePreview.Visible = false;
+        _pnlCompose.Height = ComposeBaseHeight;
     }
 
     protected override void Dispose(bool disposing)

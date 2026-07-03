@@ -24,6 +24,7 @@ public static class DbInitializer
         EnsureUserNotificationColumns(db);
         EnsurePageAssetsTable(db);
         EnsurePageCommentsTable(db);
+        EnsurePageCommentQuotedTextColumn(db);
 
         if (db.Users.Any())
             return;
@@ -448,6 +449,21 @@ public static class DbInitializer
                 CREATE INDEX IF NOT EXISTS ix_page_comments_page_created ON page_comments (page_id, created_at);
                 """);
         }
+    }
+
+    private static void EnsurePageCommentQuotedTextColumn(AppDbContext db)
+    {
+        if (!TableExists(db, "page_comments"))
+            return;
+
+        AddColumnIfMissing(
+            db,
+            "page_comments",
+            "quoted_text",
+            "LONGTEXT NULL",
+            "TEXT NULL",
+            "NVARCHAR(MAX) NULL",
+            "TEXT NULL");
     }
 
     private static void EnsureWorkspaceLockColumns(AppDbContext db)

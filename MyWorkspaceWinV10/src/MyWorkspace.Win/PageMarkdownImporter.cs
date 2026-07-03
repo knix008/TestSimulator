@@ -31,6 +31,16 @@ internal static partial class PageMarkdownImporter
         return new PageMarkdownFileContent(title.Trim(), markdown);
     }
 
+    /// <summary>
+    /// Dropped markdown files use the file name as the workspace page title so distinct files
+    /// always appear as distinct pages even when their first heading or front matter match.
+    /// </summary>
+    public static string GetImportTitle(string markdownFilePath, PageMarkdownFileContent prepared)
+    {
+        var fileTitle = Path.GetFileNameWithoutExtension(markdownFilePath).Trim();
+        return !string.IsNullOrWhiteSpace(fileTitle) ? fileTitle : prepared.Title;
+    }
+
     public static string ImportLocalAssets(string markdown, string markdownFilePath, int pageId)
     {
         markdown = ImportAssetLinks(markdown, markdownFilePath, pageId, MarkdownImageRegex(), imageLink: true);

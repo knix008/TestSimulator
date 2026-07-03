@@ -71,11 +71,11 @@ partial class MainForm
         ctxMembers = new ToolStripMenuItem();
         toolStripMarkdown = new ToolStrip();
         pnlMainContent = new Panel();
-        outerSplit = new SplitContainer();
+        outerSplit = new LiveResizeSplitContainer();
         pnlWorkspaceSidebar = new Panel();
         treeWorkspace = new ThemedTreeView();
         pnlEditorColumn = new Panel();
-        editorAreaSplit = new SplitContainer();
+        editorAreaSplit = new LiveResizeSplitContainer();
         pnlOutlineSidebar = new Panel();
         treeOutline = new ThemedTreeView();
         pnlEditorHost = new Panel();

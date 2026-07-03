@@ -2,6 +2,7 @@ namespace MyWorkspace.Win;
 
 using System.Globalization;
 using Microsoft.Web.WebView2.Core;
+using MyWorkspace.Core;
 using MyWorkspace.Data;
 
 internal static class PageAssetStore
@@ -38,7 +39,7 @@ internal static class PageAssetStore
     public static string ImportImage(int pageId, string sourcePath) =>
         ImportAsset(pageId, sourcePath, imageOnly: true);
 
-    public static string ImportImageBytes(int pageId, byte[] content, string extension)
+    public static string ImportImageBytes(int pageId, byte[] content, string extension, string? preferredFileName = null)
     {
         if (string.IsNullOrWhiteSpace(extension))
             throw new InvalidOperationException(Localization.Format(K.UnsupportedImageFormat, extension));
@@ -46,7 +47,7 @@ internal static class PageAssetStore
         if (!IsSupportedImageExtension(extension))
             throw new InvalidOperationException(Localization.Format(K.UnsupportedImageFormat, extension));
 
-        var fileName = $"{Guid.NewGuid():N}{NormalizeExtension(extension)}";
+        var fileName = AllocateUniqueAssetFileName(pageId, preferredFileName, extension);
         SaveAsset(pageId, fileName, content);
         return fileName;
     }
@@ -66,9 +67,7 @@ internal static class PageAssetStore
                 throw new InvalidOperationException(Localization.Format(K.UnsupportedImageFormat, extension));
         }
 
-        var fileName = string.IsNullOrWhiteSpace(extension)
-            ? Guid.NewGuid().ToString("N")
-            : $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        var fileName = AllocateUniqueAssetFileName(pageId, Path.GetFileName(sourcePath), extension);
         var content = File.ReadAllBytes(sourcePath);
         SaveAsset(pageId, fileName, content);
         return fileName;
@@ -330,6 +329,7 @@ internal static class PageAssetStore
 
     private static void SaveAsset(int pageId, string fileName, byte[] content)
     {
+        fileName = EnsureWritableAssetFileName(pageId, fileName, content);
         if (!IsValidFileName(fileName))
             throw new InvalidOperationException("Invalid asset file name.");
 
@@ -343,6 +343,152 @@ internal static class PageAssetStore
         }
 
         WriteLocalCache(pageId, fileName, content);
+    }
+
+    private static string AllocateUniqueAssetFileName(int pageId, string? preferredFileName, string? extensionHint = null)
+    {
+        var sanitized = SanitizeAssetFileName(preferredFileName);
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            var extension = NormalizeExtension(extensionHint ?? Path.GetExtension(preferredFileName ?? string.Empty));
+            return string.IsNullOrWhiteSpace(extension)
+                ? Guid.NewGuid().ToString("N")
+                : $"{Guid.NewGuid():N}{extension}";
+        }
+
+        if (!Path.HasExtension(sanitized) && !string.IsNullOrWhiteSpace(extensionHint))
+            sanitized += NormalizeExtension(extensionHint);
+
+        var existing = ListExistingAssetFileNames(pageId);
+        var candidate = UniqueNameHelper.MakeUnique(sanitized, existing, StringComparer.OrdinalIgnoreCase);
+        while (AssetFileNameExists(pageId, candidate))
+        {
+            existing = ListExistingAssetFileNames(pageId);
+            candidate = UniqueNameHelper.MakeUnique(candidate, existing, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return candidate;
+    }
+
+    private static string EnsureWritableAssetFileName(int pageId, string fileName, byte[] content)
+    {
+        if (!IsValidFileName(fileName))
+            return fileName;
+
+        if (!AssetFileNameExists(pageId, fileName))
+            return fileName;
+
+        var existing = ListExistingAssetFileNames(pageId);
+        return UniqueNameHelper.MakeUnique(fileName, existing, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool AssetFileNameExists(int pageId, string fileName)
+    {
+        if (!IsValidFileName(fileName))
+            return false;
+
+        if (File.Exists(GetLocalCachePath(pageId, fileName)))
+            return true;
+
+        if (SessionContext.IsLoggedIn && AppConfig.Services != null)
+        {
+            return AppConfig.Services.PageAssets.AssetExists(
+                SessionContext.CurrentUser,
+                pageId,
+                fileName);
+        }
+
+        return false;
+    }
+
+    public static string CloneEmbeddedPageAssetHtml(string html, int pageId)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return html;
+
+        string MapUri(string uri)
+        {
+            if (string.IsNullOrWhiteSpace(uri))
+                return uri;
+
+            if (!PageMarkdownNormalizer.TryParseAnyPageAssetReference(uri, out var assetPageId, out var fileName)
+                || assetPageId != pageId)
+            {
+                return uri;
+            }
+
+            var bytes = TryGetAssetBytes(pageId, fileName);
+            if (bytes == null)
+                return uri;
+
+            var newFileName = AllocateUniqueAssetFileName(pageId, fileName, Path.GetExtension(fileName));
+            SaveAsset(pageId, newFileName, bytes);
+            return BuildEditorUri(pageId, newFileName);
+        }
+
+        html = System.Text.RegularExpressions.Regex.Replace(
+            html,
+            @"\b(?:src|href)\s*=\s*([""'])(?<url>[^""']+)\1",
+            match =>
+            {
+                var mappedUri = MapUri(match.Groups["url"].Value);
+                return match.Value.Replace(match.Groups["url"].Value, mappedUri, StringComparison.Ordinal);
+            },
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return html;
+    }
+
+    private static IReadOnlyList<string> ListExistingAssetFileNames(int pageId)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var folder = GetPageFolder(pageId);
+        if (Directory.Exists(folder))
+        {
+            foreach (var path in Directory.EnumerateFiles(folder))
+            {
+                var name = Path.GetFileName(path);
+                if (!string.IsNullOrWhiteSpace(name))
+                    names.Add(name);
+            }
+        }
+
+        if (SessionContext.IsLoggedIn && AppConfig.Services != null)
+        {
+            foreach (var name in AppConfig.Services.PageAssets.GetAssetFileNames(SessionContext.CurrentUser, pageId))
+            {
+                if (!string.IsNullOrWhiteSpace(name))
+                    names.Add(name);
+            }
+
+            var page = AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId);
+            if (page != null)
+            {
+                foreach (var name in PageMarkdownNormalizer.GetReferencedFileNames(page.Content, pageId))
+                {
+                    if (!string.IsNullOrWhiteSpace(name))
+                        names.Add(name);
+                }
+            }
+        }
+
+        return names.ToList();
+    }
+
+    private static string SanitizeAssetFileName(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return string.Empty;
+
+        var trimmed = Path.GetFileName(fileName.Trim());
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Contains("..", StringComparison.Ordinal))
+            return string.Empty;
+
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+            trimmed = trimmed.Replace(invalid, '_');
+
+        return trimmed.Trim();
     }
 
     private static void MigrateLocalAssetToDatabase(int pageId, string fileName, AppServices? services = null)

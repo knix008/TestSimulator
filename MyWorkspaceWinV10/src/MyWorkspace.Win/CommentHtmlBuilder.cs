@@ -49,7 +49,16 @@ internal static class CommentHtmlBuilder
                         .Append("</button>");
                 }
 
-                body.Append("</header><div class=\"body\">")
+                body.Append("</header>");
+
+                if (!string.IsNullOrWhiteSpace(comment.QuotedText))
+                {
+                    body.Append("<blockquote class=\"quoted\">")
+                        .Append(EscapeHtml(comment.QuotedText))
+                        .Append("</blockquote>");
+                }
+
+                body.Append("<div class=\"body\">")
                     .Append(html)
                     .Append("</div></article>");
             }
@@ -108,6 +117,16 @@ internal static class CommentHtmlBuilder
                   font-size: 0.85em;
                 }
                 .delete-btn:hover { color: var(--text); border-color: var(--accent); }
+                .quoted {
+                  margin: 0 0 8px;
+                  padding: 8px 10px;
+                  border-left: 3px solid var(--accent);
+                  background: color-mix(in srgb, var(--bg) 88%, var(--text));
+                  color: var(--muted);
+                  font-size: 0.92em;
+                  white-space: pre-wrap;
+                  word-break: break-word;
+                }
                 .body :first-child { margin-top: 0; }
                 .body :last-child { margin-bottom: 0; }
                 .body img { max-width: 100%; height: auto; border-radius: 4px; margin: 6px 0; }
