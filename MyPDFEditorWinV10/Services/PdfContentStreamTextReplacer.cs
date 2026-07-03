@@ -26,6 +26,7 @@ public static class PdfContentStreamTextReplacer
 	public static HashSet<PdfTextBlock> ApplyToWritablePage(
 		PdfPageBuilder pageBuilder,
 		PdfDocumentBuilder documentBuilder,
+		PdfDocument sourceDocument,
 		Page sourcePage,
 		IReadOnlyList<PdfTextBlock> modifiedBlocks)
 	{
@@ -37,14 +38,10 @@ public static class PdfContentStreamTextReplacer
 		IList<IGraphicsStateOperation> operations = PdfPigBuilderAccess.TryGetWritableOperations(pageBuilder);
 		if (operations == null || operations.Count == 0)
 		{
-			return ApplyToSourcePage(pageBuilder, documentBuilder, sourcePage, modifiedBlocks);
+			return ApplyToSourcePage(pageBuilder, documentBuilder, sourceDocument, sourcePage, modifiedBlocks);
 		}
 
-		Dictionary<int, byte[]> bytesBySequence = PdfTextSequenceByteCollector.Collect(sourcePage);
-		foreach (PdfTextBlock block in modifiedBlocks.Where(block => block.IsType3Font))
-		{
-			EnrichType3GlyphsFromPage(sourcePage, block, bytesBySequence);
-		}
+		PrepareModifiedBlocks(sourceDocument, sourcePage, modifiedBlocks);
 
 		return ApplyToOperations(operations, pageBuilder, documentBuilder, sourcePage, modifiedBlocks);
 	}
@@ -52,6 +49,7 @@ public static class PdfContentStreamTextReplacer
 	public static HashSet<PdfTextBlock> ApplyToSourcePage(
 		PdfPageBuilder pageBuilder,
 		PdfDocumentBuilder documentBuilder,
+		PdfDocument sourceDocument,
 		Page sourcePage,
 		IReadOnlyList<PdfTextBlock> modifiedBlocks)
 	{
@@ -61,11 +59,7 @@ public static class PdfContentStreamTextReplacer
 		}
 
 		List<IGraphicsStateOperation> operations = sourcePage.Operations.ToList();
-		Dictionary<int, byte[]> bytesBySequence = PdfTextSequenceByteCollector.Collect(sourcePage);
-		foreach (PdfTextBlock block in modifiedBlocks.Where(block => block.IsType3Font))
-		{
-			EnrichType3GlyphsFromPage(sourcePage, block, bytesBySequence);
-		}
+		PrepareModifiedBlocks(sourceDocument, sourcePage, modifiedBlocks);
 
 		HashSet<PdfTextBlock> replacedBlocks = ApplyToOperations(
 			operations,
@@ -80,6 +74,23 @@ public static class PdfContentStreamTextReplacer
 		}
 
 		return replacedBlocks;
+	}
+
+	private static void PrepareModifiedBlocks(
+		PdfDocument sourceDocument,
+		Page sourcePage,
+		IReadOnlyList<PdfTextBlock> modifiedBlocks)
+	{
+		Dictionary<int, byte[]> bytesBySequence = PdfTextSequenceByteCollector.Collect(sourcePage);
+		foreach (PdfTextBlock block in modifiedBlocks)
+		{
+			PdfTextBlockSequenceExpander.ExpandForReplacement(block, sourcePage, bytesBySequence);
+			if (block.IsType3Font)
+			{
+				Type3GlyphCatalog.PopulateBlockFromDocument(block, sourceDocument, bytesBySequence, sourcePage);
+				Type3EditValidator.ValidateBlock(block);
+			}
+		}
 	}
 
 	public static HashSet<PdfTextBlock> ApplyToOperations(
@@ -98,6 +109,10 @@ public static class PdfContentStreamTextReplacer
 		HashSet<int> modifiedSequences = new HashSet<int>();
 		HashSet<string> visitedForms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+		Dictionary<PdfTextBlock, Dictionary<int, string>> replacementMaps = modifiedBlocks.ToDictionary(
+			block => block,
+			block => TextReplacementDistribution.BuildReplacementMap(block));
+
 		Dictionary<int, PdfTextBlock> ownerBySequence = BuildSequenceOwnerMap(modifiedBlocks);
 		Dictionary<PdfTextBlock, string> replacementTextByBlock = modifiedBlocks.ToDictionary(
 			block => block,
@@ -112,6 +127,7 @@ public static class PdfContentStreamTextReplacer
 			documentBuilder,
 			sourcePage,
 			ownerBySequence,
+			replacementMaps,
 			replacementTextByBlock,
 			ref textSequence,
 			updatedForms,
@@ -161,6 +177,7 @@ public static class PdfContentStreamTextReplacer
 		PdfDocumentBuilder documentBuilder,
 		Page sourcePage,
 		IReadOnlyDictionary<int, PdfTextBlock> ownerBySequence,
+		IReadOnlyDictionary<PdfTextBlock, Dictionary<int, string>> replacementMaps,
 		IReadOnlyDictionary<PdfTextBlock, string> replacementTextByBlock,
 		ref int textSequence,
 		ISet<string> updatedForms,
@@ -186,6 +203,7 @@ public static class PdfContentStreamTextReplacer
 					sourcePage,
 					formName,
 					ownerBySequence,
+					replacementMaps,
 					replacementTextByBlock,
 					ref textSequence,
 					updatedForms,
@@ -212,14 +230,43 @@ public static class PdfContentStreamTextReplacer
 
 			if (OperationMatchesModifiedText(textSequence, sequenceCount, ownerBySequence))
 			{
-				if (ownerBySequence.TryGetValue(textSequence, out PdfTextBlock owner))
+				if (operation is ShowTextsWithPositioning positioning && sequenceCount > 1)
 				{
-					string replacementPart = TextReplacementDistribution.GetReplacementPart(owner, textSequence);
-					if (replacementPart != null)
+					if (TryReplacePositioningTokens(
+						positioning,
+						textSequence,
+						ownerBySequence,
+						replacementMaps,
+						modifiedSequences,
+						out ShowTextsWithPositioning updatedPositioning))
 					{
-						operations[index] = ModifyOperationText(operation, owner, textSequence, replacementPart);
-						modifiedSequences.Add(textSequence);
+						operations[index] = updatedPositioning;
 						changed = true;
+					}
+				}
+				else
+				{
+					for (int offset = 0; offset < sequenceCount; offset++)
+					{
+						int sequence = textSequence + offset;
+						if (!ownerBySequence.TryGetValue(sequence, out PdfTextBlock owner))
+						{
+							continue;
+						}
+
+						replacementMaps.TryGetValue(owner, out Dictionary<int, string> replacementMap);
+						string replacementPart = TextReplacementDistribution.GetReplacementPart(owner, sequence, replacementMap);
+						if (replacementPart == null)
+						{
+							continue;
+						}
+
+						if (offset == 0)
+						{
+							operations[index] = ModifyOperationText(operation, owner, sequence, replacementPart);
+							modifiedSequences.Add(sequence);
+							changed = true;
+						}
 					}
 				}
 			}
@@ -228,6 +275,72 @@ public static class PdfContentStreamTextReplacer
 		}
 
 		return changed;
+	}
+
+	private static bool TryReplacePositioningTokens(
+		ShowTextsWithPositioning positioning,
+		int startSequence,
+		IReadOnlyDictionary<int, PdfTextBlock> ownerBySequence,
+		IReadOnlyDictionary<PdfTextBlock, Dictionary<int, string>> replacementMaps,
+		ISet<int> modifiedSequences,
+		out ShowTextsWithPositioning updatedPositioning)
+	{
+		updatedPositioning = positioning;
+		List<IToken> updated = new List<IToken>(positioning.Array);
+		bool changed = false;
+		int tokenIndex = 0;
+
+		for (int index = 0; index < updated.Count; index++)
+		{
+			if (updated[index] is not (StringToken or HexToken))
+			{
+				continue;
+			}
+
+			int sequence = startSequence + tokenIndex;
+			if (ownerBySequence.TryGetValue(sequence, out PdfTextBlock owner))
+			{
+				replacementMaps.TryGetValue(owner, out Dictionary<int, string> replacementMap);
+				string replacementPart = TextReplacementDistribution.GetReplacementPart(owner, sequence, replacementMap);
+				if (replacementPart != null)
+				{
+					updated[index] = CreateReplacementToken(owner, sequence, replacementPart);
+					modifiedSequences.Add(sequence);
+					changed = true;
+				}
+			}
+
+			tokenIndex++;
+		}
+
+		if (!changed)
+		{
+			return false;
+		}
+
+		updatedPositioning = new ShowTextsWithPositioning(updated);
+		return true;
+	}
+
+	private static IToken CreateReplacementToken(PdfTextBlock owner, int sequence, string replacementPart)
+	{
+		if (owner.IsType3Font)
+		{
+			byte[] bytes = Type3TextReplacementEncoder.GetReplacementBytes(owner, sequence, replacementPart);
+			return new HexToken(ToHexString(bytes));
+		}
+
+		return new StringToken(replacementPart);
+	}
+
+	private static string ToHexString(byte[] bytes)
+	{
+		if (bytes == null || bytes.Length == 0)
+		{
+			return string.Empty;
+		}
+
+		return string.Concat(bytes.Select(value => value.ToString("X2")));
 	}
 
 	private static void AdvanceTextSequenceCountFromSource(
@@ -260,6 +373,7 @@ public static class PdfContentStreamTextReplacer
 		Page sourcePage,
 		string formName,
 		IReadOnlyDictionary<int, PdfTextBlock> ownerBySequence,
+		IReadOnlyDictionary<PdfTextBlock, Dictionary<int, string>> replacementMaps,
 		IReadOnlyDictionary<PdfTextBlock, string> replacementTextByBlock,
 		ref int textSequence,
 		ISet<string> updatedForms,
@@ -279,6 +393,7 @@ public static class PdfContentStreamTextReplacer
 			documentBuilder,
 			sourcePage,
 			ownerBySequence,
+			replacementMaps,
 			replacementTextByBlock,
 			ref textSequence,
 			updatedForms,
@@ -306,47 +421,6 @@ public static class PdfContentStreamTextReplacer
 
 		updatedForms.Add(formName);
 		return true;
-	}
-
-	private static void EnrichType3GlyphsFromPage(
-		Page sourcePage,
-		PdfTextBlock block,
-		IReadOnlyDictionary<int, byte[]> bytesBySequence)
-	{
-		HashSet<int> knownSequences = block.SourceSequenceParts.Select(part => part.Sequence).ToHashSet();
-		foreach (Letter letter in sourcePage.Letters)
-		{
-			if (!IsType3Letter(letter, block) || knownSequences.Contains(letter.TextSequence))
-			{
-				continue;
-			}
-
-			bytesBySequence.TryGetValue(letter.TextSequence, out byte[] sourceBytes);
-			block.SourceSequenceParts.Add(new PdfTextSequencePart
-			{
-				Sequence = letter.TextSequence,
-				Text = letter.Value.ToString(),
-				SourceBytes = sourceBytes
-			});
-			knownSequences.Add(letter.TextSequence);
-		}
-	}
-
-	private static bool IsType3Letter(Letter letter, PdfTextBlock block)
-	{
-		if (letter == null)
-		{
-			return false;
-		}
-
-		if (!string.IsNullOrEmpty(block.FontName) &&
-			string.Equals(letter.FontName, block.FontName, StringComparison.OrdinalIgnoreCase))
-		{
-			return true;
-		}
-
-		return !string.IsNullOrEmpty(letter.FontName) &&
-			letter.FontName.Contains("Type3", StringComparison.OrdinalIgnoreCase);
 	}
 
 	private static bool TryLoadOutputFormOperations(

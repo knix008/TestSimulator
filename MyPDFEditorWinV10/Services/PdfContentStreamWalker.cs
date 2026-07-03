@@ -81,9 +81,28 @@ internal static class PdfContentStreamWalker
 			ShowText => 1,
 			MoveToNextLineShowText => 1,
 			MoveToNextLineShowTextWithSpacing => 1,
-			ShowTextsWithPositioning => 1,
+			ShowTextsWithPositioning positioning => CountPositioningTextTokens(positioning),
 			_ => 0
 		};
+	}
+
+	public static int CountPositioningTextTokens(ShowTextsWithPositioning positioning)
+	{
+		if (positioning?.Array == null || positioning.Array.Count == 0)
+		{
+			return 0;
+		}
+
+		int count = 0;
+		foreach (object token in positioning.Array)
+		{
+			if (token is StringToken or HexToken)
+			{
+				count++;
+			}
+		}
+
+		return count;
 	}
 
 	private static IPdfTokenScanner GetPageScanner(Page sourcePage)

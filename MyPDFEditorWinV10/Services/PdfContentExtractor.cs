@@ -62,7 +62,7 @@ public static class PdfContentExtractor
 		foreach (List<Word> line in lines)
 		{
 			line.Sort((a, b) => a.BoundingBox.Left.CompareTo(b.BoundingBox.Left));
-			foreach (PdfTextBlock block in CreateBlocksFromLineClusters(line, pageIndex, bytesBySequence))
+			foreach (PdfTextBlock block in CreateBlocksFromLineClusters(line, pageIndex, bytesBySequence, page))
 			{
 				yield return block;
 			}
@@ -72,7 +72,8 @@ public static class PdfContentExtractor
 	private static IEnumerable<PdfTextBlock> CreateBlocksFromLineClusters(
 		List<Word> sortedLine,
 		int pageIndex,
-		IReadOnlyDictionary<int, byte[]> bytesBySequence)
+		IReadOnlyDictionary<int, byte[]> bytesBySequence,
+		Page page)
 	{
 		double avgWordHeight = sortedLine.Average(w => w.BoundingBox.Height);
 		double gapThreshold = Math.Max(MinColumnGapThreshold, avgWordHeight * 2.0d);
@@ -100,21 +101,22 @@ public static class PdfContentExtractor
 			}
 
 			List<Letter> letters = cluster.SelectMany(word => word.Letters).ToList();
+			double left = cluster.Min(w => w.BoundingBox.Left);
+			double bottom = cluster.Min(w => w.BoundingBox.Bottom);
+			double right = cluster.Max(w => w.BoundingBox.Right);
+			double top = cluster.Max(w => w.BoundingBox.Top);
+			Letter sampleLetter = SelectRepresentativeLetter(letters);
+			string fontName = sampleLetter?.FontName;
+			letters.AddRange(CollectWhitespaceLetters(page, letters, left, right, top, bottom, fontName));
 			double fontSize = letters.Count > 0
 				? letters.Average(letter => letter.PointSize)
 				: Math.Max(8d, (cluster.Max(word => word.BoundingBox.Top) - cluster.Min(word => word.BoundingBox.Bottom)) * 0.85d);
-			Letter sampleLetter = SelectRepresentativeLetter(letters);
-			string fontName = sampleLetter?.FontName;
 			bool isType3Font = IsType3FontName(fontName);
 			bool isBold = sampleLetter?.FontDetails?.IsBold ?? false;
 			bool isItalic = sampleLetter?.FontDetails?.IsItalic ?? false;
 			string fontFamilyName = sampleLetter?.FontDetails?.Name;
 			PdfTextBlockRenderHelper.ApplyFontStyleFromNames(fontName, fontFamilyName, ref isBold, ref isItalic, ref fontFamilyName);
 			(byte fillColorR, byte fillColorG, byte fillColorB) = ExtractFillColor(sampleLetter);
-			double left = cluster.Min(w => w.BoundingBox.Left);
-			double bottom = cluster.Min(w => w.BoundingBox.Bottom);
-			double right = cluster.Max(w => w.BoundingBox.Right);
-			double top = cluster.Max(w => w.BoundingBox.Top);
 			double originalLeft = letters.Min(letter => letter.GlyphRectangleLoose.Left);
 			double originalBottom = letters.Min(letter => letter.GlyphRectangleLoose.Bottom);
 			double originalRight = letters.Max(letter => letter.GlyphRectangleLoose.Right);
@@ -163,6 +165,11 @@ public static class PdfContentExtractor
 						.Select(letter => letter.Value)),
 					SourceBytes = sourceBytes
 				});
+			}
+
+			if (isType3Font)
+			{
+				Type3GlyphCatalog.PopulateBlock(block, page, bytesBySequence);
 			}
 
 			yield return block;
@@ -280,6 +287,53 @@ public static class PdfContentExtractor
 		}
 
 		return images;
+	}
+
+	private static IEnumerable<Letter> CollectWhitespaceLetters(
+		Page page,
+		IReadOnlyList<Letter> blockLetters,
+		double left,
+		double right,
+		double top,
+		double bottom,
+		string fontName)
+	{
+		if (page == null || blockLetters == null || blockLetters.Count == 0 || string.IsNullOrEmpty(fontName))
+		{
+			yield break;
+		}
+
+		HashSet<int> knownSequences = blockLetters.Select(letter => letter.TextSequence).ToHashSet();
+		foreach (Letter letter in page.Letters)
+		{
+			if (knownSequences.Contains(letter.TextSequence))
+			{
+				continue;
+			}
+
+			if (!string.Equals(letter.FontName, fontName, StringComparison.OrdinalIgnoreCase))
+			{
+				continue;
+			}
+
+			if (letter.Value.Length != 1 || !char.IsWhiteSpace(letter.Value[0]))
+			{
+				continue;
+			}
+
+			if (letter.GlyphRectangleLoose.Left < left - 1 || letter.GlyphRectangleLoose.Right > right + 1)
+			{
+				continue;
+			}
+
+			if (letter.GlyphRectangleLoose.Top > top + LineGroupingThreshold ||
+				letter.GlyphRectangleLoose.Bottom < bottom - LineGroupingThreshold)
+			{
+				continue;
+			}
+
+			yield return letter;
+		}
 	}
 
 	private static bool IsType3FontName(string fontName)

@@ -50,6 +50,8 @@ public sealed class PdfTextBlock
 
 	public List<PdfTextSequencePart> SourceSequenceParts { get; } = new();
 
+	public Dictionary<char, byte[]> Type3GlyphMap { get; } = new();
+
 	public List<PdfBounds> AdditionalCoverAreas { get; } = new();
 
 	public bool IsModified => !string.Equals(Text, OriginalText, StringComparison.Ordinal);

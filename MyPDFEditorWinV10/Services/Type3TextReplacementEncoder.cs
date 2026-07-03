@@ -15,7 +15,7 @@ internal static class Type3TextReplacementEncoder
 
 		if (string.IsNullOrEmpty(replacementPart))
 		{
-			return Array.Empty<byte>();
+			return GetClearBytes(block, sequencePart);
 		}
 
 		char character = replacementPart[0];
@@ -26,6 +26,11 @@ internal static class Type3TextReplacementEncoder
 			sequencePart.SourceBytes.Length > 0)
 		{
 			return sequencePart.SourceBytes;
+		}
+
+		if (Type3GlyphCatalog.TryGetGlyphBytes(block.Type3GlyphMap, character, out byte[] mappedBytes))
+		{
+			return mappedBytes;
 		}
 
 		foreach (PdfTextSequencePart part in block.SourceSequenceParts)
@@ -41,9 +46,42 @@ internal static class Type3TextReplacementEncoder
 			}
 		}
 
+		string available = Type3GlyphCatalog.FormatAvailableCharacters(block.Type3GlyphMap);
 		throw new InvalidOperationException(
-			$"'{character}' 문자는 이 PDF 폰트(Type3)에서 사용할 수 없습니다. " +
-			$"같은 텍스트 영역에 이미 있는 글자로만 바꿀 수 있습니다.");
+			$"'{character}' 문자는 이 PDF 폰트(Type3)에 글리프가 없습니다. " +
+			$"이 PDF에 이미 사용된 글자로만 바꿀 수 있습니다.\n" +
+			$"사용 가능한 글자 예: {available}");
+	}
+
+	private static byte[] GetClearBytes(PdfTextBlock block, PdfTextSequencePart sequencePart)
+	{
+		if (sequencePart?.SourceBytes != null &&
+			sequencePart.SourceBytes.Length > 0 &&
+			sequencePart.Text?.Length == 1 &&
+			char.IsWhiteSpace(sequencePart.Text[0]))
+		{
+			return sequencePart.SourceBytes;
+		}
+
+		if (Type3GlyphCatalog.TryGetGlyphBytes(block.Type3GlyphMap, ' ', out byte[] spaceBytes))
+		{
+			return spaceBytes;
+		}
+
+		foreach (PdfTextSequencePart part in block.SourceSequenceParts)
+		{
+			if (part.SourceBytes == null || part.SourceBytes.Length == 0 || string.IsNullOrEmpty(part.Text))
+			{
+				continue;
+			}
+
+			if (part.Text.Length == 1 && char.IsWhiteSpace(part.Text[0]))
+			{
+				return part.SourceBytes;
+			}
+		}
+
+		return Array.Empty<byte>();
 	}
 
 	private static PdfTextSequencePart FindSequencePart(PdfTextBlock block, int sequence)

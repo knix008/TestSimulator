@@ -49,6 +49,7 @@ public static class LayoutPreservingPdfExporter
 			HashSet<PdfTextBlock> replacedBlocks = PdfContentStreamTextReplacer.ApplyToWritablePage(
 				pageBuilder,
 				builder,
+				source,
 				sourcePage,
 				modifiedBlocks);
 

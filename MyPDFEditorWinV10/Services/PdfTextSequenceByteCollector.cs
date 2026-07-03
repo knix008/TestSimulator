@@ -44,10 +44,28 @@ internal static class PdfTextSequenceByteCollector
 				continue;
 			}
 
-			byte[] bytes = GetOperationBytes(operation);
-			if (bytes != null)
+			if (operation is ShowTextsWithPositioning positioning && sequenceCount > 1)
 			{
-				bytesBySequence[textSequence] = bytes;
+				int tokenIndex = 0;
+				foreach (object token in positioning.Array)
+				{
+					byte[] tokenBytes = GetTokenBytes(token);
+					if (tokenBytes == null)
+					{
+						continue;
+					}
+
+					bytesBySequence[textSequence + tokenIndex] = tokenBytes;
+					tokenIndex++;
+				}
+			}
+			else
+			{
+				byte[] bytes = GetOperationBytes(operation);
+				if (bytes != null)
+				{
+					bytesBySequence[textSequence] = bytes;
+				}
 			}
 
 			textSequence += sequenceCount;
@@ -77,15 +95,23 @@ internal static class PdfTextSequenceByteCollector
 	{
 		foreach (object token in positioning.Array)
 		{
-			switch (token)
+			byte[] tokenBytes = GetTokenBytes(token);
+			if (tokenBytes != null)
 			{
-				case StringToken stringToken:
-					return OtherEncodings.StringAsLatin1Bytes(stringToken.Data);
-				case HexToken hexToken:
-					return hexToken.Bytes.ToArray();
+				return tokenBytes;
 			}
 		}
 
 		return null;
+	}
+
+	private static byte[] GetTokenBytes(object token)
+	{
+		return token switch
+		{
+			StringToken stringToken => OtherEncodings.StringAsLatin1Bytes(stringToken.Data),
+			HexToken hexToken => hexToken.Bytes.ToArray(),
+			_ => null
+		};
 	}
 }
