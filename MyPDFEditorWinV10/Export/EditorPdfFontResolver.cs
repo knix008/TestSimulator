@@ -27,9 +27,22 @@ internal sealed class EditorPdfFontResolver : IFontResolver
 	[
 		"Malgun Gothic",
 		"맑은 고딕",
+		"Gulim",
+		"굴림",
+		"Batang",
+		"바탕",
+		"Dotum",
+		"돋움",
+		"Gungsuh",
 		"Segoe UI",
 		"Arial",
-		"Tahoma"
+		"Times New Roman",
+		"Courier New",
+		"Calibri",
+		"Cambria",
+		"Tahoma",
+		"Verdana",
+		"Yu Gothic"
 	];
 
 	private static readonly Dictionary<string, string> FaceToFilePath = new Dictionary<string, string>();

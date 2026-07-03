@@ -10,9 +10,20 @@ public sealed class EditableDocument
 
 	public List<string> PageTexts { get; } = new();
 
+	public List<PdfTextBlock> TextBlocks { get; } = new();
+
 	public List<EmbeddedImage> Images { get; } = new();
 
 	public bool IsDirty { get; set; }
+
+	public string PdfPassword { get; set; }
+
+	public bool IsPasswordProtected { get; set; }
+
+	public string WorkingPdfPath { get; set; }
+
+	public bool HasWorkingCopy =>
+		!string.IsNullOrWhiteSpace(WorkingPdfPath) && File.Exists(WorkingPdfPath);
 
 	public void EnsurePageCount(int pageCount)
 	{
@@ -39,6 +50,16 @@ public sealed class EditableDocument
 			return true;
 		}
 
+		if (HasModifiedTextBlocks())
+		{
+			return true;
+		}
+
+		if (TextBlocks.Any(block => !string.IsNullOrWhiteSpace(block.Text)))
+		{
+			return true;
+		}
+
 		foreach (string pageText in PageTexts)
 		{
 			if (!string.IsNullOrWhiteSpace(pageText))
@@ -48,6 +69,53 @@ public sealed class EditableDocument
 		}
 
 		return !string.IsNullOrWhiteSpace(TextContent);
+	}
+
+	public bool CanUseLayoutPreservingExport()
+	{
+		return !string.IsNullOrWhiteSpace(SourcePdfPath) &&
+			File.Exists(SourcePdfPath) &&
+			TextBlocks.Count > 0;
+	}
+
+	public bool HasModifiedTextBlocks()
+	{
+		return TextBlocks.Any(block => block.IsModified);
+	}
+
+	public bool HasChangesToSave()
+	{
+		if (Images.Count > 0)
+		{
+			return true;
+		}
+
+		return HasModifiedTextBlocks();
+	}
+
+	public void SyncPageTextsFromBlocks()
+	{
+		PageTexts.Clear();
+		if (TextBlocks.Count == 0)
+		{
+			TextContent = string.Empty;
+			return;
+		}
+
+		int maxPage = TextBlocks.Max(block => block.PageIndex);
+		for (int pageIndex = 0; pageIndex <= maxPage; pageIndex++)
+		{
+			string pageText = string.Join(
+				Environment.NewLine,
+				TextBlocks
+					.Where(block => block.PageIndex == pageIndex)
+					.OrderByDescending(block => block.Top)
+					.ThenBy(block => block.Left)
+					.Select(block => block.Text));
+			PageTexts.Add(pageText);
+		}
+
+		TextContent = BuildCombinedTextContent();
 	}
 
 	public string BuildCombinedTextContent()
@@ -83,7 +151,8 @@ public sealed class EditableDocument
 			}
 
 			string name = Path.GetFileName(SourcePdfPath);
-			return IsDirty ? $"{name} *" : name;
+			string suffix = IsPasswordProtected ? " [잠금]" : string.Empty;
+			return IsDirty ? $"{name}{suffix} *" : $"{name}{suffix}";
 		}
 	}
 }

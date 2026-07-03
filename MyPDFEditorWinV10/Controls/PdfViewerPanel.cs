@@ -38,6 +38,19 @@ public partial class PdfViewerPanel : UserControl
 	private PdfImageBlock _hoveredEmbeddedImage;
 	private bool _hoverOverText;
 	private Point? _mouseDownRendererPoint;
+	private IList<PdfTextBlock> _textBlocks;
+	private TextBox _inlineTextBox;
+	private PdfTextBlock _editingBlock;
+
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	[Browsable(false)]
+	public IList<PdfTextBlock> TextBlocks
+	{
+		get => _textBlocks;
+		set => _textBlocks = value;
+	}
+
+	public bool IsInlineEditing => _editingBlock != null;
 
 	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 	[Browsable(false)]
@@ -93,12 +106,17 @@ public partial class PdfViewerPanel : UserControl
 		};
 
 		PdfRenderer renderer = _viewer.Renderer;
-		renderer.Layout += (_, _) => RefreshSelectionOverlay();
+		renderer.Layout += (_, _) =>
+		{
+			RefreshSelectionOverlay();
+			RepositionInlineEditor();
+		};
 		renderer.MouseDown += Renderer_MouseDown;
 		renderer.MouseMove += Renderer_MouseMove;
 		renderer.MouseUp += Renderer_MouseUp;
 		renderer.MouseLeave += Renderer_MouseLeave;
 		renderer.MouseWheel += (_, _) => BeginInvoke(RefreshSelectionOverlay);
+		renderer.MouseDoubleClick += Renderer_MouseDoubleClick;
 
 		_selectionOverlay = new SelectionOverlay
 		{
@@ -119,6 +137,8 @@ public partial class PdfViewerPanel : UserControl
 	public event EventHandler TextSelectionChanged;
 
 	public event EventHandler InteractionModeChanged;
+
+	public event EventHandler TextBlockEdited;
 
 	public bool HasDocument => _viewer?.Document != null;
 
@@ -141,31 +161,72 @@ public partial class PdfViewerPanel : UserControl
 		return _viewer.Renderer.SelectedText ?? string.Empty;
 	}
 
+	public IReadOnlyList<PdfBounds> GetTextSelectionPdfBounds()
+	{
+		if (_viewer?.Renderer == null)
+		{
+			return Array.Empty<PdfBounds>();
+		}
+
+		return PdfRendererSelectionHelper.GetSelectionPdfBounds(_viewer.Renderer);
+	}
+
 	public void SetActivePageIndex(int pageIndex)
 	{
 		if (_viewer?.Document != null)
 		{
-			_viewer.Renderer.Page = Math.Clamp(pageIndex, 0, _viewer.Document.PageCount - 1);
+			int clamped = Math.Clamp(pageIndex, 0, _viewer.Document.PageCount - 1);
+			if (clamped != _viewer.Renderer.Page)
+			{
+				EndInlineEdit(commit: true);
+			}
+
+			_viewer.Renderer.Page = clamped;
 			ClearImageSelection();
 			RefreshSelectionOverlay();
 		}
 	}
 
-	public void LoadDocument(string filePath)
+	public void LoadDocument(string filePath, string password = null)
 	{
 		if (_viewer == null)
 		{
 			return;
 		}
 
+		EndInlineEdit(commit: false);
 		CloseDocument();
-		_viewer.Document = PdfDocument.Load(filePath);
+		_viewer.Document = string.IsNullOrEmpty(password)
+			? PdfDocument.Load(filePath)
+			: PdfDocument.Load(filePath, password);
 		_viewer.Renderer.Page = 0;
 		_viewer.ZoomMode = PdfViewerZoomMode.FitWidth;
-		LoadPageImages(filePath);
+		LoadPageImages(filePath, password);
 		ClearImageSelection();
 		PageChanged?.Invoke(this, _viewer.Renderer.Page);
 		ApplyInteractionMode();
+	}
+
+	public void ReloadDocument(string filePath, string password = null)
+	{
+		if (_viewer == null || string.IsNullOrWhiteSpace(filePath))
+		{
+			return;
+		}
+
+		int pageIndex = GetActivePageIndex();
+		EndInlineEdit(commit: false);
+
+		_viewer.Document?.Dispose();
+		_viewer.Document = string.IsNullOrEmpty(password)
+			? PdfDocument.Load(filePath)
+			: PdfDocument.Load(filePath, password);
+		_viewer.Renderer.Page = Math.Clamp(pageIndex, 0, Math.Max(0, _viewer.Document.PageCount - 1));
+		LoadPageImages(filePath, password);
+		ClearImageSelection();
+		PdfRendererSelectionHelper.ClearTextSelection(_viewer.Renderer);
+		RefreshSelectionOverlay();
+		PageChanged?.Invoke(this, _viewer.Renderer.Page);
 	}
 
 	public void CloseDocument()
@@ -175,6 +236,7 @@ public partial class PdfViewerPanel : UserControl
 			return;
 		}
 
+		EndInlineEdit(commit: false);
 		ClearPageImages();
 		_viewer.Document?.Dispose();
 		_viewer.Document = null;
@@ -202,6 +264,7 @@ public partial class PdfViewerPanel : UserControl
 			return;
 		}
 
+		EndInlineEdit(commit: true);
 		_viewer.Renderer.Page--;
 		ClearImageSelection();
 		PageChanged?.Invoke(this, _viewer.Renderer.Page);
@@ -215,6 +278,7 @@ public partial class PdfViewerPanel : UserControl
 			return;
 		}
 
+		EndInlineEdit(commit: true);
 		_viewer.Renderer.Page++;
 		ClearImageSelection();
 		PageChanged?.Invoke(this, _viewer.Renderer.Page);
@@ -304,10 +368,10 @@ public partial class PdfViewerPanel : UserControl
 		return true;
 	}
 
-	private void LoadPageImages(string filePath)
+	private void LoadPageImages(string filePath, string password = null)
 	{
 		ClearPageImages();
-		foreach (PdfImageBlock image in PdfContentExtractor.ExtractImageRegions(filePath))
+		foreach (PdfImageBlock image in PdfContentExtractor.ExtractImageRegions(filePath, password))
 		{
 			_pageImages.Add(image);
 		}
@@ -816,6 +880,249 @@ public partial class PdfViewerPanel : UserControl
 		using Graphics g = Graphics.FromImage(bitmap);
 		g.DrawImage(pageImage, new Rectangle(0, 0, cropW, cropH), cropRect, GraphicsUnit.Pixel);
 		return true;
+	}
+
+	private void Renderer_MouseDoubleClick(object sender, MouseEventArgs e)
+	{
+		if (_viewer?.Document == null || _interactionMode != PdfInteractionMode.TextSelect || e.Button != MouseButtons.Left)
+		{
+			return;
+		}
+
+		if (TryGetTextBlockAt(e.Location, out PdfTextBlock block))
+		{
+			BeginInlineEdit(block);
+		}
+	}
+
+	public bool BeginInlineEditForSelection()
+	{
+		if (_viewer?.Document == null || _textBlocks == null || _textBlocks.Count == 0 || !HasTextSelection)
+		{
+			return false;
+		}
+
+		IReadOnlyList<PdfBounds> selectionBounds = GetTextSelectionPdfBounds();
+		if (selectionBounds.Count == 0)
+		{
+			return false;
+		}
+
+		int pageIndex = _viewer.Renderer.Page;
+		List<PdfBounds> pageBounds = selectionBounds.Where(bounds => bounds.PageIndex == pageIndex).ToList();
+		if (pageBounds.Count == 0)
+		{
+			return false;
+		}
+
+		PdfTextBlock target = TextBlockEditor.ResolveEditTarget(_textBlocks, pageIndex, pageBounds);
+		if (target == null)
+		{
+			return false;
+		}
+
+		BeginInlineEdit(target);
+		return true;
+	}
+
+	public void BeginInlineEdit(PdfTextBlock block)
+	{
+		if (_viewer?.Document == null || block == null || block.PageIndex != _viewer.Renderer.Page)
+		{
+			return;
+		}
+
+		EndInlineEdit(commit: true);
+
+		_editingBlock = block;
+		Rectangle blockBounds = PdfBlockToOverlay(block.PageIndex, block.Left, block.Bottom, block.Right, block.Top);
+		Rectangle editorBounds = CalculateEditorBounds(blockBounds, block, block.Text ?? string.Empty, out bool needsVerticalScroll);
+
+		_inlineTextBox = new TextBox
+		{
+			BorderStyle = BorderStyle.FixedSingle,
+			BackColor = Color.FromArgb(255, 255, 252, 210),
+			Text = block.Text ?? string.Empty,
+			Multiline = true,
+			AcceptsReturn = true,
+			AcceptsTab = false,
+			ScrollBars = needsVerticalScroll ? ScrollBars.Vertical : ScrollBars.None,
+			WordWrap = true
+		};
+		ApplyInlineEditorLayout(editorBounds, block, blockBounds);
+		_inlineTextBox.KeyDown += InlineTextBox_KeyDown;
+		_inlineTextBox.LostFocus += InlineTextBox_LostFocus;
+
+		Controls.Add(_inlineTextBox);
+		_inlineTextBox.BringToFront();
+		_inlineTextBox.Focus();
+		_inlineTextBox.SelectAll();
+		PdfRendererSelectionHelper.ClearTextSelection(_viewer.Renderer);
+		RefreshSelectionOverlay();
+	}
+
+	public void EndInlineEdit(bool commit)
+	{
+		if (_editingBlock == null || _inlineTextBox == null)
+		{
+			return;
+		}
+
+		PdfTextBlock block = _editingBlock;
+		TextBox textBox = _inlineTextBox;
+		_editingBlock = null;
+		_inlineTextBox = null;
+
+		string newText = textBox.Text ?? string.Empty;
+		bool changed = commit && !string.Equals(newText, block.Text, StringComparison.Ordinal);
+
+		textBox.KeyDown -= InlineTextBox_KeyDown;
+		textBox.LostFocus -= InlineTextBox_LostFocus;
+		Controls.Remove(textBox);
+		textBox.Dispose();
+
+		if (changed)
+		{
+			block.Text = newText;
+			TextBlockEdited?.Invoke(this, EventArgs.Empty);
+		}
+
+		RefreshSelectionOverlay();
+	}
+
+	private void InlineTextBox_KeyDown(object sender, KeyEventArgs e)
+	{
+		if (e.KeyCode == Keys.Escape)
+		{
+			EndInlineEdit(commit: false);
+			e.Handled = true;
+			e.SuppressKeyPress = true;
+			return;
+		}
+
+		if (e.KeyCode == Keys.Enter && !e.Shift)
+		{
+			EndInlineEdit(commit: true);
+			e.Handled = true;
+			e.SuppressKeyPress = true;
+		}
+	}
+
+	private void InlineTextBox_LostFocus(object sender, EventArgs e)
+	{
+		if (_editingBlock != null)
+		{
+			EndInlineEdit(commit: true);
+		}
+	}
+
+	private void RepositionInlineEditor()
+	{
+		if (_editingBlock == null || _inlineTextBox == null)
+		{
+			return;
+		}
+
+		Rectangle blockBounds = PdfBlockToOverlay(_editingBlock.PageIndex, _editingBlock.Left, _editingBlock.Bottom, _editingBlock.Right, _editingBlock.Top);
+		Rectangle editorBounds = CalculateEditorBounds(blockBounds, _editingBlock, _inlineTextBox.Text ?? string.Empty, out bool needsVerticalScroll);
+		_inlineTextBox.ScrollBars = needsVerticalScroll ? ScrollBars.Vertical : ScrollBars.None;
+		ApplyInlineEditorLayout(editorBounds, _editingBlock, blockBounds);
+	}
+
+	private Rectangle CalculateEditorBounds(Rectangle blockBounds, PdfTextBlock block, string text, out bool needsVerticalScroll)
+	{
+		const int minWidth = 180;
+		const int minHeight = 36;
+		const int maxEditorHeight = 320;
+		const int padding = 10;
+
+		int width = Math.Max(blockBounds.Width, minWidth);
+		if (_selectionOverlay != null)
+		{
+			int maxWidth = Math.Max(minWidth, _selectionOverlay.Width - blockBounds.X - 4);
+			width = Math.Min(width, maxWidth);
+		}
+
+		float fontSize = EstimateEditorFontSize(blockBounds, block);
+		using Font font = PdfTextBlockRenderHelper.CreateEditorFont(block, fontSize);
+		string measureText = string.IsNullOrEmpty(text) ? " " : text.Replace("\r\n", "\n");
+		Size textSize = TextRenderer.MeasureText(
+			measureText,
+			font,
+			new Size(Math.Max(1, width - padding), int.MaxValue),
+			TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
+
+		int lineCount = measureText.Split('\n').Length;
+		int lineHeight = Math.Max(16, (int)Math.Ceiling(fontSize * 1.35f));
+		int desiredHeight = Math.Max(
+			Math.Max(blockBounds.Height, minHeight),
+			Math.Max(textSize.Height + padding, lineCount * lineHeight + padding));
+
+		int maxHeight = maxEditorHeight;
+		if (_selectionOverlay != null)
+		{
+			int availableBelow = _selectionOverlay.Height - blockBounds.Y - 4;
+			maxHeight = Math.Min(maxHeight, Math.Max(minHeight, availableBelow));
+		}
+
+		needsVerticalScroll = desiredHeight > maxHeight;
+		int height = Math.Min(desiredHeight, maxHeight);
+		return new Rectangle(blockBounds.X, blockBounds.Y, width, height);
+	}
+
+	private void ApplyInlineEditorLayout(Rectangle editorBounds, PdfTextBlock block, Rectangle blockBounds)
+	{
+		_inlineTextBox.SetBounds(editorBounds.X, editorBounds.Y, editorBounds.Width, editorBounds.Height);
+		float fontSize = EstimateEditorFontSize(blockBounds, block);
+		Font newFont = PdfTextBlockRenderHelper.CreateEditorFont(block, fontSize);
+		Font oldFont = _inlineTextBox.Font;
+		_inlineTextBox.Font = newFont;
+		oldFont?.Dispose();
+		_inlineTextBox.ForeColor = PdfTextBlockRenderHelper.GetEditorForeColor(block);
+	}
+
+	private static float EstimateEditorFontSize(Rectangle blockBounds, PdfTextBlock block)
+	{
+		double pdfHeight = block.Top - block.Bottom;
+		float scale = pdfHeight > 0 ? blockBounds.Height / (float)pdfHeight : 1f;
+		if (block.FontSize > 0)
+		{
+			return Math.Max(9f, Math.Min((float)block.FontSize * scale, 48f));
+		}
+
+		return Math.Max(9f, Math.Min(blockBounds.Height * 0.78f, 48f));
+	}
+
+	private bool TryGetTextBlockAt(Point rendererPoint, out PdfTextBlock block)
+	{
+		block = null;
+		if (_viewer?.Document == null || _textBlocks == null || _textBlocks.Count == 0)
+		{
+			return false;
+		}
+
+		PdfRenderer renderer = _viewer.Renderer;
+		PdfPoint pdfPoint = renderer.PointToPdf(rendererPoint);
+		if (!pdfPoint.IsValid || pdfPoint.Page != renderer.Page)
+		{
+			return false;
+		}
+
+		int pageIndex = renderer.Page;
+		PointF location = pdfPoint.Location;
+		foreach (PdfTextBlock candidate in _textBlocks
+			.Where(candidate => candidate.PageIndex == pageIndex)
+			.OrderByDescending(candidate => candidate.Top)
+			.ThenBy(candidate => candidate.Left))
+		{
+			if (PdfImageGeometry.ContainsPdfPoint(candidate.Left, candidate.Bottom, candidate.Right, candidate.Top, location))
+			{
+				block = candidate;
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private static Rectangle NormalizeRectangle(Point a, Point b)

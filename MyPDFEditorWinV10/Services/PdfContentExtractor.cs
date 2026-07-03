@@ -1,4 +1,3 @@
-using System.Drawing;
 using MyPDFEditorWinV10.Models;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
@@ -9,10 +8,21 @@ public static class PdfContentExtractor
 {
 	private const double LineGroupingThreshold = 3d;
 
-	public static IReadOnlyList<PdfTextBlock> ExtractTextBlocks(string filePath)
+	private static PdfDocument OpenDocument(string filePath, string password)
+	{
+		ParsingOptions options = new ParsingOptions();
+		if (!string.IsNullOrEmpty(password))
+		{
+			options.Password = password;
+		}
+
+		return PdfDocument.Open(filePath, options);
+	}
+
+	public static IReadOnlyList<PdfTextBlock> ExtractTextBlocks(string filePath, string password = null)
 	{
 		List<PdfTextBlock> blocks = new List<PdfTextBlock>();
-		using PdfDocument document = PdfDocument.Open(filePath);
+		using PdfDocument document = OpenDocument(filePath, password);
 		int pageIndex = 0;
 		foreach (Page page in document.GetPages())
 		{
@@ -56,22 +66,64 @@ public static class PdfContentExtractor
 				continue;
 			}
 
-			yield return new PdfTextBlock
+			List<Letter> letters = line.SelectMany(word => word.Letters).ToList();
+			double fontSize = letters.Count > 0
+				? letters.Average(letter => letter.PointSize)
+				: Math.Max(8d, (line.Max(word => word.BoundingBox.Top) - line.Min(word => word.BoundingBox.Bottom)) * 0.85d);
+			Letter sampleLetter = SelectRepresentativeLetter(letters);
+			string fontName = sampleLetter?.FontName;
+			bool isBold = sampleLetter?.FontDetails?.IsBold ?? false;
+			bool isItalic = sampleLetter?.FontDetails?.IsItalic ?? false;
+			string fontFamilyName = sampleLetter?.FontDetails?.Name;
+			PdfTextBlockRenderHelper.ApplyFontStyleFromNames(fontName, fontFamilyName, ref isBold, ref isItalic, ref fontFamilyName);
+			(byte fillColorR, byte fillColorG, byte fillColorB) = ExtractFillColor(sampleLetter);
+			double left = line.Min(w => w.BoundingBox.Left);
+			double bottom = line.Min(w => w.BoundingBox.Bottom);
+			double right = line.Max(w => w.BoundingBox.Right);
+			double top = line.Max(w => w.BoundingBox.Top);
+			double originalLeft = letters.Min(letter => letter.GlyphRectangleLoose.Left);
+			double originalBottom = letters.Min(letter => letter.GlyphRectangleLoose.Bottom);
+			double originalRight = letters.Max(letter => letter.GlyphRectangleLoose.Right);
+			double originalTop = letters.Max(letter => letter.GlyphRectangleLoose.Top);
+			Letter baselineLetter = letters.OrderBy(letter => letter.StartBaseLine.X).First();
+			PdfTextBlock block = new PdfTextBlock
 			{
 				PageIndex = pageIndex,
 				Text = text,
-				Left = line.Min(w => w.BoundingBox.Left),
-				Bottom = line.Min(w => w.BoundingBox.Bottom),
-				Right = line.Max(w => w.BoundingBox.Right),
-				Top = line.Max(w => w.BoundingBox.Top)
+				OriginalText = text,
+				Left = left,
+				Bottom = bottom,
+				Right = right,
+				Top = top,
+				OriginalLeft = originalLeft,
+				OriginalBottom = originalBottom,
+				OriginalRight = originalRight,
+				OriginalTop = originalTop,
+				BaselineX = baselineLetter.StartBaseLine.X,
+				BaselineY = baselineLetter.StartBaseLine.Y,
+				FontSize = fontSize,
+				FontName = fontName,
+				FontFamilyName = fontFamilyName,
+				IsBold = isBold,
+				IsItalic = isItalic,
+				FillColorR = fillColorR,
+				FillColorG = fillColorG,
+				FillColorB = fillColorB
 			};
+
+			foreach (int sequence in letters.Select(letter => letter.TextSequence).Distinct())
+			{
+				block.SourceTextSequences.Add(sequence);
+			}
+
+			yield return block;
 		}
 	}
 
-	public static IReadOnlyList<string> ExtractTextByPage(string filePath)
+	public static IReadOnlyList<string> ExtractTextByPage(string filePath, string password = null)
 	{
 		List<string> pages = new List<string>();
-		using PdfDocument document = PdfDocument.Open(filePath);
+		using PdfDocument document = OpenDocument(filePath, password);
 		foreach (Page page in document.GetPages())
 		{
 			pages.Add(page.Text?.Trim() ?? string.Empty);
@@ -80,10 +132,10 @@ public static class PdfContentExtractor
 		return pages;
 	}
 
-	public static string ExtractText(string filePath)
+	public static string ExtractText(string filePath, string password = null)
 	{
 		System.Text.StringBuilder builder = new System.Text.StringBuilder();
-		using PdfDocument document = PdfDocument.Open(filePath);
+		using PdfDocument document = OpenDocument(filePath, password);
 		int pageNumber = 0;
 		foreach (Page page in document.GetPages())
 		{
@@ -107,10 +159,10 @@ public static class PdfContentExtractor
 		return builder.ToString().TrimEnd();
 	}
 
-	public static IReadOnlyList<PdfImageBlock> ExtractImageRegions(string filePath)
+	public static IReadOnlyList<PdfImageBlock> ExtractImageRegions(string filePath, string password = null)
 	{
 		List<PdfImageBlock> images = new List<PdfImageBlock>();
-		using PdfDocument document = PdfDocument.Open(filePath);
+		using PdfDocument document = OpenDocument(filePath, password);
 		int pageIndex = 0;
 		foreach (Page page in document.GetPages())
 		{
@@ -140,10 +192,10 @@ public static class PdfContentExtractor
 		return images;
 	}
 
-	public static IReadOnlyList<Bitmap> ExtractImages(string filePath, int? pageIndex = null)
+	public static IReadOnlyList<Bitmap> ExtractImages(string filePath, int? pageIndex = null, string password = null)
 	{
 		List<Bitmap> images = new List<Bitmap>();
-		using PdfDocument document = PdfDocument.Open(filePath);
+		using PdfDocument document = OpenDocument(filePath, password);
 		int index = 0;
 		foreach (Page page in document.GetPages())
 		{
@@ -171,6 +223,40 @@ public static class PdfContentExtractor
 		}
 
 		return images;
+	}
+
+	private static Letter SelectRepresentativeLetter(IReadOnlyList<Letter> letters)
+	{
+		if (letters == null || letters.Count == 0)
+		{
+			return null;
+		}
+
+		return letters
+			.OrderByDescending(letter => letter.PointSize)
+			.ThenByDescending(letter => letter.BoundingBox.Width)
+			.FirstOrDefault();
+	}
+
+	private static (byte R, byte G, byte B) ExtractFillColor(Letter letter)
+	{
+		if (letter?.FillColor == null)
+		{
+			return (0, 0, 0);
+		}
+
+		try
+		{
+			(double red, double green, double blue) = letter.FillColor.ToRGBValues();
+			return (
+				(byte)Math.Clamp(Math.Round(red * 255d), 0d, 255d),
+				(byte)Math.Clamp(Math.Round(green * 255d), 0d, 255d),
+				(byte)Math.Clamp(Math.Round(blue * 255d), 0d, 255d));
+		}
+		catch
+		{
+			return (0, 0, 0);
+		}
 	}
 
 	private static Bitmap TryCreateBitmap(IPdfImage image)

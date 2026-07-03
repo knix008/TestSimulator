@@ -25,6 +25,7 @@ partial class MainForm
 	private ToolStripMenuItem menuSelectImage;
 	private ToolStripSeparator menuEditSepText;
 	private ToolStripMenuItem menuCopyText;
+	private ToolStripMenuItem menuEditText;
 	private ToolStripMenuItem menuCopyImage;
 	private ToolStripMenuItem menuView;
 	private ToolStripMenuItem menuZoomIn;
@@ -36,7 +37,6 @@ partial class MainForm
 
 	private ToolStrip toolStripMain;
 	private ToolStripButton btnOpen;
-	private ToolStripButton btnImportText;
 	private ToolStripButton btnSelectText;
 	private ToolStripButton btnSelectImage;
 	private ToolStripButton btnCopyImage;
@@ -86,6 +86,7 @@ partial class MainForm
         menuSelectImage = new ToolStripMenuItem();
         menuEditSepText = new ToolStripSeparator();
         menuCopyText = new ToolStripMenuItem();
+        menuEditText = new ToolStripMenuItem();
         menuCopyImage = new ToolStripMenuItem();
         menuView = new ToolStripMenuItem();
         menuZoomIn = new ToolStripMenuItem();
@@ -96,7 +97,6 @@ partial class MainForm
         menuAbout = new ToolStripMenuItem();
         toolStripMain = new ToolStrip();
         btnOpen = new ToolStripButton();
-        btnImportText = new ToolStripButton();
         btnSelectText = new ToolStripButton();
         btnSelectImage = new ToolStripButton();
         btnCopyImage = new ToolStripButton();
@@ -153,8 +153,9 @@ partial class MainForm
         // menuSavePdf
         // 
         menuSavePdf.Name = "menuSavePdf";
+        menuSavePdf.ShortcutKeys = Keys.Control | Keys.S;
         menuSavePdf.Size = new Size(211, 22);
-        menuSavePdf.Text = "PDF로 저장(&P)...";
+        menuSavePdf.Text = "저장(&S)...";
         // 
         // menuExportMd
         // 
@@ -181,7 +182,7 @@ partial class MainForm
         // 
         // menuEdit
         // 
-        menuEdit.DropDownItems.AddRange(new ToolStripItem[] { menuImportText, menuEditSep1, menuSelectText, menuSelectImage, menuEditSepText, menuCopyText, menuCopyImage });
+        menuEdit.DropDownItems.AddRange(new ToolStripItem[] { menuImportText, menuEditSep1, menuSelectText, menuSelectImage, menuEditSepText, menuCopyText, menuEditText, menuCopyImage });
         menuEdit.Name = "menuEdit";
         menuEdit.Size = new Size(57, 20);
         menuEdit.Text = "편집(&E)";
@@ -190,7 +191,7 @@ partial class MainForm
         // 
         menuImportText.Name = "menuImportText";
         menuImportText.Size = new Size(319, 22);
-        menuImportText.Text = "내보내기용 텍스트 추출(&T)";
+        menuImportText.Text = "텍스트 재추출(&R)...";
         // 
         // menuEditSep1
         // 
@@ -222,6 +223,13 @@ partial class MainForm
         menuCopyText.ShortcutKeys = Keys.Control | Keys.Shift | Keys.C;
         menuCopyText.Size = new Size(319, 22);
         menuCopyText.Text = "선택 텍스트 복사(&Y)";
+        // 
+        // menuEditText
+        // 
+        menuEditText.Name = "menuEditText";
+        menuEditText.ShortcutKeys = Keys.F2;
+        menuEditText.Size = new Size(319, 22);
+        menuEditText.Text = "선택 영역 편집(&E)";
         // 
         // menuCopyImage
         // 
@@ -280,7 +288,7 @@ partial class MainForm
         // toolStripMain
         // 
         toolStripMain.ImageScalingSize = new Size(22, 22);
-        toolStripMain.Items.AddRange(new ToolStripItem[] { btnOpen, btnImportText, btnSelectText, btnSelectImage, btnCopyImage, toolStripSep1, btnPrevPage, btnNextPage, toolStripSep2, btnSavePdf, btnExportMd, btnExportWord, toolStripSepAbout, btnAbout });
+        toolStripMain.Items.AddRange(new ToolStripItem[] { btnOpen, btnSavePdf, toolStripSep1, btnSelectText, btnSelectImage, btnCopyImage, toolStripSep2, btnPrevPage, btnNextPage, btnExportMd, btnExportWord, toolStripSepAbout, btnAbout });
         toolStripMain.Location = new Point(0, 24);
         toolStripMain.Name = "toolStripMain";
         toolStripMain.Size = new Size(1400, 25);
@@ -295,15 +303,6 @@ partial class MainForm
         btnOpen.Size = new Size(23, 22);
         btnOpen.Text = "열기";
         btnOpen.ToolTipText = "PDF 열기";
-        // 
-        // btnImportText
-        // 
-        btnImportText.DisplayStyle = ToolStripItemDisplayStyle.Image;
-        btnImportText.ImageTransparentColor = Color.Magenta;
-        btnImportText.Name = "btnImportText";
-        btnImportText.Size = new Size(23, 22);
-        btnImportText.Text = "텍스트 추출";
-        btnImportText.ToolTipText = "PDF 텍스트를 추출해 내보내기 문서에 포함";
         // 
         // btnSelectText
         // 
@@ -368,8 +367,8 @@ partial class MainForm
         btnSavePdf.ImageTransparentColor = Color.Magenta;
         btnSavePdf.Name = "btnSavePdf";
         btnSavePdf.Size = new Size(23, 22);
-        btnSavePdf.Text = "PDF 저장";
-        btnSavePdf.ToolTipText = "PDF로 저장";
+        btnSavePdf.Text = "저장";
+        btnSavePdf.ToolTipText = "저장 (Ctrl+S) — 편집 내용을 별도 PDF 파일로 저장";
         // 
         // btnExportMd
         // 
@@ -425,7 +424,7 @@ partial class MainForm
         labelPdfHeader.Padding = new Padding(8, 0, 0, 0);
         labelPdfHeader.Size = new Size(1392, 28);
         labelPdfHeader.TabIndex = 0;
-        labelPdfHeader.Text = "PDF — 텍스트/그림 선택 (선택 영역이 표시됩니다)";
+        labelPdfHeader.Text = "PDF — 텍스트 더블클릭 또는 F2로 직접 편집";
         labelPdfHeader.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // pdfViewerPanel

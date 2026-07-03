@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
 
@@ -5,18 +6,18 @@ namespace MyPDFEditorWinV10.Dialogs;
 
 public sealed class ErrorDialog : Form
 {
-	private readonly TextBox _messageBox;
+	private readonly TextBox _detailsBox;
 	private readonly string _copyText;
 
 	public static void Show(IWin32Window owner, string title, string message)
 	{
-		using ErrorDialog dialog = new ErrorDialog(title, message);
+		using ErrorDialog dialog = new ErrorDialog(title, message, null);
 		dialog.ShowDialog(owner);
 	}
 
 	public static void Show(IWin32Window owner, string title, Exception ex)
 	{
-		Show(owner, title, ex.Message, ex);
+		Show(owner, title, "오류가 발생했습니다.", ex);
 	}
 
 	public static void Show(IWin32Window owner, string title, string summary, Exception ex)
@@ -27,6 +28,11 @@ public sealed class ErrorDialog : Form
 
 	private static string FormatException(Exception ex)
 	{
+		if (ex == null)
+		{
+			return string.Empty;
+		}
+
 		StringBuilder builder = new StringBuilder();
 		int depth = 0;
 		for (Exception current = ex; current != null; current = current.InnerException, depth++)
@@ -40,6 +46,11 @@ public sealed class ErrorDialog : Form
 
 			builder.AppendLine($"유형: {current.GetType().FullName}");
 			builder.AppendLine($"메시지: {current.Message}");
+			if (!string.IsNullOrWhiteSpace(current.Source))
+			{
+				builder.AppendLine($"소스: {current.Source}");
+			}
+
 			if (!string.IsNullOrWhiteSpace(current.StackTrace))
 			{
 				builder.AppendLine();
@@ -51,43 +62,91 @@ public sealed class ErrorDialog : Form
 		return builder.ToString().TrimEnd();
 	}
 
-	private ErrorDialog(string title, string message)
-		: this(title, message, message)
-	{
-	}
-
 	private ErrorDialog(string title, string summary, string details)
 	{
-		string displayText = string.Equals(summary.Trim(), details.Trim(), StringComparison.Ordinal)
-			? details
-			: $"{summary}{Environment.NewLine}{Environment.NewLine}{details}";
-		_copyText = BuildCopyText(title, summary, details);
+		string normalizedSummary = summary?.Trim() ?? string.Empty;
+		string normalizedDetails = details?.Trim() ?? string.Empty;
+		bool hasDetails = !string.IsNullOrWhiteSpace(normalizedDetails) &&
+			!string.Equals(normalizedSummary, normalizedDetails, StringComparison.Ordinal);
+
+		_copyText = BuildCopyText(title, normalizedSummary, hasDetails ? normalizedDetails : string.Empty);
 
 		Text = title;
 		StartPosition = FormStartPosition.CenterParent;
-		MinimumSize = new Size(420, 220);
-		Size = new Size(560, 320);
+		MinimumSize = new Size(480, hasDetails ? 280 : 180);
+		Size = new Size(640, hasDetails ? 420 : 240);
 		ShowInTaskbar = false;
 		MaximizeBox = false;
 		MinimizeBox = false;
 		Font = new Font("Malgun Gothic", 9F);
 		BackColor = SystemColors.Control;
+		FormBorderStyle = FormBorderStyle.Sizable;
 
-		_messageBox = new TextBox
+		PictureBox iconBox = new PictureBox
+		{
+			Image = SystemIcons.Error.ToBitmap(),
+			SizeMode = PictureBoxSizeMode.CenterImage,
+			Size = new Size(40, 40),
+			Margin = new Padding(0, 0, 12, 0)
+		};
+
+		Label summaryLabel = new Label
+		{
+			AutoSize = false,
+			Dock = DockStyle.Fill,
+			Text = string.IsNullOrWhiteSpace(normalizedSummary) ? "오류가 발생했습니다." : normalizedSummary,
+			UseMnemonic = false,
+			BackColor = SystemColors.Control,
+			ForeColor = SystemColors.ControlText,
+			Padding = new Padding(0, 4, 0, 0)
+		};
+
+		TableLayoutPanel headerPanel = new TableLayoutPanel
+		{
+			Dock = DockStyle.Top,
+			AutoSize = true,
+			AutoSizeMode = AutoSizeMode.GrowAndShrink,
+			ColumnCount = 2,
+			RowCount = 1,
+			Padding = new Padding(0),
+			Margin = new Padding(0, 0, 0, hasDetails ? 8 : 0)
+		};
+		headerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		headerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+		headerPanel.Controls.Add(iconBox, 0, 0);
+		headerPanel.Controls.Add(summaryLabel, 1, 0);
+
+		Label detailsCaption = null;
+		if (hasDetails)
+		{
+			detailsCaption = new Label
+			{
+				Text = "상세 내용",
+				AutoSize = true,
+				Dock = DockStyle.Top,
+				Margin = new Padding(0, 0, 0, 4),
+				BackColor = SystemColors.Control,
+				ForeColor = SystemColors.ControlText
+			};
+		}
+
+		string detailsText = hasDetails ? normalizedDetails : normalizedSummary;
+		_detailsBox = new TextBox
 		{
 			Multiline = true,
 			ReadOnly = true,
 			ScrollBars = ScrollBars.Both,
 			WordWrap = true,
 			Dock = DockStyle.Fill,
-			Font = new Font("Malgun Gothic", 9F),
+			Font = new Font("Consolas", 9F),
 			BackColor = Color.White,
 			ForeColor = Color.Black,
 			BorderStyle = BorderStyle.FixedSingle,
-			Text = displayText,
+			Text = detailsText,
 			ShortcutsEnabled = true,
 			HideSelection = false
 		};
+		_detailsBox.ContextMenuStrip = BuildCopyContextMenu();
 
 		Button btnClose = new Button
 		{
@@ -104,7 +163,7 @@ public sealed class ErrorDialog : Form
 			MinimumSize = new Size(88, 30),
 			Margin = new Padding(0, 0, 8, 0)
 		};
-		btnCopy.Click += (_, _) => CopyToClipboard(btnCopy);
+		btnCopy.Click += (_, _) => CopyAll(btnCopy);
 
 		FlowLayoutPanel buttonPanel = new FlowLayoutPanel
 		{
@@ -122,18 +181,64 @@ public sealed class ErrorDialog : Form
 			Dock = DockStyle.Fill,
 			Padding = new Padding(12, 12, 12, 4)
 		};
-		contentPanel.Controls.Add(_messageBox);
+
+		Panel detailsHost = new Panel
+		{
+			Dock = DockStyle.Fill
+		};
+		if (detailsCaption != null)
+		{
+			detailsHost.Controls.Add(_detailsBox);
+			detailsHost.Controls.Add(detailsCaption);
+		}
+		else
+		{
+			detailsHost.Controls.Add(_detailsBox);
+		}
+
+		contentPanel.Controls.Add(detailsHost);
+		contentPanel.Controls.Add(headerPanel);
 
 		Controls.Add(contentPanel);
 		Controls.Add(buttonPanel);
 
 		AcceptButton = btnClose;
 		CancelButton = btnClose;
+		Shown += (_, _) => _detailsBox.Select(0, 0);
 	}
 
-	private void CopyToClipboard(Button copyButton)
+	private ContextMenuStrip BuildCopyContextMenu()
+	{
+		ContextMenuStrip menu = new ContextMenuStrip();
+		ToolStripMenuItem copyItem = new ToolStripMenuItem("복사", null, (_, _) => CopySelection());
+		ToolStripMenuItem copyAllItem = new ToolStripMenuItem("전체 복사", null, (_, _) => CopyAll(null));
+		ToolStripMenuItem selectAllItem = new ToolStripMenuItem("모두 선택", null, (_, _) => _detailsBox.SelectAll());
+		menu.Items.Add(copyItem);
+		menu.Items.Add(copyAllItem);
+		menu.Items.Add(new ToolStripSeparator());
+		menu.Items.Add(selectAllItem);
+		return menu;
+	}
+
+	private void CopySelection()
+	{
+		if (_detailsBox.SelectionLength > 0)
+		{
+			Clipboard.SetText(_detailsBox.SelectedText);
+			return;
+		}
+
+		CopyAll(null);
+	}
+
+	private void CopyAll(Button copyButton)
 	{
 		Clipboard.SetText(_copyText);
+		if (copyButton == null)
+		{
+			return;
+		}
+
 		copyButton.Text = "복사됨";
 		using System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 1500 };
 		timer.Tick += (_, _) =>
@@ -155,11 +260,7 @@ public sealed class ErrorDialog : Form
 			builder.AppendLine();
 		}
 
-		if (!string.Equals(summary.Trim(), details.Trim(), StringComparison.Ordinal))
-		{
-			builder.Append(details);
-		}
-		else if (string.IsNullOrWhiteSpace(summary))
+		if (!string.IsNullOrWhiteSpace(details))
 		{
 			builder.Append(details);
 		}
