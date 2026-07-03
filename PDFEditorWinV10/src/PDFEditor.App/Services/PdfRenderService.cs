@@ -18,13 +18,13 @@ public sealed class PdfRenderService : IPdfRenderService, IDisposable
 
     public int GetPageCount(string pdfPath)
     {
-        using var docReader = _docLib.GetDocReader(pdfPath, new PageDimensions(1080, 1920));
+        using var docReader = _docLib.GetDocReader(pdfPath, new PageDimensions(1.0));
         return docReader.GetPageCount();
     }
 
     public BitmapSource? RenderPage(string pdfPath, int pageIndex, double scale = 1.5)
     {
-        using var docReader = _docLib.GetDocReader(pdfPath, new PageDimensions(1080, 1920));
+        using var docReader = _docLib.GetDocReader(pdfPath, new PageDimensions(scale));
         if (pageIndex < 0 || pageIndex >= docReader.GetPageCount())
         {
             return null;
@@ -33,20 +33,12 @@ public sealed class PdfRenderService : IPdfRenderService, IDisposable
         using var pageReader = docReader.GetPageReader(pageIndex);
         var width = pageReader.GetPageWidth();
         var height = pageReader.GetPageHeight();
-        var targetWidth = (int)(width * scale);
-        var targetHeight = (int)(height * scale);
-
-        using var scaledReader = _docLib.GetDocReader(
-            pdfPath,
-            new PageDimensions(targetWidth, targetHeight));
-
-        using var scaledPage = scaledReader.GetPageReader(pageIndex);
-        var rawBytes = scaledPage.GetImage();
-        var stride = targetWidth * 4;
+        var rawBytes = pageReader.GetImage();
+        var stride = width * 4;
 
         var bitmap = BitmapSource.Create(
-            targetWidth,
-            targetHeight,
+            width,
+            height,
             96,
             96,
             System.Windows.Media.PixelFormats.Bgra32,
