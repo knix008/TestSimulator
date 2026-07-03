@@ -36,6 +36,11 @@ public partial class SettingsWindow : Window
     private IInputElement? _pendingFocusRestore;
     private readonly string _initialLanguage;
     private bool _suppressLanguageLiveApply;
+    private int _deactivateCloseSuppressDepth;
+    private bool _savedOnClose;
+
+    /// <summary>True when the user closed settings with Save.</summary>
+    public bool SavedOnClose => _savedOnClose;
 
     public SettingsWindow(
         AppSettings current,
@@ -220,11 +225,124 @@ public partial class SettingsWindow : Window
         UpdateProgressUi();
     }
 
+    protected override void OnDeactivated(EventArgs e)
+    {
+        base.OnDeactivated(e);
+        ScheduleOutsideClickCloseCheck();
+    }
+
+    private void ScheduleOutsideClickCloseCheck()
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, CheckOutsideClickClose);
+    }
+
+    private void CheckOutsideClickClose()
+    {
+        if (!IsVisible || _deactivateCloseSuppressDepth > 0)
+            return;
+
+        if (IsPointerOverAppChrome() || IsPointerOverOwnedDialog() || IsOwnedDialogOpen())
+            return;
+
+        CloseWithoutSave();
+    }
+
+    private bool IsPointerOverAppChrome()
+    {
+        if (ScreenHelper.IsPointerOverWindow(this))
+            return true;
+
+        if (Owner is Window owner && ScreenHelper.IsPointerOverWindow(owner))
+            return true;
+
+        foreach (Window window in System.Windows.Application.Current.Windows)
+        {
+            if (window is ResultsWindow { IsVisible: true } results
+                && ScreenHelper.IsPointerOverWindow(results))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsOwnedDialogOpen()
+    {
+        foreach (Window window in System.Windows.Application.Current.Windows)
+        {
+            if (window.IsVisible && window.Owner == this && !ReferenceEquals(window, this))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsPointerOverOwnedDialog()
+    {
+        foreach (Window window in System.Windows.Application.Current.Windows)
+        {
+            if (!window.IsVisible || ReferenceEquals(window, this))
+                continue;
+
+            if (window.Owner == this && ScreenHelper.IsPointerOverWindow(window))
+                return true;
+        }
+
+        return false;
+    }
+
+    private void SettingsRoot_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || !ShouldCloseOnEscape(e.OriginalSource as DependencyObject))
+            return;
+
+        CloseWithoutSave();
+        e.Handled = true;
+    }
+
+    private static bool ShouldCloseOnEscape(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is System.Windows.Controls.ComboBox { IsDropDownOpen: true })
+                return false;
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return true;
+    }
+
+    private void CloseWithoutSave()
+    {
+        if (!IsVisible)
+            return;
+
+        _savedOnClose = false;
+        Close();
+    }
+
+    private IDisposable SuppressDeactivateClose()
+    {
+        _deactivateCloseSuppressDepth++;
+        return new DeactivateCloseSuppressScope(this);
+    }
+
+    private sealed class DeactivateCloseSuppressScope(SettingsWindow window) : IDisposable
+    {
+        public void Dispose()
+        {
+            if (window._deactivateCloseSuppressDepth > 0)
+                window._deactivateCloseSuppressDepth--;
+        }
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _progressTimer?.Stop();
 
-        if (DialogResult != true
+        if (!_savedOnClose
             && !string.Equals(LocalizationService.CurrentLanguage, _initialLanguage, StringComparison.Ordinal))
         {
             LocalizationService.Apply(_initialLanguage);
@@ -490,7 +608,10 @@ public partial class SettingsWindow : Window
     private void BrowseExcludedDirectory_Click(object sender, RoutedEventArgs e)
     {
         var ownerHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-        var selectedPaths = MultiFolderBrowserDialog.ShowDialog(ownerHandle, Settings.LastIncludedDirectoryBrowsePath);
+        string[]? selectedPaths;
+        using (SuppressDeactivateClose())
+            selectedPaths = MultiFolderBrowserDialog.ShowDialog(ownerHandle, Settings.LastIncludedDirectoryBrowsePath);
+
         if (selectedPaths is null)
             return;
 
@@ -703,7 +824,11 @@ public partial class SettingsWindow : Window
             return;
 
         var choiceDialog = new ResetChoiceDialog { Owner = this };
-        if (choiceDialog.ShowDialog() != true)
+        bool? accepted;
+        using (SuppressDeactivateClose())
+            accepted = choiceDialog.ShowDialog();
+
+        if (accepted != true)
             return;
 
         _resetUiPending = true;
@@ -786,7 +911,7 @@ public partial class SettingsWindow : Window
         TextPreview.Foreground = ColorHelper.ToBrush(hex);
     }
 
-    private static bool TryPickColor(string currentHex, out string hex)
+    private bool TryPickColor(string currentHex, out string hex)
     {
         hex = currentHex;
         var current = ColorHelper.ParseColor(currentHex);
@@ -797,7 +922,11 @@ public partial class SettingsWindow : Window
             FullOpen = true
         };
 
-        if (dialog.ShowDialog() != Forms.DialogResult.OK)
+        Forms.DialogResult result;
+        using (SuppressDeactivateClose())
+            result = dialog.ShowDialog();
+
+        if (result != Forms.DialogResult.OK)
             return false;
 
         hex = ColorHelper.ToHex(MediaColor.FromRgb(dialog.Color.R, dialog.Color.G, dialog.Color.B));
@@ -879,7 +1008,8 @@ public partial class SettingsWindow : Window
     private void InfoButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new AboutDialog { Owner = this };
-        dialog.ShowDialog();
+        using (SuppressDeactivateClose())
+            dialog.ShowDialog();
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -901,13 +1031,9 @@ public partial class SettingsWindow : Window
         Settings.SubTextColor = display.SubTextColor;
         Settings.BorderColor = display.BorderColor;
 
-        DialogResult = true;
+        _savedOnClose = true;
         Close();
     }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = false;
-        Close();
-    }
+    private void Cancel_Click(object sender, RoutedEventArgs e) => CloseWithoutSave();
 }

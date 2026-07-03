@@ -233,6 +233,12 @@ public partial class MainWindow
 
     private void MenuSettings_Click(object sender, RoutedEventArgs e)
     {
+        if (_openSettingsWindow is { IsVisible: true })
+        {
+            _openSettingsWindow.Activate();
+            return;
+        }
+
         var dialog = new SettingsWindow(
             _settingsService.Current,
             GetSettingsProgress,
@@ -244,15 +250,20 @@ public partial class MainWindow
         };
 
         _openSettingsWindow = dialog;
-        try
-        {
-            if (dialog.ShowDialog() != true)
-                return;
-        }
-        finally
-        {
-            _openSettingsWindow = null;
-        }
+        dialog.Closed += OnSettingsWindowClosed;
+        dialog.Show();
+    }
+
+    private void OnSettingsWindowClosed(object? sender, EventArgs e)
+    {
+        if (sender is not SettingsWindow dialog)
+            return;
+
+        dialog.Closed -= OnSettingsWindowClosed;
+        _openSettingsWindow = null;
+
+        if (!dialog.SavedOnClose)
+            return;
 
         var previousScope = IndexInclusionPolicy.FromSettings(_settingsService.Current);
 

@@ -31,4 +31,19 @@ internal static class ScreenHelper
             workArea.Width / dpiX,
             workArea.Height / dpiY);
     }
+
+    public static bool IsPointerOverWindow(Window window)
+    {
+        if (!window.IsVisible)
+            return false;
+
+        var position = System.Windows.Forms.Control.MousePosition;
+        var topLeft = window.PointToScreen(new Point(0, 0));
+        var bottomRight = window.PointToScreen(new Point(window.ActualWidth, window.ActualHeight));
+
+        return position.X >= topLeft.X
+            && position.X <= bottomRight.X
+            && position.Y >= topLeft.Y
+            && position.Y <= bottomRight.Y;
+    }
 }
