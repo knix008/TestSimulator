@@ -143,6 +143,7 @@ public partial class MainForm
             RefreshWorkspaceEditState();
             SelectPageInTree(pageId);
             RecordCurrentPageForSession();
+            await RefreshCommentsPanelAsync();
         }
     }
 
@@ -186,6 +187,7 @@ public partial class MainForm
             var title = FindWorkspaceNameInTree(workspaceId) ?? Localization.Get(K.LabelWorkspace);
             lblStatus.Text = Localization.Format(K.StatusWorkspace, title);
             LoadWorkspaceTree(selectWorkspaceId: workspaceId);
+            await RefreshCommentsPanelAsync();
         }
     }
 
@@ -220,6 +222,7 @@ public partial class MainForm
             lblStatus.Text = SessionContext.IsLoggedIn
                 ? SessionContext.IsAdmin ? Localization.Get(K.StatusAdmin) : Localization.Get(K.StatusUser)
                 : Localization.Get(K.StatusLoginRequired);
+            await RefreshCommentsPanelAsync();
         }
     }
 
@@ -247,6 +250,7 @@ public partial class MainForm
             _isDirty = false;
             ClearOutlinePanel();
             UpdateEditorEmptySurface();
+            await RefreshCommentsPanelAsync();
         }
     }
 

@@ -271,13 +271,21 @@ internal static class PageAssetStore
             TryGetAssetPath(pageId, fileName);
     }
 
-    public static void SyncAssetsWithContent(int pageId, string markdown, AppServices? services = null)
+    public static void SyncAssetsWithContent(int pageId, string markdown, AppServices? services = null) =>
+        SyncAssetsWithReferencedFiles(
+            pageId,
+            PageMarkdownNormalizer.GetReferencedFileNames(markdown, pageId),
+            services);
+
+    public static void SyncAssetsWithReferencedFiles(
+        int pageId,
+        IReadOnlyCollection<string> referenced,
+        AppServices? services = null)
     {
         services ??= AppConfig.Services;
         if (!SessionContext.IsLoggedIn || services == null)
             return;
 
-        var referenced = PageMarkdownNormalizer.GetReferencedFileNames(markdown, pageId);
         foreach (var fileName in referenced)
             MigrateLocalAssetToDatabase(pageId, fileName, services);
 
@@ -285,6 +293,24 @@ internal static class PageAssetStore
             SessionContext.CurrentUser,
             pageId,
             referenced);
+    }
+
+    public static IReadOnlyCollection<string> CollectReferencedFileNames(
+        int pageId,
+        string pageMarkdown,
+        IEnumerable<string> additionalMarkdown)
+    {
+        var referenced = new HashSet<string>(
+            PageMarkdownNormalizer.GetReferencedFileNames(pageMarkdown, pageId),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var markdown in additionalMarkdown)
+        {
+            foreach (var fileName in PageMarkdownNormalizer.GetReferencedFileNames(markdown, pageId))
+                referenced.Add(fileName);
+        }
+
+        return referenced;
     }
 
     public static string BuildOpenFileFilter() =>

@@ -112,6 +112,7 @@ internal static class Localization
         Add(K.MenuWorkspaceMembers, "멤버 관리", "Manage Members");
         Add(K.MenuView, "보기(&V)", "&View");
         Add(K.MenuDocumentStructure, "문서 구조", "Document Outline");
+        Add(K.MenuComments, "댓글", "Comments");
         Add(K.MenuAdmin, "관리(&A)", "&Admin");
         Add(K.MenuAdminUsers, "사용자 관리", "User Management");
         Add(K.MenuAdminDatabase, "DB 연결 설정...", "Database Settings...");
@@ -168,6 +169,7 @@ internal static class Localization
         Add(K.ToolbarUndo, "실행 취소 (Ctrl+Z)", "Undo (Ctrl+Z)");
         Add(K.ToolbarRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.ToolbarDocumentStructure, "문서 구조", "Document Outline");
+        Add(K.ToolbarComments, "댓글", "Comments");
         Add(K.ToolbarAbout, "프로그램 정보", "About");
         Add(K.TipToolbarMoreTools, "더 많은 도구 보기", "Show more tools");
         Add(K.ToolbarSave, "저장 (Ctrl+S)", "Save (Ctrl+S)");
@@ -177,13 +179,29 @@ internal static class Localization
         Add(K.ToolbarHistory, "Page 버전 이력", "Page History");
         Add(K.ToolbarPageLog, "Page 변경 Log", "Page Change Log");
 
+        Add(K.CommentsTitle, "댓글", "Comments");
+        Add(K.CommentsPost, "등록", "Post");
+        Add(K.CommentsAttachImage, "이미지", "Image");
+        Add(K.CommentsAttachFile, "파일", "File");
+        Add(K.CommentsComposePlaceholder, "댓글을 입력하세요. Markdown과 page-asset 첨부를 사용할 수 있습니다.", "Write a comment. Markdown and page assets are supported.");
+        Add(K.CommentsEmpty, "아직 댓글이 없습니다.", "No comments yet.");
+        Add(K.CommentsEmptyBody, "댓글 내용을 입력하세요.", "Enter comment text.");
+        Add(K.CommentsConfirmDelete, "이 댓글을 삭제할까요?", "Delete this comment?");
+        Add(K.CommentsDelete, "삭제", "Delete");
+        Add(K.CommentsRequiresPage, "댓글을 작성하려면 Page를 열어 주세요.", "Open a page to write comments.");
+        Add(K.CommentsEditedAt, "{0} (수정: {1})", "{0} (edited {1})");
+        Add(K.CommentsExpand, "댓글 패널 표시", "Show comments panel");
+        Add(K.CommentsCollapse, "댓글 패널 숨기기", "Hide comments panel");
+        Add(K.TipToolbarShowComments, "댓글 패널 표시", "Show comments panel");
+        Add(K.TipToolbarHideComments, "댓글 패널 숨기기", "Hide comments panel");
+
         Add(K.TipMenuFile, "파일 저장, 프로젝트, 환경 설정", "Save, projects, and preferences");
         Add(K.TipMenuEdit, "실행 취소, 다시 실행", "Undo and redo");
         Add(K.TipMenuUndo, "실행 취소 (Ctrl+Z)", "Undo (Ctrl+Z)");
         Add(K.TipMenuRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.TipMenuWorkspace, "Workspace와 Page 관리", "Manage workspaces and pages");
         Add(K.TipMenuExport, "Page 또는 Workspace를 Markdown, Word, PDF로 내보냅니다.", "Export pages or workspaces as Markdown, Word, or PDF.");
-        Add(K.TipMenuView, "보기 및 문서 구조", "View and document outline");
+        Add(K.TipMenuView, "보기, 문서 구조, 댓글", "View, document outline, and comments");
         Add(K.TipMenuAdmin, "사용자 관리 (관리자)", "User management (administrator)");
         Add(K.TipMenuAccount, "계정 및 알림 설정", "Account and notification settings");
         Add(K.TipMenuSettings, "테마·언어 등 환경 설정", "Theme, language, and preferences");
@@ -579,6 +597,7 @@ internal static class K
     public const string MenuWorkspaceMembers = "MenuWorkspaceMembers";
     public const string MenuView = "MenuView";
     public const string MenuDocumentStructure = "MenuDocumentStructure";
+    public const string MenuComments = "MenuComments";
     public const string MenuAdmin = "MenuAdmin";
     public const string MenuAdminUsers = "MenuAdminUsers";
     public const string MenuAdminDatabase = "MenuAdminDatabase";
@@ -635,6 +654,7 @@ internal static class K
     public const string ToolbarUndo = "ToolbarUndo";
     public const string ToolbarRedo = "ToolbarRedo";
     public const string ToolbarDocumentStructure = "ToolbarDocumentStructure";
+    public const string ToolbarComments = "ToolbarComments";
     public const string ToolbarAbout = "ToolbarAbout";
     public const string TipToolbarMoreTools = "TipToolbarMoreTools";
     public const string ToolbarSave = "ToolbarSave";
@@ -799,6 +819,21 @@ internal static class K
     public const string UnsupportedImageFormat = "UnsupportedImageFormat";
     public const string DialogAttachFilePrompt = "DialogAttachFilePrompt";
     public const string AttachmentRequiresPage = "AttachmentRequiresPage";
+    public const string CommentsTitle = "CommentsTitle";
+    public const string CommentsPost = "CommentsPost";
+    public const string CommentsAttachImage = "CommentsAttachImage";
+    public const string CommentsAttachFile = "CommentsAttachFile";
+    public const string CommentsComposePlaceholder = "CommentsComposePlaceholder";
+    public const string CommentsEmpty = "CommentsEmpty";
+    public const string CommentsEmptyBody = "CommentsEmptyBody";
+    public const string CommentsConfirmDelete = "CommentsConfirmDelete";
+    public const string CommentsDelete = "CommentsDelete";
+    public const string CommentsRequiresPage = "CommentsRequiresPage";
+    public const string CommentsEditedAt = "CommentsEditedAt";
+    public const string CommentsExpand = "CommentsExpand";
+    public const string CommentsCollapse = "CommentsCollapse";
+    public const string TipToolbarShowComments = "TipToolbarShowComments";
+    public const string TipToolbarHideComments = "TipToolbarHideComments";
     public const string OpenResourceFailed = "OpenResourceFailed";
     public const string ImageFileFilterLabel = "ImageFileFilterLabel";
     public const string AllFilesFilterLabel = "AllFilesFilterLabel";

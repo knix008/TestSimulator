@@ -32,6 +32,7 @@ internal static class AppIcons
             ("undo", "undo"),
             ("redo", "redo"),
             ("outline", "outline"),
+            ("comments", "quote"),
             ("info", "info"),
             ("save", "save"),
             ("page", "page"),

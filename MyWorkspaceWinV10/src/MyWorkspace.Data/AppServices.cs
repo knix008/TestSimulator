@@ -23,6 +23,7 @@ public sealed class AppServices : IDisposable
         PageVersions = new Services.PageVersionService(Db, Workspaces, PageChangeLogs);
         PageAssets = new Services.PageAssetService(Db, Workspaces);
         Pages = new Services.PageService(Db, Workspaces, PageVersions, PageChangeLogs, Notifications);
+        PageComments = new Services.PageCommentService(Db, Workspaces, Pages);
         WorkspaceArchives = new Services.WorkspaceArchiveService(Db, Workspaces, Pages);
     }
 
@@ -37,6 +38,7 @@ public sealed class AppServices : IDisposable
     public IPageVersionService PageVersions { get; }
     public IPageChangeLogService PageChangeLogs { get; }
     public IPageAssetService PageAssets { get; }
+    public IPageCommentService PageComments { get; }
     public IWorkspaceArchiveService WorkspaceArchives { get; }
 
     public void Dispose() => Db.Dispose();

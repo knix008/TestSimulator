@@ -78,6 +78,7 @@ public partial class MainForm
         lblSaveStatus.ForeColor = AppTheme.TextMuted;
 
         ApplyEditorHostTheme();
+        ApplyCommentsTheme();
         UpdateEditorEmptySurface();
         RefreshNavRailTheme();
         UpdateTitleBarEditorRegion();
@@ -166,6 +167,8 @@ public partial class MainForm
         menuView.Text = Localization.Get(K.MenuView);
 
         menuDocumentStructure.Text = Localization.Get(K.MenuDocumentStructure);
+
+        ApplyCommentsLocalization();
 
         menuAdmin.Text = Localization.Get(K.MenuAdmin);
 

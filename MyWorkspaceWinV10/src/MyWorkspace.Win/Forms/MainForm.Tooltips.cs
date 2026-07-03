@@ -202,6 +202,10 @@ public partial class MainForm
 
                     : Localization.Get(K.OutlineCollapse),
 
+                "toolbar_comments" => commentsEditorSplit.Panel2Collapsed
+                    ? Localization.Get(K.CommentsExpand)
+                    : Localization.Get(K.CommentsCollapse),
+
                 "toolbar_info" => Localization.Get(K.ToolbarAbout),
 
                 _ => button.ToolTipText

@@ -43,6 +43,7 @@ public partial class MainForm : Form
     {
         _pendingWspImportPath = StartupArguments.TryGetWspImportPath(args);
         InitializeComponent();
+        InitializeCommentsPanel();
         FramelessWindowHelper.Configure(this, pnlRoot);
         titleBar.Attach(this);
         ConfigureTitleBarPageSearch();
@@ -139,6 +140,7 @@ public partial class MainForm : Form
 
         menuView.Image = menuDocumentStructure.Image;
 
+        EnsureCommentsMenuItem();
         InitializeEditor();
         EnsureProfileMenuItems();
         InitializeNavRail();
@@ -1071,7 +1073,9 @@ public partial class MainForm : Form
         }
 
         UpdateOutlineToggleButtonText();
-        UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed);
+        UpdateLayoutConstraints(
+            includeOutlinePanel: !editorAreaSplit.Panel1Collapsed,
+            includeCommentsPanel: !commentsEditorSplit.Panel2Collapsed);
     }
 
     private void menuPageHistory_Click(object sender, EventArgs e)
@@ -1885,6 +1889,10 @@ public partial class MainForm : Form
             "outline",
             Localization.Get(K.ToolbarDocumentStructure),
             (_, _) => ToggleOutlinePanel());
+        _toolbarCommentsButton = AddToolbarButton(
+            "comments",
+            Localization.Get(K.ToolbarComments),
+            (_, _) => ToggleCommentsPanel());
         _toolbarInfoButton = AddToolbarButton("info", Localization.Get(K.ToolbarAbout), (_, _) => ShowAboutDialog(), ToolStripItemAlignment.Right);
         AppTheme.StyleVerticalToolbarItems(toolStripMarkdown.Items);
         AppTheme.ConfigureVerticalToolbarOverflow(toolStripMarkdown);

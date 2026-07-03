@@ -23,14 +23,14 @@ internal static class AppConfigPageSave
                 throw new InvalidOperationException(Localization.Get(K.OfflineSaveContextMissing));
 
             OfflinePageSaveService.SavePage(AppConfig.Services, currentUser, context, title, content);
-            PageAssetStore.SyncAssetsWithContent(pageId, content, AppConfig.Services);
+            PageCommentAssetSync.SyncForPage(pageId, AppConfig.Services);
             return PageSaveResult.OfflineFallback;
         }
 
         try
         {
             AppConfig.Services.Pages.UpdatePage(currentUser, pageId, title, content);
-            PageAssetStore.SyncAssetsWithContent(pageId, content);
+            PageCommentAssetSync.SyncForPage(pageId);
             return PageSaveResult.Primary;
         }
         catch (Exception ex) when (AppConfig.ShouldTryOfflineSave(ex))
@@ -40,7 +40,7 @@ internal static class AppConfigPageSave
 
             var offlineServices = OfflineFallbackDatabase.GetServices();
             OfflinePageSaveService.SavePage(offlineServices, currentUser, context, title, content);
-            PageAssetStore.SyncAssetsWithContent(pageId, content, offlineServices);
+            PageCommentAssetSync.SyncForPage(pageId, offlineServices);
             AppConfig.MarkOfflineSaveUsed();
             return PageSaveResult.OfflineFallback;
         }
@@ -58,7 +58,7 @@ internal static class AppConfigPageSave
 
         var sqliteServices = AppConfig.GetAutoSaveSqliteServices();
         OfflinePageSaveService.SavePage(sqliteServices, currentUser, context, title, content);
-        PageAssetStore.SyncAssetsWithContent(pageId, content, sqliteServices);
+        PageCommentAssetSync.SyncForPage(pageId, sqliteServices);
 
         return ReferenceEquals(sqliteServices, AppConfig.Services)
             ? PageSaveResult.Primary

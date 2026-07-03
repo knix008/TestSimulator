@@ -23,6 +23,7 @@ public static class DbInitializer
         EnsurePageLockColumns(db);
         EnsureUserNotificationColumns(db);
         EnsurePageAssetsTable(db);
+        EnsurePageCommentsTable(db);
 
         if (db.Users.Any())
             return;
@@ -363,6 +364,88 @@ public static class DbInitializer
                     FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
                 );
                 CREATE UNIQUE INDEX IF NOT EXISTS ux_page_assets_page_file ON page_assets (page_id, file_name);
+                """);
+        }
+    }
+
+    private static void EnsurePageCommentsTable(AppDbContext db)
+    {
+        if (TableExists(db, "page_comments"))
+            return;
+
+        var provider = db.Database.ProviderName ?? string.Empty;
+
+        if (provider.Contains("MySql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_comments (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    page_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    content LONGTEXT NOT NULL,
+                    created_at DATETIME(6) NOT NULL,
+                    updated_at DATETIME(6) NOT NULL,
+                    INDEX ix_page_comments_page_created (page_id, created_at),
+                    CONSTRAINT fk_page_comments_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_page_comments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+                ) ENGINE=InnoDB;
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_comments (
+                    id SERIAL PRIMARY KEY,
+                    page_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMP NOT NULL,
+                    CONSTRAINT fk_page_comments_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_page_comments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+                );
+                CREATE INDEX IF NOT EXISTS ix_page_comments_page_created ON page_comments (page_id, created_at);
+                """);
+            return;
+        }
+
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID(N'page_comments', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE page_comments (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        page_id INT NOT NULL,
+                        user_id INT NOT NULL,
+                        content NVARCHAR(MAX) NOT NULL,
+                        created_at DATETIME2 NOT NULL,
+                        updated_at DATETIME2 NOT NULL,
+                        CONSTRAINT fk_page_comments_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+                        CONSTRAINT fk_page_comments_user FOREIGN KEY (user_id) REFERENCES users(id)
+                    );
+                    CREATE INDEX ix_page_comments_page_created ON page_comments (page_id, created_at);
+                END
+                """);
+            return;
+        }
+
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS page_comments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    page_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+                CREATE INDEX IF NOT EXISTS ix_page_comments_page_created ON page_comments (page_id, created_at);
                 """);
         }
     }
