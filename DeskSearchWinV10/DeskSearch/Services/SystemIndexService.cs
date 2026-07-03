@@ -66,6 +66,12 @@ public sealed class SystemIndexService : IDisposable
     // Entries written during the active scan pass (building DB for re-index, live DB for first index).
     private long _scanIndexedCount;
 
+    // Paths added/removed by the filesystem watcher since the last completed full index.
+    private long _incrementalUpdateCount;
+
+    // Scan pass total preserved through promote for completion UI.
+    private long _lastScanUpdatedCount;
+
     // A full-scan request received while indexing is already running is deferred instead of
     // cancelling the active scan (EnqueueExclusive would abort mid-drive and leave a partial index).
     private volatile bool _deferredFullScan;
@@ -134,6 +140,12 @@ public sealed class SystemIndexService : IDisposable
     /// <summary>Entries indexed in the current scan pass (0 at re-index start).</summary>
     public long ScanIndexedCount => Interlocked.Read(ref _scanIndexedCount);
 
+    /// <summary>Watcher-driven path changes since the last completed full index.</summary>
+    public long IncrementalUpdateCount => Interlocked.Read(ref _incrementalUpdateCount);
+
+    /// <summary>Entries written in the scan pass that was just promoted (for completion UI).</summary>
+    public long LastScanUpdatedCount => Interlocked.Read(ref _lastScanUpdatedCount);
+
     /// <summary>Always zero; kept for API compatibility. Progress uses scan steps only.</summary>
     public long ScanBaselineCount => 0;
 
@@ -159,26 +171,13 @@ public sealed class SystemIndexService : IDisposable
         !_isScanning && HasCompletedSearchIndex();
 
     /// <summary>
-    /// Stores that should receive filesystem watcher deltas.
-    /// During shadow re-index both stable (live search) and building (promote target) are updated.
+    /// Live search index only. Watcher deltas and scope purge never write to a shadow build DB.
     /// </summary>
-    private IReadOnlyList<IndexStore> GetIncrementalUpdateTargets()
+    private IReadOnlyList<IndexStore> GetLiveSearchUpdateTargets()
     {
         lock (_indexStoreSwapLock)
         {
-            IndexStore? stable = _indexStore is { Count: > 0 } store ? store : null;
-            IndexStore? building = _isScanning ? _activeBuildingStore : null;
-
-            if (stable is not null && building is not null && !ReferenceEquals(stable, building))
-                return [stable, building];
-
-            if (building is not null)
-                return [building];
-
-            if (stable is not null)
-                return [stable];
-
-            if (_indexStore is not null)
+            if (_indexStore is { Count: > 0 })
                 return [_indexStore];
 
             return [];
@@ -285,6 +284,61 @@ public sealed class SystemIndexService : IDisposable
                 return _indexStore?.Count ?? 0;
             }
         }
+    }
+
+    /// <summary>Entry count of the canonical live index database with an accurate COUNT(*) refresh.</summary>
+    public int GetLiveEntryCount()
+    {
+        lock (_indexStoreSwapLock)
+        {
+            if (_indexStore is null)
+                return 0;
+
+            _indexStore.RefreshCachedCount();
+            var count = _indexStore.Count;
+            Interlocked.Exchange(ref _approximateLiveCount, count);
+            return count;
+        }
+    }
+
+    /// <summary>
+    /// Entry count backing live search — stable index when present, otherwise the in-progress build.
+    /// </summary>
+    public int GetIndexedEntryCount()
+    {
+        lock (_indexStoreSwapLock)
+        {
+            if (_indexStore is { Count: > 0 })
+            {
+                _indexStore.RefreshCachedCount();
+                return _indexStore.Count;
+            }
+
+            if (_activeBuildingStore is not null)
+            {
+                _activeBuildingStore.RefreshCachedCount();
+                return _activeBuildingStore.Count;
+            }
+
+            if (_indexStore is not null)
+            {
+                _indexStore.RefreshCachedCount();
+                return _indexStore.Count;
+            }
+
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Items changed in the active scan pass, or watcher deltas when indexing is idle.
+    /// </summary>
+    public long GetUpdatedEntryCount()
+    {
+        if (!_isScanComplete || _isScanning || _progressPhase != IndexProgressPhase.Idle)
+            return ScanIndexedCount;
+
+        return IncrementalUpdateCount;
     }
 
     private static void DeleteDatabaseFiles(string basePath)
@@ -408,7 +462,8 @@ public sealed class SystemIndexService : IDisposable
     public event EventHandler? FullIndexRebuildStarted;
 
     /// <summary>
-    /// Loads an existing completed index on startup. Does not start a full scan automatically.
+    /// Applies scope/metadata maintenance on startup. Does not scan filesystem paths.
+    /// Full indexing is manual via <see cref="RestartScan"/> only.
     /// </summary>
     public void StartBackgroundScan()
     {
@@ -482,6 +537,7 @@ public sealed class SystemIndexService : IDisposable
         _isScanning = false;
         _scanUsesShadowBuild = false;
         Interlocked.Exchange(ref _scanIndexedCount, 0);
+        Interlocked.Exchange(ref _incrementalUpdateCount, 0);
     }
 
     public void ResetIndexDatabase()
@@ -542,6 +598,8 @@ public sealed class SystemIndexService : IDisposable
         _userStoppedScan = false;
         _deferredFullScan = false;
         Interlocked.Exchange(ref _scanIndexedCount, 0);
+        Interlocked.Exchange(ref _incrementalUpdateCount, 0);
+        Interlocked.Exchange(ref _lastScanUpdatedCount, 0);
         _scanProgressPercent = 0;
         _completedScanSteps = 0;
         _totalScanSteps = 0;
@@ -752,6 +810,7 @@ public sealed class SystemIndexService : IDisposable
         _currentScanPath = null;
         _activeStepEntries.Clear();
         Interlocked.Exchange(ref _scanIndexedCount, 0);
+        Interlocked.Exchange(ref _incrementalUpdateCount, 0);
         _scanUsesShadowBuild = HasStableSearchIndex;
         _isScanComplete = false;
     }
@@ -936,18 +995,32 @@ public sealed class SystemIndexService : IDisposable
         ReportProgress(null, false, force: true);
     }
 
-    public void ApplyBatchChanges(IReadOnlyList<string> removes, IReadOnlyList<string> adds)
+    /// <summary>
+    /// Applies filesystem watcher deltas to the existing index (add/update/remove paths only).
+    /// Does not clear or rebuild the index database.
+    /// </summary>
+    public void ApplyWatcherChanges(IReadOnlyList<string> removes, IReadOnlyList<string> adds)
     {
         if (removes.Count == 0 && adds.Count == 0)
             return;
 
         var removesCopy = removes.ToArray();
         var addsCopy = adds.ToArray();
-        _indexWorker.Enqueue(() => ApplyBatchChangesCore(removesCopy, addsCopy));
+        _indexWorker.Enqueue(() => ApplyWatcherChangesCore(removesCopy, addsCopy));
     }
 
     public void Dispose()
     {
+        try
+        {
+            lock (_indexStoreSwapLock)
+                _indexStore?.Checkpoint();
+        }
+        catch
+        {
+            // best effort before shutdown
+        }
+
         AbortIndexingForShutdown();
         _indexWorker.Dispose();
         lock (_indexStoreSwapLock)
@@ -958,9 +1031,9 @@ public sealed class SystemIndexService : IDisposable
         }
     }
 
-    private void ApplyBatchChangesCore(IReadOnlyList<string> removes, IReadOnlyList<string> adds)
+    private void ApplyWatcherChangesCore(IReadOnlyList<string> removes, IReadOnlyList<string> adds)
     {
-        var targets = GetIncrementalUpdateTargets();
+        var targets = GetLiveSearchUpdateTargets();
         if (targets.Count == 0)
             return;
 
@@ -995,8 +1068,11 @@ public sealed class SystemIndexService : IDisposable
                 target.UpsertBatch(upserts);
         }
 
-        var liveCount = SearchIndexCount;
-        Interlocked.Exchange(ref _approximateLiveCount, liveCount);
+        var changeCount = (long)removes.Count + upserts.Count;
+        if (changeCount > 0)
+            Interlocked.Add(ref _incrementalUpdateCount, changeCount);
+
+        Interlocked.Exchange(ref _approximateLiveCount, GetLiveEntryCount());
 
         IndexUpdated?.Invoke(this, EventArgs.Empty);
     }
@@ -1006,7 +1082,9 @@ public sealed class SystemIndexService : IDisposable
         if (cancellationToken.IsCancellationRequested || _awaitingFreshFullScan)
             return;
 
+        PurgeOutsideScopeEntries();
         ReconcileIndexMetadata();
+        ReloadIndexedRootsFromSearchDatabase();
 
         if (!HasCompletedSearchIndex())
         {
@@ -1063,6 +1141,7 @@ public sealed class SystemIndexService : IDisposable
         _scanProgressPercent = 100;
         _totalScanSteps = 1;
         _completedScanSteps = 1;
+        Interlocked.Exchange(ref _approximateLiveCount, GetLiveEntryCount());
         ReportProgress(null, true, force: true);
     }
 
@@ -1103,6 +1182,7 @@ public sealed class SystemIndexService : IDisposable
 
         _rootScanErrors.Clear();
         Interlocked.Exchange(ref _scanIndexedCount, 0);
+        Interlocked.Exchange(ref _incrementalUpdateCount, 0);
 
         // Drive roots cover the full machine; scanning WatchPaths first caused
         // IsUnderScannedSubtree to skip most of each drive on the follow-up pass.
@@ -1381,7 +1461,9 @@ public sealed class SystemIndexService : IDisposable
 
             _indexStore = new IndexStore(canonicalPath);
             Interlocked.Exchange(ref _approximateLiveCount, _indexStore.Count);
+            Interlocked.Exchange(ref _lastScanUpdatedCount, Interlocked.Read(ref _scanIndexedCount));
             Interlocked.Exchange(ref _scanIndexedCount, 0);
+            Interlocked.Exchange(ref _incrementalUpdateCount, 0);
         }
 
         lock (_rootsLock)
@@ -1904,11 +1986,7 @@ public sealed class SystemIndexService : IDisposable
 
     private int ComputeActiveScanPercent() => _scanProgressPercent;
 
-    private int GetCompletedIndexCountForProgress()
-    {
-        lock (_indexStoreSwapLock)
-            return _indexStore?.Count ?? 0;
-    }
+    private int GetCompletedIndexCountForProgress() => GetIndexedEntryCount();
 
     private static int MapDisplayPercent(IndexProgressPhase phase, int scanPercent) =>
         phase switch
@@ -1999,16 +2077,29 @@ public sealed class SystemIndexService : IDisposable
 
     private void PurgeOutsideScopeEntries()
     {
-        var targets = GetIncrementalUpdateTargets();
+        var targets = GetLiveSearchUpdateTargets();
         if (targets.Count == 0)
             return;
 
+        var allowedRoots = ScanRoots
+            .Select(NormalizeDirectoryPrefix)
+            .Where(static root => root is not null)
+            .Cast<string>()
+            .ToList();
+
         var purged = 0;
         foreach (var target in targets)
+        {
             purged += target.PurgeOutsideScope(_inclusion);
+            target.PurgeIndexedRootsOutsideScope(allowedRoots);
+        }
 
         if (purged > 0)
+        {
+            Interlocked.Exchange(ref _approximateLiveCount, GetLiveEntryCount());
+            ReloadIndexedRootsFromSearchDatabase();
             IndexUpdated?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private IReadOnlyList<string> FilterPathsInScope(IEnumerable<string> paths) =>

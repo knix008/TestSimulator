@@ -96,23 +96,22 @@
   <data name="Settings_ResetChoice_Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="Settings_OpenDataFolder" xml:space="preserve"><value>Data Folder</value></data>
   <data name="Settings_IndexResetStatus" xml:space="preserve"><value>Index has been reset. Press Indexing to start again.</value></data>
-  <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} items)</value></data>
+  <data name="Settings_IndexingStatus" xml:space="preserve"><value>Indexing… {0}% ({1:N0} indexed · {2:N0} updated)</value></data>
   <data name="Settings_IndexPhaseLabel" xml:space="preserve"><value>{0}/{1} · {2}</value></data>
   <data name="Settings_IndexPhaseName_Scanning" xml:space="preserve"><value>Scan</value></data>
   <data name="Settings_IndexPhaseName_Analyzing" xml:space="preserve"><value>Analyze</value></data>
   <data name="Settings_IndexPhaseName_Applying" xml:space="preserve"><value>Apply index</value></data>
-  <data name="Settings_IndexPhaseStatus_Scanning" xml:space="preserve"><value>{0}% · {1:N0} items indexed</value></data>
-  <data name="Settings_IndexPhaseStatus_ScanningRescan" xml:space="preserve"><value>{0}% · {1:N0} indexed (of ~{2:N0} previous; search uses existing index)</value></data>
-  <data name="Settings_IndexPhaseStatus_Analyzing" xml:space="preserve"><value>Optimizing search statistics · {0:N0} items</value></data>
-  <data name="Settings_IndexPhaseStatus_Applying" xml:space="preserve"><value>Applying new index · {0:N0} items</value></data>
+  <data name="Settings_IndexPhaseStatus_Scanning" xml:space="preserve"><value>{0}% · {1:N0} indexed · {2:N0} updated</value></data>
+  <data name="Settings_IndexPhaseStatus_Analyzing" xml:space="preserve"><value>Optimizing search statistics · {0:N0} indexed · {1:N0} updated</value></data>
+  <data name="Settings_IndexPhaseStatus_Applying" xml:space="preserve"><value>Applying new index · {0:N0} indexed · {1:N0} updated</value></data>
   <data name="Index_Analyzing" xml:space="preserve"><value>{0:N0} — analyzing</value></data>
   <data name="Index_Applying" xml:space="preserve"><value>{0:N0} — applying index</value></data>
   <data name="Settings_SearchingStatus" xml:space="preserve"><value>Searching… {0}% — "{1}"</value></data>
-  <data name="Settings_ReadyStatus" xml:space="preserve"><value>Ready — {0:N0} items indexed</value></data>
-  <data name="Settings_ReadyStatusWithElapsed" xml:space="preserve"><value>Ready — {0:N0} items indexed (elapsed: {1})</value></data>
+  <data name="Settings_ReadyStatus" xml:space="preserve"><value>Ready — {0:N0} indexed · {1:N0} updated</value></data>
+  <data name="Settings_ReadyStatusWithElapsed" xml:space="preserve"><value>Ready — {0:N0} indexed · {1:N0} updated (elapsed: {2})</value></data>
   <data name="IndexComplete_Title" xml:space="preserve"><value>Indexing complete</value></data>
-  <data name="IndexComplete_Message" xml:space="preserve"><value>{0:N0} items have been indexed.&#xA;Elapsed: {1}</value></data>
-  <data name="IndexComplete_MessageNoElapsed" xml:space="preserve"><value>{0:N0} items have been indexed.</value></data>
+  <data name="IndexComplete_Message" xml:space="preserve"><value>{0:N0} indexed · {1:N0} updated&#xA;Elapsed: {2}</value></data>
+  <data name="IndexComplete_MessageNoElapsed" xml:space="preserve"><value>{0:N0} indexed · {1:N0} updated</value></data>
   <data name="IndexComplete_Ok" xml:space="preserve"><value>OK</value></data>
   <data name="Duration_Seconds" xml:space="preserve"><value>{0:0.0}s</value></data>
   <data name="Duration_MinutesSeconds" xml:space="preserve"><value>{0}m {1}s</value></data>

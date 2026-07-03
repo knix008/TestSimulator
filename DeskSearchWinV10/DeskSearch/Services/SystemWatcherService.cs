@@ -144,6 +144,6 @@ public sealed class SystemWatcherService : IDisposable
             _pendingRemoves.Clear();
         }
 
-        _indexService.ApplyBatchChanges(removes, adds);
+        _indexService.ApplyWatcherChanges(removes, adds);
     }
 }

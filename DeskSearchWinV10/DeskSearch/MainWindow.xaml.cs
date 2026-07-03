@@ -86,7 +86,11 @@ public partial class MainWindow : Window
             });
 
         _indexService.IndexUpdated += (_, _) =>
-            SafeBeginInvoke(ScheduleLiveSearchRefresh, System.Windows.Threading.DispatcherPriority.Background);
+            SafeBeginInvoke(() =>
+            {
+                ScheduleLiveSearchRefresh();
+                _openSettingsWindow?.RefreshProgressUi();
+            }, System.Windows.Threading.DispatcherPriority.Background);
 
         UpdateIndexUi();
 

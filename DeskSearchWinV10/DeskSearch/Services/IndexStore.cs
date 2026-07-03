@@ -157,6 +157,33 @@ public sealed partial class IndexStore : IDisposable
         }
     }
 
+    public void PurgeIndexedRootsOutsideScope(IReadOnlyCollection<string> allowedNormalizedRoots)
+    {
+        lock (_lock)
+        {
+            var allowed = allowedNormalizedRoots as IReadOnlySet<string>
+                ?? new HashSet<string>(allowedNormalizedRoots, StringComparer.OrdinalIgnoreCase);
+
+            using var command = CreateCommand("SELECT root FROM indexed_roots");
+            using var reader = command.ExecuteReader();
+            var toRemove = new List<string>();
+
+            while (reader.Read())
+            {
+                var root = reader.GetString(0);
+                if (!allowed.Contains(root))
+                    toRemove.Add(root);
+            }
+
+            foreach (var root in toRemove)
+            {
+                using var delete = CreateCommand("DELETE FROM indexed_roots WHERE root = $root COLLATE NOCASE");
+                delete.Parameters.AddWithValue("$root", root);
+                delete.ExecuteNonQuery();
+            }
+        }
+    }
+
     public bool HasScanCheckpoints()
     {
         lock (_lock)
@@ -365,6 +392,15 @@ public sealed partial class IndexStore : IDisposable
     {
         lock (_lock)
         {
+            try
+            {
+                ExecuteNonQuery("PRAGMA wal_checkpoint(TRUNCATE)");
+            }
+            catch
+            {
+                // best effort before closing the connection
+            }
+
             DisposeBulkUpsertCommand();
             SqliteConnection.ClearPool(_connection);
             _connection.Dispose();
@@ -855,6 +891,12 @@ public sealed partial class IndexStore : IDisposable
     {
         using var command = CreateCommand("SELECT COUNT(*) FROM entries");
         _cachedCount = (long)(command.ExecuteScalar() ?? 0L);
+    }
+
+    public void RefreshCachedCount()
+    {
+        lock (_lock)
+            RefreshCountLocked();
     }
 
     private int DeleteByPrefix(string escapedPrefix)

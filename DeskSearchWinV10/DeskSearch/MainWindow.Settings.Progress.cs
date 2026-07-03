@@ -17,18 +17,20 @@ public partial class MainWindow
         var scanStillActive = _indexService.IsScanning
             || (_indexService.ProgressPhase != IndexProgressPhase.Idle && !_indexService.IsScanComplete);
 
+        var indexedCount = _indexService.GetIndexedEntryCount();
+        var updatedCount = _indexService.GetUpdatedEntryCount();
+
         if ((!_indexService.IsScanComplete || scanStillActive)
             && !(_indexService.HasStableSearchIndex && !_indexService.IsScanning && _indexService.ProgressPhase == IndexProgressPhase.Idle))
         {
             var phase = _indexService.ProgressPhase;
-            var indexedCount = _indexService.ScanIndexedCount;
             var percent = _indexService.IndexDisplayPercent;
             var isPostProcessing = phase is IndexProgressPhase.Analyzing or IndexProgressPhase.Applying;
             var isScanRunning = !_indexService.IsScanComplete
                 && (_indexService.IsScanning || phase != IndexProgressPhase.Idle);
             var indexingStatus = !isScanRunning && phase == IndexProgressPhase.Idle && !_indexService.HasStableSearchIndex
                 ? LocalizationService.T("Settings_IndexResetStatus")
-                : FormatIndexPhaseStatus(phase, percent, indexedCount);
+                : FormatIndexPhaseStatus(phase, percent, indexedCount, updatedCount);
 
             return new SettingsProgressSnapshot
             {
@@ -53,8 +55,7 @@ public partial class MainWindow
             };
         }
 
-        // No scan is writing to the live store here, so Count is cheap/uncontended.
-        var count = _indexService.Count;
+        var count = indexedCount;
 
         SearchSession? session;
         lock (_searchSessionLock)
@@ -82,8 +83,8 @@ public partial class MainWindow
             elapsed = _lastRescanElapsed;
 
         var statusText = elapsed is { } value
-            ? LocalizationService.F("Settings_ReadyStatusWithElapsed", count, FormatElapsed(value))
-            : LocalizationService.F("Settings_ReadyStatus", count);
+            ? LocalizationService.F("Settings_ReadyStatusWithElapsed", count, updatedCount, FormatElapsed(value))
+            : LocalizationService.F("Settings_ReadyStatus", count, updatedCount);
 
         return new SettingsProgressSnapshot
         {
@@ -113,16 +114,17 @@ public partial class MainWindow
     private static string FormatIndexPhaseStatus(
         IndexProgressPhase phase,
         int percent,
-        long indexedCount) =>
+        int indexedCount,
+        long updatedCount) =>
         phase switch
         {
             IndexProgressPhase.Scanning =>
-                LocalizationService.F("Settings_IndexPhaseStatus_Scanning", percent, indexedCount),
+                LocalizationService.F("Settings_IndexPhaseStatus_Scanning", percent, indexedCount, updatedCount),
             IndexProgressPhase.Analyzing =>
-                LocalizationService.F("Settings_IndexPhaseStatus_Analyzing", indexedCount),
+                LocalizationService.F("Settings_IndexPhaseStatus_Analyzing", indexedCount, updatedCount),
             IndexProgressPhase.Applying =>
-                LocalizationService.F("Settings_IndexPhaseStatus_Applying", indexedCount),
-            _ => LocalizationService.F("Settings_IndexingStatus", percent, indexedCount)
+                LocalizationService.F("Settings_IndexPhaseStatus_Applying", indexedCount, updatedCount),
+            _ => LocalizationService.F("Settings_IndexingStatus", percent, indexedCount, updatedCount)
         };
 
     private static (int step, int total) GetPhaseStepNumbers(IndexProgressPhase phase, bool usesShadowBuild)
@@ -199,20 +201,22 @@ public partial class MainWindow
         _indexService.StopScan();
     }
 
-    internal void HandleIndexProgressCompletion(int itemCount)
+    internal void HandleIndexProgressCompletion(int indexedCount)
     {
         if (!_notifyOnIndexComplete)
             return;
 
         _notifyOnIndexComplete = false;
 
+        var updatedCount = _indexService.LastScanUpdatedCount;
+
         TimeSpan? elapsed;
         lock (_rescanLock)
             elapsed = _lastRescanElapsed;
 
         var message = elapsed is { } value
-            ? LocalizationService.F("IndexComplete_Message", itemCount, FormatElapsed(value))
-            : LocalizationService.F("IndexComplete_MessageNoElapsed", itemCount);
+            ? LocalizationService.F("IndexComplete_Message", indexedCount, updatedCount, FormatElapsed(value))
+            : LocalizationService.F("IndexComplete_MessageNoElapsed", indexedCount, updatedCount);
 
         Window? owner = null;
         if (_openSettingsWindow is { IsVisible: true })
