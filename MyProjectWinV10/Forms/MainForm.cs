@@ -3172,43 +3172,31 @@ namespace MyProject.Forms
 
         private void OnExportGanttImage()
         {
-            using var dlg = new SaveFileDialog
+            using var exportDlg = new GanttImageExportOptionsDialog(_model.ProjectName)
             {
-                Filter =
-                    "PNG Image (*.png)|*.png|JPEG Image (*.jpg)|*.jpg;*.jpeg|GIF Image (*.gif)|*.gif|WebP Image (*.webp)|*.webp",
-                DefaultExt = "png",
-                FileName = $"{_model.ProjectName}_Gantt"
+                Owner = this
             };
-            AppSettings.ApplyTo(dlg);
-            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            if (exportDlg.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            string filePath = exportDlg.SelectedFilePath;
+            bool transparentBackground = exportDlg.TransparentBackground;
 
             try
             {
-                var format = GanttImageExporter.FormatFromExtension(dlg.FileName);
-                bool supportsTransparency = GanttImageExporter.SupportsTransparentBackground(format);
-                bool transparentBackground = false;
-
-                if (supportsTransparency)
-                {
-                    using var optionsDlg = new GanttImageExportOptionsDialog(supportsTransparency: true)
-                    {
-                        Owner = this
-                    };
-                    if (optionsDlg.ShowDialog(this) != DialogResult.OK)
-                        return;
-
-                    transparentBackground = optionsDlg.TransparentBackground;
-                }
+                var format = GanttImageExporter.FormatFromExtension(filePath);
+                if (transparentBackground && !GanttImageExporter.SupportsTransparentBackground(format))
+                    transparentBackground = false;
 
                 using var bitmap = ganttChartControl.ExportToBitmap(transparentBackground);
-                GanttImageExporter.Save(bitmap, dlg.FileName, format, transparentBackground);
+                GanttImageExporter.Save(bitmap, filePath, format, transparentBackground);
 
-                AppSettings.RememberFromPath(dlg.FileName);
-                statusLabel.Text = $"Gantt image saved: {dlg.FileName}";
+                AppSettings.RememberFromPath(filePath);
+                statusLabel.Text = $"Gantt image saved: {filePath}";
 
                 ShowExportComplete(
-                    dlg.FileName,
-                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName)
+                    filePath,
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(filePath)
                     {
                         UseShellExecute = true
                     }));

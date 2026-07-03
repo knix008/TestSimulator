@@ -3,26 +3,41 @@ using MyProject.Theme;
 
 namespace MyProject.Forms
 {
+    /// <summary>Gantt chart image export: file path, format, and transparent-background option.</summary>
     public sealed class GanttImageExportOptionsDialog : Form
     {
+        private readonly TextBox _filePath = new() { Dock = DockStyle.Fill };
         private readonly CheckBox _transparentBackground = new()
         {
             AutoSize = true,
             Checked = AppSettings.GanttExportTransparentBackground
         };
-
         private readonly Label _hint = new()
         {
             AutoSize = false,
-            Dock = DockStyle.Fill,
+            Height = 48,
             ForeColor = AppTheme.TextSecondary
         };
+        private readonly Label _lblFile = new()
+        {
+            AutoSize = true,
+            ForeColor = AppTheme.TextSecondary
+        };
+        private readonly Button _btnBrowse = new() { AutoSize = true };
+        private readonly Button _btnOk = new() { Size = new Size(88, 28) };
+        private readonly Button _btnCancel = new() { Size = new Size(88, 28) };
+
+        public string SelectedFilePath => _filePath.Text.Trim();
 
         public bool TransparentBackground => _transparentBackground.Checked;
 
-        public GanttImageExportOptionsDialog(bool supportsTransparency)
+        public GanttImageExportOptionsDialog(string defaultFileName)
         {
-            Build(supportsTransparency);
+            _filePath.Text = Path.Combine(
+                AppSettings.LastDirectory,
+                $"{defaultFileName}.png");
+
+            Build();
             ApplyLocalization();
             AppLocalizer.LanguageChanged += OnLanguageChanged;
             FormClosed += (_, _) => AppLocalizer.LanguageChanged -= OnLanguageChanged;
@@ -30,54 +45,56 @@ namespace MyProject.Forms
 
         private void OnLanguageChanged(object? sender, EventArgs e) => ApplyLocalization();
 
-        private void Build(bool supportsTransparency)
+        private void Build()
         {
+            Text = "Gantt Image Export";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            ClientSize = new Size(460, supportsTransparency ? 168 : 96);
+            ShowInTaskbar = false;
+            ClientSize = new Size(500, 210);
+            MinimumSize = new Size(500, 210);
             BackColor = AppTheme.SurfaceColor;
             Font = AppTheme.FontNormal;
 
-            _transparentBackground.Enabled = supportsTransparency;
-            _transparentBackground.Visible = supportsTransparency;
-            _hint.Visible = supportsTransparency;
-
-            var layout = new TableLayoutPanel
+            var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 Padding = new Padding(16),
                 ColumnCount = 1,
-                RowCount = supportsTransparency ? 3 : 1
+                RowCount = 4
             };
-            if (supportsTransparency)
-            {
-                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-                layout.Controls.Add(_transparentBackground, 0, 0);
-                layout.Controls.Add(_hint, 0, 1);
-            }
-            else
-            {
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-            }
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
 
-            var btnOk = new Button
+            var fileRow = new TableLayoutPanel
             {
-                Text = AppLocalizer.Get("Common.OK"),
-                DialogResult = DialogResult.OK,
-                Width = 80,
-                Height = 28
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 3,
+                Margin = new Padding(0, 0, 0, 8)
             };
-            var btnCancel = new Button
-            {
-                Text = AppLocalizer.Get("Common.Cancel"),
-                DialogResult = DialogResult.Cancel,
-                Width = 80,
-                Height = 28
-            };
+            fileRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            fileRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            fileRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            fileRow.Controls.Add(_lblFile, 0, 0);
+            fileRow.Controls.Add(_filePath, 1, 0);
+            fileRow.Controls.Add(_btnBrowse, 2, 0);
+            _lblFile.Margin = new Padding(0, 6, 8, 0);
+            _filePath.Margin = new Padding(0, 0, 8, 0);
+            _btnBrowse.Margin = new Padding(0);
+            _btnBrowse.Click += (_, _) => BrowseForFile();
+
+            root.Controls.Add(fileRow, 0, 0);
+            root.Controls.Add(_transparentBackground, 0, 1);
+            root.Controls.Add(_hint, 0, 2);
+
+            _btnOk.DialogResult = DialogResult.None;
+            _btnCancel.DialogResult = DialogResult.Cancel;
+            _btnOk.Click += (_, _) => OnExportClick();
 
             var btnPanel = new FlowLayoutPanel
             {
@@ -85,28 +102,69 @@ namespace MyProject.Forms
                 FlowDirection = FlowDirection.RightToLeft,
                 WrapContents = false
             };
-            btnPanel.Controls.Add(btnCancel);
-            btnPanel.Controls.Add(btnOk);
-            layout.Controls.Add(btnPanel, 0, supportsTransparency ? 2 : 0);
+            btnPanel.Controls.Add(_btnCancel);
+            btnPanel.Controls.Add(_btnOk);
+            root.Controls.Add(btnPanel, 0, 3);
 
-            Controls.Add(layout);
-            AcceptButton = btnOk;
-            CancelButton = btnCancel;
+            Controls.Add(root);
+            AcceptButton = _btnOk;
+            CancelButton = _btnCancel;
+        }
+
+        private void OnExportClick()
+        {
+            string path = SelectedFilePath;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                MessageBox.Show(this,
+                    AppLocalizer.Get("GanttExport.EmptyPath"),
+                    Text,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            string? directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
+
+            AppSettings.SetGanttExportTransparentBackground(_transparentBackground.Checked);
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private void BrowseForFile()
+        {
+            using var dlg = new SaveFileDialog
+            {
+                Filter =
+                    "PNG Image (*.png)|*.png|JPEG Image (*.jpg)|*.jpg;*.jpeg|GIF Image (*.gif)|*.gif|WebP Image (*.webp)|*.webp",
+                DefaultExt = "png",
+                FileName = string.IsNullOrWhiteSpace(_filePath.Text)
+                    ? "Gantt.png"
+                    : Path.GetFileName(_filePath.Text)
+            };
+            AppSettings.ApplyTo(dlg);
+
+            string? initialDir = Path.GetDirectoryName(_filePath.Text);
+            if (!string.IsNullOrWhiteSpace(initialDir) && Directory.Exists(initialDir))
+                dlg.InitialDirectory = initialDir;
+
+            if (dlg.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            _filePath.Text = dlg.FileName;
         }
 
         private void ApplyLocalization()
         {
             Text = AppLocalizer.Get("GanttExport.OptionsTitle");
+            _lblFile.Text = AppLocalizer.Get("GanttExport.FilePath");
+            _btnBrowse.Text = AppLocalizer.Get("GanttExport.Browse");
             _transparentBackground.Text = AppLocalizer.Get("GanttExport.TransparentBackground");
             _hint.Text = AppLocalizer.Get("GanttExport.TransparentHint");
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            if (DialogResult == DialogResult.OK && _transparentBackground.Enabled)
-                AppSettings.SetGanttExportTransparentBackground(_transparentBackground.Checked);
-
-            base.OnFormClosing(e);
+            _btnOk.Text = AppLocalizer.Get("GanttExport.Export");
+            _btnCancel.Text = AppLocalizer.Get("Common.Cancel");
         }
     }
 }
