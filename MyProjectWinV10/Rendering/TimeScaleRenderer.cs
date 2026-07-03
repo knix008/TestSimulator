@@ -9,6 +9,9 @@ namespace MyProject.Rendering
         private readonly GanttViewport _viewport;
         private static readonly string[] WeekdayAbbr = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" };
 
+        public bool ExportMode { get; set; }
+        public bool TransparentExport { get; set; }
+
         public TimeScaleRenderer(GanttViewport viewport)
         {
             _viewport = viewport;
@@ -35,6 +38,9 @@ namespace MyProject.Rendering
 
         private void DrawBackground(Graphics g, Rectangle bounds)
         {
+            if (TransparentExport)
+                return;
+
             using var brush = new SolidBrush(AppTheme.TimescaleBackground);
             g.FillRectangle(brush, bounds);
         }
@@ -52,12 +58,15 @@ namespace MyProject.Rendering
 
             foreach (var (label, x, width) in segments)
             {
-                using var bgBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                    topBounds,
-                    Color.FromArgb(245, 247, 252),
-                    AppTheme.TimescaleBackground,
-                    System.Drawing.Drawing2D.LinearGradientMode.Vertical);
-                g.FillRectangle(bgBrush, new Rectangle(x, topBounds.Y, width, rowH));
+                if (!TransparentExport)
+                {
+                    using var bgBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                        topBounds,
+                        Color.FromArgb(245, 247, 252),
+                        AppTheme.TimescaleBackground,
+                        System.Drawing.Drawing2D.LinearGradientMode.Vertical);
+                    g.FillRectangle(bgBrush, new Rectangle(x, topBounds.Y, width, rowH));
+                }
 
                 var cellRect = new Rectangle(x + 4, topBounds.Y, width - 8, rowH);
                 using var textBrush = new SolidBrush(AppTheme.TimescaleText);
@@ -92,11 +101,7 @@ namespace MyProject.Rendering
             {
                 bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                 bool isToday   = date.Date == DateTime.Today;
-                Color cellBg   = isToday   ? AppTheme.TimescaleTodayHeaderBackground
-                               : isWeekend ? AppTheme.TimescaleWeekend
-                               : AppTheme.TimescaleBackground;
-                using var cellBrush = new SolidBrush(cellBg);
-                g.FillRectangle(cellBrush, x, rowY, width, rowH);
+                FillHeaderDayCell(g, x, rowY, width, rowH, isToday, isWeekend);
             }
 
             var sf = new StringFormat
@@ -167,11 +172,7 @@ namespace MyProject.Rendering
             {
                 bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                 bool isToday   = date.Date == DateTime.Today;
-                Color cellBg   = isToday   ? AppTheme.TimescaleTodayHeaderBackground
-                               : isWeekend ? AppTheme.TimescaleWeekend
-                               : AppTheme.TimescaleBackground;
-                using var cellBrush = new SolidBrush(cellBg);
-                g.FillRectangle(cellBrush, x, rowY, width, rowH);
+                FillHeaderDayCell(g, x, rowY, width, rowH, isToday, isWeekend);
             }
 
             var sf = new StringFormat
@@ -255,7 +256,7 @@ namespace MyProject.Rendering
             int height,
             bool isAltRow)
         {
-            if (height <= 0)
+            if (height <= 0 || TransparentExport)
                 return;
 
             foreach (var (date, x, width) in GetDaysInView())
@@ -268,7 +269,7 @@ namespace MyProject.Rendering
             }
         }
 
-        private static void FillDayColumn(
+        private void FillDayColumn(
             Graphics g,
             Rectangle chartArea,
             int x,
@@ -282,6 +283,9 @@ namespace MyProject.Rendering
             if (drawRight <= drawLeft)
                 return;
 
+            if (ExportMode && drawRight < chartArea.Right)
+                drawRight++;
+
             using var brush = new SolidBrush(color);
             g.FillRectangle(brush, drawLeft, top, drawRight - drawLeft, height);
         }
@@ -292,6 +296,25 @@ namespace MyProject.Rendering
             int yBottom = bottom ?? chartArea.Bottom;
             if (yBottom <= yTop)
                 return;
+
+            if (ExportMode)
+            {
+                using var brush = new SolidBrush(AppTheme.GridLineColor);
+                foreach (var (date, x, _) in GetDaysInView())
+                {
+                    bool drawLine = _viewport.ZoomLevel == ZoomLevel.Days
+                        || (_viewport.ZoomLevel == ZoomLevel.Weeks  && date.DayOfWeek == DayOfWeek.Monday)
+                        || (_viewport.ZoomLevel == ZoomLevel.Months && date.Day == 1);
+
+                    if (drawLine)
+                    {
+                        int drawX = Math.Max(x, chartArea.Left);
+                        if (drawX < chartArea.Right)
+                            g.FillRectangle(brush, drawX, yTop, 1, yBottom - yTop);
+                    }
+                }
+                return;
+            }
 
             using var pen = new Pen(AppTheme.GridLineColor);
 
@@ -307,6 +330,18 @@ namespace MyProject.Rendering
         }
 
         // ── Data helpers ──────────────────────────────────────────────────────
+
+        private void FillHeaderDayCell(Graphics g, int x, int y, int width, int height, bool isToday, bool isWeekend)
+        {
+            if (TransparentExport && !isToday && !isWeekend)
+                return;
+
+            Color cellBg = isToday ? AppTheme.TimescaleTodayHeaderBackground
+                         : isWeekend ? AppTheme.TimescaleWeekend
+                         : AppTheme.TimescaleBackground;
+            using var cellBrush = new SolidBrush(cellBg);
+            g.FillRectangle(cellBrush, x, y, width, height);
+        }
 
         private static bool TryDrawSingleLineLabel(
             Graphics g,

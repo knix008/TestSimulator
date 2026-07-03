@@ -3185,10 +3185,23 @@ namespace MyProject.Forms
             try
             {
                 var format = GanttImageExporter.FormatFromExtension(dlg.FileName);
-                bool transparent = GanttImageExporter.SupportsTransparentBackground(format);
+                bool supportsTransparency = GanttImageExporter.SupportsTransparentBackground(format);
+                bool transparentBackground = false;
 
-                using var bitmap = ganttChartControl.ExportToBitmap(transparent);
-                GanttImageExporter.Save(bitmap, dlg.FileName, format, transparent);
+                if (supportsTransparency)
+                {
+                    using var optionsDlg = new GanttImageExportOptionsDialog(supportsTransparency: true)
+                    {
+                        Owner = this
+                    };
+                    if (optionsDlg.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    transparentBackground = optionsDlg.TransparentBackground;
+                }
+
+                using var bitmap = ganttChartControl.ExportToBitmap(transparentBackground);
+                GanttImageExporter.Save(bitmap, dlg.FileName, format, transparentBackground);
 
                 AppSettings.RememberFromPath(dlg.FileName);
                 statusLabel.Text = $"Gantt image saved: {dlg.FileName}";

@@ -37,6 +37,7 @@ namespace MyProject.Models
         public const int DatabaseAutoRefreshIntervalSeconds = 5;
         public static string? DatabaseEditorName { get; private set; }
         public static AppLanguage UiLanguage { get; private set; } = AppLanguage.Korean;
+        public static bool GanttExportTransparentBackground { get; private set; }
 
         public const int MaxRecentFiles = 10;
 
@@ -166,6 +167,9 @@ namespace MyProject.Models
 
             if (!string.IsNullOrWhiteSpace(data.UiLanguage))
                 UiLanguage = AppLanguageExtensions.Parse(data.UiLanguage);
+
+            if (data.GanttExportTransparentBackground.HasValue)
+                GanttExportTransparentBackground = data.GanttExportTransparentBackground.Value;
         }
 
         public static void Save()
@@ -207,7 +211,8 @@ namespace MyProject.Models
                 LastDatabaseProfileId = LastDatabaseProfileId,
                 DatabaseAutoRefreshEnabled = DatabaseAutoRefreshEnabled,
                 DatabaseEditorName = DatabaseEditorName,
-                UiLanguage = UiLanguage.ToStorageCode()
+                UiLanguage = UiLanguage.ToStorageCode(),
+                GanttExportTransparentBackground = GanttExportTransparentBackground
             };
             var json = JsonSerializer.Serialize(data, JsonOptions);
             File.WriteAllText(SettingsPath, json, System.Text.Encoding.UTF8);
@@ -429,6 +434,15 @@ namespace MyProject.Models
             Save();
         }
 
+        public static void SetGanttExportTransparentBackground(bool enabled)
+        {
+            if (GanttExportTransparentBackground == enabled)
+                return;
+
+            GanttExportTransparentBackground = enabled;
+            Save();
+        }
+
         public static void SetUiLanguage(AppLanguage language)
         {
             if (UiLanguage == language)
@@ -489,6 +503,7 @@ namespace MyProject.Models
             public bool? DatabaseAutoRefreshEnabled { get; set; }
             public string? DatabaseEditorName { get; set; }
             public string? UiLanguage { get; set; }
+            public bool? GanttExportTransparentBackground { get; set; }
         }
 
         private sealed class DatabaseProfileData

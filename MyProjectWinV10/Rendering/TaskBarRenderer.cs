@@ -360,8 +360,11 @@ namespace MyProject.Rendering
                 FormatFlags   = StringFormatFlags.NoWrap
             };
             var shadowRect = new RectangleF(textRect.X, textRect.Y + 1, textRect.Width, textRect.Height);
-            using (var shadowBrushLabel = new SolidBrush(shadowColor))
+            if (!alignNear)
+            {
+                using var shadowBrushLabel = new SolidBrush(shadowColor);
                 g.DrawString(label, font, shadowBrushLabel, shadowRect, drawSf);
+            }
             using (var textBrushLabel = new SolidBrush(textColor))
                 g.DrawString(label, font, textBrushLabel, new RectangleF(textRect.X, textRect.Y, textRect.Width, textRect.Height), drawSf);
         }

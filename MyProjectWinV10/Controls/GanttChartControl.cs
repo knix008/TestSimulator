@@ -441,6 +441,17 @@ namespace MyProject.Controls
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
+            // Initialize background
+            if (!transparentBackground)
+            {
+                using var bgBrush = new SolidBrush(AppTheme.SurfaceColor);
+                g.FillRectangle(bgBrush, 0, 0, width, height);
+            }
+            else
+            {
+                g.Clear(Color.Transparent);
+            }
+
             var savedViewStart = _viewport.ViewStartDate;
             var savedChartLeft = _viewport.ChartLeft;
             var savedChartWidth = _viewport.ChartWidth;
@@ -448,6 +459,8 @@ namespace MyProject.Controls
             var savedClipBottom = _paintClipBottom;
             var savedExportMode = _paintExportMode;
             var savedTransparent = _paintTransparentBackground;
+            var savedRendererExportMode = _timeScaleRenderer.ExportMode;
+            var savedRendererTransparentExport = _timeScaleRenderer.TransparentExport;
 
             try
             {
@@ -458,6 +471,8 @@ namespace MyProject.Controls
                 _paintClipBottom = height;
                 _paintExportMode = true;
                 _paintTransparentBackground = transparentBackground;
+                _timeScaleRenderer.ExportMode = true;
+                _timeScaleRenderer.TransparentExport = transparentBackground;
 
                 var chartArea = new Rectangle(0, AppTheme.TimescaleHeaderHeight, width, height - AppTheme.TimescaleHeaderHeight);
                 PaintChart(g, chartArea, drawBorders: false);
@@ -471,6 +486,8 @@ namespace MyProject.Controls
                 _paintClipBottom = savedClipBottom;
                 _paintExportMode = savedExportMode;
                 _paintTransparentBackground = savedTransparent;
+                _timeScaleRenderer.ExportMode = savedRendererExportMode;
+                _timeScaleRenderer.TransparentExport = savedRendererTransparentExport;
             }
 
             return bitmap;
@@ -531,7 +548,8 @@ namespace MyProject.Controls
             DrawRowHighlights(g, chartArea);
 
             var headerRect = new Rectangle(chartArea.Left, 0, chartArea.Width, AppTheme.TimescaleHeaderHeight);
-            _timeScaleRenderer?.DrawHeaderBackground(g, headerRect);
+            if (!_paintTransparentBackground)
+                _timeScaleRenderer?.DrawHeaderBackground(g, headerRect);
             _timeScaleRenderer?.DrawVerticalGridLines(g, chartArea, top: 0, bottom: chartArea.Bottom);
             _timeScaleRenderer?.DrawHeaderLabels(g, headerRect);
 
@@ -544,8 +562,9 @@ namespace MyProject.Controls
 
         private void DrawBackground(Graphics g, Rectangle chartArea)
         {
+            // Fill entire visible area including header
             using var brush = new SolidBrush(AppTheme.SurfaceColor);
-            g.FillRectangle(brush, chartArea);
+            g.FillRectangle(brush, 0, 0, chartArea.Right, Math.Max(chartArea.Bottom, _paintClipBottom));
         }
 
         private void DrawHorizontalGridLines(Graphics g, Rectangle chartArea)

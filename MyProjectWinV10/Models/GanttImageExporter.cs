@@ -40,9 +40,15 @@ namespace MyProject.Models
         {
             bool useTransparency = transparentBackground && SupportsTransparentBackground(format);
 
-            if (format == GanttImageFormat.Png && useTransparency)
+            if (format == GanttImageFormat.Png)
             {
-                bitmap.Save(path, ImageFormat.Png);
+                if (useTransparency)
+                    bitmap.Save(path, ImageFormat.Png);
+                else
+                {
+                    using var flat = Flatten(bitmap, System.Drawing.Color.White);
+                    flat.Save(path, ImageFormat.Png);
+                }
                 return;
             }
 
@@ -63,9 +69,6 @@ namespace MyProject.Models
             using var image = ToImageSharp(bitmap);
             switch (format)
             {
-                case GanttImageFormat.Png:
-                    image.Save(path, new PngEncoder());
-                    break;
                 case GanttImageFormat.WebP:
                     image.Save(path, new WebpEncoder
                     {
