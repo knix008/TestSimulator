@@ -1,4 +1,5 @@
 using System.Reflection;
+using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Filters;
@@ -57,9 +58,8 @@ internal static class PdfContentStreamWalker
 		if (scanner == null ||
 			sourcePage?.Dictionary == null ||
 			!sourcePage.Dictionary.TryGet(NameToken.Resources, scanner, out DictionaryToken resources) ||
-			!resources.TryGet(NameToken.Xobject, out IToken xObjectToken) ||
-			xObjectToken is not DictionaryToken xObjects ||
-			!xObjects.TryGet(NameToken.Create(formName), out IToken formToken))
+			!resources.TryGet(NameToken.Xobject, scanner, out DictionaryToken xObjects) ||
+			!xObjects.TryGet(NameToken.Create(formName), scanner, out IToken formToken))
 		{
 			return false;
 		}

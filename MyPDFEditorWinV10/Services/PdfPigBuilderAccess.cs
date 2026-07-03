@@ -13,6 +13,31 @@ internal static class PdfPigBuilderAccess
 	private static readonly FieldInfo CurrentStreamField = typeof(PdfPageBuilder).GetField("currentStream", BindingFlags.Instance | BindingFlags.NonPublic);
 	private static readonly Type DefaultContentStreamType = typeof(PdfPageBuilder).GetNestedType("DefaultContentStream", BindingFlags.NonPublic);
 
+	public static IList<IGraphicsStateOperation> TryGetWritableOperations(PdfPageBuilder pageBuilder)
+	{
+		if (pageBuilder == null)
+		{
+			return null;
+		}
+
+		foreach (PdfPageBuilder.IContentStream contentStream in pageBuilder.ContentStreams)
+		{
+			try
+			{
+				IList<IGraphicsStateOperation> operations = contentStream.Operations;
+				if (operations != null && operations.Count > 0)
+				{
+					return operations;
+				}
+			}
+			catch (NotSupportedException)
+			{
+			}
+		}
+
+		return null;
+	}
+
 	public static bool TryReplacePrimaryContentOperations(PdfPageBuilder pageBuilder, IList<IGraphicsStateOperation> operations)
 	{
 		if (pageBuilder == null || operations == null || DefaultContentStreamType == null ||

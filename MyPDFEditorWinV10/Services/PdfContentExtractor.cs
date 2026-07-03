@@ -36,6 +36,7 @@ public static class PdfContentExtractor
 
 	private static IEnumerable<PdfTextBlock> ExtractPageTextBlocks(Page page, int pageIndex)
 	{
+		Dictionary<int, byte[]> bytesBySequence = PdfTextSequenceByteCollector.Collect(page);
 		List<Word> words = page.GetWords()
 			.OrderByDescending(w => w.BoundingBox.Top)
 			.ThenBy(w => w.BoundingBox.Left)
@@ -61,14 +62,17 @@ public static class PdfContentExtractor
 		foreach (List<Word> line in lines)
 		{
 			line.Sort((a, b) => a.BoundingBox.Left.CompareTo(b.BoundingBox.Left));
-			foreach (PdfTextBlock block in CreateBlocksFromLineClusters(line, pageIndex))
+			foreach (PdfTextBlock block in CreateBlocksFromLineClusters(line, pageIndex, bytesBySequence))
 			{
 				yield return block;
 			}
 		}
 	}
 
-	private static IEnumerable<PdfTextBlock> CreateBlocksFromLineClusters(List<Word> sortedLine, int pageIndex)
+	private static IEnumerable<PdfTextBlock> CreateBlocksFromLineClusters(
+		List<Word> sortedLine,
+		int pageIndex,
+		IReadOnlyDictionary<int, byte[]> bytesBySequence)
 	{
 		double avgWordHeight = sortedLine.Average(w => w.BoundingBox.Height);
 		double gapThreshold = Math.Max(MinColumnGapThreshold, avgWordHeight * 2.0d);
@@ -101,6 +105,7 @@ public static class PdfContentExtractor
 				: Math.Max(8d, (cluster.Max(word => word.BoundingBox.Top) - cluster.Min(word => word.BoundingBox.Bottom)) * 0.85d);
 			Letter sampleLetter = SelectRepresentativeLetter(letters);
 			string fontName = sampleLetter?.FontName;
+			bool isType3Font = IsType3FontName(fontName);
 			bool isBold = sampleLetter?.FontDetails?.IsBold ?? false;
 			bool isItalic = sampleLetter?.FontDetails?.IsItalic ?? false;
 			string fontFamilyName = sampleLetter?.FontDetails?.Name;
@@ -133,6 +138,7 @@ public static class PdfContentExtractor
 				FontSize = fontSize,
 				FontName = fontName,
 				FontFamilyName = fontFamilyName,
+				IsType3Font = isType3Font,
 				IsBold = isBold,
 				IsItalic = isItalic,
 				FillColorR = fillColorR,
@@ -147,12 +153,15 @@ public static class PdfContentExtractor
 
 			foreach (IGrouping<int, Letter> sequenceGroup in letters.GroupBy(letter => letter.TextSequence).OrderBy(group => group.Key))
 			{
+				int sequence = sequenceGroup.Key;
+				bytesBySequence.TryGetValue(sequence, out byte[] sourceBytes);
 				block.SourceSequenceParts.Add(new PdfTextSequencePart
 				{
-					Sequence = sequenceGroup.Key,
+					Sequence = sequence,
 					Text = string.Concat(sequenceGroup
 						.OrderBy(letter => letter.GlyphRectangleLoose.Left)
-						.Select(letter => letter.Value))
+						.Select(letter => letter.Value)),
+					SourceBytes = sourceBytes
 				});
 			}
 
@@ -204,26 +213,34 @@ public static class PdfContentExtractor
 		List<PdfImageBlock> images = new List<PdfImageBlock>();
 		using PdfDocument document = OpenDocument(filePath, password);
 		int pageIndex = 0;
-		foreach (Page page in document.GetPages())
+		int pageCount = document.NumberOfPages;
+		for (int pageNumber = 1; pageNumber <= pageCount; pageNumber++)
 		{
-			foreach (IPdfImage image in page.GetImages())
+			try
 			{
-				var bounds = image.BoundingBox;
-				if (bounds.Width <= 0 || bounds.Height <= 0)
+				Page page = document.GetPage(pageNumber);
+				foreach (IPdfImage image in page.GetImages())
 				{
-					continue;
-				}
+					var bounds = image.BoundingBox;
+					if (bounds.Width <= 0 || bounds.Height <= 0)
+					{
+						continue;
+					}
 
-				Bitmap bitmap = TryCreateBitmap(image);
-				images.Add(new PdfImageBlock
-				{
-					PageIndex = pageIndex,
-					Left = bounds.Left,
-					Bottom = bounds.Bottom,
-					Right = bounds.Right,
-					Top = bounds.Top,
-					Bitmap = bitmap
-				});
+					Bitmap bitmap = TryCreateBitmap(image);
+					images.Add(new PdfImageBlock
+					{
+						PageIndex = pageIndex,
+						Left = bounds.Left,
+						Bottom = bounds.Bottom,
+						Right = bounds.Right,
+						Top = bounds.Top,
+						Bitmap = bitmap
+					});
+				}
+			}
+			catch
+			{
 			}
 
 			pageIndex++;
@@ -263,6 +280,12 @@ public static class PdfContentExtractor
 		}
 
 		return images;
+	}
+
+	private static bool IsType3FontName(string fontName)
+	{
+		return !string.IsNullOrEmpty(fontName) &&
+			fontName.Contains("Type3", StringComparison.OrdinalIgnoreCase);
 	}
 
 	private static Letter SelectRepresentativeLetter(IReadOnlyList<Letter> letters)

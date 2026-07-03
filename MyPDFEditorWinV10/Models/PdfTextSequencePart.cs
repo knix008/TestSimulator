@@ -5,4 +5,6 @@ public sealed class PdfTextSequencePart
 	public int Sequence { get; init; }
 
 	public string Text { get; init; } = string.Empty;
+
+	public byte[] SourceBytes { get; init; }
 }

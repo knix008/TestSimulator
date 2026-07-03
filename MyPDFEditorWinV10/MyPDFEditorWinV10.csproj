@@ -82,6 +82,10 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SequenceDiag" />
+  </ItemGroup>
+
 
 
   <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and Exists('$(MSBuildProjectDirectory)\installer\MyPDFEditorWinV10.Installer.wixproj')">

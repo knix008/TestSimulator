@@ -36,14 +36,17 @@ public static class LayoutPreservingPdfExporter
 				.Where(block => block.PageIndex == pageIndex)
 				.ToList();
 
-			PdfPageBuilder pageBuilder = builder.AddPage(source, pageNumber);
 			if (modifiedBlocks.Count == 0)
 			{
+				builder.AddPage(source, pageNumber);
 				continue;
 			}
 
 			Page sourcePage = source.GetPage(pageNumber);
-			HashSet<PdfTextBlock> replacedBlocks = PdfContentStreamTextReplacer.ApplyToSourcePage(
+			PdfPageBuilder pageBuilder = builder.AddPage(sourcePage.Width, sourcePage.Height);
+			pageBuilder.CopyFrom(sourcePage);
+
+			HashSet<PdfTextBlock> replacedBlocks = PdfContentStreamTextReplacer.ApplyToWritablePage(
 				pageBuilder,
 				builder,
 				sourcePage,

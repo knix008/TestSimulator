@@ -22,6 +22,8 @@ public sealed class PdfTextBlock
 
 	public string FontFamilyName { get; set; }
 
+	public bool IsType3Font { get; set; }
+
 	public bool IsBold { get; set; }
 
 	public bool IsItalic { get; set; }
@@ -111,7 +113,8 @@ public sealed class PdfTextBlock
 				SourceSequenceParts.Add(new PdfTextSequencePart
 				{
 					Sequence = part.Sequence,
-					Text = part.Text
+					Text = part.Text,
+					SourceBytes = part.SourceBytes
 				});
 			}
 		}
