@@ -25,11 +25,89 @@ internal sealed class WebViewEditorController
 
     public WebViewEditorController(WebView2 webView) => _webView = webView;
 
-    public void ConfigureFileDrop(Func<string[], Point, Task> handler, Func<bool>? canAccept = null)
+    public void ConfigureFileDrop(Func<string[], Point, Task> handler, Func<bool>? canAccept = null, Control? hostDropSurface = null)
     {
         _fileDropHandler = handler;
         _canAcceptFileDrop = canAccept;
         EnsureHostFileDropHooks();
+        EnsureHostDropSurfaceHooks(hostDropSurface);
+    }
+
+    private Control? _hostDropSurface;
+    private bool _hostDropSurfaceHooksInstalled;
+
+    private void EnsureHostDropSurfaceHooks(Control? hostDropSurface)
+    {
+        if (hostDropSurface == null || _hostDropSurfaceHooksInstalled)
+            return;
+
+        _hostDropSurface = hostDropSurface;
+        _hostDropSurfaceHooksInstalled = true;
+        _hostDropSurface.AllowDrop = true;
+        _hostDropSurface.DragEnter += OnHostDropSurfaceDragEnter;
+        _hostDropSurface.DragOver += OnHostDropSurfaceDragOver;
+        _hostDropSurface.DragLeave += OnHostDropSurfaceDragLeave;
+        _hostDropSurface.DragDrop += OnHostDropSurfaceDragDrop;
+    }
+
+    private bool TryAcceptHostDropSurfaceDrag(DragEventArgs e, out DragDropEffects effect)
+    {
+        effect = DragDropEffects.None;
+        if (!CanAcceptHostFileDrop() || !IsFileDrag(e))
+            return false;
+
+        effect = DragDropEffects.Copy;
+        return true;
+    }
+
+    private Point ToWebViewPointFromDropSurface(DragEventArgs e)
+    {
+        if (_hostDropSurface == null)
+            return Point.Empty;
+
+        var surfacePoint = new Point(e.X, e.Y);
+        var screenPoint = _hostDropSurface.PointToScreen(surfacePoint);
+        return _webView.PointToClient(screenPoint);
+    }
+
+    private void OnHostDropSurfaceDragEnter(object? sender, DragEventArgs e)
+    {
+        if (!TryAcceptHostDropSurfaceDrag(e, out var effect))
+            return;
+
+        e.Effect = effect;
+        _ = SetFileDropHighlightAsync(true);
+    }
+
+    private void OnHostDropSurfaceDragOver(object? sender, DragEventArgs e)
+    {
+        if (!TryAcceptHostDropSurfaceDrag(e, out var effect))
+            return;
+
+        e.Effect = effect;
+
+        var now = DateTime.UtcNow;
+        if ((now - _lastDragCaretUpdateUtc).TotalMilliseconds < 50)
+            return;
+
+        _lastDragCaretUpdateUtc = now;
+        _ = FocusCaretAtPointAsync(ToWebViewPointFromDropSurface(e));
+    }
+
+    private void OnHostDropSurfaceDragLeave(object? sender, EventArgs e) =>
+        _ = SetFileDropHighlightAsync(false);
+
+    private void OnHostDropSurfaceDragDrop(object? sender, DragEventArgs e)
+    {
+        _ = SetFileDropHighlightAsync(false);
+
+        if (!CanAcceptHostFileDrop() || !IsFileDrag(e))
+            return;
+
+        if (e.Data?.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0)
+            return;
+
+        _ = InvokeFileDropHandlerAsync(paths, ToWebViewPointFromDropSurface(e));
     }
 
     public event Action? ContentChanged;
@@ -130,8 +208,8 @@ internal sealed class WebViewEditorController
         _webView.DragDrop += OnWebViewDragDrop;
     }
 
-    private static Point ToWebViewClientPoint(int dragX, int dragY) =>
-        new(dragX, dragY);
+    private static Point ToWebViewClientPoint(DragEventArgs e) =>
+        new(e.X, e.Y);
 
     private bool CanAcceptHostFileDrop() =>
         _fileDropHandler != null &&
@@ -169,7 +247,7 @@ internal sealed class WebViewEditorController
             return;
 
         _lastDragCaretUpdateUtc = now;
-        var point = ToWebViewClientPoint(e.X, e.Y);
+        var point = ToWebViewClientPoint(e);
         _ = FocusCaretAtPointAsync(point);
     }
 
@@ -186,7 +264,7 @@ internal sealed class WebViewEditorController
         if (e.Data?.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0)
             return;
 
-        var point = ToWebViewClientPoint(e.X, e.Y);
+        var point = ToWebViewClientPoint(e);
         _ = InvokeFileDropHandlerAsync(paths, point);
     }
 
@@ -279,7 +357,7 @@ internal sealed class WebViewEditorController
             }
 
             if (paths.Count == 0)
-                return true;
+                return false;
 
             var zoom = _webView.ZoomFactor;
             var point = new Point(

@@ -189,7 +189,7 @@ internal static class Localization
         Add(K.TipMenuProfile, "프로필, 비밀번호, 알림 설정", "Profile, password, and notifications");
         Add(K.TipMenuRefreshTree, "Workspace 트리 새로고침 (F5)", "Refresh workspace tree (F5)");
         Add(K.TipMenuPreferences, "테마·언어 등 환경 설정", "Theme, language, and preferences");
-        Add(K.TipAppSettingsMark, "프로그램 설정 (DB·이메일, 관리자)", "Program settings (database and email, administrators)");
+        Add(K.TipAppSettingsMark, "프로그램 설정 (환경 설정, DB·이메일)", "Program settings (preferences, database and email)");
         Add(K.TipMenuLogin, "로그인", "Sign in to your account");
         Add(K.TipMenuLogout, "로그아웃", "Sign out");
         Add(K.TipMenuNewProject, "새 Workspace를 만들고 .wsp 프로젝트 파일로 저장합니다. 이후 Ctrl+S로 DB와 프로젝트 파일에 함께 저장할 수 있습니다.", "Create a new workspace and save it as a .wsp project file. Use Ctrl+S later to save to the database and project file together.");

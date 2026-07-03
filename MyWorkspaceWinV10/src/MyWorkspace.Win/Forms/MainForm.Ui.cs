@@ -131,9 +131,6 @@ public partial class MainForm
         if (ctxExportWorkspace != null)
             ctxExportWorkspace.Text = Localization.Get(K.MenuExportWorkspace);
 
-        if (menuSettings != null)
-            menuSettings.Text = Localization.Get(K.MenuSettings);
-
         if (menuProfile != null)
             menuProfile.Text = Localization.Get(K.MenuProfile);
 

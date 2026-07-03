@@ -3,26 +3,27 @@ using System.Runtime.InteropServices;
 
 namespace MyWorkspace.Win;
 
+internal enum FramelessResizeEdgeKind
+{
+    Top,
+    Bottom,
+    Left,
+    Right
+}
+
 internal sealed class FramelessResizeEdge : Panel
 {
     private readonly Form _form;
-    private readonly int _hitTest;
+    private readonly FramelessResizeEdgeKind _kind;
 
-    public FramelessResizeEdge(Form form, int hitTest)
+    public FramelessResizeEdge(Form form, FramelessResizeEdgeKind kind)
     {
         _form = form;
-        _hitTest = hitTest;
+        _kind = kind;
         Dock = DockStyle.None;
         TabStop = false;
-        BackColor = AppTheme.Background;
-        Cursor = hitTest switch
-        {
-            FramelessWindowHelper.HtLeft or FramelessWindowHelper.HtRight => Cursors.SizeWE,
-            FramelessWindowHelper.HtTop or FramelessWindowHelper.HtBottom => Cursors.SizeNS,
-            FramelessWindowHelper.HtTopLeft or FramelessWindowHelper.HtBottomRight => Cursors.SizeNWSE,
-            FramelessWindowHelper.HtTopRight or FramelessWindowHelper.HtBottomLeft => Cursors.SizeNESW,
-            _ => Cursors.Default
-        };
+        BackColor = AppTheme.Sidebar;
+        Cursor = FramelessWindowHelper.CursorForKind(kind);
 
         AppTheme.Changed += OnAppThemeChanged;
         MouseDown += OnMouseDown;
@@ -37,12 +38,7 @@ internal sealed class FramelessResizeEdge : Panel
     }
 
     internal void ApplyTheme() =>
-        BackColor = IsTopResizeEdge(_hitTest) ? AppTheme.TitleBarBackground : AppTheme.Background;
-
-    private static bool IsTopResizeEdge(int hitTest) =>
-        hitTest is FramelessWindowHelper.HtTop
-            or FramelessWindowHelper.HtTopLeft
-            or FramelessWindowHelper.HtTopRight;
+        BackColor = AppTheme.Sidebar;
 
     private void OnAppThemeChanged()
     {
@@ -63,7 +59,7 @@ internal sealed class FramelessResizeEdge : Panel
         if (_form.WindowState == FormWindowState.Maximized)
             return;
 
-        FramelessWindowHelper.BeginResize(_form, _hitTest);
+        FramelessWindowHelper.BeginResize(_form, FramelessWindowHelper.HitTestForKind(_kind));
     }
 }
 
@@ -72,16 +68,11 @@ internal static class FramelessWindowHelper
     private const int WmNcLButtonDown = 0x00A1;
     private const int WmGetMinMaxInfo = 0x0024;
 
-    internal const int HtClient = 1;
     internal const int HtCaption = 2;
     internal const int HtLeft = 10;
     internal const int HtRight = 11;
     internal const int HtTop = 12;
-    internal const int HtTopLeft = 13;
-    internal const int HtTopRight = 14;
     internal const int HtBottom = 15;
-    internal const int HtBottomLeft = 16;
-    internal const int HtBottomRight = 17;
 
     private const int DwmwaWindowCornerPreference = 33;
     private const int DwmWindowCornerPreferenceDoNotRound = 1;
@@ -89,6 +80,7 @@ internal static class FramelessWindowHelper
     public const int ResizeBorder = 8;
 
     private static readonly ConditionalWeakTable<Form, ResizeEdgeSet> ResizeEdges = new();
+    private static readonly ConditionalWeakTable<Form, Control> ShellRoots = new();
 
     [DllImport("user32.dll")]
     private static extern bool ReleaseCapture();
@@ -99,18 +91,24 @@ internal static class FramelessWindowHelper
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
-    public static void Configure(Form form)
+    public static void Configure(Form form) => Configure(form, shellRoot: null);
+
+    public static void Configure(Form form, Control? shellRoot)
     {
         form.FormBorderStyle = FormBorderStyle.None;
         form.MaximizeBox = true;
         form.MinimizeBox = true;
         form.ShowIcon = true;
 
+        if (shellRoot != null)
+            ShellRoots.Add(form, shellRoot);
+
         void OnReady()
         {
             ApplyDwmSettings(form);
             EnsureResizeEdges(form);
             ApplyShellChrome(form);
+            LayoutShellContent(form);
         }
 
         if (form.IsHandleCreated)
@@ -118,14 +116,15 @@ internal static class FramelessWindowHelper
         else
             form.HandleCreated += (_, _) => OnReady();
 
-        form.Load += (_, _) => EnsureResizeEdges(form);
-        form.Resize += (_, _) => LayoutResizeEdges(form);
+        form.Load += (_, _) => LayoutFrame(form);
+        form.Resize += (_, _) => LayoutFrame(form);
         form.Shown += (_, _) => ApplyShellChrome(form);
 
         AppTheme.Changed += OnAppThemeChanged;
         form.FormClosed += OnFormClosed;
 
         ApplyShellChrome(form);
+        LayoutShellContent(form);
 
         void OnAppThemeChanged()
         {
@@ -139,12 +138,12 @@ internal static class FramelessWindowHelper
                 form.BeginInvoke(() =>
                 {
                     ApplyShellChrome(form);
-                    LayoutResizeEdges(form);
+                    LayoutFrame(form);
                 });
             else
             {
                 ApplyShellChrome(form);
-                LayoutResizeEdges(form);
+                LayoutFrame(form);
             }
         }
 
@@ -157,7 +156,7 @@ internal static class FramelessWindowHelper
         if (form.IsDisposed)
             return;
 
-        form.BackColor = AppTheme.Background;
+        form.BackColor = AppTheme.Sidebar;
 
         if (ResizeEdges.TryGetValue(form, out var edgeSet))
         {
@@ -185,6 +184,22 @@ internal static class FramelessWindowHelper
         return false;
     }
 
+    internal static int HitTestForKind(FramelessResizeEdgeKind kind) => kind switch
+    {
+        FramelessResizeEdgeKind.Top => HtTop,
+        FramelessResizeEdgeKind.Bottom => HtBottom,
+        FramelessResizeEdgeKind.Left => HtLeft,
+        FramelessResizeEdgeKind.Right => HtRight,
+        _ => HtLeft
+    };
+
+    internal static Cursor CursorForKind(FramelessResizeEdgeKind kind) => kind switch
+    {
+        FramelessResizeEdgeKind.Top or FramelessResizeEdgeKind.Bottom => Cursors.SizeNS,
+        FramelessResizeEdgeKind.Left or FramelessResizeEdgeKind.Right => Cursors.SizeWE,
+        _ => Cursors.Default
+    };
+
     private static void EnsureResizeEdges(Form form)
     {
         if (form.IsDisposed)
@@ -198,19 +213,12 @@ internal static class FramelessWindowHelper
             return;
         }
 
-        var top = new FramelessResizeEdge(form, HtTop);
-        var bottom = new FramelessResizeEdge(form, HtBottom);
-        var left = new FramelessResizeEdge(form, HtLeft);
-        var right = new FramelessResizeEdge(form, HtRight);
-        var topLeft = new FramelessResizeEdge(form, HtTopLeft);
-        var topRight = new FramelessResizeEdge(form, HtTopRight);
-        var bottomLeft = new FramelessResizeEdge(form, HtBottomLeft);
-        var bottomRight = new FramelessResizeEdge(form, HtBottomRight);
+        var top = new FramelessResizeEdge(form, FramelessResizeEdgeKind.Top);
+        var bottom = new FramelessResizeEdge(form, FramelessResizeEdgeKind.Bottom);
+        var left = new FramelessResizeEdge(form, FramelessResizeEdgeKind.Left);
+        var right = new FramelessResizeEdge(form, FramelessResizeEdgeKind.Right);
 
-        var edgeSet = new ResizeEdgeSet(
-            [top, bottom, left, right, topLeft, topRight, bottomLeft, bottomRight],
-            top, bottom, left, right,
-            topLeft, topRight, bottomLeft, bottomRight);
+        var edgeSet = new ResizeEdgeSet([top, bottom, left, right], top, bottom, left, right);
 
         foreach (var edge in edgeSet.All)
             form.Controls.Add(edge);
@@ -237,20 +245,54 @@ internal static class FramelessWindowHelper
         var border = ResizeBorder;
         var width = form.ClientSize.Width;
         var height = form.ClientSize.Height;
+        var innerWidth = Math.Max(0, width - border * 2);
         var innerHeight = Math.Max(0, height - border * 2);
 
         edgeSet.Top.SetBounds(0, 0, width, border);
-        edgeSet.Bottom.SetBounds(0, height - border, width, border);
+        edgeSet.Bottom.SetBounds(border, height - border, innerWidth, border);
         edgeSet.Left.SetBounds(0, border, border, innerHeight);
         edgeSet.Right.SetBounds(width - border, border, border, innerHeight);
 
-        edgeSet.TopLeft.SetBounds(0, 0, border, border);
-        edgeSet.TopRight.SetBounds(width - border, 0, border, border);
-        edgeSet.BottomLeft.SetBounds(0, height - border, border, border);
-        edgeSet.BottomRight.SetBounds(width - border, height - border, border, border);
-
         foreach (var edge in edgeSet.All)
             edge.BringToFront();
+    }
+
+    private static void LayoutFrame(Form form)
+    {
+        EnsureResizeEdges(form);
+        LayoutShellContent(form);
+        LayoutResizeEdges(form);
+    }
+
+    private static void LayoutShellContent(Form form)
+    {
+        if (!ShellRoots.TryGetValue(form, out var shellRoot) || shellRoot.IsDisposed)
+            return;
+
+        if (form.ClientSize.Width <= 0 || form.ClientSize.Height <= 0)
+            return;
+
+        var border = ResizeBorder;
+        var maximized = form.WindowState == FormWindowState.Maximized;
+
+        shellRoot.Margin = Padding.Empty;
+
+        if (maximized)
+        {
+            shellRoot.Dock = DockStyle.Fill;
+            shellRoot.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            return;
+        }
+
+        shellRoot.Dock = DockStyle.None;
+        shellRoot.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        shellRoot.SetBounds(
+            border,
+            border,
+            Math.Max(0, form.ClientSize.Width - border * 2),
+            Math.Max(0, form.ClientSize.Height - border * 2));
+
+        shellRoot.BringToFront();
     }
 
     private static void ApplyDwmSettings(Form form)
@@ -286,20 +328,12 @@ internal static class FramelessWindowHelper
         FramelessResizeEdge top,
         FramelessResizeEdge bottom,
         FramelessResizeEdge left,
-        FramelessResizeEdge right,
-        FramelessResizeEdge topLeft,
-        FramelessResizeEdge topRight,
-        FramelessResizeEdge bottomLeft,
-        FramelessResizeEdge bottomRight)
+        FramelessResizeEdge right)
     {
         public FramelessResizeEdge[] All { get; } = all;
         public FramelessResizeEdge Top { get; } = top;
         public FramelessResizeEdge Bottom { get; } = bottom;
         public FramelessResizeEdge Left { get; } = left;
         public FramelessResizeEdge Right { get; } = right;
-        public FramelessResizeEdge TopLeft { get; } = topLeft;
-        public FramelessResizeEdge TopRight { get; } = topRight;
-        public FramelessResizeEdge BottomLeft { get; } = bottomLeft;
-        public FramelessResizeEdge BottomRight { get; } = bottomRight;
     }
 }

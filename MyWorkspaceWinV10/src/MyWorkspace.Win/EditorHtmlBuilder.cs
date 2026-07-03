@@ -617,8 +617,22 @@ internal static class EditorHtmlBuilder
               return Array.from(types).includes('Files');
             }
 
+            function caretRangeFromClientPoint(x, y) {
+              if (document.caretRangeFromPoint)
+                return document.caretRangeFromPoint(x, y);
+              if (document.caretPositionFromPoint) {
+                const pos = document.caretPositionFromPoint(x, y);
+                if (!pos) return null;
+                const range = document.createRange();
+                range.setStart(pos.offsetNode, pos.offset);
+                range.collapse(true);
+                return range;
+              }
+              return null;
+            }
+
             function focusCaretAtClientPoint(x, y) {
-              const range = document.caretRangeFromPoint(x, y);
+              const range = caretRangeFromClientPoint(x, y);
               if (!range || !editor.contains(range.startContainer)) return false;
               range.collapse(true);
               const sel = window.getSelection();
@@ -635,8 +649,32 @@ internal static class EditorHtmlBuilder
                 x: Math.round(clientX),
                 y: Math.round(clientY)
               });
-              if (window.chrome?.webview?.postMessageWithAdditionalObjects)
-                window.chrome.webview.postMessageWithAdditionalObjects(payload, files);
+              const fileArray = Array.from(files);
+              const webview = window.chrome?.webview;
+              if (webview?.postMessageWithAdditionalObjects && fileArray.length > 0) {
+                webview.postMessageWithAdditionalObjects(payload, ...fileArray);
+                return;
+              }
+              if (webview?.postMessage)
+                webview.postMessage(payload);
+            }
+
+            function handleExternalFileDragOver(e) {
+              if (!isExternalFileDrag(e)) return;
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+              editor.classList.add('is-file-drop-target');
+              focusCaretAtClientPoint(e.clientX, e.clientY);
+            }
+
+            function handleExternalFileDrop(e) {
+              if (!isExternalFileDrag(e)) return;
+              e.preventDefault();
+              e.stopPropagation();
+              fileDropDepth = 0;
+              editor.classList.remove('is-file-drop-target');
+              focusCaretAtClientPoint(e.clientX, e.clientY);
+              postFileDropMessage(e.dataTransfer?.files, e.clientX, e.clientY);
             }
 
             editor.addEventListener('dragenter', (e) => {
@@ -653,23 +691,11 @@ internal static class EditorHtmlBuilder
                 editor.classList.remove('is-file-drop-target');
             });
 
-            editor.addEventListener('dragover', (e) => {
-              if (!isExternalFileDrag(e)) return;
-              e.preventDefault();
-              if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-              editor.classList.add('is-file-drop-target');
-              focusCaretAtClientPoint(e.clientX, e.clientY);
-            });
+            editor.addEventListener('dragover', handleExternalFileDragOver);
+            document.body.addEventListener('dragover', handleExternalFileDragOver);
 
-            editor.addEventListener('drop', (e) => {
-              if (!isExternalFileDrag(e)) return;
-              e.preventDefault();
-              e.stopPropagation();
-              fileDropDepth = 0;
-              editor.classList.remove('is-file-drop-target');
-              focusCaretAtClientPoint(e.clientX, e.clientY);
-              postFileDropMessage(e.dataTransfer?.files, e.clientX, e.clientY);
-            });
+            editor.addEventListener('drop', handleExternalFileDrop);
+            document.body.addEventListener('drop', handleExternalFileDrop);
 
             editor.addEventListener('input', () => {
               updateEmptyState();
@@ -1239,10 +1265,11 @@ internal static class EditorHtmlBuilder
               },
               focusCaretAtPoint(x, y) {
                 editor.focus();
-                const range = document.caretRangeFromPoint(x, y);
+                const range = caretRangeFromClientPoint(x, y);
                 if (!range || !editor.contains(range.startContainer)) return false;
                 range.collapse(true);
                 const sel = window.getSelection();
+                if (!sel) return false;
                 sel.removeAllRanges();
                 sel.addRange(range);
                 return true;

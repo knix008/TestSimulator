@@ -589,10 +589,10 @@ partial class MainForm
         // 
         navRail.Dock = DockStyle.Left;
         navRail.Location = new Point(0, 0);
-        navRail.MinimumSize = new Size(52, 0);
+        navRail.MinimumSize = new Size(56, 0);
         navRail.Name = "navRail";
-        navRail.Padding = new Padding(0, 8, 0, 8);
-        navRail.Size = new Size(52, 863);
+        navRail.Padding = new Padding(4, 8, 4, 8);
+        navRail.Size = new Size(56, 863);
         navRail.TabIndex = 1;
         // 
         // pnlShellBody

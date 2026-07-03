@@ -21,8 +21,6 @@ public partial class AdminUserForm : Form
     private void AdminUserForm_Load(object sender, EventArgs e)
     {
         ApplyLocalization();
-        btnEdit.Margin = new Padding(8, 0, 0, 0);
-        btnDelete.Margin = new Padding(8, 0, 0, 0);
         LoadUsers();
     }
 

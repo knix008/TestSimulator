@@ -52,9 +52,6 @@ public partial class MainForm
         if (ctxExportWorkspace != null)
             SetTip(ctxExportWorkspace, K.MenuExportWorkspace);
 
-        if (menuSettings != null)
-            SetTip(menuSettings, K.TipMenuSettings);
-
         if (menuProfile != null)
             SetTip(menuProfile, K.TipMenuProfile);
 

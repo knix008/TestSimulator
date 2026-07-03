@@ -2,7 +2,7 @@ namespace MyWorkspace.Win.Forms;
 
 public partial class MainForm
 {
-    private const int NavRailWidth = 52;
+    private const int NavRailWidth = 56;
     private const int NavWorkspaceGap = 8;
     private const int WorkspaceTopGap = 8;
     private const int WorkspaceMinWidth = 160;
@@ -45,11 +45,12 @@ public partial class MainForm
             ? statusStrip1.PreferredSize.Height
             : 22;
         const int titleBarHeight = 36;
-        var clientMinHeight = MainContentMinHeight + statusHeight + titleBarHeight;
+        var resizeInset = FramelessWindowHelper.ResizeBorder * 2;
+        var clientMinHeight = MainContentMinHeight + statusHeight + titleBarHeight + resizeInset;
 
         var nonClient = new Size(Width - ClientSize.Width, Height - ClientSize.Height);
         MinimumSize = new Size(
-            clientMinWidth + nonClient.Width,
+            clientMinWidth + resizeInset + nonClient.Width,
             clientMinHeight + nonClient.Height);
     }
 }

@@ -233,6 +233,8 @@ internal static class AppTheme
         StyleControlTree(form.Controls);
         FitAllButtons(form.Controls);
         NormalizeDialogChoiceButtonSizes(form.Controls);
+        NormalizeDialogActionButtonHeights(form.Controls);
+        NormalizeFooterButtonHeights(form.Controls);
         AlignDialogButtonLayout(form);
     }
 
@@ -249,7 +251,7 @@ internal static class AppTheme
                     StylePrimaryButton(button);
                     break;
                 case Button button:
-                    StyleSecondaryButton(button);
+                    StyleDialogActionButton(button);
                     break;
                 case TextBox textBox:
                     StyleTextBox(textBox);
@@ -360,17 +362,116 @@ internal static class AppTheme
         }
     }
 
+    private static void NormalizeDialogActionButtonHeights(Control.ControlCollection controls)
+    {
+        NormalizeDialogActionButtonGroup(controls);
+
+        foreach (Control control in controls)
+        {
+            if (control.HasChildren)
+                NormalizeDialogActionButtonHeights(control.Controls);
+        }
+    }
+
+    private static void NormalizeDialogActionButtonGroup(Control.ControlCollection controls)
+    {
+        var actionButtons = CollectDialogActionButtons(controls);
+
+        if (actionButtons.Count < 2)
+            return;
+
+        var height = actionButtons.Max(button => button.Height);
+        foreach (var button in actionButtons)
+        {
+            button.AutoSize = false;
+            button.Height = height;
+            button.MinimumSize = new Size(button.MinimumSize.Width, height);
+        }
+    }
+
+    private static List<Button> CollectDialogActionButtons(Control.ControlCollection controls)
+    {
+        var actionButtons = new List<Button>();
+        foreach (Control control in controls)
+        {
+            if (control is Button button && IsDialogActionButton(button))
+                actionButtons.Add(button);
+
+            if (control.HasChildren)
+                actionButtons.AddRange(CollectDialogActionButtons(control.Controls));
+        }
+
+        return actionButtons;
+    }
+
+    private static void NormalizeFooterButtonHeights(Control.ControlCollection controls)
+    {
+        foreach (Control control in controls)
+        {
+            if (control is Panel { Dock: DockStyle.Bottom } footer)
+                NormalizeFooterButtonHeights(footer);
+
+            if (control.HasChildren)
+                NormalizeFooterButtonHeights(control.Controls);
+        }
+    }
+
+    private static void NormalizeFooterButtonHeights(Panel footer)
+    {
+        var buttons = CollectFooterButtons(footer).ToList();
+        if (buttons.Count < 2)
+            return;
+
+        var height = buttons.Max(button => button.Height);
+        foreach (var button in buttons)
+        {
+            button.AutoSize = false;
+            button.Height = height;
+            button.MinimumSize = new Size(button.MinimumSize.Width, height);
+        }
+    }
+
+    private static IEnumerable<Button> CollectFooterButtons(Control root)
+    {
+        foreach (Control control in root.Controls)
+        {
+            if (control is Button button)
+                yield return button;
+
+            if (control.HasChildren)
+            {
+                foreach (var nested in CollectFooterButtons(control))
+                    yield return nested;
+            }
+        }
+    }
+
+    private static bool IsDialogActionButton(Button button) =>
+        button.Name is "btnAdd"
+            or "btnEdit"
+            or "btnDelete"
+            or "btnRemove"
+            or "btnCopy"
+            or "btnTest"
+            or "btnBrowseSqlite"
+            or "btnReloadTemplates"
+            or "btnOpenTemplateFolder";
+
     private static void AlignDialogButtonLayout(Form form)
     {
         AlignFooterPanels(form.Controls);
         AlignAnchoredBottomButtons(form);
     }
 
+    private static bool IsMixedFooterPanel(Panel panel) =>
+        panel.Dock == DockStyle.Bottom &&
+        panel.Controls.OfType<FlowLayoutPanel>().Any();
+
     private static void AlignFooterPanels(Control.ControlCollection controls)
     {
         foreach (Control control in controls)
         {
-            if (control is Panel panel && IsButtonFooterPanel(panel))
+            if (control is Panel panel && (IsButtonFooterPanel(panel) || IsMixedFooterPanel(panel)))
                 AlignFooterPanelButtons(panel);
 
             if (control.HasChildren)
@@ -380,6 +481,9 @@ internal static class AppTheme
 
     private static void AlignFooterPanelButtons(Panel footer)
     {
+        if (footer.Controls.OfType<TableLayoutPanel>().Any())
+            return;
+
         const int rightPadding = 12;
         const int gap = 8;
 
@@ -387,6 +491,32 @@ internal static class AppTheme
             .Where(button => (button.Anchor & AnchorStyles.Right) != 0)
             .OrderBy(button => button.Left)
             .ToList();
+
+        var flowPanel = FindFlowLayoutPanel(footer);
+        if (flowPanel != null)
+        {
+            var buttons = CollectFooterButtons(footer).ToList();
+            var buttonHeight = buttons.Count > 0 ? buttons.Max(button => button.Height) : 32;
+            var top = footer.Padding.Top + Math.Max(0, (footer.ClientSize.Height - footer.Padding.Vertical - buttonHeight) / 2);
+
+            flowPanel.Location = new Point(footer.Padding.Left, top);
+            flowPanel.Height = buttonHeight;
+
+            if (rightAnchored.Count > 0)
+            {
+                var rightX = footer.ClientSize.Width - footer.Padding.Right;
+                for (var index = rightAnchored.Count - 1; index >= 0; index--)
+                {
+                    var button = rightAnchored[index];
+                    rightX -= button.Width;
+                    button.Location = new Point(rightX, top);
+                    button.Height = buttonHeight;
+                    rightX -= gap;
+                }
+            }
+
+            return;
+        }
 
         if (rightAnchored.Count == 0)
             return;
@@ -425,6 +555,21 @@ internal static class AppTheme
             button.Location = new Point(x, bottom - button.Height);
             x -= gap;
         }
+    }
+
+    private static FlowLayoutPanel? FindFlowLayoutPanel(Control root)
+    {
+        if (root is FlowLayoutPanel flowPanel)
+            return flowPanel;
+
+        foreach (Control child in root.Controls)
+        {
+            var found = FindFlowLayoutPanel(child);
+            if (found != null)
+                return found;
+        }
+
+        return null;
     }
 
     private static bool IsDialogChoiceButton(Button button)
@@ -1082,7 +1227,25 @@ internal static class AppTheme
 
     public static void StyleDialogChoiceButton(Button button)
     {
-        StyleSidebarActionButton(button);
+        StyleDialogActionButton(button);
+        button.Font = UiFontSemibold;
+    }
+
+    public static void StyleDialogActionButton(Button button)
+    {
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.BorderColor = Border;
+        button.BackColor = Surface;
+        button.ForeColor = TextPrimary;
+        button.Font = UiFont;
+        button.Cursor = Cursors.Hand;
+        button.UseVisualStyleBackColor = false;
+        button.UseCompatibleTextRendering = true;
+        button.FlatAppearance.MouseOverBackColor = AccentHover;
+        button.FlatAppearance.MouseDownBackColor = AccentPressed;
+        ApplyDialogButtonIcon(button, primary: false);
+        EnsureButtonHeight(button);
     }
 
     public static void StyleSidebarActionButton(Button button)
@@ -1102,11 +1265,8 @@ internal static class AppTheme
         EnsureButtonHeight(button);
     }
 
-    public static void StyleSecondaryButton(Button button)
-    {
-        StyleSidebarActionButton(button);
-        button.Font = UiFont;
-    }
+    public static void StyleSecondaryButton(Button button) =>
+        StyleDialogActionButton(button);
 
     private static void ApplyDialogButtonContentAlignment(Button button)
     {
@@ -1115,14 +1275,14 @@ internal static class AppTheme
         if (button.Image != null)
         {
             button.TextImageRelation = TextImageRelation.ImageBeforeText;
-            button.ImageAlign = ContentAlignment.MiddleLeft;
-            button.TextAlign = ContentAlignment.MiddleLeft;
-            button.Padding = new Padding(10, 4, 12, 4);
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            button.ImageAlign = ContentAlignment.MiddleCenter;
+            button.Padding = new Padding(4, 0, 8, 0);
             return;
         }
 
         button.TextAlign = ContentAlignment.MiddleCenter;
-        button.Padding = new Padding(14, 4, 14, 4);
+        button.Padding = new Padding(12, 0, 12, 0);
     }
 
     private static void ApplyDialogButtonIcon(Button button, bool primary)
@@ -1230,6 +1390,8 @@ internal static class AppTheme
         button.UseVisualStyleBackColor = false;
         button.FlatAppearance.MouseOverBackColor = AccentHover;
         button.FlatAppearance.MouseDownBackColor = AccentPressed;
+        button.Padding = Padding.Empty;
+        button.Margin = Padding.Empty;
     }
 
     public static void StyleHeaderPanel(Panel panel)

@@ -43,7 +43,7 @@ public partial class MainForm : Form
     {
         _pendingWspImportPath = StartupArguments.TryGetWspImportPath(args);
         InitializeComponent();
-        FramelessWindowHelper.Configure(this);
+        FramelessWindowHelper.Configure(this, pnlRoot);
         titleBar.Attach(this);
         ApplyLayoutConstraints();
         KeyPreview = true;
@@ -132,7 +132,7 @@ public partial class MainForm : Form
         menuView.Image = menuDocumentStructure.Image;
 
         InitializeEditor();
-        EnsureSettingsMenuItems();
+        EnsureProfileMenuItems();
         InitializeNavRail();
         InitializeAppSettingsMenu();
         SetupEditorContextMenu();
@@ -372,10 +372,10 @@ public partial class MainForm : Form
             menuLoadWorkspace.Visible = loggedIn;
         if (menuRecentProjects != null)
             menuRecentProjects.Visible = loggedIn;
-        if (menuSettings != null)
-            menuSettings.Visible = loggedIn;
         if (menuProfile != null)
             menuProfile.Visible = loggedIn;
+        if (menuSepAppSettingsAdmin != null)
+            menuSepAppSettingsAdmin.Visible = loggedIn && SessionContext.IsAdmin;
         if (menuSavePageAsMarkdown != null)
             menuSavePageAsMarkdown.Visible = loggedIn;
         menuSepFile1.Visible = loggedIn;

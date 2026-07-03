@@ -22,7 +22,8 @@ public partial class MainForm
             HandleEditorFilesDroppedAsync,
             () => SessionContext.IsLoggedIn
                   && (_currentPageId.HasValue || _draftWorkspaceId.HasValue)
-                  && CanEditActivePage());
+                  && CanEditActivePage(),
+            pnlEditorHost);
     }
 
     private void UpdateEditorEmptySurface()

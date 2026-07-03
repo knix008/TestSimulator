@@ -23,7 +23,6 @@ public partial class MainForm
         navRail.AddMenu(menuView, "outline", K.TipMenuView);
         navRail.AddMenu(menuAdmin, "users", K.TipMenuAdmin);
         navRail.AddBottomAction(menuLogout, "logout", K.TipMenuBarLogout);
-        navRail.AddBottomMenu(menuSettings!, "preferences", K.TipMenuSettings);
         navRail.AddBottomMenu(menuProfile!, "profile", K.TipMenuProfile);
         navRail.RefreshTheme();
         UpdateNavRailForLoginState(SessionContext.IsLoggedIn);
@@ -34,7 +33,6 @@ public partial class MainForm
         navRail.SetEntryVisible(menuWorkspace, loggedIn);
         navRail.SetEntryVisible(menuAdmin, loggedIn && SessionContext.IsAdmin);
         navRail.SetBottomActionVisible(menuLogout, loggedIn);
-        navRail.SetBottomMenuVisible(menuSettings!, loggedIn);
         navRail.SetBottomMenuVisible(menuProfile!, loggedIn);
     }
 

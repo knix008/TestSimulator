@@ -2,15 +2,6 @@ namespace MyWorkspace.Win.Forms;
 
 partial class AdminUserForm
 {
-    private System.ComponentModel.IContainer components = null;
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing && components != null)
-            components.Dispose();
-        base.Dispose(disposing);
-    }
-
     private void InitializeComponent()
     {
         gridUsers = new DataGridView();
@@ -19,6 +10,7 @@ partial class AdminUserForm
         colRole = new DataGridViewTextBoxColumn();
         colCreatedAt = new DataGridViewTextBoxColumn();
         pnlFooter = new Panel();
+        tblFooter = new TableLayoutPanel();
         flowActions = new FlowLayoutPanel();
         btnAdd = new Button();
         btnEdit = new Button();
@@ -26,6 +18,7 @@ partial class AdminUserForm
         btnClose = new Button();
         ((System.ComponentModel.ISupportInitialize)gridUsers).BeginInit();
         pnlFooter.SuspendLayout();
+        tblFooter.SuspendLayout();
         flowActions.SuspendLayout();
         SuspendLayout();
 
@@ -53,24 +46,42 @@ partial class AdminUserForm
         colCreatedAt.HeaderText = "생성일";
         colCreatedAt.Name = "colCreatedAt";
 
-        pnlFooter.Controls.Add(btnClose);
-        pnlFooter.Controls.Add(flowActions);
+        pnlFooter.Controls.Add(tblFooter);
         pnlFooter.Dock = DockStyle.Bottom;
         pnlFooter.Location = new Point(0, 336);
         pnlFooter.Name = "pnlFooter";
         pnlFooter.Padding = new Padding(12, 8, 12, 8);
         pnlFooter.Size = new Size(584, 52);
+        pnlFooter.Tag = "layout";
 
+        tblFooter.ColumnCount = 3;
+        tblFooter.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        tblFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        tblFooter.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        tblFooter.Controls.Add(flowActions, 0, 0);
+        tblFooter.Controls.Add(btnClose, 2, 0);
+        tblFooter.Dock = DockStyle.Fill;
+        tblFooter.Location = new Point(12, 8);
+        tblFooter.Name = "tblFooter";
+        tblFooter.RowCount = 1;
+        tblFooter.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        tblFooter.Size = new Size(560, 36);
+        tblFooter.Tag = "layout";
+
+        flowActions.AutoSize = true;
+        flowActions.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         flowActions.Controls.Add(btnAdd);
         flowActions.Controls.Add(btnEdit);
         flowActions.Controls.Add(btnDelete);
-        flowActions.Dock = DockStyle.Left;
         flowActions.FlowDirection = FlowDirection.LeftToRight;
-        flowActions.Location = new Point(12, 8);
+        flowActions.Location = new Point(0, 0);
+        flowActions.Margin = new Padding(0);
         flowActions.Name = "flowActions";
-        flowActions.Size = new Size(320, 36);
+        flowActions.Size = new Size(260, 32);
+        flowActions.Tag = "layout";
         flowActions.WrapContents = false;
 
+        btnAdd.Margin = new Padding(0);
         btnAdd.Name = "btnAdd";
         btnAdd.Size = new Size(84, 32);
         btnAdd.TabIndex = 1;
@@ -78,6 +89,7 @@ partial class AdminUserForm
         btnAdd.UseVisualStyleBackColor = true;
         btnAdd.Click += btnAdd_Click;
 
+        btnEdit.Margin = new Padding(8, 0, 0, 0);
         btnEdit.Name = "btnEdit";
         btnEdit.Size = new Size(84, 32);
         btnEdit.TabIndex = 2;
@@ -93,9 +105,8 @@ partial class AdminUserForm
         btnDelete.UseVisualStyleBackColor = true;
         btnDelete.Click += btnDelete_Click;
 
-        btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnClose.DialogResult = DialogResult.Cancel;
-        btnClose.Location = new Point(480, 8);
+        btnClose.Margin = new Padding(0);
         btnClose.Name = "btnClose";
         btnClose.Size = new Size(92, 32);
         btnClose.TabIndex = 4;
@@ -120,7 +131,11 @@ partial class AdminUserForm
         Load += AdminUserForm_Load;
         ((System.ComponentModel.ISupportInitialize)gridUsers).EndInit();
         pnlFooter.ResumeLayout(false);
+        pnlFooter.PerformLayout();
+        tblFooter.ResumeLayout(false);
+        tblFooter.PerformLayout();
         flowActions.ResumeLayout(false);
+        flowActions.PerformLayout();
         ResumeLayout(false);
     }
 
@@ -130,6 +145,7 @@ partial class AdminUserForm
     private DataGridViewTextBoxColumn colRole;
     private DataGridViewTextBoxColumn colCreatedAt;
     private Panel pnlFooter;
+    private TableLayoutPanel tblFooter;
     private FlowLayoutPanel flowActions;
     private Button btnAdd;
     private Button btnEdit;

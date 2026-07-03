@@ -2,23 +2,8 @@ namespace MyWorkspace.Win.Forms;
 
 public partial class MainForm
 {
-    private ToolStripMenuItem? menuSettings;
     private ToolStripMenuItem? menuProfile;
-
-    private void EnsureSettingsMenuItems()
-    {
-        EnsureProfileMenuItems();
-
-        if (menuSettings != null)
-            return;
-
-        menuSettings = new ToolStripMenuItem
-        {
-            Name = "menuSettings",
-            Image = IconAssets.Load(16, "preferences")
-        };
-        menuSettings.DropDownItems.Add(menuPreferences);
-    }
+    private ToolStripSeparator? menuSepAppSettingsAdmin;
 
     private void EnsureProfileMenuItems()
     {
@@ -37,9 +22,12 @@ public partial class MainForm
 
     private void InitializeAppSettingsMenu()
     {
-        EnsureSettingsMenuItems();
+        EnsureProfileMenuItems();
 
         ctxAppSettings.Items.Clear();
+        ctxAppSettings.Items.Add(menuPreferences);
+        menuSepAppSettingsAdmin = new ToolStripSeparator { Name = "menuSepAppSettingsAdmin" };
+        ctxAppSettings.Items.Add(menuSepAppSettingsAdmin);
         ctxAppSettings.Items.Add(menuAdminDatabaseSettings);
         ctxAppSettings.Items.Add(menuAdminEmailSettings);
 
