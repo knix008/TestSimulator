@@ -6,6 +6,8 @@ namespace MyProject.Forms
     /// <summary>Gantt chart image export: file path, format, and transparent-background option.</summary>
     public sealed class GanttImageExportOptionsDialog : Form
     {
+        private const int LabelColumnWidth = 72;
+
         private readonly TextBox _filePath = new() { Dock = DockStyle.Fill };
         private readonly CheckBox _transparentBackground = new()
         {
@@ -15,12 +17,14 @@ namespace MyProject.Forms
         private readonly Label _hint = new()
         {
             AutoSize = false,
-            Height = 48,
+            Dock = DockStyle.Fill,
             ForeColor = AppTheme.TextSecondary
         };
         private readonly Label _lblFile = new()
         {
-            AutoSize = true,
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
             ForeColor = AppTheme.TextSecondary
         };
         private readonly Button _btnBrowse = new() { AutoSize = true };
@@ -53,60 +57,61 @@ namespace MyProject.Forms
             MaximizeBox = false;
             MinimizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(500, 210);
-            MinimumSize = new Size(500, 210);
+            ClientSize = new Size(520, 196);
+            MinimumSize = new Size(520, 196);
             BackColor = AppTheme.SurfaceColor;
             Font = AppTheme.FontNormal;
 
-            var root = new TableLayoutPanel
+            var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(16),
-                ColumnCount = 1,
-                RowCount = 4
+                Padding = new Padding(16, 16, 16, 8),
+                ColumnCount = 2,
+                RowCount = 3
             };
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LabelColumnWidth));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            var fileRow = new TableLayoutPanel
+            var fileValueRow = new TableLayoutPanel
             {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                ColumnCount = 3,
-                Margin = new Padding(0, 0, 0, 8)
+                Dock = DockStyle.Fill,
+                ColumnCount = 2
             };
-            fileRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            fileRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            fileRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            fileRow.Controls.Add(_lblFile, 0, 0);
-            fileRow.Controls.Add(_filePath, 1, 0);
-            fileRow.Controls.Add(_btnBrowse, 2, 0);
-            _lblFile.Margin = new Padding(0, 6, 8, 0);
+            fileValueRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            fileValueRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            fileValueRow.Controls.Add(_filePath, 0, 0);
+            fileValueRow.Controls.Add(_btnBrowse, 1, 0);
             _filePath.Margin = new Padding(0, 0, 8, 0);
             _btnBrowse.Margin = new Padding(0);
             _btnBrowse.Click += (_, _) => BrowseForFile();
 
-            root.Controls.Add(fileRow, 0, 0);
-            root.Controls.Add(_transparentBackground, 0, 1);
-            root.Controls.Add(_hint, 0, 2);
+            layout.Controls.Add(_lblFile, 0, 0);
+            layout.Controls.Add(fileValueRow, 1, 0);
+            layout.Controls.Add(_transparentBackground, 1, 1);
+            layout.SetColumnSpan(_hint, 2);
+            layout.Controls.Add(_hint, 0, 2);
+            _transparentBackground.Margin = new Padding(0, 8, 0, 8);
+            _hint.Margin = new Padding(0);
 
             _btnOk.DialogResult = DialogResult.None;
             _btnCancel.DialogResult = DialogResult.Cancel;
             _btnOk.Click += (_, _) => OnExportClick();
 
-            var btnPanel = new FlowLayoutPanel
+            var buttons = new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Bottom,
+                Height = 44,
                 FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false
+                Padding = new Padding(8)
             };
-            btnPanel.Controls.Add(_btnCancel);
-            btnPanel.Controls.Add(_btnOk);
-            root.Controls.Add(btnPanel, 0, 3);
+            buttons.Controls.Add(_btnCancel);
+            buttons.Controls.Add(_btnOk);
 
-            Controls.Add(root);
+            Controls.Add(layout);
+            Controls.Add(buttons);
             AcceptButton = _btnOk;
             CancelButton = _btnCancel;
         }
@@ -121,6 +126,16 @@ namespace MyProject.Forms
                     Text,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (File.Exists(path)
+                && MessageBox.Show(this,
+                    AppLocalizer.Format("GanttExport.OverwritePrompt", path),
+                    Text,
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question) != DialogResult.Yes)
+            {
                 return;
             }
 
@@ -142,7 +157,8 @@ namespace MyProject.Forms
                 DefaultExt = "png",
                 FileName = string.IsNullOrWhiteSpace(_filePath.Text)
                     ? "Gantt.png"
-                    : Path.GetFileName(_filePath.Text)
+                    : Path.GetFileName(_filePath.Text),
+                OverwritePrompt = true
             };
             AppSettings.ApplyTo(dlg);
 
