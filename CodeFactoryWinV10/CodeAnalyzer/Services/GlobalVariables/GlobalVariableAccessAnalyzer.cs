@@ -133,6 +133,11 @@ public static class GlobalVariableAccessAnalyzer
 
             var start = Math.Max(1, node.LineNumber);
             var end = Math.Min(lines.Length, start + 400);
+            if (start > end)
+            {
+                continue;
+            }
+
             var body = string.Join('\n', lines.AsSpan(start - 1, end - start + 1).ToArray());
             if (string.IsNullOrWhiteSpace(body))
             {

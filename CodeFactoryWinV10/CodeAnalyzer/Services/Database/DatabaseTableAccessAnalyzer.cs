@@ -943,6 +943,11 @@ public static class DatabaseTableAccessAnalyzer
 
         var start = Math.Max(1, lineNumber);
         var end = Math.Min(lines.Length, start + MethodScanLineWindow);
+        if (start > end)
+        {
+            return [];
+        }
+
         var body = string.Join('\n', lines.AsSpan(start - 1, end - start + 1).ToArray());
         var result = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
 

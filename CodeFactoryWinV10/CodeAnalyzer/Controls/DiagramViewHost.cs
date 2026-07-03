@@ -482,6 +482,17 @@ public sealed class DiagramViewHost : UserControl
             return;
         }
 
+        if (_viewKind == DiagramViewKind.DatabaseErd)
+        {
+            await _erdViewer.SetSchemaAsync(_analysis?.DatabaseSchema).ConfigureAwait(true);
+            if (generation == _refreshGeneration)
+            {
+                MarkActiveViewReady();
+            }
+
+            return;
+        }
+
         if (_viewKind == DiagramViewKind.DatabaseTableAccess)
         {
             await _databaseTableViewer.SetSchemaAsync(_analysis?.DatabaseSchema, ProjectRootDirectory)
@@ -592,7 +603,6 @@ public sealed class DiagramViewHost : UserControl
 
         if (_viewKind == DiagramViewKind.DatabaseErd)
         {
-            _erdViewer.SetSchema(_analysis?.DatabaseSchema);
             return;
         }
 

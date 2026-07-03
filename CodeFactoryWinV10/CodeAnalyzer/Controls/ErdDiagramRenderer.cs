@@ -42,26 +42,34 @@ internal static class ErdDiagramRenderer
         };
     }
 
-    public static Size Layout(IReadOnlyList<DiagramBoxNode> nodes, IReadOnlyList<DatabaseRelation> relations, int availableWidth = 0)
+    public static Size Layout(
+        IReadOnlyList<DiagramBoxNode> nodes,
+        IReadOnlyList<DatabaseRelation> relations,
+        int availableWidth = 0,
+        Action<int, string>? reportProgress = null)
     {
         if (nodes.Count == 0)
         {
             return new Size(400, 300);
         }
 
+        reportProgress?.Invoke(65, "테이블 크기를 계산하는 중...");
         foreach (var node in nodes)
         {
             MeasureNode(node);
         }
 
+        reportProgress?.Invoke(74, "관계 깊이를 계산하는 중...");
         var depth = ComputeDepth(nodes, relations);
         var grouped = nodes
             .GroupBy(n => depth.TryGetValue(n.Id, out var d) ? d : 0)
             .OrderBy(g => g.Key)
             .ToList();
 
+        reportProgress?.Invoke(82, "노드를 배치하는 중...");
         var bounds = Rectangle.Empty;
         var y = 32;
+        var groupIndex = 0;
 
         foreach (var group in grouped)
         {
@@ -71,7 +79,6 @@ internal static class ErdDiagramRenderer
 
             foreach (var node in row)
             {
-                // Wrap to next line when node would exceed available width (but always place at least one per line)
                 if (availableWidth > 0 && x > 32 && x + node.Bounds.Width > availableWidth - 32)
                 {
                     y += lineMaxHeight + VerticalGap;
@@ -86,8 +93,15 @@ internal static class ErdDiagramRenderer
             }
 
             y += lineMaxHeight + VerticalGap;
+            groupIndex++;
+            if (grouped.Count > 1)
+            {
+                var percent = 82 + (int)Math.Round(groupIndex * 13.0 / grouped.Count);
+                reportProgress?.Invoke(Math.Min(percent, 95), "노드를 배치하는 중...");
+            }
         }
 
+        reportProgress?.Invoke(96, "배치를 마무리하는 중...");
         return new Size(Math.Max(bounds.Right + 48, 480), Math.Max(bounds.Bottom + 48, 320));
     }
 
@@ -261,11 +275,11 @@ internal static class ErdDiagramRenderer
         }
 
         var depths = nodes.ToDictionary(n => n.Id, _ => 0, StringComparer.OrdinalIgnoreCase);
-        var changed = true;
+        var maxRounds = Math.Max(1, nodes.Count);
 
-        while (changed)
+        for (var round = 0; round < maxRounds; round++)
         {
-            changed = false;
+            var changed = false;
             foreach (var relation in relations)
             {
                 if (!depths.TryGetValue(relation.FromTableId, out var fromDepth)
@@ -281,24 +295,30 @@ internal static class ErdDiagramRenderer
                     changed = true;
                 }
             }
+
+            if (!changed)
+            {
+                break;
+            }
         }
 
         return depths;
     }
 
+    private static readonly Font MeasureTitleFont = new("Segoe UI", 9.5f, FontStyle.Bold);
+    private static readonly Font MeasureSubFont = new("Segoe UI", 7.5f);
+    private static readonly Font MeasureColFont = new("Consolas", 8.25f);
+
     private static void MeasureNode(DiagramBoxNode node)
     {
-        using var titleFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-        using var subFont = new Font("Segoe UI", 7.5f);
-        using var colFont = new Font("Consolas", 8.25f);
         const TextFormatFlags flags = TextFormatFlags.NoPadding;
 
-        var titleW = TextRenderer.MeasureText(node.Title, titleFont, Size.Empty, flags).Width;
-        var subW = TextRenderer.MeasureText(node.Subtitle, subFont, Size.Empty, flags).Width;
+        var titleW = TextRenderer.MeasureText(node.Title, MeasureTitleFont, Size.Empty, flags).Width;
+        var subW = TextRenderer.MeasureText(node.Subtitle, MeasureSubFont, Size.Empty, flags).Width;
         var headerWidth = HorizontalPadding + titleW + 8 + subW + HorizontalPadding;
 
         var maxColW = node.Lines.Count > 0
-            ? node.Lines.Max(l => TextRenderer.MeasureText(l, colFont, Size.Empty, flags).Width)
+            ? node.Lines.Max(l => TextRenderer.MeasureText(l, MeasureColFont, Size.Empty, flags).Width)
             : 0;
 
         var width = Math.Clamp(Math.Max(headerWidth, HorizontalPadding + maxColW + HorizontalPadding), MinWidth, MaxWidth);

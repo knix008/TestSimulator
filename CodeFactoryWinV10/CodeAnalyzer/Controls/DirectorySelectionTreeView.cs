@@ -89,6 +89,11 @@ internal sealed class DirectorySelectionTreeView : UserControl
                 }
             }
 
+            if (_includedPaths.Count == 0 && _knownPaths.Contains("."))
+            {
+                _includedPaths.Add(".");
+            }
+
             RefreshAllChecks();
         }
         finally

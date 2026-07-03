@@ -60,20 +60,28 @@ public static class DirectoryScopeSettings
         IReadOnlyList<string> includedPaths,
         IReadOnlyList<string> excludedPaths)
     {
+        var known = knownPaths
+            .Select(NormalizeRelativePath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         if (includedPaths.Count > 0)
         {
-            return includedPaths
+            var resolved = includedPaths
                 .Select(NormalizeRelativePath)
+                .Where(path => known.Contains(path))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            if (resolved.Count > 0)
+            {
+                return resolved;
+            }
         }
 
         if (excludedPaths.Count == 0)
         {
-            return knownPaths
-                .Select(NormalizeRelativePath)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+            return known
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -82,12 +90,12 @@ public static class DirectoryScopeSettings
             excludedPaths.Select(NormalizeRelativePath),
             StringComparer.OrdinalIgnoreCase);
 
-        return knownPaths
-            .Select(NormalizeRelativePath)
+        var remaining = known
             .Where(path => !excluded.Contains(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        return remaining.Count > 0 ? remaining : ["."];
     }
 
     private static string NormalizeRelativePath(string path)

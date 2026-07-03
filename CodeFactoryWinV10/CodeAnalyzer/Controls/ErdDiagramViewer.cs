@@ -55,6 +55,15 @@ public sealed class ErdDiagramViewer : UserControl
         _ = RebuildInBackgroundAsync();
     }
 
+    public Task SetSchemaAsync(DatabaseSchemaResult? schema)
+    {
+        _schema = schema;
+        _selectedTableId = null;
+        _buildError = false;
+        ViewFailureReporter.Clear(this);
+        return RebuildInBackgroundAsync();
+    }
+
     public void BeginAnalysis()
     {
         _zoom.Reset();
@@ -122,11 +131,30 @@ public sealed class ErdDiagramViewer : UserControl
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
-        RelayoutIfNeeded();
+        ScheduleRelayoutIfNeeded();
+    }
+
+    private bool _relayoutScheduled;
+
+    private void ScheduleRelayoutIfNeeded()
+    {
+        if (_relayoutScheduled || !IsHandleCreated)
+        {
+            return;
+        }
+
+        _relayoutScheduled = true;
+        BeginInvoke(RelayoutIfNeeded);
     }
 
     private void RelayoutIfNeeded()
     {
+        _relayoutScheduled = false;
+        if (IsDisposed)
+        {
+            return;
+        }
+
         var w = ClientSize.Width;
         if (_boxes.Count == 0 || w == _lastLayoutWidth)
         {
@@ -389,18 +417,36 @@ public sealed class ErdDiagramViewer : UserControl
     {
         try
         {
-            ViewProgressReporter.Report(20, "테이블 노드를 구성하는 중...");
-            foreach (var table in session.Schema!.Tables.Where(t => t.SourceKind != "sql-detected"))
+            var tables = session.Schema!.Tables
+                .Where(t => t.SourceKind != "sql-detected")
+                .ToList();
+
+            for (var i = 0; i < tables.Count; i++)
             {
+                if (tables.Count > 0)
+                {
+                    var percent = 5 + (int)Math.Round((i + 1) * 50.0 / tables.Count);
+                    ViewProgressReporter.Report(
+                        percent,
+                        $"테이블 노드를 구성하는 중... ({i + 1}/{tables.Count})");
+                }
+
+                var table = tables[i];
                 var box = ErdDiagramRenderer.CreateTableBox(table);
                 session.Boxes.Add(box);
                 session.BoxMap[box.Id] = box;
             }
 
-            ViewProgressReporter.Report(70, "관계를 구성하는 중...");
+            ViewProgressReporter.Report(58, "관계를 구성하는 중...");
             session.Relations.AddRange(session.Schema.Relations);
-            ViewProgressReporter.Report(90, "ERD 레이아웃을 계산하는 중...");
-            session.ContentSize = ErdDiagramRenderer.Layout(session.Boxes, session.Relations, session.LayoutWidth);
+
+            ViewProgressReporter.Report(62, "ERD 레이아웃을 계산하는 중...");
+            session.ContentSize = ErdDiagramRenderer.Layout(
+                session.Boxes,
+                session.Relations,
+                session.LayoutWidth,
+                ViewProgressReporter.Report);
+            ViewProgressReporter.Report(100, "완료");
         }
         catch (OperationCanceledException)
         {

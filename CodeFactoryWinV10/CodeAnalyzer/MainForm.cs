@@ -21,8 +21,11 @@ public partial class MainForm : Form
     private readonly List<RootSelection> _rootHistory = new();
     private int _rootHistoryIndex = -1;
     private bool _suppressDirectoryListEvents;
+    private string? _loadedDirectoryListRoot;
     private bool _suppressLanguageListEvents;
     private bool _languageSelectionCustomized;
+    private int _languageListEventRevision;
+    private int _languageDetectGeneration;
     private bool _suppressRootHistory;
     private IReadOnlyList<SearchResultItem> _searchResults = [];
     private int _searchIndex = -1;
@@ -77,13 +80,9 @@ public partial class MainForm : Form
         };
         directorySelectionTree.SelectionChanged += (_, _) =>
         {
-            if (!_suppressDirectoryListEvents && IsHandleCreated)
+            if (!_suppressDirectoryListEvents)
             {
-                BeginInvoke(() =>
-                {
-                    PersistDirectorySelectionsFromSidebar();
-                    RefreshLanguageSelection(txtRootPath.Text.Trim());
-                });
+                OnSelectedDirectoriesChanged();
             }
         };
         InitializeOptionControls();
@@ -412,7 +411,16 @@ public partial class MainForm : Form
             return;
         }
 
-        BeginInvoke(OnLanguageSelectionChangedByUser);
+        var revision = _languageListEventRevision;
+        BeginInvoke(() =>
+        {
+            if (_suppressLanguageListEvents || revision != _languageListEventRevision)
+            {
+                return;
+            }
+
+            OnLanguageSelectionChangedByUser();
+        });
     }
 
     private void btnBrowseRoot_Click(object? sender, EventArgs e)
@@ -429,7 +437,6 @@ public partial class MainForm : Form
             return;
         }
 
-        txtRootPath.Text = dialog.SelectedPath;
         ApplyRootDirectory(dialog.SelectedPath, saveSettings: true);
     }
 
@@ -558,8 +565,14 @@ public partial class MainForm : Form
             return;
         }
 
+        var normalizedRoot = Path.GetFullPath(rootPath);
+        var rootChanged = !string.Equals(normalizedRoot, _loadedDirectoryListRoot, StringComparison.OrdinalIgnoreCase);
+
         txtRootPath.Text = rootPath;
-        LoadDirectoryList(rootPath);
+        if (rootChanged)
+        {
+            LoadDirectoryList(rootPath);
+        }
 
         if (saveSettings)
         {
@@ -608,43 +621,109 @@ public partial class MainForm : Form
             }
 
             directorySelectionTree.LoadDirectories(rootPath, directories, includedForTree);
+            _loadedDirectoryListRoot = Path.GetFullPath(rootPath);
         }
         finally
         {
             _suppressDirectoryListEvents = false;
         }
 
-        RefreshLanguageSelection(rootPath, restoreCustomizedSelection: true);
+        RefreshLanguageSelection(rootPath);
     }
 
-    private void RefreshLanguageSelection(string rootPath, bool restoreCustomizedSelection = false)
+    private void RefreshLanguageSelection(string rootPath)
     {
-        if (_languageSelectionCustomized)
+        ScheduleLanguageDetectionForSelectedDirectories(rootPath);
+    }
+
+    private void OnSelectedDirectoriesChanged()
+    {
+        PersistDirectorySelectionsFromSidebar();
+        ScheduleLanguageDetectionForSelectedDirectories();
+    }
+
+    private void ScheduleLanguageDetectionForSelectedDirectories(string? rootPath = null)
+    {
+        rootPath ??= txtRootPath.Text.Trim();
+        if (!Directory.Exists(rootPath))
         {
-            if (restoreCustomizedSelection)
+            return;
+        }
+
+        var generation = ++_languageDetectGeneration;
+        var includedDirectories = GetIncludedDirectoriesFromSidebar().ToList();
+
+        _ = Task.Run(() =>
+        {
+            HashSet<string> foundIds;
+            try
             {
-                ApplyLanguageSelection(_userSettings.LoadSettings().EnabledLanguageIds);
+                foundIds = includedDirectories.Count == 0
+                    ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    : DirectoryLanguageDetector.DetectLanguageIds(rootPath, includedDirectories);
+            }
+            catch
+            {
+                return;
             }
 
+            if (generation != _languageDetectGeneration || IsDisposed)
+            {
+                return;
+            }
+
+            PostApplyDetectedLanguages(foundIds, generation);
+        });
+    }
+
+    private void PostApplyDetectedLanguages(HashSet<string> foundIds, int generation)
+    {
+        void Apply()
+        {
+            if (generation != _languageDetectGeneration || IsDisposed)
+            {
+                return;
+            }
+
+            ApplyDetectedLanguages(foundIds, generation);
+        }
+
+        if (!IsHandleCreated)
+        {
+            EventHandler? handler = null;
+            handler = (_, _) =>
+            {
+                HandleCreated -= handler;
+                Apply();
+            };
+            HandleCreated += handler;
             return;
         }
 
-        AutoDetectLanguages(rootPath);
+        if (InvokeRequired)
+        {
+            BeginInvoke(Apply);
+        }
+        else
+        {
+            Apply();
+        }
     }
 
-    private void AutoDetectLanguages(string rootPath)
+    private void ApplyDetectedLanguages(HashSet<string> foundIds, int generation)
     {
-        if (_languageSelectionCustomized || !Directory.Exists(rootPath))
+        if (generation != _languageDetectGeneration || IsDisposed)
         {
             return;
         }
 
-        var includedDirectories = GetIncludedDirectoriesFromSidebar();
-        var foundIds = includedDirectories.Count == 0
-            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            : DirectoryLanguageDetector.DetectLanguageIds(rootPath, includedDirectories);
-
         ApplyLanguageSelection(foundIds);
+        _languageSelectionCustomized = false;
+
+        var settings = _userSettings.LoadSettings();
+        settings.LanguageSelectionCustomized = false;
+        settings.EnabledLanguageIds = GetSelectedLanguageIds().ToList();
+        _userSettings.SaveSettings(settings);
     }
 
     private void ApplyLanguageSelection(IEnumerable<string> languageIds)
@@ -653,7 +732,9 @@ public partial class MainForm : Form
             ? hashSet
             : languageIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        _languageListEventRevision++;
         _suppressLanguageListEvents = true;
+        checkedListLanguages.BeginUpdate();
         try
         {
             for (var i = 0; i < checkedListLanguages.Items.Count; i++)
@@ -666,6 +747,7 @@ public partial class MainForm : Form
         }
         finally
         {
+            checkedListLanguages.EndUpdate();
             _suppressLanguageListEvents = false;
         }
     }
@@ -689,7 +771,7 @@ public partial class MainForm : Form
         _userSettings.SaveSettings(settings);
     }
 
-    private void ApplyDirectoryChecksFromIncluded(IReadOnlyList<string> includedPaths)
+    private void ApplyDirectoryChecksFromIncluded(IReadOnlyList<string> includedPaths, bool refreshLanguages = true)
     {
         _suppressDirectoryListEvents = true;
         try
@@ -699,6 +781,11 @@ public partial class MainForm : Form
         finally
         {
             _suppressDirectoryListEvents = false;
+        }
+
+        if (refreshLanguages)
+        {
+            OnSelectedDirectoriesChanged();
         }
     }
 
@@ -1815,6 +1902,7 @@ public partial class MainForm : Form
                 includedPaths.Count > 0 ? includedPaths : null);
             if (_languageSelectionCustomized)
             {
+                _languageDetectGeneration++;
                 ApplyLanguageSelection(project.EnabledLanguageIds);
                 PersistLanguageSelection();
             }
@@ -2905,11 +2993,7 @@ public partial class MainForm : Form
 
         if (IsHandleCreated)
         {
-            BeginInvoke(() =>
-            {
-                PersistDirectorySelectionsFromSidebar();
-                RefreshLanguageSelection(txtRootPath.Text.Trim());
-            });
+            OnSelectedDirectoriesChanged();
         }
     }
 
