@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MyDiffWinV10.App.Core;
 
 namespace MyDiffWinV10.App.Controls;
 
@@ -18,6 +19,12 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
     private bool _wordWrap;
     private int _fixedLineHeight = 18;
     private int _textPadding = 4;
+    private int _monoCharWidth = -1;
+    private bool _hasBinaryHexLines;
+    private bool _virtualBinaryMode;
+    private BinaryDiffDocument? _binaryDocument;
+    private bool _binaryIsLeft;
+    private int _binaryScrollTop;
 
     public List<SyncLineListBox> Partners { get; } = new();
 
@@ -91,15 +98,131 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     public void ClearLines()
     {
+        DisableVirtualBinaryMode();
         Items.Clear();
         _contentLineCount = 0;
+        _hasBinaryHexLines = false;
         UpdateHorizontalExtent();
         LinesChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public void SetVirtualBinaryContent(BinaryDiffDocument document, bool isLeft)
+    {
+        DisableVirtualBinaryMode();
+        Items.Clear();
+
+        _binaryDocument = document;
+        _binaryIsLeft = isLeft;
+        _virtualBinaryMode = true;
+        _hasBinaryHexLines = true;
+        _contentLineCount = document.LineCount;
+        _binaryScrollTop = 0;
+
+        RefreshBinaryWindow();
+        RefreshLineMetrics();
+        UpdateHorizontalExtent();
+        LinesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SetBinaryScrollTop(int line, bool syncPartners = true)
+    {
+        if (!_virtualBinaryMode)
+        {
+            TopIndex = Math.Clamp(line, 0, Math.Max(0, Items.Count - 1));
+            Scrolled?.Invoke(this, EventArgs.Empty);
+            if (syncPartners)
+            {
+                SyncPartners();
+            }
+
+            return;
+        }
+
+        int clamped = Math.Clamp(line, 0, Math.Max(0, _contentLineCount - 1));
+        if (clamped == _binaryScrollTop && Items.Count > 0)
+        {
+            return;
+        }
+
+        _binaryScrollTop = clamped;
+        RefreshBinaryWindow();
+        Scrolled?.Invoke(this, EventArgs.Empty);
+        if (syncPartners)
+        {
+            SyncPartners();
+        }
+    }
+
+    private void DisableVirtualBinaryMode()
+    {
+        if (!_virtualBinaryMode)
+        {
+            return;
+        }
+
+        _virtualBinaryMode = false;
+        _binaryDocument = null;
+        _binaryScrollTop = 0;
+    }
+
+    private void RefreshBinaryWindow()
+    {
+        if (!_virtualBinaryMode || _binaryDocument == null || !IsHandleCreated)
+        {
+            return;
+        }
+
+        int lineHeight = Math.Max(1, ItemHeight);
+        int visibleLines = ClientSize.Height > 0
+            ? (int)Math.Ceiling(ClientSize.Height / (double)lineHeight) + 2
+            : 32;
+        int end = Math.Min(_contentLineCount, _binaryScrollTop + visibleLines);
+
+        BeginUpdate();
+        try
+        {
+            Items.Clear();
+            for (int line = _binaryScrollTop; line < end; line++)
+            {
+                Items.Add(CreateBinaryPaneLine(line));
+            }
+
+            TopIndex = 0;
+        }
+        finally
+        {
+            EndUpdate();
+        }
+
+        Invalidate();
+    }
+
+    private PaneLineItem CreateBinaryPaneLine(int lineIndex)
+    {
+        var line = _binaryIsLeft
+            ? _binaryDocument!.GetLeftLine(lineIndex)
+            : _binaryDocument!.GetRightLine(lineIndex);
+        return new PaneLineItem
+        {
+            Text = line.Text,
+            BackColor = PaneTheme.RowBackColor(_binaryDocument!.RowKinds[lineIndex], lineIndex),
+            BinaryByteDiffMask = line.DiffMask,
+        };
+    }
+
     public void AddLine(string text, Color backColor)
     {
-        Items.Add(new PaneLineItem { Text = text, BackColor = backColor });
+        AddLine(new PaneLineItem { Text = text, BackColor = backColor });
+    }
+
+    public void AddLine(PaneLineItem item)
+    {
+        if (item.BinaryByteDiffMask.HasValue)
+        {
+            _hasBinaryHexLines = true;
+        }
+
+        Items.Add(item);
         _contentLineCount = Items.Count;
     }
 
@@ -108,7 +231,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     public void EnsureViewportFill()
     {
-        if (_isEnsuringViewport || !IsHandleCreated || ClientSize.Height <= 0)
+        if (_virtualBinaryMode || _isEnsuringViewport || !IsHandleCreated || ClientSize.Height <= 0)
         {
             return;
         }
@@ -175,15 +298,21 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     public void ScrollToTop()
     {
-        if (Items.Count == 0)
+        if (_contentLineCount == 0)
         {
+            return;
+        }
+
+        if (_virtualBinaryMode)
+        {
+            SetBinaryScrollTop(0, syncPartners: false);
             return;
         }
 
         TopIndex = 0;
     }
 
-    public int GetFirstVisibleLine() => TopIndex;
+    public int GetFirstVisibleLine() => _virtualBinaryMode ? _binaryScrollTop : TopIndex;
 
     int ILineScrollSource.GetFirstVisibleLine() => GetFirstVisibleLine();
 
@@ -194,7 +323,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             return -1;
         }
 
-        int first = TopIndex;
+        int first = GetFirstVisibleLine();
         if (lineIndex < first)
         {
             return -1;
@@ -203,7 +332,13 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
         if (!_wordWrap)
         {
             int lineHeight = Math.Max(1, ItemHeight);
-            int top = (lineIndex - first) * lineHeight;
+            int relative = lineIndex - first;
+            if (_virtualBinaryMode && relative >= Items.Count)
+            {
+                return -1;
+            }
+
+            int top = relative * lineHeight;
             return top >= ClientSize.Height ? -1 : top;
         }
 
@@ -222,7 +357,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     public int GetLineHeight(int lineIndex)
     {
-        if (lineIndex < 0 || lineIndex >= Items.Count)
+        if (lineIndex < 0 || lineIndex >= _contentLineCount)
         {
             return _fixedLineHeight;
         }
@@ -244,14 +379,28 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
     {
         base.OnHandleCreated(e);
         ApplyNativeVerticalScrollbarVisibility();
-        ScheduleViewportFill();
+        if (_virtualBinaryMode)
+        {
+            RefreshBinaryWindow();
+        }
+        else
+        {
+            ScheduleViewportFill();
+        }
     }
 
     protected override void OnFontChanged(EventArgs e)
     {
         base.OnFontChanged(e);
         RefreshLineMetrics();
-        ScheduleViewportFill();
+        if (_virtualBinaryMode)
+        {
+            RefreshBinaryWindow();
+        }
+        else
+        {
+            ScheduleViewportFill();
+        }
     }
 
     protected override void OnResize(EventArgs e)
@@ -263,7 +412,14 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
         }
 
         ApplyNativeVerticalScrollbarVisibility();
-        ScheduleViewportFill();
+        if (_virtualBinaryMode)
+        {
+            RefreshBinaryWindow();
+        }
+        else
+        {
+            ScheduleViewportFill();
+        }
     }
 
     protected override void OnPaintBackground(PaintEventArgs pevent)
@@ -275,16 +431,21 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
     {
         if (!IsHandleCreated || ClientSize.Height <= 0)
         {
-            return Math.Max(Items.Count, 1);
+            return Math.Max(_contentLineCount, 1);
         }
 
         int lineHeight = Math.Max(1, ItemHeight);
         int visibleLines = (int)Math.Ceiling(ClientSize.Height / (double)lineHeight);
-        return Math.Max(Items.Count, TopIndex + visibleLines);
+        return Math.Max(_contentLineCount, TopIndex + visibleLines);
     }
 
     private Color GetBackgroundColorForLine(int lineIndex)
     {
+        if (_virtualBinaryMode && _binaryDocument != null && lineIndex >= 0 && lineIndex < _binaryDocument.LineCount)
+        {
+            return PaneTheme.RowBackColor(_binaryDocument.RowKinds[lineIndex], lineIndex);
+        }
+
         if (lineIndex >= 0 && lineIndex < Items.Count && Items[lineIndex] is PaneLineItem item)
         {
             return item.BackColor;
@@ -301,7 +462,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
         }
 
         int lineHeight = Math.Max(1, ItemHeight);
-        int firstLine = TopIndex;
+        int firstLine = GetFirstVisibleLine();
         int y = 0;
         for (int line = firstLine; y < bounds.Height; line++)
         {
@@ -315,7 +476,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     protected override void OnMeasureItem(MeasureItemEventArgs e)
     {
-        if (e.Index < 0 || e.Index >= Items.Count)
+        if (e.Index < 0 || e.Index >= _contentLineCount)
         {
             e.ItemHeight = _fixedLineHeight;
             return;
@@ -326,21 +487,22 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     protected override void OnDrawItem(DrawItemEventArgs e)
     {
-        if (e.Index < 0 || e.Index >= Items.Count)
+        if (e.Index < 0 || e.Index >= _contentLineCount)
         {
             e.DrawBackground();
             return;
         }
 
-        var item = (PaneLineItem)Items[e.Index];
+        var item = (PaneLineItem)Items[e.Index]!;
         using (var rowBrush = new SolidBrush(item.BackColor))
         {
             e.Graphics.FillRectangle(rowBrush, e.Bounds);
         }
 
         bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+        int logicalIndex = _virtualBinaryMode ? _binaryScrollTop + e.Index : e.Index;
         int textLeft = e.Bounds.X + _textPadding;
-        if (selected && ShowSelectionAccent && e.Index < _contentLineCount)
+        if (selected && ShowSelectionAccent && logicalIndex < _contentLineCount)
         {
             using var accentBrush = new SolidBrush(PaneTheme.SelectedAccentColor);
             e.Graphics.FillRectangle(accentBrush, e.Bounds.X, e.Bounds.Y, 4, e.Bounds.Height);
@@ -353,9 +515,97 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             Math.Max(0, e.Bounds.Right - textLeft - _textPadding),
             e.Bounds.Height);
 
+        if (item.BinaryByteDiffMask is ushort diffMask)
+        {
+            DrawBinaryHexLine(e.Graphics, textBounds, item.Text, diffMask);
+            return;
+        }
+
         var flags = TextFormatFlags.NoPrefix | TextFormatFlags.Left | TextFormatFlags.VerticalCenter;
         flags |= _wordWrap ? TextFormatFlags.WordBreak : TextFormatFlags.SingleLine;
         TextRenderer.DrawText(e.Graphics, item.Text, Font, textBounds, ForeColor, flags);
+    }
+
+    private void DrawBinaryHexLine(Graphics graphics, Rectangle bounds, string text, ushort diffMask)
+    {
+        EnsureMonoCharWidth(graphics);
+        var baseFlags = TextFormatFlags.NoPrefix | TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
+
+        TextRenderer.DrawText(graphics, text, Font, bounds, ForeColor, baseFlags);
+
+        if (diffMask == 0)
+        {
+            return;
+        }
+
+        int y = bounds.Y;
+        int height = bounds.Height;
+        var diffColor = PaneTheme.BinaryDiffTextColor;
+
+        for (int byteIndex = 0; byteIndex < 16; byteIndex++)
+        {
+            if ((diffMask & (1 << byteIndex)) == 0)
+            {
+                continue;
+            }
+
+            int hexStart = BinaryHexLayout.HexStart(byteIndex);
+            var hexBounds = new Rectangle(
+                bounds.X + hexStart * _monoCharWidth,
+                y,
+                _monoCharWidth * 2,
+                height);
+            TextRenderer.DrawText(
+                graphics,
+                text.AsSpan(hexStart, 2),
+                Font,
+                hexBounds,
+                diffColor,
+                baseFlags);
+
+            int asciiIndex = BinaryHexLayout.AsciiIndex(byteIndex);
+            var asciiBounds = new Rectangle(
+                bounds.X + asciiIndex * _monoCharWidth,
+                y,
+                _monoCharWidth,
+                height);
+            TextRenderer.DrawText(
+                graphics,
+                text.AsSpan(asciiIndex, 1),
+                Font,
+                asciiBounds,
+                diffColor,
+                baseFlags);
+        }
+    }
+
+    private void EnsureMonoCharWidth(Graphics? graphics = null)
+    {
+        if (_monoCharWidth > 0)
+        {
+            return;
+        }
+
+        bool owned = graphics == null;
+        graphics ??= CreateGraphics();
+        try
+        {
+            _monoCharWidth = Math.Max(
+                1,
+                TextRenderer.MeasureText(
+                    graphics,
+                    "0",
+                    Font,
+                    new Size(int.MaxValue, _fixedLineHeight),
+                    TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width);
+        }
+        finally
+        {
+            if (owned)
+            {
+                graphics.Dispose();
+            }
+        }
     }
 
     protected override void WndProc(ref Message m)
@@ -368,27 +618,75 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             return;
         }
 
+        if (!_suppressSync && m.Msg == WM_MOUSEWHEEL)
+        {
+            ScrollByWheelDelta((short)((long)m.WParam >> 16));
+            m.Result = (IntPtr)1;
+            return;
+        }
+
         base.WndProc(ref m);
 
-        if (!_suppressSync && (m.Msg == WM_VSCROLL || m.Msg == WM_MOUSEWHEEL))
+        if (!_suppressSync && m.Msg == WM_VSCROLL)
         {
             Scrolled?.Invoke(this, EventArgs.Empty);
             SyncPartners();
         }
     }
 
+    private void ScrollByWheelDelta(int delta)
+    {
+        int step = GetWheelScrollLines(delta);
+        if (step == 0)
+        {
+            return;
+        }
+
+        if (_virtualBinaryMode)
+        {
+            SetBinaryScrollTop(_binaryScrollTop + step, syncPartners: true);
+            return;
+        }
+
+        int newTop = Math.Clamp(TopIndex + step, 0, Math.Max(0, _contentLineCount - 1));
+        if (newTop == TopIndex)
+        {
+            return;
+        }
+
+        TopIndex = newTop;
+        Scrolled?.Invoke(this, EventArgs.Empty);
+        SyncPartners();
+    }
+
+    private int GetWheelScrollLines(int delta)
+    {
+        if (delta == 0)
+        {
+            return 0;
+        }
+
+        int lines = SystemInformation.MouseWheelScrollLines;
+        if (lines < 0)
+        {
+            lines = Math.Max(1, ClientSize.Height / Math.Max(1, ItemHeight));
+        }
+
+        return delta > 0 ? -lines : lines;
+    }
+
     public void SyncPartners()
     {
-        int myTop = TopIndex;
+        int myTop = GetFirstVisibleLine();
         foreach (var partner in Partners)
         {
-            if (!partner.IsHandleCreated || partner.TopIndex == myTop)
+            if (!partner.IsHandleCreated || partner.GetFirstVisibleLine() == myTop)
             {
                 continue;
             }
 
             partner._suppressSync = true;
-            partner.TopIndex = Math.Min(myTop, Math.Max(0, partner.Items.Count - 1));
+            partner.SetBinaryScrollTop(myTop, syncPartners: false);
             partner._suppressSync = false;
             partner.Scrolled?.Invoke(partner, EventArgs.Empty);
         }
@@ -396,19 +694,32 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     public void CopySelectedLine()
     {
-        if (SelectedIndex < 0 || SelectedIndex >= Items.Count)
+        if (SelectedIndex < 0)
         {
             return;
         }
 
-        if (Items[SelectedIndex] is PaneLineItem item)
+        int lineIndex = _virtualBinaryMode ? _binaryScrollTop + SelectedIndex : SelectedIndex;
+        if (lineIndex < 0 || lineIndex >= _contentLineCount)
         {
-            Clipboard.SetText(item.Text);
+            return;
         }
+
+        if (_virtualBinaryMode)
+        {
+            var line = _binaryIsLeft
+                ? _binaryDocument!.GetLeftLine(lineIndex)
+                : _binaryDocument!.GetRightLine(lineIndex);
+            Clipboard.SetText(line.Text);
+            return;
+        }
+
+        Clipboard.SetText(((PaneLineItem)Items[SelectedIndex]!).Text);
     }
 
     private void RefreshLineMetrics()
     {
+        _monoCharWidth = -1;
         _fixedLineHeight = Math.Max(1, TextRenderer.MeasureText("Ag", Font).Height + _textPadding);
         ItemHeight = _fixedLineHeight;
         if (_wordWrap && IsHandleCreated)
@@ -448,8 +759,16 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     private void UpdateHorizontalExtent()
     {
-        if (_wordWrap || !IsHandleCreated || Items.Count == 0)
+        if (_wordWrap || !IsHandleCreated || _contentLineCount == 0)
         {
+            return;
+        }
+
+        if (_hasBinaryHexLines)
+        {
+            EnsureMonoCharWidth();
+            int width = BinaryHexLayout.LineLength * _monoCharWidth + _textPadding * 2;
+            SendMessage(Handle, LB_SETHORIZONTALEXTENT, Math.Max(ClientSize.Width, width), 0);
             return;
         }
 

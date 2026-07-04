@@ -44,6 +44,7 @@ public sealed class DiffForm : Form
     private Label _lblPaneLeft = null!;
     private Label _lblPaneRight = null!;
     private ToolStrip? _toolStrip;
+    private readonly ToolTip _paneHeaderToolTip = new();
 
     private readonly List<(Control Control, Func<string> GetText)> _localizedControls = new();
     private readonly List<(ToolStripItem Item, Func<string> GetText)> _localizedItems = new();
@@ -137,8 +138,8 @@ public sealed class DiffForm : Form
         _lstLeft.Partners.Add(_lstRight);
         _lstRight.Partners.Add(_lstLeft);
 
-        _lstLeft.ContextMenuStrip = BuildPaneContextMenu(_lstLeft);
-        _lstRight.ContextMenuStrip = BuildPaneContextMenu(_lstRight);
+        _lstLeft.ContextMenuStrip = BuildPaneContextMenu(_lstLeft, isLeft: true);
+        _lstRight.ContextMenuStrip = BuildPaneContextMenu(_lstRight, isLeft: false);
 
         _gutterLeft.Sync(_lstLeft);
         _gutterRight.Sync(_lstRight);
@@ -162,8 +163,17 @@ public sealed class DiffForm : Form
         Controls.Add(statusStrip);
         Controls.Add(menu);
 
-        RegisterLocalizedControl(_lblPaneLeft, () => Strings.PaneLeft);
-        RegisterLocalizedControl(_lblPaneRight, () => Strings.PaneRight);
+        ConfigurePaneHeader(_lblPaneLeft, OpenLeft);
+        ConfigurePaneHeader(_lblPaneRight, OpenRight);
+    }
+
+    private static string FormatPaneHeader(string sideLabel, string? filePath) =>
+        filePath == null ? sideLabel : $"{sideLabel} — {Path.GetFileName(filePath)}";
+
+    private void ConfigurePaneHeader(Label label, Action openFile)
+    {
+        label.Cursor = Cursors.Hand;
+        label.Click += (_, _) => openFile();
     }
 
     private static void ConfigureSourcePane(SyncLineListBox listBox)
@@ -184,6 +194,7 @@ public sealed class DiffForm : Form
             BackColor = headerBg,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(8, 0, 8, 0),
+            AutoEllipsis = true,
         };
 
         gutter.Dock = DockStyle.Left;
@@ -322,9 +333,19 @@ public sealed class DiffForm : Form
         return toolStrip;
     }
 
-    private ContextMenuStrip BuildPaneContextMenu(SyncLineListBox listBox)
+    private ContextMenuStrip BuildPaneContextMenu(SyncLineListBox listBox, bool isLeft)
     {
         var menu = new ContextMenuStrip();
+        if (isLeft)
+        {
+            menu.Items.Add(MakeMenuItem(() => Strings.OpenLeft, IconFactory.OpenLeft(), () => Strings.TipOpenLeft, (_, _) => OpenLeft()));
+        }
+        else
+        {
+            menu.Items.Add(MakeMenuItem(() => Strings.OpenRight, IconFactory.OpenRight(), () => Strings.TipOpenRight, (_, _) => OpenRight()));
+        }
+
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(MakeMenuItem(() => Strings.PreviousDiff, IconFactory.PrevDiff(), () => Strings.TipPrevDiff, (_, _) => GoToDiff(-1)));
         menu.Items.Add(MakeMenuItem(() => Strings.NextDiff, IconFactory.NextDiff(), () => Strings.TipNextDiff, (_, _) => GoToDiff(1)));
         menu.Items.Add(new ToolStripSeparator());
@@ -397,10 +418,18 @@ public sealed class DiffForm : Form
         _settings.LastSession = new LastSessionInfo { LeftPath = session.LeftPath, RightPath = session.RightPath };
         AppSettingsStore.Save(_settings);
 
-        RenderDiff(session.Document);
+        RenderDiff(session);
         UpdateStatus();
         UpdateActionItemsEnabled();
+        ApplyBinaryUiState();
+        UpdatePaneHeaderText();
         Text = string.Format(Strings.WindowTitleFormat, Path.GetFileName(session.RightPath));
+    }
+
+    private void UpdatePaneHeaderText()
+    {
+        _lblPaneLeft.Text = FormatPaneHeader(Strings.PaneLeft, _session?.LeftPath);
+        _lblPaneRight.Text = FormatPaneHeader(Strings.PaneRight, _session?.RightPath);
     }
 
     private void RestoreLastSessionIfAvailable()
@@ -414,7 +443,18 @@ public sealed class DiffForm : Form
         LoadSession(DiffSession.Load(last.LeftPath, last.RightPath));
     }
 
-    private void RenderDiff(DiffDocument document)
+    private void RenderDiff(DiffSession session)
+    {
+        if (session.Mode == DiffMode.Binary)
+        {
+            RenderBinaryDiff(session.BinaryDocument!);
+            return;
+        }
+
+        RenderTextDiff(session.TextDocument!);
+    }
+
+    private void RenderTextDiff(DiffDocument document)
     {
         _lstLeft.ClearLines();
         _lstRight.ClearLines();
@@ -422,27 +462,49 @@ public sealed class DiffForm : Form
         int line = 0;
         foreach (var row in document.Rows)
         {
-            Color color = row.Kind switch
-            {
-                DiffLineKind.Added => PaneTheme.AddedColor,
-                DiffLineKind.Removed => PaneTheme.RemovedColor,
-                DiffLineKind.Modified => PaneTheme.ModifiedColor,
-                _ => PaneTheme.ZebraForLine(line),
-            };
+            Color color = RowColor(row.Kind, line);
 
             _lstLeft.AddLine(row.LeftText ?? string.Empty, color);
             _lstRight.AddLine(row.RightText ?? string.Empty, color);
             line++;
         }
 
+        FinishRender(document.Rows.Select(row => row.Kind).ToList());
+    }
+
+    private void RenderBinaryDiff(BinaryDiffDocument document)
+    {
+        _lstLeft.SetVirtualBinaryContent(document, isLeft: true);
+        _lstRight.SetVirtualBinaryContent(document, isLeft: false);
+        FinishRender(document.RowKinds);
+    }
+
+    private static Color RowColor(DiffLineKind kind, int line) =>
+        PaneTheme.RowBackColor(kind, line);
+
+    private void FinishRender(IReadOnlyList<DiffLineKind> kinds)
+    {
         _lstLeft.FinishBatch();
         _lstRight.FinishBatch();
         _lstLeft.ScrollToTop();
         _lstRight.ScrollToTop();
 
-        _overviewLeft.SetRows(document.Rows);
-        _overviewRight.SetRows(document.Rows);
+        _overviewLeft.SetRowKinds(kinds);
+        _overviewRight.SetRowKinds(kinds);
         RefreshScrollIndicators();
+    }
+
+    private void ApplyBinaryUiState()
+    {
+        bool isBinary = _session?.Mode == DiffMode.Binary;
+        _tsbWordWrap.Enabled = !isBinary;
+        _wordWrapMenuItem.Enabled = !isBinary;
+
+        if (isBinary && _settings.WordWrap)
+        {
+            _settings.WordWrap = false;
+            ApplyPanePreferences();
+        }
     }
 
     private void GoToDiff(int direction)
@@ -452,11 +514,16 @@ public sealed class DiffForm : Form
             return;
         }
 
-        var rows = _session.Document.Rows;
+        var rows = GetCurrentRowKinds();
+        if (rows == null)
+        {
+            return;
+        }
+
         int i = _lstLeft.GetFirstVisibleLine() + direction;
         while (i >= 0 && i < rows.Count)
         {
-            if (rows[i].Kind != DiffLineKind.Same)
+            if (rows[i] != DiffLineKind.Same)
             {
                 JumpToLine(i);
                 return;
@@ -466,6 +533,18 @@ public sealed class DiffForm : Form
         }
     }
 
+    private IReadOnlyList<DiffLineKind>? GetCurrentRowKinds()
+    {
+        if (_session == null)
+        {
+            return null;
+        }
+
+        return _session.Mode == DiffMode.Binary
+            ? _session.BinaryDocument!.RowKinds
+            : _session.TextDocument!.Rows.Select(row => row.Kind).ToList();
+    }
+
     private void JumpToLine(int line)
     {
         if (_session == null)
@@ -473,10 +552,9 @@ public sealed class DiffForm : Form
             return;
         }
 
-        int clamped = Math.Clamp(line, 0, Math.Max(0, _lstLeft.Items.Count - 1));
-        _lstLeft.TopIndex = clamped;
-        _lstRight.TopIndex = clamped;
-        _lstLeft.SyncPartners();
+        int clamped = Math.Clamp(line, 0, Math.Max(0, _lstLeft.ContentLineCount - 1));
+        _lstLeft.SetBinaryScrollTop(clamped);
+        _lstRight.SetBinaryScrollTop(clamped, syncPartners: false);
         RefreshScrollIndicators();
     }
 
@@ -532,7 +610,29 @@ public sealed class DiffForm : Form
             return;
         }
 
-        var doc = _session.Document;
+        var doc = _session.TextDocument;
+        var binary = _session.BinaryDocument;
+
+        if (_session.Mode == DiffMode.Binary && binary != null)
+        {
+            _statusLabel.Text = binary.HasDifferences
+                ? Strings.FormatBinaryStatus(
+                    _session.LeftPath,
+                    _session.RightPath,
+                    binary.DifferentByteCount,
+                    binary.AddedRowCount,
+                    binary.RemovedRowCount,
+                    binary.ModifiedRowCount)
+                : Strings.StatusBinaryIdentical;
+            return;
+        }
+
+        if (doc == null)
+        {
+            _statusLabel.Text = Strings.StatusNoSession;
+            return;
+        }
+
         _statusLabel.Text = doc.HasDifferences
             ? Strings.FormatStatus(_session.LeftPath, _session.RightPath, doc.AddedCount, doc.RemovedCount, doc.ModifiedCount)
             : Strings.StatusIdentical;
@@ -570,6 +670,8 @@ public sealed class DiffForm : Form
             control.Text = getText();
         }
 
+        UpdatePaneHeaderText();
+
         foreach (var (item, getText) in _localizedItems)
         {
             item.Text = getText();
@@ -579,6 +681,9 @@ public sealed class DiffForm : Form
         {
             item.ToolTipText = getToolTip();
         }
+
+        _paneHeaderToolTip.SetToolTip(_lblPaneLeft, Strings.TipOpenLeft);
+        _paneHeaderToolTip.SetToolTip(_lblPaneRight, Strings.TipOpenRight);
 
         Text = _session == null ? Strings.AppTitle : string.Format(Strings.WindowTitleFormat, Path.GetFileName(_session.RightPath));
         UpdateStatus();

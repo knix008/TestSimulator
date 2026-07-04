@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Fragment>
+    <StandardDirectory Id="AppDataFolder">
+      <Directory Id="MyDiffUserDataFolder" Name="MyDiffWinV10" />
+    </StandardDirectory>
+
+    <Property Id="REMOVEUSERDATA" Secure="yes" />
+
+    <Property Id="USERDATAFOLDER" Secure="yes">
+      <RegistrySearch Id="UserDataFolderSearch"
+                      Root="HKCU"
+                      Key="Software\MyDiffWinV10"
+                      Name="UserDataPath"
+                      Type="raw" />
+    </Property>
+
+    <Property Id="EXISTINGUSERDATA">
+      <DirectorySearch Id="SearchMyDiffUserDataDir"
+                       Path="[MyDiffUserDataFolder]"
+                       Depth="0">
+        <FileSearch Id="SearchMyDiffSettingsFile" Name="settings.json" />
+      </DirectorySearch>
+    </Property>
+
+    <SetProperty Id="USERDATAFOLDER"
+                 Value="[MyDiffUserDataFolder]"
+                 Before="CostInitialize"
+                 Sequence="both"
+                 Condition="NOT USERDATAFOLDER" />
+
+    <Component Id="UserDataPathComponent"
+               Directory="MyDiffUserDataFolder"
+               Guid="A7C3E1F9-4B2D-4A6E-8C0F-1D2E3F4A5B6C">
+      <RegistryValue Root="HKCU"
+                     Key="Software\MyDiffWinV10"
+                     Name="UserDataPath"
+                     Type="string"
+                     Value="[MyDiffUserDataFolder]"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="UserDataRemovalComponent"
+               Directory="MyDiffUserDataFolder"
+               Guid="F1E2D3C4-B5A6-9788-7766-554433221100"
+               Condition="REMOVEUSERDATA=&quot;1&quot;">
+      <CreateFolder Directory="MyDiffUserDataFolder" />
+      <util:RemoveFolderEx Property="USERDATAFOLDER" On="both" />
+      <RemoveFolder Id="RemoveMyDiffUserDataFolder" Directory="MyDiffUserDataFolder" On="both" />
+    </Component>
+  </Fragment>
+</Wix>

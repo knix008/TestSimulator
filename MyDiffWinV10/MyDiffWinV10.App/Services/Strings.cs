@@ -62,6 +62,12 @@ public static class Strings
         "{0} ↔ {1}  -  추가 {2} / 삭제 {3} / 변경 {4}",
         "{0} <-> {1}  -  +{2} added / -{3} removed / ~{4} modified");
     public static string StatusIdentical => T("두 파일이 동일합니다.", "The two files are identical.");
+    public static string StatusBinaryFormat => T(
+        "{0} ↔ {1}  -  바이너리, {2}바이트 다름 (추가 {3} / 삭제 {4} / 변경 {5}줄)",
+        "{0} <-> {1}  -  binary, {2} byte(s) differ (+{3} / -{4} / ~{5} lines)");
+    public static string StatusBinaryIdentical => T(
+        "두 바이너리 파일이 동일합니다.",
+        "The two binary files are identical.");
 
     public static string DialogSelectLeftFile => T("왼쪽 파일 선택", "Select the left file");
     public static string DialogSelectRightFile => T("오른쪽 파일 선택", "Select the right file");
@@ -101,6 +107,22 @@ public static class Strings
 
     public static string FormatStatus(string leftPath, string rightPath, int added, int removed, int modified) =>
         string.Format(StatusFormat, Path.GetFileName(leftPath), Path.GetFileName(rightPath), added, removed, modified);
+
+    public static string FormatBinaryStatus(
+        string leftPath,
+        string rightPath,
+        int differentBytes,
+        int addedRows,
+        int removedRows,
+        int modifiedRows) =>
+        string.Format(
+            StatusBinaryFormat,
+            Path.GetFileName(leftPath),
+            Path.GetFileName(rightPath),
+            differentBytes,
+            addedRows,
+            removedRows,
+            modifiedRows);
 
     private static string T(string korean, string english) =>
         Language == AppLanguage.Korean ? korean : english;

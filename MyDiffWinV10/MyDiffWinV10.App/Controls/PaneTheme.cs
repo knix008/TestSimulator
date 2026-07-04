@@ -1,5 +1,7 @@
 namespace MyDiffWinV10.App.Controls;
 
+using MyDiffWinV10.App.Core;
+
 internal static class PaneTheme
 {
     public static readonly Color ZebraColor = Color.FromArgb(238, 241, 246);
@@ -17,11 +19,21 @@ internal static class PaneTheme
     public static readonly Color RemovedAccent = Color.FromArgb(239, 68, 68);
     public static readonly Color AddedAccent = Color.FromArgb(34, 197, 94);
     public static readonly Color ModifiedAccent = Color.FromArgb(245, 158, 11);
+    public static readonly Color BinaryDiffTextColor = Color.FromArgb(185, 28, 28);
     public static readonly Color OverviewBackgroundColor = Color.FromArgb(248, 250, 252);
     public static readonly Color OverviewViewportColor = Color.FromArgb(100, 116, 139);
 
     public static Color ZebraForLine(int lineIndex) =>
         lineIndex % 2 == 0 ? RowColorEven : ZebraColor;
+
+    public static Color RowBackColor(DiffLineKind kind, int lineIndex) =>
+        kind switch
+        {
+            DiffLineKind.Added => AddedColor,
+            DiffLineKind.Removed => RemovedColor,
+            DiffLineKind.Modified => ModifiedColor,
+            _ => ZebraForLine(lineIndex),
+        };
 
     public static Color PastelHeaderBackground(Color accent) =>
         Color.FromArgb(

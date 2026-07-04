@@ -10,7 +10,7 @@
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
     <AppProject>$(MSBuildThisFileDirectory)..\MyDiffWinV10.App\MyDiffWinV10.App.csproj</AppProject>
     <PublishOutputDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\publish\installer\'))</PublishOutputDir>
-    <MsiOutputPath>$(OutputPath)$(OutputName).msi</MsiOutputPath>
+    <MsiOutputPath>$(OutputPath)en-us\$(OutputName).msi</MsiOutputPath>
     <InstallerBuildEnabled>false</InstallerBuildEnabled>
   </PropertyGroup>
 
@@ -29,19 +29,35 @@
 
   <PropertyGroup>
     <DefineConstants>$(DefineConstants);PublishOutputDir=$(PublishOutputDir)</DefineConstants>
+    <Cultures>en-us;ko-kr</Cultures>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" GeneratePathProperty="true" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" GeneratePathProperty="true" />
   </ItemGroup>
 
   <PropertyGroup>
     <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(PkgWixToolset_UI_wixext)' != ''">$(PkgWixToolset_UI_wixext)\wixext6\WixToolset.UI.wixext.dll</_UiWixExtDll>
     <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.ui.wixext\6.0.2\wixext6\WixToolset.UI.wixext.dll</_UiWixExtDll>
+    <_UtilWixExtDll Condition="'$(_UtilWixExtDll)' == '' and '$(PkgWixToolset_Util_wixext)' != ''">$(PkgWixToolset_Util_wixext)\wixext6\WixToolset.Util.wixext.dll</_UtilWixExtDll>
+    <_UtilWixExtDll Condition="'$(_UtilWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.util.wixext\6.0.2\wixext6\WixToolset.Util.wixext.dll</_UtilWixExtDll>
+    <_UtilWixExtDll Condition="'$(_UtilWixExtDll)' == ''">$([System.IO.Path]::Combine('$(UserProfile)', '.nuget', 'packages', 'wixtoolset.util.wixext', '6.0.2', 'wixext6', 'WixToolset.Util.wixext.dll'))</_UtilWixExtDll>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == ''">$([System.IO.Path]::Combine('$(UserProfile)', '.nuget', 'packages', 'wixtoolset.ui.wixext', '6.0.2', 'wixext6', 'WixToolset.UI.wixext.dll'))</_UiWixExtDll>
   </PropertyGroup>
   <ItemGroup>
     <WixExtension Include="$(_UiWixExtDll)" Condition="Exists('$(_UiWixExtDll)')" />
+    <WixExtension Include="$(_UtilWixExtDll)" Condition="Exists('$(_UtilWixExtDll)')" />
   </ItemGroup>
+
+  <Target Name="VerifyWixExtensionPackages"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildEnabled)' == 'true'">
+    <Error Condition="!Exists('$(_UtilWixExtDll)')"
+           Text="WixToolset.Util.wixext was not restored (required for util:RemoveFolderEx in UserData.wxs). Run: dotnet restore installer\MyDiffWinV10.Installer.wixproj" />
+    <Error Condition="!Exists('$(_UiWixExtDll)')"
+           Text="WixToolset.UI.wixext was not restored. Run: dotnet restore installer\MyDiffWinV10.Installer.wixproj" />
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="$(AppProject)">
@@ -84,6 +100,10 @@
           Condition="'$(InstallerBuildEnabled)' == 'true'">
     <Error Condition="!Exists('$(MsiOutputPath)')"
            Text="MSI was not created at $(MsiOutputPath). Close any running MyDiffWinV10.App.exe and rebuild." />
+    <Copy SourceFiles="$(MsiOutputPath)"
+          DestinationFiles="$(OutputPath)$(OutputName).msi"
+          Condition="Exists('$(MsiOutputPath)')" />
     <Message Importance="high" Text="MSI created: $(MsiOutputPath)" />
+    <Message Importance="high" Text="MSI copied: $(OutputPath)$(OutputName).msi" Condition="Exists('$(OutputPath)$(OutputName).msi')" />
   </Target>
 </Project>

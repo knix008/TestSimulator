@@ -89,8 +89,7 @@ public sealed class PaneVScrollBar : VScrollBar
             return;
         }
 
-        _target.TopIndex = Math.Clamp(e.NewValue, 0, Math.Max(0, _target.Items.Count - 1));
-        _target.SyncPartners();
+        _target.SetBinaryScrollTop(Math.Clamp(e.NewValue, 0, Math.Max(0, _target.ContentLineCount - 1)), syncPartners: true);
     }
 
     protected override void OnHandleCreated(EventArgs e)

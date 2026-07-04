@@ -10,7 +10,10 @@ namespace MyDiffWinV10.App.Controls;
 /// </summary>
 public sealed class DiffOverviewBar : Control
 {
+    private const int BucketedOverviewThreshold = 2048;
+
     private IReadOnlyList<DiffRow>? _rows;
+    private IReadOnlyList<DiffLineKind>? _kinds;
     private SyncLineListBox? _target;
 
     public event EventHandler<int>? LineClicked;
@@ -26,6 +29,14 @@ public sealed class DiffOverviewBar : Control
     public void SetRows(IReadOnlyList<DiffRow>? rows)
     {
         _rows = rows;
+        _kinds = null;
+        Invalidate();
+    }
+
+    public void SetRowKinds(IReadOnlyList<DiffLineKind>? kinds)
+    {
+        _kinds = kinds;
+        _rows = null;
         Invalidate();
     }
 
@@ -66,33 +77,20 @@ public sealed class DiffOverviewBar : Control
         }
 
         var rows = _rows;
-        if (rows == null || rows.Count == 0 || bounds.Height <= 0)
+        var kinds = _kinds ?? rows?.Select(row => row.Kind).ToList();
+        if (kinds == null || kinds.Count == 0 || bounds.Height <= 0)
         {
             return;
         }
 
-        int total = rows.Count;
-        for (int i = 0; i < total; i++)
+        int total = kinds.Count;
+        if (total > BucketedOverviewThreshold)
         {
-            DiffLineKind kind = rows[i].Kind;
-            if (kind == DiffLineKind.Same)
-            {
-                continue;
-            }
-
-            Color color = kind switch
-            {
-                DiffLineKind.Added => PaneTheme.AddedAccent,
-                DiffLineKind.Removed => PaneTheme.RemovedAccent,
-                DiffLineKind.Modified => PaneTheme.ModifiedAccent,
-                _ => PaneTheme.OverviewViewportColor,
-            };
-
-            int y = (int)((long)i * bounds.Height / total);
-            int yNext = (int)((long)(i + 1) * bounds.Height / total);
-            int height = Math.Max(1, yNext - y);
-            using var brush = new SolidBrush(color);
-            e.Graphics.FillRectangle(brush, 2, y, Math.Max(1, bounds.Width - 4), height);
+            DrawBucketedOverview(e.Graphics, bounds, kinds);
+        }
+        else
+        {
+            DrawDetailedOverview(e.Graphics, bounds, kinds);
         }
 
         DrawViewportIndicator(e.Graphics, bounds, total);
@@ -100,6 +98,67 @@ public sealed class DiffOverviewBar : Control
         using var borderPen = new Pen(PaneTheme.GutterDividerColor);
         e.Graphics.DrawLine(borderPen, 0, 0, 0, bounds.Height);
     }
+
+    private static void DrawDetailedOverview(Graphics graphics, Rectangle bounds, IReadOnlyList<DiffLineKind> kinds)
+    {
+        int total = kinds.Count;
+        for (int i = 0; i < total; i++)
+        {
+            DiffLineKind kind = kinds[i];
+            if (kind == DiffLineKind.Same)
+            {
+                continue;
+            }
+
+            int y = (int)((long)i * bounds.Height / total);
+            int yNext = (int)((long)(i + 1) * bounds.Height / total);
+            int height = Math.Max(1, yNext - y);
+            using var brush = new SolidBrush(AccentForKind(kind));
+            graphics.FillRectangle(brush, 2, y, Math.Max(1, bounds.Width - 4), height);
+        }
+    }
+
+    private static void DrawBucketedOverview(Graphics graphics, Rectangle bounds, IReadOnlyList<DiffLineKind> kinds)
+    {
+        int total = kinds.Count;
+        int barWidth = Math.Max(1, bounds.Width - 4);
+        for (int y = 0; y < bounds.Height; y++)
+        {
+            int lineStart = (int)((long)y * total / bounds.Height);
+            int lineEnd = (int)((long)(y + 1) * total / bounds.Height);
+            if (lineEnd <= lineStart)
+            {
+                lineEnd = lineStart + 1;
+            }
+
+            lineEnd = Math.Min(lineEnd, total);
+            DiffLineKind kind = DiffLineKind.Same;
+            for (int line = lineStart; line < lineEnd; line++)
+            {
+                kind = StrongerKind(kind, kinds[line]);
+            }
+
+            if (kind == DiffLineKind.Same)
+            {
+                continue;
+            }
+
+            using var brush = new SolidBrush(AccentForKind(kind));
+            graphics.FillRectangle(brush, 2, y, barWidth, 1);
+        }
+    }
+
+    private static DiffLineKind StrongerKind(DiffLineKind current, DiffLineKind candidate) =>
+        (DiffLineKind)Math.Max((int)current, (int)candidate);
+
+    private static Color AccentForKind(DiffLineKind kind) =>
+        kind switch
+        {
+            DiffLineKind.Added => PaneTheme.AddedAccent,
+            DiffLineKind.Removed => PaneTheme.RemovedAccent,
+            DiffLineKind.Modified => PaneTheme.ModifiedAccent,
+            _ => PaneTheme.OverviewViewportColor,
+        };
 
     private void DrawViewportIndicator(Graphics graphics, Rectangle bounds, int total)
     {
@@ -125,13 +184,14 @@ public sealed class DiffOverviewBar : Control
         base.OnMouseDown(e);
 
         var rows = _rows;
-        if (rows == null || rows.Count == 0 || ClientSize.Height <= 0)
+        var kinds = _kinds ?? rows?.Select(row => row.Kind).ToList();
+        if (kinds == null || kinds.Count == 0 || ClientSize.Height <= 0)
         {
             return;
         }
 
-        int line = (int)((long)e.Y * rows.Count / ClientSize.Height);
-        LineClicked?.Invoke(this, Math.Clamp(line, 0, rows.Count - 1));
+        int line = (int)((long)e.Y * kinds.Count / ClientSize.Height);
+        LineClicked?.Invoke(this, Math.Clamp(line, 0, kinds.Count - 1));
     }
 
     protected override void Dispose(bool disposing)
