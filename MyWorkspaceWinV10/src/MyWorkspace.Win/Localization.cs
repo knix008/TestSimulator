@@ -112,6 +112,7 @@ internal static class Localization
         Add(K.MenuWorkspaceMembers, "멤버 관리", "Manage Members");
         Add(K.MenuView, "보기(&V)", "&View");
         Add(K.MenuDocumentStructure, "문서 구조", "Document Outline");
+        Add(K.MenuWorkspacePanel, "Workspace 패널", "Workspace Panel");
         Add(K.MenuComments, "댓글", "Comments");
         Add(K.MenuAdmin, "관리(&A)", "&Admin");
         Add(K.MenuAdminUsers, "사용자 관리", "User Management");
@@ -143,6 +144,8 @@ internal static class Localization
         Add(K.LabelMarkdownEditor, "Markdown 편집", "Markdown Editor");
         Add(K.OutlineCollapse, "◀ 접기", "◀ Collapse");
         Add(K.OutlineExpand, "▶ 펼치기", "▶ Expand");
+        Add(K.WorkspacePanelCollapse, "◀ Workspace 접기", "◀ Hide Workspace");
+        Add(K.WorkspacePanelExpand, "▶ Workspace 펼치기", "▶ Show Workspace");
         Add(K.FavoritesRoot, "즐겨찾기", "Favorites");
         Add(K.OutlineUntitled, "(제목 없음)", "(Untitled)");
         Add(K.UntitledPageTitle, "제목없음", "Untitled");
@@ -169,6 +172,7 @@ internal static class Localization
         Add(K.ToolbarUndo, "실행 취소 (Ctrl+Z)", "Undo (Ctrl+Z)");
         Add(K.ToolbarRedo, "다시 실행 (Ctrl+Y / Ctrl+Shift+Z)", "Redo (Ctrl+Y / Ctrl+Shift+Z)");
         Add(K.ToolbarDocumentStructure, "문서 구조", "Document Outline");
+        Add(K.ToolbarWorkspacePanel, "Workspace", "Workspace");
         Add(K.ToolbarComments, "댓글", "Comments");
         Add(K.ToolbarAbout, "프로그램 정보", "About");
         Add(K.TipToolbarMoreTools, "더 많은 도구 보기", "Show more tools");
@@ -201,7 +205,9 @@ internal static class Localization
         Add(K.TipMenuRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.TipMenuWorkspace, "Workspace와 Page 관리", "Manage workspaces and pages");
         Add(K.TipMenuExport, "Page 또는 Workspace를 Markdown, Word, PDF로 내보냅니다.", "Export pages or workspaces as Markdown, Word, or PDF.");
-        Add(K.TipMenuView, "문서 구조", "Document outline");
+        Add(K.TipMenuView, "Workspace 패널", "Workspace panel");
+        Add(K.TipMenuOutline, "문서 구조 패널", "Document outline panel");
+        Add(K.TipMenuWorkspacePanel, "Workspace 패널 표시·숨김", "Show or hide the workspace panel");
         Add(K.TipMenuComments, "댓글 패널", "Comments panel");
         Add(K.TipMenuAdmin, "사용자 관리 (관리자)", "User management (administrator)");
         Add(K.TipMenuAccount, "계정 및 알림 설정", "Account and notification settings");
@@ -609,6 +615,7 @@ internal static class K
     public const string MenuWorkspaceMembers = "MenuWorkspaceMembers";
     public const string MenuView = "MenuView";
     public const string MenuDocumentStructure = "MenuDocumentStructure";
+    public const string MenuWorkspacePanel = "MenuWorkspacePanel";
     public const string MenuComments = "MenuComments";
     public const string MenuAdmin = "MenuAdmin";
     public const string MenuAdminUsers = "MenuAdminUsers";
@@ -640,6 +647,8 @@ internal static class K
     public const string LabelMarkdownEditor = "LabelMarkdownEditor";
     public const string OutlineCollapse = "OutlineCollapse";
     public const string OutlineExpand = "OutlineExpand";
+    public const string WorkspacePanelCollapse = "WorkspacePanelCollapse";
+    public const string WorkspacePanelExpand = "WorkspacePanelExpand";
     public const string FavoritesRoot = "FavoritesRoot";
     public const string OutlineUntitled = "OutlineUntitled";
     public const string UntitledPageTitle = "UntitledPageTitle";
@@ -666,6 +675,7 @@ internal static class K
     public const string ToolbarUndo = "ToolbarUndo";
     public const string ToolbarRedo = "ToolbarRedo";
     public const string ToolbarDocumentStructure = "ToolbarDocumentStructure";
+    public const string ToolbarWorkspacePanel = "ToolbarWorkspacePanel";
     public const string ToolbarComments = "ToolbarComments";
     public const string ToolbarAbout = "ToolbarAbout";
     public const string TipToolbarMoreTools = "TipToolbarMoreTools";
@@ -682,6 +692,8 @@ internal static class K
     public const string TipMenuRedo = "TipMenuRedo";
     public const string TipMenuWorkspace = "TipMenuWorkspace";
     public const string TipMenuView = "TipMenuView";
+    public const string TipMenuOutline = "TipMenuOutline";
+    public const string TipMenuWorkspacePanel = "TipMenuWorkspacePanel";
     public const string TipMenuComments = "TipMenuComments";
     public const string TipMenuAdmin = "TipMenuAdmin";
     public const string TipMenuAccount = "TipMenuAccount";

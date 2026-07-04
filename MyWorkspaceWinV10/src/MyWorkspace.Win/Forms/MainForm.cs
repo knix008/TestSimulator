@@ -36,7 +36,7 @@ public partial class MainForm : Form
     private string? _pendingWspImportPath;
 
     private ToolStripButton? _toolbarInfoButton;
-    private ToolStripButton? _toolbarOutlineButton;
+    private ToolStripButton? _toolbarWorkspaceButton;
 
     private ContextMenuStrip? _ctxEditor;
     private ContextMenuStrip? _ctxEditorImage;
@@ -138,7 +138,7 @@ public partial class MainForm : Form
 
         AppIcons.ApplyMenuIcons(
             menuSavePage, menuPageHistory, menuRefreshTree, menuLogin, menuLogout, menuAbout, menuExit,
-            menuPreferences, menuDocumentStructure, menuNewRootWorkspace, menuNewSubWorkspace, menuNewPage, menuRename, menuDelete,
+            menuPreferences, menuNewRootWorkspace, menuNewSubWorkspace, menuNewPage, menuRename, menuDelete,
             menuWorkspaceMembers, menuAdminUserManagement, menuAdminDatabaseSettings,
             menuAdminEmailSettings, menuEditProfile, menuChangePassword, menuNotificationSettings,
             ctxNewRootWorkspace, ctxNewSubWorkspace, ctxNewPage, ctxRename, ctxDelete, ctxToggleFavorite,
@@ -147,8 +147,10 @@ public partial class MainForm : Form
         EnsureWorkspaceArchiveMenuItems();
         EnsurePageExportMenuItems();
 
-        menuView.Image = menuDocumentStructure.Image;
+        menuView.Image = AppIcons.LoadMenuIcon("workspace");
+        menuWorkspacePanel.Image = AppIcons.LoadMenuIcon("workspace");
 
+        EnsureOutlineNavMenuItem();
         EnsureCommentsMenuItem();
         InitializeEditor();
         EnsureProfileMenuItems();
@@ -172,8 +174,6 @@ public partial class MainForm : Form
             if (!editorAreaSplit.Panel1Collapsed)
                 _savedOutlineWidth = editorAreaSplit.SplitterDistance;
         };
-
-        outerSplit.SplitterMoved += (_, _) => UpdateTitleBarEditorRegion();
 
         ConfigureSplitterLiveResize();
 
@@ -336,7 +336,8 @@ public partial class MainForm : Form
     {
         foreach (ToolStripItem item in toolStripMarkdown.Items)
         {
-            if (ReferenceEquals(item, _toolbarInfoButton) || ReferenceEquals(item, _toolbarOutlineButton))
+            if (ReferenceEquals(item, _toolbarInfoButton)
+                || ReferenceEquals(item, _toolbarWorkspaceButton))
             {
                 item.Enabled = true;
                 continue;
@@ -353,7 +354,8 @@ public partial class MainForm : Form
                       && CanEditActivePage();
         foreach (ToolStripItem item in toolStripMarkdown.Items)
         {
-            if (ReferenceEquals(item, _toolbarInfoButton) || ReferenceEquals(item, _toolbarOutlineButton))
+            if (ReferenceEquals(item, _toolbarInfoButton)
+                || ReferenceEquals(item, _toolbarWorkspaceButton))
             {
                 item.Enabled = true;
                 continue;
@@ -447,8 +449,7 @@ public partial class MainForm : Form
         menuAdminEmailSettings.Visible = loggedIn && SessionContext.IsAdmin;
         menuWorkspace.Visible = loggedIn;
         menuView.Visible = true;
-        menuDocumentStructure.Visible = true;
-        menuDocumentStructure.Enabled = true;
+        menuWorkspacePanel.Visible = loggedIn;
 
         menuAdmin.Visible = loggedIn && SessionContext.IsAdmin;
         menuAdminUserManagement.Visible = loggedIn && SessionContext.IsAdmin;
@@ -470,7 +471,7 @@ public partial class MainForm : Form
 
         AppIcons.ApplyMenuIcons(
             menuSavePage, menuPageHistory, menuRefreshTree, menuLogin, menuLogout, menuAbout, menuExit,
-            menuPreferences, menuDocumentStructure, menuNewRootWorkspace, menuNewSubWorkspace, menuNewPage, menuRename, menuDelete,
+            menuPreferences, menuNewRootWorkspace, menuNewSubWorkspace, menuNewPage, menuRename, menuDelete,
             menuWorkspaceMembers, menuAdminUserManagement, menuAdminDatabaseSettings,
             menuAdminEmailSettings, menuEditProfile, menuChangePassword, menuNotificationSettings,
             ctxNewRootWorkspace, ctxNewSubWorkspace, ctxNewPage, ctxRename, ctxDelete, ctxToggleFavorite,
@@ -1249,10 +1250,18 @@ public partial class MainForm : Form
             editorAreaSplit.Panel1Collapsed = true;
         }
 
-        UpdateOutlineToggleButtonText();
         UpdateLayoutConstraints(
             includeOutlinePanel: !editorAreaSplit.Panel1Collapsed,
-            includeCommentsPanel: !commentsEditorSplit.Panel2Collapsed);
+            includeCommentsPanel: !commentsEditorSplit.Panel2Collapsed,
+            includeWorkspacePanel: !outerSplit.Panel1Collapsed);
+    }
+
+    private void menuWorkspacePanel_Click(object? sender, EventArgs e)
+    {
+        if (IsDisposed)
+            return;
+
+        BeginInvoke(ToggleWorkspacePanel);
     }
 
     private void menuPageHistory_Click(object sender, EventArgs e)
@@ -2016,14 +2025,6 @@ public partial class MainForm : Form
     private void ctxDelete_Click(object? sender, EventArgs e) => DeleteTreeNode();
     private void ctxMembers_Click(object sender, EventArgs e) => menuWorkspaceMembers_Click(sender, e);
 
-    private void menuDocumentStructure_Click(object? sender, EventArgs e)
-    {
-        if (IsDisposed)
-            return;
-
-        BeginInvoke(ToggleOutlinePanel);
-    }
-
     private void RefreshToolbarIcons()
     {
         _toolbarIcons?.Dispose();
@@ -2040,7 +2041,6 @@ public partial class MainForm : Form
             menuAbout,
             menuExit,
             menuPreferences,
-            menuDocumentStructure,
             menuNewRootWorkspace,
             menuNewSubWorkspace,
             menuNewPage,
@@ -2112,10 +2112,10 @@ public partial class MainForm : Form
         AddToolbarButton("quote", Localization.Get(K.ToolbarQuote), async (_, _) => await RunEditorAsync(e => e.ApplyBlockquoteAsync()));
         AddToolbarButton("hr", Localization.Get(K.ToolbarHorizontalRule), async (_, _) => await RunEditorAsync(e => e.InsertHtmlAsync("<hr/><p><br></p>")));
         AddToolbarButton("table", Localization.Get(K.ToolbarTable), async (_, _) => await InsertTableAsync());
-        _toolbarOutlineButton = AddToolbarButton(
-            "outline",
-            Localization.Get(K.ToolbarDocumentStructure),
-            (_, _) => ToggleOutlinePanel());
+        _toolbarWorkspaceButton = AddToolbarButton(
+            "workspace",
+            Localization.Get(K.ToolbarWorkspacePanel),
+            (_, _) => ToggleWorkspacePanel());
         _toolbarCommentsButton = AddToolbarButton(
             "comments",
             Localization.Get(K.ToolbarComments),
@@ -2123,6 +2123,7 @@ public partial class MainForm : Form
         _toolbarInfoButton = AddToolbarButton("info", Localization.Get(K.ToolbarAbout), (_, _) => ShowAboutDialog(), ToolStripItemAlignment.Right);
         AppTheme.StyleVerticalToolbarItems(toolStripMarkdown.Items);
         AppTheme.ConfigureVerticalToolbarOverflow(toolStripMarkdown);
+        UpdateWorkspaceToggleButtonText();
         SetShellEnabled(SessionContext.IsLoggedIn);
     }
 

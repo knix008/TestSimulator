@@ -88,9 +88,9 @@ public partial class MainForm
 
 
 
-        SetTip(menuView, K.TipMenuView);
+        SetTip(menuView, K.TipMenuWorkspacePanel);
 
-        SetTip(menuDocumentStructure, K.ToolbarDocumentStructure);
+        SetTip(menuWorkspacePanel, K.TipMenuWorkspacePanel);
 
 
 
@@ -198,11 +198,9 @@ public partial class MainForm
 
                 "toolbar_redo" => Localization.Get(K.ToolbarRedo),
 
-                "toolbar_outline" => editorAreaSplit.Panel1Collapsed
-
-                    ? Localization.Get(K.OutlineExpand)
-
-                    : Localization.Get(K.OutlineCollapse),
+                "toolbar_workspace" => outerSplit.Panel1Collapsed
+                    ? Localization.Get(K.WorkspacePanelExpand)
+                    : Localization.Get(K.WorkspacePanelCollapse),
 
                 "toolbar_comments" => commentsEditorSplit.Panel2Collapsed
                     ? Localization.Get(K.CommentsExpand)

@@ -20,7 +20,9 @@ public partial class MainForm
 
         navRail.AddMenu(menuFile, "file", K.TipMenuFile);
         navRail.AddMenu(menuWorkspace, "folder_plus_workspace", K.TipMenuWorkspace);
-        navRail.AddMenu(menuView, "outline", K.TipMenuView);
+        navRail.AddMenu(menuView, "workspace", K.TipMenuWorkspacePanel);
+        if (_menuOutlineNavRoot != null)
+            navRail.AddMenu(_menuOutlineNavRoot, "outline", K.TipMenuOutline);
         if (_menuCommentsNavRoot != null)
             navRail.AddMenu(_menuCommentsNavRoot, "quote", K.TipMenuComments);
         navRail.AddMenu(menuAdmin, "users", K.TipMenuAdmin);
@@ -33,7 +35,10 @@ public partial class MainForm
     private void UpdateNavRailForLoginState(bool loggedIn)
     {
         navRail.SetEntryVisible(menuWorkspace, loggedIn);
+        navRail.SetEntryVisible(menuView, loggedIn);
         navRail.SetEntryVisible(menuAdmin, loggedIn && SessionContext.IsAdmin);
+        if (_menuOutlineNavRoot != null)
+            navRail.SetEntryVisible(_menuOutlineNavRoot, loggedIn);
         if (_menuCommentsNavRoot != null)
             navRail.SetEntryVisible(_menuCommentsNavRoot, loggedIn);
         navRail.SetBottomActionVisible(menuLogout, loggedIn);

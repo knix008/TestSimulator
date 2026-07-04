@@ -32,6 +32,7 @@ internal static class AppIcons
             ("undo", "undo"),
             ("redo", "redo"),
             ("outline", "outline"),
+            ("workspace", "workspace"),
             ("comments", "quote"),
             ("info", "info"),
             ("save", "save"),
@@ -49,7 +50,6 @@ internal static class AppIcons
         ToolStripMenuItem menuAbout,
         ToolStripMenuItem menuExit,
         ToolStripMenuItem menuPreferences,
-        ToolStripMenuItem menuDocumentStructure,
         ToolStripMenuItem menuNewRootWorkspace,
         ToolStripMenuItem menuNewSubWorkspace,
         ToolStripMenuItem menuNewPage,
@@ -80,7 +80,6 @@ internal static class AppIcons
         menuAbout.Image = LoadMenuIcon("info");
         menuExit.Image = LoadMenuIcon("exit");
         menuPreferences.Image = LoadMenuIcon("preferences");
-        menuDocumentStructure.Image = LoadMenuIcon("outline");
         menuNewRootWorkspace.Image = LoadMenuIcon("folder_plus_workspace");
         menuNewSubWorkspace.Image = LoadMenuIcon("folder_plus_sub");
         menuNewPage.Image = LoadMenuIcon("page_plus");

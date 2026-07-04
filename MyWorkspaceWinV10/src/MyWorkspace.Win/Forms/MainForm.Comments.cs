@@ -107,7 +107,7 @@ public partial class MainForm
                 distance = Math.Max(0, commentsEditorSplit.Width - CommentsMinWidth - commentsEditorSplit.SplitterWidth);
 
             commentsEditorSplit.SplitterDistance = Math.Max(commentsEditorSplit.Panel1MinSize, distance);
-            UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: true);
+            UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: true, includeWorkspacePanel: !outerSplit.Panel1Collapsed);
             UpdateCommentsToolbarTooltip();
         });
     }
@@ -116,7 +116,7 @@ public partial class MainForm
     {
         _savedCommentsWidth = commentsEditorSplit.Panel2.Width;
         commentsEditorSplit.Panel2Collapsed = true;
-        UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: false);
+        UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: false, includeWorkspacePanel: !outerSplit.Panel1Collapsed);
         UpdateCommentsToolbarTooltip();
     }
 

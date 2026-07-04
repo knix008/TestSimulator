@@ -44,7 +44,7 @@ partial class MainForm
         menuSepWs2 = new ToolStripSeparator();
         menuWorkspaceMembers = new ToolStripMenuItem();
         menuView = new ToolStripMenuItem();
-        menuDocumentStructure = new ToolStripMenuItem();
+        menuWorkspacePanel = new ToolStripMenuItem();
         menuAdmin = new ToolStripMenuItem();
         menuAdminUserManagement = new ToolStripMenuItem();
         menuAdminDatabaseSettings = new ToolStripMenuItem();
@@ -257,17 +257,17 @@ partial class MainForm
         // 
         // menuView
         // 
-        menuView.DropDownItems.AddRange(new ToolStripItem[] { menuDocumentStructure });
+        menuView.DropDownItems.AddRange(new ToolStripItem[] { menuWorkspacePanel });
         menuView.Name = "menuView";
         menuView.Size = new Size(59, 20);
         menuView.Text = "보기(&V)";
         // 
-        // menuDocumentStructure
+        // menuWorkspacePanel
         // 
-        menuDocumentStructure.Name = "menuDocumentStructure";
-        menuDocumentStructure.Size = new Size(159, 22);
-        menuDocumentStructure.Text = "문서 구조 (Info)";
-        menuDocumentStructure.Click += menuDocumentStructure_Click;
+        menuWorkspacePanel.Name = "menuWorkspacePanel";
+        menuWorkspacePanel.Size = new Size(159, 22);
+        menuWorkspacePanel.Text = "Workspace 패널";
+        menuWorkspacePanel.Click += menuWorkspacePanel_Click;
         // 
         // menuAdmin
         // 
@@ -693,7 +693,7 @@ partial class MainForm
     private ToolStripMenuItem menuAbout;
     private ToolStripMenuItem menuExit;
     private ToolStripMenuItem menuView;
-    private ToolStripMenuItem menuDocumentStructure;
+    private ToolStripMenuItem menuWorkspacePanel;
     private ToolStripMenuItem menuWorkspace;
     private ToolStripMenuItem menuNewRootWorkspace;
     private ToolStripMenuItem menuNewSubWorkspace;

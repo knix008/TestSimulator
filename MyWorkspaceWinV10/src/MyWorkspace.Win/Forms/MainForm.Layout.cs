@@ -6,6 +6,7 @@ public partial class MainForm
     private const int NavWorkspaceGap = 8;
     private const int WorkspaceTopGap = 8;
     private const int WorkspaceMinWidth = 160;
+    private const int WorkspaceDefaultWidth = 232;
     private const int ToolbarMinWidth = 52;
     private const int EditorMinWidth = 420;
     private const int OutlineMinWidth = 180;
@@ -16,9 +17,13 @@ public partial class MainForm
     private void ApplyLayoutConstraints() =>
         UpdateLayoutConstraints(
             includeOutlinePanel: !editorAreaSplit.Panel1Collapsed,
-            includeCommentsPanel: pageCommentsPanel != null && !commentsEditorSplit.Panel2Collapsed);
+            includeCommentsPanel: pageCommentsPanel != null && !commentsEditorSplit.Panel2Collapsed,
+            includeWorkspacePanel: !outerSplit.Panel1Collapsed);
 
-    private void UpdateLayoutConstraints(bool includeOutlinePanel, bool includeCommentsPanel = false)
+    private void UpdateLayoutConstraints(
+        bool includeOutlinePanel,
+        bool includeCommentsPanel = false,
+        bool includeWorkspacePanel = true)
     {
         navRail.MinimumSize = new Size(NavRailWidth, 0);
         toolStripMarkdown.MinimumSize = new Size(ToolbarMinWidth, 0);
@@ -32,7 +37,8 @@ public partial class MainForm
         // WinForms SplitContainer applies Panel2MinSize more reliably after a reset.
         outerSplit.Panel1MinSize = 0;
         outerSplit.Panel2MinSize = 0;
-        outerSplit.Panel1MinSize = WorkspaceMinWidth;
+        if (includeWorkspacePanel)
+            outerSplit.Panel1MinSize = WorkspaceMinWidth;
         outerSplit.Panel2MinSize = ToolbarMinWidth + editorAreaMinWidth;
 
         editorAreaSplit.Panel1MinSize = 0;
@@ -44,8 +50,7 @@ public partial class MainForm
 
         var clientMinWidth = NavRailWidth
             + NavWorkspaceGap
-            + WorkspaceMinWidth
-            + outerSplit.SplitterWidth
+            + (includeWorkspacePanel ? WorkspaceMinWidth + outerSplit.SplitterWidth : 0)
             + editorAreaMinWidth
             + ToolbarMinWidth;
 
@@ -67,7 +72,12 @@ public partial class MainForm
         SplitContainerLiveResizeHelper.SetCallbacks(
             outerSplit,
             duringDrag: _ => UpdateTitleBarEditorRegion(),
-            dragCompleted: _ => UpdateTitleBarEditorRegion());
+            dragCompleted: _ =>
+            {
+                if (!outerSplit.Panel1Collapsed)
+                    _savedWorkspaceWidth = outerSplit.SplitterDistance;
+                UpdateTitleBarEditorRegion();
+            });
 
         SplitContainerLiveResizeHelper.SetCallbacks(
             editorAreaSplit,

@@ -167,8 +167,9 @@ public partial class MainForm
 
         menuView.Text = Localization.Get(K.MenuView);
 
-        menuDocumentStructure.Text = Localization.Get(K.MenuDocumentStructure);
+        menuWorkspacePanel.Text = Localization.Get(K.MenuWorkspacePanel);
 
+        ApplyOutlineNavLocalization();
         ApplyCommentsLocalization();
 
         menuAdmin.Text = Localization.Get(K.MenuAdmin);
@@ -199,7 +200,7 @@ public partial class MainForm
 
         ctxMembers.Text = Localization.Get(K.CtxMembers);
 
-        UpdateOutlineToggleButtonText();
+        UpdateWorkspaceToggleButtonText();
 
 
 
@@ -297,20 +298,6 @@ public partial class MainForm
 
             lblStatus.Text = Localization.Format(K.StatusPage, _currentPageTitle.Trim());
 
-    }
-
-
-
-    private void UpdateOutlineToggleButtonText()
-    {
-        if (_toolbarOutlineButton == null)
-            return;
-
-        _toolbarOutlineButton.ToolTipText = editorAreaSplit.Panel1Collapsed
-            ? Localization.Get(K.OutlineExpand)
-            : Localization.Get(K.OutlineCollapse);
-
-        ApplyToolbarTooltips();
     }
 
 
