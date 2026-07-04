@@ -5,14 +5,15 @@ public partial class MainForm
     private const int NavRailWidth = 56;
     private const int NavWorkspaceGap = 8;
     private const int WorkspaceTopGap = 8;
-    private const int WorkspaceMinWidth = 160;
+    private const int WorkspaceMinWidth = 200;
     private const int WorkspaceDefaultWidth = 232;
     private const int ToolbarMinWidth = 52;
-    private const int EditorMinWidth = 420;
-    private const int OutlineMinWidth = 180;
+    private const int EditorMinWidth = 560;
+    private const int OutlineMinWidth = 200;
     private const int OutlineDefaultWidth = 219;
-    private const int CommentsMinWidth = 240;
+    private const int CommentsMinWidth = 280;
     private const int MainContentMinHeight = 480;
+    private const int WindowMinClientWidth = 1024;
 
     private void ApplyLayoutConstraints() =>
         UpdateLayoutConstraints(
@@ -34,17 +35,11 @@ public partial class MainForm
         if (includeCommentsPanel)
             editorAreaMinWidth += CommentsMinWidth + commentsEditorSplit.SplitterWidth;
 
-        // WinForms SplitContainer applies Panel2MinSize more reliably after a reset.
-        outerSplit.Panel1MinSize = 0;
-        outerSplit.Panel2MinSize = 0;
-        if (includeWorkspacePanel)
-            outerSplit.Panel1MinSize = WorkspaceMinWidth;
-        outerSplit.Panel2MinSize = ToolbarMinWidth + editorAreaMinWidth;
+        var outerPanel1Min = includeWorkspacePanel ? WorkspaceMinWidth : 0;
+        var outerPanel2Min = ToolbarMinWidth + editorAreaMinWidth;
+        TryApplyVerticalSplitMinSizes(outerSplit, outerPanel1Min, outerPanel2Min);
 
-        editorAreaSplit.Panel1MinSize = 0;
-        editorAreaSplit.Panel2MinSize = 0;
-        editorAreaSplit.Panel1MinSize = OutlineMinWidth;
-        editorAreaSplit.Panel2MinSize = EditorMinWidth;
+        TryApplyVerticalSplitMinSizes(editorAreaSplit, OutlineMinWidth, EditorMinWidth);
 
         ApplyCommentsSplitConstraints(includeCommentsPanel);
 
@@ -53,6 +48,7 @@ public partial class MainForm
             + (includeWorkspacePanel ? WorkspaceMinWidth + outerSplit.SplitterWidth : 0)
             + editorAreaMinWidth
             + ToolbarMinWidth;
+        clientMinWidth = Math.Max(clientMinWidth, WindowMinClientWidth);
 
         var statusHeight = statusStrip1.PreferredSize.Height > 0
             ? statusStrip1.PreferredSize.Height
@@ -67,6 +63,61 @@ public partial class MainForm
             clientMinHeight + nonClient.Height);
     }
 
+    private static bool TryApplyVerticalSplitMinSizes(
+        SplitContainer split,
+        int panel1MinSize,
+        int panel2MinSize)
+    {
+        if (!split.IsHandleCreated || split.Width <= 0)
+            return false;
+
+        try
+        {
+            split.Panel1MinSize = 0;
+            split.Panel2MinSize = 0;
+
+            if (!split.Panel1Collapsed && !split.Panel2Collapsed)
+            {
+                var maxDistance = split.Width - split.SplitterWidth - panel2MinSize;
+                if (maxDistance >= panel1MinSize)
+                    split.SplitterDistance = Math.Clamp(split.SplitterDistance, panel1MinSize, maxDistance);
+            }
+
+            split.Panel1MinSize = panel1MinSize;
+            split.Panel2MinSize = panel2MinSize;
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private void TryApplyCommentsSplitterDistance()
+    {
+        if (commentsEditorSplit.Panel2Collapsed || commentsEditorSplit.Width <= 0)
+            return;
+
+        if (_savedCommentsWidth < CommentsMinWidth)
+            _savedCommentsWidth = CommentsDefaultWidth;
+
+        var panel1Min = commentsEditorSplit.Panel1MinSize;
+        var panel2Min = commentsEditorSplit.Panel2MinSize;
+        var maxDistance = commentsEditorSplit.Width - commentsEditorSplit.SplitterWidth - panel2Min;
+        if (maxDistance < panel1Min)
+            return;
+
+        var desired = commentsEditorSplit.Width - _savedCommentsWidth - commentsEditorSplit.SplitterWidth;
+        try
+        {
+            commentsEditorSplit.SplitterDistance = Math.Clamp(desired, panel1Min, maxDistance);
+        }
+        catch (InvalidOperationException)
+        {
+            // Constraints will be reconciled on the next layout pass.
+        }
+    }
+
     private void ConfigureSplitterLiveResize()
     {
         SplitContainerLiveResizeHelper.SetCallbacks(
@@ -75,7 +126,10 @@ public partial class MainForm
             dragCompleted: _ =>
             {
                 if (!outerSplit.Panel1Collapsed)
+                {
                     _savedWorkspaceWidth = outerSplit.SplitterDistance;
+                    RecordWorkspacePanelStateForSession();
+                }
                 UpdateTitleBarEditorRegion();
             });
 
@@ -107,17 +161,7 @@ public partial class MainForm
         if (commentsEditorSplit.Width <= 0)
             return;
 
-        try
-        {
-            commentsEditorSplit.Panel1MinSize = 0;
-            commentsEditorSplit.Panel2MinSize = 0;
-            commentsEditorSplit.Panel1MinSize = EditorMinWidth;
-            if (includeCommentsPanel)
-                commentsEditorSplit.Panel2MinSize = CommentsMinWidth;
-        }
-        catch (InvalidOperationException)
-        {
-            // SplitContainer is not sized yet; constraints will be applied on resize/toggle.
-        }
+        var panel2Min = includeCommentsPanel ? CommentsMinWidth : 0;
+        TryApplyVerticalSplitMinSizes(commentsEditorSplit, EditorMinWidth, panel2Min);
     }
 }

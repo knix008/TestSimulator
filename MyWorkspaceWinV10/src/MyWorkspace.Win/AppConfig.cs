@@ -49,6 +49,11 @@ internal static class AppConfig
     public static string BuiltInTemplateDirectory =>
         Path.Combine(AppContext.BaseDirectory, "Templates", "Pages");
 
+    public static string UserTemplateLanguageDirectory =>
+        Path.Combine(
+            UserTemplateDirectory,
+            Localization.Current == AppLanguage.English ? TemplateLanguage.English : TemplateLanguage.Korean);
+
     public static bool TryInitialize(out string errorMessage)
     {
         try
@@ -83,6 +88,7 @@ internal static class AppConfig
         UiSettings = LoadUiSettings(config);
         ApplyUiSettings(UiSettings, persist: false);
         PageTemplateProvider.Initialize(BuiltInTemplateDirectory, UserTemplateDirectory);
+        SyncPageTemplateLanguage(UiSettings.Language);
         PrimaryDatabaseSettings = DatabaseSettings.Clone();
 
         if (IsDatabaseConnectionDisabled)
@@ -219,6 +225,13 @@ internal static class AppConfig
         ApplyUiSettings(UiSettings, persist: false);
     }
 
+    internal static void SyncPageTemplateLanguage(AppLanguage language)
+    {
+        PageTemplateProvider.SetFilterLanguage(
+            language == AppLanguage.English ? TemplateLanguage.English : TemplateLanguage.Korean);
+        PageTemplateProvider.UntitledPageTitle = () => Localization.Get(K.DefaultNewPageTitle);
+    }
+
     public static void SaveUiSettings(UiSettings settings)
     {
         UiSettings = settings.Clone();
@@ -258,6 +271,43 @@ internal static class AppConfig
             : null;
     }
 
+    public static void RecordOpenPageTabs(int userId, IReadOnlyList<int> pageIds)
+    {
+        if (userId <= 0)
+            return;
+
+        var cleaned = new List<int>();
+        foreach (var pageId in pageIds)
+        {
+            if (pageId <= 0 || cleaned.Contains(pageId))
+                continue;
+
+            cleaned.Add(pageId);
+        }
+
+        var key = userId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (UiSettings.OpenPageTabIdsByUserId.TryGetValue(key, out var existing)
+            && existing.SequenceEqual(cleaned))
+        {
+            return;
+        }
+
+        var settings = UiSettings.Clone();
+        settings.OpenPageTabIdsByUserId[key] = cleaned;
+        SaveUiSettings(settings);
+    }
+
+    public static IReadOnlyList<int> GetOpenPageTabIds(int userId)
+    {
+        if (userId <= 0)
+            return Array.Empty<int>();
+
+        var key = userId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return UiSettings.OpenPageTabIdsByUserId.TryGetValue(key, out var pageIds)
+            ? pageIds.ToArray()
+            : Array.Empty<int>();
+    }
+
     public static string? GetLastPageTemplateId()
     {
         var templateId = UiSettings.LastPageTemplateId?.Trim();
@@ -288,9 +338,55 @@ internal static class AppConfig
         SaveUiSettings(settings);
     }
 
+    public static bool GetWorkspacePanelCollapsed(int userId)
+    {
+        if (userId <= 0)
+            return false;
+
+        var key = userId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return UiSettings.WorkspacePanelCollapsedByUserId.TryGetValue(key, out var collapsed) && collapsed;
+    }
+
+    public static int GetWorkspacePanelWidth(int userId)
+    {
+        if (userId <= 0)
+            return UiSettings.DefaultWorkspacePanelWidth;
+
+        var key = userId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return UiSettings.WorkspacePanelWidthByUserId.TryGetValue(key, out var width) &&
+               width >= UiSettings.MinWorkspacePanelWidth
+            ? width
+            : UiSettings.DefaultWorkspacePanelWidth;
+    }
+
+    public static void RecordWorkspacePanelState(int userId, bool collapsed, int width)
+    {
+        if (userId <= 0)
+            return;
+
+        var key = userId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var normalizedWidth = width >= UiSettings.MinWorkspacePanelWidth
+            ? width
+            : UiSettings.DefaultWorkspacePanelWidth;
+
+        if (UiSettings.WorkspacePanelCollapsedByUserId.TryGetValue(key, out var existingCollapsed) &&
+            existingCollapsed == collapsed &&
+            UiSettings.WorkspacePanelWidthByUserId.TryGetValue(key, out var existingWidth) &&
+            existingWidth == normalizedWidth)
+        {
+            return;
+        }
+
+        var settings = UiSettings.Clone();
+        settings.WorkspacePanelCollapsedByUserId[key] = collapsed;
+        settings.WorkspacePanelWidthByUserId[key] = normalizedWidth;
+        SaveUiSettings(settings);
+    }
+
     private static void ApplyUiSettings(UiSettings settings, bool persist)
     {
         Localization.SetLanguage(settings.Language);
+        SyncPageTemplateLanguage(settings.Language);
         AppTheme.ApplyAppearance(settings);
 
         if (!persist)
@@ -320,8 +416,11 @@ internal static class AppConfig
             ["LastProjectDirectory"] = settings.LastProjectDirectory,
             ["RecentProjectPaths"] = SerializeRecentProjectPaths(settings.RecentProjectPaths),
             ["LastPageIdsByUserId"] = SerializeLastPageIds(settings.LastPageIdsByUserId),
+            ["OpenPageTabIdsByUserId"] = SerializeOpenPageTabIds(settings.OpenPageTabIdsByUserId),
             ["LastPageTemplateId"] = settings.LastPageTemplateId,
-            ["ShowTitleBarPageSearch"] = settings.ShowTitleBarPageSearch
+            ["ShowTitleBarPageSearch"] = settings.ShowTitleBarPageSearch,
+            ["WorkspacePanelCollapsedByUserId"] = SerializeBoolMap(settings.WorkspacePanelCollapsedByUserId),
+            ["WorkspacePanelWidthByUserId"] = SerializeIntMap(settings.WorkspacePanelWidthByUserId)
         };
 
         File.WriteAllText(LocalSettingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
@@ -369,11 +468,15 @@ internal static class AppConfig
             settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
         ApplyLastPageIds(settings, section.GetSection("LastPageIdsByUserId"));
+        ApplyOpenPageTabIds(settings, section.GetSection("OpenPageTabIdsByUserId"));
         ApplyRecentProjectPaths(settings, section.GetSection("RecentProjectPaths"));
         settings.LastPageTemplateId = section["LastPageTemplateId"]?.Trim() ?? string.Empty;
 
         if (bool.TryParse(section["ShowTitleBarPageSearch"], out var showTitleBarPageSearch))
             settings.ShowTitleBarPageSearch = showTitleBarPageSearch;
+
+        ApplyBoolMap(settings.WorkspacePanelCollapsedByUserId, section.GetSection("WorkspacePanelCollapsedByUserId"));
+        ApplyIntMap(settings.WorkspacePanelWidthByUserId, section.GetSection("WorkspacePanelWidthByUserId"));
 
         return settings;
     }
@@ -428,6 +531,91 @@ internal static class AppConfig
         return json;
     }
 
+    private static JsonObject SerializeOpenPageTabIds(Dictionary<string, List<int>> openPageTabIdsByUserId)
+    {
+        var json = new JsonObject();
+        foreach (var (userId, pageIds) in openPageTabIdsByUserId)
+        {
+            var array = new JsonArray();
+            foreach (var pageId in pageIds)
+            {
+                if (pageId > 0)
+                    array.Add(pageId);
+            }
+
+            if (array.Count > 0)
+                json[userId] = array;
+        }
+
+        return json;
+    }
+
+    private static JsonObject SerializeBoolMap(Dictionary<string, bool> values)
+    {
+        var json = new JsonObject();
+        foreach (var (key, value) in values)
+            json[key] = value;
+
+        return json;
+    }
+
+    private static JsonObject SerializeIntMap(Dictionary<string, int> values)
+    {
+        var json = new JsonObject();
+        foreach (var (key, value) in values)
+            json[key] = value;
+
+        return json;
+    }
+
+    private static void ApplyBoolMap(Dictionary<string, bool> target, IConfigurationSection section)
+    {
+        if (!section.Exists())
+            return;
+
+        foreach (var child in section.GetChildren())
+        {
+            if (bool.TryParse(child.Value, out var value))
+                target[child.Key] = value;
+        }
+    }
+
+    private static void ApplyBoolMap(Dictionary<string, bool> target, JsonObject? section)
+    {
+        if (section == null)
+            return;
+
+        foreach (var (key, value) in section)
+        {
+            if (value is JsonValue jsonValue && jsonValue.TryGetValue(out bool parsed))
+                target[key] = parsed;
+        }
+    }
+
+    private static void ApplyIntMap(Dictionary<string, int> target, IConfigurationSection section)
+    {
+        if (!section.Exists())
+            return;
+
+        foreach (var child in section.GetChildren())
+        {
+            if (int.TryParse(child.Value, out var value))
+                target[child.Key] = value;
+        }
+    }
+
+    private static void ApplyIntMap(Dictionary<string, int> target, JsonObject? section)
+    {
+        if (section == null)
+            return;
+
+        foreach (var (key, value) in section)
+        {
+            if (value is JsonValue jsonValue && jsonValue.TryGetValue(out int parsed))
+                target[key] = parsed;
+        }
+    }
+
     private static void ApplyLastPageIds(UiSettings settings, IConfigurationSection section)
     {
         if (!section.Exists())
@@ -460,6 +648,50 @@ internal static class AppConfig
         }
     }
 
+    private static void ApplyOpenPageTabIds(UiSettings settings, IConfigurationSection section)
+    {
+        if (!section.Exists())
+            return;
+
+        foreach (var child in section.GetChildren())
+        {
+            if (!int.TryParse(child.Key, out var userId) || userId <= 0)
+                continue;
+
+            var pageIds = new List<int>();
+            foreach (var pageSection in child.GetChildren())
+            {
+                if (int.TryParse(pageSection.Value, out var pageId) && pageId > 0 && !pageIds.Contains(pageId))
+                    pageIds.Add(pageId);
+            }
+
+            if (pageIds.Count > 0)
+                settings.OpenPageTabIdsByUserId[userId.ToString(System.Globalization.CultureInfo.InvariantCulture)] = pageIds;
+        }
+    }
+
+    private static void ApplyOpenPageTabIds(UiSettings settings, JsonObject? section)
+    {
+        if (section == null)
+            return;
+
+        foreach (var (key, value) in section)
+        {
+            if (!int.TryParse(key, out var userId) || userId <= 0 || value is not JsonArray array)
+                continue;
+
+            var pageIds = new List<int>();
+            foreach (var node in array)
+            {
+                if (node is JsonValue jsonValue && jsonValue.TryGetValue(out int pageId) && pageId > 0 && !pageIds.Contains(pageId))
+                    pageIds.Add(pageId);
+            }
+
+            if (pageIds.Count > 0)
+                settings.OpenPageTabIdsByUserId[userId.ToString(System.Globalization.CultureInfo.InvariantCulture)] = pageIds;
+        }
+    }
+
     private static UiSettings ParseUiSettings(JsonObject section)
     {
         var settings = UiSettings.Default.Clone();
@@ -486,12 +718,16 @@ internal static class AppConfig
             settings.FontScaleStep = UiFontScale.Normalize(fontScaleStep);
 
         ApplyLastPageIds(settings, section["LastPageIdsByUserId"] as JsonObject);
+        ApplyOpenPageTabIds(settings, section["OpenPageTabIdsByUserId"] as JsonObject);
         ApplyRecentProjectPaths(settings, section["RecentProjectPaths"] as JsonArray);
         settings.LastPageTemplateId = section["LastPageTemplateId"]?.GetValue<string>()?.Trim() ?? string.Empty;
 
         if (section["ShowTitleBarPageSearch"] is JsonValue showTitleBarPageSearchValue &&
             showTitleBarPageSearchValue.TryGetValue(out bool showTitleBarPageSearch))
             settings.ShowTitleBarPageSearch = showTitleBarPageSearch;
+
+        ApplyBoolMap(settings.WorkspacePanelCollapsedByUserId, section["WorkspacePanelCollapsedByUserId"] as JsonObject);
+        ApplyIntMap(settings.WorkspacePanelWidthByUserId, section["WorkspacePanelWidthByUserId"] as JsonObject);
 
         return settings;
     }

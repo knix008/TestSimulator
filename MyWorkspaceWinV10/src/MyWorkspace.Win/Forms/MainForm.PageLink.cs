@@ -64,8 +64,7 @@ public partial class MainForm
             return;
         }
 
-        SelectPageInTree(pageId);
-        await LoadPageAsync(pageId);
+        await OpenPageTabAsync(pageId);
     }
 
     private async Task NavigateToWorkspaceFromLinkAsync(

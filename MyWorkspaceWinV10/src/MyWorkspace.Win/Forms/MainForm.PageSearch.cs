@@ -46,8 +46,7 @@ public partial class MainForm
             return;
         }
 
-        SelectPageInTree(selection.PageId);
-        await LoadPageAsync(selection.PageId);
+        await OpenPageTabAsync(selection.PageId);
         await ScrollEditorToSearchMatchAsync(selection);
     }
 

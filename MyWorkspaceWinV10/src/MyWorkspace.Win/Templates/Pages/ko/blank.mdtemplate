@@ -1,0 +1,11 @@
+---
+id: blank
+name: 빈 Page
+description: 제목만 있는 기본 Page
+order: 10
+language: ko
+---
+
+# {title}
+
+내용을 입력하세요.

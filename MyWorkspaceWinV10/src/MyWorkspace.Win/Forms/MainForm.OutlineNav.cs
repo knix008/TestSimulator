@@ -30,6 +30,6 @@ public partial class MainForm
             return;
 
         _menuOutline.Text = Localization.Get(K.MenuDocumentStructure);
-        _menuOutline.Image = AppIcons.LoadMenuIcon("outline");
+        _menuOutline.Image = AppIcons.LoadMenuIcon("document_structure");
     }
 }

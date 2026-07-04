@@ -16,10 +16,10 @@ public static class PageTemplateParser
         return Path.GetFileNameWithoutExtension(name);
     }
 
-    public static PageTemplate ParseFile(string filePath, bool isUserDefined)
+    public static PageTemplate ParseFile(string filePath, bool isUserDefined, string? languageOverride = null)
     {
         var text = File.ReadAllText(filePath);
-        var template = Parse(text, GetTemplateFileStem(filePath), isUserDefined, filePath);
+        var template = Parse(text, GetTemplateFileStem(filePath), isUserDefined, filePath, languageOverride);
         return new PageTemplate
         {
             Id = template.Id,
@@ -29,11 +29,12 @@ public static class PageTemplateParser
             ContentPattern = template.ContentPattern,
             Order = template.Order,
             IsUserDefined = template.IsUserDefined,
-            SourcePath = filePath
+            SourcePath = filePath,
+            Language = template.Language
         };
     }
 
-    public static PageTemplate Parse(string text, string fallbackName, bool isUserDefined, string? sourcePath = null)
+    public static PageTemplate Parse(string text, string fallbackName, bool isUserDefined, string? sourcePath = null, string? languageOverride = null)
     {
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var content = text;
@@ -70,6 +71,7 @@ public static class PageTemplateParser
         var defaultTitle = GetMeta(metadata, "defaultTitle") ?? GetMeta(metadata, "title") ?? name;
         var description = GetMeta(metadata, "description") ?? string.Empty;
         var order = int.TryParse(GetMeta(metadata, "order"), out var parsedOrder) ? parsedOrder : 100;
+        var language = GetMeta(metadata, "language") ?? languageOverride ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(content))
             content = "# {title}\n\n내용을 입력하세요.";
@@ -82,7 +84,8 @@ public static class PageTemplateParser
             Description = description,
             ContentPattern = content,
             Order = order,
-            IsUserDefined = isUserDefined
+            IsUserDefined = isUserDefined,
+            Language = language.Trim()
         };
     }
 

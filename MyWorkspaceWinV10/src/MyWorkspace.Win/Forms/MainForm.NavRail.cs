@@ -22,9 +22,9 @@ public partial class MainForm
         navRail.AddMenu(menuWorkspace, "folder_plus_workspace", K.TipMenuWorkspace);
         navRail.AddMenu(menuView, "workspace", K.TipMenuWorkspacePanel);
         if (_menuOutlineNavRoot != null)
-            navRail.AddMenu(_menuOutlineNavRoot, "outline", K.TipMenuOutline);
+            navRail.AddMenu(_menuOutlineNavRoot, "document_structure", K.TipMenuOutline);
         if (_menuCommentsNavRoot != null)
-            navRail.AddMenu(_menuCommentsNavRoot, "quote", K.TipMenuComments);
+            navRail.AddMenu(_menuCommentsNavRoot, "comments", K.TipMenuComments);
         navRail.AddMenu(menuAdmin, "users", K.TipMenuAdmin);
         navRail.AddBottomAction(menuLogout, "logout", K.TipMenuBarLogout);
         navRail.AddBottomMenu(menuProfile!, "profile", K.TipMenuProfile);

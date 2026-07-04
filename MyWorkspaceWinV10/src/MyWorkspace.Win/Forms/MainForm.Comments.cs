@@ -93,22 +93,23 @@ public partial class MainForm
     internal void ExpandCommentsPanel()
     {
         if (!commentsEditorSplit.Panel2Collapsed)
+        {
+            _ = RefreshCommentsPanelAsync();
             return;
+        }
 
-        ApplyCommentsSplitConstraints(includeCommentsPanel: true);
+        UpdateLayoutConstraints(
+            includeOutlinePanel: !editorAreaSplit.Panel1Collapsed,
+            includeCommentsPanel: true,
+            includeWorkspacePanel: !outerSplit.Panel1Collapsed);
+
         commentsEditorSplit.Panel2Collapsed = false;
         BeginInvoke(() =>
         {
-            if (_savedCommentsWidth < CommentsMinWidth)
-                _savedCommentsWidth = CommentsDefaultWidth;
-
-            var distance = commentsEditorSplit.Width - _savedCommentsWidth - commentsEditorSplit.SplitterWidth;
-            if (distance < commentsEditorSplit.Panel1MinSize)
-                distance = Math.Max(0, commentsEditorSplit.Width - CommentsMinWidth - commentsEditorSplit.SplitterWidth);
-
-            commentsEditorSplit.SplitterDistance = Math.Max(commentsEditorSplit.Panel1MinSize, distance);
-            UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: true, includeWorkspacePanel: !outerSplit.Panel1Collapsed);
+            TryApplyCommentsSplitterDistance();
             UpdateCommentsToolbarTooltip();
+            UpdatePanelToggleStates();
+            _ = RefreshCommentsPanelAsync();
         });
     }
 
@@ -118,6 +119,7 @@ public partial class MainForm
         commentsEditorSplit.Panel2Collapsed = true;
         UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: false, includeWorkspacePanel: !outerSplit.Panel1Collapsed);
         UpdateCommentsToolbarTooltip();
+        UpdatePanelToggleStates();
     }
 
     internal void CommentOnEditorSelection(string selectedText)
@@ -135,7 +137,18 @@ public partial class MainForm
         if (pageCommentsPanel == null)
             return;
 
-        await pageCommentsPanel.LoadPageAsync(_currentPageId);
+        await pageCommentsPanel.LoadPageAsync(ResolveCommentsPageId());
+    }
+
+    private int? ResolveCommentsPageId()
+    {
+        if (!SessionContext.IsLoggedIn || !_currentPageId.HasValue)
+            return null;
+
+        if (_editorDisplayedPageId != _currentPageId)
+            return null;
+
+        return AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, _currentPageId.Value)?.Id;
     }
 
     private void ApplyCommentsLocalization()
@@ -144,7 +157,7 @@ public partial class MainForm
         if (_menuComments != null)
         {
             _menuComments.Text = Localization.Get(K.MenuComments);
-            _menuComments.Image = AppIcons.LoadMenuIcon("quote");
+            _menuComments.Image = AppIcons.LoadMenuIcon("comments");
         }
 
         UpdateCommentsToolbarTooltip();

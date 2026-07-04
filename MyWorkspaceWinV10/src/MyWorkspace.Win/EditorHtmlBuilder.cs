@@ -723,8 +723,8 @@ internal static class EditorHtmlBuilder
               sel.addRange(range);
             }
 
-            function placeCaretAfter(node) {
-              editor.focus();
+            function placeCaretAfter(node, preventScroll) {
+              editor.focus({ preventScroll: !!preventScroll });
               const range = document.createRange();
               if (node.nextSibling && node.nextSibling.nodeType === Node.TEXT_NODE) {
                 const textNode = node.nextSibling;
@@ -1167,6 +1167,82 @@ internal static class EditorHtmlBuilder
             let lastExternalFileDropAt = 0;
             let lastExternalFileDropX = 0;
             let lastExternalFileDropY = 0;
+            let savedInsertMarker = null;
+            let savedInsertScrollTop = null;
+
+            function clearSavedInsertMarker() {
+              if (savedInsertMarker?.parentNode)
+                savedInsertMarker.parentNode.removeChild(savedInsertMarker);
+              savedInsertMarker = null;
+              savedInsertScrollTop = null;
+            }
+
+            function captureInsertMarker() {
+              clearSavedInsertMarker();
+              savedInsertScrollTop = editor.scrollTop;
+              if (!hasValidEditorSelection())
+                return false;
+
+              const sel = window.getSelection();
+              const range = sel.getRangeAt(0).cloneRange();
+              if (!editor.contains(range.startContainer))
+                return false;
+
+              range.collapse(true);
+              const marker = document.createElement('span');
+              marker.setAttribute('data-editor-insert-marker', '1');
+              marker.textContent = ZWSP;
+              marker.style.position = 'absolute';
+              marker.style.width = '0';
+              marker.style.height = '0';
+              marker.style.overflow = 'hidden';
+              marker.style.pointerEvents = 'none';
+              try {
+                range.insertNode(marker);
+              } catch {
+                clearSavedInsertMarker();
+                return false;
+              }
+
+              if (!marker.parentNode) {
+                clearSavedInsertMarker();
+                return false;
+              }
+
+              savedInsertMarker = marker;
+              return true;
+            }
+
+            function consumeSavedInsertRange() {
+              if (!savedInsertMarker?.parentNode)
+                return null;
+
+              const range = document.createRange();
+              range.setStartBefore(savedInsertMarker);
+              range.collapse(true);
+              savedInsertMarker.parentNode.removeChild(savedInsertMarker);
+              savedInsertMarker = null;
+              return range;
+            }
+
+            function restoreSavedInsertScroll() {
+              if (savedInsertScrollTop === null)
+                return;
+              editor.scrollTop = savedInsertScrollTop;
+              savedInsertScrollTop = null;
+            }
+
+            function scrollElementIntoEditorView(el) {
+              if (!el || !editor.contains(el))
+                return;
+
+              const editorRect = editor.getBoundingClientRect();
+              const elRect = el.getBoundingClientRect();
+              const margin = editor.clientHeight / 3;
+              const delta = elRect.top - editorRect.top - margin;
+              if (Math.abs(delta) > 8)
+                editor.scrollTop = Math.max(0, editor.scrollTop + delta);
+            }
 
             function clearFileDropInsertMarker() {
               if (pendingFileDropInsertMarker?.parentNode)
@@ -1301,7 +1377,9 @@ internal static class EditorHtmlBuilder
               const img = insertedWrap.querySelector('img');
               ensureImageWrapReady(insertedWrap);
               if (img) attachImageLoadHandlers(insertedWrap, img);
-              placeCaretAfter(insertedWrap);
+              restoreSavedInsertScroll();
+              placeCaretAfter(insertedWrap, true);
+              scrollElementIntoEditorView(insertedWrap);
 
               upgradeEditorBlocks();
               updateEmptyState();
@@ -1312,11 +1390,14 @@ internal static class EditorHtmlBuilder
 
             function insertImageAtCaret(src, alt, preferredRange, usePendingDropRange) {
               hideFileDropCaret();
-              editor.focus();
 
               let range = preferredRange ? preferredRange.cloneRange() : null;
               if (!range && usePendingDropRange)
                 range = consumePendingInsertRange();
+              if (!range)
+                range = consumeSavedInsertRange();
+              editor.focus({ preventScroll: true });
+
               if (!range && !hasValidEditorSelection() && lastFileDropPoint) {
                 range = resolveInsertRangeAtPoint(lastFileDropPoint.x, lastFileDropPoint.y, [imageDropCaret]);
               }
@@ -2311,19 +2392,50 @@ internal static class EditorHtmlBuilder
                   commitFileDropCaretAtPointImpl(x, y);
                 return insertImageAtCaret(src, alt, null, true);
               },
+              saveInsertMarker() {
+                return captureInsertMarker();
+              },
+              clearInsertMarker() {
+                clearSavedInsertMarker();
+              },
               insertFileAttachment(href, fileName) {
                 hideFileDropCaret();
-                editor.focus();
-                ensureInsertLocation();
+                let range = consumeSavedInsertRange();
+                editor.focus({ preventScroll: true });
                 const safeHref = escapeHtml(href);
                 const safeName = escapeHtml(fileName || href);
-                document.execCommand('insertHTML', false, '&#8203;<a class="editor-file-attachment" href="' + safeHref + '" contenteditable="false">' + safeName + '</a>&#8203;');
+                const html = '&#8203;<a class="editor-file-attachment" href="' + safeHref + '" contenteditable="false">' + safeName + '</a>&#8203;';
+                let inserted = false;
+                if (range && editor.contains(range.startContainer)) {
+                  range.collapse(true);
+                  const temp = document.createElement('div');
+                  temp.innerHTML = html;
+                  const fragment = document.createDocumentFragment();
+                  while (temp.firstChild)
+                    fragment.appendChild(temp.firstChild);
+                  range.insertNode(fragment);
+                  inserted = true;
+                }
+                if (!inserted) {
+                  ensureInsertLocation();
+                  document.execCommand('insertHTML', false, html);
+                }
+                restoreSavedInsertScroll();
                 upgradeEditorBlocks();
                 updateEmptyState();
                 notifyChanged();
               },
               createLink(text, url) {
-                editor.focus();
+                let range = consumeSavedInsertRange();
+                editor.focus({ preventScroll: true });
+                if (range && editor.contains(range.startContainer)) {
+                  const sel = window.getSelection();
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                } else {
+                  ensureInsertLocation();
+                }
+                restoreSavedInsertScroll();
                 if (!url) return;
                 const label = (text || '').trim() || url;
                 document.execCommand('insertHTML', false, '<a href="' + escapeHtml(url) + '">' + escapeHtml(label) + '</a>');

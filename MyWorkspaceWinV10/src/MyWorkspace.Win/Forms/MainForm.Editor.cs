@@ -45,9 +45,15 @@ public partial class MainForm
         webViewEditor.Visible = hasPage;
 
         if (!hasPage)
+        {
             pnlEditorEmptySurface.BringToFront();
+            _pageTabBar?.SendToBack();
+        }
         else
+        {
             webViewEditor.BringToFront();
+            _pageTabBar?.SendToBack();
+        }
     }
 
     private void OnEditorOpenRequested(string href)
@@ -183,58 +189,301 @@ public partial class MainForm
 
     private async Task LoadPageAsync(int pageId)
     {
-        if (_currentPageId == pageId)
+        await _pageLoadLock.WaitAsync();
+        try
         {
+            await LoadPageCoreAsync(pageId);
+        }
+        finally
+        {
+            _pageLoadLock.Release();
+        }
+    }
+
+    private async Task LoadPageCoreAsync(int pageId)
+    {
+        if (_currentPageId == pageId && _editorDisplayedPageId == pageId)
+        {
+            EnsurePageTabOpen(pageId);
+            RefreshPageTabBar();
             SelectPageInTree(pageId);
             if (_editor != null)
                 await _editor.FocusAsync();
             return;
         }
 
-        await SaveCurrentPageAsync(refreshTree: false, force: true);
-
+        var snapshotTask = SnapshotCurrentPageBeforeNavigateAsync();
         var page = AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId);
+        if (!await snapshotTask)
+            return;
+
         if (page == null)
         {
+            RemovePageTab(pageId);
+            RefreshPageTabBar();
             MessageBox.Show(Localization.Get(K.PageLoadFailed), L.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         _isLoadingPage = true;
+        _editorDisplayedPageId = null;
         _currentPageId = page.Id;
         _draftWorkspaceId = null;
         _currentPageTitle = page.Title;
         UpdateEditorEmptySurface();
         RefreshWorkspaceEditState();
 
+        var loaded = false;
+        var loadedTitle = page.Title;
         try
         {
-            var content = PageTitleHelper.EnsureTitleHeading(page.Title, page.Content);
+            var resolved = PageContentCache.Resolve(pageId, page);
+            loadedTitle = resolved.Title;
+            var content = PageTitleHelper.EnsureTitleHeading(resolved.Title, resolved.Content);
+
+            if (resolved.Source == PageContentCache.ContentSource.CacheSession)
+                ScheduleBackgroundPagePersist(pageId);
             PageAssetStore.EnsureAssetsMaterialized(pageId, content);
             await _editor!.LoadMarkdownAsync(content, _pipeline, pageId);
+            _editorDisplayedPageId = pageId;
             _offlinePageContext = OfflinePageContextBuilder.TryBuild(
                 AppConfig.Services,
                 SessionContext.CurrentUser,
                 pageId);
-            await _editor.FocusAsync();
+            loaded = true;
         }
         catch (Exception ex)
         {
+            _editorDisplayedPageId = null;
             ErrorDetailForm.Show(this, Localization.Get(K.PageLoadFailedTitle), ex);
         }
         finally
         {
             _isLoadingPage = false;
-            _isDirty = false;
-            SetSaveStatus(SaveStatusKind.Saved);
             UpdateEditorEmptySurface();
-            await UpdateOutlineAsync();
-            lblStatus.Text = Localization.Format(K.StatusPage, page.Title);
-            RefreshWorkspaceEditState();
-            SelectPageInTree(pageId);
-            RecordCurrentPageForSession();
-            await RefreshCommentsPanelAsync();
         }
+
+        if (!loaded)
+        {
+            _currentPageId = null;
+            _currentPageTitle = string.Empty;
+            _offlinePageContext = null;
+            _ = RefreshCommentsPanelAsync();
+            return;
+        }
+
+        _isDirty = false;
+        SetSaveStatus(
+            PageContentCache.IsPendingPrimaryFlush(pageId)
+                ? SaveStatusKind.Modified
+                : SaveStatusKind.Saved);
+        lblStatus.Text = Localization.Format(K.StatusPage, loadedTitle);
+        RefreshWorkspaceEditState();
+        SelectPageInTree(pageId);
+        RecordCurrentPageForSession();
+        EnsurePageTabOpen(pageId);
+        RememberTabTitle(pageId, loadedTitle);
+        RefreshPageTabBar();
+        _ = UpdateOutlineAsync();
+        _ = RefreshCommentsPanelAsync();
+        _ = _editor!.FocusAsync();
+    }
+
+    private async Task<bool> SnapshotCurrentPageBeforeNavigateAsync()
+    {
+        if (!_currentPageId.HasValue || _editor == null)
+            return true;
+
+        if (_isLoadingPage)
+            return true;
+
+        if (_editorDisplayedPageId != _currentPageId)
+            return true;
+
+        if (!CanEditActivePage())
+            return true;
+
+        if (!_isDirty)
+        {
+            saveTimer.Stop();
+            return true;
+        }
+
+        var pageId = _currentPageId.Value;
+
+        if (_liveCacheDirtyGeneration == _dirtyGeneration
+            && PageContentCache.TryGet(pageId) != null)
+        {
+            FinishPageSnapshot(pageId);
+            return true;
+        }
+
+        if (_editor.IsScriptSuspended)
+            return true;
+
+        try
+        {
+            if (_editor.IsReady)
+                await _editor.FinalizeImageSizesAsync();
+
+            var content = await _editor.GetMarkdownAsync(pageId);
+            var title = PageTitleHelper.ExtractTitleFromMarkdown(content);
+            var dirtyGenerationAtStart = _dirtyGeneration;
+
+            PageContentCache.Put(
+                pageId,
+                new PageContentCache.Draft(title, content, _offlinePageContext, DateTime.UtcNow),
+                markPendingPrimaryFlush: false);
+            _liveCacheDirtyGeneration = dirtyGenerationAtStart;
+            RememberTabTitle(pageId, title);
+            _currentPageTitle = title;
+
+            if (dirtyGenerationAtStart == _dirtyGeneration)
+                FinishPageSnapshot(pageId);
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void FinishPageSnapshot(int pageId)
+    {
+        _isDirty = false;
+        saveTimer.Stop();
+        PageContentCache.CommitForPrimaryFlush(pageId);
+        ScheduleBackgroundPagePersist(pageId);
+        RefreshPageTabBar();
+    }
+
+    private async Task RefreshLivePageCacheAsync()
+    {
+        if (_liveCacheUpdateInProgress
+            || _isLoadingPage
+            || !_currentPageId.HasValue
+            || _editor == null
+            || !_isDirty)
+        {
+            return;
+        }
+
+        if (_editor.IsScriptSuspended || !CanEditActivePage())
+            return;
+
+        _liveCacheUpdateInProgress = true;
+        var pageId = _currentPageId.Value;
+        var context = _offlinePageContext;
+        var dirtyGenerationAtStart = _dirtyGeneration;
+
+        try
+        {
+            if (_editor.IsReady)
+                await _editor.FinalizeImageSizesAsync();
+
+            var content = await _editor.GetMarkdownAsync(pageId);
+            var title = PageTitleHelper.ExtractTitleFromMarkdown(content);
+
+            PageContentCache.Put(
+                pageId,
+                new PageContentCache.Draft(title, content, context, DateTime.UtcNow),
+                markPendingPrimaryFlush: false);
+            _liveCacheDirtyGeneration = dirtyGenerationAtStart;
+            RememberTabTitle(pageId, title);
+        }
+        catch
+        {
+            // Live cache is best-effort; tab switch falls back to a direct snapshot.
+        }
+        finally
+        {
+            _liveCacheUpdateInProgress = false;
+        }
+    }
+
+    private void ScheduleBackgroundPagePersist(int pageId)
+    {
+        var user = SessionContext.CurrentUser;
+        if (user == null)
+            return;
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var draft = PageContentCache.TryGet(pageId);
+                if (draft?.Context == null)
+                    return;
+
+                AppConfigPageSave.TrySavePage(
+                    user,
+                    pageId,
+                    draft.Title,
+                    draft.Content,
+                    draft.Context,
+                    autoSaveToSqliteOnly: true);
+            }
+            catch
+            {
+                // Local SQLite backup is best-effort.
+            }
+        });
+
+        ScheduleCachedPagePrimaryFlush(pageId);
+    }
+
+    private async Task<bool> SaveCurrentPageBeforeNavigateAsync() =>
+        await SnapshotCurrentPageBeforeNavigateAsync();
+
+    private async Task<bool> PersistPageTabToDatabaseAsync(int pageId)
+    {
+        if (!SessionContext.IsLoggedIn)
+            return true;
+
+        if (AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId) == null)
+            return true;
+
+        if (!CanEditPage(pageId))
+        {
+            PageContentCache.Remove(pageId);
+            return true;
+        }
+
+        if (!ShouldPersistCacheOnShutdown())
+        {
+            PageContentCache.Remove(pageId);
+            return true;
+        }
+
+        if (_currentPageId == pageId && _editor != null)
+        {
+            if (_isDirty || PageContentCache.IsPendingPrimaryFlush(pageId))
+            {
+                if (!await SaveCurrentPageAsync(force: true, refreshTree: false))
+                    return false;
+            }
+
+            PageContentCache.Remove(pageId);
+            return true;
+        }
+
+        if (!PageContentCache.IsPendingPrimaryFlush(pageId))
+        {
+            PageContentCache.Remove(pageId);
+            return true;
+        }
+
+        await PagePrimaryFlushService.Instance.FlushNowAsync(pageId, FlushCachedPageToPrimaryAsync);
+        if (PageContentCache.IsPendingPrimaryFlush(pageId))
+        {
+            var result = await FlushCachedPageToPrimaryAsync(pageId);
+            if (result is not PageSaveResult.Primary and not PageSaveResult.OfflineFallback)
+                return false;
+        }
+
+        PageContentCache.Remove(pageId);
+        return true;
     }
 
     private async Task PrepareWorkspaceDraftAsync(int workspaceId)
@@ -247,8 +496,9 @@ public partial class MainForm
 
         if (_currentPageId.HasValue)
         {
-            await SaveCurrentPageAsync(refreshTree: false, force: true);
+            await SnapshotCurrentPageBeforeNavigateAsync();
             _currentPageId = null;
+            _editorDisplayedPageId = null;
         }
 
         _draftWorkspaceId = workspaceId;
@@ -283,12 +533,13 @@ public partial class MainForm
 
     private async Task ClearEditorAsync()
     {
-        await SaveCurrentPageAsync(refreshTree: false, force: true);
+        await SaveCurrentPageBeforeNavigateAsync();
 
         _currentPageId = null;
         _draftWorkspaceId = null;
         _currentPageTitle = string.Empty;
         _offlinePageContext = null;
+        _editorDisplayedPageId = null;
         _isLoadingPage = true;
         UpdateEditorEmptySurface();
 
@@ -313,6 +564,7 @@ public partial class MainForm
                 ? SessionContext.IsAdmin ? Localization.Get(K.StatusAdmin) : Localization.Get(K.StatusUser)
                 : Localization.Get(K.StatusLoginRequired);
             await RefreshCommentsPanelAsync();
+            RefreshPageTabBar();
         }
     }
 
@@ -322,6 +574,7 @@ public partial class MainForm
         _draftWorkspaceId = null;
         _currentPageTitle = string.Empty;
         _offlinePageContext = null;
+        _editorDisplayedPageId = null;
         _isLoadingPage = true;
         UpdateEditorEmptySurface();
 
@@ -341,6 +594,7 @@ public partial class MainForm
             ClearOutlinePanel();
             UpdateEditorEmptySurface();
             await RefreshCommentsPanelAsync();
+            RefreshPageTabBar();
         }
     }
 
@@ -357,8 +611,9 @@ public partial class MainForm
         _isLoadingPage = true;
         try
         {
-            _currentPageTitle = page.Title;
-            var content = PageTitleHelper.EnsureTitleHeading(page.Title, page.Content);
+            var resolved = PageContentCache.Resolve(pageId, page);
+            _currentPageTitle = resolved.Title;
+            var content = PageTitleHelper.EnsureTitleHeading(resolved.Title, resolved.Content);
             PageAssetStore.EnsureAssetsMaterialized(pageId, content);
             await _editor.LoadMarkdownAsync(content, _pipeline, pageId);
             _offlinePageContext = OfflinePageContextBuilder.TryBuild(
@@ -384,9 +639,37 @@ public partial class MainForm
         bool showStatus = false,
         bool refreshTree = false,
         bool force = false,
-        bool autoSaveToSqliteOnly = false)
+        bool autoSaveToSqliteOnly = false,
+        SaveProgressScope? progress = null)
     {
-        if ((!_isDirty && !force) || !_currentPageId.HasValue || _saveInProgress || _editor == null)
+        await _saveGate.WaitAsync();
+        try
+        {
+            return await SaveCurrentPageCoreAsync(showStatus, refreshTree, force, autoSaveToSqliteOnly, progress);
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
+    }
+
+    private async Task<bool> SaveCurrentPageCoreAsync(
+        bool showStatus = false,
+        bool refreshTree = false,
+        bool force = false,
+        bool autoSaveToSqliteOnly = false,
+        SaveProgressScope? progress = null)
+    {
+        if ((!_isDirty && !force) || !_currentPageId.HasValue || _editor == null)
+            return true;
+
+        if (_isLoadingPage && !force)
+            return true;
+
+        var pageId = _currentPageId.Value;
+        if (!force
+            && _editorDisplayedPageId.HasValue
+            && _editorDisplayedPageId.Value != pageId)
             return true;
 
         if (!CanEditActivePage())
@@ -399,22 +682,51 @@ public partial class MainForm
             return false;
         }
 
-        _saveInProgress = true;
+        var dirtyGenerationAtStart = _dirtyGeneration;
+
+        var ownsProgress = progress == null;
+        progress ??= SaveProgressScope.Begin(this);
+
         try
         {
-            var content = await _editor.GetMarkdownAsync(_currentPageId);
+            await progress.RunStageAsync(
+                Localization.Get(K.SaveProgressPrepareEditor),
+                15,
+                async () =>
+                {
+                    if (_editor.IsReady && !_editor.IsScriptSuspended)
+                        await _editor.FinalizeImageSizesAsync();
+                });
+
+            var content = string.Empty;
+            await progress.RunStageAsync(
+                Localization.Get(K.SaveProgressExtractContent),
+                45,
+                async () => content = await _editor.GetMarkdownAsync(pageId));
+
             var title = PageTitleHelper.ExtractTitleFromMarkdown(content);
             var titleChanged = !string.Equals(_currentPageTitle, title, StringComparison.Ordinal);
+
+            progress.ReportIndeterminate(Localization.Get(K.SaveProgressWritingDatabase));
             var saveResult = AppConfigPageSave.TrySavePage(
                 SessionContext.CurrentUser,
-                _currentPageId.Value,
+                pageId,
                 title,
                 content,
                 _offlinePageContext,
                 autoSaveToSqliteOnly);
 
+            PageContentCache.Put(
+                pageId,
+                new PageContentCache.Draft(title, content, _offlinePageContext, DateTime.UtcNow),
+                markPendingPrimaryFlush: false);
+            if (saveResult is PageSaveResult.Primary or PageSaveResult.OfflineFallback)
+                PageContentCache.MarkPrimarySynced(pageId);
+
             _currentPageTitle = title;
-            _isDirty = false;
+            if (dirtyGenerationAtStart == _dirtyGeneration)
+                _isDirty = false;
+            RememberTabTitle(pageId, title);
             if (showStatus)
             {
                 SetSaveStatus(saveResult switch
@@ -428,8 +740,13 @@ public partial class MainForm
             }
 
             if (refreshTree || titleChanged)
-                LoadWorkspaceTree(selectPageId: _currentPageId);
+            {
+                progress.ReportDeterminate(90, Localization.Get(K.SaveProgressFinishing));
+                LoadWorkspaceTree(selectPageId: pageId);
+            }
 
+            progress.ReportDeterminate(100, Localization.Get(K.SaveProgressFinishing));
+            RefreshPageTabBar();
             return true;
         }
         catch (Exception ex)
@@ -442,7 +759,116 @@ public partial class MainForm
         }
         finally
         {
-            _saveInProgress = false;
+            if (ownsProgress)
+                progress.Dispose();
         }
+    }
+
+    private void ScheduleCachedPagePrimaryFlush(int pageId)
+    {
+        PagePrimaryFlushService.Instance.Schedule(
+            pageId,
+            FlushCachedPageToPrimaryAsync,
+            () =>
+            {
+                if (IsDisposed)
+                    return;
+
+                BeginInvoke(() =>
+                {
+                    RefreshPageTabBar();
+                    if (_currentPageId == pageId
+                        && !PageContentCache.IsPendingPrimaryFlush(pageId)
+                        && !_isDirty)
+                    {
+                        SetSaveStatus(SaveStatusKind.AutoSaved);
+                    }
+                });
+            });
+    }
+
+    private async Task<PageSaveResult> FlushCachedPageToPrimaryAsync(int pageId)
+    {
+        if (!SessionContext.IsLoggedIn)
+            return PageSaveResult.Failed;
+
+        if (!PageContentCache.IsPendingPrimaryFlush(pageId))
+            return PageSaveResult.Primary;
+
+        var draft = PageContentCache.TryGet(pageId);
+        if (draft == null)
+            return PageSaveResult.Primary;
+
+        var context = draft.Context
+            ?? OfflinePageContextBuilder.TryBuild(AppConfig.Services, SessionContext.CurrentUser, pageId);
+        if (context == null)
+            return PageSaveResult.Failed;
+
+        await _saveGate.WaitAsync();
+        try
+        {
+            if (!PageContentCache.IsPendingPrimaryFlush(pageId))
+                return PageSaveResult.Primary;
+
+            var latest = PageContentCache.TryGet(pageId) ?? draft;
+            var result = AppConfigPageSave.TrySavePage(
+                SessionContext.CurrentUser,
+                pageId,
+                latest.Title,
+                latest.Content,
+                context,
+                autoSaveToSqliteOnly: false);
+
+            return result;
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
+    }
+
+    private async Task FlushAllPendingPagesAsync()
+    {
+        await PagePrimaryFlushService.Instance.FlushAllPendingAsync(FlushCachedPageToPrimaryAsync);
+    }
+
+    private static bool ShouldPersistCacheOnShutdown() =>
+        SessionContext.IsLoggedIn
+        && !AppConfig.IsDatabaseConnectionDisabled
+        && AppConfig.Services != null;
+
+    private async Task<bool> EnsureCachePersistedToDatabaseOnShutdownAsync()
+    {
+        if (!ShouldPersistCacheOnShutdown())
+            return true;
+
+        _liveCacheTimer?.Stop();
+        saveTimer.Stop();
+        PagePrimaryFlushService.Instance.BeginShutdown();
+
+        if (_currentPageId.HasValue && _editor != null)
+        {
+            if (_isDirty)
+                await SnapshotCurrentPageBeforeNavigateAsync();
+
+            if (_isDirty && !await SaveCurrentPageAsync(force: true, refreshTree: false))
+                return false;
+        }
+
+        return await PagePrimaryFlushService.Instance.FlushAllPendingForShutdownAsync(FlushCachedPageToPrimaryAsync);
+    }
+
+    private async Task<bool> TryPersistCacheOnShutdownAsync()
+    {
+        if (!await EnsureCachePersistedToDatabaseOnShutdownAsync())
+        {
+            return MessageBox.Show(
+                       Localization.Get(K.ConfirmExitWithUnsavedCache),
+                       L.AppName,
+                       MessageBoxButtons.YesNo,
+                       MessageBoxIcon.Warning) == DialogResult.Yes;
+        }
+
+        return true;
     }
 }

@@ -471,7 +471,7 @@ partial class MainForm
         // outerSplit.Panel1
         // 
         outerSplit.Panel1.Controls.Add(pnlWorkspaceSidebar);
-        outerSplit.Panel1MinSize = 160;
+        outerSplit.Panel1MinSize = 200;
         // 
         // outerSplit.Panel2
         // 
@@ -523,7 +523,7 @@ partial class MainForm
         // 
         editorAreaSplit.Panel1.Controls.Add(pnlOutlineSidebar);
         editorAreaSplit.Panel1Collapsed = true;
-        editorAreaSplit.Panel1MinSize = 180;
+        editorAreaSplit.Panel1MinSize = 200;
         // 
         // editorAreaSplit.Panel2
         // 

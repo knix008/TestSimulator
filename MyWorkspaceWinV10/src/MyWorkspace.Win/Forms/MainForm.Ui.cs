@@ -80,8 +80,13 @@ public partial class MainForm
 
         ApplyEditorHostTheme();
         ApplyCommentsTheme();
+        ApplyPageTabsTheme();
         UpdateEditorEmptySurface();
         RefreshNavRailTheme();
+        if (!SessionContext.IsLoggedIn)
+            ApplyLoggedOutShellLayout();
+        else
+            UpdatePanelToggleStates();
         UpdateTitleBarEditorRegion();
     }
 

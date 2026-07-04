@@ -1,0 +1,35 @@
+---
+id: project
+name: Project Overview
+description: Goals, scope, schedule, owners
+language: en
+order: 30
+---
+
+# {title}
+
+## Project Goals
+
+
+## Scope
+### In Scope
+-
+
+### Out of Scope
+-
+
+## Schedule
+| Phase | Start | End | Status |
+| --- | --- | --- | --- |
+| Planning | | | |
+| Development | | | |
+| Testing | | | |
+
+## Team
+| Role | Name |
+| --- | --- |
+| PM | |
+| Developer | |
+
+## References
+-

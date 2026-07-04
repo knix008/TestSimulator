@@ -57,6 +57,7 @@ public partial class NewPageForm : Form
 
     private void ReloadTemplateList()
     {
+        AppConfig.SyncPageTemplateLanguage(Localization.Current);
         PageTemplateProvider.Reload();
 
         var selectedId = _selectedTemplate?.Id
@@ -68,7 +69,7 @@ public partial class NewPageForm : Form
         foreach (var template in PageTemplateProvider.All)
             lstTemplates.Items.Add(template);
 
-        lblTemplateFolder.Text = $"{Localization.Get(K.LabelTemplateFolderPrefix)} {AppConfig.UserTemplateDirectory}";
+        lblTemplateFolder.Text = $"{Localization.Get(K.LabelTemplateFolderPrefix)} {AppConfig.UserTemplateLanguageDirectory}";
 
         if (PageTemplateProvider.All.Count == 0)
         {
@@ -162,10 +163,10 @@ public partial class NewPageForm : Form
 
     private void btnOpenTemplateFolder_Click(object sender, EventArgs e)
     {
-        Directory.CreateDirectory(AppConfig.UserTemplateDirectory);
+        Directory.CreateDirectory(AppConfig.UserTemplateLanguageDirectory);
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
-            FileName = AppConfig.UserTemplateDirectory,
+            FileName = AppConfig.UserTemplateLanguageDirectory,
             UseShellExecute = true
         });
     }

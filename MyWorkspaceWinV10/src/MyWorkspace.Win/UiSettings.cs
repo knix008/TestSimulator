@@ -27,8 +27,14 @@ public sealed class UiSettings
     public string LastProjectDirectory { get; set; } = string.Empty;
     public List<string> RecentProjectPaths { get; set; } = new();
     public Dictionary<string, int> LastPageIdsByUserId { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<int>> OpenPageTabIdsByUserId { get; set; } = new(StringComparer.Ordinal);
     public string LastPageTemplateId { get; set; } = string.Empty;
     public bool ShowTitleBarPageSearch { get; set; } = true;
+    public Dictionary<string, bool> WorkspacePanelCollapsedByUserId { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, int> WorkspacePanelWidthByUserId { get; set; } = new(StringComparer.Ordinal);
+
+    public const int DefaultWorkspacePanelWidth = 232;
+    public const int MinWorkspacePanelWidth = 160;
 
     public static UiSettings Default { get; } = new();
 
@@ -47,8 +53,14 @@ public sealed class UiSettings
         LastProjectDirectory = LastProjectDirectory,
         RecentProjectPaths = new List<string>(RecentProjectPaths),
         LastPageIdsByUserId = new Dictionary<string, int>(LastPageIdsByUserId, StringComparer.Ordinal),
+        OpenPageTabIdsByUserId = OpenPageTabIdsByUserId.ToDictionary(
+            pair => pair.Key,
+            pair => new List<int>(pair.Value),
+            StringComparer.Ordinal),
         LastPageTemplateId = LastPageTemplateId,
-        ShowTitleBarPageSearch = ShowTitleBarPageSearch
+        ShowTitleBarPageSearch = ShowTitleBarPageSearch,
+        WorkspacePanelCollapsedByUserId = new Dictionary<string, bool>(WorkspacePanelCollapsedByUserId, StringComparer.Ordinal),
+        WorkspacePanelWidthByUserId = new Dictionary<string, int>(WorkspacePanelWidthByUserId, StringComparer.Ordinal)
     };
 }
 

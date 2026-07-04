@@ -1,0 +1,40 @@
+---
+id: api-doc
+name: API Reference
+description: Endpoints, request/response, examples
+language: en
+order: 72
+---
+
+# {title}
+
+## Overview
+
+
+## Authentication
+
+
+## Endpoints
+
+### `GET /example`
+**Description:**
+
+**Request Parameters**
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| | | | |
+
+**Response Example**
+```json
+{}
+```
+
+## Error Codes
+| Code | Description |
+| --- | --- |
+| 400 | |
+
+## Change History
+| Date | Change |
+| --- | --- |
+| | Initial draft |

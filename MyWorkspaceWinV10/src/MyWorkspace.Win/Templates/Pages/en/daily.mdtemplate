@@ -1,0 +1,18 @@
+---
+id: daily
+name: Daily Work Log
+description: Done today, plan for tomorrow, notes
+language: en
+order: 35
+---
+
+# {title}
+
+## Done Today
+-
+
+## Plan for Tomorrow
+-
+
+## Issues / Notes
+-

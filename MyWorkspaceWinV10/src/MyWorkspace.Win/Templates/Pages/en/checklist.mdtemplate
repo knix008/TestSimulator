@@ -1,0 +1,27 @@
+---
+id: checklist
+name: Inspection Checklist
+description: Pre-deploy, pre-release, periodic checks
+language: en
+order: 120
+---
+
+# {title}
+
+## Inspection Info
+- **Date:**
+- **Inspector:**
+- **Target:**
+
+## Checklist
+- [ ] Item 1
+- [ ] Item 2
+- [ ] Item 3
+
+## Results
+| Item | Result | Notes |
+| --- | --- | --- |
+| | Pass / Fail | |
+
+## Follow-up Actions
+- [ ]

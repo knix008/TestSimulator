@@ -31,6 +31,8 @@ internal static class IconDrawing
             "undo" => Undo(size),
             "redo" => Redo(size),
             "outline" => Outline(size),
+            "document_structure" => DocumentStructure(size),
+            "comments" => Comments(size),
             "info" => Info(size),
             "save" => Save(size),
             "export" => Export(size),
@@ -272,6 +274,39 @@ internal static class IconDrawing
             IconCanvas.DrawLine(g, c, 5.5f, 6f, 11f, 6f, color, size * 0.08f);
             IconCanvas.FillEllipse(g, c, 4.5f, 8.5f, 2f, 2f, color);
             IconCanvas.DrawLine(g, c, 7.5f, 9.5f, 11f, 9.5f, color, size * 0.08f);
+        });
+
+    private static Bitmap DocumentStructure(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var panel = Color.FromArgb(99, 102, 241);
+            var frame = Color.FromArgb(79, 70, 229);
+            var content = Color.FromArgb(165, 180, 252);
+            var stroke = Math.Max(0.85f, size * 0.075f);
+
+            IconCanvas.FillRoundedRectangle(g, c, 0.6f, 1f, 4.2f, 10f, 0.55f, panel);
+            IconCanvas.DrawLine(g, c, 1.3f, 3.2f, 3.8f, 3.2f, Color.White, stroke * 0.85f);
+            IconCanvas.DrawLine(g, c, 1.9f, 5.8f, 3.9f, 5.8f, Color.White, stroke * 0.75f);
+            IconCanvas.DrawLine(g, c, 1.9f, 8.4f, 3.5f, 8.4f, Color.White, stroke * 0.75f);
+
+            IconCanvas.DrawRoundedRectangle(g, c, 5.2f, 1f, 6.2f, 10f, 0.55f, frame, stroke);
+            IconCanvas.DrawLine(g, c, 6f, 3.5f, 10.8f, 3.5f, content, stroke * 0.85f);
+            IconCanvas.DrawLine(g, c, 6f, 6f, 10.8f, 6f, content, stroke * 0.85f);
+            IconCanvas.DrawLine(g, c, 6f, 8.5f, 9.4f, 8.5f, content, stroke * 0.85f);
+        });
+
+    private static Bitmap Comments(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var fill = Color.FromArgb(245, 158, 11);
+            var accent = Color.FromArgb(217, 119, 6);
+            var stroke = Math.Max(0.85f, size * 0.075f);
+
+            IconCanvas.FillRoundedRectangle(g, c, 0.8f, 0.8f, 10.4f, 7.2f, 1.1f, fill);
+            IconCanvas.DrawRoundedRectangle(g, c, 0.8f, 0.8f, 10.4f, 7.2f, 1.1f, accent, stroke * 0.65f);
+            IconCanvas.FillPolygon(g, c, accent, (2.4f, 7.8f), (4.8f, 7.8f), (3.2f, 10.4f));
+            IconCanvas.DrawLine(g, c, 2.6f, 3.2f, 9.4f, 3.2f, Color.White, stroke * 0.9f);
+            IconCanvas.DrawLine(g, c, 2.6f, 5.5f, 8.2f, 5.5f, Color.White, stroke * 0.8f);
         });
 
     private static Bitmap Info(int size) =>

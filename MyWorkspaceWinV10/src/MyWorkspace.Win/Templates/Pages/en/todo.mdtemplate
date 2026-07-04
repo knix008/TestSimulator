@@ -1,0 +1,18 @@
+---
+id: todo
+name: TODO List
+description: Checklist-style task list
+language: en
+order: 50
+---
+
+# {title}
+
+## In Progress
+- [ ]
+
+## Planned
+- [ ]
+
+## Done
+- [x]

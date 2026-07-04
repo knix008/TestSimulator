@@ -8,8 +8,9 @@ namespace MyWorkspace.Win.Forms;
 
 internal sealed class PageCommentsPanel : UserControl
 {
-    private const int ComposeBaseHeight = 132;
+    private const int ComposeBaseHeight = 138;
     private const int QuotePreviewHeight = 58;
+    private const int ComposeButtonsHeight = 38;
 
     private readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
     private readonly Panel _pnlHeader = new();
@@ -59,7 +60,7 @@ internal sealed class PageCommentsPanel : UserControl
         _webView.DefaultBackgroundColor = AppTheme.Sidebar;
 
         _pnlCompose.Dock = DockStyle.Bottom;
-        _pnlCompose.Padding = new Padding(10, 8, 10, 10);
+        _pnlCompose.Padding = new Padding(10, 8, 10, 12);
         _pnlCompose.Height = ComposeBaseHeight;
 
         _txtQuotePreview.Multiline = true;
@@ -79,10 +80,11 @@ internal sealed class PageCommentsPanel : UserControl
         _txtCompose.BorderStyle = BorderStyle.FixedSingle;
 
         _composeButtons.Dock = DockStyle.Bottom;
-        _composeButtons.Height = 34;
+        _composeButtons.Height = ComposeButtonsHeight;
         _composeButtons.FlowDirection = FlowDirection.RightToLeft;
         _composeButtons.WrapContents = false;
-        _composeButtons.Padding = new Padding(0, 6, 0, 0);
+        _composeButtons.Padding = Padding.Empty;
+        _composeButtons.Margin = Padding.Empty;
 
         ConfigureComposeButton(_btnPost, Localization.Get(K.CommentsPost));
         ConfigureComposeButton(_btnAttachFile, Localization.Get(K.CommentsAttachFile));
@@ -142,10 +144,20 @@ internal sealed class PageCommentsPanel : UserControl
             return;
         }
 
+        if (AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, _pageId.Value) == null)
+        {
+            await RenderCommentsAsync([]);
+            return;
+        }
+
         try
         {
             var comments = AppConfig.Services.PageComments.GetComments(SessionContext.CurrentUser, _pageId.Value);
             await RenderCommentsAsync(comments);
+        }
+        catch (InvalidOperationException)
+        {
+            await RenderCommentsAsync([]);
         }
         catch (Exception ex)
         {
@@ -202,14 +214,13 @@ internal sealed class PageCommentsPanel : UserControl
         _txtCompose.BackColor = AppTheme.EditorBackground;
         _txtCompose.ForeColor = AppTheme.EditorText;
         _webView.DefaultBackgroundColor = AppTheme.Sidebar;
-        _ = RefreshAsync();
     }
 
     private static void ConfigureComposeButton(Button button, string text)
     {
         button.AutoSize = true;
         button.Margin = new Padding(6, 0, 0, 0);
-        button.Padding = new Padding(10, 4, 10, 4);
+        button.Padding = new Padding(10, 2, 10, 2);
         button.Text = text;
         AppTheme.StyleSecondaryButton(button);
     }

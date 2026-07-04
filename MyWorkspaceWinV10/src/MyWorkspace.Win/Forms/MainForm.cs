@@ -16,6 +16,7 @@ public partial class MainForm : Form
     private int? _draftWorkspaceId;
     private bool _isLoadingPage;
     private bool _isDirty;
+    private int _dirtyGeneration;
     private bool _suppressOutlineNavigation;
     private bool _suppressWorkspaceSelection;
     private int? _markdownDropTargetWorkspaceId;
@@ -30,10 +31,15 @@ public partial class MainForm : Form
     private System.Windows.Forms.Timer? _outlineUpdateTimer;
     private int _outlineUpdateGeneration;
     private bool _outlineUpdateInProgress;
-    private bool _saveInProgress;
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+    private System.Windows.Forms.Timer? _liveCacheTimer;
+    private int _liveCacheDirtyGeneration = -1;
+    private bool _liveCacheUpdateInProgress;
     private bool _isClosing;
     private bool _initialLoginPromptShown;
     private string? _pendingWspImportPath;
+    private int? _editorDisplayedPageId;
+    private readonly SemaphoreSlim _pageLoadLock = new(1, 1);
 
     private ToolStripButton? _toolbarInfoButton;
     private ToolStripButton? _toolbarWorkspaceButton;
@@ -53,6 +59,7 @@ public partial class MainForm : Form
         _pendingWspImportPath = StartupArguments.TryGetWspImportPath(args);
         InitializeComponent();
         InitializeCommentsPanel();
+        InitializePageTabs();
         FramelessWindowHelper.Configure(this, pnlRoot);
         titleBar.Attach(this);
         ConfigureTitleBarPageSearch();
@@ -217,6 +224,13 @@ public partial class MainForm : Form
             await SaveCurrentPageAsync(showStatus: true, refreshTree: true, autoSaveToSqliteOnly: true);
         };
 
+        _liveCacheTimer = new System.Windows.Forms.Timer(components) { Interval = 350 };
+        _liveCacheTimer.Tick += (_, _) =>
+        {
+            _liveCacheTimer!.Stop();
+            _ = RefreshLivePageCacheAsync();
+        };
+
         try
         {
             await _editor!.InitializeAsync(_pipeline);
@@ -260,7 +274,10 @@ public partial class MainForm : Form
         _draftWorkspaceId = null;
         _currentPageTitle = string.Empty;
         _isDirty = false;
+        PageContentCache.Clear();
+        ClearPageTabs();
         ClearActiveProjectBinding();
+        _ = pageCommentsPanel?.LoadPageAsync(null);
 
         SetShellEnabled(false);
         UpdateEditorChromeEnabled();
@@ -269,6 +286,28 @@ public partial class MainForm : Form
         ApplyStartupTheme();
         ApplyEditorHostTheme();
         UpdateEditorEmptySurface();
+        ApplyLoggedOutShellLayout();
+        UpdatePanelToggleStates();
+    }
+
+    private const string HideOuterSplitterGripTag = "hideOuterSplitterGrip";
+
+    private void ApplyLoggedOutShellLayout()
+    {
+        if (!outerSplit.Panel1Collapsed)
+        {
+            outerSplit.Panel1Collapsed = true;
+            UpdateTitleBarEditorRegion();
+        }
+
+        outerSplit.Tag = HideOuterSplitterGripTag;
+        outerSplit.BackColor = AppTheme.EditorBackground;
+        outerSplit.Invalidate();
+
+        UpdateLayoutConstraints(
+            includeOutlinePanel: false,
+            includeCommentsPanel: false,
+            includeWorkspacePanel: false);
     }
 
     private void ApplyLoggedInState()
@@ -284,6 +323,7 @@ public partial class MainForm : Form
         UpdateEditorChromeEnabled();
         UpdateMenuForLoginState(true);
         ConfigureTitleBarPageSearch();
+        ApplySavedWorkspacePanelState();
 
         var hadPendingImport = !string.IsNullOrWhiteSpace(_pendingWspImportPath);
         var lastPageId = TryResolveRestorableLastPageId();
@@ -300,8 +340,8 @@ public partial class MainForm : Form
 
         TryImportPendingWspIfAny();
 
-        if (!hadPendingImport && lastPageId.HasValue)
-            _ = RestoreLastActivePageAsync(lastPageId.Value);
+        if (!hadPendingImport)
+            _ = RestoreSessionTabsAsync(lastPageId);
     }
 
     private int? TryResolveRestorableLastPageId()
@@ -316,12 +356,33 @@ public partial class MainForm : Form
         return AppConfig.Services.Pages.GetById(SessionContext.CurrentUser, pageId.Value)?.Id;
     }
 
-    private async Task RestoreLastActivePageAsync(int pageId)
+    private async Task RestoreSessionTabsAsync(int? activePageId)
     {
-        if (_editor == null || _currentPageId == pageId)
+        if (_editor == null || !SessionContext.IsLoggedIn)
             return;
 
-        await LoadPageAsync(pageId);
+        var user = SessionContext.CurrentUser;
+        var savedTabIds = AppConfig.GetOpenPageTabIds(user.Id);
+        var validTabIds = savedTabIds
+            .Where(pageId => AppConfig.Services.Pages.GetById(user, pageId) != null)
+            .ToList();
+
+        if (validTabIds.Count == 0)
+        {
+            if (activePageId.HasValue)
+                await OpenPageTabAsync(activePageId.Value);
+            return;
+        }
+
+        RestoreOpenPageTabs(validTabIds);
+        RefreshPageTabBar();
+
+        var pageToLoad = activePageId.HasValue && validTabIds.Contains(activePageId.Value)
+            ? activePageId.Value
+            : validTabIds[0];
+
+        if (_currentPageId != pageToLoad)
+            await LoadPageAsync(pageToLoad);
     }
 
     private void RecordCurrentPageForSession()
@@ -605,7 +666,7 @@ public partial class MainForm : Form
         AddEditorMenuItem(K.ToolbarHorizontalRule, null, async (_, _) => await RunEditorAsync(e => e.InsertHtmlAsync("<hr/><p><br></p>")), "hr");
         AddEditorMenuItem(K.ToolbarTable, null, async (_, _) => await InsertTableAsync(), "table");
         _ctxEditor.Items.Add(new ToolStripSeparator());
-        AddEditorMenuItem(K.ToolbarDocumentStructure, null, (_, _) => ToggleOutlinePanel(), "outline");
+        AddEditorMenuItem(K.ToolbarDocumentStructure, null, (_, _) => ToggleOutlinePanel(), "document_structure");
 
         AppTheme.StyleContextMenu(_ctxEditor);
         SetupEditorImageContextMenu();
@@ -789,10 +850,36 @@ public partial class MainForm : Form
         if (_isLoadingPage)
             return;
 
-        _ = MarkPageDirtyAsync();
+        if (_currentPageId.HasValue)
+        {
+            SetPageDirtyState();
+            return;
+        }
+
+        _ = MarkPageDirtyForDraftAsync();
     }
 
-    private async Task MarkPageDirtyAsync()
+    private void SetPageDirtyState()
+    {
+        _isDirty = true;
+        _dirtyGeneration++;
+        SetSaveStatus(SaveStatusKind.Modified);
+        RefreshPageTabBar();
+        saveTimer.Stop();
+        saveTimer.Start();
+        ScheduleLivePageCacheUpdate();
+    }
+
+    private void ScheduleLivePageCacheUpdate()
+    {
+        if (_liveCacheTimer == null || _isLoadingPage || !_currentPageId.HasValue)
+            return;
+
+        _liveCacheTimer.Stop();
+        _liveCacheTimer.Start();
+    }
+
+    private async Task MarkPageDirtyForDraftAsync()
     {
         if (_isLoadingPage)
             return;
@@ -800,13 +887,22 @@ public partial class MainForm : Form
         if (!await EnsurePageCreatedAsync())
             return;
 
-        if (!_currentPageId.HasValue)
+        if (_currentPageId.HasValue)
+            SetPageDirtyState();
+    }
+
+    private async Task MarkPageDirtyAsync()
+    {
+        if (_isLoadingPage)
             return;
 
-        _isDirty = true;
-        SetSaveStatus(SaveStatusKind.Modified);
-        saveTimer.Stop();
-        saveTimer.Start();
+        if (_currentPageId.HasValue)
+        {
+            SetPageDirtyState();
+            return;
+        }
+
+        await MarkPageDirtyForDraftAsync();
     }
 
     private void LoadWorkspaceTree(int? selectPageId = null, int? selectWorkspaceId = null)
@@ -841,20 +937,28 @@ public partial class MainForm : Form
 
             treeWorkspace.ExpandAll();
 
-            var target = selectPageId.HasValue
-                ? FindNode(treeWorkspace.Nodes, TreeNodeKind.Page, selectPageId.Value)
-                : selectWorkspaceId.HasValue
-                    ? FindNode(treeWorkspace.Nodes, TreeNodeKind.Workspace, selectWorkspaceId.Value)
-                    : null;
-
-            if (target != null && !ReferenceEquals(treeWorkspace.SelectedNode, target))
-                treeWorkspace.SelectedNode = target;
-
-            if (target != null)
+            _suppressWorkspaceSelection = true;
+            try
             {
-                target.EnsureVisible();
-                if (target.Parent != null)
-                    target.Parent.Expand();
+                var target = selectPageId.HasValue
+                    ? FindNode(treeWorkspace.Nodes, TreeNodeKind.Page, selectPageId.Value)
+                    : selectWorkspaceId.HasValue
+                        ? FindNode(treeWorkspace.Nodes, TreeNodeKind.Workspace, selectWorkspaceId.Value)
+                        : null;
+
+                if (target != null && !ReferenceEquals(treeWorkspace.SelectedNode, target))
+                    treeWorkspace.SelectedNode = target;
+
+                if (target != null)
+                {
+                    target.EnsureVisible();
+                    if (target.Parent != null)
+                        target.Parent.Expand();
+                }
+            }
+            finally
+            {
+                _suppressWorkspaceSelection = false;
             }
         }
         finally
@@ -937,7 +1041,7 @@ public partial class MainForm : Form
             if (_currentPageId == data.Id)
                 return;
 
-            _ = LoadPageAsync(data.Id);
+            _ = OpenPageTabAsync(data.Id);
             return;
         }
 
@@ -988,11 +1092,11 @@ public partial class MainForm : Form
             if (_editor != null && !string.Equals(page.Content, content, StringComparison.Ordinal))
                 await _editor.LoadMarkdownAsync(page.Content, _pipeline, page.Id);
 
+            _editorDisplayedPageId = page.Id;
             _suppressWorkspaceSelection = true;
             try
             {
                 LoadWorkspaceTree(selectPageId: page.Id);
-                SelectPageInTree(page.Id);
             }
             finally
             {
@@ -1002,6 +1106,10 @@ public partial class MainForm : Form
             lblStatus.Text = Localization.Format(K.StatusPage, page.Title);
             await UpdateOutlineAsync();
             RecordCurrentPageForSession();
+            EnsurePageTabOpen(page.Id);
+            RememberTabTitle(page.Id, page.Title);
+            RefreshPageTabBar();
+            await RefreshCommentsPanelAsync();
             return true;
         }
         catch (Exception ex)
@@ -1254,6 +1362,8 @@ public partial class MainForm : Form
             includeOutlinePanel: !editorAreaSplit.Panel1Collapsed,
             includeCommentsPanel: !commentsEditorSplit.Panel2Collapsed,
             includeWorkspacePanel: !outerSplit.Panel1Collapsed);
+
+        UpdatePanelToggleStates();
     }
 
     private void menuWorkspacePanel_Click(object? sender, EventArgs e)
@@ -1387,16 +1497,21 @@ public partial class MainForm : Form
             return;
         }
 
+        using var progress = SaveProgressScope.Begin(this);
+
         if (!await SaveCurrentPageAsync(
                 showStatus: true,
                 refreshTree: true,
                 force: true,
-                autoSaveToSqliteOnly: false))
+                autoSaveToSqliteOnly: false,
+                progress: progress))
         {
             return;
         }
 
+        progress.ReportIndeterminate(Localization.Get(K.SaveProgressUpdatingProject));
         TrySaveBoundProjectFile();
+        progress.ReportDeterminate(100, Localization.Get(K.SaveProgressFinishing));
         SetSaveStatus(SaveStatusKind.Saved);
         if (!string.IsNullOrWhiteSpace(_currentPageTitle))
             lblStatus.Text = Localization.Format(K.StatusPage, _currentPageTitle.Trim());
@@ -1462,8 +1577,7 @@ public partial class MainForm : Form
                 dialog.PageContent);
             AppConfig.RecordLastPageTemplateId(dialog.SelectedTemplate.Id);
             LoadWorkspaceTree(selectPageId: page.Id);
-            SelectPageInTree(page.Id);
-            _ = LoadPageAsync(page.Id);
+            _ = OpenPageTabAsync(page.Id);
         }
         catch (Exception ex)
         {
@@ -1542,6 +1656,8 @@ public partial class MainForm : Form
 
             LoadWorkspaceTree(selectPageId: data.Id);
             lblStatus.Text = Localization.Format(K.StatusPage, newTitle);
+            RememberTabTitle(data.Id, newTitle);
+            RefreshPageTabBar();
         }
         catch (Exception ex)
         {
@@ -1587,8 +1703,7 @@ public partial class MainForm : Form
             {
                 SaveCurrentPage(refreshTree: false);
                 AppConfig.Services.Pages.DeletePage(SessionContext.CurrentUser, data.Id, userConfirmed: true);
-                if (_currentPageId == data.Id)
-                    _ = ClearEditorImmediateAsync();
+                _ = HandlePageRemovedFromTabsAsync(data.Id);
                 LoadWorkspaceTree(selectWorkspaceId: data.WorkspaceId);
                 if (_currentPageId.HasValue && _currentPageId != data.Id)
                     SelectPageInTree(_currentPageId.Value);
@@ -1611,6 +1726,7 @@ public partial class MainForm : Form
                 SaveCurrentPage(refreshTree: false);
 
             AppConfig.Services.Workspaces.DeleteWorkspace(SessionContext.CurrentUser, data.Id, userConfirmed: true);
+            ClearPageTabs(persistChanges: true);
             _ = ClearEditorAsync();
             LoadWorkspaceTree();
         }
@@ -1915,6 +2031,8 @@ public partial class MainForm : Form
 
         if (form.DatabaseDisconnected)
         {
+            RecordCurrentPageForSession();
+            RecordWorkspacePanelStateForSession();
             ApplyLoggedOutState();
             lblStatus.Text = Localization.Get(K.StatusDbDisconnected);
             MessageBox.Show(
@@ -1934,6 +2052,8 @@ public partial class MainForm : Form
                 L.AppName,
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
+            RecordCurrentPageForSession();
+            RecordWorkspacePanelStateForSession();
             ApplyLoggedOutState();
             ShowLoginDialog();
             return;
@@ -1953,7 +2073,7 @@ public partial class MainForm : Form
         }
 
         if (lastPageId.HasValue)
-            _ = RestoreLastActivePageAsync(lastPageId.Value);
+            _ = RestoreSessionTabsAsync(lastPageId);
         lblStatus.Text = SessionContext.IsAdmin
             ? Localization.Get(K.StatusAdmin)
             : Localization.Get(K.StatusUser);
@@ -1977,17 +2097,22 @@ public partial class MainForm : Form
                 MessageBoxIcon.Question) != DialogResult.Yes)
             return;
 
-        await SaveCurrentPageAsync(refreshTree: false);
+        if (!await TryPersistCacheOnShutdownAsync())
+            return;
+
         RecordCurrentPageForSession();
+        RecordWorkspacePanelStateForSession();
         ApplyLoggedOutState();
         ShowLoginDialog();
     }
 
     private async void menuExit_Click(object sender, EventArgs e)
     {
-        if (SessionContext.IsLoggedIn)
-            await SaveCurrentPageAsync(refreshTree: false);
+        if (!await TryPersistCacheOnShutdownAsync())
+            return;
 
+        RecordCurrentPageForSession();
+        RecordWorkspacePanelStateForSession();
         _isClosing = true;
         Close();
     }
@@ -1998,24 +2123,20 @@ public partial class MainForm : Form
             return;
 
         RecordCurrentPageForSession();
+        RecordWorkspacePanelStateForSession();
 
-        if (!SessionContext.IsLoggedIn || !_currentPageId.HasValue)
+        if (!ShouldPersistCacheOnShutdown())
             return;
 
         e.Cancel = true;
         _outlineUpdateTimer?.Stop();
         _outlineHighlightTimer?.Stop();
-        saveTimer.Stop();
 
-        try
-        {
-            await SaveCurrentPageAsync(force: true);
-        }
-        finally
-        {
-            _isClosing = true;
-            Close();
-        }
+        if (!await TryPersistCacheOnShutdownAsync())
+            return;
+
+        _isClosing = true;
+        Close();
     }
 
     private void ctxNewRootWorkspace_Click(object sender, EventArgs e) => menuNewRootWorkspace_Click(sender, e);
@@ -2148,13 +2269,21 @@ public partial class MainForm : Form
         if (_editor != null && _editor.IsReady && !_editor.IsScriptSuspended)
             selectedText = await _editor.GetSelectedTextAsync();
 
+        await RunEditorAsync(e => e.SaveInsertMarkerAsync());
+
         using var dialog = new LinkDialogForm(selectedText);
         if (dialog.ShowDialog() != DialogResult.OK)
+        {
+            await RunEditorAsync(e => e.ClearInsertMarkerAsync());
             return;
+        }
 
         var url = dialog.LinkUrl;
         if (string.IsNullOrWhiteSpace(url))
+        {
+            await RunEditorAsync(e => e.ClearInsertMarkerAsync());
             return;
+        }
 
         var text = dialog.LinkText;
         if (string.IsNullOrWhiteSpace(text))
@@ -2196,6 +2325,8 @@ public partial class MainForm : Form
 
     private async Task InsertImageAsync()
     {
+        await RunEditorAsync(e => e.SaveInsertMarkerAsync());
+
         using var dialog = new OpenFileDialog
         {
             Title = Localization.Get(K.DialogImageFilePrompt),
@@ -2204,25 +2335,35 @@ public partial class MainForm : Form
         };
 
         if (dialog.ShowDialog() != DialogResult.OK)
+        {
+            await RunEditorAsync(e => e.ClearInsertMarkerAsync());
             return;
+        }
 
         var pageId = await EnsurePageIdForAssetsAsync();
         if (!pageId.HasValue)
+        {
+            await RunEditorAsync(e => e.ClearInsertMarkerAsync());
             return;
+        }
 
         try
         {
             await ImportAndInsertAssetAsync(pageId.Value, dialog.FileName);
             MarkPageDirty();
+            _ = RefreshLivePageCacheAsync();
         }
         catch (Exception ex)
         {
+            await RunEditorAsync(e => e.ClearInsertMarkerAsync());
             ErrorDetailForm.Show(this, Localization.Get(K.DialogImageTitle), ex);
         }
     }
 
     private async Task InsertFileAsync()
     {
+        await RunEditorAsync(e => e.SaveInsertMarkerAsync());
+
         using var dialog = new OpenFileDialog
         {
             Title = Localization.Get(K.DialogAttachFilePrompt),
@@ -2231,11 +2372,17 @@ public partial class MainForm : Form
         };
 
         if (dialog.ShowDialog() != DialogResult.OK)
+        {
+            await RunEditorAsync(e => e.ClearInsertMarkerAsync());
             return;
+        }
 
         var pageId = await EnsurePageIdForAssetsAsync();
         if (!pageId.HasValue)
+        {
+            await RunEditorAsync(e => e.ClearInsertMarkerAsync());
             return;
+        }
 
         try
         {
@@ -2244,6 +2391,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
+            await RunEditorAsync(e => e.ClearInsertMarkerAsync());
             ErrorDetailForm.Show(this, Localization.Get(K.ToolbarAttachFile), ex);
         }
     }
@@ -2318,6 +2466,7 @@ public partial class MainForm : Form
         });
 
         MarkPageDirty();
+        _ = RefreshLivePageCacheAsync();
     }
 
     private async Task HandleEditorImageDataDroppedAsync(
@@ -2352,6 +2501,7 @@ public partial class MainForm : Form
                 await e.FinalizeImageSizesAsync();
             });
             MarkPageDirty();
+            _ = RefreshLivePageCacheAsync();
         }
         catch (Exception ex)
         {

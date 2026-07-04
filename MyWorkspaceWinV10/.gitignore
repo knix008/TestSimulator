@@ -105,5 +105,10 @@ BenchmarkDotNet.Artifacts/
 # Local project archives and ad-hoc export folders (keep tracked samples if any)
 *.wsp
 
-# Note: src/MyWorkspace.Win/Assets/ (app.ico, Icons/s16·s20·s28 PNG) is tracked in git.
-# Regenerate with: dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
+# Tracked UI assets (do not ignore):
+#   src/MyWorkspace.Win/Assets/app.ico, wsp.ico
+#   src/MyWorkspace.Win/Assets/Icons/s16|s20|s28/*.png  (embedded in the Win assembly)
+# Includes nav/menu icons such as document_structure, comments, workspace, outline, quote, etc.
+# Regenerate all PNG/ICO assets:
+#   dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
+# Win project also runs IconGenerator automatically when Assets are missing (GenerateIconsIfMissing).

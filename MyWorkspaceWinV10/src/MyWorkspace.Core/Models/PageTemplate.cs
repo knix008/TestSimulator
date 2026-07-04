@@ -10,4 +10,6 @@ public sealed class PageTemplate
     public int Order { get; init; } = 100;
     public bool IsUserDefined { get; init; }
     public string? SourcePath { get; init; }
+    /// <summary>Template language code: ko, en, or empty for language-neutral user templates.</summary>
+    public string Language { get; init; } = string.Empty;
 }

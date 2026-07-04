@@ -1,0 +1,27 @@
+---
+id: decision
+name: Decision Record
+description: Background, options, decision, rationale
+language: en
+order: 45
+---
+
+# {title}
+
+## Background
+
+
+## Options
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A | | |
+| B | | |
+
+## Decision
+-
+
+## Rationale
+
+
+## Follow-up Actions
+- [ ] Owner / Due date

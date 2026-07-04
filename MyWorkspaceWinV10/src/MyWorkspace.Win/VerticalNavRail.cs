@@ -18,6 +18,7 @@ internal sealed class VerticalNavRail : Panel
         public required ToolStripMenuItem MenuRoot { get; init; }
         public required string IconName { get; init; }
         public required string TooltipKey { get; init; }
+        public bool IsPressed { get; set; }
     }
 
     private sealed class BottomEntry
@@ -87,6 +88,16 @@ internal sealed class VerticalNavRail : Panel
 
         entry.Button.Visible = visible;
         Relayout();
+    }
+
+    public void SetEntryPressed(ToolStripMenuItem menuRoot, bool pressed)
+    {
+        var entry = _entries.FirstOrDefault(e => ReferenceEquals(e.MenuRoot, menuRoot));
+        if (entry == null || entry.IsPressed == pressed)
+            return;
+
+        entry.IsPressed = pressed;
+        ApplyEntryVisual(entry);
     }
 
     public void AddBottomAction(ToolStripMenuItem menuItem, string iconName, string tooltipKey)
@@ -167,10 +178,13 @@ internal sealed class VerticalNavRail : Panel
         AppTheme.StyleBorderedPanel(this, PanelEdges.None);
         AppTheme.StyleToolTip(_toolTip);
         foreach (var entry in _entries)
-            AppTheme.StyleNavRailButton(entry.Button);
+            ApplyEntryVisual(entry);
         foreach (var entry in _bottomEntries)
             AppTheme.StyleNavRailButton(entry.Button);
     }
+
+    private static void ApplyEntryVisual(NavEntry entry) =>
+        AppTheme.StyleNavRailButton(entry.Button, entry.IsPressed);
 
     public void RefreshTooltips()
     {

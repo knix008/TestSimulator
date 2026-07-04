@@ -762,6 +762,12 @@ internal sealed class WebViewEditorController
     public Task InsertHtmlAsync(string html) =>
         RunApiAsync($"window.editorApi.insertHtml('{EscapeJs(html)}');");
 
+    public Task SaveInsertMarkerAsync() =>
+        RunApiAsync("window.editorApi.saveInsertMarker();");
+
+    public Task ClearInsertMarkerAsync() =>
+        RunApiAsync("window.editorApi.clearInsertMarker();");
+
     public Task InsertImageAsync(string src, string alt) =>
         RunApiAsync($"window.editorApi.insertImage('{EscapeJs(src)}','{EscapeJs(alt)}');");
 

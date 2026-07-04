@@ -1,0 +1,31 @@
+---
+id: release-notes
+name: Release Notes
+description: Version changes, migration guide
+language: en
+order: 75
+---
+
+# {title}
+
+## Version Info
+- **Version:**
+- **Release Date:**
+
+## New Features
+-
+
+## Improvements
+-
+
+## Bug Fixes
+-
+
+## Breaking Changes
+-
+
+## Migration / Upgrade Guide
+
+
+## Known Issues
+-

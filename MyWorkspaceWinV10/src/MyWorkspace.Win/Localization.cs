@@ -340,6 +340,13 @@ internal static class Localization
         Add(K.PageLoadFailed, "Page를 불러올 수 없습니다.", "Unable to load the page.");
         Add(K.PageLoadFailedTitle, "Page 불러오기 실패", "Page load failed");
         Add(K.SaveFailed, "저장 실패", "Save failed");
+        Add(K.SaveProgressTitle, "저장 중", "Saving");
+        Add(K.SaveProgressStarting, "저장을 준비하는 중…", "Preparing to save…");
+        Add(K.SaveProgressPrepareEditor, "편집 내용을 준비하는 중…", "Preparing editor content…");
+        Add(K.SaveProgressExtractContent, "문서 내용을 읽는 중…", "Reading document content…");
+        Add(K.SaveProgressWritingDatabase, "데이터베이스에 저장하는 중…", "Saving to database…");
+        Add(K.SaveProgressUpdatingProject, "프로젝트 파일을 업데이트하는 중…", "Updating project file…");
+        Add(K.SaveProgressFinishing, "마무리하는 중…", "Finishing…");
         Add(K.SelectPage, "Page를 선택하세요.", "Select a page.");
         Add(K.SelectPageToSave, "저장할 Page를 선택하세요.", "Select a page to save.");
         Add(K.SelectWorkspace, "Workspace를 선택하세요.", "Select a workspace.");
@@ -357,6 +364,7 @@ internal static class Localization
         Add(K.ConfirmDeleteWorkspace, "\"{0}\" Workspace를 삭제할까요?", "Delete workspace \"{0}\"?");
         Add(K.ConfirmDeleteWorkspaceWithPages, "\"{0}\" Workspace와 포함된 Page {1}개를 모두 삭제할까요?", "Delete workspace \"{0}\" and all {1} page(s)?");
         Add(K.ConfirmLogout, "로그아웃하시겠습니까?", "Do you want to sign out?");
+        Add(K.ConfirmExitWithUnsavedCache, "캐시에 남은 변경 내용을 DB에 저장하지 못했습니다. 저장하지 않고 종료하시겠습니까?", "Failed to save cached changes to the database. Exit without saving?");
         Add(K.Confirm, "확인", "Confirm");
         Add(K.DialogLinkTitle, "링크", "Link");
         Add(K.DialogLinkTextPrompt, "표시 이름:", "Display text:");
@@ -828,6 +836,13 @@ internal static class K
     public const string PageLoadFailed = "PageLoadFailed";
     public const string PageLoadFailedTitle = "PageLoadFailedTitle";
     public const string SaveFailed = "SaveFailed";
+    public const string SaveProgressTitle = "SaveProgressTitle";
+    public const string SaveProgressStarting = "SaveProgressStarting";
+    public const string SaveProgressPrepareEditor = "SaveProgressPrepareEditor";
+    public const string SaveProgressExtractContent = "SaveProgressExtractContent";
+    public const string SaveProgressWritingDatabase = "SaveProgressWritingDatabase";
+    public const string SaveProgressUpdatingProject = "SaveProgressUpdatingProject";
+    public const string SaveProgressFinishing = "SaveProgressFinishing";
     public const string SelectPage = "SelectPage";
     public const string SelectPageToSave = "SelectPageToSave";
     public const string SelectWorkspace = "SelectWorkspace";
@@ -845,6 +860,7 @@ internal static class K
     public const string ConfirmDeleteWorkspace = "ConfirmDeleteWorkspace";
     public const string ConfirmDeleteWorkspaceWithPages = "ConfirmDeleteWorkspaceWithPages";
     public const string ConfirmLogout = "ConfirmLogout";
+    public const string ConfirmExitWithUnsavedCache = "ConfirmExitWithUnsavedCache";
     public const string Confirm = "Confirm";
     public const string DialogLinkTitle = "DialogLinkTitle";
     public const string DialogLinkTextPrompt = "DialogLinkTextPrompt";

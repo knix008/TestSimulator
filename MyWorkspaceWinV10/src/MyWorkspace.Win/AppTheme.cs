@@ -1433,11 +1433,11 @@ internal static class AppTheme
             button.MinimumSize = new Size(button.MinimumSize.Width, minHeight);
     }
 
-    public static void StyleNavRailButton(Button button)
+    public static void StyleNavRailButton(Button button, bool pressed = false)
     {
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderSize = 0;
-        button.BackColor = Sidebar;
+        button.BackColor = pressed ? SidebarButtonPressedBackground : Sidebar;
         button.ForeColor = TextPrimary;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
@@ -1566,6 +1566,12 @@ internal static class AppTheme
     private static void PaintVerticalSplitterGrip(object? sender, PaintEventArgs e)
     {
         if (sender is not SplitContainer split || split.Orientation != Orientation.Vertical)
+            return;
+
+        if (split.Panel1Collapsed)
+            return;
+
+        if (split.Tag is string tag && tag == "hideOuterSplitterGrip")
             return;
 
         var splitterWidth = split.SplitterWidth;
@@ -1718,12 +1724,12 @@ internal static class AppTheme
 
         protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
         {
-            if (_sidebarStyle && e.Item is ToolStripButton)
+            if (_sidebarStyle && e.Item is ToolStripButton button)
             {
                 var bounds = new Rectangle(Point.Empty, e.Item.Size);
                 bounds.Inflate(-1, -1);
 
-                if (e.Item.Pressed)
+                if (e.Item.Pressed || button.Checked)
                 {
                     using var brush = new SolidBrush(SidebarButtonPressedBackground);
                     e.Graphics.FillRectangle(brush, bounds);

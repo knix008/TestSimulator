@@ -1,0 +1,38 @@
+---
+id: tech-doc
+name: Technical Document
+description: Overview, architecture, API, configuration
+language: en
+order: 60
+---
+
+# {title}
+
+## Overview
+
+
+## Background
+
+
+## Architecture
+```text
+[Diagram or description]
+```
+
+## Details
+
+
+## API / Interfaces
+| Item | Description |
+| --- | --- |
+| | |
+
+## Configuration
+```json
+{}
+```
+
+## Change History
+| Date | Change | Author |
+| --- | --- | --- |
+| | Initial draft | |

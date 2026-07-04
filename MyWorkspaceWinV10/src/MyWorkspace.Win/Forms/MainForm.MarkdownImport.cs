@@ -89,28 +89,16 @@ public partial class MainForm
         {
 
             _suppressWorkspaceSelection = true;
-
             try
-
             {
-
                 LoadWorkspaceTree(selectPageId: lastImportedPageId.Value);
-
-                SelectPageInTree(lastImportedPageId.Value);
-
             }
-
             finally
-
             {
-
                 _suppressWorkspaceSelection = false;
-
             }
 
-
-
-            await LoadPageAsync(lastImportedPageId.Value);
+            await OpenPageTabAsync(lastImportedPageId.Value);
 
             return;
 
