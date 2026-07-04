@@ -9,6 +9,14 @@
     <ApplicationIcon>MyDiffWinV10.ico</ApplicationIcon>
     <AssemblyTitle>MyDiff Win V10</AssemblyTitle>
     <Product>MyDiff Win V10</Product>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <BuildId>$([System.DateTime]::UtcNow.ToString('yyyyMMdd.HHmm'))</BuildId>
+    <InformationalVersion>1.0.0+$(BuildId)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Company>SHKWON</Company>
+    <Copyright>Copyright (c) SHKWON(knix008@naver.com)</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

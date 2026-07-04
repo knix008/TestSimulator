@@ -91,17 +91,8 @@
                    Transparent="yes"
                    NoPrefix="yes"
                    Text="!(loc.UserDataDlgInstallDescription)"
-                   ShowCondition="NOT WIX_UPGRADE_DETECTED AND REMOVE&lt;&gt;&quot;ALL&quot;"
-                   HideCondition="WIX_UPGRADE_DETECTED OR REMOVE=&quot;ALL&quot;" />
-        <Control Id="FolderDescription"
-                   Type="Text"
-                   X="20"
-                   Y="120"
-                   Width="330"
-                   Height="30"
-                   Transparent="yes"
-                   NoPrefix="yes"
-                   Text="!(loc.UserDataDlgFolderDescription)" />
+                   ShowCondition="EXISTINGUSERDATA AND NOT WIX_UPGRADE_DETECTED AND REMOVE&lt;&gt;&quot;ALL&quot;"
+                   HideCondition="NOT EXISTINGUSERDATA OR WIX_UPGRADE_DETECTED OR REMOVE=&quot;ALL&quot;" />
         <Control Id="RemoveUserDataCheck"
                    Type="CheckBox"
                    X="20"
@@ -110,7 +101,20 @@
                    Height="17"
                    Property="REMOVEUSERDATA"
                    CheckBoxValue="1"
-                   Text="!(loc.UserDataDlgCheckBox)" />
+                   Text="!(loc.UserDataDlgCheckBox)"
+                   ShowCondition="EXISTINGUSERDATA"
+                   HideCondition="NOT EXISTINGUSERDATA" />
+        <Control Id="FolderDescription"
+                   Type="Text"
+                   X="20"
+                   Y="120"
+                   Width="330"
+                   Height="30"
+                   Transparent="yes"
+                   NoPrefix="yes"
+                   Text="!(loc.UserDataDlgFolderDescription)"
+                   ShowCondition="EXISTINGUSERDATA"
+                   HideCondition="NOT EXISTINGUSERDATA" />
       </Dialog>
     </UI>
   </Fragment>

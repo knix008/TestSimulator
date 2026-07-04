@@ -36,6 +36,9 @@ internal static class PaneTheme
             _ => ZebraForLine(lineIndex),
         };
 
+    public static Color PaneRowBackColor(DiffLineKind kind, int lineIndex, bool hasPaneContent) =>
+        hasPaneContent ? RowBackColor(kind, lineIndex) : ZebraForLine(lineIndex);
+
     public static (Color Background, Color Text) HeaderColors(bool isLeft, AppSettings settings)
     {
         Color background = Color.FromArgb(

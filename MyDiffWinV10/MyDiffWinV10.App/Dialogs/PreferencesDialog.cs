@@ -27,6 +27,8 @@ public sealed class PreferencesDialog : Form
     private readonly Button _ok = new() { DialogResult = DialogResult.OK, AutoSize = true };
     private readonly Button _cancel = new() { DialogResult = DialogResult.Cancel, AutoSize = true };
 
+    private bool _suppressLanguageSelection;
+
     public event EventHandler? SettingsChanged;
 
     public PreferencesDialog(AppSettings settings)
@@ -130,6 +132,11 @@ public sealed class PreferencesDialog : Form
 
     private void ApplyLanguageSelection()
     {
+        if (_suppressLanguageSelection)
+        {
+            return;
+        }
+
         _settings.Language = _language.SelectedIndex == 0 ? AppLanguage.Korean : AppLanguage.English;
         Strings.Language = _settings.Language;
         ApplyLocalizedText();
@@ -148,6 +155,21 @@ public sealed class PreferencesDialog : Form
         _rightHeaderColor.ApplyLocalizedText();
         _ok.Text = Strings.Ok;
         _cancel.Text = Strings.Cancel;
+
+        _suppressLanguageSelection = true;
+        try
+        {
+            _language.BeginUpdate();
+            _language.Items.Clear();
+            _language.Items.Add(Strings.LanguageKorean);
+            _language.Items.Add(Strings.LanguageEnglish);
+            _language.SelectedIndex = _settings.Language == AppLanguage.Korean ? 0 : 1;
+            _language.EndUpdate();
+        }
+        finally
+        {
+            _suppressLanguageSelection = false;
+        }
     }
 
     private void Apply()

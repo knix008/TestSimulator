@@ -7,10 +7,9 @@ internal static class Program
 {
     /// <summary>
     /// Usage:
-    ///   MyDiffWinV10.App.exe                 -> standalone, pick Left/Right via dialogs
-    ///   MyDiffWinV10.App.exe &lt;LEFT&gt; &lt;RIGHT&gt;   -> diff the two files directly
-    ///                                            (git difftool convention / MyGitWinV10
-    ///                                            external-diff-tool convention)
+    ///   MyDiffWinV10.App.exe                 -> directory compare home screen
+    ///   MyDiffWinV10.App.exe &lt;LEFT&gt; &lt;RIGHT&gt;   -> file diff directly
+    ///                                            (git difftool / MyGitWinV10 external diff)
     /// </summary>
     [STAThread]
     private static int Main(string[] args)
@@ -27,7 +26,7 @@ internal static class Program
             }
         };
 
-        DiffForm form;
+        Form form;
         try
         {
             form = CreateForm(args);
@@ -42,12 +41,12 @@ internal static class Program
         return 0;
     }
 
-    private static DiffForm CreateForm(string[] args)
+    private static Form CreateForm(string[] args)
     {
         return args.Length switch
         {
-            2 => DiffForm.FromFiles(leftFile: args[0], rightFile: args[1]),
-            0 => DiffForm.Standalone(),
+            2 => MainForm.FromFiles(leftFile: args[0], rightFile: args[1]),
+            0 => MainForm.Standalone(),
             _ => throw new ArgumentException(Strings.UsageError),
         };
     }

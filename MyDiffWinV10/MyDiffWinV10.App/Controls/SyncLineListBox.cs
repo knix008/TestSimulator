@@ -205,9 +205,17 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
         return new PaneLineItem
         {
             Text = line.Text,
-            BackColor = PaneTheme.RowBackColor(_binaryDocument!.RowKinds[lineIndex], lineIndex),
+            BackColor = GetBinaryPaneRowBackColor(lineIndex),
             BinaryByteDiffMask = line.DiffMask,
         };
+    }
+
+    private Color GetBinaryPaneRowBackColor(int lineIndex)
+    {
+        long offset = (long)lineIndex * BinaryDiff.BytesPerLine;
+        long fileLength = _binaryIsLeft ? _binaryDocument!.LeftLength : _binaryDocument!.RightLength;
+        bool hasPaneContent = offset < fileLength;
+        return PaneTheme.PaneRowBackColor(_binaryDocument!.RowKinds[lineIndex], lineIndex, hasPaneContent);
     }
 
     public void AddLine(string text, Color backColor)
@@ -236,6 +244,15 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             return;
         }
 
+        int lineHeight = Math.Max(1, ItemHeight);
+        int visibleLines = (int)Math.Ceiling(ClientSize.Height / (double)lineHeight);
+        int targetCount = Math.Max(_contentLineCount, visibleLines);
+        if (Items.Count == targetCount)
+        {
+            ApplyNativeVerticalScrollbarVisibility();
+            return;
+        }
+
         _isEnsuringViewport = true;
         BeginUpdate();
         try
@@ -245,9 +262,6 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
                 Items.RemoveAt(Items.Count - 1);
             }
 
-            int lineHeight = Math.Max(1, ItemHeight);
-            int visibleLines = (int)Math.Ceiling(ClientSize.Height / (double)lineHeight);
-            int targetCount = Math.Max(_contentLineCount, visibleLines);
             int lineIndex = _contentLineCount;
             while (Items.Count < targetCount)
             {
@@ -383,10 +397,21 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
         {
             RefreshBinaryWindow();
         }
-        else
+        else if (Visible)
         {
-            ScheduleViewportFill();
+            EnsureViewportFill();
         }
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (!Visible || !IsHandleCreated || _virtualBinaryMode)
+        {
+            return;
+        }
+
+        EnsureViewportFill();
     }
 
     protected override void OnFontChanged(EventArgs e)
@@ -443,7 +468,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
     {
         if (_virtualBinaryMode && _binaryDocument != null && lineIndex >= 0 && lineIndex < _binaryDocument.LineCount)
         {
-            return PaneTheme.RowBackColor(_binaryDocument.RowKinds[lineIndex], lineIndex);
+            return GetBinaryPaneRowBackColor(lineIndex);
         }
 
         if (lineIndex >= 0 && lineIndex < Items.Count && Items[lineIndex] is PaneLineItem item)
@@ -487,9 +512,8 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     protected override void OnDrawItem(DrawItemEventArgs e)
     {
-        if (e.Index < 0 || e.Index >= _contentLineCount)
+        if (e.Index < 0 || e.Index >= Items.Count)
         {
-            e.DrawBackground();
             return;
         }
 
@@ -497,6 +521,11 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
         using (var rowBrush = new SolidBrush(item.BackColor))
         {
             e.Graphics.FillRectangle(rowBrush, e.Bounds);
+        }
+
+        if (e.Index >= _contentLineCount)
+        {
+            return;
         }
 
         bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;

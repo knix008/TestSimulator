@@ -12,6 +12,47 @@ public static class IconFactory
 
     public static Bitmap OpenRight() => OpenFile(Color.FromArgb(37, 99, 235));
 
+    public static Bitmap OpenLeftFile() => OpenDocument(Color.FromArgb(100, 116, 139));
+
+    public static Bitmap OpenRightFile() => OpenDocument(Color.FromArgb(37, 99, 235));
+
+    public static Bitmap FontSize() => Draw(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(71, 85, 105), 1.4f) { LineJoin = LineJoin.Round };
+        using var accent = new SolidBrush(Color.FromArgb(37, 99, 235));
+        g.DrawString("A", new Font("Segoe UI", 9f, FontStyle.Bold), accent, 1f, 0.5f);
+        g.DrawLine(pen, 10, 3, 10, 13);
+        g.DrawLine(pen, 10, 5, 14, 5);
+        g.DrawLine(pen, 10, 8, 13, 8);
+        g.DrawLine(pen, 10, 11, 14, 11);
+    });
+
+    public static Bitmap FileCompare() => Draw(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(37, 99, 235), 1.2f) { LineJoin = LineJoin.Round };
+        using var leftFill = new SolidBrush(Color.FromArgb(226, 232, 240));
+        using var rightFill = new SolidBrush(Color.FromArgb(219, 234, 254));
+        g.FillRectangle(leftFill, 1, 3, 6, 10);
+        g.DrawRectangle(pen, 1, 3, 6, 10);
+        g.FillRectangle(rightFill, 9, 3, 6, 10);
+        g.DrawRectangle(pen, 9, 3, 6, 10);
+        using var diffPen = new Pen(Color.FromArgb(234, 88, 12), 1.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        g.DrawLine(diffPen, 4, 8, 12, 8);
+    });
+
+    public static Bitmap DirectoryCompare() => Draw(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(180, 130, 60), 1f) { LineJoin = LineJoin.Round };
+        using var body = new SolidBrush(Color.FromArgb(255, 200, 130));
+        using var tab = new SolidBrush(Color.FromArgb(240, 175, 90));
+        g.FillRectangle(body, 1, 5, 6, 9);
+        g.FillRectangle(tab, 1, 3, 4, 3);
+        g.DrawRectangle(pen, 1, 5, 5, 8);
+        g.FillRectangle(body, 9, 5, 6, 9);
+        g.FillRectangle(tab, 9, 3, 4, 3);
+        g.DrawRectangle(pen, 9, 5, 5, 8);
+    });
+
     private static Bitmap OpenFile(Color accent)
     {
         return Draw(g =>
@@ -26,6 +67,27 @@ public static class IconFactory
             PointF[] tabShape = [new(1, 4), new(6, 4), new(7.5f, 6), new(1, 6)];
             g.FillPolygon(tabBrush, tabShape);
             g.DrawPolygon(pen, tabShape);
+        });
+    }
+
+    private static Bitmap OpenDocument(Color accent)
+    {
+        return Draw(g =>
+        {
+            var body = Color.FromArgb((accent.R + 255 * 3) / 4, (accent.G + 255 * 3) / 4, (accent.B + 255 * 3) / 4);
+            using var pen = new Pen(accent, 1f) { LineJoin = LineJoin.Round };
+            using var bodyBrush = new SolidBrush(body);
+            g.FillRectangle(bodyBrush, 3, 1, 10, 14);
+            g.DrawRectangle(pen, 3, 1, 10, 14);
+            using var foldBrush = new SolidBrush(Color.FromArgb(Math.Min(255, accent.R + 40), Math.Min(255, accent.G + 40), Math.Min(255, accent.B + 40)));
+            PointF[] fold = [new(10, 1), new(13, 4), new(10, 4)];
+            g.FillPolygon(foldBrush, fold);
+            g.DrawLine(pen, 10, 1, 13, 4);
+            g.DrawLine(pen, 10, 1, 10, 4);
+            g.DrawLine(pen, 10, 4, 13, 4);
+            using var linePen = new Pen(Color.FromArgb(Math.Max(0, accent.R - 20), Math.Max(0, accent.G - 20), Math.Max(0, accent.B - 20)), 1f);
+            g.DrawLine(linePen, 5, 7, 11, 7);
+            g.DrawLine(linePen, 5, 10, 11, 10);
         });
     }
 

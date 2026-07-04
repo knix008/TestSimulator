@@ -6,6 +6,13 @@ public sealed class LastSessionInfo
     public string? RightPath { get; set; }
 }
 
+public sealed class LastDirectorySessionInfo
+{
+    public string? LeftDirectory { get; set; }
+
+    public string? RightDirectory { get; set; }
+}
+
 /// <summary>
 /// All persisted MyDiff settings — window placement, pane preferences, and the last
 /// working session — collected in one settings file instead of scattered state.
@@ -27,4 +34,6 @@ public sealed class AppSettings
     public int RightPaneHeaderColorArgb { get; set; } = PaneHeaderColorPalette.DefaultRightArgb;
 
     public LastSessionInfo? LastSession { get; set; }
+
+    public LastDirectorySessionInfo? LastDirectorySession { get; set; }
 }

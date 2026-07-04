@@ -9,6 +9,8 @@
            UpgradeCode="6E1B8C2A-9F3D-4C7E-8A1B-3D5E7F9A2B40">
 
     <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  Schedule="afterInstallInitialize"
+                  MigrateFeatures="yes"
                   DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
