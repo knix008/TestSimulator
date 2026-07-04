@@ -22,5 +22,9 @@ public sealed class AppSettings
     public bool WordWrap { get; set; }
     public AppLanguage Language { get; set; } = AppLanguage.Korean;
 
+    public int LeftPaneHeaderColorArgb { get; set; } = PaneHeaderColorPalette.DefaultLeftArgb;
+
+    public int RightPaneHeaderColorArgb { get; set; } = PaneHeaderColorPalette.DefaultRightArgb;
+
     public LastSessionInfo? LastSession { get; set; }
 }

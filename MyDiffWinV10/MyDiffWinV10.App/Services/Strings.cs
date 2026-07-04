@@ -48,7 +48,7 @@ public static class Strings
     public static string TipPrevDiff => T("이전 차이로 이동합니다", "Jump to the previous difference");
     public static string TipNextDiff => T("다음 차이로 이동합니다", "Jump to the next difference");
     public static string TipWordWrap => T("좌우 패널의 자동 줄 바꿈을 전환합니다", "Toggle word wrap in both panes");
-    public static string TipPreferences => T("패널 글꼴 크기, 줄 바꿈, 언어 설정을 편집합니다", "Edit pane font size, word wrap, and language");
+    public static string TipPreferences => T("패널 글꼴 크기, 줄 바꿈, 타이틀 바 색, 언어 설정을 편집합니다", "Edit pane font size, word wrap, title bar colors, and language");
     public static string TipExit => T("MyDiff를 종료합니다", "Close MyDiff");
     public static string TipCopyFocused => T("포커스된 패널에서 선택한 텍스트를 복사합니다", "Copy the selected text from the focused pane");
     public static string TipCopy => T("선택한 텍스트를 복사합니다", "Copy the selected text");
@@ -84,6 +84,9 @@ public static class Strings
     public static string PreferencesPaneFontSize => T("패널 글꼴 크기:", "Pane font size:");
     public static string PreferencesWordWrap => T("좌우 패널 자동 줄 바꿈", "Word wrap in both panes");
     public static string PreferencesLanguage => T("언어:", "Language:");
+    public static string PreferencesLeftHeaderColor => T("왼쪽 패널 타이틀 바 색:", "Left pane title bar color:");
+    public static string PreferencesRightHeaderColor => T("오른쪽 패널 타이틀 바 색:", "Right pane title bar color:");
+    public static string PreferencesCustomHeaderColor => T("사용자 지정 색...", "Custom color...");
     public static string LanguageKorean => "한국어";
     public static string LanguageEnglish => "English";
     public static string Ok => T("확인", "OK");

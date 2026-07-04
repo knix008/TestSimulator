@@ -7,11 +7,9 @@ namespace MyDiffWinV10.App;
 
 public sealed class DiffForm : Form
 {
-    private const int HeaderHeight = 36;
+    private const int HeaderHeight = 28;
 
     private static readonly Color CanvasColor = Color.FromArgb(241, 243, 247);
-    private static readonly Color LeftAccent = Color.FromArgb(100, 116, 139);
-    private static readonly Color RightAccent = Color.FromArgb(37, 99, 235);
 
     private readonly SyncLineListBox _lstLeft = new();
     private readonly SyncLineListBox _lstRight = new();
@@ -68,6 +66,7 @@ public sealed class DiffForm : Form
         ApplyLocalization();
         ApplyPanePreferences();
         WireEvents();
+        ApplyPaneHeaderColors();
         UpdateActionItemsEnabled();
     }
 
@@ -128,7 +127,7 @@ public sealed class DiffForm : Form
         var toolStrip = BuildToolStrip();
         _toolStrip = toolStrip;
 
-        var topPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = CanvasColor, Padding = new Padding(8) };
+        var topPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = CanvasColor, Padding = new Padding(4, 1, 4, 4) };
         topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
         topPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
         topPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -152,8 +151,8 @@ public sealed class DiffForm : Form
         _overviewLeft.LineClicked += (_, line) => JumpToLine(line);
         _overviewRight.LineClicked += (_, line) => JumpToLine(line);
 
-        topPanel.Controls.Add(MakePaneCard(LeftAccent, _gutterLeft, _lstLeft, _vscrollLeft, _overviewLeft, out _lblPaneLeft), 0, 0);
-        topPanel.Controls.Add(MakePaneCard(RightAccent, _gutterRight, _lstRight, _vscrollRight, _overviewRight, out _lblPaneRight), 1, 0);
+        topPanel.Controls.Add(MakePaneCard(isLeft: true, _gutterLeft, _lstLeft, _vscrollLeft, _overviewLeft, out _lblPaneLeft), 0, 0);
+        topPanel.Controls.Add(MakePaneCard(isLeft: false, _gutterRight, _lstRight, _vscrollRight, _overviewRight, out _lblPaneRight), 1, 0);
 
         var statusStrip = new StatusStrip { SizingGrip = false, BackColor = CanvasColor };
         statusStrip.Items.Add(_statusLabel);
@@ -182,15 +181,18 @@ public sealed class DiffForm : Form
         listBox.BorderStyle = BorderStyle.None;
     }
 
-    private static Control MakePaneCard(Color accent, LineNumberGutter gutter, SyncLineListBox listBox, PaneVScrollBar scrollBar, DiffOverviewBar overviewBar, out Label titleLabel)
+    private static Control MakePaneCard(bool isLeft, LineNumberGutter gutter, SyncLineListBox listBox, PaneVScrollBar scrollBar, DiffOverviewBar overviewBar, out Label titleLabel)
     {
-        var headerBg = PaneTheme.PastelHeaderBackground(accent);
+        Color headerBg = isLeft
+            ? PaneHeaderColorPalette.DefaultLeftBackground
+            : PaneHeaderColorPalette.DefaultRightBackground;
+        Color headerText = PaneHeaderColorPalette.HeaderTextForBackground(headerBg);
         titleLabel = new Label
         {
             Dock = DockStyle.Top,
             Height = HeaderHeight,
-            Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-            ForeColor = accent,
+            Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+            ForeColor = headerText,
             BackColor = headerBg,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(8, 0, 8, 0),
@@ -212,7 +214,7 @@ public sealed class DiffForm : Form
             Dock = DockStyle.Fill,
             BackColor = Color.FromArgb(226, 232, 240),
             Padding = new Padding(1),
-            Margin = new Padding(4),
+            Margin = new Padding(2, 0, 2, 2),
         };
         var inner = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
         inner.Controls.Add(body);
@@ -432,6 +434,17 @@ public sealed class DiffForm : Form
         _lblPaneRight.Text = FormatPaneHeader(Strings.PaneRight, _session?.RightPath);
     }
 
+    private void ApplyPaneHeaderColors()
+    {
+        var left = PaneTheme.HeaderColors(isLeft: true, _settings);
+        _lblPaneLeft.BackColor = left.Background;
+        _lblPaneLeft.ForeColor = left.Text;
+
+        var right = PaneTheme.HeaderColors(isLeft: false, _settings);
+        _lblPaneRight.BackColor = right.Background;
+        _lblPaneRight.ForeColor = right.Text;
+    }
+
     private void RestoreLastSessionIfAvailable()
     {
         var last = _settings.LastSession;
@@ -645,6 +658,7 @@ public sealed class DiffForm : Form
         {
             ApplyLocalization();
             ApplyPanePreferences();
+            ApplyPaneHeaderColors();
         };
 
         if (dialog.ShowDialog(this) == DialogResult.OK)
@@ -654,6 +668,7 @@ public sealed class DiffForm : Form
 
         ApplyLocalization();
         ApplyPanePreferences();
+        ApplyPaneHeaderColors();
     }
 
     private void ShowAbout()

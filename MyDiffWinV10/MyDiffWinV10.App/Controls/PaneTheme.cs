@@ -1,6 +1,7 @@
 namespace MyDiffWinV10.App.Controls;
 
 using MyDiffWinV10.App.Core;
+using MyDiffWinV10.App.Services;
 
 internal static class PaneTheme
 {
@@ -35,9 +36,10 @@ internal static class PaneTheme
             _ => ZebraForLine(lineIndex),
         };
 
-    public static Color PastelHeaderBackground(Color accent) =>
-        Color.FromArgb(
-            (accent.R + 255 * 4) / 5,
-            (accent.G + 255 * 4) / 5,
-            (accent.B + 255 * 4) / 5);
+    public static (Color Background, Color Text) HeaderColors(bool isLeft, AppSettings settings)
+    {
+        Color background = Color.FromArgb(
+            isLeft ? settings.LeftPaneHeaderColorArgb : settings.RightPaneHeaderColorArgb);
+        return (background, PaneHeaderColorPalette.HeaderTextForBackground(background));
+    }
 }
