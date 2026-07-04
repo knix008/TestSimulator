@@ -17,6 +17,9 @@ artifacts/
 *.sln.docstates
 *.rsuser
 *.userprefs
+*.DotSettings.user
+_ReSharper*/
+*.sln.iml
 
 # VS Code (keep shared launch/tasks if present)
 .vscode/*
@@ -67,6 +70,7 @@ installer/obj/
 Thumbs.db
 Desktop.ini
 .DS_Store
+nul
 
 # Secrets and local runtime config (never commit)
 .env
@@ -96,6 +100,7 @@ TestResults/
 coverage/
 scratch/
 export/
+BenchmarkDotNet.Artifacts/
 
 # Local project archives and ad-hoc export folders (keep tracked samples if any)
 *.wsp

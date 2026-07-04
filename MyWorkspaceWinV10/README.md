@@ -1,6 +1,6 @@
 # MyWorkspace
 
-Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이션입니다. 계층형 Workspace, WYSIWYG Markdown Page 편집, 버전 이력, Page/Workspace 내보내기, 다중 DB 지원, 사용자·관리자 권한, Workspace 즐겨찾기, 밝기/어두운 테마, 선택적 이메일 알림을 제공합니다.
+Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이션입니다. 계층형 Workspace, WYSIWYG Markdown Page 편집, Page 댓글, 제목 표시줄 Page 검색, 버전 이력, Page/Workspace 내보내기, 다중 DB 지원, 사용자·관리자 권한, Workspace 즐겨찾기, 밝기/어두운 테마·파스텔 색상·글꼴 크기, 선택적 이메일 알림을 제공합니다.
 
 **사용자 가이드**: 상세 사용법은 [UsersGuide.md](UsersGuide.md)를 참고하세요.
 
@@ -26,6 +26,14 @@ Notion 스타일의 Windows 데스크톱 Workspace·Page 관리 애플리케이�
 dotnet build MyWorkspaceWinV10.slnx -c Debug
 dotnet run --project src/MyWorkspace.Win/MyWorkspace.Win.csproj -c Debug
 ```
+
+### 단위 테스트
+
+```bash
+dotnet test tests/MyWorkspace.MultiImage.Tests/MyWorkspace.MultiImage.Tests.csproj -c Debug
+```
+
+Markdown 이미지·`page-asset` 참조, 중복 파일명, 저장 후 복원 시나리오 등을 검증합니다.
 
 로컬 출력 폴더로 빌드하려면:
 
@@ -71,14 +79,16 @@ dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
 | **Workspace** | 계층 구조, Page와 하위 Workspace 공존, 드래그 앤 드롭 이동, 멤버 관리 |
 | **Page** | WebView2 기반 WYSIWYG Markdown 편집, DB 자동 저장(2초) |
 | **빠른 Page 작성** | Workspace 선택 후 **제목** 또는 **본문** 입력 시 즉시 Page 생성 (제목 없으면 `제목없음`) |
-| **문서 구조** | H1~H6 제목 Outline, 편집 위치 연동 |
+| **문서 구조** | H1~H6 제목 Outline, 편집 위치 연동 (툴바·보기 메뉴) |
+| **Page 댓글** | Page별 댓글 스레드, Markdown·이미지·파일 첨부, 본문 인용, 패널 접기·닫기 |
+| **Page 검색** | 제목 표시줄 검색창에서 Page 제목·본문 검색 후 바로 이동 |
 | **내보내기** | Page·Workspace를 Markdown(.md), Word(.docx), PDF(.pdf)로 내보내기 (Workspace 트리 우클릭). 편집 중 Page는 툴바에서도 내보내기 가능 |
 | **프로젝트 (.wsp)** | Workspace 전체를 로컬 `.wsp` 파일로 저장·열기 (파일 메뉴, 마지막 폴더 기억) |
 | **버전 이력** | Page당 최대 50개 스냅샷, 복원 |
 | **인증** | 관리자 / 일반 사용자, DB 기반 계정, 로그아웃 확인 |
 | **DB** | MariaDB, MySQL, PostgreSQL, SQL Server, SQLite 3 |
 | **즐겨찾기** | 등록된 Workspace 즐겨찾기 (DB 저장) |
-| **테마** | 밝게 / 어둡게 (설정 메뉴), 다크 모드 툴바 아이콘 자동 보정 |
+| **테마** | 밝게 / 어둡게, 20종 파스텔 강조색·사용자 선택색, UI 글꼴 크기 5단계 (환경 설정) |
 | **알림** | SMTP 설정 시 Page·Workspace 변경 이메일 (선택) |
 
 ### 내보내기 형식 요약
@@ -111,16 +121,20 @@ dotnet run --project tools/IconGenerator/IconGenerator.csproj -c Release
 MyWorkspaceWinV10/
 ├── src/
 │   ├── MyWorkspace.Core/     # 엔티티, enum, 서비스 인터페이스, 모델
-│   ├── MyWorkspace.Data/     # EF Core, DbContext, 서비스 구현
+│   ├── MyWorkspace.Data/     # EF Core, DbContext, 서비스 구현, DbInitializer
 │   └── MyWorkspace.Win/      # WinForms UI, appsettings.json, Page 템플릿
 │       ├── Assets/           # app.ico, Icons/s16·s20·s28 PNG (임베드 리소스)
+│       ├── CommentHtmlBuilder.cs
+│       ├── PageCommentsPanel.cs
 │       ├── PageExportService.cs
 │       ├── WorkspaceExportService.cs
 │       └── MarkdownDocxExporter.cs
+├── tests/
+│   └── MyWorkspace.MultiImage.Tests/  # Markdown·page-asset 시나리오 테스트
 ├── tools/
 │   └── IconGenerator/        # PNG·ICO 아이콘 생성 도구
 ├── database/
-│   └── schema.sql            # MariaDB DDL 참고
+│   └── schema.sql            # MariaDB DDL 참고 (실제 스키마는 DbInitializer가 보강)
 ├── installer/                # WiX MSI
 ├── README.md
 ├── UsersGuide.md
@@ -132,7 +146,7 @@ MyWorkspaceWinV10/
 | 파일 | 용도 |
 |------|------|
 | `src/MyWorkspace.Win/appsettings.json` | 기본 DB·Email 설정 (저장소에 포함) |
-| `%LocalAppData%\MyWorkspaceWinV10\appsettings.local.json` | 사용자 DB·SMTP·테마·언어·최근 프로젝트 경로 (로컬, git 제외) |
+| `%LocalAppData%\MyWorkspaceWinV10\appsettings.local.json` | 사용자 DB·SMTP·테마·색상·글꼴·언어·Page 검색창·최근 프로젝트 경로 (로컬, git 제외) |
 | `%LocalAppData%\MyWorkspaceWinV10\Templates\Pages\` | 사용자 Page 템플릿 |
 | `%LocalAppData%\MyWorkspaceWinV10\PageAssets\` | Page별 이미지·첨부 캐시 (로컬, git 제외) |
 
@@ -156,11 +170,13 @@ MyWorkspaceWinV10/
 
 - **Core / Data / Win** 3계층 분리 — 향후 웹 버전 재사용을 고려
 - WinForms: 로직은 `Form.cs`, 레이아웃은 `Form.Designer.cs` (Visual Studio 디자이너 편집 가능)
-- 좌측 **VerticalNavRail**: 파일·Workspace·보기·관리 메뉴 및 하단 **프로필 / 설정 / 로그아웃**
+- 좌측 **VerticalNavRail**: 파일·Workspace·보기(문서 구조)·댓글·관리 메뉴 및 하단 **프로필 / 설정 / 로그아웃**
 - `AppServices`가 Data 계층 서비스를 수동 조립 (`AppConfig`에서 로드)
-- UI 테마: `AppTheme`, `ThemePalette` — 패널 헤더·테두리·다크 모드·Dialog 버튼 스타일 일괄 적용
-- 편집기: `WebViewEditorController` + `EditorHtmlBuilder` (contenteditable HTML ↔ Markdown)
-- 내보내기: Workspace 트리 컨텍스트 메뉴 + 편집 툴바; `PageMarkdownNormalizer`가 assets 폴더·PDF 링크 처리
+- UI 테마: `AppTheme`, `PastelThemePaletteBuilder`, `PastelColorThemePicker` — 밝기/어두움·강조색·글꼴 크기·Dialog 버튼 스타일 일괄 적용
+- 편집기: `WebViewEditorController` + `EditorHtmlBuilder` (contenteditable HTML ↔ Markdown, 이미지 드래그·표 내 이동)
+- 댓글: `PageCommentsPanel` + `CommentHtmlBuilder`, DB `page_comments` (첨부는 `page_assets`와 연동)
+- Page 검색: `TitleBarPageSearchBox` — Workspace 트리 범위에서 제목·본문 검색
+- 내보내기: Workspace 트리 컨텍스트 메뉴 + 편집 툴바; `PageMarkdownNormalizer`가 assets 폴더·PDF 링크·손상된 page-asset 링크 복구 처리
 - 아이콘: `IconAssets`가 `Assets` 임베드 리소스 로드, `IconGenerator`로 일괄 생성
 
 ## 라이선스

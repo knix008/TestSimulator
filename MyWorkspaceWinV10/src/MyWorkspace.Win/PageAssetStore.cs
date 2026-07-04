@@ -76,6 +76,21 @@ internal static class PageAssetStore
     public static bool IsSupportedImageExtension(string extension) =>
         SupportedImageExtensions.Contains(NormalizeExtension(extension));
 
+    public static string GetAssetFileExtension(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return string.Empty;
+
+        var normalized = System.Text.RegularExpressions.Regex.Replace(
+            fileName.Trim(),
+            @"\s+\(\d+\)$",
+            string.Empty);
+        return NormalizeExtension(Path.GetExtension(normalized));
+    }
+
+    public static bool IsSupportedImageAssetFileName(string fileName) =>
+        IsSupportedImageExtension(GetAssetFileExtension(fileName));
+
     public static bool IsSupportedExtension(string extension) =>
         IsSupportedImageExtension(extension);
 
@@ -360,14 +375,36 @@ internal static class PageAssetStore
             sanitized += NormalizeExtension(extensionHint);
 
         var existing = ListExistingAssetFileNames(pageId);
-        var candidate = UniqueNameHelper.MakeUnique(sanitized, existing, StringComparer.OrdinalIgnoreCase);
+        var candidate = MakeUniqueAssetFileName(sanitized, existing);
         while (AssetFileNameExists(pageId, candidate))
         {
             existing = ListExistingAssetFileNames(pageId);
-            candidate = UniqueNameHelper.MakeUnique(candidate, existing, StringComparer.OrdinalIgnoreCase);
+            candidate = MakeUniqueAssetFileName(candidate, existing);
         }
 
         return candidate;
+    }
+
+    private static string MakeUniqueAssetFileName(string sanitized, IEnumerable<string> existingNames)
+    {
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        var existing = existingNames as IReadOnlyCollection<string> ?? existingNames.ToList();
+        if (!existing.Contains(sanitized, comparer))
+            return sanitized;
+
+        var extension = Path.GetExtension(sanitized);
+        var baseName = Path.GetFileNameWithoutExtension(sanitized);
+        if (string.IsNullOrEmpty(baseName))
+            baseName = "asset";
+
+        for (var index = 2; index < int.MaxValue; index++)
+        {
+            var candidate = $"{baseName}_{index}{extension}";
+            if (!existing.Contains(candidate, comparer))
+                return candidate;
+        }
+
+        return $"{baseName}_{Guid.NewGuid():N[..8]}{extension}";
     }
 
     private static string EnsureWritableAssetFileName(int pageId, string fileName, byte[] content)
@@ -379,7 +416,7 @@ internal static class PageAssetStore
             return fileName;
 
         var existing = ListExistingAssetFileNames(pageId);
-        return UniqueNameHelper.MakeUnique(fileName, existing, StringComparer.OrdinalIgnoreCase);
+        return MakeUniqueAssetFileName(fileName, existing);
     }
 
     private static bool AssetFileNameExists(int pageId, string fileName)
@@ -488,7 +525,13 @@ internal static class PageAssetStore
         foreach (var invalid in Path.GetInvalidFileNameChars())
             trimmed = trimmed.Replace(invalid, '_');
 
-        return trimmed.Trim();
+        trimmed = System.Text.RegularExpressions.Regex.Replace(
+            trimmed,
+            @"\s+\((\d+)\)(?=\.[^.]+$)",
+            "_$1");
+        trimmed = trimmed.Replace(' ', '_');
+
+        return trimmed.Trim('_');
     }
 
     private static void MigrateLocalAssetToDatabase(int pageId, string fileName, AppServices? services = null)

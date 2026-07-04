@@ -10,8 +10,15 @@ internal static partial class PageMarkdownNormalizer
     [GeneratedRegex(@"(?<!!)\[(?<title>[^\]]*)\]\((?<url>page-asset:\d+/[^)]+)\)", RegexOptions.IgnoreCase)]
     private static partial Regex MarkdownFileAssetRegex();
 
-    [GeneratedRegex(@"!\[(?<alt>[^\]]*)\]\(\s*(?<url>[^)\s]+)\s*(?:""(?<title>[^""]*)"")?\s*\)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(
+        @"!\[(?<alt>[^\]]*)\]\(\s*(?:<(?<urlAngle>[^>]+)>|(?<urlPlain>[^)\s""]+))\s*(?:""(?<title>[^""]*)"")?\s*\)",
+        RegexOptions.IgnoreCase)]
     private static partial Regex MarkdownImageRegex();
+
+    [GeneratedRegex(
+        @"!\[(?<alt>[^\]]*)\]\(\s*page-asset:(?<pageId>\d+)/(?<base>[^\s(""(\]]+?)\s+\((?<dup>\d+)\)\s*(?:""(?<title>[^""]*)""\s*)?\)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex BrokenParenDupeImageLinkRegex();
 
     [GeneratedRegex(@"(?<!!)\[(?<title>[^\]]*)\]\((?<url>[^)]+)\)", RegexOptions.IgnoreCase)]
     private static partial Regex MarkdownFileLinkRegex();
@@ -63,7 +70,7 @@ internal static partial class PageMarkdownNormalizer
             yield break;
 
         foreach (Match match in MarkdownImageRegex().Matches(markdown))
-            yield return match.Groups["url"].Value;
+            yield return ExtractMarkdownImageUrl(match);
 
         foreach (Match match in MarkdownFileLinkRegex().Matches(markdown))
             yield return match.Groups["url"].Value;
@@ -74,6 +81,7 @@ internal static partial class PageMarkdownNormalizer
 
     public static IReadOnlyList<string> GetReferencedFileNames(string markdown, int pageId)
     {
+        markdown = RepairBrokenPageAssetImageLinks(markdown);
         var fileNames = new List<string>();
         foreach (var uri in EnumerateAssetUriReferences(markdown))
         {
@@ -89,6 +97,7 @@ internal static partial class PageMarkdownNormalizer
 
     public static IReadOnlyList<(int PageId, string FileName)> GetAllReferencedAssets(string markdown)
     {
+        markdown = RepairBrokenPageAssetImageLinks(markdown);
         var assets = new List<(int PageId, string FileName)>();
         foreach (var uri in EnumerateAssetUriReferences(markdown))
         {
@@ -159,7 +168,7 @@ internal static partial class PageMarkdownNormalizer
     private static string ExpandCombinedImageAssetReferences(string markdown) =>
         MarkdownImageRegex().Replace(markdown, match =>
         {
-            var url = NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
+            var url = ExtractMarkdownImageUrl(match);
             var alt = match.Groups["alt"].Value;
             var title = match.Groups["title"].Success ? match.Groups["title"].Value : string.Empty;
             var width = TryParseEditorWidthTitle(title);
@@ -167,7 +176,7 @@ internal static partial class PageMarkdownNormalizer
             if (!TryParseAnyPageAssetReference(url, out var pageId, out var fileName))
                 return match.Value;
 
-            if (!PageAssetStore.IsSupportedImageExtension(Path.GetExtension(fileName)))
+            if (!PageAssetStore.IsSupportedImageAssetFileName(fileName))
                 return match.Value;
 
             var editorUri = PageAssetStore.BuildEditorUri(pageId, fileName);
@@ -202,7 +211,7 @@ internal static partial class PageMarkdownNormalizer
         string assetsFolder)
     {
         static bool IsNonImageFile(string fileName) =>
-            !PageAssetStore.IsSupportedImageExtension(Path.GetExtension(fileName));
+            !PageAssetStore.IsSupportedImageAssetFileName(fileName);
 
         markdown = MaterializeCombinedAssetMatches(
             markdown,
@@ -301,7 +310,9 @@ internal static partial class PageMarkdownNormalizer
     {
         return regex.Replace(markdown, match =>
         {
-            var url = NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
+            var url = match.Groups["urlAngle"].Success
+                ? ExtractMarkdownImageUrl(match)
+                : NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
             if (!TryParseAnyPageAssetReference(url, out var pageId, out var fileName))
                 return match.Value;
 
@@ -362,6 +373,7 @@ internal static partial class PageMarkdownNormalizer
     public static string ExpandAssetReferences(string markdown, int pageId)
     {
         markdown = SanitizeBrokenImagePlaceholders(markdown);
+        markdown = RepairBrokenPageAssetImageLinks(markdown);
         markdown = ExpandImageAssetReferences(markdown, pageId);
         markdown = ExpandHtmlImageAssetReferences(markdown, pageId);
         return ExpandFileAssetReferences(markdown, pageId);
@@ -516,7 +528,7 @@ internal static partial class PageMarkdownNormalizer
     private static string ExpandImageAssetReferences(string markdown, int pageId) =>
         MarkdownImageRegex().Replace(markdown, match =>
         {
-            var url = NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
+            var url = ExtractMarkdownImageUrl(match);
             var alt = match.Groups["alt"].Value;
             var title = match.Groups["title"].Success ? match.Groups["title"].Value : string.Empty;
             var width = TryParseEditorWidthTitle(title);
@@ -524,7 +536,7 @@ internal static partial class PageMarkdownNormalizer
             if (!TryParsePageAssetReference(url, pageId, out var fileName))
                 return match.Value;
 
-            if (!PageAssetStore.IsSupportedImageExtension(Path.GetExtension(fileName)))
+            if (!PageAssetStore.IsSupportedImageAssetFileName(fileName))
                 return match.Value;
 
             var editorUri = PageAssetStore.BuildEditorUri(pageId, fileName);
@@ -605,14 +617,53 @@ internal static partial class PageMarkdownNormalizer
     private static string CollapseMarkdownImageLink(Match match, string assetUri)
     {
         var alt = match.Groups["alt"].Value;
+        var wrappedUri = WrapMarkdownAssetUri(assetUri);
         if (match.Groups["title"].Success && !string.IsNullOrWhiteSpace(match.Groups["title"].Value))
-            return $"![{alt}]({assetUri} \"{EscapeMarkdownTitle(match.Groups["title"].Value)}\")";
+            return $"![{alt}]({wrappedUri} \"{EscapeMarkdownTitle(match.Groups["title"].Value)}\")";
 
-        return $"![{alt}]({assetUri})";
+        return $"![{alt}]({wrappedUri})";
     }
 
     private static string BuildSizedMarkdownImageReference(string assetUri, int widthPx, string alt) =>
-        $"![{alt}]({assetUri} \"editor-width:{widthPx}\")";
+        $"![{alt}]({WrapMarkdownAssetUri(assetUri)} \"editor-width:{widthPx}\")";
+
+    public static string RepairBrokenPageAssetImageLinks(string markdown)
+    {
+        if (string.IsNullOrEmpty(markdown))
+            return markdown;
+
+        return BrokenParenDupeImageLinkRegex().Replace(markdown, match =>
+        {
+            if (!int.TryParse(match.Groups["pageId"].Value, out var pageId))
+                return match.Value;
+
+            var fileName = $"{match.Groups["base"].Value} ({match.Groups["dup"].Value})";
+            var assetUri = PageAssetStore.BuildAssetUri(pageId, fileName);
+            var alt = match.Groups["alt"].Value;
+
+            if (match.Groups["title"].Success &&
+                TryParseEditorWidthTitle(match.Groups["title"].Value) is { } width)
+            {
+                return BuildSizedMarkdownImageReference(assetUri, width, alt);
+            }
+
+            return $"![{alt}]({WrapMarkdownAssetUri(assetUri)})";
+        });
+    }
+
+    private static string WrapMarkdownAssetUri(string assetUri) =>
+        assetUri.StartsWith('<') ? assetUri : $"<{assetUri}>";
+
+    private static string ExtractMarkdownImageUrl(Match match)
+    {
+        if (match.Groups["urlAngle"].Success && !string.IsNullOrWhiteSpace(match.Groups["urlAngle"].Value))
+            return NormalizeMarkdownLinkUrl(match.Groups["urlAngle"].Value);
+
+        if (match.Groups["urlPlain"].Success)
+            return NormalizeMarkdownLinkUrl(match.Groups["urlPlain"].Value);
+
+        return string.Empty;
+    }
 
     private static string EscapeMarkdownTitle(string title) =>
         title.Replace("\\", "\\\\").Replace("\"", "\\\"");
@@ -698,7 +749,7 @@ internal static partial class PageMarkdownNormalizer
         string assetsFolder)
     {
         static bool IsNonImageFile(string fileName) =>
-            !PageAssetStore.IsSupportedImageExtension(Path.GetExtension(fileName));
+            !PageAssetStore.IsSupportedImageAssetFileName(fileName);
 
         markdown = MaterializeAssetMatches(
             markdown,
@@ -775,7 +826,9 @@ internal static partial class PageMarkdownNormalizer
     {
         return regex.Replace(markdown, match =>
         {
-            var url = NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
+            var url = match.Groups["urlAngle"].Success
+                ? ExtractMarkdownImageUrl(match)
+                : NormalizeMarkdownLinkUrl(match.Groups["url"].Value);
             if (!TryParsePageAssetReference(url, pageId, out var fileName))
                 return match.Value;
 
@@ -799,6 +852,9 @@ internal static partial class PageMarkdownNormalizer
     private static string NormalizeMarkdownLinkUrl(string url)
     {
         url = url.Trim().Trim('"', '\'');
+        if (url.StartsWith('<') && url.EndsWith('>'))
+            url = url[1..^1].Trim();
+
         var spaceIndex = url.IndexOf(' ');
         if (spaceIndex <= 0)
             return url;

@@ -218,6 +218,8 @@ internal sealed class WebViewEditorController
     {
         try
         {
+            var cssPoint = ToWebViewCssPoint(webViewClientPoint);
+            await CommitFileDropCaretAtPointAsync(cssPoint).ConfigureAwait(true);
             await InvokeFileDropHandlerAsync(paths, webViewClientPoint).ConfigureAwait(true);
         }
         finally
@@ -763,12 +765,9 @@ internal sealed class WebViewEditorController
     public Task InsertImageAsync(string src, string alt) =>
         RunApiAsync($"window.editorApi.insertImage('{EscapeJs(src)}','{EscapeJs(alt)}');");
 
-    public Task InsertImageAtDropPointAsync(Point cssPoint, string src, string alt)
-    {
-        var css = ToWebViewCssPoint(cssPoint);
-        return RunApiAsync(
-            $"window.editorApi.insertImageAtDropPoint({css.X},{css.Y},'{EscapeJs(src)}','{EscapeJs(alt)}');");
-    }
+    public Task InsertImageAtDropPointAsync(Point cssPoint, string src, string alt) =>
+        RunApiAsync(
+            $"window.editorApi.insertImageAtDropPoint({cssPoint.X},{cssPoint.Y},'{EscapeJs(src)}','{EscapeJs(alt)}');");
 
     public Task FinalizeImageSizesAsync() =>
         RunApiAsync("window.editorApi.finalizeImageSizes();");

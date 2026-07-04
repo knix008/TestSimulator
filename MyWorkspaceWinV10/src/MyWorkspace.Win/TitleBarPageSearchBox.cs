@@ -30,8 +30,8 @@ internal sealed class TitleBarPageSearchBox : UserControl
 
     public TitleBarPageSearchBox()
     {
-        Height = 30;
-        MinimumSize = new Size(120, 30);
+        Height = 32;
+        MinimumSize = new Size(120, 32);
         TabStop = false;
         _clickOutsideFilter = new SearchResultsClickOutsideFilter(this);
 
@@ -69,7 +69,8 @@ internal sealed class TitleBarPageSearchBox : UserControl
         _resultsPopup.Size = new Size(320, ItemHeight);
 
         Controls.Add(_textBox);
-        Padding = new Padding(IconColumnWidth, 0, 8, 0);
+        // Leave 1px inset so the painted border is not covered by the docked text field.
+        Padding = new Padding(IconColumnWidth, 1, 8, 1);
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
         UpdateStyles();
     }
@@ -137,15 +138,14 @@ internal sealed class TitleBarPageSearchBox : UserControl
     {
         base.OnPaint(e);
 
-        using (var backBrush = new SolidBrush(AppTheme.Surface))
-            e.Graphics.FillRectangle(backBrush, ClientRectangle);
+        var outer = new Rectangle(0, 0, Width - 1, Height - 1);
+        var inner = Rectangle.Inflate(outer, -1, -1);
 
-        var borderColor = AppTheme.Border;
-        using (var pen = new Pen(borderColor))
-        {
-            var rect = new Rectangle(0, 0, Width - 1, Height - 1);
-            e.Graphics.DrawRectangle(pen, rect);
-        }
+        using (var backBrush = new SolidBrush(AppTheme.Surface))
+            e.Graphics.FillRectangle(backBrush, inner);
+
+        using (var pen = new Pen(AppTheme.Border))
+            e.Graphics.DrawRectangle(pen, outer);
 
         DrawSearchIcon(e.Graphics);
     }

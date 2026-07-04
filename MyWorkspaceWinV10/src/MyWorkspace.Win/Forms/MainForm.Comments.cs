@@ -11,18 +11,25 @@ public partial class MainForm
     private const int CommentsDefaultWidth = 300;
 
     private ToolStripMenuItem? _menuComments;
+    private ToolStripMenuItem? _menuCommentsNavRoot;
 
     private void EnsureCommentsMenuItem()
     {
         if (_menuComments != null)
             return;
 
+        _menuCommentsNavRoot = new ToolStripMenuItem
+        {
+            Name = "menuCommentsNavRoot",
+            Visible = false
+        };
+
         _menuComments = new ToolStripMenuItem
         {
             Name = "menuComments"
         };
         _menuComments.Click += (_, _) => BeginInvoke(ToggleCommentsPanel);
-        menuView.DropDownItems.Add(_menuComments);
+        _menuCommentsNavRoot.DropDownItems.Add(_menuComments);
     }
 
     private void InitializeCommentsPanel()
@@ -52,6 +59,7 @@ public partial class MainForm
             Dock = DockStyle.Fill,
             Name = "pageCommentsPanel"
         };
+        pageCommentsPanel.CloseRequested += (_, _) => BeginInvoke(CollapseCommentsPanel);
         pageCommentsPanel.CommentsChanged += (_, _) =>
         {
             if (_currentPageId.HasValue)

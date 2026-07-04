@@ -201,7 +201,8 @@ internal static class Localization
         Add(K.TipMenuRedo, "다시 실행 (Ctrl+Y)", "Redo (Ctrl+Y)");
         Add(K.TipMenuWorkspace, "Workspace와 Page 관리", "Manage workspaces and pages");
         Add(K.TipMenuExport, "Page 또는 Workspace를 Markdown, Word, PDF로 내보냅니다.", "Export pages or workspaces as Markdown, Word, or PDF.");
-        Add(K.TipMenuView, "보기, 문서 구조, 댓글", "View, document outline, and comments");
+        Add(K.TipMenuView, "문서 구조", "Document outline");
+        Add(K.TipMenuComments, "댓글 패널", "Comments panel");
         Add(K.TipMenuAdmin, "사용자 관리 (관리자)", "User management (administrator)");
         Add(K.TipMenuAccount, "계정 및 알림 설정", "Account and notification settings");
         Add(K.TipMenuSettings, "테마·언어 등 환경 설정", "Theme, language, and preferences");
@@ -285,7 +286,7 @@ internal static class Localization
         Add(K.PreferencesAppearance, "모양", "Appearance");
         Add(K.PreferencesTheme, "테마", "Theme");
         Add(K.PreferencesColorTheme, "색상 테마", "Color theme");
-        Add(K.PreferencesCustomColor, "사용자 선택색", "Custom color");
+        Add(K.PreferencesCustomColor, "사용자 선택 색", "Custom color");
         Add(K.PreferencesLanguage, "언어", "Language");
         Add(K.PreferencesFontScale, "글꼴 크기", "Font size");
         Add(K.MenuClosePageTab, "탭 닫기(&C)", "Close &Tab");
@@ -681,6 +682,7 @@ internal static class K
     public const string TipMenuRedo = "TipMenuRedo";
     public const string TipMenuWorkspace = "TipMenuWorkspace";
     public const string TipMenuView = "TipMenuView";
+    public const string TipMenuComments = "TipMenuComments";
     public const string TipMenuAdmin = "TipMenuAdmin";
     public const string TipMenuAccount = "TipMenuAccount";
     public const string TipMenuSettings = "TipMenuSettings";

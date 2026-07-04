@@ -208,7 +208,8 @@ internal sealed class CustomTitleBar : Panel
         const int searchMarginRight = 12;
         const int searchPreferredWidth = 280;
         const int searchMinWidth = 160;
-        const int searchHeight = 30;
+        const int searchVerticalInset = 2;
+        const int searchHeight = BarHeight - searchVerticalInset * 2;
         const int appNameLeft = 12 + MarkWidth + 8;
         const int appNameMinWidth = 72;
 
@@ -223,7 +224,7 @@ internal sealed class CustomTitleBar : Panel
             _pageSearch.Visible = true;
             _pageSearch.SetBounds(
                 chromeRight - searchWidth,
-                (BarHeight - searchHeight) / 2,
+                searchVerticalInset,
                 searchWidth,
                 searchHeight);
             _pageSearch.BringToFront();

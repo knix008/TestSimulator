@@ -55,6 +55,49 @@ public sealed class MultiImageScenarioTests
     }
 
     [Fact]
+    public void ExpandAssetReferences_repairs_legacy_paren_duplicate_image_links()
+    {
+        const int pageId = 31;
+        var broken = """
+                     ![5d5d9f6bfd7b4fc0acc32bbdf88de111](page-asset:31/5d5d9f6bfd7b4fc0acc32bbdf88de111.jpg (2) "editor-width:400")
+                     """;
+
+        var expanded = PageMarkdownNormalizer.ExpandAssetReferences(broken, pageId);
+
+        Assert.Contains("page-assets.myworkspace/31/", expanded, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("5d5d9f6bfd7b4fc0acc32bbdf88de111.jpg", expanded, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("page-asset:31/", expanded, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetReferencedFileNames_reads_angle_bracket_page_asset_urls()
+    {
+        const int pageId = 31;
+        var markdown = """
+                       ![img](<page-asset:31/photo_2.jpg> "editor-width:400")
+                       """;
+
+        var names = PageMarkdownNormalizer.GetReferencedFileNames(markdown, pageId);
+
+        Assert.Single(names);
+        Assert.Equal("photo_2.jpg", names[0]);
+    }
+
+    [Fact]
+    public void BuildSizedMarkdownImageReference_uses_angle_brackets_for_page_asset()
+    {
+        const int pageId = 31;
+        var html = """
+                   <img src="https://page-assets.myworkspace/31/photo_2.jpg" width="400" data-editor-width="400" alt="a">
+                   """;
+
+        var markdown = PageMarkdownNormalizer.PersistSizedImagesInMarkdown(html, pageId);
+
+        Assert.Contains("<page-asset:31/photo_2.jpg>", markdown, StringComparison.Ordinal);
+        Assert.Contains("editor-width:400", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ExtractSizedImages_preserves_order_for_multiple_images()
     {
         var html = """
@@ -126,8 +169,8 @@ public sealed class MultiImageScenarioTests
             var third = PageAssetStore.ImportImageBytes(TestPageId, bytes, ".png", "dup.png");
 
             Assert.Equal("dup.png", first);
-            Assert.Equal("dup.png (2)", second);
-            Assert.Equal("dup.png (3)", third);
+            Assert.Equal("dup_2.png", second);
+            Assert.Equal("dup_3.png", third);
             Assert.True(File.Exists(Path.Combine(pageFolder, first)));
             Assert.True(File.Exists(Path.Combine(pageFolder, second)));
             Assert.True(File.Exists(Path.Combine(pageFolder, third)));

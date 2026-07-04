@@ -32,7 +32,7 @@ partial class PreferencesForm
         SuspendLayout();
 
         tblMain.ColumnCount = 2;
-        tblMain.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104F));
+        tblMain.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112F));
         tblMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         tblMain.Controls.Add(lblAppearance, 0, 0);
         tblMain.Controls.Add(lblTheme, 0, 1);
@@ -60,7 +60,7 @@ partial class PreferencesForm
         tblMain.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
         tblMain.SetColumnSpan(lblAppearance, 2);
         tblMain.SetColumnSpan(pnlButtons, 2);
-        tblMain.Size = new Size(520, 440);
+        tblMain.Size = new Size(520, 480);
         tblMain.TabIndex = 0;
 
         lblAppearance.AutoSize = true;
@@ -70,57 +70,62 @@ partial class PreferencesForm
 
         lblTheme.AutoSize = false;
         lblTheme.Dock = DockStyle.Fill;
-        lblTheme.Margin = new Padding(0, 4, 10, 12);
+        lblTheme.Margin = new Padding(0, 0, 12, 18);
         lblTheme.Name = "lblTheme";
         lblTheme.Tag = "field-label";
         lblTheme.TextAlign = ContentAlignment.MiddleRight;
 
-        cboTheme.Dock = DockStyle.Top;
+        cboTheme.Dock = DockStyle.Fill;
         cboTheme.DropDownStyle = ComboBoxStyle.DropDownList;
         cboTheme.FormattingEnabled = true;
-        cboTheme.Margin = new Padding(0, 4, 0, 12);
+        cboTheme.Margin = new Padding(0, 0, 0, 18);
+        cboTheme.MinimumSize = new Size(0, 32);
         cboTheme.Name = "cboTheme";
         cboTheme.TabIndex = 0;
         cboTheme.Tag = "noborder";
 
         lblColorTheme.AutoSize = false;
         lblColorTheme.Dock = DockStyle.Fill;
-        lblColorTheme.Margin = new Padding(0, 0, 10, 4);
+        lblColorTheme.Margin = new Padding(0, 6, 12, 24);
         lblColorTheme.Name = "lblColorTheme";
         lblColorTheme.Tag = "field-label";
         lblColorTheme.TextAlign = ContentAlignment.TopRight;
 
+        pnlColorTheme.AutoSize = true;
+        pnlColorTheme.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         pnlColorTheme.Dock = DockStyle.Top;
-        pnlColorTheme.Margin = new Padding(0, 0, 0, 4);
+        pnlColorTheme.Margin = new Padding(0, 0, 0, 24);
         pnlColorTheme.Name = "pnlColorTheme";
         pnlColorTheme.Padding = Padding.Empty;
         pnlColorTheme.Tag = "layout";
 
         lblLanguage.AutoSize = false;
         lblLanguage.Dock = DockStyle.Fill;
-        lblLanguage.Margin = new Padding(0, 4, 10, 12);
+        lblLanguage.Margin = new Padding(0, 0, 12, 18);
         lblLanguage.Name = "lblLanguage";
         lblLanguage.Tag = "field-label";
         lblLanguage.TextAlign = ContentAlignment.MiddleRight;
 
-        cboLanguage.Dock = DockStyle.Top;
+        cboLanguage.Dock = DockStyle.Fill;
         cboLanguage.DropDownStyle = ComboBoxStyle.DropDownList;
         cboLanguage.FormattingEnabled = true;
-        cboLanguage.Margin = new Padding(0, 4, 0, 12);
+        cboLanguage.Margin = new Padding(0, 0, 0, 18);
+        cboLanguage.MinimumSize = new Size(0, 32);
         cboLanguage.Name = "cboLanguage";
         cboLanguage.TabIndex = 1;
 
         lblFontScale.AutoSize = false;
         lblFontScale.Dock = DockStyle.Fill;
-        lblFontScale.Margin = new Padding(0, 0, 10, 4);
+        lblFontScale.Margin = new Padding(0, 0, 12, 18);
         lblFontScale.Name = "lblFontScale";
         lblFontScale.Tag = "field-label";
         lblFontScale.TextAlign = ContentAlignment.MiddleRight;
 
-        cboFontScale.Dock = DockStyle.Top;
+        cboFontScale.Dock = DockStyle.Fill;
         cboFontScale.DropDownStyle = ComboBoxStyle.DropDownList;
         cboFontScale.FormattingEnabled = true;
-        cboFontScale.Margin = new Padding(0, 0, 0, 4);
+        cboFontScale.Margin = new Padding(0, 0, 0, 18);
+        cboFontScale.MinimumSize = new Size(0, 32);
         cboFontScale.Name = "cboFontScale";
         cboFontScale.TabIndex = 2;
 
@@ -166,7 +171,7 @@ partial class PreferencesForm
         CancelButton = btnCancel;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(520, 440);
+        ClientSize = new Size(520, 480);
         Controls.Add(tblMain);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;

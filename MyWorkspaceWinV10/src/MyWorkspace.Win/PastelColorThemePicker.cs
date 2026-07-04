@@ -7,6 +7,7 @@ internal sealed class PastelColorThemePicker : Panel
     private const int SwatchesPerRow = 10;
     private const int SwatchSize = 28;
     private const int SwatchGap = 6;
+    private const int CustomButtonRowHeight = 56;
 
     public event EventHandler? SelectionChanged;
 
@@ -21,9 +22,10 @@ internal sealed class PastelColorThemePicker : Panel
         AutoSize = true;
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         BackColor = Color.Transparent;
-        Padding = new Padding(0);
+        Padding = new Padding(0, 0, 0, 8);
         Tag = "layout";
 
+        var gridWidth = SwatchesPerRow * (SwatchSize + SwatchGap);
         var layout = new TableLayoutPanel
         {
             AutoSize = true,
@@ -33,18 +35,21 @@ internal sealed class PastelColorThemePicker : Panel
             Dock = DockStyle.Top,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
+            MinimumSize = new Size(gridWidth, 0),
             BackColor = Color.Transparent,
             Tag = "layout"
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, gridWidth));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, CustomButtonRowHeight));
 
         layout.Controls.Add(CreateSwatchGrid(), 0, 0);
 
         _btnCustom.AutoSize = false;
-        _btnCustom.Margin = new Padding(0, 4, 0, 8);
-        _btnCustom.MinimumSize = new Size(136, 32);
+        _btnCustom.Dock = DockStyle.Fill;
+        _btnCustom.Margin = new Padding(0, 8, 0, 14);
+        _btnCustom.MinimumSize = new Size(168, 32);
+        _btnCustom.Tag = "fit-min:168";
         _btnCustom.UseVisualStyleBackColor = true;
         _btnCustom.Click += OnCustomClick;
         layout.Controls.Add(_btnCustom, 0, 1);
@@ -154,7 +159,7 @@ internal sealed class PastelColorThemePicker : Panel
     }
 
     private void FitCustomButtonSize() =>
-        AppTheme.FitButtonSize(_btnCustom, minWidth: 136, height: 32);
+        AppTheme.FitButtonSize(_btnCustom, minWidth: 168, height: 32);
 
     private sealed class ColorSwatchButton : Panel
     {

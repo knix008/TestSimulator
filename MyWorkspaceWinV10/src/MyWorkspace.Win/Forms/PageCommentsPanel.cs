@@ -12,7 +12,10 @@ internal sealed class PageCommentsPanel : UserControl
     private const int QuotePreviewHeight = 58;
 
     private readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+    private readonly Panel _pnlHeader = new();
     private readonly Label _lblHeader = new();
+    private readonly Button _btnClose = new();
+    private readonly ToolTip _toolTip = new();
     private readonly WebView2 _webView = new();
     private readonly Panel _pnlCompose = new();
     private readonly TextBox _txtQuotePreview = new();
@@ -31,11 +34,26 @@ internal sealed class PageCommentsPanel : UserControl
         BackColor = AppTheme.Sidebar;
         Padding = new Padding(0);
 
-        _lblHeader.Dock = DockStyle.Top;
-        _lblHeader.Height = 32;
-        _lblHeader.Padding = new Padding(12, 8, 12, 0);
+        _pnlHeader.Dock = DockStyle.Top;
+        _pnlHeader.Height = 32;
+        _pnlHeader.Padding = new Padding(12, 0, 4, 0);
+
+        _lblHeader.Dock = DockStyle.Fill;
         _lblHeader.TextAlign = ContentAlignment.MiddleLeft;
         _lblHeader.Font = new Font("Segoe UI Semibold", 9.75F, FontStyle.Bold);
+
+        _btnClose.Dock = DockStyle.Right;
+        _btnClose.Width = 28;
+        _btnClose.TabStop = false;
+        _btnClose.Text = "×";
+        _btnClose.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+        _btnClose.FlatStyle = FlatStyle.Flat;
+        _btnClose.FlatAppearance.BorderSize = 0;
+        _btnClose.Cursor = Cursors.Hand;
+        _btnClose.Click += (_, _) => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+        _pnlHeader.Controls.Add(_lblHeader);
+        _pnlHeader.Controls.Add(_btnClose);
 
         _webView.Dock = DockStyle.Fill;
         _webView.DefaultBackgroundColor = AppTheme.Sidebar;
@@ -83,7 +101,7 @@ internal sealed class PageCommentsPanel : UserControl
 
         Controls.Add(_webView);
         Controls.Add(_pnlCompose);
-        Controls.Add(_lblHeader);
+        Controls.Add(_pnlHeader);
 
         _btnPost.Click += async (_, _) => await PostCommentAsync();
         _btnAttachImage.Click += async (_, _) => await AttachImageAsync();
@@ -97,6 +115,7 @@ internal sealed class PageCommentsPanel : UserControl
     }
 
     public event EventHandler? CommentsChanged;
+    public event EventHandler? CloseRequested;
 
     public async Task LoadPageAsync(int? pageId)
     {
@@ -137,6 +156,7 @@ internal sealed class PageCommentsPanel : UserControl
     public void ApplyLocalization()
     {
         _lblHeader.Text = Localization.Get(K.CommentsTitle);
+        _toolTip.SetToolTip(_btnClose, Localization.Get(K.ButtonClose));
         _btnPost.Text = Localization.Get(K.CommentsPost);
         _btnAttachFile.Text = Localization.Get(K.CommentsAttachFile);
         _btnAttachImage.Text = Localization.Get(K.CommentsAttachImage);
@@ -168,8 +188,14 @@ internal sealed class PageCommentsPanel : UserControl
     public void ApplyTheme()
     {
         BackColor = AppTheme.Sidebar;
+        _pnlHeader.BackColor = AppTheme.Sidebar;
         _lblHeader.ForeColor = AppTheme.TextPrimary;
         _lblHeader.BackColor = AppTheme.Sidebar;
+        _btnClose.BackColor = AppTheme.Sidebar;
+        _btnClose.ForeColor = AppTheme.TextSecondary;
+        _btnClose.FlatAppearance.MouseOverBackColor = AppTheme.ChromeButtonHoverBackground;
+        _btnClose.FlatAppearance.MouseDownBackColor = AppTheme.ChromeButtonPressedBackground;
+        AppTheme.StyleToolTip(_toolTip);
         _pnlCompose.BackColor = AppTheme.Sidebar;
         _txtQuotePreview.BackColor = AppTheme.EditorCodeBackground;
         _txtQuotePreview.ForeColor = AppTheme.TextSecondary;
@@ -466,7 +492,10 @@ internal sealed class PageCommentsPanel : UserControl
     protected override void Dispose(bool disposing)
     {
         if (disposing)
+        {
+            _toolTip.Dispose();
             _webView.Dispose();
+        }
 
         base.Dispose(disposing);
     }

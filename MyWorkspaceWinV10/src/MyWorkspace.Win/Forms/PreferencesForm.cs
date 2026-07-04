@@ -33,7 +33,15 @@ public partial class PreferencesForm : Form
         _colorThemePicker.LoadFromSettings(SelectedSettings);
         pnlColorTheme.Controls.Add(_colorThemePicker);
         _colorThemePicker.ApplyTheme();
+        AlignPreferenceFields();
         AppTheme.FinalizeDialogLayout(this);
+    }
+
+    private void AlignPreferenceFields()
+    {
+        const int comboHeight = 32;
+        foreach (var combo in new[] { cboTheme, cboLanguage, cboFontScale })
+            combo.Height = comboHeight;
     }
 
     private void PopulateThemeCombo()
@@ -146,6 +154,7 @@ public partial class PreferencesForm : Form
         AppTheme.ApplyAppearance(settings);
         RefreshLocalizedOptions(settings);
         _colorThemePicker.ApplyTheme();
+        AlignPreferenceFields();
         AppTheme.FinalizeDialogLayout(this);
     }
 

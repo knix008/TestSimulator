@@ -1373,6 +1373,13 @@ internal static class AppTheme
 
     public static void FitButtonSize(Button button, int minWidth = 84, int height = 32)
     {
+        if (button.Tag is string tag
+            && tag.StartsWith("fit-min:", StringComparison.Ordinal)
+            && int.TryParse(tag.AsSpan("fit-min:".Length), out var tagMinWidth))
+        {
+            minWidth = Math.Max(minWidth, tagMinWidth);
+        }
+
         if (string.IsNullOrEmpty(button.Text))
         {
             EnsureButtonHeight(button);
@@ -1380,11 +1387,27 @@ internal static class AppTheme
         }
 
         const TextFormatFlags flags = TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-        var textSize = TextRenderer.MeasureText(
-            button.Text,
-            button.Font,
-            new Size(int.MaxValue, int.MaxValue),
-            flags);
+        Size textSize;
+        if (button.UseCompatibleTextRendering)
+        {
+            using var bitmap = new Bitmap(1, 1);
+            using var graphics = Graphics.FromImage(bitmap);
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            var measured = graphics.MeasureString(
+                button.Text,
+                button.Font,
+                int.MaxValue,
+                StringFormat.GenericTypographic);
+            textSize = Size.Ceiling(measured);
+        }
+        else
+        {
+            textSize = TextRenderer.MeasureText(
+                button.Text,
+                button.Font,
+                new Size(int.MaxValue, int.MaxValue),
+                flags);
+        }
         const int iconGap = 8;
         var iconWidth = button.Image?.Width ?? 0;
         var iconHeight = button.Image?.Height ?? 0;

@@ -1031,17 +1031,24 @@ internal static class EditorHtmlBuilder
                   return normalized;
                 }
                 if (child) {
-                  normalized.setStartAfter(child);
+                  normalized.setStartBefore(child);
                   normalized.collapse(true);
                   return normalized;
                 }
                 normalized.selectNodeContents(block);
-                normalized.collapse(false);
+                normalized.collapse(true);
+                return normalized;
+              }
+
+              const meaningful = getMeaningfulParagraphNodes(block);
+              if (meaningful.length > 0) {
+                normalized.setStartAfter(meaningful[meaningful.length - 1]);
+                normalized.collapse(true);
                 return normalized;
               }
 
               normalized.selectNodeContents(block);
-              normalized.collapse(false);
+              normalized.collapse(true);
               return normalized;
             }
 
@@ -1155,7 +1162,17 @@ internal static class EditorHtmlBuilder
             let fileDropCaretRange = null;
             let fileDropFeedbackEpoch = 0;
             let pendingFileDropInsertRange = null;
+            let pendingFileDropInsertMarker = null;
             let lastFileDropPoint = null;
+            let lastExternalFileDropAt = 0;
+            let lastExternalFileDropX = 0;
+            let lastExternalFileDropY = 0;
+
+            function clearFileDropInsertMarker() {
+              if (pendingFileDropInsertMarker?.parentNode)
+                pendingFileDropInsertMarker.remove();
+              pendingFileDropInsertMarker = null;
+            }
 
             function invalidateFileDropFeedback() {
               fileDropFeedbackEpoch++;
@@ -1204,9 +1221,34 @@ internal static class EditorHtmlBuilder
             }
 
             function consumePendingInsertRange() {
+              if (pendingFileDropInsertMarker?.parentNode) {
+                const range = document.createRange();
+                range.setStartBefore(pendingFileDropInsertMarker);
+                range.collapse(true);
+                return range;
+              }
+
               const range = pendingFileDropInsertRange;
               pendingFileDropInsertRange = null;
               return range;
+            }
+
+            function resolveInsertRangeAtPoint(x, y, ignoreNodes) {
+              let range = resolveEditorCaretRange(x, y, ignoreNodes);
+              if (!range || !editor.contains(range.startContainer))
+                return null;
+
+              range = range.cloneRange();
+              range.collapse(true);
+
+              let anchor = range.startContainer;
+              if (anchor.nodeType === Node.TEXT_NODE)
+                anchor = anchor.parentElement;
+              const cell = anchor?.closest?.('td, th');
+              if (cell)
+                ensureTableCellEditable(cell);
+
+              return normalizeRangeForTableInsert(range) || range;
             }
 
             function hasValidEditorSelection() {
@@ -1245,15 +1287,21 @@ internal static class EditorHtmlBuilder
             }
 
             function finalizeInsertedImageWrap(insertedWrap) {
-              if (!insertedWrap || !editor.contains(insertedWrap))
+              if (!insertedWrap || !editor.contains(insertedWrap)) {
+                clearFileDropInsertMarker();
+                pendingFileDropInsertRange = null;
+                lastFileDropPoint = null;
                 return null;
+              }
+
+              clearFileDropInsertMarker();
+              pendingFileDropInsertRange = null;
+              lastFileDropPoint = null;
 
               const img = insertedWrap.querySelector('img');
               ensureImageWrapReady(insertedWrap);
               if (img) attachImageLoadHandlers(insertedWrap, img);
               placeCaretAfter(insertedWrap);
-              pendingFileDropInsertRange = null;
-              lastFileDropPoint = null;
 
               upgradeEditorBlocks();
               updateEmptyState();
@@ -1270,8 +1318,7 @@ internal static class EditorHtmlBuilder
               if (!range && usePendingDropRange)
                 range = consumePendingInsertRange();
               if (!range && !hasValidEditorSelection() && lastFileDropPoint) {
-                commitFileDropCaretAtPointImpl(lastFileDropPoint.x, lastFileDropPoint.y);
-                range = consumePendingInsertRange();
+                range = resolveInsertRangeAtPoint(lastFileDropPoint.x, lastFileDropPoint.y, [imageDropCaret]);
               }
               if (!range && hasValidEditorSelection()) {
                 range = window.getSelection().getRangeAt(0).cloneRange();
@@ -1290,12 +1337,18 @@ internal static class EditorHtmlBuilder
               let insertedWrap = null;
 
               if (range && editor.contains(range.startContainer)) {
-                const sel = window.getSelection();
-                if (sel) {
-                  sel.removeAllRanges();
-                  sel.addRange(range);
-                }
                 insertedWrap = insertImageWrapAtRange(range, instanceId, src, alt);
+              }
+
+              if (!insertedWrap) {
+                ensureInsertLocation();
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0) {
+                  range = sel.getRangeAt(0).cloneRange();
+                  range = normalizeRangeForTableInsert(range) || range;
+                  if (range && editor.contains(range.startContainer))
+                    insertedWrap = insertImageWrapAtRange(range, instanceId, src, alt);
+                }
               }
 
               if (!insertedWrap) {
@@ -1320,12 +1373,10 @@ internal static class EditorHtmlBuilder
               document.body.classList.remove('is-file-drop-target');
               lastFileDropPoint = { x, y };
 
-              let range = savedRange;
-              if (!range)
-                range = caretRangeFromEditorPoint(x, y, [imageDropCaret]);
-              else
-                range = range.cloneRange();
+              clearFileDropInsertMarker();
+              pendingFileDropInsertRange = null;
 
+              let range = savedRange ? savedRange.cloneRange() : resolveInsertRangeAtPoint(x, y, [imageDropCaret]);
               if (range)
                 range.collapse(true);
 
@@ -1334,34 +1385,47 @@ internal static class EditorHtmlBuilder
                 return false;
               }
 
-              let anchor = range.startContainer;
-              if (anchor.nodeType === Node.TEXT_NODE)
-                anchor = anchor.parentElement;
-              const cell = anchor?.closest?.('td, th');
-              if (cell)
-                ensureTableCellEditable(cell);
+              const marker = document.createElement('span');
+              marker.setAttribute('data-file-drop-insert-marker', '1');
+              marker.textContent = ZWSP;
+              marker.style.position = 'absolute';
+              marker.style.width = '0';
+              marker.style.height = '0';
+              marker.style.overflow = 'hidden';
+              marker.style.pointerEvents = 'none';
 
-              range = normalizeRangeForTableInsert(range) || range;
-
-              if (!range || !editor.contains(range.startContainer)) {
+              try {
+                range.insertNode(marker);
+              } catch {
                 pendingFileDropInsertRange = null;
                 return false;
               }
+
+              if (!marker.parentNode) {
+                pendingFileDropInsertRange = null;
+                return false;
+              }
+
+              pendingFileDropInsertMarker = marker;
+              pendingFileDropInsertRange = range.cloneRange();
 
               editor.focus();
               const sel = window.getSelection();
-              if (!sel) {
-                pendingFileDropInsertRange = null;
-                return false;
+              if (sel) {
+                const caret = document.createRange();
+                caret.setStartBefore(marker);
+                caret.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(caret);
               }
-              sel.removeAllRanges();
-              sel.addRange(range);
-              pendingFileDropInsertRange = range.cloneRange();
               return true;
             }
 
             function cancelFileDropFeedback() {
               invalidateFileDropFeedback();
+              clearFileDropInsertMarker();
+              pendingFileDropInsertRange = null;
+              lastFileDropPoint = null;
             }
 
             function isExternalFileDrag(e) {
@@ -1454,8 +1518,18 @@ internal static class EditorHtmlBuilder
               if (!isExternalFileDrag(e)) return;
               e.preventDefault();
               e.stopPropagation();
+
+              const now = Date.now();
+              if (now - lastExternalFileDropAt < 400 &&
+                  Math.abs(e.clientX - lastExternalFileDropX) < 3 &&
+                  Math.abs(e.clientY - lastExternalFileDropY) < 3)
+                return;
+              lastExternalFileDropAt = now;
+              lastExternalFileDropX = e.clientX;
+              lastExternalFileDropY = e.clientY;
+
               fileDropDepth = 0;
-              document.body.classList.remove('is-file-drop-target');
+              invalidateFileDropFeedback();
               showFileDropCaretAtClientPoint(e.clientX, e.clientY);
               commitFileDropCaretAtPointImpl(e.clientX, e.clientY);
               postFileDropMessage(e.dataTransfer?.files, e.clientX, e.clientY);
@@ -1471,9 +1545,8 @@ internal static class EditorHtmlBuilder
             editor.addEventListener('dragleave', (e) => {
               if (!isExternalFileDrag(e)) return;
               fileDropDepth = Math.max(0, fileDropDepth - 1);
-              if (fileDropDepth === 0) {
+              if (fileDropDepth === 0 && !pendingFileDropInsertMarker?.parentNode)
                 cancelFileDropFeedback();
-              }
             });
 
             editor.addEventListener('dragover', handleExternalFileDragOver);
@@ -1485,7 +1558,6 @@ internal static class EditorHtmlBuilder
               setFileDropHighlightActive(true);
             }, true);
 
-            editor.addEventListener('drop', handleExternalFileDrop);
             document.addEventListener('drop', handleExternalFileDrop, true);
 
             editor.addEventListener('input', () => {
@@ -1718,20 +1790,39 @@ internal static class EditorHtmlBuilder
                   if (cellRange)
                     return cellRange;
                 }
-                const block = getTableCellInsertBlock(container);
-                if (block) {
-                  normalized.selectNodeContents(block);
-                  normalized.collapse(true);
+                return normalizeRangeForTableInsert(normalized) || normalized;
+              }
+
+              const cell = container?.closest?.('td, th');
+              if (cell && editor.contains(cell)) {
+                if (typeof clientX === 'number') {
+                  const cellRange = caretRangeFromCellPoint(cell, clientX, 0);
+                  if (cellRange)
+                    return cellRange;
                 }
+                return normalizeRangeForTableInsert(normalized) || normalized;
               }
 
               return normalized;
             }
 
             function isValidImageDropRange(range, movingWrap) {
-              return !!range
-                && editor.contains(range.startContainer)
-                && !rangeIntersectsNode(range, movingWrap);
+              if (!range || !editor.contains(range.startContainer) || !movingWrap?.parentNode)
+                return false;
+
+              if (rangeIntersectsNode(range, movingWrap))
+                return false;
+
+              const probe = range.cloneRange();
+              probe.collapse(true);
+              const parent = movingWrap.parentNode;
+              if (probe.startContainer === parent) {
+                const child = parent.childNodes[probe.startOffset];
+                if (child === movingWrap || child === movingWrap.nextSibling)
+                  return false;
+              }
+
+              return true;
             }
 
             function resolveImageDropRangeAtPoint(session, clientX, clientY) {
@@ -1833,6 +1924,7 @@ internal static class EditorHtmlBuilder
 
               if (dropRange && moveImageWrapDom(wrap, dropRange, session)) {
                 selectMovedImageWrap(wrap, session.moveToken);
+                placeCaretAfter(wrap);
                 updateEmptyState();
                 notifyChanged();
                 return;
@@ -2215,7 +2307,8 @@ internal static class EditorHtmlBuilder
                 return insertImageAtCaret(src, alt, null, false);
               },
               insertImageAtDropPoint(x, y, src, alt) {
-                commitFileDropCaretAtPointImpl(x, y);
+                if (!pendingFileDropInsertMarker?.parentNode && !pendingFileDropInsertRange)
+                  commitFileDropCaretAtPointImpl(x, y);
                 return insertImageAtCaret(src, alt, null, true);
               },
               insertFileAttachment(href, fileName) {
