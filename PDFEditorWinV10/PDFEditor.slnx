@@ -1,6 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/PDFEditor.App/PDFEditor.App.csproj" />
-    <Project Path="src/PDFEditor.Core/PDFEditor.Core.csproj" />
-  </Folder>
-</Solution>
