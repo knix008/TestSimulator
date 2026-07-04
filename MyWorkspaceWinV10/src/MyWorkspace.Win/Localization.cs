@@ -227,6 +227,16 @@ internal static class Localization
         Add(K.TipMenuSaveProject, "선택한 Workspace 전체(하위 Workspace·Page·첨부 파일)를 .wsp 프로젝트 파일로 로컬에 저장합니다. 자동 저장은 SQLite 3 DB에만 적용됩니다.", "Save the selected workspace tree (sub-workspaces, pages, attachments) as a local .wsp project file. Auto-save writes to the SQLite 3 database only.");
         Add(K.TipMenuOpenProject, ".wsp 프로젝트 파일을 열어 Workspace를 DB에 불러옵니다. 마지막으로 사용한 프로젝트 폴더가 다시 열기·저장 대화상자에 사용됩니다.", "Open a .wsp project file to import workspaces into the database. The last project folder is reused for open and save dialogs.");
         Add(K.TipMenuBarLogout, "로그아웃", "Sign out");
+        Add(K.TipMenuNotifications, "알림", "Notifications");
+        Add(K.NotificationsTitle, "알림", "Notifications");
+        Add(K.NotificationsEmpty, "새 알림이 없습니다.", "No new notifications.");
+        Add(K.NotificationsMarkAllRead, "모두 읽음", "Mark all read");
+        Add(K.NotificationsDeleteAll, "모두 삭제", "Delete all");
+        Add(K.NotificationsDelete, "삭제", "Delete");
+        Add(K.NotificationsMarkRead, "읽음", "Mark read");
+        Add(K.NotificationsOpen, "열기", "Open");
+        Add(K.NotificationsConfirmDeleteAll, "모든 알림을 삭제할까요?", "Delete all notifications?");
+        Add(K.NotificationsOpenHint, "클릭하면 읽음 처리됩니다. 더블클릭하면 Page를 엽니다. × 버튼으로 삭제할 수 있습니다.", "Click to mark as read. Double-click to open the page. Click × to delete.");
         Add(K.TipMenuBarSession, "현재 로그인 계정", "Current signed-in account");
         Add(K.TipMenuExit, "프로그램 종료", "Exit the application");
         Add(K.TipMenuNewRootWorkspace, "최상위 Workspace 생성", "Create a root workspace");
@@ -279,6 +289,9 @@ internal static class Localization
         Add(K.EditorImageOpen, "이미지 열기", "Open Image");
         Add(K.EditorImageReplace, "이미지 바꾸기", "Replace Image");
         Add(K.EditorImageDelete, "삭제", "Delete");
+        Add(K.EditorResourceOpen, "열기", "Open");
+        Add(K.EditorResourceDownload, "다운로드", "Download");
+        Add(K.EditorResourceDownloadFailed, "파일을 다운로드할 수 없습니다.", "Unable to download the file.");
 
         Add(K.LoginTitle, "MyWorkspace", "MyWorkspace");
         Add(K.LoginWindowTitle, "MyWorkspace - 로그인", "MyWorkspace - Sign In");
@@ -723,6 +736,16 @@ internal static class K
     public const string TipMenuSavePage = "TipMenuSavePage";
     public const string TipMenuOpenProject = "TipMenuOpenProject";
     public const string TipMenuBarLogout = "TipMenuBarLogout";
+    public const string TipMenuNotifications = "TipMenuNotifications";
+    public const string NotificationsTitle = "NotificationsTitle";
+    public const string NotificationsEmpty = "NotificationsEmpty";
+    public const string NotificationsMarkAllRead = "NotificationsMarkAllRead";
+    public const string NotificationsDeleteAll = "NotificationsDeleteAll";
+    public const string NotificationsDelete = "NotificationsDelete";
+    public const string NotificationsMarkRead = "NotificationsMarkRead";
+    public const string NotificationsOpen = "NotificationsOpen";
+    public const string NotificationsConfirmDeleteAll = "NotificationsConfirmDeleteAll";
+    public const string NotificationsOpenHint = "NotificationsOpenHint";
     public const string TipMenuBarSession = "TipMenuBarSession";
     public const string TipMenuExit = "TipMenuExit";
     public const string TipMenuNewRootWorkspace = "TipMenuNewRootWorkspace";
@@ -775,6 +798,9 @@ internal static class K
     public const string EditorImageOpen = "EditorImageOpen";
     public const string EditorImageReplace = "EditorImageReplace";
     public const string EditorImageDelete = "EditorImageDelete";
+    public const string EditorResourceOpen = "EditorResourceOpen";
+    public const string EditorResourceDownload = "EditorResourceDownload";
+    public const string EditorResourceDownloadFailed = "EditorResourceDownloadFailed";
 
     public const string LoginTitle = "LoginTitle";
     public const string LoginWindowTitle = "LoginWindowTitle";

@@ -246,6 +246,48 @@ internal static class AppTheme
         NormalizeDialogActionButtonHeights(form.Controls);
         NormalizeFooterButtonHeights(form.Controls);
         AlignDialogButtonLayout(form);
+        AlignDialogButtonContent(form.Controls);
+    }
+
+    public static void AlignDialogButtonIconText(Button button)
+    {
+        if (button.Image == null || string.IsNullOrEmpty(button.Text))
+            return;
+
+        if (button is ThemedDialogButton)
+        {
+            button.Padding = Padding.Empty;
+            button.TextImageRelation = TextImageRelation.Overlay;
+            button.Invalidate();
+            return;
+        }
+
+        const TextFormatFlags flags = TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
+        var textSize = TextRenderer.MeasureText(
+            button.Text,
+            button.Font,
+            new Size(int.MaxValue, int.MaxValue),
+            flags);
+        var contentHeight = Math.Max(button.Image.Height, textSize.Height);
+        var verticalPad = Math.Max(0, (button.Height - contentHeight) / 2);
+
+        button.UseCompatibleTextRendering = true;
+        button.TextImageRelation = TextImageRelation.ImageBeforeText;
+        button.ImageAlign = ContentAlignment.MiddleCenter;
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.Padding = new Padding(12, verticalPad, 12, Math.Max(0, button.Height - contentHeight - verticalPad));
+    }
+
+    private static void AlignDialogButtonContent(Control.ControlCollection controls)
+    {
+        foreach (Control control in controls)
+        {
+            if (control is Button button)
+                AlignDialogButtonIconText(button);
+
+            if (control.HasChildren)
+                AlignDialogButtonContent(control.Controls);
+        }
     }
 
     private static void StyleControlTree(Control.ControlCollection controls)
@@ -369,6 +411,7 @@ internal static class AppTheme
             button.AutoSize = false;
             button.Size = new Size(width, height);
             button.MinimumSize = new Size(width, height);
+            AlignDialogButtonIconText(button);
         }
     }
 
@@ -396,6 +439,7 @@ internal static class AppTheme
             button.AutoSize = false;
             button.Height = height;
             button.MinimumSize = new Size(button.MinimumSize.Width, height);
+            AlignDialogButtonIconText(button);
         }
     }
 
@@ -438,6 +482,7 @@ internal static class AppTheme
             button.AutoSize = false;
             button.Height = height;
             button.MinimumSize = new Size(button.MinimumSize.Width, height);
+            AlignDialogButtonIconText(button);
         }
     }
 
@@ -1271,7 +1316,6 @@ internal static class AppTheme
         button.Font = UiFont;
         button.Cursor = Cursors.Hand;
         button.UseVisualStyleBackColor = false;
-        button.UseCompatibleTextRendering = true;
         button.FlatAppearance.MouseOverBackColor = AccentHover;
         button.FlatAppearance.MouseDownBackColor = AccentPressed;
         ApplyDialogButtonIcon(button, primary: false);
@@ -1300,17 +1344,23 @@ internal static class AppTheme
 
     private static void ApplyDialogButtonContentAlignment(Button button)
     {
-        button.UseCompatibleTextRendering = true;
-
-        if (button.Image != null)
+        if (button is ThemedDialogButton)
         {
-            button.TextImageRelation = TextImageRelation.ImageBeforeText;
-            button.TextAlign = ContentAlignment.MiddleCenter;
-            button.ImageAlign = ContentAlignment.MiddleCenter;
-            button.Padding = new Padding(4, 0, 8, 0);
+            button.Padding = Padding.Empty;
             return;
         }
 
+        if (button.Image != null)
+        {
+            button.UseCompatibleTextRendering = true;
+            button.TextImageRelation = TextImageRelation.ImageBeforeText;
+            button.ImageAlign = ContentAlignment.MiddleCenter;
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            button.Padding = new Padding(12, 0, 12, 0);
+            return;
+        }
+
+        button.UseCompatibleTextRendering = true;
         button.TextAlign = ContentAlignment.MiddleCenter;
         button.Padding = new Padding(12, 0, 12, 0);
     }
@@ -1333,6 +1383,7 @@ internal static class AppTheme
         button.Image?.Dispose();
         button.Image = IconAssets.LoadDialogButtonIcon(16, iconName, primary);
         ApplyDialogButtonContentAlignment(button);
+        button.Invalidate();
     }
 
     private static string? ResolveDialogButtonIconName(Button button)
@@ -1356,9 +1407,10 @@ internal static class AppTheme
 
     private static string? MapDialogButtonIconName(string name) => name switch
     {
-        "btnSave" or "btnOk" or "btnLogin" => "save",
-        "btnCancel" => "exit",
+        "btnSave" or "btnOk" or "btnLogin" or "btnYes" => "save",
+        "btnCancel" or "btnNo" => "exit",
         "btnClose" => "exit",
+        "btnRetry" => "refresh",
         "btnAdd" => "page_plus",
         "btnEdit" => "rename",
         "btnDelete" or "btnRemove" => "delete",
@@ -1388,7 +1440,15 @@ internal static class AppTheme
 
         const TextFormatFlags flags = TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
         Size textSize;
-        if (button.UseCompatibleTextRendering)
+        if (button.Image != null || !button.UseCompatibleTextRendering)
+        {
+            textSize = TextRenderer.MeasureText(
+                button.Text,
+                button.Font,
+                new Size(int.MaxValue, int.MaxValue),
+                flags);
+        }
+        else if (button.UseCompatibleTextRendering)
         {
             using var bitmap = new Bitmap(1, 1);
             using var graphics = Graphics.FromImage(bitmap);
@@ -1408,10 +1468,10 @@ internal static class AppTheme
                 new Size(int.MaxValue, int.MaxValue),
                 flags);
         }
-        const int iconGap = 8;
+        const int iconGap = 6;
         var iconWidth = button.Image?.Width ?? 0;
         var iconHeight = button.Image?.Height ?? 0;
-        var iconExtra = iconWidth > 0 ? iconWidth + iconGap + 4 : 0;
+        var iconExtra = iconWidth > 0 ? iconWidth + iconGap : 0;
         var contentWidth = textSize.Width + iconExtra;
         var contentHeight = Math.Max(textSize.Height, iconHeight);
         var horizontalPadding = button.Padding.Horizontal + (iconWidth > 0 ? 16 : 8);
@@ -1422,6 +1482,9 @@ internal static class AppTheme
         button.AutoSize = false;
         button.Size = new Size(width, fittedHeight);
         button.MinimumSize = new Size(width, fittedHeight);
+
+        if (button.Image != null)
+            AlignDialogButtonIconText(button);
     }
 
     private static void EnsureButtonHeight(Button button)

@@ -18,8 +18,8 @@ partial class ErrorDetailForm
         lblSummary = new Label();
         txtDetails = new TextBox();
         pnlButtons = new Panel();
-        btnCopy = new Button();
-        btnClose = new Button();
+        btnCopy = new ThemedDialogButton();
+        btnClose = new ThemedDialogButton();
         pnlButtons.SuspendLayout();
         SuspendLayout();
 

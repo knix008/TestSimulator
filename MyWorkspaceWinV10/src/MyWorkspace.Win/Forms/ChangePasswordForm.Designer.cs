@@ -19,8 +19,8 @@ partial class ChangePasswordForm
         txtCurrent = new TextBox();
         txtNew = new TextBox();
         txtConfirm = new TextBox();
-        btnSave = new Button();
-        btnCancel = new Button();
+        btnSave = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         SuspendLayout();
 
         lblCurrent.AutoSize = true;

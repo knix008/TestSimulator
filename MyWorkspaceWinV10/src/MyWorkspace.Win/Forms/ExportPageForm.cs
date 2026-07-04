@@ -14,8 +14,8 @@ internal sealed class ExportPageForm : Form
     private readonly RadioButton _rbMarkdown = new() { AutoSize = true };
     private readonly RadioButton _rbWord = new() { AutoSize = true };
     private readonly RadioButton _rbPdf = new() { AutoSize = true };
-    private readonly Button _btnOk = new() { Name = "btnOk", DialogResult = DialogResult.OK };
-    private readonly Button _btnCancel = new() { Name = "btnCancel", DialogResult = DialogResult.Cancel };
+    private readonly Button _btnOk = new ThemedDialogButton() { Name = "btnOk", DialogResult = DialogResult.OK };
+    private readonly Button _btnCancel = new ThemedDialogButton() { Name = "btnCancel", DialogResult = DialogResult.Cancel };
 
     public ExportPageForm() : this(K.ExportPageTitle, K.ExportPagePrompt)
     {

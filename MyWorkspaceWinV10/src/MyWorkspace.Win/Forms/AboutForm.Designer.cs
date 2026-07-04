@@ -18,7 +18,7 @@ partial class AboutForm
         lblVersion = new Label();
         lblDescription = new Label();
         lblCopyright = new Label();
-        btnClose = new Button();
+        btnClose = new ThemedDialogButton();
         ((System.ComponentModel.ISupportInitialize)picAppIcon).BeginInit();
         SuspendLayout();
 

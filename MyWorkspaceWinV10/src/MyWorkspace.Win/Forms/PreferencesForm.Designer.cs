@@ -25,8 +25,8 @@ partial class PreferencesForm
         cboFontScale = new ThemedComboBox();
         lblHint = new Label();
         pnlButtons = new FlowLayoutPanel();
-        btnOk = new Button();
-        btnCancel = new Button();
+        btnOk = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         tblMain.SuspendLayout();
         pnlButtons.SuspendLayout();
         SuspendLayout();

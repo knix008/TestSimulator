@@ -9,7 +9,8 @@ internal sealed class VerticalNavRail : Panel
     {
         Action,
         Menu,
-        ContextMenu
+        ContextMenu,
+        Custom
     }
 
     private sealed class NavEntry
@@ -25,9 +26,11 @@ internal sealed class VerticalNavRail : Panel
     {
         public required Button Button { get; init; }
         public required BottomEntryKind Kind { get; init; }
+        public string? Id { get; init; }
         public ToolStripMenuItem? MenuRoot { get; init; }
         public ToolStripMenuItem? MenuItem { get; init; }
         public ContextMenuStrip? ContextMenu { get; init; }
+        public Label? Badge { get; init; }
         public required string IconName { get; init; }
         public required string TooltipKey { get; init; }
     }
@@ -59,6 +62,8 @@ internal sealed class VerticalNavRail : Panel
                 entry.Button.Image?.Dispose();
             foreach (var entry in _bottomEntries)
                 entry.Button.Image?.Dispose();
+            foreach (var entry in _bottomEntries)
+                entry.Badge?.Dispose();
         }
 
         base.Dispose(disposing);
@@ -154,6 +159,77 @@ internal sealed class VerticalNavRail : Panel
         Relayout();
     }
 
+    public void AddBottomCustom(string id, string iconName, string tooltipKey, EventHandler clickHandler)
+    {
+        var button = CreateRailButton(iconName, tooltipKey, id);
+        button.Click += clickHandler;
+
+        var badge = new Label
+        {
+            AutoSize = false,
+            Size = new Size(18, 16),
+            Visible = false,
+            BackColor = AppTheme.Accent,
+            ForeColor = Color.White,
+            Font = AppTheme.UiFontSmall,
+            TextAlign = ContentAlignment.MiddleCenter,
+            TabStop = false
+        };
+
+        _bottomEntries.Add(new BottomEntry
+        {
+            Button = button,
+            Kind = BottomEntryKind.Custom,
+            Id = id,
+            Badge = badge,
+            IconName = iconName,
+            TooltipKey = tooltipKey
+        });
+
+        Controls.Add(button);
+        Controls.Add(badge);
+        Relayout();
+    }
+
+    public Button? GetBottomButton(string id) =>
+        _bottomEntries.FirstOrDefault(entry => string.Equals(entry.Id, id, StringComparison.Ordinal))
+            ?.Button;
+
+    public void SetBottomCustomVisible(string id, bool visible) =>
+        SetBottomEntryVisible(entry => string.Equals(entry.Id, id, StringComparison.Ordinal), visible);
+
+    public void SetBottomBadge(string id, int unreadCount)
+    {
+        var entry = _bottomEntries.FirstOrDefault(item => string.Equals(item.Id, id, StringComparison.Ordinal));
+        if (entry?.Badge == null)
+            return;
+
+        entry.Badge.Tag = unreadCount;
+        entry.Badge.Visible = unreadCount > 0;
+        entry.Badge.Text = unreadCount > 9 ? "9+" : unreadCount.ToString();
+        PositionBottomBadge(entry);
+        ApplyBottomEntryIcon(entry, unreadCount);
+    }
+
+    private static void ApplyBottomEntryIcon(BottomEntry entry, int unreadCount)
+    {
+        var iconName = ResolveBottomEntryIconName(entry, unreadCount);
+        SetButtonIcon(entry.Button, IconAssets.Load(24, iconName));
+    }
+
+    private static string ResolveBottomEntryIconName(BottomEntry entry, int unreadCount)
+    {
+        if (string.Equals(entry.Id, "notifications", StringComparison.Ordinal)
+            || string.Equals(entry.IconName, "bell", StringComparison.Ordinal)
+            || string.Equals(entry.IconName, "bell_off", StringComparison.Ordinal)
+            || string.Equals(entry.IconName, "bell_on", StringComparison.Ordinal))
+        {
+            return unreadCount > 0 ? "bell_on" : "bell_off";
+        }
+
+        return entry.IconName;
+    }
+
     public void SetBottomActionVisible(ToolStripMenuItem menuItem, bool visible) =>
         SetBottomEntryVisible(entry => ReferenceEquals(entry.MenuItem, menuItem), visible);
 
@@ -169,7 +245,10 @@ internal sealed class VerticalNavRail : Panel
             SetButtonIcon(entry.Button, IconAssets.Load(24, entry.IconName));
 
         foreach (var entry in _bottomEntries)
-            SetButtonIcon(entry.Button, IconAssets.Load(24, entry.IconName));
+        {
+            var unreadCount = entry.Badge?.Tag as int? ?? 0;
+            ApplyBottomEntryIcon(entry, unreadCount);
+        }
     }
 
     public void RefreshTheme()
@@ -181,6 +260,15 @@ internal sealed class VerticalNavRail : Panel
             ApplyEntryVisual(entry);
         foreach (var entry in _bottomEntries)
             AppTheme.StyleNavRailButton(entry.Button);
+
+        foreach (var entry in _bottomEntries)
+        {
+            if (entry.Badge == null)
+                continue;
+
+            entry.Badge.BackColor = AppTheme.Accent;
+            entry.Badge.ForeColor = Color.White;
+        }
     }
 
     private static void ApplyEntryVisual(NavEntry entry) =>
@@ -419,8 +507,21 @@ internal sealed class VerticalNavRail : Panel
 
             bottomY -= entry.Button.Height;
             entry.Button.Location = new Point(centerX, bottomY);
+            PositionBottomBadge(entry);
             bottomY -= 4;
         }
+    }
+
+    private static void PositionBottomBadge(BottomEntry entry)
+    {
+        if (entry.Badge == null)
+            return;
+
+        if (!entry.Badge.Visible)
+            return;
+
+        entry.Badge.Location = new Point(entry.Button.Right - entry.Badge.Width - 2, entry.Button.Top + 2);
+        entry.Badge.BringToFront();
     }
 
     protected override void OnSizeChanged(EventArgs e)

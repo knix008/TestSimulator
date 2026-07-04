@@ -813,6 +813,9 @@ internal sealed class WebViewEditorController
     public Task DeleteSelectedImageAsync() =>
         RunApiAsync("window.editorApi.deleteSelectedImage();");
 
+    public Task DeleteSelectedFileAttachmentAsync() =>
+        RunApiAsync("window.editorApi.deleteSelectedFileAttachment();");
+
     public Task ReplaceSelectedImageAsync(string src, string alt) =>
         RunApiAsync($"window.editorApi.replaceSelectedImage('{EscapeJs(src)}','{EscapeJs(alt)}');");
 
@@ -1014,9 +1017,12 @@ internal sealed class EditorContextMenuContext
     public string Target { get; init; } = "editor";
     public string? ImageSrc { get; init; }
     public string? ImageAlt { get; init; }
+    public string? FileHref { get; init; }
+    public string? FileLabel { get; init; }
     public string? LineQuote { get; init; }
 
     public bool IsImage => string.Equals(Target, "image", StringComparison.OrdinalIgnoreCase);
+    public bool IsFile => string.Equals(Target, "file", StringComparison.OrdinalIgnoreCase);
 
     public static EditorContextMenuContext ForEditor() => new();
 
@@ -1033,25 +1039,37 @@ internal sealed class EditorContextMenuContext
                 ? targetElement.GetString() ?? "editor"
                 : "editor";
 
-            if (!string.Equals(target, "image", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(target, "image", StringComparison.OrdinalIgnoreCase))
             {
-                var lineQuote = root.TryGetProperty("lineQuote", out var lineQuoteElement)
-                    ? lineQuoteElement.GetString()
-                    : null;
+                var src = root.TryGetProperty("src", out var srcElement) ? srcElement.GetString() : null;
+                var alt = root.TryGetProperty("alt", out var altElement) ? altElement.GetString() : null;
                 return new EditorContextMenuContext
                 {
-                    Target = "editor",
-                    LineQuote = lineQuote
+                    Target = "image",
+                    ImageSrc = src,
+                    ImageAlt = alt
                 };
             }
 
-            var src = root.TryGetProperty("src", out var srcElement) ? srcElement.GetString() : null;
-            var alt = root.TryGetProperty("alt", out var altElement) ? altElement.GetString() : null;
+            if (string.Equals(target, "file", StringComparison.OrdinalIgnoreCase))
+            {
+                var href = root.TryGetProperty("href", out var hrefElement) ? hrefElement.GetString() : null;
+                var label = root.TryGetProperty("label", out var labelElement) ? labelElement.GetString() : null;
+                return new EditorContextMenuContext
+                {
+                    Target = "file",
+                    FileHref = href,
+                    FileLabel = label
+                };
+            }
+
+            var lineQuote = root.TryGetProperty("lineQuote", out var lineQuoteElement)
+                ? lineQuoteElement.GetString()
+                : null;
             return new EditorContextMenuContext
             {
-                Target = "image",
-                ImageSrc = src,
-                ImageAlt = alt
+                Target = "editor",
+                LineQuote = lineQuote
             };
         }
         catch

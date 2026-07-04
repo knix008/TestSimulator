@@ -198,14 +198,6 @@ public partial class MainForm
 
                 "toolbar_redo" => Localization.Get(K.ToolbarRedo),
 
-                "toolbar_workspace" => outerSplit.Panel1Collapsed
-                    ? Localization.Get(K.WorkspacePanelExpand)
-                    : Localization.Get(K.WorkspacePanelCollapse),
-
-                "toolbar_comments" => commentsEditorSplit.Panel2Collapsed
-                    ? Localization.Get(K.CommentsExpand)
-                    : Localization.Get(K.CommentsCollapse),
-
                 "toolbar_info" => Localization.Get(K.ToolbarAbout),
 
                 _ => button.ToolTipText

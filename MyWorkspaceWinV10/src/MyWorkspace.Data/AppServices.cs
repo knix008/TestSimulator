@@ -17,7 +17,8 @@ public sealed class AppServices : IDisposable
 
         Auth = new Services.AuthService(Db);
         Users = new Services.UserService(Db);
-        Notifications = new Services.NotificationService(Db, EmailSettings);
+        UserNotifications = new Services.UserNotificationService(Db);
+        Notifications = new Services.NotificationService(Db, EmailSettings, UserNotifications);
         Workspaces = new Services.WorkspaceService(Db, Notifications);
         PageChangeLogs = new Services.PageChangeLogService(Db, Workspaces);
         PageVersions = new Services.PageVersionService(Db, Workspaces, PageChangeLogs);
@@ -32,6 +33,7 @@ public sealed class AppServices : IDisposable
     public AppDbContext Db { get; }
     public IAuthService Auth { get; }
     public IUserService Users { get; }
+    public IUserNotificationService UserNotifications { get; }
     public INotificationService Notifications { get; }
     public IWorkspaceService Workspaces { get; }
     public IPageService Pages { get; }

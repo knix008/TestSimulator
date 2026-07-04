@@ -27,8 +27,8 @@ partial class EmailSettingsForm
         txtFromAddress = new TextBox();
         lblFromDisplayName = new Label();
         txtFromDisplayName = new TextBox();
-        btnSave = new Button();
-        btnCancel = new Button();
+        btnSave = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         lblHint = new Label();
         ((System.ComponentModel.ISupportInitialize)numPort).BeginInit();
         SuspendLayout();

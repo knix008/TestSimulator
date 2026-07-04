@@ -42,7 +42,6 @@ public partial class MainForm : Form
     private readonly SemaphoreSlim _pageLoadLock = new(1, 1);
 
     private ToolStripButton? _toolbarInfoButton;
-    private ToolStripButton? _toolbarWorkspaceButton;
 
     private ContextMenuStrip? _ctxEditor;
     private ContextMenuStrip? _ctxEditorImage;
@@ -162,6 +161,8 @@ public partial class MainForm : Form
         InitializeEditor();
         EnsureProfileMenuItems();
         InitializeNavRail();
+        InitializeNavRailBottomActions();
+        InitializeNotificationsNav();
         InitializeAppSettingsMenu();
         SetupEditorContextMenu();
         HookMenuScriptSuspension();
@@ -397,8 +398,7 @@ public partial class MainForm : Form
     {
         foreach (ToolStripItem item in toolStripMarkdown.Items)
         {
-            if (ReferenceEquals(item, _toolbarInfoButton)
-                || ReferenceEquals(item, _toolbarWorkspaceButton))
+            if (ReferenceEquals(item, _toolbarInfoButton))
             {
                 item.Enabled = true;
                 continue;
@@ -415,8 +415,7 @@ public partial class MainForm : Form
                       && CanEditActivePage();
         foreach (ToolStripItem item in toolStripMarkdown.Items)
         {
-            if (ReferenceEquals(item, _toolbarInfoButton)
-                || ReferenceEquals(item, _toolbarWorkspaceButton))
+            if (ReferenceEquals(item, _toolbarInfoButton))
             {
                 item.Enabled = true;
                 continue;
@@ -2233,18 +2232,9 @@ public partial class MainForm : Form
         AddToolbarButton("quote", Localization.Get(K.ToolbarQuote), async (_, _) => await RunEditorAsync(e => e.ApplyBlockquoteAsync()));
         AddToolbarButton("hr", Localization.Get(K.ToolbarHorizontalRule), async (_, _) => await RunEditorAsync(e => e.InsertHtmlAsync("<hr/><p><br></p>")));
         AddToolbarButton("table", Localization.Get(K.ToolbarTable), async (_, _) => await InsertTableAsync());
-        _toolbarWorkspaceButton = AddToolbarButton(
-            "workspace",
-            Localization.Get(K.ToolbarWorkspacePanel),
-            (_, _) => ToggleWorkspacePanel());
-        _toolbarCommentsButton = AddToolbarButton(
-            "comments",
-            Localization.Get(K.ToolbarComments),
-            (_, _) => ToggleCommentsPanel());
         _toolbarInfoButton = AddToolbarButton("info", Localization.Get(K.ToolbarAbout), (_, _) => ShowAboutDialog(), ToolStripItemAlignment.Right);
         AppTheme.StyleVerticalToolbarItems(toolStripMarkdown.Items);
         AppTheme.ConfigureVerticalToolbarOverflow(toolStripMarkdown);
-        UpdateWorkspaceToggleButtonText();
         SetShellEnabled(SessionContext.IsLoggedIn);
     }
 

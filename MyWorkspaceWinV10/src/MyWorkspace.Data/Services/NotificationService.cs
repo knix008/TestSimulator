@@ -12,11 +12,16 @@ public sealed class NotificationService : INotificationService
 {
     private readonly AppDbContext _db;
     private readonly EmailSettings _emailSettings;
+    private readonly IUserNotificationService _userNotifications;
 
-    public NotificationService(AppDbContext db, EmailSettings emailSettings)
+    public NotificationService(
+        AppDbContext db,
+        EmailSettings emailSettings,
+        IUserNotificationService userNotifications)
     {
         _db = db;
         _emailSettings = emailSettings.Clone();
+        _userNotifications = userNotifications;
     }
 
     public bool IsEmailConfigured => _emailSettings.IsConfigured;
@@ -25,68 +30,84 @@ public sealed class NotificationService : INotificationService
         SendWorkspaceNotification(
             actor,
             page.WorkspaceId,
+            AppNotificationKind.PageUpdated,
             notifyPageUpdate: true,
             notifyWorkspaceChange: false,
             $"Page 수정: {page.Title}",
-            summary);
+            summary,
+            page.Id);
 
     public void NotifyPageCreated(User actor, Page page) =>
         SendWorkspaceNotification(
             actor,
             page.WorkspaceId,
+            AppNotificationKind.PageCreated,
             notifyPageUpdate: true,
             notifyWorkspaceChange: false,
             $"새 Page: {page.Title}",
-            $"{actor.Username}님이 Page \"{page.Title}\"을(를) 생성했습니다.");
+            $"{actor.Username}님이 Page \"{page.Title}\"을(를) 생성했습니다.",
+            page.Id);
 
     public void NotifyPageDeleted(User actor, int workspaceId, string pageTitle) =>
         SendWorkspaceNotification(
             actor,
             workspaceId,
+            AppNotificationKind.PageDeleted,
             notifyPageUpdate: true,
             notifyWorkspaceChange: false,
             $"Page 삭제: {pageTitle}",
-            $"{actor.Username}님이 Page \"{pageTitle}\"을(를) 삭제했습니다.");
+            $"{actor.Username}님이 Page \"{pageTitle}\"을(를) 삭제했습니다.",
+            null);
 
     public void NotifyWorkspaceRenamed(User actor, Workspace workspace, string previousName) =>
         SendWorkspaceNotification(
             actor,
             workspace.Id,
+            AppNotificationKind.WorkspaceRenamed,
             notifyPageUpdate: false,
             notifyWorkspaceChange: true,
             $"Workspace 이름 변경: {workspace.Name}",
-            $"{actor.Username}님이 Workspace 이름을 \"{previousName}\"에서 \"{workspace.Name}\"(으)로 변경했습니다.");
+            $"{actor.Username}님이 Workspace 이름을 \"{previousName}\"에서 \"{workspace.Name}\"(으)로 변경했습니다.",
+            null);
 
     public void NotifyWorkspaceMemberAdded(User actor, int workspaceId, string workspaceName, User member) =>
         SendWorkspaceNotification(
             actor,
             workspaceId,
+            AppNotificationKind.MemberAdded,
             notifyPageUpdate: false,
             notifyWorkspaceChange: true,
             $"멤버 추가: {workspaceName}",
-            $"{actor.Username}님이 {member.Username}님을 Workspace \"{workspaceName}\"에 추가했습니다.");
+            $"{actor.Username}님이 {member.Username}님을 Workspace \"{workspaceName}\"에 추가했습니다.",
+            null);
 
     public void NotifyWorkspaceMemberRemoved(User actor, int workspaceId, string workspaceName, User member) =>
         SendWorkspaceNotification(
             actor,
             workspaceId,
+            AppNotificationKind.MemberRemoved,
             notifyPageUpdate: false,
             notifyWorkspaceChange: true,
             $"멤버 제거: {workspaceName}",
-            $"{actor.Username}님이 {member.Username}님을 Workspace \"{workspaceName}\"에서 제거했습니다.");
+            $"{actor.Username}님이 {member.Username}님을 Workspace \"{workspaceName}\"에서 제거했습니다.",
+            null);
 
     private void SendWorkspaceNotification(
         User actor,
         int workspaceId,
+        AppNotificationKind kind,
         bool notifyPageUpdate,
         bool notifyWorkspaceChange,
         string subject,
-        string body)
+        string body,
+        int? pageId)
     {
+        _userNotifications.NotifyWorkspaceMembers(actor, workspaceId, kind, subject, body, pageId);
+
         if (!_emailSettings.IsConfigured)
             return;
 
-        var recipients = GetRecipients(workspaceId, actor.Id, notifyPageUpdate, notifyWorkspaceChange);
+        var recipients = GetEmailRecipients(workspaceId, actor.Id, notifyPageUpdate, notifyWorkspaceChange);
         if (recipients.Count == 0)
             return;
 
@@ -94,7 +115,7 @@ public sealed class NotificationService : INotificationService
             SendEmail(recipient, subject, body);
     }
 
-    private List<string> GetRecipients(
+    private List<string> GetEmailRecipients(
         int workspaceId,
         int actorUserId,
         bool notifyPageUpdate,

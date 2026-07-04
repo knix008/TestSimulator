@@ -18,8 +18,8 @@ partial class NotificationSettingsForm
         chkNotifyPageUpdate = new CheckBox();
         chkNotifyWorkspaceChange = new CheckBox();
         lblEmailStatus = new Label();
-        btnSave = new Button();
-        btnCancel = new Button();
+        btnSave = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         SuspendLayout();
 
         lblEmail.AutoSize = true;

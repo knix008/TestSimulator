@@ -179,27 +179,7 @@ public partial class MainForm
 
 
 
-    private void UpdateWorkspaceToggleButtonText()
-
-    {
-
-        if (_toolbarWorkspaceButton == null)
-
-            return;
-
-
-
-        _toolbarWorkspaceButton.ToolTipText = outerSplit.Panel1Collapsed
-
-            ? Localization.Get(K.WorkspacePanelExpand)
-
-            : Localization.Get(K.WorkspacePanelCollapse);
-
-
-
-        ApplyToolbarTooltips();
-
-    }
+    private void UpdateWorkspaceToggleButtonText() => ApplyToolbarTooltips();
 
 }
 

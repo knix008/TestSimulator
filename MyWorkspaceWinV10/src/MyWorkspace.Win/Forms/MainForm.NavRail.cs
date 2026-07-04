@@ -26,10 +26,14 @@ public partial class MainForm
         if (_menuCommentsNavRoot != null)
             navRail.AddMenu(_menuCommentsNavRoot, "comments", K.TipMenuComments);
         navRail.AddMenu(menuAdmin, "users", K.TipMenuAdmin);
-        navRail.AddBottomAction(menuLogout, "logout", K.TipMenuBarLogout);
-        navRail.AddBottomMenu(menuProfile!, "profile", K.TipMenuProfile);
         navRail.RefreshTheme();
         UpdateNavRailForLoginState(SessionContext.IsLoggedIn);
+    }
+
+    private void InitializeNavRailBottomActions()
+    {
+        navRail.AddBottomAction(menuLogout, "logout", K.TipMenuBarLogout);
+        navRail.AddBottomMenu(menuProfile!, "profile", K.TipMenuProfile);
     }
 
     private void UpdateNavRailForLoginState(bool loggedIn)
@@ -43,11 +47,13 @@ public partial class MainForm
             navRail.SetEntryVisible(_menuCommentsNavRoot, loggedIn);
         navRail.SetBottomActionVisible(menuLogout, loggedIn);
         navRail.SetBottomMenuVisible(menuProfile!, loggedIn);
+        UpdateNotificationsForLoginState(loggedIn);
     }
 
     private void RefreshNavRailTheme()
     {
         navRail.RefreshTheme();
+        _notificationsPopup?.ApplyTheme();
     }
 
     private void RefreshNavRailTooltips()

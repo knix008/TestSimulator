@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<PageComment> PageComments => Set<PageComment>();
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<WorkspaceFavorite> WorkspaceFavorites => Set<WorkspaceFavorite>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -220,6 +221,29 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.Workspace)
                 .WithMany()
                 .HasForeignKey(e => e.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserNotification>(entity =>
+        {
+            entity.ToTable("user_notifications");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.ActorUserId).HasColumnName("actor_user_id");
+            entity.Property(e => e.ActorUsername).HasColumnName("actor_username").HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Kind).HasColumnName("kind").HasConversion<string>().HasMaxLength(40);
+            entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Body).HasColumnName("body").HasMaxLength(1000).IsRequired();
+            entity.Property(e => e.WorkspaceId).HasColumnName("workspace_id");
+            entity.Property(e => e.PageId).HasColumnName("page_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.IsRead).HasColumnName("is_read");
+            entity.HasIndex(e => new { e.UserId, e.CreatedAt });
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

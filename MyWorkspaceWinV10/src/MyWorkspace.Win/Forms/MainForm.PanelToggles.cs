@@ -18,12 +18,6 @@ public partial class MainForm
         if (_menuCommentsNavRoot != null)
             navRail.SetEntryPressed(_menuCommentsNavRoot, commentsVisible);
 
-        if (_toolbarWorkspaceButton != null)
-            _toolbarWorkspaceButton.Checked = workspaceVisible;
-
-        if (_toolbarCommentsButton != null)
-            _toolbarCommentsButton.Checked = commentsVisible;
-
         if (_ctxEditor == null)
             return;
 

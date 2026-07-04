@@ -55,7 +55,9 @@ internal static class IconDrawing
             "email" => Email(size),
             "profile" => Profile(size),
             "password" => Password(size),
-            "bell" => Bell(size),
+            "bell" => BellOff(size),
+            "bell_off" => BellOff(size),
+            "bell_on" => BellOn(size),
             "copy" => Copy(size),
             "cut" => Cut(size),
             "paste" => Paste(size),
@@ -531,12 +533,30 @@ internal static class IconDrawing
             IconCanvas.DrawArc(g, c, 4f, 1.5f, 4f, 4.5f, 180f, 180f, Color.FromArgb(180, 83, 9), size * 0.12f);
         });
 
-    private static Bitmap Bell(int size) =>
+    private static Bitmap BellOff(int size) =>
         IconCanvas.Create(size, (g, c) =>
         {
-            IconCanvas.FillEllipse(g, c, 4.5f, 0.5f, 3f, 2.2f, Color.FromArgb(251, 191, 36));
-            IconCanvas.FillPolygon(g, c, Color.FromArgb(251, 191, 36), (2f, 4f), (10f, 4f), (8.5f, 9.5f), (3.5f, 9.5f));
-            IconCanvas.FillEllipse(g, c, 5.2f, 9.8f, 1.6f, 1.6f, Color.FromArgb(251, 191, 36));
+            var glass = Color.FromArgb(148, 163, 184);
+            var shade = Color.FromArgb(100, 116, 139);
+
+            IconCanvas.FillEllipse(g, c, 4.4f, 0.8f, 3.2f, 2.4f, glass);
+            IconCanvas.FillPolygon(g, c, glass, (2.2f, 4.1f), (9.8f, 4.1f), (8.4f, 9.4f), (3.6f, 9.4f));
+            IconCanvas.FillEllipse(g, c, 5.1f, 9.7f, 1.8f, 1.8f, shade);
+        });
+
+    private static Bitmap BellOn(int size) =>
+        IconCanvas.Create(size, (g, c) =>
+        {
+            var glow = Color.FromArgb(90, 251, 191, 36);
+            var glass = Color.FromArgb(251, 191, 36);
+            var bright = Color.FromArgb(253, 224, 71);
+            var baseColor = Color.FromArgb(217, 119, 6);
+
+            IconCanvas.FillEllipse(g, c, 2.8f, 0.2f, 6.4f, 6.4f, glow);
+            IconCanvas.FillEllipse(g, c, 4.3f, 0.5f, 3.4f, 2.5f, bright);
+            IconCanvas.FillPolygon(g, c, glass, (2f, 4f), (10f, 4f), (8.5f, 9.5f), (3.5f, 9.5f));
+            IconCanvas.FillEllipse(g, c, 3.8f, 1.2f, 2.2f, 1.6f, Color.FromArgb(170, 255, 255, 255));
+            IconCanvas.FillEllipse(g, c, 5.2f, 9.8f, 1.6f, 1.6f, baseColor);
         });
 
     private static Bitmap Copy(int size) =>

@@ -12,10 +12,10 @@ partial class AdminUserForm
         pnlFooter = new Panel();
         tblFooter = new TableLayoutPanel();
         flowActions = new FlowLayoutPanel();
-        btnAdd = new Button();
-        btnEdit = new Button();
-        btnDelete = new Button();
-        btnClose = new Button();
+        btnAdd = new ThemedDialogButton();
+        btnEdit = new ThemedDialogButton();
+        btnDelete = new ThemedDialogButton();
+        btnClose = new ThemedDialogButton();
         ((System.ComponentModel.ISupportInitialize)gridUsers).BeginInit();
         pnlFooter.SuspendLayout();
         tblFooter.SuspendLayout();

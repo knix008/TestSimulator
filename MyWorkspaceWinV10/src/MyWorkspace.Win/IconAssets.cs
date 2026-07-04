@@ -51,6 +51,30 @@ internal static class IconAssets
     public static Bitmap LoadDialogButtonIcon(int size, string name, bool onPrimaryBackground) =>
         Load(size, name);
 
+    public static Bitmap LoadTinted(int size, string name, Color tint)
+    {
+        using var source = Load(size, name);
+        return Tint(source, tint);
+    }
+
+    private static Bitmap Tint(Bitmap source, Color tint)
+    {
+        var tinted = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb);
+        for (var y = 0; y < source.Height; y++)
+        {
+            for (var x = 0; x < source.Width; x++)
+            {
+                var pixel = source.GetPixel(x, y);
+                if (pixel.A == 0)
+                    continue;
+
+                tinted.SetPixel(x, y, Color.FromArgb(pixel.A, tint.R, tint.G, tint.B));
+            }
+        }
+
+        return tinted;
+    }
+
     public static Icon CreateAppIcon()
     {
         _appIcon ??= LoadAppIconFromResource();

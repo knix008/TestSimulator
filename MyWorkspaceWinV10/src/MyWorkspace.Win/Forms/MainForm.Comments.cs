@@ -5,7 +5,6 @@ public partial class MainForm
     private SplitContainer commentsEditorSplit = null!;
     private Panel pnlCommentsSidebar = null!;
     private PageCommentsPanel pageCommentsPanel = null!;
-    private ToolStripButton? _toolbarCommentsButton;
     private int _savedCommentsWidth = CommentsDefaultWidth;
 
     private const int CommentsDefaultWidth = 300;
@@ -107,7 +106,6 @@ public partial class MainForm
         BeginInvoke(() =>
         {
             TryApplyCommentsSplitterDistance();
-            UpdateCommentsToolbarTooltip();
             UpdatePanelToggleStates();
             _ = RefreshCommentsPanelAsync();
         });
@@ -118,7 +116,6 @@ public partial class MainForm
         _savedCommentsWidth = commentsEditorSplit.Panel2.Width;
         commentsEditorSplit.Panel2Collapsed = true;
         UpdateLayoutConstraints(includeOutlinePanel: !editorAreaSplit.Panel1Collapsed, includeCommentsPanel: false, includeWorkspacePanel: !outerSplit.Panel1Collapsed);
-        UpdateCommentsToolbarTooltip();
         UpdatePanelToggleStates();
     }
 
@@ -159,23 +156,11 @@ public partial class MainForm
             _menuComments.Text = Localization.Get(K.MenuComments);
             _menuComments.Image = AppIcons.LoadMenuIcon("comments");
         }
-
-        UpdateCommentsToolbarTooltip();
     }
 
     private void ApplyCommentsTheme()
     {
         pageCommentsPanel?.ApplyTheme();
         AppTheme.StyleGrabSplitContainer(commentsEditorSplit);
-    }
-
-    private void UpdateCommentsToolbarTooltip()
-    {
-        if (_toolbarCommentsButton == null)
-            return;
-
-        _toolbarCommentsButton.ToolTipText = commentsEditorSplit.Panel2Collapsed
-            ? Localization.Get(K.TipToolbarShowComments)
-            : Localization.Get(K.TipToolbarHideComments);
     }
 }

@@ -25,6 +25,7 @@ public static class DbInitializer
         EnsurePageAssetsTable(db);
         EnsurePageCommentsTable(db);
         EnsurePageCommentQuotedTextColumn(db);
+        EnsureUserNotificationsTable(db);
 
         if (db.Users.Any())
             return;
@@ -583,6 +584,104 @@ public static class DbInitializer
         finally
         {
             connection.Close();
+        }
+    }
+
+    private static void EnsureUserNotificationsTable(AppDbContext db)
+    {
+        if (TableExists(db, "user_notifications"))
+            return;
+
+        var provider = db.Database.ProviderName ?? string.Empty;
+
+        if (provider.Contains("MySql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS user_notifications (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    actor_user_id INT NOT NULL,
+                    actor_username VARCHAR(100) NOT NULL,
+                    kind VARCHAR(40) NOT NULL,
+                    title VARCHAR(200) NOT NULL,
+                    body VARCHAR(1000) NOT NULL,
+                    workspace_id INT NOT NULL,
+                    page_id INT NULL,
+                    created_at DATETIME(6) NOT NULL,
+                    is_read TINYINT(1) NOT NULL DEFAULT 0,
+                    INDEX ix_user_notifications_user_created (user_id, created_at),
+                    CONSTRAINT fk_user_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB;
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS user_notifications (
+                    id SERIAL PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    actor_user_id INT NOT NULL,
+                    actor_username VARCHAR(100) NOT NULL,
+                    kind VARCHAR(40) NOT NULL,
+                    title VARCHAR(200) NOT NULL,
+                    body VARCHAR(1000) NOT NULL,
+                    workspace_id INT NOT NULL,
+                    page_id INT NULL,
+                    created_at TIMESTAMP NOT NULL,
+                    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+                    CONSTRAINT fk_user_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ix_user_notifications_user_created ON user_notifications (user_id, created_at);
+                """);
+            return;
+        }
+
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                IF OBJECT_ID(N'user_notifications', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE user_notifications (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        actor_user_id INT NOT NULL,
+                        actor_username NVARCHAR(100) NOT NULL,
+                        kind NVARCHAR(40) NOT NULL,
+                        title NVARCHAR(200) NOT NULL,
+                        body NVARCHAR(1000) NOT NULL,
+                        workspace_id INT NOT NULL,
+                        page_id INT NULL,
+                        created_at DATETIME2 NOT NULL,
+                        is_read BIT NOT NULL DEFAULT 0,
+                        CONSTRAINT fk_user_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    );
+                    CREATE INDEX ix_user_notifications_user_created ON user_notifications (user_id, created_at);
+                END
+                """);
+            return;
+        }
+
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS user_notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    actor_user_id INTEGER NOT NULL,
+                    actor_username TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    workspace_id INTEGER NOT NULL,
+                    page_id INTEGER NULL,
+                    created_at TEXT NOT NULL,
+                    is_read INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ix_user_notifications_user_created ON user_notifications (user_id, created_at);
+                """);
         }
     }
 

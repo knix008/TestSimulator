@@ -38,9 +38,9 @@ partial class LoginForm
 
         txtPassword = new TextBox();
 
-        btnLogin = new Button();
+        btnLogin = new ThemedDialogButton();
 
-        btnCancel = new Button();
+        btnCancel = new ThemedDialogButton();
 
         lblDefaultAdminHint = new Label();
 

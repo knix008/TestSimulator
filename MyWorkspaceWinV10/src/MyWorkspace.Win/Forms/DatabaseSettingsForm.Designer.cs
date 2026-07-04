@@ -29,11 +29,11 @@ partial class DatabaseSettingsForm
         pnlSqliteFields = new Panel();
         lblSqliteFile = new Label();
         txtSqliteFilePath = new TextBox();
-        btnBrowseSqlite = new Button();
-        btnTest = new Button();
-        btnDisconnect = new Button();
-        btnSave = new Button();
-        btnCancel = new Button();
+        btnBrowseSqlite = new ThemedDialogButton();
+        btnTest = new ThemedDialogButton();
+        btnDisconnect = new ThemedDialogButton();
+        btnSave = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         lblResult = new Label();
         pnlServerFields.SuspendLayout();
         pnlSqliteFields.SuspendLayout();

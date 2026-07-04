@@ -20,8 +20,8 @@ partial class PageHistoryForm
         colTitle = new DataGridViewTextBoxColumn();
         splitMain = new SplitContainer();
         txtPreview = new TextBox();
-        btnRestore = new Button();
-        btnClose = new Button();
+        btnRestore = new ThemedDialogButton();
+        btnClose = new ThemedDialogButton();
         lblList = new Label();
         lblPreview = new Label();
         ((System.ComponentModel.ISupportInitialize)gridVersions).BeginInit();

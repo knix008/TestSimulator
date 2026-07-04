@@ -425,6 +425,10 @@ internal static class EditorHtmlBuilder
               return editor.querySelector('.editor-image-wrap.is-selected');
             }
 
+            function getSelectedFileAttachment() {
+              return editor.querySelector('a.editor-file-attachment.is-selected');
+            }
+
             function findCommentBlockElement(node) {
               let el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
               while (el && el !== editor) {
@@ -2455,18 +2459,41 @@ internal static class EditorHtmlBuilder
                   });
                   wrap.classList.add('is-selected');
                   const img = wrap.querySelector('img');
-                return JSON.stringify({
-                  target: 'image',
-                  src: img?.getAttribute('src') || img?.src || '',
-                  alt: img?.getAttribute('alt') || ''
-                });
-              }
+                  return JSON.stringify({
+                    target: 'image',
+                    src: img?.getAttribute('src') || img?.src || '',
+                    alt: img?.getAttribute('alt') || ''
+                  });
+                }
 
-              return JSON.stringify({
-                target: 'editor',
-                lineQuote: getLineQuoteAtPoint(x, y)
-              });
-            },
+                const fileLink = hit?.closest('a.editor-file-attachment');
+                if (fileLink && editor.contains(fileLink)) {
+                  editor.querySelectorAll('a.editor-file-attachment.is-selected').forEach(link => {
+                    if (link !== fileLink) link.classList.remove('is-selected');
+                  });
+                  fileLink.classList.add('is-selected');
+                  return JSON.stringify({
+                    target: 'file',
+                    href: fileLink.getAttribute('href') || '',
+                    label: (fileLink.textContent || '').trim()
+                  });
+                }
+
+                return JSON.stringify({
+                  target: 'editor',
+                  lineQuote: getLineQuoteAtPoint(x, y)
+                });
+              },
+              deleteSelectedFileAttachment() {
+                const link = getSelectedFileAttachment();
+                if (!link) return false;
+                const ok = deleteNodeWithUndo(link);
+                if (ok) {
+                  updateEmptyState();
+                  notifyChanged();
+                }
+                return ok;
+              },
               cutSelectedImage() {
                 const wrap = getSelectedImageWrap();
                 if (!wrap || !selectNode(wrap)) return false;

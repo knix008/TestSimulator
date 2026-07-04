@@ -170,6 +170,32 @@ internal static class CommentHtmlBuilder
                   e.preventDefault();
                   window.chrome?.webview?.postMessage(JSON.stringify({ type: 'open', href }));
                 });
+                function resolveResourceContext(el) {
+                  if (!el) return null;
+                  if (el.tagName === 'IMG') {
+                    const src = el.getAttribute('src') || el.src || '';
+                    return src ? { href: src, label: el.getAttribute('alt') || '', kind: 'image' } : null;
+                  }
+                  const link = el.closest('a[href]');
+                  if (!link) return null;
+                  const href = link.getAttribute('href') || '';
+                  if (!href) return null;
+                  const kind = link.classList.contains('file-attachment') ? 'file' : 'link';
+                  return { href, label: (link.textContent || '').trim(), kind };
+                }
+                document.addEventListener('contextmenu', (e) => {
+                  const resource = resolveResourceContext(e.target);
+                  if (!resource) return;
+                  e.preventDefault();
+                  window.chrome?.webview?.postMessage(JSON.stringify({
+                    type: 'contextmenu',
+                    href: resource.href,
+                    label: resource.label,
+                    resourceKind: resource.kind,
+                    x: e.clientX,
+                    y: e.clientY
+                  }));
+                });
               </script>
             </body>
             </html>

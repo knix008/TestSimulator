@@ -19,13 +19,13 @@ partial class WorkspaceMemberForm
         tblAddMember = new TableLayoutPanel();
         lblAddUser = new Label();
         cboUser = new ThemedComboBox();
-        btnAdd = new Button();
+        btnAdd = new ThemedDialogButton();
         lblRole = new Label();
         cboRole = new ThemedComboBox();
-        btnRemove = new Button();
+        btnRemove = new ThemedDialogButton();
         pnlFooter = new Panel();
-        btnSave = new Button();
-        btnCancel = new Button();
+        btnSave = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         pnlAddMember.SuspendLayout();
         tblAddMember.SuspendLayout();
         pnlFooter.SuspendLayout();

@@ -15,8 +15,8 @@ partial class InputDialogForm
     {
         lblPrompt = new Label();
         txtInput = new TextBox();
-        btnOk = new Button();
-        btnCancel = new Button();
+        btnOk = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         SuspendLayout();
 
         lblPrompt.AutoSize = true;

@@ -19,8 +19,8 @@ partial class UserEditForm
         txtUsername = new TextBox();
         txtPassword = new TextBox();
         cboRole = new ThemedComboBox();
-        btnSave = new Button();
-        btnCancel = new Button();
+        btnSave = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         SuspendLayout();
 
         lblUsername.AutoSize = true;

@@ -18,7 +18,7 @@ partial class PageLogForm
         colChangedAt = new DataGridViewTextBoxColumn();
         colChangedBy = new DataGridViewTextBoxColumn();
         colChange = new DataGridViewTextBoxColumn();
-        btnClose = new Button();
+        btnClose = new ThemedDialogButton();
         lblList = new Label();
         ((System.ComponentModel.ISupportInitialize)gridLogs).BeginInit();
         SuspendLayout();

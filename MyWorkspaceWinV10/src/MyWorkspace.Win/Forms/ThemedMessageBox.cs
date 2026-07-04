@@ -109,6 +109,11 @@ internal static class ThemedMessageBox
             Controls.Add(_iconBox);
             Controls.Add(buttonPanel);
 
+            AcceptButton = buttonRow.FirstOrDefault(button => button.DialogResult == DialogResult.OK)
+                ?? buttonRow.FirstOrDefault(button => button.DialogResult == DialogResult.Yes);
+            CancelButton = buttonRow.FirstOrDefault(button =>
+                button.DialogResult is DialogResult.Cancel or DialogResult.No);
+
             AppTheme.FinalizeDialogLayout(this);
 
             var contentHeight = Math.Max(
@@ -121,10 +126,8 @@ internal static class ThemedMessageBox
             ClientSize = new Size(Math.Max(320, clientWidth), clientHeight);
 
             AlignButtons(buttonPanel, buttonRow, buttonGap);
-            AcceptButton = buttonRow.FirstOrDefault(button => button.DialogResult == DialogResult.OK)
-                ?? buttonRow.FirstOrDefault(button => button.DialogResult == DialogResult.Yes);
-            CancelButton = buttonRow.FirstOrDefault(button =>
-                button.DialogResult is DialogResult.Cancel or DialogResult.No);
+            foreach (var button in buttonRow)
+                AppTheme.AlignDialogButtonIconText(button);
         }
 
         private static void AlignButtons(Panel footer, IReadOnlyList<Button> buttons, int gap)
@@ -199,17 +202,27 @@ internal static class ThemedMessageBox
 
         private static Button CreateButton(string text, DialogResult result)
         {
-            var button = new Button
+            var button = new ThemedDialogButton
             {
                 Text = text,
                 DialogResult = result,
-                AutoSize = false
+                AutoSize = false,
+                Name = MapMessageBoxButtonName(result)
             };
 
             AppTheme.StyleDialogChoiceButton(button);
             AppTheme.FitButtonSize(button);
             return button;
         }
+
+        private static string MapMessageBoxButtonName(DialogResult result) => result switch
+        {
+            DialogResult.OK or DialogResult.Yes => "btnOk",
+            DialogResult.No => "btnNo",
+            DialogResult.Retry => "btnRetry",
+            DialogResult.Cancel or DialogResult.Abort => "btnCancel",
+            _ => "btnOk"
+        };
 
         private static void NormalizeMessageBoxButtons(IReadOnlyList<Button> buttons)
         {
@@ -224,6 +237,7 @@ internal static class ThemedMessageBox
                 button.AutoSize = false;
                 button.Size = new Size(width, height);
                 button.MinimumSize = new Size(width, height);
+                AppTheme.AlignDialogButtonIconText(button);
             }
         }
 

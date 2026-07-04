@@ -17,8 +17,8 @@ partial class LinkDialogForm
         txtLinkText = new TextBox();
         lblLinkUrl = new Label();
         txtLinkUrl = new TextBox();
-        btnOk = new Button();
-        btnCancel = new Button();
+        btnOk = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         SuspendLayout();
 
         lblLinkText.AutoSize = true;

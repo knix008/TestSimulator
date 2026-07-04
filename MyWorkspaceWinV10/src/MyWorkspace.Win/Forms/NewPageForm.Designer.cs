@@ -20,12 +20,12 @@ partial class NewPageForm
         lblTemplateDesc = new Label();
         lblPreview = new Label();
         txtPreview = new TextBox();
-        btnOk = new Button();
-        btnCancel = new Button();
+        btnOk = new ThemedDialogButton();
+        btnCancel = new ThemedDialogButton();
         splitMain = new SplitContainer();
         lblTemplateFolder = new Label();
-        btnReloadTemplates = new Button();
-        btnOpenTemplateFolder = new Button();
+        btnReloadTemplates = new ThemedDialogButton();
+        btnOpenTemplateFolder = new ThemedDialogButton();
         ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
         splitMain.Panel1.SuspendLayout();
         splitMain.Panel2.SuspendLayout();
