@@ -1,0 +1,96 @@
+:root {
+  color-scheme: light;
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --sidebar: #f6f8fa;
+  --border: #9aa3b0;
+  --border-light: #bac1cb;
+  --text: #1f2328;
+  --text-secondary: #57606a;
+  --text-muted: #8c959f;
+  --accent: #0969da;
+  --accent-hover: #dae8fc;
+  --accent-pressed: #bfdbfe;
+  --accent-button-hover: #075aba;
+  --success: #1a7f37;
+  --warning: #bf5700;
+  --danger: #cf222e;
+  --editor-bg: #f6f8fa;
+  --editor-text: #000000;
+  --panel-header-workspace: #dbeafe;
+  --panel-header-outline: #d1fae5;
+  --panel-header-editor: #ede9fe;
+  --panel-header-page-title: #fef3c7;
+  --nav-rail-width: 56px;
+  --vertical-toolbar-width: 52px;
+  --title-bar-height: 36px;
+  --status-bar-height: 22px;
+  --toolbar-button-size: 44px;
+  --toolbar-icon-size: 24px;
+  --radius: 6px;
+  --font: "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+body[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --sidebar: #0d1117;
+  --border: #30363d;
+  --border-light: #21262d;
+  --text: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent: #2f81f7;
+  --accent-hover: #263852;
+  --accent-pressed: #304462;
+  --accent-button-hover: #388bfd;
+  --editor-bg: #0d1117;
+  --editor-text: #e6edf3;
+  --panel-header-workspace: #253449;
+  --panel-header-outline: #1a3c34;
+  --panel-header-editor: #342c52;
+  --panel-header-page-title: #483820;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font);
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.collapsed {
+  display: none !important;
+}
+
+.btn-primary {
+  border: 0;
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-button-hover);
+}

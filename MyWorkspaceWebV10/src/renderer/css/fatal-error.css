@@ -1,0 +1,87 @@
+.fatal-error-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.fatal-error-screen.hidden {
+  display: none;
+}
+
+.fatal-error-card {
+  width: min(720px, 100%);
+  max-height: min(80vh, 720px);
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.24);
+}
+
+.fatal-error-title {
+  margin: 0;
+  font-size: 18px;
+  color: var(--danger, #cf222e);
+}
+
+.fatal-error-summary {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.fatal-error-card .error-copy-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.fatal-error-card .error-copy-hint[data-state='copied'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.fatal-error-details {
+  width: 100%;
+  min-height: 220px;
+  max-height: 40vh;
+  resize: vertical;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 10px;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.fatal-error-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.fatal-error-copy,
+.fatal-error-reload {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.fatal-error-reload {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}

@@ -1,0 +1,50 @@
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.login-card {
+  width: min(420px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(31, 35, 40, 0.08);
+  padding: 32px;
+  display: grid;
+  gap: 16px;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.login-subtitle,
+.login-hint {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.login-card label {
+  display: grid;
+  gap: 8px;
+}
+
+.login-card input {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.login-error {
+  margin: 0;
+  color: var(--danger);
+}

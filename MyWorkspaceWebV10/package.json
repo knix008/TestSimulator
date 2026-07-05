@@ -1,0 +1,58 @@
+{
+  "name": "myworkspace-web-v10",
+  "version": "0.1.0",
+  "description": "MyWorkspace multi-platform desktop app (Electron + JavaScript)",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "postinstall": "electron-builder install-app-deps && node scripts/copy-vendor.js && node scripts/extract-win-editor.js && node scripts/sync-icons.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "author": "SHKWON",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^35.7.5",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^11.9.1",
+    "html-to-docx": "^1.8.0",
+    "marked": "^15.0.12",
+    "nodemailer": "^9.0.3",
+    "turndown": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.shkwon.myworkspace",
+    "productName": "MyWorkspace",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "config/**/*",
+      "scripts/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
+  }
+}

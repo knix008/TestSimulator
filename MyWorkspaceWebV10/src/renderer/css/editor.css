@@ -1,0 +1,81 @@
+:root {
+  --editor-bg: #ffffff;
+  --editor-text: #1f2430;
+  --editor-border: #d8dbe3;
+  --editor-accent: #7c9cff;
+}
+
+body {
+  margin: 0;
+  background: var(--editor-bg);
+  color: var(--editor-text);
+  font: 16px/1.6 "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+#editor {
+  min-height: calc(100vh - 32px);
+  padding: 24px 32px 48px;
+  outline: none;
+}
+
+#editor:focus {
+  outline: none;
+}
+
+#editor h1,
+#editor h2,
+#editor h3 {
+  line-height: 1.25;
+  margin: 1.2em 0 0.5em;
+}
+
+#editor p {
+  margin: 0 0 0.9em;
+}
+
+#editor ul,
+#editor ol {
+  margin: 0 0 1em 1.4em;
+}
+
+#editor blockquote {
+  margin: 0 0 1em;
+  padding-left: 12px;
+  border-left: 3px solid var(--editor-accent);
+  color: #5b6478;
+}
+
+#editor code {
+  background: #f3f4f8;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+#editor pre {
+  background: #f3f4f8;
+  padding: 12px;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+#editor img {
+  max-width: 100%;
+  height: auto;
+}
+
+#editor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1em;
+}
+
+#editor th,
+#editor td {
+  border: 1px solid var(--editor-border);
+  padding: 8px 10px;
+}
+
+#editor .placeholder:empty::before {
+  content: attr(data-placeholder);
+  color: #9aa3b5;
+}

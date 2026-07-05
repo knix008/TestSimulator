@@ -1,0 +1,379 @@
+import { showPopupMenuAtPoint, closePopupMenu } from '../ui/popupMenu.js';
+
+function menuIcon(name) {
+  return name;
+}
+
+function buildImageQuote(src, alt) {
+  if (!src?.trim()) {
+    return '';
+  }
+  const safeSrc = src.trim();
+  const safeAlt = alt?.trim() || '';
+  return safeAlt ? `![${safeAlt}](${safeSrc})` : `![](${safeSrc})`;
+}
+
+function buildEditorItems(t, { canEdit, loggedIn, selectedText, lineQuote, outlineVisible }) {
+  const hasSelection = Boolean(selectedText?.trim());
+  const hasLineQuote = Boolean(lineQuote?.trim());
+
+  return [
+    {
+      id: 'editor-cut',
+      label: t.editorCut,
+      iconName: menuIcon('cut'),
+      shortcut: 'Ctrl+X',
+      disabled: !canEdit || !hasSelection
+    },
+    {
+      id: 'editor-copy',
+      label: t.editorCopy,
+      iconName: menuIcon('copy'),
+      shortcut: 'Ctrl+C',
+      disabled: !hasSelection
+    },
+    {
+      id: 'editor-paste',
+      label: t.editorPaste,
+      iconName: menuIcon('paste'),
+      shortcut: 'Ctrl+V',
+      disabled: !canEdit
+    },
+    {
+      id: 'editor-comment-selection',
+      label: t.editorCommentOnSelection,
+      iconName: menuIcon('quote'),
+      disabled: !loggedIn || !hasSelection
+    },
+    {
+      id: 'editor-comment-line',
+      label: t.editorCommentOnLine,
+      iconName: menuIcon('quote'),
+      disabled: !loggedIn || !hasLineQuote
+    },
+    { type: 'separator' },
+    {
+      id: 'editor-select-all',
+      label: t.editorSelectAll,
+      iconName: menuIcon('selectall'),
+      shortcut: 'Ctrl+A'
+    },
+    { type: 'separator' },
+    { id: 'editor-undo', label: t.toolbarUndo, iconName: menuIcon('undo'), shortcut: 'Ctrl+Z', disabled: !canEdit },
+    { id: 'editor-redo', label: t.toolbarRedo, iconName: menuIcon('redo'), shortcut: 'Ctrl+Y', disabled: !canEdit },
+    { type: 'separator' },
+    { id: 'editor-h1', label: t.toolbarHeading1, iconName: menuIcon('h1'), disabled: !canEdit },
+    { id: 'editor-h2', label: t.toolbarHeading2, iconName: menuIcon('h2'), disabled: !canEdit },
+    { id: 'editor-h3', label: t.toolbarHeading3, iconName: menuIcon('h3'), disabled: !canEdit },
+    { id: 'editor-h4', label: t.toolbarHeading4, iconName: menuIcon('h4'), disabled: !canEdit },
+    { id: 'editor-h5', label: t.toolbarHeading5, iconName: menuIcon('h5'), disabled: !canEdit },
+    { id: 'editor-h6', label: t.toolbarHeading6, iconName: menuIcon('h6'), disabled: !canEdit },
+    { type: 'separator' },
+    { id: 'editor-bold', label: t.editorBold, iconName: menuIcon('bold'), shortcut: 'Ctrl+B', disabled: !canEdit },
+    { id: 'editor-italic', label: t.toolbarItalic, iconName: menuIcon('italic'), shortcut: 'Ctrl+I', disabled: !canEdit },
+    { id: 'editor-strike', label: t.toolbarStrike, iconName: menuIcon('strike'), disabled: !canEdit },
+    { type: 'separator' },
+    { id: 'editor-inline-code', label: t.toolbarInlineCode, iconName: menuIcon('code'), disabled: !canEdit },
+    { id: 'editor-code-block', label: t.toolbarCodeBlock, iconName: menuIcon('codeblock'), disabled: !canEdit },
+    { type: 'separator' },
+    { id: 'editor-link', label: t.toolbarLink, iconName: menuIcon('link'), disabled: !canEdit },
+    { id: 'editor-image', label: t.toolbarImage, iconName: menuIcon('image'), disabled: !canEdit },
+    { id: 'editor-attach', label: t.toolbarAttachFile, iconName: menuIcon('attach'), disabled: !canEdit },
+    { type: 'separator' },
+    { id: 'editor-ul', label: t.toolbarBulletList, iconName: menuIcon('ul'), disabled: !canEdit },
+    { id: 'editor-ol', label: t.toolbarNumberList, iconName: menuIcon('ol'), disabled: !canEdit },
+    { id: 'editor-blockquote', label: t.toolbarQuote, iconName: menuIcon('quote'), disabled: !canEdit },
+    { type: 'separator' },
+    { id: 'editor-hr', label: t.toolbarHorizontalRule, iconName: menuIcon('hr'), disabled: !canEdit },
+    { id: 'editor-table', label: t.toolbarTable, iconName: menuIcon('table'), disabled: !canEdit },
+    { type: 'separator' },
+    {
+      id: 'editor-toggle-outline',
+      label: t.menuDocumentStructure,
+      iconName: menuIcon('document_structure'),
+      checked: outlineVisible
+    }
+  ];
+}
+
+function buildImageItems(t, { canEdit, loggedIn, imageQuote }) {
+  return [
+    { id: 'image-open', label: t.editorImageOpen, iconName: menuIcon('image') },
+    {
+      id: 'image-comment',
+      label: t.editorCommentOnSelection,
+      iconName: menuIcon('quote'),
+      disabled: !loggedIn || !imageQuote
+    },
+    { type: 'separator' },
+    {
+      id: 'image-cut',
+      label: t.editorCut,
+      iconName: menuIcon('cut'),
+      shortcut: 'Ctrl+X',
+      disabled: !canEdit
+    },
+    {
+      id: 'image-copy',
+      label: t.editorCopy,
+      iconName: menuIcon('copy'),
+      shortcut: 'Ctrl+C'
+    },
+    { type: 'separator' },
+    { id: 'image-replace', label: t.editorImageReplace, iconName: menuIcon('image'), disabled: !canEdit },
+    { id: 'image-delete', label: t.editorImageDelete, iconName: menuIcon('delete'), shortcut: 'Del', disabled: !canEdit }
+  ];
+}
+
+function buildTableItems(t, context, canEdit) {
+  const scope = context.selectionScope || 'cells';
+  const showDeleteTable = scope === 'table';
+  const showDeleteRows = scope === 'rows';
+  const showDeleteColumns = scope === 'columns';
+  const showInsertRows = scope === 'rows' || scope === 'table';
+  const showInsertColumns = scope === 'columns' || scope === 'table';
+
+  return [
+    {
+      id: 'table-delete-table',
+      label: t.editorTableDelete,
+      iconName: menuIcon('delete'),
+      visible: showDeleteTable,
+      disabled: !canEdit
+    },
+    {
+      id: 'table-delete-rows',
+      label: t.editorTableDeleteRows,
+      iconName: menuIcon('delete'),
+      visible: showDeleteRows,
+      disabled: !canEdit
+    },
+    {
+      id: 'table-delete-columns',
+      label: t.editorTableDeleteColumns,
+      iconName: menuIcon('delete'),
+      visible: showDeleteColumns,
+      disabled: !canEdit
+    },
+    { type: 'separator', visible: showDeleteTable || showDeleteRows || showDeleteColumns },
+    {
+      id: 'table-insert-row-above',
+      label: t.editorTableInsertRowAbove,
+      iconName: menuIcon('table'),
+      visible: showInsertRows,
+      disabled: !canEdit
+    },
+    {
+      id: 'table-insert-row-below',
+      label: t.editorTableInsertRowBelow,
+      iconName: menuIcon('table'),
+      visible: showInsertRows,
+      disabled: !canEdit
+    },
+    {
+      id: 'table-insert-column-left',
+      label: t.editorTableInsertColumnLeft,
+      iconName: menuIcon('table'),
+      visible: showInsertColumns,
+      disabled: !canEdit
+    },
+    {
+      id: 'table-insert-column-right',
+      label: t.editorTableInsertColumnRight,
+      iconName: menuIcon('table'),
+      visible: showInsertColumns,
+      disabled: !canEdit
+    }
+  ];
+}
+
+export function createEditorContextMenu({
+  editor,
+  editorFrame,
+  t,
+  getState,
+  onCommentQuote,
+  onToggleOutline,
+  onImportImage,
+  onImportAttach,
+  onInsertTable,
+  onInsertLink,
+  onOpenResource
+}) {
+  let lastContext = null;
+  let lastSelectedText = '';
+  let lastLineQuote = '';
+  let lastImageSrc = '';
+  let lastImageQuote = '';
+
+  async function showAt(clientX, clientY) {
+    const state = getState();
+    if (!state.loggedIn || !state.hasOpenPage) {
+      return;
+    }
+
+    const frameRect = editorFrame.getBoundingClientRect();
+    const screenX = frameRect.left + clientX;
+    const screenY = frameRect.top + clientY;
+
+    lastContext = await editor.getContextMenuContext(clientX, clientY);
+    lastSelectedText = (await editor.getSelectedText()).trim();
+    lastLineQuote = lastContext.lineQuote?.trim() || '';
+    lastImageSrc = lastContext.src || '';
+    lastImageQuote = buildImageQuote(lastContext.src, lastContext.alt);
+
+    let items;
+    if (lastContext.target === 'image') {
+      items = buildImageItems(t, {
+        canEdit: state.canEdit,
+        loggedIn: state.loggedIn,
+        imageQuote: lastImageQuote
+      });
+    } else if (lastContext.target === 'table-cells') {
+      items = buildTableItems(t, lastContext, state.canEdit);
+    } else {
+      items = buildEditorItems(t, {
+        canEdit: state.canEdit,
+        loggedIn: state.loggedIn,
+        selectedText: lastSelectedText,
+        lineQuote: lastLineQuote,
+        outlineVisible: state.outlinePanelVisible
+      });
+    }
+
+    showPopupMenuAtPoint(items, screenX, screenY, {
+      onAction: (actionId) => handleAction(actionId, state)
+    });
+  }
+
+  async function handleAction(actionId, state) {
+    try {
+      switch (actionId) {
+        case 'editor-cut':
+          await editor.applyFormat('cut');
+          break;
+        case 'editor-copy':
+          await editor.applyFormat('copy');
+          break;
+        case 'editor-paste':
+          await editor.applyFormat('paste');
+          break;
+        case 'editor-comment-selection':
+          onCommentQuote?.(lastSelectedText);
+          break;
+        case 'editor-comment-line':
+          onCommentQuote?.(lastLineQuote);
+          break;
+        case 'editor-select-all':
+          await editor.selectAll();
+          break;
+        case 'editor-undo':
+          await editor.runCommand({ command: 'undo' });
+          break;
+        case 'editor-redo':
+          await editor.runCommand({ command: 'redo' });
+          break;
+        case 'editor-h1':
+        case 'editor-h2':
+        case 'editor-h3':
+        case 'editor-h4':
+        case 'editor-h5':
+        case 'editor-h6':
+          await editor.runCommand({ command: 'heading', level: Number.parseInt(actionId.slice(-1), 10) });
+          break;
+        case 'editor-bold':
+          await editor.runCommand({ command: 'bold' });
+          break;
+        case 'editor-italic':
+          await editor.runCommand({ command: 'italic' });
+          break;
+        case 'editor-strike':
+          await editor.runCommand({ command: 'strikeThrough' });
+          break;
+        case 'editor-inline-code':
+          await editor.runCommand({ command: 'inlineCode' });
+          break;
+        case 'editor-code-block':
+          await editor.runCommand({ command: 'codeBlock' });
+          break;
+        case 'editor-link':
+          await onInsertLink?.();
+          break;
+        case 'editor-image':
+          await onImportImage?.();
+          break;
+        case 'editor-attach':
+          await onImportAttach?.();
+          break;
+        case 'editor-ul':
+          await editor.runCommand({ command: 'insertUnorderedList' });
+          break;
+        case 'editor-ol':
+          await editor.runCommand({ command: 'insertOrderedList' });
+          break;
+        case 'editor-blockquote':
+          await editor.runCommand({ command: 'blockquote' });
+          break;
+        case 'editor-hr':
+          await editor.runCommand({ command: 'horizontalRule' });
+          break;
+        case 'editor-table':
+          await onInsertTable?.();
+          break;
+        case 'editor-toggle-outline':
+          onToggleOutline?.();
+          break;
+        case 'image-open':
+          if (lastImageSrc) {
+            await onOpenResource?.(lastImageSrc);
+          }
+          break;
+        case 'image-comment':
+          onCommentQuote?.(lastImageQuote);
+          break;
+        case 'image-cut':
+          await editor.callEditorMethod('cutSelectedImage');
+          break;
+        case 'image-copy':
+          await editor.callEditorMethod('copySelectedImage');
+          break;
+        case 'image-replace':
+          await onImportImage?.({ replace: true });
+          break;
+        case 'image-delete':
+          await editor.callEditorMethod('deleteSelectedImage');
+          break;
+        case 'table-delete-table':
+          await editor.callEditorMethod('deleteSelectedTable');
+          break;
+        case 'table-delete-rows':
+          await editor.callEditorMethod('deleteSelectedTableRows');
+          break;
+        case 'table-delete-columns':
+          await editor.callEditorMethod('deleteSelectedTableColumns');
+          break;
+        case 'table-insert-row-above':
+          await editor.callEditorMethod('insertSelectedTableRowsAbove');
+          break;
+        case 'table-insert-row-below':
+          await editor.callEditorMethod('insertSelectedTableRowsBelow');
+          break;
+        case 'table-insert-column-left':
+          await editor.callEditorMethod('insertSelectedTableColumnsLeft');
+          break;
+        case 'table-insert-column-right':
+          await editor.callEditorMethod('insertSelectedTableColumnsRight');
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      state.onError?.('편집기 컨텍스트 메뉴', error);
+    }
+  }
+
+  return {
+    showAt,
+    close: closePopupMenu
+  };
+}

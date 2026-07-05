@@ -1,0 +1,52 @@
+.vertical-toolbar {
+  width: var(--vertical-toolbar-width);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  gap: 2px;
+  background: var(--sidebar);
+  border-left: 1px solid var(--border-light);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.toolbar-btn {
+  width: var(--toolbar-button-size);
+  height: var(--toolbar-button-size);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.toolbar-btn:hover {
+  background: #e1e4e8;
+}
+
+body[data-theme='dark'] .toolbar-btn:hover {
+  background: #30363d;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.toolbar-btn img,
+.toolbar-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.toolbar-spacer {
+  flex: 1;
+  min-height: 8px;
+}
+
+.toolbar-btn.toolbar-info {
+  margin-top: auto;
+}

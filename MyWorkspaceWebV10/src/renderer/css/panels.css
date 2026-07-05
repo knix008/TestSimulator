@@ -1,0 +1,149 @@
+.side-panel {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--sidebar);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-light);
+  min-height: 32px;
+}
+
+.panel-header-workspace { background: var(--panel-header-workspace); }
+.panel-header-outline { background: var(--panel-header-outline); }
+.panel-header-editor { background: var(--panel-header-editor); }
+
+.panel-title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.panel-toggle {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+.panel-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+}
+
+.comments-body {
+  padding: 12px;
+  color: var(--text-muted);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  min-height: 0;
+}
+
+.comments-placeholder {
+  margin: 0;
+}
+
+.comments-list {
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.comments-compose {
+  display: grid;
+  gap: 8px;
+}
+
+.comments-compose.hidden {
+  display: none;
+}
+
+.comments-input {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 8px;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.comments-submit {
+  justify-self: end;
+}
+
+.comment-item {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  background: var(--surface);
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.comment-body p {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.comment-quote {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--border-light);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.comment-action {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+
+.workspace-empty-actions {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.workspace-empty-actions p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.workspace-panel.collapsed,
+.outline-panel.collapsed,
+.comments-panel.collapsed {
+  display: none;
+}

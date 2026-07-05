@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: blob: page-asset:;" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyWorkspace</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/shell.css" />
+    <link rel="stylesheet" href="css/title-bar.css" />
+    <link rel="stylesheet" href="css/nav-rail.css" />
+    <link rel="stylesheet" href="css/panels.css" />
+    <link rel="stylesheet" href="css/toolbar.css" />
+    <link rel="stylesheet" href="css/menus.css" />
+    <link rel="stylesheet" href="css/status-bar.css" />
+    <link rel="stylesheet" href="css/modals.css" />
+    <link rel="stylesheet" href="css/login.css" />
+    <link rel="stylesheet" href="css/editor.css" />
+    <link rel="stylesheet" href="css/fatal-error.css" />
+  </head>
+  <body data-theme="light">
+    <div id="login-screen" class="login-screen hidden">
+      <form id="login-form" class="login-card">
+        <h1>MyWorkspace</h1>
+        <p class="login-subtitle">Workspace · Page 관리</p>
+        <label>
+          사용자 ID
+          <input id="login-username" type="text" autocomplete="username" spellcheck="false" />
+        </label>
+        <label>
+          비밀번호
+          <input id="login-password" type="password" autocomplete="current-password" />
+        </label>
+        <p id="login-error" class="login-error hidden"></p>
+        <button type="submit" class="btn-primary">로그인</button>
+        <p class="login-hint">최초 실행: admin / admin</p>
+      </form>
+    </div>
+
+    <div id="app-shell" class="app-shell hidden">
+      <header id="title-bar" class="title-bar">
+        <button id="btn-settings-mark" type="button" class="app-mark" title="환경 설정" aria-label="환경 설정"><span></span></button>
+        <div id="title-bar-caption" class="title-bar-caption">MyWorkspace</div>
+        <div id="title-bar-search-wrap" class="title-bar-search-wrap">
+          <input id="page-search" type="search" placeholder="Page 검색..." autocomplete="off" />
+          <div id="search-results" class="search-results hidden"></div>
+        </div>
+        <div class="window-controls">
+          <button id="btn-minimize" type="button" class="window-btn" title="최소화" aria-label="최소화"></button>
+          <button id="btn-maximize" type="button" class="window-btn" title="최대화" aria-label="최대화"></button>
+          <button id="btn-close" type="button" class="window-btn window-btn-close" title="닫기" aria-label="닫기"></button>
+        </div>
+      </header>
+
+      <div class="shell-body">
+        <nav id="nav-rail" class="nav-rail" aria-label="주 메뉴"></nav>
+
+        <div class="main-content">
+          <div class="outer-split" id="outer-split">
+            <aside id="workspace-panel" class="side-panel workspace-panel">
+              <div class="panel-header panel-header-workspace">
+                <span class="panel-title">Workspace</span>
+                <button id="btn-collapse-workspace" type="button" class="panel-toggle" title="Workspace 접기">◀ 접기</button>
+              </div>
+              <div id="workspace-tree" class="panel-body workspace-tree"></div>
+            </aside>
+            <div class="splitter vertical" data-split="workspace" aria-hidden="true"></div>
+
+            <div class="editor-column">
+              <div class="comments-editor-split" id="comments-editor-split">
+                <div class="editor-area-split" id="editor-area-split">
+                  <aside id="outline-panel" class="side-panel outline-panel collapsed">
+                    <div class="panel-header panel-header-outline">
+                      <span class="panel-title">문서 구조</span>
+                      <button id="btn-collapse-outline" type="button" class="panel-toggle" title="문서 구조 접기">◀ 접기</button>
+                    </div>
+                    <div id="outline-tree" class="panel-body outline-tree"></div>
+                  </aside>
+                  <div class="splitter vertical" data-split="outline" aria-hidden="true"></div>
+
+                  <div class="editor-main">
+                    <div id="page-tabs" class="page-tabs"></div>
+                    <div class="editor-host">
+                      <iframe id="editor-frame" class="editor-frame hidden" title="Page editor" tabindex="-1"></iframe>
+                      <div id="empty-state" class="empty-state">
+                        <p>Workspace에서 Page를 선택하거나 새 Page를 만드세요.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="splitter vertical" data-split="comments" aria-hidden="true"></div>
+                <aside id="comments-panel" class="side-panel comments-panel collapsed">
+                  <div class="panel-header panel-header-editor">
+                    <span class="panel-title">댓글</span>
+                    <button id="btn-collapse-comments" type="button" class="panel-toggle" title="댓글 패널 숨기기">▶</button>
+                  </div>
+                  <div class="panel-body comments-body" id="comments-panel-body">
+                    <p class="comments-placeholder">Page를 선택하면 댓글을 볼 수 있습니다.</p>
+                  </div>
+                </aside>
+              </div>
+
+              <aside id="vertical-toolbar" class="vertical-toolbar" aria-label="Markdown 편집"></aside>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer id="status-bar" class="status-bar">
+        <span id="status-left" class="status-item">로그인이 필요합니다</span>
+        <span id="status-save" class="status-item status-save"></span>
+      </footer>
+    </div>
+
+    <div id="menu-root" class="menu-root"></div>
+    <div id="toast-root" class="toast-root"></div>
+
+    <script src="js/errors/errorReportPlain.js"></script>
+    <script src="js/errors/bootstrapErrorHandler.js"></script>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
