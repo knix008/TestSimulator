@@ -45,6 +45,7 @@ public partial class MainForm : Form
 
     private ContextMenuStrip? _ctxEditor;
     private ContextMenuStrip? _ctxEditorImage;
+    private ContextMenuStrip? _ctxEditorTable;
     private ToolStripMenuItem? _ctxEditorCommentOnSelection;
     private ToolStripMenuItem? _ctxEditorCommentOnLine;
     private ToolStripMenuItem? _ctxEditorImageComment;
@@ -424,7 +425,7 @@ public partial class MainForm : Form
             item.Enabled = enabled;
         }
 
-        if (_ctxEditor == null && _ctxEditorImage == null)
+        if (_ctxEditor == null && _ctxEditorImage == null && _ctxEditorTable == null)
             return;
 
         foreach (ToolStripItem item in _ctxEditor!.Items)
@@ -469,6 +470,17 @@ public partial class MainForm : Form
                                && !string.IsNullOrWhiteSpace(_editorContextMenuImageQuote);
                 continue;
             }
+
+            item.Enabled = enabled;
+        }
+
+        if (_ctxEditorTable == null)
+            return;
+
+        foreach (ToolStripItem item in _ctxEditorTable.Items)
+        {
+            if (item is ToolStripSeparator)
+                continue;
 
             item.Enabled = enabled;
         }
@@ -528,6 +540,8 @@ public partial class MainForm : Form
             AppTheme.StyleContextMenu(_ctxEditor);
         if (_ctxEditorImage != null)
             AppTheme.StyleContextMenu(_ctxEditorImage);
+        if (_ctxEditorTable != null)
+            AppTheme.StyleContextMenu(_ctxEditorTable);
 
         AppIcons.ApplyMenuIcons(
             menuSavePage, menuPageHistory, menuRefreshTree, menuLogin, menuLogout, menuAbout, menuExit,
@@ -615,7 +629,7 @@ public partial class MainForm : Form
 
     private void SetupEditorContextMenu()
     {
-        _ctxEditor = new ContextMenuStrip(components);
+        _ctxEditor = new EditorContextMenuStrip(components);
         _ctxEditor.Opening += (_, _) => EnterEditorOverlay();
         _ctxEditor.Closed += (_, _) => ExitEditorOverlay();
 
@@ -650,6 +664,8 @@ public partial class MainForm : Form
         AddEditorMenuItem(K.EditorItalic, Keys.Control | Keys.I, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("italic")), "italic");
         AddEditorMenuItem(K.ToolbarStrike, null, async (_, _) => await RunEditorAsync(e => e.ApplyFormatAsync("strikeThrough")), "strike");
         _ctxEditor.Items.Add(new ToolStripSeparator());
+        _ctxEditorFontSize = AddFontSizeSubmenu(_ctxEditor, "ctxfontsize_", ApplyEditorSelectionFontSizeAsync);
+        _ctxEditor.Items.Add(new ToolStripSeparator());
         AddEditorMenuItem(K.ToolbarInlineCode, null, async (_, _) => await RunEditorAsync(e => e.WrapInlineCodeAsync()), "code");
         AddEditorMenuItem(K.ToolbarCodeBlock, null, async (_, _) =>
             await RunEditorAsync(e => e.InsertHtmlAsync($"<pre><code>{Localization.Get(K.DefaultCodeText)}</code></pre><p><br></p>")), "codeblock");
@@ -669,11 +685,12 @@ public partial class MainForm : Form
 
         AppTheme.StyleContextMenu(_ctxEditor);
         SetupEditorImageContextMenu();
+        SetupEditorTableContextMenu();
     }
 
     private void SetupEditorImageContextMenu()
     {
-        _ctxEditorImage = new ContextMenuStrip(components);
+        _ctxEditorImage = new EditorContextMenuStrip(components);
         _ctxEditorImage.Opening += (_, _) => EnterEditorOverlay();
         _ctxEditorImage.Closed += (_, _) => ExitEditorOverlay();
 
@@ -760,6 +777,9 @@ public partial class MainForm : Form
             if (item.Tag is string key)
                 item.Text = Localization.Get(key);
         }
+
+        SetupEditorTableContextMenuTexts();
+        SetupEditorFontSizeMenuTexts();
     }
 
     private ToolStripMenuItem AddEditorMenuItem(string textKey, Keys? shortcut, EventHandler click, string? iconName = null)
@@ -806,6 +826,7 @@ public partial class MainForm : Form
     {
         RefreshContextMenuIcons(_ctxEditor, "ctx_");
         RefreshContextMenuIcons(_ctxEditorImage, "ctximg_");
+        RefreshContextMenuIcons(_ctxEditorTable, "ctxtable_");
     }
 
     private static void RefreshContextMenuIcons(ContextMenuStrip? menu, string namePrefix)

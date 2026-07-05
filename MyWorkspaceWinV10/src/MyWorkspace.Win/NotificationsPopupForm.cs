@@ -206,6 +206,13 @@ internal sealed class NotificationsPopupForm : Form
 
     private void ConfigureContextMenu()
     {
+        _ctxOpen.Name = "ctxNotificationOpen";
+        _ctxOpen.Image = IconAssets.Load(16, "page");
+        _ctxMarkRead.Name = "ctxNotificationMarkRead";
+        _ctxMarkRead.Image = IconAssets.Load(16, "bell_on");
+        _ctxDelete.Name = "ctxNotificationDelete";
+        _ctxDelete.Image = IconAssets.Load(16, "delete");
+
         _ctxOpen.Click += (_, _) => InvokeContextMenuAction(NotificationSelected);
         _ctxMarkRead.Click += (_, _) => InvokeContextMenuAction(NotificationMarkReadRequested);
         _ctxDelete.Click += (_, _) => InvokeContextMenuAction(NotificationDeleteRequested);

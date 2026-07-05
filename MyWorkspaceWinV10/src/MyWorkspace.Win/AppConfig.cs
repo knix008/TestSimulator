@@ -130,6 +130,20 @@ internal static class AppConfig
         return LocalAutoSaveDatabase.GetServices();
     }
 
+    public static bool ShouldAutoSaveToConfiguredDatabase()
+    {
+        if (IsDatabaseConnectionDisabled || Services == null || IsOfflineFallbackActive)
+            return false;
+
+        if (!HasLocalDatabaseSettings)
+            return false;
+
+        if (IsPrimarySqlite && LocalAutoSaveDatabase.IsSameDatabaseFile(PrimaryDatabaseSettings))
+            return false;
+
+        return true;
+    }
+
     internal static bool ShouldTryOfflineSave(Exception exception)
     {
         if (IsOfflineFallbackActive)

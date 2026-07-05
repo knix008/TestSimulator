@@ -48,7 +48,11 @@ public partial class MainForm
         menuRecentProjects.DropDownOpening += (_, _) => RefreshRecentProjectsMenu();
 
         _ctxRecentProject = new ContextMenuStrip(components);
-        var menuRecentProjectRemove = new ToolStripMenuItem { Name = "menuRecentProjectRemove" };
+        var menuRecentProjectRemove = new ToolStripMenuItem
+        {
+            Name = "menuRecentProjectRemove",
+            Image = IconAssets.Load(16, "delete")
+        };
         menuRecentProjectRemove.Click += (_, _) =>
         {
             if (!string.IsNullOrWhiteSpace(_recentProjectRemoveTarget))

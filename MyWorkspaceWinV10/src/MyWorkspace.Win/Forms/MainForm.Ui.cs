@@ -20,6 +20,8 @@ public partial class MainForm
             AppTheme.StyleContextMenu(_ctxEditor);
         if (_ctxEditorImage != null)
             AppTheme.StyleContextMenu(_ctxEditorImage);
+        if (_ctxEditorTable != null)
+            AppTheme.StyleContextMenu(_ctxEditorTable);
 
         RefreshToolbarIcons();
 

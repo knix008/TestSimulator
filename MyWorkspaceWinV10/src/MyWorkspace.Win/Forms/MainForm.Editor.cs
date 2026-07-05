@@ -18,6 +18,7 @@ public partial class MainForm
         _editor.ContentChanged += OnEditorContentChanged;
         _editor.CaretMoved += OnEditorCaretMoved;
         _editor.ContextMenuRequested += OnEditorContextMenuRequested;
+        _editor.PointerDown += CloseEditorContextMenusIfVisible;
         _editor.OpenRequested += OnEditorOpenRequested;
         _editor.ConfigureFileDrop(
             HandleEditorFilesDroppedAsync,
@@ -83,10 +84,28 @@ public partial class MainForm
         if (!_currentPageId.HasValue && !_draftWorkspaceId.HasValue)
             return;
 
-        if (_ctxEditor == null && _ctxEditorImage == null)
+        if (_ctxEditor == null && _ctxEditorImage == null && _ctxEditorTable == null)
             return;
 
         _ = ShowEditorContextMenuAsync(location);
+    }
+
+    private void CloseEditorContextMenusIfVisible()
+    {
+        if (_ctxEditorImage is EditorContextMenuStrip imageMenu && imageMenu.Visible)
+        {
+            imageMenu.Close(ToolStripDropDownCloseReason.AppFocusChange);
+            return;
+        }
+
+        if (_ctxEditorTable is EditorContextMenuStrip tableMenu && tableMenu.Visible)
+        {
+            tableMenu.Close(ToolStripDropDownCloseReason.AppFocusChange);
+            return;
+        }
+
+        if (_ctxEditor is EditorContextMenuStrip editorMenu && editorMenu.Visible)
+            editorMenu.Close(ToolStripDropDownCloseReason.AppFocusChange);
     }
 
     private async Task ShowEditorContextMenuAsync(Point location)
@@ -97,7 +116,6 @@ public partial class MainForm
         var context = await _editor.GetContextMenuContextAsync(location);
         _outlineUpdateTimer?.Stop();
         _outlineHighlightTimer?.Stop();
-        _editor.SuspendScripts();
 
         if (context.IsImage && _ctxEditorImage != null)
         {
@@ -108,11 +126,20 @@ public partial class MainForm
             return;
         }
 
+        if (context.IsTableCells && _ctxEditorTable != null)
+        {
+            UpdateEditorTableContextMenu(context);
+            UpdateEditorChromeEnabled();
+            _ctxEditorTable.Show(webViewEditor, location);
+            return;
+        }
+
         var selectedText = (await _editor.GetSelectedTextAsync()).Trim();
         _editorContextMenuSelectedText = selectedText;
         _editorContextMenuLineQuote = context.LineQuote?.Trim() ?? string.Empty;
         UpdateEditorCommentOnSelectionMenuItem();
         UpdateEditorCommentOnLineMenuItem();
+        UpdateEditorFontSizeMenuItem();
         _ctxEditor!.Show(webViewEditor, location);
     }
 
@@ -416,13 +443,16 @@ public partial class MainForm
                 if (draft?.Context == null)
                     return;
 
-                AppConfigPageSave.TrySavePage(
+                var result = AppConfigPageSave.TrySavePage(
                     user,
                     pageId,
                     draft.Title,
                     draft.Content,
                     draft.Context,
                     autoSaveToSqliteOnly: true);
+
+                if (result == PageSaveResult.LocalSqliteAutoSave && AppConfig.ShouldAutoSaveToConfiguredDatabase())
+                    PageContentCache.CommitForPrimaryFlush(pageId);
             }
             catch
             {
@@ -722,6 +752,11 @@ public partial class MainForm
                 markPendingPrimaryFlush: false);
             if (saveResult is PageSaveResult.Primary or PageSaveResult.OfflineFallback)
                 PageContentCache.MarkPrimarySynced(pageId);
+            else if (autoSaveToSqliteOnly && AppConfig.ShouldAutoSaveToConfiguredDatabase())
+            {
+                PageContentCache.CommitForPrimaryFlush(pageId);
+                ScheduleCachedPagePrimaryFlush(pageId);
+            }
 
             _currentPageTitle = title;
             if (dirtyGenerationAtStart == _dirtyGeneration)

@@ -45,11 +45,40 @@ internal static partial class PageMarkdownNormalizer
     [GeneratedRegex(@"@@MYWS-SIZED-\d+@@", RegexOptions.IgnoreCase)]
     private static partial Regex BrokenSizedImagePlaceholderRegex();
 
+    [GeneratedRegex(@"<table\b[^>]*>.*?</table>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex HtmlTableRegex();
+
+    [GeneratedRegex(@"<(td|th)\b[^>]*\bstyle\s*=\s*(['""])(?<style>.*?)\2", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex HtmlTableCellStyleRegex();
+
+    [GeneratedRegex(@"@@MYWS-TABLE-\d+@@", RegexOptions.IgnoreCase)]
+    private static partial Regex BrokenStyledTablePlaceholderRegex();
+
+    [GeneratedRegex(@"\b(text-align\s*:|vertical-align\s*:|font-size\s*:|background-color\s*:|width\s*:|height\s*:|min-width\s*:|min-height\s*:|max-width\s*:)", RegexOptions.IgnoreCase)]
+    private static partial Regex CellPresentationStyleRegex();
+
+    [GeneratedRegex(@"<span\s+class\s*=\s*(['""])editor-table-(?:col|row)-resize-handle\1[^>]*>\s*</span>", RegexOptions.IgnoreCase)]
+    private static partial Regex EditorTableResizeHandleRegex();
+
+    [GeneratedRegex(@"\s*\beditor-table-has-layout\b", RegexOptions.IgnoreCase)]
+    private static partial Regex EditorTableLayoutClassRegex();
+
+    [GeneratedRegex(@"\beditor-table-cell-selected\b", RegexOptions.IgnoreCase)]
+    private static partial Regex EditorTableCellSelectedClassRegex();
+
+    [GeneratedRegex(@"<div\s+class\s*=\s*(['""])editor-table-valign-inner[^'""]*\1[^>]*>(?<body>.*?)</div>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex EditorTableValignInnerRegex();
+
+    [GeneratedRegex(@"\s*\beditor-table-v-(?:top|middle|bottom)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex EditorTableValignClassRegex();
+
     [GeneratedRegex(@"EDITOR(?:\\_)?_SIZED(?:\\_)?_IMAGE(?:\\_)?_\d+", RegexOptions.IgnoreCase)]
     private static partial Regex BrokenLegacySizedImagePlaceholderRegex();
 
     private const string SizedImagePlaceholderPrefix = "@@MYWS-SIZED-";
     private const string SizedImagePlaceholderSuffix = "@@";
+    private const string StyledTablePlaceholderPrefix = "@@MYWS-TABLE-";
+    private const string StyledTablePlaceholderSuffix = "@@";
 
     public static string SanitizeBrokenImagePlaceholders(string markdown)
     {
@@ -381,6 +410,9 @@ internal static partial class PageMarkdownNormalizer
 
     public static string PrepareHtmlForMarkdown(string html, int pageId)
     {
+        html = StripEditorTableSelectionMarkup(html);
+        html = StripEditorTableValignMarkup(html);
+        html = StripEditorTableResizeMarkup(html);
         html = PromoteImageWrapWidths(html);
         html = UnwrapResizableImages(html);
         html = NormalizeImageWidthAttributes(html);
@@ -388,6 +420,71 @@ internal static partial class PageMarkdownNormalizer
         html = CollapseHtmlFileAttachments(html, pageId);
         return html;
     }
+
+    public static (string Html, IReadOnlyList<string> PreservedTables) ExtractStyledTables(string html)
+    {
+        var preserved = new List<string>();
+        var index = 0;
+
+        html = HtmlTableRegex().Replace(html, match =>
+        {
+            if (!TableHasCellPresentationStyles(match.Value))
+                return match.Value;
+
+            preserved.Add(match.Value);
+            return BuildStyledTablePlaceholder(index++);
+        });
+
+        return (html, preserved);
+    }
+
+    public static string RestoreStyledTables(string markdown, IReadOnlyList<string> preservedTables)
+    {
+        if (preservedTables.Count == 0)
+            return markdown;
+
+        for (var i = 0; i < preservedTables.Count; i++)
+        {
+            var table = preservedTables[i];
+            markdown = markdown.Replace(BuildStyledTablePlaceholder(i), table, StringComparison.Ordinal);
+            markdown = markdown.Replace($"EDITOR_STYLED_TABLE_{i}", table, StringComparison.Ordinal);
+            markdown = markdown.Replace($"EDITOR\\_STYLED\\_TABLE\\_{i}", table, StringComparison.Ordinal);
+        }
+
+        return markdown;
+    }
+
+    private static bool TableHasCellPresentationStyles(string tableHtml)
+    {
+        if (tableHtml.Contains("editor-table-has-bg", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        foreach (Match match in HtmlTableCellStyleRegex().Matches(tableHtml))
+        {
+            if (CellPresentationStyleRegex().IsMatch(match.Groups["style"].Value))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string StripEditorTableSelectionMarkup(string html) =>
+        EditorTableCellSelectedClassRegex().Replace(html, string.Empty);
+
+    private static string StripEditorTableValignMarkup(string html)
+    {
+        html = EditorTableValignInnerRegex().Replace(html, m => m.Groups["body"].Value);
+        return EditorTableValignClassRegex().Replace(html, string.Empty);
+    }
+
+    private static string StripEditorTableResizeMarkup(string html)
+    {
+        html = EditorTableResizeHandleRegex().Replace(html, string.Empty);
+        return EditorTableLayoutClassRegex().Replace(html, string.Empty);
+    }
+
+    private static string BuildStyledTablePlaceholder(int index) =>
+        $"{StyledTablePlaceholderPrefix}{index}{StyledTablePlaceholderSuffix}";
 
     public static (string Html, IReadOnlyList<string> PreservedImages) ExtractSizedImages(string html)
     {

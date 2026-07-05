@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows.Forms;
 using Markdig;
@@ -16,6 +17,8 @@ internal sealed class WebViewEditorController
     private readonly SemaphoreSlim _scriptGate = new(1, 1);
     private bool _isReady;
     private int _scriptSuspendDepth;
+    private DateTime _lastContextMenuUtc;
+    private Point _lastContextMenuPoint;
     private bool _fileDropHooksInstalled;
     private Func<string[], Point, Task>? _fileDropHandler;
     private Func<bool>? _canAcceptFileDrop;
@@ -280,6 +283,7 @@ internal sealed class WebViewEditorController
     public event Action? ContentChanged;
     public event Action? CaretMoved;
     public event Action<Point>? ContextMenuRequested;
+    public event Action? PointerDown;
     public event Action<string>? OpenRequested;
 
     public bool IsReady => _isReady && _webView.CoreWebView2 != null;
@@ -461,6 +465,14 @@ internal sealed class WebViewEditorController
             else if (TryHandleFileDropMessage(args, message))
                 return;
             else if (TryHandleClonePastedHtmlMessage(message))
+                return;
+            else if (TryHandleContextMenuMessage(message))
+                return;
+            else if (TryHandlePointerDownMessage(message))
+                return;
+            else if (TryHandleSetClipboardMessage(message))
+                return;
+            else if (TryHandlePasteClipboardMessage(message))
                 return;
             else
                 TryHandleOpenMessage(message);
@@ -672,15 +684,191 @@ internal sealed class WebViewEditorController
         }
     }
 
+    private bool TryHandleContextMenuMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement) ||
+                !string.Equals(typeElement.GetString(), "contextmenu", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var cssX = root.TryGetProperty("x", out var xElement) ? xElement.GetInt32() : 0;
+            var cssY = root.TryGetProperty("y", out var yElement) ? yElement.GetInt32() : 0;
+            var zoom = _webView.ZoomFactor;
+            var location = new Point(
+                (int)Math.Round(cssX * zoom, MidpointRounding.AwayFromZero),
+                (int)Math.Round(cssY * zoom, MidpointRounding.AwayFromZero));
+
+            RaiseContextMenuRequested(location);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private bool TryHandleSetClipboardMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement) ||
+                !string.Equals(typeElement.GetString(), "set-clipboard", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var html = root.TryGetProperty("html", out var htmlElement) ? htmlElement.GetString() ?? string.Empty : string.Empty;
+            var plain = root.TryGetProperty("plain", out var plainElement) ? plainElement.GetString() ?? string.Empty : string.Empty;
+            ClipboardHtmlHelper.SetHtmlAndPlainText(html, plain);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (ExternalException)
+        {
+            return false;
+        }
+    }
+
+    private bool TryHandlePasteClipboardMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement) ||
+                !string.Equals(typeElement.GetString(), "paste-clipboard", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            _ = InvokePasteFromSystemClipboardAsync();
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private async Task InvokePasteFromSystemClipboardAsync()
+    {
+        if (!IsReady || IsScriptSuspended)
+            return;
+
+        try
+        {
+            if (await TryPasteFromSystemClipboardAsync().ConfigureAwait(true))
+                return;
+        }
+        catch (ExternalException)
+        {
+            // Clipboard may be locked by another app.
+        }
+
+        await ExecuteScriptExclusiveAsync(
+            "(function(){ var editor = document.getElementById('editor'); if (editor) editor.focus(); document.execCommand('paste', false, null); })();")
+            .ConfigureAwait(true);
+    }
+
+    private async Task<bool> TryPasteFromSystemClipboardAsync()
+    {
+        var html = ClipboardHtmlHelper.TryGetHtmlFragment();
+        var text = Clipboard.ContainsText() ? Clipboard.GetText() : string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(html) &&
+            (html.Contains("editor-image-wrap", StringComparison.OrdinalIgnoreCase) ||
+             html.Contains("<img", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (ClipboardHtmlHelper.ContainsPageAssetReference(html) && _pasteHtmlCloneHandler != null)
+            {
+                await InvokePasteHtmlCloneAsync(html).ConfigureAwait(true);
+                return true;
+            }
+
+            await RunApiAsync($"window.editorApi.insertHtml('{EscapeJs(html)}');").ConfigureAwait(true);
+            await FinalizeImageSizesAsync().ConfigureAwait(true);
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            await RunApiAsync($"window.editorApi.insertPlainText('{EscapeJs(text)}');").ConfigureAwait(true);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryHandlePointerDownMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(message);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement) ||
+                !string.Equals(typeElement.GetString(), "editor-pointer-down", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            void Raise() => PointerDown?.Invoke();
+
+            if (_webView.InvokeRequired)
+                _webView.BeginInvoke(Raise);
+            else
+                Raise();
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private void RaiseContextMenuRequested(Point location)
+    {
+        var now = DateTime.UtcNow;
+        if ((now - _lastContextMenuUtc).TotalMilliseconds < 250 &&
+            Math.Abs(location.X - _lastContextMenuPoint.X) < 4 &&
+            Math.Abs(location.Y - _lastContextMenuPoint.Y) < 4)
+        {
+            return;
+        }
+
+        _lastContextMenuUtc = now;
+        _lastContextMenuPoint = location;
+        ContextMenuRequested?.Invoke(location);
+    }
+
     private void OnContextMenuRequested(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2ContextMenuRequestedEventArgs args)
     {
         args.Handled = true;
 
         var location = args.Location;
-        void ShowMenu()
-        {
-            ContextMenuRequested?.Invoke(new Point(location.X, location.Y));
-        }
+        void ShowMenu() => RaiseContextMenuRequested(new Point(location.X, location.Y));
 
         if (_webView.InvokeRequired)
             _webView.BeginInvoke(ShowMenu);
@@ -720,9 +908,11 @@ internal sealed class WebViewEditorController
         if (pageId.HasValue)
             html = PageMarkdownNormalizer.PrepareHtmlForMarkdown(html, pageId.Value);
 
+        IReadOnlyList<string> preservedStyledTables = Array.Empty<string>();
         IReadOnlyList<string> preservedSizedImages = Array.Empty<string>();
         if (pageId.HasValue)
         {
+            (html, preservedStyledTables) = PageMarkdownNormalizer.ExtractStyledTables(html);
             (html, preservedSizedImages) = PageMarkdownNormalizer.ExtractSizedImages(html);
         }
 
@@ -732,6 +922,7 @@ internal sealed class WebViewEditorController
         if (pageId.HasValue)
         {
             markdown = PageMarkdownNormalizer.RestoreSizedImages(markdown, preservedSizedImages);
+            markdown = PageMarkdownNormalizer.RestoreStyledTables(markdown, preservedStyledTables);
             markdown = PageMarkdownNormalizer.PersistSizedImagesInMarkdown(markdown, pageId.Value);
             markdown = PageMarkdownNormalizer.CollapseEditorImages(markdown, pageId.Value);
             return PageMarkdownNormalizer.CollapseEditorFileLinks(markdown, pageId.Value);
@@ -746,9 +937,44 @@ internal sealed class WebViewEditorController
     public Task ApplyFormatAsync(string command) =>
         RunApiAsync($"window.editorApi.applyFormat('{EscapeJs(command)}');");
 
-    public Task CutAsync() => ApplyFormatAsync("cut");
-    public Task CopyAsync() => ApplyFormatAsync("copy");
-    public Task PasteAsync() => ApplyFormatAsync("paste");
+    public Task CutAsync() => CutSelectedImageIfNeededAsync(() => ApplyFormatAsync("cut"));
+
+    public Task CopyAsync() => CopySelectedImageIfNeededAsync(() => ApplyFormatAsync("copy"));
+
+    public async Task PasteAsync()
+    {
+        if (!IsReady || IsScriptSuspended)
+            return;
+
+        await InvokePasteFromSystemClipboardAsync().ConfigureAwait(true);
+    }
+
+    private async Task CopySelectedImageIfNeededAsync(Func<Task> fallback)
+    {
+        if (!IsReady || IsScriptSuspended)
+            return;
+
+        var copied = await ExecuteScriptExclusiveAsync(
+            "(function(){ return window.editorApi.copySelectedImage() ? '1' : '0'; })();").ConfigureAwait(true);
+        if (string.Equals(DeserializeScriptResult(copied), "1", StringComparison.Ordinal))
+            return;
+
+        await fallback().ConfigureAwait(true);
+    }
+
+    private async Task CutSelectedImageIfNeededAsync(Func<Task> fallback)
+    {
+        if (!IsReady || IsScriptSuspended)
+            return;
+
+        var cut = await ExecuteScriptExclusiveAsync(
+            "(function(){ return window.editorApi.cutSelectedImage() ? '1' : '0'; })();").ConfigureAwait(true);
+        if (string.Equals(DeserializeScriptResult(cut), "1", StringComparison.Ordinal))
+            return;
+
+        await fallback().ConfigureAwait(true);
+    }
+
     public Task SelectAllAsync() => ApplyFormatAsync("selectAll");
     public Task UndoAsync() => RunApiAsync("window.editorApi.undo();");
     public Task RedoAsync() => RunApiAsync("window.editorApi.redo();");
@@ -818,6 +1044,42 @@ internal sealed class WebViewEditorController
 
     public Task ReplaceSelectedImageAsync(string src, string alt) =>
         RunApiAsync($"window.editorApi.replaceSelectedImage('{EscapeJs(src)}','{EscapeJs(alt)}');");
+
+    public Task SetSelectedTableCellsTextAlignAsync(string align) =>
+        RunApiAsync($"window.editorApi.setSelectedCellsTextAlign('{EscapeJs(align)}');");
+
+    public Task SetSelectedTableCellsVerticalAlignAsync(string align) =>
+        RunApiAsync($"window.editorApi.setSelectedCellsVerticalAlign('{EscapeJs(align)}');");
+
+    public Task ApplySelectionFontSizeAsync(int fontSizePx) =>
+        RunApiAsync($"window.editorApi.applySelectionFontSize({fontSizePx});");
+
+    public Task SetSelectedTableCellsFontSizeAsync(int fontSizePx) =>
+        RunApiAsync($"window.editorApi.setSelectedCellsFontSize({fontSizePx});");
+
+    public Task SetSelectedTableCellsBackgroundColorAsync(string? color) =>
+        RunApiAsync($"window.editorApi.setSelectedCellsBackgroundColor('{EscapeJs(color ?? string.Empty)}');");
+
+    public Task DeleteSelectedTableAsync() =>
+        RunApiAsync("window.editorApi.deleteSelectedTable();");
+
+    public Task DeleteSelectedTableRowsAsync() =>
+        RunApiAsync("window.editorApi.deleteSelectedTableRows();");
+
+    public Task DeleteSelectedTableColumnsAsync() =>
+        RunApiAsync("window.editorApi.deleteSelectedTableColumns();");
+
+    public Task InsertSelectedTableRowsAboveAsync() =>
+        RunApiAsync("window.editorApi.insertSelectedTableRowsAbove();");
+
+    public Task InsertSelectedTableRowsBelowAsync() =>
+        RunApiAsync("window.editorApi.insertSelectedTableRowsBelow();");
+
+    public Task InsertSelectedTableColumnsLeftAsync() =>
+        RunApiAsync("window.editorApi.insertSelectedTableColumnsLeft();");
+
+    public Task InsertSelectedTableColumnsRightAsync() =>
+        RunApiAsync("window.editorApi.insertSelectedTableColumnsRight();");
 
     public Task FocusAsync() =>
         RunApiAsync("window.editorApi.focus();");
@@ -1020,9 +1282,28 @@ internal sealed class EditorContextMenuContext
     public string? FileHref { get; init; }
     public string? FileLabel { get; init; }
     public string? LineQuote { get; init; }
+    public int TableCellCount { get; init; }
+    public string? TableTextAlign { get; init; }
+    public string? TableVerticalAlign { get; init; }
+    public string? TableFontSize { get; init; }
+    public string? TableSelectionScope { get; init; }
+    public bool HasTextSelection { get; init; }
+
+    public bool IsTableScopeTable =>
+        string.Equals(TableSelectionScope, "table", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsTableScopeRows =>
+        string.Equals(TableSelectionScope, "rows", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsTableScopeColumns =>
+        string.Equals(TableSelectionScope, "columns", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsTableScopeCells =>
+        string.Equals(TableSelectionScope, "cells", StringComparison.OrdinalIgnoreCase);
 
     public bool IsImage => string.Equals(Target, "image", StringComparison.OrdinalIgnoreCase);
     public bool IsFile => string.Equals(Target, "file", StringComparison.OrdinalIgnoreCase);
+    public bool IsTableCells => string.Equals(Target, "table-cells", StringComparison.OrdinalIgnoreCase);
 
     public static EditorContextMenuContext ForEditor() => new();
 
@@ -1063,13 +1344,44 @@ internal sealed class EditorContextMenuContext
                 };
             }
 
+            if (string.Equals(target, "table-cells", StringComparison.OrdinalIgnoreCase))
+            {
+                var count = root.TryGetProperty("count", out var countElement) && countElement.TryGetInt32(out var parsedCount)
+                    ? parsedCount
+                    : 1;
+                var textAlign = root.TryGetProperty("textAlign", out var textAlignElement)
+                    ? textAlignElement.GetString()
+                    : null;
+                var verticalAlign = root.TryGetProperty("verticalAlign", out var verticalAlignElement)
+                    ? verticalAlignElement.GetString()
+                    : null;
+                var fontSize = root.TryGetProperty("fontSize", out var fontSizeElement)
+                    ? fontSizeElement.GetString()
+                    : null;
+                var selectionScope = root.TryGetProperty("selectionScope", out var scopeElement)
+                    ? scopeElement.GetString()
+                    : null;
+                return new EditorContextMenuContext
+                {
+                    Target = "table-cells",
+                    TableCellCount = count,
+                    TableTextAlign = textAlign,
+                    TableVerticalAlign = verticalAlign,
+                    TableFontSize = fontSize,
+                    TableSelectionScope = selectionScope
+                };
+            }
+
             var lineQuote = root.TryGetProperty("lineQuote", out var lineQuoteElement)
                 ? lineQuoteElement.GetString()
                 : null;
+            var hasTextSelection = root.TryGetProperty("hasTextSelection", out var hasTextSelectionElement)
+                                     && hasTextSelectionElement.ValueKind == JsonValueKind.True;
             return new EditorContextMenuContext
             {
                 Target = "editor",
-                LineQuote = lineQuote
+                LineQuote = lineQuote,
+                HasTextSelection = hasTextSelection
             };
         }
         catch

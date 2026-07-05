@@ -60,8 +60,22 @@ internal static class AppConfigPageSave
         OfflinePageSaveService.SavePage(sqliteServices, currentUser, context, title, content);
         PageCommentAssetSync.SyncForPage(pageId, sqliteServices);
 
-        return ReferenceEquals(sqliteServices, AppConfig.Services)
+        var sqliteOnlyResult = ReferenceEquals(sqliteServices, AppConfig.Services)
             ? PageSaveResult.Primary
             : PageSaveResult.LocalSqliteAutoSave;
+
+        if (!AppConfig.ShouldAutoSaveToConfiguredDatabase())
+            return sqliteOnlyResult;
+
+        try
+        {
+            AppConfig.Services!.Pages.UpdatePage(currentUser, pageId, title, content);
+            PageCommentAssetSync.SyncForPage(pageId);
+            return PageSaveResult.Primary;
+        }
+        catch (Exception ex) when (AppConfig.ShouldTryOfflineSave(ex))
+        {
+            return sqliteOnlyResult;
+        }
     }
 }
