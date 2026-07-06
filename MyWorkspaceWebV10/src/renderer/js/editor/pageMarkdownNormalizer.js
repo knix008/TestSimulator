@@ -168,7 +168,8 @@ function buildStoredAssetUri(pageId, fileName) {
 }
 
 function wrapMarkdownAssetUri(assetUri) {
-  return assetUri.startsWith('<') ? assetUri : `<${assetUri}>`;
+  const stored = toStoredAssetSrc(assetUri) || assetUri;
+  return stored.startsWith('<') ? stored : `<${stored}>`;
 }
 
 export function buildSizedMarkdownImageReference(pageId, fileName, widthPx, alt = '') {
@@ -186,6 +187,97 @@ function tryParsePageAssetReference(url, pageId) {
 
 function isSupportedImageFileName(fileName) {
   return IMAGE_FILE_REGEX.test(fileName || '');
+}
+
+export function resolveImageSrcFromImgElement(img) {
+  if (!img) {
+    return '';
+  }
+
+  const candidates = [img.getAttribute('data-permanent-src'), img.getAttribute('src')];
+  for (const candidate of candidates) {
+    if (candidate && parsePageAssetSrc(candidate)) {
+      return toStoredAssetSrc(candidate);
+    }
+  }
+
+  return toStoredAssetSrc(img.getAttribute('src') || '');
+}
+
+export function resolveParsedImageAssetFromImgElement(img) {
+  if (!img) {
+    return null;
+  }
+
+  const candidates = [img.getAttribute('data-permanent-src'), img.getAttribute('src')];
+  for (const candidate of candidates) {
+    const parsed = parsePageAssetSrc(candidate || '');
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+export function promoteImageFileLinksInMarkdown(markdown, pageId) {
+  if (pageId == null) {
+    return markdown;
+  }
+
+  return String(markdown || '').replace(
+    /(?<!!)\[([^\]]*)\]\(\s*(?:<)?(page-asset:(?:\/\/)?\d+\/[^)\s"<>]+)(?:>)?\s*\)/gi,
+    (match, label, url) => {
+      const parsed = parsePageAssetSrc(normalizeMarkdownImageUrl(url));
+      if (!parsed || parsed.pageId !== pageId || !isSupportedImageFileName(parsed.fileName)) {
+        return match;
+      }
+
+      const alt = String(label || '').trim() || parsed.fileName;
+      return `![${alt}](${toStoredAssetSrc(url)})`;
+    }
+  );
+}
+
+export function collapseEditorImagesInMarkdown(markdown, pageId) {
+  if (pageId == null) {
+    return markdown;
+  }
+
+  return String(markdown || '').replace(MARKDOWN_IMAGE_REGEX, (match, alt, url, _titleGroup, titleQuoted, titleSingle) => {
+    const fileName = tryParsePageAssetReference(url, pageId);
+    if (!fileName || !isSupportedImageFileName(fileName)) {
+      return match;
+    }
+
+    const title = titleQuoted || titleSingle || '';
+    const width = tryParseEditorWidthTitle(title);
+    const stored = buildStoredAssetUri(pageId, fileName);
+    if (width) {
+      return buildSizedMarkdownImageReference(pageId, fileName, width, alt);
+    }
+
+    return `![${alt}](${wrapMarkdownAssetUri(stored)})`;
+  });
+}
+
+const MARKDOWN_FILE_LINK_REGEX =
+  /(?<!!)\[([^\]]*)\]\(\s*(?:<)?(page-asset:(?:\/\/)?\d+\/[^)\s"<>]+)(?:>)?\s*\)/gi;
+
+export function collapseEditorFileLinksInMarkdown(markdown, pageId) {
+  if (pageId == null) {
+    return markdown;
+  }
+
+  return String(markdown || '').replace(MARKDOWN_FILE_LINK_REGEX, (match, label, url) => {
+    const parsed = parsePageAssetSrc(normalizeMarkdownImageUrl(url));
+    if (!parsed || parsed.pageId !== pageId) {
+      return match;
+    }
+
+    const stored = buildStoredAssetUri(pageId, parsed.fileName);
+    return `[${label}](${wrapMarkdownAssetUri(stored)})`;
+  });
 }
 
 function tryResolveStoredAssetUri(src, pageId) {

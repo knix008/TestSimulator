@@ -164,6 +164,28 @@ export function buildThemePalette(pastelAccent, dark) {
   return dark ? buildDark(pastelAccent) : buildLight(pastelAccent);
 }
 
+export function getPastelSwatchPreviewColor(accent, dark) {
+  const palette = buildThemePalette(accent, dark);
+  return dark ? palette.accent : accent;
+}
+
+export function getPastelSwatchPreviewStyle(accent, dark) {
+  const palette = buildThemePalette(accent, dark);
+  if (!dark) {
+    return {
+      backgroundColor: rgbToHex(accent),
+      borderColor: '',
+      boxShadow: ''
+    };
+  }
+  const accentHex = rgbToHex(palette.accent);
+  return {
+    backgroundColor: rgbToHex(palette.bg),
+    borderColor: accentHex,
+    boxShadow: `inset 0 0 0 2px ${accentHex}`
+  };
+}
+
 export function rgbToHex({ r, g, b }) {
   const toPart = (value) => value.toString(16).padStart(2, '0');
   return `#${toPart(r)}${toPart(g)}${toPart(b)}`;

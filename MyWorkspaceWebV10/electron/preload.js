@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('myworkspace', {
   login: (username, password) => ipcRenderer.invoke('auth:login', { username, password }),
@@ -6,6 +6,16 @@ contextBridge.exposeInMainWorld('myworkspace', {
   getSession: () => ipcRenderer.invoke('auth:session'),
   getUiConfig: () => ipcRenderer.invoke('app:uiConfig'),
   getAppInfo: () => ipcRenderer.invoke('app:getInfo'),
+  getPathForFile: (file) => {
+    if (!file) {
+      return '';
+    }
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return typeof file.path === 'string' ? file.path : '';
+    }
+  },
   saveUiConfig: (partial) => ipcRenderer.invoke('app:saveUiConfig', partial),
   getDatabaseConfig: () => ipcRenderer.invoke('app:getDatabaseConfig'),
   testDatabaseConfig: (config) => ipcRenderer.invoke('app:testDatabaseConfig', config),
@@ -26,6 +36,10 @@ contextBridge.exposeInMainWorld('myworkspace', {
   getWorkspaceLockState: (workspaceId) =>
     ipcRenderer.invoke('workspace:getLockState', { workspaceId }),
   createPage: (payload) => ipcRenderer.invoke('page:create', payload),
+  importMarkdownFiles: (workspaceId, paths) =>
+    ipcRenderer.invoke('page:importMarkdownFiles', { workspaceId, paths }),
+  importMarkdownTexts: (workspaceId, items) =>
+    ipcRenderer.invoke('page:importMarkdownTexts', { workspaceId, items }),
   listPageTemplates: (language) => ipcRenderer.invoke('page:listTemplates', { language }),
   buildPageFromTemplate: (templateId, title, language) =>
     ipcRenderer.invoke('page:buildFromTemplate', { templateId, title, language }),

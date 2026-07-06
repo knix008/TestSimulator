@@ -158,11 +158,7 @@ export function buildAdminMenu(state) {
 
   return [
 
-    { id: 'admin-users', label: t.menuAdminUsers, iconName: menuIcon('users') },
-
-    { id: 'admin-database', label: t.menuAdminDatabase, iconName: menuIcon('database') },
-
-    { id: 'admin-email', label: t.menuAdminEmail, iconName: menuIcon('email') }
+    { id: 'admin-users', label: t.menuAdminUsers, iconName: menuIcon('users') }
 
   ];
 
@@ -196,7 +192,7 @@ export function buildProfileMenu(state) {
 
 export function buildSettingsMenu(state) {
 
-  return [
+  const items = [
 
     { id: 'preferences', label: t.menuPreferences, iconName: menuIcon('preferences') },
 
@@ -212,13 +208,33 @@ export function buildSettingsMenu(state) {
 
       visible: state.loggedIn
 
-    },
+    }
+
+  ];
+
+  if (state.loggedIn && state.isAdmin) {
+
+    items.push(
+
+      { type: 'separator' },
+
+      { id: 'admin-database', label: t.menuAdminDatabase, iconName: menuIcon('database') },
+
+      { id: 'admin-email', label: t.menuAdminEmail, iconName: menuIcon('email') }
+
+    );
+
+  }
+
+  items.push(
 
     { type: 'separator' },
 
     { id: 'about', label: t.menuAbout, iconName: menuIcon('info') }
 
-  ];
+  );
+
+  return items;
 
 }
 

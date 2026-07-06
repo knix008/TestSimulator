@@ -1,6 +1,45 @@
+# Dependencies
 node_modules/
+
+# Legacy output folder (before output moved to project root)
 dist/
+
+# Electron Builder — installers (project root)
+MyWorkspace-Setup-*.exe
+MyWorkspace-Portable-*.exe
+MyWorkspace-*-mac-*.dmg
+MyWorkspace-*-mac-*.zip
+MyWorkspace-*-linux-*.AppImage
+MyWorkspace-*-linux-*.deb
+MyWorkspace-*-linux-*.tar.gz
+
+# Electron Builder — unpacked app (npm run pack / dist)
+win-unpacked/
+linux-unpacked/
+mac/
+mac-unpacked/
+mac-arm64-unpacked/
+
+# electron-builder diagnostics
+builder-debug.yml
+builder-effective-config.yaml
+*.blockmap
+
+# Logs
 *.log
+npm-debug.log*
+
+# Local settings overrides (never commit secrets)
+*.local.json
+config/build-info.json
+.env
+.env.*
+
+# OS junk
 .DS_Store
 Thumbs.db
-*.local.json
+desktop.ini
+
+# IDE
+.vscode/
+.idea/

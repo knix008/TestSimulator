@@ -1,12 +1,37 @@
 import { buildEditorDocument } from './editor/winEditorPage.js';
 import { htmlToMarkdown, extractTitleFromHtml } from './editor/htmlToMarkdown.js';
-import { persistSizedImagesInMarkdown, repairCorruptedImageMarkdown } from './editor/pageMarkdownNormalizer.js';
+import {
+  persistSizedImagesInMarkdown,
+  repairCorruptedImageMarkdown,
+  collapseEditorImagesInMarkdown,
+  collapseEditorFileLinksInMarkdown
+} from './editor/pageMarkdownNormalizer.js';
 import { buildEditorThemeChrome } from './ui/editorTheme.js';
 
 export function createEditorBridge(frame) {
   let ready = false;
   let loadGeneration = 0;
   let appearance = { theme: 'light', fontScaleStep: 0 };
+
+  function normalizeAppearance({
+    theme = 'light',
+    fontScaleStep = 0,
+    colorThemeIndex,
+    useCustomAccentColor,
+    customAccentArgb
+  } = {}) {
+    return {
+      theme: theme === 'dark' || String(theme).toLowerCase() === 'dark' ? 'dark' : 'light',
+      fontScaleStep: Number(fontScaleStep) || 0,
+      colorThemeIndex,
+      useCustomAccentColor,
+      customAccentArgb
+    };
+  }
+
+  async function applyThemeChromeToEditor(api, chromeAppearance) {
+    api.applyThemeChrome?.(buildEditorThemeChrome(chromeAppearance));
+  }
 
   function handleMessage(event) {
     if (event.source !== frame.contentWindow) {
@@ -101,10 +126,14 @@ export function createEditorBridge(frame) {
       frame.contentWindow?.postMessage(Object.assign({ channel: 'editor-webview' }, payload), '*');
     },
 
-    async loadMarkdown(markdown, pageId = null) {
+    async loadMarkdown(markdown, pageId = null, appearanceOverride = null) {
       const generation = ++loadGeneration;
       ready = false;
-      const html = await buildEditorDocument(markdown, pageId);
+      const chromeAppearance = normalizeAppearance(appearanceOverride || appearance);
+      if (appearanceOverride) {
+        appearance = chromeAppearance;
+      }
+      const html = await buildEditorDocument(markdown, pageId, chromeAppearance);
       frame.srcdoc = html;
       await waitForEditorApi();
       if (generation !== loadGeneration) {
@@ -113,7 +142,10 @@ export function createEditorBridge(frame) {
       const api = await getApi();
       api.finalizeImageSizes?.();
       api.refreshEditorBlocks?.();
-      api.applyThemeChrome?.(buildEditorThemeChrome(appearance));
+      await applyThemeChromeToEditor(api, chromeAppearance);
+      if (generation !== loadGeneration) {
+        return;
+      }
       api.focus?.();
       frame.focus?.();
       await updateHeadingsFromEditor();
@@ -137,6 +169,8 @@ export function createEditorBridge(frame) {
       if (pageId != null) {
         markdown = persistSizedImagesInMarkdown(markdown, pageId);
         markdown = repairCorruptedImageMarkdown(markdown);
+        markdown = collapseEditorImagesInMarkdown(markdown, pageId);
+        markdown = collapseEditorFileLinksInMarkdown(markdown, pageId);
       }
       return {
         markdown,
@@ -219,23 +253,18 @@ export function createEditorBridge(frame) {
       api.scrollToHeading(id);
     },
 
-    async applyAppearance({
-      theme = 'light',
-      fontScaleStep = 0,
-      colorThemeIndex,
-      useCustomAccentColor,
-      customAccentArgb
-    } = {}) {
-      appearance = {
-        theme: theme === 'dark' || String(theme).toLowerCase() === 'dark' ? 'dark' : 'light',
-        fontScaleStep: Number(fontScaleStep) || 0,
-        colorThemeIndex,
-        useCustomAccentColor,
-        customAccentArgb
-      };
-      const api = await getApi({ wait: false });
-      if (api) {
-        api.applyThemeChrome?.(buildEditorThemeChrome(appearance));
+    async scrollToSearchText(query, matchInContent = false) {
+      const api = await getApi();
+      return Boolean(api.scrollToSearchText?.(query, matchInContent));
+    },
+
+    async applyAppearance(nextAppearance = {}) {
+      appearance = normalizeAppearance(nextAppearance);
+      try {
+        const api = await getApi();
+        await applyThemeChromeToEditor(api, appearance);
+      } catch {
+        // Editor not ready yet; appearance will be applied on the next loadMarkdown.
       }
     },
 

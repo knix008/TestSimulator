@@ -1,5 +1,6 @@
 const path = require('path');
 const { generateAppIcons } = require('./generate-app-icon');
+const { writeBuildInfo } = require('./write-build-info');
 
 const buildDir = path.join(__dirname, '..', 'build');
 
@@ -10,6 +11,7 @@ async function main() {
   console.log(`[sync-build-assets] icon.icns: ${result.iconIcns}`);
   console.log(`[sync-build-assets] wsp.ico (${result.wspResult}): ${result.wspIco}`);
   console.log(`[sync-build-assets] wsp.icns: ${result.wspIcns}`);
+  writeBuildInfo();
   console.log(`[sync-build-assets] Build assets ready in ${buildDir}`);
 }
 

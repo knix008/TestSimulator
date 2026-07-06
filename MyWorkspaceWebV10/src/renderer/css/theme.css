@@ -38,24 +38,6 @@
 
 body[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0d1117;
-  --surface: #161b22;
-  --sidebar: #0d1117;
-  --border: #30363d;
-  --border-light: #21262d;
-  --text: #e6edf3;
-  --text-secondary: #8b949e;
-  --text-muted: #6e7681;
-  --accent: #2f81f7;
-  --accent-hover: #263852;
-  --accent-pressed: #304462;
-  --accent-button-hover: #388bfd;
-  --editor-bg: #0d1117;
-  --editor-text: #e6edf3;
-  --panel-header-workspace: #253449;
-  --panel-header-outline: #1a3c34;
-  --panel-header-editor: #342c52;
-  --panel-header-page-title: #483820;
 }
 
 * {

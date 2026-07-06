@@ -16,7 +16,6 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--border-light);
   min-height: 32px;
 }
 

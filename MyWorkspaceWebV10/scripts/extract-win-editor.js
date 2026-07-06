@@ -97,13 +97,22 @@ window.chrome.webview = window.chrome.webview || {
       var fileList = Array.prototype.slice.call(objects);
       var pending = fileList.length;
       var results = new Array(fileList.length);
+      function isMarkdownDroppedFile(file) {
+        var name = inferDroppedFileName(file).toLowerCase();
+        return name.endsWith('.md') || name.endsWith('.markdown');
+      }
       fileList.forEach(function(file, index) {
+        var base = {
+          fileName: inferDroppedFileName(file),
+          path: file.path || ''
+        };
         var reader = new FileReader();
         reader.onload = function() {
-          results[index] = {
-            fileName: inferDroppedFileName(file),
-            dataUri: String(reader.result || '')
-          };
+          if (isMarkdownDroppedFile(file)) {
+            results[index] = Object.assign(base, { text: String(reader.result || '') });
+          } else {
+            results[index] = Object.assign(base, { dataUri: String(reader.result || '') });
+          }
           pending -= 1;
           if (pending === 0) {
             parsed.files = results.filter(Boolean);
@@ -117,7 +126,11 @@ window.chrome.webview = window.chrome.webview || {
             window.chrome.webview.postMessage(JSON.stringify(parsed));
           }
         };
-        reader.readAsDataURL(file);
+        if (isMarkdownDroppedFile(file)) {
+          reader.readAsText(file);
+        } else {
+          reader.readAsDataURL(file);
+        }
       });
       return;
     }

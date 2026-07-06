@@ -1,6 +1,12 @@
 const { app, BrowserWindow, ipcMain, shell, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Packaged Chromium loads icudtl.dat from the executable directory; set explicitly
+// so child processes find it when cwd or install-time launch differs from exe path.
+if (app.isPackaged) {
+  app.commandLine.appendSwitch('icu-data-dir', path.dirname(process.execPath));
+}
 const { loadConfig, getUserDataPaths } = require('../src/main/config');
 const { openDatabase, closeDatabase } = require('../src/main/db/connection');
 const { registerIpcHandlers } = require('../src/main/ipc/handlers');
@@ -45,9 +51,20 @@ function getBuildIconPath() {
   const buildDir = path.join(__dirname, '..', 'build');
   const icoPath = path.join(buildDir, 'icon.ico');
   const pngPath = path.join(buildDir, 'icon.png');
+  const packagedIco = path.join(process.resourcesPath, 'icon.ico');
+  const packagedPng = path.join(process.resourcesPath, 'icon.png');
 
-  if (process.platform === 'win32' && fs.existsSync(icoPath)) {
-    return icoPath;
+  if (process.platform === 'win32') {
+    if (app.isPackaged && fs.existsSync(packagedIco)) {
+      return packagedIco;
+    }
+    if (fs.existsSync(icoPath)) {
+      return icoPath;
+    }
+  }
+
+  if (app.isPackaged && fs.existsSync(packagedPng)) {
+    return packagedPng;
   }
   if (fs.existsSync(pngPath)) {
     return pngPath;
@@ -113,6 +130,12 @@ function createWindow() {
 
   mainWindow.loadFile(getRendererPath());
   attachRendererDiagnostics(mainWindow.webContents);
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith('file://')) {
+      event.preventDefault();
+    }
+  });
 
   if (isDev) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });

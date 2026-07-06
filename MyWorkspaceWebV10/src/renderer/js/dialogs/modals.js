@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { t, getUiLanguage, toTemplateLanguage } from '../i18n/index.js';
 import { showApiError } from '../errors/errorDetail.js';
 import { normalizeFontScaleStep } from '../ui/fontScale.js';
 import { showTableInsertPopup } from '../ui/tableInsertPopup.js';
@@ -152,10 +152,14 @@ export function showConfirmDialog({
 
 export async function showAboutDialog() {
   let version = '0.1.0';
+  let build = null;
   try {
     const result = await window.myworkspace.getAppInfo();
-    if (result?.ok && result.version) {
-      version = result.version;
+    if (result?.ok) {
+      if (result.version) {
+        version = result.version;
+      }
+      build = result.build || null;
     }
   } catch {
     // ignore
@@ -190,6 +194,50 @@ export async function showAboutDialog() {
   versionLine.textContent = t.aboutVersionFormat(version);
 
   meta.append(name, description, versionLine);
+
+  if (build) {
+    const buildBlock = document.createElement('div');
+    buildBlock.className = 'about-build';
+
+    const locale = toTemplateLanguage(getUiLanguage()) === 'en' ? 'en-US' : 'ko-KR';
+    const platformLabel = resolvePlatformLabel(build.builtOnPlatform || build.platform);
+    const arch = build.builtOnArch || build.arch || '';
+
+    const lines = [];
+    if (build.development) {
+      lines.push(t.aboutDevelopmentBuild);
+    } else if (build.buildDate) {
+      const formattedDate = new Intl.DateTimeFormat(locale, {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      }).format(new Date(build.buildDate));
+      lines.push(t.aboutBuildDateFormat(formattedDate));
+    }
+
+    if (build.commit) {
+      lines.push(t.aboutBuildCommitFormat(build.commit, build.branch));
+    }
+
+    if (platformLabel && arch) {
+      lines.push(t.aboutBuildPlatformFormat(platformLabel, arch));
+    }
+
+    if (build.electronVersion) {
+      lines.push(t.aboutElectronFormat(build.electronVersion));
+    }
+
+    for (const text of lines) {
+      const line = document.createElement('p');
+      line.className = 'about-build-line';
+      line.textContent = text;
+      buildBlock.appendChild(line);
+    }
+
+    if (buildBlock.childElementCount > 0) {
+      meta.appendChild(buildBlock);
+    }
+  }
+
   header.append(icon, meta);
   body.appendChild(header);
 
@@ -203,6 +251,19 @@ export async function showAboutDialog() {
     bodyNode: body,
     footerNodes: [createButton(t.buttonClose, { primary: true, onClick: closeModal })]
   });
+}
+
+function resolvePlatformLabel(platform) {
+  if (platform === 'win32') {
+    return t.platformWin32;
+  }
+  if (platform === 'darwin') {
+    return t.platformDarwin;
+  }
+  if (platform === 'linux') {
+    return t.platformLinux;
+  }
+  return platform || '';
 }
 
 export async function showPreferencesDialog(api, onSaved) {
@@ -257,7 +318,10 @@ export async function showPreferencesDialog(api, onSaved) {
 
   const colorPicker = createPastelColorThemePicker({
     initial: original,
-    onChange: () => applyLivePreview()
+    isDark: original.theme === 'Dark',
+    onChange: () => {
+      void applyLivePreview();
+    }
   });
 
   const hint = document.createElement('p');
@@ -276,16 +340,25 @@ export async function showPreferencesDialog(api, onSaved) {
     };
   }
 
-  function applyLivePreview() {
+  async function applyLivePreview() {
     const current = readCurrentSettings();
-    onSaved?.(current, { preview: true });
+    await onSaved?.(current, { preview: true });
   }
 
-  themeSelect.addEventListener('change', applyLivePreview);
-  languageSelect.addEventListener('change', applyLivePreview);
-  fontScaleSelect.addEventListener('change', applyLivePreview);
+  themeSelect.addEventListener('change', () => {
+    colorPicker.setThemeMode(themeSelect.value === 'Dark');
+    void applyLivePreview();
+  });
+  languageSelect.addEventListener('change', () => {
+    void applyLivePreview();
+  });
+  fontScaleSelect.addEventListener('change', () => {
+    void applyLivePreview();
+  });
 
-  const restoreOriginal = () => onSaved?.(original, { preview: true });
+  const restoreOriginal = async () => {
+    await onSaved?.(original, { preview: true });
+  };
 
   openModal({
     title: t.preferencesTitle,
@@ -293,8 +366,7 @@ export async function showPreferencesDialog(api, onSaved) {
     footerNodes: [
       createButton(t.buttonCancel, {
         onClick: () => {
-          restoreOriginal();
-          closeModal();
+          void restoreOriginal().then(() => closeModal());
         }
       }),
       createButton(t.buttonSave, {
@@ -310,11 +382,11 @@ export async function showPreferencesDialog(api, onSaved) {
             CustomAccentArgb: current.customAccentArgb
           });
           if (result?.ok === false) {
-            restoreOriginal();
+            await restoreOriginal();
             showApiError(t.errPreferences, result);
             return;
           }
-          onSaved?.(current, { preview: false });
+          await onSaved?.(current, { preview: false });
           closeModal();
         }
       })

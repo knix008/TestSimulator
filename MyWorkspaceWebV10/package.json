@@ -10,6 +10,7 @@
     "sync:icons": "node scripts/sync-icons.js",
     "sync:templates": "node scripts/sync-page-templates.js",
     "sync:build-assets": "node scripts/sync-build-assets.js",
+    "sync:build-info": "node scripts/write-build-info.js",
     "generate:icon": "node scripts/generate-app-icon.js",
     "pack": "node scripts/sync-build-assets.js && electron-builder --dir",
     "pack:win": "node scripts/sync-build-assets.js && electron-builder --win --dir",
@@ -34,6 +35,7 @@
     "electron-builder": "^25.1.8",
     "png-to-ico": "^3.0.1",
     "png2icons": "^2.0.1",
+    "rcedit": "^4.0.1",
     "sharp": "^0.35.3"
   },
   "dependencies": {

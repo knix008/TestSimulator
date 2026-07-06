@@ -28,9 +28,14 @@ if ($LinuxDocker) {
 }
 
 Write-Host ''
-Write-Host '=== MyWorkspace installers ==='
-Get-ChildItem dist -File |
-  Where-Object { $_.Extension -in '.exe', '.tar.gz', '.AppImage', '.deb', '.dmg', '.zip' } |
+Write-Host '=== MyWorkspace installers (project root) ==='
+Get-ChildItem . -File |
+  Where-Object {
+    $_.Name -like 'MyWorkspace-Setup-*.exe' -or
+    $_.Name -like 'MyWorkspace-Portable-*.exe' -or
+    $_.Name -like 'MyWorkspace-*-mac-*' -or
+    $_.Name -like 'MyWorkspace-*-linux-*'
+  } |
   Sort-Object Name |
   ForEach-Object { Write-Host ('  {0} ({1:N1} MB)' -f $_.Name, ($_.Length / 1MB)) }
 

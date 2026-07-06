@@ -6,6 +6,7 @@
           <meta name="color-scheme" content="light">
           <style>
             :root {
+              --editor-color-scheme: light;
               --editor-bg: #F6F8FA;
               --editor-text: #000000;
               --editor-caret: #0969DA;
@@ -21,7 +22,7 @@
               --editor-font-size: 15px;
             }
             html, body { height: 100%; margin: 0; background: var(--editor-bg) !important; color: var(--editor-text) !important; }
-            html { color-scheme: light; background: var(--editor-bg) !important; }
+            html { color-scheme: var(--editor-color-scheme, light); background: var(--editor-bg) !important; }
             body {
               font-family: "Segoe UI", "Malgun Gothic", sans-serif;
               font-size: var(--editor-font-size, 15px); line-height: 1.75; color: var(--editor-text);
@@ -445,13 +446,22 @@ window.chrome.webview = window.chrome.webview || {
       var fileList = Array.prototype.slice.call(objects);
       var pending = fileList.length;
       var results = new Array(fileList.length);
+      function isMarkdownDroppedFile(file) {
+        var name = inferDroppedFileName(file).toLowerCase();
+        return name.endsWith('.md') || name.endsWith('.markdown');
+      }
       fileList.forEach(function(file, index) {
+        var base = {
+          fileName: inferDroppedFileName(file),
+          path: file.path || ''
+        };
         var reader = new FileReader();
         reader.onload = function() {
-          results[index] = {
-            fileName: inferDroppedFileName(file),
-            dataUri: String(reader.result || '')
-          };
+          if (isMarkdownDroppedFile(file)) {
+            results[index] = Object.assign(base, { text: String(reader.result || '') });
+          } else {
+            results[index] = Object.assign(base, { dataUri: String(reader.result || '') });
+          }
           pending -= 1;
           if (pending === 0) {
             parsed.files = results.filter(Boolean);
@@ -465,7 +475,11 @@ window.chrome.webview = window.chrome.webview || {
             window.chrome.webview.postMessage(JSON.stringify(parsed));
           }
         };
-        reader.readAsDataURL(file);
+        if (isMarkdownDroppedFile(file)) {
+          reader.readAsText(file);
+        } else {
+          reader.readAsDataURL(file);
+        }
       });
       return;
     }
@@ -498,6 +512,7 @@ window.chrome.webview = window.chrome.webview || {
 
             function setThemeVars(theme) {
               const root = document.documentElement;
+              root.style.setProperty('--editor-color-scheme', theme.colorScheme || 'light');
               root.style.setProperty('--editor-bg', theme.bg);
               root.style.setProperty('--editor-text', theme.text);
               root.style.setProperty('--editor-caret', theme.caret);
@@ -515,7 +530,10 @@ window.chrome.webview = window.chrome.webview || {
               root.style.colorScheme = theme.colorScheme;
               const meta = document.querySelector('meta[name="color-scheme"]');
               if (meta) meta.content = theme.colorScheme;
+              root.style.backgroundColor = theme.bg;
+              root.style.color = theme.text;
               document.body.style.background = theme.bg;
+              document.body.style.backgroundColor = theme.bg;
               document.body.style.color = theme.text;
               editor.style.backgroundColor = theme.bg;
               editor.style.color = theme.text;
@@ -3336,11 +3354,18 @@ window.chrome.webview = window.chrome.webview || {
             }
 
             function parsePageAssetSrc(src) {
-              const match = /^page-asset:\/\/(\d+)\/([^?#]+)/i.exec(String(src || ''));
+              const raw = String(src || '').trim().replace(/^<|>$/g, '');
+              const match = /^page-asset:(?:\/\/)?(\d+)\/([^?#>]+)/i.exec(raw);
               if (!match) return null;
+              let fileName = match[2];
+              try {
+                fileName = decodeURIComponent(fileName);
+              } catch {
+                // keep encoded form
+              }
               return {
                 pageId: Number.parseInt(match[1], 10),
-                fileName: decodeURIComponent(match[2])
+                fileName
               };
             }
 
@@ -4594,15 +4619,17 @@ window.chrome.webview = window.chrome.webview || {
               if (!raw || /^data:image\//i.test(raw))
                 return raw;
 
-              const match = /^page-asset:\/\/(\d+)\/([^?#>]+)/i.exec(raw);
-              if (match)
-                return 'page-asset://' + match[1] + '/' + match[2];
+              const match = /^page-asset:(?:\/\/)?(\d+)\/([^?#>]+)/i.exec(raw);
+              if (!match)
+                return raw;
 
-              const shortMatch = /^page-asset:(\d+)\/([^?#>]+)/i.exec(raw);
-              if (shortMatch)
-                return 'page-asset://' + shortMatch[1] + '/' + shortMatch[2];
-
-              return raw;
+              let fileName = match[2];
+              try {
+                fileName = decodeURIComponent(fileName);
+              } catch {
+                // keep encoded form
+              }
+              return 'page-asset://' + match[1] + '/' + encodeURIComponent(fileName);
             }
 
             function prepareImagesForSave() {

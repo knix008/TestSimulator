@@ -6,9 +6,10 @@ import {
   rgbToArgb,
   argbToRgb
 } from './pastelThemeCatalog.js';
-import { rgbToHex } from './pastelThemePaletteBuilder.js';
+import { getPastelSwatchPreviewStyle, rgbToHex } from './pastelThemePaletteBuilder.js';
 
-export function createPastelColorThemePicker({ initial, onChange }) {
+export function createPastelColorThemePicker({ initial, onChange, isDark = false }) {
+  let darkMode = Boolean(isDark);
   let useCustom = Boolean(initial?.useCustomAccentColor);
   let selectedIndex = normalizeColorThemeIndex(initial?.colorThemeIndex ?? DEFAULT_COLOR_THEME_INDEX);
   let customColor = initial?.useCustomAccentColor
@@ -29,13 +30,20 @@ export function createPastelColorThemePicker({ initial, onChange }) {
 
   const swatchButtons = [];
 
+  function applySwatchStyle(button, accent) {
+    const style = getPastelSwatchPreviewStyle(accent, darkMode);
+    button.style.backgroundColor = style.backgroundColor;
+    button.style.borderColor = style.borderColor || '';
+    button.style.boxShadow = style.boxShadow || '';
+  }
+
   for (const preset of PASTEL_PRESETS) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'color-swatch';
     button.dataset.index = String(preset.index);
     button.title = t[preset.nameKey] || preset.nameKey;
-    button.style.backgroundColor = rgbToHex(preset.accent);
+    applySwatchStyle(button, preset.accent);
     button.setAttribute('role', 'option');
     button.addEventListener('click', () => {
       useCustom = false;
@@ -79,6 +87,14 @@ export function createPastelColorThemePicker({ initial, onChange }) {
   customRow.append(customButton, colorInput);
   root.append(label, grid, customRow);
 
+  function refreshSwatchColors() {
+    for (const button of swatchButtons) {
+      const index = Number.parseInt(button.dataset.index, 10);
+      const preset = PASTEL_PRESETS[index];
+      applySwatchStyle(button, preset.accent);
+    }
+  }
+
   function refreshSelection() {
     for (const button of swatchButtons) {
       const index = Number.parseInt(button.dataset.index, 10);
@@ -98,11 +114,16 @@ export function createPastelColorThemePicker({ initial, onChange }) {
     };
   }
 
+  refreshSwatchColors();
   refreshSelection();
 
   return {
     element: root,
     readValue,
-    refreshSelection
+    refreshSelection,
+    setThemeMode(nextIsDark) {
+      darkMode = Boolean(nextIsDark);
+      refreshSwatchColors();
+    }
   };
 }

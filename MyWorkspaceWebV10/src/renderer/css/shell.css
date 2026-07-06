@@ -17,7 +17,6 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  border-left: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
 }
@@ -211,21 +210,10 @@
   touch-action: none;
 }
 
-.splitter::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  transform: translateX(-50%);
-  background: var(--border-light);
-}
-
+.splitter::after,
 .splitter:hover::after,
 .splitter.is-dragging::after {
-  background: var(--accent);
-  width: 2px;
+  content: none;
 }
 
 .page-tabs {
@@ -234,7 +222,6 @@
   padding: 6px 8px 0;
   overflow: auto;
   background: var(--sidebar);
-  border-bottom: 1px solid var(--border-light);
   min-height: 34px;
 }
 
@@ -408,6 +395,12 @@
 
 .tree-row.is-active {
   background: var(--accent-hover);
+}
+
+.tree-row.is-drop-target {
+  background: var(--accent-hover);
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
 }
 
 .tree-badge {

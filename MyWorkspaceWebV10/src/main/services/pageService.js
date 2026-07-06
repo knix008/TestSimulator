@@ -245,12 +245,28 @@ function searchPages(db, user, query) {
         page.content.toLowerCase().includes(normalized)
       );
     })
+    .sort((left, right) => {
+      const leftTitle = left.title.toLowerCase();
+      const rightTitle = right.title.toLowerCase();
+      const leftTitleStarts = leftTitle.startsWith(normalized);
+      const rightTitleStarts = rightTitle.startsWith(normalized);
+      if (leftTitleStarts !== rightTitleStarts) {
+        return leftTitleStarts ? -1 : 1;
+      }
+      const leftTitleContains = leftTitle.includes(normalized);
+      const rightTitleContains = rightTitle.includes(normalized);
+      if (leftTitleContains !== rightTitleContains) {
+        return leftTitleContains ? -1 : 1;
+      }
+      return leftTitle.localeCompare(rightTitle, 'ko');
+    })
     .slice(0, 30)
     .map((page) => ({
       pageId: page.id,
       workspaceId: page.workspace_id,
       title: page.title,
-      snippet: buildSnippet(page.content, normalized)
+      snippet: buildSnippet(page.content, normalized),
+      matchInContent: page.content.toLowerCase().includes(normalized)
     }));
 }
 
@@ -321,6 +337,119 @@ function canEditPageContentLegacy(db, user, pageId) {
   return canEditWorkspaceContent(db, user, page.workspace_id);
 }
 
+function importMarkdownFileIntoWorkspace(db, user, markdownFilePath, workspaceId) {
+  const {
+    normalizeExistingMarkdownPath,
+    readMarkdownFile,
+    getImportTitle,
+    importLocalAssets
+  } = require('./pageMarkdownImporter');
+
+  const sourcePath = normalizeExistingMarkdownPath(markdownFilePath);
+  if (!sourcePath) {
+    throw new Error('Markdown 파일을 찾을 수 없습니다.');
+  }
+
+  const prepared = readMarkdownFile(sourcePath);
+  const importTitle = getImportTitle(sourcePath, prepared);
+  const page = createPage(db, user, {
+    workspaceId,
+    title: importTitle,
+    content: prepared.body
+  });
+
+  let finalContent = importLocalAssets(prepared.body, sourcePath, page.id, db, user);
+  finalContent = replaceFirstHeadingTitle(finalContent, page.title);
+
+  if (finalContent !== page.content) {
+    return savePage(db, user, {
+      pageId: page.id,
+      title: page.title,
+      content: finalContent
+    });
+  }
+
+  return page;
+}
+
+function importMarkdownFilesIntoWorkspace(db, user, workspaceId, paths) {
+  const { normalizeMarkdownImportPaths } = require('./pageMarkdownImporter');
+
+  if (!canEditWorkspaceContent(db, user, workspaceId)) {
+    throw new Error('Page를 생성할 권한이 없습니다.');
+  }
+
+  const normalizedPaths = normalizeMarkdownImportPaths(paths);
+  if (!normalizedPaths.length) {
+    return { importedCount: 0, pageIds: [], lastPageId: null };
+  }
+
+  const pageIds = [];
+  let lastPage = null;
+
+  for (const filePath of normalizedPaths) {
+    lastPage = importMarkdownFileIntoWorkspace(db, user, filePath, workspaceId);
+    pageIds.push(lastPage.id);
+  }
+
+  return {
+    importedCount: pageIds.length,
+    pageIds,
+    lastPageId: lastPage?.id ?? null,
+    lastPage
+  };
+}
+
+function importMarkdownContentIntoWorkspace(db, user, workspaceId, fileName, content) {
+  const { prepareMarkdownFromText, getImportTitleFromFileName } = require('./pageMarkdownImporter');
+
+  const prepared = prepareMarkdownFromText(content, fileName);
+  const importTitle = getImportTitleFromFileName(fileName, prepared);
+  const page = createPage(db, user, {
+    workspaceId,
+    title: importTitle,
+    content: prepared.body
+  });
+
+  const finalContent = replaceFirstHeadingTitle(prepared.body, page.title);
+  if (finalContent !== page.content) {
+    return savePage(db, user, {
+      pageId: page.id,
+      title: page.title,
+      content: finalContent
+    });
+  }
+
+  return page;
+}
+
+function importMarkdownTextsIntoWorkspace(db, user, workspaceId, items) {
+  if (!canEditWorkspaceContent(db, user, workspaceId)) {
+    throw new Error('Page를 생성할 권한이 없습니다.');
+  }
+
+  const pageIds = [];
+  let lastPage = null;
+
+  for (const item of items || []) {
+    const fileName = String(item?.fileName || 'untitled.md').trim() || 'untitled.md';
+    const content = String(item?.content ?? '');
+    if (!content.trim()) {
+      continue;
+    }
+
+    lastPage = importMarkdownContentIntoWorkspace(db, user, workspaceId, fileName, content);
+    pageIds.push(lastPage.id);
+  }
+
+  return {
+    importedCount: pageIds.length,
+    pageIds,
+    lastPageId: lastPage?.id ?? null,
+    lastPage
+  };
+}
+
 module.exports = {
   getPage,
   createPage,
@@ -335,5 +464,8 @@ module.exports = {
   unlockPage,
   isPageLocked,
   searchPages,
+  importMarkdownFileIntoWorkspace,
+  importMarkdownFilesIntoWorkspace,
+  importMarkdownTextsIntoWorkspace,
   DEFAULT_PAGE_CONTENT
 };

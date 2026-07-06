@@ -10,7 +10,6 @@
   padding: 8px 4px;
   gap: 2px;
   background: var(--sidebar);
-  border-left: 1px solid var(--border-light);
   overflow: hidden;
 }
 

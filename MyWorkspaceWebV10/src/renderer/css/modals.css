@@ -146,19 +146,29 @@
 
 .about-description,
 .about-version,
+.about-build-line,
 .about-copyright {
   margin: 0;
   line-height: 1.6;
 }
 
 .about-description,
-.about-version {
+.about-version,
+.about-build-line {
   color: var(--text-secondary);
   font-size: 13px;
 }
 
 .about-version {
   margin-top: 4px;
+}
+
+.about-build {
+  margin-top: 6px;
+}
+
+.about-build-line + .about-build-line {
+  margin-top: 2px;
 }
 
 .about-copyright {

@@ -1,6 +1,7 @@
 const { ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { getBuildInfo } = require('../buildInfo');
 const { login } = require('../services/authService');
 const {
   getWorkspaceTree,
@@ -29,7 +30,9 @@ const {
   lockPage,
   unlockPage,
   isPageLocked,
-  canEditPageContent
+  canEditPageContent,
+  importMarkdownFilesIntoWorkspace,
+  importMarkdownTextsIntoWorkspace
 } = require('../services/pageService');
 const {
   exportWorkspace: exportWorkspaceArchive,
@@ -167,7 +170,8 @@ function registerIpcHandlers(deps) {
     const pkg = require(path.join(__dirname, '..', '..', '..', 'package.json'));
     return success({
       version: pkg.version || '0.1.0',
-      productName: 'MyWorkspace'
+      productName: 'MyWorkspace',
+      build: getBuildInfo()
     });
   });
 
@@ -395,6 +399,22 @@ function registerIpcHandlers(deps) {
     wrapHandler(async (_event, payload) => {
       const page = createPage(db(), user(), payload);
       return success({ page });
+    })
+  );
+
+  ipcMain.handle(
+    'page:importMarkdownFiles',
+    wrapHandler(async (_event, { workspaceId, paths }) => {
+      const result = importMarkdownFilesIntoWorkspace(db(), user(), workspaceId, paths);
+      return success(result);
+    })
+  );
+
+  ipcMain.handle(
+    'page:importMarkdownTexts',
+    wrapHandler(async (_event, { workspaceId, items }) => {
+      const result = importMarkdownTextsIntoWorkspace(db(), user(), workspaceId, items);
+      return success(result);
     })
   );
 

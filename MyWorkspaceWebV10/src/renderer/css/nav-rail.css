@@ -6,7 +6,6 @@
   padding: 8px 4px;
   gap: 4px;
   background: var(--sidebar);
-  border-right: 1px solid var(--border-light);
 }
 
 .nav-rail-main,

@@ -1,6 +1,10 @@
 import { createTreePanel } from './ui/treeView.js';
 import { showPopupMenu } from './ui/popupMenu.js';
 import { t } from './i18n/index.js';
+import {
+  collectMarkdownPathsFromDataTransfer,
+  isMarkdownFileDrag
+} from './droppedFiles.js';
 
 function resolveTreeIcon(node) {
   if (node.kind === 'FavoritesRoot') {
@@ -29,6 +33,125 @@ function mapWorkspaceNode(node) {
     children: (node.children || []).map(mapWorkspaceNode),
     payload: node
   };
+}
+
+function resolveWorkspaceIdFromRow(row) {
+  if (!row) {
+    return null;
+  }
+
+  const kind = row.dataset.kind;
+  if (kind === 'Workspace') {
+    return Number(row.dataset.id);
+  }
+  if (kind === 'Page') {
+    return Number(row.dataset.workspaceId);
+  }
+  return null;
+}
+
+function findTreeRowFromPoint(clientX, clientY) {
+  const element = document.elementFromPoint(clientX, clientY);
+  return element?.closest?.('.tree-row') || null;
+}
+
+export function attachWorkspaceMarkdownDrop(container, treePanel, { getFallbackWorkspaceId, isEnabled, onImport, onDropRejected }) {
+  let highlightedRow = null;
+
+  function clearHighlight() {
+    if (highlightedRow) {
+      highlightedRow.classList.remove('is-drop-target');
+      highlightedRow = null;
+    }
+  }
+
+  function setHighlight(row) {
+    if (highlightedRow === row) {
+      return;
+    }
+    clearHighlight();
+    if (row) {
+      highlightedRow = row;
+      highlightedRow.classList.add('is-drop-target');
+      const key = row.dataset.key;
+      if (key) {
+        treePanel.setSelectedKey(key);
+      }
+    }
+  }
+
+  function resolveWorkspaceId(event) {
+    const row = findTreeRowFromPoint(event.clientX, event.clientY);
+    const workspaceId = resolveWorkspaceIdFromRow(row) ?? getFallbackWorkspaceId?.();
+    return { row, workspaceId };
+  }
+
+  function rejectDrop(reason) {
+    onDropRejected?.(reason);
+  }
+
+  function handleDragEnter(event) {
+    if (!isEnabled?.() || !isMarkdownFileDrag(event)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handleDragOver(event) {
+    if (!isEnabled?.() || !isMarkdownFileDrag(event)) {
+      clearHighlight();
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'copy';
+
+    const { row, workspaceId } = resolveWorkspaceId(event);
+    if (!workspaceId) {
+      clearHighlight();
+      return;
+    }
+
+    setHighlight(row);
+  }
+
+  function handleDragLeave(event) {
+    if (!container.contains(event.relatedTarget)) {
+      clearHighlight();
+    }
+  }
+
+  async function handleDrop(event) {
+    clearHighlight();
+
+    if (!isEnabled?.() || !isMarkdownFileDrag(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const paths = collectMarkdownPathsFromDataTransfer(event.dataTransfer);
+    if (!paths.length) {
+      rejectDrop('paths');
+      return;
+    }
+
+    const { workspaceId } = resolveWorkspaceId(event);
+    if (!workspaceId) {
+      rejectDrop('workspace');
+      return;
+    }
+
+    await onImport?.(workspaceId, paths);
+  }
+
+  container.addEventListener('dragenter', handleDragEnter, true);
+  container.addEventListener('dragover', handleDragOver, true);
+  container.addEventListener('dragleave', handleDragLeave, true);
+  container.addEventListener('drop', handleDrop, true);
 }
 
 export function createWorkspaceTree(container, { onSelectPage, onCreatePage, onContextMenu, onEmptyContextMenu }) {
@@ -85,6 +208,9 @@ export function createWorkspaceTree(container, { onSelectPage, onCreatePage, onC
     clearSelection() {
       selectedNode = null;
       tree.clearSelection();
+    },
+    getTreePanel() {
+      return tree;
     }
   };
 }

@@ -39,9 +39,11 @@ export function normalizeUiColorSettings(config = {}) {
 }
 
 export function applyThemePalette(palette) {
-  const root = document.documentElement;
-  for (const [key, cssVar] of Object.entries(CSS_VAR_MAP)) {
-    root.style.setProperty(cssVar, rgbToHex(palette[key]));
+  const targets = [document.documentElement, document.body].filter(Boolean);
+  for (const target of targets) {
+    for (const [key, cssVar] of Object.entries(CSS_VAR_MAP)) {
+      target.style.setProperty(cssVar, rgbToHex(palette[key]));
+    }
   }
 }
 

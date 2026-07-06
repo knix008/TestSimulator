@@ -93,7 +93,7 @@ async function writePngFromSource(sourcePath, targetPath, size = 512) {
     .toFile(targetPath);
 }
 
-async function ensureGeneratedIcon({ svg, icoPath, pngPath, winSourceIco }) {
+async function ensureGeneratedIcon({ svg, icoPath, winSourceIco }) {
   if (copyIfExists(winSourceIco, icoPath)) {
     return 'copied';
   }
@@ -121,14 +121,12 @@ async function generateAppIcons(options = {}) {
   const appResult = await ensureGeneratedIcon({
     svg: appIconSvg(),
     icoPath: iconIco,
-    pngPath: iconPng,
     winSourceIco: path.join(winAssets, 'app.ico')
   });
 
   const wspResult = await ensureGeneratedIcon({
     svg: wspIconSvg(),
     icoPath: wspIco,
-    pngPath: null,
     winSourceIco: path.join(winAssets, 'wsp.ico')
   });
 

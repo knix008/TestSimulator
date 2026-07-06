@@ -3,7 +3,7 @@ productName: MyWorkspace
 copyright: Copyright © 2026 SHKWON
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 directories:
-  output: dist
+  output: .
   buildResources: build
 files:
   - electron/**/*
@@ -13,10 +13,16 @@ files:
   - "!**/*.md"
   - "!scripts/**"
   - "!**/.gitkeep"
+afterPack: scripts/embed-win-exe-icon.js
 asar: true
 asarUnpack:
   - "**/*.node"
   - "**/node_modules/better-sqlite3/**"
+extraResources:
+  - from: build/icon.ico
+    to: icon.ico
+  - from: build/icon.png
+    to: icon.png
 npmRebuild: true
 fileAssociations:
   - ext: wsp
@@ -37,7 +43,7 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
+  createDesktopShortcut: always
   createStartMenuShortcut: true
   menuCategory: MyWorkspace
   shortcutName: MyWorkspace

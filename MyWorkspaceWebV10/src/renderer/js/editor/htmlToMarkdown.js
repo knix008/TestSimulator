@@ -1,5 +1,11 @@
 import TurndownService from '../../vendor/turndown.es.js';
-import { buildSizedMarkdownImageReference, parsePageAssetSrc, toStoredAssetSrc } from './pageMarkdownNormalizer.js';
+import {
+  buildSizedMarkdownImageReference,
+  parsePageAssetSrc,
+  toStoredAssetSrc,
+  resolveImageSrcFromImgElement,
+  resolveParsedImageAssetFromImgElement
+} from './pageMarkdownNormalizer.js';
 
 const turndown = new TurndownService({
   headingStyle: 'atx',
@@ -18,7 +24,7 @@ turndown.addRule('editorImageWrap', {
       return '';
     }
     const alt = img.getAttribute('alt') || '';
-    const parsed = parsePageAssetSrc(img.getAttribute('src') || '');
+    const parsed = resolveParsedImageAssetFromImgElement(img);
     const width = img.getAttribute('data-editor-width') || node.getAttribute('data-editor-width')
       || img.getAttribute('width') || node.getAttribute('width');
     if (width && parsed) {
@@ -29,7 +35,7 @@ turndown.addRule('editorImageWrap', {
         alt
       );
     }
-    const src = toStoredAssetSrc(img.getAttribute('src') || '');
+    const src = resolveImageSrcFromImgElement(img);
     return `![${alt}](${src})`;
   }
 });
@@ -40,8 +46,13 @@ turndown.addRule('editorFileAttachment', {
   },
   replacement(_content, node) {
     const href = node.getAttribute('href') || '';
+    const parsed = parsePageAssetSrc(href);
+    if (parsed && /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(parsed.fileName)) {
+      const alt = node.textContent?.trim() || parsed.fileName;
+      return `![${alt}](${toStoredAssetSrc(href)})`;
+    }
     const text = node.textContent?.trim() || href;
-    return `[${text}](${href})`;
+    return `[${text}](${toStoredAssetSrc(href) || href})`;
   }
 });
 

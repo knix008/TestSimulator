@@ -2,7 +2,12 @@ import { t, applyLanguage, toTemplateLanguage, getUiLanguage } from './i18n/inde
 import { getUiFontScaleFactor, normalizeFontScaleStep } from './ui/fontScale.js';
 import { applyThemeAppearance } from './ui/themeManager.js';
 import { bindLogin, tryRestoreSession } from './login.js';
-import { createWorkspaceTree, showPopupMenu } from './workspaceTree.js';
+import { createWorkspaceTree, showPopupMenu, attachWorkspaceMarkdownDrop } from './workspaceTree.js';
+import {
+  isMarkdownFileDrag,
+  isMarkdownFileName,
+  partitionDroppedFiles
+} from './droppedFiles.js';
 import { createPageTabs } from './pageTabs.js';
 import { createEditorBridge } from './editorBridge.js';
 import { createNavRail } from './ui/navRail.js';
@@ -124,10 +129,19 @@ const workspaceTree = createWorkspaceTree(workspaceTreeEl, {
 
 const titleBar = createTitleBar({
   onPageSearch: async (query) => {
-    const results = await api.searchPages(query);
-    return (results || []).map((item) => ({
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return [];
+    }
+    const results = await api.searchPages(trimmed);
+    const items = Array.isArray(results) ? results : [];
+    return items.map((item) => ({
       ...item,
-      onSelect: () => openPage(item.pageId)
+      onSelect: () =>
+        openPage(item.pageId, {
+          searchQuery: trimmed,
+          searchMatchInContent: Boolean(item.matchInContent)
+        })
     }));
   },
   onSettingsAction: (anchor) => {
@@ -178,16 +192,57 @@ editor.onAssetInsertRequested = async (command) => {
 };
 
 editor.onFileDrop = async (message) => {
-  const dropPageId = currentPageId;
-  if (dropPageId == null || !currentPageCanEdit || !isEditorBoundToPage(dropPageId)) {
-    return;
-  }
-
   const dropPoint =
     message?.x != null && message?.y != null ? { x: message.x, y: message.y } : null;
 
   if (Array.isArray(message?.files) && message.files.length > 0) {
+    const markdownFiles = message.files.filter((fileEntry) =>
+      isMarkdownFileName(fileEntry.fileName || fileEntry.path)
+    );
+
+    if (markdownFiles.length > 0) {
+      const workspaceId = getMenuState().selectedWorkspaceId;
+      if (!workspaceId) {
+        showToast(t.selectWorkspace);
+        return;
+      }
+
+      const paths = markdownFiles
+        .map((fileEntry) => fileEntry.path)
+        .filter((filePath) => filePath && isMarkdownFileName(filePath));
+
+      if (paths.length === markdownFiles.length) {
+        await importMarkdownFilesIntoWorkspace(workspaceId, paths);
+        return;
+      }
+
+      const textItems = markdownFiles
+        .filter((fileEntry) => fileEntry.text)
+        .map((fileEntry) => ({
+          fileName: fileEntry.fileName || 'untitled.md',
+          content: fileEntry.text
+        }));
+
+      if (textItems.length > 0) {
+        await importMarkdownTextsIntoWorkspace(workspaceId, textItems);
+        return;
+      }
+
+      showToast(t.markdownDropPathsUnavailable);
+      return;
+    }
+
+    const dropPageId = currentPageId;
+    if (dropPageId == null || !currentPageCanEdit || !isEditorBoundToPage(dropPageId)) {
+      return;
+    }
+
     await importDroppedFiles(dropPageId, message.files, dropPoint);
+    return;
+  }
+
+  const dropPageId = currentPageId;
+  if (dropPageId == null || !currentPageCanEdit || !isEditorBoundToPage(dropPageId)) {
     return;
   }
 
@@ -489,39 +544,42 @@ function refreshNavRailState() {
 
 onPanelStateChange = refreshNavRailState;
 
-function applyUiAppearance({
-  theme,
-  language,
-  fontScaleStep,
-  colorThemeIndex,
-  useCustomAccentColor,
-  customAccentArgb
-} = {}) {
-  if (language != null) {
-    applyLanguage(language);
+function applyUiAppearance(config = {}) {
+  if (config.language != null) {
+    applyLanguage(config.language);
   }
-  if (theme != null) {
-    applyThemeAppearance({
-      theme,
-      colorThemeIndex: colorThemeIndex ?? cachedUiConfig?.colorThemeIndex,
-      useCustomAccentColor: useCustomAccentColor ?? cachedUiConfig?.useCustomAccentColor,
-      customAccentArgb: customAccentArgb ?? cachedUiConfig?.customAccentArgb
-    });
-  } else if (
-    colorThemeIndex != null ||
-    useCustomAccentColor != null ||
-    customAccentArgb != null
-  ) {
-    applyThemeAppearance({
-      theme: cachedUiConfig?.theme || 'Light',
-      colorThemeIndex: colorThemeIndex ?? cachedUiConfig?.colorThemeIndex,
-      useCustomAccentColor: useCustomAccentColor ?? cachedUiConfig?.useCustomAccentColor,
-      customAccentArgb: customAccentArgb ?? cachedUiConfig?.customAccentArgb
-    });
-  }
-  if (fontScaleStep != null) {
-    uiFontScaleStep = normalizeFontScaleStep(fontScaleStep);
+
+  applyThemeAppearance({
+    theme: config.theme ?? cachedUiConfig?.theme ?? 'Light',
+    colorThemeIndex: config.colorThemeIndex ?? cachedUiConfig?.colorThemeIndex ?? 4,
+    useCustomAccentColor: Boolean(
+      config.useCustomAccentColor ?? cachedUiConfig?.useCustomAccentColor ?? false
+    ),
+    customAccentArgb: config.customAccentArgb ?? cachedUiConfig?.customAccentArgb
+  });
+
+  if (config.fontScaleStep != null) {
+    uiFontScaleStep = normalizeFontScaleStep(config.fontScaleStep);
     document.documentElement.style.setProperty('--ui-font-scale', String(getUiFontScaleFactor(uiFontScaleStep)));
+  }
+}
+
+async function applyAppearanceSettings(settings, { preview = false } = {}) {
+  const merged = {
+    ...(cachedUiConfig || {}),
+    ...settings
+  };
+  const languageChanged =
+    settings.language != null && settings.language !== cachedUiConfig?.language;
+
+  applyUiAppearance(merged);
+  if (!preview || languageChanged) {
+    refreshLocalizedUi();
+  }
+  await editor.applyAppearance(getEditorAppearance(merged));
+
+  if (!preview) {
+    cachedUiConfig = merged;
   }
 }
 
@@ -680,20 +738,14 @@ async function handleMenuAction(actionId, context = {}) {
         rebuildNavRail();
         break;
       case 'preferences':
-        await showPreferencesDialog(api, async (settings, { preview } = {}) => {
-          if (!preview) {
-            cachedUiConfig = { ...cachedUiConfig, ...settings };
-          }
-          applyUiAppearance(settings);
-          refreshLocalizedUi();
-          await editor.applyAppearance(getEditorAppearance({ ...cachedUiConfig, ...settings }));
-        });
+        await showPreferencesDialog(api, (settings, options) => applyAppearanceSettings(settings, options));
         break;
       case 'page-history':
         if (currentPageId != null) {
           await showPageHistoryDialog(api, currentPageId, currentPageTitle, async (page) => {
             await openPage(page.id, { activateOnly: true });
-            await editor.loadMarkdown(page.content, page.id);
+            await editor.loadMarkdown(page.content, page.id, getEditorAppearance(cachedUiConfig));
+            await editor.applyAppearance(getEditorAppearance(cachedUiConfig));
           });
         }
         break;
@@ -930,6 +982,7 @@ async function ensureAppShellReady(config = cachedUiConfig) {
   shellInitialized = true;
   initSplitters();
   initEditorHostFileDrop();
+  initWorkspaceMarkdownDrop();
   appShell.classList.remove('hidden');
   verticalToolbar?.setEnabled(false);
   void editor.applyAppearance(getEditorAppearance(cachedUiConfig));
@@ -1115,16 +1168,21 @@ async function promptDelete(node) {
   await refreshWorkspaceTree();
 }
 
-async function openPage(pageId, { activateOnly = false } = {}) {
+async function openPage(pageId, { activateOnly = false, searchQuery = null, searchMatchInContent = false } = {}) {
   openPageChain = openPageChain
-    .then(() => openPageInternal(pageId, { activateOnly }))
+    .then(() =>
+      openPageInternal(pageId, { activateOnly, searchQuery, searchMatchInContent })
+    )
     .catch((error) => {
       showUnexpectedError('Page 열기', error);
     });
   return openPageChain;
 }
 
-async function openPageInternal(pageId, { activateOnly = false } = {}) {
+async function openPageInternal(
+  pageId,
+  { activateOnly = false, searchQuery = null, searchMatchInContent = false } = {}
+) {
   const navToken = ++pageNavigationGeneration;
   clearTimeout(autoSaveTimer);
   cancelPendingEditorImports();
@@ -1159,14 +1217,29 @@ async function openPageInternal(pageId, { activateOnly = false } = {}) {
     pageTabs.setActive(pageId);
   }
 
-  await editor.loadMarkdown(result.page.content, pageId);
+  await editor.loadMarkdown(result.page.content, pageId, getEditorAppearance(cachedUiConfig));
   if (navToken !== pageNavigationGeneration) {
     return;
   }
 
   editorDisplayedPageId = pageId;
+  await editor.applyAppearance(getEditorAppearance(cachedUiConfig));
   await editor.focus();
-  statusBar.setUser(currentUser, currentPageTitle);
+  if (navToken !== pageNavigationGeneration) {
+    return;
+  }
+
+  const normalizedSearchQuery = String(searchQuery || '').trim();
+  if (normalizedSearchQuery) {
+    await editor.scrollToSearchText(normalizedSearchQuery, searchMatchInContent);
+    if (navToken !== pageNavigationGeneration) {
+      return;
+    }
+  }
+
+  if (currentUser) {
+    statusBar.setUser(currentUser, currentPageTitle);
+  }
   statusBar.setSaveStatus('saved');
   commentsPanel.setPage(pageId);
   rebuildNavRail();
@@ -1285,12 +1358,12 @@ function isImageAsset(asset, hint = {}) {
 }
 
 function resolveImageInsertSources(asset, hint = {}) {
-  const permanentSrc = asset.uri;
+  const permanentSrc = asset.uri || '';
   const previewSrc =
     hint.dataUri && /^data:image\//i.test(hint.dataUri) ? hint.dataUri : permanentSrc;
   return {
     previewSrc,
-    permanentSrc: previewSrc !== permanentSrc ? permanentSrc : null
+    permanentSrc: permanentSrc || null
   };
 }
 
@@ -1366,6 +1439,74 @@ async function importDroppedFiles(pageId, files, dropPoint) {
   }
 }
 
+async function importMarkdownFilesIntoWorkspace(workspaceId, paths) {
+  if (!workspaceId) {
+    showToast(t.selectWorkspace);
+    return;
+  }
+
+  await saveCurrentPageIfDirty();
+
+  const result = await api.importMarkdownFiles(workspaceId, paths);
+  if (!result.ok) {
+    showApiError('Markdown 가져오기', result);
+    return;
+  }
+
+  if (!result.importedCount) {
+    return;
+  }
+
+  await refreshWorkspaceTree();
+  if (result.lastPageId != null) {
+    await openPage(result.lastPageId);
+  }
+}
+
+async function importMarkdownTextsIntoWorkspace(workspaceId, items) {
+  if (!workspaceId) {
+    showToast(t.selectWorkspace);
+    return;
+  }
+
+  await saveCurrentPageIfDirty();
+
+  const result = await api.importMarkdownTexts(workspaceId, items);
+  if (!result.ok) {
+    showApiError('Markdown 가져오기', result);
+    return;
+  }
+
+  if (!result.importedCount) {
+    return;
+  }
+
+  await refreshWorkspaceTree();
+  if (result.lastPageId != null) {
+    await openPage(result.lastPageId);
+  }
+}
+
+function initWorkspaceMarkdownDrop() {
+  const panel = document.getElementById('workspace-panel');
+  if (!panel) {
+    return;
+  }
+
+  attachWorkspaceMarkdownDrop(panel, workspaceTree.getTreePanel(), {
+    isEnabled: () => Boolean(currentUser),
+    getFallbackWorkspaceId: () => getMenuState().selectedWorkspaceId,
+    onImport: importMarkdownFilesIntoWorkspace,
+    onDropRejected: (reason) => {
+      if (reason === 'workspace') {
+        showToast(t.selectWorkspace);
+      } else if (reason === 'paths') {
+        showToast(t.markdownDropPathsUnavailable);
+      }
+    }
+  });
+}
+
 function initEditorHostFileDrop() {
   const host = document.querySelector('.editor-host');
   if (!host) {
@@ -1381,6 +1522,17 @@ function initEditorHostFileDrop() {
   };
 
   const handleDragOver = (event) => {
+    if (!isExternalFileDrag(event)) {
+      return;
+    }
+
+    if (isMarkdownFileDrag(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = 'copy';
+      return;
+    }
+
     if (!allowFileDrop(event)) {
       return;
     }
@@ -1389,6 +1541,31 @@ function initEditorHostFileDrop() {
   };
 
   const handleDrop = async (event) => {
+    if (isMarkdownFileDrag(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const files = Array.from(event.dataTransfer.files || []);
+      const { markdownPaths } = partitionDroppedFiles(files);
+      if (!markdownPaths.length) {
+        showToast(t.markdownDropPathsUnavailable);
+        return;
+      }
+
+      const workspaceId = getMenuState().selectedWorkspaceId;
+      if (!workspaceId) {
+        showToast(t.selectWorkspace);
+        return;
+      }
+
+      try {
+        await importMarkdownFilesIntoWorkspace(workspaceId, markdownPaths);
+      } catch (error) {
+        showUnexpectedError('Markdown 가져오기', error);
+      }
+      return;
+    }
+
     if (!allowFileDrop(event)) {
       return;
     }
@@ -1433,6 +1610,7 @@ async function insertAssetIntoEditor(asset, dropMessage, hint = {}, targetPageId
     const displayName = asset.displayName || asset.fileName || 'file';
     const isImage = isImageAsset(asset, hint);
     const imageSources = isImage ? resolveImageInsertSources(asset, hint) : null;
+    const imageAlt = isImage ? (asset.fileName || displayName) : displayName;
 
     if (dropMessage?.x != null && dropMessage?.y != null) {
       if (isImage && frameApi.insertImageAtDropPoint) {
@@ -1440,7 +1618,7 @@ async function insertAssetIntoEditor(asset, dropMessage, hint = {}, targetPageId
           dropMessage.x,
           dropMessage.y,
           imageSources.previewSrc,
-          displayName,
+          imageAlt,
           imageSources.permanentSrc
         );
       } else if (frameApi.insertFileAttachmentAtDropPoint) {
@@ -1455,7 +1633,7 @@ async function insertAssetIntoEditor(asset, dropMessage, hint = {}, targetPageId
     } else if (isImage && frameApi.insertImage) {
       frameApi.insertImage(
         imageSources.previewSrc,
-        displayName,
+        imageAlt,
         imageSources.permanentSrc
       );
     } else if (frameApi.insertFileAttachment) {

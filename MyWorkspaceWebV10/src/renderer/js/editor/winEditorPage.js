@@ -1,5 +1,10 @@
 import { marked } from '../../vendor/marked.esm.js';
-import { expandAssetReferences, wrapImagesForEditing } from './pageMarkdownNormalizer.js';
+import { buildEditorThemeChrome } from '../ui/editorTheme.js';
+import {
+  expandAssetReferences,
+  wrapImagesForEditing,
+  promoteImageFileLinksInMarkdown
+} from './pageMarkdownNormalizer.js';
 
 let templateCache = null;
 
@@ -24,12 +29,89 @@ const TEMPLATE_TOKENS = {
   BodyPlaceholder: '/*EDITOR_BODY*/'
 };
 
-function applyTemplateTokens(template) {
+function applyTemplateTokens(template, tokens = TEMPLATE_TOKENS) {
   let result = template;
-  for (const [key, value] of Object.entries(TEMPLATE_TOKENS)) {
+  for (const [key, value] of Object.entries(tokens)) {
     result = result.replaceAll(`{${key}}`, value);
   }
   return result;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildDefaultThemeBlock(chrome) {
+  return `const defaultTheme = {
+              bg: '${chrome.bg}',
+              text: '${chrome.text}',
+              caret: '${chrome.caret}',
+              placeholder: '${chrome.placeholder}',
+              focus: '${chrome.focus}',
+              codeBg: '${chrome.codeBg}',
+              border: '${chrome.border}',
+              borderLight: '${chrome.borderLight}',
+              surface: '${chrome.surface}',
+              accent: '${chrome.accent}',
+              muted: '${chrome.muted}',
+              selection: '${chrome.selection}',
+              colorScheme: '${chrome.colorScheme}',
+              fontSizePx: '${chrome.fontSizePx}'
+            };`;
+}
+
+export function injectEditorChrome(template, appearance = {}) {
+  const chrome = buildEditorThemeChrome(appearance);
+  let html = template;
+
+  html = html.replace(
+    /<meta name="color-scheme" content="[^"]*">/i,
+    `<meta name="color-scheme" content="${chrome.colorScheme}">`
+  );
+
+  const rootVars = {
+    '--editor-color-scheme': chrome.colorScheme,
+    '--editor-bg': chrome.bg,
+    '--editor-text': chrome.text,
+    '--editor-caret': chrome.caret,
+    '--editor-placeholder': chrome.placeholder,
+    '--editor-focus': chrome.focus,
+    '--editor-code-bg': chrome.codeBg,
+    '--editor-border': chrome.border,
+    '--editor-border-light': chrome.borderLight,
+    '--editor-surface': chrome.surface,
+    '--editor-accent': chrome.accent,
+    '--editor-muted': chrome.muted,
+    '--editor-selection': chrome.selection,
+    '--editor-font-size': `${chrome.fontSizePx}px`
+  };
+
+  for (const [varName, value] of Object.entries(rootVars)) {
+    const pattern = new RegExp(`(${escapeRegExp(varName)}:\\s*)[^;]+`, 'g');
+    html = html.replace(pattern, `$1${value}`);
+  }
+
+  html = html.replace(/const defaultTheme = \{[\s\S]*?\};/, buildDefaultThemeBlock(chrome));
+
+  const tokenized = applyTemplateTokens(html, {
+    ...TEMPLATE_TOKENS,
+    colorScheme: chrome.colorScheme,
+    bodyFontSize: chrome.fontSizePx,
+    bg: chrome.bg,
+    text: chrome.text,
+    caret: chrome.caret,
+    placeholder: chrome.placeholder,
+    focus: chrome.focus,
+    codeBg: chrome.codeBg,
+    border: chrome.border,
+    borderLight: chrome.borderLight,
+    surface: chrome.surface,
+    accent: chrome.accent,
+    muted: chrome.muted,
+    selection: chrome.selection
+  });
+
+  return tokenized;
 }
 
 export async function loadEditorTemplate() {
@@ -77,7 +159,8 @@ export function expandPageAssetUrls(markdown) {
 }
 
 export function markdownToEditorBody(markdown, pageId = null) {
-  let prepared = expandAssetReferences(markdown, pageId);
+  let prepared = promoteImageFileLinksInMarkdown(markdown, pageId);
+  prepared = expandAssetReferences(prepared, pageId);
   prepared = expandPageAssetUrls(prepared);
   let body = marked.parse(prepared || '', { breaks: true, gfm: true });
   if (!body || !body.trim()) {
@@ -90,8 +173,11 @@ export function markdownToEditorBody(markdown, pageId = null) {
   return body;
 }
 
-export async function buildEditorDocument(markdown, pageId = null) {
-  const template = await loadEditorTemplate();
+export async function buildEditorDocument(markdown, pageId = null, appearance = null) {
+  let template = await loadEditorTemplate();
+  if (appearance) {
+    template = injectEditorChrome(template, appearance);
+  }
   const body = markdownToEditorBody(markdown, pageId);
   if (template.includes('/*EDITOR_BODY*/')) {
     return template.replace('/*EDITOR_BODY*/', body);

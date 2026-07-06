@@ -11,6 +11,14 @@ export function createStatusBar() {
       save.className = 'status-item status-save';
     },
     setUser(user, pageTitle = null) {
+      if (!user) {
+        if (pageTitle) {
+          left.textContent = t.statusPage(pageTitle);
+        } else {
+          this.setLoginRequired();
+        }
+        return;
+      }
       const role = user.role === 'Admin' ? t.statusAdmin : t.statusUser;
       left.textContent = pageTitle ? t.statusPage(pageTitle) : `${user.username} (${role})`;
     },
