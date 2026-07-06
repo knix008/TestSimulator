@@ -1,4 +1,4 @@
-import { t } from '../i18n/ko.js';
+import { t } from '../i18n/index.js';
 
 
 
@@ -212,7 +212,11 @@ export function buildSettingsMenu(state) {
 
       visible: state.loggedIn
 
-    }
+    },
+
+    { type: 'separator' },
+
+    { id: 'about', label: t.menuAbout, iconName: menuIcon('info') }
 
   ];
 

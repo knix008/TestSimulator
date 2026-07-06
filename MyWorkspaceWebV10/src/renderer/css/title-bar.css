@@ -48,17 +48,26 @@
 
 .title-bar-search-wrap {
   justify-self: stretch;
+  align-self: stretch;
   max-width: 420px;
   margin-left: auto;
   position: relative;
   -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding-block: var(--title-bar-search-inset);
 }
 
 .title-bar-search-wrap input {
   width: 100%;
+  height: var(--title-bar-search-height);
+  box-sizing: border-box;
   border: 1px solid var(--border-light);
   border-radius: 999px;
-  padding: 5px 12px;
+  padding: 0 12px;
+  line-height: calc(var(--title-bar-search-height) - 2px);
+  font-size: 13px;
   background: var(--surface);
   color: var(--text);
 }

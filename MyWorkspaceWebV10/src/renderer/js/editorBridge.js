@@ -1,9 +1,11 @@
 import { buildEditorDocument } from './editor/winEditorPage.js';
 import { htmlToMarkdown, extractTitleFromHtml } from './editor/htmlToMarkdown.js';
+import { buildEditorThemeChrome } from './ui/editorTheme.js';
 
 export function createEditorBridge(frame) {
   let ready = false;
   let loadGeneration = 0;
+  let appearance = { theme: 'light', fontScaleStep: 0 };
 
   function handleMessage(event) {
     if (event.source !== frame.contentWindow) {
@@ -99,6 +101,8 @@ export function createEditorBridge(frame) {
       }
       const api = await getApi();
       api.finalizeImageSizes?.();
+      api.refreshEditorBlocks?.();
+      api.applyThemeChrome?.(buildEditorThemeChrome(appearance.theme, appearance.fontScaleStep));
       api.focus?.();
       frame.focus?.();
       await updateHeadingsFromEditor();
@@ -198,13 +202,21 @@ export function createEditorBridge(frame) {
       api.scrollToHeading(id);
     },
 
-    async applyTheme(theme) {
+    async applyAppearance({ theme = 'light', fontScaleStep = 0 } = {}) {
+      appearance = {
+        theme: theme === 'dark' ? 'dark' : 'light',
+        fontScaleStep: Number(fontScaleStep) || 0
+      };
       try {
         const api = await getApi();
-        api.applyThemeChrome?.(theme);
+        api.applyThemeChrome?.(buildEditorThemeChrome(appearance.theme, appearance.fontScaleStep));
       } catch {
         // Editor not loaded yet.
       }
+    },
+
+    async applyTheme(theme) {
+      await bridge.applyAppearance({ theme, fontScaleStep: appearance.fontScaleStep });
     },
 
     async insertTable(rows = 3, cols = 3) {

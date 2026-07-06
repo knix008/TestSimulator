@@ -1,5 +1,6 @@
-import { t } from '../i18n/ko.js';
+import { t } from '../i18n/index.js';
 import { showApiError } from '../errors/errorDetail.js';
+import { normalizeFontScaleStep } from '../ui/fontScale.js';
 
 let layer = null;
 
@@ -12,7 +13,7 @@ function ensureLayer() {
       <div class="modal-card" role="dialog" aria-modal="true">
         <header class="modal-header">
           <h2 class="modal-title"></h2>
-          <button type="button" class="modal-close" aria-label="닫기">×</button>
+          <button type="button" class="modal-close" aria-label="${t.modalCloseAria}">×</button>
         </header>
         <div class="modal-body"></div>
         <footer class="modal-footer"></footer>
@@ -37,6 +38,7 @@ export function closeModal() {
 export function openModal({ title, bodyNode, footerNodes = [] }) {
   const root = ensureLayer();
   root.querySelector('.modal-title').textContent = title;
+  root.querySelector('.modal-close')?.setAttribute('aria-label', t.modalCloseAria);
   const body = root.querySelector('.modal-body');
   const footer = root.querySelector('.modal-footer');
   body.replaceChildren();
@@ -64,8 +66,8 @@ export function showInputDialog({
   label,
   defaultValue = '',
   placeholder = '',
-  confirmLabel = '확인',
-  cancelLabel = '취소',
+  confirmLabel = t.buttonOk,
+  cancelLabel = t.buttonCancel,
   multiline = false
 }) {
   return new Promise((resolve) => {
@@ -114,8 +116,8 @@ export function showInputDialog({
 export function showConfirmDialog({
   title,
   message,
-  confirmLabel = '확인',
-  cancelLabel = '취소',
+  confirmLabel = t.buttonOk,
+  cancelLabel = t.buttonCancel,
   danger = false
 }) {
   return new Promise((resolve) => {
@@ -146,14 +148,58 @@ export function showConfirmDialog({
   });
 }
 
-export function showAboutDialog() {
+export async function showAboutDialog() {
+  let version = '0.1.0';
+  try {
+    const result = await window.myworkspace.getAppInfo();
+    if (result?.ok && result.version) {
+      version = result.version;
+    }
+  } catch {
+    // ignore
+  }
+
   const body = document.createElement('div');
   body.className = 'about-body';
-  body.innerHTML = `<p>${t.aboutText.replace(/\n/g, '<br>')}</p>`;
+
+  const header = document.createElement('div');
+  header.className = 'about-header';
+
+  const icon = document.createElement('img');
+  icon.className = 'about-icon';
+  icon.src = 'assets/app-icon.png';
+  icon.alt = '';
+  icon.width = 48;
+  icon.height = 48;
+
+  const meta = document.createElement('div');
+  meta.className = 'about-meta';
+
+  const name = document.createElement('strong');
+  name.className = 'about-app-name';
+  name.textContent = t.appName;
+
+  const description = document.createElement('p');
+  description.className = 'about-description';
+  description.textContent = t.aboutDescription;
+
+  const versionLine = document.createElement('p');
+  versionLine.className = 'about-version';
+  versionLine.textContent = t.aboutVersionFormat(version);
+
+  meta.append(name, description, versionLine);
+  header.append(icon, meta);
+  body.appendChild(header);
+
+  const copyright = document.createElement('p');
+  copyright.className = 'about-copyright';
+  copyright.textContent = t.aboutCopyrightFormat(new Date().getFullYear());
+  body.appendChild(copyright);
+
   openModal({
-    title: t.menuAbout.replace(/\\(&.\\)/, ''),
+    title: t.menuAbout.replace(/\(&.\)/, ''),
     bodyNode: body,
-    footerNodes: [createButton('닫기', { primary: true, onClick: closeModal })]
+    footerNodes: [createButton(t.buttonClose, { primary: true, onClick: closeModal })]
   });
 }
 
@@ -162,39 +208,55 @@ export async function showPreferencesDialog(api, onSaved) {
   const body = document.createElement('div');
   body.className = 'form-grid';
   body.innerHTML = `
-    <label>테마
+    <label>${t.preferencesTheme}
       <select id="pref-theme">
-        <option value="Light">밝게</option>
-        <option value="Dark">어둡게</option>
+        <option value="Light">${t.themeLight}</option>
+        <option value="Dark">${t.themeDark}</option>
       </select>
     </label>
-    <label>언어
+    <label>${t.preferencesLanguage}
       <select id="pref-language">
-        <option value="Korean">한국어</option>
-        <option value="English">English</option>
+        <option value="Korean">${t.languageKorean}</option>
+        <option value="English">${t.languageEnglish}</option>
       </select>
     </label>
+    <label>${t.preferencesFontScale}
+      <select id="pref-font-scale">
+        <option value="-2">${t.fontScaleMuchSmaller}</option>
+        <option value="-1">${t.fontScaleSmaller}</option>
+        <option value="0">${t.fontScaleNormal}</option>
+        <option value="1">${t.fontScaleLarger}</option>
+        <option value="2">${t.fontScaleMuchLarger}</option>
+      </select>
+    </label>
+    <p class="modal-hint">${t.preferencesRestartHint}</p>
   `;
   body.querySelector('#pref-theme').value = config.theme || 'Light';
   body.querySelector('#pref-language').value = config.language || 'Korean';
+  body.querySelector('#pref-font-scale').value = String(normalizeFontScaleStep(config.fontScaleStep));
 
   openModal({
-    title: '환경 설정',
+    title: t.preferencesTitle,
     bodyNode: body,
     footerNodes: [
-      createButton('취소', { onClick: closeModal }),
-      createButton('저장', {
+      createButton(t.buttonCancel, { onClick: closeModal }),
+      createButton(t.buttonSave, {
         primary: true,
         onClick: async () => {
           const theme = body.querySelector('#pref-theme').value;
           const language = body.querySelector('#pref-language').value;
-          const result = await api.saveUiConfig({ Theme: theme, Language: language });
+          const fontScaleStep = normalizeFontScaleStep(body.querySelector('#pref-font-scale').value);
+          const result = await api.saveUiConfig({
+            Theme: theme,
+            Language: language,
+            FontScaleStep: fontScaleStep
+          });
           if (result?.ok === false) {
-            showApiError('환경 설정', result);
+            showApiError(t.errPreferences, result);
             return;
           }
           document.body.dataset.theme = theme.toLowerCase() === 'dark' ? 'dark' : 'light';
-          onSaved?.({ theme, language });
+          onSaved?.({ theme, language, fontScaleStep });
           closeModal();
         }
       })
@@ -265,10 +327,10 @@ export async function showPageHistoryDialog(api, pageId, pageTitle, onRestored) 
   });
 }
 
-export async function showNewPageDialog(api) {
-  const result = await api.listPageTemplates('ko');
+export async function showNewPageDialog(api, templateLanguage = 'ko') {
+  const result = await api.listPageTemplates(templateLanguage);
   if (!result.ok) {
-    showApiError('Page 양식', result);
+    showApiError(t.errPageTemplates, result);
     return null;
   }
   const templateList = result.templates?.length
@@ -276,8 +338,8 @@ export async function showNewPageDialog(api) {
     : [
         {
           id: 'blank',
-          name: '빈 Page',
-          description: '제목만 있는 기본 Page'
+          name: t.noTemplatesName,
+          description: t.noTemplatesDesc
         }
       ];
 
@@ -286,14 +348,14 @@ export async function showNewPageDialog(api) {
     body.className = 'form-grid';
 
     const titleLabel = document.createElement('label');
-    titleLabel.textContent = 'Page 제목 (비워두면 "제목없음")';
+    titleLabel.textContent = t.newPageTitleLabel(t.untitledPageTitle);
     const titleInput = document.createElement('input');
     titleInput.className = 'modal-input';
     titleInput.type = 'text';
     titleLabel.appendChild(titleInput);
 
     const templateLabel = document.createElement('label');
-    templateLabel.textContent = '양식';
+    templateLabel.textContent = t.newPageTemplateLabel;
     const templateSelect = document.createElement('select');
     templateSelect.className = 'modal-input';
     for (const template of templateList) {
@@ -315,8 +377,8 @@ export async function showNewPageDialog(api) {
       title: t.menuNewPage,
       bodyNode: body,
       footerNodes: [
-        createButton('취소', { onClick: () => finish(null) }),
-        createButton('만들기', {
+        createButton(t.buttonCancel, { onClick: () => finish(null) }),
+        createButton(t.buttonCreate, {
           primary: true,
           onClick: () =>
             finish({
@@ -353,8 +415,8 @@ export function showTableInsertDialog() {
       title: t.tableInsertTitle,
       bodyNode: body,
       footerNodes: [
-        createButton('취소', { onClick: () => finish(null) }),
-        createButton('삽입', {
+        createButton(t.buttonCancel, { onClick: () => finish(null) }),
+        createButton(t.buttonInsert, {
           primary: true,
           onClick: () => {
             const rows = Number.parseInt(body.querySelector('#table-rows').value, 10) || 3;

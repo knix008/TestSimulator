@@ -1,0 +1,81 @@
+appId: com.shkwon.myworkspace
+productName: MyWorkspace
+copyright: Copyright © 2026 SHKWON
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+directories:
+  output: dist
+  buildResources: build
+files:
+  - electron/**/*
+  - src/**/*
+  - config/**/*
+  - package.json
+  - "!**/*.md"
+  - "!scripts/**"
+  - "!**/.gitkeep"
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "**/node_modules/better-sqlite3/**"
+npmRebuild: true
+fileAssociations:
+  - ext: wsp
+    name: MyWorkspace Project
+    description: MyWorkspace project archive
+    role: Editor
+    icon: wsp.ico
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: icon.ico
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  menuCategory: MyWorkspace
+  shortcutName: MyWorkspace
+  uninstallDisplayName: MyWorkspace
+  installerIcon: icon.ico
+  uninstallerIcon: icon.ico
+  installerHeaderIcon: icon.ico
+  runAfterFinish: true
+  installerLanguages:
+    - ko_KR
+    - en_US
+  language: 1042
+  artifactName: ${productName}-Setup-${version}.${ext}
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.productivity
+  icon: icon.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+dmg:
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+    - tar.gz
+  category: Office
+  icon: icon.png
+  maintainer: SHKWON <knix008@naver.com>
+  desktop:
+    Name: MyWorkspace
+    Comment: Workspace and Page management
+    Categories: Office;Utility;
+    StartupWMClass: MyWorkspace
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}

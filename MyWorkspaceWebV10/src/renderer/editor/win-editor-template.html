@@ -3404,33 +3404,44 @@ window.chrome.webview = window.chrome.webview || {
 
             function postFileDropMessage(files, clientX, clientY) {
               if (!files || files.length === 0) return;
-              const payload = JSON.stringify({
-                type: 'file-drop',
-                x: Math.round(clientX),
-                y: Math.round(clientY)
-              });
               const webview = window.chrome?.webview;
-              if (!webview) return;
-
-              if (webview.postMessageWithAdditionalObjects) {
-                try {
-                  // WebView2 expects one ArrayLike second argument (FileList), not spread File items.
-                  webview.postMessageWithAdditionalObjects(payload, files);
-                  return;
-                } catch {
-                  // Fall through to data-uri fallback for images.
-                }
-              }
+              if (!webview?.postMessage) return;
 
               const fileList = Array.from(files);
-              const imageFile = fileList.find(isDroppedImageFile);
-              if (imageFile && webview.postMessage) {
-                postImageFileAsDataUri(webview, imageFile, clientX, clientY);
-                return;
-              }
+              const payloadFiles = [];
+              let pending = fileList.length;
 
-              if (webview.postMessage)
-                webview.postMessage(payload);
+              fileList.forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  payloadFiles.push({
+                    fileName: file.name || (isDroppedImageFile(file) ? 'image.png' : 'file.bin'),
+                    dataUri: String(reader.result || ''),
+                    isImage: isDroppedImageFile(file)
+                  });
+                  pending -= 1;
+                  if (pending === 0) {
+                    webview.postMessage(JSON.stringify({
+                      type: 'file-drop',
+                      x: Math.round(clientX),
+                      y: Math.round(clientY),
+                      files: payloadFiles
+                    }));
+                  }
+                };
+                reader.onerror = () => {
+                  pending -= 1;
+                  if (pending === 0 && payloadFiles.length > 0) {
+                    webview.postMessage(JSON.stringify({
+                      type: 'file-drop',
+                      x: Math.round(clientX),
+                      y: Math.round(clientY),
+                      files: payloadFiles
+                    }));
+                  }
+                };
+                reader.readAsDataURL(file);
+              });
             }
 
             function handleExternalFileDragOver(e) {
@@ -4282,13 +4293,51 @@ window.chrome.webview = window.chrome.webview || {
               });
             }
 
+            let lastEditorSelection = null;
+
+            function captureEditorSelection() {
+              const sel = window.getSelection();
+              if (!sel || sel.rangeCount === 0) {
+                return;
+              }
+              const range = sel.getRangeAt(0);
+              if (!editor.contains(range.commonAncestorContainer)) {
+                return;
+              }
+              lastEditorSelection = range.cloneRange();
+            }
+
+            function restoreEditorSelection() {
+              if (!lastEditorSelection) {
+                return false;
+              }
+              if (!editor.contains(lastEditorSelection.commonAncestorContainer)) {
+                lastEditorSelection = null;
+                return false;
+              }
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(lastEditorSelection);
+              return true;
+            }
+
+            function focusEditorForCommand() {
+              ensureParagraph();
+              editor.focus();
+              restoreEditorSelection();
+            }
+
+            document.addEventListener('selectionchange', () => {
+              captureEditorSelection();
+            });
+
             window.editorApi = {
               focus() {
                 ensureParagraph();
                 editor.focus();
               },
               applyFormat(command) {
-                editor.focus();
+                focusEditorForCommand();
                 if (command === 'copy' && getSelectedImageWrap()) {
                   return copySelectedImage();
                 }
@@ -4323,25 +4372,25 @@ window.chrome.webview = window.chrome.webview || {
                 return runEditorRedo();
               },
               applyHeading(level) {
-                editor.focus();
+                focusEditorForCommand();
                 document.execCommand('formatBlock', false, '<h' + level + '>');
                 updateEmptyState();
                 notifyChanged();
               },
               applyBlockquote() {
-                editor.focus();
+                focusEditorForCommand();
                 document.execCommand('formatBlock', false, '<blockquote>');
                 updateEmptyState();
                 notifyChanged();
               },
               applyParagraph() {
-                editor.focus();
+                focusEditorForCommand();
                 document.execCommand('formatBlock', false, '<p>');
                 updateEmptyState();
                 notifyChanged();
               },
               wrapInlineCode() {
-                editor.focus();
+                focusEditorForCommand();
                 const sel = window.getSelection();
                 const text = sel && sel.toString() ? sel.toString() : defaultCodeText;
                 document.execCommand('insertHTML', false, '<code>' + escapeHtml(text) + '</code>');
@@ -4349,7 +4398,7 @@ window.chrome.webview = window.chrome.webview || {
                 notifyChanged();
               },
               insertHtml(html) {
-                editor.focus();
+                focusEditorForCommand();
                 document.execCommand('insertHTML', false, html);
                 upgradeEditorBlocks();
                 updateEmptyState();
@@ -4714,10 +4763,15 @@ window.chrome.webview = window.chrome.webview || {
                 const theme = Object.assign({}, defaultTheme, overrides || {});
                 setThemeVars(theme);
                 clearStaleInlineColors();
-                finalizeImageSizes();
+                reapplyAllImageSizes();
               },
               finalizeImageSizes() {
                 reapplyAllImageSizes();
+              },
+              refreshEditorBlocks() {
+                upgradeEditorBlocks();
+                reapplyAllImageSizes();
+                updateEmptyState();
               }
             };
 
@@ -4737,4 +4791,4 @@ window.chrome.webview = window.chrome.webview || {
             });
           </script>
         </body>
-        </html>
+        </html>

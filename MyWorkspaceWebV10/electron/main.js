@@ -27,6 +27,24 @@ let mainWindow = null;
 let db = null;
 let sessionUser = null;
 
+function getBuildIconPath() {
+  const buildDir = path.join(__dirname, '..', 'build');
+  const icoPath = path.join(buildDir, 'icon.ico');
+  const pngPath = path.join(buildDir, 'icon.png');
+
+  if (process.platform === 'win32' && fs.existsSync(icoPath)) {
+    return icoPath;
+  }
+  if (fs.existsSync(pngPath)) {
+    return pngPath;
+  }
+  return undefined;
+}
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.shkwon.myworkspace');
+}
+
 function getPreloadPath() {
   return path.join(__dirname, 'preload.js');
 }
@@ -62,6 +80,7 @@ function createWindow() {
     minHeight: 640,
     show: false,
     title: 'MyWorkspace',
+    icon: getBuildIconPath(),
     backgroundColor: '#f6f8fa',
     frame: isMac,
     titleBarStyle: isMac ? 'hiddenInset' : undefined,

@@ -10,6 +10,14 @@ const sourcePath = path.join(
 );
 const outputPath = path.join(__dirname, '..', 'src', 'renderer', 'editor', 'win-editor-template.html');
 
+if (!fs.existsSync(sourcePath)) {
+  if (fs.existsSync(outputPath)) {
+    console.warn('[extract-win-editor] WinV10 source not found; using bundled editor template.');
+    process.exit(0);
+  }
+  throw new Error('WinV10 EditorHtmlBuilder.cs not found and no bundled win-editor-template.html exists.');
+}
+
 const source = fs.readFileSync(sourcePath, 'utf8');
 const startMarker = 'return $$"""';
 const endMarker = '\n        """;';
@@ -70,6 +78,13 @@ window.chrome.webview = window.chrome.webview || {
 </script>`;
 
 template = template.replace('<body>', `<body>\n${shim}`);
+
+// WinV10 template calls finalizeImageSizes() inside applyThemeChrome, but that helper
+// is only exposed on editorApi — not in the script closure scope.
+template = template.replace(
+  /clearStaleInlineColors\(\);\s*\n\s*finalizeImageSizes\(\);/g,
+  'clearStaleInlineColors();\n                reapplyAllImageSizes();'
+);
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, template.trimStart(), 'utf8');

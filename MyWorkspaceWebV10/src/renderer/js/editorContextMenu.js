@@ -1,7 +1,31 @@
-import { showPopupMenuAtPoint, closePopupMenu } from '../ui/popupMenu.js';
+import { showPopupMenuAtPoint, closePopupMenu } from './ui/popupMenu.js';
+import { EDITOR_FONT_SIZE_PRESETS } from './ui/fontScale.js';
 
 function menuIcon(name) {
   return name;
+}
+
+function buildFontSizeSubmenu(t, idPrefix, { disabled = false } = {}) {
+  const submenu = EDITOR_FONT_SIZE_PRESETS.map((size) => ({
+    id: `${idPrefix}${size}`,
+    label: String(size),
+    iconName: menuIcon('font_size'),
+    disabled
+  }));
+  submenu.push({ type: 'separator' });
+  submenu.push({
+    id: `${idPrefix}default`,
+    label: t.editorFontSizeDefault,
+    iconName: menuIcon('font_size'),
+    disabled
+  });
+  return {
+    id: `${idPrefix}menu`,
+    label: t.editorFontSize,
+    iconName: menuIcon('font_size'),
+    disabled,
+    submenu
+  };
 }
 
 function buildImageQuote(src, alt) {
@@ -72,6 +96,7 @@ function buildEditorItems(t, { canEdit, loggedIn, selectedText, lineQuote, outli
     { id: 'editor-bold', label: t.editorBold, iconName: menuIcon('bold'), shortcut: 'Ctrl+B', disabled: !canEdit },
     { id: 'editor-italic', label: t.toolbarItalic, iconName: menuIcon('italic'), shortcut: 'Ctrl+I', disabled: !canEdit },
     { id: 'editor-strike', label: t.toolbarStrike, iconName: menuIcon('strike'), disabled: !canEdit },
+    buildFontSizeSubmenu(t, 'editor-fontsize-', { disabled: !canEdit || !hasSelection }),
     { type: 'separator' },
     { id: 'editor-inline-code', label: t.toolbarInlineCode, iconName: menuIcon('code'), disabled: !canEdit },
     { id: 'editor-code-block', label: t.toolbarCodeBlock, iconName: menuIcon('codeblock'), disabled: !canEdit },
@@ -134,6 +159,8 @@ function buildTableItems(t, context, canEdit) {
   const showInsertColumns = scope === 'columns' || scope === 'table';
 
   return [
+    buildFontSizeSubmenu(t, 'table-fontsize-', { disabled: !canEdit }),
+    { type: 'separator' },
     {
       id: 'table-delete-table',
       label: t.editorTableDelete,
@@ -364,8 +391,21 @@ export function createEditorContextMenu({
         case 'table-insert-column-right':
           await editor.callEditorMethod('insertSelectedTableColumnsRight');
           break;
-        default:
+        default: {
+          const selectionFontMatch = /^editor-fontsize-(default|\d+)$/.exec(actionId);
+          if (selectionFontMatch) {
+            const size = selectionFontMatch[1] === 'default' ? 0 : Number.parseInt(selectionFontMatch[1], 10);
+            await editor.callEditorMethod('applySelectionFontSize', size);
+            break;
+          }
+          const tableFontMatch = /^table-fontsize-(default|\d+)$/.exec(actionId);
+          if (tableFontMatch) {
+            const size = tableFontMatch[1] === 'default' ? 0 : Number.parseInt(tableFontMatch[1], 10);
+            await editor.callEditorMethod('setSelectedCellsFontSize', size);
+            break;
+          }
           break;
+        }
       }
     } catch (error) {
       state.onError?.('편집기 컨텍스트 메뉴', error);

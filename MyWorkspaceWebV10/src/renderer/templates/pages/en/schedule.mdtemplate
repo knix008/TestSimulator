@@ -1,0 +1,25 @@
+---
+id: schedule
+name: Schedule Plan
+description: Milestones and task schedule
+language: en
+order: 80
+---
+
+# {title}
+
+## Goals
+
+
+## Milestones
+| Milestone | Target Date | Status |
+| --- | --- | --- |
+| | | Planned |
+
+## Detailed Schedule
+| Task | Start | End | Owner |
+| --- | --- | --- | --- |
+| | | | |
+
+## Notes
+-

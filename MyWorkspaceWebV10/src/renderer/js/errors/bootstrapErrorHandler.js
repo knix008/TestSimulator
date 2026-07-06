@@ -141,6 +141,24 @@
   window.addEventListener(
     'error',
     (event) => {
+      const target = event.target;
+      const resourceType =
+        target && target !== window ? target.tagName || target.constructor?.name || 'resource' : null;
+      const resourceSrc =
+        target && target !== window
+          ? target.src || target.href || target.currentSrc || ''
+          : '';
+
+      if (!event.error && !event.message && resourceType) {
+        handleFatalError(new Error(`리소스 로드 실패: ${resourceType}${resourceSrc ? ` (${resourceSrc})` : ''}`), {
+          source: resourceSrc || event.filename,
+          line: event.lineno,
+          column: event.colno,
+          type: 'resource-error'
+        });
+        return;
+      }
+
       handleFatalError(event.error || new Error(event.message || 'JavaScript 오류'), {
         source: event.filename,
         line: event.lineno,

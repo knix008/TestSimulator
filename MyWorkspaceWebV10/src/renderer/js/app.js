@@ -1,4 +1,5 @@
-import { t } from './i18n/ko.js';
+import { t, applyLanguage, toTemplateLanguage, getUiLanguage } from './i18n/index.js';
+import { getUiFontScaleFactor, normalizeFontScaleStep } from './ui/fontScale.js';
 import { bindLogin, tryRestoreSession } from './login.js';
 import { createWorkspaceTree, showPopupMenu } from './workspaceTree.js';
 import { createPageTabs } from './pageTabs.js';
@@ -88,6 +89,7 @@ let navRail = null;
 let verticalToolbar = null;
 let recentProjects = [];
 let currentPageCanEdit = true;
+let uiFontScaleStep = 0;
 
 const pageTabs = createPageTabs(document.getElementById('page-tabs'), {
   onSelect: (pageId) => openPage(pageId, { activateOnly: true }),
@@ -141,7 +143,8 @@ editor.onHeadingsChanged = (headings) => {
     headings.map((heading) => ({
       ...heading,
       onClick: () => editor.scrollToHeading(heading.id)
-    }))
+    })),
+    { pageKey: currentPageId }
   );
 };
 
@@ -153,19 +156,25 @@ editor.onAssetInsertRequested = async (command) => {
 };
 
 editor.onFileDrop = async (message) => {
-  if (currentPageId == null || !message?.dataUri || !currentPageCanEdit) {
+  if (currentPageId == null || !currentPageCanEdit) {
     return;
   }
-  const result = await api.importAssetDataUri(
-    currentPageId,
-    message.dataUri,
-    message.fileName || 'image.png'
-  );
-  if (!result.ok) {
-    showApiError('이미지 삽입', result);
+
+  const dropPoint =
+    message?.x != null && message?.y != null ? { x: message.x, y: message.y } : null;
+
+  if (Array.isArray(message?.files) && message.files.length > 0) {
+    await importDroppedFiles(currentPageId, message.files, dropPoint);
     return;
   }
-  await insertAssetIntoEditor(result.asset, message);
+
+  if (message?.dataUri) {
+    await importDroppedFiles(
+      currentPageId,
+      [{ dataUri: message.dataUri, fileName: message.fileName || 'image.png' }],
+      dropPoint
+    );
+  }
 };
 
 editor.onOpenResource = async (href) => {
@@ -419,6 +428,65 @@ function refreshNavRailState() {
 
 onPanelStateChange = refreshNavRailState;
 
+function applyUiAppearance({ theme, language, fontScaleStep } = {}) {
+  if (language != null) {
+    applyLanguage(language);
+  }
+  if (theme != null) {
+    document.body.dataset.theme = theme.toLowerCase() === 'dark' ? 'dark' : 'light';
+  }
+  if (fontScaleStep != null) {
+    uiFontScaleStep = normalizeFontScaleStep(fontScaleStep);
+    document.documentElement.style.setProperty('--ui-font-scale', String(getUiFontScaleFactor(uiFontScaleStep)));
+  }
+}
+
+function refreshLocalizedUi() {
+  document.querySelector('.login-subtitle')?.replaceChildren(document.createTextNode(t.loginSubtitle));
+  const loginLabels = document.querySelectorAll('#login-form > label');
+  if (loginLabels[0]?.firstChild?.nodeType === Node.TEXT_NODE) {
+    loginLabels[0].firstChild.textContent = t.loginUserId;
+  }
+  if (loginLabels[1]?.firstChild?.nodeType === Node.TEXT_NODE) {
+    loginLabels[1].firstChild.textContent = t.loginPassword;
+  }
+  const loginButton = document.querySelector('#login-form button[type="submit"]');
+  if (loginButton) {
+    loginButton.textContent = t.loginButton;
+  }
+  document.querySelector('.login-hint')?.replaceChildren(document.createTextNode(t.loginHint));
+
+  document.getElementById('btn-settings-mark')?.setAttribute('title', t.settingsTooltip);
+  document.getElementById('btn-settings-mark')?.setAttribute('aria-label', t.settingsTooltip);
+  document.getElementById('page-search')?.setAttribute('placeholder', t.titleBarPageSearchPlaceholder);
+  document.getElementById('btn-minimize')?.setAttribute('title', t.windowMinimize);
+  document.getElementById('btn-minimize')?.setAttribute('aria-label', t.windowMinimize);
+  document.getElementById('btn-maximize')?.setAttribute('title', t.windowMaximize);
+  document.getElementById('btn-maximize')?.setAttribute('aria-label', t.windowMaximize);
+  document.getElementById('btn-close')?.setAttribute('title', t.windowClose);
+  document.getElementById('btn-close')?.setAttribute('aria-label', t.windowClose);
+  document.getElementById('nav-rail')?.setAttribute('aria-label', t.navRailAria);
+  document.querySelector('#outline-panel .panel-title')?.replaceChildren(document.createTextNode(t.labelOutline));
+  document.querySelector('#comments-panel .panel-title')?.replaceChildren(document.createTextNode(t.commentsTitle));
+  document.querySelector('#empty-state p')?.replaceChildren(document.createTextNode(t.emptyEditor));
+  document.querySelector('#comments-panel-body .comments-placeholder')?.replaceChildren(
+    document.createTextNode(t.commentsSelectPage)
+  );
+  document.getElementById('vertical-toolbar')?.setAttribute('aria-label', t.verticalToolbarAria);
+  document.getElementById('status-left')?.replaceChildren();
+
+  panelManager.refresh();
+  initToolbar();
+  rebuildNavRail();
+
+  if (currentUser) {
+    titleBar.setCaption(t.appTitleLoggedIn(currentUser.username));
+    statusBar.setUser(currentUser, currentPageTitle || null);
+  } else {
+    statusBar.setLoginRequired();
+  }
+}
+
 function initToolbar() {
   verticalToolbar = createVerticalToolbar(document.getElementById('vertical-toolbar'), t, {
     onCommand: async (item) => {
@@ -432,11 +500,11 @@ function initToolbar() {
       return;
     }
     if (currentPageId == null) {
-      showToast('편집할 Page를 선택하세요.');
+      showToast(t.selectPageToEdit);
       return;
     }
     if (!currentPageCanEdit) {
-      showToast('잠긴 Page는 편집할 수 없습니다.');
+      showToast(t.pageLockedCannotEdit);
       return;
     }
     try {
@@ -496,7 +564,7 @@ async function handleMenuAction(actionId, context = {}) {
         break;
       case 'new-page':
         if (!context.node?.id && !getMenuState().selectedWorkspaceId) {
-          showToast('Workspace를 선택하세요.');
+          showToast(t.selectWorkspace);
           break;
         }
         await createPageInWorkspace(context.node?.id || getMenuState().selectedWorkspaceId);
@@ -524,8 +592,13 @@ async function handleMenuAction(actionId, context = {}) {
         rebuildNavRail();
         break;
       case 'preferences':
-        await showPreferencesDialog(api, async ({ theme }) => {
-          await editor.applyTheme(theme?.toLowerCase() === 'dark' ? 'dark' : 'light');
+        await showPreferencesDialog(api, async ({ theme, language, fontScaleStep }) => {
+          applyUiAppearance({ theme, language, fontScaleStep });
+          refreshLocalizedUi();
+          await editor.applyAppearance({
+            theme: theme?.toLowerCase() === 'dark' ? 'dark' : 'light',
+            fontScaleStep
+          });
         });
         break;
       case 'page-history':
@@ -551,8 +624,8 @@ async function handleMenuAction(actionId, context = {}) {
     }
       case 'new-project': {
         const name = await showInputDialog({
-          title: '새 프로젝트',
-          label: '프로젝트 이름'
+          title: t.newProjectTitle,
+          label: t.newProjectNameLabel
         });
         if (!name?.trim()) {
           break;
@@ -569,7 +642,7 @@ async function handleMenuAction(actionId, context = {}) {
       case 'save-project': {
         const workspaceId = getMenuState().selectedWorkspaceId;
         if (!workspaceId) {
-          showToast('저장할 Workspace를 선택하세요.');
+          showToast(t.selectWorkspaceToSave);
           break;
         }
         const result = await api.saveProject(workspaceId);
@@ -624,7 +697,7 @@ async function handleMenuAction(actionId, context = {}) {
       if (workspaceId) {
         await showWorkspaceMembersDialog(api, workspaceId);
       } else {
-        showToast('Workspace를 선택하세요.');
+        showToast(t.selectWorkspace);
       }
       break;
     }
@@ -747,11 +820,19 @@ async function exportWorkspaceById(workspaceId) {
 
 async function bootstrap() {
   const config = await api.getUiConfig();
-  document.body.dataset.theme = config.theme?.toLowerCase() === 'dark' ? 'dark' : 'light';
-  initToolbar();
+  applyUiAppearance({
+    theme: config.theme,
+    language: config.language,
+    fontScaleStep: config.fontScaleStep
+  });
   initSplitters();
+  initEditorHostFileDrop();
+  refreshLocalizedUi();
+  await editor.applyAppearance({
+    theme: config.theme?.toLowerCase() === 'dark' ? 'dark' : 'light',
+    fontScaleStep: config.fontScaleStep
+  });
   await loadRecentProjects();
-  rebuildNavRail();
   verticalToolbar?.setEnabled(false);
   statusBar.setLoginRequired();
 
@@ -838,7 +919,7 @@ async function promptCreateWorkspace(parentId) {
 
 async function promptRename(node) {
   if (!node) {
-    showToast('항목을 선택하세요.');
+    showToast(t.selectItem);
     return;
   }
 
@@ -873,7 +954,7 @@ async function promptRename(node) {
 
 async function promptDelete(node) {
   if (!node) {
-    showToast('항목을 선택하세요.');
+    showToast(t.selectItem);
     return;
   }
 
@@ -953,7 +1034,7 @@ async function closePage(pageId) {
     verticalToolbar?.setEnabled(false);
     statusBar.setUser(currentUser);
     statusBar.setSaveStatus('none');
-    renderOutline([]);
+    renderOutline([], { pageKey: null, resetExpansion: true });
     commentsPanel.setPage(null);
     rebuildNavRail();
     return;
@@ -964,24 +1045,25 @@ async function closePage(pageId) {
 
 async function createPageInWorkspace(workspaceId) {
   if (!workspaceId) {
-    showToast('Workspace를 선택하세요.');
+    showToast(t.selectWorkspace);
     return;
   }
 
-  const form = await showNewPageDialog(api);
+  const templateLanguage = toTemplateLanguage(getUiLanguage());
+  const form = await showNewPageDialog(api, templateLanguage);
   if (!form) {
     return;
   }
 
-  const built = await api.buildPageFromTemplate(form.templateId, form.title, 'ko');
+  const built = await api.buildPageFromTemplate(form.templateId, form.title, templateLanguage);
   if (!built.ok) {
-    showApiError('Page 양식', built);
+    showApiError(t.errPageTemplates, built);
     return;
   }
 
   const result = await api.createPage({
     workspaceId,
-    title: form.title.trim(),
+    title: form.title.trim() || t.untitledPageTitle,
     content: built.content
   });
   if (!result.ok) {
@@ -1002,8 +1084,9 @@ async function importAssetIntoEditor(pageId, imageOnly, { replace = false } = {}
   if (replace && imageOnly) {
     try {
       const frameApi = editorFrame.contentWindow?.editorApi;
-      const alt = result.asset.fileName?.replace(/\.[^.]+$/, '') || '';
+      const alt = result.asset.displayName || result.asset.fileName?.replace(/\.[^.]+$/, '') || '';
       if (frameApi?.replaceSelectedImage?.(result.asset.uri, alt)) {
+        frameApi.refreshEditorBlocks?.();
         editor.onChanged?.();
         return;
       }
@@ -1016,6 +1099,84 @@ async function importAssetIntoEditor(pageId, imageOnly, { replace = false } = {}
   await insertAssetIntoEditor(result.asset);
 }
 
+function readFileAsDataUri(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('파일을 읽을 수 없습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isExternalFileDrag(event) {
+  return Array.from(event.dataTransfer?.types || []).includes('Files');
+}
+
+function toIframePoint(clientX, clientY) {
+  const frameRect = editorFrame.getBoundingClientRect();
+  return {
+    x: clientX - frameRect.left,
+    y: clientY - frameRect.top
+  };
+}
+
+async function importDroppedFiles(pageId, files, dropPoint) {
+  let useDropPoint = Boolean(dropPoint);
+
+  for (const fileEntry of files) {
+    const dataUri = fileEntry.dataUri || (fileEntry instanceof File ? await readFileAsDataUri(fileEntry) : '');
+    const fileName = fileEntry.fileName || fileEntry.name || 'file.bin';
+    if (!dataUri) {
+      continue;
+    }
+
+    const result = await api.importAssetDataUri(pageId, dataUri, fileName);
+    if (!result.ok) {
+      showApiError('파일 삽입', result);
+      continue;
+    }
+
+    const point = useDropPoint ? dropPoint : null;
+    await insertAssetIntoEditor(result.asset, point);
+    useDropPoint = false;
+  }
+}
+
+function initEditorHostFileDrop() {
+  const host = document.querySelector('.editor-host');
+  if (!host) {
+    return;
+  }
+
+  host.addEventListener('dragover', (event) => {
+    if (!isExternalFileDrag(event) || currentPageId == null || !currentPageCanEdit) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  });
+
+  host.addEventListener('drop', async (event) => {
+    if (!isExternalFileDrag(event) || currentPageId == null || !currentPageCanEdit) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+
+    const files = Array.from(event.dataTransfer.files || []);
+    if (!files.length) {
+      return;
+    }
+
+    const dropPoint = toIframePoint(event.clientX, event.clientY);
+    try {
+      await importDroppedFiles(currentPageId, files, dropPoint);
+    } catch (error) {
+      showUnexpectedError('파일 드롭', error);
+    }
+  });
+}
+
 async function insertAssetIntoEditor(asset, dropMessage) {
   try {
     const frameApi = editorFrame.contentWindow?.editorApi;
@@ -1023,21 +1184,28 @@ async function insertAssetIntoEditor(asset, dropMessage) {
       throw new Error('편집기가 준비되지 않았습니다.');
     }
 
-    const isImage = /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(asset.fileName || asset.uri);
+    const displayName = asset.displayName || asset.fileName || 'file';
+    const isImage = asset.isImage ?? /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(asset.fileName || asset.uri || '');
+
     if (
       dropMessage?.x != null &&
       dropMessage?.y != null &&
       frameApi.insertImageAtDropPoint &&
       isImage
     ) {
-      frameApi.insertImageAtDropPoint(dropMessage.x, dropMessage.y, asset.uri, asset.fileName);
+      frameApi.insertImageAtDropPoint(dropMessage.x, dropMessage.y, asset.uri, displayName);
     } else if (isImage && frameApi.insertImage) {
-      frameApi.insertImage(asset.uri, asset.fileName);
+      frameApi.insertImage(asset.uri, displayName);
+    } else if (frameApi.insertFileAttachment) {
+      frameApi.insertFileAttachment(asset.uri, displayName);
     } else if (frameApi.insertHtml) {
       frameApi.insertHtml(
-        `<a class="editor-file-attachment" contenteditable="false" href="${asset.uri}">${asset.fileName}</a><p><br></p>`
+        `<a class="editor-file-attachment" contenteditable="false" href="${asset.uri}">${displayName}</a><p><br></p>`
       );
     }
+
+    frameApi.refreshEditorBlocks?.();
+    frameApi.finalizeImageSizes?.();
     editor.onChanged?.();
   } catch (error) {
     showUnexpectedError('에셋 삽입', error);

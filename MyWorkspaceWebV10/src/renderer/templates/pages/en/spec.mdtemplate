@@ -1,0 +1,29 @@
+---
+id: spec
+name: Requirements Specification
+description: Functional and non-functional requirements
+language: en
+order: 90
+---
+
+# {title}
+
+## Document Info
+- **Version:** 1.0
+- **Date:**
+
+## Overview
+
+
+## Functional Requirements
+| ID | Requirement | Priority | Status |
+| --- | --- | --- | --- |
+| FR-001 | | High | Draft |
+
+## Non-Functional Requirements
+- **Performance:**
+- **Security:**
+- **Compatibility:**
+
+## Constraints
+-

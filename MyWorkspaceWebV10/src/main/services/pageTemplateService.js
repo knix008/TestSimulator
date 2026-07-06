@@ -57,32 +57,65 @@ function parseTemplateFile(filePath, language) {
   };
 }
 
+function normalizeTemplateLanguage(language = 'ko') {
+  if (!language) {
+    return 'ko';
+  }
+  const normalized = String(language).trim().toLowerCase();
+  if (normalized === 'english' || normalized === 'en') {
+    return 'en';
+  }
+  if (normalized === 'korean' || normalized === 'ko') {
+    return 'ko';
+  }
+  return 'ko';
+}
+
+function defaultUntitledTitle(language) {
+  return normalizeTemplateLanguage(language) === 'en' ? 'Untitled' : '제목없음';
+}
+
+function fallbackBlankTemplate(language) {
+  const lang = normalizeTemplateLanguage(language);
+  if (lang === 'en') {
+    return {
+      id: 'blank',
+      name: 'Blank Page',
+      description: 'Basic page with title only',
+      order: 10,
+      language: 'en',
+      contentPattern: '# {title}\n\nEnter content here.'
+    };
+  }
+  return {
+    id: 'blank',
+    name: '빈 Page',
+    description: '제목만 있는 기본 Page',
+    order: 10,
+    language: 'ko',
+    contentPattern: '# {title}\n\n내용을 입력하세요.'
+  };
+}
+
 function listTemplates(language = 'ko') {
+  const lang = normalizeTemplateLanguage(language);
   const root = getTemplateRoot();
-  const languageDir = path.join(root, language);
+  const languageDir = path.join(root, lang);
   const searchDir = fs.existsSync(languageDir) ? languageDir : root;
   if (!fs.existsSync(searchDir)) {
-    return [
-      {
-        id: 'blank',
-        name: '빈 Page',
-        description: '제목만 있는 기본 Page',
-        order: 10,
-        language: 'ko',
-        contentPattern: '# {title}\n\n내용을 입력하세요.'
-      }
-    ];
+    return [fallbackBlankTemplate(lang)];
   }
 
   return fs
     .readdirSync(searchDir)
     .filter((file) => file.endsWith('.mdtemplate'))
-    .map((file) => parseTemplateFile(path.join(searchDir, file), language))
-    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ko'));
+    .map((file) => parseTemplateFile(path.join(searchDir, file), lang))
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, lang));
 }
 
 function buildContent(templateId, title, language = 'ko') {
-  const templates = listTemplates(language);
+  const lang = normalizeTemplateLanguage(language);
+  const templates = listTemplates(lang);
   const template = templates.find((item) => item.id === templateId) || templates[0];
   if (!template) {
     throw new Error('사용 가능한 Page 양식이 없습니다.');
@@ -90,7 +123,7 @@ function buildContent(templateId, title, language = 'ko') {
 
   let trimmedTitle = (title || '').trim();
   if (!trimmedTitle) {
-    trimmedTitle = '제목없음';
+    trimmedTitle = defaultUntitledTitle(lang);
   }
 
   return template.contentPattern.replaceAll('{title}', trimmedTitle);
@@ -98,5 +131,6 @@ function buildContent(templateId, title, language = 'ko') {
 
 module.exports = {
   listTemplates,
-  buildContent
+  buildContent,
+  normalizeTemplateLanguage
 };

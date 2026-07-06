@@ -1,0 +1,40 @@
+---
+id: proposal
+name: Proposal
+description: Problem, proposal, expected impact, schedule
+language: en
+order: 95
+---
+
+# {title}
+
+## Document Info
+- **Author:**
+- **Date:**
+- **Status:** Draft
+
+## Background / Problem
+
+
+## Proposal
+
+
+## Expected Impact
+
+
+## Scope
+### In Scope
+-
+
+### Out of Scope
+-
+
+## Estimated Schedule
+| Phase | Duration | Deliverable |
+| --- | --- | --- |
+| | | |
+
+## Risks
+| Risk | Mitigation |
+| --- | --- |
+| | |

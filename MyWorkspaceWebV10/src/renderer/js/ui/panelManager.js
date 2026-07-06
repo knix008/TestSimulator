@@ -1,4 +1,15 @@
-import { t } from '../i18n/ko.js';
+import { t } from '../i18n/index.js';
+import { buildHeadingTree, createTreePanel } from './treeView.js';
+
+let outlineTree = null;
+let outlinePageKey = null;
+
+function getOutlineTree() {
+  if (!outlineTree) {
+    outlineTree = createTreePanel(document.getElementById('outline-tree'), { storageKey: 'outline' });
+  }
+  return outlineTree;
+}
 
 export function createPanelManager({ onChange } = {}) {
   const state = {
@@ -49,9 +60,9 @@ export function createPanelManager({ onChange } = {}) {
     commentsToggle.textContent = state.commentsPanelVisible ? t.commentsCollapse : t.commentsExpand;
     commentsToggle.title = state.commentsPanelVisible ? t.commentsCollapse : t.commentsExpand;
 
-    workspaceSplitter?.setAttribute('aria-label', state.workspacePanelVisible ? 'Workspace 크기 조절' : t.workspacePanelExpand);
-    outlineSplitter?.setAttribute('aria-label', state.outlinePanelVisible ? '문서 구조 크기 조절' : t.outlineExpand);
-    commentsSplitter?.setAttribute('aria-label', state.commentsPanelVisible ? '댓글 크기 조절' : t.commentsExpand);
+    workspaceSplitter?.setAttribute('aria-label', state.workspacePanelVisible ? t.splitterWorkspace : t.workspacePanelExpand);
+    outlineSplitter?.setAttribute('aria-label', state.outlinePanelVisible ? t.splitterOutline : t.outlineExpand);
+    commentsSplitter?.setAttribute('aria-label', state.commentsPanelVisible ? t.splitterComments : t.commentsExpand);
 
     onChange?.(getState());
   }
@@ -150,27 +161,29 @@ export function createPanelManager({ onChange } = {}) {
   };
 }
 
-export function renderOutline(headings) {
-  const container = document.getElementById('outline-tree');
-  container.replaceChildren();
-
-  if (!headings.length) {
-    const empty = document.createElement('p');
-    empty.className = 'comments-placeholder';
-    empty.textContent = t.outlineEmpty;
-    container.appendChild(empty);
-    return;
+export function renderOutline(headings, { pageKey = null, resetExpansion = false } = {}) {
+  const tree = getOutlineTree();
+  if (resetExpansion) {
+    outlinePageKey = pageKey;
+    tree.expandAll();
+  } else if (pageKey != null && pageKey !== outlinePageKey) {
+    outlinePageKey = pageKey;
+    tree.expandAll();
   }
-
-  for (const heading of headings) {
-    const link = document.createElement('a');
-    link.href = '#';
-    link.className = `outline-link level-${heading.level}`;
-    link.textContent = heading.text || t.labelOutline;
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      heading.onClick?.();
-    });
-    container.appendChild(link);
-  }
+  const roots = buildHeadingTree(
+    headings.map((heading) => ({
+      ...heading,
+      text: heading.text?.trim() || t.labelOutline
+    }))
+  );
+  tree.render(roots, {
+    emptyMessage: t.outlineEmpty,
+    getNodeKey: (node) => node.key,
+    expandLabel: t.treeExpand,
+    collapseLabel: t.treeCollapse,
+    toggleOnDoubleClick: true,
+    onSelect: (node) => {
+      node.payload?.onClick?.();
+    }
+  });
 }

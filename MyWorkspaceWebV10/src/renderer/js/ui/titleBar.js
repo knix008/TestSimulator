@@ -1,4 +1,4 @@
-import { t } from '../i18n/ko.js';
+import { t } from '../i18n/index.js';
 import { showPopupMenu } from './popupMenu.js';
 
 export function createTitleBar({ onPageSearch, onSettingsAction, onWindowAction }) {

@@ -1,0 +1,27 @@
+---
+id: brainstorm
+name: Idea Board
+description: Free ideas, categories, next steps
+language: en
+order: 85
+---
+
+# {title}
+
+## Topic
+
+
+## Ideas
+-
+
+## Categories
+| Category | Ideas |
+| --- | --- |
+| | |
+
+## Adopt / Hold
+- **Adopt:**
+- **Hold:**
+
+## Next Steps
+- [ ]

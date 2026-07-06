@@ -6,15 +6,30 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "postinstall": "electron-builder install-app-deps && node scripts/copy-vendor.js && node scripts/extract-win-editor.js && node scripts/sync-icons.js",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "postinstall": "electron-builder install-app-deps && node scripts/copy-vendor.js && node scripts/extract-win-editor.js && node scripts/sync-icons.js && node scripts/sync-page-templates.js && node scripts/sync-build-assets.js",
+    "sync:icons": "node scripts/sync-icons.js",
+    "sync:templates": "node scripts/sync-page-templates.js",
+    "sync:build-assets": "node scripts/sync-build-assets.js",
+    "generate:icon": "node scripts/generate-app-icon.js",
+    "pack": "node scripts/sync-build-assets.js && electron-builder --dir",
+    "pack:win": "node scripts/sync-build-assets.js && electron-builder --win --dir",
+    "pack:mac": "node scripts/sync-build-assets.js && electron-builder --mac --dir",
+    "pack:linux": "node scripts/sync-build-assets.js && electron-builder --linux --dir",
+    "dist": "node scripts/sync-build-assets.js && electron-builder",
+    "dist:win": "node scripts/sync-build-assets.js && electron-builder --win",
+    "dist:mac": "node scripts/sync-build-assets.js && electron-builder --mac",
+    "dist:linux": "node scripts/sync-build-assets.js && electron-builder --linux",
+    "dist:linux:portable": "node scripts/sync-build-assets.js && electron-builder --linux tar.gz",
+    "dist:installers": "node scripts/sync-build-assets.js && npm run dist:win && npm run dist:linux:portable"
   },
   "author": "SHKWON",
   "license": "UNLICENSED",
+  "homepage": "https://github.com/shkwon/myworkspace-web-v10",
   "devDependencies": {
     "electron": "^35.7.5",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.35.3"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
@@ -24,35 +39,5 @@
     "marked": "^15.0.12",
     "nodemailer": "^9.0.3",
     "turndown": "^7.2.0"
-  },
-  "build": {
-    "appId": "com.shkwon.myworkspace",
-    "productName": "MyWorkspace",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "electron/**/*",
-      "src/**/*",
-      "config/**/*",
-      "scripts/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "category": "public.app-category.productivity"
-    },
-    "linux": {
-      "target": [
-        "AppImage"
-      ]
-    }
   }
 }

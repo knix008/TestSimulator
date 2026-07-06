@@ -133,17 +133,33 @@ function buildMarkdownFileReference(pageId, fileName, displayName) {
   return `[${label}](page-asset:${pageId}/${fileName})`;
 }
 
+function importAssetBytes(db, user, pageId, content, extension, preferredFileName) {
+  const ext = normalizeExtension(extension || path.extname(preferredFileName || ''));
+  if (!ext) {
+    throw new Error('파일 확장자를 확인할 수 없습니다.');
+  }
+
+  const fileName = allocateUniqueAssetFileName(db, pageId, preferredFileName, ext);
+  saveAsset(db, user, pageId, fileName, content, guessContentType(fileName));
+  const isImage = isSupportedImageExtension(ext);
+  const displayName = path.basename(preferredFileName || fileName, ext) || fileName;
+
+  return {
+    fileName,
+    uri: buildAssetUri(pageId, fileName),
+    isImage,
+    displayName,
+    markdown: isImage
+      ? buildMarkdownImageReference(pageId, fileName, displayName)
+      : buildMarkdownFileReference(pageId, fileName, displayName)
+  };
+}
+
 function importImageBytes(db, user, pageId, content, extension, preferredFileName) {
   if (!isSupportedImageExtension(extension)) {
     throw new Error(`지원하지 않는 이미지 형식입니다: ${extension || '(없음)'}`);
   }
-  const fileName = allocateUniqueAssetFileName(db, pageId, preferredFileName, extension);
-  saveAsset(db, user, pageId, fileName, content, guessContentType(fileName));
-  return {
-    fileName,
-    uri: buildAssetUri(pageId, fileName),
-    markdown: buildMarkdownImageReference(pageId, fileName, path.basename(fileName, extension))
-  };
+  return importAssetBytes(db, user, pageId, content, extension, preferredFileName);
 }
 
 function importFileFromPath(db, user, pageId, sourcePath, { imageOnly = false } = {}) {
@@ -233,6 +249,7 @@ module.exports = {
   buildMarkdownImageReference,
   buildMarkdownFileReference,
   importImageBytes,
+  importAssetBytes,
   importFileFromPath,
   resolveAssetFromCache,
   cloneEmbeddedPageAssetHtml,

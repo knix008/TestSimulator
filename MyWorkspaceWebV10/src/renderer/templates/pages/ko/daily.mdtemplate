@@ -1,0 +1,18 @@
+---
+id: daily
+name: 일일 업무일지
+description: 오늘 한 일, 내일 할 일, 메모
+order: 35
+language: ko
+---
+
+# {title}
+
+## 오늘 한 일
+-
+
+## 내일 할 일
+-
+
+## 이슈 / 메모
+-

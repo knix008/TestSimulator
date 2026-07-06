@@ -1,0 +1,34 @@
+---
+id: bug-report
+name: Bug Report
+description: Steps to reproduce, expected/actual, environment
+language: en
+order: 55
+---
+
+# {title}
+
+## Summary
+
+
+## Steps to Reproduce
+1.
+2.
+3.
+
+## Expected Result
+
+
+## Actual Result
+
+
+## Environment
+- **OS:**
+- **Version:**
+- **Browser/Client:**
+
+## Screenshots / Logs
+
+
+## Priority
+- [ ] Critical  [ ] High  [ ] Medium  [ ] Low

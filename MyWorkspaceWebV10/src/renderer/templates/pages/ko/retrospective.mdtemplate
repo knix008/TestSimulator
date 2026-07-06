@@ -1,0 +1,24 @@
+---
+id: retrospective
+name: 회고록
+description: Keep, Problem, Try 형식 회고
+order: 70
+language: ko
+---
+
+# {title}
+
+## 기간
+
+
+## 잘된 점 (Keep)
+-
+
+## 아쉬운 점 (Problem)
+-
+
+## 시도할 점 (Try)
+-
+
+## Action Item
+- [ ] 담당 / 기한

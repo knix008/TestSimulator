@@ -131,9 +131,39 @@
   background: var(--bg);
 }
 
-.about-body p {
+.about-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.about-app-name {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.about-description,
+.about-version,
+.about-copyright {
   margin: 0;
   line-height: 1.6;
+}
+
+.about-description,
+.about-version {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.about-version {
+  margin-top: 4px;
+}
+
+.about-copyright {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .error-detail-body {

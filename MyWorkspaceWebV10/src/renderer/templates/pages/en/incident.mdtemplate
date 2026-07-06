@@ -1,0 +1,37 @@
+---
+id: incident
+name: Incident Report
+description: Overview, timeline, root cause, prevention
+language: en
+order: 115
+---
+
+# {title}
+
+## Overview
+- **Started At:**
+- **Resolved At:**
+- **Impact:**
+- **Severity:**
+
+## Timeline
+| Time | Event |
+| --- | --- |
+| | Incident detected |
+| | |
+
+## Root Cause Analysis
+
+
+## Actions Taken
+### Immediate
+-
+
+### Permanent Fix
+-
+
+## Prevention
+- [ ] Owner / Due date
+
+## Lessons Learned
+-

@@ -1,4 +1,4 @@
-import { t } from '../i18n/ko.js';
+import { t } from '../i18n/index.js';
 
 export function createStatusBar() {
   const left = document.getElementById('status-left');

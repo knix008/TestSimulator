@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('myworkspace', {
   logout: () => ipcRenderer.invoke('auth:logout'),
   getSession: () => ipcRenderer.invoke('auth:session'),
   getUiConfig: () => ipcRenderer.invoke('app:uiConfig'),
+  getAppInfo: () => ipcRenderer.invoke('app:getInfo'),
   saveUiConfig: (partial) => ipcRenderer.invoke('app:saveUiConfig', partial),
   getWorkspaceTree: () => ipcRenderer.invoke('workspace:getTree'),
   createWorkspace: (payload) => ipcRenderer.invoke('workspace:create', payload),

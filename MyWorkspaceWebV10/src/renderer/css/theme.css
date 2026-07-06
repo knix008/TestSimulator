@@ -23,7 +23,12 @@
   --panel-header-page-title: #fef3c7;
   --nav-rail-width: 56px;
   --vertical-toolbar-width: 52px;
+  --tree-indent: 20px;
+  --tree-line: var(--border-light);
   --title-bar-height: 36px;
+  --title-bar-search-inset: 2px;
+  --title-bar-search-height: calc(var(--title-bar-height) - var(--title-bar-search-inset) * 2);
+  --ui-font-scale: 1;
   --status-bar-height: 22px;
   --toolbar-button-size: 44px;
   --toolbar-icon-size: 24px;
@@ -63,7 +68,7 @@ body {
   height: 100%;
   overflow: hidden;
   font-family: var(--font);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-font-scale, 1));
   background: var(--bg);
   color: var(--text);
 }

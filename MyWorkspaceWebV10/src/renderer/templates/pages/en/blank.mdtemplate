@@ -1,0 +1,11 @@
+---
+id: blank
+name: Blank Page
+description: Basic page with title only
+language: en
+order: 10
+---
+
+# {title}
+
+Enter content here.

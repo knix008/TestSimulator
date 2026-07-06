@@ -1,0 +1,26 @@
+---
+id: meeting
+name: Meeting Notes
+description: Date, attendees, agenda, decisions
+language: en
+order: 20
+---
+
+# {title}
+
+## Meeting Info
+- **Date/Time:**
+- **Location:**
+- **Attendees:**
+
+## Agenda
+1.
+
+## Discussion
+
+
+## Decisions
+-
+
+## Follow-up Actions
+- [ ] Owner / Due date

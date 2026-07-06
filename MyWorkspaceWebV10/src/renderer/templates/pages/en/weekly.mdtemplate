@@ -1,0 +1,23 @@
+---
+id: weekly
+name: Weekly Report
+description: This week, next week, issues
+language: en
+order: 40
+---
+
+# {title}
+
+## This Week
+-
+
+## Next Week
+-
+
+## Issues & Risks
+| Item | Details | Action |
+| --- | --- | --- |
+| | | |
+
+## Other
+-

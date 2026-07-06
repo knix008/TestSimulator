@@ -60,6 +60,7 @@ const {
 const {
   importFileFromPath,
   importImageBytes,
+  importAssetBytes,
   tryGetAssetBytes,
   resolveAssetFromCache,
   cloneEmbeddedPageAssetHtml
@@ -89,7 +90,7 @@ const {
 const { showOpenDialog, showSaveDialog, showOpenDirectoryDialog } = require('./dialogs');
 const { saveLocalConfig, getUserDataPaths } = require('../config');
 const { success, failure, wrapHandler } = require('../utils/ipcResult');
-const { listTemplates, buildContent } = require('../services/pageTemplateService');
+const { listTemplates, buildContent, normalizeTemplateLanguage } = require('../services/pageTemplateService');
 const { clipboard, shell } = require('electron');
 
 function registerIpcHandlers(deps) {
@@ -133,7 +134,16 @@ function registerIpcHandlers(deps) {
     const config = deps.getConfig();
     return success({
       theme: config?.Ui?.Theme || 'Light',
-      language: config?.Ui?.Language || 'Korean'
+      language: config?.Ui?.Language || 'Korean',
+      fontScaleStep: Number.parseInt(config?.Ui?.FontScaleStep, 10) || 0
+    });
+  });
+
+  ipcMain.handle('app:getInfo', () => {
+    const pkg = require(path.join(__dirname, '..', '..', '..', 'package.json'));
+    return success({
+      version: pkg.version || '0.1.0',
+      productName: 'MyWorkspace'
     });
   });
 
@@ -287,13 +297,15 @@ function registerIpcHandlers(deps) {
   );
 
   ipcMain.handle('page:listTemplates', wrapHandler(async (_event, { language } = {}) => {
-    return success({ templates: listTemplates(language || 'ko') });
+    return success({ templates: listTemplates(normalizeTemplateLanguage(language)) });
   }));
 
   ipcMain.handle(
     'page:buildFromTemplate',
     wrapHandler(async (_event, { templateId, title, language }) => {
-      return success({ content: buildContent(templateId, title, language || 'ko') });
+      return success({
+        content: buildContent(templateId, title, normalizeTemplateLanguage(language))
+      });
     })
   );
 
@@ -474,11 +486,11 @@ function registerIpcHandlers(deps) {
     wrapHandler(async (_event, { pageId, dataUri, fileName }) => {
       const match = /^data:([^;]+);base64,(.+)$/.exec(dataUri || '');
       if (!match) {
-        throw new Error('유효하지 않은 이미지 데이터입니다.');
+        throw new Error('유효하지 않은 파일 데이터입니다.');
       }
       const extension = guessExtensionFromMime(match[1], fileName);
       const content = Buffer.from(match[2], 'base64');
-      const asset = importImageBytes(db(), user(), pageId, content, extension, fileName);
+      const asset = importAssetBytes(db(), user(), pageId, content, extension, fileName);
       return success({ asset });
     })
   );
@@ -804,9 +816,12 @@ function guessExtensionFromMime(mime, fileName) {
     'image/gif': '.gif',
     'image/webp': '.webp',
     'image/avif': '.avif',
-    'image/svg+xml': '.svg'
+    'image/svg+xml': '.svg',
+    'application/pdf': '.pdf',
+    'text/plain': '.txt',
+    'text/markdown': '.md'
   };
-  return map[mime.toLowerCase()] || '.png';
+  return map[String(mime || '').toLowerCase()] || '.bin';
 }
 
 function guessMimeFromFileName(fileName) {

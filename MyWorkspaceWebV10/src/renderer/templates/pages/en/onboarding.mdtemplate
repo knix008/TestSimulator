@@ -1,0 +1,31 @@
+---
+id: onboarding
+name: Onboarding Checklist
+description: New hire guide, accounts, environment setup
+language: en
+order: 110
+---
+
+# {title}
+
+## Person
+- **Name:**
+- **Start Date:**
+- **Mentor:**
+
+## Accounts / Access
+- [ ] Email / SSO
+- [ ] Source repository
+- [ ] Issue tracker
+- [ ] Docs / Wiki
+
+## Development Environment
+- [ ] Install required tools
+- [ ] Verify local build
+- [ ] Run tests
+
+## Team Intro / References
+-
+
+## Week 1 Goals
+- [ ]
