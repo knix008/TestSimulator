@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TaskPropertiesDialog } from '@web/components/TaskPropertiesDialog';
-import { GanttChart } from '@web/components/GanttChart';
+import { AboutDialog } from '@web/components/AboutDialog';
+import { GanttChart, type GanttChartExportHandle } from '@web/components/GanttChart';
 import { TaskGrid } from '@web/components/TaskGrid';
 import { ContextMenu } from '@web/components/ContextMenu';
 import { UserManagementPanel } from '@web/components/UserManagementPanel';
@@ -8,6 +9,7 @@ import { MyAccountPanel } from '@web/components/MyAccountPanel';
 import { useTranslation, useLanguage } from '@web/i18n';
 import { useAuth } from '../context/DesktopAuthContext';
 import { getStartupProjectPath } from '../api/desktopClient';
+import type { AppInfo } from '@web/types/appInfo';
 import type { GanttViewSettings, NoteItem, ProjectDetail } from '@web/types/project';
 import {
   applyTaskDateChange,
@@ -20,6 +22,8 @@ import {
   setDependencyType,
   tryAddDependency,
   withRecalculatedSchedule,
+  resolveDependencyEndLineEnd,
+  resolveDependencyStartLineEnd,
   resolveDependencyTypeTarget,
 } from '@web/utils/scheduleUtils';
 import { applyTaskResourcesFromColumns } from '@web/utils/taskResources';
@@ -74,7 +78,8 @@ import { DesktopTaskPropertiesPanel } from './DesktopTaskPropertiesPanel';
 import { DesktopThreePaneLayout } from './DesktopThreePaneLayout';
 import { DesktopCalendarView } from './DesktopCalendarView';
 import { DesktopStatusBar } from './DesktopStatusBar';
-import html2canvas from 'html2canvas';
+import { DesktopGanttExportDialog } from './DesktopGanttExportDialog';
+import { useDesktopWindowMinSize } from '../hooks/useDesktopWindowMinSize';
 import '@web/components/ProjectView.css';
 import '@web/components/ProjectToolbar.css';
 import './DesktopProjectView.css';
@@ -114,9 +119,25 @@ export function DesktopProjectView() {
   const [undoRevision, setUndoRevision] = useState(0);
   const [userMgmtOpen, setUserMgmtOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [aboutInfo, setAboutInfo] = useState<AppInfo | null>(null);
+  const [aboutLoading, setAboutLoading] = useState(false);
+  const [ganttExportOpen, setGanttExportOpen] = useState(false);
+  const [ganttExportBusy, setGanttExportBusy] = useState(false);
+
+  const { toolbarRef, actionsRef } = useDesktopWindowMinSize([
+    loading,
+    project?.id,
+    isAdmin,
+    locale,
+    linkSourceTaskId,
+    propertiesPanelVisible,
+    calendarView,
+    username,
+  ]);
 
   const undoManagerRef = useRef(new UndoRedoManager());
-  const ganttCaptureRef = useRef<HTMLDivElement>(null);
+  const ganttExportRef = useRef<GanttChartExportHandle>(null);
 
   const ganttViewSettingsRef = useRef<GanttViewSettings | null>(null);
   const gridScrollRef = useRef<HTMLDivElement>(null);
@@ -401,6 +422,18 @@ export function DesktopProjectView() {
         ...current,
         dependencies: removeDependency(current.dependencies, predecessorId, successorId),
       }));
+    },
+    [updateProjectState],
+  );
+
+  const handleUpdateDependencyType = useCallback(
+    (predecessorId: number, successorId: number, type: DependencyTypeValue) => {
+      setSelectedDependency({ predecessorId, successorId });
+      updateProjectState((current) => ({
+        ...current,
+        dependencies: setDependencyType(current.dependencies, predecessorId, successorId, type),
+      }));
+      setScheduleError(null);
     },
     [updateProjectState],
   );
@@ -751,6 +784,35 @@ export function DesktopProjectView() {
     [markModified],
   );
 
+  const handleSetLineEnd = useCallback(
+    (which: 'start' | 'end', style: GanttViewSettings['startLineEnd']) => {
+      setGanttViewSettings((current) => {
+        if (!current) return current;
+        const next =
+          which === 'start'
+            ? { ...current, startLineEnd: style }
+            : { ...current, endLineEnd: style };
+        setMyprjSettings((settings) => ganttViewSettingsToMyprjSettings(settings, next));
+        markModified();
+        return next;
+      });
+
+      if (selectedDependency) {
+        updateProjectState((current) => ({
+          ...current,
+          dependencies: setDependencyLineEnd(
+            current.dependencies,
+            selectedDependency.predecessorId,
+            selectedDependency.successorId,
+            which,
+            style,
+          ),
+        }));
+      }
+    },
+    [markModified, selectedDependency, updateProjectState],
+  );
+
   const handleSettingsSave = useCallback(
     (nextProject: ProjectDetail, nextGanttSettings: GanttViewSettings) => {
       setProject(nextProject);
@@ -790,15 +852,31 @@ export function DesktopProjectView() {
       try {
         const dto = projectToExportDto(project);
         if (format === 'gantt-png') {
-          const target = ganttCaptureRef.current;
-          if (!target) return;
-          const canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: 2 });
-          await window.electronAPI.saveGanttImage(dto.name, canvas.toDataURL('image/png'));
+          setGanttExportOpen(true);
           return;
         }
         await window.electronAPI.exportReport(format, dto);
       } catch (err) {
         setScheduleError(err instanceof Error ? err.message : 'Export failed');
+      }
+    },
+    [project],
+  );
+
+  const handleGanttImageExport = useCallback(
+    async (transparentBackground: boolean) => {
+      if (!project) return;
+      setGanttExportBusy(true);
+      try {
+        const dto = projectToExportDto(project);
+        const dataUrl = await ganttExportRef.current?.captureImage({ transparentBackground });
+        if (!dataUrl) return;
+        await window.electronAPI.saveGanttImage(dto.name, dataUrl);
+        setGanttExportOpen(false);
+      } catch (err) {
+        setScheduleError(err instanceof Error ? err.message : 'Export failed');
+      } finally {
+        setGanttExportBusy(false);
       }
     },
     [project],
@@ -842,6 +920,16 @@ export function DesktopProjectView() {
     [],
   );
 
+  const handleShowAbout = useCallback(() => {
+    setAboutOpen(true);
+    setAboutLoading(true);
+    void window.electronAPI
+      .getAppInfo()
+      .then((info) => setAboutInfo(info))
+      .catch(() => setAboutInfo(null))
+      .finally(() => setAboutLoading(false));
+  }, []);
+
   const desktopActions = useMemo<DesktopAppActions>(
     () => ({
       newProject: () => void handleNewProject(),
@@ -883,7 +971,7 @@ export function DesktopProjectView() {
       exportGanttImage: () => void handleExportReport('gantt-png'),
       exportPdf: () => void handleExportReport('pdf'),
       print: () => void handlePrint(),
-      showAbout: () => void window.electronAPI.showAbout(),
+      showAbout: handleShowAbout,
       addNote: () => {
         if (selectedTaskId != null) handleAddNoteToTask(selectedTaskId);
       },
@@ -906,6 +994,7 @@ export function DesktopProjectView() {
       handleToggleTaskPropertiesDialog,
       handleOutdentTask,
       handlePrint,
+      handleShowAbout,
       handleRedo,
       handleSave,
       handleSaveAs,
@@ -1119,6 +1208,16 @@ export function DesktopProjectView() {
     return <div className="desktop-loading">{t('common.loading')}</div>;
   }
 
+  const selectedDependencyItem = selectedDependency
+    ? project.dependencies.find(
+        (dep) =>
+          dep.predecessorId === selectedDependency.predecessorId &&
+          dep.successorId === selectedDependency.successorId,
+      )
+    : undefined;
+  const toolbarStartLineEnd = resolveDependencyStartLineEnd(selectedDependencyItem, ganttViewSettings);
+  const toolbarEndLineEnd = resolveDependencyEndLineEnd(selectedDependencyItem, ganttViewSettings);
+
   return (
     <div className="desktop-project-view">
       <DesktopMenuBar
@@ -1142,21 +1241,28 @@ export function DesktopProjectView() {
       />
 
       <DesktopToolbar
+        toolbarRef={toolbarRef}
+        actionsRef={actionsRef}
         filePath={filePath}
         projectName={project.name}
         isModified={isModified}
         saveStatus={saveStatus}
         linkMode={linkSourceTaskId != null}
         showCriticalPath={ganttViewSettings.showCriticalPath}
+        calendarView={calendarView}
         propertiesPanelVisible={propertiesPanelVisible}
         canGoToToday={(project.tasks.length ?? 0) > 0}
         canDeleteTask={selectedTaskId != null}
         canIndentTask={selectedTaskId != null && canIndentTask(project.tasks, selectedTaskId)}
         canOutdentTask={selectedTaskId != null && canOutdentTask(project.tasks, selectedTaskId)}
         canAddNote={selectedTaskId != null}
+        canOpenTaskProperties={selectedTaskId != null}
+        canToggleExpandCollapse={selectedTaskId != null}
         canUndo={canUndo}
         canRedo={canRedo}
         defaultDependencyType={ganttViewSettings.defaultDependencyType}
+        startLineEnd={toolbarStartLineEnd}
+        endLineEnd={toolbarEndLineEnd}
         onNew={() => void handleNewProject()}
         onOpen={() => void handleOpenDialog()}
         onSave={() => void handleSave()}
@@ -1173,7 +1279,10 @@ export function DesktopProjectView() {
         onDeleteTask={() => handleDeleteTask()}
         onIndentTask={() => handleIndentTask()}
         onOutdentTask={() => handleOutdentTask()}
+        onOpenTaskProperties={handleToggleTaskPropertiesDialog}
+        onToggleExpandCollapse={handleToggleExpandCollapse}
         onToggleCriticalPath={handleToggleCriticalPath}
+        onToggleCalendarView={handleToggleCalendarView}
         onGoToToday={handleGoToToday}
         onZoomIn={() => ganttZoomRef.current?.zoomIn()}
         onZoomOut={() => ganttZoomRef.current?.zoomOut()}
@@ -1181,6 +1290,8 @@ export function DesktopProjectView() {
         onOpenProjectSettings={() => setProjectSettingsOpen(true)}
         onPrint={() => void handlePrint()}
         onDependencyTypeChange={handleSetDefaultDependencyType}
+        onStartLineEndChange={(style) => handleSetLineEnd('start', style)}
+        onEndLineEndChange={(style) => handleSetLineEnd('end', style)}
         isAdmin={isAdmin}
         username={username}
         onOpenUserManagement={() => setUserMgmtOpen(true)}
@@ -1198,7 +1309,7 @@ export function DesktopProjectView() {
         ) : (
           <DesktopThreePaneLayout
             propertiesVisible={propertiesPanelVisible}
-            initialPropertiesWidth={myprjSettings?.propertiesPanelWidth ?? 300}
+            initialPropertiesWidth={myprjSettings?.propertiesPanelWidth ?? 260}
             onPropertiesWidthChange={handlePropertiesPanelWidthChange}
             gridPane={
               <TaskGrid
@@ -1218,8 +1329,9 @@ export function DesktopProjectView() {
               />
             }
             ganttPane={
-              <div ref={ganttCaptureRef} className="desktop-gantt-capture">
+              <div className="desktop-gantt-capture">
                 <GanttChart
+                  chartExportRef={ganttExportRef}
                   tasks={project.tasks}
                   dependencies={project.dependencies}
                   ganttNotes={project.ganttNotes}
@@ -1260,6 +1372,7 @@ export function DesktopProjectView() {
                 onUpdateTask={handleUpdateTask}
                 onUpdateNote={handleUpdateNote}
                 onRemoveDependency={handleRemoveDependency}
+                onUpdateDependencyType={handleUpdateDependencyType}
               />
             }
           />
@@ -1306,6 +1419,23 @@ export function DesktopProjectView() {
         onClose={() => setTaskPropertiesOpen(false)}
         onSave={handleUpdateTask}
         onRemoveDependency={handleRemoveDependency}
+        onUpdateDependencyType={handleUpdateDependencyType}
+      />
+
+      <AboutDialog
+        open={aboutOpen}
+        appInfo={aboutInfo}
+        loading={aboutLoading}
+        onClose={() => setAboutOpen(false)}
+      />
+
+      <DesktopGanttExportDialog
+        open={ganttExportOpen}
+        exporting={ganttExportBusy}
+        onClose={() => {
+          if (!ganttExportBusy) setGanttExportOpen(false);
+        }}
+        onExport={(transparentBackground) => void handleGanttImageExport(transparentBackground)}
       />
 
       {contextMenu && contextMenuItems.length > 0 && (

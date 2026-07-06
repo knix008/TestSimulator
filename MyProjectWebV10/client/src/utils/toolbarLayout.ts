@@ -3,8 +3,10 @@ const TOOLBAR_SECTION_GAP = 16;
 const TOOLBAR_HORIZONTAL_PADDING = 32;
 const APP_MIN_WIDTH_FLOOR = 1200;
 const APP_MIN_HEIGHT = 500;
+/** Desktop Electron window minimum height (menu + toolbar + workspace + status). */
+const DESKTOP_WINDOW_MIN_HEIGHT = 600;
 
-export { APP_MIN_HEIGHT, APP_MIN_WIDTH_FLOOR };
+export { APP_MIN_HEIGHT, APP_MIN_WIDTH_FLOOR, DESKTOP_WINDOW_MIN_HEIGHT };
 
 function measureItemWidths(container: HTMLElement): number[] {
   return Array.from(container.children).map(
@@ -42,10 +44,31 @@ export function computeAppMinWidth(toolbar: HTMLElement, actions: HTMLElement): 
   return Math.max(APP_MIN_WIDTH_FLOOR, Math.ceil(total));
 }
 
+/** Desktop toolbar: single actions row (no brand/db columns). */
+export function computeDesktopAppMinWidth(toolbar: HTMLElement, actions: HTMLElement): number {
+  const actionsWidth = minActionsWidthForTwoRows(measureItemWidths(actions));
+  const style = getComputedStyle(toolbar);
+  const padding =
+    parseFloat(style.paddingLeft) +
+    parseFloat(style.paddingRight) +
+    parseFloat(style.borderLeftWidth) +
+    parseFloat(style.borderRightWidth);
+
+  return Math.max(APP_MIN_WIDTH_FLOOR, Math.ceil(actionsWidth + padding));
+}
+
 export function applyAppMinWidth(width: number): void {
   document.documentElement.style.setProperty('--app-min-width', `${width}px`);
 }
 
+export function applyAppMinHeight(height: number): void {
+  document.documentElement.style.setProperty('--app-min-height', `${height}px`);
+}
+
 export function clearAppMinWidth(): void {
   document.documentElement.style.removeProperty('--app-min-width');
+}
+
+export function clearAppMinHeight(): void {
+  document.documentElement.style.removeProperty('--app-min-height');
 }

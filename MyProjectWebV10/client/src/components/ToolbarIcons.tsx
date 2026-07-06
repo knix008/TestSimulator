@@ -115,7 +115,7 @@ export function IconAddNote(props: IconProps) {
         d="M7 4h10a2 2 0 0 1 2 2v12l-3-2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
         stroke="currentColor"
         strokeWidth="1.75"
-        fill="none"
+        fill="#ffeeaa"
       />
       <path d="M9 8h6M9 11h4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
     </IconBase>
@@ -125,8 +125,8 @@ export function IconAddNote(props: IconProps) {
 export function IconDelete(props: IconProps) {
   return (
     <IconBase {...props}>
-      <path d="M4 6h12v12H4V6zM7 4h6M2 6h16" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M7 10v5M10 10v5M13 10v5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M4 6h12v12H4V6zM7 4h6M2 6h16" stroke="#fecaca" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M7 10v5M10 10v5M13 10v5" stroke="#fecaca" strokeWidth="1.5" strokeLinecap="round" />
     </IconBase>
   );
 }

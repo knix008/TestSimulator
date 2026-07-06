@@ -339,6 +339,7 @@ export function renderDependencyLines(
     if (!from || !to) continue;
 
     const style = resolveDependencyLineStyle(dep, viewSettings, tasks);
+    const isCritical = isCriticalDependency(dep, viewSettings, tasks);
     const isSelected =
       selectedDependency != null &&
       dep.predecessorId === selectedDependency.predecessorId &&
@@ -359,7 +360,13 @@ export function renderDependencyLines(
     path.setAttribute('stroke-width', isSelected ? '2.75' : '1.75');
     path.setAttribute(
       'class',
-      isSelected ? 'gantt-dependency-line gantt-dependency-line-selected' : 'gantt-dependency-line',
+      [
+        'gantt-dependency-line',
+        isSelected ? 'gantt-dependency-line-selected' : '',
+        isCritical ? 'gantt-dependency-line-critical' : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
     );
     const dash = strokeDash(viewSettings.lineStyle);
     if (dash) path.setAttribute('stroke-dasharray', dash);

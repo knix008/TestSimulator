@@ -2,6 +2,8 @@
   display: flex;
   align-items: stretch;
   gap: 2px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0 6px;
   background: #eceef3;
   border-bottom: 1px solid #c8ceda;
@@ -10,6 +12,10 @@
 
 .desktop-menu-root {
   position: relative;
+}
+
+.desktop-menu-root--end {
+  margin-left: auto;
 }
 
 .desktop-menu-top {
@@ -46,6 +52,11 @@
   border: 1px solid #c8ceda;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
   z-index: 2000;
+}
+
+.desktop-menu-root--end > .desktop-menu-dropdown {
+  left: auto;
+  right: 0;
 }
 
 .desktop-menu-dropdown--nested {

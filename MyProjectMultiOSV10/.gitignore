@@ -1,7 +1,28 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist-electron/
 dist-renderer/
 release/
+
+# Installers moved to project root by `npm run dist:*`
+MyProject-*-win-*.exe
+MyProject-*-win-*.exe.blockmap
+MyProject-*-mac-*.dmg
+MyProject-*-mac-*.zip
+MyProject-*-linux-*.AppImage
+MyProject-*-linux-*.deb
+
+# Generated at build time
 config/build-info.json
+
+# Logs and OS metadata
 *.log
 .DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Local environment (if used)
+.env
+.env.*

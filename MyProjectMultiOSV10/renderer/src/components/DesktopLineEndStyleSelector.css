@@ -1,0 +1,14 @@
+.desktop-line-end-selectors {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desktop-line-end-selector.line-end-selector {
+  padding: 0 2px;
+}
+
+.desktop-line-end-selector .line-end-selector__trigger {
+  min-width: 96px;
+  max-width: 156px;
+}

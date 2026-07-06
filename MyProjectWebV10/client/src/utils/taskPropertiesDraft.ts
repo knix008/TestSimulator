@@ -1,5 +1,6 @@
 import type { TaskItem } from '../types/project';
 import { parseDateInputValue, toDateInputValue } from './taskDateInput';
+import { normalizeSummaryBarStyle, type SummaryBarStyle } from './summaryBarStyle';
 
 export interface TaskPropertiesDraft {
   name: string;
@@ -9,6 +10,9 @@ export interface TaskPropertiesDraft {
   progress: number;
   taskType: string;
   notes: string;
+  barColorArgb: number | null;
+  progressColorArgb: number | null;
+  summaryBarStyle: SummaryBarStyle;
 }
 
 export function taskToPropertiesDraft(task: TaskItem): TaskPropertiesDraft {
@@ -20,6 +24,9 @@ export function taskToPropertiesDraft(task: TaskItem): TaskPropertiesDraft {
     progress: Math.round(task.progress),
     taskType: task.taskType,
     notes: task.notes ?? '',
+    barColorArgb: task.barColorArgb ?? null,
+    progressColorArgb: task.progressColorArgb ?? null,
+    summaryBarStyle: normalizeSummaryBarStyle(task.summaryBarStyle),
   };
 }
 
@@ -56,6 +63,15 @@ export function buildTaskPropertiesPatch(
     draft.durationDays !== original.durationDays
   ) {
     patch.durationDays = Math.max(1, draft.durationDays);
+  }
+  if (draft.barColorArgb !== (original.barColorArgb ?? null)) {
+    patch.barColorArgb = draft.barColorArgb;
+  }
+  if (draft.progressColorArgb !== (original.progressColorArgb ?? null)) {
+    patch.progressColorArgb = draft.progressColorArgb;
+  }
+  if (draft.summaryBarStyle !== normalizeSummaryBarStyle(original.summaryBarStyle)) {
+    patch.summaryBarStyle = draft.summaryBarStyle;
   }
 
   return patch;

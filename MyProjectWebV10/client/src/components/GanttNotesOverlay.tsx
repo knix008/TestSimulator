@@ -30,6 +30,8 @@ interface GanttNotesOverlayProps {
   notes: NoteItem[];
   tasks: TaskItem[];
   containerRef: RefObject<HTMLDivElement | null>;
+  /** Bumped when frappe-gantt remounts its inner container (e.g. canModify toggles). */
+  ganttHostRevision?: number;
   getGanttLayout: () => GanttLayout | null;
   selectedNoteId: number | null;
   editingNoteId: number | null;
@@ -84,6 +86,7 @@ export function GanttNotesOverlay({
   notes,
   tasks,
   containerRef,
+  ganttHostRevision = 0,
   getGanttLayout,
   selectedNoteId,
   editingNoteId,
@@ -110,12 +113,23 @@ export function GanttNotesOverlay({
       setPortalHost(null);
       return;
     }
-    setPortalHost(getFrappeHost(container));
+    const host = getFrappeHost(container);
+    setPortalHost((prev) => (prev === host ? prev : host));
   }, [containerRef]);
 
   useEffect(() => {
     refreshPortalHost();
-  }, [refreshPortalHost, notes.length, tasks.length]);
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new MutationObserver(() => {
+      refreshPortalHost();
+    });
+    observer.observe(container, { childList: true });
+
+    return () => observer.disconnect();
+  }, [containerRef, ganttHostRevision, refreshPortalHost, notes.length, tasks.length]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -235,7 +249,10 @@ export function GanttNotesOverlay({
     };
   }, [canModify, finishDrag, getGanttLayout, onNotePositionPreview]);
 
-  if (!portalHost || !layout) return null;
+  const activePortalHost =
+    portalHost && portalHost.isConnected ? portalHost : null;
+
+  if (!activePortalHost || !layout) return null;
   if (notes.length === 0) return null;
 
   const container = containerRef.current;
@@ -341,8 +358,7 @@ export function GanttNotesOverlay({
     </div>
   );
 
-  if (!portalHost || !layout) return null;
-  return createPortal(layer, portalHost);
+  return createPortal(layer, activePortalHost);
 }
 
 export function hitTestGanttNote(

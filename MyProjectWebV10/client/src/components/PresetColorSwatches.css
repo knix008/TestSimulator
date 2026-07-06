@@ -1,0 +1,29 @@
+.preset-color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.preset-color-swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.preset-color-swatch:hover:not(:disabled) {
+  border-color: #64748b;
+}
+
+.preset-color-swatch--selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #fff inset;
+}
+
+.preset-color-swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

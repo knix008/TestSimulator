@@ -10,7 +10,7 @@
 }
 
 .task-properties-panel {
-  width: min(520px, 100%);
+  width: min(460px, 100%);
   max-height: 90vh;
   overflow: auto;
   background: #fff;
@@ -63,6 +63,10 @@
 
 .task-properties-dialog-form .task-prop-notes input {
   min-width: 0;
+}
+
+.task-properties-dialog-form .task-prop-predecessors {
+  grid-column: 1 / -1;
 }
 
 .task-properties-dialog-form .project-predecessors {

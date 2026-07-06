@@ -277,3 +277,23 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.settings-line-end-field,
+.desktop-settings-line-end-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.settings-line-end-field .line-end-selector,
+.desktop-settings-line-end-field .line-end-selector {
+  width: 100%;
+}
+
+.settings-line-end-field .line-end-selector__trigger,
+.desktop-settings-line-end-field .line-end-selector__trigger {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}

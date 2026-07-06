@@ -12,8 +12,8 @@ interface DesktopThreePaneLayoutProps {
 }
 
 const MIN_PROPERTIES_WIDTH = 220;
-const MAX_PROPERTIES_WIDTH = 480;
-const DEFAULT_PROPERTIES_WIDTH = 300;
+const MAX_PROPERTIES_WIDTH = 420;
+const DEFAULT_PROPERTIES_WIDTH = 260;
 
 export function DesktopThreePaneLayout({
   gridPane,
@@ -28,8 +28,9 @@ export function DesktopThreePaneLayout({
   const [isResizingProperties, setIsResizingProperties] = useState(false);
 
   useEffect(() => {
-    propertiesWidthRef.current = initialPropertiesWidth;
-    setPropertiesWidth(initialPropertiesWidth);
+    const clamped = Math.max(MIN_PROPERTIES_WIDTH, Math.min(MAX_PROPERTIES_WIDTH, initialPropertiesWidth));
+    propertiesWidthRef.current = clamped;
+    setPropertiesWidth(clamped);
   }, [initialPropertiesWidth]);
 
   const applyPropertiesWidth = useCallback(

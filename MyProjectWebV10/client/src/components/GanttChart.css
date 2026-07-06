@@ -165,6 +165,10 @@
   filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
 }
 
+.gantt-container .gantt-custom-dependencies .gantt-dependency-line-critical {
+  stroke-width: 2;
+}
+
 /* Today: red dashed vertical line, dot at top, black pill on day number */
 .gantt-container .current-highlight.gantt-today-line,
 .gantt-container .current-highlight {
@@ -376,4 +380,29 @@
 .gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper:hover .handle.progress,
 .gantt-chart:not(.gantt-readonly) .gantt .bar-wrapper.gantt-selected .handle.progress {
   visibility: visible;
+}
+
+.gantt-export-transparent,
+.gantt-export-transparent .gantt-scroll,
+.gantt-export-transparent .gantt-container,
+.gantt-export-transparent .gantt-container .gantt-container,
+.gantt-export-transparent .gantt-notes-layer {
+  background: transparent !important;
+}
+
+.gantt-export-transparent .grid-background,
+.gantt-export-transparent .grid-row,
+.gantt-export-transparent .holiday-highlight,
+.gantt-export-transparent .side-header {
+  fill: transparent !important;
+}
+
+.gantt-export-transparent .row-line {
+  stroke: transparent !important;
+}
+
+.gantt-export-transparent .upper-text,
+.gantt-export-transparent .lower-text {
+  background: transparent !important;
+  box-shadow: none !important;
 }

@@ -1,3 +1,7 @@
+import type { SummaryBarStyle } from '../utils/summaryBarStyle';
+
+export type { SummaryBarStyle };
+
 export interface AssignmentItem {
   taskId: number;
   resourceName: string;
@@ -42,6 +46,7 @@ export interface TaskItem {
   endDate: string;
   barColorArgb?: number | null;
   progressColorArgb?: number | null;
+  summaryBarStyle?: SummaryBarStyle | null;
 }
 
 export interface DependencyItem {

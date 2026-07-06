@@ -13,6 +13,11 @@ interface DesktopTaskPropertiesPanelProps {
   onUpdateTask: (taskId: number, patch: Partial<TaskItem>) => void;
   onUpdateNote: (noteId: number, patch: Partial<Pick<NoteItem, 'title' | 'body'>>) => void;
   onRemoveDependency: (predecessorId: number, successorId: number) => void;
+  onUpdateDependencyType?: (
+    predecessorId: number,
+    successorId: number,
+    type: import('@web/types/project').GanttViewSettings['defaultDependencyType'],
+  ) => void;
 }
 
 export function DesktopTaskPropertiesPanel({
@@ -25,6 +30,7 @@ export function DesktopTaskPropertiesPanel({
   onUpdateTask,
   onUpdateNote,
   onRemoveDependency,
+  onUpdateDependencyType,
 }: DesktopTaskPropertiesPanelProps) {
   const t = useTranslation();
   const linkedTask =
@@ -85,6 +91,7 @@ export function DesktopTaskPropertiesPanel({
             canModify={canModify}
             onUpdateTask={onUpdateTask}
             onRemoveDependency={onRemoveDependency}
+            onUpdateDependencyType={onUpdateDependencyType}
           />
         )}
       </div>

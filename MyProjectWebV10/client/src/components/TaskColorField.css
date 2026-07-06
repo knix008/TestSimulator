@@ -1,0 +1,130 @@
+.task-prop-color {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-prop-field.task-prop-color {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.task-prop-color-label {
+  color: #475569;
+  font-size: 13px;
+}
+
+.task-prop-color-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.task-prop-color-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+}
+
+.task-prop-color-section-label {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.task-prop-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-prop-color-custom-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  color: #334155;
+}
+
+.task-prop-color-custom-trigger:hover:not(:disabled) {
+  border-color: #64748b;
+}
+
+.task-prop-color-custom-trigger--selected {
+  border-color: #2563eb;
+}
+
+.task-prop-color-custom-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.task-prop-color-custom-preview {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.task-prop-color-custom-text {
+  white-space: nowrap;
+}
+
+.task-prop-color-native-input,
+.task-properties-dialog-form .task-prop-field .task-prop-color-native-input,
+.desktop-task-properties__body .task-prop-field .task-prop-color-native-input {
+  position: absolute;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0 !important;
+  box-shadow: none;
+}
+
+.task-prop-color-custom-trigger,
+.task-prop-color-default {
+  box-sizing: border-box;
+}
+
+.task-prop-color-hex {
+  font-size: 12px;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.task-prop-color-default {
+  padding: 4px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #334155;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.task-prop-color-default:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.task-prop-color-default:disabled {
+  cursor: default;
+  opacity: 0.55;
+}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type RefObject } from 'react';
 import Gantt from 'frappe-gantt';
 import {
   GANTT_CHART_OPTIONS,
@@ -10,8 +10,9 @@ import { useLanguage, useTranslation } from '../i18n';
 import type { DependencyItem, GanttViewSettings, NoteItem, TaskItem } from '../types/project';
 import { argbToCss } from '../utils/colorUtils';
 import type { ProjectContextMenuTarget } from '../utils/projectContextMenu';
-import { getVisibleTasks } from '../utils/taskModel';
+import { expandAllTasksForExport, getVisibleTasks } from '../utils/taskModel';
 import { decorateGanttBars } from '../utils/ganttBarDecorations';
+import { normalizeSummaryBarStyle } from '../utils/summaryBarStyle';
 import { patchFrappeGanttResizeHandles } from '../utils/ganttBarResizeHandles';
 import { renderDependencyLines, renderLinkPreview, clearLinkPreview, type FrappeGanttLayers } from '../utils/dependencyLineRenderer';
 import {
@@ -20,7 +21,8 @@ import {
   scrollGanttContentYIntoView,
 } from '../utils/ganttNoteLayout';
 import { applyGanttZoomAtPointer, type GanttZoomTarget } from '../utils/ganttZoom';
-import { ensureGanttTimelineRange, refreshGanttTasksPreservingScroll } from '../utils/ganttTimeline';
+import { ensureGanttTimelineRange, refreshGanttTasksPreservingScroll, type FrappeGanttTimelineApi } from '../utils/ganttTimeline';
+import { capturePreparedGanttChartImage } from '../utils/ganttChartImageCapture';
 import { getGanttWorkingWeekOptions } from '../utils/ganttWorkingWeek';
 import { decorateTodayMarker, scrollGanttToToday } from '../utils/ganttToday';
 import { bindGanttHeaderScroll, decorateGanttHeader, type FrappeGanttHeaderApi } from '../utils/ganttHeader';
@@ -57,6 +59,7 @@ interface GanttChartProps {
   scrollContainerRef?: RefObject<HTMLDivElement | null>;
   scrollToTodayRef?: RefObject<(() => boolean) | null>;
   zoomRef?: RefObject<{ zoomIn: () => void; zoomOut: () => void } | null>;
+  chartExportRef?: RefObject<GanttChartExportHandle | null>;
   onSelectTask: (taskId: number) => void;
   onSelectNote: (noteId: number) => void;
   onSetEditingNoteId: (noteId: number | null) => void;
@@ -85,7 +88,11 @@ function getVisibleTaskSignature(visibleTasks: TaskItem[]): string {
         task.durationDays,
         task.progress,
         task.taskType,
+        task.isCritical ? 1 : 0,
         task.isExpanded ? 1 : 0,
+        task.barColorArgb ?? '',
+        task.progressColorArgb ?? '',
+        normalizeSummaryBarStyle(task.summaryBarStyle),
       ].join(':'),
     )
     .join('|');
@@ -285,6 +292,10 @@ function getGanttContextTarget(
   return { kind: 'gantt-empty' };
 }
 
+export interface GanttChartExportHandle {
+  captureImage: (options?: { transparentBackground?: boolean }) => Promise<string>;
+}
+
 export function GanttChart({
   tasks,
   dependencies,
@@ -300,6 +311,7 @@ export function GanttChart({
   scrollContainerRef,
   scrollToTodayRef,
   zoomRef,
+  chartExportRef,
   onSelectTask,
   onSelectNote,
   onSetEditingNoteId,
@@ -316,6 +328,7 @@ export function GanttChart({
   const { locale } = useLanguage();
   const t = useTranslation();
   const viewModes = useMemo(() => createGanttViewModes(locale), [locale]);
+  const [ganttHostRevision, setGanttHostRevision] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const hScrollRef = useRef<HTMLDivElement>(null);
@@ -610,6 +623,52 @@ export function GanttChart({
     ],
   );
 
+  useImperativeHandle(
+    chartExportRef,
+    () => ({
+      captureImage: async (options) => {
+        const scrollArea = scrollRef.current;
+        const container = containerRef.current;
+        const chartRoot = scrollArea?.closest('.gantt-chart');
+        const gantt = ganttRef.current as FrappeGanttInstance | null;
+        if (!scrollArea || !container || !(chartRoot instanceof HTMLElement) || !gantt) {
+          throw new Error('Gantt chart is not ready.');
+        }
+
+        const exportTasks = expandAllTasksForExport(tasks);
+        const visibleExportTasks = getVisibleTasks(exportTasks);
+
+        return capturePreparedGanttChartImage({
+          scrollArea,
+          container,
+          chartRoot,
+          gantt,
+          tasks,
+          notes: ganttNotes,
+          frappeTasks: toGanttTasks(visibleExportTasks),
+          transparentBackground: options?.transparentBackground,
+          onPrepared: () => {
+            applyGanttContainerHeight(gantt, visibleExportTasks.length, ganttNotes, container);
+            syncOverlaySize();
+            renderDependencyOverlay();
+            decorateBars();
+          },
+          onRestored: () => {
+            syncGanttLayoutAfterResize(true);
+          },
+        });
+      },
+    }),
+    [
+      decorateBars,
+      ganttNotes,
+      renderDependencyOverlay,
+      syncGanttLayoutAfterResize,
+      syncOverlaySize,
+      tasks,
+    ],
+  );
+
   const scheduleFullGanttResizeRebuild = useCallback(() => {
     if (resizeRebuildTimerRef.current != null) {
       window.clearTimeout(resizeRebuildTimerRef.current);
@@ -855,6 +914,7 @@ export function GanttChart({
     syncOverlaySize();
     updateLinkPendingStyles();
     renderDependencyOverlay();
+    setGanttHostRevision((value) => value + 1);
     requestAnimationFrame(() => {
       applyTimelineRange();
       renderDependencyOverlay();
@@ -1244,6 +1304,21 @@ export function GanttChart({
   }, [renderDependencyOverlay, selectedDependency, dependencies]);
 
   useEffect(() => {
+    decorateBars();
+    renderDependencyOverlay();
+  }, [
+    decorateBars,
+    renderDependencyOverlay,
+    ganttViewSettings.showCriticalPath,
+    ganttViewSettings.criticalLineColor,
+    ganttViewSettings.lineColor,
+    ganttViewSettings.lineStyle,
+    ganttViewSettings.startLineEnd,
+    ganttViewSettings.endLineEnd,
+    ganttViewSettings.defaultDependencyType,
+  ]);
+
+  useEffect(() => {
     const scrollArea = scrollRef.current;
     const container = containerRef.current;
     if (!scrollArea || !container) return;
@@ -1306,6 +1381,7 @@ export function GanttChart({
           notes={ganttNotes}
           tasks={tasks}
           containerRef={containerRef}
+          ganttHostRevision={ganttHostRevision}
           getGanttLayout={getGanttLayout}
           selectedNoteId={selectedNoteId}
           editingNoteId={editingNoteId}

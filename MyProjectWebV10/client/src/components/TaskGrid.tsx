@@ -11,6 +11,7 @@ import { getDateLocaleTag } from '../i18n/translate';
 import type { ProjectContextMenuTarget } from '../utils/projectContextMenu';
 import { DateInput } from './DateInput';
 import { PercentInput } from './PercentInput';
+import { formatTaskTypeLabel, TaskTypeSelect } from './TaskTypeSelect';
 import { parseDateInputValue, toDateInputValue } from '../utils/taskDateInput';
 import { getVisibleTasks, taskHasChildren } from '../utils/taskModel';
 import {
@@ -22,6 +23,7 @@ import {
   getTreeGuideSegments,
   getTreeIndentPx,
 } from '../utils/taskTreeLayout';
+import { buildTaskTypePatch } from '../utils/taskTypeOptions';
 import { getTaskGridNoteSpacerHeight } from '../utils/ganttNoteLayout';
 import {
   columnWidthStyle,
@@ -436,7 +438,23 @@ export function TaskGrid({
                     <span>{Math.round(task.progress)}%</span>
                   )}
                 </td>
-                <td>{task.taskType}</td>
+                <td className="col-type">
+                  {canEditSchedule ? (
+                    <TaskTypeSelect
+                      className="task-grid-inline-input task-grid-type-select"
+                      value={task.taskType}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(nextType) => {
+                        const patch = buildTaskTypePatch(task, nextType);
+                        if (Object.keys(patch).length > 0) {
+                          onUpdateTask(task.taskId, patch);
+                        }
+                      }}
+                    />
+                  ) : (
+                    formatTaskTypeLabel(t, task.taskType)
+                  )}
+                </td>
                 <td className="col-multiline">
                   <div className="col-multiline-inner">
                   {canEditDetails ? (
