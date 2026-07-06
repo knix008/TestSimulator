@@ -1,4 +1,5 @@
 import { marked } from '../../vendor/marked.esm.js';
+import { expandAssetReferences, wrapImagesForEditing } from './pageMarkdownNormalizer.js';
 
 let templateCache = null;
 
@@ -51,14 +52,7 @@ export function injectHeadingIds(html) {
   });
 }
 
-export function wrapImagesForEditing(html) {
-  return html.replace(/<img\b([^>]*?)\/?>/gi, (match, attrs) => {
-    if (/editor-image-wrap/i.test(match)) {
-      return match;
-    }
-    return `<span class="editor-image-wrap" contenteditable="false"><img ${attrs.trim()}><span class="editor-image-resize-handle" contenteditable="false"></span></span>`;
-  });
-}
+export { wrapImagesForEditing } from './pageMarkdownNormalizer.js';
 
 export function wrapFileLinksForEditing(html) {
   return html.replace(
@@ -77,14 +71,15 @@ export function wrapFileLinksForEditing(html) {
 
 export function expandPageAssetUrls(markdown) {
   return String(markdown || '').replace(
-    /page-asset:(\d+)\/([^\s)"']+)/gi,
+    /page-asset:(?!\/\/)(\d+)\/([^?\s)"'<>]+)/gi,
     (_match, pageId, fileName) => `page-asset://${pageId}/${encodeURIComponent(fileName)}`
   );
 }
 
-export function markdownToEditorBody(markdown) {
-  const expanded = expandPageAssetUrls(markdown);
-  let body = marked.parse(expanded || '', { breaks: true, gfm: true });
+export function markdownToEditorBody(markdown, pageId = null) {
+  let prepared = expandAssetReferences(markdown, pageId);
+  prepared = expandPageAssetUrls(prepared);
+  let body = marked.parse(prepared || '', { breaks: true, gfm: true });
   if (!body || !body.trim()) {
     body = '<p><br></p>';
   } else {
@@ -95,9 +90,9 @@ export function markdownToEditorBody(markdown) {
   return body;
 }
 
-export async function buildEditorDocument(markdown) {
+export async function buildEditorDocument(markdown, pageId = null) {
   const template = await loadEditorTemplate();
-  const body = markdownToEditorBody(markdown);
+  const body = markdownToEditorBody(markdown, pageId);
   if (template.includes('/*EDITOR_BODY*/')) {
     return template.replace('/*EDITOR_BODY*/', body);
   }

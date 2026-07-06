@@ -63,7 +63,7 @@ function guessContentType(fileName) {
 function allocateUniqueAssetFileName(db, pageId, preferredFileName, extension) {
   const ext = normalizeExtension(extension || path.extname(preferredFileName || ''));
   let baseName = path.basename(preferredFileName || 'asset', ext);
-  baseName = baseName.replace(/\s+\(\d+\)$/, '') || 'asset';
+  baseName = baseName.replace(/_\d+$/i, '').replace(/\s+\(\d+\)$/i, '') || 'asset';
 
   const existing = new Set(
     db
@@ -73,12 +73,18 @@ function allocateUniqueAssetFileName(db, pageId, preferredFileName, extension) {
   );
 
   let candidate = `${baseName}${ext}`;
-  let index = 1;
-  while (existing.has(candidate.toLowerCase())) {
-    index += 1;
-    candidate = `${baseName} (${index})${ext}`;
+  if (!existing.has(candidate.toLowerCase())) {
+    return candidate;
   }
-  return candidate;
+
+  for (let index = 2; index < Number.MAX_SAFE_INTEGER; index += 1) {
+    candidate = `${baseName}_${index}${ext}`;
+    if (!existing.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  return `${baseName}_${Date.now()}${ext}`;
 }
 
 function saveAsset(db, user, pageId, fileName, content, contentType) {
@@ -142,7 +148,7 @@ function importAssetBytes(db, user, pageId, content, extension, preferredFileNam
   const fileName = allocateUniqueAssetFileName(db, pageId, preferredFileName, ext);
   saveAsset(db, user, pageId, fileName, content, guessContentType(fileName));
   const isImage = isSupportedImageExtension(ext);
-  const displayName = path.basename(preferredFileName || fileName, ext) || fileName;
+  const displayName = path.basename(fileName, ext) || fileName;
 
   return {
     fileName,
@@ -173,12 +179,15 @@ function importFileFromPath(db, user, pageId, sourcePath, { imageOnly = false } 
   saveAsset(db, user, pageId, fileName, content, guessContentType(fileName));
 
   const isImage = isSupportedImageExtension(extension);
+  const displayName = path.basename(fileName, extension) || fileName;
   return {
     fileName,
     uri: buildAssetUri(pageId, fileName),
+    isImage,
+    displayName,
     markdown: isImage
-      ? buildMarkdownImageReference(pageId, fileName, path.basename(fileName, extension))
-      : buildMarkdownFileReference(pageId, fileName, path.basename(sourcePath, extension))
+      ? buildMarkdownImageReference(pageId, fileName, displayName)
+      : buildMarkdownFileReference(pageId, fileName, displayName)
   };
 }
 

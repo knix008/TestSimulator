@@ -87,6 +87,18 @@ const {
   saveEmailConfig,
   testEmailConnection
 } = require('../services/emailService');
+const {
+  readDatabaseSettings,
+  validateSettings,
+  testConnection,
+  saveDatabaseSettings,
+  disconnectDatabase,
+  getProviderDisplayName,
+  getConnectionStatus,
+  getDefaultSqlitePath,
+  DEFAULT_PORTS,
+  PROVIDERS
+} = require('../services/databaseSettingsService');
 const { showOpenDialog, showSaveDialog, showOpenDirectoryDialog } = require('./dialogs');
 const { saveLocalConfig, getUserDataPaths } = require('../config');
 const { success, failure, wrapHandler } = require('../utils/ipcResult');
@@ -113,6 +125,12 @@ function registerIpcHandlers(deps) {
       const result = login(db(), username, password);
       if (result.ok) {
         deps.setSessionUser(result.user);
+        saveLocalConfig({
+          Ui: {
+            LastLoginUsername: String(username || '').trim(),
+            HasLoggedInOnce: true
+          }
+        });
       } else if (!result.details) {
         result.details = result.message;
       }
@@ -132,10 +150,16 @@ function registerIpcHandlers(deps) {
 
   ipcMain.handle('app:uiConfig', () => {
     const config = deps.getConfig();
+    const ui = config?.Ui || {};
     return success({
-      theme: config?.Ui?.Theme || 'Light',
-      language: config?.Ui?.Language || 'Korean',
-      fontScaleStep: Number.parseInt(config?.Ui?.FontScaleStep, 10) || 0
+      theme: ui.Theme || 'Light',
+      language: ui.Language || 'Korean',
+      fontScaleStep: Number.parseInt(ui.FontScaleStep, 10) || 0,
+      colorThemeIndex: Number.parseInt(ui.ColorThemeIndex, 10) || 4,
+      useCustomAccentColor: Boolean(ui.UseCustomAccentColor),
+      customAccentArgb: Number(ui.CustomAccentArgb) || 0xa8d4ff,
+      lastLoginUsername: ui.LastLoginUsername || '',
+      hasLoggedInOnce: Boolean(ui.HasLoggedInOnce)
     });
   });
 
@@ -151,9 +175,87 @@ function registerIpcHandlers(deps) {
     'app:saveUiConfig',
     wrapHandler(async (_event, partial) => {
       saveLocalConfig({ Ui: partial });
+      deps.reloadConfig?.();
       return success();
     })
   );
+
+  ipcMain.handle('app:getDatabaseConfig', () =>
+    success({
+      config: readDatabaseSettings(),
+      providers: PROVIDERS.map((provider) => ({
+        id: provider,
+        name: getProviderDisplayName(provider),
+        defaultPort: DEFAULT_PORTS[provider] || ''
+      })),
+      defaultSqlitePath: getDefaultSqlitePath(),
+      status: getConnectionStatus()
+    })
+  );
+
+  ipcMain.handle(
+    'app:testDatabaseConfig',
+    wrapHandler(async (_event, settings) => {
+      const validation = validateSettings(settings);
+      if (!validation.ok) {
+        return failure(validation.message);
+      }
+      const result = await testConnection(settings, { createIfNotExists: true });
+      if (!result.ok) {
+        return failure(result.message);
+      }
+      return success({ databaseCreated: Boolean(result.databaseCreated) });
+    })
+  );
+
+  ipcMain.handle(
+    'app:saveDatabaseConfig',
+    wrapHandler(async (_event, settings) => {
+      const validation = validateSettings(settings);
+      if (!validation.ok) {
+        return failure(validation.message);
+      }
+      const test = await testConnection(settings, { createIfNotExists: true });
+      if (!test.ok) {
+        return failure(test.message);
+      }
+
+      const saved = saveDatabaseSettings(settings);
+      deps.reloadConfig?.();
+
+      if (saved.Provider === 'SQLite') {
+        deps.reconnectDatabase?.();
+      }
+
+      return success({
+        config: saved,
+        sqliteApplied: saved.Provider === 'SQLite',
+        needsRelogin: saved.Provider === 'SQLite'
+      });
+    })
+  );
+
+  ipcMain.handle(
+    'app:disconnectDatabase',
+    wrapHandler(async () => {
+      disconnectDatabase();
+      deps.reloadConfig?.();
+      deps.setSessionUser(null);
+      return success({ needsRelogin: true });
+    })
+  );
+
+  ipcMain.handle('db:browseSqlite', async () => {
+    const filePath = await showSaveDialog(window(), {
+      title: 'SQLite 파일 선택',
+      defaultPath: 'myworkspace.db',
+      filters: [{ name: 'SQLite DB', extensions: ['db'] }]
+    });
+    if (!filePath) {
+      return { ok: false, cancelled: true };
+    }
+    return success({ filePath });
+  });
 
   ipcMain.handle(
     'workspace:getTree',
@@ -805,23 +907,33 @@ function addRecentProject(filePath) {
   fs.writeFileSync(storePath, JSON.stringify(list.slice(0, 10), null, 2), 'utf8');
 }
 
+const MIME_TO_EXTENSION = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/avif': '.avif',
+  'image/svg+xml': '.svg',
+  'application/pdf': '.pdf',
+  'text/plain': '.txt',
+  'text/markdown': '.md'
+};
+
+function extensionFromMime(mime) {
+  return MIME_TO_EXTENSION[String(mime || '').toLowerCase()] || '';
+}
+
 function guessExtensionFromMime(mime, fileName) {
-  const fromName = path.extname(fileName || '');
-  if (fromName) {
+  const fromName = path.extname(fileName || '').toLowerCase();
+  const fromMime = extensionFromMime(mime);
+
+  if (fromName && fromName !== '.bin' && fromName !== '.dat') {
     return fromName;
   }
-  const map = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/gif': '.gif',
-    'image/webp': '.webp',
-    'image/avif': '.avif',
-    'image/svg+xml': '.svg',
-    'application/pdf': '.pdf',
-    'text/plain': '.txt',
-    'text/markdown': '.md'
-  };
-  return map[String(mime || '').toLowerCase()] || '.bin';
+  if (fromMime) {
+    return fromMime;
+  }
+  return fromName || '.bin';
 }
 
 function guessMimeFromFileName(fileName) {

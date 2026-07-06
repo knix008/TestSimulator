@@ -7,6 +7,10 @@
   overflow: hidden;
 }
 
+.side-panel--plain {
+  grid-template-rows: 1fr;
+}
+
 .panel-header {
   display: flex;
   align-items: center;

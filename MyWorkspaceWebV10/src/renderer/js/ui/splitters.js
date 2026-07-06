@@ -1,5 +1,6 @@
 const MIN_PANEL = 160;
 const MAX_PANEL = 520;
+const DRAG_THRESHOLD = 4;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -18,33 +19,102 @@ function isPanelCollapsed(kind) {
   return false;
 }
 
-function initSplitter(splitter, { kind, getWidth, setWidth }) {
-  splitter.addEventListener('mousedown', (event) => {
-    if (event.button !== 0 || isPanelCollapsed(kind)) {
+function getContainerMaxWidth(splitter, reserved = 200) {
+  const container = splitter.parentElement;
+  if (!container) {
+    return MAX_PANEL;
+  }
+  const available = container.getBoundingClientRect().width - reserved;
+  return clamp(available, MIN_PANEL, MAX_PANEL);
+}
+
+function initSplitter(splitter, { kind, getWidth, setWidth, invertDelta = false }) {
+  let activePointerId = null;
+  let startPos = 0;
+  let startWidth = 0;
+  let moved = false;
+
+  function endDrag(event) {
+    if (activePointerId == null) {
       return;
     }
-    event.preventDefault();
+    if (event?.pointerId != null && event.pointerId !== activePointerId) {
+      return;
+    }
 
-    const startPos = event.clientX;
-    const startWidth = getWidth();
+    if (splitter.hasPointerCapture?.(activePointerId)) {
+      splitter.releasePointerCapture(activePointerId);
+    }
+
+    activePointerId = null;
+    splitter.classList.remove('is-dragging');
+    document.body.classList.remove('is-resizing');
+    window.removeEventListener('pointermove', onMove, true);
+    window.removeEventListener('pointerup', endDrag, true);
+    window.removeEventListener('pointercancel', endDrag, true);
+    window.removeEventListener('blur', endDrag);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      endDrag();
+    }
+  }
+
+  function onMove(event) {
+    if (activePointerId == null || event.pointerId !== activePointerId) {
+      return;
+    }
+    if (event.buttons === 0) {
+      endDrag(event);
+      return;
+    }
+
+    const rawDelta = event.clientX - startPos;
+    const delta = invertDelta ? -rawDelta : rawDelta;
+    if (Math.abs(rawDelta) >= DRAG_THRESHOLD) {
+      moved = true;
+    }
+
+    const maxWidth = getContainerMaxWidth(splitter);
+    const nextWidth = clamp(startWidth + delta, MIN_PANEL, maxWidth);
+    setWidth(nextWidth);
+  }
+
+  splitter.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || activePointerId != null || isPanelCollapsed(kind)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    activePointerId = event.pointerId;
+    startPos = event.clientX;
+    startWidth = getWidth();
+    moved = false;
+
+    splitter.setPointerCapture(activePointerId);
     splitter.classList.add('is-dragging');
     document.body.classList.add('is-resizing');
 
-    function onMove(moveEvent) {
-      const delta = moveEvent.clientX - startPos;
-      const nextWidth = clamp(startWidth + delta, MIN_PANEL, MAX_PANEL);
-      setWidth(nextWidth);
-    }
+    window.addEventListener('pointermove', onMove, true);
+    window.addEventListener('pointerup', endDrag, true);
+    window.addEventListener('pointercancel', endDrag, true);
+    window.addEventListener('blur', endDrag);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  });
 
-    function onUp() {
-      splitter.classList.remove('is-dragging');
-      document.body.classList.remove('is-resizing');
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    }
+  splitter.addEventListener('lostpointercapture', endDrag);
+  splitter.addEventListener('dragstart', (event) => event.preventDefault());
 
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+  splitter.addEventListener('click', (event) => {
+    if (moved) {
+      event.preventDefault();
+      event.stopPropagation();
+      moved = false;
+    }
   });
 }
 
@@ -82,6 +152,7 @@ export function initSplitters() {
   if (commentsSplitter) {
     initSplitter(commentsSplitter, {
       kind: 'comments',
+      invertDelta: true,
       getWidth: () => parseInt(getComputedStyle(root).getPropertyValue('--comments-panel-width'), 10) || 300,
       setWidth: (width) => root.style.setProperty('--comments-panel-width', `${width}px`)
     });

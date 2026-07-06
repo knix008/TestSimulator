@@ -175,8 +175,6 @@
 .workspace-panel {
   border-right: 1px solid var(--border);
   background: var(--surface);
-  display: grid;
-  grid-template-rows: auto 1fr;
   min-height: 0;
 }
 

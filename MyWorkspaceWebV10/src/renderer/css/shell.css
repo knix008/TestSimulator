@@ -208,6 +208,7 @@
   background: transparent;
   position: relative;
   cursor: col-resize;
+  touch-action: none;
 }
 
 .splitter::after {
@@ -269,7 +270,8 @@
 .outline-tree {
   overflow: auto;
   height: 100%;
-  padding: 2px 4px;
+  min-height: 0;
+  padding: 9px 0 1px 8px;
 }
 
 .tree-panel {
@@ -422,8 +424,17 @@
 }
 
 body.is-resizing {
-  cursor: col-resize;
+  cursor: col-resize !important;
   user-select: none;
+}
+
+body.is-resizing * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+body.is-resizing iframe {
+  pointer-events: none;
 }
 
 .toast-root {

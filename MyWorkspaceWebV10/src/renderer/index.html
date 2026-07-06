@@ -51,7 +51,7 @@
         </label>
         <p id="login-error" class="login-error hidden"></p>
         <button type="submit" class="btn-primary">로그인</button>
-        <p class="login-hint">최초 실행: admin / admin</p>
+        <p id="login-hint" class="login-hint">최초 실행: admin / admin</p>
       </form>
     </div>
 
@@ -61,24 +61,16 @@
 
         <div class="main-content">
           <div class="outer-split" id="outer-split">
-            <aside id="workspace-panel" class="side-panel workspace-panel">
-              <div class="panel-header panel-header-workspace">
-                <span class="panel-title">Workspace</span>
-                <button id="btn-collapse-workspace" type="button" class="panel-toggle" title="Workspace 접기">◀ 접기</button>
-              </div>
-              <div id="workspace-tree" class="panel-body workspace-tree"></div>
+            <aside id="workspace-panel" class="side-panel workspace-panel side-panel--plain">
+              <div id="workspace-tree" class="workspace-tree"></div>
             </aside>
             <div class="splitter vertical" data-split="workspace" aria-hidden="true"></div>
 
             <div class="editor-column">
               <div class="comments-editor-split" id="comments-editor-split">
                 <div class="editor-area-split" id="editor-area-split">
-                  <aside id="outline-panel" class="side-panel outline-panel collapsed">
-                    <div class="panel-header panel-header-outline">
-                      <span class="panel-title">문서 구조</span>
-                      <button id="btn-collapse-outline" type="button" class="panel-toggle" title="문서 구조 접기">◀ 접기</button>
-                    </div>
-                    <div id="outline-tree" class="panel-body outline-tree"></div>
+                  <aside id="outline-panel" class="side-panel outline-panel side-panel--plain collapsed">
+                    <div id="outline-tree" class="outline-tree"></div>
                   </aside>
                   <div class="splitter vertical" data-split="outline" aria-hidden="true"></div>
 

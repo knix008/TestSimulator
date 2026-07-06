@@ -2,6 +2,7 @@ import { t } from '../i18n/index.js';
 import { showApiError } from '../errors/errorDetail.js';
 import { normalizeFontScaleStep } from '../ui/fontScale.js';
 import { showTableInsertPopup } from '../ui/tableInsertPopup.js';
+import { createPastelColorThemePicker } from '../ui/pastelColorThemePicker.js';
 
 let layer = null;
 
@@ -206,58 +207,114 @@ export async function showAboutDialog() {
 
 export async function showPreferencesDialog(api, onSaved) {
   const config = await api.getUiConfig();
+  const original = {
+    theme: config.theme || 'Light',
+    language: config.language || 'Korean',
+    fontScaleStep: normalizeFontScaleStep(config.fontScaleStep),
+    colorThemeIndex: config.colorThemeIndex ?? 4,
+    useCustomAccentColor: Boolean(config.useCustomAccentColor),
+    customAccentArgb: config.customAccentArgb ?? 0xa8d4ff
+  };
+
   const body = document.createElement('div');
-  body.className = 'form-grid';
-  body.innerHTML = `
-    <label>${t.preferencesTheme}
-      <select id="pref-theme">
-        <option value="Light">${t.themeLight}</option>
-        <option value="Dark">${t.themeDark}</option>
-      </select>
-    </label>
-    <label>${t.preferencesLanguage}
-      <select id="pref-language">
-        <option value="Korean">${t.languageKorean}</option>
-        <option value="English">${t.languageEnglish}</option>
-      </select>
-    </label>
-    <label>${t.preferencesFontScale}
-      <select id="pref-font-scale">
-        <option value="-2">${t.fontScaleMuchSmaller}</option>
-        <option value="-1">${t.fontScaleSmaller}</option>
-        <option value="0">${t.fontScaleNormal}</option>
-        <option value="1">${t.fontScaleLarger}</option>
-        <option value="2">${t.fontScaleMuchLarger}</option>
-      </select>
-    </label>
-    <p class="modal-hint">${t.preferencesRestartHint}</p>
+  body.className = 'form-grid preferences-form';
+
+  const themeLabel = document.createElement('label');
+  themeLabel.textContent = t.preferencesTheme;
+  const themeSelect = document.createElement('select');
+  themeSelect.id = 'pref-theme';
+  themeSelect.innerHTML = `
+    <option value="Light">${t.themeLight}</option>
+    <option value="Dark">${t.themeDark}</option>
   `;
-  body.querySelector('#pref-theme').value = config.theme || 'Light';
-  body.querySelector('#pref-language').value = config.language || 'Korean';
-  body.querySelector('#pref-font-scale').value = String(normalizeFontScaleStep(config.fontScaleStep));
+  themeSelect.value = original.theme;
+  themeLabel.appendChild(themeSelect);
+
+  const languageLabel = document.createElement('label');
+  languageLabel.textContent = t.preferencesLanguage;
+  const languageSelect = document.createElement('select');
+  languageSelect.id = 'pref-language';
+  languageSelect.innerHTML = `
+    <option value="Korean">${t.languageKorean}</option>
+    <option value="English">${t.languageEnglish}</option>
+  `;
+  languageSelect.value = original.language;
+  languageLabel.appendChild(languageSelect);
+
+  const fontScaleLabel = document.createElement('label');
+  fontScaleLabel.textContent = t.preferencesFontScale;
+  const fontScaleSelect = document.createElement('select');
+  fontScaleSelect.id = 'pref-font-scale';
+  fontScaleSelect.innerHTML = `
+    <option value="-2">${t.fontScaleMuchSmaller}</option>
+    <option value="-1">${t.fontScaleSmaller}</option>
+    <option value="0">${t.fontScaleNormal}</option>
+    <option value="1">${t.fontScaleLarger}</option>
+    <option value="2">${t.fontScaleMuchLarger}</option>
+  `;
+  fontScaleSelect.value = String(original.fontScaleStep);
+  fontScaleLabel.appendChild(fontScaleSelect);
+
+  const colorPicker = createPastelColorThemePicker({
+    initial: original,
+    onChange: () => applyLivePreview()
+  });
+
+  const hint = document.createElement('p');
+  hint.className = 'modal-hint';
+  hint.textContent = t.preferencesRestartHint;
+
+  body.append(themeLabel, colorPicker.element, languageLabel, fontScaleLabel, hint);
+
+  function readCurrentSettings() {
+    const color = colorPicker.readValue();
+    return {
+      theme: themeSelect.value,
+      language: languageSelect.value,
+      fontScaleStep: normalizeFontScaleStep(fontScaleSelect.value),
+      ...color
+    };
+  }
+
+  function applyLivePreview() {
+    const current = readCurrentSettings();
+    onSaved?.(current, { preview: true });
+  }
+
+  themeSelect.addEventListener('change', applyLivePreview);
+  languageSelect.addEventListener('change', applyLivePreview);
+  fontScaleSelect.addEventListener('change', applyLivePreview);
+
+  const restoreOriginal = () => onSaved?.(original, { preview: true });
 
   openModal({
     title: t.preferencesTitle,
     bodyNode: body,
     footerNodes: [
-      createButton(t.buttonCancel, { onClick: closeModal }),
+      createButton(t.buttonCancel, {
+        onClick: () => {
+          restoreOriginal();
+          closeModal();
+        }
+      }),
       createButton(t.buttonSave, {
         primary: true,
         onClick: async () => {
-          const theme = body.querySelector('#pref-theme').value;
-          const language = body.querySelector('#pref-language').value;
-          const fontScaleStep = normalizeFontScaleStep(body.querySelector('#pref-font-scale').value);
+          const current = readCurrentSettings();
           const result = await api.saveUiConfig({
-            Theme: theme,
-            Language: language,
-            FontScaleStep: fontScaleStep
+            Theme: current.theme,
+            Language: current.language,
+            FontScaleStep: current.fontScaleStep,
+            ColorThemeIndex: current.colorThemeIndex,
+            UseCustomAccentColor: current.useCustomAccentColor,
+            CustomAccentArgb: current.customAccentArgb
           });
           if (result?.ok === false) {
+            restoreOriginal();
             showApiError(t.errPreferences, result);
             return;
           }
-          document.body.dataset.theme = theme.toLowerCase() === 'dark' ? 'dark' : 'light';
-          onSaved?.({ theme, language, fontScaleStep });
+          onSaved?.(current, { preview: false });
           closeModal();
         }
       })
@@ -398,14 +455,186 @@ export function showTableInsertDialog() {
   return showTableInsertPopup();
 }
 
-export function showDatabaseSettingsDialog() {
-  const body = document.createElement('p');
-  body.textContent =
-    '현재 Electron 버전은 로컬 SQLite를 기본으로 사용합니다. MariaDB/MySQL/PostgreSQL 연결 UI는 WinV10과 동일하게 확장 예정입니다.';
+export async function showDatabaseSettingsDialog(api, { onDisconnected, onSaved } = {}) {
+  const loaded = await api.getDatabaseConfig();
+  if (!loaded.ok) {
+    showApiError(t.dbSettingsTitle, loaded);
+    return;
+  }
+
+  const providers = loaded.providers || [];
+  const status = loaded.status || {};
+  const config = loaded.config || {};
+
+  const body = document.createElement('div');
+  body.className = 'form-grid db-settings-form';
+
+  const providerLabel = document.createElement('label');
+  providerLabel.textContent = t.dbLabelProvider;
+  const providerSelect = document.createElement('select');
+  providerSelect.className = 'modal-input';
+  for (const provider of providers) {
+    const option = document.createElement('option');
+    option.value = provider.id;
+    option.textContent = provider.name;
+    option.dataset.defaultPort = provider.defaultPort || '';
+    providerSelect.appendChild(option);
+  }
+  providerSelect.value = config.Provider || 'SQLite';
+  providerLabel.appendChild(providerSelect);
+
+  const serverPanel = document.createElement('div');
+  serverPanel.className = 'db-server-panel form-grid';
+  serverPanel.innerHTML = `
+    <label>${t.dbLabelServer}<input id="db-server" class="modal-input" type="text" /></label>
+    <label>${t.dbLabelPort}<input id="db-port" class="modal-input" type="text" /></label>
+    <label>${t.dbLabelDatabase}<input id="db-name" class="modal-input" type="text" /></label>
+    <label>${t.dbLabelUser}<input id="db-user" class="modal-input" type="text" /></label>
+    <label>${t.dbLabelPassword}<input id="db-password" class="modal-input" type="password" /></label>
+  `;
+
+  const sqlitePanel = document.createElement('div');
+  sqlitePanel.className = 'db-sqlite-panel form-grid';
+  const sqliteRow = document.createElement('label');
+  sqliteRow.textContent = t.dbLabelSqliteFile;
+  const sqliteInputRow = document.createElement('div');
+  sqliteInputRow.className = 'db-sqlite-row';
+  const sqliteInput = document.createElement('input');
+  sqliteInput.id = 'db-sqlite-path';
+  sqliteInput.className = 'modal-input';
+  sqliteInput.type = 'text';
+  const browseBtn = createButton(t.dbButtonBrowse, {
+    onClick: async () => {
+      const picked = await api.browseSqliteFile();
+      if (picked?.ok && picked.filePath) {
+        sqliteInput.value = picked.filePath;
+      }
+    }
+  });
+  sqliteInputRow.append(sqliteInput, browseBtn);
+  sqliteRow.appendChild(sqliteInputRow);
+  sqlitePanel.appendChild(sqliteRow);
+
+  const resultLine = document.createElement('p');
+  resultLine.className = 'db-result-line';
+  resultLine.textContent = status.connected ? t.dbConnectionActiveStatus : t.dbConnectionDisconnectedStatus;
+
+  body.append(providerLabel, serverPanel, sqlitePanel, resultLine);
+
+  function readForm() {
+    return {
+      Provider: providerSelect.value,
+      Server: body.querySelector('#db-server').value.trim(),
+      Port: body.querySelector('#db-port').value.trim(),
+      Database: body.querySelector('#db-name').value.trim(),
+      User: body.querySelector('#db-user').value.trim(),
+      Password: body.querySelector('#db-password').value,
+      SqliteFilePath: sqliteInput.value.trim()
+    };
+  }
+
+  function applyFormValues(values) {
+    providerSelect.value = values.Provider || 'SQLite';
+    body.querySelector('#db-server').value = values.Server || 'localhost';
+    body.querySelector('#db-port').value = values.Port || '';
+    body.querySelector('#db-name').value = values.Database || 'myworkspace';
+    body.querySelector('#db-user').value = values.User || '';
+    body.querySelector('#db-password').value = values.Password || '';
+    sqliteInput.value = values.SqliteFilePath || loaded.defaultSqlitePath || '';
+    updateProviderUi();
+  }
+
+  function updateProviderUi() {
+    const isSqlite = providerSelect.value === 'SQLite';
+    serverPanel.classList.toggle('hidden', isSqlite);
+    sqlitePanel.classList.toggle('hidden', !isSqlite);
+    if (isSqlite && !sqliteInput.value.trim()) {
+      sqliteInput.value = loaded.defaultSqlitePath || '';
+    }
+    const selected = providerSelect.selectedOptions[0];
+    const defaultPort = selected?.dataset.defaultPort;
+    if (!isSqlite && defaultPort && !body.querySelector('#db-port').value.trim()) {
+      body.querySelector('#db-port').value = defaultPort;
+    }
+    if (providerSelect.value === 'PostgreSQL' && !body.querySelector('#db-user').value.trim()) {
+      body.querySelector('#db-user').value = 'postgres';
+    }
+    if (
+      (providerSelect.value === 'MariaDB' || providerSelect.value === 'MySQL') &&
+      !body.querySelector('#db-user').value.trim()
+    ) {
+      body.querySelector('#db-user').value = 'root';
+    }
+  }
+
+  providerSelect.addEventListener('change', updateProviderUi);
+  applyFormValues(config);
+
+  const footerNodes = [
+    createButton(t.buttonCancel, { onClick: closeModal }),
+    createButton(t.dbButtonTestConnection, {
+      onClick: async () => {
+        resultLine.textContent = t.dbTestingConnection;
+        const result = await api.testDatabaseConfig(readForm());
+        if (!result.ok) {
+          resultLine.textContent = t.dbConnectionFailed;
+          showApiError(t.dbConnectionFailed, result);
+          return;
+        }
+        resultLine.textContent = result.databaseCreated ? t.dbConnectionSuccessCreated : t.dbConnectionSuccess;
+      }
+    })
+  ];
+
+  if (!config.ConnectionDisabled) {
+    footerNodes.push(
+      createButton(t.dbButtonDisconnect, {
+        onClick: async () => {
+          const confirmed = await showConfirmDialog({
+            title: t.dbSettingsTitle,
+            message: t.confirmDisconnectDatabase
+          });
+          if (!confirmed) {
+            return;
+          }
+          const result = await api.disconnectDatabase();
+          if (!result.ok) {
+            showApiError(t.dbSettingsTitle, result);
+            return;
+          }
+          closeModal();
+          onDisconnected?.();
+        }
+      })
+    );
+  }
+
+  footerNodes.push(
+    createButton(t.buttonSave, {
+      primary: true,
+      onClick: async () => {
+        const payload = readForm();
+        const result = await api.saveDatabaseConfig(payload);
+        if (!result.ok) {
+          showApiError(t.dbSettingsTitle, result);
+          return;
+        }
+        closeModal();
+        await showConfirmDialog({
+          title: t.dbSettingsTitle,
+          message: t.dbSaved,
+          confirmLabel: t.buttonOk,
+          cancelLabel: t.buttonClose
+        });
+        onSaved?.(result);
+      }
+    })
+  );
+
   openModal({
-    title: 'DB 연결 설정',
+    title: t.dbSettingsTitle,
     bodyNode: body,
-    footerNodes: [createButton('닫기', { primary: true, onClick: closeModal })]
+    footerNodes
   });
 }
 

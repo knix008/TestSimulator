@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { loadConfig, getUserDataPaths } = require('../src/main/config');
-const { openDatabase } = require('../src/main/db/connection');
+const { openDatabase, closeDatabase } = require('../src/main/db/connection');
 const { registerIpcHandlers } = require('../src/main/ipc/handlers');
 const {
   tryGetAssetBytes,
@@ -17,7 +17,8 @@ protocol.registerSchemesAsPrivileged([
       standard: true,
       secure: true,
       supportFetchAPI: true,
-      corsEnabled: true
+      corsEnabled: true,
+      bypassCSP: true
     }
   }
 ]);
@@ -26,6 +27,19 @@ const isDev = process.argv.includes('--dev');
 let mainWindow = null;
 let db = null;
 let sessionUser = null;
+let config = null;
+
+function reloadConfig() {
+  config = loadConfig();
+  return config;
+}
+
+function reconnectDatabase() {
+  closeDatabase(db);
+  config = loadConfig();
+  db = openDatabase(config);
+  return db;
+}
 
 function getBuildIconPath() {
   const buildDir = path.join(__dirname, '..', 'build');
@@ -199,7 +213,7 @@ function registerPageAssetProtocol() {
 
 function bootstrap() {
   ensureAppDirectories();
-  const config = loadConfig();
+  config = loadConfig();
   db = openDatabase(config);
   registerPageAssetProtocol();
   registerWindowHandlers();
@@ -209,7 +223,9 @@ function bootstrap() {
     setSessionUser: (user) => {
       sessionUser = user;
     },
-    getConfig: () => config,
+    getConfig: () => config || loadConfig(),
+    reloadConfig,
+    reconnectDatabase,
     getMainWindow: () => mainWindow
   });
 }
@@ -232,10 +248,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  if (db) {
-    db.close();
-    db = null;
-  }
+  closeDatabase(db);
+  db = null;
 });
 
 module.exports = { isDev };

@@ -201,7 +201,16 @@ function buildTableItems(t, context, canEdit) {
   const showBackground =
     scope === 'rows' || scope === 'columns' || scope === 'cells' || scope === 'table';
 
+  const insertItems = canEdit
+    ? [
+        { id: 'editor-image', label: t.toolbarImage, iconName: menuIcon('image') },
+        { id: 'editor-attach', label: t.toolbarAttachFile, iconName: menuIcon('attach') },
+        { type: 'separator' }
+      ]
+    : [];
+
   return [
+    ...insertItems,
     {
       id: 'table-delete-table',
       label: t.editorTableDelete,

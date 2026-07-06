@@ -23,7 +23,7 @@ fileAssociations:
     name: MyWorkspace Project
     description: MyWorkspace project archive
     role: Editor
-    icon: wsp.ico
+    icon: wsp
 win:
   target:
     - target: nsis
@@ -57,14 +57,35 @@ portable:
   artifactName: ${productName}-Portable-${version}.${ext}
 mac:
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch:
+        - universal
+    - target: zip
+      arch:
+        - universal
   category: public.app-category.productivity
-  icon: icon.png
+  icon: icon.icns
+  identity: null
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    CFBundleDocumentTypes:
+      - CFBundleTypeName: MyWorkspace Project
+        CFBundleTypeRole: Editor
+        LSHandlerRank: Owner
+        LSItemContentTypes:
+          - com.shkwon.myworkspace.wsp
+    UTExportedTypeDeclarations:
+      - UTTypeIdentifier: com.shkwon.myworkspace.wsp
+        UTTypeDescription: MyWorkspace Project
+        UTTypeTagSpecification:
+          public.filename-extension:
+            - wsp
+        UTTypeConformsTo:
+          - public.data
+          - public.content
 dmg:
   artifactName: ${productName}-${version}-mac-${arch}.${ext}
 linux:

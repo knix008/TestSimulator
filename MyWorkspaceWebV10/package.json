@@ -20,24 +20,31 @@
     "dist:mac": "node scripts/sync-build-assets.js && electron-builder --mac",
     "dist:linux": "node scripts/sync-build-assets.js && electron-builder --linux",
     "dist:linux:portable": "node scripts/sync-build-assets.js && electron-builder --linux tar.gz",
-    "dist:installers": "node scripts/sync-build-assets.js && npm run dist:win && npm run dist:linux:portable"
+    "dist:installers": "node scripts/sync-build-assets.js && npm run dist:win && npm run dist:mac && npm run dist:linux:portable",
+    "dist:all": "node scripts/sync-build-assets.js && npm run dist:win && npm run dist:mac && npm run dist:linux"
   },
   "author": "SHKWON",
   "license": "UNLICENSED",
   "homepage": "https://github.com/shkwon/myworkspace-web-v10",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "devDependencies": {
     "electron": "^35.7.5",
     "electron-builder": "^25.1.8",
     "png-to-ico": "^3.0.1",
+    "png2icons": "^2.0.1",
     "sharp": "^0.35.3"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^11.9.1",
+    "better-sqlite3": "^12.11.1",
     "html-to-docx": "^1.8.0",
     "marked": "^15.0.12",
+    "mysql2": "^3.14.1",
     "nodemailer": "^9.0.3",
+    "pg": "^8.16.0",
     "turndown": "^7.2.0"
   }
 }

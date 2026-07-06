@@ -2,6 +2,7 @@
         <html lang="ko">
         <head>
           <meta charset="utf-8">
+          <meta http-equiv="Content-Security-Policy" content="img-src 'self' data: blob: page-asset:;">
           <meta name="color-scheme" content="light">
           <style>
             :root {
@@ -351,6 +352,26 @@
             @keyframes editor-drop-caret-blink {
               50% { opacity: 0; }
             }
+            #editor-file-drop-preview {
+              position: fixed;
+              pointer-events: none;
+              z-index: 100002;
+              display: none;
+              max-width: 240px;
+              max-height: 180px;
+              border: 2px solid var(--editor-accent);
+              border-radius: 8px;
+              overflow: hidden;
+              background: var(--editor-surface);
+              box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+            }
+            #editor-file-drop-preview img {
+              display: block;
+              max-width: 240px;
+              max-height: 180px;
+              width: auto;
+              height: auto;
+            }
             .editor-file-attachment {
               display: inline-flex; align-items: center; gap: 6px;
               padding: 6px 10px; margin: 0 4px 14px 0;
@@ -362,12 +383,42 @@
             .editor-file-attachment:before {
               content: "📎"; font-size: 1em; line-height: 1;
             }
+            .editor-file-attachment.is-selected {
+              border-color: var(--editor-accent);
+              box-shadow: 0 0 0 1px color-mix(in srgb, var(--editor-accent) 35%, transparent);
+            }
+            .editor-file-attachment.is-selected:not(.is-dragging) {
+              cursor: grab;
+            }
+            .editor-file-attachment.is-dragging {
+              opacity: 0.75;
+              cursor: grabbing !important;
+              z-index: 10000;
+              pointer-events: none;
+            }
+            .editor-file-attachment.is-move-source {
+              opacity: 0.2;
+              pointer-events: none;
+            }
             hr { border: none; border-top: 1px solid var(--editor-border); margin: 20px 0; }
           </style>
         </head>
         <body>
 <script>
 window.chrome = window.chrome || {};
+function inferDroppedFileName(file) {
+  if (file && file.name) return file.name;
+  var type = String(file && file.type || '').toLowerCase();
+  var map = {
+    'image/jpeg': 'image.jpg',
+    'image/png': 'image.png',
+    'image/gif': 'image.gif',
+    'image/webp': 'image.webp',
+    'image/avif': 'image.avif',
+    'image/svg+xml': 'image.svg'
+  };
+  return map[type] || 'file.bin';
+}
 window.chrome.webview = window.chrome.webview || {
   postMessage: function(payload) {
     if (typeof payload === 'string') {
@@ -381,7 +432,44 @@ window.chrome.webview = window.chrome.webview || {
     }
     window.parent.postMessage(Object.assign({ channel: 'editor-webview' }, payload || {}), '*');
   },
-  postMessageWithAdditionalObjects: function(payload, _objects) {
+  postMessageWithAdditionalObjects: function(payload, objects) {
+    var parsed;
+    try {
+      parsed = typeof payload === 'string' ? JSON.parse(payload) : (payload || {});
+    } catch (e) {
+      window.chrome.webview.postMessage(payload);
+      return;
+    }
+
+    if (parsed.type === 'file-drop' && objects && objects.length) {
+      var fileList = Array.prototype.slice.call(objects);
+      var pending = fileList.length;
+      var results = new Array(fileList.length);
+      fileList.forEach(function(file, index) {
+        var reader = new FileReader();
+        reader.onload = function() {
+          results[index] = {
+            fileName: inferDroppedFileName(file),
+            dataUri: String(reader.result || '')
+          };
+          pending -= 1;
+          if (pending === 0) {
+            parsed.files = results.filter(Boolean);
+            window.chrome.webview.postMessage(JSON.stringify(parsed));
+          }
+        };
+        reader.onerror = function() {
+          pending -= 1;
+          if (pending === 0) {
+            parsed.files = results.filter(Boolean);
+            window.chrome.webview.postMessage(JSON.stringify(parsed));
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      return;
+    }
+
     window.chrome.webview.postMessage(payload);
   }
 };
@@ -748,7 +836,8 @@ window.chrome.webview = window.chrome.webview || {
 
             editor.addEventListener('mousedown', (e) => {
               if (e.button !== 0) return;
-              if (e.target.closest('.editor-image-wrap') || e.target.closest('.editor-image-resize-handle')) return;
+              if (e.target.closest('.editor-image-wrap') || e.target.closest('.editor-image-resize-handle')
+                  || e.target.closest('a.editor-file-attachment')) return;
               const colResizeHandle = e.target.closest('.editor-table-col-resize-handle');
               if (colResizeHandle) {
                 const handleCell = colResizeHandle.closest('td, th');
@@ -771,6 +860,7 @@ window.chrome.webview = window.chrome.webview || {
               }
               if (isOverEditorScrollbar(e.clientX, e.clientY)) return;
               editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => w.classList.remove('is-selected'));
+              editor.querySelectorAll('a.editor-file-attachment.is-selected').forEach(link => link.classList.remove('is-selected'));
 
               const cell = e.target.closest('td, th');
               if (!cell || !editor.contains(cell) || !cell.closest('table')) {
@@ -811,10 +901,12 @@ window.chrome.webview = window.chrome.webview || {
             }
 
             const ZWSP = '\u200B';
-            let imageMoveSession = null;
+            let mediaMoveSession = null;
             let suppressNextImageClick = false;
             let caretNormalizeTimer = null;
             let imageDropCaret = null;
+            let fileDropPreview = null;
+            let fileDropPreviewUrl = null;
 
             function ensureImageDropCaret() {
               if (imageDropCaret) return imageDropCaret;
@@ -827,7 +919,7 @@ window.chrome.webview = window.chrome.webview || {
 
             function hideImageDropCaret() {
               if (imageDropCaret) imageDropCaret.style.display = 'none';
-              if (imageMoveSession) imageMoveSession.dropRange = null;
+              if (mediaMoveSession) mediaMoveSession.dropRange = null;
             }
 
             function getCaretRectFromRange(range) {
@@ -848,17 +940,17 @@ window.chrome.webview = window.chrome.webview || {
             function updateImageDropCaret(clientX, clientY, ignoreNode) {
               const marker = ensureImageDropCaret();
               const ignore = [ignoreNode, marker];
-              if (imageMoveSession?.wrap)
-                ignore.push(imageMoveSession.wrap);
+              if (mediaMoveSession?.node)
+                ignore.push(mediaMoveSession.node);
               const range = resolveEditorCaretRange(clientX, clientY, ignore);
               if (!range || !editor.contains(range.startContainer)) {
                 marker.style.display = 'none';
-                if (imageMoveSession) imageMoveSession.dropRange = null;
+                if (mediaMoveSession) mediaMoveSession.dropRange = null;
                 return;
               }
 
               range.collapse(true);
-              if (imageMoveSession) imageMoveSession.dropRange = range.cloneRange();
+              if (mediaMoveSession) mediaMoveSession.dropRange = range.cloneRange();
 
               const rect = getCaretRectFromRange(range);
               const lineHeight = parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
@@ -1172,7 +1264,8 @@ window.chrome.webview = window.chrome.webview || {
                 }
                 if (child.nodeType !== Node.ELEMENT_NODE)
                   continue;
-                if (child.classList?.contains('editor-image-wrap')) {
+                if (child.classList?.contains('editor-image-wrap')
+                    || child.classList?.contains('editor-file-attachment')) {
                   block.appendChild(child);
                   continue;
                 }
@@ -1219,7 +1312,9 @@ window.chrome.webview = window.chrome.webview || {
                 return null;
 
               for (const child of Array.from(block.childNodes)) {
-                if (child.nodeType === Node.ELEMENT_NODE && child.classList?.contains('editor-image-wrap')) {
+                if (child.nodeType === Node.ELEMENT_NODE
+                    && (child.classList?.contains('editor-image-wrap')
+                      || child.classList?.contains('editor-file-attachment'))) {
                   const rect = child.getBoundingClientRect();
                   if (x <= rect.left + rect.width / 2) {
                     const range = document.createRange();
@@ -2938,6 +3033,38 @@ window.chrome.webview = window.chrome.webview || {
               return range;
             }
 
+            function caretRangeBeforeAfterInlineMedia(node, clientX) {
+              return caretRangeBeforeAfterImageWrap(node, clientX);
+            }
+
+            function resolveRangeFromSelectedTableCell() {
+              const selectedCells = getSelectedTableCells();
+              if (selectedCells.length !== 1)
+                return null;
+
+              const block = getTableCellInsertBlock(selectedCells[0]);
+              if (!block)
+                return null;
+
+              const range = document.createRange();
+              range.selectNodeContents(block);
+              range.collapse(false);
+              return range;
+            }
+
+            function normalizeAssetInsertRange(range) {
+              if (!range || !editor.contains(range.startContainer))
+                return range;
+
+              let anchor = range.startContainer;
+              if (anchor.nodeType === Node.TEXT_NODE)
+                anchor = anchor.parentElement;
+              const cell = anchor?.closest?.('td, th');
+              if (cell)
+                ensureTableCellEditable(cell);
+              return normalizeRangeForTableInsert(range) || range;
+            }
+
             function resolveEditorCaretRange(x, y, ignoreNodes) {
               const ignored = (ignoreNodes || []).filter(Boolean);
 
@@ -2948,7 +3075,10 @@ window.chrome.webview = window.chrome.webview || {
                   container = container.parentNode;
                 const hitWrap = container?.closest?.('.editor-image-wrap');
                 if (hitWrap && editor.contains(hitWrap) && !isIgnoredHitTarget(hitWrap, ignored))
-                  return caretRangeBeforeAfterImageWrap(hitWrap, x);
+                  return caretRangeBeforeAfterInlineMedia(hitWrap, x);
+                const hitFile = container?.closest?.('a.editor-file-attachment');
+                if (hitFile && editor.contains(hitFile) && !isIgnoredHitTarget(hitFile, ignored))
+                  return caretRangeBeforeAfterInlineMedia(hitFile, x);
                 if (!isIgnoredHitTarget(container, ignored))
                   return range;
               }
@@ -2963,7 +3093,11 @@ window.chrome.webview = window.chrome.webview || {
 
                 const imageWrap = el.closest?.('.editor-image-wrap');
                 if (imageWrap && editor.contains(imageWrap) && !isIgnoredHitTarget(imageWrap, ignored))
-                  return caretRangeBeforeAfterImageWrap(imageWrap, x);
+                  return caretRangeBeforeAfterInlineMedia(imageWrap, x);
+
+                const fileLink = el.closest?.('a.editor-file-attachment');
+                if (fileLink && editor.contains(fileLink) && !isIgnoredHitTarget(fileLink, ignored))
+                  return caretRangeBeforeAfterInlineMedia(fileLink, x);
 
                 if (!editor.contains(el))
                   continue;
@@ -3026,15 +3160,19 @@ window.chrome.webview = window.chrome.webview || {
             function captureInsertMarker() {
               clearSavedInsertMarker();
               savedInsertScrollTop = editor.scrollTop;
-              if (!hasValidEditorSelection())
-                return false;
 
-              const sel = window.getSelection();
-              const range = sel.getRangeAt(0).cloneRange();
-              if (!editor.contains(range.startContainer))
+              let range = null;
+              if (hasValidEditorSelection()) {
+                const sel = window.getSelection();
+                range = sel.getRangeAt(0).cloneRange();
+              } else {
+                range = resolveRangeFromSelectedTableCell();
+              }
+              if (!range || !editor.contains(range.startContainer))
                 return false;
 
               range.collapse(true);
+              range = normalizeAssetInsertRange(range) || range;
               const marker = document.createElement('span');
               marker.setAttribute('data-editor-insert-marker', '1');
               marker.textContent = ZWSP;
@@ -3099,6 +3237,7 @@ window.chrome.webview = window.chrome.webview || {
             function invalidateFileDropFeedback() {
               fileDropFeedbackEpoch++;
               hideFileDropCaret();
+              hideFileDropPreview();
               document.body.classList.remove('is-file-drop-target');
             }
 
@@ -3178,7 +3317,7 @@ window.chrome.webview = window.chrome.webview || {
               return !!(sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode));
             }
 
-            function createImageWrapElement(instanceId, src, alt) {
+            function createImageWrapElement(instanceId, src, alt, permanentSrc) {
               const wrap = document.createElement('span');
               wrap.className = 'editor-image-wrap';
               wrap.contentEditable = 'false';
@@ -3186,6 +3325,8 @@ window.chrome.webview = window.chrome.webview || {
               const img = document.createElement('img');
               img.src = src;
               img.alt = alt || '';
+              if (permanentSrc && permanentSrc !== src)
+                img.dataset.permanentSrc = permanentSrc;
               wrap.appendChild(img);
               const handle = document.createElement('span');
               handle.className = 'editor-image-resize-handle';
@@ -3194,12 +3335,94 @@ window.chrome.webview = window.chrome.webview || {
               return wrap;
             }
 
-            function insertImageWrapAtRange(range, instanceId, src, alt) {
+            function parsePageAssetSrc(src) {
+              const match = /^page-asset:\/\/(\d+)\/([^?#]+)/i.exec(String(src || ''));
+              if (!match) return null;
+              return {
+                pageId: Number.parseInt(match[1], 10),
+                fileName: decodeURIComponent(match[2])
+              };
+            }
+
+            let pageAssetRequestSeq = 0;
+            const pendingPageAssetRequests = new Map();
+
+            window.addEventListener('message', (event) => {
+              const message = event.data;
+              if (!message || message.channel !== 'editor-webview' || message.type !== 'page-asset-resolved')
+                return;
+              const resolve = pendingPageAssetRequests.get(message.requestId);
+              if (!resolve) return;
+              pendingPageAssetRequests.delete(message.requestId);
+              resolve(message.dataUri || null);
+            });
+
+            function requestPageAssetDataUri(src) {
+              const parsed = parsePageAssetSrc(src);
+              if (!parsed) return Promise.resolve(null);
+              const requestId = 'pa' + (++pageAssetRequestSeq);
+              return new Promise((resolve) => {
+                pendingPageAssetRequests.set(requestId, resolve);
+                window.parent.postMessage({
+                  channel: 'editor-webview',
+                  type: 'resolve-page-asset',
+                  requestId,
+                  pageId: parsed.pageId,
+                  fileName: parsed.fileName
+                }, '*');
+                setTimeout(() => {
+                  if (!pendingPageAssetRequests.has(requestId)) return;
+                  pendingPageAssetRequests.delete(requestId);
+                  resolve(null);
+                }, 10000);
+              });
+            }
+
+            async function ensureImageDisplaySrc(img) {
+              if (!img || !editor.contains(img)) return false;
+              const currentSrc = img.getAttribute('src') || '';
+              if (/^data:image\//i.test(currentSrc) && img.naturalWidth > 0)
+                return true;
+
+              const permanentSrc = img.dataset.permanentSrc || '';
+              const targetSrc = permanentSrc || currentSrc;
+              if (!/page-asset:/i.test(targetSrc))
+                return false;
+
+              const dataUri = await requestPageAssetDataUri(targetSrc);
+              if (!dataUri || !editor.contains(img))
+                return false;
+
+              img.src = dataUri;
+              img.setAttribute('src', dataUri);
+              if (permanentSrc || /page-asset:/i.test(targetSrc))
+                img.dataset.permanentSrc = permanentSrc || targetSrc;
+              delete img.dataset.hydrateRequested;
+              const wrap = img.closest('.editor-image-wrap');
+              if (wrap) {
+                applyDefaultImageDisplaySize(wrap, img);
+                finalizeImageSizeFromMarkup(wrap, img);
+              }
+              return true;
+            }
+
+            function hydrateEditorImages(root) {
+              const scope = root && root.querySelectorAll ? root : editor;
+              scope.querySelectorAll('.editor-image-wrap img').forEach((img) => {
+                const src = img.getAttribute('src') || '';
+                const permanentSrc = img.dataset.permanentSrc || '';
+                if (/^data:image\//i.test(src) && !permanentSrc) return;
+                if (/page-asset:/i.test(src) || /page-asset:/i.test(permanentSrc))
+                  void ensureImageDisplaySrc(img);
+              });
+            }
+
+            function insertImageWrapAtRange(range, instanceId, src, alt, permanentSrc) {
               if (!range || !editor.contains(range.startContainer))
                 return null;
 
               range.collapse(true);
-              const wrap = createImageWrapElement(instanceId, src, alt);
+              const wrap = createImageWrapElement(instanceId, src, alt, permanentSrc);
               const fragment = document.createDocumentFragment();
               fragment.appendChild(document.createTextNode(ZWSP));
               fragment.appendChild(wrap);
@@ -3222,7 +3445,11 @@ window.chrome.webview = window.chrome.webview || {
 
               const img = insertedWrap.querySelector('img');
               ensureImageWrapReady(insertedWrap);
-              if (img) attachImageLoadHandlers(insertedWrap, img);
+              if (img) {
+                attachImageLoadHandlers(insertedWrap, img);
+                if (/page-asset:/i.test(img.getAttribute('src') || '') || img.dataset.permanentSrc)
+                  void ensureImageDisplaySrc(img);
+              }
               restoreSavedInsertScroll();
               placeCaretAfter(insertedWrap, true);
               scrollElementIntoEditorView(insertedWrap);
@@ -3234,7 +3461,7 @@ window.chrome.webview = window.chrome.webview || {
               return insertedWrap;
             }
 
-            function insertImageAtCaret(src, alt, preferredRange, usePendingDropRange) {
+            function insertImageAtCaret(src, alt, preferredRange, usePendingDropRange, permanentSrc) {
               hideFileDropCaret();
 
               let range = preferredRange ? preferredRange.cloneRange() : null;
@@ -3250,21 +3477,16 @@ window.chrome.webview = window.chrome.webview || {
               if (!range && hasValidEditorSelection()) {
                 range = window.getSelection().getRangeAt(0).cloneRange();
               }
+              if (!range)
+                range = resolveRangeFromSelectedTableCell();
 
-              if (range && editor.contains(range.startContainer)) {
-                let anchor = range.startContainer;
-                if (anchor.nodeType === Node.TEXT_NODE)
-                  anchor = anchor.parentElement;
-                const cell = anchor?.closest?.('td, th');
-                if (cell)
-                  ensureTableCellEditable(cell);
-                range = normalizeRangeForTableInsert(range) || range;
-              }
+              if (range && editor.contains(range.startContainer))
+                range = normalizeAssetInsertRange(range) || range;
               const instanceId = 'img-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
               let insertedWrap = null;
 
               if (range && editor.contains(range.startContainer)) {
-                insertedWrap = insertImageWrapAtRange(range, instanceId, src, alt);
+                insertedWrap = insertImageWrapAtRange(range, instanceId, src, alt, permanentSrc);
               }
 
               if (!insertedWrap) {
@@ -3274,7 +3496,7 @@ window.chrome.webview = window.chrome.webview || {
                   range = sel.getRangeAt(0).cloneRange();
                   range = normalizeRangeForTableInsert(range) || range;
                   if (range && editor.contains(range.startContainer))
-                    insertedWrap = insertImageWrapAtRange(range, instanceId, src, alt);
+                    insertedWrap = insertImageWrapAtRange(range, instanceId, src, alt, permanentSrc);
                 }
               }
 
@@ -3282,14 +3504,111 @@ window.chrome.webview = window.chrome.webview || {
                 ensureInsertLocation();
                 const safeSrc = escapeHtml(src);
                 const safeAlt = escapeHtml(alt || '');
+                const safePermanent = permanentSrc && permanentSrc !== src
+                  ? ' data-permanent-src="' + escapeHtml(permanentSrc) + '"'
+                  : '';
                 document.execCommand(
                   'insertHTML',
                   false,
-                  '&#8203;<span class="editor-image-wrap" contenteditable="false" data-editor-instance-id="' + instanceId + '"><img src="' + safeSrc + '" alt="' + safeAlt + '"><span class="editor-image-resize-handle" contenteditable="false"></span></span>&#8203;');
+                  '&#8203;<span class="editor-image-wrap" contenteditable="false" data-editor-instance-id="' + instanceId + '"><img src="' + safeSrc + '" alt="' + safeAlt + '"' + safePermanent + '><span class="editor-image-resize-handle" contenteditable="false"></span></span>&#8203;');
                 insertedWrap = editor.querySelector('.editor-image-wrap[data-editor-instance-id="' + instanceId + '"]');
               }
 
               return finalizeInsertedImageWrap(insertedWrap);
+            }
+
+            function insertFileAttachmentAtRange(range, href, fileName, instanceId) {
+              if (!range || !editor.contains(range.startContainer))
+                return null;
+
+              range.collapse(true);
+              const link = document.createElement('a');
+              link.className = 'editor-file-attachment';
+              link.contentEditable = 'false';
+              link.href = href;
+              link.textContent = fileName || href;
+              if (instanceId)
+                link.dataset.editorInstanceId = instanceId;
+              const fragment = document.createDocumentFragment();
+              fragment.appendChild(document.createTextNode(ZWSP));
+              fragment.appendChild(link);
+              fragment.appendChild(document.createTextNode(ZWSP));
+              range.insertNode(fragment);
+              return link;
+            }
+
+            function finalizeInsertedFileAttachment(insertedLink) {
+              if (!insertedLink || !editor.contains(insertedLink)) {
+                clearFileDropInsertMarker();
+                pendingFileDropInsertRange = null;
+                lastFileDropPoint = null;
+                return null;
+              }
+
+              clearFileDropInsertMarker();
+              pendingFileDropInsertRange = null;
+              lastFileDropPoint = null;
+
+              ensureFileAttachmentReady(insertedLink);
+              restoreSavedInsertScroll();
+              placeCaretAfter(insertedLink, true);
+              scrollElementIntoEditorView(insertedLink);
+              upgradeEditorBlocks();
+              updateEmptyState();
+              notifyChanged();
+              scheduleCaretAnchorNormalize();
+              return insertedLink;
+            }
+
+            function insertFileAttachmentAtCaret(href, fileName, preferredRange, usePendingDropRange) {
+              hideFileDropCaret();
+
+              let range = preferredRange ? preferredRange.cloneRange() : null;
+              if (!range && usePendingDropRange)
+                range = consumePendingInsertRange();
+              if (!range)
+                range = consumeSavedInsertRange();
+              editor.focus({ preventScroll: true });
+
+              if (!range && !hasValidEditorSelection() && lastFileDropPoint) {
+                range = resolveInsertRangeAtPoint(lastFileDropPoint.x, lastFileDropPoint.y, [imageDropCaret]);
+              }
+              if (!range && hasValidEditorSelection()) {
+                range = window.getSelection().getRangeAt(0).cloneRange();
+              }
+              if (!range)
+                range = resolveRangeFromSelectedTableCell();
+
+              if (range && editor.contains(range.startContainer))
+                range = normalizeAssetInsertRange(range) || range;
+
+              const instanceId = 'file-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+              const safeHref = escapeHtml(href);
+              const safeName = escapeHtml(fileName || href);
+              const html = '&#8203;<a class="editor-file-attachment" data-editor-instance-id="' + instanceId + '" href="' + safeHref + '" contenteditable="false">' + safeName + '</a>&#8203;';
+              let insertedLink = null;
+
+              if (range && editor.contains(range.startContainer))
+                insertedLink = insertFileAttachmentAtRange(range, href, fileName, instanceId);
+
+              if (!insertedLink) {
+                ensureInsertLocation();
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0) {
+                  range = sel.getRangeAt(0).cloneRange();
+                  range = normalizeAssetInsertRange(range) || range;
+                  if (range && editor.contains(range.startContainer))
+                    insertedLink = insertFileAttachmentAtRange(range, href, fileName, instanceId);
+                }
+              }
+
+              if (!insertedLink) {
+                ensureInsertLocation();
+                document.execCommand('insertHTML', false, html);
+                insertedLink = editor.querySelector('a.editor-file-attachment[data-editor-instance-id="' + instanceId + '"]');
+              }
+
+              return finalizeInsertedFileAttachment(insertedLink);
             }
 
             function commitFileDropCaretAtPointImpl(x, y) {
@@ -3306,6 +3625,8 @@ window.chrome.webview = window.chrome.webview || {
               let range = savedRange ? savedRange.cloneRange() : resolveInsertRangeAtPoint(x, y, [imageDropCaret]);
               if (range)
                 range.collapse(true);
+              if (range && editor.contains(range.startContainer))
+                range = normalizeAssetInsertRange(range) || range;
 
               if (!range || !editor.contains(range.startContainer)) {
                 pendingFileDropInsertRange = null;
@@ -3387,6 +3708,62 @@ window.chrome.webview = window.chrome.webview || {
               return /\.(jpe?g|png|gif|webp|avif|svg)$/.test(name);
             }
 
+            function ensureFileDropPreview() {
+              if (fileDropPreview) return fileDropPreview;
+              fileDropPreview = document.createElement('div');
+              fileDropPreview.id = 'editor-file-drop-preview';
+              fileDropPreview.setAttribute('aria-hidden', 'true');
+              const img = document.createElement('img');
+              img.alt = '';
+              fileDropPreview.appendChild(img);
+              document.body.appendChild(fileDropPreview);
+              return fileDropPreview;
+            }
+
+            function hideFileDropPreview() {
+              if (fileDropPreview) fileDropPreview.style.display = 'none';
+              if (fileDropPreviewUrl) {
+                URL.revokeObjectURL(fileDropPreviewUrl);
+                fileDropPreviewUrl = null;
+              }
+            }
+
+            function getFirstDroppedImageFile(dataTransfer) {
+              if (!dataTransfer) return null;
+              const files = dataTransfer.files;
+              if (files && files.length) {
+                const hit = Array.from(files).find(isDroppedImageFile);
+                if (hit) return hit;
+              }
+              const items = dataTransfer.items;
+              if (items) {
+                for (let i = 0; i < items.length; i++) {
+                  const item = items[i];
+                  if (item.kind !== 'file') continue;
+                  const file = item.getAsFile();
+                  if (isDroppedImageFile(file)) return file;
+                }
+              }
+              return null;
+            }
+
+            function showFileDropPreviewAtPoint(x, y, file) {
+              if (!file || !isDroppedImageFile(file)) {
+                hideFileDropPreview();
+                return;
+              }
+              const preview = ensureFileDropPreview();
+              if (fileDropPreviewUrl) {
+                URL.revokeObjectURL(fileDropPreviewUrl);
+                fileDropPreviewUrl = null;
+              }
+              fileDropPreviewUrl = URL.createObjectURL(file);
+              preview.querySelector('img').src = fileDropPreviewUrl;
+              preview.style.display = 'block';
+              preview.style.left = Math.round(x + 16) + 'px';
+              preview.style.top = Math.round(y + 16) + 'px';
+            }
+
             function postImageFileAsDataUri(webview, imageFile, clientX, clientY) {
               const reader = new FileReader();
               reader.onload = () => {
@@ -3404,44 +3781,33 @@ window.chrome.webview = window.chrome.webview || {
 
             function postFileDropMessage(files, clientX, clientY) {
               if (!files || files.length === 0) return;
+              const payload = JSON.stringify({
+                type: 'file-drop',
+                x: Math.round(clientX),
+                y: Math.round(clientY)
+              });
               const webview = window.chrome?.webview;
-              if (!webview?.postMessage) return;
+              if (!webview) return;
+
+              if (webview.postMessageWithAdditionalObjects) {
+                try {
+                  // WebView2 expects one ArrayLike second argument (FileList), not spread File items.
+                  webview.postMessageWithAdditionalObjects(payload, files);
+                  return;
+                } catch {
+                  // Fall through to data-uri fallback for images.
+                }
+              }
 
               const fileList = Array.from(files);
-              const payloadFiles = [];
-              let pending = fileList.length;
+              const imageFile = fileList.find(isDroppedImageFile);
+              if (imageFile && webview.postMessage) {
+                postImageFileAsDataUri(webview, imageFile, clientX, clientY);
+                return;
+              }
 
-              fileList.forEach((file) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  payloadFiles.push({
-                    fileName: file.name || (isDroppedImageFile(file) ? 'image.png' : 'file.bin'),
-                    dataUri: String(reader.result || ''),
-                    isImage: isDroppedImageFile(file)
-                  });
-                  pending -= 1;
-                  if (pending === 0) {
-                    webview.postMessage(JSON.stringify({
-                      type: 'file-drop',
-                      x: Math.round(clientX),
-                      y: Math.round(clientY),
-                      files: payloadFiles
-                    }));
-                  }
-                };
-                reader.onerror = () => {
-                  pending -= 1;
-                  if (pending === 0 && payloadFiles.length > 0) {
-                    webview.postMessage(JSON.stringify({
-                      type: 'file-drop',
-                      x: Math.round(clientX),
-                      y: Math.round(clientY),
-                      files: payloadFiles
-                    }));
-                  }
-                };
-                reader.readAsDataURL(file);
-              });
+              if (webview.postMessage)
+                webview.postMessage(payload);
             }
 
             function handleExternalFileDragOver(e) {
@@ -3450,6 +3816,9 @@ window.chrome.webview = window.chrome.webview || {
               if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
               setFileDropHighlightActive(true, false);
               showFileDropCaretAtClientPoint(e.clientX, e.clientY);
+              const imageFile = getFirstDroppedImageFile(e.dataTransfer);
+              if (imageFile) showFileDropPreviewAtPoint(e.clientX, e.clientY, imageFile);
+              else hideFileDropPreview();
             }
 
             function handleExternalFileDrop(e) {
@@ -3471,6 +3840,7 @@ window.chrome.webview = window.chrome.webview || {
               showFileDropCaretAtClientPoint(e.clientX, e.clientY);
               commitFileDropCaretAtPointImpl(e.clientX, e.clientY);
               postFileDropMessage(e.dataTransfer?.files, e.clientX, e.clientY);
+              hideFileDropPreview();
             }
 
             editor.addEventListener('dragenter', (e) => {
@@ -3508,16 +3878,32 @@ window.chrome.webview = window.chrome.webview || {
             });
             editor.addEventListener('beforeinput', (e) => {
               const cell = getCaretTableCell();
-              if (!cell)
+              if (cell) {
+                const block = getTableCellInsertBlock(cell);
+                if (block) {
+                  const sel = window.getSelection();
+                  if (sel && sel.rangeCount > 0 && !block.contains(sel.getRangeAt(0).startContainer))
+                    normalizeTableCellCaret(cell);
+                }
+              }
+
+              if (e.inputType !== 'deleteContentBackward' && e.inputType !== 'deleteContentForward')
                 return;
-              const block = getTableCellInsertBlock(cell);
-              if (!block)
-                return;
+
               const sel = window.getSelection();
-              if (!sel || sel.rangeCount === 0)
+              if (!sel || sel.rangeCount === 0 || !sel.isCollapsed)
                 return;
-              if (!block.contains(sel.getRangeAt(0).startContainer))
-                normalizeTableCellCaret(cell);
+              const range = sel.getRangeAt(0);
+              if (!editor.contains(range.startContainer))
+                return;
+
+              const adjacentWrap = e.inputType === 'deleteContentBackward'
+                ? findImageWrapBeforeCaret(range)
+                : findImageWrapAfterCaret(range);
+              if (!adjacentWrap) return;
+
+              e.preventDefault();
+              removeInlineImageWrap(adjacentWrap);
             });
             editor.addEventListener('keyup', (e) => {
               if (e.key === 'ContextMenu' || e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return;
@@ -3552,7 +3938,7 @@ window.chrome.webview = window.chrome.webview || {
               }
             });
             editor.addEventListener('dblclick', (e) => {
-              if (imageMoveSession) return;
+              if (mediaMoveSession) return;
               if (tryOpenLinkFromTarget(e.target)) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -3611,14 +3997,15 @@ window.chrome.webview = window.chrome.webview || {
                   return;
                 }
               }
-              if (e.key === 'Escape' && imageMoveSession) {
-                const session = imageMoveSession;
-                removeImageMoveGhost(session);
-                session.wrap.classList.remove('is-move-source');
+              if (e.key === 'Escape' && mediaMoveSession) {
+                const session = mediaMoveSession;
+                removeMediaMoveGhost(session);
+                session.node.classList.remove('is-move-source');
                 editor.classList.remove('is-image-move-target');
                 hideImageDropCaret();
-                imageMoveSession = null;
-                session.wrap.classList.add('is-selected');
+                mediaMoveSession = null;
+                disarmMediaMoveEndCapture(session);
+                selectMovedMediaNode(session.node);
                 e.preventDefault();
                 return;
               }
@@ -3770,31 +4157,106 @@ window.chrome.webview = window.chrome.webview || {
               editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(w => {
                 if (w !== wrap) w.classList.remove('is-selected');
               });
+              editor.querySelectorAll('a.editor-file-attachment.is-selected').forEach(link => {
+                link.classList.remove('is-selected');
+              });
               wrap.classList.add('is-selected');
             }
 
-            function beginImageMoveTracking(wrap, e) {
-              imageMoveSession = {
-                wrap,
-                html: wrap.outerHTML,
+            function selectFileAttachment(link) {
+              if (!link || !editor.contains(link)) return;
+              editor.querySelectorAll('a.editor-file-attachment.is-selected').forEach(item => {
+                if (item !== link) item.classList.remove('is-selected');
+              });
+              editor.querySelectorAll('.editor-image-wrap.is-selected').forEach(wrap => {
+                wrap.classList.remove('is-selected');
+              });
+              link.classList.add('is-selected');
+            }
+
+            function selectMovedMediaNode(node) {
+              if (!node) return;
+              if (node.classList?.contains('editor-image-wrap'))
+                selectImageWrap(node);
+              else if (node.matches?.('a.editor-file-attachment'))
+                selectFileAttachment(node);
+              node.removeAttribute('data-transient-move-id');
+            }
+
+            function disarmMediaMoveEndCapture(session) {
+              const onEnd = session?.endHandler;
+              if (!onEnd) return;
+              window.removeEventListener('mouseup', onEnd, true);
+              window.removeEventListener('pointerup', onEnd, true);
+              window.removeEventListener('blur', onEnd, true);
+              try {
+                window.parent.removeEventListener('mouseup', onEnd, true);
+                window.parent.removeEventListener('pointerup', onEnd, true);
+              } catch {
+                // Parent access is optional.
+              }
+            }
+
+            function armMediaMoveEndCapture() {
+              if (!mediaMoveSession || mediaMoveSession.endHandler) return;
+              const onEnd = (ev) => {
+                if (!mediaMoveSession) return;
+                finishMediaMove(ev);
+              };
+              mediaMoveSession.endHandler = onEnd;
+              window.addEventListener('mouseup', onEnd, true);
+              window.addEventListener('pointerup', onEnd, true);
+              window.addEventListener('blur', onEnd, true);
+              try {
+                window.parent.addEventListener('mouseup', onEnd, true);
+                window.parent.addEventListener('pointerup', onEnd, true);
+              } catch {
+                // Parent access is optional.
+              }
+            }
+
+            function beginMediaMoveTracking(node, e) {
+              mediaMoveSession = {
+                node,
+                wrap: node,
+                html: node.outerHTML,
                 ghost: null,
                 moveToken: null,
                 startX: e.clientX,
                 startY: e.clientY,
                 dragging: false,
-                savedParent: wrap.parentNode,
-                savedNext: wrap.nextSibling,
+                savedParent: node.parentNode,
+                savedNext: node.nextSibling,
                 offsetX: 0,
                 offsetY: 0,
-                dropRange: null
+                dropRange: null,
+                endHandler: null
               };
+              armMediaMoveEndCapture();
             }
 
-            function removeImageMoveGhost(session) {
+            function beginImageMoveTracking(wrap, e) {
+              beginMediaMoveTracking(wrap, e);
+            }
+
+            function removeMediaMoveGhost(session) {
               if (!session?.ghost?.parentNode)
                 return;
               session.ghost.parentNode.removeChild(session.ghost);
               session.ghost = null;
+            }
+
+            function caretRangeBeforeAfterNode(node, clientX) {
+              if (!node) return null;
+              const rect = node.getBoundingClientRect();
+              const mid = rect.left + rect.width / 2;
+              const range = document.createRange();
+              if (clientX < mid)
+                range.setStartBefore(node);
+              else
+                range.setStartAfter(node);
+              range.collapse(true);
+              return range;
             }
 
             function rangeIntersectsNode(range, node) {
@@ -3803,7 +4265,7 @@ window.chrome.webview = window.chrome.webview || {
               return node.contains(range.startContainer);
             }
 
-            function normalizeImageDropRange(range, clientX) {
+            function normalizeMediaDropRange(range, clientX, movingNode) {
               if (!range) return null;
               const normalized = range.cloneRange();
               normalized.collapse(true);
@@ -3813,10 +4275,21 @@ window.chrome.webview = window.chrome.webview || {
                 container = container.parentNode;
 
               const targetWrap = container?.closest?.('.editor-image-wrap');
-              if (targetWrap && editor.contains(targetWrap)) {
+              if (targetWrap && editor.contains(targetWrap) && targetWrap !== movingNode) {
                 if (typeof clientX === 'number')
                   return caretRangeBeforeAfterImageWrap(targetWrap, clientX);
                 normalized.setStartAfter(targetWrap);
+                normalized.collapse(true);
+                container = normalized.startContainer;
+                if (container.nodeType === Node.TEXT_NODE)
+                  container = container.parentNode;
+              }
+
+              const targetFile = container?.closest?.('a.editor-file-attachment');
+              if (targetFile && editor.contains(targetFile) && targetFile !== movingNode) {
+                if (typeof clientX === 'number')
+                  return caretRangeBeforeAfterNode(targetFile, clientX);
+                normalized.setStartAfter(targetFile);
                 normalized.collapse(true);
                 container = normalized.startContainer;
                 if (container.nodeType === Node.TEXT_NODE)
@@ -3846,62 +4319,62 @@ window.chrome.webview = window.chrome.webview || {
               return normalized;
             }
 
-            function isValidImageDropRange(range, movingWrap) {
-              if (!range || !editor.contains(range.startContainer) || !movingWrap?.parentNode)
+            function isValidMediaDropRange(range, movingNode) {
+              if (!range || !editor.contains(range.startContainer) || !movingNode?.parentNode)
                 return false;
 
-              if (rangeIntersectsNode(range, movingWrap))
+              if (rangeIntersectsNode(range, movingNode))
                 return false;
 
               const probe = range.cloneRange();
               probe.collapse(true);
-              const parent = movingWrap.parentNode;
+              const parent = movingNode.parentNode;
               if (probe.startContainer === parent) {
                 const child = parent.childNodes[probe.startOffset];
-                if (child === movingWrap || child === movingWrap.nextSibling)
+                if (child === movingNode || child === movingNode.nextSibling)
                   return false;
               }
 
               return true;
             }
 
-            function resolveImageDropRangeAtPoint(session, clientX, clientY) {
-              const wrap = session.wrap;
-              const ignore = [session.ghost, wrap, imageDropCaret];
-              const prevVisibility = wrap.style.visibility;
-              wrap.style.visibility = 'hidden';
+            function resolveMediaDropRangeAtPoint(session, clientX, clientY) {
+              const node = session.node;
+              const ignore = [session.ghost, node, imageDropCaret];
+              const prevVisibility = node.style.visibility;
+              node.style.visibility = 'hidden';
               let dropRange = resolveEditorCaretRange(clientX, clientY, ignore);
-              wrap.style.visibility = prevVisibility;
-              return normalizeImageDropRange(dropRange, clientX);
+              node.style.visibility = prevVisibility;
+              return normalizeMediaDropRange(dropRange, clientX, node);
             }
 
-            function pickImageDropRange(session, clientX, clientY, savedDropRange) {
-              const wrap = session.wrap;
+            function pickMediaDropRange(session, clientX, clientY, savedDropRange) {
+              const node = session.node;
               const candidates = [];
 
-              const atPoint = resolveImageDropRangeAtPoint(session, clientX, clientY);
+              const atPoint = resolveMediaDropRangeAtPoint(session, clientX, clientY);
               if (atPoint) candidates.push(atPoint);
 
               if (savedDropRange) {
-                const saved = normalizeImageDropRange(savedDropRange.cloneRange(), clientX);
+                const saved = normalizeMediaDropRange(savedDropRange.cloneRange(), clientX, node);
                 if (saved) candidates.push(saved);
               }
 
               for (const range of candidates) {
-                if (isValidImageDropRange(range, wrap))
+                if (isValidMediaDropRange(range, node))
                   return range;
               }
               return null;
             }
 
-            function moveImageWrapDom(wrap, range, session) {
-              if (!wrap?.parentNode || !range || !editor.contains(range.startContainer))
+            function moveMediaNodeDom(node, range, session) {
+              if (!node?.parentNode || !range || !editor.contains(range.startContainer))
                 return false;
 
-              const savedParent = wrap.parentNode;
-              const savedNext = wrap.nextSibling;
+              const savedParent = node.parentNode;
+              const savedNext = node.nextSibling;
               const marker = document.createElement('span');
-              marker.setAttribute('data-image-drop-marker', '1');
+              marker.setAttribute('data-media-drop-marker', '1');
               marker.textContent = ZWSP;
 
               try {
@@ -3916,70 +4389,77 @@ window.chrome.webview = window.chrome.webview || {
                 return false;
               }
 
-              wrap.classList.remove('is-move-source', 'is-dragging', 'is-selected');
-              savedParent.removeChild(wrap);
+              node.classList.remove('is-move-source', 'is-dragging', 'is-selected');
+              savedParent.removeChild(node);
 
               try {
-                marker.parentNode.insertBefore(wrap, marker);
+                marker.parentNode.insertBefore(node, marker);
               } catch {
                 if (savedNext && savedNext.parentNode === savedParent)
-                  savedParent.insertBefore(wrap, savedNext);
+                  savedParent.insertBefore(node, savedNext);
                 else if (session?.savedParent && editor.contains(session.savedParent))
-                  session.savedParent.appendChild(wrap);
+                  session.savedParent.appendChild(node);
                 else
-                  savedParent.appendChild(wrap);
+                  savedParent.appendChild(node);
                 marker.remove();
                 return false;
               }
 
               marker.remove();
-              ensureImageWrapReady(wrap);
-              ensureCaretAnchors(wrap);
+              if (node.classList?.contains('editor-image-wrap')) {
+                ensureImageWrapReady(node);
+                ensureCaretAnchors(node);
+              } else if (node.matches?.('a.editor-file-attachment')) {
+                ensureFileAttachmentReady(node);
+                ensureCaretAnchors(node);
+              }
               return true;
             }
 
-            function selectMovedImageWrap(wrap, moveToken) {
-              selectImageWrap(wrap);
-              wrap.removeAttribute('data-transient-move-id');
-            }
-
-            function finishImageMove(e) {
-              const session = imageMoveSession;
-              imageMoveSession = null;
+            function finishMediaMove(e) {
+              const session = mediaMoveSession;
+              mediaMoveSession = null;
               editor.classList.remove('is-image-move-target');
               const savedDropRange = session?.dropRange ? session.dropRange.cloneRange() : null;
               hideImageDropCaret();
+              disarmMediaMoveEndCapture(session);
               if (!session) return;
 
-              const wrap = session.wrap;
-              removeImageMoveGhost(session);
-              wrap.classList.remove('is-move-source');
+              const node = session.node;
+              removeMediaMoveGhost(session);
+              node.classList.remove('is-move-source');
 
               if (!session.dragging) {
-                selectImageWrap(wrap);
+                selectMovedMediaNode(node);
+                return;
+              }
+
+              if (e.type === 'blur' || e.clientX == null || e.clientY == null) {
+                selectMovedMediaNode(node);
+                updateEmptyState();
                 return;
               }
 
               suppressNextImageClick = true;
-              const dropRange = pickImageDropRange(session, e.clientX, e.clientY, savedDropRange);
+              const dropRange = pickMediaDropRange(session, e.clientX, e.clientY, savedDropRange);
 
-              if (dropRange && moveImageWrapDom(wrap, dropRange, session)) {
-                selectMovedImageWrap(wrap, session.moveToken);
-                placeCaretAfter(wrap);
+              if (dropRange && moveMediaNodeDom(node, dropRange, session)) {
+                selectMovedMediaNode(node);
+                placeCaretAfter(node);
                 updateEmptyState();
                 notifyChanged();
                 return;
               }
 
-              selectImageWrap(wrap);
+              selectMovedMediaNode(node);
               updateEmptyState();
             }
 
-            document.addEventListener('mousemove', (e) => {
-              const session = imageMoveSession;
+            function handleMediaMovePointer(e) {
+              const session = mediaMoveSession;
               if (!session) return;
 
-              const wrap = session.wrap;
+              const node = session.node;
               const dx = e.clientX - session.startX;
               const dy = e.clientY - session.startY;
 
@@ -3987,14 +4467,14 @@ window.chrome.webview = window.chrome.webview || {
                 if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
                 session.dragging = true;
                 session.moveToken = 'm' + Date.now();
-                wrap.dataset.transientMoveId = session.moveToken;
-                session.html = wrap.outerHTML;
+                node.dataset.transientMoveId = session.moveToken;
+                session.html = node.outerHTML;
                 const sel = window.getSelection();
                 if (sel) sel.removeAllRanges();
-                const rect = wrap.getBoundingClientRect();
+                const rect = node.getBoundingClientRect();
                 session.offsetX = e.clientX - rect.left;
                 session.offsetY = e.clientY - rect.top;
-                const ghost = wrap.cloneNode(true);
+                const ghost = node.cloneNode(true);
                 ghost.classList.add('is-dragging');
                 ghost.classList.remove('is-selected');
                 ghost.style.position = 'fixed';
@@ -4005,8 +4485,11 @@ window.chrome.webview = window.chrome.webview || {
                 ghost.style.pointerEvents = 'none';
                 document.body.appendChild(ghost);
                 session.ghost = ghost;
-                wrap.classList.add('is-move-source');
+                node.classList.add('is-move-source');
                 editor.classList.add('is-image-move-target');
+                if (node.setPointerCapture && e.pointerId != null) {
+                  try { node.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+                }
               }
 
               if (session.dragging)
@@ -4018,11 +4501,17 @@ window.chrome.webview = window.chrome.webview || {
               }
 
               updateImageDropCaret(e.clientX, e.clientY, session.ghost);
-            });
+            }
 
+            document.addEventListener('mousemove', handleMediaMovePointer);
+            document.addEventListener('pointermove', handleMediaMovePointer);
             document.addEventListener('mouseup', (e) => {
-              if (!imageMoveSession) return;
-              finishImageMove(e);
+              if (!mediaMoveSession) return;
+              finishMediaMove(e);
+            });
+            document.addEventListener('pointerup', (e) => {
+              if (!mediaMoveSession) return;
+              finishMediaMove(e);
             });
 
             function parsePositivePx(value) {
@@ -4100,10 +4589,39 @@ window.chrome.webview = window.chrome.webview || {
               img.style.display = 'block';
             }
 
+            function normalizeImageSrcForSave(src) {
+              const raw = String(src || '').trim();
+              if (!raw || /^data:image\//i.test(raw))
+                return raw;
+
+              const match = /^page-asset:\/\/(\d+)\/([^?#>]+)/i.exec(raw);
+              if (match)
+                return 'page-asset://' + match[1] + '/' + match[2];
+
+              const shortMatch = /^page-asset:(\d+)\/([^?#>]+)/i.exec(raw);
+              if (shortMatch)
+                return 'page-asset://' + shortMatch[1] + '/' + shortMatch[2];
+
+              return raw;
+            }
+
             function prepareImagesForSave() {
               editor.querySelectorAll('.editor-image-wrap').forEach(wrap => {
                 const img = wrap.querySelector('img');
                 if (!img) return;
+                const permanentSrc = img.dataset.permanentSrc;
+                if (permanentSrc) {
+                  const normalizedPermanent = normalizeImageSrcForSave(permanentSrc);
+                  img.src = normalizedPermanent;
+                  img.setAttribute('src', normalizedPermanent);
+                  delete img.dataset.permanentSrc;
+                } else {
+                  const normalizedSrc = normalizeImageSrcForSave(img.getAttribute('src') || '');
+                  if (normalizedSrc !== (img.getAttribute('src') || '')) {
+                    img.src = normalizedSrc;
+                    img.setAttribute('src', normalizedSrc);
+                  }
+                }
                 const width = resolveImageWidthForSave(wrap, img);
                 if (!width) return;
                 commitImageWidth(wrap, img, width);
@@ -4132,8 +4650,14 @@ window.chrome.webview = window.chrome.webview || {
                 finalizeImageSizeFromMarkup(wrap, img);
               }, { once: true });
               img.addEventListener('error', () => {
-                const src = img.getAttribute('src');
-                if (!src || img.dataset.retried === '1') return;
+                const src = img.getAttribute('src') || '';
+                if (!src || img.dataset.hydrateRequested === '1') return;
+                if (/page-asset:/i.test(src) || /page-asset:/i.test(img.dataset.permanentSrc || '')) {
+                  img.dataset.hydrateRequested = '1';
+                  void ensureImageDisplaySrc(img);
+                  return;
+                }
+                if (img.dataset.retried === '1') return;
                 img.dataset.retried = '1';
                 const retryUrl = src + (src.includes('?') ? '&' : '?') + 't=' + Date.now();
                 img.setAttribute('src', retryUrl);
@@ -4172,6 +4696,20 @@ window.chrome.webview = window.chrome.webview || {
               });
             }
 
+            function ensureFileAttachmentReady(link) {
+              if (!link || link.dataset.moveReady === '1') return;
+              link.dataset.moveReady = '1';
+              if (link.contentEditable !== 'false') link.contentEditable = 'false';
+              link.addEventListener('mousedown', (e) => {
+                if (e.button !== 0 || isOpenModifier(e)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (!e.shiftKey)
+                  selectFileAttachment(link);
+                beginMediaMoveTracking(link, e);
+              });
+            }
+
             function setupImageResize(wrap, img, handle) {
               wrap.addEventListener('mousedown', (e) => {
                 if (e.button !== 0 || e.target === handle || isOpenModifier(e)) return;
@@ -4184,7 +4722,7 @@ window.chrome.webview = window.chrome.webview || {
 
               handle.addEventListener('mousedown', (e) => {
                 if (e.button !== 0 || isOpenModifier(e)) return;
-                imageMoveSession = null;
+                mediaMoveSession = null;
                 hideImageDropCaret();
                 e.preventDefault();
                 e.stopPropagation();
@@ -4278,6 +4816,7 @@ window.chrome.webview = window.chrome.webview || {
             function upgradeEditorBlocks() {
               editor.querySelectorAll('img').forEach(img => wrapImage(img));
               editor.querySelectorAll('.editor-image-wrap').forEach(wrap => ensureImageWrapReady(wrap));
+              editor.querySelectorAll('a.editor-file-attachment').forEach(link => ensureFileAttachmentReady(link));
               upgradeTableCells();
               unwrapStandaloneImageBlocks();
               editor.querySelectorAll('a[href]').forEach(link => {
@@ -4291,45 +4830,8 @@ window.chrome.webview = window.chrome.webview || {
                 link.classList.add('editor-file-attachment');
                 link.contentEditable = 'false';
               });
+              hydrateEditorImages(editor);
             }
-
-            let lastEditorSelection = null;
-
-            function captureEditorSelection() {
-              const sel = window.getSelection();
-              if (!sel || sel.rangeCount === 0) {
-                return;
-              }
-              const range = sel.getRangeAt(0);
-              if (!editor.contains(range.commonAncestorContainer)) {
-                return;
-              }
-              lastEditorSelection = range.cloneRange();
-            }
-
-            function restoreEditorSelection() {
-              if (!lastEditorSelection) {
-                return false;
-              }
-              if (!editor.contains(lastEditorSelection.commonAncestorContainer)) {
-                lastEditorSelection = null;
-                return false;
-              }
-              const sel = window.getSelection();
-              sel.removeAllRanges();
-              sel.addRange(lastEditorSelection);
-              return true;
-            }
-
-            function focusEditorForCommand() {
-              ensureParagraph();
-              editor.focus();
-              restoreEditorSelection();
-            }
-
-            document.addEventListener('selectionchange', () => {
-              captureEditorSelection();
-            });
 
             window.editorApi = {
               focus() {
@@ -4337,7 +4839,7 @@ window.chrome.webview = window.chrome.webview || {
                 editor.focus();
               },
               applyFormat(command) {
-                focusEditorForCommand();
+                editor.focus();
                 if (command === 'copy' && getSelectedImageWrap()) {
                   return copySelectedImage();
                 }
@@ -4372,25 +4874,25 @@ window.chrome.webview = window.chrome.webview || {
                 return runEditorRedo();
               },
               applyHeading(level) {
-                focusEditorForCommand();
+                editor.focus();
                 document.execCommand('formatBlock', false, '<h' + level + '>');
                 updateEmptyState();
                 notifyChanged();
               },
               applyBlockquote() {
-                focusEditorForCommand();
+                editor.focus();
                 document.execCommand('formatBlock', false, '<blockquote>');
                 updateEmptyState();
                 notifyChanged();
               },
               applyParagraph() {
-                focusEditorForCommand();
+                editor.focus();
                 document.execCommand('formatBlock', false, '<p>');
                 updateEmptyState();
                 notifyChanged();
               },
               wrapInlineCode() {
-                focusEditorForCommand();
+                editor.focus();
                 const sel = window.getSelection();
                 const text = sel && sel.toString() ? sel.toString() : defaultCodeText;
                 document.execCommand('insertHTML', false, '<code>' + escapeHtml(text) + '</code>');
@@ -4398,19 +4900,19 @@ window.chrome.webview = window.chrome.webview || {
                 notifyChanged();
               },
               insertHtml(html) {
-                focusEditorForCommand();
+                editor.focus();
                 document.execCommand('insertHTML', false, html);
                 upgradeEditorBlocks();
                 updateEmptyState();
                 notifyChanged();
               },
-              insertImage(src, alt) {
-                return insertImageAtCaret(src, alt, null, false);
+              insertImage(src, alt, permanentSrc) {
+                return insertImageAtCaret(src, alt, null, false, permanentSrc || null);
               },
-              insertImageAtDropPoint(x, y, src, alt) {
+              insertImageAtDropPoint(x, y, src, alt, permanentSrc) {
                 if (!pendingFileDropInsertMarker?.parentNode && !pendingFileDropInsertRange)
                   commitFileDropCaretAtPointImpl(x, y);
-                return insertImageAtCaret(src, alt, null, true);
+                return insertImageAtCaret(src, alt, null, true, permanentSrc || null);
               },
               saveInsertMarker() {
                 return captureInsertMarker();
@@ -4419,31 +4921,12 @@ window.chrome.webview = window.chrome.webview || {
                 clearSavedInsertMarker();
               },
               insertFileAttachment(href, fileName) {
-                hideFileDropCaret();
-                let range = consumeSavedInsertRange();
-                editor.focus({ preventScroll: true });
-                const safeHref = escapeHtml(href);
-                const safeName = escapeHtml(fileName || href);
-                const html = '&#8203;<a class="editor-file-attachment" href="' + safeHref + '" contenteditable="false">' + safeName + '</a>&#8203;';
-                let inserted = false;
-                if (range && editor.contains(range.startContainer)) {
-                  range.collapse(true);
-                  const temp = document.createElement('div');
-                  temp.innerHTML = html;
-                  const fragment = document.createDocumentFragment();
-                  while (temp.firstChild)
-                    fragment.appendChild(temp.firstChild);
-                  range.insertNode(fragment);
-                  inserted = true;
-                }
-                if (!inserted) {
-                  ensureInsertLocation();
-                  document.execCommand('insertHTML', false, html);
-                }
-                restoreSavedInsertScroll();
-                upgradeEditorBlocks();
-                updateEmptyState();
-                notifyChanged();
+                return insertFileAttachmentAtCaret(href, fileName, null, false);
+              },
+              insertFileAttachmentAtDropPoint(x, y, href, fileName) {
+                if (!pendingFileDropInsertMarker?.parentNode && !pendingFileDropInsertRange)
+                  commitFileDropCaretAtPointImpl(x, y);
+                return insertFileAttachmentAtCaret(href, fileName, null, true);
               },
               createLink(text, url) {
                 let range = consumeSavedInsertRange();
@@ -4481,10 +4964,7 @@ window.chrome.webview = window.chrome.webview || {
 
                 const fileLink = hit?.closest('a.editor-file-attachment');
                 if (fileLink && editor.contains(fileLink)) {
-                  editor.querySelectorAll('a.editor-file-attachment.is-selected').forEach(link => {
-                    if (link !== fileLink) link.classList.remove('is-selected');
-                  });
-                  fileLink.classList.add('is-selected');
+                  selectFileAttachment(fileLink);
                   return JSON.stringify({
                     target: 'file',
                     href: fileLink.getAttribute('href') || '',
@@ -4770,8 +5250,6 @@ window.chrome.webview = window.chrome.webview || {
               },
               refreshEditorBlocks() {
                 upgradeEditorBlocks();
-                reapplyAllImageSizes();
-                updateEmptyState();
               }
             };
 
@@ -4784,8 +5262,12 @@ window.chrome.webview = window.chrome.webview || {
               clearStaleInlineColors();
               upgradeEditorBlocks();
               reapplyAllImageSizes();
+              hydrateEditorImages(editor);
               requestAnimationFrame(() => {
-                requestAnimationFrame(() => reapplyAllImageSizes());
+                requestAnimationFrame(() => {
+                  reapplyAllImageSizes();
+                  hydrateEditorImages(editor);
+                });
               });
               placeCaretAtEnd(editor);
             });

@@ -58,6 +58,19 @@ for (const [key, value] of Object.entries(TOKEN_VALUES)) {
 }
 const shim = `<script>
 window.chrome = window.chrome || {};
+function inferDroppedFileName(file) {
+  if (file && file.name) return file.name;
+  var type = String(file && file.type || '').toLowerCase();
+  var map = {
+    'image/jpeg': 'image.jpg',
+    'image/png': 'image.png',
+    'image/gif': 'image.gif',
+    'image/webp': 'image.webp',
+    'image/avif': 'image.avif',
+    'image/svg+xml': 'image.svg'
+  };
+  return map[type] || 'file.bin';
+}
 window.chrome.webview = window.chrome.webview || {
   postMessage: function(payload) {
     if (typeof payload === 'string') {
@@ -71,7 +84,44 @@ window.chrome.webview = window.chrome.webview || {
     }
     window.parent.postMessage(Object.assign({ channel: 'editor-webview' }, payload || {}), '*');
   },
-  postMessageWithAdditionalObjects: function(payload, _objects) {
+  postMessageWithAdditionalObjects: function(payload, objects) {
+    var parsed;
+    try {
+      parsed = typeof payload === 'string' ? JSON.parse(payload) : (payload || {});
+    } catch (e) {
+      window.chrome.webview.postMessage(payload);
+      return;
+    }
+
+    if (parsed.type === 'file-drop' && objects && objects.length) {
+      var fileList = Array.prototype.slice.call(objects);
+      var pending = fileList.length;
+      var results = new Array(fileList.length);
+      fileList.forEach(function(file, index) {
+        var reader = new FileReader();
+        reader.onload = function() {
+          results[index] = {
+            fileName: inferDroppedFileName(file),
+            dataUri: String(reader.result || '')
+          };
+          pending -= 1;
+          if (pending === 0) {
+            parsed.files = results.filter(Boolean);
+            window.chrome.webview.postMessage(JSON.stringify(parsed));
+          }
+        };
+        reader.onerror = function() {
+          pending -= 1;
+          if (pending === 0) {
+            parsed.files = results.filter(Boolean);
+            window.chrome.webview.postMessage(JSON.stringify(parsed));
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      return;
+    }
+
     window.chrome.webview.postMessage(payload);
   }
 };

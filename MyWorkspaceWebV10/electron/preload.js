@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld('myworkspace', {
   getUiConfig: () => ipcRenderer.invoke('app:uiConfig'),
   getAppInfo: () => ipcRenderer.invoke('app:getInfo'),
   saveUiConfig: (partial) => ipcRenderer.invoke('app:saveUiConfig', partial),
+  getDatabaseConfig: () => ipcRenderer.invoke('app:getDatabaseConfig'),
+  testDatabaseConfig: (config) => ipcRenderer.invoke('app:testDatabaseConfig', config),
+  saveDatabaseConfig: (config) => ipcRenderer.invoke('app:saveDatabaseConfig', config),
+  disconnectDatabase: () => ipcRenderer.invoke('app:disconnectDatabase'),
+  browseSqliteFile: () => ipcRenderer.invoke('db:browseSqlite'),
   getWorkspaceTree: () => ipcRenderer.invoke('workspace:getTree'),
   createWorkspace: (payload) => ipcRenderer.invoke('workspace:create', payload),
   renameWorkspace: (workspaceId, name) => ipcRenderer.invoke('workspace:rename', { workspaceId, name }),
@@ -48,6 +53,8 @@ contextBridge.exposeInMainWorld('myworkspace', {
     ipcRenderer.invoke('asset:pickAndImport', { pageId, imageOnly }),
   importAssetDataUri: (pageId, dataUri, fileName) =>
     ipcRenderer.invoke('asset:importDataUri', { pageId, dataUri, fileName }),
+  getAssetBytes: (pageId, fileName) =>
+    ipcRenderer.invoke('asset:getBytes', { pageId, fileName }),
   getUsers: () => ipcRenderer.invoke('user:list'),
   createUser: (payload) => ipcRenderer.invoke('user:create', payload),
   updateUser: (payload) => ipcRenderer.invoke('user:update', payload),

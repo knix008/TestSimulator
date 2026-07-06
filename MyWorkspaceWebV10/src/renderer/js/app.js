@@ -1,5 +1,6 @@
 import { t, applyLanguage, toTemplateLanguage, getUiLanguage } from './i18n/index.js';
 import { getUiFontScaleFactor, normalizeFontScaleStep } from './ui/fontScale.js';
+import { applyThemeAppearance } from './ui/themeManager.js';
 import { bindLogin, tryRestoreSession } from './login.js';
 import { createWorkspaceTree, showPopupMenu } from './workspaceTree.js';
 import { createPageTabs } from './pageTabs.js';
@@ -90,9 +91,21 @@ let verticalToolbar = null;
 let recentProjects = [];
 let currentPageCanEdit = true;
 let uiFontScaleStep = 0;
+let editorDisplayedPageId = null;
+let pageNavigationGeneration = 0;
+let importOperationGeneration = 0;
+let openPageChain = Promise.resolve();
+
+function isEditorBoundToPage(pageId = currentPageId) {
+  return pageId != null && editorDisplayedPageId === pageId && currentPageId === pageId;
+}
+
+function cancelPendingEditorImports() {
+  importOperationGeneration += 1;
+}
 
 const pageTabs = createPageTabs(document.getElementById('page-tabs'), {
-  onSelect: (pageId) => openPage(pageId, { activateOnly: true }),
+  onSelect: (pageId) => openPage(pageId),
   onClose: (pageId) => closePage(pageId)
 });
 
@@ -130,7 +143,7 @@ const titleBar = createTitleBar({
 });
 
 editor.onChanged = () => {
-  if (currentPageId == null || !currentPageCanEdit) {
+  if (!isEditorBoundToPage() || !currentPageCanEdit) {
     return;
   }
   pageTabs.setDirty(currentPageId, true);
@@ -149,14 +162,24 @@ editor.onHeadingsChanged = (headings) => {
 };
 
 editor.onAssetInsertRequested = async (command) => {
-  if (currentPageId == null) {
+  if (!isEditorBoundToPage()) {
     return;
   }
-  await importAssetIntoEditor(currentPageId, command === 'image');
+
+  const frameApi = editorFrame.contentWindow?.editorApi;
+  await editor.focus();
+  frameApi?.saveInsertMarker?.();
+  try {
+    await importAssetIntoEditor(currentPageId, command === 'image');
+  } catch (error) {
+    frameApi?.clearInsertMarker?.();
+    showUnexpectedError(command === 'image' ? '이미지 삽입' : '파일 첨부', error);
+  }
 };
 
 editor.onFileDrop = async (message) => {
-  if (currentPageId == null || !currentPageCanEdit) {
+  const dropPageId = currentPageId;
+  if (dropPageId == null || !currentPageCanEdit || !isEditorBoundToPage(dropPageId)) {
     return;
   }
 
@@ -164,13 +187,13 @@ editor.onFileDrop = async (message) => {
     message?.x != null && message?.y != null ? { x: message.x, y: message.y } : null;
 
   if (Array.isArray(message?.files) && message.files.length > 0) {
-    await importDroppedFiles(currentPageId, message.files, dropPoint);
+    await importDroppedFiles(dropPageId, message.files, dropPoint);
     return;
   }
 
   if (message?.dataUri) {
     await importDroppedFiles(
-      currentPageId,
+      dropPageId,
       [{ dataUri: message.dataUri, fileName: message.fileName || 'image.png' }],
       dropPoint
     );
@@ -261,13 +284,31 @@ const editorContextMenu = createEditorContextMenu({
     if (currentPageId == null || !currentPageCanEdit) {
       return;
     }
-    await importAssetIntoEditor(currentPageId, true, { replace });
+    const frameApi = editorFrame.contentWindow?.editorApi;
+    await editor.focus();
+    if (!replace) {
+      frameApi?.saveInsertMarker?.();
+    }
+    try {
+      await importAssetIntoEditor(currentPageId, true, { replace });
+    } catch (error) {
+      frameApi?.clearInsertMarker?.();
+      showUnexpectedError('이미지 삽입', error);
+    }
   },
   onImportAttach: async () => {
     if (currentPageId == null || !currentPageCanEdit) {
       return;
     }
-    await importAssetIntoEditor(currentPageId, false);
+    const frameApi = editorFrame.contentWindow?.editorApi;
+    await editor.focus();
+    frameApi?.saveInsertMarker?.();
+    try {
+      await importAssetIntoEditor(currentPageId, false);
+    } catch (error) {
+      frameApi?.clearInsertMarker?.();
+      showUnexpectedError('파일 첨부', error);
+    }
   },
   onInsertTable: async (point) => {
     await insertTableWithPicker(point || {});
@@ -291,11 +332,27 @@ editor.onEditorPointerDown = () => {
   closePopupMenu();
 };
 
-editor.onClonePastedHtml = async (html) => {
-  if (currentPageId == null || !currentPageCanEdit || !html) {
+editor.onResolvePageAsset = async ({ requestId, pageId, fileName }) => {
+  if (!requestId || pageId == null || !fileName) {
     return;
   }
-  const cloned = await api.clonePastedHtml(currentPageId, html);
+  try {
+    const result = await api.getAssetBytes(pageId, fileName);
+    const dataUri = result.ok
+      ? `data:${result.mime || 'application/octet-stream'};base64,${result.bytes}`
+      : null;
+    editor.postToFrame({ type: 'page-asset-resolved', requestId, dataUri });
+  } catch {
+    editor.postToFrame({ type: 'page-asset-resolved', requestId, dataUri: null });
+  }
+};
+
+editor.onClonePastedHtml = async (html) => {
+  const pastePageId = currentPageId;
+  if (!isEditorBoundToPage(pastePageId) || !currentPageCanEdit || !html) {
+    return;
+  }
+  const cloned = await api.clonePastedHtml(pastePageId, html);
   if (cloned.ok) {
     await editor.insertHtml(cloned.html);
     editor.onChanged?.();
@@ -432,17 +489,50 @@ function refreshNavRailState() {
 
 onPanelStateChange = refreshNavRailState;
 
-function applyUiAppearance({ theme, language, fontScaleStep } = {}) {
+function applyUiAppearance({
+  theme,
+  language,
+  fontScaleStep,
+  colorThemeIndex,
+  useCustomAccentColor,
+  customAccentArgb
+} = {}) {
   if (language != null) {
     applyLanguage(language);
   }
   if (theme != null) {
-    document.body.dataset.theme = theme.toLowerCase() === 'dark' ? 'dark' : 'light';
+    applyThemeAppearance({
+      theme,
+      colorThemeIndex: colorThemeIndex ?? cachedUiConfig?.colorThemeIndex,
+      useCustomAccentColor: useCustomAccentColor ?? cachedUiConfig?.useCustomAccentColor,
+      customAccentArgb: customAccentArgb ?? cachedUiConfig?.customAccentArgb
+    });
+  } else if (
+    colorThemeIndex != null ||
+    useCustomAccentColor != null ||
+    customAccentArgb != null
+  ) {
+    applyThemeAppearance({
+      theme: cachedUiConfig?.theme || 'Light',
+      colorThemeIndex: colorThemeIndex ?? cachedUiConfig?.colorThemeIndex,
+      useCustomAccentColor: useCustomAccentColor ?? cachedUiConfig?.useCustomAccentColor,
+      customAccentArgb: customAccentArgb ?? cachedUiConfig?.customAccentArgb
+    });
   }
   if (fontScaleStep != null) {
     uiFontScaleStep = normalizeFontScaleStep(fontScaleStep);
     document.documentElement.style.setProperty('--ui-font-scale', String(getUiFontScaleFactor(uiFontScaleStep)));
   }
+}
+
+function getEditorAppearance(config = cachedUiConfig) {
+  return {
+    theme: config?.theme?.toLowerCase() === 'dark' ? 'dark' : 'light',
+    fontScaleStep: config?.fontScaleStep ?? uiFontScaleStep,
+    colorThemeIndex: config?.colorThemeIndex,
+    useCustomAccentColor: config?.useCustomAccentColor,
+    customAccentArgb: config?.customAccentArgb
+  };
 }
 
 function refreshLocalizedUi() {
@@ -458,7 +548,7 @@ function refreshLocalizedUi() {
   if (loginButton) {
     loginButton.textContent = t.loginButton;
   }
-  document.querySelector('.login-hint')?.replaceChildren(document.createTextNode(t.loginHint));
+  document.getElementById('login-hint')?.replaceChildren(document.createTextNode(t.loginHint));
 
   document.getElementById('btn-settings-mark')?.setAttribute('title', t.settingsTooltip);
   document.getElementById('btn-settings-mark')?.setAttribute('aria-label', t.settingsTooltip);
@@ -470,7 +560,6 @@ function refreshLocalizedUi() {
   document.getElementById('btn-close')?.setAttribute('title', t.windowClose);
   document.getElementById('btn-close')?.setAttribute('aria-label', t.windowClose);
   document.getElementById('nav-rail')?.setAttribute('aria-label', t.navRailAria);
-  document.querySelector('#outline-panel .panel-title')?.replaceChildren(document.createTextNode(t.labelOutline));
   document.querySelector('#comments-panel .panel-title')?.replaceChildren(document.createTextNode(t.commentsTitle));
   document.querySelector('#empty-state p')?.replaceChildren(document.createTextNode(t.emptyEditor));
   document.querySelector('#comments-panel-body .comments-placeholder')?.replaceChildren(
@@ -591,20 +680,20 @@ async function handleMenuAction(actionId, context = {}) {
         rebuildNavRail();
         break;
       case 'preferences':
-        await showPreferencesDialog(api, async ({ theme, language, fontScaleStep }) => {
-          applyUiAppearance({ theme, language, fontScaleStep });
+        await showPreferencesDialog(api, async (settings, { preview } = {}) => {
+          if (!preview) {
+            cachedUiConfig = { ...cachedUiConfig, ...settings };
+          }
+          applyUiAppearance(settings);
           refreshLocalizedUi();
-          await editor.applyAppearance({
-            theme: theme?.toLowerCase() === 'dark' ? 'dark' : 'light',
-            fontScaleStep
-          });
+          await editor.applyAppearance(getEditorAppearance({ ...cachedUiConfig, ...settings }));
         });
         break;
       case 'page-history':
         if (currentPageId != null) {
           await showPageHistoryDialog(api, currentPageId, currentPageTitle, async (page) => {
             await openPage(page.id, { activateOnly: true });
-            await editor.loadMarkdown(page.content);
+            await editor.loadMarkdown(page.content, page.id);
           });
         }
         break;
@@ -667,7 +756,14 @@ async function handleMenuAction(actionId, context = {}) {
         break;
       }
       case 'admin-database':
-        showDatabaseSettingsDialog();
+        await showDatabaseSettingsDialog(api, {
+          onDisconnected: () => leaveApp(),
+          onSaved: async (result) => {
+            if (result?.needsRelogin) {
+              await leaveApp();
+            }
+          }
+        });
         break;
       case 'admin-users':
         await showUserAdminDialog(api);
@@ -836,10 +932,7 @@ async function ensureAppShellReady(config = cachedUiConfig) {
   initEditorHostFileDrop();
   appShell.classList.remove('hidden');
   verticalToolbar?.setEnabled(false);
-  void editor.applyAppearance({
-    theme: cachedUiConfig.theme?.toLowerCase() === 'dark' ? 'dark' : 'light',
-    fontScaleStep: cachedUiConfig.fontScaleStep
-  });
+  void editor.applyAppearance(getEditorAppearance(cachedUiConfig));
   void loadRecentProjects();
 }
 
@@ -850,8 +943,12 @@ async function bootstrap() {
   applyUiAppearance({
     theme: cachedUiConfig.theme,
     language: cachedUiConfig.language,
-    fontScaleStep: cachedUiConfig.fontScaleStep
+    fontScaleStep: cachedUiConfig.fontScaleStep,
+    colorThemeIndex: cachedUiConfig.colorThemeIndex,
+    useCustomAccentColor: cachedUiConfig.useCustomAccentColor,
+    customAccentArgb: cachedUiConfig.customAccentArgb
   });
+  await login.applyDefaults(cachedUiConfig);
   refreshLocalizedUi();
   statusBar.setLoginRequired();
 
@@ -864,6 +961,11 @@ async function bootstrap() {
 async function enterApp(user) {
   await ensureAppShellReady();
   currentUser = user;
+  cachedUiConfig = {
+    ...(cachedUiConfig || {}),
+    hasLoggedInOnce: true,
+    lastLoginUsername: user.username
+  };
   appShell.classList.remove('hidden');
   login.hide();
   titleBar.setCaption(t.appTitleLoggedIn(user.username));
@@ -878,7 +980,11 @@ async function enterApp(user) {
 async function leaveApp() {
   currentUser = null;
   currentPageId = null;
+  editorDisplayedPageId = null;
   currentPageTitle = '';
+  clearTimeout(autoSaveTimer);
+  cancelPendingEditorImports();
+  pageNavigationGeneration += 1;
   for (const pageId of [...pageTabs.getOpenIds()]) {
     pageTabs.close(pageId);
   }
@@ -892,6 +998,7 @@ async function leaveApp() {
   panelManager.refresh();
   verticalToolbar?.setEnabled(false);
   login.show();
+  await login.applyDefaults(cachedUiConfig);
 }
 
 function renderWorkspaceEmptyState() {
@@ -1009,8 +1116,24 @@ async function promptDelete(node) {
 }
 
 async function openPage(pageId, { activateOnly = false } = {}) {
+  openPageChain = openPageChain
+    .then(() => openPageInternal(pageId, { activateOnly }))
+    .catch((error) => {
+      showUnexpectedError('Page 열기', error);
+    });
+  return openPageChain;
+}
+
+async function openPageInternal(pageId, { activateOnly = false } = {}) {
+  const navToken = ++pageNavigationGeneration;
+  clearTimeout(autoSaveTimer);
+  cancelPendingEditorImports();
+
   if (currentPageId != null && currentPageId !== pageId && !activateOnly) {
     await saveCurrentPageIfDirty();
+  }
+  if (navToken !== pageNavigationGeneration) {
+    return;
   }
 
   const result = await api.getPage(pageId);
@@ -1018,7 +1141,11 @@ async function openPage(pageId, { activateOnly = false } = {}) {
     showApiError('Page 열기', result);
     return;
   }
+  if (navToken !== pageNavigationGeneration) {
+    return;
+  }
 
+  editorDisplayedPageId = null;
   currentPageId = pageId;
   currentPageTitle = result.page.title;
   currentPageCanEdit = result.page.canEdit !== false;
@@ -1032,7 +1159,12 @@ async function openPage(pageId, { activateOnly = false } = {}) {
     pageTabs.setActive(pageId);
   }
 
-  await editor.loadMarkdown(result.page.content);
+  await editor.loadMarkdown(result.page.content, pageId);
+  if (navToken !== pageNavigationGeneration) {
+    return;
+  }
+
+  editorDisplayedPageId = pageId;
   await editor.focus();
   statusBar.setUser(currentUser, currentPageTitle);
   statusBar.setSaveStatus('saved');
@@ -1049,6 +1181,7 @@ async function closePage(pageId) {
   const remaining = pageTabs.getOpenIds();
   if (remaining.length === 0) {
     currentPageId = null;
+    editorDisplayedPageId = null;
     currentPageTitle = '';
     emptyState.classList.remove('hidden');
     editorFrame.classList.add('hidden');
@@ -1098,6 +1231,7 @@ async function createPageInWorkspace(workspaceId) {
 async function importAssetIntoEditor(pageId, imageOnly, { replace = false } = {}) {
   const result = await api.pickAndImportAsset(pageId, imageOnly);
   if (!result.ok) {
+    editorFrame.contentWindow?.editorApi?.clearInsertMarker?.();
     showApiError(imageOnly ? '이미지 삽입' : '파일 첨부', result);
     return;
   }
@@ -1129,6 +1263,57 @@ function readFileAsDataUri(file) {
   });
 }
 
+function mimeFromDataUri(dataUri) {
+  const match = /^data:([^;]+);/i.exec(String(dataUri || ''));
+  return match ? match[1].toLowerCase() : '';
+}
+
+function isImageAsset(asset, hint = {}) {
+  const dataMime = mimeFromDataUri(hint.dataUri);
+  if (dataMime.startsWith('image/')) {
+    return true;
+  }
+  if (asset?.isImage === true) {
+    return true;
+  }
+  const name = asset?.fileName || asset?.uri || '';
+  if (/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(name)) {
+    return true;
+  }
+  const mime = hint.mime || dataMime;
+  return mime.startsWith('image/');
+}
+
+function resolveImageInsertSources(asset, hint = {}) {
+  const permanentSrc = asset.uri;
+  const previewSrc =
+    hint.dataUri && /^data:image\//i.test(hint.dataUri) ? hint.dataUri : permanentSrc;
+  return {
+    previewSrc,
+    permanentSrc: previewSrc !== permanentSrc ? permanentSrc : null
+  };
+}
+
+let lastDropImportKey = '';
+let lastDropImportAt = 0;
+
+function inferDroppedFileName(fileEntry) {
+  const explicit = fileEntry?.fileName || fileEntry?.name;
+  if (explicit && explicit !== 'file.bin') {
+    return explicit;
+  }
+  const mime = String(fileEntry?.type || mimeFromDataUri(fileEntry?.dataUri) || '').toLowerCase();
+  const map = {
+    'image/jpeg': 'image.jpg',
+    'image/png': 'image.png',
+    'image/gif': 'image.gif',
+    'image/webp': 'image.webp',
+    'image/avif': 'image.avif',
+    'image/svg+xml': 'image.svg'
+  };
+  return map[mime] || explicit || 'file.bin';
+}
+
 function isExternalFileDrag(event) {
   return Array.from(event.dataTransfer?.types || []).includes('Files');
 }
@@ -1142,23 +1327,41 @@ function toIframePoint(clientX, clientY) {
 }
 
 async function importDroppedFiles(pageId, files, dropPoint) {
+  const importToken = ++importOperationGeneration;
+  const dropKey = files
+    .map((fileEntry) => fileEntry.fileName || fileEntry.name || fileEntry.dataUri?.slice(0, 48) || '')
+    .join('|');
+  const now = Date.now();
+  if (dropKey && dropKey === lastDropImportKey && now - lastDropImportAt < 800) {
+    return;
+  }
+  lastDropImportKey = dropKey;
+  lastDropImportAt = now;
+
   let useDropPoint = Boolean(dropPoint);
 
   for (const fileEntry of files) {
+    if (importToken !== importOperationGeneration || !isEditorBoundToPage(pageId)) {
+      return;
+    }
+
     const dataUri = fileEntry.dataUri || (fileEntry instanceof File ? await readFileAsDataUri(fileEntry) : '');
-    const fileName = fileEntry.fileName || fileEntry.name || 'file.bin';
+    const fileName = inferDroppedFileName(fileEntry);
     if (!dataUri) {
       continue;
     }
 
     const result = await api.importAssetDataUri(pageId, dataUri, fileName);
+    if (importToken !== importOperationGeneration || !isEditorBoundToPage(pageId)) {
+      return;
+    }
     if (!result.ok) {
       showApiError('파일 삽입', result);
       continue;
     }
 
     const point = useDropPoint ? dropPoint : null;
-    await insertAssetIntoEditor(result.asset, point);
+    await insertAssetIntoEditor(result.asset, point, { dataUri, mime: fileEntry.type }, pageId);
     useDropPoint = false;
   }
 }
@@ -1169,16 +1372,24 @@ function initEditorHostFileDrop() {
     return;
   }
 
-  host.addEventListener('dragover', (event) => {
-    if (!isExternalFileDrag(event) || currentPageId == null || !currentPageCanEdit) {
+  const allowFileDrop = (event) => {
+    const dropPageId = currentPageId;
+    return isExternalFileDrag(event)
+      && dropPageId != null
+      && currentPageCanEdit
+      && isEditorBoundToPage(dropPageId);
+  };
+
+  const handleDragOver = (event) => {
+    if (!allowFileDrop(event)) {
       return;
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
-  });
+  };
 
-  host.addEventListener('drop', async (event) => {
-    if (!isExternalFileDrag(event) || currentPageId == null || !currentPageCanEdit) {
+  const handleDrop = async (event) => {
+    if (!allowFileDrop(event)) {
       return;
     }
     event.preventDefault();
@@ -1189,16 +1400,30 @@ function initEditorHostFileDrop() {
       return;
     }
 
+    const dropPageId = currentPageId;
+    if (!dropPageId || !isEditorBoundToPage(dropPageId)) {
+      return;
+    }
+
     const dropPoint = toIframePoint(event.clientX, event.clientY);
     try {
-      await importDroppedFiles(currentPageId, files, dropPoint);
+      await importDroppedFiles(dropPageId, files, dropPoint);
     } catch (error) {
       showUnexpectedError('파일 드롭', error);
     }
-  });
+  };
+
+  for (const target of [host]) {
+    target.addEventListener('dragover', handleDragOver);
+    target.addEventListener('drop', handleDrop);
+  }
 }
 
-async function insertAssetIntoEditor(asset, dropMessage) {
+async function insertAssetIntoEditor(asset, dropMessage, hint = {}, targetPageId = currentPageId) {
+  if (!isEditorBoundToPage(targetPageId)) {
+    return;
+  }
+
   try {
     const frameApi = editorFrame.contentWindow?.editorApi;
     if (!frameApi) {
@@ -1206,28 +1431,46 @@ async function insertAssetIntoEditor(asset, dropMessage) {
     }
 
     const displayName = asset.displayName || asset.fileName || 'file';
-    const isImage = asset.isImage ?? /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(asset.fileName || asset.uri || '');
+    const isImage = isImageAsset(asset, hint);
+    const imageSources = isImage ? resolveImageInsertSources(asset, hint) : null;
 
-    if (
-      dropMessage?.x != null &&
-      dropMessage?.y != null &&
-      frameApi.insertImageAtDropPoint &&
-      isImage
-    ) {
-      frameApi.insertImageAtDropPoint(dropMessage.x, dropMessage.y, asset.uri, displayName);
+    if (dropMessage?.x != null && dropMessage?.y != null) {
+      if (isImage && frameApi.insertImageAtDropPoint) {
+        frameApi.insertImageAtDropPoint(
+          dropMessage.x,
+          dropMessage.y,
+          imageSources.previewSrc,
+          displayName,
+          imageSources.permanentSrc
+        );
+      } else if (frameApi.insertFileAttachmentAtDropPoint) {
+        frameApi.insertFileAttachmentAtDropPoint(dropMessage.x, dropMessage.y, asset.uri, displayName);
+      } else if (frameApi.insertFileAttachment) {
+        frameApi.insertFileAttachment(asset.uri, displayName);
+      } else if (frameApi.insertHtml) {
+        frameApi.insertHtml(
+          `<a class="editor-file-attachment" contenteditable="false" href="${asset.uri}">${displayName}</a>`
+        );
+      }
     } else if (isImage && frameApi.insertImage) {
-      frameApi.insertImage(asset.uri, displayName);
+      frameApi.insertImage(
+        imageSources.previewSrc,
+        displayName,
+        imageSources.permanentSrc
+      );
     } else if (frameApi.insertFileAttachment) {
       frameApi.insertFileAttachment(asset.uri, displayName);
     } else if (frameApi.insertHtml) {
       frameApi.insertHtml(
-        `<a class="editor-file-attachment" contenteditable="false" href="${asset.uri}">${displayName}</a><p><br></p>`
+        `<a class="editor-file-attachment" contenteditable="false" href="${asset.uri}">${displayName}</a>`
       );
     }
 
     frameApi.refreshEditorBlocks?.();
     frameApi.finalizeImageSizes?.();
-    editor.onChanged?.();
+    if (isEditorBoundToPage(targetPageId)) {
+      editor.onChanged?.();
+    }
   } catch (error) {
     showUnexpectedError('에셋 삽입', error);
   }
@@ -1255,7 +1498,7 @@ async function saveCurrentPageIfDirty() {
 }
 
 async function saveCurrentPage({ auto = false } = {}) {
-  if (currentPageId == null || isSaving) {
+  if (currentPageId == null || isSaving || !isEditorBoundToPage()) {
     return;
   }
 
@@ -1263,7 +1506,7 @@ async function saveCurrentPage({ auto = false } = {}) {
   statusBar.setSaveStatus('saving');
 
   try {
-    const snapshot = await editor.readContent(t.untitledPageTitle);
+    const snapshot = await editor.readContent(t.untitledPageTitle, currentPageId);
     const result = await api.savePage({
       pageId: currentPageId,
       title: snapshot.title,

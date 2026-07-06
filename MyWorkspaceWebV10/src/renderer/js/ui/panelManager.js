@@ -1,6 +1,8 @@
 import { t } from '../i18n/index.js';
 import { buildHeadingTree, createTreePanel } from './treeView.js';
 
+const EXPAND_CLICK_THRESHOLD = 4;
+
 let outlineTree = null;
 let outlinePageKey = null;
 
@@ -46,16 +48,6 @@ export function createPanelManager({ onChange } = {}) {
 
     searchWrap.classList.toggle('hidden', !state.pageSearchVisible || document.getElementById('app-shell')?.classList.contains('hidden'));
 
-    const workspaceToggle = document.getElementById('btn-collapse-workspace');
-    workspaceToggle.textContent = state.workspacePanelVisible
-      ? t.workspacePanelCollapse
-      : t.workspacePanelExpand;
-    workspaceToggle.title = state.workspacePanelVisible ? t.workspacePanelCollapse : t.workspacePanelExpand;
-
-    const outlineToggle = document.getElementById('btn-collapse-outline');
-    outlineToggle.textContent = state.outlinePanelVisible ? t.outlineCollapse : t.outlineExpand;
-    outlineToggle.title = state.outlinePanelVisible ? t.outlineCollapse : t.outlineExpand;
-
     const commentsToggle = document.getElementById('btn-collapse-comments');
     commentsToggle.textContent = state.commentsPanelVisible ? t.commentsCollapse : t.commentsExpand;
     commentsToggle.title = state.commentsPanelVisible ? t.commentsCollapse : t.commentsExpand;
@@ -68,7 +60,11 @@ export function createPanelManager({ onChange } = {}) {
   }
 
   function wirePanelToggle(buttonId, toggleFn) {
-    document.getElementById(buttonId).addEventListener('click', (event) => {
+    const button = document.getElementById(buttonId);
+    if (!button) {
+      return;
+    }
+    button.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleFn();
     });
@@ -78,22 +74,38 @@ export function createPanelManager({ onChange } = {}) {
     if (!splitter) {
       return;
     }
-    splitter.addEventListener('click', () => {
-      if (isCollapsed()) {
+
+    let pointerDown = false;
+    let startX = 0;
+    let startY = 0;
+
+    splitter.addEventListener('pointerdown', (event) => {
+      if (!isCollapsed() || event.button !== 0) {
+        pointerDown = false;
+        return;
+      }
+      pointerDown = true;
+      startX = event.clientX;
+      startY = event.clientY;
+    });
+
+    splitter.addEventListener('pointerup', (event) => {
+      if (!pointerDown || !isCollapsed() || event.button !== 0) {
+        pointerDown = false;
+        return;
+      }
+      pointerDown = false;
+      const dx = Math.abs(event.clientX - startX);
+      const dy = Math.abs(event.clientY - startY);
+      if (dx < EXPAND_CLICK_THRESHOLD && dy < EXPAND_CLICK_THRESHOLD) {
         expandFn();
       }
     });
+
+    splitter.addEventListener('pointercancel', () => {
+      pointerDown = false;
+    });
   }
-
-  wirePanelToggle('btn-collapse-workspace', () => {
-    state.workspacePanelVisible = !state.workspacePanelVisible;
-    syncDom();
-  });
-
-  wirePanelToggle('btn-collapse-outline', () => {
-    state.outlinePanelVisible = !state.outlinePanelVisible;
-    syncDom();
-  });
 
   wirePanelToggle('btn-collapse-comments', () => {
     state.commentsPanelVisible = !state.commentsPanelVisible;

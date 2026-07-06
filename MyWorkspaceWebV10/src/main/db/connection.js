@@ -14,6 +14,13 @@ function openDatabase(config) {
   return db;
 }
 
+function closeDatabase(db) {
+  if (db) {
+    db.close();
+  }
+}
+
 module.exports = {
-  openDatabase
+  openDatabase,
+  closeDatabase
 };

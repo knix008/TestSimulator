@@ -1,4 +1,5 @@
 import TurndownService from '../../vendor/turndown.es.js';
+import { buildSizedMarkdownImageReference, parsePageAssetSrc, toStoredAssetSrc } from './pageMarkdownNormalizer.js';
 
 const turndown = new TurndownService({
   headingStyle: 'atx',
@@ -17,11 +18,18 @@ turndown.addRule('editorImageWrap', {
       return '';
     }
     const alt = img.getAttribute('alt') || '';
-    const src = img.getAttribute('src') || '';
-    const width = img.getAttribute('data-editor-width') || node.getAttribute('data-editor-width');
-    if (width) {
-      return `![${alt}](${src} "{width=${width}}")`;
+    const parsed = parsePageAssetSrc(img.getAttribute('src') || '');
+    const width = img.getAttribute('data-editor-width') || node.getAttribute('data-editor-width')
+      || img.getAttribute('width') || node.getAttribute('width');
+    if (width && parsed) {
+      return buildSizedMarkdownImageReference(
+        parsed.pageId,
+        parsed.fileName,
+        Number.parseInt(width, 10),
+        alt
+      );
     }
+    const src = toStoredAssetSrc(img.getAttribute('src') || '');
     return `![${alt}](${src})`;
   }
 });

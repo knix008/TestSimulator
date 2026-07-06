@@ -262,3 +262,71 @@ textarea.modal-input {
   display: flex;
   gap: 6px;
 }
+
+.preferences-form .color-theme-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.color-theme-picker-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.color-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 28px);
+  gap: 6px;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.color-swatch.is-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.color-theme-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-theme-custom-btn {
+  min-width: 168px;
+}
+
+.color-theme-custom-btn.is-selected {
+  font-weight: 600;
+}
+
+.color-theme-native-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.db-sqlite-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.db-sqlite-row .modal-input {
+  flex: 1;
+}
+
+.db-result-line {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.92em;
+}

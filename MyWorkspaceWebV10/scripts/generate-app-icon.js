@@ -64,6 +64,17 @@ async function writeIcoFromSvg(svg, targetPath) {
   fs.writeFileSync(targetPath, ico);
 }
 
+async function writeIcnsFromPng(pngPath, targetPath) {
+  const png2icons = require('png2icons');
+  const input = fs.readFileSync(pngPath);
+  const icns = png2icons.createICNS(input, png2icons.BILINEAR, 0, false);
+  if (!icns) {
+    throw new Error(`Failed to create ICNS: ${targetPath}`);
+  }
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, icns);
+}
+
 async function writePngFromSvg(svg, targetPath, size = 512) {
   const sharp = require('sharp');
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
@@ -101,7 +112,10 @@ async function generateAppIcons(options = {}) {
 
   const iconIco = path.join(targetBuildDir, 'icon.ico');
   const iconPng = path.join(targetBuildDir, 'icon.png');
+  const iconIcns = path.join(targetBuildDir, 'icon.icns');
   const wspIco = path.join(targetBuildDir, 'wsp.ico');
+  const wspPng = path.join(targetBuildDir, 'wsp.png');
+  const wspIcns = path.join(targetBuildDir, 'wsp.icns');
   const faviconPng = path.join(rendererAssets, 'app-icon.png');
 
   const appResult = await ensureGeneratedIcon({
@@ -134,7 +148,11 @@ async function generateAppIcons(options = {}) {
     await writePngFromSvg(appIconSvg(), faviconPng, 64);
   }
 
-  return { appResult, wspResult, iconIco, iconPng, wspIco };
+  await writePngFromSvg(wspIconSvg(), wspPng, 512);
+  await writeIcnsFromPng(iconPng, iconIcns);
+  await writeIcnsFromPng(wspPng, wspIcns);
+
+  return { appResult, wspResult, iconIco, iconPng, iconIcns, wspIco, wspPng, wspIcns };
 }
 
 if (require.main === module) {
