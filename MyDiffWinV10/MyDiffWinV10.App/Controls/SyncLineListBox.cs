@@ -1,3 +1,4 @@
+using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using MyDiffWinV10.App.Core;
 
@@ -5,15 +6,19 @@ namespace MyDiffWinV10.App.Controls;
 
 /// <summary>
 /// Owner-draw list box that shows one diff line per row with stable full-width backgrounds
-/// and keeps vertical scroll in sync with partner panes.
+/// and keeps vertical and horizontal scroll in sync with partner panes.
 /// </summary>
 public sealed class SyncLineListBox : ListBox, ILineScrollSource
 {
     private const int WM_VSCROLL = 0x0115;
+    private const int WM_HSCROLL = 0x0114;
     private const int WM_MOUSEWHEEL = 0x020A;
+    private const int WM_MOUSEHWHEEL = 0x020E;
     private const int WM_ERASEBKGND = 0x0014;
     private const int LB_SETHORIZONTALEXTENT = 0x0194;
+    private const int SB_THUMBPOSITION = 4;
     private const int SB_VERT = 1;
+    private const int SB_HORZ = 0;
 
     private bool _suppressSync;
     private bool _wordWrap;
@@ -78,6 +83,9 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
     [DllImport("user32.dll")]
     private static extern bool ShowScrollBar(IntPtr hWnd, int wBar, bool bShow);
+
+    [DllImport("user32.dll")]
+    private static extern int GetScrollPos(IntPtr hWnd, int nBar);
 
     public bool WordWrap
     {
@@ -486,16 +494,82 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             return;
         }
 
-        int lineHeight = Math.Max(1, ItemHeight);
-        int firstLine = GetFirstVisibleLine();
-        int y = 0;
-        for (int line = firstLine; y < bounds.Height; line++)
+        GraphicsState? state = null;
+        try
         {
-            Color color = GetBackgroundColorForLine(line);
-            int stripeHeight = Math.Min(lineHeight, bounds.Height - y);
-            using var brush = new SolidBrush(color);
-            graphics.FillRectangle(brush, bounds.X, y, bounds.Width, stripeHeight);
-            y += lineHeight;
+            int scrollX = GetHorizontalScrollOffset();
+            if (scrollX > 0)
+            {
+                state = graphics.Save();
+                graphics.TranslateTransform(-scrollX, 0);
+            }
+
+            int lineHeight = Math.Max(1, ItemHeight);
+            int firstLine = GetFirstVisibleLine();
+            int y = 0;
+            for (int line = firstLine; y < bounds.Height; line++)
+            {
+                Color color = GetBackgroundColorForLine(line);
+                int stripeHeight = Math.Min(lineHeight, bounds.Height - y);
+                using var brush = new SolidBrush(color);
+                graphics.FillRectangle(brush, bounds.X, y, bounds.Width + scrollX, stripeHeight);
+                y += lineHeight;
+            }
+        }
+        finally
+        {
+            if (state != null)
+            {
+                graphics.Restore(state);
+            }
+        }
+    }
+
+    private int GetHorizontalScrollOffset()
+    {
+        if (!IsHandleCreated || _wordWrap || !HorizontalScrollbar)
+        {
+            return 0;
+        }
+
+        return Math.Max(0, GetScrollPos(Handle, SB_HORZ));
+    }
+
+    private void SetHorizontalScrollOffset(int scrollX)
+    {
+        if (!IsHandleCreated || _wordWrap || !HorizontalScrollbar)
+        {
+            return;
+        }
+
+        scrollX = Math.Max(0, scrollX);
+        SendMessage(Handle, WM_HSCROLL, (scrollX << 16) | SB_THUMBPOSITION, 0);
+        Invalidate();
+    }
+
+    private void SyncHorizontalPartners()
+    {
+        if (_wordWrap || !HorizontalScrollbar || !IsHandleCreated)
+        {
+            return;
+        }
+
+        int myScrollX = GetHorizontalScrollOffset();
+        foreach (var partner in Partners)
+        {
+            if (!partner.IsHandleCreated || partner._wordWrap || !partner.HorizontalScrollbar)
+            {
+                continue;
+            }
+
+            if (partner.GetHorizontalScrollOffset() == myScrollX)
+            {
+                continue;
+            }
+
+            partner._suppressSync = true;
+            partner.SetHorizontalScrollOffset(myScrollX);
+            partner._suppressSync = false;
         }
     }
 
@@ -649,12 +723,29 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
 
         if (!_suppressSync && m.Msg == WM_MOUSEWHEEL)
         {
+            if ((Control.ModifierKeys & Keys.Control) == Keys.Control)
+            {
+                base.WndProc(ref m);
+                return;
+            }
+
             ScrollByWheelDelta((short)((long)m.WParam >> 16));
             m.Result = (IntPtr)1;
             return;
         }
 
         base.WndProc(ref m);
+
+        if (m.Msg is WM_HSCROLL or WM_MOUSEHWHEEL)
+        {
+            Invalidate();
+            if (!_suppressSync)
+            {
+                SyncHorizontalPartners();
+            }
+
+            return;
+        }
 
         if (!_suppressSync && m.Msg == WM_VSCROLL)
         {

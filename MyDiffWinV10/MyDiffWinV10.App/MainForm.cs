@@ -40,6 +40,8 @@ public sealed class MainForm : Form
     private ToolStrip? _toolStrip;
     private ToolStripControlHost? _fontSizeHost;
     private readonly ToolTip _fontSizeToolTip = new();
+    private readonly FontZoomMessageFilter _fontZoomFilter;
+    private bool _suppressFontSizeUiSync;
     private bool _fileOnlyMode;
     private bool _restoreDirectoriesOnLoad = true;
 
@@ -48,6 +50,7 @@ public sealed class MainForm : Form
         _fileOnlyMode = fileOnlyMode;
         _restoreDirectoriesOnLoad = !fileOnlyMode;
         _fileDiffView = new FileDiffView(_settings) { Dock = DockStyle.Fill };
+        _fontZoomFilter = new FontZoomMessageFilter(this);
 
         Strings.Language = _settings.Language;
         StartPosition = FormStartPosition.CenterScreen;
@@ -99,10 +102,50 @@ public sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        Application.RemoveMessageFilter(_fontZoomFilter);
         _settings.WindowWidth = Width;
         _settings.WindowHeight = Height;
         AppSettingsStore.Save(_settings);
         base.OnFormClosing(e);
+    }
+
+    internal bool CanZoomPaneFont() => _fileOnlyMode || !IsDirectoryTabActive;
+
+    internal void ZoomPaneFont(int wheelDelta)
+    {
+        if (wheelDelta == 0)
+        {
+            return;
+        }
+
+        float step = wheelDelta > 0 ? 0.5f : -0.5f;
+        ApplyPaneFontSize(_settings.PaneFontSize + step, syncNumericUpDown: true);
+    }
+
+    private void ApplyPaneFontSize(float size, bool syncNumericUpDown)
+    {
+        size = Math.Clamp(size, (float)_nudFontSize.Minimum, (float)_nudFontSize.Maximum);
+        if (Math.Abs(_settings.PaneFontSize - size) < 0.001f)
+        {
+            return;
+        }
+
+        _settings.PaneFontSize = size;
+        if (syncNumericUpDown)
+        {
+            _suppressFontSizeUiSync = true;
+            try
+            {
+                _nudFontSize.Value = (decimal)size;
+            }
+            finally
+            {
+                _suppressFontSizeUiSync = false;
+            }
+        }
+
+        _fileDiffView.ApplyPanePreferences();
+        AppSettingsStore.Save(_settings);
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -357,9 +400,12 @@ public sealed class MainForm : Form
         _nudFontSize.Value = Math.Clamp((decimal)_settings.PaneFontSize, _nudFontSize.Minimum, _nudFontSize.Maximum);
         _nudFontSize.ValueChanged += (_, _) =>
         {
-            _settings.PaneFontSize = (float)_nudFontSize.Value;
-            _fileDiffView.ApplyPanePreferences();
-            AppSettingsStore.Save(_settings);
+            if (_suppressFontSizeUiSync)
+            {
+                return;
+            }
+
+            ApplyPaneFontSize((float)_nudFontSize.Value, syncNumericUpDown: false);
         };
 
         var fontSizeHost = new ToolStripControlHost(_nudFontSize) { Margin = new Padding(2, 4, 6, 4) };
@@ -395,6 +441,7 @@ public sealed class MainForm : Form
         toolStrip.Items.Add(_tsbInfo);
 
         UpdateToolbarToolTips();
+        Application.AddMessageFilter(_fontZoomFilter);
         return toolStrip;
     }
 
@@ -626,5 +673,43 @@ public sealed class MainForm : Form
         RegisterLocalizedItem(item, getText);
         RegisterLocalizedToolTip(item, getTooltip);
         return item;
+    }
+
+    private sealed class FontZoomMessageFilter(MainForm form) : IMessageFilter
+    {
+        private const int WmMouseWheel = 0x020A;
+
+        public bool PreFilterMessage(ref Message m)
+        {
+            if (m.Msg != WmMouseWheel)
+            {
+                return false;
+            }
+
+            if ((Control.ModifierKeys & Keys.Control) != Keys.Control)
+            {
+                return false;
+            }
+
+            if (!form.CanZoomPaneFont())
+            {
+                return false;
+            }
+
+            Form? activeForm = Form.ActiveForm;
+            if (activeForm != null && activeForm != form)
+            {
+                return false;
+            }
+
+            int delta = (short)((long)m.WParam >> 16);
+            if (delta == 0)
+            {
+                return false;
+            }
+
+            form.ZoomPaneFont(delta);
+            return true;
+        }
     }
 }

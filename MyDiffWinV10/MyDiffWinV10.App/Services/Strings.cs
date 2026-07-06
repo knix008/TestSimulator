@@ -17,7 +17,7 @@ public static class Strings
     public static string TipMenuFile => T("디렉터리/파일 비교, 환경 설정", "Directory/file compare and preferences");
     public static string TipMenuView => T("자동 줄 바꿈, 차이 이동, 복사", "Word wrap, difference navigation, and copy");
     public static string TipMenuHelp => T("애플리케이션 정보", "Application information");
-    public static string TipFontSize => T("패널 글꼴 크기를 조절합니다", "Adjust the pane font size");
+    public static string TipFontSize => T("패널 글꼴 크기를 조절합니다 (Ctrl+마우스 휠)", "Adjust the pane font size (Ctrl+mouse wheel)");
 
     public static string OpenLeft => T("왼쪽 파일 열기...", "Open Left File...");
     public static string OpenRight => T("오른쪽 파일 열기...", "Open Right File...");
