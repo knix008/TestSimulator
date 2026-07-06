@@ -1,22 +1,29 @@
 .desktop-toolbar {
+  flex-shrink: 0;
+  box-sizing: border-box;
   padding: 4px 8px;
   border-bottom: 1px solid #1558b0;
   background: linear-gradient(180deg, #1a73e8 0%, #1666cf 100%);
-  min-height: 42px;
   color: #f8fafc;
+  overflow: visible;
 }
 
 .desktop-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: flex-start;
   gap: 4px;
   min-width: 0;
+  overflow: visible;
 }
 
-.desktop-toolbar__fill {
-  flex: 1 1 12px;
-  min-width: 8px;
+.desktop-toolbar__account-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
 }
 
 .desktop-toolbar__title {

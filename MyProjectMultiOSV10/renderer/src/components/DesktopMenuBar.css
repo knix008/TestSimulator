@@ -8,6 +8,7 @@
   background: #eceef3;
   border-bottom: 1px solid #c8ceda;
   min-height: 32px;
+  flex-shrink: 0;
 }
 
 .desktop-menu-root {

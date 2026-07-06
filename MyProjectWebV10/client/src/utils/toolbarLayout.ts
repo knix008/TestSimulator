@@ -3,10 +3,19 @@ const TOOLBAR_SECTION_GAP = 16;
 const TOOLBAR_HORIZONTAL_PADDING = 32;
 const APP_MIN_WIDTH_FLOOR = 1200;
 const APP_MIN_HEIGHT = 500;
-/** Desktop Electron window minimum height (menu + toolbar + workspace + status). */
+/** Desktop Electron window minimum width (toolbar wraps; do not tie to item count). */
+const DESKTOP_WINDOW_MIN_WIDTH = 900;
+/** Desktop Electron window minimum height floor (menu + toolbar + workspace + status). */
 const DESKTOP_WINDOW_MIN_HEIGHT = 600;
+const DESKTOP_WORKSPACE_MIN_HEIGHT = 220;
 
-export { APP_MIN_HEIGHT, APP_MIN_WIDTH_FLOOR, DESKTOP_WINDOW_MIN_HEIGHT };
+export {
+  APP_MIN_HEIGHT,
+  APP_MIN_WIDTH_FLOOR,
+  DESKTOP_WINDOW_MIN_WIDTH,
+  DESKTOP_WINDOW_MIN_HEIGHT,
+  DESKTOP_WORKSPACE_MIN_HEIGHT,
+};
 
 function measureItemWidths(container: HTMLElement): number[] {
   return Array.from(container.children).map(
@@ -55,6 +64,42 @@ export function computeDesktopAppMinWidth(toolbar: HTMLElement, actions: HTMLEle
     parseFloat(style.borderRightWidth);
 
   return Math.max(APP_MIN_WIDTH_FLOOR, Math.ceil(actionsWidth + padding));
+}
+
+/** Measure full toolbar block height including wrapped action rows. */
+export function measureDesktopToolbarHeight(toolbar: HTMLElement, actions: HTMLElement): number {
+  const style = getComputedStyle(toolbar);
+  const padding =
+    parseFloat(style.paddingTop) +
+    parseFloat(style.paddingBottom) +
+    parseFloat(style.borderTopWidth) +
+    parseFloat(style.borderBottomWidth);
+
+  return Math.ceil(padding + actions.scrollHeight);
+}
+
+/** Minimum window height so wrapped toolbar rows and workspace stay visible. */
+export function computeDesktopAppMinHeight(
+  toolbar: HTMLElement,
+  options?: {
+    actions?: HTMLElement | null;
+    menuBar?: HTMLElement | null;
+    statusBar?: HTMLElement | null;
+    extraChrome?: HTMLElement | null;
+  },
+): number {
+  const menuHeight = options?.menuBar?.offsetHeight ?? 32;
+  const toolbarHeight =
+    options?.actions instanceof HTMLElement
+      ? measureDesktopToolbarHeight(toolbar, options.actions)
+      : Math.max(toolbar.offsetHeight, toolbar.scrollHeight);
+  const statusHeight = options?.statusBar?.offsetHeight ?? 28;
+  const extraHeight = options?.extraChrome?.offsetHeight ?? 0;
+
+  return Math.max(
+    DESKTOP_WINDOW_MIN_HEIGHT,
+    menuHeight + toolbarHeight + statusHeight + extraHeight + DESKTOP_WORKSPACE_MIN_HEIGHT,
+  );
 }
 
 export function applyAppMinWidth(width: number): void {

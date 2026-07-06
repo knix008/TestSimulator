@@ -280,23 +280,23 @@ export function DesktopToolbar({
           {t('toolbar.deleteTask')}
         </ToolbarButton>
 
-        <span className="desktop-toolbar__fill" aria-hidden="true" />
-
-        {isAdmin && onOpenUserManagement && (
-          <ToolbarButton icon="users" onClick={onOpenUserManagement}>
-            {t('toolbar.userManagement')}
-          </ToolbarButton>
-        )}
-        {onOpenMyAccount && (
-          <ToolbarButton icon="account" onClick={onOpenMyAccount}>
-            {t('toolbar.myAccount')}
-          </ToolbarButton>
-        )}
-        {onLogout && (
-          <ToolbarButton icon="logout" onClick={onLogout}>
-            {t('toolbar.logout')} ({username ?? ''})
-          </ToolbarButton>
-        )}
+        <div className="desktop-toolbar__account-group">
+          {isAdmin && onOpenUserManagement && (
+            <ToolbarButton icon="users" onClick={onOpenUserManagement}>
+              {t('toolbar.userManagement')}
+            </ToolbarButton>
+          )}
+          {onOpenMyAccount && (
+            <ToolbarButton icon="account" onClick={onOpenMyAccount}>
+              {t('toolbar.myAccount')}
+            </ToolbarButton>
+          )}
+          {onLogout && (
+            <ToolbarButton icon="logout" onClick={onLogout}>
+              {t('toolbar.logout')} ({username ?? ''})
+            </ToolbarButton>
+          )}
+        </div>
       </div>
     </header>
   );

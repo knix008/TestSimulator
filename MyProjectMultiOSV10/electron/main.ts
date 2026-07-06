@@ -46,14 +46,14 @@ let currentFilePath: string | null = null;
 let isDocumentModified = false;
 let pendingOpenFilePath: string | null = null;
 
-/** Keep in sync with @web/utils/toolbarLayout (APP_MIN_WIDTH_FLOOR / DESKTOP_WINDOW_MIN_HEIGHT). */
-const WINDOW_MIN_WIDTH = 1200;
+/** Keep in sync with @web/utils/toolbarLayout (DESKTOP_WINDOW_MIN_*). */
+const WINDOW_MIN_WIDTH = 900;
 const WINDOW_MIN_HEIGHT = 600;
 
-function applyWindowMinimumSize(width: number, height: number): void {
+function applyWindowMinimumSize(height: number): void {
   if (!mainWindow) return;
 
-  const minWidth = Math.max(WINDOW_MIN_WIDTH, Math.round(width));
+  const minWidth = WINDOW_MIN_WIDTH;
   const minHeight = Math.max(WINDOW_MIN_HEIGHT, Math.round(height));
   mainWindow.setMinimumSize(minWidth, minHeight);
 
@@ -247,9 +247,9 @@ async function saveExportBuffer(
 function registerIpcHandlers(): void {
   registerAuthIpcHandlers(() => app.getPath('userData'));
 
-  ipcMain.handle('window:set-minimum-size', (_event, width: number, height: number) => {
-    if (!Number.isFinite(width) || !Number.isFinite(height)) return;
-    applyWindowMinimumSize(width, height);
+  ipcMain.handle('window:set-minimum-size', (_event, _width: number, height: number) => {
+    if (!Number.isFinite(height)) return;
+    applyWindowMinimumSize(height);
   });
 
   ipcMain.handle('project:new', async () => {

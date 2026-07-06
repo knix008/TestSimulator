@@ -134,6 +134,8 @@ export function DesktopProjectView() {
     propertiesPanelVisible,
     calendarView,
     username,
+    error,
+    scheduleError,
   ]);
 
   const undoManagerRef = useRef(new UndoRedoManager());

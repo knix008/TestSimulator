@@ -1,6 +1,5 @@
 .desktop-app {
   height: 100vh;
   min-height: var(--app-min-height, 600px);
-  min-width: var(--app-min-width, 1200px);
   overflow: hidden;
 }

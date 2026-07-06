@@ -2,8 +2,16 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  min-height: 0;
   overflow: hidden;
   background: #fff;
+}
+
+.desktop-project-view > .desktop-menu-bar,
+.desktop-project-view > .desktop-toolbar,
+.desktop-project-view > .desktop-status-bar,
+.desktop-project-view > .desktop-error-banner {
+  flex-shrink: 0;
 }
 
 .desktop-main {
