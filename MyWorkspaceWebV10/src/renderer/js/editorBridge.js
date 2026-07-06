@@ -61,9 +61,12 @@ export function createEditorBridge(frame) {
     );
   }
 
-  async function getApi() {
+  async function getApi({ wait = true } = {}) {
     if (frame.contentWindow?.editorApi) {
       return frame.contentWindow.editorApi;
+    }
+    if (!wait) {
+      return null;
     }
     return waitForEditorApi();
   }
@@ -207,11 +210,9 @@ export function createEditorBridge(frame) {
         theme: theme === 'dark' ? 'dark' : 'light',
         fontScaleStep: Number(fontScaleStep) || 0
       };
-      try {
-        const api = await getApi();
+      const api = await getApi({ wait: false });
+      if (api) {
         api.applyThemeChrome?.(buildEditorThemeChrome(appearance.theme, appearance.fontScaleStep));
-      } catch {
-        // Editor not loaded yet.
       }
     },
 
@@ -285,15 +286,25 @@ export function createEditorBridge(frame) {
 }
 
 function buildTableHtml(rows, cols) {
-  let html = '<table><tbody>';
-  for (let r = 0; r < rows; r += 1) {
-    html += '<tr>';
-    for (let c = 0; c < cols; c += 1) {
-      html += r === 0 ? '<th>&nbsp;</th>' : '<td>&nbsp;</td>';
-    }
-    html += '</tr>';
+  const rowCount = Math.min(20, Math.max(1, rows));
+  const colCount = Math.min(20, Math.max(1, cols));
+  let html = '<table><thead><tr>';
+  for (let c = 0; c < colCount; c += 1) {
+    html += '<th><p><br></p></th>';
   }
-  html += '</tbody></table><p><br></p>';
+  html += '</tr></thead>';
+  if (rowCount > 1) {
+    html += '<tbody>';
+    for (let r = 1; r < rowCount; r += 1) {
+      html += '<tr>';
+      for (let c = 0; c < colCount; c += 1) {
+        html += '<td><p><br></p></td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody>';
+  }
+  html += '</table><p><br></p>';
   return html;
 }
 

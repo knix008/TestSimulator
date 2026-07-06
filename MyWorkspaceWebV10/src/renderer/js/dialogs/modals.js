@@ -1,6 +1,7 @@
 import { t } from '../i18n/index.js';
 import { showApiError } from '../errors/errorDetail.js';
 import { normalizeFontScaleStep } from '../ui/fontScale.js';
+import { showTableInsertPopup } from '../ui/tableInsertPopup.js';
 
 let layer = null;
 
@@ -394,42 +395,7 @@ export async function showNewPageDialog(api, templateLanguage = 'ko') {
 }
 
 export function showTableInsertDialog() {
-  return new Promise((resolve) => {
-    const body = document.createElement('div');
-    body.className = 'form-grid';
-    body.innerHTML = `
-      <label>${t.tableInsertRows}
-        <input id="table-rows" class="modal-input" type="number" min="1" max="20" value="3" />
-      </label>
-      <label>${t.tableInsertCols}
-        <input id="table-cols" class="modal-input" type="number" min="1" max="20" value="3" />
-      </label>
-    `;
-
-    const finish = (value) => {
-      closeModal();
-      resolve(value);
-    };
-
-    openModal({
-      title: t.tableInsertTitle,
-      bodyNode: body,
-      footerNodes: [
-        createButton(t.buttonCancel, { onClick: () => finish(null) }),
-        createButton(t.buttonInsert, {
-          primary: true,
-          onClick: () => {
-            const rows = Number.parseInt(body.querySelector('#table-rows').value, 10) || 3;
-            const cols = Number.parseInt(body.querySelector('#table-cols').value, 10) || 3;
-            finish({
-              rows: Math.min(20, Math.max(1, rows)),
-              cols: Math.min(20, Math.max(1, cols))
-            });
-          }
-        })
-      ]
-    });
-  });
+  return showTableInsertPopup();
 }
 
 export function showDatabaseSettingsDialog() {

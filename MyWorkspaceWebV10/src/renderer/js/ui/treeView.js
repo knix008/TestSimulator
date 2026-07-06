@@ -170,7 +170,7 @@ export function createTreePanel(container, { storageKey = 'tree' } = {}) {
       for (let index = 0; index < node.children.length; index += 1) {
         const child = node.children[index];
         const childIsLast = index === node.children.length - 1;
-        const childContinues = [...ancestorContinues, !isLastSibling];
+        const childContinues = [...ancestorContinues, !childIsLast];
         childList.appendChild(renderNode(child, depth + 1, options, childContinues, childIsLast));
       }
       li.appendChild(childList);

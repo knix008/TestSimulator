@@ -52,7 +52,7 @@ function createToolButton(item, labels, onCommand) {
   }
   setButtonIcon(button, item.icon, 20);
   button.addEventListener('mousedown', preventToolbarFocusLoss);
-  button.addEventListener('click', () => onCommand(item));
+  button.addEventListener('click', () => onCommand(item, button));
   return button;
 }
 

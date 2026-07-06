@@ -23,9 +23,9 @@ import {
   showEmailSettingsDialog,
   showInputDialog,
   showConfirmDialog,
-  showNewPageDialog,
-  showTableInsertDialog
+  showNewPageDialog
 } from './dialogs/modals.js';
+import { showTableInsertPopup } from './ui/tableInsertPopup.js';
 import { showApiError, showUnexpectedError } from './errors/errorDetail.js';
 import { installGlobalErrorHandler } from './errors/globalErrorHandler.js';
 import { createCommentsPanel } from './comments/panel.js';
@@ -219,6 +219,19 @@ editor.onPasteRequested = async () => {
   }
 };
 
+async function insertTableWithPicker(options = {}) {
+  if (currentPageId == null || !currentPageCanEdit) {
+    return;
+  }
+  const size = await showTableInsertPopup(options);
+  if (!size) {
+    return;
+  }
+  await editor.focus();
+  await editor.insertTable(size.rows, size.cols);
+  editor.onChanged?.();
+}
+
 const editorContextMenu = createEditorContextMenu({
   editor,
   editorFrame,
@@ -256,17 +269,8 @@ const editorContextMenu = createEditorContextMenu({
     }
     await importAssetIntoEditor(currentPageId, false);
   },
-  onInsertTable: async () => {
-    if (currentPageId == null || !currentPageCanEdit) {
-      return;
-    }
-    const size = await showTableInsertDialog();
-    if (!size) {
-      return;
-    }
-    await editor.focus();
-    await editor.insertTable(size.rows, size.cols);
-    editor.onChanged?.();
+  onInsertTable: async (point) => {
+    await insertTableWithPicker(point || {});
   },
   onInsertLink: async () => {
     if (currentPageId == null || !currentPageCanEdit) {
@@ -489,7 +493,7 @@ function refreshLocalizedUi() {
 
 function initToolbar() {
   verticalToolbar = createVerticalToolbar(document.getElementById('vertical-toolbar'), t, {
-    onCommand: async (item) => {
+    onCommand: async (item, anchor) => {
     if (item.command === 'about') {
       showAboutDialog();
       return;
@@ -509,12 +513,7 @@ function initToolbar() {
     }
     try {
       if (item.command === 'table') {
-        const size = await showTableInsertDialog();
-        if (!size) {
-          return;
-        }
-        await editor.focus();
-        await editor.insertTable(size.rows, size.cols);
+        await insertTableWithPicker({ anchor });
         return;
       }
       await editor.focus();
@@ -818,25 +817,44 @@ async function exportWorkspaceById(workspaceId) {
   }
 }
 
-async function bootstrap() {
-  const config = await api.getUiConfig();
-  applyUiAppearance({
-    theme: config.theme,
-    language: config.language,
-    fontScaleStep: config.fontScaleStep
-  });
+let shellInitialized = false;
+let cachedUiConfig = null;
+
+async function ensureAppShellReady(config = cachedUiConfig) {
+  if (shellInitialized) {
+    return;
+  }
+
+  if (config) {
+    cachedUiConfig = config;
+  } else if (!cachedUiConfig) {
+    cachedUiConfig = await api.getUiConfig();
+  }
+
+  shellInitialized = true;
   initSplitters();
   initEditorHostFileDrop();
-  refreshLocalizedUi();
-  await editor.applyAppearance({
-    theme: config.theme?.toLowerCase() === 'dark' ? 'dark' : 'light',
-    fontScaleStep: config.fontScaleStep
-  });
-  await loadRecentProjects();
+  appShell.classList.remove('hidden');
   verticalToolbar?.setEnabled(false);
+  void editor.applyAppearance({
+    theme: cachedUiConfig.theme?.toLowerCase() === 'dark' ? 'dark' : 'light',
+    fontScaleStep: cachedUiConfig.fontScaleStep
+  });
+  void loadRecentProjects();
+}
+
+async function bootstrap() {
+  login.show();
+
+  cachedUiConfig = await api.getUiConfig();
+  applyUiAppearance({
+    theme: cachedUiConfig.theme,
+    language: cachedUiConfig.language,
+    fontScaleStep: cachedUiConfig.fontScaleStep
+  });
+  refreshLocalizedUi();
   statusBar.setLoginRequired();
 
-  appShell.classList.remove('hidden');
   const restored = await tryRestoreSession(enterApp);
   if (!restored) {
     login.show();
@@ -844,6 +862,7 @@ async function bootstrap() {
 }
 
 async function enterApp(user) {
+  await ensureAppShellReady();
   currentUser = user;
   appShell.classList.remove('hidden');
   login.hide();

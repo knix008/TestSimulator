@@ -1,6 +1,17 @@
 import { showPopupMenuAtPoint, closePopupMenu } from './ui/popupMenu.js';
 import { EDITOR_FONT_SIZE_PRESETS } from './ui/fontScale.js';
 
+const TABLE_BACKGROUND_COLORS = [
+  { id: 'yellow', hex: '#FFF59D', labelKey: 'editorTableBackgroundColorYellow' },
+  { id: 'green', hex: '#C5E1A5', labelKey: 'editorTableBackgroundColorGreen' },
+  { id: 'blue', hex: '#90CAF9', labelKey: 'editorTableBackgroundColorBlue' },
+  { id: 'gray', hex: '#CFD8DC', labelKey: 'editorTableBackgroundColorGray' },
+  { id: 'pink', hex: '#F48FB1', labelKey: 'editorTableBackgroundColorPink' },
+  { id: 'orange', hex: '#FFCC80', labelKey: 'editorTableBackgroundColorOrange' }
+];
+
+let lastTableBackgroundCustomColor = '#FFF59D';
+
 function menuIcon(name) {
   return name;
 }
@@ -150,6 +161,36 @@ function buildImageItems(t, { canEdit, loggedIn, imageQuote }) {
   ];
 }
 
+function buildTableBackgroundSubmenu(t, { disabled = false, visible = true } = {}) {
+  const submenu = TABLE_BACKGROUND_COLORS.map((preset) => ({
+    id: `table-bg-${preset.id}`,
+    label: t[preset.labelKey],
+    iconName: menuIcon('table'),
+    disabled
+  }));
+  submenu.push({ type: 'separator' });
+  submenu.push({
+    id: 'table-bg-custom',
+    label: t.editorTableBackgroundColorCustom,
+    iconName: menuIcon('preferences'),
+    disabled
+  });
+  submenu.push({
+    id: 'table-bg-default',
+    label: t.editorTableBackgroundColorDefault,
+    iconName: menuIcon('table'),
+    disabled
+  });
+  return {
+    id: 'table-bg-menu',
+    label: t.editorTableBackgroundColor,
+    iconName: menuIcon('table'),
+    disabled,
+    visible,
+    submenu
+  };
+}
+
 function buildTableItems(t, context, canEdit) {
   const scope = context.selectionScope || 'cells';
   const showDeleteTable = scope === 'table';
@@ -157,10 +198,10 @@ function buildTableItems(t, context, canEdit) {
   const showDeleteColumns = scope === 'columns';
   const showInsertRows = scope === 'rows' || scope === 'table';
   const showInsertColumns = scope === 'columns' || scope === 'table';
+  const showBackground =
+    scope === 'rows' || scope === 'columns' || scope === 'cells' || scope === 'table';
 
   return [
-    buildFontSizeSubmenu(t, 'table-fontsize-', { disabled: !canEdit }),
-    { type: 'separator' },
     {
       id: 'table-delete-table',
       label: t.editorTableDelete,
@@ -210,8 +251,82 @@ function buildTableItems(t, context, canEdit) {
       iconName: menuIcon('table'),
       visible: showInsertColumns,
       disabled: !canEdit
-    }
+    },
+    { type: 'separator', visible: showInsertRows || showInsertColumns },
+    buildTableBackgroundSubmenu(t, { disabled: !canEdit, visible: showBackground }),
+    {
+      id: 'table-align-left',
+      label: t.editorTableAlignLeft,
+      iconName: menuIcon('align_left'),
+      disabled: !canEdit
+    },
+    {
+      id: 'table-align-center',
+      label: t.editorTableAlignCenter,
+      iconName: menuIcon('align_center'),
+      disabled: !canEdit
+    },
+    {
+      id: 'table-align-right',
+      label: t.editorTableAlignRight,
+      iconName: menuIcon('align_right'),
+      disabled: !canEdit
+    },
+    { type: 'separator' },
+    {
+      id: 'table-align-top',
+      label: t.editorTableAlignTop,
+      iconName: menuIcon('align_top'),
+      disabled: !canEdit
+    },
+    {
+      id: 'table-align-middle',
+      label: t.editorTableAlignMiddle,
+      iconName: menuIcon('align_middle'),
+      disabled: !canEdit
+    },
+    {
+      id: 'table-align-bottom',
+      label: t.editorTableAlignBottom,
+      iconName: menuIcon('align_bottom'),
+      disabled: !canEdit
+    },
+    { type: 'separator' },
+    buildFontSizeSubmenu(t, 'table-fontsize-', { disabled: !canEdit })
   ];
+}
+
+async function pickCustomTableBackgroundColor() {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.value = lastTableBackgroundCustomColor;
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    document.body.appendChild(input);
+    input.addEventListener(
+      'change',
+      () => {
+        lastTableBackgroundCustomColor = input.value;
+        input.remove();
+        resolve(input.value);
+      },
+      { once: true }
+    );
+    input.addEventListener(
+      'blur',
+      () => {
+        window.setTimeout(() => {
+          if (input.isConnected) {
+            input.remove();
+            resolve(null);
+          }
+        }, 200);
+      },
+      { once: true }
+    );
+    input.click();
+  });
 }
 
 export function createEditorContextMenu({
@@ -232,6 +347,7 @@ export function createEditorContextMenu({
   let lastLineQuote = '';
   let lastImageSrc = '';
   let lastImageQuote = '';
+  let lastMenuPoint = null;
 
   async function showAt(clientX, clientY) {
     const state = getState();
@@ -242,6 +358,7 @@ export function createEditorContextMenu({
     const frameRect = editorFrame.getBoundingClientRect();
     const screenX = frameRect.left + clientX;
     const screenY = frameRect.top + clientY;
+    lastMenuPoint = { x: screenX, y: screenY };
 
     lastContext = await editor.getContextMenuContext(clientX, clientY);
     lastSelectedText = (await editor.getSelectedText()).trim();
@@ -345,7 +462,7 @@ export function createEditorContextMenu({
           await editor.runCommand({ command: 'horizontalRule' });
           break;
         case 'editor-table':
-          await onInsertTable?.();
+          await onInsertTable?.(lastMenuPoint || undefined);
           break;
         case 'editor-toggle-outline':
           onToggleOutline?.();
@@ -391,7 +508,43 @@ export function createEditorContextMenu({
         case 'table-insert-column-right':
           await editor.callEditorMethod('insertSelectedTableColumnsRight');
           break;
+        case 'table-align-left':
+          await editor.callEditorMethod('setSelectedCellsTextAlign', 'left');
+          break;
+        case 'table-align-center':
+          await editor.callEditorMethod('setSelectedCellsTextAlign', 'center');
+          break;
+        case 'table-align-right':
+          await editor.callEditorMethod('setSelectedCellsTextAlign', 'right');
+          break;
+        case 'table-align-top':
+          await editor.callEditorMethod('setSelectedCellsVerticalAlign', 'top');
+          break;
+        case 'table-align-middle':
+          await editor.callEditorMethod('setSelectedCellsVerticalAlign', 'middle');
+          break;
+        case 'table-align-bottom':
+          await editor.callEditorMethod('setSelectedCellsVerticalAlign', 'bottom');
+          break;
+        case 'table-bg-default':
+          await editor.callEditorMethod('setSelectedCellsBackgroundColor', '');
+          break;
+        case 'table-bg-custom': {
+          const color = await pickCustomTableBackgroundColor();
+          if (color) {
+            await editor.callEditorMethod('setSelectedCellsBackgroundColor', color);
+          }
+          break;
+        }
         default: {
+          const bgMatch = /^table-bg-(yellow|green|blue|gray|pink|orange)$/.exec(actionId);
+          if (bgMatch) {
+            const preset = TABLE_BACKGROUND_COLORS.find((entry) => entry.id === bgMatch[1]);
+            if (preset) {
+              await editor.callEditorMethod('setSelectedCellsBackgroundColor', preset.hex);
+            }
+            break;
+          }
           const selectionFontMatch = /^editor-fontsize-(default|\d+)$/.exec(actionId);
           if (selectionFontMatch) {
             const size = selectionFontMatch[1] === 'default' ? 0 : Number.parseInt(selectionFontMatch[1], 10);
