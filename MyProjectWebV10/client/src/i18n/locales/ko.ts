@@ -137,6 +137,14 @@ export const ko = {
   'taskProps.predecessors': '선행:',
   'taskProps.removeDependency': '의존성 제거',
 
+  'noteProps.title': '메모',
+  'noteProps.noteTitle': '제목',
+  'noteProps.body': '내용',
+  'noteProps.linkedTask': '연결 작업',
+  'noteProps.forTask': '작업: [{id}] {name}',
+  'noteProps.noLinkedTask': '연결된 작업 없음',
+  'noteProps.selectNote': '메모를 선택하세요.',
+
   'context.depTypeHeading': '의존성 종류',
   'context.lineStart': '선 시작 (Start)',
   'context.lineEnd': '선 끝 (End)',

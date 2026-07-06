@@ -1,0 +1,52 @@
+.desktop-three-pane {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.desktop-three-pane__workspace {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.desktop-three-pane__workspace .project-split {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+.desktop-three-pane__properties {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: auto;
+  border-left: 1px solid #d8dce6;
+  background: #fafbfc;
+}
+
+.desktop-three-pane__splitter {
+  flex: 0 0 5px;
+  width: 5px;
+  cursor: col-resize;
+  background: #e2e8f0;
+  border-left: 1px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 2;
+  touch-action: none;
+}
+
+.desktop-three-pane__splitter:hover,
+.desktop-three-pane__splitter.is-dragging {
+  background: #94a3b8;
+}
+
+.desktop-three-pane__properties .task-properties-panel {
+  max-height: none;
+  border: none;
+  box-shadow: none;
+}

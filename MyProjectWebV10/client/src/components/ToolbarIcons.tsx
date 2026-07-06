@@ -309,13 +309,224 @@ export function IconImport(props: IconProps) {
   );
 }
 
+export function IconOpen(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M3 6h5l2 2h9v10H3V6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M8 6V4h7v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconSaveAs(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="2" y="2" width="11" height="14" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M4 2v5h5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M14 8h4v10H9v-3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconUndo(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M6 7H3l3-3M3 7a7 7 0 1 0 2 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconRedo(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M14 7h3l-3-3M17 7a7 7 0 1 1-2 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconTaskProps(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="2" width="14" height="16" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6 6h8M6 10h8M6 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconPrint(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="4" y="2" width="12" height="5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="3" y="7" width="14" height="8" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="6" y="11" width="8" height="6" stroke="currentColor" strokeWidth="1.5" />
+    </IconBase>
+  );
+}
+
+export function IconHelp(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 8a2 2 0 1 1 3.2 1.6c-.8.5-1.2 1.1-1.2 2.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="10" cy="15" r="0.8" fill="currentColor" />
+    </IconBase>
+  );
+}
+
+export function IconPreferences(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconPropertiesPanel(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="2" y="3" width="10" height="14" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="14" y="3" width="4" height="14" fill="currentColor" fillOpacity="0.25" stroke="currentColor" strokeWidth="1.5" />
+    </IconBase>
+  );
+}
+
+export function IconCalendar(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="2" y="4" width="16" height="14" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2 8h16M6 2v4M14 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M6 12h3M11 12h3M6 15h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconExit(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M8 3H4v14h4M12 10h6M15 7l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconMsProject(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="2" y="3" width="16" height="14" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M5 7h4v2H5V7zM11 7h4M5 11h4v2H5v-2zM11 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconHtml(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 4l3 12 3-8 3 8 3-12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconWord(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="2" width="14" height="16" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 6l2 8 2-8 2 8 2-8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconExcel(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="2" width="14" height="16" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 6l6 8M13 6l-6 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconPdf(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="2" width="14" height="16" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 12h2a1.5 1.5 0 0 0 0-3H7v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 9v6M12 9h2a1.5 1.5 0 0 1 0 3h-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+export function IconMarkdown(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 6h3l2 3 2-3h3v8h-3v-4l-2 3-2-3v4H4V6z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconGanttImage(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="2" y="4" width="16" height="12" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="4" y="8" width="5" height="2" fill="currentColor" fillOpacity="0.5" />
+      <rect x="10" y="11" width="6" height="2" fill="currentColor" fillOpacity="0.5" />
+      <circle cx="15" cy="7" r="1.5" fill="currentColor" />
+    </IconBase>
+  );
+}
+
+export function IconMenuFile(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 2h8l4 4v12H4V2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M12 2v4h4" stroke="currentColor" strokeWidth="1.5" />
+    </IconBase>
+  );
+}
+
+export function IconMenuEdit(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 14l1-4 9-5 4 4-9 5-4 1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.5" />
+    </IconBase>
+  );
+}
+
+export function IconMenuTask(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M16 14l2 2-2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+export function IconMenuView(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="2" y="4" width="16" height="12" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2 8h16" stroke="currentColor" strokeWidth="1.5" />
+    </IconBase>
+  );
+}
+
+export function IconMenuReport(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M6 3v14M6 3h8l2 2v12H6" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M9 8h5M9 11h5M9 14h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
 export type ToolbarIconName =
   | 'newProject'
+  | 'open'
   | 'refresh'
   | 'settings'
   | 'today'
   | 'criticalPath'
   | 'save'
+  | 'saveAs'
   | 'addTask'
   | 'addSubtask'
   | 'addNote'
@@ -337,15 +548,38 @@ export type ToolbarIconName =
   | 'account'
   | 'logout'
   | 'export'
-  | 'import';
+  | 'import'
+  | 'undo'
+  | 'redo'
+  | 'taskProps'
+  | 'print'
+  | 'help'
+  | 'preferences'
+  | 'propertiesPanel'
+  | 'calendar'
+  | 'exit'
+  | 'msProject'
+  | 'html'
+  | 'word'
+  | 'excel'
+  | 'pdf'
+  | 'markdown'
+  | 'ganttImage'
+  | 'menuFile'
+  | 'menuEdit'
+  | 'menuTask'
+  | 'menuView'
+  | 'menuReport';
 
 const ICONS: Record<ToolbarIconName, ComponentType<IconProps>> = {
   newProject: IconNewProject,
+  open: IconOpen,
   refresh: IconRefresh,
   settings: IconSettings,
   today: IconToday,
   criticalPath: IconCriticalPath,
   save: IconSave,
+  saveAs: IconSaveAs,
   addTask: IconAddTask,
   addSubtask: IconAddSubtask,
   addNote: IconAddNote,
@@ -368,6 +602,27 @@ const ICONS: Record<ToolbarIconName, ComponentType<IconProps>> = {
   logout: IconLogout,
   export: IconExport,
   import: IconImport,
+  undo: IconUndo,
+  redo: IconRedo,
+  taskProps: IconTaskProps,
+  print: IconPrint,
+  help: IconHelp,
+  preferences: IconPreferences,
+  propertiesPanel: IconPropertiesPanel,
+  calendar: IconCalendar,
+  exit: IconExit,
+  msProject: IconMsProject,
+  html: IconHtml,
+  word: IconWord,
+  excel: IconExcel,
+  pdf: IconPdf,
+  markdown: IconMarkdown,
+  ganttImage: IconGanttImage,
+  menuFile: IconMenuFile,
+  menuEdit: IconMenuEdit,
+  menuTask: IconMenuTask,
+  menuView: IconMenuView,
+  menuReport: IconMenuReport,
 };
 
 export function ToolbarIcon({ name, className }: { name: ToolbarIconName; className?: string }) {

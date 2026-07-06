@@ -116,9 +116,22 @@
   background: #dbeafe;
 }
 
+.task-grid-note-spacer td {
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none;
+  background: transparent;
+}
+
 .task-grid tbody tr.critical-task td.col-name-cell {
   color: #b41e14;
   font-weight: 600;
+}
+
+.task-grid tbody tr.completed-task td {
+  text-decoration: line-through;
+  color: #64748b;
 }
 
 .task-grid td.col-id {

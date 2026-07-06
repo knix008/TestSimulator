@@ -246,32 +246,33 @@ export function getBarAnchors(container: HTMLElement, taskId: number): BarAnchor
 }
 
 function ensureDependencyGroup(svg: SVGSVGElement, hostLayer: SVGGElement): SVGGElement {
-  const existing = hostLayer.querySelector(`g.${CUSTOM_DEPS_GROUP_CLASS}`);
-  if (existing instanceof SVGGElement) {
-    return existing;
+  let group = hostLayer.querySelector(`g.${CUSTOM_DEPS_GROUP_CLASS}`);
+  if (!(group instanceof SVGGElement)) {
+    let defs = svg.querySelector('defs');
+    if (!defs) {
+      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      svg.insertBefore(defs, svg.firstChild);
+    }
+
+    if (!svg.querySelector(`#${DEPS_CLIP_ID}`)) {
+      const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+      clipPath.setAttribute('id', DEPS_CLIP_ID);
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', '0');
+      rect.setAttribute('y', String(GANTT_HEADER_HEIGHT));
+      rect.setAttribute('width', '100000');
+      rect.setAttribute('height', '100000');
+      clipPath.appendChild(rect);
+      defs.appendChild(clipPath);
+    }
+
+    group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('class', CUSTOM_DEPS_GROUP_CLASS);
+    group.setAttribute('clip-path', `url(#${DEPS_CLIP_ID})`);
+    hostLayer.appendChild(group);
   }
 
-  let defs = svg.querySelector('defs');
-  if (!defs) {
-    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    svg.insertBefore(defs, svg.firstChild);
-  }
-
-  if (!svg.querySelector(`#${DEPS_CLIP_ID}`)) {
-    const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
-    clipPath.setAttribute('id', DEPS_CLIP_ID);
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x', '0');
-    rect.setAttribute('y', String(GANTT_HEADER_HEIGHT));
-    rect.setAttribute('width', '100000');
-    rect.setAttribute('height', '100000');
-    clipPath.appendChild(rect);
-    defs.appendChild(clipPath);
-  }
-
-  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  group.setAttribute('class', CUSTOM_DEPS_GROUP_CLASS);
-  group.setAttribute('clip-path', `url(#${DEPS_CLIP_ID})`);
+  // Keep dependency lines above task bars so hit-testing and selection work after refresh.
   hostLayer.appendChild(group);
   return group;
 }
@@ -367,7 +368,7 @@ export function renderDependencyLines(
     hitPath.setAttribute('d', pathData);
     hitPath.setAttribute('fill', 'none');
     hitPath.setAttribute('stroke', 'transparent');
-    hitPath.setAttribute('stroke-width', '12');
+    hitPath.setAttribute('stroke-width', '14');
     hitPath.setAttribute('class', isSelected ? 'gantt-dependency-line-hit gantt-dependency-line-hit-selected' : 'gantt-dependency-line-hit');
     hitPath.setAttribute('data-predecessor-id', String(dep.predecessorId));
     hitPath.setAttribute('data-successor-id', String(dep.successorId));

@@ -1,6 +1,6 @@
 import type { AssignmentItem, DependencyItem, GanttViewSettings, ProjectDetail, NoteItem, TaskItem } from '../types/project';
 import { applyCriticalPathFlags } from './criticalPathCalculator';
-import { MILESTONE_DURATION_DAYS } from './ganttTaskDates';
+import { localDayFromFrappeDate, MILESTONE_DURATION_DAYS } from './ganttTaskDates';
 import { updateTaskHierarchy } from './taskModel';
 import { countWorkingDaysInclusive, getTaskEndDate, snapToNextWorkingDay } from './workingDayCalendar';
 import { defaultWorkingWeek, parseWorkingWeek, type WorkingWeek } from './workingWeek';
@@ -93,7 +93,7 @@ export function applyTaskDateChange(
   if (task.taskType === 'Summary') return task;
   const schedule = week ?? defaultWorkingWeek();
   if (task.taskType === 'Milestone') {
-    const startDate = snapToNextWorkingDay(startOfDay(start), schedule).toISOString();
+    const startDate = snapToNextWorkingDay(localDayFromFrappeDate(start), schedule).toISOString();
     return {
       ...task,
       startDate,
@@ -102,8 +102,8 @@ export function applyTaskDateChange(
     };
   }
 
-  const startDate = snapToNextWorkingDay(startOfDay(start), schedule).toISOString();
-  let endDay = snapToNextWorkingDay(startOfDay(end), schedule);
+  const startDate = snapToNextWorkingDay(localDayFromFrappeDate(start), schedule).toISOString();
+  let endDay = snapToNextWorkingDay(localDayFromFrappeDate(end), schedule);
   const startDay = startOfDay(new Date(startDate));
   if (endDay < startDay) {
     endDay = startDay;
@@ -205,6 +205,13 @@ export function removeDependency(
   return deps.filter(
     (dep) => !(dep.predecessorId === predecessorId && dep.successorId === successorId),
   );
+}
+
+export function removeOutgoingDependencies(
+  deps: DependencyItem[],
+  predecessorId: number,
+): DependencyItem[] {
+  return deps.filter((dep) => dep.predecessorId !== predecessorId);
 }
 
 export function setDependencyType(

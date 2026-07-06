@@ -1,0 +1,113 @@
+.desktop-menu-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 6px;
+  background: #eceef3;
+  border-bottom: 1px solid #c8ceda;
+  min-height: 32px;
+}
+
+.desktop-menu-root {
+  position: relative;
+}
+
+.desktop-menu-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  color: #30343c;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.desktop-menu-top:hover,
+.desktop-menu-top--open {
+  background: #dfe3ec;
+}
+
+.desktop-menu-top-icon {
+  opacity: 0.85;
+}
+
+.desktop-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 240px;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #c8ceda;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+  z-index: 2000;
+}
+
+.desktop-menu-dropdown--nested {
+  top: -4px;
+  left: 100%;
+}
+
+.desktop-menu-item {
+  position: relative;
+}
+
+.desktop-menu-button {
+  display: grid;
+  grid-template-columns: 20px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  color: #30343c;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.desktop-menu-button:hover:not(:disabled) {
+  background: #eef2ff;
+}
+
+.desktop-menu-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.desktop-menu-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.desktop-menu-label {
+  white-space: nowrap;
+}
+
+.desktop-menu-shortcut {
+  color: #626874;
+  font-size: 12px;
+  margin-left: 16px;
+}
+
+.desktop-menu-check {
+  color: #188038;
+  font-weight: 700;
+}
+
+.desktop-menu-submenu-arrow {
+  color: #626874;
+  font-size: 11px;
+}
+
+.desktop-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: #e2e8f0;
+}

@@ -1,0 +1,75 @@
+.desktop-calendar-view {
+  height: 100%;
+  overflow: auto;
+  padding: 12px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.desktop-calendar-view__header {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #1e293b;
+}
+
+.desktop-calendar-view__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: #cbd5e1;
+  border: 1px solid #cbd5e1;
+}
+
+.desktop-calendar-view__weekday {
+  background: #eef2f7;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.desktop-calendar-view__day {
+  min-height: 88px;
+  background: #fff;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.desktop-calendar-view__day.is-outside {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.desktop-calendar-view__day.is-today .desktop-calendar-view__day-number {
+  background: #2563eb;
+  color: #fff;
+  border-radius: 999px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+}
+
+.desktop-calendar-view__day-number {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.desktop-calendar-view__tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.desktop-calendar-view__tasks li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #334155;
+}
+
+.desktop-calendar-view__more {
+  color: #64748b;
+  font-style: italic;
+}

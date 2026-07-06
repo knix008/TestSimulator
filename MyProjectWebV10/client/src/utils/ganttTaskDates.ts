@@ -24,6 +24,11 @@ export function toGanttDateString(iso: string): string {
   return toDateInputValue(iso);
 }
 
+/** Local calendar day from a Frappe drag Date (avoids UTC midnight drift). */
+export function localDayFromFrappeDate(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 /**
  * Frappe Gantt treats the end date as the last calendar day of the task
  * (midnight is extended to end-of-day). Milestones are stored as 0-day tasks

@@ -1,0 +1,44 @@
+.desktop-project-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: #fff;
+}
+
+.desktop-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.desktop-gantt-capture {
+  height: 100%;
+}
+
+.desktop-properties {
+  flex: 0 0 auto;
+  max-height: 220px;
+  overflow: auto;
+  border-top: 1px solid #d8dce6;
+  padding: 8px 12px;
+  background: #fafbfc;
+}
+
+.desktop-loading {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  color: #626874;
+}
+
+.desktop-error-banner {
+  padding: 6px 12px;
+  background: #fce8e6;
+  color: #d93025;
+  font-size: 13px;
+}
+
+.desktop-meta {
+  display: none;
+}

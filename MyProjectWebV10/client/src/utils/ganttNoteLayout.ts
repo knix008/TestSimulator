@@ -1,10 +1,48 @@
-import { GANTT_HEADER_HEIGHT, GANTT_ROW_HEIGHT } from '../config/ganttLayout';
-import type { TaskItem } from '../types/project';
+import { GANTT_HEADER_HEIGHT, GANTT_ROW_HEIGHT, getGanttContentHeight } from '../config/ganttLayout';
+import type { NoteItem, TaskItem } from '../types/project';
 import { getVisibleTasks } from './taskModel';
 
 export const GANTT_NOTE_WIDTH = 104;
 export const GANTT_NOTE_HEIGHT = 58;
+export const GANTT_NOTE_BOTTOM_PADDING = 16;
 export const GANTT_NOTE_DRAG_THRESHOLD = 4;
+
+export function getNotesContentBottom(notes: NoteItem[]): number {
+  if (notes.length === 0) return 0;
+  return notes.reduce(
+    (max, note) =>
+      Math.max(max, note.contentY + GANTT_NOTE_HEIGHT + GANTT_NOTE_BOTTOM_PADDING),
+    0,
+  );
+}
+
+export function getGanttContentHeightWithNotes(taskCount: number, notes: NoteItem[]): number {
+  const taskHeight = getGanttContentHeight(taskCount);
+  if (notes.length === 0) return taskHeight;
+  return Math.max(taskHeight, getNotesContentBottom(notes));
+}
+
+export function getTaskGridNoteSpacerHeight(taskCount: number, notes: NoteItem[]): number {
+  const taskHeight = getGanttContentHeight(taskCount);
+  return Math.max(0, getGanttContentHeightWithNotes(taskCount, notes) - taskHeight);
+}
+
+export function scrollGanttContentYIntoView(
+  scrollArea: HTMLElement,
+  contentY: number,
+  contentHeight = GANTT_NOTE_HEIGHT,
+): void {
+  const contentTop = contentY;
+  const contentBottom = contentY + contentHeight;
+  const viewTop = scrollArea.scrollTop;
+  const viewBottom = viewTop + scrollArea.clientHeight;
+
+  if (contentTop < viewTop) {
+    scrollArea.scrollTop = contentTop;
+  } else if (contentBottom > viewBottom) {
+    scrollArea.scrollTop = contentBottom - scrollArea.clientHeight;
+  }
+}
 
 export interface GanttPoint {
   x: number;
@@ -42,6 +80,24 @@ export function getDefaultNoteContentY(taskId: number, tasks: TaskItem[]): numbe
   const idx = visible.findIndex((task) => task.taskId === taskId);
   if (idx < 0) return GANTT_HEADER_HEIGHT;
   return GANTT_HEADER_HEIGHT + idx * GANTT_ROW_HEIGHT;
+}
+
+/** Place a new note below existing notes for the same task (Win-style stacking). */
+export function getDefaultNoteContentYForNewNote(
+  taskId: number,
+  tasks: TaskItem[],
+  existingNotes: NoteItem[],
+): number {
+  const base = getDefaultNoteContentY(taskId, tasks);
+  const notesForTask = existingNotes.filter((note) => note.taskId === taskId);
+  if (notesForTask.length === 0) return base;
+
+  const lowest = notesForTask.reduce(
+    (max, note) =>
+      Math.max(max, note.contentY + GANTT_NOTE_HEIGHT + GANTT_NOTE_BOTTOM_PADDING),
+    base,
+  );
+  return Math.max(base, lowest);
 }
 
 export function getNoteRect(

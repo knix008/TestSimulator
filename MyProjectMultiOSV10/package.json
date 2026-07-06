@@ -1,0 +1,131 @@
+{
+  "name": "myproject-multi-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-platform MyProject desktop app (Electron)",
+  "main": "dist-electron/main.js",
+  "author": "MyProject",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "npm run build:electron && concurrently -k -n vite,electron -c cyan,magenta \"vite\" \"wait-on http://127.0.0.1:5174 && cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://127.0.0.1:5174 electron .\"",
+    "dev:web": "npm run dev --prefix ../MyProjectWebV10",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:renderer": "vite build",
+    "build": "npm run generate:icons && npm run write-build-info && npm run build:electron && npm run build:renderer",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "write-build-info": "node scripts/write-build-info.mjs",
+    "build:web": "npm run build --prefix ../MyProjectWebV10",
+    "start": "electron .",
+    "preview:web": "npm run preview --prefix ../MyProjectWebV10/client",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:all": "npm run build && electron-builder -mwl",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
+    "fast-xml-parser": "^5.9.3",
+    "frappe-gantt": "^1.0.3",
+    "html2canvas": "^1.4.1",
+    "pdfkit": "^0.19.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "better-sqlite3": "^11.10.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/frappe-gantt": "^0.9.0",
+    "@types/node": "^22.15.21",
+    "@types/pdfkit": "^0.17.6",
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^36.3.2",
+    "electron-builder": "^26.0.12",
+    "@electron/rebuild": "^3.7.2",
+    "sharp": "^0.34.2",
+    "to-ico": "^1.1.5",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.myproject.desktop",
+    "productName": "MyProject",
+    "icon": "assets/icon.png",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "dist-renderer/**/*",
+      "assets/**/*",
+      "config/build-info.json",
+      "package.json",
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
+    "extraResources": [
+      {
+        "from": "template",
+        "to": "template"
+      },
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "myprj",
+        "name": "MyProject Project",
+        "description": "MyProject Project File",
+        "mimeType": "application/x-myproject-project",
+        "icon": "assets/myprj",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.png",
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "icon": "assets/icon.png",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

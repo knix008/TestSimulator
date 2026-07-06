@@ -1,0 +1,91 @@
+.desktop-task-properties {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.desktop-task-properties__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.desktop-task-properties__heading {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.desktop-task-properties__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.desktop-task-properties__subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.desktop-task-properties__close {
+  flex-shrink: 0;
+}
+
+.desktop-task-properties__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 20px;
+}
+
+.desktop-task-properties__body .task-properties-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  width: 100%;
+}
+
+.desktop-task-properties__body .task-prop-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.desktop-task-properties__body .task-prop-field span {
+  color: #64748b;
+}
+
+.desktop-task-properties__body .task-prop-field input,
+.desktop-task-properties__body .task-prop-field select,
+.desktop-task-properties__body .task-prop-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+}
+
+.desktop-task-properties__body .task-prop-name input,
+.desktop-task-properties__body .task-prop-notes input {
+  min-width: 0;
+}
+
+.desktop-task-properties__body .project-predecessors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}

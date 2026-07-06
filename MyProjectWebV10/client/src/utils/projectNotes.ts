@@ -1,6 +1,6 @@
 import { GANTT_HEADER_HEIGHT } from '../config/ganttLayout';
 import type { NoteItem, TaskItem } from '../types/project';
-import { getDefaultNoteContentY } from './ganttNoteLayout';
+import { getDefaultNoteContentYForNewNote } from './ganttNoteLayout';
 import { getVisibleTasks } from './taskModel';
 
 export function nextNoteId(notes: NoteItem[]): number {
@@ -12,6 +12,7 @@ export function createNoteForTask(
   taskId: number,
   task: TaskItem,
   tasks: TaskItem[],
+  existingNotes: NoteItem[] = [],
   body?: string,
 ): NoteItem {
   const endDate = new Date(task.endDate);
@@ -21,12 +22,12 @@ export function createNoteForTask(
   return {
     noteId,
     title: 'New Note',
-    body: body ?? task.notes ?? '',
+    body: body ?? '',
     bodyRtf: '',
     taskId,
     offsetDays: 0,
     anchorDate: endDate.toISOString(),
-    contentY: getDefaultNoteContentY(taskId, tasks),
+    contentY: getDefaultNoteContentYForNewNote(taskId, tasks, existingNotes),
     contentX: 0,
   };
 }
@@ -50,9 +51,15 @@ export function updateNoteBodyInProject(
   noteId: number,
   body: string,
 ): NoteItem[] {
-  return notes.map((note) =>
-    note.noteId === noteId ? { ...note, body, bodyRtf: '' } : note,
-  );
+  return updateNoteInProject(notes, noteId, { body, bodyRtf: '' });
+}
+
+export function updateNoteInProject(
+  notes: NoteItem[],
+  noteId: number,
+  patch: Partial<Pick<NoteItem, 'title' | 'body' | 'bodyRtf' | 'taskId' | 'anchorDate'>>,
+): NoteItem[] {
+  return notes.map((note) => (note.noteId === noteId ? { ...note, ...patch } : note));
 }
 
 export function updateNotePositionInProject(

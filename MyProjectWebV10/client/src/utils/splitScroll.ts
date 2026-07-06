@@ -1,9 +1,9 @@
-import { GANTT_HEADER_HEIGHT, GANTT_ROW_HEIGHT } from '../config/ganttLayout';
+import { getGanttContentHeightWithNotes } from './ganttNoteLayout';
+import type { NoteItem } from '../types/project';
 
-/** Expected scrollable content height for n visible task rows (header + rows). */
-export function getSplitContentHeight(taskCount: number): number {
-  if (taskCount <= 0) return GANTT_HEADER_HEIGHT;
-  return GANTT_HEADER_HEIGHT + taskCount * GANTT_ROW_HEIGHT;
+/** Expected scrollable content height for n visible task rows (header + rows + notes). */
+export function getSplitContentHeight(taskCount: number, notes: NoteItem[] = []): number {
+  return getGanttContentHeightWithNotes(taskCount, notes);
 }
 
 /**

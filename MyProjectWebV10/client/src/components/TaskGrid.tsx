@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
-import type { AssignmentItem, TaskItem } from '../types/project';
+import type { AssignmentItem, NoteItem, TaskItem } from '../types/project';
 import {
   GANTT_HEADER_HEIGHT,
   GANTT_ROW_HEIGHT,
@@ -22,6 +22,7 @@ import {
   getTreeGuideSegments,
   getTreeIndentPx,
 } from '../utils/taskTreeLayout';
+import { getTaskGridNoteSpacerHeight } from '../utils/ganttNoteLayout';
 import {
   columnWidthStyle,
   loadTaskGridColumnWidths,
@@ -39,6 +40,7 @@ interface TaskGridProps {
   selectedTaskId: number | null;
   canModify: boolean;
   showCriticalPath?: boolean;
+  ganttNotes?: NoteItem[];
   scrollContainerRef?: RefObject<HTMLDivElement | null>;
   onSelectTask: (taskId: number) => void;
   onUpdateTask: (taskId: number, patch: Partial<TaskItem>) => void;
@@ -139,6 +141,7 @@ export function TaskGrid({
   selectedTaskId,
   canModify,
   showCriticalPath = false,
+  ganttNotes = [],
   scrollContainerRef,
   onSelectTask,
   onUpdateTask,
@@ -155,6 +158,7 @@ export function TaskGrid({
   const columnWidthsRef = useRef(columnWidths);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const visibleTasks = getVisibleTasks(tasks);
+  const noteSpacerHeight = getTaskGridNoteSpacerHeight(visibleTasks.length, ganttNotes);
 
   useEffect(() => {
     columnWidthsRef.current = columnWidths;
@@ -271,6 +275,7 @@ export function TaskGrid({
               isSelected ? 'selected' : '',
               isSummary ? 'summary-task' : '',
               showCriticalPath && task.isCritical ? 'critical-task' : '',
+              task.progress >= 100 ? 'completed-task' : '',
             ]
               .filter(Boolean)
               .join(' ');
@@ -540,6 +545,13 @@ export function TaskGrid({
             );
           })}
         </tbody>
+        {noteSpacerHeight > 0 && (
+          <tfoot>
+            <tr className="task-grid-note-spacer" aria-hidden="true">
+              <td colSpan={gridHeaders.length} style={{ height: noteSpacerHeight }} />
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );

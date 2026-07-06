@@ -38,6 +38,8 @@ interface GanttNotesOverlayProps {
   onSetEditingNoteId: (noteId: number | null) => void;
   onUpdateNoteBody: (noteId: number, body: string) => void;
   onUpdateNotePosition: (noteId: number, anchorDate: string, contentY: number) => void;
+  onEnsureNoteVisible?: (contentY: number) => void;
+  onNotePositionPreview?: (noteId: number, contentY: number) => void;
   onContextMenuRequest?: (target: ProjectContextMenuTarget, clientX: number, clientY: number) => void;
 }
 
@@ -90,6 +92,8 @@ export function GanttNotesOverlay({
   onSetEditingNoteId,
   onUpdateNoteBody,
   onUpdateNotePosition,
+  onEnsureNoteVisible,
+  onNotePositionPreview,
   onContextMenuRequest,
 }: GanttNotesOverlayProps) {
   const t = useTranslation();
@@ -214,6 +218,7 @@ export function GanttNotesOverlay({
       nextAnchor.setDate(nextAnchor.getDate() + deltaDays);
       drag.previewAnchorDate = nextAnchor.toISOString();
       drag.previewContentY = drag.startContentY + deltaY;
+      onNotePositionPreview?.(drag.noteId, drag.previewContentY);
       setLayoutTick((value) => value + 1);
     };
 
@@ -228,7 +233,7 @@ export function GanttNotesOverlay({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [canModify, finishDrag, getGanttLayout]);
+  }, [canModify, finishDrag, getGanttLayout, onNotePositionPreview]);
 
   if (!portalHost || !layout) return null;
   if (notes.length === 0) return null;
@@ -285,6 +290,7 @@ export function GanttNotesOverlay({
               if (!canModify || event.button !== 0 || isEditing) return;
               event.stopPropagation();
               onSelectNote(note.noteId);
+              onEnsureNoteVisible?.(note.contentY);
               dragRef.current = {
                 noteId: note.noteId,
                 startMouseX: event.clientX,
@@ -311,6 +317,7 @@ export function GanttNotesOverlay({
           >
             {isEditing ? (
               <textarea
+                key={note.noteId}
                 ref={editorRef}
                 className="gantt-note-editor"
                 defaultValue={note.body}

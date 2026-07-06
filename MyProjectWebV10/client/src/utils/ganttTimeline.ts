@@ -8,6 +8,44 @@ export interface FrappeGanttTimelineApi {
   render: () => void;
 }
 
+export interface FrappeGanttRefreshApi extends FrappeGanttTimelineApi {
+  setup_tasks: (tasks: unknown[]) => void;
+  change_view_mode: (mode?: unknown, maintain_pos?: boolean) => void;
+}
+
+/**
+ * Rebuilds frappe-gantt task bars while keeping the viewport anchored to the
+ * same calendar position. frappe-gantt's refresh() resets scroll and may shift
+ * gantt_start when task dates change, which makes dragged bars appear to jump.
+ */
+export function refreshGanttTasksPreservingScroll(
+  gantt: FrappeGanttRefreshApi,
+  tasks: unknown[],
+  frappeScroll: HTMLElement | null,
+  scrollTopHost?: HTMLElement | null,
+): void {
+  const scrollLeft = frappeScroll?.scrollLeft ?? 0;
+  const scrollTop = scrollTopHost?.scrollTop ?? 0;
+  const previousStartMs = gantt.gantt_start.getTime();
+  const columnWidth = gantt.config.column_width;
+
+  gantt.setup_tasks(tasks);
+  gantt.change_view_mode(undefined, true);
+
+  const startShiftMs = previousStartMs - gantt.gantt_start.getTime();
+  if (frappeScroll) {
+    if (startShiftMs !== 0) {
+      const addedDays = Math.round(startShiftMs / 86_400_000);
+      frappeScroll.scrollLeft = scrollLeft + addedDays * columnWidth;
+    } else {
+      frappeScroll.scrollLeft = scrollLeft;
+    }
+  }
+  if (scrollTopHost) {
+    scrollTopHost.scrollTop = scrollTop;
+  }
+}
+
 function startOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);

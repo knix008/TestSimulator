@@ -747,7 +747,13 @@ export function ProjectView() {
         if (!task) return current;
         const noteId = nextNoteId(current.ganttNotes ?? []);
         newNoteId = noteId;
-        const note = createNoteForTask(noteId, taskId, task, current.tasks);
+        const note = createNoteForTask(
+          noteId,
+          taskId,
+          task,
+          current.tasks,
+          current.ganttNotes ?? [],
+        );
         return {
           ...current,
           ganttNotes: [...(current.ganttNotes ?? []), note],
@@ -1216,6 +1222,7 @@ export function ProjectView() {
                 selectedTaskId={selectedTaskId}
                 canModify={canModify}
                 showCriticalPath={ganttViewSettings.showCriticalPath}
+                ganttNotes={project.ganttNotes ?? []}
                 scrollContainerRef={gridScrollRef}
                 onSelectTask={handleSelectTask}
                 onUpdateTask={handleUpdateTask}

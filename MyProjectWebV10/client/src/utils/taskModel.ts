@@ -114,13 +114,7 @@ function getTaskEndForItem(task: TaskItem, week: WorkingWeek): Date {
   return getTaskEndDate(start, Math.max(1, task.durationDays), week);
 }
 
-function sumDirectChildDurations(children: TaskItem[]): number {
-  return children.reduce((sum, child) => {
-    if (child.taskType === 'Milestone') return sum;
-    return sum + Math.max(0, child.durationDays);
-  }, 0);
-}
-
+/** Matches MyProjectWinV10 ProjectModel.RollupSummaryTask. */
 function rollupSummaryTask(task: TaskItem, tasks: TaskItem[], week: WorkingWeek): TaskItem {
   const descendants = getAllDescendants(tasks, task.taskId);
   if (descendants.length === 0) return task;
@@ -129,14 +123,11 @@ function rollupSummaryTask(task: TaskItem, tasks: TaskItem[], week: WorkingWeek)
   const ends = descendants.map((d) => getTaskEndForItem(d, week));
   const minStart = startOfDay(new Date(Math.min(...starts.map((d) => d.getTime()))));
   const maxEnd = startOfDay(new Date(Math.max(...ends.map((d) => d.getTime()))));
+  const durationDays = Math.max(1, countWorkingDaysInclusive(minStart, maxEnd, week));
   const startDate = minStart.toISOString();
-  const endDate = maxEnd.toISOString();
+  const endDate = getTaskEndDate(minStart, durationDays, week).toISOString();
 
   const directChildren = getDirectChildren(tasks, task.taskId);
-  const sumDuration = sumDirectChildDurations(directChildren);
-  const spanDuration = Math.max(1, countWorkingDaysInclusive(minStart, maxEnd, week));
-  const durationDays = sumDuration > 0 ? Math.max(1, sumDuration) : spanDuration;
-
   let totalWeight = 0;
   let weightedProgress = 0;
   for (const child of descendants.filter((c) => c.taskType !== 'Summary')) {

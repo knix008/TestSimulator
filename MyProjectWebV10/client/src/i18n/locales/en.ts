@@ -139,6 +139,14 @@ export const en: Record<KoTranslationKey, string> = {
   'taskProps.predecessors': 'Predecessors:',
   'taskProps.removeDependency': 'Remove dependency',
 
+  'noteProps.title': 'Note',
+  'noteProps.noteTitle': 'Title',
+  'noteProps.body': 'Body',
+  'noteProps.linkedTask': 'Linked task',
+  'noteProps.forTask': 'Task: [{id}] {name}',
+  'noteProps.noLinkedTask': 'No linked task',
+  'noteProps.selectNote': 'Select a note.',
+
   'context.depTypeHeading': 'Dependency type',
   'context.lineStart': 'Line start',
   'context.lineEnd': 'Line end',

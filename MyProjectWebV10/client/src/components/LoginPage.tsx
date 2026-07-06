@@ -47,7 +47,7 @@ export function LoginPage() {
     <div className="login-page">
       <div className="login-page-card">
         <div className="login-page-brand">
-          <strong>MyProject Web</strong>
+          <strong>{import.meta.env.VITE_APP_NAME ?? 'MyProject Web'}</strong>
           <span>{t('app.subtitle')}</span>
         </div>
 
