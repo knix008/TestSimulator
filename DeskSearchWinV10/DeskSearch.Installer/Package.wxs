@@ -1,153 +1,153 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-
-  <?define PublishDir="..\DeskSearch\bin\Release\net8.0-windows\win-x64\publish" ?>
-
-  <Package Name="DeskSearch"
-           Manufacturer="DeskSearch"
-           Version="1.0.0.0"
-           Scope="perMachine"
-           UpgradeCode="B8F3E2A1-4C5D-6E7F-8901-234567890ABC">
-
-    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeErrorMessage)"
-                  Schedule="afterInstallValidate"
-                  AllowSameVersionUpgrades="yes"
-                  IgnoreRemoveFailure="no" />
-    <MediaTemplate EmbedCab="yes" />
-
-    <Property Id="REMOVEUSERDATA" Value="0" Secure="yes" />
-    <Property Id="USERDATAPROMPTSHOWN" Value="0" Secure="yes" />
-
-    <InstallUISequence>
-      <Show Dialog="UserDataDlg"
-            Before="ProgressDlg"
-            Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT USERDATAPROMPTSHOWN" />
-    </InstallUISequence>
-
-    <CustomAction Id="KillDeskSearch"
-                  Directory="SystemFolder"
-                  ExeCommand="taskkill /IM DeskSearch.exe /F"
-                  Execute="deferred"
-                  Impersonate="yes"
-                  Return="ignore" />
-
-    <CustomAction Id="RemoveUserData"
-                  Directory="SystemFolder"
-                  ExeCommand="cmd.exe /c if exist &quot;%APPDATA%\DeskSearch&quot; rmdir /s /q &quot;%APPDATA%\DeskSearch&quot;"
-                  Execute="deferred"
-                  Impersonate="yes"
-                  Return="ignore" />
-
-    <CustomAction Id="RemoveStartupTask"
-                  Directory="SystemFolder"
-                  ExeCommand="schtasks.exe /Delete /TN DeskSearch /F"
-                  Execute="deferred"
-                  Impersonate="no"
-                  Return="ignore" />
-
-    <InstallExecuteSequence>
-      <Custom Action="KillDeskSearch"
-              After="InstallInitialize"
-              Condition="WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;" />
-      <Custom Action="RemoveStartupTask"
-              After="KillDeskSearch"
-              Condition="WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;" />
-      <Custom Action="RemoveUserData"
-              After="RemoveStartupTask"
-              Condition="REMOVEUSERDATA=&quot;1&quot; AND (WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;)" />
-    </InstallExecuteSequence>
-
-    <ui:WixUI Id="DeskSearch_FeatureTree" InstallDirectory="INSTALLFOLDER" />
-
-    <!-- Shortcuts use the same app.ico installed under Assets\app.ico -->
-    <Icon Id="AppIcon.ico" SourceFile="$(var.PublishDir)\Assets\app.ico" />
-    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
-
-    <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="DeskSearch" />
-    </StandardDirectory>
-
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="ProgramMenuAppFolder" Name="DeskSearch">
-        <Component Id="StartMenuShortcutComponent" Guid="*">
-          <Shortcut Id="StartMenuShortcut"
-                    Name="DeskSearch"
-                    Description="!(loc.ShortcutDescription)"
-                    Target="[INSTALLFOLDER]DeskSearch.exe"
-                    WorkingDirectory="INSTALLFOLDER"
-                    Icon="AppIcon.ico"
-                    IconIndex="0" />
-          <RemoveFolder Id="ProgramMenuAppFolderRemove" On="uninstall" />
-          <RegistryValue Root="HKCU"
-                         Key="Software\DeskSearch"
-                         Name="StartMenuShortcut"
-                         Type="integer"
-                         Value="1"
-                         KeyPath="yes" />
-        </Component>
-      </Directory>
-    </StandardDirectory>
-
-    <StandardDirectory Id="DesktopFolder">
-      <Component Id="DesktopShortcutComponent" Guid="*">
-        <Shortcut Id="DesktopShortcut"
-                  Name="DeskSearch"
-                  Description="!(loc.ShortcutDescription)"
-                  Target="[INSTALLFOLDER]DeskSearch.exe"
-                  WorkingDirectory="INSTALLFOLDER"
-                  Icon="AppIcon.ico"
-                  IconIndex="0" />
-        <RegistryValue Root="HKCU"
-                       Key="Software\DeskSearch"
-                       Name="DesktopShortcut"
-                       Type="integer"
-                       Value="1"
-                       KeyPath="yes" />
-      </Component>
-    </StandardDirectory>
-
-    <Feature Id="MainFeature"
-             Title="!(loc.MainFeatureTitle)"
-             Description="!(loc.MainFeatureDescription)"
-             Level="1"
-             AllowAbsent="no"
-             Display="expand">
-      <ComponentGroupRef Id="DeskSearchComponents" />
-
-      <Feature Id="StartMenuShortcutFeature"
-               Title="!(loc.StartMenuShortcutFeatureTitle)"
-               Description="!(loc.StartMenuShortcutFeatureDescription)"
-               Level="1"
-               AllowAbsent="yes">
-        <ComponentRef Id="StartMenuShortcutComponent" />
-      </Feature>
-
-      <Feature Id="DesktopShortcutFeature"
-               Title="!(loc.DesktopShortcutFeatureTitle)"
-               Description="!(loc.DesktopShortcutFeatureDescription)"
-               Level="1"
-               AllowAbsent="yes">
-        <ComponentRef Id="DesktopShortcutComponent" />
-      </Feature>
-    </Feature>
-  </Package>
-
-  <Fragment>
-    <ComponentGroup Id="DeskSearchComponents" Directory="INSTALLFOLDER">
-      <Files Include="$(var.PublishDir)\**">
-        <Exclude Files="$(var.PublishDir)\**\*.pdb" />
-        <Exclude Files="$(var.PublishDir)\createdump.exe" />
-        <Exclude Files="$(var.PublishDir)\mscordaccore.dll" />
-        <Exclude Files="$(var.PublishDir)\mscordaccore_*.dll" />
-        <Exclude Files="$(var.PublishDir)\mscordbi.dll" />
-        <Exclude Files="$(var.PublishDir)\Microsoft.DiaSymReader.Native.amd64.dll" />
-        <Exclude Files="$(var.PublishDir)\msquic.dll" />
-        <Exclude Files="$(var.PublishDir)\clrgc.dll" />
-        <Exclude Files="$(var.PublishDir)\dbgshim.dll" />
-      </Files>
-    </ComponentGroup>
-  </Fragment>
-
-</Wix>
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <?define PublishDir="..\DeskSearch\bin\Release\net8.0-windows\win-x64\publish" ?>
+
+  <Package Name="DeskSearch"
+           Manufacturer="DeskSearch"
+           Version="1.0.0.0"
+           Scope="perMachine"
+           UpgradeCode="B8F3E2A1-4C5D-6E7F-8901-234567890ABC">
+
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeErrorMessage)"
+                  Schedule="afterInstallValidate"
+                  AllowSameVersionUpgrades="yes"
+                  IgnoreRemoveFailure="no" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="REMOVEUSERDATA" Value="0" Secure="yes" />
+    <Property Id="USERDATAPROMPTSHOWN" Value="0" Secure="yes" />
+
+    <InstallUISequence>
+      <Show Dialog="UserDataDlg"
+            Before="ProgressDlg"
+            Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT USERDATAPROMPTSHOWN" />
+    </InstallUISequence>
+
+    <CustomAction Id="KillDeskSearch"
+                  Directory="SystemFolder"
+                  ExeCommand="taskkill /IM DeskSearch.exe /F"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <CustomAction Id="RemoveUserData"
+                  Directory="SystemFolder"
+                  ExeCommand="cmd.exe /c if exist &quot;%APPDATA%\DeskSearch&quot; rmdir /s /q &quot;%APPDATA%\DeskSearch&quot;"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <CustomAction Id="RemoveStartupTask"
+                  Directory="SystemFolder"
+                  ExeCommand="schtasks.exe /Delete /TN DeskSearch /F"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="KillDeskSearch"
+              After="InstallInitialize"
+              Condition="WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="RemoveStartupTask"
+              After="KillDeskSearch"
+              Condition="WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="RemoveUserData"
+              After="RemoveStartupTask"
+              Condition="REMOVEUSERDATA=&quot;1&quot; AND (WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;)" />
+    </InstallExecuteSequence>
+
+    <ui:WixUI Id="DeskSearch_FeatureTree" InstallDirectory="INSTALLFOLDER" />
+
+    <!-- Shortcuts use the same app.ico installed under Assets\app.ico -->
+    <Icon Id="AppIcon.ico" SourceFile="$(var.PublishDir)\Assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="DeskSearch" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuAppFolder" Name="DeskSearch">
+        <Component Id="StartMenuShortcutComponent" Guid="*">
+          <Shortcut Id="StartMenuShortcut"
+                    Name="DeskSearch"
+                    Description="!(loc.ShortcutDescription)"
+                    Target="[INSTALLFOLDER]DeskSearch.exe"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="AppIcon.ico"
+                    IconIndex="0" />
+          <RemoveFolder Id="ProgramMenuAppFolderRemove" On="uninstall" />
+          <RegistryValue Root="HKCU"
+                         Key="Software\DeskSearch"
+                         Name="StartMenuShortcut"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut Id="DesktopShortcut"
+                  Name="DeskSearch"
+                  Description="!(loc.ShortcutDescription)"
+                  Target="[INSTALLFOLDER]DeskSearch.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico"
+                  IconIndex="0" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\DeskSearch"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature"
+             Title="!(loc.MainFeatureTitle)"
+             Description="!(loc.MainFeatureDescription)"
+             Level="1"
+             AllowAbsent="no"
+             Display="expand">
+      <ComponentGroupRef Id="DeskSearchComponents" />
+
+      <Feature Id="StartMenuShortcutFeature"
+               Title="!(loc.StartMenuShortcutFeatureTitle)"
+               Description="!(loc.StartMenuShortcutFeatureDescription)"
+               Level="1"
+               AllowAbsent="yes">
+        <ComponentRef Id="StartMenuShortcutComponent" />
+      </Feature>
+
+      <Feature Id="DesktopShortcutFeature"
+               Title="!(loc.DesktopShortcutFeatureTitle)"
+               Description="!(loc.DesktopShortcutFeatureDescription)"
+               Level="1"
+               AllowAbsent="yes">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="DeskSearchComponents" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\**\*.pdb" />
+        <Exclude Files="$(var.PublishDir)\createdump.exe" />
+        <Exclude Files="$(var.PublishDir)\mscordaccore.dll" />
+        <Exclude Files="$(var.PublishDir)\mscordaccore_*.dll" />
+        <Exclude Files="$(var.PublishDir)\mscordbi.dll" />
+        <Exclude Files="$(var.PublishDir)\Microsoft.DiaSymReader.Native.amd64.dll" />
+        <Exclude Files="$(var.PublishDir)\msquic.dll" />
+        <Exclude Files="$(var.PublishDir)\clrgc.dll" />
+        <Exclude Files="$(var.PublishDir)\dbgshim.dll" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
 
