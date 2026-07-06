@@ -45,6 +45,8 @@ nsis:
   installerIcon: icon.ico
   uninstallerIcon: icon.ico
   installerHeaderIcon: icon.ico
+  include: installer.nsh
+  warningsAsErrors: false
   runAfterFinish: true
   installerLanguages:
     - ko_KR

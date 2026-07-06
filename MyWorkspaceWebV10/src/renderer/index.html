@@ -21,6 +21,22 @@
     <link rel="stylesheet" href="css/fatal-error.css" />
   </head>
   <body data-theme="light">
+    <header id="title-bar" class="title-bar">
+      <div class="title-bar-leading">
+        <button id="btn-settings-mark" type="button" class="app-mark" title="환경 설정" aria-label="환경 설정"><span></span></button>
+        <div id="title-bar-caption" class="title-bar-caption">MyWorkspace</div>
+      </div>
+      <div id="title-bar-search-wrap" class="title-bar-search-wrap hidden">
+        <input id="page-search" type="search" placeholder="Page 검색..." autocomplete="off" />
+        <div id="search-results" class="search-results hidden"></div>
+      </div>
+      <div class="window-controls">
+        <button id="btn-minimize" type="button" class="window-btn" title="최소화" aria-label="최소화"></button>
+        <button id="btn-maximize" type="button" class="window-btn" title="최대화" aria-label="최대화"></button>
+        <button id="btn-close" type="button" class="window-btn window-btn-close" title="닫기" aria-label="닫기"></button>
+      </div>
+    </header>
+
     <div id="login-screen" class="login-screen">
       <form id="login-form" class="login-card">
         <h1>MyWorkspace</h1>
@@ -40,20 +56,6 @@
     </div>
 
     <div id="app-shell" class="app-shell hidden">
-      <header id="title-bar" class="title-bar">
-        <button id="btn-settings-mark" type="button" class="app-mark" title="환경 설정" aria-label="환경 설정"><span></span></button>
-        <div id="title-bar-caption" class="title-bar-caption">MyWorkspace</div>
-        <div id="title-bar-search-wrap" class="title-bar-search-wrap">
-          <input id="page-search" type="search" placeholder="Page 검색..." autocomplete="off" />
-          <div id="search-results" class="search-results hidden"></div>
-        </div>
-        <div class="window-controls">
-          <button id="btn-minimize" type="button" class="window-btn" title="최소화" aria-label="최소화"></button>
-          <button id="btn-maximize" type="button" class="window-btn" title="최대화" aria-label="최대화"></button>
-          <button id="btn-close" type="button" class="window-btn window-btn-close" title="닫기" aria-label="닫기"></button>
-        </div>
-      </header>
-
       <div class="shell-body">
         <nav id="nav-rail" class="nav-rail" aria-label="주 메뉴"></nav>
 

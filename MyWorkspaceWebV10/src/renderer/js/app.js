@@ -870,6 +870,7 @@ async function enterApp(user) {
   statusBar.setUser(user);
   await loadRecentProjects();
   rebuildNavRail();
+  panelManager.refresh();
   verticalToolbar?.setEnabled(false);
   await refreshWorkspaceTree();
 }
@@ -888,6 +889,7 @@ async function leaveApp() {
   statusBar.setLoginRequired();
   commentsPanel.setPage(null);
   rebuildNavRail();
+  panelManager.refresh();
   verticalToolbar?.setEnabled(false);
   login.show();
 }

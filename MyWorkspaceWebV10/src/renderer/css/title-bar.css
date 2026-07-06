@@ -1,13 +1,24 @@
 .title-bar {
+  position: relative;
+  z-index: 11000;
   height: var(--title-bar-height);
-  display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 0 0 12px;
+  padding: 0 138px 0 12px;
   background: var(--sidebar);
   border-bottom: 1px solid var(--border-light);
   -webkit-app-region: drag;
+  box-sizing: border-box;
+}
+
+.title-bar-leading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .app-mark {
@@ -17,7 +28,16 @@
   background: transparent;
   cursor: pointer;
   position: relative;
+  flex-shrink: 0;
   -webkit-app-region: no-drag;
+}
+
+.app-mark:hover {
+  background: #e1e4e8;
+}
+
+body[data-theme='dark'] .app-mark:hover {
+  background: #30363d;
 }
 
 .app-mark::before,
@@ -30,6 +50,7 @@
   height: 14px;
   border-radius: 1px;
   background: var(--text-secondary);
+  pointer-events: none;
 }
 
 .app-mark::before { top: 9px; }
@@ -37,20 +58,22 @@
 .app-mark::after { top: 9px; left: 10px; }
 
 .title-bar-caption {
-  min-width: 120px;
+  min-width: 72px;
   max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
   color: var(--text);
+  -webkit-app-region: drag;
 }
 
 .title-bar-search-wrap {
-  justify-self: stretch;
-  align-self: stretch;
-  max-width: 420px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 280px;
   margin-left: auto;
+  margin-right: 12px;
   position: relative;
   -webkit-app-region: no-drag;
   display: flex;
@@ -117,6 +140,9 @@
 }
 
 .window-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: flex;
   height: 100%;
   -webkit-app-region: no-drag;
@@ -193,4 +219,5 @@ body.platform-darwin .window-controls {
 
 body.platform-darwin .title-bar {
   padding-left: 72px;
+  padding-right: 12px;
 }

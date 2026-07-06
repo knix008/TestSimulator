@@ -1,7 +1,6 @@
 .login-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
+  min-height: 0;
+  height: 100%;
   display: grid;
   place-items: center;
   padding: 24px;

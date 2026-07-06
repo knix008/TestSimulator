@@ -73,6 +73,11 @@ body {
   color: var(--text);
 }
 
+body {
+  display: grid;
+  grid-template-rows: var(--title-bar-height) minmax(0, 1fr);
+}
+
 button,
 input,
 textarea {

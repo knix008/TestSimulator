@@ -1,5 +1,5 @@
 import { t } from '../i18n/index.js';
-import { showPopupMenu } from './popupMenu.js';
+import { showPopupMenu, showPopupMenuAtPoint, closePopupMenu } from './popupMenu.js';
 
 export function createTitleBar({ onPageSearch, onSettingsAction, onWindowAction }) {
   const caption = document.getElementById('title-bar-caption');
@@ -11,12 +11,19 @@ export function createTitleBar({ onPageSearch, onSettingsAction, onWindowAction 
     document.body.classList.add('platform-darwin');
   }
 
-  document.getElementById('btn-minimize')?.addEventListener('click', () => onWindowAction('minimize'));
-  document.getElementById('btn-maximize')?.addEventListener('click', async () => {
+  document.getElementById('btn-minimize')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onWindowAction('minimize');
+  });
+  document.getElementById('btn-maximize')?.addEventListener('click', async (event) => {
+    event.stopPropagation();
     const maximized = await window.myworkspace.toggleMaximizeWindow();
     document.getElementById('btn-maximize')?.classList.toggle('is-maximized', maximized);
   });
-  document.getElementById('btn-close')?.addEventListener('click', () => onWindowAction('close'));
+  document.getElementById('btn-close')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onWindowAction('close');
+  });
 
   window.myworkspace.isWindowMaximized().then((maximized) => {
     document.getElementById('btn-maximize')?.classList.toggle('is-maximized', maximized);
@@ -25,14 +32,24 @@ export function createTitleBar({ onPageSearch, onSettingsAction, onWindowAction 
     document.getElementById('btn-maximize')?.classList.toggle('is-maximized', maximized);
   });
 
-  settingsMark.innerHTML = '<span></span>';
-  settingsMark.addEventListener('click', (event) => {
+  settingsMark?.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  settingsMark?.addEventListener('click', (event) => {
+    event.preventDefault();
     event.stopPropagation();
     onSettingsAction(settingsMark);
   });
 
+  caption?.addEventListener('dblclick', async (event) => {
+    event.stopPropagation();
+    const maximized = await window.myworkspace.toggleMaximizeWindow();
+    document.getElementById('btn-maximize')?.classList.toggle('is-maximized', maximized);
+  });
+
   let searchTimer = null;
-  searchInput.addEventListener('input', () => {
+  searchInput?.addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(async () => {
       const query = searchInput.value.trim();
@@ -48,7 +65,7 @@ export function createTitleBar({ onPageSearch, onSettingsAction, onWindowAction 
 
   document.addEventListener('click', (event) => {
     if (!event.target.closest('.title-bar-search-wrap')) {
-      searchResults.classList.add('hidden');
+      searchResults?.classList.add('hidden');
     }
   });
 
@@ -80,14 +97,22 @@ export function createTitleBar({ onPageSearch, onSettingsAction, onWindowAction 
 
   return {
     setCaption(text) {
-      caption.textContent = text;
+      if (caption) {
+        caption.textContent = text;
+      }
     },
     showSettingsMenu(items, anchor, onAction) {
-      showPopupMenu(items, anchor, { onAction });
+      closePopupMenu();
+      const rect = anchor.getBoundingClientRect();
+      showPopupMenuAtPoint(items, rect.left, rect.bottom + 2, {
+        onAction: (actionId, item) => onAction(actionId, item)
+      });
     },
     clearSearch() {
-      searchInput.value = '';
-      searchResults.classList.add('hidden');
+      if (searchInput) {
+        searchInput.value = '';
+      }
+      searchResults?.classList.add('hidden');
     }
   };
 }

@@ -44,7 +44,7 @@ export function createPanelManager({ onChange } = {}) {
     commentsEditorSplit.classList.toggle('comments-visible', state.commentsPanelVisible);
     commentsPanel.classList.toggle('collapsed', !state.commentsPanelVisible);
 
-    searchWrap.classList.toggle('hidden', !state.pageSearchVisible);
+    searchWrap.classList.toggle('hidden', !state.pageSearchVisible || document.getElementById('app-shell')?.classList.contains('hidden'));
 
     const workspaceToggle = document.getElementById('btn-collapse-workspace');
     workspaceToggle.textContent = state.workspacePanelVisible
