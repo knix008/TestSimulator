@@ -42,13 +42,12 @@ public sealed class MainForm : Form
     private readonly ToolTip _fontSizeToolTip = new();
     private readonly FontZoomMessageFilter _fontZoomFilter;
     private bool _suppressFontSizeUiSync;
-    private bool _fileOnlyMode;
+    private bool _selectFileCompareOnShown;
     private bool _restoreDirectoriesOnLoad = true;
 
-    private MainForm(bool fileOnlyMode = false)
+    private MainForm(bool selectFileCompareOnShown = false)
     {
-        _fileOnlyMode = fileOnlyMode;
-        _restoreDirectoriesOnLoad = !fileOnlyMode;
+        _selectFileCompareOnShown = selectFileCompareOnShown;
         _fileDiffView = new FileDiffView(_settings) { Dock = DockStyle.Fill };
         _fontZoomFilter = new FontZoomMessageFilter(this);
 
@@ -75,7 +74,7 @@ public sealed class MainForm : Form
 
     public static MainForm FromFiles(string leftFile, string rightFile)
     {
-        var form = new MainForm(fileOnlyMode: true);
+        var form = new MainForm(selectFileCompareOnShown: true);
         form._fileDiffView.SetInitialSessionFactory(() => DiffSession.Load(leftFile, rightFile));
         return form;
     }
@@ -84,11 +83,9 @@ public sealed class MainForm : Form
     {
         base.OnShown(e);
 
-        if (_fileOnlyMode)
+        if (_selectFileCompareOnShown)
         {
             ShowFileCompareTab();
-            _fileDiffView.OnViewShown();
-            return;
         }
 
         if (_restoreDirectoriesOnLoad)
@@ -109,7 +106,7 @@ public sealed class MainForm : Form
         base.OnFormClosing(e);
     }
 
-    internal bool CanZoomPaneFont() => _fileOnlyMode || !IsDirectoryTabActive;
+    internal bool CanZoomPaneFont() => !IsDirectoryTabActive;
 
     internal void ZoomPaneFont(int wheelDelta)
     {
@@ -217,13 +214,6 @@ public sealed class MainForm : Form
         _tabs.TabPages.Add(directoryTab);
         _tabs.TabPages.Add(fileTab);
         _tabs.SelectedIndex = 0;
-
-        if (_fileOnlyMode)
-        {
-            _tabs.TabPages.Remove(directoryTab);
-            _tabs.SelectedIndex = 0;
-            _tabs.ItemSize = new Size(140, 30);
-        }
 
         _tabs.SelectedIndexChanged += (_, _) =>
         {
@@ -472,7 +462,7 @@ public sealed class MainForm : Form
         };
     }
 
-    private bool IsDirectoryTabActive => !_fileOnlyMode && _tabs.SelectedIndex == 0;
+    private bool IsDirectoryTabActive => _tabs.SelectedIndex == 0;
 
     private void OpenFileCompare(string leftPath, string rightPath)
     {
@@ -608,21 +598,12 @@ public sealed class MainForm : Form
             item.ToolTipText = getToolTip();
         }
 
-        if (_tabs.TabPages.Count >= 1)
+        if (_tabs.TabPages.Count >= 2)
         {
-            if (!_fileOnlyMode && _tabs.TabPages.Count >= 2)
-            {
-                _tabs.TabPages[0].Text = Strings.TabDirectoryCompare;
-                _tabs.TabPages[0].ImageKey = "directory";
-                _tabs.TabPages[1].Text = Strings.TabFileCompare;
-                _tabs.TabPages[1].ImageKey = "file";
-            }
-            else
-            {
-                _tabs.TabPages[0].Text = Strings.TabFileCompare;
-                _tabs.TabPages[0].ImageKey = "file";
-            }
-
+            _tabs.TabPages[0].Text = Strings.TabDirectoryCompare;
+            _tabs.TabPages[0].ImageKey = "directory";
+            _tabs.TabPages[1].Text = Strings.TabFileCompare;
+            _tabs.TabPages[1].ImageKey = "file";
             _tabs.Invalidate();
         }
 

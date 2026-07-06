@@ -8,7 +8,7 @@ internal static class Program
     /// <summary>
     /// Usage:
     ///   MyDiffWinV10.App.exe                 -> directory compare home screen
-    ///   MyDiffWinV10.App.exe &lt;LEFT&gt; &lt;RIGHT&gt;   -> file diff directly
+    ///   MyDiffWinV10.App.exe &lt;LEFT&gt; &lt;RIGHT&gt;   -> open file diff on the file compare tab
     ///                                            (git difftool / MyGitWinV10 external diff)
     /// </summary>
     [STAThread]
