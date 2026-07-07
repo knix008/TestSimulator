@@ -56,6 +56,10 @@ export const api = {
   getProject: (id) => request(`/api/projects/${id}`),
   createProject: (payload) => request('/api/projects', { method: 'POST', body: JSON.stringify(payload) }),
   updateProject: (id, payload) => request(`/api/projects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  patchProjectUiSettings: (id, uiSettings) => request(`/api/projects/${id}/ui-settings`, {
+    method: 'PATCH',
+    body: JSON.stringify(uiSettings),
+  }),
   deleteProject: (id) => request(`/api/projects/${id}`, { method: 'DELETE' }),
   listProjectMembers: (projectId) => request(`/api/projects/${projectId}/members`),
   setProjectMembers: (projectId, members) => request(`/api/projects/${projectId}/members`, { method: 'PUT', body: JSON.stringify({ members }) }),
@@ -73,13 +77,11 @@ export const api = {
 
   importExcel: async (projectId, file, {
     generateTestCases = true,
-    autoRenumber = true,
     columnMapping = null,
   } = {}) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('generateTestCases', generateTestCases ? 'true' : 'false');
-    formData.append('autoRenumber', autoRenumber ? 'true' : 'false');
     if (columnMapping) {
       formData.append('columnMapping', JSON.stringify(columnMapping));
     }
@@ -94,17 +96,28 @@ export const api = {
   },
 
   previewExcelImport: async (projectId, file, { sheetName } = {}) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (sheetName) formData.append('sheetName', sheetName);
-    const res = await fetch(`/api/projects/${projectId}/excel/import/preview`, {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `요청 실패 (${res.status})`);
-    return data;
+    const previewPaths = [
+      `/api/projects/${projectId}/excel/preview`,
+      `/api/projects/${projectId}/excel/import/preview`,
+    ];
+
+    let lastError = null;
+    for (const path of previewPaths) {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (sheetName) formData.append('sheetName', sheetName);
+
+      const res = await fetch(path, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) return data;
+      lastError = new Error(data.error || `요청 실패 (${res.status})`);
+      if (res.status !== 404) throw lastError;
+    }
+    throw lastError || new Error('요청 실패 (404)');
   },
 
   createTestCase: (requirementId, payload) => request(`/api/requirements/${requirementId}/testcases`, { method: 'POST', body: JSON.stringify(payload) }),

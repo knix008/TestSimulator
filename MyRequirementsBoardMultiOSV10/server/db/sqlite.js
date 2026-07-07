@@ -3,7 +3,14 @@ import path from 'node:path';
 import initSqlJs from 'sql.js';
 import { hashPassword } from '../auth/password.js';
 import { backfillProjectMembers } from '../lib/projectMembers.js';
-import { renumberRequirementCodes, isReqCode } from '../lib/reqCode.js';
+import { renumberRequirementCodes, isReqCode, isLegacyAutoCode, repairAllProjectRequirementCodes } from '../lib/reqCode.js';
+import {
+  REQUIREMENTS_CREATE_SQL,
+  REQUIREMENTS_INDEX_SQL,
+  REQUIREMENT_SQLITE_ALTER_MIGRATIONS,
+  REQUIREMENT_SCHEMA_SETTING_KEY,
+  REQUIREMENT_SCHEMA_VERSION,
+} from './requirementSchema.js';
 
 let SQL = null;
 let database = null;
@@ -49,22 +56,6 @@ CREATE TABLE IF NOT EXISTS projects (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS requirements (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  code TEXT NOT NULL,
-  classification TEXT DEFAULT '',
-  title TEXT NOT NULL,
-  description TEXT DEFAULT '',
-  category TEXT DEFAULT '',
-  priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK(priority IN ('LOW','MEDIUM','HIGH')),
-  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','APPROVED','IN_PROGRESS','DONE')),
-  created_by_id INTEGER REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE(project_id, code)
-);
-
 CREATE TABLE IF NOT EXISTS test_cases (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
@@ -95,8 +86,6 @@ CREATE TABLE IF NOT EXISTS project_members (
 CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
 
-CREATE INDEX IF NOT EXISTS idx_requirements_project ON requirements(project_id);
-CREATE INDEX IF NOT EXISTS idx_requirements_status ON requirements(status);
 CREATE INDEX IF NOT EXISTS idx_test_cases_requirement ON test_cases(requirement_id);
 `;
 
@@ -122,13 +111,25 @@ function migrateLegacySchema() {
   database.run('DROP TABLE app_settings_legacy');
 }
 
-function migrateRequirementsClassificationSchema() {
+function migrateRequirementsSchema() {
+  database.exec(REQUIREMENTS_CREATE_SQL);
+
   const columns = getTableColumns('requirements');
-  if (!columns.includes('classification')) {
-    database.run('ALTER TABLE requirements ADD COLUMN classification TEXT DEFAULT \'\'');
-    database.run(
-      'UPDATE requirements SET classification = code WHERE TRIM(COALESCE(classification, \'\')) = \'\' AND code NOT LIKE \'REQ-%\'',
-    );
+  for (const migration of REQUIREMENT_SQLITE_ALTER_MIGRATIONS) {
+    if (!columns.includes(migration.column)) {
+      database.run(migration.sql);
+    }
+  }
+
+  for (const indexSql of REQUIREMENTS_INDEX_SQL) {
+    database.run(indexSql);
+  }
+}
+
+function migrateProjectsSchema() {
+  const columns = getTableColumns('projects');
+  if (!columns.includes('ui_settings')) {
+    database.run("ALTER TABLE projects ADD COLUMN ui_settings TEXT NOT NULL DEFAULT '{}'");
   }
 }
 
@@ -136,23 +137,39 @@ async function migrateRequirementsClassificationRenumber(db) {
   const columns = getTableColumns('requirements');
   if (!columns.includes('classification')) return;
 
-  const pending = await db.prepare(
-    `SELECT COUNT(*) AS c FROM requirements
-     WHERE code NOT LIKE 'REQ-%' AND code NOT LIKE '__tmp%' AND code NOT LIKE '__import%'`,
-  ).get();
-  if (!pending?.c) return;
-
   const rows = await db.prepare('SELECT id, code, classification FROM requirements').all();
   for (const row of rows) {
-    if (isReqCode(row.code)) continue;
-    if (String(row.classification || '').trim()) continue;
-    await db.prepare('UPDATE requirements SET classification = ? WHERE id = ?').run(row.code, row.id);
+    const classification = String(row.classification || '').trim();
+    const code = String(row.code || '').trim();
+
+    if (isLegacyAutoCode(classification)) {
+      await db.prepare('UPDATE requirements SET classification = ? WHERE id = ?').run('', row.id);
+      continue;
+    }
+
+    if (isReqCode(code)) continue;
+
+    if (!classification && code && !isLegacyAutoCode(code)) {
+      await db.prepare('UPDATE requirements SET classification = ? WHERE id = ?').run(code, row.id);
+    }
   }
 
-  const projects = await db.prepare('SELECT id FROM projects').all();
-  for (const project of projects) {
-    await renumberRequirementCodes(db, project.id);
+  const setting = await db.prepare(
+    'SELECT value FROM app_settings WHERE setting_key = ?',
+  ).get('req_code_id_order_v1');
+  if (setting?.value !== '1') {
+    const projects = await db.prepare('SELECT id FROM projects').all();
+    for (const project of projects) {
+      await renumberRequirementCodes(db, project.id);
+    }
+    await db.prepare(
+      'INSERT OR REPLACE INTO app_settings (setting_key, value) VALUES (?, ?)',
+    ).run('req_code_id_order_v1', '1');
   }
+
+  await db.prepare(
+    'INSERT OR REPLACE INTO app_settings (setting_key, value) VALUES (?, ?)',
+  ).run(REQUIREMENT_SCHEMA_SETTING_KEY, String(REQUIREMENT_SCHEMA_VERSION));
 }
 
 function persistDatabase() {
@@ -327,10 +344,12 @@ export async function initSqliteDatabase(dataDir) {
   database.run('PRAGMA foreign_keys = ON');
   database.exec(SCHEMA_SQL);
   migrateLegacySchema();
-  migrateRequirementsClassificationSchema();
+  migrateRequirementsSchema();
+  migrateProjectsSchema();
 
   dbFacade = createDbFacade();
   await migrateRequirementsClassificationRenumber(dbFacade);
+  await repairAllProjectRequirementCodes(dbFacade);
   await ensureDefaultAdmin(dbFacade);
   await ensureDefaultProject(dbFacade);
   await backfillProjectMembers(dbFacade);

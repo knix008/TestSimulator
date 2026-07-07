@@ -1,26 +1,13 @@
 import { Router } from 'express';
 import { getDatabase } from '../db/index.js';
 import { requireProjectEdit } from '../auth/middleware.js';
-import { renumberRequirementCodes, tempCode } from '../lib/reqCode.js';
+import { renumberRequirementCodes, tempCode, ensureRequirementCodes } from '../lib/reqCode.js';
+import { mapRequirementRow } from '../db/requirementSchema.js';
 
 const router = Router({ mergeParams: true });
 
 function mapRequirement(row, extra = {}) {
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    code: row.code,
-    classification: row.classification || '',
-    title: row.title,
-    description: row.description,
-    category: row.category,
-    priority: row.priority,
-    status: row.status,
-    createdById: row.created_by_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    ...extra,
-  };
+  return mapRequirementRow(row, extra);
 }
 
 router.get('/', async (req, res) => {
@@ -28,6 +15,8 @@ router.get('/', async (req, res) => {
   const { status, priority, q } = req.query;
 
   const db = getDatabase();
+  await ensureRequirementCodes(db, projectId);
+
   let sql = `
     SELECT r.*, u.name AS created_by_name,
       (SELECT COUNT(*) FROM test_cases tc WHERE tc.requirement_id = r.id) AS test_case_count
@@ -45,7 +34,7 @@ router.get('/', async (req, res) => {
     params.push(like, like, like, like);
   }
 
-  sql += ' ORDER BY r.category ASC, r.id ASC';
+  sql += ' ORDER BY r.id ASC';
 
   const rows = await db.prepare(sql).all(...params);
   res.json(rows.map((r) => mapRequirement(r, {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { useAuth } from './AuthContext.jsx';
 
@@ -36,6 +36,13 @@ export function ProjectProvider({ children }) {
     if (project) localStorage.setItem(STORAGE_KEY, String(project.id));
   };
 
+  const updateActiveProjectUiSettings = useCallback((uiSettings) => {
+    setActiveProject((prev) => (prev ? { ...prev, uiSettings } : prev));
+    setProjects((prev) => prev.map((project) => (
+      project.id === activeProject?.id ? { ...project, uiSettings } : project
+    )));
+  }, [activeProject?.id]);
+
   const canEditProject = Boolean(activeProject?.canEdit);
   const canManageProject = Boolean(activeProject?.canManage);
 
@@ -49,6 +56,7 @@ export function ProjectProvider({ children }) {
       loading,
       refreshProjects,
       selectProject,
+      updateActiveProjectUiSettings,
       canEditProject,
       canManageProject,
     }}>

@@ -7,7 +7,7 @@ import {
 } from './displayLabels.js';
 
 const MEASURE_LANGUAGES = ['ko', 'en'];
-const MIN_WIDTH_BUFFER = 2;
+const MIN_WIDTH_BUFFER = 12;
 const MIN_PROJECT_SELECT_WIDTH = 160;
 
 function measureElementWidth(el) {

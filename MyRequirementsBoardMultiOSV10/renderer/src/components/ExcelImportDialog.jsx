@@ -41,11 +41,11 @@ export default function ExcelImportDialog() {
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [generateTestCases, setGenerateTestCases] = useState(true);
-  const [autoRenumber, setAutoRenumber] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedPath, setSelectedPath] = useState('');
   const [resultDialog, setResultDialog] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
   const [preview, setPreview] = useState(null);
   const [selectedSheet, setSelectedSheet] = useState('');
   const [headerRow, setHeaderRow] = useState(1);
@@ -54,11 +54,11 @@ export default function ExcelImportDialog() {
   const resetImportState = useCallback(() => {
     setBusy(false);
     setGenerateTestCases(true);
-    setAutoRenumber(true);
     setSelectedFile(null);
     setSelectedPath('');
     setResultDialog(null);
     setPreviewLoading(false);
+    setPreviewError('');
     setPreview(null);
     setSelectedSheet('');
     setHeaderRow(1);
@@ -84,6 +84,7 @@ export default function ExcelImportDialog() {
   const loadPreview = useCallback(async (file, sheetName) => {
     if (!file || !activeProject?.id) return;
     setPreviewLoading(true);
+    setPreviewError('');
     setResultDialog(null);
     try {
       const data = await api.previewExcelImport(activeProject.id, file, { sheetName });
@@ -94,11 +95,11 @@ export default function ExcelImportDialog() {
     } catch (err) {
       setPreview(null);
       setColumns([]);
-      setResultDialog({ mode: 'error', message: err.message });
+      setPreviewError(err.message || t('import.previewFailed'));
     } finally {
       setPreviewLoading(false);
     }
-  }, [activeProject?.id]);
+  }, [activeProject?.id, t]);
 
   const showImportResult = (data) => {
     const hasChanges = (data.created ?? 0) > 0 || (data.updated ?? 0) > 0 || (data.testCasesCreated ?? 0) > 0;
@@ -204,7 +205,6 @@ export default function ExcelImportDialog() {
         : null;
       const data = await api.importExcel(activeProject.id, file, {
         generateTestCases,
-        autoRenumber,
         columnMapping,
       });
       showImportResult(data);
@@ -301,6 +301,10 @@ export default function ExcelImportDialog() {
                     <p className="muted excel-dialog__selected-file">{t('import.selectedFile', { name: selectedPath })}</p>
                   )}
                 </div>
+
+                {previewError && (
+                  <p className="muted excel-dialog__preview-status">{t('import.previewUnavailable', { message: previewError })}</p>
+                )}
 
                 {(previewLoading || preview) && (
                   <div className="excel-dialog__mapping">
@@ -399,14 +403,7 @@ export default function ExcelImportDialog() {
                 )}
 
                 <div className="excel-dialog__options">
-                  <label className="excel-dialog__checkbox">
-                    <input
-                      type="checkbox"
-                      checked={autoRenumber}
-                      onChange={(e) => setAutoRenumber(e.target.checked)}
-                    />
-                    <span>{t('import.autoRenumber')}</span>
-                  </label>
+                  <p className="muted">{t('import.codeRenumberNote')}</p>
                   <label className="excel-dialog__checkbox">
                     <input
                       type="checkbox"

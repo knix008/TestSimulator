@@ -1,4 +1,4 @@
-import { createTestCaseAllocator } from './testCaseGenerator.js';
+import { parseProjectUiSettings, serializeProjectUiSettings } from './projectUiSettings.js';
 import { tryRegisterTcCode, allocateNextTcCode } from './testCaseCodeAllocator.js';
 import { renumberRequirementCodes } from './reqCode.js';
 import { addUserToProject, getProjectMembership } from './projectMembers.js';
@@ -131,6 +131,7 @@ export async function exportProjectToReqtproj(db, projectId) {
     schemaVersion: '1.0',
     createdUtc: toIso(project.created_at),
     lastModifiedUtc: now,
+    uiSettings: parseProjectUiSettings(project.ui_settings),
     requirements: mappedRequirements,
   };
 }
@@ -217,9 +218,15 @@ export async function importReqtprojAsNewProject(db, user, payload) {
   const code = await ensureUniqueProjectCode(db, baseCode);
 
   const insert = await db.prepare(
-    `INSERT INTO projects (code, name, description, created_by_id)
-     VALUES (?, ?, ?, ?)`,
-  ).run(code, projectName, '', user.id);
+    `INSERT INTO projects (code, name, description, ui_settings, created_by_id)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(
+    code,
+    projectName,
+    '',
+    serializeProjectUiSettings(data.uiSettings || {}),
+    user.id,
+  );
 
   const projectId = insert.lastInsertRowid;
   if (user.role !== 'ADMIN') {
@@ -246,6 +253,7 @@ export async function importReqtprojAsNewProject(db, user, payload) {
       canEdit: true,
       canManage: true,
       isOwner: Number(project.created_by_id) === Number(user.id),
+      uiSettings: parseProjectUiSettings(project.ui_settings),
     },
     importResult,
   };

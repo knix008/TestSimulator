@@ -1,4 +1,8 @@
 import { hashPassword } from '../auth/password.js';
+import {
+  REQUIREMENT_SCHEMA_SETTING_KEY,
+  REQUIREMENT_SCHEMA_VERSION,
+} from './requirementSchema.js';
 
 export async function ensureSchema(knex) {
   const hasUsers = await knex.schema.hasTable('users');
@@ -39,10 +43,15 @@ export async function ensureSchema(knex) {
       t.string('code', 64).notNullable().unique();
       t.string('name', 255).notNullable();
       t.text('description').defaultTo('');
+      t.text('ui_settings').notNullable().defaultTo('{}');
       t.integer('is_active').notNullable().defaultTo(1);
       t.integer('created_by_id').unsigned().nullable();
       t.timestamp('created_at').defaultTo(knex.fn.now());
       t.timestamp('updated_at').defaultTo(knex.fn.now());
+    });
+  } else if (!(await knex.schema.hasColumn('projects', 'ui_settings'))) {
+    await knex.schema.alterTable('projects', (t) => {
+      t.text('ui_settings').notNullable().defaultTo('{}');
     });
   }
 
@@ -51,10 +60,10 @@ export async function ensureSchema(knex) {
       t.increments('id').primary();
       t.integer('project_id').unsigned().notNullable();
       t.string('code', 64).notNullable();
-      t.string('classification', 255).defaultTo('');
+      t.string('classification', 255).notNullable().defaultTo('');
       t.string('title', 512).notNullable();
-      t.text('description').defaultTo('');
-      t.string('category', 255).defaultTo('');
+      t.text('description').notNullable().defaultTo('');
+      t.string('category', 255).notNullable().defaultTo('');
       t.string('priority', 16).notNullable().defaultTo('MEDIUM');
       t.string('status', 16).notNullable().defaultTo('DRAFT');
       t.integer('created_by_id').unsigned().nullable();
@@ -63,11 +72,15 @@ export async function ensureSchema(knex) {
       t.unique(['project_id', 'code']);
       t.foreign('project_id').references('projects.id').onDelete('CASCADE');
     });
-  } else if (!(await knex.schema.hasColumn('requirements', 'classification'))) {
-    await knex.schema.alterTable('requirements', (t) => {
-      t.string('classification', 255).defaultTo('');
-    });
+  } else {
+    if (!(await knex.schema.hasColumn('requirements', 'classification'))) {
+      await knex.schema.alterTable('requirements', (t) => {
+        t.string('classification', 255).notNullable().defaultTo('');
+      });
+    }
   }
+
+  await ensureRequirementsIndexes(knex);
 
   if (!(await knex.schema.hasTable('test_cases'))) {
     await knex.schema.createTable('test_cases', (t) => {
@@ -110,6 +123,39 @@ export async function ensureSchema(knex) {
     await knex.schema.alterTable('project_members', (t) => {
       t.string('member_role', 16).notNullable().defaultTo('EDITOR');
     });
+  }
+}
+
+async function ensureRequirementsIndexes(knex) {
+  if (!(await knex.schema.hasTable('requirements'))) return;
+
+  const indexDefs = [
+    { columns: ['project_id'], name: 'idx_requirements_project' },
+    { columns: ['status'], name: 'idx_requirements_status' },
+    { columns: ['category'], name: 'idx_requirements_category' },
+    { columns: ['project_id', 'classification'], name: 'idx_requirements_classification' },
+  ];
+
+  for (const indexDef of indexDefs) {
+    const exists = await knex.schema.hasIndex('requirements', indexDef.name);
+    if (exists) continue;
+    await knex.schema.alterTable('requirements', (t) => {
+      t.index(indexDef.columns, indexDef.name);
+    });
+  }
+
+  const schemaVersion = await knex('app_settings')
+    .where({ setting_key: REQUIREMENT_SCHEMA_SETTING_KEY })
+    .first();
+  if (!schemaVersion) {
+    await knex('app_settings').insert({
+      setting_key: REQUIREMENT_SCHEMA_SETTING_KEY,
+      value: String(REQUIREMENT_SCHEMA_VERSION),
+    });
+  } else if (Number(schemaVersion.value) < REQUIREMENT_SCHEMA_VERSION) {
+    await knex('app_settings')
+      .where({ setting_key: REQUIREMENT_SCHEMA_SETTING_KEY })
+      .update({ value: String(REQUIREMENT_SCHEMA_VERSION) });
   }
 }
 

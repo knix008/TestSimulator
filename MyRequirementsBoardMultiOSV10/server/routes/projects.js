@@ -18,6 +18,11 @@ import {
   importReqtprojAsNewProject,
   importReqtprojIntoProject,
 } from '../lib/projectFileService.js';
+import {
+  mergeProjectUiSettings,
+  parseProjectUiSettings,
+  serializeProjectUiSettings,
+} from '../lib/projectUiSettings.js';
 
 const router = Router();
 
@@ -39,6 +44,7 @@ function mapProject(row, user) {
     canEdit: isAdmin || memberRole === 'EDITOR',
     canManage: isAdmin || memberRole === 'EDITOR',
     isOwner: Number(row.created_by_id) === Number(user?.id),
+    uiSettings: parseProjectUiSettings(row.ui_settings),
   };
 }
 
@@ -221,6 +227,35 @@ router.put('/:id', requireRole('VIEWER'), async (req, res) => {
     WHERE p.id = ?
     GROUP BY p.id
   `).get(req.session.user.id, existing.id);
+  res.json(mapProject(updated, req.session.user));
+});
+
+router.patch('/:id/ui-settings', requireRole('VIEWER'), async (req, res) => {
+  const projectId = Number(req.params.id);
+  const db = getDatabase();
+  const existing = await db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
+  if (!existing) return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다.' });
+
+  const canEdit = await userCanEditProject(db, req.session.user, projectId);
+  if (!canEdit) {
+    return res.status(403).json({ error: '이 프로젝트를 편집할 수 있는 권한이 없습니다.' });
+  }
+
+  const merged = mergeProjectUiSettings(existing.ui_settings, req.body || {});
+  await db.prepare(
+    `UPDATE projects SET ui_settings = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(serializeProjectUiSettings(merged), projectId);
+
+  const updated = await db.prepare(`
+    SELECT p.*, COUNT(r.id) AS requirement_count,
+      COALESCE(pm.member_role, 'EDITOR') AS member_role
+    FROM projects p
+    LEFT JOIN requirements r ON r.project_id = p.id
+    LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ?
+    WHERE p.id = ?
+    GROUP BY p.id
+  `).get(req.session.user.id, projectId);
+
   res.json(mapProject(updated, req.session.user));
 });
 

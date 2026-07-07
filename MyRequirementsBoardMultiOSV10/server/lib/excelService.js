@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { renumberRequirementCodes, tempCode } from './reqCode.js';
+import { renumberRequirementCodes, tempCode, ensureRequirementCodes } from './reqCode.js';
 import { renumberTestCaseCodes } from './tcCode.js';
 import { createTestCaseAllocator, generateTestCasesForRequirement } from './testCaseGenerator.js';
 import { tryRegisterTcCode, allocateNextTcCode } from './testCaseCodeAllocator.js';
@@ -10,8 +10,8 @@ const VALID_STATUS = new Set(['DRAFT', 'APPROVED', 'IN_PROGRESS', 'DONE']);
 const HEADER_ALIASES = {
   classification: [
     'srsid', 'rfpid', 'requirementid', 'requirementcode', 'reqid', 'reqcode',
-    'code', 'id', 'num', 'number',
-    '코드', '번호', '요구사항코드', '요구사항id', '요구사항번호', 'id번호', '분류',
+    'requirementno', 'reqno', 'code',
+    '코드', '요구사항코드', '요구사항id', '요구사항번호', '분류',
   ],
   title: [
     'title', 'name', 'reqtitle', 'requirementtitle', 'subject', 'summary',
@@ -593,11 +593,7 @@ function readTestCaseRows(sheet) {
 }
 
 function sortRequirementRows(rows) {
-  return [...rows].sort((a, b) => {
-    const catCmp = (a.category || '').localeCompare(b.category || '', 'ko', { sensitivity: 'base' });
-    if (catCmp !== 0) return catCmp;
-    return a.rowNumber - b.rowNumber;
-  });
+  return [...rows].sort((a, b) => a.rowNumber - b.rowNumber);
 }
 
 async function insertTestCase(db, requirementId, userId, testCase, allocator) {
@@ -655,7 +651,7 @@ export async function previewExcelImport(buffer, { sheetName } = {}) {
 }
 
 export async function importExcelBuffer(db, projectId, userId, buffer, options = {}) {
-  const { generateTestCases = true, autoRenumber = true, columnMapping = null } = options;
+  const { generateTestCases = true, columnMapping = null } = options;
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
 
@@ -832,9 +828,11 @@ export async function importExcelBuffer(db, projectId, userId, buffer, options =
     }
   }
 
-  if (autoRenumber && (result.created > 0 || result.updated > 0)) {
+  if (result.created > 0 || result.updated > 0) {
     await renumberRequirementCodes(db, projectId);
     result.warnings.push('요구사항 코드를 REQ-01 형식으로 자동 부여했습니다.');
+  } else {
+    await ensureRequirementCodes(db, projectId);
   }
 
   if (result.testCasesCreated > 0) {
@@ -856,7 +854,7 @@ export async function exportProjectToWorkbook(db, projectId, requirementIds = nu
     sql += ` AND r.id IN (${requirementIds.map(() => '?').join(',')})`;
     params.push(...requirementIds);
   }
-  sql += ' ORDER BY r.category ASC, r.id ASC';
+  sql += ' ORDER BY r.id ASC';
 
   const requirements = await db.prepare(sql).all(...params);
   const workbook = new ExcelJS.Workbook();
@@ -930,7 +928,6 @@ export async function createSampleWorkbookBuffer() {
   const workbook = new ExcelJS.Workbook();
   const reqSheet = workbook.addWorksheet('Requirements');
   reqSheet.columns = [
-    { header: 'code', key: 'code', width: 14 },
     { header: 'classification', key: 'classification', width: 18 },
     { header: 'title', key: 'title', width: 32 },
     { header: 'description', key: 'description', width: 48 },
