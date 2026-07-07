@@ -64,14 +64,20 @@ function getRendererUrl() {
 }
 
 function applyMeasuredMinWidth(measuredMin) {
-  enforcedMinWidth = measuredMin;
-  mainWindow.setMinimumSize(measuredMin, UI_MIN_HEIGHT);
+  const measured = Math.max(Math.ceil(Number(measuredMin) || 0), UI_HEADER_MIN_WIDTH_FALLBACK);
   const [currentWidth, currentHeight] = mainWindow.getContentSize();
-  const nextWidth = Math.max(currentWidth, measuredMin);
-  if (currentWidth < measuredMin) {
-    mainWindow.setContentSize(measuredMin, currentHeight);
+  const min = Math.max(measured, enforcedMinWidth);
+
+  enforcedMinWidth = min;
+  mainWindow.setMinimumSize(min, UI_MIN_HEIGHT);
+
+  let nextWidth = currentWidth;
+  if (currentWidth < min) {
+    mainWindow.setContentSize(min, currentHeight);
+    nextWidth = min;
   }
-  return { nextWidth, currentHeight };
+
+  return { nextWidth, currentHeight, enforcedMinWidth: min };
 }
 
 function registerWindowBoundsPersistence() {
@@ -124,7 +130,10 @@ async function createWindow() {
   const savedWindow = await loadWindowState();
   const initialWidth = savedWindow?.width ?? UI_DEFAULT_WINDOW_WIDTH;
   const initialHeight = savedWindow?.height ?? UI_DEFAULT_WINDOW_HEIGHT;
-  const initialMinWidth = savedWindow?.minWidth ?? UI_HEADER_MIN_WIDTH_FALLBACK;
+  const initialMinWidth = Math.max(
+    savedWindow?.minWidth ?? UI_HEADER_MIN_WIDTH_FALLBACK,
+    initialWidth,
+  );
   enforcedMinWidth = initialMinWidth;
 
   const windowIcon = getWindowIcon();
@@ -254,7 +263,7 @@ function registerWindowHandlers() {
 
   ipcMain.handle('window:set-minimum-size', (_event, { width, height }) => {
     if (!mainWindow) return;
-    const nextWidth = Math.max(Number(width) || 0, 640);
+    const nextWidth = Math.max(Number(width) || 0, UI_HEADER_MIN_WIDTH_FALLBACK);
     const nextHeight = Math.max(Number(height) || 0, UI_MIN_HEIGHT);
     enforcedMinWidth = nextWidth;
     mainWindow.setMinimumSize(nextWidth, nextHeight);
@@ -262,24 +271,19 @@ function registerWindowHandlers() {
 
   ipcMain.handle('window:apply-default-size', (_event, { width }) => {
     if (!mainWindow) return;
-    const nextWidth = Math.max(Number(width) || 0, enforcedMinWidth, 640);
+    const nextWidth = Math.max(Number(width) || 0, enforcedMinWidth, UI_HEADER_MIN_WIDTH_FALLBACK);
     const [, currentHeight] = mainWindow.getContentSize();
     mainWindow.setContentSize(nextWidth, currentHeight);
   });
 
-  ipcMain.handle('window:sync-header-layout', async (_event, { defaultWidth, updateMinWidth, lockMinOnly }) => {
+  ipcMain.handle('window:sync-header-layout', async (_event, { defaultWidth, updateMinWidth }) => {
     if (!mainWindow) return { width: 0, minWidth: 0 };
 
-    const measuredMin = Math.max(Number(defaultWidth) || 0, 640);
+    const measuredMin = Math.max(Number(defaultWidth) || 0, UI_HEADER_MIN_WIDTH_FALLBACK);
 
     if (updateMinWidth) {
-      const { nextWidth, currentHeight } = applyMeasuredMinWidth(measuredMin);
-      await saveWindowState({ width: nextWidth, height: currentHeight, minWidth: measuredMin });
-    } else if (lockMinOnly) {
-      const [currentWidth, currentHeight] = mainWindow.getContentSize();
-      enforcedMinWidth = currentWidth;
-      mainWindow.setMinimumSize(currentWidth, UI_MIN_HEIGHT);
-      await saveWindowState({ width: currentWidth, height: currentHeight, minWidth: currentWidth });
+      const { nextWidth, currentHeight, enforcedMinWidth: enforced } = applyMeasuredMinWidth(measuredMin);
+      await saveWindowState({ width: nextWidth, height: currentHeight, minWidth: enforced });
     }
 
     const [width] = mainWindow.getContentSize();

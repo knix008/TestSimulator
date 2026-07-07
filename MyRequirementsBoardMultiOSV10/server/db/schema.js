@@ -17,7 +17,12 @@ export async function ensureSchema(knex) {
       t.string('department', 255).defaultTo('');
       t.string('role', 16).notNullable().defaultTo('VIEWER');
       t.integer('is_active').notNullable().defaultTo(1);
+      t.text('preferences').notNullable().defaultTo('{}');
       t.timestamp('created_at').defaultTo(knex.fn.now());
+    });
+  } else if (!(await knex.schema.hasColumn('users', 'preferences'))) {
+    await knex.schema.alterTable('users', (t) => {
+      t.text('preferences').notNullable().defaultTo('{}');
     });
   }
 
@@ -95,6 +100,7 @@ export async function ensureSchema(knex) {
       t.increments('id').primary();
       t.string('code', 64).notNullable().unique();
       t.string('title', 512).notNullable();
+      t.text('description').defaultTo('');
       t.text('steps').defaultTo('');
       t.text('expected_result').defaultTo('');
       t.string('status', 16).notNullable().defaultTo('NOT_RUN');
@@ -103,6 +109,10 @@ export async function ensureSchema(knex) {
       t.timestamp('created_at').defaultTo(knex.fn.now());
       t.timestamp('updated_at').defaultTo(knex.fn.now());
       t.foreign('requirement_id').references('requirements.id').onDelete('CASCADE');
+    });
+  } else if (!(await knex.schema.hasColumn('test_cases', 'description'))) {
+    await knex.schema.alterTable('test_cases', (t) => {
+      t.text('description').defaultTo('');
     });
   }
 
@@ -130,6 +140,15 @@ export async function ensureSchema(knex) {
   } else if (!(await knex.schema.hasColumn('project_members', 'member_role'))) {
     await knex.schema.alterTable('project_members', (t) => {
       t.string('member_role', 16).notNullable().defaultTo('EDITOR');
+    });
+  }
+
+  if (!(await knex.schema.hasTable('sessions'))) {
+    await knex.schema.createTable('sessions', (t) => {
+      t.string('sid', 255).primary();
+      t.text('sess').notNullable();
+      t.bigInteger('expired').notNullable();
+      t.index(['expired'], 'idx_sessions_expired');
     });
   }
 }

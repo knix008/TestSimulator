@@ -3,6 +3,11 @@ import { getDatabase } from '../db/index.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { sanitizeUser } from '../auth/auth.js';
 import { requireAuth } from '../auth/middleware.js';
+import {
+  mergeUserPreferences,
+  parseUserPreferences,
+  serializeUserPreferences,
+} from '../lib/userPreferences.js';
 
 const router = Router();
 
@@ -68,6 +73,23 @@ router.put('/profile', requireAuth, async (req, res) => {
   const updated = await db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
   req.session.user = sanitizeUser(updated);
   res.json(sanitizeUser(updated));
+});
+
+router.get('/preferences', requireAuth, async (req, res) => {
+  const db = getDatabase();
+  const user = await db.prepare('SELECT preferences FROM users WHERE id = ?').get(req.session.user.id);
+  res.json(parseUserPreferences(user?.preferences));
+});
+
+router.patch('/preferences', requireAuth, async (req, res) => {
+  const db = getDatabase();
+  const user = await db.prepare('SELECT preferences FROM users WHERE id = ?').get(req.session.user.id);
+  const merged = mergeUserPreferences(user?.preferences, req.body || {});
+  await db.prepare('UPDATE users SET preferences = ? WHERE id = ?').run(
+    serializeUserPreferences(merged),
+    req.session.user.id,
+  );
+  res.json(merged);
 });
 
 router.post('/register', async (req, res) => {

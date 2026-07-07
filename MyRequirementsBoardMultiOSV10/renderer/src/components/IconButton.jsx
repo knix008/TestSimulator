@@ -10,7 +10,7 @@ export function IconButton({
   tooltip,
   ...props
 }) {
-  const tooltipProps = getTooltipProps(tooltip, children);
+  const tooltipProps = getTooltipProps(tooltip, children, { forceVisual: Boolean(tooltip) });
 
   return (
     <button

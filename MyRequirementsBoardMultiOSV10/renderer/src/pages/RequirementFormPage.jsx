@@ -8,12 +8,14 @@ import { useUndoHistory } from '../context/UndoHistoryContext.jsx';
 import { requirementPayload, testCasePayload } from '../lib/requirementUndoActions.js';
 import { IconButton } from '../components/IconButton.jsx';
 import { IconLink } from '../components/IconLink.jsx';
+import TableInlineSelect from '../components/TableInlineSelect.jsx';
 import { openRowContextMenu, useContextMenu } from '../components/ContextMenu.jsx';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
 
 const emptyTestCaseForm = {
   code: '',
   title: '',
+  description: '',
   steps: '',
   expectedResult: '',
   status: 'NOT_RUN',
@@ -158,6 +160,7 @@ export default function RequirementFormPage() {
     setTestCaseForm({
       code: tc.code,
       title: tc.title,
+      description: tc.description || '',
       steps: tc.steps || '',
       expectedResult: tc.expectedResult || '',
       status: tc.status || 'NOT_RUN',
@@ -202,6 +205,35 @@ export default function RequirementFormPage() {
       setError(err.message);
     }
   };
+
+  const handleInlineTestCaseStatusChange = async (tc, nextStatus) => {
+    if (tc.status === nextStatus) return;
+
+    const before = testCasePayload(tc);
+    setTestCases((prev) => prev.map((row) => (
+      row.id === tc.id ? { ...row, status: nextStatus } : row
+    )));
+
+    try {
+      await api.updateTestCase(id, tc.id, { status: nextStatus });
+      push({
+        type: 'testCase.update',
+        requirementId: Number(id),
+        testCaseId: tc.id,
+        before,
+        after: testCasePayload({ ...tc, status: nextStatus }),
+      });
+    } catch (err) {
+      setTestCases((prev) => prev.map((row) => (
+        row.id === tc.id ? { ...row, status: tc.status } : row
+      )));
+      setError(err.message);
+    }
+  };
+
+  const getTcStatusLabel = (key) => (
+    TC_STATUS_KEYS.includes(key) ? t(`tcStatus.${key}`) : key
+  );
 
   const handleDeleteTestCase = async (tcId) => {
     if (!window.confirm(t('requirements.tcDeleteConfirm'))) return;
@@ -369,6 +401,10 @@ export default function RequirementFormPage() {
                 <input value={testCaseForm.title} onChange={(e) => setTestCaseForm({ ...testCaseForm, title: e.target.value })} required />
               </div>
               <div className="form-row">
+                <label>{t('common.description')}</label>
+                <textarea value={testCaseForm.description} onChange={(e) => setTestCaseForm({ ...testCaseForm, description: e.target.value })} />
+              </div>
+              <div className="form-row">
                 <label>{t('requirements.steps')}</label>
                 <textarea value={testCaseForm.steps} onChange={(e) => setTestCaseForm({ ...testCaseForm, steps: e.target.value })} />
               </div>
@@ -392,7 +428,7 @@ export default function RequirementFormPage() {
           {testCases.length > 0 ? (
             <table>
               <thead>
-                <tr><th>{t('common.requirementCode')}</th><th>{t('common.title')}</th><th>{t('common.status')}</th><th></th></tr>
+                <tr><th>{t('common.requirementCode')}</th><th>{t('common.title')}</th><th>{t('common.description')}</th><th>{t('common.status')}</th><th></th></tr>
               </thead>
               <tbody>
                 {testCases.map((tc) => (
@@ -404,7 +440,17 @@ export default function RequirementFormPage() {
                   >
                     <td>{tc.code}</td>
                     <td>{tc.title}</td>
-                    <td>{t(`tcStatus.${tc.status}`) || tc.status}</td>
+                    <td>{tc.description || t('common.dash')}</td>
+                    <td className="test-cases-table__status-cell" onClick={(e) => e.stopPropagation()}>
+                      <TableInlineSelect
+                        value={TC_STATUS_KEYS.includes(tc.status) ? tc.status : 'NOT_RUN'}
+                        options={TC_STATUS_KEYS}
+                        getLabel={getTcStatusLabel}
+                        onChange={(value) => { void handleInlineTestCaseStatusChange(tc, value); }}
+                        variant="badge"
+                        ariaLabel={t('common.status')}
+                      />
+                    </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <IconButton icon={Pencil} className="btn-secondary" type="button" onClick={() => startEditTestCase(tc)} tooltip={t('requirements.tipEditTc')}>{t('common.edit')}</IconButton>
                     </td>

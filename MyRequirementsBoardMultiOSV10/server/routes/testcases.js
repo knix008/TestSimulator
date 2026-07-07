@@ -13,6 +13,7 @@ function mapTestCase(row) {
     id: row.id,
     code: row.code,
     title: row.title,
+    description: row.description ?? '',
     steps: row.steps,
     expectedResult: row.expected_result,
     status: row.status,
@@ -37,7 +38,7 @@ router.post('/renumber', requireRequirementProjectEdit(), async (req, res) => {
 
 router.post('/', requireRequirementProjectEdit(), async (req, res) => {
   const requirementId = Number(req.params.requirementId);
-  const { code, title, steps, expectedResult, status } = req.body || {};
+  const { code, title, description, steps, expectedResult, status } = req.body || {};
   if (!title) return res.status(400).json({ error: '제목은 필수입니다.' });
 
   const db = getDatabase();
@@ -45,9 +46,9 @@ router.post('/', requireRequirementProjectEdit(), async (req, res) => {
 
   try {
     const result = await db.prepare(
-      `INSERT INTO test_cases (code, title, steps, expected_result, status, requirement_id, created_by_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(insertCode, title, steps || '', expectedResult || '', status || 'NOT_RUN', requirementId, req.session.user.id);
+      `INSERT INTO test_cases (code, title, description, steps, expected_result, status, requirement_id, created_by_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(insertCode, title, description || '', steps || '', expectedResult || '', status || 'NOT_RUN', requirementId, req.session.user.id);
 
     await renumberTestCaseCodes(db);
 
@@ -63,15 +64,16 @@ router.post('/', requireRequirementProjectEdit(), async (req, res) => {
 
 router.put('/:id', requireRequirementProjectEdit(), async (req, res) => {
   const id = Number(req.params.id);
-  const { title, steps, expectedResult, status } = req.body || {};
+  const { title, description, steps, expectedResult, status } = req.body || {};
   const db = getDatabase();
   const existing = await db.prepare('SELECT * FROM test_cases WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: '테스트 케이스를 찾을 수 없습니다.' });
 
   await db.prepare(
-    `UPDATE test_cases SET title = ?, steps = ?, expected_result = ?, status = ?, updated_at = datetime('now') WHERE id = ?`,
+    `UPDATE test_cases SET title = ?, description = ?, steps = ?, expected_result = ?, status = ?, updated_at = datetime('now') WHERE id = ?`,
   ).run(
     title ?? existing.title,
+    description ?? existing.description,
     steps ?? existing.steps,
     expectedResult ?? existing.expected_result,
     status ?? existing.status,
@@ -84,12 +86,16 @@ router.put('/:id', requireRequirementProjectEdit(), async (req, res) => {
 
 router.delete('/:id', requireRequirementProjectEdit(), async (req, res) => {
   const id = Number(req.params.id);
+  const requirementId = Number(req.params.requirementId);
   const db = getDatabase();
+  const existing = await db.prepare('SELECT id FROM test_cases WHERE id = ? AND requirement_id = ?').get(id, requirementId);
+  if (!existing) return res.status(404).json({ error: '테스트 케이스를 찾을 수 없습니다.' });
+
   const result = await db.prepare('DELETE FROM test_cases WHERE id = ?').run(id);
   if (result.changes === 0) return res.status(404).json({ error: '테스트 케이스를 찾을 수 없습니다.' });
 
-  await renumberTestCaseCodes(db);
-  res.json({ ok: true });
+  const assigned = await renumberTestCaseCodes(db);
+  res.json({ ok: true, count: assigned.length });
 });
 
 export default router;

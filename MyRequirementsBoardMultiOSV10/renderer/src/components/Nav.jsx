@@ -1,9 +1,10 @@
-import { forwardRef, useLayoutEffect, useRef } from 'react';
+import { forwardRef, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
   FolderKanban,
   Info,
+  ListChecks,
   LogOut,
   Settings,
   Sparkles,
@@ -18,8 +19,8 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 import { useUndoHistory } from '../context/UndoHistoryContext.jsx';
 import { IconButton } from './IconButton.jsx';
 import { IconText } from './IconText.jsx';
-import { getTooltipProps, mergeTooltipClass } from './tooltip.js';
-import { syncAppMinWidthFromNav } from '../lib/syncAppMinWidth.js';
+import { NavTooltipHost } from './NavTooltipHost.jsx';
+import { useNavLayout } from '../hooks/useNavLayout.js';
 import { getDisplayProjectName, getDisplayRoleLabel, getDisplayUserName } from '../lib/displayLabels.js';
 
 function NavItem({ to, icon, labelKey, tooltipKey, matchPrefix }) {
@@ -31,18 +32,58 @@ function NavItem({ to, icon, labelKey, tooltipKey, matchPrefix }) {
       ? location.pathname === '/' || location.pathname.startsWith('/requirements')
       : location.pathname.startsWith(to);
   const label = t(labelKey);
-  const tooltipProps = getTooltipProps(tooltipKey ? t(tooltipKey) : undefined, label);
+  const tooltip = tooltipKey ? t(tooltipKey) : label;
 
   return (
-    <Link
-      to={to}
-      className={mergeTooltipClass(`nav-item${active ? ' nav-item--active' : ''}`, tooltipProps)}
-      aria-label={tooltipProps['aria-label'] || label}
-      data-tooltip={tooltipProps['data-tooltip']}
-      data-i18n-label={labelKey}
+    <NavTooltipHost tooltip={tooltip} label={label}>
+      <Link
+        to={to}
+        className={`nav-item${active ? ' nav-item--active' : ''}`}
+        aria-label={label}
+        data-i18n-label={labelKey}
+      >
+        <IconText icon={icon}>{label}</IconText>
+      </Link>
+    </NavTooltipHost>
+  );
+}
+
+function NavUndoRedo({ canEditProject, canUndo, canRedo, onUndo, onRedo, t }) {
+  const undoLabel = t('menu.undo');
+  const redoLabel = t('menu.redo');
+
+  return (
+    <div
+      className={`nav-undo-redo${canEditProject ? '' : ' nav-undo-redo--hidden'}`}
+      aria-hidden={!canEditProject}
     >
-      <IconText icon={icon}>{label}</IconText>
-    </Link>
+      <NavTooltipHost tooltip={t('menu.tipUndo')} label={undoLabel}>
+        <button
+          type="button"
+          className="nav-item"
+          disabled={!canEditProject || !canUndo}
+          tabIndex={canEditProject ? 0 : -1}
+          onClick={onUndo}
+          aria-label={undoLabel}
+          data-i18n-label="menu.undo"
+        >
+          <IconText icon={Undo2}>{undoLabel}</IconText>
+        </button>
+      </NavTooltipHost>
+      <NavTooltipHost tooltip={t('menu.tipRedo')} label={redoLabel}>
+        <button
+          type="button"
+          className="nav-item"
+          disabled={!canEditProject || !canRedo}
+          tabIndex={canEditProject ? 0 : -1}
+          onClick={onRedo}
+          aria-label={redoLabel}
+          data-i18n-label="menu.redo"
+        >
+          <IconText icon={Redo2}>{redoLabel}</IconText>
+        </button>
+      </NavTooltipHost>
+    </div>
   );
 }
 
@@ -53,6 +94,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
   const navigate = useNavigate();
   const { undo, redo, canUndo, canRedo } = useUndoHistory();
   const navRef = useRef(null);
+  const trailingRef = useRef(null);
 
   const setNavRef = (node) => {
     navRef.current = node;
@@ -60,36 +102,14 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
     else if (ref) ref.current = node;
   };
 
-  useLayoutEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return undefined;
-
-    let cancelled = false;
-    let syncFrame = 0;
-
-    const syncLayout = async () => {
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      if (document.fonts?.ready) await document.fonts.ready;
-      if (cancelled) return;
-
-      await syncAppMinWidthFromNav(nav, { updateMinWidth: true });
-    };
-
-    const scheduleSync = () => {
-      cancelAnimationFrame(syncFrame);
-      syncFrame = requestAnimationFrame(() => {
-        void syncLayout();
-      });
-    };
-
-    scheduleSync();
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(syncFrame);
-    };
-  }, [user?.id, canEditProject, language, user?.role, projects.length, activeProject?.id]);
+  useNavLayout(navRef, trailingRef, [
+    user?.id,
+    canEditProject,
+    language,
+    user?.role,
+    projects.length,
+    activeProject?.id,
+  ]);
 
   const handleUndo = async () => {
     try {
@@ -107,13 +127,10 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
     }
   };
 
-  const undoTooltip = getTooltipProps(t('menu.tipUndo'), t('menu.undo'));
-  const redoTooltip = getTooltipProps(t('menu.tipRedo'), t('menu.redo'));
-
   const roleLabel = getDisplayRoleLabel(user?.role, t);
   const displayUserName = getDisplayUserName(user, t);
   const appInfoLabel = t('menu.appInfo');
-  const appInfoTooltipProps = getTooltipProps(t('menu.tipAppInfo'), appInfoLabel);
+  const logoutLabel = t('nav.logout');
 
   const handleLogout = async () => {
     await logout();
@@ -129,84 +146,76 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
     >
       <div className="nav-scroll">
         {projects.length > 0 ? (
-          <label className="nav-project nav-project--first">
-            <FolderKanban size={16} strokeWidth={2} aria-hidden="true" />
-            <select
-              value={activeProject?.id || ''}
-              onChange={(e) => {
-                const project = projects.find((p) => p.id === Number(e.target.value));
-                selectProject(project);
-              }}
-              aria-label={t('nav.selectProject')}
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{getDisplayProjectName(p, t)}</option>
-              ))}
-            </select>
-          </label>
+          <NavTooltipHost tooltip={t('nav.tipSelectProject')} label={t('nav.selectProject')}>
+            <label className="nav-project nav-project--first">
+              <FolderKanban size={16} strokeWidth={2} aria-hidden="true" />
+              <select
+                value={activeProject?.id || ''}
+                onChange={(e) => {
+                  const project = projects.find((p) => p.id === Number(e.target.value));
+                  selectProject(project);
+                }}
+                aria-label={t('nav.selectProject')}
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{getDisplayProjectName(p, t)}</option>
+                ))}
+              </select>
+            </label>
+          </NavTooltipHost>
         ) : (
-          <span className="nav-project nav-project--empty nav-project--first muted" data-i18n-no-projects>{t('nav.noProjects')}</span>
+          <NavTooltipHost tooltip={t('nav.tipNoProjects')} label={t('nav.noProjects')}>
+            <span className="nav-project nav-project--empty nav-project--first muted" data-i18n-no-projects>
+              {t('nav.noProjects')}
+            </span>
+          </NavTooltipHost>
         )}
         <NavItem to="/projects" icon={FolderKanban} labelKey="nav.projects" tooltipKey="nav.tipProjects" />
         <NavItem to="/" icon={ClipboardList} labelKey="nav.requirements" tooltipKey="nav.tipRequirements" />
+        <NavItem to="/test-cases" icon={ListChecks} labelKey="nav.testCases" tooltipKey="nav.tipTestCases" matchPrefix="/test-cases" />
         {hasRole('ADMIN') && (
           <NavItem to="/users" icon={Users} labelKey="nav.users" tooltipKey="nav.tipUsers" />
         )}
         {hasRole('EDITOR') && (
           <NavItem to="/ollama" icon={Sparkles} labelKey="nav.ollama" tooltipKey="nav.tipOllama" />
         )}
+        <NavUndoRedo
+          canEditProject={canEditProject}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          t={t}
+        />
         <NavItem to="/settings" icon={Settings} labelKey="nav.settings" tooltipKey="nav.tipSettings" />
       </div>
-      <div className="nav-trailing">
-        {canEditProject && (
-          <div className="nav-undo-redo">
-            <button
-              type="button"
-              className={mergeTooltipClass('nav-item', undoTooltip)}
-              disabled={!canUndo}
-              onClick={handleUndo}
-              aria-label={undoTooltip['aria-label'] || t('menu.undo')}
-              data-tooltip={undoTooltip['data-tooltip']}
-              data-i18n-label="menu.undo"
-            >
-              <IconText icon={Undo2}>{t('menu.undo')}</IconText>
-            </button>
-            <button
-              type="button"
-              className={mergeTooltipClass('nav-item', redoTooltip)}
-              disabled={!canRedo}
-              onClick={handleRedo}
-              aria-label={redoTooltip['aria-label'] || t('menu.redo')}
-              data-tooltip={redoTooltip['data-tooltip']}
-              data-i18n-label="menu.redo"
-            >
-              <IconText icon={Redo2}>{t('menu.redo')}</IconText>
-            </button>
-          </div>
-        )}
-        <button
-          type="button"
-          className={mergeTooltipClass('nav-item nav-program-info', appInfoTooltipProps)}
-          onClick={onShowInfo}
-          aria-label={appInfoTooltipProps['aria-label'] || appInfoLabel}
-          data-tooltip={appInfoTooltipProps['data-tooltip']}
-          data-i18n-label="menu.appInfo"
-        >
-          <IconText icon={Info}>{appInfoLabel}</IconText>
-        </button>
+
+      <div className="nav-trailing" ref={trailingRef}>
+        <NavTooltipHost tooltip={t('menu.tipAppInfo')} label={appInfoLabel}>
+          <button
+            type="button"
+            className="nav-item nav-program-info"
+            onClick={onShowInfo}
+            aria-label={appInfoLabel}
+            data-i18n-label="menu.appInfo"
+          >
+            <IconText icon={Info}>{appInfoLabel}</IconText>
+          </button>
+        </NavTooltipHost>
         <span className="user" data-i18n-user-display>
           <IconText icon={User}>{displayUserName} ({roleLabel})</IconText>
         </span>
-        <IconButton
-          icon={LogOut}
-          className="btn-secondary nav-logout"
-          type="button"
-          onClick={handleLogout}
-          tooltip={t('nav.tipLogout')}
-          data-i18n-label="nav.logout"
-        >
-          {t('nav.logout')}
-        </IconButton>
+        <NavTooltipHost tooltip={t('nav.tipLogout')} label={logoutLabel}>
+          <IconButton
+            icon={LogOut}
+            className="btn-secondary nav-logout"
+            type="button"
+            onClick={handleLogout}
+            data-i18n-label="nav.logout"
+          >
+            {logoutLabel}
+          </IconButton>
+        </NavTooltipHost>
       </div>
     </nav>
   );

@@ -1,7 +1,7 @@
 const TC_CODE_PATTERN = /^TC-(\d+)$/i;
 
 export function formatTcCode(sequence) {
-  return `TC-${String(sequence).padStart(3, '0')}`;
+  return `TC-${String(sequence).padStart(2, '0')}`;
 }
 
 export function registerTcCode(code, usedCodes, nextSequenceRef) {

@@ -6,14 +6,17 @@ import session from 'express-session';
 import cors from 'cors';
 import {
   initDatabase,
+  getDatabase,
   getDatabaseInfo,
   isDatabaseReady,
   setDataDir,
 } from './db/index.js';
+import { DbSessionStore } from './lib/sessionStore.js';
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
 import requirementRoutes from './routes/requirements.js';
 import testCaseRoutes from './routes/testcases.js';
+import projectTestCaseRoutes from './routes/projectTestCases.js';
 import userRoutes from './routes/users.js';
 import ollamaRoutes from './routes/ollama.js';
 import dbSettingsRoutes from './routes/dbSettings.js';
@@ -44,6 +47,7 @@ export async function createApp() {
     secret: process.env.SESSION_SECRET || 'my-requirements-board-dev-secret',
     resave: false,
     saveUninitialized: false,
+    store: new DbSessionStore(getDatabase()),
     cookie: {
       secure: false,
       httpOnly: true,
@@ -67,6 +71,7 @@ export async function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/projects', projectRoutes);
   app.use('/api/projects/:projectId/requirements', requireProjectAccess(), requirementRoutes);
+  app.use('/api/projects/:projectId/testcases', requireProjectAccess(), projectTestCaseRoutes);
   app.use('/api/requirements/:requirementId/testcases', testCaseRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/ollama', ollamaRoutes);

@@ -17,6 +17,7 @@ export function testCasePayload(data) {
   return {
     code: data.code,
     title: data.title,
+    description: data.description || '',
     steps: data.steps || '',
     expectedResult: data.expectedResult || '',
     status: data.status || 'NOT_RUN',

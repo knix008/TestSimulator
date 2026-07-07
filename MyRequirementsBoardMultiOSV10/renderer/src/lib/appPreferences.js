@@ -1,4 +1,5 @@
 import { DEFAULT_THEME, THEME_STORAGE_KEY, normalizeTheme } from './theme.js';
+import { patchUserPreferencesIfAuthed } from './userPreferences.js';
 
 export const LANGUAGE_STORAGE_KEY = 'mrb_language';
 export const DEFAULT_LANGUAGE = 'ko';
@@ -56,6 +57,7 @@ export async function loadAppPreferences() {
 
 export async function saveAppPreferences(partial) {
   writeLocalPreferences(partial);
+  await patchUserPreferencesIfAuthed(partial);
 
   if (window.electronAPI?.savePreferences) {
     try {

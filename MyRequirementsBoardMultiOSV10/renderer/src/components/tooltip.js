@@ -26,13 +26,15 @@ function shouldShowVisualTooltip(tooltip, children, visual) {
   return getVisibleChildText(children) !== String(tooltip).trim();
 }
 
-export function getTooltipProps(tooltip, children, { visual = true } = {}) {
+export function getTooltipProps(tooltip, children, { visual = true, forceVisual = false } = {}) {
   const label = getTooltipLabel(tooltip, children);
   if (!label) return {};
 
   const explicitTooltip = tooltip !== undefined && tooltip !== null && tooltip !== '';
   const showVisual = visual && (
-    explicitTooltip || shouldShowVisualTooltip(tooltip, children, visual)
+    forceVisual
+    || explicitTooltip
+    || shouldShowVisualTooltip(tooltip, children, visual)
   );
 
   return {

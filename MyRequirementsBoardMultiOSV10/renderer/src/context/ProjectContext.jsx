@@ -3,7 +3,6 @@ import { api } from '../api/client.js';
 import { useAuth } from './AuthContext.jsx';
 
 const ProjectContext = createContext(null);
-const STORAGE_KEY = 'mrb_active_project_id';
 
 export function ProjectProvider({ children }) {
   const { user } = useAuth();
@@ -19,14 +18,26 @@ export function ProjectProvider({ children }) {
     }
     setLoading(true);
     try {
-      const list = await api.listProjects(false);
+      const [list, prefs] = await Promise.all([
+        api.listProjects(false),
+        api.getUserPreferences().catch(() => null),
+      ]);
       setProjects(list);
-      const savedId = Number(localStorage.getItem(STORAGE_KEY));
-      const saved = list.find((p) => p.id === savedId);
+      let savedId = prefs?.activeProjectId;
+      if (!savedId) {
+        const legacyId = Number(localStorage.getItem('mrb_active_project_id'));
+        if (legacyId) {
+          savedId = legacyId;
+          localStorage.removeItem('mrb_active_project_id');
+          void api.patchUserPreferences({ activeProjectId: legacyId }).catch(() => {});
+        }
+      }
+      const saved = savedId ? list.find((p) => p.id === savedId) : null;
       const next = saved || list[0] || null;
       setActiveProject(next);
-      if (next) localStorage.setItem(STORAGE_KEY, String(next.id));
-      else localStorage.removeItem(STORAGE_KEY);
+      if (next && savedId !== next.id) {
+        void api.patchUserPreferences({ activeProjectId: next.id }).catch(() => {});
+      }
     } finally {
       setLoading(false);
     }
@@ -43,7 +54,7 @@ export function ProjectProvider({ children }) {
   }, []);
   const selectProject = (project) => {
     setActiveProject(project);
-    if (project) localStorage.setItem(STORAGE_KEY, String(project.id));
+    void api.patchUserPreferences({ activeProjectId: project?.id ?? null }).catch(() => {});
   };
 
   const updateActiveProjectUiSettings = useCallback((uiSettings) => {

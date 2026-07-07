@@ -3,7 +3,7 @@ import { IconText } from './IconText.jsx';
 import { getTooltipProps, mergeTooltipClass } from './tooltip.js';
 
 export function IconLink({ icon, children, className = '', tooltip, ...props }) {
-  const tooltipProps = getTooltipProps(tooltip, children);
+  const tooltipProps = getTooltipProps(tooltip, children, { forceVisual: Boolean(tooltip) });
 
   return (
     <Link

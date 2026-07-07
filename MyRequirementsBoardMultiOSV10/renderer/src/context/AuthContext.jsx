@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { saveLastUsername } from '../lib/lastUsername.js';
+import { setUserPreferencesAuthenticated } from '../lib/userPreferences.js';
 
 const AuthContext = createContext(null);
 
@@ -14,15 +15,20 @@ export function AuthProvider({ children }) {
         if (data.authenticated && data.user?.username) {
           saveLastUsername(data.user.username);
         }
+        setUserPreferencesAuthenticated(Boolean(data.authenticated));
         setUser(data.authenticated ? data.user : null);
       })
-      .catch(() => setUser(null))
+      .catch(() => {
+        setUserPreferencesAuthenticated(false);
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (username, password) => {
     const data = await api.login(username, password);
     saveLastUsername(data.user?.username || username);
+    setUserPreferencesAuthenticated(true);
     setUser(data.user);
     return data.user;
   };
@@ -30,6 +36,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     if (user?.username) saveLastUsername(user.username);
     await api.logout();
+    setUserPreferencesAuthenticated(false);
     setUser(null);
   };
 

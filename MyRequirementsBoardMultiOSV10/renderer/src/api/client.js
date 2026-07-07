@@ -51,6 +51,8 @@ export const api = {
   register: (payload) => request('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
   profile: () => request('/api/auth/profile'),
   updateProfile: (payload) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(payload) }),
+  getUserPreferences: () => request('/api/auth/preferences'),
+  patchUserPreferences: (payload) => request('/api/auth/preferences', { method: 'PATCH', body: JSON.stringify(payload) }),
 
   listProjects: (manage = false) => request(`/api/projects${manage ? '?manage=1' : ''}`),
   getProject: (id) => request(`/api/projects/${id}`),
@@ -67,6 +69,10 @@ export const api = {
   listRequirements: (projectId, params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/projects/${projectId}/requirements${qs ? `?${qs}` : ''}`);
+  },
+  listTestCases: (projectId, params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/api/projects/${projectId}/testcases${qs ? `?${qs}` : ''}`);
   },
   getRequirement: (projectId, id) => request(`/api/projects/${projectId}/requirements/${id}`),
   createRequirement: (projectId, payload) => request(`/api/projects/${projectId}/requirements`, { method: 'POST', body: JSON.stringify(payload) }),

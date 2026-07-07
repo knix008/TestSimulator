@@ -8,7 +8,8 @@ import { ContextMenuProvider } from './components/ContextMenu.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import { UndoHistoryProvider } from './context/UndoHistoryContext.jsx';
-import { UI_MIN_HEIGHT, UI_NAV_TRAILING_MARGIN_END } from '../../config/ui-layout.mjs';
+import UserPreferencesSync from './components/UserPreferencesSync.jsx';
+import { UI_MIN_HEIGHT, UI_NAV_SCROLL_TRAILING_GAP, UI_NAV_TRAILING_MARGIN_END } from '../../config/ui-layout.mjs';
 import { loadAppPreferences } from './lib/appPreferences.js';
 import { applyTheme } from './lib/theme.js';
 import './styles/themes.css';
@@ -16,6 +17,7 @@ import './styles/globals.css';
 
 document.documentElement.style.setProperty('--app-min-height', `${UI_MIN_HEIGHT}px`);
 document.documentElement.style.setProperty('--nav-trailing-margin-end', `${UI_NAV_TRAILING_MARGIN_END}px`);
+document.documentElement.style.setProperty('--nav-scroll-trailing-gap', `${UI_NAV_SCROLL_TRAILING_GAP}px`);
 
 async function bootstrap() {
   const preferences = await loadAppPreferences();
@@ -30,6 +32,7 @@ async function bootstrap() {
             <ThemeProvider initialTheme={preferences.theme}>
               <AuthProvider>
                 <ProjectProvider>
+                  <UserPreferencesSync />
                   <UndoHistoryProvider>
                     <App />
                   </UndoHistoryProvider>

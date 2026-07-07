@@ -13,10 +13,12 @@ export function LanguageProvider({ children, initialLanguage = DEFAULT_LANGUAGE 
     setLanguageState(initialLanguage === 'en' ? 'en' : DEFAULT_LANGUAGE);
   }, [initialLanguage]);
 
-  const setLanguage = useCallback((lang) => {
+  const setLanguage = useCallback((lang, options = {}) => {
     const next = lang === 'en' ? 'en' : DEFAULT_LANGUAGE;
     setLanguageState(next);
-    void saveLanguagePreference(next);
+    if (options.persist !== false) {
+      void saveLanguagePreference(next);
+    }
   }, []);
 
   useEffect(() => {

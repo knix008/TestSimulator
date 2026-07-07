@@ -1,6 +1,7 @@
 import { parseProjectUiSettings, serializeProjectUiSettings } from './projectUiSettings.js';
 import { tryRegisterTcCode, allocateNextTcCode } from './testCaseCodeAllocator.js';
 import { renumberRequirementCodes } from './reqCode.js';
+import { renumberTestCaseCodes } from './tcCode.js';
 import { addUserToProject, getProjectMembership } from './projectMembers.js';
 
 const VALID_PRIORITY = new Set(['LOW', 'MEDIUM', 'HIGH']);
@@ -74,11 +75,12 @@ async function insertTestCase(db, requirementId, userId, testCase, allocator) {
   if (!code) code = allocateNextTcCode(allocator.usedCodes, allocator.nextSequenceRef);
 
   await db.prepare(
-    `INSERT INTO test_cases (code, title, steps, expected_result, status, requirement_id, created_by_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO test_cases (code, title, description, steps, expected_result, status, requirement_id, created_by_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     code,
     testCase.title,
+    testCase.description || '',
     testCase.steps || '',
     testCase.expectedResult || '',
     testCase.status || 'NOT_RUN',
@@ -119,6 +121,7 @@ export async function exportProjectToReqtproj(db, projectId) {
       testCases: testCases.map((tc) => ({
         code: tc.code,
         title: tc.title,
+        description: tc.description || '',
         steps: tc.steps || '',
         expectedResult: tc.expected_result || '',
         status: toFileCase(tc.status),
@@ -195,6 +198,7 @@ async function importRequirementsIntoProject(db, projectId, userId, payload) {
         await insertTestCase(db, requirementId, userId, {
           code: tc.code,
           title: tc.title,
+          description: tc.description,
           steps: tc.steps,
           expectedResult: tc.expectedResult,
           status: tcStatus || 'NOT_RUN',
@@ -207,6 +211,9 @@ async function importRequirementsIntoProject(db, projectId, userId, payload) {
   }
 
   await renumberRequirementCodes(db, projectId);
+  if (result.testCasesCreated > 0) {
+    await renumberTestCaseCodes(db);
+  }
 
   return result;
 }

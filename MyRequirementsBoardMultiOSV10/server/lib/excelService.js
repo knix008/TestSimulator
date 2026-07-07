@@ -44,6 +44,7 @@ const TC_HEADER_ALIASES = {
   ],
   code: ['code', 'tcode', 'testcasecode', 'tcid', '코드', '테스트케이스코드', 'tc코드'],
   title: ['title', 'name', 'testcase', 'testcasetitle', 'casetitle', '제목', '테스트케이스', '케이스명'],
+  description: ['description', 'desc', 'summary', 'detail', '설명', '개요', '상세설명'],
   steps: ['steps', 'step', 'procedure', 'action', 'teststeps', '단계', '절차', '수행절차', '테스트절차'],
   expectedresult: [
     'expectedresult', 'expected', 'result', 'outcome', 'verification',
@@ -251,6 +252,10 @@ function deriveRequirementTitle(row) {
 
 function deriveTestCaseTitle(row) {
   if (row.title?.trim()) return truncateTitle(row.title);
+  if (row.description?.trim()) {
+    const firstLine = row.description.trim().split(/\r?\n/)[0];
+    return truncateTitle(firstLine);
+  }
   if (row.steps?.trim()) {
     const firstLine = row.steps.trim().split(/\r?\n/)[0];
     return truncateTitle(firstLine);
@@ -573,17 +578,19 @@ function readTestCaseRows(sheet) {
 
     const title = colIndex.title ? cellText(row.getCell(colIndex.title).value) : '';
     const code = colIndex.code ? cellText(row.getCell(colIndex.code).value) : '';
+    const description = colIndex.description ? cellText(row.getCell(colIndex.description).value) : '';
     const steps = colIndex.steps ? cellText(row.getCell(colIndex.steps).value) : '';
     const expectedResult = colIndex.expectedresult ? cellText(row.getCell(colIndex.expectedresult).value) : '';
     const status = colIndex.status ? cellText(row.getCell(colIndex.status).value) : '';
 
-    if (!rowHasRequirementData([title, code, steps, expectedResult, status])) continue;
+    if (!rowHasRequirementData([title, code, description, steps, expectedResult, status])) continue;
 
     rows.push({
       rowNumber,
       requirementCode,
       code,
       title,
+      description,
       steps,
       expectedResult,
       status,
@@ -603,11 +610,12 @@ async function insertTestCase(db, requirementId, userId, testCase, allocator) {
   if (!code) code = allocateNextTcCode(allocator.usedCodes, allocator.nextSequenceRef);
 
   await db.prepare(
-    `INSERT INTO test_cases (code, title, steps, expected_result, status, requirement_id, created_by_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO test_cases (code, title, description, steps, expected_result, status, requirement_id, created_by_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     code,
     testCase.title,
+    testCase.description || '',
     testCase.steps || '',
     testCase.expectedResult || '',
     testCase.status || 'NOT_RUN',
@@ -798,6 +806,7 @@ export async function importExcelBuffer(db, projectId, userId, buffer, options =
       await insertTestCase(db, requirementId, userId, {
         code: tcRow.code,
         title: deriveTestCaseTitle(tcRow),
+        description: tcRow.description,
         steps: tcRow.steps,
         expectedResult: tcRow.expectedResult,
         status: tcStatus || 'NOT_RUN',
@@ -880,6 +889,7 @@ export async function exportProjectToWorkbook(db, projectId, requirementIds = nu
     { header: 'requirementCode', key: 'requirementCode', width: 16 },
     { header: 'code', key: 'code', width: 14 },
     { header: 'title', key: 'title', width: 32 },
+    { header: 'description', key: 'description', width: 48 },
     { header: 'steps', key: 'steps', width: 48 },
     { header: 'expectedResult', key: 'expectedResult', width: 36 },
     { header: 'status', key: 'status', width: 12 },
@@ -908,6 +918,7 @@ export async function exportProjectToWorkbook(db, projectId, requirementIds = nu
         requirementCode: req.classification || req.code,
         code: tc.code,
         title: tc.title,
+        description: tc.description || '',
         steps: tc.steps || '',
         expectedResult: tc.expected_result || '',
         status: tc.status,
@@ -965,6 +976,7 @@ export async function createSampleWorkbookBuffer() {
     { header: 'requirementCode', key: 'requirementCode', width: 16 },
     { header: 'code', key: 'code', width: 14 },
     { header: 'title', key: 'title', width: 32 },
+    { header: 'description', key: 'description', width: 48 },
     { header: 'steps', key: 'steps', width: 48 },
     { header: 'expectedResult', key: 'expectedResult', width: 36 },
     { header: 'status', key: 'status', width: 12 },

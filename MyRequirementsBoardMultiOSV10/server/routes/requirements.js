@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDatabase } from '../db/index.js';
 import { requireProjectEdit } from '../auth/middleware.js';
 import { renumberRequirementCodes, tempCode, ensureRequirementCodes } from '../lib/reqCode.js';
+import { ensureTestCaseCodes, renumberTestCaseCodes } from '../lib/tcCode.js';
 import { mapRequirementRow } from '../db/requirementSchema.js';
 
 const router = Router({ mergeParams: true });
@@ -61,6 +62,8 @@ router.get('/:id', async (req, res) => {
 
   if (!row) return res.status(404).json({ error: '요구사항을 찾을 수 없습니다.' });
 
+  await ensureTestCaseCodes(db);
+
   const testCases = await db.prepare('SELECT * FROM test_cases WHERE requirement_id = ? ORDER BY id').all(row.id);
   res.json({
     ...mapRequirement(row, { createdByName: row.created_by_name }),
@@ -68,6 +71,7 @@ router.get('/:id', async (req, res) => {
       id: tc.id,
       code: tc.code,
       title: tc.title,
+      description: tc.description ?? '',
       steps: tc.steps,
       expectedResult: tc.expected_result,
       status: tc.status,
@@ -137,6 +141,7 @@ router.delete('/:id', requireProjectEdit(), async (req, res) => {
 
   await db.prepare('DELETE FROM requirements WHERE id = ?').run(id);
   await renumberRequirementCodes(db, projectId);
+  await renumberTestCaseCodes(db);
   res.json({ ok: true });
 });
 
@@ -152,6 +157,7 @@ router.delete('/', requireProjectEdit(), async (req, res) => {
   ).run(projectId, ...ids);
 
   await renumberRequirementCodes(db, projectId);
+  await renumberTestCaseCodes(db);
   res.json({ ok: true, count: result.changes });
 });
 

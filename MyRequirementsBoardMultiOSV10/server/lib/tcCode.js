@@ -1,9 +1,9 @@
 import { formatTcCode } from './testCaseCodeAllocator.js';
 
+const TC_ORDER_SQL = 'SELECT id, code FROM test_cases ORDER BY requirement_id ASC, id ASC';
+
 export async function renumberTestCaseCodes(db) {
-  const all = await db
-    .prepare('SELECT id FROM test_cases ORDER BY requirement_id ASC, id ASC')
-    .all();
+  const all = await db.prepare('SELECT id FROM test_cases ORDER BY requirement_id ASC, id ASC').all();
 
   if (all.length === 0) return [];
 
@@ -24,6 +24,13 @@ export async function renumberTestCaseCodes(db) {
   });
 
   return assigned;
+}
+
+export async function ensureTestCaseCodes(db) {
+  const rows = await db.prepare(TC_ORDER_SQL).all();
+  const needsRenumber = rows.some((row, index) => row.code !== formatTcCode(index + 1));
+  if (!needsRenumber) return null;
+  return renumberTestCaseCodes(db);
 }
 
 export function tempTestCaseCode() {

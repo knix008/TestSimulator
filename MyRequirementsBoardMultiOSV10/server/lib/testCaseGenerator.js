@@ -42,6 +42,7 @@ function buildPositiveCase(requirement, allocator) {
   return {
     code,
     title: `정상: ${requirement.title}`,
+    description: requirement.description?.trim() || '',
     steps: buildStepsFromDescription(requirement),
     expectedResult: requirement.description?.trim()
       || `시스템이 "${requirement.title}" 요구사항을 정상적으로 충족합니다.`,
@@ -54,6 +55,7 @@ function buildNegativeCase(requirement, allocator) {
   return {
     code,
     title: `오류: ${requirement.title}`,
+    description: '',
     steps: formatStepsText([{
       order: 1,
       action: `"${requirement.title}" 요구사항에 대해 잘못된 입력 또는 예외 조건을 적용합니다.`,
@@ -69,6 +71,7 @@ function buildBoundaryCase(requirement, allocator) {
   return {
     code,
     title: `경계: ${requirement.title}`,
+    description: '',
     steps: formatStepsText([{
       order: 1,
       action: `"${requirement.title}" 요구사항의 경계값·한계 조건을 검증합니다.`,

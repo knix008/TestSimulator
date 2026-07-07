@@ -1,4 +1,4 @@
-import { UI_HEADER_MIN_WIDTH_FALLBACK } from '../../../config/ui-layout.mjs';
+import { UI_HEADER_MIN_WIDTH_FALLBACK, UI_NAV_SCROLL_TRAILING_GAP } from '../../../config/ui-layout.mjs';
 import { translate } from '../i18n/index.js';
 import {
   getDisplayProjectName,
@@ -7,8 +7,10 @@ import {
 } from './displayLabels.js';
 
 const MEASURE_LANGUAGES = ['ko', 'en'];
-const MIN_WIDTH_BUFFER = 12;
+const MIN_WIDTH_BUFFER = 24;
 const MIN_PROJECT_SELECT_WIDTH = 160;
+const NAV_SCROLL_TRAILING_GAP = UI_NAV_SCROLL_TRAILING_GAP;
+const SETTINGS_CLEARANCE = 8;
 
 function measureElementWidth(el) {
   if (!el) return 0;
@@ -52,22 +54,45 @@ function measureFlexRow(el) {
 function measureNavExplicitWidth(navEl) {
   if (!navEl) return 0;
 
+  const trailing = navEl.querySelector('.nav-trailing');
+  const trailingWidth = trailing ? measureFlexRow(trailing) : 0;
+  navEl.style.setProperty('--nav-trailing-width', `${trailingWidth}px`);
+
   const style = getComputedStyle(navEl);
-  const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-  const gap = parseFloat(style.columnGap || style.gap) || 0;
+  const paddingLeft = parseFloat(style.paddingLeft) || 0;
+  const marginEnd = parseFloat(style.getPropertyValue('--nav-trailing-margin-end')) || 24;
 
   const scroll = navEl.querySelector('.nav-scroll');
+  if (!scroll) return 0;
+
+  const scrollStyle = getComputedStyle(scroll);
+  const scrollPadLeft = parseFloat(scrollStyle.paddingLeft) || 0;
+  const gap = parseFloat(scrollStyle.gap) || 0;
+  const children = Array.from(scroll.children);
+  let contentWidth = 0;
+  children.forEach((child, index) => {
+    contentWidth += measureElementWidth(child);
+    if (index < children.length - 1) contentWidth += gap;
+  });
+
+  return Math.ceil(
+    paddingLeft
+    + scrollPadLeft
+    + contentWidth
+    + trailingWidth
+    + NAV_SCROLL_TRAILING_GAP
+    + marginEnd,
+  );
+}
+
+function prepareMeasurementNav(navEl) {
+  if (!navEl) return;
+
   const trailing = navEl.querySelector('.nav-trailing');
+  if (!trailing) return;
 
-  const segments = [
-    scroll ? measureFlexRow(scroll) : 0,
-    trailing ? measureFlexRow(trailing) : 0,
-  ].filter((width) => width > 0);
-
-  const content = segments.reduce((sum, width) => sum + width, 0);
-  const gaps = gap * Math.max(segments.length - 1, 0);
-
-  return Math.ceil(paddingX + content + gaps);
+  const trailingWidth = measureFlexRow(trailing);
+  navEl.style.setProperty('--nav-trailing-width', `${trailingWidth}px`);
 }
 
 function measureNavCloneWidth(navEl) {
@@ -86,6 +111,7 @@ function measureNavCloneWidth(navEl) {
   ].join(';');
 
   document.body.appendChild(clone);
+  prepareMeasurementNav(clone);
   const width = Math.ceil(clone.getBoundingClientRect().width);
   document.body.removeChild(clone);
 
@@ -93,6 +119,7 @@ function measureNavCloneWidth(navEl) {
 }
 
 function measureNavIntrinsicWidth(navEl) {
+  prepareMeasurementNav(navEl);
   return Math.max(
     measureNavExplicitWidth(navEl),
     measureNavCloneWidth(navEl),
@@ -200,7 +227,10 @@ function measureHeaderForLanguage(headerEl, lang, context) {
     const nav = clone.querySelector('.nav');
     const menubar = clone.querySelector('.app-menubar');
 
-    if (nav) applyNavLocale(nav, lang, context);
+    if (nav) {
+      applyNavLocale(nav, lang, context);
+      prepareMeasurementNav(nav);
+    }
     if (menubar) applyI18nLabels(menubar, lang);
 
     const navWidth = nav ? measureNavIntrinsicWidth(nav) : 0;
@@ -238,26 +268,56 @@ function measureHeaderDefaultWidth(headerEl, context) {
   return maxWidth;
 }
 
-async function applyLayout({ defaultWidth, updateMinWidth, lockMinOnly }) {
+function getNavSettingsElement(navEl) {
+  return navEl?.querySelector('.nav-scroll a[href="/settings"]')
+    || navEl?.querySelector('.nav-scroll a.nav-item[href$="/settings"]');
+}
+
+/** Pixels the settings control overlaps the fixed trailing cluster (0 = fully visible). */
+export function measureNavSettingsOverlap(navEl) {
+  if (!navEl) return 0;
+
+  prepareMeasurementNav(navEl);
+
+  const settingsEl = getNavSettingsElement(navEl);
+  const trailing = navEl.querySelector('.nav-trailing');
+  if (!settingsEl || !trailing) return 0;
+
+  const settingsRect = settingsEl.getBoundingClientRect();
+  const trailingRect = trailing.getBoundingClientRect();
+  return Math.max(0, Math.ceil(settingsRect.right - trailingRect.left + SETTINGS_CLEARANCE));
+}
+
+function measureNavLiveMinWidth(navEl) {
+  prepareMeasurementNav(navEl);
+  const overlap = measureNavSettingsOverlap(navEl);
+  if (overlap > 0) {
+    return Math.ceil(window.innerWidth + overlap);
+  }
+  return Math.ceil(window.innerWidth);
+}
+
+function resolveAppMinWidth(navEl, headerEl, context) {
+  const intrinsic = headerEl
+    ? measureHeaderDefaultWidth(headerEl, context)
+    : UI_HEADER_MIN_WIDTH_FALLBACK;
+  const layoutFloor = navEl ? measureNavLiveMinWidth(navEl) : intrinsic;
+  return Math.max(intrinsic, layoutFloor, UI_HEADER_MIN_WIDTH_FALLBACK);
+}
+
+async function applyLayout({ defaultWidth, updateMinWidth }) {
   if (!window.electronAPI?.syncHeaderLayout) return null;
 
   return window.electronAPI.syncHeaderLayout({
     defaultWidth,
     updateMinWidth: Boolean(updateMinWidth),
-    lockMinOnly: Boolean(lockMinOnly),
   });
 }
 
-export async function syncAppMinWidthFromNav(navEl, { updateMinWidth = true, lockMinOnly = false } = {}) {
-  if (lockMinOnly) {
-    return applyLayout({ lockMinOnly: true });
-  }
-
+export async function syncAppMinWidthFromNav(navEl, { updateMinWidth = true } = {}) {
   const header = navEl?.closest('.app-header') || document.querySelector('.app-header');
   const context = parseMeasureContext(navEl);
-  const defaultWidth = header
-    ? measureHeaderDefaultWidth(header, context)
-    : UI_HEADER_MIN_WIDTH_FALLBACK;
+  const defaultWidth = resolveAppMinWidth(navEl, header, context);
 
   const result = await applyLayout({ defaultWidth, updateMinWidth });
 

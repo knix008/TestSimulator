@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
   department TEXT DEFAULT '',
   role TEXT NOT NULL DEFAULT 'VIEWER' CHECK(role IN ('ADMIN','EDITOR','VIEWER')),
   is_active INTEGER NOT NULL DEFAULT 1,
+  preferences TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS test_cases (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
+  description TEXT DEFAULT '',
   steps TEXT DEFAULT '',
   expected_result TEXT DEFAULT '',
   status TEXT NOT NULL DEFAULT 'NOT_RUN' CHECK(status IN ('NOT_RUN','PASS','FAIL','BLOCKED')),
@@ -88,6 +90,13 @@ CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
 
 CREATE INDEX IF NOT EXISTS idx_test_cases_requirement ON test_cases(requirement_id);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  sid TEXT PRIMARY KEY,
+  sess TEXT NOT NULL,
+  expired INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_expired ON sessions(expired);
 `;
 
 function getTableColumns(tableName) {
@@ -135,6 +144,20 @@ function migrateProjectsSchema() {
   if (!columns.includes('is_system_default')) {
     database.run('ALTER TABLE projects ADD COLUMN is_system_default INTEGER NOT NULL DEFAULT 0');
     database.run("UPDATE projects SET is_system_default = 1 WHERE code = 'DEFAULT'");
+  }
+}
+
+function migrateTestCasesSchema() {
+  const columns = getTableColumns('test_cases');
+  if (!columns.includes('description')) {
+    database.run("ALTER TABLE test_cases ADD COLUMN description TEXT DEFAULT ''");
+  }
+}
+
+function migrateUsersSchema() {
+  const columns = getTableColumns('users');
+  if (!columns.includes('preferences')) {
+    database.run("ALTER TABLE users ADD COLUMN preferences TEXT NOT NULL DEFAULT '{}'");
   }
 }
 
@@ -351,6 +374,8 @@ export async function initSqliteDatabase(dataDir) {
   migrateLegacySchema();
   migrateRequirementsSchema();
   migrateProjectsSchema();
+  migrateTestCasesSchema();
+  migrateUsersSchema();
 
   dbFacade = createDbFacade();
   await migrateRequirementsClassificationRenumber(dbFacade);

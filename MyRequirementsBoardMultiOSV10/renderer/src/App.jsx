@@ -13,6 +13,7 @@ import { ExcelDialogProvider } from './context/ExcelDialogContext.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
 import RequirementsPage from './pages/RequirementsPage.jsx';
 import RequirementFormPage from './pages/RequirementFormPage.jsx';
+import TestCasesPage from './pages/TestCasesPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import OllamaPage from './pages/OllamaPage.jsx';
@@ -51,6 +52,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="/" element={<ProtectedRoute><RequirementsPage /></ProtectedRoute>} />
+              <Route path="/test-cases" element={<ProtectedRoute><TestCasesPage /></ProtectedRoute>} />
               <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
               <Route path="/requirements/new" element={<ProtectedRoute><RequirementFormPage /></ProtectedRoute>} />
               <Route path="/requirements/:id/edit" element={<ProtectedRoute><RequirementFormPage /></ProtectedRoute>} />

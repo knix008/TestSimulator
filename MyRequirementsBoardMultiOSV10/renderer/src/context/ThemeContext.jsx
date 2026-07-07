@@ -15,11 +15,13 @@ export function ThemeProvider({ children, initialTheme = DEFAULT_THEME }) {
     setThemeState(normalizeTheme(initialTheme));
   }, [initialTheme]);
 
-  const setTheme = useCallback((nextTheme) => {
+  const setTheme = useCallback((nextTheme, options = {}) => {
     const normalized = normalizeTheme(nextTheme);
     setThemeState(normalized);
     applyTheme(normalized);
-    void saveThemePreference(normalized);
+    if (options.persist !== false) {
+      void saveThemePreference(normalized);
+    }
   }, []);
 
   useEffect(() => {
