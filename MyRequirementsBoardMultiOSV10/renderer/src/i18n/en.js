@@ -80,7 +80,7 @@ export const en = {
     tipProjects: 'Projects — create, members and permissions',
     tipUsers: 'Users — ID, email, password, roles and project assignment',
     tipOllama: 'AI refine — polish requirements with Ollama',
-    tipSettings: 'Settings — profile, DB, Ollama, language',
+    tipSettings: 'Settings — profile, DB, Ollama, language, theme',
     tipLogout: 'Log out of the current account',
   },
   menu: {
@@ -303,7 +303,11 @@ export const en = {
   settings: {
     title: 'Settings',
     language: 'Language',
-    languageHint: 'Choose display language. Default is Korean.',
+    languageHint: 'Choose display language. Default is Korean. Your choice is saved automatically.',
+    theme: 'Theme',
+    themeHint: 'Light theme keeps a bright content area; dark theme darkens the whole interface. The menu bar and toolbar stay dark in both themes. Your choice is saved automatically.',
+    themeLight: 'Light theme',
+    themeDark: 'Dark theme',
     korean: '한국어',
     english: 'English',
     systemInfo: 'System information',

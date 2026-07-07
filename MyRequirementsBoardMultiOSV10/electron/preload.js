@@ -17,4 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setMinimumSize: (width, height) => ipcRenderer.invoke('window:set-minimum-size', { width, height }),
   applyDefaultWindowSize: (width) => ipcRenderer.invoke('window:apply-default-size', { width }),
   syncHeaderLayout: (payload) => ipcRenderer.invoke('window:sync-header-layout', payload),
+  getPreferences: () => ipcRenderer.invoke('preferences:get'),
+  ensurePreferences: (localFallback) => ipcRenderer.invoke('preferences:ensure', localFallback),
+  savePreferences: (partial) => ipcRenderer.invoke('preferences:save', partial),
 });

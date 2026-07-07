@@ -21,7 +21,7 @@ import { useUndoHistory } from '../context/UndoHistoryContext.jsx';
 import { IconButton } from './IconButton.jsx';
 import { IconText } from './IconText.jsx';
 import { getTooltipProps, mergeTooltipClass } from './tooltip.js';
-import { syncAppMinWidthFromNav, isDefaultSizeApplied } from '../lib/syncAppMinWidth.js';
+import { syncAppMinWidthFromNav } from '../lib/syncAppMinWidth.js';
 import { getDisplayProjectName, getDisplayRoleLabel, getDisplayUserName } from '../lib/displayLabels.js';
 
 function NavItem({ to, icon, labelKey, tooltipKey, matchPrefix }) {
@@ -66,26 +66,31 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
     if (!nav) return undefined;
 
     let cancelled = false;
+    let syncFrame = 0;
 
-    const run = async () => {
+    const syncLayout = async () => {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       await new Promise((resolve) => requestAnimationFrame(resolve));
       if (document.fonts?.ready) await document.fonts.ready;
       if (cancelled) return;
 
-      if (!isDefaultSizeApplied()) {
-        await syncAppMinWidthFromNav(nav, { applyDefaultSize: true });
-      } else {
-        await syncAppMinWidthFromNav(nav, { refitLayout: true });
-      }
+      await syncAppMinWidthFromNav(nav, { updateMinWidth: true });
     };
 
-    void run();
+    const scheduleSync = () => {
+      cancelAnimationFrame(syncFrame);
+      syncFrame = requestAnimationFrame(() => {
+        void syncLayout();
+      });
+    };
+
+    scheduleSync();
 
     return () => {
       cancelled = true;
+      cancelAnimationFrame(syncFrame);
     };
-  }, [user?.id, canEditProject, language, user?.role]);
+  }, [user?.id, canEditProject, language, user?.role, projects.length, activeProject?.id]);
 
   const handleUndo = async () => {
     try {
@@ -118,7 +123,8 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
 
   return (
     <nav className="nav" ref={setNavRef}>
-      <div className="nav-scroll">
+      <div className="nav-primary">
+        <div className="nav-scroll">
         {projects.length > 0 ? (
           <label className="nav-project nav-project--first">
             <FolderKanban size={16} strokeWidth={2} aria-hidden="true" />
@@ -138,6 +144,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
         ) : (
           <span className="nav-project nav-project--empty nav-project--first muted">{t('nav.noProjects')}</span>
         )}
+        <NavItem to="/projects" icon={FolderKanban} labelKey="nav.projects" tooltipKey="nav.tipProjects" />
         <NavItem to="/" icon={ClipboardList} labelKey="nav.requirements" tooltipKey="nav.tipRequirements" />
         {canEditProject && (
           <NavItem
@@ -155,7 +162,6 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
           tooltipKey="menu.tipExport"
           matchPrefix="/export"
         />
-        <NavItem to="/projects" icon={FolderKanban} labelKey="nav.projects" tooltipKey="nav.tipProjects" />
         {hasRole('ADMIN') && (
           <NavItem to="/users" icon={Users} labelKey="nav.users" tooltipKey="nav.tipUsers" />
         )}
@@ -163,8 +169,9 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
           <NavItem to="/ollama" icon={Sparkles} labelKey="nav.ollama" tooltipKey="nav.tipOllama" />
         )}
         <NavItem to="/settings" icon={Settings} labelKey="nav.settings" tooltipKey="nav.tipSettings" />
+        </div>
         {canEditProject && (
-          <>
+          <div className="nav-undo-redo">
             <button
               type="button"
               className={mergeTooltipClass('nav-item', undoTooltip)}
@@ -185,19 +192,18 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
             >
               <IconText icon={Redo2}>{t('menu.redo')}</IconText>
             </button>
-          </>
+          </div>
         )}
+        <button
+          type="button"
+          className={mergeTooltipClass('nav-item nav-program-info', appInfoTooltipProps)}
+          onClick={onShowInfo}
+          aria-label={appInfoTooltipProps['aria-label'] || appInfoLabel}
+          data-tooltip={appInfoTooltipProps['data-tooltip']}
+        >
+          <IconText icon={Info}>{appInfoLabel}</IconText>
+        </button>
       </div>
-      <button
-        type="button"
-        className={mergeTooltipClass('nav-item nav-program-info', appInfoTooltipProps)}
-        onClick={onShowInfo}
-        aria-label={appInfoTooltipProps['aria-label'] || appInfoLabel}
-        data-tooltip={appInfoTooltipProps['data-tooltip']}
-      >
-        <IconText icon={Info}>{appInfoLabel}</IconText>
-      </button>
-      <div className="nav-spacer" aria-hidden="true" />
       <div className="nav-trailing">
         <span className="user">
           <IconText icon={User}>{displayUserName} ({roleLabel})</IconText>

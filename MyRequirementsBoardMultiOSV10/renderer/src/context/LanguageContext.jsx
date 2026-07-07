@@ -1,19 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { DEFAULT_LANGUAGE, translate } from '../i18n/index.js';
+import { DEFAULT_LANGUAGE, saveLanguagePreference } from '../lib/appPreferences.js';
+import { translate } from '../i18n/index.js';
 
-const STORAGE_KEY = 'mrb_language';
 const LanguageContext = createContext(null);
 
-export function LanguageProvider({ children }) {
-  const [language, setLanguageState] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved === 'en' ? 'en' : DEFAULT_LANGUAGE;
-  });
+export function LanguageProvider({ children, initialLanguage = DEFAULT_LANGUAGE }) {
+  const [language, setLanguageState] = useState(
+    initialLanguage === 'en' ? 'en' : DEFAULT_LANGUAGE,
+  );
+
+  useEffect(() => {
+    setLanguageState(initialLanguage === 'en' ? 'en' : DEFAULT_LANGUAGE);
+  }, [initialLanguage]);
 
   const setLanguage = useCallback((lang) => {
     const next = lang === 'en' ? 'en' : DEFAULT_LANGUAGE;
     setLanguageState(next);
-    localStorage.setItem(STORAGE_KEY, next);
+    void saveLanguagePreference(next);
   }, []);
 
   useEffect(() => {

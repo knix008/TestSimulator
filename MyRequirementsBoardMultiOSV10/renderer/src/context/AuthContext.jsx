@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import { saveLastUsername } from '../lib/lastUsername.js';
-import { resetAppMinWidthLock } from '../lib/syncAppMinWidth.js';
 
 const AuthContext = createContext(null);
 
@@ -31,7 +30,6 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     if (user?.username) saveLastUsername(user.username);
     await api.logout();
-    resetAppMinWidthLock();
     setUser(null);
   };
 

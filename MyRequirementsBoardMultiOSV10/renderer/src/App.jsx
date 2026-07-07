@@ -36,30 +36,41 @@ export default function App() {
 
   return (
     <>
-      {user && (
-        <header className="app-header">
-          <div className="app-menubar" role="menubar">
-            <AppMenuBar onShowInfo={() => setInfoOpen(true)} />
-          </div>
-          <Nav onShowInfo={() => setInfoOpen(true)} />
-        </header>
+      {user ? (
+        <div className="app-shell">
+          <header className="app-header">
+            <div className="app-menubar" role="menubar">
+              <AppMenuBar onShowInfo={() => setInfoOpen(true)} />
+            </div>
+            <Nav onShowInfo={() => setInfoOpen(true)} />
+          </header>
+          <main className="app-main">
+            <ProjectFileListener />
+            <Routes>
+              <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="/" element={<ProtectedRoute><RequirementsPage /></ProtectedRoute>} />
+              <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
+              <Route path="/requirements/new" element={<ProtectedRoute><RequirementFormPage /></ProtectedRoute>} />
+              <Route path="/requirements/:id/edit" element={<ProtectedRoute><RequirementFormPage /></ProtectedRoute>} />
+              <Route path="/users" element={<ProtectedRoute minRole="ADMIN"><UsersPage /></ProtectedRoute>} />
+              <Route path="/ollama" element={<ProtectedRoute minRole="EDITOR"><OllamaPage /></ProtectedRoute>} />
+              <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
+              <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+        </div>
+      ) : (
+        <>
+          <LoginDialog open={!user} />
+          <Routes>
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </>
       )}
       <AppInfoDialog open={infoOpen} onClose={() => setInfoOpen(false)} />
-      <LoginDialog open={!user} />
-      {user && <ProjectFileListener />}
-      <Routes>
-        <Route path="/login" element={<Navigate to="/" replace />} />
-        <Route path="/" element={<ProtectedRoute><RequirementsPage /></ProtectedRoute>} />
-        <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
-        <Route path="/requirements/new" element={<ProtectedRoute><RequirementFormPage /></ProtectedRoute>} />
-        <Route path="/requirements/:id/edit" element={<ProtectedRoute><RequirementFormPage /></ProtectedRoute>} />
-        <Route path="/users" element={<ProtectedRoute minRole="ADMIN"><UsersPage /></ProtectedRoute>} />
-        <Route path="/ollama" element={<ProtectedRoute minRole="EDITOR"><OllamaPage /></ProtectedRoute>} />
-        <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
-        <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
     </>
   );
 }

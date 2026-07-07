@@ -10,3 +10,6 @@ export const UI_DEFAULT_WINDOW_HEIGHT = 920;
 
 /** Pre-login minimum until the renderer measures the live header. */
 export const UI_HEADER_MIN_WIDTH_FALLBACK = 640;
+
+/** Fixed gap between the logout button and the window's right inner edge. */
+export const UI_NAV_TRAILING_MARGIN_END = 24;

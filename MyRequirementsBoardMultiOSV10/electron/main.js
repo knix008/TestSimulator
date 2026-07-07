@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { setServerDataDir, startServer } from '../server/index.js';
 import { closeDatabase } from '../server/db/index.js';
 import { loadWindowState, saveWindowState } from './windowState.js';
+import { loadAppPreferences, saveAppPreferences, ensureAppPreferences } from './appPreferences.js';
 import { UI_MIN_HEIGHT, UI_DEFAULT_WINDOW_WIDTH, UI_DEFAULT_WINDOW_HEIGHT, UI_HEADER_MIN_WIDTH_FALLBACK } from '../config/ui-layout.mjs';
 
 Menu.setApplicationMenu(null);
@@ -62,6 +63,47 @@ function getRendererUrl() {
   return `file://${path.join(__dirname, '../dist-renderer/index.html')}`;
 }
 
+function applyMeasuredMinWidth(measuredMin) {
+  enforcedMinWidth = measuredMin;
+  mainWindow.setMinimumSize(measuredMin, UI_MIN_HEIGHT);
+  const [currentWidth, currentHeight] = mainWindow.getContentSize();
+  const nextWidth = Math.max(currentWidth, measuredMin);
+  if (currentWidth < measuredMin) {
+    mainWindow.setContentSize(measuredMin, currentHeight);
+  }
+  return { nextWidth, currentHeight };
+}
+
+function registerWindowBoundsPersistence() {
+  let resizeSaveTimer = null;
+
+  const persistBounds = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const [width, height] = mainWindow.getContentSize();
+    void saveWindowState({ width, height, minWidth: enforcedMinWidth });
+  };
+
+  const schedulePersistBounds = () => {
+    clearTimeout(resizeSaveTimer);
+    resizeSaveTimer = setTimeout(persistBounds, 400);
+  };
+
+  mainWindow.on('will-resize', (event, newBounds) => {
+    if (newBounds.width < enforcedMinWidth) {
+      event.preventDefault();
+      const [, height] = mainWindow.getContentSize();
+      mainWindow.setContentSize(enforcedMinWidth, height);
+    }
+  });
+
+  mainWindow.on('resize', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    schedulePersistBounds();
+  });
+
+  mainWindow.on('close', persistBounds);
+}
+
 async function createWindow() {
   const useExternalDevServer = isDev && (
     process.env.USE_EXTERNAL_SERVER === '1'
@@ -91,6 +133,7 @@ async function createWindow() {
     height: initialHeight,
     minWidth: initialMinWidth,
     minHeight: UI_MIN_HEIGHT,
+    useContentSize: true,
     title: 'MyRequirementsBoard',
     icon: windowIcon,
     autoHideMenuBar: true,
@@ -107,14 +150,7 @@ async function createWindow() {
 
   stripNativeWindowMenu(mainWindow);
   removeNativeApplicationMenu();
-
-  mainWindow.on('will-resize', (event, newBounds) => {
-    if (newBounds.width < enforcedMinWidth) {
-      event.preventDefault();
-      const [, height] = mainWindow.getSize();
-      mainWindow.setSize(enforcedMinWidth, height);
-    }
-  });
+  registerWindowBoundsPersistence();
 
   const url = getRendererUrl();
   if (isDev) {
@@ -209,31 +245,34 @@ function registerWindowHandlers() {
   ipcMain.handle('window:apply-default-size', (_event, { width }) => {
     if (!mainWindow) return;
     const nextWidth = Math.max(Number(width) || 0, enforcedMinWidth, 640);
-    const [, currentHeight] = mainWindow.getSize();
-    mainWindow.setSize(nextWidth, currentHeight);
+    const [, currentHeight] = mainWindow.getContentSize();
+    mainWindow.setContentSize(nextWidth, currentHeight);
   });
 
-  ipcMain.handle('window:sync-header-layout', async (_event, { defaultWidth, applyDefaultSize, lockMinOnly }) => {
-    if (!mainWindow) return { width: 0 };
+  ipcMain.handle('window:sync-header-layout', async (_event, { defaultWidth, updateMinWidth, lockMinOnly }) => {
+    if (!mainWindow) return { width: 0, minWidth: 0 };
 
-    if (applyDefaultSize) {
-      const nextWidth = Math.max(Number(defaultWidth) || 0, enforcedMinWidth, 640);
-      const [, currentHeight] = mainWindow.getSize();
-      mainWindow.setSize(nextWidth, currentHeight);
+    const measuredMin = Math.max(Number(defaultWidth) || 0, 640);
+
+    if (updateMinWidth) {
+      const { nextWidth, currentHeight } = applyMeasuredMinWidth(measuredMin);
+      await saveWindowState({ width: nextWidth, height: currentHeight, minWidth: measuredMin });
+    } else if (lockMinOnly) {
+      const [currentWidth, currentHeight] = mainWindow.getContentSize();
+      enforcedMinWidth = currentWidth;
+      mainWindow.setMinimumSize(currentWidth, UI_MIN_HEIGHT);
+      await saveWindowState({ width: currentWidth, height: currentHeight, minWidth: currentWidth });
     }
 
-    if (applyDefaultSize || lockMinOnly) {
-      const [width, height] = mainWindow.getSize();
-      enforcedMinWidth = width;
-      mainWindow.setMinimumSize(width, UI_MIN_HEIGHT);
-
-      if (applyDefaultSize) {
-        await saveWindowState({ width, height, minWidth: width });
-      }
-    }
-
-    return { width: mainWindow.getSize()[0] };
+    const [width] = mainWindow.getContentSize();
+    return { width, minWidth: enforcedMinWidth };
   });
+
+  ipcMain.handle('preferences:get', () => loadAppPreferences());
+
+  ipcMain.handle('preferences:ensure', (_event, localFallback) => ensureAppPreferences(localFallback));
+
+  ipcMain.handle('preferences:save', async (_event, partial) => saveAppPreferences(partial));
 }
 
 removeNativeApplicationMenu();

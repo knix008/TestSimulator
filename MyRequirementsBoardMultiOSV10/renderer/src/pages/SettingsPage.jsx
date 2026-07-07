@@ -10,6 +10,7 @@ import {
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import { IconButton } from '../components/IconButton.jsx';
 
 const DEFAULT_PORTS = { mariadb: 3306, mysql: 3306, postgresql: 5432, mssql: 1433 };
@@ -17,6 +18,7 @@ const DEFAULT_PORTS = { mariadb: 3306, mysql: 3306, postgresql: 5432, mssql: 143
 export default function SettingsPage() {
   const { user } = useAuth();
   const { t, language, setLanguage } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const [health, setHealth] = useState(null);
   const [dbStatus, setDbStatus] = useState(null);
   const [profile, setProfile] = useState({ name: '', email: '', company: '', department: '' });
@@ -175,6 +177,22 @@ export default function SettingsPage() {
           >
             <option value="ko">{t('settings.korean')}</option>
             <option value="en">{t('settings.english')}</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>{t('settings.theme')}</h2>
+        <p className="muted">{t('settings.themeHint')}</p>
+        <div className="form-row">
+          <label htmlFor="theme-select">{t('settings.theme')}</label>
+          <select
+            id="theme-select"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+          >
+            <option value="light">{t('settings.themeLight')}</option>
+            <option value="dark">{t('settings.themeDark')}</option>
           </select>
         </div>
       </div>

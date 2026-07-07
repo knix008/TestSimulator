@@ -80,7 +80,7 @@ export const ko = {
     tipProjects: '프로젝트 — 생성, 멤버 추가 및 권한 설정',
     tipUsers: '사용자 — ID, 이메일, 비밀번호, 권한 설정 및 프로젝트 배정',
     tipOllama: 'AI 정제 — Ollama로 요구사항 다듬기',
-    tipSettings: '설정 — 프로필, DB, Ollama, 언어',
+    tipSettings: '설정 — 프로필, DB, Ollama, 언어, 테마',
     tipLogout: '현재 계정에서 로그아웃',
   },
   menu: {
@@ -303,7 +303,11 @@ export const ko = {
   settings: {
     title: '설정',
     language: '언어',
-    languageHint: '화면 표시 언어를 선택합니다. 기본값은 한국어입니다.',
+    languageHint: '화면 표시 언어를 선택합니다. 기본값은 한국어이며, 선택한 값은 자동으로 저장됩니다.',
+    theme: '테마',
+    themeHint: '밝은 테마는 본문이 밝고, 어두운 테마는 화면 전체가 어둡습니다. 메뉴바·툴바는 두 테마 모두 어두운 색이며, 선택한 값은 자동으로 저장됩니다.',
+    themeLight: '밝은 테마',
+    themeDark: '어두운 테마',
     korean: '한국어',
     english: 'English',
     systemInfo: '시스템 정보',
