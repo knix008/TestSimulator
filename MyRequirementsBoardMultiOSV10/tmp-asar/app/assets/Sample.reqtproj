@@ -1,0 +1,22 @@
+{
+  "projectName": "Sample Project",
+  "schemaVersion": "1.0",
+  "createdUtc": "2026-07-07T09:04:40.968Z",
+  "lastModifiedUtc": "2026-07-07T09:04:40.969Z",
+  "requirements": [
+    {
+      "id": "sample-req-001",
+      "code": "REQ-001",
+      "title": "User login",
+      "description": "The system shall allow registered users to sign in with username and password.",
+      "category": "Authentication",
+      "priority": "high",
+      "status": "draft",
+      "source": "Sample",
+      "parentId": null,
+      "createdUtc": "2026-07-07T09:04:40.969Z",
+      "modifiedUtc": "2026-07-07T09:04:40.969Z",
+      "testCases": []
+    }
+  ]
+}

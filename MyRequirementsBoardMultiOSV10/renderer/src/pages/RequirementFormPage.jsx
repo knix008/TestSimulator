@@ -11,6 +11,7 @@ import { IconLink } from '../components/IconLink.jsx';
 import TableInlineSelect from '../components/TableInlineSelect.jsx';
 import { openRowContextMenu, useContextMenu } from '../components/ContextMenu.jsx';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
+import { ROUTES } from '../lib/routes.js';
 
 const emptyTestCaseForm = {
   code: '',
@@ -119,7 +120,7 @@ export default function RequirementFormPage() {
           snapshot: requirementPayload(form),
         });
       }
-      navigate('/');
+      navigate(ROUTES.requirements);
     } catch (err) {
       setError(err.message);
     }
@@ -373,7 +374,7 @@ export default function RequirementFormPage() {
           >
             {refining ? t('requirements.refining') : t('requirements.refine')}
           </IconButton>
-          <IconLink icon={ArrowLeft} className="btn btn-secondary" to="/" tooltip={t('requirements.back')}>{t('common.cancel')}</IconLink>
+          <IconLink icon={ArrowLeft} className="btn btn-secondary" to={ROUTES.requirements} tooltip={t('requirements.back')}>{t('common.cancel')}</IconLink>
         </div>
       </form>
 

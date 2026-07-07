@@ -23,6 +23,10 @@ function writeLocalPreferences(partial) {
   }
 }
 
+export function readLocalAppPreferences() {
+  return readLocalPreferences();
+}
+
 export async function loadAppPreferences() {
   const local = readLocalPreferences();
 

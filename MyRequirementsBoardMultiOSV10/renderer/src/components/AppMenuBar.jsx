@@ -34,6 +34,7 @@ import {
 } from '../lib/projectFileActions.js';
 import { MenuDropdown } from './MenuDropdown.jsx';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
+import { ROUTES } from '../lib/routes.js';
 
 export default function AppMenuBar({ onShowInfo }) {
   const navigate = useNavigate();
@@ -67,7 +68,7 @@ export default function AppMenuBar({ onShowInfo }) {
       const result = await api.openReqtproj(payload);
       await refreshProjects();
       selectProject(result.project);
-      navigate('/');
+      navigate(ROUTES.requirements);
     } catch (err) {
       window.alert(err.message);
     }
@@ -85,7 +86,7 @@ export default function AppMenuBar({ onShowInfo }) {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    navigate(ROUTES.login);
   };
 
   const fileItems = [
@@ -179,7 +180,7 @@ export default function AppMenuBar({ onShowInfo }) {
       icon: ClipboardList,
       labelKey: 'nav.requirements',
       tooltipKey: 'nav.tipRequirements',
-      onClick: () => navigate('/'),
+      onClick: () => navigate(ROUTES.requirements),
     },
     {
       id: 'projects',

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FileDown, FileUp, FolderOpen, Loader2, RotateCcw, X } from 'lucide-react';
 import { api, downloadExcelSample } from '../api/client.js';
 import { useProject } from '../context/ProjectContext.jsx';
@@ -8,6 +9,7 @@ import { IconButton } from './IconButton.jsx';
 import ExcelImportResultDialog from './ExcelImportResultDialog.jsx';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
 import { pickExcelFile } from '../lib/excelFileActions.js';
+import { ROUTES } from '../lib/routes.js';
 
 const MAPPABLE_FIELDS = [
   'skip',
@@ -37,6 +39,7 @@ function buildColumnMapping(selectedSheet, headerRow, columns) {
 export default function ExcelImportDialog() {
   const { activeProject, canEditProject } = useProject();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { importOpen, closeImport, openExport, notifyDataChange } = useExcelDialogs();
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -112,13 +115,18 @@ export default function ExcelImportDialog() {
   };
 
   const handleResultClose = () => {
+    const wasSuccess = resultDialog?.mode === 'success';
     setResultDialog(null);
+    if (wasSuccess) closeImport();
   };
 
   const handleResultConfirm = () => {
     const wasSuccess = resultDialog?.mode === 'success';
     setResultDialog(null);
-    if (wasSuccess) closeImport();
+    if (wasSuccess) {
+      closeImport();
+      navigate(ROUTES.requirements);
+    }
   };
 
   if (!importOpen) return null;
@@ -208,7 +216,12 @@ export default function ExcelImportDialog() {
         columnMapping,
       });
       showImportResult(data);
-      if (data.created > 0 || data.updated > 0) {
+      const hasChanges = (data.created ?? 0) > 0 || (data.updated ?? 0) > 0 || (data.testCasesCreated ?? 0) > 0;
+      const failedImport = data.errors?.length > 0 && !hasChanges;
+      if (!failedImport) {
+        navigate(ROUTES.requirements);
+      }
+      if (hasChanges) {
         notifyDataChange();
       }
     } catch (err) {

@@ -8,7 +8,6 @@ import { ContextMenuProvider } from './components/ContextMenu.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import { UndoHistoryProvider } from './context/UndoHistoryContext.jsx';
-import UserPreferencesSync from './components/UserPreferencesSync.jsx';
 import { UI_MIN_HEIGHT, UI_NAV_SCROLL_TRAILING_GAP, UI_NAV_TRAILING_MARGIN_END } from '../../config/ui-layout.mjs';
 import { loadAppPreferences } from './lib/appPreferences.js';
 import { applyTheme } from './lib/theme.js';
@@ -32,7 +31,6 @@ async function bootstrap() {
             <ThemeProvider initialTheme={preferences.theme}>
               <AuthProvider>
                 <ProjectProvider>
-                  <UserPreferencesSync />
                   <UndoHistoryProvider>
                     <App />
                   </UndoHistoryProvider>

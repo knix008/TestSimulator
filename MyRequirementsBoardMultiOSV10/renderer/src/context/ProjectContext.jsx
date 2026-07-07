@@ -1,11 +1,20 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
 import { useAuth } from './AuthContext.jsx';
+import { useLanguage } from './LanguageContext.jsx';
+import { useTheme } from './ThemeContext.jsx';
 
 const ProjectContext = createContext(null);
 
+function pickActiveProject(list, savedId) {
+  const saved = savedId ? list.find((project) => project.id === savedId) : null;
+  return saved || list[0] || null;
+}
+
 export function ProjectProvider({ children }) {
   const { user } = useAuth();
+  const { setLanguage } = useLanguage();
+  const { theme } = useTheme();
   const [projects, setProjects] = useState([]);
   const [activeProject, setActiveProject] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -18,26 +27,31 @@ export function ProjectProvider({ children }) {
     }
     setLoading(true);
     try {
-      const [list, prefs] = await Promise.all([
-        api.listProjects(false),
-        api.getUserPreferences().catch(() => null),
-      ]);
+      const list = await api.listProjects(false);
       setProjects(list);
-      let savedId = prefs?.activeProjectId;
-      if (!savedId) {
-        const legacyId = Number(localStorage.getItem('mrb_active_project_id'));
-        if (legacyId) {
-          savedId = legacyId;
-          localStorage.removeItem('mrb_active_project_id');
-          void api.patchUserPreferences({ activeProjectId: legacyId }).catch(() => {});
-        }
+
+      const legacyId = Number(localStorage.getItem('mrb_active_project_id'));
+      if (legacyId) {
+        localStorage.removeItem('mrb_active_project_id');
       }
-      const saved = savedId ? list.find((p) => p.id === savedId) : null;
-      const next = saved || list[0] || null;
-      setActiveProject(next);
-      if (next && savedId !== next.id) {
-        void api.patchUserPreferences({ activeProjectId: next.id }).catch(() => {});
-      }
+      setActiveProject(pickActiveProject(list, legacyId || null));
+
+      void api.getUserPreferences()
+        .then((prefs) => {
+          if (prefs?.language) setLanguage(prefs.language, { persist: false });
+          void api.patchUserPreferences({ theme, language: prefs?.language || undefined }).catch(() => {});
+
+          let savedId = prefs?.activeProjectId || legacyId || null;
+          const next = pickActiveProject(list, savedId);
+          setActiveProject(next);
+
+          if (legacyId && !prefs?.activeProjectId) {
+            void api.patchUserPreferences({ activeProjectId: legacyId }).catch(() => {});
+          } else if (next && savedId !== next.id) {
+            void api.patchUserPreferences({ activeProjectId: next.id }).catch(() => {});
+          }
+        })
+        .catch(() => {});
     } finally {
       setLoading(false);
     }

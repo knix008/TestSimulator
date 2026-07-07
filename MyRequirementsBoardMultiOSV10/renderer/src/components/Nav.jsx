@@ -21,6 +21,7 @@ import { IconButton } from './IconButton.jsx';
 import { IconText } from './IconText.jsx';
 import { NavTooltipHost } from './NavTooltipHost.jsx';
 import { useNavLayout } from '../hooks/useNavLayout.js';
+import { ROUTES } from '../lib/routes.js';
 import { getDisplayProjectName, getDisplayRoleLabel, getDisplayUserName } from '../lib/displayLabels.js';
 
 function NavItem({ to, icon, labelKey, tooltipKey, matchPrefix }) {
@@ -28,8 +29,8 @@ function NavItem({ to, icon, labelKey, tooltipKey, matchPrefix }) {
   const { t } = useLanguage();
   const active = matchPrefix
     ? location.pathname.startsWith(matchPrefix)
-    : to === '/'
-      ? location.pathname === '/' || location.pathname.startsWith('/requirements')
+    : to === ROUTES.requirements
+      ? location.pathname === ROUTES.requirements || location.pathname.startsWith('/requirements')
       : location.pathname.startsWith(to);
   const label = t(labelKey);
   const tooltip = tooltipKey ? t(tooltipKey) : label;
@@ -102,14 +103,10 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
     else if (ref) ref.current = node;
   };
 
-  useNavLayout(navRef, trailingRef, [
-    user?.id,
-    canEditProject,
-    language,
-    user?.role,
-    projects.length,
-    activeProject?.id,
-  ]);
+  useNavLayout(navRef, trailingRef, {
+    layoutDeps: [user?.id, canEditProject, language, user?.role, projects.length],
+    trailingDeps: [activeProject?.id],
+  });
 
   const handleUndo = async () => {
     try {
@@ -134,7 +131,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate(ROUTES.login);
   };
 
   return (
@@ -171,7 +168,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
           </NavTooltipHost>
         )}
         <NavItem to="/projects" icon={FolderKanban} labelKey="nav.projects" tooltipKey="nav.tipProjects" />
-        <NavItem to="/" icon={ClipboardList} labelKey="nav.requirements" tooltipKey="nav.tipRequirements" />
+        <NavItem to={ROUTES.requirements} icon={ClipboardList} labelKey="nav.requirements" tooltipKey="nav.tipRequirements" />
         <NavItem to="/test-cases" icon={ListChecks} labelKey="nav.testCases" tooltipKey="nav.tipTestCases" matchPrefix="/test-cases" />
         {hasRole('ADMIN') && (
           <NavItem to="/users" icon={Users} labelKey="nav.users" tooltipKey="nav.tipUsers" />

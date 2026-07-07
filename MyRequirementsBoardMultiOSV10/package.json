@@ -67,10 +67,13 @@
     "files": [
       "electron/**/*",
       "server/**/*",
+      "config/**/*",
       "dist-renderer/**/*",
       "assets/**/*",
-      "config/build-info.json",
       "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/sql.js/dist/**/*"
     ],
     "extraResources": [
       {

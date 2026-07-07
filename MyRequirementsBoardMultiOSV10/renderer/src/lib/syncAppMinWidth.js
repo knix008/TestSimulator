@@ -297,14 +297,6 @@ function measureNavLiveMinWidth(navEl) {
   return Math.ceil(window.innerWidth);
 }
 
-function resolveAppMinWidth(navEl, headerEl, context) {
-  const intrinsic = headerEl
-    ? measureHeaderDefaultWidth(headerEl, context)
-    : UI_HEADER_MIN_WIDTH_FALLBACK;
-  const layoutFloor = navEl ? measureNavLiveMinWidth(navEl) : intrinsic;
-  return Math.max(intrinsic, layoutFloor, UI_HEADER_MIN_WIDTH_FALLBACK);
-}
-
 async function applyLayout({ defaultWidth, updateMinWidth }) {
   if (!window.electronAPI?.syncHeaderLayout) return null;
 
@@ -314,10 +306,51 @@ async function applyLayout({ defaultWidth, updateMinWidth }) {
   });
 }
 
-export async function syncAppMinWidthFromNav(navEl, { updateMinWidth = true } = {}) {
+let cachedIntrinsicWidth = 0;
+let cachedIntrinsicKey = '';
+
+function buildIntrinsicCacheKey(context) {
+  const user = context.user;
+  const projectSignature = (context.projects || [])
+    .map((project) => `${project.id}:${project.name}:${project.code}`)
+    .join('|');
+  return `${user?.id ?? ''}|${user?.role ?? ''}|${projectSignature}`;
+}
+
+function measureCachedIntrinsicWidth(headerEl, context, { fast = false } = {}) {
+  const baseKey = buildIntrinsicCacheKey(context);
+  if (!fast && cachedIntrinsicKey === baseKey && cachedIntrinsicWidth > 0) {
+    return cachedIntrinsicWidth;
+  }
+
+  const languages = fast
+    ? [document.documentElement.lang === 'en' ? 'en' : 'ko']
+    : MEASURE_LANGUAGES;
+  let maxWidth = UI_HEADER_MIN_WIDTH_FALLBACK;
+  for (const lang of languages) {
+    maxWidth = Math.max(maxWidth, measureHeaderForLanguage(headerEl, lang, context));
+  }
+
+  if (!fast) {
+    cachedIntrinsicKey = baseKey;
+    cachedIntrinsicWidth = maxWidth;
+  }
+  return maxWidth;
+}
+
+export async function syncAppMinWidthFromNav(navEl, { updateMinWidth = true, deferHeavyMeasure = false } = {}) {
   const header = navEl?.closest('.app-header') || document.querySelector('.app-header');
   const context = parseMeasureContext(navEl);
-  const defaultWidth = resolveAppMinWidth(navEl, header, context);
+  const liveWidth = navEl ? measureNavLiveMinWidth(navEl) : 0;
+  const defaultWidth = deferHeavyMeasure
+    ? Math.max(UI_HEADER_MIN_WIDTH_FALLBACK, liveWidth)
+    : header
+      ? Math.max(
+        measureCachedIntrinsicWidth(header, context, { fast: false }),
+        liveWidth,
+        UI_HEADER_MIN_WIDTH_FALLBACK,
+      )
+      : UI_HEADER_MIN_WIDTH_FALLBACK;
 
   const result = await applyLayout({ defaultWidth, updateMinWidth });
 

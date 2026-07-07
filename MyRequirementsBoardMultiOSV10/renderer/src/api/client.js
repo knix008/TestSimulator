@@ -9,6 +9,9 @@ async function request(path, options = {}) {
   });
 
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && !path.startsWith('/api/auth/login') && !path.startsWith('/api/auth/session')) {
+    window.dispatchEvent(new CustomEvent('auth:required'));
+  }
   if (!res.ok) {
     throw new Error(data.error || `요청 실패 (${res.status})`);
   }

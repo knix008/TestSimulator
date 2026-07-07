@@ -23,6 +23,14 @@ export function mergeProjectUiSettings(existing, patch) {
         ...(next.requirementsTable?.columnWidths || {}),
       },
     },
+    testCasesTable: {
+      ...(base.testCasesTable || {}),
+      ...(next.testCasesTable || {}),
+      columnWidths: {
+        ...(base.testCasesTable?.columnWidths || {}),
+        ...(next.testCasesTable?.columnWidths || {}),
+      },
+    },
   };
 }
 

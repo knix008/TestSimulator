@@ -39,11 +39,21 @@ router.post('/logout', (req, res) => {
   });
 });
 
-router.get('/session', (req, res) => {
+router.get('/session', async (req, res) => {
   if (!req.session?.user) {
     return res.json({ authenticated: false });
   }
-  res.json({ authenticated: true, user: req.session.user });
+
+  const db = getDatabase();
+  const row = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.user.id);
+  if (!row || row.is_active === 0 || row.is_active === false) {
+    req.session.destroy(() => {});
+    return res.json({ authenticated: false });
+  }
+
+  const sessionUser = sanitizeUser(row);
+  req.session.user = sessionUser;
+  res.json({ authenticated: true, user: sessionUser });
 });
 
 router.get('/profile', requireAuth, async (req, res) => {

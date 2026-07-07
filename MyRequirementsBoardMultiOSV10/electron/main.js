@@ -1,5 +1,4 @@
-import { app, BrowserWindow, nativeImage, shell, ipcMain, dialog, Menu } from 'electron';
-import path from 'node:path';
+import { app, BrowserWindow, nativeImage, shell, ipcMain, dialog, Menu } from 'electron';import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setServerDataDir, startServer } from '../server/index.js';
@@ -54,13 +53,6 @@ function sendProjectFileToRenderer(filePath) {
   mainWindow.webContents.send('open-project-file', filePath);
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.focus();
-}
-
-function getRendererUrl() {
-  if (isDev && process.env.VITE_DEV_SERVER_URL) {
-    return process.env.VITE_DEV_SERVER_URL;
-  }
-  return `file://${path.join(__dirname, '../dist-renderer/index.html')}`;
 }
 
 function applyMeasuredMinWidth(measuredMin) {
@@ -121,6 +113,9 @@ async function createWindow() {
     setServerDataDir(dataDir);
     process.env.RUN_MODE = 'electron';
     process.env.ELECTRON_VERSION = process.versions.electron || '';
+    if (!useExternalDevServer && process.env.NODE_ENV !== 'development') {
+      process.env.NODE_ENV = 'production';
+    }
     await startServer();
   } else {
     process.env.RUN_MODE = 'electron-dev';
@@ -161,14 +156,14 @@ async function createWindow() {
   removeNativeApplicationMenu();
   registerWindowBoundsPersistence();
 
-  const url = getRendererUrl();
-  if (isDev) {
-    await mainWindow.loadURL(url);
+  const port = Number(process.env.PORT) || 3847;
+  if (useExternalDevServer && process.env.VITE_DEV_SERVER_URL) {
+    await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
     if (process.env.ELECTRON_OPEN_DEVTOOLS === '1') {
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     }
   } else {
-    await mainWindow.loadURL('http://127.0.0.1:3847');
+    await mainWindow.loadURL(`http://127.0.0.1:${port}`);
   }
 
   stripNativeWindowMenu(mainWindow);
@@ -343,9 +338,14 @@ app.whenReady().then(() => {
   return createWindow();
 }).catch((err) => {
   console.error('[electron] startup failed:', err);
+  if (app.isReady()) {
+    dialog.showErrorBox(
+      'MyRequirementsBoard',
+      `앱을 시작할 수 없습니다.\n\n${err?.message || err}`,
+    );
+  }
   app.exit(1);
 });
-
 app.on('window-all-closed', () => {
   closeDatabase();
   if (process.platform !== 'darwin') app.quit();

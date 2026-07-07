@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useExcelDialogs } from '../context/ExcelDialogContext.jsx';
+import { ROUTES } from '../lib/routes.js';
 
 export function ExcelImportRouteOpener() {
   const { openImport } = useExcelDialogs();
@@ -8,7 +9,7 @@ export function ExcelImportRouteOpener() {
 
   useEffect(() => {
     openImport();
-    navigate('/', { replace: true });
+    navigate(ROUTES.requirements, { replace: true });
   }, [openImport, navigate]);
 
   return null;
@@ -25,7 +26,7 @@ export function ExcelExportRouteOpener() {
       ? idsParam.split(',').map((v) => Number(v.trim())).filter((n) => !Number.isNaN(n) && n > 0)
       : null;
     openExport(selectedIds?.length ? selectedIds : null);
-    navigate('/', { replace: true });
+    navigate(ROUTES.requirements, { replace: true });
   }, [openExport, navigate, searchParams]);
 
   return null;

@@ -51,7 +51,9 @@ export async function createApp() {
     cookie: {
       secure: false,
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: process.env.RUN_MODE === 'electron'
+        ? undefined
+        : 7 * 24 * 60 * 60 * 1000,
     },
   }));
 
@@ -76,7 +78,8 @@ export async function createApp() {
   app.use('/api/users', userRoutes);
   app.use('/api/ollama', ollamaRoutes);
 
-  if (isProd) {
+  const shouldServeRenderer = isProd || process.env.RUN_MODE === 'electron';
+  if (shouldServeRenderer) {
     const staticDir = path.join(__dirname, '..', 'dist-renderer');
     if (fs.existsSync(staticDir)) {
       app.use(express.static(staticDir));

@@ -1,0 +1,9 @@
+{
+  "version": "0.1.0",
+  "buildDate": "2026-07-07T09:04:41.384Z",
+  "commit": "c146521f",
+  "branch": "main",
+  "builtOnPlatform": "win32",
+  "builtOnArch": "x64",
+  "electronVersion": "36.3.2"
+}

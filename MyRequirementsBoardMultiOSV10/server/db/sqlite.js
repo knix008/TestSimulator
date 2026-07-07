@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import initSqlJs from 'sql.js';
 import { hashPassword } from '../auth/password.js';
 import { backfillProjectMembers } from '../lib/projectMembers.js';
@@ -16,6 +17,15 @@ let SQL = null;
 let database = null;
 let dbPath = null;
 let dbFacade = null;
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+
+function getSqlJsInitOptions() {
+  const distDir = path.join(moduleDir, '..', '..', 'node_modules', 'sql.js', 'dist');
+  return {
+    locateFile: (file) => path.join(distDir, file),
+  };
+}
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
@@ -206,6 +216,24 @@ function persistDatabase() {
   fs.writeFileSync(dbPath, Buffer.from(data));
 }
 
+let persistTimer = null;
+
+function schedulePersistDatabase() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistDatabase();
+  }, 75);
+}
+
+function flushPersistDatabase() {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  persistDatabase();
+}
+
 function rowToObject(columns, values) {
   const row = {};
   columns.forEach((col, i) => { row[col] = values[i]; });
@@ -220,7 +248,7 @@ function runStatement(sql, params, { deferPersist = false } = {}) {
   const idRow = database.exec('SELECT last_insert_rowid() AS id');
   const changesRow = database.exec('SELECT changes() AS changes');
   if (!deferPersist) {
-    persistDatabase();
+    schedulePersistDatabase();
   }
   return {
     lastInsertRowid: idRow[0]?.values[0]?.[0] ?? 0,
@@ -270,7 +298,7 @@ function createDbFacade({ inTransaction = false } = {}) {
     exec(sql) {
       database.run(sql);
       if (!deferPersist) {
-        persistDatabase();
+        schedulePersistDatabase();
       }
       return Promise.resolve();
     },
@@ -299,7 +327,7 @@ async function runTransaction(fn) {
     try {
       const result = await fn(createDbFacade({ inTransaction: true }));
       database.run('COMMIT');
-      persistDatabase();
+      flushPersistDatabase();
       return result;
     } catch (err) {
       safeRollback();
@@ -356,7 +384,7 @@ export async function initSqliteDatabase(dataDir) {
   if (dbFacade) return dbFacade;
 
   if (!SQL) {
-    SQL = await initSqlJs();
+    SQL = await initSqlJs(getSqlJsInitOptions());
   }
 
   fs.mkdirSync(dataDir, { recursive: true });
@@ -383,7 +411,7 @@ export async function initSqliteDatabase(dataDir) {
   await ensureDefaultAdmin(dbFacade);
   await ensureDefaultProject(dbFacade);
   await backfillProjectMembers(dbFacade);
-  persistDatabase();
+  flushPersistDatabase();
 
   return dbFacade;
 }
@@ -403,7 +431,7 @@ export function isSqliteReady() {
 
 export function closeSqliteDatabase() {
   if (!database) return;
-  persistDatabase();
+  flushPersistDatabase();
   database.close();
   database = null;
   dbFacade = null;

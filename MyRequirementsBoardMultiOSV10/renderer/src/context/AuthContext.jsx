@@ -10,19 +10,38 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.session()
-      .then((data) => {
-        if (data.authenticated && data.user?.username) {
-          saveLastUsername(data.user.username);
+    let cancelled = false;
+
+    const bootstrapAuth = async () => {
+      try {
+        const data = await api.session();
+        if (data.authenticated) {
+          await api.logout();
         }
-        setUserPreferencesAuthenticated(Boolean(data.authenticated));
-        setUser(data.authenticated ? data.user : null);
-      })
-      .catch(() => {
-        setUserPreferencesAuthenticated(false);
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
+      } catch {
+        // Stay logged out when the server is unavailable.
+      } finally {
+        if (!cancelled) {
+          setUserPreferencesAuthenticated(false);
+          setUser(null);
+          setLoading(false);
+        }
+      }
+    };
+
+    void bootstrapAuth();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onAuthRequired = () => {
+      setUserPreferencesAuthenticated(false);
+      setUser(null);
+    };
+    window.addEventListener('auth:required', onAuthRequired);
+    return () => window.removeEventListener('auth:required', onAuthRequired);
   }, []);
 
   const login = async (username, password) => {

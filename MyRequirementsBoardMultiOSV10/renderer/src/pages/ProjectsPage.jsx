@@ -59,7 +59,14 @@ function ProjectMemberPicker({ users, members, onChange, excludeUserId = null })
 
 export default function ProjectsPage() {
   const { user, hasRole } = useAuth();
-  const { refreshProjects, selectProject, syncProject, activeProject } = useProject();
+  const {
+    refreshProjects,
+    selectProject,
+    syncProject,
+    activeProject,
+    projects: sharedProjects,
+    loading: sharedLoading,
+  } = useProject();
   const { openContextMenu } = useContextMenu();
   const { t } = useLanguage();
   const isAdmin = hasRole('ADMIN');
@@ -81,7 +88,43 @@ export default function ProjectsPage() {
     if (!editForm) setMemberAssignments([]);
   };
 
-  useEffect(() => { load().catch((e) => setError(e.message)); }, [isAdmin]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        if (sharedProjects.length > 0) {
+          setProjects(sharedProjects);
+          if (isAdmin) {
+            void api.listProjects(true)
+              .then((projectList) => {
+                if (!cancelled) setProjects(projectList);
+              })
+              .catch((err) => {
+                if (!cancelled) setError(err.message);
+              });
+          }
+          const userList = await api.listAssignableUsers();
+          if (!cancelled) {
+            setUsers(userList);
+            setSelected([]);
+            if (!editForm) setMemberAssignments([]);
+          }
+          return;
+        }
+
+        if (sharedLoading) return;
+        await load();
+      } catch (err) {
+        if (!cancelled) setError(err.message);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, sharedProjects, sharedLoading]);
 
   const loadMembers = async (projectId) => {
     const members = await api.listProjectMembers(projectId);

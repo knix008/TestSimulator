@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useProject } from '../context/ProjectContext.jsx';
 import { readProjectFileContent } from '../lib/projectFileActions.js';
+import { ROUTES } from '../lib/routes.js';
 
 export default function ProjectFileListener() {
   const { user } = useAuth();
@@ -20,7 +21,7 @@ export default function ProjectFileListener() {
         const result = await api.openReqtproj(payload);
         await refreshProjects();
         selectProject(result.project);
-        navigate('/');
+        navigate(ROUTES.requirements);
       } catch (err) {
         window.alert(err.message);
       }

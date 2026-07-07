@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { api } from '../api/client.js';
 import { IconButton } from '../components/IconButton.jsx';
 import { getLastUsername } from '../lib/lastUsername.js';
+import { ROUTES } from '../lib/routes.js';
 
 const appIconUrl = `${import.meta.env.BASE_URL}icon.png`;
 
 export default function LoginDialog({ open }) {
   const { login } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({
     username: '',
@@ -20,6 +23,7 @@ export default function LoginDialog({ open }) {
   });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -36,10 +40,14 @@ export default function LoginDialog({ open }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       await login(form.username, form.password);
+      navigate(ROUTES.home, { replace: true });
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -68,7 +76,7 @@ export default function LoginDialog({ open }) {
   if (!open) return null;
 
   return (
-    <div className="modal-overlay login-overlay" role="presentation">
+    <div className="login-screen__panel">
       <div
         className="modal-dialog login-dialog"
         role="dialog"
@@ -121,10 +129,10 @@ export default function LoginDialog({ open }) {
                 />
               </div>
               <div className="form-actions login-dialog__actions">
-                <IconButton icon={LogIn} className="btn-primary" type="submit" tooltip={t('login.tipLogin')}>
-                  {t('login.login')}
+                <IconButton icon={LogIn} className="btn-primary" type="submit" tooltip={t('login.tipLogin')} disabled={submitting}>
+                  {submitting ? t('common.loading') : t('login.login')}
                 </IconButton>
-                <IconButton icon={UserPlus} className="btn-secondary" type="button" onClick={() => setMode('register')} tooltip={t('login.tipRegister')}>
+                <IconButton icon={UserPlus} className="btn-secondary" type="button" onClick={() => setMode('register')} tooltip={t('login.tipRegister')} disabled={submitting}>
                   {t('login.registerRequest')}
                 </IconButton>
               </div>

@@ -11,18 +11,11 @@ import { defaultPortFor } from '../db/constants.js';
 
 const router = Router();
 
-router.get('/', (_req, res) => {
+router.get('/', requireRole('ADMIN'), (_req, res) => {
   res.json(getDbSettingsStatus());
 });
 
-router.post('/connect', async (req, res) => {
-  const status = getDbSettingsStatus();
-  if (status.mode === 'external' && status.connected) {
-    if (!req.session?.user || req.session.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'DB 재접속은 관리자만 할 수 있습니다.' });
-    }
-  }
-
+router.post('/connect', requireRole('ADMIN'), async (req, res) => {
   try {
     const result = await connectExternalDatabase(req.body || {});
     res.json(result);
@@ -49,7 +42,7 @@ router.post('/init', requireRole('ADMIN'), async (_req, res) => {
   }
 });
 
-router.get('/defaults', (_req, res) => {
+router.get('/defaults', requireRole('ADMIN'), (_req, res) => {
   res.json({
     provider: 'mariadb',
     server: 'localhost',
