@@ -106,6 +106,7 @@ export async function exportProjectToReqtproj(db, projectId) {
     mappedRequirements.push({
       id: `req-${req.id}`,
       code: req.code,
+      classification: req.classification || '',
       title: req.title,
       description: req.description || '',
       category: req.category || '',
@@ -165,13 +166,14 @@ async function importRequirementsIntoProject(db, projectId, userId, payload) {
     }
 
     try {
-      const code = req.code || `__import_${Date.now()}_${index}`;
+      const classification = req.classification || req.code || '';
       const insert = await db.prepare(
-        `INSERT INTO requirements (project_id, code, title, description, category, priority, status, created_by_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO requirements (project_id, code, classification, title, description, category, priority, status, created_by_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         projectId,
-        code,
+        `__import_${Date.now()}_${index}`,
+        classification,
         req.title,
         req.description || '',
         req.category || '',
@@ -203,10 +205,7 @@ async function importRequirementsIntoProject(db, projectId, userId, payload) {
     }
   }
 
-  const needsRenumber = data.requirements.some((req) => !req.code);
-  if (needsRenumber) {
-    await renumberRequirementCodes(db, projectId);
-  }
+  await renumberRequirementCodes(db, projectId);
 
   return result;
 }

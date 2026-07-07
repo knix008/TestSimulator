@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveProjectFile: (content, defaultPath) => ipcRenderer.invoke('project:save', { content, defaultPath }),
   openProjectFile: () => ipcRenderer.invoke('project:open'),
   readProjectFile: (filePath) => ipcRenderer.invoke('project:read', { filePath }),
+  openExcelFile: () => ipcRenderer.invoke('excel:open'),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleFullscreen: () => ipcRenderer.invoke('window:toggle-fullscreen'),
   quitApp: () => ipcRenderer.invoke('window:quit'),

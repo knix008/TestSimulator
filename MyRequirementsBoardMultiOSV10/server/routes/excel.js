@@ -6,6 +6,7 @@ import {
   createSampleWorkbookBuffer,
   exportProjectToBuffer,
   importExcelBuffer,
+  previewExcelImport,
 } from '../lib/excelService.js';
 
 const router = Router({ mergeParams: true });
@@ -57,6 +58,44 @@ router.get('/export', requireRole('VIEWER'), async (req, res, next) => {
   }
 });
 
+function parseColumnMapping(raw) {
+  if (!raw) return null;
+  try {
+    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!data?.columns?.length) return null;
+    return {
+      sheetName: data.sheetName ? String(data.sheetName) : undefined,
+      headerRow: Number(data.headerRow),
+      columns: data.columns.map((column) => ({
+        index: Number(column.index),
+        field: column.field ? String(column.field) : 'skip',
+        included: column.included !== false && column.field !== 'skip',
+      })).filter((column) => column.index > 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+router.post('/import/preview', requireRole('VIEWER'), requireProjectEdit(), (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || '파일 업로드에 실패했습니다.' });
+    return next();
+  });
+}, async (req, res, next) => {
+  try {
+    if (!req.file?.buffer) {
+      return res.status(400).json({ error: '업로드할 Excel 파일이 없습니다.' });
+    }
+
+    const sheetName = req.body?.sheetName ? String(req.body.sheetName) : undefined;
+    const preview = await previewExcelImport(req.file.buffer, { sheetName });
+    res.json(preview);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/import', requireRole('VIEWER'), requireProjectEdit(), (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message || '파일 업로드에 실패했습니다.' });
@@ -71,6 +110,9 @@ router.post('/import', requireRole('VIEWER'), requireProjectEdit(), (req, res, n
     const projectId = Number(req.params.projectId);
     const generateTestCases = req.body?.generateTestCases !== 'false'
       && req.body?.generateTestCases !== false;
+    const autoRenumber = req.body?.autoRenumber !== 'false'
+      && req.body?.autoRenumber !== false;
+    const columnMapping = parseColumnMapping(req.body?.columnMapping);
 
     const db = getDatabase();
     const result = await importExcelBuffer(
@@ -78,7 +120,7 @@ router.post('/import', requireRole('VIEWER'), requireProjectEdit(), (req, res, n
       projectId,
       req.session.user.id,
       req.file.buffer,
-      { generateTestCases },
+      { generateTestCases, autoRenumber, columnMapping },
     );
 
     res.json(result);

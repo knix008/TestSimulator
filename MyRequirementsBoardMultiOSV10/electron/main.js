@@ -217,6 +217,24 @@ function registerProjectFileHandlers() {
     const content = await fs.readFile(filePath, 'utf8');
     return { content, filePath };
   });
+
+  ipcMain.handle('excel:open', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Excel 파일 선택',
+      filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
+      properties: ['openFile'],
+    });
+    if (canceled || !filePaths?.length) return { canceled: true };
+
+    const filePath = filePaths[0];
+    const buffer = await fs.readFile(filePath);
+    return {
+      canceled: false,
+      filePath,
+      fileName: path.basename(filePath),
+      base64: buffer.toString('base64'),
+    };
+  });
 }
 
 function registerWindowHandlers() {

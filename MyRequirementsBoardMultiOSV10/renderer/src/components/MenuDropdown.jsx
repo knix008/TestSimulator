@@ -76,6 +76,7 @@ export function MenuDropdown({ labelKey, icon: Icon, items, showChevron = true }
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={label}
+        data-i18n-label={labelKey}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((value) => !value);

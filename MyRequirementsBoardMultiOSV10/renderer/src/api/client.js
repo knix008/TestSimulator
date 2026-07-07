@@ -69,11 +69,20 @@ export const api = {
   updateRequirement: (projectId, id, payload) => request(`/api/projects/${projectId}/requirements/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteRequirement: (projectId, id) => request(`/api/projects/${projectId}/requirements/${id}`, { method: 'DELETE' }),
   bulkDeleteRequirements: (projectId, ids) => request(`/api/projects/${projectId}/requirements`, { method: 'DELETE', body: JSON.stringify({ ids }) }),
+  renumberRequirements: (projectId) => request(`/api/projects/${projectId}/requirements/renumber`, { method: 'POST' }),
 
-  importExcel: async (projectId, file, { generateTestCases = true } = {}) => {
+  importExcel: async (projectId, file, {
+    generateTestCases = true,
+    autoRenumber = true,
+    columnMapping = null,
+  } = {}) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('generateTestCases', generateTestCases ? 'true' : 'false');
+    formData.append('autoRenumber', autoRenumber ? 'true' : 'false');
+    if (columnMapping) {
+      formData.append('columnMapping', JSON.stringify(columnMapping));
+    }
     const res = await fetch(`/api/projects/${projectId}/excel/import`, {
       method: 'POST',
       credentials: 'include',
@@ -84,7 +93,22 @@ export const api = {
     return data;
   },
 
+  previewExcelImport: async (projectId, file, { sheetName } = {}) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (sheetName) formData.append('sheetName', sheetName);
+    const res = await fetch(`/api/projects/${projectId}/excel/import/preview`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `요청 실패 (${res.status})`);
+    return data;
+  },
+
   createTestCase: (requirementId, payload) => request(`/api/requirements/${requirementId}/testcases`, { method: 'POST', body: JSON.stringify(payload) }),
+  renumberTestCases: (requirementId) => request(`/api/requirements/${requirementId}/testcases/renumber`, { method: 'POST' }),
   updateTestCase: (requirementId, id, payload) => request(`/api/requirements/${requirementId}/testcases/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteTestCase: (requirementId, id) => request(`/api/requirements/${requirementId}/testcases/${id}`, { method: 'DELETE' }),
 

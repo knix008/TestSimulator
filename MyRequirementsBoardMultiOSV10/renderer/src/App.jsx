@@ -5,15 +5,17 @@ import { useLanguage } from './context/LanguageContext.jsx';
 import Nav from './components/Nav.jsx';
 import AppMenuBar from './components/AppMenuBar.jsx';
 import AppInfoDialog from './components/AppInfoDialog.jsx';
+import ExcelImportDialog from './components/ExcelImportDialog.jsx';
+import ExcelExportDialog from './components/ExcelExportDialog.jsx';
+import { ExcelImportRouteOpener, ExcelExportRouteOpener } from './components/ExcelRouteOpener.jsx';
 import LoginDialog from './components/LoginDialog.jsx';
+import { ExcelDialogProvider } from './context/ExcelDialogContext.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
 import RequirementsPage from './pages/RequirementsPage.jsx';
 import RequirementFormPage from './pages/RequirementFormPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import OllamaPage from './pages/OllamaPage.jsx';
-import ImportPage from './pages/ImportPage.jsx';
-import ExportPage from './pages/ExportPage.jsx';
 import ProjectFileListener from './components/ProjectFileListener.jsx';
 
 function ProtectedRoute({ children, minRole = 'VIEWER' }) {
@@ -35,7 +37,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <ExcelDialogProvider>
       {user ? (
         <div className="app-shell">
           <header className="app-header">
@@ -54,8 +56,8 @@ export default function App() {
               <Route path="/requirements/:id/edit" element={<ProtectedRoute><RequirementFormPage /></ProtectedRoute>} />
               <Route path="/users" element={<ProtectedRoute minRole="ADMIN"><UsersPage /></ProtectedRoute>} />
               <Route path="/ollama" element={<ProtectedRoute minRole="EDITOR"><OllamaPage /></ProtectedRoute>} />
-              <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
-              <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
+              <Route path="/import" element={<ProtectedRoute><ExcelImportRouteOpener /></ProtectedRoute>} />
+              <Route path="/export" element={<ProtectedRoute><ExcelExportRouteOpener /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
@@ -71,6 +73,8 @@ export default function App() {
         </>
       )}
       <AppInfoDialog open={infoOpen} onClose={() => setInfoOpen(false)} />
-    </>
+      <ExcelImportDialog />
+      <ExcelExportDialog />
+    </ExcelDialogProvider>
   );
 }

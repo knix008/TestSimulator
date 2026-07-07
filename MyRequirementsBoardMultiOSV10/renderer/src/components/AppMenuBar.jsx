@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useProject } from '../context/ProjectContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useUndoHistory } from '../context/UndoHistoryContext.jsx';
+import { useExcelDialogs } from '../context/ExcelDialogContext.jsx';
 import { api } from '../api/client.js';
 import {
   defaultProjectFileName,
@@ -40,6 +41,7 @@ export default function AppMenuBar({ onShowInfo }) {
   const { activeProject, canEditProject, refreshProjects, selectProject } = useProject();
   const { t } = useLanguage();
   const { undo, redo, canUndo, canRedo } = useUndoHistory();
+  const { openImport, openExport } = useExcelDialogs();
   const isElectron = Boolean(window.electronAPI?.isElectron);
 
   const handleUndo = async () => {
@@ -111,7 +113,7 @@ export default function AppMenuBar({ onShowInfo }) {
       icon: FileUp,
       labelKey: 'menu.importExcel',
       tooltipKey: 'menu.tipImport',
-      onClick: () => navigate('/import'),
+      onClick: openImport,
     });
   }
 
@@ -120,7 +122,7 @@ export default function AppMenuBar({ onShowInfo }) {
     icon: FileDown,
     labelKey: 'menu.exportExcel',
     tooltipKey: 'menu.tipExport',
-    onClick: () => navigate('/export'),
+    onClick: () => openExport(),
   });
 
   fileItems.push(

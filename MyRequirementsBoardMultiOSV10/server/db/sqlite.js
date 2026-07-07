@@ -3,6 +3,7 @@ import path from 'node:path';
 import initSqlJs from 'sql.js';
 import { hashPassword } from '../auth/password.js';
 import { backfillProjectMembers } from '../lib/projectMembers.js';
+import { renumberRequirementCodes, isReqCode } from '../lib/reqCode.js';
 
 let SQL = null;
 let database = null;
@@ -52,6 +53,7 @@ CREATE TABLE IF NOT EXISTS requirements (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   code TEXT NOT NULL,
+  classification TEXT DEFAULT '',
   title TEXT NOT NULL,
   description TEXT DEFAULT '',
   category TEXT DEFAULT '',
@@ -120,6 +122,39 @@ function migrateLegacySchema() {
   database.run('DROP TABLE app_settings_legacy');
 }
 
+function migrateRequirementsClassificationSchema() {
+  const columns = getTableColumns('requirements');
+  if (!columns.includes('classification')) {
+    database.run('ALTER TABLE requirements ADD COLUMN classification TEXT DEFAULT \'\'');
+    database.run(
+      'UPDATE requirements SET classification = code WHERE TRIM(COALESCE(classification, \'\')) = \'\' AND code NOT LIKE \'REQ-%\'',
+    );
+  }
+}
+
+async function migrateRequirementsClassificationRenumber(db) {
+  const columns = getTableColumns('requirements');
+  if (!columns.includes('classification')) return;
+
+  const pending = await db.prepare(
+    `SELECT COUNT(*) AS c FROM requirements
+     WHERE code NOT LIKE 'REQ-%' AND code NOT LIKE '__tmp%' AND code NOT LIKE '__import%'`,
+  ).get();
+  if (!pending?.c) return;
+
+  const rows = await db.prepare('SELECT id, code, classification FROM requirements').all();
+  for (const row of rows) {
+    if (isReqCode(row.code)) continue;
+    if (String(row.classification || '').trim()) continue;
+    await db.prepare('UPDATE requirements SET classification = ? WHERE id = ?').run(row.code, row.id);
+  }
+
+  const projects = await db.prepare('SELECT id FROM projects').all();
+  for (const project of projects) {
+    await renumberRequirementCodes(db, project.id);
+  }
+}
+
 function persistDatabase() {
   if (!database || !dbPath) return;
   const data = database.export();
@@ -132,7 +167,23 @@ function rowToObject(columns, values) {
   return row;
 }
 
-function createStatement(sql) {
+let transactionDepth = 0;
+let transactionQueue = Promise.resolve();
+
+function runStatement(sql, params, { deferPersist = false } = {}) {
+  database.run(sql, params);
+  const idRow = database.exec('SELECT last_insert_rowid() AS id');
+  const changesRow = database.exec('SELECT changes() AS changes');
+  if (!deferPersist) {
+    persistDatabase();
+  }
+  return {
+    lastInsertRowid: idRow[0]?.values[0]?.[0] ?? 0,
+    changes: changesRow[0]?.values[0]?.[0] ?? 0,
+  };
+}
+
+function createStatement(sql, { deferPersist = false } = {}) {
   return {
     get(...params) {
       const stmt = database.prepare(sql);
@@ -160,41 +211,62 @@ function createStatement(sql) {
       }
     },
     run(...params) {
-      database.run(sql, params);
-      const idRow = database.exec('SELECT last_insert_rowid() AS id');
-      const changesRow = database.exec('SELECT changes() AS changes');
-      persistDatabase();
-      return Promise.resolve({
-        lastInsertRowid: idRow[0]?.values[0]?.[0] ?? 0,
-        changes: changesRow[0]?.values[0]?.[0] ?? 0,
-      });
+      return Promise.resolve(runStatement(sql, params, { deferPersist }));
     },
   };
 }
 
-function createDbFacade() {
+function createDbFacade({ inTransaction = false } = {}) {
+  const deferPersist = inTransaction || transactionDepth > 0;
   return {
     prepare(sql) {
-      return createStatement(sql);
+      return createStatement(sql, { deferPersist });
     },
     exec(sql) {
       database.run(sql);
-      persistDatabase();
+      if (!deferPersist) {
+        persistDatabase();
+      }
       return Promise.resolve();
     },
-    async transaction(fn) {
-      database.run('BEGIN');
-      try {
-        const result = await fn(createDbFacade());
-        database.run('COMMIT');
-        persistDatabase();
-        return result;
-      } catch (err) {
-        database.run('ROLLBACK');
-        throw err;
-      }
+    transaction(fn) {
+      return runTransaction(fn);
     },
   };
+}
+
+function safeRollback() {
+  try {
+    database.run('ROLLBACK');
+  } catch {
+    // sql.js throws when no transaction is active (e.g. after failed COMMIT).
+  }
+}
+
+async function runTransaction(fn) {
+  if (transactionDepth > 0) {
+    return fn(createDbFacade({ inTransaction: true }));
+  }
+
+  const execute = async () => {
+    transactionDepth += 1;
+    database.run('BEGIN');
+    try {
+      const result = await fn(createDbFacade({ inTransaction: true }));
+      database.run('COMMIT');
+      persistDatabase();
+      return result;
+    } catch (err) {
+      safeRollback();
+      throw err;
+    } finally {
+      transactionDepth -= 1;
+    }
+  };
+
+  const run = transactionQueue.then(execute, execute);
+  transactionQueue = run.catch(() => {});
+  return run;
 }
 
 function ensureAdminUser(db) {
@@ -255,8 +327,10 @@ export async function initSqliteDatabase(dataDir) {
   database.run('PRAGMA foreign_keys = ON');
   database.exec(SCHEMA_SQL);
   migrateLegacySchema();
+  migrateRequirementsClassificationSchema();
 
   dbFacade = createDbFacade();
+  await migrateRequirementsClassificationRenumber(dbFacade);
   await ensureDefaultAdmin(dbFacade);
   await ensureDefaultProject(dbFacade);
   await backfillProjectMembers(dbFacade);
@@ -285,4 +359,6 @@ export function closeSqliteDatabase() {
   database = null;
   dbFacade = null;
   dbPath = null;
+  transactionDepth = 0;
+  transactionQueue = Promise.resolve();
 }

@@ -273,6 +273,11 @@ a.icon-link.btn-primary, a.icon-link.btn-secondary, a.icon-link.btn-danger { col
   gap: 4px;
   font-size: 0.92em;
 }
+.table-action.btn {
+  padding: 5px 10px;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
 .toolbar .icon-btn, .toolbar .icon-link { white-space: nowrap; }
 .form-actions {
   display: flex;
@@ -749,6 +754,268 @@ tr.row-selected:hover > td {
 .modal-close:hover {
   background: var(--theme-modal-close-hover-bg);
   color: var(--theme-modal-close-hover-text);
+}
+
+.modal-dialog.excel-dialog {
+  width: min(760px, 100%);
+  max-height: min(90vh, 820px);
+  display: flex;
+  flex-direction: column;
+}
+.excel-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--theme-dialog-footer-border);
+  flex-shrink: 0;
+}
+.excel-dialog__header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  flex: 1;
+  min-width: 0;
+}
+.excel-dialog__body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+.excel-dialog__body p {
+  margin: 0 0 8px;
+}
+.excel-dialog__project {
+  margin-bottom: 12px;
+}
+.excel-dialog__instructions {
+  margin-bottom: 12px;
+}
+.excel-dialog__instructions p:last-child {
+  margin-bottom: 0;
+}
+.excel-dialog__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.excel-dialog__file-field {
+  margin-bottom: 16px;
+}
+.excel-dialog__file-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.excel-dialog__file-controls .icon-btn {
+  flex-shrink: 0;
+}
+.excel-dialog__file-controls input[type="file"] {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+}
+.excel-dialog__selected-file {
+  margin-top: 8px;
+  margin-bottom: 0;
+  word-break: break-all;
+}
+.excel-dialog__options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.excel-dialog__checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-weight: 400;
+  font-size: 0.92em;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.excel-dialog__checkbox input[type="checkbox"] {
+  width: auto;
+  margin: 3px 0 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+.excel-dialog__checkbox span {
+  flex: 1;
+  min-width: 0;
+}
+.excel-dialog__result {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--theme-dialog-footer-border);
+}
+.excel-dialog__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--theme-dialog-footer-border);
+  flex-shrink: 0;
+}
+.excel-dialog__footer .btn + .btn,
+.excel-dialog__footer .btn + .icon-btn,
+.excel-dialog__footer .icon-btn + .btn,
+.excel-dialog__footer .icon-btn + .icon-btn {
+  margin-left: 0;
+}
+
+.excel-dialog__mapping {
+  margin-bottom: 16px;
+  padding-top: 4px;
+  border-top: 1px solid var(--theme-dialog-footer-border);
+}
+.excel-dialog__mapping-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+.excel-dialog__mapping-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.excel-dialog__sheet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.excel-dialog__sheet-row label {
+  margin: 0;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.excel-dialog__sheet-row select {
+  flex: 1;
+  min-width: 140px;
+}
+.excel-dialog__column-table-wrap {
+  overflow: auto;
+  max-height: 240px;
+  border: 1px solid var(--theme-dialog-footer-border);
+  border-radius: 6px;
+}
+.excel-dialog__column-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.excel-dialog__column-table th,
+.excel-dialog__column-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--theme-dialog-footer-border);
+  vertical-align: middle;
+}
+.excel-dialog__column-table th {
+  position: sticky;
+  top: 0;
+  background: var(--theme-bg, #fff);
+  z-index: 1;
+  font-weight: 600;
+}
+.excel-dialog__column-table tr:last-child td {
+  border-bottom: none;
+}
+.excel-dialog__column-table td:first-child,
+.excel-dialog__column-table th:first-child {
+  width: 52px;
+  text-align: center;
+}
+.excel-dialog__column-table select {
+  width: 100%;
+  min-width: 120px;
+  margin: 0;
+}
+.excel-dialog__column-name {
+  word-break: break-word;
+}
+.excel-dialog__column-meta {
+  display: block;
+  font-size: 0.82em;
+  color: var(--theme-muted-text, #666);
+  margin-top: 2px;
+}
+.excel-dialog__preview-status {
+  margin: 8px 0 0;
+  font-size: 0.88em;
+}
+
+.import-result-overlay {
+  z-index: 2100;
+}
+.modal-dialog.excel-result-dialog {
+  width: min(480px, 100%);
+  max-height: min(80vh, 560px);
+  display: flex;
+  flex-direction: column;
+}
+.excel-result-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--theme-dialog-footer-border);
+  flex-shrink: 0;
+}
+.excel-result-dialog__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.excel-result-dialog__title-wrap h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+.excel-result-dialog__icon--success {
+  color: #16a34a;
+  flex-shrink: 0;
+}
+.excel-result-dialog__icon--error {
+  color: #dc2626;
+  flex-shrink: 0;
+}
+.excel-result-dialog__body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+.excel-result-dialog__body p {
+  margin: 0 0 8px;
+}
+.excel-result-dialog__section {
+  margin-top: 12px;
+}
+.excel-result-dialog__section ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.excel-result-dialog__section li + li {
+  margin-top: 4px;
+}
+.excel-result-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--theme-dialog-footer-border);
+  flex-shrink: 0;
 }
 
 .app-info-dialog__header {

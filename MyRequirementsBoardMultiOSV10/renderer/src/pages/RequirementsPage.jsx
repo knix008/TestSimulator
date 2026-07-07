@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckSquare, Pencil, Plus, Search, Square, Trash2 } from 'lucide-react';
+import { CheckSquare, FileDown, Pencil, Plus, Search, Square, Trash2 } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useProject } from '../context/ProjectContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { useExcelDialogs } from '../context/ExcelDialogContext.jsx';
 import { IconButton } from '../components/IconButton.jsx';
 import { IconLink } from '../components/IconLink.jsx';
 import { openRowContextMenu, useContextMenu } from '../components/ContextMenu.jsx';
@@ -19,6 +20,7 @@ export default function RequirementsPage() {
   const navigate = useNavigate();
   const { openContextMenu } = useContextMenu();
   const { push, subscribe } = useUndoHistory();
+  const { subscribeDataChange, openExport } = useExcelDialogs();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState([]);
   const [filters, setFilters] = useState({ q: '', status: '', priority: '' });
@@ -38,6 +40,10 @@ export default function RequirementsPage() {
   useEffect(() => subscribe(() => {
     load().catch((e) => setError(e.message));
   }), [activeProject, subscribe]);
+
+  useEffect(() => subscribeDataChange(() => {
+    load().catch((e) => setError(e.message));
+  }), [activeProject, subscribeDataChange]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -178,6 +184,7 @@ export default function RequirementsPage() {
   return (
     <div className="container">
       <h1>{t('requirements.title', { name: getDisplayProjectName(activeProject, t) })}</h1>
+      <p className="muted">{t('requirements.numberingNote')}</p>
       {error && <p className="error">{error}</p>}
 
       <div className="requirements-toolbar toolbar">
@@ -201,6 +208,17 @@ export default function RequirementsPage() {
             {t('common.selectDelete', { count: selected.length })}
           </IconButton>
         )}
+        {selected.length > 0 && (
+          <IconButton
+            icon={FileDown}
+            className="btn-secondary"
+            type="button"
+            onClick={() => openExport(selected)}
+            tooltip={t('export.tipDownload')}
+          >
+            {t('export.exportSelected', { count: selected.length })}
+          </IconButton>
+        )}
       </div>
 
       <table onContextMenu={handleTableContextMenu}>
@@ -210,6 +228,7 @@ export default function RequirementsPage() {
               <th><input type="checkbox" checked={selected.length === items.length && items.length > 0} onChange={(e) => toggleAll(e.target.checked)} /></th>
             )}
             <th>{t('common.code')}</th>
+            <th>{t('common.classification')}</th>
             <th>{t('common.title')}</th>
             <th>{t('common.category')}</th>
             <th>{t('common.priority')}</th>
@@ -232,6 +251,7 @@ export default function RequirementsPage() {
                 </td>
               )}
               <td>{item.code}</td>
+              <td>{item.classification}</td>
               <td>{item.title}</td>
               <td>{item.category}</td>
               <td><span className={`badge badge-${item.priority.toLowerCase()}`}>{t(`priority.${item.priority}`)}</span></td>
@@ -239,7 +259,7 @@ export default function RequirementsPage() {
               <td>{item.testCaseCount}</td>
               <td onClick={(e) => e.stopPropagation()}>
                 {canEditProject && (
-                  <IconLink icon={Pencil} className="table-action" to={`/requirements/${item.id}/edit`} tooltip={t('requirements.tipEdit')}>{t('common.edit')}</IconLink>
+                  <IconLink icon={Pencil} className="btn btn-secondary table-action" to={`/requirements/${item.id}/edit`} tooltip={t('requirements.tipEdit')}>{t('common.edit')}</IconLink>
                 )}
               </td>
             </tr>

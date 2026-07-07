@@ -7,6 +7,7 @@ export function requirementPayload(data) {
     title: data.title,
     description: data.description || '',
     category: data.category || '',
+    classification: data.classification || '',
     priority: data.priority,
     status: data.status,
   };
@@ -27,6 +28,7 @@ async function restoreRequirementSnapshot(projectId, snapshot) {
   for (const tc of snapshot.testCases || []) {
     await api.createTestCase(created.id, testCasePayload(tc));
   }
+  await api.renumberTestCases(created.id);
   return created;
 }
 
@@ -44,6 +46,7 @@ export async function applyUndo(action) {
         const created = await restoreRequirementSnapshot(action.projectId, snapshot);
         restoredIds.push(created.id);
       }
+      await api.renumberRequirements(action.projectId);
       action.restoredIds = restoredIds;
       break;
     }
@@ -55,6 +58,7 @@ export async function applyUndo(action) {
       break;
     case 'testCase.delete': {
       const created = await api.createTestCase(action.requirementId, action.snapshot);
+      await api.renumberTestCases(action.requirementId);
       action.restoredTestCaseId = created.id;
       break;
     }

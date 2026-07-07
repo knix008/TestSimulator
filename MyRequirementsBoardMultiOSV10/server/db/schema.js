@@ -51,6 +51,7 @@ export async function ensureSchema(knex) {
       t.increments('id').primary();
       t.integer('project_id').unsigned().notNullable();
       t.string('code', 64).notNullable();
+      t.string('classification', 255).defaultTo('');
       t.string('title', 512).notNullable();
       t.text('description').defaultTo('');
       t.string('category', 255).defaultTo('');
@@ -61,6 +62,10 @@ export async function ensureSchema(knex) {
       t.timestamp('updated_at').defaultTo(knex.fn.now());
       t.unique(['project_id', 'code']);
       t.foreign('project_id').references('projects.id').onDelete('CASCADE');
+    });
+  } else if (!(await knex.schema.hasColumn('requirements', 'classification'))) {
+    await knex.schema.alterTable('requirements', (t) => {
+      t.string('classification', 255).defaultTo('');
     });
   }
 

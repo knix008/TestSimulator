@@ -2,8 +2,6 @@ import { forwardRef, useLayoutEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
-  FileDown,
-  FileUp,
   FolderKanban,
   Info,
   LogOut,
@@ -41,6 +39,7 @@ function NavItem({ to, icon, labelKey, tooltipKey, matchPrefix }) {
       className={mergeTooltipClass(`nav-item${active ? ' nav-item--active' : ''}`, tooltipProps)}
       aria-label={tooltipProps['aria-label'] || label}
       data-tooltip={tooltipProps['data-tooltip']}
+      data-i18n-label={labelKey}
     >
       <IconText icon={icon}>{label}</IconText>
     </Link>
@@ -122,7 +121,12 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
   };
 
   return (
-    <nav className="nav" ref={setNavRef}>
+    <nav
+      className="nav"
+      ref={setNavRef}
+      data-measure-user={user ? JSON.stringify({ name: user.name, username: user.username, role: user.role }) : ''}
+      data-measure-projects={JSON.stringify(projects.map((p) => ({ id: p.id, name: p.name, code: p.code })))}
+    >
       <div className="nav-primary">
         <div className="nav-scroll">
         {projects.length > 0 ? (
@@ -142,26 +146,10 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
             </select>
           </label>
         ) : (
-          <span className="nav-project nav-project--empty nav-project--first muted">{t('nav.noProjects')}</span>
+          <span className="nav-project nav-project--empty nav-project--first muted" data-i18n-no-projects>{t('nav.noProjects')}</span>
         )}
         <NavItem to="/projects" icon={FolderKanban} labelKey="nav.projects" tooltipKey="nav.tipProjects" />
         <NavItem to="/" icon={ClipboardList} labelKey="nav.requirements" tooltipKey="nav.tipRequirements" />
-        {canEditProject && (
-          <NavItem
-            to="/import"
-            icon={FileUp}
-            labelKey="menu.importExcel"
-            tooltipKey="menu.tipImport"
-            matchPrefix="/import"
-          />
-        )}
-        <NavItem
-          to="/export"
-          icon={FileDown}
-          labelKey="menu.exportExcel"
-          tooltipKey="menu.tipExport"
-          matchPrefix="/export"
-        />
         {hasRole('ADMIN') && (
           <NavItem to="/users" icon={Users} labelKey="nav.users" tooltipKey="nav.tipUsers" />
         )}
@@ -179,6 +167,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
               onClick={handleUndo}
               aria-label={undoTooltip['aria-label'] || t('menu.undo')}
               data-tooltip={undoTooltip['data-tooltip']}
+              data-i18n-label="menu.undo"
             >
               <IconText icon={Undo2}>{t('menu.undo')}</IconText>
             </button>
@@ -189,6 +178,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
               onClick={handleRedo}
               aria-label={redoTooltip['aria-label'] || t('menu.redo')}
               data-tooltip={redoTooltip['data-tooltip']}
+              data-i18n-label="menu.redo"
             >
               <IconText icon={Redo2}>{t('menu.redo')}</IconText>
             </button>
@@ -200,12 +190,13 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
           onClick={onShowInfo}
           aria-label={appInfoTooltipProps['aria-label'] || appInfoLabel}
           data-tooltip={appInfoTooltipProps['data-tooltip']}
+          data-i18n-label="menu.appInfo"
         >
           <IconText icon={Info}>{appInfoLabel}</IconText>
         </button>
       </div>
       <div className="nav-trailing">
-        <span className="user">
+        <span className="user" data-i18n-user-display>
           <IconText icon={User}>{displayUserName} ({roleLabel})</IconText>
         </span>
         <IconButton
@@ -214,6 +205,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
           type="button"
           onClick={handleLogout}
           tooltip={t('nav.tipLogout')}
+          data-i18n-label="nav.logout"
         >
           {t('nav.logout')}
         </IconButton>

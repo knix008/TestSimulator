@@ -27,6 +27,7 @@ const emptyForm = {
   title: '',
   description: '',
   category: '',
+  classification: '',
   priority: 'MEDIUM',
   status: 'DRAFT',
 };
@@ -39,6 +40,7 @@ export default function RequirementFormPage() {
   const { t } = useLanguage();
   const { push, subscribe } = useUndoHistory();
   const [form, setForm] = useState(emptyForm);
+  const [requirementCode, setRequirementCode] = useState('');
   const savedFormRef = useRef(null);
   const [testCases, setTestCases] = useState([]);
   const [selectedTestCases, setSelectedTestCases] = useState([]);
@@ -56,10 +58,12 @@ export default function RequirementFormPage() {
           title: data.title,
           description: data.description || '',
           category: data.category || '',
+          classification: data.classification || '',
           priority: data.priority,
           status: data.status,
         };
         setForm(loaded);
+        setRequirementCode(data.code || '');
         savedFormRef.current = loaded;
         setTestCases(data.testCases || []);
         setSelectedTestCases([]);
@@ -76,10 +80,12 @@ export default function RequirementFormPage() {
             title: data.title,
             description: data.description || '',
             category: data.category || '',
+            classification: data.classification || '',
             priority: data.priority,
             status: data.status,
           };
           setForm(loaded);
+          setRequirementCode(data.code || '');
           savedFormRef.current = loaded;
           setTestCases(data.testCases || []);
         })
@@ -94,7 +100,8 @@ export default function RequirementFormPage() {
     try {
       if (isEdit) {
         const before = savedFormRef.current || form;
-        await api.updateRequirement(activeProject.id, id, form);
+        const updated = await api.updateRequirement(activeProject.id, id, form);
+        setRequirementCode(updated.code || '');
         push({
           type: 'requirement.update',
           requirementId: Number(id),
@@ -159,30 +166,32 @@ export default function RequirementFormPage() {
 
   const handleSaveTestCase = async (e) => {
     e.preventDefault();
-    if (!testCaseForm.code || !testCaseForm.title) {
-      setError(t('requirements.tcRequired'));
+    if (!testCaseForm.title) {
+      setError(t('requirements.tcTitleRequired'));
       return;
     }
     setError('');
     try {
       if (editingTestCase === 'new') {
-        const created = await api.createTestCase(id, testCaseForm);
+        const { code: _ignored, ...payload } = testCaseForm;
+        const created = await api.createTestCase(id, payload);
         push({
           type: 'testCase.create',
           requirementId: Number(id),
           testCaseId: created.id,
-          snapshot: testCasePayload(testCaseForm),
+          snapshot: testCasePayload({ ...payload, code: created.code }),
         });
       } else {
         const before = testCases.find((item) => item.id === editingTestCase);
-        await api.updateTestCase(id, editingTestCase, testCaseForm);
+        const { code: _ignored, ...payload } = testCaseForm;
+        await api.updateTestCase(id, editingTestCase, payload);
         if (before) {
           push({
             type: 'testCase.update',
             requirementId: Number(id),
             testCaseId: editingTestCase,
             before: testCasePayload(before),
-            after: testCasePayload(testCaseForm),
+            after: testCasePayload({ ...before, ...payload }),
           });
         }
       }
@@ -273,6 +282,20 @@ export default function RequirementFormPage() {
       {error && <p className="error">{error}</p>}
 
       <form onSubmit={handleSubmit} className="card">
+        {isEdit && requirementCode && (
+          <div className="form-row">
+            <label>{t('common.code')}</label>
+            <input value={requirementCode} readOnly aria-readonly="true" />
+          </div>
+        )}
+        <div className="form-row">
+          <label>{t('common.classification')}</label>
+          <input
+            value={form.classification}
+            onChange={(e) => setForm({ ...form, classification: e.target.value })}
+            placeholder={t('requirements.classificationPlaceholder')}
+          />
+        </div>
         <div className="form-row">
           <label>{t('common.title')}</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
@@ -330,14 +353,17 @@ export default function RequirementFormPage() {
               {t('requirements.addTestCase')}
             </IconButton>
           </div>
+          <p className="muted">{t('requirements.tcNumberingNote')}</p>
 
           {editingTestCase && (
             <form onSubmit={handleSaveTestCase} className="card" style={{ marginTop: 16, background: '#f9fafb' }}>
               <h3>{editingTestCase === 'new' ? t('requirements.newTestCase') : t('requirements.editTestCase')}</h3>
-              <div className="form-row">
-                <label>{t('common.code')}</label>
-                <input value={testCaseForm.code} onChange={(e) => setTestCaseForm({ ...testCaseForm, code: e.target.value })} required />
-              </div>
+              {editingTestCase !== 'new' && testCaseForm.code && (
+                <div className="form-row">
+                  <label>{t('common.code')}</label>
+                  <input value={testCaseForm.code} readOnly aria-readonly="true" />
+                </div>
+              )}
               <div className="form-row">
                 <label>{t('common.title')}</label>
                 <input value={testCaseForm.title} onChange={(e) => setTestCaseForm({ ...testCaseForm, title: e.target.value })} required />

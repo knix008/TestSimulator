@@ -10,6 +10,7 @@ function mapRequirement(row, extra = {}) {
     id: row.id,
     projectId: row.project_id,
     code: row.code,
+    classification: row.classification || '',
     title: row.title,
     description: row.description,
     category: row.category,
@@ -39,18 +40,25 @@ router.get('/', async (req, res) => {
   if (status) { sql += ' AND r.status = ?'; params.push(status); }
   if (priority) { sql += ' AND r.priority = ?'; params.push(priority); }
   if (q) {
-    sql += ' AND (r.code LIKE ? OR r.title LIKE ? OR r.category LIKE ?)';
+    sql += ' AND (r.code LIKE ? OR r.classification LIKE ? OR r.title LIKE ? OR r.category LIKE ?)';
     const like = `%${q}%`;
-    params.push(like, like, like);
+    params.push(like, like, like, like);
   }
 
-  sql += ' ORDER BY r.id DESC';
+  sql += ' ORDER BY r.category ASC, r.id ASC';
 
   const rows = await db.prepare(sql).all(...params);
   res.json(rows.map((r) => mapRequirement(r, {
     createdByName: r.created_by_name,
     testCaseCount: r.test_case_count,
   })));
+});
+
+router.post('/renumber', requireProjectEdit(), async (req, res) => {
+  const projectId = Number(req.params.projectId);
+  const db = getDatabase();
+  const assigned = await renumberRequirementCodes(db, projectId);
+  res.json({ ok: true, count: assigned.length });
 });
 
 router.get('/:id', async (req, res) => {
@@ -80,16 +88,17 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', requireProjectEdit(), async (req, res) => {
   const projectId = Number(req.params.projectId);
-  const { title, description, category, priority, status } = req.body || {};
+  const { title, description, category, classification, priority, status } = req.body || {};
   if (!title) return res.status(400).json({ error: 'title은 필수입니다.' });
 
   const db = getDatabase();
   const result = await db.prepare(
-    `INSERT INTO requirements (project_id, code, title, description, category, priority, status, created_by_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO requirements (project_id, code, classification, title, description, category, priority, status, created_by_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     projectId,
     tempCode(),
+    classification || '',
     title,
     description || '',
     category || '',
@@ -106,27 +115,24 @@ router.post('/', requireProjectEdit(), async (req, res) => {
 router.put('/:id', requireProjectEdit(), async (req, res) => {
   const projectId = Number(req.params.projectId);
   const id = Number(req.params.id);
-  const { title, description, category, priority, status } = req.body || {};
+  const { title, description, category, classification, priority, status } = req.body || {};
 
   const db = getDatabase();
   const existing = await db.prepare('SELECT * FROM requirements WHERE id = ? AND project_id = ?').get(id, projectId);
   if (!existing) return res.status(404).json({ error: '요구사항을 찾을 수 없습니다.' });
 
   await db.prepare(
-    `UPDATE requirements SET title = ?, description = ?, category = ?, priority = ?, status = ?, updated_at = datetime('now')
+    `UPDATE requirements SET title = ?, description = ?, category = ?, classification = ?, priority = ?, status = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
     title ?? existing.title,
     description ?? existing.description,
     category ?? existing.category,
+    classification ?? existing.classification,
     priority ?? existing.priority,
     status ?? existing.status,
     id,
   );
-
-  if ((category ?? existing.category) !== existing.category) {
-    await renumberRequirementCodes(db, projectId);
-  }
 
   const row = await db.prepare('SELECT * FROM requirements WHERE id = ?').get(id);
   res.json(mapRequirement(row));
