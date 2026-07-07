@@ -60,14 +60,39 @@ export function useTestCasesTableColumns({
     const column = columns.find((entry) => entry.id === columnId);
     if (!column) return;
 
+    const columnIndex = columns.findIndex((entry) => entry.id === columnId);
+    const neighborColumn = columns[columnIndex + 1];
+    if (!neighborColumn) return;
+
     const startX = event.clientX;
-    const startWidth = widthsRef.current[columnId] ?? column.defaultWidth;
+    const startWidths = { ...widthsRef.current };
+    const startCurrent = startWidths[columnId] ?? column.defaultWidth;
+    const startNeighbor = startWidths[neighborColumn.id] ?? neighborColumn.defaultWidth;
     setResizingColumnId(columnId);
 
     const onMove = (moveEvent) => {
-      const nextWidth = Math.max(column.minWidth, startWidth + (moveEvent.clientX - startX));
+      const delta = moveEvent.clientX - startX;
+      let nextCurrent = startCurrent + delta;
+      let nextNeighbor = startNeighbor - delta;
+
+      if (nextCurrent < column.minWidth) {
+        nextNeighbor -= column.minWidth - nextCurrent;
+        nextCurrent = column.minWidth;
+      }
+      if (nextNeighbor < neighborColumn.minWidth) {
+        nextCurrent -= neighborColumn.minWidth - nextNeighbor;
+        nextNeighbor = neighborColumn.minWidth;
+      }
+
+      nextCurrent = Math.max(column.minWidth, nextCurrent);
+      nextNeighbor = Math.max(neighborColumn.minWidth, nextNeighbor);
+
       setWidths((prev) => {
-        const updated = { ...prev, [columnId]: nextWidth };
+        const updated = {
+          ...prev,
+          [columnId]: Math.round(nextCurrent),
+          [neighborColumn.id]: Math.round(nextNeighbor),
+        };
         widthsRef.current = updated;
         return updated;
       });

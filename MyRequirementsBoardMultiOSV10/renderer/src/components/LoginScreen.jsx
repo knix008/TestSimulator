@@ -7,7 +7,7 @@ export default function LoginScreen() {
   const { t } = useLanguage();
 
   return (
-    <div className="login-screen">
+    <div className="login-screen app-shell">
       <header className="app-header login-screen__header">
         <div className="login-screen__titlebar">
           <img
@@ -23,7 +23,7 @@ export default function LoginScreen() {
           </div>
         </div>
       </header>
-      <main className="login-screen__main">
+      <main className="login-screen__main app-main">
         <LoginDialog open />
       </main>
     </div>

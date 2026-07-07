@@ -31,3 +31,19 @@ export function resolveTestCasesColumnWidths(uiSettings, canEdit) {
 
   return widths;
 }
+
+export function sumTestCasesColumnWeights(widths, columns) {
+  return columns.reduce(
+    (total, column) => total + (widths[column.id] ?? column.defaultWidth),
+    0,
+  );
+}
+
+export function toTestCasesColumnPercentWidth(columnId, widths, columns) {
+  const total = sumTestCasesColumnWeights(widths, columns);
+  if (total <= 0) return 'auto';
+
+  const column = columns.find((entry) => entry.id === columnId);
+  const weight = widths[columnId] ?? column?.defaultWidth ?? 0;
+  return `${(weight / total) * 100}%`;
+}

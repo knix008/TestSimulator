@@ -8,6 +8,7 @@ import { openRowContextMenu, useContextMenu } from '../components/ContextMenu.js
 import TableInlineSelect from '../components/TableInlineSelect.jsx';
 import TestCaseEditDialog from '../components/TestCaseEditDialog.jsx';
 import { useTestCasesTableColumns } from '../hooks/useTestCasesTableColumns.js';
+import { toTestCasesColumnPercentWidth } from '../lib/testCasesTableLayout.js';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
 
 const TC_STATUS_KEYS = ['NOT_RUN', 'PASS', 'FAIL', 'BLOCKED'];
@@ -405,7 +406,10 @@ export default function TestCasesPage() {
       >
           <colgroup>
             {columns.map((column) => (
-              <col key={column.id} style={{ width: `${widths[column.id]}px` }} />
+              <col
+                key={column.id}
+                style={{ width: toTestCasesColumnPercentWidth(column.id, widths, columns) }}
+              />
             ))}
           </colgroup>
           <thead>
