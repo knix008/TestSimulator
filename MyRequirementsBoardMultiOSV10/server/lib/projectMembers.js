@@ -1,4 +1,5 @@
 import { getDatabase } from '../db/index.js';
+import { getSystemDefaultProject } from './systemProject.js';
 
 export const PROJECT_MEMBER_ROLES = new Set(['VIEWER', 'EDITOR']);
 
@@ -52,10 +53,7 @@ export async function userCanManageProject(db, user, projectId) {
 export async function userCanDeleteProject(db, user, project) {
   if (isAdmin(user)) return true;
   if (!project) return false;
-  if (Number(project.created_by_id) === Number(user.id)) {
-    return userCanEditProject(db, user, project.id);
-  }
-  return false;
+  return userCanManageProject(db, user, project.id);
 }
 
 export async function userHasProjectAccess(db, user, projectId) {
@@ -224,7 +222,7 @@ export async function backfillProjectMembers(db) {
     return;
   }
 
-  const defaultProject = await db.prepare("SELECT id FROM projects WHERE code = 'DEFAULT'").get();
+  const defaultProject = await getSystemDefaultProject(db);
   if (!defaultProject) return;
 
   const users = await db.prepare("SELECT id, role FROM users WHERE role != 'ADMIN'").all();

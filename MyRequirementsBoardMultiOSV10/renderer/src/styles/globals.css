@@ -55,23 +55,16 @@ a:hover { text-decoration: underline; }
   box-sizing: border-box;
   position: relative;
 }
-.nav-primary {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-  overflow: visible;
-}
 .nav-scroll {
   display: flex;
   align-items: center;
   gap: 16px;
-  flex: 1 1 auto;
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: none;
+  grid-column: 1;
 }
 .nav-scroll::-webkit-scrollbar {
   display: none;

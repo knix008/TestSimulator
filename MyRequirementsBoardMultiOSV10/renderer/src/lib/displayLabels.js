@@ -5,13 +5,18 @@ const DEFAULT_ADMIN_NAMES = new Set(['관리자', 'Administrator', 'Admin']);
 
 export function isDefaultProject(project) {
   if (!project) return false;
-  return project.code === DEFAULT_PROJECT_CODE
-    || DEFAULT_PROJECT_NAMES.has(project.name);
+  if (project.isSystemDefault) return true;
+  return project.code === DEFAULT_PROJECT_CODE;
+}
+
+export function usesDefaultProjectLabel(project) {
+  if (!project) return false;
+  return isDefaultProject(project) && DEFAULT_PROJECT_NAMES.has(String(project.name || '').trim());
 }
 
 export function getDisplayProjectName(project, t) {
   if (!project) return '';
-  if (isDefaultProject(project)) {
+  if (usesDefaultProjectLabel(project)) {
     return t('defaults.projectName');
   }
   return project.name;
@@ -19,7 +24,7 @@ export function getDisplayProjectName(project, t) {
 
 export function getDisplayProjectDescription(project, t) {
   if (!project) return '';
-  if (isDefaultProject(project)) {
+  if (usesDefaultProjectLabel(project)) {
     return t('defaults.projectDescription');
   }
   return project.description || '';

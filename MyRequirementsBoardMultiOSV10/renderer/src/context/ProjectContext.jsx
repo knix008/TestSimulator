@@ -31,6 +31,16 @@ export function ProjectProvider({ children }) {
       setLoading(false);
     }
   };
+
+  const syncProject = useCallback((project) => {
+    if (!project?.id) return;
+    setProjects((prev) => prev.map((item) => (
+      item.id === project.id ? { ...item, ...project } : item
+    )));
+    setActiveProject((prev) => (
+      prev?.id === project.id ? { ...prev, ...project } : prev
+    ));
+  }, []);
   const selectProject = (project) => {
     setActiveProject(project);
     if (project) localStorage.setItem(STORAGE_KEY, String(project.id));
@@ -56,6 +66,7 @@ export function ProjectProvider({ children }) {
       loading,
       refreshProjects,
       selectProject,
+      syncProject,
       updateActiveProjectUiSettings,
       canEditProject,
       canManageProject,

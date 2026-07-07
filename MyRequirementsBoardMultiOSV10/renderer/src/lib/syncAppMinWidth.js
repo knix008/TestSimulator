@@ -56,11 +56,11 @@ function measureNavExplicitWidth(navEl) {
   const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
   const gap = parseFloat(style.columnGap || style.gap) || 0;
 
-  const primary = navEl.querySelector('.nav-primary');
+  const scroll = navEl.querySelector('.nav-scroll');
   const trailing = navEl.querySelector('.nav-trailing');
 
   const segments = [
-    primary ? measureFlexRow(primary) : 0,
+    scroll ? measureFlexRow(scroll) : 0,
     trailing ? measureFlexRow(trailing) : 0,
   ].filter((width) => width > 0);
 

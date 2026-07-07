@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS projects (
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
   is_active INTEGER NOT NULL DEFAULT 1,
+  is_system_default INTEGER NOT NULL DEFAULT 0,
   created_by_id INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -130,6 +131,10 @@ function migrateProjectsSchema() {
   const columns = getTableColumns('projects');
   if (!columns.includes('ui_settings')) {
     database.run("ALTER TABLE projects ADD COLUMN ui_settings TEXT NOT NULL DEFAULT '{}'");
+  }
+  if (!columns.includes('is_system_default')) {
+    database.run('ALTER TABLE projects ADD COLUMN is_system_default INTEGER NOT NULL DEFAULT 0');
+    database.run("UPDATE projects SET is_system_default = 1 WHERE code = 'DEFAULT'");
   }
 }
 
@@ -318,8 +323,8 @@ function ensureDefaultProject(db) {
   return row.then((r) => {
     if (r.count > 0) return;
     return db.prepare(
-      `INSERT INTO projects (code, name, description)
-       VALUES ('DEFAULT', '기본 프로젝트', '시스템 기본 프로젝트')`,
+      `INSERT INTO projects (code, name, description, is_system_default)
+       VALUES ('DEFAULT', '기본 프로젝트', '시스템 기본 프로젝트', 1)`,
     ).run();
   });
 }

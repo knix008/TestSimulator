@@ -8,6 +8,7 @@ import { IconButton } from '../components/IconButton.jsx';
 import { IconText } from '../components/IconText.jsx';
 import { openRowContextMenu, useContextMenu } from '../components/ContextMenu.jsx';
 import { getDisplayProjectName, getDisplayUserName } from '../lib/displayLabels.js';
+import { isValidProjectCode, normalizeProjectCode } from '../lib/projectCode.js';
 
 function ProjectMemberPicker({ users, members, onChange, excludeUserId = null }) {
   const { t } = useLanguage();
@@ -58,7 +59,7 @@ function ProjectMemberPicker({ users, members, onChange, excludeUserId = null })
 
 export default function ProjectsPage() {
   const { user, hasRole } = useAuth();
-  const { refreshProjects, selectProject } = useProject();
+  const { refreshProjects, selectProject, syncProject, activeProject } = useProject();
   const { openContextMenu } = useContextMenu();
   const { t } = useLanguage();
   const isAdmin = hasRole('ADMIN');
@@ -69,6 +70,7 @@ export default function ProjectsPage() {
   const [editForm, setEditForm] = useState(null);
   const [memberAssignments, setMemberAssignments] = useState([]);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const load = async () => {
     const projectList = await api.listProjects(isAdmin);
@@ -101,7 +103,7 @@ export default function ProjectsPage() {
 
   const handleDelete = async (id) => {
     const project = projects.find((p) => p.id === id);
-    if (!project || project.code === 'DEFAULT') return;
+    if (!project || project.isSystemDefault) return;
     if (!window.confirm(t('projects.deleteConfirm'))) return;
     try {
       await api.deleteProject(id);
@@ -118,11 +120,15 @@ export default function ProjectsPage() {
       setError(t('projects.noEditPermission'));
       return;
     }
+    setSuccess('');
+    setError('');
     setEditForm({
       id: project.id,
+      code: project.code,
       name: project.name,
       description: project.description || '',
       isActive: project.isActive,
+      isSystemDefault: project.isSystemDefault,
       canManage: project.canManage || isAdmin,
     });
     await loadMembers(project.id);
@@ -132,13 +138,47 @@ export default function ProjectsPage() {
     e.preventDefault();
     if (!editForm) return;
     setError('');
+    setSuccess('');
+
+    const nextCode = normalizeProjectCode(editForm.code);
+    if (!isValidProjectCode(editForm.code)) {
+      setError(t('projects.codeInvalid'));
+      return;
+    }
+
     try {
-      await api.updateProject(editForm.id, {
-        name: editForm.name,
+      const payload = {
+        code: nextCode,
+        name: editForm.name.trim(),
         description: editForm.description,
-        isActive: editForm.isActive,
-      });
+      };
+      if (isAdmin) payload.isActive = editForm.isActive;
+
+      const updated = await api.updateProject(editForm.id, payload);
+      if (normalizeProjectCode(updated.code) !== nextCode) {
+        setProjects((prev) => prev.map((item) => (
+          item.id === updated.id ? { ...item, ...updated } : item
+        )));
+        setError(t('projects.codeSaveFailed'));
+        setEditForm((prev) => (prev ? { ...prev, code: updated.code } : prev));
+        return;
+      }
+
       await api.setProjectMembers(editForm.id, memberAssignments);
+      syncProject(updated);
+      setProjects((prev) => prev.map((item) => (
+        item.id === updated.id ? { ...item, ...updated } : item
+      )));
+      const wasActiveProject = activeProject?.id === updated.id;
+      if (wasActiveProject) {
+        selectProject(updated);
+      }
+      setEditForm(null);
+      if (isAdmin && payload.isActive === false && wasActiveProject) {
+        setSuccess(t('projects.deactivatedActiveNote'));
+      } else {
+        setSuccess(t('projects.saved'));
+      }
       await load();
       await refreshProjects();
     } catch (err) {
@@ -165,7 +205,7 @@ export default function ProjectsPage() {
       multiSelect: true,
       items: (selection) => {
         const targets = projects.filter((p) => selection.includes(p.id));
-        const canDelete = targets.filter((p) => p.code !== 'DEFAULT' && (p.isOwner || isAdmin));
+        const canDelete = targets.filter((p) => !p.isSystemDefault && (p.canManage || isAdmin));
         const menu = [];
 
         if (selection.length === 1) {
@@ -218,21 +258,22 @@ export default function ProjectsPage() {
         {t('projects.intro', { view: t('role.member.VIEWER'), edit: t('role.member.EDITOR') })}
       </p>
       {error && <p className="error">{error}</p>}
+      {success && <p className="success">{success}</p>}
 
       <div className="card">
         <h2>{t('projects.new')}</h2>
         <form onSubmit={handleCreate}>
           <div className="form-row">
-            <label>{t('common.code')}</label>
+            <label>{t('common.projectCode')}</label>
             <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder={t('projects.codePlaceholder')} required />
           </div>
           <div className="form-row">
             <label>{t('common.name')}</label>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('projects.namePlaceholder')} required />
           </div>
           <div className="form-row">
             <label>{t('common.description')}</label>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t('projects.descriptionPlaceholder')} />
           </div>
           {users.length > 0 && (
             <div className="form-row">
@@ -253,6 +294,15 @@ export default function ProjectsPage() {
         <div className="card">
           <h2>{t('projects.edit')}</h2>
           <form onSubmit={handleSaveEdit}>
+            <div className="form-row">
+              <label>{t('common.projectCode')}</label>
+              <input
+                value={editForm.code}
+                onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                placeholder={t('projects.codePlaceholder')}
+                required
+              />
+            </div>
             <div className="form-row">
               <label>{t('common.name')}</label>
               <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required />
@@ -285,7 +335,18 @@ export default function ProjectsPage() {
             )}
             <div className="form-actions">
               <IconButton icon={Save} className="btn-primary" type="submit" tooltip={t('projects.tipSave')}>{t('common.save')}</IconButton>
-              <IconButton icon={Pencil} className="btn-secondary" type="button" onClick={() => setEditForm(null)} tooltip={t('projects.tipCancelEdit')}>{t('common.cancel')}</IconButton>
+              <IconButton icon={Pencil} className="btn-secondary" type="button" onClick={() => { setEditForm(null); setSuccess(''); }} tooltip={t('projects.tipCancelEdit')}>{t('common.cancel')}</IconButton>
+              {!editForm.isSystemDefault && (editForm.canManage || isAdmin) && (
+                <IconButton
+                  icon={Trash2}
+                  className="btn-danger"
+                  type="button"
+                  onClick={() => handleDelete(editForm.id)}
+                  tooltip={t('projects.tipDelete')}
+                >
+                  {t('common.delete')}
+                </IconButton>
+              )}
             </div>
           </form>
         </div>
@@ -294,7 +355,7 @@ export default function ProjectsPage() {
       <table>
         <thead>
           <tr>
-            <th>{t('common.code')}</th>
+            <th>{t('common.projectCode')}</th>
             <th>{t('common.name')}</th>
             <th>{t('projects.myRole')}</th>
             {isAdmin && <th>{t('common.status')}</th>}
@@ -322,7 +383,7 @@ export default function ProjectsPage() {
                   {(p.canManage || isAdmin) && (
                     <IconButton icon={Pencil} className="btn-secondary" type="button" onClick={() => startEdit(p)} tooltip={t('projects.tipEdit')}>{t('common.edit')}</IconButton>
                   )}
-                  {(p.isOwner || isAdmin) && p.code !== 'DEFAULT' && (
+                  {(p.canManage || isAdmin) && !p.isSystemDefault && (
                     <IconButton icon={Trash2} className="btn-danger" type="button" onClick={() => handleDelete(p.id)} tooltip={t('projects.tipDelete')}>
                       {t('common.delete')}
                     </IconButton>

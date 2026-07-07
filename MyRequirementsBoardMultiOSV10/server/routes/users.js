@@ -4,6 +4,7 @@ import { hashPassword } from '../auth/password.js';
 import { sanitizeUser } from '../auth/auth.js';
 import { requireRole } from '../auth/middleware.js';
 import { getUserProjects, setUserProjects, addUserToProject } from '../lib/projectMembers.js';
+import { getSystemDefaultProject } from '../lib/systemProject.js';
 
 const router = Router();
 
@@ -48,7 +49,7 @@ router.post('/', requireRole('ADMIN'), async (req, res) => {
     if (assignments.length > 0) {
       await setUserProjects(db, userId, assignments);
     } else if ((role || 'VIEWER') !== 'ADMIN') {
-      const defaultProject = await db.prepare("SELECT id FROM projects WHERE code = 'DEFAULT'").get();
+      const defaultProject = await getSystemDefaultProject(db);
       if (defaultProject) await addUserToProject(db, defaultProject.id, userId);
     }
 
@@ -117,7 +118,7 @@ router.post('/registration-requests/:id/approve', requireRole('ADMIN'), async (r
     if (projectAssignments.length > 0) {
       await setUserProjects(db, userId, projectAssignments);
     } else if (request.requested_role !== 'ADMIN') {
-      const defaultProject = await db.prepare("SELECT id FROM projects WHERE code = 'DEFAULT'").get();
+      const defaultProject = await getSystemDefaultProject(db);
       if (defaultProject) await addUserToProject(db, defaultProject.id, userId);
     }
 

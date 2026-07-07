@@ -284,7 +284,7 @@ export default function RequirementFormPage() {
       <form onSubmit={handleSubmit} className="card">
         {isEdit && requirementCode && (
           <div className="form-row">
-            <label>{t('common.code')}</label>
+            <label>{t('common.requirementCode')}</label>
             <input value={requirementCode} readOnly aria-readonly="true" />
           </div>
         )}
@@ -360,7 +360,7 @@ export default function RequirementFormPage() {
               <h3>{editingTestCase === 'new' ? t('requirements.newTestCase') : t('requirements.editTestCase')}</h3>
               {editingTestCase !== 'new' && testCaseForm.code && (
                 <div className="form-row">
-                  <label>{t('common.code')}</label>
+                  <label>{t('common.requirementCode')}</label>
                   <input value={testCaseForm.code} readOnly aria-readonly="true" />
                 </div>
               )}
@@ -392,7 +392,7 @@ export default function RequirementFormPage() {
           {testCases.length > 0 ? (
             <table>
               <thead>
-                <tr><th>{t('common.code')}</th><th>{t('common.title')}</th><th>{t('common.status')}</th><th></th></tr>
+                <tr><th>{t('common.requirementCode')}</th><th>{t('common.title')}</th><th>{t('common.status')}</th><th></th></tr>
               </thead>
               <tbody>
                 {testCases.map((tc) => (

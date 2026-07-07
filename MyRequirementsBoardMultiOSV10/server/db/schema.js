@@ -45,6 +45,7 @@ export async function ensureSchema(knex) {
       t.text('description').defaultTo('');
       t.text('ui_settings').notNullable().defaultTo('{}');
       t.integer('is_active').notNullable().defaultTo(1);
+      t.integer('is_system_default').notNullable().defaultTo(0);
       t.integer('created_by_id').unsigned().nullable();
       t.timestamp('created_at').defaultTo(knex.fn.now());
       t.timestamp('updated_at').defaultTo(knex.fn.now());
@@ -53,6 +54,13 @@ export async function ensureSchema(knex) {
     await knex.schema.alterTable('projects', (t) => {
       t.text('ui_settings').notNullable().defaultTo('{}');
     });
+  }
+
+  if (await knex.schema.hasTable('projects') && !(await knex.schema.hasColumn('projects', 'is_system_default'))) {
+    await knex.schema.alterTable('projects', (t) => {
+      t.integer('is_system_default').notNullable().defaultTo(0);
+    });
+    await knex('projects').where({ code: 'DEFAULT' }).update({ is_system_default: 1 });
   }
 
   if (!(await knex.schema.hasTable('requirements'))) {
@@ -179,12 +187,14 @@ export async function ensureSeedData(knex) {
       code: 'DEFAULT',
       name: '기본 프로젝트',
       description: '시스템 기본 프로젝트',
+      is_system_default: 1,
     });
   }
 
   const memberCount = Number((await knex('project_members').count('* as count').first())?.count ?? 0);
   if (memberCount === 0) {
-    const defaultProject = await knex('projects').where({ code: 'DEFAULT' }).first();
+    const defaultProject = await knex('projects').where({ is_system_default: 1 }).first()
+      ?? await knex('projects').where({ code: 'DEFAULT' }).first();
     if (defaultProject) {
       const users = await knex('users').whereNot({ role: 'ADMIN' }).select('id');
       if (users.length > 0) {

@@ -127,8 +127,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
       data-measure-user={user ? JSON.stringify({ name: user.name, username: user.username, role: user.role }) : ''}
       data-measure-projects={JSON.stringify(projects.map((p) => ({ id: p.id, name: p.name, code: p.code })))}
     >
-      <div className="nav-primary">
-        <div className="nav-scroll">
+      <div className="nav-scroll">
         {projects.length > 0 ? (
           <label className="nav-project nav-project--first">
             <FolderKanban size={16} strokeWidth={2} aria-hidden="true" />
@@ -157,7 +156,8 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
           <NavItem to="/ollama" icon={Sparkles} labelKey="nav.ollama" tooltipKey="nav.tipOllama" />
         )}
         <NavItem to="/settings" icon={Settings} labelKey="nav.settings" tooltipKey="nav.tipSettings" />
-        </div>
+      </div>
+      <div className="nav-trailing">
         {canEditProject && (
           <div className="nav-undo-redo">
             <button
@@ -194,8 +194,6 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
         >
           <IconText icon={Info}>{appInfoLabel}</IconText>
         </button>
-      </div>
-      <div className="nav-trailing">
         <span className="user" data-i18n-user-display>
           <IconText icon={User}>{displayUserName} ({roleLabel})</IconText>
         </span>

@@ -23,8 +23,13 @@ import {
   parseProjectUiSettings,
   serializeProjectUiSettings,
 } from '../lib/projectUiSettings.js';
+import { isSystemDefaultProjectRow } from '../lib/systemProject.js';
 
 const router = Router();
+
+function normalizeProjectCode(raw) {
+  return String(raw || '').toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+}
 
 function mapProject(row, user) {
   const memberRole = normalizeMemberRole(row.member_role);
@@ -44,6 +49,7 @@ function mapProject(row, user) {
     canEdit: isAdmin || memberRole === 'EDITOR',
     canManage: isAdmin || memberRole === 'EDITOR',
     isOwner: Number(row.created_by_id) === Number(user?.id),
+    isSystemDefault: isSystemDefaultProjectRow(row),
     uiSettings: parseProjectUiSettings(row.ui_settings),
   };
 }
@@ -169,7 +175,7 @@ router.post('/', requireRole('VIEWER'), async (req, res) => {
     const result = await db.prepare(
       `INSERT INTO projects (code, name, description, created_by_id)
        VALUES (?, ?, ?, ?)`,
-    ).run(code.toUpperCase().replace(/[^A-Z0-9_-]/g, ''), name, description || '', req.session.user.id);
+    ).run(normalizeProjectCode(code), name, description || '', req.session.user.id);
 
     const projectId = result.lastInsertRowid;
     const memberList = Array.isArray(members) ? [...members] : [];
@@ -200,7 +206,7 @@ router.post('/', requireRole('VIEWER'), async (req, res) => {
 
 router.put('/:id', requireRole('VIEWER'), async (req, res) => {
   const projectId = Number(req.params.id);
-  const { name, description, isActive } = req.body || {};
+  const { name, description, isActive, code } = req.body || {};
   const db = getDatabase();
   const existing = await db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!existing) return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다.' });
@@ -210,13 +216,29 @@ router.put('/:id', requireRole('VIEWER'), async (req, res) => {
     return res.status(403).json({ error: '프로젝트를 편집할 권한이 없습니다.' });
   }
 
-  const nextActive = req.session.user.role === 'ADMIN'
-    ? (isActive === false ? 0 : 1)
+  const nextActive = req.session.user.role === 'ADMIN' && typeof isActive === 'boolean'
+    ? (isActive ? 1 : 0)
     : existing.is_active;
 
-  await db.prepare(
-    `UPDATE projects SET name = ?, description = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?`,
-  ).run(name ?? existing.name, description ?? existing.description, nextActive, existing.id);
+  let nextCode = existing.code;
+  if (code !== undefined && code !== null) {
+    const normalized = normalizeProjectCode(code);
+    if (!normalized) {
+      return res.status(400).json({ error: '유효하지 않은 프로젝트 코드입니다.' });
+    }
+    nextCode = normalized;
+  }
+
+  try {
+    await db.prepare(
+      `UPDATE projects SET code = ?, name = ?, description = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?`,
+    ).run(nextCode, name ?? existing.name, description ?? existing.description, nextActive, existing.id);
+  } catch (err) {
+    if (String(err.message).includes('UNIQUE') || String(err.message).includes('duplicate')) {
+      return res.status(400).json({ error: '이미 사용 중인 프로젝트 코드입니다.' });
+    }
+    throw err;
+  }
 
   const updated = await db.prepare(`
     SELECT p.*, COUNT(r.id) AS requirement_count,
@@ -264,8 +286,8 @@ router.delete('/:id', requireRole('VIEWER'), async (req, res) => {
   const id = Number(req.params.id);
   const existing = await db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다.' });
-  if (existing.code === 'DEFAULT') {
-    return res.status(400).json({ error: '기본 프로젝트는 삭제할 수 없습니다.' });
+  if (isSystemDefaultProjectRow(existing)) {
+    return res.status(400).json({ error: '시스템 기본 프로젝트는 삭제할 수 없습니다.' });
   }
 
   const canDelete = await userCanDeleteProject(db, req.session.user, existing);

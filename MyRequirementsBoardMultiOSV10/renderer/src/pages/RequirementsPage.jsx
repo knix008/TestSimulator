@@ -42,7 +42,7 @@ export default function RequirementsPage() {
   });
 
   const columnLabels = useMemo(() => ({
-    code: t('common.code'),
+    code: t('common.requirementCode'),
     classification: t('common.classification'),
     title: t('common.title'),
     category: t('common.category'),
