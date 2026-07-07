@@ -1,6 +1,18 @@
 export const ko = {
   'app.subtitle': '과제 일정 관리',
 
+  'about.title': 'MyProject 정보',
+  'about.description':
+    '작업, 의존성, 리소스, 진행률, Gantt 메모를 관리하는 크로스 플랫폼 Gantt 프로젝트 관리 프로그램입니다.',
+  'about.version': '버전 {version}',
+  'about.developmentBuild': '빌드: 개발 빌드',
+  'about.buildDate': '빌드 일시: {date}',
+  'about.commit': '커밋: {commit}',
+  'about.commitWithBranch': '커밋: {commit} ({branch})',
+  'about.platform': '플랫폼: {platform} {arch}',
+  'about.electron': 'Electron: {version}',
+  'about.copyright': 'Copyright © {year} MyProject',
+
   'common.close': '닫기',
   'common.cancel': '취소',
   'common.save': '저장',
@@ -132,9 +144,25 @@ export const ko = {
   'taskProps.duration': '기간(근무일)',
   'taskProps.progress': '진행률(%)',
   'taskProps.type': '유형',
+  'taskType.Normal': '일반',
+  'taskType.Summary': '요약',
+  'taskType.Milestone': '마일스톤',
   'taskProps.notes': '메모',
   'taskProps.notesPlaceholder': '메모',
+  'taskProps.barColor': '일정 막대 색',
+  'taskProps.progressColor': '진행 막대 색',
+  'taskProps.colorPresets': '미리 정의된 색',
+  'taskProps.colorCustom': '사용자 지정',
+  'taskProps.colorChoose': '색 선택…',
+  'taskProps.colorDefault': '기본값',
+  'taskProps.barShape': '막대 도형',
+  'taskProps.barShape.Standard': '표준(꺾쇠)',
+  'taskProps.barShape.Rounded': '둥근 모서리',
+  'taskProps.barShape.Bracket': '괄호형',
+  'taskProps.barShape.Arrow': '화살표',
   'taskProps.predecessors': '선행:',
+  'taskProps.predecessorTask': '선행 작업',
+  'taskProps.depLinkType': '연결 유형',
   'taskProps.removeDependency': '의존성 제거',
 
   'noteProps.title': '메모',
@@ -201,6 +229,12 @@ export const ko = {
   'gantt.notesLayer': '간트 메모',
   'gantt.hScroll': '간트 가로 스크롤',
   'gantt.today': '오늘 날짜',
+
+  'ganttExport.title': 'Gantt 이미지 내보내기',
+  'ganttExport.transparentBackground': '투명 배경',
+  'ganttExport.transparentHint':
+    '그래프 영역과 날짜·요일 헤더는 투명하게 저장됩니다. 오늘·주말 등 텍스트 배경은 유지됩니다.',
+  'ganttExport.export': '내보내기',
 
   'depType.FS': 'FS (완료-시작)',
   'depType.FF': 'FF (완료-완료)',

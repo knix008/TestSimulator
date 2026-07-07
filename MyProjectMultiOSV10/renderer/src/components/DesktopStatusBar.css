@@ -3,6 +3,7 @@
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
+  flex-shrink: 0;
   min-height: 24px;
   padding: 2px 10px;
   border-top: 1px solid #d8dce6;

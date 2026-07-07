@@ -21,6 +21,23 @@ export interface ExportResult {
   filePath: string;
 }
 
+export interface AppBuildInfo {
+  version: string;
+  buildDate: string | null;
+  commit: string;
+  branch: string;
+  builtOnPlatform: string;
+  builtOnArch: string;
+  electronVersion: string;
+  development: boolean;
+}
+
+export interface AppInfo {
+  version: string;
+  productName: string;
+  build: AppBuildInfo;
+}
+
 export interface ElectronApi {
   newProject: () => Promise<ProjectLoadResult>;
   openProjectDialog: () => Promise<ProjectLoadResult | null>;
@@ -36,6 +53,7 @@ export interface ElectronApi {
   exportMsProject: (project: ExportProject) => Promise<ExportResult | null>;
   saveGanttImage: (defaultName: string, dataUrl: string) => Promise<string | null>;
   printProject: () => Promise<boolean>;
+  setMinimumSize: (width: number, height: number) => void;
   onMenuNewProject: (callback: () => void) => () => void;
   onMenuOpenFile: (callback: (filePath: string) => void) => () => void;
   onMenuSave: (callback: () => void) => () => void;
@@ -44,7 +62,7 @@ export interface ElectronApi {
   onProjectOpened: (callback: (result: ProjectLoadResult) => void) => () => void;
   invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
   quitApp: () => void;
-  showAbout: () => Promise<void>;
+  getAppInfo: () => Promise<AppInfo>;
 }
 
 function subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
@@ -69,6 +87,9 @@ const electronApi: ElectronApi = {
   exportMsProject: (project) => ipcRenderer.invoke('export:ms-project', project),
   saveGanttImage: (defaultName, dataUrl) => ipcRenderer.invoke('export:save-image', defaultName, dataUrl),
   printProject: () => ipcRenderer.invoke('app:print'),
+  setMinimumSize: (width, height) => {
+    void ipcRenderer.invoke('window:set-minimum-size', width, height);
+  },
   onMenuNewProject: (callback) => subscribe('menu:new-project', callback),
   onMenuOpenFile: (callback) => subscribe('menu:open-file', callback),
   onMenuSave: (callback) => subscribe('menu:save', callback),
@@ -77,7 +98,7 @@ const electronApi: ElectronApi = {
   onProjectOpened: (callback) => subscribe<ProjectLoadResult>('project:opened', callback),
   invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
   quitApp: () => ipcRenderer.send('app:quit'),
-  showAbout: () => ipcRenderer.invoke('app:about'),
+  getAppInfo: () => ipcRenderer.invoke('app:getInfo'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronApi);

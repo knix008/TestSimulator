@@ -130,7 +130,10 @@ function MenuDropdown({ group, onCloseRoot }: { group: DesktopMenuGroup; onClose
   }, [open, onCloseRoot]);
 
   return (
-    <div ref={rootRef} className="desktop-menu-root">
+    <div
+      ref={rootRef}
+      className={`desktop-menu-root${group.align === 'end' ? ' desktop-menu-root--end' : ''}`}
+    >
       <button
         type="button"
         className={`desktop-menu-top ${open ? 'desktop-menu-top--open' : ''}`}

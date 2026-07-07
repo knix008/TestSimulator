@@ -18,6 +18,11 @@ interface TaskPropertiesDialogProps {
   onClose: () => void;
   onSave: (taskId: number, patch: Partial<TaskItem>) => void;
   onRemoveDependency: (predecessorId: number, successorId: number) => void;
+  onUpdateDependencyType?: (
+    predecessorId: number,
+    successorId: number,
+    type: import('../types/project').GanttViewSettings['defaultDependencyType'],
+  ) => void;
 }
 
 export function TaskPropertiesDialog({
@@ -29,6 +34,7 @@ export function TaskPropertiesDialog({
   onClose,
   onSave,
   onRemoveDependency,
+  onUpdateDependencyType,
 }: TaskPropertiesDialogProps) {
   const t = useTranslation();
   const [draft, setDraft] = useState<TaskPropertiesDraft | null>(null);
@@ -90,6 +96,7 @@ export function TaskPropertiesDialog({
             values={draft}
             onChange={setDraft}
             onRemoveDependency={onRemoveDependency}
+            onUpdateDependencyType={onUpdateDependencyType}
           />
         </div>
 

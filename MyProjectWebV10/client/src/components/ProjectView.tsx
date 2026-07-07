@@ -508,6 +508,18 @@ export function ProjectView() {
     [updateProjectState],
   );
 
+  const handleUpdateDependencyType = useCallback(
+    (predecessorId: number, successorId: number, type: DependencyTypeValue) => {
+      setSelectedDependency({ predecessorId, successorId });
+      updateProjectState((current) => ({
+        ...current,
+        dependencies: setDependencyType(current.dependencies, predecessorId, successorId, type),
+      }));
+      setScheduleError(null);
+    },
+    [updateProjectState],
+  );
+
   const handleSetDependencyLineEnd = useCallback(
     (
       which: 'start' | 'end',
@@ -1272,6 +1284,7 @@ export function ProjectView() {
                 canModify={canModify}
                 onUpdateTask={handleUpdateTask}
                 onRemoveDependency={handleRemoveDependency}
+                onUpdateDependencyType={handleUpdateDependencyType}
               />
             </footer>
           )}
@@ -1330,6 +1343,7 @@ export function ProjectView() {
         onClose={() => setTaskPropertiesDialogTaskId(null)}
         onSave={handleUpdateTask}
         onRemoveDependency={handleRemoveDependency}
+        onUpdateDependencyType={handleUpdateDependencyType}
       />
 
       {contextMenu && contextMenuItems.length > 0 && (

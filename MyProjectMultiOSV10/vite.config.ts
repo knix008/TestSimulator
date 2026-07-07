@@ -79,6 +79,10 @@ export default defineConfig({
         find: path.resolve(webClientRoot, 'api/client.ts'),
         replacement: desktopClientPath,
       },
+      {
+        find: 'html2canvas',
+        replacement: path.resolve(projectRoot, 'node_modules/html2canvas/dist/html2canvas.esm.js'),
+      },
     ],
   },
   define: {
@@ -93,5 +97,24 @@ export default defineConfig({
   build: {
     outDir: path.resolve(projectRoot, 'dist-renderer'),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+
+          if (id.includes('html2canvas')) {
+            return 'vendor-html2canvas';
+          }
+          if (id.includes('frappe-gantt')) {
+            return 'vendor-gantt';
+          }
+          if (id.includes('react-dom') || id.includes('/react/') || id.includes('\\react\\')) {
+            return 'vendor-react';
+          }
+
+          return undefined;
+        },
+      },
+    },
   },
 });

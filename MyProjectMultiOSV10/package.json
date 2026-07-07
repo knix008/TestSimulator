@@ -18,11 +18,11 @@
     "start": "electron .",
     "preview:web": "npm run preview --prefix ../MyProjectWebV10/client",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:linux": "npm run build && electron-builder --linux",
-    "dist:all": "npm run build && electron-builder -mwl",
+    "dist": "npm run build && electron-builder && node scripts/move-installer-to-root.mjs",
+    "dist:win": "npm run build && electron-builder --win && node scripts/move-installer-to-root.mjs",
+    "dist:mac": "npm run build && electron-builder --mac && node scripts/move-installer-to-root.mjs",
+    "dist:linux": "npm run build && electron-builder --linux && node scripts/move-installer-to-root.mjs",
+    "dist:all": "npm run build && electron-builder -mwl && node scripts/move-installer-to-root.mjs",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
@@ -125,7 +125,13 @@
       "uninstallerIcon": "assets/icon.ico",
       "installerHeaderIcon": "assets/icon.ico",
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyProject",
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "language": "1042"
     }
   }
 }

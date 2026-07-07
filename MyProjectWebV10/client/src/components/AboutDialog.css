@@ -1,0 +1,100 @@
+.about-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.about-dialog-panel {
+  width: min(440px, 100%);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+.about-dialog-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.about-dialog-panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.about-dialog-body {
+  padding: 24px;
+}
+
+.about-dialog-header {
+  display: flex;
+  gap: 16px;
+}
+
+.about-dialog-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.about-dialog-meta {
+  min-width: 0;
+}
+
+.about-dialog-product {
+  display: block;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.about-dialog-description {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.about-dialog-version {
+  margin: 10px 0 0;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.about-dialog-build {
+  margin-top: 10px;
+}
+
+.about-dialog-build-line {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.about-dialog-copyright {
+  margin: 20px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.about-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 20px;
+}

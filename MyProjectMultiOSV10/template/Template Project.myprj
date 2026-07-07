@@ -430,7 +430,7 @@
     "defaultDependencyEndLineEnd": "Arrow",
     "dayWidth": 29,
     "splitterDistance": 518,
-    "propertiesPanelWidth": 480,
+    "propertiesPanelWidth": 400,
     "propertiesPanelVisible": false,
     "useCalendarView": false,
     "calendarDisplayUnit": "Year",

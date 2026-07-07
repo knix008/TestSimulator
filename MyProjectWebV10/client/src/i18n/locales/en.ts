@@ -3,6 +3,18 @@ import type { KoTranslationKey } from './ko';
 export const en: Record<KoTranslationKey, string> = {
   'app.subtitle': 'Project Schedule Management',
 
+  'about.title': 'About MyProject',
+  'about.description':
+    'Cross-platform Gantt project management for tasks, dependencies, resources, progress, and Gantt notes.',
+  'about.version': 'Version {version}',
+  'about.developmentBuild': 'Build: Development',
+  'about.buildDate': 'Built: {date}',
+  'about.commit': 'Commit: {commit}',
+  'about.commitWithBranch': 'Commit: {commit} ({branch})',
+  'about.platform': 'Platform: {platform} {arch}',
+  'about.electron': 'Electron: {version}',
+  'about.copyright': 'Copyright © {year} MyProject',
+
   'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.save': 'Save',
@@ -134,9 +146,25 @@ export const en: Record<KoTranslationKey, string> = {
   'taskProps.duration': 'Duration (working days)',
   'taskProps.progress': 'Progress (%)',
   'taskProps.type': 'Type',
+  'taskType.Normal': 'Normal',
+  'taskType.Summary': 'Summary',
+  'taskType.Milestone': 'Milestone',
   'taskProps.notes': 'Notes',
   'taskProps.notesPlaceholder': 'Notes',
+  'taskProps.barColor': 'Schedule bar color',
+  'taskProps.progressColor': 'Progress bar color',
+  'taskProps.colorPresets': 'Preset colors',
+  'taskProps.colorCustom': 'Custom',
+  'taskProps.colorChoose': 'Choose color…',
+  'taskProps.colorDefault': 'Default',
+  'taskProps.barShape': 'Bar shape',
+  'taskProps.barShape.Standard': 'Standard (brackets)',
+  'taskProps.barShape.Rounded': 'Rounded',
+  'taskProps.barShape.Bracket': 'Bracket caps',
+  'taskProps.barShape.Arrow': 'Arrow / chevron',
   'taskProps.predecessors': 'Predecessors:',
+  'taskProps.predecessorTask': 'Predecessor',
+  'taskProps.depLinkType': 'Link type',
   'taskProps.removeDependency': 'Remove dependency',
 
   'noteProps.title': 'Note',
@@ -203,6 +231,12 @@ export const en: Record<KoTranslationKey, string> = {
   'gantt.notesLayer': 'Gantt notes',
   'gantt.hScroll': 'Gantt horizontal scroll',
   'gantt.today': 'Today',
+
+  'ganttExport.title': 'Export Gantt Image',
+  'ganttExport.transparentBackground': 'Transparent background',
+  'ganttExport.transparentHint':
+    'Chart and date/day header areas are saved transparent. Today and weekend label backgrounds are kept.',
+  'ganttExport.export': 'Export',
 
   'depType.FS': 'FS (Finish-Start)',
   'depType.FF': 'FF (Finish-Finish)',

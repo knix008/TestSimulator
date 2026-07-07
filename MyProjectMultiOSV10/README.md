@@ -41,7 +41,7 @@ Vite 개발 서버(5174)와 Electron이 동시에 실행됩니다.
 
 | 명령 | 설명 |
 |------|------|
-| `npm run build` | Electron main + renderer 프로덕션 빌드 |
+| `npm run build` | 아이콘 생성, 빌드 정보 기록, Electron main + renderer 프로덕션 빌드 |
 | `npm run start` | 빌드 결과로 Electron 실행 |
 | `npm run pack` | 설치 없이 실행 가능한 폴더 생성 (`release/`) |
 | `npm run dist` | **현재 OS**용 설치 패키지 생성 |
@@ -50,7 +50,9 @@ Vite 개발 서버(5174)와 Electron이 동시에 실행됩니다.
 | `npm run dist:linux` | Linux 패키지 (`.AppImage`, `.deb`) |
 | `npm run dist:all` | Windows + macOS + Linux 일괄 빌드 |
 
-빌드 결과물은 `release/` 폴더에 생성됩니다.
+빌드 시 `scripts/write-build-info.mjs`가 `config/build-info.json`(버전, 빌드 일시, Git 커밋 등)을 생성합니다. **도움말 → MyProject 정보** 다이얼로그에 이 정보가 표시됩니다.
+
+`dist:*` 실행 후 설치 파일(`.exe`, `.dmg`, `.AppImage`, `.deb` 등)은 `scripts/move-installer-to-root.mjs`에 의해 **프로젝트 루트**(`MyProjectMultiOSV10/`)로 자동 이동합니다. `release/`에는 압축 해제 폴더·`.blockmap` 등 보조 파일만 남습니다.
 
 #### OS별 빌드 예시
 
@@ -60,8 +62,10 @@ Vite 개발 서버(5174)와 Electron이 동시에 실행됩니다.
 cd MyProjectMultiOSV10
 npm install
 npm run dist:win
-# → release/MyProject-0.1.0-win-x64.exe
+# → MyProject-0.1.0-win-x64.exe (프로젝트 루트)
 ```
+
+Windows NSIS 설치 프로그램은 설치 경로 선택 후 **바로 가기 옵션** 페이지에서 바탕화면·시작 메뉴 바로 가기 생성 여부를 선택할 수 있습니다 (`build/installer.nsh`).
 
 **macOS (Terminal)**
 
@@ -69,8 +73,8 @@ npm run dist:win
 cd MyProjectMultiOSV10
 npm install
 npm run dist:mac
-# → release/MyProject-0.1.0-mac-arm64.dmg (Apple Silicon)
-# → release/MyProject-0.1.0-mac-x64.dmg     (Intel)
+# → MyProject-0.1.0-mac-arm64.dmg (Apple Silicon, 프로젝트 루트)
+# → MyProject-0.1.0-mac-x64.dmg     (Intel, 프로젝트 루트)
 ```
 
 **Linux (bash)**
@@ -79,8 +83,8 @@ npm run dist:mac
 cd MyProjectMultiOSV10
 npm install
 npm run dist:linux
-# → release/MyProject-0.1.0-linux-x64.AppImage
-# → release/MyProject-0.1.0-linux-amd64.deb
+# → MyProject-0.1.0-linux-x64.AppImage (프로젝트 루트)
+# → MyProject-0.1.0-linux-amd64.deb     (프로젝트 루트)
 ```
 
 > **크로스 컴파일 참고**
@@ -112,15 +116,22 @@ Web 상세 설치·배포는 [MyProjectWebV10/README.md](../MyProjectWebV10/READ
 | Win `.myprj` 파일 호환 | ✅ |
 | 작업 그리드 + Gantt 차트 (동기 스크롤) | ✅ |
 | 3분할 UI (그리드 \| Gantt \| 우측 속성 패널) | ✅ |
-| 의존 관계 (FS/FF/SS/SF), 주요 경로(CPM) | ✅ |
+| 작업 유형 (일반 / 마일스톤 / 요약) 드롭다운 | ✅ |
+| 의존 관계 (FS/FF/SS/SF), 미리보기 아이콘 선택 | ✅ |
+| 의존선 끝 스타일 (화살표·점 등) | ✅ |
+| 속성 패널에서 선행 작업별 연결 유형 편집 | ✅ |
+| 주요 경로(CPM) — 작업·의존선 강조(빨간색) | ✅ |
+| 막대/진행 색 — 프리셋 팔레트 + 사용자 지정 | ✅ |
 | 실행 취소 / 다시 실행 | ✅ |
 | Gantt 메모 | ✅ |
-| 아이콘 메뉴바·툴바 (Win 유사) | ✅ |
+| 아이콘 메뉴바·툴바 (Win 유사), 도움말 메뉴 우측 정렬 | ✅ |
+| 도움말 → MyProject 정보 (빌드 버전 표시) | ✅ |
 | 과제 설정, 환경 설정(언어) | ✅ |
 | 보고서 (Excel, HTML, Word, PDF, Markdown, Gantt 이미지) | ✅ |
 | Microsoft Project 내보내기 (XML/MPX) | ✅ |
 | MS Project 가져오기 (XML, MPX; MPP/MPT 제한적) | ✅ |
 | 캘린더 보기, 최근 파일, 상태 표시줄 | ✅ |
+| Windows 설치 시 바로 가기 옵션 선택 | ✅ |
 | 인쇄 | ✅ |
 
 ---
@@ -129,9 +140,10 @@ Web 상세 설치·배포는 [MyProjectWebV10/README.md](../MyProjectWebV10/READ
 
 ```
 MyProjectMultiOSV10/
-├── electron/              # Main process (파일 I/O, 보고서, IPC)
+├── electron/              # Main process (파일 I/O, 보고서, IPC, 빌드 정보)
 │   ├── main.ts
 │   ├── preload.ts
+│   ├── buildInfo.ts
 │   ├── projectFileService.ts
 │   ├── reports/           # HTML/Excel/PDF/Word/Markdown
 │   └── msProjectService.ts
@@ -139,12 +151,23 @@ MyProjectMultiOSV10/
 │   └── src/
 │       ├── components/    # DesktopProjectView, MenuBar, Toolbar …
 │       └── projectDocument.ts
-├── resources/template/    # 기본 템플릿 .myprj
+├── build/
+│   └── installer.nsh      # Windows NSIS 바로 가기 옵션 페이지
+├── scripts/
+│   ├── generate-icons.mjs
+│   ├── write-build-info.mjs
+│   └── move-installer-to-root.mjs
+├── config/
+│   └── build-info.json    # 빌드 시 생성 (gitignore)
+├── assets/                # 앱 아이콘
+├── template/              # 기본 템플릿 .myprj
 ├── vite.config.ts         # @web → ../MyProjectWebV10/client/src
 ├── README.md              # 개발·빌드 안내 (이 문서)
 ├── UsersGuide.md          # 사용자 가이드
 └── package.json
 ```
+
+공유 UI·유틸은 [`MyProjectWebV10/client/src`](../MyProjectWebV10/client/src) (`@web` alias)에 있습니다.
 
 ---
 
@@ -166,10 +189,11 @@ Win에서 만든 `.myprj`를 **File → Open**으로 열고 편집·저장할 �
 | 명령 | 대상 | 설명 |
 |------|------|------|
 | `npm run dev` | Desktop | Electron + Vite 개발 |
-| `npm run build` | Desktop | 프로덕션 빌드 |
-| `npm run dist:win` | Windows | NSIS 설치 프로그램 |
-| `npm run dist:mac` | macOS | DMG / ZIP |
-| `npm run dist:linux` | Linux | AppImage / deb |
+| `npm run build` | Desktop | 프로덕션 빌드 + build-info 생성 |
+| `npm run write-build-info` | Desktop | `config/build-info.json`만 갱신 |
+| `npm run dist:win` | Windows | NSIS 설치 프로그램 → 루트로 이동 |
+| `npm run dist:mac` | macOS | DMG / ZIP → 루트로 이동 |
+| `npm run dist:linux` | Linux | AppImage / deb → 루트로 이동 |
 | `npm run dev:web` | Web | WebV10 개발 서버 |
 | `npm run build:web` | Web | WebV10 프로덕션 빌드 |
 
@@ -177,7 +201,7 @@ Win에서 만든 `.myprj`를 **File → Open**으로 열고 편집·저장할 �
 
 ## 문서
 
-- [UsersGuide.md](./UsersGuide.md) — 메뉴, Gantt 편집, 보고서, MS Project 연동, 단축키
+- [UsersGuide.md](./UsersGuide.md) — 메뉴, Gantt 편집, 속성·의존성, 보고서, MS Project 연동, 단축키
 - [MyProjectWebV10/UsersGuide.md](../MyProjectWebV10/UsersGuide.md) — Web 버전 사용자 가이드
 - [MyProjectWinV10/UsersGuide.md](../MyProjectWinV10/UsersGuide.md) — Windows 버전 사용자 가이드
 

@@ -82,6 +82,13 @@ export function getVisibleTasks(tasks: TaskItem[]): TaskItem[] {
   return tasks.filter((task) => isTaskVisible(tasks, task.taskId));
 }
 
+/** Expands every summary row so export includes the full task tree. */
+export function expandAllTasksForExport(tasks: TaskItem[]): TaskItem[] {
+  return tasks.map((task) =>
+    hasChildren(tasks, task.taskId) ? { ...task, isExpanded: true } : task,
+  );
+}
+
 function getAllDescendants(tasks: TaskItem[], taskId: number): TaskItem[] {
   const idx = tasks.findIndex((t) => t.taskId === taskId);
   if (idx < 0) return [];

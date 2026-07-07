@@ -14,6 +14,11 @@ interface TaskPropertiesPanelProps {
   canModify: boolean;
   onUpdateTask: (taskId: number, patch: Partial<TaskItem>) => void;
   onRemoveDependency: (predecessorId: number, successorId: number) => void;
+  onUpdateDependencyType?: (
+    predecessorId: number,
+    successorId: number,
+    type: import('../types/project').GanttViewSettings['defaultDependencyType'],
+  ) => void;
 }
 
 function applyFieldChange(
@@ -35,6 +40,12 @@ function applyFieldChange(
       return { endDate: parseDateInputValue(value as string).toISOString() };
     case 'durationDays':
       return { durationDays: Math.max(1, value as number) };
+    case 'barColorArgb':
+      return { barColorArgb: value as number | null };
+    case 'progressColorArgb':
+      return { progressColorArgb: value as number | null };
+    case 'summaryBarStyle':
+      return { summaryBarStyle: value as TaskPropertiesDraft['summaryBarStyle'] };
     default:
       return {};
   }
@@ -47,6 +58,7 @@ export function TaskPropertiesPanel({
   canModify,
   onUpdateTask,
   onRemoveDependency,
+  onUpdateDependencyType,
 }: TaskPropertiesPanelProps) {
   const t = useTranslation();
 
@@ -73,6 +85,7 @@ export function TaskPropertiesPanel({
           }
         }}
         onRemoveDependency={onRemoveDependency}
+        onUpdateDependencyType={onUpdateDependencyType}
       />
     </div>
   );

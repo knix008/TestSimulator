@@ -1,0 +1,108 @@
+.line-end-selector {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.line-end-selector__heading {
+  font-size: 12px;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.line-end-selector__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 108px;
+  max-width: 180px;
+  padding: 2px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #334155;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.line-end-selector__trigger:hover,
+.line-end-selector__trigger--open {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.line-end-selector__trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.line-end-selector__preview,
+.line-end-selector__option-preview {
+  flex: 0 0 auto;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
+}
+
+.line-end-selector__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-end-selector__caret {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.line-end-selector__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 3000;
+  min-width: 240px;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+}
+
+.line-end-selector__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.line-end-selector__option:hover,
+.line-end-selector__option:focus-visible {
+  background: #eef2ff;
+  outline: none;
+}
+
+.line-end-selector__option--selected {
+  background: #eff6ff;
+}
+
+.line-end-selector__option-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.line-end-selector__option--selected .line-end-selector__option-label {
+  font-weight: 600;
+}

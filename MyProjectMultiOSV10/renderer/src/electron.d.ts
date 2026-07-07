@@ -24,6 +24,23 @@ export interface ProjectSaveResult {
   filePath: string;
 }
 
+export interface AppBuildInfo {
+  version: string;
+  buildDate: string | null;
+  commit: string;
+  branch: string;
+  builtOnPlatform: string;
+  builtOnArch: string;
+  electronVersion: string;
+  development: boolean;
+}
+
+export interface AppInfo {
+  version: string;
+  productName: string;
+  build: AppBuildInfo;
+}
+
 export interface ExportResult {
   filePath: string;
 }
@@ -89,6 +106,7 @@ export interface ElectronApi {
   exportMsProject: (project: ExportProject) => Promise<ExportResult | null>;
   saveGanttImage: (defaultName: string, dataUrl: string) => Promise<string | null>;
   printProject: () => Promise<boolean>;
+  setMinimumSize: (width: number, height: number) => void;
   onMenuNewProject: (callback: () => void) => () => void;
   onMenuOpenFile: (callback: (filePath: string) => void) => () => void;
   onMenuSave: (callback: () => void) => () => void;
@@ -97,7 +115,7 @@ export interface ElectronApi {
   onProjectOpened: (callback: (result: ProjectLoadResult) => void) => () => void;
   invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
   quitApp: () => void;
-  showAbout: () => Promise<void>;
+  getAppInfo: () => Promise<AppInfo>;
 }
 
 declare global {

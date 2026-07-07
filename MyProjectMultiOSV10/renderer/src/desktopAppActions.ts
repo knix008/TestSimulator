@@ -71,6 +71,7 @@ export interface DesktopMenuGroup {
   label: string;
   icon: ToolbarIconName;
   items: DesktopMenuEntry[];
+  align?: 'start' | 'end';
 }
 
 export function isMenuSeparator(entry: DesktopMenuEntry): entry is DesktopMenuSeparator {
@@ -221,6 +222,7 @@ export function buildDesktopMenus(
       id: 'help',
       label: ko ? '도움말' : 'Help',
       icon: 'help',
+      align: 'end',
       items: [
         ...(state.isAdmin
           ? [

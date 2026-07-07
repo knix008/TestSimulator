@@ -9,7 +9,6 @@ import { useLanguage } from '../i18n';
 import type { AppLocale } from '../i18n/types';
 import {
   localizedDependencyTypeOptions,
-  localizedLineEndOptions,
   localizedLineStyleOptions,
   localizedPathStyleOptions,
 } from '../i18n/options';
@@ -17,6 +16,7 @@ import { getWorkingDayLabels } from '../i18n/translate';
 import { recalculateScheduleForWorkingWeek } from '../utils/scheduleRecalculation';
 import { toUpdatePayload, withRecalculatedSchedule } from '../utils/scheduleUtils';
 import { renderDependencyPreview } from '../utils/dependencyLineRenderer';
+import { LineEndStyleSelector } from './LineEndStyleSelector';
 import {
   defaultWorkingWeek,
   hasAtLeastOneWorkingDay,
@@ -413,35 +413,25 @@ export function ProjectSettingsPanel({
                   </select>
                 </label>
 
-                <label>
-                  {t('settings.gantt.startLineEnd')}
-                  <select
+                <div className="settings-line-end-field">
+                  <LineEndStyleSelector
+                    label={t('settings.gantt.startLineEnd')}
                     value={ganttForm.startLineEnd}
-                    onChange={(e) => updateGanttField('startLineEnd', e.target.value as GanttViewSettings['startLineEnd'])}
+                    atStart
                     disabled={saving}
-                  >
-                    {localizedLineEndOptions(t).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={(style) => updateGanttField('startLineEnd', style)}
+                  />
+                </div>
 
-                <label>
-                  {t('settings.gantt.endLineEnd')}
-                  <select
+                <div className="settings-line-end-field">
+                  <LineEndStyleSelector
+                    label={t('settings.gantt.endLineEnd')}
                     value={ganttForm.endLineEnd}
-                    onChange={(e) => updateGanttField('endLineEnd', e.target.value as GanttViewSettings['endLineEnd'])}
+                    atStart={false}
                     disabled={saving}
-                  >
-                    {localizedLineEndOptions(t).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={(style) => updateGanttField('endLineEnd', style)}
+                  />
+                </div>
 
                 <label>
                   {t('settings.gantt.lineColor')}

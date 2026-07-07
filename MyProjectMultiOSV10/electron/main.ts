@@ -16,7 +16,7 @@ import { addRecentFile, clearRecentFiles, readRecentFiles } from './recentFiles'
 import { initLocalDatabase, closeLocalDatabase } from './db/localDatabase';
 import { registerAuthIpcHandlers } from './auth/authIpc';
 import { setLastProjectPath } from './appSettings';
-import { formatAboutDetail, getBuildInfo } from './buildInfo';
+import { getBuildInfo } from './buildInfo';
 import {
   defaultExportBasename,
   generateReportBuffer,
@@ -45,6 +45,26 @@ let mainWindow: BrowserWindow | null = null;
 let currentFilePath: string | null = null;
 let isDocumentModified = false;
 let pendingOpenFilePath: string | null = null;
+
+/** Keep in sync with @web/utils/toolbarLayout (DESKTOP_WINDOW_MIN_*). */
+const WINDOW_MIN_WIDTH = 900;
+const WINDOW_MIN_HEIGHT = 600;
+
+function applyWindowMinimumSize(height: number): void {
+  if (!mainWindow) return;
+
+  const minWidth = WINDOW_MIN_WIDTH;
+  const minHeight = Math.max(WINDOW_MIN_HEIGHT, Math.round(height));
+  mainWindow.setMinimumSize(minWidth, minHeight);
+
+  const [currentWidth, currentHeight] = mainWindow.getSize();
+  if (currentWidth < minWidth || currentHeight < minHeight) {
+    mainWindow.setSize(
+      Math.max(currentWidth, minWidth),
+      Math.max(currentHeight, minHeight),
+    );
+  }
+}
 
 function getAssetPath(...segments: string[]): string {
   if (app.isPackaged) {
@@ -150,8 +170,8 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: WINDOW_MIN_WIDTH,
+    minHeight: WINDOW_MIN_HEIGHT,
     show: false,
     icon: getWindowIcon(),
     webPreferences: {
@@ -226,6 +246,12 @@ async function saveExportBuffer(
 
 function registerIpcHandlers(): void {
   registerAuthIpcHandlers(() => app.getPath('userData'));
+
+  ipcMain.handle('window:set-minimum-size', (_event, _width: number, height: number) => {
+    if (!Number.isFinite(height)) return;
+    applyWindowMinimumSize(height);
+  });
+
   ipcMain.handle('project:new', async () => {
     const data = await loadTemplateProject();
     setDocumentState(null, false);
@@ -393,21 +419,33 @@ function registerIpcHandlers(): void {
     app.quit();
   });
 
-  ipcMain.handle('app:about', async () => {
-    if (!mainWindow) return;
+  ipcMain.handle('app:getInfo', () => {
     const build = getBuildInfo();
-    await dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'MyProject 정보',
-      message: `MyProject ${build.version}`,
-      detail: formatAboutDetail(build),
-    });
+    return {
+      version: build.version,
+      productName: 'MyProject',
+      build,
+    };
   });
 }
 
 app.whenReady().then(() => {
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.myproject.desktop');
+  }
+
+  const build = getBuildInfo();
+  if (process.platform === 'darwin') {
+    app.setAboutPanelOptions({
+      applicationName: 'MyProject',
+      applicationVersion: build.version,
+      version: build.development
+        ? 'Development'
+        : build.commit
+          ? `${build.commit}${build.branch ? ` (${build.branch})` : ''}`
+          : build.buildDate ?? '',
+      copyright: `Copyright © ${new Date().getFullYear()} MyProject`,
+    });
   }
 
   try {

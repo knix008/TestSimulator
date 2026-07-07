@@ -9,6 +9,7 @@ import type {
 import { DEFAULT_GANTT_VIEW_SETTINGS, normalizeGanttViewSettings } from '@web/config/ganttViewSettings';
 import { computeEndDate, normalizeTasksToWorkingWeek, withRecalculatedSchedule } from '@web/utils/scheduleUtils';
 import { serializeWorkingWeek, defaultWorkingWeek } from '@web/utils/workingWeek';
+import { normalizeSummaryBarStyle, summaryBarStyleToFileValue } from '@web/utils/summaryBarStyle';
 
 export interface MyProjectTaskData {
   id: number;
@@ -120,6 +121,7 @@ function taskFromMyprj(task: MyProjectTaskData): TaskItem {
     isCritical: task.isCritical,
     barColorArgb: task.barColorArgb,
     progressColorArgb: task.progressColorArgb,
+    summaryBarStyle: normalizeSummaryBarStyle(task.summaryBarStyle),
     endDate: computeEndDate(task.startDate, task.durationDays, task.taskType),
   };
 }
@@ -142,6 +144,7 @@ function taskToMyprj(task: TaskItem): MyProjectTaskData {
     isCritical: task.isCritical,
     barColorArgb: task.barColorArgb,
     progressColorArgb: task.progressColorArgb,
+    summaryBarStyle: summaryBarStyleToFileValue(task.summaryBarStyle),
   };
 }
 

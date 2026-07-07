@@ -202,6 +202,74 @@
   color: #dc2626;
 }
 
+.task-prop-predecessors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.task-prop-predecessors__heading {
+  font-size: 13px;
+  color: #475569;
+}
+
+.task-prop-predecessor-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 20px;
+  gap: 8px;
+  padding: 0 2px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.task-prop-predecessor-columns__type {
+  justify-self: start;
+}
+
+.task-prop-predecessor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-prop-predecessor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 20px;
+  gap: 8px;
+  align-items: center;
+}
+
+.task-prop-predecessor-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #334155;
+}
+
+.task-prop-predecessor-type.dep-type-selector {
+  min-width: 0;
+}
+
+.task-prop-predecessor-type .dep-type-selector__trigger {
+  min-width: 88px;
+  max-width: 120px;
+  padding: 1px 4px;
+}
+
+.task-prop-predecessor-type .dep-type-selector__value {
+  font-size: 11px;
+}
+
+.task-prop-predecessor-remove {
+  justify-self: center;
+}
+
 @media (max-width: 960px) {
   .project-split {
     flex-direction: column;
