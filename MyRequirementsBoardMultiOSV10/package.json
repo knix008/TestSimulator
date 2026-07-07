@@ -1,0 +1,127 @@
+{
+  "name": "my-requirements-board-multi-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-platform requirements management and tracking (Electron + Web)",
+  "main": "electron/main.js",
+  "author": "MyRequirementsBoard",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/kill-dev-ports.mjs",
+    "predev:web": "node scripts/kill-dev-ports.mjs",
+    "stop:dev": "node scripts/kill-dev-ports.mjs",
+    "reset:admin": "node scripts/reset-admin-password.mjs",
+    "dev": "concurrently -k -n server,vite,electron -c green,cyan,magenta \"cross-env PORT=3847 node server/index.js\" \"vite\" \"wait-on http://127.0.0.1:5175 http://127.0.0.1:3847/api/health && cross-env USE_EXTERNAL_SERVER=1 NODE_ENV=development VITE_DEV_SERVER_URL=http://127.0.0.1:5175 electron .\"",
+    "dev:web": "concurrently -k -n server,vite -c green,cyan \"cross-env PORT=3847 node server/index.js\" \"vite\"",
+    "dev:server": "node server/index.js",
+    "build:renderer": "vite build",
+    "build": "npm run generate:icons && npm run write-build-info && npm run build:renderer",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "write-build-info": "node scripts/write-build-info.mjs",
+    "copy:installers": "node scripts/copy-installers.mjs",
+    "start": "cross-env NODE_ENV=production node server/index.js",
+    "start:electron": "cross-env NODE_ENV=production electron .",
+    "pack": "npm run build && electron-builder --dir && npm run copy:installers",
+    "dist": "npm run build && electron-builder && npm run copy:installers",
+    "dist:win": "npm run build && electron-builder --win && npm run copy:installers",
+    "dist:mac": "npm run build && electron-builder --mac && npm run copy:installers",
+    "dist:linux": "npm run build && electron-builder --linux && npm run copy:installers",
+    "dist:all": "npm run build && electron-builder -mwl && npm run copy:installers"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "knex": "^3.1.0",
+    "lucide-react": "^1.23.0",
+    "mssql": "^11.0.1",
+    "multer": "^1.4.5-lts.2",
+    "mysql2": "^3.14.1",
+    "pg": "^8.16.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "sql.js": "^1.13.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^36.3.2",
+    "electron-builder": "^26.0.12",
+    "sharp": "^0.34.5",
+    "to-ico": "^1.1.5",
+    "vite": "^6.3.5",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.myrequirementsboard.desktop",
+    "productName": "MyRequirementsBoard",
+    "icon": "assets/icon.png",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "server/**/*",
+      "dist-renderer/**/*",
+      "assets/**/*",
+      "config/build-info.json",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "reqtproj",
+        "name": "Requirements Board Project",
+        "description": "MyRequirementsBoard project file",
+        "mimeType": "application/x-requirements-board-project",
+        "icon": "assets/reqtproj",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.png",
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "icon": "assets/icon.png",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "shortcutName": "MyRequirementsBoard",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

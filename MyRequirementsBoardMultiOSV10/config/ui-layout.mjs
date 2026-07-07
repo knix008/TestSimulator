@@ -1,0 +1,12 @@
+/** Minimum window height. */
+export const UI_MIN_HEIGHT = 720;
+
+/** Absolute floor for window width (content pages). */
+export const UI_MIN_WIDTH = 1120;
+
+/** Bootstrap window width before header is measured (login screen). */
+export const UI_DEFAULT_WINDOW_WIDTH = 800;
+export const UI_DEFAULT_WINDOW_HEIGHT = 920;
+
+/** Pre-login minimum until the renderer measures the live header. */
+export const UI_HEADER_MIN_WIDTH_FALLBACK = 640;
