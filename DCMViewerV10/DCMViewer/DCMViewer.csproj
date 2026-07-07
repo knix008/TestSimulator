@@ -7,9 +7,19 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <CreateInstaller Condition="'$(CreateInstaller)' == '' and '$(Configuration)' == 'Release'">true</CreateInstaller>
     <InstallerPublishDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\net8.0-windows\win-x64\publish</InstallerPublishDir>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\AppIcon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\DcmFile.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="fo-dicom" Version="5.2.6" />

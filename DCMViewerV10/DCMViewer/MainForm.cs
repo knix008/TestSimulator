@@ -12,13 +12,99 @@ public partial class MainForm : Form
     private Bitmap? _nativeBitmap;
     private double _zoomFactor = 1.0;
     private double _fitZoomFactor = 1.0;
+    private Point _imageLocation;
+    private string? _currentFilePath;
+    private DicomDataset? _currentDataset;
+
+    private const double ZoomWheelStepFactor = 1.2;
+    private const int ZoomPreviewQualityDelayMs = 120;
+
+    private readonly System.Windows.Forms.Timer _zoomPreviewQualityTimer;
+
+    private readonly (ToolStripItem Item, ImageFormat Format, string Extension, string Filter)[] _exportTargets;
+    private string? _startupFilePath;
 
     public MainForm()
     {
         InitializeComponent();
-        toolStripButtonInfo.Image = SystemIcons.Information.ToBitmap();
+        _zoomPreviewQualityTimer = new System.Windows.Forms.Timer { Interval = ZoomPreviewQualityDelayMs };
+        _zoomPreviewQualityTimer.Tick += ZoomPreviewQualityTimer_Tick;
+        if (FileAssociationHelper.LoadAppIcon() is { } appIcon)
+            Icon = appIcon;
+        using (var infoIcon = SystemIcons.Information.ToBitmap())
+            toolStripButtonInfo.Image = ResizeBitmap(infoIcon, 20);
         panelScroll.ZoomWheel = OnImageMouseWheelZoom;
+        panelScroll.CanPan = () => _nativeBitmap is not null && ExceedsViewport(GetDisplaySize(), panelScroll.ClientSize);
+        panelScroll.GetImageLocation = () => _imageLocation;
+        panelScroll.SetImageLocation = SetImageLocationClamped;
+        panelScroll.AttachPanTarget(pictureBoxImage);
         pictureBoxImage.ZoomWheel = OnImageMouseWheelZoom;
+
+        _exportTargets =
+        [
+            (toolStripButtonSavePng, ImageFormat.Png, "png", "PNG 이미지 (*.png)|*.png"),
+            (toolStripButtonSaveJpeg, ImageFormat.Jpeg, "jpg", "JPEG 이미지 (*.jpg;*.jpeg)|*.jpg;*.jpeg"),
+            (toolStripButtonSaveBmp, ImageFormat.Bmp, "bmp", "BMP 이미지 (*.bmp)|*.bmp"),
+            (toolStripButtonSaveTiff, ImageFormat.Tiff, "tiff", "TIFF 이미지 (*.tif;*.tiff)|*.tif;*.tiff"),
+            (toolStripButtonSaveGif, ImageFormat.Gif, "gif", "GIF 이미지 (*.gif)|*.gif"),
+            (ctxMenuExportPng, ImageFormat.Png, "png", "PNG 이미지 (*.png)|*.png"),
+            (ctxMenuExportJpeg, ImageFormat.Jpeg, "jpg", "JPEG 이미지 (*.jpg;*.jpeg)|*.jpg;*.jpeg"),
+            (ctxMenuExportBmp, ImageFormat.Bmp, "bmp", "BMP 이미지 (*.bmp)|*.bmp"),
+            (ctxMenuExportTiff, ImageFormat.Tiff, "tiff", "TIFF 이미지 (*.tif;*.tiff)|*.tif;*.tiff"),
+            (ctxMenuExportGif, ImageFormat.Gif, "gif", "GIF 이미지 (*.gif)|*.gif"),
+        ];
+
+        ConfigureExportToolbarIcons();
+        ConfigureMenuIcons();
+        SetExportButtonsEnabled(false);
+    }
+
+    private void ConfigureMenuIcons()
+    {
+        menuStripMain.ImageScalingSize = new Size(MenuIcons.Size, MenuIcons.Size);
+        contextMenuImage.ImageScalingSize = new Size(MenuIcons.Size, MenuIcons.Size);
+
+        MenuIcons.Apply(fileToolStripMenuItem, MenuIcons.File);
+        MenuIcons.Apply(openToolStripMenuItem, MenuIcons.Open);
+        MenuIcons.Apply(registerDcmDefaultToolStripMenuItem, MenuIcons.RegisterDefault);
+        MenuIcons.Apply(unregisterDcmAssociationToolStripMenuItem, MenuIcons.Exit);
+        MenuIcons.Apply(exitToolStripMenuItem, MenuIcons.Exit);
+        MenuIcons.Apply(helpToolStripMenuItem, MenuIcons.Help);
+        MenuIcons.Apply(aboutToolStripMenuItem, MenuIcons.Info);
+
+        MenuIcons.Apply(ctxMenuOpen, MenuIcons.Open);
+        MenuIcons.Apply(ctxMenuZoomFit, MenuIcons.ZoomFit);
+        MenuIcons.Apply(ctxMenuZoomActual, MenuIcons.ZoomActual);
+        MenuIcons.Apply(ctxMenuExport, MenuIcons.Export);
+        MenuIcons.Apply(ctxMenuExportPng, ExportFormatIcons.MenuPng);
+        MenuIcons.Apply(ctxMenuExportJpeg, ExportFormatIcons.MenuJpeg);
+        MenuIcons.Apply(ctxMenuExportBmp, ExportFormatIcons.MenuBmp);
+        MenuIcons.Apply(ctxMenuExportTiff, ExportFormatIcons.MenuTiff);
+        MenuIcons.Apply(ctxMenuExportGif, ExportFormatIcons.MenuGif);
+    }
+
+    private void ConfigureExportToolbarIcons()
+    {
+        toolStripExport.ImageScalingSize = new Size(ExportFormatIcons.ToolbarIconSize, ExportFormatIcons.ToolbarIconSize);
+
+        ConfigureExportButton(toolStripButtonSavePng, ExportFormatIcons.Png, "PNG 이미지로 저장");
+        ConfigureExportButton(toolStripButtonSaveJpeg, ExportFormatIcons.Jpeg, "JPEG 이미지로 저장");
+        ConfigureExportButton(toolStripButtonSaveBmp, ExportFormatIcons.Bmp, "BMP 이미지로 저장");
+        ConfigureExportButton(toolStripButtonSaveTiff, ExportFormatIcons.Tiff, "TIFF 이미지로 저장");
+        ConfigureExportButton(toolStripButtonSaveGif, ExportFormatIcons.Gif, "GIF 이미지로 저장");
+    }
+
+    private static void ConfigureExportButton(ToolStripButton button, Image icon, string toolTip)
+    {
+        button.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        button.Image = icon;
+        button.ImageTransparentColor = Color.Magenta;
+        button.ImageScaling = ToolStripItemImageScaling.SizeToFit;
+        button.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
+        button.Padding = new Padding(6, 2, 6, 2);
+        button.AutoSize = true;
+        button.TextImageRelation = TextImageRelation.ImageBeforeText;
+        button.ToolTipText = toolTip;
     }
 
     private void OnImageMouseWheelZoom(MouseEventArgs e)
@@ -26,8 +112,40 @@ public partial class MainForm : Form
         if (_nativeBitmap is null)
             return;
 
-        var step = e.Delta > 0 ? 1.1 : 1.0 / 1.1;
-        ApplyZoomStep(step);
+        var steps = e.Delta / 120.0;
+        if (Math.Abs(steps) < double.Epsilon)
+            return;
+
+        pictureBoxImage.InterpolationMode = InterpolationMode.Bilinear;
+        var multiplier = Math.Pow(ZoomWheelStepFactor, steps);
+        ApplyZoomStep(multiplier);
+
+        _zoomPreviewQualityTimer.Stop();
+        _zoomPreviewQualityTimer.Start();
+    }
+
+    private void ZoomPreviewQualityTimer_Tick(object? sender, EventArgs e)
+    {
+        _zoomPreviewQualityTimer.Stop();
+        if (_nativeBitmap is null)
+            return;
+
+        pictureBoxImage.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        pictureBoxImage.Invalidate();
+    }
+
+    public void OpenFileOnStartup(string path) => _startupFilePath = path;
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+
+        if (_startupFilePath is null)
+            return;
+
+        var path = _startupFilePath;
+        _startupFilePath = null;
+        LoadAnyFile(path);
     }
 
     private void OpenToolStripMenuItem_Click(object? sender, EventArgs e)
@@ -40,6 +158,64 @@ public partial class MainForm : Form
 
     private void ExitToolStripMenuItem_Click(object? sender, EventArgs e) => Close();
 
+    private void RegisterDcmDefaultToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (FileAssociationHelper.TrySetAsDefault(out var error))
+        {
+            MessageBox.Show(
+                this,
+                ".dcm 파일을 DCMViewer로 열도록 기본 프로그램으로 등록했습니다.",
+                "파일 연결",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        if (error is not null && error.Contains("취소", StringComparison.Ordinal))
+            return;
+
+        FileAssociationHelper.Register();
+        MessageBox.Show(
+            this,
+            "파일 연결 정보는 등록되었지만 기본 프로그램 설정에 실패했습니다.\n\n"
+            + (error ?? "알 수 없는 오류")
+            + "\n\nWindows 설정 > 앱 > 기본 앱에서 '.dcm' 항목을 확인해 주세요.",
+            "파일 연결",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+    }
+
+    private void UnregisterDcmAssociationToolStripMenuItem_Click(object? sender, EventArgs e)
+    {
+        if (!FileAssociationHelper.IsRegistered())
+        {
+            MessageBox.Show(
+                this,
+                "등록된 .dcm 파일 연결이 없습니다.",
+                "파일 연결",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        var result = MessageBox.Show(
+            this,
+            ".dcm 파일 연결 등록을 해제하시겠습니까?",
+            "파일 연결",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+        if (result != DialogResult.Yes)
+            return;
+
+        FileAssociationHelper.Unregister();
+        MessageBox.Show(
+            this,
+            ".dcm 파일 연결 등록을 해제했습니다.",
+            "파일 연결",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
+    }
+
     private void AboutToolStripMenuItem_Click(object? sender, EventArgs e) => ShowProgramInfoDialog();
 
     private void ToolStripButtonInfo_Click(object? sender, EventArgs e) => ShowProgramInfoDialog();
@@ -50,13 +226,41 @@ public partial class MainForm : Form
         dlg.ShowDialog(this);
     }
 
+    private void ContextMenuImage_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        var hasImage = _nativeBitmap is not null;
+        ctxMenuZoomFit.Enabled = hasImage;
+        ctxMenuZoomActual.Enabled = hasImage;
+        ctxMenuExport.Enabled = hasImage;
+    }
+
+    private void CtxMenuZoomFit_Click(object? sender, EventArgs e) => ZoomFit();
+
+    private void CtxMenuZoomActual_Click(object? sender, EventArgs e) => ZoomActual();
+
     private void PanelScroll_Resize(object? sender, EventArgs e)
     {
         if (_nativeBitmap is null)
             return;
 
+        var viewport = panelScroll.ClientSize;
+        var savedLocation = _imageLocation;
+
         _fitZoomFactor = ComputeFitZoomFactor();
-        ApplyZoomLayout(resetScrollPosition: false);
+        var display = GetDisplaySize();
+
+        if (!ExceedsViewport(display, viewport))
+            ApplyZoomLayout(resetPan: true);
+        else
+        {
+            _imageLocation = ClampImageLocation(
+                savedLocation,
+                display.Width,
+                display.Height,
+                Math.Max(1, viewport.Width),
+                Math.Max(1, viewport.Height));
+            ApplyZoomLayout(resetPan: false);
+        }
     }
 
     private void ApplyZoomStep(double multiplier)
@@ -64,67 +268,45 @@ public partial class MainForm : Form
         if (_nativeBitmap is null)
             return;
 
-        var oldZoom = _zoomFactor;
-        var oldDisplayWidth = Math.Max(1, (int)Math.Round(_nativeBitmap.Width * oldZoom));
-        var oldDisplayHeight = Math.Max(1, (int)Math.Round(_nativeBitmap.Height * oldZoom));
-        var viewportWidth = Math.Max(1, panelScroll.ClientSize.Width);
-        var viewportHeight = Math.Max(1, panelScroll.ClientSize.Height);
-        var oldScroll = panelScroll.AutoScrollPosition;
-        var oldScrollX = Math.Max(0, -oldScroll.X);
-        var oldScrollY = Math.Max(0, -oldScroll.Y);
-        var oldImageLeft = Math.Max(0, (viewportWidth - oldDisplayWidth) / 2);
-        var oldImageTop = Math.Max(0, (viewportHeight - oldDisplayHeight) / 2);
+        var viewport = panelScroll.ClientSize;
+        var cw = Math.Max(1, viewport.Width);
+        var ch = Math.Max(1, viewport.Height);
+        var oldDisplay = GetDisplaySize();
+        var oldLoc = _imageLocation;
 
-        var hasScroll = oldDisplayWidth > viewportWidth || oldDisplayHeight > viewportHeight;
-        double anchorViewportX;
-        double anchorViewportY;
-        if (hasScroll)
-        {
-            // When scrollbars are active, zoom around the viewport center.
-            anchorViewportX = viewportWidth / 2.0;
-            anchorViewportY = viewportHeight / 2.0;
-        }
-        else
-        {
-            var mouseInPanel = panelScroll.PointToClient(Control.MousePosition);
-            anchorViewportX = mouseInPanel.X >= 0 && mouseInPanel.X < viewportWidth
-                ? mouseInPanel.X
-                : viewportWidth / 2.0;
-            anchorViewportY = mouseInPanel.Y >= 0 && mouseInPanel.Y < viewportHeight
-                ? mouseInPanel.Y
-                : viewportHeight / 2.0;
-        }
-
-        var anchorImageX = oldScrollX + anchorViewportX - oldImageLeft;
-        var anchorImageY = oldScrollY + anchorViewportY - oldImageTop;
-        anchorImageX = Math.Clamp(anchorImageX, 0.0, oldDisplayWidth);
-        anchorImageY = Math.Clamp(anchorImageY, 0.0, oldDisplayHeight);
-
-        var oldAnchorRatioX = oldDisplayWidth > 0 ? anchorImageX / oldDisplayWidth : 0.5;
-        var oldAnchorRatioY = oldDisplayHeight > 0 ? anchorImageY / oldDisplayHeight : 0.5;
-
-        // Zoom limits are relative to initial fit zoom, not absolute image scale.
-        // This avoids small images snapping down when fit zoom is already > 1.0.
         var minZoom = _fitZoomFactor * 0.1;
         var maxZoom = _fitZoomFactor * 20.0;
-        var newZoom = _zoomFactor * multiplier;
-        newZoom = Math.Clamp(newZoom, minZoom, maxZoom);
-        _zoomFactor = newZoom;
-        ApplyZoomLayout(resetScrollPosition: false);
+        var newZoom = Math.Clamp(_zoomFactor * multiplier, minZoom, maxZoom);
 
-        var newDisplayWidth = Math.Max(1, (int)Math.Round(_nativeBitmap.Width * _zoomFactor));
-        var newDisplayHeight = Math.Max(1, (int)Math.Round(_nativeBitmap.Height * _zoomFactor));
-        var newImageLeft = Math.Max(0, (viewportWidth - newDisplayWidth) / 2);
-        var newImageTop = Math.Max(0, (viewportHeight - newDisplayHeight) / 2);
-        var targetAnchorImageX = oldAnchorRatioX * newDisplayWidth;
-        var targetAnchorImageY = oldAnchorRatioY * newDisplayHeight;
-        var targetScrollX = (int)Math.Round(newImageLeft + targetAnchorImageX - anchorViewportX);
-        var targetScrollY = (int)Math.Round(newImageTop + targetAnchorImageY - anchorViewportY);
-        var maxScrollX = Math.Max(0, newDisplayWidth - viewportWidth);
-        var maxScrollY = Math.Max(0, newDisplayHeight - viewportHeight);
-        targetScrollX = Math.Clamp(targetScrollX, 0, maxScrollX);
-        targetScrollY = Math.Clamp(targetScrollY, 0, maxScrollY);
-        panelScroll.AutoScrollPosition = new Point(targetScrollX, targetScrollY);
+        var anchorX = cw / 2.0 - oldLoc.X;
+        var anchorY = ch / 2.0 - oldLoc.Y;
+        anchorX = Math.Clamp(anchorX, 0.0, oldDisplay.Width);
+        anchorY = Math.Clamp(anchorY, 0.0, oldDisplay.Height);
+
+        var anchorRatioX = anchorX / oldDisplay.Width;
+        var anchorRatioY = anchorY / oldDisplay.Height;
+
+        _zoomFactor = newZoom;
+        var newDisplay = GetDisplaySize();
+
+        if (!ExceedsViewport(newDisplay, viewport))
+        {
+            ApplyZoomLayout(resetPan: true);
+            return;
+        }
+
+        var newAnchorX = anchorRatioX * newDisplay.Width;
+        var newAnchorY = anchorRatioY * newDisplay.Height;
+        _imageLocation = ClampImageLocation(
+            new Point(
+                (int)Math.Round(cw / 2.0 - newAnchorX),
+                (int)Math.Round(ch / 2.0 - newAnchorY)),
+            newDisplay.Width,
+            newDisplay.Height,
+            cw,
+            ch);
+
+        ApplyZoomLayout(resetPan: false);
     }
 
     private void ZoomFit()
@@ -134,7 +316,7 @@ public partial class MainForm : Form
 
         _fitZoomFactor = ComputeFitZoomFactor();
         _zoomFactor = _fitZoomFactor;
-        ApplyZoomLayout(resetScrollPosition: true);
+        ApplyZoomLayout(resetPan: true);
     }
 
     private void ZoomActual()
@@ -144,7 +326,7 @@ public partial class MainForm : Form
 
         _fitZoomFactor = ComputeFitZoomFactor();
         _zoomFactor = 1.0;
-        ApplyZoomLayout(resetScrollPosition: true);
+        ApplyZoomLayout(resetPan: true);
     }
 
     private void LoadAnyFile(string path)
@@ -164,6 +346,8 @@ public partial class MainForm : Form
         try
         {
             ClearDicomState();
+            _currentFilePath = path;
+            _currentDataset = null;
 
             using var loaded = Image.FromFile(path);
             ReplaceNativeBitmap(new Bitmap(loaded));
@@ -175,9 +359,12 @@ public partial class MainForm : Form
                 $"{_nativeBitmap!.Width}×{_nativeBitmap.Height}  {Path.GetExtension(path).TrimStart('.').ToUpperInvariant()}";
             toolStripStatusLabelFrame.Text = string.Empty;
 
+            RefreshInfoPanel();
+            SetExportButtonsEnabled(true);
+
             _fitZoomFactor = ComputeFitZoomFactor();
             _zoomFactor = _fitZoomFactor;
-            ApplyZoomLayout(resetScrollPosition: true);
+            ApplyZoomLayout(resetPan: true);
         }
         catch (Exception ex)
         {
@@ -191,6 +378,8 @@ public partial class MainForm : Form
         {
             var file = DicomFile.Open(path);
             var ds = file.Dataset;
+            _currentFilePath = path;
+            _currentDataset = ds;
 
             _dicomImage = new DicomImage(path, 0);
             _numberOfFrames = Math.Max(1, _dicomImage.NumberOfFrames);
@@ -202,6 +391,9 @@ public partial class MainForm : Form
             toolStripStatusLabelFile.Text = path;
             toolStripStatusLabelPatient.Text = FormatPatientLine(ds);
             toolStripStatusLabelDetails.Text = FormatStudyLine(ds, _numberOfFrames);
+
+            RefreshInfoPanel();
+            SetExportButtonsEnabled(true);
 
             RenderCurrentFrame();
         }
@@ -232,13 +424,17 @@ public partial class MainForm : Form
     private void ClearImageState()
     {
         ClearDicomState();
-        pictureBoxImage.Image?.Dispose();
+        _currentFilePath = null;
+        _currentDataset = null;
+        _zoomPreviewQualityTimer.Stop();
         pictureBoxImage.Image = null;
         pictureBoxImage.Size = new Size(1, 1);
         _nativeBitmap?.Dispose();
         _nativeBitmap = null;
-        panelScroll.AutoScrollMinSize = Size.Empty;
-        panelScroll.AutoScrollPosition = new Point(0, 0);
+        _imageLocation = Point.Empty;
+        pictureBoxImage.Location = Point.Empty;
+        RefreshInfoPanel();
+        SetExportButtonsEnabled(false);
         UpdateZoomLabel();
     }
 
@@ -263,9 +459,11 @@ public partial class MainForm : Form
         toolStripStatusLabelFrame.Text =
             _numberOfFrames > 1 ? $"프레임 {frame + 1} / {_numberOfFrames}" : string.Empty;
 
+        RefreshInfoPanel();
+
         _fitZoomFactor = ComputeFitZoomFactor();
         _zoomFactor = _fitZoomFactor;
-        ApplyZoomLayout(resetScrollPosition: true);
+        ApplyZoomLayout(resetPan: true);
     }
 
     private void TrackBarFrames_Scroll(object? sender, EventArgs e) => RenderCurrentFrame();
@@ -285,7 +483,7 @@ public partial class MainForm : Form
         return Math.Min(cw / (double)w, ch / (double)h);
     }
 
-    private void ApplyZoomLayout(bool resetScrollPosition)
+    private void ApplyZoomLayout(bool resetPan)
     {
         if (_nativeBitmap is null)
         {
@@ -304,48 +502,69 @@ public partial class MainForm : Form
         var cw = Math.Max(1, panelScroll.ClientSize.Width);
         var ch = Math.Max(1, panelScroll.ClientSize.Height);
 
+        if (resetPan || !ExceedsViewport(new Size(dispW, dispH), new Size(cw, ch)))
+            _imageLocation = CenterImageLocation(dispW, dispH, cw, ch);
+        else
+            _imageLocation = ClampImageLocation(_imageLocation, dispW, dispH, cw, ch);
+
         panelScroll.SuspendLayout();
         try
         {
-            if (resetScrollPosition)
-                panelScroll.AutoScrollPosition = new Point(0, 0);
-
-            var needsScroll = dispW > cw || dispH > ch;
-            panelScroll.AutoScrollMinSize = needsScroll ? new Size(dispW, dispH) : new Size(cw, ch);
             pictureBoxImage.Size = new Size(dispW, dispH);
-            pictureBoxImage.Location = new Point(
-                Math.Max(0, (cw - dispW) / 2),
-                Math.Max(0, (ch - dispH) / 2));
+            pictureBoxImage.Location = _imageLocation;
 
-            var scaled = CreateScaledBitmap(_nativeBitmap, dispW, dispH);
-            var old = pictureBoxImage.Image;
-            pictureBoxImage.Image = scaled;
-            old?.Dispose();
+            if (!ReferenceEquals(pictureBoxImage.Image, _nativeBitmap))
+                pictureBoxImage.Image = _nativeBitmap;
+
+            pictureBoxImage.Invalidate();
         }
         finally
         {
             panelScroll.ResumeLayout();
         }
 
+        panelScroll.RefreshPanCursor();
         UpdateZoomLabel();
     }
 
-    private static Bitmap CreateScaledBitmap(Bitmap source, int dstW, int dstH)
+    private Size GetDisplaySize()
     {
-        if (source.Width == dstW && source.Height == dstH)
-            return (Bitmap)source.Clone();
+        if (_nativeBitmap is null)
+            return Size.Empty;
 
-        var bmp = new Bitmap(dstW, dstH, PixelFormat.Format32bppArgb);
-        using (var g = Graphics.FromImage(bmp))
-        {
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            g.SmoothingMode = SmoothingMode.HighQuality;
-            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.CompositingQuality = CompositingQuality.HighQuality;
-            g.DrawImage(source, new Rectangle(0, 0, dstW, dstH));
-        }
+        return new Size(
+            Math.Max(1, (int)Math.Round(_nativeBitmap.Width * _zoomFactor)),
+            Math.Max(1, (int)Math.Round(_nativeBitmap.Height * _zoomFactor)));
+    }
 
-        return bmp;
+    private void SetImageLocationClamped(Point location)
+    {
+        if (_nativeBitmap is null)
+            return;
+
+        var viewport = panelScroll.ClientSize;
+        var cw = Math.Max(1, viewport.Width);
+        var ch = Math.Max(1, viewport.Height);
+        var display = GetDisplaySize();
+
+        _imageLocation = ClampImageLocation(location, display.Width, display.Height, cw, ch);
+        pictureBoxImage.Location = _imageLocation;
+    }
+
+    private static bool ExceedsViewport(Size display, Size viewport) =>
+        display.Width > viewport.Width || display.Height > viewport.Height;
+
+    private static Point CenterImageLocation(int dispW, int dispH, int viewportW, int viewportH) =>
+        new((viewportW - dispW) / 2, (viewportH - dispH) / 2);
+
+    private static Point ClampImageLocation(Point location, int dispW, int dispH, int viewportW, int viewportH)
+    {
+        if (!ExceedsViewport(new Size(dispW, dispH), new Size(viewportW, viewportH)))
+            return CenterImageLocation(dispW, dispH, viewportW, viewportH);
+
+        return new Point(
+            Math.Clamp(location.X, viewportW - dispW, 0),
+            Math.Clamp(location.Y, viewportH - dispH, 0));
     }
 
     private void UpdateZoomLabel()
@@ -398,9 +617,159 @@ public partial class MainForm : Form
         return $"{modality}  {size}{bitsPart}{framePart}{descPart}";
     }
 
+    private void ExportButton_Click(object? sender, EventArgs e)
+    {
+        if (sender is not ToolStripItem item)
+            return;
+
+        foreach (var target in _exportTargets)
+        {
+            if (target.Item != item)
+                continue;
+
+            ExportCurrentImage(target.Format, target.Extension, target.Filter);
+            return;
+        }
+    }
+
+    private void ExportCurrentImage(ImageFormat format, string extension, string filter)
+    {
+        if (_nativeBitmap is null)
+        {
+            MessageBox.Show(this, "저장할 이미지가 없습니다.", "이미지 저장", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        saveFileDialogImage.Filter = filter;
+        saveFileDialogImage.DefaultExt = extension;
+        saveFileDialogImage.FileName = BuildDefaultExportFileName(extension);
+
+        if (saveFileDialogImage.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            var savedPath = Path.GetFullPath(saveFileDialogImage.FileName);
+            _nativeBitmap.Save(savedPath, format);
+
+            toolStripStatusLabelFile.Text = savedPath;
+            MessageBox.Show(
+                this,
+                $"이미지를 저장했습니다.{Environment.NewLine}{Environment.NewLine}{savedPath}",
+                "이미지 저장",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                this,
+                $"이미지 저장에 실패했습니다.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
+                "이미지 저장",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
+    private string BuildDefaultExportFileName(string extension)
+    {
+        var baseName = string.IsNullOrEmpty(_currentFilePath)
+            ? "image"
+            : Path.GetFileNameWithoutExtension(_currentFilePath);
+
+        if (_numberOfFrames > 1)
+            baseName += $"_frame{trackBarFrames.Value + 1:D2}";
+
+        return $"{baseName}.{extension}";
+    }
+
+    private void SetExportButtonsEnabled(bool enabled)
+    {
+        toolStripButtonSavePng.Enabled = enabled;
+        toolStripButtonSaveJpeg.Enabled = enabled;
+        toolStripButtonSaveBmp.Enabled = enabled;
+        toolStripButtonSaveTiff.Enabled = enabled;
+        toolStripButtonSaveGif.Enabled = enabled;
+    }
+
+    private void RefreshInfoPanel()
+    {
+        if (_currentDataset is not null)
+        {
+            textBoxDicomInfo.Text = FormatDicomInfoText(_currentDataset, _numberOfFrames, trackBarFrames.Value);
+            return;
+        }
+
+        if (_nativeBitmap is not null && !string.IsNullOrEmpty(_currentFilePath))
+        {
+            textBoxDicomInfo.Text = FormatRasterInfoText(_currentFilePath, _nativeBitmap);
+            return;
+        }
+
+        textBoxDicomInfo.Text = "파일을 열면 DICOM 정보가 표시됩니다.";
+    }
+
+    private static string FormatDicomInfoText(DicomDataset ds, int frames, int currentFrame)
+    {
+        var lines = new List<string>
+        {
+            InfoLine("환자명", ds.GetSingleValueOrDefault(DicomTag.PatientName, string.Empty)),
+            InfoLine("환자 ID", ds.GetSingleValueOrDefault(DicomTag.PatientID, string.Empty)),
+            InfoLine("생년월일", ds.GetSingleValueOrDefault(DicomTag.PatientBirthDate, string.Empty)),
+            InfoLine("성별", ds.GetSingleValueOrDefault(DicomTag.PatientSex, string.Empty)),
+            InfoLine("Modality", ds.GetSingleValueOrDefault(DicomTag.Modality, string.Empty)),
+            InfoLine("검사 설명", ds.GetSingleValueOrDefault(DicomTag.StudyDescription, string.Empty)),
+            InfoLine("시리즈 설명", ds.GetSingleValueOrDefault(DicomTag.SeriesDescription, string.Empty)),
+            InfoLine("Study Date", ds.GetSingleValueOrDefault(DicomTag.StudyDate, string.Empty)),
+            InfoLine("Series Date", ds.GetSingleValueOrDefault(DicomTag.SeriesDate, string.Empty)),
+            InfoLine("Institution", ds.GetSingleValueOrDefault(DicomTag.InstitutionName, string.Empty)),
+            InfoLine("Manufacturer", ds.GetSingleValueOrDefault(DicomTag.Manufacturer, string.Empty)),
+            InfoLine("크기", FormatImageSize(ds)),
+            InfoLine("Bits Allocated", ds.GetSingleValueOrDefault(DicomTag.BitsAllocated, (ushort)0).ToString()),
+            InfoLine("프레임", frames > 1 ? $"{currentFrame + 1} / {frames}" : "1"),
+        };
+
+        return string.Join(Environment.NewLine, lines.Where(line => !string.IsNullOrEmpty(line)));
+    }
+
+    private static string FormatRasterInfoText(string path, Bitmap bitmap)
+    {
+        var lines = new List<string>
+        {
+            InfoLine("파일", Path.GetFileName(path)),
+            InfoLine("형식", Path.GetExtension(path).TrimStart('.').ToUpperInvariant()),
+            InfoLine("크기", $"{bitmap.Width}×{bitmap.Height}"),
+        };
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string FormatImageSize(DicomDataset ds)
+    {
+        var rows = ds.GetSingleValueOrDefault(DicomTag.Rows, (ushort)0);
+        var cols = ds.GetSingleValueOrDefault(DicomTag.Columns, (ushort)0);
+        return rows > 0 && cols > 0 ? $"{cols}×{rows}" : string.Empty;
+    }
+
+    private static string InfoLine(string label, string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : $"{label}: {value.Trim()}";
+    }
+
+    private static Bitmap ResizeBitmap(Image source, int size)
+    {
+        var bmp = new Bitmap(size, size);
+        using var g = Graphics.FromImage(bmp);
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.DrawImage(source, 0, 0, size, size);
+        return bmp;
+    }
+
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
-        pictureBoxImage.Image?.Dispose();
+        _zoomPreviewQualityTimer.Stop();
+        _zoomPreviewQualityTimer.Dispose();
+        pictureBoxImage.Image = null;
         _nativeBitmap?.Dispose();
         base.OnFormClosed(e);
     }

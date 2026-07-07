@@ -126,6 +126,8 @@ internal sealed class ProgramInfoForm : Form
         sb.AppendLine("  • fo-dicom, fo-dicom.Imaging.Desktop, fo-dicom.Codecs");
         sb.AppendLine();
         sb.AppendLine("참고: JPEG2000 등 압축 DICOM은 fo-dicom.Codecs와 Visual C++ 재배포 패키지가 필요할 수 있습니다.");
+        sb.AppendLine();
+        sb.AppendLine("Copyright © 2026 SHKWON (knix008@naver.com)");
         return sb.ToString();
     }
 
