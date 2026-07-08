@@ -7,6 +7,10 @@ namespace DCMViewer;
 /// </summary>
 internal sealed class ProgramInfoForm : Form
 {
+    private const int DialogWidth = 560;
+    private const int IconColumnWidth = 64;
+    private const int TextLeftInset = 8;
+
     public ProgramInfoForm()
     {
         Text = "DCMViewer — 프로그램 정보";
@@ -15,7 +19,7 @@ internal sealed class ProgramInfoForm : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
         ShowInTaskbar = false;
-        ClientSize = new Size(560, 455);
+        ClientSize = new Size(DialogWidth, 620);
         MinimumSize = new Size(400, 320);
         Font = new Font("Segoe UI", 9F);
 
@@ -38,22 +42,25 @@ internal sealed class ProgramInfoForm : Form
             RowCount = 2,
             Padding = new Padding(12, 12, 12, 6),
         };
-        main.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        main.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         main.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         var contentRow = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             ColumnCount = 2,
             RowCount = 1,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
         };
-        contentRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 64F));
+        contentRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, IconColumnWidth));
         contentRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
         var iconPanel = new Panel
         {
             Dock = DockStyle.Fill,
             TabStop = false,
+            Size = new Size(IconColumnWidth, 48),
         };
 
         var picture = new PictureBox
@@ -67,29 +74,13 @@ internal sealed class ProgramInfoForm : Form
         };
         iconPanel.Controls.Add(picture);
 
-        var scrollBody = new Panel
-        {
-            Dock = DockStyle.Fill,
-            AutoScroll = true,
-            BorderStyle = BorderStyle.None,
-            TabStop = false,
-            Padding = new Padding(8, 0, 0, 0),
-        };
-
         var bodyLabel = new Label
         {
             AutoSize = true,
             UseMnemonic = false,
             Text = BuildDescription(),
             TabStop = false,
-        };
-
-        scrollBody.Controls.Add(bodyLabel);
-        scrollBody.Resize += (_, _) =>
-        {
-            var w = Math.Max(80, scrollBody.ClientSize.Width);
-            bodyLabel.MaximumSize = new Size(w, 0);
-            bodyLabel.Location = Point.Empty;
+            Margin = new Padding(TextLeftInset, 0, 0, 0),
         };
 
         var ok = new Button
@@ -113,7 +104,7 @@ internal sealed class ProgramInfoForm : Form
         buttonPanel.Controls.Add(ok);
 
         contentRow.Controls.Add(iconPanel, 0, 0);
-        contentRow.Controls.Add(scrollBody, 1, 0);
+        contentRow.Controls.Add(bodyLabel, 1, 0);
 
         main.Controls.Add(contentRow, 0, 0);
         main.Controls.Add(buttonPanel, 0, 1);
@@ -124,15 +115,43 @@ internal sealed class ProgramInfoForm : Form
 
         Shown += (_, _) =>
         {
-            scrollBody.PerformLayout();
+            FitDialogToContent(bodyLabel, main, buttonPanel);
             ActiveControl = ok;
         };
+    }
+
+    private void FitDialogToContent(Label bodyLabel, TableLayoutPanel main, FlowLayoutPanel buttonPanel)
+    {
+        var textWidth = DialogWidth
+            - main.Padding.Horizontal
+            - IconColumnWidth
+            - TextLeftInset;
+
+        bodyLabel.MaximumSize = new Size(Math.Max(200, textWidth), 0);
+
+        var measuredHeight = TextRenderer.MeasureText(
+            bodyLabel.Text,
+            bodyLabel.Font,
+            new Size(textWidth, int.MaxValue),
+            TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl).Height;
+        var preferredHeight = bodyLabel.GetPreferredSize(new Size(textWidth, 0)).Height;
+        var textHeight = Math.Max(measuredHeight, preferredHeight);
+
+        var contentHeight = Math.Max(48, textHeight);
+        var buttonHeight = buttonPanel.PreferredSize.Height + buttonPanel.Padding.Vertical;
+        var clientHeight = main.Padding.Vertical + contentHeight + buttonHeight + 24;
+
+        ClientSize = new Size(DialogWidth, clientHeight);
     }
 
     private static string BuildDescription()
     {
         var sb = new StringBuilder();
         sb.AppendLine("DCMViewer는 의료용 DICOM(.dcm)과 일반 이미지를 함께 볼 수 있는 Windows Forms 뷰어입니다.");
+        sb.AppendLine();
+        sb.AppendLine("빌드 정보");
+        foreach (var line in BuildInfoHelper.GetDescriptionLines())
+            sb.AppendLine(line);
         sb.AppendLine();
         sb.AppendLine("지원 형식");
         sb.AppendLine("  • DICOM: .dcm, .dicm");

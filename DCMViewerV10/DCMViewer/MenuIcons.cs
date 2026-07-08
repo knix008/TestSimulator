@@ -15,6 +15,7 @@ internal static class MenuIcons
     public static Image ZoomActual => CreateZoomActual();
     public static Image Export => CreateExport();
     public static Image BatchConvert => CreateBatchConvert();
+    public static Image NewFolder => CreateNewFolder();
     public static Image Refresh => CreateRefresh();
     public static Image RegisterDefault => CreateRegisterDefault();
 
@@ -198,6 +199,25 @@ internal static class MenuIcons
                 g.FillRectangle(doc, 3, 7, 6, 5);
             using (var docBorder = new Pen(Color.FromArgb(60, 130, 60), 1f))
                 g.DrawRectangle(docBorder, 3, 7, 6, 5);
+        }
+
+        return bmp;
+    }
+
+    private static Image CreateNewFolder()
+    {
+        var bmp = CreateCanvas(out var g);
+        using (g)
+        {
+            var folder = new Rectangle(1, 5, 11, 9);
+            using (var fill = new SolidBrush(Color.FromArgb(255, 210, 90)))
+                g.FillRectangle(fill, folder);
+            using (var border = new Pen(Color.FromArgb(170, 120, 20), 1f))
+                g.DrawRectangle(border, folder);
+
+            using var plus = new Pen(Color.FromArgb(40, 150, 70), 1.8f);
+            g.DrawLine(plus, 8, 2, 8, 6);
+            g.DrawLine(plus, 6, 4, 10, 4);
         }
 
         return bmp;

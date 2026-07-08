@@ -65,17 +65,43 @@ internal static class FileOperationHelper
         return pasted;
     }
 
+    public static string CreateUniqueDirectory(string parentDirectory, string baseName)
+    {
+        if (!Directory.Exists(parentDirectory))
+            throw new DirectoryNotFoundException($"Directory not found: {parentDirectory}");
+
+        var firstPath = Path.Combine(parentDirectory, baseName);
+        if (!Directory.Exists(firstPath))
+        {
+            Directory.CreateDirectory(firstPath);
+            return firstPath;
+        }
+
+        for (var index = 2; ; index++)
+        {
+            var candidate = Path.Combine(parentDirectory, $"{baseName} ({index})");
+            if (Directory.Exists(candidate))
+                continue;
+
+            Directory.CreateDirectory(candidate);
+            return candidate;
+        }
+    }
+
     public static bool SendToRecycleBin(IWin32Window? owner, string path)
     {
         if (!File.Exists(path) && !Directory.Exists(path))
             return false;
 
-        var from = path + '\0' + '\0';
+        var normalizedPath = Path.GetFullPath(path);
+        if (Directory.Exists(normalizedPath))
+            normalizedPath = normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
         var operation = new SHFILEOPSTRUCT
         {
             hwnd = owner?.Handle ?? IntPtr.Zero,
             wFunc = FoDelete,
-            pFrom = from,
+            pFrom = normalizedPath + '\0',
             fFlags = FofAllowUndo | FofNoConfirmation | FofSilent,
         };
 
@@ -102,14 +128,15 @@ internal static class FileOperationHelper
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern int SHFileOperation(ref SHFILEOPSTRUCT fileOperation);
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct SHFILEOPSTRUCT
     {
         public IntPtr hwnd;
-        public int wFunc;
+        public uint wFunc;
         public string pFrom;
         public string pTo;
         public ushort fFlags;
+        [MarshalAs(UnmanagedType.Bool)]
         public bool fAnyOperationsAborted;
         public IntPtr hNameMappings;
         public string lpszProgressTitle;

@@ -15,6 +15,7 @@ partial class MainForm
 
     private void InitializeComponent()
     {
+        components = new System.ComponentModel.Container();
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         menuStripMain = new MenuStrip();
         fileToolStripMenuItem = new ToolStripMenuItem();
@@ -53,20 +54,32 @@ partial class MainForm
         splitContainerMain = new SplitContainer();
         panelDicomInfo = new Panel();
         splitContainerLeft = new SplitContainer();
+        treeViewFolder = new MultiSelectTreeView();
+        contextMenuFolder = new ContextMenuStrip(components);
+        ctxFolderOpen = new ToolStripMenuItem();
+        ctxFolderSeparator1 = new ToolStripSeparator();
+        ctxFolderBatchConvert = new ToolStripMenuItem();
+        ctxFolderBatchConvertPng = new ToolStripMenuItem();
+        ctxFolderBatchConvertJpeg = new ToolStripMenuItem();
+        ctxFolderBatchConvertBmp = new ToolStripMenuItem();
+        ctxFolderBatchConvertTiff = new ToolStripMenuItem();
+        ctxFolderBatchConvertGif = new ToolStripMenuItem();
+        ctxFolderSeparatorBatchConvert = new ToolStripSeparator();
+        ctxFolderNewFolder = new ToolStripMenuItem();
+        ctxFolderCopy = new ToolStripMenuItem();
+        ctxFolderPaste = new ToolStripMenuItem();
+        ctxFolderDelete = new ToolStripMenuItem();
+        ctxFolderSeparator2 = new ToolStripSeparator();
+        ctxFolderSelectFolder = new ToolStripMenuItem();
+        ctxFolderSeparator3 = new ToolStripSeparator();
+        ctxFolderRefresh = new ToolStripMenuItem();
         labelFolderTitle = new Label();
-        treeViewFolder = new TreeView();
-        labelInfoTitle = new Label();
         textBoxDicomInfo = new RichTextBox();
+        labelInfoTitle = new Label();
         panelImageHost = new Panel();
         panelScroll = new ImageScrollPanel();
         pictureBoxImage = new ZoomPictureBox();
-        trackBarFrames = new TrackBar();
-        labelZoomPercent = new Label();
-        openFileDialogDicom = new OpenFileDialog();
-        saveFileDialogImage = new SaveFileDialog();
-        folderBrowserBatchSource = new FolderBrowserDialog();
-        folderBrowserSelectFolder = new FolderBrowserDialog();
-        contextMenuImage = new ContextMenuStrip();
+        contextMenuImage = new ContextMenuStrip(components);
         ctxMenuOpen = new ToolStripMenuItem();
         ctxMenuSeparator1 = new ToolStripSeparator();
         ctxMenuZoomFit = new ToolStripMenuItem();
@@ -78,16 +91,12 @@ partial class MainForm
         ctxMenuExportBmp = new ToolStripMenuItem();
         ctxMenuExportTiff = new ToolStripMenuItem();
         ctxMenuExportGif = new ToolStripMenuItem();
-        contextMenuFolder = new ContextMenuStrip();
-        ctxFolderOpen = new ToolStripMenuItem();
-        ctxFolderSeparator1 = new ToolStripSeparator();
-        ctxFolderSelectFolder = new ToolStripMenuItem();
-        ctxFolderSeparator2 = new ToolStripSeparator();
-        ctxFolderCopy = new ToolStripMenuItem();
-        ctxFolderPaste = new ToolStripMenuItem();
-        ctxFolderDelete = new ToolStripMenuItem();
-        ctxFolderSeparator3 = new ToolStripSeparator();
-        ctxFolderRefresh = new ToolStripMenuItem();
+        trackBarFrames = new TrackBar();
+        labelZoomPercent = new Label();
+        openFileDialogDicom = new OpenFileDialog();
+        saveFileDialogImage = new SaveFileDialog();
+        folderBrowserBatchSource = new FolderBrowserDialog();
+        folderBrowserSelectFolder = new FolderBrowserDialog();
         menuStripMain.SuspendLayout();
         statusStripMain.SuspendLayout();
         toolStripExport.SuspendLayout();
@@ -100,11 +109,11 @@ partial class MainForm
         splitContainerLeft.Panel1.SuspendLayout();
         splitContainerLeft.Panel2.SuspendLayout();
         splitContainerLeft.SuspendLayout();
+        contextMenuFolder.SuspendLayout();
         panelImageHost.SuspendLayout();
         panelScroll.SuspendLayout();
-        contextMenuImage.SuspendLayout();
-        contextMenuFolder.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)pictureBoxImage).BeginInit();
+        contextMenuImage.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)trackBarFrames).BeginInit();
         SuspendLayout();
         // 
@@ -113,7 +122,7 @@ partial class MainForm
         menuStripMain.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, helpToolStripMenuItem });
         menuStripMain.Location = new Point(0, 0);
         menuStripMain.Name = "menuStripMain";
-        menuStripMain.Size = new Size(984, 24);
+        menuStripMain.Size = new Size(1184, 24);
         menuStripMain.TabIndex = 0;
         menuStripMain.Text = "menuStrip1";
         // 
@@ -128,92 +137,92 @@ partial class MainForm
         // 
         openToolStripMenuItem.Name = "openToolStripMenuItem";
         openToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.O;
-        openToolStripMenuItem.Size = new Size(167, 22);
+        openToolStripMenuItem.Size = new Size(258, 22);
         openToolStripMenuItem.Text = "열기(&O)...";
         openToolStripMenuItem.Click += OpenToolStripMenuItem_Click;
         // 
         // selectFolderToolStripMenuItem
         // 
         selectFolderToolStripMenuItem.Name = "selectFolderToolStripMenuItem";
-        selectFolderToolStripMenuItem.Size = new Size(167, 22);
+        selectFolderToolStripMenuItem.Size = new Size(258, 22);
         selectFolderToolStripMenuItem.Text = "폴더 선택(&P)...";
         selectFolderToolStripMenuItem.Click += SelectFolderToolStripMenuItem_Click;
         // 
         // fileMenuSeparatorBatchConvert
         // 
         fileMenuSeparatorBatchConvert.Name = "fileMenuSeparatorBatchConvert";
-        fileMenuSeparatorBatchConvert.Size = new Size(166, 6);
+        fileMenuSeparatorBatchConvert.Size = new Size(255, 6);
         // 
         // batchConvertToolStripMenuItem
         // 
         batchConvertToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { batchConvertPngToolStripMenuItem, batchConvertJpegToolStripMenuItem, batchConvertBmpToolStripMenuItem, batchConvertTiffToolStripMenuItem, batchConvertGifToolStripMenuItem });
         batchConvertToolStripMenuItem.Name = "batchConvertToolStripMenuItem";
-        batchConvertToolStripMenuItem.Size = new Size(167, 22);
+        batchConvertToolStripMenuItem.Size = new Size(258, 22);
         batchConvertToolStripMenuItem.Text = "폴더 일괄 변환(&B)";
         // 
         // batchConvertPngToolStripMenuItem
         // 
         batchConvertPngToolStripMenuItem.Name = "batchConvertPngToolStripMenuItem";
-        batchConvertPngToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertPngToolStripMenuItem.Size = new Size(139, 22);
         batchConvertPngToolStripMenuItem.Text = "PNG로 변환";
         batchConvertPngToolStripMenuItem.Click += BatchConvertButton_Click;
         // 
         // batchConvertJpegToolStripMenuItem
         // 
         batchConvertJpegToolStripMenuItem.Name = "batchConvertJpegToolStripMenuItem";
-        batchConvertJpegToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertJpegToolStripMenuItem.Size = new Size(139, 22);
         batchConvertJpegToolStripMenuItem.Text = "JPEG로 변환";
         batchConvertJpegToolStripMenuItem.Click += BatchConvertButton_Click;
         // 
         // batchConvertBmpToolStripMenuItem
         // 
         batchConvertBmpToolStripMenuItem.Name = "batchConvertBmpToolStripMenuItem";
-        batchConvertBmpToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertBmpToolStripMenuItem.Size = new Size(139, 22);
         batchConvertBmpToolStripMenuItem.Text = "BMP로 변환";
         batchConvertBmpToolStripMenuItem.Click += BatchConvertButton_Click;
         // 
         // batchConvertTiffToolStripMenuItem
         // 
         batchConvertTiffToolStripMenuItem.Name = "batchConvertTiffToolStripMenuItem";
-        batchConvertTiffToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertTiffToolStripMenuItem.Size = new Size(139, 22);
         batchConvertTiffToolStripMenuItem.Text = "TIFF로 변환";
         batchConvertTiffToolStripMenuItem.Click += BatchConvertButton_Click;
         // 
         // batchConvertGifToolStripMenuItem
         // 
         batchConvertGifToolStripMenuItem.Name = "batchConvertGifToolStripMenuItem";
-        batchConvertGifToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertGifToolStripMenuItem.Size = new Size(139, 22);
         batchConvertGifToolStripMenuItem.Text = "GIF로 변환";
         batchConvertGifToolStripMenuItem.Click += BatchConvertButton_Click;
         // 
         // fileMenuSeparatorAssociation
         // 
         fileMenuSeparatorAssociation.Name = "fileMenuSeparatorAssociation";
-        fileMenuSeparatorAssociation.Size = new Size(166, 6);
+        fileMenuSeparatorAssociation.Size = new Size(255, 6);
         // 
         // registerDcmDefaultToolStripMenuItem
         // 
         registerDcmDefaultToolStripMenuItem.Name = "registerDcmDefaultToolStripMenuItem";
-        registerDcmDefaultToolStripMenuItem.Size = new Size(166, 22);
+        registerDcmDefaultToolStripMenuItem.Size = new Size(258, 22);
         registerDcmDefaultToolStripMenuItem.Text = "DCM 기본 프로그램으로 등록(&R)...";
         registerDcmDefaultToolStripMenuItem.Click += RegisterDcmDefaultToolStripMenuItem_Click;
         // 
         // unregisterDcmAssociationToolStripMenuItem
         // 
         unregisterDcmAssociationToolStripMenuItem.Name = "unregisterDcmAssociationToolStripMenuItem";
-        unregisterDcmAssociationToolStripMenuItem.Size = new Size(166, 22);
+        unregisterDcmAssociationToolStripMenuItem.Size = new Size(258, 22);
         unregisterDcmAssociationToolStripMenuItem.Text = "DCM 연결 등록 해제(&U)";
         unregisterDcmAssociationToolStripMenuItem.Click += UnregisterDcmAssociationToolStripMenuItem_Click;
         // 
         // fileMenuSeparatorExit
         // 
         fileMenuSeparatorExit.Name = "fileMenuSeparatorExit";
-        fileMenuSeparatorExit.Size = new Size(166, 6);
+        fileMenuSeparatorExit.Size = new Size(255, 6);
         // 
         // exitToolStripMenuItem
         // 
         exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-        exitToolStripMenuItem.Size = new Size(167, 22);
+        exitToolStripMenuItem.Size = new Size(258, 22);
         exitToolStripMenuItem.Text = "종료(&X)";
         exitToolStripMenuItem.Click += ExitToolStripMenuItem_Click;
         // 
@@ -231,121 +240,19 @@ partial class MainForm
         aboutToolStripMenuItem.Text = "정보(&A)...";
         aboutToolStripMenuItem.Click += AboutToolStripMenuItem_Click;
         // 
-        // toolStripExport
-        // 
-        toolStripExport.Dock = DockStyle.Top;
-        toolStripExport.GripStyle = ToolStripGripStyle.Hidden;
-        toolStripExport.ImageScalingSize = new Size(24, 24);
-        toolStripExport.Items.AddRange(new ToolStripItem[] { toolStripLabelExport, toolStripSeparatorExport, toolStripButtonSavePng, toolStripButtonSaveJpeg, toolStripButtonSaveBmp, toolStripButtonSaveTiff, toolStripButtonSaveGif, toolStripSeparatorBatchConvert, toolStripButtonBatchConvert, toolStripButtonInfo });
-        toolStripExport.Name = "toolStripExport";
-        toolStripExport.Padding = new Padding(6, 4, 6, 4);
-        toolStripExport.Size = new Size(984, 36);
-        toolStripExport.TabIndex = 4;
-        toolStripExport.Text = "toolStripExport";
-        // 
-        // toolStripLabelExport
-        // 
-        toolStripLabelExport.Font = new Font("Segoe UI", 10F);
-        toolStripLabelExport.Name = "toolStripLabelExport";
-        toolStripLabelExport.Padding = new Padding(0, 0, 4, 0);
-        toolStripLabelExport.Size = new Size(63, 28);
-        toolStripLabelExport.Text = "내보내기:";
-        // 
-        // toolStripSeparatorExport
-        // 
-        toolStripSeparatorExport.Name = "toolStripSeparatorExport";
-        toolStripSeparatorExport.Size = new Size(6, 28);
-        // 
-        // toolStripButtonSavePng
-        // 
-        toolStripButtonSavePng.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-        toolStripButtonSavePng.ImageTransparentColor = Color.Magenta;
-        toolStripButtonSavePng.Name = "toolStripButtonSavePng";
-        toolStripButtonSavePng.Size = new Size(72, 28);
-        toolStripButtonSavePng.Text = "PNG";
-        toolStripButtonSavePng.TextImageRelation = TextImageRelation.ImageBeforeText;
-        toolStripButtonSavePng.Click += ExportButton_Click;
-        // 
-        // toolStripButtonSaveJpeg
-        // 
-        toolStripButtonSaveJpeg.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-        toolStripButtonSaveJpeg.ImageTransparentColor = Color.Magenta;
-        toolStripButtonSaveJpeg.Name = "toolStripButtonSaveJpeg";
-        toolStripButtonSaveJpeg.Size = new Size(78, 28);
-        toolStripButtonSaveJpeg.Text = "JPEG";
-        toolStripButtonSaveJpeg.TextImageRelation = TextImageRelation.ImageBeforeText;
-        toolStripButtonSaveJpeg.Click += ExportButton_Click;
-        // 
-        // toolStripButtonSaveBmp
-        // 
-        toolStripButtonSaveBmp.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-        toolStripButtonSaveBmp.ImageTransparentColor = Color.Magenta;
-        toolStripButtonSaveBmp.Name = "toolStripButtonSaveBmp";
-        toolStripButtonSaveBmp.Size = new Size(72, 28);
-        toolStripButtonSaveBmp.Text = "BMP";
-        toolStripButtonSaveBmp.TextImageRelation = TextImageRelation.ImageBeforeText;
-        toolStripButtonSaveBmp.Click += ExportButton_Click;
-        // 
-        // toolStripButtonSaveTiff
-        // 
-        toolStripButtonSaveTiff.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-        toolStripButtonSaveTiff.ImageTransparentColor = Color.Magenta;
-        toolStripButtonSaveTiff.Name = "toolStripButtonSaveTiff";
-        toolStripButtonSaveTiff.Size = new Size(72, 28);
-        toolStripButtonSaveTiff.Text = "TIFF";
-        toolStripButtonSaveTiff.TextImageRelation = TextImageRelation.ImageBeforeText;
-        toolStripButtonSaveTiff.Click += ExportButton_Click;
-        // 
-        // toolStripButtonSaveGif
-        // 
-        toolStripButtonSaveGif.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-        toolStripButtonSaveGif.ImageTransparentColor = Color.Magenta;
-        toolStripButtonSaveGif.Name = "toolStripButtonSaveGif";
-        toolStripButtonSaveGif.Size = new Size(68, 28);
-        toolStripButtonSaveGif.Text = "GIF";
-        toolStripButtonSaveGif.TextImageRelation = TextImageRelation.ImageBeforeText;
-        toolStripButtonSaveGif.Click += ExportButton_Click;
-        // 
-        // toolStripSeparatorBatchConvert
-        // 
-        toolStripSeparatorBatchConvert.Name = "toolStripSeparatorBatchConvert";
-        toolStripSeparatorBatchConvert.Size = new Size(6, 28);
-        // 
-        // toolStripButtonBatchConvert
-        // 
-        toolStripButtonBatchConvert.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-        toolStripButtonBatchConvert.ImageTransparentColor = Color.Magenta;
-        toolStripButtonBatchConvert.Name = "toolStripButtonBatchConvert";
-        toolStripButtonBatchConvert.Size = new Size(96, 28);
-        toolStripButtonBatchConvert.Text = "일괄 변환";
-        toolStripButtonBatchConvert.TextImageRelation = TextImageRelation.ImageBeforeText;
-        toolStripButtonBatchConvert.Click += BatchConvertToolbarButton_Click;
-        // 
-        // toolStripButtonInfo
-        // 
-        toolStripButtonInfo.Alignment = ToolStripItemAlignment.Right;
-        toolStripButtonInfo.DisplayStyle = ToolStripItemDisplayStyle.Image;
-        toolStripButtonInfo.ImageScaling = ToolStripItemImageScaling.None;
-        toolStripButtonInfo.ImageAlign = ContentAlignment.MiddleCenter;
-        toolStripButtonInfo.Margin = new Padding(8, 1, 12, 1);
-        toolStripButtonInfo.Name = "toolStripButtonInfo";
-        toolStripButtonInfo.Size = new Size(24, 24);
-        toolStripButtonInfo.ToolTipText = "프로그램 정보";
-        toolStripButtonInfo.Click += ToolStripButtonInfo_Click;
-        // 
         // statusStripMain
         // 
         statusStripMain.Items.AddRange(new ToolStripItem[] { toolStripStatusLabelFile, toolStripStatusLabelPatient, toolStripStatusLabelDetails, toolStripStatusLabelFrame });
-        statusStripMain.Location = new Point(0, 539);
+        statusStripMain.Location = new Point(0, 739);
         statusStripMain.Name = "statusStripMain";
-        statusStripMain.Size = new Size(984, 22);
+        statusStripMain.Size = new Size(1184, 22);
         statusStripMain.TabIndex = 1;
         statusStripMain.Text = "statusStrip1";
         // 
         // toolStripStatusLabelFile
         // 
         toolStripStatusLabelFile.Name = "toolStripStatusLabelFile";
-        toolStripStatusLabelFile.Size = new Size(969, 17);
+        toolStripStatusLabelFile.Size = new Size(1169, 17);
         toolStripStatusLabelFile.Spring = true;
         toolStripStatusLabelFile.Text = "파일을 열어 주세요.";
         toolStripStatusLabelFile.TextAlign = ContentAlignment.MiddleLeft;
@@ -365,11 +272,100 @@ partial class MainForm
         toolStripStatusLabelFrame.Name = "toolStripStatusLabelFrame";
         toolStripStatusLabelFrame.Size = new Size(0, 17);
         // 
+        // toolStripExport
+        // 
+        toolStripExport.GripStyle = ToolStripGripStyle.Hidden;
+        toolStripExport.ImageScalingSize = new Size(24, 24);
+        toolStripExport.Items.AddRange(new ToolStripItem[] { toolStripLabelExport, toolStripSeparatorExport, toolStripButtonSavePng, toolStripButtonSaveJpeg, toolStripButtonSaveBmp, toolStripButtonSaveTiff, toolStripButtonSaveGif, toolStripSeparatorBatchConvert, toolStripButtonBatchConvert, toolStripButtonInfo });
+        toolStripExport.Location = new Point(0, 24);
+        toolStripExport.Name = "toolStripExport";
+        toolStripExport.Padding = new Padding(6, 4, 6, 4);
+        toolStripExport.Size = new Size(1184, 31);
+        toolStripExport.TabIndex = 4;
+        toolStripExport.Text = "toolStripExport";
+        // 
+        // toolStripLabelExport
+        // 
+        toolStripLabelExport.Font = new Font("Segoe UI", 10F);
+        toolStripLabelExport.Name = "toolStripLabelExport";
+        toolStripLabelExport.Padding = new Padding(0, 0, 4, 0);
+        toolStripLabelExport.Size = new Size(72, 20);
+        toolStripLabelExport.Text = "내보내기:";
+        // 
+        // toolStripSeparatorExport
+        // 
+        toolStripSeparatorExport.Name = "toolStripSeparatorExport";
+        toolStripSeparatorExport.Size = new Size(6, 23);
+        // 
+        // toolStripButtonSavePng
+        // 
+        toolStripButtonSavePng.ImageTransparentColor = Color.Magenta;
+        toolStripButtonSavePng.Name = "toolStripButtonSavePng";
+        toolStripButtonSavePng.Size = new Size(35, 20);
+        toolStripButtonSavePng.Text = "PNG";
+        toolStripButtonSavePng.Click += ExportButton_Click;
+        // 
+        // toolStripButtonSaveJpeg
+        // 
+        toolStripButtonSaveJpeg.ImageTransparentColor = Color.Magenta;
+        toolStripButtonSaveJpeg.Name = "toolStripButtonSaveJpeg";
+        toolStripButtonSaveJpeg.Size = new Size(36, 20);
+        toolStripButtonSaveJpeg.Text = "JPEG";
+        toolStripButtonSaveJpeg.Click += ExportButton_Click;
+        // 
+        // toolStripButtonSaveBmp
+        // 
+        toolStripButtonSaveBmp.ImageTransparentColor = Color.Magenta;
+        toolStripButtonSaveBmp.Name = "toolStripButtonSaveBmp";
+        toolStripButtonSaveBmp.Size = new Size(36, 20);
+        toolStripButtonSaveBmp.Text = "BMP";
+        toolStripButtonSaveBmp.Click += ExportButton_Click;
+        // 
+        // toolStripButtonSaveTiff
+        // 
+        toolStripButtonSaveTiff.ImageTransparentColor = Color.Magenta;
+        toolStripButtonSaveTiff.Name = "toolStripButtonSaveTiff";
+        toolStripButtonSaveTiff.Size = new Size(32, 20);
+        toolStripButtonSaveTiff.Text = "TIFF";
+        toolStripButtonSaveTiff.Click += ExportButton_Click;
+        // 
+        // toolStripButtonSaveGif
+        // 
+        toolStripButtonSaveGif.ImageTransparentColor = Color.Magenta;
+        toolStripButtonSaveGif.Name = "toolStripButtonSaveGif";
+        toolStripButtonSaveGif.Size = new Size(28, 20);
+        toolStripButtonSaveGif.Text = "GIF";
+        toolStripButtonSaveGif.Click += ExportButton_Click;
+        // 
+        // toolStripSeparatorBatchConvert
+        // 
+        toolStripSeparatorBatchConvert.Name = "toolStripSeparatorBatchConvert";
+        toolStripSeparatorBatchConvert.Size = new Size(6, 23);
+        // 
+        // toolStripButtonBatchConvert
+        // 
+        toolStripButtonBatchConvert.ImageTransparentColor = Color.Magenta;
+        toolStripButtonBatchConvert.Name = "toolStripButtonBatchConvert";
+        toolStripButtonBatchConvert.Size = new Size(63, 20);
+        toolStripButtonBatchConvert.Text = "일괄 변환";
+        toolStripButtonBatchConvert.Click += BatchConvertToolbarButton_Click;
+        // 
+        // toolStripButtonInfo
+        // 
+        toolStripButtonInfo.Alignment = ToolStripItemAlignment.Right;
+        toolStripButtonInfo.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        toolStripButtonInfo.ImageScaling = ToolStripItemImageScaling.None;
+        toolStripButtonInfo.Margin = new Padding(8, 1, 12, 1);
+        toolStripButtonInfo.Name = "toolStripButtonInfo";
+        toolStripButtonInfo.Size = new Size(23, 21);
+        toolStripButtonInfo.ToolTipText = "프로그램 정보";
+        toolStripButtonInfo.Click += ToolStripButtonInfo_Click;
+        // 
         // splitContainerMain
         // 
         splitContainerMain.Dock = DockStyle.Fill;
         splitContainerMain.FixedPanel = FixedPanel.Panel1;
-        splitContainerMain.Location = new Point(0, 49);
+        splitContainerMain.Location = new Point(0, 55);
         splitContainerMain.Name = "splitContainerMain";
         // 
         // splitContainerMain.Panel1
@@ -380,27 +376,27 @@ partial class MainForm
         // splitContainerMain.Panel2
         // 
         splitContainerMain.Panel2.Controls.Add(panelImageHost);
-        splitContainerMain.Size = new Size(984, 490);
+        splitContainerMain.Size = new Size(1184, 684);
         splitContainerMain.SplitterDistance = 240;
         splitContainerMain.TabIndex = 3;
         // 
         // panelDicomInfo
         // 
-        panelDicomInfo.BackColor = Color.FromArgb(36, 36, 40);
+        panelDicomInfo.BackColor = Color.FromArgb(236, 240, 246);
         panelDicomInfo.Controls.Add(splitContainerLeft);
         panelDicomInfo.Dock = DockStyle.Fill;
         panelDicomInfo.Location = new Point(0, 0);
         panelDicomInfo.Name = "panelDicomInfo";
-        panelDicomInfo.Padding = new Padding(8, 8, 8, 8);
-        panelDicomInfo.Size = new Size(240, 490);
+        panelDicomInfo.Padding = new Padding(4);
+        panelDicomInfo.Size = new Size(240, 684);
         panelDicomInfo.TabIndex = 0;
         // 
         // splitContainerLeft
         // 
-        splitContainerLeft.BackColor = Color.FromArgb(100, 100, 105);
+        splitContainerLeft.BackColor = Color.FromArgb(206, 218, 232);
         splitContainerLeft.Dock = DockStyle.Fill;
         splitContainerLeft.FixedPanel = FixedPanel.Panel2;
-        splitContainerLeft.Location = new Point(8, 8);
+        splitContainerLeft.Location = new Point(4, 4);
         splitContainerLeft.Name = "splitContainerLeft";
         splitContainerLeft.Orientation = Orientation.Horizontal;
         // 
@@ -417,10 +413,154 @@ partial class MainForm
         splitContainerLeft.Panel2.Controls.Add(textBoxDicomInfo);
         splitContainerLeft.Panel2.Controls.Add(labelInfoTitle);
         splitContainerLeft.Panel2MinSize = 100;
-        splitContainerLeft.Size = new Size(224, 474);
-        splitContainerLeft.SplitterDistance = 260;
-        splitContainerLeft.SplitterWidth = 6;
+        splitContainerLeft.Size = new Size(232, 676);
+        splitContainerLeft.SplitterDistance = 457;
+        splitContainerLeft.SplitterWidth = 1;
         splitContainerLeft.TabIndex = 0;
+        // 
+        // treeViewFolder
+        // 
+        treeViewFolder.BackColor = Color.FromArgb(28, 28, 32);
+        treeViewFolder.BorderStyle = BorderStyle.None;
+        treeViewFolder.CanMultiSelect = null;
+        treeViewFolder.ContextMenuStrip = contextMenuFolder;
+        treeViewFolder.Dock = DockStyle.Fill;
+        treeViewFolder.ForeColor = Color.FromArgb(200, 200, 205);
+        treeViewFolder.FullRowSelect = true;
+        treeViewFolder.HideSelection = false;
+        treeViewFolder.ImeMode = ImeMode.Disable;
+        treeViewFolder.Location = new Point(0, 23);
+        treeViewFolder.MultiSelectBackColor = Color.FromArgb(0, 99, 177);
+        treeViewFolder.MultiSelectForeColor = Color.White;
+        treeViewFolder.Name = "treeViewFolder";
+        treeViewFolder.ShowNodeToolTips = true;
+        treeViewFolder.Size = new Size(232, 434);
+        treeViewFolder.TabIndex = 1;
+        treeViewFolder.BeforeExpand += TreeViewFolder_BeforeExpand;
+        treeViewFolder.NodeMouseClick += TreeViewFolder_NodeMouseClick;
+        treeViewFolder.NodeMouseDoubleClick += TreeViewFolder_NodeMouseDoubleClick;
+        treeViewFolder.KeyDown += TreeViewFolder_KeyDown;
+        // 
+        // contextMenuFolder
+        // 
+        contextMenuFolder.Items.AddRange(new ToolStripItem[] { ctxFolderOpen, ctxFolderSeparator1, ctxFolderBatchConvert, ctxFolderSeparatorBatchConvert, ctxFolderNewFolder, ctxFolderCopy, ctxFolderPaste, ctxFolderDelete, ctxFolderSeparator2, ctxFolderSelectFolder, ctxFolderSeparator3, ctxFolderRefresh });
+        contextMenuFolder.Name = "contextMenuFolder";
+        contextMenuFolder.Size = new Size(181, 204);
+        contextMenuFolder.Opening += ContextMenuFolder_Opening;
+        // 
+        // ctxFolderOpen
+        // 
+        ctxFolderOpen.Name = "ctxFolderOpen";
+        ctxFolderOpen.Size = new Size(180, 22);
+        ctxFolderOpen.Text = "열기(&O)";
+        ctxFolderOpen.Click += CtxFolderOpen_Click;
+        // 
+        // ctxFolderSeparator1
+        // 
+        ctxFolderSeparator1.Name = "ctxFolderSeparator1";
+        ctxFolderSeparator1.Size = new Size(177, 6);
+        // 
+        // ctxFolderBatchConvert
+        // 
+        ctxFolderBatchConvert.DropDownItems.AddRange(new ToolStripItem[] { ctxFolderBatchConvertPng, ctxFolderBatchConvertJpeg, ctxFolderBatchConvertBmp, ctxFolderBatchConvertTiff, ctxFolderBatchConvertGif });
+        ctxFolderBatchConvert.Name = "ctxFolderBatchConvert";
+        ctxFolderBatchConvert.Size = new Size(180, 22);
+        ctxFolderBatchConvert.Text = "일괄 변환(&B)";
+        // 
+        // ctxFolderBatchConvertPng
+        // 
+        ctxFolderBatchConvertPng.Name = "ctxFolderBatchConvertPng";
+        ctxFolderBatchConvertPng.Size = new Size(139, 22);
+        ctxFolderBatchConvertPng.Text = "PNG로 변환";
+        ctxFolderBatchConvertPng.Click += BatchConvertButton_Click;
+        // 
+        // ctxFolderBatchConvertJpeg
+        // 
+        ctxFolderBatchConvertJpeg.Name = "ctxFolderBatchConvertJpeg";
+        ctxFolderBatchConvertJpeg.Size = new Size(139, 22);
+        ctxFolderBatchConvertJpeg.Text = "JPEG로 변환";
+        ctxFolderBatchConvertJpeg.Click += BatchConvertButton_Click;
+        // 
+        // ctxFolderBatchConvertBmp
+        // 
+        ctxFolderBatchConvertBmp.Name = "ctxFolderBatchConvertBmp";
+        ctxFolderBatchConvertBmp.Size = new Size(139, 22);
+        ctxFolderBatchConvertBmp.Text = "BMP로 변환";
+        ctxFolderBatchConvertBmp.Click += BatchConvertButton_Click;
+        // 
+        // ctxFolderBatchConvertTiff
+        // 
+        ctxFolderBatchConvertTiff.Name = "ctxFolderBatchConvertTiff";
+        ctxFolderBatchConvertTiff.Size = new Size(139, 22);
+        ctxFolderBatchConvertTiff.Text = "TIFF로 변환";
+        ctxFolderBatchConvertTiff.Click += BatchConvertButton_Click;
+        // 
+        // ctxFolderBatchConvertGif
+        // 
+        ctxFolderBatchConvertGif.Name = "ctxFolderBatchConvertGif";
+        ctxFolderBatchConvertGif.Size = new Size(139, 22);
+        ctxFolderBatchConvertGif.Text = "GIF로 변환";
+        ctxFolderBatchConvertGif.Click += BatchConvertButton_Click;
+        // 
+        // ctxFolderSeparatorBatchConvert
+        // 
+        ctxFolderSeparatorBatchConvert.Name = "ctxFolderSeparatorBatchConvert";
+        ctxFolderSeparatorBatchConvert.Size = new Size(177, 6);
+        // 
+        // ctxFolderNewFolder
+        // 
+        ctxFolderNewFolder.Name = "ctxFolderNewFolder";
+        ctxFolderNewFolder.Size = new Size(180, 22);
+        ctxFolderNewFolder.Text = "새 폴더(&N)";
+        ctxFolderNewFolder.Click += CtxFolderNewFolder_Click;
+        // 
+        // ctxFolderCopy
+        // 
+        ctxFolderCopy.Name = "ctxFolderCopy";
+        ctxFolderCopy.ShortcutKeys = Keys.Control | Keys.C;
+        ctxFolderCopy.Size = new Size(180, 22);
+        ctxFolderCopy.Text = "복사(&C)";
+        ctxFolderCopy.Click += CtxFolderCopy_Click;
+        // 
+        // ctxFolderPaste
+        // 
+        ctxFolderPaste.Name = "ctxFolderPaste";
+        ctxFolderPaste.ShortcutKeys = Keys.Control | Keys.V;
+        ctxFolderPaste.Size = new Size(180, 22);
+        ctxFolderPaste.Text = "붙여넣기(&V)";
+        ctxFolderPaste.Click += CtxFolderPaste_Click;
+        // 
+        // ctxFolderDelete
+        // 
+        ctxFolderDelete.Name = "ctxFolderDelete";
+        ctxFolderDelete.ShortcutKeys = Keys.Delete;
+        ctxFolderDelete.Size = new Size(180, 22);
+        ctxFolderDelete.Text = "삭제(&D)";
+        ctxFolderDelete.Click += CtxFolderDelete_Click;
+        // 
+        // ctxFolderSeparator2
+        // 
+        ctxFolderSeparator2.Name = "ctxFolderSeparator2";
+        ctxFolderSeparator2.Size = new Size(177, 6);
+        // 
+        // ctxFolderSelectFolder
+        // 
+        ctxFolderSelectFolder.Name = "ctxFolderSelectFolder";
+        ctxFolderSelectFolder.Size = new Size(180, 22);
+        ctxFolderSelectFolder.Text = "폴더 선택(&P)...";
+        ctxFolderSelectFolder.Click += SelectFolderToolStripMenuItem_Click;
+        // 
+        // ctxFolderSeparator3
+        // 
+        ctxFolderSeparator3.Name = "ctxFolderSeparator3";
+        ctxFolderSeparator3.Size = new Size(177, 6);
+        // 
+        // ctxFolderRefresh
+        // 
+        ctxFolderRefresh.Name = "ctxFolderRefresh";
+        ctxFolderRefresh.Size = new Size(180, 22);
+        ctxFolderRefresh.Text = "새로 고침(&R)";
+        ctxFolderRefresh.Click += CtxFolderRefresh_Click;
         // 
         // labelFolderTitle
         // 
@@ -430,46 +570,10 @@ partial class MainForm
         labelFolderTitle.Location = new Point(0, 0);
         labelFolderTitle.Name = "labelFolderTitle";
         labelFolderTitle.Padding = new Padding(0, 0, 0, 4);
-        labelFolderTitle.Size = new Size(224, 23);
+        labelFolderTitle.Size = new Size(232, 23);
         labelFolderTitle.TabIndex = 0;
         labelFolderTitle.Text = "폴더";
         labelFolderTitle.TextAlign = ContentAlignment.MiddleLeft;
-        // 
-        // treeViewFolder
-        // 
-        treeViewFolder.BackColor = Color.FromArgb(28, 28, 32);
-        treeViewFolder.BorderStyle = BorderStyle.None;
-        treeViewFolder.ContextMenuStrip = contextMenuFolder;
-        treeViewFolder.Dock = DockStyle.Fill;
-        treeViewFolder.ForeColor = Color.FromArgb(200, 200, 205);
-        treeViewFolder.FullRowSelect = true;
-        treeViewFolder.HideSelection = false;
-        treeViewFolder.Location = new Point(0, 23);
-        treeViewFolder.Name = "treeViewFolder";
-        treeViewFolder.ShowLines = true;
-        treeViewFolder.ShowNodeToolTips = true;
-        treeViewFolder.ShowPlusMinus = true;
-        treeViewFolder.ShowRootLines = true;
-        treeViewFolder.Size = new Size(224, 237);
-        treeViewFolder.TabIndex = 1;
-        treeViewFolder.BeforeExpand += TreeViewFolder_BeforeExpand;
-        treeViewFolder.NodeMouseClick += TreeViewFolder_NodeMouseClick;
-        treeViewFolder.AfterSelect += TreeViewFolder_AfterSelect;
-        treeViewFolder.NodeMouseDoubleClick += TreeViewFolder_NodeMouseDoubleClick;
-        treeViewFolder.KeyDown += TreeViewFolder_KeyDown;
-        // 
-        // labelInfoTitle
-        // 
-        labelInfoTitle.Dock = DockStyle.Top;
-        labelInfoTitle.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
-        labelInfoTitle.ForeColor = Color.FromArgb(220, 220, 225);
-        labelInfoTitle.Location = new Point(0, 0);
-        labelInfoTitle.Name = "labelInfoTitle";
-        labelInfoTitle.Padding = new Padding(0, 4, 0, 4);
-        labelInfoTitle.Size = new Size(224, 27);
-        labelInfoTitle.TabIndex = 0;
-        labelInfoTitle.Text = "파일 정보";
-        labelInfoTitle.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // textBoxDicomInfo
         // 
@@ -484,10 +588,23 @@ partial class MainForm
         textBoxDicomInfo.ReadOnly = true;
         textBoxDicomInfo.ScrollBars = RichTextBoxScrollBars.Vertical;
         textBoxDicomInfo.ShortcutsEnabled = false;
-        textBoxDicomInfo.Size = new Size(224, 183);
+        textBoxDicomInfo.Size = new Size(232, 191);
         textBoxDicomInfo.TabIndex = 1;
         textBoxDicomInfo.TabStop = false;
         textBoxDicomInfo.Text = "파일을 열면 DICOM 정보가 표시됩니다.";
+        // 
+        // labelInfoTitle
+        // 
+        labelInfoTitle.Dock = DockStyle.Top;
+        labelInfoTitle.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
+        labelInfoTitle.ForeColor = Color.FromArgb(220, 220, 225);
+        labelInfoTitle.Location = new Point(0, 0);
+        labelInfoTitle.Name = "labelInfoTitle";
+        labelInfoTitle.Padding = new Padding(0, 4, 0, 4);
+        labelInfoTitle.Size = new Size(232, 27);
+        labelInfoTitle.TabIndex = 0;
+        labelInfoTitle.Text = "파일 정보";
+        labelInfoTitle.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // panelImageHost
         // 
@@ -499,19 +616,21 @@ partial class MainForm
         panelImageHost.Location = new Point(0, 0);
         panelImageHost.Name = "panelImageHost";
         panelImageHost.Padding = new Padding(4);
-        panelImageHost.Size = new Size(740, 490);
+        panelImageHost.Size = new Size(940, 684);
         panelImageHost.TabIndex = 2;
         // 
         // panelScroll
         // 
-        panelScroll.AutoScroll = false;
         panelScroll.BackColor = Color.FromArgb(24, 24, 28);
-        panelScroll.Controls.Add(pictureBoxImage);
+        panelScroll.CanPan = null;
         panelScroll.ContextMenuStrip = contextMenuImage;
+        panelScroll.Controls.Add(pictureBoxImage);
         panelScroll.Dock = DockStyle.Fill;
+        panelScroll.GetImageLocation = null;
         panelScroll.Location = new Point(4, 4);
         panelScroll.Name = "panelScroll";
-        panelScroll.Size = new Size(976, 462);
+        panelScroll.SetImageLocation = null;
+        panelScroll.Size = new Size(932, 631);
         panelScroll.TabIndex = 0;
         panelScroll.TabStop = true;
         panelScroll.ZoomWheel = null;
@@ -521,6 +640,7 @@ partial class MainForm
         // 
         pictureBoxImage.BackColor = Color.FromArgb(24, 24, 28);
         pictureBoxImage.ContextMenuStrip = contextMenuImage;
+        pictureBoxImage.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
         pictureBoxImage.Location = new Point(0, 0);
         pictureBoxImage.Name = "pictureBoxImage";
         pictureBoxImage.Size = new Size(64, 64);
@@ -528,13 +648,94 @@ partial class MainForm
         pictureBoxImage.TabStop = false;
         pictureBoxImage.ZoomWheel = null;
         // 
+        // contextMenuImage
+        // 
+        contextMenuImage.Items.AddRange(new ToolStripItem[] { ctxMenuOpen, ctxMenuSeparator1, ctxMenuZoomFit, ctxMenuZoomActual, ctxMenuSeparator2, ctxMenuExport });
+        contextMenuImage.Name = "contextMenuImage";
+        contextMenuImage.Size = new Size(170, 104);
+        contextMenuImage.Opening += ContextMenuImage_Opening;
+        // 
+        // ctxMenuOpen
+        // 
+        ctxMenuOpen.Name = "ctxMenuOpen";
+        ctxMenuOpen.ShortcutKeys = Keys.Control | Keys.O;
+        ctxMenuOpen.Size = new Size(169, 22);
+        ctxMenuOpen.Text = "열기(&O)...";
+        ctxMenuOpen.Click += OpenToolStripMenuItem_Click;
+        // 
+        // ctxMenuSeparator1
+        // 
+        ctxMenuSeparator1.Name = "ctxMenuSeparator1";
+        ctxMenuSeparator1.Size = new Size(166, 6);
+        // 
+        // ctxMenuZoomFit
+        // 
+        ctxMenuZoomFit.Name = "ctxMenuZoomFit";
+        ctxMenuZoomFit.Size = new Size(169, 22);
+        ctxMenuZoomFit.Text = "화면에 맞춤";
+        ctxMenuZoomFit.Click += CtxMenuZoomFit_Click;
+        // 
+        // ctxMenuZoomActual
+        // 
+        ctxMenuZoomActual.Name = "ctxMenuZoomActual";
+        ctxMenuZoomActual.Size = new Size(169, 22);
+        ctxMenuZoomActual.Text = "실제 크기 (100%)";
+        ctxMenuZoomActual.Click += CtxMenuZoomActual_Click;
+        // 
+        // ctxMenuSeparator2
+        // 
+        ctxMenuSeparator2.Name = "ctxMenuSeparator2";
+        ctxMenuSeparator2.Size = new Size(166, 6);
+        // 
+        // ctxMenuExport
+        // 
+        ctxMenuExport.DropDownItems.AddRange(new ToolStripItem[] { ctxMenuExportPng, ctxMenuExportJpeg, ctxMenuExportBmp, ctxMenuExportTiff, ctxMenuExportGif });
+        ctxMenuExport.Name = "ctxMenuExport";
+        ctxMenuExport.Size = new Size(169, 22);
+        ctxMenuExport.Text = "내보내기(&E)";
+        // 
+        // ctxMenuExportPng
+        // 
+        ctxMenuExportPng.Name = "ctxMenuExportPng";
+        ctxMenuExportPng.Size = new Size(99, 22);
+        ctxMenuExportPng.Text = "PNG";
+        ctxMenuExportPng.Click += ExportButton_Click;
+        // 
+        // ctxMenuExportJpeg
+        // 
+        ctxMenuExportJpeg.Name = "ctxMenuExportJpeg";
+        ctxMenuExportJpeg.Size = new Size(99, 22);
+        ctxMenuExportJpeg.Text = "JPEG";
+        ctxMenuExportJpeg.Click += ExportButton_Click;
+        // 
+        // ctxMenuExportBmp
+        // 
+        ctxMenuExportBmp.Name = "ctxMenuExportBmp";
+        ctxMenuExportBmp.Size = new Size(99, 22);
+        ctxMenuExportBmp.Text = "BMP";
+        ctxMenuExportBmp.Click += ExportButton_Click;
+        // 
+        // ctxMenuExportTiff
+        // 
+        ctxMenuExportTiff.Name = "ctxMenuExportTiff";
+        ctxMenuExportTiff.Size = new Size(99, 22);
+        ctxMenuExportTiff.Text = "TIFF";
+        ctxMenuExportTiff.Click += ExportButton_Click;
+        // 
+        // ctxMenuExportGif
+        // 
+        ctxMenuExportGif.Name = "ctxMenuExportGif";
+        ctxMenuExportGif.Size = new Size(99, 22);
+        ctxMenuExportGif.Text = "GIF";
+        ctxMenuExportGif.Click += ExportButton_Click;
+        // 
         // trackBarFrames
         // 
         trackBarFrames.Dock = DockStyle.Bottom;
-        trackBarFrames.Location = new Point(4, 466);
+        trackBarFrames.Location = new Point(4, 635);
         trackBarFrames.Maximum = 0;
         trackBarFrames.Name = "trackBarFrames";
-        trackBarFrames.Size = new Size(976, 45);
+        trackBarFrames.Size = new Size(932, 45);
         trackBarFrames.TabIndex = 1;
         trackBarFrames.TickStyle = TickStyle.None;
         trackBarFrames.Visible = false;
@@ -569,159 +770,11 @@ partial class MainForm
         // 
         folderBrowserSelectFolder.Description = "좌측 패널에 표시할 폴더를 선택하세요";
         // 
-        // contextMenuImage
-        // 
-        contextMenuImage.Items.AddRange(new ToolStripItem[] { ctxMenuOpen, ctxMenuSeparator1, ctxMenuZoomFit, ctxMenuZoomActual, ctxMenuSeparator2, ctxMenuExport });
-        contextMenuImage.Name = "contextMenuImage";
-        contextMenuImage.Size = new Size(181, 120);
-        contextMenuImage.Opening += ContextMenuImage_Opening;
-        // 
-        // ctxMenuOpen
-        // 
-        ctxMenuOpen.Name = "ctxMenuOpen";
-        ctxMenuOpen.ShortcutKeys = Keys.Control | Keys.O;
-        ctxMenuOpen.Size = new Size(180, 22);
-        ctxMenuOpen.Text = "열기(&O)...";
-        ctxMenuOpen.Click += OpenToolStripMenuItem_Click;
-        // 
-        // ctxMenuSeparator1
-        // 
-        ctxMenuSeparator1.Name = "ctxMenuSeparator1";
-        ctxMenuSeparator1.Size = new Size(177, 6);
-        // 
-        // ctxMenuZoomFit
-        // 
-        ctxMenuZoomFit.Name = "ctxMenuZoomFit";
-        ctxMenuZoomFit.Size = new Size(180, 22);
-        ctxMenuZoomFit.Text = "화면에 맞춤";
-        ctxMenuZoomFit.Click += CtxMenuZoomFit_Click;
-        // 
-        // ctxMenuZoomActual
-        // 
-        ctxMenuZoomActual.Name = "ctxMenuZoomActual";
-        ctxMenuZoomActual.Size = new Size(180, 22);
-        ctxMenuZoomActual.Text = "실제 크기 (100%)";
-        ctxMenuZoomActual.Click += CtxMenuZoomActual_Click;
-        // 
-        // ctxMenuSeparator2
-        // 
-        ctxMenuSeparator2.Name = "ctxMenuSeparator2";
-        ctxMenuSeparator2.Size = new Size(177, 6);
-        // 
-        // ctxMenuExport
-        // 
-        ctxMenuExport.DropDownItems.AddRange(new ToolStripItem[] { ctxMenuExportPng, ctxMenuExportJpeg, ctxMenuExportBmp, ctxMenuExportTiff, ctxMenuExportGif });
-        ctxMenuExport.Name = "ctxMenuExport";
-        ctxMenuExport.Size = new Size(180, 22);
-        ctxMenuExport.Text = "내보내기(&E)";
-        // 
-        // ctxMenuExportPng
-        // 
-        ctxMenuExportPng.Name = "ctxMenuExportPng";
-        ctxMenuExportPng.Size = new Size(180, 22);
-        ctxMenuExportPng.Text = "PNG";
-        ctxMenuExportPng.Click += ExportButton_Click;
-        // 
-        // ctxMenuExportJpeg
-        // 
-        ctxMenuExportJpeg.Name = "ctxMenuExportJpeg";
-        ctxMenuExportJpeg.Size = new Size(180, 22);
-        ctxMenuExportJpeg.Text = "JPEG";
-        ctxMenuExportJpeg.Click += ExportButton_Click;
-        // 
-        // ctxMenuExportBmp
-        // 
-        ctxMenuExportBmp.Name = "ctxMenuExportBmp";
-        ctxMenuExportBmp.Size = new Size(180, 22);
-        ctxMenuExportBmp.Text = "BMP";
-        ctxMenuExportBmp.Click += ExportButton_Click;
-        // 
-        // ctxMenuExportTiff
-        // 
-        ctxMenuExportTiff.Name = "ctxMenuExportTiff";
-        ctxMenuExportTiff.Size = new Size(180, 22);
-        ctxMenuExportTiff.Text = "TIFF";
-        ctxMenuExportTiff.Click += ExportButton_Click;
-        // 
-        // ctxMenuExportGif
-        // 
-        ctxMenuExportGif.Name = "ctxMenuExportGif";
-        ctxMenuExportGif.Size = new Size(180, 22);
-        ctxMenuExportGif.Text = "GIF";
-        ctxMenuExportGif.Click += ExportButton_Click;
-        // 
-        // contextMenuFolder
-        // 
-        contextMenuFolder.Items.AddRange(new ToolStripItem[] { ctxFolderOpen, ctxFolderSeparator1, ctxFolderCopy, ctxFolderPaste, ctxFolderDelete, ctxFolderSeparator2, ctxFolderSelectFolder, ctxFolderSeparator3, ctxFolderRefresh });
-        contextMenuFolder.Name = "contextMenuFolder";
-        contextMenuFolder.Size = new Size(181, 98);
-        contextMenuFolder.Opening += ContextMenuFolder_Opening;
-        // 
-        // ctxFolderOpen
-        // 
-        ctxFolderOpen.Name = "ctxFolderOpen";
-        ctxFolderOpen.Size = new Size(180, 22);
-        ctxFolderOpen.Text = "열기(&O)";
-        ctxFolderOpen.Click += CtxFolderOpen_Click;
-        // 
-        // ctxFolderSeparator1
-        // 
-        ctxFolderSeparator1.Name = "ctxFolderSeparator1";
-        ctxFolderSeparator1.Size = new Size(177, 6);
-        // 
-        // ctxFolderSelectFolder
-        // 
-        ctxFolderSelectFolder.Name = "ctxFolderSelectFolder";
-        ctxFolderSelectFolder.Size = new Size(180, 22);
-        ctxFolderSelectFolder.Text = "폴더 선택(&P)...";
-        ctxFolderSelectFolder.Click += SelectFolderToolStripMenuItem_Click;
-        // 
-        // ctxFolderCopy
-        // 
-        ctxFolderCopy.Name = "ctxFolderCopy";
-        ctxFolderCopy.ShortcutKeys = Keys.Control | Keys.C;
-        ctxFolderCopy.Size = new Size(180, 22);
-        ctxFolderCopy.Text = "복사(&C)";
-        ctxFolderCopy.Click += CtxFolderCopy_Click;
-        // 
-        // ctxFolderPaste
-        // 
-        ctxFolderPaste.Name = "ctxFolderPaste";
-        ctxFolderPaste.ShortcutKeys = Keys.Control | Keys.V;
-        ctxFolderPaste.Size = new Size(180, 22);
-        ctxFolderPaste.Text = "붙여넣기(&V)";
-        ctxFolderPaste.Click += CtxFolderPaste_Click;
-        // 
-        // ctxFolderDelete
-        // 
-        ctxFolderDelete.Name = "ctxFolderDelete";
-        ctxFolderDelete.ShortcutKeys = Keys.Delete;
-        ctxFolderDelete.Size = new Size(180, 22);
-        ctxFolderDelete.Text = "삭제(&D)";
-        ctxFolderDelete.Click += CtxFolderDelete_Click;
-        // 
-        // ctxFolderSeparator2
-        // 
-        ctxFolderSeparator2.Name = "ctxFolderSeparator2";
-        ctxFolderSeparator2.Size = new Size(177, 6);
-        // 
-        // ctxFolderSeparator3
-        // 
-        ctxFolderSeparator3.Name = "ctxFolderSeparator3";
-        ctxFolderSeparator3.Size = new Size(177, 6);
-        // 
-        // ctxFolderRefresh
-        // 
-        ctxFolderRefresh.Name = "ctxFolderRefresh";
-        ctxFolderRefresh.Size = new Size(180, 22);
-        ctxFolderRefresh.Text = "새로 고침(&R)";
-        ctxFolderRefresh.Click += CtxFolderRefresh_Click;
-        // 
         // MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(984, 561);
+        ClientSize = new Size(1184, 761);
         Controls.Add(splitContainerMain);
         Controls.Add(statusStripMain);
         Controls.Add(toolStripExport);
@@ -744,16 +797,15 @@ partial class MainForm
         splitContainerMain.ResumeLayout(false);
         panelDicomInfo.ResumeLayout(false);
         splitContainerLeft.Panel1.ResumeLayout(false);
-        splitContainerLeft.Panel1.PerformLayout();
         splitContainerLeft.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitContainerLeft).EndInit();
         splitContainerLeft.ResumeLayout(false);
+        contextMenuFolder.ResumeLayout(false);
         panelImageHost.ResumeLayout(false);
         panelImageHost.PerformLayout();
         panelScroll.ResumeLayout(false);
-        contextMenuImage.ResumeLayout(false);
-        contextMenuFolder.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)pictureBoxImage).EndInit();
+        contextMenuImage.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)trackBarFrames).EndInit();
         ResumeLayout(false);
         PerformLayout();
@@ -799,7 +851,7 @@ partial class MainForm
     private Panel panelDicomInfo;
     private SplitContainer splitContainerLeft;
     private Label labelFolderTitle;
-    private TreeView treeViewFolder;
+    private MultiSelectTreeView treeViewFolder;
     private Label labelInfoTitle;
     private RichTextBox textBoxDicomInfo;
     private Panel panelImageHost;
@@ -826,6 +878,14 @@ partial class MainForm
     private ContextMenuStrip contextMenuFolder;
     private ToolStripMenuItem ctxFolderOpen;
     private ToolStripSeparator ctxFolderSeparator1;
+    private ToolStripMenuItem ctxFolderBatchConvert;
+    private ToolStripMenuItem ctxFolderBatchConvertPng;
+    private ToolStripMenuItem ctxFolderBatchConvertJpeg;
+    private ToolStripMenuItem ctxFolderBatchConvertBmp;
+    private ToolStripMenuItem ctxFolderBatchConvertTiff;
+    private ToolStripMenuItem ctxFolderBatchConvertGif;
+    private ToolStripSeparator ctxFolderSeparatorBatchConvert;
+    private ToolStripMenuItem ctxFolderNewFolder;
     private ToolStripMenuItem ctxFolderSelectFolder;
     private ToolStripSeparator ctxFolderSeparator2;
     private ToolStripMenuItem ctxFolderCopy;

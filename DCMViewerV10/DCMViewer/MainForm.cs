@@ -68,6 +68,11 @@ public partial class MainForm : Form
             (batchConvertBmpToolStripMenuItem, ImageFormat.Bmp, "bmp", "BMP"),
             (batchConvertTiffToolStripMenuItem, ImageFormat.Tiff, "tiff", "TIFF"),
             (batchConvertGifToolStripMenuItem, ImageFormat.Gif, "gif", "GIF"),
+            (ctxFolderBatchConvertPng, ImageFormat.Png, "png", "PNG"),
+            (ctxFolderBatchConvertJpeg, ImageFormat.Jpeg, "jpg", "JPEG"),
+            (ctxFolderBatchConvertBmp, ImageFormat.Bmp, "bmp", "BMP"),
+            (ctxFolderBatchConvertTiff, ImageFormat.Tiff, "tiff", "TIFF"),
+            (ctxFolderBatchConvertGif, ImageFormat.Gif, "gif", "GIF"),
         ];
 
         ConfigureExportToolbarIcons();
@@ -78,6 +83,18 @@ public partial class MainForm : Form
         openFileDialogDicom.InitialDirectory = UserSettingsHelper.GetWorkingDirectory();
 
         treeViewFolder.ImageList = _shellFileIconProvider.ImageList;
+        treeViewFolder.CanMultiSelect = IsDicomTreeNode;
+        treeViewFolder.FileNodeClick += TreeViewFolder_FileNodeClick;
+
+        SidebarPanelTheme.Apply(
+            panelDicomInfo,
+            splitContainerLeft,
+            labelFolderTitle,
+            treeViewFolder,
+            labelInfoTitle,
+            textBoxDicomInfo);
+
+        splitContainerLeft.Panel1.ImeMode = ImeMode.Disable;
 
         splitContainerLeft.Panel1.ContextMenuStrip = contextMenuFolder;
         splitContainerLeft.Panel1.MouseDown += FolderPanel_MouseDown;
@@ -117,6 +134,13 @@ public partial class MainForm : Form
 
         contextMenuFolder.ImageScalingSize = new Size(MenuIcons.Size, MenuIcons.Size);
         MenuIcons.Apply(ctxFolderOpen, MenuIcons.Open);
+        MenuIcons.Apply(ctxFolderBatchConvert, MenuIcons.BatchConvert);
+        MenuIcons.Apply(ctxFolderBatchConvertPng, ExportFormatIcons.MenuPng);
+        MenuIcons.Apply(ctxFolderBatchConvertJpeg, ExportFormatIcons.MenuJpeg);
+        MenuIcons.Apply(ctxFolderBatchConvertBmp, ExportFormatIcons.MenuBmp);
+        MenuIcons.Apply(ctxFolderBatchConvertTiff, ExportFormatIcons.MenuTiff);
+        MenuIcons.Apply(ctxFolderBatchConvertGif, ExportFormatIcons.MenuGif);
+        MenuIcons.Apply(ctxFolderNewFolder, MenuIcons.NewFolder);
         MenuIcons.Apply(ctxFolderSelectFolder, MenuIcons.BatchConvert);
         MenuIcons.Apply(ctxFolderRefresh, MenuIcons.Refresh);
     }
@@ -218,10 +242,23 @@ public partial class MainForm : Form
     private void SelectFolderToolStripMenuItem_Click(object? sender, EventArgs e)
     {
         folderBrowserSelectFolder.SelectedPath = UserSettingsHelper.GetWorkingDirectory();
-        if (folderBrowserSelectFolder.ShowDialog(this) != DialogResult.OK)
-            return;
+        try
+        {
+            if (folderBrowserSelectFolder.ShowDialog(this) != DialogResult.OK)
+                return;
 
-        SetWorkingFolder(folderBrowserSelectFolder.SelectedPath);
+            SetWorkingFolder(folderBrowserSelectFolder.SelectedPath);
+        }
+        finally
+        {
+            RestoreImeAfterFolderDialog();
+        }
+    }
+
+    private void RestoreImeAfterFolderDialog()
+    {
+        if (treeViewFolder.IsHandleCreated)
+            ImeContext.SetImeStatus(ImeMode.Off, treeViewFolder.Handle);
     }
 
     private void SetWorkingFolder(string directoryPath)
@@ -479,6 +516,7 @@ public partial class MainForm : Form
         }
 
         _treeRootDirectory = directoryPath;
+        treeViewFolder.ClearMultiSelect();
         treeViewFolder.BeginUpdate();
         try
         {
@@ -615,7 +653,7 @@ public partial class MainForm : Form
 
         if (TrySelectTreeFileNode(treeViewFolder.Nodes, filePath) is { } node)
         {
-            treeViewFolder.SelectedNode = node;
+            treeViewFolder.SelectSingleNode(node, raiseFileClick: false);
             node.EnsureVisible();
         }
     }
@@ -654,25 +692,30 @@ public partial class MainForm : Form
             _folderContextNode = null;
     }
 
-    private void TreeViewFolder_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
+    private void TreeViewFolder_FileNodeClick(object? sender, TreeNode node)
     {
-        if (e.Button != MouseButtons.Right)
-            return;
-
-        _folderContextNode = e.Node;
-        if (e.Node is not null)
-            treeViewFolder.SelectedNode = e.Node;
-    }
-
-    private void TreeViewFolder_AfterSelect(object? sender, TreeViewEventArgs e)
-    {
-        if (!TryGetOpenableFilePath(e.Node, out var path))
+        if (!TryGetOpenableFilePath(node, out var path))
             return;
 
         if (string.Equals(path, _currentFilePath, StringComparison.OrdinalIgnoreCase))
             return;
 
         LoadAnyFile(path, updateFolderTree: false);
+    }
+
+    private void TreeViewFolder_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right)
+            return;
+
+        _folderContextNode = e.Node;
+        if (e.Node is null)
+            return;
+
+        if (!treeViewFolder.SelectedNodes.Contains(e.Node))
+            treeViewFolder.SelectSingleNode(e.Node, raiseFileClick: false);
+        else
+            treeViewFolder.SelectedNode = e.Node;
     }
 
     private void TreeViewFolder_NodeMouseDoubleClick(object? sender, TreeNodeMouseClickEventArgs e)
@@ -704,12 +747,39 @@ public partial class MainForm : Form
 
     private void ContextMenuFolder_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        var selectedDcmFiles = GetSelectedDicomFilePaths();
+        var hasSelectedDcm = selectedDcmFiles.Count > 0;
+
+        ctxFolderBatchConvert.Enabled = hasSelectedDcm;
+        ctxFolderOpen.Enabled = selectedDcmFiles.Count <= 1
+            && IsFileTreeNode(_folderContextNode ?? treeViewFolder.SelectedNode);
+
         var path = GetFolderContextPath();
-        ctxFolderOpen.Enabled = IsFileTreeNode(_folderContextNode ?? treeViewFolder.SelectedNode);
-        ctxFolderCopy.Enabled = path is not null;
-        ctxFolderDelete.Enabled = path is not null;
+        ctxFolderCopy.Enabled = hasSelectedDcm || path is not null;
+        ctxFolderDelete.Enabled = hasSelectedDcm || path is not null;
+        ctxFolderNewFolder.Enabled = GetPasteTargetDirectory() is not null;
         ctxFolderPaste.Enabled = FileOperationHelper.CanPasteFromClipboard() && GetPasteTargetDirectory() is not null;
     }
+
+    private static bool IsDicomTreeNode(TreeNode node) =>
+        node.Tag is string path
+        && File.Exists(path)
+        && IsDicomExtension(Path.GetExtension(path));
+
+    private IReadOnlyList<string> GetSelectedDicomFilePaths()
+    {
+        return treeViewFolder.SelectedNodes
+            .Select(node => node.Tag as string)
+            .Where(path => path is not null && IsDicomExtension(Path.GetExtension(path)))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static bool IsFolderContextBatchConvertItem(ToolStripItem item) =>
+        item.Name.StartsWith("ctxFolderBatchConvert", StringComparison.Ordinal)
+        && !item.Name.Equals("ctxFolderBatchConvert", StringComparison.Ordinal);
 
     private string? GetFolderContextPath()
     {
@@ -767,15 +837,45 @@ public partial class MainForm : Form
         }
     }
 
-    private void CtxFolderCopy_Click(object? sender, EventArgs e)
+    private void CtxFolderNewFolder_Click(object? sender, EventArgs e)
     {
-        var path = GetFolderContextPath();
-        if (path is null)
+        var parentDirectory = GetPasteTargetDirectory();
+        if (parentDirectory is null)
             return;
 
         try
         {
-            FileOperationHelper.CopyPathsToClipboard([path]);
+            FileOperationHelper.CreateUniqueDirectory(parentDirectory, "새 폴더");
+
+            var treeRoot = !string.IsNullOrEmpty(_treeRootDirectory) && Directory.Exists(_treeRootDirectory)
+                ? _treeRootDirectory
+                : parentDirectory;
+            RefreshFolderTreeAfterChange(treeRoot);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                this,
+                $"폴더를 만들 수 없습니다.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
+                "새 폴더",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
+    private void CtxFolderCopy_Click(object? sender, EventArgs e)
+    {
+        var selectedDcmFiles = GetSelectedDicomFilePaths();
+        var paths = selectedDcmFiles.Count > 0
+            ? selectedDcmFiles
+            : GetFolderContextPath() is { } path ? [path] : Array.Empty<string>();
+
+        if (paths.Count == 0)
+            return;
+
+        try
+        {
+            FileOperationHelper.CopyPathsToClipboard(paths);
         }
         catch (Exception ex)
         {
@@ -859,13 +959,21 @@ public partial class MainForm : Form
 
     private void CtxFolderDelete_Click(object? sender, EventArgs e)
     {
-        var path = GetFolderContextPath();
-        if (path is null)
+        var selectedDcmFiles = GetSelectedDicomFilePaths();
+        var pathsToDelete = selectedDcmFiles.Count > 0
+            ? selectedDcmFiles.ToList()
+            : GetFolderContextPath() is { } singlePath ? [singlePath] : [];
+
+        if (pathsToDelete.Count == 0)
             return;
 
-        var isDirectory = Directory.Exists(path);
-        var itemName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        var itemKind = isDirectory ? "폴더" : "파일";
+        var isDirectory = pathsToDelete.Count == 1 && Directory.Exists(pathsToDelete[0]);
+        var itemName = pathsToDelete.Count == 1
+            ? Path.GetFileName(pathsToDelete[0].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            : $"{pathsToDelete.Count}개 항목";
+        var itemKind = pathsToDelete.Count == 1
+            ? (isDirectory ? "폴더" : "파일")
+            : "항목";
         var result = MessageBox.Show(
             this,
             $"{itemKind} '{itemName}'을(를) 휴지통으로 이동하시겠습니까?",
@@ -875,13 +983,18 @@ public partial class MainForm : Form
         if (result != DialogResult.Yes)
             return;
 
-        var parentDirectory = isDirectory
-            ? Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-            : Path.GetDirectoryName(path);
+        var refreshRoot = ResolveFolderTreeRefreshRoot(pathsToDelete);
 
         try
         {
-            if (!FileOperationHelper.SendToRecycleBin(this, path))
+            var failedPaths = new List<string>();
+            foreach (var path in pathsToDelete)
+            {
+                if (!FileOperationHelper.SendToRecycleBin(this, path))
+                    failedPaths.Add(path);
+            }
+
+            if (failedPaths.Count == pathsToDelete.Count)
             {
                 MessageBox.Show(
                     this,
@@ -892,12 +1005,25 @@ public partial class MainForm : Form
                 return;
             }
 
+            if (failedPaths.Count > 0)
+            {
+                MessageBox.Show(
+                    this,
+                    $"일부 항목 삭제에 실패했습니다.{Environment.NewLine}{string.Join(Environment.NewLine, failedPaths.Select(Path.GetFileName))}",
+                    "삭제",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
             if (!string.IsNullOrEmpty(_currentFilePath)
-                && string.Equals(_currentFilePath, path, StringComparison.OrdinalIgnoreCase))
+                && pathsToDelete.Any(path => PathsEqualOrContain(_currentFilePath, path)))
                 ClearImageState();
 
-            if (!string.IsNullOrEmpty(parentDirectory) && Directory.Exists(parentDirectory))
-                RefreshFolderTreeAfterChange(parentDirectory);
+            _folderContextNode = null;
+            treeViewFolder.ClearMultiSelect();
+
+            if (!string.IsNullOrEmpty(refreshRoot) && Directory.Exists(refreshRoot))
+                RefreshFolderTreeAfterChange(refreshRoot);
             else
                 CtxFolderRefresh_Click(sender, e);
         }
@@ -910,6 +1036,40 @@ public partial class MainForm : Form
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
+    }
+
+    private string? ResolveFolderTreeRefreshRoot(IReadOnlyList<string> deletedPaths)
+    {
+        if (!string.IsNullOrEmpty(_treeRootDirectory)
+            && deletedPaths.All(path => !PathsEqualOrContain(_treeRootDirectory!, path))
+            && Directory.Exists(_treeRootDirectory))
+            return _treeRootDirectory;
+
+        foreach (var path in deletedPaths)
+        {
+            var parentDirectory = Directory.Exists(path)
+                ? Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                : Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(parentDirectory) && Directory.Exists(parentDirectory))
+                return parentDirectory;
+        }
+
+        return UserSettingsHelper.GetWorkingDirectory();
+    }
+
+    private static bool PathsEqualOrContain(string filePath, string directoryOrFilePath)
+    {
+        if (string.Equals(filePath, directoryOrFilePath, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (!Directory.Exists(directoryOrFilePath))
+            return false;
+
+        var directory = Path.GetFullPath(directoryOrFilePath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        var file = Path.GetFullPath(filePath);
+        return file.StartsWith(directory, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsFileTreeNode(TreeNode? node) =>
@@ -1272,20 +1432,55 @@ public partial class MainForm : Form
             if (target.Item != item)
                 continue;
 
+            if (IsFolderContextBatchConvertItem(item))
+            {
+                var selectedFiles = GetSelectedDicomFilePaths();
+                if (selectedFiles.Count == 0)
+                    return;
+
+                StartBatchConvertSelected(selectedFiles, target.Format, target.Extension, target.Label);
+                return;
+            }
+
             StartBatchConvert(target.Format, target.Extension, target.Label);
             return;
         }
     }
 
+    private void StartBatchConvertSelected(
+        IReadOnlyList<string> dcmFiles,
+        ImageFormat format,
+        string extension,
+        string formatLabel)
+    {
+        var sourceDir = Path.GetDirectoryName(dcmFiles[0]);
+        if (string.IsNullOrEmpty(sourceDir))
+            return;
+
+        var outputDir = CreateBatchOutputDirectory(sourceDir, extension);
+        RunBatchConvert(dcmFiles, outputDir, format, extension, formatLabel, sourceDir);
+    }
+
     private void StartBatchConvert(ImageFormat format, string extension, string formatLabel)
     {
         folderBrowserBatchSource.SelectedPath = GetInitialBatchFolderPath();
-        if (folderBrowserBatchSource.ShowDialog(this) != DialogResult.OK)
-            return;
+        try
+        {
+            if (folderBrowserBatchSource.ShowDialog(this) != DialogResult.OK)
+                return;
 
-        var sourceDir = folderBrowserBatchSource.SelectedPath;
-        var outputDir = CreateBatchOutputDirectory(sourceDir, extension);
-        RunBatchConvert(sourceDir, outputDir, format, extension, formatLabel);
+            var sourceDir = folderBrowserBatchSource.SelectedPath;
+            var outputDir = CreateBatchOutputDirectory(sourceDir, extension);
+            var dcmFiles = Directory.EnumerateFiles(sourceDir)
+                .Where(f => IsDicomExtension(Path.GetExtension(f)))
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            RunBatchConvert(dcmFiles, outputDir, format, extension, formatLabel, sourceDir);
+        }
+        finally
+        {
+            RestoreImeAfterFolderDialog();
+        }
     }
 
     private static string CreateBatchOutputDirectory(string sourceDir, string extension)
@@ -1316,22 +1511,18 @@ public partial class MainForm : Form
     }
 
     private void RunBatchConvert(
-        string sourceDir,
+        IReadOnlyList<string> dcmFiles,
         string outputDir,
         ImageFormat format,
         string extension,
-        string formatLabel)
+        string formatLabel,
+        string sourceLabel)
     {
-        var dcmFiles = Directory.EnumerateFiles(sourceDir)
-            .Where(f => IsDicomExtension(Path.GetExtension(f)))
-            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
         if (dcmFiles.Count == 0)
         {
             MessageBox.Show(
                 this,
-                "선택한 폴더에서 DCM 파일을 찾지 못했습니다.",
+                "변환할 DCM 파일을 찾지 못했습니다.",
                 "일괄 변환",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -1354,7 +1545,7 @@ public partial class MainForm : Form
                 toolStripStatusLabelFile.Text =
                     $"일괄 변환 중 ({i + 1}/{dcmFiles.Count}): {Path.GetFileName(file)}";
                 toolStripStatusLabelPatient.Text = formatLabel;
-                toolStripStatusLabelDetails.Text = sourceDir;
+                toolStripStatusLabelDetails.Text = sourceLabel;
                 toolStripStatusLabelFrame.Text = string.Empty;
                 statusStripMain.Refresh();
 
