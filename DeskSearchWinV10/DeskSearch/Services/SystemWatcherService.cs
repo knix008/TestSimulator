@@ -7,6 +7,7 @@ public sealed class SystemWatcherService : IDisposable
     private readonly object _pendingLock = new();
     private readonly HashSet<string> _pendingAdds = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _pendingRemoves = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<(string OldPath, string NewPath)> _pendingRenames = [];
     private readonly System.Threading.Timer _flushTimer;
 
     public SystemWatcherService(SystemIndexService indexService)
@@ -79,13 +80,9 @@ public sealed class SystemWatcherService : IDisposable
 
     private void OnRenamed(object sender, RenamedEventArgs e)
     {
-        QueueRemove(e.OldFullPath);
-
-        if (File.Exists(e.FullPath) || Directory.Exists(e.FullPath))
-        {
-            if (!_indexService.IsPathExcluded(e.FullPath))
-                QueueAdd(e.FullPath);
-        }
+        // Never treat directory renames as delete+add: that would wipe all descendants from
+        // index.db and only re-add the directory itself.
+        QueueRename(e.OldFullPath, e.FullPath);
     }
 
     private void OnWatcherError(object sender, ErrorEventArgs e)
@@ -126,6 +123,20 @@ public sealed class SystemWatcherService : IDisposable
         ScheduleFlush();
     }
 
+    private void QueueRename(string oldPath, string newPath)
+    {
+        lock (_pendingLock)
+        {
+            _pendingAdds.Remove(oldPath);
+            _pendingAdds.Remove(newPath);
+            _pendingRemoves.Remove(oldPath);
+            _pendingRemoves.Remove(newPath);
+            _pendingRenames.Add((oldPath, newPath));
+        }
+
+        ScheduleFlush();
+    }
+
     private void ScheduleFlush()
     {
         _flushTimer.Change(IndexResourcePolicy.WatcherFlushDelayMs, Timeout.Infinite);
@@ -135,15 +146,18 @@ public sealed class SystemWatcherService : IDisposable
     {
         string[] adds;
         string[] removes;
+        (string OldPath, string NewPath)[] renames;
 
         lock (_pendingLock)
         {
             adds = _pendingAdds.ToArray();
             removes = _pendingRemoves.ToArray();
+            renames = _pendingRenames.ToArray();
             _pendingAdds.Clear();
             _pendingRemoves.Clear();
+            _pendingRenames.Clear();
         }
 
-        _indexService.ApplyWatcherChanges(removes, adds);
+        _indexService.ApplyWatcherChanges(removes, adds, renames);
     }
 }

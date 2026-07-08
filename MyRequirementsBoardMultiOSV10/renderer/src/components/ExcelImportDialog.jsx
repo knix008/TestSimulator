@@ -369,47 +369,45 @@ export default function ExcelImportDialog() {
                           <p className="muted">{t('import.noColumns')}</p>
                         ) : (
                           <div className="excel-dialog__column-table-wrap">
-                            <table className="excel-dialog__column-table">
-                              <thead>
-                                <tr>
-                                  <th>{t('import.columnInclude')}</th>
-                                  <th>{t('import.columnHeader')}</th>
-                                  <th>{t('import.columnMapTo')}</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {columns.map((column) => (
-                                  <tr key={column.index}>
-                                    <td>
-                                      <input
-                                        type="checkbox"
-                                        checked={column.included && column.field !== 'skip'}
-                                        onChange={(e) => handleColumnIncludedChange(column.index, e.target.checked)}
-                                        disabled={busy}
-                                        aria-label={`${t('import.columnInclude')} ${column.header}`}
-                                      />
-                                    </td>
-                                    <td>
-                                      <span className="excel-dialog__column-name">{column.header || `(${column.letter})`}</span>
-                                      <span className="excel-dialog__column-meta">{column.letter}</span>
-                                    </td>
-                                    <td>
-                                      <select
-                                        value={column.included && column.field !== 'skip' ? column.field : 'skip'}
-                                        onChange={(e) => handleColumnFieldChange(column.index, e.target.value)}
-                                        disabled={busy}
-                                      >
-                                        {MAPPABLE_FIELDS.map((field) => (
-                                          <option key={field} value={field}>
-                                            {t(`import.fields.${field}`)}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                            <div className="excel-dialog__column-table-head">
+                              <div className="excel-dialog__column-table-row excel-dialog__column-table-row--head">
+                                <div className="excel-dialog__col-include">{t('import.columnInclude')}</div>
+                                <div className="excel-dialog__col-header">{t('import.columnHeader')}</div>
+                                <div className="excel-dialog__col-map">{t('import.columnMapTo')}</div>
+                              </div>
+                            </div>
+                            <div className="excel-dialog__column-table-body">
+                              {columns.map((column) => (
+                                <div key={column.index} className="excel-dialog__column-table-row">
+                                  <div className="excel-dialog__col-include">
+                                    <input
+                                      type="checkbox"
+                                      checked={column.included && column.field !== 'skip'}
+                                      onChange={(e) => handleColumnIncludedChange(column.index, e.target.checked)}
+                                      disabled={busy}
+                                      aria-label={`${t('import.columnInclude')} ${column.header || column.letter}`}
+                                    />
+                                  </div>
+                                  <div className="excel-dialog__col-header">
+                                    <span className="excel-dialog__column-name">{column.header || `(${column.letter})`}</span>
+                                    <span className="excel-dialog__column-meta">{column.letter}</span>
+                                  </div>
+                                  <div className="excel-dialog__col-map">
+                                    <select
+                                      value={column.included && column.field !== 'skip' ? column.field : 'skip'}
+                                      onChange={(e) => handleColumnFieldChange(column.index, e.target.value)}
+                                      disabled={busy}
+                                    >
+                                      {MAPPABLE_FIELDS.map((field) => (
+                                        <option key={field} value={field}>
+                                          {t(`import.fields.${field}`)}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </>

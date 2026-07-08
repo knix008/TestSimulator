@@ -282,16 +282,88 @@ public sealed partial class IndexStore : IDisposable
     }
 
     /// <summary>
-    /// Removes a watcher-reported deletion: exact row for files; path + descendants for directories.
+    /// Removes a watcher-reported deletion: exact row for files; path + descendants only when
+    /// the path is indexed as a directory. Never cascade-delete based on prefix alone.
     /// </summary>
     public void RemoveWatcherDeletedPath(string path)
     {
         lock (_lock)
         {
-            if (ShouldRemoveDeletedPathWithDescendantsLocked(path))
+            if (IsIndexedDirectoryLocked(path))
                 RemovePathAndDescendantsLocked(path);
             else
                 RemovePathLocked(path);
+        }
+    }
+
+    /// <summary>
+    /// Rewrites an indexed path (and descendants for directories) from <paramref name="oldPath"/>
+    /// to <paramref name="newPath"/>. Used for filesystem renames so child entries are preserved.
+    /// </summary>
+    /// <returns>Number of entries rewritten.</returns>
+    public int RewriteWatcherRenamedPath(string oldPath, string newPath)
+    {
+        lock (_lock)
+        {
+            var oldNormalized = oldPath.TrimEnd('\\');
+            var newNormalized = newPath.TrimEnd('\\');
+            if (string.IsNullOrWhiteSpace(oldNormalized)
+                || string.IsNullOrWhiteSpace(newNormalized)
+                || oldNormalized.Equals(newNormalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return 0;
+            }
+
+            using var select = CreateCommand(
+                """
+                SELECT full_path, file_name, directory, is_directory, modified_utc
+                FROM entries
+                WHERE full_path = $exact COLLATE NOCASE
+                   OR full_path LIKE $prefix ESCAPE '\' COLLATE NOCASE
+                """);
+            select.Parameters.AddWithValue("$exact", oldNormalized);
+            select.Parameters.AddWithValue("$prefix", EscapeLikePrefix(oldNormalized + "\\") + "%");
+
+            var rewritten = new List<FileEntry>();
+            using (var reader = select.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    var current = ReadEntry(reader, 0);
+                    var nextPath = RewriteFullPath(current.FullPath, oldNormalized, newNormalized);
+                    if (nextPath is null)
+                        continue;
+
+                    rewritten.Add(RebuildEntryAtPath(current, nextPath));
+                }
+            }
+
+            if (rewritten.Count == 0)
+                return 0;
+
+            // Exact file rename yields a single matching row; directory rename matches the
+            // directory itself plus every descendant under the old prefix.
+            RemovePathAndDescendantsLocked(oldNormalized);
+
+            using var transaction = _connection.BeginTransaction();
+            try
+            {
+                for (var i = 0; i < rewritten.Count; i += IndexStoragePolicy.BulkMergeBatchSize)
+                {
+                    var chunkSize = Math.Min(IndexStoragePolicy.BulkMergeBatchSize, rewritten.Count - i);
+                    UpsertChunk(rewritten, i, chunkSize, transaction);
+                }
+
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+
+            _cachedCount = -1;
+            return rewritten.Count;
         }
     }
 
@@ -320,26 +392,40 @@ public sealed partial class IndexStore : IDisposable
         _cachedCount = -1;
     }
 
-    private bool ShouldRemoveDeletedPathWithDescendantsLocked(string path)
+    private bool IsIndexedDirectoryLocked(string path)
     {
         var normalized = path.TrimEnd('\\');
+        using var command = CreateCommand(
+            "SELECT is_directory FROM entries WHERE full_path = $path COLLATE NOCASE LIMIT 1");
+        command.Parameters.AddWithValue("$path", normalized);
+        using var reader = command.ExecuteReader();
+        return reader.Read() && reader.GetInt32(0) != 0;
+    }
 
-        using (var command = CreateCommand(
-                   "SELECT is_directory FROM entries WHERE full_path = $path COLLATE NOCASE LIMIT 1"))
-        {
-            command.Parameters.AddWithValue("$path", normalized);
-            using var reader = command.ExecuteReader();
-            if (reader.Read())
-                return reader.GetInt32(0) != 0;
-        }
+    private static string? RewriteFullPath(string currentPath, string oldRoot, string newRoot)
+    {
+        if (currentPath.Equals(oldRoot, StringComparison.OrdinalIgnoreCase))
+            return newRoot;
 
-        var descendantPrefix = EscapeLikePrefix(normalized + "\\") + "%";
-        using (var command = CreateCommand(
-                   "SELECT 1 FROM entries WHERE full_path LIKE $prefix ESCAPE '\\' COLLATE NOCASE LIMIT 1"))
-        {
-            command.Parameters.AddWithValue("$prefix", descendantPrefix);
-            return command.ExecuteScalar() is not null;
-        }
+        var oldPrefix = oldRoot + "\\";
+        if (!currentPath.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return newRoot + currentPath[oldRoot.Length..];
+    }
+
+    private static FileEntry RebuildEntryAtPath(FileEntry source, string newFullPath)
+    {
+        var normalized = source.IsDirectory ? newFullPath.TrimEnd('\\') : newFullPath;
+        var fileName = Path.GetFileName(normalized);
+        if (string.IsNullOrEmpty(fileName) && source.IsDirectory)
+            fileName = Path.GetPathRoot(normalized)?.TrimEnd('\\') ?? normalized;
+
+        var directory = source.IsDirectory
+            ? Path.GetDirectoryName(normalized) ?? string.Empty
+            : Path.GetDirectoryName(newFullPath) ?? string.Empty;
+
+        return new FileEntry(normalized, fileName, directory, source.IsDirectory, source.ModifiedUtc);
     }
 
     public int PurgeOutsideScope(IndexInclusionPolicy inclusion)

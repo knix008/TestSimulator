@@ -1400,7 +1400,7 @@ td.cell-refined {
 
 .modal-dialog.excel-dialog {
   width: min(760px, 100%);
-  max-height: min(90vh, 820px);
+  max-height: min(94vh, 960px);
   display: flex;
   flex-direction: column;
 }
@@ -1469,6 +1469,10 @@ td.cell-refined {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--theme-dialog-footer-border);
+  flex-shrink: 0;
 }
 .excel-dialog__checkbox {
   display: flex;
@@ -1547,45 +1551,49 @@ td.cell-refined {
   min-width: 140px;
 }
 .excel-dialog__column-table-wrap {
-  overflow: auto;
-  max-height: 240px;
+  display: flex;
+  flex-direction: column;
+  max-height: min(28vh, 200px);
   border: 1px solid var(--theme-dialog-footer-border);
   border-radius: 6px;
-}
-.excel-dialog__column-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  overflow: hidden;
+  background: var(--theme-modal-bg, var(--theme-surface, #fff));
   font-size: 0.88rem;
 }
-.excel-dialog__column-table th,
-.excel-dialog__column-table td {
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--theme-dialog-footer-border);
-  vertical-align: middle;
-}
-.excel-dialog__column-table th {
-  position: sticky;
-  top: 0;
-  background: var(--theme-bg, #fff);
-  z-index: 2;
-  font-weight: 600;
-  padding-top: 12px;
-  padding-bottom: 12px;
+.excel-dialog__column-table-head {
+  flex: 0 0 auto;
   border-bottom: 2px solid var(--theme-dialog-footer-border);
+  background: var(--theme-modal-bg, var(--theme-surface, #fff));
 }
-.excel-dialog__column-table tr:last-child td {
+.excel-dialog__column-table-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.excel-dialog__column-table-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1.1fr) minmax(120px, 1fr);
+  gap: 0;
+  align-items: center;
+  border-bottom: 1px solid var(--theme-dialog-footer-border);
+}
+.excel-dialog__column-table-body .excel-dialog__column-table-row:last-child {
   border-bottom: none;
 }
-.excel-dialog__column-table td:first-child,
-.excel-dialog__column-table th:first-child {
-  width: 52px;
+.excel-dialog__column-table-row--head {
+  font-weight: 600;
+  border-bottom: none;
+}
+.excel-dialog__column-table-row > div {
+  padding: 8px 10px;
+  min-width: 0;
+}
+.excel-dialog__col-include {
   text-align: center;
 }
-.excel-dialog__column-table select {
+.excel-dialog__column-table-row select {
   width: 100%;
-  min-width: 120px;
+  min-width: 0;
   margin: 0;
 }
 .excel-dialog__column-name {

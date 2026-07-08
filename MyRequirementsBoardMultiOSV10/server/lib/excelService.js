@@ -447,24 +447,39 @@ function colIndexToFieldByColumn(colIndex) {
 function extractSheetColumns(sheet, headerRow, autoColIndex = {}) {
   const row = sheet.getRow(headerRow);
   const fieldByColumn = colIndexToFieldByColumn(autoColIndex);
-  const columns = [];
+  const raw = [];
 
-  row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-    const header = cellText(cell.value);
+  let maxCol = 0;
+  row.eachCell({ includeEmpty: false }, (_cell, colNumber) => {
+    maxCol = Math.max(maxCol, colNumber);
+  });
+  for (const col of Object.keys(fieldByColumn)) {
+    const n = Number(col);
+    if (!Number.isNaN(n)) maxCol = Math.max(maxCol, n);
+  }
+
+  for (let colNumber = 1; colNumber <= maxCol; colNumber += 1) {
+    const header = cellText(row.getCell(colNumber).value);
     const autoField = fieldByColumn[colNumber];
+    // Drop blank leading/sparse columns that have no detectable mapping.
+    if (!header && !autoField) continue;
+
     const field = autoField || suggestFieldForHeader(header);
-    columns.push({
+    raw.push({
       index: colNumber,
-      letter: columnToLetter(colNumber),
       header,
       field,
       suggestedField: field,
       included: field !== 'skip',
     });
-  });
+  }
 
-  columns.sort((a, b) => a.index - b.index);
-  return columns;
+  // Renumber display letters from A so the first non-empty column is A (not B/C…).
+  // Keep `index` as the real Excel column for import mapping.
+  return raw.map((column, displayIndex) => ({
+    ...column,
+    letter: columnToLetter(displayIndex + 1),
+  }));
 }
 
 function listWorkbookSheets(workbook) {

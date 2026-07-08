@@ -894,17 +894,21 @@ public sealed class SystemIndexService : IDisposable
     }
 
     /// <summary>
-    /// Applies filesystem watcher deltas to index.db (add/update/remove paths only).
+    /// Applies filesystem watcher deltas to index.db (add/update/remove/rename paths only).
     /// Does not clear or rebuild the index database.
     /// </summary>
-    public void ApplyWatcherChanges(IReadOnlyList<string> removes, IReadOnlyList<string> adds)
+    public void ApplyWatcherChanges(
+        IReadOnlyList<string> removes,
+        IReadOnlyList<string> adds,
+        IReadOnlyList<(string OldPath, string NewPath)>? renames = null)
     {
-        if (removes.Count == 0 && adds.Count == 0)
+        if (removes.Count == 0 && adds.Count == 0 && (renames is null || renames.Count == 0))
             return;
 
         var removesCopy = removes.ToArray();
         var addsCopy = adds.ToArray();
-        _indexWorker.Enqueue(() => ApplyWatcherChangesCore(removesCopy, addsCopy));
+        var renamesCopy = renames?.ToArray() ?? [];
+        _indexWorker.Enqueue(() => ApplyWatcherChangesCore(removesCopy, addsCopy, renamesCopy));
     }
 
     public void Dispose()
@@ -929,11 +933,37 @@ public sealed class SystemIndexService : IDisposable
         }
     }
 
-    private void ApplyWatcherChangesCore(IReadOnlyList<string> removes, IReadOnlyList<string> adds)
+    private void ApplyWatcherChangesCore(
+        IReadOnlyList<string> removes,
+        IReadOnlyList<string> adds,
+        IReadOnlyList<(string OldPath, string NewPath)> renames)
     {
         var targets = GetLiveSearchUpdateTargets();
         if (targets.Count == 0)
             return;
+
+        var changeCount = 0L;
+
+        foreach (var target in targets)
+        {
+            foreach (var (oldPath, newPath) in renames)
+            {
+                if (_inclusion.IsPathInScope(newPath))
+                {
+                    changeCount += target.RewriteWatcherRenamedPath(oldPath, newPath);
+                    continue;
+                }
+
+                // Renamed out of indexing scope — drop the old path (exact for files).
+                target.RemoveWatcherDeletedPath(oldPath);
+                changeCount++;
+            }
+
+            foreach (var path in removes)
+                target.RemoveWatcherDeletedPath(path);
+
+            changeCount += removes.Count;
+        }
 
         var upserts = new List<FileEntry>(adds.Count);
         foreach (var path in adds)
@@ -957,16 +987,14 @@ public sealed class SystemIndexService : IDisposable
             }
         }
 
-        foreach (var target in targets)
+        if (upserts.Count > 0)
         {
-            foreach (var path in removes)
-                target.RemoveWatcherDeletedPath(path);
-
-            if (upserts.Count > 0)
+            foreach (var target in targets)
                 target.UpsertBatch(upserts);
+
+            changeCount += upserts.Count;
         }
 
-        var changeCount = (long)removes.Count + upserts.Count;
         if (changeCount > 0)
             Interlocked.Add(ref _incrementalUpdateCount, changeCount);
 
