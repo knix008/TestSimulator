@@ -14,6 +14,8 @@ internal static class MenuIcons
     public static Image ZoomFit => CreateZoomFit();
     public static Image ZoomActual => CreateZoomActual();
     public static Image Export => CreateExport();
+    public static Image BatchConvert => CreateBatchConvert();
+    public static Image Refresh => CreateRefresh();
     public static Image RegisterDefault => CreateRegisterDefault();
 
     public static void Apply(ToolStripItem item, Image icon)
@@ -21,6 +23,9 @@ internal static class MenuIcons
         item.Image = icon;
         item.ImageTransparentColor = Color.Magenta;
         item.ImageScaling = ToolStripItemImageScaling.SizeToFit;
+        item.TextImageRelation = TextImageRelation.ImageBeforeText;
+        item.ImageAlign = ContentAlignment.MiddleCenter;
+        item.TextAlign = ContentAlignment.MiddleCenter;
     }
 
     private static Bitmap CreateCanvas(out Graphics graphics)
@@ -168,6 +173,45 @@ internal static class MenuIcons
             g.DrawLine(arrow, 8, 10, 8, 15);
             g.DrawLine(arrow, 6, 13, 8, 15);
             g.DrawLine(arrow, 10, 13, 8, 15);
+        }
+
+        return bmp;
+    }
+
+    private static Image CreateBatchConvert()
+    {
+        var bmp = CreateCanvas(out var g);
+        using (g)
+        {
+            var folder = new Rectangle(1, 5, 10, 9);
+            using (var fill = new SolidBrush(Color.FromArgb(255, 210, 90)))
+                g.FillRectangle(fill, folder);
+            using (var border = new Pen(Color.FromArgb(170, 120, 20), 1f))
+                g.DrawRectangle(border, folder);
+
+            using var arrow = new Pen(Color.FromArgb(40, 110, 210), 1.5f);
+            g.DrawLine(arrow, 11, 4, 14, 7);
+            g.DrawLine(arrow, 11, 4, 11, 7);
+            g.DrawLine(arrow, 11, 7, 14, 7);
+
+            using (var doc = new SolidBrush(Color.FromArgb(120, 190, 120)))
+                g.FillRectangle(doc, 3, 7, 6, 5);
+            using (var docBorder = new Pen(Color.FromArgb(60, 130, 60), 1f))
+                g.DrawRectangle(docBorder, 3, 7, 6, 5);
+        }
+
+        return bmp;
+    }
+
+    private static Image CreateRefresh()
+    {
+        var bmp = CreateCanvas(out var g);
+        using (g)
+        {
+            using var pen = new Pen(Color.FromArgb(70, 130, 220), 1.5f);
+            g.DrawArc(pen, 3, 3, 10, 10, 45, 270);
+            g.DrawLine(pen, 11, 4, 13, 2);
+            g.DrawLine(pen, 11, 4, 9, 2);
         }
 
         return bmp;

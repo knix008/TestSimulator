@@ -15,19 +15,31 @@ internal sealed class ProgramInfoForm : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
         ShowInTaskbar = false;
-        ClientSize = new Size(560, 480);
+        ClientSize = new Size(560, 455);
         MinimumSize = new Size(400, 320);
         Font = new Font("Segoe UI", 9F);
+
+        Image appIconImage;
+        if (FileAssociationHelper.LoadAppIcon() is { } appIcon)
+        {
+            Icon = (Icon)appIcon.Clone();
+            appIconImage = appIcon.ToBitmap();
+            appIcon.Dispose();
+        }
+        else
+        {
+            appIconImage = SystemIcons.Information.ToBitmap();
+        }
 
         var main = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 2,
-            Padding = new Padding(12),
+            Padding = new Padding(12, 12, 12, 6),
         };
         main.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        main.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
+        main.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         var contentRow = new TableLayoutPanel
         {
@@ -35,25 +47,33 @@ internal sealed class ProgramInfoForm : Form
             ColumnCount = 2,
             RowCount = 1,
         };
-        contentRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48F));
+        contentRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 64F));
         contentRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-        using var infoIcon = SystemIcons.Information.ToBitmap();
-        var picture = new PictureBox
+        var iconPanel = new Panel
         {
             Dock = DockStyle.Fill,
-            SizeMode = PictureBoxSizeMode.CenterImage,
-            Image = new Bitmap(infoIcon),
             TabStop = false,
         };
+
+        var picture = new PictureBox
+        {
+            Size = new Size(48, 48),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Location = new Point(0, 0),
+            Anchor = AnchorStyles.Top | AnchorStyles.Left,
+            Image = appIconImage,
+            TabStop = false,
+        };
+        iconPanel.Controls.Add(picture);
 
         var scrollBody = new Panel
         {
             Dock = DockStyle.Fill,
             AutoScroll = true,
-            BorderStyle = BorderStyle.FixedSingle,
+            BorderStyle = BorderStyle.None,
             TabStop = false,
-            Padding = new Padding(8),
+            Padding = new Padding(8, 0, 0, 0),
         };
 
         var bodyLabel = new Label
@@ -67,13 +87,10 @@ internal sealed class ProgramInfoForm : Form
         scrollBody.Controls.Add(bodyLabel);
         scrollBody.Resize += (_, _) =>
         {
-            var w = Math.Max(80, scrollBody.ClientSize.Width - scrollBody.Padding.Horizontal);
+            var w = Math.Max(80, scrollBody.ClientSize.Width);
             bodyLabel.MaximumSize = new Size(w, 0);
-            bodyLabel.Location = new Point(scrollBody.Padding.Left, scrollBody.Padding.Top);
+            bodyLabel.Location = Point.Empty;
         };
-
-        contentRow.Controls.Add(picture, 0, 0);
-        contentRow.Controls.Add(scrollBody, 1, 0);
 
         var ok = new Button
         {
@@ -85,12 +102,18 @@ internal sealed class ProgramInfoForm : Form
 
         var buttonPanel = new FlowLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false,
-            Padding = new Padding(0, 8, 0, 0),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(0, 6, 0, 0),
+            Margin = Padding.Empty,
         };
         buttonPanel.Controls.Add(ok);
+
+        contentRow.Controls.Add(iconPanel, 0, 0);
+        contentRow.Controls.Add(scrollBody, 1, 0);
 
         main.Controls.Add(contentRow, 0, 0);
         main.Controls.Add(buttonPanel, 0, 1);
@@ -133,6 +156,7 @@ internal sealed class ProgramInfoForm : Form
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
+        Icon?.Dispose();
         foreach (Control c in Controls)
             DisposePictureBoxes(c);
         base.OnFormClosed(e);

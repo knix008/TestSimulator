@@ -12,7 +12,7 @@ artifacts/
 *.cab
 Bundle.wxs
 
-# IDE/User files
+# IDE / user-specific files
 .vs/
 .vscode/
 *.user
@@ -24,8 +24,8 @@ Bundle.wxs
 # NuGet
 *.nupkg
 *.snupkg
-*.nuget.props
-*.nuget.targets
+packages/
+project.lock.json
 
 # Logs and temp files
 *.log
@@ -37,6 +37,20 @@ Bundle.wxs
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Optional local env
 .env
+.env.*
+
+# Batch convert output folders (created next to source DCM folder)
+**/converted_png/
+**/converted_jpg/
+**/converted_jpeg/
+**/converted_bmp/
+**/converted_tiff/
+**/converted_gif/
+**/converted_*_*/
+
+# Local test / scratch (keep samples/*.dcm if committed separately)
+samples/converted_*/

@@ -19,6 +19,9 @@ internal static class ExportFormatIcons
     public static Image MenuTiff => Create("TIF", Color.FromArgb(0, 150, 136), MenuIconSize);
     public static Image MenuGif => Create("GIF", Color.FromArgb(233, 30, 99), MenuIconSize);
 
+    public static Image CreateTreeIcon(string label, Color accent, int size) =>
+        Create(label, accent, size);
+
     private static Image Create(string label, Color accent, int size)
     {
         var bmp = new Bitmap(size, size);

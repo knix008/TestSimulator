@@ -19,6 +19,14 @@ partial class MainForm
         menuStripMain = new MenuStrip();
         fileToolStripMenuItem = new ToolStripMenuItem();
         openToolStripMenuItem = new ToolStripMenuItem();
+        selectFolderToolStripMenuItem = new ToolStripMenuItem();
+        fileMenuSeparatorBatchConvert = new ToolStripSeparator();
+        batchConvertToolStripMenuItem = new ToolStripMenuItem();
+        batchConvertPngToolStripMenuItem = new ToolStripMenuItem();
+        batchConvertJpegToolStripMenuItem = new ToolStripMenuItem();
+        batchConvertBmpToolStripMenuItem = new ToolStripMenuItem();
+        batchConvertTiffToolStripMenuItem = new ToolStripMenuItem();
+        batchConvertGifToolStripMenuItem = new ToolStripMenuItem();
         fileMenuSeparatorAssociation = new ToolStripSeparator();
         registerDcmDefaultToolStripMenuItem = new ToolStripMenuItem();
         unregisterDcmAssociationToolStripMenuItem = new ToolStripMenuItem();
@@ -39,9 +47,14 @@ partial class MainForm
         toolStripButtonSaveBmp = new ToolStripButton();
         toolStripButtonSaveTiff = new ToolStripButton();
         toolStripButtonSaveGif = new ToolStripButton();
+        toolStripSeparatorBatchConvert = new ToolStripSeparator();
+        toolStripButtonBatchConvert = new ToolStripButton();
         toolStripButtonInfo = new ToolStripButton();
         splitContainerMain = new SplitContainer();
         panelDicomInfo = new Panel();
+        splitContainerLeft = new SplitContainer();
+        labelFolderTitle = new Label();
+        treeViewFolder = new TreeView();
         labelInfoTitle = new Label();
         textBoxDicomInfo = new RichTextBox();
         panelImageHost = new Panel();
@@ -51,6 +64,8 @@ partial class MainForm
         labelZoomPercent = new Label();
         openFileDialogDicom = new OpenFileDialog();
         saveFileDialogImage = new SaveFileDialog();
+        folderBrowserBatchSource = new FolderBrowserDialog();
+        folderBrowserSelectFolder = new FolderBrowserDialog();
         contextMenuImage = new ContextMenuStrip();
         ctxMenuOpen = new ToolStripMenuItem();
         ctxMenuSeparator1 = new ToolStripSeparator();
@@ -63,6 +78,16 @@ partial class MainForm
         ctxMenuExportBmp = new ToolStripMenuItem();
         ctxMenuExportTiff = new ToolStripMenuItem();
         ctxMenuExportGif = new ToolStripMenuItem();
+        contextMenuFolder = new ContextMenuStrip();
+        ctxFolderOpen = new ToolStripMenuItem();
+        ctxFolderSeparator1 = new ToolStripSeparator();
+        ctxFolderSelectFolder = new ToolStripMenuItem();
+        ctxFolderSeparator2 = new ToolStripSeparator();
+        ctxFolderCopy = new ToolStripMenuItem();
+        ctxFolderPaste = new ToolStripMenuItem();
+        ctxFolderDelete = new ToolStripMenuItem();
+        ctxFolderSeparator3 = new ToolStripSeparator();
+        ctxFolderRefresh = new ToolStripMenuItem();
         menuStripMain.SuspendLayout();
         statusStripMain.SuspendLayout();
         toolStripExport.SuspendLayout();
@@ -71,9 +96,14 @@ partial class MainForm
         splitContainerMain.Panel2.SuspendLayout();
         splitContainerMain.SuspendLayout();
         panelDicomInfo.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)splitContainerLeft).BeginInit();
+        splitContainerLeft.Panel1.SuspendLayout();
+        splitContainerLeft.Panel2.SuspendLayout();
+        splitContainerLeft.SuspendLayout();
         panelImageHost.SuspendLayout();
         panelScroll.SuspendLayout();
         contextMenuImage.SuspendLayout();
+        contextMenuFolder.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)pictureBoxImage).BeginInit();
         ((System.ComponentModel.ISupportInitialize)trackBarFrames).BeginInit();
         SuspendLayout();
@@ -89,7 +119,7 @@ partial class MainForm
         // 
         // fileToolStripMenuItem
         // 
-        fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { openToolStripMenuItem, fileMenuSeparatorAssociation, registerDcmDefaultToolStripMenuItem, unregisterDcmAssociationToolStripMenuItem, fileMenuSeparatorExit, exitToolStripMenuItem });
+        fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { openToolStripMenuItem, selectFolderToolStripMenuItem, fileMenuSeparatorBatchConvert, batchConvertToolStripMenuItem, fileMenuSeparatorAssociation, registerDcmDefaultToolStripMenuItem, unregisterDcmAssociationToolStripMenuItem, fileMenuSeparatorExit, exitToolStripMenuItem });
         fileToolStripMenuItem.Name = "fileToolStripMenuItem";
         fileToolStripMenuItem.Size = new Size(57, 20);
         fileToolStripMenuItem.Text = "파일(&F)";
@@ -101,6 +131,60 @@ partial class MainForm
         openToolStripMenuItem.Size = new Size(167, 22);
         openToolStripMenuItem.Text = "열기(&O)...";
         openToolStripMenuItem.Click += OpenToolStripMenuItem_Click;
+        // 
+        // selectFolderToolStripMenuItem
+        // 
+        selectFolderToolStripMenuItem.Name = "selectFolderToolStripMenuItem";
+        selectFolderToolStripMenuItem.Size = new Size(167, 22);
+        selectFolderToolStripMenuItem.Text = "폴더 선택(&P)...";
+        selectFolderToolStripMenuItem.Click += SelectFolderToolStripMenuItem_Click;
+        // 
+        // fileMenuSeparatorBatchConvert
+        // 
+        fileMenuSeparatorBatchConvert.Name = "fileMenuSeparatorBatchConvert";
+        fileMenuSeparatorBatchConvert.Size = new Size(166, 6);
+        // 
+        // batchConvertToolStripMenuItem
+        // 
+        batchConvertToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { batchConvertPngToolStripMenuItem, batchConvertJpegToolStripMenuItem, batchConvertBmpToolStripMenuItem, batchConvertTiffToolStripMenuItem, batchConvertGifToolStripMenuItem });
+        batchConvertToolStripMenuItem.Name = "batchConvertToolStripMenuItem";
+        batchConvertToolStripMenuItem.Size = new Size(167, 22);
+        batchConvertToolStripMenuItem.Text = "폴더 일괄 변환(&B)";
+        // 
+        // batchConvertPngToolStripMenuItem
+        // 
+        batchConvertPngToolStripMenuItem.Name = "batchConvertPngToolStripMenuItem";
+        batchConvertPngToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertPngToolStripMenuItem.Text = "PNG로 변환";
+        batchConvertPngToolStripMenuItem.Click += BatchConvertButton_Click;
+        // 
+        // batchConvertJpegToolStripMenuItem
+        // 
+        batchConvertJpegToolStripMenuItem.Name = "batchConvertJpegToolStripMenuItem";
+        batchConvertJpegToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertJpegToolStripMenuItem.Text = "JPEG로 변환";
+        batchConvertJpegToolStripMenuItem.Click += BatchConvertButton_Click;
+        // 
+        // batchConvertBmpToolStripMenuItem
+        // 
+        batchConvertBmpToolStripMenuItem.Name = "batchConvertBmpToolStripMenuItem";
+        batchConvertBmpToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertBmpToolStripMenuItem.Text = "BMP로 변환";
+        batchConvertBmpToolStripMenuItem.Click += BatchConvertButton_Click;
+        // 
+        // batchConvertTiffToolStripMenuItem
+        // 
+        batchConvertTiffToolStripMenuItem.Name = "batchConvertTiffToolStripMenuItem";
+        batchConvertTiffToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertTiffToolStripMenuItem.Text = "TIFF로 변환";
+        batchConvertTiffToolStripMenuItem.Click += BatchConvertButton_Click;
+        // 
+        // batchConvertGifToolStripMenuItem
+        // 
+        batchConvertGifToolStripMenuItem.Name = "batchConvertGifToolStripMenuItem";
+        batchConvertGifToolStripMenuItem.Size = new Size(180, 22);
+        batchConvertGifToolStripMenuItem.Text = "GIF로 변환";
+        batchConvertGifToolStripMenuItem.Click += BatchConvertButton_Click;
         // 
         // fileMenuSeparatorAssociation
         // 
@@ -152,7 +236,7 @@ partial class MainForm
         toolStripExport.Dock = DockStyle.Top;
         toolStripExport.GripStyle = ToolStripGripStyle.Hidden;
         toolStripExport.ImageScalingSize = new Size(24, 24);
-        toolStripExport.Items.AddRange(new ToolStripItem[] { toolStripLabelExport, toolStripSeparatorExport, toolStripButtonSavePng, toolStripButtonSaveJpeg, toolStripButtonSaveBmp, toolStripButtonSaveTiff, toolStripButtonSaveGif, toolStripButtonInfo });
+        toolStripExport.Items.AddRange(new ToolStripItem[] { toolStripLabelExport, toolStripSeparatorExport, toolStripButtonSavePng, toolStripButtonSaveJpeg, toolStripButtonSaveBmp, toolStripButtonSaveTiff, toolStripButtonSaveGif, toolStripSeparatorBatchConvert, toolStripButtonBatchConvert, toolStripButtonInfo });
         toolStripExport.Name = "toolStripExport";
         toolStripExport.Padding = new Padding(6, 4, 6, 4);
         toolStripExport.Size = new Size(984, 36);
@@ -222,12 +306,28 @@ partial class MainForm
         toolStripButtonSaveGif.TextImageRelation = TextImageRelation.ImageBeforeText;
         toolStripButtonSaveGif.Click += ExportButton_Click;
         // 
+        // toolStripSeparatorBatchConvert
+        // 
+        toolStripSeparatorBatchConvert.Name = "toolStripSeparatorBatchConvert";
+        toolStripSeparatorBatchConvert.Size = new Size(6, 28);
+        // 
+        // toolStripButtonBatchConvert
+        // 
+        toolStripButtonBatchConvert.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        toolStripButtonBatchConvert.ImageTransparentColor = Color.Magenta;
+        toolStripButtonBatchConvert.Name = "toolStripButtonBatchConvert";
+        toolStripButtonBatchConvert.Size = new Size(96, 28);
+        toolStripButtonBatchConvert.Text = "일괄 변환";
+        toolStripButtonBatchConvert.TextImageRelation = TextImageRelation.ImageBeforeText;
+        toolStripButtonBatchConvert.Click += BatchConvertToolbarButton_Click;
+        // 
         // toolStripButtonInfo
         // 
         toolStripButtonInfo.Alignment = ToolStripItemAlignment.Right;
         toolStripButtonInfo.DisplayStyle = ToolStripItemDisplayStyle.Image;
         toolStripButtonInfo.ImageScaling = ToolStripItemImageScaling.None;
-        toolStripButtonInfo.Margin = new Padding(8, 0, 12, 0);
+        toolStripButtonInfo.ImageAlign = ContentAlignment.MiddleCenter;
+        toolStripButtonInfo.Margin = new Padding(8, 1, 12, 1);
         toolStripButtonInfo.Name = "toolStripButtonInfo";
         toolStripButtonInfo.Size = new Size(24, 24);
         toolStripButtonInfo.ToolTipText = "프로그램 정보";
@@ -275,7 +375,7 @@ partial class MainForm
         // splitContainerMain.Panel1
         // 
         splitContainerMain.Panel1.Controls.Add(panelDicomInfo);
-        splitContainerMain.Panel1MinSize = 180;
+        splitContainerMain.Panel1MinSize = 200;
         // 
         // splitContainerMain.Panel2
         // 
@@ -287,8 +387,7 @@ partial class MainForm
         // panelDicomInfo
         // 
         panelDicomInfo.BackColor = Color.FromArgb(36, 36, 40);
-        panelDicomInfo.Controls.Add(textBoxDicomInfo);
-        panelDicomInfo.Controls.Add(labelInfoTitle);
+        panelDicomInfo.Controls.Add(splitContainerLeft);
         panelDicomInfo.Dock = DockStyle.Fill;
         panelDicomInfo.Location = new Point(0, 0);
         panelDicomInfo.Name = "panelDicomInfo";
@@ -296,15 +395,78 @@ partial class MainForm
         panelDicomInfo.Size = new Size(240, 490);
         panelDicomInfo.TabIndex = 0;
         // 
+        // splitContainerLeft
+        // 
+        splitContainerLeft.BackColor = Color.FromArgb(100, 100, 105);
+        splitContainerLeft.Dock = DockStyle.Fill;
+        splitContainerLeft.FixedPanel = FixedPanel.Panel2;
+        splitContainerLeft.Location = new Point(8, 8);
+        splitContainerLeft.Name = "splitContainerLeft";
+        splitContainerLeft.Orientation = Orientation.Horizontal;
+        // 
+        // splitContainerLeft.Panel1
+        // 
+        splitContainerLeft.Panel1.BackColor = Color.FromArgb(36, 36, 40);
+        splitContainerLeft.Panel1.Controls.Add(treeViewFolder);
+        splitContainerLeft.Panel1.Controls.Add(labelFolderTitle);
+        splitContainerLeft.Panel1MinSize = 80;
+        // 
+        // splitContainerLeft.Panel2
+        // 
+        splitContainerLeft.Panel2.BackColor = Color.FromArgb(36, 36, 40);
+        splitContainerLeft.Panel2.Controls.Add(textBoxDicomInfo);
+        splitContainerLeft.Panel2.Controls.Add(labelInfoTitle);
+        splitContainerLeft.Panel2MinSize = 100;
+        splitContainerLeft.Size = new Size(224, 474);
+        splitContainerLeft.SplitterDistance = 260;
+        splitContainerLeft.SplitterWidth = 6;
+        splitContainerLeft.TabIndex = 0;
+        // 
+        // labelFolderTitle
+        // 
+        labelFolderTitle.Dock = DockStyle.Top;
+        labelFolderTitle.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
+        labelFolderTitle.ForeColor = Color.FromArgb(220, 220, 225);
+        labelFolderTitle.Location = new Point(0, 0);
+        labelFolderTitle.Name = "labelFolderTitle";
+        labelFolderTitle.Padding = new Padding(0, 0, 0, 4);
+        labelFolderTitle.Size = new Size(224, 23);
+        labelFolderTitle.TabIndex = 0;
+        labelFolderTitle.Text = "폴더";
+        labelFolderTitle.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // treeViewFolder
+        // 
+        treeViewFolder.BackColor = Color.FromArgb(28, 28, 32);
+        treeViewFolder.BorderStyle = BorderStyle.None;
+        treeViewFolder.ContextMenuStrip = contextMenuFolder;
+        treeViewFolder.Dock = DockStyle.Fill;
+        treeViewFolder.ForeColor = Color.FromArgb(200, 200, 205);
+        treeViewFolder.FullRowSelect = true;
+        treeViewFolder.HideSelection = false;
+        treeViewFolder.Location = new Point(0, 23);
+        treeViewFolder.Name = "treeViewFolder";
+        treeViewFolder.ShowLines = true;
+        treeViewFolder.ShowNodeToolTips = true;
+        treeViewFolder.ShowPlusMinus = true;
+        treeViewFolder.ShowRootLines = true;
+        treeViewFolder.Size = new Size(224, 237);
+        treeViewFolder.TabIndex = 1;
+        treeViewFolder.BeforeExpand += TreeViewFolder_BeforeExpand;
+        treeViewFolder.NodeMouseClick += TreeViewFolder_NodeMouseClick;
+        treeViewFolder.AfterSelect += TreeViewFolder_AfterSelect;
+        treeViewFolder.NodeMouseDoubleClick += TreeViewFolder_NodeMouseDoubleClick;
+        treeViewFolder.KeyDown += TreeViewFolder_KeyDown;
+        // 
         // labelInfoTitle
         // 
         labelInfoTitle.Dock = DockStyle.Top;
         labelInfoTitle.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
         labelInfoTitle.ForeColor = Color.FromArgb(220, 220, 225);
-        labelInfoTitle.Location = new Point(8, 8);
+        labelInfoTitle.Location = new Point(0, 0);
         labelInfoTitle.Name = "labelInfoTitle";
-        labelInfoTitle.Padding = new Padding(0, 0, 0, 6);
-        labelInfoTitle.Size = new Size(188, 27);
+        labelInfoTitle.Padding = new Padding(0, 4, 0, 4);
+        labelInfoTitle.Size = new Size(224, 27);
         labelInfoTitle.TabIndex = 0;
         labelInfoTitle.Text = "파일 정보";
         labelInfoTitle.TextAlign = ContentAlignment.MiddleLeft;
@@ -317,12 +479,12 @@ partial class MainForm
         textBoxDicomInfo.Dock = DockStyle.Fill;
         textBoxDicomInfo.Font = new Font("Segoe UI", 9F);
         textBoxDicomInfo.ForeColor = Color.FromArgb(200, 200, 205);
-        textBoxDicomInfo.Location = new Point(8, 35);
+        textBoxDicomInfo.Location = new Point(0, 27);
         textBoxDicomInfo.Name = "textBoxDicomInfo";
         textBoxDicomInfo.ReadOnly = true;
         textBoxDicomInfo.ScrollBars = RichTextBoxScrollBars.Vertical;
         textBoxDicomInfo.ShortcutsEnabled = false;
-        textBoxDicomInfo.Size = new Size(188, 472);
+        textBoxDicomInfo.Size = new Size(224, 183);
         textBoxDicomInfo.TabIndex = 1;
         textBoxDicomInfo.TabStop = false;
         textBoxDicomInfo.Text = "파일을 열면 DICOM 정보가 표시됩니다.";
@@ -392,12 +554,20 @@ partial class MainForm
         // 
         // openFileDialogDicom
         // 
-        openFileDialogDicom.Filter = "모든 지원 형식|*.dcm;*.dicm;*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.tif;*.tiff|DICOM|*.dcm;*.dicm|이미지|*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.tif;*.tiff|모든 파일|*.*";
+        openFileDialogDicom.Filter = "모든 지원 형식|*.dcm;*.dicm;*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.tif;*.tiff;*.ico|DICOM|*.dcm;*.dicm|이미지|*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.tif;*.tiff;*.ico|모든 파일|*.*";
         openFileDialogDicom.Title = "파일 선택";
         // 
         // saveFileDialogImage
         // 
         saveFileDialogImage.Title = "이미지 저장";
+        // 
+        // folderBrowserBatchSource
+        // 
+        folderBrowserBatchSource.Description = "DCM 파일이 있는 폴더를 선택하세요";
+        // 
+        // folderBrowserSelectFolder
+        // 
+        folderBrowserSelectFolder.Description = "좌측 패널에 표시할 폴더를 선택하세요";
         // 
         // contextMenuImage
         // 
@@ -480,6 +650,73 @@ partial class MainForm
         ctxMenuExportGif.Text = "GIF";
         ctxMenuExportGif.Click += ExportButton_Click;
         // 
+        // contextMenuFolder
+        // 
+        contextMenuFolder.Items.AddRange(new ToolStripItem[] { ctxFolderOpen, ctxFolderSeparator1, ctxFolderCopy, ctxFolderPaste, ctxFolderDelete, ctxFolderSeparator2, ctxFolderSelectFolder, ctxFolderSeparator3, ctxFolderRefresh });
+        contextMenuFolder.Name = "contextMenuFolder";
+        contextMenuFolder.Size = new Size(181, 98);
+        contextMenuFolder.Opening += ContextMenuFolder_Opening;
+        // 
+        // ctxFolderOpen
+        // 
+        ctxFolderOpen.Name = "ctxFolderOpen";
+        ctxFolderOpen.Size = new Size(180, 22);
+        ctxFolderOpen.Text = "열기(&O)";
+        ctxFolderOpen.Click += CtxFolderOpen_Click;
+        // 
+        // ctxFolderSeparator1
+        // 
+        ctxFolderSeparator1.Name = "ctxFolderSeparator1";
+        ctxFolderSeparator1.Size = new Size(177, 6);
+        // 
+        // ctxFolderSelectFolder
+        // 
+        ctxFolderSelectFolder.Name = "ctxFolderSelectFolder";
+        ctxFolderSelectFolder.Size = new Size(180, 22);
+        ctxFolderSelectFolder.Text = "폴더 선택(&P)...";
+        ctxFolderSelectFolder.Click += SelectFolderToolStripMenuItem_Click;
+        // 
+        // ctxFolderCopy
+        // 
+        ctxFolderCopy.Name = "ctxFolderCopy";
+        ctxFolderCopy.ShortcutKeys = Keys.Control | Keys.C;
+        ctxFolderCopy.Size = new Size(180, 22);
+        ctxFolderCopy.Text = "복사(&C)";
+        ctxFolderCopy.Click += CtxFolderCopy_Click;
+        // 
+        // ctxFolderPaste
+        // 
+        ctxFolderPaste.Name = "ctxFolderPaste";
+        ctxFolderPaste.ShortcutKeys = Keys.Control | Keys.V;
+        ctxFolderPaste.Size = new Size(180, 22);
+        ctxFolderPaste.Text = "붙여넣기(&V)";
+        ctxFolderPaste.Click += CtxFolderPaste_Click;
+        // 
+        // ctxFolderDelete
+        // 
+        ctxFolderDelete.Name = "ctxFolderDelete";
+        ctxFolderDelete.ShortcutKeys = Keys.Delete;
+        ctxFolderDelete.Size = new Size(180, 22);
+        ctxFolderDelete.Text = "삭제(&D)";
+        ctxFolderDelete.Click += CtxFolderDelete_Click;
+        // 
+        // ctxFolderSeparator2
+        // 
+        ctxFolderSeparator2.Name = "ctxFolderSeparator2";
+        ctxFolderSeparator2.Size = new Size(177, 6);
+        // 
+        // ctxFolderSeparator3
+        // 
+        ctxFolderSeparator3.Name = "ctxFolderSeparator3";
+        ctxFolderSeparator3.Size = new Size(177, 6);
+        // 
+        // ctxFolderRefresh
+        // 
+        ctxFolderRefresh.Name = "ctxFolderRefresh";
+        ctxFolderRefresh.Size = new Size(180, 22);
+        ctxFolderRefresh.Text = "새로 고침(&R)";
+        ctxFolderRefresh.Click += CtxFolderRefresh_Click;
+        // 
         // MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
@@ -506,11 +743,16 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)splitContainerMain).EndInit();
         splitContainerMain.ResumeLayout(false);
         panelDicomInfo.ResumeLayout(false);
-        panelDicomInfo.PerformLayout();
+        splitContainerLeft.Panel1.ResumeLayout(false);
+        splitContainerLeft.Panel1.PerformLayout();
+        splitContainerLeft.Panel2.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)splitContainerLeft).EndInit();
+        splitContainerLeft.ResumeLayout(false);
         panelImageHost.ResumeLayout(false);
         panelImageHost.PerformLayout();
         panelScroll.ResumeLayout(false);
         contextMenuImage.ResumeLayout(false);
+        contextMenuFolder.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)pictureBoxImage).EndInit();
         ((System.ComponentModel.ISupportInitialize)trackBarFrames).EndInit();
         ResumeLayout(false);
@@ -522,6 +764,14 @@ partial class MainForm
     private MenuStrip menuStripMain;
     private ToolStripMenuItem fileToolStripMenuItem;
     private ToolStripMenuItem openToolStripMenuItem;
+    private ToolStripMenuItem selectFolderToolStripMenuItem;
+    private ToolStripSeparator fileMenuSeparatorBatchConvert;
+    private ToolStripMenuItem batchConvertToolStripMenuItem;
+    private ToolStripMenuItem batchConvertPngToolStripMenuItem;
+    private ToolStripMenuItem batchConvertJpegToolStripMenuItem;
+    private ToolStripMenuItem batchConvertBmpToolStripMenuItem;
+    private ToolStripMenuItem batchConvertTiffToolStripMenuItem;
+    private ToolStripMenuItem batchConvertGifToolStripMenuItem;
     private ToolStripSeparator fileMenuSeparatorAssociation;
     private ToolStripMenuItem registerDcmDefaultToolStripMenuItem;
     private ToolStripMenuItem unregisterDcmAssociationToolStripMenuItem;
@@ -542,9 +792,14 @@ partial class MainForm
     private ToolStripButton toolStripButtonSaveBmp;
     private ToolStripButton toolStripButtonSaveTiff;
     private ToolStripButton toolStripButtonSaveGif;
+    private ToolStripSeparator toolStripSeparatorBatchConvert;
+    private ToolStripButton toolStripButtonBatchConvert;
     private ToolStripButton toolStripButtonInfo;
     private SplitContainer splitContainerMain;
     private Panel panelDicomInfo;
+    private SplitContainer splitContainerLeft;
+    private Label labelFolderTitle;
+    private TreeView treeViewFolder;
     private Label labelInfoTitle;
     private RichTextBox textBoxDicomInfo;
     private Panel panelImageHost;
@@ -554,6 +809,8 @@ partial class MainForm
     private TrackBar trackBarFrames;
     private OpenFileDialog openFileDialogDicom;
     private SaveFileDialog saveFileDialogImage;
+    private FolderBrowserDialog folderBrowserBatchSource;
+    private FolderBrowserDialog folderBrowserSelectFolder;
     private ContextMenuStrip contextMenuImage;
     private ToolStripMenuItem ctxMenuOpen;
     private ToolStripSeparator ctxMenuSeparator1;
@@ -566,4 +823,14 @@ partial class MainForm
     private ToolStripMenuItem ctxMenuExportBmp;
     private ToolStripMenuItem ctxMenuExportTiff;
     private ToolStripMenuItem ctxMenuExportGif;
+    private ContextMenuStrip contextMenuFolder;
+    private ToolStripMenuItem ctxFolderOpen;
+    private ToolStripSeparator ctxFolderSeparator1;
+    private ToolStripMenuItem ctxFolderSelectFolder;
+    private ToolStripSeparator ctxFolderSeparator2;
+    private ToolStripMenuItem ctxFolderCopy;
+    private ToolStripMenuItem ctxFolderPaste;
+    private ToolStripMenuItem ctxFolderDelete;
+    private ToolStripSeparator ctxFolderSeparator3;
+    private ToolStripMenuItem ctxFolderRefresh;
 }
