@@ -4,9 +4,11 @@ export const TEST_CASES_TABLE_COLUMN_DEFS = [
   { id: 'requirement', minWidth: 110, defaultWidth: 170 },
   { id: 'title', minWidth: 160, defaultWidth: 340 },
   { id: 'description', minWidth: 180, defaultWidth: 420 },
+  { id: 'steps', minWidth: 160, defaultWidth: 280 },
+  { id: 'expectedResult', minWidth: 160, defaultWidth: 280 },
   { id: 'status', minWidth: 100, defaultWidth: 130 },
   { id: 'updatedAt', minWidth: 130, defaultWidth: 180 },
-  { id: 'actions', minWidth: 80, defaultWidth: 96 },
+  { id: 'actions', minWidth: 88, defaultWidth: 96 },
 ];
 
 export function getVisibleTestCasesColumns(canEdit) {

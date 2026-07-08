@@ -5,7 +5,16 @@ import { app } from 'electron';
 const DEFAULT_PREFERENCES = {
   language: 'ko',
   theme: 'light',
+  accentColor: '#3b82f6',
 };
+
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+function normalizeAccentColor(value) {
+  const candidate = String(value || '').trim();
+  if (!HEX_COLOR_PATTERN.test(candidate)) return DEFAULT_PREFERENCES.accentColor;
+  return candidate.toLowerCase();
+}
 
 function getPreferencesPath() {
   return path.join(app.getPath('userData'), 'app-preferences.json');
@@ -14,7 +23,8 @@ function getPreferencesPath() {
 function normalizePreferences(data) {
   const language = data?.language === 'en' ? 'en' : 'ko';
   const theme = data?.theme === 'dark' ? 'dark' : 'light';
-  return { language, theme };
+  const accentColor = normalizeAccentColor(data?.accentColor);
+  return { language, theme, accentColor };
 }
 
 export async function loadAppPreferences() {

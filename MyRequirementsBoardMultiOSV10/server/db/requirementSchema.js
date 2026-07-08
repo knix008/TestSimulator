@@ -1,5 +1,5 @@
 /** DB schema version for requirements table migrations */
-export const REQUIREMENT_SCHEMA_VERSION = 2;
+export const REQUIREMENT_SCHEMA_VERSION = 3;
 
 export const REQUIREMENT_SCHEMA_SETTING_KEY = 'requirements_schema_version';
 
@@ -17,6 +17,7 @@ export const REQUIREMENT_COLUMNS = [
   'category',
   'priority',
   'status',
+  'assignee_user_id',
   'created_by_id',
   'created_at',
   'updated_at',
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS requirements (
   category TEXT NOT NULL DEFAULT '',
   priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK(priority IN ('LOW','MEDIUM','HIGH')),
   status TEXT NOT NULL DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','APPROVED','IN_PROGRESS','DONE')),
+  assignee_user_id INTEGER REFERENCES users(id),
   created_by_id INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -44,9 +46,7 @@ export const REQUIREMENTS_INDEX_SQL = [
   'CREATE INDEX IF NOT EXISTS idx_requirements_status ON requirements(status)',
   'CREATE INDEX IF NOT EXISTS idx_requirements_category ON requirements(category)',
   'CREATE INDEX IF NOT EXISTS idx_requirements_classification ON requirements(project_id, classification)',
-  `CREATE UNIQUE INDEX IF NOT EXISTS idx_requirements_project_classification
-   ON requirements(project_id, classification)
-   WHERE TRIM(classification) != ''`,
+  'CREATE INDEX IF NOT EXISTS idx_requirements_assignee ON requirements(assignee_user_id)',
 ];
 
 /** Columns added after initial release (SQLite ALTER TABLE migrations) */
@@ -55,6 +55,11 @@ export const REQUIREMENT_SQLITE_ALTER_MIGRATIONS = [
     version: 2,
     column: 'classification',
     sql: "ALTER TABLE requirements ADD COLUMN classification TEXT NOT NULL DEFAULT ''",
+  },
+  {
+    version: 3,
+    column: 'assignee_user_id',
+    sql: 'ALTER TABLE requirements ADD COLUMN assignee_user_id INTEGER REFERENCES users(id)',
   },
 ];
 
@@ -70,6 +75,7 @@ export function mapRequirementRow(row, extra = {}) {
     category: row.category ?? '',
     priority: row.priority,
     status: row.status,
+    assigneeUserId: row.assignee_user_id ?? null,
     createdById: row.created_by_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

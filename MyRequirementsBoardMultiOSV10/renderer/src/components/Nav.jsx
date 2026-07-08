@@ -1,4 +1,4 @@
-import { forwardRef, useRef } from 'react';
+import { forwardRef, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
@@ -19,6 +19,7 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 import { useUndoHistory } from '../context/UndoHistoryContext.jsx';
 import { IconButton } from './IconButton.jsx';
 import { IconText } from './IconText.jsx';
+import LogoutConfirmDialog from './LogoutConfirmDialog.jsx';
 import { NavTooltipHost } from './NavTooltipHost.jsx';
 import { useNavLayout } from '../hooks/useNavLayout.js';
 import { ROUTES } from '../lib/routes.js';
@@ -96,6 +97,7 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
   const { undo, redo, canUndo, canRedo } = useUndoHistory();
   const navRef = useRef(null);
   const trailingRef = useRef(null);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const setNavRef = (node) => {
     navRef.current = node;
@@ -135,13 +137,14 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
   };
 
   return (
-    <nav
-      className="nav"
-      ref={setNavRef}
-      data-measure-user={user ? JSON.stringify({ name: user.name, username: user.username, role: user.role }) : ''}
-      data-measure-projects={JSON.stringify(projects.map((p) => ({ id: p.id, name: p.name, code: p.code })))}
-    >
-      <div className="nav-scroll">
+    <>
+      <nav
+        className="nav"
+        ref={setNavRef}
+        data-measure-user={user ? JSON.stringify({ name: user.name, username: user.username, role: user.role }) : ''}
+        data-measure-projects={JSON.stringify(projects.map((p) => ({ id: p.id, name: p.name, code: p.code })))}
+      >
+        <div className="nav-scroll">
         {projects.length > 0 ? (
           <NavTooltipHost tooltip={t('nav.tipSelectProject')} label={t('nav.selectProject')}>
             <label className="nav-project nav-project--first">
@@ -170,9 +173,6 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
         <NavItem to="/projects" icon={FolderKanban} labelKey="nav.projects" tooltipKey="nav.tipProjects" />
         <NavItem to={ROUTES.requirements} icon={ClipboardList} labelKey="nav.requirements" tooltipKey="nav.tipRequirements" />
         <NavItem to="/test-cases" icon={ListChecks} labelKey="nav.testCases" tooltipKey="nav.tipTestCases" matchPrefix="/test-cases" />
-        {hasRole('ADMIN') && (
-          <NavItem to="/users" icon={Users} labelKey="nav.users" tooltipKey="nav.tipUsers" />
-        )}
         {hasRole('EDITOR') && (
           <NavItem to="/ollama" icon={Sparkles} labelKey="nav.ollama" tooltipKey="nav.tipOllama" />
         )}
@@ -185,9 +185,9 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
           t={t}
         />
         <NavItem to="/settings" icon={Settings} labelKey="nav.settings" tooltipKey="nav.tipSettings" />
-      </div>
+        </div>
 
-      <div className="nav-trailing" ref={trailingRef}>
+        <div className="nav-trailing" ref={trailingRef}>
         <NavTooltipHost tooltip={t('menu.tipAppInfo')} label={appInfoLabel}>
           <button
             type="button"
@@ -199,6 +199,9 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
             <IconText icon={Info}>{appInfoLabel}</IconText>
           </button>
         </NavTooltipHost>
+        {hasRole('ADMIN') && (
+          <NavItem to="/users" icon={Users} labelKey="nav.users" tooltipKey="nav.tipUsers" />
+        )}
         <span className="user" data-i18n-user-display>
           <IconText icon={User}>{displayUserName} ({roleLabel})</IconText>
         </span>
@@ -207,14 +210,24 @@ const Nav = forwardRef(function Nav({ onShowInfo }, ref) {
             icon={LogOut}
             className="btn-secondary nav-logout"
             type="button"
-            onClick={handleLogout}
+            onClick={() => setLogoutConfirmOpen(true)}
             data-i18n-label="nav.logout"
           >
             {logoutLabel}
           </IconButton>
         </NavTooltipHost>
-      </div>
-    </nav>
+        </div>
+      </nav>
+
+      <LogoutConfirmDialog
+        open={logoutConfirmOpen}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={() => {
+          setLogoutConfirmOpen(false);
+          void handleLogout();
+        }}
+      />
+    </>
   );
 });
 

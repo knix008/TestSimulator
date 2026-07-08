@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ClipboardCopy, Loader2, Pencil, Plus, Save, Sparkles, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
@@ -9,9 +9,14 @@ import { requirementPayload, testCasePayload } from '../lib/requirementUndoActio
 import { IconButton } from '../components/IconButton.jsx';
 import { IconLink } from '../components/IconLink.jsx';
 import TableInlineSelect from '../components/TableInlineSelect.jsx';
+import SortableTableHeader from '../components/SortableTableHeader.jsx';
 import { openRowContextMenu, useContextMenu } from '../components/ContextMenu.jsx';
+import { useTableSort } from '../hooks/useTableSort.js';
+import { REQUIREMENT_FORM_TC_SORT, sortRows } from '../lib/tableSort.js';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
 import { ROUTES } from '../lib/routes.js';
+import DeleteConfirmDialog from '../components/DeleteConfirmDialog.jsx';
+import ErrorDialog from '../components/ErrorDialog.jsx';
 
 const emptyTestCaseForm = {
   code: '',
@@ -33,6 +38,7 @@ const emptyForm = {
   classification: '',
   priority: 'MEDIUM',
   status: 'DRAFT',
+  assigneeUserId: null,
 };
 
 export default function RequirementFormPage() {
@@ -51,7 +57,9 @@ export default function RequirementFormPage() {
   const [testCaseForm, setTestCaseForm] = useState(emptyTestCaseForm);
   const [error, setError] = useState('');
   const [refining, setRefining] = useState(false);
+  const [deleteTcPending, setDeleteTcPending] = useState(null);
   const { openContextMenu } = useContextMenu();
+  const { sort, toggleSort } = useTableSort();
 
   useEffect(() => {
     if (!canEditProject || !isEdit || !activeProject) return;
@@ -64,6 +72,7 @@ export default function RequirementFormPage() {
           classification: data.classification || '',
           priority: data.priority,
           status: data.status,
+          assigneeUserId: data.assigneeUserId ?? null,
         };
         setForm(loaded);
         setRequirementCode(data.code || '');
@@ -136,6 +145,7 @@ export default function RequirementFormPage() {
         title: result.refined.title || prev.title,
         description: result.refined.description || prev.description,
         category: result.refined.category || prev.category,
+        classification: result.refined.classification || prev.classification,
         priority: result.refined.priority || prev.priority,
         status: result.refined.status || prev.status,
       }));
@@ -236,8 +246,29 @@ export default function RequirementFormPage() {
     TC_STATUS_KEYS.includes(key) ? t(`tcStatus.${key}`) : key
   );
 
-  const handleDeleteTestCase = async (tcId) => {
-    if (!window.confirm(t('requirements.tcDeleteConfirm'))) return;
+  const sortedTestCases = useMemo(
+    () => sortRows(testCases, sort, REQUIREMENT_FORM_TC_SORT),
+    [testCases, sort],
+  );
+
+  const getTcSortTitle = (columnId, label) => {
+    const isActive = sort?.columnId === columnId;
+    const directionLabel = isActive
+      ? (sort.direction === 'asc' ? t('common.sortAscending') : t('common.sortDescending'))
+      : '';
+    return isActive
+      ? `${t('common.sortColumn', { column: label })} (${directionLabel})`
+      : t('common.sortColumn', { column: label });
+  };
+
+  const handleDeleteTestCase = (tcId) => {
+    setDeleteTcPending(tcId);
+  };
+
+  const handleDeleteTestCaseConfirm = async () => {
+    const tcId = deleteTcPending;
+    setDeleteTcPending(null);
+    if (!tcId) return;
     const target = testCases.find((item) => item.id === tcId);
     setError('');
     try {
@@ -312,7 +343,7 @@ export default function RequirementFormPage() {
     <div className="container">
       <h1>{isEdit ? t('requirements.editTitle') : t('requirements.newTitle')}</h1>
       <p className="muted">{t('requirements.projectLabel', { name: getDisplayProjectName(activeProject, t) })}</p>
-      {error && <p className="error">{error}</p>}
+      <ErrorDialog message={error} onClose={() => setError('')} />
 
       <form onSubmit={handleSubmit} className="card">
         {isEdit && requirementCode && (
@@ -429,10 +460,40 @@ export default function RequirementFormPage() {
           {testCases.length > 0 ? (
             <table>
               <thead>
-                <tr><th>{t('common.requirementCode')}</th><th>{t('common.title')}</th><th>{t('common.description')}</th><th>{t('common.status')}</th><th></th></tr>
+                <tr>
+                  <SortableTableHeader
+                    columnId="code"
+                    label={t('common.requirementCode')}
+                    sort={sort}
+                    onSort={toggleSort}
+                    title={getTcSortTitle('code', t('common.requirementCode'))}
+                  />
+                  <SortableTableHeader
+                    columnId="title"
+                    label={t('common.title')}
+                    sort={sort}
+                    onSort={toggleSort}
+                    title={getTcSortTitle('title', t('common.title'))}
+                  />
+                  <SortableTableHeader
+                    columnId="description"
+                    label={t('common.description')}
+                    sort={sort}
+                    onSort={toggleSort}
+                    title={getTcSortTitle('description', t('common.description'))}
+                  />
+                  <SortableTableHeader
+                    columnId="status"
+                    label={t('common.status')}
+                    sort={sort}
+                    onSort={toggleSort}
+                    title={getTcSortTitle('status', t('common.status'))}
+                  />
+                  <th aria-hidden="true" />
+                </tr>
               </thead>
               <tbody>
-                {testCases.map((tc) => (
+                {sortedTestCases.map((tc) => (
                   <tr
                     key={tc.id}
                     className={`row-selectable${selectedTestCases.includes(tc.id) ? ' row-selected' : ''}`}
@@ -464,6 +525,12 @@ export default function RequirementFormPage() {
           )}
         </div>
       )}
+      <DeleteConfirmDialog
+        open={deleteTcPending !== null}
+        message={t('requirements.tcDeleteConfirm')}
+        onConfirm={handleDeleteTestCaseConfirm}
+        onCancel={() => setDeleteTcPending(null)}
+      />
     </div>
   );
 }

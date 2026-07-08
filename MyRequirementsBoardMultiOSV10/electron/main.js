@@ -1,6 +1,8 @@
-import { app, BrowserWindow, nativeImage, shell, ipcMain, dialog, Menu } from 'electron';import path from 'node:path';
+import { app, BrowserWindow, nativeImage, shell, ipcMain, dialog, Menu } from 'electron';
+import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { setServerDataDir, startServer } from '../server/index.js';
 import { closeDatabase } from '../server/db/index.js';
 import { loadWindowState, saveWindowState } from './windowState.js';
@@ -10,11 +12,14 @@ import { UI_MIN_HEIGHT, UI_DEFAULT_WINDOW_WIDTH, UI_DEFAULT_WINDOW_HEIGHT, UI_HE
 Menu.setApplicationMenu(null);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _require = createRequire(import.meta.url);
+const APP_VERSION = _require('../package.json').version;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 let mainWindow = null;
 let pendingProjectFile = null;
 let enforcedMinWidth = UI_HEADER_MIN_WIDTH_FALLBACK;
+let enforcedMinHeight = UI_MIN_HEIGHT;
 
 function stripNativeWindowMenu(win) {
   if (!win || win.isDestroyed()) return;
@@ -55,13 +60,25 @@ function sendProjectFileToRenderer(filePath) {
   mainWindow.focus();
 }
 
-function applyMeasuredMinWidth(measuredMin) {
+function applyMeasuredMinWidth(measuredMin, { lockToCurrentWidth = false, replaceMinimum = false } = {}) {
   const measured = Math.max(Math.ceil(Number(measuredMin) || 0), UI_HEADER_MIN_WIDTH_FALLBACK);
   const [currentWidth, currentHeight] = mainWindow.getContentSize();
-  const min = Math.max(measured, enforcedMinWidth);
+
+  let min;
+  if (lockToCurrentWidth) {
+    min = Math.max(currentWidth, UI_HEADER_MIN_WIDTH_FALLBACK);
+  } else if (replaceMinimum) {
+    min = Math.max(measured, currentWidth, UI_HEADER_MIN_WIDTH_FALLBACK);
+  } else {
+    min = Math.max(measured, enforcedMinWidth);
+  }
+
+  if (min === enforcedMinWidth) {
+    return { nextWidth: currentWidth, currentHeight, enforcedMinWidth: min };
+  }
 
   enforcedMinWidth = min;
-  mainWindow.setMinimumSize(min, UI_MIN_HEIGHT);
+  mainWindow.setMinimumSize(min, enforcedMinHeight);
 
   let nextWidth = currentWidth;
   if (currentWidth < min) {
@@ -72,27 +89,39 @@ function applyMeasuredMinWidth(measuredMin) {
   return { nextWidth, currentHeight, enforcedMinWidth: min };
 }
 
+async function lockCurrentWindowAsMinimum() {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+
+  const [width, height] = mainWindow.getContentSize();
+  const minWidth = Math.max(width, UI_HEADER_MIN_WIDTH_FALLBACK);
+  const minHeight = Math.max(height, UI_MIN_HEIGHT);
+
+  enforcedMinWidth = minWidth;
+  enforcedMinHeight = minHeight;
+  mainWindow.setMinimumSize(minWidth, minHeight);
+
+  await saveWindowState({ width, height, minWidth, minHeight, minSizeLocked: true });
+  return { width, height, minWidth, minHeight };
+}
+
 function registerWindowBoundsPersistence() {
   let resizeSaveTimer = null;
 
   const persistBounds = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const [width, height] = mainWindow.getContentSize();
-    void saveWindowState({ width, height, minWidth: enforcedMinWidth });
+    void saveWindowState({
+      width,
+      height,
+      minWidth: enforcedMinWidth,
+      minHeight: enforcedMinHeight,
+    });
   };
 
   const schedulePersistBounds = () => {
     clearTimeout(resizeSaveTimer);
     resizeSaveTimer = setTimeout(persistBounds, 400);
   };
-
-  mainWindow.on('will-resize', (event, newBounds) => {
-    if (newBounds.width < enforcedMinWidth) {
-      event.preventDefault();
-      const [, height] = mainWindow.getContentSize();
-      mainWindow.setContentSize(enforcedMinWidth, height);
-    }
-  });
 
   mainWindow.on('resize', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -123,22 +152,21 @@ async function createWindow() {
   }
 
   const savedWindow = await loadWindowState();
-  const initialWidth = savedWindow?.width ?? UI_DEFAULT_WINDOW_WIDTH;
-  const initialHeight = savedWindow?.height ?? UI_DEFAULT_WINDOW_HEIGHT;
-  const initialMinWidth = Math.max(
-    savedWindow?.minWidth ?? UI_HEADER_MIN_WIDTH_FALLBACK,
-    initialWidth,
-  );
+  const initialWidth = Math.max(savedWindow?.width ?? UI_DEFAULT_WINDOW_WIDTH, UI_HEADER_MIN_WIDTH_FALLBACK);
+  const initialHeight = Math.max(savedWindow?.height ?? UI_DEFAULT_WINDOW_HEIGHT, UI_MIN_HEIGHT);
+  const initialMinWidth = initialWidth;
+  const initialMinHeight = initialHeight;
   enforcedMinWidth = initialMinWidth;
+  enforcedMinHeight = initialMinHeight;
 
   const windowIcon = getWindowIcon();
   mainWindow = new BrowserWindow({
     width: initialWidth,
     height: initialHeight,
     minWidth: initialMinWidth,
-    minHeight: UI_MIN_HEIGHT,
+    minHeight: initialMinHeight,
     useContentSize: true,
-    title: 'MyRequirementsBoard',
+    title: `MyRequirementsBoard v${APP_VERSION}`,
     icon: windowIcon,
     autoHideMenuBar: true,
     webPreferences: {
@@ -239,6 +267,17 @@ function registerProjectFileHandlers() {
       base64: buffer.toString('base64'),
     };
   });
+
+  ipcMain.handle('excel:save', async (_event, { base64, defaultFileName }) => {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Excel 내보내기',
+      defaultPath: defaultFileName,
+      filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+    });
+    if (canceled || !filePath) return { canceled: true };
+    await fs.writeFile(filePath, Buffer.from(base64, 'base64'));
+    return { canceled: false, filePath };
+  });
 }
 
 function registerWindowHandlers() {
@@ -261,8 +300,11 @@ function registerWindowHandlers() {
     const nextWidth = Math.max(Number(width) || 0, UI_HEADER_MIN_WIDTH_FALLBACK);
     const nextHeight = Math.max(Number(height) || 0, UI_MIN_HEIGHT);
     enforcedMinWidth = nextWidth;
+    enforcedMinHeight = nextHeight;
     mainWindow.setMinimumSize(nextWidth, nextHeight);
   });
+
+  ipcMain.handle('window:lock-current-min-size', async () => lockCurrentWindowAsMinimum());
 
   ipcMain.handle('window:apply-default-size', (_event, { width }) => {
     if (!mainWindow) return;
@@ -271,14 +313,22 @@ function registerWindowHandlers() {
     mainWindow.setContentSize(nextWidth, currentHeight);
   });
 
-  ipcMain.handle('window:sync-header-layout', async (_event, { defaultWidth, updateMinWidth }) => {
+  ipcMain.handle('window:sync-header-layout', async (_event, { defaultWidth, updateMinWidth, lockToCurrentWidth, replaceMinimum }) => {
     if (!mainWindow) return { width: 0, minWidth: 0 };
 
     const measuredMin = Math.max(Number(defaultWidth) || 0, UI_HEADER_MIN_WIDTH_FALLBACK);
 
     if (updateMinWidth) {
-      const { nextWidth, currentHeight, enforcedMinWidth: enforced } = applyMeasuredMinWidth(measuredMin);
-      await saveWindowState({ width: nextWidth, height: currentHeight, minWidth: enforced });
+      const { nextWidth, currentHeight } = applyMeasuredMinWidth(measuredMin, {
+        lockToCurrentWidth: Boolean(lockToCurrentWidth),
+        replaceMinimum: Boolean(replaceMinimum),
+      });
+      await saveWindowState({
+        width: nextWidth,
+        height: currentHeight,
+        minWidth: enforcedMinWidth,
+        minHeight: enforcedMinHeight,
+      });
     }
 
     const [width] = mainWindow.getContentSize();

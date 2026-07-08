@@ -100,6 +100,7 @@ export const REQUIREMENT_IMPORT_FIELDS = [
   'category',
   'priority',
   'status',
+  'other',
 ];
 
 function columnToLetter(colNumber) {
@@ -411,7 +412,7 @@ function colIndexFromColumnMapping(columns) {
     const index = Number(column.index);
     if (!index) continue;
 
-    if (column.field === 'description' || column.field === 'descriptionExtra' || column.field === 'classification') {
+    if (column.field === 'description' || column.field === 'descriptionExtra' || column.field === 'classification' || column.field === 'other') {
       const multiKey = `_${column.field}Columns`;
       if (!colIndex[multiKey]) colIndex[multiKey] = [];
       colIndex[multiKey].push(index);
@@ -432,7 +433,7 @@ function colIndexToFieldByColumn(colIndex) {
     if (field.startsWith('_') || typeof colNumber !== 'number') continue;
     fieldByColumn[colNumber] = field;
   }
-  for (const field of ['description', 'descriptionExtra', 'classification']) {
+  for (const field of ['description', 'descriptionExtra', 'classification', 'other']) {
     const multiKey = `_${field}Columns`;
     if (colIndex[multiKey]) {
       for (const colNumber of colIndex[multiKey]) {
@@ -545,7 +546,8 @@ function readRequirementRows(sheet, columnMapping = null) {
     const classification = readCellText(row, colIndex, 'classification');
     const description = readCellText(row, colIndex, 'description');
     const descriptionExtra = readCellText(row, colIndex, 'descriptionExtra');
-    const mergedDescription = [description, descriptionExtra].filter(Boolean).join('\n\n');
+    const other = readCellText(row, colIndex, 'other');
+    const mergedDescription = [description, descriptionExtra, other].filter(Boolean).join('\n\n');
     const category = buildCategory(colIndex, row);
     const priority = readCellText(row, colIndex, 'priority');
     const status = readCellText(row, colIndex, 'status');
@@ -866,12 +868,23 @@ export async function exportProjectToWorkbook(db, projectId, requirementIds = nu
   sql += ' ORDER BY r.id ASC';
 
   const requirements = await db.prepare(sql).all(...params);
+  const project = await db.prepare('SELECT name FROM projects WHERE id = ?').get(projectId);
+  const projectName = project?.name || `Project ${projectId}`;
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'MyRequirementsBoard';
   workbook.created = new Date();
 
-  const reqSheet = workbook.addWorksheet('Requirements');
-  reqSheet.columns = [
+  const addTitleRow = (sheet, title, colCount) => {
+    sheet.spliceRows(1, 0, [title]);
+    const row = sheet.getRow(1);
+    row.font = { bold: true, size: 24 };
+    row.height = 40;
+    sheet.mergeCells(1, 1, 1, colCount);
+    row.getCell(1).alignment = { vertical: 'middle' };
+  };
+
+  const REQ_COLS = [
     { header: 'code', key: 'code', width: 14 },
     { header: 'classification', key: 'classification', width: 18 },
     { header: 'title', key: 'title', width: 32 },
@@ -882,19 +895,25 @@ export async function exportProjectToWorkbook(db, projectId, requirementIds = nu
     { header: 'createdBy', key: 'createdBy', width: 16 },
     { header: 'createdAt', key: 'createdAt', width: 22 },
   ];
-  reqSheet.getRow(1).font = { bold: true };
-
-  const tcSheet = workbook.addWorksheet('TestCases');
-  tcSheet.columns = [
-    { header: 'requirementCode', key: 'requirementCode', width: 16 },
+  const TC_COLS = [
     { header: 'code', key: 'code', width: 14 },
+    { header: 'requirementCode', key: 'requirementCode', width: 16 },
     { header: 'title', key: 'title', width: 32 },
     { header: 'description', key: 'description', width: 48 },
     { header: 'steps', key: 'steps', width: 48 },
     { header: 'expectedResult', key: 'expectedResult', width: 36 },
     { header: 'status', key: 'status', width: 12 },
   ];
-  tcSheet.getRow(1).font = { bold: true };
+
+  const reqSheet = workbook.addWorksheet('Requirements');
+  reqSheet.columns = REQ_COLS;
+  addTitleRow(reqSheet, projectName, REQ_COLS.length);
+  reqSheet.getRow(2).font = { bold: true };
+
+  const tcSheet = workbook.addWorksheet('TestCases');
+  tcSheet.columns = TC_COLS;
+  addTitleRow(tcSheet, projectName, TC_COLS.length);
+  tcSheet.getRow(2).font = { bold: true };
 
   for (const req of requirements) {
     reqSheet.addRow({
@@ -915,8 +934,8 @@ export async function exportProjectToWorkbook(db, projectId, requirementIds = nu
 
     for (const tc of testCases) {
       tcSheet.addRow({
-        requirementCode: req.classification || req.code,
         code: tc.code,
+        requirementCode: req.code,
         title: tc.title,
         description: tc.description || '',
         steps: tc.steps || '',

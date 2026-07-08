@@ -1,21 +1,38 @@
-import { useEffect, useState } from 'react';
-import { Check, FolderKanban, KeyRound, Pencil, Save, UserCheck, UserPlus, UserX, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, FolderKanban, KeyRound, Pencil, Save, Trash2, UserCheck, UserPlus, UserX, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { IconButton } from '../components/IconButton.jsx';
 import { openRowContextMenu, useContextMenu } from '../components/ContextMenu.jsx';
+import SortableTableHeader from '../components/SortableTableHeader.jsx';
+import { useTableSort } from '../hooks/useTableSort.js';
+import UserDeleteConfirmDialog from '../components/UserDeleteConfirmDialog.jsx';
+import ErrorDialog from '../components/ErrorDialog.jsx';
+import {
+  REGISTRATION_REQUESTS_TABLE_SORT,
+  USERS_TABLE_SORT,
+  sortRows,
+} from '../lib/tableSort.js';
 import { getDisplayProjectName, getDisplayUserName } from '../lib/displayLabels.js';
+
+function sameId(left, right) {
+  return String(left) === String(right);
+}
+
+function getRoleForProjectId(rolesById = {}, projectId) {
+  return rolesById[projectId] || rolesById[String(projectId)] || 'VIEWER';
+}
 
 function toAssignments(selectedIds, rolesById = {}) {
   return selectedIds.map((projectId) => ({
-    projectId,
-    memberRole: rolesById[projectId] || 'VIEWER',
+    projectId: Number(projectId),
+    memberRole: getRoleForProjectId(rolesById, projectId),
   }));
 }
 
 function fromAssignments(projects) {
-  const ids = projects.map((p) => p.id);
-  const roles = Object.fromEntries(projects.map((p) => [p.id, p.memberRole || 'VIEWER']));
+  const ids = projects.map((p) => Number(p.id));
+  const roles = Object.fromEntries(projects.map((p) => [String(p.id), p.memberRole || 'VIEWER']));
   return { ids, roles };
 }
 
@@ -28,23 +45,25 @@ function ProjectAssignmentList({ projects, selectedIds, rolesById, onChange, dis
   const { t } = useLanguage();
   if (!projects.length) return <p className="muted">{t('projects.noProjectsRegistered')}</p>;
 
+  const isSelected = (projectId) => selectedIds.some((id) => sameId(id, projectId));
+
   const setSelected = (projectId, checked) => {
     const nextIds = checked
-      ? [...selectedIds, projectId]
-      : selectedIds.filter((id) => id !== projectId);
+      ? (isSelected(projectId) ? selectedIds : [...selectedIds, projectId])
+      : selectedIds.filter((id) => !sameId(id, projectId));
     const nextRoles = { ...rolesById };
-    if (checked && !nextRoles[projectId]) nextRoles[projectId] = 'VIEWER';
+    if (checked && !getRoleForProjectId(nextRoles, projectId)) nextRoles[String(projectId)] = 'VIEWER';
     onChange({ projectIds: nextIds, rolesById: nextRoles });
   };
 
   const setRole = (projectId, memberRole) => {
-    onChange({ projectIds: selectedIds, rolesById: { ...rolesById, [projectId]: memberRole } });
+    onChange({ projectIds: selectedIds, rolesById: { ...rolesById, [String(projectId)]: memberRole } });
   };
 
   return (
     <div className="project-member-picker">
       {projects.map((project) => {
-        const selected = selectedIds.includes(project.id);
+        const selected = isSelected(project.id);
         return (
           <div key={project.id} className="project-member-picker__row">
             <label className="project-member-picker__item">
@@ -57,7 +76,7 @@ function ProjectAssignmentList({ projects, selectedIds, rolesById, onChange, dis
               <span className="project-member-picker__label">{projectDisplayLabel(project, t)}</span>
             </label>
             <select
-              value={rolesById[project.id] || 'VIEWER'}
+              value={getRoleForProjectId(rolesById, project.id)}
               disabled={disabled || !selected}
               onChange={(e) => setRole(project.id, e.target.value)}
               aria-label={t('projects.memberRoleFor', { name: project.name })}
@@ -80,6 +99,7 @@ export default function UsersPage() {
   const [allProjects, setAllProjects] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedRequests, setSelectedRequests] = useState([]);
+  const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({
     username: '', password: '', name: '', email: '', role: 'VIEWER', projectIds: [], rolesById: {},
   });
@@ -91,7 +111,98 @@ export default function UsersPage() {
   const [approveRolesById, setApproveRolesById] = useState({});
   const [passwordUserId, setPasswordUserId] = useState(null);
   const [passwordForm, setPasswordForm] = useState({ password: '', confirm: '' });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTargetIds, setDeleteTargetIds] = useState([]);
   const [error, setError] = useState('');
+  const [userColumnWidths, setUserColumnWidths] = useState({
+    select: 56,
+    username: 150,
+    name: 170,
+    email: 220,
+    role: 130,
+    isActive: 110,
+    createdAt: 170,
+    actions: 270,
+  });
+  const userResizeRef = useRef(null);
+  const { sort: requestSort, toggleSort: toggleRequestSort } = useTableSort();
+  const { sort: userSort, toggleSort: toggleUserSort } = useTableSort();
+
+  const getUserColumnOrder = useCallback(() => [
+    'select',
+    'username',
+    'name',
+    'email',
+    'role',
+    'isActive',
+    'createdAt',
+    'actions',
+  ], []);
+
+  const startUserColumnResize = useCallback((columnId, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const order = getUserColumnOrder();
+    const index = order.indexOf(columnId);
+    if (index < 0) return;
+
+    const adjacentColumnId = index < order.length - 1
+      ? order[index + 1]
+      : index > 0
+        ? order[index - 1]
+        : null;
+    if (!adjacentColumnId) return;
+
+    const minWidths = {
+      select: 48,
+      username: 110,
+      name: 120,
+      email: 150,
+      role: 100,
+      isActive: 90,
+      createdAt: 120,
+      actions: 190,
+    };
+
+    const startX = event.clientX;
+    const startWidth = userColumnWidths[columnId] ?? 120;
+    const adjacentStartWidth = userColumnWidths[adjacentColumnId] ?? 120;
+    const minWidth = minWidths[columnId] ?? 90;
+    const adjacentMinWidth = minWidths[adjacentColumnId] ?? 90;
+
+    const onMove = (moveEvent) => {
+      let delta = moveEvent.clientX - startX;
+      const minDeltaForCurrent = minWidth - startWidth;
+      const maxDeltaForAdjacent = adjacentStartWidth - adjacentMinWidth;
+      if (delta < minDeltaForCurrent) delta = minDeltaForCurrent;
+      if (delta > maxDeltaForAdjacent) delta = maxDeltaForAdjacent;
+
+      setUserColumnWidths((prev) => ({
+        ...prev,
+        [columnId]: startWidth + delta,
+        [adjacentColumnId]: adjacentStartWidth - delta,
+      }));
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      userResizeRef.current = null;
+      document.body.classList.remove('requirements-table--resizing');
+    };
+
+    userResizeRef.current = { onMove, onUp };
+    document.body.classList.add('requirements-table--resizing');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [userColumnWidths, getUserColumnOrder]);
+
+  useEffect(() => () => {
+    if (!userResizeRef.current) return;
+    document.removeEventListener('mousemove', userResizeRef.current.onMove);
+    document.removeEventListener('mouseup', userResizeRef.current.onUp);
+    document.body.classList.remove('requirements-table--resizing');
+  }, []);
 
   const load = async () => {
     const [userList, reqList, projectList] = await Promise.all([
@@ -108,6 +219,39 @@ export default function UsersPage() {
 
   useEffect(() => { load().catch((e) => setError(e.message)); }, []);
 
+  const sortedRequests = useMemo(
+    () => sortRows(requests, requestSort, REGISTRATION_REQUESTS_TABLE_SORT),
+    [requests, requestSort],
+  );
+
+  const sortedUsers = useMemo(
+    () => sortRows(users, userSort, USERS_TABLE_SORT),
+    [users, userSort],
+  );
+
+  const selectableUserIds = useMemo(
+    () => sortedUsers.filter((u) => u.role !== 'ADMIN').map((u) => u.id),
+    [sortedUsers],
+  );
+
+  const checkedUserIds = useMemo(
+    () => selectedUsers.filter((id) => selectableUserIds.some((x) => sameId(x, id))),
+    [selectedUsers, selectableUserIds],
+  );
+
+  const allChecked = selectableUserIds.length > 0
+    && selectableUserIds.every((id) => checkedUserIds.some((x) => sameId(x, id)));
+
+  const getColumnSortTitle = (sortState, columnId, label) => {
+    const isActive = sortState?.columnId === columnId;
+    const directionLabel = isActive
+      ? (sortState.direction === 'asc' ? t('common.sortAscending') : t('common.sortDescending'))
+      : '';
+    return isActive
+      ? `${t('common.sortColumn', { column: label })} (${directionLabel})`
+      : t('common.sortColumn', { column: label });
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setError('');
@@ -119,6 +263,54 @@ export default function UsersPage() {
       setForm({
         username: '', password: '', name: '', email: '', role: 'VIEWER', projectIds: [], rolesById: {},
       });
+      setCreateOpen(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const toggleUserChecked = (userId, checked) => {
+    setSelectedUsers((prev) => {
+      if (checked) {
+        if (prev.some((id) => sameId(id, userId))) return prev;
+        return [...prev, userId];
+      }
+      return prev.filter((id) => !sameId(id, userId));
+    });
+  };
+
+  const toggleUserCheckAll = (checked) => {
+    if (checked) {
+      setSelectedUsers(selectableUserIds);
+      return;
+    }
+    setSelectedUsers([]);
+  };
+
+  const deleteUsersByIds = (ids) => {
+    const targets = (Array.isArray(ids) ? ids : [ids])
+      .filter((id) => users.some((u) => sameId(u.id, id) && u.role !== 'ADMIN'));
+    if (!targets.length) return;
+    setDeleteTargetIds(targets);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteUsers = async () => {
+    setDeleteDialogOpen(false);
+    try {
+      for (const id of deleteTargetIds) {
+        await api.deleteUser(id);
+      }
+      setSelectedUsers((prev) => prev.filter((id) => !deleteTargetIds.some((targetId) => sameId(targetId, id))));
+      if (editUserId && deleteTargetIds.some((id) => sameId(id, editUserId))) {
+        setEditUserId(null);
+        setEditForm(null);
+      }
+      if (passwordUserId && deleteTargetIds.some((id) => sameId(id, passwordUserId))) {
+        setPasswordUserId(null);
+      }
+      setDeleteTargetIds([]);
       await load();
     } catch (err) {
       setError(err.message);
@@ -189,7 +381,9 @@ export default function UsersPage() {
       name: user.name,
       email: user.email || '',
       role: user.role,
+      passwordCurrent: '',
       password: '',
+      passwordConfirm: '',
       isActive: user.isActive,
       isProtected: user.username === 'admin',
     });
@@ -208,6 +402,14 @@ export default function UsersPage() {
     e.preventDefault();
     if (!editUserId || !editForm) return;
     setError('');
+
+    const changingPassword = editForm.passwordCurrent || editForm.password || editForm.passwordConfirm;
+    if (changingPassword) {
+      if (!editForm.passwordCurrent) { setError(t('users.existingPasswordRequired')); return; }
+      if (!editForm.password) { setError(t('users.passwordRequired')); return; }
+      if (editForm.password !== editForm.passwordConfirm) { setError(t('users.passwordMismatch')); return; }
+    }
+
     try {
       const payload = {
         username: editForm.username,
@@ -217,8 +419,8 @@ export default function UsersPage() {
         isActive: editForm.isActive,
       };
       await api.updateUser(editUserId, payload);
-      if (editForm.password) {
-        await api.changeUserPassword(editUserId, editForm.password);
+      if (changingPassword) {
+        await api.changeUserPassword(editUserId, editForm.passwordCurrent, editForm.password);
       }
       if (editForm.role !== 'ADMIN') {
         await api.setUserProjects(editUserId, toAssignments(editProjectIds, editRolesById));
@@ -251,6 +453,7 @@ export default function UsersPage() {
       multiSelect: true,
       items: (selection) => {
         const targets = users.filter((u) => selection.includes(u.id) && u.username !== 'admin');
+        const deletableTargets = targets.filter((u) => u.role !== 'ADMIN');
         const menu = [];
 
         if (selection.length === 1) {
@@ -306,6 +509,18 @@ export default function UsersPage() {
             },
           });
         }
+        if (deletableTargets.length > 0) {
+          menu.push({
+            id: 'bulk-delete',
+            icon: Trash2,
+            label: t('users.bulkDelete', { count: deletableTargets.length }),
+            tooltip: t('users.tipDelete'),
+            danger: true,
+            onClick: async () => {
+              await deleteUsersByIds(deletableTargets.map((u) => u.id));
+            },
+          });
+        }
 
         return menu;
       },
@@ -358,9 +573,15 @@ export default function UsersPage() {
 
   return (
     <div className="container">
+      <UserDeleteConfirmDialog
+        open={deleteDialogOpen}
+        count={deleteTargetIds.length}
+        onConfirm={confirmDeleteUsers}
+        onCancel={() => { setDeleteDialogOpen(false); setDeleteTargetIds([]); }}
+      />
+      <ErrorDialog message={error} onClose={() => setError('')} />
       <h1>{t('users.title')}</h1>
       <p className="muted">{t('users.intro')}</p>
-      {error && <p className="error">{error}</p>}
 
       {requests.length > 0 && (
         <div className="card">
@@ -377,12 +598,42 @@ export default function UsersPage() {
               }}
             />
           </div>
-          <table>
+          <table className="users-table">
             <thead>
-              <tr><th>{t('common.id')}</th><th>{t('common.name')}</th><th>{t('common.email')}</th><th>{t('users.requestedAt')}</th><th></th></tr>
+              <tr>
+                <SortableTableHeader
+                  columnId="username"
+                  label={t('common.id')}
+                  sort={requestSort}
+                  onSort={toggleRequestSort}
+                  title={getColumnSortTitle(requestSort, 'username', t('common.id'))}
+                />
+                <SortableTableHeader
+                  columnId="name"
+                  label={t('common.name')}
+                  sort={requestSort}
+                  onSort={toggleRequestSort}
+                  title={getColumnSortTitle(requestSort, 'name', t('common.name'))}
+                />
+                <SortableTableHeader
+                  columnId="email"
+                  label={t('common.email')}
+                  sort={requestSort}
+                  onSort={toggleRequestSort}
+                  title={getColumnSortTitle(requestSort, 'email', t('common.email'))}
+                />
+                <SortableTableHeader
+                  columnId="createdAt"
+                  label={t('users.requestedAt')}
+                  sort={requestSort}
+                  onSort={toggleRequestSort}
+                  title={getColumnSortTitle(requestSort, 'createdAt', t('users.requestedAt'))}
+                />
+                <th aria-hidden="true" />
+              </tr>
             </thead>
             <tbody>
-              {requests.map((r) => (
+              {sortedRequests.map((r) => (
                 <tr
                   key={r.id}
                   className={`row-selectable${selectedRequests.includes(r.id) ? ' row-selected' : ''}`}
@@ -410,47 +661,66 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="card">
-        <h2>{t('users.newUser')}</h2>
-        <form onSubmit={handleCreate}>
-          <div className="form-row">
-            <label>{t('common.id')}</label>
-            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder={t('users.loginIdPlaceholder')} required />
-          </div>
-          <div className="form-row">
-            <label>{t('users.defaultPassword')}</label>
-            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder={t('users.initialPasswordPlaceholder')} required />
-          </div>
-          <div className="form-row">
-            <label>{t('common.name')}</label>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          </div>
-          <div className="form-row">
-            <label>{t('common.email')}</label>
-            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder={t('users.emailPlaceholder')} />
-          </div>
-          <div className="form-row">
-            <label>{t('users.systemRole')}</label>
-            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              <option value="VIEWER">{t('role.global.VIEWER')}</option>
-              <option value="EDITOR">{t('role.global.EDITOR')}</option>
-              <option value="ADMIN">{t('role.global.ADMIN')}</option>
-            </select>
-          </div>
-          {form.role !== 'ADMIN' && (
-            <div className="form-row">
-              <label>{t('users.participateProjects')}</label>
-              <ProjectAssignmentList
-                projects={allProjects.filter((p) => p.isActive)}
-                selectedIds={form.projectIds}
-                rolesById={form.rolesById}
-                onChange={({ projectIds, rolesById }) => setForm({ ...form, projectIds, rolesById })}
-              />
+      {createOpen && (
+        <div className="modal-overlay" onClick={() => setCreateOpen(false)} role="presentation">
+          <div
+            className="modal-dialog test-case-edit-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-user-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="test-case-edit-dialog__header">
+              <h2 id="create-user-title">{t('users.newUser')}</h2>
             </div>
-          )}
-          <IconButton icon={UserPlus} className="btn-primary" type="submit" tooltip={t('users.tipCreate')}>{t('common.create')}</IconButton>
-        </form>
-      </div>
+            <div className="test-case-edit-dialog__body">
+              <form onSubmit={handleCreate}>
+                <div className="form-row">
+                  <label>{t('common.id')}</label>
+                  <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder={t('users.loginIdPlaceholder')} required />
+                </div>
+                <div className="form-row">
+                  <label>{t('users.defaultPassword')}</label>
+                  <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder={t('users.initialPasswordPlaceholder')} required />
+                </div>
+                <div className="form-row">
+                  <label>{t('common.name')}</label>
+                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+                </div>
+                <div className="form-row">
+                  <label>{t('common.email')}</label>
+                  <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder={t('users.emailPlaceholder')} />
+                </div>
+                <div className="form-row">
+                  <label>{t('users.systemRole')}</label>
+                  <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                    <option value="VIEWER">{t('role.global.VIEWER')}</option>
+                    <option value="EDITOR">{t('role.global.EDITOR')}</option>
+                    <option value="ADMIN">{t('role.global.ADMIN')}</option>
+                  </select>
+                </div>
+                {form.role !== 'ADMIN' && (
+                  <div className="form-row">
+                    <label>{t('users.participateProjects')}</label>
+                    <ProjectAssignmentList
+                      projects={allProjects.filter((p) => p.isActive)}
+                      selectedIds={form.projectIds}
+                      rolesById={form.rolesById}
+                      onChange={({ projectIds, rolesById }) => setForm({ ...form, projectIds, rolesById })}
+                    />
+                  </div>
+                )}
+                <div className="form-actions">
+                  <IconButton icon={UserPlus} className="btn-primary" type="submit" tooltip={t('users.tipCreate')}>{t('common.create')}</IconButton>
+                  <IconButton icon={X} className="btn-secondary" type="button" onClick={() => setCreateOpen(false)} tooltip={t('users.tipCancel')}>
+                    {t('common.cancel')}
+                  </IconButton>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editUser && editForm && (
         <div className="card">
@@ -483,12 +753,32 @@ export default function UsersPage() {
               />
             </div>
             <div className="form-row">
-              <label>{t('users.passwordChange')}</label>
+              <label>{t('users.existingPassword')}</label>
+              <input
+                type="password"
+                value={editForm.passwordCurrent}
+                onChange={(e) => setEditForm({ ...editForm, passwordCurrent: e.target.value })}
+                placeholder={t('users.existingPasswordPlaceholder')}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="form-row">
+              <label>{t('users.newPassword')}</label>
               <input
                 type="password"
                 value={editForm.password}
                 onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                placeholder={t('users.changePasswordPlaceholder')}
+                placeholder={t('users.newPasswordPlaceholder')}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="form-row">
+              <label>{t('users.confirmPassword')}</label>
+              <input
+                type="password"
+                value={editForm.passwordConfirm}
+                onChange={(e) => setEditForm({ ...editForm, passwordConfirm: e.target.value })}
+                placeholder={t('users.confirmPasswordPlaceholder')}
                 autoComplete="new-password"
               />
             </div>
@@ -506,13 +796,13 @@ export default function UsersPage() {
             </div>
             {!editForm.isProtected && (
               <div className="form-row">
-                <label>
+                <label className="project-active-toggle">
                   <input
                     type="checkbox"
                     checked={editForm.isActive}
                     onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
                   />
-                  {' '}{t('users.activeAccount')}
+                  {t('users.activeAccount')}
                 </label>
               </div>
             )}
@@ -580,18 +870,136 @@ export default function UsersPage() {
         </div>
       )}
 
-      <table>
+      {!editUser && !editForm && (
+      <div className="form-actions" style={{ marginBottom: 8, justifyContent: 'space-between' }}>
+        <IconButton
+          icon={UserPlus}
+          className="btn-primary"
+          type="button"
+          onClick={() => {
+            setError('');
+            setForm({
+              username: '', password: '', name: '', email: '', role: 'VIEWER', projectIds: [], rolesById: {},
+            });
+            setCreateOpen(true);
+          }}
+          tooltip={t('users.tipCreate')}
+        >
+          {t('users.newUser')}
+        </IconButton>
+        <IconButton
+          icon={Trash2}
+          className="btn-danger"
+          type="button"
+          onClick={() => deleteUsersByIds(checkedUserIds)}
+          disabled={checkedUserIds.length === 0}
+          tooltip={t('users.tipDelete')}
+        >
+          {t('common.selectDelete', { count: checkedUserIds.length })}
+        </IconButton>
+      </div>
+      )}
+
+      {!editUser && !editForm && (
+      <table className="users-table users-list-table">
+        <colgroup>
+          <col style={{ width: `${userColumnWidths.select}px` }} />
+          <col style={{ width: `${userColumnWidths.username}px` }} />
+          <col style={{ width: `${userColumnWidths.name}px` }} />
+          <col style={{ width: `${userColumnWidths.email}px` }} />
+          <col style={{ width: `${userColumnWidths.role}px` }} />
+          <col style={{ width: `${userColumnWidths.isActive}px` }} />
+          <col style={{ width: `${userColumnWidths.createdAt}px` }} />
+          <col style={{ width: `${userColumnWidths.actions}px` }} />
+        </colgroup>
         <thead>
-          <tr><th>{t('common.id')}</th><th>{t('common.name')}</th><th>{t('common.email')}</th><th>{t('users.systemRoleCol')}</th><th>{t('common.status')}</th><th>{t('common.createdAt')}</th><th></th></tr>
+          <tr>
+            <th>
+              <input
+                type="checkbox"
+                checked={allChecked}
+                onChange={(e) => toggleUserCheckAll(e.target.checked)}
+                aria-label={t('common.selectAll')}
+                disabled={selectableUserIds.length === 0}
+              />
+              <span className="requirements-table__resize-handle" role="separator" aria-label={t('requirements.resizeColumn')} onMouseDown={(e) => startUserColumnResize('select', e)} />
+            </th>
+            <SortableTableHeader
+              columnId="username"
+              label={t('common.id')}
+              sort={userSort}
+              onSort={toggleUserSort}
+              title={getColumnSortTitle(userSort, 'username', t('common.id'))}
+            >
+              <span className="requirements-table__resize-handle" role="separator" aria-label={t('requirements.resizeColumn')} onMouseDown={(e) => startUserColumnResize('username', e)} />
+            </SortableTableHeader>
+            <SortableTableHeader
+              columnId="name"
+              label={t('common.name')}
+              sort={userSort}
+              onSort={toggleUserSort}
+              title={getColumnSortTitle(userSort, 'name', t('common.name'))}
+            >
+              <span className="requirements-table__resize-handle" role="separator" aria-label={t('requirements.resizeColumn')} onMouseDown={(e) => startUserColumnResize('name', e)} />
+            </SortableTableHeader>
+            <SortableTableHeader
+              columnId="email"
+              label={t('common.email')}
+              sort={userSort}
+              onSort={toggleUserSort}
+              title={getColumnSortTitle(userSort, 'email', t('common.email'))}
+            >
+              <span className="requirements-table__resize-handle" role="separator" aria-label={t('requirements.resizeColumn')} onMouseDown={(e) => startUserColumnResize('email', e)} />
+            </SortableTableHeader>
+            <SortableTableHeader
+              columnId="role"
+              label={t('users.systemRoleCol')}
+              sort={userSort}
+              onSort={toggleUserSort}
+              title={getColumnSortTitle(userSort, 'role', t('users.systemRoleCol'))}
+            >
+              <span className="requirements-table__resize-handle" role="separator" aria-label={t('requirements.resizeColumn')} onMouseDown={(e) => startUserColumnResize('role', e)} />
+            </SortableTableHeader>
+            <SortableTableHeader
+              columnId="isActive"
+              label={t('common.status')}
+              sort={userSort}
+              onSort={toggleUserSort}
+              title={getColumnSortTitle(userSort, 'isActive', t('common.status'))}
+            >
+              <span className="requirements-table__resize-handle" role="separator" aria-label={t('requirements.resizeColumn')} onMouseDown={(e) => startUserColumnResize('isActive', e)} />
+            </SortableTableHeader>
+            <SortableTableHeader
+              columnId="createdAt"
+              label={t('common.createdAt')}
+              sort={userSort}
+              onSort={toggleUserSort}
+              title={getColumnSortTitle(userSort, 'createdAt', t('common.createdAt'))}
+            >
+              <span className="requirements-table__resize-handle" role="separator" aria-label={t('requirements.resizeColumn')} onMouseDown={(e) => startUserColumnResize('createdAt', e)} />
+            </SortableTableHeader>
+            <th aria-hidden="true">
+              <span className="requirements-table__resize-handle" role="separator" aria-label={t('requirements.resizeColumn')} onMouseDown={(e) => startUserColumnResize('actions', e)} />
+            </th>
+          </tr>
         </thead>
         <tbody>
-          {users.map((u) => (
+          {sortedUsers.map((u) => (
             <tr
               key={u.id}
               className={`row-selectable${selectedUsers.includes(u.id) ? ' row-selected' : ''}`}
               onClick={(e) => handleUserRowClick(e, u)}
               onContextMenu={(e) => handleUserContextMenu(e, u)}
             >
+              <td onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selectedUsers.some((id) => sameId(id, u.id))}
+                  disabled={u.role === 'ADMIN'}
+                  onChange={(e) => toggleUserChecked(u.id, e.target.checked)}
+                  aria-label={`${t('common.selectAll')} ${u.username}`}
+                />
+              </td>
               <td>{u.username}</td>
               <td>{getDisplayUserName(u, t)}</td>
               <td>{u.email || t('common.dash')}</td>
@@ -599,28 +1007,39 @@ export default function UsersPage() {
               <td>{u.isActive ? t('common.active') : t('common.inactive')}</td>
               <td>{u.createdAt}</td>
               <td onClick={(e) => e.stopPropagation()}>
-                <IconButton icon={Pencil} className="btn-secondary" type="button" onClick={() => openUserEdit(u)} tooltip={t('users.tipEdit')}>
-                  {t('common.edit')}
-                </IconButton>
-                <IconButton icon={KeyRound} className="btn-secondary" type="button" onClick={() => openPasswordChange(u)} tooltip={t('users.tipChangePassword')}>
-                  {t('users.password')}
-                </IconButton>
-                {u.username !== 'admin' && (
-                  <IconButton
-                    icon={u.isActive ? UserX : UserCheck}
-                    className="btn-secondary"
-                    type="button"
-                    onClick={() => toggleActive(u)}
-                    tooltip={u.isActive ? t('users.tipToggle') : t('users.tipToggleOn')}
-                  >
-                    {u.isActive ? t('users.deactivate') : t('users.activate')}
+                <div className="form-actions">
+                  <IconButton icon={Pencil} className="btn-secondary" type="button" onClick={() => openUserEdit(u)} tooltip={t('users.tipEdit')}>
+                    {t('common.edit')}
                   </IconButton>
-                )}
+                  {u.username !== 'admin' && (
+                    <IconButton
+                      icon={u.isActive ? UserX : UserCheck}
+                      className="btn-secondary"
+                      type="button"
+                      onClick={() => toggleActive(u)}
+                      tooltip={u.isActive ? t('users.tipToggle') : t('users.tipToggleOn')}
+                    >
+                      {u.isActive ? t('users.deactivate') : t('users.activate')}
+                    </IconButton>
+                  )}
+                  {u.role !== 'ADMIN' && (
+                    <IconButton
+                      icon={Trash2}
+                      className="btn-danger"
+                      type="button"
+                      onClick={() => deleteUsersByIds([u.id])}
+                      tooltip={t('users.tipDelete')}
+                    >
+                      {t('common.delete')}
+                    </IconButton>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      )}
     </div>
   );
 }

@@ -1,37 +1,100 @@
-import { useEffect } from 'react';
-import { FileDown, FileUp, X } from 'lucide-react';
-import { downloadExcelExport } from '../api/client.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useState, useEffect } from 'react';
+import { CheckCircle2, FileDown, Loader2, X } from 'lucide-react';
 import { useProject } from '../context/ProjectContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useExcelDialogs } from '../context/ExcelDialogContext.jsx';
 import { IconButton } from './IconButton.jsx';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
+import { exportExcelToFile } from '../lib/excelFileActions.js';
 
 export default function ExcelExportDialog() {
-  const { hasRole } = useAuth();
   const { activeProject } = useProject();
   const { t } = useLanguage();
-  const { exportOpen, exportSelectedIds, closeExport, openImport } = useExcelDialogs();
+  const { exportOpen, exportSelectedIds, closeExport } = useExcelDialogs();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    if (!exportOpen) {
+      setBusy(false);
+      setError('');
+      setResult(null);
+    }
+  }, [exportOpen]);
 
   useEffect(() => {
     if (!exportOpen) return undefined;
     const onKey = (e) => {
-      if (e.key === 'Escape') closeExport();
+      if (e.key === 'Escape' && !busy) closeExport();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [exportOpen, closeExport]);
+  }, [exportOpen, busy, closeExport]);
 
   if (!exportOpen) return null;
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!activeProject) return;
-    downloadExcelExport(activeProject.id, exportSelectedIds?.length ? exportSelectedIds : null);
+    setBusy(true);
+    setError('');
+    setResult(null);
+    try {
+      const exported = await exportExcelToFile(
+        activeProject.id,
+        exportSelectedIds?.length ? exportSelectedIds : null,
+      );
+      if (exported) {
+        setResult(exported);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
+  const handleClose = () => {
+    if (!busy) closeExport();
+  };
+
+  if (result) {
+    return (
+      <div className="modal-overlay import-result-overlay" onClick={handleClose} role="presentation">
+        <div
+          className="modal-dialog excel-result-dialog excel-result-dialog--success"
+          role="alertdialog"
+          aria-labelledby="excel-export-result-title"
+          aria-modal="true"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <header className="excel-result-dialog__header">
+            <div className="excel-result-dialog__title-wrap">
+              <CheckCircle2 size={22} strokeWidth={2} aria-hidden="true" className="excel-result-dialog__icon excel-result-dialog__icon--success" />
+              <h2 id="excel-export-result-title">{t('export.successTitle')}</h2>
+            </div>
+            <button type="button" className="modal-close" onClick={handleClose} aria-label={t('common.close')}>
+              <X size={18} strokeWidth={2} />
+            </button>
+          </header>
+          <div className="excel-result-dialog__body">
+            <p className="success">{t('export.successMessage', { fileName: result.fileName })}</p>
+            {result.filePath && (
+              <p className="muted excel-export-result__path">{result.filePath}</p>
+            )}
+          </div>
+          <footer className="excel-result-dialog__footer">
+            <button type="button" className="btn btn-primary" onClick={handleClose} autoFocus>
+              {t('common.confirm')}
+            </button>
+          </footer>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="modal-overlay" onClick={closeExport} role="presentation">
+    <div className="modal-overlay" onClick={handleClose} role="presentation">
       <div
         className="modal-dialog excel-dialog"
         role="dialog"
@@ -41,7 +104,7 @@ export default function ExcelExportDialog() {
       >
         <header className="excel-dialog__header">
           <h2 id="excel-export-title">{t('export.title')}</h2>
-          <button type="button" className="modal-close" onClick={closeExport} aria-label={t('common.close')}>
+          <button type="button" className="modal-close" onClick={handleClose} disabled={busy} aria-label={t('common.close')}>
             <X size={18} strokeWidth={2} />
           </button>
         </header>
@@ -61,34 +124,28 @@ export default function ExcelExportDialog() {
               )}
             </>
           )}
+          {error && <p className="error">{error}</p>}
         </div>
 
         <footer className="excel-dialog__footer">
           {activeProject && (
             <IconButton
-              icon={FileDown}
+              icon={busy ? Loader2 : FileDown}
               className="btn-primary"
               type="button"
               onClick={handleExport}
+              disabled={busy}
+              iconClassName={busy ? 'icon-spin' : ''}
               tooltip={t('export.tipDownload')}
             >
-              {exportSelectedIds?.length
-                ? t('export.exportSelected', { count: exportSelectedIds.length })
-                : t('export.exportAll')}
+              {busy
+                ? t('export.exporting')
+                : exportSelectedIds?.length
+                  ? t('export.exportSelected', { count: exportSelectedIds.length })
+                  : t('export.exportAll')}
             </IconButton>
           )}
-          {hasRole('EDITOR') && (
-            <IconButton
-              icon={FileUp}
-              className="btn-secondary"
-              type="button"
-              onClick={() => openImport()}
-              tooltip={t('export.tipImportDialog')}
-            >
-              {t('export.importLink')}
-            </IconButton>
-          )}
-          <button type="button" className="btn btn-secondary" onClick={closeExport}>
+          <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={busy}>
             {t('common.close')}
           </button>
         </footer>

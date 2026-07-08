@@ -3,6 +3,7 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { IconButton } from '../components/IconButton.jsx';
+import ErrorDialog from '../components/ErrorDialog.jsx';
 
 export default function OllamaPage() {
   const { t, language } = useLanguage();
@@ -62,7 +63,7 @@ export default function OllamaPage() {
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      <ErrorDialog message={error} onClose={() => setError('')} />
 
       <form onSubmit={handleRefine} className="card">
         <div className="form-row">

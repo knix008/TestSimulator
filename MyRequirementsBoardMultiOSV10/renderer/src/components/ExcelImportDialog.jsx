@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileDown, FileUp, FolderOpen, Loader2, RotateCcw, X } from 'lucide-react';
+
 import { api, downloadExcelSample } from '../api/client.js';
 import { useProject } from '../context/ProjectContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
@@ -22,6 +23,7 @@ const MAPPABLE_FIELDS = [
   'category',
   'priority',
   'status',
+  'other',
 ];
 
 function buildColumnMapping(selectedSheet, headerRow, columns) {
@@ -40,7 +42,7 @@ export default function ExcelImportDialog() {
   const { activeProject, canEditProject } = useProject();
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { importOpen, closeImport, openExport, notifyDataChange } = useExcelDialogs();
+  const { importOpen, closeImport, notifyDataChange } = useExcelDialogs();
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [generateTestCases, setGenerateTestCases] = useState(true);
@@ -444,16 +446,6 @@ export default function ExcelImportDialog() {
                 tooltip={t('import.tipImport')}
               >
                 {busy ? t('import.importing') : t('import.import')}
-              </IconButton>
-              <IconButton
-                icon={FileDown}
-                className="btn-secondary"
-                type="button"
-                onClick={() => openExport()}
-                disabled={busy}
-                tooltip={t('import.tipExportDialog')}
-              >
-                {t('import.exportLink')}
               </IconButton>
             </>
           )}

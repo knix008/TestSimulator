@@ -1,15 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckSquare, Pencil, Search, Square, Trash2 } from 'lucide-react';
+import { CheckSquare, Pencil, Plus, Search, Sparkles, Square, Trash2 } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useProject } from '../context/ProjectContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { useUndoHistory } from '../context/UndoHistoryContext.jsx';
+import { useExcelDialogs } from '../context/ExcelDialogContext.jsx';
 import { IconButton } from '../components/IconButton.jsx';
 import { openRowContextMenu, useContextMenu } from '../components/ContextMenu.jsx';
 import TableInlineSelect from '../components/TableInlineSelect.jsx';
+import SortableTableHeader from '../components/SortableTableHeader.jsx';
+import AiRefineConfirmDialog from '../components/AiRefineConfirmDialog.jsx';
+import DeleteConfirmDialog from '../components/DeleteConfirmDialog.jsx';
+import ErrorDialog from '../components/ErrorDialog.jsx';
 import TestCaseEditDialog from '../components/TestCaseEditDialog.jsx';
+import { useAiRefineJob } from '../context/AiRefineContext.jsx';
+import { useAiRefineRowHighlight } from '../hooks/useAiRefineRowHighlight.js';
+import { useAiRefinePageSync } from '../hooks/useAiRefinePageSync.js';
 import { useTestCasesTableColumns } from '../hooks/useTestCasesTableColumns.js';
+import { useTableSort } from '../hooks/useTableSort.js';
+import { usePageToolbarLayout } from '../hooks/usePageToolbarLayout.js';
+import { useStatusBarReport } from '../hooks/useStatusBarReport.js';
+import { TEST_CASES_TABLE_SORT, sortRows } from '../lib/tableSort.js';
 import { toTestCasesColumnPercentWidth } from '../lib/testCasesTableLayout.js';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
+import { hasTestCaseRefineGap } from '../lib/aiRefineEligibility.js';
 
 const TC_STATUS_KEYS = ['NOT_RUN', 'PASS', 'FAIL', 'BLOCKED'];
 
@@ -19,14 +33,31 @@ export default function TestCasesPage() {
     canEditProject,
     updateActiveProjectUiSettings,
   } = useProject();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { subscribe } = useUndoHistory();
+  const { subscribeDataChange } = useExcelDialogs();
   const { openContextMenu } = useContextMenu();
   const [items, setItems] = useState([]);
   const [requirements, setRequirements] = useState([]);
   const [filters, setFilters] = useState({ q: '', status: '', requirementId: '' });
   const [error, setError] = useState('');
+  const [aiRefineConfirm, setAiRefineConfirm] = useState(null);
+  const [deletePending, setDeletePending] = useState(null);
+  const refineJob = useAiRefineJob('testCases');
+  const refining = refineJob.refining && refineJob.projectId === activeProject?.id;
+  const refineProgress = refining ? refineJob.progress : null;
+  const refinedRowIds = refineJob.projectId === activeProject?.id ? refineJob.refinedRowIds : [];
+  const {
+    resetRefineState,
+    applyRowCommitted,
+    isCellRefined,
+  } = useAiRefineRowHighlight({
+    tableFieldKeys: ['title', 'description', 'steps', 'expectedResult', 'status'],
+  });
   const [selected, setSelected] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
+  const { sort, toggleSort } = useTableSort();
+  usePageToolbarLayout([selected.length, refining, canEditProject, language]);
 
   const {
     columns,
@@ -45,9 +76,42 @@ export default function TestCasesPage() {
     requirement: t('testCasesPage.requirement'),
     title: t('common.title'),
     description: t('common.description'),
+    steps: t('requirements.steps'),
+    expectedResult: t('requirements.expectedResult'),
     status: t('common.status'),
     updatedAt: t('common.updatedAt'),
   }), [t]);
+
+  const sortedItems = useMemo(
+    () => sortRows(items, sort, TEST_CASES_TABLE_SORT),
+    [items, sort],
+  );
+
+  const statusHint = useMemo(() => {
+    if (selected.length > 0) return t('statusBar.selectedCount', { count: selected.length });
+    return t('statusBar.itemCount', { count: items.length });
+  }, [selected.length, items.length, t]);
+
+  useStatusBarReport({
+    hint: statusHint,
+  });
+
+  useAiRefinePageSync('testCases', {
+    applyRowCommitted,
+    setItems,
+    mapMergedRow: (row, merged) => ({ ...row, ...merged, updatedAt: new Date().toISOString() }),
+  });
+
+  const getSortTitle = (columnId) => {
+    const label = columnLabels[columnId];
+    const isActive = sort?.columnId === columnId;
+    const directionLabel = isActive
+      ? (sort.direction === 'asc' ? t('common.sortAscending') : t('common.sortDescending'))
+      : '';
+    return isActive
+      ? `${t('common.sortColumn', { column: label })} (${directionLabel})`
+      : t('common.sortColumn', { column: label });
+  };
 
   const load = async () => {
     if (!activeProject) return;
@@ -62,12 +126,23 @@ export default function TestCasesPage() {
     ]);
     setItems(testCases);
     setRequirements(requirementList);
+    if (filters.requirementId && !requirementList.some((req) => String(req.id) === String(filters.requirementId))) {
+      setFilters((prev) => ({ ...prev, requirementId: '' }));
+    }
     setSelected([]);
   };
 
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [activeProject, filters.status, filters.requirementId]);
+
+  useEffect(() => subscribe(() => {
+    load().catch((e) => setError(e.message));
+  }), [activeProject, subscribe]);
+
+  useEffect(() => subscribeDataChange(() => {
+    load().catch((e) => setError(e.message));
+  }), [activeProject, subscribeDataChange]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -76,6 +151,27 @@ export default function TestCasesPage() {
 
   const openEdit = (item) => {
     setEditingItem(item);
+  };
+
+  const openCreate = () => {
+    const preferredRequirementId = String(
+      filters.requirementId || (requirements.length === 1 ? requirements[0].id : ''),
+    );
+    const requirement = requirements.find((req) => String(req.id) === preferredRequirementId);
+
+    setEditingItem({
+      id: null,
+      code: '',
+      title: '',
+      description: '',
+      steps: '',
+      expectedResult: '',
+      status: 'NOT_RUN',
+      requirementId: preferredRequirementId ? Number(preferredRequirementId) : '',
+      requirementCode: requirement?.code || '',
+      requirementTitle: requirement?.title || '',
+      __isNew: true,
+    });
   };
 
   const closeEdit = () => {
@@ -90,10 +186,15 @@ export default function TestCasesPage() {
     setSelected((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   };
 
-  const handleDeleteSelection = async (ids) => {
+  const handleDeleteSelection = (ids) => {
     if (ids.length === 0) return;
-    if (!window.confirm(t('common.deleteConfirm', { count: ids.length }))) return;
+    setDeletePending(ids);
+  };
 
+  const handleDeleteConfirm = async () => {
+    const ids = deletePending;
+    setDeletePending(null);
+    if (!ids?.length) return;
     try {
       const targets = items.filter((item) => ids.includes(item.id));
       await Promise.all(
@@ -106,6 +207,46 @@ export default function TestCasesPage() {
   };
 
   const handleBulkDelete = () => handleDeleteSelection(selected);
+
+  const handleAiRefineClick = () => {
+    if (refining) {
+      refineJob.cancelRefine();
+      return;
+    }
+    void openAiRefineConfirm();
+  };
+
+  const openAiRefineConfirm = () => {
+    if (!canEditProject || !activeProject) return;
+
+    const scopedItems = selected.length > 0
+      ? items.filter((item) => selected.includes(item.id))
+      : items;
+    const targetItems = scopedItems.filter(hasTestCaseRefineGap);
+
+    if (targetItems.length === 0) {
+      setError(t('testCasesPage.aiRefineEmpty'));
+      return;
+    }
+
+    setAiRefineConfirm({
+      targetItems,
+      selected: selected.length > 0,
+    });
+  };
+
+  const handleAiRefineConfirm = () => {
+    if (!aiRefineConfirm) return;
+    const { targetItems } = aiRefineConfirm;
+    setAiRefineConfirm(null);
+    resetRefineState();
+    setError('');
+    void refineJob.startTestCasesRefine({
+      projectId: activeProject.id,
+      items: targetItems,
+      requirements,
+    });
+  };
 
   const handleRowClick = (e, item) => {
     if (!canEditProject) {
@@ -210,6 +351,11 @@ export default function TestCasesPage() {
   };
 
   const handleSaved = (updated) => {
+    if (editingItem?.__isNew) {
+      setItems((prev) => [{ ...updated }, ...prev]);
+      return;
+    }
+
     setItems((prev) => prev.map((row) => (
       row.id === updated.id
         ? {
@@ -260,11 +406,12 @@ export default function TestCasesPage() {
 
     if (column.id === 'select') {
       return (
-        <th key={column.id}>
+        <th key={column.id} className="test-cases-table__head-cell test-cases-table__select-cell">
           <input
             type="checkbox"
             checked={selected.length === items.length && items.length > 0}
             onChange={(e) => toggleAll(e.target.checked)}
+            aria-label={t('common.selectAll')}
           />
           {resizeHandle}
         </th>
@@ -272,14 +419,22 @@ export default function TestCasesPage() {
     }
 
     if (column.id === 'actions') {
-      return <th key={column.id} aria-hidden="true" />;
+      return <th key={column.id} className="test-cases-table__head-cell test-cases-table__actions-cell" aria-hidden="true" />;
     }
 
     return (
-      <th key={column.id}>
-        {columnLabels[column.id]}
+      <SortableTableHeader
+        key={column.id}
+        columnId={column.id}
+        label={columnLabels[column.id]}
+        sort={sort}
+        onSort={toggleSort}
+        className="test-cases-table__head-cell"
+        title={getSortTitle(column.id)}
+        sortable={Boolean(TEST_CASES_TABLE_SORT[column.id])}
+      >
         {resizeHandle}
-      </th>
+      </SortableTableHeader>
     );
   };
 
@@ -289,11 +444,12 @@ export default function TestCasesPage() {
     switch (column.id) {
       case 'select':
         return (
-          <td key={column.id} onClick={stop}>
+          <td key={column.id} className="test-cases-table__select-cell" onClick={stop}>
             <input
               type="checkbox"
               checked={selected.includes(item.id)}
               onChange={(e) => toggleOne(item.id, e.target.checked)}
+              aria-label={item.code}
             />
           </td>
         );
@@ -302,9 +458,29 @@ export default function TestCasesPage() {
       case 'requirement':
         return <td key={column.id} className="test-cases-table__requirement-cell" title={item.requirementTitle}>{item.requirementCode}</td>;
       case 'title':
-        return <td key={column.id} title={item.title}>{item.title}</td>;
+        return (
+          <td key={column.id} className={isCellRefined(item.id, 'title') ? 'cell-refined' : ''} title={item.title}>
+            {item.title}
+          </td>
+        );
       case 'description':
-        return <td key={column.id} title={item.description}>{item.description || t('common.dash')}</td>;
+        return (
+          <td key={column.id} className={isCellRefined(item.id, 'description') ? 'cell-refined' : ''} title={item.description}>
+            {item.description || t('common.dash')}
+          </td>
+        );
+      case 'steps':
+        return (
+          <td key={column.id} className={isCellRefined(item.id, 'steps') ? 'cell-refined' : ''} title={item.steps}>
+            {item.steps || t('common.dash')}
+          </td>
+        );
+      case 'expectedResult':
+        return (
+          <td key={column.id} className={isCellRefined(item.id, 'expectedResult') ? 'cell-refined' : ''} title={item.expectedResult}>
+            {item.expectedResult || t('common.dash')}
+          </td>
+        );
       case 'status':
         return (
           <td key={column.id} className="test-cases-table__status-cell" onClick={stop}>
@@ -327,11 +503,11 @@ export default function TestCasesPage() {
         );
       case 'actions':
         return (
-          <td key={column.id} onClick={stop}>
+          <td key={column.id} className="test-cases-table__actions-cell" onClick={stop}>
             {canEditProject && (
               <IconButton
                 icon={Pencil}
-                className="btn-secondary table-action"
+                className="btn-secondary table-action table-action--cell"
                 type="button"
                 onClick={() => openEdit(item)}
                 tooltip={t('requirements.tipEditTc')}
@@ -359,9 +535,7 @@ export default function TestCasesPage() {
     <div className="container container--wide">
       <h1>{t('testCasesPage.title', { name: getDisplayProjectName(activeProject, t) })}</h1>
       <p className="muted">{t('requirements.tcNumberingNote')}</p>
-      {error && <p className="error">{error}</p>}
-
-      <div className="test-cases-list-view">
+      <ErrorDialog message={error || refineJob.error} onClose={() => setError('')} />
       <div className="requirements-toolbar toolbar">
         <form className="requirements-toolbar__search" onSubmit={handleSearch}>
           <input
@@ -393,6 +567,30 @@ export default function TestCasesPage() {
             {t('common.search')}
           </IconButton>
         </form>
+        {canEditProject && (
+          <IconButton
+            icon={refining ? Square : Sparkles}
+            className={refining ? 'btn-danger' : 'btn-secondary'}
+            type="button"
+            onClick={handleAiRefineClick}
+            disabled={!refining && items.length === 0}
+            tooltip={refining ? t('common.aiRefineStopTip') : t('testCasesPage.aiRefineTip')}
+          >
+            {refining ? t('common.aiRefineStop') : t('requirements.aiRefine')}
+          </IconButton>
+        )}
+        {canEditProject && (
+          <IconButton
+            icon={Plus}
+            className="btn-primary"
+            type="button"
+            onClick={openCreate}
+            disabled={requirements.length === 0}
+            tooltip={t('requirements.tipAddTc')}
+          >
+            {t('requirements.addTestCase')}
+          </IconButton>
+        )}
         {canEditProject && selected.length > 0 && (
           <IconButton icon={Trash2} className="btn-danger" type="button" onClick={handleBulkDelete} tooltip={t('requirements.tipDeleteTc')}>
             {t('common.selectDelete', { count: selected.length })}
@@ -418,10 +616,18 @@ export default function TestCasesPage() {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {sortedItems.map((item) => (
               <tr
                 key={item.id}
-                className={`row-selectable${selected.includes(item.id) ? ' row-selected' : ''}`}
+                data-refine-row-id={item.id}
+                className={[
+                  'row-selectable',
+                  selected.includes(item.id) ? 'row-selected' : '',
+                  refineProgress?.id === item.id && (refineProgress.phase === 'generating' || refineProgress.phase === 'saving')
+                    ? 'row-refining'
+                    : '',
+                  refinedRowIds.includes(item.id) ? 'row-refined-updated' : '',
+                ].filter(Boolean).join(' ')}
                 onClick={(e) => handleRowClick(e, item)}
                 onContextMenu={(e) => handleRowContextMenu(e, item)}
               >
@@ -434,14 +640,31 @@ export default function TestCasesPage() {
       {canEditProject && selected.length > 0 && (
         <p className="muted">{t('requirements.selectedHint', { count: selected.length })}</p>
       )}
-      </div>
+
+      <AiRefineConfirmDialog
+        open={Boolean(aiRefineConfirm)}
+        count={aiRefineConfirm?.targetItems.length ?? 0}
+        selected={aiRefineConfirm?.selected ?? false}
+        entity="testCases"
+        onConfirm={handleAiRefineConfirm}
+        onCancel={() => setAiRefineConfirm(null)}
+      />
 
       <TestCaseEditDialog
         open={Boolean(editingItem)}
         testCase={editingItem}
+        mode={editingItem?.__isNew ? 'create' : 'edit'}
+        requirements={requirements}
         readOnly={!canEditProject}
         onClose={closeEdit}
         onSaved={handleSaved}
+      />
+      <DeleteConfirmDialog
+        open={Boolean(deletePending)}
+        message={t('common.deleteConfirm', { count: deletePending?.length ?? 0 })}
+        description={t('common.deleteConfirmIrreversible')}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeletePending(null)}
       />
     </div>
   );

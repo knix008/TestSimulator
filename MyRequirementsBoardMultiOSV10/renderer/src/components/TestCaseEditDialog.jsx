@@ -18,6 +18,8 @@ const emptyForm = {
 export default function TestCaseEditDialog({
   open,
   testCase,
+  mode = 'edit',
+  requirements = [],
   readOnly = false,
   onClose,
   onSaved,
@@ -28,15 +30,16 @@ export default function TestCaseEditDialog({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open || !testCase) return;
+    if (!open) return;
     setError('');
     setForm({
-      code: testCase.code || '',
-      title: testCase.title || '',
-      description: testCase.description || '',
-      steps: testCase.steps || '',
-      expectedResult: testCase.expectedResult || '',
-      status: TC_STATUS_KEYS.includes(testCase.status) ? testCase.status : 'NOT_RUN',
+      code: testCase?.code || '',
+      title: testCase?.title || '',
+      description: testCase?.description || '',
+      steps: testCase?.steps || '',
+      expectedResult: testCase?.expectedResult || '',
+      status: TC_STATUS_KEYS.includes(testCase?.status) ? testCase.status : 'NOT_RUN',
+      requirementId: testCase?.requirementId ? String(testCase.requirementId) : '',
     });
   }, [open, testCase]);
 
@@ -51,6 +54,8 @@ export default function TestCaseEditDialog({
 
   if (!open || !testCase) return null;
 
+  const createMode = mode === 'create';
+
   const statusBadgeClass = `table-inline-select table-inline-select--badge table-inline-select--badge-${form.status.toLowerCase()}`;
 
   const handleSubmit = async (e) => {
@@ -61,17 +66,39 @@ export default function TestCaseEditDialog({
       return;
     }
 
+    const selectedRequirementId = Number(form.requirementId);
+    if (createMode && (!selectedRequirementId || Number.isNaN(selectedRequirementId))) {
+      setError(t('requirements.tcRequirementRequired'));
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
-      const updated = await api.updateTestCase(testCase.requirementId, testCase.id, {
-        title: form.title,
-        description: form.description,
-        steps: form.steps,
-        expectedResult: form.expectedResult,
-        status: form.status,
-      });
-      onSaved?.(updated);
+      if (createMode) {
+        const created = await api.createTestCase(selectedRequirementId, {
+          title: form.title,
+          description: form.description,
+          steps: form.steps,
+          expectedResult: form.expectedResult,
+          status: form.status,
+        });
+        const requirement = requirements.find((req) => String(req.id) === String(selectedRequirementId));
+        onSaved?.({
+          ...created,
+          requirementCode: requirement?.code || testCase.requirementCode || '',
+          requirementTitle: requirement?.title || testCase.requirementTitle || '',
+        });
+      } else {
+        const updated = await api.updateTestCase(testCase.requirementId, testCase.id, {
+          title: form.title,
+          description: form.description,
+          steps: form.steps,
+          expectedResult: form.expectedResult,
+          status: form.status,
+        });
+        onSaved?.(updated);
+      }
       onClose();
     } catch (err) {
       setError(err.message);
@@ -90,7 +117,7 @@ export default function TestCaseEditDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="test-case-edit-dialog__header">
-          <h2 id="test-case-edit-title">{t('requirements.editTestCase')}</h2>
+          <h2 id="test-case-edit-title">{createMode ? t('requirements.newTestCase') : t('requirements.editTestCase')}</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label={t('common.close')}>
             <X size={18} strokeWidth={2} />
           </button>
@@ -101,15 +128,29 @@ export default function TestCaseEditDialog({
 
           <div className="form-row">
             <label>{t('common.code')}</label>
-            <input value={form.code} readOnly aria-readonly="true" />
+            <input value={form.code || t('common.dash')} readOnly aria-readonly="true" />
           </div>
           <div className="form-row">
             <label>{t('testCasesPage.requirement')}</label>
-            <input
-              value={`${testCase.requirementCode || ''}${testCase.requirementTitle ? ` — ${testCase.requirementTitle}` : ''}`}
-              readOnly
-              aria-readonly="true"
-            />
+            {createMode ? (
+              <select
+                value={form.requirementId || ''}
+                onChange={(e) => setForm({ ...form, requirementId: e.target.value })}
+                disabled={readOnly}
+                aria-label={t('testCasesPage.requirement')}
+              >
+                <option value="">{t('testCasesPage.allRequirements')}</option>
+                {requirements.map((req) => (
+                  <option key={req.id} value={String(req.id)}>{req.code} — {req.title}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={`${testCase.requirementCode || ''}${testCase.requirementTitle ? ` — ${testCase.requirementTitle}` : ''}`}
+                readOnly
+                aria-readonly="true"
+              />
+            )}
           </div>
           <div className="form-row">
             <label>{t('common.title')}</label>
@@ -171,9 +212,9 @@ export default function TestCaseEditDialog({
                 className="btn-primary"
                 type="submit"
                 disabled={saving}
-                tooltip={t('requirements.tipSaveTc')}
+                tooltip={createMode ? t('requirements.tipAddTc') : t('requirements.tipSaveTc')}
               >
-                {t('common.save')}
+                {createMode ? t('requirements.addTestCase') : t('common.save')}
               </IconButton>
             )}
             <IconButton

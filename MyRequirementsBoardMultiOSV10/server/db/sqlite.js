@@ -141,6 +141,9 @@ function migrateRequirementsSchema() {
     }
   }
 
+  // Remove old unique constraint on classification (duplicates are allowed for grouping)
+  database.run('DROP INDEX IF EXISTS idx_requirements_project_classification');
+
   for (const indexSql of REQUIREMENTS_INDEX_SQL) {
     database.run(indexSql);
   }
@@ -213,7 +216,23 @@ async function migrateRequirementsClassificationRenumber(db) {
 function persistDatabase() {
   if (!database || !dbPath) return;
   const data = database.export();
-  fs.writeFileSync(dbPath, Buffer.from(data));
+  const buf = Buffer.from(data);
+  const tmp = `${dbPath}.tmp`;
+  try {
+    fs.writeFileSync(tmp, buf);
+    fs.renameSync(tmp, dbPath);
+  } catch (err) {
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+    console.error('[db] persist failed, will retry:', err.message);
+    setTimeout(() => {
+      try {
+        const buf2 = database ? Buffer.from(database.export()) : buf;
+        fs.writeFileSync(dbPath, buf2);
+      } catch (retryErr) {
+        console.error('[db] persist retry failed:', retryErr.message);
+      }
+    }, 500);
+  }
 }
 
 let persistTimer = null;

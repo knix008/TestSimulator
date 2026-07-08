@@ -138,7 +138,8 @@ export const api = {
   listAssignableUsers: () => request('/api/users/assignable'),
   createUser: (payload) => request('/api/users', { method: 'POST', body: JSON.stringify(payload) }),
   updateUser: (id, payload) => request(`/api/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  changeUserPassword: (id, password) => request(`/api/users/${id}/password`, { method: 'PUT', body: JSON.stringify({ password }) }),
+  deleteUser: (id) => request(`/api/users/${id}`, { method: 'DELETE' }),
+  changeUserPassword: (id, currentPassword, password) => request(`/api/users/${id}/password`, { method: 'PUT', body: JSON.stringify({ currentPassword, password }) }),
   getUserProjects: (id) => request(`/api/users/${id}/projects`),
   setUserProjects: (id, projectAssignments) => request(`/api/users/${id}/projects`, { method: 'PUT', body: JSON.stringify({ projectAssignments }) }),
   listRegistrationRequests: () => request('/api/users/registration-requests'),
@@ -148,7 +149,16 @@ export const api = {
   ollamaStatus: () => request('/api/ollama/status'),
   ollamaSettings: () => request('/api/ollama/settings'),
   updateOllamaSettings: (payload) => request('/api/ollama/settings', { method: 'PUT', body: JSON.stringify(payload) }),
-  refineRequirement: (payload) => request('/api/ollama/refine', { method: 'POST', body: JSON.stringify(payload) }),
+  refineRequirement: (payload, options = {}) => request('/api/ollama/refine', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    signal: options.signal,
+  }),
+  refineTestCase: (payload, options = {}) => request('/api/ollama/refine-testcase', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    signal: options.signal,
+  }),
 
   dbStatus: () => request('/api/settings/db'),
   dbDefaults: () => request('/api/settings/db/defaults'),

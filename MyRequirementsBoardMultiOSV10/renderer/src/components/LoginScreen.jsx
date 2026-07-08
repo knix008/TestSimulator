@@ -1,4 +1,5 @@
 import LoginDialog from './LoginDialog.jsx';
+import StatusBar from './StatusBar.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 
 const appIconUrl = `${import.meta.env.BASE_URL}icon.png`;
@@ -18,7 +19,7 @@ export default function LoginScreen() {
             height={32}
           />
           <div className="login-screen__brand">
-            <div className="login-screen__app-name">MyRequirementsBoard</div>
+            <div className="login-screen__app-name">MyRequirementsBoard <span className="login-screen__version">v{__APP_VERSION__}</span></div>
             <div className="login-screen__tagline">{t('login.subtitle')}</div>
           </div>
         </div>
@@ -26,6 +27,7 @@ export default function LoginScreen() {
       <main className="login-screen__main app-main">
         <LoginDialog open />
       </main>
+      <StatusBar />
     </div>
   );
 }

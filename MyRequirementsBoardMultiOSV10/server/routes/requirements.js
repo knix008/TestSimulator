@@ -4,11 +4,35 @@ import { requireProjectEdit } from '../auth/middleware.js';
 import { renumberRequirementCodes, tempCode, ensureRequirementCodes } from '../lib/reqCode.js';
 import { ensureTestCaseCodes, renumberTestCaseCodes } from '../lib/tcCode.js';
 import { mapRequirementRow } from '../db/requirementSchema.js';
+import { deleteProjectRequirements } from '../lib/requirementDelete.js';
 
 const router = Router({ mergeParams: true });
 
 function mapRequirement(row, extra = {}) {
   return mapRequirementRow(row, extra);
+}
+
+async function resolveAssigneeUserId(db, rawAssigneeUserId) {
+  if (rawAssigneeUserId === undefined) return undefined;
+  if (rawAssigneeUserId === null || rawAssigneeUserId === '') return null;
+
+  const assigneeUserId = Number(rawAssigneeUserId);
+  if (Number.isNaN(assigneeUserId) || assigneeUserId <= 0) {
+    const error = new Error('유효하지 않은 할당 사용자입니다.');
+    error.status = 400;
+    throw error;
+  }
+
+  const user = await db.prepare(
+    `SELECT id FROM users WHERE id = ? AND role != 'ADMIN' AND is_active = 1`,
+  ).get(assigneeUserId);
+  if (!user) {
+    const error = new Error('선택한 사용자를 할당할 수 없습니다.');
+    error.status = 400;
+    throw error;
+  }
+
+  return assigneeUserId;
 }
 
 router.get('/', async (req, res) => {
@@ -20,9 +44,11 @@ router.get('/', async (req, res) => {
 
   let sql = `
     SELECT r.*, u.name AS created_by_name,
+      COALESCE(au.name, au.username) AS assignee_name,
       (SELECT COUNT(*) FROM test_cases tc WHERE tc.requirement_id = r.id) AS test_case_count
     FROM requirements r
     LEFT JOIN users u ON u.id = r.created_by_id
+    LEFT JOIN users au ON au.id = r.assignee_user_id
     WHERE r.project_id = ?
   `;
   const params = [projectId];
@@ -40,6 +66,7 @@ router.get('/', async (req, res) => {
   const rows = await db.prepare(sql).all(...params);
   res.json(rows.map((r) => mapRequirement(r, {
     createdByName: r.created_by_name,
+    assigneeName: r.assignee_name || '',
     testCaseCount: r.test_case_count,
   })));
 });
@@ -54,9 +81,11 @@ router.post('/renumber', requireProjectEdit(), async (req, res) => {
 router.get('/:id', async (req, res) => {
   const db = getDatabase();
   const row = await db.prepare(`
-    SELECT r.*, u.name AS created_by_name
+    SELECT r.*, u.name AS created_by_name,
+      COALESCE(au.name, au.username) AS assignee_name
     FROM requirements r
     LEFT JOIN users u ON u.id = r.created_by_id
+    LEFT JOIN users au ON au.id = r.assignee_user_id
     WHERE r.id = ? AND r.project_id = ?
   `).get(Number(req.params.id), Number(req.params.projectId));
 
@@ -66,7 +95,7 @@ router.get('/:id', async (req, res) => {
 
   const testCases = await db.prepare('SELECT * FROM test_cases WHERE requirement_id = ? ORDER BY id').all(row.id);
   res.json({
-    ...mapRequirement(row, { createdByName: row.created_by_name }),
+    ...mapRequirement(row, { createdByName: row.created_by_name, assigneeName: row.assignee_name || '' }),
     testCases: testCases.map((tc) => ({
       id: tc.id,
       code: tc.code,
@@ -81,24 +110,47 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', requireProjectEdit(), async (req, res) => {
   const projectId = Number(req.params.projectId);
-  const { title, description, category, classification, priority, status } = req.body || {};
+  const {
+    title,
+    description,
+    category,
+    classification,
+    priority,
+    status,
+    assigneeUserId,
+  } = req.body || {};
   if (!title) return res.status(400).json({ error: 'title은 필수입니다.' });
 
   const db = getDatabase();
-  const result = await db.prepare(
-    `INSERT INTO requirements (project_id, code, classification, title, description, category, priority, status, created_by_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    projectId,
-    tempCode(),
-    classification || '',
-    title,
-    description || '',
-    category || '',
-    priority || 'MEDIUM',
-    status || 'DRAFT',
-    req.session.user.id,
-  );
+  let nextAssigneeUserId;
+  try {
+    nextAssigneeUserId = await resolveAssigneeUserId(db, assigneeUserId);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+  let result;
+  try {
+    result = await db.prepare(
+      `INSERT INTO requirements (project_id, code, classification, title, description, category, priority, status, assignee_user_id, created_by_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      projectId,
+      tempCode(),
+      classification || '',
+      title,
+      description || '',
+      category || '',
+      priority || 'MEDIUM',
+      status || 'DRAFT',
+      nextAssigneeUserId ?? null,
+      req.session.user.id,
+    );
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: '동일한 코드(REQ) 값이 이미 존재합니다.' });
+    }
+    throw err;
+  }
 
   await renumberRequirementCodes(db, projectId);
   const row = await db.prepare('SELECT * FROM requirements WHERE id = ?').get(result.lastInsertRowid);
@@ -108,24 +160,49 @@ router.post('/', requireProjectEdit(), async (req, res) => {
 router.put('/:id', requireProjectEdit(), async (req, res) => {
   const projectId = Number(req.params.projectId);
   const id = Number(req.params.id);
-  const { title, description, category, classification, priority, status } = req.body || {};
+  const {
+    title,
+    description,
+    category,
+    classification,
+    priority,
+    status,
+    assigneeUserId,
+  } = req.body || {};
 
   const db = getDatabase();
   const existing = await db.prepare('SELECT * FROM requirements WHERE id = ? AND project_id = ?').get(id, projectId);
   if (!existing) return res.status(404).json({ error: '요구사항을 찾을 수 없습니다.' });
 
-  await db.prepare(
-    `UPDATE requirements SET title = ?, description = ?, category = ?, classification = ?, priority = ?, status = ?, updated_at = datetime('now')
-     WHERE id = ?`,
-  ).run(
-    title ?? existing.title,
-    description ?? existing.description,
-    category ?? existing.category,
-    classification ?? existing.classification,
-    priority ?? existing.priority,
-    status ?? existing.status,
-    id,
-  );
+  let nextAssigneeUserId = existing.assignee_user_id;
+  if (assigneeUserId !== undefined) {
+    try {
+      nextAssigneeUserId = await resolveAssigneeUserId(db, assigneeUserId);
+    } catch (err) {
+      return res.status(err.status || 400).json({ error: err.message });
+    }
+  }
+
+  try {
+    await db.prepare(
+      `UPDATE requirements SET title = ?, description = ?, category = ?, classification = ?, priority = ?, status = ?, assignee_user_id = ?, updated_at = datetime('now')
+       WHERE id = ?`,
+    ).run(
+      title ?? existing.title,
+      description ?? existing.description,
+      category ?? existing.category,
+      classification ?? existing.classification,
+      priority ?? existing.priority,
+      status ?? existing.status,
+      nextAssigneeUserId,
+      id,
+    );
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: '동일한 코드(REQ) 값이 이미 존재합니다.' });
+    }
+    throw err;
+  }
 
   const row = await db.prepare('SELECT * FROM requirements WHERE id = ?').get(id);
   res.json(mapRequirement(row));
@@ -139,7 +216,7 @@ router.delete('/:id', requireProjectEdit(), async (req, res) => {
   const existing = await db.prepare('SELECT id FROM requirements WHERE id = ? AND project_id = ?').get(id, projectId);
   if (!existing) return res.status(404).json({ error: '요구사항을 찾을 수 없습니다.' });
 
-  await db.prepare('DELETE FROM requirements WHERE id = ?').run(id);
+  await deleteProjectRequirements(db, projectId, [id]);
   await renumberRequirementCodes(db, projectId);
   await renumberTestCaseCodes(db);
   res.json({ ok: true });
@@ -151,14 +228,11 @@ router.delete('/', requireProjectEdit(), async (req, res) => {
   if (ids.length === 0) return res.status(400).json({ error: '삭제할 요구사항을 선택하세요.' });
 
   const db = getDatabase();
-  const placeholders = ids.map(() => '?').join(',');
-  const result = await db.prepare(
-    `DELETE FROM requirements WHERE project_id = ? AND id IN (${placeholders})`,
-  ).run(projectId, ...ids);
+  const count = await deleteProjectRequirements(db, projectId, ids);
 
   await renumberRequirementCodes(db, projectId);
   await renumberTestCaseCodes(db);
-  res.json({ ok: true, count: result.changes });
+  res.json({ ok: true, count });
 });
 
 export default router;

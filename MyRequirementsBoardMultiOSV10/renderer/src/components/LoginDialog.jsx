@@ -94,7 +94,7 @@ export default function LoginDialog({ open }) {
               height={48}
             />
             <div>
-              <h2 id="login-dialog-title">MyRequirementsBoard</h2>
+              <h2 id="login-dialog-title">MyRequirementsBoard <span className="login-dialog__version">v{__APP_VERSION__}</span></h2>
               <p className="muted login-dialog__subtitle">{t('login.subtitle')}</p>
             </div>
           </div>

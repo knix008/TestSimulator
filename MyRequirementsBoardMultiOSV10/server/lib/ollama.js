@@ -1,6 +1,43 @@
 const DEFAULT_BASE_URL = 'http://127.0.0.1:11434';
 const TIMEOUT_MS = 15 * 60 * 1000;
 
+function stripCodeFence(raw) {
+  let text = String(raw ?? '').trim();
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  }
+  return text.trim();
+}
+
+function extractJsonCandidate(text) {
+  const firstObject = text.indexOf('{');
+  const lastObject = text.lastIndexOf('}');
+  if (firstObject >= 0 && lastObject > firstObject) {
+    return text.slice(firstObject, lastObject + 1);
+  }
+
+  const firstArray = text.indexOf('[');
+  const lastArray = text.lastIndexOf(']');
+  if (firstArray >= 0 && lastArray > firstArray) {
+    return text.slice(firstArray, lastArray + 1);
+  }
+
+  return text;
+}
+
+function normalizeJsonText(text) {
+  return text
+    .replace(/^\uFEFF/, '')
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/,\s*([}\]])/g, '$1')
+    .trim();
+}
+
+function parseJsonCandidate(text) {
+  return JSON.parse(normalizeJsonText(text));
+}
+
 export class OllamaClient {
   constructor(baseUrl = DEFAULT_BASE_URL) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -74,19 +111,55 @@ export class OllamaClient {
     }
   }
 
-  async refineRequirement(model, requirement, locale = 'ko') {
+  async refineRequirement(model, requirement, locale = 'ko', options = {}) {
     const { buildRefineSystemPrompt, buildRefineUserPrompt } = await import('./ollamaPrompts.js');
     const systemPrompt = buildRefineSystemPrompt(locale);
-    const userPrompt = buildRefineUserPrompt(requirement, locale);
+    const userPrompt = buildRefineUserPrompt(requirement, locale, options);
+    return this.chatAndParseJson(model, systemPrompt, userPrompt, locale);
+  }
+
+  async refineTestCase(model, testCase, locale = 'ko', options = {}) {
+    const { buildRefineTestCaseSystemPrompt, buildRefineTestCaseUserPrompt } = await import('./ollamaPrompts.js');
+    const systemPrompt = buildRefineTestCaseSystemPrompt(locale);
+    const userPrompt = buildRefineTestCaseUserPrompt(testCase, locale, options);
+    return this.chatAndParseJson(model, systemPrompt, userPrompt, locale);
+  }
+
+  async chatAndParseJson(model, systemPrompt, userPrompt, locale = 'ko') {
+    const { REFINE_RETRY_PROMPT_KO, REFINE_RETRY_PROMPT_EN } = await import('./ollamaPrompts.js');
     const raw = await this.chatJson(model, systemPrompt, userPrompt);
-    return parseJsonResponse(raw);
+
+    try {
+      return parseJsonResponse(raw);
+    } catch (firstError) {
+      const retryPrompt = locale === 'en' ? REFINE_RETRY_PROMPT_EN : REFINE_RETRY_PROMPT_KO;
+      const retryUserPrompt = `${userPrompt}\n\n${retryPrompt}\nParse error: ${firstError.message}\n\nPrevious output:\n${raw}`;
+      const retriedRaw = await this.chatJson(model, systemPrompt, retryUserPrompt);
+
+      try {
+        return parseJsonResponse(retriedRaw);
+      } catch (secondError) {
+        throw new Error(`JSON parse failed after retry: ${secondError.message}`);
+      }
+    }
   }
 }
 
 export function parseJsonResponse(raw) {
-  let text = raw.trim();
-  if (text.startsWith('```')) {
-    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const stripped = stripCodeFence(raw);
+  const candidates = [
+    stripped,
+    extractJsonCandidate(stripped),
+  ];
+
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      return parseJsonCandidate(candidate);
+    } catch (err) {
+      lastError = err;
+    }
   }
-  return JSON.parse(text);
+
+  throw lastError || new Error('응답을 JSON으로 파싱할 수 없습니다.');
 }

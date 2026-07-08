@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDatabase } from '../db/index.js';
-import { hashPassword } from '../auth/password.js';
+import { hashPassword, verifyPassword } from '../auth/password.js';
 import { sanitizeUser } from '../auth/auth.js';
 import { requireRole } from '../auth/middleware.js';
 import { getUserProjects, setUserProjects, addUserToProject } from '../lib/projectMembers.js';
@@ -17,12 +17,13 @@ router.get('/', requireRole('ADMIN'), async (req, res) => {
 router.get('/assignable', requireRole('VIEWER'), async (req, res) => {
   const db = getDatabase();
   const rows = await db.prepare(
-    `SELECT id, username, name, role, is_active FROM users WHERE role != 'ADMIN' AND is_active = 1 ORDER BY name, username`,
+    `SELECT id, username, name, email, role, is_active FROM users WHERE role != 'ADMIN' AND is_active = 1 ORDER BY name, username`,
   ).all();
   res.json(rows.map((r) => ({
     id: r.id,
     username: r.username,
     name: r.name,
+    email: r.email || '',
     role: r.role,
     isActive: Boolean(r.is_active),
   })));
@@ -168,14 +169,23 @@ router.put('/:id/projects', requireRole('ADMIN'), async (req, res) => {
 
 router.put('/:id/password', requireRole('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
+  const currentPassword = String(req.body?.currentPassword || '').trim();
   const password = String(req.body?.password || '').trim();
+
+  if (!currentPassword) {
+    return res.status(400).json({ error: '기존 비밀번호를 입력하세요.' });
+  }
   if (!password) {
     return res.status(400).json({ error: '새 비밀번호를 입력하세요.' });
   }
 
   const db = getDatabase();
-  const existing = await db.prepare('SELECT id FROM users WHERE id = ?').get(id);
+  const existing = await db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+  if (!verifyPassword(currentPassword, existing.password_hash)) {
+    return res.status(400).json({ error: '기존 비밀번호가 일치하지 않습니다.' });
+  }
 
   await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), id);
   res.json({ ok: true });
@@ -246,7 +256,30 @@ router.put('/:id', requireRole('ADMIN'), async (req, res) => {
   }
 
   const updated = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (req.session?.user && Number(req.session.user.id) === Number(id)) {
+    req.session.user = sanitizeUser(updated);
+  }
   res.json(sanitizeUser(updated));
+});
+
+router.delete('/:id', requireRole('ADMIN'), async (req, res) => {
+  const id = Number(req.params.id);
+  const db = getDatabase();
+  const existing = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+  if (existing.role === 'ADMIN') {
+    return res.status(400).json({ error: '관리자 계정은 삭제할 수 없습니다.' });
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.prepare('UPDATE requirements SET assignee_user_id = NULL WHERE assignee_user_id = ?').run(id);
+    await tx.prepare('UPDATE requirements SET created_by_id = NULL WHERE created_by_id = ?').run(id);
+    await tx.prepare('UPDATE test_cases SET created_by_id = NULL WHERE created_by_id = ?').run(id);
+    await tx.prepare('UPDATE projects SET created_by_id = NULL WHERE created_by_id = ?').run(id);
+    await tx.prepare('DELETE FROM users WHERE id = ?').run(id);
+  });
+
+  res.json({ ok: true });
 });
 
 export default router;

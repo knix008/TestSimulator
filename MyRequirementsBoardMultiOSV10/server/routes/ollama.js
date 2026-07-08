@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDatabase } from '../db/index.js';
 import { requireRole } from '../auth/middleware.js';
 import { OllamaClient } from '../lib/ollama.js';
+import { listEmptyFields } from '../lib/ollamaPrompts.js';
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get('/status', requireRole('VIEWER'), async (req, res) => {
   }
 });
 
-router.get('/settings', requireRole('ADMIN'), async (req, res) => {
+router.get('/settings', requireRole('EDITOR'), async (req, res) => {
   const db = getDatabase();
   res.json({
     baseUrl: await getSetting(db, 'ollama_base_url', 'http://127.0.0.1:11434'),
@@ -42,7 +43,7 @@ router.get('/settings', requireRole('ADMIN'), async (req, res) => {
   });
 });
 
-router.put('/settings', requireRole('ADMIN'), async (req, res) => {
+router.put('/settings', requireRole('EDITOR'), async (req, res) => {
   const { baseUrl, model } = req.body || {};
   const db = getDatabase();
   if (baseUrl) await setSetting(db, 'ollama_base_url', baseUrl);
@@ -53,31 +54,82 @@ router.put('/settings', requireRole('ADMIN'), async (req, res) => {
   });
 });
 
+async function resolveOllamaClient(db) {
+  const baseUrl = await getSetting(db, 'ollama_base_url', 'http://127.0.0.1:11434');
+  const preferredModel = await getSetting(db, 'ollama_model', '');
+  const client = new OllamaClient(baseUrl);
+  const available = await client.isAvailable();
+  if (!available) {
+    const error = new Error('Ollama 서버에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요.');
+    error.status = 503;
+    throw error;
+  }
+  const model = await client.resolveModel(preferredModel);
+  return { client, model };
+}
+
 router.post('/refine', requireRole('EDITOR'), async (req, res) => {
-  const { title, description, category, priority, status, locale } = req.body || {};
+  const { title, description, category, classification, priority, status, locale, fillGaps } = req.body || {};
   if (!title && !description) {
     return res.status(400).json({ error: '정제할 title 또는 description이 필요합니다.' });
   }
 
   const db = getDatabase();
-  const baseUrl = await getSetting(db, 'ollama_base_url', 'http://127.0.0.1:11434');
-  const preferredModel = await getSetting(db, 'ollama_model', '');
-  const client = new OllamaClient(baseUrl);
+  const requirement = {
+    title, description, category, classification, priority, status,
+  };
 
   try {
-    const available = await client.isAvailable();
-    if (!available) {
-      return res.status(503).json({ error: 'Ollama 서버에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요.' });
-    }
-
-    const model = await client.resolveModel(preferredModel);
-    const refined = await client.refineRequirement(model, {
-      title, description, category, priority, status,
-    }, locale || 'ko');
+    const { client, model } = await resolveOllamaClient(db);
+    const refined = await client.refineRequirement(model, requirement, locale || 'ko', {
+      fillGaps: Boolean(fillGaps),
+      emptyFields: listEmptyFields(requirement, ['title', 'description', 'category', 'classification']),
+    });
 
     res.json({ model, refined });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.post('/refine-testcase', requireRole('EDITOR'), async (req, res) => {
+  const {
+    title,
+    description,
+    steps,
+    expectedResult,
+    status,
+    requirementTitle,
+    requirementDescription,
+    locale,
+    fillGaps,
+  } = req.body || {};
+
+  if (!title && !description && !steps && !expectedResult) {
+    return res.status(400).json({ error: '정제할 테스트 케이스 내용이 필요합니다.' });
+  }
+
+  const db = getDatabase();
+  const testCase = {
+    title,
+    description,
+    steps,
+    expectedResult,
+    status,
+  };
+
+  try {
+    const { client, model } = await resolveOllamaClient(db);
+    const refined = await client.refineTestCase(model, testCase, locale || 'ko', {
+      fillGaps: Boolean(fillGaps),
+      requirementTitle: requirementTitle || '',
+      requirementDescription: requirementDescription || '',
+      emptyFields: listEmptyFields(testCase, ['title', 'description', 'steps', 'expectedResult']),
+    });
+
+    res.json({ model, refined });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

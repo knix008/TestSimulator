@@ -12,11 +12,13 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import { IconButton } from '../components/IconButton.jsx';
+import DbDisconnectConfirmDialog from '../components/DbDisconnectConfirmDialog.jsx';
+import ErrorDialog from '../components/ErrorDialog.jsx';
 
 const DEFAULT_PORTS = { mariadb: 3306, mysql: 3306, postgresql: 5432, mssql: 1433 };
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
   const [health, setHealth] = useState(null);
@@ -35,6 +37,8 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [dbBusy, setDbBusy] = useState(false);
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
 
   const providers = useMemo(() => [
     { value: 'mariadb', label: t('settings.providerMaria') },
@@ -48,22 +52,24 @@ export default function SettingsPage() {
       api.health(),
       api.profile(),
       api.ollamaStatus(),
-      api.dbStatus(),
+      hasRole('ADMIN') ? api.dbStatus() : Promise.resolve(null),
     ]);
     setHealth(h);
     setProfile({ name: p.name, email: p.email || '', company: p.company || '', department: p.department || '' });
     setOllama({ baseUrl: o.baseUrl, model: o.model, models: o.models || [], available: o.available });
-    setDbStatus(db);
-    if (db.config) {
-      setDbForm((prev) => ({
-        ...prev,
-        provider: db.config.provider || 'mariadb',
-        server: db.config.server || 'localhost',
-        port: String(db.config.port || DEFAULT_PORTS[db.config.provider] || 3306),
-        database: db.config.database || '',
-        username: db.config.username || '',
-        password: '',
-      }));
+    if (db) {
+      setDbStatus(db);
+      if (db.config) {
+        setDbForm((prev) => ({
+          ...prev,
+          provider: db.config.provider || 'mariadb',
+          server: db.config.server || 'localhost',
+          port: String(db.config.port || DEFAULT_PORTS[db.config.provider] || 3306),
+          database: db.config.database || '',
+          username: db.config.username || '',
+          password: '',
+        }));
+      }
     }
   };
 
@@ -92,9 +98,29 @@ export default function SettingsPage() {
       await api.updateOllamaSettings({ baseUrl: ollama.baseUrl, model: ollama.model });
       const status = await api.ollamaStatus();
       setOllama((prev) => ({ ...prev, models: status.models, available: status.available }));
-      setMessage(t('settings.ollamaSaved'));
+      setMessage(t('settings.aiSaved'));
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const checkAiConnection = async () => {
+    setAiBusy(true);
+    setError('');
+    try {
+      const status = await api.ollamaStatus();
+      setOllama((prev) => ({
+        ...prev,
+        baseUrl: status.baseUrl || prev.baseUrl,
+        model: prev.model || status.model || '',
+        models: status.models || [],
+        available: status.available,
+      }));
+      setMessage(status.available ? t('settings.aiOk') : t('settings.aiFail'));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAiBusy(false);
     }
   };
 
@@ -141,8 +167,12 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDbDisconnect = async () => {
-    if (!window.confirm(t('settings.disconnectConfirm'))) return;
+  const handleDbDisconnect = () => {
+    setDisconnectDialogOpen(true);
+  };
+
+  const handleDbDisconnectConfirm = async () => {
+    setDisconnectDialogOpen(false);
     setDbBusy(true);
     setError('');
     try {
@@ -162,7 +192,7 @@ export default function SettingsPage() {
   return (
     <div className="container">
       <h1>{t('settings.title')}</h1>
-      {error && <p className="error">{error}</p>}
+      <ErrorDialog message={error} onClose={() => setError('')} />
       {message && <p className="success">{message}</p>}
 
       <div className="card">
@@ -196,6 +226,58 @@ export default function SettingsPage() {
           </select>
         </div>
       </div>
+
+      {hasRole('EDITOR') && (
+        <div className="card">
+          <h2>{t('settings.aiSettings')}</h2>
+          <p className="muted">{t('settings.aiIntro')}</p>
+          <p className={ollama.available ? 'success' : 'error'}>
+            {ollama.available ? t('settings.aiOk') : t('settings.aiFail')}
+          </p>
+          <form onSubmit={saveOllama}>
+            <div className="form-row">
+              <label>{t('settings.aiBaseUrl')}</label>
+              <input
+                value={ollama.baseUrl}
+                onChange={(e) => setOllama({ ...ollama, baseUrl: e.target.value })}
+                placeholder={t('settings.aiBaseUrlPlaceholder')}
+                required
+              />
+            </div>
+            <div className="form-row">
+              <label>{t('settings.aiModel')}</label>
+              {ollama.models.length > 0 ? (
+                <select value={ollama.model} onChange={(e) => setOllama({ ...ollama, model: e.target.value })}>
+                  <option value="">{t('settings.autoSelect')}</option>
+                  {ollama.models.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              ) : (
+                <input
+                  value={ollama.model}
+                  onChange={(e) => setOllama({ ...ollama, model: e.target.value })}
+                  placeholder={t('settings.aiModelPlaceholder')}
+                />
+              )}
+            </div>
+            <div className="form-actions">
+              <IconButton
+                icon={aiBusy ? Loader2 : Plug}
+                className="btn-secondary"
+                type="button"
+                disabled={aiBusy}
+                iconClassName={aiBusy ? 'icon-spin' : ''}
+                onClick={checkAiConnection}
+                tooltip={t('settings.tipCheckAi')}
+              >
+                {aiBusy ? t('settings.aiChecking') : t('settings.checkAi')}
+              </IconButton>
+              <IconButton icon={Sparkles} className="btn-primary" type="submit" tooltip={t('settings.tipSaveAi')}>
+                {t('settings.saveAi')}
+              </IconButton>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="card">
         <h2>{t('settings.systemInfo')}</h2>
@@ -315,29 +397,11 @@ export default function SettingsPage() {
           <IconButton icon={Save} className="btn-primary" type="submit" tooltip={t('settings.tipSaveProfile')}>{t('common.save')}</IconButton>
         </form>
       </div>
-
-      {user?.role === 'ADMIN' && (
-        <div className="card">
-          <h2>{t('settings.ollamaSettings')}</h2>
-          <p className={ollama.available ? 'success' : 'error'}>
-            {ollama.available ? t('settings.ollamaOk') : t('settings.ollamaFail')}
-          </p>
-          <form onSubmit={saveOllama}>
-            <div className="form-row">
-              <label>{t('settings.baseUrl')}</label>
-              <input value={ollama.baseUrl} onChange={(e) => setOllama({ ...ollama, baseUrl: e.target.value })} />
-            </div>
-            <div className="form-row">
-              <label>{t('settings.model')}</label>
-              <select value={ollama.model} onChange={(e) => setOllama({ ...ollama, model: e.target.value })}>
-                <option value="">{t('settings.autoSelect')}</option>
-                {ollama.models.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            <IconButton icon={Sparkles} className="btn-primary" type="submit" tooltip={t('settings.tipSaveOllama')}>{t('settings.saveOllama')}</IconButton>
-          </form>
-        </div>
-      )}
+      <DbDisconnectConfirmDialog
+        open={disconnectDialogOpen}
+        onConfirm={handleDbDisconnectConfirm}
+        onCancel={() => setDisconnectDialogOpen(false)}
+      />
     </div>
   );
 }

@@ -1,4 +1,11 @@
-import { DEFAULT_THEME, THEME_STORAGE_KEY, normalizeTheme } from './theme.js';
+import {
+  DEFAULT_THEME,
+  THEME_STORAGE_KEY,
+  ACCENT_COLOR_STORAGE_KEY,
+  DEFAULT_ACCENT_COLOR,
+  normalizeTheme,
+  normalizeAccentColor,
+} from './theme.js';
 import { patchUserPreferencesIfAuthed } from './userPreferences.js';
 
 export const LANGUAGE_STORAGE_KEY = 'mrb_language';
@@ -11,6 +18,7 @@ function readLocalPreferences() {
   return {
     language: language === 'en' ? 'en' : DEFAULT_LANGUAGE,
     theme: normalizeTheme(theme || DEFAULT_THEME),
+    accentColor: normalizeAccentColor(localStorage.getItem(ACCENT_COLOR_STORAGE_KEY) || DEFAULT_ACCENT_COLOR),
   };
 }
 
@@ -20,6 +28,9 @@ function writeLocalPreferences(partial) {
   }
   if (partial.theme !== undefined) {
     localStorage.setItem(THEME_STORAGE_KEY, normalizeTheme(partial.theme));
+  }
+  if (partial.accentColor !== undefined) {
+    localStorage.setItem(ACCENT_COLOR_STORAGE_KEY, normalizeAccentColor(partial.accentColor));
   }
 }
 
@@ -37,6 +48,7 @@ export async function loadAppPreferences() {
       return {
         language: prefs.language === 'en' ? 'en' : DEFAULT_LANGUAGE,
         theme: normalizeTheme(prefs.theme),
+        accentColor: normalizeAccentColor(prefs.accentColor || DEFAULT_ACCENT_COLOR),
       };
     } catch {
       return local;
@@ -50,6 +62,7 @@ export async function loadAppPreferences() {
       return {
         language: prefs.language === 'en' ? 'en' : DEFAULT_LANGUAGE,
         theme: normalizeTheme(prefs.theme),
+        accentColor: normalizeAccentColor(prefs.accentColor || DEFAULT_ACCENT_COLOR),
       };
     } catch {
       return local;
@@ -70,6 +83,7 @@ export async function saveAppPreferences(partial) {
       return {
         language: saved.language === 'en' ? 'en' : DEFAULT_LANGUAGE,
         theme: normalizeTheme(saved.theme),
+        accentColor: normalizeAccentColor(saved.accentColor || DEFAULT_ACCENT_COLOR),
       };
     } catch {
       return readLocalPreferences();
@@ -86,4 +100,8 @@ export async function saveLanguagePreference(language) {
 
 export async function saveThemePreference(theme) {
   return saveAppPreferences({ theme: normalizeTheme(theme) });
+}
+
+export async function saveAccentColorPreference(accentColor) {
+  return saveAppPreferences({ accentColor: normalizeAccentColor(accentColor) });
 }

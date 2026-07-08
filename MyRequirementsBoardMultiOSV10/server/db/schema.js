@@ -79,6 +79,7 @@ export async function ensureSchema(knex) {
       t.string('category', 255).notNullable().defaultTo('');
       t.string('priority', 16).notNullable().defaultTo('MEDIUM');
       t.string('status', 16).notNullable().defaultTo('DRAFT');
+      t.integer('assignee_user_id').unsigned().nullable().references('id').inTable('users').onDelete('SET NULL');
       t.integer('created_by_id').unsigned().nullable();
       t.timestamp('created_at').defaultTo(knex.fn.now());
       t.timestamp('updated_at').defaultTo(knex.fn.now());
@@ -89,6 +90,11 @@ export async function ensureSchema(knex) {
     if (!(await knex.schema.hasColumn('requirements', 'classification'))) {
       await knex.schema.alterTable('requirements', (t) => {
         t.string('classification', 255).notNullable().defaultTo('');
+      });
+    }
+    if (!(await knex.schema.hasColumn('requirements', 'assignee_user_id'))) {
+      await knex.schema.alterTable('requirements', (t) => {
+        t.integer('assignee_user_id').unsigned().nullable().references('id').inTable('users').onDelete('SET NULL');
       });
     }
   }
@@ -161,6 +167,7 @@ async function ensureRequirementsIndexes(knex) {
     { columns: ['status'], name: 'idx_requirements_status' },
     { columns: ['category'], name: 'idx_requirements_category' },
     { columns: ['project_id', 'classification'], name: 'idx_requirements_classification' },
+    { columns: ['assignee_user_id'], name: 'idx_requirements_assignee' },
   ];
 
   for (const indexDef of indexDefs) {

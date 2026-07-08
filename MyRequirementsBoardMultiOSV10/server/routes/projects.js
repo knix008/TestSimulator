@@ -13,6 +13,7 @@ import {
   userCanEditProject,
   normalizeMemberRole,
 } from '../lib/projectMembers.js';
+import { deleteProjectWithContents } from '../lib/projectDelete.js';
 import {
   exportProjectToReqtproj,
   importReqtprojAsNewProject,
@@ -132,14 +133,7 @@ router.put('/:id/members', requireRole('VIEWER'), async (req, res) => {
   const project = await db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
   if (!project) return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다.' });
 
-  const creator = await db.prepare('SELECT created_by_id FROM projects WHERE id = ?').get(projectId);
-  const creatorId = Number(creator?.created_by_id);
-  const hasCreator = members.some((m) => Number(m.userId ?? m.id) === creatorId);
-  const finalMembers = hasCreator || !creatorId
-    ? members
-    : [...members, { userId: creatorId, memberRole: 'EDITOR' }];
-
-  await setProjectMembers(db, projectId, finalMembers);
+  await setProjectMembers(db, projectId, members);
   const result = await getProjectMembers(db, projectId);
   res.json(result);
 });
@@ -286,15 +280,12 @@ router.delete('/:id', requireRole('VIEWER'), async (req, res) => {
   const id = Number(req.params.id);
   const existing = await db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다.' });
-  if (isSystemDefaultProjectRow(existing)) {
-    return res.status(400).json({ error: '시스템 기본 프로젝트는 삭제할 수 없습니다.' });
-  }
 
   const canDelete = await userCanDeleteProject(db, req.session.user, existing);
   if (!canDelete) return res.status(403).json({ error: '프로젝트를 삭제할 권한이 없습니다.' });
 
-  await db.prepare('DELETE FROM projects WHERE id = ?').run(id);
-  res.json({ ok: true });
+  const { testCaseCount, requirementCount } = await deleteProjectWithContents(db, id);
+  res.json({ ok: true, requirementCount, testCaseCount });
 });
 
 export default router;

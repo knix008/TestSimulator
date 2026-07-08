@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   AppWindow,
   ClipboardList,
@@ -8,6 +9,7 @@ import {
   FolderOpen,
   HelpCircle,
   Info,
+  ListChecks,
   LogOut,
   Maximize2,
   Minimize2,
@@ -19,6 +21,7 @@ import {
   Undo2,
   Users,
   Eye,
+  RectangleHorizontal,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -33,6 +36,7 @@ import {
   saveProjectFileContent,
 } from '../lib/projectFileActions.js';
 import { MenuDropdown } from './MenuDropdown.jsx';
+import LogoutConfirmDialog from './LogoutConfirmDialog.jsx';
 import { getDisplayProjectName } from '../lib/displayLabels.js';
 import { ROUTES } from '../lib/routes.js';
 
@@ -44,6 +48,7 @@ export default function AppMenuBar({ onShowInfo }) {
   const { undo, redo, canUndo, canRedo } = useUndoHistory();
   const { openImport, openExport } = useExcelDialogs();
   const isElectron = Boolean(window.electronAPI?.isElectron);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const handleUndo = async () => {
     try {
@@ -129,11 +134,19 @@ export default function AppMenuBar({ onShowInfo }) {
   fileItems.push(
     { id: 'sep2', type: 'separator' },
     {
+      id: 'settings',
+      icon: Settings,
+      labelKey: 'nav.settings',
+      tooltipKey: 'nav.tipSettings',
+      onClick: () => navigate('/settings'),
+    },
+    { id: 'sep3', type: 'separator' },
+    {
       id: 'logout',
       icon: LogOut,
       labelKey: 'nav.logout',
       tooltipKey: 'nav.tipLogout',
-      onClick: handleLogout,
+      onClick: () => setLogoutConfirmOpen(true),
     },
   );
 
@@ -164,14 +177,6 @@ export default function AppMenuBar({ onShowInfo }) {
       disabled: !canRedo || !canEditProject,
       onClick: handleRedo,
     },
-    { id: 'sep-edit', type: 'separator' },
-    {
-      id: 'settings',
-      icon: Settings,
-      labelKey: 'nav.settings',
-      tooltipKey: 'nav.tipSettings',
-      onClick: () => navigate('/settings'),
-    },
   ];
 
   const viewItems = [
@@ -183,6 +188,13 @@ export default function AppMenuBar({ onShowInfo }) {
       onClick: () => navigate(ROUTES.requirements),
     },
     {
+      id: 'testCases',
+      icon: ListChecks,
+      labelKey: 'nav.testCases',
+      tooltipKey: 'nav.tipTestCases',
+      onClick: () => navigate('/test-cases'),
+    },
+    {
       id: 'projects',
       icon: FolderKanban,
       labelKey: 'nav.projects',
@@ -191,16 +203,6 @@ export default function AppMenuBar({ onShowInfo }) {
     },
   ];
 
-  if (hasRole('ADMIN')) {
-    viewItems.push({
-      id: 'users',
-      icon: Users,
-      labelKey: 'nav.users',
-      tooltipKey: 'nav.tipUsers',
-      onClick: () => navigate('/users'),
-    });
-  }
-
   if (hasRole('EDITOR')) {
     viewItems.push({
       id: 'ollama',
@@ -208,6 +210,16 @@ export default function AppMenuBar({ onShowInfo }) {
       labelKey: 'nav.ollama',
       tooltipKey: 'nav.tipOllama',
       onClick: () => navigate('/ollama'),
+    });
+  }
+
+  if (hasRole('ADMIN')) {
+    viewItems.push({
+      id: 'users',
+      icon: Users,
+      labelKey: 'nav.users',
+      tooltipKey: 'nav.tipUsers',
+      onClick: () => navigate('/users'),
     });
   }
 
@@ -229,6 +241,13 @@ export default function AppMenuBar({ onShowInfo }) {
         tooltipKey: 'menu.tipToggleFullscreen',
         onClick: () => window.electronAPI?.toggleFullscreen?.(),
       },
+      {
+        id: 'lockMinSize',
+        icon: RectangleHorizontal,
+        labelKey: 'menu.lockCurrentMinSize',
+        tooltipKey: 'menu.tipLockCurrentMinSize',
+        onClick: () => { void window.electronAPI?.lockCurrentWindowMinimum?.(); },
+      },
     );
   }
 
@@ -243,14 +262,25 @@ export default function AppMenuBar({ onShowInfo }) {
   ];
 
   return (
-    <div className="app-menu-bar">
-      <MenuDropdown labelKey="menu.file" icon={FileText} items={fileItems} showChevron={false} />
-      <MenuDropdown labelKey="menu.edit" icon={Pencil} items={editItems} showChevron={false} />
-      <MenuDropdown labelKey="menu.view" icon={Eye} items={viewItems} showChevron={false} />
-      {windowItems.length > 0 && (
-        <MenuDropdown labelKey="menu.window" icon={AppWindow} items={windowItems} showChevron={false} />
-      )}
-      <MenuDropdown labelKey="menu.help" icon={HelpCircle} items={helpItems} showChevron={false} />
-    </div>
+    <>
+      <div className="app-menu-bar">
+        <MenuDropdown labelKey="menu.file" icon={FileText} items={fileItems} showChevron={false} />
+        <MenuDropdown labelKey="menu.edit" icon={Pencil} items={editItems} showChevron={false} />
+        <MenuDropdown labelKey="menu.view" icon={Eye} items={viewItems} showChevron={false} />
+        {windowItems.length > 0 && (
+          <MenuDropdown labelKey="menu.window" icon={AppWindow} items={windowItems} showChevron={false} />
+        )}
+        <MenuDropdown labelKey="menu.help" icon={HelpCircle} items={helpItems} showChevron={false} />
+      </div>
+
+      <LogoutConfirmDialog
+        open={logoutConfirmOpen}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={() => {
+          setLogoutConfirmOpen(false);
+          void handleLogout();
+        }}
+      />
+    </>
   );
 }

@@ -61,43 +61,38 @@ export async function userHasProjectAccess(db, user, projectId) {
 }
 
 export async function listProjectsForUser(db, user, { manage = false } = {}) {
-  const baseSelect = `
-    SELECT p.*, COUNT(r.id) AS requirement_count
-    FROM projects p
-    LEFT JOIN requirements r ON r.project_id = p.id
-  `;
-
   if (isAdmin(user) && manage) {
-    const sql = `
-      ${baseSelect}
+    const rows = await db.prepare(`
+      SELECT p.*, COUNT(r.id) AS requirement_count
+      FROM projects p
+      LEFT JOIN requirements r ON r.project_id = p.id
       GROUP BY p.id
       ORDER BY p.updated_at DESC
-    `;
-    const rows = await db.prepare(sql).all();
+    `).all();
     return rows.map((row) => ({ ...row, member_role: 'EDITOR' }));
   }
 
   if (isAdmin(user)) {
-    const sql = `
-      ${baseSelect}
+    const rows = await db.prepare(`
+      SELECT p.*, COUNT(r.id) AS requirement_count
+      FROM projects p
+      LEFT JOIN requirements r ON r.project_id = p.id
       WHERE p.is_active = 1
       GROUP BY p.id
       ORDER BY p.updated_at DESC
-    `;
-    const rows = await db.prepare(sql).all();
+    `).all();
     return rows.map((row) => ({ ...row, member_role: 'EDITOR' }));
   }
 
-  const sql = `
-    ${baseSelect}, pm.member_role
+  return db.prepare(`
+    SELECT p.*, COUNT(r.id) AS requirement_count, pm.member_role
     FROM projects p
     LEFT JOIN requirements r ON r.project_id = p.id
     INNER JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ?
     WHERE p.is_active = 1
     GROUP BY p.id
     ORDER BY p.updated_at DESC
-  `;
-  return db.prepare(sql).all(user.id);
+  `).all(user.id);
 }
 
 export async function getProjectMembers(db, projectId) {
