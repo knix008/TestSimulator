@@ -297,6 +297,60 @@ public class CommitGraphView : Panel
         return true;
     }
 
+    public bool TrySelectCommit(Commit commit, bool raiseEvent = true)
+    {
+        int index = _rows.FindIndex(row =>
+            string.Equals(row.Commit.Sha, commit.Sha, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        _selectedCommit = _rows[index].Commit;
+        EnsureVisible(index);
+        InvalidateView();
+        if (raiseEvent)
+        {
+            CommitSelected?.Invoke(this, _selectedCommit);
+        }
+
+        return true;
+    }
+
+    public bool TrySelectCommitBySha(string shaPrefix, bool raiseEvent = true)
+    {
+        int index = _rows.FindIndex(row =>
+            row.Commit.Sha.StartsWith(shaPrefix, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        return TrySelectCommit(_rows[index].Commit, raiseEvent);
+    }
+
+    private void EnsureVisible(int rowIndex)
+    {
+        if (_bodyPanel is null || rowIndex < 0)
+        {
+            return;
+        }
+
+        int rowTop = rowIndex * RowHeight;
+        int rowBottom = rowTop + RowHeight;
+        int viewTop = -ScrollOffsetY;
+        int viewBottom = viewTop + ViewportHeight;
+
+        if (rowTop < viewTop)
+        {
+            _bodyPanel.AutoScrollPosition = new Point(-ScrollOffsetX, rowTop);
+        }
+        else if (rowBottom > viewBottom)
+        {
+            _bodyPanel.AutoScrollPosition = new Point(-ScrollOffsetX, rowBottom - ViewportHeight);
+        }
+    }
+
     private void RecalculateColumnLayout(bool notifyLayoutChanged = true)
     {
         int x = 0;

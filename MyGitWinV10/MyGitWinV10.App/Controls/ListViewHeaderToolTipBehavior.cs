@@ -67,17 +67,44 @@ public static class ListViewHeaderToolTipBehavior
     private static string? GetColumnToolTip(ListView listView, int x)
     {
         int left = 0;
-        foreach (var column in listView.Columns.Cast<ColumnHeader>().OrderBy(c => c.DisplayIndex))
+        var columns = listView.Columns.Cast<ColumnHeader>().OrderBy(c => c.DisplayIndex).ToList();
+        for (int index = 0; index < columns.Count; index++)
         {
-            if (x >= left && x < left + column.Width)
+            ColumnHeader column = columns[index];
+            int width = ResolveColumnWidth(listView, column, index == columns.Count - 1);
+            if (width <= 0)
+            {
+                continue;
+            }
+
+            if (x >= left && x < left + width)
             {
                 return column.Tag as string;
             }
 
-            left += column.Width;
+            left += width;
         }
 
         return null;
+    }
+
+    private static int ResolveColumnWidth(ListView listView, ColumnHeader column, bool isLastColumn)
+    {
+        if (column.Width >= 0)
+        {
+            return column.Width;
+        }
+
+        if (isLastColumn && column.Width == -2)
+        {
+            int fixedWidth = listView.Columns
+                .Cast<ColumnHeader>()
+                .Take(listView.Columns.Count - 1)
+                .Sum(c => Math.Max(0, c.Width));
+            return Math.Max(0, listView.ClientSize.Width - fixedWidth);
+        }
+
+        return 0;
     }
 
     private static bool IsOverHeader(ListView listView, Point location) =>

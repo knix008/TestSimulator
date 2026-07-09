@@ -31,6 +31,7 @@ public static class IconFactory
         public static readonly Color File = Color.FromArgb(6, 182, 212);
         public static readonly Color WordWrap = Color.FromArgb(99, 102, 241);
         public static readonly Color GitStatus = Color.FromArgb(8, 145, 178);
+        public static readonly Color Search = Color.FromArgb(234, 88, 12);
     }
 
     private static Bitmap Create(Action<Graphics, Pen, SolidBrush> draw, Color? color = null, int size = MenuIconSize)
@@ -206,6 +207,12 @@ public static class IconFactory
         g.FillRectangle(Brushes.White, 5.5f, 2.5f, 8, 9);
         g.DrawRectangle(pen, 5.5f, 2.5f, 8, 9);
     }, color, size: size);
+
+    public static Image Search(int size = MenuIconSize, Color? color = null) => Create((g, pen, brush) =>
+    {
+        g.DrawEllipse(pen, 2.5f, 2.5f, 8.5f, 8.5f);
+        g.DrawLine(pen, 9.2f, 9.2f, 13.5f, 13.5f);
+    }, color ?? Palette.Search, size: size);
 
     private static void DrawFileGlyph(Graphics g, Pen pen)
     {

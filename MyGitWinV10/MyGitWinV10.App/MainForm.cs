@@ -17,6 +17,10 @@ public partial class MainForm : Form
     private int _diffLoadGeneration;
     private int _pathHistoryLoadGeneration;
     private int _commitGraphLoadGeneration;
+    private int _commitSearchGeneration;
+    private bool _suppressCommitSearchSelection;
+    private bool _suppressCommitSearchTextSanitize;
+    private string? _lastCommitSearchQuery;
     private int _repositoryRefreshGeneration;
     private int _fileTreeStatusRefreshGeneration;
     private bool _repositoryRefreshInProgress;
@@ -70,6 +74,10 @@ public partial class MainForm : Form
 
     private ColumnHeader _changedFilesPathColumn = null!;
     private ColumnHeader _changedFilesStatusColumn = null!;
+    private ColumnHeader _commitSearchShaColumn = null!;
+    private ColumnHeader _commitSearchMessageColumn = null!;
+    private ColumnHeader _commitSearchAuthorColumn = null!;
+    private ColumnHeader _commitSearchDateColumn = null!;
 
     // In-memory TreeNode data model for repoFilesListView — never shown as a real TreeView
     // (RepositoryFileTreeService just needs somewhere to build/store the TreeNode hierarchy;
@@ -101,6 +109,7 @@ public partial class MainForm : Form
         ConfigureToolbars();
         ConfigureMenuIcons();
         ConfigureChangedFilesListView();
+        ConfigureCommitSearchListView();
         ConfigureSectionHeadingToolTips();
         Localization.SetLanguage(_settings.Language);
         ApplyLocalizedShellText();
@@ -171,6 +180,7 @@ public partial class MainForm : Form
             mainSplitContainer,
             leftSideSplitContainer,
             graphDetailSplitContainer,
+            graphSearchSplitContainer,
             detailSplitContainer);
 
     private void ApplyPanelLayout()
@@ -240,6 +250,21 @@ public partial class MainForm : Form
         ConfigureToolStripButton(refreshGraphToolButton, IconFactory.RefreshGraph(tb, IconFactory.Palette.History), "Reload the commit history graph");
         ConfigureToolStripButton(copyShaToolButton, IconFactory.Copy(tb, IconFactory.Palette.Copy), "Copy the selected commit's full hash to the clipboard");
         ConfigureToolStripButton(copyMessageToolButton, IconFactory.Message(tb, IconFactory.Palette.Message), "Copy the selected commit message to the clipboard");
+        commitSearchToolTextBox.AutoSize = false;
+        commitSearchToolTextBox.Size = new Size(220, tb + 6);
+        commitSearchToolTextBox.Margin = new Padding(4, 0, 2, 0);
+        TextBox commitSearchTextBox = commitSearchToolTextBox.TextBox;
+        commitSearchTextBox.KeyDown -= CommitSearchTextBox_KeyDown;
+        commitSearchTextBox.KeyDown += CommitSearchTextBox_KeyDown;
+        commitSearchTextBox.KeyPress -= CommitSearchTextBox_KeyPress;
+        commitSearchTextBox.KeyPress += CommitSearchTextBox_KeyPress;
+        commitSearchTextBox.TextChanged -= CommitSearchTextBox_TextChanged;
+        commitSearchTextBox.TextChanged += CommitSearchTextBox_TextChanged;
+        ConfigureToolStripLabeledButton(
+            commitSearchToolButton,
+            IconFactory.Search(tb, IconFactory.Palette.Search),
+            "Search",
+            "Search commits by SHA, message, or author");
         ConfigureToolStripButton(copyFilePathToolButton, IconFactory.File(tb, IconFactory.Palette.File), "Copy the selected file path to the clipboard");
         ConfigureToolStripButton(wordWrapToolButton, IconFactory.WordWrap(tb, IconFactory.Palette.WordWrap), "Toggle word wrap for the diff view");
         wordWrapToolButton.CheckOnClick = false;
@@ -517,6 +542,35 @@ public partial class MainForm : Form
         ListViewHeaderToolTipBehavior.Attach(changedFilesListView);
     }
 
+    private void ConfigureCommitSearchListView()
+    {
+        ListViewStyles.ApplyTableStyle(commitSearchResultsListView);
+        _commitSearchShaColumn = ListViewHeaderToolTipBehavior.AddColumn(
+            commitSearchResultsListView,
+            "SHA",
+            72,
+            "Abbreviated commit hash.");
+        _commitSearchMessageColumn = ListViewHeaderToolTipBehavior.AddColumn(
+            commitSearchResultsListView,
+            "Message",
+            280,
+            "Short summary of the commit message.");
+        _commitSearchAuthorColumn = ListViewHeaderToolTipBehavior.AddColumn(
+            commitSearchResultsListView,
+            "Author",
+            120,
+            "Person who authored the commit.");
+        _commitSearchDateColumn = ListViewHeaderToolTipBehavior.AddColumn(
+            commitSearchResultsListView,
+            "Date",
+            120,
+            "Date when the commit was authored.");
+        ListViewHeaderToolTipBehavior.Attach(commitSearchResultsListView);
+        ListViewHeaderThemeApplier.ApplySectionTheme(commitSearchResultsListView, SectionTitleKind.CommitHistory);
+        ListViewHeaderThemeApplier.EnsureLastColumnFills(commitSearchResultsListView);
+        commitSearchResultsPanel.Visible = true;
+    }
+
 
     private void ConfigureSectionHeadingToolTips()
     {
@@ -572,6 +626,10 @@ public partial class MainForm : Form
         refreshGraphToolButton.ToolTipText = Localization.T("Toolbar.RefreshGraph.Tip");
         copyShaToolButton.ToolTipText = Localization.T("Toolbar.CopySha.Tip");
         copyMessageToolButton.ToolTipText = Localization.T("Toolbar.CopyMessage.Tip");
+        commitSearchToolTextBox.TextBox.PlaceholderText = Localization.T("CommitSearch.Placeholder");
+        commitSearchToolTextBox.ToolTipText = Localization.T("Toolbar.CommitSearch.Tip");
+        commitSearchToolButton.Text = Localization.T("CommitSearch.Search");
+        commitSearchToolButton.ToolTipText = Localization.T("Toolbar.CommitSearch.Tip");
         copyFilePathToolButton.ToolTipText = Localization.T("Toolbar.CopyFilePath.Tip");
         wordWrapToolButton.ToolTipText = Localization.T("Toolbar.WordWrap.Tip");
         copyDiffToolButton.ToolTipText = Localization.T("Toolbar.CopyDiff.Tip");
@@ -589,6 +647,18 @@ public partial class MainForm : Form
         toolTip.SetToolTip(diffTitleLabel, Localization.T("Section.Diff.Tip"));
         changedFilesTitleLabel.Text = Localization.T("Section.ChangedFiles.Title");
         toolTip.SetToolTip(changedFilesTitleLabel, Localization.T("Section.ChangedFiles.Tip"));
+        commitSearchResultsTitleLabel.Text = Localization.T("Section.CommitSearch.Title");
+        toolTip.SetToolTip(commitSearchResultsTitleLabel, Localization.T("Section.CommitSearch.Tip"));
+        toolTip.SetToolTip(commitSearchResultsListView, Localization.T("Section.CommitSearch.Tip"));
+        _commitSearchShaColumn.Text = Localization.T("Column.Graph.Sha");
+        _commitSearchShaColumn.Tag = Localization.T("Column.Graph.Sha.Tip");
+        _commitSearchMessageColumn.Text = Localization.T("Column.Graph.Message");
+        _commitSearchMessageColumn.Tag = Localization.T("Column.Graph.Message.Tip");
+        _commitSearchAuthorColumn.Text = Localization.T("Column.Graph.Author");
+        _commitSearchAuthorColumn.Tag = Localization.T("Column.Graph.Author.Tip");
+        _commitSearchDateColumn.Text = Localization.T("Column.Graph.Date");
+        _commitSearchDateColumn.Tag = Localization.T("Column.Graph.Date.Tip");
+        UpdateCommitSearchResultsTitle();
 
         diffCopyContextMenuItem.Text = Localization.T("Menu.Diff.ContextCopy");
         diffWordWrapContextMenuItem.Text = Localization.T("Menu.Diff.ContextWordWrap");
@@ -759,6 +829,19 @@ public partial class MainForm : Form
         button.ShowDropDownArrow = false;
     }
 
+    private static void ConfigureToolStripLabeledButton(ToolStripButton button, Image icon, string text, string toolTipText)
+    {
+        button.Image = icon;
+        button.ImageScaling = ToolStripItemImageScaling.None;
+        button.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        button.TextImageRelation = TextImageRelation.ImageBeforeText;
+        button.Text = text;
+        button.AutoSize = true;
+        button.Padding = new Padding(4, 0, 4, 0);
+        button.Margin = new Padding(2, 0, 2, 0);
+        button.ToolTipText = toolTipText;
+    }
+
     private static void ApplyToolStripIconButton(ToolStripItem button, Image icon, string toolTipText)
     {
         button.Image = icon;
@@ -892,6 +975,7 @@ public partial class MainForm : Form
             _workingTreeWatcher.Stop();
             _remoteBrowseUrl = null;
             _pathHistoryFilter = null;
+            ClearCommitSearchResults();
             _gitService.OpenLocal(path);
             statusLabel.Text = Localization.Tf("Status.Branch", _gitService.GetCurrentBranchName());
             await RefreshRepositoryViewsAsync(Localization.T("Status.OpeningRepo"));
@@ -945,6 +1029,7 @@ public partial class MainForm : Form
             _workingTreeWatcher.Stop();
             _remoteBrowseUrl = remoteUrl;
             _pathHistoryFilter = null;
+            ClearCommitSearchResults();
             _gitService.OpenLocal(cachePath);
             statusLabel.Text = Localization.Tf("Status.BranchRemote", _gitService.GetCurrentBranchName());
             await RefreshRepositoryViewsAsync(Localization.T("Status.OpeningRemote"));
@@ -1577,6 +1662,7 @@ public partial class MainForm : Form
             repoInfoLabel.Text = Localization.T("Repo.NoRepository");
             exportSummaryToolButton.Enabled = false;
             SetExportSummaryMenuItemsEnabled(false);
+            UpdateCommitSearchUiState();
             return;
         }
 
@@ -1593,6 +1679,7 @@ public partial class MainForm : Form
         }
         exportSummaryToolButton.Enabled = true;
         SetExportSummaryMenuItemsEnabled(true);
+        UpdateCommitSearchUiState();
     }
 
     private void SetExportSummaryMenuItemsEnabled(bool enabled)
@@ -3175,6 +3262,243 @@ public partial class MainForm : Form
 
     private void ClearFileLogFilterContextMenuItem_Click(object? sender, EventArgs e) =>
         ClearPathHistoryFilter();
+
+    private void CommitSearchButton_Click(object? sender, EventArgs e) =>
+        _ = RunCommitSearchAsync();
+
+    private void CommitSearchTextBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Enter)
+        {
+            e.SuppressKeyPress = true;
+            e.Handled = true;
+            _ = RunCommitSearchAsync();
+        }
+    }
+
+    private static void CommitSearchTextBox_KeyPress(object? sender, KeyPressEventArgs e)
+    {
+        if (e.KeyChar == '\r' || e.KeyChar == '\n')
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void CommitSearchTextBox_TextChanged(object? sender, EventArgs e)
+    {
+        if (_suppressCommitSearchTextSanitize || sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        if (textBox.Text.IndexOfAny(['\r', '\n']) < 0)
+        {
+            return;
+        }
+
+        int selectionStart = textBox.SelectionStart;
+        string sanitized = textBox.Text
+            .Replace("\r\n", " ", StringComparison.Ordinal)
+            .Replace('\r', ' ')
+            .Replace('\n', ' ');
+
+        _suppressCommitSearchTextSanitize = true;
+        try
+        {
+            textBox.Text = sanitized;
+            textBox.SelectionStart = Math.Min(selectionStart, textBox.Text.Length);
+        }
+        finally
+        {
+            _suppressCommitSearchTextSanitize = false;
+        }
+    }
+
+    private void CommitSearchResultsListView_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        if (_suppressCommitSearchSelection || commitSearchResultsListView.SelectedItems.Count == 0)
+        {
+            return;
+        }
+
+        if (commitSearchResultsListView.SelectedItems[0].Tag is not string sha)
+        {
+            return;
+        }
+
+        _ = NavigateToCommitFromSearchAsync(sha);
+    }
+
+    private async Task RunCommitSearchAsync()
+    {
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
+        string query = commitSearchToolTextBox.TextBox.Text.Trim();
+        if (query.Length < CommitSearchService.MinimumQueryLength)
+        {
+            GitOperationNotifier.ShowInfo(
+                this,
+                Localization.T("Section.CommitSearch.Title"),
+                Localization.T("CommitSearch.QueryTooShort"));
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        int generation = ++_commitSearchGeneration;
+        _lastCommitSearchQuery = query;
+        statusLabel.Text = Localization.T("Status.SearchingCommits");
+
+        try
+        {
+            IReadOnlyList<CommitSearchResult> results = await Task.Run(() =>
+                _gitService.RunLocked(activeRepo =>
+                    CommitSearchService.Search(activeRepo, query)));
+
+            if (generation != _commitSearchGeneration || _gitService.Repo != repo)
+            {
+                return;
+            }
+
+            PopulateCommitSearchResults(results);
+            statusLabel.Text = results.Count == 0
+                ? Localization.T("CommitSearch.NoResults")
+                : Localization.Tf("CommitSearch.ResultsCount", results.Count);
+        }
+        catch (Exception ex)
+        {
+            if (generation != _commitSearchGeneration)
+            {
+                return;
+            }
+
+            statusLabel.Text = Localization.T("Status.Ready");
+            GitOperationNotifier.ShowFailure(this, Localization.T("Section.CommitSearch.Title"), ex);
+        }
+    }
+
+    private async Task NavigateToCommitFromSearchAsync(string sha)
+    {
+        if (_gitService.Repo is null)
+        {
+            return;
+        }
+
+        Repository repo = _gitService.Repo;
+        Commit? commit;
+        try
+        {
+            commit = _gitService.RunLocked(activeRepo => activeRepo.Lookup<Commit>(sha));
+        }
+        catch (Exception ex)
+        {
+            GitOperationNotifier.ShowFailure(this, Localization.T("Section.CommitSearch.Title"), ex);
+            return;
+        }
+
+        if (commitGraphView.TrySelectCommit(commit))
+        {
+            return;
+        }
+
+        if (_pathHistoryFilter is not null)
+        {
+            _pathHistoryLoadGeneration++;
+            _commitGraphLoadGeneration++;
+            _pathHistoryFilter = null;
+            _pathHistoryFilterIsDirectory = false;
+            UpdateGraphTitleLabel();
+            await LoadFullCommitGraphAsync();
+            if (_gitService.Repo != repo)
+            {
+                return;
+            }
+
+            commit = _gitService.RunLocked(activeRepo => activeRepo.Lookup<Commit>(sha));
+        }
+
+        if (!commitGraphView.TrySelectCommit(commit))
+        {
+            GitOperationNotifier.ShowInfo(
+                this,
+                Localization.T("Section.CommitSearch.Title"),
+                Localization.T("CommitSearch.NotInView"));
+        }
+    }
+
+    private void PopulateCommitSearchResults(IReadOnlyList<CommitSearchResult> results)
+    {
+        _suppressCommitSearchSelection = true;
+        try
+        {
+            commitSearchResultsListView.BeginUpdate();
+            commitSearchResultsListView.Items.Clear();
+            foreach (CommitSearchResult result in results)
+            {
+                var item = new ListViewItem(result.ShortSha) { Tag = result.Sha };
+                item.SubItems.Add(result.MessageShort);
+                item.SubItems.Add(result.Author);
+                item.SubItems.Add(result.DateDisplay);
+                commitSearchResultsListView.Items.Add(item);
+            }
+
+            commitSearchResultsListView.EndUpdate();
+            UpdateCommitSearchResultsTitle(results.Count);
+        }
+        finally
+        {
+            _suppressCommitSearchSelection = false;
+        }
+    }
+
+    private void UpdateCommitSearchResultsTitle(int? resultCount = null)
+    {
+        string title = Localization.T("Section.CommitSearch.Title");
+        if (resultCount is null)
+        {
+            if (string.IsNullOrWhiteSpace(_lastCommitSearchQuery)
+                || commitSearchResultsListView.Items.Count == 0)
+            {
+                commitSearchResultsTitleLabel.Text = title;
+                return;
+            }
+
+            resultCount = commitSearchResultsListView.Items.Count;
+        }
+
+        commitSearchResultsTitleLabel.Text = resultCount == 0
+            ? $"{title} — {Localization.T("CommitSearch.NoResults")}"
+            : resultCount >= CommitSearchService.DefaultMaxResults
+                ? $"{title} — {Localization.Tf("CommitSearch.ResultsTruncated", resultCount.Value, CommitSearchService.DefaultMaxResults)}"
+                : $"{title} — {Localization.Tf("CommitSearch.ResultsCount", resultCount.Value)}";
+    }
+
+    private void ClearCommitSearchResults()
+    {
+        _commitSearchGeneration++;
+        _lastCommitSearchQuery = null;
+        commitSearchToolTextBox.Clear();
+        _suppressCommitSearchSelection = true;
+        try
+        {
+            commitSearchResultsListView.Items.Clear();
+            commitSearchResultsTitleLabel.Text = Localization.T("Section.CommitSearch.Title");
+        }
+        finally
+        {
+            _suppressCommitSearchSelection = false;
+        }
+    }
+
+    private void UpdateCommitSearchUiState()
+    {
+        bool enabled = _gitService.Repo is not null;
+        commitSearchToolTextBox.Enabled = enabled;
+        commitSearchToolButton.Enabled = enabled;
+        commitSearchResultsListView.Enabled = enabled;
+    }
 
     private void CommitGraphView_CommitSelected(object? sender, Commit commit)
     {
