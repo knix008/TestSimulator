@@ -959,10 +959,22 @@ public sealed class SystemIndexService : IDisposable
                 changeCount++;
             }
 
+            var appliedRemoves = 0;
             foreach (var path in removes)
-                target.RemoveWatcherDeletedPath(path);
+            {
+                // Skip removes where the path was re-created since the watcher fired.
+                // During a long scan, DELETE events queue behind the scan worker and
+                // are processed after promotion against the new DB. If a directory was
+                // temporarily deleted and re-created during that window, applying the
+                // stale DELETE would cascade-wipe all its descendants from the fresh index.
+                if (File.Exists(path) || Directory.Exists(path))
+                    continue;
 
-            changeCount += removes.Count;
+                target.RemoveWatcherDeletedPath(path);
+                appliedRemoves++;
+            }
+
+            changeCount += appliedRemoves;
         }
 
         var upserts = new List<FileEntry>(adds.Count);
