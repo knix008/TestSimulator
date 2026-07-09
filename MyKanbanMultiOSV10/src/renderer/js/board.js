@@ -145,6 +145,7 @@ const BoardView = (() => {
     const text = getThemeCssVar('--text', isDark ? '#E2E8F0' : '#1E293B');
     const textMuted = getThemeCssVar('--text-muted', isDark ? '#94A3B8' : '#64748B');
     const textLight = getThemeCssVar('--text-light', isDark ? '#64748B' : '#94A3B8');
+    const danger = getThemeCssVar('--danger', isDark ? '#F87171' : '#EF4444');
     const bgCard = getThemeCssVar('--bg-card', isDark ? '#1E293B' : '#FFFFFF');
     const border = getThemeCssVar('--border', isDark ? '#334155' : '#CBD5E1');
 
@@ -156,7 +157,7 @@ const BoardView = (() => {
       bgCard,
       border,
       grid: cssColorToRgba(border, isDark ? 0.5 : 0.4),
-      idealLine: textLight,
+      idealLine: danger,
     };
   }
 
