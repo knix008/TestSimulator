@@ -3,15 +3,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { getDb } = require('../db/connection');
+const { getDb, getUploadsPath } = require('../db/connection');
 
 const router = express.Router();
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
+    cb(null, getUploadsPath());
   },
   filename: (req, file, cb) => {
     cb(null, `${uuidv4()}${path.extname(file.originalname)}`);
@@ -724,7 +722,7 @@ router.delete('/:boardId/cards/:cardId/attachments/:attachId', requireAuth, requ
     const db = getDb();
     const attach = await db('attachments').where({ id: req.params.attachId }).first();
     if (attach) {
-      const fp = path.join(__dirname, '../../uploads', attach.filename);
+      const fp = path.join(getUploadsPath(), attach.filename);
       if (fs.existsSync(fp)) fs.unlinkSync(fp);
       await db('attachments').where({ id: req.params.attachId }).delete();
     }

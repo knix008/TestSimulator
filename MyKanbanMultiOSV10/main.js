@@ -204,12 +204,18 @@ ipcMain.handle('get-electron-info', () => {
 });
 
 app.whenReady().then(async () => {
-  process.env.KANBAN_DATA_PATH = app.getPath('userData');
-  loadUiConfig();
-  pendingKprjFile = findKprjArg();
-  const { startServer } = require('./server');
-  const port = await startServer();
-  await createWindow(port);
+  try {
+    process.env.KANBAN_DATA_PATH = app.getPath('userData');
+    loadUiConfig();
+    pendingKprjFile = findKprjArg();
+    const { startServer } = require('./server');
+    const port = await startServer();
+    await createWindow(port);
+  } catch (err) {
+    console.error('MyKanban startup failed:', err);
+    dialog.showErrorBox('MyKanban', `시작 중 오류가 발생했습니다.\n\n${err.message || err}`);
+    app.quit();
+  }
 });
 
 app.on('window-all-closed', () => {

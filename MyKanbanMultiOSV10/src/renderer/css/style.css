@@ -19,6 +19,7 @@
   --text-muted: #64748B;
   --text-light: #94A3B8;
   --border: #CBD5E1;
+  --login-pattern-image: url("login-pattern-light.svg");
   --shadow: 0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
   --shadow-md: 0 4px 12px rgba(0,0,0,.12);
   --radius: 8px;
@@ -45,6 +46,7 @@
   --text-muted: #94A3B8;
   --text-light: #64748B;
   --border: #334155;
+  --login-pattern-image: url("login-pattern-dark.svg");
   --shadow: 0 1px 3px rgba(0,0,0,.4);
   --shadow-md: 0 4px 12px rgba(0,0,0,.5);
 }
@@ -121,8 +123,17 @@ select.form-control { cursor: pointer; }
 .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
 
 /* ── Login ─────────────────────────────────────────────────── */
-.login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100%; background: var(--bg); }
-.login-box { background: var(--bg-card); border-radius: 12px; box-shadow: var(--shadow-md); padding: 40px; width: 100%; max-width: 380px; border: 1px solid var(--border); }
+.login-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  background-color: var(--bg);
+  background-image: var(--login-pattern-image);
+  background-size: 320px 320px;
+  background-position: center;
+}
+.login-box { position: relative; z-index: 1; background: var(--bg-card); border-radius: 12px; box-shadow: var(--shadow-md); padding: 40px; width: 100%; max-width: 380px; border: 1px solid var(--border); }
 .login-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 8px; color: var(--text); }
 .login-sub { text-align: center; color: var(--text-muted); margin-bottom: 28px; font-size: 13px; }
 .login-divider { text-align: center; color: var(--text-light); margin: 16px 0; font-size: 12px; position: relative; }
@@ -192,8 +203,15 @@ select.form-control { cursor: pointer; }
 .card-attach { color: var(--text-light); font-size: 11px; }
 
 /* ── Drop zone ─────────────────────────────────────────────── */
-.drop-zone { height: 4px; border-radius: 2px; transition: .1s; margin: 2px 0; }
-.drop-zone.drag-over { height: 36px; background: var(--primary-light); border: 2px dashed var(--primary); border-radius: var(--radius-sm); }
+.drop-zone { height: 4px; border-radius: 2px; transition: height .15s ease, background .1s, border-color .1s; margin: 2px 0; flex-shrink: 0; }
+.drop-zone.drag-over {
+  height: var(--drag-card-height, 72px);
+  min-height: var(--drag-card-height, 72px);
+  box-sizing: border-box;
+  background: var(--primary-light);
+  border: 2px dashed var(--primary);
+  border-radius: var(--radius-sm);
+}
 
 /* Add column button */
 .add-col-btn { background: rgba(255,255,255,.1); border-radius: var(--radius); width: 240px; min-width: 240px; padding: 14px; color: var(--text-muted); text-align: center; cursor: pointer; height: 52px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; border: 2px dashed var(--border); transition: var(--transition); }

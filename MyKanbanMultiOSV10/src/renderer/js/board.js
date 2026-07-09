@@ -550,12 +550,15 @@ const BoardView = (() => {
     if (!currentPermissions.canEdit) { e.preventDefault(); return; }
     drag = { cardId, colId };
     e.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => e.target.classList.add('dragging'), 0);
+    const cardEl = e.currentTarget;
+    document.documentElement.style.setProperty('--drag-card-height', `${cardEl.offsetHeight}px`);
+    setTimeout(() => cardEl.classList.add('dragging'), 0);
   }
 
   function onDragEnd(e) {
-    e.target.classList.remove('dragging');
+    e.currentTarget.classList.remove('dragging');
     drag = null;
+    document.documentElement.style.removeProperty('--drag-card-height');
     document.querySelectorAll('.drop-zone').forEach(dz => dz.classList.remove('drag-over'));
   }
 

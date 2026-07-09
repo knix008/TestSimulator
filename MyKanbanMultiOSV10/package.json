@@ -21,6 +21,7 @@
     "productName": "MyKanban",
     "copyright": "Copyright © 2026 SHKWON(knix008@naver.com)",
     "afterAllArtifactBuild": "scripts/copy-installer.js",
+    "afterPack": "scripts/after-pack.js",
     "npmRebuild": false,
     "nodeGypRebuild": false,
     "directories": {
@@ -31,6 +32,8 @@
       "main.js",
       "preload.js",
       "server.js",
+      "assets/**/*",
+      "sample/**/*",
       "src/**/*",
       "!src/renderer/css/*.map",
       "!**/*.md"
@@ -103,6 +106,9 @@
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
     "electron": "^28.3.3",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "rcedit": "^5.0.2",
+    "sharp": "^0.35.3",
+    "to-ico": "^1.1.5"
   }
 }

@@ -3,6 +3,7 @@ const session = require('express-session');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { getUploadsPath } = require('./src/db/connection');
 
 const app = express();
 
@@ -19,9 +20,7 @@ app.use(session({
 
 app.use(express.static(path.join(__dirname, 'src/renderer')));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
-
-const uploadsDir = path.join(__dirname, 'uploads');
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', (req, res, next) => express.static(getUploadsPath())(req, res, next));
 app.use('/sample', express.static(path.join(__dirname, 'sample')));
 
 // Routes (loaded lazily so DB is initialized first)
@@ -36,7 +35,7 @@ app.get('*', (req, res) => {
 });
 
 async function startServer(preferredPort = 3000) {
-  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  getUploadsPath();
 
   const { loadDbConfig, getDb } = require('./src/db/connection');
   const { runMigrations } = require('./src/db/migrate');

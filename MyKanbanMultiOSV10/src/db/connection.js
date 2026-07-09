@@ -11,6 +11,18 @@ function getDataPath() {
   return dir;
 }
 
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function getUploadsPath() {
+  const dir = process.env.KANBAN_DATA_PATH
+    ? path.join(process.env.KANBAN_DATA_PATH, 'uploads')
+    : path.join(__dirname, '../../uploads');
+  return ensureDir(dir);
+}
+
 function getConfigPath() {
   const dir = getDataPath();
   return path.join(dir, 'db-config.json');
@@ -140,4 +152,4 @@ function buildKnexConfig(formData) {
   return { client, connection };
 }
 
-module.exports = { loadDbConfig, getDb, getCurrentConfig, updateDbConfig, buildKnexConfig, getDataPath };
+module.exports = { loadDbConfig, getDb, getCurrentConfig, updateDbConfig, buildKnexConfig, getDataPath, getUploadsPath };
