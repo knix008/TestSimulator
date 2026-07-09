@@ -173,7 +173,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   background-color: var(--bg);
   background-image: var(--login-pattern-image);
   background-size: 320px 320px;
+  background-repeat: repeat;
   background-position: center;
+}
+[data-theme="dark"] .login-wrap {
+  background-color: var(--bg);
+  background-image: var(--login-pattern-image);
 }
 .login-box { position: relative; z-index: 1; background: var(--bg-card); border-radius: 12px; box-shadow: var(--shadow-md); padding: 40px; width: 100%; max-width: 380px; border: 1px solid var(--border); }
 .login-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 8px; color: var(--text); }
