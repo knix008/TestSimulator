@@ -1,74 +1,74 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
   <defs>
-    <pattern id="arcPattern" width="320" height="320" patternUnits="userSpaceOnUse">
-      <g stroke="#64748B" fill="none" stroke-width="0.8" stroke-linecap="round">
+    <pattern id="arcPatternLight" width="320" height="320" patternUnits="userSpaceOnUse">
+      <g stroke="#475569" fill="none" stroke-width="1" stroke-linecap="round">
         <g transform="translate(55,255) rotate(-18)">
-          <path d="M0,-54 A54,54 0 0,1 46.8,27" stroke-opacity="0.13"/>
-          <path d="M0,-48 A48,48 0 0,1 41.6,24" stroke-opacity="0.12"/>
-          <path d="M0,-42 A42,42 0 0,1 36.4,21" stroke-opacity="0.11"/>
-          <path d="M0,-36 A36,36 0 0,1 31.2,18" stroke-opacity="0.10"/>
-          <path d="M0,-30 A30,30 0 0,1 26,15" stroke-opacity="0.09"/>
-          <path d="M0,-24 A24,24 0 0,1 20.8,12" stroke-opacity="0.08"/>
-          <path d="M0,-18 A18,18 0 0,1 15.6,9" stroke-opacity="0.07"/>
+          <path d="M0,-54 A54,54 0 0,1 46.8,27" stroke-opacity="0.28"/>
+          <path d="M0,-48 A48,48 0 0,1 41.6,24" stroke-opacity="0.26"/>
+          <path d="M0,-42 A42,42 0 0,1 36.4,21" stroke-opacity="0.24"/>
+          <path d="M0,-36 A36,36 0 0,1 31.2,18" stroke-opacity="0.22"/>
+          <path d="M0,-30 A30,30 0 0,1 26,15" stroke-opacity="0.20"/>
+          <path d="M0,-24 A24,24 0 0,1 20.8,12" stroke-opacity="0.18"/>
+          <path d="M0,-18 A18,18 0 0,1 15.6,9" stroke-opacity="0.16"/>
         </g>
         <g transform="translate(185,45) rotate(125)">
-          <path d="M0,-50 A50,50 0 0,1 43.3,25" stroke-opacity="0.12"/>
-          <path d="M0,-44 A44,44 0 0,1 38.1,22" stroke-opacity="0.11"/>
-          <path d="M0,-38 A38,38 0 0,1 32.9,19" stroke-opacity="0.10"/>
-          <path d="M0,-32 A32,32 0 0,1 27.7,16" stroke-opacity="0.09"/>
-          <path d="M0,-26 A26,26 0 0,1 22.5,13" stroke-opacity="0.08"/>
-          <path d="M0,-20 A20,20 0 0,1 17.3,10" stroke-opacity="0.07"/>
+          <path d="M0,-50 A50,50 0 0,1 43.3,25" stroke-opacity="0.26"/>
+          <path d="M0,-44 A44,44 0 0,1 38.1,22" stroke-opacity="0.24"/>
+          <path d="M0,-38 A38,38 0 0,1 32.9,19" stroke-opacity="0.22"/>
+          <path d="M0,-32 A32,32 0 0,1 27.7,16" stroke-opacity="0.20"/>
+          <path d="M0,-26 A26,26 0 0,1 22.5,13" stroke-opacity="0.18"/>
+          <path d="M0,-20 A20,20 0 0,1 17.3,10" stroke-opacity="0.16"/>
         </g>
         <g transform="translate(275,210) rotate(205)">
-          <path d="M0,-56 A56,56 0 0,1 48.5,28" stroke-opacity="0.13"/>
-          <path d="M0,-49 A49,49 0 0,1 42.4,24.5" stroke-opacity="0.12"/>
-          <path d="M0,-42 A42,42 0 0,1 36.4,21" stroke-opacity="0.11"/>
-          <path d="M0,-35 A35,35 0 0,1 30.3,17.5" stroke-opacity="0.10"/>
-          <path d="M0,-28 A28,28 0 0,1 24.2,14" stroke-opacity="0.09"/>
-          <path d="M0,-21 A21,21 0 0,1 18.2,10.5" stroke-opacity="0.08"/>
+          <path d="M0,-56 A56,56 0 0,1 48.5,28" stroke-opacity="0.28"/>
+          <path d="M0,-49 A49,49 0 0,1 42.4,24.5" stroke-opacity="0.26"/>
+          <path d="M0,-42 A42,42 0 0,1 36.4,21" stroke-opacity="0.24"/>
+          <path d="M0,-35 A35,35 0 0,1 30.3,17.5" stroke-opacity="0.22"/>
+          <path d="M0,-28 A28,28 0 0,1 24.2,14" stroke-opacity="0.20"/>
+          <path d="M0,-21 A21,21 0 0,1 18.2,10.5" stroke-opacity="0.18"/>
         </g>
         <g transform="translate(130,175) rotate(48)">
-          <path d="M0,-46 A46,46 0 0,1 39.8,23" stroke-opacity="0.11"/>
-          <path d="M0,-40 A40,40 0 0,1 34.6,20" stroke-opacity="0.10"/>
-          <path d="M0,-34 A34,34 0 0,1 29.4,17" stroke-opacity="0.09"/>
-          <path d="M0,-28 A28,28 0 0,1 24.2,14" stroke-opacity="0.08"/>
-          <path d="M0,-22 A22,22 0 0,1 19,11" stroke-opacity="0.07"/>
+          <path d="M0,-46 A46,46 0 0,1 39.8,23" stroke-opacity="0.24"/>
+          <path d="M0,-40 A40,40 0 0,1 34.6,20" stroke-opacity="0.22"/>
+          <path d="M0,-34 A34,34 0 0,1 29.4,17" stroke-opacity="0.20"/>
+          <path d="M0,-28 A28,28 0 0,1 24.2,14" stroke-opacity="0.18"/>
+          <path d="M0,-22 A22,22 0 0,1 19,11" stroke-opacity="0.16"/>
         </g>
         <g transform="translate(25,95) rotate(-62)">
-          <path d="M0,-52 A52,52 0 0,1 45,26" stroke-opacity="0.12"/>
-          <path d="M0,-45 A45,45 0 0,1 39,22.5" stroke-opacity="0.11"/>
-          <path d="M0,-38 A38,38 0 0,1 32.9,19" stroke-opacity="0.10"/>
-          <path d="M0,-31 A31,31 0 0,1 26.8,15.5" stroke-opacity="0.09"/>
-          <path d="M0,-24 A24,24 0 0,1 20.8,12" stroke-opacity="0.08"/>
+          <path d="M0,-52 A52,52 0 0,1 45,26" stroke-opacity="0.26"/>
+          <path d="M0,-45 A45,45 0 0,1 39,22.5" stroke-opacity="0.24"/>
+          <path d="M0,-38 A38,38 0 0,1 32.9,19" stroke-opacity="0.22"/>
+          <path d="M0,-31 A31,31 0 0,1 26.8,15.5" stroke-opacity="0.20"/>
+          <path d="M0,-24 A24,24 0 0,1 20.8,12" stroke-opacity="0.18"/>
         </g>
         <g transform="translate(245,75) rotate(168)">
-          <path d="M0,-48 A48,48 0 0,1 41.6,24" stroke-opacity="0.11"/>
-          <path d="M0,-42 A42,42 0 0,1 36.4,21" stroke-opacity="0.10"/>
-          <path d="M0,-36 A36,36 0 0,1 31.2,18" stroke-opacity="0.09"/>
-          <path d="M0,-30 A30,30 0 0,1 26,15" stroke-opacity="0.08"/>
-          <path d="M0,-24 A24,24 0 0,1 20.8,12" stroke-opacity="0.07"/>
+          <path d="M0,-48 A48,48 0 0,1 41.6,24" stroke-opacity="0.24"/>
+          <path d="M0,-42 A42,42 0 0,1 36.4,21" stroke-opacity="0.22"/>
+          <path d="M0,-36 A36,36 0 0,1 31.2,18" stroke-opacity="0.20"/>
+          <path d="M0,-30 A30,30 0 0,1 26,15" stroke-opacity="0.18"/>
+          <path d="M0,-24 A24,24 0 0,1 20.8,12" stroke-opacity="0.16"/>
         </g>
         <g transform="translate(210,290) rotate(-135)">
-          <path d="M0,-44 A44,44 0 0,1 38.1,22" stroke-opacity="0.10"/>
-          <path d="M0,-38 A38,38 0 0,1 32.9,19" stroke-opacity="0.09"/>
-          <path d="M0,-32 A32,32 0 0,1 27.7,16" stroke-opacity="0.08"/>
-          <path d="M0,-26 A26,26 0 0,1 22.5,13" stroke-opacity="0.07"/>
+          <path d="M0,-44 A44,44 0 0,1 38.1,22" stroke-opacity="0.22"/>
+          <path d="M0,-38 A38,38 0 0,1 32.9,19" stroke-opacity="0.20"/>
+          <path d="M0,-32 A32,32 0 0,1 27.7,16" stroke-opacity="0.18"/>
+          <path d="M0,-26 A26,26 0 0,1 22.5,13" stroke-opacity="0.16"/>
         </g>
         <g transform="translate(95,130) rotate(82)">
-          <path d="M0,-50 A50,50 0 0,1 43.3,25" stroke-opacity="0.11"/>
-          <path d="M0,-43 A43,43 0 0,1 37.3,21.5" stroke-opacity="0.10"/>
-          <path d="M0,-36 A36,36 0 0,1 31.2,18" stroke-opacity="0.09"/>
-          <path d="M0,-29 A29,29 0 0,1 25.1,14.5" stroke-opacity="0.08"/>
-          <path d="M0,-22 A22,22 0 0,1 19,11" stroke-opacity="0.07"/>
+          <path d="M0,-50 A50,50 0 0,1 43.3,25" stroke-opacity="0.24"/>
+          <path d="M0,-43 A43,43 0 0,1 37.3,21.5" stroke-opacity="0.22"/>
+          <path d="M0,-36 A36,36 0 0,1 31.2,18" stroke-opacity="0.20"/>
+          <path d="M0,-29 A29,29 0 0,1 25.1,14.5" stroke-opacity="0.18"/>
+          <path d="M0,-22 A22,22 0 0,1 19,11" stroke-opacity="0.16"/>
         </g>
         <g transform="translate(300,120) rotate(-95)">
-          <path d="M0,-40 A40,40 0 0,1 34.6,20" stroke-opacity="0.09"/>
-          <path d="M0,-34 A34,34 0 0,1 29.4,17" stroke-opacity="0.08"/>
-          <path d="M0,-28 A28,28 0 0,1 24.2,14" stroke-opacity="0.07"/>
-          <path d="M0,-22 A22,22 0 0,1 19,11" stroke-opacity="0.06"/>
+          <path d="M0,-40 A40,40 0 0,1 34.6,20" stroke-opacity="0.20"/>
+          <path d="M0,-34 A34,34 0 0,1 29.4,17" stroke-opacity="0.18"/>
+          <path d="M0,-28 A28,28 0 0,1 24.2,14" stroke-opacity="0.16"/>
+          <path d="M0,-22 A22,22 0 0,1 19,11" stroke-opacity="0.14"/>
         </g>
       </g>
     </pattern>
   </defs>
-  <rect width="320" height="320" fill="url(#arcPattern)"/>
+  <rect width="320" height="320" fill="url(#arcPatternLight)"/>
 </svg>
