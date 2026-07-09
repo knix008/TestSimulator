@@ -515,7 +515,7 @@ const BoardView = (() => {
     const dueBadge = card.due_date ? `<span class="card-due ${dueCls}">${formatDate(card.due_date)}</span>` : '';
     const assigneeInitial = card.assignee_name ? escHtml(card.assignee_name[0].toUpperCase()) : '';
     const assigneeBadge = card.assignee_name
-      ? `<span class="card-assignee" title="${escAttr(I18n.t('assignee'))}: ${escAttr(card.assignee_name)}"><span class="card-assignee-avatar">${assigneeInitial}</span>${escHtml(card.assignee_name)}</span>`
+      ? `<span class="card-assignee" title="${escAttr(I18n.t('assignee'))}: ${escAttr(card.assignee_name)}"><span class="card-assignee-avatar">${assigneeInitial}</span><span class="card-assignee-name">${escHtml(card.assignee_name)}</span></span>`
       : '';
     const attachBadge = card.attachment_count > 0 ? `<span class="card-attach">&#128206; ${card.attachment_count}</span>` : '';
     const colorAttr = card.color ? `data-color="${card.color}"` : '';
@@ -526,8 +526,11 @@ const BoardView = (() => {
            oncontextmenu="BoardView.showCardCtxMenu(event,${card.id},${colId})"
            ondragstart="BoardView.onDragStart(event,${card.id},${colId})"
            ondragend="BoardView.onDragEnd(event)">
-        <div class="card-title">${escHtml(card.title)}</div>
-        <div class="card-meta">${assigneeBadge}${dueBadge}${attachBadge}</div>
+        <div class="card-title-row">
+          <div class="card-title">${escHtml(card.title)}</div>
+          ${assigneeBadge}
+        </div>
+        ${dueBadge || attachBadge ? `<div class="card-meta">${dueBadge}${attachBadge}</div>` : ''}
       </div>`;
   }
 
