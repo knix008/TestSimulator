@@ -60,12 +60,55 @@ function getCurrentConfig() {
   return getDefaultConfig();
 }
 
+function getConnectionKey(config) {
+  if (!config) return '';
+  const client = config.client || 'sqlite3';
+  const conn = config.connection || {};
+  if (client === 'sqlite3' || client === 'better-sqlite3') {
+    const filename = path.resolve(conn.filename || path.join(getDataPath(), 'kanban.db'));
+    return `sqlite:${filename}`;
+  }
+  const host = conn.host || conn.server || '';
+  const port = conn.port || '';
+  return `${client}:${host}:${port}:${conn.database}:${conn.user}`;
+}
+
 async function updateDbConfig(config) {
+  const oldDb = db;
+  const oldKey = getConnectionKey(getCurrentConfig());
+  const newKey = getConnectionKey(config);
+  const shouldMigrateData = oldKey !== newKey;
+
+  let snapshot = null;
+  if (shouldMigrateData && oldDb) {
+    try {
+      const { exportDatabaseSnapshot } = require('./migrate-data');
+      snapshot = await exportDatabaseSnapshot(oldDb);
+    } catch (err) {
+      console.warn('DB snapshot export failed:', err.message);
+    }
+  }
+
   const cfgPath = getConfigPath();
   fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf8');
   await loadDbConfig();
-  const { runMigrations } = require('./migrate');
+  const { runMigrations, seedDefaultAdmin } = require('./migrate');
   await runMigrations(db);
+
+  if (shouldMigrateData && snapshot?.hasData) {
+    const { importDatabaseSnapshot } = require('./migrate-data');
+    const result = await importDatabaseSnapshot(db, snapshot);
+    if (result.imported) {
+      await seedDefaultAdmin(db);
+      return {
+        migrated: true,
+        users: result.users,
+        boards: result.boards,
+      };
+    }
+  }
+
+  return { migrated: false };
 }
 
 function buildKnexConfig(formData) {

@@ -1,21 +1,175 @@
+/* ── Context menu utility ────────────────────────────────────────────────── */
+const CtxMenu = (() => {
+  let dismissTimer = null;
+
+  function el() { return document.getElementById('ctx-menu'); }
+
+  function clearDismiss() {
+    if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null; }
+    document.removeEventListener('mousedown', onDismiss, true);
+    document.removeEventListener('keydown', onKeyDismiss, true);
+    document.removeEventListener('contextmenu', hide, true);
+  }
+
+  function onDismiss(e) {
+    if (e.target.closest('#ctx-menu')) return;
+    hide();
+  }
+
+  function onKeyDismiss(e) {
+    if (e.key === 'Escape') hide();
+  }
+
+  function show(e, items) {
+    e.preventDefault();
+    e.stopPropagation();
+    const menu = el();
+    if (!menu || !items?.length) return;
+
+    clearDismiss();
+    hide();
+
+    menu.innerHTML = '';
+    items.forEach(item => {
+      if (item.type === 'sep') {
+        const d = document.createElement('div'); d.className = 'ctx-sep'; menu.appendChild(d); return;
+      }
+      const btn = document.createElement('button');
+      if (item.danger) btn.className = 'danger';
+      if (item.disabled) { btn.disabled = true; btn.style.opacity = '.5'; }
+      if (item.tooltip) btn.title = item.tooltip;
+      btn.innerHTML = (item.icon ? `<span class="ctx-icon">${item.icon}</span>` : '') + item.label;
+      btn.onmousedown = (ev) => ev.preventDefault();
+      btn.onclick = () => { hide(); item.action && item.action(); };
+      menu.appendChild(btn);
+    });
+
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let x = e.clientX, y = e.clientY;
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.classList.remove('hidden');
+
+    requestAnimationFrame(() => {
+      const w = menu.offsetWidth, h = menu.offsetHeight;
+      if (x + w > vw - 8) x = Math.max(8, vw - w - 8);
+      if (y + h > vh - 8) y = Math.max(8, vh - h - 8);
+      menu.style.left = x + 'px';
+      menu.style.top = y + 'px';
+    });
+
+    dismissTimer = setTimeout(() => {
+      document.addEventListener('mousedown', onDismiss, true);
+      document.addEventListener('keydown', onKeyDismiss, true);
+      document.addEventListener('contextmenu', hide, true);
+    }, 0);
+  }
+
+  function hide() {
+    clearDismiss();
+    el()?.classList.add('hidden');
+  }
+
+  return { show, hide };
+})();
+
+/* ── Status bar utility ──────────────────────────────────────────────────── */
+function setStatus(msg, type) {
+  const msgEl = document.getElementById('status-msg');
+  const dot = document.getElementById('status-indicator');
+  const text = msg || I18n.t('ready');
+  if (msgEl) {
+    if (text === I18n.t('ready')) {
+      msgEl.dataset.statusKey = 'ready';
+    } else {
+      delete msgEl.dataset.statusKey;
+    }
+    msgEl.textContent = text;
+  }
+  if (dot) {
+    dot.className = 'status-dot ' + (type === 'err' ? 'status-err' : type === 'warn' ? 'status-warn' : 'status-ok');
+  }
+}
+function setStatusBoard(name) {
+  const el = document.getElementById('status-board');
+  if (el) el.textContent = name || '';
+}
+
+function renderBackButton(onclick, labelKey, icons) {
+  const iconHtml = icons || '&#8592; &#128194;';
+  return `<button type="button" class="btn btn-back" onclick="${onclick}" title="${escAttr(I18n.t(labelKey))}"><span class="btn-back-icon" aria-hidden="true">${iconHtml}</span><span>${I18n.t(labelKey)}</span></button>`;
+}
+
 /* ── Project / Board View ────────────────────────────────────────────────── */
 const BoardView = (() => {
   let currentBoardId = null;
   let currentPermissions = null;
   let boardData = null;
+  let boardsList = [];
   let users = [];
   let drag = null;
+  let burndownChart = null;
+  let burndownChartCache = null;
+  let summaryReportCache = null;
 
-  const CARD_COLORS = [
-    { value: '', label: '기본' },
-    { value: 'blue', label: '파랑', hex: '#6366F1' },
-    { value: 'green', label: '초록', hex: '#22C55E' },
-    { value: 'yellow', label: '노랑', hex: '#F59E0B' },
-    { value: 'orange', label: '주황', hex: '#F97316' },
-    { value: 'red', label: '빨강', hex: '#EF4444' },
-    { value: 'purple', label: '보라', hex: '#A855F7' },
-    { value: 'pink', label: '분홍', hex: '#EC4899' },
-    { value: 'cyan', label: '청록', hex: '#06B6D4' },
+  const COLUMN_CHART_COLORS = ['#3B82F6', '#F59E0B', '#8B5CF6', '#22C55E', '#EF4444', '#06B6D4', '#EC4899', '#64748B'];
+
+  function chartRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  function getThemeCssVar(name, fallback = '') {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  }
+
+  function cssColorToRgba(color, alpha) {
+    if (!color) return `rgba(100,116,139,${alpha})`;
+    if (color.startsWith('#')) {
+      const hex = color.length === 4
+        ? `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`
+        : color;
+      return chartRgba(hex, alpha);
+    }
+    if (color.startsWith('rgb')) {
+      const nums = color.match(/[\d.]+/g);
+      if (nums?.length >= 3) return `rgba(${nums[0]},${nums[1]},${nums[2]},${alpha})`;
+    }
+    return color;
+  }
+
+  function getBurndownChartTheme() {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const text = getThemeCssVar('--text', isDark ? '#E2E8F0' : '#1E293B');
+    const textMuted = getThemeCssVar('--text-muted', isDark ? '#94A3B8' : '#64748B');
+    const textLight = getThemeCssVar('--text-light', isDark ? '#64748B' : '#94A3B8');
+    const bgCard = getThemeCssVar('--bg-card', isDark ? '#1E293B' : '#FFFFFF');
+    const border = getThemeCssVar('--border', isDark ? '#334155' : '#CBD5E1');
+
+    return {
+      isDark,
+      text,
+      textMuted,
+      textLight,
+      bgCard,
+      border,
+      grid: cssColorToRgba(border, isDark ? 0.5 : 0.4),
+      idealLine: textLight,
+    };
+  }
+
+  const CARD_COLORS = () => [
+    { value: '', label: I18n.t('colorDefault') },
+    { value: 'blue', label: I18n.t('colorBlue'), hex: '#6366F1' },
+    { value: 'green', label: I18n.t('colorGreen'), hex: '#22C55E' },
+    { value: 'yellow', label: I18n.t('colorYellow'), hex: '#F59E0B' },
+    { value: 'orange', label: I18n.t('colorOrange'), hex: '#F97316' },
+    { value: 'red', label: I18n.t('colorRed'), hex: '#EF4444' },
+    { value: 'purple', label: I18n.t('colorPurple'), hex: '#A855F7' },
+    { value: 'pink', label: I18n.t('colorPink'), hex: '#EC4899' },
+    { value: 'cyan', label: I18n.t('colorCyan'), hex: '#06B6D4' },
   ];
 
   // ── Export / Import (.kprj) ───────────────────────────────────────────────
@@ -27,8 +181,8 @@ const BoardView = (() => {
         const json = await res.text();
         const result = await window.electron.saveKprj(boardTitle, json);
         if (result.ok) showToast(I18n.t('exportSuccess') + ': ' + result.filePath.split(/[\\/]/).pop(), 'success');
-        else if (!result.cancelled) showToast(result.error, 'error');
-      } catch (err) { showToast(err.message, 'error'); }
+        else if (!result.cancelled) showError(I18n.t('exportProject'), result.error || I18n.t('exportSaveFailed'));
+      } catch (err) { showError(I18n.t('exportProject'), err.message); }
     } else {
       // Web: trigger browser download
       const a = document.createElement('a');
@@ -44,24 +198,26 @@ const BoardView = (() => {
   async function importProject(jsonText) {
     try {
       const data = JSON.parse(jsonText);
-      if (data.format !== 'mykanban-project') throw new Error('올바른 .kprj 파일이 아닙니다.');
+      if (data.format !== 'mykanban-project') throw new Error(I18n.t('invalidKprjDetail'));
       const board = await API.post('/boards/import', data);
       showToast(I18n.t('importSuccess'), 'success');
       return board;
     } catch (err) {
-      showToast(I18n.t('importError') + ': ' + err.message, 'error');
+      showError(I18n.t('importError'), err.message);
       return null;
     }
   }
 
-  async function importProjectFromDialog() {
+  async function importProjectFromDialog(startDir) {
     if (typeof window.electron !== 'undefined') {
-      const result = await window.electron.openKprjDialog();
+      // Electron: native file open dialog with optional starting directory
+      const result = await window.electron.openKprjDialog(startDir || undefined);
       if (!result || result.cancelled) return;
       if (!result.ok) { showToast(result.error, 'error'); return; }
       const board = await importProject(result.content);
       if (board) openBoard(board.id);
     } else {
+      // Web: browser file picker (can't set directory, but remember choice for UX)
       const input = document.createElement('input');
       input.type = 'file'; input.accept = '.kprj';
       input.onchange = async () => {
@@ -74,14 +230,28 @@ const BoardView = (() => {
     }
   }
 
+  async function openSampleProject() {
+    try {
+      const res = await fetch('/sample/sample.kprj');
+      if (!res.ok) throw new Error(I18n.t('sampleNotFound'));
+      const data = JSON.parse(await res.text());
+      if (data.format !== 'mykanban-project') throw new Error(I18n.t('invalidKprj'));
+      const board = await API.post('/boards/import', { ...data, _noSuffix: true });
+      showToast(I18n.t('importSuccess'), 'success');
+      openBoard(board.id);
+    } catch (err) {
+      showError(I18n.t('importError'), err.message);
+    }
+  }
+
   // Called when a .kprj file is double-clicked via OS file association (Electron)
   async function handleKprjFileOpen(filePath) {
     try {
       const res = await fetch(`/api/boards/import-file?path=${encodeURIComponent(filePath)}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('파일 읽기 실패');
+      if (!res.ok) throw new Error(I18n.t('fileReadFailed'));
       const data = await res.json();
       if (data.id) { showToast(I18n.t('importSuccess'), 'success'); openBoard(data.id); }
-    } catch { /* ignore — will be retried via IPC */ }
+    } catch (err) { showError(I18n.t('fileOpenFailed'), filePath + '\n\n' + err.message); }
   }
 
   // Register IPC listener
@@ -98,16 +268,18 @@ const BoardView = (() => {
 
     try {
       const boards = await API.get('/boards');
+      boardsList = boards;
       users = await API.get('/users/active').catch(() => []);
+      setStatus(I18n.t('ready')); setStatusBoard('');
 
       if (boards.length === 0) {
         main.innerHTML = `
-          <div class="page-wrap">
+          <div class="page-wrap" oncontextmenu="BoardView.showListCtxMenu(event)">
             <div class="page-header">
-              <h1 class="page-title">${I18n.t('myBoards')}</h1>
+              <h1 class="page-title">&#9783; ${I18n.t('myBoards')}</h1>
               <div style="display:flex;gap:8px">
-                <button class="btn btn-secondary" onclick="BoardView.importProjectFromDialog()">&#128229; ${I18n.t('importProject')}</button>
-                <button class="btn btn-primary" onclick="BoardView.showCreateBoard()">${I18n.t('newBoard')}</button>
+                <button class="btn btn-secondary" onclick="BoardView.importProjectFromDialog()" title="${I18n.t('importProject')}">&#128229; ${I18n.t('importProject')}</button>
+                <button class="btn btn-primary" onclick="BoardView.showCreateBoard()" title="${I18n.t('createBoard')}">&#10010; ${I18n.t('newBoard')}</button>
               </div>
             </div>
             <div class="board-empty">
@@ -118,7 +290,10 @@ const BoardView = (() => {
       } else {
         const roleLabel = { owner: I18n.t('roleAdmin'), 'system-admin': I18n.t('admin'), admin: I18n.t('roleAdmin'), editor: I18n.t('roleEditor'), viewer: I18n.t('roleViewer') };
         const cards = boards.map(b => `
-          <div class="board-card" onclick="BoardView.openBoard(${b.id})">
+          <div class="board-card"
+               data-board-id="${b.id}" data-board-title="${escAttr(b.title)}" data-board-desc="${escAttr(b.description||'')}" data-my-role="${b.myRole}"
+               onclick="BoardView.openBoard(${b.id})"
+               oncontextmenu="BoardView.showBoardCtxMenu(event,this)">
             <div class="board-card-actions">
               ${b.myRole !== 'viewer' ? `<button class="board-card-btn" onclick="event.stopPropagation();BoardView.editBoard(${b.id},'${escHtml(b.title)}','${escHtml(b.description||'')}')" title="${I18n.t('edit')}">&#9998;</button>` : ''}
               <button class="board-card-btn" onclick="event.stopPropagation();BoardView.exportProject(${b.id},'${escHtml(b.title)}')" title="${I18n.t('exportProject')}">&#128229;</button>
@@ -131,12 +306,12 @@ const BoardView = (() => {
           </div>`).join('');
 
         main.innerHTML = `
-          <div class="page-wrap">
+          <div class="page-wrap" oncontextmenu="BoardView.showListCtxMenu(event)">
             <div class="page-header">
-              <h1 class="page-title">${I18n.t('myBoards')}</h1>
+              <h1 class="page-title">&#9783; ${I18n.t('myBoards')}</h1>
               <div style="display:flex;gap:8px">
-                <button class="btn btn-secondary" onclick="BoardView.importProjectFromDialog()">&#128229; ${I18n.t('importProject')}</button>
-                <button class="btn btn-primary" onclick="BoardView.showCreateBoard()">${I18n.t('newBoard')}</button>
+                <button class="btn btn-secondary" onclick="BoardView.importProjectFromDialog()" title="${I18n.t('importProject')}">&#128229; ${I18n.t('importProject')}</button>
+                <button class="btn btn-primary" onclick="BoardView.showCreateBoard()" title="${I18n.t('createBoard')}">&#10010; ${I18n.t('newBoard')}</button>
               </div>
             </div>
             <div class="boards-grid">${cards}</div>
@@ -144,13 +319,15 @@ const BoardView = (() => {
       }
     } catch (err) {
       main.innerHTML = `<div class="spinner-wrap">${err.message}</div>`;
+      setStatus(err.message, 'err');
     }
   }
 
   function showCreateBoard() {
-    Modal.open(`
-      <button class="modal-close" onclick="Modal.close()">&#10005;</button>
-      <h2 class="modal-title">${I18n.t('createBoard')}</h2>
+    Modal.dialog({
+      title: I18n.t('createBoard'),
+      size: 'sm',
+      body: `
       <div class="form-group">
         <label>${I18n.t('boardName')}</label>
         <input id="new-board-title" class="form-control" placeholder="${I18n.t('boardName')}">
@@ -158,11 +335,9 @@ const BoardView = (() => {
       <div class="form-group">
         <label>${I18n.t('boardDesc')}</label>
         <input id="new-board-desc" class="form-control" placeholder="...">
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-secondary" onclick="Modal.close()">${I18n.t('cancel')}</button>
-        <button class="btn btn-primary" onclick="BoardView.createBoard()">${I18n.t('create')}</button>
-      </div>`);
+      </div>`,
+      footer: Modal.footerCancelPrimary(I18n.t('create'), 'BoardView.createBoard()'),
+    });
     document.getElementById('new-board-title').focus();
     document.getElementById('new-board-title').addEventListener('keydown', e => { if (e.key === 'Enter') createBoard(); });
   }
@@ -170,19 +345,20 @@ const BoardView = (() => {
   async function createBoard() {
     const title = document.getElementById('new-board-title').value.trim();
     const description = document.getElementById('new-board-desc').value.trim();
-    if (!title) { showToast(I18n.t('boardName') + ' 필수', 'error'); return; }
+    if (!title) { showToast(I18n.t('boardName') + ' ' + I18n.t('fieldRequired'), 'error'); return; }
     try {
       const board = await API.post('/boards', { title, description });
       Modal.close();
-      showToast(I18n.t('create') + ' 완료', 'success');
+      showToast(I18n.t('createdDone'), 'success');
       openBoard(board.id);
     } catch (err) { showToast(err.message, 'error'); }
   }
 
   function editBoard(id, title, desc) {
-    Modal.open(`
-      <button class="modal-close" onclick="Modal.close()">&#10005;</button>
-      <h2 class="modal-title">${I18n.t('edit')}</h2>
+    Modal.dialog({
+      title: I18n.t('edit'),
+      size: 'sm',
+      body: `
       <div class="form-group">
         <label>${I18n.t('boardName')}</label>
         <input id="edit-board-title" class="form-control" value="${escHtml(title)}">
@@ -190,11 +366,9 @@ const BoardView = (() => {
       <div class="form-group">
         <label>${I18n.t('boardDesc')}</label>
         <input id="edit-board-desc" class="form-control" value="${escHtml(desc)}">
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-secondary" onclick="Modal.close()">${I18n.t('cancel')}</button>
-        <button class="btn btn-primary" onclick="BoardView.saveEditBoard(${id})">${I18n.t('save')}</button>
-      </div>`);
+      </div>`,
+      footer: Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveEditBoard(${id})`),
+    });
   }
 
   async function saveEditBoard(id) {
@@ -204,7 +378,7 @@ const BoardView = (() => {
     try {
       await API.put(`/boards/${id}`, { title, description });
       Modal.close();
-      showToast(I18n.t('save') + ' 완료', 'success');
+      showToast(I18n.t('savedDone'), 'success');
       renderBoardList();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -213,7 +387,7 @@ const BoardView = (() => {
     if (!confirm(I18n.t('delete') + '?')) return;
     try {
       await API.delete(`/boards/${id}`);
-      showToast(I18n.t('delete') + ' 완료', 'success');
+      showToast(I18n.t('deletedDone'), 'success');
       renderBoardList();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -222,6 +396,7 @@ const BoardView = (() => {
 
   async function openBoard(boardId) {
     currentBoardId = boardId;
+    setStatus(I18n.t('loading'));
     document.getElementById('main-content').innerHTML =
       `<div id="board-view"><div class="spinner-wrap"><div class="spinner"></div></div></div>`;
     try {
@@ -229,6 +404,7 @@ const BoardView = (() => {
       await loadBoard();
     } catch (err) {
       document.getElementById('main-content').innerHTML = `<div class="spinner-wrap">${err.message}</div>`;
+      setStatus(err.message, 'err');
     }
   }
 
@@ -244,7 +420,7 @@ const BoardView = (() => {
         currentPermissions = response.permissions;
       }
       renderBoard();
-    } catch (err) { showToast('로드 실패: ' + err.message, 'error'); }
+    } catch (err) { showToast(I18n.t('loadFailed') + ': ' + err.message, 'error'); }
   }
 
   function renderBoard() {
@@ -255,16 +431,16 @@ const BoardView = (() => {
     document.getElementById('main-content').innerHTML = `
       <div id="board-view">
         <div class="board-toolbar">
-          <button class="btn btn-ghost btn-sm" onclick="App.showBoards()">${I18n.t('backToBoards')}</button>
-          <span class="board-toolbar-title" id="board-title-lbl">프로젝트</span>
+          ${renderBackButton('App.showBoards()', 'backToBoards')}
+          <span class="board-toolbar-title" id="board-title-lbl">${I18n.t('myBoards')}</span>
           <div class="board-toolbar-right">
-            <button class="btn btn-secondary btn-sm" onclick="BoardView.showSummary()">${I18n.t('summary')}</button>
-            ${perm.canManageMembers ? `<button class="btn btn-secondary btn-sm" onclick="BoardView.showMembers()">&#128100; ${I18n.t('members')}</button>` : ''}
-            <button class="btn btn-secondary btn-sm" id="btn-export-board" onclick="BoardView.exportCurrentBoard()">&#128229;</button>
-            ${perm.canEdit ? `<button class="btn btn-primary btn-sm" onclick="BoardView.promptAddColumn()">${I18n.t('addColumn')}</button>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="BoardView.showSummary()" title="${I18n.t('summaryTitle')}">&#128202; ${I18n.t('summary')}</button>
+            ${perm.canManageMembers ? `<button class="btn btn-secondary btn-sm" onclick="BoardView.showMembers()" title="${I18n.t('memberMgmt')}">&#128101; ${I18n.t('members')}</button>` : ''}
+            <button class="btn btn-secondary btn-sm" id="btn-export-board" onclick="BoardView.exportCurrentBoard()" title="${I18n.t('exportProject')}">&#128228; ${I18n.t('exportProject')}</button>
+            ${perm.canEdit ? `<button class="btn btn-primary btn-sm" onclick="BoardView.promptAddColumn()" title="${I18n.t('addColumn')}">&#10010; ${I18n.t('addColumn')}</button>` : ''}
           </div>
         </div>
-        <div class="columns-container" id="columns-container">
+        <div class="columns-container" id="columns-container" oncontextmenu="BoardView.showBoardAreaCtxMenu(event)">
           ${boardData.map(col => renderColumn(col)).join('')}
           ${perm.canEdit ? `<div class="add-col-btn" onclick="BoardView.promptAddColumn()">${I18n.t('addColumn')}</div>` : ''}
         </div>
@@ -272,11 +448,13 @@ const BoardView = (() => {
 
     // Load board title from server
     API.get('/boards').then(boards => {
+      boardsList = boards;
       const b = boards.find(x => x.id == currentBoardId);
       if (b) {
         document.getElementById('board-title-lbl') && (document.getElementById('board-title-lbl').textContent = b.title);
         const crumb = document.getElementById('breadcrumb');
         if (crumb) crumb.innerHTML = `<span onclick="App.showBoards()" style="cursor:pointer">${I18n.t('myBoards')}</span><span class="sep">/</span><span>${escHtml(b.title)}</span>`;
+        setStatus(I18n.t('ready')); setStatusBoard(b.title);
       }
     }).catch(() => {});
 
@@ -291,10 +469,10 @@ const BoardView = (() => {
 
     return `
       <div class="column" data-col-id="${col.id}">
-        <div class="column-header">
+        <div class="column-header" ${perm.canEdit ? `oncontextmenu="BoardView.showColumnCtxMenu(event,${col.id})"` : ''}>
           <span class="column-title" id="col-title-${col.id}" ${perm.canEdit ? `ondblclick="BoardView.startEditColTitle(${col.id})"` : ''}>${escHtml(col.title)}</span>
           <span class="column-count">${col.cards.length}</span>
-          ${perm.canEdit ? `<button class="column-menu" onclick="BoardView.showColumnMenu(event,${col.id})">&#8942;</button>` : ''}
+          ${perm.canEdit ? `<button class="column-menu" onclick="BoardView.showColumnCtxMenu(event,${col.id})">&#8942;</button>` : ''}
         </div>
         <div class="cards-list" id="cards-list-${col.id}">
           ${cards}
@@ -314,6 +492,7 @@ const BoardView = (() => {
     return `
       <div class="card" draggable="${currentPermissions.canEdit}" ${colorAttr} data-card-id="${card.id}" data-col-id="${colId}"
            onclick="BoardView.openCard(${card.id})"
+           oncontextmenu="BoardView.showCardCtxMenu(event,${card.id},${colId})"
            ondragstart="BoardView.onDragStart(event,${card.id},${colId})"
            ondragend="BoardView.onDragEnd(event)">
         <div class="card-title">${escHtml(card.title)}</div>
@@ -356,22 +535,87 @@ const BoardView = (() => {
     } catch (err) { showToast(err.message, 'error'); await loadBoard(); }
   }
 
-  // ── Column actions ────────────────────────────────────────────────────────
+  // ── Context menus ─────────────────────────────────────────────────────────
 
-  function showColumnMenu(e, colId) {
+  function showBoardCtxMenu(e, el) {
     e.stopPropagation();
-    document.querySelector('.ctx-menu')?.remove();
-    const menu = document.createElement('div');
-    menu.className = 'ctx-menu';
-    menu.innerHTML = `
-      <button onclick="BoardView.startEditColTitle(${colId});document.querySelector('.ctx-menu')?.remove()">&#9998; ${I18n.t('renameColumn')}</button>
-      <button class="danger" onclick="BoardView.deleteColumn(${colId});document.querySelector('.ctx-menu')?.remove()">&#128465; ${I18n.t('deleteColumn')}</button>`;
-    const rect = e.target.getBoundingClientRect();
-    menu.style.top = `${rect.bottom + 4}px`;
-    menu.style.right = `${window.innerWidth - rect.right}px`;
-    document.body.appendChild(menu);
-    setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
+    const id = parseInt(el.dataset.boardId);
+    const title = el.dataset.boardTitle || '';
+    const desc = el.dataset.boardDesc || '';
+    const myRole = el.dataset.myRole;
+    const canEdit = myRole !== 'viewer';
+    const canDelete = ['owner', 'system-admin'].includes(myRole);
+    CtxMenu.show(e, [
+      { label: I18n.t('open'), icon: '📂', tooltip: I18n.t('ctxOpenBoard'), action: () => openBoard(id) },
+      ...(canEdit ? [{ label: I18n.t('edit'), icon: '✏️', tooltip: I18n.t('ctxEditBoard'), action: () => editBoard(id, title, desc) }] : []),
+      { label: I18n.t('exportProject'), icon: '📥', tooltip: I18n.t('ctxExportBoard'), action: () => exportProject(id, title) },
+      ...(canDelete ? [
+        { type: 'sep' },
+        { label: I18n.t('delete'), icon: '🗑️', tooltip: I18n.t('ctxDeleteBoard'), danger: true, action: () => deleteBoard(id) }
+      ] : [])
+    ]);
   }
+
+  function showListCtxMenu(e) {
+    if (e.target.closest('.board-card, button, input, a, .menubar-item')) return;
+    const items = [
+      { label: I18n.t('newBoard'), icon: '➕', tooltip: I18n.t('createBoard'), action: () => showCreateBoard() },
+      { label: I18n.t('importProject'), icon: '📥', tooltip: I18n.t('importProject'), action: () => importProjectFromDialog() },
+      { type: 'sep' },
+      { label: I18n.t('settings'), icon: '⚙️', tooltip: I18n.t('settings'), action: () => App.showSettings() },
+    ];
+    if (App.currentUser?.role === 'admin') {
+      items.splice(3, 0, { label: I18n.t('dbSettings'), icon: '🗄️', tooltip: I18n.t('dbSettings'), action: () => App.showSettings() });
+    }
+    CtxMenu.show(e, items);
+  }
+
+  function showBoardAreaCtxMenu(e) {
+    if (e.target.closest('.kanban-card, .column-header, .column-menu, button, input, a, .add-col-btn, .add-card-btn')) return;
+    const perm = currentPermissions;
+    const items = [];
+    if (perm?.canEdit) {
+      items.push({ label: I18n.t('addColumn'), icon: '➕', tooltip: I18n.t('addColumn'), action: () => promptAddColumn() });
+      items.push({ label: I18n.t('addCard'), icon: '📝', tooltip: I18n.t('addCard'), action: () => {
+        const firstCol = boardData?.[0];
+        if (firstCol) showAddCard(firstCol.id);
+        else showToast(I18n.t('addColumnFirst'), 'error');
+      }});
+    }
+    items.push({ type: 'sep' });
+    items.push({ label: I18n.t('exportProject'), icon: '📤', tooltip: I18n.t('exportProject'), action: () => exportCurrentBoard() });
+    items.push({ label: I18n.t('backToBoards'), icon: '📂', tooltip: I18n.t('boardList'), action: () => App.showBoards() });
+    CtxMenu.show(e, items);
+  }
+
+  function showColumnCtxMenu(e, colId) {
+    e.stopPropagation();
+    CtxMenu.show(e, [
+      { label: I18n.t('addCard'), icon: '➕', tooltip: I18n.t('ctxAddCardCol'), action: () => showAddCard(colId) },
+      { type: 'sep' },
+      { label: I18n.t('renameColumn'), icon: '✏️', tooltip: I18n.t('ctxRenameCol'), action: () => startEditColTitle(colId) },
+      { label: I18n.t('deleteColumn'), icon: '🗑️', tooltip: I18n.t('ctxDeleteCol'), danger: true, action: () => deleteColumn(colId) }
+    ]);
+  }
+
+  function showCardCtxMenu(e, cardId, colId) {
+    e.stopPropagation();
+    const perm = currentPermissions;
+    CtxMenu.show(e, [
+      { label: I18n.t('cardEdit'), icon: '✏️', tooltip: I18n.t('ctxEditCard'), action: () => openCard(cardId) },
+      ...(perm.canEdit ? [
+        { type: 'sep' },
+        { label: I18n.t('deleteCard'), icon: '🗑️', tooltip: I18n.t('ctxDeleteCard'), danger: true, action: () => {
+          if (confirm(I18n.t('deleteCard') + '?')) {
+            API.delete(`/boards/${currentBoardId}/cards/${cardId}`)
+              .then(() => loadBoard()).catch(err => showError(I18n.t('deleteCardFailed'), err.message));
+          }
+        }}
+      ] : [])
+    ]);
+  }
+
+  // ── Column actions ────────────────────────────────────────────────────────
 
   function startEditColTitle(colId) {
     const span = document.getElementById(`col-title-${colId}`);
@@ -405,17 +649,16 @@ const BoardView = (() => {
   }
 
   async function promptAddColumn() {
-    Modal.open(`
-      <button class="modal-close" onclick="Modal.close()">&#10005;</button>
-      <h2 class="modal-title">${I18n.t('addColumn')}</h2>
+    Modal.dialog({
+      title: I18n.t('addColumn'),
+      size: 'sm',
+      body: `
       <div class="form-group">
-        <label>컬럼 이름 *</label>
+        <label>${I18n.t('columnName')}</label>
         <input id="new-col-title" class="form-control" autofocus>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-secondary" onclick="Modal.close()">${I18n.t('cancel')}</button>
-        <button class="btn btn-primary" onclick="BoardView.addColumn()">${I18n.t('addColumn')}</button>
-      </div>`);
+      </div>`,
+      footer: Modal.footerCancelPrimary(I18n.t('addColumn'), 'BoardView.addColumn()'),
+    });
     document.getElementById('new-col-title').addEventListener('keydown', e => { if (e.key === 'Enter') addColumn(); });
   }
 
@@ -436,7 +679,7 @@ const BoardView = (() => {
       <div class="form-group">
         <label>${I18n.t('cardColor')}</label>
         <div class="color-picker-row">
-          ${CARD_COLORS.map(c => `
+          ${CARD_COLORS().map(c => `
             <div class="color-dot ${c.value === selectedColor ? 'selected' : ''}"
                  style="background:${c.hex || 'var(--bg-col)'}; ${!c.hex ? 'border:1px solid var(--border)' : ''}"
                  title="${c.label}" data-color-val="${c.value}"
@@ -454,9 +697,10 @@ const BoardView = (() => {
   function showAddCard(colId) {
     const userOptions = users.map(u =>
       `<option value="${u.id}">${escHtml(u.display_name || u.username)}</option>`).join('');
-    Modal.open(`
-      <button class="modal-close" onclick="Modal.close()">&#10005;</button>
-      <h2 class="modal-title">${I18n.t('addCardTitle')}</h2>
+    Modal.dialog({
+      title: I18n.t('addCardTitle'),
+      size: 'md',
+      body: `
       <div class="form-group">
         <label>${I18n.t('cardTitle')}</label>
         <input id="new-card-title" class="form-control" autofocus>
@@ -475,11 +719,9 @@ const BoardView = (() => {
           <input type="date" id="new-card-due" class="form-control">
         </div>
       </div>
-      ${colorPickerHtml('')}
-      <div class="form-actions">
-        <button class="btn btn-secondary" onclick="Modal.close()">${I18n.t('cancel')}</button>
-        <button class="btn btn-primary" onclick="BoardView.createCard(${colId})">${I18n.t('addCardTitle')}</button>
-      </div>`);
+      ${colorPickerHtml('')}`,
+      footer: Modal.footerCancelPrimary(I18n.t('addCardTitle'), `BoardView.createCard(${colId})`),
+    });
     document.getElementById('new-card-title').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) createCard(colId); });
   }
 
@@ -513,9 +755,10 @@ const BoardView = (() => {
             </div>`).join('')
         : `<div style="font-size:12px;color:var(--text-light);padding:4px 0">${I18n.t('noAttach')}</div>`;
 
-      Modal.open(`
-        <button class="modal-close" onclick="Modal.close()">&#10005;</button>
-        <h2 class="modal-title">${I18n.t('cardEdit')}</h2>
+      Modal.dialog({
+        title: I18n.t('cardEdit'),
+        size: 'lg',
+        body: `
         <div class="form-group">
           <label>${I18n.t('cardTitle')}</label>
           <input id="ec-title" class="form-control" value="${escHtml(card.title)}" ${!canEdit ? 'readonly' : ''}>
@@ -541,12 +784,13 @@ const BoardView = (() => {
           <div class="modal-section-title">${I18n.t('attachments')}</div>
           <div class="attachment-list" id="attach-list">${attachHtml}</div>
           ${canEdit ? `<label class="upload-btn">&#128206; ${I18n.t('attachFile')}<input type="file" id="attach-input" multiple onchange="BoardView.uploadAttachment(${cardId})"></label>` : ''}
-        </div>
-        <div class="form-actions">
-          ${canEdit ? `<button class="btn btn-danger btn-sm" onclick="BoardView.deleteCard(${cardId})" style="margin-right:auto">&#128465; ${I18n.t('deleteCard')}</button>` : ''}
-          <button class="btn btn-secondary" onclick="Modal.close()">${I18n.t('cancel')}</button>
-          ${canEdit ? `<button class="btn btn-primary" onclick="BoardView.saveCard(${cardId})">${I18n.t('save')}</button>` : ''}
-        </div>`);
+        </div>`,
+        footer: canEdit
+          ? Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveCard(${cardId})`, {
+              left: `<button type="button" class="btn btn-danger btn-sm" onclick="BoardView.deleteCard(${cardId})">&#128465; ${I18n.t('deleteCard')}</button>`,
+            })
+          : `<button type="button" class="btn btn-primary" onclick="Modal.close()">${I18n.t('close')}</button>`,
+      });
     } catch (err) { showToast(err.message, 'error'); }
   }
 
@@ -560,7 +804,7 @@ const BoardView = (() => {
     try {
       await API.put(`/boards/${currentBoardId}/cards/${cardId}`, { title, description, assigneeId, dueDate, color });
       Modal.close();
-      showToast(I18n.t('save') + ' 완료', 'success');
+      showToast(I18n.t('savedDone'), 'success');
       await loadBoard();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -586,7 +830,7 @@ const BoardView = (() => {
           <span class="attachment-size">${fileSize(attach.size)}</span>
           <button class="attachment-del btn-icon" onclick="BoardView.deleteAttachment(${cardId},${attach.id})">&#10005;</button>`;
         list.appendChild(item);
-      } catch (err) { showToast('업로드 실패: ' + err.message, 'error'); }
+      } catch (err) { showToast(I18n.t('uploadFailed') + ': ' + err.message, 'error'); }
     }
     input.value = '';
   }
@@ -623,14 +867,15 @@ const BoardView = (() => {
             <option value="viewer" ${m.role==='viewer'?'selected':''}>${I18n.t('roleViewer')}</option>
           </select>
           <button class="btn btn-sm" style="color:var(--danger)" onclick="BoardView.removeMember(${m.id})">${I18n.t('removeBtn')}</button>
-        </div>`).join('') || `<div style="color:var(--text-muted);font-size:13px;padding:8px">멤버가 없습니다.</div>`;
+        </div>`).join('') || `<div style="color:var(--text-muted);font-size:13px;padding:8px">${I18n.t('noMembers')}</div>`;
 
       const nonMemberOptions = nonMembers.map(u =>
         `<option value="${u.id}">${escHtml(u.display_name || u.username)} (@${escHtml(u.username)})</option>`).join('');
 
-      Modal.open(`
-        <button class="modal-close" onclick="Modal.close()">&#10005;</button>
-        <h2 class="modal-title">${I18n.t('memberMgmt')}</h2>
+      Modal.dialog({
+        title: I18n.t('memberMgmt'),
+        size: 'lg',
+        body: `
         ${owner ? `
           <div class="modal-section">
             <div class="modal-section-title">${I18n.t('projectOwner')}</div>
@@ -644,25 +889,25 @@ const BoardView = (() => {
             </div>
           </div>` : ''}
         <div class="modal-section">
-          <div class="modal-section-title">멤버 (${members.length}명)</div>
+          <div class="modal-section-title">${I18n.t('members')} (${members.length})</div>
           <div class="member-list" id="member-list">${memberRows}</div>
         </div>
         ${nonMembers.length > 0 ? `
           <div class="modal-section">
             <div class="modal-section-title">${I18n.t('addMember')}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <select id="add-member-user" class="form-control" style="flex:1;min-width:160px">
+            <div class="member-add-row">
+              <select id="add-member-user" class="form-control">
                 ${nonMemberOptions}
               </select>
-              <select id="add-member-role" class="form-control" style="width:120px">
+              <select id="add-member-role" class="form-control member-role-input">
                 <option value="editor">${I18n.t('roleEditor')}</option>
                 <option value="viewer">${I18n.t('roleViewer')}</option>
                 <option value="admin">${I18n.t('roleAdmin')}</option>
               </select>
-              <button class="btn btn-primary btn-sm" onclick="BoardView.addMember()">${I18n.t('addMember')}</button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="BoardView.addMember()">${I18n.t('addMember')}</button>
             </div>
-          </div>` : ''}
-      `);
+          </div>` : ''}`,
+      });
     } catch (err) { showToast(err.message, 'error'); }
   }
 
@@ -672,7 +917,7 @@ const BoardView = (() => {
     if (!userId) return;
     try {
       await API.post(`/boards/${currentBoardId}/members`, { userId, role });
-      showToast('멤버가 추가되었습니다.', 'success');
+      showToast(I18n.t('memberAdded'), 'success');
       showMembers();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -692,13 +937,270 @@ const BoardView = (() => {
 
   // ── Summary / Burndown ────────────────────────────────────────────────────
 
+  function todayDateKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function burndownRangeStorageKey(boardId) {
+    return `burndown-range-${boardId}`;
+  }
+
+  function loadBurndownRange(boardId) {
+    try {
+      const raw = localStorage.getItem(burndownRangeStorageKey(boardId));
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveBurndownRange(boardId, startDate, endDate) {
+    localStorage.setItem(burndownRangeStorageKey(boardId), JSON.stringify({ start: startDate, end: endDate }));
+  }
+
+  function formatSummaryDate(dateKey) {
+    if (!dateKey) return '';
+    return new Date(dateKey + 'T12:00:00').toLocaleDateString(
+      I18n.getLang() === 'ko' ? 'ko-KR' : 'en-US',
+      { year: 'numeric', month: 'short', day: 'numeric' }
+    );
+  }
+
+  function buildSummaryQuery(startDate, endDate) {
+    const qs = new URLSearchParams();
+    if (startDate) qs.set('startDate', startDate);
+    if (endDate) qs.set('endDate', endDate);
+    const q = qs.toString();
+    return q ? `?${q}` : '';
+  }
+
+  function paintBurndownChart(columns, burndown) {
+    burndownChartCache = { columns, burndown };
+    if (burndownChart) { burndownChart.destroy(); burndownChart = null; }
+
+    const labels = burndown.map(d => d.date.substring(5));
+    const remainingArr = burndown.map(d => d.remaining);
+    const idealArr = burndown.map(d => d.ideal ?? 0);
+    const scopeArr = burndown.map(d => (d.columnCounts || []).reduce((sum, n) => sum + n, 0));
+    const yMax = Math.max(1, ...remainingArr, ...idealArr, ...scopeArr);
+    const pointRadius = burndown.length > 60 ? 2 : 4;
+
+    const canvas = document.getElementById('burndown-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const theme = getBurndownChartTheme();
+
+    const columnDatasets = columns.map((col, i) => {
+      const color = COLUMN_CHART_COLORS[i % COLUMN_CHART_COLORS.length];
+      return {
+        label: col.title,
+        data: burndown.map(d => (d.columnCounts && d.columnCounts[i]) ?? 0),
+        borderColor: color,
+        backgroundColor: chartRgba(color, 0.35),
+        legendColor: color,
+        fill: true,
+        stack: 'columns',
+        tension: 0.25,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        borderWidth: 1.5,
+        pointStyle: 'rect',
+        order: 1,
+      };
+    });
+
+    const legendLabels = (chart) => chart.data.datasets.map((ds, i) => ({
+      text: ds.label,
+      fillStyle: ds.legendColor || ds.borderColor,
+      strokeStyle: ds.legendColor || ds.borderColor,
+      fontColor: theme.text,
+      color: theme.text,
+      lineWidth: 0,
+      hidden: !chart.isDatasetVisible(i),
+      datasetIndex: i,
+      pointStyle: 'rect',
+    }));
+
+    burndownChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          ...columnDatasets,
+          {
+            label: I18n.t('burndownRemaining'),
+            data: remainingArr,
+            borderColor: '#6366F1',
+            backgroundColor: 'transparent',
+            legendColor: '#6366F1',
+            fill: false,
+            tension: 0.2,
+            pointRadius,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#6366F1',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 1,
+            borderWidth: 2.5,
+            spanGaps: true,
+            order: 0,
+            stack: 'burndown-remaining',
+            pointStyle: 'rect',
+          },
+          {
+            label: I18n.t('burndownIdeal'),
+            data: idealArr,
+            borderColor: theme.idealLine,
+            backgroundColor: 'transparent',
+            legendColor: theme.idealLine,
+            borderDash: [8, 4],
+            fill: false,
+            tension: 0,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            borderWidth: 2,
+            spanGaps: true,
+            order: 0,
+            stack: 'burndown-ideal',
+            pointStyle: 'rect',
+          },
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+              legend: {
+                labels: {
+                  color: theme.text,
+                  usePointStyle: true,
+                  pointStyle: 'rect',
+                  pointStyleWidth: 14,
+                  padding: 14,
+                  font: { size: 11, color: theme.text },
+                  generateLabels: legendLabels,
+                },
+              },
+          tooltip: {
+            backgroundColor: theme.bgCard,
+            titleColor: theme.text,
+            bodyColor: theme.textMuted,
+            footerColor: theme.textMuted,
+            borderColor: theme.border,
+            borderWidth: 1,
+            callbacks: {
+              title: (items) => {
+                const idx = items[0]?.dataIndex;
+                return burndown[idx] ? burndown[idx].date : items[0]?.label;
+              },
+              label: (ctx) => {
+                const val = ctx.parsed.y;
+                const label = ctx.dataset.label || '';
+                return `${label}: ${Number.isInteger(val) ? val : val.toFixed(1)}`;
+              },
+              footer: (items) => {
+                const idx = items[0]?.dataIndex;
+                const counts = burndown[idx]?.columnCounts;
+                if (!counts || !counts.length) return '';
+                const total = counts.reduce((sum, n) => sum + n, 0);
+                return `${I18n.t('chartCardTotal')}: ${total}`;
+              },
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: theme.textMuted, maxTicksLimit: 12 },
+            grid: { color: theme.grid }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            beginAtZero: true,
+            stacked: true,
+            suggestedMax: yMax + 1,
+            title: { display: true, text: I18n.t('chartCardCount'), color: theme.textMuted, font: { size: 11 } },
+            ticks: { color: theme.textMuted, precision: 0, maxTicksLimit: 10 },
+            grid: { color: theme.grid }
+          },
+        }
+      }
+    });
+  }
+
+  function refreshBurndownChartTheme() {
+    if (!burndownChartCache || !document.getElementById('burndown-chart')) return false;
+    paintBurndownChart(burndownChartCache.columns, burndownChartCache.burndown);
+    return true;
+  }
+
+  function updateBurndownRangeSubtitle(startDate, endDate) {
+    const el = document.getElementById('burndown-range-subtitle');
+    if (!el || !startDate || !endDate) return;
+    el.textContent = `${formatSummaryDate(startDate)} ~ ${formatSummaryDate(endDate)}`;
+  }
+
+  async function applyBurndownDateRange() {
+    const startEl = document.getElementById('burndown-start');
+    const endEl = document.getElementById('burndown-end');
+    const start = startEl?.value;
+    const end = endEl?.value;
+    if (!start || !end) {
+      showToast(I18n.t('burndownDateRequired'), 'error');
+      return;
+    }
+    if (start > end) {
+      showToast(I18n.t('burndownDateInvalid'), 'error');
+      return;
+    }
+    if (end > todayDateKey()) {
+      showToast(I18n.t('burndownEndFuture'), 'error');
+      return;
+    }
+
+    saveBurndownRange(currentBoardId, start, end);
+    const wrap = document.querySelector('.burndown-chart-wrap');
+    if (wrap) wrap.classList.add('chart-loading');
+
+    try {
+      const data = await API.get(`/boards/${currentBoardId}/summary${buildSummaryQuery(start, end)}`);
+      if (summaryReportCache?.boardId === currentBoardId) {
+        summaryReportCache.data = { ...summaryReportCache.data, ...data };
+      }
+      updateBurndownRangeSubtitle(data.burndownStartDate, data.burndownEndDate);
+      if (startEl) startEl.value = data.burndownStartDate;
+      if (endEl) endEl.value = data.burndownEndDate;
+      requestAnimationFrame(() => requestAnimationFrame(() => paintBurndownChart(data.columns, data.burndown || [])));
+      showToast(I18n.t('refreshed'), 'success', 1200);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      wrap?.classList.remove('chart-loading');
+    }
+  }
+
   async function showSummary() {
     const main = document.getElementById('main-content');
+    if (burndownChart) { burndownChart.destroy(); burndownChart = null; }
     main.innerHTML = `<div class="spinner-wrap"><div class="spinner"></div></div>`;
 
     try {
-      const data = await API.get(`/boards/${currentBoardId}/summary`);
-      const { columns, totalCards, completedCards, overdueCards, cardsByDate } = data;
+      const savedRange = loadBurndownRange(currentBoardId);
+      const data = await API.get(`/boards/${currentBoardId}/summary${buildSummaryQuery(savedRange?.start, savedRange?.end)}`);
+      const {
+        boardTitle, columns, totalCards, completedCards, overdueCards,
+        burndown = [], burndownStartDate, burndownEndDate, projectStartDate,
+      } = data;
+      summaryReportCache = { boardId: currentBoardId, data: { ...data, boardTitle } };
+
+      const rangeSubtitle = burndownStartDate && burndownEndDate
+        ? `${formatSummaryDate(burndownStartDate)} ~ ${formatSummaryDate(burndownEndDate)}`
+        : '';
 
       const totalNonZero = totalCards || 1;
       const colBars = columns.map(col => `
@@ -708,98 +1210,69 @@ const BoardView = (() => {
           <div class="col-bar-count">${col.count}</div>
         </div>`).join('');
 
-      // Prepare burndown data (last 30 days)
-      const last30 = [];
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        last30.push(d.toISOString().substring(0, 10));
-      }
-      const createdArr = last30.map(d => (cardsByDate[d] || {}).created || 0);
-      const completedArr = last30.map(d => (cardsByDate[d] || {}).completed || 0);
-
-      // Compute cumulative remaining (burndown)
-      let cumCreated = 0; let cumCompleted = 0;
-      const remainingArr = last30.map((d, i) => {
-        cumCreated += createdArr[i];
-        cumCompleted += completedArr[i];
-        return cumCreated - cumCompleted;
-      });
+      const todayKey = todayDateKey();
 
       main.innerHTML = `
         <div id="board-view">
           <div class="board-toolbar">
-            <button class="btn btn-ghost btn-sm" onclick="BoardView.openBoard(${currentBoardId})">&#8592; 칸반 보드</button>
+            ${renderBackButton(`BoardView.openBoard(${currentBoardId})`, 'backToKanban', '&#8592; &#9783;')}
             <span class="board-toolbar-title">${I18n.t('summaryTitle')}</span>
+            <div class="board-toolbar-actions">
+              <button type="button" class="btn btn-primary btn-sm" onclick="BoardView.exportSummaryReport()">&#128196; ${I18n.t('exportReport')}</button>
+            </div>
           </div>
           <div class="summary-wrap">
             <div class="stat-grid">
               <div class="stat-card"><div class="stat-label">${I18n.t('totalCards')}</div><div class="stat-value">${totalCards}</div></div>
               <div class="stat-card"><div class="stat-label">${I18n.t('completedCards')}</div><div class="stat-value success">${completedCards}</div></div>
               <div class="stat-card"><div class="stat-label">${I18n.t('overdueCards')}</div><div class="stat-value ${overdueCards > 0 ? 'danger' : ''}">${overdueCards}</div></div>
-              <div class="stat-card"><div class="stat-label">완료율</div><div class="stat-value">${totalCards > 0 ? Math.round(completedCards/totalCards*100) : 0}%</div></div>
+              <div class="stat-card"><div class="stat-label">${I18n.t('completionRate')}</div><div class="stat-value">${totalCards > 0 ? Math.round(completedCards/totalCards*100) : 0}%</div></div>
             </div>
             <div class="chart-wrap">
-              <div class="chart-title">컬럼별 카드 분포</div>
+              <div class="chart-title">${I18n.t('columnDist')}</div>
               <div class="col-dist">${colBars}</div>
             </div>
             <div class="chart-wrap">
-              <div class="chart-title">${I18n.t('burndownChart')}</div>
-              <canvas id="burndown-chart" style="max-height:300px"></canvas>
+              <div class="chart-header-row">
+                <div class="chart-title">
+                  ${I18n.t('burndownChart')}
+                  ${rangeSubtitle ? `<span class="chart-subtitle" id="burndown-range-subtitle">${rangeSubtitle}</span>` : ''}
+                </div>
+                <div class="chart-date-range">
+                  <label class="chart-date-field">
+                    <span>${I18n.t('burndownStartDate')}</span>
+                    <input type="date" id="burndown-start" class="form-control chart-date-input"
+                      value="${burndownStartDate || projectStartDate || ''}"
+                      max="${burndownEndDate || todayKey}">
+                  </label>
+                  <label class="chart-date-field">
+                    <span>${I18n.t('burndownEndDate')}</span>
+                    <input type="date" id="burndown-end" class="form-control chart-date-input"
+                      value="${burndownEndDate || todayKey}"
+                      max="${todayKey}">
+                  </label>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="BoardView.applyBurndownDateRange()">${I18n.t('burndownApply')}</button>
+                </div>
+              </div>
+              <div class="chart-canvas-wrap burndown-chart-wrap">
+                <canvas id="burndown-chart"></canvas>
+              </div>
             </div>
           </div>
         </div>`;
 
-      // Render burndown chart
-      const ctx = document.getElementById('burndown-chart').getContext('2d');
-      const isDark = document.documentElement.dataset.theme === 'dark';
-      const gridColor = isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)';
-      const textColor = isDark ? '#94A3B8' : '#64748B';
-
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: last30.map(d => d.substring(5)),
-          datasets: [
-            {
-              label: '남은 카드 (번다운)',
-              data: remainingArr,
-              borderColor: '#6366F1',
-              backgroundColor: 'rgba(99,102,241,.15)',
-              fill: true,
-              tension: 0.4,
-              pointRadius: 2
-            },
-            {
-              label: I18n.t('cardsCreated'),
-              data: createdArr,
-              borderColor: '#F59E0B',
-              backgroundColor: 'transparent',
-              borderDash: [5, 5],
-              tension: 0.4,
-              pointRadius: 2
-            },
-            {
-              label: I18n.t('cardsCompleted'),
-              data: completedArr,
-              borderColor: '#22C55E',
-              backgroundColor: 'transparent',
-              borderDash: [5, 5],
-              tension: 0.4,
-              pointRadius: 2
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { labels: { color: textColor } }
-          },
-          scales: {
-            x: { ticks: { color: textColor, maxTicksLimit: 10 }, grid: { color: gridColor } },
-            y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
-          }
-        }
+      document.getElementById('burndown-end')?.addEventListener('change', (e) => {
+        const startEl = document.getElementById('burndown-start');
+        if (startEl && e.target.value) startEl.max = e.target.value;
       });
+      document.getElementById('burndown-start')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') applyBurndownDateRange();
+      });
+      document.getElementById('burndown-end')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') applyBurndownDateRange();
+      });
+
+      requestAnimationFrame(() => requestAnimationFrame(() => paintBurndownChart(columns, burndown)));
     } catch (err) {
       main.innerHTML = `<div class="spinner-wrap">${err.message}</div>`;
     }
@@ -812,15 +1285,21 @@ const BoardView = (() => {
     await exportProject(currentBoardId, b ? b.title : 'project');
   }
 
+  function exportSummaryReport() {
+    ReportExport.showExportDialog(summaryReportCache);
+  }
+
   return {
+    get currentBoardId() { return currentBoardId; },
     renderBoardList, showCreateBoard, createBoard, editBoard, saveEditBoard, deleteBoard,
     openBoard, loadBoard,
-    showColumnMenu, startEditColTitle, deleteColumn, promptAddColumn, addColumn,
+    showBoardCtxMenu, showListCtxMenu, showBoardAreaCtxMenu, showColumnCtxMenu, showCardCtxMenu,
+    startEditColTitle, deleteColumn, promptAddColumn, addColumn,
     showAddCard, createCard, openCard, saveCard, deleteCard,
     uploadAttachment, deleteAttachment,
     onDragStart, onDragEnd,
     showMembers, addMember, changeMemberRole, removeMember,
-    showSummary,
-    exportProject, exportCurrentBoard, importProjectFromDialog, handleKprjFileOpen,
+    showSummary, exportSummaryReport, applyBurndownDateRange, refreshBurndownChartTheme,
+    exportProject, exportCurrentBoard, importProjectFromDialog, openSampleProject, handleKprjFileOpen,
   };
 })();

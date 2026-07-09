@@ -420,13 +420,153 @@ router.post('/:boardId/cards/:id/move', requireAuth, requireProjectAccess, async
 
 // ── SUMMARY / STATS ───────────────────────────────────────────────────────────
 
+function toLocalDateKey(val) {
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function endOfLocalDay(dateKey) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+}
+
+function parseLocalDateKey(dateKey) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
+}
+
+function isValidDateKey(key) {
+  if (!key || typeof key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+  const d = parseLocalDateKey(key);
+  return toLocalDateKey(d) === key;
+}
+
+function resolveBurndownRange(projectStartDate, queryStart, queryEnd) {
+  const todayKey = toLocalDateKey(new Date());
+  let startKey = isValidDateKey(queryStart) ? queryStart : projectStartDate;
+  let endKey = isValidDateKey(queryEnd) ? queryEnd : todayKey;
+  if (endKey > todayKey) endKey = todayKey;
+  if (startKey > endKey) startKey = endKey;
+  return { startKey, endKey, todayKey };
+}
+
+function getProjectStartDateKey(board, cards = []) {
+  let startMs = board?.created_at ? new Date(board.created_at).getTime() : Date.now();
+  if (Number.isNaN(startMs)) startMs = Date.now();
+  return toLocalDateKey(new Date(startMs));
+}
+
+function countRemainingAt(cards, doneColId, endMs) {
+  let remaining = 0;
+  cards.forEach(c => {
+    const createdMs = c.created_at ? new Date(c.created_at).getTime() : NaN;
+    if (Number.isNaN(createdMs) || createdMs > endMs) return;
+    const doneByDay = doneColId && c.column_id === doneColId && c.updated_at
+      && new Date(c.updated_at).getTime() <= endMs;
+    if (!doneByDay) remaining++;
+  });
+  return remaining;
+}
+
+function getCardColumnAt(card, columns, endMs) {
+  const createdMs = card.created_at ? new Date(card.created_at).getTime() : NaN;
+  if (Number.isNaN(createdMs) || createdMs > endMs) return null;
+
+  const updatedMs = card.updated_at ? new Date(card.updated_at).getTime() : createdMs;
+  if (updatedMs <= endMs) return card.column_id;
+
+  return columns[0]?.id ?? null;
+}
+
+function countByColumnAt(cards, columns, endMs) {
+  return columns.map(col => {
+    let n = 0;
+    cards.forEach(c => {
+      if (getCardColumnAt(c, columns, endMs) === col.id) n++;
+    });
+    return n;
+  });
+}
+
+function addIdealBurndown(series) {
+  if (!series.length) return series;
+  const lastIdx = series.length - 1;
+  const peakRemaining = Math.max(0, ...series.map(s => s.remaining ?? 0));
+  if (peakRemaining <= 0) {
+    return series.map(s => ({ ...s, ideal: 0 }));
+  }
+  return series.map((s, i) => ({
+    ...s,
+    ideal: lastIdx === 0
+      ? peakRemaining
+      : Math.round((peakRemaining * (1 - i / lastIdx)) * 10) / 10,
+  }));
+}
+
+function buildBurndownSeries(cards, columns, startDateKey, endDateKey) {
+  const colList = columns || [];
+  const doneColId = colList.length ? colList[colList.length - 1].id : null;
+  const series = [];
+  let start = parseLocalDateKey(startDateKey || toLocalDateKey(new Date()));
+  let end = parseLocalDateKey(endDateKey || toLocalDateKey(new Date()));
+  start.setHours(12, 0, 0, 0);
+  end.setHours(12, 0, 0, 0);
+
+  // Chart.js needs at least 2 points to draw a line.
+  if (start.getTime() >= end.getTime()) {
+    start = new Date(end);
+    start.setDate(start.getDate() - 1);
+    start.setHours(12, 0, 0, 0);
+  }
+
+  for (let d = new Date(start); d.getTime() <= end.getTime(); d.setDate(d.getDate() + 1)) {
+    d.setHours(12, 0, 0, 0);
+    const dateKey = toLocalDateKey(d);
+    const endMs = endOfLocalDay(dateKey);
+
+    let scope = 0;
+    cards.forEach(c => {
+      const createdMs = c.created_at ? new Date(c.created_at).getTime() : NaN;
+      if (!Number.isNaN(createdMs) && createdMs <= endMs) scope++;
+    });
+
+    series.push({
+      date: dateKey,
+      scope,
+      remaining: countRemainingAt(cards, doneColId, endMs),
+      columnCounts: countByColumnAt(cards, colList, endMs),
+    });
+  }
+  return addIdealBurndown(series);
+}
+
 router.get('/:boardId/summary', requireAuth, requireProjectAccess, async (req, res) => {
   try {
     const db = getDb();
+    const board = await db('boards').where({ id: req.params.boardId }).first();
     const columns = await db('columns').where({ board_id: req.params.boardId }).orderBy('position');
     const colIds = columns.map(c => c.id);
+    const projectStartDate = getProjectStartDateKey(board, []);
+    const { startKey, endKey } = resolveBurndownRange(
+      projectStartDate,
+      req.query.startDate,
+      req.query.endDate
+    );
 
-    if (colIds.length === 0) return res.json({ columns: [], totalCards: 0, completedCards: 0, overdueCards: 0, cardsByDate: [] });
+    if (colIds.length === 0) {
+      return res.json({
+        boardTitle: board?.title || '',
+        columns: [], totalCards: 0, completedCards: 0, overdueCards: 0,
+        projectStartDate,
+        burndownStartDate: startKey,
+        burndownEndDate: endKey,
+        burndown: buildBurndownSeries([], [], startKey, endKey),
+      });
+    }
 
     const cards = await db('cards').whereIn('column_id', colIds).select('*');
 
@@ -438,21 +578,6 @@ router.get('/:boardId/summary', requireAuth, requireProjectAccess, async (req, r
       return new Date(c.due_date) < today;
     }).length;
 
-    // Cards created per day (last 30 days) for burndown
-    const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const cardsByDate = {};
-    cards.forEach(c => {
-      if (!c.created_at) return;
-      const d = new Date(c.created_at).toISOString().substring(0, 10);
-      if (!cardsByDate[d]) cardsByDate[d] = { created: 0, completed: 0 };
-      cardsByDate[d].created++;
-      if (c.column_id === doneColId && c.updated_at) {
-        const ud = new Date(c.updated_at).toISOString().substring(0, 10);
-        if (!cardsByDate[ud]) cardsByDate[ud] = { created: 0, completed: 0 };
-        cardsByDate[ud].completed++;
-      }
-    });
-
     const colStats = columns.map(col => ({
       id: col.id,
       title: col.title,
@@ -460,11 +585,72 @@ router.get('/:boardId/summary', requireAuth, requireProjectAccess, async (req, r
     }));
 
     res.json({
+      boardTitle: board?.title || '',
       columns: colStats,
       totalCards: cards.length,
       completedCards,
       overdueCards,
-      cardsByDate
+      projectStartDate,
+      burndownStartDate: startKey,
+      burndownEndDate: endKey,
+      burndown: buildBurndownSeries(cards, columns, startKey, endKey),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── SUMMARY REPORT EXPORT ─────────────────────────────────────────────────────
+
+router.post('/:boardId/report', requireAuth, requireProjectAccess, async (req, res) => {
+  try {
+    const { format, images, lang } = req.body || {};
+    if (!['md', 'docx', 'pdf'].includes(format)) {
+      return res.status(400).json({ error: 'Unsupported report format.' });
+    }
+
+    const db = getDb();
+    const board = await db('boards').where({ id: req.params.boardId }).first();
+    if (!board) return res.status(404).json({ error: 'Project not found.' });
+
+    const columns = await db('columns').where({ board_id: req.params.boardId }).orderBy('position');
+    const colIds = columns.map(c => c.id);
+    const projectStartDate = getProjectStartDateKey(board, []);
+    let summaryData = {
+      boardTitle: board.title,
+      columns: [],
+      totalCards: 0,
+      completedCards: 0,
+      overdueCards: 0,
+      projectStartDate,
+    };
+
+    if (colIds.length > 0) {
+      const cards = await db('cards').whereIn('column_id', colIds).select('*');
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const doneColId = columns[columns.length - 1].id;
+      summaryData = {
+        boardTitle: board.title,
+        columns: columns.map(col => ({
+          title: col.title,
+          count: cards.filter(c => c.column_id === col.id).length,
+        })),
+        totalCards: cards.length,
+        completedCards: cards.filter(c => c.column_id === doneColId).length,
+        overdueCards: cards.filter(c => {
+          if (!c.due_date || c.column_id === doneColId) return false;
+          return new Date(c.due_date) < today;
+        }).length,
+        projectStartDate,
+      };
+    }
+
+    const { buildReport, getReportFilename } = require('../services/report-builder');
+    const { buffer, mime } = await buildReport(format, summaryData, images || {}, lang || 'ko');
+    res.json({
+      filename: getReportFilename(board.title, format),
+      mime,
+      data: buffer.toString('base64'),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -508,6 +694,67 @@ router.delete('/:boardId/cards/:cardId/attachments/:attachId', requireAuth, requ
 });
 
 // ── KPRJ EXPORT / IMPORT ─────────────────────────────────────────────────────
+
+function normalizeKprjData(data) {
+  if (!data || data.format !== 'mykanban-project') return null;
+  if (data.project?.title) return data.project;
+  // 레거시/플랫 형식 (sample.kprj 등)
+  if (data.title) {
+    return {
+      title: data.title,
+      description: data.description || null,
+      columns: data.columns || [],
+    };
+  }
+  return null;
+}
+
+async function importKprjProject(db, data, userId, options = {}) {
+  const project = normalizeKprjData(data);
+  if (!project) throw new Error('올바른 .kprj 파일이 아닙니다.');
+
+  let boardTitle = project.title;
+  if (!options.noSuffix) {
+    boardTitle += options.titleSuffix !== undefined ? ` ${options.titleSuffix}` : ' (가져오기)';
+  }
+
+  const [boardId] = await db('boards').insert({
+    title: boardTitle,
+    description: project.description || null,
+    owner_id: userId,
+  });
+
+  const columns = project.columns || [];
+  for (let ci = 0; ci < columns.length; ci++) {
+    const col = columns[ci];
+    const [colId] = await db('columns').insert({
+      board_id: boardId,
+      title: col.title,
+      position: col.position !== undefined ? col.position : ci,
+    });
+
+    const cards = col.cards || [];
+    for (let ki = 0; ki < cards.length; ki++) {
+      const card = cards[ki];
+      let assigneeId = null;
+      if (card.assignee_username) {
+        const u = await db('users').where({ username: card.assignee_username }).first();
+        if (u) assigneeId = u.id;
+      }
+      await db('cards').insert({
+        column_id: colId,
+        title: card.title,
+        description: card.description || null,
+        due_date: card.due_date || null,
+        color: card.color || null,
+        position: card.position !== undefined ? card.position : ki,
+        assignee_id: assigneeId,
+      });
+    }
+  }
+
+  return { id: boardId, title: project.title, myRole: 'owner' };
+}
 
 // GET /api/boards/:boardId/export  — download project as .kprj JSON
 router.get('/:boardId/export', requireAuth, requireProjectAccess, async (req, res) => {
@@ -578,34 +825,13 @@ router.get('/import-file', requireAuth, async (req, res) => {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
     const content = fs.readFileSync(filePath, 'utf8');
     const data = JSON.parse(content);
-    if (data.format !== 'mykanban-project' || !data.project) {
-      return res.status(400).json({ error: '올바른 .kprj 파일이 아닙니다.' });
-    }
-    // Re-use import logic
-    req.body = data;
-    // fall through to import handler (call directly)
     const db = getDb();
-    const project = data.project;
-    const [boardId] = await db('boards').insert({
-      title: project.title,
-      description: project.description || null,
-      owner_id: req.session.userId,
-    });
-    for (let ci = 0; ci < (project.columns || []).length; ci++) {
-      const col = project.columns[ci];
-      const [colId] = await db('columns').insert({ board_id: boardId, title: col.title, position: col.position !== undefined ? col.position : ci });
-      for (let ki = 0; ki < (col.cards || []).length; ki++) {
-        const card = col.cards[ki];
-        let assigneeId = null;
-        if (card.assignee_username) {
-          const u = await db('users').where({ username: card.assignee_username }).first();
-          if (u) assigneeId = u.id;
-        }
-        await db('cards').insert({ column_id: colId, title: card.title, description: card.description || null, due_date: card.due_date || null, color: card.color || null, position: card.position !== undefined ? card.position : ki, assignee_id: assigneeId });
-      }
-    }
-    res.json({ id: boardId, title: project.title, myRole: 'owner' });
+    const board = await importKprjProject(db, data, req.session.userId);
+    res.json(board);
   } catch (err) {
+    if (err.message === '올바른 .kprj 파일이 아닙니다.') {
+      return res.status(400).json({ error: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -613,49 +839,16 @@ router.get('/import-file', requireAuth, async (req, res) => {
 // POST /api/boards/import  — create project from .kprj JSON
 router.post('/import', requireAuth, async (req, res) => {
   try {
-    const { version, format, project } = req.body;
-    if (format !== 'mykanban-project' || !project || !project.title) {
-      return res.status(400).json({ error: '올바른 .kprj 파일이 아닙니다.' });
-    }
-
     const db = getDb();
-    const [boardId] = await db('boards').insert({
-      title: project.title + (req.body._suffix ? ` ${req.body._suffix}` : ' (가져오기)'),
-      description: project.description || null,
-      owner_id: req.session.userId,
+    const board = await importKprjProject(db, req.body, req.session.userId, {
+      noSuffix: !!req.body._noSuffix,
+      titleSuffix: req.body._suffix,
     });
-
-    const columns = project.columns || [];
-    for (let ci = 0; ci < columns.length; ci++) {
-      const col = columns[ci];
-      const [colId] = await db('columns').insert({
-        board_id: boardId,
-        title: col.title,
-        position: col.position !== undefined ? col.position : ci,
-      });
-
-      const cards = col.cards || [];
-      for (let ki = 0; ki < cards.length; ki++) {
-        const card = cards[ki];
-        let assigneeId = null;
-        if (card.assignee_username) {
-          const u = await db('users').where({ username: card.assignee_username }).first();
-          if (u) assigneeId = u.id;
-        }
-        await db('cards').insert({
-          column_id: colId,
-          title: card.title,
-          description: card.description || null,
-          due_date: card.due_date || null,
-          color: card.color || null,
-          position: card.position !== undefined ? card.position : ki,
-          assignee_id: assigneeId,
-        });
-      }
-    }
-
-    res.json({ id: boardId, title: project.title, myRole: 'owner' });
+    res.json(board);
   } catch (err) {
+    if (err.message === '올바른 .kprj 파일이 아닙니다.') {
+      return res.status(400).json({ error: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 });

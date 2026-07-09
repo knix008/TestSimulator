@@ -36,6 +36,14 @@ const AdminView = (() => {
     document.getElementById(`tab-${tab}`).classList.add('active');
   }
 
+  function actionBtn(icon, label, onclick, variant = 'default') {
+    return `<button type="button" class="btn-action btn-action-${variant}" onclick="${onclick}" title="${escAttr(label)}"><span class="btn-action-icon" aria-hidden="true">${icon}</span><span>${escHtml(label)}</span></button>`;
+  }
+
+  function isProtectedAdmin(u) {
+    return u.username === 'admin';
+  }
+
   function renderTable(list) {
     if (!list.length) return `<div class="spinner-wrap" style="height:100px">${I18n.t('noUsers')}</div>`;
     const rows = list.map(u => `
@@ -48,8 +56,8 @@ const AdminView = (() => {
         <td>${new Date(u.created_at).toLocaleDateString()}</td>
         <td>
           <div class="table-actions">
-            <button class="btn btn-ghost btn-sm" onclick="AdminView.showEdit(${u.id})">${I18n.t('edit')}</button>
-            <button class="btn btn-sm" style="color:var(--danger);padding:4px 8px" onclick="AdminView.deleteUser(${u.id})">${I18n.t('delete')}</button>
+            ${actionBtn('&#9998;', I18n.t('edit'), `AdminView.showEdit(${u.id})`, 'edit')}
+            ${isProtectedAdmin(u) ? '' : actionBtn('&#128465;', I18n.t('delete'), `AdminView.deleteUser(${u.id})`, 'delete')}
           </div>
         </td>
       </tr>`).join('');
@@ -61,8 +69,8 @@ const AdminView = (() => {
             <th>${I18n.t('idLabel')}</th>
             <th>${I18n.t('nameLabel')}</th>
             <th>${I18n.t('emailLabel')}</th>
-            <th>${I18n.getLang() === 'ko' ? '권한' : 'Role'}</th>
-            <th>${I18n.getLang() === 'ko' ? '상태' : 'Status'}</th>
+            <th>${I18n.t('role')}</th>
+            <th>${I18n.t('status')}</th>
             <th>${I18n.t('createdAt')}</th>
             <th></th>
           </tr></thead>
@@ -81,8 +89,8 @@ const AdminView = (() => {
         <td>${new Date(u.created_at).toLocaleDateString()}</td>
         <td>
           <div class="table-actions">
-            <button class="btn btn-primary btn-sm" onclick="AdminView.approveUser(${u.id})">${I18n.t('approve')}</button>
-            <button class="btn btn-sm" style="color:var(--danger);padding:4px 8px" onclick="AdminView.rejectUser(${u.id})">${I18n.t('reject')}</button>
+            ${actionBtn('&#10004;', I18n.t('approve'), `AdminView.approveUser(${u.id})`, 'approve')}
+            ${actionBtn('&#10006;', I18n.t('reject'), `AdminView.rejectUser(${u.id})`, 'reject')}
           </div>
         </td>
       </tr>`).join('');
@@ -107,9 +115,10 @@ const AdminView = (() => {
   }
 
   function showCreate() {
-    Modal.open(`
-      <button class="modal-close" onclick="Modal.close()">&#10005;</button>
-      <h2 class="modal-title">${I18n.t('addUser')}</h2>
+    Modal.dialog({
+      title: I18n.t('addUser'),
+      size: 'md',
+      body: `
       <div class="form-row">
         <div class="form-group">
           <label>${I18n.t('idLabel')} *</label>
@@ -131,16 +140,14 @@ const AdminView = (() => {
         </div>
       </div>
       <div class="form-group">
-        <label>${I18n.getLang() === 'ko' ? '권한' : 'Role'}</label>
+        <label>${I18n.t('role')}</label>
         <select id="cu-role" class="form-control">
           <option value="user">${I18n.t('user')}</option>
           <option value="admin">${I18n.t('admin')}</option>
         </select>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-secondary" onclick="Modal.close()">${I18n.t('cancel')}</button>
-        <button class="btn btn-primary" onclick="AdminView.createUser()">${I18n.getLang() === 'ko' ? '추가' : 'Add'}</button>
-      </div>`);
+      </div>`,
+      footer: Modal.footerCancelPrimary(I18n.t('addBtn'), 'AdminView.createUser()'),
+    });
     document.getElementById('cu-username').focus();
   }
 
@@ -151,12 +158,12 @@ const AdminView = (() => {
     const email = document.getElementById('cu-email').value.trim();
     const role = document.getElementById('cu-role').value;
     if (!username || !password) {
-      showToast(I18n.getLang() === 'ko' ? '아이디와 비밀번호는 필수입니다.' : 'Username and password are required.', 'error'); return;
+      showToast(I18n.t('userPwRequired'), 'error'); return;
     }
     try {
       await API.post('/users', { username, password, displayName, email, role });
       Modal.close();
-      showToast(I18n.getLang() === 'ko' ? '사용자가 추가되었습니다.' : 'User created.', 'success');
+      showToast(I18n.t('userCreated'), 'success');
       render();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -164,9 +171,10 @@ const AdminView = (() => {
   function showEdit(id) {
     const u = users.find(u => u.id === id);
     if (!u) return;
-    Modal.open(`
-      <button class="modal-close" onclick="Modal.close()">&#10005;</button>
-      <h2 class="modal-title">${I18n.t('edit')}: ${escHtml(u.username)}</h2>
+    Modal.dialog({
+      title: `${I18n.t('edit')}: ${u.username}`,
+      size: 'md',
+      body: `
       <div class="form-row">
         <div class="form-group">
           <label>${I18n.t('displayName')}</label>
@@ -179,14 +187,14 @@ const AdminView = (() => {
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>${I18n.getLang() === 'ko' ? '권한' : 'Role'}</label>
+          <label>${I18n.t('role')}</label>
           <select id="eu-role" class="form-control">
             <option value="user" ${u.role === 'user' ? 'selected' : ''}>${I18n.t('user')}</option>
             <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>${I18n.t('admin')}</option>
           </select>
         </div>
         <div class="form-group">
-          <label>${I18n.getLang() === 'ko' ? '상태' : 'Status'}</label>
+          <label>${I18n.t('status')}</label>
           <select id="eu-status" class="form-control">
             <option value="active" ${u.status === 'active' ? 'selected' : ''}>${I18n.t('active')}</option>
             <option value="inactive" ${u.status === 'inactive' ? 'selected' : ''}>${I18n.t('inactive')}</option>
@@ -195,13 +203,11 @@ const AdminView = (() => {
         </div>
       </div>
       <div class="form-group">
-        <label>${I18n.t('newPw')} <span style="color:var(--text-muted);font-weight:400">(${I18n.getLang() === 'ko' ? '변경할 경우에만 입력' : 'leave blank to keep current'})</span></label>
+        <label>${I18n.t('newPw')} <span class="form-hint">(${I18n.t('pwOptionalHint')})</span></label>
         <input id="eu-password" type="password" class="form-control">
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-secondary" onclick="Modal.close()">${I18n.t('cancel')}</button>
-        <button class="btn btn-primary" onclick="AdminView.saveEdit(${id})">${I18n.t('save')}</button>
-      </div>`);
+      </div>`,
+      footer: Modal.footerCancelPrimary(I18n.t('save'), `AdminView.saveEdit(${id})`),
+    });
   }
 
   async function saveEdit(id) {
@@ -213,16 +219,21 @@ const AdminView = (() => {
     try {
       await API.put(`/users/${id}`, { displayName, email, role, status, password: password || undefined });
       Modal.close();
-      showToast(I18n.getLang() === 'ko' ? '저장되었습니다.' : 'Saved.', 'success');
+      showToast(I18n.t('userSaved'), 'success');
       render();
     } catch (err) { showToast(err.message, 'error'); }
   }
 
   async function deleteUser(id) {
-    if (!confirm(I18n.getLang() === 'ko' ? '이 사용자를 삭제하시겠습니까?' : 'Delete this user?')) return;
+    const u = users.find(user => user.id === id);
+    if (u && isProtectedAdmin(u)) {
+      showToast(I18n.t('cannotDeleteAdmin'), 'error');
+      return;
+    }
+    if (!confirm(I18n.t('confirmDeleteUser'))) return;
     try {
       await API.delete(`/users/${id}`);
-      showToast(I18n.getLang() === 'ko' ? '삭제되었습니다.' : 'Deleted.', 'success');
+      showToast(I18n.t('userDeleted'), 'success');
       render();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -230,16 +241,16 @@ const AdminView = (() => {
   async function approveUser(id) {
     try {
       await API.patch(`/users/${id}/approve`);
-      showToast(I18n.getLang() === 'ko' ? '승인되었습니다.' : 'Approved.', 'success');
+      showToast(I18n.t('userApproved'), 'success');
       render();
     } catch (err) { showToast(err.message, 'error'); }
   }
 
   async function rejectUser(id) {
-    if (!confirm(I18n.getLang() === 'ko' ? '이 등록 요청을 거부하고 삭제하시겠습니까?' : 'Reject and delete this request?')) return;
+    if (!confirm(I18n.t('confirmRejectUser'))) return;
     try {
       await API.patch(`/users/${id}/reject`);
-      showToast(I18n.getLang() === 'ko' ? '거부되었습니다.' : 'Rejected.', 'success');
+      showToast(I18n.t('userRejected'), 'success');
       render();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -277,34 +288,47 @@ const SettingsView = (() => {
     if (isAdmin) initDbTypeButtons();
   }
 
+  function clientToUiType(config) {
+    if (!config?.client) return 'sqlite';
+    const m = { 'better-sqlite3': 'sqlite', sqlite3: 'sqlite', mysql2: 'mariadb', pg: 'postgresql', mssql: 'mssql' };
+    return m[config.client] || 'sqlite';
+  }
+
   function renderDbSection(config) {
-    const cur = config && (config.client === 'better-sqlite3' || config.client === 'sqlite3') ? 'sqlite' : (config ? config.client : 'sqlite');
+    const cur = clientToUiType(config);
+    selectedDbType = cur;
+    const sqliteFile = config?.connection?.filename || '';
     return `
       <div class="settings-section">
         <div class="settings-section-title">&#128452; ${I18n.t('dbSettings')}</div>
         <div class="settings-section-desc">${I18n.t('dbCurrent')}: ${curDbLabel(config)} — ${I18n.t('dbChangeWarn')}</div>
         <div class="db-type-grid">
-          <div class="db-type-btn ${cur==='sqlite'?'selected':''}" data-type="sqlite" onclick="SettingsView.selectDb('sqlite',this)">SQLite3<br><small style="font-weight:400;color:inherit;opacity:.7">${I18n.getLang()==='ko'?'기본 (파일)':'Default (file)'}</small></div>
-          <div class="db-type-btn ${cur==='mariadb'||cur==='mysql2'?'selected':''}" data-type="mariadb" onclick="SettingsView.selectDb('mariadb',this)">MariaDB<br><small style="font-weight:400;color:inherit;opacity:.7">${I18n.getLang()==='ko'?'원격 기본':'Remote default'}</small></div>
-          <div class="db-type-btn" data-type="mysql" onclick="SettingsView.selectDb('mysql',this)">MySQL</div>
-          <div class="db-type-btn" data-type="postgresql" onclick="SettingsView.selectDb('postgresql',this)">PostgreSQL</div>
-          <div class="db-type-btn" data-type="mssql" onclick="SettingsView.selectDb('mssql',this)">MS SQL</div>
+          <div class="db-type-btn ${cur==='sqlite'?'selected':''}" data-type="sqlite" onclick="SettingsView.selectDb('sqlite',this)">SQLite3<br><small style="font-weight:400;color:inherit;opacity:.7">${I18n.t('dbSqliteDefault')}</small></div>
+          <div class="db-type-btn ${cur==='mariadb'?'selected':''}" data-type="mariadb" onclick="SettingsView.selectDb('mariadb',this)">MariaDB<br><small style="font-weight:400;color:inherit;opacity:.7">${I18n.t('dbRemoteDefault')}</small></div>
+          <div class="db-type-btn ${cur==='mysql'?'selected':''}" data-type="mysql" onclick="SettingsView.selectDb('mysql',this)">MySQL</div>
+          <div class="db-type-btn ${cur==='postgresql'?'selected':''}" data-type="postgresql" onclick="SettingsView.selectDb('postgresql',this)">PostgreSQL</div>
+          <div class="db-type-btn ${cur==='mssql'?'selected':''}" data-type="mssql" onclick="SettingsView.selectDb('mssql',this)">MS SQL</div>
         </div>
-        <div id="db-remote-fields" class="db-remote-fields">
+        <div id="db-remote-fields" class="db-remote-fields${cur==='sqlite'?'':' visible'}">
+          <div class="db-fields-title">&#128279; ${I18n.t('dbConnSettings')}</div>
           <div class="form-row">
-            <div class="form-group"><label>${I18n.t('host')}</label><input id="db-host" class="form-control" value="${config?.connection?.host||''}" placeholder="localhost"></div>
-            <div class="form-group"><label>${I18n.t('port')}</label><input id="db-port" class="form-control" value="${config?.connection?.port||''}" placeholder="3306"></div>
+            <div class="form-group"><label>${I18n.t('host')}</label><input id="db-host" class="form-control" value="${escAttr(config?.connection?.host || config?.connection?.server || '')}" placeholder="localhost"></div>
+            <div class="form-group"><label>${I18n.t('port')}</label><input id="db-port" class="form-control" value="${escAttr(String(config?.connection?.port || ''))}" placeholder="3306"></div>
           </div>
-          <div class="form-group"><label>${I18n.t('dbName')}</label><input id="db-name" class="form-control" value="${config?.connection?.database||''}" placeholder="kanban"></div>
+          <div class="form-group"><label>${I18n.t('dbName')}</label><input id="db-name" class="form-control" value="${escAttr(config?.connection?.database || '')}" placeholder="kanban"></div>
           <div class="form-row">
-            <div class="form-group"><label>${I18n.t('dbUser')}</label><input id="db-user" class="form-control" value="${config?.connection?.user||''}" placeholder="root"></div>
-            <div class="form-group"><label>${I18n.t('dbPass')}</label><input id="db-pass" type="password" class="form-control"></div>
+            <div class="form-group"><label>${I18n.t('dbUser')}</label><input id="db-user" class="form-control" value="${escAttr(config?.connection?.user || '')}" placeholder="root"></div>
+            <div class="form-group"><label>${I18n.t('dbPass')}</label><input id="db-pass" type="password" class="form-control" placeholder="${I18n.t('pwOptionalHint')}"></div>
           </div>
         </div>
-        <div id="db-sqlite-fields">
+        <div id="db-sqlite-fields"${cur==='sqlite'?'':' class="hidden"'}>
+          <div class="db-fields-title">&#128193; ${I18n.t('dbSqliteSettings')}</div>
           <div class="form-group">
-            <label>${I18n.t('dbFile')} <span style="color:var(--text-muted);font-weight:400">(${I18n.getLang()==='ko'?'비워두면 기본 경로 사용':'leave blank for default path'})</span></label>
-            <input id="db-file" class="form-control" value="${config?.connection?.filename||''}">
+            <label>${I18n.t('dbFile')} <span style="color:var(--text-muted);font-weight:400">(${I18n.t('dbFileHint')})</span></label>
+            <div style="display:flex;gap:8px;align-items:stretch">
+              <input id="db-file" class="form-control" value="${escAttr(sqliteFile)}" style="flex:1">
+              ${typeof window.electron !== 'undefined' ? `<button type="button" class="btn btn-secondary btn-sm" onclick="SettingsView.browseSqliteFile()" title="${I18n.t('dbFileBrowse')}">&#128194;</button>` : ''}
+            </div>
           </div>
         </div>
         <div id="db-test-result" class="test-result"></div>
@@ -335,14 +359,25 @@ const SettingsView = (() => {
     const remote = document.getElementById('db-remote-fields');
     const sqlite = document.getElementById('db-sqlite-fields');
     if (type === 'sqlite') {
-      remote && (remote.style.display = 'none');
-      sqlite && (sqlite.style.display = '');
+      remote?.classList.remove('visible');
+      sqlite?.classList.remove('hidden');
     } else {
-      remote && (remote.style.display = '');
-      sqlite && (sqlite.style.display = 'none');
+      remote?.classList.add('visible');
+      sqlite?.classList.add('hidden');
       const portDefaults = { mariadb: 3306, mysql: 3306, postgresql: 5432, mssql: 1433 };
       const portEl = document.getElementById('db-port');
       if (portEl && !portEl.value) portEl.value = portDefaults[type] || '';
+      const hostEl = document.getElementById('db-host');
+      if (hostEl && !hostEl.value) hostEl.value = 'localhost';
+    }
+  }
+
+  async function browseSqliteFile() {
+    if (typeof window.electron === 'undefined' || !window.electron.openSqliteDialog) return;
+    const result = await window.electron.openSqliteDialog();
+    if (result?.ok && result.filePath) {
+      const el = document.getElementById('db-file');
+      if (el) el.value = result.filePath;
     }
   }
 
@@ -358,37 +393,111 @@ const SettingsView = (() => {
     };
   }
 
-  async function testDb() {
+  const DB_FIELD_IDS = { host: 'db-host', database: 'db-name', username: 'db-user', port: 'db-port' };
+
+  function validateDbForm() {
+    const data = getDbFormData();
+    const missing = [];
+    if (data.dbType === 'sqlite') return missing;
+    if (!data.host) missing.push({ key: 'host', label: I18n.t('host') });
+    if (!data.database) missing.push({ key: 'database', label: I18n.t('dbName') });
+    if (!data.username) missing.push({ key: 'username', label: I18n.t('dbUser') });
+    return missing;
+  }
+
+  function focusDbField(key) {
+    const el = document.getElementById(DB_FIELD_IDS[key]);
+    if (el) {
+      el.focus();
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function showDbMissingPopup(missing) {
+    Modal.dialog({
+      title: I18n.t('dbMissingTitle'),
+      size: 'sm',
+      body: `
+        <p class="modal-message">${I18n.t('dbMissingIntro')}</p>
+        <ul class="modal-bullet-list">${missing.map(m => `<li>${escHtml(m.label)}</li>`).join('')}</ul>`,
+      footer: `<button type="button" class="btn btn-primary" onclick="Modal.close(); SettingsView.focusDbField('${missing[0].key}')">${I18n.t('close')}</button>`,
+    });
+  }
+
+  function showDbErrorPopup(message) {
+    Modal.dialog({
+      title: I18n.t('dbConnFailed'),
+      type: 'error',
+      size: 'md',
+      body: `<p class="modal-message">${escHtml(message)}</p>`,
+      footer: `<button type="button" class="btn btn-primary" onclick="Modal.close()">${I18n.t('close')}</button>`,
+    });
+  }
+
+  function setDbTestResult(state, text) {
     const result = document.getElementById('db-test-result');
-    result.className = 'test-result';
-    result.textContent = I18n.getLang() === 'ko' ? '연결 테스트 중...' : 'Testing connection...';
-    result.style.display = 'block';
-    result.style.background = '#F1F5F9'; result.style.color = 'var(--text-muted)';
+    if (!result) return;
+    if (!state) {
+      result.className = 'test-result';
+      result.textContent = '';
+      return;
+    }
+    result.className = `test-result ${state}`;
+    result.textContent = text;
+  }
+
+  async function testDb() {
+    const missing = validateDbForm();
+    if (missing.length) {
+      setDbTestResult('', '');
+      showDbMissingPopup(missing);
+      return;
+    }
+
+    setDbTestResult('loading', I18n.t('testingConn'));
     try {
       const r = await API.post('/settings/db/test', getDbFormData());
-      result.className = 'test-result success'; result.textContent = r.message;
+      setDbTestResult('success', r.message || I18n.t('dbConnSuccess'));
     } catch (err) {
-      result.className = 'test-result error'; result.textContent = err.message;
+      setDbTestResult('error', err.message);
+      showDbErrorPopup(err.message);
     }
   }
 
   async function saveDb() {
-    const msg = I18n.getLang() === 'ko'
-      ? 'DB를 변경하면 기존 DB의 데이터는 새 DB에 복사되지 않습니다. 계속하시겠습니까?'
-      : 'Changing DB will not copy existing data. Continue?';
+    const missing = validateDbForm();
+    if (missing.length) {
+      showDbMissingPopup(missing);
+      return;
+    }
+    const msg = I18n.t('dbChangeConfirm');
     if (!confirm(msg)) return;
     try {
       const r = await API.post('/settings/db', getDbFormData());
       showToast(r.message, 'success');
-    } catch (err) { showToast(err.message, 'error'); }
+      App.updateStatusDb();
+      if (r.requireRelogin) {
+        await App.logout();
+        return;
+      }
+      render();
+    } catch (err) {
+      showDbErrorPopup(err.message);
+      showToast(err.message, 'error');
+    }
   }
 
   async function resetDb() {
-    const msg = I18n.getLang() === 'ko' ? 'SQLite3 기본 설정으로 초기화하시겠습니까?' : 'Reset to SQLite3 defaults?';
+    const msg = I18n.t('dbResetConfirm');
     if (!confirm(msg)) return;
     try {
       const r = await API.post('/settings/db/reset', {});
       showToast(r.message, 'success');
+      App.updateStatusDb();
+      if (r.requireRelogin) {
+        await App.logout();
+        return;
+      }
       render();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -414,7 +523,7 @@ const SettingsView = (() => {
       App.currentUser.displayName = displayName;
       App.currentUser.email = email;
       document.getElementById('header-username').textContent = displayName || App.currentUser.username;
-      showToast(I18n.getLang() === 'ko' ? '프로필이 저장되었습니다.' : 'Profile saved.', 'success');
+      showToast(I18n.t('profileSaved'), 'success');
     } catch (err) { showToast(err.message, 'error'); }
   }
 
@@ -427,7 +536,7 @@ const SettingsView = (() => {
           <div class="form-group"><label>${I18n.t('newPw')}</label><input id="pw-new" type="password" class="form-control"></div>
           <div class="form-group"><label>${I18n.t('confirmPw')}</label><input id="pw-confirm" type="password" class="form-control"></div>
         </div>
-        <button class="btn btn-primary" onclick="SettingsView.changePassword()">${I18n.getLang() === 'ko' ? '변경' : 'Change'}</button>
+        <button class="btn btn-primary" onclick="SettingsView.changePassword()">${I18n.t('changeBtn')}</button>
       </div>`;
   }
 
@@ -436,19 +545,19 @@ const SettingsView = (() => {
     const newPassword = document.getElementById('pw-new').value;
     const confirmPw = document.getElementById('pw-confirm').value;
     if (!currentPassword || !newPassword) {
-      showToast(I18n.getLang() === 'ko' ? '모든 필드를 입력하세요.' : 'All fields required.', 'error'); return;
+      showToast(I18n.t('allFieldsRequired'), 'error'); return;
     }
     if (newPassword !== confirmPw) {
-      showToast(I18n.getLang() === 'ko' ? '새 비밀번호가 일치하지 않습니다.' : 'Passwords do not match.', 'error'); return;
+      showToast(I18n.t('pwMismatch'), 'error'); return;
     }
     try {
       await API.post('/auth/change-password', { currentPassword, newPassword });
-      showToast(I18n.getLang() === 'ko' ? '비밀번호가 변경되었습니다.' : 'Password changed.', 'success');
+      showToast(I18n.t('pwChanged'), 'success');
       document.getElementById('pw-cur').value = '';
       document.getElementById('pw-new').value = '';
       document.getElementById('pw-confirm').value = '';
     } catch (err) { showToast(err.message, 'error'); }
   }
 
-  return { render, selectDb, testDb, saveDb, resetDb, saveProfile, changePassword };
+  return { render, selectDb, testDb, saveDb, resetDb, saveProfile, changePassword, browseSqliteFile, focusDbField };
 })();

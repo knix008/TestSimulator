@@ -18,15 +18,18 @@ app.use(session({
 }));
 
 app.use(express.static(path.join(__dirname, 'src/renderer')));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 const uploadsDir = path.join(__dirname, 'uploads');
 app.use('/uploads', express.static(uploadsDir));
+app.use('/sample', express.static(path.join(__dirname, 'sample')));
 
 // Routes (loaded lazily so DB is initialized first)
 app.use('/api/auth', (req, res, next) => require('./src/api/auth')(req, res, next));
 app.use('/api/users', (req, res, next) => require('./src/api/users')(req, res, next));
 app.use('/api/boards', (req, res, next) => require('./src/api/boards')(req, res, next));
 app.use('/api/settings', (req, res, next) => require('./src/api/settings')(req, res, next));
+app.use('/api/app-info', (req, res, next) => require('./src/api/app-info')(req, res, next));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'src/renderer/index.html'));

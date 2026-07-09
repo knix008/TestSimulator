@@ -90,10 +90,16 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
+    const db = getDb();
+    const user = await db('users').where({ id }).first();
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    if (user.username === 'admin') {
+      return res.status(400).json({ error: '관리자 계정은 삭제할 수 없습니다.' });
+    }
     if (parseInt(id) === req.session.userId) {
       return res.status(400).json({ error: '자신의 계정은 삭제할 수 없습니다.' });
     }
-    await getDb()('users').where({ id }).delete();
+    await db('users').where({ id }).delete();
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

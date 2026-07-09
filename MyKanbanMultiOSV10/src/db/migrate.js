@@ -1,5 +1,20 @@
 const bcrypt = require('bcryptjs');
 
+async function seedDefaultAdmin(db) {
+  const adminExists = await db('users').where({ username: 'admin' }).first();
+  if (!adminExists) {
+    const hash = await bcrypt.hash('admin', 10);
+    await db('users').insert({
+      username: 'admin',
+      password: hash,
+      display_name: '관리자',
+      email: 'admin@local',
+      role: 'admin',
+      status: 'active'
+    });
+  }
+}
+
 async function runMigrations(db) {
   if (!(await db.schema.hasTable('users'))) {
     await db.schema.createTable('users', (t) => {
@@ -80,19 +95,7 @@ async function runMigrations(db) {
     });
   }
 
-  // Create default admin user if not exists
-  const adminExists = await db('users').where({ username: 'admin' }).first();
-  if (!adminExists) {
-    const hash = await bcrypt.hash('admin', 10);
-    await db('users').insert({
-      username: 'admin',
-      password: hash,
-      display_name: '관리자',
-      email: 'admin@local',
-      role: 'admin',
-      status: 'active'
-    });
-  }
+  await seedDefaultAdmin(db);
 }
 
-module.exports = { runMigrations };
+module.exports = { runMigrations, seedDefaultAdmin };

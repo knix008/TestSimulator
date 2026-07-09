@@ -15,15 +15,88 @@
         <nav class="breadcrumb" id="breadcrumb"></nav>
       </div>
       <div class="header-right">
-        <button class="btn-icon" id="btn-admin" onclick="App.showAdmin()" title="사용자 관리" data-i18n-title="userMgmt">&#128100;</button>
-        <button class="btn-icon" onclick="App.showSettings()" title="설정" data-i18n-title="settings">&#9881;</button>
-        <button class="btn-icon" id="btn-theme" onclick="App.toggleTheme()" title="테마 전환">&#9728;</button>
-        <button class="btn-icon" id="btn-lang" onclick="App.toggleLang()" title="한/EN" style="font-size:11px;font-weight:700;width:36px">한</button>
+        <button class="btn-icon" id="btn-admin" onclick="App.showAdmin()" data-i18n-title="userMgmt" aria-label="user management">
+          <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        </button>
+        <button class="btn-icon" onclick="App.showSettings()" data-i18n-title="settings">&#9881;</button>
+        <button class="btn-icon" id="btn-refresh" onclick="App.refresh()" data-i18n-title="titleRefresh" aria-label="refresh">
+          <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-theme" onclick="App.toggleTheme()" data-i18n-title="themeToggle">&#9728;</button>
+        <button class="btn-icon" id="btn-lang" onclick="App.toggleLang()" data-i18n-title="langBtnTitle" style="font-size:11px;font-weight:700;width:36px">한</button>
         <span class="user-name" id="header-username"></span>
         <button class="btn-sm btn-outline" onclick="App.logout()" data-i18n="logout">로그아웃</button>
       </div>
     </header>
+
+    <!-- Custom menu bar -->
+    <nav id="app-menubar" class="hidden">
+      <div class="menubar-item" id="mb-project" onclick="AppMenu.toggle('project')" data-i18n-title="titleProjectMenu">
+        <span class="menubar-icon">&#128194;</span><span data-i18n="menuProject">프로젝트</span>
+        <div class="menubar-dropdown" id="mb-project-dd">
+          <div class="menubar-opt" onclick="BoardView.showCreateBoard()" data-i18n-title="titleCreateBoard">
+            <span class="menubar-opt-icon">&#10010;</span><span data-i18n="newBoard">새 프로젝트</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="BoardView.importProjectFromDialog()" data-i18n-title="titleImportProject">
+            <span class="menubar-opt-icon">&#128229;</span><span data-i18n="importProject">가져오기 (.kprj)</span></div>
+          <div class="menubar-opt" id="mb-export" onclick="BoardView.exportCurrentBoard()" data-i18n-title="titleExportProject">
+            <span class="menubar-opt-icon">&#128228;</span><span data-i18n="exportProject">보내기 (.kprj)</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="App.logout()" data-i18n-title="titleLogout">
+            <span class="menubar-opt-icon">&#128275;</span><span data-i18n="logout">로그아웃</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-view" onclick="AppMenu.toggle('view')" data-i18n-title="titleViewMenu">
+        <span class="menubar-icon">&#127760;</span><span data-i18n="menuView">보기</span>
+        <div class="menubar-dropdown" id="mb-view-dd">
+          <div class="menubar-opt" onclick="AppMenu.close(); App.refresh()" data-i18n-title="titleRefresh">
+            <span class="menubar-opt-icon">&#8635;</span><span data-i18n="refresh">새로 고침</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="App.toggleTheme()" data-i18n-title="titleThemeToggle">
+            <span class="menubar-opt-icon">&#9728;</span><span data-i18n="themeToggle">테마 전환</span></div>
+          <div class="menubar-opt" onclick="App.toggleLang()" data-i18n-title="titleLangToggle">
+            <span class="menubar-opt-icon">&#127760;</span><span data-i18n="langToggle">언어 전환</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="AppMenu.close(); App.showBoards()" data-i18n-title="titleBoardList">
+            <span class="menubar-opt-icon">&#9783;</span><span data-i18n="boardList">프로젝트 목록</span></div>
+        </div>
+      </div>
+      <div class="menubar-item hidden" id="mb-admin" onclick="AppMenu.toggle('admin')" data-i18n-title="titleAdminMenu">
+        <span class="menubar-icon">&#128100;</span><span data-i18n="menuAdmin">관리</span>
+        <div class="menubar-dropdown" id="mb-admin-dd">
+          <div class="menubar-opt" onclick="App.showAdmin()" data-i18n-title="titleUserMgmt">
+            <span class="menubar-opt-icon">&#128101;</span><span data-i18n="userMgmt">사용자 관리</span></div>
+          <div class="menubar-opt" onclick="App.showSettings()" data-i18n-title="titleSettings">
+            <span class="menubar-opt-icon">&#9881;</span><span data-i18n="settings">설정</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-help" onclick="AppMenu.toggle('help')" data-i18n-title="titleHelpMenu">
+        <span class="menubar-icon">&#10067;</span><span data-i18n="menuHelp">도움말</span>
+        <div class="menubar-dropdown" id="mb-help-dd">
+          <div class="menubar-opt" onclick="AppMenu.showAbout()" data-i18n-title="titleProgramInfo">
+            <span class="menubar-opt-icon">&#8505;</span><span data-i18n="programInfo">프로그램 정보</span></div>
+        </div>
+      </div>
+    </nav>
+
     <main id="main-content"></main>
+
+    <!-- Status bar -->
+    <footer id="status-bar" class="hidden">
+      <div class="status-left">
+        <span id="status-indicator" class="status-dot status-ok"></span>
+        <span id="status-msg" data-status-key="ready" data-i18n="ready">준비</span>
+      </div>
+      <div class="status-right">
+        <span id="status-board"></span>
+        <span class="status-sep">|</span>
+        <span id="status-user"></span>
+        <span class="status-sep">|</span>
+        <span id="status-db" data-i18n-title="dbInfoTitle" style="cursor:default"></span>
+        <span class="status-sep">|</span>
+        <span id="status-ver">v1.0.0</span>
+      </div>
+    </footer>
   </div>
 
   <div id="toast-container"></div>
@@ -32,8 +105,12 @@
     <div id="modal-box"></div>
   </div>
 
+  <!-- Context menu (HTML-based, shown on right-click) -->
+  <div id="ctx-menu" class="ctx-menu hidden"></div>
+
   <script src="js/lang.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/report.js"></script>
   <script src="js/board.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/app.js"></script>

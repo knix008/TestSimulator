@@ -1,0 +1,89 @@
+{
+  "format": "mykanban-project",
+  "version": "1.0",
+  "exportedAt": "2026-07-09T00:00:00.000Z",
+  "title": "샘플 프로젝트",
+  "description": "MyKanban 기능을 시연하는 예제 프로젝트입니다.",
+  "columns": [
+    {
+      "title": "할 일 (To Do)",
+      "position": 0,
+      "cards": [
+        {
+          "title": "요구사항 분석",
+          "description": "팀 미팅을 통해 프로젝트 요구사항을 정리합니다.\n\n- 기능 목록 작성\n- 우선순위 결정\n- 일정 수립",
+          "position": 0,
+          "color": "blue",
+          "due_date": "2026-07-14"
+        },
+        {
+          "title": "UI/UX 설계",
+          "description": "와이어프레임 및 프로토타입을 제작합니다.",
+          "position": 1,
+          "color": "purple",
+          "due_date": "2026-07-18"
+        },
+        {
+          "title": "데이터베이스 설계",
+          "description": "ERD 작성 및 스키마 정의",
+          "position": 2,
+          "color": "",
+          "due_date": "2026-07-07"
+        }
+      ]
+    },
+    {
+      "title": "진행 중 (In Progress)",
+      "position": 1,
+      "cards": [
+        {
+          "title": "백엔드 API 개발",
+          "description": "REST API 엔드포인트 구현\n\n- 사용자 인증 API\n- 프로젝트 CRUD API\n- 카드 관리 API",
+          "position": 0,
+          "color": "yellow",
+          "due_date": "2026-07-11"
+        },
+        {
+          "title": "프론트엔드 개발",
+          "description": "칸반 보드 UI 구현\n\n- 드래그 앤 드롭\n- 카드 편집 모달\n- 다크 모드 지원",
+          "position": 1,
+          "color": "orange",
+          "due_date": "2026-07-16"
+        }
+      ]
+    },
+    {
+      "title": "검토 중 (Review)",
+      "position": 2,
+      "cards": [
+        {
+          "title": "코드 리뷰",
+          "description": "팀원 간 코드 리뷰 및 피드백 반영",
+          "position": 0,
+          "color": "cyan",
+          "due_date": "2026-07-10"
+        }
+      ]
+    },
+    {
+      "title": "완료 (Done)",
+      "position": 3,
+      "cards": [
+        {
+          "title": "개발 환경 설정",
+          "description": "Node.js, Electron, SQLite 개발 환경 구축 완료",
+          "position": 0,
+          "color": "green",
+          "due_date": "2026-07-03"
+        },
+        {
+          "title": "프로젝트 초기화",
+          "description": "Git 저장소 생성 및 기본 디렉토리 구조 설정 완료",
+          "position": 1,
+          "color": "green",
+          "due_date": "2026-06-28"
+        }
+      ]
+    }
+  ]
+}

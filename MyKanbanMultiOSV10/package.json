@@ -1,12 +1,13 @@
 {
   "name": "my-kanban-multi-os",
   "version": "1.0.0",
+  "buildNumber": "1",
   "description": "Multi-platform Kanban Board (Electron + Web)",
   "main": "main.js",
   "scripts": {
     "dev": "node server.js",
-    "dev:electron": "electron .",
-    "start": "electron .",
+    "dev:electron": "SET ELECTRON_RUN_AS_NODE=&& electron .",
+    "start": "SET ELECTRON_RUN_AS_NODE=&& electron .",
     "start:web": "node server.js",
     "create-icons": "node scripts/create-icons.js",
     "build:win": "npm run create-icons && electron-builder --win",
@@ -16,7 +17,7 @@
   "build": {
     "appId": "com.kanban.multios",
     "productName": "MyKanban",
-    "copyright": "Copyright © 2026 MyKanban",
+    "copyright": "Copyright © 2026 SHKWON(knix008@naver.com)",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -80,19 +81,21 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "docx": "^9.7.1",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "knex": "^3.1.0",
     "mssql": "^11.0.0",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.9.1",
+    "pdfkit": "^0.19.1",
     "pg": "^8.11.3",
     "sqlite3": "^5.1.7",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
-    "electron": "^29.4.6",
+    "electron": "^28.3.3",
     "electron-builder": "^24.9.1"
   }
 }
