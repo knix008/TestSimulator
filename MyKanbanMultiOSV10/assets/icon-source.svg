@@ -27,14 +27,16 @@
   <rect x="20" y="20" width="216" height="216" rx="52" fill="url(#bgShine)"/>
   <ellipse cx="92" cy="78" rx="54" ry="36" fill="#FFFFFF" opacity="0.14"/>
 
-  <g filter="url(#kShadow)">
-    <path d="M88 52V204" stroke="url(#kBody)" stroke-width="30" stroke-linecap="round"/>
-    <path d="M104 128L188 52" stroke="url(#kBody)" stroke-width="30" stroke-linecap="round"/>
-    <path d="M104 128L188 204" stroke="url(#kBody)" stroke-width="30" stroke-linecap="round"/>
-  </g>
+  <g transform="translate(128 128) scale(0.85) translate(-128 -128)">
+    <g filter="url(#kShadow)">
+      <path d="M88 52V204" stroke="url(#kBody)" stroke-width="30" stroke-linecap="round"/>
+      <path d="M104 128L188 52" stroke="url(#kBody)" stroke-width="30" stroke-linecap="round"/>
+      <path d="M104 128L188 204" stroke="url(#kBody)" stroke-width="30" stroke-linecap="round"/>
+    </g>
 
-  <g opacity="0.85">
-    <path d="M88 52V120" stroke="url(#kGloss)" stroke-width="18" stroke-linecap="round"/>
-    <path d="M104 128L170 72" stroke="url(#kGloss)" stroke-width="14" stroke-linecap="round"/>
+    <g opacity="0.85">
+      <path d="M88 52V120" stroke="url(#kGloss)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M104 128L170 72" stroke="url(#kGloss)" stroke-width="14" stroke-linecap="round"/>
+    </g>
   </g>
 </svg>
