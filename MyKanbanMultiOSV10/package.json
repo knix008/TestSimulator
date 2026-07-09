@@ -1,0 +1,98 @@
+{
+  "name": "my-kanban-multi-os",
+  "version": "1.0.0",
+  "description": "Multi-platform Kanban Board (Electron + Web)",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node server.js",
+    "dev:electron": "electron .",
+    "start": "electron .",
+    "start:web": "node server.js",
+    "create-icons": "node scripts/create-icons.js",
+    "build:win": "npm run create-icons && electron-builder --win",
+    "build:linux": "npm run create-icons && electron-builder --linux",
+    "build:mac": "npm run create-icons && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.kanban.multios",
+    "productName": "MyKanban",
+    "copyright": "Copyright © 2026 MyKanban",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.js",
+      "src/**/*",
+      "!src/renderer/css/*.map",
+      "!**/*.md"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "fileAssociations": [
+        {
+          "ext": "kprj",
+          "name": "MyKanban 프로젝트",
+          "description": "MyKanban Project File",
+          "icon": "assets/kprj.ico",
+          "role": "Editor"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyKanban",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "language": "1042",
+      "menuCategory": "MyKanban",
+      "artifactName": "MyKanban-Setup-${version}.exe"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets",
+      "category": "ProjectManagement",
+      "mimeTypes": [
+        "application/x-mykanban-project"
+      ]
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity"
+    }
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "knex": "^3.1.0",
+    "mssql": "^11.0.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.9.1",
+    "pg": "^8.11.3",
+    "sqlite3": "^5.1.7",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
+    "electron": "^29.4.6",
+    "electron-builder": "^24.9.1"
+  }
+}

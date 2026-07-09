@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyKanban</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div id="root">
+    <header id="app-header" class="hidden">
+      <div class="header-left">
+        <span class="logo" onclick="App.showBoards()">&#9783; MyKanban</span>
+        <nav class="breadcrumb" id="breadcrumb"></nav>
+      </div>
+      <div class="header-right">
+        <button class="btn-icon" id="btn-admin" onclick="App.showAdmin()" title="사용자 관리" data-i18n-title="userMgmt">&#128100;</button>
+        <button class="btn-icon" onclick="App.showSettings()" title="설정" data-i18n-title="settings">&#9881;</button>
+        <button class="btn-icon" id="btn-theme" onclick="App.toggleTheme()" title="테마 전환">&#9728;</button>
+        <button class="btn-icon" id="btn-lang" onclick="App.toggleLang()" title="한/EN" style="font-size:11px;font-weight:700;width:36px">한</button>
+        <span class="user-name" id="header-username"></span>
+        <button class="btn-sm btn-outline" onclick="App.logout()" data-i18n="logout">로그아웃</button>
+      </div>
+    </header>
+    <main id="main-content"></main>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <div id="modal-overlay" class="hidden" onclick="Modal.closeOnOverlay(event)">
+    <div id="modal-box"></div>
+  </div>
+
+  <script src="js/lang.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

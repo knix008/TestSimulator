@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# SQLite database files
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# File uploads
+uploads/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Electron build output
+dist/
+out/
+release/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Editor directories
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# electron-rebuild cache
+.electron-gyp/
