@@ -8,12 +8,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
-const ICON_PATH = path.join(ROOT, 'assets', 'icon.ico');
-const RCEDIT_BIN = path.join(ROOT, 'node_modules', 'rcedit', 'bin', 'rcedit-x64.exe');
 
 const INSTALLER_EXTS = new Set(['.exe', '.dmg', '.appimage']);
 
@@ -33,20 +30,6 @@ function findInstallersInDist() {
     .map((name) => path.join(DIST, name));
 }
 
-function applySetupIcon(exePath) {
-  if (!exePath.toLowerCase().endsWith('.exe')) return;
-  if (!fs.existsSync(ICON_PATH)) {
-    console.warn('[copy-installer] Icon not found:', ICON_PATH);
-    return;
-  }
-  if (!fs.existsSync(RCEDIT_BIN)) {
-    console.warn('[copy-installer] rcedit not found:', RCEDIT_BIN);
-    return;
-  }
-  execFileSync(RCEDIT_BIN, [exePath, '--set-icon', ICON_PATH], { stdio: 'inherit' });
-  console.log(`[copy-installer] Applied icon to ${path.basename(exePath)}`);
-}
-
 function copyInstallers(files) {
   if (!files.length) {
     console.warn('[copy-installer] No installer files found in dist/.');
@@ -55,7 +38,6 @@ function copyInstallers(files) {
 
   const copied = [];
   for (const src of files) {
-    applySetupIcon(src);
     const base = path.basename(src);
     const dest = path.join(ROOT, base);
     fs.copyFileSync(src, dest);
