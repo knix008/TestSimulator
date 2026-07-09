@@ -291,7 +291,7 @@ const Modal = (() => {
     const snapshot = confirmSnapshot;
     resolvePendingConfirm(result);
     confirmSnapshot = null;
-    if (!result && snapshot) {
+    if (snapshot) {
       document.getElementById('modal-box').innerHTML = snapshot;
       document.getElementById('modal-overlay').classList.remove('hidden');
       document.body.style.overflow = 'hidden';

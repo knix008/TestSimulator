@@ -263,6 +263,16 @@ const History = (() => {
     });
   }
 
+  function recordColumnMove(boardId, colId, fromPos, toPos) {
+    if (fromPos === toPos) return;
+    push({
+      scope: 'board',
+      boardId,
+      undo: () => API.post(`/boards/${boardId}/columns/${colId}/move`, { position: fromPos }),
+      redo: () => API.post(`/boards/${boardId}/columns/${colId}/move`, { position: toPos }),
+    });
+  }
+
   function recordBoardUpdate(boardId, before, after) {
     if (before.title === after.title && before.description === after.description && (before.bg_color||'') === (after.bg_color||'')) return;
     push({
@@ -290,6 +300,7 @@ const History = (() => {
     recordColumnAdd,
     recordColumnDelete,
     recordColumnColorChange,
+    recordColumnMove,
     recordBoardUpdate,
   };
 })();

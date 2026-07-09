@@ -108,6 +108,10 @@ const BoardView = (() => {
   let boardsList = [];
   let assignees = [];
   let drag = null;
+  let dragCol = null;
+  let pendingCommentFiles = [];
+  let pendingReplyFiles = {};
+  const editCommentOriginals = new Map();
   let burndownChart = null;
   let burndownChartCache = null;
   let summaryReportCache = null;
@@ -551,15 +555,15 @@ const BoardView = (() => {
           ${renderBackButton('App.showBoards()', 'backToBoards')}
           <span class="board-toolbar-title" id="board-title-lbl">${I18n.t('myBoards')}</span>
           <div class="board-toolbar-right">
+            ${perm.canEdit && localStorage.getItem('kanban-show-add-col') !== 'false' ? `<button class="btn btn-primary btn-sm" onclick="BoardView.promptAddColumn()" title="${I18n.t('addColumn')}">&#10010; ${I18n.t('addColumn')}</button>` : ''}
             <button class="btn btn-secondary btn-sm" onclick="BoardView.showSummary()" title="${I18n.t('summaryTitle')}">${icon('chart', 'toolbar')} ${I18n.t('summary')}</button>
             ${perm.canManageMembers ? `<button class="btn btn-secondary btn-sm" onclick="BoardView.showMembers()" title="${I18n.t('memberMgmt')}">${icon('users', 'toolbar')} ${I18n.t('members')}</button>` : ''}
             <button class="btn btn-secondary btn-sm" id="btn-export-board" onclick="BoardView.exportCurrentBoard()" title="${I18n.t('exportProject')}">${icon('export', 'toolbar')} ${I18n.t('exportProject')}</button>
-            ${perm.canEdit ? `<button class="btn btn-primary btn-sm" onclick="BoardView.promptAddColumn()" title="${I18n.t('addColumn')}">&#10010; ${I18n.t('addColumn')}</button>` : ''}
           </div>
         </div>
-        <div class="columns-container" id="columns-container" oncontextmenu="BoardView.showBoardAreaCtxMenu(event)">
+        <div class="columns-container" id="columns-container" oncontextmenu="BoardView.showBoardAreaCtxMenu(event)" ondragover="BoardView.onContainerDragOver(event)" ondrop="BoardView.onContainerDrop(event)">
           ${boardData.map(col => renderColumn(col)).join('')}
-          ${perm.canEdit ? `<div class="add-col-btn" onclick="BoardView.promptAddColumn()">${I18n.t('addColumn')}</div>` : ''}
+          ${perm.canEdit && localStorage.getItem('kanban-show-add-col') !== 'false' ? `<div class="add-col-btn" onclick="BoardView.promptAddColumn()">${I18n.t('addColumn')}</div>` : ''}
         </div>
       </div>`;
 
@@ -583,12 +587,16 @@ const BoardView = (() => {
     const cards = col.cards.map(c => renderCard(c, col.id)).join('');
     const bg = hexToColBg(col.bg_color);
     const bgStyle = bg ? ` style="background:${bg}"` : '';
+    const isDone = col.type === 'done';
+    const doneBadge = isDone ? `<span class="col-done-badge" title="${I18n.t('colTypeDone')}">✓ ${I18n.t('colTypeDone')}</span>` : '';
+    const canDrag = perm.canEdit && !isDone;
 
     return `
-      <div class="column" data-col-id="${col.id}"${bgStyle}
+      <div class="column${isDone ? ' col-done' : ''}" data-col-id="${col.id}"${bgStyle}
            ${perm.canEdit ? `oncontextmenu="BoardView.showColumnCtxMenu(event,${col.id})"` : ''}>
-        <div class="column-header">
+        <div class="column-header" ${canDrag ? `draggable="true" ondragstart="BoardView.onColDragStart(event,${col.id})" ondragend="BoardView.onColDragEnd(event)"` : ''}>
           <span class="column-title" id="col-title-${col.id}" ${perm.canEdit ? `ondblclick="BoardView.startEditColTitle(${col.id})"` : ''}>${escHtml(col.title)}</span>
+          ${doneBadge}
           <span class="column-count">${col.cards.length}</span>
           ${perm.canEdit ? `<button class="column-menu" onclick="BoardView.showColumnCtxMenu(event,${col.id})" title="${I18n.t('ctxRenameCol')}">&#8942;</button>` : ''}
         </div>
@@ -680,7 +688,7 @@ const BoardView = (() => {
   }
 
   function onListDragOver(e) {
-    if (!drag) return;
+    if (!drag || dragCol) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const list = e.currentTarget;
@@ -692,6 +700,7 @@ const BoardView = (() => {
   }
 
   function onListDragLeave(e) {
+    if (dragCol) return;
     const list = e.currentTarget;
     if (!list.contains(e.relatedTarget)) {
       list.classList.remove('drag-over-col');
@@ -700,6 +709,7 @@ const BoardView = (() => {
   }
 
   function onListDrop(e) {
+    if (dragCol) return;
     e.preventDefault();
     if (!drag) { removeDropIndicator(); return; }
     const list = e.currentTarget;
@@ -737,6 +747,86 @@ const BoardView = (() => {
     e.currentTarget.classList.remove('dragging');
     drag = null;
     removeDropIndicator();
+  }
+
+  // ── Column Drag & Drop ────────────────────────────────────────────────────
+
+  function onColDragStart(e, colId) {
+    if (!currentPermissions?.canEdit) { e.preventDefault(); return; }
+    dragCol = { colId };
+    drag = null;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `col:${colId}`);
+    setTimeout(() => document.querySelector(`.column[data-col-id="${colId}"]`)?.classList.add('col-dragging'), 0);
+  }
+
+  function onColDragEnd(e) {
+    e.currentTarget.closest('.column')?.classList.remove('col-dragging');
+    dragCol = null;
+    removeColDropIndicator();
+  }
+
+  function removeColDropIndicator() {
+    document.getElementById('col-drop-ind')?.remove();
+  }
+
+  function getColInsertBefore(container, clientX) {
+    const cols = [...container.querySelectorAll('.column:not(.col-dragging):not(.col-done)')];
+    for (const col of cols) {
+      const { left, width } = col.getBoundingClientRect();
+      if (clientX < left + width / 2) return col;
+    }
+    return container.querySelector('.column.col-done') || null;
+  }
+
+  function onContainerDragOver(e) {
+    if (!dragCol) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const container = e.currentTarget;
+    let ind = document.getElementById('col-drop-ind');
+    if (!ind) {
+      ind = document.createElement('div');
+      ind.id = 'col-drop-ind';
+      ind.className = 'col-drop-ind';
+    }
+    const before = getColInsertBefore(container, e.clientX);
+    if (before) container.insertBefore(ind, before);
+    else {
+      const addBtn = container.querySelector('.add-col-btn');
+      if (addBtn) container.insertBefore(ind, addBtn);
+      else container.appendChild(ind);
+    }
+  }
+
+  async function onContainerDrop(e) {
+    e.preventDefault();
+    if (!dragCol) return;
+    const container = e.currentTarget;
+    const ind = document.getElementById('col-drop-ind');
+    let position = 0;
+    if (ind) {
+      const children = [...container.children];
+      const indIdx = children.indexOf(ind);
+      position = children.slice(0, indIdx)
+        .filter(el => el.classList.contains('column') && !el.classList.contains('col-done')).length;
+    }
+    const colId = dragCol.colId;
+    dragCol = null;
+    removeColDropIndicator();
+    await moveColumn(colId, position);
+  }
+
+  async function moveColumn(colId, position) {
+    const normalCols = (boardData || []).filter(c => c.type !== 'done');
+    const col = normalCols.find(c => c.id == colId);
+    const oldPosition = normalCols.indexOf(col);
+    if (oldPosition < 0 || oldPosition === position) return;
+    try {
+      await API.post(`/boards/${currentBoardId}/columns/${colId}/move`, { position });
+      if (!History.isApplying()) History.recordColumnMove(currentBoardId, colId, oldPosition, position);
+      await loadBoard();
+    } catch (err) { showToast(err.message, 'error'); }
   }
 
   async function moveCard(cardId, targetColId, position) {
@@ -813,11 +903,85 @@ const BoardView = (() => {
     CtxMenu.show(e, [
       { label: I18n.t('addCard'), icon: '➕', tooltip: I18n.t('ctxAddCardCol'), action: () => showAddCard(colId) },
       { type: 'sep' },
-      { label: I18n.t('renameColumn'), icon: '✏️', tooltip: I18n.t('ctxRenameCol'), action: () => startEditColTitle(colId) },
+      { label: I18n.t('columnProps'), icon: '⚙️', tooltip: I18n.t('ctxColumnProps'), action: () => editColumnProps(colId) },
       { label: I18n.t('columnColor'), icon: '🎨', tooltip: I18n.t('ctxColumnColor'), action: () => showColumnColorPicker(colId) },
       { type: 'sep' },
       { label: I18n.t('deleteColumn'), icon: '🗑️', tooltip: I18n.t('ctxDeleteCol'), danger: true, action: () => deleteColumn(colId) }
     ]);
+  }
+
+  function editColumnProps(colId) {
+    const col = boardData?.find(c => c.id == colId);
+    if (!col) return;
+    const rawColor = col.bg_color || '';
+    const currentHex = NAMED_COL_COLOR_MAP[rawColor] || rawColor;
+    const isPreset = COLUMN_BG_PRESETS.includes(currentHex);
+    const isCustom = currentHex && !isPreset;
+    const customInitVal = isCustom ? currentHex : '#6366F1';
+    const colType = col.type || 'normal';
+    const normalCols = (boardData || []).filter(c => c.type !== 'done');
+    const isLastNormal = colType === 'done' || (normalCols.length > 0 && normalCols[normalCols.length - 1].id == colId);
+
+    const swatches = COLUMN_BG_PRESETS.map(hex => `
+      <div class="col-color-swatch${hex === currentHex ? ' selected' : ''}" style="background:${hex}" data-color="${hex}" title="${hex}"
+           onclick="document.querySelectorAll('.col-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('col-sel-color').value=this.dataset.color;document.getElementById('col-custom-hex').value=this.dataset.color;document.getElementById('col-custom-picker').value=this.dataset.color"></div>
+    `).join('');
+
+    Modal.dialog({
+      title: I18n.t('columnProps'),
+      icon: '⚙️',
+      size: 'sm',
+      body: `
+      <div class="form-group">
+        <label>${I18n.t('columnName')}</label>
+        <input id="col-prop-title" class="form-control" value="${escAttr(col.title)}" autofocus>
+      </div>
+      <div class="form-group">
+        <label>${I18n.t('columnType')}</label>
+        <select id="col-prop-type" class="form-control">
+          <option value="normal"${colType === 'normal' ? ' selected' : ''}>${I18n.t('colTypeNormal')}</option>
+          <option value="done"${colType === 'done' ? ' selected' : ''}${!isLastNormal ? ' disabled' : ''}>${I18n.t('colTypeDone')}</option>
+        </select>
+        ${!isLastNormal ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">${I18n.t('doneColMustBeLast')}</div>` : ''}
+      </div>
+      <input type="hidden" id="col-sel-color" value="${escAttr(currentHex)}">
+      <div class="form-group">
+        <label>${I18n.t('columnColor')}</label>
+        <div class="col-color-grid">
+          <div class="col-color-swatch col-color-none${!currentHex ? ' selected' : ''}" data-color="" title="${I18n.t('colorDefault')}"
+               onclick="document.querySelectorAll('.col-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('col-sel-color').value='';document.getElementById('col-custom-hex').value=''">
+            <span style="font-size:15px;line-height:1">✕</span>
+          </div>
+          ${swatches}
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label style="font-size:12px;color:var(--text-muted)">${I18n.t('colCustomColor') || '직접 입력 (사용자 정의 색상)'}</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="color" id="col-custom-picker" value="${escAttr(customInitVal)}"
+                 style="width:44px;height:34px;border-radius:6px;border:1px solid var(--border);padding:2px;cursor:pointer;background:none;flex-shrink:0"
+                 oninput="const v=this.value;document.querySelectorAll('.col-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('col-sel-color').value=v;document.getElementById('col-custom-hex').value=v">
+          <input type="text" id="col-custom-hex" class="form-control" maxlength="7"
+                 value="${escAttr(isCustom ? currentHex : '')}" placeholder="#RRGGBB"
+                 style="font-family:monospace;font-size:13px"
+                 oninput="const v=this.value.trim();if(/^#[0-9A-Fa-f]{6}$/.test(v)){document.querySelectorAll('.col-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('col-sel-color').value=v;document.getElementById('col-custom-picker').value=v}">
+        </div>
+      </div>`,
+      footer: Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveColumnProps(${colId})`, { primaryIcon: '💾' }),
+    });
+    document.getElementById('col-prop-title').addEventListener('keydown', e => { if (e.key === 'Enter') saveColumnProps(colId); });
+  }
+
+  async function saveColumnProps(colId) {
+    const title = document.getElementById('col-prop-title')?.value.trim();
+    const type = document.getElementById('col-prop-type')?.value;
+    const color = document.getElementById('col-sel-color')?.value ?? '';
+    if (!title) { showToast(I18n.t('columnTitleRequired'), 'error'); return; }
+    try {
+      await API.put(`/boards/${currentBoardId}/columns/${colId}`, { title, type, bg_color: color || null });
+      Modal.close();
+      await loadBoard();
+    } catch (err) { showToast(err.message, 'error'); }
   }
 
   function showColumnColorPicker(colId) {
@@ -1058,6 +1222,9 @@ const BoardView = (() => {
   }
 
   async function openCard(cardId) {
+    pendingCommentFiles = [];
+    pendingReplyFiles = {};
+    editCommentOriginals.clear();
     try {
       await loadAssignees();
       const card = await API.get(`/boards/${currentBoardId}/cards/${cardId}`);
@@ -1101,6 +1268,10 @@ const BoardView = (() => {
           <div class="modal-section-title">${I18n.t('attachments')}</div>
           <div class="attachment-list" id="attach-list">${attachHtml}</div>
           ${canEdit ? `<label class="upload-btn">&#128206; ${I18n.t('attachFile')}<input type="file" id="attach-input" multiple onchange="BoardView.uploadAttachment(${cardId})"></label>` : ''}
+        </div>
+        <div class="modal-section" style="margin-bottom:0">
+          <div class="modal-section-title">💬 ${I18n.t('comments')}</div>
+          <div id="card-comments-section"><div style="font-size:12px;color:var(--text-muted)">${I18n.t('loadingComments')}</div></div>
         </div>`,
         footer: canEdit
           ? `
@@ -1113,6 +1284,7 @@ const BoardView = (() => {
           : Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' }),
       });
       if (canEdit) setupCardAutoSave(cardId, card);
+      loadComments(cardId);
     } catch (err) { showToast(err.message, 'error'); }
   }
 
@@ -1501,19 +1673,20 @@ const BoardView = (() => {
     const theme = getBurndownChartTheme();
 
     const columnDatasets = columns.map((col, i) => {
-      const color = COLUMN_CHART_COLORS[i % COLUMN_CHART_COLORS.length];
+      const isDone = col.type === 'done';
+      const color = isDone ? '#22C55E' : COLUMN_CHART_COLORS[i % COLUMN_CHART_COLORS.length];
       return {
-        label: col.title,
+        label: isDone ? `${col.title} ✓` : col.title,
         data: burndown.map(d => (d.columnCounts && d.columnCounts[i]) ?? 0),
         borderColor: color,
-        backgroundColor: chartRgba(color, 0.35),
+        backgroundColor: chartRgba(color, isDone ? 0.45 : 0.35),
         legendColor: color,
         fill: true,
         stack: 'columns',
         tension: 0.25,
         pointRadius: 0,
         pointHoverRadius: 4,
-        borderWidth: 1.5,
+        borderWidth: isDone ? 2 : 1.5,
         pointStyle: 'rect',
         order: 1,
       };
@@ -1816,14 +1989,345 @@ const BoardView = (() => {
     ReportExport.showExportDialog(summaryReportCache);
   }
 
+  /* ── Comment System ──────────────────────────────────────────────────── */
+
+  function formatCommentTime(ts) {
+    if (!ts) return '';
+    const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+    if (diff < 60) return I18n.t('justNow');
+    if (diff < 3600) return Math.floor(diff / 60) + I18n.t('minutesAgo');
+    if (diff < 86400) return Math.floor(diff / 3600) + I18n.t('hoursAgo');
+    return Math.floor(diff / 86400) + I18n.t('daysAgo');
+  }
+
+  function avatarInitial(name) {
+    return (name || '?').charAt(0).toUpperCase();
+  }
+
+  function renderCommentAttach(a, commentId, cardId, canDelete) {
+    const isImg = a.mimetype && a.mimetype.startsWith('image/');
+    const sizeStr = a.size ? (a.size > 1048576 ? (a.size / 1048576).toFixed(1) + ' MB' : Math.round(a.size / 1024) + ' KB') : '';
+    const delBtn = canDelete ? `<button class="comment-attach-del" onclick="BoardView.deleteCommentAttachment(${a.id},${commentId},${cardId})" title="삭제">&times;</button>` : '';
+    if (isImg) {
+      return `<div class="comment-attach-item">
+        <img class="comment-image" src="/uploads/${escAttr(a.filename)}" alt="${escAttr(a.original_name)}" onclick="BoardView.openAttachment('${escAttr(a.filename)}')" loading="lazy">
+        ${delBtn}
+      </div>`;
+    }
+    return `<div class="comment-attach-item">
+      <span class="comment-file-link" onclick="BoardView.openAttachment('${escAttr(a.filename)}')" title="${escAttr(a.original_name)}">
+        📎 <span>${escHtml(a.original_name)}</span>${sizeStr ? `<span class="comment-file-size">${sizeStr}</span>` : ''}
+      </span>
+      ${delBtn}
+    </div>`;
+  }
+
+  function renderCommentAttachments(attachments, commentId, cardId, canDelete) {
+    if (!attachments || !attachments.length) return '';
+    return `<div class="comment-attachments">${attachments.map(a => renderCommentAttach(a, commentId, cardId, canDelete)).join('')}</div>`;
+  }
+
+  function renderCommentNode(node, depth, cardId, canEdit) {
+    const isChild = depth > 0;
+    const avatarClass = isChild ? 'comment-avatar comment-avatar-sm' : 'comment-avatar';
+    const taClass = isChild ? 'comment-textarea comment-textarea-sm' : 'comment-textarea';
+    const childrenHtml = (node.children || []).length
+      ? `<div class="comment-replies">${(node.children || []).map(c => renderCommentNode(c, depth + 1, cardId, canEdit)).join('')}</div>`
+      : '';
+
+    if (node.deleted) {
+      return `<div class="comment${isChild ? ' comment-reply' : ''}" id="comment-item-${node.id}">
+        <div class="${avatarClass}" style="background:var(--border);color:var(--text-muted)">?</div>
+        <div class="comment-body">
+          <div class="comment-content" style="color:var(--text-muted);font-style:italic">[${I18n.getLang()==='ko'?'삭제된 댓글':'Deleted comment'}]</div>
+          ${childrenHtml}
+        </div>
+      </div>`;
+    }
+
+    const isOwn = node.user_id && App.currentUser && node.user_id == App.currentUser.id;
+    const canMod = canEdit || isOwn;
+    const isEditing = editCommentOriginals.has(node.id);
+    const authorName = escHtml(node.author_name || I18n.t('unknownUser'));
+    const attachHtml = renderCommentAttachments(node.attachments, node.id, cardId, canMod);
+    const pendingKey = `reply-${node.id}`;
+    const pendingFiles = pendingReplyFiles[pendingKey] || [];
+    const pendingHtml = pendingFiles.length
+      ? `<div class="pending-files" id="pending-reply-files-${node.id}">${pendingFiles.map((f,i)=>`<span class="pending-file"><span class="pending-file-name">${escHtml(f.name)}</span><button class="btn-icon" style="font-size:10px;color:var(--danger)" onclick="BoardView.removePendingReplyFile('${pendingKey}',${i},${node.id})">&times;</button></span>`).join('')}</div>`
+      : '';
+
+    if (isEditing) {
+      return `<div class="comment${isChild ? ' comment-reply' : ''}" id="comment-item-${node.id}">
+        <div class="${avatarClass}">${avatarInitial(node.author_name)}</div>
+        <div class="comment-body">
+          <textarea id="comment-edit-ta-${node.id}" class="form-control ${taClass}">${escHtml(editCommentOriginals.get(node.id))}</textarea>
+          <div class="comment-form-footer" style="margin-top:4px">
+            <button class="btn btn-sm btn-secondary" onclick="BoardView.cancelEditComment(${node.id},${cardId})">${I18n.t('cancel')}</button>
+            <button class="btn btn-sm btn-primary" onclick="BoardView.saveCommentEdit(${node.id},${cardId})">${I18n.t('save')}</button>
+          </div>
+          ${childrenHtml}
+        </div>
+      </div>`;
+    }
+
+    const replyForm = canEdit ? `<div id="reply-form-wrap-${node.id}" style="display:none">
+      <div class="comment-form-new" style="margin-top:6px">
+        <div class="comment-avatar comment-avatar-sm">${avatarInitial(App.currentUser?.displayName || App.currentUser?.username)}</div>
+        <div class="comment-form-body">
+          <textarea id="reply-ta-${node.id}" class="form-control comment-textarea comment-textarea-sm" placeholder="${escAttr(I18n.t('replyPlaceholder'))}"></textarea>
+          ${pendingHtml}
+          <div class="comment-form-footer">
+            <label class="comment-file-label" for="reply-file-${node.id}">📎</label>
+            <input type="file" id="reply-file-${node.id}" multiple style="display:none" onchange="BoardView.addPendingReplyFiles('${pendingKey}',${node.id},this)">
+            <button class="btn btn-sm btn-secondary" onclick="BoardView.toggleReplyForm(${node.id},${cardId})">${I18n.t('cancel')}</button>
+            <button class="btn btn-sm btn-primary" onclick="BoardView.submitReply(${cardId},${node.id})">${I18n.t('commentSubmit')}</button>
+          </div>
+        </div>
+      </div>
+    </div>` : '';
+
+    return `<div class="comment${isChild ? ' comment-reply' : ''}" id="comment-item-${node.id}">
+      <div class="${avatarClass}">${avatarInitial(node.author_name)}</div>
+      <div class="comment-body">
+        <div class="comment-meta">
+          <span class="comment-author">${authorName}</span>
+          <span class="comment-time">${formatCommentTime(node.created_at)}</span>
+          ${node.updated_at && node.updated_at !== node.created_at ? `<span class="comment-edited">(${I18n.t('edited')})</span>` : ''}
+          <div class="comment-actions">
+            ${canMod ? `<button class="btn-icon comment-action-btn" onclick="BoardView.startEditComment(${node.id},${cardId})" title="${I18n.getLang()==='ko'?'수정':'Edit'}">✏️</button>` : ''}
+            ${canMod ? `<button class="btn-icon comment-action-btn" onclick="BoardView.deleteComment(${node.id},${cardId})" title="${I18n.getLang()==='ko'?'삭제':'Delete'}">🗑️</button>` : ''}
+          </div>
+        </div>
+        <div class="comment-content">${escHtml(node.content)}</div>
+        ${attachHtml}
+        <div class="comment-footer">
+          ${canEdit ? `<button class="comment-reply-toggle" onclick="BoardView.toggleReplyForm(${node.id},${cardId})">${I18n.t('reply')}</button>` : ''}
+          ${canMod ? `<label class="comment-attach-btn" for="comment-file-${node.id}" style="cursor:pointer">📎 ${I18n.getLang()==='ko'?'파일 첨부':'Attach'}</label>
+          <input type="file" id="comment-file-${node.id}" multiple style="display:none" onchange="BoardView.addCommentAttachDirect(${node.id},${cardId},this)">` : ''}
+        </div>
+        ${replyForm}
+        ${childrenHtml}
+      </div>
+    </div>`;
+  }
+
+  function renderNewCommentForm(cardId) {
+    const pendingHtml = pendingCommentFiles.length ? `<div class="pending-files" id="pending-comment-files">${pendingCommentFiles.map((f,i)=>`<span class="pending-file"><span class="pending-file-name">${escHtml(f.name)}</span><button class="btn-icon" style="font-size:10px;color:var(--danger)" onclick="BoardView.removePendingCommentFile(${i})">&times;</button></span>`).join('')}</div>` : '';
+    return `<div class="comment-form-new" id="new-comment-form">
+      <div class="comment-avatar">${avatarInitial(App.currentUser?.displayName || App.currentUser?.username)}</div>
+      <div class="comment-form-body">
+        <textarea id="new-comment-ta" class="form-control comment-textarea" placeholder="${escAttr(I18n.t('commentPlaceholder'))}"></textarea>
+        ${pendingHtml}
+        <div class="comment-form-footer">
+          <label class="comment-file-label" for="new-comment-file">📎</label>
+          <input type="file" id="new-comment-file" multiple style="display:none" onchange="BoardView.addPendingCommentFiles(this)">
+          <button class="btn btn-sm btn-primary" onclick="BoardView.submitComment(${cardId})">${I18n.t('commentSubmit')}</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function buildCommentTree(flatList) {
+    const byId = {};
+    flatList.forEach(c => { byId[c.id] = { ...c, children: [] }; });
+    const roots = [];
+    flatList.forEach(c => {
+      if (c.parent_id && byId[c.parent_id]) { byId[c.parent_id].children.push(byId[c.id]); }
+      else { roots.push(byId[c.id]); }
+    });
+    return roots;
+  }
+
+  function renderComments(flatList, cardId) {
+    const canEdit = currentPermissions.canEdit;
+    const sec = document.getElementById('card-comments-section');
+    if (!sec) return;
+    const tree = buildCommentTree(flatList);
+    const nonEmpty = tree.filter(c => !c.deleted || c.children.length > 0);
+    const listHtml = nonEmpty.length
+      ? nonEmpty.map(c => renderCommentNode(c, 0, cardId, canEdit)).join('')
+      : `<div class="comment-empty">${I18n.t('noComments')}</div>`;
+    sec.innerHTML = listHtml + (canEdit ? renderNewCommentForm(cardId) : '');
+  }
+
+  let _currentCardForComments = null;
+  let _currentCommentsFlat = [];
+
+  async function loadComments(cardId) {
+    _currentCardForComments = cardId;
+    const sec = document.getElementById('card-comments-section');
+    if (!sec) return;
+    try {
+      const comments = await API.get(`/boards/${currentBoardId}/cards/${cardId}/comments`);
+      _currentCommentsFlat = comments;
+      renderComments(comments, cardId);
+    } catch (err) {
+      if (sec) sec.innerHTML = `<div class="comment-empty" style="color:var(--danger)">${escHtml(err.message)}</div>`;
+    }
+  }
+
+  function addPendingCommentFiles(input) {
+    if (!input?.files?.length) return;
+    pendingCommentFiles = pendingCommentFiles.concat(Array.from(input.files));
+    input.value = '';
+    const sec = document.getElementById('card-comments-section');
+    if (sec) {
+      const ta = document.getElementById('new-comment-ta')?.value || '';
+      const pending = document.getElementById('pending-comment-files');
+      const newPending = `<div class="pending-files" id="pending-comment-files">${pendingCommentFiles.map((f,i)=>`<span class="pending-file"><span class="pending-file-name">${escHtml(f.name)}</span><button class="btn-icon" style="font-size:10px;color:var(--danger)" onclick="BoardView.removePendingCommentFile(${i})">&times;</button></span>`).join('')}</div>`;
+      if (pending) { pending.outerHTML = newPending; } else {
+        const ta2 = document.getElementById('new-comment-ta');
+        if (ta2) ta2.insertAdjacentHTML('afterend', newPending);
+      }
+    }
+  }
+
+  function removePendingCommentFile(idx) {
+    pendingCommentFiles.splice(idx, 1);
+    const pending = document.getElementById('pending-comment-files');
+    if (pending) {
+      if (pendingCommentFiles.length) {
+        pending.outerHTML = `<div class="pending-files" id="pending-comment-files">${pendingCommentFiles.map((f,i)=>`<span class="pending-file"><span class="pending-file-name">${escHtml(f.name)}</span><button class="btn-icon" style="font-size:10px;color:var(--danger)" onclick="BoardView.removePendingCommentFile(${i})">&times;</button></span>`).join('')}</div>`;
+      } else { pending.remove(); }
+    }
+  }
+
+  function addPendingReplyFiles(key, commentId, input) {
+    if (!input?.files?.length) return;
+    if (!pendingReplyFiles[key]) pendingReplyFiles[key] = [];
+    pendingReplyFiles[key] = pendingReplyFiles[key].concat(Array.from(input.files));
+    input.value = '';
+    const pending = document.getElementById(`pending-reply-files-${commentId}`);
+    const newHtml = `<div class="pending-files" id="pending-reply-files-${commentId}">${pendingReplyFiles[key].map((f,i)=>`<span class="pending-file"><span class="pending-file-name">${escHtml(f.name)}</span><button class="btn-icon" style="font-size:10px;color:var(--danger)" onclick="BoardView.removePendingReplyFile('${key}',${i},${commentId})">&times;</button></span>`).join('')}</div>`;
+    if (pending) { pending.outerHTML = newHtml; } else {
+      const ta = document.getElementById(`reply-ta-${commentId}`);
+      if (ta) ta.insertAdjacentHTML('afterend', newHtml);
+    }
+  }
+
+  function removePendingReplyFile(key, idx, commentId) {
+    if (!pendingReplyFiles[key]) return;
+    pendingReplyFiles[key].splice(idx, 1);
+    const pending = document.getElementById(`pending-reply-files-${commentId}`);
+    if (pending) {
+      if (pendingReplyFiles[key].length) {
+        pending.outerHTML = `<div class="pending-files" id="pending-reply-files-${commentId}">${pendingReplyFiles[key].map((f,i)=>`<span class="pending-file"><span class="pending-file-name">${escHtml(f.name)}</span><button class="btn-icon" style="font-size:10px;color:var(--danger)" onclick="BoardView.removePendingReplyFile('${key}',${i},${commentId})">&times;</button></span>`).join('')}</div>`;
+      } else { pending.remove(); }
+    }
+  }
+
+  async function submitComment(cardId) {
+    const ta = document.getElementById('new-comment-ta');
+    const content = ta?.value.trim();
+    if (!content) { showToast(I18n.t('commentRequired'), 'error'); return; }
+    try {
+      const comment = await API.post(`/boards/${currentBoardId}/cards/${cardId}/comments`, { content });
+      if (pendingCommentFiles.length) {
+        await uploadCommentAttachments(comment.id, pendingCommentFiles, cardId);
+        pendingCommentFiles = [];
+      }
+      await loadComments(cardId);
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function submitReply(cardId, parentId) {
+    const ta = document.getElementById(`reply-ta-${parentId}`);
+    const content = ta?.value.trim();
+    if (!content) { showToast(I18n.t('commentRequired'), 'error'); return; }
+    const key = `reply-${parentId}`;
+    try {
+      const reply = await API.post(`/boards/${currentBoardId}/cards/${cardId}/comments`, { content, parentId });
+      const files = pendingReplyFiles[key] || [];
+      if (files.length) {
+        await uploadCommentAttachments(reply.id, files, cardId);
+        delete pendingReplyFiles[key];
+      }
+      await loadComments(cardId);
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  function toggleReplyForm(commentId, cardId) {
+    const wrap = document.getElementById(`reply-form-wrap-${commentId}`);
+    if (!wrap) return;
+    const hidden = wrap.style.display === 'none' || !wrap.style.display;
+    wrap.style.display = hidden ? 'block' : 'none';
+    if (hidden) document.getElementById(`reply-ta-${commentId}`)?.focus();
+  }
+
+  function startEditComment(commentId, cardId) {
+    const found = _currentCommentsFlat.find(c => c.id == commentId);
+    editCommentOriginals.set(commentId, found ? found.content : '');
+    renderComments(_currentCommentsFlat, cardId);
+  }
+
+  function cancelEditComment(commentId, cardId) {
+    editCommentOriginals.delete(commentId);
+    renderComments(_currentCommentsFlat, cardId);
+  }
+
+  async function saveCommentEdit(commentId, cardId) {
+    const ta = document.getElementById(`comment-edit-ta-${commentId}`);
+    const content = ta?.value.trim();
+    if (!content) { showToast(I18n.t('commentRequired'), 'error'); return; }
+    try {
+      await API.put(`/boards/${currentBoardId}/comments/${commentId}`, { content });
+      editCommentOriginals.delete(commentId);
+      await loadComments(cardId);
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function deleteComment(commentId, cardId) {
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmTitle'),
+      message: I18n.t('confirmDeleteComment'),
+      confirmLabel: I18n.t('delete'),
+    });
+    if (!ok) return;
+    try {
+      await API.delete(`/boards/${currentBoardId}/comments/${commentId}`);
+      await loadComments(cardId);
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function uploadCommentAttachments(commentId, files, cardId) {
+    for (const file of files) {
+      const fd = new FormData(); fd.append('file', file);
+      try {
+        await API.upload(`/boards/${currentBoardId}/comments/${commentId}/attachments`, fd);
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+  }
+
+  async function addCommentAttachDirect(commentId, cardId, input) {
+    if (!input?.files?.length) return;
+    const files = Array.from(input.files);
+    input.value = '';
+    await uploadCommentAttachments(commentId, files, cardId);
+    await loadComments(cardId);
+  }
+
+  async function deleteCommentAttachment(attachId, commentId, cardId) {
+    try {
+      await API.delete(`/boards/${currentBoardId}/comments/${commentId}/attachments/${attachId}`);
+      await loadComments(cardId);
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
   return {
     get currentBoardId() { return currentBoardId; },
     renderBoardList, showCreateBoard, createBoard, editBoard, saveEditBoard, deleteBoard,
     openBoard, loadBoard, reloadAfterHistory,
     showBoardCtxMenu, showListCtxMenu, showBoardAreaCtxMenu, showColumnCtxMenu, showColumnColorPicker, applyColumnColor, showCardCtxMenu,
+    editColumnProps, saveColumnProps,
     startEditColTitle, deleteColumn, promptAddColumn, addColumn,
+    onColDragStart, onColDragEnd, onContainerDragOver, onContainerDrop,
     showAddCard, createCard, openCard, saveCard, deleteCard, showAssigneePicker, saveAssignee,
     uploadAttachment, deleteAttachment, openAttachment,
+    loadComments, submitComment, submitReply, toggleReplyForm,
+    startEditComment, cancelEditComment, saveCommentEdit, deleteComment,
+    addPendingCommentFiles, removePendingCommentFile,
+    addPendingReplyFiles, removePendingReplyFile,
+    addCommentAttachDirect, deleteCommentAttachment,
     onDragStart, onDragEnd,
     showMembers, addMember, changeMemberRole, removeMember,
     showSummary, exportSummaryReport, applyBurndownDateRange, refreshBurndownChartTheme,

@@ -41,12 +41,23 @@ function canDeleteProject(role) { return ['system-admin', 'owner'].includes(role
 
 // Middleware: require at least viewer access to a project
 async function requireProjectAccess(req, res, next) {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  const db = getDb();
-  const role = await getProjectRole(db, req.params.boardId || req.params.id, req.session.userId, req.session.role === 'admin');
-  if (!canView(role)) return res.status(403).json({ error: '이 프로젝트에 접근 권한이 없습니다.' });
-  req.projectRole = role;
-  next();
+  try {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+    const db = getDb();
+    const role = await getProjectRole(db, req.params.boardId || req.params.id, req.session.userId, req.session.role === 'admin');
+    if (!canView(role)) return res.status(403).json({ error: '이 프로젝트에 접근 권한이 없습니다.' });
+    req.projectRole = role;
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+function uploadSingle(req, res, next) {
+  upload.single('file')(req, res, (err) => {
+    if (err) return res.status(500).json({ error: err.message || '파일 업로드 오류가 발생했습니다.' });
+    next();
+  });
 }
 
 // ── PROJECTS (BOARDS) ─────────────────────────────────────────────────────────
@@ -276,7 +287,7 @@ router.get('/:boardId/columns', requireAuth, requireProjectAccess, async (req, r
     const db = getDb();
     const columns = await db('columns')
       .where({ board_id: req.params.boardId })
-      .orderBy('position');
+      .orderByRaw("CASE WHEN type = 'done' THEN 1 ELSE 0 END, position");
 
     const colIds = columns.map(c => c.id);
     let cards = [];
@@ -323,13 +334,21 @@ router.get('/:boardId/columns', requireAuth, requireProjectAccess, async (req, r
 router.post('/:boardId/columns', requireAuth, requireProjectAccess, async (req, res) => {
   if (!canEdit(req.projectRole)) return res.status(403).json({ error: '편집 권한이 없습니다.' });
   try {
-    const { title } = req.body;
+    const { title, type } = req.body;
     if (!title) return res.status(400).json({ error: '컬럼 제목은 필수입니다.' });
+    const colType = type === 'done' ? 'done' : 'normal';
     const db = getDb();
-    const maxRow = await db('columns').where({ board_id: req.params.boardId }).max('position as m').first();
+    if (colType === 'done') {
+      const existing = await db('columns').where({ board_id: req.params.boardId, type: 'done' }).first();
+      if (existing) return res.status(400).json({ error: '이미 "완료" 컬럼이 존재합니다.' });
+    }
+    const maxRow = await db('columns')
+      .where({ board_id: req.params.boardId })
+      .where(function() { this.where('type', 'normal').orWhereNull('type'); })
+      .max('position as m').first();
     const position = (parseInt(maxRow.m) || 0) + 1;
-    const [id] = await db('columns').insert({ board_id: req.params.boardId, title, position });
-    res.json({ id, title, position, cards: [] });
+    const [id] = await db('columns').insert({ board_id: req.params.boardId, title, position, type: colType });
+    res.json({ id, title, position, type: colType, cards: [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -338,11 +357,63 @@ router.post('/:boardId/columns', requireAuth, requireProjectAccess, async (req, 
 router.put('/:boardId/columns/:id', requireAuth, requireProjectAccess, async (req, res) => {
   if (!canEdit(req.projectRole)) return res.status(403).json({ error: '편집 권한이 없습니다.' });
   try {
+    const db = getDb();
+    const colId = parseInt(req.params.id);
+    const boardId = parseInt(req.params.boardId);
     const update = {};
     if (req.body.title !== undefined) update.title = req.body.title;
     if (req.body.position !== undefined) update.position = req.body.position;
     if (req.body.bg_color !== undefined) update.bg_color = req.body.bg_color || null;
-    await getDb()('columns').where({ id: req.params.id }).update(update);
+    if (req.body.type !== undefined) {
+      if (req.body.type === 'done') {
+        const existing = await db('columns').where({ board_id: boardId, type: 'done' }).whereNot({ id: colId }).first();
+        if (existing) return res.status(400).json({ error: '이미 "완료" 컬럼이 존재합니다.' });
+        const colNow = await db('columns').where({ id: colId }).first();
+        if (colNow && colNow.type !== 'done') {
+          const rightOf = await db('columns')
+            .where({ board_id: boardId })
+            .where(function() { this.where('type', 'normal').orWhereNull('type'); })
+            .where('position', '>', colNow.position)
+            .first();
+          if (rightOf) return res.status(400).json({ error: '완료 컬럼은 가장 우측 컬럼에만 설정할 수 있습니다.' });
+        }
+      }
+      update.type = req.body.type;
+    }
+    await db('columns').where({ id: colId }).update(update);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:boardId/columns/:id/move', requireAuth, requireProjectAccess, async (req, res) => {
+  if (!canEdit(req.projectRole)) return res.status(403).json({ error: '편집 권한이 없습니다.' });
+  try {
+    const db = getDb();
+    const colId = parseInt(req.params.id);
+    const boardId = parseInt(req.params.boardId);
+    const toPos = parseInt(req.body.position);
+
+    const col = await db('columns').where({ id: colId, board_id: boardId }).first();
+    if (!col) return res.status(404).json({ error: '컬럼을 찾을 수 없습니다.' });
+    if (col.type === 'done') return res.status(400).json({ error: '완료 컬럼은 이동할 수 없습니다.' });
+
+    const normalCols = await db('columns')
+      .where({ board_id: boardId })
+      .where(function() { this.where('type', 'normal').orWhereNull('type'); })
+      .orderBy('position');
+
+    const fromIdx = normalCols.findIndex(c => c.id === colId);
+    if (fromIdx < 0) return res.status(404).json({ error: '컬럼을 찾을 수 없습니다.' });
+
+    const toIdx = Math.max(0, Math.min(toPos, normalCols.length - 1));
+    if (fromIdx === toIdx) return res.json({ ok: true });
+
+    const [moved] = normalCols.splice(fromIdx, 1);
+    normalCols.splice(toIdx, 0, moved);
+
+    await Promise.all(normalCols.map((c, i) => db('columns').where({ id: c.id }).update({ position: i })));
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -558,7 +629,8 @@ function addIdealBurndown(series) {
 
 function buildBurndownSeries(cards, columns, startDateKey, endDateKey) {
   const colList = columns || [];
-  const doneColId = colList.length ? colList[colList.length - 1].id : null;
+  const doneCol = colList.find(c => c.type === 'done') ?? colList[colList.length - 1];
+  const doneColId = doneCol?.id ?? null;
   const series = [];
   let start = parseLocalDateKey(startDateKey || toLocalDateKey(new Date()));
   let end = parseLocalDateKey(endDateKey || toLocalDateKey(new Date()));
@@ -597,7 +669,9 @@ router.get('/:boardId/summary', requireAuth, requireProjectAccess, async (req, r
   try {
     const db = getDb();
     const board = await db('boards').where({ id: req.params.boardId }).first();
-    const columns = await db('columns').where({ board_id: req.params.boardId }).orderBy('position');
+    const columns = await db('columns')
+      .where({ board_id: req.params.boardId })
+      .orderByRaw("CASE WHEN type = 'done' THEN 1 ELSE 0 END, position");
     const colIds = columns.map(c => c.id);
     const projectStartDate = getProjectStartDateKey(board, []);
     const { startKey, endKey } = resolveBurndownRange(
@@ -620,8 +694,9 @@ router.get('/:boardId/summary', requireAuth, requireProjectAccess, async (req, r
     const cards = await db('cards').whereIn('column_id', colIds).select('*');
 
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const doneColId = columns[columns.length - 1].id; // Last column = "done"
-    const completedCards = cards.filter(c => c.column_id === doneColId).length;
+    const doneCol = columns.find(c => c.type === 'done') ?? columns[columns.length - 1];
+    const doneColId = doneCol?.id ?? null;
+    const completedCards = doneColId ? cards.filter(c => c.column_id === doneColId).length : 0;
     const overdueCards = cards.filter(c => {
       if (!c.due_date || c.column_id === doneColId) return false;
       return new Date(c.due_date) < today;
@@ -630,7 +705,8 @@ router.get('/:boardId/summary', requireAuth, requireProjectAccess, async (req, r
     const colStats = columns.map(col => ({
       id: col.id,
       title: col.title,
-      count: cards.filter(c => c.column_id === col.id).length
+      type: col.type || 'normal',
+      count: cards.filter(c => c.column_id === col.id).length,
     }));
 
     res.json({
@@ -662,7 +738,9 @@ router.post('/:boardId/report', requireAuth, requireProjectAccess, async (req, r
     const board = await db('boards').where({ id: req.params.boardId }).first();
     if (!board) return res.status(404).json({ error: 'Project not found.' });
 
-    const columns = await db('columns').where({ board_id: req.params.boardId }).orderBy('position');
+    const columns = await db('columns')
+      .where({ board_id: req.params.boardId })
+      .orderByRaw("CASE WHEN type = 'done' THEN 1 ELSE 0 END, position");
     const colIds = columns.map(c => c.id);
     const projectStartDate = getProjectStartDateKey(board, []);
     let summaryData = {
@@ -677,15 +755,17 @@ router.post('/:boardId/report', requireAuth, requireProjectAccess, async (req, r
     if (colIds.length > 0) {
       const cards = await db('cards').whereIn('column_id', colIds).select('*');
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const doneColId = columns[columns.length - 1].id;
+      const doneCol = columns.find(c => c.type === 'done') ?? columns[columns.length - 1];
+      const doneColId = doneCol?.id ?? null;
       summaryData = {
         boardTitle: board.title,
         columns: columns.map(col => ({
           title: col.title,
+          type: col.type || 'normal',
           count: cards.filter(c => c.column_id === col.id).length,
         })),
         totalCards: cards.length,
-        completedCards: cards.filter(c => c.column_id === doneColId).length,
+        completedCards: doneColId ? cards.filter(c => c.column_id === doneColId).length : 0,
         overdueCards: cards.filter(c => {
           if (!c.due_date || c.column_id === doneColId) return false;
           return new Date(c.due_date) < today;
@@ -708,7 +788,7 @@ router.post('/:boardId/report', requireAuth, requireProjectAccess, async (req, r
 
 // ── ATTACHMENTS ───────────────────────────────────────────────────────────────
 
-router.post('/:boardId/cards/:cardId/attachments', requireAuth, requireProjectAccess, upload.single('file'), async (req, res) => {
+router.post('/:boardId/cards/:cardId/attachments', requireAuth, requireProjectAccess, uploadSingle, async (req, res) => {
   if (!canEdit(req.projectRole)) return res.status(403).json({ error: '편집 권한이 없습니다.' });
   try {
     if (!req.file) return res.status(400).json({ error: '파일이 없습니다.' });
@@ -736,6 +816,153 @@ router.delete('/:boardId/cards/:cardId/attachments/:attachId', requireAuth, requ
       const fp = path.join(getUploadsPath(), attach.filename);
       if (fs.existsSync(fp)) fs.unlinkSync(fp);
       await db('attachments').where({ id: req.params.attachId }).delete();
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── COMMENTS ─────────────────────────────────────────────────────────────────
+
+router.get('/:boardId/cards/:cardId/comments', requireAuth, requireProjectAccess, async (req, res) => {
+  try {
+    const db = getDb();
+    const comments = await db('comments')
+      .where({ card_id: req.params.cardId })
+      .leftJoin('users', 'comments.user_id', 'users.id')
+      .select('comments.*', 'users.display_name as author_name', 'users.username as author_username')
+      .orderBy('comments.created_at');
+
+    const commentIds = comments.map(c => c.id);
+    let attachments = [];
+    if (commentIds.length > 0) {
+      attachments = await db('comment_attachments').whereIn('comment_id', commentIds).orderBy('created_at');
+    }
+    const attachByComment = {};
+    attachments.forEach(a => {
+      if (!attachByComment[a.comment_id]) attachByComment[a.comment_id] = [];
+      attachByComment[a.comment_id].push(a);
+    });
+
+    res.json(comments.map(c => ({ ...c, attachments: attachByComment[c.id] || [] })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:boardId/cards/:cardId/comments', requireAuth, requireProjectAccess, async (req, res) => {
+  try {
+    const { content, parentId } = req.body;
+    if (!content?.trim()) return res.status(400).json({ error: '댓글 내용을 입력하세요.' });
+    const db = getDb();
+    if (parentId) {
+      const parent = await db('comments').where({ id: parentId, card_id: req.params.cardId }).first();
+      if (!parent) return res.status(400).json({ error: '댓글을 찾을 수 없습니다.' });
+    }
+    const [id] = await db('comments').insert({
+      card_id: req.params.cardId,
+      parent_id: parentId || null,
+      user_id: req.session.userId,
+      content: content.trim(),
+    });
+    const comment = await db('comments')
+      .where({ 'comments.id': id })
+      .leftJoin('users', 'comments.user_id', 'users.id')
+      .select('comments.*', 'users.display_name as author_name', 'users.username as author_username')
+      .first();
+    res.json({ ...comment, attachments: [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/:boardId/comments/:commentId', requireAuth, requireProjectAccess, async (req, res) => {
+  try {
+    const db = getDb();
+    const comment = await db('comments').where({ id: req.params.commentId }).first();
+    if (!comment) return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    if (String(comment.user_id) !== String(req.session.userId) && req.session.role !== 'admin') {
+      return res.status(403).json({ error: '수정 권한이 없습니다.' });
+    }
+    const { content } = req.body;
+    if (!content?.trim()) return res.status(400).json({ error: '댓글 내용을 입력하세요.' });
+    await db('comments').where({ id: req.params.commentId }).update({ content: content.trim(), updated_at: new Date() });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:boardId/comments/:commentId', requireAuth, requireProjectAccess, async (req, res) => {
+  try {
+    const db = getDb();
+    const comment = await db('comments').where({ id: req.params.commentId }).first();
+    if (!comment) return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    if (String(comment.user_id) !== String(req.session.userId) && req.session.role !== 'admin') {
+      return res.status(403).json({ error: '삭제 권한이 없습니다.' });
+    }
+    const hasChildren = await db('comments').where({ parent_id: comment.id }).first();
+    if (hasChildren) {
+      // Soft delete: remove content and attachments but keep the row so children stay
+      const fileRows = await db('comment_attachments').where({ comment_id: comment.id });
+      for (const a of fileRows) {
+        const fp = path.join(getUploadsPath(), a.filename);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      }
+      await db('comment_attachments').where({ comment_id: comment.id }).delete();
+      await db('comments').where({ id: comment.id }).update({ deleted: true, content: '', updated_at: new Date() });
+    } else {
+      // Hard delete leaf comment
+      const fileRows = await db('comment_attachments').where({ comment_id: comment.id });
+      for (const a of fileRows) {
+        const fp = path.join(getUploadsPath(), a.filename);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      }
+      await db('comments').where({ id: comment.id }).delete();
+      // Cascade-clean any soft-deleted ancestor that now has no remaining children
+      if (comment.parent_id) {
+        const parent = await db('comments').where({ id: comment.parent_id, deleted: true }).first();
+        if (parent) {
+          const sibling = await db('comments').where({ parent_id: parent.id }).first();
+          if (!sibling) await db('comments').where({ id: parent.id }).delete();
+        }
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:boardId/comments/:commentId/attachments', requireAuth, requireProjectAccess, uploadSingle, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: '파일이 없습니다.' });
+    const db = getDb();
+    const comment = await db('comments').where({ id: req.params.commentId }).first();
+    if (!comment) return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    const [id] = await db('comment_attachments').insert({
+      comment_id: req.params.commentId,
+      filename: req.file.filename,
+      original_name: originalName,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+    });
+    res.json({ id, filename: req.file.filename, original_name: originalName, size: req.file.size, mimetype: req.file.mimetype });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:boardId/comments/:commentId/attachments/:attachId', requireAuth, requireProjectAccess, async (req, res) => {
+  try {
+    const db = getDb();
+    const attach = await db('comment_attachments').where({ id: req.params.attachId }).first();
+    if (attach) {
+      const fp = path.join(getUploadsPath(), attach.filename);
+      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      await db('comment_attachments').where({ id: req.params.attachId }).delete();
     }
     res.json({ ok: true });
   } catch (err) {
@@ -782,6 +1009,7 @@ async function importKprjProject(db, data, userId, options = {}) {
       title: col.title,
       position: col.position !== undefined ? col.position : ci,
       bg_color: col.bg_color || null,
+      type: col.type === 'done' ? 'done' : 'normal',
     });
 
     const cards = col.cards || [];
@@ -816,7 +1044,7 @@ router.get('/:boardId/export', requireAuth, requireProjectAccess, async (req, re
 
     const columns = await db('columns')
       .where({ board_id: req.params.boardId })
-      .orderBy('position');
+      .orderByRaw("CASE WHEN type = 'done' THEN 1 ELSE 0 END, position");
 
     const colIds = columns.map(c => c.id);
     let cards = [];
@@ -851,6 +1079,7 @@ router.get('/:boardId/export', requireAuth, requireProjectAccess, async (req, re
         columns: columns.map(col => ({
           title: col.title,
           position: col.position,
+          type: col.type || 'normal',
           bg_color: col.bg_color || null,
           cards: cardsByCol[col.id] || [],
         })),

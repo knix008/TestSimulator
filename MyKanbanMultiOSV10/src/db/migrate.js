@@ -67,11 +67,15 @@ async function runMigrations(db) {
       t.string('title', 255).notNullable();
       t.integer('position').defaultTo(0);
       t.string('bg_color', 20).nullable();
+      t.string('type', 20).defaultTo('normal');
       t.timestamp('created_at').defaultTo(db.fn.now());
     });
   } else {
     if (!(await db.schema.hasColumn('columns', 'bg_color'))) {
       await db.schema.table('columns', t => { t.string('bg_color', 20).nullable(); });
+    }
+    if (!(await db.schema.hasColumn('columns', 'type'))) {
+      await db.schema.table('columns', t => { t.string('type', 20).defaultTo('normal'); });
     }
   }
 
@@ -105,6 +109,34 @@ async function runMigrations(db) {
     await db.schema.createTable('attachments', (t) => {
       t.increments('id').primary();
       t.integer('card_id').unsigned().references('id').inTable('cards').onDelete('CASCADE');
+      t.string('filename', 255).notNullable();
+      t.string('original_name', 255).notNullable();
+      t.integer('size');
+      t.string('mimetype', 100);
+      t.timestamp('created_at').defaultTo(db.fn.now());
+    });
+  }
+
+  if (!(await db.schema.hasTable('comments'))) {
+    await db.schema.createTable('comments', (t) => {
+      t.increments('id').primary();
+      t.integer('card_id').unsigned().references('id').inTable('cards').onDelete('CASCADE').notNullable();
+      t.integer('parent_id').unsigned().nullable();
+      t.integer('user_id').unsigned().references('id').inTable('users').onDelete('SET NULL').nullable();
+      t.text('content').notNullable();
+      t.boolean('deleted').defaultTo(false);
+      t.timestamps(true, true);
+    });
+  } else {
+    if (!(await db.schema.hasColumn('comments', 'deleted'))) {
+      await db.schema.table('comments', t => { t.boolean('deleted').defaultTo(false); });
+    }
+  }
+
+  if (!(await db.schema.hasTable('comment_attachments'))) {
+    await db.schema.createTable('comment_attachments', (t) => {
+      t.increments('id').primary();
+      t.integer('comment_id').unsigned().references('id').inTable('comments').onDelete('CASCADE').notNullable();
       t.string('filename', 255).notNullable();
       t.string('original_name', 255).notNullable();
       t.integer('size');

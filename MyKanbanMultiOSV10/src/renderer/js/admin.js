@@ -294,6 +294,7 @@ const SettingsView = (() => {
       <div class="admin-wrap">
         <div class="page-header"><h1 class="page-title">${I18n.t('settings')}</h1></div>
         ${dbSection}
+        ${renderUiSection()}
         ${renderProfileSection(user)}
         ${renderPasswordSection()}
       </div>`;
@@ -568,6 +569,25 @@ const SettingsView = (() => {
     await AutoSave.flush('profile');
   }
 
+  function renderUiSection() {
+    const showAddCol = localStorage.getItem('kanban-show-add-col') !== 'false';
+    return `
+      <div class="settings-section">
+        <div class="settings-section-title">🖥 ${I18n.t('uiSettings')}</div>
+        <div class="pref-row">
+          <div class="pref-row-label">${I18n.t('showAddCol')}</div>
+          <label class="toggle">
+            <input type="checkbox" ${showAddCol ? 'checked' : ''} onchange="SettingsView.setPref('kanban-show-add-col', this.checked)">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>`;
+  }
+
+  function setPref(key, value) {
+    localStorage.setItem(key, String(value));
+  }
+
   function renderPasswordSection() {
     return `
       <div class="settings-section">
@@ -600,5 +620,5 @@ const SettingsView = (() => {
     } catch (err) { showToast(err.message, 'error'); }
   }
 
-  return { render, selectDb, testDb, saveDb, resetDb, saveProfile, changePassword, browseSqliteFile, focusDbField };
+  return { render, selectDb, testDb, saveDb, resetDb, saveProfile, changePassword, browseSqliteFile, focusDbField, setPref };
 })();

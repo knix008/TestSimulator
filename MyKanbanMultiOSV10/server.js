@@ -34,6 +34,14 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'src/renderer/index.html'));
 });
 
+// Global JSON error handler — must be last and have 4 parameters
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error('[Server Error]', err);
+  if (res.headersSent) return;
+  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+});
+
 async function startServer(preferredPort = 3000) {
   getUploadsPath();
 
