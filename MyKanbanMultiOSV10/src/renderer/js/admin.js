@@ -299,6 +299,7 @@ const SettingsView = (() => {
       </div>`;
 
     if (isAdmin) initDbTypeButtons();
+    setupProfileAutoSave(user);
   }
 
   function clientToUiType(config) {
@@ -438,15 +439,8 @@ const SettingsView = (() => {
     });
   }
 
-  function showDbErrorPopup(message) {
-    Modal.dialog({
-      title: I18n.t('dbConnFailed'),
-      icon: '⚠️',
-      type: 'error',
-      size: 'md',
-      body: `<p class="modal-message">${escHtml(message)}</p>`,
-      footer: Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' }),
-    });
+  function showDbErrorPopup(message, title = I18n.t('dbConnFailed')) {
+    showError(title, message);
   }
 
   function setDbTestResult(state, text) {
@@ -504,8 +498,7 @@ const SettingsView = (() => {
       }
       render();
     } catch (err) {
-      showDbErrorPopup(err.message);
-      showToast(err.message, 'error');
+      showDbErrorPopup(err.message, I18n.t('dbSaveFailed'));
     }
   }
 
@@ -527,7 +520,7 @@ const SettingsView = (() => {
         return;
       }
       render();
-    } catch (err) { showToast(err.message, 'error'); }
+    } catch (err) { showDbErrorPopup(err.message, I18n.t('dbSaveFailed')); }
   }
 
   function renderProfileSection(user) {
@@ -539,20 +532,40 @@ const SettingsView = (() => {
           <div class="form-group"><label>${I18n.t('displayName')}</label><input id="p-name" class="form-control" value="${escHtml(user.displayName||'')}"></div>
           <div class="form-group"><label>${I18n.t('emailLabel')}</label><input id="p-email" type="email" class="form-control" value="${escHtml(user.email||'')}"></div>
         </div>
-        <button class="btn btn-primary" onclick="SettingsView.saveProfile()">${I18n.t('save')}</button>
+        <div class="profile-autosave-row">
+          <span id="profile-autosave-status" class="autosave-status autosave-saved">${escHtml(I18n.t('autoSaved'))}</span>
+        </div>
       </div>`;
   }
 
+  function setupProfileAutoSave(user) {
+    const saveKey = 'profile';
+    AutoSave.stop(saveKey);
+    AutoSave.start(saveKey, {
+      indicatorId: 'profile-autosave-status',
+      initialPayload: {
+        displayName: user.displayName || '',
+        email: user.email || '',
+      },
+      collect: () => ({
+        displayName: document.getElementById('p-name')?.value.trim() || '',
+        email: document.getElementById('p-email')?.value.trim() || '',
+      }),
+      save: async (payload) => {
+        await API.put('/auth/profile', payload);
+        App.currentUser.displayName = payload.displayName;
+        App.currentUser.email = payload.email;
+        document.getElementById('header-username').textContent = payload.displayName || App.currentUser.username;
+      },
+    });
+    ['p-name', 'p-email'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', () => AutoSave.schedule(saveKey));
+      document.getElementById(id)?.addEventListener('blur', () => AutoSave.flush(saveKey));
+    });
+  }
+
   async function saveProfile() {
-    const displayName = document.getElementById('p-name').value.trim();
-    const email = document.getElementById('p-email').value.trim();
-    try {
-      await API.put('/auth/profile', { displayName, email });
-      App.currentUser.displayName = displayName;
-      App.currentUser.email = email;
-      document.getElementById('header-username').textContent = displayName || App.currentUser.username;
-      showToast(I18n.t('profileSaved'), 'success');
-    } catch (err) { showToast(err.message, 'error'); }
+    await AutoSave.flush('profile');
   }
 
   function renderPasswordSection() {

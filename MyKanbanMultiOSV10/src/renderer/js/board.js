@@ -262,6 +262,8 @@ const BoardView = (() => {
   // ── Project List ──────────────────────────────────────────────────────────
 
   async function renderBoardList() {
+    currentBoardId = null;
+    History.setBoard(null);
     const main = document.getElementById('main-content');
     main.innerHTML = `<div class="spinner-wrap"><div class="spinner"></div></div>`;
     document.getElementById('breadcrumb').innerHTML = '';
@@ -355,6 +357,8 @@ const BoardView = (() => {
   }
 
   function editBoard(id, title, desc) {
+    const saveKey = `board:${id}`;
+    const initial = { title, description: desc || '' };
     Modal.dialog({
       title: I18n.t('edit'),
       icon: '✏️',
@@ -366,22 +370,45 @@ const BoardView = (() => {
       </div>
       <div class="form-group">
         <label>${I18n.t('boardDesc')}</label>
-        <input id="edit-board-desc" class="form-control" value="${escHtml(desc)}">
+        <input id="edit-board-desc" class="form-control" value="${escHtml(desc || '')}">
       </div>`,
-      footer: Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveEditBoard(${id})`, { primaryIcon: '💾' }),
+      footer: `
+        <div class="modal-footer-left"><span id="board-autosave-status" class="autosave-status"></span></div>
+        ${Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' })}`,
+    });
+    let committedBoard = { ...initial };
+    AutoSave.start(saveKey, {
+      indicatorId: 'board-autosave-status',
+      initialPayload: initial,
+      collect: () => {
+        const t = document.getElementById('edit-board-title')?.value.trim();
+        if (!t) return null;
+        return {
+          title: t,
+          description: document.getElementById('edit-board-desc')?.value.trim() || '',
+        };
+      },
+      save: async (payload) => {
+        const before = { ...committedBoard };
+        await API.put(`/boards/${id}`, payload);
+        if (!History.isApplying()) History.recordBoardUpdate(id, before, payload);
+        committedBoard = { ...payload };
+        await renderBoardList();
+      },
+    });
+    ['edit-board-title', 'edit-board-desc'].forEach((fieldId) => {
+      document.getElementById(fieldId)?.addEventListener('input', () => AutoSave.schedule(saveKey));
+    });
+    Modal.setBeforeClose(async () => {
+      const ok = await AutoSave.flush(saveKey);
+      AutoSave.stop(saveKey);
+      return ok;
     });
   }
 
   async function saveEditBoard(id) {
-    const title = document.getElementById('edit-board-title').value.trim();
-    const description = document.getElementById('edit-board-desc').value.trim();
-    if (!title) return;
-    try {
-      await API.put(`/boards/${id}`, { title, description });
-      Modal.close();
-      showToast(I18n.t('savedDone'), 'success');
-      renderBoardList();
-    } catch (err) { showToast(err.message, 'error'); }
+    await AutoSave.flush(`board:${id}`);
+    Modal.close();
   }
 
   async function deleteBoard(id) {
@@ -401,13 +428,22 @@ const BoardView = (() => {
 
   // ── Board / Kanban View ───────────────────────────────────────────────────
 
+  async function loadAssignees() {
+    if (!currentBoardId) {
+      assignees = [];
+      return;
+    }
+    assignees = await API.get(`/boards/${currentBoardId}/assignees`).catch(() => []);
+  }
+
   async function openBoard(boardId) {
     currentBoardId = boardId;
+    History.setBoard(boardId);
     setStatus(I18n.t('loading'));
     document.getElementById('main-content').innerHTML =
       `<div id="board-view"><div class="spinner-wrap"><div class="spinner"></div></div></div>`;
     try {
-      assignees = await API.get(`/boards/${boardId}/assignees`).catch(() => []);
+      await loadAssignees();
       await loadBoard();
     } catch (err) {
       document.getElementById('main-content').innerHTML = `<div class="spinner-wrap">${err.message}</div>`;
@@ -417,7 +453,10 @@ const BoardView = (() => {
 
   async function loadBoard() {
     try {
-      const response = await API.get(`/boards/${currentBoardId}/columns`);
+      const [response] = await Promise.all([
+        API.get(`/boards/${currentBoardId}/columns`),
+        loadAssignees(),
+      ]);
       // Handle both old array format and new {permissions, columns} format
       if (Array.isArray(response)) {
         boardData = response;
@@ -441,9 +480,9 @@ const BoardView = (() => {
           ${renderBackButton('App.showBoards()', 'backToBoards')}
           <span class="board-toolbar-title" id="board-title-lbl">${I18n.t('myBoards')}</span>
           <div class="board-toolbar-right">
-            <button class="btn btn-secondary btn-sm" onclick="BoardView.showSummary()" title="${I18n.t('summaryTitle')}">&#128202; ${I18n.t('summary')}</button>
-            ${perm.canManageMembers ? `<button class="btn btn-secondary btn-sm" onclick="BoardView.showMembers()" title="${I18n.t('memberMgmt')}">&#128101; ${I18n.t('members')}</button>` : ''}
-            <button class="btn btn-secondary btn-sm" id="btn-export-board" onclick="BoardView.exportCurrentBoard()" title="${I18n.t('exportProject')}">&#128228; ${I18n.t('exportProject')}</button>
+            <button class="btn btn-secondary btn-sm" onclick="BoardView.showSummary()" title="${I18n.t('summaryTitle')}">${icon('chart', 'toolbar')} ${I18n.t('summary')}</button>
+            ${perm.canManageMembers ? `<button class="btn btn-secondary btn-sm" onclick="BoardView.showMembers()" title="${I18n.t('memberMgmt')}">${icon('users', 'toolbar')} ${I18n.t('members')}</button>` : ''}
+            <button class="btn btn-secondary btn-sm" id="btn-export-board" onclick="BoardView.exportCurrentBoard()" title="${I18n.t('exportProject')}">${icon('export', 'toolbar')} ${I18n.t('exportProject')}</button>
             ${perm.canEdit ? `<button class="btn btn-primary btn-sm" onclick="BoardView.promptAddColumn()" title="${I18n.t('addColumn')}">&#10010; ${I18n.t('addColumn')}</button>` : ''}
           </div>
         </div>
@@ -489,6 +528,14 @@ const BoardView = (() => {
       </div>`;
   }
 
+  function getCardLocation(cardId) {
+    for (const col of boardData || []) {
+      const idx = col.cards.findIndex(c => c.id == cardId);
+      if (idx >= 0) return { columnId: col.id, position: idx };
+    }
+    return null;
+  }
+
   function findCard(cardId) {
     for (const col of boardData || []) {
       const card = col.cards.find(c => c.id == cardId);
@@ -499,14 +546,14 @@ const BoardView = (() => {
 
   function assigneeOptionsHtml(selectedId, extraAssignee) {
     const list = [...assignees];
-    if (extraAssignee?.id && !list.find(u => u.id == extraAssignee.id)) {
+    if (extraAssignee?.id && !list.find(u => String(u.id) === String(extraAssignee.id))) {
       list.push(extraAssignee);
       list.sort((a, b) =>
         (a.display_name || a.username).localeCompare(b.display_name || b.username, 'ko')
       );
     }
     return list.map(u =>
-      `<option value="${u.id}" ${selectedId == u.id ? 'selected' : ''}>${escHtml(u.display_name || u.username)}</option>`
+      `<option value="${u.id}" ${String(selectedId) === String(u.id) ? 'selected' : ''}>${escHtml(u.display_name || u.username)}</option>`
     ).join('');
   }
 
@@ -566,8 +613,13 @@ const BoardView = (() => {
   }
 
   async function moveCard(cardId, targetColId, position) {
+    const from = getCardLocation(cardId);
+    if (!from) return;
     try {
       await API.post(`/boards/${currentBoardId}/cards/${cardId}/move`, { targetColumnId: targetColId, position });
+      if (!History.isApplying()) {
+        History.recordCardMove(currentBoardId, cardId, from.columnId, from.position, targetColId, position);
+      }
       await loadBoard();
     } catch (err) { showToast(err.message, 'error'); await loadBoard(); }
   }
@@ -659,19 +711,27 @@ const BoardView = (() => {
     const wrap = document.createElement('div');
     wrap.className = 'inline-edit';
     wrap.innerHTML = `<input value="${escHtml(old)}" style="flex:1">
-      <button class="btn btn-primary btn-sm" onclick="saveColTitle(${colId})">${I18n.t('save')}</button>
       <button class="btn btn-secondary btn-sm" onclick="cancelColEdit(${colId})">${I18n.t('cancel')}</button>`;
     span.parentElement.insertBefore(wrap, span);
-    wrap.querySelector('input').focus();
-    wrap.querySelector('input').addEventListener('keydown', e => {
+    const input = wrap.querySelector('input');
+    input.focus();
+    input.addEventListener('keydown', e => {
       if (e.key === 'Enter') saveColTitle(colId);
       if (e.key === 'Escape') cancelColEdit(colId);
     });
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (document.body.contains(wrap)) saveColTitle(colId);
+      }, 120);
+    });
     window.saveColTitle = async (id) => {
-      const val = wrap.querySelector('input').value.trim();
-      if (!val) return;
-      try { await API.put(`/boards/${currentBoardId}/columns/${id}`, { title: val }); await loadBoard(); }
-      catch (err) { showToast(err.message, 'error'); }
+      const val = input.value.trim();
+      if (!val || val === old) { cancelColEdit(id); return; }
+      try {
+        await API.put(`/boards/${currentBoardId}/columns/${id}`, { title: val });
+        if (!History.isApplying()) History.recordColumnRename(currentBoardId, id, old, val);
+        await loadBoard();
+      } catch (err) { showToast(err.message, 'error'); }
     };
     window.cancelColEdit = () => { wrap.remove(); span.style.display = ''; };
   }
@@ -683,7 +743,13 @@ const BoardView = (() => {
       confirmLabel: I18n.t('delete'),
     });
     if (!ok) return;
-    try { await API.delete(`/boards/${currentBoardId}/columns/${colId}`); await loadBoard(); }
+    const col = boardData?.find(c => c.id == colId);
+    const snapshot = col ? { id: col.id, title: col.title, position: col.position, cards: col.cards.map(c => ({ ...c })) } : null;
+    try {
+      await API.delete(`/boards/${currentBoardId}/columns/${colId}`);
+      if (!History.isApplying() && snapshot) History.recordColumnDelete(currentBoardId, snapshot);
+      await loadBoard();
+    }
     catch (err) { showToast(err.message, 'error'); }
   }
 
@@ -706,7 +772,8 @@ const BoardView = (() => {
     const title = document.getElementById('new-col-title').value.trim();
     if (!title) return;
     try {
-      await API.post(`/boards/${currentBoardId}/columns`, { title });
+      const created = await API.post(`/boards/${currentBoardId}/columns`, { title });
+      if (!History.isApplying()) History.recordColumnAdd(currentBoardId, created.id, title);
       Modal.close();
       await loadBoard();
     } catch (err) { showToast(err.message, 'error'); }
@@ -734,7 +801,8 @@ const BoardView = (() => {
     return sel ? sel.dataset.colorVal : '';
   }
 
-  function showAddCard(colId) {
+  async function showAddCard(colId) {
+    await loadAssignees();
     const userOptions = assigneeOptionsHtml(null);
     Modal.dialog({
       title: I18n.t('addCardTitle'),
@@ -773,7 +841,10 @@ const BoardView = (() => {
     const color = getSelectedColor();
     if (!title) { showToast(I18n.t('cardTitle'), 'error'); return; }
     try {
-      await API.post(`/boards/${currentBoardId}/cards`, { columnId: colId, title, description, assigneeId, dueDate, color });
+      const created = await API.post(`/boards/${currentBoardId}/cards`, { columnId: colId, title, description, assigneeId, dueDate, color });
+      if (!History.isApplying()) {
+        History.recordCardCreate(currentBoardId, created.id, { columnId: colId, title, description, assigneeId, dueDate, color });
+      }
       Modal.close();
       await loadBoard();
     } catch (err) { showToast(err.message, 'error'); }
@@ -781,6 +852,7 @@ const BoardView = (() => {
 
   async function openCard(cardId) {
     try {
+      await loadAssignees();
       const card = await API.get(`/boards/${currentBoardId}/cards/${cardId}`);
       const canEdit = currentPermissions.canEdit;
       const extraAssignee = card.assignee_id && !assignees.find(u => u.id == card.assignee_id)
@@ -829,31 +901,82 @@ const BoardView = (() => {
           ${canEdit ? `<label class="upload-btn">&#128206; ${I18n.t('attachFile')}<input type="file" id="attach-input" multiple onchange="BoardView.uploadAttachment(${cardId})"></label>` : ''}
         </div>`,
         footer: canEdit
-          ? Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveCard(${cardId})`, {
-              primaryIcon: '💾',
-              left: Modal.btn({ label: I18n.t('deleteCard'), icon: '🗑️', variant: 'danger', extraClass: 'btn-sm', onclick: `BoardView.deleteCard(${cardId})` }),
-            })
+          ? `
+            <div class="modal-footer-left">
+              ${Modal.btn({ label: I18n.t('deleteCard'), icon: '🗑️', variant: 'danger', extraClass: 'btn-sm', onclick: `BoardView.deleteCard(${cardId})` })}
+              <span id="card-autosave-status" class="autosave-status autosave-saved">${escHtml(I18n.t('autoSaved'))}</span>
+            </div>
+            ${Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' })}`
           : Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' }),
       });
+      if (canEdit) setupCardAutoSave(cardId, card);
     } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  function collectCardPayload() {
+    const title = document.getElementById('ec-title')?.value.trim();
+    if (!title) return null;
+    return {
+      title,
+      description: document.getElementById('ec-desc')?.value.trim() || '',
+      assigneeId: document.getElementById('ec-assignee')?.value || '',
+      dueDate: document.getElementById('ec-due')?.value || '',
+      color: getSelectedColor() || '',
+    };
+  }
+
+  function setupCardAutoSave(cardId, card) {
+    const saveKey = `card:${cardId}`;
+    const initial = {
+      title: card.title,
+      description: card.description || '',
+      assigneeId: card.assignee_id ? String(card.assignee_id) : '',
+      dueDate: card.due_date ? card.due_date.substring(0, 10) : '',
+      color: card.color || '',
+    };
+    let committedCard = { ...initial };
+    AutoSave.start(saveKey, {
+      indicatorId: 'card-autosave-status',
+      initialPayload: initial,
+      collect: collectCardPayload,
+      save: async (payload) => {
+        const before = { ...committedCard };
+        await API.put(`/boards/${currentBoardId}/cards/${cardId}`, payload);
+        if (!History.isApplying()) History.recordCardUpdate(currentBoardId, cardId, before, payload);
+        committedCard = { ...payload };
+        await loadBoard();
+      },
+    });
+    ['ec-title', 'ec-desc'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', () => AutoSave.schedule(saveKey));
+    });
+    ['ec-assignee', 'ec-due'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('change', () => AutoSave.schedule(saveKey));
+    });
+    document.querySelectorAll('.color-dot').forEach((dot) => {
+      dot.addEventListener('click', () => AutoSave.schedule(saveKey));
+    });
+    Modal.setBeforeClose(async () => {
+      const title = document.getElementById('ec-title')?.value.trim();
+      if (!title) {
+        showToast(I18n.t('cardTitle') + ' ' + I18n.t('fieldRequired'), 'error');
+        return false;
+      }
+      const ok = await AutoSave.flush(saveKey);
+      AutoSave.stop(saveKey);
+      return ok;
+    });
   }
 
   async function saveCard(cardId) {
-    const title = document.getElementById('ec-title').value.trim();
-    const description = document.getElementById('ec-desc').value.trim();
-    const assigneeId = document.getElementById('ec-assignee').value;
-    const dueDate = document.getElementById('ec-due').value;
-    const color = getSelectedColor();
-    if (!title) return;
-    try {
-      await API.put(`/boards/${currentBoardId}/cards/${cardId}`, { title, description, assigneeId, dueDate, color });
-      Modal.close();
-      showToast(I18n.t('savedDone'), 'success');
-      await loadBoard();
-    } catch (err) { showToast(err.message, 'error'); }
+    const ok = await AutoSave.flush(`card:${cardId}`);
+    if (!ok) return;
+    AutoSave.stop(`card:${cardId}`);
+    Modal.close();
   }
 
-  function showAssigneePicker(cardId, currentAssigneeId) {
+  async function showAssigneePicker(cardId, currentAssigneeId) {
+    await loadAssignees();
     const card = findCard(cardId);
     const extraAssignee = currentAssigneeId && !assignees.find(u => u.id == currentAssigneeId) && card?.assignee_name
       ? { id: currentAssigneeId, display_name: card.assignee_name, username: card.assignee_name }
@@ -870,18 +993,44 @@ const BoardView = (() => {
           ${assigneeOptionsHtml(currentAssigneeId, extraAssignee)}
         </select>
       </div>`,
-      footer: Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveAssignee(${cardId})`, { primaryIcon: '💾' }),
+      footer: `
+        <div class="modal-footer-left"><span id="assignee-autosave-status" class="autosave-status autosave-saved">${escHtml(I18n.t('autoSaved'))}</span></div>
+        ${Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' })}`,
+    });
+    const saveKey = `assignee:${cardId}`;
+    const initial = { assigneeId: currentAssigneeId ? String(currentAssigneeId) : '' };
+    let committedAssignee = { ...initial };
+    AutoSave.start(saveKey, {
+      indicatorId: 'assignee-autosave-status',
+      initialPayload: initial,
+      collect: () => ({ assigneeId: document.getElementById('pick-assignee')?.value || '' }),
+      save: async (payload) => {
+        const before = {
+          title: card?.title || '',
+          description: card?.description || '',
+          assigneeId: committedAssignee.assigneeId,
+          dueDate: card?.due_date ? String(card.due_date).substring(0, 10) : '',
+          color: card?.color || '',
+        };
+        const after = { ...before, assigneeId: payload.assigneeId };
+        await API.put(`/boards/${currentBoardId}/cards/${cardId}`, payload);
+        if (!History.isApplying()) History.recordCardUpdate(currentBoardId, cardId, before, after);
+        committedAssignee = { assigneeId: payload.assigneeId };
+        await loadBoard();
+      },
+    });
+    document.getElementById('pick-assignee')?.addEventListener('change', () => AutoSave.schedule(saveKey));
+    Modal.setBeforeClose(async () => {
+      const ok = await AutoSave.flush(saveKey);
+      AutoSave.stop(saveKey);
+      return ok;
     });
   }
 
   async function saveAssignee(cardId) {
-    const assigneeId = document.getElementById('pick-assignee').value;
-    try {
-      await API.put(`/boards/${currentBoardId}/cards/${cardId}`, { assigneeId });
-      Modal.close();
-      showToast(I18n.t('savedDone'), 'success');
-      await loadBoard();
-    } catch (err) { showToast(err.message, 'error'); }
+    await AutoSave.flush(`assignee:${cardId}`);
+    AutoSave.stop(`assignee:${cardId}`);
+    Modal.close();
   }
 
   async function deleteCard(cardId) {
@@ -891,7 +1040,17 @@ const BoardView = (() => {
       confirmLabel: I18n.t('delete'),
     });
     if (!ok) return;
-    try { await API.delete(`/boards/${currentBoardId}/cards/${cardId}`); Modal.close(); await loadBoard(); }
+    const loc = getCardLocation(cardId);
+    const card = findCard(cardId);
+    const snapshot = card ? { ...card, column_id: loc?.columnId ?? card.column_id, position: loc?.position ?? 0 } : null;
+    AutoSave.stop(`card:${cardId}`);
+    Modal.clearBeforeClose();
+    try {
+      await API.delete(`/boards/${currentBoardId}/cards/${cardId}`);
+      if (!History.isApplying() && snapshot) History.recordCardDelete(currentBoardId, snapshot);
+      Modal.forceClose();
+      await loadBoard();
+    }
     catch (err) { showToast(err.message, 'error'); }
   }
 
@@ -929,10 +1088,10 @@ const BoardView = (() => {
       const { owner, members } = await API.get(`/boards/${currentBoardId}/members`);
       const allUsers = await API.get('/users/active');
       const memberIds = new Set([
-        ...(owner ? [owner.id] : []),
-        ...members.map(m => m.id)
+        ...(owner ? [String(owner.id)] : []),
+        ...members.map(m => String(m.id)),
       ]);
-      const nonMembers = allUsers.filter(u => !memberIds.has(u.id));
+      const nonMembers = allUsers.filter(u => !memberIds.has(String(u.id)));
 
       const memberRows = members.map(m => `
         <div class="member-item" id="mitem-${m.id}">
@@ -998,6 +1157,7 @@ const BoardView = (() => {
     if (!userId) return;
     try {
       await API.post(`/boards/${currentBoardId}/members`, { userId, role });
+      await loadAssignees();
       showToast(I18n.t('memberAdded'), 'success');
       showMembers();
     } catch (err) { showToast(err.message, 'error'); }
@@ -1020,6 +1180,7 @@ const BoardView = (() => {
     if (!ok) return;
     try {
       await API.delete(`/boards/${currentBoardId}/members/${userId}`);
+      await loadAssignees();
       document.getElementById(`mitem-${userId}`)?.remove();
       showToast(I18n.t('deletedDone'), 'success');
     } catch (err) { showToast(err.message, 'error'); }
@@ -1375,6 +1536,27 @@ const BoardView = (() => {
     await exportProject(currentBoardId, b ? b.title : 'project');
   }
 
+  async function flushColumnEdit() {
+    const wrap = document.querySelector('.inline-edit');
+    if (!wrap) return;
+    const span = wrap.parentElement?.querySelector('[id^="col-title-"]');
+    if (!span?.id) return;
+    const colId = parseInt(span.id.replace('col-title-', ''), 10);
+    if (!Number.isNaN(colId) && typeof window.saveColTitle === 'function') {
+      await window.saveColTitle(colId);
+    }
+  }
+
+  async function reloadAfterHistory() {
+    if (currentBoardId) await loadBoard();
+    else await renderBoardList();
+  }
+
+  async function savePending() {
+    await flushColumnEdit();
+    return AutoSave.flushAll();
+  }
+
   function exportSummaryReport() {
     ReportExport.showExportDialog(summaryReportCache);
   }
@@ -1382,7 +1564,7 @@ const BoardView = (() => {
   return {
     get currentBoardId() { return currentBoardId; },
     renderBoardList, showCreateBoard, createBoard, editBoard, saveEditBoard, deleteBoard,
-    openBoard, loadBoard,
+    openBoard, loadBoard, reloadAfterHistory,
     showBoardCtxMenu, showListCtxMenu, showBoardAreaCtxMenu, showColumnCtxMenu, showCardCtxMenu,
     startEditColTitle, deleteColumn, promptAddColumn, addColumn,
     showAddCard, createCard, openCard, saveCard, deleteCard, showAssigneePicker, saveAssignee,
@@ -1391,5 +1573,6 @@ const BoardView = (() => {
     showMembers, addMember, changeMemberRole, removeMember,
     showSummary, exportSummaryReport, applyBurndownDateRange, refreshBurndownChartTheme,
     exportProject, exportCurrentBoard, importProjectFromDialog, openSampleProject, handleKprjFileOpen,
+    savePending,
   };
 })();

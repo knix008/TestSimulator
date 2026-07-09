@@ -25,6 +25,10 @@
   --radius: 8px;
   --radius-sm: 4px;
   --transition: .15s ease;
+  --icon-menubar: #64748B;
+  --icon-toolbar: #475569;
+  --calendar-icon-opacity: 0.72;
+  --calendar-icon-filter: none;
 }
 
 /* ── Dark Theme ─────────────────────────────────────────────── */
@@ -49,6 +53,10 @@
   --login-pattern-image: url("login-pattern-dark.svg");
   --shadow: 0 1px 3px rgba(0,0,0,.4);
   --shadow-md: 0 4px 12px rgba(0,0,0,.5);
+  --icon-menubar: #E2E8F0;
+  --icon-toolbar: #E2E8F0;
+  --calendar-icon-opacity: 0.95;
+  --calendar-icon-filter: invert(0.92) brightness(1.25);
 }
 
 /* ── Card color palettes ────────────────────────────────────── */
@@ -81,6 +89,8 @@ a { color: var(--primary); text-decoration: none; }
 .logo { font-size: 18px; font-weight: 700; color: #fff; cursor: pointer; letter-spacing: -.3px; }
 .header-left { display: flex; align-items: center; gap: 16px; }
 .header-right { display: flex; align-items: center; gap: 8px; }
+.header-toolbar-group { display: flex; align-items: center; gap: 2px; padding-right: 8px; margin-right: 4px; border-right: 1px solid rgba(255,255,255,.15); }
+.btn-icon.disabled, .btn-icon:disabled { opacity: 0.38; cursor: default; pointer-events: none; }
 .breadcrumb { display: flex; align-items: center; gap: 6px; color: #94A3B8; font-size: 13px; }
 .breadcrumb span { cursor: pointer; } .breadcrumb span:hover { color: #fff; }
 .breadcrumb .sep { color: #475569; }
@@ -89,6 +99,22 @@ a { color: var(--primary); text-decoration: none; }
 .btn-icon .btn-icon-svg { display: block; flex-shrink: 0; }
 .btn-icon:hover { background: rgba(255,255,255,.1); color: #fff; }
 #btn-admin.hidden { display: none !important; }
+
+/* Theme-aware SVG icons (replace emoji) */
+.ui-icon {
+  display: inline-block;
+  vertical-align: -2px;
+  flex-shrink: 0;
+  color: var(--icon-ui, var(--text-muted));
+}
+.ui-icon-menubar { color: var(--icon-menubar); }
+.ui-icon-toolbar { color: var(--icon-toolbar); }
+.btn .ui-icon { color: currentColor; vertical-align: -2px; }
+.menubar-icon { display: inline-flex; align-items: center; margin-right: 5px; font-size: 14px; }
+.menubar-icon .ui-icon { display: block; }
+.menubar-opt-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; flex-shrink: 0; }
+.menubar-opt-icon .ui-icon { display: block; color: var(--icon-menubar); }
+.menubar-opt:hover .ui-icon { color: var(--primary); }
 
 /* ── Main ──────────────────────────────────────────────────── */
 #main-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); }
@@ -121,6 +147,22 @@ textarea.form-control { min-height: 80px; resize: vertical; }
 select.form-control { cursor: pointer; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+/* Date inputs — theme-aware native calendar icon */
+input[type="date"] {
+  color-scheme: light;
+}
+[data-theme="dark"] input[type="date"] {
+  color-scheme: dark;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: var(--calendar-icon-opacity);
+  filter: var(--calendar-icon-filter);
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
 
 /* ── Login ─────────────────────────────────────────────────── */
 .login-wrap {
@@ -284,6 +326,18 @@ select.form-control { cursor: pointer; }
 
 .modal-dialog.modal-error .modal-header { background: var(--error-pastel); border-bottom-color: rgba(239, 68, 68, .2); }
 .modal-dialog.modal-error .modal-title { color: var(--error-pastel-text); }
+.modal-footer-left .autosave-status { margin-left: 12px; }
+.autosave-status {
+  font-size: 12px; color: var(--text-muted); align-self: center; white-space: nowrap;
+}
+.autosave-status.autosave-saving { color: var(--primary); }
+.autosave-status.autosave-saved { color: var(--success, #16a34a); }
+.autosave-status.autosave-error { color: var(--danger); }
+.profile-autosave-row { margin-top: 8px; min-height: 18px; }
+
+.modal-error-hint {
+  margin: 0 0 10px; font-size: 12px; color: var(--text-muted); line-height: 1.5;
+}
 .modal-error-text {
   width: 100%; min-height: 180px; max-height: 320px; padding: 12px 14px; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: Consolas, 'Courier New', monospace;
@@ -436,12 +490,11 @@ tr:hover td { background: var(--bg); }
 .menubar-item:hover, .menubar-item.open { background: var(--bg-col); }
 .menubar-dropdown { display: none; position: absolute; top: 100%; left: 0; min-width: 190px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); z-index: 200; padding: 4px 0; }
 .menubar-item.open .menubar-dropdown { display: block; }
-.menubar-icon { font-size: 14px; margin-right: 5px; }
 .menubar-opt { padding: 7px 16px; font-size: 13px; color: var(--text); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.menubar-shortcut { margin-left: auto; font-size: 11px; color: var(--text-light); padding-left: 16px; }
 .menubar-opt:hover { background: var(--primary-light); color: var(--primary); }
-.menubar-opt.disabled { color: var(--text-light); cursor: default; }
-.menubar-opt.disabled:hover { background: none; color: var(--text-light); }
-.menubar-opt-icon { width: 18px; text-align: center; flex-shrink: 0; font-size: 13px; }
+.menubar-opt.disabled { color: var(--text-light); cursor: default; pointer-events: none; opacity: 0.55; }
+.menubar-opt-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; flex-shrink: 0; }
 .menubar-separator { height: 1px; background: var(--border); margin: 4px 0; }
 
 /* ── Status bar ────────────────────────────────────────────── */

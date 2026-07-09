@@ -15,6 +15,17 @@
         <nav class="breadcrumb" id="breadcrumb"></nav>
       </div>
       <div class="header-right">
+        <div class="header-toolbar-group" aria-label="edit actions">
+          <button type="button" class="btn-icon" id="btn-save" onclick="App.save()" data-i18n-title="titleSaveMenu" aria-label="save">
+            <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          </button>
+          <button type="button" class="btn-icon" id="btn-undo" onclick="if(!this.classList.contains('disabled'))History.undo()" data-i18n-title="titleUndo" aria-label="undo">
+            <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.4 2.7L3 13"/></svg>
+          </button>
+          <button type="button" class="btn-icon" id="btn-redo" onclick="if(!this.classList.contains('disabled'))History.redo()" data-i18n-title="titleRedo" aria-label="redo">
+            <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.4 2.7L21 13"/></svg>
+          </button>
+        </div>
         <button class="btn-icon" id="btn-admin" onclick="App.showAdmin()" data-i18n-title="userMgmt" aria-label="user management">
           <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
         </button>
@@ -31,6 +42,22 @@
 
     <!-- Custom menu bar -->
     <nav id="app-menubar" class="hidden">
+      <div class="menubar-item" id="mb-file" onclick="AppMenu.toggle('file')" data-i18n-title="titleFileMenu">
+        <span class="menubar-icon">&#128196;</span><span data-i18n="menuFile">파일</span>
+        <div class="menubar-dropdown" id="mb-file-dd">
+          <div class="menubar-opt" onclick="AppMenu.close(); App.save()" data-i18n-title="titleSaveMenu">
+            <span class="menubar-opt-icon">&#128190;</span><span data-i18n="save">저장</span><span class="menubar-shortcut">Ctrl+S</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-edit" onclick="AppMenu.toggle('edit')" data-i18n-title="titleEditMenu">
+        <span class="menubar-icon">&#9998;</span><span data-i18n="menuEdit">편집</span>
+        <div class="menubar-dropdown" id="mb-edit-dd">
+          <div class="menubar-opt" id="mb-undo" onclick="if(!this.classList.contains('disabled')){AppMenu.close();History.undo();}" data-i18n-title="titleUndo">
+            <span class="menubar-opt-icon">&#8630;</span><span data-i18n="undo">실행 취소</span><span class="menubar-shortcut">Ctrl+Z</span></div>
+          <div class="menubar-opt" id="mb-redo" onclick="if(!this.classList.contains('disabled')){AppMenu.close();History.redo();}" data-i18n-title="titleRedo">
+            <span class="menubar-opt-icon">&#8631;</span><span data-i18n="redo">다시 실행</span><span class="menubar-shortcut">Ctrl+Y</span></div>
+        </div>
+      </div>
       <div class="menubar-item" id="mb-project" onclick="AppMenu.toggle('project')" data-i18n-title="titleProjectMenu">
         <span class="menubar-icon">&#128194;</span><span data-i18n="menuProject">프로젝트</span>
         <div class="menubar-dropdown" id="mb-project-dd">
@@ -62,10 +89,10 @@
         </div>
       </div>
       <div class="menubar-item hidden" id="mb-admin" onclick="AppMenu.toggle('admin')" data-i18n-title="titleAdminMenu">
-        <span class="menubar-icon">&#128100;</span><span data-i18n="menuAdmin">관리</span>
+        <span class="menubar-icon" aria-hidden="true"><svg class="ui-icon ui-icon-menubar" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M4 20c0-3 2.5-5.5 5-5.5"/><circle cx="18" cy="9" r="2.5"/><path d="M18 6.5V5"/><path d="M18 13v-1.5"/><path d="M20.1 7.1l1-1"/><path d="M14.9 10.9l1-1"/><path d="M20.1 10.9l-1-1"/><path d="M14.9 7.1l-1-1"/></svg></span><span data-i18n="menuAdmin">관리</span>
         <div class="menubar-dropdown" id="mb-admin-dd">
           <div class="menubar-opt" onclick="App.showAdmin()" data-i18n-title="titleUserMgmt">
-            <span class="menubar-opt-icon">&#128101;</span><span data-i18n="userMgmt">사용자 관리</span></div>
+            <span class="menubar-opt-icon" aria-hidden="true"><svg class="ui-icon ui-icon-menubar" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span data-i18n="userMgmt">사용자 관리</span></div>
           <div class="menubar-opt" onclick="App.showSettings()" data-i18n-title="titleSettings">
             <span class="menubar-opt-icon">&#9881;</span><span data-i18n="settings">설정</span></div>
         </div>
@@ -110,6 +137,7 @@
 
   <script src="js/lang.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/history.js"></script>
   <script src="js/report.js"></script>
   <script src="js/board.js"></script>
   <script src="js/admin.js"></script>

@@ -99,6 +99,15 @@ const App = (() => {
   async function init() {
     updateLangBtn();
     updateThemeBtn();
+    if (typeof window.electron !== 'undefined' && window.electron.onSaveShortcut) {
+      window.electron.onSaveShortcut(() => { if (currentUser) save(); });
+    }
+    if (typeof window.electron !== 'undefined' && window.electron.onUndoShortcut) {
+      window.electron.onUndoShortcut(() => { if (currentUser && typeof History !== 'undefined') History.undo(); });
+    }
+    if (typeof window.electron !== 'undefined' && window.electron.onRedoShortcut) {
+      window.electron.onRedoShortcut(() => { if (currentUser && typeof History !== 'undefined') History.redo(); });
+    }
     try {
       const user = await API.get('/auth/me');
       setUser(user);
@@ -146,6 +155,7 @@ const App = (() => {
     // Update DB type in status bar
     updateStatusDb();
     updateI18nElements();
+    if (typeof History !== 'undefined') History.updateMenuState();
   }
 
   async function updateStatusDb() {
@@ -408,10 +418,53 @@ const App = (() => {
     AppMenu.close();
     try { await API.post('/auth/logout'); } catch {}
     currentUser = null;
+    if (typeof History !== 'undefined') History.clear();
     showLogin();
   }
 
-  // Keyboard shortcuts
+  async function save() {
+    if (!currentUser) return;
+    AppMenu.close();
+    try {
+      const ok = typeof BoardView !== 'undefined' && BoardView.savePending
+        ? await BoardView.savePending()
+        : await AutoSave.flushAll();
+      if (ok) showToast(I18n.t('savedDone'), 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function isSaveShortcut(e) {
+    return (e.ctrlKey || e.metaKey) && !e.altKey && (e.key?.toLowerCase() === 's' || e.code === 'KeyS');
+  }
+
+  function onSaveShortcut(e) {
+    if (!isSaveShortcut(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (currentUser) save();
+  }
+
+  function onHistoryShortcut(e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const key = e.key?.toLowerCase();
+    if (key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (currentUser && typeof History !== 'undefined') History.undo();
+      return;
+    }
+    if (key === 'y' || (key === 'z' && e.shiftKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (currentUser && typeof History !== 'undefined') History.redo();
+    }
+  }
+
+  // Keyboard shortcuts — capture phase so Ctrl+S works inside inputs/textareas
+  document.addEventListener('keydown', onSaveShortcut, true);
+  document.addEventListener('keydown', onHistoryShortcut, true);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       Modal.close();
@@ -432,7 +485,7 @@ const App = (() => {
   return {
     get currentUser() { return currentUser; },
     init, showLogin, showRegister, doLogin, doRegister,
-    showBoards, showAdmin, showSettings, logout,
+    showBoards, showAdmin, showSettings, logout, save,
     toggleTheme, toggleLang, updateStatusDb, refresh,
   };
 })();

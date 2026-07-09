@@ -1,6 +1,7 @@
 const express = require('express');
 const knex = require('knex');
 const { getCurrentConfig, updateDbConfig, buildKnexConfig } = require('../db/connection');
+const { ensureDatabaseReady } = require('../db/ensure-database');
 
 const router = express.Router();
 
@@ -68,20 +69,38 @@ function validateDbInput(body) {
   return null;
 }
 
+function applySavedPassword(body, config) {
+  if (body.dbType !== 'sqlite' && !body.password) {
+    const current = getCurrentConfig();
+    if (current.connection?.password) config.connection.password = current.connection.password;
+  }
+  return config;
+}
+
+async function prepareDbConnection(body) {
+  const config = buildKnexConfig(body);
+  applySavedPassword(body, config);
+  const ensureResult = await ensureDatabaseReady(body.dbType, config);
+  return { config, ensureResult };
+}
+
+function connectionSuccessMessage(ensureResult) {
+  if (ensureResult?.created) {
+    return '연결 성공! 데이터베이스가 없어 새로 생성했습니다.';
+  }
+  return '연결 성공!';
+}
+
 // DB 연결 테스트
 router.post('/db/test', requireAdmin, async (req, res) => {
   let testDb;
   const validationError = validateDbInput(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
   try {
-    const config = buildKnexConfig(req.body);
-    if (req.body.dbType !== 'sqlite' && !req.body.password) {
-      const current = getCurrentConfig();
-      if (current.connection?.password) config.connection.password = current.connection.password;
-    }
+    const { config, ensureResult } = await prepareDbConnection(req.body);
     testDb = knex(config);
     await testDb.raw('SELECT 1 as result');
-    res.json({ ok: true, message: '연결 성공!' });
+    res.json({ ok: true, message: connectionSuccessMessage(ensureResult), dbCreated: !!ensureResult.created });
   } catch (err) {
     res.status(400).json({ error: `연결 실패: ${err.message}` });
   } finally {
@@ -95,15 +114,8 @@ router.post('/db', requireAdmin, async (req, res) => {
   const validationError = validateDbInput(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
   try {
-    const config = buildKnexConfig(req.body);
+    const { config, ensureResult } = await prepareDbConnection(req.body);
 
-    // 비밀번호 미입력 시 기존 비밀번호 유지
-    if (req.body.dbType !== 'sqlite' && !req.body.password) {
-      const current = getCurrentConfig();
-      if (current.connection?.password) config.connection.password = current.connection.password;
-    }
-
-    // Test before saving
     testDb = knex(config);
     await testDb.raw('SELECT 1 as result');
     await testDb.destroy();
@@ -114,9 +126,10 @@ router.post('/db', requireAdmin, async (req, res) => {
       req.session.destroy((err) => (err ? reject(err) : resolve()));
     });
 
+    const createdMsg = ensureResult.created ? ' 데이터베이스를 새로 생성했습니다.' : '';
     const message = migration.migrated
-      ? `DB 설정이 적용되었습니다. 사용자 ${migration.users}명 및 프로젝트 데이터가 새 DB로 이전되었습니다. 다시 로그인해 주세요.`
-      : 'DB 설정이 변경되었습니다. 다시 로그인해 주세요.';
+      ? `DB 설정이 적용되었습니다. 사용자 ${migration.users}명 및 프로젝트 데이터가 새 DB로 이전되었습니다.${createdMsg} 다시 로그인해 주세요.`
+      : `DB 설정이 변경되었습니다.${createdMsg} 다시 로그인해 주세요.`;
 
     res.json({ ok: true, requireRelogin: true, migrated: !!migration.migrated, message });
   } catch (err) {

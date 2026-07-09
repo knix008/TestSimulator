@@ -78,6 +78,21 @@ async function createWindow(port) {
 
   mainWindow.on('closed', () => { mainWindow = null; });
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return;
+    const key = input.key?.toLowerCase();
+    if (key === 's') {
+      event.preventDefault();
+      mainWindow.webContents.send('save-shortcut');
+    } else if (key === 'z' && !input.shift) {
+      event.preventDefault();
+      mainWindow.webContents.send('undo-shortcut');
+    } else if (key === 'y' || (key === 'z' && input.shift)) {
+      event.preventDefault();
+      mainWindow.webContents.send('redo-shortcut');
+    }
+  });
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };

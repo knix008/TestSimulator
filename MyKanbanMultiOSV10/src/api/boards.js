@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { getDb, getUploadsPath } = require('../db/connection');
+const { normalizeTimestamp, sanitizeRowTimestamps } = require('../db/timestamp-utils');
 
 const router = express.Router();
 
@@ -230,6 +231,8 @@ router.get('/:boardId/assignees', requireAuth, requireProjectAccess, async (req,
     const board = await db('boards').where({ id: req.params.boardId }).first();
     const assignees = [];
     const seen = new Set();
+    const markSeen = (id) => { if (id != null) seen.add(Number(id)); };
+    const isSeen = (id) => id != null && seen.has(Number(id));
 
     if (board?.owner_id) {
       const owner = await db('users')
@@ -238,7 +241,7 @@ router.get('/:boardId/assignees', requireAuth, requireProjectAccess, async (req,
         .first();
       if (owner) {
         assignees.push(owner);
-        seen.add(owner.id);
+        markSeen(owner.id);
       }
     }
 
@@ -249,9 +252,9 @@ router.get('/:boardId/assignees', requireAuth, requireProjectAccess, async (req,
       .select('users.id', 'users.username', 'users.display_name');
 
     members.forEach(m => {
-      if (!seen.has(m.id)) {
+      if (!isSeen(m.id)) {
         assignees.push(m);
-        seen.add(m.id);
+        markSeen(m.id);
       }
     });
 
@@ -398,7 +401,7 @@ router.put('/:boardId/cards/:id', requireAuth, requireProjectAccess, async (req,
   if (!canEdit(req.projectRole)) return res.status(403).json({ error: '편집 권한이 없습니다.' });
   try {
     const { title, description, assigneeId, dueDate, color } = req.body;
-    const update = { updated_at: new Date() };
+    const update = { updated_at: normalizeTimestamp(new Date()) };
     if (title !== undefined) update.title = title;
     if (description !== undefined) update.description = description || null;
     if (assigneeId !== undefined) update.assignee_id = assigneeId || null;
@@ -441,7 +444,11 @@ router.post('/:boardId/cards/:id/move', requireAuth, requireProjectAccess, async
       targetCards.splice(insertAt, 0, { id: cardId });
 
       for (let i = 0; i < targetCards.length; i++) {
-        await trx('cards').where({ id: targetCards[i].id }).update({ position: i, column_id: targetColumnId, updated_at: new Date() });
+        await trx('cards').where({ id: targetCards[i].id }).update({
+          position: i,
+          column_id: targetColumnId,
+          updated_at: normalizeTimestamp(new Date()),
+        });
       }
 
       if (parseInt(srcColId) !== parseInt(targetColumnId)) {
@@ -780,7 +787,7 @@ async function importKprjProject(db, data, userId, options = {}) {
         const u = await db('users').where({ username: card.assignee_username }).first();
         if (u) assigneeId = u.id;
       }
-      await db('cards').insert({
+      await db('cards').insert(sanitizeRowTimestamps('cards', {
         column_id: colId,
         title: card.title,
         description: card.description || null,
@@ -788,7 +795,7 @@ async function importKprjProject(db, data, userId, options = {}) {
         color: card.color || null,
         position: card.position !== undefined ? card.position : ki,
         assignee_id: assigneeId,
-      });
+      }));
     }
   }
 

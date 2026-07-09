@@ -9,8 +9,10 @@ async function tableCount(trx, table) {
   return Number(row?.cnt ?? row?.['count(*)'] ?? 0);
 }
 
+const { sanitizeRowTimestamps } = require('./timestamp-utils');
+
 async function insertGetId(trx, table, row) {
-  const clean = { ...row };
+  const clean = sanitizeRowTimestamps(table, { ...row });
   delete clean.id;
   const client = trx.client.config.client;
 

@@ -11,5 +11,8 @@ contextBridge.exposeInMainWorld('electron', {
   onOpenKprj: (callback) => { ipcRenderer.on('open-kprj', (event, filePath) => callback(filePath)); },
   showContextMenu: (items) => ipcRenderer.invoke('show-context-menu', items),
   getElectronInfo: () => ipcRenderer.invoke('get-electron-info'),
-  getSampleDir: () => ipcRenderer.invoke('get-sample-dir')
+  getSampleDir: () => ipcRenderer.invoke('get-sample-dir'),
+  onSaveShortcut: (callback) => { ipcRenderer.on('save-shortcut', () => callback()); },
+  onUndoShortcut: (callback) => { ipcRenderer.on('undo-shortcut', () => callback()); },
+  onRedoShortcut: (callback) => { ipcRenderer.on('redo-shortcut', () => callback()); },
 });
