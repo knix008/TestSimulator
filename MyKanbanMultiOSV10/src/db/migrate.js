@@ -34,9 +34,14 @@ async function runMigrations(db) {
       t.increments('id').primary();
       t.string('title', 255).notNullable();
       t.text('description');
+      t.string('bg_color', 20).nullable();
       t.integer('owner_id').unsigned().references('id').inTable('users').onDelete('SET NULL');
       t.timestamps(true, true);
     });
+  } else {
+    if (!(await db.schema.hasColumn('boards', 'bg_color'))) {
+      await db.schema.table('boards', t => { t.string('bg_color', 20).nullable(); });
+    }
   }
 
   if (!(await db.schema.hasTable('board_members'))) {
@@ -61,8 +66,13 @@ async function runMigrations(db) {
       t.integer('board_id').unsigned().references('id').inTable('boards').onDelete('CASCADE');
       t.string('title', 255).notNullable();
       t.integer('position').defaultTo(0);
+      t.string('bg_color', 20).nullable();
       t.timestamp('created_at').defaultTo(db.fn.now());
     });
+  } else {
+    if (!(await db.schema.hasColumn('columns', 'bg_color'))) {
+      await db.schema.table('columns', t => { t.string('bg_color', 20).nullable(); });
+    }
   }
 
   if (!(await db.schema.hasTable('cards'))) {

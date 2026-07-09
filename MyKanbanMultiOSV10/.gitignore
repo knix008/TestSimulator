@@ -45,3 +45,9 @@ logs/
 
 # electron-rebuild cache
 .electron-gyp/
+
+# Temporary files
+tmp-cookies.txt
+
+# AI/editor tooling
+.claude/

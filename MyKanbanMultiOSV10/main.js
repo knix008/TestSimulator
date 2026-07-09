@@ -206,6 +206,19 @@ ipcMain.handle('show-context-menu', async (event, items) => {
   });
 });
 
+// IPC: open an attachment file with the system's default application
+ipcMain.handle('open-attachment', async (event, filename) => {
+  try {
+    const { getUploadsPath } = require('./src/db/connection');
+    const filePath = path.join(getUploadsPath(), filename);
+    if (!fs.existsSync(filePath)) return { ok: false, error: '파일을 찾을 수 없습니다.' };
+    const errMsg = await shell.openPath(filePath);
+    return errMsg ? { ok: false, error: errMsg } : { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
 // IPC: get directory of bundled sample.kprj (used as default path for open dialog)
 ipcMain.handle('get-sample-dir', () => path.join(__dirname, 'sample'));
 

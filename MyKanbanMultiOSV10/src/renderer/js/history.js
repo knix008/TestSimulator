@@ -253,8 +253,18 @@ const History = (() => {
     push(entry);
   }
 
+  function recordColumnColorChange(boardId, colId, oldColor, newColor) {
+    if ((oldColor || '') === (newColor || '')) return;
+    push({
+      scope: 'board',
+      boardId,
+      undo: () => API.put(`/boards/${boardId}/columns/${colId}`, { bg_color: oldColor || null }),
+      redo: () => API.put(`/boards/${boardId}/columns/${colId}`, { bg_color: newColor || null }),
+    });
+  }
+
   function recordBoardUpdate(boardId, before, after) {
-    if (before.title === after.title && before.description === after.description) return;
+    if (before.title === after.title && before.description === after.description && (before.bg_color||'') === (after.bg_color||'')) return;
     push({
       scope: 'boardList',
       boardId,
@@ -279,6 +289,7 @@ const History = (() => {
     recordColumnRename,
     recordColumnAdd,
     recordColumnDelete,
+    recordColumnColorChange,
     recordBoardUpdate,
   };
 })();

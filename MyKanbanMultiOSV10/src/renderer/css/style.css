@@ -57,19 +57,8 @@
   --calendar-icon-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E2E8F0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
 }
 
-/* ── Card color palettes ────────────────────────────────────── */
-.card[data-color="blue"] { border-left: 4px solid #6366F1; }
-.card[data-color="green"] { border-left: 4px solid #22C55E; }
-.card[data-color="yellow"] { border-left: 4px solid #F59E0B; }
-.card[data-color="orange"] { border-left: 4px solid #F97316; }
-.card[data-color="red"] { border-left: 4px solid #EF4444; }
-.card[data-color="purple"] { border-left: 4px solid #A855F7; }
-.card[data-color="pink"] { border-left: 4px solid #EC4899; }
-.card[data-color="cyan"] { border-left: 4px solid #06B6D4; }
-
-.color-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; flex-shrink: 0; }
-.color-dot:hover, .color-dot.selected { border-color: #fff; box-shadow: 0 0 0 2px var(--primary); }
-.color-picker-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+/* ── Card color (background via inline style rgba at 25% opacity) */
+.card { transition: background .15s; }
 
 /* ── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -247,6 +236,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 /* ── Column ────────────────────────────────────────────────── */
 .column { background: var(--bg-col); border-radius: var(--radius); width: 280px; min-width: 280px; display: flex; flex-direction: column; max-height: 100%; }
+/* Column color picker grid */
+.col-color-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 4px 0 8px; }
+.col-color-swatch { aspect-ratio: 1; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: transform .12s, border-color .12s, box-shadow .12s; }
+.col-color-swatch:hover { transform: scale(1.13); box-shadow: 0 2px 8px rgba(0,0,0,.22); }
+.col-color-swatch.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--primary); transform: scale(1.1); }
+.col-color-none { background: var(--bg-col); border: 1.5px solid var(--border) !important; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .column-header { padding: 12px 14px 10px; display: flex; align-items: center; justify-content: space-between; }
 .column-title { font-weight: 600; font-size: 13px; color: var(--text); flex: 1; }
 .column-count { background: var(--border); color: var(--text-muted); border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 600; margin-right: 6px; }
@@ -272,16 +267,10 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .card-due.soon { background: #FFFBEB; color: var(--warning); }
 .card-attach { color: var(--text-light); font-size: 11px; }
 
-/* ── Drop zone ─────────────────────────────────────────────── */
-.drop-zone { height: 4px; border-radius: 2px; transition: height .15s ease, background .1s, border-color .1s; margin: 2px 0; flex-shrink: 0; }
-.drop-zone.drag-over {
-  height: var(--drag-card-height, 72px);
-  min-height: var(--drag-card-height, 72px);
-  box-sizing: border-box;
-  background: var(--primary-light);
-  border: 2px dashed var(--primary);
-  border-radius: var(--radius-sm);
-}
+/* ── Drop indicator ────────────────────────────────────────── */
+.drop-indicator { height: 3px; background: var(--primary); border-radius: 2px; margin: 2px 4px; flex-shrink: 0; position: relative; pointer-events: none; }
+.drop-indicator::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.cards-list.drag-over-col { background: var(--primary-light); border-radius: 8px; outline: 2px dashed var(--primary); outline-offset: 3px; }
 
 /* Add column button */
 .add-col-btn { background: rgba(255,255,255,.1); border-radius: var(--radius); width: 240px; min-width: 240px; padding: 14px; color: var(--text-muted); text-align: center; cursor: pointer; height: 52px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; border: 2px dashed var(--border); transition: var(--transition); }
@@ -379,9 +368,15 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 .attachment-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .attachment-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.attachment-item:hover { border-color: var(--primary-light); }
+.attachment-icon { font-size: 16px; flex-shrink: 0; }
 .attachment-name { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--primary); }
-.attachment-size { font-size: 11px; color: var(--text-light); }
-.attachment-del { color: var(--text-light); font-size: 14px; }
+.attachment-name-link { cursor: pointer; }
+.attachment-name-link:hover { text-decoration: underline; }
+.attachment-size { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
+.attachment-open { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+.attachment-open:hover { color: var(--primary); }
+.attachment-del { color: var(--text-light); font-size: 14px; flex-shrink: 0; }
 .attachment-del:hover { color: var(--danger); }
 .upload-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; border: 1.5px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; font-size: 12px; transition: var(--transition); }
 .upload-btn:hover { border-color: var(--primary); color: var(--primary); }

@@ -117,7 +117,9 @@ router.put('/:id', requireAuth, requireProjectAccess, async (req, res) => {
   if (!canEdit(req.projectRole)) return res.status(403).json({ error: '편집 권한이 없습니다.' });
   try {
     const { title, description } = req.body;
-    await getDb()('boards').where({ id: req.params.id }).update({ title, description, updated_at: new Date() });
+    const update = { title, description, updated_at: new Date() };
+    if (req.body.bg_color !== undefined) update.bg_color = req.body.bg_color || null;
+    await getDb()('boards').where({ id: req.params.id }).update(update);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -339,6 +341,7 @@ router.put('/:boardId/columns/:id', requireAuth, requireProjectAccess, async (re
     const update = {};
     if (req.body.title !== undefined) update.title = req.body.title;
     if (req.body.position !== undefined) update.position = req.body.position;
+    if (req.body.bg_color !== undefined) update.bg_color = req.body.bg_color || null;
     await getDb()('columns').where({ id: req.params.id }).update(update);
     res.json({ ok: true });
   } catch (err) {
@@ -710,14 +713,15 @@ router.post('/:boardId/cards/:cardId/attachments', requireAuth, requireProjectAc
   try {
     if (!req.file) return res.status(400).json({ error: '파일이 없습니다.' });
     const db = getDb();
+    const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
     const [id] = await db('attachments').insert({
       card_id: req.params.cardId,
       filename: req.file.filename,
-      original_name: req.file.originalname,
+      original_name: originalName,
       size: req.file.size,
       mimetype: req.file.mimetype
     });
-    res.json({ id, filename: req.file.filename, original_name: req.file.originalname, size: req.file.size, mimetype: req.file.mimetype });
+    res.json({ id, filename: req.file.filename, original_name: originalName, size: req.file.size, mimetype: req.file.mimetype });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -777,6 +781,7 @@ async function importKprjProject(db, data, userId, options = {}) {
       board_id: boardId,
       title: col.title,
       position: col.position !== undefined ? col.position : ci,
+      bg_color: col.bg_color || null,
     });
 
     const cards = col.cards || [];
@@ -846,6 +851,7 @@ router.get('/:boardId/export', requireAuth, requireProjectAccess, async (req, re
         columns: columns.map(col => ({
           title: col.title,
           position: col.position,
+          bg_color: col.bg_color || null,
           cards: cardsByCol[col.id] || [],
         })),
       },

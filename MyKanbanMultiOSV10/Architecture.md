@@ -12,7 +12,7 @@ MyKanban은 Electron 데스크톱 앱과 웹 브라우저 양쪽을 지원하는
 │  │  BrowserWindow│  │  (localhost:3000)│ │
 │  └──────┬───────┘  └────────┬─────────┘ │
 └─────────┼────────────────────┼───────────┘
-          │                    │
+          │ IPC (contextBridge) │ HTTP
 ┌─────────▼────────────────────▼───────────┐
 │              Express.js 서버              │
 │  ┌─────────┐ ┌────────┐ ┌─────────────┐ │
@@ -31,16 +31,19 @@ MyKanban은 Electron 데스크톱 앱과 웹 브라우저 양쪽을 지원하는
 
 ```
 MyKanban/
-├── main.js                 # Electron 메인 프로세스
-├── preload.js              # Electron preload (window.IS_ELECTRON)
+├── main.js                 # Electron 메인 프로세스 + IPC 핸들러
+├── preload.js              # Electron preload (contextBridge → window.electron)
 ├── server.js               # Express 앱 진입점
 ├── package.json
+├── sample/
+│   └── sample.kprj         # 번들된 샘플 프로젝트
 ├── src/
 │   ├── api/                # REST API 라우트 (Express Router)
 │   │   ├── auth.js         # 인증, 세션, 프로필
 │   │   ├── users.js        # 사용자 CRUD (관리자)
-│   │   ├── boards.js       # 프로젝트, 컬럼, 카드, 멤버, 요약
-│   │   └── settings.js     # DB 설정 변경
+│   │   ├── boards.js       # 프로젝트, 컬럼, 카드, 멤버, 요약, 첨부
+│   │   ├── settings.js     # DB 설정 변경
+│   │   └── app-info.js     # 앱 버전/정보
 │   ├── db/
 │   │   ├── connection.js   # Knex 인스턴스 관리 (hot-reload 지원)
 │   │   └── migrate.js      # 스키마 마이그레이션 (hasTable/hasColumn 기반)
@@ -49,9 +52,11 @@ MyKanban/
 │       ├── css/style.css   # CSS Custom Properties (라이트/다크)
 │       └── js/
 │           ├── lang.js     # i18n 모듈 (ko/en)
-│           ├── api.js      # fetch 래퍼, Modal, Toast, 유틸
+│           ├── api.js      # fetch 래퍼, Modal, Toast, AutoSave, 유틸
 │           ├── board.js    # BoardView (프로젝트 목록 + 칸반 보드)
+│           ├── history.js  # Undo/Redo 모듈
 │           ├── admin.js    # AdminView (사용자) + SettingsView
+│           ├── report.js   # 보고서 내보내기 (MD/DOCX/PDF)
 │           └── app.js      # App 컨트롤러, 테마/언어 토글, 라우팅
 ├── data/                   # SQLite DB 파일 (자동 생성)
 └── uploads/                # 첨부파일 (자동 생성)
@@ -78,6 +83,24 @@ function getDataPath() {
 |------|----------------|
 | Electron | `%APPDATA%/MyKanban/kanban.db` (Windows) |
 | 웹 서버 | `./data/kanban.db` |
+
+### IPC 채널 (Electron 전용)
+
+| 채널 | 방향 | 설명 |
+|------|------|------|
+| `get-open-file` | renderer→main | 실행 인자로 받은 `.kprj` 경로 |
+| `open-kprj-dialog` | renderer→main | 파일 열기 다이얼로그 |
+| `save-kprj-dialog` | renderer→main | 파일 저장 다이얼로그 |
+| `save-report-dialog` | renderer→main | 보고서 저장 다이얼로그 (MD/DOCX/PDF) |
+| `open-sqlite-dialog` | renderer→main | SQLite 파일 선택 다이얼로그 |
+| `open-attachment` | renderer→main | `shell.openPath()`로 첨부파일 열기 |
+| `show-context-menu` | renderer→main | 네이티브 컨텍스트 메뉴 표시 |
+| `get-sample-dir` | renderer→main | 번들 `sample/` 디렉토리 경로 |
+| `get-electron-info` | renderer→main | 앱 버전 및 런타임 정보 |
+| `open-kprj` | main→renderer | 파일 연결로 전달된 `.kprj` 경로 |
+| `save-shortcut` | main→renderer | Ctrl/Cmd+S 단축키 |
+| `undo-shortcut` | main→renderer | Ctrl/Cmd+Z 단축키 |
+| `redo-shortcut` | main→renderer | Ctrl/Cmd+Y 단축키 |
 
 ## 데이터베이스 레이어
 
@@ -108,27 +131,46 @@ board_members
   role (admin|editor|viewer)   ← PK(board_id, user_id)
 
 columns
-  id, board_id → boards.id, title, position, created_at
+  id, board_id → boards.id, title, position,
+  bg_color (hex string e.g. '#3B82F6', nullable),
+  created_at
 
 cards
   id, column_id → columns.id, title, description,
-  assignee_id → users.id, due_date, color,
+  assignee_id → users.id, due_date,
+  color (hex string e.g. '#EF4444', nullable),
   position, created_at, updated_at
 
 attachments
-  id, card_id → cards.id, filename (uuid), original_name,
-  size, mimetype, created_at
+  id, card_id → cards.id, filename (uuid-based),
+  original_name (UTF-8), size, mimetype, created_at
 ```
 
 ### DB Hot-reload
 `POST /api/settings/db` 호출 시 `connection.js`의 `updateDbConfig()`가 기존 Knex 인스턴스를 `destroy()` 후 새 설정으로 재생성하고 `runMigrations()`를 실행합니다. 서버 재시작 없이 DB를 전환할 수 있습니다.
+
+### 자동 마이그레이션
+`migrate.js`는 `hasTable` / `hasColumn`으로 기존 스키마를 확인하여 누락된 컬럼을 추가합니다. 예: 기존 DB에 `columns.bg_color`가 없으면 자동으로 추가됩니다.
+
+## 색상 시스템
+
+### 컬럼 배경색 (`columns.bg_color`)
+- 저장: 16진수 HEX 문자열 (`#RRGGBB`) 또는 `null`
+- 하위 호환: 이전 named 값 (`yellow`, `blue` 등)은 `NAMED_COL_COLOR_MAP`으로 hex 변환
+- 렌더링: `hexToColBg(raw)` → `rgba(r,g,b,.18)` (18% 불투명도, 테마 독립적)
+
+### 카드 배경색 (`cards.color`)
+- 저장: 16진수 HEX 문자열 (`#RRGGBB`) 또는 `null`
+- 하위 호환: 이전 named 값 (`blue`, `green` 등)은 `NAMED_CARD_COLOR_MAP`으로 hex 변환
+- 렌더링: `hexToCardBg(raw)` → `rgba(r,g,b,.25)` (25% 불투명도, 테마 독립적)
+- 20가지 프리셋(`COLUMN_BG_PRESETS` 재사용) + 사용자 정의 HEX + 네이티브 컬러 피커
 
 ## 권한 시스템
 
 ### 권한 계층
 
 ```
-system-admin (시스템 관리자, role='admin 인 users 계정)
+system-admin (시스템 관리자, role='admin' 인 users 계정)
     └── owner (프로젝트 생성자, boards.owner_id)
             └── admin (프로젝트 관리자, board_members.role='admin')
                     └── editor (편집자, board_members.role='editor')
@@ -176,13 +218,15 @@ function canDeleteProject(role) { return ['system-admin','owner'].includes(role)
 | POST | `/` | 프로젝트 생성 | 인증 |
 | PUT | `/:id` | 프로젝트 수정 | editor 이상 |
 | DELETE | `/:id` | 프로젝트 삭제 | owner/system-admin |
+| GET | `/:id/export` | 프로젝트 내보내기 (.kprj JSON) | viewer 이상 |
+| POST | `/:id/import` | 프로젝트 가져오기 (.kprj JSON) | editor 이상 |
 | GET | `/:id/members` | 멤버 목록 | viewer 이상 |
 | POST | `/:id/members` | 멤버 추가 | admin 이상 |
 | PUT | `/:id/members/:uid` | 멤버 권한 변경 | admin 이상 |
 | DELETE | `/:id/members/:uid` | 멤버 제거 | admin 이상 |
 | GET | `/:id/columns` | 컬럼+카드 조회 | viewer 이상 |
 | POST | `/:id/columns` | 컬럼 추가 | editor 이상 |
-| PUT | `/:id/columns/:cid` | 컬럼 수정 | editor 이상 |
+| PUT | `/:id/columns/:cid` | 컬럼 수정 (title, bg_color) | editor 이상 |
 | DELETE | `/:id/columns/:cid` | 컬럼 삭제 | editor 이상 |
 | POST | `/:id/cards` | 카드 생성 | editor 이상 |
 | GET | `/:id/cards/:cid` | 카드 상세 | viewer 이상 |
@@ -196,7 +240,7 @@ function canDeleteProject(role) { return ['system-admin','owner'].includes(role)
 ### 설정 (`/api/settings`)
 | Method | Path | 설명 |
 |--------|------|------|
-| GET | `/db` | 현재 DB 설정 조회 |
+| GET | `/db-config` | 현재 DB 설정 조회 |
 | POST | `/db/test` | DB 연결 테스트 |
 | POST | `/db` | DB 설정 적용 |
 | POST | `/db/reset` | SQLite3 초기화 |
@@ -208,22 +252,26 @@ function canDeleteProject(role) { return ['system-admin','owner'].includes(role)
 ```
 window.I18n          lang.js    — 다국어 (LANGS.ko / LANGS.en, localStorage)
 window.API           api.js     — fetch 래퍼 (get/post/put/patch/delete/upload)
-window.Modal         api.js     — 모달 열기/닫기
+window.Modal         api.js     — 모달 열기/닫기/BeforeClose 훅
+window.AutoSave      api.js     — 디바운스 자동 저장
 window.showToast()   api.js     — 토스트 알림
+window.showError()   api.js     — 오류 팝업 (복사 가능)
+window.History       history.js — Undo/Redo 스택
 window.BoardView     board.js   — 프로젝트 목록 + 칸반 보드 + 멤버 + Summary
 window.AdminView     admin.js   — 사용자 관리
 window.SettingsView  admin.js   — DB 설정, 프로필, 비밀번호
 window.App           app.js     — 라우팅, 테마, 언어 토글, 부트스트랩
+window.AppMenu       app.js     — 커스텀 메뉴바 (파일/편집/보기)
 ```
 
 ### SPA 라우팅
 URL을 변경하지 않고 `#main-content` DOM 교체 방식으로 뷰를 전환합니다.
 
 ```
-App.showLogin()    → 로그인 화면
-App.showBoards()   → BoardView.renderBoardList()
-App.showAdmin()    → AdminView.render()
-App.showSettings() → SettingsView.render()
+App.showLogin()         → 로그인 화면
+App.showBoards()        → BoardView.renderBoardList()
+App.showAdmin()         → AdminView.render()
+App.showSettings()      → SettingsView.render()
 BoardView.openBoard(id) → 칸반 보드 뷰
 BoardView.showSummary() → 프로젝트 요약 뷰
 ```
@@ -234,14 +282,70 @@ CSS Custom Properties 기반. `document.documentElement.dataset.theme = 'dark'` 
 ### i18n
 `I18n.t('key')` 함수로 현재 언어의 문자열을 반환합니다. `localStorage['kanban-lang']`에 저장됩니다. 언어 전환 시 현재 뷰를 즉시 리렌더링합니다.
 
+### 드래그 앤 드롭
+HTML5 Drag & Drop API 사용. `.cards-list` 전체를 드롭 타겟으로 사용하며, `getDragInsertBefore(list, clientY)` 함수가 마우스 Y 좌표와 각 카드 중앙점 비교로 삽입 위치를 계산합니다. `div#drop-indicator` (파란 수평선)로 삽입 위치를 시각화합니다.
+
+### Undo / Redo 모듈 (history.js)
+IIFE 패턴. 최대 100개 항목. 각 엔트리는 `{ undo(), redo(), scope }` 형태입니다.
+
+| 기록 함수 | 동작 |
+|-----------|------|
+| `recordCardMove` | 카드 이동 |
+| `recordCardUpdate` | 카드 수정 (title/desc/assignee/due/color) |
+| `recordCardCreate` | 카드 생성 |
+| `recordCardDelete` | 카드 삭제 (스냅샷 보존) |
+| `recordColumnRename` | 컬럼 이름 변경 |
+| `recordColumnAdd` | 컬럼 추가 |
+| `recordColumnDelete` | 컬럼 삭제 (카드 포함 스냅샷 보존) |
+| `recordColumnColorChange` | 컬럼 배경색 변경 |
+| `recordBoardUpdate` | 프로젝트 이름/설명 수정 |
+
 ## 세션 인증
 
 `express-session` + MemoryStore 사용. 세션에 `userId`, `username`, `role` 저장.
 
 > 프로덕션 환경에서는 `SECRET` 환경변수 설정 및 Redis 등 외부 세션 스토어 사용을 권장합니다.
 
+## 첨부파일 처리
+
+- 업로드: Multer (`diskStorage`) → UUID 기반 파일명으로 `uploads/` 저장
+- 원본 파일명: `Buffer.from(file.originalname, 'latin1').toString('utf8')`로 인코딩 보정
+- DB: `attachments` 테이블에 UUID 파일명 + 원본명 + 크기 + MIME 타입 저장
+- 열기 (Electron): IPC `open-attachment` → `shell.openPath(filePath)`
+- 열기 (웹): `window.open('/uploads/filename', '_blank')`
+
 ## 번다운 차트 알고리즘
 
 `GET /api/boards/:id/summary`는 최근 30일의 날짜별 `{ created, completed }` 카운트를 반환합니다. 프론트엔드에서 누적합을 계산하여 "남은 카드 = 누적 생성 - 누적 완료"로 번다운 선을 그립니다.
 
 마지막 컬럼(position 최대값)을 "완료" 컬럼으로 간주합니다.
+
+## 프로젝트 파일 형식 (.kprj)
+
+```json
+{
+  "format": "mykanban-project",
+  "version": "1.0",
+  "exported_at": "2026-07-09T00:00:00.000Z",
+  "project": {
+    "title": "프로젝트명",
+    "description": "설명",
+    "columns": [
+      {
+        "title": "컬럼명",
+        "position": 0,
+        "bg_color": "#3B82F6",
+        "cards": [
+          {
+            "title": "카드명",
+            "description": "설명",
+            "color": "#EF4444",
+            "position": 0,
+            "due_date": "2026-07-31"
+          }
+        ]
+      }
+    ]
+  }
+}
+```

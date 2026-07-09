@@ -161,17 +161,75 @@ const BoardView = (() => {
     };
   }
 
-  const CARD_COLORS = () => [
-    { value: '', label: I18n.t('colorDefault') },
-    { value: 'blue', label: I18n.t('colorBlue'), hex: '#6366F1' },
-    { value: 'green', label: I18n.t('colorGreen'), hex: '#22C55E' },
-    { value: 'yellow', label: I18n.t('colorYellow'), hex: '#F59E0B' },
-    { value: 'orange', label: I18n.t('colorOrange'), hex: '#F97316' },
-    { value: 'red', label: I18n.t('colorRed'), hex: '#EF4444' },
-    { value: 'purple', label: I18n.t('colorPurple'), hex: '#A855F7' },
-    { value: 'pink', label: I18n.t('colorPink'), hex: '#EC4899' },
-    { value: 'cyan', label: I18n.t('colorCyan'), hex: '#06B6D4' },
+  const COLUMN_BG_PRESETS = [
+    '#F59E0B','#D97706','#F97316','#EF4444','#F43F5E',
+    '#EC4899','#A855F7','#7C3AED','#6366F1','#3B82F6',
+    '#0EA5E9','#06B6D4','#14B8A6','#22C55E','#10B981',
+    '#84CC16','#78716C','#64748B','#6B7280','#9CA3AF',
   ];
+
+  // Backward compatibility: map old named colors to hex
+  const NAMED_COL_COLOR_MAP = {
+    yellow:'#F59E0B', blue:'#3B82F6', green:'#22C55E', pink:'#EC4899',
+    purple:'#A855F7', cyan:'#06B6D4', orange:'#F97316', red:'#EF4444',
+  };
+
+  function hexToColBg(raw) {
+    if (!raw) return null;
+    const hex = NAMED_COL_COLOR_MAP[raw] || raw;
+    if (!/^#[0-9A-Fa-f]{6}$/i.test(hex)) return null;
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgba(${r},${g},${b},.18)`;
+  }
+
+  function boardColorPickerHtml(currentColor) {
+    const currentHex = NAMED_COL_COLOR_MAP[currentColor] || currentColor || '';
+    const isPreset = COLUMN_BG_PRESETS.includes(currentHex);
+    const isCustom = currentHex && !isPreset;
+    const customInitVal = isCustom ? currentHex : '#3B82F6';
+    const swatches = COLUMN_BG_PRESETS.map(hex => `
+      <div class="col-color-swatch board-color-swatch${hex === currentHex ? ' selected' : ''}" style="background:${hex}" data-color="${hex}" title="${hex}"
+           onclick="document.querySelectorAll('.board-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('board-sel-color').value=this.dataset.color;document.getElementById('board-custom-hex').value=this.dataset.color;document.getElementById('board-custom-picker').value=this.dataset.color"></div>
+    `).join('');
+    return `
+      <div class="form-group">
+        <label>${I18n.t('boardColor')}</label>
+        <div class="col-color-grid">
+          <div class="col-color-swatch board-color-swatch col-color-none${!currentHex ? ' selected' : ''}" data-color="" title="${I18n.t('colorDefault')}"
+               onclick="document.querySelectorAll('.board-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('board-sel-color').value='';document.getElementById('board-custom-hex').value=''">
+            <span style="font-size:15px;line-height:1">✕</span>
+          </div>
+          ${swatches}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <input type="color" id="board-custom-picker" value="${escAttr(customInitVal)}"
+                 style="width:44px;height:34px;border-radius:6px;border:1px solid var(--border);padding:2px;cursor:pointer;background:none;flex-shrink:0"
+                 oninput="const v=this.value;document.querySelectorAll('.board-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('board-sel-color').value=v;document.getElementById('board-custom-hex').value=v">
+          <input type="text" id="board-custom-hex" class="form-control" maxlength="7"
+                 value="${escAttr(isCustom ? currentHex : '')}" placeholder="#RRGGBB"
+                 style="font-family:monospace;font-size:13px"
+                 oninput="const v=this.value.trim();if(/^#[0-9A-Fa-f]{6}$/.test(v)){document.querySelectorAll('.board-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('board-sel-color').value=v;document.getElementById('board-custom-picker').value=v}">
+        </div>
+        <input type="hidden" id="board-sel-color" value="${escAttr(currentHex)}">
+      </div>`;
+  }
+
+  const NAMED_CARD_COLOR_MAP = {
+    blue: '#6366F1', green: '#22C55E', yellow: '#F59E0B', orange: '#F97316',
+    red: '#EF4444', purple: '#A855F7', pink: '#EC4899', cyan: '#06B6D4',
+  };
+
+  function hexToCardBg(raw) {
+    if (!raw) return null;
+    const hex = NAMED_CARD_COLOR_MAP[raw] || raw;
+    if (!/^#[0-9A-Fa-f]{6}$/i.test(hex)) return null;
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgba(${r},${g},${b},.25)`;
+  }
 
   // ── Export / Import (.kprj) ───────────────────────────────────────────────
 
@@ -291,13 +349,15 @@ const BoardView = (() => {
           </div>`;
       } else {
         const roleLabel = { owner: I18n.t('roleAdmin'), 'system-admin': I18n.t('admin'), admin: I18n.t('roleAdmin'), editor: I18n.t('roleEditor'), viewer: I18n.t('roleViewer') };
-        const cards = boards.map(b => `
-          <div class="board-card"
-               data-board-id="${b.id}" data-board-title="${escAttr(b.title)}" data-board-desc="${escAttr(b.description||'')}" data-my-role="${b.myRole}"
+        const cards = boards.map(b => {
+          const bgStyle = hexToColBg(b.bg_color) ? `style="background:${hexToColBg(b.bg_color)}"` : '';
+          return `
+          <div class="board-card" ${bgStyle}
+               data-board-id="${b.id}" data-board-title="${escAttr(b.title)}" data-board-desc="${escAttr(b.description||'')}" data-board-bg="${escAttr(b.bg_color||'')}" data-my-role="${b.myRole}"
                onclick="BoardView.openBoard(${b.id})"
                oncontextmenu="BoardView.showBoardCtxMenu(event,this)">
             <div class="board-card-actions">
-              ${b.myRole !== 'viewer' ? `<button class="board-card-btn" onclick="event.stopPropagation();BoardView.editBoard(${b.id},'${escHtml(b.title)}','${escHtml(b.description||'')}')" title="${I18n.t('edit')}">&#9998;</button>` : ''}
+              ${b.myRole !== 'viewer' ? `<button class="board-card-btn" onclick="event.stopPropagation();BoardView.editBoard(${b.id},'${escHtml(b.title)}','${escHtml(b.description||'')}','${escHtml(b.bg_color||'')}')" title="${I18n.t('edit')}">&#9998;</button>` : ''}
               <button class="board-card-btn" onclick="event.stopPropagation();BoardView.exportProject(${b.id},'${escHtml(b.title)}')" title="${I18n.t('exportProject')}">&#128229;</button>
             ${['owner','system-admin'].includes(b.myRole) ? `<button class="board-card-btn" onclick="event.stopPropagation();BoardView.deleteBoard(${b.id})" title="${I18n.t('delete')}" style="color:#EF4444">&#128465;</button>` : ''}
             </div>
@@ -305,7 +365,8 @@ const BoardView = (() => {
             <div class="board-card-title">${escHtml(b.title)}</div>
             <div class="board-card-desc">${escHtml(b.description || '')}</div>
             <div class="board-card-meta">${I18n.t('owner')}: ${escHtml(b.owner_name || '-')}</div>
-          </div>`).join('');
+          </div>`;
+        }).join('');
 
         main.innerHTML = `
           <div class="page-wrap" oncontextmenu="BoardView.showListCtxMenu(event)">
@@ -357,9 +418,9 @@ const BoardView = (() => {
     } catch (err) { showToast(err.message, 'error'); }
   }
 
-  function editBoard(id, title, desc) {
+  function editBoard(id, title, desc, bgColor) {
     const saveKey = `board:${id}`;
-    const initial = { title, description: desc || '' };
+    const initial = { title, description: desc || '', bg_color: bgColor || '' };
     Modal.dialog({
       title: I18n.t('edit'),
       icon: '✏️',
@@ -372,10 +433,12 @@ const BoardView = (() => {
       <div class="form-group">
         <label>${I18n.t('boardDesc')}</label>
         <input id="edit-board-desc" class="form-control" value="${escHtml(desc || '')}">
-      </div>`,
+      </div>
+      ${boardColorPickerHtml(bgColor || '')}`,
       footer: `
         <div class="modal-footer-left"><span id="board-autosave-status" class="autosave-status"></span></div>
-        ${Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' })}`,
+        ${Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'secondary', onclick: 'Modal.close()' })}
+        ${Modal.btn({ label: I18n.t('save'), icon: '💾', variant: 'primary', onclick: `BoardView.saveEditBoard(${id})` })}`,
     });
     let committedBoard = { ...initial };
     AutoSave.start(saveKey, {
@@ -387,6 +450,7 @@ const BoardView = (() => {
         return {
           title: t,
           description: document.getElementById('edit-board-desc')?.value.trim() || '',
+          bg_color: document.getElementById('board-sel-color')?.value || '',
         };
       },
       save: async (payload) => {
@@ -399,6 +463,12 @@ const BoardView = (() => {
     });
     ['edit-board-title', 'edit-board-desc'].forEach((fieldId) => {
       document.getElementById(fieldId)?.addEventListener('input', () => AutoSave.schedule(saveKey));
+    });
+    document.querySelectorAll('.board-color-swatch').forEach(s => {
+      s.addEventListener('click', () => AutoSave.schedule(saveKey));
+    });
+    ['board-custom-picker', 'board-custom-hex'].forEach(elId => {
+      document.getElementById(elId)?.addEventListener('input', () => AutoSave.schedule(saveKey));
     });
     Modal.setBeforeClose(async () => {
       const ok = await AutoSave.flush(saveKey);
@@ -510,20 +580,20 @@ const BoardView = (() => {
 
   function renderColumn(col) {
     const perm = currentPermissions;
-    const cards = col.cards.map((c, idx) => `
-      <div class="drop-zone" data-col="${col.id}" data-pos="${idx}"></div>
-      ${renderCard(c, col.id)}`).join('');
+    const cards = col.cards.map(c => renderCard(c, col.id)).join('');
+    const bg = hexToColBg(col.bg_color);
+    const bgStyle = bg ? ` style="background:${bg}"` : '';
 
     return `
-      <div class="column" data-col-id="${col.id}">
-        <div class="column-header" ${perm.canEdit ? `oncontextmenu="BoardView.showColumnCtxMenu(event,${col.id})"` : ''}>
+      <div class="column" data-col-id="${col.id}"${bgStyle}
+           ${perm.canEdit ? `oncontextmenu="BoardView.showColumnCtxMenu(event,${col.id})"` : ''}>
+        <div class="column-header">
           <span class="column-title" id="col-title-${col.id}" ${perm.canEdit ? `ondblclick="BoardView.startEditColTitle(${col.id})"` : ''}>${escHtml(col.title)}</span>
           <span class="column-count">${col.cards.length}</span>
-          ${perm.canEdit ? `<button class="column-menu" onclick="BoardView.showColumnCtxMenu(event,${col.id})">&#8942;</button>` : ''}
+          ${perm.canEdit ? `<button class="column-menu" onclick="BoardView.showColumnCtxMenu(event,${col.id})" title="${I18n.t('ctxRenameCol')}">&#8942;</button>` : ''}
         </div>
         <div class="cards-list" id="cards-list-${col.id}">
           ${cards}
-          <div class="drop-zone" data-col="${col.id}" data-pos="${col.cards.length}"></div>
         </div>
         ${perm.canEdit ? `<button class="add-card-btn" onclick="BoardView.showAddCard(${col.id})">${I18n.t('addCard')}</button>` : ''}
       </div>`;
@@ -566,10 +636,11 @@ const BoardView = (() => {
       ? `<span class="card-assignee" title="${escAttr(I18n.t('assignee'))}: ${escAttr(card.assignee_name)}"><span class="card-assignee-avatar">${assigneeInitial}</span><span class="card-assignee-name">${escHtml(card.assignee_name)}</span></span>`
       : '';
     const attachBadge = card.attachment_count > 0 ? `<span class="card-attach">&#128206; ${card.attachment_count}</span>` : '';
-    const colorAttr = card.color ? `data-color="${card.color}"` : '';
+    const cardBg = hexToCardBg(card.color);
+    const colorStyle = cardBg ? `style="background:${cardBg}"` : '';
 
     return `
-      <div class="card" draggable="${currentPermissions.canEdit}" ${colorAttr} data-card-id="${card.id}" data-col-id="${colId}"
+      <div class="card" draggable="${currentPermissions.canEdit}" ${colorStyle} data-card-id="${card.id}" data-col-id="${colId}"
            onclick="BoardView.openCard(${card.id})"
            oncontextmenu="BoardView.showCardCtxMenu(event,${card.id},${colId})"
            ondragstart="BoardView.onDragStart(event,${card.id},${colId})"
@@ -584,16 +655,74 @@ const BoardView = (() => {
 
   // ── Drag & Drop ───────────────────────────────────────────────────────────
 
+  function getDropIndicator() {
+    let ind = document.getElementById('drop-indicator');
+    if (!ind) {
+      ind = document.createElement('div');
+      ind.id = 'drop-indicator';
+      ind.className = 'drop-indicator';
+    }
+    return ind;
+  }
+
+  function removeDropIndicator() {
+    document.getElementById('drop-indicator')?.remove();
+    document.querySelectorAll('.cards-list.drag-over-col').forEach(el => el.classList.remove('drag-over-col'));
+  }
+
+  function getDragInsertBefore(list, clientY) {
+    const cards = [...list.querySelectorAll('.card:not(.dragging)')];
+    for (const card of cards) {
+      const { top, height } = card.getBoundingClientRect();
+      if (clientY < top + height / 2) return card;
+    }
+    return null;
+  }
+
+  function onListDragOver(e) {
+    if (!drag) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const list = e.currentTarget;
+    list.classList.add('drag-over-col');
+    const ind = getDropIndicator();
+    const before = getDragInsertBefore(list, e.clientY);
+    if (before) list.insertBefore(ind, before);
+    else list.appendChild(ind);
+  }
+
+  function onListDragLeave(e) {
+    const list = e.currentTarget;
+    if (!list.contains(e.relatedTarget)) {
+      list.classList.remove('drag-over-col');
+      document.getElementById('drop-indicator')?.remove();
+    }
+  }
+
+  function onListDrop(e) {
+    e.preventDefault();
+    if (!drag) { removeDropIndicator(); return; }
+    const list = e.currentTarget;
+    const colId = list.id.replace('cards-list-', '');
+    const ind = document.getElementById('drop-indicator');
+    let position = 0;
+    if (ind) {
+      const children = [...list.children];
+      const indIdx = children.indexOf(ind);
+      position = children.slice(0, indIdx).filter(el => el.classList.contains('card')).length;
+    } else {
+      position = list.querySelectorAll('.card').length;
+    }
+    removeDropIndicator();
+    moveCard(drag.cardId, colId, position);
+  }
+
   function initDragAndDrop() {
-    document.querySelectorAll('.drop-zone').forEach(dz => {
-      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
-      dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-      dz.addEventListener('drop', e => {
-        e.preventDefault();
-        dz.classList.remove('drag-over');
-        if (!drag) return;
-        moveCard(drag.cardId, dz.dataset.col, parseInt(dz.dataset.pos));
-      });
+    if (!currentPermissions?.canEdit) return;
+    document.querySelectorAll('.cards-list').forEach(list => {
+      list.addEventListener('dragover', onListDragOver);
+      list.addEventListener('dragleave', onListDragLeave);
+      list.addEventListener('drop', onListDrop);
     });
   }
 
@@ -601,16 +730,13 @@ const BoardView = (() => {
     if (!currentPermissions.canEdit) { e.preventDefault(); return; }
     drag = { cardId, colId };
     e.dataTransfer.effectAllowed = 'move';
-    const cardEl = e.currentTarget;
-    document.documentElement.style.setProperty('--drag-card-height', `${cardEl.offsetHeight}px`);
-    setTimeout(() => cardEl.classList.add('dragging'), 0);
+    setTimeout(() => e.target.classList.add('dragging'), 0);
   }
 
   function onDragEnd(e) {
     e.currentTarget.classList.remove('dragging');
     drag = null;
-    document.documentElement.style.removeProperty('--drag-card-height');
-    document.querySelectorAll('.drop-zone').forEach(dz => dz.classList.remove('drag-over'));
+    removeDropIndicator();
   }
 
   async function moveCard(cardId, targetColId, position) {
@@ -632,12 +758,13 @@ const BoardView = (() => {
     const id = parseInt(el.dataset.boardId);
     const title = el.dataset.boardTitle || '';
     const desc = el.dataset.boardDesc || '';
+    const bgColor = el.dataset.boardBg || '';
     const myRole = el.dataset.myRole;
     const canEdit = myRole !== 'viewer';
     const canDelete = ['owner', 'system-admin'].includes(myRole);
     CtxMenu.show(e, [
       { label: I18n.t('open'), icon: '📂', tooltip: I18n.t('ctxOpenBoard'), action: () => openBoard(id) },
-      ...(canEdit ? [{ label: I18n.t('edit'), icon: '✏️', tooltip: I18n.t('ctxEditBoard'), action: () => editBoard(id, title, desc) }] : []),
+      ...(canEdit ? [{ label: I18n.t('edit'), icon: '✏️', tooltip: I18n.t('ctxEditBoard'), action: () => editBoard(id, title, desc, bgColor) }] : []),
       { label: I18n.t('exportProject'), icon: '📥', tooltip: I18n.t('ctxExportBoard'), action: () => exportProject(id, title) },
       ...(canDelete ? [
         { type: 'sep' },
@@ -661,7 +788,7 @@ const BoardView = (() => {
   }
 
   function showBoardAreaCtxMenu(e) {
-    if (e.target.closest('.kanban-card, .column-header, .column-menu, button, input, a, .add-col-btn, .add-card-btn')) return;
+    if (e.target.closest('.column, .kanban-card, .column-header, .column-menu, button, input, a, .add-col-btn, .add-card-btn')) return;
     const perm = currentPermissions;
     const items = [];
     if (perm?.canEdit) {
@@ -680,12 +807,74 @@ const BoardView = (() => {
 
   function showColumnCtxMenu(e, colId) {
     e.stopPropagation();
+    e.preventDefault();
+    const perm = currentPermissions;
+    if (!perm?.canEdit) return;
     CtxMenu.show(e, [
       { label: I18n.t('addCard'), icon: '➕', tooltip: I18n.t('ctxAddCardCol'), action: () => showAddCard(colId) },
       { type: 'sep' },
       { label: I18n.t('renameColumn'), icon: '✏️', tooltip: I18n.t('ctxRenameCol'), action: () => startEditColTitle(colId) },
+      { label: I18n.t('columnColor'), icon: '🎨', tooltip: I18n.t('ctxColumnColor'), action: () => showColumnColorPicker(colId) },
+      { type: 'sep' },
       { label: I18n.t('deleteColumn'), icon: '🗑️', tooltip: I18n.t('ctxDeleteCol'), danger: true, action: () => deleteColumn(colId) }
     ]);
+  }
+
+  function showColumnColorPicker(colId) {
+    const col = boardData?.find(c => c.id == colId);
+    const rawColor = col?.bg_color || '';
+    const currentHex = NAMED_COL_COLOR_MAP[rawColor] || rawColor;
+    const isPreset = COLUMN_BG_PRESETS.includes(currentHex);
+    const isCustom = currentHex && !isPreset;
+    const customInitVal = isCustom ? currentHex : '#6366F1';
+
+    const swatches = COLUMN_BG_PRESETS.map(hex => `
+      <div class="col-color-swatch${hex === currentHex ? ' selected' : ''}" style="background:${hex}" data-color="${hex}" title="${hex}"
+           onclick="document.querySelectorAll('.col-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('col-sel-color').value=this.dataset.color;document.getElementById('col-custom-hex').value=this.dataset.color;document.getElementById('col-custom-picker').value=this.dataset.color"></div>
+    `).join('');
+
+    Modal.dialog({
+      title: I18n.t('columnColor'),
+      icon: '🎨',
+      size: 'sm',
+      body: `
+      <input type="hidden" id="col-sel-color" value="${escAttr(currentHex)}">
+      <div class="form-group">
+        <label>${I18n.t('columnColor')}</label>
+        <div class="col-color-grid">
+          <div class="col-color-swatch col-color-none${!currentHex ? ' selected' : ''}" data-color="" title="${I18n.t('colorDefault')}"
+               onclick="document.querySelectorAll('.col-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('col-sel-color').value='';document.getElementById('col-custom-hex').value=''">
+            <span style="font-size:15px;line-height:1">✕</span>
+          </div>
+          ${swatches}
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label style="font-size:12px;color:var(--text-muted)">${I18n.t('colCustomColor') || '직접 입력 (사용자 정의 색상)'}</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="color" id="col-custom-picker" value="${escAttr(customInitVal)}"
+                 style="width:44px;height:34px;border-radius:6px;border:1px solid var(--border);padding:2px;cursor:pointer;background:none;flex-shrink:0"
+                 oninput="const v=this.value;document.querySelectorAll('.col-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('col-sel-color').value=v;document.getElementById('col-custom-hex').value=v">
+          <input type="text" id="col-custom-hex" class="form-control" maxlength="7"
+                 value="${escAttr(isCustom ? currentHex : '')}" placeholder="#RRGGBB"
+                 style="font-family:monospace;font-size:13px"
+                 oninput="const v=this.value.trim();if(/^#[0-9A-Fa-f]{6}$/.test(v)){document.querySelectorAll('.col-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('col-sel-color').value=v;document.getElementById('col-custom-picker').value=v}">
+        </div>
+      </div>`,
+      footer: Modal.footerCancelPrimary(I18n.t('save'), `BoardView.applyColumnColor(${colId})`, { primaryIcon: '🎨' }),
+    });
+  }
+
+  async function applyColumnColor(colId) {
+    const color = document.getElementById('col-sel-color')?.value ?? '';
+    try {
+      const col = boardData?.find(c => c.id == colId);
+      const oldColor = col?.bg_color || '';
+      await API.put(`/boards/${currentBoardId}/columns/${colId}`, { bg_color: color });
+      if (!History.isApplying()) History.recordColumnColorChange(currentBoardId, colId, oldColor, color);
+      Modal.close();
+      await loadBoard();
+    } catch (err) { showToast(err.message, 'error'); }
   }
 
   function showCardCtxMenu(e, cardId, colId) {
@@ -712,7 +901,8 @@ const BoardView = (() => {
     const wrap = document.createElement('div');
     wrap.className = 'inline-edit';
     wrap.innerHTML = `<input value="${escHtml(old)}" style="flex:1">
-      <button class="btn btn-secondary btn-sm" onclick="cancelColEdit(${colId})">${I18n.t('cancel')}</button>`;
+      <button class="btn btn-secondary btn-sm" onclick="cancelColEdit(${colId})">${I18n.t('cancel')}</button>
+      <button class="btn btn-primary btn-sm" onclick="saveColTitle(${colId})">${I18n.t('save')}</button>`;
     span.parentElement.insertBefore(wrap, span);
     const input = wrap.querySelector('input');
     input.focus();
@@ -783,23 +973,39 @@ const BoardView = (() => {
   // ── Card actions ──────────────────────────────────────────────────────────
 
   function colorPickerHtml(selectedColor) {
+    const currentHex = NAMED_CARD_COLOR_MAP[selectedColor] || selectedColor || '';
+    const isPreset = COLUMN_BG_PRESETS.includes(currentHex);
+    const isCustom = currentHex && !isPreset;
+    const customInitVal = isCustom ? currentHex : '#3B82F6';
+    const swatches = COLUMN_BG_PRESETS.map(hex => `
+      <div class="col-color-swatch card-color-swatch${hex === currentHex ? ' selected' : ''}" style="background:${hex}" data-color="${hex}" title="${hex}"
+           onclick="document.querySelectorAll('.card-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('card-sel-color').value=this.dataset.color;document.getElementById('card-custom-hex').value=this.dataset.color;document.getElementById('card-custom-picker').value=this.dataset.color"></div>
+    `).join('');
     return `
       <div class="form-group">
         <label>${I18n.t('cardColor')}</label>
-        <div class="color-picker-row">
-          ${CARD_COLORS().map(c => `
-            <div class="color-dot ${c.value === selectedColor ? 'selected' : ''}"
-                 style="background:${c.hex || 'var(--bg-col)'}; ${!c.hex ? 'border:1px solid var(--border)' : ''}"
-                 title="${c.label}" data-color-val="${c.value}"
-                 onclick="document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('selected'));this.classList.add('selected')"></div>
-          `).join('')}
+        <div class="col-color-grid" style="max-width:396px">
+          <div class="col-color-swatch card-color-swatch col-color-none${!currentHex ? ' selected' : ''}" data-color="" title="${I18n.t('colorDefault')}"
+               onclick="document.querySelectorAll('.card-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('card-sel-color').value='';document.getElementById('card-custom-hex').value=''">
+            <span style="font-size:15px;line-height:1">✕</span>
+          </div>
+          ${swatches}
         </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <input type="color" id="card-custom-picker" value="${escAttr(customInitVal)}"
+                 style="width:44px;height:34px;border-radius:6px;border:1px solid var(--border);padding:2px;cursor:pointer;background:none;flex-shrink:0"
+                 oninput="const v=this.value;document.querySelectorAll('.card-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('card-sel-color').value=v;document.getElementById('card-custom-hex').value=v">
+          <input type="text" id="card-custom-hex" class="form-control" maxlength="7"
+                 value="${escAttr(isCustom ? currentHex : '')}" placeholder="#RRGGBB"
+                 style="font-family:monospace;font-size:13px"
+                 oninput="const v=this.value.trim();if(/^#[0-9A-Fa-f]{6}$/.test(v)){document.querySelectorAll('.card-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('card-sel-color').value=v;document.getElementById('card-custom-picker').value=v}">
+        </div>
+        <input type="hidden" id="card-sel-color" value="${escAttr(currentHex)}">
       </div>`;
   }
 
   function getSelectedColor() {
-    const sel = document.querySelector('.color-dot.selected');
-    return sel ? sel.dataset.colorVal : '';
+    return document.getElementById('card-sel-color')?.value || '';
   }
 
   async function showAddCard(colId) {
@@ -862,12 +1068,7 @@ const BoardView = (() => {
       const userOptions = assigneeOptionsHtml(card.assignee_id, extraAssignee);
 
       const attachHtml = card.attachments.length > 0
-        ? card.attachments.map(a => `
-            <div class="attachment-item" id="attach-${a.id}">
-              <a href="/uploads/${a.filename}" target="_blank" class="attachment-name">${escHtml(a.original_name)}</a>
-              <span class="attachment-size">${fileSize(a.size)}</span>
-              ${canEdit ? `<button class="attachment-del btn-icon" onclick="BoardView.deleteAttachment(${cardId},${a.id})">&#10005;</button>` : ''}
-            </div>`).join('')
+        ? card.attachments.map(a => renderAttachItem(a, canEdit, cardId)).join('')
         : `<div style="font-size:12px;color:var(--text-light);padding:4px 0">${I18n.t('noAttach')}</div>`;
 
       Modal.dialog({
@@ -907,7 +1108,8 @@ const BoardView = (() => {
               ${Modal.btn({ label: I18n.t('deleteCard'), icon: '🗑️', variant: 'danger', extraClass: 'btn-sm', onclick: `BoardView.deleteCard(${cardId})` })}
               <span id="card-autosave-status" class="autosave-status autosave-saved">${escHtml(I18n.t('autoSaved'))}</span>
             </div>
-            ${Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' })}`
+            ${Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'secondary', onclick: 'Modal.close()' })}
+            ${Modal.btn({ label: I18n.t('save'), icon: '💾', variant: 'primary', onclick: `BoardView.saveCard(${cardId})` })}`
           : Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' }),
       });
       if (canEdit) setupCardAutoSave(cardId, card);
@@ -954,8 +1156,11 @@ const BoardView = (() => {
     ['ec-assignee', 'ec-due'].forEach((id) => {
       document.getElementById(id)?.addEventListener('change', () => AutoSave.schedule(saveKey));
     });
-    document.querySelectorAll('.color-dot').forEach((dot) => {
+    document.querySelectorAll('.card-color-swatch').forEach((dot) => {
       dot.addEventListener('click', () => AutoSave.schedule(saveKey));
+    });
+    ['card-custom-picker', 'card-custom-hex'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => AutoSave.schedule(saveKey));
     });
     Modal.setBeforeClose(async () => {
       const title = document.getElementById('ec-title')?.value.trim();
@@ -1064,12 +1269,7 @@ const BoardView = (() => {
         const attach = await API.upload(`/boards/${currentBoardId}/cards/${cardId}/attachments`, fd);
         const list = document.getElementById('attach-list');
         if (list.innerHTML.includes(I18n.t('noAttach'))) list.innerHTML = '';
-        const item = document.createElement('div');
-        item.className = 'attachment-item'; item.id = `attach-${attach.id}`;
-        item.innerHTML = `<a href="/uploads/${attach.filename}" target="_blank" class="attachment-name">${escHtml(attach.original_name)}</a>
-          <span class="attachment-size">${fileSize(attach.size)}</span>
-          <button class="attachment-del btn-icon" onclick="BoardView.deleteAttachment(${cardId},${attach.id})">&#10005;</button>`;
-        list.appendChild(item);
+        list.insertAdjacentHTML('beforeend', renderAttachItem(attach, true, cardId));
       } catch (err) { showToast(I18n.t('uploadFailed') + ': ' + err.message, 'error'); }
     }
     input.value = '';
@@ -1080,6 +1280,60 @@ const BoardView = (() => {
       await API.delete(`/boards/${currentBoardId}/cards/${cardId}/attachments/${attachId}`);
       document.getElementById(`attach-${attachId}`)?.remove();
     } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  // ── Attachment helpers ────────────────────────────────────────────────────
+
+  function fileIcon(mimetype, filename) {
+    const ext = (filename || '').split('.').pop().toLowerCase();
+    const byExt = { jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', svg:'🖼️', webp:'🖼️', bmp:'🖼️',
+                    pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊', ppt:'📑', pptx:'📑',
+                    zip:'🗜️', rar:'🗜️', '7z':'🗜️', tar:'🗜️', gz:'🗜️',
+                    mp4:'🎬', avi:'🎬', mkv:'🎬', mov:'🎬', mp3:'🎵', wav:'🎵', ogg:'🎵', flac:'🎵',
+                    txt:'📃', csv:'📊', json:'📃', xml:'📃', html:'🌐', js:'📃', ts:'📃', py:'📃' };
+    if (byExt[ext]) return byExt[ext];
+    if (!mimetype) return '📎';
+    if (mimetype.startsWith('image/')) return '🖼️';
+    if (mimetype === 'application/pdf') return '📄';
+    if (mimetype.includes('word') || mimetype.includes('document')) return '📝';
+    if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) return '📊';
+    if (mimetype.includes('powerpoint') || mimetype.includes('presentation')) return '📑';
+    if (mimetype.startsWith('video/')) return '🎬';
+    if (mimetype.startsWith('audio/')) return '🎵';
+    if (mimetype.includes('zip') || mimetype.includes('compressed') || mimetype.includes('tar')) return '🗜️';
+    if (mimetype.startsWith('text/')) return '📃';
+    return '📎';
+  }
+
+  function renderAttachItem(a, canEdit, cardId) {
+    const icon = fileIcon(a.mimetype, a.original_name);
+    const isElectron = typeof window.electron !== 'undefined' && window.electron.openAttachment;
+    const dblclickAttr = isElectron
+      ? `ondblclick="BoardView.openAttachment('${escAttr(a.filename)}')" title="${escAttr(a.original_name)}\n(${I18n.getLang() === 'ko' ? '더블클릭으로 파일 열기' : 'Double-click to open'})"`
+      : `title="${escAttr(a.original_name)}"`;
+    const nameEl = isElectron
+      ? `<span class="attachment-name attachment-name-link" ${dblclickAttr}>${escHtml(a.original_name)}</span>`
+      : `<a href="/uploads/${escAttr(a.filename)}" target="_blank" class="attachment-name" ${dblclickAttr}>${escHtml(a.original_name)}</a>`;
+    const openBtn = isElectron
+      ? `<button class="btn-icon attachment-open" onclick="BoardView.openAttachment('${escAttr(a.filename)}')" title="${I18n.getLang() === 'ko' ? '파일 열기' : 'Open file'}">&#128065;</button>`
+      : `<a href="/uploads/${escAttr(a.filename)}" target="_blank" class="btn-icon attachment-open" title="${I18n.getLang() === 'ko' ? '파일 열기' : 'Open file'}">&#128065;</a>`;
+    return `
+      <div class="attachment-item" id="attach-${a.id}">
+        <span class="attachment-icon">${icon}</span>
+        ${nameEl}
+        <span class="attachment-size">${fileSize(a.size)}</span>
+        ${openBtn}
+        ${canEdit ? `<button class="attachment-del btn-icon" onclick="BoardView.deleteAttachment(${cardId},${a.id})" title="${I18n.getLang() === 'ko' ? '삭제' : 'Delete'}">&#10005;</button>` : ''}
+      </div>`;
+  }
+
+  async function openAttachment(filename) {
+    if (typeof window.electron !== 'undefined' && window.electron.openAttachment) {
+      const result = await window.electron.openAttachment(filename);
+      if (!result.ok) showToast(result.error || (I18n.getLang() === 'ko' ? '파일을 열 수 없습니다.' : 'Cannot open file.'), 'error');
+    } else {
+      window.open(`/uploads/${filename}`, '_blank');
+    }
   }
 
   // ── Member management ─────────────────────────────────────────────────────
@@ -1566,10 +1820,10 @@ const BoardView = (() => {
     get currentBoardId() { return currentBoardId; },
     renderBoardList, showCreateBoard, createBoard, editBoard, saveEditBoard, deleteBoard,
     openBoard, loadBoard, reloadAfterHistory,
-    showBoardCtxMenu, showListCtxMenu, showBoardAreaCtxMenu, showColumnCtxMenu, showCardCtxMenu,
+    showBoardCtxMenu, showListCtxMenu, showBoardAreaCtxMenu, showColumnCtxMenu, showColumnColorPicker, applyColumnColor, showCardCtxMenu,
     startEditColTitle, deleteColumn, promptAddColumn, addColumn,
     showAddCard, createCard, openCard, saveCard, deleteCard, showAssigneePicker, saveAssignee,
-    uploadAttachment, deleteAttachment,
+    uploadAttachment, deleteAttachment, openAttachment,
     onDragStart, onDragEnd,
     showMembers, addMember, changeMemberRole, removeMember,
     showSummary, exportSummaryReport, applyBurndownDateRange, refreshBurndownChartTheme,

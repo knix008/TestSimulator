@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electron', {
   saveReportFile: (defaultName, base64Content, mime) => ipcRenderer.invoke('save-report-dialog', defaultName, base64Content, mime),
   openKprjDialog: (startDir) => ipcRenderer.invoke('open-kprj-dialog', startDir),
   openSqliteDialog: () => ipcRenderer.invoke('open-sqlite-dialog'),
+  openAttachment: (filename) => ipcRenderer.invoke('open-attachment', filename),
   onOpenKprj: (callback) => { ipcRenderer.on('open-kprj', (event, filePath) => callback(filePath)); },
   showContextMenu: (items) => ipcRenderer.invoke('show-context-menu', items),
   getElectronInfo: () => ipcRenderer.invoke('get-electron-info'),
