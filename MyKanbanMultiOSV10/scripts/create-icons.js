@@ -1,7 +1,7 @@
 /**
  * create-icons.js — 순수 Node.js 아이콘 생성기 (의존성 없음)
  *
- * 16x16, 32x32, 48x48 세 가지 크기를 담은 멀티사이즈 ICO 파일을 생성합니다.
+ * 16x16 ~ 256x256 멀티사이즈 ICO 파일을 생성합니다.
  * 실제 제품 아이콘으로 교체하려면 assets/ 내의 .ico 파일을 덮어쓰세요.
  *
  * 사용법: node scripts/create-icons.js
@@ -216,7 +216,7 @@ function kprjIconPixel(row, col, size) {
 
 // ── ICO 파일 생성 ─────────────────────────────────────────────────────────
 
-const SIZES = [16, 32, 48];
+const SIZES = [16, 32, 48, 64, 128, 256];
 
 console.log('아이콘 생성 중...');
 

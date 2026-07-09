@@ -19,6 +19,9 @@ uploads/
 dist/
 out/
 release/
+MyKanban-Setup-*.exe
+MyKanban-*.dmg
+MyKanban-*.AppImage
 
 # OS generated files
 .DS_Store

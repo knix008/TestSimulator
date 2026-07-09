@@ -117,6 +117,7 @@ const AdminView = (() => {
   function showCreate() {
     Modal.dialog({
       title: I18n.t('addUser'),
+      icon: '➕',
       size: 'md',
       body: `
       <div class="form-row">
@@ -146,7 +147,7 @@ const AdminView = (() => {
           <option value="admin">${I18n.t('admin')}</option>
         </select>
       </div>`,
-      footer: Modal.footerCancelPrimary(I18n.t('addBtn'), 'AdminView.createUser()'),
+      footer: Modal.footerCancelPrimary(I18n.t('addBtn'), 'AdminView.createUser()', { primaryIcon: '➕' }),
     });
     document.getElementById('cu-username').focus();
   }
@@ -173,6 +174,7 @@ const AdminView = (() => {
     if (!u) return;
     Modal.dialog({
       title: `${I18n.t('edit')}: ${u.username}`,
+      icon: '✏️',
       size: 'md',
       body: `
       <div class="form-row">
@@ -206,7 +208,7 @@ const AdminView = (() => {
         <label>${I18n.t('newPw')} <span class="form-hint">(${I18n.t('pwOptionalHint')})</span></label>
         <input id="eu-password" type="password" class="form-control">
       </div>`,
-      footer: Modal.footerCancelPrimary(I18n.t('save'), `AdminView.saveEdit(${id})`),
+      footer: Modal.footerCancelPrimary(I18n.t('save'), `AdminView.saveEdit(${id})`, { primaryIcon: '💾' }),
     });
   }
 
@@ -230,7 +232,12 @@ const AdminView = (() => {
       showToast(I18n.t('cannotDeleteAdmin'), 'error');
       return;
     }
-    if (!confirm(I18n.t('confirmDeleteUser'))) return;
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmTitle'),
+      message: I18n.t('confirmDeleteUser'),
+      confirmLabel: I18n.t('delete'),
+    });
+    if (!ok) return;
     try {
       await API.delete(`/users/${id}`);
       showToast(I18n.t('userDeleted'), 'success');
@@ -247,7 +254,13 @@ const AdminView = (() => {
   }
 
   async function rejectUser(id) {
-    if (!confirm(I18n.t('confirmRejectUser'))) return;
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmTitle'),
+      message: I18n.t('confirmRejectUser'),
+      confirmLabel: I18n.t('reject'),
+      confirmIcon: '✕',
+    });
+    if (!ok) return;
     try {
       await API.patch(`/users/${id}/reject`);
       showToast(I18n.t('userRejected'), 'success');
@@ -416,21 +429,23 @@ const SettingsView = (() => {
   function showDbMissingPopup(missing) {
     Modal.dialog({
       title: I18n.t('dbMissingTitle'),
+      icon: '🗄️',
       size: 'sm',
       body: `
         <p class="modal-message">${I18n.t('dbMissingIntro')}</p>
         <ul class="modal-bullet-list">${missing.map(m => `<li>${escHtml(m.label)}</li>`).join('')}</ul>`,
-      footer: `<button type="button" class="btn btn-primary" onclick="Modal.close(); SettingsView.focusDbField('${missing[0].key}')">${I18n.t('close')}</button>`,
+      footer: Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: `Modal.close(); SettingsView.focusDbField('${missing[0].key}')` }),
     });
   }
 
   function showDbErrorPopup(message) {
     Modal.dialog({
       title: I18n.t('dbConnFailed'),
+      icon: '⚠️',
       type: 'error',
       size: 'md',
       body: `<p class="modal-message">${escHtml(message)}</p>`,
-      footer: `<button type="button" class="btn btn-primary" onclick="Modal.close()">${I18n.t('close')}</button>`,
+      footer: Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' }),
     });
   }
 
@@ -470,8 +485,15 @@ const SettingsView = (() => {
       showDbMissingPopup(missing);
       return;
     }
-    const msg = I18n.t('dbChangeConfirm');
-    if (!confirm(msg)) return;
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmContinue'),
+      message: I18n.t('dbChangeConfirm'),
+      confirmLabel: I18n.t('applyDb'),
+      confirmIcon: '✓',
+      danger: false,
+      size: 'md',
+    });
+    if (!ok) return;
     try {
       const r = await API.post('/settings/db', getDbFormData());
       showToast(r.message, 'success');
@@ -488,8 +510,14 @@ const SettingsView = (() => {
   }
 
   async function resetDb() {
-    const msg = I18n.t('dbResetConfirm');
-    if (!confirm(msg)) return;
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmContinue'),
+      message: I18n.t('dbResetConfirm'),
+      confirmLabel: I18n.t('resetSqlite'),
+      confirmIcon: '↺',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const r = await API.post('/settings/db/reset', {});
       showToast(r.message, 'success');

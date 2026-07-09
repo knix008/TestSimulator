@@ -16,7 +16,7 @@ const LANGS = {
     backToBoards: '프로젝트 목록', addColumn: '+ 컬럼 추가', addCard: '+ 카드 추가',
     members: '멤버', summary: '요약', renameColumn: '이름 변경', deleteColumn: '컬럼 삭제',
     columnName: '컬럼 이름 *',
-    cardTitle: '제목 *', cardDesc: '설명', assignee: '담당자', dueDate: '마감일',
+    cardTitle: '제목 *', cardDesc: '설명', assignee: '담당자', changeAssignee: '담당자 지정', dueDate: '마감일',
     attachments: '첨부파일', noAttach: '첨부파일 없음', attachFile: '파일 첨부',
     cardColor: '카드 배경색', deleteCard: '카드 삭제', cardEdit: '카드 편집', addCardTitle: '카드 추가',
     memberMgmt: '멤버 관리', projectOwner: '프로젝트 소유자', addMember: '멤버 추가',
@@ -68,6 +68,12 @@ const LANGS = {
     userCreated: '사용자가 추가되었습니다.', userSaved: '저장되었습니다.', userDeleted: '삭제되었습니다.',
     userApproved: '승인되었습니다.', userRejected: '거부되었습니다.',
     confirmDeleteUser: '이 사용자를 삭제하시겠습니까?',
+    confirmTitle: '삭제 확인',
+    confirmDeleteProject: '"{name}" 프로젝트를 삭제하시겠습니까? 모든 컬럼과 카드가 함께 삭제되며 복구할 수 없습니다.',
+    confirmRemoveMember: '"{name}" 멤버를 프로젝트에서 제거하시겠습니까?',
+    confirmDeleteColumn: '이 컬럼을 삭제하시겠습니까? 포함된 모든 카드가 함께 삭제됩니다.',
+    confirmDeleteCard: '이 카드를 삭제하시겠습니까?',
+    confirmContinue: '계속하시겠습니까?',
     cannotDeleteAdmin: '관리자 계정은 삭제할 수 없습니다.',
     confirmRejectUser: '이 등록 요청을 거부하고 삭제하시겠습니까?',
     profileSaved: '프로필이 저장되었습니다.', allFieldsRequired: '모든 필드를 입력하세요.',
@@ -115,7 +121,7 @@ const LANGS = {
     backToBoards: 'Project List', addColumn: '+ Add Column', addCard: '+ Add Card',
     members: 'Members', summary: 'Summary', renameColumn: 'Rename', deleteColumn: 'Delete Column',
     columnName: 'Column Name *',
-    cardTitle: 'Title *', cardDesc: 'Description', assignee: 'Assignee', dueDate: 'Due Date',
+    cardTitle: 'Title *', cardDesc: 'Description', assignee: 'Assignee', changeAssignee: 'Assign', dueDate: 'Due Date',
     attachments: 'Attachments', noAttach: 'No attachments', attachFile: 'Attach File',
     cardColor: 'Card Color', deleteCard: 'Delete Card', cardEdit: 'Edit Card', addCardTitle: 'Add Card',
     memberMgmt: 'Member Management', projectOwner: 'Project Owner', addMember: 'Add Member',
@@ -166,6 +172,12 @@ const LANGS = {
     userCreated: 'User created.', userSaved: 'Saved.', userDeleted: 'Deleted.',
     userApproved: 'Approved.', userRejected: 'Rejected.',
     confirmDeleteUser: 'Delete this user?',
+    confirmTitle: 'Confirm Delete',
+    confirmDeleteProject: 'Delete project "{name}"? All columns and cards will be permanently removed.',
+    confirmRemoveMember: 'Remove member "{name}" from this project?',
+    confirmDeleteColumn: 'Delete this column? All cards in it will also be deleted.',
+    confirmDeleteCard: 'Delete this card?',
+    confirmContinue: 'Do you want to continue?',
     cannotDeleteAdmin: 'The administrator account cannot be deleted.',
     confirmRejectUser: 'Reject and delete this request?',
     profileSaved: 'Profile saved.', allFieldsRequired: 'All fields required.',
@@ -202,8 +214,14 @@ const LANGS = {
 const I18n = (() => {
   let lang = localStorage.getItem('kanban-lang') || 'ko';
 
-  function t(key) {
-    return (LANGS[lang] && LANGS[lang][key]) || (LANGS.ko[key]) || key;
+  function t(key, vars) {
+    let str = (LANGS[lang] && LANGS[lang][key]) || (LANGS.ko[key]) || key;
+    if (vars) {
+      Object.entries(vars).forEach(([k, v]) => {
+        str = str.replaceAll(`{${k}}`, v);
+      });
+    }
+    return str;
   }
 
   function setLang(l) {

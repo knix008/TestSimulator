@@ -10,14 +10,19 @@
     "start": "SET ELECTRON_RUN_AS_NODE=&& electron .",
     "start:web": "node server.js",
     "create-icons": "node scripts/create-icons.js",
+    "postinstall": "node scripts/install-native-deps.js",
     "build:win": "npm run create-icons && electron-builder --win",
     "build:linux": "npm run create-icons && electron-builder --linux",
-    "build:mac": "npm run create-icons && electron-builder --mac"
+    "build:mac": "npm run create-icons && electron-builder --mac",
+    "copy-installer": "node scripts/copy-installer.js"
   },
   "build": {
     "appId": "com.kanban.multios",
     "productName": "MyKanban",
     "copyright": "Copyright © 2026 SHKWON(knix008@naver.com)",
+    "afterAllArtifactBuild": "scripts/copy-installer.js",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -41,6 +46,8 @@
         }
       ],
       "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
       "fileAssociations": [
         {
           "ext": "kprj",

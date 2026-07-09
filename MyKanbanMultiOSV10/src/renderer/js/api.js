@@ -50,6 +50,20 @@ function showToast(msg, type = 'info', duration = 3000) {
 const Modal = (() => {
   const SIZES = { sm: 'modal-sm', md: 'modal-md', lg: 'modal-lg', xl: 'modal-xl' };
 
+  function btn({ label, icon = '', onclick = '', variant = 'primary', extraClass = '', type = 'button', attrs = '' }) {
+    const iconHtml = icon ? `<span class="btn-icon-label" aria-hidden="true">${icon}</span>` : '';
+    const cls = ['btn', `btn-${variant}`, extraClass].filter(Boolean).join(' ');
+    const onclickAttr = onclick ? ` onclick="${onclick}"` : '';
+    const attrsAttr = attrs ? ` ${attrs}` : '';
+    return `<button type="${type}" class="${cls}"${onclickAttr}${attrsAttr}>${iconHtml}<span class="btn-label">${escHtml(label)}</span></button>`;
+  }
+
+  function titleHtmlFromParts(title, icon) {
+    if (!title) return '';
+    const iconHtml = icon ? `<span class="modal-title-icon" aria-hidden="true">${icon}</span>` : '';
+    return `${iconHtml}<span class="modal-title-text">${escHtml(title)}</span>`;
+  }
+
   function focusModal() {
     const box = document.getElementById('modal-box');
     const input = box.querySelector('.modal-body input:not([readonly]):not([disabled]), .modal-body textarea:not([readonly]), .modal-body select:not([disabled])');
@@ -64,19 +78,26 @@ const Modal = (() => {
   }
 
   function close() {
+    if (confirmResolve) {
+      resolveConfirm(false);
+      return;
+    }
     document.getElementById('modal-overlay').classList.add('hidden');
     document.getElementById('modal-box').innerHTML = '';
     document.body.style.overflow = '';
   }
 
   function closeOnOverlay(e) {
-    if (e.target === document.getElementById('modal-overlay')) close();
+    if (e.target === document.getElementById('modal-overlay')) {
+      if (confirmResolve) resolveConfirm(false);
+      else close();
+    }
   }
 
-  function dialog({ title, titleHtml, body = '', footer = '', size = 'md', type = 'default' }) {
+  function dialog({ title, titleHtml, icon, body = '', footer = '', size = 'md', type = 'default' }) {
     const sizeClass = SIZES[size] || SIZES.md;
     const typeClass = type !== 'default' ? ` modal-${type}` : '';
-    const heading = titleHtml || (title ? escHtml(title) : '');
+    const heading = titleHtml || titleHtmlFromParts(title, icon);
     const header = heading ? `
       <div class="modal-header">
         <h2 class="modal-title" id="modal-title">${heading}</h2>
@@ -94,36 +115,98 @@ const Modal = (() => {
       </div>`);
   }
 
-  function footerCancelPrimary(primaryLabel, primaryOnclick, { left = '', cancel = true } = {}) {
+  function footerCancelPrimary(primaryLabel, primaryOnclick, { left = '', cancel = true, primaryIcon = '✓', cancelIcon = '✕' } = {}) {
     return `
       ${left ? `<div class="modal-footer-left">${left}</div>` : ''}
-      ${cancel ? `<button type="button" class="btn btn-secondary" onclick="Modal.close()">${I18n.t('cancel')}</button>` : ''}
-      <button type="button" class="btn btn-primary" onclick="${primaryOnclick}">${primaryLabel}</button>`;
+      ${cancel ? btn({ label: I18n.t('cancel'), icon: cancelIcon, variant: 'secondary', onclick: 'Modal.close()' }) : ''}
+      ${btn({ label: primaryLabel, icon: primaryIcon, variant: 'primary', onclick: primaryOnclick })}`;
+  }
+
+  let confirmResolve = null;
+  let confirmSnapshot = null;
+
+  function resolvePendingConfirm(result) {
+    if (!confirmResolve) return;
+    const resolve = confirmResolve;
+    confirmResolve = null;
+    resolve(result);
+  }
+
+  function confirm({
+    title,
+    message,
+    icon = '⚠️',
+    confirmLabel,
+    confirmIcon = '🗑️',
+    cancelIcon = '✕',
+    danger = true,
+    size = 'sm',
+  }) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('modal-overlay');
+      const wasOpen = !overlay.classList.contains('hidden');
+      confirmSnapshot = wasOpen ? document.getElementById('modal-box').innerHTML : null;
+      confirmResolve = resolve;
+      dialog({
+        title: title || I18n.t('confirmTitle'),
+        icon,
+        type: 'confirm',
+        size,
+        body: `<p class="modal-message modal-confirm-message">${escHtml(message)}</p>`,
+        footer: `
+          ${btn({ label: I18n.t('cancel'), icon: cancelIcon, variant: 'secondary', onclick: 'Modal.resolveConfirm(false)' })}
+          ${btn({
+            label: confirmLabel || I18n.t('delete'),
+            icon: confirmIcon,
+            variant: danger ? 'danger' : 'primary',
+            onclick: 'Modal.resolveConfirm(true)',
+          })}`,
+      });
+    });
+  }
+
+  function resolveConfirm(result) {
+    const snapshot = confirmSnapshot;
+    resolvePendingConfirm(result);
+    confirmSnapshot = null;
+    if (!result && snapshot) {
+      document.getElementById('modal-box').innerHTML = snapshot;
+      document.getElementById('modal-overlay').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      return;
+    }
+    document.getElementById('modal-overlay').classList.add('hidden');
+    document.getElementById('modal-box').innerHTML = '';
+    document.body.style.overflow = '';
   }
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !document.getElementById('modal-overlay').classList.contains('hidden')) close();
+    if (e.key === 'Escape' && !document.getElementById('modal-overlay').classList.contains('hidden')) {
+      if (confirmResolve) resolveConfirm(false);
+      else close();
+    }
   });
 
-  return { open, close, closeOnOverlay, dialog, footerCancelPrimary };
+  return { open, close, closeOnOverlay, dialog, btn, footerCancelPrimary, confirm, resolveConfirm };
 })();
 
 /* 오류 상세 팝업 — 내용 복사 가능, 비반전 표시 */
 function showError(title, details) {
   const text = String(details || I18n.t('unknownError'));
   Modal.dialog({
-    titleHtml: `<span class="modal-error-icon" aria-hidden="true">&#9888;</span><span>${escHtml(title || I18n.t('error'))}</span>`,
+    title: title || I18n.t('error'),
+    icon: '⚠️',
     type: 'error',
     size: 'lg',
     body: `<textarea id="err-detail-text" class="modal-error-text" readonly spellcheck="false">${escHtml(text)}</textarea>`,
     footer: `
-      <button type="button" class="btn btn-secondary" onclick="
-        const el = document.getElementById('err-detail-text');
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(el.value).then(()=>showToast(I18n.t('errorCopied'),'success'));
-        } else { el.select(); document.execCommand('copy'); showToast(I18n.t('copied'),'success'); }
-      ">&#128203; ${I18n.t('copy')}</button>
-      <button type="button" class="btn btn-primary" onclick="Modal.close()">${I18n.t('close')}</button>`,
+      ${Modal.btn({
+        label: I18n.t('copy'),
+        icon: '📋',
+        variant: 'secondary',
+        onclick: `const el=document.getElementById('err-detail-text');if(navigator.clipboard){navigator.clipboard.writeText(el.value).then(()=>showToast(I18n.t('errorCopied'),'success'));}else{el.select();document.execCommand('copy');showToast(I18n.t('copied'),'success');}`,
+      })}
+      ${Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' })}`,
   });
   requestAnimationFrame(() => {
     const el = document.getElementById('err-detail-text');

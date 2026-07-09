@@ -225,6 +225,47 @@ router.delete('/:boardId/members/:userId', requireAuth, requireProjectAccess, as
   }
 });
 
+// GET /api/boards/:boardId/assignees — project members for card assignee selection
+router.get('/:boardId/assignees', requireAuth, requireProjectAccess, async (req, res) => {
+  try {
+    const db = getDb();
+    const board = await db('boards').where({ id: req.params.boardId }).first();
+    const assignees = [];
+    const seen = new Set();
+
+    if (board?.owner_id) {
+      const owner = await db('users')
+        .where({ id: board.owner_id, status: 'active' })
+        .select('id', 'username', 'display_name')
+        .first();
+      if (owner) {
+        assignees.push(owner);
+        seen.add(owner.id);
+      }
+    }
+
+    const members = await db('board_members')
+      .join('users', 'board_members.user_id', 'users.id')
+      .where('board_members.board_id', req.params.boardId)
+      .where('users.status', 'active')
+      .select('users.id', 'users.username', 'users.display_name');
+
+    members.forEach(m => {
+      if (!seen.has(m.id)) {
+        assignees.push(m);
+        seen.add(m.id);
+      }
+    });
+
+    assignees.sort((a, b) =>
+      (a.display_name || a.username).localeCompare(b.display_name || b.username, 'ko')
+    );
+    res.json(assignees);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── COLUMNS ───────────────────────────────────────────────────────────────────
 
 router.get('/:boardId/columns', requireAuth, requireProjectAccess, async (req, res) => {

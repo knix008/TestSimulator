@@ -47,6 +47,7 @@ const AppMenu = (() => {
 
     Modal.dialog({
       title: I18n.t('programInfo'),
+      icon: 'ℹ️',
       size: 'sm',
       type: 'about',
       body: `
@@ -63,7 +64,7 @@ const AppMenu = (() => {
             <p class="about-author">${author}</p>
           </div>
         </div>`,
-      footer: `<button type="button" class="btn btn-primary" onclick="Modal.close()">${I18n.t('close')}</button>`,
+      footer: Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' }),
     });
   }
 

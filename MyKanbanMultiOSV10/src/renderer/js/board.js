@@ -106,7 +106,7 @@ const BoardView = (() => {
   let currentPermissions = null;
   let boardData = null;
   let boardsList = [];
-  let users = [];
+  let assignees = [];
   let drag = null;
   let burndownChart = null;
   let burndownChartCache = null;
@@ -269,7 +269,6 @@ const BoardView = (() => {
     try {
       const boards = await API.get('/boards');
       boardsList = boards;
-      users = await API.get('/users/active').catch(() => []);
       setStatus(I18n.t('ready')); setStatusBoard('');
 
       if (boards.length === 0) {
@@ -326,6 +325,7 @@ const BoardView = (() => {
   function showCreateBoard() {
     Modal.dialog({
       title: I18n.t('createBoard'),
+      icon: '➕',
       size: 'sm',
       body: `
       <div class="form-group">
@@ -336,7 +336,7 @@ const BoardView = (() => {
         <label>${I18n.t('boardDesc')}</label>
         <input id="new-board-desc" class="form-control" placeholder="...">
       </div>`,
-      footer: Modal.footerCancelPrimary(I18n.t('create'), 'BoardView.createBoard()'),
+      footer: Modal.footerCancelPrimary(I18n.t('create'), 'BoardView.createBoard()', { primaryIcon: '➕' }),
     });
     document.getElementById('new-board-title').focus();
     document.getElementById('new-board-title').addEventListener('keydown', e => { if (e.key === 'Enter') createBoard(); });
@@ -357,6 +357,7 @@ const BoardView = (() => {
   function editBoard(id, title, desc) {
     Modal.dialog({
       title: I18n.t('edit'),
+      icon: '✏️',
       size: 'sm',
       body: `
       <div class="form-group">
@@ -367,7 +368,7 @@ const BoardView = (() => {
         <label>${I18n.t('boardDesc')}</label>
         <input id="edit-board-desc" class="form-control" value="${escHtml(desc)}">
       </div>`,
-      footer: Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveEditBoard(${id})`),
+      footer: Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveEditBoard(${id})`, { primaryIcon: '💾' }),
     });
   }
 
@@ -384,7 +385,13 @@ const BoardView = (() => {
   }
 
   async function deleteBoard(id) {
-    if (!confirm(I18n.t('delete') + '?')) return;
+    const board = boardsList.find(b => b.id == id);
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmTitle'),
+      message: I18n.t('confirmDeleteProject', { name: board?.title || '' }),
+      confirmLabel: I18n.t('delete'),
+    });
+    if (!ok) return;
     try {
       await API.delete(`/boards/${id}`);
       showToast(I18n.t('deletedDone'), 'success');
@@ -400,7 +407,7 @@ const BoardView = (() => {
     document.getElementById('main-content').innerHTML =
       `<div id="board-view"><div class="spinner-wrap"><div class="spinner"></div></div></div>`;
     try {
-      users = await API.get('/users/active').catch(() => []);
+      assignees = await API.get(`/boards/${boardId}/assignees`).catch(() => []);
       await loadBoard();
     } catch (err) {
       document.getElementById('main-content').innerHTML = `<div class="spinner-wrap">${err.message}</div>`;
@@ -482,10 +489,34 @@ const BoardView = (() => {
       </div>`;
   }
 
+  function findCard(cardId) {
+    for (const col of boardData || []) {
+      const card = col.cards.find(c => c.id == cardId);
+      if (card) return card;
+    }
+    return null;
+  }
+
+  function assigneeOptionsHtml(selectedId, extraAssignee) {
+    const list = [...assignees];
+    if (extraAssignee?.id && !list.find(u => u.id == extraAssignee.id)) {
+      list.push(extraAssignee);
+      list.sort((a, b) =>
+        (a.display_name || a.username).localeCompare(b.display_name || b.username, 'ko')
+      );
+    }
+    return list.map(u =>
+      `<option value="${u.id}" ${selectedId == u.id ? 'selected' : ''}>${escHtml(u.display_name || u.username)}</option>`
+    ).join('');
+  }
+
   function renderCard(card, colId) {
     const dueCls = dueDateClass(card.due_date);
     const dueBadge = card.due_date ? `<span class="card-due ${dueCls}">${formatDate(card.due_date)}</span>` : '';
-    const assigneeBadge = card.assignee_name ? `<span class="card-assignee">${escHtml(card.assignee_name)}</span>` : '';
+    const assigneeInitial = card.assignee_name ? escHtml(card.assignee_name[0].toUpperCase()) : '';
+    const assigneeBadge = card.assignee_name
+      ? `<span class="card-assignee" title="${escAttr(I18n.t('assignee'))}: ${escAttr(card.assignee_name)}"><span class="card-assignee-avatar">${assigneeInitial}</span>${escHtml(card.assignee_name)}</span>`
+      : '';
     const attachBadge = card.attachment_count > 0 ? `<span class="card-attach">&#128206; ${card.attachment_count}</span>` : '';
     const colorAttr = card.color ? `data-color="${card.color}"` : '';
 
@@ -601,16 +632,13 @@ const BoardView = (() => {
   function showCardCtxMenu(e, cardId, colId) {
     e.stopPropagation();
     const perm = currentPermissions;
+    const card = findCard(cardId);
     CtxMenu.show(e, [
       { label: I18n.t('cardEdit'), icon: '✏️', tooltip: I18n.t('ctxEditCard'), action: () => openCard(cardId) },
       ...(perm.canEdit ? [
+        { label: I18n.t('changeAssignee'), icon: '👤', tooltip: I18n.t('changeAssignee'), action: () => showAssigneePicker(cardId, card?.assignee_id) },
         { type: 'sep' },
-        { label: I18n.t('deleteCard'), icon: '🗑️', tooltip: I18n.t('ctxDeleteCard'), danger: true, action: () => {
-          if (confirm(I18n.t('deleteCard') + '?')) {
-            API.delete(`/boards/${currentBoardId}/cards/${cardId}`)
-              .then(() => loadBoard()).catch(err => showError(I18n.t('deleteCardFailed'), err.message));
-          }
-        }}
+        { label: I18n.t('deleteCard'), icon: '🗑️', tooltip: I18n.t('ctxDeleteCard'), danger: true, action: () => deleteCard(cardId) }
       ] : [])
     ]);
   }
@@ -643,7 +671,12 @@ const BoardView = (() => {
   }
 
   async function deleteColumn(colId) {
-    if (!confirm(I18n.t('deleteColumn') + '?')) return;
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmTitle'),
+      message: I18n.t('confirmDeleteColumn'),
+      confirmLabel: I18n.t('delete'),
+    });
+    if (!ok) return;
     try { await API.delete(`/boards/${currentBoardId}/columns/${colId}`); await loadBoard(); }
     catch (err) { showToast(err.message, 'error'); }
   }
@@ -651,13 +684,14 @@ const BoardView = (() => {
   async function promptAddColumn() {
     Modal.dialog({
       title: I18n.t('addColumn'),
+      icon: '➕',
       size: 'sm',
       body: `
       <div class="form-group">
         <label>${I18n.t('columnName')}</label>
         <input id="new-col-title" class="form-control" autofocus>
       </div>`,
-      footer: Modal.footerCancelPrimary(I18n.t('addColumn'), 'BoardView.addColumn()'),
+      footer: Modal.footerCancelPrimary(I18n.t('addColumn'), 'BoardView.addColumn()', { primaryIcon: '➕' }),
     });
     document.getElementById('new-col-title').addEventListener('keydown', e => { if (e.key === 'Enter') addColumn(); });
   }
@@ -695,10 +729,10 @@ const BoardView = (() => {
   }
 
   function showAddCard(colId) {
-    const userOptions = users.map(u =>
-      `<option value="${u.id}">${escHtml(u.display_name || u.username)}</option>`).join('');
+    const userOptions = assigneeOptionsHtml(null);
     Modal.dialog({
       title: I18n.t('addCardTitle'),
+      icon: '📝',
       size: 'md',
       body: `
       <div class="form-group">
@@ -720,7 +754,7 @@ const BoardView = (() => {
         </div>
       </div>
       ${colorPickerHtml('')}`,
-      footer: Modal.footerCancelPrimary(I18n.t('addCardTitle'), `BoardView.createCard(${colId})`),
+      footer: Modal.footerCancelPrimary(I18n.t('addCardTitle'), `BoardView.createCard(${colId})`, { primaryIcon: '➕' }),
     });
     document.getElementById('new-card-title').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) createCard(colId); });
   }
@@ -743,8 +777,10 @@ const BoardView = (() => {
     try {
       const card = await API.get(`/boards/${currentBoardId}/cards/${cardId}`);
       const canEdit = currentPermissions.canEdit;
-      const userOptions = users.map(u =>
-        `<option value="${u.id}" ${card.assignee_id == u.id ? 'selected' : ''}>${escHtml(u.display_name || u.username)}</option>`).join('');
+      const extraAssignee = card.assignee_id && !assignees.find(u => u.id == card.assignee_id)
+        ? { id: card.assignee_id, display_name: card.assignee_name, username: card.assignee_name }
+        : null;
+      const userOptions = assigneeOptionsHtml(card.assignee_id, extraAssignee);
 
       const attachHtml = card.attachments.length > 0
         ? card.attachments.map(a => `
@@ -757,6 +793,7 @@ const BoardView = (() => {
 
       Modal.dialog({
         title: I18n.t('cardEdit'),
+        icon: '✏️',
         size: 'lg',
         body: `
         <div class="form-group">
@@ -787,9 +824,10 @@ const BoardView = (() => {
         </div>`,
         footer: canEdit
           ? Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveCard(${cardId})`, {
-              left: `<button type="button" class="btn btn-danger btn-sm" onclick="BoardView.deleteCard(${cardId})">&#128465; ${I18n.t('deleteCard')}</button>`,
+              primaryIcon: '💾',
+              left: Modal.btn({ label: I18n.t('deleteCard'), icon: '🗑️', variant: 'danger', extraClass: 'btn-sm', onclick: `BoardView.deleteCard(${cardId})` }),
             })
-          : `<button type="button" class="btn btn-primary" onclick="Modal.close()">${I18n.t('close')}</button>`,
+          : Modal.btn({ label: I18n.t('close'), icon: '✕', variant: 'primary', onclick: 'Modal.close()' }),
       });
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -809,8 +847,44 @@ const BoardView = (() => {
     } catch (err) { showToast(err.message, 'error'); }
   }
 
+  function showAssigneePicker(cardId, currentAssigneeId) {
+    const card = findCard(cardId);
+    const extraAssignee = currentAssigneeId && !assignees.find(u => u.id == currentAssigneeId) && card?.assignee_name
+      ? { id: currentAssigneeId, display_name: card.assignee_name, username: card.assignee_name }
+      : null;
+    Modal.dialog({
+      title: I18n.t('changeAssignee'),
+      icon: '👤',
+      size: 'sm',
+      body: `
+      <div class="form-group">
+        <label>${I18n.t('assignee')}</label>
+        <select id="pick-assignee" class="form-control">
+          <option value="">${I18n.t('none')}</option>
+          ${assigneeOptionsHtml(currentAssigneeId, extraAssignee)}
+        </select>
+      </div>`,
+      footer: Modal.footerCancelPrimary(I18n.t('save'), `BoardView.saveAssignee(${cardId})`, { primaryIcon: '💾' }),
+    });
+  }
+
+  async function saveAssignee(cardId) {
+    const assigneeId = document.getElementById('pick-assignee').value;
+    try {
+      await API.put(`/boards/${currentBoardId}/cards/${cardId}`, { assigneeId });
+      Modal.close();
+      showToast(I18n.t('savedDone'), 'success');
+      await loadBoard();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
   async function deleteCard(cardId) {
-    if (!confirm(I18n.t('deleteCard') + '?')) return;
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmTitle'),
+      message: I18n.t('confirmDeleteCard'),
+      confirmLabel: I18n.t('delete'),
+    });
+    if (!ok) return;
     try { await API.delete(`/boards/${currentBoardId}/cards/${cardId}`); Modal.close(); await loadBoard(); }
     catch (err) { showToast(err.message, 'error'); }
   }
@@ -866,7 +940,7 @@ const BoardView = (() => {
             <option value="editor" ${m.role==='editor'?'selected':''}>${I18n.t('roleEditor')}</option>
             <option value="viewer" ${m.role==='viewer'?'selected':''}>${I18n.t('roleViewer')}</option>
           </select>
-          <button class="btn btn-sm" style="color:var(--danger)" onclick="BoardView.removeMember(${m.id})">${I18n.t('removeBtn')}</button>
+          <button class="btn btn-sm" style="color:var(--danger)" onclick="BoardView.removeMember(${m.id},'${escAttr(m.display_name || m.username)}')">${I18n.t('removeBtn')}</button>
         </div>`).join('') || `<div style="color:var(--text-muted);font-size:13px;padding:8px">${I18n.t('noMembers')}</div>`;
 
       const nonMemberOptions = nonMembers.map(u =>
@@ -874,6 +948,7 @@ const BoardView = (() => {
 
       Modal.dialog({
         title: I18n.t('memberMgmt'),
+        icon: '👥',
         size: 'lg',
         body: `
         ${owner ? `
@@ -904,7 +979,7 @@ const BoardView = (() => {
                 <option value="viewer">${I18n.t('roleViewer')}</option>
                 <option value="admin">${I18n.t('roleAdmin')}</option>
               </select>
-              <button type="button" class="btn btn-primary btn-sm" onclick="BoardView.addMember()">${I18n.t('addMember')}</button>
+              ${Modal.btn({ label: I18n.t('addMember'), icon: '➕', variant: 'primary', extraClass: 'btn-sm', onclick: 'BoardView.addMember()' })}
             </div>
           </div>` : ''}`,
       });
@@ -928,10 +1003,19 @@ const BoardView = (() => {
     } catch (err) { showToast(err.message, 'error'); showMembers(); }
   }
 
-  async function removeMember(userId) {
+  async function removeMember(userId, memberName = '') {
+    const ok = await Modal.confirm({
+      title: I18n.t('confirmTitle'),
+      message: memberName
+        ? I18n.t('confirmRemoveMember', { name: memberName })
+        : I18n.t('confirmRemoveMember', { name: I18n.t('members') }),
+      confirmLabel: I18n.t('removeBtn'),
+    });
+    if (!ok) return;
     try {
       await API.delete(`/boards/${currentBoardId}/members/${userId}`);
       document.getElementById(`mitem-${userId}`)?.remove();
+      showToast(I18n.t('deletedDone'), 'success');
     } catch (err) { showToast(err.message, 'error'); }
   }
 
@@ -1295,7 +1379,7 @@ const BoardView = (() => {
     openBoard, loadBoard,
     showBoardCtxMenu, showListCtxMenu, showBoardAreaCtxMenu, showColumnCtxMenu, showCardCtxMenu,
     startEditColTitle, deleteColumn, promptAddColumn, addColumn,
-    showAddCard, createCard, openCard, saveCard, deleteCard,
+    showAddCard, createCard, openCard, saveCard, deleteCard, showAssigneePicker, saveAssignee,
     uploadAttachment, deleteAttachment,
     onDragStart, onDragEnd,
     showMembers, addMember, changeMemberRole, removeMember,

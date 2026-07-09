@@ -134,12 +134,13 @@ const ReportExport = (() => {
     activeCache = cache;
     Modal.dialog({
       title: I18n.t('exportReport'),
+      icon: '📄',
       size: 'sm',
       body: `<p class="modal-message">${I18n.t('exportReportDesc')}</p>`,
       footer: `
-        <button type="button" class="btn btn-secondary" onclick="ReportExport.run('md')">Markdown</button>
-        <button type="button" class="btn btn-secondary" onclick="ReportExport.run('docx')">Word</button>
-        <button type="button" class="btn btn-primary" onclick="ReportExport.run('pdf')">PDF</button>`,
+        ${Modal.btn({ label: 'Markdown', icon: '📝', variant: 'secondary', onclick: "ReportExport.run('md')" })}
+        ${Modal.btn({ label: 'Word', icon: '📃', variant: 'secondary', onclick: "ReportExport.run('docx')" })}
+        ${Modal.btn({ label: 'PDF', icon: '📕', variant: 'primary', onclick: "ReportExport.run('pdf')" })}`,
     });
   }
 

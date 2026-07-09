@@ -78,6 +78,14 @@ async function runMigrations(db) {
       t.timestamps(true, true);
     });
   } else {
+    if (!(await db.schema.hasColumn('cards', 'assignee_id'))) {
+      await db.schema.table('cards', t => {
+        t.integer('assignee_id').unsigned().references('id').inTable('users').onDelete('SET NULL');
+      });
+    }
+    if (!(await db.schema.hasColumn('cards', 'due_date'))) {
+      await db.schema.table('cards', t => { t.date('due_date'); });
+    }
     if (!(await db.schema.hasColumn('cards', 'color'))) {
       await db.schema.table('cards', t => { t.string('color', 20).nullable(); });
     }
