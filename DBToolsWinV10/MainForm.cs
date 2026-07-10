@@ -266,12 +266,9 @@ public partial class MainForm : Form
 	private TabPage tabIndexAdvisor;
 
 	private TreeView treeViewSchema;
-
-	private ListView listViewAnalysis;
-
-	private ListView listViewIndexAdvisor;
-
-	private Label lblAnalysisSummary;
+    private BufferedListView listViewAnalysis;
+    private BufferedListView listViewIndexAdvisor;
+    private Label lblAnalysisSummary;
 
 	private BufferedPropertyGrid propertyGrid = null!;
 
@@ -2856,9 +2853,9 @@ public partial class MainForm : Form
         panelToggleStrip = new Panel();
         panelCanvasInner = new Panel();
         panelCanvasChromeTop = new Panel();
-        panelCanvasChromeBody = new Panel();
         panelRulerCorner = new Panel();
         rulerHorizontal = new CanvasRuler();
+        panelCanvasChromeBody = new Panel();
         rulerVertical = new CanvasRuler();
         splitMain = new SplitContainer();
         panelCanvasHost = new Panel();
@@ -2875,10 +2872,10 @@ public partial class MainForm : Form
         tabAnalysis.SuspendLayout();
         tabIndexAdvisor.SuspendLayout();
         tabControlRight.SuspendLayout();
+        propertySortBar.SuspendLayout();
         ((ISupportInitialize)splitRightPanel).BeginInit();
         splitRightPanel.Panel1.SuspendLayout();
         splitRightPanel.Panel2.SuspendLayout();
-        propertySortBar.SuspendLayout();
         splitRightPanel.SuspendLayout();
         panelRight.SuspendLayout();
         panelCanvasArea.SuspendLayout();
@@ -2990,7 +2987,7 @@ public partial class MainForm : Form
         btnCanvasToggleRight.FlatStyle = FlatStyle.Flat;
         btnCanvasToggleRight.Location = new Point(0, 0);
         btnCanvasToggleRight.Name = "btnCanvasToggleRight";
-        btnCanvasToggleRight.Size = new Size(24, 660);
+        btnCanvasToggleRight.Size = new Size(24, 705);
         btnCanvasToggleRight.TabIndex = 0;
         btnCanvasToggleRight.TabStop = false;
         btnCanvasToggleRight.Text = "◀";
@@ -3198,37 +3195,37 @@ public partial class MainForm : Form
         // menuDbPostgres
         // 
         menuDbPostgres.Name = "menuDbPostgres";
-        menuDbPostgres.Size = new Size(136, 22);
+        menuDbPostgres.Size = new Size(172, 22);
         menuDbPostgres.Text = "PostgreSQL";
         // 
         // menuDbMySQL
         // 
         menuDbMySQL.Name = "menuDbMySQL";
-        menuDbMySQL.Size = new Size(136, 22);
+        menuDbMySQL.Size = new Size(172, 22);
         menuDbMySQL.Text = "MySQL";
         // 
         // menuDbMariaDB
         // 
         menuDbMariaDB.Name = "menuDbMariaDB";
-        menuDbMariaDB.Size = new Size(136, 22);
+        menuDbMariaDB.Size = new Size(172, 22);
         menuDbMariaDB.Text = "MariaDB";
         // 
         // menuDbSQLite
         // 
         menuDbSQLite.Name = "menuDbSQLite";
-        menuDbSQLite.Size = new Size(136, 22);
+        menuDbSQLite.Size = new Size(172, 22);
         menuDbSQLite.Text = "SQLite";
         // 
         // menuDbSqlServer
         // 
         menuDbSqlServer.Name = "menuDbSqlServer";
-        menuDbSqlServer.Size = new Size(136, 22);
+        menuDbSqlServer.Size = new Size(172, 22);
         menuDbSqlServer.Text = "SQL Server";
         // 
         // menuDbVectorDb
         // 
         menuDbVectorDb.Name = "menuDbVectorDb";
-        menuDbVectorDb.Size = new Size(136, 22);
+        menuDbVectorDb.Size = new Size(172, 22);
         menuDbVectorDb.Text = "FAISS (Vector DB)";
         menuDbVectorDb.ToolTipText = "Faiss/hnswlib 벡터 인덱스용 스키마 타입";
         // 
@@ -3287,7 +3284,7 @@ public partial class MainForm : Form
         menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuEdit, menuView, menuAnalyzeTop, menuAbout });
         menuStrip.Location = new Point(0, 0);
         menuStrip.Name = "menuStrip";
-        menuStrip.Size = new Size(1264, 24);
+        menuStrip.Size = new Size(1400, 24);
         menuStrip.TabIndex = 3;
         // 
         // btnTsNew
@@ -3404,37 +3401,37 @@ public partial class MainForm : Form
         // tsDbPostgres
         // 
         tsDbPostgres.Name = "tsDbPostgres";
-        tsDbPostgres.Size = new Size(136, 22);
+        tsDbPostgres.Size = new Size(172, 22);
         tsDbPostgres.Text = "PostgreSQL";
         // 
         // tsDbMySQL
         // 
         tsDbMySQL.Name = "tsDbMySQL";
-        tsDbMySQL.Size = new Size(136, 22);
+        tsDbMySQL.Size = new Size(172, 22);
         tsDbMySQL.Text = "MySQL";
         // 
         // tsDbMariaDB
         // 
         tsDbMariaDB.Name = "tsDbMariaDB";
-        tsDbMariaDB.Size = new Size(136, 22);
+        tsDbMariaDB.Size = new Size(172, 22);
         tsDbMariaDB.Text = "MariaDB";
         // 
         // tsDbSQLite
         // 
         tsDbSQLite.Name = "tsDbSQLite";
-        tsDbSQLite.Size = new Size(136, 22);
+        tsDbSQLite.Size = new Size(172, 22);
         tsDbSQLite.Text = "SQLite";
         // 
         // tsDbSqlServer
         // 
         tsDbSqlServer.Name = "tsDbSqlServer";
-        tsDbSqlServer.Size = new Size(136, 22);
+        tsDbSqlServer.Size = new Size(172, 22);
         tsDbSqlServer.Text = "SQL Server";
         // 
         // tsDbVectorDb
         // 
         tsDbVectorDb.Name = "tsDbVectorDb";
-        tsDbVectorDb.Size = new Size(136, 22);
+        tsDbVectorDb.Size = new Size(172, 22);
         tsDbVectorDb.Text = "FAISS (Vector DB)";
         tsDbVectorDb.ToolTipText = "Faiss/hnswlib 벡터 인덱스용 스키마 타입";
         // 
@@ -3460,7 +3457,7 @@ public partial class MainForm : Form
         toolStrip.Items.AddRange(new ToolStripItem[] { btnTsNew, btnTsOpen, btnTsOpenDatabase, btnTsSave, btnTsSaveAs, tsSep1, btnTsAddTable, btnTsAddRel, tsSep2, btnTsZoomIn, btnTsZoomOut, btnTsFitAll, tsSep3, btnTsToggleRight, btnTsAnalyze, btnTsWriteReport, tsSep4, tsDbType, btnTsAbout });
         toolStrip.Location = new Point(0, 24);
         toolStrip.Name = "toolStrip";
-        toolStrip.Size = new Size(1264, 25);
+        toolStrip.Size = new Size(1400, 25);
         toolStrip.TabIndex = 2;
         // 
         // grpTools
@@ -3496,7 +3493,7 @@ public partial class MainForm : Form
         grpView.Controls.Add(btnZoomOut);
         grpView.Controls.Add(btnZoomIn);
         grpView.Dock = DockStyle.Top;
-        grpView.Location = new Point(2, 266);
+        grpView.Location = new Point(2, 262);
         grpView.Name = "grpView";
         grpView.Padding = new Padding(4, 2, 4, 4);
         grpView.Size = new Size(48, 150);
@@ -3515,50 +3512,50 @@ public partial class MainForm : Form
         panelToolBox.MinimumSize = new Size(52, 0);
         panelToolBox.Name = "panelToolBox";
         panelToolBox.Padding = new Padding(2, 4, 2, 4);
-        panelToolBox.Size = new Size(52, 690);
+        panelToolBox.Size = new Size(52, 729);
         panelToolBox.TabIndex = 1;
         // 
         // treeViewSchema
         // 
-        treeViewSchema.Dock = DockStyle.Fill;
         treeViewSchema.BorderStyle = BorderStyle.None;
+        treeViewSchema.Dock = DockStyle.Fill;
         treeViewSchema.HideSelection = false;
         treeViewSchema.Location = new Point(0, 0);
         treeViewSchema.Name = "treeViewSchema";
         treeViewSchema.ShowNodeToolTips = true;
-        treeViewSchema.Size = new Size(384, 422);
+        treeViewSchema.Size = new Size(312, 336);
         treeViewSchema.TabIndex = 0;
         // 
         // listViewAnalysis
         // 
-        listViewAnalysis.Dock = DockStyle.Fill;
         listViewAnalysis.BorderStyle = BorderStyle.None;
+        listViewAnalysis.Dock = DockStyle.Fill;
         listViewAnalysis.FullRowSelect = true;
         listViewAnalysis.Location = new Point(0, 0);
         listViewAnalysis.Name = "listViewAnalysis";
-        listViewAnalysis.Size = new Size(384, 811);
+        listViewAnalysis.Size = new Size(292, 72);
         listViewAnalysis.TabIndex = 0;
         listViewAnalysis.UseCompatibleStateImageBehavior = false;
         listViewAnalysis.View = View.Details;
-        //
+        // 
         // listViewIndexAdvisor
-        //
-        listViewIndexAdvisor.Dock = DockStyle.Fill;
+        // 
         listViewIndexAdvisor.BorderStyle = BorderStyle.None;
+        listViewIndexAdvisor.Dock = DockStyle.Fill;
         listViewIndexAdvisor.FullRowSelect = true;
         listViewIndexAdvisor.Location = new Point(0, 0);
         listViewIndexAdvisor.Name = "listViewIndexAdvisor";
-        listViewIndexAdvisor.Size = new Size(384, 811);
+        listViewIndexAdvisor.Size = new Size(292, 72);
         listViewIndexAdvisor.TabIndex = 0;
         listViewIndexAdvisor.UseCompatibleStateImageBehavior = false;
         listViewIndexAdvisor.View = View.Details;
-        //
+        // 
         // tabTreeView
         // 
         tabTreeView.Controls.Add(treeViewSchema);
         tabTreeView.Location = new Point(4, 24);
         tabTreeView.Name = "tabTreeView";
-        tabTreeView.Size = new Size(292, 72);
+        tabTreeView.Size = new Size(312, 336);
         tabTreeView.TabIndex = 0;
         tabTreeView.Text = "구조";
         // 
@@ -3567,21 +3564,21 @@ public partial class MainForm : Form
         tabAnalysis.Controls.Add(listViewAnalysis);
         tabAnalysis.Location = new Point(4, 24);
         tabAnalysis.Name = "tabAnalysis";
-        tabAnalysis.Size = new Size(292, 461);
+        tabAnalysis.Size = new Size(292, 72);
         tabAnalysis.TabIndex = 1;
         tabAnalysis.Text = "정규화 분석";
-        //
+        // 
         // tabIndexAdvisor
-        //
+        // 
         tabIndexAdvisor.Controls.Add(listViewIndexAdvisor);
         tabIndexAdvisor.Location = new Point(4, 24);
         tabIndexAdvisor.Name = "tabIndexAdvisor";
-        tabIndexAdvisor.Size = new Size(292, 461);
+        tabIndexAdvisor.Size = new Size(292, 72);
         tabIndexAdvisor.TabIndex = 2;
         tabIndexAdvisor.Text = "인덱스 어드바이저";
-        //
+        // 
         // tabControlRight
-        //
+        // 
         tabControlRight.Controls.Add(tabTreeView);
         tabControlRight.Controls.Add(tabAnalysis);
         tabControlRight.Controls.Add(tabIndexAdvisor);
@@ -3589,34 +3586,32 @@ public partial class MainForm : Form
         tabControlRight.Location = new Point(0, 0);
         tabControlRight.Name = "tabControlRight";
         tabControlRight.SelectedIndex = 0;
-        tabControlRight.Size = new Size(300, 100);
+        tabControlRight.Size = new Size(320, 364);
         tabControlRight.TabIndex = 0;
         // 
         // propertyGrid
         // 
+        propertyGrid.BackColor = SystemColors.Control;
         propertyGrid.Dock = DockStyle.Fill;
         propertyGrid.HelpVisible = false;
         propertyGrid.Location = new Point(0, 25);
         propertyGrid.Name = "propertyGrid";
-        propertyGrid.Size = new Size(300, 212);
+        propertyGrid.Size = new Size(320, 336);
         propertyGrid.TabIndex = 0;
         propertyGrid.ToolbarVisible = false;
-        propertyGrid.PropertySort = PropertySort.CategorizedAlphabetical;
         // 
         // propertySortBar
         // 
-        propertySortBar.Dock = DockStyle.Top;
         propertySortBar.GripStyle = ToolStripGripStyle.Hidden;
         propertySortBar.Items.AddRange(new ToolStripItem[] { btnPropertySortCategory, btnPropertySortAlphabetical });
         propertySortBar.Location = new Point(0, 0);
         propertySortBar.Name = "propertySortBar";
-        propertySortBar.Size = new Size(300, 25);
+        propertySortBar.Size = new Size(320, 25);
         propertySortBar.TabIndex = 1;
         // 
         // btnPropertySortCategory
         // 
         btnPropertySortCategory.CheckOnClick = true;
-        btnPropertySortCategory.Checked = false;
         btnPropertySortCategory.DisplayStyle = ToolStripItemDisplayStyle.Text;
         btnPropertySortCategory.Name = "btnPropertySortCategory";
         btnPropertySortCategory.Size = new Size(47, 22);
@@ -3625,8 +3620,9 @@ public partial class MainForm : Form
         // 
         // btnPropertySortAlphabetical
         // 
-        btnPropertySortAlphabetical.CheckOnClick = true;
         btnPropertySortAlphabetical.Checked = true;
+        btnPropertySortAlphabetical.CheckOnClick = true;
+        btnPropertySortAlphabetical.CheckState = CheckState.Checked;
         btnPropertySortAlphabetical.DisplayStyle = ToolStripItemDisplayStyle.Text;
         btnPropertySortAlphabetical.Name = "btnPropertySortAlphabetical";
         btnPropertySortAlphabetical.Size = new Size(47, 22);
@@ -3650,8 +3646,8 @@ public partial class MainForm : Form
         splitRightPanel.Panel2.Controls.Add(propertyGrid);
         splitRightPanel.Panel2.Controls.Add(propertySortBar);
         splitRightPanel.Panel2MinSize = 80;
-        splitRightPanel.Size = new Size(300, 690);
-        splitRightPanel.SplitterDistance = 345;
+        splitRightPanel.Size = new Size(320, 729);
+        splitRightPanel.SplitterDistance = 364;
         splitRightPanel.TabIndex = 0;
         // 
         // panelRight
@@ -3660,7 +3656,7 @@ public partial class MainForm : Form
         panelRight.Dock = DockStyle.Fill;
         panelRight.Location = new Point(0, 0);
         panelRight.Name = "panelRight";
-        panelRight.Size = new Size(300, 690);
+        panelRight.Size = new Size(320, 729);
         panelRight.TabIndex = 0;
         // 
         // diagramCanvas
@@ -3669,7 +3665,7 @@ public partial class MainForm : Form
         diagramCanvas.Dock = DockStyle.Fill;
         diagramCanvas.Location = new Point(0, 0);
         diagramCanvas.Name = "diagramCanvas";
-        diagramCanvas.Size = new Size(830, 660);
+        diagramCanvas.Size = new Size(1000, 705);
         diagramCanvas.TabIndex = 0;
         // 
         // panelCanvasArea
@@ -3678,16 +3674,16 @@ public partial class MainForm : Form
         panelCanvasArea.Dock = DockStyle.Fill;
         panelCanvasArea.Location = new Point(0, 0);
         panelCanvasArea.Name = "panelCanvasArea";
-        panelCanvasArea.Size = new Size(830, 660);
+        panelCanvasArea.Size = new Size(1000, 705);
         panelCanvasArea.TabIndex = 0;
         // 
         // panelToggleStrip
         // 
         panelToggleStrip.Controls.Add(btnCanvasToggleRight);
         panelToggleStrip.Dock = DockStyle.Right;
-        panelToggleStrip.Location = new Point(830, 0);
+        panelToggleStrip.Location = new Point(1000, 0);
         panelToggleStrip.Name = "panelToggleStrip";
-        panelToggleStrip.Size = new Size(24, 660);
+        panelToggleStrip.Size = new Size(24, 705);
         panelToggleStrip.TabIndex = 1;
         // 
         // panelCanvasInner
@@ -3695,9 +3691,9 @@ public partial class MainForm : Form
         panelCanvasInner.Controls.Add(panelCanvasArea);
         panelCanvasInner.Controls.Add(panelToggleStrip);
         panelCanvasInner.Dock = DockStyle.Fill;
-        panelCanvasInner.Location = new Point(28, 0);
+        panelCanvasInner.Location = new Point(0, 0);
         panelCanvasInner.Name = "panelCanvasInner";
-        panelCanvasInner.Size = new Size(860, 666);
+        panelCanvasInner.Size = new Size(1024, 705);
         panelCanvasInner.TabIndex = 1;
         // 
         // panelCanvasChromeTop
@@ -3707,19 +3703,8 @@ public partial class MainForm : Form
         panelCanvasChromeTop.Dock = DockStyle.Top;
         panelCanvasChromeTop.Location = new Point(0, 0);
         panelCanvasChromeTop.Name = "panelCanvasChromeTop";
-        panelCanvasChromeTop.Size = new Size(888, 24);
+        panelCanvasChromeTop.Size = new Size(1024, 24);
         panelCanvasChromeTop.TabIndex = 0;
-        panelCanvasChromeTop.Height = 24;
-        // 
-        // panelCanvasChromeBody
-        // 
-        panelCanvasChromeBody.Controls.Add(rulerVertical);
-        panelCanvasChromeBody.Controls.Add(panelCanvasInner);
-        panelCanvasChromeBody.Dock = DockStyle.Fill;
-        panelCanvasChromeBody.Location = new Point(0, 24);
-        panelCanvasChromeBody.Name = "panelCanvasChromeBody";
-        panelCanvasChromeBody.Size = new Size(888, 666);
-        panelCanvasChromeBody.TabIndex = 1;
         // 
         // panelRulerCorner
         // 
@@ -3734,11 +3719,20 @@ public partial class MainForm : Form
         // 
         rulerHorizontal.BackColor = Color.FromArgb(248, 249, 251);
         rulerHorizontal.Dock = DockStyle.Fill;
-        rulerHorizontal.Location = new Point(28, 0);
+        rulerHorizontal.Location = new Point(0, 0);
         rulerHorizontal.Name = "rulerHorizontal";
-        rulerHorizontal.Orientation = RulerOrientation.Horizontal;
-        rulerHorizontal.Size = new Size(860, 24);
+        rulerHorizontal.Size = new Size(1024, 24);
         rulerHorizontal.TabIndex = 1;
+        // 
+        // panelCanvasChromeBody
+        // 
+        panelCanvasChromeBody.Controls.Add(rulerVertical);
+        panelCanvasChromeBody.Controls.Add(panelCanvasInner);
+        panelCanvasChromeBody.Dock = DockStyle.Fill;
+        panelCanvasChromeBody.Location = new Point(0, 24);
+        panelCanvasChromeBody.Name = "panelCanvasChromeBody";
+        panelCanvasChromeBody.Size = new Size(1024, 705);
+        panelCanvasChromeBody.TabIndex = 1;
         // 
         // rulerVertical
         // 
@@ -3746,8 +3740,7 @@ public partial class MainForm : Form
         rulerVertical.Dock = DockStyle.Left;
         rulerVertical.Location = new Point(0, 0);
         rulerVertical.Name = "rulerVertical";
-        rulerVertical.Orientation = RulerOrientation.Vertical;
-        rulerVertical.Size = new Size(28, 666);
+        rulerVertical.Size = new Size(28, 705);
         rulerVertical.TabIndex = 0;
         // 
         // splitMain
@@ -3756,7 +3749,6 @@ public partial class MainForm : Form
         splitMain.FixedPanel = FixedPanel.Panel2;
         splitMain.Location = new Point(52, 0);
         splitMain.Name = "splitMain";
-        splitMain.Orientation = Orientation.Vertical;
         // 
         // splitMain.Panel1
         // 
@@ -3767,8 +3759,8 @@ public partial class MainForm : Form
         // 
         splitMain.Panel2.Controls.Add(panelRight);
         splitMain.Panel2MinSize = 260;
-        splitMain.Size = new Size(1212, 690);
-        splitMain.SplitterDistance = 888;
+        splitMain.Size = new Size(1348, 729);
+        splitMain.SplitterDistance = 1024;
         splitMain.TabIndex = 3;
         // 
         // panelCanvasHost
@@ -3778,7 +3770,7 @@ public partial class MainForm : Form
         panelCanvasHost.Dock = DockStyle.Fill;
         panelCanvasHost.Location = new Point(0, 0);
         panelCanvasHost.Name = "panelCanvasHost";
-        panelCanvasHost.Size = new Size(888, 690);
+        panelCanvasHost.Size = new Size(1024, 729);
         panelCanvasHost.TabIndex = 0;
         // 
         // panelContent
@@ -3788,22 +3780,22 @@ public partial class MainForm : Form
         panelContent.Dock = DockStyle.Fill;
         panelContent.Location = new Point(0, 49);
         panelContent.Name = "panelContent";
-        panelContent.Size = new Size(1264, 690);
+        panelContent.Size = new Size(1400, 729);
         panelContent.TabIndex = 0;
         // 
         // statusLabel
         // 
         statusLabel.Name = "statusLabel";
-        statusLabel.Size = new Size(1249, 17);
+        statusLabel.Size = new Size(1385, 17);
         statusLabel.Spring = true;
         statusLabel.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // statusStrip
         // 
         statusStrip.Items.AddRange(new ToolStripItem[] { statusLabel });
-        statusStrip.Location = new Point(0, 739);
+        statusStrip.Location = new Point(0, 778);
         statusStrip.Name = "statusStrip";
-        statusStrip.Size = new Size(1264, 22);
+        statusStrip.Size = new Size(1400, 22);
         statusStrip.TabIndex = 1;
         // 
         // MainForm
@@ -3831,11 +3823,11 @@ public partial class MainForm : Form
         tabAnalysis.ResumeLayout(false);
         tabIndexAdvisor.ResumeLayout(false);
         tabControlRight.ResumeLayout(false);
+        propertySortBar.ResumeLayout(false);
+        propertySortBar.PerformLayout();
         splitRightPanel.Panel1.ResumeLayout(false);
         splitRightPanel.Panel2.ResumeLayout(false);
         splitRightPanel.Panel2.PerformLayout();
-        propertySortBar.ResumeLayout(false);
-        propertySortBar.PerformLayout();
         ((ISupportInitialize)splitRightPanel).EndInit();
         splitRightPanel.ResumeLayout(false);
         panelRight.ResumeLayout(false);
