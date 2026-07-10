@@ -58,6 +58,16 @@ public class ErrorDialog : Form
 		{
 			CenterButtonPanel();
 		};
+		ModernTheme.ApplyThemeToForm(this);
+		Localize();
+	}
+
+	private void Localize()
+	{
+		Text                    = L.S("ErrorTitle",    "오류");
+		lblDetailsCaption.Text  = L.S("ErrorDetails",  "상세 내용");
+		btnCopy.Text            = L.S("ErrorBtnCopy",  "전체 복사");
+		btnClose.Text           = L.S("ErrorBtnClose", "닫기");
 	}
 
 	private void ApplyLayout(bool hasDetails)
@@ -112,12 +122,12 @@ public class ErrorDialog : Form
 		try
 		{
 			ClipboardHelper.SetText(_clipboardText);
-			btnCopy.Text = "복사됨";
+			btnCopy.Text = L.S("ErrorCopied", "복사됨");
 		}
 		catch (Exception ex)
 		{
-			btnCopy.Text = "복사 실패";
-			MessageBox.Show(this, ex.Message, "클립보드", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+			btnCopy.Text = L.S("ErrorCopyFailed", "복사 실패");
+			MessageBox.Show(this, ex.Message, L.S("ErrorClipboard", "클립보드"), MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 		}
 	}
 
@@ -135,100 +145,144 @@ public class ErrorDialog : Form
 		base.Dispose(disposing);
 	}
 
-	private void InitializeComponent()
-	{
-		this.lblSummary = new System.Windows.Forms.Label();
-		this.lblDetailsCaption = new System.Windows.Forms.Label();
-		this.txtDetails = new System.Windows.Forms.TextBox();
-		this.btnCopy = new System.Windows.Forms.Button();
-		this.btnClose = new System.Windows.Forms.Button();
-		this.panelButtons = new System.Windows.Forms.Panel();
-		this.panelContent = new System.Windows.Forms.Panel();
-		this.flowButtons = new System.Windows.Forms.FlowLayoutPanel();
-		this.panelContent.SuspendLayout();
-		this.panelButtons.SuspendLayout();
-		this.flowButtons.SuspendLayout();
-		base.SuspendLayout();
-		this.lblSummary.Dock = System.Windows.Forms.DockStyle.Top;
-		this.lblSummary.Font = new System.Drawing.Font("Segoe UI", 9.5f, System.Drawing.FontStyle.Bold);
-		this.lblSummary.ForeColor = System.Drawing.Color.FromArgb(17, 24, 39);
-		this.lblSummary.Name = "lblSummary";
-		this.lblSummary.Padding = new System.Windows.Forms.Padding(0, 0, 0, 6);
-		this.lblSummary.Text = "오류가 발생했습니다.";
-		this.lblDetailsCaption.AutoSize = true;
-		this.lblDetailsCaption.Dock = System.Windows.Forms.DockStyle.Top;
-		this.lblDetailsCaption.Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
-		this.lblDetailsCaption.ForeColor = System.Drawing.Color.FromArgb(75, 85, 99);
-		this.lblDetailsCaption.Name = "lblDetailsCaption";
-		this.lblDetailsCaption.Padding = new System.Windows.Forms.Padding(0, 0, 0, 4);
-		this.lblDetailsCaption.Text = "상세 내용";
-		this.txtDetails.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
-		this.txtDetails.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-		this.txtDetails.Dock = System.Windows.Forms.DockStyle.Top;
-		this.txtDetails.Font = new System.Drawing.Font("Consolas", 8.75f);
-		this.txtDetails.ForeColor = System.Drawing.Color.FromArgb(31, 41, 55);
-		this.txtDetails.Height = 220;
-		this.txtDetails.Multiline = true;
-		this.txtDetails.Name = "txtDetails";
-		this.txtDetails.ReadOnly = true;
-		this.txtDetails.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-		this.txtDetails.TabStop = false;
-		this.txtDetails.WordWrap = false;
-		this.panelContent.Controls.Add(this.txtDetails);
-		this.panelContent.Controls.Add(this.lblDetailsCaption);
-		this.panelContent.Controls.Add(this.lblSummary);
-		this.panelContent.Dock = System.Windows.Forms.DockStyle.Fill;
-		this.panelContent.Name = "panelContent";
-		this.panelContent.Padding = new System.Windows.Forms.Padding(12, 12, 12, 8);
-		this.panelContent.Size = new System.Drawing.Size(520, 300);
-		this.btnCopy.Name = "btnCopy";
-		this.btnCopy.Size = new System.Drawing.Size(96, 30);
-		this.btnCopy.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
-		this.btnCopy.Text = "전체 복사";
-		this.btnCopy.UseVisualStyleBackColor = true;
-		this.btnCopy.Click += new System.EventHandler(BtnCopy_Click);
-		this.btnClose.DialogResult = System.Windows.Forms.DialogResult.OK;
-		this.btnClose.Name = "btnClose";
-		this.btnClose.Size = new System.Drawing.Size(96, 30);
-		this.btnClose.Margin = new System.Windows.Forms.Padding(0);
-		this.btnClose.Text = "닫기";
-		this.btnClose.UseVisualStyleBackColor = true;
-		this.btnClose.Click += new System.EventHandler(BtnClose_Click);
-		this.flowButtons.AutoSize = true;
-		this.flowButtons.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-		this.flowButtons.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
-		this.flowButtons.Name = "flowButtons";
-		this.flowButtons.WrapContents = false;
-		this.flowButtons.Controls.Add(this.btnCopy);
-		this.flowButtons.Controls.Add(this.btnClose);
-		this.panelButtons.Controls.Add(this.flowButtons);
-		this.panelButtons.Dock = System.Windows.Forms.DockStyle.Bottom;
-		this.panelButtons.Name = "panelButtons";
-		this.panelButtons.Padding = new System.Windows.Forms.Padding(12, 10, 12, 10);
-		this.panelButtons.Size = new System.Drawing.Size(520, 52);
-		base.AcceptButton = this.btnClose;
-		base.AutoScaleDimensions = new System.Drawing.SizeF(7f, 15f);
-		base.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-		this.BackColor = System.Drawing.Color.FromArgb(250, 251, 253);
-		base.CancelButton = this.btnClose;
-		base.ClientSize = new System.Drawing.Size(544, 360);
-		base.Controls.Add(this.panelContent);
-		base.Controls.Add(this.panelButtons);
-		this.Font = new System.Drawing.Font("Segoe UI", 9f);
-		base.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Sizable;
-		base.MaximizeBox = false;
-		base.MinimizeBox = false;
-		this.MinimumSize = new System.Drawing.Size(380, 220);
-		base.Name = "ErrorDialog";
-		base.ShowIcon = false;
-		base.ShowInTaskbar = false;
-		base.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-		this.Text = "오류";
-		this.panelContent.ResumeLayout(false);
-		this.panelContent.PerformLayout();
-		this.flowButtons.ResumeLayout(false);
-		this.flowButtons.PerformLayout();
-		this.panelButtons.ResumeLayout(false);
-		base.ResumeLayout(false);
-	}
+    private void InitializeComponent()
+    {
+        lblSummary = new Label();
+        lblDetailsCaption = new Label();
+        txtDetails = new TextBox();
+        btnCopy = new Button();
+        btnClose = new Button();
+        panelButtons = new Panel();
+        flowButtons = new FlowLayoutPanel();
+        panelContent = new Panel();
+        panelButtons.SuspendLayout();
+        flowButtons.SuspendLayout();
+        panelContent.SuspendLayout();
+        SuspendLayout();
+        // 
+        // lblSummary
+        // 
+        lblSummary.Dock = DockStyle.Top;
+        lblSummary.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        lblSummary.ForeColor = Color.FromArgb(17, 24, 39);
+        lblSummary.Location = new Point(12, 12);
+        lblSummary.Name = "lblSummary";
+        lblSummary.Padding = new Padding(0, 0, 0, 6);
+        lblSummary.Size = new Size(520, 23);
+        lblSummary.TabIndex = 2;
+        lblSummary.Text = "오류가 발생했습니다.";
+        // 
+        // lblDetailsCaption
+        // 
+        lblDetailsCaption.AutoSize = true;
+        lblDetailsCaption.Dock = DockStyle.Top;
+        lblDetailsCaption.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        lblDetailsCaption.ForeColor = Color.FromArgb(75, 85, 99);
+        lblDetailsCaption.Location = new Point(12, 35);
+        lblDetailsCaption.Name = "lblDetailsCaption";
+        lblDetailsCaption.Padding = new Padding(0, 0, 0, 4);
+        lblDetailsCaption.Size = new Size(58, 19);
+        lblDetailsCaption.TabIndex = 1;
+        lblDetailsCaption.Text = "상세 내용";
+        // 
+        // txtDetails
+        // 
+        txtDetails.BackColor = Color.FromArgb(248, 250, 252);
+        txtDetails.BorderStyle = BorderStyle.FixedSingle;
+        txtDetails.Dock = DockStyle.Top;
+        txtDetails.Font = new Font("Consolas", 8.75F);
+        txtDetails.ForeColor = Color.FromArgb(31, 41, 55);
+        txtDetails.Location = new Point(12, 54);
+        txtDetails.Multiline = true;
+        txtDetails.Name = "txtDetails";
+        txtDetails.ReadOnly = true;
+        txtDetails.ScrollBars = ScrollBars.Vertical;
+        txtDetails.Size = new Size(520, 220);
+        txtDetails.TabIndex = 0;
+        txtDetails.TabStop = false;
+        txtDetails.WordWrap = false;
+        // 
+        // btnCopy
+        // 
+        btnCopy.Location = new Point(0, 0);
+        btnCopy.Margin = new Padding(0, 0, 8, 0);
+        btnCopy.Name = "btnCopy";
+        btnCopy.Size = new Size(96, 30);
+        btnCopy.TabIndex = 0;
+        btnCopy.Text = "전체 복사";
+        btnCopy.UseVisualStyleBackColor = true;
+        btnCopy.Click += BtnCopy_Click;
+        // 
+        // btnClose
+        // 
+        btnClose.DialogResult = DialogResult.OK;
+        btnClose.Location = new Point(104, 0);
+        btnClose.Margin = new Padding(0);
+        btnClose.Name = "btnClose";
+        btnClose.Size = new Size(96, 30);
+        btnClose.TabIndex = 1;
+        btnClose.Text = "닫기";
+        btnClose.UseVisualStyleBackColor = true;
+        btnClose.Click += BtnClose_Click;
+        // 
+        // panelButtons
+        // 
+        panelButtons.Controls.Add(flowButtons);
+        panelButtons.Dock = DockStyle.Bottom;
+        panelButtons.Location = new Point(0, 308);
+        panelButtons.Name = "panelButtons";
+        panelButtons.Padding = new Padding(12, 10, 12, 10);
+        panelButtons.Size = new Size(544, 52);
+        panelButtons.TabIndex = 1;
+        // 
+        // flowButtons
+        // 
+        flowButtons.AutoSize = true;
+        flowButtons.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        flowButtons.Controls.Add(btnCopy);
+        flowButtons.Controls.Add(btnClose);
+        flowButtons.Location = new Point(0, 0);
+        flowButtons.Name = "flowButtons";
+        flowButtons.Size = new Size(200, 30);
+        flowButtons.TabIndex = 0;
+        flowButtons.WrapContents = false;
+        // 
+        // panelContent
+        // 
+        panelContent.Controls.Add(txtDetails);
+        panelContent.Controls.Add(lblDetailsCaption);
+        panelContent.Controls.Add(lblSummary);
+        panelContent.Dock = DockStyle.Fill;
+        panelContent.Location = new Point(0, 0);
+        panelContent.Name = "panelContent";
+        panelContent.Padding = new Padding(12, 12, 12, 8);
+        panelContent.Size = new Size(544, 308);
+        panelContent.TabIndex = 0;
+        // 
+        // ErrorDialog
+        // 
+        AcceptButton = btnClose;
+        AutoScaleDimensions = new SizeF(7F, 15F);
+        AutoScaleMode = AutoScaleMode.Font;
+        BackColor = Color.FromArgb(250, 251, 253);
+        CancelButton = btnClose;
+        ClientSize = new Size(544, 360);
+        Controls.Add(panelContent);
+        Controls.Add(panelButtons);
+        Font = new Font("Segoe UI", 9F);
+        MaximizeBox = false;
+        MinimizeBox = false;
+        MinimumSize = new Size(380, 220);
+        Name = "ErrorDialog";
+        ShowIcon = false;
+        ShowInTaskbar = false;
+        StartPosition = FormStartPosition.CenterParent;
+        Text = "오류";
+        panelButtons.ResumeLayout(false);
+        panelButtons.PerformLayout();
+        flowButtons.ResumeLayout(false);
+        panelContent.ResumeLayout(false);
+        panelContent.PerformLayout();
+        ResumeLayout(false);
+    }
 }

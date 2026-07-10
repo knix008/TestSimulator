@@ -13,6 +13,10 @@ internal static class Program
 	private static void Main(string[] args)
 	{
 		UiThread.EnsureSta();
+		L.Init(AppSettings.GetLanguage());
+		ModernTheme.SetTheme(AppSettings.GetTheme() == "dark"
+			? ModernTheme.ThemeKind.Dark
+			: ModernTheme.ThemeKind.Light);
 		ApplicationConfiguration.Initialize();
 		Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
 		Application.ThreadException += delegate(object _, ThreadExceptionEventArgs e)

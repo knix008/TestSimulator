@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using DBToolsWinV10.App;
 
 namespace DBToolsWinV10.Models;
 
@@ -8,64 +9,64 @@ public class DbColumn
 	[Browsable(false)]
 	public Guid Id { get; set; } = Guid.NewGuid();
 
-	[Category("일반")]
-	[Description("컬럼 이름")]
-	[DisplayName("이름")]
+	[LCategory("PgCatGeneral", "일반")]
+	[LDescription("PgDescColName", "컬럼 이름")]
+	[LDisplayName("PgName", "이름")]
 	public string Name { get; set; } = "column";
 
-	[Category("일반")]
-	[Description("데이터 타입")]
-	[DisplayName("데이터 타입")]
+	[LCategory("PgCatGeneral", "일반")]
+	[LDescription("PgDescDataType", "데이터 타입")]
+	[LDisplayName("PgDataType", "데이터 타입")]
 	public string DataType { get; set; } = "VARCHAR";
 
-	[Category("일반")]
-	[Description("길이 (VARCHAR 등에 적용)")]
-	[DisplayName("길이")]
+	[LCategory("PgCatGeneral", "일반")]
+	[LDescription("PgDescLength", "길이 (VARCHAR 등에 적용)")]
+	[LDisplayName("PgLength", "길이")]
 	public int? Length { get; set; }
 
-	[Category("일반")]
-	[Description("정밀도 (DECIMAL 등에 적용)")]
-	[DisplayName("정밀도")]
+	[LCategory("PgCatGeneral", "일반")]
+	[LDescription("PgDescPrecision", "정밀도 (DECIMAL 등에 적용)")]
+	[LDisplayName("PgPrecision", "정밀도")]
 	public int? Precision { get; set; }
 
-	[Category("일반")]
-	[Description("스케일 (DECIMAL 등에 적용)")]
-	[DisplayName("스케일")]
+	[LCategory("PgCatGeneral", "일반")]
+	[LDescription("PgDescScale", "스케일 (DECIMAL 등에 적용)")]
+	[LDisplayName("PgScale", "스케일")]
 	public int? Scale { get; set; }
 
-	[Category("제약조건")]
-	[Description("기본 키 여부")]
-	[DisplayName("기본 키")]
+	[LCategory("PgCatConstraints", "제약조건")]
+	[LDescription("PgDescIsPK", "기본 키 여부")]
+	[LDisplayName("PgPrimaryKey", "기본 키")]
 	public bool IsPrimaryKey { get; set; }
 
-	[Category("제약조건")]
-	[Description("자동 증가 여부 (PK에만 적용)")]
-	[DisplayName("자동 증가")]
+	[LCategory("PgCatConstraints", "제약조건")]
+	[LDescription("PgDescIsAI", "자동 증가 여부 (PK에만 적용)")]
+	[LDisplayName("PgAutoIncrement", "자동 증가")]
 	public bool IsAutoIncrement { get; set; }
 
-	[Category("제약조건")]
-	[Description("NULL 허용 여부")]
-	[DisplayName("NULL 허용")]
+	[LCategory("PgCatConstraints", "제약조건")]
+	[LDescription("PgDescIsNull", "NULL 허용 여부")]
+	[LDisplayName("PgAllowNull", "NULL 허용")]
 	public bool IsNullable { get; set; } = true;
 
-	[Category("제약조건")]
-	[Description("유니크 제약조건 여부")]
-	[DisplayName("유니크")]
+	[LCategory("PgCatConstraints", "제약조건")]
+	[LDescription("PgDescIsUnique", "유니크 제약조건 여부")]
+	[LDisplayName("PgUnique", "유니크")]
 	public bool IsUnique { get; set; }
 
-	[Category("제약조건")]
-	[Description("외래 키 여부")]
-	[DisplayName("외래 키")]
+	[LCategory("PgCatConstraints", "제약조건")]
+	[LDescription("PgDescIsFK", "외래 키 여부")]
+	[LDisplayName("PgForeignKey", "외래 키")]
 	public bool IsForeignKey { get; set; }
 
-	[Category("제약조건")]
-	[Description("기본값")]
-	[DisplayName("기본값")]
+	[LCategory("PgCatConstraints", "제약조건")]
+	[LDescription("PgDescDefault", "기본값")]
+	[LDisplayName("PgDefaultValue", "기본값")]
 	public string DefaultValue { get; set; }
 
-	[Category("정보")]
-	[Description("컬럼 설명")]
-	[DisplayName("설명")]
+	[LCategory("PgCatInfo", "정보")]
+	[LDescription("PgDescColComment", "컬럼 설명")]
+	[LDisplayName("PgDescription", "설명")]
 	public string Comment { get; set; }
 
 	public string GetTypeDisplay()

@@ -83,14 +83,14 @@ public sealed class NormalizationIssueDialog : Form
 		layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 84F));
 		layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-		AddFieldRow(layout, "단계", levelLabel, valueColumnWidth);
-		AddFieldRow(layout, "심각도", severityLabel, valueColumnWidth);
-		AddFieldRow(layout, "테이블", issue.Table, valueColumnWidth);
-		AddFieldRow(layout, "영향 컬럼", affectedColumns, valueColumnWidth);
+		AddFieldRow(layout, L.S("NormLevel",       "단계"),    levelLabel,    valueColumnWidth);
+		AddFieldRow(layout, L.S("NormSeverity",    "심각도"),  severityLabel, valueColumnWidth);
+		AddFieldRow(layout, L.S("NormTableField",  "테이블"),  issue.Table,   valueColumnWidth);
+		AddFieldRow(layout, L.S("NormColumnField", "영향 컬럼"), affectedColumns, valueColumnWidth);
 
-		AddSectionCaption(layout, "문제");
+		AddSectionCaption(layout, L.S("NormIssueField",  "문제"));
 		AddSectionText(layout, issue.Message, ContentWidth, minHeight: 72, maxHeight: 140);
-		AddSectionCaption(layout, "권장 조치");
+		AddSectionCaption(layout, L.S("NormActionField", "권장 조치"));
 		AddSectionText(layout, issue.Hint, ContentWidth, minHeight: 88, maxHeight: 180);
 
 		Panel panelContent = new Panel
@@ -106,8 +106,9 @@ public sealed class NormalizationIssueDialog : Form
 			DialogResult = DialogResult.OK,
 			Font = ModernTheme.UiFont,
 			Size = new Size(96, 32),
-			Text = "확인"
+			Text = L.S("BtnOk", "확인")
 		};
+		ModernTheme.StyleDialogButton(btnOk, "Ok");
 		Panel panelFooter = new Panel
 		{
 			Dock = DockStyle.Bottom,
@@ -128,7 +129,7 @@ public sealed class NormalizationIssueDialog : Form
 		MinimizeBox = false;
 		Name = "NormalizationIssueDialog";
 		StartPosition = FormStartPosition.CenterParent;
-		Text = $"정규화 분석 — {levelLabel} ({severityLabel})";
+		Text = L.S("TabAnalysis", "정규화") + $" — {levelLabel} ({severityLabel})";
 		AcceptButton = btnOk;
 
 		layout.PerformLayout();
@@ -148,6 +149,7 @@ public sealed class NormalizationIssueDialog : Form
 		}
 
 		PositionFooterButton(panelFooter, btnOk);
+		ModernTheme.ApplyThemeToForm(this);
 	}
 
 	private static void PositionFooterButton(Control parent, Control child)

@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel;
 using System.Drawing;
-using System.IO;
 using System.Windows.Forms;
 using DBToolsWinV10.App;
 
@@ -30,20 +29,24 @@ public class AboutDialog : Form
         InitializeComponent();
         try
         {
-            string text = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
-            if (File.Exists(text))
-            {
-                pictureBoxIcon.Image = new Icon(text, 64, 64).ToBitmap();
-            }
-            else
-            {
-                pictureBoxIcon.Image = IconProvider.Get("Default", 64);
-            }
+            using var icon = new Icon(Application.ExecutablePath, 64, 64);
+            pictureBoxIcon.Image = icon.ToBitmap();
         }
-        catch
-        {
-            pictureBoxIcon.Image = IconProvider.Get("Default", 64);
-        }
+        catch { }
+        ModernTheme.ApplyThemeToForm(this);
+        panelHeader.BackColor = Color.FromArgb(26, 38, 68);
+        lblAppName.ForeColor = Color.White;
+        lblVersion.ForeColor = Color.FromArgb(160, 190, 230);
+        Localize();
+    }
+
+    private void Localize()
+    {
+        Text              = L.S("AboutTitle",       "프로그램 정보");
+        lblVersion.Text   = L.S("AboutVersion",     "버전 1.0.0  |  .NET 10 WinForms");
+        lblDescription.Text = L.S("AboutDescription",
+            "DB 테이블 설계 및 ER 다이어그램 편집 도구\r\n\r\n지원 데이터베이스: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server\r\n기능: ER 다이어그램 편집, Crow's Foot 표기법, 정규화 분석,\r\n         SQL DDL 내보내기, JSON 직렬화");
+        btnOk.Text        = L.S("BtnOk",            "확인");
     }
 
     protected override void Dispose(bool disposing)
@@ -57,6 +60,7 @@ public class AboutDialog : Form
 
     private void InitializeComponent()
     {
+        ComponentResourceManager resources = new ComponentResourceManager(typeof(AboutDialog));
         panelHeader = new Panel();
         lblVersion = new Label();
         lblAppName = new Label();
@@ -104,6 +108,9 @@ public class AboutDialog : Form
         // 
         // pictureBoxIcon
         // 
+        pictureBoxIcon.ErrorImage = (Image)resources.GetObject("pictureBoxIcon.ErrorImage");
+        pictureBoxIcon.Image = (Image)resources.GetObject("pictureBoxIcon.Image");
+        pictureBoxIcon.InitialImage = (Image)resources.GetObject("pictureBoxIcon.InitialImage");
         pictureBoxIcon.Location = new Point(16, 13);
         pictureBoxIcon.Name = "pictureBoxIcon";
         pictureBoxIcon.Size = new Size(64, 64);
@@ -128,7 +135,7 @@ public class AboutDialog : Form
         lblCopyright.ForeColor = Color.Gray;
         lblCopyright.Location = new Point(16, 218);
         lblCopyright.Name = "lblCopyright";
-        lblCopyright.Size = new Size(204, 15);
+        lblCopyright.Size = new Size(340, 15);
         lblCopyright.TabIndex = 1;
         lblCopyright.Text = "Copyright © 2026 DBTools. SH KWON(knix008@naver.com).";
         lblCopyright.Click += lblCopyright_Click;
@@ -142,9 +149,10 @@ public class AboutDialog : Form
         btnOk.Size = new Size(88, 30);
         btnOk.TabIndex = 0;
         btnOk.Text = "확인";
-        // 
+        ModernTheme.StyleDialogButton(btnOk, "Ok");
+        //
         // AboutDialog
-        // 
+        //
         AcceptButton = btnOk;
         ClientSize = new Size(384, 281);
         Controls.Add(btnOk);

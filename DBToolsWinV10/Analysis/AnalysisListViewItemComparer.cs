@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Windows.Forms;
+using DBToolsWinV10.App;
 
 namespace DBToolsWinV10.Analysis;
 
@@ -72,12 +73,9 @@ internal sealed class AnalysisListViewItemComparer : IComparer
 
 	private static int GetSeverityOrder(string value)
 	{
-		return value switch
-		{
-			"오류" => 0,
-			"경고" => 1,
-			"정보" => 2,
-			_ => 99
-		};
+		if (value == L.S("SevError",   "오류")) return 0;
+		if (value == L.S("SevWarning", "경고")) return 1;
+		if (value == L.S("SevInfo",    "정보")) return 2;
+		return 99;
 	}
 }

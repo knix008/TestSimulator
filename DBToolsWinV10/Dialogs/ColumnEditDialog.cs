@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using DBToolsWinV10.App;
 using DBToolsWinV10.Models;
 
 namespace DBToolsWinV10.Dialogs;
@@ -65,6 +66,27 @@ public class ColumnEditDialog : Form
 		PopulateDataTypes();
 		LoadColumn(column);
 		WireEvents();
+		ModernTheme.ApplyThemeToForm(this);
+		Localize();
+	}
+
+	private void Localize()
+	{
+		Text              = L.S("ColEditTitle",     "컬럼 편집");
+		lblName.Text      = L.S("ColEditName",      "컬럼 이름:");
+		lblDataType.Text  = L.S("ColEditType",      "데이터 타입:");
+		lblLength.Text    = L.S("ColEditLength",    "길이:");
+		lblPrecision.Text = L.S("ColEditPrecision", "정밀도:");
+		lblScale.Text     = L.S("ColEditScale",     "스케일:");
+		chkPrimaryKey.Text = L.S("ColEditPK",       "기본 키 (PK)");
+		chkAutoInc.Text   = L.S("ColEditAI",        "자동 증가");
+		chkNullable.Text  = L.S("ColEditNull",      "NULL 허용");
+		chkUnique.Text    = L.S("ColEditUnique",    "유니크");
+		chkForeignKey.Text = L.S("ColEditFK",       "외래 키 (FK)");
+		lblDefault.Text   = L.S("ColEditDefault",   "기본값:");
+		lblComment.Text   = L.S("ColEditComment",   "설명:");
+		btnOk.Text        = L.S("BtnOk",            "확인");
+		btnCancel.Text    = L.S("BtnCancel",        "취소");
 	}
 
 	private void PopulateDataTypes()
@@ -116,6 +138,8 @@ public class ColumnEditDialog : Form
 		{
 			base.DialogResult = DialogResult.Cancel;
 		};
+		ModernTheme.StyleDialogButton(btnOk, "Ok");
+		ModernTheme.StyleDialogButton(btnCancel, "Cancel");
 		base.AcceptButton = btnOk;
 		base.CancelButton = btnCancel;
 	}
@@ -283,13 +307,13 @@ public class ColumnEditDialog : Form
 		this.txtComment.Location = new System.Drawing.Point(100, 235);
 		this.txtComment.Size = new System.Drawing.Size(230, 23);
 		this.txtComment.TabIndex = 11;
-		this.btnOk.Location = new System.Drawing.Point(174, 276);
-		this.btnOk.Size = new System.Drawing.Size(75, 30);
+		this.btnOk.Location = new System.Drawing.Point(156, 276);
+		this.btnOk.Size = new System.Drawing.Size(88, 30);
 		this.btnOk.Text = "확인";
 		this.btnOk.TabIndex = 12;
 		this.btnOk.DialogResult = System.Windows.Forms.DialogResult.None;
-		this.btnCancel.Location = new System.Drawing.Point(255, 276);
-		this.btnCancel.Size = new System.Drawing.Size(75, 30);
+		this.btnCancel.Location = new System.Drawing.Point(252, 276);
+		this.btnCancel.Size = new System.Drawing.Size(88, 30);
 		this.btnCancel.Text = "취소";
 		this.btnCancel.TabIndex = 13;
 		this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;

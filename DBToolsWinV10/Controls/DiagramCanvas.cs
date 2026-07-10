@@ -41,23 +41,18 @@ public sealed class DiagramCanvas : Control
 
 	private static readonly Color HeaderColorVector = Color.FromArgb(88, 64, 168);
 
-	private static readonly Color RowEvenColor = Color.FromArgb(248, 249, 250);
-
-	private static readonly Color RowOddColor = Color.White;
-
-	private static readonly Color BorderColor = Color.FromArgb(180, 180, 190);
-
-	private static readonly Color SelectionColor = Color.FromArgb(37, 99, 235);
-
-	private static readonly Color GridMinorColor = Color.FromArgb(10, 0, 0, 0);
-
-	private static readonly Color GridMajorColor = Color.FromArgb(22, 0, 0, 0);
-
 	private DbSchema _schema = new DbSchema();
 
 	private ToolMode _toolMode = ToolMode.Select;
 
 	private float _zoom = 1f;
+
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public bool ShowGrid { get; set; } = false;
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public bool SnapToGrid { get; set; } = false;
+	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+	public int SnapInterval { get; set; } = 20;
 
 	private readonly VScrollBar _vScroll = new VScrollBar();
 
@@ -111,6 +106,28 @@ public sealed class DiagramCanvas : Control
 
 	public DbSchema Schema => _schema;
 
+	public UndoRedoManager UndoRedo { get; } = new UndoRedoManager();
+
+	public void SaveUndoSnapshot() => UndoRedo.Push(_schema.Clone());
+
+	public void Undo()
+	{
+		if (!UndoRedo.CanUndo) return;
+		_schema = UndoRedo.Undo(_schema.Clone());
+		ClearSelection();
+		Invalidate();
+		NotifyChanged();
+	}
+
+	public void Redo()
+	{
+		if (!UndoRedo.CanRedo) return;
+		_schema = UndoRedo.Redo(_schema.Clone());
+		ClearSelection();
+		Invalidate();
+		NotifyChanged();
+	}
+
 	public ToolMode CurrentTool => _toolMode;
 
 	public float Zoom => _zoom;
@@ -147,7 +164,7 @@ public sealed class DiagramCanvas : Control
 	{
 		DoubleBuffered = true;
 		SetStyle(ControlStyles.ResizeRedraw | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, value: true);
-		BackColor = Color.FromArgb(255, 255, 255);
+		BackColor = ModernTheme.CanvasBackground;
 		if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
 		{
 			_vScroll.Dock = DockStyle.Right;
@@ -260,6 +277,7 @@ public sealed class DiagramCanvas : Control
 		}
 		else if (_selectedTable != null)
 		{
+			SaveUndoSnapshot();
 			Guid id = _selectedTable.Id;
 			_schema.Tables.RemoveAll((DbTable t) => t.Id == id);
 			_schema.Relationships.RemoveAll((DbRelationship r) => r.SourceTableId == id || r.TargetTableId == id);
@@ -268,6 +286,7 @@ public sealed class DiagramCanvas : Control
 		}
 		else if (_selectedRelationship != null)
 		{
+			SaveUndoSnapshot();
 			Guid id2 = _selectedRelationship.Id;
 			_schema.Relationships.RemoveAll((DbRelationship r) => r.Id == id2);
 			ClearSelection();
@@ -550,34 +569,28 @@ public sealed class DiagramCanvas : Control
 
 	private void DrawGrid(Graphics g)
 	{
-		RectangleF contentBounds = GetContentBounds();
+		if (!ShowGrid) return;
+		int minor = Math.Max(5, SnapInterval);
+		int major = minor * 5;
 		float num = (float)_hScroll.Value / _zoom;
 		float num2 = (float)_vScroll.Value / _zoom;
 		Size viewportSize = GetViewportSize();
 		float num3 = num + (float)viewportSize.Width / _zoom;
 		float num4 = num2 + (float)viewportSize.Height / _zoom;
-		using Pen pen = new Pen(GridMinorColor, 1f / _zoom);
-		using Pen pen2 = new Pen(GridMajorColor, 1.2f / _zoom);
-		int num5 = (int)(Math.Floor(num / 20f) * 20.0);
-		int num6 = (int)(Math.Floor(num2 / 20f) * 20.0);
-		int num7 = (int)(Math.Floor(num / 100f) * 100.0);
-		int num8 = (int)(Math.Floor(num2 / 100f) * 100.0);
-		for (int i = num5; (float)i <= num3 + 20f; i += 20)
-		{
+		using Pen pen = new Pen(ModernTheme.CanvasGridMinor, 1f / _zoom);
+		using Pen pen2 = new Pen(ModernTheme.CanvasGridMajor, 1.2f / _zoom);
+		int num5 = (int)(Math.Floor(num / minor) * minor);
+		int num6 = (int)(Math.Floor(num2 / minor) * minor);
+		int num7 = (int)(Math.Floor(num / major) * major);
+		int num8 = (int)(Math.Floor(num2 / major) * major);
+		for (int i = num5; (float)i <= num3 + minor; i += minor)
 			g.DrawLine(pen, i, num2, i, num4);
-		}
-		for (int j = num6; (float)j <= num4 + 20f; j += 20)
-		{
+		for (int j = num6; (float)j <= num4 + minor; j += minor)
 			g.DrawLine(pen, num, j, num3, j);
-		}
-		for (int k = num7; (float)k <= num3 + 100f; k += 100)
-		{
+		for (int k = num7; (float)k <= num3 + major; k += major)
 			g.DrawLine(pen2, k, num2, k, num4);
-		}
-		for (int l = num8; (float)l <= num4 + 100f; l += 100)
-		{
+		for (int l = num8; (float)l <= num4 + major; l += major)
 			g.DrawLine(pen2, num, l, num3, l);
-		}
 	}
 
 	private bool IsTableSelected(DbTable table)
@@ -613,9 +626,9 @@ public sealed class DiagramCanvas : Control
 		float tableHeight = GetTableHeight(table);
 		RectangleF rect = new RectangleF(table.X, table.Y, table.Width, tableHeight);
 		bool flag = IsTableSelected(table);
-		using SolidBrush brush = new SolidBrush(Color.FromArgb(30, 0, 0, 0));
+		using SolidBrush brush = new SolidBrush(ModernTheme.CanvasShadow);
 		g.FillRectangle(brush, rect.X + 3f, rect.Y + 3f, rect.Width, rect.Height);
-		using SolidBrush brush2 = new SolidBrush(Color.White);
+		using SolidBrush brush2 = new SolidBrush(ModernTheme.CanvasRowOdd);
 		g.FillRectangle(brush2, rect);
 		RectangleF rect2 = new RectangleF(rect.X, rect.Y, rect.Width, 28f);
 		Color headerColor = GetHeaderColor(_schema.TargetDb);
@@ -641,10 +654,10 @@ public sealed class DiagramCanvas : Control
 		});
 		using Font font3 = new Font("맑은 고딕", 8.5f, FontStyle.Regular, GraphicsUnit.Point);
 		using Font font4 = new Font("맑은 고딕", 8.5f, FontStyle.Bold, GraphicsUnit.Point);
-		using SolidBrush solidBrush = new SolidBrush(Color.FromArgb(40, 40, 40));
-		using SolidBrush brush6 = new SolidBrush(Color.FromArgb(110, 110, 120));
-		using SolidBrush solidBrush2 = new SolidBrush(Color.FromArgb(180, 100, 0));
-		using SolidBrush solidBrush3 = new SolidBrush(Color.FromArgb(0, 100, 160));
+		using SolidBrush solidBrush = new SolidBrush(ModernTheme.CanvasTextPrimary);
+		using SolidBrush brush6 = new SolidBrush(ModernTheme.CanvasTextSecondary);
+		using SolidBrush solidBrush2 = new SolidBrush(ModernTheme.CanvasPkText);
+		using SolidBrush solidBrush3 = new SolidBrush(ModernTheme.CanvasFkText);
 		for (int i = 0; i < table.Columns.Count; i++)
 		{
 			DbColumn col = table.Columns[i];
@@ -654,9 +667,9 @@ public sealed class DiagramCanvas : Control
 			RectangleF rect3 = new RectangleF(rect.X, num, rect.Width, 22f);
 			bool columnSelected = IsColumnSelected(table, col);
 			bool normalizationHighlighted = IsNormalizationHighlighted(table, col);
-			using SolidBrush brush7 = new SolidBrush(columnSelected || normalizationHighlighted ? Color.FromArgb(255, 243, 205) : ((i % 2 == 0) ? RowEvenColor : RowOddColor));
+			using SolidBrush brush7 = new SolidBrush(columnSelected || normalizationHighlighted ? ModernTheme.CanvasHighlightRow : ((i % 2 == 0) ? ModernTheme.CanvasRowEven : ModernTheme.CanvasRowOdd));
 			g.FillRectangle(brush7, rect3);
-			using Pen pen = new Pen(Color.FromArgb(220, 220, 226), 0.5f / _zoom);
+			using Pen pen = new Pen(ModernTheme.CanvasBorderLight, 0.5f / _zoom);
 			g.DrawLine(pen, rect3.X, rect3.Bottom, rect3.Right, rect3.Bottom);
 			string text = (col.IsPrimaryKey ? "\ud83d\udd11" : (IsFK(col) ? "\ud83d\udd17" : "  "));
 			bool flag2 = IsFK(col);
@@ -684,7 +697,7 @@ public sealed class DiagramCanvas : Control
 				Trimming = StringTrimming.EllipsisCharacter
 			});
 		}
-		using Pen pen2 = new Pen(flag ? SelectionColor : BorderColor, flag ? (2.5f / _zoom) : (1f / _zoom));
+		using Pen pen2 = new Pen(flag ? ModernTheme.Accent : ModernTheme.CanvasBorder, flag ? (2.5f / _zoom) : (1f / _zoom));
 		g.DrawRectangle(pen2, rect.X, rect.Y, rect.Width, rect.Height);
 		if (flag)
 		{
@@ -718,7 +731,7 @@ public sealed class DiagramCanvas : Control
 		bool liveRoute = ShouldLiveRouteRelationship(rel);
 		List<PointF> pathPoints = RelationshipPathBuilder.GetPathPoints(rel, connection, liveRoute);
 		bool flag = IsRelationshipSelected(rel);
-		Color color = (flag ? SelectionColor : Color.FromArgb(100, 100, 120));
+		Color color = (flag ? ModernTheme.Accent : ModernTheme.CanvasRelLine);
 		float width = (flag ? (3f / _zoom) : (2.2f / _zoom));
 		using Pen pen = new Pen(color, width)
 		{
@@ -751,8 +764,8 @@ public sealed class DiagramCanvas : Control
 		}
 		PointF pathMidpoint = RelationshipPathBuilder.GetPathMidpoint(rel, connection, liveRoute);
 		using Font font = new Font("맑은 고딕", 7.5f, FontStyle.Regular, GraphicsUnit.Point);
-		using SolidBrush brush = new SolidBrush(Color.FromArgb(80, 80, 100));
-		using SolidBrush brush2 = new SolidBrush(Color.FromArgb(200, 242, 242, 248));
+		using SolidBrush brush = new SolidBrush(ModernTheme.CanvasRelText);
+		using SolidBrush brush2 = new SolidBrush(ModernTheme.CanvasRelNameBg);
 		SizeF sizeF = g.MeasureString(rel.Name, font);
 		g.FillRectangle(brush2, pathMidpoint.X - sizeF.Width / 2f - 2f, pathMidpoint.Y - sizeF.Height / 2f - 1f, sizeF.Width + 4f, sizeF.Height + 2f);
 		g.DrawString(rel.Name, font, brush, pathMidpoint, new StringFormat
@@ -894,6 +907,7 @@ public sealed class DiagramCanvas : Control
 			}
 			else if (_toolMode == ToolMode.AddTable)
 			{
+				SaveUndoSnapshot();
 				DbTable dbTable = new DbTable
 				{
 					Name = $"table_{_schema.Tables.Count + 1}",
@@ -948,6 +962,7 @@ public sealed class DiagramCanvas : Control
 					_selectedRelationship = relationship;
 					_selectedTable = null;
 					_selectedColumn = null;
+					SaveUndoSnapshot();
 					_dragSegRel = relationship;
 					_dragSegIdx = i;
 					_dragSegOrigPath = new List<PointF>(pathPts);
@@ -974,6 +989,7 @@ public sealed class DiagramCanvas : Control
 				_selectedRelationship = relationship;
 				_selectedTable = null;
 				_selectedColumn = null;
+				SaveUndoSnapshot();
 				_dragRouteRel = relationship;
 				_dragRoutePointIndex = num;
 				RelationshipPoint routePoint = relationship.RoutePoints[num];
@@ -1014,6 +1030,7 @@ public sealed class DiagramCanvas : Control
 				_selectedColumn = null;
 				_selectedRelationship = null;
 				this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+				SaveUndoSnapshot();
 				_isDragging = true;
 				_dragStartCanvas = cp;
 				_lastMouseCanvas = cp;
@@ -1148,8 +1165,8 @@ public sealed class DiagramCanvas : Control
 			_relSource = null;
 			Invalidate();
 			MessageBox.Show(
-				"관계를 추가하려면 두 테이블 모두에 기본 키(PK) 컬럼이 필요합니다.\n테이블 편집에서 PK 컬럼을 지정한 후 다시 시도하세요.",
-				"관계 추가",
+				L.S("RelNeedPk", "관계를 추가하려면 두 테이블 모두에 기본 키(PK) 컬럼이 필요합니다.\n테이블 편집에서 PK 컬럼을 지정한 후 다시 시도하세요."),
+				L.S("MenuAddRelation", "관계 추가"),
 				MessageBoxButtons.OK,
 				MessageBoxIcon.Information);
 			return;
@@ -1160,6 +1177,7 @@ public sealed class DiagramCanvas : Control
 			ToolMode.RelationManyToMany => RelationshipType.ManyToMany,
 			_ => RelationshipType.OneToMany,
 		};
+		SaveUndoSnapshot();
 		DbRelationship dbRelationship = new DbRelationship
 		{
 			Type = type,
@@ -1206,8 +1224,15 @@ public sealed class DiagramCanvas : Control
 		}
 		else if (_isDragging && _selectedTable != null)
 		{
-			_selectedTable.X = _tableOriginAtDrag.X + (pointF.X - _dragStartCanvas.X);
-			_selectedTable.Y = _tableOriginAtDrag.Y + (pointF.Y - _dragStartCanvas.Y);
+			float nx = _tableOriginAtDrag.X + (pointF.X - _dragStartCanvas.X);
+			float ny = _tableOriginAtDrag.Y + (pointF.Y - _dragStartCanvas.Y);
+			if (SnapToGrid && SnapInterval > 0)
+			{
+				nx = MathF.Round(nx / SnapInterval) * SnapInterval;
+				ny = MathF.Round(ny / SnapInterval) * SnapInterval;
+			}
+			_selectedTable.X = nx;
+			_selectedTable.Y = ny;
 			Invalidate();
 		}
 		else if (_dragSegRel != null && _dragSegIdx >= 0)
@@ -1410,6 +1435,18 @@ public sealed class DiagramCanvas : Control
 		_schema.EnsureInitialized();
 		ContextMenuStrip contextMenuStrip = new ContextMenuStrip();
 		ModernTheme.StyleContextMenu(contextMenuStrip);
+		bool canUndo = UndoRedo.CanUndo;
+		bool canRedo = UndoRedo.CanRedo;
+		if (canUndo || canRedo)
+		{
+			var itemUndo = ModernTheme.CreateMenuItem(L.S("MenuUndo", "실행 취소"), "Undo", delegate { Undo(); });
+			itemUndo.Enabled = canUndo;
+			var itemRedo = ModernTheme.CreateMenuItem(L.S("MenuRedo", "다시 실행"), "Redo", delegate { Redo(); });
+			itemRedo.Enabled = canRedo;
+			contextMenuStrip.Items.Add(itemUndo);
+			contextMenuStrip.Items.Add(itemRedo);
+			contextMenuStrip.Items.Add(new ToolStripSeparator());
+		}
 		foreach (DbTable table in Enumerable.Reverse(_schema.Tables))
 		{
 			int num = HitTestColumn(table, cp);
@@ -1427,16 +1464,16 @@ public sealed class DiagramCanvas : Control
 			_selectedRelationship = null;
 			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 			Invalidate();
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 편집...", "Edit", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmEditColumn", "컬럼 편집..."), "Edit", delegate
 			{
 				this.ColumnEditRequested?.Invoke(this, new ColumnEventArgs(table, col));
 			}));
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 추가", "AddColumn", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmAddColumn", "컬럼 추가"), "AddColumn", delegate
 			{
 				this.ColumnAddRequested?.Invoke(table, EventArgs.Empty);
 			}));
 			contextMenuStrip.Items.Add(new ToolStripSeparator());
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 삭제", "Delete", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmDeleteColumn", "컬럼 삭제"), "Delete", delegate
 			{
 				this.ColumnDeleteRequested?.Invoke(this, new ColumnEventArgs(table, col));
 			}));
@@ -1462,16 +1499,16 @@ public sealed class DiagramCanvas : Control
 			_selectedRelationship = null;
 			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 			Invalidate();
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("테이블 편집...", "Edit", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmEditTable", "테이블 편집..."), "Edit", delegate
 			{
 				this.TableEditRequested?.Invoke(table, EventArgs.Empty);
 			}));
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 추가", "AddColumn", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmAddColumn", "컬럼 추가"), "AddColumn", delegate
 			{
 				this.ColumnAddRequested?.Invoke(table, EventArgs.Empty);
 			}));
 			contextMenuStrip.Items.Add(new ToolStripSeparator());
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("테이블 삭제", "Delete", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmDeleteTable", "테이블 삭제"), "Delete", delegate
 			{
 				DeleteSelected();
 			}));
@@ -1486,16 +1523,16 @@ public sealed class DiagramCanvas : Control
 			_selectedRelationship = null;
 			this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 			Invalidate();
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("테이블 편집...", "Edit", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmEditTable", "테이블 편집..."), "Edit", delegate
 			{
 				this.TableEditRequested?.Invoke(hitTable, EventArgs.Empty);
 			}));
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("컬럼 추가", "AddColumn", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmAddColumn", "컬럼 추가"), "AddColumn", delegate
 			{
 				this.ColumnAddRequested?.Invoke(hitTable, EventArgs.Empty);
 			}));
 			contextMenuStrip.Items.Add(new ToolStripSeparator());
-			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem("테이블 삭제", "Delete", delegate
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmDeleteTable", "테이블 삭제"), "Delete", delegate
 			{
 				DeleteSelected();
 			}));
@@ -1508,7 +1545,7 @@ public sealed class DiagramCanvas : Control
 
 	private void AddRelationshipContextMenuItems(ContextMenuStrip menu, DbRelationship rel, PointF cp)
 	{
-		menu.Items.Add(ModernTheme.CreateMenuItem("관계 편집...", "AddRelation", delegate
+		menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmEditRelation", "관계 편집..."), "AddRelation", delegate
 		{
 			this.RelationEditRequested?.Invoke(rel, EventArgs.Empty);
 		}));
@@ -1516,8 +1553,9 @@ public sealed class DiagramCanvas : Control
 		menu.Items.Add(CreateRelationshipLineStyleMenu(rel));
 		if (rel.LineStyle == RelationshipLineStyle.Orthogonal)
 		{
-			menu.Items.Add(ModernTheme.CreateMenuItem("꺾임 점 추가", "AddRelation", delegate
+			menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmAddBend", "꺾임 점 추가"), "AddRelation", delegate
 			{
+				SaveUndoSnapshot();
 				if (TryGetRelationshipConnection(rel, out RelationshipConnectionInfo connection) && RelationshipPathBuilder.TryInsertOrthogonalBend(rel, cp, connection, out _))
 				{
 					NotifyChanged();
@@ -1527,8 +1565,9 @@ public sealed class DiagramCanvas : Control
 		}
 		if (rel.LineStyle != RelationshipLineStyle.Straight)
 		{
-			menu.Items.Add(ModernTheme.CreateMenuItem("경로 초기화", "FitAll", delegate
+			menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmResetRoute", "경로 초기화"), "FitAll", delegate
 			{
+				SaveUndoSnapshot();
 				if (TryGetRelationshipConnection(rel, out RelationshipConnectionInfo connection))
 				{
 					RelationshipPathBuilder.ResetRoutePoints(rel, connection);
@@ -1538,7 +1577,7 @@ public sealed class DiagramCanvas : Control
 			}));
 		}
 		menu.Items.Add(new ToolStripSeparator());
-		menu.Items.Add(ModernTheme.CreateMenuItem("관계 삭제", "Delete", delegate
+		menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmDeleteRelation", "관계 삭제"), "Delete", delegate
 		{
 			DeleteSelected();
 		}));
@@ -1546,16 +1585,16 @@ public sealed class DiagramCanvas : Control
 
 	private ToolStripMenuItem CreateRelationshipTypeMenu(DbRelationship rel)
 	{
-		ToolStripMenuItem toolStripMenuItem = new ToolStripMenuItem("관계 유형");
-		ToolStripMenuItem oneToOneItem = new ToolStripMenuItem("1:1 (일대일)")
+		ToolStripMenuItem toolStripMenuItem = new ToolStripMenuItem(L.S("CmRelationType", "관계 유형"));
+		ToolStripMenuItem oneToOneItem = new ToolStripMenuItem(L.S("CmRelType11", "1:1 (일대일)"))
 		{
 			Checked = rel.Type == RelationshipType.OneToOne
 		};
-		ToolStripMenuItem oneToManyItem = new ToolStripMenuItem("1:N (일대다)")
+		ToolStripMenuItem oneToManyItem = new ToolStripMenuItem(L.S("CmRelType1N", "1:N (일대다)"))
 		{
 			Checked = rel.Type == RelationshipType.OneToMany
 		};
-		ToolStripMenuItem manyToManyItem = new ToolStripMenuItem("N:M (다대다)")
+		ToolStripMenuItem manyToManyItem = new ToolStripMenuItem(L.S("CmRelTypeNM", "N:M (다대다)"))
 		{
 			Checked = rel.Type == RelationshipType.ManyToMany
 		};
@@ -1581,6 +1620,7 @@ public sealed class DiagramCanvas : Control
 		{
 			return;
 		}
+		SaveUndoSnapshot();
 		rel.Type = type;
 		SelectRelationship(rel);
 		NotifyChanged();
@@ -1588,16 +1628,16 @@ public sealed class DiagramCanvas : Control
 
 	private ToolStripMenuItem CreateRelationshipLineStyleMenu(DbRelationship rel)
 	{
-		ToolStripMenuItem toolStripMenuItem = new ToolStripMenuItem("선 스타일");
-		ToolStripMenuItem straightItem = new ToolStripMenuItem("직선")
+		ToolStripMenuItem toolStripMenuItem = new ToolStripMenuItem(L.S("CmLineStyle", "선 스타일"));
+		ToolStripMenuItem straightItem = new ToolStripMenuItem(L.S("LineStyleStraight", "직선"))
 		{
 			Checked = rel.LineStyle == RelationshipLineStyle.Straight
 		};
-		ToolStripMenuItem curvedItem = new ToolStripMenuItem("곡선")
+		ToolStripMenuItem curvedItem = new ToolStripMenuItem(L.S("LineStyleCurved", "곡선"))
 		{
 			Checked = rel.LineStyle == RelationshipLineStyle.Curved
 		};
-		ToolStripMenuItem orthogonalItem = new ToolStripMenuItem("꺾은선")
+		ToolStripMenuItem orthogonalItem = new ToolStripMenuItem(L.S("LineStyleOrthogonal", "꺾은선"))
 		{
 			Checked = rel.LineStyle == RelationshipLineStyle.Orthogonal
 		};
@@ -1644,8 +1684,9 @@ public sealed class DiagramCanvas : Control
 	private void AddCanvasBackgroundMenuItems(ContextMenuStrip menu, PointF cp)
 	{
 		ClearSelection();
-		menu.Items.Add(ModernTheme.CreateMenuItem("여기에 새 테이블 추가", "AddTable", delegate
+		menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmAddTableHere", "여기에 새 테이블 추가"), "AddTable", delegate
 		{
+			SaveUndoSnapshot();
 			DbTable item = new DbTable
 			{
 				Name = $"table_{_schema.Tables.Count + 1}",
@@ -1658,19 +1699,19 @@ public sealed class DiagramCanvas : Control
 			NotifyChanged();
 		}));
 		menu.Items.Add(new ToolStripSeparator());
-		menu.Items.Add(ModernTheme.CreateMenuItem("화면 맞춤", "FitAll", delegate
+		menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmFitAll", "화면 맞춤"), "FitAll", delegate
 		{
 			FitAll();
 		}));
-		menu.Items.Add(ModernTheme.CreateMenuItem("확대", "ZoomIn", delegate
+		menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmZoomIn", "확대"), "ZoomIn", delegate
 		{
 			ZoomIn();
 		}));
-		menu.Items.Add(ModernTheme.CreateMenuItem("축소", "ZoomOut", delegate
+		menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmZoomOut", "축소"), "ZoomOut", delegate
 		{
 			ZoomOut();
 		}));
-		menu.Items.Add(ModernTheme.CreateMenuItem("배율 100%로 복원", "FitAll", delegate
+		menu.Items.Add(ModernTheme.CreateMenuItem(L.S("CmResetZoom", "배율 100%로 복원"), "FitAll", delegate
 		{
 			ResetZoom();
 		}));

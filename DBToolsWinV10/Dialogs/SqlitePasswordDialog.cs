@@ -28,7 +28,7 @@ public sealed class SqlitePasswordDialog : Form
 		ShowIcon = false;
 		ShowInTaskbar = false;
 		StartPosition = FormStartPosition.CenterParent;
-		Text = "데이터베이스 암호";
+		Text = L.S("SqlitePasswordTitle", "데이터베이스 암호");
 		ClientSize = new Size(420, 196);
 		MinimumSize = new Size(360, 196);
 
@@ -37,7 +37,7 @@ public sealed class SqlitePasswordDialog : Form
 			AutoSize = false,
 			Location = new Point(16, 14),
 			Size = new Size(388, 36),
-			Text = "SQLCipher로 암호화된 SQLite 데이터베이스입니다.\n암호를 입력하세요.",
+			Text = L.S("SqlitePasswordPrompt", "SQLCipher로 암호화된 SQLite 데이터베이스입니다.\n암호를 입력하세요."),
 			ForeColor = ModernTheme.TextPrimary
 		};
 
@@ -66,7 +66,7 @@ public sealed class SqlitePasswordDialog : Form
 		{
 			AutoSize = true,
 			Location = new Point(16, 98),
-			Text = "암호",
+			Text = L.S("SqlitePasswordLabel", "암호"),
 			ForeColor = ModernTheme.TextPrimary
 		};
 
@@ -81,7 +81,7 @@ public sealed class SqlitePasswordDialog : Form
 		{
 			AutoSize = true,
 			Location = new Point(16, 146),
-			Text = "암호 표시",
+			Text = L.S("SqliteShowPassword", "암호 표시"),
 			ForeColor = ModernTheme.TextSecondary,
 			Font = ModernTheme.UiFontSmall
 		};
@@ -93,15 +93,15 @@ public sealed class SqlitePasswordDialog : Form
 		btnOk = new Button
 		{
 			DialogResult = DialogResult.OK,
-			Location = new Point(248, 158),
-			Size = new Size(75, 28),
-			Text = "확인"
+			Location = new Point(228, 158),
+			Size = new Size(88, 28),
+			Text = L.S("BtnOk", "확인")
 		};
 		btnOk.Click += (_, _) =>
 		{
 			if (string.IsNullOrEmpty(txtPassword.Text))
 			{
-				MessageBox.Show(this, "암호를 입력하세요.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(this, L.S("SqliteEnterPassword", "암호를 입력하세요."), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				DialogResult = DialogResult.None;
 			}
 		};
@@ -109,17 +109,21 @@ public sealed class SqlitePasswordDialog : Form
 		btnCancel = new Button
 		{
 			DialogResult = DialogResult.Cancel,
-			Location = new Point(329, 158),
-			Size = new Size(75, 28),
-			Text = "취소"
+			Location = new Point(324, 158),
+			Size = new Size(88, 28),
+			Text = L.S("BtnCancel", "취소")
 		};
 
+		ModernTheme.StyleDialogButton(btnOk, "Ok");
+		ModernTheme.StyleDialogButton(btnCancel, "Cancel");
 		AcceptButton = btnOk;
 		CancelButton = btnCancel;
 		Controls.AddRange(new Control[]
 		{
 			lblPrompt, lblFile, lblError, lblPassword, txtPassword, chkShowPassword, btnOk, btnCancel
 		});
+		ModernTheme.ApplyThemeToForm(this);
+		lblError.ForeColor = ModernTheme.Danger;
 	}
 
 	public static bool TryPrompt(IWin32Window owner, string filePath, string errorMessage, out string password)

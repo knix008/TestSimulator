@@ -59,6 +59,21 @@
     <Content Include="Template\OnlineShop*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and Exists('$(MSBuildProjectDirectory)\installer\DBToolsWinV10.Installer.wixproj')">
     <Message Importance="high" Text="Building MSI installer package (WiX)..." />
     <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\installer\DBToolsWinV10.Installer.wixproj&quot; -c Release -p:Platform=x64" />
