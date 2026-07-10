@@ -34,19 +34,20 @@ public static class NormalizationLabels
 	public static void ApplyListItemStyle(ListViewItem item, IssueSeverity severity)
 	{
 		item.UseItemStyleForSubItems = true;
+		bool dark = ModernTheme.IsDark;
 		switch (severity)
 		{
 		case IssueSeverity.Error:
-			item.BackColor = Color.FromArgb(254, 226, 226);
-			item.ForeColor = Color.FromArgb(185, 28, 28);
+			item.BackColor = dark ? Color.FromArgb(60, 22, 22) : Color.FromArgb(254, 226, 226);
+			item.ForeColor = dark ? Color.FromArgb(252, 165, 165) : Color.FromArgb(185, 28, 28);
 			break;
 		case IssueSeverity.Warning:
-			item.BackColor = Color.FromArgb(254, 243, 199);
-			item.ForeColor = Color.FromArgb(180, 83, 9);
+			item.BackColor = dark ? Color.FromArgb(60, 45, 10) : Color.FromArgb(254, 243, 199);
+			item.ForeColor = dark ? Color.FromArgb(252, 211, 77)  : Color.FromArgb(180, 83, 9);
 			break;
 		default:
-			item.BackColor = Color.FromArgb(238, 242, 255);
-			item.ForeColor = Color.FromArgb(67, 56, 202);
+			item.BackColor = dark ? Color.FromArgb(22, 30, 60)   : Color.FromArgb(238, 242, 255);
+			item.ForeColor = dark ? Color.FromArgb(165, 180, 252) : Color.FromArgb(67, 56, 202);
 			break;
 		}
 	}

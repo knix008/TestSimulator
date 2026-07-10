@@ -838,7 +838,7 @@ public partial class MainForm : Form
 					Analysis.NormalizationLevel.NF3 => "3NF",
 					_ => prereqLevel.ToString()
 				};
-				statusLabel.Text = $"{levelName} 오류를 먼저 해결해야 더 높은 정규화 수준을 선택할 수 있습니다.";
+				statusLabel.Text = string.Format(L.S("StatusNormBlocked", "{0} 오류를 먼저 해결해야 더 높은 정규화 수준을 선택할 수 있습니다."), levelName);
 				return;
 			}
 		}
@@ -1477,9 +1477,63 @@ public partial class MainForm : Form
 		if (tsLineStyle != null)      tsLineStyle.ToolTipText = L.S("TtLineStyle", "관계선 스타일...");
 		if (btnTsZoom != null)        btnTsZoom.ToolTipText   = L.S("TtResetZoom", "배율을 100%로 복원");
 
+		// Menu item tooltips
+		menuNew.ToolTipText          = L.S("TtMenuNew",      "새 프로젝트를 만듭니다 (Ctrl+N)");
+		menuOpen.ToolTipText         = L.S("TtMenuOpen",     "프로젝트 파일(.mdprj)을 불러옵니다 (Ctrl+O)");
+		menuOpenDatabase.ToolTipText = L.S("TtMenuOpenDb",   "SQLite, SQL DDL, SQL Server, Access DB 파일을 분석합니다 (Ctrl+Shift+O)");
+		menuSave.ToolTipText         = L.S("TtMenuSave",     "현재 프로젝트를 저장합니다 (Ctrl+S)");
+		menuSaveAs.ToolTipText       = L.S("TtMenuSaveAs",   "새 이름으로 프로젝트를 저장합니다 (Ctrl+Shift+S)");
+		menuRecent.ToolTipText       = L.S("TtMenuRecent",   "최근에 사용한 프로젝트 파일 목록 (최대 10개)");
+		menuExportSql.ToolTipText    = L.S("TtMenuExportSql","현재 스키마를 SQL DDL 파일로 내보냅니다");
+		menuExportJson.ToolTipText   = L.S("TtMenuExportJson","현재 스키마를 JSON 파일로 내보냅니다");
+		menuExport.ToolTipText       = L.S("TtMenuExport",   "SQL 또는 JSON으로 내보냅니다");
+		menuSettings.ToolTipText     = L.S("TtMenuSettings", "프로그램 설정을 변경합니다");
+		menuExit.ToolTipText         = L.S("TtMenuExit",     "프로그램을 종료합니다");
+		menuAddTable.ToolTipText     = L.S("TtMenuAddTable", "새 테이블을 추가합니다 (Ctrl+T)");
+		menuAddColumn.ToolTipText    = L.S("TtMenuAddColumn","선택한 테이블에 컬럼을 추가합니다 (Ctrl+L)");
+		menuAddRel.ToolTipText       = L.S("TtMenuAddRel",   "테이블 간 관계를 추가합니다 (Ctrl+R)");
+		menuUndo.ToolTipText         = L.S("TtMenuUndo",     "마지막 작업을 취소합니다 (Ctrl+Z)");
+		menuRedo.ToolTipText         = L.S("TtMenuRedo",     "취소한 작업을 다시 실행합니다 (Ctrl+Y)");
+		menuEditSel.ToolTipText      = L.S("TtMenuEditSel",  "선택한 테이블 또는 관계를 편집합니다 (F2)");
+		menuDeleteSel.ToolTipText    = L.S("TtMenuDeleteSel","선택한 항목을 삭제합니다 (Delete)");
+		menuZoomIn.ToolTipText       = L.S("TtMenuZoomIn",   "다이어그램을 확대합니다 (Ctrl++)");
+		menuZoomOut.ToolTipText      = L.S("TtMenuZoomOut",  "다이어그램을 축소합니다 (Ctrl+-)");
+		menuFitAll.ToolTipText       = L.S("TtMenuFitAll",   "모든 테이블이 보이도록 화면을 조정합니다 (Ctrl+0)");
+		menuToggleRightPanel.ToolTipText = L.S("TtMenuToggleRight", "우측 패널(구조·분석·속성) 표시/숨기기");
+		menuDbType.ToolTipText       = L.S("TtMenuDbType",   "대상 데이터베이스 종류를 선택합니다");
+		menuAnalyze.ToolTipText      = L.S("TtMenuAnalyze",  "1NF/2NF/3NF 정규화 검사를 실행합니다 (F5)");
+		menuWriteReport.ToolTipText  = L.S("TtMenuReport",   "스키마 보고서를 저장합니다 (Ctrl+Shift+R)");
+		menuAbout.ToolTipText        = L.S("TtMenuAbout",    "프로그램 정보");
+
+		// Toolbar dropdown tooltips
+		if (tsSample != null) tsSample.ToolTipText = L.S("TtSampleDropdown", "DB별 Sample 파일 생성");
+		if (tsDbType != null) tsDbType.ToolTipText = L.S("TtDbTypeSelector", "데이터베이스 종류 선택");
+
+		// Force TypeDescriptor cache invalidation so [LCategory] attribute instances are re-created with
+		// the new language, then re-assign SelectedObject to trigger full PropertyGrid redraw.
+		System.ComponentModel.TypeDescriptor.Refresh(typeof(Models.DbSchema));
+		System.ComponentModel.TypeDescriptor.Refresh(typeof(Models.DbTable));
+		System.ComponentModel.TypeDescriptor.Refresh(typeof(Models.DbColumn));
+		System.ComponentModel.TypeDescriptor.Refresh(typeof(Models.DbRelationship));
+		if (propertyGrid != null)
+		{
+			var sel = propertyGrid.SelectedObject;
+			propertyGrid.SelectedObject = null;
+			propertyGrid.SelectedObject = sel;
+		}
+
 		// Refresh tree view so node labels ("테이블"/"관계") update to current language
 		if (treeViewSchema != null && diagramCanvas != null)
 			RefreshTreeView();
+
+		// Refresh analysis views so list items use the current language strings
+		if (diagramCanvas != null)
+		{
+			RefreshNormalizationAnalysis();
+			if (_indexSuggestions != null) UpdateIndexAdvisorView();
+			RefreshStatus();
+			UpdateTitle();
+		}
 	}
 
 	private void ApplyTheme(string theme)
@@ -1861,7 +1915,7 @@ public partial class MainForm : Form
 			Name = "tsSample",
 			Text = "Sample",
 			DisplayStyle = ToolStripItemDisplayStyle.Image,
-			ToolTipText = "DB별 Sample 파일 생성"
+			ToolTipText = L.S("TtSampleDropdown", "DB별 Sample 파일 생성")
 		};
 		AddSampleMenuItems(tsSample.DropDownItems);
 
@@ -1962,7 +2016,7 @@ public partial class MainForm : Form
 		catch (Exception ex)
 		{
 			OperationCompleteDialog.ShowFailed(this, "Sample 생성 실패", dlg.SelectedPath, "Sample 파일을 생성하지 못했습니다.", ex);
-			statusLabel.Text = "Sample 생성 실패";
+			statusLabel.Text = L.S("StatusSampleFailed", "Sample 생성 실패");
 		}
 	}
 
@@ -1978,7 +2032,7 @@ public partial class MainForm : Form
 		RefreshAll();
 		UpdateDbTypeIndicator(diagramCanvas.Schema.TargetDb);
 		UpdateToolbarLineStyleDisplay(diagramCanvas.DefaultLineStyle);
-		statusLabel.Text = "새 프로젝트";
+		statusLabel.Text = L.S("StatusNewProject", "새 프로젝트");
 	}
 
 	private void NewSchema()
@@ -1986,7 +2040,7 @@ public partial class MainForm : Form
 		if (ConfirmDiscard())
 		{
 			InitializeEmptyProject();
-			statusLabel.Text = "새 프로젝트가 생성되었습니다.";
+			statusLabel.Text = L.S("StatusNewProjectCreated", "새 프로젝트가 생성되었습니다.");
 		}
 	}
 
@@ -2066,7 +2120,7 @@ public partial class MainForm : Form
 			diagramCanvas.FitAll();
 			UpdateViewportUi();
 			string displayName = DbFileFormatDetector.GetDisplayName(dbFileFormat);
-			statusLabel.Text = $"{displayName} 가져오기 완료: {Path.GetFileName(path)}  (테이블 {dbSchema.Tables.Count}개, 관계 {dbSchema.Relationships.Count}개)";
+			statusLabel.Text = string.Format(L.S("StatusImported", "{0} 가져오기 완료: {1}  (테이블 {2}개, 관계 {3}개)"), displayName, Path.GetFileName(path), dbSchema.Tables.Count, dbSchema.Relationships.Count);
 		}
 		catch (OperationCanceledException)
 		{
@@ -2126,7 +2180,7 @@ public partial class MainForm : Form
 			RememberOpenDirectory(path);
 			UpdateDbTypeIndicator(dbSchema.TargetDb);
 			RefreshAll();
-			statusLabel.Text = "불러오기 완료: " + Path.GetFileName(path);
+			statusLabel.Text = string.Format(L.S("StatusLoaded", "불러오기 완료: {0}"), Path.GetFileName(path));
 			return true;
 		}
 		catch (Exception ex)
@@ -2550,7 +2604,7 @@ public partial class MainForm : Form
 		diagramCanvas.Schema.TargetDb = db;
 		UpdateDbTypeIndicator(db);
 		RefreshAll();
-		statusLabel.Text = $"데이터베이스 종류: {DbTargetTypeHelper.GetDisplayName(db)}";
+		statusLabel.Text = string.Format(L.S("StatusDbType", "데이터베이스 종류: {0}"), DbTargetTypeHelper.GetDisplayName(db));
 	}
 
 	private void UpdateDbTypeIndicator(DbTargetType db)
@@ -2572,11 +2626,11 @@ public partial class MainForm : Form
 		}
 		string text = mode switch
 		{
-			ToolMode.AddTable => "캔버스를 클릭하면 새 테이블이 추가됩니다.", 
-			ToolMode.RelationOneToOne => "소스 테이블 → 타겟 테이블을 순서대로 클릭하세요. (1:1)", 
-			ToolMode.RelationOneToMany => "소스 테이블 → 타겟 테이블을 순서대로 클릭하세요. (1:N)", 
-			ToolMode.RelationManyToMany => "소스 테이블 → 타겟 테이블을 순서대로 클릭하세요. (N:M)", 
-			_ => "준비", 
+			ToolMode.AddTable => L.S("StatusToolAddTable", "캔버스를 클릭하면 새 테이블이 추가됩니다."),
+			ToolMode.RelationOneToOne => L.S("StatusToolRel11", "소스 테이블 → 타겟 테이블을 순서대로 클릭하세요. (1:1)"),
+			ToolMode.RelationOneToMany => L.S("StatusToolRel1N", "소스 테이블 → 타겟 테이블을 순서대로 클릭하세요. (1:N)"),
+			ToolMode.RelationManyToMany => L.S("StatusToolRelNM", "소스 테이블 → 타겟 테이블을 순서대로 클릭하세요. (N:M)"),
+			_ => L.S("StatusReady", "준비"),
 		};
 		if (1 == 0)
 		{
@@ -2913,12 +2967,17 @@ public partial class MainForm : Form
 	private void RefreshStatus()
 	{
 		DbSchema schema = diagramCanvas.Schema;
-		statusLabel.Text = $"{schema.Name}  |  {DbTargetTypeHelper.GetDisplayName(schema.TargetDb)}  |  테이블 {schema.Tables.Count}개  |  관계 {schema.Relationships.Count}개";
+		statusLabel.Text = string.Format(
+			L.S("StatusSchema", "{0}  |  {1}  |  테이블 {2}개  |  관계 {3}개"),
+			schema.Name,
+			DbTargetTypeHelper.GetDisplayName(schema.TargetDb),
+			schema.Tables.Count,
+			schema.Relationships.Count);
 	}
 
 	private void UpdateTitle()
 	{
-		string text = ((_currentFilePath != null) ? Path.GetFileName(_currentFilePath) : "새 프로젝트");
+		string text = ((_currentFilePath != null) ? Path.GetFileName(_currentFilePath) : L.S("StatusNewProject", "새 프로젝트"));
 		Text = (HasUnsavedChanges() ? "● " : "") + text + " — DBTools v1.0";
 	}
 
@@ -4213,3 +4272,4 @@ public partial class MainForm : Form
         PerformLayout();
     }
 }
+

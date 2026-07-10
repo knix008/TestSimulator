@@ -366,11 +366,27 @@ public static class ModernTheme
 	{
 		var list = (ListView)sender;
 		bool selected = e.Item.Selected;
-		Color bg = selected ? AccentMuted : PanelBackground;
-		Color fg = selected ? Accent : TextPrimary;
+
+		// Use the item's BackColor if it was explicitly set (e.g. severity highlight); fall back to PanelBackground
+		Color itemBg = e.Item.BackColor;
+		bool hasCustomBg = itemBg != Color.Empty && itemBg != SystemColors.Window
+			&& itemBg != Color.White && itemBg != PanelBackground;
+		Color bg = selected ? AccentMuted : (hasCustomBg ? itemBg : PanelBackground);
+		Color fg = selected ? Accent : e.Item.ForeColor;
+
 		using var bgBrush = new SolidBrush(bg);
 		e.Graphics.FillRectangle(bgBrush, e.Bounds);
-		var textRect = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height);
+
+		// Thin horizontal separator at bottom of each row
+		using var sepPen = new Pen(Border);
+		e.Graphics.DrawLine(sepPen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right - 1, e.Bounds.Bottom - 1);
+
+		// Thin vertical separator on the right edge of each cell (except the last column)
+		int colCount = list.Columns.Count;
+		if (e.ColumnIndex < colCount - 1)
+			e.Graphics.DrawLine(sepPen, e.Bounds.Right - 1, e.Bounds.Top, e.Bounds.Right - 1, e.Bounds.Bottom - 1);
+
+		var textRect = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height - 1);
 		TextRenderer.DrawText(e.Graphics, e.SubItem?.Text ?? string.Empty,
 			e.SubItem?.Font ?? e.Item?.Font ?? list.Font,
 			textRect, fg,
@@ -405,6 +421,7 @@ public static class ModernTheme
 	{
 		tabs.Font = UiFont;
 		tabs.Padding = new Point(12, 4);
+		tabs.BackColor = PanelBackground;
 		tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
 		tabs.DrawItem -= DrawTabHeader;
 		tabs.DrawItem += DrawTabHeader;

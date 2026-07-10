@@ -332,6 +332,51 @@
   <data name="TreeTables" xml:space="preserve"><value>Tables</value></data>
   <data name="TreeRelations" xml:space="preserve"><value>Relations</value></data>
 
+  <!-- Menu tooltips -->
+  <data name="TtMenuNew" xml:space="preserve"><value>Create new project (Ctrl+N)</value></data>
+  <data name="TtMenuOpen" xml:space="preserve"><value>Open project file (.mdprj) (Ctrl+O)</value></data>
+  <data name="TtMenuOpenDb" xml:space="preserve"><value>Analyze SQLite, SQL DDL, SQL Server, Access DB file and display as diagram (Ctrl+Shift+O)</value></data>
+  <data name="TtMenuSave" xml:space="preserve"><value>Save current project (Ctrl+S)</value></data>
+  <data name="TtMenuSaveAs" xml:space="preserve"><value>Save project with a new name (Ctrl+Shift+S)</value></data>
+  <data name="TtMenuRecent" xml:space="preserve"><value>Recently used project files (up to 10)</value></data>
+  <data name="TtMenuExportSql" xml:space="preserve"><value>Export current schema to SQL DDL file</value></data>
+  <data name="TtMenuExportJson" xml:space="preserve"><value>Export current schema to JSON file</value></data>
+  <data name="TtMenuExport" xml:space="preserve"><value>Export to SQL or JSON</value></data>
+  <data name="TtMenuSettings" xml:space="preserve"><value>Change program settings</value></data>
+  <data name="TtMenuExit" xml:space="preserve"><value>Exit the program</value></data>
+  <data name="TtMenuAddTable" xml:space="preserve"><value>Add a new table (Ctrl+T)</value></data>
+  <data name="TtMenuAddColumn" xml:space="preserve"><value>Add a column to the selected table (Ctrl+L)</value></data>
+  <data name="TtMenuAddRel" xml:space="preserve"><value>Add a relationship between tables (Ctrl+R)</value></data>
+  <data name="TtMenuUndo" xml:space="preserve"><value>Undo last action (Ctrl+Z)</value></data>
+  <data name="TtMenuRedo" xml:space="preserve"><value>Redo undone action (Ctrl+Y)</value></data>
+  <data name="TtMenuEditSel" xml:space="preserve"><value>Edit selected table or relationship (F2)</value></data>
+  <data name="TtMenuDeleteSel" xml:space="preserve"><value>Delete selected item (Delete)</value></data>
+  <data name="TtMenuZoomIn" xml:space="preserve"><value>Zoom in the diagram (Ctrl++)</value></data>
+  <data name="TtMenuZoomOut" xml:space="preserve"><value>Zoom out the diagram (Ctrl+-)</value></data>
+  <data name="TtMenuFitAll" xml:space="preserve"><value>Fit all tables into view (Ctrl+0)</value></data>
+  <data name="TtMenuToggleRight" xml:space="preserve"><value>Show/hide right panel (structure, analysis, properties)</value></data>
+  <data name="TtMenuDbType" xml:space="preserve"><value>Select target database type (PostgreSQL, MySQL, SQLite, SQL Server, FAISS, etc.)</value></data>
+  <data name="TtMenuAnalyze" xml:space="preserve"><value>Run 1NF/2NF/3NF normalization check (F5)</value></data>
+  <data name="TtMenuReport" xml:space="preserve"><value>Save schema report to Markdown, Excel, Word, PDF (Ctrl+Shift+R)</value></data>
+  <data name="TtMenuAbout" xml:space="preserve"><value>Program information</value></data>
+  <data name="TtSampleDropdown" xml:space="preserve"><value>Generate DB-specific sample files</value></data>
+  <data name="TtDbTypeSelector" xml:space="preserve"><value>Select database type</value></data>
+
+  <!-- Status bar messages -->
+  <data name="StatusNewProject" xml:space="preserve"><value>New Project</value></data>
+  <data name="StatusNewProjectCreated" xml:space="preserve"><value>New project created.</value></data>
+  <data name="StatusLoaded" xml:space="preserve"><value>Loaded: {0}</value></data>
+  <data name="StatusImported" xml:space="preserve"><value>{0} imported: {1}  ({2} tables, {3} relationships)</value></data>
+  <data name="StatusDbType" xml:space="preserve"><value>Database type: {0}</value></data>
+  <data name="StatusSchema" xml:space="preserve"><value>{0}  |  {1}  |  {2} tables  |  {3} relationships</value></data>
+  <data name="StatusSampleFailed" xml:space="preserve"><value>Sample generation failed</value></data>
+  <data name="StatusNormBlocked" xml:space="preserve"><value>{0} errors must be resolved before selecting a higher normalization level.</value></data>
+  <data name="StatusToolAddTable" xml:space="preserve"><value>Click on the canvas to add a new table.</value></data>
+  <data name="StatusToolRel11" xml:space="preserve"><value>Click source table → target table in order. (1:1)</value></data>
+  <data name="StatusToolRel1N" xml:space="preserve"><value>Click source table → target table in order. (1:N)</value></data>
+  <data name="StatusToolRelNM" xml:space="preserve"><value>Click source table → target table in order. (N:M)</value></data>
+  <data name="StatusReady" xml:space="preserve"><value>Ready</value></data>
+
   <!-- Settings dialog -->
   <data name="SettingsTitle" xml:space="preserve"><value>Settings</value></data>
   <data name="SettingsGroupAppearance" xml:space="preserve"><value>Appearance</value></data>
