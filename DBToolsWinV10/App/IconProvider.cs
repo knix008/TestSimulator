@@ -863,11 +863,19 @@ public static class IconProvider
 			.GetManifestResourceStream("DBToolsWinV10.Assets.mouse-pointer-icon.png");
 		if (stream != null)
 		{
-			// Load the PNG and make its white background transparent before resizing.
-			// MakeTransparent removes exact-white pixels; HighQualityBicubic then properly
-			// composites the alpha channel when scaling, giving clean anti-aliased edges.
 			var src = new Bitmap(stream);
 			src.MakeTransparent(Color.White);
+			if (ModernTheme.IsDark)
+			{
+				// Recolor opaque pixels to light gray for dark theme visibility
+				for (int py = 0; py < src.Height; py++)
+					for (int px = 0; px < src.Width; px++)
+					{
+						Color c = src.GetPixel(px, py);
+						if (c.A > 0)
+							src.SetPixel(px, py, Color.FromArgb(c.A, 210, 215, 230));
+					}
+			}
 			var dst = New32(sz);
 			using var g = Graphics.FromImage(dst);
 			g.Clear(Color.Transparent);

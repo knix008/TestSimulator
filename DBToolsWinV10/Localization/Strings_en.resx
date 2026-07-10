@@ -87,6 +87,19 @@
   <data name="TtSettings" xml:space="preserve"><value>Settings</value></data>
   <data name="TtSortCategory" xml:space="preserve"><value>Sort by category</value></data>
   <data name="TtSortAlpha" xml:space="preserve"><value>Sort alphabetically within categories</value></data>
+  <data name="TtTogglePanelCollapse" xml:space="preserve"><value>Collapse right panel</value></data>
+  <data name="TtTogglePanelExpand" xml:space="preserve"><value>Expand right panel</value></data>
+  <data name="TtResetZoom" xml:space="preserve"><value>Reset zoom to 100%</value></data>
+  <data name="TtLineStyle" xml:space="preserve"><value>Line style. Applies to selected relation; otherwise sets default for new ones.</value></data>
+  <data name="TtToolSelect" xml:space="preserve"><value>Select/move tables and relations; drag empty area to pan</value></data>
+  <data name="TtToolAddTable" xml:space="preserve"><value>Click to add a new table at that position</value></data>
+  <data name="TtToolRel11" xml:space="preserve"><value>Draw a 1:1 (One-to-One) relationship</value></data>
+  <data name="TtToolRel1N" xml:space="preserve"><value>Draw a 1:N (One-to-Many) relationship</value></data>
+  <data name="TtToolRelNM" xml:space="preserve"><value>Draw a N:M (Many-to-Many) relationship</value></data>
+  <data name="TtToolZoomIn" xml:space="preserve"><value>Zoom in the diagram</value></data>
+  <data name="TtToolZoomOut" xml:space="preserve"><value>Zoom out the diagram</value></data>
+  <data name="TtToolFitAll" xml:space="preserve"><value>Fit all tables into view</value></data>
+  <data name="TtCanvasToggleRight" xml:space="preserve"><value>Toggle right panel</value></data>
 
   <!-- Analysis panel -->
   <data name="AnalysisReady" xml:space="preserve"><value>Normalization analysis results will appear here.</value></data>
@@ -233,6 +246,60 @@
   <data name="ErrSrcTgtRequired" xml:space="preserve"><value>Please select source and target tables.</value></data>
   <data name="ErrSrcTgtSame" xml:space="preserve"><value>Source and target tables cannot be the same.</value></data>
   <data name="RelNeedPk" xml:space="preserve"><value>Both tables need a Primary Key (PK) column to add a relationship.&#x0D;&#x0A;Set a PK column in Table Editor and try again.</value></data>
+
+  <!-- Property grid: categories -->
+  <data name="PgCatGeneral" xml:space="preserve"><value>General</value></data>
+  <data name="PgCatConstraints" xml:space="preserve"><value>Constraints</value></data>
+  <data name="PgCatStats" xml:space="preserve"><value>Statistics</value></data>
+  <data name="PgCatInfo" xml:space="preserve"><value>Info</value></data>
+
+  <!-- Property grid: display names -->
+  <data name="PgName" xml:space="preserve"><value>Name</value></data>
+  <data name="PgDescription" xml:space="preserve"><value>Description</value></data>
+  <data name="PgDbType" xml:space="preserve"><value>Database Type</value></data>
+  <data name="PgColumnCount" xml:space="preserve"><value>Column Count</value></data>
+  <data name="PgPrimaryKeyCount" xml:space="preserve"><value>Primary Key Count</value></data>
+  <data name="PgDataType" xml:space="preserve"><value>Data Type</value></data>
+  <data name="PgLength" xml:space="preserve"><value>Length</value></data>
+  <data name="PgPrecision" xml:space="preserve"><value>Precision</value></data>
+  <data name="PgScale" xml:space="preserve"><value>Scale</value></data>
+  <data name="PgPrimaryKey" xml:space="preserve"><value>Primary Key</value></data>
+  <data name="PgAutoIncrement" xml:space="preserve"><value>Auto Increment</value></data>
+  <data name="PgAllowNull" xml:space="preserve"><value>Allow NULL</value></data>
+  <data name="PgUnique" xml:space="preserve"><value>Unique</value></data>
+  <data name="PgForeignKey" xml:space="preserve"><value>Foreign Key</value></data>
+  <data name="PgDefaultValue" xml:space="preserve"><value>Default Value</value></data>
+  <data name="PgRelType" xml:space="preserve"><value>Relationship Type</value></data>
+  <data name="PgLineStyle" xml:space="preserve"><value>Line Style</value></data>
+
+  <!-- Property grid: descriptions -->
+  <data name="PgDescSchemaName" xml:space="preserve"><value>Schema (database) name</value></data>
+  <data name="PgDescDbType" xml:space="preserve"><value>Target database type</value></data>
+  <data name="PgDescTableName" xml:space="preserve"><value>Table name</value></data>
+  <data name="PgDescTableComment" xml:space="preserve"><value>Table description</value></data>
+  <data name="PgDescColumnCount" xml:space="preserve"><value>Total number of columns</value></data>
+  <data name="PgDescPkCount" xml:space="preserve"><value>Number of primary key columns</value></data>
+  <data name="PgDescColName" xml:space="preserve"><value>Column name</value></data>
+  <data name="PgDescDataType" xml:space="preserve"><value>Data type</value></data>
+  <data name="PgDescLength" xml:space="preserve"><value>Length (for VARCHAR etc.)</value></data>
+  <data name="PgDescPrecision" xml:space="preserve"><value>Precision (for DECIMAL etc.)</value></data>
+  <data name="PgDescScale" xml:space="preserve"><value>Scale (for DECIMAL etc.)</value></data>
+  <data name="PgDescIsPK" xml:space="preserve"><value>Is Primary Key</value></data>
+  <data name="PgDescIsAI" xml:space="preserve"><value>Auto Increment (PK only)</value></data>
+  <data name="PgDescIsNull" xml:space="preserve"><value>Allow NULL values</value></data>
+  <data name="PgDescIsUnique" xml:space="preserve"><value>Unique constraint</value></data>
+  <data name="PgDescIsFK" xml:space="preserve"><value>Is Foreign Key</value></data>
+  <data name="PgDescDefault" xml:space="preserve"><value>Default value</value></data>
+  <data name="PgDescColComment" xml:space="preserve"><value>Column description</value></data>
+  <data name="PgDescRelName" xml:space="preserve"><value>Relationship name (optional)</value></data>
+  <data name="PgDescRelType" xml:space="preserve"><value>Relationship type</value></data>
+  <data name="PgDescLineStyle" xml:space="preserve"><value>Line style</value></data>
+
+  <!-- Menu: Sample -->
+  <data name="MenuSampleCreate" xml:space="preserve"><value>Create Sample(&amp;S)</value></data>
+  <data name="MenuSampleCreateAll" xml:space="preserve"><value>Create All Samples...</value></data>
+  <data name="TtSampleCreate" xml:space="preserve"><value>Generate OnlineShop template files for each DB type</value></data>
+  <data name="TtSampleAll" xml:space="preserve"><value>Generate all DB format samples</value></data>
 
   <!-- Severity labels -->
   <data name="SevError" xml:space="preserve"><value>Error</value></data>

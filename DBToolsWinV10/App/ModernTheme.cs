@@ -48,6 +48,14 @@ public static class ModernTheme
 		public override Color ButtonSelectedGradientMiddle     => ToolHover;
 		public override Color SeparatorDark                    => Border;
 		public override Color SeparatorLight                   => BorderLight;
+		public override Color OverflowButtonGradientBegin      => PanelBackground;
+		public override Color OverflowButtonGradientMiddle     => PanelBackground;
+		public override Color OverflowButtonGradientEnd        => PanelBackground;
+		public override Color ToolStripBorder                  => PanelBackground;
+		public override Color ToolStripContentPanelGradientBegin => PanelBackground;
+		public override Color ToolStripContentPanelGradientEnd   => PanelBackground;
+		public override Color ToolStripPanelGradientBegin      => PanelBackground;
+		public override Color ToolStripPanelGradientEnd        => PanelBackground;
 	}
 
 	private sealed class ModernRenderer : ToolStripProfessionalRenderer

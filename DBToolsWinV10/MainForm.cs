@@ -508,7 +508,9 @@ public partial class MainForm : Form
 		btnTsToggleRight.DisplayStyle = ToolStripItemDisplayStyle.Image;
 		btnTsToggleRight.Text = string.Empty;
 		btnTsToggleRight.Image = IconProvider.Get(_rightPanelVisible ? "PanelCollapse" : "PanelExpand", 22);
-		btnTsToggleRight.ToolTipText = (_rightPanelVisible ? "우측 패널 접기" : "우측 패널 펼치기");
+		btnTsToggleRight.ToolTipText = _rightPanelVisible
+			? L.S("TtTogglePanelCollapse", "우측 패널 접기")
+			: L.S("TtTogglePanelExpand", "우측 패널 펼치기");
 		btnCanvasToggleRight.Text = (_rightPanelVisible ? "▶" : "◀");
 	}
 
@@ -606,7 +608,7 @@ public partial class MainForm : Form
 			DisplayStyle = ToolStripItemDisplayStyle.Text,
 			ForeColor = ModernTheme.TextSecondary,
 			Font = ModernTheme.UiFontSmall,
-			ToolTipText = "배율을 100%로 복원"
+			ToolTipText = L.S("TtResetZoom", "배율을 100%로 복원")
 		};
 		btnTsZoom.Click += delegate
 		{
@@ -622,9 +624,9 @@ public partial class MainForm : Form
 		{
 			Name = "tsSepLineStyle"
 		};
-		tsLineStraight = CreateLineStyleMenuItem("직선", RelationshipLineStyle.Straight);
-		tsLineCurved = CreateLineStyleMenuItem("곡선", RelationshipLineStyle.Curved);
-		tsLineOrthogonal = CreateLineStyleMenuItem("꺾은선", RelationshipLineStyle.Orthogonal);
+		tsLineStraight = CreateLineStyleMenuItem(L.S("LineStyleStraight", "직선"), RelationshipLineStyle.Straight);
+		tsLineCurved = CreateLineStyleMenuItem(L.S("LineStyleCurved", "곡선"), RelationshipLineStyle.Curved);
+		tsLineOrthogonal = CreateLineStyleMenuItem(L.S("LineStyleOrthogonal", "꺾은선"), RelationshipLineStyle.Orthogonal);
 		tsLineStyle = new ToolStripDropDownButton
 		{
 			DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
@@ -632,7 +634,7 @@ public partial class MainForm : Form
 			Name = "tsLineStyle",
 			Text = "직선",
 			TextImageRelation = TextImageRelation.ImageBeforeText,
-			ToolTipText = "관계선 스타일. 관계가 선택되면 해당 선에 적용되고, 없으면 새 관계의 기본 스타일입니다."
+			ToolTipText = L.S("TtLineStyle", "관계선 스타일. 관계가 선택되면 해당 선에 적용되고, 없으면 새 관계의 기본 스타일입니다.")
 		};
 		tsLineStyle.DropDownItems.AddRange(tsLineStraight, tsLineCurved, tsLineOrthogonal);
 		tsLineStraight.Click += delegate
@@ -1343,6 +1345,11 @@ public partial class MainForm : Form
 		menuExportSql.Text  = L.S("MenuExportSql");
 		menuExportJson.Text = L.S("MenuExportJson");
 		menuSettings.Text   = L.S("MenuSettings");
+		if (menuSample != null)
+		{
+			menuSample.Text = L.S("MenuSampleCreate", "Sample 생성(&S)");
+			menuSample.ToolTipText = L.S("TtSampleCreate", "DB별 OnlineShop Template 파일을 생성합니다");
+		}
 		menuExit.Text       = L.S("MenuExit");
 		menuEdit.Text       = L.S("MenuEdit");
 		menuUndo.Text       = L.S("MenuUndo", "실행 취소");
@@ -1448,6 +1455,27 @@ public partial class MainForm : Form
 		if (_btnNf2  != null) _btnNf2.ToolTipText  = L.S("NfBtnTip2",    "2정규화(2NF): 1NF 오류가 없을 때만 선택 가능");
 		if (_btnNf3  != null) _btnNf3.ToolTipText  = L.S("NfBtnTip3",    "3정규화(3NF): 2NF 오류가 없을 때만 선택 가능");
 		if (_btnBcnf != null) _btnBcnf.ToolTipText = L.S("NfBtnTipBcnf", "보이스코드 정규화(BCNF): 3NF 오류가 없을 때만 선택 가능");
+
+		// Toolbox button tooltips
+		if (toolTip1 != null)
+		{
+			toolTip1.SetToolTip(btnToolSelect,   L.S("TtToolSelect",   "테이블/관계 선택·이동, 빈 영역 드래그로 화면 이동"));
+			toolTip1.SetToolTip(btnToolAddTable, L.S("TtToolAddTable", "클릭한 위치에 새 테이블을 추가합니다"));
+			toolTip1.SetToolTip(btnToolRel11,    L.S("TtToolRel11",    "일대일(1:1) 관계를 그립니다"));
+			toolTip1.SetToolTip(btnToolRel1N,    L.S("TtToolRel1N",    "일대다(1:N) 관계를 그립니다"));
+			toolTip1.SetToolTip(btnToolRelNM,    L.S("TtToolRelNM",    "다대다(N:M) 관계를 그립니다"));
+			toolTip1.SetToolTip(btnZoomIn,       L.S("TtToolZoomIn",   "다이어그램을 확대합니다"));
+			toolTip1.SetToolTip(btnZoomOut,      L.S("TtToolZoomOut",  "다이어그램을 축소합니다"));
+			toolTip1.SetToolTip(btnFitAll,       L.S("TtToolFitAll",   "모든 테이블이 보이도록 화면을 조정합니다"));
+			toolTip1.SetToolTip(btnCanvasToggleRight, L.S("TtCanvasToggleRight", "우측 패널 접기/펼치기"));
+		}
+
+		// Line style dropdown items
+		if (tsLineStraight != null)   tsLineStraight.Text   = L.S("LineStyleStraight",   "직선");
+		if (tsLineCurved != null)     tsLineCurved.Text     = L.S("LineStyleCurved",     "곡선");
+		if (tsLineOrthogonal != null) tsLineOrthogonal.Text = L.S("LineStyleOrthogonal", "꺾은선");
+		if (tsLineStyle != null)      tsLineStyle.ToolTipText = L.S("TtLineStyle", "관계선 스타일...");
+		if (btnTsZoom != null)        btnTsZoom.ToolTipText   = L.S("TtResetZoom", "배율을 100%로 복원");
 
 		// Refresh tree view so node labels ("테이블"/"관계") update to current language
 		if (treeViewSchema != null && diagramCanvas != null)
@@ -1819,8 +1847,8 @@ public partial class MainForm : Form
 		menuSample = new ToolStripMenuItem
 		{
 			Name = "menuSample",
-			Text = "Sample 생성(&S)",
-			ToolTipText = "DB별 OnlineShop Template 파일을 생성합니다"
+			Text = L.S("MenuSampleCreate", "Sample 생성(&S)"),
+			ToolTipText = L.S("TtSampleCreate", "DB별 OnlineShop Template 파일을 생성합니다")
 		};
 		AddSampleMenuItems(menuSample.DropDownItems);
 
@@ -1844,7 +1872,7 @@ public partial class MainForm : Form
 
 	private void AddSampleMenuItems(ToolStripItemCollection items)
 	{
-		items.Add(CreateSampleMenuItem("전체 Sample 생성...", "Sample", "모든 DB 형식의 OnlineShop Sample을 생성합니다", GenerateAllSamples));
+		items.Add(CreateSampleMenuItem(L.S("MenuSampleCreateAll", "전체 Sample 생성..."), "Sample", L.S("TtSampleAll", "모든 DB 형식의 OnlineShop Sample을 생성합니다"), GenerateAllSamples));
 		items.Add(new ToolStripSeparator());
 		items.Add(CreateSampleMenuItem("SQLite Sample...", "SQLite", "SQLite DB Sample 파일을 생성합니다", () => GenerateDbSample(DbTargetType.SQLite)));
 		items.Add(CreateSampleMenuItem("PostgreSQL Sample...", "PostgreSQL", "PostgreSQL DDL Sample 파일을 생성합니다", () => GenerateDbSample(DbTargetType.PostgreSQL)));

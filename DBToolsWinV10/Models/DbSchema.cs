@@ -2,19 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using DBToolsWinV10.App;
 
 namespace DBToolsWinV10.Models;
 
 public class DbSchema
 {
-	[Category("일반")]
-	[Description("스키마(데이터베이스) 이름")]
-	[DisplayName("이름")]
+	[LCategory("PgCatGeneral", "일반")]
+	[LDescription("PgDescSchemaName", "스키마(데이터베이스) 이름")]
+	[LDisplayName("PgName", "이름")]
 	public string Name { get; set; } = "새 스키마";
 
-	[Category("일반")]
-	[Description("대상 데이터베이스 종류")]
-	[DisplayName("데이터베이스 종류")]
+	[LCategory("PgCatGeneral", "일반")]
+	[LDescription("PgDescDbType", "대상 데이터베이스 종류")]
+	[LDisplayName("PgDbType", "데이터베이스 종류")]
 	public DbTargetType TargetDb { get; set; } = DbTargetType.SQLite;
 
 	[Browsable(false)]
