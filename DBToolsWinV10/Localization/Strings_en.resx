@@ -104,10 +104,18 @@
   <!-- Analysis panel -->
   <data name="AnalysisReady" xml:space="preserve"><value>Normalization analysis results will appear here.</value></data>
   <data name="AnalysisLevel" xml:space="preserve"><value>Analysis Level:</value></data>
+  <data name="IdxSummaryReady" xml:space="preserve"><value>Index suggestions will appear here.</value></data>
+  <data name="IdxSummary" xml:space="preserve"><value>{0} index suggestion(s)</value></data>
+  <data name="IdxSummaryFiltered" xml:space="preserve"><value>{0} suggestion(s) — table: {1}</value></data>
+  <data name="IdxSummaryFilteredEmpty" xml:space="preserve"><value>No suggestions for the selected table ({0}).</value></data>
+  <data name="IdxSummaryEmpty" xml:space="preserve"><value>No index suggestions.</value></data>
+  <data name="IdxSummaryNoTables" xml:space="preserve"><value>No tables available for index analysis.</value></data>
   <data name="NfBtnTip1" xml:space="preserve"><value>1NF: Always selectable</value></data>
   <data name="NfBtnTip2" xml:space="preserve"><value>2NF: Selectable when no 1NF errors</value></data>
   <data name="NfBtnTip3" xml:space="preserve"><value>3NF: Selectable when no 2NF errors</value></data>
   <data name="NfBtnTipBcnf" xml:space="preserve"><value>BCNF: Selectable when no 3NF errors</value></data>
+  <data name="NfBtnTip4" xml:space="preserve"><value>4NF: Selectable when no BCNF errors</value></data>
+  <data name="NfBtnTip5" xml:space="preserve"><value>5NF: Selectable when no 4NF errors</value></data>
 
   <!-- ListView column headers: Normalization Analysis -->
   <data name="ColHdrLevel" xml:space="preserve"><value>Level</value></data>
@@ -311,6 +319,8 @@
   <data name="NF2Group" xml:space="preserve"><value>2NF — Partial Dependency</value></data>
   <data name="NF3Group" xml:space="preserve"><value>3NF — Transitive Dependency</value></data>
   <data name="BCNFGroup" xml:space="preserve"><value>BCNF — Boyce-Codd Normal Form</value></data>
+  <data name="NF4Group" xml:space="preserve"><value>4NF — Multi-valued Dependency</value></data>
+  <data name="NF5Group" xml:space="preserve"><value>5NF — Join Dependency</value></data>
 
   <!-- Analysis panel summary -->
   <data name="NoTablesAnalysis" xml:space="preserve"><value>No tables. Add tables to run normalization analysis.</value></data>
@@ -393,6 +403,8 @@
   <data name="SettingsGroupFiles" xml:space="preserve"><value>Files</value></data>
   <data name="SettingsLabelRecentMax" xml:space="preserve"><value>Max Recent Files:</value></data>
   <data name="SettingsGroupCanvas" xml:space="preserve"><value>Canvas</value></data>
+  <data name="SettingsGroupNormalization" xml:space="preserve"><value>Normalization</value></data>
+  <data name="SettingsLabelNormLevel" xml:space="preserve"><value>Checks</value></data>
   <data name="SettingsShowGrid" xml:space="preserve"><value>Show Grid</value></data>
   <data name="SettingsSnapToGrid" xml:space="preserve"><value>Snap to Grid</value></data>
   <data name="SettingsLabelSnapInterval" xml:space="preserve"><value>Snap Interval (pixels):</value></data>

@@ -21,6 +21,7 @@
     <RootNamespace>DBToolsWinV10</RootNamespace>
     <AssemblyName>DBToolsWinV10</AssemblyName>
     <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+    <NoWarn>$(NoWarn);WFO5001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

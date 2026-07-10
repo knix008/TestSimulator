@@ -17,6 +17,7 @@ internal static class Program
 		ModernTheme.SetTheme(AppSettings.GetTheme() == "dark"
 			? ModernTheme.ThemeKind.Dark
 			: ModernTheme.ThemeKind.Light);
+		ScrollBarTheme.SyncSystemColorMode();
 		ApplicationConfiguration.Initialize();
 		Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
 		Application.ThreadException += delegate(object _, ThreadExceptionEventArgs e)

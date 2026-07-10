@@ -8,7 +8,32 @@ namespace DBToolsWinV10.Analysis;
 public static class NormalizationAnalyzer
 {
 	public static IReadOnlyList<NormalizationIssue> Analyze(DbSchema schema)
-		=> AnalyzeLevel(schema, NormalizationLevel.BCNF);
+		=> AnalyzeLevel(schema, NormalizationLevel.NF5);
+
+	public static IReadOnlyList<NormalizationIssue> AnalyzeLevels(DbSchema schema, NormalizationLevels levels)
+	{
+		if (levels == NormalizationLevels.None)
+			levels = NormalizationLevels.NF1;
+
+		List<NormalizationIssue> list = new List<NormalizationIssue>();
+		foreach (DbTable table in schema.Tables)
+		{
+			if (levels.HasFlag(NormalizationLevels.NF1))
+				Check1NF(table, list);
+			if (levels.HasFlag(NormalizationLevels.NF2))
+				Check2NF(table, schema, list);
+			if (levels.HasFlag(NormalizationLevels.NF3))
+				Check3NF(table, schema, list);
+			if (levels.HasFlag(NormalizationLevels.BCNF))
+				CheckBCNF(table, schema, list);
+			if (levels.HasFlag(NormalizationLevels.NF4))
+				Check4NF(table, schema, list);
+			if (levels.HasFlag(NormalizationLevels.NF5))
+				Check5NF(table, schema, list);
+		}
+
+		return list;
+	}
 
 	public static IReadOnlyList<NormalizationIssue> AnalyzeLevel(DbSchema schema, NormalizationLevel level)
 	{
@@ -22,6 +47,10 @@ public static class NormalizationAnalyzer
 			Check3NF(table, schema, list);
 			if (level == NormalizationLevel.NF3) continue;
 			CheckBCNF(table, schema, list);
+			if (level == NormalizationLevel.BCNF) continue;
+			Check4NF(table, schema, list);
+			if (level == NormalizationLevel.NF4) continue;
+			Check5NF(table, schema, list);
 		}
 		return list;
 	}
@@ -39,6 +68,8 @@ public static class NormalizationAnalyzer
 		NormalizationLevel.NF2  => 1,
 		NormalizationLevel.NF3  => 2,
 		NormalizationLevel.BCNF => 3,
+		NormalizationLevel.NF4  => 4,
+		NormalizationLevel.NF5  => 5,
 		_ => 0
 	};
 
@@ -186,6 +217,176 @@ public static class NormalizationAnalyzer
 				});
 			}
 		}
+	}
+
+	private static void Check4NF(DbTable table, DbSchema schema, List<NormalizationIssue> issues)
+	{
+		// 4NF: no non-trivial multi-valued dependencies (MVDs).
+		HashSet<Guid> pkIds = table.Columns.Where(c => c.IsPrimaryKey).Select(c => c.Id).ToHashSet();
+		HashSet<Guid> fkColIds = GetOutgoingForeignKeyColumnIds(table, schema);
+
+		List<DbColumn> multiValuedCols = table.Columns
+			.Where(c => !pkIds.Contains(c.Id))
+			.Where(IsMultiValuedAttributeColumn)
+			.ToList();
+		if (multiValuedCols.Count >= 2)
+		{
+			issues.Add(new NormalizationIssue
+			{
+				Level = NormalizationLevel.NF4,
+				Severity = IssueSeverity.Warning,
+				Table = table.Name,
+				AffectedColumns = string.Join(", ", multiValuedCols.Select(c => c.Name)),
+				Message = "독립적인 다중값 속성이 한 테이블에 함께 있습니다.",
+				Hint = "4NF는 비자명 다중값 종속(MVD)이 없어야 합니다. 각 다중값 사실을 별도 테이블 또는 조인 테이블로 분리하세요."
+			});
+		}
+
+		List<DbColumn> pkCols = table.Columns.Where(c => c.IsPrimaryKey).ToList();
+		if (pkCols.Count == 2 && pkCols.All(c => fkColIds.Contains(c.Id)))
+		{
+			List<DbColumn> extraCols = table.Columns
+				.Where(c => !pkIds.Contains(c.Id) && !fkColIds.Contains(c.Id))
+				.ToList();
+			if (extraCols.Count > 0)
+			{
+				issues.Add(new NormalizationIssue
+				{
+					Level = NormalizationLevel.NF4,
+					Severity = IssueSeverity.Warning,
+					Table = table.Name,
+					AffectedColumns = string.Join(", ", extraCols.Select(c => c.Name)),
+					Message = "조인 테이블에 관계 외 속성이 포함되어 있습니다.",
+					Hint = "두 엔티티 간 다중값 관계만 저장해야 한다면 추가 속성을 별도 테이블로 분리해 4NF를 만족하는지 검토하세요."
+				});
+			}
+		}
+
+		List<DbRelationship> outgoing = schema.Relationships
+			.Where(r => r.SourceTableId == table.Id)
+			.ToList();
+		HashSet<Guid> fkOutsidePk = outgoing
+			.Where(r => !pkIds.Contains(r.SourceColumnId))
+			.Select(r => r.SourceColumnId)
+			.ToHashSet();
+		if (pkCols.Count >= 2 && fkOutsidePk.Count >= 2)
+		{
+			HashSet<Guid> distinctParents = outgoing
+				.Where(r => fkOutsidePk.Contains(r.SourceColumnId))
+				.Select(r => r.TargetTableId)
+				.ToHashSet();
+			if (distinctParents.Count >= 2)
+			{
+				List<string> fkNames = table.Columns
+					.Where(c => fkOutsidePk.Contains(c.Id))
+					.Select(c => c.Name)
+					.ToList();
+				issues.Add(new NormalizationIssue
+				{
+					Level = NormalizationLevel.NF4,
+					Severity = IssueSeverity.Info,
+					Table = table.Name,
+					AffectedColumns = string.Join(", ", fkNames),
+					Message = "복합 키 테이블에 독립적인 다중값 관계가 함께 표현된 것으로 보입니다.",
+					Hint = "서로 독립적인 다중값 사실은 각각 별도 조인 테이블로 분리하면 4NF에 가깝습니다."
+				});
+			}
+		}
+	}
+
+	private static void Check5NF(DbTable table, DbSchema schema, List<NormalizationIssue> issues)
+	{
+		// 5NF (PJNF): no non-trivial join dependencies that are not implied by keys.
+		List<DbColumn> pkCols = table.Columns.Where(c => c.IsPrimaryKey).ToList();
+		HashSet<Guid> pkIds = pkCols.Select(c => c.Id).ToHashSet();
+		List<DbRelationship> outgoing = schema.Relationships
+			.Where(r => r.SourceTableId == table.Id)
+			.ToList();
+
+		if (pkCols.Count >= 3)
+		{
+			HashSet<Guid> pkParentTables = outgoing
+				.Where(r => pkIds.Contains(r.SourceColumnId))
+				.Select(r => r.TargetTableId)
+				.ToHashSet();
+			if (pkParentTables.Count >= 3)
+			{
+				issues.Add(new NormalizationIssue
+				{
+					Level = NormalizationLevel.NF5,
+					Severity = IssueSeverity.Warning,
+					Table = table.Name,
+					AffectedColumns = string.Join(", ", pkCols.Select(c => c.Name)),
+					Message = "3개 이상 엔티티를 연결하는 복합 키 테이블입니다.",
+					Hint = "삼진(triadic) 사실은 조인 종속으로 분해할 수 있는지 검토하세요. 5NF를 만족하려면 조인으로 복원 가능한 테이블을 더 작은 관계로 나누는 것이 좋습니다."
+				});
+			}
+		}
+
+		HashSet<Guid> parentTables = outgoing.Select(r => r.TargetTableId).ToHashSet();
+		if (parentTables.Count >= 3)
+		{
+			int fkOutsidePk = outgoing.Count(r => !pkIds.Contains(r.SourceColumnId));
+			if (pkCols.Count < 3 || fkOutsidePk > 0)
+			{
+				List<string> fkNames = outgoing
+					.Select(r => table.Columns.FirstOrDefault(c => c.Id == r.SourceColumnId)?.Name)
+					.Where(name => !string.IsNullOrEmpty(name))
+					.Distinct(StringComparer.OrdinalIgnoreCase)
+					.ToList();
+				issues.Add(new NormalizationIssue
+				{
+					Level = NormalizationLevel.NF5,
+					Severity = IssueSeverity.Info,
+					Table = table.Name,
+					AffectedColumns = string.Join(", ", fkNames),
+					Message = "3개 이상의 엔티티를 한 테이블에서 동시에 참조합니다.",
+					Hint = "이 테이블이 여러 이진 관계의 조인으로 복원 가능하다면, 5NF 관점에서 관계를 분해하는 설계를 검토하세요."
+				});
+			}
+		}
+
+		bool hasManyToMany = outgoing.Any(r => r.Type == RelationshipType.ManyToMany)
+			|| schema.Relationships.Any(r => r.Type == RelationshipType.ManyToMany &&
+				(r.SourceTableId == table.Id || r.TargetTableId == table.Id));
+		if (hasManyToMany && table.Columns.Count(c => !pkIds.Contains(c.Id)) >= 3)
+		{
+			issues.Add(new NormalizationIssue
+			{
+				Level = NormalizationLevel.NF5,
+				Severity = IssueSeverity.Info,
+				Table = table.Name,
+				AffectedColumns = "(테이블 전체)",
+				Message = "다대다 관계 주변에 복합 사실이 한 테이블에 모여 있을 수 있습니다.",
+				Hint = "N:M 관계와 부가 속성이 결합·조인 종속을 만들지 않는지 확인하고, 필요하면 중간 테이블을 더 분해하세요."
+			});
+		}
+	}
+
+	private static HashSet<Guid> GetOutgoingForeignKeyColumnIds(DbTable table, DbSchema schema) =>
+		schema.Relationships
+			.Where(r => r.SourceTableId == table.Id)
+			.Select(r => r.SourceColumnId)
+			.ToHashSet();
+
+	private static bool IsMultiValuedAttributeColumn(DbColumn col)
+	{
+		if (col.Name.EndsWith("_list", StringComparison.OrdinalIgnoreCase)
+			|| col.Name.EndsWith("_tags", StringComparison.OrdinalIgnoreCase)
+			|| col.Name.EndsWith("_skills", StringComparison.OrdinalIgnoreCase)
+			|| col.Name.EndsWith("_items", StringComparison.OrdinalIgnoreCase)
+			|| col.Name.EndsWith("_hobbies", StringComparison.OrdinalIgnoreCase)
+			|| col.Name.EndsWith("_categories", StringComparison.OrdinalIgnoreCase)
+			|| col.Name.EndsWith("_options", StringComparison.OrdinalIgnoreCase))
+		{
+			return true;
+		}
+
+		return col.DataType.ToUpperInvariant() switch
+		{
+			"JSON" or "JSONB" or "ARRAY" => true,
+			_ => false
+		};
 	}
 
 	private static List<List<string>> DetectRepeatingGroups(List<string> names)

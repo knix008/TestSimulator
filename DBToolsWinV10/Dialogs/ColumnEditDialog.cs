@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using DBToolsWinV10.App;
+using DBToolsWinV10.Controls;
 using DBToolsWinV10.Models;
 
 namespace DBToolsWinV10.Dialogs;
@@ -32,15 +33,15 @@ public class ColumnEditDialog : Form
 
 	private NumericUpDown nudScale = null;
 
-	private CheckBox chkPrimaryKey = null;
+	private ThemedCheckBox chkPrimaryKey = null;
 
-	private CheckBox chkAutoInc = null;
+	private ThemedCheckBox chkAutoInc = null;
 
-	private CheckBox chkNullable = null;
+	private ThemedCheckBox chkNullable = null;
 
-	private CheckBox chkUnique = null;
+	private ThemedCheckBox chkUnique = null;
 
-	private CheckBox chkForeignKey = null;
+	private ThemedCheckBox chkForeignKey = null;
 
 	private Label lblDefault = null;
 
@@ -217,11 +218,11 @@ public class ColumnEditDialog : Form
 		this.nudPrecision = new System.Windows.Forms.NumericUpDown();
 		this.lblScale = new System.Windows.Forms.Label();
 		this.nudScale = new System.Windows.Forms.NumericUpDown();
-		this.chkPrimaryKey = new System.Windows.Forms.CheckBox();
-		this.chkAutoInc = new System.Windows.Forms.CheckBox();
-		this.chkNullable = new System.Windows.Forms.CheckBox();
-		this.chkUnique = new System.Windows.Forms.CheckBox();
-		this.chkForeignKey = new System.Windows.Forms.CheckBox();
+		this.chkPrimaryKey = new ThemedCheckBox();
+		this.chkAutoInc = new ThemedCheckBox();
+		this.chkNullable = new ThemedCheckBox();
+		this.chkUnique = new ThemedCheckBox();
+		this.chkForeignKey = new ThemedCheckBox();
 		this.lblDefault = new System.Windows.Forms.Label();
 		this.txtDefault = new System.Windows.Forms.TextBox();
 		this.lblComment = new System.Windows.Forms.Label();

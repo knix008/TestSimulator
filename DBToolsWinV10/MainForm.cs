@@ -255,25 +255,33 @@ public partial class MainForm : Form
 
 	private ToolboxGroupBox grpView;
 
-	private Button btnToolSelect;
+	private ToolboxButton btnToolSelect;
 
-	private Button btnToolAddTable;
+	private ToolboxButton btnToolAddTable;
 
-	private Button btnToolRel11;
+	private ToolboxButton btnToolRel11;
 
-	private Button btnToolRel1N;
+	private ToolboxButton btnToolRel1N;
 
-	private Button btnToolRelNM;
+	private ToolboxButton btnToolRelNM;
 
-	private Button btnZoomIn;
+	private ToolboxButton btnZoomIn;
 
-	private Button btnZoomOut;
+	private ToolboxButton btnZoomOut;
 
-	private Button btnFitAll;
+	private ToolboxButton btnFitAll;
 
 	private DiagramCanvas diagramCanvas;
 
 	private TabControl tabControlRight;
+
+	private ToolStrip rightPanelTabBar;
+
+	private ToolStripButton btnTabStructure;
+
+	private ToolStripButton btnTabAnalysis;
+
+	private ToolStripButton btnTabIndexAdvisor;
 
 	private TabPage tabTreeView;
 
@@ -281,10 +289,13 @@ public partial class MainForm : Form
 
 	private TabPage tabIndexAdvisor;
 
-	private TreeView treeViewSchema;
+	private ThemedTreeView treeViewSchema;
     private BufferedListView listViewAnalysis;
     private BufferedListView listViewIndexAdvisor;
-    private Label lblAnalysisSummary;
+	private Panel _analysisHeaderPanel;
+	private Label _analysisSummaryLabel;
+	private ToolStrip _indexAdvisorToolBar;
+	private ToolStripLabel _indexAdvisorSummaryLabel;
 
 	private BufferedPropertyGrid propertyGrid = null!;
 
@@ -339,6 +350,7 @@ public partial class MainForm : Form
 		UpdateViewportUi();
 		BeginInvoke(ApplyMainSplitDistanceIfReady);
 		BeginInvoke(AdjustAnalysisColumnWidths);
+		BeginInvoke(() => ScrollBarTheme.Refresh(this));
 	}
 
 	private void SetRightPanelVisible(bool visible, bool syncUiOnly = false)
@@ -534,9 +546,14 @@ public partial class MainForm : Form
 	private void ApplyCanvasSettings()
 	{
 		var prefs = AppSettings.GetPreferences();
-		diagramCanvas.ShowGrid    = prefs.ShowGrid;
-		diagramCanvas.SnapToGrid  = prefs.SnapToGrid;
-		diagramCanvas.SnapInterval = prefs.SnapInterval;
+		ApplyCanvasGridSettings(prefs.ShowGrid, prefs.SnapToGrid, prefs.SnapInterval);
+	}
+
+	private void ApplyCanvasGridSettings(bool showGrid, bool snapToGrid, int snapInterval)
+	{
+		diagramCanvas.ShowGrid = showGrid;
+		diagramCanvas.SnapToGrid = snapToGrid;
+		diagramCanvas.SnapInterval = snapInterval;
 		diagramCanvas.Invalidate();
 	}
 
@@ -547,6 +564,8 @@ public partial class MainForm : Form
 		ModernTheme.StyleMenuStrip(menuStrip);
 		ModernTheme.StyleToolStrip(toolStrip);
 		if (propertySortBar != null) ModernTheme.StyleToolStrip(propertySortBar);
+		if (rightPanelTabBar != null) ModernTheme.StyleToolStrip(rightPanelTabBar);
+		if (_indexAdvisorToolBar != null) ModernTheme.StyleToolStrip(_indexAdvisorToolBar);
 		ModernTheme.StyleStatusStrip(statusStrip);
 		statusLabel.ForeColor = ModernTheme.TextSecondary;
 		panelToolBox.BackColor = ModernTheme.SidebarBackground;
@@ -561,16 +580,27 @@ public partial class MainForm : Form
 		ConfigureToolboxButton(btnZoomIn, "ZoomIn", "확대");
 		ConfigureToolboxButton(btnZoomOut, "ZoomOut", "축소");
 		ConfigureToolboxButton(btnFitAll, "FitAll", "맞춤");
-		ModernTheme.StyleTabControl(tabControlRight);
-		tabControlRight.Invalidate();
+		NativeControlTheme.ApplyDeep(panelToolBox);
+		ApplyRightPanelTabTheme();
 		ModernTheme.StyleDataTree(treeViewSchema);
-		ModernTheme.StyleDataList(listViewAnalysis);
-		ModernTheme.StyleDataList(listViewIndexAdvisor);
+		ModernTheme.StyleDataList(listViewAnalysis, propertyGridStyle: true);
+		ModernTheme.StyleDataList(listViewIndexAdvisor, propertyGridStyle: true);
+		ReapplyAnalysisListColors();
+		ReapplyIndexAdvisorListColors();
+		listViewAnalysis.Invalidate(true);
+		listViewIndexAdvisor.Invalidate(true);
+		ScrollBarTheme.Refresh(listViewAnalysis);
+		ScrollBarTheme.Refresh(listViewIndexAdvisor);
 		ConfigureAnalysisPanel();
 		ConfigureIndexAdvisorPanel();
 		ModernTheme.StylePropertyGrid(propertyGrid);
 		propertyGrid.HelpVisible = false;
-		ModernTheme.StyleSplitContainer(splitRightPanel, ModernTheme.PanelBackground, ModernTheme.PanelBackground);
+		ModernTheme.StyleSplitContainer(
+			splitRightPanel,
+			ModernTheme.PanelBackground,
+			ModernTheme.PanelBackground,
+			framePanel1: true,
+			framePanel2: true);
 		if (splitMain != null)
 		{
 			ModernTheme.StyleSplitContainer(splitMain, ModernTheme.AppBackground, ModernTheme.PanelBackground);
@@ -589,6 +619,7 @@ public partial class MainForm : Form
 		btnTsAbout.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
 		btnTsAbout.Text = L.S("BtnAbout", "정보");
 		UpdateToolButtonStates();
+		ScrollBarTheme.Apply(this);
 	}
 
 	private void ConfigureCanvasChromeLayout()
@@ -740,126 +771,103 @@ public partial class MainForm : Form
 
 	private bool _suppressAnalysisColumnWidthEvents;
 
-	private Analysis.NormalizationLevel _normLevel = Analysis.NormalizationLevel.NF1;
-	private ToolStrip _normLevelStrip;
-	private ToolStripButton _btnNf1, _btnNf2, _btnNf3, _btnBcnf;
+	private Analysis.NormalizationLevels _normLevels = Analysis.NormalizationLevels.NF1;
 	private IReadOnlyList<Analysis.IndexSuggestion> _indexSuggestions = [];
 	private string _indexAdvisorTableFilter;
 
+	private void ApplyNormalizationSettings()
+	{
+		_normLevels = AppSettings.GetPreferences().NormalizationLevels;
+	}
+
 	private void ConfigureAnalysisPanel()
 	{
-		lblAnalysisSummary = new Label
-		{
-			Dock = DockStyle.Top,
-			AutoSize = false,
-			Height = 48,
-			Padding = new Padding(10, 8, 10, 4),
-			TextAlign = ContentAlignment.TopLeft,
-			Text = L.S("AnalysisReady", "정규화 분석 결과가 여기에 표시됩니다."),
-			ForeColor = ModernTheme.TextSecondary,
-			BackColor = ModernTheme.SidebarBackground,
-			Font = ModernTheme.UiFontSmall
-		};
-		// Normalization level selector toolbar
-		_normLevelStrip = new ToolStrip
-		{
-			GripStyle = ToolStripGripStyle.Hidden,
-			BackColor = ModernTheme.SidebarBackground,
-			Dock = DockStyle.Top,
-			Padding = new Padding(4, 2, 4, 2),
-			AutoSize = true,
-			ShowItemToolTips = true
-		};
-		_btnNf1  = MakeNfBtn("1NF",  Analysis.NormalizationLevel.NF1,  L.S("NfBtnTip1",    "1정규화(1NF): 항상 선택 가능"));
-		_btnNf2  = MakeNfBtn("2NF",  Analysis.NormalizationLevel.NF2,  L.S("NfBtnTip2",    "2정규화(2NF): 1NF 오류가 없을 때만 선택 가능"));
-		_btnNf3  = MakeNfBtn("3NF",  Analysis.NormalizationLevel.NF3,  L.S("NfBtnTip3",    "3정규화(3NF): 2NF 오류가 없을 때만 선택 가능"));
-		_btnBcnf = MakeNfBtn("BCNF", Analysis.NormalizationLevel.BCNF, L.S("NfBtnTipBcnf", "보이스코드 정규화(BCNF): 3NF 오류가 없을 때만 선택 가능"));
-		_btnNf1.Checked = true;
-		_normLevelStrip.Items.Add(new ToolStripLabel(L.S("AnalysisLevel", "검사 수준:")) { ForeColor = ModernTheme.TextSecondary });
-		_normLevelStrip.Items.Add(_btnNf1);
-		_normLevelStrip.Items.Add(_btnNf2);
-		_normLevelStrip.Items.Add(_btnNf3);
-		_normLevelStrip.Items.Add(_btnBcnf);
+		ApplyNormalizationSettings();
+		EnsureAnalysisPanelCreated();
+		EnsureAnalysisPanelLayout();
+		ApplyAnalysisPanelTheme();
+	}
 
-		tabAnalysis.Controls.Clear();
-		listViewAnalysis.Dock = DockStyle.Fill;
-		tabAnalysis.Controls.Add(listViewAnalysis);
-		tabAnalysis.Controls.Add(lblAnalysisSummary);
-		tabAnalysis.Controls.Add(_normLevelStrip);
+	private void EnsureAnalysisPanelCreated()
+	{
+		if (_analysisHeaderPanel != null)
+			return;
+
+		_analysisHeaderPanel = new Panel
+		{
+			Name = "analysisHeaderPanel",
+			Dock = DockStyle.Top,
+			Height = 28,
+		};
+
+		_analysisSummaryLabel = new Label
+		{
+			Dock = DockStyle.Fill,
+			TextAlign = ContentAlignment.MiddleLeft,
+			Padding = new Padding(8, 0, 4, 0),
+			AutoEllipsis = true,
+			Text = L.S("AnalysisReady", "정규화 분석 결과가 여기에 표시됩니다."),
+		};
+
+		_analysisHeaderPanel.Controls.Add(_analysisSummaryLabel);
+
 		listViewAnalysis.Columns.Clear();
 		foreach (string header in GetAnalysisColumnHeaders())
-		{
 			listViewAnalysis.Columns.Add(header);
-		}
-		listViewAnalysis.ShowGroups = true;
+		listViewAnalysis.ShowGroups = false;
 		listViewAnalysis.HeaderStyle = ColumnHeaderStyle.Clickable;
 		listViewAnalysis.SelectedIndexChanged += ListViewAnalysis_SelectedIndexChanged;
 		listViewAnalysis.DoubleClick += ListViewAnalysis_DoubleClick;
 		listViewAnalysis.ColumnClick += ListViewAnalysis_ColumnClick;
 		listViewAnalysis.ColumnWidthChanging += ListViewAnalysis_ColumnWidthChanging;
 		listViewAnalysis.ColumnWidthChanged += ListViewAnalysis_ColumnWidthChanged;
-		tabAnalysis.Resize += (_, _) =>
-		{
-			UpdateAnalysisSummaryLayout();
-			ApplyAnalysisColumnLayout(fillOnly: true);
-		};
+		tabAnalysis.Resize += (_, _) => ApplyAnalysisColumnLayout(fillOnly: true);
 	}
 
-	private ToolStripButton MakeNfBtn(string label, Analysis.NormalizationLevel level, string tip)
+	private void EnsureAnalysisPanelLayout()
 	{
-		var btn = new ToolStripButton(label)
-		{
-			CheckOnClick = false,
-			ToolTipText = tip,
-			Margin = new Padding(1, 0, 1, 0),
-			Padding = new Padding(4, 1, 4, 1),
-			Font = ModernTheme.UiFontSmall
-		};
-		btn.Click += (_, _) => TrySetNormLevel(level);
-		return btn;
+		if (_analysisHeaderPanel == null)
+			return;
+
+		listViewAnalysis.Dock = DockStyle.Fill;
+		_analysisHeaderPanel.Dock = DockStyle.Top;
+		_analysisSummaryLabel.Dock = DockStyle.Fill;
+
+		if (!tabAnalysis.Controls.Contains(listViewAnalysis))
+			tabAnalysis.Controls.Add(listViewAnalysis);
+		if (!tabAnalysis.Controls.Contains(_analysisHeaderPanel))
+			tabAnalysis.Controls.Add(_analysisHeaderPanel);
+
+		tabAnalysis.Controls.SetChildIndex(listViewAnalysis, 0);
+		tabAnalysis.Controls.SetChildIndex(_analysisHeaderPanel, 1);
+
+		_analysisHeaderPanel.Visible = true;
+		_analysisHeaderPanel.BringToFront();
 	}
 
-	private void TrySetNormLevel(Analysis.NormalizationLevel requested)
+	private void SetAnalysisSummary(string text, Color foreColor)
 	{
-		// Check prerequisite: run previous level and check for errors
-		if (requested > Analysis.NormalizationLevel.NF1)
-		{
-			var prereqLevel = (Analysis.NormalizationLevel)((int)requested - 1);
-			var prereqIssues = Analysis.NormalizationAnalyzer.AnalyzeLevel(diagramCanvas.Schema, prereqLevel);
-			bool prereqHasErrors = prereqIssues.Any(i =>
-				i.Severity == Analysis.IssueSeverity.Error &&
-				i.Level == prereqLevel);
-			if (prereqHasErrors)
-			{
-				string levelName = prereqLevel switch
-				{
-					Analysis.NormalizationLevel.NF1 => "1NF",
-					Analysis.NormalizationLevel.NF2 => "2NF",
-					Analysis.NormalizationLevel.NF3 => "3NF",
-					_ => prereqLevel.ToString()
-				};
-				statusLabel.Text = string.Format(L.S("StatusNormBlocked", "{0} 오류를 먼저 해결해야 더 높은 정규화 수준을 선택할 수 있습니다."), levelName);
-				return;
-			}
-		}
-		_normLevel = requested;
-		UpdateNfLevelButtons();
-		RefreshNormalizationAnalysis(focusTab: false);
+		if (_analysisSummaryLabel == null)
+			return;
+
+		_analysisSummaryLabel.Text = text;
+		_analysisSummaryLabel.ForeColor = foreColor;
 	}
 
-	private void UpdateNfLevelButtons()
+	private void ApplyAnalysisPanelTheme()
 	{
-		if (_btnNf1 == null) return;
-		foreach (var (btn, lvl) in new[] {
-			(_btnNf1, Analysis.NormalizationLevel.NF1),
-			(_btnNf2, Analysis.NormalizationLevel.NF2),
-			(_btnNf3, Analysis.NormalizationLevel.NF3),
-			(_btnBcnf, Analysis.NormalizationLevel.BCNF) })
+		if (_analysisHeaderPanel == null)
+			return;
+
+		_analysisHeaderPanel.BackColor = ModernTheme.PanelBackground;
+		_analysisHeaderPanel.ForeColor = ModernTheme.TextPrimary;
+
+		if (_analysisSummaryLabel != null)
 		{
-			btn.Checked = lvl == _normLevel;
-			btn.Font = lvl == _normLevel
-				? new Font(ModernTheme.UiFontSmall, FontStyle.Bold)
-				: ModernTheme.UiFontSmall;
+			ModernTheme.StyleDialogLabel(_analysisSummaryLabel);
+			_analysisSummaryLabel.Font = ModernTheme.UiFontSmall;
+			if (string.IsNullOrWhiteSpace(_analysisSummaryLabel.Text))
+				SetAnalysisSummary(L.S("AnalysisReady", "정규화 분석 결과가 여기에 표시됩니다."), ModernTheme.TextSecondary);
 		}
 	}
 
@@ -875,8 +883,7 @@ public partial class MainForm : Form
 			_analysisSortOrder = SortOrder.Ascending;
 		}
 
-		listViewAnalysis.ListViewItemSorter = new AnalysisListViewItemComparer(_analysisSortColumn, _analysisSortOrder);
-		listViewAnalysis.Sort();
+		RefreshNormalizationAnalysis(focusTab: false);
 	}
 
 	private void ListViewAnalysis_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
@@ -971,8 +978,6 @@ public partial class MainForm : Form
 		{
 			_suppressAnalysisColumnWidthEvents = false;
 		}
-
-		UpdateAnalysisSummaryLayout();
 	}
 
 	private void ApplyDefaultAnalysisColumnWidths(int available)
@@ -1045,21 +1050,10 @@ public partial class MainForm : Form
 		ApplyAnalysisColumnLayout();
 	}
 
-	private void UpdateAnalysisSummaryLayout()
-	{
-		if (lblAnalysisSummary == null || tabAnalysis == null)
-		{
-			return;
-		}
-
-		int width = Math.Max(120, tabAnalysis.ClientSize.Width - lblAnalysisSummary.Padding.Horizontal);
-		Size textSize = TextRenderer.MeasureText(lblAnalysisSummary.Text, lblAnalysisSummary.Font, new Size(width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.Left);
-		lblAnalysisSummary.Height = Math.Max(40, textSize.Height + lblAnalysisSummary.Padding.Vertical + 4);
-	}
-
 	private void ListViewAnalysis_SelectedIndexChanged(object sender, EventArgs e)
 	{
-		if (listViewAnalysis.SelectedItems.Count == 0)
+		if (listViewAnalysis.SelectedItems.Count == 0
+			|| listViewAnalysis.SelectedItems[0].Tag is not NormalizationIssue)
 		{
 			diagramCanvas.ClearNormalizationHighlight();
 			return;
@@ -1125,15 +1119,53 @@ public partial class MainForm : Form
 
 	private void ConfigureIndexAdvisorPanel()
 	{
-		tabIndexAdvisor.Controls.Clear();
-		listViewIndexAdvisor.Dock = DockStyle.Fill;
-		tabIndexAdvisor.Controls.Add(listViewIndexAdvisor);
-		listViewIndexAdvisor.Columns.Clear();
-		foreach (string header in GetIndexAdvisorColumnHeaders())
-			listViewIndexAdvisor.Columns.Add(header, 100);
-		listViewIndexAdvisor.FullRowSelect = true;
-		listViewIndexAdvisor.GridLines = true;
-		listViewIndexAdvisor.SelectedIndexChanged += ListViewIndexAdvisor_SelectedIndexChanged;
+		if (_indexAdvisorToolBar == null)
+		{
+			_indexAdvisorToolBar = new ToolStrip
+			{
+				GripStyle = ToolStripGripStyle.Hidden,
+				Dock = DockStyle.Top,
+				Name = "indexAdvisorToolBar"
+			};
+			_indexAdvisorSummaryLabel = new ToolStripLabel
+			{
+				TextAlign = ContentAlignment.MiddleLeft,
+				Text = L.S("IdxSummaryReady", "인덱스 제안 결과가 여기에 표시됩니다.")
+			};
+			_indexAdvisorToolBar.Items.Add(_indexAdvisorSummaryLabel);
+
+			tabIndexAdvisor.Controls.Clear();
+			listViewIndexAdvisor.Dock = DockStyle.Fill;
+			tabIndexAdvisor.Controls.Add(listViewIndexAdvisor);
+			tabIndexAdvisor.Controls.Add(_indexAdvisorToolBar);
+			listViewIndexAdvisor.Columns.Clear();
+			foreach (string header in GetIndexAdvisorColumnHeaders())
+				listViewIndexAdvisor.Columns.Add(header, 100);
+			listViewIndexAdvisor.FullRowSelect = true;
+			listViewIndexAdvisor.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+			listViewIndexAdvisor.SelectedIndexChanged += ListViewIndexAdvisor_SelectedIndexChanged;
+		}
+
+		ApplyIndexAdvisorPanelTheme();
+	}
+
+	private void ApplyIndexAdvisorPanelTheme()
+	{
+		if (_indexAdvisorToolBar == null)
+			return;
+
+		ModernTheme.StyleToolStrip(_indexAdvisorToolBar);
+		if (_indexAdvisorSummaryLabel != null && string.IsNullOrWhiteSpace(_indexAdvisorSummaryLabel.Text))
+			_indexAdvisorSummaryLabel.ForeColor = ModernTheme.TextSecondary;
+	}
+
+	private void SetIndexAdvisorSummary(string text, Color foreColor)
+	{
+		if (_indexAdvisorSummaryLabel == null)
+			return;
+
+		_indexAdvisorSummaryLabel.Text = text;
+		_indexAdvisorSummaryLabel.ForeColor = foreColor;
 	}
 
 	private void RefreshIndexAdvisorAnalysis()
@@ -1147,10 +1179,12 @@ public partial class MainForm : Form
 		listViewIndexAdvisor.BeginUpdate();
 		listViewIndexAdvisor.Items.Clear();
 		bool filtered = !string.IsNullOrEmpty(_indexAdvisorTableFilter);
+		int visibleCount = 0;
 		foreach (var s in _indexSuggestions)
 		{
 			if (filtered && !string.Equals(s.Table, _indexAdvisorTableFilter, StringComparison.OrdinalIgnoreCase))
 				continue;
+			visibleCount++;
 			string kindLabel = s.Kind switch
 			{
 				Analysis.IndexSuggestionKind.AlreadyIndexed => L.S("IdxAlreadyIndexed", "✓ 인덱싱됨"),
@@ -1161,19 +1195,38 @@ public partial class MainForm : Form
 			};
 			var item = new ListViewItem([s.Table, s.Column, kindLabel, s.Reason, s.Recommendation]);
 			item.Tag = s;
-			item.ForeColor = s.Kind switch
-			{
-				Analysis.IndexSuggestionKind.AlreadyIndexed => Color.FromArgb(80, 160, 80),
-				Analysis.IndexSuggestionKind.Required       => Color.FromArgb(220, 60, 60),
-				Analysis.IndexSuggestionKind.Recommended    => Color.FromArgb(200, 120, 20),
-				Analysis.IndexSuggestionKind.Consider       => ModernTheme.TextSecondary,
-				_ => ModernTheme.TextPrimary,
-			};
+			ApplyIndexSuggestionListStyle(item, s);
 			listViewIndexAdvisor.Items.Add(item);
 		}
 		listViewIndexAdvisor.EndUpdate();
 		for (int i = 0; i < 3; i++)
 			listViewIndexAdvisor.Columns[i].Width = -2;
+		listViewIndexAdvisor.Invalidate(true);
+
+		if (diagramCanvas.Schema.Tables.Count == 0)
+		{
+			SetIndexAdvisorSummary(L.S("IdxSummaryNoTables", "테이블이 없어 인덱스 분석을 수행할 수 없습니다."), ModernTheme.TextMuted);
+		}
+		else if (visibleCount == 0)
+		{
+			SetIndexAdvisorSummary(
+				filtered
+					? string.Format(L.S("IdxSummaryFilteredEmpty", "선택한 테이블({0})에 대한 제안이 없습니다."), _indexAdvisorTableFilter)
+					: L.S("IdxSummaryEmpty", "인덱스 제안이 없습니다."),
+				ModernTheme.TextSecondary);
+		}
+		else if (filtered)
+		{
+			SetIndexAdvisorSummary(
+				string.Format(L.S("IdxSummaryFiltered", "인덱스 제안 {0}건 — 테이블: {1}"), visibleCount, _indexAdvisorTableFilter),
+				ModernTheme.TextSecondary);
+		}
+		else
+		{
+			SetIndexAdvisorSummary(
+				string.Format(L.S("IdxSummary", "인덱스 제안 {0}건"), visibleCount),
+				ModernTheme.TextSecondary);
+		}
 	}
 
 	private void ListViewIndexAdvisor_SelectedIndexChanged(object sender, EventArgs e)
@@ -1191,20 +1244,71 @@ public partial class MainForm : Form
 		RefreshPropertyGrid();
 	}
 
+	private void ReapplyAnalysisListColors()
+	{
+		if (listViewAnalysis == null)
+			return;
+
+		foreach (ListViewItem item in listViewAnalysis.Items)
+		{
+			if (item.Tag is NormalizationIssue issue)
+				NormalizationLabels.ApplyListItemStyle(item, issue.Severity);
+		}
+	}
+
+	private void ReapplyIndexAdvisorListColors()
+	{
+		if (listViewIndexAdvisor == null)
+			return;
+
+		foreach (ListViewItem item in listViewIndexAdvisor.Items)
+		{
+			if (item.Tag is Analysis.IndexSuggestion s)
+				ApplyIndexSuggestionListStyle(item, s);
+		}
+	}
+
+	private static void ApplyIndexSuggestionListStyle(ListViewItem item, Analysis.IndexSuggestion s)
+	{
+		item.UseItemStyleForSubItems = true;
+		item.BackColor = Color.Empty;
+		item.ForeColor = s.Kind switch
+		{
+			Analysis.IndexSuggestionKind.AlreadyIndexed => ModernTheme.Success,
+			Analysis.IndexSuggestionKind.Required       => ModernTheme.Danger,
+			Analysis.IndexSuggestionKind.Recommended    => ModernTheme.Warning,
+			Analysis.IndexSuggestionKind.Consider       => ModernTheme.TextSecondary,
+			_ => ModernTheme.TextPrimary,
+		};
+	}
+
+	private void ApplyRightPanelTabTheme()
+	{
+		ModernTheme.ApplyContentFrame(splitRightPanel.Panel1);
+
+		tabControlRight.BackColor = ModernTheme.PanelBackground;
+		foreach (TabPage page in tabControlRight.TabPages)
+		{
+			page.BackColor = ModernTheme.PanelBackground;
+			page.Padding = Padding.Empty;
+			page.ForeColor = ModernTheme.TextPrimary;
+			page.UseVisualStyleBackColor = false;
+		}
+	}
+
 	private void ApplyRightPanelIcons()
 	{
-		ImageList rightTabImages = new ImageList
-		{
-			ColorDepth = ColorDepth.Depth32Bit,
-			ImageSize = new Size(16, 16)
-		};
-		rightTabImages.Images.Add("Structure", IconProvider.Get("Structure", 16));
-		rightTabImages.Images.Add("Analyze", IconProvider.Get("Analyze", 16));
-		rightTabImages.Images.Add("IndexAdvisor", IconProvider.Get("IndexAdvisor", 16));
-		tabControlRight.ImageList = rightTabImages;
-		tabTreeView.ImageKey = "Structure";
-		tabAnalysis.ImageKey = "Analyze";
-		tabIndexAdvisor.ImageKey = "IndexAdvisor";
+		btnTabStructure.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+		btnTabStructure.Image = IconProvider.Get("Structure", 16);
+		btnTabStructure.TextImageRelation = TextImageRelation.ImageBeforeText;
+
+		btnTabAnalysis.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+		btnTabAnalysis.Image = IconProvider.Get("Analyze", 16);
+		btnTabAnalysis.TextImageRelation = TextImageRelation.ImageBeforeText;
+
+		btnTabIndexAdvisor.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+		btnTabIndexAdvisor.Image = IconProvider.Get("IndexAdvisor", 16);
+		btnTabIndexAdvisor.TextImageRelation = TextImageRelation.ImageBeforeText;
 
 		btnPropertySortCategory.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
 		btnPropertySortCategory.Image = IconProvider.Get("SortCategory", 16);
@@ -1215,7 +1319,7 @@ public partial class MainForm : Form
 		btnPropertySortAlphabetical.TextImageRelation = TextImageRelation.ImageBeforeText;
 	}
 
-	private static void ConfigureToolboxButton(Button button, string iconName, string caption)
+	private static void ConfigureToolboxButton(ToolboxButton button, string iconName, string caption)
 	{
 		button.Image = IconProvider.Get(iconName, 20);
 		button.Text = "";             // icon-only; tooltip carries the label
@@ -1387,6 +1491,21 @@ public partial class MainForm : Form
 		tabTreeView.Text       = L.S("TabStructure");
 		tabAnalysis.Text       = L.S("TabAnalysis");
 		tabIndexAdvisor.Text   = L.S("TabIndexAdvisor");
+		if (btnTabStructure != null)
+		{
+			btnTabStructure.Text = L.S("TabStructure");
+			btnTabStructure.ToolTipText = L.S("TabStructure");
+		}
+		if (btnTabAnalysis != null)
+		{
+			btnTabAnalysis.Text = L.S("TabAnalysis");
+			btnTabAnalysis.ToolTipText = L.S("TabAnalysis");
+		}
+		if (btnTabIndexAdvisor != null)
+		{
+			btnTabIndexAdvisor.Text = L.S("TabIndexAdvisor");
+			btnTabIndexAdvisor.ToolTipText = L.S("TabIndexAdvisor");
+		}
 
 		if (tsLineStraight != null) tsLineStraight.Text = L.S("LineStyleStraight");
 		if (tsLineCurved != null)   tsLineCurved.Text   = L.S("LineStyleCurved");
@@ -1436,25 +1555,26 @@ public partial class MainForm : Form
 		}
 
 		// Analysis panel live labels — only update the "ready" placeholder, never actual results
-		if (lblAnalysisSummary != null)
+		if (_analysisSummaryLabel != null)
 		{
-			var t = lblAnalysisSummary.Text;
+			var t = _analysisSummaryLabel.Text;
 			if (t == "정규화 분석 결과가 여기에 표시됩니다."
 				|| t == "Normalization analysis results will appear here."
 				|| string.IsNullOrWhiteSpace(t))
 			{
-				lblAnalysisSummary.Text = L.S("AnalysisReady", "정규화 분석 결과가 여기에 표시됩니다.");
+				SetAnalysisSummary(L.S("AnalysisReady", "정규화 분석 결과가 여기에 표시됩니다."), ModernTheme.TextSecondary);
 			}
 		}
-		if (_normLevelStrip != null && _normLevelStrip.Items.Count > 0
-			&& _normLevelStrip.Items[0] is ToolStripLabel normLabel)
+		if (_indexAdvisorSummaryLabel != null)
 		{
-			normLabel.Text = L.S("AnalysisLevel", "검사 수준:");
+			var t = _indexAdvisorSummaryLabel.Text;
+			if (t == "인덱스 제안 결과가 여기에 표시됩니다."
+				|| t == "Index suggestions will appear here."
+				|| string.IsNullOrWhiteSpace(t))
+			{
+				SetIndexAdvisorSummary(L.S("IdxSummaryReady", "인덱스 제안 결과가 여기에 표시됩니다."), ModernTheme.TextSecondary);
+			}
 		}
-		if (_btnNf1  != null) _btnNf1.ToolTipText  = L.S("NfBtnTip1",    "1정규화(1NF): 항상 선택 가능");
-		if (_btnNf2  != null) _btnNf2.ToolTipText  = L.S("NfBtnTip2",    "2정규화(2NF): 1NF 오류가 없을 때만 선택 가능");
-		if (_btnNf3  != null) _btnNf3.ToolTipText  = L.S("NfBtnTip3",    "3정규화(3NF): 2NF 오류가 없을 때만 선택 가능");
-		if (_btnBcnf != null) _btnBcnf.ToolTipText = L.S("NfBtnTipBcnf", "보이스코드 정규화(BCNF): 3NF 오류가 없을 때만 선택 가능");
 
 		// Toolbox button tooltips
 		if (toolTip1 != null)
@@ -1547,6 +1667,7 @@ public partial class MainForm : Form
 		diagramCanvas.Invalidate();
 		rulerHorizontal?.Invalidate();
 		rulerVertical?.Invalidate();
+		ScrollBarTheme.Refresh(this);
 	}
 
 	private void ShowPreferences()
@@ -1562,6 +1683,8 @@ public partial class MainForm : Form
 			ApplyLocalization();
 		};
 		dlg.LiveThemeChanged += theme => ApplyTheme(theme);
+		dlg.LiveGridSettingsChanged += (showGrid, snapToGrid, snapInterval) =>
+			ApplyCanvasGridSettings(showGrid, snapToGrid, snapInterval);
 
 		var result = dlg.ShowDialog(this);
 
@@ -1575,6 +1698,7 @@ public partial class MainForm : Form
 				ApplyTheme(originalTheme);
 			else
 				ApplyLocalization();
+			ApplyCanvasGridSettings(savedPrefs.ShowGrid, savedPrefs.SnapToGrid, savedPrefs.SnapInterval);
 			return;
 		}
 
@@ -1602,8 +1726,11 @@ public partial class MainForm : Form
 			diagramCanvas.Invalidate();
 			rulerHorizontal?.Invalidate();
 			rulerVertical?.Invalidate();
+			ScrollBarTheme.Refresh(this);
 		}
 		ApplyCanvasSettings();
+		ApplyNormalizationSettings();
+		RefreshNormalizationAnalysis();
 	}
 
 	private void WireEvents()
@@ -1889,6 +2016,7 @@ public partial class MainForm : Form
 		};
 		propertyGrid.PropertyValueChanged += PropertyGrid_PropertyValueChanged;
 		ConfigurePropertySortBar();
+		ConfigureRightPanelTabBar();
 		splitRightPanel.SplitterMoving += SplitPanel_SplitterMoving;
 		splitRightPanel.SplitterMoved += SplitPanel_SplitterMoved;
 		base.FormClosing += MainForm_FormClosing;
@@ -2652,34 +2780,39 @@ public partial class MainForm : Form
 	private void RefreshNormalizationAnalysis(bool focusTab = false)
 	{
 		DbSchema schema = diagramCanvas.Schema;
-		IReadOnlyList<NormalizationIssue> issues = NormalizationAnalyzer.AnalyzeLevel(schema, _normLevel);
+		IReadOnlyList<NormalizationIssue> issues = NormalizationAnalyzer.AnalyzeLevels(schema, _normLevels);
 		listViewAnalysis.BeginUpdate();
 		listViewAnalysis.Items.Clear();
-		listViewAnalysis.Groups.Clear();
 		if (schema.Tables.Count == 0)
 		{
-			lblAnalysisSummary.Text = L.S("NoTablesAnalysis", "테이블이 없어 정규화 검사를 수행할 수 없습니다.");
-			lblAnalysisSummary.ForeColor = ModernTheme.TextMuted;
+			SetAnalysisSummary(L.S("NoTablesAnalysis", "테이블이 없어 정규화 검사를 수행할 수 없습니다."), ModernTheme.TextMuted);
 			listViewAnalysis.EndUpdate();
-			UpdateAnalysisSummaryLayout();
 			if (focusTab)
 			{
 				tabControlRight.SelectedTab = tabAnalysis;
 			}
 			return;
 		}
-		Dictionary<NormalizationLevel, ListViewGroup> groups = new Dictionary<NormalizationLevel, ListViewGroup>();
-		foreach (NormalizationIssue issue in issues.OrderBy((NormalizationIssue i) => i.Severity).ThenBy((NormalizationIssue i) => i.Level).ThenBy((NormalizationIssue i) => i.Table, StringComparer.OrdinalIgnoreCase))
+
+		bool useCategoryRows = _analysisSortColumn < 0;
+		IEnumerable<NormalizationIssue> orderedIssues = useCategoryRows
+			? issues.OrderBy(i => i.Level).ThenBy(i => i.Severity).ThenBy(i => i.Table, StringComparer.OrdinalIgnoreCase)
+			: issues.OrderBy(i => i.Severity).ThenBy(i => i.Level).ThenBy(i => i.Table, StringComparer.OrdinalIgnoreCase);
+
+		NormalizationLevel? currentLevel = null;
+		foreach (NormalizationIssue issue in orderedIssues)
 		{
-			if (!groups.TryGetValue(issue.Level, out ListViewGroup group))
+			if (useCategoryRows && currentLevel != issue.Level)
 			{
-				group = new ListViewGroup(NormalizationLabels.GetLevelGroupTitle(issue.Level), HorizontalAlignment.Left);
-				listViewAnalysis.Groups.Add(group);
-				groups[issue.Level] = group;
+				listViewAnalysis.Items.Add(new ListViewItem(NormalizationLabels.GetLevelGroupTitle(issue.Level))
+				{
+					Tag = new ListViewCategoryRow(),
+				});
+				currentLevel = issue.Level;
 			}
+
 			ListViewItem listViewItem = new ListViewItem(NormalizationLabels.GetLevelLabel(issue.Level))
 			{
-				Group = groups[issue.Level],
 				Tag = issue
 			};
 			listViewItem.SubItems.Add(NormalizationLabels.GetSeverityLabel(issue.Severity));
@@ -2693,18 +2826,10 @@ public partial class MainForm : Form
 		int errorCount = issues.Count((NormalizationIssue i) => i.Severity == IssueSeverity.Error);
 		int warningCount = issues.Count((NormalizationIssue i) => i.Severity == IssueSeverity.Warning);
 		int infoCount = issues.Count((NormalizationIssue i) => i.Severity == IssueSeverity.Info);
-		string levelLabel = _normLevel switch
-		{
-			Analysis.NormalizationLevel.NF1  => "1NF",
-			Analysis.NormalizationLevel.NF2  => "1NF · 2NF",
-			Analysis.NormalizationLevel.NF3  => "1NF · 2NF · 3NF",
-			Analysis.NormalizationLevel.BCNF => "1NF · 2NF · 3NF · BCNF",
-			_ => _normLevel.ToString()
-		};
+		string levelLabel = NormalizationLabels.FormatLevelsLabel(_normLevels);
 		if (issues.Count == 0)
 		{
-			lblAnalysisSummary.Text = string.Format(L.S("AnalysisNoIssues", "정규화 검사: 문제 없음 ({0})"), levelLabel);
-			lblAnalysisSummary.ForeColor = ModernTheme.Success;
+			SetAnalysisSummary(string.Format(L.S("AnalysisNoIssues", "정규화 검사: 문제 없음 ({0})"), levelLabel), ModernTheme.Success);
 		}
 		else
 		{
@@ -2715,14 +2840,19 @@ public partial class MainForm : Form
 				parts.Add(string.Format(L.S("AnalysisWarnCount", "경고 {0}건"), warningCount));
 			if (infoCount > 0)
 				parts.Add(string.Format(L.S("AnalysisInfoCount", "정보 {0}건"), infoCount));
-			lblAnalysisSummary.Text = string.Format(L.S("AnalysisSummary", "정규화 검사: {0} — 아래 목록에서 문제 위치를 확인하세요."), string.Join(", ", parts));
-			lblAnalysisSummary.ForeColor = (errorCount > 0) ? ModernTheme.Danger : ModernTheme.Warning;
+			SetAnalysisSummary(
+				string.Format(L.S("AnalysisSummary", "정규화 검사: {0} — 아래 목록에서 문제 위치를 확인하세요."), string.Join(", ", parts)),
+				errorCount > 0 ? ModernTheme.Danger : ModernTheme.Warning);
 		}
 		listViewAnalysis.EndUpdate();
 		if (_analysisSortColumn >= 0)
 		{
 			listViewAnalysis.ListViewItemSorter = new AnalysisListViewItemComparer(_analysisSortColumn, _analysisSortOrder);
 			listViewAnalysis.Sort();
+		}
+		else
+		{
+			listViewAnalysis.ListViewItemSorter = null;
 		}
 
 		ApplyAnalysisColumnLayout();
@@ -2907,6 +3037,69 @@ public partial class MainForm : Form
 		UpdatePropertySortButtons();
 	}
 
+	private void FlattenRightPanelTopLayout()
+	{
+		foreach (Control child in splitRightPanel.Panel1.Controls.Cast<Control>().ToArray())
+		{
+			if (child == rightPanelTabBar || child == tabControlRight)
+				continue;
+
+			if (child is Panel frame && frame.Controls.Contains(tabControlRight))
+			{
+				frame.Controls.Remove(tabControlRight);
+				splitRightPanel.Panel1.Controls.Remove(frame);
+				frame.Dispose();
+			}
+		}
+
+		if (!splitRightPanel.Panel1.Controls.Contains(tabControlRight))
+			splitRightPanel.Panel1.Controls.Add(tabControlRight);
+		if (!splitRightPanel.Panel1.Controls.Contains(rightPanelTabBar))
+			splitRightPanel.Panel1.Controls.Add(rightPanelTabBar);
+	}
+
+	private void ConfigureRightPanelTabBar()
+	{
+		ModernTheme.StyleToolStrip(rightPanelTabBar);
+		rightPanelTabBar.Dock = DockStyle.Top;
+		FlattenRightPanelTopLayout();
+
+		tabControlRight.Dock = DockStyle.Fill;
+		tabControlRight.Appearance = TabAppearance.FlatButtons;
+		tabControlRight.SizeMode = TabSizeMode.Fixed;
+		tabControlRight.ItemSize = new Size(0, 1);
+		tabControlRight.Padding = new Point(0, 0);
+
+		btnTabStructure.Click += (_, _) => SelectRightPanelTab(0);
+		btnTabAnalysis.Click += (_, _) => SelectRightPanelTab(1);
+		btnTabIndexAdvisor.Click += (_, _) => SelectRightPanelTab(2);
+		tabControlRight.SelectedIndexChanged += (_, _) => UpdateRightPanelTabButtons();
+
+		SelectRightPanelTab(0);
+		ApplyRightPanelTabTheme();
+		ScrollBarTheme.Refresh(splitRightPanel);
+	}
+
+	private void SelectRightPanelTab(int index)
+	{
+		if (index < 0 || index >= tabControlRight.TabPages.Count)
+			return;
+
+		tabControlRight.SelectedIndex = index;
+		UpdateRightPanelTabButtons();
+	}
+
+	private void UpdateRightPanelTabButtons()
+	{
+		if (btnTabStructure == null)
+			return;
+
+		int index = tabControlRight.SelectedIndex;
+		btnTabStructure.Checked = index == 0;
+		btnTabAnalysis.Checked = index == 1;
+		btnTabIndexAdvisor.Checked = index == 2;
+	}
+
 	private void ApplyPropertySortMode(bool categorized)
 	{
 		if (categorized)
@@ -2937,6 +3130,7 @@ public partial class MainForm : Form
 	{
 		propertyGrid.PerformLayout();
 		propertyGrid.Invalidate(true);
+		ScrollBarTheme.Refresh(this);
 	}
 
 	private void PropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
@@ -3114,14 +3308,14 @@ public partial class MainForm : Form
         components = new Container();
         ComponentResourceManager resources = new ComponentResourceManager(typeof(MainForm));
         toolTip1 = new ToolTip(components);
-        btnToolSelect = new Button();
-        btnToolAddTable = new Button();
-        btnToolRel11 = new Button();
-        btnToolRel1N = new Button();
-        btnToolRelNM = new Button();
-        btnZoomIn = new Button();
-        btnZoomOut = new Button();
-        btnFitAll = new Button();
+        btnToolSelect = new ToolboxButton();
+        btnToolAddTable = new ToolboxButton();
+        btnToolRel11 = new ToolboxButton();
+        btnToolRel1N = new ToolboxButton();
+        btnToolRelNM = new ToolboxButton();
+        btnZoomIn = new ToolboxButton();
+        btnZoomOut = new ToolboxButton();
+        btnFitAll = new ToolboxButton();
         btnCanvasToggleRight = new Button();
         menuNew = new ToolStripMenuItem();
         menuOpen = new ToolStripMenuItem();
@@ -3203,13 +3397,17 @@ public partial class MainForm : Form
         grpRelation = new ToolboxGroupBox();
         grpView = new ToolboxGroupBox();
         panelToolBox = new Panel();
-        treeViewSchema = new TreeView();
+        treeViewSchema = new ThemedTreeView();
         listViewAnalysis = new BufferedListView();
         listViewIndexAdvisor = new BufferedListView();
         tabTreeView = new TabPage();
         tabAnalysis = new TabPage();
         tabIndexAdvisor = new TabPage();
         tabControlRight = new TabControl();
+        rightPanelTabBar = new ToolStrip();
+        btnTabStructure = new ToolStripButton();
+        btnTabAnalysis = new ToolStripButton();
+        btnTabIndexAdvisor = new ToolStripButton();
         propertyGrid = new BufferedPropertyGrid();
         propertySortBar = new ToolStrip();
         btnPropertySortCategory = new ToolStripButton();
@@ -3240,6 +3438,7 @@ public partial class MainForm : Form
         tabAnalysis.SuspendLayout();
         tabIndexAdvisor.SuspendLayout();
         tabControlRight.SuspendLayout();
+        rightPanelTabBar.SuspendLayout();
         propertySortBar.SuspendLayout();
         ((ISupportInitialize)splitRightPanel).BeginInit();
         splitRightPanel.Panel1.SuspendLayout();
@@ -4007,11 +4206,46 @@ public partial class MainForm : Form
         tabControlRight.Controls.Add(tabAnalysis);
         tabControlRight.Controls.Add(tabIndexAdvisor);
         tabControlRight.Dock = DockStyle.Fill;
-        tabControlRight.Location = new Point(0, 0);
+        tabControlRight.Location = new Point(0, 25);
         tabControlRight.Name = "tabControlRight";
         tabControlRight.SelectedIndex = 0;
-        tabControlRight.Size = new Size(320, 364);
-        tabControlRight.TabIndex = 0;
+        tabControlRight.Size = new Size(320, 339);
+        tabControlRight.TabIndex = 1;
+        // 
+        // rightPanelTabBar
+        // 
+        rightPanelTabBar.GripStyle = ToolStripGripStyle.Hidden;
+        rightPanelTabBar.Items.AddRange(new ToolStripItem[] { btnTabStructure, btnTabAnalysis, btnTabIndexAdvisor });
+        rightPanelTabBar.Location = new Point(0, 0);
+        rightPanelTabBar.Name = "rightPanelTabBar";
+        rightPanelTabBar.Size = new Size(320, 25);
+        rightPanelTabBar.TabIndex = 0;
+        // 
+        // btnTabStructure
+        // 
+        btnTabStructure.Checked = true;
+        btnTabStructure.CheckOnClick = true;
+        btnTabStructure.CheckState = CheckState.Checked;
+        btnTabStructure.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        btnTabStructure.Name = "btnTabStructure";
+        btnTabStructure.Size = new Size(47, 22);
+        btnTabStructure.Text = "구조";
+        // 
+        // btnTabAnalysis
+        // 
+        btnTabAnalysis.CheckOnClick = true;
+        btnTabAnalysis.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        btnTabAnalysis.Name = "btnTabAnalysis";
+        btnTabAnalysis.Size = new Size(47, 22);
+        btnTabAnalysis.Text = "정규화";
+        // 
+        // btnTabIndexAdvisor
+        // 
+        btnTabIndexAdvisor.CheckOnClick = true;
+        btnTabIndexAdvisor.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        btnTabIndexAdvisor.Name = "btnTabIndexAdvisor";
+        btnTabIndexAdvisor.Size = new Size(47, 22);
+        btnTabIndexAdvisor.Text = "인덱스 어드바이저";
         // 
         // propertyGrid
         // 
@@ -4063,6 +4297,7 @@ public partial class MainForm : Form
         // splitRightPanel.Panel1
         // 
         splitRightPanel.Panel1.Controls.Add(tabControlRight);
+        splitRightPanel.Panel1.Controls.Add(rightPanelTabBar);
         splitRightPanel.Panel1MinSize = 80;
         // 
         // splitRightPanel.Panel2
@@ -4247,6 +4482,8 @@ public partial class MainForm : Form
         tabAnalysis.ResumeLayout(false);
         tabIndexAdvisor.ResumeLayout(false);
         tabControlRight.ResumeLayout(false);
+        rightPanelTabBar.ResumeLayout(false);
+        rightPanelTabBar.PerformLayout();
         propertySortBar.ResumeLayout(false);
         propertySortBar.PerformLayout();
         splitRightPanel.Panel1.ResumeLayout(false);

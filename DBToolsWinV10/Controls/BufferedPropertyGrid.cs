@@ -1,5 +1,7 @@
+using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
+using DBToolsWinV10.App;
 
 namespace DBToolsWinV10.Controls;
 
@@ -16,6 +18,12 @@ public sealed class BufferedPropertyGrid : PropertyGrid
 			this,
 			[true]);
 		PropertySortChanged += OnPropertySortChanged;
+		ApplyTheme();
+	}
+
+	public void ApplyTheme()
+	{
+		Invalidate(true);
 	}
 
 	public bool IsAlphabeticalWithinCategories =>

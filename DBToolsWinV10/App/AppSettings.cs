@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using DBToolsWinV10.Analysis;
 using DBToolsWinV10.Models;
 
 namespace DBToolsWinV10.App;
@@ -18,6 +19,7 @@ internal static class AppSettings
 		public bool ShowGrid { get; set; }
 		public bool SnapToGrid { get; set; }
 		public int SnapInterval { get; set; } = 20;
+		public NormalizationLevels NormalizationLevels { get; set; } = NormalizationLevels.NF1;
 	}
 
 	private sealed class SettingsData
@@ -45,6 +47,10 @@ internal static class AppSettings
 		public bool SnapToGrid { get; set; }
 
 		public int SnapInterval { get; set; }
+
+		public string NormalizationLevels { get; set; }
+
+		public string NormalizationLevel { get; set; }
 	}
 
 	private static readonly string SettingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DBToolsWinV10");
@@ -68,7 +74,70 @@ internal static class AppSettings
 			ShowGrid = d.ShowGrid,
 			SnapToGrid = d.SnapToGrid,
 			SnapInterval = d.SnapInterval == 0 ? 20 : Math.Clamp(d.SnapInterval, 5, 100),
+			NormalizationLevels = ParseNormalizationLevels(d.NormalizationLevels, d.NormalizationLevel),
 		};
+	}
+
+	private static NormalizationLevels ParseNormalizationLevels(string levelsValue, string legacyLevelValue)
+	{
+		if (!string.IsNullOrWhiteSpace(levelsValue))
+		{
+			var levels = NormalizationLevels.None;
+			foreach (string part in levelsValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+			{
+				if (Enum.TryParse<NormalizationLevel>(part, ignoreCase: true, out var level))
+					levels |= LevelToFlag(level);
+			}
+
+			return levels == NormalizationLevels.None ? NormalizationLevels.NF1 : levels;
+		}
+
+		if (Enum.TryParse<NormalizationLevel>(legacyLevelValue, ignoreCase: true, out var legacyLevel))
+			return CumulativeLevelsUpTo(legacyLevel);
+
+		return NormalizationLevels.NF1;
+	}
+
+	private static NormalizationLevels LevelToFlag(NormalizationLevel level) => level switch
+	{
+		NormalizationLevel.NF2 => NormalizationLevels.NF2,
+		NormalizationLevel.NF3 => NormalizationLevels.NF3,
+		NormalizationLevel.BCNF => NormalizationLevels.BCNF,
+		NormalizationLevel.NF4 => NormalizationLevels.NF4,
+		NormalizationLevel.NF5 => NormalizationLevels.NF5,
+		_ => NormalizationLevels.NF1,
+	};
+
+	private static NormalizationLevels CumulativeLevelsUpTo(NormalizationLevel level)
+	{
+		var levels = NormalizationLevels.NF1;
+		if (level is NormalizationLevel.NF2 or NormalizationLevel.NF3 or NormalizationLevel.BCNF
+			or NormalizationLevel.NF4 or NormalizationLevel.NF5)
+			levels |= NormalizationLevels.NF2;
+		if (level is NormalizationLevel.NF3 or NormalizationLevel.BCNF or NormalizationLevel.NF4 or NormalizationLevel.NF5)
+			levels |= NormalizationLevels.NF3;
+		if (level is NormalizationLevel.BCNF or NormalizationLevel.NF4 or NormalizationLevel.NF5)
+			levels |= NormalizationLevels.BCNF;
+		if (level is NormalizationLevel.NF4 or NormalizationLevel.NF5)
+			levels |= NormalizationLevels.NF4;
+		if (level == NormalizationLevel.NF5)
+			levels |= NormalizationLevels.NF5;
+		return levels;
+	}
+
+	private static string FormatNormalizationLevels(NormalizationLevels levels)
+	{
+		if (levels == NormalizationLevels.None)
+			return nameof(NormalizationLevel.NF1);
+
+		var parts = new System.Collections.Generic.List<string>();
+		if (levels.HasFlag(NormalizationLevels.NF1)) parts.Add(nameof(NormalizationLevel.NF1));
+		if (levels.HasFlag(NormalizationLevels.NF2)) parts.Add(nameof(NormalizationLevel.NF2));
+		if (levels.HasFlag(NormalizationLevels.NF3)) parts.Add(nameof(NormalizationLevel.NF3));
+		if (levels.HasFlag(NormalizationLevels.BCNF)) parts.Add(nameof(NormalizationLevel.BCNF));
+		if (levels.HasFlag(NormalizationLevels.NF4)) parts.Add(nameof(NormalizationLevel.NF4));
+		if (levels.HasFlag(NormalizationLevels.NF5)) parts.Add(nameof(NormalizationLevel.NF5));
+		return string.Join(",", parts);
 	}
 
 	public static void SavePreferences(UserPreferences prefs)
@@ -83,6 +152,8 @@ internal static class AppSettings
 			d.ShowGrid = prefs.ShowGrid;
 			d.SnapToGrid = prefs.SnapToGrid;
 			d.SnapInterval = prefs.SnapInterval;
+			d.NormalizationLevels = FormatNormalizationLevels(prefs.NormalizationLevels);
+			d.NormalizationLevel = null;
 		});
 	}
 

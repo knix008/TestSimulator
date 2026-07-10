@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 using DBToolsWinV10.App;
+using DBToolsWinV10.Controls;
 
 namespace DBToolsWinV10.Dialogs;
 
@@ -12,7 +13,7 @@ public sealed class SqlitePasswordDialog : Form
 	private readonly Label lblFile;
 	private readonly Label lblError;
 	private readonly TextBox txtPassword;
-	private readonly CheckBox chkShowPassword;
+	private readonly ThemedCheckBox chkShowPassword;
 	private readonly Button btnOk;
 	private readonly Button btnCancel;
 
@@ -77,7 +78,7 @@ public sealed class SqlitePasswordDialog : Form
 			UseSystemPasswordChar = true
 		};
 
-		chkShowPassword = new CheckBox
+		chkShowPassword = new ThemedCheckBox
 		{
 			AutoSize = true,
 			Location = new Point(16, 146),

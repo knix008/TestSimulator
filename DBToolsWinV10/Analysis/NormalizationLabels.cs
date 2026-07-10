@@ -11,8 +11,26 @@ public static class NormalizationLabels
 		NormalizationLevel.NF1 => "1NF",
 		NormalizationLevel.NF2 => "2NF",
 		NormalizationLevel.NF3 => "3NF",
+		NormalizationLevel.BCNF => "BCNF",
+		NormalizationLevel.NF4 => "4NF",
+		NormalizationLevel.NF5 => "5NF",
 		_ => level.ToString()
 	};
+
+	public static string FormatLevelsLabel(NormalizationLevels levels)
+	{
+		if (levels == NormalizationLevels.None)
+			return "1NF";
+
+		var parts = new System.Collections.Generic.List<string>();
+		if (levels.HasFlag(NormalizationLevels.NF1)) parts.Add("1NF");
+		if (levels.HasFlag(NormalizationLevels.NF2)) parts.Add("2NF");
+		if (levels.HasFlag(NormalizationLevels.NF3)) parts.Add("3NF");
+		if (levels.HasFlag(NormalizationLevels.BCNF)) parts.Add("BCNF");
+		if (levels.HasFlag(NormalizationLevels.NF4)) parts.Add("4NF");
+		if (levels.HasFlag(NormalizationLevels.NF5)) parts.Add("5NF");
+		return parts.Count > 0 ? string.Join(" · ", parts) : "1NF";
+	}
 
 	public static string GetLevelGroupTitle(NormalizationLevel level) => level switch
 	{
@@ -20,6 +38,8 @@ public static class NormalizationLabels
 		NormalizationLevel.NF2  => L.S("NF2Group",  "2NF — 부분 종속"),
 		NormalizationLevel.NF3  => L.S("NF3Group",  "3NF — 이행 종속"),
 		NormalizationLevel.BCNF => L.S("BCNFGroup", "BCNF — Boyce-Codd 정규형"),
+		NormalizationLevel.NF4  => L.S("NF4Group",  "4NF — 다중값 종속"),
+		NormalizationLevel.NF5  => L.S("NF5Group",  "5NF — 조인 종속"),
 		_ => level.ToString()
 	};
 
@@ -34,21 +54,12 @@ public static class NormalizationLabels
 	public static void ApplyListItemStyle(ListViewItem item, IssueSeverity severity)
 	{
 		item.UseItemStyleForSubItems = true;
-		bool dark = ModernTheme.IsDark;
-		switch (severity)
+		item.BackColor = Color.Empty;
+		item.ForeColor = severity switch
 		{
-		case IssueSeverity.Error:
-			item.BackColor = dark ? Color.FromArgb(60, 22, 22) : Color.FromArgb(254, 226, 226);
-			item.ForeColor = dark ? Color.FromArgb(252, 165, 165) : Color.FromArgb(185, 28, 28);
-			break;
-		case IssueSeverity.Warning:
-			item.BackColor = dark ? Color.FromArgb(60, 45, 10) : Color.FromArgb(254, 243, 199);
-			item.ForeColor = dark ? Color.FromArgb(252, 211, 77)  : Color.FromArgb(180, 83, 9);
-			break;
-		default:
-			item.BackColor = dark ? Color.FromArgb(22, 30, 60)   : Color.FromArgb(238, 242, 255);
-			item.ForeColor = dark ? Color.FromArgb(165, 180, 252) : Color.FromArgb(67, 56, 202);
-			break;
-		}
+			IssueSeverity.Error => ModernTheme.Danger,
+			IssueSeverity.Warning => ModernTheme.Warning,
+			_ => ModernTheme.Info,
+		};
 	}
 }

@@ -104,10 +104,18 @@
   <!-- Analysis panel -->
   <data name="AnalysisReady" xml:space="preserve"><value>정규화 분석 결과가 여기에 표시됩니다.</value></data>
   <data name="AnalysisLevel" xml:space="preserve"><value>검사 수준:</value></data>
+  <data name="IdxSummaryReady" xml:space="preserve"><value>인덱스 제안 결과가 여기에 표시됩니다.</value></data>
+  <data name="IdxSummary" xml:space="preserve"><value>인덱스 제안 {0}건</value></data>
+  <data name="IdxSummaryFiltered" xml:space="preserve"><value>인덱스 제안 {0}건 — 테이블: {1}</value></data>
+  <data name="IdxSummaryFilteredEmpty" xml:space="preserve"><value>선택한 테이블({0})에 대한 제안이 없습니다.</value></data>
+  <data name="IdxSummaryEmpty" xml:space="preserve"><value>인덱스 제안이 없습니다.</value></data>
+  <data name="IdxSummaryNoTables" xml:space="preserve"><value>테이블이 없어 인덱스 분석을 수행할 수 없습니다.</value></data>
   <data name="NfBtnTip1" xml:space="preserve"><value>1정규화(1NF): 항상 선택 가능</value></data>
   <data name="NfBtnTip2" xml:space="preserve"><value>2정규화(2NF): 1NF 오류가 없을 때만 선택 가능</value></data>
   <data name="NfBtnTip3" xml:space="preserve"><value>3정규화(3NF): 2NF 오류가 없을 때만 선택 가능</value></data>
   <data name="NfBtnTipBcnf" xml:space="preserve"><value>보이스코드 정규화(BCNF): 3NF 오류가 없을 때만 선택 가능</value></data>
+  <data name="NfBtnTip4" xml:space="preserve"><value>4정규화(4NF): BCNF 오류가 없을 때만 선택 가능</value></data>
+  <data name="NfBtnTip5" xml:space="preserve"><value>5정규화(5NF): 4NF 오류가 없을 때만 선택 가능</value></data>
 
   <!-- ListView column headers: Normalization Analysis -->
   <data name="ColHdrLevel" xml:space="preserve"><value>수준</value></data>
@@ -311,6 +319,8 @@
   <data name="NF2Group" xml:space="preserve"><value>2NF — 부분 종속</value></data>
   <data name="NF3Group" xml:space="preserve"><value>3NF — 이행 종속</value></data>
   <data name="BCNFGroup" xml:space="preserve"><value>BCNF — Boyce-Codd 정규형</value></data>
+  <data name="NF4Group" xml:space="preserve"><value>4NF — 다중값 종속</value></data>
+  <data name="NF5Group" xml:space="preserve"><value>5NF — 조인 종속</value></data>
 
   <!-- Analysis panel summary -->
   <data name="NoTablesAnalysis" xml:space="preserve"><value>테이블이 없어 정규화 검사를 수행할 수 없습니다.</value></data>
@@ -393,6 +403,8 @@
   <data name="SettingsGroupFiles" xml:space="preserve"><value>파일</value></data>
   <data name="SettingsLabelRecentMax" xml:space="preserve"><value>최근 파일 최대 수:</value></data>
   <data name="SettingsGroupCanvas" xml:space="preserve"><value>캔버스</value></data>
+  <data name="SettingsGroupNormalization" xml:space="preserve"><value>정규화</value></data>
+  <data name="SettingsLabelNormLevel" xml:space="preserve"><value>검사 항목</value></data>
   <data name="SettingsShowGrid" xml:space="preserve"><value>그리드 표시</value></data>
   <data name="SettingsSnapToGrid" xml:space="preserve"><value>그리드 스냅</value></data>
   <data name="SettingsLabelSnapInterval" xml:space="preserve"><value>스냅 간격 (픽셀):</value></data>

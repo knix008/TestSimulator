@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Windows.Forms;
 using DBToolsWinV10.App;
+using DBToolsWinV10.Controls;
 
 namespace DBToolsWinV10.Analysis;
 
@@ -19,6 +20,15 @@ internal sealed class AnalysisListViewItemComparer : IComparer
 	{
 		ListViewItem left = (ListViewItem)x;
 		ListViewItem right = (ListViewItem)y;
+		bool leftCategory = left.Tag is ListViewCategoryRow;
+		bool rightCategory = right.Tag is ListViewCategoryRow;
+		if (leftCategory || rightCategory)
+		{
+			if (leftCategory && rightCategory)
+				return string.Compare(left.Text, right.Text, StringComparison.OrdinalIgnoreCase);
+			return leftCategory ? -1 : 1;
+		}
+
 		string leftText = GetCellText(left);
 		string rightText = GetCellText(right);
 		int result = _columnIndex switch
@@ -62,6 +72,9 @@ internal sealed class AnalysisListViewItemComparer : IComparer
 			"1NF" => 1,
 			"2NF" => 2,
 			"3NF" => 3,
+			"BCNF" => 4,
+			"4NF" => 5,
+			"5NF" => 6,
 			_ => 99
 		};
 	}
