@@ -61,7 +61,7 @@
 
 .primary-button {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-button-text);
 }
 
 .primary-button:hover {

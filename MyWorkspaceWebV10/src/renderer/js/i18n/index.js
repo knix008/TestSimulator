@@ -7,8 +7,24 @@ const dictionaries = {
 };
 
 let currentUiLanguage = 'Korean';
+const languageChangeListeners = new Set();
 
 export const t = {};
+
+export function onUiLanguageChange(listener) {
+  languageChangeListeners.add(listener);
+  return () => languageChangeListeners.delete(listener);
+}
+
+function notifyUiLanguageChange() {
+  for (const listener of languageChangeListeners) {
+    try {
+      listener(currentUiLanguage);
+    } catch {
+      // Ignore listener failures so language switching always completes.
+    }
+  }
+}
 
 export function getUiLanguage() {
   return currentUiLanguage;
@@ -37,6 +53,7 @@ export function applyLanguage(uiLanguage) {
   }
   Object.assign(t, next);
   document.documentElement.lang = toTemplateLanguage(currentUiLanguage);
+  notifyUiLanguageChange();
 }
 
 applyLanguage('Korean');

@@ -59,10 +59,19 @@ contextBridge.exposeInMainWorld('myworkspace', {
   getPageVersion: (versionId) => ipcRenderer.invoke('page:getVersion', { versionId }),
   restorePageVersion: (versionId) => ipcRenderer.invoke('page:restoreVersion', { versionId }),
   getComments: (pageId) => ipcRenderer.invoke('comment:list', { pageId }),
-  addComment: (pageId, content, quotedText) =>
-    ipcRenderer.invoke('comment:add', { pageId, content, quotedText }),
-  updateComment: (commentId, content) => ipcRenderer.invoke('comment:update', { commentId, content }),
+  addComment: (pageId, content, quotedText, attachments, parentId) =>
+    ipcRenderer.invoke('comment:add', { pageId, content, quotedText, attachments, parentId }),
+  updateComment: (commentId, content, attachments, removeAttachmentIds) =>
+    ipcRenderer.invoke('comment:update', { commentId, content, attachments, removeAttachmentIds }),
   deleteComment: (commentId) => ipcRenderer.invoke('comment:delete', { commentId }),
+  pickCommentAttachment: (imageOnly) =>
+    ipcRenderer.invoke('comment:pickAttachment', { imageOnly }),
+  importCommentAttachmentDataUri: (dataUri, fileName) =>
+    ipcRenderer.invoke('comment:importAttachmentDataUri', { dataUri, fileName }),
+  getCommentAttachmentBytes: (attachmentId) =>
+    ipcRenderer.invoke('comment:getAttachmentBytes', { attachmentId }),
+  openCommentAttachment: (attachmentId) =>
+    ipcRenderer.invoke('comment:openAttachment', { attachmentId }),
   pickAndImportAsset: (pageId, imageOnly) =>
     ipcRenderer.invoke('asset:pickAndImport', { pageId, imageOnly }),
   importAssetDataUri: (pageId, dataUri, fileName) =>
@@ -74,10 +83,19 @@ contextBridge.exposeInMainWorld('myworkspace', {
   updateUser: (payload) => ipcRenderer.invoke('user:update', payload),
   deleteUser: (id) => ipcRenderer.invoke('user:delete', { id }),
   getProfile: () => ipcRenderer.invoke('user:getProfile'),
-  updateProfile: (username) => ipcRenderer.invoke('user:updateProfile', { username }),
+  updateProfile: (payload) => ipcRenderer.invoke('user:updateProfile', payload),
   changePassword: (currentPassword, newPassword) =>
     ipcRenderer.invoke('user:changePassword', { currentPassword, newPassword }),
   updateNotificationSettings: (payload) => ipcRenderer.invoke('user:updateNotifications', payload),
+  getNotifications: () => ipcRenderer.invoke('notification:list'),
+  getUnreadNotificationCount: () => ipcRenderer.invoke('notification:unreadCount'),
+  getNotificationSummary: () => ipcRenderer.invoke('notification:summary'),
+  markNotificationRead: (notificationId) =>
+    ipcRenderer.invoke('notification:markRead', { notificationId }),
+  markAllNotificationsRead: () => ipcRenderer.invoke('notification:markAllRead'),
+  deleteNotification: (notificationId) =>
+    ipcRenderer.invoke('notification:delete', { notificationId }),
+  deleteAllNotifications: () => ipcRenderer.invoke('notification:deleteAll'),
   saveProject: (workspaceId) => ipcRenderer.invoke('archive:saveProject', { workspaceId }),
   loadProject: () => ipcRenderer.invoke('archive:loadProject'),
   newProject: (name) => ipcRenderer.invoke('archive:newProject', { name }),

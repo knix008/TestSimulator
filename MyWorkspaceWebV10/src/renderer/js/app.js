@@ -22,9 +22,10 @@ import {
   showDatabaseSettingsDialog,
   showUserAdminDialog,
   showEditProfileDialog,
-  showChangePasswordDialog,
   showNotificationSettingsDialog,
+  showNotificationsDialog,
   showExportFormatDialog,
+  showExportResultDialog,
   showWorkspaceMembersDialog,
   showEmailSettingsDialog,
   showInputDialog,
@@ -100,6 +101,91 @@ let editorDisplayedPageId = null;
 let pageNavigationGeneration = 0;
 let importOperationGeneration = 0;
 let openPageChain = Promise.resolve();
+const tabSnapshots = new Map();
+
+function createDbSyncedSnapshot(page, { html = null } = {}) {
+  return {
+    markdown: page.content ?? '',
+    title: page.title ?? '',
+    html,
+    updatedAt: page.updatedAt ?? null,
+    synced: true
+  };
+}
+
+function createEditorSnapshot(snapshot) {
+  return {
+    markdown: snapshot.markdown ?? '',
+    title: snapshot.title ?? '',
+    html: snapshot.html ?? null,
+    updatedAt: null,
+    synced: false
+  };
+}
+
+function getTabSnapshot(pageId) {
+  return tabSnapshots.get(pageId) ?? null;
+}
+
+function setTabSnapshot(pageId, snapshot) {
+  if (pageId == null || !snapshot) {
+    return;
+  }
+  tabSnapshots.set(pageId, snapshot);
+}
+
+function clearTabSnapshot(pageId) {
+  tabSnapshots.delete(pageId);
+}
+
+function syncTabSnapshotFromDb(pageId, page, { html = null } = {}) {
+  setTabSnapshot(pageId, createDbSyncedSnapshot(page, { html }));
+  pageTabs.setDirty(pageId, false);
+}
+
+async function resolvePageContent(pageId, dbPage) {
+  const cached = getTabSnapshot(pageId);
+  const dirty = pageTabs.isDirty(pageId);
+
+  if (dirty && isEditorBoundToPage(pageId)) {
+    const snapshot = await editor.readContent(dbPage.title ?? currentPageTitle, pageId);
+    setTabSnapshot(pageId, createEditorSnapshot(snapshot));
+    return {
+      markdown: snapshot.markdown,
+      title: snapshot.title,
+      source: 'editor'
+    };
+  }
+
+  if (dirty && cached?.markdown != null) {
+    return {
+      markdown: cached.markdown,
+      title: cached.title ?? dbPage.title,
+      source: 'cache'
+    };
+  }
+
+  return {
+    markdown: dbPage.content ?? '',
+    title: dbPage.title ?? '',
+    source: 'db'
+  };
+}
+
+async function flushTabSnapshot(pageId, title, { auto = false } = {}) {
+  if (pageId == null || !pageTabs.isDirty(pageId)) {
+    return;
+  }
+
+  if (!isEditorBoundToPage(pageId)) {
+    await saveCurrentPageIfDirty();
+    return;
+  }
+
+  const snapshot = await editor.readContent(title, pageId);
+  setTabSnapshot(pageId, createEditorSnapshot(snapshot));
+  await savePageSnapshot(pageId, snapshot, { auto });
+}
 
 function isEditorBoundToPage(pageId = currentPageId) {
   return pageId != null && editorDisplayedPageId === pageId && currentPageId === pageId;
@@ -161,6 +247,14 @@ editor.onChanged = () => {
     return;
   }
   pageTabs.setDirty(currentPageId, true);
+  const cached = getTabSnapshot(currentPageId);
+  if (cached?.synced) {
+    setTabSnapshot(currentPageId, {
+      ...cached,
+      synced: false,
+      updatedAt: null
+    });
+  }
   statusBar.setSaveStatus('modified');
   scheduleAutoSave();
 };
@@ -507,9 +601,11 @@ function rebuildNavRail() {
         items: buildOutlineMenu(state)
       },
       { id: 'comments', icon: 'comments', tooltip: t.tipMenuComments, items: buildCommentsMenu(state) },
+      { id: 'preferences', icon: 'preferences', tooltip: t.settingsTooltip, items: [] },
       { id: 'admin', icon: 'users', tooltip: t.menuAdmin, items: buildAdminMenu(state) }
     ],
     bottom: [
+      { id: 'notifications', icon: 'bell', tooltip: t.menuNotifications, items: [] },
       { id: 'profile', icon: 'profile', tooltip: t.menuProfile, items: buildProfileMenu(state) },
       { id: 'logout', icon: 'logout', tooltip: t.menuLogout, items: [] }
     ]
@@ -534,12 +630,30 @@ function refreshNavRailState() {
   navRail?.setVisible('view', state.loggedIn);
   navRail?.setVisible('outline', state.loggedIn);
   navRail?.setVisible('comments', state.loggedIn);
+  navRail?.setVisible('preferences', state.loggedIn);
   navRail?.setVisible('admin', state.loggedIn && state.isAdmin);
+  navRail?.setVisible('notifications', state.loggedIn);
   navRail?.setVisible('profile', state.loggedIn);
   navRail?.setVisible('logout', state.loggedIn);
   navRail?.setPressed('view', state.workspacePanelVisible);
   navRail?.setPressed('outline', state.outlinePanelVisible);
   navRail?.setPressed('comments', state.commentsPanelVisible);
+  void refreshNotificationBadge();
+}
+
+async function refreshNotificationBadge() {
+  if (!currentUser) {
+    navRail?.setNotificationBadge('notifications', { unread: 0, total: 0 });
+    return;
+  }
+
+  const result = await api.getNotificationSummary();
+  if (!result.ok) {
+    navRail?.setNotificationBadge('notifications', { unread: 0, total: 0 });
+    return;
+  }
+
+  navRail?.setNotificationBadge('notifications', result.summary);
 }
 
 onPanelStateChange = refreshNavRailState;
@@ -569,10 +683,11 @@ async function applyAppearanceSettings(settings, { preview = false } = {}) {
     ...(cachedUiConfig || {}),
     ...settings
   };
-  const languageChanged =
-    settings.language != null && settings.language !== cachedUiConfig?.language;
+  const previousLanguage = getUiLanguage();
 
   applyUiAppearance(merged);
+  const languageChanged = previousLanguage !== getUiLanguage();
+
   if (!preview || languageChanged) {
     refreshLocalizedUi();
   }
@@ -620,11 +735,8 @@ function refreshLocalizedUi() {
   document.getElementById('nav-rail')?.setAttribute('aria-label', t.navRailAria);
   document.querySelector('#comments-panel .panel-title')?.replaceChildren(document.createTextNode(t.commentsTitle));
   document.querySelector('#empty-state p')?.replaceChildren(document.createTextNode(t.emptyEditor));
-  document.querySelector('#comments-panel-body .comments-placeholder')?.replaceChildren(
-    document.createTextNode(t.commentsSelectPage)
-  );
+  commentsPanel.refreshLocalizedUi();
   document.getElementById('vertical-toolbar')?.setAttribute('aria-label', t.verticalToolbarAria);
-  document.getElementById('status-left')?.replaceChildren();
 
   panelManager.refresh();
   initToolbar();
@@ -633,9 +745,12 @@ function refreshLocalizedUi() {
   if (currentUser) {
     titleBar.setCaption(t.appTitleLoggedIn(currentUser.username));
     statusBar.setUser(currentUser, currentPageTitle || null);
+  } else if (currentPageTitle) {
+    statusBar.setUser(null, currentPageTitle);
   } else {
     statusBar.setLoginRequired();
   }
+  statusBar.refreshLocalizedUi();
 }
 
 function initToolbar() {
@@ -738,22 +853,35 @@ async function handleMenuAction(actionId, context = {}) {
         rebuildNavRail();
         break;
       case 'preferences':
-        await showPreferencesDialog(api, (settings, options) => applyAppearanceSettings(settings, options));
+        await showPreferencesDialog(
+          api,
+          (settings, options) => applyAppearanceSettings(settings, options),
+          { onLanguagePreview: refreshLocalizedUi }
+        );
         break;
       case 'page-history':
         if (currentPageId != null) {
           await showPageHistoryDialog(api, currentPageId, currentPageTitle, async (page) => {
             await openPage(page.id, { activateOnly: true });
             await editor.loadMarkdown(page.content, page.id, getEditorAppearance(cachedUiConfig));
+            setTabSnapshot(page.id, createEditorSnapshot({
+              markdown: page.content,
+              title: page.title
+            }));
+            pageTabs.setDirty(page.id, true);
+            currentPageTitle = page.title;
+            statusBar.setSaveStatus('modified');
             await editor.applyAppearance(getEditorAppearance(cachedUiConfig));
           });
         }
         break;
-    case 'export-page':
-      if (currentPageId != null) {
-        await exportCurrentPage();
+    case 'export-page': {
+      const pageId = context.node?.kind === 'Page' ? context.node.id : currentPageId;
+      if (pageId != null) {
+        await exportPageById(pageId);
       }
       break;
+    }
     case 'export-workspace': {
       const workspaceId =
         context.node?.kind === 'Workspace' ? context.node.id : getMenuState().selectedWorkspaceId;
@@ -831,12 +959,35 @@ async function handleMenuAction(actionId, context = {}) {
         });
         break;
       case 'change-password':
-        await showChangePasswordDialog(api);
+        await showEditProfileDialog(api, async (user) => {
+          currentUser = user;
+          titleBar.setCaption(t.appTitleLoggedIn(user.username));
+          statusBar.setUser(user, currentPageTitle);
+        });
         break;
       case 'notification-settings':
         await showNotificationSettingsDialog(api, (user) => {
           currentUser = user;
         });
+        break;
+      case 'notifications':
+        await showNotificationsDialog(api, {
+          onOpenNotification: async (notification) => {
+            if (!notification?.pageId) {
+              return;
+            }
+            await openPage(notification.pageId, { activateOnly: true });
+            if (notification.kind === 'comment') {
+              panelManager.showCommentsPanel();
+              refreshNavRailState();
+              await commentsPanel.showNotificationContext(notification);
+            }
+          },
+          onUpdated: () => {
+            void refreshNotificationBadge();
+          }
+        });
+        void refreshNotificationBadge();
         break;
     case 'workspace-members': {
       const workspaceId =
@@ -938,19 +1089,50 @@ async function handleMenuAction(actionId, context = {}) {
   }
 }
 
-async function exportCurrentPage() {
+async function exportPageById(pageId) {
   const selection = await showExportFormatDialog(t.exportPageTitle);
   if (!selection) {
     return;
   }
-  const result = await api.exportPage(currentPageId, selection.format, {
-    embedImagesAsBase64: selection.embedImagesAsBase64
+  if (isEditorBoundToPage(pageId) && pageTabs.isDirty(pageId)) {
+    await saveCurrentPage();
+  }
+
+  let exportContent = null;
+  let exportEditorHtml = null;
+  if (isEditorBoundToPage(pageId)) {
+    const snapshot = await editor.readContent(currentPageTitle, pageId);
+    exportContent = snapshot.markdown;
+    exportEditorHtml = snapshot.html;
+  }
+
+  const result = await api.exportPage(pageId, selection.format, {
+    embedImagesAsBase64: selection.embedImagesAsBase64,
+    content: exportContent,
+    editorHtml: exportEditorHtml
   });
   if (result.ok) {
-    showToast(`내보내기 완료: ${result.filePath}`);
-  } else {
-    showApiError('Page 내보내기', result);
+    await showExportResultDialog({
+      success: true,
+      title: t.exportPageTitle,
+      message: t.exportResultSuccess,
+      targetPath: result.filePath
+    });
+  } else if (!result.cancelled) {
+    await showExportResultDialog({
+      success: false,
+      title: t.exportPageTitle,
+      message: t.exportResultFailed,
+      errorMessage: result.message
+    });
   }
+}
+
+async function exportCurrentPage() {
+  if (currentPageId == null) {
+    return;
+  }
+  await exportPageById(currentPageId);
 }
 
 async function exportWorkspaceById(workspaceId) {
@@ -962,10 +1144,19 @@ async function exportWorkspaceById(workspaceId) {
     embedImagesAsBase64: selection.embedImagesAsBase64
   });
   if (result.ok) {
-    const target = result.filePath || result.folder;
-    showToast(`내보내기 완료: ${target}`);
-  } else {
-    showApiError('Workspace 내보내기', result);
+    await showExportResultDialog({
+      success: true,
+      title: t.exportWorkspaceTitle,
+      message: t.exportResultSuccess,
+      targetPath: result.filePath || result.folder
+    });
+  } else if (!result.cancelled) {
+    await showExportResultDialog({
+      success: false,
+      title: t.exportWorkspaceTitle,
+      message: t.exportResultFailed,
+      errorMessage: result.message
+    });
   }
 }
 
@@ -1032,6 +1223,7 @@ async function enterApp(user) {
   panelManager.refresh();
   verticalToolbar?.setEnabled(false);
   await refreshWorkspaceTree();
+  void refreshNotificationBadge();
 }
 
 async function leaveApp() {
@@ -1042,6 +1234,7 @@ async function leaveApp() {
   clearTimeout(autoSaveTimer);
   cancelPendingEditorImports();
   pageNavigationGeneration += 1;
+  tabSnapshots.clear();
   for (const pageId of [...pageTabs.getOpenIds()]) {
     pageTabs.close(pageId);
   }
@@ -1192,7 +1385,7 @@ async function openPageInternal(
   cancelPendingEditorImports();
 
   if (currentPageId != null && currentPageId !== pageId && !activateOnly) {
-    await saveCurrentPageIfDirty();
+    await flushTabSnapshot(currentPageId, currentPageTitle);
   }
   if (navToken !== pageNavigationGeneration) {
     return;
@@ -1209,7 +1402,6 @@ async function openPageInternal(
 
   editorDisplayedPageId = null;
   currentPageId = pageId;
-  currentPageTitle = result.page.title;
   currentPageCanEdit = result.page.canEdit !== false;
   emptyState.classList.add('hidden');
   editorFrame.classList.remove('hidden');
@@ -1221,7 +1413,14 @@ async function openPageInternal(
     pageTabs.setActive(pageId);
   }
 
-  await editor.loadMarkdown(result.page.content, pageId, getEditorAppearance(cachedUiConfig));
+  const { markdown, title: resolvedTitle, source } = await resolvePageContent(pageId, result.page);
+  currentPageTitle = resolvedTitle;
+  if (source === 'db') {
+    syncTabSnapshotFromDb(pageId, result.page);
+  } else {
+    pageTabs.setTitle(pageId, resolvedTitle);
+  }
+  await editor.loadMarkdown(markdown, pageId, getEditorAppearance(cachedUiConfig));
   if (navToken !== pageNavigationGeneration) {
     return;
   }
@@ -1244,15 +1443,16 @@ async function openPageInternal(
   if (currentUser) {
     statusBar.setUser(currentUser, currentPageTitle);
   }
-  statusBar.setSaveStatus('saved');
+  statusBar.setSaveStatus(source === 'db' ? 'saved' : 'modified');
   commentsPanel.setPage(pageId);
   rebuildNavRail();
 }
 
 async function closePage(pageId) {
   if (pageTabs.getActiveId() === pageId) {
-    await saveCurrentPageIfDirty();
+    await flushTabSnapshot(pageId, currentPageTitle);
   }
+  clearTabSnapshot(pageId);
   pageTabs.close(pageId);
 
   const remaining = pageTabs.getOpenIds();
@@ -1679,8 +1879,8 @@ async function saveCurrentPageIfDirty() {
   await saveCurrentPage();
 }
 
-async function saveCurrentPage({ auto = false } = {}) {
-  if (currentPageId == null || isSaving || !isEditorBoundToPage()) {
+async function savePageSnapshot(pageId, snapshot, { auto = false } = {}) {
+  if (pageId == null || isSaving || !snapshot) {
     return;
   }
 
@@ -1688,9 +1888,8 @@ async function saveCurrentPage({ auto = false } = {}) {
   statusBar.setSaveStatus('saving');
 
   try {
-    const snapshot = await editor.readContent(t.untitledPageTitle, currentPageId);
     const result = await api.savePage({
-      pageId: currentPageId,
+      pageId,
       title: snapshot.title,
       content: snapshot.markdown
     });
@@ -1700,10 +1899,12 @@ async function saveCurrentPage({ auto = false } = {}) {
       throw new Error(result.message);
     }
 
-    currentPageTitle = result.page.title;
-    pageTabs.setTitle(currentPageId, result.page.title);
-    pageTabs.setDirty(currentPageId, false);
-    statusBar.setUser(currentUser, currentPageTitle);
+    syncTabSnapshotFromDb(pageId, result.page, { html: snapshot.html });
+    if (pageId === currentPageId) {
+      currentPageTitle = result.page.title;
+      pageTabs.setTitle(pageId, result.page.title);
+      statusBar.setUser(currentUser, currentPageTitle);
+    }
     statusBar.setSaveStatus(auto ? 'autosaved' : 'saved');
     await refreshWorkspaceTree();
   } catch (error) {
@@ -1715,6 +1916,16 @@ async function saveCurrentPage({ auto = false } = {}) {
   } finally {
     isSaving = false;
   }
+}
+
+async function saveCurrentPage({ auto = false } = {}) {
+  if (currentPageId == null || isSaving || !isEditorBoundToPage()) {
+    return;
+  }
+
+  const snapshot = await editor.readContent(t.untitledPageTitle, currentPageId);
+  setTabSnapshot(currentPageId, createEditorSnapshot(snapshot));
+  await savePageSnapshot(currentPageId, snapshot, { auto });
 }
 
 document.addEventListener('keydown', async (event) => {
@@ -1740,6 +1951,12 @@ document.addEventListener('keydown', async (event) => {
       event.preventDefault();
       await promptDelete(selection);
     }
+  }
+});
+
+window.addEventListener('focus', () => {
+  if (currentUser) {
+    void refreshNotificationBadge();
   }
 });
 

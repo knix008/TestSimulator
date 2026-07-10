@@ -28,6 +28,9 @@ builder-effective-config.yaml
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Local settings overrides (never commit secrets)
 *.local.json
@@ -35,11 +38,23 @@ config/build-info.json
 .env
 .env.*
 
+# Test / coverage output
+coverage/
+.nyc_output/
+
 # OS junk
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
+Icon?
 
-# IDE
+# IDE / editor
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# Optional: local Cursor workspace data (uncomment if needed)
+# .cursor/

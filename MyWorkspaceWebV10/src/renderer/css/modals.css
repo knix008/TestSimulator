@@ -69,6 +69,7 @@
 .modal-btn {
   border: 1px solid var(--border-light);
   background: var(--surface);
+  color: var(--text);
   border-radius: var(--radius);
   padding: 8px 14px;
   cursor: pointer;
@@ -79,7 +80,7 @@
   gap: 12px;
 }
 
-.form-grid label {
+.form-grid label:not(.checkbox-row) {
   display: grid;
   gap: 6px;
 }
@@ -239,20 +240,227 @@ textarea.modal-input {
   color: #fff;
 }
 
+.pastel-save-btn.btn-primary {
+  background: #e8959f;
+  color: var(--pastel-save-button-text);
+}
+
+.pastel-save-btn.btn-primary:hover {
+  background: #d77f8a;
+}
+
+.pastel-save-btn.btn-primary:active {
+  background: #c96f7a;
+}
+
 .checkbox-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin: 0;
+  cursor: pointer;
+  line-height: 1.45;
+}
+
+.form-grid .checkbox-row {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-row input[type='checkbox'],
+.checkbox-row input[type='radio'] {
+  margin: 0;
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 0;
+}
+
+.checkbox-row.export-base64-option {
+  align-items: flex-start;
+}
+
+.checkbox-row.export-base64-option input[type='checkbox'] {
+  margin-top: 3px;
+}
+
+.modal-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.export-base64-hint {
+  margin: 4px 0 0 24px;
+}
+
+.modal-card--compact {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.export-modal-card .modal-body {
+  min-height: 0;
+}
+
+.export-format-dialog {
+  display: grid;
+  gap: 14px;
+}
+
+.export-format-prompt {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.export-format-group {
+  margin: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.export-format-group legend {
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.export-format-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 6px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.export-format-option:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.export-format-option input[type='radio'] {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.export-format-option span {
+  line-height: 1.45;
+}
+
+.export-format-options {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.export-format-options.hidden {
+  display: none;
+}
+
+.export-format-options-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.export-format-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  cursor: pointer;
+  line-height: 1.45;
+}
+
+.export-format-checkbox input[type='checkbox'] {
+  margin: 2px 0 0;
+  flex: 0 0 auto;
+}
+
+.export-result-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.export-result-status {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.export-result-status.is-success {
+  background: color-mix(in srgb, var(--success) 16%, var(--surface));
+  color: var(--success);
+}
+
+.export-result-status.is-error {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+}
+
+.export-result-summary {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.export-result-path-block {
+  display: grid;
+  gap: 6px;
+}
+
+.export-result-path-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.export-result-path-value {
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-all;
+  user-select: all;
+}
+
+.export-result-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--danger);
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .admin-users-layout {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   min-height: 240px;
+  width: 100%;
 }
 
 .admin-users-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   gap: 8px;
   max-height: 360px;
   overflow: auto;
@@ -268,9 +476,369 @@ textarea.modal-input {
   border-radius: var(--radius);
 }
 
+.admin-user-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .admin-user-actions {
   display: flex;
+  flex: 0 0 auto;
   gap: 6px;
+}
+
+.add-user-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.add-user-prompt {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.add-user-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.add-user-error.hidden {
+  display: none;
+}
+
+.add-user-modal-card .modal-body {
+  min-height: 0;
+}
+
+.add-user-role-hint {
+  margin-top: -2px;
+}
+
+.admin-user-name {
+  font-weight: 600;
+  color: var(--text);
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-user-sep {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+
+.admin-user-id,
+.admin-user-email {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-user-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.admin-user-role-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+}
+
+.admin-user-role-badge.is-admin {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
+}
+
+.admin-users-empty {
+  margin: 0;
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius);
+}
+
+.notifications-modal-card {
+  width: min(1120px, calc(100vw - 24px));
+  height: min(680px, calc(100vh - 32px));
+  min-width: 720px;
+  min-height: 520px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  resize: both;
+  overflow: hidden;
+}
+
+.notifications-modal-card .modal-body {
+  min-height: 0;
+  padding: 12px 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.notifications-modal-card .modal-body > .notifications-layout {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.notifications-table {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+  width: 100%;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.notifications-table-header,
+.notification-row-main {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.95fr) minmax(148px, 1.15fr) minmax(84px, 0.75fr) minmax(0, 3fr);
+  gap: 14px;
+  align-items: start;
+  width: 100%;
+}
+
+.notification-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 14px;
+  align-items: start;
+  width: 100%;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.notification-row-main {
+  cursor: pointer;
+  min-width: 0;
+}
+
+.notification-row-main:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.notifications-table-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 14px;
+  align-items: start;
+  width: 100%;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--sidebar);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.notifications-table-header .notification-row-main {
+  cursor: default;
+}
+
+.notifications-table-header-actions {
+  width: 40px;
+  min-width: 40px;
+}
+
+.notifications-modal-card .modal-footer {
+  flex-wrap: nowrap;
+}
+
+.notifications-modal-card .modal-footer button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.notifications-layout--list-only {
+  grid-template-columns: 1fr;
+}
+
+.notifications-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-height: 320px;
+}
+
+.notifications-layout.notifications-layout--table {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0;
+  width: 100%;
+  min-height: 0;
+}
+
+.notifications-list {
+  display: grid;
+  gap: 0;
+  width: 100%;
+  flex: 1;
+  min-height: 280px;
+  overflow: auto;
+}
+
+.notifications-empty {
+  margin: 0;
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.notification-row:last-child {
+  border-bottom: 0;
+}
+
+.notification-row:hover,
+.notification-row:focus-within {
+  background: var(--accent-hover);
+}
+
+.notification-row.is-unread {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.notification-row.is-unread:hover,
+.notification-row.is-unread:focus-within {
+  background: color-mix(in srgb, var(--accent) 18%, var(--accent-hover));
+}
+
+.notification-cell {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.notification-cell-actor,
+.notification-cell-when,
+.notification-cell-kind {
+  word-break: break-word;
+}
+
+.notification-cell-when {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.notification-cell-kind {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.notification-cell-content {
+  display: grid;
+  gap: 4px;
+}
+
+.notification-content-title {
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.notification-content-body {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.notification-delete {
+  width: 40px;
+  min-width: 40px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  align-self: start;
+  position: relative;
+  z-index: 1;
+}
+
+.notification-delete:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+}
+
+.notification-detail {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  overflow: auto;
+  min-height: 0;
+}
+
+.notification-detail.is-empty {
+  place-content: center;
+}
+
+.notification-detail-empty {
+  margin: 0;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.notification-detail-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.notification-detail-body {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.notification-detail-meta {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .preferences-form .color-theme-picker {

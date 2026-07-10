@@ -13,7 +13,7 @@ function sanitizeFileName(name) {
   return String(name).replace(/[<>:"/\\|?*]/g, '_').trim() || 'untitled';
 }
 
-function exportPageMarkdown(db, user, pageId, filePath, { getPage, embedImagesAsBase64 = false } = {}) {
+function exportPageMarkdown(db, user, pageId, filePath, { getPage, embedImagesAsBase64 = false, content = null, editorHtml = null } = {}) {
   const page = getPage(db, user, pageId);
   if (!page) {
     throw new Error('Page를 찾을 수 없습니다.');
@@ -21,16 +21,16 @@ function exportPageMarkdown(db, user, pageId, filePath, { getPage, embedImagesAs
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const prepared = prepareMarkdownForExport(
-    ensureTitleHeading(page.title, page.content),
+    ensureTitleHeading(page.title, content ?? page.content),
     db,
     user,
     filePath,
-    { embedImagesAsBase64 }
+    { embedImagesAsBase64, editorHtml }
   );
   fs.writeFileSync(filePath, `${prepared}\n`, 'utf8');
 }
 
-async function exportPage(db, user, pageId, filePath, format, { getPage, embedImagesAsBase64 = false } = {}) {
+async function exportPage(db, user, pageId, filePath, format, { getPage, embedImagesAsBase64 = false, content = null, editorHtml = null } = {}) {
   const page = getPage(db, user, pageId);
   if (!page) {
     throw new Error('Page를 찾을 수 없습니다.');
@@ -38,28 +38,33 @@ async function exportPage(db, user, pageId, filePath, format, { getPage, embedIm
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const title = page.title;
-  const content = page.content;
+  const bodyContent = content ?? page.content;
 
   switch (format) {
     case 'markdown': {
       const body = prepareMarkdownForExport(
-        ensureTitleHeading(title, content),
+        ensureTitleHeading(title, bodyContent),
         db,
         user,
         filePath,
-        { embedImagesAsBase64 }
+        { embedImagesAsBase64, editorHtml }
       );
       fs.writeFileSync(filePath, `${body}\n`, 'utf8');
       break;
     }
     case 'word': {
-      const html = buildExportHtml(title, content, db, user, pageId);
+      const html = buildExportHtml(title, bodyContent, db, user, { editorHtml });
       await exportHtmlToDocx(html, filePath);
       break;
     }
     case 'pdf': {
-      const html = buildExportHtml(title, content, db, user, pageId);
+      const html = buildExportHtml(title, bodyContent, db, user, { editorHtml });
       await exportHtmlToPdf(html, filePath);
+      break;
+    }
+    case 'html': {
+      const html = buildExportHtml(title, bodyContent, db, user, { editorHtml });
+      fs.writeFileSync(filePath, html, 'utf8');
       break;
     }
     default:
@@ -112,14 +117,20 @@ async function exportWorkspace(db, user, workspaceId, targetPath, format, deps) 
   const materialized = materializePageAssets(combined, db, user, pages[0]?.id || 0);
 
   if (format === 'word') {
-    const html = buildExportHtml(title, materialized, db, user, pages[0]?.id || 0);
+    const html = buildExportHtml(title, materialized, db, user);
     await exportHtmlToDocx(html, targetPath);
     return;
   }
 
   if (format === 'pdf') {
-    const html = buildExportHtml(title, materialized, db, user, pages[0]?.id || 0);
+    const html = buildExportHtml(title, materialized, db, user);
     await exportHtmlToPdf(html, targetPath);
+    return;
+  }
+
+  if (format === 'html') {
+    const html = buildExportHtml(title, materialized, db, user);
+    fs.writeFileSync(targetPath, html, 'utf8');
     return;
   }
 
@@ -169,6 +180,8 @@ function getExportExtension(format) {
       return '.docx';
     case 'pdf':
       return '.pdf';
+    case 'html':
+      return '.html';
     default:
       return '.md';
   }
@@ -180,6 +193,8 @@ function getExportFilter(format) {
       return [{ name: 'Word Document', extensions: ['docx'] }];
     case 'pdf':
       return [{ name: 'PDF Document', extensions: ['pdf'] }];
+    case 'html':
+      return [{ name: 'HTML Document', extensions: ['html'] }];
     default:
       return [{ name: 'Markdown', extensions: ['md'] }];
   }

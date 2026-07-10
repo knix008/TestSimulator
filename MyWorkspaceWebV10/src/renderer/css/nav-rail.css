@@ -22,6 +22,7 @@
 }
 
 .nav-rail-btn {
+  position: relative;
   width: var(--toolbar-button-size);
   height: var(--toolbar-button-size);
   border: 0;
@@ -56,4 +57,39 @@ body[data-theme='dark'] .nav-rail-btn:hover {
 
 .nav-rail-spacer {
   flex: 1;
+}
+
+.nav-rail-btn.has-notification-history {
+  color: var(--accent);
+}
+
+.nav-rail-btn.has-unread-notifications {
+  color: var(--accent);
+}
+
+.nav-rail-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-button-text);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.nav-rail-badge.is-dot {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  top: 6px;
+  right: 6px;
+  line-height: 8px;
 }

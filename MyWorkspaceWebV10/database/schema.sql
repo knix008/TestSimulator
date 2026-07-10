@@ -8,9 +8,11 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'User',
+    display_name TEXT,
     email TEXT,
     notify_on_page_update INTEGER NOT NULL DEFAULT 0,
     notify_on_workspace_change INTEGER NOT NULL DEFAULT 0,
+    notify_on_comment INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -101,10 +103,22 @@ CREATE TABLE IF NOT EXISTS page_comments (
     username TEXT NOT NULL,
     content TEXT NOT NULL,
     quoted_text TEXT,
+    parent_id INTEGER,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (parent_id) REFERENCES page_comments(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS comment_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    comment_id INTEGER NOT NULL,
+    file_name TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    data BLOB NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (comment_id) REFERENCES page_comments(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS user_notifications (

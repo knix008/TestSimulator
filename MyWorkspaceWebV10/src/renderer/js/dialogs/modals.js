@@ -1,10 +1,11 @@
-import { t, getUiLanguage, toTemplateLanguage } from '../i18n/index.js';
+import { t, getUiLanguage, toTemplateLanguage, applyLanguage, resolveUiLanguage } from '../i18n/index.js';
 import { showApiError } from '../errors/errorDetail.js';
 import { normalizeFontScaleStep } from '../ui/fontScale.js';
 import { showTableInsertPopup } from '../ui/tableInsertPopup.js';
 import { createPastelColorThemePicker } from '../ui/pastelColorThemePicker.js';
 
 let layer = null;
+let activeDismissHandler = closeModal;
 
 function ensureLayer() {
   if (!layer) {
@@ -22,13 +23,14 @@ function ensureLayer() {
       </div>
     `;
     document.body.appendChild(layer);
-    layer.querySelector('.modal-backdrop').addEventListener('click', closeModal);
-    layer.querySelector('.modal-close').addEventListener('click', closeModal);
+    layer.querySelector('.modal-backdrop').addEventListener('click', () => activeDismissHandler());
+    layer.querySelector('.modal-close').addEventListener('click', () => activeDismissHandler());
   }
   return layer;
 }
 
 export function closeModal() {
+  activeDismissHandler = closeModal;
   if (!layer) {
     return;
   }
@@ -37,8 +39,14 @@ export function closeModal() {
   layer.querySelector('.modal-footer').replaceChildren();
 }
 
-export function openModal({ title, bodyNode, footerNodes = [] }) {
+export function openModal({ title, bodyNode, footerNodes = [], cardClassName = '', onDismiss = null }) {
+  activeDismissHandler = onDismiss || closeModal;
   const root = ensureLayer();
+  const card = root.querySelector('.modal-card');
+  card.className = 'modal-card';
+  for (const className of String(cardClassName || '').split(/\s+/).filter(Boolean)) {
+    card.classList.add(className);
+  }
   root.querySelector('.modal-title').textContent = title;
   root.querySelector('.modal-close')?.setAttribute('aria-label', t.modalCloseAria);
   const body = root.querySelector('.modal-body');
@@ -266,7 +274,25 @@ function resolvePlatformLabel(platform) {
   return platform || '';
 }
 
-export async function showPreferencesDialog(api, onSaved) {
+function setFormLabelText(label, text) {
+  const control = label.querySelector('select, input, textarea');
+  label.textContent = text;
+  if (control) {
+    label.appendChild(control);
+  }
+}
+
+function refreshSelectOptions(select, options) {
+  const current = select.value;
+  select.innerHTML = options
+    .map(([value, label]) => `<option value="${value}">${label}</option>`)
+    .join('');
+  if ([...select.options].some((option) => option.value === current)) {
+    select.value = current;
+  }
+}
+
+export async function showPreferencesDialog(api, onSaved, { onLanguagePreview } = {}) {
   const config = await api.getUiConfig();
   const original = {
     theme: config.theme || 'Light',
@@ -330,6 +356,9 @@ export async function showPreferencesDialog(api, onSaved) {
 
   body.append(themeLabel, colorPicker.element, languageLabel, fontScaleLabel, hint);
 
+  let previewSuspended = false;
+  let isClosing = false;
+
   function readCurrentSettings() {
     const color = colorPicker.readValue();
     return {
@@ -340,57 +369,173 @@ export async function showPreferencesDialog(api, onSaved) {
     };
   }
 
-  async function applyLivePreview() {
-    const current = readCurrentSettings();
-    await onSaved?.(current, { preview: true });
+  function applySettingsToForm(settings) {
+    previewSuspended = true;
+    try {
+      themeSelect.value = settings.theme;
+      languageSelect.value = settings.language;
+      fontScaleSelect.value = String(settings.fontScaleStep);
+      colorPicker.setThemeMode(settings.theme === 'Dark');
+      colorPicker.setValue(settings);
+    } finally {
+      previewSuspended = false;
+    }
   }
 
+  function refreshPreferencesDialogLabels(cancelButton, saveButton) {
+    layer?.querySelector('.modal-title')?.replaceChildren(document.createTextNode(t.preferencesTitle));
+    layer?.querySelector('.modal-close')?.setAttribute('aria-label', t.modalCloseAria);
+
+    previewSuspended = true;
+    try {
+      setFormLabelText(themeLabel, t.preferencesTheme);
+      refreshSelectOptions(themeSelect, [
+        ['Light', t.themeLight],
+        ['Dark', t.themeDark]
+      ]);
+
+      setFormLabelText(languageLabel, t.preferencesLanguage);
+      refreshSelectOptions(languageSelect, [
+        ['Korean', t.languageKorean],
+        ['English', t.languageEnglish]
+      ]);
+
+      setFormLabelText(fontScaleLabel, t.preferencesFontScale);
+      refreshSelectOptions(fontScaleSelect, [
+        ['-2', t.fontScaleMuchSmaller],
+        ['-1', t.fontScaleSmaller],
+        ['0', t.fontScaleNormal],
+        ['1', t.fontScaleLarger],
+        ['2', t.fontScaleMuchLarger]
+      ]);
+    } finally {
+      previewSuspended = false;
+    }
+
+    colorPicker.refreshLocalizedLabels?.();
+    hint.textContent = t.preferencesRestartHint;
+    if (cancelButton) {
+      cancelButton.textContent = t.buttonCancel;
+    }
+    if (saveButton) {
+      saveButton.textContent = t.buttonSave;
+    }
+  }
+
+  function syncPreferencesDialogLanguage(settings) {
+    const previousLanguage = getUiLanguage();
+    const nextLanguage = resolveUiLanguage(settings.language);
+    if (previousLanguage === nextLanguage) {
+      return false;
+    }
+
+    applyLanguage(settings.language);
+    refreshPreferencesDialogLabels(cancelButton, saveButton);
+    onLanguagePreview?.();
+    return true;
+  }
+
+  async function applyLivePreview() {
+    if (previewSuspended || isClosing) {
+      return;
+    }
+
+    const current = readCurrentSettings();
+    const languageChanged = syncPreferencesDialogLanguage(current);
+    await onSaved?.(current, { preview: true });
+    if (languageChanged) {
+      refreshPreferencesDialogLabels(cancelButton, saveButton);
+    }
+  }
+
+  async function restoreOriginalSettings() {
+    applySettingsToForm(original);
+    syncPreferencesDialogLanguage(original);
+    await onSaved?.(original, { preview: true });
+  }
+
+  async function handleCancel() {
+    if (isClosing) {
+      return;
+    }
+    isClosing = true;
+    closeModal();
+    try {
+      await restoreOriginalSettings();
+    } finally {
+      isClosing = false;
+    }
+  }
+
+  async function handleSave() {
+    if (isClosing) {
+      return;
+    }
+
+    const current = readCurrentSettings();
+    const result = await api.saveUiConfig({
+      Theme: current.theme,
+      Language: current.language,
+      FontScaleStep: current.fontScaleStep,
+      ColorThemeIndex: current.colorThemeIndex,
+      UseCustomAccentColor: current.useCustomAccentColor,
+      CustomAccentArgb: current.customAccentArgb
+    });
+    if (result?.ok === false) {
+      await restoreOriginalSettings();
+      showApiError(t.errPreferences, result);
+      return;
+    }
+
+    isClosing = true;
+    closeModal();
+    try {
+      await onSaved?.(current, { preview: false });
+    } finally {
+      isClosing = false;
+    }
+  }
+
+  const cancelButton = createButton(t.buttonCancel, {
+    onClick: () => {
+      void handleCancel();
+    }
+  });
+  const saveButton = createButton(t.buttonSave, {
+    primary: true,
+    onClick: () => {
+      void handleSave();
+    }
+  });
+  saveButton.classList.add('pastel-save-btn');
+
   themeSelect.addEventListener('change', () => {
+    if (previewSuspended || isClosing) {
+      return;
+    }
     colorPicker.setThemeMode(themeSelect.value === 'Dark');
     void applyLivePreview();
   });
   languageSelect.addEventListener('change', () => {
+    if (previewSuspended || isClosing) {
+      return;
+    }
     void applyLivePreview();
   });
   fontScaleSelect.addEventListener('change', () => {
+    if (previewSuspended || isClosing) {
+      return;
+    }
     void applyLivePreview();
   });
-
-  const restoreOriginal = async () => {
-    await onSaved?.(original, { preview: true });
-  };
 
   openModal({
     title: t.preferencesTitle,
     bodyNode: body,
-    footerNodes: [
-      createButton(t.buttonCancel, {
-        onClick: () => {
-          void restoreOriginal().then(() => closeModal());
-        }
-      }),
-      createButton(t.buttonSave, {
-        primary: true,
-        onClick: async () => {
-          const current = readCurrentSettings();
-          const result = await api.saveUiConfig({
-            Theme: current.theme,
-            Language: current.language,
-            FontScaleStep: current.fontScaleStep,
-            ColorThemeIndex: current.colorThemeIndex,
-            UseCustomAccentColor: current.useCustomAccentColor,
-            CustomAccentArgb: current.customAccentArgb
-          });
-          if (result?.ok === false) {
-            await restoreOriginal();
-            showApiError(t.errPreferences, result);
-            return;
-          }
-          await onSaved?.(current, { preview: false });
-          closeModal();
-        }
-      })
-    ]
+    onDismiss: () => {
+      void handleCancel();
+    },
+    footerNodes: [cancelButton, saveButton]
   });
 }
 
@@ -720,6 +865,142 @@ export function showAdminPlaceholder(title) {
   });
 }
 
+export function showAddUserDialog(initial = null) {
+  return new Promise((resolve) => {
+    const isEdit = Boolean(initial);
+    const body = document.createElement('div');
+    body.className = 'add-user-dialog form-grid';
+
+    const prompt = document.createElement('p');
+    prompt.className = 'add-user-prompt';
+    prompt.textContent = isEdit ? t.userAdminEditPrompt : t.userAdminAddPrompt;
+    body.appendChild(prompt);
+
+    const errorEl = document.createElement('p');
+    errorEl.className = 'add-user-error hidden';
+    errorEl.setAttribute('role', 'alert');
+    body.appendChild(errorEl);
+
+    const usernameInput = document.createElement('input');
+    usernameInput.className = 'modal-input';
+    usernameInput.type = 'text';
+    usernameInput.autocomplete = 'username';
+    usernameInput.required = true;
+    usernameInput.value = initial?.username || '';
+
+    const displayNameInput = document.createElement('input');
+    displayNameInput.className = 'modal-input';
+    displayNameInput.type = 'text';
+    displayNameInput.autocomplete = 'name';
+    displayNameInput.required = true;
+    displayNameInput.value = initial?.displayName || '';
+
+    const passwordInput = document.createElement('input');
+    passwordInput.className = 'modal-input';
+    passwordInput.type = 'password';
+    passwordInput.autocomplete = 'new-password';
+    passwordInput.required = !isEdit;
+    passwordInput.placeholder = isEdit ? t.userAdminPasswordOptional : '';
+
+    const emailInput = document.createElement('input');
+    emailInput.className = 'modal-input';
+    emailInput.type = 'email';
+    emailInput.autocomplete = 'email';
+    emailInput.value = initial?.email || '';
+
+    const roleSelect = document.createElement('select');
+    roleSelect.className = 'modal-input';
+    roleSelect.innerHTML = `
+      <option value="User">${t.userAdminRoleUser}</option>
+      <option value="Admin">${t.userAdminRoleAdmin}</option>
+    `;
+    roleSelect.value = initial?.role || 'User';
+
+    for (const [labelText, control] of [
+      [t.userAdminUsername, usernameInput],
+      [t.userAdminDisplayName, displayNameInput],
+      [t.userAdminPassword, passwordInput],
+      [t.userAdminEmail, emailInput],
+      [t.userAdminRole, roleSelect]
+    ]) {
+      const label = document.createElement('label');
+      label.textContent = labelText;
+      label.appendChild(control);
+      body.appendChild(label);
+    }
+
+    const hint = document.createElement('p');
+    hint.className = 'modal-hint add-user-role-hint';
+    hint.textContent = isEdit ? t.userAdminEditHint : t.userAdminRoleHint;
+    body.appendChild(hint);
+
+    const showError = (message) => {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    };
+    const clearError = () => {
+      errorEl.textContent = '';
+      errorEl.classList.add('hidden');
+    };
+
+    const finish = (value) => {
+      closeModal();
+      resolve(value);
+    };
+
+    const submit = () => {
+      clearError();
+      const username = usernameInput.value.trim();
+      const displayName = displayNameInput.value.trim();
+      const password = passwordInput.value;
+      const email = emailInput.value.trim();
+      const role = roleSelect.value;
+
+      if (!username) {
+        showError(t.userAdminUsernameRequired);
+        usernameInput.focus();
+        return;
+      }
+      if (!displayName) {
+        showError(t.userAdminDisplayNameRequired);
+        displayNameInput.focus();
+        return;
+      }
+      if (!isEdit && !password) {
+        showError(t.userAdminPasswordRequired);
+        passwordInput.focus();
+        return;
+      }
+
+      finish({
+        username,
+        displayName,
+        email,
+        role,
+        password: password || null
+      });
+    };
+
+    openModal({
+      title: isEdit ? t.userAdminEditTitle : t.userAdminAddTitle,
+      bodyNode: body,
+      cardClassName: 'modal-card--compact add-user-modal-card',
+      footerNodes: [
+        createButton(t.buttonCancel, { onClick: () => finish(null) }),
+        createButton(isEdit ? t.buttonSave : t.userAdminAdd, { primary: true, onClick: submit })
+      ]
+    });
+
+    usernameInput.focus();
+    body.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submit();
+      }
+    });
+  });
+}
+
 export async function showUserAdminDialog(api) {
   const result = await api.getUsers();
   if (!result.ok) {
@@ -734,47 +1015,88 @@ export async function showUserAdminDialog(api) {
 
   const renderUsers = (users) => {
     list.replaceChildren();
+    if (!users.length) {
+      const empty = document.createElement('p');
+      empty.className = 'admin-users-empty';
+      empty.textContent = t.userAdminEmpty;
+      list.appendChild(empty);
+      return;
+    }
+
     for (const user of users) {
       const row = document.createElement('div');
       row.className = 'admin-user-row';
-      row.innerHTML = `<strong>${user.username}</strong> <span>${user.role}</span>`;
+
+      const summary = document.createElement('div');
+      summary.className = 'admin-user-summary';
+      summary.title = [
+        user.displayName || user.username,
+        `${t.userAdminUsername}: ${user.username}`,
+        `${t.userAdminEmail}: ${user.email || '-'}`,
+        String(user.role).toLowerCase() === 'admin' ? t.userAdminRoleAdmin : t.userAdminRoleUser
+      ].join('\n');
+
+      const name = document.createElement('span');
+      name.className = 'admin-user-name';
+      name.textContent = user.displayName || user.username;
+      summary.appendChild(name);
+
+      const appendSeparator = () => {
+        const separator = document.createElement('span');
+        separator.className = 'admin-user-sep';
+        separator.textContent = '·';
+        separator.setAttribute('aria-hidden', 'true');
+        summary.appendChild(separator);
+      };
+
+      if (user.displayName && user.displayName !== user.username) {
+        appendSeparator();
+        const id = document.createElement('span');
+        id.className = 'admin-user-id';
+        id.textContent = user.username;
+        summary.appendChild(id);
+      }
+
+      appendSeparator();
+      const email = document.createElement('span');
+      email.className = 'admin-user-email';
+      email.textContent = user.email || '-';
+      summary.appendChild(email);
+
+      appendSeparator();
+      const roleBadge = document.createElement('span');
+      roleBadge.className = `admin-user-role-badge${String(user.role).toLowerCase() === 'admin' ? ' is-admin' : ''}`;
+      roleBadge.textContent = String(user.role).toLowerCase() === 'admin'
+        ? t.userAdminRoleAdmin
+        : t.userAdminRoleUser;
+      summary.appendChild(roleBadge);
+
+      row.appendChild(summary);
+
       const actions = document.createElement('div');
       actions.className = 'admin-user-actions';
 
-      const editBtn = createButton('편집', {
+      const editBtn = createButton(t.userAdminEdit, {
         onClick: async () => {
-          const username = await showInputDialog({
-            title: '사용자 편집',
-            label: '사용자 ID',
-            defaultValue: user.username
+          const payload = await showAddUserDialog({
+            username: user.username,
+            displayName: user.displayName,
+            email: user.email,
+            role: user.role
           });
-          if (username == null) {
-            return;
-          }
-          const role = await showInputDialog({
-            title: '사용자 편집',
-            label: '역할 (Admin / User)',
-            defaultValue: user.role
-          });
-          if (role == null) {
-            return;
-          }
-          const newPassword = await showInputDialog({
-            title: '사용자 편집',
-            label: '새 비밀번호 (변경하지 않으면 비워두세요)',
-            defaultValue: ''
-          });
-          if (newPassword == null) {
+          if (!payload) {
             return;
           }
           const updated = await api.updateUser({
             id: user.id,
-            username,
-            role,
-            newPassword: newPassword.trim() || null
+            username: payload.username,
+            displayName: payload.displayName,
+            email: payload.email,
+            role: payload.role,
+            newPassword: payload.password
           });
           if (!updated.ok) {
-            showApiError('사용자 편집', updated);
+            showApiError(t.userAdminEditTitle, updated);
             return;
           }
           const refreshed = await api.getUsers();
@@ -784,12 +1106,12 @@ export async function showUserAdminDialog(api) {
         }
       });
 
-      const deleteBtn = createButton('삭제', {
+      const deleteBtn = createButton(t.userAdminDelete, {
         onClick: async () => {
           const confirmed = await showConfirmDialog({
-            title: '사용자 삭제',
-            message: `${user.username} 사용자를 삭제할까요?`,
-            confirmLabel: '삭제',
+            title: t.userAdminDeleteTitle,
+            message: t.userAdminDeleteConfirm(user.username),
+            confirmLabel: t.userAdminDelete,
             danger: true
           });
           if (!confirmed) {
@@ -817,38 +1139,26 @@ export async function showUserAdminDialog(api) {
   body.appendChild(list);
 
   openModal({
-    title: '사용자 관리',
+    title: t.userAdminTitle,
     bodyNode: body,
     footerNodes: [
-      createButton('닫기', { onClick: closeModal }),
-      createButton('사용자 추가', {
+      createButton(t.buttonClose, { onClick: closeModal }),
+      createButton(t.userAdminAdd, {
         primary: true,
         onClick: async () => {
-          const username = await showInputDialog({
-            title: '사용자 추가',
-            label: '사용자 ID'
-          });
-          if (!username?.trim()) {
+          const payload = await showAddUserDialog();
+          if (!payload) {
             return;
           }
-          const password = await showInputDialog({
-            title: '사용자 추가',
-            label: '비밀번호'
+          const created = await api.createUser({
+            username: payload.username,
+            displayName: payload.displayName,
+            email: payload.email,
+            password: payload.password,
+            role: payload.role
           });
-          if (!password) {
-            return;
-          }
-          const role = await showInputDialog({
-            title: '사용자 추가',
-            label: '역할 (Admin / User)',
-            defaultValue: 'User'
-          });
-          if (!role) {
-            return;
-          }
-          const created = await api.createUser({ username, password, role });
           if (!created.ok) {
-            showApiError('사용자 추가', created);
+            showApiError(t.userAdminAddTitle, created);
             return;
           }
           const refreshed = await api.getUsers();
@@ -864,115 +1174,447 @@ export async function showUserAdminDialog(api) {
 export async function showEditProfileDialog(api, onUpdated) {
   const profile = await api.getProfile();
   if (!profile.ok) {
-    showApiError('프로필', profile);
+    showApiError(t.profileEditTitle, profile);
     return;
   }
 
-  const username = await showInputDialog({
-    title: '프로필 편집',
-    label: '사용자 ID',
-    defaultValue: profile.user.username
+  return new Promise((resolve) => {
+    const body = document.createElement('div');
+    body.className = 'add-user-dialog form-grid';
+
+    const prompt = document.createElement('p');
+    prompt.className = 'add-user-prompt';
+    prompt.textContent = t.profileEditPrompt;
+    body.appendChild(prompt);
+
+    const errorEl = document.createElement('p');
+    errorEl.className = 'add-user-error hidden';
+    errorEl.setAttribute('role', 'alert');
+    body.appendChild(errorEl);
+
+    const usernameInput = document.createElement('input');
+    usernameInput.className = 'modal-input';
+    usernameInput.type = 'text';
+    usernameInput.autocomplete = 'username';
+    usernameInput.required = true;
+    usernameInput.value = profile.user.username || '';
+
+    const displayNameInput = document.createElement('input');
+    displayNameInput.className = 'modal-input';
+    displayNameInput.type = 'text';
+    displayNameInput.autocomplete = 'name';
+    displayNameInput.required = true;
+    displayNameInput.value = profile.user.displayName || '';
+
+    const emailInput = document.createElement('input');
+    emailInput.className = 'modal-input';
+    emailInput.type = 'email';
+    emailInput.autocomplete = 'email';
+    emailInput.value = profile.user.email || '';
+
+    const currentPasswordInput = document.createElement('input');
+    currentPasswordInput.className = 'modal-input';
+    currentPasswordInput.type = 'password';
+    currentPasswordInput.autocomplete = 'current-password';
+
+    const newPasswordInput = document.createElement('input');
+    newPasswordInput.className = 'modal-input';
+    newPasswordInput.type = 'password';
+    newPasswordInput.autocomplete = 'new-password';
+
+    const confirmPasswordInput = document.createElement('input');
+    confirmPasswordInput.className = 'modal-input';
+    confirmPasswordInput.type = 'password';
+    confirmPasswordInput.autocomplete = 'new-password';
+
+    for (const [labelText, control] of [
+      [t.userAdminUsername, usernameInput],
+      [t.userAdminDisplayName, displayNameInput],
+      [t.userAdminEmail, emailInput],
+      [t.profileCurrentPassword, currentPasswordInput],
+      [t.profileNewPassword, newPasswordInput],
+      [t.profileNewPasswordConfirm, confirmPasswordInput]
+    ]) {
+      const label = document.createElement('label');
+      label.textContent = labelText;
+      label.appendChild(control);
+      body.appendChild(label);
+    }
+
+    const hint = document.createElement('p');
+    hint.className = 'modal-hint add-user-role-hint';
+    hint.textContent = t.profilePasswordChangeHint;
+    body.appendChild(hint);
+
+    const showError = (message) => {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    };
+    const clearError = () => {
+      errorEl.textContent = '';
+      errorEl.classList.add('hidden');
+    };
+
+    const finish = async (saved = false) => {
+      closeModal();
+      resolve(saved);
+    };
+
+    const submit = async () => {
+      clearError();
+
+      const username = usernameInput.value.trim();
+      const displayName = displayNameInput.value.trim();
+      const email = emailInput.value.trim();
+      const currentPassword = currentPasswordInput.value;
+      const newPassword = newPasswordInput.value;
+      const confirmPassword = confirmPasswordInput.value;
+
+      if (!username) {
+        showError(t.userAdminUsernameRequired);
+        usernameInput.focus();
+        return;
+      }
+      if (!displayName) {
+        showError(t.userAdminDisplayNameRequired);
+        displayNameInput.focus();
+        return;
+      }
+      if (newPassword || confirmPassword || currentPassword) {
+        if (!currentPassword) {
+          showError(t.profileCurrentPasswordRequired);
+          currentPasswordInput.focus();
+          return;
+        }
+        if (!newPassword) {
+          showError(t.userAdminPasswordRequired);
+          newPasswordInput.focus();
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          showError(t.userAdminPasswordMismatch);
+          confirmPasswordInput.focus();
+          return;
+        }
+      }
+
+      const result = await api.updateProfile({
+        username,
+        displayName,
+        email,
+        currentPassword: newPassword ? currentPassword : undefined,
+        newPassword: newPassword || undefined
+      });
+      if (!result.ok) {
+        showApiError(t.profileEditTitle, result);
+        return;
+      }
+
+      onUpdated?.(result.user);
+      await finish(true);
+    };
+
+    openModal({
+      title: t.profileEditTitle,
+      bodyNode: body,
+      cardClassName: 'modal-card--compact add-user-modal-card',
+      footerNodes: [
+        createButton(t.buttonCancel, { onClick: () => finish(false) }),
+        createButton(t.buttonSave, { primary: true, onClick: () => void submit() })
+      ]
+    });
+
+    usernameInput.focus();
+    body.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        void submit();
+      }
+    });
   });
-  if (username == null || !username.trim()) {
-    return;
-  }
-
-  const result = await api.updateProfile(username.trim());
-  if (!result.ok) {
-    showApiError('프로필 편집', result);
-    return;
-  }
-  onUpdated?.(result.user);
 }
 
 export async function showChangePasswordDialog(api) {
-  const currentPassword = await showInputDialog({
-    title: '비밀번호 변경',
-    label: '현재 비밀번호'
-  });
-  if (currentPassword == null) {
-    return;
-  }
-  const newPassword = await showInputDialog({
-    title: '비밀번호 변경',
-    label: '새 비밀번호'
-  });
-  if (newPassword == null) {
-    return;
-  }
-  const confirmPassword = await showInputDialog({
-    title: '비밀번호 변경',
-    label: '새 비밀번호 확인'
-  });
-  if (confirmPassword == null) {
-    return;
-  }
-  if (newPassword !== confirmPassword) {
-    showApiError('비밀번호 변경', { message: '새 비밀번호가 일치하지 않습니다.' });
+  await showEditProfileDialog(api);
+}
+
+export async function showNotificationsDialog(api, { onOpenNotification, onUpdated } = {}) {
+  const initial = await api.getNotifications();
+  if (!initial.ok) {
+    showApiError(t.notificationsTitle, initial);
     return;
   }
 
-  const result = await api.changePassword(currentPassword, newPassword);
-  if (!result.ok) {
-    showApiError('비밀번호 변경', result);
-    return;
+  let notifications = initial.notifications;
+
+  const formatNotificationKind = (kind) => {
+    if (kind === 'comment') {
+      return t.notificationsKindComment;
+    }
+    return kind || '-';
+  };
+
+  const body = document.createElement('div');
+  body.className = 'notifications-layout notifications-layout--table';
+
+  const table = document.createElement('div');
+  table.className = 'notifications-table';
+
+  const header = document.createElement('div');
+  header.className = 'notifications-table-header';
+
+  const headerMain = document.createElement('div');
+  headerMain.className = 'notification-row-main';
+  for (const label of [
+    t.notificationsColActor,
+    t.notificationsColWhen,
+    t.notificationsColKind,
+    t.notificationsColContent
+  ]) {
+    const cell = document.createElement('span');
+    cell.textContent = label;
+    headerMain.appendChild(cell);
   }
 
-  await showConfirmDialog({
-    title: '비밀번호 변경',
-    message: '비밀번호가 변경되었습니다.',
-    confirmLabel: '확인',
-    cancelLabel: '닫기'
+  const headerActions = document.createElement('span');
+  headerActions.className = 'notifications-table-header-actions';
+  headerActions.setAttribute('aria-hidden', 'true');
+  header.append(headerMain, headerActions);
+
+  const list = document.createElement('div');
+  list.className = 'notifications-list';
+
+  const openNotification = async (notification) => {
+    if (!notification) {
+      return;
+    }
+
+    if (!notification.isRead) {
+      const marked = await api.markNotificationRead(notification.id);
+      if (marked.ok) {
+        notification.isRead = true;
+        onUpdated?.();
+      }
+    }
+
+    if (notification.pageId && onOpenNotification) {
+      closeModal();
+      await onOpenNotification(notification);
+      onUpdated?.();
+      return;
+    }
+
+    renderNotifications();
+  };
+
+  const renderNotifications = () => {
+    list.replaceChildren();
+    if (!notifications.length) {
+      const empty = document.createElement('p');
+      empty.className = 'notifications-empty';
+      empty.textContent = t.notificationsEmpty;
+      list.appendChild(empty);
+      return;
+    }
+
+    for (const notification of notifications) {
+      const row = document.createElement('div');
+      row.className = `notification-row${notification.isRead ? '' : ' is-unread'}`;
+
+      const main = document.createElement('div');
+      main.className = 'notification-row-main';
+      main.setAttribute('role', 'button');
+      main.tabIndex = 0;
+
+      const actorEl = document.createElement('span');
+      actorEl.className = 'notification-cell notification-cell-actor';
+      actorEl.textContent = notification.actorUsername || '-';
+
+      const whenEl = document.createElement('span');
+      whenEl.className = 'notification-cell notification-cell-when';
+      whenEl.textContent = notification.createdAt || '-';
+
+      const kindEl = document.createElement('span');
+      kindEl.className = 'notification-cell notification-cell-kind';
+      kindEl.textContent = formatNotificationKind(notification.kind);
+
+      const contentEl = document.createElement('span');
+      contentEl.className = 'notification-cell notification-cell-content';
+
+      const titleEl = document.createElement('span');
+      titleEl.className = 'notification-content-title';
+      titleEl.textContent = notification.title || '';
+
+      const bodyEl = document.createElement('span');
+      bodyEl.className = 'notification-content-body';
+      bodyEl.textContent = notification.body || '';
+
+      contentEl.append(titleEl);
+      if (notification.body && notification.body !== notification.title) {
+        contentEl.appendChild(bodyEl);
+      }
+
+      main.append(actorEl, whenEl, kindEl, contentEl);
+      main.addEventListener('click', () => {
+        void openNotification(notification);
+      });
+      main.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          void openNotification(notification);
+        }
+      });
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'notification-delete';
+      deleteButton.textContent = '×';
+      deleteButton.setAttribute('aria-label', t.notificationsDelete);
+      deleteButton.title = t.notificationsDelete;
+      deleteButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const deleted = await api.deleteNotification(notification.id);
+        if (!deleted.ok) {
+          showApiError(t.notificationsTitle, deleted);
+          return;
+        }
+        notifications = notifications.filter((item) => item.id !== notification.id);
+        renderNotifications();
+        onUpdated?.();
+      });
+
+      row.append(main, deleteButton);
+      list.appendChild(row);
+    }
+  };
+
+  const reloadNotifications = async () => {
+    const result = await api.getNotifications();
+    if (!result.ok) {
+      showApiError(t.notificationsTitle, result);
+      return;
+    }
+    notifications = result.notifications;
+    renderNotifications();
+  };
+
+  renderNotifications();
+  table.append(header, list);
+  body.appendChild(table);
+
+  const markAllButton = createButton(t.notificationsMarkAllRead, {
+    onClick: async () => {
+      const marked = await api.markAllNotificationsRead();
+      if (!marked.ok) {
+        showApiError(t.notificationsTitle, marked);
+        return;
+      }
+      await reloadNotifications();
+      onUpdated?.();
+    }
+  });
+
+  const deleteAllButton = createButton(t.notificationsDeleteAll, {
+    onClick: async () => {
+      const confirmed = await showConfirmDialog({
+        title: t.notificationsDeleteAll,
+        message: t.notificationsDeleteAllConfirm
+      });
+      if (!confirmed) {
+        return;
+      }
+      const deleted = await api.deleteAllNotifications();
+      if (!deleted.ok) {
+        showApiError(t.notificationsTitle, deleted);
+        return;
+      }
+      notifications = [];
+      renderNotifications();
+      onUpdated?.();
+    }
+  });
+
+  const settingsButton = createButton(t.menuNotificationSettings, {
+    onClick: async () => {
+      closeModal();
+      await showNotificationSettingsDialog(api, onUpdated);
+    }
+  });
+
+  openModal({
+    title: t.notificationsTitle,
+    bodyNode: body,
+    cardClassName: 'notifications-modal-card',
+    footerNodes: [
+      createButton(t.buttonClose, { onClick: closeModal }),
+      deleteAllButton,
+      markAllButton,
+      settingsButton
+    ],
+    onDismiss: () => {
+      closeModal();
+      onUpdated?.();
+    }
   });
 }
 
 export async function showNotificationSettingsDialog(api, onUpdated) {
   const profile = await api.getProfile();
   if (!profile.ok) {
-    showApiError('알림 설정', profile);
+    showApiError(t.notificationSettingsTitle, profile);
     return;
   }
 
   const body = document.createElement('div');
   body.className = 'form-grid';
   body.innerHTML = `
-    <label>이메일
+    <label>${t.notificationEmailLabel}
       <input id="notify-email" class="modal-input" type="email" />
     </label>
     <label class="checkbox-row">
       <input id="notify-page" type="checkbox" />
-      Page 업데이트 알림
+      ${t.notificationPageUpdate}
     </label>
     <label class="checkbox-row">
       <input id="notify-workspace" type="checkbox" />
-      Workspace 변경 알림
+      ${t.notificationWorkspaceChange}
+    </label>
+    <label class="checkbox-row">
+      <input id="notify-comment" type="checkbox" />
+      ${t.notificationComment}
     </label>
   `;
   body.querySelector('#notify-email').value = profile.user.email || '';
   body.querySelector('#notify-page').checked = Boolean(profile.user.notifyOnPageUpdate);
   body.querySelector('#notify-workspace').checked = Boolean(profile.user.notifyOnWorkspaceChange);
+  body.querySelector('#notify-comment').checked = Boolean(profile.user.notifyOnComment);
+
+  const saveButton = createButton(t.buttonSave, {
+    primary: true,
+    onClick: async () => {
+      const result = await api.updateNotificationSettings({
+        email: body.querySelector('#notify-email').value,
+        notifyOnPageUpdate: body.querySelector('#notify-page').checked,
+        notifyOnWorkspaceChange: body.querySelector('#notify-workspace').checked,
+        notifyOnComment: body.querySelector('#notify-comment').checked
+      });
+      if (!result.ok) {
+        showApiError(t.notificationSettingsTitle, result);
+        return;
+      }
+      closeModal();
+      onUpdated?.(result.user);
+    }
+  });
+  saveButton.classList.add('pastel-save-btn');
 
   openModal({
-    title: '알림 설정',
+    title: t.notificationSettingsTitle,
     bodyNode: body,
     footerNodes: [
-      createButton('취소', { onClick: closeModal }),
-      createButton('저장', {
-        primary: true,
-        onClick: async () => {
-          const result = await api.updateNotificationSettings({
-            email: body.querySelector('#notify-email').value,
-            notifyOnPageUpdate: body.querySelector('#notify-page').checked,
-            notifyOnWorkspaceChange: body.querySelector('#notify-workspace').checked
-          });
-          if (!result.ok) {
-            showApiError('알림 설정', result);
-            return;
-          }
-          closeModal();
-          onUpdated?.(result.user);
-        }
-      })
+      createButton(t.buttonCancel, { onClick: closeModal }),
+      saveButton
     ]
   });
 }
@@ -980,27 +1622,70 @@ export async function showNotificationSettingsDialog(api, onUpdated) {
 export function showExportFormatDialog(title) {
   return new Promise((resolve) => {
     const body = document.createElement('div');
-    body.className = 'form-grid';
-    body.innerHTML = `
-      <label class="checkbox-row"><input type="radio" name="export-format" value="markdown" checked /> ${t.exportFormatMarkdown}</label>
-      <label class="checkbox-row"><input type="radio" name="export-format" value="word" /> ${t.exportFormatWord}</label>
-      <label class="checkbox-row"><input type="radio" name="export-format" value="pdf" /> ${t.exportFormatPdf}</label>
-      <label id="export-base64-option" class="checkbox-row export-base64-option">
-        <input type="checkbox" id="export-embed-images-base64" />
-        ${t.exportEmbedImagesBase64}
-      </label>
-      <p id="export-base64-hint" class="modal-hint export-base64-hint">${t.exportEmbedImagesBase64Hint}</p>
-    `;
+    body.className = 'export-format-dialog';
 
-    const base64Option = body.querySelector('#export-base64-option');
-    const base64Hint = body.querySelector('#export-base64-hint');
-    const base64Checkbox = body.querySelector('#export-embed-images-base64');
+    const prompt = document.createElement('p');
+    prompt.className = 'export-format-prompt';
+    prompt.textContent = t.exportFormatPrompt;
+    body.appendChild(prompt);
+
+    const fieldset = document.createElement('fieldset');
+    fieldset.className = 'export-format-group';
+    const legend = document.createElement('legend');
+    legend.textContent = t.exportFormatLegend;
+    fieldset.appendChild(legend);
+
+    for (const [value, label] of [
+      ['markdown', t.exportFormatMarkdown],
+      ['html', t.exportFormatHtml],
+      ['word', t.exportFormatWord],
+      ['pdf', t.exportFormatPdf]
+    ]) {
+      const option = document.createElement('label');
+      option.className = 'export-format-option';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'export-format';
+      input.value = value;
+      input.checked = value === 'markdown';
+      const text = document.createElement('span');
+      text.textContent = label;
+      option.append(input, text);
+      fieldset.appendChild(option);
+    }
+    body.appendChild(fieldset);
+
+    const optionsSection = document.createElement('div');
+    optionsSection.className = 'export-format-options';
+    optionsSection.id = 'export-markdown-options';
+
+    const optionsLegend = document.createElement('div');
+    optionsLegend.className = 'export-format-options-title';
+    optionsLegend.textContent = t.exportFormatOptionsLegend;
+    optionsSection.appendChild(optionsLegend);
+
+    const base64Option = document.createElement('label');
+    base64Option.className = 'export-format-checkbox';
+    base64Option.id = 'export-base64-option';
+    const base64Checkbox = document.createElement('input');
+    base64Checkbox.type = 'checkbox';
+    base64Checkbox.id = 'export-embed-images-base64';
+    const base64Label = document.createElement('span');
+    base64Label.textContent = t.exportEmbedImagesBase64;
+    base64Option.append(base64Checkbox, base64Label);
+    optionsSection.appendChild(base64Option);
+
+    const base64Hint = document.createElement('p');
+    base64Hint.className = 'modal-hint export-base64-hint';
+    base64Hint.id = 'export-base64-hint';
+    base64Hint.textContent = t.exportEmbedImagesBase64Hint;
+    optionsSection.appendChild(base64Hint);
+    body.appendChild(optionsSection);
 
     function syncBase64OptionVisibility() {
       const selected = body.querySelector('input[name="export-format"]:checked');
       const show = selected?.value === 'markdown';
-      base64Option.classList.toggle('hidden', !show);
-      base64Hint.classList.toggle('hidden', !show);
+      optionsSection.classList.toggle('hidden', !show);
     }
 
     body.querySelectorAll('input[name="export-format"]').forEach((input) => {
@@ -1013,22 +1698,91 @@ export function showExportFormatDialog(title) {
       resolve(value);
     };
 
+    const submit = () => {
+      const selected = body.querySelector('input[name="export-format"]:checked');
+      finish({
+        format: selected?.value || 'markdown',
+        embedImagesAsBase64: Boolean(base64Checkbox.checked)
+      });
+    };
+
     openModal({
       title,
       bodyNode: body,
+      cardClassName: 'modal-card--compact export-modal-card',
       footerNodes: [
         createButton(t.buttonCancel, { onClick: () => finish(null) }),
-        createButton(t.exportAction, {
-          primary: true,
-          onClick: () => {
-            const selected = body.querySelector('input[name="export-format"]:checked');
-            finish({
-              format: selected?.value || 'markdown',
-              embedImagesAsBase64: Boolean(base64Checkbox?.checked)
-            });
-          }
-        })
+        createButton(t.exportAction, { primary: true, onClick: submit })
       ]
+    });
+
+    body.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submit();
+      }
+    });
+  });
+}
+
+export function showExportResultDialog({
+  success = true,
+  title,
+  message,
+  targetPath = '',
+  errorMessage = ''
+}) {
+  return new Promise((resolve) => {
+    const body = document.createElement('div');
+    body.className = 'export-result-dialog';
+
+    const status = document.createElement('div');
+    status.className = `export-result-status ${success ? 'is-success' : 'is-error'}`;
+    status.setAttribute('aria-hidden', 'true');
+    status.textContent = success ? '✓' : '✕';
+    body.appendChild(status);
+
+    const summary = document.createElement('p');
+    summary.className = 'export-result-summary';
+    summary.textContent = message || (success ? t.exportResultSuccess : t.exportResultFailed);
+    body.appendChild(summary);
+
+    const normalizedPath = String(targetPath || '').trim();
+    if (success && normalizedPath) {
+      const pathBlock = document.createElement('div');
+      pathBlock.className = 'export-result-path-block';
+
+      const pathLabel = document.createElement('div');
+      pathLabel.className = 'export-result-path-label';
+      pathLabel.textContent = t.exportResultDirectory;
+
+      const pathValue = document.createElement('div');
+      pathValue.className = 'export-result-path-value';
+      pathValue.textContent = normalizedPath;
+      pathValue.title = normalizedPath;
+
+      pathBlock.append(pathLabel, pathValue);
+      body.appendChild(pathBlock);
+    }
+
+    const errorText = String(errorMessage || '').trim();
+    if (!success && errorText) {
+      const errorEl = document.createElement('p');
+      errorEl.className = 'export-result-error';
+      errorEl.textContent = errorText;
+      body.appendChild(errorEl);
+    }
+
+    const close = () => {
+      closeModal();
+      resolve();
+    };
+
+    openModal({
+      title: title || t.exportPageTitle,
+      bodyNode: body,
+      cardClassName: 'modal-card--compact export-modal-card',
+      footerNodes: [createButton(t.buttonOk, { primary: true, onClick: close })]
     });
   });
 }

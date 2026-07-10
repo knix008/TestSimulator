@@ -12,7 +12,25 @@ function getUserById(db, id) {
   return mapUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
 }
 
-function createUser(db, username, password, role = 'User') {
+function normalizeDisplayName(displayName) {
+  const normalized = (displayName || '').trim();
+  return normalized || null;
+}
+
+function normalizeEmail(email) {
+  const normalized = (email || '').trim();
+  return normalized || null;
+}
+
+function createUser(db, payload = {}) {
+  const {
+    username,
+    password,
+    role = 'User',
+    displayName,
+    email
+  } = payload;
+
   const normalized = (username || '').trim();
   if (!normalized) {
     throw new Error('사용자 ID를 입력하세요.');
@@ -27,15 +45,33 @@ function createUser(db, username, password, role = 'User') {
   const now = new Date().toISOString();
   const result = db
     .prepare(
-      `INSERT INTO users (username, password_hash, role, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO users
+       (username, password_hash, role, display_name, email, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(normalized, hashPassword(password), role, now, now);
+    .run(
+      normalized,
+      hashPassword(password),
+      role,
+      normalizeDisplayName(displayName),
+      normalizeEmail(email),
+      now,
+      now
+    );
 
   return getUserById(db, result.lastInsertRowid);
 }
 
-function updateUser(db, id, username, role, newPassword) {
+function updateUser(db, payload = {}) {
+  const {
+    id,
+    username,
+    role,
+    newPassword,
+    displayName,
+    email
+  } = payload;
+
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!user) {
     throw new Error('사용자를 찾을 수 없습니다.');
@@ -50,29 +86,43 @@ function updateUser(db, id, username, role, newPassword) {
   }
 
   const now = new Date().toISOString();
+  const nextDisplayName = displayName !== undefined
+    ? normalizeDisplayName(displayName)
+    : user.display_name;
+  const nextEmail = email !== undefined ? normalizeEmail(email) : user.email;
+
   if (newPassword) {
     db.prepare(
-      'UPDATE users SET username = ?, role = ?, password_hash = ?, updated_at = ? WHERE id = ?'
-    ).run(normalized, role, hashPassword(newPassword), now, id);
-  } else {
-    db.prepare('UPDATE users SET username = ?, role = ?, updated_at = ? WHERE id = ?').run(
+      `UPDATE users
+       SET username = ?, role = ?, display_name = ?, email = ?, password_hash = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(
       normalized,
       role,
+      nextDisplayName,
+      nextEmail,
+      hashPassword(newPassword),
       now,
       id
     );
+  } else {
+    db.prepare(
+      `UPDATE users
+       SET username = ?, role = ?, display_name = ?, email = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(normalized, role, nextDisplayName, nextEmail, now, id);
   }
 
   return getUserById(db, id);
 }
 
-function updateOwnProfile(db, userId, username) {
+function updateOwnProfile(db, userId, payload = {}) {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) {
     throw new Error('사용자를 찾을 수 없습니다.');
   }
 
-  const normalized = (username || '').trim();
+  const normalized = (payload.username || '').trim();
   if (!normalized) {
     throw new Error('사용자 ID를 입력하세요.');
   }
@@ -80,17 +130,44 @@ function updateOwnProfile(db, userId, username) {
     throw new Error('이미 존재하는 사용자 ID입니다.');
   }
 
+  const displayName = payload.displayName !== undefined
+    ? normalizeDisplayName(payload.displayName)
+    : user.display_name;
+  if (payload.displayName !== undefined && !displayName) {
+    throw new Error('이름을 입력하세요.');
+  }
+
+  const email = payload.email !== undefined ? normalizeEmail(payload.email) : user.email;
+  const newPassword = payload.newPassword || '';
+  const currentPassword = payload.currentPassword || '';
+
+  if (newPassword && !currentPassword) {
+    throw new Error('현재 비밀번호를 입력하세요.');
+  }
+  if (newPassword && !verifyPassword(currentPassword, user.password_hash)) {
+    throw new Error('현재 비밀번호가 올바르지 않습니다.');
+  }
+
   const now = new Date().toISOString();
-  db.prepare('UPDATE users SET username = ?, updated_at = ? WHERE id = ?').run(
-    normalized,
-    now,
-    userId
-  );
+  const passwordHash = newPassword ? hashPassword(newPassword) : user.password_hash;
+
+  db.prepare(
+    `UPDATE users
+     SET username = ?, display_name = ?, email = ?, password_hash = ?, updated_at = ?
+     WHERE id = ?`
+  ).run(normalized, displayName, email, passwordHash, now, userId);
 
   return getUserById(db, userId);
 }
 
-function updateNotificationSettings(db, userId, email, notifyOnPageUpdate, notifyOnWorkspaceChange) {
+function updateNotificationSettings(
+  db,
+  userId,
+  email,
+  notifyOnPageUpdate,
+  notifyOnWorkspaceChange,
+  notifyOnComment
+) {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!user) {
     throw new Error('사용자를 찾을 수 없습니다.');
@@ -99,12 +176,13 @@ function updateNotificationSettings(db, userId, email, notifyOnPageUpdate, notif
   const now = new Date().toISOString();
   db.prepare(
     `UPDATE users
-     SET email = ?, notify_on_page_update = ?, notify_on_workspace_change = ?, updated_at = ?
+     SET email = ?, notify_on_page_update = ?, notify_on_workspace_change = ?, notify_on_comment = ?, updated_at = ?
      WHERE id = ?`
   ).run(
-    email?.trim() || null,
+    normalizeEmail(email),
     notifyOnPageUpdate ? 1 : 0,
     notifyOnWorkspaceChange ? 1 : 0,
+    notifyOnComment ? 1 : 0,
     now,
     userId
   );

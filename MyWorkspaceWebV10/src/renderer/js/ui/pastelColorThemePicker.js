@@ -114,13 +114,35 @@ export function createPastelColorThemePicker({ initial, onChange, isDark = false
     };
   }
 
+  function setValue(next = {}) {
+    useCustom = Boolean(next.useCustomAccentColor);
+    selectedIndex = normalizeColorThemeIndex(next.colorThemeIndex ?? selectedIndex);
+    customColor = useCustom
+      ? argbToRgb(next.customAccentArgb ?? rgbToArgb(customColor))
+      : PASTEL_PRESETS[selectedIndex].accent;
+    refreshSelection();
+  }
+
+  function refreshLocalizedLabels() {
+    label.textContent = t.preferencesColorTheme;
+    grid.setAttribute('aria-label', t.preferencesColorTheme);
+    customButton.textContent = t.preferencesCustomColor;
+    for (const button of swatchButtons) {
+      const index = Number.parseInt(button.dataset.index, 10);
+      const preset = PASTEL_PRESETS[index];
+      button.title = t[preset.nameKey] || preset.nameKey;
+    }
+  }
+
   refreshSwatchColors();
   refreshSelection();
 
   return {
     element: root,
     readValue,
+    setValue,
     refreshSelection,
+    refreshLocalizedLabels,
     setThemeMode(nextIsDark) {
       darkMode = Boolean(nextIsDark);
       refreshSwatchColors();

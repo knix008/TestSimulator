@@ -49,8 +49,57 @@ function ensureWorkspaceOwnerMembers(db) {
   }
 }
 
+function ensureCommentAttachmentsTable(db) {
+  if (tableExists(db, 'comment_attachments')) {
+    return;
+  }
+
+  db.exec(`
+    CREATE TABLE comment_attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      comment_id INTEGER NOT NULL,
+      file_name TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      data BLOB NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (comment_id) REFERENCES page_comments(id) ON DELETE CASCADE
+    );
+  `);
+}
+
+function ensureCommentParentIdColumn(db) {
+  const columns = db.prepare('PRAGMA table_info(page_comments)').all();
+  if (columns.some((column) => column.name === 'parent_id')) {
+    return;
+  }
+
+  db.exec('ALTER TABLE page_comments ADD COLUMN parent_id INTEGER REFERENCES page_comments(id) ON DELETE CASCADE');
+}
+
+function ensureUserDisplayNameColumn(db) {
+  const columns = db.prepare('PRAGMA table_info(users)').all();
+  if (columns.some((column) => column.name === 'display_name')) {
+    return;
+  }
+
+  db.exec('ALTER TABLE users ADD COLUMN display_name TEXT');
+}
+
+function ensureUserNotifyOnCommentColumn(db) {
+  const columns = db.prepare('PRAGMA table_info(users)').all();
+  if (columns.some((column) => column.name === 'notify_on_comment')) {
+    return;
+  }
+
+  db.exec('ALTER TABLE users ADD COLUMN notify_on_comment INTEGER NOT NULL DEFAULT 0');
+}
+
 function initializeDatabase(db) {
   applySchema(db);
+  ensureCommentAttachmentsTable(db);
+  ensureCommentParentIdColumn(db);
+  ensureUserDisplayNameColumn(db);
+  ensureUserNotifyOnCommentColumn(db);
   ensureDefaultAdmin(db);
   ensureWorkspaceOwnerMembers(db);
 }

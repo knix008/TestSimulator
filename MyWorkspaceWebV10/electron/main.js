@@ -29,7 +29,7 @@ protocol.registerSchemesAsPrivileged([
   }
 ]);
 
-const isDev = process.argv.includes('--dev');
+
 let mainWindow = null;
 let db = null;
 let sessionUser = null;
@@ -136,10 +136,6 @@ function createWindow() {
       event.preventDefault();
     }
   });
-
-  if (isDev) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
 
   mainWindow.on('maximize', () => {
     mainWindow.webContents.send('window:maximized-changed', true);
@@ -274,5 +270,3 @@ app.on('before-quit', () => {
   closeDatabase(db);
   db = null;
 });
-
-module.exports = { isDev };

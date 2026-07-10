@@ -17,12 +17,6 @@ npm start
 
 `npm install` 시 WinV10 편집기 HTML 추출, vendor 복사, WinV10 PNG 아이콘·템플릿·빌드 자산 동기화가 자동 실행됩니다.
 
-개발자 도구:
-
-```bash
-npm run dev
-```
-
 ## 최초 로그인
 
 - 사용자 ID: `admin`
@@ -55,8 +49,12 @@ Electron `userData` 아래 `MyWorkspaceWebV10/` 폴더에 로컬 설정·SQLite�
 | WinV10 `EditorHtmlBuilder` 편집기 이식 | ✅ |
 | `.wsp` 프로젝트 저장/열기/새 프로젝트 | ✅ |
 | Page/Workspace Markdown·Word·PDF 보내기 | ✅ |
+| 보내기 형식 대화상자·완료/실패 결과(저장 경로 표시) | ✅ |
+| 편집기 이미지 크기 조절·보내기 시 크기 유지 (MD/Word/PDF) | ✅ |
+| Page 다중 탭·탭별 미저장 스냅샷·DB 동기화 | ✅ |
 | Page 버전 이력 조회·복원 | ✅ |
 | Workspace/Page 생성·이름 변경·삭제 | ✅ |
+| Workspace/Page 잠금·잠금 해제 | ✅ |
 | Page 댓글 패널 (등록/수정/삭제) | ✅ |
 | Page asset (이미지·파일 첨부, `page-asset://` 프로토콜) | ✅ |
 | 사용자 관리 / 프로필 / 비밀번호 / 알림 설정 | ✅ |
@@ -147,24 +145,39 @@ App Store 외 배포 시 Gatekeeper 경고를 줄이려면 Apple Developer ID와
 | `node scripts/sync-page-templates.js` | WinV10 Page 양식(`ko`/`en`) 복사 |
 | `node scripts/sync-build-assets.js` | WinV10 `app.ico`/`wsp.ico` → `build/` |
 | `node scripts/verify-editor-undo-redo.js` | 편집기 Undo/Redo 동작 검증 (개발용) |
+| `node scripts/test-export-size.cjs` | 보내기 HTML 이미지 크기 반영 검증 (개발용) |
 
 ## 프로젝트 구조
 
 ```
 MyWorkspaceWebV10/
-├── electron/
+├── electron/           # main.js, preload.js
 ├── src/
-│   ├── main/           # DB, services, IPC
+│   ├── main/           # DB, services, IPC, export (MD/Word/PDF)
 │   └── renderer/
 │       ├── editor/     # WinV10 editor template
-│       ├── assets/icons/
-│       ├── js/dialogs/
-│       └── js/ui/
-├── scripts/
-├── config/
+│       ├── css/
+│       ├── js/         # app, editorBridge, dialogs, ui, i18n
+│       ├── templates/pages/{ko,en}/
+│       └── vendor/     # marked, turndown (ESM)
+├── scripts/            # 빌드·동기화·검증 스크립트
+├── config/             # appsettings.json, build-info.json (생성)
+├── build/              # electron-builder 리소스 (아이콘 등)
+├── database/           # schema.sql
+├── .github/workflows/  # release.yml (태그 CI)
 ├── README.md
 └── UsersGuide.md
 ```
+
+## 보내기(Export) 파이프라인
+
+Page 보내기 시 렌더러가 편집기의 최신 Markdown·HTML을 읽어 main 프로세스로 전달합니다. PDF·Word 생성 전에 편집기 HTML의 이미지 크기(`data-editor-width` 등)를 Markdown에 병합하고, `page-asset://` 참조를 data URI 또는 `_assets/` 폴더로 치환합니다.
+
+| 형식 | 구현 |
+|------|------|
+| Markdown | `src/main/export/markdownMaterializer.js` |
+| Word | `html-to-docx` (`src/main/export/docxExporter.js`) |
+| PDF | 숨김 `BrowserWindow` + `printToPDF` (`src/main/export/pdfExporter.js`) |
 
 ## WinV10과의 관계
 

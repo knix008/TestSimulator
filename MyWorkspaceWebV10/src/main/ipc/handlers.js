@@ -61,6 +61,21 @@ const {
   deleteComment
 } = require('../services/pageCommentService');
 const {
+  getNotifications,
+  getUnreadNotificationCount,
+  getNotificationSummary,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
+  deleteAllNotifications
+} = require('../services/notificationService');
+const {
+  readAttachmentCandidate,
+  readAttachmentFromDataUri,
+  tryGetAttachmentBytes,
+  guessContentType
+} = require('../services/commentAttachmentService');
+const {
   importFileFromPath,
   importImageBytes,
   importAssetBytes,
@@ -563,16 +578,80 @@ function registerIpcHandlers(deps) {
 
   ipcMain.handle(
     'comment:add',
-    wrapHandler(async (_event, { pageId, content, quotedText }) => {
-      const comment = addComment(db(), user(), pageId, content, quotedText);
+    wrapHandler(async (_event, { pageId, content, quotedText, attachments, parentId }) => {
+      const comment = addComment(db(), user(), pageId, content, quotedText, attachments, parentId);
       return success({ comment });
     })
   );
 
   ipcMain.handle(
+    'comment:pickAttachment',
+    wrapHandler(async (_event, { imageOnly }) => {
+      const filters = imageOnly
+        ? [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'] }]
+        : [{ name: 'All Files', extensions: ['*'] }];
+      const filePath = await showOpenDialog(window(), {
+        title: imageOnly ? '이미지 선택' : '파일 선택',
+        filters
+      });
+      if (!filePath) {
+        return { ok: false, cancelled: true };
+      }
+      const attachment = readAttachmentCandidate(filePath, { imageOnly });
+      return success({ attachment });
+    })
+  );
+
+  ipcMain.handle(
+    'comment:importAttachmentDataUri',
+    wrapHandler(async (_event, { dataUri, fileName }) => {
+      const attachment = readAttachmentFromDataUri(dataUri, fileName);
+      return success({ attachment });
+    })
+  );
+
+  ipcMain.handle(
+    'comment:getAttachmentBytes',
+    wrapHandler(async (_event, { attachmentId }) => {
+      const result = tryGetAttachmentBytes(db(), user(), attachmentId);
+      if (!result) {
+        return failure('댓글 첨부 파일을 찾을 수 없습니다.');
+      }
+      return success({
+        bytes: result.bytes.toString('base64'),
+        mime: result.contentType || guessContentType(result.fileName),
+        fileName: result.fileName
+      });
+    })
+  );
+
+  ipcMain.handle(
+    'comment:openAttachment',
+    wrapHandler(async (_event, { attachmentId }) => {
+      const result = tryGetAttachmentBytes(db(), user(), attachmentId);
+      if (!result) {
+        throw new Error('댓글 첨부 파일을 찾을 수 없습니다.');
+      }
+      const folder = path.join(getUserDataPaths().root, 'CommentAttachments');
+      fs.mkdirSync(folder, { recursive: true });
+      const targetPath = path.join(folder, `${attachmentId}_${result.fileName}`);
+      fs.writeFileSync(targetPath, result.bytes);
+      await shell.openPath(targetPath);
+      return success();
+    })
+  );
+
+  ipcMain.handle(
     'comment:update',
-    wrapHandler(async (_event, { commentId, content }) => {
-      const comment = updateComment(db(), user(), commentId, content);
+    wrapHandler(async (_event, { commentId, content, attachments, removeAttachmentIds }) => {
+      const comment = updateComment(
+        db(),
+        user(),
+        commentId,
+        content,
+        attachments,
+        removeAttachmentIds
+      );
       return success({ comment });
     })
   );
@@ -646,7 +725,7 @@ function registerIpcHandlers(deps) {
       if (user().role !== 'Admin') {
         throw new Error('관리자 권한이 필요합니다.');
       }
-      const created = createUser(db(), payload.username, payload.password, payload.role || 'User');
+      const created = createUser(db(), payload);
       return success({ user: created });
     })
   );
@@ -657,13 +736,7 @@ function registerIpcHandlers(deps) {
       if (user().role !== 'Admin') {
         throw new Error('관리자 권한이 필요합니다.');
       }
-      const updated = updateUser(
-        db(),
-        payload.id,
-        payload.username,
-        payload.role,
-        payload.newPassword
-      );
+      const updated = updateUser(db(), payload);
       return success({ user: updated });
     })
   );
@@ -681,8 +754,8 @@ function registerIpcHandlers(deps) {
 
   ipcMain.handle(
     'user:updateProfile',
-    wrapHandler(async (_event, { username }) => {
-      const updated = updateOwnProfile(db(), user().id, username);
+    wrapHandler(async (_event, payload) => {
+      const updated = updateOwnProfile(db(), user().id, payload);
       deps.setSessionUser(updated);
       return success({ user: updated });
     })
@@ -704,7 +777,8 @@ function registerIpcHandlers(deps) {
         user().id,
         payload.email,
         payload.notifyOnPageUpdate,
-        payload.notifyOnWorkspaceChange
+        payload.notifyOnWorkspaceChange,
+        payload.notifyOnComment
       );
       deps.setSessionUser(updated);
       return success({ user: updated });
@@ -716,6 +790,62 @@ function registerIpcHandlers(deps) {
     wrapHandler(async () => {
       const profile = getUserById(db(), user().id);
       return success({ user: profile });
+    })
+  );
+
+  ipcMain.handle(
+    'notification:list',
+    wrapHandler(async () => {
+      const notifications = getNotifications(db(), user().id);
+      return success({ notifications });
+    })
+  );
+
+  ipcMain.handle(
+    'notification:unreadCount',
+    wrapHandler(async () => {
+      const count = getUnreadNotificationCount(db(), user().id);
+      return success({ count });
+    })
+  );
+
+  ipcMain.handle(
+    'notification:summary',
+    wrapHandler(async () => {
+      const summary = getNotificationSummary(db(), user().id);
+      return success({ summary });
+    })
+  );
+
+  ipcMain.handle(
+    'notification:markRead',
+    wrapHandler(async (_event, { notificationId }) => {
+      const notification = markNotificationRead(db(), user().id, notificationId);
+      return success({ notification });
+    })
+  );
+
+  ipcMain.handle(
+    'notification:markAllRead',
+    wrapHandler(async () => {
+      const count = markAllNotificationsRead(db(), user().id);
+      return success({ count });
+    })
+  );
+
+  ipcMain.handle(
+    'notification:delete',
+    wrapHandler(async (_event, { notificationId }) => {
+      const count = deleteNotification(db(), user().id, notificationId);
+      return success({ count });
+    })
+  );
+
+  ipcMain.handle(
+    'notification:deleteAll',
+    wrapHandler(async () => {
+      const count = deleteAllNotifications(db(), user().id);
+      return success({ count });
     })
   );
 
@@ -798,7 +928,7 @@ function registerIpcHandlers(deps) {
 
   ipcMain.handle(
     'export:page',
-    wrapHandler(async (_event, { pageId, format = 'markdown', embedImagesAsBase64 = false }) => {
+    wrapHandler(async (_event, { pageId, format = 'markdown', embedImagesAsBase64 = false, content = null, editorHtml = null }) => {
       const page = getPage(db(), user(), pageId);
       if (!page) {
         throw new Error('Page를 찾을 수 없습니다.');
@@ -813,7 +943,7 @@ function registerIpcHandlers(deps) {
         return { ok: false, cancelled: true };
       }
       const normalizedPath = filePath.endsWith(extension) ? filePath : `${filePath}${extension}`;
-      await exportPage(db(), user(), pageId, normalizedPath, format, { getPage, embedImagesAsBase64 });
+      await exportPage(db(), user(), pageId, normalizedPath, format, { getPage, embedImagesAsBase64, content, editorHtml });
       return success({ filePath: normalizedPath });
     })
   );

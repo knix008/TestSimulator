@@ -2,6 +2,8 @@ import { buildEditorDocument } from './editor/winEditorPage.js';
 import { htmlToMarkdown, extractTitleFromHtml } from './editor/htmlToMarkdown.js';
 import {
   persistSizedImagesInMarkdown,
+  persistSizedImagesFromEditorHtml,
+  persistImageSizeRecordsInMarkdown,
   repairCorruptedImageMarkdown,
   collapseEditorImagesInMarkdown,
   collapseEditorFileLinksInMarkdown
@@ -142,6 +144,16 @@ export function createEditorBridge(frame) {
       const api = await getApi();
       api.finalizeImageSizes?.();
       api.refreshEditorBlocks?.();
+      await delay(50);
+      if (generation !== loadGeneration) {
+        return;
+      }
+      api.finalizeImageSizes?.();
+      await waitForEditorImagesReady(api, 2500);
+      if (generation !== loadGeneration) {
+        return;
+      }
+      api.finalizeImageSizes?.();
       await applyThemeChromeToEditor(api, chromeAppearance);
       if (generation !== loadGeneration) {
         return;
@@ -163,10 +175,16 @@ export function createEditorBridge(frame) {
 
     async readContent(fallbackTitle = '제목없음', pageId = null) {
       const api = await getApi();
-      api.finalizeImageSizes?.();
+      const sizeRecords = typeof api.collectImageSizeRecords === 'function'
+        ? api.collectImageSizeRecords(pageId)
+        : [];
       const html = api.getHtml();
       let markdown = htmlToMarkdown(html);
       if (pageId != null) {
+        if (sizeRecords.length > 0) {
+          markdown = persistImageSizeRecordsInMarkdown(markdown, pageId, sizeRecords);
+        }
+        markdown = persistSizedImagesFromEditorHtml(html, pageId, markdown);
         markdown = persistSizedImagesInMarkdown(markdown, pageId);
         markdown = repairCorruptedImageMarkdown(markdown);
         markdown = collapseEditorImagesInMarkdown(markdown, pageId);
@@ -261,7 +279,10 @@ export function createEditorBridge(frame) {
     async applyAppearance(nextAppearance = {}) {
       appearance = normalizeAppearance(nextAppearance);
       try {
-        const api = await getApi();
+        const api = await getApi({ wait: false });
+        if (!api) {
+          return;
+        }
         await applyThemeChromeToEditor(api, appearance);
       } catch {
         // Editor not ready yet; appearance will be applied on the next loadMarkdown.
@@ -362,4 +383,14 @@ function buildTableHtml(rows, cols) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForEditorImagesReady(api, timeoutMs = 2500) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (api.areEditorImagesReady?.()) {
+      return;
+    }
+    await delay(40);
+  }
 }

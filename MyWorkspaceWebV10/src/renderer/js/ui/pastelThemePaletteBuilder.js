@@ -68,6 +68,40 @@ function hslToRgb(h, s, l) {
   };
 }
 
+const WHITE = { r: 255, g: 255, b: 255 };
+const BLACK = { r: 0, g: 0, b: 0 };
+
+function relativeLuminance({ r, g, b }) {
+  const linearize = (channel) => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+
+  const red = linearize(r);
+  const green = linearize(g);
+  const blue = linearize(b);
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrastRatio(a, b) {
+  const luminanceA = relativeLuminance(a);
+  const luminanceB = relativeLuminance(b);
+  const lighter = Math.max(luminanceA, luminanceB);
+  const darker = Math.min(luminanceA, luminanceB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+export function getContrastTextColor(
+  background,
+  { dark = { r: 31, g: 35, b: 40 }, light = WHITE } = {}
+) {
+  const darkContrast = contrastRatio(background, dark);
+  const lightContrast = contrastRatio(background, light);
+  return darkContrast >= lightContrast ? dark : light;
+}
+
+const PASTEL_SAVE_BUTTON = { r: 232, g: 149, b: 159 };
+
 function deriveAccent(pastel, dark) {
   const { h, s } = rgbToHsl(pastel);
   const targetLightness = dark ? 0.68 : 0.42;
@@ -82,9 +116,6 @@ function darken(color, amount) {
 function lighten(color, amount) {
   return mix(color, { r: 255, g: 255, b: 255 }, amount);
 }
-
-const WHITE = { r: 255, g: 255, b: 255 };
-const BLACK = { r: 0, g: 0, b: 0 };
 
 function buildLight(pastel) {
   const accent = deriveAccent(pastel, false);
@@ -104,8 +135,10 @@ function buildLight(pastel) {
     accent,
     accentHover,
     accentPressed,
+    accentButtonText: getContrastTextColor(accent),
     accentButtonHover: darken(accent, 0.08),
     accentButtonPressed: darken(accent, 0.16),
+    pastelSaveButtonText: getContrastTextColor(PASTEL_SAVE_BUTTON),
     success: { r: 26, g: 127, b: 55 },
     warning: { r: 191, g: 87, b: 0 },
     danger: { r: 207, g: 34, b: 46 },
@@ -142,8 +175,10 @@ function buildDark(pastel) {
     accent,
     accentHover,
     accentPressed,
+    accentButtonText: getContrastTextColor(accent),
     accentButtonHover: lighten(accent, 0.1),
     accentButtonPressed: lighten(accent, 0.18),
+    pastelSaveButtonText: getContrastTextColor(PASTEL_SAVE_BUTTON),
     success: { r: 63, g: 185, b: 80 },
     warning: { r: 210, g: 153, b: 34 },
     danger: { r: 248, g: 81, b: 73 },

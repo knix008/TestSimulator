@@ -14,6 +14,24 @@ const turndown = new TurndownService({
   bulletListMarker: '-'
 });
 
+turndown.addRule('editorImageChildImg', {
+  filter(node) {
+    return node.nodeName === 'IMG' && Boolean(node.closest?.('.editor-image-wrap'));
+  },
+  replacement() {
+    return '';
+  }
+});
+
+turndown.addRule('editorImageResizeHandle', {
+  filter(node) {
+    return node.nodeName === 'SPAN' && node.classList?.contains('editor-image-resize-handle');
+  },
+  replacement() {
+    return '';
+  }
+});
+
 turndown.addRule('editorImageWrap', {
   filter(node) {
     return node.nodeName === 'SPAN' && node.classList?.contains('editor-image-wrap');
@@ -25,10 +43,20 @@ turndown.addRule('editorImageWrap', {
     }
     const alt = img.getAttribute('alt') || '';
     const parsed = resolveParsedImageAssetFromImgElement(img);
+    const wrapStyle = node.getAttribute('style') || '';
+    const imgStyle = img.getAttribute('style') || '';
+    const wrapWidthMatch = wrapStyle.match(/\bwidth\s*:\s*(\d+)\s*px/i);
+    const wrapHeightMatch = wrapStyle.match(/\bheight\s*:\s*(\d+)\s*px/i);
+    const imgWidthMatch = imgStyle.match(/\bwidth\s*:\s*(\d+)\s*px/i);
+    const imgHeightMatch = imgStyle.match(/\bheight\s*:\s*(\d+)\s*px/i);
     const width = img.getAttribute('data-editor-width') || node.getAttribute('data-editor-width')
-      || img.getAttribute('width') || node.getAttribute('width');
+      || img.getAttribute('width') || node.getAttribute('width')
+      || (wrapWidthMatch ? wrapWidthMatch[1] : null)
+      || (imgWidthMatch ? imgWidthMatch[1] : null);
     const height = img.getAttribute('data-editor-height') || node.getAttribute('data-editor-height')
-      || img.getAttribute('height') || node.getAttribute('height');
+      || img.getAttribute('height') || node.getAttribute('height')
+      || (wrapHeightMatch ? wrapHeightMatch[1] : null)
+      || (imgHeightMatch ? imgHeightMatch[1] : null);
     if (width && parsed) {
       return buildSizedMarkdownImageReference(
         parsed.pageId,

@@ -12,6 +12,8 @@
   --accent-hover: #dae8fc;
   --accent-pressed: #bfdbfe;
   --accent-button-hover: #075aba;
+  --accent-button-text: #ffffff;
+  --pastel-save-button-text: #1f2328;
   --success: #1a7f37;
   --warning: #bf5700;
   --danger: #cf222e;
@@ -80,7 +82,7 @@ textarea {
   padding: 8px 14px;
   cursor: pointer;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-button-text);
 }
 
 .btn-primary:hover {

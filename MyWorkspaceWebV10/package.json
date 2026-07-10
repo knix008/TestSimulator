@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev",
+    "dev": "electron .",
     "postinstall": "electron-builder install-app-deps && node scripts/copy-vendor.js && node scripts/extract-win-editor.js && node scripts/sync-icons.js && node scripts/sync-page-templates.js && node scripts/sync-build-assets.js",
     "sync:icons": "node scripts/sync-icons.js",
     "sync:templates": "node scripts/sync-page-templates.js",

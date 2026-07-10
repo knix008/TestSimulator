@@ -219,29 +219,47 @@
 .page-tabs {
   display: flex;
   gap: 2px;
-  padding: 6px 8px 0;
+  padding: 0 8px;
   overflow: auto;
-  background: var(--sidebar);
-  min-height: 34px;
+  background: var(--editor-bg);
+  min-height: 26px;
+  align-items: stretch;
 }
 
 .page-tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-light);
-  border-bottom: 0;
-  border-radius: 6px 6px 0 0;
-  background: var(--bg);
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 0;
+  background: var(--editor-bg);
   cursor: pointer;
-  color: var(--text);
+  color: var(--text-secondary);
   white-space: nowrap;
+  font-size: calc(12px * var(--ui-font-scale, 1));
+  line-height: 1.2;
+  position: relative;
+}
+
+.page-tab:hover:not(.is-active) {
+  color: var(--text);
 }
 
 .page-tab.is-active {
   background: var(--editor-bg);
-  border-color: var(--accent);
+  color: var(--text);
+}
+
+.page-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
 }
 
 .page-tab-close {
@@ -251,6 +269,7 @@
   color: var(--text-muted);
   padding: 0 2px;
   line-height: 1;
+  font-size: calc(13px * var(--ui-font-scale, 1));
 }
 
 .workspace-tree,

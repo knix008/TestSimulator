@@ -84,6 +84,10 @@ export function createPageTabs(container, { onSelect, onClose }) {
     },
     has(pageId) {
       return tabs.has(pageId);
+    },
+    isDirty(pageId) {
+      const tab = tabs.get(pageId);
+      return Boolean(tab?.dirty);
     }
   };
 }

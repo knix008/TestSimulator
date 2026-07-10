@@ -7,10 +7,12 @@ function mapUser(row) {
   return {
     id: row.id,
     username: row.username,
+    displayName: row.display_name || '',
     role: row.role,
     email: row.email || '',
     notifyOnPageUpdate: Boolean(row.notify_on_page_update),
     notifyOnWorkspaceChange: Boolean(row.notify_on_workspace_change),
+    notifyOnComment: Boolean(row.notify_on_comment),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

@@ -426,6 +426,20 @@ export function buildTreeContextMenu(state) {
 
     },
 
+    { type: 'separator', visible: isPage },
+
+    {
+
+      id: 'export-page',
+
+      label: t.ctxExportPage,
+
+      iconName: menuIcon('export'),
+
+      visible: isPage
+
+    },
+
     { type: 'separator', visible: isWorkspace },
 
     {

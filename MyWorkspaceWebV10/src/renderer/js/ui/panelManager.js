@@ -155,6 +155,12 @@ export function createPanelManager({ onChange } = {}) {
       state.commentsPanelVisible = !state.commentsPanelVisible;
       syncDom();
     },
+    showCommentsPanel() {
+      if (!state.commentsPanelVisible) {
+        state.commentsPanelVisible = true;
+        syncDom();
+      }
+    },
     togglePageSearch() {
       state.pageSearchVisible = !state.pageSearchVisible;
       syncDom();
