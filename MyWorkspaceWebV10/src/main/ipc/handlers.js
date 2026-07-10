@@ -798,7 +798,7 @@ function registerIpcHandlers(deps) {
 
   ipcMain.handle(
     'export:page',
-    wrapHandler(async (_event, { pageId, format = 'markdown' }) => {
+    wrapHandler(async (_event, { pageId, format = 'markdown', embedImagesAsBase64 = false }) => {
       const page = getPage(db(), user(), pageId);
       if (!page) {
         throw new Error('Page를 찾을 수 없습니다.');
@@ -813,7 +813,7 @@ function registerIpcHandlers(deps) {
         return { ok: false, cancelled: true };
       }
       const normalizedPath = filePath.endsWith(extension) ? filePath : `${filePath}${extension}`;
-      await exportPage(db(), user(), pageId, normalizedPath, format, { getPage });
+      await exportPage(db(), user(), pageId, normalizedPath, format, { getPage, embedImagesAsBase64 });
       return success({ filePath: normalizedPath });
     })
   );
@@ -840,7 +840,7 @@ function registerIpcHandlers(deps) {
 
   ipcMain.handle(
     'export:workspace',
-    wrapHandler(async (_event, { workspaceId, format = 'markdown' }) => {
+    wrapHandler(async (_event, { workspaceId, format = 'markdown', embedImagesAsBase64 = false }) => {
       const workspace = db().prepare('SELECT name FROM workspaces WHERE id = ?').get(workspaceId);
       if (!workspace) {
         throw new Error('Workspace를 찾을 수 없습니다.');
@@ -854,7 +854,7 @@ function registerIpcHandlers(deps) {
           return { ok: false, cancelled: true };
         }
         const folder = path.join(targetDir, sanitizeExportFileName(workspace.name));
-        exportWorkspaceMarkdown(db(), user(), workspaceId, folder, access);
+        exportWorkspaceMarkdown(db(), user(), workspaceId, folder, { ...access, embedImagesAsBase64 });
         return success({ folder });
       }
 
@@ -875,7 +875,7 @@ function registerIpcHandlers(deps) {
 
   ipcMain.handle(
     'export:workspaceMarkdown',
-    wrapHandler(async (_event, { workspaceId }) => {
+    wrapHandler(async (_event, { workspaceId, embedImagesAsBase64 = false }) => {
       const workspace = db().prepare('SELECT name FROM workspaces WHERE id = ?').get(workspaceId);
       if (!workspace) {
         throw new Error('Workspace를 찾을 수 없습니다.');
@@ -887,7 +887,7 @@ function registerIpcHandlers(deps) {
         return { ok: false, cancelled: true };
       }
       const folder = path.join(targetDir, sanitizeExportFileName(workspace.name));
-      exportWorkspaceMarkdown(db(), user(), workspaceId, folder, access);
+      exportWorkspaceMarkdown(db(), user(), workspaceId, folder, { ...access, embedImagesAsBase64 });
       return success({ folder });
     })
   );

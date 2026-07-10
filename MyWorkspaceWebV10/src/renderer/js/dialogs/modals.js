@@ -982,10 +982,31 @@ export function showExportFormatDialog(title) {
     const body = document.createElement('div');
     body.className = 'form-grid';
     body.innerHTML = `
-      <label class="checkbox-row"><input type="radio" name="export-format" value="markdown" checked /> Markdown (.md)</label>
-      <label class="checkbox-row"><input type="radio" name="export-format" value="word" /> Word (.docx)</label>
-      <label class="checkbox-row"><input type="radio" name="export-format" value="pdf" /> PDF (.pdf)</label>
+      <label class="checkbox-row"><input type="radio" name="export-format" value="markdown" checked /> ${t.exportFormatMarkdown}</label>
+      <label class="checkbox-row"><input type="radio" name="export-format" value="word" /> ${t.exportFormatWord}</label>
+      <label class="checkbox-row"><input type="radio" name="export-format" value="pdf" /> ${t.exportFormatPdf}</label>
+      <label id="export-base64-option" class="checkbox-row export-base64-option">
+        <input type="checkbox" id="export-embed-images-base64" />
+        ${t.exportEmbedImagesBase64}
+      </label>
+      <p id="export-base64-hint" class="modal-hint export-base64-hint">${t.exportEmbedImagesBase64Hint}</p>
     `;
+
+    const base64Option = body.querySelector('#export-base64-option');
+    const base64Hint = body.querySelector('#export-base64-hint');
+    const base64Checkbox = body.querySelector('#export-embed-images-base64');
+
+    function syncBase64OptionVisibility() {
+      const selected = body.querySelector('input[name="export-format"]:checked');
+      const show = selected?.value === 'markdown';
+      base64Option.classList.toggle('hidden', !show);
+      base64Hint.classList.toggle('hidden', !show);
+    }
+
+    body.querySelectorAll('input[name="export-format"]').forEach((input) => {
+      input.addEventListener('change', syncBase64OptionVisibility);
+    });
+    syncBase64OptionVisibility();
 
     const finish = (value) => {
       closeModal();
@@ -996,12 +1017,15 @@ export function showExportFormatDialog(title) {
       title,
       bodyNode: body,
       footerNodes: [
-        createButton('취소', { onClick: () => finish(null) }),
-        createButton('내보내기', {
+        createButton(t.buttonCancel, { onClick: () => finish(null) }),
+        createButton(t.exportAction, {
           primary: true,
           onClick: () => {
             const selected = body.querySelector('input[name="export-format"]:checked');
-            finish(selected?.value || 'markdown');
+            finish({
+              format: selected?.value || 'markdown',
+              embedImagesAsBase64: Boolean(base64Checkbox?.checked)
+            });
           }
         })
       ]

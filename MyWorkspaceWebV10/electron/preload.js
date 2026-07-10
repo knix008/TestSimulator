@@ -81,10 +81,11 @@ contextBridge.exposeInMainWorld('myworkspace', {
   saveProject: (workspaceId) => ipcRenderer.invoke('archive:saveProject', { workspaceId }),
   loadProject: () => ipcRenderer.invoke('archive:loadProject'),
   newProject: (name) => ipcRenderer.invoke('archive:newProject', { name }),
-  exportPage: (pageId, format) => ipcRenderer.invoke('export:page', { pageId, format }),
+  exportPage: (pageId, format, options = {}) =>
+    ipcRenderer.invoke('export:page', { pageId, format, ...options }),
   exportPageMarkdown: (pageId) => ipcRenderer.invoke('export:pageMarkdown', { pageId }),
-  exportWorkspace: (workspaceId, format) =>
-    ipcRenderer.invoke('export:workspace', { workspaceId, format }),
+  exportWorkspace: (workspaceId, format, options = {}) =>
+    ipcRenderer.invoke('export:workspace', { workspaceId, format, ...options }),
   exportWorkspaceMarkdown: (workspaceId) =>
     ipcRenderer.invoke('export:workspaceMarkdown', { workspaceId }),
   openProject: (filePath) => ipcRenderer.invoke('archive:openProject', { filePath }),

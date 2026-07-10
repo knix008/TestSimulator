@@ -94,6 +94,27 @@ export function tryParseEditorWidthTitle(title) {
   return null;
 }
 
+export function tryParseEditorHeightTitle(title) {
+  if (!title) {
+    return null;
+  }
+
+  const match = title.match(/(?:editor-height|height)\s*:\s*(\d+)/i);
+  if (!match) {
+    return null;
+  }
+
+  const height = Number.parseInt(match[1], 10);
+  return height > 0 ? height : null;
+}
+
+export function tryParseEditorSizeTitle(title) {
+  return {
+    width: tryParseEditorWidthTitle(title),
+    height: tryParseEditorHeightTitle(title)
+  };
+}
+
 export function tryGetImageWidthPx(attrs) {
   const dataWidth = extractAttributeValue(attrs, 'data-editor-width');
   if (dataWidth) {
@@ -123,19 +144,56 @@ export function tryGetImageWidthPx(attrs) {
   return 0;
 }
 
-export function buildSizedImageTag(src, width, alt = '') {
+export function tryGetImageHeightPx(attrs) {
+  const dataHeight = extractAttributeValue(attrs, 'data-editor-height');
+  if (dataHeight) {
+    const parsed = Number.parseInt(dataHeight, 10);
+    if (parsed > 0) {
+      return parsed;
+    }
+  }
+
+  const style = extractAttributeValue(attrs, 'style') || attrs;
+  const styleMatch = String(style).match(/\bheight\s*:\s*(\d+)\s*px/i);
+  if (styleMatch) {
+    const parsed = Number.parseInt(styleMatch[1], 10);
+    if (parsed > 0) {
+      return parsed;
+    }
+  }
+
+  const heightAttr = extractAttributeValue(attrs, 'height');
+  if (heightAttr) {
+    const parsed = Number.parseInt(heightAttr, 10);
+    if (parsed > 0 && parsed <= 4096) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
+
+export function buildSizedImageTag(src, width, alt = '', height = 0) {
   const safeSrc = escapeHtmlAttribute(src);
   const safeAlt = escapeHtmlAttribute(alt);
+  const heightPx = Number.parseInt(height, 10);
+  if (heightPx > 0) {
+    return `<img src="${safeSrc}" width="${width}" height="${heightPx}" data-editor-width="${width}" data-editor-height="${heightPx}" style="width: ${width}px; height: ${heightPx}px; max-width: none; object-fit: fill;" alt="${safeAlt}">`;
+  }
   return `<img src="${safeSrc}" width="${width}" data-editor-width="${width}" style="width: ${width}px; height: auto; max-width: none;" alt="${safeAlt}">`;
 }
 
-function ensureImgAttrsHaveDisplayWidth(attrs, widthPx) {
+function ensureImgAttrsHaveDisplaySize(attrs, widthPx, heightPx = 0) {
   const src = extractAttributeValue(attrs, 'src');
   if (!src) {
     return attrs;
   }
   const alt = extractAttributeValue(attrs, 'alt') || '';
   const altAttr = alt ? ` alt="${escapeHtmlAttribute(alt)}"` : '';
+  const height = Number.parseInt(heightPx, 10);
+  if (height > 0) {
+    return ` src="${escapeHtmlAttribute(src)}"${altAttr} data-editor-width="${widthPx}" data-editor-height="${height}" style="width: 100%; height: 100%; max-width: none; object-fit: fill; display: block;"`;
+  }
   return ` src="${escapeHtmlAttribute(src)}"${altAttr} data-editor-width="${widthPx}" style="width: 100%; height: auto; max-width: none; display: block;"`;
 }
 
@@ -146,12 +204,18 @@ export function wrapImagesForEditing(html) {
     }
 
     const widthPx = tryGetImageWidthPx(attrs);
+    const heightPx = tryGetImageHeightPx(attrs);
     if (!widthPx) {
-      return `<span class="editor-image-wrap" contenteditable="false"><img ${attrs.trim()}><span class="editor-image-resize-handle" contenteditable="false"></span></span>`;
+      return `<span class="editor-image-wrap" contenteditable="false"><img ${attrs.trim()}><span class="editor-image-resize-handle editor-image-resize-handle--e" contenteditable="false"></span><span class="editor-image-resize-handle editor-image-resize-handle--s" contenteditable="false"></span><span class="editor-image-resize-handle editor-image-resize-handle--se" contenteditable="false"></span></span>`;
     }
 
-    const normalizedAttrs = ensureImgAttrsHaveDisplayWidth(attrs, widthPx);
-    return `<span class="editor-image-wrap is-sized" contenteditable="false" data-editor-width="${widthPx}" style="width: ${widthPx}px;"><img${normalizedAttrs}><span class="editor-image-resize-handle" contenteditable="false"></span></span>`;
+    const normalizedAttrs = ensureImgAttrsHaveDisplaySize(attrs, widthPx, heightPx);
+    const wrapStyle = heightPx > 0
+      ? ` style="width: ${widthPx}px; height: ${heightPx}px;"`
+      : ` style="width: ${widthPx}px;"`;
+    const heightClass = heightPx > 0 ? ' has-editor-height' : '';
+    const heightData = heightPx > 0 ? ` data-editor-height="${heightPx}"` : '';
+    return `<span class="editor-image-wrap is-sized${heightClass}" contenteditable="false" data-editor-width="${widthPx}"${heightData}${wrapStyle}><img${normalizedAttrs}><span class="editor-image-resize-handle editor-image-resize-handle--e" contenteditable="false"></span><span class="editor-image-resize-handle editor-image-resize-handle--s" contenteditable="false"></span><span class="editor-image-resize-handle editor-image-resize-handle--se" contenteditable="false"></span></span>`;
   });
 }
 
@@ -172,9 +236,13 @@ function wrapMarkdownAssetUri(assetUri) {
   return stored.startsWith('<') ? stored : `<${stored}>`;
 }
 
-export function buildSizedMarkdownImageReference(pageId, fileName, widthPx, alt = '') {
+export function buildSizedMarkdownImageReference(pageId, fileName, widthPx, alt = '', heightPx = 0) {
   const assetUri = buildStoredAssetUri(pageId, fileName);
-  return `![${alt}](${wrapMarkdownAssetUri(assetUri)} "editor-width:${widthPx}")`;
+  const height = Number.parseInt(heightPx, 10);
+  const sizeTitle = height > 0
+    ? `editor-width:${widthPx} editor-height:${height}`
+    : `editor-width:${widthPx}`;
+  return `![${alt}](${wrapMarkdownAssetUri(assetUri)} "${sizeTitle}")`;
 }
 
 function tryParsePageAssetReference(url, pageId) {
@@ -251,10 +319,10 @@ export function collapseEditorImagesInMarkdown(markdown, pageId) {
     }
 
     const title = titleQuoted || titleSingle || '';
-    const width = tryParseEditorWidthTitle(title);
+    const { width, height } = tryParseEditorSizeTitle(title);
     const stored = buildStoredAssetUri(pageId, fileName);
     if (width) {
-      return buildSizedMarkdownImageReference(pageId, fileName, width, alt);
+      return buildSizedMarkdownImageReference(pageId, fileName, width, alt, height || 0);
     }
 
     return `![${alt}](${wrapMarkdownAssetUri(stored)})`;
@@ -314,7 +382,7 @@ export function repairCorruptedImageMarkdown(markdown) {
 function expandMarkdownImageReferences(markdown, pageId) {
   return String(markdown || '').replace(MARKDOWN_IMAGE_REGEX, (match, alt, url, _titleGroup, titleQuoted, titleSingle) => {
     const title = titleQuoted || titleSingle || '';
-    const width = tryParseEditorWidthTitle(title);
+    const { width, height } = tryParseEditorSizeTitle(title);
     const fileName = tryParsePageAssetReference(url, pageId);
     if (!fileName || !isSupportedImageFileName(fileName)) {
       return match;
@@ -322,7 +390,7 @@ function expandMarkdownImageReferences(markdown, pageId) {
 
     const editorUri = buildEditorUri(pageId, fileName);
     if (width) {
-      return buildSizedImageTag(editorUri, width, alt);
+      return buildSizedImageTag(editorUri, width, alt, height || 0);
     }
 
     return `![${alt}](${editorUri})`;
@@ -342,9 +410,10 @@ function expandHtmlImageReferences(markdown, pageId) {
     }
 
     const width = tryGetImageWidthPx(attrs);
+    const height = tryGetImageHeightPx(attrs);
     const alt = extractAttributeValue(attrs, 'alt') || '';
     return width
-      ? buildSizedImageTag(resolved.editorUri, width, alt)
+      ? buildSizedImageTag(resolved.editorUri, width, alt, height || 0)
       : `<img src="${escapeHtmlAttribute(resolved.editorUri)}" alt="${escapeHtmlAttribute(alt)}">`;
   });
 }
@@ -381,8 +450,9 @@ export function persistSizedImagesInMarkdown(markdown, pageId) {
       return match;
     }
 
+    const height = tryGetImageHeightPx(attrs);
     const alt = extractAttributeValue(attrs, 'alt') || '';
-    return buildSizedMarkdownImageReference(pageId, resolved.fileName, width, alt);
+    return buildSizedMarkdownImageReference(pageId, resolved.fileName, width, alt, height || 0);
   });
 }
 

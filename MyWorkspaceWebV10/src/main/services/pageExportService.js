@@ -5,6 +5,7 @@ const {
   ensureTitleHeading,
   materializePageAssets
 } = require('../export/htmlBuilder');
+const { prepareMarkdownForExport } = require('../export/markdownMaterializer');
 const { exportHtmlToPdf } = require('../export/pdfExporter');
 const { exportHtmlToDocx } = require('../export/docxExporter');
 
@@ -12,23 +13,24 @@ function sanitizeFileName(name) {
   return String(name).replace(/[<>:"/\\|?*]/g, '_').trim() || 'untitled';
 }
 
-function exportPageMarkdown(db, user, pageId, filePath, { getPage }) {
+function exportPageMarkdown(db, user, pageId, filePath, { getPage, embedImagesAsBase64 = false } = {}) {
   const page = getPage(db, user, pageId);
   if (!page) {
     throw new Error('Page를 찾을 수 없습니다.');
   }
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const body = materializePageAssets(
+  const prepared = prepareMarkdownForExport(
     ensureTitleHeading(page.title, page.content),
     db,
     user,
-    pageId
+    filePath,
+    { embedImagesAsBase64 }
   );
-  fs.writeFileSync(filePath, `${body}\n`, 'utf8');
+  fs.writeFileSync(filePath, `${prepared}\n`, 'utf8');
 }
 
-async function exportPage(db, user, pageId, filePath, format, { getPage }) {
+async function exportPage(db, user, pageId, filePath, format, { getPage, embedImagesAsBase64 = false } = {}) {
   const page = getPage(db, user, pageId);
   if (!page) {
     throw new Error('Page를 찾을 수 없습니다.');
@@ -40,7 +42,13 @@ async function exportPage(db, user, pageId, filePath, format, { getPage }) {
 
   switch (format) {
     case 'markdown': {
-      const body = materializePageAssets(ensureTitleHeading(title, content), db, user, pageId);
+      const body = prepareMarkdownForExport(
+        ensureTitleHeading(title, content),
+        db,
+        user,
+        filePath,
+        { embedImagesAsBase64 }
+      );
       fs.writeFileSync(filePath, `${body}\n`, 'utf8');
       break;
     }
@@ -136,8 +144,15 @@ function exportNode(db, user, workspaceId, targetDir, deps) {
     .all(workspaceId);
   for (const page of pages) {
     const fileName = `${sanitizeFileName(page.title)}.md`;
-    const body = materializePageAssets(ensureTitleHeading(page.title, page.content), db, user, page.id);
-    fs.writeFileSync(path.join(folder, fileName), `${body}\n`, 'utf8');
+    const filePath = path.join(folder, fileName);
+    const body = prepareMarkdownForExport(
+      ensureTitleHeading(page.title, page.content),
+      db,
+      user,
+      filePath,
+      { embedImagesAsBase64: Boolean(deps.embedImagesAsBase64) }
+    );
+    fs.writeFileSync(filePath, `${body}\n`, 'utf8');
   }
 
   const children = db

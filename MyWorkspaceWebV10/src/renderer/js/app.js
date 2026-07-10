@@ -939,11 +939,13 @@ async function handleMenuAction(actionId, context = {}) {
 }
 
 async function exportCurrentPage() {
-  const format = await showExportFormatDialog('Page 내보내기');
-  if (!format) {
+  const selection = await showExportFormatDialog(t.exportPageTitle);
+  if (!selection) {
     return;
   }
-  const result = await api.exportPage(currentPageId, format);
+  const result = await api.exportPage(currentPageId, selection.format, {
+    embedImagesAsBase64: selection.embedImagesAsBase64
+  });
   if (result.ok) {
     showToast(`내보내기 완료: ${result.filePath}`);
   } else {
@@ -952,11 +954,13 @@ async function exportCurrentPage() {
 }
 
 async function exportWorkspaceById(workspaceId) {
-  const format = await showExportFormatDialog('Workspace 내보내기');
-  if (!format) {
+  const selection = await showExportFormatDialog(t.exportWorkspaceTitle);
+  if (!selection) {
     return;
   }
-  const result = await api.exportWorkspace(workspaceId, format);
+  const result = await api.exportWorkspace(workspaceId, selection.format, {
+    embedImagesAsBase64: selection.embedImagesAsBase64
+  });
   if (result.ok) {
     const target = result.filePath || result.folder;
     showToast(`내보내기 완료: ${target}`);
