@@ -273,6 +273,7 @@ public partial class MainForm : Form
 
 	private DiagramCanvas diagramCanvas;
 
+<<<<<<< HEAD
 	private TabControl tabControlRight;
 
 	private ToolStrip rightPanelTabBar;
@@ -288,6 +289,16 @@ public partial class MainForm : Form
 	private TabPage tabAnalysis;
 
 	private TabPage tabIndexAdvisor;
+=======
+	private ToolStrip rightTabStrip;
+	private ToolStripButton btnTabStructure;
+	private ToolStripButton btnTabAnalysis;
+	private ToolStripButton btnTabIndexAdvisor;
+	private Panel panelTabContent;
+	private Panel panelTabStructure;
+	private Panel panelTabAnalysis;
+	private Panel panelTabIndexAdvisor;
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 
 	private ThemedTreeView treeViewSchema;
     private BufferedListView listViewAnalysis;
@@ -580,8 +591,16 @@ public partial class MainForm : Form
 		ConfigureToolboxButton(btnZoomIn, "ZoomIn", "확대");
 		ConfigureToolboxButton(btnZoomOut, "ZoomOut", "축소");
 		ConfigureToolboxButton(btnFitAll, "FitAll", "맞춤");
+<<<<<<< HEAD
 		NativeControlTheme.ApplyDeep(panelToolBox);
 		ApplyRightPanelTabTheme();
+=======
+		ModernTheme.StyleToolStrip(rightTabStrip);
+		panelTabContent.BackColor = ModernTheme.PanelBackground;
+		panelTabStructure.BackColor = ModernTheme.PanelBackground;
+		panelTabAnalysis.BackColor = ModernTheme.PanelBackground;
+		panelTabIndexAdvisor.BackColor = ModernTheme.PanelBackground;
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 		ModernTheme.StyleDataTree(treeViewSchema);
 		ModernTheme.StyleDataList(listViewAnalysis, propertyGridStyle: true);
 		ModernTheme.StyleDataList(listViewIndexAdvisor, propertyGridStyle: true);
@@ -615,7 +634,7 @@ public partial class MainForm : Form
 		ModernTheme.StyleCanvasToggleButton(btnCanvasToggleRight);
 		panelToggleStrip.BackColor = ModernTheme.CanvasChrome;
 		panelRight.BackColor = ModernTheme.PanelBackground;
-		diagramCanvas.BackColor = ModernTheme.CanvasBackground;
+		diagramCanvas.ApplyTheme();
 		btnTsAbout.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
 		btnTsAbout.Text = L.S("BtnAbout", "정보");
 		UpdateToolButtonStates();
@@ -811,6 +830,14 @@ public partial class MainForm : Form
 
 		_analysisHeaderPanel.Controls.Add(_analysisSummaryLabel);
 
+<<<<<<< HEAD
+=======
+		panelTabAnalysis.Controls.Clear();
+		listViewAnalysis.Dock = DockStyle.Fill;
+		panelTabAnalysis.Controls.Add(listViewAnalysis);
+		panelTabAnalysis.Controls.Add(lblAnalysisSummary);
+		panelTabAnalysis.Controls.Add(_normLevelStrip);
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 		listViewAnalysis.Columns.Clear();
 		foreach (string header in GetAnalysisColumnHeaders())
 			listViewAnalysis.Columns.Add(header);
@@ -821,7 +848,15 @@ public partial class MainForm : Form
 		listViewAnalysis.ColumnClick += ListViewAnalysis_ColumnClick;
 		listViewAnalysis.ColumnWidthChanging += ListViewAnalysis_ColumnWidthChanging;
 		listViewAnalysis.ColumnWidthChanged += ListViewAnalysis_ColumnWidthChanged;
+<<<<<<< HEAD
 		tabAnalysis.Resize += (_, _) => ApplyAnalysisColumnLayout(fillOnly: true);
+=======
+		panelTabAnalysis.Resize += (_, _) =>
+		{
+			UpdateAnalysisSummaryLayout();
+			ApplyAnalysisColumnLayout(fillOnly: true);
+		};
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 	}
 
 	private void EnsureAnalysisPanelLayout()
@@ -1050,6 +1085,21 @@ public partial class MainForm : Form
 		ApplyAnalysisColumnLayout();
 	}
 
+<<<<<<< HEAD
+=======
+	private void UpdateAnalysisSummaryLayout()
+	{
+		if (lblAnalysisSummary == null || panelTabAnalysis == null)
+		{
+			return;
+		}
+
+		int width = Math.Max(120, panelTabAnalysis.ClientSize.Width - lblAnalysisSummary.Padding.Horizontal);
+		Size textSize = TextRenderer.MeasureText(lblAnalysisSummary.Text, lblAnalysisSummary.Font, new Size(width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.Left);
+		lblAnalysisSummary.Height = Math.Max(40, textSize.Height + lblAnalysisSummary.Padding.Vertical + 4);
+	}
+
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 	private void ListViewAnalysis_SelectedIndexChanged(object sender, EventArgs e)
 	{
 		if (listViewAnalysis.SelectedItems.Count == 0
@@ -1119,6 +1169,7 @@ public partial class MainForm : Form
 
 	private void ConfigureIndexAdvisorPanel()
 	{
+<<<<<<< HEAD
 		if (_indexAdvisorToolBar == null)
 		{
 			_indexAdvisorToolBar = new ToolStrip
@@ -1166,6 +1217,17 @@ public partial class MainForm : Form
 
 		_indexAdvisorSummaryLabel.Text = text;
 		_indexAdvisorSummaryLabel.ForeColor = foreColor;
+=======
+		panelTabIndexAdvisor.Controls.Clear();
+		listViewIndexAdvisor.Dock = DockStyle.Fill;
+		panelTabIndexAdvisor.Controls.Add(listViewIndexAdvisor);
+		listViewIndexAdvisor.Columns.Clear();
+		foreach (string header in GetIndexAdvisorColumnHeaders())
+			listViewIndexAdvisor.Columns.Add(header, 100);
+		listViewIndexAdvisor.FullRowSelect = true;
+		listViewIndexAdvisor.GridLines = true;
+		listViewIndexAdvisor.SelectedIndexChanged += ListViewIndexAdvisor_SelectedIndexChanged;
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 	}
 
 	private void RefreshIndexAdvisorAnalysis()
@@ -1298,6 +1360,7 @@ public partial class MainForm : Form
 
 	private void ApplyRightPanelIcons()
 	{
+<<<<<<< HEAD
 		btnTabStructure.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
 		btnTabStructure.Image = IconProvider.Get("Structure", 16);
 		btnTabStructure.TextImageRelation = TextImageRelation.ImageBeforeText;
@@ -1309,6 +1372,11 @@ public partial class MainForm : Form
 		btnTabIndexAdvisor.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
 		btnTabIndexAdvisor.Image = IconProvider.Get("IndexAdvisor", 16);
 		btnTabIndexAdvisor.TextImageRelation = TextImageRelation.ImageBeforeText;
+=======
+		btnTabStructure.Image = IconProvider.Get("Structure", 16);
+		btnTabAnalysis.Image = IconProvider.Get("Analyze", 16);
+		btnTabIndexAdvisor.Image = IconProvider.Get("IndexAdvisor", 16);
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 
 		btnPropertySortCategory.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
 		btnPropertySortCategory.Image = IconProvider.Get("SortCategory", 16);
@@ -1319,7 +1387,21 @@ public partial class MainForm : Form
 		btnPropertySortAlphabetical.TextImageRelation = TextImageRelation.ImageBeforeText;
 	}
 
+<<<<<<< HEAD
 	private static void ConfigureToolboxButton(ToolboxButton button, string iconName, string caption)
+=======
+	private void SelectRightTab(int index)
+	{
+		panelTabStructure.Visible    = index == 0;
+		panelTabAnalysis.Visible     = index == 1;
+		panelTabIndexAdvisor.Visible = index == 2;
+		btnTabStructure.Checked    = index == 0;
+		btnTabAnalysis.Checked     = index == 1;
+		btnTabIndexAdvisor.Checked = index == 2;
+	}
+
+	private static void ConfigureToolboxButton(Button button, string iconName, string caption)
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 	{
 		button.Image = IconProvider.Get(iconName, 20);
 		button.Text = "";             // icon-only; tooltip carries the label
@@ -1488,6 +1570,7 @@ public partial class MainForm : Form
 		btnTsWriteReport.ToolTipText = L.S("TtReport");
 		btnTsAbout.ToolTipText     = L.S("TtAbout");
 
+<<<<<<< HEAD
 		tabTreeView.Text       = L.S("TabStructure");
 		tabAnalysis.Text       = L.S("TabAnalysis");
 		tabIndexAdvisor.Text   = L.S("TabIndexAdvisor");
@@ -1506,6 +1589,11 @@ public partial class MainForm : Form
 			btnTabIndexAdvisor.Text = L.S("TabIndexAdvisor");
 			btnTabIndexAdvisor.ToolTipText = L.S("TabIndexAdvisor");
 		}
+=======
+		btnTabStructure.Text    = L.S("TabStructure");
+		btnTabAnalysis.Text     = L.S("TabAnalysis");
+		btnTabIndexAdvisor.Text = L.S("TabIndexAdvisor");
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 
 		if (tsLineStraight != null) tsLineStraight.Text = L.S("LineStyleStraight");
 		if (tsLineCurved != null)   tsLineCurved.Text   = L.S("LineStyleCurved");
@@ -1646,11 +1734,12 @@ public partial class MainForm : Form
 		if (treeViewSchema != null && diagramCanvas != null)
 			RefreshTreeView();
 
-		// Refresh analysis views so list items use the current language strings
+		// Refresh analysis views so list items use the current language strings.
+		// Re-run index advisor so Reason/Recommendation strings are re-generated in the new language.
 		if (diagramCanvas != null)
 		{
 			RefreshNormalizationAnalysis();
-			if (_indexSuggestions != null) UpdateIndexAdvisorView();
+			RefreshIndexAdvisorAnalysis();
 			RefreshStatus();
 			UpdateTitle();
 		}
@@ -1683,8 +1772,18 @@ public partial class MainForm : Form
 			ApplyLocalization();
 		};
 		dlg.LiveThemeChanged += theme => ApplyTheme(theme);
+<<<<<<< HEAD
 		dlg.LiveGridSettingsChanged += (showGrid, snapToGrid, snapInterval) =>
 			ApplyCanvasGridSettings(showGrid, snapToGrid, snapInterval);
+=======
+		dlg.LiveGridChanged += (showGrid, snapToGrid, snapInterval) =>
+		{
+			diagramCanvas.ShowGrid    = showGrid;
+			diagramCanvas.SnapToGrid  = snapToGrid;
+			diagramCanvas.SnapInterval = snapInterval;
+			diagramCanvas.Invalidate();
+		};
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 
 		var result = dlg.ShowDialog(this);
 
@@ -2015,6 +2114,7 @@ public partial class MainForm : Form
 			ShowPreferences();
 		};
 		propertyGrid.PropertyValueChanged += PropertyGrid_PropertyValueChanged;
+		ConfigureRightTabStrip();
 		ConfigurePropertySortBar();
 		ConfigureRightPanelTabBar();
 		splitRightPanel.SplitterMoving += SplitPanel_SplitterMoving;
@@ -2789,7 +2889,7 @@ public partial class MainForm : Form
 			listViewAnalysis.EndUpdate();
 			if (focusTab)
 			{
-				tabControlRight.SelectedTab = tabAnalysis;
+				SelectRightTab(1);
 			}
 			return;
 		}
@@ -2858,7 +2958,7 @@ public partial class MainForm : Form
 		ApplyAnalysisColumnLayout();
 		if (focusTab)
 		{
-			tabControlRight.SelectedTab = tabAnalysis;
+			SelectRightTab(1);
 			statusLabel.Text = issues.Count == 0
 				? L.S("AnalysisDone", "정규화 검사 완료: 문제 없음")
 				: string.Format(L.S("AnalysisDoneCount", "정규화 검사 완료: {0}개 항목 발견"), issues.Count);
@@ -3021,6 +3121,13 @@ public partial class MainForm : Form
 	private void SplitPanel_SplitterMoving(object sender, SplitterCancelEventArgs e)
 	{
 		propertyGrid.Invalidate(true);
+	}
+
+	private void ConfigureRightTabStrip()
+	{
+		btnTabStructure.Click    += (_, _) => SelectRightTab(0);
+		btnTabAnalysis.Click     += (_, _) => SelectRightTab(1);
+		btnTabIndexAdvisor.Click += (_, _) => SelectRightTab(2);
 	}
 
 	private void ConfigurePropertySortBar()
@@ -3400,6 +3507,7 @@ public partial class MainForm : Form
         treeViewSchema = new ThemedTreeView();
         listViewAnalysis = new BufferedListView();
         listViewIndexAdvisor = new BufferedListView();
+<<<<<<< HEAD
         tabTreeView = new TabPage();
         tabAnalysis = new TabPage();
         tabIndexAdvisor = new TabPage();
@@ -3408,6 +3516,16 @@ public partial class MainForm : Form
         btnTabStructure = new ToolStripButton();
         btnTabAnalysis = new ToolStripButton();
         btnTabIndexAdvisor = new ToolStripButton();
+=======
+        rightTabStrip = new ToolStrip();
+        btnTabStructure = new ToolStripButton();
+        btnTabAnalysis = new ToolStripButton();
+        btnTabIndexAdvisor = new ToolStripButton();
+        panelTabContent = new Panel();
+        panelTabStructure = new Panel();
+        panelTabAnalysis = new Panel();
+        panelTabIndexAdvisor = new Panel();
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
         propertyGrid = new BufferedPropertyGrid();
         propertySortBar = new ToolStrip();
         btnPropertySortCategory = new ToolStripButton();
@@ -3434,11 +3552,16 @@ public partial class MainForm : Form
         grpRelation.SuspendLayout();
         grpView.SuspendLayout();
         panelToolBox.SuspendLayout();
+<<<<<<< HEAD
         tabTreeView.SuspendLayout();
         tabAnalysis.SuspendLayout();
         tabIndexAdvisor.SuspendLayout();
         tabControlRight.SuspendLayout();
         rightPanelTabBar.SuspendLayout();
+=======
+        rightTabStrip.SuspendLayout();
+        panelTabContent.SuspendLayout();
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
         propertySortBar.SuspendLayout();
         ((ISupportInitialize)splitRightPanel).BeginInit();
         splitRightPanel.Panel1.SuspendLayout();
@@ -4172,6 +4295,7 @@ public partial class MainForm : Form
         listViewIndexAdvisor.TabIndex = 0;
         listViewIndexAdvisor.UseCompatibleStateImageBehavior = false;
         listViewIndexAdvisor.View = View.Details;
+<<<<<<< HEAD
         // 
         // tabTreeView
         // 
@@ -4246,6 +4370,68 @@ public partial class MainForm : Form
         btnTabIndexAdvisor.Name = "btnTabIndexAdvisor";
         btnTabIndexAdvisor.Size = new Size(47, 22);
         btnTabIndexAdvisor.Text = "인덱스 어드바이저";
+=======
+        //
+        // rightTabStrip
+        //
+        rightTabStrip.GripStyle = ToolStripGripStyle.Hidden;
+        rightTabStrip.Items.AddRange(new ToolStripItem[] { btnTabStructure, btnTabAnalysis, btnTabIndexAdvisor });
+        rightTabStrip.Dock = DockStyle.Top;
+        rightTabStrip.Name = "rightTabStrip";
+        //
+        // btnTabStructure
+        //
+        btnTabStructure.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        btnTabStructure.TextImageRelation = TextImageRelation.ImageBeforeText;
+        btnTabStructure.Name = "btnTabStructure";
+        btnTabStructure.Text = "구조";
+        btnTabStructure.CheckOnClick = false;
+        btnTabStructure.Checked = true;
+        //
+        // btnTabAnalysis
+        //
+        btnTabAnalysis.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        btnTabAnalysis.TextImageRelation = TextImageRelation.ImageBeforeText;
+        btnTabAnalysis.Name = "btnTabAnalysis";
+        btnTabAnalysis.Text = "정규화 분석";
+        btnTabAnalysis.CheckOnClick = false;
+        //
+        // btnTabIndexAdvisor
+        //
+        btnTabIndexAdvisor.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        btnTabIndexAdvisor.TextImageRelation = TextImageRelation.ImageBeforeText;
+        btnTabIndexAdvisor.Name = "btnTabIndexAdvisor";
+        btnTabIndexAdvisor.Text = "인덱스 어드바이저";
+        btnTabIndexAdvisor.CheckOnClick = false;
+        //
+        // panelTabStructure
+        //
+        panelTabStructure.Controls.Add(treeViewSchema);
+        panelTabStructure.Dock = DockStyle.Fill;
+        panelTabStructure.Name = "panelTabStructure";
+        //
+        // panelTabAnalysis
+        //
+        panelTabAnalysis.Controls.Add(listViewAnalysis);
+        panelTabAnalysis.Dock = DockStyle.Fill;
+        panelTabAnalysis.Name = "panelTabAnalysis";
+        panelTabAnalysis.Visible = false;
+        //
+        // panelTabIndexAdvisor
+        //
+        panelTabIndexAdvisor.Controls.Add(listViewIndexAdvisor);
+        panelTabIndexAdvisor.Dock = DockStyle.Fill;
+        panelTabIndexAdvisor.Name = "panelTabIndexAdvisor";
+        panelTabIndexAdvisor.Visible = false;
+        //
+        // panelTabContent
+        //
+        panelTabContent.Controls.Add(panelTabStructure);
+        panelTabContent.Controls.Add(panelTabAnalysis);
+        panelTabContent.Controls.Add(panelTabIndexAdvisor);
+        panelTabContent.Dock = DockStyle.Fill;
+        panelTabContent.Name = "panelTabContent";
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
         // 
         // propertyGrid
         // 
@@ -4296,8 +4482,13 @@ public partial class MainForm : Form
         // 
         // splitRightPanel.Panel1
         // 
+<<<<<<< HEAD
         splitRightPanel.Panel1.Controls.Add(tabControlRight);
         splitRightPanel.Panel1.Controls.Add(rightPanelTabBar);
+=======
+        splitRightPanel.Panel1.Controls.Add(panelTabContent);
+        splitRightPanel.Panel1.Controls.Add(rightTabStrip);
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
         splitRightPanel.Panel1MinSize = 80;
         // 
         // splitRightPanel.Panel2
@@ -4478,12 +4669,17 @@ public partial class MainForm : Form
         grpRelation.ResumeLayout(false);
         grpView.ResumeLayout(false);
         panelToolBox.ResumeLayout(false);
+<<<<<<< HEAD
         tabTreeView.ResumeLayout(false);
         tabAnalysis.ResumeLayout(false);
         tabIndexAdvisor.ResumeLayout(false);
         tabControlRight.ResumeLayout(false);
         rightPanelTabBar.ResumeLayout(false);
         rightPanelTabBar.PerformLayout();
+=======
+        rightTabStrip.ResumeLayout(false);
+        panelTabContent.ResumeLayout(false);
+>>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
         propertySortBar.ResumeLayout(false);
         propertySortBar.PerformLayout();
         splitRightPanel.Panel1.ResumeLayout(false);

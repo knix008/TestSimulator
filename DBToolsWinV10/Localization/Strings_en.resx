@@ -338,6 +338,17 @@
   <data name="IdxRecommended" xml:space="preserve"><value>◆ Recommended</value></data>
   <data name="IdxConsider" xml:space="preserve"><value>○ Consider</value></data>
 
+  <!-- Index advisor reasons / recommendations -->
+  <data name="IdxReasonPk" xml:space="preserve"><value>Primary Key (PK) is automatically indexed.</value></data>
+  <data name="IdxReasonUnique" xml:space="preserve"><value>UNIQUE constraint creates an internal index.</value></data>
+  <data name="IdxReasonFk" xml:space="preserve"><value>Foreign key column ({0}). Used in JOINs and referential integrity checks.</value></data>
+  <data name="IdxReasonLookup" xml:space="preserve"><value>Name pattern (_id/_code/_no) indicates a lookup/filter column.</value></data>
+  <data name="IdxReasonCandidate" xml:space="preserve"><value>Name pattern (_name/_date/_status/_type) may be used for search/filter.</value></data>
+  <data name="IdxRecommendNone" xml:space="preserve"><value>No separate index needed</value></data>
+  <data name="IdxRecommendConsider" xml:space="preserve"><value>Check query frequency and selectivity before adding an index.</value></data>
+  <data name="IdxFkSourceRel" xml:space="preserve"><value>Relationship</value></data>
+  <data name="IdxFkSourceFlag" xml:space="preserve"><value>FK flag</value></data>
+
   <!-- Schema tree node labels -->
   <data name="TreeTables" xml:space="preserve"><value>Tables</value></data>
   <data name="TreeRelations" xml:space="preserve"><value>Relations</value></data>

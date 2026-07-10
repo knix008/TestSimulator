@@ -186,6 +186,13 @@ public sealed class DiagramCanvas : Control
 		}
 	}
 
+	public void ApplyTheme()
+	{
+		BackColor = ModernTheme.CanvasBackground;
+		ModernTheme.StyleScrollBar(_vScroll);
+		ModernTheme.StyleScrollBar(_hScroll);
+	}
+
 	public void LoadSchema(DbSchema schema, bool notifyChange = true)
 	{
 		_schema = schema ?? new DbSchema();
