@@ -17,11 +17,7 @@ public class PreferencesDialog : Form
 	public bool LanguageChanged { get; private set; }
 	public event Action<string> LiveLanguageChanged;
 	public event Action<string> LiveThemeChanged;
-<<<<<<< HEAD
 	public event Action<bool, bool, int> LiveGridSettingsChanged;
-=======
-	public event Action<bool, bool, int> LiveGridChanged;
->>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 	private ComboBox cmbLanguage;
 	private ComboBox cmbTheme;
 	private ComboBox cmbDbType;
@@ -134,29 +130,17 @@ public class PreferencesDialog : Form
 			Location = new Point(10, 22),
 			AutoSize = true,
 		};
-<<<<<<< HEAD
 		chkShowGrid.CheckedChanged += (_, _) => NotifyGridSettingsChanged();
 		_grpCanvas.Controls.Add(chkShowGrid);
 		chkSnapToGrid = new ThemedCheckBox
-=======
-		chkShowGrid.CheckedChanged += (_, _) => FireLiveGrid();
-		grpCanvas.Controls.Add(chkShowGrid);
-		chkSnapToGrid = new CheckBox
->>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 		{
 			Text = L.S("SettingsSnapToGrid"),
 			Location = new Point(10, 50),
 			AutoSize = true,
 		};
-<<<<<<< HEAD
 		chkSnapToGrid.CheckedChanged += (_, _) => NotifyGridSettingsChanged();
 		_grpCanvas.Controls.Add(chkSnapToGrid);
 		_lblSnapInterval = MakeLabel(_grpCanvas, L.S("SettingsLabelSnapInterval"), 10, 80, width: 150);
-=======
-		chkSnapToGrid.CheckedChanged += (_, _) => FireLiveGrid();
-		grpCanvas.Controls.Add(chkSnapToGrid);
-		MakeLabel(grpCanvas, L.S("SettingsLabelSnapInterval"), 10, 80, width: 150);
->>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 		numSnapInterval = new NumericUpDown
 		{
 			Location = new Point(164, 77),
@@ -164,15 +148,9 @@ public class PreferencesDialog : Form
 			Minimum = 5,
 			Maximum = 100,
 		};
-<<<<<<< HEAD
 		numSnapInterval.ValueChanged += (_, _) => NotifyGridSettingsChanged();
 		_grpCanvas.Controls.Add(numSnapInterval);
 		MakeLabel(_grpCanvas, "px", 228, 80, width: 30);
-=======
-		numSnapInterval.ValueChanged += (_, _) => FireLiveGrid();
-		grpCanvas.Controls.Add(numSnapInterval);
-		MakeLabel(grpCanvas, "px", 228, 80, width: 30);
->>>>>>> 2826899aac80849f03528404e1206a73ae7c553a
 
 		// --- Buttons ---
 		int btnY = y + 10;
@@ -404,12 +382,6 @@ public class PreferencesDialog : Form
 		chkSnapToGrid.Checked = prefs.SnapToGrid;
 		numSnapInterval.Value = Math.Clamp(prefs.SnapInterval, 5, 100);
 		SetNormalizationLevels(prefs.NormalizationLevels);
-	}
-
-	private void FireLiveGrid()
-	{
-		if (_isLoading) return;
-		LiveGridChanged?.Invoke(chkShowGrid.Checked, chkSnapToGrid.Checked, (int)numSnapInterval.Value);
 	}
 
 	private void BtnOk_Click(object sender, EventArgs e)

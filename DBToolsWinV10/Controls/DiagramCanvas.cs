@@ -189,8 +189,7 @@ public sealed class DiagramCanvas : Control
 	public void ApplyTheme()
 	{
 		BackColor = ModernTheme.CanvasBackground;
-		ModernTheme.StyleScrollBar(_vScroll);
-		ModernTheme.StyleScrollBar(_hScroll);
+		ScrollBarTheme.Refresh(this);
 	}
 
 	public void LoadSchema(DbSchema schema, bool notifyChange = true)
