@@ -111,7 +111,8 @@ const History = (() => {
       description: payload.description || null,
       assigneeId: payload.assigneeId || null,
       dueDate: payload.dueDate || null,
-      color: payload.color || null,
+      bgColor: payload.bgColor || null,
+      stripeColor: payload.stripeColor || null,
     };
   }
 
@@ -121,7 +122,8 @@ const History = (() => {
       description: payload.description || '',
       assigneeId: payload.assigneeId ? String(payload.assigneeId) : '',
       dueDate: payload.dueDate ? String(payload.dueDate).substring(0, 10) : '',
-      color: payload.color || '',
+      bgColor: payload.bgColor || '',
+      stripeColor: payload.stripeColor || '',
     };
   }
 
@@ -164,7 +166,8 @@ const History = (() => {
         description: data.description,
         assigneeId: data.assigneeId,
         dueDate: data.dueDate,
-        color: data.color,
+        bgColor: data.bgColor,
+        stripeColor: data.stripeColor,
       });
       entry.cardId = created.id;
     };
@@ -181,7 +184,8 @@ const History = (() => {
         description: entry.snapshot.description,
         assigneeId: entry.snapshot.assignee_id,
         dueDate: entry.snapshot.due_date ? String(entry.snapshot.due_date).substring(0, 10) : null,
-        color: entry.snapshot.color,
+        bgColor: entry.snapshot.bg_color,
+        stripeColor: entry.snapshot.stripe_color || entry.snapshot.color,
       });
       entry.restoredId = created.id;
       if (entry.snapshot.position > 0) {
@@ -233,7 +237,8 @@ const History = (() => {
           description: card.description,
           assigneeId: card.assignee_id,
           dueDate: card.due_date ? String(card.due_date).substring(0, 10) : null,
-          color: card.color,
+          bgColor: card.bg_color,
+          stripeColor: card.stripe_color || card.color,
         });
         cardIds.push({ oldId: card.id, newId: res.id, position: card.position });
       }

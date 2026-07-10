@@ -88,6 +88,8 @@ async function runMigrations(db) {
       t.integer('assignee_id').unsigned().references('id').inTable('users').onDelete('SET NULL');
       t.date('due_date');
       t.string('color', 20).nullable();
+      t.string('bg_color', 20).nullable();
+      t.string('stripe_color', 20).nullable();
       t.integer('position').defaultTo(0);
       t.timestamps(true, true);
     });
@@ -102,6 +104,16 @@ async function runMigrations(db) {
     }
     if (!(await db.schema.hasColumn('cards', 'color'))) {
       await db.schema.table('cards', t => { t.string('color', 20).nullable(); });
+    }
+    if (!(await db.schema.hasColumn('cards', 'bg_color'))) {
+      await db.schema.table('cards', t => { t.string('bg_color', 20).nullable(); });
+    }
+    if (!(await db.schema.hasColumn('cards', 'stripe_color'))) {
+      await db.schema.table('cards', t => { t.string('stripe_color', 20).nullable(); });
+    }
+    const legacyColored = await db('cards').whereNotNull('color').whereNull('stripe_color').select('id', 'color');
+    for (const row of legacyColored) {
+      await db('cards').where({ id: row.id }).update({ stripe_color: row.color });
     }
   }
 

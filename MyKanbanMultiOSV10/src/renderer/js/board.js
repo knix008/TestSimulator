@@ -225,14 +225,33 @@ const BoardView = (() => {
     red: '#EF4444', purple: '#A855F7', pink: '#EC4899', cyan: '#06B6D4',
   };
 
+  function resolveCardHex(raw) {
+    if (!raw) return '';
+    return NAMED_CARD_COLOR_MAP[raw] || raw;
+  }
+
   function hexToCardBg(raw) {
     if (!raw) return null;
-    const hex = NAMED_CARD_COLOR_MAP[raw] || raw;
+    const hex = resolveCardHex(raw);
     if (!/^#[0-9A-Fa-f]{6}$/i.test(hex)) return null;
     const r = parseInt(hex.slice(1,3), 16);
     const g = parseInt(hex.slice(3,5), 16);
     const b = parseInt(hex.slice(5,7), 16);
     return `rgba(${r},${g},${b},.25)`;
+  }
+
+  function hexToStripeColor(raw) {
+    const hex = resolveCardHex(raw);
+    return /^#[0-9A-Fa-f]{6}$/i.test(hex) ? hex : null;
+  }
+
+  function cardStyleAttr(card) {
+    const styles = [];
+    const bg = hexToCardBg(card.bg_color);
+    const stripe = hexToStripeColor(card.stripe_color || card.color);
+    if (bg) styles.push(`background:${bg}`);
+    if (stripe) styles.push(`border-left-color:${stripe}`);
+    return styles.length ? `style="${styles.join(';')}"` : '';
   }
 
   // ── Export / Import (.kprj) ───────────────────────────────────────────────
@@ -644,8 +663,7 @@ const BoardView = (() => {
       ? `<span class="card-assignee" title="${escAttr(I18n.t('assignee'))}: ${escAttr(card.assignee_name)}"><span class="card-assignee-avatar">${assigneeInitial}</span><span class="card-assignee-name">${escHtml(card.assignee_name)}</span></span>`
       : '';
     const attachBadge = card.attachment_count > 0 ? `<span class="card-attach">&#128206; ${card.attachment_count}</span>` : '';
-    const cardBg = hexToCardBg(card.color);
-    const colorStyle = cardBg ? `style="background:${cardBg}"` : '';
+    const colorStyle = cardStyleAttr(card);
 
     return `
       <div class="card" draggable="${currentPermissions.canEdit}" ${colorStyle} data-card-id="${card.id}" data-col-id="${colId}"
@@ -1136,40 +1154,68 @@ const BoardView = (() => {
 
   // ── Card actions ──────────────────────────────────────────────────────────
 
-  function colorPickerHtml(selectedColor) {
-    const currentHex = NAMED_CARD_COLOR_MAP[selectedColor] || selectedColor || '';
+  function cardColorPickerBlock(prefix, labelKey, selectedColor) {
+    const currentHex = resolveCardHex(selectedColor);
     const isPreset = COLUMN_BG_PRESETS.includes(currentHex);
     const isCustom = currentHex && !isPreset;
     const customInitVal = isCustom ? currentHex : '#3B82F6';
+    const swatchClass = `${prefix}-color-swatch`;
     const swatches = COLUMN_BG_PRESETS.map(hex => `
-      <div class="col-color-swatch card-color-swatch${hex === currentHex ? ' selected' : ''}" style="background:${hex}" data-color="${hex}" title="${hex}"
-           onclick="document.querySelectorAll('.card-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('card-sel-color').value=this.dataset.color;document.getElementById('card-custom-hex').value=this.dataset.color;document.getElementById('card-custom-picker').value=this.dataset.color"></div>
+      <div class="col-color-swatch ${swatchClass}${hex === currentHex ? ' selected' : ''}" style="background:${hex}" data-color="${hex}" title="${hex}"
+           onclick="BoardView.selectCardColor('${prefix}', this.dataset.color)"></div>
     `).join('');
     return `
       <div class="form-group">
-        <label>${I18n.t('cardColor')}</label>
+        <label>${I18n.t(labelKey)}</label>
         <div class="col-color-grid" style="max-width:396px">
-          <div class="col-color-swatch card-color-swatch col-color-none${!currentHex ? ' selected' : ''}" data-color="" title="${I18n.t('colorDefault')}"
-               onclick="document.querySelectorAll('.card-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');document.getElementById('card-sel-color').value='';document.getElementById('card-custom-hex').value=''">
+          <div class="col-color-swatch ${swatchClass} col-color-none${!currentHex ? ' selected' : ''}" data-color="" title="${I18n.t('colorDefault')}"
+               onclick="BoardView.selectCardColor('${prefix}', '')">
             <span style="font-size:15px;line-height:1">✕</span>
           </div>
           ${swatches}
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-          <input type="color" id="card-custom-picker" value="${escAttr(customInitVal)}"
+          <input type="color" id="${prefix}-custom-picker" value="${escAttr(customInitVal)}"
                  style="width:44px;height:34px;border-radius:6px;border:1px solid var(--border);padding:2px;cursor:pointer;background:none;flex-shrink:0"
-                 oninput="const v=this.value;document.querySelectorAll('.card-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('card-sel-color').value=v;document.getElementById('card-custom-hex').value=v">
-          <input type="text" id="card-custom-hex" class="form-control" maxlength="7"
+                 oninput="BoardView.selectCardColor('${prefix}', this.value)">
+          <input type="text" id="${prefix}-custom-hex" class="form-control" maxlength="7"
                  value="${escAttr(isCustom ? currentHex : '')}" placeholder="#RRGGBB"
                  style="font-family:monospace;font-size:13px"
-                 oninput="const v=this.value.trim();if(/^#[0-9A-Fa-f]{6}$/.test(v)){document.querySelectorAll('.card-color-swatch').forEach(s=>s.classList.remove('selected'));document.getElementById('card-sel-color').value=v;document.getElementById('card-custom-picker').value=v}">
+                 oninput="const v=this.value.trim();if(/^#[0-9A-Fa-f]{6}$/.test(v))BoardView.selectCardColor('${prefix}', v)">
         </div>
-        <input type="hidden" id="card-sel-color" value="${escAttr(currentHex)}">
+        <input type="hidden" id="${prefix}-sel-color" value="${escAttr(currentHex)}">
       </div>`;
   }
 
-  function getSelectedColor() {
-    return document.getElementById('card-sel-color')?.value || '';
+  function selectCardColor(prefix, value) {
+    document.querySelectorAll(`.${prefix}-color-swatch`).forEach(s => s.classList.remove('selected'));
+    const hidden = document.getElementById(`${prefix}-sel-color`);
+    const hexInput = document.getElementById(`${prefix}-custom-hex`);
+    const picker = document.getElementById(`${prefix}-custom-picker`);
+    if (hidden) hidden.value = value || '';
+    if (value && /^#[0-9A-Fa-f]{6}$/i.test(value)) {
+      if (hexInput) hexInput.value = value;
+      if (picker) picker.value = value;
+      const match = document.querySelector(`.${prefix}-color-swatch[data-color="${value}"]`);
+      if (match) match.classList.add('selected');
+    } else if (!value) {
+      if (hexInput) hexInput.value = '';
+      document.querySelector(`.${prefix}-color-swatch.col-color-none`)?.classList.add('selected');
+    }
+  }
+
+  function cardColorPickersHtml(bgColor, stripeColor) {
+    return `
+      ${cardColorPickerBlock('card-bg', 'cardBgColor', bgColor || '')}
+      ${cardColorPickerBlock('card-stripe', 'cardStripeColor', stripeColor || '')}`;
+  }
+
+  function getSelectedCardBgColor() {
+    return document.getElementById('card-bg-sel-color')?.value || '';
+  }
+
+  function getSelectedCardStripeColor() {
+    return document.getElementById('card-stripe-sel-color')?.value || '';
   }
 
   async function showAddCard(colId) {
@@ -1198,7 +1244,7 @@ const BoardView = (() => {
           <input type="date" id="new-card-due" class="form-control">
         </div>
       </div>
-      ${colorPickerHtml('')}`,
+      ${cardColorPickersHtml('', '')}`,
       footer: Modal.footerCancelPrimary(I18n.t('addCardTitle'), `BoardView.createCard(${colId})`, { primaryIcon: '➕' }),
     });
     document.getElementById('new-card-title').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) createCard(colId); });
@@ -1209,12 +1255,13 @@ const BoardView = (() => {
     const description = document.getElementById('new-card-desc').value.trim();
     const assigneeId = document.getElementById('new-card-assignee').value;
     const dueDate = document.getElementById('new-card-due').value;
-    const color = getSelectedColor();
+    const bgColor = getSelectedCardBgColor();
+    const stripeColor = getSelectedCardStripeColor();
     if (!title) { showToast(I18n.t('cardTitle'), 'error'); return; }
     try {
-      const created = await API.post(`/boards/${currentBoardId}/cards`, { columnId: colId, title, description, assigneeId, dueDate, color });
+      const created = await API.post(`/boards/${currentBoardId}/cards`, { columnId: colId, title, description, assigneeId, dueDate, bgColor, stripeColor });
       if (!History.isApplying()) {
-        History.recordCardCreate(currentBoardId, created.id, { columnId: colId, title, description, assigneeId, dueDate, color });
+        History.recordCardCreate(currentBoardId, created.id, { columnId: colId, title, description, assigneeId, dueDate, bgColor, stripeColor });
       }
       Modal.close();
       await loadBoard();
@@ -1263,7 +1310,7 @@ const BoardView = (() => {
             <input type="date" id="ec-due" class="form-control" value="${card.due_date ? card.due_date.substring(0,10) : ''}" ${!canEdit ? 'readonly' : ''}>
           </div>
         </div>
-        ${canEdit ? colorPickerHtml(card.color || '') : ''}
+        ${canEdit ? cardColorPickersHtml(card.bg_color || '', card.stripe_color || card.color || '') : ''}
         <div class="modal-section">
           <div class="modal-section-title">${I18n.t('attachments')}</div>
           <div class="attachment-list" id="attach-list">${attachHtml}</div>
@@ -1296,7 +1343,8 @@ const BoardView = (() => {
       description: document.getElementById('ec-desc')?.value.trim() || '',
       assigneeId: document.getElementById('ec-assignee')?.value || '',
       dueDate: document.getElementById('ec-due')?.value || '',
-      color: getSelectedColor() || '',
+      bgColor: getSelectedCardBgColor() || '',
+      stripeColor: getSelectedCardStripeColor() || '',
     };
   }
 
@@ -1307,7 +1355,8 @@ const BoardView = (() => {
       description: card.description || '',
       assigneeId: card.assignee_id ? String(card.assignee_id) : '',
       dueDate: card.due_date ? card.due_date.substring(0, 10) : '',
-      color: card.color || '',
+      bgColor: card.bg_color || '',
+      stripeColor: card.stripe_color || card.color || '',
     };
     let committedCard = { ...initial };
     AutoSave.start(saveKey, {
@@ -1328,10 +1377,10 @@ const BoardView = (() => {
     ['ec-assignee', 'ec-due'].forEach((id) => {
       document.getElementById(id)?.addEventListener('change', () => AutoSave.schedule(saveKey));
     });
-    document.querySelectorAll('.card-color-swatch').forEach((dot) => {
+    document.querySelectorAll('.card-bg-color-swatch, .card-stripe-color-swatch').forEach((dot) => {
       dot.addEventListener('click', () => AutoSave.schedule(saveKey));
     });
-    ['card-custom-picker', 'card-custom-hex'].forEach(id => {
+    ['card-bg-custom-picker', 'card-bg-custom-hex', 'card-stripe-custom-picker', 'card-stripe-custom-hex'].forEach(id => {
       document.getElementById(id)?.addEventListener('input', () => AutoSave.schedule(saveKey));
     });
     Modal.setBeforeClose(async () => {
@@ -1388,7 +1437,8 @@ const BoardView = (() => {
           description: card?.description || '',
           assigneeId: committedAssignee.assigneeId,
           dueDate: card?.due_date ? String(card.due_date).substring(0, 10) : '',
-          color: card?.color || '',
+          bgColor: card?.bg_color || '',
+          stripeColor: card?.stripe_color || card?.color || '',
         };
         const after = { ...before, assigneeId: payload.assigneeId };
         await API.put(`/boards/${currentBoardId}/cards/${cardId}`, payload);
@@ -2321,7 +2371,7 @@ const BoardView = (() => {
     editColumnProps, saveColumnProps,
     startEditColTitle, deleteColumn, promptAddColumn, addColumn,
     onColDragStart, onColDragEnd, onContainerDragOver, onContainerDrop,
-    showAddCard, createCard, openCard, saveCard, deleteCard, showAssigneePicker, saveAssignee,
+    showAddCard, createCard, openCard, saveCard, deleteCard, showAssigneePicker, saveAssignee, selectCardColor,
     uploadAttachment, deleteAttachment, openAttachment,
     loadComments, submitComment, submitReply, toggleReplyForm,
     startEditComment, cancelEditComment, saveCommentEdit, deleteComment,

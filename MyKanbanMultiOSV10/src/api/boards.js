@@ -435,7 +435,7 @@ router.delete('/:boardId/columns/:id', requireAuth, requireProjectAccess, async 
 router.post('/:boardId/cards', requireAuth, requireProjectAccess, async (req, res) => {
   if (!canEdit(req.projectRole)) return res.status(403).json({ error: '편집 권한이 없습니다.' });
   try {
-    const { columnId, title, description, assigneeId, dueDate, color } = req.body;
+    const { columnId, title, description, assigneeId, dueDate, color, bgColor, stripeColor } = req.body;
     if (!title || !columnId) return res.status(400).json({ error: '제목과 컬럼은 필수입니다.' });
     const db = getDb();
     const maxRow = await db('cards').where({ column_id: columnId }).max('position as m').first();
@@ -445,7 +445,9 @@ router.post('/:boardId/cards', requireAuth, requireProjectAccess, async (req, re
       description: description || null,
       assignee_id: assigneeId || null,
       due_date: dueDate || null,
-      color: color || null,
+      color: stripeColor || color || null,
+      bg_color: bgColor || null,
+      stripe_color: stripeColor || color || null,
       position
     });
     res.json({ id, column_id: columnId, title, position });
@@ -474,13 +476,20 @@ router.get('/:boardId/cards/:id', requireAuth, requireProjectAccess, async (req,
 router.put('/:boardId/cards/:id', requireAuth, requireProjectAccess, async (req, res) => {
   if (!canEdit(req.projectRole)) return res.status(403).json({ error: '편집 권한이 없습니다.' });
   try {
-    const { title, description, assigneeId, dueDate, color } = req.body;
+    const { title, description, assigneeId, dueDate, color, bgColor, stripeColor } = req.body;
     const update = { updated_at: normalizeTimestamp(new Date()) };
     if (title !== undefined) update.title = title;
     if (description !== undefined) update.description = description || null;
     if (assigneeId !== undefined) update.assignee_id = assigneeId || null;
     if (dueDate !== undefined) update.due_date = dueDate || null;
-    if (color !== undefined) update.color = color || null;
+    if (bgColor !== undefined) update.bg_color = bgColor || null;
+    if (stripeColor !== undefined) {
+      update.stripe_color = stripeColor || null;
+      update.color = stripeColor || null;
+    } else if (color !== undefined) {
+      update.stripe_color = color || null;
+      update.color = color || null;
+    }
     await getDb()('cards').where({ id: req.params.id }).update(update);
     res.json({ ok: true });
   } catch (err) {
@@ -1025,7 +1034,9 @@ async function importKprjProject(db, data, userId, options = {}) {
         title: card.title,
         description: card.description || null,
         due_date: card.due_date || null,
-        color: card.color || null,
+        color: card.stripe_color || card.color || null,
+        bg_color: card.bg_color || null,
+        stripe_color: card.stripe_color || card.color || null,
         position: card.position !== undefined ? card.position : ki,
         assignee_id: assigneeId,
       }));
@@ -1063,7 +1074,9 @@ router.get('/:boardId/export', requireAuth, requireProjectAccess, async (req, re
         title: c.title,
         description: c.description,
         due_date: c.due_date,
-        color: c.color,
+        color: c.stripe_color || c.color,
+        bg_color: c.bg_color,
+        stripe_color: c.stripe_color || c.color,
         position: c.position,
         assignee_username: c.assignee_username || null,
       });

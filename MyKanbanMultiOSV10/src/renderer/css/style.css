@@ -262,7 +262,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .add-card-btn:hover { background: rgba(0,0,0,.06); color: var(--text); }
 
 /* ── Card ──────────────────────────────────────────────────── */
-.card { background: var(--bg-card); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; box-shadow: var(--shadow); cursor: grab; transition: var(--transition); border: 1px solid var(--border); border-left: 4px solid var(--border); position: relative; }
+.card { background: var(--bg-card); border-radius: var(--radius-sm); padding: 12px 12px 12px 14px; margin-bottom: 8px; box-shadow: var(--shadow); cursor: grab; transition: var(--transition); border: 1px solid var(--border); border-left: 5px solid var(--border); position: relative; }
 .card:hover { box-shadow: var(--shadow-md); border-color: var(--primary); }
 .card.dragging { opacity: .4; cursor: grabbing; }
 .card-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
