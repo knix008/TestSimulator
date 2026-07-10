@@ -15,6 +15,7 @@ public class PreferencesDialog : Form
 	public bool LanguageChanged { get; private set; }
 	public event Action<string> LiveLanguageChanged;
 	public event Action<string> LiveThemeChanged;
+	public event Action<bool, bool, int> LiveGridChanged;
 	private ComboBox cmbLanguage;
 	private ComboBox cmbTheme;
 	private ComboBox cmbDbType;
@@ -94,6 +95,7 @@ public class PreferencesDialog : Form
 			Location = new Point(10, 22),
 			AutoSize = true,
 		};
+		chkShowGrid.CheckedChanged += (_, _) => FireLiveGrid();
 		grpCanvas.Controls.Add(chkShowGrid);
 		chkSnapToGrid = new CheckBox
 		{
@@ -101,6 +103,7 @@ public class PreferencesDialog : Form
 			Location = new Point(10, 50),
 			AutoSize = true,
 		};
+		chkSnapToGrid.CheckedChanged += (_, _) => FireLiveGrid();
 		grpCanvas.Controls.Add(chkSnapToGrid);
 		MakeLabel(grpCanvas, L.S("SettingsLabelSnapInterval"), 10, 80, width: 150);
 		numSnapInterval = new NumericUpDown
@@ -110,6 +113,7 @@ public class PreferencesDialog : Form
 			Minimum = 5,
 			Maximum = 100,
 		};
+		numSnapInterval.ValueChanged += (_, _) => FireLiveGrid();
 		grpCanvas.Controls.Add(numSnapInterval);
 		MakeLabel(grpCanvas, "px", 228, 80, width: 30);
 
@@ -202,6 +206,12 @@ public class PreferencesDialog : Form
 		chkShowGrid.Checked = prefs.ShowGrid;
 		chkSnapToGrid.Checked = prefs.SnapToGrid;
 		numSnapInterval.Value = Math.Clamp(prefs.SnapInterval, 5, 100);
+	}
+
+	private void FireLiveGrid()
+	{
+		if (_isLoading) return;
+		LiveGridChanged?.Invoke(chkShowGrid.Checked, chkSnapToGrid.Checked, (int)numSnapInterval.Value);
 	}
 
 	private void BtnOk_Click(object sender, EventArgs e)

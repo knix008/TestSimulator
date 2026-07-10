@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using DBToolsWinV10.Controls;
 
@@ -106,6 +107,9 @@ public static class ModernTheme
 
 	public static Color TextSecondary
 		=> IsDark ? C(156, 163, 175) : C(107, 114, 128);
+
+	public static Color GridLine
+		=> IsDark ? C(58, 62, 88)    : C(218, 220, 224);
 
 	public static Color TextMuted
 		=> IsDark ? C(100, 107, 115) : C(156, 163, 175);
@@ -326,6 +330,27 @@ public static class ModernTheme
 		tree.LineColor = BorderLight;
 	}
 
+	[DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+	private static extern int SetWindowTheme(IntPtr hwnd, string pszSubAppName, string pszSubIdList);
+
+	private static void ApplyWindowTheme(Control ctrl, string subApp)
+	{
+		if (ctrl.IsHandleCreated)
+			SetWindowTheme(ctrl.Handle, subApp, null);
+		else
+		{
+			void OnCreated(object s, EventArgs _)
+			{
+				ctrl.HandleCreated -= OnCreated;
+				SetWindowTheme(ctrl.Handle, subApp, null);
+			}
+			ctrl.HandleCreated += OnCreated;
+		}
+	}
+
+	public static void StyleScrollBar(ScrollBar bar)
+		=> ApplyWindowTheme(bar, IsDark ? "DarkMode_Explorer" : "Explorer");
+
 	public static void StyleDataList(ListView list)
 	{
 		list.BorderStyle = BorderStyle.None;
@@ -340,52 +365,63 @@ public static class ModernTheme
 		list.DrawItem += OnListViewDrawItem;
 		list.DrawSubItem -= OnListViewDrawSubItem;
 		list.DrawSubItem += OnListViewDrawSubItem;
+		// Dark scrollbars when in dark mode
+		ApplyWindowTheme(list, IsDark ? "DarkMode_Explorer" : "Explorer");
 	}
 
 	private static void OnListViewDrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
 	{
+		var list = (ListView)sender;
+		int total = list.Columns.Count;
+		// For the last column, extend the fill to the full ListView client width
+		int fillRight = (e.ColumnIndex == total - 1) ? list.ClientSize.Width : e.Bounds.Right;
+		var fillRect = new Rectangle(e.Bounds.Left, e.Bounds.Top, fillRight - e.Bounds.Left, e.Bounds.Height);
+
 		using var bgBrush = new SolidBrush(AppBackground);
-		e.Graphics.FillRectangle(bgBrush, e.Bounds);
-		using var linePen = new Pen(Border);
-		e.Graphics.DrawLine(linePen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
-		int total = e.Header?.ListView?.Columns?.Count ?? 0;
-		if (total > 0 && e.ColumnIndex < total - 1)
-			e.Graphics.DrawLine(linePen, e.Bounds.Right - 1, e.Bounds.Top + 4, e.Bounds.Right - 1, e.Bounds.Bottom - 4);
+		e.Graphics.FillRectangle(bgBrush, fillRect);
+
+		using var gridPen = new Pen(GridLine);
+		e.Graphics.DrawLine(gridPen, fillRect.Left, fillRect.Bottom - 1, fillRect.Right, fillRect.Bottom - 1);
+		if (e.ColumnIndex < total - 1)
+			e.Graphics.DrawLine(gridPen, e.Bounds.Right - 1, e.Bounds.Top + 4, e.Bounds.Right - 1, e.Bounds.Bottom - 4);
+
 		TextRenderer.DrawText(e.Graphics, e.Header?.Text ?? string.Empty,
-			e.Font ?? ((ListView)sender).Font,
+			e.Font ?? list.Font,
 			new Rectangle(e.Bounds.X + 6, e.Bounds.Y, e.Bounds.Width - 8, e.Bounds.Height),
 			TextPrimary, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
 	}
 
 	private static void OnListViewDrawItem(object sender, DrawListViewItemEventArgs e)
 	{
-		// DrawSubItem handles per-cell drawing; we just handle this event to suppress default
+		// Fill the full-row background here; DrawSubItem handles text and vertical separators
+		bool selected = e.Item.Selected;
+		Color itemBg = e.Item.BackColor;
+		bool hasCustomBg = itemBg != Color.Empty && itemBg != SystemColors.Window
+			&& itemBg != Color.White && itemBg != PanelBackground;
+		Color bg = selected ? AccentMuted : (hasCustomBg ? itemBg : PanelBackground);
+
+		using var bgBrush = new SolidBrush(bg);
+		e.Graphics.FillRectangle(bgBrush, e.Bounds);
+
+		// Horizontal separator at the very bottom of the row — drawn once here, not per-cell
+		using var gridPen = new Pen(GridLine);
+		e.Graphics.DrawLine(gridPen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
 	}
 
 	private static void OnListViewDrawSubItem(object sender, DrawListViewSubItemEventArgs e)
 	{
 		var list = (ListView)sender;
 		bool selected = e.Item.Selected;
-
-		// Use the item's BackColor if it was explicitly set (e.g. severity highlight); fall back to PanelBackground
-		Color itemBg = e.Item.BackColor;
-		bool hasCustomBg = itemBg != Color.Empty && itemBg != SystemColors.Window
-			&& itemBg != Color.White && itemBg != PanelBackground;
-		Color bg = selected ? AccentMuted : (hasCustomBg ? itemBg : PanelBackground);
 		Color fg = selected ? Accent : e.Item.ForeColor;
 
-		using var bgBrush = new SolidBrush(bg);
-		e.Graphics.FillRectangle(bgBrush, e.Bounds);
+		// Vertical column separator on the right edge (all columns except the last)
+		if (e.ColumnIndex < list.Columns.Count - 1)
+		{
+			using var gridPen = new Pen(GridLine);
+			e.Graphics.DrawLine(gridPen, e.Bounds.Right - 1, e.Bounds.Top, e.Bounds.Right - 1, e.Bounds.Bottom - 1);
+		}
 
-		// Thin horizontal separator at bottom of each row
-		using var sepPen = new Pen(Border);
-		e.Graphics.DrawLine(sepPen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right - 1, e.Bounds.Bottom - 1);
-
-		// Thin vertical separator on the right edge of each cell (except the last column)
-		int colCount = list.Columns.Count;
-		if (e.ColumnIndex < colCount - 1)
-			e.Graphics.DrawLine(sepPen, e.Bounds.Right - 1, e.Bounds.Top, e.Bounds.Right - 1, e.Bounds.Bottom - 1);
-
+		// Text (leave 1 px at bottom for the horizontal separator drawn in DrawItem)
 		var textRect = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height - 1);
 		TextRenderer.DrawText(e.Graphics, e.SubItem?.Text ?? string.Empty,
 			e.SubItem?.Font ?? e.Item?.Font ?? list.Font,
@@ -425,6 +461,8 @@ public static class ModernTheme
 		tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
 		tabs.DrawItem -= DrawTabHeader;
 		tabs.DrawItem += DrawTabHeader;
+		// Disable UxTheme so BackColor applies to the entire tab strip area
+		ApplyWindowTheme(tabs, "");
 		foreach (TabPage tabPage in tabs.TabPages)
 		{
 			tabPage.BackColor = PanelBackground;
