@@ -27,12 +27,15 @@ turndown.addRule('editorImageWrap', {
     const parsed = resolveParsedImageAssetFromImgElement(img);
     const width = img.getAttribute('data-editor-width') || node.getAttribute('data-editor-width')
       || img.getAttribute('width') || node.getAttribute('width');
+    const height = img.getAttribute('data-editor-height') || node.getAttribute('data-editor-height')
+      || img.getAttribute('height') || node.getAttribute('height');
     if (width && parsed) {
       return buildSizedMarkdownImageReference(
         parsed.pageId,
         parsed.fileName,
         Number.parseInt(width, 10),
-        alt
+        alt,
+        height ? Number.parseInt(height, 10) : 0
       );
     }
     const src = resolveImageSrcFromImgElement(img);

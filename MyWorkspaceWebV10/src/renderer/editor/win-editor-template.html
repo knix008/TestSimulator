@@ -258,17 +258,25 @@
             .editor-image-wrap[data-editor-width] > img {
               display: block;
               width: 100% !important;
-              height: auto !important;
               max-width: none !important;
-              max-height: none !important;
               min-width: 0 !important;
+            }
+            .editor-image-wrap.is-sized:not(.has-editor-height):not([data-editor-height]) > img,
+            .editor-image-wrap[data-editor-width]:not(.has-editor-height):not([data-editor-height]) > img {
+              height: auto !important;
+              max-height: none !important;
+            }
+            .editor-image-wrap.has-editor-height > img,
+            .editor-image-wrap[data-editor-height] > img {
+              height: 100% !important;
+              max-height: none !important;
+              object-fit: fill;
             }
             .editor-image-wrap.is-sized > img[width],
             .editor-image-wrap.is-sized > img[height],
             .editor-image-wrap[data-editor-width] > img[width],
             .editor-image-wrap[data-editor-width] > img[height] {
               width: 100% !important;
-              height: auto !important;
             }
             .editor-image-wrap img {
               height: auto; border-radius: 2px;
@@ -324,11 +332,39 @@
             }
             .editor-image-wrap.is-selected:not(.is-dragging) { cursor: grab; }
             .editor-image-resize-handle {
-              position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px;
-              background: var(--editor-accent); border: 2px solid var(--editor-bg);
-              border-radius: 2px; cursor: nwse-resize; z-index: 5;
+              position: absolute;
+              background: var(--editor-accent);
+              border: 2px solid var(--editor-bg);
+              border-radius: 2px;
+              z-index: 5;
               box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-              pointer-events: none; touch-action: none; user-select: none; opacity: 0;
+              pointer-events: none;
+              touch-action: none;
+              user-select: none;
+              opacity: 0;
+            }
+            .editor-image-resize-handle--e {
+              right: -3px;
+              top: 50%;
+              transform: translateY(-50%);
+              width: 8px;
+              height: 16px;
+              cursor: ew-resize;
+            }
+            .editor-image-resize-handle--s {
+              left: 50%;
+              bottom: -3px;
+              transform: translateX(-50%);
+              width: 16px;
+              height: 8px;
+              cursor: ns-resize;
+            }
+            .editor-image-resize-handle--se {
+              right: -3px;
+              bottom: -3px;
+              width: 10px;
+              height: 10px;
+              cursor: nwse-resize;
             }
             .editor-image-wrap:hover .editor-image-resize-handle,
             .editor-image-wrap.is-selected .editor-image-resize-handle {
@@ -1545,8 +1581,11 @@ window.chrome.webview = window.chrome.webview || {
                 const img = wrap.querySelector('img');
                 const wrapWidth = parseInt(wrap.dataset.editorWidth || wrap.style.width, 10)
                   || Math.round(wrap.getBoundingClientRect().width);
+                const wrapHeight = parseInt(wrap.dataset.editorHeight || wrap.getAttribute('data-editor-height') || '', 10);
                 let imgHeight = 0;
-                if (img) {
+                if (wrapHeight > 0) {
+                  imgHeight = wrapHeight;
+                } else if (img) {
                   const styled = parseInt(img.style.height || img.getAttribute('height') || '', 10);
                   if (styled > 0)
                     imgHeight = styled;
@@ -3346,10 +3385,7 @@ window.chrome.webview = window.chrome.webview || {
               if (permanentSrc && permanentSrc !== src)
                 img.dataset.permanentSrc = permanentSrc;
               wrap.appendChild(img);
-              const handle = document.createElement('span');
-              handle.className = 'editor-image-resize-handle';
-              handle.contentEditable = 'false';
-              wrap.appendChild(handle);
+              ensureImageResizeHandles(wrap);
               return wrap;
             }
 
@@ -3535,7 +3571,7 @@ window.chrome.webview = window.chrome.webview || {
                 document.execCommand(
                   'insertHTML',
                   false,
-                  '&#8203;<span class="editor-image-wrap" contenteditable="false" data-editor-instance-id="' + instanceId + '"><img src="' + safeSrc + '" alt="' + safeAlt + '"' + safePermanent + '><span class="editor-image-resize-handle" contenteditable="false"></span></span>&#8203;');
+                  '&#8203;<span class="editor-image-wrap" contenteditable="false" data-editor-instance-id="' + instanceId + '"><img src="' + safeSrc + '" alt="' + safeAlt + '"' + safePermanent + '><span class="editor-image-resize-handle editor-image-resize-handle--e" contenteditable="false"></span><span class="editor-image-resize-handle editor-image-resize-handle--s" contenteditable="false"></span><span class="editor-image-resize-handle editor-image-resize-handle--se" contenteditable="false"></span></span>&#8203;');
                 insertedWrap = editor.querySelector('.editor-image-wrap[data-editor-instance-id="' + instanceId + '"]');
               }
 
@@ -4550,6 +4586,12 @@ window.chrome.webview = window.chrome.webview || {
               return match ? parsePositivePx(match[1]) : 0;
             }
 
+            function parseCssHeightPx(styleValue) {
+              if (!styleValue) return 0;
+              const match = String(styleValue).match(/\bheight\s*:\s*(\d+)\s*px/i);
+              return match ? parsePositivePx(match[1]) : 0;
+            }
+
             function readSavedImageWidthPx(wrap, img) {
               const wrapDataWidth = parsePositivePx(wrap.getAttribute('data-editor-width') || wrap.dataset.editorWidth);
               if (wrapDataWidth) return wrapDataWidth;
@@ -4559,6 +4601,22 @@ window.chrome.webview = window.chrome.webview || {
 
               const imgDataWidth = parsePositivePx(img.getAttribute('data-editor-width') || img.dataset.editorWidth);
               if (imgDataWidth) return imgDataWidth;
+
+              return 0;
+            }
+
+            function readSavedImageHeightPx(wrap, img) {
+              const wrapDataHeight = parsePositivePx(wrap.getAttribute('data-editor-height') || wrap.dataset.editorHeight);
+              if (wrapDataHeight) return wrapDataHeight;
+
+              const wrapStyleHeight = parseCssHeightPx(wrap.style.height || wrap.getAttribute('style'));
+              if (wrapStyleHeight) return wrapStyleHeight;
+
+              const imgDataHeight = parsePositivePx(img.getAttribute('data-editor-height') || img.dataset.editorHeight);
+              if (imgDataHeight) return imgDataHeight;
+
+              const imgHeightAttr = parsePositivePx(img.getAttribute('height'));
+              if (imgHeightAttr) return imgHeightAttr;
 
               return 0;
             }
@@ -4577,41 +4635,75 @@ window.chrome.webview = window.chrome.webview || {
               return saved;
             }
 
-            function commitImageWidth(wrap, img, width) {
+            function resolveImageHeightForSave(wrap, img) {
+              const saved = readSavedImageHeightPx(wrap, img);
+              if (wrap.classList.contains('has-editor-height') || saved) {
+                if (saved) return saved;
+                const measured = Math.round(wrap.getBoundingClientRect().height);
+                if (measured > 0) return measured;
+              }
+
+              const wrapHeight = parseCssHeightPx(wrap.style.height || wrap.getAttribute('style'));
+              if (wrapHeight) return wrapHeight;
+
+              return saved;
+            }
+
+            function commitImageSize(wrap, img, width, height) {
               if (!width) return;
               wrap.classList.add('is-sized');
               wrap.dataset.userSized = '1';
               wrap.dataset.editorWidth = String(width);
               wrap.setAttribute('data-editor-width', String(width));
+              wrap.style.width = width + 'px';
+
+              const fixedHeight = parsePositivePx(height);
+              let style = 'width: ' + width + 'px;';
+
+              if (fixedHeight > 0) {
+                wrap.classList.add('has-editor-height');
+                wrap.dataset.editorHeight = String(fixedHeight);
+                wrap.setAttribute('data-editor-height', String(fixedHeight));
+                wrap.style.height = fixedHeight + 'px';
+                style += ' height: ' + fixedHeight + 'px;';
+                img.dataset.editorHeight = String(fixedHeight);
+                img.setAttribute('data-editor-height', String(fixedHeight));
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'fill';
+                img.removeAttribute('width');
+                img.removeAttribute('height');
+              } else {
+                wrap.classList.remove('has-editor-height');
+                delete wrap.dataset.editorHeight;
+                wrap.removeAttribute('data-editor-height');
+                wrap.style.height = '';
+                delete img.dataset.editorHeight;
+                img.removeAttribute('data-editor-height');
+                img.style.width = '100%';
+                img.style.height = 'auto';
+                img.style.objectFit = '';
+                img.removeAttribute('width');
+                img.removeAttribute('height');
+              }
+
+              wrap.setAttribute('style', style);
               img.dataset.editorWidth = String(width);
               img.setAttribute('data-editor-width', String(width));
-              wrap.style.width = width + 'px';
-              wrap.setAttribute('style', 'width: ' + width + 'px;');
-              img.style.width = '100%';
-              img.style.height = 'auto';
               img.style.maxWidth = 'none';
+              img.style.maxHeight = 'none';
               img.style.display = 'block';
-              img.removeAttribute('width');
-              img.removeAttribute('height');
+            }
+
+            function commitImageWidth(wrap, img, width) {
+              commitImageSize(wrap, img, width, readSavedImageHeightPx(wrap, img));
             }
 
             function finalizeImageSizeFromMarkup(wrap, img) {
               const width = readSavedImageWidthPx(wrap, img);
               if (!width) return;
-
-              wrap.classList.add('is-sized');
-              wrap.dataset.editorWidth = String(width);
-              wrap.setAttribute('data-editor-width', String(width));
-              wrap.style.width = width + 'px';
-              wrap.setAttribute('style', 'width: ' + width + 'px;');
-              img.dataset.editorWidth = String(width);
-              img.setAttribute('data-editor-width', String(width));
-              img.removeAttribute('width');
-              img.removeAttribute('height');
-              img.style.width = '100%';
-              img.style.height = 'auto';
-              img.style.maxWidth = 'none';
-              img.style.display = 'block';
+              const height = readSavedImageHeightPx(wrap, img);
+              commitImageSize(wrap, img, width, height);
             }
 
             function normalizeImageSrcForSave(src) {
@@ -4651,8 +4743,13 @@ window.chrome.webview = window.chrome.webview || {
                 }
                 const width = resolveImageWidthForSave(wrap, img);
                 if (!width) return;
-                commitImageWidth(wrap, img, width);
+                const height = resolveImageHeightForSave(wrap, img);
+                commitImageSize(wrap, img, width, height);
                 img.setAttribute('width', String(width));
+                if (height > 0)
+                  img.setAttribute('height', String(height));
+                else
+                  img.removeAttribute('height');
               });
             }
 
@@ -4737,67 +4834,125 @@ window.chrome.webview = window.chrome.webview || {
               });
             }
 
-            function setupImageResize(wrap, img, handle) {
+            function ensureImageResizeHandles(wrap) {
+              ['--e', '--s', '--se'].forEach((suffix) => {
+                let handle = wrap.querySelector('.editor-image-resize-handle' + suffix);
+                if (!handle) {
+                  handle = document.createElement('span');
+                  handle.className = 'editor-image-resize-handle editor-image-resize-handle' + suffix;
+                  handle.contentEditable = 'false';
+                  wrap.appendChild(handle);
+                }
+              });
+              wrap.querySelectorAll('.editor-image-resize-handle:not(.editor-image-resize-handle--e):not(.editor-image-resize-handle--s):not(.editor-image-resize-handle--se)')
+                .forEach((handle) => handle.remove());
+            }
+
+            function beginImageAxisResize(wrap, img, mode, e) {
+              mediaMoveSession = null;
+              hideImageDropCaret();
+              e.preventDefault();
+              e.stopPropagation();
+              selectImageWrap(wrap);
+
+              const startX = e.clientX;
+              const startY = e.clientY;
+              const rect = wrap.getBoundingClientRect();
+              const startWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'))
+                || (rect.width > 0 ? Math.round(rect.width) : 0)
+                || (img.naturalWidth || img.offsetWidth || 200);
+              const savedHeight = readSavedImageHeightPx(wrap, img);
+              const startHeight = savedHeight
+                || parseCssHeightPx(wrap.style.height || wrap.getAttribute('style'))
+                || (rect.height > 0 ? Math.round(rect.height) : 0)
+                || (img.naturalHeight || img.offsetHeight || 200);
+
+              img.style.maxWidth = 'none';
+              img.style.maxHeight = 'none';
+
+              function applyLiveSize(width, height) {
+                wrap.style.width = width + 'px';
+                wrap.style.maxWidth = 'none';
+                const useFixedHeight = height > 0 && (mode === 's' || mode === 'se' || savedHeight > 0);
+                if (useFixedHeight) {
+                  wrap.style.height = height + 'px';
+                  wrap.classList.add('has-editor-height');
+                  img.style.width = '100%';
+                  img.style.height = '100%';
+                  img.style.objectFit = 'fill';
+                } else {
+                  wrap.style.height = '';
+                  wrap.classList.remove('has-editor-height');
+                  img.style.width = '100%';
+                  img.style.height = 'auto';
+                  img.style.objectFit = '';
+                }
+                img.style.display = 'block';
+                img.style.maxWidth = 'none';
+                img.style.maxHeight = 'none';
+              }
+
+              function onMove(ev) {
+                let width = startWidth;
+                let height = savedHeight;
+                if (mode === 'e' || mode === 'se')
+                  width = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
+                if (mode === 's' || mode === 'se')
+                  height = Math.max(40, Math.round(startHeight + (ev.clientY - startY)));
+                applyLiveSize(width, (mode === 's' || mode === 'se') ? height : savedHeight);
+              }
+
+              function onUp(ev) {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                let width = startWidth;
+                let height = savedHeight;
+                if (mode === 'e' || mode === 'se')
+                  width = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
+                if (mode === 's' || mode === 'se')
+                  height = Math.max(40, Math.round(startHeight + (ev.clientY - startY)));
+                commitImageSize(wrap, img, width, (mode === 's' || mode === 'se') ? height : savedHeight);
+                notifyChanged();
+              }
+
+              document.addEventListener('mousemove', onMove);
+              document.addEventListener('mouseup', onUp);
+            }
+
+            function setupImageResize(wrap, img) {
+              if (wrap.dataset.resizeHandlers === '1') return;
+              wrap.dataset.resizeHandlers = '1';
+
               wrap.addEventListener('mousedown', (e) => {
-                if (e.button !== 0 || e.target === handle || isOpenModifier(e)) return;
+                if (e.button !== 0 || isOpenModifier(e)) return;
+
+                const handle = e.target.closest('.editor-image-resize-handle');
+                if (handle && wrap.contains(handle)) {
+                  let mode = 'se';
+                  if (handle.classList.contains('editor-image-resize-handle--e'))
+                    mode = 'e';
+                  else if (handle.classList.contains('editor-image-resize-handle--s'))
+                    mode = 's';
+                  beginImageAxisResize(wrap, img, mode, e);
+                  return;
+                }
+
                 e.stopPropagation();
                 ensureImageWrapReady(wrap);
                 if (!e.shiftKey)
                   selectImageWrap(wrap);
                 beginImageMoveTracking(wrap, e);
               });
-
-              handle.addEventListener('mousedown', (e) => {
-                if (e.button !== 0 || isOpenModifier(e)) return;
-                mediaMoveSession = null;
-                hideImageDropCaret();
-                e.preventDefault();
-                e.stopPropagation();
-                selectImageWrap(wrap);
-                const startX = e.clientX;
-                const rectWidth = wrap.getBoundingClientRect().width;
-                const startWidth = parseCssWidthPx(wrap.style.width || wrap.getAttribute('style'))
-                  || (rectWidth > 0 ? Math.round(rectWidth) : 0)
-                  || (img.naturalWidth || img.offsetWidth || 200);
-                img.style.maxWidth = 'none';
-
-                function onMove(ev) {
-                  const width = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
-                  wrap.style.width = width + 'px';
-                  wrap.style.maxWidth = 'none';
-                  img.style.width = '100%';
-                  img.style.height = 'auto';
-                  img.style.maxWidth = 'none';
-                  img.style.display = 'block';
-                }
-
-                function onUp(ev) {
-                  document.removeEventListener('mousemove', onMove);
-                  document.removeEventListener('mouseup', onUp);
-                  const width = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
-                  commitImageWidth(wrap, img, width);
-                  notifyChanged();
-                }
-
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
-              });
             }
 
             function ensureImageWrapReady(wrap) {
-              if (wrap.dataset.resizeReady === '1') return;
               const img = wrap.querySelector('img');
               if (!img) return;
-              let handle = wrap.querySelector('.editor-image-resize-handle');
-              if (!handle) {
-                handle = document.createElement('span');
-                handle.className = 'editor-image-resize-handle';
-                handle.contentEditable = 'false';
-                wrap.appendChild(handle);
-              }
+              ensureImageResizeHandles(wrap);
               if (wrap.contentEditable !== 'false') wrap.contentEditable = 'false';
               finalizeImageSizeFromMarkup(wrap, img);
-              setupImageResize(wrap, img, handle);
+              setupImageResize(wrap, img);
+              if (wrap.dataset.resizeReady === '1') return;
               ensureCaretAnchors(wrap);
               attachImageSizeGuard(wrap, img);
               wrap.dataset.resizeReady = '1';
@@ -4810,10 +4965,7 @@ window.chrome.webview = window.chrome.webview || {
               wrap.contentEditable = 'false';
               img.parentNode.insertBefore(wrap, img);
               wrap.appendChild(img);
-              const handle = document.createElement('span');
-              handle.className = 'editor-image-resize-handle';
-              handle.contentEditable = 'false';
-              wrap.appendChild(handle);
+              ensureImageResizeHandles(wrap);
               ensureImageWrapReady(wrap);
             }
 
