@@ -80,6 +80,12 @@ public sealed class SystemWatcherService : IDisposable
 
     private void OnRenamed(object sender, RenamedEventArgs e)
     {
+        // Guard against malformed events (empty paths can occur on watcher buffer overflow).
+        // An empty newPath would cause IsPathInScope to return false, which would cascade-
+        // delete all descendants of oldPath as if it were renamed out of scope.
+        if (string.IsNullOrEmpty(e.OldFullPath) || string.IsNullOrEmpty(e.FullPath))
+            return;
+
         // Never treat directory renames as delete+add: that would wipe all descendants from
         // index.db and only re-add the directory itself.
         QueueRename(e.OldFullPath, e.FullPath);

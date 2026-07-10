@@ -954,9 +954,14 @@ public sealed class SystemIndexService : IDisposable
                     continue;
                 }
 
-                // Renamed out of indexing scope — drop the old path (exact for files).
-                target.RemoveWatcherDeletedPath(oldPath);
-                changeCount++;
+                // Renamed out of indexing scope — remove old path and all its descendants.
+                // Only if oldPath is actually gone from disk; a stale or reversed rename event
+                // would otherwise cascade-delete a directory tree that is still present in scope.
+                if (!Directory.Exists(oldPath) && !File.Exists(oldPath))
+                {
+                    target.RemoveWatcherDeletedPath(oldPath);
+                    changeCount++;
+                }
             }
 
             var appliedRemoves = 0;

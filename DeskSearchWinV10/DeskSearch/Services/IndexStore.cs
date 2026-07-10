@@ -341,13 +341,13 @@ public sealed partial class IndexStore : IDisposable
             if (rewritten.Count == 0)
                 return 0;
 
-            // Exact file rename yields a single matching row; directory rename matches the
-            // directory itself plus every descendant under the old prefix.
-            RemovePathAndDescendantsLocked(oldNormalized);
-
+            // Delete and insert in a single transaction: if the insert fails, the delete
+            // also rolls back, preventing permanent entry loss from a partial rename.
             using var transaction = _connection.BeginTransaction();
             try
             {
+                RemovePathAndDescendantsLocked(oldNormalized, transaction);
+
                 for (var i = 0; i < rewritten.Count; i += IndexStoragePolicy.BulkMergeBatchSize)
                 {
                     var chunkSize = Math.Min(IndexStoragePolicy.BulkMergeBatchSize, rewritten.Count - i);
@@ -376,16 +376,17 @@ public sealed partial class IndexStore : IDisposable
         _cachedCount = -1;
     }
 
-    private void RemovePathAndDescendantsLocked(string path)
+    private void RemovePathAndDescendantsLocked(string path, SqliteTransaction? transaction = null)
     {
         var normalized = path.TrimEnd('\\');
-        using var exact = CreateCommand("DELETE FROM entries WHERE full_path = $path COLLATE NOCASE");
+        using var exact = CreateCommand(
+            "DELETE FROM entries WHERE full_path = $path COLLATE NOCASE", transaction);
         exact.Parameters.AddWithValue("$path", normalized);
         exact.ExecuteNonQuery();
 
         var prefix = EscapeLikePrefix(normalized + "\\");
         using var descendants = CreateCommand(
-            "DELETE FROM entries WHERE full_path LIKE $prefix ESCAPE '\\' COLLATE NOCASE");
+            "DELETE FROM entries WHERE full_path LIKE $prefix ESCAPE '\\' COLLATE NOCASE", transaction);
         descendants.Parameters.AddWithValue("$prefix", prefix + "%");
         descendants.ExecuteNonQuery();
 
