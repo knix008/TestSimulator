@@ -12,6 +12,8 @@ public static class IconProvider
 {
 	private static readonly Dictionary<string, Image> _cache = new Dictionary<string, Image>();
 
+	public static void ClearCache() => _cache.Clear();
+
 	public static Image Get(string name, int size = 16)
 	{
 		string key = $"{name}_{size}";
@@ -62,6 +64,12 @@ public static class IconProvider
 			"OpenDbFile" => DrawOpenDbFile(size), 
 			"About" => DrawAbout(size), 
 			"Select" => DrawSelect(size),
+			"Settings" => DrawSettings(size),
+			"Undo" => DrawUndo(size),
+			"Redo" => DrawRedo(size),
+			"Ok" => DrawOk(size),
+			"Cancel" or "Close" => DrawCancelX(size),
+			"Copy" => DrawCopyIcon(size),
 			"IndexAdvisor" => DrawIndexAdvisor(size),
 			"PostgreSQL" => DrawDbBadge(size, Color.FromArgb(52, 101, 164), "PG"), 
 			"MySQL" => DrawDbBadge(size, Color.FromArgb(0, 114, 66), "MY"), 
@@ -648,30 +656,51 @@ public static class IconProvider
 
 	private static Image DrawStructure(int sz)
 	{
-		Bitmap bitmap = New32(sz);
-		Graphics graphics = Setup(bitmap);
-		using Pen linePen = new Pen(Color.FromArgb(90, 110, 150), P(sz, 1.1f))
+		// Tree-list icon: vertical trunk on the left with L-shaped branches
+		// and bold horizontal bars representing tree items.
+		Bitmap bmp = New32(sz);
+		using Graphics g = Setup(bmp);
+
+		float lw   = Math.Max(1f, P(sz, 1.3f));  // line weight
+		float barH = Math.Max(1.5f, P(sz, 1.5f)); // bar height
+
+		Color rootColor  = Color.FromArgb(37, 99, 235);
+		Color childColor = Color.FromArgb(96, 165, 250);
+		Color lineColor  = Color.FromArgb(120, 140, 180);
+
+		using var linePen  = new Pen(lineColor, lw) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+		using var rootBar  = new SolidBrush(rootColor);
+		using var childBar = new SolidBrush(childColor);
+
+		// Layout constants (in 16-unit space)
+		float xRoot   = P(sz, 1.5f);
+		float xBranch = P(sz, 4.0f);  // where the branch turns right
+		float xEnd    = sz - P(sz, 2.5f);
+		float barW0   = xEnd - xRoot;             // root bar width
+		float barWC   = xEnd - xBranch - P(sz, 1f); // child bar width
+
+		float yRoot = P(sz, 2f);
+		float yC1   = P(sz, 6.5f);
+		float yC2   = P(sz, 10.5f);
+		float yC3   = P(sz, 14f);
+
+		// Root bar
+		g.FillRectangle(rootBar,  xRoot, yRoot, barW0, barH);
+
+		// Trunk: vertical line from root down to last child
+		g.DrawLine(linePen, xRoot + lw * 0.5f, yRoot + barH, xRoot + lw * 0.5f, yC3 + barH * 0.5f);
+
+		// Branch + child rows
+		foreach (float yC in new[] { yC1, yC2, yC3 })
 		{
-			StartCap = LineCap.Round,
-			EndCap = LineCap.Round
-		};
-		using SolidBrush nodeBrush = new SolidBrush(Color.FromArgb(37, 99, 235));
-		using SolidBrush childBrush = new SolidBrush(Color.FromArgb(96, 165, 250));
-		float rootX = P(sz, 8f);
-		float rootY = P(sz, 2.5f);
-		float childY1 = P(sz, 8.5f);
-		float childY2 = P(sz, 12.5f);
-		float leftX = P(sz, 3.5f);
-		float rightX = P(sz, 12.5f);
-		graphics.FillEllipse(nodeBrush, rootX - P(sz, 1.4f), rootY - P(sz, 1.4f), P(sz, 2.8f), P(sz, 2.8f));
-		graphics.DrawLine(linePen, rootX, rootY + P(sz, 1.2f), rootX, P(sz, 6.5f));
-		graphics.DrawLine(linePen, leftX + P(sz, 1.2f), P(sz, 6.5f), rightX - P(sz, 1.2f), P(sz, 6.5f));
-		graphics.DrawLine(linePen, leftX + P(sz, 1.2f), P(sz, 6.5f), leftX + P(sz, 1.2f), childY1);
-		graphics.DrawLine(linePen, rightX - P(sz, 1.2f), P(sz, 6.5f), rightX - P(sz, 1.2f), childY2);
-		graphics.FillEllipse(childBrush, leftX, childY1 - P(sz, 1.2f), P(sz, 2.4f), P(sz, 2.4f));
-		graphics.FillEllipse(childBrush, rightX - P(sz, 2.4f), childY2 - P(sz, 1.2f), P(sz, 2.4f), P(sz, 2.4f));
-		graphics.Dispose();
-		return bitmap;
+			float cy = yC + barH * 0.5f;
+			// L-shaped branch
+			g.DrawLine(linePen, xRoot + lw * 0.5f, cy, xBranch, cy);
+			// Child bar
+			g.FillRectangle(childBar, xBranch + P(sz, 0.5f), yC, barWC, barH);
+		}
+
+		return bmp;
 	}
 
 	private static Image DrawSortCategory(int sz)
@@ -874,6 +903,118 @@ public static class IconProvider
 		graphics.DrawPolygon(outline, pts);
 		graphics.Dispose();
 		return bitmap;
+	}
+
+	private static Image DrawSettings(int sz)
+	{
+		Bitmap bmp = New32(sz);
+		using Graphics g = Setup(bmp);
+
+		float cx = sz * 0.5f;
+		float cy = sz * 0.5f;
+		Color gearColor = ModernTheme.IsDark ? Color.FromArgb(180, 185, 200) : Color.FromArgb(71, 85, 105);
+
+		int n = 8;
+		float outerR = P(sz, 6.2f);
+		float innerR = P(sz, 4.4f);
+		float holeR  = P(sz, 2.4f);
+		float da = (float)(Math.PI / n);
+
+		var pts = new PointF[n * 4];
+		for (int i = 0; i < n; i++)
+		{
+			float a = (float)(i * 2 * Math.PI / n);
+			pts[i * 4 + 0] = new PointF(cx + innerR * (float)Math.Cos(a - da * 0.7f), cy + innerR * (float)Math.Sin(a - da * 0.7f));
+			pts[i * 4 + 1] = new PointF(cx + outerR * (float)Math.Cos(a - da * 0.3f), cy + outerR * (float)Math.Sin(a - da * 0.3f));
+			pts[i * 4 + 2] = new PointF(cx + outerR * (float)Math.Cos(a + da * 0.3f), cy + outerR * (float)Math.Sin(a + da * 0.3f));
+			pts[i * 4 + 3] = new PointF(cx + innerR * (float)Math.Cos(a + da * 0.7f), cy + innerR * (float)Math.Sin(a + da * 0.7f));
+		}
+
+		using var gearBrush = new SolidBrush(gearColor);
+		g.FillPolygon(gearBrush, pts);
+
+		g.CompositingMode = CompositingMode.SourceCopy;
+		using var holeBrush = new SolidBrush(Color.FromArgb(0, 0, 0, 0));
+		g.FillEllipse(holeBrush, cx - holeR, cy - holeR, holeR * 2, holeR * 2);
+
+		return bmp;
+	}
+
+	private static Image DrawCurvedArrow(int sz, bool clockwise)
+	{
+		Bitmap bmp = New32(sz);
+		using Graphics g = Setup(bmp);
+		Color col = ModernTheme.IsDark ? Color.FromArgb(160, 195, 248) : Color.FromArgb(37, 99, 235);
+		float r = P(sz, 4.0f);
+		float cx = sz * 0.5f, cy = sz * 0.52f;
+		float startDeg = clockwise ? 150f : 390f;
+		float sweepDeg = clockwise ? 240f : -240f;
+		using var pen = new Pen(col, P(sz, 1.4f));
+		g.DrawArc(pen, cx - r, cy - r, r * 2, r * 2, startDeg, sweepDeg);
+		float endRad = (startDeg + sweepDeg) * MathF.PI / 180f;
+		float ex = cx + r * MathF.Cos(endRad);
+		float ey = cy + r * MathF.Sin(endRad);
+		float tangent = clockwise ? endRad + MathF.PI / 2f : endRad - MathF.PI / 2f;
+		float aSize = P(sz, 2.4f);
+		float halfW = P(sz, 1.3f);
+		var pts = new PointF[]
+		{
+			new PointF(ex + aSize * MathF.Cos(tangent), ey + aSize * MathF.Sin(tangent)),
+			new PointF(ex + halfW * MathF.Cos(tangent - MathF.PI / 2f), ey + halfW * MathF.Sin(tangent - MathF.PI / 2f)),
+			new PointF(ex + halfW * MathF.Cos(tangent + MathF.PI / 2f), ey + halfW * MathF.Sin(tangent + MathF.PI / 2f)),
+		};
+		using var brush = new SolidBrush(col);
+		g.FillPolygon(brush, pts);
+		return bmp;
+	}
+
+	private static Image DrawCopyIcon(int sz)
+	{
+		Bitmap bmp = New32(sz);
+		using Graphics g = Setup(bmp);
+		Color col = ModernTheme.IsDark ? Color.FromArgb(170, 180, 200) : Color.FromArgb(70, 90, 120);
+		using var pen = new Pen(col, P(sz, 1f));
+		using var fill = new SolidBrush(Color.FromArgb(ModernTheme.IsDark ? 40 : 220, col));
+		float m = P(sz, 1f);
+		float off = P(sz, 2.5f);
+		// Back page
+		g.FillRectangle(fill, m + off, m, sz - m * 2 - off, sz - m * 2 - off);
+		g.DrawRectangle(pen, m + off, m, sz - m * 2 - off, sz - m * 2 - off);
+		// Front page
+		g.FillRectangle(new SolidBrush(ModernTheme.PanelBackground), m, m + off, sz - m * 2 - off, sz - m * 2 - off);
+		g.DrawRectangle(pen, m, m + off, sz - m * 2 - off, sz - m * 2 - off);
+		return bmp;
+	}
+
+	private static Image DrawUndo(int sz) => DrawCurvedArrow(sz, clockwise: false);
+	private static Image DrawRedo(int sz) => DrawCurvedArrow(sz, clockwise: true);
+
+	private static Image DrawOk(int sz)
+	{
+		Bitmap bmp = New32(sz);
+		using Graphics g = Setup(bmp);
+		using var pen = new Pen(Color.FromArgb(34, 160, 80), P(sz, 1.7f)) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+		float m = P(sz, 1.8f);
+		var pts = new PointF[]
+		{
+			new PointF(m, sz * 0.52f),
+			new PointF(sz * 0.4f, sz - m),
+			new PointF(sz - m, m),
+		};
+		g.DrawLines(pen, pts);
+		return bmp;
+	}
+
+	private static Image DrawCancelX(int sz)
+	{
+		Bitmap bmp = New32(sz);
+		using Graphics g = Setup(bmp);
+		Color col = ModernTheme.IsDark ? Color.FromArgb(200, 90, 90) : Color.FromArgb(180, 55, 55);
+		using var pen = new Pen(col, P(sz, 1.6f)) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+		float m = P(sz, 2.5f);
+		g.DrawLine(pen, m, m, sz - m, sz - m);
+		g.DrawLine(pen, sz - m, m, m, sz - m);
+		return bmp;
 	}
 
 	private static Image DrawIndexAdvisor(int sz)

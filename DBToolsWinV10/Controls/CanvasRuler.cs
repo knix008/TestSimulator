@@ -4,21 +4,12 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Windows.Forms;
+using DBToolsWinV10.App;
 
 namespace DBToolsWinV10.Controls;
 
 public sealed class CanvasRuler : Control
 {
-	private static readonly Color BgColor = Color.FromArgb(248, 249, 251);
-
-	private static readonly Color TickColor = Color.FromArgb(180, 186, 195);
-
-	private static readonly Color MajorTickColor = Color.FromArgb(107, 114, 128);
-
-	private static readonly Color TextColor = Color.FromArgb(75, 85, 99);
-
-	private static readonly Color BorderColor = Color.FromArgb(209, 213, 219);
-
 	[Browsable(false)]
 	[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 	public RulerOrientation Orientation { get; set; } = RulerOrientation.Horizontal;
@@ -35,14 +26,14 @@ public sealed class CanvasRuler : Control
 	{
 		DoubleBuffered = true;
 		SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, value: true);
-		BackColor = BgColor;
+		BackColor = ModernTheme.RulerBackground;
 	}
 
 	protected override void OnPaint(PaintEventArgs e)
 	{
 		Graphics graphics = e.Graphics;
 		graphics.SmoothingMode = SmoothingMode.AntiAlias;
-		graphics.Clear(BgColor);
+		graphics.Clear(ModernTheme.RulerBackground);
 		if (Zoom <= 0.001f)
 		{
 			return;
@@ -52,11 +43,11 @@ public sealed class CanvasRuler : Control
 		float num3 = ((Orientation == RulerOrientation.Horizontal) ? base.Width : base.Height);
 		float num4 = num2 + num3 / Zoom;
 		float num5 = (float)(Math.Floor(num2 / num) * (double)num);
-		using Pen pen = new Pen(TickColor);
-		using Pen pen2 = new Pen(MajorTickColor);
+		using Pen pen = new Pen(ModernTheme.RulerTick);
+		using Pen pen2 = new Pen(ModernTheme.RulerMajorTick);
 		using Font font = new Font("Segoe UI", 7f);
-		using SolidBrush brush = new SolidBrush(TextColor);
-		using Pen pen3 = new Pen(BorderColor);
+		using SolidBrush brush = new SolidBrush(ModernTheme.RulerText);
+		using Pen pen3 = new Pen(ModernTheme.RulerBorder);
 		for (float num6 = num5; num6 <= num4 + num; num6 += num)
 		{
 			float num7 = num6 * Zoom - (float)ScrollOffset;

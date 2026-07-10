@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- Menu: File -->
+  <data name="MenuFile" xml:space="preserve"><value>파일(&amp;F)</value></data>
+  <data name="MenuNew" xml:space="preserve"><value>새로 만들기(&amp;N)</value></data>
+  <data name="MenuOpen" xml:space="preserve"><value>열기(&amp;O)...</value></data>
+  <data name="MenuOpenDatabase" xml:space="preserve"><value>데이터베이스 가져오기...</value></data>
+  <data name="MenuSave" xml:space="preserve"><value>저장(&amp;S)</value></data>
+  <data name="MenuSaveAs" xml:space="preserve"><value>다른 이름으로 저장(&amp;A)...</value></data>
+  <data name="MenuRecentFiles" xml:space="preserve"><value>최근 파일</value></data>
+  <data name="MenuExport" xml:space="preserve"><value>내보내기</value></data>
+  <data name="MenuExportSql" xml:space="preserve"><value>SQL DDL 내보내기...</value></data>
+  <data name="MenuExportJson" xml:space="preserve"><value>JSON 내보내기...</value></data>
+  <data name="MenuSettings" xml:space="preserve"><value>설정...</value></data>
+  <data name="MenuExit" xml:space="preserve"><value>종료(&amp;X)</value></data>
+  <data name="MenuRecentEmpty" xml:space="preserve"><value>(최근 파일 없음)</value></data>
+  <data name="MenuRecentClear" xml:space="preserve"><value>목록 지우기</value></data>
+
+  <!-- Menu: Edit -->
+  <data name="MenuEdit" xml:space="preserve"><value>편집(&amp;E)</value></data>
+  <data name="MenuUndo" xml:space="preserve"><value>실행 취소(&amp;Z)</value></data>
+  <data name="MenuRedo" xml:space="preserve"><value>다시 실행(&amp;Y)</value></data>
+  <data name="MenuAddTable" xml:space="preserve"><value>테이블 추가(&amp;T)</value></data>
+  <data name="MenuAddColumn" xml:space="preserve"><value>컬럼 추가(&amp;L)</value></data>
+  <data name="MenuAddRelation" xml:space="preserve"><value>관계 추가(&amp;R)</value></data>
+  <data name="MenuEditSelected" xml:space="preserve"><value>선택 항목 편집(&amp;E)...</value></data>
+  <data name="MenuDeleteSelected" xml:space="preserve"><value>선택 항목 삭제(&amp;D)</value></data>
+
+  <!-- Menu: View -->
+  <data name="MenuView" xml:space="preserve"><value>보기(&amp;V)</value></data>
+  <data name="MenuZoomIn" xml:space="preserve"><value>확대(&amp;I)</value></data>
+  <data name="MenuZoomOut" xml:space="preserve"><value>축소(&amp;O)</value></data>
+  <data name="MenuFitAll" xml:space="preserve"><value>화면 맞춤(&amp;F)</value></data>
+  <data name="MenuTogglePanel" xml:space="preserve"><value>우측 패널 접기/펼치기</value></data>
+  <data name="MenuDbType" xml:space="preserve"><value>DB 종류</value></data>
+
+  <!-- Menu: Analyze -->
+  <data name="MenuAnalyze" xml:space="preserve"><value>분석(&amp;A)</value></data>
+  <data name="MenuRunAnalysis" xml:space="preserve"><value>정규화 분석 실행(&amp;A)</value></data>
+  <data name="MenuWriteReport" xml:space="preserve"><value>분석 보고서 작성(&amp;R)...</value></data>
+
+  <!-- Menu: Help -->
+  <data name="MenuAbout" xml:space="preserve"><value>도움말(&amp;H)</value></data>
+
+  <!-- Tabs -->
+  <data name="TabStructure" xml:space="preserve"><value>구조</value></data>
+  <data name="TabAnalysis" xml:space="preserve"><value>정규화</value></data>
+  <data name="TabIndexAdvisor" xml:space="preserve"><value>인덱스 어드바이저</value></data>
+
+  <!-- Toolbox group labels -->
+  <data name="GrpTools" xml:space="preserve"><value>도구</value></data>
+  <data name="GrpRelation" xml:space="preserve"><value>관계</value></data>
+  <data name="GrpView" xml:space="preserve"><value>보기</value></data>
+
+  <!-- Toolbar buttons -->
+  <data name="BtnAbout" xml:space="preserve"><value>정보</value></data>
+  <data name="BtnSortCategory" xml:space="preserve"><value>분류별</value></data>
+  <data name="BtnSortAlpha" xml:space="preserve"><value>사전순</value></data>
+
+  <!-- Line styles -->
+  <data name="LineStyleStraight" xml:space="preserve"><value>직선</value></data>
+  <data name="LineStyleCurved" xml:space="preserve"><value>곡선</value></data>
+  <data name="LineStyleOrthogonal" xml:space="preserve"><value>꺾은선</value></data>
+
+  <!-- Toolbar tooltips -->
+  <data name="TtNew" xml:space="preserve"><value>새 프로젝트 (Ctrl+N)</value></data>
+  <data name="TtOpen" xml:space="preserve"><value>프로젝트 열기 (Ctrl+O)</value></data>
+  <data name="TtOpenDb" xml:space="preserve"><value>데이터베이스에서 스키마 가져오기</value></data>
+  <data name="TtSave" xml:space="preserve"><value>저장 (Ctrl+S)</value></data>
+  <data name="TtSaveAs" xml:space="preserve"><value>다른 이름으로 저장</value></data>
+  <data name="TtUndo" xml:space="preserve"><value>실행 취소 (Ctrl+Z)</value></data>
+  <data name="TtRedo" xml:space="preserve"><value>다시 실행 (Ctrl+Y)</value></data>
+  <data name="TtAddTable" xml:space="preserve"><value>테이블 추가 (Ctrl+T)</value></data>
+  <data name="TtAddRelation" xml:space="preserve"><value>관계 추가 (Ctrl+R)</value></data>
+  <data name="TtZoomIn" xml:space="preserve"><value>확대</value></data>
+  <data name="TtZoomOut" xml:space="preserve"><value>축소</value></data>
+  <data name="TtFitAll" xml:space="preserve"><value>화면 맞춤 (Ctrl+0)</value></data>
+  <data name="TtToggleRight" xml:space="preserve"><value>우측 패널 접기/펼치기</value></data>
+  <data name="TtAnalyze" xml:space="preserve"><value>분석 실행</value></data>
+  <data name="TtReport" xml:space="preserve"><value>보고서 작성</value></data>
+  <data name="TtAbout" xml:space="preserve"><value>프로그램 정보</value></data>
+  <data name="TtSettings" xml:space="preserve"><value>설정</value></data>
+  <data name="TtSortCategory" xml:space="preserve"><value>카테고리별로 속성을 표시합니다.</value></data>
+  <data name="TtSortAlpha" xml:space="preserve"><value>카테고리를 유지한 채 각 카테고리 안에서 사전순으로 정렬합니다.</value></data>
+
+  <!-- Analysis panel -->
+  <data name="AnalysisReady" xml:space="preserve"><value>정규화 분석 결과가 여기에 표시됩니다.</value></data>
+  <data name="AnalysisLevel" xml:space="preserve"><value>검사 수준:</value></data>
+  <data name="NfBtnTip1" xml:space="preserve"><value>1정규화(1NF): 항상 선택 가능</value></data>
+  <data name="NfBtnTip2" xml:space="preserve"><value>2정규화(2NF): 1NF 오류가 없을 때만 선택 가능</value></data>
+  <data name="NfBtnTip3" xml:space="preserve"><value>3정규화(3NF): 2NF 오류가 없을 때만 선택 가능</value></data>
+  <data name="NfBtnTipBcnf" xml:space="preserve"><value>보이스코드 정규화(BCNF): 3NF 오류가 없을 때만 선택 가능</value></data>
+
+  <!-- ListView column headers: Normalization Analysis -->
+  <data name="ColHdrLevel" xml:space="preserve"><value>수준</value></data>
+  <data name="ColHdrSeverity" xml:space="preserve"><value>심각도</value></data>
+  <data name="ColHdrTable" xml:space="preserve"><value>테이블</value></data>
+  <data name="ColHdrColumn" xml:space="preserve"><value>문제 컬럼</value></data>
+  <data name="ColHdrIssue" xml:space="preserve"><value>문제</value></data>
+  <data name="ColHdrRecommend" xml:space="preserve"><value>권장</value></data>
+
+  <!-- ListView column headers: Index Advisor -->
+  <data name="ColHdrIdxTable" xml:space="preserve"><value>테이블</value></data>
+  <data name="ColHdrIdxColumn" xml:space="preserve"><value>컬럼</value></data>
+  <data name="ColHdrIdxType" xml:space="preserve"><value>분류</value></data>
+  <data name="ColHdrIdxReason" xml:space="preserve"><value>이유</value></data>
+  <data name="ColHdrIdxAdvice" xml:space="preserve"><value>권고 사항</value></data>
+
+  <!-- Context menus: canvas / table / column -->
+  <data name="CmEditColumn" xml:space="preserve"><value>컬럼 편집...</value></data>
+  <data name="CmAddColumn" xml:space="preserve"><value>컬럼 추가</value></data>
+  <data name="CmDeleteColumn" xml:space="preserve"><value>컬럼 삭제</value></data>
+  <data name="CmEditTable" xml:space="preserve"><value>테이블 편집...</value></data>
+  <data name="CmDeleteTable" xml:space="preserve"><value>테이블 삭제</value></data>
+  <data name="CmEditRelation" xml:space="preserve"><value>관계 편집...</value></data>
+  <data name="CmAddBend" xml:space="preserve"><value>꺾임 점 추가</value></data>
+  <data name="CmResetRoute" xml:space="preserve"><value>경로 초기화</value></data>
+  <data name="CmDeleteRelation" xml:space="preserve"><value>관계 삭제</value></data>
+  <data name="CmRelationType" xml:space="preserve"><value>관계 유형</value></data>
+  <data name="CmRelType11" xml:space="preserve"><value>1:1 (일대일)</value></data>
+  <data name="CmRelType1N" xml:space="preserve"><value>1:N (일대다)</value></data>
+  <data name="CmRelTypeNM" xml:space="preserve"><value>N:M (다대다)</value></data>
+  <data name="CmLineStyle" xml:space="preserve"><value>선 스타일</value></data>
+  <data name="CmAddTableHere" xml:space="preserve"><value>여기에 새 테이블 추가</value></data>
+  <data name="CmFitAll" xml:space="preserve"><value>화면 맞춤</value></data>
+  <data name="CmZoomIn" xml:space="preserve"><value>확대</value></data>
+  <data name="CmZoomOut" xml:space="preserve"><value>축소</value></data>
+  <data name="CmResetZoom" xml:space="preserve"><value>배율 100%로 복원</value></data>
+  <data name="CmSortCategory" xml:space="preserve"><value>분류별 정렬</value></data>
+  <data name="CmSortAlpha" xml:space="preserve"><value>사전순 정렬</value></data>
+  <data name="CanvasNoTables" xml:space="preserve"><value>테이블이 없습니다. 마우스 오른쪽 버튼으로 클릭하여 추가하세요.</value></data>
+
+  <!-- Dialog: Column Editor -->
+  <data name="ColEditTitle" xml:space="preserve"><value>컬럼 편집</value></data>
+  <data name="ColEditName" xml:space="preserve"><value>컬럼 이름:</value></data>
+  <data name="ColEditType" xml:space="preserve"><value>데이터 타입:</value></data>
+  <data name="ColEditLength" xml:space="preserve"><value>길이:</value></data>
+  <data name="ColEditPrecision" xml:space="preserve"><value>정밀도:</value></data>
+  <data name="ColEditScale" xml:space="preserve"><value>스케일:</value></data>
+  <data name="ColEditPK" xml:space="preserve"><value>기본 키 (PK)</value></data>
+  <data name="ColEditAI" xml:space="preserve"><value>자동 증가</value></data>
+  <data name="ColEditNull" xml:space="preserve"><value>NULL 허용</value></data>
+  <data name="ColEditUnique" xml:space="preserve"><value>유니크</value></data>
+  <data name="ColEditFK" xml:space="preserve"><value>외래 키 (FK)</value></data>
+  <data name="ColEditDefault" xml:space="preserve"><value>기본값:</value></data>
+  <data name="ColEditComment" xml:space="preserve"><value>설명:</value></data>
+
+  <!-- Dialog: Table Editor -->
+  <data name="TableEditTitle" xml:space="preserve"><value>테이블 편집</value></data>
+  <data name="TableEditName" xml:space="preserve"><value>테이블 이름:</value></data>
+  <data name="TableEditComment" xml:space="preserve"><value>설명 (선택):</value></data>
+  <data name="TableEditAdd" xml:space="preserve"><value>추가</value></data>
+  <data name="TableEditEdit" xml:space="preserve"><value>편집</value></data>
+  <data name="TableEditDelete" xml:space="preserve"><value>삭제</value></data>
+  <data name="TableEditMoveUp" xml:space="preserve"><value>위로 ↑</value></data>
+  <data name="TableEditMoveDown" xml:space="preserve"><value>아래로 ↓</value></data>
+  <data name="ColHdrName" xml:space="preserve"><value>이름</value></data>
+  <data name="ColHdrType" xml:space="preserve"><value>타입</value></data>
+  <data name="ColHdrDefault" xml:space="preserve"><value>기본값</value></data>
+
+  <!-- Dialog: Relationship Editor -->
+  <data name="RelEditTitle" xml:space="preserve"><value>관계 편집</value></data>
+  <data name="RelEditName" xml:space="preserve"><value>관계 이름 (선택):</value></data>
+  <data name="RelEditType" xml:space="preserve"><value>관계 유형:</value></data>
+  <data name="RelEditLineStyle" xml:space="preserve"><value>선 스타일:</value></data>
+  <data name="RelEditSource" xml:space="preserve"><value>소스 (참조하는 쪽)</value></data>
+  <data name="RelEditTarget" xml:space="preserve"><value>타겟 (참조받는 쪽)</value></data>
+  <data name="RelEditTable" xml:space="preserve"><value>테이블:</value></data>
+  <data name="RelEditColumn" xml:space="preserve"><value>컬럼:</value></data>
+  <data name="RelType11" xml:space="preserve"><value>1:1 (일대일)</value></data>
+  <data name="RelType1N" xml:space="preserve"><value>1:N (일대다)</value></data>
+  <data name="RelTypeNM" xml:space="preserve"><value>N:M (다대다)</value></data>
+  <data name="RelNone" xml:space="preserve"><value>(없음)</value></data>
+
+  <!-- Dialog: About -->
+  <data name="AboutTitle" xml:space="preserve"><value>프로그램 정보</value></data>
+  <data name="AboutVersion" xml:space="preserve"><value>버전 1.0.0  |  .NET 10 WinForms</value></data>
+  <data name="AboutDescription" xml:space="preserve"><value>DB 테이블 설계 및 ER 다이어그램 편집 도구&#x0D;&#x0A;&#x0D;&#x0A;지원 데이터베이스: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server&#x0D;&#x0A;기능: ER 다이어그램 편집, Crow's Foot 표기법, 정규화 분석,&#x0D;&#x0A;         SQL DDL 내보내기, JSON 직렬화</value></data>
+
+  <!-- Dialog: Error -->
+  <data name="ErrorTitle" xml:space="preserve"><value>오류</value></data>
+  <data name="ErrorSummaryDefault" xml:space="preserve"><value>오류가 발생했습니다.</value></data>
+  <data name="ErrorDetails" xml:space="preserve"><value>상세 내용</value></data>
+  <data name="ErrorBtnCopy" xml:space="preserve"><value>전체 복사</value></data>
+  <data name="ErrorBtnClose" xml:space="preserve"><value>닫기</value></data>
+  <data name="ErrorCopied" xml:space="preserve"><value>복사됨</value></data>
+  <data name="ErrorCopyFailed" xml:space="preserve"><value>복사 실패</value></data>
+  <data name="ErrorClipboard" xml:space="preserve"><value>클립보드</value></data>
+
+  <!-- Dialog: Normalization Issue -->
+  <data name="NormLevel" xml:space="preserve"><value>단계</value></data>
+  <data name="NormSeverity" xml:space="preserve"><value>심각도</value></data>
+  <data name="NormTableField" xml:space="preserve"><value>테이블</value></data>
+  <data name="NormColumnField" xml:space="preserve"><value>영향 컬럼</value></data>
+  <data name="NormIssueField" xml:space="preserve"><value>문제</value></data>
+  <data name="NormActionField" xml:space="preserve"><value>권장 조치</value></data>
+
+  <!-- Dialog: SQLite Password -->
+  <data name="SqlitePasswordTitle" xml:space="preserve"><value>데이터베이스 암호</value></data>
+  <data name="SqlitePasswordPrompt" xml:space="preserve"><value>SQLCipher로 암호화된 SQLite 데이터베이스입니다.&#x0D;&#x0A;암호를 입력하세요.</value></data>
+  <data name="SqlitePasswordLabel" xml:space="preserve"><value>암호</value></data>
+  <data name="SqliteShowPassword" xml:space="preserve"><value>암호 표시</value></data>
+  <data name="SqliteWrongPassword" xml:space="preserve"><value>암호가 올바르지 않습니다.</value></data>
+  <data name="SqliteEnterPassword" xml:space="preserve"><value>암호를 입력하세요.</value></data>
+
+  <!-- Shared buttons -->
+  <data name="BtnOk" xml:space="preserve"><value>확인</value></data>
+  <data name="BtnCancel" xml:space="preserve"><value>취소</value></data>
+  <data name="BtnClose" xml:space="preserve"><value>닫기</value></data>
+  <data name="BtnCopyAll" xml:space="preserve"><value>전체 복사</value></data>
+
+  <!-- Message boxes -->
+  <data name="MsgNotice" xml:space="preserve"><value>안내</value></data>
+  <data name="MsgConfirm" xml:space="preserve"><value>확인</value></data>
+  <data name="MsgSelectTable" xml:space="preserve"><value>테이블을 먼저 선택하세요.</value></data>
+  <data name="MsgNeedTwoTables" xml:space="preserve"><value>관계를 추가하려면 최소 2개의 테이블이 필요합니다.</value></data>
+  <data name="MsgDeleteColumn" xml:space="preserve"><value>컬럼 '{0}'을(를) 삭제할까요?</value></data>
+  <data name="MsgDeleteColumnTitle" xml:space="preserve"><value>삭제 확인</value></data>
+  <data name="MsgDeleteTable" xml:space="preserve"><value>테이블 '{0}'을(를) 삭제하시겠습니까?</value></data>
+  <data name="MsgDeleteTableTitle" xml:space="preserve"><value>테이블 삭제</value></data>
+  <data name="MsgUnsavedChanges" xml:space="preserve"><value>저장되지 않은 변경사항이 있습니다. 계속할까요?</value></data>
+  <data name="ErrValidationTitle" xml:space="preserve"><value>입력 오류</value></data>
+  <data name="ErrColumnName" xml:space="preserve"><value>컬럼 이름을 입력하세요.</value></data>
+  <data name="ErrDataType" xml:space="preserve"><value>데이터 타입을 선택하세요.</value></data>
+  <data name="ErrTableName" xml:space="preserve"><value>테이블 이름을 입력하세요.</value></data>
+  <data name="ErrAddColumnTitle" xml:space="preserve"><value>컬럼 추가 오류</value></data>
+  <data name="ErrAddColumn" xml:space="preserve"><value>컬럼을 추가할 수 없습니다.</value></data>
+  <data name="ErrSrcTgtRequired" xml:space="preserve"><value>소스와 타겟 테이블을 선택하세요.</value></data>
+  <data name="ErrSrcTgtSame" xml:space="preserve"><value>소스와 타겟 테이블이 같을 수 없습니다.</value></data>
+  <data name="RelNeedPk" xml:space="preserve"><value>관계를 추가하려면 두 테이블 모두 기본 키(PK) 컬럼이 필요합니다.&#x0D;&#x0A;테이블 편집에서 PK 컬럼을 설정한 후 다시 시도하세요.</value></data>
+
+  <!-- Severity labels -->
+  <data name="SevError" xml:space="preserve"><value>오류</value></data>
+  <data name="SevWarning" xml:space="preserve"><value>경고</value></data>
+  <data name="SevInfo" xml:space="preserve"><value>정보</value></data>
+
+  <!-- NF group titles -->
+  <data name="NF1Group" xml:space="preserve"><value>1NF — 원자성</value></data>
+  <data name="NF2Group" xml:space="preserve"><value>2NF — 부분 종속</value></data>
+  <data name="NF3Group" xml:space="preserve"><value>3NF — 이행 종속</value></data>
+  <data name="BCNFGroup" xml:space="preserve"><value>BCNF — Boyce-Codd 정규형</value></data>
+
+  <!-- Analysis panel summary -->
+  <data name="NoTablesAnalysis" xml:space="preserve"><value>테이블이 없어 정규화 검사를 수행할 수 없습니다.</value></data>
+  <data name="AnalysisNoIssues" xml:space="preserve"><value>정규화 검사: 문제 없음 ({0})</value></data>
+  <data name="AnalysisSummary" xml:space="preserve"><value>정규화 검사: {0} — 아래 목록에서 문제 위치를 확인하세요.</value></data>
+  <data name="AnalysisErrCount" xml:space="preserve"><value>오류 {0}건</value></data>
+  <data name="AnalysisWarnCount" xml:space="preserve"><value>경고 {0}건</value></data>
+  <data name="AnalysisInfoCount" xml:space="preserve"><value>정보 {0}건</value></data>
+  <data name="AnalysisDone" xml:space="preserve"><value>정규화 검사 완료: 문제 없음</value></data>
+  <data name="AnalysisDoneCount" xml:space="preserve"><value>정규화 검사 완료: {0}개 항목 발견</value></data>
+
+  <!-- Index advisor kind labels -->
+  <data name="IdxAlreadyIndexed" xml:space="preserve"><value>✓ 인덱싱됨</value></data>
+  <data name="IdxRequired" xml:space="preserve"><value>● 필수</value></data>
+  <data name="IdxRecommended" xml:space="preserve"><value>◆ 권장</value></data>
+  <data name="IdxConsider" xml:space="preserve"><value>○ 검토</value></data>
+
+  <!-- Schema tree node labels -->
+  <data name="TreeTables" xml:space="preserve"><value>테이블</value></data>
+  <data name="TreeRelations" xml:space="preserve"><value>관계</value></data>
+
+  <!-- Settings dialog -->
+  <data name="SettingsTitle" xml:space="preserve"><value>설정</value></data>
+  <data name="SettingsGroupAppearance" xml:space="preserve"><value>외관</value></data>
+  <data name="SettingsGroupLanguage" xml:space="preserve"><value>언어</value></data>
+  <data name="SettingsLabelLanguage" xml:space="preserve"><value>UI 언어:</value></data>
+  <data name="SettingsLabelTheme" xml:space="preserve"><value>테마:</value></data>
+  <data name="SettingsThemeLight" xml:space="preserve"><value>라이트</value></data>
+  <data name="SettingsThemeDark" xml:space="preserve"><value>다크</value></data>
+  <data name="SettingsRestartNote" xml:space="preserve"><value>* 언어 변경사항은 재시작 후 적용됩니다.</value></data>
+  <data name="SettingsRestartRequired" xml:space="preserve"><value>언어 설정이 변경되었습니다. 프로그램을 재시작하면 적용됩니다.</value></data>
+  <data name="SettingsGroupDefaults" xml:space="preserve"><value>기본 설정</value></data>
+  <data name="SettingsLabelDbType" xml:space="preserve"><value>기본 DB 종류:</value></data>
+  <data name="SettingsLabelLineStyle" xml:space="preserve"><value>기본 선 스타일:</value></data>
+  <data name="SettingsGroupFiles" xml:space="preserve"><value>파일</value></data>
+  <data name="SettingsLabelRecentMax" xml:space="preserve"><value>최근 파일 최대 수:</value></data>
+  <data name="SettingsGroupCanvas" xml:space="preserve"><value>캔버스</value></data>
+  <data name="SettingsShowGrid" xml:space="preserve"><value>그리드 표시</value></data>
+  <data name="SettingsSnapToGrid" xml:space="preserve"><value>그리드 스냅</value></data>
+  <data name="SettingsLabelSnapInterval" xml:space="preserve"><value>스냅 간격 (픽셀):</value></data>
+  <data name="SettingsBtnOk" xml:space="preserve"><value>확인</value></data>
+  <data name="SettingsBtnCancel" xml:space="preserve"><value>취소</value></data>
+</root>

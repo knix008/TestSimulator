@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -83,9 +83,19 @@ public partial class MainForm : Form
 
 	private ToolStripSeparator sepFile4;
 
+	private ToolStripSeparator sepFile5;
+
+	private ToolStripMenuItem menuSettings;
+
 	private ToolStripMenuItem menuExit;
 
 	private ToolStripMenuItem menuEdit;
+
+	private ToolStripMenuItem menuUndo;
+
+	private ToolStripMenuItem menuRedo;
+
+	private ToolStripSeparator sepEdit0;
 
 	private ToolStripMenuItem menuAddTable;
 
@@ -154,6 +164,12 @@ public partial class MainForm : Form
 	private ToolStripButton btnTsSave;
 
 	private ToolStripButton btnTsSaveAs;
+
+	private ToolStripButton btnTsUndo;
+
+	private ToolStripButton btnTsRedo;
+
+	private ToolStripSeparator tsSepUndo;
 
 	private ToolStripSeparator tsSep1;
 
@@ -295,6 +311,8 @@ public partial class MainForm : Form
 			ApplyModernTheme();
 			ConfigureSampleMenus();
 			ApplyIcons();
+			ApplyLocalization();
+			ApplyCanvasSettings();
 			WireEvents();
 			diagramCanvas.ViewportChanged += delegate
 			{
@@ -511,12 +529,22 @@ public partial class MainForm : Form
 		rulerVertical.Invalidate();
 	}
 
+	private void ApplyCanvasSettings()
+	{
+		var prefs = AppSettings.GetPreferences();
+		diagramCanvas.ShowGrid    = prefs.ShowGrid;
+		diagramCanvas.SnapToGrid  = prefs.SnapToGrid;
+		diagramCanvas.SnapInterval = prefs.SnapInterval;
+		diagramCanvas.Invalidate();
+	}
+
 	private void ApplyModernTheme()
 	{
 		Font = ModernTheme.UiFont;
 		BackColor = ModernTheme.AppBackground;
 		ModernTheme.StyleMenuStrip(menuStrip);
 		ModernTheme.StyleToolStrip(toolStrip);
+		if (propertySortBar != null) ModernTheme.StyleToolStrip(propertySortBar);
 		ModernTheme.StyleStatusStrip(statusStrip);
 		statusLabel.ForeColor = ModernTheme.TextSecondary;
 		panelToolBox.BackColor = ModernTheme.SidebarBackground;
@@ -532,6 +560,7 @@ public partial class MainForm : Form
 		ConfigureToolboxButton(btnZoomOut, "ZoomOut", "축소");
 		ConfigureToolboxButton(btnFitAll, "FitAll", "맞춤");
 		ModernTheme.StyleTabControl(tabControlRight);
+		tabControlRight.Invalidate();
 		ModernTheme.StyleDataTree(treeViewSchema);
 		ModernTheme.StyleDataList(listViewAnalysis);
 		ModernTheme.StyleDataList(listViewIndexAdvisor);
@@ -548,13 +577,15 @@ public partial class MainForm : Form
 		panelCanvasHost.BackColor = ModernTheme.CanvasChrome;
 		panelCanvasInner.BackColor = ModernTheme.CanvasBackground;
 		panelRulerCorner.BackColor = ModernTheme.ToolHover;
+		rulerHorizontal.BackColor = ModernTheme.RulerBackground;
+		rulerVertical.BackColor = ModernTheme.RulerBackground;
 		ConfigureCanvasChromeLayout();
 		ModernTheme.StyleCanvasToggleButton(btnCanvasToggleRight);
 		panelToggleStrip.BackColor = ModernTheme.CanvasChrome;
 		panelRight.BackColor = ModernTheme.PanelBackground;
 		diagramCanvas.BackColor = ModernTheme.CanvasBackground;
 		btnTsAbout.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-		btnTsAbout.Text = "정보";
+		btnTsAbout.Text = L.S("BtnAbout", "정보");
 		UpdateToolButtonStates();
 	}
 
@@ -677,9 +708,9 @@ public partial class MainForm : Form
 		}
 		tsLineStyle.Text = style switch
 		{
-			RelationshipLineStyle.Curved => "곡선",
-			RelationshipLineStyle.Orthogonal => "꺾은선",
-			_ => "직선"
+			RelationshipLineStyle.Curved => L.S("LineStyleCurved", "곡선"),
+			RelationshipLineStyle.Orthogonal => L.S("LineStyleOrthogonal", "꺾은선"),
+			_ => L.S("LineStyleStraight", "직선")
 		};
 		tsLineStyle.Image = IconProvider.Get(GetLineStyleIconName(style), 16);
 		tsLineStraight.Checked = style == RelationshipLineStyle.Straight;
@@ -687,7 +718,15 @@ public partial class MainForm : Form
 		tsLineOrthogonal.Checked = style == RelationshipLineStyle.Orthogonal;
 	}
 
-	private static readonly string[] AnalysisColumnHeaders = { "수준", "심각도", "테이블", "문제 컬럼", "문제", "권장" };
+	private static string[] GetAnalysisColumnHeaders() => new[]
+	{
+		L.S("ColHdrLevel", "수준"),
+		L.S("ColHdrSeverity", "심각도"),
+		L.S("ColHdrTable", "테이블"),
+		L.S("ColHdrColumn", "문제 컬럼"),
+		L.S("ColHdrIssue", "문제"),
+		L.S("ColHdrRecommend", "권장")
+	};
 
 	private int _analysisSortColumn = -1;
 
@@ -714,7 +753,7 @@ public partial class MainForm : Form
 			Height = 48,
 			Padding = new Padding(10, 8, 10, 4),
 			TextAlign = ContentAlignment.TopLeft,
-			Text = "정규화 분석 결과가 여기에 표시됩니다.",
+			Text = L.S("AnalysisReady", "정규화 분석 결과가 여기에 표시됩니다."),
 			ForeColor = ModernTheme.TextSecondary,
 			BackColor = ModernTheme.SidebarBackground,
 			Font = ModernTheme.UiFontSmall
@@ -729,16 +768,12 @@ public partial class MainForm : Form
 			AutoSize = true,
 			ShowItemToolTips = true
 		};
-		_btnNf1  = MakeNfBtn("1NF",  Analysis.NormalizationLevel.NF1,
-			"1정규화(1NF): 항상 선택 가능");
-		_btnNf2  = MakeNfBtn("2NF",  Analysis.NormalizationLevel.NF2,
-			"2정규화(2NF): 1NF 오류가 없을 때만 선택 가능");
-		_btnNf3  = MakeNfBtn("3NF",  Analysis.NormalizationLevel.NF3,
-			"3정규화(3NF): 2NF 오류가 없을 때만 선택 가능");
-		_btnBcnf = MakeNfBtn("BCNF", Analysis.NormalizationLevel.BCNF,
-			"보이스코드 정규화(BCNF): 3NF 오류가 없을 때만 선택 가능");
+		_btnNf1  = MakeNfBtn("1NF",  Analysis.NormalizationLevel.NF1,  L.S("NfBtnTip1",    "1정규화(1NF): 항상 선택 가능"));
+		_btnNf2  = MakeNfBtn("2NF",  Analysis.NormalizationLevel.NF2,  L.S("NfBtnTip2",    "2정규화(2NF): 1NF 오류가 없을 때만 선택 가능"));
+		_btnNf3  = MakeNfBtn("3NF",  Analysis.NormalizationLevel.NF3,  L.S("NfBtnTip3",    "3정규화(3NF): 2NF 오류가 없을 때만 선택 가능"));
+		_btnBcnf = MakeNfBtn("BCNF", Analysis.NormalizationLevel.BCNF, L.S("NfBtnTipBcnf", "보이스코드 정규화(BCNF): 3NF 오류가 없을 때만 선택 가능"));
 		_btnNf1.Checked = true;
-		_normLevelStrip.Items.Add(new ToolStripLabel("검사 수준:") { ForeColor = ModernTheme.TextSecondary });
+		_normLevelStrip.Items.Add(new ToolStripLabel(L.S("AnalysisLevel", "검사 수준:")) { ForeColor = ModernTheme.TextSecondary });
 		_normLevelStrip.Items.Add(_btnNf1);
 		_normLevelStrip.Items.Add(_btnNf2);
 		_normLevelStrip.Items.Add(_btnNf3);
@@ -750,7 +785,7 @@ public partial class MainForm : Form
 		tabAnalysis.Controls.Add(lblAnalysisSummary);
 		tabAnalysis.Controls.Add(_normLevelStrip);
 		listViewAnalysis.Columns.Clear();
-		foreach (string header in AnalysisColumnHeaders)
+		foreach (string header in GetAnalysisColumnHeaders())
 		{
 			listViewAnalysis.Columns.Add(header);
 		}
@@ -844,7 +879,9 @@ public partial class MainForm : Form
 
 	private void ListViewAnalysis_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
 	{
-		int minWidth = MeasureAnalysisColumnHeaderWidth(AnalysisColumnHeaders[e.ColumnIndex]);
+		string headerText = e.ColumnIndex < listViewAnalysis.Columns.Count
+			? listViewAnalysis.Columns[e.ColumnIndex].Text : string.Empty;
+		int minWidth = MeasureAnalysisColumnHeaderWidth(headerText);
 		if (e.NewWidth < minWidth)
 		{
 			e.NewWidth = minWidth;
@@ -901,7 +938,7 @@ public partial class MainForm : Form
 
 	private void ApplyAnalysisColumnLayout(bool fillOnly = false)
 	{
-		if (listViewAnalysis.Columns.Count < AnalysisColumnHeaders.Length)
+		if (listViewAnalysis.Columns.Count < GetAnalysisColumnHeaders().Length)
 		{
 			return;
 		}
@@ -938,7 +975,8 @@ public partial class MainForm : Form
 
 	private void ApplyDefaultAnalysisColumnWidths(int available)
 	{
-		int[] minWidths = AnalysisColumnHeaders.Select(MeasureAnalysisColumnHeaderWidth).ToArray();
+		int[] minWidths = listViewAnalysis.Columns.Cast<ColumnHeader>()
+			.Select(c => MeasureAnalysisColumnHeaderWidth(c.Text)).ToArray();
 		int minTotal = minWidths.Sum();
 		for (int i = 0; i < minWidths.Length; i++)
 		{
@@ -963,7 +1001,8 @@ public partial class MainForm : Form
 		int columnCount = Math.Min(_analysisColumnWidths.Length, listViewAnalysis.Columns.Count);
 		for (int i = 0; i < columnCount; i++)
 		{
-			int minWidth = MeasureAnalysisColumnHeaderWidth(AnalysisColumnHeaders[i]);
+			string hdrText = i < listViewAnalysis.Columns.Count ? listViewAnalysis.Columns[i].Text : string.Empty;
+			int minWidth = MeasureAnalysisColumnHeaderWidth(hdrText);
 			listViewAnalysis.Columns[i].Width = Math.Max(minWidth, _analysisColumnWidths[i]);
 		}
 
@@ -991,7 +1030,8 @@ public partial class MainForm : Form
 		else if (total > available)
 		{
 			int overflow = total - available;
-			int minWidth = MeasureAnalysisColumnHeaderWidth(AnalysisColumnHeaders[lastIndex]);
+			string lastHdrText = lastIndex < listViewAnalysis.Columns.Count ? listViewAnalysis.Columns[lastIndex].Text : string.Empty;
+			int minWidth = MeasureAnalysisColumnHeaderWidth(lastHdrText);
 			listViewAnalysis.Columns[lastIndex].Width = Math.Max(minWidth, listViewAnalysis.Columns[lastIndex].Width - overflow);
 		}
 
@@ -1072,7 +1112,14 @@ public partial class MainForm : Form
 		}
 	}
 
-	private static readonly string[] IndexAdvisorColumnHeaders = ["테이블", "컬럼", "분류", "이유", "권고 사항"];
+	private static string[] GetIndexAdvisorColumnHeaders() => new[]
+	{
+		L.S("ColHdrIdxTable", "테이블"),
+		L.S("ColHdrIdxColumn", "컬럼"),
+		L.S("ColHdrIdxType", "분류"),
+		L.S("ColHdrIdxReason", "이유"),
+		L.S("ColHdrIdxAdvice", "권고 사항")
+	};
 
 	private void ConfigureIndexAdvisorPanel()
 	{
@@ -1080,7 +1127,7 @@ public partial class MainForm : Form
 		listViewIndexAdvisor.Dock = DockStyle.Fill;
 		tabIndexAdvisor.Controls.Add(listViewIndexAdvisor);
 		listViewIndexAdvisor.Columns.Clear();
-		foreach (string header in IndexAdvisorColumnHeaders)
+		foreach (string header in GetIndexAdvisorColumnHeaders())
 			listViewIndexAdvisor.Columns.Add(header, 100);
 		listViewIndexAdvisor.FullRowSelect = true;
 		listViewIndexAdvisor.GridLines = true;
@@ -1104,10 +1151,10 @@ public partial class MainForm : Form
 				continue;
 			string kindLabel = s.Kind switch
 			{
-				Analysis.IndexSuggestionKind.AlreadyIndexed => "✓ 인덱싱됨",
-				Analysis.IndexSuggestionKind.Required       => "● 필수",
-				Analysis.IndexSuggestionKind.Recommended    => "◆ 권장",
-				Analysis.IndexSuggestionKind.Consider       => "○ 검토",
+				Analysis.IndexSuggestionKind.AlreadyIndexed => L.S("IdxAlreadyIndexed", "✓ 인덱싱됨"),
+				Analysis.IndexSuggestionKind.Required       => L.S("IdxRequired",       "● 필수"),
+				Analysis.IndexSuggestionKind.Recommended    => L.S("IdxRecommended",    "◆ 권장"),
+				Analysis.IndexSuggestionKind.Consider       => L.S("IdxConsider",       "○ 검토"),
 				_ => s.Kind.ToString(),
 			};
 			var item = new ListViewItem([s.Table, s.Column, kindLabel, s.Reason, s.Recommendation]);
@@ -1221,6 +1268,11 @@ public partial class MainForm : Form
 		if (menuSample != null)
 			menuSample.Image = IconProvider.Get("Sample");
 		menuExit.Image = IconProvider.Get("Exit");
+		menuSettings.Image = IconProvider.Get("Settings");
+		menuUndo.Image = IconProvider.Get("Undo");
+		menuRedo.Image = IconProvider.Get("Redo");
+		btnTsUndo.Image = IconProvider.Get("Undo", 22);
+		btnTsRedo.Image = IconProvider.Get("Redo", 22);
 		menuAddTable.Image = IconProvider.Get("AddTable");
 		menuAddColumn.Image = IconProvider.Get("AddColumn");
 		menuAddRel.Image = IconProvider.Get("AddRelation");
@@ -1276,6 +1328,200 @@ public partial class MainForm : Form
 		catch
 		{
 		}
+	}
+
+	private void ApplyLocalization()
+	{
+		menuFile.Text       = L.S("MenuFile");
+		menuNew.Text        = L.S("MenuNew");
+		menuOpen.Text       = L.S("MenuOpen");
+		menuOpenDatabase.Text = L.S("MenuOpenDatabase");
+		menuSave.Text       = L.S("MenuSave");
+		menuSaveAs.Text     = L.S("MenuSaveAs");
+		menuRecent.Text     = L.S("MenuRecentFiles");
+		menuExport.Text     = L.S("MenuExport");
+		menuExportSql.Text  = L.S("MenuExportSql");
+		menuExportJson.Text = L.S("MenuExportJson");
+		menuSettings.Text   = L.S("MenuSettings");
+		menuExit.Text       = L.S("MenuExit");
+		menuEdit.Text       = L.S("MenuEdit");
+		menuUndo.Text       = L.S("MenuUndo", "실행 취소");
+		menuRedo.Text       = L.S("MenuRedo", "다시 실행");
+		menuAddTable.Text   = L.S("MenuAddTable");
+		menuAddColumn.Text  = L.S("MenuAddColumn");
+		menuAddRel.Text     = L.S("MenuAddRelation");
+		menuEditSel.Text    = L.S("MenuEditSelected");
+		menuDeleteSel.Text  = L.S("MenuDeleteSelected");
+		menuView.Text       = L.S("MenuView");
+		menuZoomIn.Text     = L.S("MenuZoomIn");
+		menuZoomOut.Text    = L.S("MenuZoomOut");
+		menuFitAll.Text     = L.S("MenuFitAll");
+		menuToggleRightPanel.Text = L.S("MenuTogglePanel");
+		menuDbType.Text     = L.S("MenuDbType");
+		menuAnalyzeTop.Text = L.S("MenuAnalyze");
+		menuAnalyze.Text    = L.S("MenuRunAnalysis");
+		menuWriteReport.Text = L.S("MenuWriteReport");
+		menuAbout.Text      = L.S("MenuAbout");
+
+		btnTsNew.ToolTipText       = L.S("TtNew");
+		btnTsOpen.ToolTipText      = L.S("TtOpen");
+		btnTsOpenDatabase.ToolTipText = L.S("TtOpenDb");
+		btnTsSave.ToolTipText      = L.S("TtSave");
+		btnTsSaveAs.ToolTipText    = L.S("TtSaveAs");
+		btnTsAddTable.ToolTipText  = L.S("TtAddTable");
+		btnTsAddRel.ToolTipText    = L.S("TtAddRelation");
+		btnTsZoomIn.ToolTipText    = L.S("TtZoomIn");
+		btnTsZoomOut.ToolTipText   = L.S("TtZoomOut");
+		btnTsFitAll.ToolTipText    = L.S("TtFitAll");
+		btnTsAnalyze.ToolTipText   = L.S("TtAnalyze");
+		btnTsWriteReport.ToolTipText = L.S("TtReport");
+		btnTsAbout.ToolTipText     = L.S("TtAbout");
+
+		tabTreeView.Text       = L.S("TabStructure");
+		tabAnalysis.Text       = L.S("TabAnalysis");
+		tabIndexAdvisor.Text   = L.S("TabIndexAdvisor");
+
+		if (tsLineStraight != null) tsLineStraight.Text = L.S("LineStyleStraight");
+		if (tsLineCurved != null)   tsLineCurved.Text   = L.S("LineStyleCurved");
+		if (tsLineOrthogonal != null) tsLineOrthogonal.Text = L.S("LineStyleOrthogonal");
+
+		UpdateToolbarLineStyleDisplay(diagramCanvas?.DefaultLineStyle ?? RelationshipLineStyle.Straight);
+
+		// Toolbar & toolbox
+		if (btnTsAbout != null)
+		{
+			btnTsAbout.Text = L.S("BtnAbout", "정보");
+			btnTsAbout.ToolTipText = L.S("TtAbout");
+		}
+		if (btnTsUndo != null)    btnTsUndo.ToolTipText    = L.S("TtUndo");
+		if (btnTsRedo != null)    btnTsRedo.ToolTipText    = L.S("TtRedo");
+		if (btnTsToggleRight != null) btnTsToggleRight.ToolTipText = L.S("TtToggleRight");
+		if (btnPropertySortCategory != null)
+		{
+			btnPropertySortCategory.Text       = L.S("BtnSortCategory", "분류별");
+			btnPropertySortCategory.ToolTipText = L.S("TtSortCategory");
+		}
+		if (btnPropertySortAlphabetical != null)
+		{
+			btnPropertySortAlphabetical.Text       = L.S("BtnSortAlpha", "사전순");
+			btnPropertySortAlphabetical.ToolTipText = L.S("TtSortAlpha");
+		}
+
+		// Toolbox group boxes
+		if (grpTools != null)    grpTools.Text    = L.S("GrpTools",    "도구");
+		if (grpRelation != null) grpRelation.Text = L.S("GrpRelation", "관계");
+		if (grpView != null)     grpView.Text     = L.S("GrpView",     "보기");
+
+		// Analysis column headers
+		if (listViewAnalysis != null && listViewAnalysis.Columns.Count > 0)
+		{
+			var hdrs = GetAnalysisColumnHeaders();
+			for (int i = 0; i < Math.Min(listViewAnalysis.Columns.Count, hdrs.Length); i++)
+				listViewAnalysis.Columns[i].Text = hdrs[i];
+		}
+
+		// Index advisor column headers
+		if (listViewIndexAdvisor != null && listViewIndexAdvisor.Columns.Count > 0)
+		{
+			var hdrs = GetIndexAdvisorColumnHeaders();
+			for (int i = 0; i < Math.Min(listViewIndexAdvisor.Columns.Count, hdrs.Length); i++)
+				listViewIndexAdvisor.Columns[i].Text = hdrs[i];
+		}
+
+		// Analysis panel live labels — only update the "ready" placeholder, never actual results
+		if (lblAnalysisSummary != null)
+		{
+			var t = lblAnalysisSummary.Text;
+			if (t == "정규화 분석 결과가 여기에 표시됩니다."
+				|| t == "Normalization analysis results will appear here."
+				|| string.IsNullOrWhiteSpace(t))
+			{
+				lblAnalysisSummary.Text = L.S("AnalysisReady", "정규화 분석 결과가 여기에 표시됩니다.");
+			}
+		}
+		if (_normLevelStrip != null && _normLevelStrip.Items.Count > 0
+			&& _normLevelStrip.Items[0] is ToolStripLabel normLabel)
+		{
+			normLabel.Text = L.S("AnalysisLevel", "검사 수준:");
+		}
+		if (_btnNf1  != null) _btnNf1.ToolTipText  = L.S("NfBtnTip1",    "1정규화(1NF): 항상 선택 가능");
+		if (_btnNf2  != null) _btnNf2.ToolTipText  = L.S("NfBtnTip2",    "2정규화(2NF): 1NF 오류가 없을 때만 선택 가능");
+		if (_btnNf3  != null) _btnNf3.ToolTipText  = L.S("NfBtnTip3",    "3정규화(3NF): 2NF 오류가 없을 때만 선택 가능");
+		if (_btnBcnf != null) _btnBcnf.ToolTipText = L.S("NfBtnTipBcnf", "보이스코드 정규화(BCNF): 3NF 오류가 없을 때만 선택 가능");
+
+		// Refresh tree view so node labels ("테이블"/"관계") update to current language
+		if (treeViewSchema != null && diagramCanvas != null)
+			RefreshTreeView();
+	}
+
+	private void ApplyTheme(string theme)
+	{
+		ModernTheme.SetTheme(theme == "dark" ? ModernTheme.ThemeKind.Dark : ModernTheme.ThemeKind.Light);
+		IconProvider.ClearCache();
+		ApplyModernTheme();
+		ApplyIcons();
+		ApplyLocalization();
+		diagramCanvas.BackColor = ModernTheme.CanvasBackground;
+		diagramCanvas.Invalidate();
+		rulerHorizontal?.Invalidate();
+		rulerVertical?.Invalidate();
+	}
+
+	private void ShowPreferences()
+	{
+		var savedPrefs = AppSettings.GetPreferences();
+		string originalLang = savedPrefs.Language;
+		string originalTheme = savedPrefs.Theme;
+
+		using var dlg = new Dialogs.PreferencesDialog();
+		dlg.LiveLanguageChanged += lang =>
+		{
+			L.Init(lang);
+			ApplyLocalization();
+		};
+		dlg.LiveThemeChanged += theme => ApplyTheme(theme);
+
+		var result = dlg.ShowDialog(this);
+
+		if (result != DialogResult.OK)
+		{
+			// Revert both language and theme to originals
+			L.Init(originalLang);
+			bool currentIsDark = ModernTheme.IsDark;
+			bool originalIsDark = originalTheme == "dark";
+			if (currentIsDark != originalIsDark)
+				ApplyTheme(originalTheme);
+			else
+				ApplyLocalization();
+			return;
+		}
+
+		var prefs = AppSettings.GetPreferences();
+		bool needRedraw = dlg.ThemeChanged || dlg.LanguageChanged;
+
+		if (dlg.ThemeChanged)
+		{
+			bool savedIsDark = prefs.Theme == "dark";
+			if (savedIsDark != ModernTheme.IsDark)
+				ApplyTheme(prefs.Theme);
+			else if (dlg.LanguageChanged)
+			{
+				ApplyModernTheme();
+				ApplyIcons();
+				ApplyLocalization();
+			}
+		}
+		else if (needRedraw)
+		{
+			ApplyModernTheme();
+			ApplyIcons();
+			ApplyLocalization();
+			diagramCanvas.BackColor = ModernTheme.CanvasBackground;
+			diagramCanvas.Invalidate();
+			rulerHorizontal?.Invalidate();
+			rulerVertical?.Invalidate();
+		}
+		ApplyCanvasSettings();
 	}
 
 	private void WireEvents()
@@ -1470,6 +1716,19 @@ public partial class MainForm : Form
 		{
 			RebuildRecentMenu();
 		};
+		menuUndo.Click += delegate { diagramCanvas.Undo(); };
+		menuRedo.Click += delegate { diagramCanvas.Redo(); };
+		btnTsUndo.Click += delegate { diagramCanvas.Undo(); };
+		btnTsRedo.Click += delegate { diagramCanvas.Redo(); };
+		diagramCanvas.UndoRedo.StateChanged += delegate
+		{
+			bool canUndo = diagramCanvas.UndoRedo.CanUndo;
+			bool canRedo = diagramCanvas.UndoRedo.CanRedo;
+			menuUndo.Enabled = canUndo;
+			menuRedo.Enabled = canRedo;
+			btnTsUndo.Enabled = canUndo;
+			btnTsRedo.Enabled = canRedo;
+		};
 		menuAddTable.Click += delegate
 		{
 			AddNewTable();
@@ -1541,6 +1800,10 @@ public partial class MainForm : Form
 		menuAbout.Click += delegate
 		{
 			ShowAbout();
+		};
+		menuSettings.Click += delegate
+		{
+			ShowPreferences();
 		};
 		propertyGrid.PropertyValueChanged += PropertyGrid_PropertyValueChanged;
 		ConfigurePropertySortBar();
@@ -1677,11 +1940,16 @@ public partial class MainForm : Form
 
 	private void InitializeEmptyProject()
 	{
-		diagramCanvas.LoadSchema(new DbSchema(), notifyChange: false);
+		var prefs = AppSettings.GetPreferences();
+		var schema = new DbSchema { TargetDb = prefs.DefaultDbType };
+		diagramCanvas.LoadSchema(schema, notifyChange: false);
+		diagramCanvas.UndoRedo.Clear();
+		diagramCanvas.DefaultLineStyle = prefs.DefaultLineStyle;
 		_currentFilePath = null;
 		MarkDocumentClean();
 		RefreshAll();
 		UpdateDbTypeIndicator(diagramCanvas.Schema.TargetDb);
+		UpdateToolbarLineStyleDisplay(diagramCanvas.DefaultLineStyle);
 		statusLabel.Text = "새 프로젝트";
 	}
 
@@ -1763,6 +2031,7 @@ public partial class MainForm : Form
 				? ImportSqliteDatabase(path)
 				: DatabaseFileImporter.Import(path);
 			diagramCanvas.LoadSchema(dbSchema, notifyChange: false);
+			diagramCanvas.UndoRedo.Clear();
 			_currentFilePath = null;
 			UpdateDbTypeIndicator(dbSchema.TargetDb);
 			RefreshAll();
@@ -1822,6 +2091,7 @@ public partial class MainForm : Form
 		{
 			DbSchema dbSchema = SchemaSerializer.Load(path);
 			diagramCanvas.LoadSchema(dbSchema, notifyChange: false);
+			diagramCanvas.UndoRedo.Clear();
 			_currentFilePath = path;
 			MarkDocumentClean();
 			RecentFilesManager.Push(path);
@@ -1940,6 +2210,7 @@ public partial class MainForm : Form
 		using TableEditDialog tableEditDialog = new TableEditDialog(table, diagramCanvas.Schema.TargetDb);
 		if (tableEditDialog.ShowDialog(this) == DialogResult.OK)
 		{
+			diagramCanvas.SaveUndoSnapshot();
 			tableEditDialog.Result.X = 80 + diagramCanvas.Schema.Tables.Count * 30;
 			tableEditDialog.Result.Y = 80 + diagramCanvas.Schema.Tables.Count * 20;
 			diagramCanvas.Schema.Tables.Add(tableEditDialog.Result);
@@ -1957,7 +2228,7 @@ public partial class MainForm : Form
 	{
 		if (table == null)
 		{
-			MessageBox.Show("테이블을 먼저 선택하세요.", "안내");
+			MessageBox.Show(L.S("MsgSelectTable", "테이블을 먼저 선택하세요."), L.S("MsgNotice", "안내"));
 			return;
 		}
 
@@ -1977,13 +2248,14 @@ public partial class MainForm : Form
 			using ColumnEditDialog columnEditDialog = new ColumnEditDialog(column, targetDb);
 			if (columnEditDialog.ShowDialog(this) == DialogResult.OK)
 			{
+				diagramCanvas.SaveUndoSnapshot();
 				table.Columns.Add(columnEditDialog.Result);
 				RefreshAll();
 			}
 		}
 		catch (Exception ex)
 		{
-			ErrorDialog.Show(this, "컬럼 추가 오류", ex, "컬럼을 추가할 수 없습니다.");
+			ErrorDialog.Show(this, L.S("ErrAddColumnTitle", "컬럼 추가 오류"), ex, L.S("ErrAddColumn", "컬럼을 추가할 수 없습니다."));
 		}
 	}
 
@@ -1991,7 +2263,7 @@ public partial class MainForm : Form
 	{
 		if (diagramCanvas.Schema.Tables.Count < 2)
 		{
-			MessageBox.Show("관계를 추가하려면 최소 2개의 테이블이 필요합니다.", "안내");
+			MessageBox.Show(L.S("MsgNeedTwoTables", "관계를 추가하려면 최소 2개의 테이블이 필요합니다."), L.S("MsgNotice", "안내"));
 			return;
 		}
 		DbRelationship rel = new DbRelationship
@@ -2003,6 +2275,7 @@ public partial class MainForm : Form
 		using RelationshipDialog relationshipDialog = new RelationshipDialog(rel, diagramCanvas.Schema);
 		if (relationshipDialog.ShowDialog(this) == DialogResult.OK)
 		{
+			diagramCanvas.SaveUndoSnapshot();
 			diagramCanvas.Schema.Relationships.Add(relationshipDialog.Result);
 			RefreshAll();
 		}
@@ -2039,6 +2312,7 @@ public partial class MainForm : Form
 		using ColumnEditDialog columnEditDialog = new ColumnEditDialog(column, diagramCanvas.Schema.TargetDb);
 		if (columnEditDialog.ShowDialog(this) == DialogResult.OK)
 		{
+			diagramCanvas.SaveUndoSnapshot();
 			int num = table.Columns.FindIndex((DbColumn c) => c.Id == column.Id);
 			if (num >= 0)
 			{
@@ -2050,8 +2324,9 @@ public partial class MainForm : Form
 
 	private void DeleteColumn(DbTable table, DbColumn column)
 	{
-		if (MessageBox.Show("컬럼 '" + column.Name + "'을(를) 삭제하시겠습니까?", "컬럼 삭제", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+		if (MessageBox.Show(string.Format(L.S("MsgDeleteColumn", "컬럼 '{0}'을(를) 삭제할까요?"), column.Name), L.S("MsgDeleteColumnTitle", "삭제 확인"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
 		{
+			diagramCanvas.SaveUndoSnapshot();
 			diagramCanvas.Schema.RemoveColumn(table.Id, column.Id);
 			diagramCanvas.NotifyColumnRemoved(column);
 			RefreshAll();
@@ -2110,7 +2385,7 @@ public partial class MainForm : Form
 		miDeleteTable.Click += delegate
 		{
 			DbTable t = GetTableContext();
-			if (t != null && MessageBox.Show("테이블 '" + t.Name + "'을(를) 삭제하시겠습니까?", "테이블 삭제", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == DialogResult.Yes)
+			if (t != null && MessageBox.Show(string.Format(L.S("MsgDeleteTable", "테이블 '{0}'을(를) 삭제하시겠습니까?"), t.Name), L.S("MsgDeleteTableTitle", "테이블 삭제"), MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == DialogResult.Yes)
 			{
 				diagramCanvas.Schema.Tables.RemoveAll((DbTable tb) => tb.Id == t.Id);
 				diagramCanvas.Schema.Relationships.RemoveAll((DbRelationship r) => r.SourceTableId == t.Id || r.TargetTableId == t.Id);
@@ -2216,6 +2491,7 @@ public partial class MainForm : Form
 		using TableEditDialog tableEditDialog = new TableEditDialog(table, diagramCanvas.Schema.TargetDb);
 		if (tableEditDialog.ShowDialog(this) == DialogResult.OK)
 		{
+			diagramCanvas.SaveUndoSnapshot();
 			table.Name = tableEditDialog.Result.Name;
 			table.Comment = tableEditDialog.Result.Comment;
 			table.Columns = tableEditDialog.Result.Columns;
@@ -2228,6 +2504,7 @@ public partial class MainForm : Form
 		using RelationshipDialog relationshipDialog = new RelationshipDialog(rel, diagramCanvas.Schema);
 		if (relationshipDialog.ShowDialog(this) == DialogResult.OK)
 		{
+			diagramCanvas.SaveUndoSnapshot();
 			rel.Name = relationshipDialog.Result.Name;
 			rel.Type = relationshipDialog.Result.Type;
 			rel.LineStyle = relationshipDialog.Result.LineStyle;
@@ -2299,7 +2576,7 @@ public partial class MainForm : Form
 		listViewAnalysis.Groups.Clear();
 		if (schema.Tables.Count == 0)
 		{
-			lblAnalysisSummary.Text = "테이블이 없어 정규화 검사를 수행할 수 없습니다.";
+			lblAnalysisSummary.Text = L.S("NoTablesAnalysis", "테이블이 없어 정규화 검사를 수행할 수 없습니다.");
 			lblAnalysisSummary.ForeColor = ModernTheme.TextMuted;
 			listViewAnalysis.EndUpdate();
 			UpdateAnalysisSummaryLayout();
@@ -2344,25 +2621,19 @@ public partial class MainForm : Form
 		};
 		if (issues.Count == 0)
 		{
-			lblAnalysisSummary.Text = $"정규화 검사: 문제 없음 ({levelLabel})";
+			lblAnalysisSummary.Text = string.Format(L.S("AnalysisNoIssues", "정규화 검사: 문제 없음 ({0})"), levelLabel);
 			lblAnalysisSummary.ForeColor = ModernTheme.Success;
 		}
 		else
 		{
 			List<string> parts = new List<string>();
 			if (errorCount > 0)
-			{
-				parts.Add($"오류 {errorCount}건");
-			}
+				parts.Add(string.Format(L.S("AnalysisErrCount", "오류 {0}건"), errorCount));
 			if (warningCount > 0)
-			{
-				parts.Add($"경고 {warningCount}건");
-			}
+				parts.Add(string.Format(L.S("AnalysisWarnCount", "경고 {0}건"), warningCount));
 			if (infoCount > 0)
-			{
-				parts.Add($"정보 {infoCount}건");
-			}
-			lblAnalysisSummary.Text = "정규화 검사: " + string.Join(", ", parts) + " — 아래 목록에서 문제 위치를 확인하세요.";
+				parts.Add(string.Format(L.S("AnalysisInfoCount", "정보 {0}건"), infoCount));
+			lblAnalysisSummary.Text = string.Format(L.S("AnalysisSummary", "정규화 검사: {0} — 아래 목록에서 문제 위치를 확인하세요."), string.Join(", ", parts));
 			lblAnalysisSummary.ForeColor = (errorCount > 0) ? ModernTheme.Danger : ModernTheme.Warning;
 		}
 		listViewAnalysis.EndUpdate();
@@ -2376,7 +2647,9 @@ public partial class MainForm : Form
 		if (focusTab)
 		{
 			tabControlRight.SelectedTab = tabAnalysis;
-			statusLabel.Text = ((issues.Count == 0) ? "정규화 검사 완료: 문제 없음" : $"정규화 검사 완료: {issues.Count}개 항목 발견");
+			statusLabel.Text = issues.Count == 0
+				? L.S("AnalysisDone", "정규화 검사 완료: 문제 없음")
+				: string.Format(L.S("AnalysisDoneCount", "정규화 검사 완료: {0}개 항목 발견"), issues.Count);
 		}
 	}
 
@@ -2421,7 +2694,7 @@ public partial class MainForm : Form
 			Tag = schema
 		};
 		treeNode.NodeFont = new Font(treeViewSchema.Font, FontStyle.Bold);
-		TreeNode treeNode2 = new TreeNode($"\ud83d\udccb 테이블 ({schema.Tables.Count})");
+		TreeNode treeNode2 = new TreeNode($"\ud83d\udccb {L.S("TreeTables", "테이블")} ({schema.Tables.Count})");
 		foreach (DbTable table in schema.Tables)
 		{
 			TreeNode treeNode3 = new TreeNode("\ud83d\uddc2 " + table.Name)
@@ -2441,7 +2714,7 @@ public partial class MainForm : Form
 			treeNode2.Nodes.Add(treeNode3);
 		}
 		treeNode.Nodes.Add(treeNode2);
-		TreeNode treeNode4 = new TreeNode($"\ud83d\udd17 관계 ({schema.Relationships.Count})");
+		TreeNode treeNode4 = new TreeNode($"\ud83d\udd17 {L.S("TreeRelations", "관계")} ({schema.Relationships.Count})");
 		foreach (DbRelationship relationship in schema.Relationships)
 		{
 			DbTable dbTable = schema.FindTable(relationship.SourceTableId);
@@ -2654,7 +2927,7 @@ public partial class MainForm : Form
 		{
 			return true;
 		}
-		return MessageBox.Show("저장되지 않은 변경사항이 있습니다. 계속할까요?", "확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+		return MessageBox.Show(L.S("MsgUnsavedChanges", "저장되지 않은 변경사항이 있습니다. 계속할까요?"), L.S("MsgConfirm", "확인"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
 	}
 
 	private void MainForm_KeyDown(object sender, KeyEventArgs e)
@@ -2776,9 +3049,14 @@ public partial class MainForm : Form
         menuExportJson = new ToolStripMenuItem();
         menuExport = new ToolStripMenuItem();
         sepFile4 = new ToolStripSeparator();
+        sepFile5 = new ToolStripSeparator();
+        menuSettings = new ToolStripMenuItem();
         menuExit = new ToolStripMenuItem();
         menuFile = new ToolStripMenuItem();
         menuAddTable = new ToolStripMenuItem();
+        menuUndo = new ToolStripMenuItem();
+        menuRedo = new ToolStripMenuItem();
+        sepEdit0 = new ToolStripSeparator();
         menuAddColumn = new ToolStripMenuItem();
         menuAddRel = new ToolStripMenuItem();
         sepEdit1 = new ToolStripSeparator();
@@ -2810,6 +3088,9 @@ public partial class MainForm : Form
         btnTsOpenDatabase = new ToolStripButton();
         btnTsSave = new ToolStripButton();
         btnTsSaveAs = new ToolStripButton();
+        btnTsUndo = new ToolStripButton();
+        btnTsRedo = new ToolStripButton();
+        tsSepUndo = new ToolStripSeparator();
         tsSep1 = new ToolStripSeparator();
         btnTsAddTable = new ToolStripButton();
         btnTsAddRel = new ToolStripButton();
@@ -3082,16 +3363,28 @@ public partial class MainForm : Form
         sepFile4.Name = "sepFile4";
         sepFile4.Size = new Size(258, 6);
         // 
+        // sepFile5
+        //
+        sepFile5.Name = "sepFile5";
+        sepFile5.Size = new Size(258, 6);
+        //
+        // menuSettings
+        //
+        menuSettings.Name = "menuSettings";
+        menuSettings.Size = new Size(261, 22);
+        menuSettings.Text = "설정...";
+        menuSettings.ToolTipText = "프로그램 설정을 변경합니다";
+        //
         // menuExit
-        // 
+        //
         menuExit.Name = "menuExit";
         menuExit.Size = new Size(261, 22);
         menuExit.Text = "끝내기(&X)";
         menuExit.ToolTipText = "프로그램을 종료합니다";
-        // 
+        //
         // menuFile
-        // 
-        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuNew, menuOpen, menuOpenDatabase, sepFile1, menuSave, menuSaveAs, sepFile2, menuRecent, sepFile3, menuExport, sepFile4, menuExit });
+        //
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuNew, menuOpen, menuOpenDatabase, sepFile1, menuSave, menuSaveAs, sepFile2, menuRecent, sepFile3, menuExport, sepFile4, menuSettings, sepFile5, menuExit });
         menuFile.Name = "menuFile";
         menuFile.Size = new Size(57, 20);
         menuFile.Text = "파일(&F)";
@@ -3119,31 +3412,54 @@ public partial class MainForm : Form
         menuAddRel.Size = new Size(212, 22);
         menuAddRel.Text = "관계 추가(&R)";
         menuAddRel.ToolTipText = "테이블 간 관계를 추가합니다 (Ctrl+R)";
-        // 
+        //
+        // menuUndo
+        //
+        menuUndo.Enabled = false;
+        menuUndo.Name = "menuUndo";
+        menuUndo.ShortcutKeys = Keys.Control | Keys.Z;
+        menuUndo.Size = new Size(212, 22);
+        menuUndo.Text = "실행 취소(&U)";
+        menuUndo.ToolTipText = "마지막 작업을 취소합니다 (Ctrl+Z)";
+        //
+        // menuRedo
+        //
+        menuRedo.Enabled = false;
+        menuRedo.Name = "menuRedo";
+        menuRedo.ShortcutKeys = Keys.Control | Keys.Y;
+        menuRedo.Size = new Size(212, 22);
+        menuRedo.Text = "다시 실행(&Y)";
+        menuRedo.ToolTipText = "취소한 작업을 다시 실행합니다 (Ctrl+Y)";
+        //
+        // sepEdit0
+        //
+        sepEdit0.Name = "sepEdit0";
+        sepEdit0.Size = new Size(209, 6);
+        //
         // sepEdit1
-        // 
+        //
         sepEdit1.Name = "sepEdit1";
         sepEdit1.Size = new Size(209, 6);
-        // 
+        //
         // menuEditSel
-        // 
+        //
         menuEditSel.Name = "menuEditSel";
         menuEditSel.ShortcutKeys = Keys.F2;
         menuEditSel.Size = new Size(212, 22);
         menuEditSel.Text = "선택 항목 편집(&E)";
         menuEditSel.ToolTipText = "선택한 테이블 또는 관계를 편집합니다 (F2)";
-        // 
+        //
         // menuDeleteSel
-        // 
+        //
         menuDeleteSel.Name = "menuDeleteSel";
         menuDeleteSel.ShortcutKeys = Keys.Delete;
         menuDeleteSel.Size = new Size(212, 22);
         menuDeleteSel.Text = "선택 항목 삭제(&D)";
         menuDeleteSel.ToolTipText = "선택한 항목을 삭제합니다 (Delete)";
-        // 
+        //
         // menuEdit
-        // 
-        menuEdit.DropDownItems.AddRange(new ToolStripItem[] { menuAddTable, menuAddColumn, menuAddRel, sepEdit1, menuEditSel, menuDeleteSel });
+        //
+        menuEdit.DropDownItems.AddRange(new ToolStripItem[] { menuUndo, menuRedo, sepEdit0, menuAddTable, menuAddColumn, menuAddRel, sepEdit1, menuEditSel, menuDeleteSel });
         menuEdit.Name = "menuEdit";
         menuEdit.Size = new Size(57, 20);
         menuEdit.Text = "편집(&E)";
@@ -3321,9 +3637,30 @@ public partial class MainForm : Form
         btnTsSaveAs.Name = "btnTsSaveAs";
         btnTsSaveAs.Size = new Size(23, 22);
         btnTsSaveAs.ToolTipText = "다른 이름으로 저장 (Ctrl+Shift+S)";
-        // 
+        //
+        // btnTsUndo
+        //
+        btnTsUndo.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        btnTsUndo.Name = "btnTsUndo";
+        btnTsUndo.Size = new Size(23, 22);
+        btnTsUndo.ToolTipText = "실행 취소 (Ctrl+Z)";
+        btnTsUndo.Enabled = false;
+        //
+        // btnTsRedo
+        //
+        btnTsRedo.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        btnTsRedo.Name = "btnTsRedo";
+        btnTsRedo.Size = new Size(23, 22);
+        btnTsRedo.ToolTipText = "다시 실행 (Ctrl+Y)";
+        btnTsRedo.Enabled = false;
+        //
+        // tsSepUndo
+        //
+        tsSepUndo.Name = "tsSepUndo";
+        tsSepUndo.Size = new Size(6, 25);
+        //
         // tsSep1
-        // 
+        //
         tsSep1.Name = "tsSep1";
         tsSep1.Size = new Size(6, 25);
         // 
@@ -3454,7 +3791,7 @@ public partial class MainForm : Form
         // toolStrip
         // 
         toolStrip.ImageScalingSize = new Size(22, 22);
-        toolStrip.Items.AddRange(new ToolStripItem[] { btnTsNew, btnTsOpen, btnTsOpenDatabase, btnTsSave, btnTsSaveAs, tsSep1, btnTsAddTable, btnTsAddRel, tsSep2, btnTsZoomIn, btnTsZoomOut, btnTsFitAll, tsSep3, btnTsToggleRight, btnTsAnalyze, btnTsWriteReport, tsSep4, tsDbType, btnTsAbout });
+        toolStrip.Items.AddRange(new ToolStripItem[] { btnTsNew, btnTsOpen, btnTsOpenDatabase, btnTsSave, btnTsSaveAs, btnTsUndo, btnTsRedo, tsSepUndo, tsSep1, btnTsAddTable, btnTsAddRel, tsSep2, btnTsZoomIn, btnTsZoomOut, btnTsFitAll, tsSep3, btnTsToggleRight, btnTsAnalyze, btnTsWriteReport, tsSep4, tsDbType, btnTsAbout });
         toolStrip.Location = new Point(0, 24);
         toolStrip.Name = "toolStrip";
         toolStrip.Size = new Size(1400, 25);

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using DBToolsWinV10.App;
 using DBToolsWinV10.Models;
 
 namespace DBToolsWinV10.Dialogs;
@@ -59,6 +60,34 @@ public class RelationshipDialog : Form
 		PopulateTables();
 		LoadRelationship(rel);
 		WireEvents();
+		ModernTheme.ApplyThemeToForm(this);
+		Localize();
+	}
+
+	private void Localize()
+	{
+		Text               = L.S("RelEditTitle",     "관계 편집");
+		lblName.Text       = L.S("RelEditName",      "관계 이름 (선택):");
+		lblRelType.Text    = L.S("RelEditType",      "관계 유형:");
+		lblLineStyle.Text  = L.S("RelEditLineStyle", "선 스타일:");
+		grpSource.Text     = L.S("RelEditSource",    "소스 (참조하는 쪽)");
+		grpTarget.Text     = L.S("RelEditTarget",    "타겟 (참조받는 쪽)");
+		lblSrcTable.Text   = L.S("RelEditTable",     "테이블:");
+		lblSrcCol.Text     = L.S("RelEditColumn",    "컬럼:");
+		lblTgtTable.Text   = L.S("RelEditTable",     "테이블:");
+		lblTgtCol.Text     = L.S("RelEditColumn",    "컬럼:");
+		btnOk.Text         = L.S("BtnOk",            "확인");
+		btnCancel.Text     = L.S("BtnCancel",        "취소");
+
+		// Update combo items while preserving current selection
+		int relIdx  = cmbRelType.SelectedIndex;
+		int lineIdx = cmbLineStyle.SelectedIndex;
+		cmbRelType.Items.Clear();
+		cmbRelType.Items.AddRange(L.S("RelType11", "1:1 (일대일)"), L.S("RelType1N", "1:N (일대다)"), L.S("RelTypeNM", "N:M (다대다)"));
+		cmbRelType.SelectedIndex = relIdx >= 0 ? relIdx : 1;
+		cmbLineStyle.Items.Clear();
+		cmbLineStyle.Items.AddRange(L.S("LineStyleStraight", "직선"), L.S("LineStyleCurved", "곡선"), L.S("LineStyleOrthogonal", "꺾은선"));
+		cmbLineStyle.SelectedIndex = lineIdx >= 0 ? lineIdx : 0;
 	}
 
 	private void PopulateTables()
@@ -153,6 +182,8 @@ public class RelationshipDialog : Form
 		{
 			base.DialogResult = DialogResult.Cancel;
 		};
+		ModernTheme.StyleDialogButton(btnOk, "Ok");
+		ModernTheme.StyleDialogButton(btnCancel, "Cancel");
 		base.AcceptButton = btnOk;
 		base.CancelButton = btnCancel;
 	}
@@ -312,12 +343,12 @@ public class RelationshipDialog : Form
 		this.cmbTargetCol.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
 		this.cmbTargetCol.TabIndex = 5;
 		this.grpTarget.Controls.AddRange(this.lblTgtTable, this.cmbTargetTable, this.lblTgtCol, this.cmbTargetCol);
-		this.btnOk.Location = new System.Drawing.Point(196, 344);
-		this.btnOk.Size = new System.Drawing.Size(75, 30);
+		this.btnOk.Location = new System.Drawing.Point(174, 344);
+		this.btnOk.Size = new System.Drawing.Size(88, 30);
 		this.btnOk.Text = "확인";
 		this.btnOk.TabIndex = 6;
-		this.btnCancel.Location = new System.Drawing.Point(277, 344);
-		this.btnCancel.Size = new System.Drawing.Size(75, 30);
+		this.btnCancel.Location = new System.Drawing.Point(270, 344);
+		this.btnCancel.Size = new System.Drawing.Size(88, 30);
 		this.btnCancel.Text = "취소";
 		this.btnCancel.TabIndex = 7;
 		this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;

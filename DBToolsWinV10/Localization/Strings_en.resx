@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- Menu: File -->
+  <data name="MenuFile" xml:space="preserve"><value>File(&amp;F)</value></data>
+  <data name="MenuNew" xml:space="preserve"><value>New(&amp;N)</value></data>
+  <data name="MenuOpen" xml:space="preserve"><value>Open(&amp;O)...</value></data>
+  <data name="MenuOpenDatabase" xml:space="preserve"><value>Import Database...</value></data>
+  <data name="MenuSave" xml:space="preserve"><value>Save(&amp;S)</value></data>
+  <data name="MenuSaveAs" xml:space="preserve"><value>Save As(&amp;A)...</value></data>
+  <data name="MenuRecentFiles" xml:space="preserve"><value>Recent Files</value></data>
+  <data name="MenuExport" xml:space="preserve"><value>Export</value></data>
+  <data name="MenuExportSql" xml:space="preserve"><value>Export SQL DDL...</value></data>
+  <data name="MenuExportJson" xml:space="preserve"><value>Export JSON...</value></data>
+  <data name="MenuSettings" xml:space="preserve"><value>Settings...</value></data>
+  <data name="MenuExit" xml:space="preserve"><value>Exit(&amp;X)</value></data>
+  <data name="MenuRecentEmpty" xml:space="preserve"><value>(No recent files)</value></data>
+  <data name="MenuRecentClear" xml:space="preserve"><value>Clear List</value></data>
+
+  <!-- Menu: Edit -->
+  <data name="MenuEdit" xml:space="preserve"><value>Edit(&amp;E)</value></data>
+  <data name="MenuUndo" xml:space="preserve"><value>Undo(&amp;Z)</value></data>
+  <data name="MenuRedo" xml:space="preserve"><value>Redo(&amp;Y)</value></data>
+  <data name="MenuAddTable" xml:space="preserve"><value>Add Table(&amp;T)</value></data>
+  <data name="MenuAddColumn" xml:space="preserve"><value>Add Column(&amp;L)</value></data>
+  <data name="MenuAddRelation" xml:space="preserve"><value>Add Relationship(&amp;R)</value></data>
+  <data name="MenuEditSelected" xml:space="preserve"><value>Edit Selected(&amp;E)...</value></data>
+  <data name="MenuDeleteSelected" xml:space="preserve"><value>Delete Selected(&amp;D)</value></data>
+
+  <!-- Menu: View -->
+  <data name="MenuView" xml:space="preserve"><value>View(&amp;V)</value></data>
+  <data name="MenuZoomIn" xml:space="preserve"><value>Zoom In(&amp;I)</value></data>
+  <data name="MenuZoomOut" xml:space="preserve"><value>Zoom Out(&amp;O)</value></data>
+  <data name="MenuFitAll" xml:space="preserve"><value>Fit All(&amp;F)</value></data>
+  <data name="MenuTogglePanel" xml:space="preserve"><value>Toggle Right Panel</value></data>
+  <data name="MenuDbType" xml:space="preserve"><value>DB Type</value></data>
+
+  <!-- Menu: Analyze -->
+  <data name="MenuAnalyze" xml:space="preserve"><value>Analyze(&amp;A)</value></data>
+  <data name="MenuRunAnalysis" xml:space="preserve"><value>Run Normalization Analysis(&amp;A)</value></data>
+  <data name="MenuWriteReport" xml:space="preserve"><value>Write Analysis Report(&amp;R)...</value></data>
+
+  <!-- Menu: Help -->
+  <data name="MenuAbout" xml:space="preserve"><value>Help(&amp;H)</value></data>
+
+  <!-- Tabs -->
+  <data name="TabStructure" xml:space="preserve"><value>Structure</value></data>
+  <data name="TabAnalysis" xml:space="preserve"><value>Normalization</value></data>
+  <data name="TabIndexAdvisor" xml:space="preserve"><value>Index Advisor</value></data>
+
+  <!-- Toolbox group labels -->
+  <data name="GrpTools" xml:space="preserve"><value>Tools</value></data>
+  <data name="GrpRelation" xml:space="preserve"><value>Relation</value></data>
+  <data name="GrpView" xml:space="preserve"><value>View</value></data>
+
+  <!-- Toolbar buttons -->
+  <data name="BtnAbout" xml:space="preserve"><value>About</value></data>
+  <data name="BtnSortCategory" xml:space="preserve"><value>Category</value></data>
+  <data name="BtnSortAlpha" xml:space="preserve"><value>A→Z</value></data>
+
+  <!-- Line styles -->
+  <data name="LineStyleStraight" xml:space="preserve"><value>Straight</value></data>
+  <data name="LineStyleCurved" xml:space="preserve"><value>Curved</value></data>
+  <data name="LineStyleOrthogonal" xml:space="preserve"><value>Orthogonal</value></data>
+
+  <!-- Toolbar tooltips -->
+  <data name="TtNew" xml:space="preserve"><value>New Project (Ctrl+N)</value></data>
+  <data name="TtOpen" xml:space="preserve"><value>Open Project (Ctrl+O)</value></data>
+  <data name="TtOpenDb" xml:space="preserve"><value>Import Schema from Database</value></data>
+  <data name="TtSave" xml:space="preserve"><value>Save (Ctrl+S)</value></data>
+  <data name="TtSaveAs" xml:space="preserve"><value>Save As</value></data>
+  <data name="TtUndo" xml:space="preserve"><value>Undo (Ctrl+Z)</value></data>
+  <data name="TtRedo" xml:space="preserve"><value>Redo (Ctrl+Y)</value></data>
+  <data name="TtAddTable" xml:space="preserve"><value>Add Table (Ctrl+T)</value></data>
+  <data name="TtAddRelation" xml:space="preserve"><value>Add Relationship (Ctrl+R)</value></data>
+  <data name="TtZoomIn" xml:space="preserve"><value>Zoom In</value></data>
+  <data name="TtZoomOut" xml:space="preserve"><value>Zoom Out</value></data>
+  <data name="TtFitAll" xml:space="preserve"><value>Fit All (Ctrl+0)</value></data>
+  <data name="TtToggleRight" xml:space="preserve"><value>Toggle Right Panel</value></data>
+  <data name="TtAnalyze" xml:space="preserve"><value>Run Analysis</value></data>
+  <data name="TtReport" xml:space="preserve"><value>Write Report</value></data>
+  <data name="TtAbout" xml:space="preserve"><value>About</value></data>
+  <data name="TtSettings" xml:space="preserve"><value>Settings</value></data>
+  <data name="TtSortCategory" xml:space="preserve"><value>Sort by category</value></data>
+  <data name="TtSortAlpha" xml:space="preserve"><value>Sort alphabetically within categories</value></data>
+
+  <!-- Analysis panel -->
+  <data name="AnalysisReady" xml:space="preserve"><value>Normalization analysis results will appear here.</value></data>
+  <data name="AnalysisLevel" xml:space="preserve"><value>Analysis Level:</value></data>
+  <data name="NfBtnTip1" xml:space="preserve"><value>1NF: Always selectable</value></data>
+  <data name="NfBtnTip2" xml:space="preserve"><value>2NF: Selectable when no 1NF errors</value></data>
+  <data name="NfBtnTip3" xml:space="preserve"><value>3NF: Selectable when no 2NF errors</value></data>
+  <data name="NfBtnTipBcnf" xml:space="preserve"><value>BCNF: Selectable when no 3NF errors</value></data>
+
+  <!-- ListView column headers: Normalization Analysis -->
+  <data name="ColHdrLevel" xml:space="preserve"><value>Level</value></data>
+  <data name="ColHdrSeverity" xml:space="preserve"><value>Severity</value></data>
+  <data name="ColHdrTable" xml:space="preserve"><value>Table</value></data>
+  <data name="ColHdrColumn" xml:space="preserve"><value>Column</value></data>
+  <data name="ColHdrIssue" xml:space="preserve"><value>Issue</value></data>
+  <data name="ColHdrRecommend" xml:space="preserve"><value>Recommendation</value></data>
+
+  <!-- ListView column headers: Index Advisor -->
+  <data name="ColHdrIdxTable" xml:space="preserve"><value>Table</value></data>
+  <data name="ColHdrIdxColumn" xml:space="preserve"><value>Column</value></data>
+  <data name="ColHdrIdxType" xml:space="preserve"><value>Type</value></data>
+  <data name="ColHdrIdxReason" xml:space="preserve"><value>Reason</value></data>
+  <data name="ColHdrIdxAdvice" xml:space="preserve"><value>Recommendation</value></data>
+
+  <!-- Context menus: canvas / table / column -->
+  <data name="CmEditColumn" xml:space="preserve"><value>Edit Column...</value></data>
+  <data name="CmAddColumn" xml:space="preserve"><value>Add Column</value></data>
+  <data name="CmDeleteColumn" xml:space="preserve"><value>Delete Column</value></data>
+  <data name="CmEditTable" xml:space="preserve"><value>Edit Table...</value></data>
+  <data name="CmDeleteTable" xml:space="preserve"><value>Delete Table</value></data>
+  <data name="CmEditRelation" xml:space="preserve"><value>Edit Relationship...</value></data>
+  <data name="CmAddBend" xml:space="preserve"><value>Add Bend Point</value></data>
+  <data name="CmResetRoute" xml:space="preserve"><value>Reset Route</value></data>
+  <data name="CmDeleteRelation" xml:space="preserve"><value>Delete Relationship</value></data>
+  <data name="CmRelationType" xml:space="preserve"><value>Relationship Type</value></data>
+  <data name="CmRelType11" xml:space="preserve"><value>1:1 (One-to-One)</value></data>
+  <data name="CmRelType1N" xml:space="preserve"><value>1:N (One-to-Many)</value></data>
+  <data name="CmRelTypeNM" xml:space="preserve"><value>N:M (Many-to-Many)</value></data>
+  <data name="CmLineStyle" xml:space="preserve"><value>Line Style</value></data>
+  <data name="CmAddTableHere" xml:space="preserve"><value>Add Table Here</value></data>
+  <data name="CmFitAll" xml:space="preserve"><value>Fit All</value></data>
+  <data name="CmZoomIn" xml:space="preserve"><value>Zoom In</value></data>
+  <data name="CmZoomOut" xml:space="preserve"><value>Zoom Out</value></data>
+  <data name="CmResetZoom" xml:space="preserve"><value>Reset Zoom (100%)</value></data>
+  <data name="CmSortCategory" xml:space="preserve"><value>Sort by Category</value></data>
+  <data name="CmSortAlpha" xml:space="preserve"><value>Sort Alphabetically</value></data>
+  <data name="CanvasNoTables" xml:space="preserve"><value>No tables. Right-click to add a table.</value></data>
+
+  <!-- Dialog: Column Editor -->
+  <data name="ColEditTitle" xml:space="preserve"><value>Column Editor</value></data>
+  <data name="ColEditName" xml:space="preserve"><value>Column Name:</value></data>
+  <data name="ColEditType" xml:space="preserve"><value>Data Type:</value></data>
+  <data name="ColEditLength" xml:space="preserve"><value>Length:</value></data>
+  <data name="ColEditPrecision" xml:space="preserve"><value>Precision:</value></data>
+  <data name="ColEditScale" xml:space="preserve"><value>Scale:</value></data>
+  <data name="ColEditPK" xml:space="preserve"><value>Primary Key (PK)</value></data>
+  <data name="ColEditAI" xml:space="preserve"><value>Auto Increment</value></data>
+  <data name="ColEditNull" xml:space="preserve"><value>Allow NULL</value></data>
+  <data name="ColEditUnique" xml:space="preserve"><value>Unique</value></data>
+  <data name="ColEditFK" xml:space="preserve"><value>Foreign Key (FK)</value></data>
+  <data name="ColEditDefault" xml:space="preserve"><value>Default Value:</value></data>
+  <data name="ColEditComment" xml:space="preserve"><value>Description:</value></data>
+
+  <!-- Dialog: Table Editor -->
+  <data name="TableEditTitle" xml:space="preserve"><value>Table Editor</value></data>
+  <data name="TableEditName" xml:space="preserve"><value>Table Name:</value></data>
+  <data name="TableEditComment" xml:space="preserve"><value>Description (optional):</value></data>
+  <data name="TableEditAdd" xml:space="preserve"><value>Add</value></data>
+  <data name="TableEditEdit" xml:space="preserve"><value>Edit</value></data>
+  <data name="TableEditDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="TableEditMoveUp" xml:space="preserve"><value>Up ↑</value></data>
+  <data name="TableEditMoveDown" xml:space="preserve"><value>Down ↓</value></data>
+  <data name="ColHdrName" xml:space="preserve"><value>Name</value></data>
+  <data name="ColHdrType" xml:space="preserve"><value>Type</value></data>
+  <data name="ColHdrDefault" xml:space="preserve"><value>Default</value></data>
+
+  <!-- Dialog: Relationship Editor -->
+  <data name="RelEditTitle" xml:space="preserve"><value>Relationship Editor</value></data>
+  <data name="RelEditName" xml:space="preserve"><value>Relationship Name (optional):</value></data>
+  <data name="RelEditType" xml:space="preserve"><value>Relationship Type:</value></data>
+  <data name="RelEditLineStyle" xml:space="preserve"><value>Line Style:</value></data>
+  <data name="RelEditSource" xml:space="preserve"><value>Source (Referencing)</value></data>
+  <data name="RelEditTarget" xml:space="preserve"><value>Target (Referenced)</value></data>
+  <data name="RelEditTable" xml:space="preserve"><value>Table:</value></data>
+  <data name="RelEditColumn" xml:space="preserve"><value>Column:</value></data>
+  <data name="RelType11" xml:space="preserve"><value>1:1 (One-to-One)</value></data>
+  <data name="RelType1N" xml:space="preserve"><value>1:N (One-to-Many)</value></data>
+  <data name="RelTypeNM" xml:space="preserve"><value>N:M (Many-to-Many)</value></data>
+  <data name="RelNone" xml:space="preserve"><value>(none)</value></data>
+
+  <!-- Dialog: About -->
+  <data name="AboutTitle" xml:space="preserve"><value>About DBTools</value></data>
+  <data name="AboutVersion" xml:space="preserve"><value>Version 1.0.0  |  .NET 10 WinForms</value></data>
+  <data name="AboutDescription" xml:space="preserve"><value>DB table design and ER diagram editor&#x0D;&#x0A;&#x0D;&#x0A;Supported databases: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server&#x0D;&#x0A;Features: ER diagram editing, Crow&#x27;s Foot notation, normalization analysis,&#x0D;&#x0A;         SQL DDL export, JSON serialization</value></data>
+
+  <!-- Dialog: Error -->
+  <data name="ErrorTitle" xml:space="preserve"><value>Error</value></data>
+  <data name="ErrorSummaryDefault" xml:space="preserve"><value>An error has occurred.</value></data>
+  <data name="ErrorDetails" xml:space="preserve"><value>Details</value></data>
+  <data name="ErrorBtnCopy" xml:space="preserve"><value>Copy All</value></data>
+  <data name="ErrorBtnClose" xml:space="preserve"><value>Close</value></data>
+  <data name="ErrorCopied" xml:space="preserve"><value>Copied</value></data>
+  <data name="ErrorCopyFailed" xml:space="preserve"><value>Copy Failed</value></data>
+  <data name="ErrorClipboard" xml:space="preserve"><value>Clipboard</value></data>
+
+  <!-- Dialog: Normalization Issue -->
+  <data name="NormLevel" xml:space="preserve"><value>Level</value></data>
+  <data name="NormSeverity" xml:space="preserve"><value>Severity</value></data>
+  <data name="NormTableField" xml:space="preserve"><value>Table</value></data>
+  <data name="NormColumnField" xml:space="preserve"><value>Affected Columns</value></data>
+  <data name="NormIssueField" xml:space="preserve"><value>Issue</value></data>
+  <data name="NormActionField" xml:space="preserve"><value>Recommended Action</value></data>
+
+  <!-- Dialog: SQLite Password -->
+  <data name="SqlitePasswordTitle" xml:space="preserve"><value>Database Password</value></data>
+  <data name="SqlitePasswordPrompt" xml:space="preserve"><value>This is a SQLCipher-encrypted SQLite database.&#x0D;&#x0A;Enter the password.</value></data>
+  <data name="SqlitePasswordLabel" xml:space="preserve"><value>Password</value></data>
+  <data name="SqliteShowPassword" xml:space="preserve"><value>Show Password</value></data>
+  <data name="SqliteWrongPassword" xml:space="preserve"><value>Incorrect password.</value></data>
+  <data name="SqliteEnterPassword" xml:space="preserve"><value>Please enter a password.</value></data>
+
+  <!-- Shared buttons -->
+  <data name="BtnOk" xml:space="preserve"><value>OK</value></data>
+  <data name="BtnCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="BtnClose" xml:space="preserve"><value>Close</value></data>
+  <data name="BtnCopyAll" xml:space="preserve"><value>Copy All</value></data>
+
+  <!-- Message boxes -->
+  <data name="MsgNotice" xml:space="preserve"><value>Notice</value></data>
+  <data name="MsgConfirm" xml:space="preserve"><value>Confirm</value></data>
+  <data name="MsgSelectTable" xml:space="preserve"><value>Please select a table first.</value></data>
+  <data name="MsgNeedTwoTables" xml:space="preserve"><value>At least 2 tables are needed to add a relationship.</value></data>
+  <data name="MsgDeleteColumn" xml:space="preserve"><value>Delete column '{0}'?</value></data>
+  <data name="MsgDeleteColumnTitle" xml:space="preserve"><value>Delete Confirmation</value></data>
+  <data name="MsgDeleteTable" xml:space="preserve"><value>Delete table '{0}'?</value></data>
+  <data name="MsgDeleteTableTitle" xml:space="preserve"><value>Delete Table</value></data>
+  <data name="MsgUnsavedChanges" xml:space="preserve"><value>There are unsaved changes. Continue?</value></data>
+  <data name="ErrValidationTitle" xml:space="preserve"><value>Validation Error</value></data>
+  <data name="ErrColumnName" xml:space="preserve"><value>Please enter a column name.</value></data>
+  <data name="ErrDataType" xml:space="preserve"><value>Please select a data type.</value></data>
+  <data name="ErrTableName" xml:space="preserve"><value>Please enter a table name.</value></data>
+  <data name="ErrAddColumnTitle" xml:space="preserve"><value>Add Column Error</value></data>
+  <data name="ErrAddColumn" xml:space="preserve"><value>Could not add column.</value></data>
+  <data name="ErrSrcTgtRequired" xml:space="preserve"><value>Please select source and target tables.</value></data>
+  <data name="ErrSrcTgtSame" xml:space="preserve"><value>Source and target tables cannot be the same.</value></data>
+  <data name="RelNeedPk" xml:space="preserve"><value>Both tables need a Primary Key (PK) column to add a relationship.&#x0D;&#x0A;Set a PK column in Table Editor and try again.</value></data>
+
+  <!-- Severity labels -->
+  <data name="SevError" xml:space="preserve"><value>Error</value></data>
+  <data name="SevWarning" xml:space="preserve"><value>Warning</value></data>
+  <data name="SevInfo" xml:space="preserve"><value>Info</value></data>
+
+  <!-- NF group titles -->
+  <data name="NF1Group" xml:space="preserve"><value>1NF — Atomicity</value></data>
+  <data name="NF2Group" xml:space="preserve"><value>2NF — Partial Dependency</value></data>
+  <data name="NF3Group" xml:space="preserve"><value>3NF — Transitive Dependency</value></data>
+  <data name="BCNFGroup" xml:space="preserve"><value>BCNF — Boyce-Codd Normal Form</value></data>
+
+  <!-- Analysis panel summary -->
+  <data name="NoTablesAnalysis" xml:space="preserve"><value>No tables. Add tables to run normalization analysis.</value></data>
+  <data name="AnalysisNoIssues" xml:space="preserve"><value>Normalization check: No issues ({0})</value></data>
+  <data name="AnalysisSummary" xml:space="preserve"><value>Normalization check: {0} — See the list below for details.</value></data>
+  <data name="AnalysisErrCount" xml:space="preserve"><value>{0} error(s)</value></data>
+  <data name="AnalysisWarnCount" xml:space="preserve"><value>{0} warning(s)</value></data>
+  <data name="AnalysisInfoCount" xml:space="preserve"><value>{0} info</value></data>
+  <data name="AnalysisDone" xml:space="preserve"><value>Normalization check complete: No issues</value></data>
+  <data name="AnalysisDoneCount" xml:space="preserve"><value>Normalization check complete: {0} items found</value></data>
+
+  <!-- Index advisor kind labels -->
+  <data name="IdxAlreadyIndexed" xml:space="preserve"><value>✓ Indexed</value></data>
+  <data name="IdxRequired" xml:space="preserve"><value>● Required</value></data>
+  <data name="IdxRecommended" xml:space="preserve"><value>◆ Recommended</value></data>
+  <data name="IdxConsider" xml:space="preserve"><value>○ Consider</value></data>
+
+  <!-- Schema tree node labels -->
+  <data name="TreeTables" xml:space="preserve"><value>Tables</value></data>
+  <data name="TreeRelations" xml:space="preserve"><value>Relations</value></data>
+
+  <!-- Settings dialog -->
+  <data name="SettingsTitle" xml:space="preserve"><value>Settings</value></data>
+  <data name="SettingsGroupAppearance" xml:space="preserve"><value>Appearance</value></data>
+  <data name="SettingsGroupLanguage" xml:space="preserve"><value>Language</value></data>
+  <data name="SettingsLabelLanguage" xml:space="preserve"><value>UI Language:</value></data>
+  <data name="SettingsLabelTheme" xml:space="preserve"><value>Theme:</value></data>
+  <data name="SettingsThemeLight" xml:space="preserve"><value>Light</value></data>
+  <data name="SettingsThemeDark" xml:space="preserve"><value>Dark</value></data>
+  <data name="SettingsRestartNote" xml:space="preserve"><value>* Language changes take effect after restarting.</value></data>
+  <data name="SettingsRestartRequired" xml:space="preserve"><value>Language setting changed. Changes will take effect after restarting the program.</value></data>
+  <data name="SettingsGroupDefaults" xml:space="preserve"><value>Defaults</value></data>
+  <data name="SettingsLabelDbType" xml:space="preserve"><value>Default DB Type:</value></data>
+  <data name="SettingsLabelLineStyle" xml:space="preserve"><value>Default Line Style:</value></data>
+  <data name="SettingsGroupFiles" xml:space="preserve"><value>Files</value></data>
+  <data name="SettingsLabelRecentMax" xml:space="preserve"><value>Max Recent Files:</value></data>
+  <data name="SettingsGroupCanvas" xml:space="preserve"><value>Canvas</value></data>
+  <data name="SettingsShowGrid" xml:space="preserve"><value>Show Grid</value></data>
+  <data name="SettingsSnapToGrid" xml:space="preserve"><value>Snap to Grid</value></data>
+  <data name="SettingsLabelSnapInterval" xml:space="preserve"><value>Snap Interval (pixels):</value></data>
+  <data name="SettingsBtnOk" xml:space="preserve"><value>OK</value></data>
+  <data name="SettingsBtnCancel" xml:space="preserve"><value>Cancel</value></data>
+</root>

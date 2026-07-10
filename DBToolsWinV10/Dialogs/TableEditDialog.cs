@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
+using DBToolsWinV10.App;
 using DBToolsWinV10.Models;
 
 namespace DBToolsWinV10.Dialogs;
@@ -53,6 +54,28 @@ public class TableEditDialog : Form
 		txtComment.Text = table.Comment ?? string.Empty;
 		RefreshGrid();
 		WireEvents();
+		ModernTheme.ApplyThemeToForm(this);
+		Localize();
+	}
+
+	private void Localize()
+	{
+		Text              = L.S("TableEditTitle",   "테이블 편집");
+		lblName.Text      = L.S("TableEditName",    "테이블 이름:");
+		lblComment.Text   = L.S("TableEditComment", "설명 (선택):");
+		btnAddCol.Text    = L.S("TableEditAdd",     "추가");
+		btnEditCol.Text   = L.S("TableEditEdit",    "편집");
+		btnDeleteCol.Text = L.S("TableEditDelete",  "삭제");
+		btnMoveUp.Text    = L.S("TableEditMoveUp",  "위로 ↑");
+		btnMoveDown.Text  = L.S("TableEditMoveDown","아래로 ↓");
+		btnOk.Text        = L.S("BtnOk",            "확인");
+		btnCancel.Text    = L.S("BtnCancel",        "취소");
+		if (dgvColumns.Columns.Count >= 3)
+		{
+			dgvColumns.Columns[0].HeaderText = L.S("ColHdrName",    "이름");
+			dgvColumns.Columns[1].HeaderText = L.S("ColHdrType",    "타입");
+			dgvColumns.Columns[2].HeaderText = L.S("ColHdrDefault", "기본값");
+		}
 	}
 
 	private void WireEvents()
@@ -62,6 +85,8 @@ public class TableEditDialog : Form
 		btnDeleteCol.Click += BtnDeleteCol_Click;
 		btnMoveUp.Click += BtnMoveUp_Click;
 		btnMoveDown.Click += BtnMoveDown_Click;
+		ModernTheme.StyleDialogButton(btnOk, "Ok");
+		ModernTheme.StyleDialogButton(btnCancel, "Cancel");
 		btnOk.Click += BtnOk_Click;
 		btnCancel.Click += delegate
 		{
@@ -307,12 +332,12 @@ public class TableEditDialog : Form
 		this.btnMoveDown.Text = "아래로 ↓";
 		this.btnMoveDown.TabIndex = 7;
 		this.panelButtons.Controls.AddRange(this.btnAddCol, this.btnEditCol, this.btnDeleteCol, this.btnMoveUp, this.btnMoveDown);
-		this.btnOk.Location = new System.Drawing.Point(474, 396);
-		this.btnOk.Size = new System.Drawing.Size(75, 30);
+		this.btnOk.Location = new System.Drawing.Point(456, 396);
+		this.btnOk.Size = new System.Drawing.Size(88, 30);
 		this.btnOk.Text = "확인";
 		this.btnOk.TabIndex = 8;
-		this.btnCancel.Location = new System.Drawing.Point(555, 396);
-		this.btnCancel.Size = new System.Drawing.Size(75, 30);
+		this.btnCancel.Location = new System.Drawing.Point(552, 396);
+		this.btnCancel.Size = new System.Drawing.Size(88, 30);
 		this.btnCancel.Text = "취소";
 		this.btnCancel.TabIndex = 9;
 		this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
