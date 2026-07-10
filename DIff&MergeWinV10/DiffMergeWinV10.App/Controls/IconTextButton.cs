@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace DiffMergeWinV10.App.Controls;
 
 /// <summary>
@@ -33,6 +35,7 @@ public sealed class IconTextButton : Button
         }
     }
 
+    [AllowNull]
     public override string Text
     {
         get => _suppressTextForBasePaint ? string.Empty : _displayText;
