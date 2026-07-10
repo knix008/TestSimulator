@@ -213,7 +213,7 @@ public sealed class MergeForm : Form
         _gutterLocal.Sync(_lstLocal);
         _gutterRemote.Sync(_lstRemote);
 
-        var remoteCard = MakePaneCard(Color.FromArgb(37, 99, 235), _btnHeaderTakeRemote, _gutterRemote, _lstRemote, out _lblPaneRemote);
+        var remoteCard = MakePaneCard(Color.FromArgb(202, 138, 4), _btnHeaderTakeRemote, _gutterRemote, _lstRemote, out _lblPaneRemote);
         _remotePaneCard = remoteCard;
         topPanel.Controls.Add(MakePaneCard(Color.FromArgb(100, 116, 139), _btnHeaderTakeBase, _gutterBase, _lstBase, out _lblPaneBase), 0, 0);
         topPanel.Controls.Add(MakePaneCard(Color.FromArgb(22, 163, 74), _btnHeaderTakeLocal, _gutterLocal, _lstLocal, out _lblPaneLocal), 1, 0);
@@ -226,13 +226,13 @@ public sealed class MergeForm : Form
         _lstConflicts.MouseDown += OnConflictListMouseDown;
         _gutterConflicts.Sync(_lstConflicts);
         bottomSplit.Panel1.Padding = new Padding(8, 4, 4, 8);
-        bottomSplit.Panel1.Controls.Add(MakePaneCard(Color.FromArgb(15, 23, 42), takeButton: null, _gutterConflicts, _lstConflicts, out _lblPaneConflicts));
+        bottomSplit.Panel1.Controls.Add(MakePaneCard(Color.FromArgb(220, 38, 38), takeButton: null, _gutterConflicts, _lstConflicts, out _lblPaneConflicts));
 
         ConfigureSourcePane(_lstResult);
         _lstResult.ContextMenuStrip = BuildPaneContextMenu(listBox: _lstResult);
         _gutterResult.Sync(_lstResult);
         bottomSplit.Panel2.Padding = new Padding(4, 4, 8, 8);
-        bottomSplit.Panel2.Controls.Add(MakePaneCard(Color.FromArgb(15, 23, 42), _btnHeaderTakeBoth, _gutterResult, _lstResult, out _lblPaneResult));
+        bottomSplit.Panel2.Controls.Add(MakePaneCard(Color.FromArgb(37, 99, 235), _btnHeaderTakeBoth, _gutterResult, _lstResult, out _lblPaneResult));
 
         RegisterPaneLocalizedText();
 
@@ -243,7 +243,7 @@ public sealed class MergeForm : Form
         mainSplit.Panel2.Controls.Add(bottomSplit);
         bottomSplit.SplitterMoved += (_, _) => QueuePaneLayoutRefresh();
 
-        var statusStrip = new StatusStrip { SizingGrip = false, BackColor = CanvasColor };
+        var statusStrip = new StatusStrip { SizingGrip = true, BackColor = CanvasColor };
         statusStrip.Items.Add(_statusLabel);
 
         Controls.Add(mainSplit);
@@ -616,8 +616,8 @@ public sealed class MergeForm : Form
         return item;
     }
 
-    private const int HeaderHeight = 64;
-    private const float PaneTitleFontSize = 13f;
+    private const int HeaderHeight = 42;
+    private const float PaneTitleFontSize = 11f;
 
     private static Control MakePaneHeader(Color accent, Button? takeButton, out Label titleLabel)
     {
@@ -639,7 +639,7 @@ public sealed class MergeForm : Form
             {
                 Dock = DockStyle.Fill,
                 BackColor = headerBg,
-                Padding = new Padding(6, 8, 8, 8),
+                Padding = new Padding(6, 4, 8, 4),
             };
             panel.Controls.Add(titleLabel);
             return panel;
@@ -651,10 +651,11 @@ public sealed class MergeForm : Form
             BackColor = headerBg,
             ColumnCount = 2,
             RowCount = 1,
-            Padding = new Padding(6, 8, 8, 8),
+            Padding = new Padding(6, 4, 8, 4),
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
         takeButton.AutoSize = true;
         takeButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;

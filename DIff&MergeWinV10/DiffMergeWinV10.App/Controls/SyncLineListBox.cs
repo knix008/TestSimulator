@@ -104,7 +104,7 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             }
 
             int lineHeight = Math.Max(1, ItemHeight);
-            int visibleLines = (int)Math.Ceiling(ClientSize.Height / (double)lineHeight);
+            int visibleLines = ClientSize.Height / lineHeight;
             int targetCount = Math.Max(_contentLineCount, visibleLines);
             int lineIndex = _contentLineCount;
             while (Items.Count < targetCount)
@@ -241,7 +241,33 @@ public sealed class SyncLineListBox : ListBox, ILineScrollSource
             RefreshLineMetrics();
         }
 
+        TrimOverflowItems();
         ScheduleViewportFill();
+    }
+
+    // Immediately removes fill items that exceed the new (smaller) viewport so the
+    // vertical scrollbar doesn't flash before the deferred EnsureViewportFill runs.
+    private void TrimOverflowItems()
+    {
+        if (!IsHandleCreated || ClientSize.Height <= 0 || Items.Count <= _contentLineCount)
+        {
+            return;
+        }
+
+        int lineHeight = Math.Max(1, ItemHeight);
+        int maxItems = Math.Max(_contentLineCount, ClientSize.Height / lineHeight);
+        if (Items.Count <= maxItems)
+        {
+            return;
+        }
+
+        BeginUpdate();
+        while (Items.Count > maxItems)
+        {
+            Items.RemoveAt(Items.Count - 1);
+        }
+
+        EndUpdate();
     }
 
     protected override void OnPaintBackground(PaintEventArgs pevent)
