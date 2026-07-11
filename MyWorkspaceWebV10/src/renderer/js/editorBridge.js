@@ -123,6 +123,7 @@ export function createEditorBridge(frame) {
     onContextMenuRequested: null,
     onEditorPointerDown: null,
     onResolvePageAsset: null,
+    onEditorReady: null,
 
     postToFrame(payload) {
       frame.contentWindow?.postMessage(Object.assign({ channel: 'editor-webview' }, payload), '*');
@@ -141,6 +142,7 @@ export function createEditorBridge(frame) {
       if (generation !== loadGeneration) {
         return;
       }
+      bridge.onEditorReady?.();
       const api = await getApi();
       api.finalizeImageSizes?.();
       api.refreshEditorBlocks?.();

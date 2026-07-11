@@ -1420,12 +1420,20 @@ async function openPageInternal(
   } else {
     pageTabs.setTitle(pageId, resolvedTitle);
   }
+  editor.onEditorReady = () => {
+    if (currentPageId === pageId && navToken === pageNavigationGeneration) {
+      editorDisplayedPageId = pageId;
+    }
+  };
   await editor.loadMarkdown(markdown, pageId, getEditorAppearance(cachedUiConfig));
+  editor.onEditorReady = null;
   if (navToken !== pageNavigationGeneration) {
     return;
   }
 
-  editorDisplayedPageId = pageId;
+  if (editorDisplayedPageId !== pageId) {
+    editorDisplayedPageId = pageId;
+  }
   await editor.applyAppearance(getEditorAppearance(cachedUiConfig));
   await editor.focus();
   if (navToken !== pageNavigationGeneration) {

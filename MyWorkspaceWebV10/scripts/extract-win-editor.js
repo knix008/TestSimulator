@@ -149,6 +149,18 @@ template = template.replace(
   'clearStaleInlineColors();\n                reapplyAllImageSizes();'
 );
 
+const WEB_ONLY_IMAGE_RESIZE_MARKER = 'beginImageResize';
+const existingTemplate = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8') : '';
+if (
+  existingTemplate.includes(WEB_ONLY_IMAGE_RESIZE_MARKER)
+  && !template.includes(WEB_ONLY_IMAGE_RESIZE_MARKER)
+) {
+  console.warn(
+    '[extract-win-editor] Keeping bundled editor template; WinV10 source lacks web image resize support.'
+  );
+  process.exit(0);
+}
+
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, template.trimStart(), 'utf8');
 console.log(`Wrote ${outputPath} (${template.length} chars)`);
