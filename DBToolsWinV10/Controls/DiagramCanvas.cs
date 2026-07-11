@@ -1514,6 +1514,15 @@ public sealed class DiagramCanvas : Control
 				this.ColumnAddRequested?.Invoke(table, EventArgs.Empty);
 			}));
 			contextMenuStrip.Items.Add(new ToolStripSeparator());
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmBringToFront", "앞으로 가져오기"), "BringToFront", delegate
+			{
+				BringTableToFront(table);
+			}));
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmSendToBack", "뒤로 보내기"), "SendToBack", delegate
+			{
+				SendTableToBack(table);
+			}));
+			contextMenuStrip.Items.Add(new ToolStripSeparator());
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmDeleteTable", "테이블 삭제"), "Delete", delegate
 			{
 				DeleteSelected();
@@ -1536,6 +1545,15 @@ public sealed class DiagramCanvas : Control
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmAddColumn", "컬럼 추가"), "AddColumn", delegate
 			{
 				this.ColumnAddRequested?.Invoke(hitTable, EventArgs.Empty);
+			}));
+			contextMenuStrip.Items.Add(new ToolStripSeparator());
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmBringToFront", "앞으로 가져오기"), "BringToFront", delegate
+			{
+				BringTableToFront(hitTable);
+			}));
+			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmSendToBack", "뒤로 보내기"), "SendToBack", delegate
+			{
+				SendTableToBack(hitTable);
 			}));
 			contextMenuStrip.Items.Add(new ToolStripSeparator());
 			contextMenuStrip.Items.Add(ModernTheme.CreateMenuItem(L.S("CmDeleteTable", "테이블 삭제"), "Delete", delegate
@@ -1731,6 +1749,26 @@ public sealed class DiagramCanvas : Control
 		}
 		this.SelectionChanged?.Invoke(this, EventArgs.Empty);
 		Invalidate();
+	}
+
+	private void BringTableToFront(DbTable table)
+	{
+		if (_schema.Tables.Count < 2 || _schema.Tables[^1] == table)
+			return;
+		SaveUndoSnapshot();
+		_schema.Tables.Remove(table);
+		_schema.Tables.Add(table);
+		NotifyChanged();
+	}
+
+	private void SendTableToBack(DbTable table)
+	{
+		if (_schema.Tables.Count < 2 || _schema.Tables[0] == table)
+			return;
+		SaveUndoSnapshot();
+		_schema.Tables.Remove(table);
+		_schema.Tables.Insert(0, table);
+		NotifyChanged();
 	}
 
 	private DbTable HitTestTable(PointF p)

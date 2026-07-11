@@ -138,6 +138,29 @@ internal static class ScrollBarTheme
 		ApplyToControl(root);
 	}
 
+	public static void InvalidateThemedScrollbars(Control root)
+	{
+		if (root == null || root.IsDisposed || !root.IsHandleCreated)
+			return;
+
+		InvalidateHooksForHwnd(root.Handle);
+		foreach (Control child in root.Controls)
+			InvalidateThemedScrollbars(child);
+	}
+
+	private static void InvalidateHooksForHwnd(nint hwnd)
+	{
+		if (Hooks.TryGetValue(hwnd, out ScrollBarHook hook))
+			hook.InvalidateBar();
+
+		EnumChildWindows(hwnd, (childHwnd, _) =>
+		{
+			if (Hooks.TryGetValue(childHwnd, out ScrollBarHook childHook))
+				childHook.InvalidateBar();
+			return true;
+		}, 0);
+	}
+
 	private static void WatchForm(Form form)
 	{
 		if (WatchedForms.Contains(form))
@@ -174,6 +197,10 @@ internal static class ScrollBarTheme
 	private static void ApplyToControl(Control control)
 	{
 		if (control == null || control.IsDisposed)
+			return;
+
+		// ToolStrip overflow UI uses native ScrollBar HWNDs; theming them breaks tab bars.
+		if (control is ToolStrip)
 			return;
 
 		if (control.IsHandleCreated)
@@ -226,10 +253,15 @@ internal static class ScrollBarTheme
 
 	private static void DetachHooksForControl(Control control)
 	{
-		if (control == null || !control.IsHandleCreated)
+		if (control == null)
 			return;
 
-		DetachFromHwnd(control.Handle);
+		if (control is ToolStrip)
+			return;
+
+		if (control.IsHandleCreated)
+			DetachFromHwnd(control.Handle);
+
 		foreach (Control child in control.Controls)
 			DetachHooksForControl(child);
 	}
