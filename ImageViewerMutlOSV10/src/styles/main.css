@@ -1217,6 +1217,18 @@ kbd {
   outline-offset: -2px;
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
+#file-tree-panel.drop-target.drop-move {
+  outline-color: var(--warning, #e6a23c);
+}
+.tree-item.drop-hover {
+  background: color-mix(in srgb, var(--accent) 28%, transparent) !important;
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+#file-tree-panel.drop-move .tree-item.drop-hover {
+  background: color-mix(in srgb, var(--warning, #e6a23c) 28%, transparent) !important;
+  outline-color: var(--warning, #e6a23c);
+}
 
 
 /* Audio player */

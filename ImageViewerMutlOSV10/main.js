@@ -11,10 +11,12 @@ let hasUnsavedChanges = false;
 let isForceClose = false;
 let lastOpenDir = null;
 
-// Set AppUserModelId early (must be before app.whenReady on Windows).
-// Suffix ".app" helps avoid stale Electron/default icon cache on the taskbar.
+// Must match build.appId in package.json so the Start Menu / Desktop shortcut
+// AUMID matches the running process (mismatch → blank/white taskbar icon).
+const APP_USER_MODEL_ID = 'com.shkwon.imageviewer';
+
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.shkwon.imageviewer.app');
+  app.setAppUserModelId(APP_USER_MODEL_ID);
 }
 
 // File watchers: map of watchedPath → fs.FSWatcher
@@ -53,6 +55,15 @@ function _dialogDefaultPath() {
   return app.getPath('documents');
 }
 
+function _resolveAsset(...parts) {
+  const packaged = path.join(__dirname, ...parts);
+  if (fs.existsSync(packaged)) return packaged;
+  // electron-builder asarUnpack → app.asar.unpacked/...
+  const unpacked = packaged.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
+  if (unpacked !== packaged && fs.existsSync(unpacked)) return unpacked;
+  return packaged;
+}
+
 function _getAppIconPath() {
   const candidates = process.platform === 'win32'
     ? ['icon.ico', 'icon.png', 'icon_512.png']
@@ -61,20 +72,47 @@ function _getAppIconPath() {
       : ['icon_512.png', 'icon.png', 'icon.ico'];
 
   for (const file of candidates) {
-    const p = path.join(__dirname, 'src', 'assets', file);
+    const p = _resolveAsset('src', 'assets', file);
     if (fs.existsSync(p)) return p;
   }
-  return path.join(__dirname, 'src', 'assets', 'icon.png');
+  return _resolveAsset('src', 'assets', 'icon.png');
+}
+
+/**
+ * Path Windows Shell can load for the taskbar / Jump List.
+ * Files inside app.asar are NOT readable by the Shell → white icon.
+ * Packaged builds use the .exe (icon embedded by after-pack / rcedit).
+ */
+function _getTaskbarIconPath() {
+  if (process.platform === 'win32' && app.isPackaged) {
+    return process.execPath;
+  }
+  const ico = _resolveAsset('src', 'assets', 'icon.ico');
+  if (fs.existsSync(ico)) return ico;
+  return _getAppIconPath();
 }
 
 function _loadAppIcon() {
-  const iconPath = _getAppIconPath();
-  const img = nativeImage.createFromPath(iconPath);
-  return { iconPath, image: img.isEmpty() ? null : img };
+  // Prefer PNG for BrowserWindow — Electron nativeImage handles it more reliably than multi-PNG ICO
+  const prefer = process.platform === 'win32'
+    ? ['icon_512.png', 'icon.png', 'icon.ico']
+    : process.platform === 'darwin'
+      ? ['icon_512.png', 'icon.png', 'icon.icns']
+      : ['icon_512.png', 'icon.png', 'icon.ico'];
+
+  for (const file of prefer) {
+    const iconPath = _resolveAsset('src', 'assets', file);
+    if (!fs.existsSync(iconPath)) continue;
+    const image = nativeImage.createFromPath(iconPath);
+    if (!image.isEmpty()) return { iconPath, image };
+  }
+  const fallback = _getAppIconPath();
+  return { iconPath: fallback, image: null };
 }
 
 function createWindow() {
   const { iconPath, image: appIcon } = _loadAppIcon();
+  const taskbarIconPath = _getTaskbarIconPath();
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -92,14 +130,15 @@ function createWindow() {
     icon: appIcon || iconPath,
   });
 
-  // Windows taskbar / Jump List icon (BrowserWindow.icon alone is often ignored)
+  // Windows taskbar / Jump List — must use a real filesystem path (exe or unpacked .ico)
   if (process.platform === 'win32') {
     try {
       mainWindow.setAppDetails({
-        appId: 'com.shkwon.imageviewer.app',
-        appIconPath: iconPath,
+        appId: APP_USER_MODEL_ID,
+        appIconPath: taskbarIconPath,
         appIconIndex: 0,
         relaunchDisplayName: 'Image Viewer',
+        relaunchCommand: process.execPath,
       });
     } catch (e) {
       console.warn('setAppDetails failed:', e.message);
@@ -789,16 +828,43 @@ ipcMain.handle('unwatch-file', (event, filePath) => {
 });
 
 // Native drag-out: renderer calls this synchronously on dragstart
-ipcMain.on('start-drag', (event, filePath) => {
+// Supports one path (string) or many (string[]). OS drop is typically copy.
+ipcMain.on('start-drag', (event, filePathOrPaths) => {
   try {
+    const paths = (Array.isArray(filePathOrPaths) ? filePathOrPaths : [filePathOrPaths])
+      .filter((p) => typeof p === 'string' && p && fs.existsSync(p));
+    if (!paths.length) return;
+
     const iconPath = path.join(__dirname, 'src', 'assets', 'icon.png');
     const icon = fs.existsSync(iconPath)
       ? nativeImage.createFromPath(iconPath).resize({ width: 64, height: 64 })
       : nativeImage.createEmpty();
-    event.sender.startDrag({ file: filePath, icon });
+
+    if (paths.length === 1) {
+      event.sender.startDrag({ file: paths[0], icon });
+    } else {
+      try {
+        event.sender.startDrag({ files: paths, icon });
+      } catch (_) {
+        // Some platforms only accept a single file
+        event.sender.startDrag({ file: paths[0], icon });
+      }
+    }
   } catch (e) {
     console.error('startDrag failed:', e.message);
   }
+});
+
+ipcMain.handle('pick-directory', async (event, opts = {}) => {
+  if (!mainWindow) return { canceled: true };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: opts.title || undefined,
+    defaultPath: opts.defaultPath || lastOpenDir || _dialogDefaultPath(),
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (result.canceled || !result.filePaths?.length) return { canceled: true };
+  _saveLastOpenDir(result.filePaths[0]);
+  return { path: result.filePaths[0] };
 });
 
 ipcMain.handle('set-unsaved-changes', (event, value) => {
@@ -822,6 +888,120 @@ ipcMain.handle('delete-file', async (event, filePath) => {
   } catch (err) {
     return { error: err.message };
   }
+});
+
+/** Unique destination path if name already exists (e.g. photo (1).jpg). */
+async function _uniqueDestPath(destDir, baseName) {
+  let dest = path.join(destDir, baseName);
+  try {
+    await fs.promises.access(dest);
+  } catch {
+    return dest;
+  }
+  const ext = path.extname(baseName);
+  const stem = path.basename(baseName, ext);
+  let i = 1;
+  for (;;) {
+    dest = path.join(destDir, `${stem} (${i})${ext}`);
+    try {
+      await fs.promises.access(dest);
+      i += 1;
+    } catch {
+      return dest;
+    }
+  }
+}
+
+function _isPathInside(parent, child) {
+  const rel = path.relative(path.resolve(parent), path.resolve(child));
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/**
+ * Copy or move files/folders into destDir.
+ * @param {{ sources: string[], destDir: string, mode?: 'copy'|'move' }} opts
+ */
+ipcMain.handle('transfer-into-dir', async (event, opts = {}) => {
+  const sources = Array.isArray(opts.sources) ? opts.sources.filter(Boolean) : [];
+  const destDir = opts.destDir;
+  const mode = opts.mode === 'move' ? 'move' : 'copy';
+
+  if (!destDir || !sources.length) {
+    return { error: 'Missing source or destination' };
+  }
+
+  try {
+    const destStat = await fs.promises.stat(destDir);
+    if (!destStat.isDirectory()) {
+      return { error: 'Destination is not a directory' };
+    }
+  } catch (err) {
+    return { error: err.message };
+  }
+
+  const results = [];
+  const errors = [];
+
+  for (const src of sources) {
+    try {
+      const srcResolved = path.resolve(src);
+      const destResolved = path.resolve(destDir);
+
+      if (_isPathInside(srcResolved, destResolved)) {
+        errors.push({ src, error: 'Cannot drop a folder into itself' });
+        continue;
+      }
+
+      const srcStat = await fs.promises.stat(srcResolved);
+      const baseName = path.basename(srcResolved);
+      const srcParent = path.resolve(path.dirname(srcResolved));
+
+      // Moving within the same folder is a no-op
+      if (mode === 'move' && srcParent.toLowerCase() === destResolved.toLowerCase()) {
+        results.push({ src: srcResolved, dest: srcResolved, skipped: true });
+        continue;
+      }
+
+      const dest = await _uniqueDestPath(destDir, baseName);
+
+      // Copying onto exact same path — skip
+      if (srcResolved.toLowerCase() === path.resolve(dest).toLowerCase()) {
+        results.push({ src: srcResolved, dest: srcResolved, skipped: true });
+        continue;
+      }
+
+      if (mode === 'move') {
+        try {
+          await fs.promises.rename(srcResolved, dest);
+        } catch (renameErr) {
+          // Cross-device move: copy then remove
+          if (srcStat.isDirectory()) {
+            await fs.promises.cp(srcResolved, dest, { recursive: true });
+            await fs.promises.rm(srcResolved, { recursive: true, force: true });
+          } else {
+            await fs.promises.copyFile(srcResolved, dest);
+            await fs.promises.unlink(srcResolved);
+          }
+        }
+      } else if (srcStat.isDirectory()) {
+        await fs.promises.cp(srcResolved, dest, { recursive: true });
+      } else {
+        await fs.promises.copyFile(srcResolved, dest);
+      }
+
+      results.push({ src: srcResolved, dest, mode });
+    } catch (err) {
+      errors.push({ src, error: err.message });
+    }
+  }
+
+  return {
+    success: errors.length === 0,
+    mode,
+    destDir,
+    results,
+    errors: errors.length ? errors : undefined,
+  };
 });
 
 app.whenReady().then(() => {

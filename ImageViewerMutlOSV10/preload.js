@@ -54,10 +54,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+  transferIntoDir: (opts) => ipcRenderer.invoke('transfer-into-dir', opts),
+  pickDirectory: (opts) => ipcRenderer.invoke('pick-directory', opts),
+  startDrag: (filePathOrPaths) => ipcRenderer.send('start-drag', filePathOrPaths),
   setUnsavedChanges: (value) => ipcRenderer.invoke('set-unsaved-changes', value),
   closeWindow: () => ipcRenderer.invoke('close-window'),
 
-  startDrag: (filePath) => ipcRenderer.send('start-drag', filePath),
   watchDirectory: (dirPath) => ipcRenderer.invoke('watch-directory', dirPath),
   unwatchDirectory: (dirPath) => ipcRenderer.invoke('unwatch-directory', dirPath),
   watchFile: (filePath) => ipcRenderer.invoke('watch-file', filePath),

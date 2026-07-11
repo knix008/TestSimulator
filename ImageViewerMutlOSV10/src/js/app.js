@@ -78,6 +78,25 @@
       _watchDir(p);
     },
     onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
+    onImport: (info) => {
+      if (!info) return;
+      if (info.error === 'noDest') {
+        _updateStatus({ msg: I18n.t('status.dropNoDest') });
+        return;
+      }
+      if (info.error) {
+        _updateStatus({
+          msg: (I18n.t('status.dropError') || 'Error: {msg}').replace('{msg}', info.error),
+        });
+        return;
+      }
+      const key = info.mode === 'move' ? 'status.moved' : 'status.copied';
+      let msg = (I18n.t(key) || '{n}').replace('{n}', String(info.count ?? 0));
+      if (info.errors?.length) {
+        msg += ` (${info.errors.length} failed)`;
+      }
+      _updateStatus({ msg });
+    },
   });
 
   let _refreshTimer = null;
@@ -1494,17 +1513,64 @@
   /* ════════════════════════════════════════════
      File Tree Context Menu
   ════════════════════════════════════════════ */
+  async function _exportSelectionToFolder(paths, mode) {
+    const t = I18n.t.bind(I18n);
+    if (!paths?.length) return;
+    const picked = await window.electronAPI.pickDirectory({
+      title: mode === 'move' ? t('dialog.moveToFolder') : t('dialog.copyToFolder'),
+    });
+    if (picked.canceled || !picked.path) return;
+
+    const result = await window.electronAPI.transferIntoDir({
+      sources: paths,
+      destDir: picked.path,
+      mode: mode === 'move' ? 'move' : 'copy',
+    });
+
+    if (result?.error && !result.results) {
+      _updateStatus({
+        msg: (t('status.dropError') || 'Error: {msg}').replace('{msg}', result.error),
+      });
+      return;
+    }
+
+    const done = (result.results || []).filter((r) => r.dest && !r.skipped);
+    if (mode === 'move') {
+      for (const r of done) {
+        FileTree.forgetPath(r.src);
+        const cur = state.currentFile;
+        const src = r.src;
+        if (cur && src &&
+            cur.replace(/[\\/]+$/, '').toLowerCase() === src.replace(/[\\/]+$/, '').toLowerCase()) {
+          state.currentFile = null;
+          _showPlaceholder(true);
+          _clearDirty();
+        }
+      }
+    }
+
+    await FileTree.refresh();
+    const key = mode === 'move' ? 'status.moved' : 'status.copied';
+    let msg = (t(key) || '{n}').replace('{n}', String(done.length));
+    if (result.errors?.length) msg += ` (${result.errors.length} failed)`;
+    _updateStatus({ msg });
+  }
+
   function _showTreeContextMenu(entry, x, y) {
     const t = I18n.t.bind(I18n);
     const isWeb = window.electronAPI.platform === 'web';
     const isDir  = entry.isDirectory;
     const isFile = !isDir;
     const ext = FormatSupport.getExtension(entry.name);
-    const isSup = FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext);
+    const isSup = FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext);
 
     // Check if multiple items are selected
     const multiPaths = FileTree.getSelectedPaths();
-    const isMulti = multiPaths.length > 1;
+    const isMulti = multiPaths.length > 1 && multiPaths.some((p) => {
+      // treat as multi if right-clicked item is part of selection
+      return p === entry.path || (entry.path && p.toLowerCase() === entry.path.toLowerCase());
+    });
+    const exportPaths = isMulti ? multiPaths : [entry.path];
 
     if (isMulti && isFile) {
       // Multi-selection context menu
@@ -1514,6 +1580,10 @@
         { separator: true },
         { icon: Icons.copy, label: t('tree.copyPath'),
           action: () => navigator.clipboard.writeText(multiPaths.join('\n')).catch(() => {}) },
+        !isWeb && { icon: Icons.copy, label: `${t('context.copyToFolder')} (${multiPaths.length})`,
+          action: () => _exportSelectionToFolder(multiPaths, 'copy') },
+        !isWeb && { icon: Icons.cut, label: `${t('context.moveToFolder')} (${multiPaths.length})`,
+          action: () => _exportSelectionToFolder(multiPaths, 'move') },
         !isWeb && { separator: true },
         !isWeb && { icon: Icons.delete, label: `${t('context.deleteFile')} (${multiPaths.length})`,
           action: async () => {
@@ -1553,6 +1623,10 @@
       { separator: true },
       isFile && isSup && { icon: Icons.save,       label: t('context.saveAs'),        action: async () => { await _openFile(entry.path); _saveAs(); } },
       isFile &&          { icon: Icons.copy,       label: t('tree.copyPath'), action: () => navigator.clipboard.writeText(entry.path).catch(() => {}) },
+      !isWeb && { icon: Icons.copy, label: t('context.copyToFolder'),
+        action: () => _exportSelectionToFolder(exportPaths, 'copy') },
+      !isWeb && { icon: Icons.cut, label: t('context.moveToFolder'),
+        action: () => _exportSelectionToFolder(exportPaths, 'move') },
       !isWeb && { separator: true },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), action: () => window.electronAPI.showItemInFolder(entry.path) },
       !isWeb && { separator: true },

@@ -10,6 +10,8 @@ window.FileTree = (() => {
   let _onSelect      = null;    // callback(filePath)
   let _onDirOpen     = null;    // callback(dirPath)
   let _onContextMenu = null;
+  let _onImport      = null;    // callback({ destDir, mode, count, ... })
+  let _dropHoverEl   = null;
   let _pathSep       = '/';
   let _ready         = false;
 
@@ -17,13 +19,68 @@ window.FileTree = (() => {
   const VIDEO_EXTS = FormatSupport.VIDEO_EXTS;
   const AUDIO_EXTS = FormatSupport.AUDIO_EXTS;
 
-  function init(container, { onSelect, onDirOpen, onContextMenu }) {
+  function init(container, { onSelect, onDirOpen, onContextMenu, onImport }) {
     _container = container;
     _onSelect  = onSelect;
     _onDirOpen = onDirOpen;
     _onContextMenu = onContextMenu || null;
+    _onImport = onImport || null;
     window.electronAPI.getPathSep().then(sep => { _pathSep = sep; });
     _initDropZone();
+  }
+
+  function _clearDropHover() {
+    if (_dropHoverEl) {
+      _dropHoverEl.classList.remove('drop-hover');
+      _dropHoverEl = null;
+    }
+    const panel = _container?.closest('#file-tree-panel') || _container;
+    panel?.classList.remove('drop-target', 'drop-move');
+  }
+
+  function _setDropHover(el, isMove) {
+    if (_dropHoverEl && _dropHoverEl !== el) {
+      _dropHoverEl.classList.remove('drop-hover');
+    }
+    _dropHoverEl = el || null;
+    if (_dropHoverEl) _dropHoverEl.classList.add('drop-hover');
+    const panel = _container?.closest('#file-tree-panel') || _container;
+    if (panel) {
+      panel.classList.add('drop-target');
+      panel.classList.toggle('drop-move', !!isMove);
+    }
+  }
+
+  /** Directory under the pointer, or focused / selected folder fallback. */
+  function _resolveDropDir(clientX, clientY) {
+    const el = document.elementFromPoint(clientX, clientY);
+    const row = el?.closest?.('.tree-item');
+    if (row) {
+      if (row.dataset.isDir === '1' && row.dataset.path) {
+        return row.dataset.path;
+      }
+      // Dropped on a file row → use that file's parent
+      const filePath = row.dataset.path;
+      if (filePath) {
+        const idx = Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/'));
+        if (idx >= 0) {
+          let parent = filePath.slice(0, idx);
+          // Windows drive root: "C:" → "C:\"
+          if (/^[a-zA-Z]:$/.test(parent)) parent += '\\';
+          return parent || null;
+        }
+      }
+    }
+    return _focusPath || null;
+  }
+
+  function _dropFilePath(file) {
+    try {
+      if (window.electronAPI.getPathForFile) {
+        return window.electronAPI.getPathForFile(file) || file.path || '';
+      }
+    } catch (_) {}
+    return file.path || '';
   }
 
   function _initDropZone() {
@@ -32,25 +89,37 @@ window.FileTree = (() => {
     panel.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      e.dataTransfer.dropEffect = 'copy';
-      panel.classList.add('drop-target');
+      // External OS files only — ignore empty payloads
+      if (![...e.dataTransfer.types].some((t) => t === 'Files')) return;
+
+      const isMove = e.shiftKey;
+      e.dataTransfer.dropEffect = isMove ? 'move' : 'copy';
+
+      const dir = _resolveDropDir(e.clientX, e.clientY);
+      const row = dir
+        ? panel.querySelector(`.tree-item[data-path="${CSS.escape(dir)}"]`)
+        : null;
+      _setDropHover(row, isMove);
     });
 
     panel.addEventListener('dragleave', (e) => {
       if (!panel.contains(e.relatedTarget)) {
-        panel.classList.remove('drop-target');
+        _clearDropHover();
       }
     });
 
     panel.addEventListener('drop', async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      panel.classList.remove('drop-target');
+      const isMove = e.shiftKey;
+      const destDir = _resolveDropDir(e.clientX, e.clientY);
+      _clearDropHover();
 
       const files = Array.from(e.dataTransfer.files);
       if (!files.length) return;
 
       if (window.electronAPI.platform === 'web') {
+        // Web: no real filesystem copy — keep previous open/register behavior
         const items = [...(e.dataTransfer.items || [])];
         for (const item of items) {
           if (item.kind === 'file' && item.getAsFileSystemHandle) {
@@ -70,10 +139,10 @@ window.FileTree = (() => {
         }
         for (const f of files) {
           const ext = FormatSupport.getExtension(f.name);
-          if (FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext)) {
-            const p = FileRegistry.registerFile(f, '/');
+          if (IMAGE_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext)) {
+            const p = FileRegistry.registerFile(f, destDir || '/');
             await loadDrives();
-            await revealPath('/');
+            await revealPath(destDir || '/');
             setSelected(p);
             if (_onSelect) await _onSelect(p);
             await refresh();
@@ -83,45 +152,58 @@ window.FileTree = (() => {
         return;
       }
 
-      const dropPath = (f) =>
-        (window.electronAPI.getPathForFile && window.electronAPI.getPathForFile(f)) || f.path || '';
-
-      for (const f of files) {
-        const p = dropPath(f);
-        if (!p) continue;
-        const stats = await window.electronAPI.getFileStats(p);
-        if (stats && !stats.error && stats.isDirectory) {
-          await revealPath(p);
-          if (_onDirOpen) _onDirOpen(p);
-          await refresh();
-          return;
+      if (!destDir) {
+        if (_onImport) {
+          _onImport({ error: 'noDest' });
         }
+        return;
       }
 
+      const sources = [];
       for (const f of files) {
-        const p = dropPath(f);
-        if (!p) continue;
-        const ext = FormatSupport.getExtension(f.name);
-        if (FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext)) {
-          const dir = await window.electronAPI.pathDirname(p);
-          await revealPath(dir);
-          setSelected(p);
-          if (_onSelect) await _onSelect(p);
-          await refresh();
-          setSelected(p);
-          return;
-        }
+        const p = _dropFilePath(f);
+        if (p) sources.push(p);
+      }
+      if (!sources.length) return;
+
+      const mode = isMove ? 'move' : 'copy';
+      const result = await window.electronAPI.transferIntoDir({
+        sources,
+        destDir,
+        mode,
+      });
+
+      if (result?.error && !result.results) {
+        if (_onImport) _onImport({ error: result.error, destDir, mode });
+        return;
       }
 
-      // Fallback: any dropped path
-      const p = dropPath(files[0]);
-      if (p) {
-        const dir = await window.electronAPI.pathDirname(p);
-        await revealPath(dir);
-        setSelected(p);
-        if (_onSelect) await _onSelect(p);
-        await refresh();
-        setSelected(p);
+      // Expand destination and refresh so new files appear
+      _expandedDirs.add(destDir);
+      // Normalize: also keep path from ancestors if needed
+      await revealPath(destDir);
+      await refresh();
+      if (_onDirOpen) _onDirOpen(destDir);
+
+      const copied = (result.results || []).filter((r) => r.dest && !r.skipped);
+      const firstMedia = copied.find((r) => {
+        const ext = FormatSupport.getExtension(r.dest);
+        return IMAGE_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext);
+      });
+
+      if (firstMedia) {
+        setSelected(firstMedia.dest);
+        if (_onSelect) await _onSelect(firstMedia.dest);
+      }
+
+      if (_onImport) {
+        _onImport({
+          destDir,
+          mode,
+          count: copied.length,
+          errors: result.errors,
+          results: copied,
+        });
       }
     });
   }
@@ -317,15 +399,17 @@ window.FileTree = (() => {
       if (_onContextMenu) _onContextMenu({ ...entry, isDirectory: isDir }, e.clientX, e.clientY);
     });
 
-    // Drag-out: allow dragging files to external apps (Electron only)
-      if (!isDir && isSup && window.electronAPI.platform !== 'web') {
-        row.draggable = true;
-        row.addEventListener('dragstart', (e) => {
-          e.dataTransfer.effectAllowed = 'copy';
-          e.dataTransfer.setData('text/plain', entry.path);
-          window.electronAPI.startDrag(entry.path);
-        });
-      }
+    // Drag-out to OS (Explorer, Desktop, other apps) — Electron only
+    if (!isDrive && window.electronAPI.platform !== 'web') {
+      row.draggable = true;
+      row.addEventListener('dragstart', (e) => {
+        // Required for webContents.startDrag (native file drag)
+        e.preventDefault();
+        const paths = _pathsForDragOut(entry.path);
+        if (!paths.length) return;
+        window.electronAPI.startDrag(paths.length === 1 ? paths[0] : paths);
+      });
+    }
 
     if (_pathsEqual(entry.path, _selectedPath) || _selectedPaths.has(entry.path)) {
       row.classList.add('selected');
@@ -413,7 +497,20 @@ window.FileTree = (() => {
     _highlightSelected();
   }
 
-  function getSelectedPaths() { return Array.from(_selectedPaths); }
+  function getSelectedPaths() {
+    const set = new Set();
+    for (const p of _selectedPaths) if (p) set.add(p);
+    if (_selectedPath) set.add(_selectedPath);
+    return Array.from(set);
+  }
+
+  /** Paths to export via native drag (multi-select aware). */
+  function _pathsForDragOut(primaryPath) {
+    const selected = getSelectedPaths();
+    const primaryInSelection = selected.some((p) => _pathsEqual(p, primaryPath));
+    if (selected.length > 1 && primaryInSelection) return selected;
+    return primaryPath ? [primaryPath] : [];
+  }
 
   function _highlightSelected() {
     if (!_container) return;

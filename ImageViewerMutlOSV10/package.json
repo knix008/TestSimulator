@@ -34,6 +34,11 @@
       "src/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "src/assets/icon.ico",
+      "src/assets/icon.png",
+      "src/assets/icon_512.png"
+    ],
     "afterPack": "scripts/after-pack.js",
     "afterAllArtifactBuild": "scripts/copy-dist.js",
     "win": {

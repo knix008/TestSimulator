@@ -106,6 +106,8 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 
 ### `scripts/patch-electron-icon.js`
 - Windows: embeds `src/assets/icon.ico` into `node_modules/electron/dist/electron.exe` via **rcedit** (taskbar icon under `npm start`).
+- Packaged Windows: `afterPack` embeds the same ICO into `Image Viewer.exe`; runtime `AppUserModelId` matches `build.appId` (`com.shkwon.imageviewer`) and taskbar icon uses `process.execPath` (Shell cannot load icons from `app.asar`).
+- Assets `icon.ico` / `icon.png` / `icon_512.png` are `asarUnpack`ed as a fallback.
 - Wired as `prestart` / `postinstall`; stamp file `.icon-patched` skips redundant work.
 
 ---

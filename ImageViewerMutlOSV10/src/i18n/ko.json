@@ -70,6 +70,10 @@
   "context.showInExplorer": "탐색기에서 보기",
   "context.deleteFile": "파일 삭제",
   "context.deleteFolder": "폴더 삭제",
+  "context.copyToFolder": "폴더로 복사...",
+  "context.moveToFolder": "폴더로 이동...",
+  "dialog.copyToFolder": "폴더로 복사",
+  "dialog.moveToFolder": "폴더로 이동",
 
   "info.title": "파일 정보",
   "info.name": "파일명",
@@ -100,6 +104,10 @@
   "status.of": "/",
   "status.loading": "로딩 중...",
   "status.ready": "준비",
+  "status.copied": "{n}개 항목을 복사했습니다",
+  "status.moved": "{n}개 항목을 이동했습니다",
+  "status.dropNoDest": "탐색기에서 대상 폴더를 선택하거나 폴더 위에 놓으세요",
+  "status.dropError": "복사/이동 실패: {msg}",
 
   "about.title": "이미지 뷰어 정보",
   "about.version": "버전",
@@ -123,6 +131,7 @@
   "tree.noDir": "폴더가 열려있지 않습니다",
   "tree.openFolder": "폴더 열기",
   "tree.title": "탐색기",
+  "tree.dropHint": "파일을 여기에 놓으면 복사됩니다 (Shift = 이동)",
 
   "placeholder.hint": "파일 또는 폴더를 열어 시작하세요",
 

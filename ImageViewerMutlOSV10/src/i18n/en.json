@@ -70,6 +70,10 @@
   "context.showInExplorer": "Show in Explorer",
   "context.deleteFile": "Delete File",
   "context.deleteFolder": "Delete Folder",
+  "context.copyToFolder": "Copy to Folder...",
+  "context.moveToFolder": "Move to Folder...",
+  "dialog.copyToFolder": "Copy to Folder",
+  "dialog.moveToFolder": "Move to Folder",
 
   "info.title": "File Information",
   "info.name": "Name",
@@ -100,6 +104,10 @@
   "status.of": "of",
   "status.loading": "Loading...",
   "status.ready": "Ready",
+  "status.copied": "Copied {n} item(s)",
+  "status.moved": "Moved {n} item(s)",
+  "status.dropNoDest": "Drop onto a folder in the explorer, or select one first",
+  "status.dropError": "Copy/move failed: {msg}",
 
   "about.title": "About Image Viewer",
   "about.version": "Version",
@@ -123,6 +131,7 @@
   "tree.noDir": "No folder opened",
   "tree.openFolder": "Open Folder",
   "tree.title": "EXPLORER",
+  "tree.dropHint": "Drop files here to copy (hold Shift to move)",
 
   "placeholder.hint": "Open a file or folder to begin",
 
