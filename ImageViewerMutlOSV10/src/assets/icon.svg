@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <!-- Main gradient: dark blue-purple to teal -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#1a2a4a"/>
+      <stop offset="100%" stop-color="#0d3d4f"/>
+    </linearGradient>
+    <!-- Lens gradient -->
+    <radialGradient id="lensGrad" cx="35%" cy="30%" r="65%">
+      <stop offset="0%"   stop-color="#7ecfff" stop-opacity="0.95"/>
+      <stop offset="40%"  stop-color="#3ea8e0" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#1a6090" stop-opacity="0.7"/>
+    </radialGradient>
+    <!-- Top-left light reflection -->
+    <radialGradient id="shineGrad" cx="20%" cy="15%" r="45%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="50%"  stop-color="#b8eaff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Frame gradient -->
+    <linearGradient id="frameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#3a5580"/>
+      <stop offset="100%" stop-color="#1e3a5a"/>
+    </linearGradient>
+    <!-- Mountain gradient -->
+    <linearGradient id="mountGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#4db8d4"/>
+      <stop offset="100%" stop-color="#2a8aaa"/>
+    </linearGradient>
+    <!-- Sun gradient -->
+    <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#ffe070"/>
+      <stop offset="100%" stop-color="#ffb840"/>
+    </radialGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded rect background -->
+  <rect x="8" y="8" width="240" height="240" rx="44" ry="44" fill="url(#bgGrad)" filter="url(#shadow)"/>
+
+  <!-- Subtle inner border -->
+  <rect x="8" y="8" width="240" height="240" rx="44" ry="44"
+        fill="none" stroke="#4a6a9a" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Photo frame -->
+  <rect x="30" y="50" width="196" height="156" rx="12" ry="12" fill="url(#frameGrad)" opacity="0.6"/>
+
+  <!-- Sky area inside frame -->
+  <clipPath id="frameClip">
+    <rect x="38" y="58" width="180" height="132" rx="8" ry="8"/>
+  </clipPath>
+  <rect x="38" y="58" width="180" height="132" rx="8" ry="8" fill="#1a3a5a"/>
+
+  <!-- Sky gradient overlay -->
+  <rect x="38" y="58" width="180" height="90" rx="0" fill="url(#lensGrad)" clip-path="url(#frameClip)" opacity="0.7"/>
+
+  <!-- Sun -->
+  <circle cx="155" cy="88" r="20" fill="url(#sunGrad)" clip-path="url(#frameClip)"/>
+
+  <!-- Sun glow -->
+  <circle cx="155" cy="88" r="28" fill="#ffe07033" clip-path="url(#frameClip)"/>
+
+  <!-- Mountains -->
+  <polygon points="38,190 80,115 122,190" fill="#1e4a6a" clip-path="url(#frameClip)"/>
+  <polygon points="90,190 140,105 190,190" fill="url(#mountGrad)" clip-path="url(#frameClip)" opacity="0.85"/>
+  <polygon points="150,190 195,130 218,190" fill="#164060" clip-path="url(#frameClip)"/>
+
+  <!-- Foreground water reflection -->
+  <rect x="38" y="170" width="180" height="20" fill="#0d2a3a" clip-path="url(#frameClip)" opacity="0.7"/>
+  <rect x="38" y="175" width="180" height="3" fill="#2a7a9a" clip-path="url(#frameClip)" opacity="0.4"/>
+  <rect x="38" y="182" width="100" height="2" fill="#2a7a9a" clip-path="url(#frameClip)" opacity="0.3"/>
+
+  <!-- Camera lens circle overlay (decorative) -->
+  <circle cx="128" cy="124" r="52" fill="none" stroke="#4a8ab0" stroke-width="1" opacity="0.35"/>
+  <circle cx="128" cy="124" r="40" fill="none" stroke="#4a8ab0" stroke-width="0.75" opacity="0.25"/>
+
+  <!-- Top-left light reflection on icon background -->
+  <ellipse cx="60" cy="50" rx="80" ry="55" fill="url(#shineGrad)" opacity="0.6"/>
+
+  <!-- Frame corner brackets (decorative) -->
+  <path d="M30 66 L30 58 L38 58" fill="none" stroke="#6ab0d8" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <path d="M218 66 L218 58 L210 58" fill="none" stroke="#6ab0d8" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <path d="M30 190 L30 198 L38 198" fill="none" stroke="#6ab0d8" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <path d="M218 190 L218 198 L210 198" fill="none" stroke="#6ab0d8" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+</svg>

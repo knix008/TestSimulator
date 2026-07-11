@@ -1,0 +1,129 @@
+{
+  "name": "image-viewer-multios",
+  "version": "1.0.0",
+  "description": "Multi-platform image viewer and editor with dark/light themes and Korean/English support",
+  "author": "SHKWON",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/start-dev.js",
+    "web": "node server.js",
+    "postinstall": "node scripts/patch-electron-icon.js",
+    "patch:icon": "node scripts/patch-electron-icon.js --force",
+    "build:win": "electron-builder --win && node scripts/copy-dist.js win",
+    "build:mac": "electron-builder --mac && node scripts/copy-dist.js mac",
+    "build:linux": "electron-builder --linux && node scripts/copy-dist.js linux",
+    "build:all": "electron-builder --win --mac --linux && node scripts/copy-dist.js",
+    "copy-dist": "node scripts/copy-dist.js"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "express": "^4.22.2",
+    "rcedit": "^5.0.2"
+  },
+  "build": {
+    "appId": "com.shkwon.imageviewer",
+    "productName": "Image Viewer",
+    "copyright": "Copyright © 2024–2026 SHKWON",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "package.json"
+    ],
+    "afterPack": "scripts/after-pack.js",
+    "afterAllArtifactBuild": "scripts/copy-dist.js",
+    "win": {
+      "artifactName": "ImageViewer-${version}.${ext}",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "ImageViewer-Portable-${version}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "ImageViewer-Setup-${version}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Image Viewer",
+      "installerIcon": "src/assets/icon.ico",
+      "uninstallerIcon": "src/assets/icon.ico",
+      "installerHeaderIcon": "src/assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "menuCategory": "Image Tools",
+      "differentialPackage": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon_512.png",
+      "category": "public.app-category.graphics-design"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/icon_512.png",
+      "category": "Graphics"
+    },
+    "dmg": {
+      "title": "Image Viewer ${version}",
+      "background": "src/assets/dmg-background.png",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "heic-convert": "^2.1.0",
+    "heic-decode": "^2.1.0",
+    "sharp": "^0.35.3"
+  }
+}
