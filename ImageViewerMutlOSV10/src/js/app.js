@@ -48,6 +48,11 @@
   const loadingOverlay   = document.getElementById('loading-overlay');
   const effectsPanel     = document.getElementById('effects-panel');
   const statusZoom       = document.getElementById('status-zoom');
+
+  let _openingFile = null;       // path currently being opened (re-entrancy guard)
+  let _ignoreWatchUntil = 0;     // ignore fs.watch noise right after open/watch
+  let _watchedDir  = null;
+  let _watchedFile = null;
   const statusDims       = document.getElementById('status-dims');
   const statusIdx        = document.getElementById('status-idx');
   const statusFmt        = document.getElementById('status-format');
@@ -78,8 +83,21 @@
   let _refreshTimer = null;
   function _scheduleTreeRefresh() {
     clearTimeout(_refreshTimer);
-    _refreshTimer = setTimeout(() => {
-      FileTree.refresh().catch((e) => console.warn('tree refresh failed:', e));
+    _refreshTimer = setTimeout(async () => {
+      try {
+        await FileTree.refresh();
+        // Keep prev/next list in sync with disk after external changes / DnD
+        if (state.currentFile) {
+          const dir = await window.electronAPI.pathDirname(state.currentFile);
+          state.fileList = await FileTree.getImageFilesInDir(dir);
+          state.fileIndex = FileTree.indexOfPath
+            ? FileTree.indexOfPath(state.fileList, state.currentFile)
+            : state.fileList.indexOf(state.currentFile);
+          _updateNavButtons();
+        }
+      } catch (e) {
+        console.warn('tree refresh failed:', e);
+      }
     }, 150);
   }
 
@@ -110,6 +128,16 @@
   });
 
   /* ─── Drag-and-drop ─── */
+  function _dropPath(file) {
+    if (!file) return '';
+    try {
+      if (window.electronAPI.getPathForFile) {
+        return window.electronAPI.getPathForFile(file) || file.path || '';
+      }
+    } catch (_) {}
+    return file.path || '';
+  }
+
   app.addEventListener('dragover', (e) => { e.preventDefault(); app.classList.add('drag-over'); });
   app.addEventListener('dragleave', () => app.classList.remove('drag-over'));
   app.addEventListener('drop', async (e) => {
@@ -145,6 +173,8 @@
           await FileTree.loadDrives();
           await FileTree.revealPath('/');
           await _openFile(p);
+          await FileTree.refresh();
+          FileTree.setSelected(p);
           return;
         }
       }
@@ -153,39 +183,47 @@
         await FileTree.loadDrives();
         await FileTree.revealPath('/');
         await _openFile(p);
+        await FileTree.refresh();
+        FileTree.setSelected(p);
       }
       return;
     }
 
     // Check if a folder was dropped (Electron)
     for (const f of files) {
-      const stats = await window.electronAPI.getFileStats(f.path);
+      const p = _dropPath(f);
+      if (!p) continue;
+      const stats = await window.electronAPI.getFileStats(p);
       if (stats && !stats.error && stats.isDirectory) {
-        await _openFolder(f.path);
+        await _openFolder(p);
         await FileTree.refresh();
         return;
       }
     }
 
-    // Open first supported file
+    // Open first supported file and reveal its folder in the explorer
     for (const f of files) {
+      const p = _dropPath(f);
+      if (!p) continue;
       const ext = FormatSupport.getExtension(f.name);
-      if (FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext)) {
-        const dir = await window.electronAPI.pathDirname(f.path);
+      if (FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext)) {
+        const dir = await window.electronAPI.pathDirname(p);
+        await _openFile(p);
         await FileTree.revealPath(dir);
-        await _openFile(f.path);
         await FileTree.refresh();
-        FileTree.setSelected(f.path);
+        FileTree.setSelected(p);
         return;
       }
     }
     // Fallback: try the first file anyway
     if (files[0]) {
-      const dir = await window.electronAPI.pathDirname(files[0].path);
+      const p = _dropPath(files[0]);
+      if (!p) return;
+      const dir = await window.electronAPI.pathDirname(p);
+      await _openFile(p);
       await FileTree.revealPath(dir);
-      await _openFile(files[0].path);
       await FileTree.refresh();
-      FileTree.setSelected(files[0].path);
+      FileTree.setSelected(p);
     }
   });
 
@@ -193,11 +231,15 @@
   window.electronAPI.onOpenFile(async (p) => {
     try {
       const dir = await window.electronAPI.pathDirname(p);
+      await _openFile(p);
       await FileTree.revealPath(dir);
-    } catch (_) {}
-    await _openFile(p);
-    await FileTree.refresh();
-    FileTree.setSelected(p);
+      await FileTree.refresh();
+      FileTree.setSelected(p);
+    } catch (_) {
+      await _openFile(p);
+      await FileTree.refresh();
+      FileTree.setSelected(p);
+    }
   });
   window.electronAPI.onOpenFolder(async (p) => {
     await _openFolder(p);
@@ -206,9 +248,6 @@
   window.electronAPI.onMenuAction(async (action) => _handleMenuAction(action));
 
   /* ─── File / directory watching ─── */
-  let _watchedDir  = null;
-  let _watchedFile = null;
-
   async function _watchDir(dirPath) {
     if (_watchedDir === dirPath) return;
     if (_watchedDir) await window.electronAPI.unwatchDirectory(_watchedDir);
@@ -224,11 +263,14 @@
   }
 
   window.electronAPI.onDirectoryChanged((dirPath) => {
+    if (Date.now() < _ignoreWatchUntil) return;
     // Any watched folder change → refresh explorer (path compare used to be too strict)
     _scheduleTreeRefresh();
   });
 
   window.electronAPI.onFileChanged(async (filePath) => {
+    if (Date.now() < _ignoreWatchUntil) return;
+    if (_openingFile) return;
     if (state.currentFile === filePath && !state.isDirty) {
       await _openFile(filePath);
     }
@@ -387,13 +429,15 @@
   ════════════════════════════════════════════ */
   async function _openFile(filePath) {
     if (!filePath) return;
+    // Prevent overlapping opens (Windows fs.watch often fires when we read the file)
+    if (_openingFile && _openingFile === filePath) return;
+    _openingFile = filePath;
     _showLoading(true);
 
     try {
       const result = await FormatSupport.loadImageFile(filePath);
 
       if (result.type === 'error') {
-        _showLoading(false);
         _showPlaceholder(true);
         _updateStatus({ msg: result.message });
         _showError(
@@ -415,7 +459,9 @@
       window.electronAPI.setLastOpenDir(dir);
       _watchDir(dir);
       state.fileList  = await FileTree.getImageFilesInDir(dir);
-      state.fileIndex = state.fileList.indexOf(filePath);
+      state.fileIndex = FileTree.indexOfPath
+        ? FileTree.indexOfPath(state.fileList, filePath)
+        : state.fileList.indexOf(filePath);
 
       if (state.isVideo) {
         _showAudioPlayer(null);
@@ -426,10 +472,19 @@
       } else {
         _showVideoPlayer(null);
         _showAudioPlayer(null);
+        if (!result.dataUrl) {
+          _showPlaceholder(true);
+          _showError(
+            `${I18n.t('error.openFile') || 'Failed to open file'}: ${filePath.split(/[/\\]/).pop()}`,
+            'Empty image data'
+          );
+          return;
+        }
         await _loadImageDataUrl(result.dataUrl, filePath, result.dicomMeta);
       }
 
-      // Watch for external file changes
+      // Ignore spurious watch events caused by our own read
+      _ignoreWatchUntil = Date.now() + 800;
       _watchCurrentFile(filePath);
 
       // Clear dirty AFTER loadImage so the render triggered by loadImage doesn't persist dirty
@@ -439,21 +494,32 @@
       _setToolbarEnabled(true);
     } catch (e) {
       console.error('Error opening file:', e);
-      _showLoading(false);
       _showError(
         `${I18n.t('error.openFile') || 'Failed to open file'}: ${filePath.split(/[/\\]/).pop()}`,
         e
       );
-      return;
     } finally {
+      if (_openingFile === filePath) _openingFile = null;
       _showLoading(false);
     }
   }
 
   async function _loadImageDataUrl(dataUrl, filePath, dicomMeta) {
     return new Promise((resolve) => {
+      if (!dataUrl) {
+        _showPlaceholder(true);
+        resolve();
+        return;
+      }
       const img = new Image();
+      const done = () => resolve();
+      // Safety: never leave the loading overlay waiting forever
+      const timer = setTimeout(() => {
+        _showPlaceholder(true);
+        done();
+      }, 15000);
       img.onload = () => {
+        clearTimeout(timer);
         _showPlaceholder(false);
         _showVideoPlayer(null);
         _showAudioPlayer(null);
@@ -463,11 +529,12 @@
         Editor.loadImage(img);
         _fitToWindow();
         _updateStatus({ filePath, dicomMeta });
-        resolve();
+        done();
       };
       img.onerror = () => {
+        clearTimeout(timer);
         _showPlaceholder(true);
-        resolve();
+        done();
       };
       img.src = dataUrl;
     });

@@ -1,6 +1,22 @@
 const { contextBridge, ipcRenderer } = require('electron');
+let webUtils = null;
+try {
+  webUtils = require('electron').webUtils;
+} catch (_) {
+  webUtils = null;
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Resolve OS path from a dropped File
+  getPathForFile: (file) => {
+    try {
+      if (file && webUtils && typeof webUtils.getPathForFile === 'function') {
+        return webUtils.getPathForFile(file) || '';
+      }
+    } catch (_) {}
+    return (file && file.path) || '';
+  },
+
   // File system
   readDirectory: (dirPath) => ipcRenderer.invoke('read-directory', dirPath),
   listDrives: () => ipcRenderer.invoke('list-drives'),

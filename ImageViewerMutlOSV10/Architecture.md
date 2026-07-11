@@ -145,7 +145,7 @@ Packaged builds use `package.json → build.win/mac/linux.icon`.
 
 ## Build & Distribution
 
-**electron-builder** packages the app; `afterAllArtifactBuild` (`scripts/copy-dist.js`) copies installer files (`.exe`, `.dmg`, `.AppImage`, …) from `dist/` to the project root. `npm run build:win` also runs the copy step explicitly after packaging.
+**electron-builder** packages the app; `afterAllArtifactBuild` (`scripts/copy-dist.js`) copies installer files (`.exe`, `.dmg`, `.AppImage`, …) from `dist/` to the project root. `npm run build:win` also runs the copy step explicitly after packaging. Windows NSIS (`build/installer.nsh`) kills any running instance, removes the previous install directory and userData, then installs fresh.
 
 | Platform | Output |
 |---|---|

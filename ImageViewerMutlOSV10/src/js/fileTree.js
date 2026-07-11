@@ -74,27 +74,54 @@ window.FileTree = (() => {
             const p = FileRegistry.registerFile(f, '/');
             await loadDrives();
             await revealPath('/');
-            if (_onSelect) _onSelect(p);
+            setSelected(p);
+            if (_onSelect) await _onSelect(p);
+            await refresh();
             return;
           }
         }
         return;
       }
 
+      const dropPath = (f) =>
+        (window.electronAPI.getPathForFile && window.electronAPI.getPathForFile(f)) || f.path || '';
+
       for (const f of files) {
-        const stats = await window.electronAPI.getFileStats(f.path);
+        const p = dropPath(f);
+        if (!p) continue;
+        const stats = await window.electronAPI.getFileStats(p);
         if (stats && !stats.error && stats.isDirectory) {
-          if (_onDirOpen) _onDirOpen(f.path);
+          await revealPath(p);
+          if (_onDirOpen) _onDirOpen(p);
+          await refresh();
           return;
         }
       }
 
       for (const f of files) {
+        const p = dropPath(f);
+        if (!p) continue;
         const ext = FormatSupport.getExtension(f.name);
         if (FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext)) {
-          if (_onSelect) _onSelect(f.path);
+          const dir = await window.electronAPI.pathDirname(p);
+          await revealPath(dir);
+          setSelected(p);
+          if (_onSelect) await _onSelect(p);
+          await refresh();
+          setSelected(p);
           return;
         }
+      }
+
+      // Fallback: any dropped path
+      const p = dropPath(files[0]);
+      if (p) {
+        const dir = await window.electronAPI.pathDirname(p);
+        await revealPath(dir);
+        setSelected(p);
+        if (_onSelect) await _onSelect(p);
+        await refresh();
+        setSelected(p);
       }
     });
   }
@@ -198,13 +225,20 @@ window.FileTree = (() => {
   }
 
   async function _renderDir(parent, dirPath, depth) {
+    // Clear any "Loading..." placeholder before painting entries
+    parent.innerHTML = '';
     let entries;
     try {
       entries = await window.electronAPI.readDirectory(dirPath);
     } catch (e) {
+      parent.innerHTML = `<div class="tree-item" style="padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px">${e.message || 'Error'}</div>`;
       return;
     }
-    if (!entries || entries.error) return;
+    if (!entries || entries.error) {
+      const msg = (entries && entries.error) ? entries.error : (I18n.t('tree.empty') || 'Empty');
+      parent.innerHTML = `<div class="tree-item" style="padding-left:${depth * 14 + 4}px;color:var(--text-muted);font-size:12px">${msg}</div>`;
+      return;
+    }
 
     for (const entry of entries) {
       await _renderEntry(parent, entry, depth);
@@ -399,6 +433,13 @@ window.FileTree = (() => {
       .map(e => e.path);
   }
 
+  /** Case-/slash-insensitive index in a path list (Windows-safe). */
+  function indexOfPath(list, target) {
+    if (!list || !target) return -1;
+    const n = _norm(target);
+    return list.findIndex((p) => _norm(p) === n);
+  }
+
   /** Drop a path from expansion/selection state (after delete). */
   function forgetPath(targetPath) {
     if (!targetPath) return;
@@ -441,6 +482,6 @@ window.FileTree = (() => {
 
   return {
     init, loadDrives, revealPath, openRoot, getRoot, getSelected, setSelected,
-    getSelectedPaths, getImageFilesInDir, refresh, forgetPath,
+    getSelectedPaths, getImageFilesInDir, indexOfPath, refresh, forgetPath,
   };
 })();

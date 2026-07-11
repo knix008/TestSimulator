@@ -141,6 +141,8 @@
   });
 
   window.electronAPI = {
+    getPathForFile: () => '',
+
     readDirectory: async (dirPath) => {
       try { return await R().readDirectory(dirPath); }
       catch (e) { return { error: e.message }; }
