@@ -8,6 +8,7 @@
   "menu.copyToClipboard": "복사",
   "menu.exit": "종료",
   "menu.edit": "편집",
+  "menu.editImage": "이미지 편집",
   "menu.rotateLeft": "왼쪽으로 90° 회전",
   "menu.rotateRight": "오른쪽으로 90° 회전",
   "menu.flipHorizontal": "수평 뒤집기",

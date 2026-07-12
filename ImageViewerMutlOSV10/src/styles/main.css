@@ -190,6 +190,10 @@ html, body {
   pointer-events: none;
   fill: currentColor;
 }
+.toolbar-btn svg [stroke] {
+  fill: none;
+  stroke: currentColor;
+}
 
 .toolbar-btn .lang-text {
   font-size: 11px;
@@ -250,31 +254,33 @@ html, body {
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   flex-shrink: 0;
-  overflow: hidden;
+  /* visible so the width-resize handle can sit on the edge without being clipped */
+  overflow: visible;
   position: relative;
+  z-index: 2;
 }
 
 #sidebar-resize-handle {
   position: absolute;
   top: 0;
-  right: -3px;
-  width: 6px;
+  right: -4px;
+  width: 8px;
   height: 100%;
   cursor: col-resize;
-  z-index: 10;
+  z-index: 30;
   background: transparent;
 }
 #sidebar-resize-handle:hover,
 #sidebar-resize-handle.resizing {
   background: var(--resize-handle);
-  opacity: 0.5;
+  opacity: 0.55;
 }
 
 /* ========== File Tree ========== */
 #file-tree-panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 80px;
   overflow: hidden;
 }
@@ -420,13 +426,23 @@ html, body {
   flex: 1;
 }
 
-/* ========== Sidebar Vertical Resize ========== */
+/* ========== Sidebar Vertical Resize (tree ↔ info) ========== */
 #sidebar-v-resize {
   height: 5px;
   background: var(--border);
   cursor: row-resize;
   flex-shrink: 0;
   position: relative;
+  z-index: 5;
+}
+/* Larger invisible hit target */
+#sidebar-v-resize::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  bottom: -6px;
 }
 #sidebar-v-resize:hover,
 #sidebar-v-resize.resizing { background: var(--resize-handle); }
@@ -435,11 +451,23 @@ html, body {
 #info-panel {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   height: 200px;
   min-height: 100px;
   background: var(--sidebar-bg);
   overflow: hidden;
-  flex-shrink: 0;
+}
+
+body.resizing-col,
+body.resizing-row {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+body.resizing-col { cursor: col-resize !important; }
+body.resizing-row { cursor: row-resize !important; }
+body.resizing-col *,
+body.resizing-row * {
+  cursor: inherit !important;
 }
 
 #info-content {
@@ -486,6 +514,7 @@ html, body {
   display: flex;
   flex-direction: column;
   position: relative;
+  z-index: 1;
   overflow: hidden;
   background: var(--viewer-bg);
 }
@@ -760,6 +789,7 @@ html, body {
   flex-shrink: 0;
 }
 .ctx-item .ctx-icon svg { width: 14px; height: 14px; fill: currentColor; }
+.ctx-item .ctx-icon svg [stroke] { fill: none; stroke: currentColor; }
 
 .ctx-separator {
   height: 1px;
@@ -1099,6 +1129,7 @@ kbd {
 .ew-btn:disabled:hover { background: transparent; }
 .ew-btn.active { background: var(--bg-selected) !important; }
 .ew-btn svg { width: 16px; height: 16px; fill: currentColor; pointer-events: none; }
+.ew-btn svg [stroke] { fill: none; stroke: currentColor; }
 .ew-btn .lang-text { font-size: 11px; font-weight: 700; pointer-events: none; }
 
 #edit-window-body {

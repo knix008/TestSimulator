@@ -9,6 +9,7 @@
     "web": "node server.js",
     "postinstall": "node scripts/patch-electron-icon.js",
     "patch:icon": "node scripts/patch-electron-icon.js --force",
+    "create-icons": "node scripts/create-icons.js",
     "build:win": "electron-builder --win && node scripts/copy-dist.js win",
     "build:mac": "electron-builder --mac && node scripts/copy-dist.js mac",
     "build:linux": "electron-builder --linux && node scripts/copy-dist.js linux",

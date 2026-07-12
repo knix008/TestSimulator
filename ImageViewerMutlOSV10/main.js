@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const url = require('url');
 const os = require('os');
+const crypto = require('crypto');
 
 let mainWindow;
 let currentLang = 'en';
@@ -11,9 +12,24 @@ let hasUnsavedChanges = false;
 let isForceClose = false;
 let lastOpenDir = null;
 
-// Must match build.appId in package.json so the Start Menu / Desktop shortcut
-// AUMID matches the running process (mismatch → blank/white taskbar icon).
-const APP_USER_MODEL_ID = 'com.shkwon.imageviewer';
+/**
+ * Packaged builds must match build.appId (Start Menu shortcut).
+ * Unpackaged (npm start) MUST use a different AUMID — otherwise Windows
+ * reuses the installed shortcut's cached taskbar icon (often an old icon).
+ */
+function _computeAppUserModelId() {
+  const base = 'com.shkwon.imageviewer';
+  if (app.isPackaged) return base;
+  try {
+    const ico = path.join(__dirname, 'src', 'assets', 'icon.ico');
+    const hash = crypto.createHash('md5').update(fs.readFileSync(ico)).digest('hex').slice(0, 8);
+    return `${base}.dev.${hash}`;
+  } catch {
+    return `${base}.dev`;
+  }
+}
+
+const APP_USER_MODEL_ID = _computeAppUserModelId();
 
 if (process.platform === 'win32') {
   app.setAppUserModelId(APP_USER_MODEL_ID);
@@ -80,25 +96,32 @@ function _getAppIconPath() {
 
 /**
  * Path Windows Shell can load for the taskbar / Jump List.
- * Files inside app.asar are NOT readable by the Shell → white icon.
- * Packaged builds use the .exe (icon embedded by after-pack / rcedit).
+ * Always prefer a real .ico on disk — more reliable than the .exe for setAppDetails.
  */
 function _getTaskbarIconPath() {
+  const ico = _resolveAsset('src', 'assets', 'icon.ico');
+  if (fs.existsSync(ico) && !ico.includes(`${path.sep}app.asar${path.sep}`)) {
+    return ico;
+  }
   if (process.platform === 'win32' && app.isPackaged) {
     return process.execPath;
   }
-  const ico = _resolveAsset('src', 'assets', 'icon.ico');
-  if (fs.existsSync(ico)) return ico;
   return _getAppIconPath();
 }
 
 function _loadAppIcon() {
-  // Prefer PNG for BrowserWindow — Electron nativeImage handles it more reliably than multi-PNG ICO
-  const prefer = process.platform === 'win32'
-    ? ['icon_512.png', 'icon.png', 'icon.ico']
-    : process.platform === 'darwin'
-      ? ['icon_512.png', 'icon.png', 'icon.icns']
-      : ['icon_512.png', 'icon.png', 'icon.ico'];
+  // Windows taskbar quality is best with .ico (not PNG-only nativeImage)
+  if (process.platform === 'win32') {
+    const ico = _resolveAsset('src', 'assets', 'icon.ico');
+    if (fs.existsSync(ico)) {
+      const image = nativeImage.createFromPath(ico);
+      return { iconPath: ico, image: image.isEmpty() ? null : image };
+    }
+  }
+
+  const prefer = process.platform === 'darwin'
+    ? ['icon_512.png', 'icon.png', 'icon.icns']
+    : ['icon_512.png', 'icon.png', 'icon.ico'];
 
   for (const file of prefer) {
     const iconPath = _resolveAsset('src', 'assets', file);
@@ -113,6 +136,14 @@ function _loadAppIcon() {
 function createWindow() {
   const { iconPath, image: appIcon } = _loadAppIcon();
   const taskbarIconPath = _getTaskbarIconPath();
+  // Window chrome prefers a real .ico / PNG path (not the .exe)
+  const windowIconPath = (() => {
+    if (process.platform === 'win32') {
+      const ico = _resolveAsset('src', 'assets', 'icon.ico');
+      if (fs.existsSync(ico)) return ico;
+    }
+    return appIcon || iconPath;
+  })();
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -127,10 +158,10 @@ function createWindow() {
     show: false,
     backgroundColor: '#1e1e1e',
     title: 'Image Viewer',
-    icon: appIcon || iconPath,
+    icon: windowIconPath,
   });
 
-  // Windows taskbar / Jump List — must use a real filesystem path (exe or unpacked .ico)
+  // Windows taskbar / Jump List
   if (process.platform === 'win32') {
     try {
       mainWindow.setAppDetails({
@@ -138,8 +169,11 @@ function createWindow() {
         appIconPath: taskbarIconPath,
         appIconIndex: 0,
         relaunchDisplayName: 'Image Viewer',
-        relaunchCommand: process.execPath,
+        relaunchCommand: `"${process.execPath}"`,
       });
+      console.log(`[icon] AUMID=${APP_USER_MODEL_ID}`);
+      console.log(`[icon] taskbar=${taskbarIconPath}`);
+      console.log(`[icon] window=${windowIconPath}`);
     } catch (e) {
       console.warn('setAppDetails failed:', e.message);
     }
@@ -149,8 +183,17 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    if (appIcon) mainWindow.setIcon(appIcon);
-    else if (fs.existsSync(iconPath)) mainWindow.setIcon(iconPath);
+    try {
+      if (process.platform === 'win32' && fs.existsSync(windowIconPath)) {
+        mainWindow.setIcon(windowIconPath);
+      } else if (appIcon) {
+        mainWindow.setIcon(appIcon);
+      } else if (fs.existsSync(iconPath)) {
+        mainWindow.setIcon(iconPath);
+      }
+    } catch (e) {
+      console.warn('setIcon failed:', e.message);
+    }
     if (process.platform === 'darwin' && app.dock) {
       const dockIcon = nativeImage.createFromPath(iconPath);
       if (!dockIcon.isEmpty()) app.dock.setIcon(dockIcon);
@@ -232,6 +275,12 @@ function buildMenu(translations) {
     {
       label: t('menu.edit'),
       submenu: [
+        {
+          label: t('menu.editImage') || t('toolbar.edit') || 'Edit Image',
+          accelerator: 'CmdOrCtrl+E',
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'edit-image'),
+        },
+        { type: 'separator' },
         {
           label: t('menu.rotateLeft'),
           accelerator: 'CmdOrCtrl+[',
@@ -549,6 +598,7 @@ ipcMain.handle('read-file-base64', async (event, filePath) => {
       gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp',
       svg: 'image/svg+xml', ico: 'image/x-icon',
       tiff: 'image/tiff', tif: 'image/tiff',
+      heic: 'image/heic', heif: 'image/heif',
     };
     const mime = mimeMap[ext] || 'application/octet-stream';
     return `data:${mime};base64,${data.toString('base64')}`;
@@ -557,25 +607,85 @@ ipcMain.handle('read-file-base64', async (event, filePath) => {
   }
 });
 
-ipcMain.handle('convert-to-png', async (event, filePath) => {
+/**
+ * Decode HEIC/HEIF to a displayable JPEG data URL.
+ * Prefer heic-convert (libheif-js) — prebuilt sharp on Windows often lacks HEVC
+ * and may produce wrong / non-photographic looking results if it "succeeds".
+ */
+async function _convertHeicToDataUrl(filePath) {
+  const inputBuf = await fs.promises.readFile(filePath);
+  const errors = [];
+
+  // 1) heic-convert → high-quality JPEG (photographic)
+  try {
+    const heicConvert = require('heic-convert');
+    const jpegBuf = Buffer.from(await heicConvert({
+      buffer: inputBuf,
+      format: 'JPEG',
+      quality: 0.95,
+    }));
+    try {
+      const sharp = require('sharp');
+      const normalized = await sharp(jpegBuf)
+        .rotate()
+        .toColorspace('srgb')
+        .jpeg({ quality: 95, mozjpeg: true })
+        .toBuffer();
+      return `data:image/jpeg;base64,${normalized.toString('base64')}`;
+    } catch {
+      return `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+    }
+  } catch (e) {
+    errors.push(`heic-convert: ${e.message}`);
+  }
+
+  // 2) heic-decode raw RGBA → sharp PNG
+  try {
+    const decode = require('heic-decode');
+    const { width, height, data } = await decode({ buffer: inputBuf });
+    const sharp = require('sharp');
+    const pngBuf = await sharp(Buffer.from(data), {
+      raw: { width, height, channels: 4 },
+    })
+      .toColorspace('srgb')
+      .png()
+      .toBuffer();
+    return `data:image/png;base64,${pngBuf.toString('base64')}`;
+  } catch (e) {
+    errors.push(`heic-decode: ${e.message}`);
+  }
+
+  // 3) sharp last (only if libvips was built with HEVC)
   try {
     const sharp = require('sharp');
-    const buf = await sharp(filePath).rotate().png().toBuffer();
-    return `data:image/png;base64,${buf.toString('base64')}`;
-  } catch (sharpErr) {
-    // Fallback: try heic-convert for HEVC-encoded HEIC/HEIF files
-    const ext = path.extname(filePath).toLowerCase();
+    const buf = await sharp(filePath)
+      .rotate()
+      .toColorspace('srgb')
+      .jpeg({ quality: 95, mozjpeg: true })
+      .toBuffer();
+    return `data:image/jpeg;base64,${buf.toString('base64')}`;
+  } catch (e) {
+    errors.push(`sharp: ${e.message}`);
+  }
+
+  throw new Error(errors.join(' | '));
+}
+
+ipcMain.handle('convert-to-png', async (event, filePath) => {
+  const ext = path.extname(filePath).toLowerCase();
+  try {
     if (ext === '.heic' || ext === '.heif') {
-      try {
-        const heicConvert = require('heic-convert');
-        const inputBuf = await fs.promises.readFile(filePath);
-        const outputBuf = await heicConvert({ buffer: inputBuf, format: 'PNG', quality: 1 });
-        return `data:image/png;base64,${Buffer.from(outputBuf).toString('base64')}`;
-      } catch (heicErr) {
-        return { error: `sharp: ${sharpErr.message} | heic-convert: ${heicErr.message}` };
-      }
+      return await _convertHeicToDataUrl(filePath);
     }
-    return { error: sharpErr.message };
+    const sharp = require('sharp');
+    const buf = await sharp(filePath)
+      .rotate()
+      .toColorspace('srgb')
+      .png()
+      .toBuffer();
+    return `data:image/png;base64,${buf.toString('base64')}`;
+  } catch (err) {
+    return { error: err.message };
   }
 });
 

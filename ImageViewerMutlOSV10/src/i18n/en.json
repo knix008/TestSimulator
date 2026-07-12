@@ -8,6 +8,7 @@
   "menu.copyToClipboard": "Copy",
   "menu.exit": "Exit",
   "menu.edit": "Edit",
+  "menu.editImage": "Edit Image",
   "menu.rotateLeft": "Rotate Left 90°",
   "menu.rotateRight": "Rotate Right 90°",
   "menu.flipHorizontal": "Flip Horizontal",

@@ -148,14 +148,17 @@ npm run web
 
 ## 이미지 편집 / Editing Images
 
-| 동작 | 단축키 |
+**정지 이미지**만 편집할 수 있습니다. 동영상·오디오는 보기 전용입니다.
+
+| 동작 | 단축키 / 방법 |
 |-----|-------|
+| 편집 모드 열기 | `Ctrl+E`, 툴바 **이미지 편집**, 메뉴 **편집 → 이미지 편집** |
 | 왼쪽 90° 회전 | `Ctrl+[` |
 | 오른쪽 90° 회전 | `Ctrl+]` |
 | 수평 / 수직 뒤집기 | 툴바 버튼 |
 | 실행 취소 / 다시 실행 | `Ctrl+Z` / `Ctrl+Y` (최대 20단계) |
 
-편집 창(Edit Window)에서는 선택 도구와 효과를 한 화면에서 사용할 수 있습니다.
+편집 창에서는 선택 도구·자르기·효과·변환을 한 화면에서 사용합니다. **적용 후 닫기** 또는 **취소**로 보기 모드로 돌아갑니다.
 
 ---
 
@@ -240,9 +243,12 @@ npm run web
 - 데스크톱: Electron 메인 프로세스의 `sharp` 변환을 사용합니다.
 - 웹: `src/vendor/UTIF.js`를 넣고 `index.html` 주석을 제거하세요.
 
-### HEIC/HEIF가 표시되지 않아요
-- 데스크톱: `heic-convert` / `sharp` 또는 Windows HEIF 확장
+### HEIC/HEIF가 표시되지 않아요 / 색이 이상해요
+- 데스크톱: `heic-convert`(libheif)로 먼저 JPEG로 디코딩합니다. 앱을 다시 시작한 뒤 HEIC를 다시 열어보세요.
+- `samples/sample.heic`, `samples/sample.heif`는 실제 HEVC 사진 샘플입니다 (예전 AVIF 위장 파일에서 교체됨).
+- 저장 시 HEIC는 기본 확장자가 **JPG**입니다 (`다른 이름으로 저장`).
 - 웹: `src/vendor/heic2any.min.js` + `index.html` 주석 해제
+- Windows HEIF 확장도 도움이 될 수 있습니다.
 
 ### DICOM이 표시되지 않아요
 기본 파서가 포함되어 있으나, 일부 압축 DICOM은 지원하지 않을 수 있습니다.

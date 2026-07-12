@@ -265,24 +265,30 @@ window.FormatSupport = (() => {
     if (dataUrl && dataUrl.error) return { type: 'error', message: dataUrl.error };
 
     if (isTiff(filePath) || isHeic(filePath)) {
-      // Use sharp in main process for reliable TIFF/HEIC/HEIF decoding
+      // Use main-process converter (HEIC → heic-convert first; TIFF → sharp)
       const result = await window.electronAPI.convertToPng(filePath);
-      if (result && !result.error) return { type: 'image', dataUrl: result };
-      // Fallback to browser-based decoders
-      const b64 = dataUrl.split(',')[1];
-      const bin = atob(b64);
-      const buf = new ArrayBuffer(bin.length);
-      const u8  = new Uint8Array(buf);
-      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      if (isTiff(filePath)) {
-        const decoded = await decodeTiff(buf);
-        if (decoded) return { type: 'image', dataUrl: decoded };
-      } else {
-        const decoded = await decodeHeic(buf);
-        if (decoded) return { type: 'image', dataUrl: decoded };
+      if (result && !result.error && typeof result === 'string' && result.startsWith('data:')) {
+        return { type: 'image', dataUrl: result };
       }
-      if (result && result.error) return { type: 'error', message: result.error };
-      return { type: 'image', dataUrl };
+      // Fallback to browser-based decoders
+      const b64 = (dataUrl && dataUrl.includes(',')) ? dataUrl.split(',')[1] : null;
+      if (b64) {
+        const bin = atob(b64);
+        const buf = new ArrayBuffer(bin.length);
+        const u8  = new Uint8Array(buf);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        if (isTiff(filePath)) {
+          const decoded = await decodeTiff(buf);
+          if (decoded) return { type: 'image', dataUrl: decoded };
+        } else {
+          const decoded = await decodeHeic(buf);
+          if (decoded) return { type: 'image', dataUrl: decoded };
+        }
+      }
+      return {
+        type: 'error',
+        message: (result && result.error) || 'Could not decode HEIC/HEIF/TIFF image',
+      };
     }
 
     if (isDcm(filePath)) {
