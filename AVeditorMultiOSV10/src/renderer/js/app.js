@@ -499,12 +499,22 @@ class AVEditorApp {
         },
       },
       {
-        icon: this.preview.isMuted ? Icons.mute : Icons.volume,
-        label: this.preview.isMuted ? t('preview.unmute') : t('preview.mute'),
-        disabled: !hasMedia,
-        action: () => {
-          document.getElementById('prev-mute')?.click();
-        },
+        icon: (this.preview.isMuted || this.preview.volume <= 0) ? Icons.mute : Icons.volume,
+        label: (this.preview.isMuted || this.preview.volume <= 0) ? t('preview.unmute') : t('preview.mute'),
+        shortcut: 'M',
+        action: () => this.preview.toggleMute(),
+      },
+      {
+        icon: Icons.volume,
+        label: `${t('preview.volume')} +`,
+        shortcut: '↑',
+        action: () => this.preview.adjustVolume(0.1),
+      },
+      {
+        icon: Icons.volume,
+        label: `${t('preview.volume')} −`,
+        shortcut: '↓',
+        action: () => this.preview.adjustVolume(-0.1),
       },
       {
         icon: Icons.fullscreen,
@@ -688,6 +698,18 @@ class AVEditorApp {
 
       if (e.code === 'Space') { e.preventDefault(); this._togglePlay(); }
       if (e.code === 'Delete' || e.code === 'Backspace') this.timeline.deleteSelectedClip();
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        this.preview.toggleMute();
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.preview.adjustVolume(0.05);
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.preview.adjustVolume(-0.05);
+      }
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case 'n': e.preventDefault(); this._newProject(); break;

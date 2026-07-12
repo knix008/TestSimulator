@@ -2,6 +2,8 @@ import { Icons } from './icons.js';
 
 const VIEW_MODES = ['fit', 'fill', 'actual'];
 const STORAGE_VIEW = 'av-editor-preview-view';
+const STORAGE_VOLUME = 'av-editor-preview-volume';
+const STORAGE_MUTED = 'av-editor-preview-muted';
 
 export class Preview {
   constructor(container, { i18n, onTimeUpdate, onEnded, onDurationChange, onContextMenu }) {
@@ -14,10 +16,14 @@ export class Preview {
 
     this.mediaEl = null;
     this.currentFile = null;
-    this.isMuted = false;
     this._rafId = null;
     this.viewMode = localStorage.getItem(STORAGE_VIEW) || 'fit';
     if (!VIEW_MODES.includes(this.viewMode)) this.viewMode = 'fit';
+
+    const savedVol = parseFloat(localStorage.getItem(STORAGE_VOLUME) || '');
+    this.volume = Number.isFinite(savedVol) ? Math.min(1, Math.max(0, savedVol)) : 1;
+    this.isMuted = localStorage.getItem(STORAGE_MUTED) === '1';
+    this._volumeBeforeMute = this.volume > 0 ? this.volume : 1;
 
     this.render();
   }
@@ -44,9 +50,10 @@ export class Preview {
         <input type="range" class="preview-seek-bar" id="prev-seek" min="0" max="1000" value="0" step="1"/>
         <span class="preview-time" id="prev-time">00:00:00 / 00:00:00</span>
 
-        <div class="preview-volume">
+        <div class="preview-volume" title="">
           <button class="preview-ctrl-btn" id="prev-mute" data-i18n-tooltip="preview.mute">${Icons.volume}</button>
-          <input type="range" class="volume-slider" id="prev-vol" min="0" max="100" value="100"/>
+          <input type="range" class="volume-slider" id="prev-vol" min="0" max="100" value="100" step="1" data-i18n-tooltip="preview.volume"/>
+          <span class="volume-label" id="prev-vol-label">100%</span>
         </div>
 
         <div class="preview-view-modes" role="group">
@@ -67,6 +74,8 @@ export class Preview {
     this.timeDisplay = this.container.querySelector('#prev-time');
     this.playPauseBtn = this.container.querySelector('#prev-play-pause');
     this.muteBtn = this.container.querySelector('#prev-mute');
+    this.volSlider = this.container.querySelector('#prev-vol');
+    this.volLabel = this.container.querySelector('#prev-vol-label');
     this.viewport = this.container.querySelector('#preview-viewport');
 
     this.videoEl.style.display = 'none';
@@ -76,6 +85,8 @@ export class Preview {
     this._setupDropZone();
     this._bindContextMenu();
     this.setViewMode(this.viewMode, { persist: false });
+    this._syncVolumeUI();
+    this._applyVolume();
 
     this._resizeObs = new ResizeObserver(() => {
       if (this.viewMode === 'actual') this._applyActualSize();
@@ -127,16 +138,11 @@ export class Preview {
       }
     });
 
-    this.container.querySelector('#prev-vol').addEventListener('input', (e) => {
-      if (this.mediaEl) this.mediaEl.volume = e.target.value / 100;
+    this.volSlider.addEventListener('input', (e) => {
+      this.setVolume(Number(e.target.value) / 100);
     });
 
-    this.muteBtn.addEventListener('click', () => {
-      this.isMuted = !this.isMuted;
-      if (this.mediaEl) this.mediaEl.muted = this.isMuted;
-      this.muteBtn.innerHTML = this.isMuted ? Icons.mute : Icons.volume;
-      this.muteBtn.setAttribute('data-tooltip', this.i18n.t(this.isMuted ? 'preview.unmute' : 'preview.mute'));
-    });
+    this.muteBtn.addEventListener('click', () => this.toggleMute());
 
     this.container.querySelectorAll('.view-mode-btn').forEach((btn) => {
       btn.addEventListener('click', () => this.setViewMode(btn.dataset.mode));
@@ -288,7 +294,7 @@ export class Preview {
     }
 
     this._attachMediaEvents(this.mediaEl);
-    this.mediaEl.muted = this.isMuted;
+    this._applyVolume();
     this.seekBar.value = 0;
     this.timeDisplay.textContent = '00:00:00 / 00:00:00';
     this._updatePlayBtn(false);
@@ -312,10 +318,67 @@ export class Preview {
     this.mediaEl.style.display = 'block';
     this.mediaEl.src = url;
     this._attachMediaEvents(this.mediaEl);
-    this.mediaEl.muted = this.isMuted;
+    this._applyVolume();
     this.seekBar.value = 0;
     this._updatePlayBtn(false);
     this.setViewMode(this.viewMode, { persist: false });
+  }
+
+  /** @param {number} level 0..1 */
+  setVolume(level) {
+    const v = Math.min(1, Math.max(0, Number(level) || 0));
+    this.volume = v;
+    if (v > 0) {
+      this._volumeBeforeMute = v;
+      this.isMuted = false;
+    } else {
+      this.isMuted = true;
+    }
+    localStorage.setItem(STORAGE_VOLUME, String(this.volume));
+    localStorage.setItem(STORAGE_MUTED, this.isMuted ? '1' : '0');
+    this._syncVolumeUI();
+    this._applyVolume();
+  }
+
+  /** @param {number} delta -1..1 relative change */
+  adjustVolume(delta) {
+    this.setVolume(this.volume + delta);
+  }
+
+  toggleMute() {
+    if (this.isMuted) {
+      this.isMuted = false;
+      if (this.volume <= 0) this.volume = this._volumeBeforeMute || 1;
+    } else {
+      this._volumeBeforeMute = this.volume > 0 ? this.volume : this._volumeBeforeMute || 1;
+      this.isMuted = true;
+    }
+    localStorage.setItem(STORAGE_VOLUME, String(this.volume));
+    localStorage.setItem(STORAGE_MUTED, this.isMuted ? '1' : '0');
+    this._syncVolumeUI();
+    this._applyVolume();
+  }
+
+  _applyVolume() {
+    const level = this.isMuted ? 0 : this.volume;
+    for (const el of [this.videoEl, this.audioEl]) {
+      if (!el) continue;
+      el.volume = this.volume;
+      el.muted = this.isMuted || level <= 0;
+    }
+  }
+
+  _syncVolumeUI() {
+    if (this.volSlider) this.volSlider.value = String(Math.round(this.volume * 100));
+    if (this.volLabel) this.volLabel.textContent = `${Math.round(this.volume * 100)}%`;
+    if (this.muteBtn) {
+      const silent = this.isMuted || this.volume <= 0;
+      this.muteBtn.innerHTML = silent ? Icons.mute : Icons.volume;
+      this.muteBtn.setAttribute(
+        'data-tooltip',
+        this.i18n.t(silent ? 'preview.unmute' : 'preview.mute')
+      );
+    }
   }
 
   togglePlay() {
@@ -346,7 +409,9 @@ export class Preview {
   updateTranslations() {
     this._updateEmptyText();
     this.container.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
+      if (el === this.muteBtn) return;
       el.setAttribute('data-tooltip', this.i18n.t(el.getAttribute('data-i18n-tooltip')));
     });
+    this._syncVolumeUI();
   }
 }
