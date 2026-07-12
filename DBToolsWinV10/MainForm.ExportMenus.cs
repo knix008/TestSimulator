@@ -37,7 +37,7 @@ public partial class MainForm
 		items.Add(CreateExportMenuItem("Word...", "Report", "Word 문서(.docx)로보냅니다", ExportWord));
 		items.Add(CreateExportMenuItem("PDF...", "Report", "PDF 문서로보냅니다", ExportPdf));
 		items.Add(new ToolStripSeparator());
-		items.Add(CreateExportMenuItem("PNG (배경 투명)...", "Export", "다이어그램을 PNG 이미지(배경 투명)로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Png)));
+		items.Add(CreateExportMenuItem("PNG...", "Export", "다이어그램을 PNG 이미지로보냅니다 (배경 투명 선택 가능)", () => ExportDiagramImage(DiagramImageFormat.Png)));
 		items.Add(CreateExportMenuItem("JPEG...", "Export", "다이어그램을 JPEG 이미지로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Jpeg)));
 		items.Add(CreateExportMenuItem("WebP...", "Export", "다이어그램을 WebP 이미지로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Webp)));
 		items.Add(CreateExportMenuItem("GIF...", "Export", "다이어그램을 GIF 이미지로보냅니다", () => ExportDiagramImage(DiagramImageFormat.Gif)));

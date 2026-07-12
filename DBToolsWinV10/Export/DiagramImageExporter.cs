@@ -75,13 +75,18 @@ public static class DiagramImageExporter
 	{
 		return format switch
 		{
-			DiagramImageFormat.Png => "PNG (배경 투명)",
+			DiagramImageFormat.Png => "PNG",
 			DiagramImageFormat.Jpeg => "JPEG",
 			DiagramImageFormat.Webp => "WebP",
 			DiagramImageFormat.Gif => "GIF",
 			DiagramImageFormat.Avif => "AVIF",
 			_ => format.ToString()
 		};
+	}
+
+	public static bool SupportsTransparency(DiagramImageFormat format)
+	{
+		return format is DiagramImageFormat.Png or DiagramImageFormat.Webp or DiagramImageFormat.Gif or DiagramImageFormat.Avif;
 	}
 
 	private static void SaveJpeg(Bitmap bitmap, string filePath)

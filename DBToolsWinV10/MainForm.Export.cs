@@ -258,7 +258,7 @@ public partial class MainForm
 		string filePath = saveFileDialog.FileName;
 		try
 		{
-			bool transparentBackground = format == DiagramImageFormat.Png;
+			bool transparentBackground = AskTransparentBackground(format);
 			using Bitmap bitmap = diagramCanvas.RenderToImage(transparentBackground);
 			DiagramImageExporter.Export(bitmap, filePath, format);
 			NotifyExportSucceeded($"{displayName} 보내기 완료", filePath, "다이어그램 이미지를 저장했습니다.");
@@ -267,5 +267,22 @@ public partial class MainForm
 		{
 			NotifyExportFailed($"{displayName} 보내기 실패", filePath, ex);
 		}
+	}
+
+	private bool AskTransparentBackground(DiagramImageFormat format)
+	{
+		if (!DiagramImageExporter.SupportsTransparency(format))
+		{
+			return false;
+		}
+
+		DialogResult result = MessageBox.Show(
+			this,
+			"다이어그램 배경을 투명하게 내보낼까요?\n\n[예] 배경 투명    [아니요] 배경 흰색",
+			"배경 옵션",
+			MessageBoxButtons.YesNo,
+			MessageBoxIcon.Question,
+			MessageBoxDefaultButton.Button1);
+		return result == DialogResult.Yes;
 	}
 }
