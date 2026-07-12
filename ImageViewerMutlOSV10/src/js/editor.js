@@ -15,7 +15,7 @@ window.Editor = (() => {
   const effects = {
     brightness: 100, contrast: 100, saturation: 100,
     hue: 0, blur: 0, grayscale: 0, sepia: 0, invert: 0,
-    sharpen: 0, emboss: false, vignette: 0, warmth: 0,
+    sharpen: 0, emboss: false, edge: false, vignette: 0, warmth: 0,
   };
 
   let rotation = 0; // degrees: 0|90|180|270
@@ -134,6 +134,7 @@ window.Editor = (() => {
     let pixData = workingPixels;
     if (effects.sharpen > 0) pixData = _applySharpen(pixData, effects.sharpen / 100);
     if (effects.emboss)      pixData = _applyEmboss(pixData);
+    if (effects.edge)        pixData = _applyEdgeDetect(pixData);
     if (effects.warmth !== 0) pixData = _applyWarmth(pixData, effects.warmth);
 
     displayCtx.putImageData(pixData, 0, 0);
@@ -260,23 +261,53 @@ window.Editor = (() => {
     effects.brightness = 100; effects.contrast  = 100; effects.saturation = 100;
     effects.hue = 0;   effects.blur = 0;   effects.grayscale  = 0;
     effects.sepia = 0; effects.invert = 0; effects.sharpen = 0;
-    effects.emboss = false; effects.vignette = 0; effects.warmth = 0;
+    effects.emboss = false; effects.edge = false;
+    effects.vignette = 0; effects.warmth = 0;
   }
 
   function resetEffects() { _resetEffects(); _render(); }
 
+  const PRESETS = {
+    grayscale:  { grayscale: 100 },
+    sepia:      { sepia: 100, saturation: 60 },
+    invert:     { invert: 100 },
+    vivid:      { saturation: 160, contrast: 115 },
+    fade:       { brightness: 120, saturation: 60, contrast: 85 },
+    cool:       { hue: -20, saturation: 90 },
+    warm:       { warmth: 60, saturation: 110 },
+    vintage:    { sepia: 40, saturation: 70, contrast: 90, vignette: 50 },
+    dramatic:   { contrast: 150, grayscale: 30, vignette: 40 },
+    emboss:     { emboss: true, grayscale: 100 },
+    edge:       { edge: true, grayscale: 100, contrast: 130 },
+    noir:       { grayscale: 100, contrast: 145, brightness: 90, vignette: 55 },
+    soft:       { blur: 1.5, brightness: 112, contrast: 90, saturation: 85 },
+    crisp:      { sharpen: 55, contrast: 118, saturation: 110 },
+    sunset:     { warmth: 80, hue: 12, saturation: 130, contrast: 110, vignette: 25 },
+    arctic:     { hue: -35, warmth: -50, saturation: 85, brightness: 108, contrast: 105 },
+    pastel:     { brightness: 118, contrast: 80, saturation: 70, warmth: 15 },
+    matte:      { brightness: 112, contrast: 78, saturation: 88, vignette: 15 },
+    neon:       { saturation: 180, contrast: 125, hue: 25, sharpen: 20 },
+    moonlight:  { hue: -40, warmth: -40, saturation: 55, brightness: 85, contrast: 120, vignette: 45 },
+    golden:     { warmth: 90, saturation: 120, brightness: 108, contrast: 105 },
+    bleach:     { brightness: 135, saturation: 25, contrast: 95 },
+    pop:        { saturation: 175, contrast: 130, sharpen: 25 },
+    crossprocess: { hue: -15, saturation: 140, contrast: 125, warmth: -20 },
+    documentary:{ saturation: 55, contrast: 120, brightness: 98, vignette: 20 },
+    highkey:    { brightness: 140, contrast: 75, saturation: 90 },
+    lowkey:     { brightness: 72, contrast: 140, saturation: 80, vignette: 60 },
+    silver:     { grayscale: 100, contrast: 115, brightness: 105 },
+    polaroid:   { sepia: 25, brightness: 115, contrast: 88, saturation: 75, vignette: 35 },
+    lomo:       { saturation: 140, contrast: 130, vignette: 70, warmth: 25 },
+    clarity:    { sharpen: 70, contrast: 112, saturation: 105 },
+    haze:       { brightness: 122, contrast: 70, saturation: 70, blur: 0.8 },
+    cyanotype:  { grayscale: 70, hue: -50, warmth: -60, contrast: 115, saturation: 80 },
+    tealorange: { hue: -12, warmth: 35, saturation: 135, contrast: 118 },
+  };
+
   function applyPreset(name) {
     _resetEffects();
-    if (name === 'grayscale')  { effects.grayscale  = 100; }
-    if (name === 'sepia')      { effects.sepia       = 100; effects.saturation = 60; }
-    if (name === 'invert')     { effects.invert      = 100; }
-    if (name === 'vivid')      { effects.saturation  = 160; effects.contrast   = 115; }
-    if (name === 'fade')       { effects.brightness  = 120; effects.saturation = 60; effects.contrast = 85; }
-    if (name === 'cool')       { effects.hue = -20; effects.saturation = 90; }
-    if (name === 'warm')       { effects.warmth = 60; effects.saturation = 110; }
-    if (name === 'vintage')    { effects.sepia = 40; effects.saturation = 70; effects.contrast = 90; effects.vignette = 50; }
-    if (name === 'dramatic')   { effects.contrast = 150; effects.grayscale = 30; effects.vignette = 40; }
-    if (name === 'emboss')     { effects.emboss = true; effects.grayscale = 100; }
+    const preset = PRESETS[name];
+    if (preset) Object.assign(effects, preset);
     _render();
   }
 
@@ -635,6 +666,25 @@ window.Editor = (() => {
   /* ═══════════════════════════════════════════
      Background Removal
   ═══════════════════════════════════════════ */
+  const BG_ALGOS = [
+    { id: 'rembg1' }, // AI — u2net
+    { id: 'rembg2' }, // AI — RMBG-2.0 / bria-rmbg
+    { id: 'rembg3' }, // AI — isnet-general-use
+    { id: 'flood' },
+    { id: 'border' },
+    { id: 'chroma' },
+    { id: 'white' },
+    { id: 'black' },
+    { id: 'green' },
+    { id: 'blue' },
+    { id: 'selection' },
+  ];
+
+  function isRembgAlgorithm(id) {
+    return /^(rembg[123]|u2net|bria-rmbg|isnet-general-use)$/i.test(id || '');
+  }
+
+  /** Clear pixels outside (or inside) the current selection mask. */
   function removeBackground(removeInside = false) {
     if (!selMask || !workingPixels) return false;
 
@@ -643,11 +693,224 @@ window.Editor = (() => {
     const data = workingPixels.data;
     for (let i = 0; i < selMask.length; i++) {
       const inside = selMask[i] > 0;
-      // removeInside=true → clear selected area; false → clear outside (background)
       if (inside !== removeInside) {
-        data[i * 4 + 3] = 0; // transparent
+        data[i * 4 + 3] = 0;
       }
     }
+    // Keep only the smallest rectangle covering the selection
+    cropAfterBackgroundRemove();
+    _render();
+    return true;
+  }
+
+  function listBgAlgorithms() {
+    return BG_ALGOS.map((a) => a.id);
+  }
+
+  /** Replace working image from a PNG/JPEG data URL (used after AI rembg). */
+  function applyFromDataUrl(dataUrl) {
+    return new Promise((resolve, reject) => {
+      if (!dataUrl || !displayCanvas) {
+        reject(new Error('Editor not ready'));
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        _saveHistory();
+        naturalW = img.naturalWidth || img.width;
+        naturalH = img.naturalHeight || img.height;
+        displayCanvas.width = naturalW;
+        displayCanvas.height = naturalH;
+        if (selCanvas) {
+          selCanvas.width = naturalW;
+          selCanvas.height = naturalH;
+        }
+        displayCtx.clearRect(0, 0, naturalW, naturalH);
+        displayCtx.drawImage(img, 0, 0);
+        workingPixels = displayCtx.getImageData(0, 0, naturalW, naturalH);
+        originalPixels = displayCtx.getImageData(0, 0, naturalW, naturalH);
+        clearSelection();
+        _render();
+        resolve(true);
+      };
+      img.onerror = () => reject(new Error('Failed to load rembg result'));
+      img.src = dataUrl;
+    });
+  }
+
+  function _colorDist(data, idx, r, g, b) {
+    return Math.abs(data[idx] - r) + Math.abs(data[idx + 1] - g) + Math.abs(data[idx + 2] - b);
+  }
+
+  function _floodFromSeeds(data, w, h, seeds, tol, isBg) {
+    const limit = tol * 3;
+    for (const seed of seeds) {
+      if (seed < 0 || seed >= w * h || isBg[seed]) continue;
+      const sr = data[seed * 4];
+      const sg = data[seed * 4 + 1];
+      const sb = data[seed * 4 + 2];
+      if (data[seed * 4 + 3] < 8) {
+        isBg[seed] = 1;
+        continue;
+      }
+
+      const visited = new Uint8Array(w * h);
+      const queue = [seed];
+      visited[seed] = 1;
+
+      while (queue.length) {
+        const pos = queue.pop();
+        const idx = pos * 4;
+        if (_colorDist(data, idx, sr, sg, sb) > limit) continue;
+        if (data[idx + 3] < 8) { isBg[pos] = 1; continue; }
+
+        isBg[pos] = 1;
+        const px = pos % w;
+        const py = (pos / w) | 0;
+        const neighbors = [px - 1 + py * w, px + 1 + py * w, px + (py - 1) * w, px + (py + 1) * w];
+        for (const n of neighbors) {
+          const nx = n % w;
+          const ny = (n / w) | 0;
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+          if (!visited[n]) {
+            visited[n] = 1;
+            queue.push(n);
+          }
+        }
+      }
+    }
+  }
+
+  function _rgbToHue(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const d = max - min;
+    if (d < 1e-6) return { h: 0, s: 0, v: max };
+    let h;
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+    return { h: h * 360, s: max === 0 ? 0 : d / max, v: max };
+  }
+
+  /**
+   * Auto background removal with selectable algorithm.
+   * @param {string} [algorithm='flood']
+   * @param {number} [tolerance]
+   */
+  function removeBackgroundAuto(algorithm, tolerance) {
+    if (!workingPixels) return false;
+
+    const algo = (typeof algorithm === 'string' ? algorithm : 'flood') || 'flood';
+    // Back-compat: removeBackgroundAuto(toleranceNumber)
+    let tolArg = tolerance;
+    if (typeof algorithm === 'number') {
+      tolArg = algorithm;
+    }
+
+    if (algo === 'selection') {
+      if (!selMask) return false;
+      return removeBackground(false);
+    }
+
+    if (isRembgAlgorithm(algo)) {
+      // AI rembg runs in main process via IPC — use app.js async path
+      return false;
+    }
+
+    const w = workingPixels.width;
+    const h = workingPixels.height;
+    if (w < 2 || h < 2) return false;
+
+    const tol = Math.max(1, tolArg != null ? tolArg : magicTolerance);
+    const data = workingPixels.data;
+    const isBg = new Uint8Array(w * h);
+    const n = w * h;
+
+    if (algo === 'flood') {
+      const seeds = [
+        0, w - 1, (h - 1) * w, (h - 1) * w + (w - 1),
+        ((w / 2) | 0), ((w / 2) | 0) + (h - 1) * w,
+        ((h / 2) | 0) * w, ((h / 2) | 0) * w + (w - 1),
+      ];
+      _floodFromSeeds(data, w, h, seeds, tol, isBg);
+    } else if (algo === 'border') {
+      const seeds = [];
+      for (let x = 0; x < w; x++) {
+        seeds.push(x);
+        seeds.push((h - 1) * w + x);
+      }
+      for (let y = 1; y < h - 1; y++) {
+        seeds.push(y * w);
+        seeds.push(y * w + (w - 1));
+      }
+      _floodFromSeeds(data, w, h, seeds, tol, isBg);
+    } else if (algo === 'chroma') {
+      // Average opaque corner colors as key
+      const corners = [0, w - 1, (h - 1) * w, (h - 1) * w + (w - 1)];
+      let r = 0, g = 0, b = 0, c = 0;
+      for (const s of corners) {
+        if (data[s * 4 + 3] < 8) continue;
+        r += data[s * 4]; g += data[s * 4 + 1]; b += data[s * 4 + 2];
+        c++;
+      }
+      if (!c) return false;
+      r = (r / c) | 0; g = (g / c) | 0; b = (b / c) | 0;
+      const limit = tol * 3;
+      for (let i = 0; i < n; i++) {
+        if (data[i * 4 + 3] < 8) { isBg[i] = 1; continue; }
+        if (_colorDist(data, i * 4, r, g, b) <= limit) isBg[i] = 1;
+      }
+    } else if (algo === 'white') {
+      // Bright / near-white: high luminance within tolerance of 255
+      const minL = Math.max(0, 255 - tol * 2);
+      for (let i = 0; i < n; i++) {
+        const idx = i * 4;
+        if (data[idx + 3] < 8) { isBg[i] = 1; continue; }
+        const y = (0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
+        if (y >= minL) isBg[i] = 1;
+      }
+    } else if (algo === 'black') {
+      const maxL = Math.min(255, tol * 2);
+      for (let i = 0; i < n; i++) {
+        const idx = i * 4;
+        if (data[idx + 3] < 8) { isBg[i] = 1; continue; }
+        const y = (0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
+        if (y <= maxL) isBg[i] = 1;
+      }
+    } else if (algo === 'green' || algo === 'blue') {
+      // Chroma-key in HSV. tol scales saturation/value thresholds and hue width.
+      const hueCenter = algo === 'green' ? 120 : 210;
+      const hueSpan = 25 + tol * 0.35;
+      const minS = Math.max(0.15, 0.55 - tol / 200);
+      const minV = Math.max(0.12, 0.35 - tol / 300);
+      for (let i = 0; i < n; i++) {
+        const idx = i * 4;
+        if (data[idx + 3] < 8) { isBg[i] = 1; continue; }
+        const { h: hue, s, v } = _rgbToHue(data[idx], data[idx + 1], data[idx + 2]);
+        let dh = Math.abs(hue - hueCenter);
+        if (dh > 180) dh = 360 - dh;
+        if (dh <= hueSpan && s >= minS && v >= minV) isBg[i] = 1;
+      }
+    } else {
+      return false;
+    }
+
+    let cleared = 0;
+    for (let i = 0; i < n; i++) {
+      if (isBg[i] && data[i * 4 + 3] !== 0) cleared++;
+    }
+    if (!cleared) return false;
+
+    // Don't erase everything
+    if (cleared >= n * 0.98) return false;
+
+    _saveHistory();
+    for (let i = 0; i < n; i++) {
+      if (isBg[i]) data[i * 4 + 3] = 0;
+    }
+    // Shrink to selection bbox (or opaque content) so save size matches content
+    cropAfterBackgroundRemove();
     _render();
     return true;
   }
@@ -665,37 +928,137 @@ window.Editor = (() => {
     return true;
   }
 
-  function cropToSelection() {
-    if (!selMask || !selectionPath || !workingPixels) return false;
-    _saveHistory();
-
-    const w = workingPixels.width, h = workingPixels.height;
-    let x1=w,y1=h,x2=0,y2=0;
-    for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
-      if (selMask[y*w+x]) { x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y); }
+  /** Bounding box of selection mask, or null. */
+  function getSelectionBounds(padding = 0) {
+    if (!selMask || !workingPixels) return null;
+    const w = workingPixels.width;
+    const h = workingPixels.height;
+    let x1 = w, y1 = h, x2 = -1, y2 = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (selMask[y * w + x]) {
+          if (x < x1) x1 = x;
+          if (y < y1) y1 = y;
+          if (x > x2) x2 = x;
+          if (y > y2) y2 = y;
+        }
+      }
     }
-    if (x2<=x1||y2<=y1) return false;
+    if (x2 < x1 || y2 < y1) return null;
+    const pad = Math.max(0, padding | 0);
+    x1 = Math.max(0, x1 - pad);
+    y1 = Math.max(0, y1 - pad);
+    x2 = Math.min(w - 1, x2 + pad);
+    y2 = Math.min(h - 1, y2 + pad);
+    return { x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1 };
+  }
 
-    const cw=x2-x1, ch=y2-y1;
+  /** Bounding box of opaque (non-transparent) pixels. */
+  function getOpaqueBounds(alphaThreshold = 8, padding = 0) {
+    if (!workingPixels) return null;
+    const w = workingPixels.width;
+    const h = workingPixels.height;
+    const data = workingPixels.data;
+    let x1 = w, y1 = h, x2 = -1, y2 = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > alphaThreshold) {
+          if (x < x1) x1 = x;
+          if (y < y1) y1 = y;
+          if (x > x2) x2 = x;
+          if (y > y2) y2 = y;
+        }
+      }
+    }
+    if (x2 < x1 || y2 < y1) return null;
+    const pad = Math.max(0, padding | 0);
+    x1 = Math.max(0, x1 - pad);
+    y1 = Math.max(0, y1 - pad);
+    x2 = Math.min(w - 1, x2 + pad);
+    y2 = Math.min(h - 1, y2 + pad);
+    return { x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1 };
+  }
+
+  /**
+   * Crop working image to a rectangle. Does not push history by itself
+   * (caller should have already saved history for the edit).
+   */
+  function cropToRect(x, y, cw, ch, { clearOutsideMask = false } = {}) {
+    if (!workingPixels || !displayCanvas) return false;
+    const w = workingPixels.width;
+    const h = workingPixels.height;
+    const x0 = Math.max(0, Math.min(w - 1, x | 0));
+    const y0 = Math.max(0, Math.min(h - 1, y | 0));
+    const width = Math.max(1, Math.min(w - x0, cw | 0));
+    const height = Math.max(1, Math.min(h - y0, ch | 0));
+    if (width >= w && height >= h && x0 === 0 && y0 === 0 && !clearOutsideMask) {
+      return false; // already full size
+    }
+
     const offscreen = document.createElement('canvas');
-    offscreen.width=cw; offscreen.height=ch;
-    const oc=offscreen.getContext('2d');
-    oc.putImageData(workingPixels, -x1, -y1);
+    offscreen.width = width;
+    offscreen.height = height;
+    const oc = offscreen.getContext('2d');
+    oc.putImageData(workingPixels, -x0, -y0);
+    const cropped = oc.getImageData(0, 0, width, height);
 
-    // Re-apply mask to crop canvas
-    const cropped = oc.getImageData(0,0,cw,ch);
-    for (let y=0;y<ch;y++) for (let x=0;x<cw;x++) {
-      const globalI=(y+y1)*w+(x+x1);
-      if (!selMask[globalI]) cropped.data[(y*cw+x)*4+3]=0;
+    if (clearOutsideMask && selMask) {
+      for (let row = 0; row < height; row++) {
+        for (let col = 0; col < width; col++) {
+          const globalI = (row + y0) * w + (col + x0);
+          if (!selMask[globalI]) cropped.data[(row * width + col) * 4 + 3] = 0;
+        }
+      }
     }
 
-    displayCanvas.width = cw; displayCanvas.height = ch;
-    selCanvas.width = cw; selCanvas.height = ch;
+    displayCanvas.width = width;
+    displayCanvas.height = height;
+    if (selCanvas) {
+      selCanvas.width = width;
+      selCanvas.height = height;
+    }
     workingPixels = cropped;
-    naturalW = cw; naturalH = ch;
+    naturalW = width;
+    naturalH = height;
+    // Keep originalPixels aligned with new canvas so reset/effects stay consistent
+    originalPixels = new ImageData(
+      new Uint8ClampedArray(cropped.data),
+      width,
+      height
+    );
     clearSelection();
     _render();
     return true;
+  }
+
+  /**
+   * After background removal: shrink canvas to the smallest rectangle that
+   * contains the selection (preferred), or remaining opaque pixels.
+   * @param {{x:number,y:number,w:number,h:number}|null} [presetBounds]
+   *        Bounds captured before an async rembg that clears selection.
+   */
+  function cropAfterBackgroundRemove(presetBounds = null) {
+    if (!workingPixels) return false;
+    const bounds = presetBounds
+      || getSelectionBounds(1)
+      || getOpaqueBounds(8, 1);
+    if (!bounds) return false;
+    if (bounds.w >= workingPixels.width && bounds.h >= workingPixels.height
+        && bounds.x === 0 && bounds.y === 0) {
+      clearSelection();
+      return false;
+    }
+    return cropToRect(bounds.x, bounds.y, bounds.w, bounds.h, {
+      clearOutsideMask: !presetBounds && !!selMask,
+    });
+  }
+
+  function cropToSelection() {
+    if (!selMask || !workingPixels) return false;
+    const bounds = getSelectionBounds(0);
+    if (!bounds) return false;
+    _saveHistory();
+    return cropToRect(bounds.x, bounds.y, bounds.w, bounds.h, { clearOutsideMask: true });
   }
 
   function clearSelection() {
@@ -784,25 +1147,34 @@ window.Editor = (() => {
   function undo() {
     if (histIndex <= 0) return false;
     histIndex--;
-    workingPixels = new ImageData(
-      new Uint8ClampedArray(history[histIndex].data),
-      history[histIndex].width, history[histIndex].height
-    );
-    clearSelection();
-    _render();
+    _restoreHistoryFrame(history[histIndex]);
     return true;
   }
 
   function redo() {
     if (histIndex >= history.length - 1) return false;
     histIndex++;
+    _restoreHistoryFrame(history[histIndex]);
+    return true;
+  }
+
+  function _restoreHistoryFrame(frame) {
     workingPixels = new ImageData(
-      new Uint8ClampedArray(history[histIndex].data),
-      history[histIndex].width, history[histIndex].height
+      new Uint8ClampedArray(frame.data),
+      frame.width, frame.height
     );
+    naturalW = frame.width;
+    naturalH = frame.height;
+    if (displayCanvas) {
+      displayCanvas.width = frame.width;
+      displayCanvas.height = frame.height;
+    }
+    if (selCanvas) {
+      selCanvas.width = frame.width;
+      selCanvas.height = frame.height;
+    }
     clearSelection();
     _render();
-    return true;
   }
 
   function canUndo() { return histIndex > 0; }
@@ -832,7 +1204,9 @@ window.Editor = (() => {
     setEffect, getEffects, resetEffects, applyPreset,
     rotate, flip, resetTransform,
     setTool, getTool, clearSelection, hasSelection,
-    removeBackground, fillSelection, cropToSelection, cut, copySelection,
+    removeBackground, removeBackgroundAuto, listBgAlgorithms, isRembgAlgorithm, applyFromDataUrl,
+    fillSelection, cropToSelection, cropAfterBackgroundRemove, getSelectionBounds,
+    cut, copySelection,
     setMagicTolerance,
     undo, redo, canUndo, canRedo,
     exportAsDataUrl, getCanvasElement, isLoaded,

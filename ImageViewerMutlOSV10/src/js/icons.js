@@ -39,4 +39,74 @@ window.Icons = {
   magicWand: `<svg viewBox="0 0 24 24"><path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a1 1 0 0 0-1.41 0L1.29 18.96a1 1 0 0 0 0 1.41l2.34 2.34a1 1 0 0 0 1.41 0L16.7 11.04a1 1 0 0 0 0-1.41l-2.33-2.34zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/></svg>`,
   bgRemove: `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" opacity=".5"/><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 2v.93l-7 7-2.29-2.29 5.08-5.64H21zm-11.71 6L7 8.71V5h7.62l-5.33 6zM3 19v-5.34l3.66 3.66L3 19zm1.41 0L19 4.41V5H5.41L4.41 5 3 6.41V5H4.41z" opacity=".3"/><path d="M3 5h2v2H3zm16 0h2v2h-2zM3 17h2v2H3zm16 0h2v2h-2z"/></svg>`,
   cut: `<svg viewBox="0 0 24 24"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64C10 4.01 8.99 3 7.5 3S5 4.01 5 5.5 6.01 8 7.5 8c.59 0 1.14-.13 1.64-.36L11 9.94 9.15 11.79A3.504 3.504 0 0 0 7.5 11.5C6.01 11.5 5 12.51 5 14s1.01 2.5 2.5 2.5S10 15.49 10 14c0-.59-.13-1.14-.36-1.64L11.5 11l6.5 6.5H21l-7.36-7.36 1.5-1.5L18.5 12H21l-4-4 2.64-2.64C18.86 4.86 18.31 4.5 17.72 4.5c-.49 0-.91.22-1.21.56L15 6.59 13.5 5.09C13.22 4.73 12.79 4.5 12.28 4.5c-.59 0-1.14.13-1.64.36L9.06 6.44 9.64 7.64z"/></svg>`,
+
+  /* ── Format-specific file icons (tree view) ── */
+  fmtJpg: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`,
+  fmtPng: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6V6h12v13z"/><path d="M8 16l2.5-3.2 1.8 2.2L15 11l3 5H8z" opacity=".9"/><path d="M6 6h3v3H6zm3 0h3v3H9zm0 3h3v3H9zm-3 0h3v3H6z" opacity=".35"/></svg>`,
+  fmtGif: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M8.5 14.5l2 2.5 2.5-3.2L16 17H7l1.5-2.5z"/><path d="M16.5 8.2a2.8 2.8 0 0 0-2.3-1.3v1.2c.5 0 .95.2 1.3.5l.1.1.9-.9-.1-.1c-.2-.2-.4-.3-.6-.4z" opacity=".85"/><path d="M15 9.5V11h1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  fmtWebp: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 16l2.2-3 1.6 2 2.4-3.2L17 16H7z"/><circle cx="9" cy="8.5" r="1.3"/></svg>`,
+  fmtBmp: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h3v3H7zm4 0h3v3h-3zm4 0h3v3h-3zM7 11h3v3H7zm4 0h3v3h-3zm4 0h3v3h-3zM7 15h3v3H7zm4 0h3v3h-3zm4 0h3v3h-3z" opacity=".75"/></svg>`,
+  fmtSvg: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7.5 16.5c2-4 3.5-6 5-6s2.2 1.2 3.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="9" r="1.4"/><circle cx="16.5" cy="14.5" r="1.4"/></svg>`,
+  fmtIco: `<svg viewBox="0 0 24 24"><path d="M18 4H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H6V6h12v12z"/><path d="M8 10h3v3H8zm5-2h3v3h-3zm-1 5l2.2 2.8L16 14l2 3H9l3-4z" opacity=".9"/></svg>`,
+  fmtTiff: `<svg viewBox="0 0 24 24"><path d="M6 4h11l3 3v13H6c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" opacity=".35"/><path d="M8 2h11l3 3v13H8c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm0 2v12h12V6h-3V4H8z"/><path d="M10 14l2-2.5 1.5 1.8L16 10l2.5 4H10z"/></svg>`,
+  fmtHeic: `<svg viewBox="0 0 24 24"><path d="M18 4H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H6V6h12v12z"/><path d="M8.2 15.2l2.3-2.9 1.7 2.1 2.4-3.1 3.2 3.9H8.2z"/><circle cx="9.5" cy="9" r="1.2"/></svg>`,
+  fmtAvif: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7.5 16l2.4-3.1 1.7 2.1 2.5-3.3L17.5 16h-10z"/><path d="M15.2 7.2l.8 1.6 1.7.3-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.3z"/></svg>`,
+  fmtDcm: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4z"/></svg>`,
+  fmtVideo: `<svg viewBox="0 0 24 24"><path d="M18 4v1h-2V4H8v1H6V4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2v-1h2v1h8v-1h2v1c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/><path d="M10 9.5v5l4.5-2.5z"/></svg>`,
+  fmtMp4: `<svg viewBox="0 0 24 24"><path d="M18 4v1h-2V4H8v1H6V4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2v-1h2v1h8v-1h2v1c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/><path d="M10 9.2v5.6l4.8-2.8z"/></svg>`,
+  fmtWebm: `<svg viewBox="0 0 24 24"><path d="M4 6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6zm2 0v12h12V6H6z"/><path d="M10 9v6l5-3z"/><path d="M16.5 7.5l1 1-1 1M17.5 8.5h-2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+  fmtMov: `<svg viewBox="0 0 24 24"><path d="M4 6c0-1.1.9-2 2-2h8l6 6v8c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6zm2 0v12h12v-7h-5V6H6z"/><path d="M9.5 11.2v5.2l4.5-2.6z"/></svg>`,
+  fmtMkv: `<svg viewBox="0 0 24 24"><path d="M4 6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6zm2 0v12h12V6H6z"/><path d="M9 9v6l5-3z"/><path d="M15.5 8h1.2l.8 2 .8-2H19l-1.3 3L19 16h-1.3l-.8-2-.8 2H15.5l1.2-3z"/></svg>`,
+  fmtAvi: `<svg viewBox="0 0 24 24"><path d="M18 4v1h-2V4H8v1H6V4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2v-1h2v1h8v-1h2v1c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/><path d="M9 15V9h1.3l1.2 3.2L12.7 9H14v6h-1.1v-3.6L11.6 15h-.9l-1.3-3.6V15H9z"/></svg>`,
+  fmtAudio: `<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>`,
+  fmtMp3: `<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/><circle cx="10" cy="17" r="2.2"/></svg>`,
+  fmtWav: `<svg viewBox="0 0 24 24"><path d="M4 12h2v4H4zm3-3h2v10H7zm3-3h2v16h-2zm3 5h2v6h-2zm3-4h2v14h-2zm3 2h2v10h-2z"/></svg>`,
+  fmtFlac: `<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/><path d="M5 8h1.5v8H5zm2.5 2H9v4H7.5z" opacity=".7"/></svg>`,
+
+  /**
+   * Pick a tree-view icon + CSS class for a file extension.
+   * @param {string} ext lowercase extension without dot
+   * @returns {{ html: string, className: string }}
+   */
+  forExtension(ext) {
+    const e = (ext || '').toLowerCase();
+    const map = {
+      jpg:  { html: this.fmtJpg,  className: 'fmt-icon fmt-jpg' },
+      jpeg: { html: this.fmtJpg,  className: 'fmt-icon fmt-jpg' },
+      png:  { html: this.fmtPng,  className: 'fmt-icon fmt-png' },
+      gif:  { html: this.fmtGif,  className: 'fmt-icon fmt-gif' },
+      webp: { html: this.fmtWebp, className: 'fmt-icon fmt-webp' },
+      bmp:  { html: this.fmtBmp,  className: 'fmt-icon fmt-bmp' },
+      svg:  { html: this.fmtSvg,  className: 'fmt-icon fmt-svg' },
+      ico:  { html: this.fmtIco,  className: 'fmt-icon fmt-ico' },
+      tiff: { html: this.fmtTiff, className: 'fmt-icon fmt-tiff' },
+      tif:  { html: this.fmtTiff, className: 'fmt-icon fmt-tiff' },
+      heic: { html: this.fmtHeic, className: 'fmt-icon fmt-heic' },
+      heif: { html: this.fmtHeic, className: 'fmt-icon fmt-heic' },
+      avif: { html: this.fmtAvif, className: 'fmt-icon fmt-avif' },
+      dcm:  { html: this.fmtDcm,  className: 'fmt-icon fmt-dcm' },
+      dicom:{ html: this.fmtDcm,  className: 'fmt-icon fmt-dcm' },
+      mp4:  { html: this.fmtMp4,  className: 'fmt-icon fmt-mp4' },
+      m4v:  { html: this.fmtMp4,  className: 'fmt-icon fmt-mp4' },
+      webm: { html: this.fmtWebm, className: 'fmt-icon fmt-webm' },
+      mov:  { html: this.fmtMov,  className: 'fmt-icon fmt-mov' },
+      mkv:  { html: this.fmtMkv,  className: 'fmt-icon fmt-mkv' },
+      avi:  { html: this.fmtAvi,  className: 'fmt-icon fmt-avi' },
+      mp3:  { html: this.fmtMp3,  className: 'fmt-icon fmt-mp3' },
+      wav:  { html: this.fmtWav,  className: 'fmt-icon fmt-wav' },
+      flac: { html: this.fmtFlac, className: 'fmt-icon fmt-flac' },
+      aac:  { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+      m4a:  { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+      ogg:  { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+      opus: { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+      wma:  { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+    };
+    if (map[e]) return map[e];
+    // Fallbacks by media family
+    const video = new Set(['ogv','flv','wmv','3gp','mpeg','mpg','ts','m2ts','vob','rm','rmvb']);
+    const audio = new Set(['mid','midi','aiff','aif']);
+    if (video.has(e)) return { html: this.fmtVideo, className: 'fmt-icon fmt-video' };
+    if (audio.has(e)) return { html: this.fmtAudio, className: 'fmt-icon fmt-audio' };
+    return { html: this.file, className: 'file-icon' };
+  },
 };

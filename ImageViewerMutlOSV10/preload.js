@@ -25,6 +25,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
   readFileBase64: (filePath) => ipcRenderer.invoke('read-file-base64', filePath),
   convertToPng: (filePath) => ipcRenderer.invoke('convert-to-png', filePath),
+  rembgRemove: (opts) => ipcRenderer.invoke('rembg-remove', opts),
+  onRembgProgress: (cb) => {
+    const handler = (_, data) => cb(data);
+    ipcRenderer.on('rembg-progress', handler);
+    return () => ipcRenderer.removeListener('rembg-progress', handler);
+  },
   decodeDicom:  (filePath) => ipcRenderer.invoke('decode-dicom', filePath),
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
   showSaveDialog: (data) => ipcRenderer.invoke('show-save-dialog', data),

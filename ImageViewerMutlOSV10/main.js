@@ -689,6 +689,105 @@ ipcMain.handle('convert-to-png', async (event, filePath) => {
   }
 });
 
+/**
+ * AI background removal via Python rembg (rembg1/u2net, rembg2/bria-rmbg, rembg3/isnet).
+ * Input: { dataUrl: 'data:image/png;base64,...', model: 'rembg1'|'rembg2'|'rembg3' }
+ * Emits 'rembg-progress' events: { percent, message }
+ */
+ipcMain.handle('rembg-remove', async (event, { dataUrl, model }) => {
+  const { spawn } = require('child_process');
+  const tmpRoot = path.join(os.tmpdir(), 'imageviewer-rembg');
+  await fs.promises.mkdir(tmpRoot, { recursive: true });
+  const id = `${Date.now()}-${process.pid}`;
+  const inPath = path.join(tmpRoot, `${id}-in.png`);
+  const outPath = path.join(tmpRoot, `${id}-out.png`);
+  const worker = path.join(__dirname, 'scripts', 'rembg_worker.py');
+
+  const sendProgress = (percent, message) => {
+    try {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('rembg-progress', { percent, message: message || '' });
+      }
+    } catch (_) {}
+  };
+
+  try {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+      return { error: 'Invalid image data' };
+    }
+    sendProgress(2, 'preparing');
+    const b64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
+    await fs.promises.writeFile(inPath, Buffer.from(b64, 'base64'));
+    sendProgress(8, 'preparing');
+
+    if (!fs.existsSync(worker)) {
+      return { error: `rembg worker missing: ${worker}` };
+    }
+
+    const modelKey = (model || 'rembg1').toString();
+    const pyCandidates = [
+      process.env.IMAGEVIEWER_PYTHON,
+      process.platform === 'win32' ? 'python' : 'python3',
+      'python',
+    ].filter(Boolean);
+
+    let lastErr = '';
+    for (const py of pyCandidates) {
+      const result = await new Promise((resolve) => {
+        const child = spawn(py, [worker, modelKey, inPath, outPath], {
+          windowsHide: true,
+          env: { ...process.env },
+        });
+        let stderr = '';
+        let stderrBuf = '';
+        child.stderr.on('data', (d) => {
+          const chunk = d.toString();
+          stderr += chunk;
+          stderrBuf += chunk;
+          const lines = stderrBuf.split(/\r?\n/);
+          stderrBuf = lines.pop() || '';
+          for (const line of lines) {
+            const m = line.match(/^PROGRESS\s+(\d+)\s*(.*)$/);
+            if (m) {
+              sendProgress(Number(m[1]), (m[2] || '').trim());
+            }
+          }
+        });
+        child.on('error', (err) => resolve({ code: -1, stderr: err.message }));
+        child.on('close', (code) => {
+          if (stderrBuf) {
+            const m = stderrBuf.match(/^PROGRESS\s+(\d+)\s*(.*)$/m);
+            if (m) sendProgress(Number(m[1]), (m[2] || '').trim());
+          }
+          resolve({ code, stderr });
+        });
+      });
+
+      if (result.code === 0 && fs.existsSync(outPath)) {
+        sendProgress(95, 'applying');
+        const outBuf = await fs.promises.readFile(outPath);
+        sendProgress(100, 'done');
+        return { dataUrl: `data:image/png;base64,${outBuf.toString('base64')}` };
+      }
+      lastErr = (result.stderr || '').trim() || `exit ${result.code}`;
+      // If python missing, try next candidate
+      if (/ENOENT|not found/i.test(lastErr)) continue;
+      break;
+    }
+
+    return {
+      error: lastErr || 'rembg failed',
+      hint: 'pip install rembg onnxruntime  (models: rembg1=u2net, rembg2=bria-rmbg, rembg3=isnet-general-use)',
+    };
+  } catch (err) {
+    return { error: err.message };
+  } finally {
+    for (const p of [inPath, outPath]) {
+      try { await fs.promises.unlink(p); } catch {}
+    }
+  }
+});
+
 ipcMain.handle('decode-dicom', async (event, filePath) => {
   try {
     const data = await fs.promises.readFile(filePath);

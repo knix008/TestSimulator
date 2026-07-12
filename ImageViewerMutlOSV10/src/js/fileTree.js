@@ -367,13 +367,31 @@ window.FileTree = (() => {
     row.appendChild(arrow);
 
     const icon = document.createElement('div');
-    icon.className = `tree-icon ${isDrive ? 'drive-icon' : (isDir ? 'dir-icon' : (isSup ? 'img-icon' : 'file-icon'))}`;
-    const expanded = [..._expandedDirs].some(p => _pathsEqual(p, entry.path));
-    icon.innerHTML = isDrive
-      ? Icons.drive
-      : (isDir
-        ? (expanded ? Icons.folderOpen : Icons.folder)
-        : (isAud ? (Icons.audio || Icons.effects) : (isImg || isVid ? Icons.image : Icons.file)));
+    let iconHtml;
+    let iconClass;
+    if (isDrive) {
+      iconClass = 'tree-icon drive-icon';
+      iconHtml = Icons.drive;
+    } else if (isDir) {
+      iconClass = 'tree-icon dir-icon';
+      const expanded = [..._expandedDirs].some(p => _pathsEqual(p, entry.path));
+      iconHtml = expanded ? Icons.folderOpen : Icons.folder;
+    } else if (isSup && typeof Icons.forExtension === 'function') {
+      const fmt = Icons.forExtension(ext);
+      iconClass = `tree-icon ${fmt.className}`;
+      iconHtml = fmt.html;
+    } else if (isAud) {
+      iconClass = 'tree-icon fmt-icon fmt-audio';
+      iconHtml = Icons.fmtAudio || Icons.audio || Icons.effects;
+    } else if (isImg || isVid) {
+      iconClass = 'tree-icon img-icon';
+      iconHtml = isVid ? (Icons.fmtVideo || Icons.image) : Icons.image;
+    } else {
+      iconClass = 'tree-icon file-icon';
+      iconHtml = Icons.file;
+    }
+    icon.className = iconClass;
+    icon.innerHTML = iconHtml;
     row.appendChild(icon);
 
     const label = document.createElement('div');

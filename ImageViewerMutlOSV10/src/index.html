@@ -174,6 +174,24 @@
     </div>
   </div>
 
+  <!-- ═══ Progress Dialog ═══ -->
+  <div id="progress-overlay" class="dialog-overlay progress-overlay" style="display:none;" aria-busy="true" aria-live="polite">
+    <div class="dialog-box progress-dialog-box">
+      <div class="dialog-header">
+        <span id="progress-title" data-i18n="progress.title">Working…</span>
+      </div>
+      <div class="dialog-body progress-dialog-body">
+        <p id="progress-message" class="progress-message"></p>
+        <div class="progress-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar">
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+        <div class="progress-percent-row">
+          <span id="progress-percent" class="progress-percent">0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ About Dialog ═══ -->
   <div id="about-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box" style="min-width:400px;max-width:480px;">
@@ -216,52 +234,71 @@
     <div id="edit-window-titlebar">
       <span id="edit-window-title" data-i18n="editWindow.title">Edit Image</span>
 
-      <!-- Selection tools -->
-      <button class="ew-btn active" id="ew-tool-pointer"  data-i18n-title="toolbar.toolPointer"></button>
-      <button class="ew-btn"        id="ew-tool-rect"     data-i18n-title="toolbar.toolRect"></button>
-      <button class="ew-btn"        id="ew-tool-lasso"    data-i18n-title="toolbar.toolLasso"></button>
-      <button class="ew-btn"        id="ew-tool-polygon"  data-i18n-title="toolbar.toolPolygon"></button>
-      <button class="ew-btn"        id="ew-tool-magic"    data-i18n-title="toolbar.toolMagic"></button>
+      <div class="ew-toolbar">
+        <!-- Selection tools -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn active" id="ew-tool-pointer"  data-i18n-title="toolbar.toolPointer"></button>
+          <button class="ew-btn"        id="ew-tool-rect"     data-i18n-title="toolbar.toolRect"></button>
+          <button class="ew-btn"        id="ew-tool-lasso"    data-i18n-title="toolbar.toolLasso"></button>
+          <button class="ew-btn"        id="ew-tool-polygon"  data-i18n-title="toolbar.toolPolygon"></button>
+          <button class="ew-btn"        id="ew-tool-magic"    data-i18n-title="toolbar.toolMagic"></button>
+          <div class="ew-tolerance-wrap" id="ew-tolerance-wrap" style="display:none;">
+            <label data-i18n="editWindow.tolerance">Tol:</label>
+            <input class="ew-tolerance-input" id="ew-tolerance" type="number" min="1" max="255" value="32">
+          </div>
+        </div>
 
-      <!-- Magic wand tolerance -->
-      <div class="ew-tolerance-wrap" id="ew-tolerance-wrap" style="display:none;">
-        <label data-i18n="editWindow.tolerance">Tol:</label>
-        <input class="ew-tolerance-input" id="ew-tolerance" type="number" min="1" max="255" value="32">
+        <div class="ew-sep"></div>
+
+        <!-- Edit actions -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-cut"        data-i18n-title="context.cut"       disabled></button>
+          <button class="ew-btn" id="ew-copy"       data-i18n-title="context.copy"      disabled></button>
+          <select id="ew-bg-algo" class="ew-select" data-i18n-title="toolbar.bgAlgo"></select>
+          <button class="ew-btn" id="ew-bg-remove"  data-i18n-title="toolbar.bgRemove"></button>
+          <button class="ew-btn" id="ew-crop-sel"   data-i18n-title="editWindow.cropSel" disabled></button>
+          <button class="ew-btn" id="ew-clear-sel"  data-i18n-title="editWindow.clearSel" disabled></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Transform -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-rotate-l" data-i18n-title="toolbar.rotateLeft"></button>
+          <button class="ew-btn" id="ew-rotate-r" data-i18n-title="toolbar.rotateRight"></button>
+          <button class="ew-btn" id="ew-flip-h"   data-i18n-title="toolbar.flipH"></button>
+          <button class="ew-btn" id="ew-flip-v"   data-i18n-title="toolbar.flipV"></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Undo / Redo -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-undo" data-i18n-title="editWindow.undo" disabled></button>
+          <button class="ew-btn" id="ew-redo" data-i18n-title="editWindow.redo" disabled></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Zoom -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-zoom-in"  data-i18n-title="toolbar.zoomIn"></button>
+          <button class="ew-btn" id="ew-zoom-out" data-i18n-title="toolbar.zoomOut"></button>
+          <button class="ew-btn" id="ew-fit"      data-i18n-title="toolbar.fitWindow"></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Theme / Language -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
+          <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"><span class="lang-text">EN</span></button>
+        </div>
       </div>
 
-      <div class="ew-sep"></div>
-
-      <!-- Selection operations (enabled only when selection exists) -->
-      <button class="ew-btn" id="ew-cut"        data-i18n-title="context.cut"       disabled></button>
-      <button class="ew-btn" id="ew-copy"       data-i18n-title="context.copy"      disabled></button>
-      <button class="ew-btn" id="ew-bg-remove"  data-i18n-title="toolbar.bgRemove"  disabled></button>
-      <button class="ew-btn" id="ew-crop-sel"   data-i18n-title="editWindow.cropSel"disabled></button>
-      <button class="ew-btn" id="ew-clear-sel"  data-i18n-title="editWindow.clearSel"disabled></button>
-
-      <div class="ew-sep"></div>
-
-      <!-- Transform -->
-      <button class="ew-btn" id="ew-rotate-l"   data-i18n-title="toolbar.rotateLeft"></button>
-      <button class="ew-btn" id="ew-rotate-r"   data-i18n-title="toolbar.rotateRight"></button>
-      <button class="ew-btn" id="ew-flip-h"     data-i18n-title="toolbar.flipH"></button>
-      <button class="ew-btn" id="ew-flip-v"     data-i18n-title="toolbar.flipV"></button>
-
-      <div class="ew-sep"></div>
-
-      <!-- Undo / Redo -->
-      <button class="ew-btn" id="ew-undo" data-i18n-title="editWindow.undo" disabled></button>
-      <button class="ew-btn" id="ew-redo" data-i18n-title="editWindow.redo" disabled></button>
-
-      <div class="ew-sep"></div>
-      <!-- Zoom -->
-      <button class="ew-btn" id="ew-zoom-in"  data-i18n-title="toolbar.zoomIn"></button>
-      <button class="ew-btn" id="ew-zoom-out" data-i18n-title="toolbar.zoomOut"></button>
-      <button class="ew-btn" id="ew-fit"      data-i18n-title="toolbar.fitWindow"></button>
-
-      <div style="flex:1;"></div>
-
-      <!-- Apply / Cancel -->
+      <!-- Save / Apply / Cancel -->
       <div class="ew-actions">
+        <button class="ew-action-btn" id="ew-save" data-i18n="editWindow.save" data-i18n-title="context.saveEdited">Save</button>
         <button class="ew-action-btn danger"   id="ew-cancel" data-i18n="editWindow.cancel">Cancel</button>
         <button class="ew-action-btn primary"  id="ew-apply"  data-i18n="editWindow.apply">Apply</button>
       </div>

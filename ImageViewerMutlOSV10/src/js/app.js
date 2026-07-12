@@ -129,6 +129,7 @@
   _buildToolbar();
 
   /* ─── Effects panel sliders ─── */
+  let _ewEffectsBuilt = false;
   _buildEffectsPanel();
 
   /* ─── Sidebar / Info resize ─── */
@@ -842,10 +843,149 @@
     _ewUpdateSelBtns();
   }
 
-  function _removeBackground() {
-    if (!Editor.hasSelection()) return;
-    Editor.removeBackground(false); // remove outside selection
-    Editor.clearSelection();
+  async function _removeBackground() {
+    if (!_isEditableImage()) return;
+    const algo = _getBgAlgo();
+    if (algo === 'selection' && !Editor.hasSelection()) return;
+
+    if (Editor.isRembgAlgorithm(algo)) {
+      await _runRembg(algo);
+      return;
+    }
+
+    const algoLabel = I18n.t(`bgAlgo.${algo}`) || algo;
+    ProgressDialog.show({
+      title: I18n.t('progress.title') || 'Progress',
+      message: `${I18n.t('progress.bgRemove') || 'Removing background…'} (${algoLabel})`,
+      percent: 5,
+    });
+    try {
+      await ProgressDialog.yieldFrame();
+      ProgressDialog.set(25, I18n.t('progress.running') || 'Running algorithm…');
+      await ProgressDialog.yieldFrame();
+      Editor.removeBackgroundAuto(algo);
+      if (state.editMode) _ewFit();
+      ProgressDialog.set(85, I18n.t('progress.applying') || 'Applying result…');
+      await ProgressDialog.yieldFrame();
+      ProgressDialog.set(100, I18n.t('progress.done') || 'Done');
+      await ProgressDialog.yieldFrame(80);
+      _updateUndoRedoBtns();
+      _ewUpdateSelBtns();
+      _updateStatus({ dims: true });
+    } finally {
+      ProgressDialog.hide();
+    }
+  }
+
+  let _rembgBusy = false;
+
+  async function _runRembg(algo) {
+    if (_rembgBusy) return;
+    if (!window.electronAPI?.rembgRemove) {
+      _showError(I18n.t('bgAlgo.rembgUnavailable') || 'AI rembg is only available in the desktop app.');
+      return;
+    }
+    const dataUrl = Editor.exportAsDataUrl('image/png');
+    if (!dataUrl) return;
+
+    // Capture selection bbox before rembg (applyFromDataUrl clears selection)
+    const cropBounds = Editor.getSelectionBounds?.(1) || null;
+
+    const algoLabel = I18n.t(`bgAlgo.${algo}`) || algo;
+    const btn = document.getElementById('ew-bg-remove');
+    const sel = document.getElementById('ew-bg-algo');
+    _rembgBusy = true;
+    if (btn) btn.disabled = true;
+    if (sel) sel.disabled = true;
+
+    ProgressDialog.show({
+      title: I18n.t('progress.title') || 'Progress',
+      message: `${I18n.t('bgAlgo.rembgRunning') || 'Removing background (AI)…'} (${algoLabel})`,
+      percent: 0,
+    });
+    ProgressDialog.startCreep(88);
+
+    const unsub = window.electronAPI.onRembgProgress
+      ? window.electronAPI.onRembgProgress(({ percent, message }) => {
+          ProgressDialog.set(percent, _progressMessage(message, algoLabel));
+          if (percent >= 35 && percent < 90) ProgressDialog.startCreep(88);
+          if (percent >= 90) ProgressDialog.stopCreep();
+        })
+      : null;
+
+    try {
+      const result = await window.electronAPI.rembgRemove({ dataUrl, model: algo });
+      ProgressDialog.stopCreep();
+      if (result?.error) {
+        ProgressDialog.hide();
+        _showError(
+          I18n.t('bgAlgo.rembgFailed') || 'AI background removal failed',
+          result.hint ? `${result.error}\n${result.hint}` : result.error
+        );
+        return;
+      }
+      if (!result?.dataUrl) {
+        ProgressDialog.hide();
+        return;
+      }
+      ProgressDialog.set(96, I18n.t('progress.applying') || 'Applying result…');
+      await Editor.applyFromDataUrl(result.dataUrl);
+      Editor.cropAfterBackgroundRemove(cropBounds);
+      if (state.editMode) _ewFit();
+      ProgressDialog.set(100, I18n.t('progress.done') || 'Done');
+      await ProgressDialog.yieldFrame(120);
+      _updateUndoRedoBtns();
+      _ewUpdateSelBtns();
+      _updateStatus({ dims: true });
+    } catch (err) {
+      ProgressDialog.stopCreep();
+      ProgressDialog.hide();
+      _showError(I18n.t('bgAlgo.rembgFailed') || 'AI background removal failed', err.message || String(err));
+    } finally {
+      if (typeof unsub === 'function') unsub();
+      ProgressDialog.stopCreep();
+      ProgressDialog.hide();
+      _rembgBusy = false;
+      if (btn) btn.disabled = false;
+      if (sel) sel.disabled = false;
+      _ewUpdateSelBtns();
+    }
+  }
+
+  function _progressMessage(code, algoLabel) {
+    const map = {
+      preparing: 'progress.preparing',
+      loading_model: 'progress.loadingModel',
+      running: 'progress.running',
+      writing: 'progress.applying',
+      applying: 'progress.applying',
+      done: 'progress.done',
+    };
+    const key = map[code];
+    const base = key ? (I18n.t(key) || code) : (I18n.t('bgAlgo.rembgRunning') || 'Removing background (AI)…');
+    return algoLabel ? `${base} (${algoLabel})` : base;
+  }
+
+  function _getBgAlgo() {
+    const sel = document.getElementById('ew-bg-algo');
+    if (sel && sel.value) return sel.value;
+    return localStorage.getItem('bgRemoveAlgo') || 'rembg1';
+  }
+
+  function _populateBgAlgoSelect() {
+    const sel = document.getElementById('ew-bg-algo');
+    if (!sel) return;
+    const algos = Editor.listBgAlgorithms();
+    const current = localStorage.getItem('bgRemoveAlgo') || 'rembg1';
+    sel.innerHTML = '';
+    for (const id of algos) {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = I18n.t(`bgAlgo.${id}`) || id;
+      if (id === current) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    Tooltip.attach(sel, () => I18n.t('toolbar.bgAlgo'));
   }
 
   /* ════════════════════════════════════════════
@@ -892,6 +1032,10 @@
   ════════════════════════════════════════════ */
   function _buildEffectsPanel() {
     _buildEffectsPanelIn('effects-content', 'eff');
+    if (document.getElementById('edit-effects-content')) {
+      _buildEffectsPanelIn('edit-effects-content', 'ew-eff');
+      _ewEffectsBuilt = true;
+    }
   }
 
   function _buildEffectsPanelIn(containerId, idPrefix) {
@@ -912,25 +1056,58 @@
       { key:'invert',     label:'effects.invert',     min:0,   max:100, step:1,  def:0 },
     ];
 
+    // Preserve current slider values across rebuild (e.g. language switch)
+    const prevValues = {};
+    for (const s of sliders) {
+      const el = document.getElementById(`${idPrefix}-${s.key}`);
+      if (el) prevValues[s.key] = el.value;
+    }
+    const activePreset = content.querySelector('.preset-btn.active')?.dataset?.preset || null;
+
     content.innerHTML = '';
 
     // Presets
     const presetsLabel = document.createElement('div');
     presetsLabel.style.cssText = 'font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:700;';
+    presetsLabel.setAttribute('data-i18n', 'effects.presets');
     presetsLabel.textContent = I18n.t('effects.presets');
     content.appendChild(presetsLabel);
 
     const presets = [
-      { id:'grayscale', label:'effects.grayscale' },
-      { id:'sepia',     label:'effects.sepia' },
-      { id:'invert',    label:'effects.invert' },
-      { id:'vivid',     label:'effects.vivid' },
-      { id:'fade',      label:'effects.fade' },
-      { id:'vintage',   label:'effects.vintage' },
-      { id:'dramatic',  label:'effects.dramatic' },
-      { id:'warm',      label:'effects.warmPreset' },
-      { id:'cool',      label:'effects.cool' },
-      { id:'emboss',    label:'effects.emboss' },
+      { id: 'grayscale',    label: 'effects.grayscale' },
+      { id: 'sepia',        label: 'effects.sepia' },
+      { id: 'silver',       label: 'effects.silver' },
+      { id: 'noir',         label: 'effects.noir' },
+      { id: 'invert',       label: 'effects.invert' },
+      { id: 'vivid',        label: 'effects.vivid' },
+      { id: 'pop',          label: 'effects.pop' },
+      { id: 'fade',         label: 'effects.fade' },
+      { id: 'pastel',       label: 'effects.pastel' },
+      { id: 'matte',        label: 'effects.matte' },
+      { id: 'vintage',      label: 'effects.vintage' },
+      { id: 'polaroid',     label: 'effects.polaroid' },
+      { id: 'lomo',         label: 'effects.lomo' },
+      { id: 'dramatic',     label: 'effects.dramatic' },
+      { id: 'warm',         label: 'effects.warmPreset' },
+      { id: 'golden',       label: 'effects.golden' },
+      { id: 'sunset',       label: 'effects.sunset' },
+      { id: 'cool',         label: 'effects.cool' },
+      { id: 'arctic',       label: 'effects.arctic' },
+      { id: 'moonlight',    label: 'effects.moonlight' },
+      { id: 'cyanotype',    label: 'effects.cyanotype' },
+      { id: 'tealorange',   label: 'effects.tealorange' },
+      { id: 'crossprocess', label: 'effects.crossprocess' },
+      { id: 'neon',         label: 'effects.neon' },
+      { id: 'soft',         label: 'effects.soft' },
+      { id: 'haze',         label: 'effects.haze' },
+      { id: 'crisp',        label: 'effects.crisp' },
+      { id: 'clarity',      label: 'effects.clarity' },
+      { id: 'bleach',       label: 'effects.bleach' },
+      { id: 'highkey',      label: 'effects.highkey' },
+      { id: 'lowkey',       label: 'effects.lowkey' },
+      { id: 'documentary',  label: 'effects.documentary' },
+      { id: 'emboss',       label: 'effects.emboss' },
+      { id: 'edge',         label: 'effects.edge' },
     ];
 
     const presetWrap = document.createElement('div');
@@ -938,8 +1115,10 @@
     presets.forEach(p => {
       const btn = document.createElement('button');
       btn.className = 'preset-btn';
+      btn.setAttribute('data-i18n', p.label);
       btn.textContent = I18n.t(p.label);
       btn.dataset.preset = p.id;
+      if (activePreset === p.id) btn.classList.add('active');
       btn.addEventListener('click', () => {
         presetWrap.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -954,6 +1133,7 @@
     divEl.style.cssText = 'border:none;border-top:1px solid var(--border);margin:8px 0';
     content.appendChild(divEl);
 
+    const efx = Editor.getEffects?.() || {};
     for (const s of sliders) {
       const group = document.createElement('div');
       group.className = 'effect-group';
@@ -963,13 +1143,18 @@
 
       const lbl = document.createElement('span');
       lbl.className = 'effect-label';
+      lbl.setAttribute('data-i18n', s.label);
       lbl.textContent = I18n.t(s.label);
       row.appendChild(lbl);
+
+      const initial = prevValues[s.key] != null
+        ? prevValues[s.key]
+        : (efx[s.key] != null ? efx[s.key] : s.def);
 
       const valSpan = document.createElement('span');
       valSpan.className = 'effect-value';
       valSpan.id = `${idPrefix}-val-${s.key}`;
-      valSpan.textContent = s.def;
+      valSpan.textContent = initial;
       row.appendChild(valSpan);
 
       const slider = document.createElement('input');
@@ -977,7 +1162,7 @@
       slider.className = 'effect-slider';
       slider.id    = `${idPrefix}-${s.key}`;
       slider.min   = s.min; slider.max = s.max; slider.step = s.step;
-      slider.value = s.def;
+      slider.value = initial;
 
       slider.addEventListener('input', () => {
         const v = parseFloat(slider.value);
@@ -1112,7 +1297,7 @@
     [
       ['ew-cut',       'cut',         'context.cut',          () => _ewCut()],
       ['ew-copy',      'copy',        'context.copy',         () => _ewCopy()],
-      ['ew-bg-remove', 'bgRemove',    'toolbar.bgRemove',     () => { Editor.removeBackground(false); Editor.clearSelection(); _ewUpdateSelBtns(); _updateUndoRedoBtns(); }],
+      ['ew-bg-remove', 'bgRemove',    'toolbar.bgRemove',     () => { _removeBackground(); }],
       ['ew-crop-sel',  'fitWindow',   'editWindow.cropSel',   () => { Editor.cropToSelection(); _ewUpdateSelBtns(); _updateUndoRedoBtns(); _ewFit(); }],
       ['ew-clear-sel', 'close',       'editWindow.clearSel',  () => { Editor.clearSelection(); _ewUpdateSelBtns(); }],
       ['ew-rotate-l',  'rotateLeft',  'toolbar.rotateLeft',   () => { Editor.rotate(-90); _ewFit(); _updateUndoRedoBtns(); }],
@@ -1132,7 +1317,20 @@
       Tooltip.attach(btn, () => I18n.t(tip));
     });
 
+    _syncEditThemeLangBtns();
+    document.getElementById('ew-theme')?.addEventListener('click', () => { _toggleTheme(); });
+    document.getElementById('ew-lang')?.addEventListener('click', () => { _toggleLang(); });
+    Tooltip.attach(document.getElementById('ew-theme'), () => I18n.t('toolbar.theme'));
+    Tooltip.attach(document.getElementById('ew-lang'), () => I18n.t('toolbar.lang'));
+
+    _populateBgAlgoSelect();
+    document.getElementById('ew-bg-algo')?.addEventListener('change', (e) => {
+      localStorage.setItem('bgRemoveAlgo', e.target.value);
+    });
+
     // Apply / Cancel
+    document.getElementById('ew-save')?.addEventListener('click', () => { _saveEditedAs(); });
+    Tooltip.attach(document.getElementById('ew-save'), () => I18n.t('context.saveEdited'));
     document.getElementById('ew-apply')?.addEventListener('click', () => _closeEditWindow(true));
     document.getElementById('ew-cancel')?.addEventListener('click', () => _closeEditWindow(false));
 
@@ -1206,7 +1404,7 @@
 
   function _ewUpdateSelBtns() {
     const hasSel = Editor.hasSelection();
-    ['ew-cut','ew-copy','ew-bg-remove','ew-crop-sel','ew-clear-sel'].forEach(id => {
+    ['ew-cut','ew-copy','ew-crop-sel','ew-clear-sel'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.disabled = !hasSel;
     });
@@ -1266,10 +1464,12 @@
     const hasSel = Editor.hasSelection();
     const t = I18n.t.bind(I18n);
     ContextMenu.show(x, y, [
+      { icon: Icons.save,     label: t('context.saveEdited'), action: () => { _saveEditedAs(); } },
+      { separator: true },
       { icon: Icons.cut,      label: t('context.cut'),      disabled: !hasSel, action: _ewCut },
       { icon: Icons.copy,     label: t('context.copy'),     disabled: !hasSel, action: _ewCopy },
       { separator: true },
-      { icon: Icons.bgRemove, label: t('toolbar.bgRemove'), disabled: !hasSel, action: () => { Editor.removeBackground(false); Editor.clearSelection(); _ewUpdateSelBtns(); _updateUndoRedoBtns(); } },
+      { icon: Icons.bgRemove, label: t('toolbar.bgRemove'), action: () => { _removeBackground(); } },
       { icon: Icons.fitWindow, label: t('editWindow.cropSel'), disabled: !hasSel, action: () => { Editor.cropToSelection(); _ewUpdateSelBtns(); _updateUndoRedoBtns(); _ewFit(); } },
       { icon: Icons.close,  label: t('editWindow.clearSel'),disabled: !hasSel, action: () => { Editor.clearSelection(); _ewUpdateSelBtns(); } },
       { separator: true },
@@ -1285,11 +1485,9 @@
     ]);
   }
 
-  let _ewEffectsBuilt = false;
   function _buildEditEffectsPanel() {
-    if (_ewEffectsBuilt) return;
-    _ewEffectsBuilt = true;
     _buildEffectsPanelIn('edit-effects-content', 'ew-eff');
+    _ewEffectsBuilt = true;
   }
 
   /* Effects panel buttons */
@@ -1330,20 +1528,58 @@
     document.title = state.isDirty ? `● ${base}` : base;
   }
 
-  async function _saveAs(andClose = false) {
-    if (!_isEditableImage()) return false;
+  async function _saveEditedAs(andClose = false) {
+    return _saveAs(andClose, { useChangedName: true });
+  }
 
-    // HEIC/HEIF → default to JPEG (photographic); others → PNG
-    const srcName = state.currentFile
-      ? state.currentFile.split(/[/\\]/).pop()
-      : '';
+  /**
+   * Default save name for edited images: e.g. photo_변경.png
+   * Suffix comes from i18n (`save.changedSuffix`, default "변경").
+   * The Save dialog lets the user edit this name before confirming.
+   */
+  async function _getEditedSaveDefaultPath() {
+    const suffix = (I18n.t('save.changedSuffix') || '변경').trim() || '변경';
+    const srcPath = state.currentFile || '';
+    const srcName = srcPath ? srcPath.split(/[/\\]/).pop() : '';
     const srcExt = srcName.includes('.') ? srcName.split('.').pop().toLowerCase() : '';
     const isHeicSrc = srcExt === 'heic' || srcExt === 'heif';
-    const stem = srcName ? srcName.replace(/\.[^.]+$/, '') : 'image';
-    const basename = isHeicSrc ? `${stem}.jpg` : `${stem}.png`;
 
-    // Show save dialog first to get path + format choice
-    const dlgResult = await window.electronAPI.showSaveDialog({ defaultPath: basename });
+    let stem = srcName ? srcName.replace(/\.[^.]+$/, '') : 'image';
+    const suffixRe = new RegExp(`[_-]${suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    if (!suffixRe.test(stem)) {
+      stem = `${stem}_${suffix}`;
+    }
+    const fileName = isHeicSrc ? `${stem}.jpg` : `${stem}.png`;
+
+    if (srcPath && window.electronAPI?.pathDirname && window.electronAPI?.pathJoin) {
+      try {
+        const dir = await window.electronAPI.pathDirname(srcPath);
+        if (dir) return await window.electronAPI.pathJoin(dir, fileName);
+      } catch (_) { /* fall through */ }
+    }
+    return fileName;
+  }
+
+  async function _saveAs(andClose = false, opts = {}) {
+    if (!_isEditableImage()) return false;
+
+    const useChangedName = opts.useChangedName === true || state.editMode === true || state.isDirty === true;
+
+    let defaultPath;
+    if (useChangedName) {
+      defaultPath = await _getEditedSaveDefaultPath();
+    } else {
+      const srcName = state.currentFile
+        ? state.currentFile.split(/[/\\]/).pop()
+        : '';
+      const srcExt = srcName.includes('.') ? srcName.split('.').pop().toLowerCase() : '';
+      const isHeicSrc = srcExt === 'heic' || srcExt === 'heif';
+      const stem = srcName ? srcName.replace(/\.[^.]+$/, '') : 'image';
+      defaultPath = isHeicSrc ? `${stem}.jpg` : `${stem}.png`;
+    }
+
+    // Native save dialog — suggested name is editable by the user
+    const dlgResult = await window.electronAPI.showSaveDialog({ defaultPath });
     if (!dlgResult || dlgResult.canceled) return false;
 
     const savePath = dlgResult.filePath;
@@ -1581,6 +1817,93 @@
     return new Promise(resolve => { _errorResolve = resolve; });
   }
 
+  /** Modal progress dialog with bar + percent (used by bg-remove algorithms). */
+  const ProgressDialog = (() => {
+    let _percent = 0;
+    let _creepTimer = null;
+    let _creepCap = 90;
+
+    function _els() {
+      return {
+        overlay: document.getElementById('progress-overlay'),
+        title: document.getElementById('progress-title'),
+        message: document.getElementById('progress-message'),
+        fill: document.getElementById('progress-bar-fill'),
+        bar: document.getElementById('progress-bar'),
+        pct: document.getElementById('progress-percent'),
+      };
+    }
+
+    function _paint(message) {
+      const e = _els();
+      const shown = Math.round(_percent);
+      if (e.fill) e.fill.style.width = `${shown}%`;
+      if (e.pct) e.pct.textContent = `${shown}%`;
+      if (e.bar) e.bar.setAttribute('aria-valuenow', String(shown));
+      if (message != null && e.message) e.message.textContent = message;
+    }
+
+    function show({ title, message, percent } = {}) {
+      const e = _els();
+      if (!e.overlay) return;
+      stopCreep();
+      _percent = 0;
+      if (e.title) e.title.textContent = title || I18n.t('progress.title') || 'Progress';
+      if (e.message) e.message.textContent = message || '';
+      set(percent != null ? percent : 0, message, true);
+      e.overlay.style.display = 'flex';
+      e.overlay.classList.add('visible');
+    }
+
+    /** @param {boolean} [force] allow decreasing (reset) */
+    function set(percent, message, force) {
+      const raw = Math.max(0, Math.min(100, Number(percent) || 0));
+      _percent = force ? raw : Math.max(_percent, raw);
+      _paint(message);
+    }
+
+    function hide() {
+      stopCreep();
+      const e = _els();
+      if (!e.overlay) return;
+      e.overlay.classList.remove('visible');
+      e.overlay.style.display = 'none';
+      _percent = 0;
+      _paint();
+      if (e.fill) e.fill.style.width = '0%';
+      if (e.pct) e.pct.textContent = '0%';
+    }
+
+    /** Slowly advance toward `cap` while inference runs (no true ORT %). */
+    function startCreep(cap = 88) {
+      stopCreep();
+      _creepCap = cap;
+      _creepTimer = setInterval(() => {
+        if (_percent >= _creepCap) return;
+        const step = _percent < 50 ? 1.2 : _percent < 75 ? 0.6 : 0.25;
+        set(Math.min(_creepCap, _percent + step));
+      }, 400);
+    }
+
+    function stopCreep() {
+      if (_creepTimer) {
+        clearInterval(_creepTimer);
+        _creepTimer = null;
+      }
+    }
+
+    function yieldFrame(ms = 0) {
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          if (ms > 0) setTimeout(resolve, ms);
+          else resolve();
+        });
+      });
+    }
+
+    return { show, set, hide, startCreep, stopCreep, yieldFrame };
+  })();
+
   // Expose globally so formatSupport.js and other modules can use it
   window._showAppError = _showError;
 
@@ -1805,7 +2128,7 @@
       (hasImg || state.isVideo) && { icon: Icons.fitWindow, label: t('context.fitWindow'), shortcut:'Ctrl+0', action: _fitToWindow },
       hasImg && { icon: Icons.actualSize,label: t('context.actualSize'),shortcut:'Ctrl+1', action: _actualSize },
       hasImg && { separator: true },
-      hasImg && { icon: Icons.bgRemove, label: t('context.bgRemove'), disabled: !hasSel, action: _removeBackground },
+      hasImg && { icon: Icons.bgRemove, label: t('context.bgRemove'), action: _removeBackground },
       hasImg && { icon: Icons.reset,    label: t('context.resetAll'), action: _resetAll },
       !isAv && { separator: true },
       { icon: Icons.prev,    label: t('context.prev'), disabled: state.fileIndex <= 0,                           action: _prevImage },
@@ -1859,12 +2182,31 @@
   /* ════════════════════════════════════════════
      Theme / Language
   ════════════════════════════════════════════ */
+  function _syncEditThemeLangBtns() {
+    const themeBtn = document.getElementById('ew-theme');
+    if (themeBtn) {
+      themeBtn.innerHTML = Icons[state.theme === 'dark' ? 'sun' : 'moon'] || '';
+    }
+    const langBtn = document.getElementById('ew-lang');
+    if (langBtn) {
+      let span = langBtn.querySelector('.lang-text');
+      if (!span) {
+        span = document.createElement('span');
+        span.className = 'lang-text';
+        langBtn.textContent = '';
+        langBtn.appendChild(span);
+      }
+      span.textContent = state.lang === 'ko' ? 'KO' : 'EN';
+    }
+  }
+
   function _applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : '');
     state.theme = theme;
     localStorage.setItem('theme', theme);
     const btn = document.getElementById('btn-theme');
     if (btn) btn.innerHTML = Icons[theme === 'dark' ? 'sun' : 'moon'];
+    _syncEditThemeLangBtns();
   }
 
   function _toggleTheme() {
@@ -1875,18 +2217,7 @@
   async function _toggleLang() {
     state.lang = state.lang === 'en' ? 'ko' : 'en';
     localStorage.setItem('lang', state.lang);
-    await I18n.loadLanguage(state.lang);
-    I18n.applyToDOM();
-    // Update dynamic text
-    _buildEffectsPanel();
-    _updateStatus();
-    if (state.currentFile) await _updateInfoPanel(state.currentFile);
-    const langBtn = document.getElementById('btn-lang');
-    if (langBtn) {
-      const span = langBtn.querySelector('.lang-text');
-      if (span) span.textContent = state.lang === 'ko' ? 'KO' : 'EN';
-    }
-    _syncMenu();
+    await _refreshLang();
   }
 
   function _syncMenu() {
@@ -1913,7 +2244,11 @@
       if (ctrl && e.key === '[') { e.preventDefault(); _rotate(-90); return; }
       if (ctrl && e.key === ']') { e.preventDefault(); _rotate(90); return; }
       if (ctrl && e.key === 'e') { e.preventDefault(); _openEditWindow(); return; }
-      if (ctrl && e.key === 's') { e.preventDefault(); return; } // save reserved
+      if (ctrl && e.key === 's') {
+        e.preventDefault();
+        if (state.editMode) _saveEditedAs();
+        return;
+      }
       if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); _saveAs(); return; }
       if (ctrl && e.key === 'z') {
         e.preventDefault();
@@ -1991,10 +2326,17 @@
     await I18n.loadLanguage(state.lang);
     I18n.applyToDOM();
     _buildEffectsPanel();
+    _populateBgAlgoSelect();
     _updateStatus();
+    if (state.editMode) {
+      document.getElementById('edit-window-title').textContent =
+        (state.currentFile ? state.currentFile.split(/[/\\]/).pop() + ' — ' : '') +
+        I18n.t('editWindow.title');
+    }
     if (state.currentFile) await _updateInfoPanel(state.currentFile);
     const langBtn = document.getElementById('btn-lang');
     if (langBtn) { const s = langBtn.querySelector('.lang-text'); if (s) s.textContent = state.lang === 'ko' ? 'KO' : 'EN'; }
+    _syncEditThemeLangBtns();
     _syncMenu();
   }
 
