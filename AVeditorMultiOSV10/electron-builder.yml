@@ -1,0 +1,81 @@
+appId: com.aveditor.app
+productName: AV Editor
+copyright: Copyright © 2024 AV Editor
+
+directories:
+  output: dist
+  buildResources: assets
+
+files:
+  - src/**/*
+  - assets/**/*
+  - package.json
+
+icon: assets/icons/icon
+
+# Avoid winCodeSign (symlink privilege errors on Windows without Developer Mode)
+afterPack: scripts/after-pack.js
+
+# ── Windows ──────────────────────────────────────────────
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icons/icon.ico
+  publisherName: AV Editor
+  signAndEditExecutable: false
+
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  # Create by default; build/installer.nsh shows checkboxes so the user can opt out
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AV Editor
+  runAfterFinish: true
+  installerIcon: assets/icons/icon.ico
+  uninstallerIcon: assets/icons/icon.ico
+  include: build/installer.nsh
+
+# ── macOS ─────────────────────────────────────────────────
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  icon: assets/icons/icon.icns
+  category: public.app-category.video
+  darkModeSupport: true
+  hardenedRuntime: false
+
+dmg:
+  title: AV Editor ${version}
+  iconSize: 80
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# ── Linux ─────────────────────────────────────────────────
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  icon: assets/icons/icon.png
+  category: AudioVideo
+  description: Professional Audio & Video Editor

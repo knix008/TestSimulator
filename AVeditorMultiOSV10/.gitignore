@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+release/
+
+# Generated / copied installers at project root
+*.exe
+*.dmg
+*.pkg
+*.AppImage
+*.deb
+*.rpm
+*.msi
+*.blockmap
+*.7z
+!assets/**/*.ico
+!assets/**/*.icns
+
+# Generated icon sizes (keep source SVG; regenerate with npm run generate-icons)
+assets/icons/icon-*.png
+assets/icons/icon.png
+assets/icons/icon.ico
+assets/icons/icon.icns
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Editors / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.cursor/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Electron / cache
+.electron/
+.cache/
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Temp
+tmp/
+temp/
+*.tmp
+*.temp
