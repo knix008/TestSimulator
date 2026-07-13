@@ -1,10 +1,13 @@
 # Dependencies
 node_modules/
 
-# Build output
+# Desktop build output
 dist/
 out/
 release/
+
+# Static web package (regenerate with npm run build:web)
+dist-web/
 
 # Generated / copied installers at project root
 *.exe
@@ -24,6 +27,7 @@ assets/icons/icon-*.png
 assets/icons/icon.png
 assets/icons/icon.ico
 assets/icons/icon.icns
+assets/icons/linux/
 
 # Logs
 logs/
@@ -54,6 +58,7 @@ ehthumbs.db
 # Electron / cache
 .electron/
 .cache/
+.webpack/
 
 # Test / coverage
 coverage/
@@ -64,3 +69,4 @@ tmp/
 temp/
 *.tmp
 *.temp
+*.bak
