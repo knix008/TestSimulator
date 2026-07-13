@@ -300,15 +300,26 @@ export async function extractMono16kFloat32(preview, onProgress) {
   const samples = await resampleToMono16k(decoded);
   if (!samples?.length) throw new Error('Resampled audio is empty');
 
-  // Whisper expects roughly [-1, 1]; clamp pathological peaks
+  // Whisper expects roughly [-1, 1]; boost quiet speech, clamp peaks
   let peak = 0;
+  let sumSq = 0;
   for (let i = 0; i < samples.length; i += 1) {
-    const a = Math.abs(samples[i]);
+    const v = samples[i];
+    const a = Math.abs(v);
     if (a > peak) peak = a;
+    sumSq += v * v;
   }
-  if (peak > 1.05) {
-    const inv = 1 / peak;
-    for (let i = 0; i < samples.length; i += 1) samples[i] *= inv;
+  const rms = Math.sqrt(sumSq / Math.max(1, samples.length));
+  // Quiet dialogue (common in narrated Korean video) → amplify toward ~0.1 RMS
+  let gain = 1;
+  if (rms > 1e-6 && rms < 0.04) {
+    gain = Math.min(12, 0.1 / rms);
+  }
+  if (peak * gain > 0.95) {
+    gain = Math.min(gain, 0.95 / peak);
+  }
+  if (Math.abs(gain - 1) > 0.02) {
+    for (let i = 0; i < samples.length; i += 1) samples[i] *= gain;
   }
 
   onProgress?.({ phase: 'audio', percent: 20, labelKey: 'subtitle.audioReady' });
@@ -447,10 +458,11 @@ export async function generateSubtitlesFromPreview(preview, {
 
   onProgress?.({ phase: 'stt', percent: 55, labelKey: 'subtitle.transcribing' });
 
-  // Do NOT force UI locale as Whisper language on the first pass — wrong language
-  // yields empty/garbage text. Auto-detect when `language` is omitted.
-  // Important: Transformers.js mutates the options object (sets forced_decoder_ids).
-  // Always pass a fresh object; never reuse / spread a previous call's options.
+  // Prefer UI locale as Whisper language — auto-detect on tiny often yields
+  // Korean syllable loops like "끌끌끌…". Always pass a fresh options object
+  // (Transformers.js mutates kwargs with forced_decoder_ids).
+  const localeLang = locale === 'ko' ? 'korean' : locale === 'en' ? 'english' : null;
+
   let result;
   try {
     const runWhisper = (extra = {}) => transcriber(samples, {
@@ -458,21 +470,30 @@ export async function generateSubtitlesFromPreview(preview, {
       chunk_length_s: 30,
       stride_length_s: 5,
       task: 'transcribe',
+      // Suppress decoder n-gram loops (common tiny-model hallucination)
+      no_repeat_ngram_size: 3,
       ...extra,
     });
 
-    result = await runWhisper();
+    // 1) Locale language first when known
+    result = await runWhisper(localeLang ? { language: localeLang } : {});
 
-    const text = String(result?.text || '').trim();
-    const chunks = Array.isArray(result?.chunks) ? result.chunks : [];
-    const hasUseful = text.length > 0 || chunks.some((c) => String(c?.text || '').trim());
-
-    // Retry once with an explicit language hint if auto produced nothing
-    if (!hasUseful && (locale === 'ko' || locale === 'en')) {
-      onProgress?.({ phase: 'stt', percent: 70, labelKey: 'subtitle.transcribing' });
-      result = await runWhisper({
-        language: locale === 'ko' ? 'korean' : 'english',
-      });
+    // 2) If empty or hallucinated repetition, retry alternate / auto
+    if (isPoorTranscription(result)) {
+      onProgress?.({ phase: 'stt', percent: 68, labelKey: 'subtitle.transcribing' });
+      if (localeLang === 'korean') {
+        result = await runWhisper({ language: 'english' });
+        if (isPoorTranscription(result)) {
+          result = await runWhisper(); // auto-detect
+        }
+      } else if (localeLang === 'english') {
+        result = await runWhisper({ language: 'korean' });
+        if (isPoorTranscription(result)) {
+          result = await runWhisper();
+        }
+      } else {
+        result = await runWhisper({ language: 'korean' });
+      }
     }
   } catch (err) {
     console.error('[subtitle] whisper error', err);
@@ -491,6 +512,65 @@ export async function generateSubtitlesFromPreview(preview, {
   return { cues, duration, cancelled: false, raw: result };
 }
 
+/** True when Whisper output is empty or a known-style hallucination loop. */
+function isLikelyHallucinationText(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return true;
+  const t = raw.replace(/[\s.…·・\-_/\\|'"`~]+/g, '');
+  if (!t) return true;
+
+  // Single character/syllable repeated: 끌끌끌, ㅋㅋㅋ, aaa
+  if (t.length >= 4) {
+    const first = t[0];
+    if ([...t].every((c) => c === first)) return true;
+  }
+
+  // Short n-gram repeated many times: 끌끌 / 감사합니다감사합니다…
+  for (let n = 1; n <= Math.min(4, Math.floor(t.length / 4)); n += 1) {
+    const gram = t.slice(0, n);
+    if (!gram) continue;
+    let pos = 0;
+    let reps = 0;
+    while (pos + n <= t.length && t.slice(pos, pos + n) === gram) {
+      reps += 1;
+      pos += n;
+    }
+    if (reps >= 4 && pos >= t.length * 0.85) return true;
+  }
+
+  // Very low unique-character diversity
+  const unique = new Set([...t]).size;
+  if (t.length >= 8 && unique <= 2) return true;
+
+  // Stock Whisper silence phrases (ko/en)
+  const normalized = raw.replace(/\s+/g, '').toLowerCase();
+  const stock = [
+    '시청해주셔서감사합니다',
+    '구독과좋아요',
+    'thankyouforwatching',
+    'thanksforwatching',
+    'pleasesubscribe',
+    'mbc뉴스',
+  ];
+  if (stock.some((s) => normalized === s || normalized === `${s}.` || normalized === `${s}!`)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isPoorTranscription(result) {
+  const text = String(result?.text || '').trim();
+  const chunks = Array.isArray(result?.chunks) ? result.chunks : [];
+  if (!text && !chunks.length) return true;
+  if (isLikelyHallucinationText(text)) return true;
+  if (chunks.length) {
+    const bad = chunks.filter((c) => isLikelyHallucinationText(c?.text)).length;
+    if (bad >= Math.max(1, Math.ceil(chunks.length * 0.5))) return true;
+  }
+  return false;
+}
+
 function normalizeWhisperResult(result, mediaDuration) {
   const cues = [];
   const chunks = Array.isArray(result?.chunks) ? result.chunks : null;
@@ -500,7 +580,7 @@ function normalizeWhisperResult(result, mediaDuration) {
     for (const ch of chunks) {
       const text = String(ch.text || '').replace(/\s+/g, ' ').trim();
       if (!text) continue;
-      // Skip Whisper hallucination placeholders
+      if (isLikelyHallucinationText(text)) continue;
       if (/^[\s.[\]()]*$/.test(text) || text === '...' || text === '……') continue;
 
       let start = 0;
@@ -512,7 +592,6 @@ function normalizeWhisperResult(result, mediaDuration) {
       }
       if (!Number.isFinite(start) || start < 0) start = 0;
       if (!Number.isFinite(end) || end <= start) {
-        // Estimate duration from text length (~12 chars/sec speaking rate)
         const est = Math.max(1.2, Math.min(8, text.length * 0.08));
         end = start + est;
       }
@@ -530,7 +609,7 @@ function normalizeWhisperResult(result, mediaDuration) {
 
   if (!cues.length) {
     const text = String(result?.text || '').replace(/\s+/g, ' ').trim();
-    if (text && text !== '...' && text !== '……') {
+    if (text && !isLikelyHallucinationText(text)) {
       cues.push({
         start: 0,
         end: Math.max(1.5, mediaDur || 3),

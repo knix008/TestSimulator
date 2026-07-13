@@ -13,11 +13,15 @@ import { generateSubtitlesFromPreview, cuesToSrt } from './subtitleGenerator.js'
 
 const STORAGE_THEME = 'av-editor-theme';
 const STORAGE_LOCALE = 'av-editor-locale';
+const STORAGE_TIMELINE_COLLAPSED = 'av-editor-timeline-collapsed';
+const STORAGE_SIDEBAR_COLLAPSED = 'av-editor-sidebar-collapsed';
 
 class AVEditorApp {
   constructor() {
     this.i18n = new I18n();
     this.theme = localStorage.getItem(STORAGE_THEME) || 'dark';
+    this._timelineCollapsed = localStorage.getItem(STORAGE_TIMELINE_COLLAPSED) === '1';
+    this._sidebarCollapsed = localStorage.getItem(STORAGE_SIDEBAR_COLLAPSED) === '1';
     this.projectPath = null;
     this.isDirty = false;
     this.isPlaying = false;
@@ -35,6 +39,8 @@ class AVEditorApp {
     // Build UI
     this._buildToolbar();
     this._buildComponents();
+    this._applySidebarCollapsed(this._sidebarCollapsed, { persist: false });
+    this._applyTimelineCollapsed(this._timelineCollapsed, { persist: false });
     this._initSidebarResize();
     this._bindMenuActions();
     this._bindKeyboard();
@@ -71,6 +77,7 @@ class AVEditorApp {
         <button class="toolbar-btn" id="btn-analyze" data-i18n-tooltip="toolbar.analyzeScenes">${Icons.sparkles}</button>
         <button class="toolbar-btn" id="btn-view-analysis" data-i18n-tooltip="toolbar.viewAnalysis">${Icons.list}</button>
         <button class="toolbar-btn" id="btn-subtitles" data-i18n-tooltip="toolbar.generateSubtitles">${Icons.subtitles}</button>
+        <button class="toolbar-btn active" id="btn-toggle-subtitles" data-i18n-tooltip="toolbar.subtitlesHide" aria-pressed="true">${Icons.subtitlesToggle}</button>
         <button class="toolbar-btn" id="btn-ollama-settings" data-i18n-tooltip="toolbar.ollamaSettings">${Icons.settings}</button>
       </div>
       <div class="toolbar-separator"></div>
@@ -100,8 +107,10 @@ class AVEditorApp {
       <div class="toolbar-separator"></div>
       <!-- Timeline zoom -->
       <div class="toolbar-group">
+        <button class="toolbar-btn active" id="btn-toggle-sidebar" data-i18n-tooltip="toolbar.sidebarHide" aria-pressed="true">${Icons.panelLeft}</button>
         <button class="toolbar-btn" id="btn-zoom-out" data-i18n-tooltip="toolbar.zoomOut">${Icons.zoomOut}</button>
         <button class="toolbar-btn" id="btn-zoom-in"  data-i18n-tooltip="toolbar.zoomIn">${Icons.zoomIn}</button>
+        <button class="toolbar-btn active" id="btn-toggle-timeline" data-i18n-tooltip="toolbar.timelineHide" aria-pressed="true">${Icons.panelBottom}</button>
       </div>
       <!-- Spacer -->
       <div class="toolbar-spacer"></div>
@@ -116,6 +125,9 @@ class AVEditorApp {
     `;
 
     this._applyTooltips();
+    this._syncSubtitleToggleButton();
+    this._syncSidebarToggleButton();
+    this._applyTimelineCollapsed(this._timelineCollapsed, { persist: false });
     this._initToolbarFloatingTooltips();
     this._bindToolbarEvents();
   }
@@ -219,6 +231,7 @@ class AVEditorApp {
     $('btn-analyze').addEventListener('click', () => this._analyzeScenes());
     $('btn-view-analysis').addEventListener('click', () => this._viewAnalysisResults());
     $('btn-subtitles').addEventListener('click', () => this._generateSubtitles());
+    $('btn-toggle-subtitles').addEventListener('click', () => this._toggleSubtitlesVisible());
     $('btn-ollama-settings').addEventListener('click', () => this._openOllamaSettings());
     $('btn-undo').addEventListener('click', () => this._undo());
     $('btn-redo').addEventListener('click', () => this._redo());
@@ -256,6 +269,8 @@ class AVEditorApp {
 
     $('btn-zoom-in').addEventListener('click', () => this.timeline.zoomIn());
     $('btn-zoom-out').addEventListener('click', () => this.timeline.zoomOut());
+    $('btn-toggle-sidebar').addEventListener('click', () => this._toggleSidebarPanel());
+    $('btn-toggle-timeline').addEventListener('click', () => this._toggleTimelinePanel());
 
     $('btn-theme').addEventListener('click', () => this._toggleTheme());
 
@@ -696,6 +711,9 @@ class AVEditorApp {
     const langBtn = document.getElementById('btn-lang');
     if (langBtn) langBtn.textContent = locale === 'en' ? 'KO' : 'EN';
     this._applyTooltips();
+    this._syncSubtitleToggleButton();
+    this._syncSidebarToggleButton();
+    this._syncTimelineToggleButton();
     this.fileTree.updateTranslations();
     this.fileInfo.updateTranslations();
     this.preview.updateTranslations();
@@ -1166,6 +1184,7 @@ class AVEditorApp {
         case 'analyze-scenes':     this._analyzeScenes(); break;
         case 'view-analysis':      this._viewAnalysisResults(); break;
         case 'generate-subtitles': this._generateSubtitles(); break;
+        case 'toggle-subtitles':   this._toggleSubtitlesVisible(); break;
         case 'ollama-settings':    this._openOllamaSettings(); break;
         case 'undo':               this._undo(); break;
         case 'redo':               this._redo(); break;
@@ -1176,6 +1195,8 @@ class AVEditorApp {
         case 'set-language-ko':    this._setLanguage('ko'); break;
         case 'zoom-in':            this.timeline.zoomIn(); break;
         case 'zoom-out':           this.timeline.zoomOut(); break;
+        case 'toggle-sidebar':     this._toggleSidebarPanel(); break;
+        case 'toggle-timeline':    this._toggleTimelinePanel(); break;
       }
     });
 
@@ -1234,7 +1255,19 @@ class AVEditorApp {
           case 't':
             if (e.shiftKey) { e.preventDefault(); this._generateSubtitles(); }
             break;
-          case 'b': e.preventDefault(); this.timeline.splitSelectedClip(); break;
+          case 'C':
+          case 'c':
+            if (e.shiftKey) { e.preventDefault(); this._toggleSubtitlesVisible(); }
+            break;
+          case 'L':
+          case 'l':
+            if (e.shiftKey) { e.preventDefault(); this._toggleTimelinePanel(); }
+            break;
+          case 'B':
+          case 'b':
+            if (e.shiftKey) { e.preventDefault(); this._toggleSidebarPanel(); }
+            else { e.preventDefault(); this.timeline.splitSelectedClip(); }
+            break;
           case 't': e.preventDefault(); this._toggleTheme(); break;
           case '=': case '+': this.timeline.zoomIn(); break;
           case '-': this.timeline.zoomOut(); break;
@@ -1285,6 +1318,105 @@ class AVEditorApp {
     await showOllamaSettingsDialog(this.i18n);
   }
 
+  _toggleSubtitlesVisible() {
+    if (!this.preview) return;
+    if (!this.preview.hasSubtitles()) {
+      showAlert(this.i18n.t('subtitle.noneToToggle'));
+      return;
+    }
+    this.preview.toggleSubtitlesVisible();
+    this._syncSubtitleToggleButton();
+  }
+
+  _syncSubtitleToggleButton() {
+    const btn = document.getElementById('btn-toggle-subtitles');
+    if (!btn || !this.preview) return;
+    const on = this.preview.isSubtitlesVisible();
+    const has = this.preview.hasSubtitles();
+    btn.classList.toggle('active', on && has);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const key = on ? 'toolbar.subtitlesHide' : 'toolbar.subtitlesShow';
+    btn.setAttribute('data-i18n-tooltip', key);
+    const tip = this.i18n.t(key);
+    btn.setAttribute('data-tooltip', tip);
+    btn.setAttribute('aria-label', tip);
+    btn.setAttribute('title', tip);
+  }
+
+  _toggleTimelinePanel() {
+    this._applyTimelineCollapsed(!this._timelineCollapsed);
+  }
+
+  /**
+   * @param {boolean} collapsed
+   * @param {{ persist?: boolean }} [opts]
+   */
+  _applyTimelineCollapsed(collapsed, opts = {}) {
+    this._timelineCollapsed = !!collapsed;
+    const work = document.getElementById('work-area');
+    work?.classList.toggle('timeline-collapsed', this._timelineCollapsed);
+    if (opts.persist !== false) {
+      localStorage.setItem(STORAGE_TIMELINE_COLLAPSED, this._timelineCollapsed ? '1' : '0');
+    }
+    this._syncTimelineToggleButton();
+    // Let layout settle, then redraw preview/timeline
+    requestAnimationFrame(() => {
+      try { this.timeline?._resize?.(); } catch { /* ignore */ }
+      try { this.preview?.mediaEl && this.preview._emitMediaTime?.(true); } catch { /* ignore */ }
+    });
+  }
+
+  _syncTimelineToggleButton() {
+    const btn = document.getElementById('btn-toggle-timeline');
+    if (!btn) return;
+    const expanded = !this._timelineCollapsed;
+    btn.classList.toggle('active', expanded);
+    btn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+    const key = expanded ? 'toolbar.timelineHide' : 'toolbar.timelineShow';
+    btn.setAttribute('data-i18n-tooltip', key);
+    const tip = this.i18n.t(key);
+    btn.setAttribute('data-tooltip', tip);
+    btn.setAttribute('aria-label', tip);
+    btn.setAttribute('title', tip);
+  }
+
+  _toggleSidebarPanel() {
+    this._applySidebarCollapsed(!this._sidebarCollapsed);
+  }
+
+  /**
+   * Collapse/expand file tree + file info together.
+   * @param {boolean} collapsed
+   * @param {{ persist?: boolean }} [opts]
+   */
+  _applySidebarCollapsed(collapsed, opts = {}) {
+    this._sidebarCollapsed = !!collapsed;
+    const layout = document.getElementById('main-layout');
+    layout?.classList.toggle('sidebar-collapsed', this._sidebarCollapsed);
+    if (opts.persist !== false) {
+      localStorage.setItem(STORAGE_SIDEBAR_COLLAPSED, this._sidebarCollapsed ? '1' : '0');
+    }
+    this._syncSidebarToggleButton();
+    requestAnimationFrame(() => {
+      try { this.timeline?._resize?.(); } catch { /* ignore */ }
+      try { this.preview?.mediaEl && this.preview._emitMediaTime?.(true); } catch { /* ignore */ }
+    });
+  }
+
+  _syncSidebarToggleButton() {
+    const btn = document.getElementById('btn-toggle-sidebar');
+    if (!btn) return;
+    const expanded = !this._sidebarCollapsed;
+    btn.classList.toggle('active', expanded);
+    btn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+    const key = expanded ? 'toolbar.sidebarHide' : 'toolbar.sidebarShow';
+    btn.setAttribute('data-i18n-tooltip', key);
+    const tip = this.i18n.t(key);
+    btn.setAttribute('data-tooltip', tip);
+    btn.setAttribute('aria-label', tip);
+    btn.setAttribute('title', tip);
+  }
+
   async _generateSubtitles() {
     if (this._subtitleBusy) return;
     if (!this.preview?.mediaEl) {
@@ -1326,6 +1458,7 @@ class AVEditorApp {
 
       this.preview.setSubtitles(cues);
       this._lastSubtitles = cues;
+      this._syncSubtitleToggleButton();
       // Jump to first cue so the on-screen subtitle is visible immediately
       const t0 = Number(cues[0]?.start) || 0;
       try {

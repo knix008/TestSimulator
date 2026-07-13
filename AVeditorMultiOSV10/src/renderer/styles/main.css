@@ -347,6 +347,17 @@ body.theme-light {
   min-height: 0;
 }
 
+#main-layout.sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+#main-layout.sidebar-collapsed #left-sidebar {
+  visibility: hidden;
+  pointer-events: none;
+  border-right: none;
+  overflow: hidden;
+}
+
 /* ── Left sidebar: file tree + file info ─────────────────────── */
 #left-sidebar {
   display: grid;
@@ -868,6 +879,16 @@ body.resizing-row * {
   height: 100%;
   min-height: 0;
   min-width: 0;
+}
+
+#work-area.timeline-collapsed {
+  grid-template-rows: minmax(0, 1fr) 0 var(--statusbar-height);
+}
+
+#work-area.timeline-collapsed #timeline-section {
+  visibility: hidden;
+  pointer-events: none;
+  border-top: none;
 }
 
 /* ── Preview section ─────────────────────────────────────────── */

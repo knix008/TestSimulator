@@ -169,6 +169,7 @@ export class Preview {
     this.transportCueIcon = this.container.querySelector('#preview-transport-cue-icon');
     this.subtitleEl = this.container.querySelector('#preview-subtitle');
     this._subtitles = [];
+    this._subtitlesVisible = true;
     this._activeSubtitleIndex = -1;
     this._cueSticky = false;
     this._cueTimer = null;
@@ -805,6 +806,7 @@ export class Preview {
   setSubtitles(cues) {
     this._subtitles = Array.isArray(cues) ? cues.slice() : [];
     this._activeSubtitleIndex = -1;
+    if (this._subtitles.length) this._subtitlesVisible = true;
     if (this.subtitleEl) {
       // Keep above video / pause cue in the stacking order
       if (this.viewport && this.subtitleEl.parentElement === this.viewport) {
@@ -818,6 +820,25 @@ export class Preview {
     return this._subtitles.slice();
   }
 
+  isSubtitlesVisible() {
+    return !!this._subtitlesVisible;
+  }
+
+  hasSubtitles() {
+    return Array.isArray(this._subtitles) && this._subtitles.length > 0;
+  }
+
+  setSubtitlesVisible(visible) {
+    this._subtitlesVisible = !!visible;
+    this._activeSubtitleIndex = -1;
+    this._updateSubtitleDisplay(this.mediaEl?.currentTime || 0);
+    return this._subtitlesVisible;
+  }
+
+  toggleSubtitlesVisible() {
+    return this.setSubtitlesVisible(!this._subtitlesVisible);
+  }
+
   clearSubtitles() {
     this.setSubtitles([]);
   }
@@ -825,7 +846,7 @@ export class Preview {
   _updateSubtitleDisplay(mediaTime) {
     if (!this.subtitleEl) return;
     const cues = this._subtitles;
-    if (!cues.length) {
+    if (!this._subtitlesVisible || !cues.length) {
       this.subtitleEl.hidden = true;
       this.subtitleEl.textContent = '';
       this._activeSubtitleIndex = -1;
