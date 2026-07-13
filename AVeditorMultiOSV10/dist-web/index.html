@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; media-src 'self' file: blob: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:;"/>
+  <title>AV Editor</title>
+  <link rel="stylesheet" href="./styles/main.css"/>
+</head>
+<body class="theme-dark is-web">
+
+<div id="app">
+
+  <!-- ── Toolbar ──────────────────────────────────────────── -->
+  <header id="toolbar"></header>
+
+  <!-- ── Main layout ──────────────────────────────────────── -->
+  <div id="main-layout">
+
+    <!-- ── Left: File tree + file info ─────────────────────── -->
+    <aside id="left-sidebar">
+      <div id="file-tree-panel"></div>
+      <div id="sidebar-info-resize-handle" title="Resize panels"></div>
+      <div id="file-info-panel"></div>
+      <div id="sidebar-resize-handle" title="Resize"></div>
+    </aside>
+
+    <!-- ── Right: Work area ───────────────────────────────── -->
+    <div id="work-area">
+
+      <!-- Top section: Preview only -->
+      <div id="preview-section">
+        <!-- Media preview player -->
+        <div id="preview-panel"></div>
+      </div>
+
+      <!-- Timeline -->
+      <div id="timeline-section"></div>
+
+      <!-- Status bar -->
+      <div id="status-bar">
+        <div class="status-left">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text" data-i18n="status.ready"></span>
+        </div>
+        <div class="status-right">
+          <span class="status-time-code" id="status-time">00:00:00</span>
+          <span id="status-version" style="opacity:0.4;">AV Editor v1.0.0</span>
+        </div>
+      </div>
+
+    </div><!-- /work-area -->
+  </div><!-- /main-layout -->
+
+</div><!-- /app -->
+
+<!-- Export progress overlay -->
+<div id="export-overlay"></div>
+
+<script src="./js/electron-api-shim.js"></script>
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

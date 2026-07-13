@@ -436,6 +436,41 @@ body.resizing-row * {
 }
 .ft-open-btn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .ft-open-btn svg { width: 14px; height: 14px; }
+.ft-add-btn { color: var(--accent, #5b9fd4); }
+.ft-add-btn:hover { color: var(--text-primary); }
+
+.ft-scroll.ft-drop-over {
+  outline: 1px dashed var(--accent, #5b9fd4);
+  outline-offset: -4px;
+  background: color-mix(in srgb, var(--accent, #5b9fd4) 8%, transparent);
+}
+
+.ft-empty-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 10px;
+  padding-right: 12px;
+  padding-bottom: 12px;
+}
+.ft-empty-add-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ft-empty-add-btn:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-focus);
+}
+.ft-empty-hint {
+  font-size: 11px;
+  color: var(--text-disabled);
+}
 
 /* Path bar — always visible, shows absolute path */
 .ft-path-bar {
@@ -492,6 +527,9 @@ body.resizing-row * {
 .tree-item:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .tree-item.selected { background: var(--accent-dim); color: var(--text-accent); }
 .tree-item.focused-path { color: var(--text-primary); }
+.tree-item.is-media.is-draggable { cursor: grab; }
+.tree-item.is-media.is-draggable:active,
+.tree-item.is-media.dragging { cursor: grabbing; opacity: 0.75; }
 
 .tree-indent {
   display: inline-block;

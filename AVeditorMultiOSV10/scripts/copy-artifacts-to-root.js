@@ -20,6 +20,7 @@ const ARTIFACT_EXTS = new Set([
   '.snap',
   '.msi',
   '.7z',
+  '.gz',    // Linux tar.gz
 ]);
 
 function isArtifact(name) {
@@ -28,6 +29,7 @@ function isArtifact(name) {
   if (lower.endsWith('.blockmap')) return false;
   if (lower.endsWith('.yml') || lower.endsWith('.yaml')) return false;
   if (lower === 'builder-debug.yml' || lower === 'builder-effective-config.yaml') return false;
+  if (lower.endsWith('.tar.gz')) return true;
   const ext = path.extname(name);
   return ARTIFACT_EXTS.has(ext) || ARTIFACT_EXTS.has(ext.toLowerCase());
 }

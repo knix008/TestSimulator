@@ -21,13 +21,25 @@ const AUDIO_EFFECT_PRESETS = {
 const AUDIO_EXT = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
 
 export class Preview {
-  constructor(container, { i18n, onTimeUpdate, onEnded, onDurationChange, onContextMenu }) {
+  constructor(container, {
+    i18n,
+    onTimeUpdate,
+    onEnded,
+    onDurationChange,
+    onContextMenu,
+    onTransportPlayToggle,
+    onTransportStop,
+    onTransportSeek,
+  }) {
     this.container = container;
     this.i18n = i18n;
     this.onTimeUpdate = onTimeUpdate;
     this.onEnded = onEnded;
     this.onDurationChange = onDurationChange;
     this.onContextMenu = onContextMenu;
+    this.onTransportPlayToggle = onTransportPlayToggle;
+    this.onTransportStop = onTransportStop;
+    this.onTransportSeek = onTransportSeek;
 
     this.mediaEl = null;
     this.currentFile = null;
@@ -199,27 +211,38 @@ export class Preview {
 
   _bindControls() {
     this.container.querySelector('#prev-skip-back').addEventListener('click', () => {
-      this.stop();
+      if (this.onTransportStop) this.onTransportStop();
+      else this.stop();
     });
 
     this.container.querySelector('#prev-rewind').addEventListener('click', () => {
-      this.seek(Math.max(0, (this.mediaEl?.currentTime || 0) - 5));
+      const mediaTime = Math.max(0, (this.mediaEl?.currentTime || 0) - 5);
+      if (this.onTransportSeek) this.onTransportSeek(mediaTime);
+      else this.seek(mediaTime);
     });
 
-    this.playPauseBtn.addEventListener('click', () => this.togglePlay());
+    this.playPauseBtn.addEventListener('click', () => {
+      if (this.onTransportPlayToggle) this.onTransportPlayToggle();
+      else this.togglePlay();
+    });
 
     this.container.querySelector('#prev-stop').addEventListener('click', () => {
-      this.stop();
+      if (this.onTransportStop) this.onTransportStop();
+      else this.stop();
     });
 
     this.container.querySelector('#prev-ff').addEventListener('click', () => {
       const dur = this.mediaEl?.duration || 0;
       const cur = this.mediaEl?.currentTime || 0;
-      this.seek(dur > 0 ? Math.min(dur, cur + 5) : cur + 5);
+      const mediaTime = dur > 0 ? Math.min(dur, cur + 5) : cur + 5;
+      if (this.onTransportSeek) this.onTransportSeek(mediaTime);
+      else this.seek(mediaTime);
     });
 
     this.container.querySelector('#prev-skip-fwd').addEventListener('click', () => {
-      this.seek(this.mediaEl?.duration || 0);
+      const mediaTime = this.mediaEl?.duration || 0;
+      if (this.onTransportSeek) this.onTransportSeek(mediaTime);
+      else this.seek(mediaTime);
     });
 
     this.seekBar.addEventListener('pointerdown', () => { this._scrubbing = true; });
@@ -228,7 +251,9 @@ export class Preview {
     this.seekBar.addEventListener('input', () => {
       if (this.mediaEl && this.mediaEl.duration) {
         this._scrubbing = true;
-        this.seek((this.seekBar.value / 1000) * this.mediaEl.duration);
+        const mediaTime = (this.seekBar.value / 1000) * this.mediaEl.duration;
+        if (this.onTransportSeek) this.onTransportSeek(mediaTime);
+        else this.seek(mediaTime);
       }
     });
     this.seekBar.addEventListener('change', () => {
@@ -515,7 +540,13 @@ export class Preview {
       const data = e.dataTransfer.getData('application/av-editor-file');
       if (data) {
         try { this.loadFile(JSON.parse(data)); } catch { /* ignore */ }
-      } else if (e.dataTransfer.files.length > 0) {
+        return;
+      }
+      if (window.__avEditorDragEntry) {
+        try { this.loadFile({ ...window.__avEditorDragEntry }); } catch { /* ignore */ }
+        return;
+      }
+      if (e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
         this.loadBrowserFile(file);
       }
@@ -767,8 +798,19 @@ export class Preview {
 
     this._clearInactiveMedia(this.mediaEl);
 
-    if (typeof window.electronAPI !== 'undefined' && fileEntry.path) {
+    const blobSrc = fileEntry.blobUrl || fileEntry.url
+      || (fileEntry.path && window.electronAPI?.resolveMediaUrlSync?.(fileEntry.path))
+      || null;
+    if (blobSrc) {
+      this.mediaEl.src = blobSrc;
+    } else if (fileEntry.file instanceof File) {
+      this.mediaEl.src = URL.createObjectURL(fileEntry.file);
+    } else if (window.electronAPI?.isElectron && fileEntry.path) {
       this.mediaEl.src = `file://${fileEntry.path.replace(/\\/g, '/')}`;
+    } else if (window.electronAPI?.resolveMediaUrl && fileEntry.path) {
+      window.electronAPI.resolveMediaUrl(fileEntry.path).then((url) => {
+        if (url && this.mediaEl) this.mediaEl.src = url;
+      }).catch(() => {});
     }
 
     if (isAudio) {

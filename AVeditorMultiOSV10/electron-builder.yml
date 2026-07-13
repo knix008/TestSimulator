@@ -11,6 +11,7 @@ files:
   - assets/**/*
   - package.json
 
+# Default icon stem (platform-specific overrides below)
 icon: assets/icons/icon
 
 # Avoid winCodeSign (symlink privilege errors on Windows without Developer Mode)
@@ -68,6 +69,8 @@ dmg:
       path: /Applications
 
 # ── Linux ─────────────────────────────────────────────────
+# Icon dir must contain 16x16.png, 32x32.png, ... (not a single icon.png),
+# otherwise AppImage may resolve size as 0x0 and fail symlink creation.
 linux:
   target:
     - target: AppImage
@@ -76,6 +79,17 @@ linux:
     - target: deb
       arch:
         - x64
-  icon: assets/icons/icon.png
+    - target: tar.gz
+      arch:
+        - x64
+  icon: assets/icons/linux
   category: AudioVideo
   description: Professional Audio & Video Editor
+  synopsis: Professional Audio & Video Editor
+  maintainer: SHKWON <knix008@naver.com>
+
+appImage:
+  artifactName: ${productName}-${version}.${ext}
+
+deb:
+  artifactName: ${productName}-${version}.${ext}

@@ -55,9 +55,30 @@ function pngsToIco(pngBuffers) {
 
 function allRequiredIconsExist() {
   const pngSizes = [16, 24, 32, 48, 64, 128, 256, 512, 1024];
+  const linuxSizes = [16, 32, 48, 64, 128, 256, 512];
+  const linuxDir = path.join(ICONS_DIR, 'linux');
   return pngSizes.every((size) => fs.existsSync(path.join(ICONS_DIR, `icon-${size}.png`)))
     && fs.existsSync(path.join(ICONS_DIR, 'icon.png'))
-    && fs.existsSync(path.join(ICONS_DIR, 'icon.ico'));
+    && fs.existsSync(path.join(ICONS_DIR, 'icon.ico'))
+    && linuxSizes.every((size) => fs.existsSync(path.join(linuxDir, `${size}x${size}.png`)));
+}
+
+async function ensureLinuxIconSet(pngBySize) {
+  const linuxDir = path.join(ICONS_DIR, 'linux');
+  fs.mkdirSync(linuxDir, { recursive: true });
+  const linuxSizes = [16, 32, 48, 64, 128, 256, 512];
+  for (const size of linuxSizes) {
+    const dest = path.join(linuxDir, `${size}x${size}.png`);
+    if (pngBySize?.has(size)) {
+      fs.writeFileSync(dest, pngBySize.get(size));
+    } else if (!fs.existsSync(dest)) {
+      const src = path.join(ICONS_DIR, `icon-${size}.png`);
+      if (!fs.existsSync(src)) {
+        throw new Error(`Missing source icon for Linux set: icon-${size}.png`);
+      }
+      fs.copyFileSync(src, dest);
+    }
+  }
 }
 
 async function generateIcons() {
@@ -76,9 +97,16 @@ async function generateIcons() {
   }
 
   fs.mkdirSync(ICONS_DIR, { recursive: true });
-  if (allRequiredIconsExist()) {
-    console.log('[icons] Reusing existing icon assets.');
-    return true;
+
+  // Always ensure Linux icon directory exists (needed even when other icons are cached).
+  try {
+    if (allRequiredIconsExist()) {
+      console.log('[icons] Reusing existing icon assets.');
+      await ensureLinuxIconSet(null);
+      return true;
+    }
+  } catch {
+    // Fall through and regenerate.
   }
 
   const svgBuffer = fs.readFileSync(SVG_SRC);
@@ -94,9 +122,13 @@ async function generateIcons() {
     console.log(`  ✓ icon-${size}.png`);
   }
 
-  // Generic fallback used by Linux / Electron BrowserWindow
+  // Generic fallback used by Electron BrowserWindow
   fs.writeFileSync(path.join(ICONS_DIR, 'icon.png'), pngBySize.get(512));
   console.log('  ✓ icon.png (512x512)');
+
+  // Linux icon set for electron-builder (size must not resolve as 0x0)
+  await ensureLinuxIconSet(pngBySize);
+  console.log('  ✓ linux/16x16.png … 512x512.png');
 
   // Windows multi-size ICO (no ImageMagick required)
   const icoSizes = [16, 24, 32, 48, 64, 128, 256];

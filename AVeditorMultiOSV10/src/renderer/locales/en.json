@@ -70,6 +70,9 @@
     "noFiles": "No media files found",
     "noDrives": "No drives found",
     "empty": "Empty",
+    "emptyWeb": "No media yet",
+    "addMedia": "Add media…",
+    "dropHint": "Or drop files here",
     "noPath": "No folder selected",
     "loading": "Loading...",
     "filterAll": "All Files",
@@ -145,7 +148,9 @@
     "noSelection": "Select a file to view its information",
     "mediaType": "Type",
     "video": "Video",
-    "audio": "Audio"
+    "audio": "Audio",
+    "metadata": "Metadata",
+    "loadingMetadata": "Reading…"
   },
   "status": {
     "ready": "Ready",
@@ -184,6 +189,10 @@
     "copyPath": "Copy Path",
     "showInExplorer": "Show in Explorer",
     "openFolder": "Open Folder…",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "deleteFile": "Delete",
+    "deleteFileConfirm": "Delete \"{name}\"?\nThis cannot be undone from the app.",
+    "deleteFileConfirmWeb": "Remove \"{name}\" from Library?",
+    "deleteFileFailed": "Could not delete the file."
   }
 }

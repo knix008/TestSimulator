@@ -2,12 +2,13 @@
  * Timeline — canvas-based multi-track editor
  */
 export class Timeline {
-  constructor(container, { i18n, onTimeChange, onClipSelect, onContextMenu }) {
+  constructor(container, { i18n, onTimeChange, onClipSelect, onContextMenu, onFit }) {
     this.container = container;
     this.i18n = i18n;
     this.onTimeChange = onTimeChange;
     this.onClipSelect = onClipSelect;
     this.onContextMenu = onContextMenu;
+    this.onFit = onFit;
 
     // State
     this.tracks = [];
@@ -376,29 +377,78 @@ export class Timeline {
       this.canvas.style.outline = '2px dashed var(--accent)';
     });
     this.canvas.addEventListener('dragleave', () => { this.canvas.style.outline = ''; });
-    this.canvas.addEventListener('drop', (e) => {
+    this.canvas.addEventListener('drop', async (e) => {
       e.preventDefault();
       this.canvas.style.outline = '';
-      const data = e.dataTransfer.getData('application/av-editor-file');
-      if (!data) return;
-      try {
-        const file = JSON.parse(data);
-        const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const dropTime = Math.max(0, this._posToTime(x));
-        const trackIndex = Math.floor((e.clientY - rect.top - this.HEADER_H) / this.TRACK_H);
-        const track = this.tracks[trackIndex] || this.tracks[0];
-        if (track) {
-          const clip = this.addClip(file, track.id, dropTime);
-          if (window.electronAPI?.getMediaInfo && file.path) {
-            window.electronAPI.getMediaInfo(file.path).then(meta => {
-              if (meta?.duration && isFinite(Number(meta.duration))) {
-                this.syncClipDuration(clip, { duration: meta.duration });
-              }
-            }).catch(() => {});
-          }
+
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const dropTime = Math.max(0, this._posToTime(x));
+      const trackIndex = Math.floor((e.clientY - rect.top - this.HEADER_H) / this.TRACK_H);
+      const track = this.tracks[trackIndex] || this.tracks[0];
+      if (!track) return;
+
+      const addFromEntry = (file) => {
+        const clip = this.addClip(file, track.id, dropTime);
+        if (window.electronAPI?.getMediaInfo && file.path) {
+          window.electronAPI.getMediaInfo(file.path).then((meta) => {
+            if (meta?.duration && isFinite(Number(meta.duration))) {
+              this.syncClipDuration(clip, { duration: meta.duration });
+            }
+          }).catch(() => {});
         }
-      } catch { /* ignore */ }
+        return clip;
+      };
+
+      const data = e.dataTransfer.getData('application/av-editor-file');
+      if (data) {
+        try {
+          addFromEntry(JSON.parse(data));
+        } catch { /* ignore */ }
+        return;
+      }
+
+      // Electron native drag-out may clear HTML5 mime types; use session fallback.
+      if (window.__avEditorDragEntry) {
+        try {
+          addFromEntry({ ...window.__avEditorDragEntry });
+          return;
+        } catch { /* ignore */ }
+      }
+
+      // Web / OS file drop
+      const files = Array.from(e.dataTransfer.files || []);
+      let registered = [];
+      if (window.electronAPI?.isWeb && window.electronAPI.addMediaFiles) {
+        try {
+          registered = await window.electronAPI.addMediaFiles(files) || [];
+        } catch { registered = []; }
+      }
+      let regIdx = 0;
+      for (const nativeFile of files) {
+        const ext = '.' + (nativeFile.name.split('.').pop() || '').toLowerCase();
+        let path = registered[regIdx++] || null;
+        if (!path && window.electronAPI?.getPathForFile) {
+          try { path = window.electronAPI.getPathForFile(nativeFile); } catch { /* ignore */ }
+        }
+        if (!path && nativeFile.path) path = nativeFile.path;
+        let blobUrl = null;
+        if (path && window.electronAPI?.resolveMediaUrl) {
+          try { blobUrl = await window.electronAPI.resolveMediaUrl(path); } catch { /* ignore */ }
+        }
+        if (!blobUrl && !(window.electronAPI?.isElectron && path)) {
+          blobUrl = URL.createObjectURL(nativeFile);
+        }
+        addFromEntry({
+          name: nativeFile.name,
+          path,
+          extension: ext,
+          size: nativeFile.size,
+          file: nativeFile,
+          blobUrl,
+          duration: 0,
+        });
+      }
     });
   }
 
@@ -824,6 +874,7 @@ export class Timeline {
       duration: (knownDur > 0 && isFinite(knownDur)) ? knownDur : 10,
       startTime,
       file,
+      blobUrl: file.blobUrl || file.url || null,
       effects: {
         preset: 'normal',
         brightness: 100,
@@ -916,7 +967,7 @@ export class Timeline {
     const grewALot = this.duration > Math.max(prevSpan * 1.25, prevSpan + 30);
     const atDefaultZoom = Math.abs(prevPps - 60) < 0.5;
     const cannotSeeAll = this._contentWidth() > (this.wrapper?.clientWidth || 0) + 2;
-    if ((grewALot && (atDefaultZoom || this._isFitted)) || (cannotSeeAll && this._isFitted)) {
+    if (!this._fitting && ((grewALot && (atDefaultZoom || this._isFitted)) || (cannotSeeAll && this._isFitted))) {
       this.fitToView();
     } else {
       this.draw();
@@ -947,16 +998,34 @@ export class Timeline {
   zoomOut() { this._applyZoom(this.pixelsPerSecond / 1.25); }
 
   fitToView() {
-    this._updateDuration();
-    const fitPps = this._fitPixelsPerSecond();
-    this.pixelsPerSecond = fitPps;
-    this._isFitted = true;
-    if (this.wrapper) {
-      this.wrapper.scrollLeft = 0;
-      this.scrollX = 0;
+    if (this._fitting) return;
+    this._fitting = true;
+    try {
+      // Keep the playhead time stable across the zoom change.
+      const keepTime = Math.max(0, Number(this.currentTime) || 0);
+      this._updateDuration();
+      // Cover the playhead even if duration was stale (e.g. media longer than clips).
+      if (keepTime > this.duration) {
+        this.duration = keepTime + Math.min(5, Math.max(1, keepTime * 0.02));
+      }
+      const fitPps = this._fitPixelsPerSecond();
+      this.pixelsPerSecond = fitPps;
+      this._isFitted = true;
+      this.currentTime = keepTime;
+
+      // Width first, then scroll — avoids stale scrollLeft after content shrinks.
+      this._updateScrollWidth();
+      if (this.wrapper) {
+        this.wrapper.scrollLeft = 0;
+        this.scrollX = 0;
+      }
+      this.draw();
+
+      // Ask the app to re-align preview media ↔ timeline clocks.
+      this.onFit?.(keepTime);
+    } finally {
+      this._fitting = false;
     }
-    this._updateScrollWidth();
-    this.draw();
   }
 
   /** Scroll the viewport so the given time (or current playhead) is visible. */

@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Expose a safe, minimal API to the renderer via window.electronAPI
 contextBridge.exposeInMainWorld('electronAPI', {
+  isElectron: true,
+  isWeb: false,
+
   // ── File system ──────────────────────────────────────────────────────
   getDrives: () => ipcRenderer.invoke('get-drives'),
   listDrives: () => ipcRenderer.invoke('get-drives'),
@@ -46,5 +49,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Platform / shell ─────────────────────────────────────────────────
   platform: process.platform,
   showItemInFolder: (targetPath) => ipcRenderer.invoke('show-item-in-folder', targetPath),
+  deleteMediaFile: (targetPath) => ipcRenderer.invoke('delete-media-file', targetPath),
+  /** Begin native OS file drag (call synchronously from dragstart). */
+  startDrag: (filePath) => { ipcRenderer.send('start-drag', filePath); },
+  getPathForFile: (file) => {
+    try {
+      const { webUtils } = require('electron');
+      return webUtils.getPathForFile(file);
+    } catch {
+      return file?.path || null;
+    }
+  },
   setMenuLocale: (locale) => ipcRenderer.invoke('set-menu-locale', locale),
 });

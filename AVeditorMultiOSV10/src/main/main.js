@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -10,6 +10,20 @@ const mediaInfoFactory = mediaInfoModule.default || mediaInfoModule.mediaInfoFac
 const mediaInfoCache = new Map();
 
 let mainWindow = null;
+let dragIcon = null;
+
+/** Small PNG used by native file drag-out (Windows requires an icon). */
+function getDragIcon() {
+  if (dragIcon && !dragIcon.isEmpty()) return dragIcon;
+  // 32×32 simple document glyph
+  dragIcon = nativeImage.createFromDataURL(
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAlElEQVRYR+2Wuw3AMAhE3ykYp/sP4Q3SRfwkSuTIdaDgFQ8+cA8gIiJhZg/gCdwG8AEewCvA+gPwA+4ALsATuAAb8AWwABvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8OcFvgE7sxF/0m8QlwAAAABJRU5ErkJggg=='
+  );
+  if (dragIcon.isEmpty()) {
+    dragIcon = nativeImage.createEmpty();
+  }
+  return dragIcon;
+}
 
 function toFiniteNumber(value) {
   const num = Number(value);
@@ -437,5 +451,40 @@ ipcMain.handle('show-item-in-folder', async (_event, targetPath) => {
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('delete-media-file', async (_event, targetPath) => {
+  if (!targetPath || typeof targetPath !== 'string') {
+    return { ok: false, error: 'Invalid path' };
+  }
+  try {
+    await fs.promises.access(targetPath);
+  } catch {
+    return { ok: false, error: 'File not found' };
+  }
+  try {
+    if (typeof shell.trashItem === 'function') {
+      await shell.trashItem(targetPath);
+    } else {
+      await fs.promises.unlink(targetPath);
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+/** Native OS drag-out from the file panel (must be sync during dragstart). */
+ipcMain.on('start-drag', (event, filePath) => {
+  if (!filePath || typeof filePath !== 'string') return;
+  try {
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return;
+    event.sender.startDrag({
+      file: filePath,
+      icon: getDragIcon(),
+    });
+  } catch (err) {
+    console.warn('[start-drag]', err.message);
   }
 });

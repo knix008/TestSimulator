@@ -9,13 +9,17 @@
   "scripts": {
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js --enable-logging",
+    "web": "node scripts/start-web.js",
+    "start:web": "node scripts/start-web.js",
     "generate-icons": "node scripts/generate-icons.js",
     "copy-artifacts": "node scripts/copy-artifacts-to-root.js",
     "build": "node scripts/generate-icons.js && electron-builder && npm run copy-artifacts",
     "build:win": "node scripts/generate-icons.js && electron-builder --win && npm run copy-artifacts",
     "build:mac": "node scripts/generate-icons.js && electron-builder --mac && npm run copy-artifacts",
-    "build:linux": "node scripts/generate-icons.js && electron-builder --linux && npm run copy-artifacts",
-    "build:all": "node scripts/generate-icons.js && electron-builder -mwl && npm run copy-artifacts"
+    "build:linux": "node scripts/build-linux.js",
+    "build:linux:all": "node scripts/generate-icons.js && electron-builder --linux AppImage deb tar.gz && npm run copy-artifacts",
+    "build:web": "node scripts/build-web.js",
+    "build:all": "node scripts/generate-icons.js && electron-builder -mwl && npm run copy-artifacts && npm run build:web"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
