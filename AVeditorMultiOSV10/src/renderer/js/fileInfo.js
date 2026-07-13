@@ -3,6 +3,7 @@ export class FileInfo {
     this.container = container;
     this.i18n = i18n;
     this._entry = null;
+    this._mediaInfo = null;
     this.render();
   }
 
@@ -34,6 +35,7 @@ export class FileInfo {
   show(fileEntry) {
     if (!fileEntry) { this.clear(); return; }
     this._entry = fileEntry;
+    this._mediaInfo = null;
     const content = this.container.querySelector('#file-info-content');
     if (!content) return;
 
@@ -73,19 +75,27 @@ export class FileInfo {
 
   showMediaMetadata(info) {
     if (!info) return;
+    this._mediaInfo = info;
     const content = this.container.querySelector('#file-info-content');
     if (!content || content.querySelector('.file-info-empty')) return;
 
     const t = (key) => this.i18n.t(key);
     const rows = [];
 
-    if (info.duration)   rows.push([t('fileInfo.duration'),   this._fmtDur(info.duration)]);
-    if (info.width)      rows.push([t('fileInfo.resolution'),  `${info.width}×${info.height}`]);
-    if (info.fps)        rows.push([t('fileInfo.frameRate'),   `${info.fps} fps`]);
-    if (info.sampleRate) rows.push([t('fileInfo.sampleRate'),  `${info.sampleRate} Hz`]);
-    if (info.channels)   rows.push([t('fileInfo.channels'),    String(info.channels)]);
-    if (info.bitrate)    rows.push([t('fileInfo.bitrate'),     `${Math.round(info.bitrate / 1000)} kbps`]);
-    if (info.codec)      rows.push([t('fileInfo.codec'),       this._esc(info.codec)]);
+    if (info.duration) rows.push([t('fileInfo.duration'), this._fmtDur(info.duration)]);
+    if (info.containerFormat) rows.push([t('fileInfo.containerFormat'), this._esc(info.containerFormat)]);
+    if (info.width && info.height) rows.push([t('fileInfo.resolution'), `${info.width}×${info.height}`]);
+    if (info.fps) rows.push([t('fileInfo.frameRate'), `${this._fmtNumber(info.fps)} fps`]);
+    if (info.videoCodec) rows.push([t('fileInfo.videoCodec'), this._esc(info.videoCodec)]);
+    if (!info.videoCodec && info.codec) rows.push([t('fileInfo.codec'), this._esc(info.codec)]);
+    if (info.audioCodec && info.isVideo) rows.push([t('fileInfo.audioCodec'), this._esc(info.audioCodec)]);
+    if (info.sampleRate) rows.push([t('fileInfo.sampleRate'), `${Math.round(info.sampleRate)} Hz`]);
+    if (info.channels) rows.push([t('fileInfo.channels'), String(info.channels)]);
+    if (info.bitrate) rows.push([t('fileInfo.bitrate'), `${Math.round(info.bitrate / 1000)} kbps`]);
+    if (info.overallBitrate && info.overallBitrate !== info.bitrate) {
+      rows.push([t('fileInfo.overallBitrate'), `${Math.round(info.overallBitrate / 1000)} kbps`]);
+    }
+    if (info.audioCodec && !info.isVideo) rows.push([t('fileInfo.codec'), this._esc(info.audioCodec)]);
 
     if (!rows.length) return;
 
@@ -102,6 +112,7 @@ export class FileInfo {
 
   clear() {
     this._entry = null;
+    this._mediaInfo = null;
     const content = this.container.querySelector('#file-info-content');
     if (content) content.innerHTML = `<div class="file-info-empty">${this.i18n.t('fileInfo.noSelection')}</div>`;
     const header = this.container.querySelector('.file-info-header');
@@ -124,8 +135,19 @@ export class FileInfo {
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
 
+  _fmtNumber(value) {
+    const num = Number(value);
+    if (!isFinite(num)) return '—';
+    return Number.isInteger(num) ? String(num) : num.toFixed(2).replace(/\.00$/, '');
+  }
+
   updateTranslations() {
-    if (this._entry) this.show(this._entry);
-    else this.clear();
+    if (this._entry) {
+      const mediaInfo = this._mediaInfo;
+      this.show(this._entry);
+      if (mediaInfo) this.showMediaMetadata(mediaInfo);
+      return;
+    }
+    this.clear();
   }
 }

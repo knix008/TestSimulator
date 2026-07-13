@@ -11,11 +11,11 @@
     "dev": "node scripts/start.js --enable-logging",
     "generate-icons": "node scripts/generate-icons.js",
     "copy-artifacts": "node scripts/copy-artifacts-to-root.js",
-    "build": "npm run generate-icons && electron-builder && npm run copy-artifacts",
-    "build:win": "npm run generate-icons && electron-builder --win && npm run copy-artifacts",
-    "build:mac": "npm run generate-icons && electron-builder --mac && npm run copy-artifacts",
-    "build:linux": "npm run generate-icons && electron-builder --linux && npm run copy-artifacts",
-    "build:all": "npm run generate-icons && electron-builder -mwl && npm run copy-artifacts"
+    "build": "node scripts/generate-icons.js && electron-builder && npm run copy-artifacts",
+    "build:win": "node scripts/generate-icons.js && electron-builder --win && npm run copy-artifacts",
+    "build:mac": "node scripts/generate-icons.js && electron-builder --mac && npm run copy-artifacts",
+    "build:linux": "node scripts/generate-icons.js && electron-builder --linux && npm run copy-artifacts",
+    "build:all": "node scripts/generate-icons.js && electron-builder -mwl && npm run copy-artifacts"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
@@ -23,5 +23,8 @@
     "electron-builder": "^24.9.1",
     "rcedit": "^5.0.2",
     "sharp": "^0.33.2"
+  },
+  "dependencies": {
+    "mediainfo.js": "^0.3.7"
   }
 }

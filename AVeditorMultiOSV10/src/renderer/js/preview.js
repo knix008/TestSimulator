@@ -4,6 +4,21 @@ const VIEW_MODES = ['fit', 'fill', 'actual'];
 const STORAGE_VIEW = 'av-editor-preview-view';
 const STORAGE_VOLUME = 'av-editor-preview-volume';
 const STORAGE_MUTED = 'av-editor-preview-muted';
+const VIDEO_EFFECT_PRESETS = {
+  normal: { brightness: 100, contrast: 100, saturation: 100, speed: 1 },
+  vivid: { brightness: 110, contrast: 112, saturation: 140, speed: 1 },
+  cinematic: { brightness: 94, contrast: 126, saturation: 96, speed: 0.95 },
+  noir: { brightness: 88, contrast: 118, saturation: 46, speed: 1 },
+  warm: { brightness: 106, contrast: 112, saturation: 118, speed: 1 },
+};
+const AUDIO_EFFECT_PRESETS = {
+  clean: { bass: 100, treble: 100, speed: 1 },
+  voice: { bass: 96, treble: 108, speed: 1 },
+  punch: { bass: 118, treble: 104, speed: 1 },
+  mellow: { bass: 90, treble: 92, speed: 0.95 },
+  radio: { bass: 108, treble: 112, speed: 1 },
+};
+const AUDIO_EXT = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
 
 export class Preview {
   constructor(container, { i18n, onTimeUpdate, onEnded, onDurationChange, onContextMenu }) {
@@ -16,9 +31,21 @@ export class Preview {
 
     this.mediaEl = null;
     this.currentFile = null;
+    this.currentClip = null;
+    this.currentMediaType = 'video';
+    this.audioContext = null;
+    this.audioSourceNode = null;
+    this.audioLowShelf = null;
+    this.audioHighShelf = null;
     this._rafId = null;
+    this._lastEmittedTime = 0;
+    this._scrubbing = false;
+    this._ignoreSeekUntil = 0;
+    this._transportLock = false;
     this.viewMode = localStorage.getItem(STORAGE_VIEW) || 'fit';
     if (!VIEW_MODES.includes(this.viewMode)) this.viewMode = 'fit';
+
+    this.effectState = { preset: 'normal', ...VIDEO_EFFECT_PRESETS.normal, bass: 100, treble: 100 };
 
     const savedVol = parseFloat(localStorage.getItem(STORAGE_VOLUME) || '');
     this.volume = Number.isFinite(savedVol) ? Math.min(1, Math.max(0, savedVol)) : 1;
@@ -64,6 +91,51 @@ export class Preview {
 
         <button class="preview-ctrl-btn" id="prev-fullscreen" data-i18n-tooltip="preview.fullscreen">${Icons.fullscreen}</button>
       </div>
+
+      <div class="preview-effects-panel" id="preview-effects-panel">
+        <div class="preview-effect-group">
+          <span class="preview-effect-label" data-i18n="preview.effectsLabel">Effects</span>
+          <div class="preview-effect-presets" data-effect-group="video">
+            <button class="preview-effect-btn active" data-preset="normal" data-i18n="preview.effectNormal">Normal</button>
+            <button class="preview-effect-btn" data-preset="vivid" data-i18n="preview.effectVivid">Vivid</button>
+            <button class="preview-effect-btn" data-preset="cinematic" data-i18n="preview.effectCinematic">Cinematic</button>
+            <button class="preview-effect-btn" data-preset="noir" data-i18n="preview.effectNoir">Noir</button>
+            <button class="preview-effect-btn" data-preset="warm" data-i18n="preview.effectWarm">Warm</button>
+          </div>
+          <div class="preview-effect-presets" data-effect-group="audio" style="display:none;">
+            <button class="preview-effect-btn active" data-preset="clean" data-i18n="preview.effectClean">Clean</button>
+            <button class="preview-effect-btn" data-preset="voice" data-i18n="preview.effectVoice">Voice</button>
+            <button class="preview-effect-btn" data-preset="punch" data-i18n="preview.effectPunch">Punch</button>
+            <button class="preview-effect-btn" data-preset="mellow" data-i18n="preview.effectMellow">Mellow</button>
+            <button class="preview-effect-btn" data-preset="radio" data-i18n="preview.effectRadio">Radio</button>
+          </div>
+        </div>
+
+        <div class="preview-effect-slider" data-effect-group="video">
+          <span data-i18n="preview.effectBrightness">Bri.</span>
+          <input type="range" id="prev-brightness" min="60" max="160" value="100" step="1"/>
+        </div>
+        <div class="preview-effect-slider" data-effect-group="video">
+          <span data-i18n="preview.effectContrast">Con.</span>
+          <input type="range" id="prev-contrast" min="60" max="160" value="100" step="1"/>
+        </div>
+        <div class="preview-effect-slider" data-effect-group="video">
+          <span data-i18n="preview.effectSaturation">Sat.</span>
+          <input type="range" id="prev-saturation" min="0" max="200" value="100" step="1"/>
+        </div>
+        <div class="preview-effect-slider" data-effect-group="audio" style="display:none;">
+          <span data-i18n="preview.effectBass">Bass</span>
+          <input type="range" id="prev-bass" min="60" max="160" value="100" step="1"/>
+        </div>
+        <div class="preview-effect-slider" data-effect-group="audio" style="display:none;">
+          <span data-i18n="preview.effectTreble">Treble</span>
+          <input type="range" id="prev-treble" min="60" max="160" value="100" step="1"/>
+        </div>
+        <div class="preview-effect-slider">
+          <span data-i18n="preview.effectSpeed">Speed</span>
+          <input type="range" id="prev-speed" min="50" max="200" value="100" step="5"/>
+        </div>
+      </div>
     `;
 
     this.videoEl = this.container.querySelector('#preview-video');
@@ -77,21 +149,39 @@ export class Preview {
     this.volSlider = this.container.querySelector('#prev-vol');
     this.volLabel = this.container.querySelector('#prev-vol-label');
     this.viewport = this.container.querySelector('#preview-viewport');
+    this.effectPresetButtons = this.container.querySelectorAll('.preview-effect-btn');
+    this.effectGroups = this.container.querySelectorAll('[data-effect-group]');
+    this.brightnessSlider = this.container.querySelector('#prev-brightness');
+    this.contrastSlider = this.container.querySelector('#prev-contrast');
+    this.saturationSlider = this.container.querySelector('#prev-saturation');
+    this.bassSlider = this.container.querySelector('#prev-bass');
+    this.trebleSlider = this.container.querySelector('#prev-treble');
+    this.speedSlider = this.container.querySelector('#prev-speed');
 
     this.videoEl.style.display = 'none';
 
     this._updateEmptyText();
     this._bindControls();
+    this._bindEffectControls();
     this._setupDropZone();
     this._bindContextMenu();
     this.setViewMode(this.viewMode, { persist: false });
     this._syncVolumeUI();
+    this._updateEffectGroupVisibility();
+    this._syncEffectUI();
     this._applyVolume();
+    this._applyEffectState();
 
     this._resizeObs = new ResizeObserver(() => {
-      if (this.viewMode === 'actual') this._applyActualSize();
+      this._applyCurrentViewSizing();
     });
     this._resizeObs.observe(this.viewport);
+
+    // Tooltips are applied after mount (i18n runs before components are built).
+    this.container.querySelectorAll('[data-i18n-tooltip]').forEach((el) => {
+      el.setAttribute('data-tooltip', this.i18n.t(el.getAttribute('data-i18n-tooltip')));
+    });
+    this._syncVolumeUI();
   }
 
   _bindContextMenu() {
@@ -109,33 +199,41 @@ export class Preview {
 
   _bindControls() {
     this.container.querySelector('#prev-skip-back').addEventListener('click', () => {
-      if (this.mediaEl) { this.mediaEl.currentTime = 0; }
+      this.stop();
     });
 
     this.container.querySelector('#prev-rewind').addEventListener('click', () => {
-      if (this.mediaEl) this.mediaEl.currentTime = Math.max(0, this.mediaEl.currentTime - 5);
+      this.seek(Math.max(0, (this.mediaEl?.currentTime || 0) - 5));
     });
 
     this.playPauseBtn.addEventListener('click', () => this.togglePlay());
 
     this.container.querySelector('#prev-stop').addEventListener('click', () => {
-      if (this.mediaEl) { this.mediaEl.pause(); this.mediaEl.currentTime = 0; this._updatePlayBtn(false); }
+      this.stop();
     });
 
     this.container.querySelector('#prev-ff').addEventListener('click', () => {
-      if (this.mediaEl) {
-        this.mediaEl.currentTime = Math.min(this.mediaEl.duration || 0, this.mediaEl.currentTime + 5);
-      }
+      const dur = this.mediaEl?.duration || 0;
+      const cur = this.mediaEl?.currentTime || 0;
+      this.seek(dur > 0 ? Math.min(dur, cur + 5) : cur + 5);
     });
 
     this.container.querySelector('#prev-skip-fwd').addEventListener('click', () => {
-      if (this.mediaEl) this.mediaEl.currentTime = this.mediaEl.duration || 0;
+      this.seek(this.mediaEl?.duration || 0);
     });
 
+    this.seekBar.addEventListener('pointerdown', () => { this._scrubbing = true; });
+    this.seekBar.addEventListener('pointerup', () => { this._scrubbing = false; this._emitMediaTime(true); });
+    this.seekBar.addEventListener('pointercancel', () => { this._scrubbing = false; });
     this.seekBar.addEventListener('input', () => {
       if (this.mediaEl && this.mediaEl.duration) {
-        this.mediaEl.currentTime = (this.seekBar.value / 1000) * this.mediaEl.duration;
+        this._scrubbing = true;
+        this.seek((this.seekBar.value / 1000) * this.mediaEl.duration);
       }
+    });
+    this.seekBar.addEventListener('change', () => {
+      this._scrubbing = false;
+      this._emitMediaTime(true);
     });
 
     this.volSlider.addEventListener('input', (e) => {
@@ -157,8 +255,168 @@ export class Preview {
     });
 
     this.videoEl.addEventListener('loadedmetadata', () => {
-      if (this.viewMode === 'actual') this._applyActualSize();
+      this._applyCurrentViewSizing();
     });
+  }
+
+  _bindEffectControls() {
+    this.effectPresetButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.applyPreset(btn.dataset.preset);
+      });
+    });
+
+    this.brightnessSlider?.addEventListener('input', (e) => {
+      this.effectState.preset = 'custom';
+      this.effectState.brightness = Number(e.target.value);
+      this._syncEffectUI();
+      this._applyEffectState();
+    });
+    this.contrastSlider?.addEventListener('input', (e) => {
+      this.effectState.preset = 'custom';
+      this.effectState.contrast = Number(e.target.value);
+      this._syncEffectUI();
+      this._applyEffectState();
+    });
+    this.saturationSlider?.addEventListener('input', (e) => {
+      this.effectState.preset = 'custom';
+      this.effectState.saturation = Number(e.target.value);
+      this._syncEffectUI();
+      this._applyEffectState();
+    });
+    this.bassSlider?.addEventListener('input', (e) => {
+      this.effectState.preset = 'custom';
+      this.effectState.bass = Number(e.target.value);
+      this._syncEffectUI();
+      this._applyEffectState();
+    });
+    this.trebleSlider?.addEventListener('input', (e) => {
+      this.effectState.preset = 'custom';
+      this.effectState.treble = Number(e.target.value);
+      this._syncEffectUI();
+      this._applyEffectState();
+    });
+    this.speedSlider?.addEventListener('input', (e) => {
+      this.effectState.preset = 'custom';
+      this.effectState.speed = Number(e.target.value) / 100;
+      this._syncEffectUI();
+      this._applyEffectState();
+    });
+  }
+
+  _getPresetMap() {
+    return this.currentMediaType === 'audio' ? AUDIO_EFFECT_PRESETS : VIDEO_EFFECT_PRESETS;
+  }
+
+  _getDefaultEffectState() {
+    const presetMap = this._getPresetMap();
+    const defaultPreset = this.currentMediaType === 'audio' ? AUDIO_EFFECT_PRESETS.clean : VIDEO_EFFECT_PRESETS.normal;
+    return {
+      preset: this.currentMediaType === 'audio' ? 'clean' : 'normal',
+      brightness: VIDEO_EFFECT_PRESETS.normal.brightness,
+      contrast: VIDEO_EFFECT_PRESETS.normal.contrast,
+      saturation: VIDEO_EFFECT_PRESETS.normal.saturation,
+      bass: AUDIO_EFFECT_PRESETS.clean.bass,
+      treble: AUDIO_EFFECT_PRESETS.clean.treble,
+      speed: 1,
+      ...defaultPreset,
+    };
+  }
+
+  applyPreset(presetKey) {
+    const presetMap = this._getPresetMap();
+    const preset = presetMap[presetKey] || presetMap.normal;
+    this.effectState = {
+      ...this._getDefaultEffectState(),
+      preset: presetKey,
+      ...preset,
+    };
+    this._syncEffectUI();
+    this._applyEffectState();
+  }
+
+  applyClipEffects(clip) {
+    this.currentClip = clip;
+    const defaults = this._getDefaultEffectState();
+    if (!clip) {
+      this.effectState = { ...defaults };
+      this._syncEffectUI();
+      this._applyEffectState();
+      return;
+    }
+
+    const next = clip?.effects || {};
+    this.effectState = {
+      ...defaults,
+      preset: next.preset || defaults.preset,
+      brightness: Number(next.brightness ?? defaults.brightness),
+      contrast: Number(next.contrast ?? defaults.contrast),
+      saturation: Number(next.saturation ?? defaults.saturation),
+      bass: Number(next.bass ?? defaults.bass),
+      treble: Number(next.treble ?? defaults.treble),
+      speed: Number(next.speed ?? defaults.speed),
+    };
+    this._syncEffectUI();
+    this._applyEffectState();
+  }
+
+  _applyEffectState() {
+    const brightness = Number(this.effectState.brightness ?? VIDEO_EFFECT_PRESETS.normal.brightness);
+    const contrast = Number(this.effectState.contrast ?? VIDEO_EFFECT_PRESETS.normal.contrast);
+    const saturation = Number(this.effectState.saturation ?? VIDEO_EFFECT_PRESETS.normal.saturation);
+    const filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+    if (this.videoEl) this.videoEl.style.filter = this.currentMediaType === 'video' ? filter : 'none';
+    if (this.audioEl) this.audioEl.style.filter = 'none';
+
+    if (this.mediaEl) {
+      this.mediaEl.playbackRate = Math.max(0.5, Math.min(2, Number(this.effectState.speed ?? 1)));
+    }
+
+    if (this.currentMediaType === 'audio' && this.audioLowShelf && this.audioHighShelf) {
+      const bass = Number(this.effectState.bass ?? AUDIO_EFFECT_PRESETS.clean.bass);
+      const treble = Number(this.effectState.treble ?? AUDIO_EFFECT_PRESETS.clean.treble);
+      this.audioLowShelf.gain.value = (bass - 100) * 0.8;
+      this.audioHighShelf.gain.value = (treble - 100) * 0.8;
+    }
+
+    if (this.currentClip) {
+      this.currentClip.effects = {
+        ...(this.currentClip.effects || {}),
+        preset: this.effectState.preset,
+        brightness,
+        contrast,
+        saturation,
+        bass: Number(this.effectState.bass ?? AUDIO_EFFECT_PRESETS.clean.bass),
+        treble: Number(this.effectState.treble ?? AUDIO_EFFECT_PRESETS.clean.treble),
+        speed: Number(this.effectState.speed ?? 1),
+      };
+    }
+  }
+
+  _syncEffectUI() {
+    this.brightnessSlider?.setAttribute('value', String(this.effectState.brightness ?? VIDEO_EFFECT_PRESETS.normal.brightness));
+    this.contrastSlider?.setAttribute('value', String(this.effectState.contrast ?? VIDEO_EFFECT_PRESETS.normal.contrast));
+    this.saturationSlider?.setAttribute('value', String(this.effectState.saturation ?? VIDEO_EFFECT_PRESETS.normal.saturation));
+    this.bassSlider?.setAttribute('value', String(this.effectState.bass ?? AUDIO_EFFECT_PRESETS.clean.bass));
+    this.trebleSlider?.setAttribute('value', String(this.effectState.treble ?? AUDIO_EFFECT_PRESETS.clean.treble));
+    this.speedSlider?.setAttribute('value', String(Math.round((this.effectState.speed ?? 1) * 100)));
+
+    this.effectPresetButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.preset === this.effectState.preset);
+    });
+  }
+
+  _updateEffectGroupVisibility() {
+    const isAudio = this.currentMediaType === 'audio';
+    this.container.querySelectorAll('[data-effect-group]').forEach((el) => {
+      el.style.display = el.dataset.effectGroup === this.currentMediaType ? '' : 'none';
+    });
+    this.container.querySelectorAll('.preview-effect-presets').forEach((group) => {
+      group.style.display = group.dataset.effectGroup === this.currentMediaType ? '' : 'none';
+    });
+    if (!isAudio) {
+      this.audioEl.style.filter = this.videoEl.style.filter;
+    }
   }
 
   /** @param {'fit'|'fill'|'actual'} mode */
@@ -174,13 +432,54 @@ export class Preview {
       btn.classList.toggle('active', btn.dataset.mode === mode);
     });
 
-    // Clear inline size unless actual
-    if (mode !== 'actual') {
-      this.videoEl.style.width = '';
-      this.videoEl.style.height = '';
-    } else {
+    this._applyCurrentViewSizing();
+  }
+
+  _applyCurrentViewSizing() {
+    if (this.videoEl?.style.display === 'none') return;
+    if (this.viewMode === 'actual') {
       this._applyActualSize();
+    } else if (this.viewMode === 'fill') {
+      this._applyFillSize();
+    } else {
+      this._applyFitSize();
     }
+  }
+
+  _applyFitSize() {
+    const w = this.videoEl.videoWidth || 0;
+    const h = this.videoEl.videoHeight || 0;
+    const viewportW = Math.max(1, this.viewport.clientWidth || 0);
+    const viewportH = Math.max(1, this.viewport.clientHeight || 0);
+    if (!w || !h) return;
+
+    const scale = Math.min(viewportW / w, viewportH / h);
+    const nextW = Math.max(1, Math.round(w * scale));
+    const nextH = Math.max(1, Math.round(h * scale));
+
+    this.videoEl.style.width = `${nextW}px`;
+    this.videoEl.style.height = `${nextH}px`;
+    this.videoEl.style.maxWidth = 'none';
+    this.videoEl.style.maxHeight = 'none';
+    this.videoEl.style.objectFit = 'contain';
+  }
+
+  _applyFillSize() {
+    const w = this.videoEl.videoWidth || 0;
+    const h = this.videoEl.videoHeight || 0;
+    const viewportW = Math.max(1, this.viewport.clientWidth || 0);
+    const viewportH = Math.max(1, this.viewport.clientHeight || 0);
+    if (!w || !h) return;
+
+    const scale = Math.max(viewportW / w, viewportH / h);
+    const nextW = Math.max(1, Math.round(w * scale));
+    const nextH = Math.max(1, Math.round(h * scale));
+
+    this.videoEl.style.width = `${nextW}px`;
+    this.videoEl.style.height = `${nextH}px`;
+    this.videoEl.style.maxWidth = 'none';
+    this.videoEl.style.maxHeight = 'none';
+    this.videoEl.style.objectFit = 'cover';
   }
 
   _applyActualSize() {
@@ -194,6 +493,9 @@ export class Preview {
     }
     this.videoEl.style.width = `${w}px`;
     this.videoEl.style.height = `${h}px`;
+    this.videoEl.style.maxWidth = 'none';
+    this.videoEl.style.maxHeight = 'none';
+    this.videoEl.style.objectFit = 'none';
   }
 
   cycleViewMode() {
@@ -225,24 +527,196 @@ export class Preview {
     el._avEventsBound = true;
 
     el.addEventListener('timeupdate', () => {
-      const dur = el.duration || 0;
-      const cur = el.currentTime || 0;
-      if (dur > 0) this.seekBar.value = (cur / dur) * 1000;
-      this.timeDisplay.textContent = `${this._fmt(cur)} / ${this._fmt(dur)}`;
-      this.onTimeUpdate?.(cur, dur);
+      // Only the active media element may drive the UI. Inactive video/audio
+      // elements (still at t=0) previously caused the playhead to snap back.
+      if (el !== this.mediaEl) return;
+      if (el.seeking || this._scrubbing) return;
+      this._emitMediaTime(false);
+    });
+
+    el.addEventListener('seeking', () => {
+      if (el !== this.mediaEl) return;
+      this._ignoreSeekUntil = performance.now() + 50;
+    });
+
+    el.addEventListener('seeked', () => {
+      if (el !== this.mediaEl) return;
+      this._ignoreSeekUntil = 0;
+      this._emitMediaTime(true);
     });
 
     el.addEventListener('ended', () => {
+      if (el !== this.mediaEl) return;
+      this._stopPlayheadLoop();
       this._updatePlayBtn(false);
+      this._emitMediaTime(true);
       this.onEnded?.();
     });
 
     el.addEventListener('durationchange', () => {
+      if (el !== this.mediaEl) return;
       this.onDurationChange?.(el.duration);
     });
 
-    el.addEventListener('play', () => this._updatePlayBtn(true));
-    el.addEventListener('pause', () => this._updatePlayBtn(false));
+    el.addEventListener('play', () => {
+      if (el !== this.mediaEl) return;
+      this._updatePlayBtn(true);
+      this._startPlayheadLoop();
+    });
+
+    el.addEventListener('pause', () => {
+      if (el !== this.mediaEl) return;
+      this._stopPlayheadLoop();
+      this._updatePlayBtn(false);
+      // Skip emit while stop/seek transport is driving the clock (avoids stomping t→0).
+      if (!this._transportLock) this._emitMediaTime(true);
+    });
+  }
+
+  /**
+   * Seek media clock and optionally notify listeners.
+   * @param {number} time
+   * @param {{ emit?: boolean }} [opts]
+   */
+  seek(time, { emit = true } = {}) {
+    if (!this.mediaEl) {
+      if (emit) this.onTimeUpdate?.(0, 0);
+      return 0;
+    }
+    this._transportLock = true;
+    const next = this._seekMedia(time, { force: true });
+    this._lastEmittedTime = next;
+    this._ignoreSeekUntil = 0;
+    this._transportLock = false;
+    if (emit) this._emitMediaTime(true);
+    return next;
+  }
+
+  /** Pause and return media/timeline clock to the start. */
+  stop() {
+    this._transportLock = true;
+    this._stopPlayheadLoop();
+    if (this.mediaEl) {
+      this.mediaEl.pause();
+      this.mediaEl.currentTime = 0;
+    }
+    this._lastEmittedTime = 0;
+    this._ignoreSeekUntil = 0;
+    this._scrubbing = false;
+    this._transportLock = false;
+    this._updatePlayBtn(false);
+    this._emitMediaTime(true);
+    return 0;
+  }
+
+  /** Seek without re-triggering when already at the target (avoids seek flicker). */
+  _seekMedia(time, { force = false } = {}) {
+    if (!this.mediaEl) return 0;
+    const dur = this.mediaEl.duration;
+    let next = Number(time);
+    if (!Number.isFinite(next)) next = 0;
+    next = Math.max(0, next);
+    if (dur > 0 && Number.isFinite(dur)) next = Math.min(next, dur);
+    const cur = this.mediaEl.currentTime || 0;
+    if (!force && Math.abs(cur - next) < 0.04) return cur;
+    this.mediaEl.currentTime = next;
+    return next;
+  }
+
+  /**
+   * Push current media time to seek bar / external listeners.
+   * @param {boolean} force  Skip monotonic / debounce filters (user seek, pause, etc.)
+   */
+  _emitMediaTime(force = false) {
+    if (!this.mediaEl) {
+      this.seekBar.value = '0';
+      this.timeDisplay.textContent = '00:00:00 / 00:00:00';
+      this.onTimeUpdate?.(0, 0);
+      return;
+    }
+    if (!force && performance.now() < this._ignoreSeekUntil) return;
+
+    const dur = Number(this.mediaEl.duration);
+    const cur = Number(this.mediaEl.currentTime);
+    if (!Number.isFinite(cur)) return;
+
+    // While playing, ignore large backwards jumps (common Chromium glitch → t=0 flicker).
+    if (!force && !this.mediaEl.paused && !this._scrubbing) {
+      if (cur + 0.35 < this._lastEmittedTime && this._lastEmittedTime > 0.5) {
+        return;
+      }
+    }
+
+    this._lastEmittedTime = cur;
+
+    if (!this._scrubbing && Number.isFinite(dur) && dur > 0) {
+      this.seekBar.value = String(Math.round((cur / dur) * 1000));
+    } else if (!this._scrubbing && (!Number.isFinite(dur) || dur <= 0) && cur === 0) {
+      this.seekBar.value = '0';
+    }
+    this.timeDisplay.textContent = `${this._fmt(cur)} / ${this._fmt(Number.isFinite(dur) ? dur : 0)}`;
+    this.onTimeUpdate?.(cur, Number.isFinite(dur) ? dur : 0);
+  }
+
+  _startPlayheadLoop() {
+    if (this._rafId != null) return;
+    const tick = () => {
+      this._rafId = null;
+      if (!this.mediaEl || this.mediaEl.paused) return;
+      this._emitMediaTime(false);
+      this._rafId = requestAnimationFrame(tick);
+    };
+    this._rafId = requestAnimationFrame(tick);
+  }
+
+  _stopPlayheadLoop() {
+    if (this._rafId != null) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
+  }
+
+  _clearInactiveMedia(activeEl) {
+    for (const el of [this.videoEl, this.audioEl]) {
+      if (!el || el === activeEl) continue;
+      try {
+        el.pause();
+        el.removeAttribute('src');
+        el.load();
+      } catch { /* ignore */ }
+    }
+  }
+
+  _ensureAudioGraph() {
+    if (!this.audioEl || this.audioContext) return;
+
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    try {
+      this.audioContext = new AudioContextCtor();
+      this.audioSourceNode = this.audioContext.createMediaElementSource(this.audioEl);
+
+      this.audioLowShelf = this.audioContext.createBiquadFilter();
+      this.audioLowShelf.type = 'lowshelf';
+      this.audioLowShelf.frequency.value = 200;
+      this.audioLowShelf.gain.value = 0;
+
+      this.audioHighShelf = this.audioContext.createBiquadFilter();
+      this.audioHighShelf.type = 'highshelf';
+      this.audioHighShelf.frequency.value = 2000;
+      this.audioHighShelf.gain.value = 0;
+
+      this.audioSourceNode.connect(this.audioLowShelf);
+      this.audioLowShelf.connect(this.audioHighShelf);
+      this.audioHighShelf.connect(this.audioContext.destination);
+    } catch (err) {
+      console.warn('[preview] Failed to create audio graph:', err);
+      this.audioContext = null;
+      this.audioSourceNode = null;
+      this.audioLowShelf = null;
+      this.audioHighShelf = null;
+    }
   }
 
   _updatePlayBtn(playing) {
@@ -259,10 +733,12 @@ export class Preview {
   }
 
   loadFile(fileEntry) {
+    this._stopPlayheadLoop();
     this.currentFile = fileEntry;
     const ext = (fileEntry.extension || '').toLowerCase();
-    const AUDIO = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
-    const isAudio = AUDIO.has(ext);
+    const isAudio = AUDIO_EXT.has(ext);
+    this.currentMediaType = isAudio ? 'audio' : 'video';
+    this._updateEffectGroupVisibility();
 
     this.videoEl.style.display = 'none';
     this.audioEl.style.display = 'none';
@@ -289,26 +765,37 @@ export class Preview {
       if (existing) existing.remove();
     }
 
+    this._clearInactiveMedia(this.mediaEl);
+
     if (typeof window.electronAPI !== 'undefined' && fileEntry.path) {
       this.mediaEl.src = `file://${fileEntry.path.replace(/\\/g, '/')}`;
     }
 
+    if (isAudio) {
+      this._ensureAudioGraph();
+      if (this.audioContext?.state === 'suspended') this.audioContext.resume().catch(() => {});
+    }
+
     this._attachMediaEvents(this.mediaEl);
     this._applyVolume();
-    this.seekBar.value = 0;
+    this._applyEffectState();
+    this._lastEmittedTime = 0;
+    this.seekBar.value = '0';
     this.timeDisplay.textContent = '00:00:00 / 00:00:00';
     this._updatePlayBtn(false);
     this.setViewMode(this.viewMode, { persist: false });
   }
 
   loadBrowserFile(file) {
+    this._stopPlayheadLoop();
     const url = URL.createObjectURL(file);
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     const entry = { name: file.name, path: null, extension: ext, size: file.size };
     this.currentFile = entry;
 
-    const AUDIO = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.opus','.aiff']);
-    const isAudio = AUDIO.has(ext);
+    const isAudio = AUDIO_EXT.has(ext);
+    this.currentMediaType = isAudio ? 'audio' : 'video';
+    this._updateEffectGroupVisibility();
 
     this.videoEl.style.display = 'none';
     this.audioEl.style.display = 'none';
@@ -316,10 +803,17 @@ export class Preview {
 
     this.mediaEl = isAudio ? this.audioEl : this.videoEl;
     this.mediaEl.style.display = 'block';
+    this._clearInactiveMedia(this.mediaEl);
     this.mediaEl.src = url;
+    if (isAudio) {
+      this._ensureAudioGraph();
+      if (this.audioContext?.state === 'suspended') this.audioContext.resume().catch(() => {});
+    }
     this._attachMediaEvents(this.mediaEl);
     this._applyVolume();
-    this.seekBar.value = 0;
+    this._applyEffectState();
+    this._lastEmittedTime = 0;
+    this.seekBar.value = '0';
     this._updatePlayBtn(false);
     this.setViewMode(this.viewMode, { persist: false });
   }
@@ -390,28 +884,52 @@ export class Preview {
     }
   }
 
+  pause() {
+    if (!this.mediaEl) return;
+    this._transportLock = true;
+    this.mediaEl.pause();
+    this._stopPlayheadLoop();
+    this._updatePlayBtn(false);
+    this._transportLock = false;
+  }
+
   get isPlaying() { return this.mediaEl && !this.mediaEl.paused; }
   get currentTime() { return this.mediaEl?.currentTime ?? 0; }
-  set currentTime(t) { if (this.mediaEl) this.mediaEl.currentTime = t; }
+  set currentTime(t) { this.seek(t); }
   get duration() { return this.mediaEl?.duration ?? 0; }
 
   showEmpty() {
+    this._stopPlayheadLoop();
     this.videoEl.style.display = 'none';
     this.audioEl.style.display = 'none';
     this.emptyEl.style.display = 'flex';
     const ph = this.viewport.querySelector('.audio-placeholder');
     if (ph) ph.remove();
+    this._clearInactiveMedia(null);
     this.mediaEl = null;
-    this.seekBar.value = 0;
+    this.currentClip = null;
+    this.currentMediaType = 'video';
+    this.effectState = { ...this._getDefaultEffectState() };
+    this._updateEffectGroupVisibility();
+    this._syncEffectUI();
+    this.videoEl.style.filter = 'none';
+    this.audioEl.style.filter = 'none';
+    this._lastEmittedTime = 0;
+    this.seekBar.value = '0';
     this.timeDisplay.textContent = '00:00:00 / 00:00:00';
   }
 
   updateTranslations() {
     this._updateEmptyText();
+    this.container.querySelectorAll('[data-i18n]').forEach((el) => {
+      el.textContent = this.i18n.t(el.getAttribute('data-i18n'));
+    });
     this.container.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
       if (el === this.muteBtn) return;
       el.setAttribute('data-tooltip', this.i18n.t(el.getAttribute('data-i18n-tooltip')));
     });
+    this._syncEffectUI();
+    this._updateEffectGroupVisibility();
     this._syncVolumeUI();
   }
 }

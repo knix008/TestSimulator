@@ -109,6 +109,13 @@ function createMenu(mainWindow, locale = _locale) {
           iconName: 'save',
           click: () => send('save-project-as'),
         }),
+        item({
+          label: t('menu.saveProjectModified'),
+          id: 'save-project-modified',
+          accelerator: 'CmdOrCtrl+Alt+S',
+          iconName: 'save',
+          click: () => send('save-project-modified'),
+        }),
         { type: 'separator' },
         item({
           label: t('menu.importMedia'),
@@ -249,7 +256,7 @@ function createMenu(mainWindow, locale = _locale) {
               type: 'info',
               title: t('about.title'),
               message: `${t('app.title')}  v${app.getVersion()}`,
-              detail: t('about.description') + '\n\n' + t('about.license'),
+              detail: `${t('about.description')}\n\n${t('about.copyright')}\n${t('about.author')}`,
               buttons: [t('dialog.ok')],
             });
           },

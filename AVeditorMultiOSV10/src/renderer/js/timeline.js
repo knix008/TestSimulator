@@ -14,9 +14,10 @@ export class Timeline {
     this.clips = [];
     this.selectedClip = null;
     this.currentTime = 0;
-    this.duration = 120; // seconds (grows as clips are added)
+    this.duration = 30; // seconds (grows as clips are added)
     this.pixelsPerSecond = 60;
     this.scrollX = 0;
+    this.followPlayhead = false;
 
     // Layout constants
     this.LABEL_W = 110;
@@ -28,6 +29,7 @@ export class Timeline {
     this._isDragging = false;
 
     this._theme = 'dark';
+    this._needsRedraw = false;
 
     this.render();
     this._setupDefaultTracks();
@@ -59,18 +61,16 @@ export class Timeline {
       <div class="timeline-header">
         <span class="timeline-title" data-i18n="timeline.title"></span>
         <div class="timeline-controls">
-          <button class="timeline-zoom-btn" id="tl-zoom-out" data-tooltip="−">−</button>
-          <button class="timeline-zoom-btn" id="tl-zoom-in" data-tooltip="+">+</button>
-          <button class="timeline-add-track-btn" id="tl-add-video">+ Video</button>
-          <button class="timeline-add-track-btn" id="tl-add-audio">+ Audio</button>
+          <button type="button" class="timeline-zoom-btn" id="tl-zoom-out" data-i18n-tooltip="timeline.zoomOut">−</button>
+          <button type="button" class="timeline-zoom-btn" id="tl-fit" data-i18n-tooltip="timeline.fitToView" title="">⟷</button>
+          <button type="button" class="timeline-zoom-btn" id="tl-zoom-in" data-i18n-tooltip="timeline.zoomIn">+</button>
+          <button type="button" class="timeline-add-track-btn" id="tl-add-video" data-i18n-tooltip="timeline.addVideoTrack">+ Video</button>
+          <button type="button" class="timeline-add-track-btn" id="tl-add-audio" data-i18n-tooltip="timeline.addAudioTrack">+ Audio</button>
         </div>
       </div>
       <div id="timeline-canvas-wrapper">
         <canvas id="timeline-canvas"></canvas>
         <div class="timeline-empty-msg" id="timeline-empty-msg"></div>
-      </div>
-      <div id="timeline-scroll">
-        <div id="timeline-scroll-inner"></div>
       </div>
     `;
 
@@ -78,14 +78,19 @@ export class Timeline {
     this.ctx = this.canvas.getContext('2d');
     this.wrapper = this.container.querySelector('#timeline-canvas-wrapper');
     this.emptyMsg = this.container.querySelector('#timeline-empty-msg');
-    this.scrollEl = this.container.querySelector('#timeline-scroll');
-    this.scrollInner = this.container.querySelector('#timeline-scroll-inner');
+    this.scrollEl = this.wrapper;
+    /** When true, playback auto-scrolls to keep the playhead in view. */
+    this.followPlayhead = false;
+    /** When true, keep the full timeline fitted on resize. */
+    this._isFitted = false;
 
     this._updateEmptyMsg();
+    this._applyControlTooltips();
     this._bindControls();
     this._bindCanvasEvents();
     this._bindDropZone();
     this._bindScroll();
+    this._bindWheel();
 
     const resizeObs = new ResizeObserver(() => this._resize());
     resizeObs.observe(this.wrapper);
@@ -101,37 +106,167 @@ export class Timeline {
     ];
   }
 
+  /** Fixed trailing pad (px) so zoom/fit math stays consistent at any scale. */
+  _trailingPadPx() {
+    return 32;
+  }
+
+  _contentWidth() {
+    const clientW = this.wrapper?.clientWidth || 0;
+    const contentW = this.LABEL_W + this.duration * this.pixelsPerSecond + this._trailingPadPx();
+    return Math.round(Math.max(clientW, contentW));
+  }
+
   _resize() {
+    if (this._isFitted) {
+      this.fitToView();
+      return;
+    }
+
     const rect = this.wrapper.getBoundingClientRect();
-    this.canvas.width = rect.width;
-    this.canvas.height = Math.max(rect.height - 10, this.HEADER_H + this.tracks.length * this.TRACK_H);
+    const totalW = this._contentWidth();
+    const totalH = Math.max(Math.round(rect.height) - 10, this.HEADER_H + this.tracks.length * this.TRACK_H);
+
+    const widthChanged = this.canvas.width !== totalW;
+    const heightChanged = this.canvas.height !== totalH;
+    if (widthChanged) { this.canvas.width = totalW; this.canvas.style.width = `${totalW}px`; }
+    if (heightChanged) { this.canvas.height = totalH; }
     this._updateScrollWidth();
     this.draw();
   }
 
   _bindControls() {
-    this.container.querySelector('#tl-zoom-in').addEventListener('click', () => {
-      this.pixelsPerSecond = Math.min(300, this.pixelsPerSecond * 1.3);
-      this._updateScrollWidth(); this.draw();
-    });
-    this.container.querySelector('#tl-zoom-out').addEventListener('click', () => {
-      this.pixelsPerSecond = Math.max(10, this.pixelsPerSecond / 1.3);
-      this._updateScrollWidth(); this.draw();
-    });
+    this.container.querySelector('#tl-zoom-in').addEventListener('click', () => this.zoomIn());
+    this.container.querySelector('#tl-fit').addEventListener('click', () => this.fitToView());
+    this.container.querySelector('#tl-zoom-out').addEventListener('click', () => this.zoomOut());
     this.container.querySelector('#tl-add-video').addEventListener('click', () => this.addTrack('video'));
     this.container.querySelector('#tl-add-audio').addEventListener('click', () => this.addTrack('audio'));
   }
 
-  _bindScroll() {
-    this.scrollEl.addEventListener('scroll', () => {
-      this.scrollX = this.scrollEl.scrollLeft;
-      this.draw();
+  _applyControlTooltips() {
+    this.container.querySelectorAll('[data-i18n-tooltip]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-tooltip');
+      if (!key) return;
+      el.setAttribute('data-tooltip', this.i18n.t(key));
     });
   }
 
+  _maxClipEnd() {
+    return this.clips.reduce((max, c) => Math.max(max, c.startTime + c.duration), 0);
+  }
+
+  /** pps that makes the full duration fit exactly in the current wrapper width. */
+  _fitPixelsPerSecond() {
+    const dur = Math.max(this.duration, this._maxClipEnd(), 0.1);
+    const wrapperW = this.wrapper?.clientWidth || 0;
+    const availableW = Math.max(40, wrapperW - this.LABEL_W - this._trailingPadPx());
+    return availableW / dur;
+  }
+
+  _minPixelsPerSecond() {
+    // No hard 0.1 floor — long media must be allowed to shrink to fit the window.
+    return Math.max(0.001, this._fitPixelsPerSecond());
+  }
+
+  _maxPixelsPerSecond() {
+    return 500;
+  }
+
+  /**
+   * Apply zoom while keeping a timeline time fixed under an anchor X in the wrapper.
+   * @param {number} newPps
+   * @param {number|null} anchorScreenX  X within wrapper viewport (default: center)
+   */
+  _applyZoom(newPps, anchorScreenX = null) {
+    const clamped = Math.min(this._maxPixelsPerSecond(), Math.max(this._minPixelsPerSecond(), newPps));
+    if (!this.wrapper || Math.abs(clamped - this.pixelsPerSecond) < 1e-9) return;
+
+    this._isFitted = Math.abs(clamped - this._fitPixelsPerSecond()) < 1e-6;
+
+    const viewW = this.wrapper.clientWidth || 0;
+    const anchorX = anchorScreenX == null ? viewW / 2 : anchorScreenX;
+    const oldPps = this.pixelsPerSecond;
+    const timeAtAnchor = (this.wrapper.scrollLeft + anchorX - this.LABEL_W) / oldPps;
+
+    this.pixelsPerSecond = clamped;
+    this._updateScrollWidth();
+
+    const maxScroll = Math.max(0, this._contentWidth() - viewW);
+    const newScroll = timeAtAnchor * clamped + this.LABEL_W - anchorX;
+    this.wrapper.scrollLeft = Math.min(maxScroll, Math.max(0, newScroll));
+    this.scrollX = this.wrapper.scrollLeft;
+    this.draw();
+  }
+
+  _bindScroll() {
+    this.wrapper.addEventListener('scroll', () => {
+      this.scrollX = this.wrapper.scrollLeft;
+      // Labels are painted into the canvas; redraw is not required for scroll itself.
+    });
+  }
+
+  _bindWheel() {
+    this.wrapper.addEventListener('wheel', (e) => {
+      // Ctrl/Cmd + wheel → zoom around cursor
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = this.wrapper.getBoundingClientRect();
+        const anchorX = e.clientX - rect.left;
+        const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+        this._applyZoom(this.pixelsPerSecond * factor, anchorX);
+        return;
+      }
+
+      // Shift + wheel (or primarily horizontal delta) → horizontal pan
+      const absX = Math.abs(e.deltaX);
+      const absY = Math.abs(e.deltaY);
+      if (e.shiftKey || absX > absY) {
+        e.preventDefault();
+        const delta = e.shiftKey && absX < absY ? e.deltaY : e.deltaX || e.deltaY;
+        this.wrapper.scrollLeft += delta;
+        this.scrollX = this.wrapper.scrollLeft;
+      }
+    }, { passive: false });
+  }
+
+  _requestDraw() {
+    this._needsRedraw = true;
+  }
+
+  _ensurePlayheadVisible() {
+    if (!this.followPlayhead || !this.scrollEl || !this.canvas) return;
+
+    const playheadX = this.LABEL_W + this.currentTime * this.pixelsPerSecond;
+    const viewW = this.wrapper?.clientWidth || 0;
+    const pad = 48;
+    // Use live scrollLeft; visible range is [scrollLeft, scrollLeft + viewW] in canvas coords.
+    const visibleLeft = this.scrollEl.scrollLeft;
+    const visibleRight = visibleLeft + viewW;
+
+    if (playheadX < visibleLeft + pad) {
+      this.scrollEl.scrollLeft = Math.max(0, playheadX - pad);
+    } else if (playheadX > visibleRight - pad) {
+      this.scrollEl.scrollLeft = Math.max(0, playheadX - viewW + pad);
+    }
+
+    this.scrollX = this.scrollEl.scrollLeft;
+  }
+
   _updateScrollWidth() {
-    const totalW = this.LABEL_W + this.duration * this.pixelsPerSecond + 200;
-    this.scrollInner.style.width = totalW + 'px';
+    const totalW = this._contentWidth();
+    this.canvas.style.width = `${totalW}px`;
+    if (this.canvas.width !== totalW) {
+      this.canvas.width = totalW;
+      this._requestDraw();
+    }
+    // Clamp scroll if content shrank (e.g. zoom out)
+    if (this.wrapper) {
+      const maxScroll = Math.max(0, totalW - this.wrapper.clientWidth);
+      if (this.wrapper.scrollLeft > maxScroll) {
+        this.wrapper.scrollLeft = maxScroll;
+        this.scrollX = maxScroll;
+      }
+    }
   }
 
   _bindCanvasEvents() {
@@ -164,21 +299,30 @@ export class Timeline {
       try {
         const file = JSON.parse(data);
         const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left + this.scrollX;
+        const x = e.clientX - rect.left;
         const dropTime = Math.max(0, (x - this.LABEL_W) / this.pixelsPerSecond);
         const trackIndex = Math.floor((e.clientY - rect.top - this.HEADER_H) / this.TRACK_H);
         const track = this.tracks[trackIndex] || this.tracks[0];
-        if (track) this.addClip(file, track.id, dropTime);
+        if (track) {
+          const clip = this.addClip(file, track.id, dropTime);
+          if (window.electronAPI?.getMediaInfo && file.path) {
+            window.electronAPI.getMediaInfo(file.path).then(meta => {
+              if (meta?.duration && isFinite(Number(meta.duration))) {
+                this.syncClipDuration(clip, { duration: meta.duration });
+              }
+            }).catch(() => {});
+          }
+        }
       } catch { /* ignore */ }
     });
   }
 
   _posToTime(canvasX) {
-    return (canvasX + this.scrollX - this.LABEL_W) / this.pixelsPerSecond;
+    return (canvasX - this.LABEL_W) / this.pixelsPerSecond;
   }
 
   _timeToX(t) {
-    return this.LABEL_W + t * this.pixelsPerSecond - this.scrollX;
+    return this.LABEL_W + t * this.pixelsPerSecond;
   }
 
   _getTrackY(index) {
@@ -240,14 +384,14 @@ export class Timeline {
         this._dragging = { type: 'clip', clip, startX: cx, origStart: clip.startTime };
       }
       this._isDragging = true;
-      this.draw();
+      this._requestDraw();
       return;
     }
 
     // Deselect
     this.selectedClip = null;
     this.onClipSelect?.(null);
-    this.draw();
+    this._requestDraw();
   }
 
   _onMouseMove(e) {
@@ -273,7 +417,7 @@ export class Timeline {
       const c = this._dragging.clip;
       c.duration = Math.max(0.1, this._dragging.origDur + dt);
     }
-    this.draw();
+    this._requestDraw();
   }
 
   _onMouseUp() {
@@ -430,15 +574,21 @@ export class Timeline {
     ctx.textAlign = 'left';
     ctx.fillStyle = C.textDim;
 
-    // Determine tick interval based on zoom
+    // Determine tick interval based on zoom (support very long media / tiny pps)
     let tickSec = 1;
-    if (this.pixelsPerSecond < 20) tickSec = 10;
-    else if (this.pixelsPerSecond < 40) tickSec = 5;
-    else if (this.pixelsPerSecond < 80) tickSec = 2;
+    if (this.pixelsPerSecond < 0.05) tickSec = 600;
+    else if (this.pixelsPerSecond < 0.15) tickSec = 300;
+    else if (this.pixelsPerSecond < 0.4) tickSec = 120;
+    else if (this.pixelsPerSecond < 1) tickSec = 60;
+    else if (this.pixelsPerSecond < 3) tickSec = 30;
+    else if (this.pixelsPerSecond < 8) tickSec = 10;
+    else if (this.pixelsPerSecond < 20) tickSec = 5;
+    else if (this.pixelsPerSecond < 40) tickSec = 2;
+    else if (this.pixelsPerSecond < 80) tickSec = 1;
     else if (this.pixelsPerSecond > 150) tickSec = 0.5;
 
-    const startSec = Math.floor(this.scrollX / this.pixelsPerSecond);
-    const endSec = startSec + Math.ceil(W / this.pixelsPerSecond) + tickSec * 2;
+    const startSec = Math.max(0, Math.floor((0 - this.LABEL_W) / this.pixelsPerSecond));
+    const endSec = Math.ceil((W - this.LABEL_W) / this.pixelsPerSecond) + tickSec * 2;
 
     for (let t = startSec - (startSec % tickSec); t <= endSec; t += tickSec) {
       const x = this._timeToX(t);
@@ -472,6 +622,8 @@ export class Timeline {
 
     const color = this._trackColor(track, trackIndex);
     const isSelected = clip === this.selectedClip;
+    const effectLabel = clip.effects?.preset || 'normal';
+    const speed = clip.effects?.speed || 1;
 
     ctx.save();
     ctx.beginPath();
@@ -494,12 +646,17 @@ export class Timeline {
       }
     }
 
-    // Clip label
+    const labelX = Math.max(x + 6, this.LABEL_W + 4);
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.font = 'bold 10px -apple-system, "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
-    const labelX = Math.max(x + 6, this.LABEL_W + 4);
     ctx.fillText(clip.name, labelX, y + h / 2 + 4);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(Math.max(x, this.LABEL_W), y, 18, 16);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '9px -apple-system, "Segoe UI", sans-serif';
+    ctx.fillText(`${effectLabel[0].toUpperCase()}${speed.toFixed(2)}x`, Math.max(x + 3, this.LABEL_W + 3), y + 11);
 
     ctx.restore();
 
@@ -575,20 +732,34 @@ export class Timeline {
 
   addClip(file, trackId, startTime = 0) {
     const ext = (file.extension || '').toLowerCase();
+    const knownDur = Number(file?.duration);
     const clip = {
       id: Date.now() + Math.random(),
       name: file.name,
       path: file.path,
       extension: ext,
       trackId,
+      // Use real duration when known; otherwise a short placeholder until metadata syncs.
+      duration: (knownDur > 0 && isFinite(knownDur)) ? knownDur : 10,
       startTime,
-      duration: 10, // default; updated if media metadata available
       file,
+      effects: {
+        preset: 'normal',
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
+        speed: 1,
+      },
     };
     this.clips.push(clip);
     this._updateDuration();
-    this.draw();
     this.emptyMsg.style.display = 'none';
+    // Known long media (or placeholder that already won't fit) → show full span.
+    if (this._contentWidth() > (this.wrapper?.clientWidth || 0) + 2) {
+      this.fitToView();
+    } else {
+      this.draw();
+    }
     return clip;
   }
 
@@ -613,21 +784,61 @@ export class Timeline {
     const clip = this.selectedClip;
     if (this.currentTime <= clip.startTime || this.currentTime >= clip.startTime + clip.duration) return;
     const newDur = this.currentTime - clip.startTime;
-    const newClip = { ...clip, id: Date.now() + Math.random(), startTime: this.currentTime, duration: clip.duration - newDur };
+    const newClip = {
+      ...clip,
+      id: Date.now() + Math.random(),
+      startTime: this.currentTime,
+      duration: clip.duration - newDur,
+      effects: { ...(clip.effects || {}) },
+    };
     clip.duration = newDur;
     this.clips.push(newClip);
-    this.draw();
+    this._requestDraw();
   }
 
-  setCurrentTime(t) {
-    this.currentTime = t;
-    this.draw();
+  setCurrentTime(t, { force = false } = {}) {
+    const next = Number(t);
+    if (!Number.isFinite(next) || next < 0) return;
+    // During playback, ignore sudden jumps backward (playhead flicker to start).
+    if (!force && this.followPlayhead && this.currentTime > 0.5 && next + 0.35 < this.currentTime) {
+      return;
+    }
+    // Ignore tiny updates to reduce full-canvas redraw flicker.
+    if (!force && Math.abs(next - this.currentTime) < 0.008) return;
+    this.currentTime = next;
+    if (force || this.followPlayhead) this._ensurePlayheadVisible();
+    this._requestDraw();
+  }
+
+  syncClipDuration(clip, mediaInfo = {}) {
+    if (!clip) return;
+    const actualDur = Number(mediaInfo.duration || 0);
+    if (!actualDur || !isFinite(actualDur) || actualDur <= 0) return;
+    const prevSpan = this.duration;
+    const prevPps = this.pixelsPerSecond;
+    if (Math.abs(clip.duration - actualDur) < 0.001) {
+      this._updateDuration();
+      return;
+    }
+    clip.duration = actualDur;
+    if (clip.file) clip.file.duration = actualDur;
+    this._updateDuration();
+
+    // Long media often arrives after a short placeholder — auto-fit so the full length is reachable.
+    const grewALot = this.duration > Math.max(prevSpan * 1.25, prevSpan + 30);
+    const atDefaultZoom = Math.abs(prevPps - 60) < 0.5;
+    const cannotSeeAll = this._contentWidth() > (this.wrapper?.clientWidth || 0) + 2;
+    if ((grewALot && (atDefaultZoom || this._isFitted)) || (cannotSeeAll && this._isFitted)) {
+      this.fitToView();
+    } else {
+      this.draw();
+    }
   }
 
   _updateDuration() {
-    let maxEnd = 60;
-    this.clips.forEach(c => { const end = c.startTime + c.duration; if (end > maxEnd) maxEnd = end; });
-    this.duration = maxEnd + 10;
+    const maxEnd = this._maxClipEnd();
+    // Empty timeline stays usable. With clips, keep a small time pad for scrubbing past the end.
+    this.duration = maxEnd > 0 ? maxEnd + Math.min(5, Math.max(1, maxEnd * 0.02)) : 30;
     this._updateScrollWidth();
   }
 
@@ -640,21 +851,48 @@ export class Timeline {
       if (this._needsRedraw) { this.draw(); this._needsRedraw = false; }
       requestAnimationFrame(loop);
     };
+    this._requestDraw();
     requestAnimationFrame(loop);
   }
 
-  zoomIn() { this.pixelsPerSecond = Math.min(300, this.pixelsPerSecond * 1.3); this._updateScrollWidth(); this.draw(); }
-  zoomOut() { this.pixelsPerSecond = Math.max(10, this.pixelsPerSecond / 1.3); this._updateScrollWidth(); this.draw(); }
+  zoomIn() { this._applyZoom(this.pixelsPerSecond * 1.25); }
+  zoomOut() { this._applyZoom(this.pixelsPerSecond / 1.25); }
+
+  fitToView() {
+    this._updateDuration();
+    const fitPps = this._fitPixelsPerSecond();
+    this.pixelsPerSecond = fitPps;
+    this._isFitted = true;
+    if (this.wrapper) {
+      this.wrapper.scrollLeft = 0;
+      this.scrollX = 0;
+    }
+
+    const rect = this.wrapper?.getBoundingClientRect();
+    const totalH = Math.max(
+      Math.round((rect?.height || 0) - 10),
+      this.HEADER_H + this.tracks.length * this.TRACK_H
+    );
+    this._updateScrollWidth();
+    if (this.canvas && this.canvas.height !== totalH) this.canvas.height = totalH;
+    this.draw();
+  }
 
   updateTranslations() {
     this._updateEmptyMsg();
+    this._applyControlTooltips();
+    const addVideoBtn = this.container.querySelector('#tl-add-video');
+    if (addVideoBtn) addVideoBtn.textContent = '+ ' + this.i18n.t('timeline.videoTrack');
+    const addAudioBtn = this.container.querySelector('#tl-add-audio');
+    if (addAudioBtn) addAudioBtn.textContent = '+ ' + this.i18n.t('timeline.audioTrack');
     this.draw();
   }
 
   getState() { return { tracks: this.tracks.map(t => ({ id: t.id, type: t.type })), clips: this.clips, duration: this.duration }; }
   loadState(state) {
     if (state.clips) this.clips = state.clips;
-    if (state.duration) this.duration = state.duration;
+    this._updateDuration();
+    if (state.duration && state.duration > this.duration) this.duration = state.duration;
     this._updateScrollWidth();
     this.draw();
   }

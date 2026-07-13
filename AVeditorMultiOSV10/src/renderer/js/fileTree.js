@@ -188,7 +188,7 @@ export class FileTree {
     requestAnimationFrame(() => {
       const el = this._scrollEl()
         ?.querySelector(`.tree-item[data-path="${CSS.escape(this._focusPath)}"]`);
-      el?.scrollIntoView({ block: 'nearest' });
+      el?.scrollIntoView({ block: 'center', inline: 'nearest' });
     });
   }
 

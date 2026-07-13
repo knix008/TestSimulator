@@ -165,22 +165,47 @@ export class FileExplorer {
     if (!this.isElectron) { list.innerHTML = ''; return; }
 
     const specials = await window.electronAPI.getSpecialFolders();
+    const lastDir = localStorage.getItem(LAST_DIR_KEY);
+    const normalizePath = (p) => (p || '').replace(/[\\/]+$/, '').toLowerCase();
     list.innerHTML = '';
 
-    const iconMap = { home: Icons.home, desktop: Icons.desktop, documents: Icons.folder, downloads: Icons.folder };
+    const orderedSpecials = [];
+    if (lastDir) {
+      const normalizedLastDir = normalizePath(lastDir);
+      const matched = specials.find((f) => normalizePath(f.path) === normalizedLastDir);
+
+      if (matched) {
+        orderedSpecials.push(matched);
+      } else {
+        orderedSpecials.push({
+          name: 'recent',
+          path: lastDir,
+          label: lastDir.split(/[\\/]/).filter(Boolean).pop() || lastDir,
+        });
+      }
+
+      specials
+        .filter((f) => normalizePath(f.path) !== normalizedLastDir)
+        .forEach((f) => orderedSpecials.push(f));
+    } else {
+      orderedSpecials.push(...specials);
+    }
+
+    const iconMap = { home: Icons.home, desktop: Icons.desktop, documents: Icons.folder, downloads: Icons.folder, recent: Icons.folder };
     const i18nMap = {
       home: 'fileExplorer.home', desktop: 'fileExplorer.desktop',
       documents: 'fileExplorer.documents', downloads: 'fileExplorer.downloads'
     };
 
-    specials.forEach(f => {
+    orderedSpecials.forEach(f => {
       const item = document.createElement('div');
       item.className = 'special-item';
-      item.innerHTML = `${iconMap[f.name] || Icons.folder}<span>${this.i18n.t(i18nMap[f.name] || f.label)}</span>`;
+      const label = this.i18n.t(i18nMap[f.name] || f.label || 'fileExplorer.home');
+      item.innerHTML = `${iconMap[f.name] || Icons.folder}<span>${label}</span>`;
       item.addEventListener('click', () => {
         this.container.querySelectorAll('.drive-item, .special-item').forEach(el => el.classList.remove('active'));
         item.classList.add('active');
-        this._openRootDir(f.path, this.i18n.t(i18nMap[f.name] || f.label));
+        this._openRootDir(f.path, label);
       });
       list.appendChild(item);
     });
@@ -195,6 +220,7 @@ export class FileExplorer {
     treeRoot.innerHTML = '';
     this.treeState.clear();
     localStorage.setItem(LAST_DIR_KEY, rootPath);
+    this.loadSpecialFolders();
     this._renderTreeDir(rootPath, treeRoot, 0, true);
   }
 
@@ -236,6 +262,7 @@ export class FileExplorer {
       // Root: load directly into parentEl
       await this._loadDirContents(dirPath, parentEl, depth);
       localStorage.setItem(LAST_DIR_KEY, dirPath);
+      this.loadSpecialFolders();
     }
   }
 
@@ -264,6 +291,7 @@ export class FileExplorer {
       }
       this.treeState.set(dirPath, state);
       localStorage.setItem(LAST_DIR_KEY, dirPath);
+      this.loadSpecialFolders();
     }
   }
 

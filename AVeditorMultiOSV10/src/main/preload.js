@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Dialogs ──────────────────────────────────────────────────────────
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   openFolderDialog: () => ipcRenderer.invoke('open-folder-dialog'),
-  saveProjectDialog: () => ipcRenderer.invoke('save-project-dialog'),
+  saveProjectDialog: (defaultPath) => ipcRenderer.invoke('save-project-dialog', defaultPath),
   openProjectDialog: () => ipcRenderer.invoke('open-project-dialog'),
   exportDialog: () => ipcRenderer.invoke('export-dialog'),
   showMessageBox: (opts) => ipcRenderer.invoke('show-message-box', opts),

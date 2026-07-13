@@ -53,6 +53,13 @@ function pngsToIco(pngBuffers) {
   return out;
 }
 
+function allRequiredIconsExist() {
+  const pngSizes = [16, 24, 32, 48, 64, 128, 256, 512, 1024];
+  return pngSizes.every((size) => fs.existsSync(path.join(ICONS_DIR, `icon-${size}.png`)))
+    && fs.existsSync(path.join(ICONS_DIR, 'icon.png'))
+    && fs.existsSync(path.join(ICONS_DIR, 'icon.ico'));
+}
+
 async function generateIcons() {
   let sharp;
   try {
@@ -69,6 +76,11 @@ async function generateIcons() {
   }
 
   fs.mkdirSync(ICONS_DIR, { recursive: true });
+  if (allRequiredIconsExist()) {
+    console.log('[icons] Reusing existing icon assets.');
+    return true;
+  }
+
   const svgBuffer = fs.readFileSync(SVG_SRC);
 
   const pngSizes = [16, 24, 32, 48, 64, 128, 256, 512, 1024];

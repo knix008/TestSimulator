@@ -5,6 +5,7 @@ import { FileInfo } from './fileInfo.js';
 import { Preview } from './preview.js';
 import { Timeline } from './timeline.js';
 import { ContextMenu } from './contextMenu.js';
+import { initDialog, showConfirm, showAlert } from './dialog.js';
 
 const STORAGE_THEME = 'av-editor-theme';
 const STORAGE_LOCALE = 'av-editor-locale';
@@ -25,6 +26,7 @@ class AVEditorApp {
     // Init i18n with saved locale
     const savedLocale = localStorage.getItem(STORAGE_LOCALE) || 'en';
     await this.i18n.init(savedLocale);
+    initDialog(this.i18n);
 
     // Build UI
     this._buildToolbar();
@@ -50,6 +52,7 @@ class AVEditorApp {
         <button class="toolbar-btn" id="btn-new"  data-i18n-tooltip="toolbar.new">${Icons.new}</button>
         <button class="toolbar-btn" id="btn-open" data-i18n-tooltip="toolbar.open">${Icons.open}</button>
         <button class="toolbar-btn" id="btn-save" data-i18n-tooltip="toolbar.save">${Icons.save}</button>
+        <button class="toolbar-btn" id="btn-save-modified" data-i18n-tooltip="toolbar.saveModified">${Icons.save}</button>
       </div>
       <div class="toolbar-separator"></div>
       <!-- Media -->
@@ -95,7 +98,7 @@ class AVEditorApp {
       <!-- Theme & Language -->
       <div class="toolbar-group">
         <button class="toolbar-btn" id="btn-theme" data-i18n-tooltip="toolbar.toggleTheme">${this.theme === 'dark' ? Icons.sun : Icons.moon}</button>
-        <button class="toolbar-lang-btn" id="btn-lang">${this.i18n.getLocale().toUpperCase()}</button>
+        <button class="toolbar-lang-btn" id="btn-lang">${this.i18n.getLocale() === 'en' ? 'KO' : 'EN'}</button>
       </div>
     `;
 
@@ -115,6 +118,7 @@ class AVEditorApp {
     $('btn-new').addEventListener('click', () => this._newProject());
     $('btn-open').addEventListener('click', () => this._openProject());
     $('btn-save').addEventListener('click', () => this._saveProject());
+    $('btn-save-modified').addEventListener('click', () => this._saveProjectAsModified());
     $('btn-import').addEventListener('click', () => this._importMedia());
     $('btn-export').addEventListener('click', () => this._export());
     $('btn-undo').addEventListener('click', () => this._undo());
@@ -122,34 +126,24 @@ class AVEditorApp {
     $('btn-split').addEventListener('click', () => this.timeline.splitSelectedClip());
     $('btn-delete').addEventListener('click', () => this.timeline.deleteSelectedClip());
 
-    $('btn-skip-back').addEventListener('click', () => {
-      this.preview.currentTime = 0;
-      this.timeline.setCurrentTime(0);
-      this._updateTimeDisplay(0);
-    });
+    $('btn-skip-back').addEventListener('click', () => this._stopPlayback());
     $('btn-rewind').addEventListener('click', () => {
-      const t = Math.max(0, this.preview.currentTime - 5);
-      this.preview.currentTime = t;
-      this.timeline.setCurrentTime(t);
+      this._seekTimeline(Math.max(0, this.timeline.currentTime - 5));
     });
     $('btn-play-pause').addEventListener('click', () => this._togglePlay());
-    $('btn-stop').addEventListener('click', () => {
-      this.preview.currentTime = 0;
-      this.preview.togglePlay();  // ensure paused
-      if (this.preview.isPlaying) this.preview.togglePlay();
-      this.timeline.setCurrentTime(0);
-      this._updateTimeDisplay(0);
-      this._updatePlayBtn(false);
-    });
+    $('btn-stop').addEventListener('click', () => this._stopPlayback());
     $('btn-ff').addEventListener('click', () => {
-      const t = this.preview.currentTime + 5;
-      this.preview.currentTime = t;
-      this.timeline.setCurrentTime(t);
+      const mediaDur = this.preview.duration || 0;
+      const clip = this._clipForSync(this.timeline.currentTime);
+      const offset = Number(clip?.startTime) || 0;
+      const maxT = mediaDur > 0 ? offset + mediaDur : this.timeline.currentTime + 5;
+      this._seekTimeline(Math.min(maxT, this.timeline.currentTime + 5));
     });
     $('btn-skip-fwd').addEventListener('click', () => {
-      const t = this.preview.duration;
-      this.preview.currentTime = t;
-      this.timeline.setCurrentTime(t);
+      const mediaDur = this.preview.duration || 0;
+      const clip = this._clipForSync(this.timeline.currentTime);
+      const offset = Number(clip?.startTime) || 0;
+      this._seekTimeline(offset + (mediaDur || 0));
     });
 
     $('btn-zoom-in').addEventListener('click', () => this.timeline.zoomIn());
@@ -185,12 +179,36 @@ class AVEditorApp {
       document.getElementById('preview-panel'),
       {
         i18n: this.i18n,
-        onTimeUpdate: (cur) => {
-          this.timeline.setCurrentTime(cur);
-          this._updateTimeDisplay(cur);
+        onTimeUpdate: (mediaTime) => {
+          // While the user drags the timeline playhead, don't fight their scrub position.
+          if (this.timeline?._isDragging && this.timeline._dragging?.type === 'playhead') {
+            return;
+          }
+          const playing = !!this.preview.isPlaying;
+          this.timeline.followPlayhead = playing;
+          if (playing !== this._lastPreviewPlaying) {
+            this._lastPreviewPlaying = playing;
+            this._updatePlayBtn(playing);
+          }
+          // Map media clock → timeline clock (clip.startTime offset).
+          const clip = this._clipForSync(this.timeline.currentTime);
+          const offset = Number(clip?.startTime) || 0;
+          const timelineTime = offset + Math.max(0, Number(mediaTime) || 0);
+          this.timeline.setCurrentTime(timelineTime, { force: !playing });
+          this._updateTimeDisplay(timelineTime);
         },
-        onEnded: () => this._updatePlayBtn(false),
-        onDurationChange: () => {},
+        onEnded: () => {
+          this._lastPreviewPlaying = false;
+          this.timeline.followPlayhead = false;
+          this._updatePlayBtn(false);
+          this._setStatus('paused');
+        },
+        onDurationChange: (duration) => {
+          const clip = this.preview.currentClip;
+          if (!clip || !duration || !isFinite(duration) || duration <= 0) return;
+          clip.file = { ...(clip.file || {}), duration };
+          this.timeline.syncClipDuration(clip, { duration });
+        },
         onContextMenu: (x, y, file) => this._showPreviewContextMenu(x, y, file),
       }
     );
@@ -199,19 +217,68 @@ class AVEditorApp {
       document.getElementById('timeline-section'),
       {
         i18n: this.i18n,
-        onTimeChange: (t) => {
-          this.preview.currentTime = t;
-          this._updateTimeDisplay(t);
+        onTimeChange: (timelineTime) => {
+          this._seekTimeline(timelineTime, { fromTimeline: true });
         },
-        onClipSelect: () => {},
+        onClipSelect: (clip) => {
+          if (clip) this.preview.applyClipEffects(clip);
+          else this.preview.currentClip = null;
+        },
         onContextMenu: (x, y, clip) => this._showTimelineContextMenu(x, y, clip),
       }
     );
 
     this._setupExportOverlay();
+    this._initInfoPanelResize();
   }
 
   // ── Sidebar width resize ───────────────────────────────────────────────────
+
+  _initInfoPanelResize() {
+    const handle = document.getElementById('sidebar-info-resize-handle');
+    const sidebar = document.getElementById('left-sidebar');
+    if (!handle || !sidebar) return;
+
+    const MIN_H = 100;
+    const MAX_RATIO = 0.8;
+    const STORAGE_KEY = 'av-editor-fileinfo-height';
+
+    const applyHeight = (h) => {
+      const max = Math.round(sidebar.clientHeight * MAX_RATIO);
+      const clamped = Math.min(Math.max(Math.round(h), MIN_H), max);
+      sidebar.style.setProperty('--fileinfo-height', `${clamped}px`);
+      return clamped;
+    };
+
+    const saved = parseInt(localStorage.getItem(STORAGE_KEY) || '', 10);
+    if (saved >= MIN_H) applyHeight(saved);
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startY = e.clientY;
+      const startH = parseInt(sidebar.style.getPropertyValue('--fileinfo-height') || '240', 10);
+
+      handle.classList.add('resizing');
+      document.body.classList.add('resizing-row');
+
+      const onMove = (ev) => {
+        applyHeight(startH - (ev.clientY - startY));
+      };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.body.classList.remove('resizing-row');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        const finalH = sidebar.style.getPropertyValue('--fileinfo-height');
+        const v = parseInt(finalH, 10);
+        if (v) localStorage.setItem(STORAGE_KEY, String(v));
+      };
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  }
 
   _initSidebarResize() {
     const handle = document.getElementById('sidebar-resize-handle');
@@ -263,7 +330,7 @@ class AVEditorApp {
 
   async _newProject() {
     if (this.isDirty) {
-      const confirmed = confirm(this.i18n.t('dialog.newProjectConfirm'));
+      const confirmed = await showConfirm(this.i18n.t('dialog.newProjectConfirm'));
       if (!confirmed) return;
     }
     this.timeline.clips = [];
@@ -280,12 +347,41 @@ class AVEditorApp {
     const filePath = await window.electronAPI.openProjectDialog();
     if (!filePath) return;
     const result = await window.electronAPI.loadProjectFile(filePath);
-    if (!result.ok) { alert('Failed to load project: ' + result.error); return; }
+    if (!result.ok) { await showAlert('Failed to load project: ' + result.error); return; }
     this.timeline.loadState(result.data);
     this.projectPath = filePath;
     this.isDirty = false;
     this._setTitle(filePath.split(/[\\/]/).pop());
     this._setStatus('ready');
+  }
+
+  _buildModifiedSuggestedPath() {
+    const suffix = this.i18n.getLocale() === 'ko' ? '_변경' : '_modified';
+    if (this.projectPath) {
+      const sep = this.projectPath.includes('\\') ? '\\' : '/';
+      const parts = this.projectPath.split(sep);
+      const filename = parts[parts.length - 1];
+      const dotIdx = filename.lastIndexOf('.');
+      const base = dotIdx >= 0 ? filename.slice(0, dotIdx) : filename;
+      const ext  = dotIdx >= 0 ? filename.slice(dotIdx) : '.avp';
+      parts[parts.length - 1] = `${base}${suffix}${ext}`;
+      return parts.join(sep);
+    }
+    const firstClip = this.timeline?.clips?.[0];
+    const baseName = firstClip?.name ? firstClip.name.replace(/\.[^.]+$/, '') : 'untitled';
+    return `${baseName}${suffix}.avp`;
+  }
+
+  async _saveProjectAsModified() {
+    if (!window.electronAPI) return;
+    const suggested = this._buildModifiedSuggestedPath();
+    const filePath = await window.electronAPI.saveProjectDialog(suggested);
+    if (!filePath) return;
+    const state = this.timeline.getState();
+    const result = await window.electronAPI.saveProjectFile(filePath, state);
+    if (!result.ok) { await showAlert('Failed to save: ' + result.error); return; }
+    this._setStatus('savedModified');
+    this._setTitle(filePath.split(/[\\/]/).pop());
   }
 
   async _saveProject(forceDialog = false) {
@@ -297,7 +393,7 @@ class AVEditorApp {
     }
     const state = this.timeline.getState();
     const result = await window.electronAPI.saveProjectFile(filePath, state);
-    if (!result.ok) { alert('Failed to save: ' + result.error); return; }
+    if (!result.ok) { await showAlert('Failed to save: ' + result.error); return; }
     this.projectPath = filePath;
     this.isDirty = false;
     this._setTitle(filePath.split(/[\\/]/).pop());
@@ -307,11 +403,20 @@ class AVEditorApp {
   async _importMedia() {
     if (!window.electronAPI) return;
     const files = await window.electronAPI.openFileDialog();
-    files.forEach(fp => {
+    const AUDIO_EXT = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
+    for (const fp of files) {
       const ext = '.' + fp.split('.').pop().toLowerCase();
       const entry = { name: fp.split(/[\\/]/).pop(), path: fp, extension: ext, size: 0 };
-      this.timeline.addClip(entry, 'v1', 0);
-    });
+      const isAudio = AUDIO_EXT.has(ext);
+      const clip = this.timeline.addClip(entry, isAudio ? 'a1' : 'v1', 0);
+      if (window.electronAPI.getMediaInfo) {
+        window.electronAPI.getMediaInfo(fp).then(meta => {
+          if (meta?.duration && isFinite(Number(meta.duration))) {
+            this.timeline.syncClipDuration(clip, { duration: meta.duration });
+          }
+        }).catch(() => {});
+      }
+    }
     if (files.length) { this.isDirty = true; this._setStatus('ready'); }
   }
 
@@ -330,10 +435,66 @@ class AVEditorApp {
 
   // ── Playback ───────────────────────────────────────────────────────────────
 
+  /** Resolve which clip defines the media↔timeline offset. */
+  _clipForSync(timelineTime = this.timeline?.currentTime ?? 0) {
+    if (this.timeline?.selectedClip) return this.timeline.selectedClip;
+    if (this.preview?.currentClip) return this.preview.currentClip;
+    const clips = this.timeline?.clips || [];
+    const t = Number(timelineTime) || 0;
+    const under = clips.find((c) => t >= c.startTime && t < c.startTime + c.duration);
+    if (under) return under;
+    return clips[0] || null;
+  }
+
+  /**
+   * Seek both preview media and timeline to a timeline-clock position.
+   * @param {number} timelineTime
+   * @param {{ fromTimeline?: boolean }} [opts]
+   */
+  _seekTimeline(timelineTime, { fromTimeline = false } = {}) {
+    const t = Math.max(0, Number(timelineTime) || 0);
+    const clip = this._clipForSync(t);
+    const offset = Number(clip?.startTime) || 0;
+    const mediaDur = this.preview.duration || 0;
+    let mediaTime = t - offset;
+    if (mediaDur > 0) mediaTime = Math.min(Math.max(0, mediaTime), mediaDur);
+    else mediaTime = Math.max(0, mediaTime);
+
+    const syncedTimeline = offset + mediaTime;
+    this.timeline.followPlayhead = false;
+    this.preview.seek(mediaTime);
+    // Prefer the clamped/synced time so playhead never sits past media end.
+    const finalT = fromTimeline && mediaDur <= 0 ? t : syncedTimeline;
+    this.timeline.setCurrentTime(finalT, { force: true });
+    this._updateTimeDisplay(finalT);
+  }
+
+  /** Stop playback and return to the media/clip start (original position). */
+  _stopPlayback() {
+    this.timeline.followPlayhead = false;
+    this._lastPreviewPlaying = false;
+    this.preview.stop(); // media clock → 0, emits onTimeUpdate
+
+    const clip = this._clipForSync(this.timeline.currentTime);
+    const start = Number(clip?.startTime) || 0;
+    // Playhead rests at the clip's timeline start (= media t=0).
+    this.timeline.setCurrentTime(start, { force: true });
+    this.timeline.followPlayhead = true;
+    this.timeline._ensurePlayheadVisible();
+    this.timeline.followPlayhead = false;
+
+    this._updateTimeDisplay(start);
+    this._updatePlayBtn(false);
+    this._setStatus('paused');
+  }
+
   _togglePlay() {
     this.preview.togglePlay();
-    this._updatePlayBtn(this.preview.isPlaying);
-    this._setStatus(this.preview.isPlaying ? 'playing' : 'paused');
+    const playing = this.preview.isPlaying;
+    this._lastPreviewPlaying = playing;
+    this.timeline.followPlayhead = playing;
+    this._updatePlayBtn(playing);
+    this._setStatus(playing ? 'playing' : 'paused');
   }
 
   _updatePlayBtn(playing) {
@@ -372,7 +533,7 @@ class AVEditorApp {
   _setLanguage(locale) {
     this.i18n.setLocale(locale);
     const langBtn = document.getElementById('btn-lang');
-    if (langBtn) langBtn.textContent = locale.toUpperCase();
+    if (langBtn) langBtn.textContent = locale === 'en' ? 'KO' : 'EN';
     this._applyTooltips();
     this.fileTree.updateTranslations();
     this.fileInfo.updateTranslations();
@@ -392,16 +553,44 @@ class AVEditorApp {
     this.preview.loadFile(entry);
     this._setStatus('ready');
 
-    // Enrich with media metadata when available
+    // Enrich with media metadata when available; cache duration on entry for later timeline use
     try {
       const meta = await window.electronAPI.getMediaInfo?.(entry.path);
-      if (meta) this.fileInfo.showMediaMetadata(meta);
+      if (meta) {
+        this.fileInfo.showMediaMetadata(meta);
+        if (meta.duration && isFinite(meta.duration)) entry.duration = meta.duration;
+      }
     } catch { /* ignore */ }
   }
 
   _onFileDblClick(entry) {
     this.preview.loadFile(entry);
-    this.timeline.addClip(entry, 'v1');
+    const AUDIO_EXT = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
+    const isAudio = AUDIO_EXT.has((entry.extension || '').toLowerCase());
+    const clip = this.timeline.addClip(entry, isAudio ? 'a1' : 'v1');
+    this.preview.applyClipEffects(clip);
+    const mediaDur = this.preview.mediaEl?.duration;
+    const syncDur = (mediaDur && isFinite(mediaDur) && mediaDur > 0) ? mediaDur : entry?.duration;
+    if (syncDur) {
+      this.timeline.syncClipDuration(clip, { duration: syncDur });
+    } else if (this.preview.mediaEl) {
+      const el = this.preview.mediaEl;
+      const onDuration = () => {
+        if (el.duration && isFinite(el.duration) && el.duration > 0) {
+          this.timeline.syncClipDuration(clip, { duration: el.duration });
+        }
+        el.removeEventListener('durationchange', onDuration);
+      };
+      el.addEventListener('durationchange', onDuration);
+    }
+    if (window.electronAPI?.getMediaInfo && entry.path) {
+      window.electronAPI.getMediaInfo(entry.path).then(meta => {
+        if (meta?.duration && isFinite(Number(meta.duration)) && Number(meta.duration) > 0) {
+          entry.duration = Number(meta.duration);
+          this.timeline.syncClipDuration(clip, { duration: entry.duration });
+        }
+      }).catch(() => {});
+    }
     this.isDirty = true;
   }
 
@@ -490,13 +679,7 @@ class AVEditorApp {
         icon: Icons.stop,
         label: t('toolbar.stop'),
         disabled: !hasMedia,
-        action: () => {
-          this.preview.currentTime = 0;
-          if (this.preview.isPlaying) this.preview.togglePlay();
-          this.timeline.setCurrentTime(0);
-          this._updateTimeDisplay(0);
-          this._updatePlayBtn(false);
-        },
+        action: () => this._stopPlayback(),
       },
       {
         icon: (this.preview.isMuted || this.preview.volume <= 0) ? Icons.mute : Icons.volume,
@@ -663,7 +846,8 @@ class AVEditorApp {
         case 'new-project':        this._newProject(); break;
         case 'open-project':       this._openProject(); break;
         case 'save-project':       this._saveProject(); break;
-        case 'save-project-as':    this._saveProject(true); break;
+        case 'save-project-as':       this._saveProject(true); break;
+        case 'save-project-modified': this._saveProjectAsModified(); break;
         case 'import-media':       this._importMedia(); break;
         case 'export':             this._export(); break;
         case 'undo':               this._undo(); break;
@@ -714,7 +898,11 @@ class AVEditorApp {
         switch (e.key) {
           case 'n': e.preventDefault(); this._newProject(); break;
           case 'o': e.preventDefault(); this._openProject(); break;
-          case 's': e.preventDefault(); e.shiftKey ? this._saveProject(true) : this._saveProject(); break;
+          case 's': e.preventDefault();
+            if (e.altKey) this._saveProjectAsModified();
+            else if (e.shiftKey) this._saveProject(true);
+            else this._saveProject();
+            break;
           case 'i': e.preventDefault(); this._importMedia(); break;
           case 'e': e.preventDefault(); this._export(); break;
           case 'b': e.preventDefault(); this.timeline.splitSelectedClip(); break;
@@ -741,7 +929,7 @@ class AVEditorApp {
           <div class="export-progress-bar-fill" id="export-progress-fill" style="width:0%"></div>
         </div>
         <div id="export-progress-label" style="font-size:12px;color:var(--text-secondary)">0%</div>
-        <button class="export-cancel-btn" id="export-cancel-btn">${this.i18n.t('dialog.cancel')}</button>
+        <button class="export-cancel-btn" id="export-cancel-btn">${Icons.close}<span>${this.i18n.t('dialog.cancel')}</span></button>
       </div>
     `;
     document.getElementById('export-cancel-btn')?.addEventListener('click', () => {

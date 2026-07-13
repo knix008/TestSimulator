@@ -72,6 +72,7 @@ html, body {
   --toolbar-height:    44px;
   --explorer-width:    280px;
   --fileinfo-width:    240px;
+  --fileinfo-height:   240px;
   --timeline-height:   220px;
   --statusbar-height:  28px;
 
@@ -290,7 +291,7 @@ body.theme-light {
 /* ── Left sidebar: file tree + file info ─────────────────────── */
 #left-sidebar {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(140px, 32%);
+  grid-template-rows: minmax(0, 1fr) 6px var(--fileinfo-height);
   grid-template-columns: minmax(0, 1fr);
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
@@ -329,6 +330,30 @@ body.resizing-col {
 }
 body.resizing-col * {
   cursor: col-resize !important;
+  user-select: none !important;
+}
+
+#sidebar-info-resize-handle {
+  height: 6px;
+  background: var(--border);
+  cursor: row-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  position: relative;
+  z-index: 10;
+}
+#sidebar-info-resize-handle:hover,
+#sidebar-info-resize-handle.resizing {
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+body.resizing-row {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+body.resizing-row * {
+  cursor: row-resize !important;
   user-select: none !important;
 }
 
@@ -869,7 +894,21 @@ body.resizing-col * {
   flex-shrink: 0;
   flex-grow: 0;
   min-height: 40px;
-  z-index: 1;
+  z-index: 2;
+  overflow: visible;
+  position: relative;
+}
+
+/* Preview control tooltips: show above the bar (into the viewport) */
+.preview-controls [data-tooltip]:hover::after {
+  bottom: calc(100% + 6px);
+  top: auto;
+  z-index: 10000;
+}
+.preview-controls [data-tooltip]:hover::before {
+  bottom: calc(100% + 2px);
+  top: auto;
+  z-index: 10000;
 }
 
 .preview-seek-bar {
@@ -902,6 +941,71 @@ body.resizing-col * {
   text-align: center;
   letter-spacing: 0.5px;
   flex-shrink: 0;
+}
+
+.preview-effects-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.preview-effect-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preview-effect-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.preview-effect-presets {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.preview-effect-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.preview-effect-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.preview-effect-slider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.preview-effect-slider span {
+  font-size: 10px;
+  color: var(--text-secondary);
+  width: 28px;
+}
+
+.preview-effect-slider input {
+  width: 100%;
+  accent-color: var(--accent);
 }
 
 .preview-ctrl-btn {
@@ -971,9 +1075,9 @@ body.resizing-col * {
   overflow: hidden;
   min-height: 0;
   min-width: 0;
-  grid-row: 2;
+  grid-row: 3;
   grid-column: 1;
-  border-top: 1px solid var(--border);
+  border-top: none;
 }
 
 .file-info-header {
@@ -1049,6 +1153,7 @@ body.resizing-col * {
   overflow: hidden;
   min-height: 0;
   height: 100%;
+  position: relative;
 }
 
 .timeline-header {
@@ -1060,6 +1165,21 @@ body.resizing-col * {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   height: 30px;
+  overflow: visible;
+  position: relative;
+  z-index: 5;
+}
+
+/* Timeline header tooltips: show below so they are not clipped */
+.timeline-header [data-tooltip]:hover::after {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+.timeline-header [data-tooltip]:hover::before {
+  bottom: auto;
+  top: calc(100% + 2px);
+  border-top-color: transparent;
+  border-bottom-color: var(--border);
 }
 
 .timeline-title {
@@ -1109,25 +1229,31 @@ body.resizing-col * {
 
 #timeline-canvas-wrapper {
   flex: 1;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   position: relative;
 }
 
 #timeline-canvas {
   display: block;
   cursor: crosshair;
+  min-height: 100%;
 }
 
-#timeline-scroll {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+#timeline-canvas-wrapper::-webkit-scrollbar {
   height: 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
 }
-#timeline-scroll-inner { height: 1px; }
+#timeline-canvas-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+#timeline-canvas-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+  border: 2px solid var(--bg-app);
+}
+#timeline-canvas-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
 
 .timeline-empty-msg {
   position: absolute;
@@ -1387,3 +1513,99 @@ body.resizing-col * {
     --fileinfo-width: 200px;
   }
 }
+
+/* ── Custom dialog ───────────────────────────────────────────── */
+.custom-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 30000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 0.15s;
+  outline: none;
+}
+.custom-dialog-overlay.visible { opacity: 1; }
+.custom-dialog-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 24px 28px 20px;
+  min-width: 300px;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transform: translateY(4px);
+  transition: transform 0.15s;
+}
+.custom-dialog-overlay.visible .custom-dialog-card { transform: translateY(0); }
+.custom-dialog-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.custom-dialog-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.custom-dialog-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--warning);
+  display: inline-flex;
+  align-items: center;
+  margin-top: 1px;
+}
+.custom-dialog-icon svg { width: 20px; height: 20px; }
+.custom-dialog-message { flex: 1; }
+.custom-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.custom-dialog-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.12s;
+}
+.custom-dialog-btn svg { width: 13px; height: 13px; }
+.custom-dialog-btn:hover { background: var(--bg-surface-hover); }
+.custom-dialog-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.custom-dialog-btn.primary:hover { filter: brightness(1.1); }
+.custom-dialog-btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.custom-dialog-btn.danger:hover { filter: brightness(1.1); }
+
+/* ── Export cancel button with icon ──────────────────────────── */
+.export-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.export-cancel-btn svg { width: 13px; height: 13px; }

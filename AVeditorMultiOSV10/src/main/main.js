@@ -3,9 +3,85 @@ const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } = require('ele
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const mediaInfoModule = require('mediainfo.js');
 const { createMenu, registerMenuIpc, prepareMenuIcons } = require('./menu');
 
+const mediaInfoFactory = mediaInfoModule.default || mediaInfoModule.mediaInfoFactory || mediaInfoModule;
+const mediaInfoCache = new Map();
+
 let mainWindow = null;
+
+function toFiniteNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function getTrackCodec(track) {
+  if (!track) return null;
+  const parts = [track.Format, track.Format_Profile || track.Format_AdditionalFeatures].filter(Boolean);
+  return parts.length ? parts.join(' ') : null;
+}
+
+function normalizeMediaInfo(raw, stats, ext) {
+  const tracks = raw?.media?.track || [];
+  const general = tracks.find((track) => track['@type'] === 'General') || null;
+  const video = tracks.find((track) => track['@type'] === 'Video') || null;
+  const audioTracks = tracks.filter((track) => track['@type'] === 'Audio');
+  const audio = audioTracks[0] || null;
+
+  return {
+    name: path.basename(stats.path || ''),
+    path: stats.path,
+    size: stats.size,
+    modified: stats.mtime.toISOString(),
+    created: stats.birthtime.toISOString(),
+    extension: ext,
+    isVideo: !!video,
+    isAudio: !video && !!audio,
+    containerFormat: general?.Format || null,
+    duration: toFiniteNumber(video?.Duration ?? audio?.Duration ?? general?.Duration),
+    width: toFiniteNumber(video?.Width),
+    height: toFiniteNumber(video?.Height),
+    fps: toFiniteNumber(video?.FrameRate ?? general?.FrameRate),
+    sampleRate: toFiniteNumber(audio?.SamplingRate),
+    channels: toFiniteNumber(audio?.Channels),
+    bitrate: toFiniteNumber(video?.BitRate ?? audio?.BitRate ?? general?.OverallBitRate),
+    overallBitrate: toFiniteNumber(general?.OverallBitRate),
+    codec: getTrackCodec(video || audio),
+    videoCodec: getTrackCodec(video),
+    audioCodec: getTrackCodec(audio),
+  };
+}
+
+async function readMediaMetadata(filePath, stats, ext) {
+  const cacheKey = `${filePath}:${stats.size}:${stats.mtimeMs}`;
+  if (mediaInfoCache.has(cacheKey)) return mediaInfoCache.get(cacheKey);
+
+  let fileHandle;
+  let mediaInfo;
+
+  try {
+    fileHandle = await fs.promises.open(filePath, 'r');
+    mediaInfo = await mediaInfoFactory({
+      format: 'object',
+      locateFile: () => require.resolve('mediainfo.js/MediaInfoModule.wasm'),
+    });
+
+    const readChunk = async (size, offset) => {
+      const buffer = new Uint8Array(size);
+      await fileHandle.read(buffer, 0, size, offset);
+      return buffer;
+    };
+
+    const raw = await mediaInfo.analyzeData(() => stats.size, readChunk);
+    const normalized = normalizeMediaInfo(raw, { ...stats, path: filePath }, ext);
+    mediaInfoCache.set(cacheKey, normalized);
+    return normalized;
+  } finally {
+    if (fileHandle) await fileHandle.close();
+    if (mediaInfo) mediaInfo.close();
+  }
+}
 
 function resolveAppIcon() {
   const iconsDir = path.join(__dirname, '../../assets/icons');
@@ -208,7 +284,7 @@ ipcMain.handle('get-media-info', async (_event, filePath) => {
     const ext = path.extname(filePath).toLowerCase();
     const VIDEO_EXT = new Set(['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.ts', '.mts']);
     const AUDIO_EXT = new Set(['.mp3', '.wav', '.aac', '.flac', '.ogg', '.m4a', '.wma', '.opus', '.aiff']);
-    return {
+    const basicInfo = {
       name: path.basename(filePath),
       path: filePath,
       size: stats.size,
@@ -218,6 +294,14 @@ ipcMain.handle('get-media-info', async (_event, filePath) => {
       isVideo: VIDEO_EXT.has(ext),
       isAudio: AUDIO_EXT.has(ext),
     };
+
+    if (!basicInfo.isVideo && !basicInfo.isAudio) return basicInfo;
+
+    try {
+      return await readMediaMetadata(filePath, stats, ext);
+    } catch {
+      return basicInfo;
+    }
   } catch { return null; }
 });
 
@@ -268,9 +352,9 @@ ipcMain.handle('open-folder-dialog', async () => {
   return canceled ? null : filePaths[0];
 });
 
-ipcMain.handle('save-project-dialog', async () => {
+ipcMain.handle('save-project-dialog', async (_event, defaultPath) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: 'untitled.avp',
+    defaultPath: defaultPath || 'untitled.avp',
     filters: [{ name: 'AV Editor Project', extensions: ['avp'] }],
   });
   return canceled ? null : filePath;
