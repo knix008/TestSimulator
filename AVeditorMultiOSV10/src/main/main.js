@@ -12,16 +12,27 @@ const mediaInfoCache = new Map();
 let mainWindow = null;
 let dragIcon = null;
 
-/** Small PNG used by native file drag-out (Windows requires an icon). */
+/** Small PNG used by native file drag-out (Windows requires a non-empty icon). */
 function getDragIcon() {
   if (dragIcon && !dragIcon.isEmpty()) return dragIcon;
-  // 32×32 simple document glyph
-  dragIcon = nativeImage.createFromDataURL(
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAlElEQVRYR+2Wuw3AMAhE3ykYp/sP4Q3SRfwkSuTIdaDgFQ8+cA8gIiJhZg/gCdwG8AEewCvA+gPwA+4ALsATuAAb8AWwABvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8AWwAFvwBbAAW/AFsABb8OcFvgE7sxF/0m8QlwAAAABJRU5ErkJggg=='
-  );
-  if (dragIcon.isEmpty()) {
-    dragIcon = nativeImage.createEmpty();
+  const candidates = [
+    path.join(__dirname, '../../assets/icons/drag-32.png'),
+    path.join(__dirname, '../../assets/icons/icon.png'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (!fs.existsSync(p)) continue;
+      const img = nativeImage.createFromPath(p);
+      if (img && !img.isEmpty()) {
+        dragIcon = img.resize({ width: 32, height: 32 });
+        return dragIcon;
+      }
+    } catch { /* try next */ }
   }
+  // Valid 1×1 PNG fallback
+  dragIcon = nativeImage.createFromDataURL(
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  );
   return dragIcon;
 }
 
@@ -475,16 +486,78 @@ ipcMain.handle('delete-media-file', async (_event, targetPath) => {
   }
 });
 
-/** Native OS drag-out from the file panel (must be sync during dragstart). */
-ipcMain.on('start-drag', (event, filePath) => {
-  if (!filePath || typeof filePath !== 'string') return;
+/**
+ * Copy files into a destination directory (unique names on conflict).
+ * @returns {{ ok: boolean, paths?: string[], error?: string }}
+ */
+ipcMain.handle('copy-files-to-dir', async (_event, srcPaths, destDir) => {
+  if (!destDir || typeof destDir !== 'string') {
+    return { ok: false, error: 'Invalid destination' };
+  }
+  const list = Array.isArray(srcPaths) ? srcPaths.filter((p) => typeof p === 'string' && p) : [];
+  if (!list.length) return { ok: false, error: 'No files' };
+
+  let destStat;
   try {
-    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return;
-    event.sender.startDrag({
+    destStat = await fs.promises.stat(destDir);
+  } catch {
+    return { ok: false, error: 'Destination not found' };
+  }
+  if (!destStat.isDirectory()) {
+    return { ok: false, error: 'Destination is not a directory' };
+  }
+
+  const outPaths = [];
+  try {
+    for (const src of list) {
+      let srcStat;
+      try {
+        srcStat = await fs.promises.stat(src);
+      } catch {
+        continue;
+      }
+      if (!srcStat.isFile()) continue;
+
+      const base = path.basename(src);
+      let destPath = path.join(destDir, base);
+      if (path.resolve(src) === path.resolve(destPath)) {
+        outPaths.push(destPath);
+        continue;
+      }
+
+      const ext = path.extname(base);
+      const stem = path.basename(base, ext);
+      let n = 1;
+      while (fs.existsSync(destPath)) {
+        destPath = path.join(destDir, `${stem}-${n}${ext}`);
+        n += 1;
+      }
+      await fs.promises.copyFile(src, destPath);
+      outPaths.push(destPath);
+    }
+    return { ok: true, paths: outPaths };
+  } catch (e) {
+    return { ok: false, error: e.message, paths: outPaths };
+  }
+});
+
+/** Native OS drag-out from the file panel (must complete during dragstart). */
+ipcMain.on('start-drag', (event, filePath) => {
+  const ok = beginNativeDrag(event.sender, filePath);
+  event.returnValue = ok;
+});
+
+function beginNativeDrag(webContents, filePath) {
+  if (!filePath || typeof filePath !== 'string') return false;
+  try {
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
+    webContents.startDrag({
       file: filePath,
       icon: getDragIcon(),
     });
+    return true;
   } catch (err) {
     console.warn('[start-drag]', err.message);
+    return false;
   }
-});
+}

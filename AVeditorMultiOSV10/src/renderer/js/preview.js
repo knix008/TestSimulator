@@ -830,9 +830,21 @@ export class Preview {
 
   loadBrowserFile(file) {
     this._stopPlayheadLoop();
-    const url = URL.createObjectURL(file);
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-    const entry = { name: file.name, path: null, extension: ext, size: file.size };
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    let diskPath = null;
+    try {
+      diskPath = window.electronAPI?.getPathForFile?.(file) || file.path || null;
+    } catch {
+      diskPath = file.path || null;
+    }
+
+    const entry = {
+      name: file.name,
+      path: diskPath,
+      extension: ext,
+      size: file.size,
+      file: diskPath ? undefined : file,
+    };
     this.currentFile = entry;
 
     const isAudio = AUDIO_EXT.has(ext);
@@ -846,7 +858,13 @@ export class Preview {
     this.mediaEl = isAudio ? this.audioEl : this.videoEl;
     this.mediaEl.style.display = 'block';
     this._clearInactiveMedia(this.mediaEl);
-    this.mediaEl.src = url;
+
+    if (diskPath && window.electronAPI?.isElectron) {
+      this.mediaEl.src = `file://${diskPath.replace(/\\/g, '/')}`;
+    } else {
+      this.mediaEl.src = URL.createObjectURL(file);
+    }
+
     if (isAudio) {
       this._ensureAudioGraph();
       if (this.audioContext?.state === 'suspended') this.audioContext.resume().catch(() => {});

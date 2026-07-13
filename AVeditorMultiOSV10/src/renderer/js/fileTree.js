@@ -68,7 +68,6 @@ export class FileTree {
           // Must stay synchronous inside the user gesture.
           this._fileInput?.click();
         });
-      this._bindLibraryDrop();
     } else {
       this._container.querySelector('#ft-open-folder-btn')
         ?.addEventListener('click', async () => {
@@ -79,6 +78,9 @@ export class FileTree {
           }
         });
     }
+
+    // OS / Explorer file drops work in both web and Electron.
+    this._bindFileDrop();
 
     this._container.querySelector('#ft-drive-select')
       ?.addEventListener('change', async (e) => {
@@ -147,37 +149,168 @@ export class FileTree {
     }
   }
 
-  _bindLibraryDrop() {
-    const scroll = this._scrollEl();
-    if (!scroll) return;
-    const setOver = (on) => scroll.classList.toggle('ft-drop-over', on);
+  _bindFileDrop() {
+    // Whole panel accepts OS drops (header + tree body).
+    const el = this._container;
+    if (!el || el.dataset.dropBound === '1') return;
+    el.dataset.dropBound = '1';
 
-    scroll.addEventListener('dragover', (e) => {
+    const setOver = (on) => {
+      el.classList.toggle('ft-drop-over', on);
+      this._scrollEl()?.classList.toggle('ft-drop-over', on);
+    };
+
+    el.addEventListener('dragover', (e) => {
       if (![...e.dataTransfer.types].includes('Files')) return;
       e.preventDefault();
+      e.stopPropagation();
       e.dataTransfer.dropEffect = 'copy';
       setOver(true);
     });
-    scroll.addEventListener('dragleave', (e) => {
-      if (!scroll.contains(e.relatedTarget)) setOver(false);
+    el.addEventListener('dragleave', (e) => {
+      if (!el.contains(e.relatedTarget)) setOver(false);
     });
-    scroll.addEventListener('drop', async (e) => {
+    el.addEventListener('drop', async (e) => {
       e.preventDefault();
+      e.stopPropagation();
       setOver(false);
       const files = Array.from(e.dataTransfer.files || []);
       if (!files.length) return;
-      const paths = await window.electronAPI.addMediaFiles?.(files);
-      if (paths?.length) {
-        const home = await window.electronAPI.getHomeDir?.() || '/library';
-        await this.revealPath(home);
-        this._persistDir(home);
+
+      // Web: import into the session Library.
+      if (window.electronAPI?.isWeb) {
+        const paths = await window.electronAPI.addMediaFiles?.(files);
+        if (paths?.length) {
+          const home = await window.electronAPI.getHomeDir?.() || '/library';
+          await this.revealPath(home);
+          this._persistDir(home);
+          const first = paths[0];
+          const name = first.split('/').pop();
+          const ext = '.' + (name.split('.').pop() || '').toLowerCase();
+          this.setSelected(first);
+          if (this._onSelect) {
+            this._onSelect({
+              name,
+              path: first,
+              extension: ext,
+              size: 0,
+              isDirectory: false,
+              isMedia: true,
+            });
+          }
+        }
+        return;
       }
+
+      // Electron: reveal the dropped file/folder on disk in the tree.
+      await this._openDroppedDiskItems(files);
     });
+  }
+
+  async _openDroppedDiskItems(files) {
+    const api = window.electronAPI;
+    if (!api) return;
+
+    const MEDIA = new Set([
+      '.mp4','.avi','.mov','.mkv','.webm','.flv','.wmv','.m4v','.ts','.mts',
+      '.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff',
+    ]);
+
+    const srcMediaPaths = [];
+    let firstDir = null;
+
+    for (const file of files) {
+      let diskPath = null;
+      try {
+        diskPath = api.getPathForFile?.(file) || file.path || null;
+      } catch { diskPath = file.path || null; }
+      if (!diskPath) continue;
+
+      const info = await api.getFileInfo?.(diskPath).catch(() => null);
+      if (info?.isDirectory) {
+        if (!firstDir) firstDir = diskPath;
+        continue;
+      }
+
+      const ext = (info?.extension || '').toLowerCase()
+        || ('.' + (file.name.split('.').pop() || '')).toLowerCase();
+      if (!MEDIA.has(ext)) continue;
+      srcMediaPaths.push(diskPath);
+    }
+
+    // Folder-only drop: open that folder in the tree.
+    if (firstDir && !srcMediaPaths.length) {
+      await this.revealPath(firstDir);
+      this._persistDir(firstDir);
+      return;
+    }
+
+    if (!srcMediaPaths.length) return;
+
+    // Copy into the currently open directory (not the file's original folder).
+    const destDir = await this._resolveDropTargetDir();
+    if (!destDir || !api.copyFilesToDir) {
+      // Fallback: just select the source file in place.
+      const src = srcMediaPaths[0];
+      const parent = src.replace(/[\\/][^\\/]+$/, '') || src;
+      await this.revealPath(parent);
+      this._persistDir(parent);
+      this.setSelected(src);
+      return;
+    }
+
+    const result = await api.copyFilesToDir(srcMediaPaths, destDir);
+    if (!result?.ok || !result.paths?.length) {
+      console.warn('[fileTree] copy drop failed:', result?.error);
+      return;
+    }
+
+    await this.revealPath(destDir);
+    this._persistDir(destDir);
+    await this.refresh();
+
+    const firstPath = result.paths[0];
+    const info = await api.getFileInfo?.(firstPath).catch(() => null);
+    const entry = {
+      name: info?.name || firstPath.split(/[\\/]/).pop(),
+      path: firstPath,
+      extension: info?.extension || ('.' + (firstPath.split('.').pop() || '')).toLowerCase(),
+      size: info?.size || 0,
+      isDirectory: false,
+      isMedia: true,
+    };
+    this.setSelected(firstPath);
+    if (this._onSelect) this._onSelect(entry);
+  }
+
+  /** Directory that should receive dropped files (current tree focus). */
+  async _resolveDropTargetDir() {
+    const api = window.electronAPI;
+    let target = this._focusPath || this.getRoot?.() || null;
+    if (!target) {
+      try { target = await api.getHomeDir?.(); } catch { target = null; }
+    }
+    if (!target) return null;
+
+    const info = await api.getFileInfo?.(target).catch(() => null);
+    if (info?.isDirectory) return target;
+
+    // Focus is a file → use its parent folder.
+    const parent = String(target).replace(/[\\/][^\\/]+$/, '');
+    if (parent && parent !== target) {
+      const parentInfo = await api.getFileInfo?.(parent).catch(() => null);
+      if (parentInfo?.isDirectory) return parent;
+    }
+    return null;
   }
 
   _bindMediaDrag(row, entry) {
     row.draggable = true;
     row.classList.add('is-draggable');
+    row.title = (row.title ? `${row.title}\n` : '')
+      + (window.electronAPI?.isWeb
+        ? 'Drag to export / drop onto timeline'
+        : 'Drag to Explorer or timeline');
 
     row.addEventListener('dragstart', (ev) => {
       const payload = {
@@ -199,10 +332,14 @@ export class FileTree {
       ev.dataTransfer.effectAllowed = 'copyMove';
       row.classList.add('dragging');
 
-      // Electron: native OS drag-out (Explorer / desktop). Requires preventDefault.
+      // Electron: native OS drag-out (Explorer / desktop). Requires preventDefault + sync IPC.
       if (window.electronAPI?.isElectron && entry.path && window.electronAPI.startDrag) {
         ev.preventDefault();
-        window.electronAPI.startDrag(entry.path);
+        const ok = window.electronAPI.startDrag(entry.path);
+        if (!ok) {
+          // Fall back to HTML5 payload for in-app drops only.
+          console.warn('[fileTree] native startDrag failed for', entry.path);
+        }
         return;
       }
 

@@ -439,7 +439,8 @@ body.resizing-row * {
 .ft-add-btn { color: var(--accent, #5b9fd4); }
 .ft-add-btn:hover { color: var(--text-primary); }
 
-.ft-scroll.ft-drop-over {
+.ft-scroll.ft-drop-over,
+#file-tree-panel.ft-drop-over {
   outline: 1px dashed var(--accent, #5b9fd4);
   outline-offset: -4px;
   background: color-mix(in srgb, var(--accent, #5b9fd4) 8%, transparent);

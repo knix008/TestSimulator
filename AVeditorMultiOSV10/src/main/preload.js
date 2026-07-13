@@ -50,8 +50,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   showItemInFolder: (targetPath) => ipcRenderer.invoke('show-item-in-folder', targetPath),
   deleteMediaFile: (targetPath) => ipcRenderer.invoke('delete-media-file', targetPath),
-  /** Begin native OS file drag (call synchronously from dragstart). */
-  startDrag: (filePath) => { ipcRenderer.send('start-drag', filePath); },
+  copyFilesToDir: (srcPaths, destDir) => ipcRenderer.invoke('copy-files-to-dir', srcPaths, destDir),
+  /** Begin native OS file drag (must be sync during dragstart). */
+  startDrag: (filePath) => {
+    try {
+      return ipcRenderer.sendSync('start-drag', filePath);
+    } catch (err) {
+      console.warn('[startDrag]', err);
+      return false;
+    }
+  },
   getPathForFile: (file) => {
     try {
       const { webUtils } = require('electron');
