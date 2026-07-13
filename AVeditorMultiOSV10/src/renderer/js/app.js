@@ -6,6 +6,9 @@ import { Preview } from './preview.js';
 import { Timeline } from './timeline.js';
 import { ContextMenu } from './contextMenu.js';
 import { initDialog, showConfirm, showAlert } from './dialog.js';
+import { showOllamaSettingsDialog, loadOllamaSettings, isLikelyVlmModel } from './ollamaSettings.js';
+import { SceneAnalyzer } from './sceneAnalyzer.js';
+import { showAnalysisViewer } from './analysisViewer.js';
 
 const STORAGE_THEME = 'av-editor-theme';
 const STORAGE_LOCALE = 'av-editor-locale';
@@ -59,6 +62,9 @@ class AVEditorApp {
       <div class="toolbar-group">
         <button class="toolbar-btn" id="btn-import" data-i18n-tooltip="toolbar.import">${Icons.import}</button>
         <button class="toolbar-btn" id="btn-export" data-i18n-tooltip="toolbar.export">${Icons.export}</button>
+        <button class="toolbar-btn" id="btn-analyze" data-i18n-tooltip="toolbar.analyzeScenes">${Icons.sparkles}</button>
+        <button class="toolbar-btn" id="btn-view-analysis" data-i18n-tooltip="toolbar.viewAnalysis">${Icons.list}</button>
+        <button class="toolbar-btn" id="btn-ollama-settings" data-i18n-tooltip="toolbar.ollamaSettings">${Icons.settings}</button>
       </div>
       <div class="toolbar-separator"></div>
       <!-- Edit -->
@@ -121,6 +127,9 @@ class AVEditorApp {
     $('btn-save-modified').addEventListener('click', () => this._saveProjectAsModified());
     $('btn-import').addEventListener('click', () => this._importMedia());
     $('btn-export').addEventListener('click', () => this._export());
+    $('btn-analyze').addEventListener('click', () => this._analyzeScenes());
+    $('btn-view-analysis').addEventListener('click', () => this._viewAnalysisResults());
+    $('btn-ollama-settings').addEventListener('click', () => this._openOllamaSettings());
     $('btn-undo').addEventListener('click', () => this._undo());
     $('btn-redo').addEventListener('click', () => this._redo());
     $('btn-split').addEventListener('click', () => this.timeline.splitSelectedClip());
@@ -247,6 +256,8 @@ class AVEditorApp {
     );
 
     this._setupExportOverlay();
+    this._setupAnalyzeOverlay();
+    this.sceneAnalyzer = new SceneAnalyzer({ preview: this.preview, i18n: this.i18n });
     this._initInfoPanelResize();
   }
 
@@ -790,6 +801,11 @@ class AVEditorApp {
         shortcut: 'Dbl-click',
         action: () => this._onFileDblClick(entry),
       },
+      !isDir && isMedia && {
+        icon: Icons.sparkles,
+        label: t('context.analyzeScenes'),
+        action: () => this._analyzeScenesFromEntry(entry),
+      },
       isDir && {
         icon: Icons.folderOpen,
         label: t('context.revealInTree'),
@@ -913,6 +929,12 @@ class AVEditorApp {
         action: () => this.preview.setViewMode('actual'),
       },
       { separator: true },
+      {
+        icon: Icons.sparkles,
+        label: t('context.analyzeScenes'),
+        disabled: !hasMedia,
+        action: () => this._analyzeScenes(),
+      },
       file && {
         icon: Icons.plus,
         label: t('context.addToTimeline'),
@@ -1035,6 +1057,9 @@ class AVEditorApp {
         case 'save-project-modified': this._saveProjectAsModified(); break;
         case 'import-media':       this._importMedia(); break;
         case 'export':             this._export(); break;
+        case 'analyze-scenes':     this._analyzeScenes(); break;
+        case 'view-analysis':      this._viewAnalysisResults(); break;
+        case 'ollama-settings':    this._openOllamaSettings(); break;
         case 'undo':               this._undo(); break;
         case 'redo':               this._redo(); break;
         case 'split-clip':         this.timeline.splitSelectedClip(); break;
@@ -1090,6 +1115,14 @@ class AVEditorApp {
             break;
           case 'i': e.preventDefault(); this._importMedia(); break;
           case 'e': e.preventDefault(); this._export(); break;
+          case 'A':
+          case 'a':
+            if (e.shiftKey) { e.preventDefault(); this._analyzeScenes(); }
+            break;
+          case 'V':
+          case 'v':
+            if (e.shiftKey) { e.preventDefault(); this._viewAnalysisResults(); }
+            break;
           case 'b': e.preventDefault(); this.timeline.splitSelectedClip(); break;
           case 't': e.preventDefault(); this._toggleTheme(); break;
           case '=': case '+': this.timeline.zoomIn(); break;
@@ -1132,6 +1165,178 @@ class AVEditorApp {
 
   _hideExportOverlay() {
     const el = document.getElementById('export-overlay');
+    if (el) el.classList.remove('visible');
+  }
+
+  // ── Ollama scene analysis ─────────────────────────────────────────────────
+
+  async _openOllamaSettings() {
+    await showOllamaSettingsDialog(this.i18n);
+  }
+
+  async _viewAnalysisResults({ filePath = null, pickIfMissing = true } = {}) {
+    let path = filePath || this._lastAnalysisPath || null;
+
+    if (!path && pickIfMissing) {
+      path = await window.electronAPI?.openAnalysisDialog?.();
+      if (!path) return;
+    }
+
+    if (!path) {
+      await showAlert(this.i18n.t('ollama.viewerNoFile'));
+      return;
+    }
+
+    try {
+      await showAnalysisViewer({
+        i18n: this.i18n,
+        filePath: path,
+        onSeek: (start) => {
+          if (!this.preview?.mediaEl) return;
+          const offset = Number(this.preview.currentClip?.startTime) || 0;
+          this._seekTimeline(offset + Math.max(0, Number(start) || 0));
+        },
+        onOpenOther: () => this._viewAnalysisResults({ filePath: null, pickIfMissing: true }),
+      });
+      this._lastAnalysisPath = path;
+    } catch (err) {
+      await showAlert(err?.message || this.i18n.t('ollama.viewerLoadFailed'));
+    }
+  }
+
+  /**
+   * Load a file-panel entry into preview (if needed), then run scene analysis.
+   */
+  async _analyzeScenesFromEntry(entry) {
+    if (!entry || entry.isDirectory || entry.isDrive) return;
+    if (this.sceneAnalyzer?.running) return;
+
+    const same = this.preview?.currentFile?.path && entry.path
+      && this.preview.currentFile.path === entry.path
+      && this.preview.mediaEl;
+
+    if (!same) {
+      await this._onFileSelect(entry);
+      await this._waitPreviewMetadata(8000);
+    } else {
+      await this._waitPreviewMetadata(2000);
+    }
+
+    if (!this.preview.mediaEl) {
+      await showAlert(this.i18n.t('ollama.noMedia'));
+      return;
+    }
+
+    const dur = Number(this.preview.mediaEl.duration);
+    if (!Number.isFinite(dur) || dur <= 0) {
+      await showAlert(this.i18n.t('ollama.noDuration'));
+      return;
+    }
+
+    await this._analyzeScenes();
+  }
+
+  async _analyzeScenes() {
+    if (this.sceneAnalyzer?.running) return;
+
+    const settings = loadOllamaSettings();
+    if (!settings.model) {
+      await showAlert(this.i18n.t('ollama.modelRequired'));
+      const saved = await showOllamaSettingsDialog(this.i18n);
+      if (!saved?.model) return;
+    } else if (!isLikelyVlmModel(settings.model)) {
+      const go = await showConfirm(this.i18n.t('ollama.vlmRecommended'));
+      if (!go) {
+        await showOllamaSettingsDialog(this.i18n);
+        return;
+      }
+    }
+
+    if (!this.preview.mediaEl) {
+      await showAlert(this.i18n.t('ollama.noMedia'));
+      return;
+    }
+
+    const srcName = this.preview.currentFile?.name || 'media';
+    const stem = String(srcName).replace(/\.[^.]+$/, '') || 'scene-analysis';
+    const defaultName = `${stem}-scenes.jsonl`;
+    const outPath = await window.electronAPI?.saveAnalysisDialog?.(defaultName);
+    if (!outPath) return;
+
+    this._setStatus('analyzing');
+    this._showAnalyzeOverlay();
+
+    try {
+      const result = await this.sceneAnalyzer.run({
+        outPath,
+        settings: loadOllamaSettings(),
+        sourceMeta: {
+          name: this.preview.currentFile?.name || null,
+          path: this.preview.currentFile?.path || null,
+        },
+        onProgress: ({ percent, label }) => this._updateAnalyzeProgress(percent, label),
+      });
+
+      this._hideAnalyzeOverlay();
+      this._setStatus('ready');
+      this._lastAnalysisPath = outPath;
+
+      if (result?.cancelled || result?.ok) {
+        await this._viewAnalysisResults({ filePath: outPath, pickIfMissing: false });
+      }
+    } catch (err) {
+      this._hideAnalyzeOverlay();
+      this._setStatus('error');
+      await showAlert(this.i18n.t('ollama.failed', {
+        error: err?.message || String(err),
+      }));
+      this._setStatus('ready');
+    }
+  }
+
+  _setupAnalyzeOverlay() {
+    let overlay = document.getElementById('analyze-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'analyze-overlay';
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+      <div class="export-card analyze-card">
+        <h3 id="analyze-title">${this.i18n.t('ollama.analyzingTitle')}</h3>
+        <div class="export-progress-bar-track">
+          <div class="export-progress-bar-fill" id="analyze-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="analyze-progress-meta">
+          <span id="analyze-progress-label">${this.i18n.t('status.analyzing')}</span>
+          <span id="analyze-progress-pct">0%</span>
+        </div>
+        <button class="export-cancel-btn" id="analyze-cancel-btn">${Icons.close}<span>${this.i18n.t('dialog.cancel')}</span></button>
+      </div>
+    `;
+    document.getElementById('analyze-cancel-btn')?.addEventListener('click', () => {
+      this.sceneAnalyzer?.cancel();
+    });
+  }
+
+  _showAnalyzeOverlay() {
+    const el = document.getElementById('analyze-overlay');
+    if (el) el.classList.add('visible');
+    this._updateAnalyzeProgress(0, this.i18n.t('status.analyzing'));
+  }
+
+  _updateAnalyzeProgress(percent, label) {
+    const pct = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    const fill = document.getElementById('analyze-progress-fill');
+    const labelEl = document.getElementById('analyze-progress-label');
+    const pctEl = document.getElementById('analyze-progress-pct');
+    if (fill) fill.style.width = `${pct}%`;
+    if (labelEl && label) labelEl.textContent = label;
+    if (pctEl) pctEl.textContent = `${pct}%`;
+  }
+
+  _hideAnalyzeOverlay() {
+    const el = document.getElementById('analyze-overlay');
     if (el) el.classList.remove('visible');
   }
 }

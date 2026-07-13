@@ -138,6 +138,33 @@ function createMenu(mainWindow, locale = _locale) {
     },
 
     {
+      label: t('menu.ai'),
+      id: 'ai',
+      submenu: [
+        item({
+          label: t('menu.analyzeScenes'),
+          id: 'analyze-scenes',
+          accelerator: 'CmdOrCtrl+Shift+A',
+          iconName: 'sparkles',
+          click: () => send('analyze-scenes'),
+        }),
+        item({
+          label: t('menu.viewAnalysis'),
+          id: 'view-analysis',
+          accelerator: 'CmdOrCtrl+Shift+V',
+          iconName: 'list',
+          click: () => send('view-analysis'),
+        }),
+        item({
+          label: t('menu.ollamaSettings'),
+          id: 'ollama-settings',
+          iconName: 'settings',
+          click: () => send('ollama-settings'),
+        }),
+      ],
+    },
+
+    {
       label: t('menu.edit'),
       id: 'edit',
       submenu: [

@@ -561,3 +561,141 @@ function beginNativeDrag(webContents, filePath) {
     return false;
   }
 }
+
+// ── IPC: Ollama (local VLM) + incremental analysis file I/O ─────────────────
+
+function normalizeOllamaBase(baseUrl) {
+  const raw = String(baseUrl || 'http://127.0.0.1:11434').trim().replace(/\/+$/, '');
+  return raw || 'http://127.0.0.1:11434';
+}
+
+async function ollamaFetch(baseUrl, apiPath, opts = {}) {
+  const url = `${normalizeOllamaBase(baseUrl)}${apiPath}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs || 120000);
+  try {
+    const res = await fetch(url, {
+      method: opts.method || 'GET',
+      headers: opts.body ? { 'Content-Type': 'application/json' } : undefined,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+    if (!res.ok) {
+      const msg = data?.error || data?.raw || res.statusText || `HTTP ${res.status}`;
+      return { ok: false, status: res.status, error: String(msg), data };
+    }
+    return { ok: true, status: res.status, data };
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Request timed out' : (e.message || String(e));
+    return { ok: false, error: msg };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+ipcMain.handle('ollama-ping', async (_event, baseUrl) => {
+  const result = await ollamaFetch(baseUrl, '/api/tags', { timeoutMs: 8000 });
+  if (!result.ok) return { ok: false, error: result.error || 'Cannot reach Ollama' };
+  const models = (result.data?.models || []).map((m) => m.name).filter(Boolean);
+  return { ok: true, models };
+});
+
+ipcMain.handle('ollama-list-models', async (_event, baseUrl) => {
+  const result = await ollamaFetch(baseUrl, '/api/tags', { timeoutMs: 15000 });
+  if (!result.ok) return { ok: false, error: result.error || 'Cannot list models', models: [] };
+  const models = (result.data?.models || []).map((m) => ({
+    name: m.name,
+    size: m.size,
+    modifiedAt: m.modified_at || m.modifiedAt || null,
+  }));
+  return { ok: true, models };
+});
+
+ipcMain.handle('ollama-chat', async (_event, opts = {}) => {
+  const baseUrl = opts.baseUrl;
+  const model = String(opts.model || '').trim();
+  if (!model) return { ok: false, error: 'Model is required' };
+
+  const images = Array.isArray(opts.images)
+    ? opts.images.filter((x) => typeof x === 'string' && x.length > 0)
+    : [];
+
+  const messages = [];
+  const system = String(opts.system || opts.systemPrompt || '').trim();
+  if (system) {
+    messages.push({ role: 'system', content: system });
+  }
+  messages.push({
+    role: 'user',
+    content: String(opts.prompt || 'Describe this scene.'),
+    ...(images.length ? { images } : {}),
+  });
+
+  const body = {
+    model,
+    stream: false,
+    messages,
+  };
+
+  const result = await ollamaFetch(baseUrl, '/api/chat', {
+    method: 'POST',
+    body,
+    timeoutMs: opts.timeoutMs || 180000,
+  });
+  if (!result.ok) return { ok: false, error: result.error || 'Ollama chat failed' };
+  const content = result.data?.message?.content || result.data?.response || '';
+  return { ok: true, content: String(content), raw: result.data };
+});
+
+ipcMain.handle('save-analysis-dialog', async (_event, defaultName) => {
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Scene Analysis',
+    defaultPath: defaultName || 'scene-analysis.jsonl',
+    filters: [
+      { name: 'JSON Lines', extensions: ['jsonl'] },
+      { name: 'JSON', extensions: ['json'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  });
+  return canceled ? null : filePath;
+});
+
+ipcMain.handle('write-text-file', async (_event, filePath, content, options = {}) => {
+  try {
+    if (!filePath) return { ok: false, error: 'No path' };
+    const text = content == null ? '' : String(content);
+    if (options.append) {
+      fs.appendFileSync(filePath, text, 'utf8');
+    } else {
+      fs.writeFileSync(filePath, text, 'utf8');
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('read-text-file', async (_event, filePath) => {
+  try {
+    if (!filePath) return { ok: false, error: 'No path' };
+    const text = fs.readFileSync(filePath, 'utf8');
+    return { ok: true, text };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('open-analysis-dialog', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open Scene Analysis',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Scene Analysis', extensions: ['jsonl', 'json'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  });
+  return canceled || !filePaths?.length ? null : filePaths[0];
+});

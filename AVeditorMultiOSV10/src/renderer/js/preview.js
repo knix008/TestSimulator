@@ -1048,6 +1048,93 @@ export class Preview {
   set currentTime(t) { this.seek(t); }
   get duration() { return this.mediaEl?.duration ?? 0; }
 
+  /**
+   * Seek to mediaTime, draw one JPEG frame, return base64 (no data: prefix).
+   * Caller should discard the string promptly to limit memory use.
+   */
+  async captureFrameBase64(mediaTime, { maxWidth = 768, quality = 0.72 } = {}) {
+    const video = this.videoEl;
+    const media = this.mediaEl;
+    if (!media) throw new Error('No media');
+
+    if (media === this.audioEl || this.currentMediaType === 'audio') {
+      return null;
+    }
+    if (!video || video.readyState < 1) throw new Error('Video not ready');
+
+    await this._seekAndWait(mediaTime);
+
+    const vw = video.videoWidth || 0;
+    const vh = video.videoHeight || 0;
+    if (vw < 2 || vh < 2) throw new Error('Invalid frame size');
+
+    let tw = vw;
+    let th = vh;
+    if (tw > maxWidth) {
+      const scale = maxWidth / tw;
+      tw = Math.max(1, Math.round(tw * scale));
+      th = Math.max(1, Math.round(vh * scale));
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = tw;
+    canvas.height = th;
+    const ctx = canvas.getContext('2d', { willReadFrequently: false });
+    if (!ctx) throw new Error('Canvas unavailable');
+    ctx.drawImage(video, 0, 0, tw, th);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    canvas.width = 0;
+    canvas.height = 0;
+    const comma = dataUrl.indexOf(',');
+    return comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+  }
+
+  _seekAndWait(mediaTime) {
+    const media = this.mediaEl;
+    if (!media) return Promise.reject(new Error('No media'));
+
+    const target = Math.max(0, Number(mediaTime) || 0);
+    const dur = Number(media.duration);
+    const clamped = Number.isFinite(dur) && dur > 0
+      ? Math.min(target, Math.max(0, dur - 0.05))
+      : target;
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      };
+      const fail = (err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(err);
+      };
+      const onSeeked = () => done();
+      const onError = () => fail(new Error('Seek failed'));
+      const cleanup = () => {
+        media.removeEventListener('seeked', onSeeked);
+        media.removeEventListener('error', onError);
+        clearTimeout(timer);
+      };
+      const timer = setTimeout(() => done(), 2500);
+      media.addEventListener('seeked', onSeeked);
+      media.addEventListener('error', onError);
+      if (Math.abs((media.currentTime || 0) - clamped) < 0.04) {
+        done();
+        return;
+      }
+      try {
+        media.currentTime = clamped;
+      } catch (e) {
+        fail(e);
+      }
+    });
+  }
+
   showEmpty() {
     this.clearTransportCue();
     this._stopPlayheadLoop();

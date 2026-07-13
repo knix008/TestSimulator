@@ -69,4 +69,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   setMenuLocale: (locale) => ipcRenderer.invoke('set-menu-locale', locale),
+
+  // ── Ollama / scene analysis ──────────────────────────────────────────
+  ollamaPing: (baseUrl) => ipcRenderer.invoke('ollama-ping', baseUrl),
+  ollamaListModels: (baseUrl) => ipcRenderer.invoke('ollama-list-models', baseUrl),
+  ollamaChat: (opts) => ipcRenderer.invoke('ollama-chat', opts),
+  saveAnalysisDialog: (defaultName) => ipcRenderer.invoke('save-analysis-dialog', defaultName),
+  openAnalysisDialog: () => ipcRenderer.invoke('open-analysis-dialog'),
+  writeTextFile: (filePath, content, options) => ipcRenderer.invoke('write-text-file', filePath, content, options),
+  readTextFile: (filePath) => ipcRenderer.invoke('read-text-file', filePath),
 });

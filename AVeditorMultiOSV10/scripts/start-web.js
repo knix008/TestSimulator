@@ -1,22 +1,32 @@
 'use strict';
 /**
  * Serve the renderer directly in a browser (no Electron, no build step).
+ * Proxies /ollama/* → local Ollama (avoids browser CORS).
  *
  *   node scripts/start-web.js
  *   npm run start:web
  *   npm run web
+ *
+ * Env:
+ *   AV_WEB_HOST, AV_WEB_PORT
+ *   AV_OLLAMA_URL  (default http://127.0.0.1:11434)
+ *   AV_WEB_ROOT    (optional override of renderer root)
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { URL } = require('url');
 
 const PROJECT = path.join(__dirname, '..');
-const ROOT = path.join(PROJECT, 'src', 'renderer');
+const ROOT = process.env.AV_WEB_ROOT
+  ? path.resolve(process.env.AV_WEB_ROOT)
+  : path.join(PROJECT, 'src', 'renderer');
 const SAMPLES = path.join(PROJECT, 'samples');
 const MEDIAINFO = path.join(PROJECT, 'node_modules', 'mediainfo.js', 'dist');
 const HOST = process.env.AV_WEB_HOST || '127.0.0.1';
 const PORT = Number(process.env.AV_WEB_PORT || 4173);
+const OLLAMA = (process.env.AV_OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/+$/, '');
 const OPEN = !process.argv.includes('--no-open');
 
 const MIME = {
@@ -95,12 +105,63 @@ function resolveRequest(urlPath) {
   return safeJoin(ROOT, clean);
 }
 
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+async function proxyOllama(req, res) {
+  const incoming = new URL(req.url || '/', `http://${HOST}:${PORT}`);
+  const targetPath = incoming.pathname.replace(/^\/ollama/, '') || '/';
+  const targetUrl = `${OLLAMA}${targetPath}${incoming.search || ''}`;
+
+  try {
+    const headers = { ...req.headers };
+    delete headers.host;
+    delete headers.connection;
+    delete headers['content-length'];
+
+    const init = {
+      method: req.method || 'GET',
+      headers,
+    };
+
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      init.body = await readRequestBody(req);
+    }
+
+    const upstream = await fetch(targetUrl, init);
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    const outHeaders = {
+      'Cache-Control': 'no-store',
+      'Content-Type': upstream.headers.get('content-type') || 'application/json',
+      'Content-Length': buf.length,
+    };
+    res.writeHead(upstream.status, outHeaders);
+    res.end(buf);
+  } catch (err) {
+    send(res, 502, JSON.stringify({
+      error: `Ollama proxy failed: ${err.message || err}. Is Ollama running at ${OLLAMA}?`,
+    }), { 'Content-Type': 'application/json; charset=utf-8' });
+  }
+}
+
 if (!fs.existsSync(ROOT)) {
   console.error('[start:web] Renderer not found:', ROOT);
   process.exit(1);
 }
 
 const server = http.createServer((req, res) => {
+  const clean = (req.url || '/').split('?')[0];
+  if (clean === '/ollama' || clean.startsWith('/ollama/')) {
+    proxyOllama(req, res);
+    return;
+  }
+
   let filePath = resolveRequest(req.url || '/');
   if (!filePath) {
     send(res, 403, 'Forbidden');
@@ -112,7 +173,6 @@ const server = http.createServer((req, res) => {
       filePath = path.join(filePath, 'index.html');
     }
 
-    // Support Range requests for media seeking
     fs.open(filePath, 'r', (openErr, fd) => {
       if (openErr) {
         send(res, 404, `Not found: ${req.url}`);
@@ -175,6 +235,7 @@ server.listen(PORT, HOST, () => {
   console.log('  AV Editor (web)');
   console.log(`  Serving: ${ROOT}`);
   console.log(`  Samples: ${SAMPLES}`);
+  console.log(`  Ollama:  ${OLLAMA}  (proxied at ${url}ollama/)`);
   console.log(`  URL:     ${url}`);
   console.log('  Press Ctrl+C to stop');
   console.log('');

@@ -23,6 +23,21 @@
   const blobUrls = new Map();
   /** @type {Map<string, object>} */
   const projectCache = new Map();
+  /** @type {Map<string, FileSystemFileHandle>} */
+  const analysisHandles = new Map();
+  /** @type {Map<string, FileSystemWritableFileStream>} */
+  const analysisWritables = new Map();
+  /** @type {Map<string, string>} */
+  const analysisBuffers = new Map();
+
+  function normalizeOllamaBase(baseUrl) {
+    let raw = String(baseUrl || '/ollama').trim().replace(/\/+$/, '');
+    if (!raw) raw = '/ollama';
+    if (raw.startsWith('/')) {
+      return `${window.location.origin}${raw}`;
+    }
+    return raw;
+  }
 
   const LIBRARY_ROOT = '/library';
   const MEDIA_ACCEPT =
@@ -635,6 +650,178 @@
     onMenuAction: (callback) => { menuCallback = callback; },
     removeMenuActionListener: () => { menuCallback = null; },
     onExportProgress: (callback) => { exportProgressCallback = callback; },
+
+    // ── Ollama (browser → same-origin /ollama proxy or direct URL) ─────
+    ollamaPing: async (baseUrl) => {
+      const base = normalizeOllamaBase(baseUrl);
+      try {
+        const res = await fetch(`${base}/api/tags`);
+        if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+        const data = await res.json();
+        return { ok: true, models: (data.models || []).map((m) => m.name).filter(Boolean) };
+      } catch (e) {
+        return { ok: false, error: e.message || 'Cannot reach Ollama' };
+      }
+    },
+
+    ollamaListModels: async (baseUrl) => {
+      const base = normalizeOllamaBase(baseUrl);
+      try {
+        const res = await fetch(`${base}/api/tags`);
+        if (!res.ok) return { ok: false, error: `HTTP ${res.status}`, models: [] };
+        const data = await res.json();
+        return {
+          ok: true,
+          models: (data.models || []).map((m) => ({
+            name: m.name,
+            size: m.size,
+            modifiedAt: m.modified_at || null,
+          })),
+        };
+      } catch (e) {
+        return { ok: false, error: e.message || 'Cannot list models', models: [] };
+      }
+    },
+
+    ollamaChat: async (opts = {}) => {
+      const base = normalizeOllamaBase(opts.baseUrl);
+      const model = String(opts.model || '').trim();
+      if (!model) return { ok: false, error: 'Model is required' };
+      const images = Array.isArray(opts.images) ? opts.images.filter(Boolean) : [];
+      const messages = [];
+      const system = String(opts.system || opts.systemPrompt || '').trim();
+      if (system) messages.push({ role: 'system', content: system });
+      messages.push({
+        role: 'user',
+        content: String(opts.prompt || 'Describe this scene.'),
+        ...(images.length ? { images } : {}),
+      });
+      try {
+        const res = await fetch(`${base}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            stream: false,
+            messages,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}` };
+        return { ok: true, content: String(data?.message?.content || data?.response || ''), raw: data };
+      } catch (e) {
+        return { ok: false, error: e.message || 'Ollama chat failed' };
+      }
+    },
+
+    saveAnalysisDialog: async (defaultName) => {
+      const suggested = defaultName || 'scene-analysis.jsonl';
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: suggested,
+            types: [{
+              description: 'JSON Lines',
+              accept: { 'application/x-ndjson': ['.jsonl'], 'application/json': ['.json'] },
+            }],
+          });
+          const key = `idb-analysis:${Date.now()}:${suggested}`;
+          analysisHandles.set(key, handle);
+          analysisBuffers.set(key, '');
+          return key;
+        } catch (e) {
+          if (e && e.name === 'AbortError') return null;
+        }
+      }
+      // Memory session + download on completion (works without File System Access API).
+      const key = `mem-analysis:${Date.now()}:${suggested}`;
+      analysisBuffers.set(key, '');
+      return key;
+    },
+
+    openAnalysisDialog: async () => {
+      if (window.showOpenFilePicker) {
+        try {
+          const [handle] = await window.showOpenFilePicker({
+            multiple: false,
+            types: [{
+              description: 'Scene Analysis',
+              accept: {
+                'application/x-ndjson': ['.jsonl'],
+                'application/json': ['.json'],
+              },
+            }],
+          });
+          const key = `idb-analysis-open:${Date.now()}`;
+          analysisHandles.set(key, handle);
+          return key;
+        } catch (e) {
+          if (e && e.name === 'AbortError') return null;
+        }
+      }
+      const files = await pickFiles({
+        accept: '.jsonl,.json,application/json',
+        multiple: false,
+      });
+      if (!files?.length) return null;
+      const file = files[0];
+      const key = `blob-analysis:${Date.now()}`;
+      analysisBuffers.set(key, await file.text());
+      return key;
+    },
+
+    writeTextFile: async (filePath, content, options = {}) => {
+      try {
+        const text = content == null ? '' : String(content);
+        if (analysisHandles.has(filePath)) {
+          const handle = analysisHandles.get(filePath);
+          let writable = analysisWritables.get(filePath);
+          if (!writable) {
+            writable = await handle.createWritable({ keepExistingData: !!options.append });
+            analysisWritables.set(filePath, writable);
+          }
+          await writable.write(text);
+          const prev = analysisBuffers.get(filePath) || '';
+          analysisBuffers.set(filePath, options.append ? prev + text : text);
+          if (!options.append || String(text).includes('"type":"done"') || String(text).includes('"type":"cancelled"')) {
+            await writable.close();
+            analysisWritables.delete(filePath);
+          }
+          return { ok: true };
+        }
+        // Fallback: accumulate then download on done/cancel.
+        const prev = analysisBuffers.get(filePath) || '';
+        const next = options.append ? prev + text : text;
+        analysisBuffers.set(filePath, next);
+        if (!options.append || /"type":"(done|cancelled)"/.test(text)) {
+          const name = String(filePath).split(':').pop() || 'scene-analysis.jsonl';
+          downloadBlob(new Blob([next], { type: 'application/x-ndjson' }), name);
+          // Keep buffer so the viewer can open it after analysis.
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    readTextFile: async (filePath) => {
+      try {
+        if (!filePath) return { ok: false, error: 'No path' };
+        if (analysisBuffers.has(filePath)) {
+          return { ok: true, text: analysisBuffers.get(filePath) };
+        }
+        if (analysisHandles.has(filePath)) {
+          const handle = analysisHandles.get(filePath);
+          const file = await handle.getFile();
+          const text = await file.text();
+          analysisBuffers.set(filePath, text);
+          return { ok: true, text };
+        }
+        return { ok: false, error: 'File not found' };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
 
     /** @private */
     _webLibrary: library,
