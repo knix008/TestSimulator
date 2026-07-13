@@ -5,6 +5,8 @@ const fs = require('fs');
 const os = require('os');
 const mediaInfoModule = require('mediainfo.js');
 const { createMenu, registerMenuIpc, prepareMenuIcons } = require('./menu');
+const { startTransformersProxy, getTransformersProxyBase, isWhisperModelCached } = require('./transformersProxy');
+const { normalizeMediaInfo: normalizeMediaInfoShared } = require('../shared/mediaMeta.cjs');
 
 const mediaInfoFactory = mediaInfoModule.default || mediaInfoModule.mediaInfoFactory || mediaInfoModule;
 const mediaInfoCache = new Map();
@@ -36,46 +38,15 @@ function getDragIcon() {
   return dragIcon;
 }
 
-function toFiniteNumber(value) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-}
-
-function getTrackCodec(track) {
-  if (!track) return null;
-  const parts = [track.Format, track.Format_Profile || track.Format_AdditionalFeatures].filter(Boolean);
-  return parts.length ? parts.join(' ') : null;
-}
-
 function normalizeMediaInfo(raw, stats, ext) {
-  const tracks = raw?.media?.track || [];
-  const general = tracks.find((track) => track['@type'] === 'General') || null;
-  const video = tracks.find((track) => track['@type'] === 'Video') || null;
-  const audioTracks = tracks.filter((track) => track['@type'] === 'Audio');
-  const audio = audioTracks[0] || null;
-
-  return {
+  return normalizeMediaInfoShared(raw, {
     name: path.basename(stats.path || ''),
     path: stats.path,
     size: stats.size,
-    modified: stats.mtime.toISOString(),
-    created: stats.birthtime.toISOString(),
     extension: ext,
-    isVideo: !!video,
-    isAudio: !video && !!audio,
-    containerFormat: general?.Format || null,
-    duration: toFiniteNumber(video?.Duration ?? audio?.Duration ?? general?.Duration),
-    width: toFiniteNumber(video?.Width),
-    height: toFiniteNumber(video?.Height),
-    fps: toFiniteNumber(video?.FrameRate ?? general?.FrameRate),
-    sampleRate: toFiniteNumber(audio?.SamplingRate),
-    channels: toFiniteNumber(audio?.Channels),
-    bitrate: toFiniteNumber(video?.BitRate ?? audio?.BitRate ?? general?.OverallBitRate),
-    overallBitrate: toFiniteNumber(general?.OverallBitRate),
-    codec: getTrackCodec(video || audio),
-    videoCodec: getTrackCodec(video),
-    audioCodec: getTrackCodec(audio),
-  };
+    modified: stats.mtime ? new Date(stats.mtime).toISOString() : null,
+    created: stats.birthtime ? new Date(stats.birthtime).toISOString() : null,
+  });
 }
 
 async function readMediaMetadata(filePath, stats, ext) {
@@ -174,6 +145,25 @@ if (process.platform === 'win32') {
 app.whenReady().then(async () => {
   registerMenuIpc();
   await prepareMenuIcons();
+
+  // Whisper STT: proxy HF + local WASM (file:// renderer cannot fetch them directly)
+  try {
+    const vendorDir = path.join(__dirname, '../renderer/vendor/transformers');
+    if (!fs.existsSync(path.join(vendorDir, 'transformers.min.js'))) {
+      try {
+        require('../../scripts/sync-transformers-vendor.js').main();
+      } catch (err) {
+        console.warn('[main] transformers vendor sync failed:', err?.message || err);
+      }
+    }
+    await startTransformersProxy({
+      vendorDir,
+      cacheDir: path.join(app.getPath('userData'), 'whisper-models'),
+    });
+  } catch (err) {
+    console.warn('[main] STT proxy failed to start:', err?.message || err);
+  }
+
   createWindow();
   createMenu(mainWindow, 'en');
 
@@ -699,3 +689,42 @@ ipcMain.handle('open-analysis-dialog', async () => {
   });
   return canceled || !filePaths?.length ? null : filePaths[0];
 });
+
+const SUBTITLE_MEDIA_EXT = new Set([
+  '.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.ts', '.mts',
+  '.mp3', '.wav', '.aac', '.flac', '.ogg', '.m4a', '.wma', '.opus', '.aiff',
+]);
+
+/** Read media bytes for local STT (media extensions only, max 512MB). */
+ipcMain.handle('read-binary-file', async (_event, filePath) => {
+  try {
+    if (!filePath || typeof filePath !== 'string') return { ok: false, error: 'No path' };
+    const resolved = path.resolve(filePath);
+    const ext = path.extname(resolved).toLowerCase();
+    if (!SUBTITLE_MEDIA_EXT.has(ext)) return { ok: false, error: 'Not a media file' };
+    const st = fs.statSync(resolved);
+    if (!st.isFile()) return { ok: false, error: 'Not a file' };
+    if (st.size > 512 * 1024 * 1024) return { ok: false, error: 'File too large for subtitle extraction' };
+    // Prefer ArrayBuffer transfer for large media (avoids slow Buffer→JSON-ish clones)
+    const data = fs.readFileSync(resolved);
+    return { ok: true, data: new Uint8Array(data), byteLength: data.length };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('save-subtitle-dialog', async (_event, defaultName) => {
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Subtitles',
+    defaultPath: defaultName || 'subtitles.srt',
+    filters: [
+      { name: 'SubRip', extensions: ['srt'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  });
+  return canceled ? null : filePath;
+});
+
+/** Loopback base URL for Whisper model + WASM proxy (Electron file://). */
+ipcMain.handle('get-stt-proxy-base', async () => getTransformersProxyBase());
+ipcMain.handle('is-whisper-model-cached', async (_e, modelId) => isWhisperModelCached(modelId || 'Xenova/whisper-tiny'));

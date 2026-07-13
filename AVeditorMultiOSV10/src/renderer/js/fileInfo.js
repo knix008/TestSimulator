@@ -1,3 +1,6 @@
+/**
+ * File Info panel — same field layout for Electron and web.
+ */
 export class FileInfo {
   constructor(container, { i18n }) {
     this.container = container;
@@ -85,6 +88,14 @@ export class FileInfo {
     if (header) header.textContent = this.i18n.t('fileInfo.title');
   }
 
+  _dash() {
+    return '<span class="info-value">—</span>';
+  }
+
+  _val(html) {
+    return `<span class="info-value">${html}</span>`;
+  }
+
   _renderAll() {
     const content = this.container.querySelector('#file-info-content');
     if (!content) return;
@@ -100,70 +111,98 @@ export class FileInfo {
     const fileEntry = this._entry;
     const info = this._mediaInfo || {};
     const ext = (fileEntry.extension || info.extension || '').toLowerCase();
-    const VIDEO_EXT = new Set(['.mp4','.avi','.mov','.mkv','.webm','.flv','.wmv','.m4v','.ts','.mts']);
-    const AUDIO_EXT = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
-    const isVideo = info.isVideo === true || (info.isVideo !== false && VIDEO_EXT.has(ext));
+    const VIDEO_EXT = new Set(['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.ts', '.mts']);
+    const AUDIO_EXT = new Set(['.mp3', '.wav', '.aac', '.flac', '.ogg', '.m4a', '.wma', '.opus', '.aiff']);
+    const isVideo = info.isVideo === true || (info.isVideo !== false && VIDEO_EXT.has(ext) && info.isAudio !== true);
     const isAudio = info.isAudio === true || (!isVideo && AUDIO_EXT.has(ext));
     const t = (key) => this.i18n.t(key);
     const size = info.size || fileEntry.size;
     const modified = info.modified || fileEntry.modified;
     const created = info.created || fileEntry.created;
+    // Prefer library / disk path (not blob: or transient URLs)
+    const displayPath = this._pickPath(info, fileEntry);
+    const formatLabel = (ext.replace('.', '') || '—').toUpperCase();
+    const duration = Number(info.duration);
 
+    /** @type {Array<[string, string]>} */
     const rows = [
-      [t('fileInfo.name'), `<span class="info-value">${this._esc(fileEntry.name)}</span>`],
+      [t('fileInfo.name'), this._val(this._esc(fileEntry.name))],
       [t('fileInfo.mediaType'), isVideo
         ? `<span class="info-badge video">${t('fileInfo.video')}</span>`
         : isAudio
           ? `<span class="info-badge audio">${t('fileInfo.audio')}</span>`
-          : `<span class="info-value">${this._esc(ext || '?')}</span>`
+          : this._val(this._esc(ext || '?'))
       ],
-      [t('fileInfo.size'), `<span class="info-value">${this._fmtSize(size)}</span>`],
-      [t('fileInfo.format'), `<span class="info-value">${this._esc((ext.replace('.','') || '—').toUpperCase())}</span>`],
+      [t('fileInfo.size'), this._val(this._fmtSize(size))],
+      [t('fileInfo.format'), this._val(this._esc(formatLabel))],
+      [t('fileInfo.duration'),
+        Number.isFinite(duration) && duration > 0
+          ? this._val(this._fmtDur(duration))
+          : this._dash()],
+      [t('fileInfo.containerFormat'),
+        info.containerFormat
+          ? this._val(this._esc(info.containerFormat))
+          : this._dash()],
     ];
 
-    const duration = Number(info.duration);
-    if (Number.isFinite(duration) && duration > 0) {
-      rows.push([t('fileInfo.duration'), `<span class="info-value">${this._fmtDur(duration)}</span>`]);
+    if (isVideo) {
+      rows.push(
+        [t('fileInfo.resolution'),
+          info.width && info.height
+            ? this._val(`${info.width}×${info.height}`)
+            : this._dash()],
+        [t('fileInfo.frameRate'),
+          info.fps
+            ? this._val(`${this._fmtNumber(info.fps)} fps`)
+            : this._dash()],
+        [t('fileInfo.videoCodec'),
+          info.videoCodec || (info.codec && !info.audioCodec)
+            ? this._val(this._esc(info.videoCodec || info.codec))
+            : this._dash()],
+        [t('fileInfo.audioCodec'),
+          info.audioCodec
+            ? this._val(this._esc(info.audioCodec))
+            : this._dash()],
+      );
+    } else if (isAudio) {
+      rows.push(
+        [t('fileInfo.codec'),
+          info.audioCodec || info.codec
+            ? this._val(this._esc(info.audioCodec || info.codec))
+            : this._dash()],
+      );
     }
-    if (info.containerFormat) {
-      rows.push([t('fileInfo.containerFormat'), `<span class="info-value">${this._esc(info.containerFormat)}</span>`]);
-    }
-    if (info.width && info.height) {
-      rows.push([t('fileInfo.resolution'), `<span class="info-value">${info.width}×${info.height}</span>`]);
-    }
-    if (info.fps) {
-      rows.push([t('fileInfo.frameRate'), `<span class="info-value">${this._fmtNumber(info.fps)} fps</span>`]);
-    }
-    if (info.videoCodec) {
-      rows.push([t('fileInfo.videoCodec'), `<span class="info-value">${this._esc(info.videoCodec)}</span>`]);
-    } else if (info.codec && isVideo) {
-      rows.push([t('fileInfo.codec'), `<span class="info-value">${this._esc(info.codec)}</span>`]);
-    }
-    if (info.audioCodec && isVideo) {
-      rows.push([t('fileInfo.audioCodec'), `<span class="info-value">${this._esc(info.audioCodec)}</span>`]);
-    }
-    if (info.audioCodec && isAudio) {
-      rows.push([t('fileInfo.codec'), `<span class="info-value">${this._esc(info.audioCodec)}</span>`]);
-    } else if (info.codec && isAudio && !info.audioCodec) {
-      rows.push([t('fileInfo.codec'), `<span class="info-value">${this._esc(info.codec)}</span>`]);
-    }
-    if (info.sampleRate) {
-      rows.push([t('fileInfo.sampleRate'), `<span class="info-value">${Math.round(info.sampleRate)} Hz</span>`]);
-    }
-    if (info.channels) {
-      rows.push([t('fileInfo.channels'), `<span class="info-value">${info.channels}</span>`]);
-    }
-    if (info.bitrate) {
-      rows.push([t('fileInfo.bitrate'), `<span class="info-value">${Math.round(info.bitrate / 1000)} kbps</span>`]);
-    }
-    if (info.overallBitrate && info.overallBitrate !== info.bitrate) {
-      rows.push([t('fileInfo.overallBitrate'), `<span class="info-value">${Math.round(info.overallBitrate / 1000)} kbps</span>`]);
+
+    if (isVideo || isAudio) {
+      rows.push(
+        [t('fileInfo.sampleRate'),
+          info.sampleRate
+            ? this._val(`${Math.round(info.sampleRate)} Hz`)
+            : this._dash()],
+        [t('fileInfo.channels'),
+          info.channels != null && info.channels !== ''
+            ? this._val(String(info.channels))
+            : this._dash()],
+        [t('fileInfo.bitrate'),
+          info.bitrate
+            ? this._val(`${Math.round(info.bitrate / 1000)} kbps`)
+            : this._dash()],
+        [t('fileInfo.overallBitrate'),
+          info.overallBitrate
+            ? this._val(`${Math.round(info.overallBitrate / 1000)} kbps`)
+            : this._dash()],
+      );
     }
 
     rows.push(
-      [t('fileInfo.modified'), `<span class="info-value">${modified ? new Date(modified).toLocaleString() : '—'}</span>`],
-      [t('fileInfo.created'), `<span class="info-value">${created ? new Date(created).toLocaleString() : '—'}</span>`],
-      [t('fileInfo.path'), `<span class="info-value path" title="${this._esc(fileEntry.path || '')}">${this._esc(fileEntry.path || '—')}</span>`],
+      [t('fileInfo.modified'),
+        modified ? this._val(new Date(modified).toLocaleString()) : this._dash()],
+      [t('fileInfo.created'),
+        created ? this._val(new Date(created).toLocaleString()) : this._dash()],
+      [t('fileInfo.path'),
+        displayPath
+          ? `<span class="info-value path" title="${this._esc(displayPath)}">${this._esc(displayPath)}</span>`
+          : this._dash()],
     );
 
     let html = rows.map(([label, value]) => `
@@ -184,6 +223,22 @@ export class FileInfo {
     content.innerHTML = html;
   }
 
+  _pickPath(info, fileEntry) {
+    const candidates = [
+      info.path,
+      fileEntry.displayPath,
+      fileEntry.path,
+    ];
+    for (const p of candidates) {
+      if (!p) continue;
+      const s = String(p);
+      // Prefer real paths / library paths over blob: URLs
+      if (/^blob:/i.test(s)) continue;
+      return s;
+    }
+    return fileEntry.path || '';
+  }
+
   _fmtSize(bytes) {
     if (!bytes && bytes !== 0) return '—';
     if (bytes < 1024) return bytes + ' B';
@@ -197,7 +252,7 @@ export class FileInfo {
     const h = Math.floor(secs / 3600);
     const m = Math.floor((secs % 3600) / 60);
     const s = Math.floor(secs % 60);
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
   _fmtNumber(value) {

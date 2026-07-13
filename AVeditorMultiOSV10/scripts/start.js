@@ -23,6 +23,17 @@ if (!fs.existsSync(iconPng) || !fs.existsSync(iconIco)) {
   }
 }
 
+// Whisper STT: sync browser build beside index.html (file:// cannot load CDN modules)
+{
+  const sync = spawnSync(process.execPath, [path.join(__dirname, 'sync-transformers-vendor.js')], {
+    stdio: 'inherit',
+    env,
+  });
+  if (sync.status !== 0) {
+    console.warn('[start] Transformers vendor sync failed — subtitle generation may not work.');
+  }
+}
+
 // resolve path to the electron binary installed in node_modules
 let electronBin;
 try {

@@ -24,10 +24,71 @@ const ROOT = process.env.AV_WEB_ROOT
   : path.join(PROJECT, 'src', 'renderer');
 const SAMPLES = path.join(PROJECT, 'samples');
 const MEDIAINFO = path.join(PROJECT, 'node_modules', 'mediainfo.js', 'dist');
+const XENOVA = path.join(PROJECT, 'node_modules', '@xenova', 'transformers');
 const HOST = process.env.AV_WEB_HOST || '127.0.0.1';
 const PORT = Number(process.env.AV_WEB_PORT || 4173);
 const OLLAMA = (process.env.AV_OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/+$/, '');
 const OPEN = !process.argv.includes('--no-open');
+
+const WHISPER_QUANTIZED_FILES = [
+  'config.json',
+  'generation_config.json',
+  'preprocessor_config.json',
+  'tokenizer.json',
+  'tokenizer_config.json',
+  'onnx/encoder_model_quantized.onnx',
+  'onnx/decoder_model_merged_quantized.onnx',
+];
+
+function whisperCacheCandidates() {
+  const list = [
+    path.join(PROJECT, '.cache', 'whisper-models'),
+  ];
+  if (process.env.APPDATA) {
+    list.push(path.join(process.env.APPDATA, 'AV Editor', 'whisper-models'));
+  }
+  if (process.env.HOME || process.env.USERPROFILE) {
+    list.push(path.join(process.env.HOME || process.env.USERPROFILE, '.av-editor', 'whisper-models'));
+  }
+  return list;
+}
+
+function isWhisperCachedAt(dir, modelId = 'Xenova/whisper-tiny') {
+  if (!dir || !fs.existsSync(dir)) return false;
+  return WHISPER_QUANTIZED_FILES.every((file) => {
+    const p = path.join(dir, ...modelId.split('/'), 'resolve', 'main', ...file.split('/'));
+    try {
+      return fs.existsSync(p) && fs.statSync(p).size > 0;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** Prefer an existing full Whisper cache (Electron userData) over empty project .cache. */
+function resolveWhisperCacheDir() {
+  const candidates = whisperCacheCandidates();
+  for (const dir of candidates) {
+    if (isWhisperCachedAt(dir)) return dir;
+  }
+  const fallback = candidates[0];
+  try {
+    fs.mkdirSync(fallback, { recursive: true });
+  } catch { /* ignore */ }
+  return fallback;
+}
+
+const WHISPER_CACHE = resolveWhisperCacheDir();
+
+try {
+  require('./sync-transformers-vendor.js').main();
+} catch (err) {
+  console.warn('[web] Transformers vendor sync failed:', err?.message || err);
+}
+
+console.log('[web] Whisper cache:', WHISPER_CACHE,
+  isWhisperCachedAt(WHISPER_CACHE) ? '(complete — no download)' : '(will download on first use)');
+
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -102,6 +163,10 @@ function resolveRequest(urlPath) {
     const rel = clean === '/mediainfo' ? '/esm-bundle/index.js' : clean.slice('/mediainfo'.length);
     return safeJoin(MEDIAINFO, rel || '/esm-bundle/index.js');
   }
+  if (clean === '/xenova' || clean.startsWith('/xenova/')) {
+    const rel = clean === '/xenova' ? '/dist/transformers.min.js' : clean.slice('/xenova'.length);
+    return safeJoin(XENOVA, rel || '/dist/transformers.min.js');
+  }
   return safeJoin(ROOT, clean);
 }
 
@@ -150,6 +215,114 @@ async function proxyOllama(req, res) {
   }
 }
 
+function whisperCacheFile(rel) {
+  const parts = String(rel || '').split(/[/\\]+/).filter((p) => p && p !== '.' && p !== '..');
+  if (!parts.length) return null;
+  const file = path.resolve(path.join(WHISPER_CACHE, ...parts));
+  const root = path.resolve(WHISPER_CACHE);
+  const relTo = path.relative(root, file);
+  if (!relTo || relTo.startsWith('..') || path.isAbsolute(relTo)) return null;
+  return file;
+}
+
+async function proxyHuggingFace(req, res) {
+  const incoming = new URL(req.url || '/', `http://${HOST}:${PORT}`);
+  const rel = incoming.pathname.replace(/^\/hf\/?/, '');
+  if (!rel || rel.includes('..')) {
+    send(res, 400, 'Bad path');
+    return;
+  }
+
+  const cacheFile = whisperCacheFile(rel);
+  if (cacheFile && fs.existsSync(cacheFile)) {
+    const buf = fs.readFileSync(cacheFile);
+    const ext = path.extname(cacheFile).toLowerCase();
+    const type = MIME[ext] || 'application/octet-stream';
+    res.writeHead(200, {
+      'Content-Type': type,
+      'Content-Length': buf.length,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Access-Control-Allow-Origin': '*',
+      'X-AV-Cache': 'HIT',
+    });
+    res.end(req.method === 'HEAD' ? undefined : buf);
+    return;
+  }
+
+  try {
+    const target = `https://huggingface.co/${rel}${incoming.search || ''}`;
+    console.log('[web] whisper download', rel);
+    const upstream = await fetch(target, {
+      redirect: 'follow',
+      headers: { 'User-Agent': 'AVEditor-Web-STT/1.0', Accept: '*/*' },
+    });
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    if (upstream.ok && cacheFile && buf.length) {
+      fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+      fs.writeFileSync(cacheFile, buf);
+    }
+    res.writeHead(upstream.status, {
+      'Content-Type': upstream.headers.get('content-type') || 'application/octet-stream',
+      'Content-Length': buf.length,
+      'Cache-Control': upstream.ok ? 'public, max-age=31536000, immutable' : 'no-store',
+      'Access-Control-Allow-Origin': '*',
+      'X-AV-Cache': 'MISS',
+    });
+    res.end(req.method === 'HEAD' ? undefined : buf);
+  } catch (err) {
+    send(res, 502, `HF proxy failed: ${err.message || err}`);
+  }
+}
+
+function whisperLocalModelFile(rel) {
+  const parts = String(rel || '').split(/[/\\]+/).filter((p) => p && p !== '.' && p !== '..');
+  if (parts.length < 2) return null;
+  const modelId = parts.slice(0, 2).join('/');
+  const rest = parts.slice(2).join('/');
+  const hfRel = rest ? `${modelId}/resolve/main/${rest}` : `${modelId}/resolve/main`;
+  return whisperCacheFile(hfRel);
+}
+
+function serveWhisperCacheStatus(req, res) {
+  const u = new URL(req.url || '/', `http://${HOST}:${PORT}`);
+  const model = u.searchParams.get('model') || 'Xenova/whisper-tiny';
+  const body = JSON.stringify({
+    cached: isWhisperCachedAt(WHISPER_CACHE, model),
+    model,
+    cacheDir: WHISPER_CACHE,
+  });
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+  });
+  res.end(body);
+}
+
+function serveLocalWhisperModel(req, res) {
+  const incoming = new URL(req.url || '/', `http://${HOST}:${PORT}`);
+  const rel = incoming.pathname.replace(/^\/models\/?/, '');
+  if (!rel || rel.includes('..')) {
+    send(res, 400, 'Bad path');
+    return;
+  }
+  const file = whisperLocalModelFile(rel);
+  if (!file || !fs.existsSync(file)) {
+    send(res, 404, `Missing local model file: ${rel}`);
+    return;
+  }
+  const buf = fs.readFileSync(file);
+  const ext = path.extname(file).toLowerCase();
+  res.writeHead(200, {
+    'Content-Type': MIME[ext] || 'application/octet-stream',
+    'Content-Length': buf.length,
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Access-Control-Allow-Origin': '*',
+    'X-AV-Cache': 'LOCAL',
+  });
+  res.end(req.method === 'HEAD' ? undefined : buf);
+}
+
 if (!fs.existsSync(ROOT)) {
   console.error('[start:web] Renderer not found:', ROOT);
   process.exit(1);
@@ -159,6 +332,36 @@ const server = http.createServer((req, res) => {
   const clean = (req.url || '/').split('?')[0];
   if (clean === '/ollama' || clean.startsWith('/ollama/')) {
     proxyOllama(req, res);
+    return;
+  }
+  if (clean === '/whisper-cache') {
+    serveWhisperCacheStatus(req, res);
+    return;
+  }
+  if (clean === '/models' || clean.startsWith('/models/')) {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+      });
+      res.end();
+      return;
+    }
+    serveLocalWhisperModel(req, res);
+    return;
+  }
+  if (clean === '/hf' || clean.startsWith('/hf/')) {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+      });
+      res.end();
+      return;
+    }
+    proxyHuggingFace(req, res);
     return;
   }
 
@@ -235,6 +438,7 @@ server.listen(PORT, HOST, () => {
   console.log('  AV Editor (web)');
   console.log(`  Serving: ${ROOT}`);
   console.log(`  Samples: ${SAMPLES}`);
+  console.log(`  Whisper: ${WHISPER_CACHE}${isWhisperCachedAt(WHISPER_CACHE) ? ' (complete — /models local)' : ' (download on first use → /hf cache)'}`);
   console.log(`  Ollama:  ${OLLAMA}  (proxied at ${url}ollama/)`);
   console.log(`  URL:     ${url}`);
   console.log('  Press Ctrl+C to stop');

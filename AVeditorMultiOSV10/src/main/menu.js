@@ -156,6 +156,13 @@ function createMenu(mainWindow, locale = _locale) {
           click: () => send('view-analysis'),
         }),
         item({
+          label: t('menu.generateSubtitles'),
+          id: 'generate-subtitles',
+          accelerator: 'CmdOrCtrl+Shift+T',
+          iconName: 'subtitles',
+          click: () => send('generate-subtitles'),
+        }),
+        item({
           label: t('menu.ollamaSettings'),
           id: 'ollama-settings',
           iconName: 'settings',

@@ -9,6 +9,7 @@ import { initDialog, showConfirm, showAlert } from './dialog.js';
 import { showOllamaSettingsDialog, loadOllamaSettings, isLikelyVlmModel } from './ollamaSettings.js';
 import { SceneAnalyzer } from './sceneAnalyzer.js';
 import { showAnalysisViewer } from './analysisViewer.js';
+import { generateSubtitlesFromPreview, cuesToSrt } from './subtitleGenerator.js';
 
 const STORAGE_THEME = 'av-editor-theme';
 const STORAGE_LOCALE = 'av-editor-locale';
@@ -62,8 +63,14 @@ class AVEditorApp {
       <div class="toolbar-group">
         <button class="toolbar-btn" id="btn-import" data-i18n-tooltip="toolbar.import">${Icons.import}</button>
         <button class="toolbar-btn" id="btn-export" data-i18n-tooltip="toolbar.export">${Icons.export}</button>
+      </div>
+      <div class="toolbar-separator"></div>
+      <!-- AI (needed especially on web — no native menu) -->
+      <div class="toolbar-group toolbar-group-ai" role="group" aria-label="AI">
+        <span class="toolbar-ai-badge" data-i18n-tooltip="toolbar.aiGroup">${Icons.ai}</span>
         <button class="toolbar-btn" id="btn-analyze" data-i18n-tooltip="toolbar.analyzeScenes">${Icons.sparkles}</button>
         <button class="toolbar-btn" id="btn-view-analysis" data-i18n-tooltip="toolbar.viewAnalysis">${Icons.list}</button>
+        <button class="toolbar-btn" id="btn-subtitles" data-i18n-tooltip="toolbar.generateSubtitles">${Icons.subtitles}</button>
         <button class="toolbar-btn" id="btn-ollama-settings" data-i18n-tooltip="toolbar.ollamaSettings">${Icons.settings}</button>
       </div>
       <div class="toolbar-separator"></div>
@@ -104,17 +111,99 @@ class AVEditorApp {
       <!-- Theme & Language -->
       <div class="toolbar-group">
         <button class="toolbar-btn" id="btn-theme" data-i18n-tooltip="toolbar.toggleTheme">${this.theme === 'dark' ? Icons.sun : Icons.moon}</button>
-        <button class="toolbar-lang-btn" id="btn-lang">${this.i18n.getLocale() === 'en' ? 'KO' : 'EN'}</button>
+        <button class="toolbar-lang-btn" id="btn-lang" data-i18n-tooltip="toolbar.language">${this.i18n.getLocale() === 'en' ? 'KO' : 'EN'}</button>
       </div>
     `;
 
     this._applyTooltips();
+    this._initToolbarFloatingTooltips();
     this._bindToolbarEvents();
   }
 
   _applyTooltips() {
-    document.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
-      el.setAttribute('data-tooltip', this.i18n.t(el.getAttribute('data-i18n-tooltip')));
+    document.querySelectorAll('[data-i18n-tooltip]').forEach((el) => {
+      const text = this.i18n.t(el.getAttribute('data-i18n-tooltip'));
+      el.setAttribute('data-tooltip', text);
+      el.setAttribute('aria-label', text);
+      // Native title as fallback (e.g. touch-long-press); floating tip is primary on toolbar.
+      el.setAttribute('title', text);
+    });
+  }
+
+  /**
+   * Fixed-position tooltips for #toolbar — CSS ::after is clipped/covered on web.
+   */
+  _initToolbarFloatingTooltips() {
+    if (this._toolbarTipBound) return;
+    this._toolbarTipBound = true;
+
+    let tip = document.getElementById('av-floating-tooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'av-floating-tooltip';
+      tip.setAttribute('role', 'tooltip');
+      document.body.appendChild(tip);
+    }
+
+    let showTimer = null;
+    let current = null;
+
+    const hide = () => {
+      clearTimeout(showTimer);
+      showTimer = null;
+      tip.classList.remove('visible');
+      current = null;
+    };
+
+    const place = (el) => {
+      const text = el.getAttribute('data-tooltip');
+      if (!text) return;
+      tip.textContent = text;
+      tip.classList.add('visible');
+      // Measure after visible so size is correct
+      const r = el.getBoundingClientRect();
+      const tipW = tip.offsetWidth;
+      const tipH = tip.offsetHeight;
+      let left = r.left + r.width / 2 - tipW / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+      let top = r.bottom + 8;
+      if (top + tipH > window.innerHeight - 8) {
+        top = Math.max(8, r.top - tipH - 8);
+      }
+      tip.style.left = `${Math.round(left)}px`;
+      tip.style.top = `${Math.round(top)}px`;
+    };
+
+    document.addEventListener('pointerover', (e) => {
+      const el = e.target?.closest?.('#toolbar [data-tooltip]');
+      if (!el) return;
+      if (el === current) return;
+      current = el;
+      clearTimeout(showTimer);
+      // Suppress native title while floating tip is active
+      if (el.hasAttribute('title')) {
+        el.dataset.nativeTitle = el.getAttribute('title');
+        el.removeAttribute('title');
+      }
+      showTimer = setTimeout(() => place(el), 200);
+    });
+
+    document.addEventListener('pointerout', (e) => {
+      const el = e.target?.closest?.('#toolbar [data-tooltip]');
+      if (!el) return;
+      const related = e.relatedTarget;
+      if (related && el.contains(related)) return;
+      if (el.dataset.nativeTitle) {
+        el.setAttribute('title', el.dataset.nativeTitle);
+        delete el.dataset.nativeTitle;
+      }
+      if (current === el) hide();
+    });
+
+    document.addEventListener('scroll', hide, true);
+    window.addEventListener('blur', hide);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hide();
     });
   }
 
@@ -129,6 +218,7 @@ class AVEditorApp {
     $('btn-export').addEventListener('click', () => this._export());
     $('btn-analyze').addEventListener('click', () => this._analyzeScenes());
     $('btn-view-analysis').addEventListener('click', () => this._viewAnalysisResults());
+    $('btn-subtitles').addEventListener('click', () => this._generateSubtitles());
     $('btn-ollama-settings').addEventListener('click', () => this._openOllamaSettings());
     $('btn-undo').addEventListener('click', () => this._undo());
     $('btn-redo').addEventListener('click', () => this._redo());
@@ -642,6 +732,7 @@ class AVEditorApp {
       this.fileInfo.completeLoad(reqId, merged);
       if (merged?.duration && isFinite(merged.duration)) entry.duration = merged.duration;
       if (merged?.size) entry.size = merged.size;
+      if (merged?.path) entry.displayPath = merged.path;
     } catch (err) {
       console.warn('[fileInfo] metadata failed:', err);
       if (reqId === this.fileInfo._requestId) {
@@ -806,6 +897,15 @@ class AVEditorApp {
         label: t('context.analyzeScenes'),
         action: () => this._analyzeScenesFromEntry(entry),
       },
+      !isDir && isMedia && {
+        icon: Icons.subtitles,
+        label: t('menu.generateSubtitles'),
+        action: async () => {
+          await this._onFileSelect(entry);
+          await this._waitPreviewMetadata(8000);
+          await this._generateSubtitles();
+        },
+      },
       isDir && {
         icon: Icons.folderOpen,
         label: t('context.revealInTree'),
@@ -935,6 +1035,12 @@ class AVEditorApp {
         disabled: !hasMedia,
         action: () => this._analyzeScenes(),
       },
+      {
+        icon: Icons.subtitles,
+        label: t('menu.generateSubtitles'),
+        disabled: !hasMedia,
+        action: () => this._generateSubtitles(),
+      },
       file && {
         icon: Icons.plus,
         label: t('context.addToTimeline'),
@@ -1059,6 +1165,7 @@ class AVEditorApp {
         case 'export':             this._export(); break;
         case 'analyze-scenes':     this._analyzeScenes(); break;
         case 'view-analysis':      this._viewAnalysisResults(); break;
+        case 'generate-subtitles': this._generateSubtitles(); break;
         case 'ollama-settings':    this._openOllamaSettings(); break;
         case 'undo':               this._undo(); break;
         case 'redo':               this._redo(); break;
@@ -1123,6 +1230,10 @@ class AVEditorApp {
           case 'v':
             if (e.shiftKey) { e.preventDefault(); this._viewAnalysisResults(); }
             break;
+          case 'T':
+          case 't':
+            if (e.shiftKey) { e.preventDefault(); this._generateSubtitles(); }
+            break;
           case 'b': e.preventDefault(); this.timeline.splitSelectedClip(); break;
           case 't': e.preventDefault(); this._toggleTheme(); break;
           case '=': case '+': this.timeline.zoomIn(); break;
@@ -1172,6 +1283,131 @@ class AVEditorApp {
 
   async _openOllamaSettings() {
     await showOllamaSettingsDialog(this.i18n);
+  }
+
+  async _generateSubtitles() {
+    if (this._subtitleBusy) return;
+    if (!this.preview?.mediaEl) {
+      await showAlert(this.i18n.t('subtitle.noMedia'));
+      return;
+    }
+
+    this._subtitleBusy = true;
+    this._subtitleCancelled = false;
+    this._setStatus('analyzing');
+    this._showSubtitleOverlay();
+
+    try {
+      const locale = this.i18n.getLocale() === 'ko' ? 'ko' : 'en';
+      const result = await generateSubtitlesFromPreview(this.preview, {
+        locale,
+        cancelled: () => !!this._subtitleCancelled,
+        onProgress: ({ percent, labelKey, labelParams }) => {
+          const label = labelKey
+            ? this.i18n.t(labelKey, labelParams || {})
+            : this.i18n.t('subtitle.transcribing');
+          this._updateSubtitleProgress(percent, label);
+        },
+      });
+
+      this._hideSubtitleOverlay();
+      this._setStatus('ready');
+
+      if (result?.cancelled) {
+        await showAlert(this.i18n.t('subtitle.cancelled'));
+        return;
+      }
+
+      const cues = result?.cues || [];
+      if (!cues.length) {
+        await showAlert(this.i18n.t('subtitle.empty'));
+        return;
+      }
+
+      this.preview.setSubtitles(cues);
+      this._lastSubtitles = cues;
+      // Jump to first cue so the on-screen subtitle is visible immediately
+      const t0 = Number(cues[0]?.start) || 0;
+      try {
+        this.preview.pause();
+        this.preview.seek(t0);
+        this._updatePlayBtn(false);
+      } catch { /* ignore */ }
+      await showAlert(this.i18n.t('subtitle.applied', { count: cues.length }));
+
+      const save = await showConfirm(this.i18n.t('subtitle.saveSrt'));
+      if (save) {
+        const srcName = this.preview.currentFile?.name || 'media';
+        const stem = String(srcName).replace(/\.[^.]+$/, '') || 'subtitles';
+        const defaultName = `${stem}.srt`;
+        const outPath = await window.electronAPI?.saveSubtitleDialog?.(defaultName);
+        if (outPath) {
+          const srt = cuesToSrt(cues);
+          if (window.electronAPI?.isWeb) {
+            const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = String(outPath).split(/[\\/:]/).pop() || defaultName;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+          } else {
+            await window.electronAPI.writeTextFile(outPath, srt, { append: false });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[subtitle] generation failed', err);
+      this._hideSubtitleOverlay();
+      this._setStatus('error');
+      await showAlert(this.i18n.t('subtitle.failed', {
+        error: err?.message || String(err),
+      }));
+      this._setStatus('ready');
+    } finally {
+      this._subtitleBusy = false;
+      this._subtitleCancelled = false;
+    }
+  }
+
+  _showSubtitleOverlay() {
+    let overlay = document.getElementById('subtitle-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'subtitle-overlay';
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+      <div class="export-card analyze-card">
+        <h3>${this.i18n.t('subtitle.title')}</h3>
+        <div class="export-progress-bar-track">
+          <div class="export-progress-bar-fill" id="subtitle-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="analyze-progress-meta">
+          <span id="subtitle-progress-label">${this.i18n.t('subtitle.extractingAudio')}</span>
+          <span id="subtitle-progress-pct">0%</span>
+        </div>
+        <button class="export-cancel-btn" id="subtitle-cancel-btn">${Icons.close}<span>${this.i18n.t('dialog.cancel')}</span></button>
+      </div>
+    `;
+    document.getElementById('subtitle-cancel-btn')?.addEventListener('click', () => {
+      this._subtitleCancelled = true;
+    });
+    overlay.classList.add('visible');
+    this._updateSubtitleProgress(0, this.i18n.t('subtitle.extractingAudio'));
+  }
+
+  _updateSubtitleProgress(percent, label) {
+    const pct = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    const fill = document.getElementById('subtitle-progress-fill');
+    const labelEl = document.getElementById('subtitle-progress-label');
+    const pctEl = document.getElementById('subtitle-progress-pct');
+    if (fill) fill.style.width = `${pct}%`;
+    if (labelEl && label) labelEl.textContent = label;
+    if (pctEl) pctEl.textContent = `${pct}%`;
+  }
+
+  _hideSubtitleOverlay() {
+    document.getElementById('subtitle-overlay')?.classList.remove('visible');
   }
 
   async _viewAnalysisResults({ filePath = null, pickIfMissing = true } = {}) {

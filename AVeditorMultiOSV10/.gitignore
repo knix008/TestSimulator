@@ -101,3 +101,6 @@ temp/
 *.tmp
 *.temp
 *.bak
+
+# Synced from node_modules on npm start / build:web (large WASM)
+src/renderer/vendor/transformers/

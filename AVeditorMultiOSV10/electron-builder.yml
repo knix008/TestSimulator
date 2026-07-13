@@ -11,6 +11,10 @@ files:
   - assets/**/*
   - package.json
 
+# WASM cannot run reliably from inside asar
+asarUnpack:
+  - "**/vendor/transformers/**/*.wasm"
+
 # Default icon stem (platform-specific overrides below)
 icon: assets/icons/icon
 

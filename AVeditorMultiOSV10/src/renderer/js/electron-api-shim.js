@@ -162,6 +162,14 @@
     const stored = file instanceof File
       ? file
       : new File([file], safeName, { type: file.type || 'application/octet-stream' });
+    // Annotate for File Info path display (browser cannot expose real disk paths)
+    try {
+      Object.defineProperty(stored, 'displayPath', {
+        value: path,
+        configurable: true,
+        enumerable: false,
+      });
+    } catch { /* ignore */ }
     library.set(path, stored);
     blobUrls.set(path, URL.createObjectURL(stored));
     return path;
@@ -171,7 +179,13 @@
     const safeName = String(name || 'media').replace(/[\\/]/g, '_');
     let path = `${LIBRARY_ROOT}/${safeName}`;
     if (library.has(path)) return path;
-    library.set(path, { name: safeName, size: Number(size) || 0, remoteUrl: url });
+    library.set(path, {
+      name: safeName,
+      size: Number(size) || 0,
+      remoteUrl: url,
+      // Same style as Electron disk paths: stable library path (not http URL)
+      displayPath: path,
+    });
     blobUrls.set(path, url);
     return path;
   }
@@ -222,7 +236,6 @@
           isVideo: !AUDIO_EXTS.has(ext),
           isAudio: AUDIO_EXTS.has(ext),
           extension: ext,
-          containerFormat: (ext.replace('.', '') || '').toUpperCase() || null,
         });
       }, { once: true });
       el.addEventListener('error', () => {
@@ -253,9 +266,7 @@
       out.overallBitrate = Math.round((sz * 8) / out.duration);
       out.bitrate = out.overallBitrate;
     }
-    if (!out.containerFormat && out.extension) {
-      out.containerFormat = String(out.extension).replace('.', '').toUpperCase();
-    }
+    // Do not invent containerFormat from extension — Electron only shows MediaInfo Format
     return out;
   }
 
@@ -270,22 +281,39 @@
     return parts.length ? parts.join(' ') : null;
   }
 
+  /** Parse MediaInfo date strings like "UTC 2012-03-13 08:58:06" → ISO. */
+  function parseMediaInfoDate(value) {
+    if (!value) return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    const cleaned = raw.replace(/^UTC\s+/i, '').replace(/\s+UTC$/i, '');
+    const ms = Date.parse(cleaned.includes('T') ? cleaned : cleaned.replace(' ', 'T') + 'Z');
+    if (!Number.isFinite(ms)) return null;
+    return new Date(ms).toISOString();
+  }
+
   function normalizeMediaInfo(raw, meta) {
+    // Keep in sync with src/shared/mediaMeta.cjs (Electron main uses that module).
     const tracks = raw?.media?.track || [];
     const general = tracks.find((track) => track['@type'] === 'General') || null;
     const video = tracks.find((track) => track['@type'] === 'Video') || null;
     const audioTracks = tracks.filter((track) => track['@type'] === 'Audio');
     const audio = audioTracks[0] || null;
     const ext = meta.extension || extOf(meta.name);
+    const fileSize = toFiniteNumber(general?.FileSize) || meta.size || 0;
+    const hasVideo = !!video;
+    const hasAudio = !!audio;
+    const isVideo = hasVideo || (MEDIA_EXTS.has(ext) && !AUDIO_EXTS.has(ext) && !hasAudio);
+    const isAudio = (!hasVideo && hasAudio) || (AUDIO_EXTS.has(ext) && !hasVideo);
 
     return {
       name: meta.name,
       path: meta.path || null,
-      size: meta.size || 0,
+      size: fileSize || meta.size || 0,
       extension: ext,
-      isVideo: !!video || (!audio && !AUDIO_EXTS.has(ext)),
-      isAudio: !video && (!!audio || AUDIO_EXTS.has(ext)),
-      containerFormat: general?.Format || (ext ? ext.replace('.', '').toUpperCase() : null),
+      isVideo,
+      isAudio,
+      containerFormat: general?.Format || null,
       duration: toFiniteNumber(video?.Duration ?? audio?.Duration ?? general?.Duration),
       width: toFiniteNumber(video?.Width),
       height: toFiniteNumber(video?.Height),
@@ -297,7 +325,31 @@
       codec: getTrackCodec(video || audio),
       videoCodec: getTrackCodec(video),
       audioCodec: getTrackCodec(audio),
+      modified: meta.modified
+        || parseMediaInfoDate(general?.File_Modified_Date)
+        || parseMediaInfoDate(general?.Tagged_Date)
+        || null,
+      created: meta.created
+        || parseMediaInfoDate(general?.Encoded_Date)
+        || parseMediaInfoDate(general?.File_Created_Date)
+        || null,
     };
+  }
+
+  function hasRichFields(info) {
+    if (!info) return false;
+    return !!(
+      info.duration
+      || info.width
+      || info.videoCodec
+      || info.audioCodec
+      || info.sampleRate
+      || info.channels
+      || info.fps
+      || info.bitrate
+      || info.overallBitrate
+      || info.containerFormat
+    );
   }
 
   let mediaInfoFactoryPromise = null;
@@ -306,21 +358,42 @@
       const candidates = [
         '/mediainfo/esm-bundle/index.js',
         './mediainfo/esm-bundle/index.js',
+        new URL('mediainfo/esm-bundle/index.js', window.location.href).href,
       ];
       mediaInfoFactoryPromise = (async () => {
+        let lastErr = null;
         for (const url of candidates) {
           try {
             const mod = await import(/* webpackIgnore: true */ url);
-            return mod.mediaInfoFactory || mod.default || null;
-          } catch {
-            /* try next */
+            const factory = mod.mediaInfoFactory || mod.default || null;
+            if (factory) return factory;
+          } catch (err) {
+            lastErr = err;
           }
         }
-        console.warn('[AV Editor] mediainfo.js not available; using HTML5 metadata only');
+        console.warn(
+          '[AV Editor] mediainfo.js not available; using HTML5 metadata only',
+          lastErr?.message || lastErr || ''
+        );
         return null;
       })();
     }
     return mediaInfoFactoryPromise;
+  }
+
+  function resolveMediaInfoWasmUrl(wasmFile) {
+    const name = String(wasmFile || 'MediaInfoModule.wasm').split('/').pop();
+    const candidates = [
+      `/mediainfo/${name}`,
+      `./mediainfo/${name}`,
+      new URL(`mediainfo/${name}`, window.location.href).href,
+    ];
+    // locateFile is sync — return first absolute-ish URL; fetch will fail loudly if missing
+    try {
+      return new URL(candidates[0], window.location.href).href;
+    } catch {
+      return candidates[0];
+    }
   }
 
   async function analyzeWithMediaInfo(getSize, readChunk, meta) {
@@ -330,10 +403,7 @@
     try {
       mediaInfo = await factory({
         format: 'object',
-        locateFile: (wasmFile) => {
-          const name = String(wasmFile || 'MediaInfoModule.wasm').split('/').pop();
-          return new URL(`/mediainfo/${name}`, window.location.href).href;
-        },
+        locateFile: resolveMediaInfoWasmUrl,
       });
       const raw = await mediaInfo.analyzeData(getSize, readChunk);
       return normalizeMediaInfo(raw, meta);
@@ -345,17 +415,45 @@
     }
   }
 
+  /** Full remote file buffers when Range is unsupported / corrupted by cache. */
+  const remoteFileBuffers = new Map();
+
+  async function getRemoteArrayBuffer(url) {
+    const abs = toAbsoluteUrl(url);
+    if (remoteFileBuffers.has(abs)) return remoteFileBuffers.get(abs);
+    const res = await fetch(abs, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`fetch-failed:${res.status}`);
+    const buf = await res.arrayBuffer();
+    // Cap cache to ~64MB entries to avoid blowing memory on huge media
+    if (buf.byteLength <= 64 * 1024 * 1024) remoteFileBuffers.set(abs, buf);
+    return buf;
+  }
+
   async function readChunkFromUrl(url, size, offset) {
     const abs = toAbsoluteUrl(url);
     const end = offset + size - 1;
-    const res = await fetch(abs, {
-      headers: { Range: `bytes=${offset}-${end}` },
-      cache: 'force-cache',
-    });
-    if (!res.ok && res.status !== 206) {
-      throw new Error(`Range fetch failed: ${res.status}`);
+
+    // Prefer Range when the server supports it (start-web / most static hosts).
+    try {
+      const res = await fetch(abs, {
+        headers: { Range: `bytes=${offset}-${end}` },
+        cache: 'no-store',
+      });
+      if (res.status === 206) {
+        return new Uint8Array(await res.arrayBuffer());
+      }
+      if (res.ok) {
+        // Server ignored Range and returned the whole file — slice locally.
+        const full = new Uint8Array(await res.arrayBuffer());
+        if (full.byteLength <= 64 * 1024 * 1024) remoteFileBuffers.set(abs, full.buffer);
+        return full.subarray(offset, Math.min(offset + size, full.length));
+      }
+    } catch {
+      /* fall through to full-buffer path */
     }
-    return new Uint8Array(await res.arrayBuffer());
+
+    const full = new Uint8Array(await getRemoteArrayBuffer(url));
+    return full.subarray(offset, Math.min(offset + size, full.length));
   }
 
   const mediaInfoCache = new Map();
@@ -363,21 +461,23 @@
   async function getMediaInfoForEntry(filePath, entry) {
     const name = entryName(entry);
     const ext = extOf(name);
-    const size = entrySize(entry);
-    const cacheKey = `${filePath}:${size}:${entry.lastModified || entry.remoteUrl || ''}`;
+    let size = entrySize(entry);
+    const cacheKey = `${filePath}:${size}:${entry.lastModified || entry.remoteUrl || entry.displayPath || ''}`;
     if (mediaInfoCache.has(cacheKey)) return mediaInfoCache.get(cacheKey);
 
     const basic = {
       name,
+      // Always the library path so File Info matches Electron-style stable paths
       path: filePath,
       size,
       extension: ext,
       isVideo: !AUDIO_EXTS.has(ext) && MEDIA_EXTS.has(ext),
       isAudio: AUDIO_EXTS.has(ext),
-      containerFormat: (ext.replace('.', '') || '').toUpperCase() || null,
+      containerFormat: null,
       modified: entry instanceof File && entry.lastModified
         ? new Date(entry.lastModified).toISOString()
-        : null,
+        : (entry.modified || null),
+      created: entry.created || null,
     };
 
     let rich = null;
@@ -386,6 +486,8 @@
         const file = entry instanceof File
           ? entry
           : new File([entry], name, { type: entry.type || mimeOf(name) });
+        size = file.size || size;
+        basic.size = size;
         rich = await analyzeWithMediaInfo(
           () => file.size,
           async (chunkSize, offset) => new Uint8Array(
@@ -395,14 +497,29 @@
         );
       } else if (entry.remoteUrl || blobUrls.get(filePath)) {
         const url = entry.remoteUrl || blobUrls.get(filePath);
-        const total = size > 0
-          ? size
-          : Number((await fetch(toAbsoluteUrl(url), { method: 'HEAD' }).then((r) => r.headers.get('content-length'))) || 0);
+        let total = size;
+        if (!(total > 0)) {
+          try {
+            const head = await fetch(toAbsoluteUrl(url), { method: 'HEAD', cache: 'no-store' });
+            total = Number(head.headers.get('content-length')) || 0;
+          } catch { total = 0; }
+        }
+        if (!(total > 0)) {
+          // HEAD missing Content-Length — download once and measure
+          const buf = await getRemoteArrayBuffer(url);
+          total = buf.byteLength;
+        }
         if (total > 0) {
+          basic.size = total;
+          size = total;
+          // Keep library entry size in sync for File Info / explorer
+          if (entry && typeof entry === 'object' && !(entry instanceof File)) {
+            entry.size = total;
+          }
           rich = await analyzeWithMediaInfo(
             () => total,
             (chunkSize, offset) => readChunkFromUrl(url, chunkSize, offset),
-            { ...basic, size: total }
+            basic
           );
         }
       }
@@ -410,25 +527,37 @@
       console.warn('[AV Editor] rich metadata failed:', err?.message || err);
     }
 
-    if (rich && (rich.duration || rich.width || rich.videoCodec || rich.audioCodec || rich.sampleRate)) {
-      const merged = enrichBasicMeta({ ...basic, ...rich }, rich.size || size);
-      mediaInfoCache.set(cacheKey, merged);
-      return merged;
-    }
-
-    // HTML5 element fallback (duration / resolution)
+    // HTML5 element fallback (duration / resolution) — merge under MediaInfo
     let html5 = null;
     const src = blobUrls.get(filePath)
-      || (entry.remoteUrl ? toAbsoluteUrl(entry.remoteUrl) : null)
-      || (entry instanceof File || entry instanceof Blob ? null : null);
+      || (entry.remoteUrl ? toAbsoluteUrl(entry.remoteUrl) : null);
     if (src) {
       html5 = await probeMediaSrc(src, name);
     } else if (entry instanceof File || entry instanceof Blob) {
       html5 = await probeMediaFile(entry);
     }
 
-    const merged = enrichBasicMeta({ ...basic, ...(html5 || {}) }, size || html5?.size);
+    const merged = enrichBasicMeta(
+      { ...basic, ...(html5 || {}), ...(rich || {}) },
+      (rich && rich.size) || size || html5?.size
+    );
+    // Prefer MediaInfo dates/codecs when present
+    if (rich) {
+      for (const key of Object.keys(rich)) {
+        if (rich[key] != null && rich[key] !== '') merged[key] = rich[key];
+      }
+    }
+    if (!merged.path) merged.path = basic.path;
+
     mediaInfoCache.set(cacheKey, merged);
+    if (hasRichFields(merged) || hasRichFields(rich)) {
+      console.info('[AV Editor] media metadata ready:', name, {
+        duration: merged.duration,
+        videoCodec: merged.videoCodec,
+        audioCodec: merged.audioCodec,
+        containerFormat: merged.containerFormat,
+      });
+    }
     return merged;
   }
 
@@ -510,20 +639,23 @@
       if (!entry) return null;
       return {
         name: entryName(entry),
-        path: filePath,
+        path: entry.displayPath || filePath,
         size: entrySize(entry),
         extension: extOf(entryName(entry)),
         isDirectory: false,
         modified: entry instanceof File && entry.lastModified
           ? new Date(entry.lastModified).toISOString()
-          : null,
-        created: null,
+          : (entry.modified || null),
+        created: entry.created || null,
       };
     },
 
     getMediaInfo: async (filePath) => {
       const entry = library.get(filePath);
-      if (!entry) return null;
+      if (!entry) {
+        console.warn('[AV Editor] getMediaInfo: not in library:', filePath);
+        return null;
+      }
       return getMediaInfoForEntry(filePath, entry);
     },
 
@@ -823,6 +955,25 @@
       }
     },
 
+    readBinaryFile: async () => ({ ok: false, error: 'Use blob/http media in web mode' }),
+
+    saveSubtitleDialog: async (defaultName) => defaultName || 'subtitles.srt',
+
+    /** Electron-only STT proxy; web uses same-origin /hf and /models. */
+    getSttProxyBase: async () => null,
+
+    isWhisperModelCached: async (modelId) => {
+      try {
+        const q = encodeURIComponent(modelId || 'Xenova/whisper-tiny');
+        const res = await fetch(`${window.location.origin}/whisper-cache?model=${q}`, { cache: 'no-store' });
+        if (!res.ok) return false;
+        const data = await res.json();
+        return !!data?.cached;
+      } catch {
+        return false;
+      }
+    },
+
     /** @private */
     _webLibrary: library,
     /** @private */
@@ -830,6 +981,9 @@
   };
 
   console.info('[AV Editor] Web API shim active');
+
+  // Prefetch MediaInfo WASM so the first File Info open is fast
+  loadMediaInfoFactory().catch(() => {});
 
   // Seed after FileTree has attached its library listener.
   const startSeed = () => setTimeout(() => { seedSampleLibrary(); }, 120);

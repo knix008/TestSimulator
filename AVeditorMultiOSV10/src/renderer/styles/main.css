@@ -170,16 +170,43 @@ body.theme-light {
   z-index: 9999;
 }
 
-/* Toolbar tooltips: show below buttons so they are not clipped by the native menu bar */
-#toolbar [data-tooltip]:hover::after {
-  bottom: auto;
-  top: calc(100% + 6px);
-}
+/*
+ * Toolbar: CSS ::after tips are clipped by overflow-x:auto and covered by the
+ * work-area sibling. Floating tip (#av-floating-tooltip) is used instead.
+ */
+#toolbar [data-tooltip]:hover::after,
 #toolbar [data-tooltip]:hover::before {
-  bottom: auto;
-  top: calc(100% + 2px);
-  border-top-color: transparent;
-  border-bottom-color: var(--border);
+  content: none;
+  display: none;
+}
+
+#av-floating-tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100000;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tooltip);
+  color: var(--text-tooltip);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  visibility: hidden;
+}
+#av-floating-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
 }
 
 /* ── App layout ─────────────────────────────────────────────── */
@@ -204,7 +231,8 @@ body.theme-light {
   height: var(--toolbar-height);
   flex-shrink: 0;
   z-index: 200;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
   position: relative;
   box-shadow: var(--shadow-sm);
 }
@@ -213,6 +241,37 @@ body.theme-light {
   display: flex;
   align-items: center;
   gap: 1px;
+  flex-shrink: 0;
+}
+
+.toolbar-group-ai {
+  padding: 0 4px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.toolbar-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 28px;
+  color: var(--accent);
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.toolbar-ai-badge svg {
+  width: 15px;
+  height: 15px;
+}
+
+.toolbar-group-ai .toolbar-btn {
+  color: var(--text-primary);
+}
+
+.toolbar-group-ai .toolbar-btn:hover {
+  color: var(--accent);
 }
 
 .toolbar-separator {
@@ -840,6 +899,7 @@ body.resizing-row * {
   position: relative;
   overflow: hidden;
   min-height: 0;
+  cursor: pointer;
 }
 
 .preview-viewport video {
@@ -1808,6 +1868,42 @@ body.resizing-row * {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
 }
+
+/* On-video subtitles (above transport cue so sticky pause does not hide them) */
+.preview-subtitle {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%) translateZ(0);
+  -webkit-transform: translateX(-50%) translateZ(0);
+  z-index: 40;
+  max-width: min(90%, 720px);
+  padding: 6px 14px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: clamp(14px, 2.4vw, 22px);
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  white-space: pre-wrap;
+}
+.preview-subtitle[hidden] {
+  display: none !important;
+}
+
+#subtitle-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 20002;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+#subtitle-overlay.visible { display: flex; }
 
 /* ── Explorer tree view ──────────────────────────────────────── */
 .tree-dir {

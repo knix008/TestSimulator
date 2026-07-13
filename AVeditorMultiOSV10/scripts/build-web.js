@@ -38,10 +38,10 @@ function injectShim(html) {
 }
 
 function patchCsp(html) {
-  // Allow blob media, wasm (mediainfo.js), and same-origin fetch.
+  // Allow blob media, wasm (mediainfo / Whisper), HF model download, same-origin fetch.
   return html.replace(
     /http-equiv="Content-Security-Policy"\s+content="[^"]*"/,
-    `http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' blob: data:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; worker-src 'self' blob:;"`
+    `http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' blob: data:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co blob: data:; img-src 'self' data: blob:; worker-src 'self' blob:;"`
   );
 }
 
@@ -49,6 +49,13 @@ function main() {
   if (!fs.existsSync(SRC)) {
     console.error('[build:web] Renderer not found:', SRC);
     process.exit(1);
+  }
+
+  // Ensure Whisper browser build exists under renderer/vendor before copy
+  try {
+    require('./sync-transformers-vendor.js').main();
+  } catch (err) {
+    console.warn('[build:web] Transformers vendor sync failed:', err?.message || err);
   }
 
   console.log('[build:web] Cleaning dist-web/…');

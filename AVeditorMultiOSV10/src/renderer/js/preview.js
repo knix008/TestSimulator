@@ -79,6 +79,7 @@ export class Preview {
         <div class="preview-transport-cue" id="preview-transport-cue" hidden aria-hidden="true">
           <div class="preview-transport-cue-icon" id="preview-transport-cue-icon"></div>
         </div>
+        <div class="preview-subtitle" id="preview-subtitle" hidden aria-live="polite"></div>
       </div>
 
       <div class="preview-controls">
@@ -166,6 +167,9 @@ export class Preview {
     this.viewport = this.container.querySelector('#preview-viewport');
     this.transportCue = this.container.querySelector('#preview-transport-cue');
     this.transportCueIcon = this.container.querySelector('#preview-transport-cue-icon');
+    this.subtitleEl = this.container.querySelector('#preview-subtitle');
+    this._subtitles = [];
+    this._activeSubtitleIndex = -1;
     this._cueSticky = false;
     this._cueTimer = null;
     this.effectPresetButtons = this.container.querySelectorAll('.preview-effect-btn');
@@ -217,6 +221,9 @@ export class Preview {
   }
 
   _bindControls() {
+    // Click preview surface → play/pause (pause cue stays until next transport action)
+    this.viewport.addEventListener('click', (e) => this._onViewportClick(e));
+
     this.playPauseBtn.addEventListener('click', () => {
       // Cue is shown inside _togglePlay / local toggle below.
       if (this.onTransportPlayToggle) this.onTransportPlayToggle();
@@ -303,6 +310,24 @@ export class Preview {
     this.videoEl.addEventListener('loadedmetadata', () => {
       this._applyCurrentViewSizing();
     });
+  }
+
+  /** Click on video/audio preview surface toggles play/pause (same as transport button). */
+  _onViewportClick(e) {
+    if (!this.mediaEl || !this.currentFile) return;
+    // Ignore interactive controls if any ever sit inside the viewport
+    if (e.target.closest?.('button, input, select, textarea, a, label')) return;
+    // Don't toggle when user is selecting text in overlays
+    if (window.getSelection?.()?.type === 'Range') return;
+
+    e.preventDefault();
+    if (this.onTransportPlayToggle) {
+      this.onTransportPlayToggle();
+    } else {
+      const willPause = !!this.isPlaying;
+      this.showTransportCue(willPause ? 'pause' : 'play');
+      this.togglePlay();
+    }
   }
 
   /**
@@ -770,7 +795,60 @@ export class Preview {
       this.seekBar.value = '0';
     }
     this.timeDisplay.textContent = `${this._fmt(cur)} / ${this._fmt(Number.isFinite(dur) ? dur : 0)}`;
+    this._updateSubtitleDisplay(cur);
     this.onTimeUpdate?.(cur, Number.isFinite(dur) ? dur : 0);
+  }
+
+  /**
+   * @param {Array<{start:number,end:number,text:string}>} cues
+   */
+  setSubtitles(cues) {
+    this._subtitles = Array.isArray(cues) ? cues.slice() : [];
+    this._activeSubtitleIndex = -1;
+    if (this.subtitleEl) {
+      // Keep above video / pause cue in the stacking order
+      if (this.viewport && this.subtitleEl.parentElement === this.viewport) {
+        this.viewport.appendChild(this.subtitleEl);
+      }
+    }
+    this._updateSubtitleDisplay(this.mediaEl?.currentTime || 0);
+  }
+
+  getSubtitles() {
+    return this._subtitles.slice();
+  }
+
+  clearSubtitles() {
+    this.setSubtitles([]);
+  }
+
+  _updateSubtitleDisplay(mediaTime) {
+    if (!this.subtitleEl) return;
+    const cues = this._subtitles;
+    if (!cues.length) {
+      this.subtitleEl.hidden = true;
+      this.subtitleEl.textContent = '';
+      this._activeSubtitleIndex = -1;
+      return;
+    }
+    const t = Number(mediaTime) || 0;
+    let idx = -1;
+    for (let i = 0; i < cues.length; i += 1) {
+      const c = cues[i];
+      if (t >= c.start && t < c.end) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === this._activeSubtitleIndex) return;
+    this._activeSubtitleIndex = idx;
+    if (idx < 0) {
+      this.subtitleEl.hidden = true;
+      this.subtitleEl.textContent = '';
+      return;
+    }
+    this.subtitleEl.hidden = false;
+    this.subtitleEl.textContent = cues[idx].text;
   }
 
   _startPlayheadLoop() {
@@ -849,6 +927,7 @@ export class Preview {
 
   loadFile(fileEntry) {
     this.clearTransportCue();
+    this.clearSubtitles();
     this._stopPlayheadLoop();
     this.currentFile = fileEntry;
     const ext = (fileEntry.extension || '').toLowerCase();
@@ -1137,6 +1216,7 @@ export class Preview {
 
   showEmpty() {
     this.clearTransportCue();
+    this.clearSubtitles();
     this._stopPlayheadLoop();
     this.videoEl.style.display = 'none';
     this.audioEl.style.display = 'none';
