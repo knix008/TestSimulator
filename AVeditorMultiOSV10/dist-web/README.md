@@ -8,10 +8,10 @@ npx --yes serve dist-web
 npx --yes http-server dist-web -p 4173
 ```
 
-Then open the printed URL in a browser.
+Then open the printed URL in the browser.
 
 ## Notes
-- Use **Import** or drag files onto the preview/timeline.
-- Left panel "Library" lists imported media for this session.
+- Sample media under `samples/` appears in **Library** automatically when present.
+- Use **Add media…** (+), toolbar Import, or drag files onto the left Library panel.
 - Project Save downloads a `.avp` JSON file.
 - Export is a placeholder in the web build.

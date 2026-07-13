@@ -436,6 +436,42 @@ body.resizing-row * {
 }
 .ft-open-btn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .ft-open-btn svg { width: 14px; height: 14px; }
+.ft-add-btn { color: var(--accent, #5b9fd4); }
+.ft-add-btn:hover { color: var(--text-primary); }
+
+.ft-scroll.ft-drop-over,
+#file-tree-panel.ft-drop-over {
+  outline: 1px dashed var(--accent, #5b9fd4);
+  outline-offset: -4px;
+  background: color-mix(in srgb, var(--accent, #5b9fd4) 8%, transparent);
+}
+
+.ft-empty-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 10px;
+  padding-right: 12px;
+  padding-bottom: 12px;
+}
+.ft-empty-add-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ft-empty-add-btn:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-focus);
+}
+.ft-empty-hint {
+  font-size: 11px;
+  color: var(--text-disabled);
+}
 
 /* Path bar — always visible, shows absolute path */
 .ft-path-bar {
@@ -492,6 +528,9 @@ body.resizing-row * {
 .tree-item:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .tree-item.selected { background: var(--accent-dim); color: var(--text-accent); }
 .tree-item.focused-path { color: var(--text-primary); }
+.tree-item.is-media.is-draggable { cursor: grab; }
+.tree-item.is-media.is-draggable:active,
+.tree-item.is-media.dragging { cursor: grabbing; opacity: 0.75; }
 
 .tree-indent {
   display: inline-block;
@@ -805,6 +844,8 @@ body.resizing-row * {
 
 .preview-viewport video {
   background: #000;
+  position: relative;
+  z-index: 1;
 }
 
 /* Fit: letterbox / pillarbox, keep aspect ratio */
@@ -855,6 +896,82 @@ body.resizing-row * {
 
 .preview-viewport audio {
   max-width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.audio-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.audio-placeholder svg {
+  width: 48px;
+  height: 48px;
+  opacity: 0.55;
+}
+
+/* Transport cue overlay (play / pause / seek feedback) */
+.preview-transport-cue {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  /* Own compositor layer so Chrome/WebKit video does not paint over the cue */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+.preview-transport-cue[hidden] {
+  display: none !important;
+}
+.preview-transport-cue.is-visible {
+  opacity: 1;
+}
+.preview-transport-cue-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+.preview-transport-cue-icon svg {
+  width: 34px;
+  height: 34px;
+  display: block;
+  stroke: currentColor;
+  fill: currentColor;
+}
+.preview-transport-cue[data-action="play"] .preview-transport-cue-icon svg,
+.preview-transport-cue[data-action="pause"] .preview-transport-cue-icon svg {
+  width: 36px;
+  height: 36px;
+}
+.preview-transport-cue.is-pop .preview-transport-cue-icon {
+  animation: preview-cue-pop 0.45s ease-out;
+}
+@keyframes preview-cue-pop {
+  0% { transform: scale(0.72); opacity: 0.35; }
+  55% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.preview-transport-cue[data-action="pause"].is-visible .preview-transport-cue-icon {
+  background: rgba(0, 0, 0, 0.62);
 }
 
 .preview-view-modes {

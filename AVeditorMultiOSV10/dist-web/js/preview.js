@@ -21,13 +21,25 @@ const AUDIO_EFFECT_PRESETS = {
 const AUDIO_EXT = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
 
 export class Preview {
-  constructor(container, { i18n, onTimeUpdate, onEnded, onDurationChange, onContextMenu }) {
+  constructor(container, {
+    i18n,
+    onTimeUpdate,
+    onEnded,
+    onDurationChange,
+    onContextMenu,
+    onTransportPlayToggle,
+    onTransportStop,
+    onTransportSeek,
+  }) {
     this.container = container;
     this.i18n = i18n;
     this.onTimeUpdate = onTimeUpdate;
     this.onEnded = onEnded;
     this.onDurationChange = onDurationChange;
     this.onContextMenu = onContextMenu;
+    this.onTransportPlayToggle = onTransportPlayToggle;
+    this.onTransportStop = onTransportStop;
+    this.onTransportSeek = onTransportSeek;
 
     this.mediaEl = null;
     this.currentFile = null;
@@ -64,6 +76,9 @@ export class Preview {
         </div>
         <video id="preview-video" playsinline></video>
         <audio id="preview-audio" style="display:none;"></audio>
+        <div class="preview-transport-cue" id="preview-transport-cue" hidden aria-hidden="true">
+          <div class="preview-transport-cue-icon" id="preview-transport-cue-icon"></div>
+        </div>
       </div>
 
       <div class="preview-controls">
@@ -149,6 +164,10 @@ export class Preview {
     this.volSlider = this.container.querySelector('#prev-vol');
     this.volLabel = this.container.querySelector('#prev-vol-label');
     this.viewport = this.container.querySelector('#preview-viewport');
+    this.transportCue = this.container.querySelector('#preview-transport-cue');
+    this.transportCueIcon = this.container.querySelector('#preview-transport-cue-icon');
+    this._cueSticky = false;
+    this._cueTimer = null;
     this.effectPresetButtons = this.container.querySelectorAll('.preview-effect-btn');
     this.effectGroups = this.container.querySelectorAll('[data-effect-group]');
     this.brightnessSlider = this.container.querySelector('#prev-brightness');
@@ -198,28 +217,53 @@ export class Preview {
   }
 
   _bindControls() {
+    this.playPauseBtn.addEventListener('click', () => {
+      // Cue is shown inside _togglePlay / local toggle below.
+      if (this.onTransportPlayToggle) this.onTransportPlayToggle();
+      else {
+        const willPause = !!this.isPlaying;
+        this.showTransportCue(willPause ? 'pause' : 'play');
+        this.togglePlay();
+      }
+    });
+
+    this.container.querySelector('#prev-stop').addEventListener('click', () => {
+      if (this.onTransportStop) {
+        this.showTransportCue('stop');
+        this.onTransportStop();
+      } else {
+        this.showTransportCue('stop');
+        this.stop();
+      }
+    });
+
     this.container.querySelector('#prev-skip-back').addEventListener('click', () => {
-      this.stop();
+      this.showTransportCue('skipBack');
+      if (this.onTransportStop) this.onTransportStop();
+      else this.stop();
     });
 
     this.container.querySelector('#prev-rewind').addEventListener('click', () => {
-      this.seek(Math.max(0, (this.mediaEl?.currentTime || 0) - 5));
-    });
-
-    this.playPauseBtn.addEventListener('click', () => this.togglePlay());
-
-    this.container.querySelector('#prev-stop').addEventListener('click', () => {
-      this.stop();
+      this.showTransportCue('rewind');
+      const mediaTime = Math.max(0, (this.mediaEl?.currentTime || 0) - 5);
+      if (this.onTransportSeek) this.onTransportSeek(mediaTime);
+      else this.seek(mediaTime);
     });
 
     this.container.querySelector('#prev-ff').addEventListener('click', () => {
+      this.showTransportCue('fastForward');
       const dur = this.mediaEl?.duration || 0;
       const cur = this.mediaEl?.currentTime || 0;
-      this.seek(dur > 0 ? Math.min(dur, cur + 5) : cur + 5);
+      const mediaTime = dur > 0 ? Math.min(dur, cur + 5) : cur + 5;
+      if (this.onTransportSeek) this.onTransportSeek(mediaTime);
+      else this.seek(mediaTime);
     });
 
     this.container.querySelector('#prev-skip-fwd').addEventListener('click', () => {
-      this.seek(this.mediaEl?.duration || 0);
+      this.showTransportCue('skipForward');
+      const mediaTime = this.mediaEl?.duration || 0;
+      if (this.onTransportSeek) this.onTransportSeek(mediaTime);
+      else this.seek(mediaTime);
     });
 
     this.seekBar.addEventListener('pointerdown', () => { this._scrubbing = true; });
@@ -228,7 +272,9 @@ export class Preview {
     this.seekBar.addEventListener('input', () => {
       if (this.mediaEl && this.mediaEl.duration) {
         this._scrubbing = true;
-        this.seek((this.seekBar.value / 1000) * this.mediaEl.duration);
+        const mediaTime = (this.seekBar.value / 1000) * this.mediaEl.duration;
+        if (this.onTransportSeek) this.onTransportSeek(mediaTime);
+        else this.seek(mediaTime);
       }
     });
     this.seekBar.addEventListener('change', () => {
@@ -257,6 +303,69 @@ export class Preview {
     this.videoEl.addEventListener('loadedmetadata', () => {
       this._applyCurrentViewSizing();
     });
+  }
+
+  /**
+   * Flash a transport icon on the preview surface.
+   * Pause stays visible until another transport cue is shown.
+   * @param {'play'|'pause'|'stop'|'rewind'|'fastForward'|'skipBack'|'skipForward'} action
+   */
+  showTransportCue(action) {
+    if (!this.transportCue || !this.transportCueIcon) return;
+
+    const iconMap = {
+      play: Icons.play,
+      pause: Icons.pause,
+      stop: Icons.stop,
+      rewind: Icons.rewind,
+      fastForward: Icons.fastForward,
+      skipBack: Icons.skipBack,
+      skipForward: Icons.skipForward,
+    };
+    const svg = iconMap[action];
+    if (!svg) return;
+
+    if (this._cueTimer != null) {
+      clearTimeout(this._cueTimer);
+      this._cueTimer = null;
+    }
+
+    // Keep cue above video / audio placeholder (browser compositor + DOM order).
+    if (this.viewport && this.transportCue.parentElement === this.viewport) {
+      this.viewport.appendChild(this.transportCue);
+    }
+
+    this._cueSticky = action === 'pause';
+    this.transportCueIcon.innerHTML = svg;
+    this.transportCue.hidden = false;
+    this.transportCue.removeAttribute('hidden');
+    this.transportCue.setAttribute('aria-hidden', 'false');
+    this.transportCue.dataset.action = action;
+    this.transportCue.classList.remove('is-pop');
+    // Restart CSS pop animation
+    void this.transportCue.offsetWidth;
+    this.transportCue.classList.add('is-visible', 'is-pop');
+
+    if (!this._cueSticky) {
+      this._cueTimer = setTimeout(() => this._hideTransportCue(), 900);
+    }
+  }
+
+  _hideTransportCue() {
+    if (!this.transportCue) return;
+    if (this._cueSticky) return;
+    this.transportCue.classList.remove('is-visible', 'is-pop');
+    this.transportCue.hidden = true;
+    this.transportCue.setAttribute('aria-hidden', 'true');
+  }
+
+  clearTransportCue() {
+    this._cueSticky = false;
+    if (this._cueTimer != null) {
+      clearTimeout(this._cueTimer);
+      this._cueTimer = null;
+    }
+    this._hideTransportCue();
   }
 
   _bindEffectControls() {
@@ -515,7 +624,13 @@ export class Preview {
       const data = e.dataTransfer.getData('application/av-editor-file');
       if (data) {
         try { this.loadFile(JSON.parse(data)); } catch { /* ignore */ }
-      } else if (e.dataTransfer.files.length > 0) {
+        return;
+      }
+      if (window.__avEditorDragEntry) {
+        try { this.loadFile({ ...window.__avEditorDragEntry }); } catch { /* ignore */ }
+        return;
+      }
+      if (e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
         this.loadBrowserFile(file);
       }
@@ -733,6 +848,7 @@ export class Preview {
   }
 
   loadFile(fileEntry) {
+    this.clearTransportCue();
     this._stopPlayheadLoop();
     this.currentFile = fileEntry;
     const ext = (fileEntry.extension || '').toLowerCase();
@@ -752,11 +868,16 @@ export class Preview {
       if (!existing) {
         const ph = document.createElement('div');
         ph.className = 'audio-placeholder';
-        ph.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--text-secondary)';
         ph.innerHTML = `${Icons.audio}<div style="font-size:13px;max-width:200px;text-align:center;">${fileEntry.name}</div>`;
-        vp.appendChild(ph);
+        // Insert under the transport cue so cues remain visible on web/Electron.
+        if (this.transportCue?.parentElement === vp) {
+          vp.insertBefore(ph, this.transportCue);
+        } else {
+          vp.appendChild(ph);
+        }
       } else {
-        existing.querySelector('div').textContent = fileEntry.name;
+        const nameEl = existing.querySelector('div');
+        if (nameEl) nameEl.textContent = fileEntry.name;
       }
     } else {
       this.mediaEl = this.videoEl;
@@ -767,7 +888,9 @@ export class Preview {
 
     this._clearInactiveMedia(this.mediaEl);
 
-    const blobSrc = fileEntry.blobUrl || fileEntry.url;
+    const blobSrc = fileEntry.blobUrl || fileEntry.url
+      || (fileEntry.path && window.electronAPI?.resolveMediaUrlSync?.(fileEntry.path))
+      || null;
     if (blobSrc) {
       this.mediaEl.src = blobSrc;
     } else if (fileEntry.file instanceof File) {
@@ -797,9 +920,21 @@ export class Preview {
 
   loadBrowserFile(file) {
     this._stopPlayheadLoop();
-    const url = URL.createObjectURL(file);
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-    const entry = { name: file.name, path: null, extension: ext, size: file.size };
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    let diskPath = null;
+    try {
+      diskPath = window.electronAPI?.getPathForFile?.(file) || file.path || null;
+    } catch {
+      diskPath = file.path || null;
+    }
+
+    const entry = {
+      name: file.name,
+      path: diskPath,
+      extension: ext,
+      size: file.size,
+      file: diskPath ? undefined : file,
+    };
     this.currentFile = entry;
 
     const isAudio = AUDIO_EXT.has(ext);
@@ -813,7 +948,13 @@ export class Preview {
     this.mediaEl = isAudio ? this.audioEl : this.videoEl;
     this.mediaEl.style.display = 'block';
     this._clearInactiveMedia(this.mediaEl);
-    this.mediaEl.src = url;
+
+    if (diskPath && window.electronAPI?.isElectron) {
+      this.mediaEl.src = `file://${diskPath.replace(/\\/g, '/')}`;
+    } else {
+      this.mediaEl.src = URL.createObjectURL(file);
+    }
+
     if (isAudio) {
       this._ensureAudioGraph();
       if (this.audioContext?.state === 'suspended') this.audioContext.resume().catch(() => {});
@@ -908,6 +1049,7 @@ export class Preview {
   get duration() { return this.mediaEl?.duration ?? 0; }
 
   showEmpty() {
+    this.clearTransportCue();
     this._stopPlayheadLoop();
     this.videoEl.style.display = 'none';
     this.audioEl.style.display = 'none';

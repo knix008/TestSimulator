@@ -17,7 +17,7 @@
     '.mp3', '.wav', '.aac', '.flac', '.ogg', '.m4a', '.wma', '.opus', '.aiff',
   ]);
 
-  /** @type {Map<string, File>} */
+  /** @type {Map<string, File|{name:string,size:number,remoteUrl?:string}>} */
   const library = new Map();
   /** @type {Map<string, string>} */
   const blobUrls = new Map();
@@ -25,10 +25,41 @@
   const projectCache = new Map();
 
   const LIBRARY_ROOT = '/library';
+  const MEDIA_ACCEPT =
+    'audio/*,video/*,.mp4,.mov,.mkv,.webm,.mp3,.wav,.aac,.flac,.ogg,.m4a';
 
   function extOf(name) {
     const i = String(name || '').lastIndexOf('.');
     return i >= 0 ? String(name).slice(i).toLowerCase() : '';
+  }
+
+  function mimeOf(name) {
+    const ext = extOf(name);
+    const map = {
+      '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
+      '.mkv': 'video/x-matroska', '.avi': 'video/x-msvideo', '.m4v': 'video/mp4',
+      '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+      '.flac': 'audio/flac', '.aac': 'audio/aac', '.m4a': 'audio/mp4',
+      '.opus': 'audio/opus', '.aiff': 'audio/aiff',
+    };
+    return map[ext] || 'application/octet-stream';
+  }
+
+  function toAbsoluteUrl(url) {
+    if (!url) return null;
+    try {
+      return new URL(url, window.location.href).href;
+    } catch {
+      return url;
+    }
+  }
+
+  function entryName(entry) {
+    return entry?.name || 'media';
+  }
+
+  function entrySize(entry) {
+    return Number(entry?.size) || 0;
   }
 
   function downloadBlob(blob, filename) {
@@ -48,19 +79,59 @@
       input.type = 'file';
       input.multiple = !!multiple;
       if (accept) input.accept = accept;
-      input.style.display = 'none';
+      input.tabIndex = -1;
+      input.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;opacity:0;overflow:hidden;pointer-events:none;';
       document.body.appendChild(input);
-      input.addEventListener('change', () => {
-        const files = Array.from(input.files || []);
-        input.remove();
-        resolve(files);
-      }, { once: true });
+
+      let settled = false;
+      let openedAt = 0;
+      let cancelTimer = null;
+
+      const finish = (files) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(cancelTimer);
+        window.removeEventListener('focus', onFocus);
+        input.removeEventListener('change', onChange);
+        input.removeEventListener('cancel', onCancel);
+        try { input.remove(); } catch { /* ignore */ }
+        resolve(Array.isArray(files) ? files : []);
+      };
+
+      const onChange = () => {
+        clearTimeout(cancelTimer);
+        finish(Array.from(input.files || []));
+      };
+
+      const onCancel = () => {
+        clearTimeout(cancelTimer);
+        finish([]);
+      };
+
+      // Opening the OS dialog often blurs/focuses the window before the user
+      // picks anything. Ignoring early focus + waiting for `change` prevents
+      // resolving [] while a real selection is still in progress.
+      const onFocus = () => {
+        if (Date.now() - openedAt < 500) return;
+        clearTimeout(cancelTimer);
+        cancelTimer = setTimeout(() => {
+          if (settled) return;
+          finish(Array.from(input.files || []));
+        }, 1200);
+      };
+
+      input.addEventListener('change', onChange);
+      input.addEventListener('cancel', onCancel);
+      window.addEventListener('focus', onFocus);
+      openedAt = Date.now();
       input.click();
     });
   }
 
   function addLibraryFile(file) {
-    const safeName = String(file.name || 'media').replace(/[\\/]/g, '_');
+    if (!(file instanceof File) && !(file instanceof Blob)) return null;
+    const name = file instanceof File ? file.name : (file.name || 'media.bin');
+    const safeName = String(name || 'media').replace(/[\\/]/g, '_');
     let path = `${LIBRARY_ROOT}/${safeName}`;
     let n = 1;
     while (library.has(path)) {
@@ -69,9 +140,24 @@
       path = `${LIBRARY_ROOT}/${stem}-${n}${ext}`;
       n += 1;
     }
-    if (blobUrls.has(path)) URL.revokeObjectURL(blobUrls.get(path));
-    library.set(path, file);
-    blobUrls.set(path, URL.createObjectURL(file));
+    if (blobUrls.has(path)) {
+      const prev = blobUrls.get(path);
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+    }
+    const stored = file instanceof File
+      ? file
+      : new File([file], safeName, { type: file.type || 'application/octet-stream' });
+    library.set(path, stored);
+    blobUrls.set(path, URL.createObjectURL(stored));
+    return path;
+  }
+
+  function addRemoteLibraryFile(name, url, size = 0) {
+    const safeName = String(name || 'media').replace(/[\\/]/g, '_');
+    let path = `${LIBRARY_ROOT}/${safeName}`;
+    if (library.has(path)) return path;
+    library.set(path, { name: safeName, size: Number(size) || 0, remoteUrl: url });
+    blobUrls.set(path, url);
     return path;
   }
 
@@ -79,37 +165,291 @@
     window.dispatchEvent(new CustomEvent('av-library-changed'));
   }
 
-  function probeMediaFile(file) {
+  function addMediaFiles(fileList) {
+    const files = Array.from(fileList || []).filter((f) => {
+      const ext = extOf(f.name);
+      return MEDIA_EXTS.has(ext);
+    });
+    const paths = files.map(addLibraryFile).filter(Boolean);
+    if (paths.length) notifyLibraryChanged();
+    return paths;
+  }
+
+  function probeMediaSrc(src, name) {
     return new Promise((resolve) => {
-      const url = URL.createObjectURL(file);
-      const ext = extOf(file.name);
+      const ext = extOf(name);
       const el = document.createElement(AUDIO_EXTS.has(ext) ? 'audio' : 'video');
       el.preload = 'metadata';
-      const done = (info) => {
-        URL.revokeObjectURL(url);
+      el.muted = true;
+      let settled = false;
+      const finish = (info) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try { el.removeAttribute('src'); el.load(); } catch { /* ignore */ }
         resolve(info);
       };
+      const timer = setTimeout(() => {
+        finish({
+          name,
+          extension: ext,
+          isVideo: !AUDIO_EXTS.has(ext),
+          isAudio: AUDIO_EXTS.has(ext),
+        });
+      }, 8000);
       el.addEventListener('loadedmetadata', () => {
-        done({
-          name: file.name,
-          size: file.size,
+        finish({
+          name,
+          size: 0,
           duration: Number.isFinite(el.duration) ? el.duration : null,
           width: el.videoWidth || null,
           height: el.videoHeight || null,
           isVideo: !AUDIO_EXTS.has(ext),
           isAudio: AUDIO_EXTS.has(ext),
           extension: ext,
+          containerFormat: (ext.replace('.', '') || '').toUpperCase() || null,
         });
       }, { once: true });
       el.addEventListener('error', () => {
-        done({ name: file.name, size: file.size, extension: ext });
+        finish({
+          name,
+          extension: ext,
+          isVideo: !AUDIO_EXTS.has(ext),
+          isAudio: AUDIO_EXTS.has(ext),
+        });
       }, { once: true });
-      el.src = url;
+      el.src = src;
     });
+  }
+
+  function probeMediaFile(file) {
+    const url = URL.createObjectURL(file);
+    return probeMediaSrc(url, file.name).then((info) => {
+      URL.revokeObjectURL(url);
+      return enrichBasicMeta({ ...info, size: file.size }, file.size);
+    });
+  }
+
+  function enrichBasicMeta(info, size) {
+    const out = { ...info };
+    const sz = Number(size || out.size) || 0;
+    out.size = sz || out.size || 0;
+    if ((!out.bitrate && !out.overallBitrate) && out.duration && sz > 0) {
+      out.overallBitrate = Math.round((sz * 8) / out.duration);
+      out.bitrate = out.overallBitrate;
+    }
+    if (!out.containerFormat && out.extension) {
+      out.containerFormat = String(out.extension).replace('.', '').toUpperCase();
+    }
+    return out;
+  }
+
+  function toFiniteNumber(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function getTrackCodec(track) {
+    if (!track) return null;
+    const parts = [track.Format, track.Format_Profile || track.Format_AdditionalFeatures].filter(Boolean);
+    return parts.length ? parts.join(' ') : null;
+  }
+
+  function normalizeMediaInfo(raw, meta) {
+    const tracks = raw?.media?.track || [];
+    const general = tracks.find((track) => track['@type'] === 'General') || null;
+    const video = tracks.find((track) => track['@type'] === 'Video') || null;
+    const audioTracks = tracks.filter((track) => track['@type'] === 'Audio');
+    const audio = audioTracks[0] || null;
+    const ext = meta.extension || extOf(meta.name);
+
+    return {
+      name: meta.name,
+      path: meta.path || null,
+      size: meta.size || 0,
+      extension: ext,
+      isVideo: !!video || (!audio && !AUDIO_EXTS.has(ext)),
+      isAudio: !video && (!!audio || AUDIO_EXTS.has(ext)),
+      containerFormat: general?.Format || (ext ? ext.replace('.', '').toUpperCase() : null),
+      duration: toFiniteNumber(video?.Duration ?? audio?.Duration ?? general?.Duration),
+      width: toFiniteNumber(video?.Width),
+      height: toFiniteNumber(video?.Height),
+      fps: toFiniteNumber(video?.FrameRate ?? general?.FrameRate),
+      sampleRate: toFiniteNumber(audio?.SamplingRate),
+      channels: toFiniteNumber(audio?.Channels),
+      bitrate: toFiniteNumber(video?.BitRate ?? audio?.BitRate ?? general?.OverallBitRate),
+      overallBitrate: toFiniteNumber(general?.OverallBitRate),
+      codec: getTrackCodec(video || audio),
+      videoCodec: getTrackCodec(video),
+      audioCodec: getTrackCodec(audio),
+    };
+  }
+
+  let mediaInfoFactoryPromise = null;
+  function loadMediaInfoFactory() {
+    if (!mediaInfoFactoryPromise) {
+      const candidates = [
+        '/mediainfo/esm-bundle/index.js',
+        './mediainfo/esm-bundle/index.js',
+      ];
+      mediaInfoFactoryPromise = (async () => {
+        for (const url of candidates) {
+          try {
+            const mod = await import(/* webpackIgnore: true */ url);
+            return mod.mediaInfoFactory || mod.default || null;
+          } catch {
+            /* try next */
+          }
+        }
+        console.warn('[AV Editor] mediainfo.js not available; using HTML5 metadata only');
+        return null;
+      })();
+    }
+    return mediaInfoFactoryPromise;
+  }
+
+  async function analyzeWithMediaInfo(getSize, readChunk, meta) {
+    const factory = await loadMediaInfoFactory();
+    if (!factory) return null;
+    let mediaInfo;
+    try {
+      mediaInfo = await factory({
+        format: 'object',
+        locateFile: (wasmFile) => {
+          const name = String(wasmFile || 'MediaInfoModule.wasm').split('/').pop();
+          return new URL(`/mediainfo/${name}`, window.location.href).href;
+        },
+      });
+      const raw = await mediaInfo.analyzeData(getSize, readChunk);
+      return normalizeMediaInfo(raw, meta);
+    } catch (err) {
+      console.warn('[AV Editor] mediainfo analyze failed:', err?.message || err);
+      return null;
+    } finally {
+      try { mediaInfo?.close(); } catch { /* ignore */ }
+    }
+  }
+
+  async function readChunkFromUrl(url, size, offset) {
+    const abs = toAbsoluteUrl(url);
+    const end = offset + size - 1;
+    const res = await fetch(abs, {
+      headers: { Range: `bytes=${offset}-${end}` },
+      cache: 'force-cache',
+    });
+    if (!res.ok && res.status !== 206) {
+      throw new Error(`Range fetch failed: ${res.status}`);
+    }
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  const mediaInfoCache = new Map();
+
+  async function getMediaInfoForEntry(filePath, entry) {
+    const name = entryName(entry);
+    const ext = extOf(name);
+    const size = entrySize(entry);
+    const cacheKey = `${filePath}:${size}:${entry.lastModified || entry.remoteUrl || ''}`;
+    if (mediaInfoCache.has(cacheKey)) return mediaInfoCache.get(cacheKey);
+
+    const basic = {
+      name,
+      path: filePath,
+      size,
+      extension: ext,
+      isVideo: !AUDIO_EXTS.has(ext) && MEDIA_EXTS.has(ext),
+      isAudio: AUDIO_EXTS.has(ext),
+      containerFormat: (ext.replace('.', '') || '').toUpperCase() || null,
+      modified: entry instanceof File && entry.lastModified
+        ? new Date(entry.lastModified).toISOString()
+        : null,
+    };
+
+    let rich = null;
+    try {
+      if (entry instanceof File || entry instanceof Blob) {
+        const file = entry instanceof File
+          ? entry
+          : new File([entry], name, { type: entry.type || mimeOf(name) });
+        rich = await analyzeWithMediaInfo(
+          () => file.size,
+          async (chunkSize, offset) => new Uint8Array(
+            await file.slice(offset, offset + chunkSize).arrayBuffer()
+          ),
+          basic
+        );
+      } else if (entry.remoteUrl || blobUrls.get(filePath)) {
+        const url = entry.remoteUrl || blobUrls.get(filePath);
+        const total = size > 0
+          ? size
+          : Number((await fetch(toAbsoluteUrl(url), { method: 'HEAD' }).then((r) => r.headers.get('content-length'))) || 0);
+        if (total > 0) {
+          rich = await analyzeWithMediaInfo(
+            () => total,
+            (chunkSize, offset) => readChunkFromUrl(url, chunkSize, offset),
+            { ...basic, size: total }
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('[AV Editor] rich metadata failed:', err?.message || err);
+    }
+
+    if (rich && (rich.duration || rich.width || rich.videoCodec || rich.audioCodec || rich.sampleRate)) {
+      const merged = enrichBasicMeta({ ...basic, ...rich }, rich.size || size);
+      mediaInfoCache.set(cacheKey, merged);
+      return merged;
+    }
+
+    // HTML5 element fallback (duration / resolution)
+    let html5 = null;
+    const src = blobUrls.get(filePath)
+      || (entry.remoteUrl ? toAbsoluteUrl(entry.remoteUrl) : null)
+      || (entry instanceof File || entry instanceof Blob ? null : null);
+    if (src) {
+      html5 = await probeMediaSrc(src, name);
+    } else if (entry instanceof File || entry instanceof Blob) {
+      html5 = await probeMediaFile(entry);
+    }
+
+    const merged = enrichBasicMeta({ ...basic, ...(html5 || {}) }, size || html5?.size);
+    mediaInfoCache.set(cacheKey, merged);
+    return merged;
+  }
+
+  async function seedSampleLibrary() {
+    try {
+      const res = await fetch('./samples/manifest.json', { cache: 'no-store' });
+      if (!res.ok) return;
+      const names = await res.json();
+      if (!Array.isArray(names) || !names.length) return;
+      let added = 0;
+      for (const name of names) {
+        const url = `./samples/${encodeURIComponent(name)}`;
+        try {
+          const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+          if (!head.ok) continue;
+          const size = Number(head.headers.get('content-length')) || 0;
+          const before = library.size;
+          addRemoteLibraryFile(name, url, size);
+          if (library.size > before) added += 1;
+        } catch {
+          /* skip missing sample */
+        }
+      }
+      if (added) notifyLibraryChanged();
+    } catch {
+      /* no samples available (static host without samples/) */
+    }
   }
 
   let menuCallback = null;
   let exportProgressCallback = null;
+
+  try {
+    document.documentElement.classList.add('is-web');
+    document.body?.classList.add('is-web');
+  } catch { /* ignore */ }
 
   window.electronAPI = {
     isElectron: false,
@@ -125,15 +465,16 @@
 
     readDirectory: async (dirPath) => {
       if (!dirPath || dirPath === LIBRARY_ROOT || dirPath === `${LIBRARY_ROOT}/`) {
-        return Array.from(library.entries()).map(([p, file]) => {
-          const ext = extOf(file.name);
+        return Array.from(library.entries()).map(([p, entry]) => {
+          const name = entryName(entry);
+          const ext = extOf(name);
           return {
-            name: file.name,
+            name,
             path: p,
             isDirectory: false,
             isMedia: MEDIA_EXTS.has(ext),
             extension: ext,
-            size: file.size,
+            size: entrySize(entry),
           };
         });
       }
@@ -150,45 +491,81 @@
       if (!filePath || filePath === LIBRARY_ROOT || filePath === `${LIBRARY_ROOT}/`) {
         return { name: 'Library', path: LIBRARY_ROOT, isDirectory: true, size: 0 };
       }
-      const file = library.get(filePath);
-      if (!file) return null;
+      const entry = library.get(filePath);
+      if (!entry) return null;
       return {
-        name: file.name,
+        name: entryName(entry),
         path: filePath,
-        size: file.size,
-        extension: extOf(file.name),
+        size: entrySize(entry),
+        extension: extOf(entryName(entry)),
         isDirectory: false,
-        modified: null,
+        modified: entry instanceof File && entry.lastModified
+          ? new Date(entry.lastModified).toISOString()
+          : null,
         created: null,
       };
     },
 
     getMediaInfo: async (filePath) => {
-      const file = library.get(filePath);
-      if (!file) return null;
-      return probeMediaFile(file);
+      const entry = library.get(filePath);
+      if (!entry) return null;
+      return getMediaInfoForEntry(filePath, entry);
     },
 
     resolveMediaUrl: async (filePath) => blobUrls.get(filePath) || null,
+    /** Sync URL lookup for immediate <video>/<audio> src assignment in the web build. */
+    resolveMediaUrlSync: (filePath) => blobUrls.get(filePath) || null,
+
+    /** Add File/Blob media into the session Library and return library paths. */
+    addMediaFiles: async (fileList) => addMediaFiles(fileList),
+
+    /**
+     * Sync drag payload for web drag-out (DownloadURL / File).
+     * @returns {{ name: string, mime: string, url: string|null, file: File|null }|null}
+     */
+    getMediaDragInfo: (filePath) => {
+      const entry = library.get(filePath);
+      if (!entry) return null;
+      const name = entryName(entry);
+      const url = toAbsoluteUrl(blobUrls.get(filePath) || entry.remoteUrl || null);
+      return {
+        name,
+        mime: (entry instanceof File && entry.type) || mimeOf(name),
+        url,
+        file: entry instanceof File ? entry : null,
+      };
+    },
+
+    /** Web: no native OS drag; FileTree uses getMediaDragInfo instead. */
+    startDrag: () => {},
+
+    /** Remove a media entry from the session Library (does not delete disk files). */
+    deleteMediaFile: async (filePath) => {
+      if (!filePath || !library.has(filePath)) {
+        return { ok: false, error: 'File not found' };
+      }
+      library.delete(filePath);
+      const url = blobUrls.get(filePath);
+      if (url && url.startsWith('blob:')) {
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+      }
+      blobUrls.delete(filePath);
+      for (const key of [...mediaInfoCache.keys()]) {
+        if (key.startsWith(`${filePath}:`)) mediaInfoCache.delete(key);
+      }
+      notifyLibraryChanged();
+      return { ok: true };
+    },
 
     openFileDialog: async () => {
-      const files = await pickFiles({
-        accept: 'audio/*,video/*,.mp4,.mov,.mkv,.webm,.mp3,.wav,.aac,.flac,.ogg,.m4a',
-        multiple: true,
-      });
-      const paths = files.map(addLibraryFile);
-      if (paths.length) notifyLibraryChanged();
-      return paths;
+      const files = await pickFiles({ accept: MEDIA_ACCEPT, multiple: true });
+      return addMediaFiles(files);
     },
 
     openFolderDialog: async () => {
       // Web: pick multiple media files into the library and reveal Library root.
-      const files = await pickFiles({
-        accept: 'audio/*,video/*,.mp4,.mov,.mkv,.webm,.mp3,.wav,.aac,.flac,.ogg,.m4a',
-        multiple: true,
-      });
-      files.forEach(addLibraryFile);
-      if (files.length) notifyLibraryChanged();
+      const files = await pickFiles({ accept: MEDIA_ACCEPT, multiple: true });
+      addMediaFiles(files);
       return LIBRARY_ROOT;
     },
 
@@ -259,9 +636,19 @@
     removeMenuActionListener: () => { menuCallback = null; },
     onExportProgress: (callback) => { exportProgressCallback = callback; },
 
-    /** @private test helper */
+    /** @private */
     _webLibrary: library,
+    /** @private */
+    _addLibraryFile: addLibraryFile,
   };
 
   console.info('[AV Editor] Web API shim active');
+
+  // Seed after FileTree has attached its library listener.
+  const startSeed = () => setTimeout(() => { seedSampleLibrary(); }, 120);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startSeed, { once: true });
+  } else {
+    startSeed();
+  }
 })();

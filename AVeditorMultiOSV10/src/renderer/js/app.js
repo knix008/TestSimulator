@@ -126,13 +126,21 @@ class AVEditorApp {
     $('btn-split').addEventListener('click', () => this.timeline.splitSelectedClip());
     $('btn-delete').addEventListener('click', () => this.timeline.deleteSelectedClip());
 
-    $('btn-skip-back').addEventListener('click', () => this._stopPlayback());
+    $('btn-skip-back').addEventListener('click', () => {
+      this.preview.showTransportCue('skipBack');
+      this._stopPlayback();
+    });
     $('btn-rewind').addEventListener('click', () => {
+      this.preview.showTransportCue('rewind');
       this._seekTimeline(Math.max(0, this.timeline.currentTime - 5));
     });
     $('btn-play-pause').addEventListener('click', () => this._togglePlay());
-    $('btn-stop').addEventListener('click', () => this._stopPlayback());
+    $('btn-stop').addEventListener('click', () => {
+      this.preview.showTransportCue('stop');
+      this._stopPlayback();
+    });
     $('btn-ff').addEventListener('click', () => {
+      this.preview.showTransportCue('fastForward');
       const mediaDur = this.preview.duration || 0;
       const clip = this._clipForSync(this.timeline.currentTime);
       const offset = Number(clip?.startTime) || 0;
@@ -140,6 +148,7 @@ class AVEditorApp {
       this._seekTimeline(Math.min(maxT, this.timeline.currentTime + 5));
     });
     $('btn-skip-fwd').addEventListener('click', () => {
+      this.preview.showTransportCue('skipForward');
       const mediaDur = this.preview.duration || 0;
       const clip = this._clipForSync(this.timeline.currentTime);
       const offset = Number(clip?.startTime) || 0;
@@ -538,6 +547,8 @@ class AVEditorApp {
   }
 
   _togglePlay() {
+    const willPause = !!this.preview.isPlaying;
+    this.preview.showTransportCue(willPause ? 'pause' : 'play');
     this.preview.togglePlay();
     const playing = this.preview.isPlaying;
     this._lastPreviewPlaying = playing;
@@ -850,7 +861,10 @@ class AVEditorApp {
         icon: Icons.stop,
         label: t('toolbar.stop'),
         disabled: !hasMedia,
-        action: () => this._stopPlayback(),
+        action: () => {
+          this.preview.showTransportCue('stop');
+          this._stopPlayback();
+        },
       },
       {
         icon: (this.preview.isMuted || this.preview.volume <= 0) ? Icons.mute : Icons.volume,

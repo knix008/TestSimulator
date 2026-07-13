@@ -126,13 +126,21 @@ class AVEditorApp {
     $('btn-split').addEventListener('click', () => this.timeline.splitSelectedClip());
     $('btn-delete').addEventListener('click', () => this.timeline.deleteSelectedClip());
 
-    $('btn-skip-back').addEventListener('click', () => this._stopPlayback());
+    $('btn-skip-back').addEventListener('click', () => {
+      this.preview.showTransportCue('skipBack');
+      this._stopPlayback();
+    });
     $('btn-rewind').addEventListener('click', () => {
+      this.preview.showTransportCue('rewind');
       this._seekTimeline(Math.max(0, this.timeline.currentTime - 5));
     });
     $('btn-play-pause').addEventListener('click', () => this._togglePlay());
-    $('btn-stop').addEventListener('click', () => this._stopPlayback());
+    $('btn-stop').addEventListener('click', () => {
+      this.preview.showTransportCue('stop');
+      this._stopPlayback();
+    });
     $('btn-ff').addEventListener('click', () => {
+      this.preview.showTransportCue('fastForward');
       const mediaDur = this.preview.duration || 0;
       const clip = this._clipForSync(this.timeline.currentTime);
       const offset = Number(clip?.startTime) || 0;
@@ -140,6 +148,7 @@ class AVEditorApp {
       this._seekTimeline(Math.min(maxT, this.timeline.currentTime + 5));
     });
     $('btn-skip-fwd').addEventListener('click', () => {
+      this.preview.showTransportCue('skipForward');
       const mediaDur = this.preview.duration || 0;
       const clip = this._clipForSync(this.timeline.currentTime);
       const offset = Number(clip?.startTime) || 0;
@@ -210,6 +219,14 @@ class AVEditorApp {
           this.timeline.syncClipDuration(clip, { duration });
         },
         onContextMenu: (x, y, file) => this._showPreviewContextMenu(x, y, file),
+        // Keep preview transport buttons on the same clock as the toolbar/timeline.
+        onTransportPlayToggle: () => this._togglePlay(),
+        onTransportStop: () => this._stopPlayback(),
+        onTransportSeek: (mediaTime) => {
+          const clip = this._clipForSync(this.timeline?.currentTime ?? 0);
+          const offset = Number(clip?.startTime) || 0;
+          this._seekTimeline(offset + Math.max(0, Number(mediaTime) || 0));
+        },
       }
     );
 
@@ -225,6 +242,7 @@ class AVEditorApp {
           else this.preview.currentClip = null;
         },
         onContextMenu: (x, y, clip) => this._showTimelineContextMenu(x, y, clip),
+        onFit: (timelineTime) => this._onTimelineFit(timelineTime),
       }
     );
 
@@ -461,12 +479,52 @@ class AVEditorApp {
     else mediaTime = Math.max(0, mediaTime);
 
     const syncedTimeline = offset + mediaTime;
+    const wasPlaying = !!this.preview.isPlaying;
     this.timeline.followPlayhead = false;
     this.preview.seek(mediaTime);
     // Prefer the clamped/synced time so playhead never sits past media end.
     const finalT = fromTimeline && mediaDur <= 0 ? t : syncedTimeline;
     this.timeline.setCurrentTime(finalT, { force: true });
     this._updateTimeDisplay(finalT);
+    // Keep auto-scroll engaged if media is still playing after the seek.
+    this.timeline.followPlayhead = wasPlaying;
+  }
+
+  /** After timeline fit (⟷), realign media duration + clocks with the playhead. */
+  _onTimelineFit(timelineTime) {
+    const t = Math.max(0, Number(timelineTime) || this.timeline.currentTime || 0);
+    const mediaDur = this.preview?.duration || 0;
+    const clip = this._clipForSync(t);
+    let needRefit = false;
+
+    if (clip && mediaDur > 0 && isFinite(mediaDur)) {
+      if (Math.abs((clip.duration || 0) - mediaDur) >= 0.001) {
+        clip.duration = mediaDur;
+        if (clip.file) clip.file.duration = mediaDur;
+        needRefit = true;
+      }
+      this.timeline._updateDuration();
+    } else if (!clip && mediaDur > 0 && isFinite(mediaDur)) {
+      const need = mediaDur + Math.min(5, Math.max(1, mediaDur * 0.02));
+      if (need > this.timeline.duration + 0.05) {
+        this.timeline.duration = need;
+        needRefit = true;
+      }
+    }
+
+    if (needRefit && this.timeline._isFitted) {
+      this.timeline.pixelsPerSecond = this.timeline._fitPixelsPerSecond();
+      this.timeline._updateScrollWidth();
+      if (this.timeline.wrapper) {
+        this.timeline.wrapper.scrollLeft = 0;
+        this.timeline.scrollX = 0;
+      }
+      this.timeline.currentTime = t;
+      this.timeline.draw();
+    }
+
+    this._seekTimeline(t, { fromTimeline: true });
+    this._updatePlayBtn(!!this.preview.isPlaying);
   }
 
   /** Stop playback and return to the media/clip start (original position). */
@@ -489,6 +547,8 @@ class AVEditorApp {
   }
 
   _togglePlay() {
+    const willPause = !!this.preview.isPlaying;
+    this.preview.showTransportCue(willPause ? 'pause' : 'play');
     this.preview.togglePlay();
     const playing = this.preview.isPlaying;
     this._lastPreviewPlaying = playing;
@@ -549,18 +609,98 @@ class AVEditorApp {
   // ── File events ────────────────────────────────────────────────────────────
 
   async _onFileSelect(entry) {
-    this.fileInfo.show(entry);
+    const reqId = this.fileInfo.beginLoad(entry);
     this.preview.loadFile(entry);
     this._setStatus('ready');
 
-    // Enrich with media metadata when available; cache duration on entry for later timeline use
     try {
-      const meta = await window.electronAPI.getMediaInfo?.(entry.path);
-      if (meta) {
-        this.fileInfo.showMediaMetadata(meta);
-        if (meta.duration && isFinite(meta.duration)) entry.duration = meta.duration;
+      const metaPromise = (entry?.path && window.electronAPI?.getMediaInfo)
+        ? window.electronAPI.getMediaInfo(entry.path).catch((err) => {
+          console.warn('[fileInfo] getMediaInfo failed:', err);
+          return null;
+        })
+        : Promise.resolve(null);
+
+      const [meta, previewMeta] = await Promise.all([
+        metaPromise,
+        this._waitPreviewMetadata(2500),
+      ]);
+      if (reqId !== this.fileInfo._requestId) return;
+
+      const merged = this._mergeMediaMeta(meta, previewMeta);
+      this.fileInfo.completeLoad(reqId, merged);
+      if (merged?.duration && isFinite(merged.duration)) entry.duration = merged.duration;
+      if (merged?.size) entry.size = merged.size;
+    } catch (err) {
+      console.warn('[fileInfo] metadata failed:', err);
+      if (reqId === this.fileInfo._requestId) {
+        this.fileInfo.completeLoad(reqId, this._mergePreviewMediaMeta(null));
       }
-    } catch { /* ignore */ }
+    }
+  }
+
+  _waitPreviewMetadata(timeoutMs = 2000) {
+    return new Promise((resolve) => {
+      const el = this.preview?.mediaEl;
+      if (!el) {
+        resolve(null);
+        return;
+      }
+      const read = () => {
+        const dur = Number(el.duration);
+        const info = {};
+        if (Number.isFinite(dur) && dur > 0) info.duration = dur;
+        if (el.videoWidth && el.videoHeight) {
+          info.width = el.videoWidth;
+          info.height = el.videoHeight;
+          info.isVideo = true;
+        }
+        return Object.keys(info).length ? info : null;
+      };
+      if (read()) {
+        resolve(read());
+        return;
+      }
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        el.removeEventListener('loadedmetadata', onMeta);
+        el.removeEventListener('durationchange', onMeta);
+        resolve(read());
+      };
+      const onMeta = () => finish();
+      const timer = setTimeout(finish, timeoutMs);
+      el.addEventListener('loadedmetadata', onMeta);
+      el.addEventListener('durationchange', onMeta);
+    });
+  }
+
+  _mergeMediaMeta(primary, secondary) {
+    const out = {};
+    if (secondary) Object.assign(out, secondary);
+    if (primary) {
+      for (const [key, value] of Object.entries(primary)) {
+        if (value != null && value !== '') out[key] = value;
+      }
+    }
+    return Object.keys(out).length ? out : null;
+  }
+
+  /** Fill gaps in probe results from the already-loading preview element. */
+  _mergePreviewMediaMeta(meta) {
+    const el = this.preview?.mediaEl;
+    if (!el) return meta;
+    const secondary = {};
+    const dur = Number(el.duration);
+    if (Number.isFinite(dur) && dur > 0) secondary.duration = dur;
+    if (el.videoWidth && el.videoHeight) {
+      secondary.width = el.videoWidth;
+      secondary.height = el.videoHeight;
+      secondary.isVideo = true;
+    }
+    return this._mergeMediaMeta(meta, secondary);
   }
 
   _onFileDblClick(entry) {
@@ -610,15 +750,24 @@ class AVEditorApp {
 
   _showTreeContextMenu(entry, x, y) {
     const t = (k) => this._t(k);
+    const isWeb = !!window.electronAPI?.isWeb;
 
     if (!entry) {
       ContextMenu.show(x, y, [
         { icon: Icons.refresh, label: t('context.refresh'), action: () => this.fileTree.refresh() },
         { separator: true },
-        { icon: Icons.open, label: t('context.openFolder'), action: async () => {
-          const dir = await window.electronAPI.openFolderDialog?.();
-          if (dir) this.fileTree.revealPath(dir);
-        }},
+        {
+          icon: isWeb ? Icons.import : Icons.open,
+          label: isWeb ? t('fileExplorer.addMedia') : t('context.openFolder'),
+          action: async () => {
+            if (isWeb) {
+              await this.fileTree.importMediaToLibrary?.();
+              return;
+            }
+            const dir = await window.electronAPI.openFolderDialog?.();
+            if (dir) this.fileTree.revealPath(dir);
+          },
+        },
       ]);
       return;
     }
@@ -652,14 +801,47 @@ class AVEditorApp {
         label: t('context.copyPath'),
         action: () => this._copyPath(entry.path),
       },
-      {
+      !isWeb && {
         icon: Icons.explorer,
         label: t('context.showInExplorer'),
         action: () => this._showInExplorer(entry.path),
       },
+      !isDir && isMedia && {
+        icon: Icons.trash,
+        label: t('context.deleteFile'),
+        danger: true,
+        action: () => this._deleteTreeFile(entry),
+      },
       { separator: true },
       { icon: Icons.refresh, label: t('context.refresh'), action: () => this.fileTree.refresh() },
     ]);
+  }
+
+  async _deleteTreeFile(entry) {
+    if (!entry?.path || !window.electronAPI?.deleteMediaFile) return;
+
+    const name = entry.name || entry.path.split(/[\\/]/).pop() || entry.path;
+    const isWeb = !!window.electronAPI.isWeb;
+    const confirmKey = isWeb ? 'context.deleteFileConfirmWeb' : 'context.deleteFileConfirm';
+    const msg = this._t(confirmKey).replace('{name}', name);
+    const confirmed = await showConfirm(msg);
+    if (!confirmed) return;
+
+    const result = await window.electronAPI.deleteMediaFile(entry.path);
+    if (!result?.ok) {
+      await showAlert(this._t('context.deleteFileFailed') + (result?.error ? `\n${result.error}` : ''));
+      return;
+    }
+
+    if (this.fileTree.getSelected?.() === entry.path || this.fileTree._selectedPath === entry.path) {
+      this.fileTree.setSelected(null);
+    }
+    if (this.preview?.currentFile?.path === entry.path) {
+      this.preview.showEmpty();
+    }
+    this.fileInfo?.clear?.();
+    await this.fileTree.refresh();
+    this._setStatus('ready');
   }
 
   _showPreviewContextMenu(x, y, file) {
@@ -679,7 +861,10 @@ class AVEditorApp {
         icon: Icons.stop,
         label: t('toolbar.stop'),
         disabled: !hasMedia,
-        action: () => this._stopPlayback(),
+        action: () => {
+          this.preview.showTransportCue('stop');
+          this._stopPlayback();
+        },
       },
       {
         icon: (this.preview.isMuted || this.preview.volume <= 0) ? Icons.mute : Icons.volume,
