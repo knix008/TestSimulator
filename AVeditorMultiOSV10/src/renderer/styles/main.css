@@ -1232,12 +1232,23 @@ body.resizing-row * {
   overflow-x: auto;
   overflow-y: hidden;
   position: relative;
+  min-height: 0;
+}
+
+/* Wide scroll extent; canvas sticks to the visible left edge while scrolling. */
+#timeline-scroll-inner {
+  position: relative;
+  min-height: 120px;
 }
 
 #timeline-canvas {
+  position: sticky;
+  left: 0;
+  top: 0;
   display: block;
   cursor: crosshair;
-  min-height: 100%;
+  z-index: 1;
+  /* Width/height are set in JS to the viewport size (virtual scroll). */
 }
 
 #timeline-canvas-wrapper::-webkit-scrollbar {
@@ -1266,6 +1277,7 @@ body.resizing-row * {
   pointer-events: none;
   text-align: center;
   padding: 20px;
+  z-index: 2;
 }
 
 /* ── Status bar ──────────────────────────────────────────────── */

@@ -69,7 +69,9 @@ export class Timeline {
         </div>
       </div>
       <div id="timeline-canvas-wrapper">
-        <canvas id="timeline-canvas"></canvas>
+        <div id="timeline-scroll-inner">
+          <canvas id="timeline-canvas"></canvas>
+        </div>
         <div class="timeline-empty-msg" id="timeline-empty-msg"></div>
       </div>
     `;
@@ -77,6 +79,8 @@ export class Timeline {
     this.canvas = this.container.querySelector('#timeline-canvas');
     this.ctx = this.canvas.getContext('2d');
     this.wrapper = this.container.querySelector('#timeline-canvas-wrapper');
+    this.scrollInner = this.container.querySelector('#timeline-scroll-inner');
+    this.spacer = this.scrollInner; // scroll extent element
     this.emptyMsg = this.container.querySelector('#timeline-empty-msg');
     this.scrollEl = this.wrapper;
     /** When true, playback auto-scrolls to keep the playhead in view. */
@@ -111,10 +115,20 @@ export class Timeline {
     return 32;
   }
 
+  /** Full scrollable content width in CSS pixels (may exceed browser canvas limits). */
   _contentWidth() {
     const clientW = this.wrapper?.clientWidth || 0;
     const contentW = this.LABEL_W + this.duration * this.pixelsPerSecond + this._trailingPadPx();
     return Math.round(Math.max(clientW, contentW));
+  }
+
+  _viewportWidth() {
+    return Math.max(1, Math.round(this.wrapper?.clientWidth || this.canvas?.clientWidth || 1));
+  }
+
+  _viewportHeight() {
+    const rectH = Math.round(this.wrapper?.clientHeight || 0);
+    return Math.max(rectH - 2, this.HEADER_H + this.tracks.length * this.TRACK_H);
   }
 
   _resize() {
@@ -122,15 +136,6 @@ export class Timeline {
       this.fitToView();
       return;
     }
-
-    const rect = this.wrapper.getBoundingClientRect();
-    const totalW = this._contentWidth();
-    const totalH = Math.max(Math.round(rect.height) - 10, this.HEADER_H + this.tracks.length * this.TRACK_H);
-
-    const widthChanged = this.canvas.width !== totalW;
-    const heightChanged = this.canvas.height !== totalH;
-    if (widthChanged) { this.canvas.width = totalW; this.canvas.style.width = `${totalW}px`; }
-    if (heightChanged) { this.canvas.height = totalH; }
     this._updateScrollWidth();
     this.draw();
   }
@@ -164,7 +169,7 @@ export class Timeline {
   }
 
   _minPixelsPerSecond() {
-    // No hard 0.1 floor — long media must be allowed to shrink to fit the window.
+    // No hard floor — long media must be allowed to shrink to fit the window.
     return Math.max(0.001, this._fitPixelsPerSecond());
   }
 
@@ -173,35 +178,98 @@ export class Timeline {
   }
 
   /**
-   * Apply zoom while keeping a timeline time fixed under an anchor X in the wrapper.
+   * Apply zoom while keeping a focus time on screen.
+   * Button zoom prefers the playhead; wheel zoom prefers the cursor time.
    * @param {number} newPps
-   * @param {number|null} anchorScreenX  X within wrapper viewport (default: center)
+   * @param {number|null} anchorScreenX  X within wrapper viewport (null = playhead / center)
    */
   _applyZoom(newPps, anchorScreenX = null) {
+    if (!this.wrapper) return;
+
     const clamped = Math.min(this._maxPixelsPerSecond(), Math.max(this._minPixelsPerSecond(), newPps));
-    if (!this.wrapper || Math.abs(clamped - this.pixelsPerSecond) < 1e-9) return;
+    const viewW = this._viewportWidth();
+    const focusTime = this._zoomFocusTime(anchorScreenX);
+    // Keep the focus under the same screen X when possible.
+    const screenAnchor = anchorScreenX == null
+      ? this.LABEL_W + Math.max(40, (viewW - this.LABEL_W) / 2)
+      : Math.max(this.LABEL_W + 8, Math.min(viewW - 8, anchorScreenX));
 
-    this._isFitted = Math.abs(clamped - this._fitPixelsPerSecond()) < 1e-6;
-
-    const viewW = this.wrapper.clientWidth || 0;
-    const anchorX = anchorScreenX == null ? viewW / 2 : anchorScreenX;
-    const oldPps = this.pixelsPerSecond;
-    const timeAtAnchor = (this.wrapper.scrollLeft + anchorX - this.LABEL_W) / oldPps;
+    if (Math.abs(clamped - this.pixelsPerSecond) < 1e-9) {
+      this._ensureTimeVisible(focusTime, { center: true });
+      this.draw();
+      return;
+    }
 
     this.pixelsPerSecond = clamped;
+    this._isFitted = Math.abs(clamped - this._fitPixelsPerSecond()) < 1e-6;
     this._updateScrollWidth();
 
     const maxScroll = Math.max(0, this._contentWidth() - viewW);
-    const newScroll = timeAtAnchor * clamped + this.LABEL_W - anchorX;
+    const newScroll = focusTime * clamped + this.LABEL_W - screenAnchor;
     this.wrapper.scrollLeft = Math.min(maxScroll, Math.max(0, newScroll));
     this.scrollX = this.wrapper.scrollLeft;
+
+    // Guarantee the focused section (playhead / cursor time) stays in view.
+    this._ensureTimeVisible(focusTime, { center: anchorScreenX == null });
     this.draw();
+  }
+
+  /**
+   * Choose which timeline time to keep visible across a zoom.
+   * @param {number|null} anchorScreenX
+   */
+  _zoomFocusTime(anchorScreenX = null) {
+    const viewW = this._viewportWidth();
+    const tPlay = Math.max(0, Number(this.currentTime) || 0);
+    const playX = this._timeToContentX(tPlay);
+    const visibleLeft = this.scrollX;
+    const visibleRight = this.scrollX + viewW;
+    const playheadInView = playX >= visibleLeft && playX <= visibleRight + 1;
+
+    // Toolbar +/- : always keep the playhead section in view.
+    if (anchorScreenX == null) {
+      if (this.clips.length || tPlay > 0) return tPlay;
+      return Math.max(0, this._posToTime(viewW / 2));
+    }
+
+    // Wheel zoom: keep time under cursor, but if playhead is on-screen prefer it
+    // when cursor is over the label gutter.
+    if (anchorScreenX < this.LABEL_W && playheadInView) return tPlay;
+    return Math.max(0, this._posToTime(anchorScreenX));
+  }
+
+  /**
+   * Scroll so that time `t` is visible in the viewport.
+   * @param {number} t
+   * @param {{ center?: boolean }} [opts]
+   */
+  _ensureTimeVisible(t, { center = false } = {}) {
+    if (!this.wrapper) return;
+    const viewW = this._viewportWidth();
+    const contentX = this._timeToContentX(Math.max(0, Number(t) || 0));
+    const pad = 48;
+    const left = this.wrapper.scrollLeft;
+    const right = left + viewW;
+    const contentLeft = left + this.LABEL_W;
+    const inView = contentX >= contentLeft + pad && contentX <= right - pad;
+
+    if (center || !inView) {
+      const target = center
+        ? contentX - (this.LABEL_W + (viewW - this.LABEL_W) / 2)
+        : contentX < contentLeft + pad
+          ? contentX - this.LABEL_W - pad
+          : contentX - viewW + pad;
+      const maxScroll = Math.max(0, this._contentWidth() - viewW);
+      this.wrapper.scrollLeft = Math.min(maxScroll, Math.max(0, target));
+      this.scrollX = this.wrapper.scrollLeft;
+    }
   }
 
   _bindScroll() {
     this.wrapper.addEventListener('scroll', () => {
       this.scrollX = this.wrapper.scrollLeft;
-      // Labels are painted into the canvas; redraw is not required for scroll itself.
+      // Virtual timeline: viewport canvas must redraw for the new scroll window.
+      this._requestDraw();
     });
   }
 
@@ -233,39 +301,56 @@ export class Timeline {
     this._needsRedraw = true;
   }
 
-  _ensurePlayheadVisible() {
-    if (!this.followPlayhead || !this.scrollEl || !this.canvas) return;
-
-    const playheadX = this.LABEL_W + this.currentTime * this.pixelsPerSecond;
-    const viewW = this.wrapper?.clientWidth || 0;
-    const pad = 48;
-    // Use live scrollLeft; visible range is [scrollLeft, scrollLeft + viewW] in canvas coords.
-    const visibleLeft = this.scrollEl.scrollLeft;
-    const visibleRight = visibleLeft + viewW;
-
-    if (playheadX < visibleLeft + pad) {
-      this.scrollEl.scrollLeft = Math.max(0, playheadX - pad);
-    } else if (playheadX > visibleRight - pad) {
-      this.scrollEl.scrollLeft = Math.max(0, playheadX - viewW + pad);
-    }
-
-    this.scrollX = this.scrollEl.scrollLeft;
+  /** Absolute content X for a time (includes label column). */
+  _timeToContentX(t) {
+    return this.LABEL_W + t * this.pixelsPerSecond;
   }
 
+  /** Viewport/canvas X for a time (accounts for horizontal scroll). */
+  _timeToX(t) {
+    return this._timeToContentX(t) - this.scrollX;
+  }
+
+  _posToTime(canvasX) {
+    return (canvasX + this.scrollX - this.LABEL_W) / this.pixelsPerSecond;
+  }
+
+  _ensurePlayheadVisible() {
+    if (!this.followPlayhead || !this.scrollEl || !this.canvas) return;
+    this._ensureTimeVisible(this.currentTime, { center: false });
+  }
+
+  /**
+   * Inner element defines scroll range (can be huge). Canvas stays viewport-sized
+   * and sticky so long media never hits Chromium's max canvas dimension.
+   */
   _updateScrollWidth() {
     const totalW = this._contentWidth();
-    this.canvas.style.width = `${totalW}px`;
-    if (this.canvas.width !== totalW) {
-      this.canvas.width = totalW;
+    const viewW = this._viewportWidth();
+    const viewH = this._viewportHeight();
+
+    if (this.scrollInner) {
+      this.scrollInner.style.width = `${totalW}px`;
+      this.scrollInner.style.height = `${viewH}px`;
+    }
+
+    this.canvas.style.width = `${viewW}px`;
+    this.canvas.style.height = `${viewH}px`;
+    if (this.canvas.width !== viewW) {
+      this.canvas.width = viewW;
       this._requestDraw();
     }
-    // Clamp scroll if content shrank (e.g. zoom out)
+    if (this.canvas.height !== viewH) {
+      this.canvas.height = viewH;
+      this._requestDraw();
+    }
+
     if (this.wrapper) {
-      const maxScroll = Math.max(0, totalW - this.wrapper.clientWidth);
+      const maxScroll = Math.max(0, totalW - viewW);
       if (this.wrapper.scrollLeft > maxScroll) {
         this.wrapper.scrollLeft = maxScroll;
-        this.scrollX = maxScroll;
       }
+      this.scrollX = this.wrapper.scrollLeft;
     }
   }
 
@@ -300,7 +385,7 @@ export class Timeline {
         const file = JSON.parse(data);
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        const dropTime = Math.max(0, (x - this.LABEL_W) / this.pixelsPerSecond);
+        const dropTime = Math.max(0, this._posToTime(x));
         const trackIndex = Math.floor((e.clientY - rect.top - this.HEADER_H) / this.TRACK_H);
         const track = this.tracks[trackIndex] || this.tracks[0];
         if (track) {
@@ -315,14 +400,6 @@ export class Timeline {
         }
       } catch { /* ignore */ }
     });
-  }
-
-  _posToTime(canvasX) {
-    return (canvasX - this.LABEL_W) / this.pixelsPerSecond;
-  }
-
-  _timeToX(t) {
-    return this.LABEL_W + t * this.pixelsPerSecond;
   }
 
   _getTrackY(index) {
@@ -587,10 +664,11 @@ export class Timeline {
     else if (this.pixelsPerSecond < 80) tickSec = 1;
     else if (this.pixelsPerSecond > 150) tickSec = 0.5;
 
-    const startSec = Math.max(0, Math.floor((0 - this.LABEL_W) / this.pixelsPerSecond));
-    const endSec = Math.ceil((W - this.LABEL_W) / this.pixelsPerSecond) + tickSec * 2;
+    const startSec = Math.max(0, this._posToTime(this.LABEL_W) - tickSec);
+    const endSec = this._posToTime(W) + tickSec * 2;
 
-    for (let t = startSec - (startSec % tickSec); t <= endSec; t += tickSec) {
+    for (let t = Math.floor(startSec / tickSec) * tickSec; t <= endSec; t += tickSec) {
+      if (t < 0) continue;
       const x = this._timeToX(t);
       if (x < this.LABEL_W || x > W) continue;
 
@@ -617,8 +695,10 @@ export class Timeline {
     const h = this.TRACK_H - 8;
     const x = this._timeToX(clip.startTime);
     const w = clip.duration * this.pixelsPerSecond;
+    const viewW = this.canvas.width;
 
-    if (x + w < this.LABEL_W || x > this.canvas.width) return;
+    // Cull clips completely outside the viewport (virtual scroll).
+    if (x + w < this.LABEL_W || x > viewW) return;
 
     const color = this._trackColor(track, trackIndex);
     const isSelected = clip === this.selectedClip;
@@ -677,7 +757,8 @@ export class Timeline {
 
   _drawPlayhead(ctx, C) {
     const x = this._timeToX(this.currentTime);
-    if (x < this.LABEL_W || x > this.canvas.width) return;
+    const W = this.canvas.width;
+    if (x < this.LABEL_W - 8 || x > W + 8) return;
 
     ctx.strokeStyle = C.playhead;
     ctx.lineWidth = 2;
@@ -806,6 +887,13 @@ export class Timeline {
     // Ignore tiny updates to reduce full-canvas redraw flicker.
     if (!force && Math.abs(next - this.currentTime) < 0.008) return;
     this.currentTime = next;
+
+    // Keep scroll range large enough that the playhead is always reachable.
+    if (next > this.duration - 0.5) {
+      this.duration = next + Math.min(5, Math.max(1, next * 0.02));
+      this._updateScrollWidth();
+    }
+
     if (force || this.followPlayhead) this._ensurePlayheadVisible();
     this._requestDraw();
   }
@@ -836,7 +924,7 @@ export class Timeline {
   }
 
   _updateDuration() {
-    const maxEnd = this._maxClipEnd();
+    const maxEnd = Math.max(this._maxClipEnd(), this.currentTime || 0);
     // Empty timeline stays usable. With clips, keep a small time pad for scrubbing past the end.
     this.duration = maxEnd > 0 ? maxEnd + Math.min(5, Math.max(1, maxEnd * 0.02)) : 30;
     this._updateScrollWidth();
@@ -867,15 +955,14 @@ export class Timeline {
       this.wrapper.scrollLeft = 0;
       this.scrollX = 0;
     }
-
-    const rect = this.wrapper?.getBoundingClientRect();
-    const totalH = Math.max(
-      Math.round((rect?.height || 0) - 10),
-      this.HEADER_H + this.tracks.length * this.TRACK_H
-    );
     this._updateScrollWidth();
-    if (this.canvas && this.canvas.height !== totalH) this.canvas.height = totalH;
     this.draw();
+  }
+
+  /** Scroll the viewport so the given time (or current playhead) is visible. */
+  scrollToTime(t = this.currentTime, { center = true } = {}) {
+    this._ensureTimeVisible(t, { center });
+    this._requestDraw();
   }
 
   updateTranslations() {
