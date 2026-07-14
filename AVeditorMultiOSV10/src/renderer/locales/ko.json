@@ -259,6 +259,33 @@
     "copyright": "Copyright © SHKWON",
     "author": "SHKWON (knix008@naver.com)"
   },
+  "streamLinks": {
+    "title": "링크",
+    "addUrl": "스트림 링크 열기",
+    "addUrlTooltip": "YouTube 또는 스트림 링크 열기",
+    "removeLink": "링크 제거",
+    "emptyHint": "YouTube 또는 스트림 URL을 붙여넣으세요",
+    "dialogTitle": "스트림 링크 열기",
+    "dialogPlaceholder": "https://youtube.com/watch?v=... 또는 rtsp://...",
+    "dialogHint": "YouTube, RTSP, 직접 비디오 URL 지원",
+    "resolving": "정보 가져오는 중…",
+    "errorInvalidUrl": "유효한 URL을 입력하세요",
+    "errorUnsupported": "지원되지 않는 URL 형식",
+    "rtspWarning": "RTSP는 재생용으로 변환됩니다 (FFmpeg가 PATH에 있거나 FFMPEG_PATH가 필요합니다).",
+    "playError": "스트림을 불러올 수 없습니다. URL이 만료됐거나 지원되지 않을 수 있습니다.",
+    "rtspPlayError": "RTSP 재생에 실패했습니다. FFmpeg를 설치하고 PATH(또는 FFMPEG_PATH)를 설정한 뒤 다시 시도하세요.",
+    "downloadBtn": "다운로드",
+    "downloadTitle": "스트림 다운로드",
+    "downloading": "다운로드 중… {percent}%",
+    "downloadingProgress": "다운로드 중… {percent}% ({downloaded} / {total})",
+    "downloadingBytes": "다운로드 중… {downloaded}",
+    "downloadDone": "다운로드 완료: {path}",
+    "downloadError": "다운로드 실패: {error}",
+    "ytOnly": "YouTube를 사용할 수 없습니다. npm run web(또는 데스크탑 앱)으로 스트림 서버를 실행하세요.",
+    "preparingStream": "스트림 준비 중…",
+    "noMuxedFormat": "재생 가능한 형식을 찾을 수 없습니다 (고화질 YouTube 영상은 다운로드가 필요합니다).",
+    "recentLinks": "최근 링크"
+  },
   "context": {
     "preview": "미리보기",
     "addToTimeline": "타임라인에 추가",
@@ -271,6 +298,12 @@
     "deleteFile": "삭제",
     "deleteFileConfirm": "\"{name}\" 파일을 삭제할까요?\n앱에서 되돌릴 수 없습니다.",
     "deleteFileConfirmWeb": "Library에서 \"{name}\"을(를) 제거할까요?",
-    "deleteFileFailed": "파일을 삭제할 수 없습니다."
+    "deleteFileFailed": "파일을 삭제할 수 없습니다.",
+    "saveFile": "다른 이름으로 저장…",
+    "saveFileOk": "저장 완료: {path}",
+    "saveFileFailed": "저장 실패: {error}",
+    "downloadStream": "다운로드…",
+    "toggleSubtitlesOn": "자막 켜기",
+    "toggleSubtitlesOff": "자막 끄기"
   }
 }

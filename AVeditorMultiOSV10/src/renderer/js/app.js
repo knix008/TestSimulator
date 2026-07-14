@@ -10,6 +10,7 @@ import { showOllamaSettingsDialog, loadOllamaSettings, isLikelyVlmModel } from '
 import { SceneAnalyzer } from './sceneAnalyzer.js';
 import { showAnalysisViewer } from './analysisViewer.js';
 import { generateSubtitlesFromPreview, cuesToSrt } from './subtitleGenerator.js';
+import { StreamLinks } from './streamLinks.js';
 
 const STORAGE_THEME = 'av-editor-theme';
 const STORAGE_LOCALE = 'av-editor-locale';
@@ -68,6 +69,7 @@ class AVEditorApp {
       <!-- Media -->
       <div class="toolbar-group">
         <button class="toolbar-btn" id="btn-import" data-i18n-tooltip="toolbar.import">${Icons.import}</button>
+        <button class="toolbar-btn" id="btn-add-url" data-i18n-tooltip="streamLinks.addUrl">${Icons.link}</button>
         <button class="toolbar-btn" id="btn-export" data-i18n-tooltip="toolbar.export">${Icons.export}</button>
       </div>
       <div class="toolbar-separator"></div>
@@ -227,6 +229,7 @@ class AVEditorApp {
     $('btn-save').addEventListener('click', () => this._saveProject());
     $('btn-save-modified').addEventListener('click', () => this._saveProjectAsModified());
     $('btn-import').addEventListener('click', () => this._importMedia());
+    $('btn-add-url').addEventListener('click', () => this.streamLinks?.promptAddUrl());
     $('btn-export').addEventListener('click', () => this._export());
     $('btn-analyze').addEventListener('click', () => this._analyzeScenes());
     $('btn-view-analysis').addEventListener('click', () => this._viewAnalysisResults());
@@ -283,6 +286,17 @@ class AVEditorApp {
   // ── Component initialization ──────────────────────────────────────────────
 
   _buildComponents() {
+    this.streamLinks = new StreamLinks(
+      document.getElementById('stream-links-panel'),
+      {
+        i18n: this.i18n,
+        onSelect: (entry) => {
+          if (entry?.isStream) this._onStreamEntrySelect(entry);
+        },
+        onContextMenu: () => {},
+      }
+    );
+
     this.fileTree = new FileTree(
       document.getElementById('file-tree-panel'),
       {
@@ -718,11 +732,19 @@ class AVEditorApp {
     this.fileInfo.updateTranslations();
     this.preview.updateTranslations();
     this.timeline.updateTranslations();
+    this.streamLinks?.updateLocale();
     this._syncMenuLocale(locale);
   }
 
   _syncMenuLocale(locale) {
     window.electronAPI?.setMenuLocale?.(locale);
+  }
+
+  // ── Stream link events ─────────────────────────────────────────────────────
+
+  _onStreamEntrySelect(entry) {
+    this.preview.loadFile(entry);
+    this._setStatus('ready');
   }
 
   // ── File events ────────────────────────────────────────────────────────────
@@ -978,6 +1000,23 @@ class AVEditorApp {
     this._setStatus('ready');
   }
 
+  async _saveCurrentFile() {
+    const file = this.preview?.currentFile;
+    if (!file) return;
+    if (file.isStream && file.urlType === 'youtube') {
+      await this.streamLinks?._downloadYoutube?.({ originalUrl: file.originalUrl, id: '_preview' });
+      return;
+    }
+    if (!file.path || !window.electronAPI?.saveMediaFileDialog) return;
+    const result = await window.electronAPI.saveMediaFileDialog(file.path, file.name);
+    if (result?.cancelled) return;
+    if (result?.ok) {
+      await showAlert(this._t('context.saveFileOk').replace('{path}', result.filePath));
+    } else if (result?.error) {
+      await showAlert(this._t('context.saveFileFailed').replace('{error}', result.error));
+    }
+  }
+
   _showPreviewContextMenu(x, y, file) {
     const t = (k) => this._t(k);
     const hasMedia = !!this.preview.mediaEl;
@@ -1072,11 +1111,30 @@ class AVEditorApp {
         label: t('context.copyPath'),
         action: () => this._copyPath(file.path),
       },
-      file && {
+      file && !file.isStream && {
         icon: Icons.explorer,
         label: t('context.showInExplorer'),
         action: () => this._showInExplorer(file.path),
       },
+      { separator: true },
+      hasMedia && {
+        icon: Icons.download,
+        label: file?.isStream && file?.urlType === 'youtube'
+          ? t('context.downloadStream')
+          : t('context.saveFile'),
+        disabled: !hasMedia || (file?.isStream && file?.urlType !== 'youtube'),
+        action: () => this._saveCurrentFile(),
+      },
+      hasMedia && (() => {
+        const hasSubs = this.preview?.hasSubtitles?.();
+        const subOn = this.preview?.isSubtitlesVisible?.();
+        return {
+          icon: Icons.subtitlesToggle,
+          label: subOn ? t('context.toggleSubtitlesOff') : t('context.toggleSubtitlesOn'),
+          disabled: !hasSubs,
+          action: () => this._toggleSubtitlesVisible(),
+        };
+      })(),
       { separator: true },
       {
         icon: Icons.import,

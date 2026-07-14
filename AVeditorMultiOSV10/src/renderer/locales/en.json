@@ -259,6 +259,33 @@
     "copyright": "Copyright © SHKWON",
     "author": "SHKWON (knix008@naver.com)"
   },
+  "streamLinks": {
+    "title": "LINKS",
+    "addUrl": "Open Stream Link",
+    "addUrlTooltip": "Open YouTube or stream link",
+    "removeLink": "Remove link",
+    "emptyHint": "Paste a YouTube or stream URL",
+    "dialogTitle": "Open Stream Link",
+    "dialogPlaceholder": "https://youtube.com/watch?v=... or rtsp://...",
+    "dialogHint": "Supports YouTube, RTSP, and direct video URLs",
+    "resolving": "Resolving…",
+    "errorInvalidUrl": "Please enter a valid URL",
+    "errorUnsupported": "Unsupported URL type",
+    "rtspWarning": "RTSP will be converted for playback (requires FFmpeg on PATH or FFMPEG_PATH).",
+    "playError": "Could not load stream. The URL may be expired or unsupported.",
+    "rtspPlayError": "RTSP playback failed. Install FFmpeg and ensure it is on PATH (or set FFMPEG_PATH), then try again.",
+    "downloadBtn": "Download",
+    "downloadTitle": "Download stream",
+    "downloading": "Downloading… {percent}%",
+    "downloadingProgress": "Downloading… {percent}% ({downloaded} / {total})",
+    "downloadingBytes": "Downloading… {downloaded}",
+    "downloadDone": "Downloaded to: {path}",
+    "downloadError": "Download failed: {error}",
+    "ytOnly": "YouTube is unavailable. Use npm run web (or the desktop app) so the stream server can resolve the video.",
+    "preparingStream": "Preparing stream…",
+    "noMuxedFormat": "No compatible playback format found (high-res YouTube videos require downloading).",
+    "recentLinks": "Recent Links"
+  },
   "context": {
     "preview": "Preview",
     "addToTimeline": "Add to Timeline",
@@ -271,6 +298,12 @@
     "deleteFile": "Delete",
     "deleteFileConfirm": "Delete \"{name}\"?\nThis cannot be undone from the app.",
     "deleteFileConfirmWeb": "Remove \"{name}\" from Library?",
-    "deleteFileFailed": "Could not delete the file."
+    "deleteFileFailed": "Could not delete the file.",
+    "saveFile": "Save As…",
+    "saveFileOk": "Saved to: {path}",
+    "saveFileFailed": "Save failed: {error}",
+    "downloadStream": "Download…",
+    "toggleSubtitlesOn": "Show Subtitles",
+    "toggleSubtitlesOff": "Hide Subtitles"
   }
 }

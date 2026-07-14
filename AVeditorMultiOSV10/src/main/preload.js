@@ -82,4 +82,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSubtitleDialog: (defaultName) => ipcRenderer.invoke('save-subtitle-dialog', defaultName),
   getSttProxyBase: () => ipcRenderer.invoke('get-stt-proxy-base'),
   isWhisperModelCached: (modelId) => ipcRenderer.invoke('is-whisper-model-cached', modelId),
+
+  // ── YouTube / HTTP / RTSP stream playback ────────────────────────────────
+  getStreamProxyPort: () => ipcRenderer.invoke('stream-proxy-port'),
+  youtubeGetInfo: (url) => ipcRenderer.invoke('youtube-get-info', url),
+  youtubePrepareStream: (url) => ipcRenderer.invoke('youtube-prepare-stream', url),
+  httpPrepareStream: (url) => ipcRenderer.invoke('http-prepare-stream', url),
+  rtspPrepareStream: (url) => ipcRenderer.invoke('rtsp-prepare-stream', url),
+  getMediaStreamCapabilities: () => ipcRenderer.invoke('media-stream-capabilities'),
+  youtubeDownload: (url) => ipcRenderer.invoke('youtube-download', url),
+  onYoutubeDownloadProgress: (callback) => {
+    ipcRenderer.on('youtube-download-progress', (_event, data) => callback(data));
+  },
+  saveMediaFileDialog: (srcPath, defaultName) => ipcRenderer.invoke('save-media-file-dialog', srcPath, defaultName),
 });

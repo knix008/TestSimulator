@@ -20,6 +20,27 @@ const AUDIO_EFFECT_PRESETS = {
 };
 const AUDIO_EXT = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
 
+let _hlsLoaderPromise = null;
+function loadHlsLibrary() {
+  if (window.Hls) return Promise.resolve(window.Hls);
+  if (_hlsLoaderPromise) return _hlsLoaderPromise;
+  _hlsLoaderPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    const isWeb = !!window.electronAPI?.isWeb;
+    s.src = isWeb
+      ? `${window.location.origin}/hls/hls.min.js`
+      : './vendor/hls.min.js';
+    s.async = true;
+    s.onload = () => (window.Hls ? resolve(window.Hls) : reject(new Error('Hls global missing')));
+    s.onerror = () => reject(new Error('Failed to load hls.js'));
+    document.head.appendChild(s);
+  }).catch((err) => {
+    _hlsLoaderPromise = null;
+    throw err;
+  });
+  return _hlsLoaderPromise;
+}
+
 export class Preview {
   constructor(container, {
     i18n,
@@ -41,6 +62,8 @@ export class Preview {
     this.onTransportStop = onTransportStop;
     this.onTransportSeek = onTransportSeek;
 
+    this._hls = null;
+    this.ytIframe = null;
     this.mediaEl = null;
     this.currentFile = null;
     this.currentClip = null;
@@ -75,6 +98,7 @@ export class Preview {
           <p id="preview-empty-text"></p>
         </div>
         <video id="preview-video" playsinline></video>
+        <iframe id="preview-youtube" class="preview-youtube" hidden title="YouTube" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
         <audio id="preview-audio" style="display:none;"></audio>
         <div class="preview-transport-cue" id="preview-transport-cue" hidden aria-hidden="true">
           <div class="preview-transport-cue-icon" id="preview-transport-cue-icon"></div>
@@ -155,6 +179,7 @@ export class Preview {
     `;
 
     this.videoEl = this.container.querySelector('#preview-video');
+    this.ytIframe = this.container.querySelector('#preview-youtube');
     this.audioEl = this.container.querySelector('#preview-audio');
     this.emptyEl = this.container.querySelector('#preview-empty');
     this.emptyText = this.container.querySelector('#preview-empty-text');
@@ -712,6 +737,28 @@ export class Preview {
       // Skip emit while stop/seek transport is driving the clock (avoids stomping t→0).
       if (!this._transportLock) this._emitMediaTime(true);
     });
+
+    el.addEventListener('error', () => {
+      if (el !== this.mediaEl) return;
+      const file = this.currentFile;
+      if (!file?.isStream) return;
+      const msg = file.urlType === 'rtsp'
+        ? (this.i18n?.t('streamLinks.rtspPlayError') || 'RTSP playback is not supported directly.')
+        : (this.i18n?.t('streamLinks.playError') || 'Could not load stream.');
+      this._showStreamError(msg);
+    });
+  }
+
+  _showStreamError(msg) {
+    let errEl = this.viewport.querySelector('.stream-error-overlay');
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.className = 'stream-error-overlay';
+      this.viewport.appendChild(errEl);
+    }
+    errEl.textContent = msg;
+    errEl.hidden = false;
+    setTimeout(() => { if (errEl) errEl.hidden = true; }, 8000);
   }
 
   /**
@@ -890,7 +937,93 @@ export class Preview {
     }
   }
 
+  _destroyHls() {
+    if (!this._hls) return;
+    try { this._hls.destroy(); } catch { /* ignore */ }
+    this._hls = null;
+  }
+
+  _hideYoutubeEmbed() {
+    if (!this.ytIframe) return;
+    this.ytIframe.hidden = true;
+    this.ytIframe.removeAttribute('src');
+  }
+
+  _showYoutubeEmbed(embedUrl) {
+    this._destroyHls();
+    if (this.videoEl) {
+      try {
+        this.videoEl.pause();
+        this.videoEl.removeAttribute('src');
+        this.videoEl.load();
+      } catch { /* ignore */ }
+      this.videoEl.style.display = 'none';
+    }
+    if (this.audioEl) this.audioEl.style.display = 'none';
+    if (this.emptyEl) this.emptyEl.style.display = 'none';
+    if (!this.ytIframe) return;
+    this.ytIframe.src = embedUrl;
+    this.ytIframe.hidden = false;
+  }
+
+  async _attachMediaSource(mediaEl, src, fileEntry) {
+    this._destroyHls();
+    this._hideYoutubeEmbed();
+    if (!mediaEl || !src) return;
+
+    // YouTube embed fallback (when CDN resolve fails — VideoPlayer always uses CDN)
+    if (fileEntry?.playback === 'embed' || fileEntry?.embedUrl
+      || /youtube\.com\/embed\//i.test(src)) {
+      this._showYoutubeEmbed(fileEntry?.embedUrl || src);
+      this.mediaEl = null;
+      if (fileEntry?.duration) this.onDurationChange?.(fileEntry.duration);
+      return;
+    }
+
+    const isHls = !!(fileEntry?.hls
+      || /\.m3u8(\?|#|$)/i.test(src)
+      || String(fileEntry?.extension || '').toLowerCase() === '.m3u8');
+
+    if (!isHls) {
+      mediaEl.src = src;
+      return;
+    }
+
+    // Safari / some WebKit builds can play HLS natively
+    if (mediaEl.canPlayType('application/vnd.apple.mpegurl')) {
+      mediaEl.src = src;
+      return;
+    }
+
+    try {
+      const Hls = await loadHlsLibrary();
+      if (!Hls?.isSupported?.()) {
+        this._showStreamError(this.i18n?.t('streamLinks.rtspPlayError') || 'HLS playback is not supported.');
+        return;
+      }
+      this._hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 30,
+      });
+      this._hls.on(Hls.Events.ERROR, (_evt, data) => {
+        if (!data?.fatal) return;
+        const msg = fileEntry?.urlType === 'rtsp'
+          ? (this.i18n?.t('streamLinks.rtspPlayError') || 'RTSP playback failed.')
+          : (this.i18n?.t('streamLinks.playError') || 'Could not load stream.');
+        this._showStreamError(msg);
+        try { this._hls?.destroy(); } catch { /* ignore */ }
+        this._hls = null;
+      });
+      this._hls.loadSource(src);
+      this._hls.attachMedia(mediaEl);
+    } catch (e) {
+      this._showStreamError(e.message || this.i18n?.t('streamLinks.rtspPlayError') || 'HLS load failed');
+    }
+  }
+
   _clearInactiveMedia(activeEl) {
+    if (!activeEl) this._destroyHls();
     for (const el of [this.videoEl, this.audioEl]) {
       if (!el || el === activeEl) continue;
       try {
@@ -950,6 +1083,9 @@ export class Preview {
     this.clearTransportCue();
     this.clearSubtitles();
     this._stopPlayheadLoop();
+    // Clear any previous stream error
+    const prevErr = this.viewport?.querySelector('.stream-error-overlay');
+    if (prevErr) prevErr.hidden = true;
     this.currentFile = fileEntry;
     const ext = (fileEntry.extension || '').toLowerCase();
     const isAudio = AUDIO_EXT.has(ext);
@@ -992,14 +1128,14 @@ export class Preview {
       || (fileEntry.path && window.electronAPI?.resolveMediaUrlSync?.(fileEntry.path))
       || null;
     if (blobSrc) {
-      this.mediaEl.src = blobSrc;
+      this._attachMediaSource(this.mediaEl, blobSrc, fileEntry);
     } else if (fileEntry.file instanceof File) {
-      this.mediaEl.src = URL.createObjectURL(fileEntry.file);
+      this._attachMediaSource(this.mediaEl, URL.createObjectURL(fileEntry.file), fileEntry);
     } else if (window.electronAPI?.isElectron && fileEntry.path) {
-      this.mediaEl.src = `file://${fileEntry.path.replace(/\\/g, '/')}`;
+      this._attachMediaSource(this.mediaEl, `file://${fileEntry.path.replace(/\\/g, '/')}`, fileEntry);
     } else if (window.electronAPI?.resolveMediaUrl && fileEntry.path) {
       window.electronAPI.resolveMediaUrl(fileEntry.path).then((url) => {
-        if (url && this.mediaEl) this.mediaEl.src = url;
+        if (url && this.mediaEl) this._attachMediaSource(this.mediaEl, url, fileEntry);
       }).catch(() => {});
     }
 
@@ -1239,6 +1375,8 @@ export class Preview {
     this.clearTransportCue();
     this.clearSubtitles();
     this._stopPlayheadLoop();
+    this._destroyHls();
+    this._hideYoutubeEmbed();
     this.videoEl.style.display = 'none';
     this.audioEl.style.display = 'none';
     this.emptyEl.style.display = 'flex';

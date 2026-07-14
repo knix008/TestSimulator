@@ -75,6 +75,17 @@ function main() {
     copyDir(mediaInfoSrc, path.join(OUT, 'mediainfo'));
   }
 
+  const hlsSrc = path.join(ROOT, 'node_modules', 'hls.js', 'dist', 'hls.min.js');
+  if (fs.existsSync(hlsSrc)) {
+    console.log('[build:web] Copying hls.js…');
+    fs.mkdirSync(path.join(OUT, 'hls'), { recursive: true });
+    fs.copyFileSync(hlsSrc, path.join(OUT, 'hls', 'hls.min.js'));
+    const worker = path.join(ROOT, 'node_modules', 'hls.js', 'dist', 'hls.worker.js');
+    if (fs.existsSync(worker)) {
+      fs.copyFileSync(worker, path.join(OUT, 'hls', 'hls.worker.js'));
+    }
+  }
+
   const indexPath = path.join(OUT, 'index.html');
   let html = fs.readFileSync(indexPath, 'utf8');
   html = patchCsp(html);
@@ -100,10 +111,22 @@ Then open the printed URL in the browser.
 - Use **Add media…** (+), toolbar Import, or drag files onto the left Library panel.
 - Project Save downloads a \`.avp\` JSON file.
 - Export is a placeholder in the web build.
+
+## Stream links (YouTube / HTTPS / RTSP)
+
+A static file server cannot resolve YouTube or convert RTSP. For full stream parity with Electron, run:
+
+\`\`\`bash
+npm run web
+\`\`\`
+
+That starts \`scripts/start-web.js\` with \`/api/media/*\` (YouTube proxy, HTTPS CORS proxy, RTSP→HLS via FFmpeg).
+Set \`FFMPEG_PATH\` or install FFmpeg on PATH for RTSP.
 `;
   fs.writeFileSync(path.join(OUT, 'README.md'), readme);
 
   console.log('[build:web] Done → dist-web/');
+  console.log('[build:web] Streams need: npm run web  (not a bare static server)');
   console.log('[build:web] Preview: npx --yes serve dist-web');
 }
 

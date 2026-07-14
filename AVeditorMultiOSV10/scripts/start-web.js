@@ -2,6 +2,7 @@
 /**
  * Serve the renderer directly in a browser (no Electron, no build step).
  * Proxies /ollama/* → local Ollama (avoids browser CORS).
+ * Serves /api/media/* for YouTube / HTTPS / RTSP (same stream ops as Electron).
  *
  *   node scripts/start-web.js
  *   npm run start:web
@@ -11,12 +12,14 @@
  *   AV_WEB_HOST, AV_WEB_PORT
  *   AV_OLLAMA_URL  (default http://127.0.0.1:11434)
  *   AV_WEB_ROOT    (optional override of renderer root)
+ *   FFMPEG_PATH    (optional; required for RTSP → HLS)
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { URL } = require('url');
+const { createMediaStreamService } = require('./lib/media-stream');
 
 const PROJECT = path.join(__dirname, '..');
 const ROOT = process.env.AV_WEB_ROOT
@@ -25,10 +28,12 @@ const ROOT = process.env.AV_WEB_ROOT
 const SAMPLES = path.join(PROJECT, 'samples');
 const MEDIAINFO = path.join(PROJECT, 'node_modules', 'mediainfo.js', 'dist');
 const XENOVA = path.join(PROJECT, 'node_modules', '@xenova', 'transformers');
+const HLSJS = path.join(PROJECT, 'node_modules', 'hls.js', 'dist');
 const HOST = process.env.AV_WEB_HOST || '127.0.0.1';
 const PORT = Number(process.env.AV_WEB_PORT || 4173);
 const OLLAMA = (process.env.AV_OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/+$/, '');
 const OPEN = !process.argv.includes('--no-open');
+const mediaStream = createMediaStreamService();
 
 const WHISPER_QUANTIZED_FILES = [
   'config.json',
@@ -166,6 +171,10 @@ function resolveRequest(urlPath) {
   if (clean === '/xenova' || clean.startsWith('/xenova/')) {
     const rel = clean === '/xenova' ? '/dist/transformers.min.js' : clean.slice('/xenova'.length);
     return safeJoin(XENOVA, rel || '/dist/transformers.min.js');
+  }
+  if (clean === '/hls' || clean.startsWith('/hls/')) {
+    const rel = clean === '/hls' ? '/hls.min.js' : clean.slice('/hls'.length);
+    return safeJoin(HLSJS, rel || '/hls.min.js');
   }
   return safeJoin(ROOT, clean);
 }
@@ -328,8 +337,20 @@ if (!fs.existsSync(ROOT)) {
   process.exit(1);
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const clean = (req.url || '/').split('?')[0];
+  if (clean === '/api/media' || clean.startsWith('/api/media/')) {
+    try {
+      await mediaStream.handleRequest(req, res, HOST, PORT);
+    } catch (err) {
+      console.error('[web] media API error:', err?.message || err);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: false, error: err?.message || String(err) }));
+      }
+    }
+    return;
+  }
   if (clean === '/ollama' || clean.startsWith('/ollama/')) {
     proxyOllama(req, res);
     return;
@@ -434,12 +455,14 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   const url = `http://${HOST}:${PORT}/`;
+  const caps = mediaStream.capabilities();
   console.log('');
   console.log('  AV Editor (web)');
   console.log(`  Serving: ${ROOT}`);
   console.log(`  Samples: ${SAMPLES}`);
   console.log(`  Whisper: ${WHISPER_CACHE}${isWhisperCachedAt(WHISPER_CACHE) ? ' (complete — /models local)' : ' (download on first use → /hf cache)'}`);
   console.log(`  Ollama:  ${OLLAMA}  (proxied at ${url}ollama/)`);
+  console.log(`  Streams: YouTube=${caps.youtube ? 'on' : 'off'}  HTTPS proxy=on  RTSP=${caps.rtsp ? 'on (ffmpeg)' : 'off (install FFmpeg / set FFMPEG_PATH)'}`);
   console.log(`  URL:     ${url}`);
   console.log('  Press Ctrl+C to stop');
   console.log('');

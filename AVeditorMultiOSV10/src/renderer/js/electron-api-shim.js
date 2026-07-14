@@ -978,6 +978,190 @@
     _webLibrary: library,
     /** @private */
     _addLibraryFile: addLibraryFile,
+
+    // ── YouTube / HTTP / RTSP via start-web /api/media/* ──────────────────
+    getStreamProxyPort: async () => {
+      try {
+        const u = new URL(window.location.origin);
+        return Number(u.port) || (u.protocol === 'https:' ? 443 : 80);
+      } catch {
+        return 0;
+      }
+    },
+
+    youtubeGetInfo: async (url) => {
+      try {
+        const res = await fetch(`${window.location.origin}/api/media/youtube/info`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        return await res.json();
+      } catch (e) {
+        return { ok: false, error: e.message || 'YouTube info request failed (is npm run web running?)' };
+      }
+    },
+
+    youtubePrepareStream: async (url) => {
+      try {
+        const res = await fetch(`${window.location.origin}/api/media/youtube/prepare`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (data?.ok && data.streamPath) {
+          data.streamUrl = `${window.location.origin}${data.streamPath}`;
+        }
+        if (data?.ok && data.playback === 'embed' && data.embedUrl) {
+          data.streamUrl = data.embedUrl;
+        }
+        return data;
+      } catch (e) {
+        return { ok: false, error: e.message || 'YouTube prepare failed (is npm run web running?)' };
+      }
+    },
+
+    httpPrepareStream: async (url) => {
+      try {
+        const res = await fetch(`${window.location.origin}/api/media/http/prepare`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (data?.ok && data.streamPath) {
+          data.streamUrl = `${window.location.origin}${data.streamPath}`;
+        }
+        return data;
+      } catch (e) {
+        return { ok: false, error: e.message || 'HTTP proxy prepare failed' };
+      }
+    },
+
+    rtspPrepareStream: async (url) => {
+      try {
+        const res = await fetch(`${window.location.origin}/api/media/rtsp/prepare`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (data?.ok && data.streamPath) {
+          data.streamUrl = `${window.location.origin}${data.streamPath}`;
+          data.hls = true;
+        }
+        return data;
+      } catch (e) {
+        return { ok: false, error: e.message || 'RTSP prepare failed (FFmpeg required)' };
+      }
+    },
+
+    getMediaStreamCapabilities: async () => {
+      try {
+        const res = await fetch(`${window.location.origin}/api/media/capabilities`, { cache: 'no-store' });
+        return await res.json();
+      } catch {
+        return { ok: false, youtube: false, httpProxy: false, rtsp: false };
+      }
+    },
+
+    youtubeDownload: async (url) => {
+      try {
+        const progressCbs = window.__avYtDownloadProgressCbs || [];
+        progressCbs.forEach((cb) => {
+          try { cb({ percent: 0, status: 'started' }); } catch { /* ignore */ }
+        });
+
+        const res = await fetch(
+          `${window.location.origin}/api/media/youtube/download?url=${encodeURIComponent(url)}`,
+        );
+        if (!res.ok) {
+          let err = `HTTP ${res.status}`;
+          try {
+            const j = await res.json();
+            if (j?.error) err = j.error;
+          } catch { /* ignore */ }
+          progressCbs.forEach((cb) => {
+            try { cb({ percent: 0, status: 'error', error: err }); } catch { /* ignore */ }
+          });
+          return { ok: false, error: err };
+        }
+
+        const total = Number(res.headers.get('content-length') || 0);
+        const headerName = res.headers.get('x-av-filename');
+        let filename = 'youtube.mp4';
+        try {
+          if (headerName) filename = decodeURIComponent(headerName);
+        } catch { /* ignore */ }
+        const disp = res.headers.get('content-disposition') || '';
+        const m = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disp);
+        if (m) {
+          try { filename = decodeURIComponent(m[1] || m[2]); } catch { filename = m[1] || m[2]; }
+        }
+
+        const reader = res.body?.getReader?.();
+        const chunks = [];
+        let downloaded = 0;
+        let lastEmit = 0;
+        let lastPct = -1;
+        const emitProgress = (force = false) => {
+          const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
+          const now = Date.now();
+          if (!force && now - lastEmit < 200 && percent === lastPct) return;
+          lastEmit = now;
+          lastPct = percent;
+          progressCbs.forEach((cb) => {
+            try { cb({ percent, status: 'progress', downloaded, total }); } catch { /* ignore */ }
+          });
+        };
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            downloaded += value.byteLength;
+            emitProgress(false);
+          }
+          emitProgress(true);
+        } else {
+          const buf = await res.arrayBuffer();
+          chunks.push(new Uint8Array(buf));
+          downloaded = buf.byteLength;
+          emitProgress(true);
+        }
+
+        const blob = new Blob(chunks, { type: res.headers.get('content-type') || 'video/mp4' });
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+
+        progressCbs.forEach((cb) => {
+          try { cb({ percent: 100, status: 'done', filePath: filename }); } catch { /* ignore */ }
+        });
+        return { ok: true, filePath: filename };
+      } catch (e) {
+        const progressCbs = window.__avYtDownloadProgressCbs || [];
+        progressCbs.forEach((cb) => {
+          try { cb({ percent: 0, status: 'error', error: e.message }); } catch { /* ignore */ }
+        });
+        return { ok: false, error: e.message || String(e) };
+      }
+    },
+
+    onYoutubeDownloadProgress: (callback) => {
+      if (typeof callback !== 'function') return;
+      if (!window.__avYtDownloadProgressCbs) window.__avYtDownloadProgressCbs = [];
+      window.__avYtDownloadProgressCbs.push(callback);
+    },
+
+    saveMediaFileDialog: async () => ({ ok: false, cancelled: true }),
   };
 
   console.info('[AV Editor] Web API shim active');

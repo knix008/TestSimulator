@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; media-src 'self' file: blob: data:; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:* https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co blob: data:; img-src 'self' data: blob:; worker-src 'self' blob:;"/>
+        content="default-src 'self'; media-src 'self' file: blob: data: http://127.0.0.1:* https:; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:* http://localhost:* https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co https: blob: data:; img-src 'self' data: blob: https:; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com;"/>
   <title>AV Editor</title>
   <link rel="stylesheet" href="./styles/main.css"/>
 </head>
@@ -20,6 +20,7 @@
 
     <!-- ── Left: File tree + file info ─────────────────────── -->
     <aside id="left-sidebar">
+      <div id="stream-links-panel"></div>
       <div id="file-tree-panel"></div>
       <div id="sidebar-info-resize-handle" title="Resize panels"></div>
       <div id="file-info-panel"></div>

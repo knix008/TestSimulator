@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# ytdl-core debug files (written when YouTube player script can't be parsed)
+*-player-script.js
+
 # ── Build outputs (directories) ──────────────────────────────
 dist/
 dist-web/

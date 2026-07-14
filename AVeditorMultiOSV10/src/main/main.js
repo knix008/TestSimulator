@@ -1,15 +1,19 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, nativeImage, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
+const https = require('https');
 const mediaInfoModule = require('mediainfo.js');
 const { createMenu, registerMenuIpc, prepareMenuIcons } = require('./menu');
 const { startTransformersProxy, getTransformersProxyBase, isWhisperModelCached } = require('./transformersProxy');
 const { normalizeMediaInfo: normalizeMediaInfoShared } = require('../shared/mediaMeta.cjs');
+const { createMediaStreamService } = require('../../scripts/lib/media-stream');
 
 const mediaInfoFactory = mediaInfoModule.default || mediaInfoModule.mediaInfoFactory || mediaInfoModule;
 const mediaInfoCache = new Map();
+const mediaStreamService = createMediaStreamService();
 
 let mainWindow = null;
 let dragIcon = null;
@@ -164,8 +168,28 @@ app.whenReady().then(async () => {
     console.warn('[main] STT proxy failed to start:', err?.message || err);
   }
 
+  // Clean up ytdl-core debug player-script files dumped to app root on parse failures.
+  try {
+    const appRoot = path.join(__dirname, '..', '..');
+    fs.readdirSync(appRoot)
+      .filter(f => /^\d+-player-script\.js$/.test(f))
+      .forEach(f => { try { fs.unlinkSync(path.join(appRoot, f)); } catch {} });
+  } catch {}
+
+  // Inject YouTube headers for CDN video requests so <video src> can access them directly.
+  // Without Referer/Origin, YouTube CDN returns 403.
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['*://*.googlevideo.com/*'] },
+    (details, callback) => {
+      details.requestHeaders['Referer'] = 'https://www.youtube.com/';
+      details.requestHeaders['Origin'] = 'https://www.youtube.com';
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
+
   createWindow();
   createMenu(mainWindow, 'en');
+  ensureStreamProxy().catch((e) => console.warn('[stream-proxy] start failed:', e?.message));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -725,6 +749,353 @@ ipcMain.handle('save-subtitle-dialog', async (_event, defaultName) => {
   return canceled ? null : filePath;
 });
 
+ipcMain.handle('save-media-file-dialog', async (_event, srcPath, defaultName) => {
+  const ext = (defaultName || srcPath || '').split('.').pop() || 'mp4';
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Media File',
+    defaultPath: defaultName || path.basename(srcPath || 'media.mp4'),
+    filters: [
+      { name: 'Media', extensions: [ext, 'mp4', 'mkv', 'mov', 'avi', 'mp3', 'wav'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  });
+  if (canceled || !filePath) return { ok: false, cancelled: true };
+  try {
+    await fs.promises.copyFile(srcPath, filePath);
+    return { ok: true, filePath };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 /** Loopback base URL for Whisper model + WASM proxy (Electron file://). */
 ipcMain.handle('get-stt-proxy-base', async () => getTransformersProxyBase());
 ipcMain.handle('is-whisper-model-cached', async (_e, modelId) => isWhisperModelCached(modelId || 'Xenova/whisper-tiny'));
+
+// ── IPC: YouTube / HTTP Stream Proxy ─────────────────────────────────────────
+
+let _proxyServer = null;
+let _proxyPort = 0;
+// streamId -> { type: 'youtube'|'http', ytUrl?, url?, contentType }
+const _streamMap = new Map();
+let _streamSeq = 0;
+
+async function ensureStreamProxy() {
+  if (_proxyServer) return _proxyPort;
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(async (req, res) => {
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204, {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Range, Content-Type',
+        });
+        res.end();
+        return;
+      }
+
+      // Shared YouTube/HTTP/RTSP API (/api/media/*) — same as web
+      try {
+        const port = (server.address() && server.address().port) || _proxyPort || 0;
+        if (await mediaStreamService.handleRequest(req, res, '127.0.0.1', port)) {
+          return;
+        }
+      } catch (e) {
+        console.error('[stream-proxy media]', e?.message || e);
+        if (!res.headersSent) { res.writeHead(500); res.end(); }
+        return;
+      }
+
+      const id = (req.url || '/').slice(1).split('?')[0];
+      const entry = _streamMap.get(id);
+      if (!entry) { res.writeHead(404); res.end(); return; }
+
+      if (entry.type === 'youtube') {
+        _serveYoutubeStream(entry, req, res);
+      } else {
+        _serveHttpProxy(entry, req, res);
+      }
+    });
+
+    server.listen(0, '127.0.0.1', () => {
+      _proxyPort = server.address().port;
+      _proxyServer = server;
+      console.info(`[stream-proxy] port ${_proxyPort}`);
+      resolve(_proxyPort);
+    });
+    server.on('error', reject);
+  });
+}
+
+function _serveYoutubeStream(entry, req, res) {
+  const formatUrl = entry.formatUrl;
+  if (!formatUrl) {
+    console.error('[yt-proxy] No format URL in entry');
+    res.writeHead(503); res.end('No format URL'); return;
+  }
+  console.info('[yt-proxy]', req.method, req.headers.range || 'no-range', formatUrl.slice(0, 80) + '…');
+  _proxyYoutubeUrl(formatUrl, req, res, 0);
+}
+
+function _proxyYoutubeUrl(targetUrl, req, res, redirects) {
+  if (redirects > 5) { res.writeHead(502); res.end('Too many redirects'); return; }
+
+  let tUrl;
+  try { tUrl = new URL(targetUrl); } catch (e) {
+    console.error('[yt-proxy] Bad URL:', e.message);
+    res.writeHead(502); res.end(); return;
+  }
+
+  const reqHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': 'video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5',
+    'Accept-Encoding': 'identity',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://www.youtube.com/',
+    'Origin': 'https://www.youtube.com',
+    'Connection': 'keep-alive',
+  };
+  if (req.headers.range) reqHeaders['Range'] = req.headers.range;
+
+  const pReq = https.request({
+    hostname: tUrl.hostname,
+    port: 443,
+    path: tUrl.pathname + tUrl.search,
+    method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+    headers: reqHeaders,
+  }, (pRes) => {
+    console.info('[yt-proxy] upstream', pRes.statusCode, pRes.headers['content-type'] || '');
+    if (pRes.statusCode >= 300 && pRes.statusCode < 400 && pRes.headers.location) {
+      pRes.resume();
+      _proxyYoutubeUrl(pRes.headers.location, req, res, redirects + 1);
+      return;
+    }
+    const outHeaders = {
+      'Content-Type': pRes.headers['content-type'] || 'video/mp4',
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache',
+    };
+    if (pRes.headers['content-length']) outHeaders['Content-Length'] = pRes.headers['content-length'];
+    if (pRes.headers['content-range']) outHeaders['Content-Range'] = pRes.headers['content-range'];
+    res.writeHead(pRes.statusCode, outHeaders);
+    if (req.method === 'HEAD') { res.end(); pRes.resume(); return; }
+    pRes.pipe(res, { end: true });
+    pRes.on('error', () => { if (!res.writableEnded) res.end(); });
+  });
+
+  pReq.on('error', (e) => {
+    console.error('[yt-proxy] request error:', e.message);
+    if (!res.headersSent) res.writeHead(502);
+    if (!res.writableEnded) res.end();
+  });
+  res.on('close', () => pReq.destroy());
+  pReq.end();
+}
+
+function _serveHttpProxy(entry, req, res) {
+  const tUrl = new URL(entry.url);
+  const isS = tUrl.protocol === 'https:';
+  const lib = isS ? https : http;
+  const reqHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept': '*/*',
+    'Accept-Encoding': 'identity',
+    'Connection': 'close',
+  };
+  if (req.headers.range) reqHeaders['Range'] = req.headers.range;
+
+  const pReq = lib.request({
+    method: req.method || 'GET',
+    hostname: tUrl.hostname,
+    port: parseInt(tUrl.port, 10) || (isS ? 443 : 80),
+    path: tUrl.pathname + tUrl.search,
+    headers: reqHeaders,
+  }, (pRes) => {
+    const outHeaders = {
+      'Content-Type': pRes.headers['content-type'] || entry.contentType || 'video/mp4',
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache',
+    };
+    if (pRes.headers['content-length']) outHeaders['Content-Length'] = pRes.headers['content-length'];
+    if (pRes.headers['content-range']) outHeaders['Content-Range'] = pRes.headers['content-range'];
+    res.writeHead(pRes.statusCode, outHeaders);
+    pRes.pipe(res, { end: true });
+    pRes.on('error', () => { if (!res.writableEnded) res.end(); });
+  });
+
+  pReq.on('error', (e) => {
+    console.error('[stream-proxy http]', e.message);
+    if (!res.headersSent) res.writeHead(502);
+    if (!res.writableEnded) res.end();
+  });
+  res.on('close', () => pReq.destroy());
+  pReq.end();
+}
+
+ipcMain.handle('stream-proxy-port', async () => {
+  try { return await ensureStreamProxy(); } catch (e) { console.error(e); return 0; }
+});
+
+ipcMain.handle('youtube-get-info', async (_event, url) => {
+  // VideoPlayerV10-style resolve via youtubei.js (shared media-stream module)
+  try {
+    return await mediaStreamService.youtubeGetInfo(url);
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+});
+
+ipcMain.handle('youtube-prepare-stream', async (_event, url) => {
+  try {
+    const port = await ensureStreamProxy();
+    if (!port) return { ok: false, error: 'Could not start stream proxy' };
+    const result = await mediaStreamService.youtubePrepareStream(url);
+    if (!result.ok) return result;
+    if (result.playback === 'embed') {
+      return {
+        ok: true,
+        playback: 'embed',
+        streamUrl: result.embedUrl,
+        embedUrl: result.embedUrl,
+        videoId: result.videoId,
+        title: result.title,
+        duration: result.duration,
+      };
+    }
+    // Prefer same-origin proxy so Referer/Origin are applied server-side
+    return {
+      ok: true,
+      playback: 'proxy',
+      streamUrl: `http://127.0.0.1:${port}${result.streamPath}`,
+      title: result.title,
+      duration: result.duration,
+    };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+});
+
+ipcMain.handle('http-prepare-stream', async (_event, url) => {
+  try {
+    const port = await ensureStreamProxy();
+    if (!port) return { ok: false, error: 'Could not start stream proxy' };
+    const result = mediaStreamService.prepareHttpStream(url);
+    if (result.ok && result.streamPath) {
+      result.streamUrl = `http://127.0.0.1:${port}${result.streamPath}`;
+    }
+    return result;
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+});
+
+ipcMain.handle('rtsp-prepare-stream', async (_event, url) => {
+  try {
+    const port = await ensureStreamProxy();
+    if (!port) return { ok: false, error: 'Could not start stream proxy' };
+    const result = await mediaStreamService.prepareRtspStream(url);
+    if (result.ok && result.streamPath) {
+      result.streamUrl = `http://127.0.0.1:${port}${result.streamPath}`;
+      result.hls = true;
+    }
+    return result;
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
+});
+
+ipcMain.handle('media-stream-capabilities', async () => {
+  try {
+    await ensureStreamProxy();
+    return { ok: true, ...mediaStreamService.capabilities() };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e), ...mediaStreamService.capabilities() };
+  }
+});
+
+ipcMain.handle('youtube-download', async (_event, url) => {
+  // Same picker as VideoPlayerV10 DownloadButton_Click: muxed → video-only
+  try {
+    const prepared = await mediaStreamService.youtubePrepareStream(url);
+    if (!prepared.ok || prepared.playback === 'embed' || !prepared.formatUrl) {
+      return { ok: false, error: prepared.error || 'YouTube 스트림을 해석하지 못했습니다.' };
+    }
+    const title = (prepared.title || 'youtube')
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 100) || 'youtube';
+
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Download YouTube Video',
+      defaultPath: `${title}.mp4`,
+      filters: [
+        { name: 'MP4 Video', extensions: ['mp4'] },
+        { name: 'WebM Video', extensions: ['webm'] },
+      ],
+    });
+    if (canceled || !filePath) return { ok: true, cancelled: true };
+
+    mainWindow?.webContents.send('youtube-download-progress', { percent: 0, status: 'started', filePath });
+
+    const tUrl = new URL(prepared.formatUrl);
+    const writeStream = fs.createWriteStream(filePath);
+    await new Promise((resolve, reject) => {
+      const req = https.request({
+        hostname: tUrl.hostname,
+        port: 443,
+        path: tUrl.pathname + tUrl.search,
+        method: 'GET',
+        headers: {
+          'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+          Accept: '*/*',
+          'Accept-Encoding': 'identity',
+        },
+      }, (pRes) => {
+        if (pRes.statusCode >= 400) {
+          reject(new Error(`Download HTTP ${pRes.statusCode}`));
+          pRes.resume();
+          return;
+        }
+        const total = parseInt(pRes.headers['content-length'] || '0', 10) || 0;
+        let downloaded = 0;
+        let lastEmit = 0;
+        let lastPct = -1;
+        const emitProgress = (force = false) => {
+          if (!mainWindow) return;
+          const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
+          const now = Date.now();
+          if (!force && now - lastEmit < 200 && percent === lastPct) return;
+          lastEmit = now;
+          lastPct = percent;
+          mainWindow.webContents.send('youtube-download-progress', {
+            percent, status: 'progress', downloaded, total,
+          });
+        };
+        pRes.on('data', (chunk) => {
+          downloaded += chunk.length;
+          writeStream.write(chunk);
+          emitProgress(false);
+        });
+        pRes.on('end', () => {
+          emitProgress(true);
+          writeStream.end();
+        });
+        pRes.on('error', reject);
+      });
+      req.on('error', reject);
+      writeStream.on('error', reject);
+      writeStream.on('finish', resolve);
+      req.end();
+    });
+
+    mainWindow?.webContents.send('youtube-download-progress', { percent: 100, status: 'done', filePath });
+    return { ok: true, filePath };
+  } catch (e) {
+    const msg = e.message || String(e);
+    mainWindow?.webContents.send('youtube-download-progress', { percent: 0, status: 'error', error: msg });
+    return { ok: false, error: msg };
+  }
+});
