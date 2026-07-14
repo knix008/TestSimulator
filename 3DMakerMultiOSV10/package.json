@@ -1,0 +1,29 @@
+{
+  "name": "3d-maker-space",
+  "version": "0.1.0",
+  "description": "2D image → navigable 3D space (Electron + Three.js)",
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "copy-ort": "node scripts/copy-ort.mjs",
+    "postinstall": "node scripts/copy-ort.mjs",
+    "dev": "npm run copy-ort && electron-vite dev",
+    "build": "npm run copy-ort && electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.5.1",
+    "three": "^0.175.0"
+  },
+  "devDependencies": {
+    "electron": "^35.1.2",
+    "electron-vite": "^3.1.0",
+    "vite": "^6.2.5"
+  },
+  "allowScripts": {
+    "electron@35.7.5": true,
+    "esbuild@0.25.12": true,
+    "onnxruntime-node@1.21.0": true
+  }
+}

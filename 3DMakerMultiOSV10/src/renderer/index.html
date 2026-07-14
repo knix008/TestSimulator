@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https: blob: data:; worker-src 'self' blob:; child-src 'self' blob:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Space Maker</title>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <header class="brand">
+          <h1>3D Space Maker</h1>
+          <p>2D 이미지 → 탐색 가능한 3D 공간</p>
+        </header>
+
+        <section class="panel">
+          <label class="file-btn">
+            <input
+              id="imageInput"
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/gif,image/avif,image/webp,.jpg,.jpeg,.png,.gif,.avif,.webp"
+              hidden
+            />
+            이미지 선택
+          </label>
+          <p class="formats">JPEG · PNG · GIF · AVIF · WebP · 고해상도</p>
+          <div id="previewWrap" class="preview empty">미리보기 없음</div>
+        </section>
+
+        <section class="panel">
+          <label>
+            깊이 모델
+            <select id="modelSelect"></select>
+          </label>
+          <div id="modelInfo" class="model-info"></div>
+          <label>
+            깊이 강도
+            <input id="depthScale" type="range" min="0.6" max="2.8" step="0.05" value="1.35" />
+          </label>
+          <label>
+            메시 해상도
+            <select id="meshRes">
+              <option value="160">빠름 (160)</option>
+              <option value="256" selected>보통 (256)</option>
+              <option value="384">선명 (384)</option>
+            </select>
+          </label>
+          <button id="buildBtn" disabled>3D 공간 생성</button>
+        </section>
+
+        <section class="panel help">
+          <h2>조작</h2>
+          <ul>
+            <li>클릭 → 마우스 잠금</li>
+            <li>WASD → 이동</li>
+            <li>마우스 → 시야</li>
+            <li>Space / Ctrl → 위·아래</li>
+            <li>Esc → 마우스 해제</li>
+          </ul>
+          <p class="note">
+            한 장의 사진으로는 가려진 뒷면이 비어 보일 수 있습니다. 실내·거리처럼 깊이감이 있는
+            사진과 Base/Large 모델이 공간감에 유리합니다.
+          </p>
+        </section>
+
+        <footer id="status">대기 중</footer>
+      </aside>
+      <main id="viewport">
+        <canvas id="scene"></canvas>
+        <div id="overlay">
+          이미지를 선택한 뒤 “3D 공간 생성”을 누르세요<br />
+          <small>XYZ 축: X 빨강 · Y 초록 · Z 파랑</small>
+        </div>
+        <div id="hud" class="hud" hidden></div>
+        <div id="crosshair" hidden></div>
+      </main>
+    </div>
+
+    <div id="errorDialog" class="error-dialog" hidden role="alertdialog" aria-modal="true" aria-labelledby="errorDialogTitle">
+      <div class="error-dialog__panel">
+        <h2 id="errorDialogTitle">오류가 발생했습니다</h2>
+        <p id="errorDialogSummary" class="error-dialog__summary"></p>
+        <pre id="errorDialogDetails" class="error-dialog__details" tabindex="0"></pre>
+        <div class="error-dialog__actions">
+          <button type="button" id="errorDialogCopy" class="btn-secondary">복사</button>
+          <button type="button" id="errorDialogOk" class="btn-primary">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
