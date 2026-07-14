@@ -1,9 +1,8 @@
 import * as THREE from 'three'
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js'
 import { createWorldAxes } from './axes.js'
 
 /**
- * First-person explorer with simple collision against the reconstructed mesh.
+ * First-person explorer — drag to look (no pointer lock), WASD to walk.
  */
 export class SpaceExplorer {
   /**
@@ -21,10 +20,16 @@ export class SpaceExplorer {
     this.maxZoom = 3.5
     /** @type {((zoom: number) => void) | null} */
     this.onZoomChange = null
+    /** @type {((exploring: boolean) => void) | null} */
+    this.onExploreChange = null
 
     this.camera = new THREE.PerspectiveCamera(this.baseFov, 1, 0.05, 80)
+    this.camera.rotation.order = 'YXZ'
     this.camera.position.set(2.8, 2.2, 3.4)
-    this.camera.lookAt(0, 0.6, 0)
+    this.yaw = 0
+    this.pitch = -0.35
+    this.applyLook()
+    this.lookSensitivity = 0.0024
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -34,10 +39,7 @@ export class SpaceExplorer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.05
-
-    this.controls = new PointerLockControls(this.camera, canvas)
-    this.scene.add(this.controls.object)
+    this.renderer.toneMappingExposure = 1.2
 
     const hemi = new THREE.HemisphereLight(0xdde7f5, 0x2a241c, 1.15)
     const key = new THREE.DirectionalLight(0xffffff, 1.05)
@@ -53,34 +55,59 @@ export class SpaceExplorer {
     this.bounds = null
     /** @type {THREE.Vector3 | null} */
     this.spawn = null
-    this.velocity = new THREE.Vector3()
     this.direction = new THREE.Vector3()
     this.raycaster = new THREE.Raycaster()
     this.keys = Object.create(null)
     this.clock = new THREE.Clock()
     this.running = true
     this.speed = 2.4
+    this.exploring = false
+    this.dragging = false
+    this.pointerId = null
 
     this._onKeyDown = (e) => {
       this.keys[e.code] = true
+      if (!this.spaceMesh) return
       if (e.code === 'Equal' || e.code === 'NumpadAdd') {
         this.zoomBy(1.1)
       } else if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
         this.zoomBy(1 / 1.1)
       } else if (e.code === 'Digit0' || e.code === 'Numpad0') {
         this.resetZoom()
+      } else if (e.code === 'Escape' && this.exploring) {
+        this.setExploring(false)
       }
     }
     this._onKeyUp = (e) => {
       this.keys[e.code] = false
     }
     this._onResize = () => this.resize()
-    this._onClick = () => {
-      if (this.spaceMesh) this.controls.lock()
+    this._onPointerDown = (e) => {
+      if (!this.spaceMesh) return
+      // Left or right button drag = look (no pointer lock).
+      if (e.button !== 0 && e.button !== 2) return
+      this.dragging = true
+      this.pointerId = e.pointerId
+      this.canvas.setPointerCapture(e.pointerId)
+      this.canvas.classList.add('is-looking')
+      e.preventDefault()
     }
+    this._onPointerMove = (e) => {
+      if (!this.dragging || !this.spaceMesh) return
+      this.yaw -= e.movementX * this.lookSensitivity
+      this.pitch -= e.movementY * this.lookSensitivity
+      const limit = Math.PI / 2 - 0.05
+      this.pitch = THREE.MathUtils.clamp(this.pitch, -limit, limit)
+      this.applyLook()
+    }
+    this._onPointerUp = (e) => {
+      if (this.pointerId != null && e.pointerId !== this.pointerId) return
+      this.endDrag()
+    }
+    this._onLostCapture = () => this.endDrag()
+    this._onContextMenu = (e) => e.preventDefault()
     this._onWheel = (e) => {
-      // Zoom only with Ctrl/Cmd + wheel (avoids accidental zoom while browsing).
-      if (!e.ctrlKey && !e.metaKey) return
+      if (!this.spaceMesh) return
       e.preventDefault()
       const factor = e.deltaY > 0 ? 1 / 1.08 : 1.08
       this.zoomBy(factor)
@@ -89,12 +116,43 @@ export class SpaceExplorer {
     window.addEventListener('keydown', this._onKeyDown)
     window.addEventListener('keyup', this._onKeyUp)
     window.addEventListener('resize', this._onResize)
-    canvas.addEventListener('click', this._onClick)
+    canvas.addEventListener('pointerdown', this._onPointerDown)
+    canvas.addEventListener('pointermove', this._onPointerMove)
+    canvas.addEventListener('pointerup', this._onPointerUp)
+    canvas.addEventListener('pointercancel', this._onPointerUp)
+    canvas.addEventListener('lostpointercapture', this._onLostCapture)
+    canvas.addEventListener('contextmenu', this._onContextMenu)
     canvas.addEventListener('wheel', this._onWheel, { passive: false })
 
     this.resize()
     this.clock.start()
     this.renderer.setAnimationLoop(() => this.tick())
+  }
+
+  endDrag() {
+    if (this.pointerId != null && this.canvas.hasPointerCapture?.(this.pointerId)) {
+      try {
+        this.canvas.releasePointerCapture(this.pointerId)
+      } catch {
+        /* ignore */
+      }
+    }
+    this.dragging = false
+    this.pointerId = null
+    this.canvas.classList.remove('is-looking')
+  }
+
+  applyLook() {
+    this.camera.rotation.y = this.yaw
+    this.camera.rotation.x = this.pitch
+    this.camera.rotation.z = 0
+  }
+
+  syncEulerFromCamera() {
+    this.camera.rotation.order = 'YXZ'
+    this.camera.updateMatrixWorld()
+    this.yaw = this.camera.rotation.y
+    this.pitch = this.camera.rotation.x
   }
 
   getZoom() {
@@ -136,21 +194,53 @@ export class SpaceExplorer {
    */
   resetView() {
     if (!this.spawn) return false
-    if (this.controls.isLocked) this.controls.unlock()
-    this.controls.object.position.copy(this.spawn)
+    this.setExploring(false)
+    this.camera.position.copy(this.spawn)
     this.camera.lookAt(0, this.spawn.y, this.spawn.z - 4)
-    this.camera.updateMatrixWorld()
+    this.syncEulerFromCamera()
     this.resetZoom()
     return true
   }
 
   /**
-   * @returns {boolean}
+   * @param {boolean} on
+   */
+  setExploring(on) {
+    if (!this.spaceMesh) return
+    const next = Boolean(on)
+    if (this.exploring === next) return
+    this.exploring = next
+    this.canvas.classList.toggle('is-exploring', next)
+    this.onExploreChange?.(next)
+  }
+
+  /**
+   * Toggle walk mode. Look/zoom work whenever a space exists.
+   * @returns {boolean | null}
    */
   beginExplore() {
-    if (!this.spaceMesh) return false
-    this.controls.lock()
-    return true
+    if (!this.spaceMesh) return null
+    this.setExploring(!this.exploring)
+    return this.exploring
+  }
+
+  isExploring() {
+    return this.exploring
+  }
+
+  /**
+   * Compatibility shim — older UI referred to pointer-lock "controls".
+   */
+  get controls() {
+    return {
+      isLocked: this.exploring,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      lock: () => this.setExploring(true),
+      unlock: () => this.setExploring(false),
+      dispose: () => {},
+      object: this.camera
+    }
   }
 
   /**
@@ -159,10 +249,16 @@ export class SpaceExplorer {
   setSpace(space) {
     if (this.spaceMesh) {
       this.scene.remove(this.spaceMesh)
-      this.spaceMesh.geometry.dispose()
-      const mat = this.spaceMesh.material
-      if (mat.map) mat.map.dispose()
-      mat.dispose()
+      this.spaceMesh.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose()
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+          for (const mat of mats) {
+            if (mat.map) mat.map.dispose()
+            mat.dispose()
+          }
+        }
+      })
     }
     if (this.enclosure) {
       this.scene.remove(this.enclosure)
@@ -182,12 +278,22 @@ export class SpaceExplorer {
     if (this.enclosure) this.scene.add(this.enclosure)
 
     this.worldAxes.position.set(0, this.floorY, 0)
-    this.scene.fog = new THREE.Fog(0x0a0e13, 8, 22)
+    this.scene.fog = new THREE.Fog(0x0a0e13, 16, 40)
 
-    this.controls.object.position.copy(space.spawn)
-    this.camera.lookAt(0, space.spawn.y, space.spawn.z - 4)
-    this.camera.updateMatrixWorld()
+    const maxAniso = this.renderer.capabilities.getMaxAnisotropy()
+    this.spaceMesh.traverse((obj) => {
+      const map = obj.material?.map
+      if (map) {
+        map.anisotropy = maxAniso
+        map.needsUpdate = true
+      }
+    })
+
+    this.camera.position.copy(space.spawn)
+    this.camera.lookAt(0, 1.35, space.spawn.z - 6)
+    this.syncEulerFromCamera()
     this.resetZoom()
+    this.setExploring(true)
   }
 
   resize() {
@@ -206,7 +312,7 @@ export class SpaceExplorer {
   }
 
   updateMovement(dt) {
-    if (!this.controls.isLocked || !this.spaceMesh) return
+    if (!this.exploring || !this.spaceMesh) return
 
     const accel = this.speed
     this.direction.set(0, 0, 0)
@@ -225,7 +331,8 @@ export class SpaceExplorer {
     const right = new THREE.Vector3()
     this.camera.getWorldDirection(forward)
     forward.y = 0
-    forward.normalize()
+    if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1)
+    else forward.normalize()
     right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
 
     const move = new THREE.Vector3()
@@ -233,9 +340,9 @@ export class SpaceExplorer {
       .addScaledVector(right, this.direction.x * accel * dt)
     move.y = vertical * accel * dt
 
-    const next = this.controls.object.position.clone().add(move)
+    const next = this.camera.position.clone().add(move)
     this.applyCollision(next)
-    this.controls.object.position.copy(next)
+    this.camera.position.copy(next)
   }
 
   applyCollision(pos) {
@@ -266,7 +373,7 @@ export class SpaceExplorer {
     for (const dir of dirs) {
       this.raycaster.set(origin, dir)
       this.raycaster.far = radius
-      const hits = this.raycaster.intersectObject(this.spaceMesh, false)
+      const hits = this.raycaster.intersectObject(this.spaceMesh, true)
       if (hits.length && hits[0].distance < radius) {
         pos.addScaledVector(dir, -(radius - hits[0].distance))
       }
@@ -274,7 +381,7 @@ export class SpaceExplorer {
 
     this.raycaster.set(pos.clone(), new THREE.Vector3(0, -1, 0))
     this.raycaster.far = eye + 0.8
-    const downHits = this.raycaster.intersectObject(this.spaceMesh, false)
+    const downHits = this.raycaster.intersectObject(this.spaceMesh, true)
     if (downHits.length) {
       const ground = downHits[0].point.y
       const desired = ground + eye
@@ -286,10 +393,14 @@ export class SpaceExplorer {
     window.removeEventListener('keydown', this._onKeyDown)
     window.removeEventListener('keyup', this._onKeyUp)
     window.removeEventListener('resize', this._onResize)
-    this.canvas.removeEventListener('click', this._onClick)
+    this.canvas.removeEventListener('pointerdown', this._onPointerDown)
+    this.canvas.removeEventListener('pointermove', this._onPointerMove)
+    this.canvas.removeEventListener('pointerup', this._onPointerUp)
+    this.canvas.removeEventListener('pointercancel', this._onPointerUp)
+    this.canvas.removeEventListener('lostpointercapture', this._onLostCapture)
+    this.canvas.removeEventListener('contextmenu', this._onContextMenu)
     this.canvas.removeEventListener('wheel', this._onWheel)
     this.renderer.setAnimationLoop(null)
-    this.controls.dispose()
     this.renderer.dispose()
   }
 }

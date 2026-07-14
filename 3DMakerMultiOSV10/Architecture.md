@@ -11,7 +11,7 @@
 - Electron 데스크톱 UI
 - 로컬 깊이 추정 (WASM)
 - 깊이 → 삼각형 메시 + 원본 텍스처
-- PointerLock 기반 WASD 탐색과 단순 충돌
+- 드래그 시야 + WASD 탐색과 단순 충돌
 
 **의도적으로 아직 넣지 않은 것**
 
@@ -100,7 +100,7 @@ File (JPEG/PNG/GIF/AVIF/WebP)
         └──────────────┬───────────────┘
                        ▼
               SpaceExplorer.setSpace()
-                - PointerLockControls
+                - drag-to-look + WASD
                 - WASD + raycast 충돌
                 - render loop
 ```
@@ -136,7 +136,7 @@ File (JPEG/PNG/GIF/AVIF/WebP)
 ### 4.4 탐색기 (`scene/explorer.js`)
 
 - Three.js `WebGLRenderer` + `PerspectiveCamera`
-- `PointerLockControls`로 FPS 시야
+- 좌·우클릭 드래그로 FPS 시야 (Pointer Lock 없음)
 - 월드 XYZ 축·라벨·바닥 그리드 (`scene/axes.js`)를 공간과 함께 표시
 - 이동: 카메라 전방/우측 기준 XZ + Space/Ctrl 수직
 - 충돌: AABB clamp + 단거리 raycast push-back + 하향 ray로 눈높이 보정

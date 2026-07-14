@@ -6,6 +6,7 @@
  * @param {import('../scene/explorer.js').SpaceExplorer} explorer
  * @param {{
  *   onStatus?: (msg: string) => void
+ *   onExploreChange?: (exploring: boolean) => void
  * }} [options]
  */
 export function bindViewportToolbar(explorer, options = {}) {
@@ -28,9 +29,21 @@ export function bindViewportToolbar(explorer, options = {}) {
     zoomLabel.setAttribute('aria-label', `현재 배율 ${Math.round(zoom * 100)}퍼센트`)
   }
 
-  explorer.onZoomChange = refreshZoom
-  refreshZoom(explorer.getZoom())
+  const refreshExplore = (exploring) => {
+    if (!buttons.explore) return
+    buttons.explore.classList.toggle('is-active', exploring)
+    buttons.explore.setAttribute('aria-pressed', String(exploring))
+  }
 
+  explorer.onZoomChange = refreshZoom
+  explorer.onExploreChange = (exploring) => {
+    refreshExplore(exploring)
+    options.onExploreChange?.(exploring)
+  }
+  refreshZoom(explorer.getZoom())
+  refreshExplore(explorer.isExploring())
+
+  root.addEventListener('pointerdown', (e) => e.stopPropagation())
   root.addEventListener('mousedown', (e) => e.stopPropagation())
   root.addEventListener('click', (e) => e.stopPropagation())
 
@@ -57,9 +70,17 @@ export function bindViewportToolbar(explorer, options = {}) {
     options.onStatus?.(ok ? '시점을 시작 위치로 되돌렸습니다' : '생성된 공간이 없습니다')
   })
   buttons.explore?.addEventListener('click', () => {
-    const ok = explorer.beginExplore()
+    const state = explorer.beginExplore()
+    if (state == null) {
+      options.onStatus?.('먼저 3D 공간을 생성하세요')
+      return
+    }
+    buttons.explore.classList.toggle('is-active', state)
+    buttons.explore.setAttribute('aria-pressed', String(state))
     options.onStatus?.(
-      ok ? '탐색 모드 — 마우스로 시야, WASD로 이동' : '먼저 3D 공간을 생성하세요'
+      state
+        ? '이동 ON — 드래그: 시야, 휠: 줌, WASD: 이동'
+        : '이동 OFF — 드래그로 시야만 조작'
     )
   })
 

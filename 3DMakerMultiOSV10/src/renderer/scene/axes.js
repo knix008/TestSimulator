@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 
 /**
- * World axes (X/Y/Z) with colored lines and end labels.
- * Three.js convention: X=red, Y=green, Z=blue.
+ * Scene axes for this app’s camera convention:
+ * X = right (red), Y = up (green), Z = into the photo / room (blue, −world Z).
  *
  * @param {number} [size=2.5]
  * @returns {THREE.Group}
@@ -11,24 +11,20 @@ export function createWorldAxes(size = 2.5) {
   const group = new THREE.Group()
   group.name = 'worldAxes'
 
-  const axes = new THREE.AxesHelper(size)
-  axes.renderOrder = 2
-  group.add(axes)
-
-  // Slightly thicker overlay lines for clearer visibility in dark scenes.
+  // Custom axes so +Z (label) points into the reconstructed space (−world Z).
   const thick = createThickAxes(size)
   group.add(thick)
 
   group.add(makeAxisLabel('X', new THREE.Vector3(size + 0.12, 0, 0), '#ff5a5a'))
   group.add(makeAxisLabel('Y', new THREE.Vector3(0, size + 0.12, 0), '#5dff7a'))
-  group.add(makeAxisLabel('Z', new THREE.Vector3(0, 0, size + 0.12), '#5aa8ff'))
+  group.add(makeAxisLabel('Z', new THREE.Vector3(0, 0, -(size + 0.12)), '#5aa8ff'))
 
   const grid = new THREE.GridHelper(size * 2, 10, 0x3d556c, 0x243041)
-  grid.position.y = 0
+  grid.position.y = 0.001
   const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material]
   for (const mat of gridMaterials) {
     mat.transparent = true
-    mat.opacity = 0.55
+    mat.opacity = 0.45
   }
   group.add(grid)
 
@@ -43,7 +39,8 @@ function createThickAxes(size) {
   const pairs = [
     { from: [0, 0, 0], to: [size, 0, 0], color: 0xff3b3b },
     { from: [0, 0, 0], to: [0, size, 0], color: 0x3bff5a },
-    { from: [0, 0, 0], to: [0, 0, size], color: 0x3b8cff }
+    // Into the room (depth away from spawn / camera).
+    { from: [0, 0, 0], to: [0, 0, -size], color: 0x3b8cff }
   ]
 
   for (const axis of pairs) {
@@ -53,7 +50,6 @@ function createThickAxes(size) {
     ])
     const material = new THREE.LineBasicMaterial({
       color: axis.color,
-      linewidth: 2,
       depthTest: true,
       transparent: true,
       opacity: 0.95

@@ -10,6 +10,11 @@ import { loadSupportedImage } from './image/loadImage.js'
 import { buildSpaceFromDepth } from './scene/buildSpace.js'
 import { SpaceExplorer } from './scene/explorer.js'
 import { showErrorDialog } from './ui/errorDialog.js'
+import {
+  hideProgressDialog,
+  showProgressDialog,
+  updateProgressDialog
+} from './ui/progressDialog.js'
 import { bindViewportToolbar } from './ui/toolbar.js'
 
 const imageInput = document.getElementById('imageInput')
@@ -29,15 +34,25 @@ const canvas = document.getElementById('scene')
 /** @type {import('./image/loadImage.js').LoadedSpaceImage | null} */
 let current = null
 const explorer = new SpaceExplorer(canvas)
-bindViewportToolbar(explorer, {
-  onStatus: (msg) => setStatus(msg)
-})
 
 function setStatus(text, kind = '') {
   statusEl.textContent = text
   statusEl.classList.remove('ok', 'error')
   if (kind) statusEl.classList.add(kind)
 }
+
+bindViewportToolbar(explorer, {
+  onStatus: (msg) => setStatus(msg),
+  onExploreChange: (exploring) => {
+    crosshairEl.hidden = true
+    setStatus(
+      exploring
+        ? '탐색 중 — 드래그: 시야 · 휠: 확대/축소 · WASD 이동 · Esc: 이동 해제'
+        : '이동 해제 — 드래그로 시야만 돌릴 수 있습니다. 「탐색」으로 이동을 켜세요.',
+      exploring ? 'ok' : undefined
+    )
+  }
+})
 
 function populateModels() {
   modelSelectEl.innerHTML = ''
@@ -121,7 +136,7 @@ imageInput.addEventListener('change', async () => {
     buildBtn.disabled = false
     setStatus(`이미지 준비됨: ${current.label}`)
     overlayEl.innerHTML =
-      '“3D 공간 생성”을 누르면 선택한 깊이 모델로 공간을 만듭니다<br /><small>XYZ 축: X 빨강 · Y 초록 · Z 파랑</small>'
+      '“3D 공간 생성”을 누르면 선택한 깊이 모델로 공간을 만듭니다<br /><small>XYZ: X 빨강(좌우) · Y 초록(위) · Z 파랑(사진 안쪽)</small>'
     overlayEl.classList.remove('hidden')
     hudEl.hidden = true
   } catch (err) {
@@ -150,9 +165,11 @@ buildBtn.addEventListener('click', async () => {
   overlayEl.classList.remove('hidden')
   overlayEl.textContent = `${model.shortName}로 공간을 구성하는 중…`
   setStatus(`처리 시작 — ${formatModelSummary(model)}`)
+  showProgressDialog({ title: `3D 공간 생성 — ${model.shortName}` })
+  updateProgressDialog(`처리 시작 — ${formatModelSummary(model)}`, 3)
 
   try {
-    overlayEl.textContent = `${model.shortName} — 백그라운드에서 깊이 추정 중…`
+    updateProgressDialog(`${model.shortName} — 백그라운드에서 깊이 추정 중…`, 8)
     await yieldToUi()
 
     const depth = await estimateDepth(
@@ -160,22 +177,33 @@ buildBtn.addEventListener('click', async () => {
       (msg) => {
         setStatus(msg)
         overlayEl.textContent = msg
+        // Map model download % into roughly 10–75, inference toward 85.
+        const parsed = typeof msg === 'string' ? msg.match(/(\d{1,3})\s*%/) : null
+        if (parsed) {
+          const raw = Number(parsed[1])
+          updateProgressDialog(msg, 10 + Math.round((raw / 100) * 65))
+        } else if (/깊이 추정/.test(msg)) {
+          updateProgressDialog(msg, 80)
+        } else {
+          updateProgressDialog(msg, null)
+        }
       },
       model.id
     )
 
+    updateProgressDialog('공간 메시 생성 중…', 88)
     setStatus('공간 메시 생성 중…')
-    overlayEl.textContent = '공간 메시 생성 중… (UI는 계속 응답합니다)'
+    overlayEl.textContent = '공간 메시 생성 중…'
     await yieldToUi()
 
-    // Mesh build still runs locally, but after a paint so status is visible.
     const space = await new Promise((resolve, reject) => {
       setTimeout(() => {
         try {
           resolve(
             buildSpaceFromDepth(current.textureImage, depth, {
               meshRes: Number(meshResEl.value),
-              depthScale: Number(depthScaleEl.value)
+              depthScale: Number(depthScaleEl.value),
+              maxAnisotropy: explorer.renderer.capabilities.getMaxAnisotropy()
             })
           )
         } catch (err) {
@@ -183,9 +211,14 @@ buildBtn.addEventListener('click', async () => {
         }
       }, 0)
     })
+    updateProgressDialog('장면 배치 중…', 96)
     await yieldToUi()
 
     explorer.setSpace(space)
+    updateProgressDialog('완료', 100)
+    await yieldToUi()
+    hideProgressDialog()
+
     overlayEl.classList.add('hidden')
     crosshairEl.hidden = false
     hudEl.hidden = false
@@ -194,8 +227,12 @@ buildBtn.addEventListener('click', async () => {
       ${model.name}<br />
       <span>${model.family} · ${tierLabel(model.tier)} · ${model.sizeHint}</span>
     `
-    setStatus(`완료 — ${model.shortName}. 뷰를 클릭한 뒤 WASD로 탐험하세요.`, 'ok')
+    setStatus(
+      `완료 — ${model.shortName}. 드래그로 시야 · 휠로 줌 · WASD로 이동하세요.`,
+      'ok'
+    )
   } catch (err) {
+    hideProgressDialog()
     overlayEl.textContent = '생성에 실패했습니다. 아래 오류 내용을 확인해 주세요.'
     reportError(err, {
       title: '3D 공간 생성 실패',
@@ -204,19 +241,11 @@ buildBtn.addEventListener('click', async () => {
       statusText: '3D 공간 생성 실패'
     })
   } finally {
+    hideProgressDialog()
     buildBtn.disabled = !current
     imageInput.disabled = false
     modelSelectEl.disabled = false
   }
-})
-
-explorer.controls.addEventListener('lock', () => {
-  crosshairEl.hidden = false
-  setStatus('탐색 중 — Esc로 마우스 해제', 'ok')
-})
-
-explorer.controls.addEventListener('unlock', () => {
-  setStatus('마우스 해제됨. 다시 클릭하면 탐색을 계속합니다.')
 })
 
 window.addEventListener('unhandledrejection', (event) => {

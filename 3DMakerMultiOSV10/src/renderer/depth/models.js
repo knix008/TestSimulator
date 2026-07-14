@@ -78,6 +78,50 @@ export const DEPTH_MODELS = [
     description:
       '이전 세대 Depth Anything Small입니다. 비교·호환용으로 남겨 두었습니다.',
     homepage: 'https://huggingface.co/Xenova/depth-anything-small-hf'
+  },
+  {
+    id: 'Xenova/dpt-hybrid-midas',
+    name: 'DPT Hybrid MiDaS',
+    shortName: 'MiDaS Hybrid',
+    family: 'DPT / MiDaS',
+    tier: 'balanced',
+    sizeHint: '~400MB급',
+    description:
+      'Intel DPT + MiDaS 계열입니다. 실내·야외 모두 안정적이고, Depth Anything과 깊이 느낌이 다를 수 있어 비교용으로 좋습니다.',
+    homepage: 'https://huggingface.co/Xenova/dpt-hybrid-midas'
+  },
+  {
+    id: 'Xenova/dpt-large',
+    name: 'DPT Large',
+    shortName: 'DPT Large',
+    family: 'DPT / MiDaS',
+    tier: 'quality',
+    sizeHint: '~1GB급',
+    description:
+      '고해상도 밀집 깊이 추정에 강한 DPT Large입니다. 느리고 무겁지만 경계·평면이 또렷해질 수 있습니다.',
+    homepage: 'https://huggingface.co/Xenova/dpt-large'
+  },
+  {
+    id: 'Xenova/glpn-kitti',
+    name: 'GLPN KITTI',
+    shortName: 'GLPN KITTI',
+    family: 'GLPN',
+    tier: 'balanced',
+    sizeHint: '~200MB급',
+    description:
+      '도로·야외(KITTI) 데이터에 맞춘 GLPN입니다. 거리·풍경 사진에서 원근감이 잘 나오는 편입니다.',
+    homepage: 'https://huggingface.co/Xenova/glpn-kitti'
+  },
+  {
+    id: 'Xenova/glpn-nyu',
+    name: 'GLPN NYUv2',
+    shortName: 'GLPN NYU',
+    family: 'GLPN',
+    tier: 'balanced',
+    sizeHint: '~200MB급',
+    description:
+      '실내(NYUv2)에 맞춘 GLPN입니다. 방·복도처럼 실내 장면에서 바닥·벽 구분이 더 나을 수 있습니다.',
+    homepage: 'https://huggingface.co/Xenova/glpn-nyu'
   }
 ]
 

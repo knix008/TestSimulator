@@ -20,10 +20,10 @@ const MIME_BY_EXT = {
 
 const SUPPORTED_MIME = new Set(Object.values(MIME_BY_EXT))
 
-/** Depth model input long-edge cap (keeps inference fast on CPU/WASM). */
+/** Depth model input long-edge cap (keeps inference fast on CPU). */
 const DEPTH_MAX_EDGE = 1280
-/** Texture long-edge cap (keeps GPU memory reasonable for high-res photos). */
-const TEXTURE_MAX_EDGE = 4096
+/** Texture long-edge cap — keep as much photo detail as practical for the mesh map. */
+const TEXTURE_MAX_EDGE = 8192
 
 /**
  * @param {File} file
@@ -119,6 +119,8 @@ function resizeBitmapToCanvas(bitmap, maxEdge) {
   canvas.height = height
   const ctx = canvas.getContext('2d', { alpha: false })
   if (!ctx) throw new Error('Canvas를 초기화할 수 없습니다.')
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(bitmap, 0, 0, width, height)
   return canvas
 }
