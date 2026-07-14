@@ -568,6 +568,20 @@ body.resizing-row * {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  cursor: default;
+}
+
+/* Force arrow cursor in file directory (Chromium uses hand on [draggable]) */
+#file-tree-panel,
+#file-tree-panel .ft-path-bar,
+#file-tree-panel .ft-scroll,
+#file-tree-panel .ft-scroll *,
+#file-tree-panel .tree-item,
+#file-tree-panel .tree-item.is-media.is-draggable,
+#file-tree-panel .tree-item.is-media.is-draggable:active,
+#file-tree-panel .tree-item.is-media.dragging,
+#file-tree-panel .tree-item[draggable="true"] {
+  cursor: default !important;
 }
 
 /* Empty state */
@@ -587,7 +601,7 @@ body.resizing-row * {
   align-items: center;
   gap: 0;
   padding: 3px 6px 3px 0;
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   color: var(--text-secondary);
   transition: background 0.1s, color 0.1s;
@@ -598,9 +612,9 @@ body.resizing-row * {
 .tree-item:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .tree-item.selected { background: var(--accent-dim); color: var(--text-accent); }
 .tree-item.focused-path { color: var(--text-primary); }
-.tree-item.is-media.is-draggable { cursor: pointer; }
+.tree-item.is-media.is-draggable { cursor: default; }
 .tree-item.is-media.is-draggable:active,
-.tree-item.is-media.dragging { cursor: pointer; opacity: 0.75; }
+.tree-item.is-media.dragging { cursor: default; opacity: 0.75; }
 
 .tree-indent {
   display: inline-block;
@@ -773,7 +787,7 @@ body.resizing-row * {
   align-items: center;
   gap: 8px;
   padding: 5px 12px;
-  cursor: pointer;
+  cursor: default;
   border-radius: 0;
   font-size: 12px;
   color: var(--text-secondary);
@@ -840,7 +854,7 @@ body.resizing-row * {
   align-items: center;
   gap: 8px;
   padding: 5px 12px;
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   color: var(--text-secondary);
   transition: background 0.1s, color 0.1s;
@@ -1958,7 +1972,7 @@ body.resizing-row * {
 
 /* ── Explorer tree view ──────────────────────────────────────── */
 .tree-dir {
-  cursor: pointer;
+  cursor: default;
 }
 .tree-dir:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .tree-dir.active { background: var(--accent-dim); color: var(--text-accent); }
@@ -1987,7 +2001,7 @@ body.resizing-row * {
   gap: 6px;
   font-size: 12px;
   color: var(--text-secondary);
-  cursor: pointer;
+  cursor: default;
   transition: background 0.1s, color 0.1s;
   white-space: nowrap;
   overflow: hidden;

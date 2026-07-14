@@ -305,14 +305,26 @@ export class FileTree {
   }
 
   _bindMediaDrag(row, entry) {
-    row.draggable = true;
+    // Keep draggable off until mousedown — Chromium shows a hand cursor on
+    // hover for permanently-draggable nodes even when CSS says cursor:default.
+    row.draggable = false;
     row.classList.add('is-draggable');
     row.title = (row.title ? `${row.title}\n` : '')
       + (window.electronAPI?.isWeb
         ? 'Drag to export / drop onto timeline'
         : 'Drag to Explorer or timeline');
 
+    row.addEventListener('mousedown', () => {
+      row.draggable = true;
+    });
+    const clearDragFlag = () => {
+      if (!row.classList.contains('dragging')) row.draggable = false;
+    };
+    row.addEventListener('mouseup', clearDragFlag);
+    row.addEventListener('mouseleave', clearDragFlag);
+
     row.addEventListener('dragstart', (ev) => {
+      row.draggable = true;
       const payload = {
         name: entry.name,
         path: entry.path,
@@ -351,6 +363,7 @@ export class FileTree {
 
     row.addEventListener('dragend', () => {
       row.classList.remove('dragging');
+      row.draggable = false;
       window.__avEditorDragEntry = null;
     });
   }
