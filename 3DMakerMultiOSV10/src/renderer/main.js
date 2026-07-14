@@ -1,5 +1,5 @@
 import './styles.css'
-import { estimateDepth } from './depth/estimate.js'
+import { estimateDepth, yieldToUi } from './depth/estimate.js'
 import {
   DEFAULT_MODEL_ID,
   DEPTH_MODELS,
@@ -10,11 +10,13 @@ import { loadSupportedImage } from './image/loadImage.js'
 import { buildSpaceFromDepth } from './scene/buildSpace.js'
 import { SpaceExplorer } from './scene/explorer.js'
 import { showErrorDialog } from './ui/errorDialog.js'
+import { bindViewportToolbar } from './ui/toolbar.js'
 
 const imageInput = document.getElementById('imageInput')
 const previewWrap = document.getElementById('previewWrap')
 const buildBtn = document.getElementById('buildBtn')
 const depthScaleEl = document.getElementById('depthScale')
+const depthScaleValueEl = document.getElementById('depthScaleValue')
 const meshResEl = document.getElementById('meshRes')
 const modelSelectEl = document.getElementById('modelSelect')
 const modelInfoEl = document.getElementById('modelInfo')
@@ -27,6 +29,9 @@ const canvas = document.getElementById('scene')
 /** @type {import('./image/loadImage.js').LoadedSpaceImage | null} */
 let current = null
 const explorer = new SpaceExplorer(canvas)
+bindViewportToolbar(explorer, {
+  onStatus: (msg) => setStatus(msg)
+})
 
 function setStatus(text, kind = '') {
   statusEl.textContent = text
@@ -84,8 +89,17 @@ function reportError(err, options) {
   })
 }
 
+function updateDepthScaleLabel() {
+  const pct = Math.round(Number(depthScaleEl.value) * 100)
+  depthScaleValueEl.textContent = `${pct}%`
+  depthScaleEl.setAttribute('aria-valuetext', `${pct}퍼센트`)
+  depthScaleEl.title = `깊이 강도 ${pct}%`
+}
+
 populateModels()
 modelSelectEl.addEventListener('change', updateModelInfo)
+updateDepthScaleLabel()
+depthScaleEl.addEventListener('input', updateDepthScaleLabel)
 
 imageInput.addEventListener('change', async () => {
   const file = imageInput.files?.[0]
@@ -138,17 +152,38 @@ buildBtn.addEventListener('click', async () => {
   setStatus(`처리 시작 — ${formatModelSummary(model)}`)
 
   try {
+    overlayEl.textContent = `${model.shortName} — 백그라운드에서 깊이 추정 중…`
+    await yieldToUi()
+
     const depth = await estimateDepth(
       current.depthImage,
-      (msg) => setStatus(msg),
+      (msg) => {
+        setStatus(msg)
+        overlayEl.textContent = msg
+      },
       model.id
     )
-    setStatus('공간 메시 생성 중…')
 
-    const space = buildSpaceFromDepth(current.textureImage, depth, {
-      meshRes: Number(meshResEl.value),
-      depthScale: Number(depthScaleEl.value)
+    setStatus('공간 메시 생성 중…')
+    overlayEl.textContent = '공간 메시 생성 중… (UI는 계속 응답합니다)'
+    await yieldToUi()
+
+    // Mesh build still runs locally, but after a paint so status is visible.
+    const space = await new Promise((resolve, reject) => {
+      setTimeout(() => {
+        try {
+          resolve(
+            buildSpaceFromDepth(current.textureImage, depth, {
+              meshRes: Number(meshResEl.value),
+              depthScale: Number(depthScaleEl.value)
+            })
+          )
+        } catch (err) {
+          reject(err)
+        }
+      }, 0)
     })
+    await yieldToUi()
 
     explorer.setSpace(space)
     overlayEl.classList.add('hidden')

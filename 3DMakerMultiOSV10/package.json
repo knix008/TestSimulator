@@ -9,8 +9,8 @@
     "postinstall": "node scripts/copy-ort.mjs",
     "dev": "npm run copy-ort && electron-vite dev",
     "build": "npm run copy-ort && electron-vite build",
-    "preview": "electron-vite preview",
-    "start": "electron-vite preview"
+    "preview": "npm run copy-ort && electron-vite preview",
+    "start": "npm run copy-ort && electron-vite preview"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.5.1",

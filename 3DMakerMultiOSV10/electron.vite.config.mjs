@@ -3,7 +3,15 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.js'),
+          depthChild: resolve('src/main/depthChild.js')
+        }
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
@@ -14,7 +22,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve('src/renderer'),
-        // Renderer must use onnxruntime-web, not the Node binding.
+        // Renderer no longer runs ORT; keep stub in case of leftover imports.
         'onnxruntime-node': resolve('src/renderer/stubs/empty.js')
       }
     },

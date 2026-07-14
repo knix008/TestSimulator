@@ -15,7 +15,14 @@ export class SpaceExplorer {
     this.scene.background = new THREE.Color(0x0a0e13)
     this.scene.fog = new THREE.Fog(0x0a0e13, 6, 18)
 
-    this.camera = new THREE.PerspectiveCamera(70, 1, 0.05, 80)
+    this.baseFov = 70
+    this.zoom = 1
+    this.minZoom = 0.4
+    this.maxZoom = 3.5
+    /** @type {((zoom: number) => void) | null} */
+    this.onZoomChange = null
+
+    this.camera = new THREE.PerspectiveCamera(this.baseFov, 1, 0.05, 80)
     this.camera.position.set(2.8, 2.2, 3.4)
     this.camera.lookAt(0, 0.6, 0)
 
@@ -44,6 +51,8 @@ export class SpaceExplorer {
     this.enclosure = null
     this.floorY = 0
     this.bounds = null
+    /** @type {THREE.Vector3 | null} */
+    this.spawn = null
     this.velocity = new THREE.Vector3()
     this.direction = new THREE.Vector3()
     this.raycaster = new THREE.Raycaster()
@@ -54,6 +63,13 @@ export class SpaceExplorer {
 
     this._onKeyDown = (e) => {
       this.keys[e.code] = true
+      if (e.code === 'Equal' || e.code === 'NumpadAdd') {
+        this.zoomBy(1.1)
+      } else if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
+        this.zoomBy(1 / 1.1)
+      } else if (e.code === 'Digit0' || e.code === 'Numpad0') {
+        this.resetZoom()
+      }
     }
     this._onKeyUp = (e) => {
       this.keys[e.code] = false
@@ -62,15 +78,79 @@ export class SpaceExplorer {
     this._onClick = () => {
       if (this.spaceMesh) this.controls.lock()
     }
+    this._onWheel = (e) => {
+      // Zoom only with Ctrl/Cmd + wheel (avoids accidental zoom while browsing).
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      const factor = e.deltaY > 0 ? 1 / 1.08 : 1.08
+      this.zoomBy(factor)
+    }
 
     window.addEventListener('keydown', this._onKeyDown)
     window.addEventListener('keyup', this._onKeyUp)
     window.addEventListener('resize', this._onResize)
     canvas.addEventListener('click', this._onClick)
+    canvas.addEventListener('wheel', this._onWheel, { passive: false })
 
     this.resize()
     this.clock.start()
     this.renderer.setAnimationLoop(() => this.tick())
+  }
+
+  getZoom() {
+    return this.zoom
+  }
+
+  /**
+   * @param {number} zoom
+   */
+  setZoom(zoom) {
+    this.zoom = THREE.MathUtils.clamp(zoom, this.minZoom, this.maxZoom)
+    this.camera.fov = this.baseFov / this.zoom
+    this.camera.updateProjectionMatrix()
+    this.onZoomChange?.(this.zoom)
+  }
+
+  /**
+   * @param {number} factor
+   */
+  zoomBy(factor) {
+    this.setZoom(this.zoom * factor)
+  }
+
+  resetZoom() {
+    this.setZoom(1)
+  }
+
+  areAxesVisible() {
+    return this.worldAxes.visible
+  }
+
+  toggleAxes() {
+    this.worldAxes.visible = !this.worldAxes.visible
+    return this.worldAxes.visible
+  }
+
+  /**
+   * @returns {boolean}
+   */
+  resetView() {
+    if (!this.spawn) return false
+    if (this.controls.isLocked) this.controls.unlock()
+    this.controls.object.position.copy(this.spawn)
+    this.camera.lookAt(0, this.spawn.y, this.spawn.z - 4)
+    this.camera.updateMatrixWorld()
+    this.resetZoom()
+    return true
+  }
+
+  /**
+   * @returns {boolean}
+   */
+  beginExplore() {
+    if (!this.spaceMesh) return false
+    this.controls.lock()
+    return true
   }
 
   /**
@@ -97,18 +177,17 @@ export class SpaceExplorer {
     this.enclosure = space.enclosure || null
     this.floorY = space.floorY
     this.bounds = space.bounds
+    this.spawn = space.spawn.clone()
     this.scene.add(this.spaceMesh)
     if (this.enclosure) this.scene.add(this.enclosure)
 
-    // Keep XYZ axes visible on the estimated floor near the origin.
     this.worldAxes.position.set(0, this.floorY, 0)
-
-    // Slightly clearer space lighting once a scene exists.
     this.scene.fog = new THREE.Fog(0x0a0e13, 8, 22)
 
     this.controls.object.position.copy(space.spawn)
     this.camera.lookAt(0, space.spawn.y, space.spawn.z - 4)
     this.camera.updateMatrixWorld()
+    this.resetZoom()
   }
 
   resize() {
@@ -163,7 +242,6 @@ export class SpaceExplorer {
     const eye = 1.55
     const radius = 0.22
 
-    // Soft floor: keep eyes about eye-height above estimated floor, allow slight fly.
     const minY = this.floorY + 0.35
     const maxY = this.floorY + 3.2
     pos.y = THREE.MathUtils.clamp(pos.y, minY, maxY)
@@ -173,7 +251,6 @@ export class SpaceExplorer {
     pos.x = THREE.MathUtils.clamp(pos.x, this.bounds.min.x + pad, this.bounds.max.x - pad)
     pos.z = THREE.MathUtils.clamp(pos.z, this.bounds.min.z + pad, this.bounds.max.z - 0.05)
 
-    // Push back from nearby geometry in XZ.
     const origin = pos.clone()
     const dirs = [
       new THREE.Vector3(1, 0, 0),
@@ -195,7 +272,6 @@ export class SpaceExplorer {
       }
     }
 
-    // Keep a comfortable standing height when near floor geometry below feet.
     this.raycaster.set(pos.clone(), new THREE.Vector3(0, -1, 0))
     this.raycaster.far = eye + 0.8
     const downHits = this.raycaster.intersectObject(this.spaceMesh, false)
@@ -211,6 +287,7 @@ export class SpaceExplorer {
     window.removeEventListener('keyup', this._onKeyUp)
     window.removeEventListener('resize', this._onResize)
     this.canvas.removeEventListener('click', this._onClick)
+    this.canvas.removeEventListener('wheel', this._onWheel)
     this.renderer.setAnimationLoop(null)
     this.controls.dispose()
     this.renderer.dispose()

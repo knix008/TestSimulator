@@ -1,7 +1,31 @@
 import { app, BrowserWindow, shell, nativeImage } from 'electron'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { registerModelCacheIpc } from './modelCache.js'
+import { registerDepthBridge } from './depthBridge.js'
+
+// Stable app identity / writable userData (avoids locked project folders).
+app.setName('3D Space Maker')
+app.setPath('userData', join(app.getPath('appData'), '3d-maker-space'))
+
+// Chromium GPU/disk cache often fails on Windows when another Electron
+// instance holds the same cache (ACCESS_DENIED / 0x5).
+const chromiumCacheDir = join(app.getPath('userData'), 'chromium-cache')
+mkdirSync(chromiumCacheDir, { recursive: true })
+app.commandLine.appendSwitch('disk-cache-dir', chromiumCacheDir)
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  })
+}
 
 function resolveAppIcon() {
   const candidates = [
@@ -49,21 +73,24 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
-  registerModelCacheIpc()
+if (gotTheLock) {
+  app.whenReady().then(() => {
+    registerModelCacheIpc()
+    registerDepthBridge()
 
-  const iconPath = resolveAppIcon()
-  if (iconPath && process.platform === 'darwin' && app.dock) {
-    const icon = nativeImage.createFromPath(iconPath)
-    if (!icon.isEmpty()) app.dock.setIcon(icon)
-  }
+    const iconPath = resolveAppIcon()
+    if (iconPath && process.platform === 'darwin' && app.dock) {
+      const icon = nativeImage.createFromPath(iconPath)
+      if (!icon.isEmpty()) app.dock.setIcon(icon)
+    }
 
-  createWindow()
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    createWindow()
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
   })
-})
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit()
+  })
+}

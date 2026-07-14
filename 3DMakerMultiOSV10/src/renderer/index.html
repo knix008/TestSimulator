@@ -37,8 +37,11 @@
             <select id="modelSelect"></select>
           </label>
           <div id="modelInfo" class="model-info"></div>
-          <label>
-            깊이 강도
+          <label class="slider-label">
+            <span class="slider-label__row">
+              <span>깊이 강도</span>
+              <span id="depthScaleValue" class="slider-value">135%</span>
+            </span>
             <input id="depthScale" type="range" min="0.6" max="2.8" step="0.05" value="1.35" />
           </label>
           <label>
@@ -55,7 +58,8 @@
         <section class="panel help">
           <h2>조작</h2>
           <ul>
-            <li>클릭 → 마우스 잠금</li>
+            <li>툴바 / Ctrl+휠 / + − → 확대·축소</li>
+            <li>클릭 또는 탐색 → 마우스 잠금</li>
             <li>WASD → 이동</li>
             <li>마우스 → 시야</li>
             <li>Space / Ctrl → 위·아래</li>
@@ -70,10 +74,89 @@
         <footer id="status">대기 중</footer>
       </aside>
       <main id="viewport">
+        <div id="viewportToolbar" class="viewport-toolbar" role="toolbar" aria-label="뷰 도구">
+          <div class="toolbar-group" role="group" aria-label="확대/축소">
+            <button
+              type="button"
+              class="tb-btn"
+              data-action="zoom-out"
+              data-tooltip="축소 (Ctrl+휠 아래 / -)"
+              title="축소 (Ctrl+휠 아래 / -)"
+              aria-label="축소"
+            >
+              −
+            </button>
+            <span
+              id="zoomLabel"
+              class="zoom-label"
+              data-tooltip="현재 배율"
+              title="현재 배율"
+              aria-live="polite"
+              >100%</span
+            >
+            <button
+              type="button"
+              class="tb-btn"
+              data-action="zoom-in"
+              data-tooltip="확대 (Ctrl+휠 위 / +)"
+              title="확대 (Ctrl+휠 위 / +)"
+              aria-label="확대"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              class="tb-btn"
+              data-action="zoom-reset"
+              data-tooltip="배율 100%로 초기화 (0)"
+              title="배율 100%로 초기화 (0)"
+              aria-label="배율 초기화"
+            >
+              1:1
+            </button>
+          </div>
+
+          <div class="toolbar-sep" aria-hidden="true"></div>
+
+          <div class="toolbar-group" role="group" aria-label="뷰">
+            <button
+              type="button"
+              class="tb-btn"
+              data-action="toggle-axes"
+              data-tooltip="XYZ 축 표시/숨기기"
+              title="XYZ 축 표시/숨기기"
+              aria-label="XYZ 축 토글"
+              aria-pressed="true"
+            >
+              XYZ
+            </button>
+            <button
+              type="button"
+              class="tb-btn"
+              data-action="reset-view"
+              data-tooltip="시작 시점으로 이동하고 배율 초기화"
+              title="시작 시점으로 이동하고 배율 초기화"
+              aria-label="시점 초기화"
+            >
+              시점
+            </button>
+            <button
+              type="button"
+              class="tb-btn tb-btn-primary"
+              data-action="explore"
+              data-tooltip="탐색 모드 시작 (뷰 클릭과 동일)"
+              title="탐색 모드 시작 (뷰 클릭과 동일)"
+              aria-label="탐색 시작"
+            >
+              탐색
+            </button>
+          </div>
+        </div>
+
         <canvas id="scene"></canvas>
         <div id="overlay">
           이미지를 선택한 뒤 “3D 공간 생성”을 누르세요<br />
-          <small>XYZ 축: X 빨강 · Y 초록 · Z 파랑</small>
+          <small>XYZ 축: X 빨강 · Y 초록 · Z 파랑 · Ctrl+휠로 확대/축소</small>
         </div>
         <div id="hud" class="hud" hidden></div>
         <div id="crosshair" hidden></div>

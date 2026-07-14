@@ -141,11 +141,18 @@ File (JPEG/PNG/GIF/AVIF/WebP)
 - 이동: 카메라 전방/우측 기준 XZ + Space/Ctrl 수직
 - 충돌: AABB clamp + 단거리 raycast push-back + 하향 ray로 눈높이 보정
 
-### 4.5 모델 캐시
+### 4.5 백그라운드 깊이 추정
 
-1. **메모리**: `depthPipeline` 싱글톤 — 같은 실행 중 재로드 없음  
-2. **디스크**: `app.getPath('userData')/hf-model-cache` — preload `modelCache` IPC + `env.customCache`  
-3. 상태 문구: 캐시가 있으면 “캐시에서 로드”, 없을 때만 “다운로드”
+- UI(렌더러)와 분리된 Electron `utilityProcess` (`depthChild.js`)에서 추론
+- 메인 브리지: `depthBridge.js` ↔ preload `depthApi`
+- 진행률은 `depth:progress` 이벤트로 UI에 전달 (창이 멈추지 않음)
+- Node ORT(`cpu`) + `userData/hf-model-cache` 파일 캐시
+
+### 4.6 모델 캐시
+
+1. **워커 메모리**: 모델별 pipeline Map  
+2. **디스크**: `app.getPath('userData')/hf-model-cache`  
+3. UI는 상태 문구만 갱신하고 추론을 직접 실행하지 않음
 
 ## 5. 빌드와 에셋
 
