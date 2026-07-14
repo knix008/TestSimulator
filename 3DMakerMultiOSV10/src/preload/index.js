@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld('appInfo', {
 contextBridge.exposeInMainWorld('modelCache', {
   match: (key) => ipcRenderer.invoke('model-cache:match', key),
   put: (key, data) => ipcRenderer.invoke('model-cache:put', key, data),
-  info: () => ipcRenderer.invoke('model-cache:info')
+  info: () => ipcRenderer.invoke('model-cache:info'),
+  status: (modelId) => ipcRenderer.invoke('model-cache:status', modelId)
 })
 
 contextBridge.exposeInMainWorld('depthApi', {

@@ -9,7 +9,10 @@ export default defineConfig({
         input: {
           index: resolve('src/main/index.js'),
           depthChild: resolve('src/main/depthChild.js')
-        }
+        },
+        // Keep Transformers.js out of the depthChild bundle so we can
+        // dynamic-import it after patching process.release for Electron.
+        external: ['@huggingface/transformers']
       }
     }
   },

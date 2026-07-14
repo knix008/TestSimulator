@@ -1,6 +1,7 @@
 import { app, ipcMain, utilityProcess } from 'electron'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { getHfModelCacheDir } from './modelCache.js'
 
 /** @type {Electron.UtilityProcess | null} */
 let child = null
@@ -11,10 +12,6 @@ const pending = new Map()
 
 function childScriptPath() {
   return join(__dirname, 'depthChild.js')
-}
-
-function modelCacheDir() {
-  return join(app.getPath('userData'), 'hf-model-cache')
 }
 
 function rejectAllPending(error) {
@@ -96,7 +93,11 @@ function ensureChild() {
 
     const onMessage = (msg) => {
       if (msg?.type === 'boot') {
-        proc.postMessage({ type: 'init', cacheDir: modelCacheDir() })
+        proc.postMessage({
+          type: 'init',
+          cacheDir: getHfModelCacheDir(),
+          defaultModelId: 'onnx-community/depth-anything-v2-base-ONNX'
+        })
         return
       }
       if (msg?.type === 'ready') {

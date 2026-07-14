@@ -40,8 +40,9 @@ JPEG, PNG, GIF, AVIF, WebP 및 고해상도 사진
 
 모던 광택 스타일 아이콘은 `assets/`에 있습니다.
 
-- `assets/app-icon.png` — 원본
-- `assets/icon.png` — Electron 창/독 아이콘
+- `assets/app-icon.png` — 원본 (1024×1024)
+- `assets/icon.png` — PNG 엔트리
+- `assets/icon.ico` — Windows 창·작업 표시줄 아이콘
 
 ## 문서
 

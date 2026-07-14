@@ -1,11 +1,16 @@
 import { app, BrowserWindow, shell, nativeImage, screen } from 'electron'
 import { existsSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { registerModelCacheIpc } from './modelCache.js'
 import { registerDepthBridge } from './depthBridge.js'
 
 // Stable app identity / writable userData (avoids locked project folders).
 app.setName('3D Space Maker')
+// Unique Windows AppUserModelID so taskbar does not use the shared Electron icon.
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.3dmaker.space')
+}
 app.setPath('userData', join(app.getPath('appData'), '3d-maker-space'))
 
 // Chromium GPU/disk cache often fails on Windows when another Electron
@@ -27,18 +32,42 @@ if (!gotTheLock) {
   })
 }
 
+/**
+ * Resolve icon under project `assets/` for window + taskbar/dock.
+ * Windows prefers `.ico`; PNG fallbacks for other platforms / sizes.
+ */
 function resolveAppIcon() {
-  const candidates = [
-    join(__dirname, '../../assets/icon.png'),
-    join(__dirname, '../../assets/app-icon.png'),
-    join(app.getAppPath(), 'assets/icon.png'),
-    join(app.getAppPath(), 'assets/app-icon.png')
+  const roots = [
+    join(process.cwd(), 'assets'),
+    join(__dirname, '../../assets'),
+    join(app.getAppPath(), 'assets'),
+    join(app.getAppPath(), '../assets'),
+    join(dirname(fileURLToPath(import.meta.url)), '../../assets')
   ]
 
-  for (const path of candidates) {
-    if (existsSync(path)) return path
+  const names =
+    process.platform === 'win32'
+      ? ['icon.ico', 'icon-256.png', 'icon.png', 'app-icon.png']
+      : ['icon.png', 'app-icon.png', 'icon-256.png', 'icon.ico']
+
+  const seen = new Set()
+  for (const root of roots) {
+    for (const name of names) {
+      const path = join(root, name)
+      if (seen.has(path)) continue
+      seen.add(path)
+      if (existsSync(path)) return path
+    }
   }
   return null
+}
+
+function loadAppIcon() {
+  const iconPath = resolveAppIcon()
+  if (!iconPath) return { path: null, image: null }
+  const image = nativeImage.createFromPath(iconPath)
+  if (!image || image.isEmpty()) return { path: iconPath, image: null }
+  return { path: iconPath, image }
 }
 
 /** Hard floor so sidebar panels remain usable; window cannot be smaller than this. */
@@ -60,8 +89,7 @@ function resolveDefaultWindowBounds() {
 }
 
 function createWindow() {
-  const iconPath = resolveAppIcon()
-  const icon = iconPath ? nativeImage.createFromPath(iconPath) : undefined
+  const { image: icon } = loadAppIcon()
   const bounds = resolveDefaultWindowBounds()
 
   const win = new BrowserWindow({
@@ -72,7 +100,7 @@ function createWindow() {
     title: '3D Space Maker',
     backgroundColor: '#0f1419',
     show: false,
-    ...(icon && !icon.isEmpty() ? { icon } : {}),
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
@@ -80,6 +108,9 @@ function createWindow() {
       sandbox: false
     }
   })
+
+  // Reinforce icon after create (Windows taskbar / title bar).
+  if (icon) win.setIcon(icon)
 
   // Reinforce after create — some platforms ignore constructor mins until set explicitly.
   win.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
@@ -111,10 +142,9 @@ if (gotTheLock) {
     registerModelCacheIpc()
     registerDepthBridge()
 
-    const iconPath = resolveAppIcon()
-    if (iconPath && process.platform === 'darwin' && app.dock) {
-      const icon = nativeImage.createFromPath(iconPath)
-      if (!icon.isEmpty()) app.dock.setIcon(icon)
+    const { image: icon } = loadAppIcon()
+    if (icon && process.platform === 'darwin' && app.dock) {
+      app.dock.setIcon(icon)
     }
 
     createWindow()

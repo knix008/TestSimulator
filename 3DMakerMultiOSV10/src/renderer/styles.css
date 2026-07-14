@@ -139,6 +139,25 @@ body,
   font-size: 0.74rem;
 }
 
+.model-info__cache {
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.model-info__cache--hit {
+  color: #6dcea0;
+}
+
+.model-info__cache--miss {
+  color: #d0a35c;
+}
+
+.model-info__cache--unknown {
+  color: #7f93a6;
+}
+
 .model-info__desc {
   margin: 4px 0 0;
   color: #9aadbd;

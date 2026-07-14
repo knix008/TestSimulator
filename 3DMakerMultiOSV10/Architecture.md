@@ -52,7 +52,8 @@
 3DMakerMultiOSV10/
 ├── assets/
 │   ├── app-icon.png           # 모던 광택 앱 아이콘 원본
-│   └── icon.png               # Electron 창/독 아이콘
+│   ├── icon.png               # PNG 엔트리
+│   └── icon.ico               # Windows 창/작업표시줄 아이콘
 ├── electron.vite.config.mjs   # main / preload / renderer Vite 설정
 ├── package.json
 ├── scripts/
@@ -150,9 +151,10 @@ File (JPEG/PNG/GIF/AVIF/WebP)
 
 ### 4.6 모델 캐시
 
-1. **워커 메모리**: 모델별 pipeline Map  
-2. **디스크**: `app.getPath('userData')/hf-model-cache`  
-3. UI는 상태 문구만 갱신하고 추론을 직접 실행하지 않음
+1. **워커 메모리**: 모델별 pipeline Map (같은 세션에서 재사용)  
+2. **디스크**: `userData/hf-model-cache` (Transformers.js FileCache 레이아웃)  
+3. 캐시가 있으면 `local_files_only`로 로드해 Hub 재다운로드를 막음  
+4. UI에 모델별 “로컬 캐시됨” 표시 (`model-cache:status`)
 
 ## 5. 빌드와 에셋
 

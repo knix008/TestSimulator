@@ -65,9 +65,12 @@ export function bindViewportToolbar(explorer, options = {}) {
     buttons.axes.setAttribute('aria-pressed', String(visible))
     options.onStatus?.(visible ? 'XYZ 축 표시' : 'XYZ 축 숨김')
   })
+  const reportReset = (ok) => {
+    options.onStatus?.(ok ? '초기 위치·시야로 되돌렸습니다' : '생성된 공간이 없습니다')
+  }
+  explorer.onResetView = reportReset
   buttons.resetView?.addEventListener('click', () => {
-    const ok = explorer.resetView()
-    options.onStatus?.(ok ? '시점을 시작 위치로 되돌렸습니다' : '생성된 공간이 없습니다')
+    reportReset(explorer.resetView())
   })
   buttons.explore?.addEventListener('click', () => {
     const state = explorer.beginExplore()
@@ -79,7 +82,7 @@ export function bindViewportToolbar(explorer, options = {}) {
     buttons.explore.setAttribute('aria-pressed', String(state))
     options.onStatus?.(
       state
-        ? '이동 ON — 드래그: 시야, 휠: 줌, WASD: 이동'
+        ? '이동 ON — WASD/방향키로 걸을 수 있습니다'
         : '이동 OFF — 드래그로 시야만 조작'
     )
   })

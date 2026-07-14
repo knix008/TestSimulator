@@ -59,11 +59,12 @@
         <section class="panel help">
           <h2>조작</h2>
           <ul>
-            <li>좌·우클릭 드래그 → 시야</li>
+            <li>드래그 → 시야</li>
+            <li>WASD / ↑↓ → 걷기</li>
+            <li>Q E / ←→ → 좌우 회전</li>
+            <li>Shift → 빠르게, Space/Ctrl → 위·아래</li>
             <li>휠 → 확대·축소</li>
-            <li>WASD → 이동 (탐색 ON)</li>
-            <li>Space / Ctrl → 위·아래</li>
-            <li>Esc 또는 「탐색」→ 이동 끄기</li>
+            <li>「초기」또는 R / Home → 시작 위치</li>
           </ul>
           <p class="note">
             한 장의 사진으로 방처럼 재구성합니다(바닥·벽·측면 wrap). 가려진 뒷면은 한계가 있습니다.
@@ -134,11 +135,11 @@
               type="button"
               class="tb-btn"
               data-action="reset-view"
-              data-tooltip="시작 시점으로 이동하고 배율 초기화"
-              title="시작 시점으로 이동하고 배율 초기화"
-              aria-label="시점 초기화"
+              data-tooltip="초기 위치·시야·배율로 되돌리기 (R / Home)"
+              title="초기 위치·시야·배율로 되돌리기 (R / Home)"
+              aria-label="초기 위치로 되돌리기"
             >
-              시점
+              초기
             </button>
             <button
               type="button"

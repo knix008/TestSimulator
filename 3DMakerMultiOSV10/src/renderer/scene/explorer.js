@@ -1,8 +1,26 @@
 import * as THREE from 'three'
 import { createWorldAxes } from './axes.js'
 
+const MOVE_CODES = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Space',
+  'ControlLeft',
+  'ControlRight',
+  'ShiftLeft',
+  'ShiftRight',
+  'KeyQ',
+  'KeyE'
+])
+
 /**
- * First-person explorer — drag to look (no pointer lock), WASD to walk.
+ * First-person walk-in explorer: drag to look, WASD/arrows to move through space.
  */
 export class SpaceExplorer {
   /**
@@ -30,6 +48,7 @@ export class SpaceExplorer {
     this.pitch = -0.35
     this.applyLook()
     this.lookSensitivity = 0.0024
+    this.turnSpeed = 1.6
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -53,27 +72,44 @@ export class SpaceExplorer {
     this.enclosure = null
     this.floorY = 0
     this.bounds = null
+    this.walkBounds = null
     /** @type {THREE.Vector3 | null} */
     this.spawn = null
+    /** @type {{ position: THREE.Vector3, yaw: number, pitch: number, zoom: number } | null} */
+    this.initialPose = null
+    /** @type {((ok: boolean) => void) | null} */
+    this.onResetView = null
     this.direction = new THREE.Vector3()
-    this.raycaster = new THREE.Raycaster()
+    this.forward = new THREE.Vector3()
+    this.right = new THREE.Vector3()
     this.keys = Object.create(null)
     this.clock = new THREE.Clock()
-    this.running = true
-    this.speed = 2.4
+    this.speed = 3.2
+    this.sprintMul = 1.85
+    this.eyeHeight = 1.55
     this.exploring = false
     this.dragging = false
     this.pointerId = null
 
     this._onKeyDown = (e) => {
+      if (isTypingTarget(e.target)) return
       this.keys[e.code] = true
       if (!this.spaceMesh) return
+
+      if (MOVE_CODES.has(e.code) && this.exploring) {
+        e.preventDefault()
+      }
+
       if (e.code === 'Equal' || e.code === 'NumpadAdd') {
         this.zoomBy(1.1)
       } else if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
         this.zoomBy(1 / 1.1)
       } else if (e.code === 'Digit0' || e.code === 'Numpad0') {
         this.resetZoom()
+      } else if (e.code === 'Home' || e.code === 'KeyR') {
+        e.preventDefault()
+        const ok = this.resetView()
+        this.onResetView?.(ok)
       } else if (e.code === 'Escape' && this.exploring) {
         this.setExploring(false)
       }
@@ -81,22 +117,25 @@ export class SpaceExplorer {
     this._onKeyUp = (e) => {
       this.keys[e.code] = false
     }
+    this._onBlur = () => {
+      this.keys = Object.create(null)
+    }
     this._onResize = () => this.resize()
     this._onPointerDown = (e) => {
       if (!this.spaceMesh) return
-      // Left or right button drag = look (no pointer lock).
       if (e.button !== 0 && e.button !== 2) return
       this.dragging = true
       this.pointerId = e.pointerId
       this.canvas.setPointerCapture(e.pointerId)
       this.canvas.classList.add('is-looking')
       e.preventDefault()
+      if (!this.exploring) this.setExploring(true)
     }
     this._onPointerMove = (e) => {
       if (!this.dragging || !this.spaceMesh) return
       this.yaw -= e.movementX * this.lookSensitivity
       this.pitch -= e.movementY * this.lookSensitivity
-      const limit = Math.PI / 2 - 0.05
+      const limit = Math.PI / 2 - 0.08
       this.pitch = THREE.MathUtils.clamp(this.pitch, -limit, limit)
       this.applyLook()
     }
@@ -115,6 +154,7 @@ export class SpaceExplorer {
 
     window.addEventListener('keydown', this._onKeyDown)
     window.addEventListener('keyup', this._onKeyUp)
+    window.addEventListener('blur', this._onBlur)
     window.addEventListener('resize', this._onResize)
     canvas.addEventListener('pointerdown', this._onPointerDown)
     canvas.addEventListener('pointermove', this._onPointerMove)
@@ -189,16 +229,37 @@ export class SpaceExplorer {
     return this.worldAxes.visible
   }
 
+  captureInitialPose() {
+    this.initialPose = {
+      position: this.camera.position.clone(),
+      yaw: this.yaw,
+      pitch: this.pitch,
+      zoom: this.zoom
+    }
+  }
+
   /**
+   * Restore position, look direction, and zoom from when the space was created.
    * @returns {boolean}
    */
   resetView() {
-    if (!this.spawn) return false
-    this.setExploring(false)
-    this.camera.position.copy(this.spawn)
-    this.camera.lookAt(0, this.spawn.y, this.spawn.z - 4)
-    this.syncEulerFromCamera()
-    this.resetZoom()
+    if (!this.initialPose && !this.spawn) return false
+
+    if (this.initialPose) {
+      this.camera.position.copy(this.initialPose.position)
+      this.yaw = this.initialPose.yaw
+      this.pitch = this.initialPose.pitch
+      this.applyLook()
+      this.setZoom(this.initialPose.zoom)
+    } else {
+      this.camera.position.copy(this.spawn)
+      this.camera.lookAt(0, this.spawn.y, this.spawn.z - 4)
+      this.syncEulerFromCamera()
+      this.resetZoom()
+    }
+
+    this.keys = Object.create(null)
+    this.setExploring(true)
     return true
   }
 
@@ -215,7 +276,6 @@ export class SpaceExplorer {
   }
 
   /**
-   * Toggle walk mode. Look/zoom work whenever a space exists.
    * @returns {boolean | null}
    */
   beginExplore() {
@@ -228,9 +288,6 @@ export class SpaceExplorer {
     return this.exploring
   }
 
-  /**
-   * Compatibility shim — older UI referred to pointer-lock "controls".
-   */
   get controls() {
     return {
       isLocked: this.exploring,
@@ -244,7 +301,7 @@ export class SpaceExplorer {
   }
 
   /**
-   * @param {{ mesh: THREE.Mesh, enclosure?: THREE.Object3D, floorY: number, spawn: THREE.Vector3, bounds: THREE.Box3 }} space
+   * @param {{ mesh: THREE.Object3D, enclosure?: THREE.Object3D, floorY: number, spawn: THREE.Vector3, bounds: THREE.Box3 }} space
    */
   setSpace(space) {
     if (this.spaceMesh) {
@@ -274,11 +331,12 @@ export class SpaceExplorer {
     this.floorY = space.floorY
     this.bounds = space.bounds
     this.spawn = space.spawn.clone()
+    this.walkBounds = buildWalkBounds(space.bounds, space.spawn)
     this.scene.add(this.spaceMesh)
     if (this.enclosure) this.scene.add(this.enclosure)
 
     this.worldAxes.position.set(0, this.floorY, 0)
-    this.scene.fog = new THREE.Fog(0x0a0e13, 16, 40)
+    this.scene.fog = new THREE.Fog(0x0a0e13, 18, 48)
 
     const maxAniso = this.renderer.capabilities.getMaxAnisotropy()
     this.spaceMesh.traverse((obj) => {
@@ -290,9 +348,11 @@ export class SpaceExplorer {
     })
 
     this.camera.position.copy(space.spawn)
-    this.camera.lookAt(0, 1.35, space.spawn.z - 6)
+    this.camera.lookAt(0, space.spawn.y, space.spawn.z - 6)
     this.syncEulerFromCamera()
     this.resetZoom()
+    this.captureInitialPose()
+    this.keys = Object.create(null)
     this.setExploring(true)
   }
 
@@ -314,10 +374,14 @@ export class SpaceExplorer {
   updateMovement(dt) {
     if (!this.exploring || !this.spaceMesh) return
 
-    const accel = this.speed
+    // Keyboard look (person turning in place).
+    if (this.keys.KeyQ || this.keys.ArrowLeft) this.yaw += this.turnSpeed * dt
+    if (this.keys.KeyE || this.keys.ArrowRight) this.yaw -= this.turnSpeed * dt
+    this.applyLook()
+
     this.direction.set(0, 0, 0)
-    if (this.keys.KeyW) this.direction.z += 1
-    if (this.keys.KeyS) this.direction.z -= 1
+    if (this.keys.KeyW || this.keys.ArrowUp) this.direction.z += 1
+    if (this.keys.KeyS || this.keys.ArrowDown) this.direction.z -= 1
     if (this.keys.KeyA) this.direction.x -= 1
     if (this.keys.KeyD) this.direction.x += 1
 
@@ -327,71 +391,53 @@ export class SpaceExplorer {
 
     if (this.direction.lengthSq() > 0) this.direction.normalize()
 
-    const forward = new THREE.Vector3()
-    const right = new THREE.Vector3()
-    this.camera.getWorldDirection(forward)
-    forward.y = 0
-    if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1)
-    else forward.normalize()
-    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
+    this.camera.getWorldDirection(this.forward)
+    this.forward.y = 0
+    if (this.forward.lengthSq() < 1e-6) this.forward.set(0, 0, -1)
+    else this.forward.normalize()
+    this.right.crossVectors(this.forward, new THREE.Vector3(0, 1, 0)).normalize()
+
+    const sprint =
+      this.keys.ShiftLeft || this.keys.ShiftRight ? this.sprintMul : 1
+    const accel = this.speed * sprint
 
     const move = new THREE.Vector3()
-      .addScaledVector(forward, this.direction.z * accel * dt)
-      .addScaledVector(right, this.direction.x * accel * dt)
+      .addScaledVector(this.forward, this.direction.z * accel * dt)
+      .addScaledVector(this.right, this.direction.x * accel * dt)
     move.y = vertical * accel * dt
 
+    if (move.lengthSq() < 1e-10) return
+
     const next = this.camera.position.clone().add(move)
-    this.applyCollision(next)
+    this.applyWalkLimits(next)
     this.camera.position.copy(next)
   }
 
-  applyCollision(pos) {
-    const eye = 1.55
-    const radius = 0.22
-
-    const minY = this.floorY + 0.35
-    const maxY = this.floorY + 3.2
+  /**
+   * Soft walk envelope — photo mesh is not a solid room, so avoid hard raycast walls
+   * that freeze the camera against the depth surface.
+   * @param {THREE.Vector3} pos
+   */
+  applyWalkLimits(pos) {
+    const minY = this.floorY + 0.55
+    const maxY = this.floorY + 4.5
     pos.y = THREE.MathUtils.clamp(pos.y, minY, maxY)
 
-    if (!this.bounds) return
-    const pad = 0.35
-    pos.x = THREE.MathUtils.clamp(pos.x, this.bounds.min.x + pad, this.bounds.max.x - pad)
-    pos.z = THREE.MathUtils.clamp(pos.z, this.bounds.min.z + pad, this.bounds.max.z - 0.05)
+    const box = this.walkBounds || this.bounds
+    if (!box) return
+    pos.x = THREE.MathUtils.clamp(pos.x, box.min.x, box.max.x)
+    pos.z = THREE.MathUtils.clamp(pos.z, box.min.z, box.max.z)
 
-    const origin = pos.clone()
-    const dirs = [
-      new THREE.Vector3(1, 0, 0),
-      new THREE.Vector3(-1, 0, 0),
-      new THREE.Vector3(0, 0, 1),
-      new THREE.Vector3(0, 0, -1),
-      new THREE.Vector3(0.7, 0, 0.7).normalize(),
-      new THREE.Vector3(-0.7, 0, 0.7).normalize(),
-      new THREE.Vector3(0.7, 0, -0.7).normalize(),
-      new THREE.Vector3(-0.7, 0, -0.7).normalize()
-    ]
-
-    for (const dir of dirs) {
-      this.raycaster.set(origin, dir)
-      this.raycaster.far = radius
-      const hits = this.raycaster.intersectObject(this.spaceMesh, true)
-      if (hits.length && hits[0].distance < radius) {
-        pos.addScaledVector(dir, -(radius - hits[0].distance))
-      }
-    }
-
-    this.raycaster.set(pos.clone(), new THREE.Vector3(0, -1, 0))
-    this.raycaster.far = eye + 0.8
-    const downHits = this.raycaster.intersectObject(this.spaceMesh, true)
-    if (downHits.length) {
-      const ground = downHits[0].point.y
-      const desired = ground + eye
-      if (desired > pos.y) pos.y = THREE.MathUtils.lerp(pos.y, desired, 0.35)
+    // Keep eye-level roughly human if we dipped too low.
+    if (pos.y < this.floorY + this.eyeHeight * 0.85) {
+      pos.y = THREE.MathUtils.lerp(pos.y, this.floorY + this.eyeHeight, 0.2)
     }
   }
 
   dispose() {
     window.removeEventListener('keydown', this._onKeyDown)
     window.removeEventListener('keyup', this._onKeyUp)
+    window.removeEventListener('blur', this._onBlur)
     window.removeEventListener('resize', this._onResize)
     this.canvas.removeEventListener('pointerdown', this._onPointerDown)
     this.canvas.removeEventListener('pointermove', this._onPointerMove)
@@ -403,4 +449,41 @@ export class SpaceExplorer {
     this.renderer.setAnimationLoop(null)
     this.renderer.dispose()
   }
+}
+
+/**
+ * Expand bounds so the player can walk into the photo depth (more −Z)
+ * and step a little in front of the near surface.
+ * @param {THREE.Box3} bounds
+ * @param {THREE.Vector3} spawn
+ */
+function buildWalkBounds(bounds, spawn) {
+  const depth = Math.max(4, bounds.max.z - bounds.min.z)
+  const width = Math.max(3, bounds.max.x - bounds.min.x)
+  const box = new THREE.Box3()
+  box.min.set(
+    Math.min(bounds.min.x - width * 0.15, -width * 0.55),
+    bounds.min.y,
+    Math.min(bounds.min.z - depth * 0.35, spawn.z - depth * 1.4)
+  )
+  box.max.set(
+    Math.max(bounds.max.x + width * 0.15, width * 0.55),
+    bounds.max.y + 2,
+    Math.max(bounds.max.z + 1.2, spawn.z + 1.5)
+  )
+  return box
+}
+
+/**
+ * @param {EventTarget | null} target
+ */
+function isTypingTarget(target) {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName
+  return (
+    tag === 'INPUT' ||
+    tag === 'TEXTAREA' ||
+    tag === 'SELECT' ||
+    target.isContentEditable
+  )
 }

@@ -47,8 +47,8 @@ bindViewportToolbar(explorer, {
     crosshairEl.hidden = true
     setStatus(
       exploring
-        ? '탐색 중 — 드래그: 시야 · 휠: 확대/축소 · WASD 이동 · Esc: 이동 해제'
-        : '이동 해제 — 드래그로 시야만 돌릴 수 있습니다. 「탐색」으로 이동을 켜세요.',
+        ? '이동 중 — WASD/방향키 걷기 · 드래그·QE 시야 · Shift 빠르게'
+        : '이동 꺼짐 — 「탐색」을 켜면 키보드로 공간을 걸을 수 있습니다.',
       exploring ? 'ok' : undefined
     )
   }
@@ -72,11 +72,28 @@ function tierLabel(tier) {
   return '균형'
 }
 
-function updateModelInfo() {
+async function updateModelInfo() {
   const model = getModelById(modelSelectEl.value)
+  let cacheLine =
+    '<div class="model-info__cache model-info__cache--unknown">캐시 상태 확인 중…</div>'
+
+  try {
+    const status = await globalThis.modelCache?.status?.(model.id)
+    if (status?.cached) {
+      cacheLine = `<div class="model-info__cache model-info__cache--hit">로컬 캐시됨 · ${status.bytesLabel} (재다운로드 없음)</div>`
+    } else {
+      cacheLine =
+        '<div class="model-info__cache model-info__cache--miss">아직 캐시 없음 · 처음 생성 시 한 번 다운로드</div>'
+    }
+  } catch {
+    cacheLine =
+      '<div class="model-info__cache model-info__cache--unknown">캐시 상태를 읽지 못했습니다</div>'
+  }
+
   modelInfoEl.innerHTML = `
     <div class="model-info__title">${model.name}</div>
     <div class="model-info__meta">${model.family} · ${tierLabel(model.tier)} · ${model.sizeHint}</div>
+    ${cacheLine}
     <p class="model-info__desc">${model.description}</p>
     <div class="model-info__id" title="${model.id}">ID: ${model.id}</div>
   `
@@ -177,11 +194,13 @@ buildBtn.addEventListener('click', async () => {
       (msg) => {
         setStatus(msg)
         overlayEl.textContent = msg
-        // Map model download % into roughly 10–75, inference toward 85.
+        // Map load % into roughly 10–75, inference toward 85.
         const parsed = typeof msg === 'string' ? msg.match(/(\d{1,3})\s*%/) : null
         if (parsed) {
           const raw = Number(parsed[1])
           updateProgressDialog(msg, 10 + Math.round((raw / 100) * 65))
+        } else if (/메모리에 로드|재사용|캐시/.test(msg)) {
+          updateProgressDialog(msg, 55)
         } else if (/깊이 추정/.test(msg)) {
           updateProgressDialog(msg, 80)
         } else {
@@ -228,9 +247,10 @@ buildBtn.addEventListener('click', async () => {
       <span>${model.family} · ${tierLabel(model.tier)} · ${model.sizeHint}</span>
     `
     setStatus(
-      `완료 — ${model.shortName}. 드래그로 시야 · 휠로 줌 · WASD로 이동하세요.`,
+      `완료 — ${model.shortName}. WASD로 걸어 들어가고, 드래그로 둘러보세요.`,
       'ok'
     )
+    updateModelInfo()
   } catch (err) {
     hideProgressDialog()
     overlayEl.textContent = '생성에 실패했습니다. 아래 오류 내용을 확인해 주세요.'

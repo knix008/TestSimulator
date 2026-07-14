@@ -2,9 +2,14 @@ import { app, ipcMain } from 'electron'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { formatBytes, isModelCached, measureModelCacheBytes } from './hfCache.js'
 
 function cacheRoot() {
   return join(app.getPath('userData'), 'hf-model-cache')
+}
+
+export function getHfModelCacheDir() {
+  return cacheRoot()
 }
 
 function keyToPath(key) {
@@ -47,7 +52,21 @@ export function registerModelCacheIpc() {
     return {
       dir: cacheRoot(),
       fileCount: stats.files,
-      bytes: stats.bytes
+      bytes: stats.bytes,
+      bytesLabel: formatBytes(stats.bytes)
+    }
+  })
+
+  ipcMain.handle('model-cache:status', (_event, modelId) => {
+    const dir = cacheRoot()
+    const cached = isModelCached(dir, modelId)
+    const bytes = cached ? measureModelCacheBytes(dir, modelId) : 0
+    return {
+      modelId,
+      cached,
+      dir,
+      bytes,
+      bytesLabel: formatBytes(bytes)
     }
   })
 }

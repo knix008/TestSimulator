@@ -104,7 +104,14 @@ export function buildSpaceFromDepth(image, depthMap, options = {}) {
   const box = geometry.boundingBox.clone()
   root.add(createDarkEnclosure(box))
 
-  const spawn = new THREE.Vector3(0, 1.6, Math.min(-0.15, box.max.z - 0.05))
+  // Start a little inside the reconstructed volume so WASD can walk deeper (−Z).
+  const depthSpan = Math.max(2.5, box.max.z - box.min.z)
+  const spawnZ = THREE.MathUtils.clamp(
+    box.max.z - Math.min(1.8, depthSpan * 0.22),
+    box.min.z + 0.8,
+    box.max.z - 0.35
+  )
+  const spawn = new THREE.Vector3(0, 1.6, spawnZ)
 
   return {
     mesh: root,
