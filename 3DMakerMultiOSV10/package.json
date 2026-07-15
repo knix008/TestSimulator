@@ -6,9 +6,20 @@
   "type": "module",
   "scripts": {
     "copy-ort": "node scripts/copy-ort.mjs",
+    "copy-installers": "node scripts/copy-installers-to-root.mjs",
+    "refresh:win-icon-cache": "powershell -ExecutionPolicy Bypass -File scripts/refresh-win-icon-cache.ps1",
     "postinstall": "node scripts/copy-ort.mjs",
     "dev": "npm run copy-ort && electron-vite dev",
     "build": "npm run copy-ort && electron-vite build",
+    "build:web": "vite build --config vite.web.config.mjs",
+    "build:desktop": "npm run copy-ort && electron-vite build",
+    "dist": "npm run build:desktop && electron-builder",
+    "dist:win": "npm run build:desktop && electron-builder --win && npm run copy-installers",
+    "dist:mac": "npm run build:desktop && electron-builder --mac && npm run copy-installers",
+    "dist:linux": "npm run build:desktop && electron-builder --linux && npm run copy-installers",
+    "build:win": "npm run dist:win",
+    "build:mac": "npm run dist:mac",
+    "build:linux": "npm run dist:linux",
     "preview": "npm run copy-ort && electron-vite preview",
     "start": "npm run copy-ort && electron-vite preview"
   },
@@ -18,8 +29,73 @@
   },
   "devDependencies": {
     "electron": "^35.1.2",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^3.1.0",
+    "png-to-ico": "^3.0.2",
+    "rcedit": "^4.0.1",
     "vite": "^6.2.5"
+  },
+  "build": {
+    "appId": "com.space.maker3d",
+    "productName": "3D Space Maker",
+    "afterPack": "scripts/after-pack-set-win-icon.cjs",
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/icon.ico",
+        "to": "assets/icon.ico"
+      },
+      {
+        "from": "assets/icon.png",
+        "to": "assets/icon.png"
+      },
+      {
+        "from": "assets/icon-256.png",
+        "to": "assets/icon-256.png"
+      },
+      {
+        "from": "assets/app-icon.png",
+        "to": "assets/app-icon.png"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "include": "build/installer.nsh",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "3D Space Maker",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": false
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Graphics"
+    }
   },
   "allowScripts": {
     "electron@35.7.5": true,

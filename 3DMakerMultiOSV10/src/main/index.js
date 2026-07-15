@@ -40,6 +40,7 @@ if (!gotTheLock) {
  */
 function resolveAppIcon() {
   const roots = [
+    join(process.resourcesPath || '', 'assets'),
     join(process.cwd(), 'assets'),
     join(__dirname, '../../assets'),
     join(app.getAppPath(), 'assets'),

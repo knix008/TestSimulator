@@ -6,6 +6,14 @@ out/
 dist/
 release/
 *.asar
+3D Space Maker Setup *.exe
+3D Space Maker Setup *.exe.blockmap
+*.dmg
+*.pkg
+*.AppImage
+*.deb
+*.rpm
+*.snap
 
 # Local caches
 .cache/
