@@ -1,5 +1,13 @@
 import './styles.css'
+import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js'
+import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 import { estimateDepth, yieldToUi } from './depth/estimate.js'
 import {
   DEFAULT_MODEL_ID,
@@ -33,6 +41,7 @@ import {
 import { bindViewportToolbar } from './ui/toolbar.js'
 
 const imageInput = document.getElementById('imageInput')
+const modelInput = document.getElementById('modelInput')
 const previewWrap = document.getElementById('previewWrap')
 const buildBtn = document.getElementById('buildBtn')
 const depthScaleEl = document.getElementById('depthScale')
@@ -43,6 +52,10 @@ const alphaThresholdGroupEl = document.getElementById('alphaThresholdGroup')
 const alphaThresholdEl = document.getElementById('alphaThreshold')
 const alphaThresholdValueEl = document.getElementById('alphaThresholdValue')
 const meshResEl = document.getElementById('meshRes')
+const blenderPathInputEl = document.getElementById('blenderPathInput')
+const blenderDetectBtn = document.getElementById('blenderDetectBtn')
+const blenderSaveBtn = document.getElementById('blenderSaveBtn')
+const blenderPathHintEl = document.getElementById('blenderPathHint')
 const modelSelectEl = document.getElementById('modelSelect')
 const outputModeSelectEl = document.getElementById('outputModeSelect')
 const modelInfoEl = document.getElementById('modelInfo')
@@ -52,6 +65,7 @@ const hudEl = document.getElementById('hud')
 const crosshairEl = document.getElementById('crosshair')
 const canvas = document.getElementById('scene')
 const menuImageBtn = document.getElementById('menuImageBtn')
+const menuModelBtn = document.getElementById('menuModelBtn')
 const menuBuildBtn = document.getElementById('menuBuildBtn')
 const menuBuildLabelEl = document.getElementById('menuBuildLabel')
 const menuAboutBtn = document.getElementById('menuAboutBtn')
@@ -60,8 +74,13 @@ const themeSelectEl = document.getElementById('themeSelect')
 const aboutDialogEl = document.getElementById('aboutDialog')
 const aboutDialogCloseBtn = document.getElementById('aboutDialogClose')
 const canvasContextMenuEl = document.getElementById('canvasContextMenu')
+const ctxOpenModelBtn = document.getElementById('ctxOpenModel')
 const ctxSavePngBtn = document.getElementById('ctxSavePng')
 const ctxSaveGlbBtn = document.getElementById('ctxSaveGlb')
+const ctxSaveGltfBtn = document.getElementById('ctxSaveGltf')
+const ctxSaveObjBtn = document.getElementById('ctxSaveObj')
+const ctxSaveStlBtn = document.getElementById('ctxSaveStl')
+const ctxSaveFbxBtn = document.getElementById('ctxSaveFbx')
 const ctxCloseBtn = document.getElementById('ctxClose')
 const buildBtnLabelEl = document.getElementById('buildBtnLabel')
 
@@ -180,6 +199,36 @@ function setStatus(text, kind = '') {
   if (kind) statusEl.classList.add(kind)
 }
 
+function setBlenderHint(text, kind = '') {
+  if (!blenderPathHintEl) return
+  blenderPathHintEl.textContent = text
+  blenderPathHintEl.classList.remove('ok', 'error')
+  if (kind) blenderPathHintEl.classList.add(kind)
+}
+
+function setBlenderButtonsDisabled(disabled) {
+  if (blenderDetectBtn) blenderDetectBtn.disabled = disabled
+  if (blenderSaveBtn) blenderSaveBtn.disabled = disabled
+}
+
+async function refreshBlenderConfig() {
+  if (!globalThis.modelIo?.getConfig) return
+  setBlenderHint(t('status.blender.checking'))
+  try {
+    const cfg = await globalThis.modelIo.getConfig()
+    if (blenderPathInputEl) {
+      blenderPathInputEl.value = cfg?.blenderPath || ''
+    }
+    if (cfg?.available && cfg?.detectedPath) {
+      setBlenderHint(t('status.blender.ready', { path: cfg.detectedPath }), 'ok')
+    } else {
+      setBlenderHint(t('status.blender.notFound'), 'error')
+    }
+  } catch {
+    setBlenderHint(t('status.blender.notFound'), 'error')
+  }
+}
+
 function syncMenuBuildButton() {
   if (!menuBuildBtn) return
   menuBuildBtn.disabled = buildBtn.disabled
@@ -240,6 +289,10 @@ function openCanvasContextMenu(event) {
   const canSave = hasConvertedSpace()
   if (ctxSavePngBtn) ctxSavePngBtn.disabled = !canSave
   if (ctxSaveGlbBtn) ctxSaveGlbBtn.disabled = !canSave
+  if (ctxSaveGltfBtn) ctxSaveGltfBtn.disabled = !canSave
+  if (ctxSaveObjBtn) ctxSaveObjBtn.disabled = !canSave
+  if (ctxSaveStlBtn) ctxSaveStlBtn.disabled = !canSave
+  if (ctxSaveFbxBtn) ctxSaveFbxBtn.disabled = !canSave
 
   canvasContextMenuEl.hidden = false
   const pad = 8
@@ -310,6 +363,436 @@ async function saveSpaceAsGlb() {
   }
 }
 
+async function exportSpaceToGlbBuffer() {
+  const exporter = new GLTFExporter()
+  const source = explorer.spaceMesh
+  return new Promise((resolve, reject) => {
+    exporter.parse(
+      source,
+      (result) => {
+        if (result instanceof ArrayBuffer) resolve(result)
+        else reject(new Error('GLB 바이너리 생성에 실패했습니다.'))
+      },
+      (err) => reject(err instanceof Error ? err : new Error(String(err))),
+      {
+        binary: true,
+        onlyVisible: true,
+        trs: false
+      }
+    )
+  })
+}
+
+async function saveSpaceAsGltf() {
+  if (!hasConvertedSpace()) {
+    setStatus(t('status.noResultToSave'), 'error')
+    return
+  }
+  try {
+    const exporter = new GLTFExporter()
+    const source = explorer.spaceMesh
+    const gltfJson = await new Promise((resolve, reject) => {
+      exporter.parse(
+        source,
+        (result) => {
+          if (result && !(result instanceof ArrayBuffer)) resolve(result)
+          else reject(new Error('GLTF JSON 생성에 실패했습니다.'))
+        },
+        (err) => reject(err instanceof Error ? err : new Error(String(err))),
+        {
+          binary: false,
+          onlyVisible: true,
+          trs: false,
+          embedImages: true
+        }
+      )
+    })
+
+    const filename = `${makeExportBaseName()}.gltf`
+    downloadBlob(
+      new Blob([JSON.stringify(gltfJson, null, 2)], { type: 'model/gltf+json' }),
+      filename
+    )
+    setStatus(t('status.savedGltf', { name: filename }), 'ok')
+  } catch (err) {
+    setStatus(
+      t('status.saveFailed', {
+        reason: err instanceof Error ? err.message : String(err)
+      }),
+      'error'
+    )
+  }
+}
+
+function cloneForObjExport(source) {
+  const cloned = source.clone(true)
+  cloned.traverse((obj) => {
+    if (!obj.isMesh || !obj.material) return
+    if (Array.isArray(obj.material)) {
+      obj.material = obj.material.map((mat) => {
+        const next = mat?.clone ? mat.clone() : mat
+        if (next) next.name = 'GeneratedMaterial'
+        return next
+      })
+    } else if (obj.material.clone) {
+      obj.material = obj.material.clone()
+      obj.material.name = 'GeneratedMaterial'
+    } else {
+      obj.material.name = 'GeneratedMaterial'
+    }
+  })
+  return cloned
+}
+
+function findFirstTextureImage(root) {
+  let image = null
+  root.traverse((obj) => {
+    if (image || !obj.isMesh || !obj.material) return
+    const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+    for (const mat of mats) {
+      if (mat?.map?.image) {
+        image = mat.map.image
+        break
+      }
+    }
+  })
+  return image
+}
+
+function canvasToPngBlob(canvasEl) {
+  return new Promise((resolve, reject) => {
+    canvasEl.toBlob((blob) => {
+      if (blob) resolve(blob)
+      else reject(new Error('PNG Blob 변환에 실패했습니다.'))
+    }, 'image/png')
+  })
+}
+
+async function imageToPngBlob(image) {
+  if (image instanceof HTMLCanvasElement) {
+    return canvasToPngBlob(image)
+  }
+
+  if (typeof OffscreenCanvas !== 'undefined' && image instanceof OffscreenCanvas) {
+    return image.convertToBlob({ type: 'image/png' })
+  }
+
+  const width =
+    image?.naturalWidth ||
+    image?.videoWidth ||
+    image?.width ||
+    0
+  const height =
+    image?.naturalHeight ||
+    image?.videoHeight ||
+    image?.height ||
+    0
+
+  if (!width || !height) {
+    throw new Error(t('error.textureMissing'))
+  }
+
+  const canvasEl = document.createElement('canvas')
+  canvasEl.width = width
+  canvasEl.height = height
+  const ctx = canvasEl.getContext('2d')
+  if (!ctx) throw new Error(t('error.textureMissing'))
+  ctx.drawImage(image, 0, 0, width, height)
+  return canvasToPngBlob(canvasEl)
+}
+
+async function saveSpaceAsObjBundle() {
+  if (!hasConvertedSpace()) {
+    setStatus(t('status.noResultToSave'), 'error')
+    return
+  }
+
+  try {
+    const source = explorer.spaceMesh
+    const textureImage = findFirstTextureImage(source)
+    if (!textureImage) throw new Error(t('error.textureMissing'))
+
+    const exportRoot = cloneForObjExport(source)
+    const exporter = new OBJExporter()
+    const base = makeExportBaseName()
+    const objName = `${base}.obj`
+    const mtlName = `${base}.mtl`
+    const texName = `${base}_albedo.png`
+    const objTextBody = exporter.parse(exportRoot)
+    const objText = objTextBody.includes('\nmtllib ') || objTextBody.startsWith('mtllib ')
+      ? objTextBody
+      : `mtllib ${mtlName}\n${objTextBody}`
+    const mtlText = [
+      '# Generated by 3D Space Maker',
+      'newmtl GeneratedMaterial',
+      'Ka 0.0000 0.0000 0.0000',
+      'Kd 1.0000 1.0000 1.0000',
+      'Ks 0.0000 0.0000 0.0000',
+      'Ns 10.0000',
+      'd 1.0',
+      'illum 2',
+      `map_Kd ${texName}`,
+      ''
+    ].join('\n')
+
+    const texBlob = await imageToPngBlob(textureImage)
+
+    downloadBlob(new Blob([objText], { type: 'text/plain;charset=utf-8' }), objName)
+    downloadBlob(new Blob([mtlText], { type: 'text/plain;charset=utf-8' }), mtlName)
+    downloadBlob(texBlob, texName)
+    setStatus(t('status.savedObjBundle', { name: objName }), 'ok')
+  } catch (err) {
+    setStatus(
+      t('status.saveFailed', {
+        reason: err instanceof Error ? err.message : String(err)
+      }),
+      'error'
+    )
+  }
+}
+
+async function saveSpaceAsStl() {
+  if (!hasConvertedSpace()) {
+    setStatus(t('status.noResultToSave'), 'error')
+    return
+  }
+
+  try {
+    const exporter = new STLExporter()
+    const stlText = exporter.parse(explorer.spaceMesh, { binary: false })
+    const filename = `${makeExportBaseName()}.stl`
+    downloadBlob(new Blob([stlText], { type: 'model/stl' }), filename)
+    setStatus(t('status.savedStl', { name: filename }), 'ok')
+  } catch (err) {
+    setStatus(
+      t('status.saveFailed', {
+        reason: err instanceof Error ? err.message : String(err)
+      }),
+      'error'
+    )
+  }
+}
+
+async function saveSpaceAsFbx() {
+  if (!hasConvertedSpace()) {
+    setStatus(t('status.noResultToSave'), 'error')
+    return
+  }
+
+  try {
+    const glbBuffer = await exportSpaceToGlbBuffer()
+    const baseName = makeExportBaseName()
+    const result = await globalThis.modelIo?.convertGlbToFbx?.({
+      glb: glbBuffer,
+      baseName
+    })
+
+    if (!result?.ok || !result?.data) {
+      const reason = result?.message || t('error.fbxConvertUnavailable')
+      throw new Error(reason)
+    }
+
+    const filename = result.filename || `${baseName}.fbx`
+    downloadBlob(new Blob([result.data], { type: 'application/octet-stream' }), filename)
+    setStatus(t('status.savedFbx', { name: filename }), 'ok')
+    await refreshBlenderConfig()
+  } catch (err) {
+    await refreshBlenderConfig()
+    setStatus(
+      t('status.saveFailed', {
+        reason: err instanceof Error ? err.message : String(err)
+      }),
+      'error'
+    )
+  }
+}
+
+function fileExt(name) {
+  const idx = name.lastIndexOf('.')
+  if (idx < 0) return ''
+  return name.slice(idx + 1).toLowerCase()
+}
+
+function pickPrimaryModelFile(files) {
+  const preferredOrder = ['glb', 'gltf', 'fbx', 'obj', 'stl']
+  for (const ext of preferredOrder) {
+    const matched = files.find((f) => fileExt(f.name) === ext)
+    if (matched) return matched
+  }
+  return null
+}
+
+function normalizeAssetName(name) {
+  return decodeURIComponent(String(name || ''))
+    .split(/[?#]/)[0]
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    ?.toLowerCase() || ''
+}
+
+function buildFileAssetResolver(files) {
+  const urlByName = new Map()
+  for (const file of files) {
+    urlByName.set(normalizeAssetName(file.name), URL.createObjectURL(file))
+  }
+
+  const manager = new THREE.LoadingManager()
+  manager.setURLModifier((url) => {
+    const mapped = urlByName.get(normalizeAssetName(url))
+    return mapped || url
+  })
+
+  return {
+    manager,
+    urlByName,
+    revokeAll() {
+      for (const url of urlByName.values()) {
+        URL.revokeObjectURL(url)
+      }
+    }
+  }
+}
+
+async function parseGltfFromFiles(primaryFile, resolver) {
+  const loader = new GLTFLoader(resolver.manager)
+  const ext = fileExt(primaryFile.name)
+  const payload = ext === 'glb' ? await primaryFile.arrayBuffer() : await primaryFile.text()
+
+  const gltf = await new Promise((resolve, reject) => {
+    loader.parse(
+      payload,
+      '',
+      (result) => resolve(result),
+      (err) => reject(err instanceof Error ? err : new Error(String(err)))
+    )
+  })
+
+  return gltf.scene || gltf.scenes?.[0] || null
+}
+
+function detectObjMtlFile(objText, byName) {
+  const match = objText.match(/^\s*mtllib\s+(.+)$/im)
+  if (match?.[1]) {
+    const linked = byName.get(normalizeAssetName(match[1]))
+    if (linked) return linked
+  }
+  return Array.from(byName.values()).find((file) => fileExt(file.name) === 'mtl') || null
+}
+
+async function parseObjFromFiles(primaryFile, resolver, byName) {
+  const objText = await primaryFile.text()
+  const objLoader = new OBJLoader(resolver.manager)
+  const mtlFile = detectObjMtlFile(objText, byName)
+
+  if (mtlFile) {
+    const mtlLoader = new MTLLoader(resolver.manager)
+    const mtlText = await mtlFile.text()
+    const materials = mtlLoader.parse(mtlText, '')
+    materials.preload()
+    objLoader.setMaterials(materials)
+  }
+
+  return objLoader.parse(objText)
+}
+
+async function parseFbxFromFile(primaryFile, resolver) {
+  const loader = new FBXLoader(resolver.manager)
+  const data = await primaryFile.arrayBuffer()
+  return loader.parse(data, '')
+}
+
+async function parseStlFromFile(primaryFile) {
+  const loader = new STLLoader()
+  const data = await primaryFile.arrayBuffer()
+  const geometry = loader.parse(data)
+  geometry.computeVertexNormals()
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xcfd8e3,
+    metalness: 0.05,
+    roughness: 0.7
+  })
+  return new THREE.Mesh(geometry, material)
+}
+
+function toExplorerSpace(meshRoot) {
+  let meshCount = 0
+  meshRoot.traverse((obj) => {
+    if (obj.isMesh) meshCount += 1
+  })
+  if (!meshCount) throw new Error(t('error.emptyModel'))
+
+  meshRoot.updateMatrixWorld(true)
+  const bounds = new THREE.Box3().setFromObject(meshRoot)
+  if (bounds.isEmpty()) throw new Error(t('error.emptyModel'))
+
+  const center = bounds.getCenter(new THREE.Vector3())
+  const size = bounds.getSize(new THREE.Vector3())
+  const floorY = bounds.min.y
+  const span = Math.max(size.x, size.y, size.z, 1)
+  const spawn = new THREE.Vector3(
+    center.x,
+    Math.max(floorY + 0.8, center.y + size.y * 0.15),
+    bounds.max.z + span * 1.25
+  )
+
+  return {
+    mesh: meshRoot,
+    floorY,
+    spawn,
+    bounds,
+    mode: 'object'
+  }
+}
+
+async function loadModelFromFiles(fileList) {
+  const files = Array.from(fileList || [])
+  if (!files.length) return
+
+  const primary = pickPrimaryModelFile(files)
+  if (!primary) {
+    setStatus(t('error.unsupportedModelFormat'), 'error')
+    return
+  }
+
+  const byName = new Map(files.map((f) => [normalizeAssetName(f.name), f]))
+  const resolver = buildFileAssetResolver(files)
+  setStatus(t('status.modelLoading', { name: primary.name }))
+
+  try {
+    let meshRoot = null
+    const ext = fileExt(primary.name)
+    if (ext === 'glb' || ext === 'gltf') {
+      meshRoot = await parseGltfFromFiles(primary, resolver)
+    } else if (ext === 'fbx') {
+      meshRoot = await parseFbxFromFile(primary, resolver)
+    } else if (ext === 'obj') {
+      meshRoot = await parseObjFromFiles(primary, resolver, byName)
+    } else if (ext === 'stl') {
+      meshRoot = await parseStlFromFile(primary)
+    }
+
+    if (!meshRoot) {
+      throw new Error(t('error.unsupportedModelFormat'))
+    }
+
+    explorer.setSpace(toExplorerSpace(meshRoot))
+    overlayEl.classList.add('hidden')
+    hudEl.hidden = false
+    crosshairEl.hidden = false
+    setStatus(t('status.modelLoaded', { name: primary.name }), 'ok')
+  } catch (err) {
+    reportError(err, {
+      title: t('error.modelLoadFailed'),
+      summary: err instanceof Error ? err.message : String(err),
+      context: `3D 파일 열기 (파일: ${primary.name})`,
+      statusText: t('status.modelLoadFailed')
+    })
+  } finally {
+    resolver.revokeAll()
+  }
+}
+
 /**
  * @param {string} dataUrl
  */
@@ -346,7 +829,7 @@ function refreshLocalizedUi() {
   if (!current && previewWrap.classList.contains('empty')) {
     previewWrap.textContent = t('menu.preview.empty')
   }
-  if (!current) {
+  if (!current && !explorer.spaceMesh) {
     overlayEl.innerHTML = t('overlay.ready')
     setStatus(t('status.idle'))
   } else if (explorer.spaceMesh && !hudEl.hidden) {
@@ -606,6 +1089,10 @@ menuImageBtn?.addEventListener('click', () => {
   imageInput.click()
 })
 
+menuModelBtn?.addEventListener('click', () => {
+  modelInput?.click()
+})
+
 menuBuildBtn?.addEventListener('click', () => {
   if (buildBtn.disabled) return
   buildBtn.click()
@@ -625,6 +1112,10 @@ aboutDialogEl?.addEventListener('click', (event) => {
 })
 
 canvas.addEventListener('contextmenu', openCanvasContextMenu)
+ctxOpenModelBtn?.addEventListener('click', () => {
+  closeCanvasContextMenu()
+  modelInput?.click()
+})
 ctxSavePngBtn?.addEventListener('click', () => {
   closeCanvasContextMenu()
   saveCanvasAsPng()
@@ -632,6 +1123,22 @@ ctxSavePngBtn?.addEventListener('click', () => {
 ctxSaveGlbBtn?.addEventListener('click', async () => {
   closeCanvasContextMenu()
   await saveSpaceAsGlb()
+})
+ctxSaveGltfBtn?.addEventListener('click', async () => {
+  closeCanvasContextMenu()
+  await saveSpaceAsGltf()
+})
+ctxSaveObjBtn?.addEventListener('click', async () => {
+  closeCanvasContextMenu()
+  await saveSpaceAsObjBundle()
+})
+ctxSaveStlBtn?.addEventListener('click', async () => {
+  closeCanvasContextMenu()
+  await saveSpaceAsStl()
+})
+ctxSaveFbxBtn?.addEventListener('click', async () => {
+  closeCanvasContextMenu()
+  await saveSpaceAsFbx()
 })
 ctxCloseBtn?.addEventListener('click', closeCanvasContextMenu)
 
@@ -689,6 +1196,57 @@ depthScaleEl.addEventListener('input', updateDepthScaleLabel)
 
 refreshLocalizedUi()
 syncMenuBuildButton()
+refreshBlenderConfig()
+
+blenderDetectBtn?.addEventListener('click', async () => {
+  setBlenderButtonsDisabled(true)
+  setBlenderHint(t('status.blender.checking'))
+  try {
+    const preferredPath = blenderPathInputEl?.value?.trim() || ''
+    const found = await globalThis.modelIo?.detectBlender?.({ preferredPath })
+    if (found?.available && found?.detectedPath) {
+      if (blenderPathInputEl) blenderPathInputEl.value = found.detectedPath
+      await globalThis.modelIo?.setConfig?.({ blenderPath: found.detectedPath })
+      setBlenderHint(t('status.blender.detected', { path: found.detectedPath }), 'ok')
+      setStatus(t('status.blender.pathSaved'), 'ok')
+    } else {
+      setBlenderHint(t('status.blender.detectFailed'), 'error')
+      setStatus(t('status.blender.detectFailed'), 'error')
+    }
+  } catch {
+    setBlenderHint(t('status.blender.detectFailed'), 'error')
+    setStatus(t('status.blender.detectFailed'), 'error')
+  } finally {
+    setBlenderButtonsDisabled(false)
+  }
+})
+
+blenderSaveBtn?.addEventListener('click', async () => {
+  setBlenderButtonsDisabled(true)
+  setBlenderHint(t('status.blender.checking'))
+  try {
+    const blenderPath = blenderPathInputEl?.value?.trim() || ''
+    const cfg = await globalThis.modelIo?.setConfig?.({ blenderPath })
+    if (cfg?.available && cfg?.detectedPath) {
+      setBlenderHint(t('status.blender.ready', { path: cfg.detectedPath }), 'ok')
+    } else {
+      setBlenderHint(t('status.blender.notFound'), 'error')
+    }
+    setStatus(t('status.blender.pathSaved'), 'ok')
+  } catch {
+    setBlenderHint(t('status.blender.notFound'), 'error')
+    setStatus(t('status.saveFailed', { reason: t('status.blender.notFound') }), 'error')
+  } finally {
+    setBlenderButtonsDisabled(false)
+  }
+})
+
+modelInput?.addEventListener('change', async () => {
+  const files = modelInput.files
+  if (!files || files.length === 0) return
+  await loadModelFromFiles(files)
+  modelInput.value = ''
+})
 
 imageInput.addEventListener('change', async () => {
   const file = imageInput.files?.[0]

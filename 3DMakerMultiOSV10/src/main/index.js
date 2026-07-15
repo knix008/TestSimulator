@@ -4,6 +4,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerModelCacheIpc } from './modelCache.js'
 import { registerDepthBridge } from './depthBridge.js'
+import { registerModelIoBridge } from './modelIoBridge.js'
+import { registerFileDialogBridge } from './fileDialogBridge.js'
 
 // Stable app identity / writable userData (avoids locked project folders).
 app.setName('3D Space Maker')
@@ -76,7 +78,7 @@ const MIN_WINDOW_HEIGHT = 980
 
 function resolveDefaultWindowBounds() {
   // Preferred size fits sidebar (~360px) + viewport; never below the hard minimum.
-  const preferred = { width: 1560, height: 1060 }
+  const preferred = { width: 1760, height: 1060 }
   const work = screen.getPrimaryDisplay().workAreaSize
   const margin = 32
 
@@ -145,6 +147,8 @@ if (gotTheLock) {
     Menu.setApplicationMenu(null)
     registerModelCacheIpc()
     registerDepthBridge()
+    registerModelIoBridge()
+    registerFileDialogBridge()
 
     const { image: icon } = loadAppIcon()
     if (icon && process.platform === 'darwin' && app.dock) {

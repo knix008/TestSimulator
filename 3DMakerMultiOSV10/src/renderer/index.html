@@ -16,6 +16,9 @@
           <button id="menuImageBtn" type="button" class="menu-item menu-item-primary">
             <span class="btn-content"><span class="menu-icon" aria-hidden="true">🖼</span><span data-i18n="menu.image.select">이미지 선택</span></span>
           </button>
+          <button id="menuModelBtn" type="button" class="menu-item">
+            <span class="btn-content"><span class="menu-icon" aria-hidden="true">📦</span><span data-i18n="menu.model.open">3D 파일 열기</span></span>
+          </button>
           <label class="menu-item menu-item-select">
             <span class="btn-content"><span class="menu-icon" aria-hidden="true">🛠</span><span data-i18n="menu.mode">생성 모드</span></span>
             <select id="outputModeSelect">
@@ -67,6 +70,13 @@
                 accept="image/jpeg,image/jpg,image/png,image/gif,image/avif,image/webp,.jpg,.jpeg,.png,.gif,.avif,.webp"
                 hidden
               />
+              <input
+                id="modelInput"
+                type="file"
+                accept=".glb,.gltf,.obj,.fbx,.stl,.mtl,.bin,.png,.jpg,.jpeg,.webp,.avif"
+                multiple
+                hidden
+              />
               <span class="btn-content"><span class="menu-icon" aria-hidden="true">🖼</span><span data-i18n="menu.image.select">이미지 선택</span></span>
             </label>
             <p class="formats" data-i18n="menu.formats">JPEG · PNG · GIF · AVIF · WebP · 고해상도</p>
@@ -107,6 +117,15 @@
                 <option value="512" data-i18n="mesh.ultra">매우 선명 (512)</option>
               </select>
             </label>
+            <label class="menu-label">
+              <span class="label-inline"><span class="menu-icon" aria-hidden="true">🧰</span><span data-i18n="menu.blenderPath">Blender 경로 (FBX)</span></span>
+              <input id="blenderPathInput" type="text" spellcheck="false" data-i18n-placeholder="placeholder.blenderPath" placeholder="예: C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe" />
+            </label>
+            <div class="panel-inline-actions">
+              <button id="blenderDetectBtn" type="button" class="btn-secondary" data-i18n="btn.blenderDetect">자동 감지</button>
+              <button id="blenderSaveBtn" type="button" class="btn-secondary" data-i18n="btn.blenderSave">경로 저장</button>
+            </div>
+            <p id="blenderPathHint" class="note" data-i18n="status.blender.checking">Blender 상태 확인 중...</p>
             <button id="buildBtn" disabled hidden>
               <span class="btn-content"><span class="menu-icon" aria-hidden="true">🚀</span><span id="buildBtnLabel">3D 공간 생성</span></span>
             </button>
@@ -129,7 +148,7 @@
         </aside>
         <main id="viewport">
         <div id="viewportToolbar" class="viewport-toolbar" role="toolbar" aria-label="뷰 도구">
-          <div class="toolbar-group" role="group" data-i18n-aria-label="toolbar.zoom" aria-label="확대/축소">
+          <div class="toolbar-group toolbar-group-zoom" role="group" data-i18n-aria-label="toolbar.zoom" aria-label="확대/축소">
             <button
               type="button"
               class="tb-btn"
@@ -207,7 +226,7 @@
             </button>
             <button
               type="button"
-              class="tb-btn tb-btn-primary"
+              class="tb-btn tb-btn-primary tb-btn-inline-control"
               data-action="explore"
               data-i18n-title="tooltip.explore"
               data-tooltip="이동(WASD) 켜기/끄기 - 시야는 드래그로 조작"
@@ -218,6 +237,180 @@
             >
               <span class="btn-content"><span class="menu-icon" aria-hidden="true">🕹</span><span data-i18n="toolbar.explore">탐색</span></span>
             </button>
+            <button
+              type="button"
+              class="tb-btn tb-btn-preset tb-btn-inline-control"
+              data-action="toggle-light-panel"
+              data-i18n-title="tooltip.light.collapse"
+              data-tooltip="조명 설정 접기"
+              title="조명 설정 접기"
+              data-i18n-aria-label="aria.light.collapse"
+              aria-label="조명 설정 접기"
+              aria-controls="lightPanelBody"
+              aria-expanded="true"
+            >
+              <span class="btn-content"><span class="menu-icon" aria-hidden="true">💡</span><span id="lightPanelToggleLabel" data-i18n="toolbar.light.collapse">접기</span></span>
+            </button>
+          </div>
+
+          <div class="toolbar-group toolbar-group-light" role="group" data-i18n-aria-label="toolbar.light" aria-label="광원">
+            <div id="lightPanelBody" class="tb-light-body">
+              <div class="tb-light-row">
+                <label class="tb-light-field" data-i18n-title="tooltip.light.exposure" title="전체 밝기">
+                  <span class="tb-light-label" data-i18n="toolbar.light.exposure">밝기</span>
+                  <input
+                    id="lightExposure"
+                    class="tb-range"
+                    type="range"
+                    min="0.35"
+                    max="2.8"
+                    step="0.05"
+                    value="1.2"
+                    data-i18n-aria-label="aria.light.exposure"
+                    aria-label="밝기"
+                  />
+                </label>
+                <label class="tb-light-field" data-i18n-title="tooltip.light.ambient" title="주변광 강도">
+                  <span class="tb-light-label" data-i18n="toolbar.light.ambient">주변광</span>
+                  <input
+                    id="lightAmbient"
+                    class="tb-range"
+                    type="range"
+                    min="0"
+                    max="2.4"
+                    step="0.05"
+                    value="1"
+                    data-i18n-aria-label="aria.light.ambient"
+                    aria-label="주변광"
+                  />
+                </label>
+              </div>
+              <div class="tb-light-row">
+                <label class="tb-light-field" data-i18n-title="tooltip.light.key" title="주광 강도">
+                  <span class="tb-light-label" data-i18n="toolbar.light.key">주광</span>
+                  <input
+                    id="lightKey"
+                    class="tb-range"
+                    type="range"
+                    min="0"
+                    max="3.2"
+                    step="0.05"
+                    value="1"
+                    data-i18n-aria-label="aria.light.key"
+                    aria-label="주광"
+                  />
+                </label>
+                <label class="tb-light-field" data-i18n-title="tooltip.light.angle" title="주광 방향">
+                  <span class="tb-light-label" data-i18n="toolbar.light.angle">방향</span>
+                  <input
+                    id="lightAzimuth"
+                    class="tb-range"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    value="60"
+                    data-i18n-aria-label="aria.light.angle"
+                    aria-label="주광 방향"
+                  />
+                </label>
+                <label class="tb-light-field" data-i18n-title="tooltip.light.elevation" title="주광 높이">
+                  <span class="tb-light-label" data-i18n="toolbar.light.elevation">높이</span>
+                  <input
+                    id="lightElevation"
+                    class="tb-range"
+                    type="range"
+                    min="8"
+                    max="85"
+                    step="1"
+                    value="52"
+                    data-i18n-aria-label="aria.light.elevation"
+                    aria-label="주광 높이"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="tb-btn tb-btn-subtle"
+                  data-action="light-reset"
+                  data-i18n-title="tooltip.light.reset"
+                  data-tooltip="광원 기본값으로 되돌리기"
+                  title="광원 기본값으로 되돌리기"
+                  data-i18n-aria-label="aria.light.reset"
+                  aria-label="광원 초기화"
+                >
+                  <span class="btn-content"><span class="menu-icon" aria-hidden="true">💡</span><span data-i18n="toolbar.light.reset">광원 초기화</span></span>
+                </button>
+              </div>
+              <div class="tb-light-presets" role="group" data-i18n-aria-label="toolbar.light.presets" aria-label="조명 프리셋">
+              <button
+                type="button"
+                class="tb-btn tb-btn-preset"
+                data-action="light-preset-studio"
+                data-preset="studio"
+                data-i18n-title="tooltip.light.presetStudio"
+                data-tooltip="스튜디오 라이팅"
+                title="스튜디오 라이팅"
+                data-i18n-aria-label="aria.light.presetStudio"
+                aria-label="스튜디오 프리셋"
+              >
+                <span data-i18n="toolbar.light.presetStudio">Studio</span>
+              </button>
+              <button
+                type="button"
+                class="tb-btn tb-btn-preset"
+                data-action="light-preset-soft"
+                data-preset="soft"
+                data-i18n-title="tooltip.light.presetSoft"
+                data-tooltip="부드러운 조명"
+                title="부드러운 조명"
+                data-i18n-aria-label="aria.light.presetSoft"
+                aria-label="소프트 프리셋"
+              >
+                <span data-i18n="toolbar.light.presetSoft">Soft</span>
+              </button>
+              <button
+                type="button"
+                class="tb-btn tb-btn-preset"
+                data-action="light-preset-dramatic"
+                data-preset="dramatic"
+                data-i18n-title="tooltip.light.presetDramatic"
+                data-tooltip="대비가 강한 조명"
+                title="대비가 강한 조명"
+                data-i18n-aria-label="aria.light.presetDramatic"
+                aria-label="드라마틱 프리셋"
+              >
+                <span data-i18n="toolbar.light.presetDramatic">Dramatic</span>
+              </button>
+              <button
+                type="button"
+                class="tb-btn tb-btn-preset"
+                data-action="light-preset-custom"
+                data-preset="custom"
+                data-i18n-title="tooltip.light.presetCustom"
+                data-tooltip="저장한 사용자 프리셋 적용"
+                title="저장한 사용자 프리셋 적용"
+                data-i18n-aria-label="aria.light.presetCustom"
+                aria-label="사용자 프리셋 적용"
+                aria-pressed="false"
+                disabled
+              >
+                <span data-i18n="toolbar.light.presetCustom">Custom</span>
+              </button>
+              <button
+                type="button"
+                class="tb-btn tb-btn-preset"
+                data-action="light-preset-save"
+                data-i18n-title="tooltip.light.presetSave"
+                data-tooltip="현재 조명값을 사용자 프리셋으로 저장"
+                title="현재 조명값을 사용자 프리셋으로 저장"
+                data-i18n-aria-label="aria.light.presetSave"
+                aria-label="사용자 프리셋 저장"
+              >
+                <span data-i18n="toolbar.light.presetSave">Save</span>
+              </button>
+              </div>
+              <span id="lightPresetLabel" class="tb-light-preset" aria-live="polite"></span>
+            </div>
           </div>
         </div>
 
@@ -270,11 +463,26 @@ All rights reserved.</pre>
     </div>
 
     <div id="canvasContextMenu" class="canvas-context-menu" hidden role="menu" aria-label="Canvas actions">
+      <button id="ctxOpenModel" type="button" class="canvas-context-menu__item" role="menuitem">
+        <span class="btn-content"><span class="menu-icon" aria-hidden="true">📦</span><span data-i18n="ctx.openModel">3D 파일 열기</span></span>
+      </button>
       <button id="ctxSavePng" type="button" class="canvas-context-menu__item" role="menuitem">
         <span class="btn-content"><span class="menu-icon" aria-hidden="true">🖼</span><span data-i18n="ctx.savePng">PNG로 저장</span></span>
       </button>
       <button id="ctxSaveGlb" type="button" class="canvas-context-menu__item" role="menuitem">
         <span class="btn-content"><span class="menu-icon" aria-hidden="true">🧱</span><span data-i18n="ctx.saveGlb">GLB로 저장</span></span>
+      </button>
+      <button id="ctxSaveGltf" type="button" class="canvas-context-menu__item" role="menuitem">
+        <span class="btn-content"><span class="menu-icon" aria-hidden="true">📄</span><span data-i18n="ctx.saveGltf">GLTF로 저장</span></span>
+      </button>
+      <button id="ctxSaveObj" type="button" class="canvas-context-menu__item" role="menuitem">
+        <span class="btn-content"><span class="menu-icon" aria-hidden="true">🪵</span><span data-i18n="ctx.saveObj">OBJ(+MTL+PNG)로 저장</span></span>
+      </button>
+      <button id="ctxSaveStl" type="button" class="canvas-context-menu__item" role="menuitem">
+        <span class="btn-content"><span class="menu-icon" aria-hidden="true">🗿</span><span data-i18n="ctx.saveStl">STL로 저장</span></span>
+      </button>
+      <button id="ctxSaveFbx" type="button" class="canvas-context-menu__item" role="menuitem">
+        <span class="btn-content"><span class="menu-icon" aria-hidden="true">📦</span><span data-i18n="ctx.saveFbx">FBX로 저장</span></span>
       </button>
       <button id="ctxClose" type="button" class="canvas-context-menu__item" role="menuitem">
         <span class="btn-content"><span class="menu-icon" aria-hidden="true">✖</span><span data-i18n="ctx.close">닫기</span></span>

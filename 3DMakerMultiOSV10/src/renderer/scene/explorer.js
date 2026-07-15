@@ -44,6 +44,14 @@ const SCENE_THEMES = {
   }
 }
 
+const LIGHTING_DEFAULTS = Object.freeze({
+  exposure: 1.2,
+  hemiMultiplier: 1,
+  keyMultiplier: 1,
+  keyAzimuthDeg: 60,
+  keyElevationDeg: 52
+})
+
 /**
  * First-person walk-in explorer: drag to look, WASD/arrows to move through space.
  */
@@ -82,12 +90,18 @@ export class SpaceExplorer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.2
+    this.renderer.toneMappingExposure = LIGHTING_DEFAULTS.exposure
 
     this.hemiLight = new THREE.HemisphereLight(0xdde7f5, 0x2a241c, 1.15)
     this.keyLight = new THREE.DirectionalLight(0xffffff, 1.05)
-    this.keyLight.position.set(2.5, 6, 1.5)
-    this.scene.add(this.hemiLight, this.keyLight)
+    this.keyTarget = new THREE.Object3D()
+    this.keyTarget.position.set(0, 1, 0)
+    this.scene.add(this.hemiLight, this.keyLight, this.keyTarget)
+    this.keyLight.target = this.keyTarget
+
+    this.lighting = { ...LIGHTING_DEFAULTS }
+    /** @type {((lighting: ReturnType<SpaceExplorer['getLighting']>) => void) | null} */
+    this.onLightingChange = null
 
     this.worldAxes = createWorldAxes(2.5)
     this.scene.add(this.worldAxes)
@@ -224,6 +238,7 @@ export class SpaceExplorer {
 
     this.resize()
     this.setVisualTheme('dark')
+    this.applyLighting(false)
     this.clock.start()
     this.renderer.setAnimationLoop(() => this.tick())
   }
@@ -245,9 +260,8 @@ export class SpaceExplorer {
 
     this.hemiLight.color.setHex(palette.hemiSky)
     this.hemiLight.groundColor.setHex(palette.hemiGround)
-    this.hemiLight.intensity = palette.hemiIntensity
     this.keyLight.color.setHex(palette.keyColor)
-    this.keyLight.intensity = palette.keyIntensity
+    this.applyLighting(false)
 
     if (this.enclosure) {
       this.enclosure.traverse((obj) => {
@@ -260,6 +274,71 @@ export class SpaceExplorer {
         }
       })
     }
+  }
+
+  getLightingDefaults() {
+    return { ...LIGHTING_DEFAULTS }
+  }
+
+  getLighting() {
+    return { ...this.lighting }
+  }
+
+  /**
+   * @param {{
+   *  exposure?: number,
+   *  hemiMultiplier?: number,
+   *  keyMultiplier?: number,
+   *  keyAzimuthDeg?: number,
+   *  keyElevationDeg?: number
+   * }} next
+   */
+  setLighting(next = {}) {
+    if (!next || typeof next !== 'object') return this.getLighting()
+
+    if (next.exposure != null) {
+      this.lighting.exposure = THREE.MathUtils.clamp(Number(next.exposure) || 1, 0.35, 2.8)
+    }
+    if (next.hemiMultiplier != null) {
+      this.lighting.hemiMultiplier = THREE.MathUtils.clamp(Number(next.hemiMultiplier) || 0, 0, 2.4)
+    }
+    if (next.keyMultiplier != null) {
+      this.lighting.keyMultiplier = THREE.MathUtils.clamp(Number(next.keyMultiplier) || 0, 0, 3.2)
+    }
+    if (next.keyAzimuthDeg != null) {
+      this.lighting.keyAzimuthDeg = wrapDegrees(Number(next.keyAzimuthDeg) || 0)
+    }
+    if (next.keyElevationDeg != null) {
+      this.lighting.keyElevationDeg = THREE.MathUtils.clamp(Number(next.keyElevationDeg) || 0, 8, 85)
+    }
+
+    this.applyLighting(true)
+    return this.getLighting()
+  }
+
+  resetLighting() {
+    this.lighting = { ...LIGHTING_DEFAULTS }
+    this.applyLighting(true)
+    return this.getLighting()
+  }
+
+  applyLighting(emitChange) {
+    const palette = SCENE_THEMES[this.currentTheme] || SCENE_THEMES.dark
+    const azimuth = THREE.MathUtils.degToRad(this.lighting.keyAzimuthDeg)
+    const elevation = THREE.MathUtils.degToRad(this.lighting.keyElevationDeg)
+    const radius = 7.2
+    const flat = Math.cos(elevation) * radius
+
+    this.renderer.toneMappingExposure = this.lighting.exposure
+    this.hemiLight.intensity = palette.hemiIntensity * this.lighting.hemiMultiplier
+    this.keyLight.intensity = palette.keyIntensity * this.lighting.keyMultiplier
+    this.keyLight.position.set(
+      Math.sin(azimuth) * flat,
+      Math.max(0.5, Math.sin(elevation) * radius),
+      Math.cos(azimuth) * flat
+    )
+
+    if (emitChange) this.onLightingChange?.(this.getLighting())
   }
 
   endDrag() {
@@ -456,6 +535,10 @@ export class SpaceExplorer {
     this.scene.add(this.spaceMesh)
     if (this.enclosure) this.scene.add(this.enclosure)
 
+    const keyTargetPos = space.bounds.getCenter(new THREE.Vector3())
+    keyTargetPos.y = THREE.MathUtils.clamp(this.floorY + 0.95, space.bounds.min.y, space.bounds.max.y + 1)
+    this.keyTarget.position.copy(keyTargetPos)
+
     this.worldAxes.position.set(0, this.floorY, 0)
     const fogColor = this.currentTheme === 'light' ? SCENE_THEMES.light.fog : SCENE_THEMES.dark.fog
     this.scene.fog = new THREE.Fog(fogColor, 18, 48)
@@ -503,6 +586,7 @@ export class SpaceExplorer {
     this.captureInitialPose()
     this.keys = Object.create(null)
     this.setVisualTheme(this.currentTheme)
+    this.applyLighting(false)
   }
 
   resize() {
@@ -664,6 +748,11 @@ function wrapAngle(rad) {
   const twoPi = Math.PI * 2
   if (!Number.isFinite(rad)) return 0
   return ((((rad + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI
+}
+
+function wrapDegrees(deg) {
+  const n = Number.isFinite(deg) ? deg : 0
+  return ((((n + 180) % 360) + 360) % 360) - 180
 }
 
 /**

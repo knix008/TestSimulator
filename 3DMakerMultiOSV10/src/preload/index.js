@@ -29,3 +29,18 @@ contextBridge.exposeInMainWorld('depthApi', {
     return () => ipcRenderer.removeListener('depth:progress', listener)
   }
 })
+
+contextBridge.exposeInMainWorld('modelIo', {
+  /**
+   * @param {{ glb: ArrayBuffer, baseName: string }} payload
+   */
+  convertGlbToFbx: (payload) => ipcRenderer.invoke('model-io:convert-glb-to-fbx', payload),
+  getConfig: () => ipcRenderer.invoke('model-io:get-config'),
+  setConfig: (payload) => ipcRenderer.invoke('model-io:set-config', payload),
+  detectBlender: (payload) => ipcRenderer.invoke('model-io:detect-blender', payload)
+})
+
+contextBridge.exposeInMainWorld('fileDialog', {
+  openImage: () => ipcRenderer.invoke('file-dialog:open-image'),
+  openModel: () => ipcRenderer.invoke('file-dialog:open-model')
+})
