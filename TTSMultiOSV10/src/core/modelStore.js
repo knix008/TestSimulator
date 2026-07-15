@@ -52,6 +52,25 @@ async function fileExists(filePath) {
   }
 }
 
+async function readManifest(manifestPath) {
+  try {
+    return JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** True when cache manifest matches the catalog source repo. */
+async function isCachedModelCurrent(model, cacheRoot) {
+  const manifest = await readManifest(getManifestPath(cacheRoot, model));
+  if (!manifest) return false;
+  const expectedRepo = model.source?.repoId;
+  if (expectedRepo && manifest.repoId && manifest.repoId !== expectedRepo) {
+    return false;
+  }
+  return true;
+}
+
 async function fetchJson(url) {
   const response = await fetch(url, {
     headers: { 'User-Agent': 'TTSMultiOSV10/0.1 (Electron)' }
@@ -138,9 +157,15 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
   const modelRoot = getModelRoot(cacheRoot, model);
   const manifestPath = getManifestPath(cacheRoot, model);
 
-  if (await fileExists(manifestPath)) {
+  if (await isCachedModelCurrent(model, cacheRoot)) {
     onProgress?.({ phase: 'done', percent: 100, modelId: model.id, model, downloaded: false });
     return { model, modelPath: modelRoot, downloaded: false };
+  }
+
+  // Stale cache (e.g. Supertonic 2 → 3): wipe so files cannot mix.
+  if (await fileExists(manifestPath) || await fileExists(modelRoot)) {
+    console.log(`[Download] 캐시 갱신: ${model.id} → ${model.source.repoId}`);
+    await fs.rm(modelRoot, { recursive: true, force: true }).catch(() => {});
   }
 
   onProgress?.({ phase: 'start', percent: 0, modelId: model.id, model, downloaded: true });
@@ -207,8 +232,7 @@ export function createModelStore() {
       const catalog = getModelCatalog();
       return Promise.all(
         catalog.map(async (model) => {
-          const manifestPath = getManifestPath(cacheRoot, model);
-          const downloaded = await fileExists(manifestPath);
+          const downloaded = await isCachedModelCurrent(model, cacheRoot);
           return { ...model, modelPath: getModelRoot(cacheRoot, model), downloaded };
         })
       );

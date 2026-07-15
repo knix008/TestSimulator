@@ -33,9 +33,9 @@ const bridge = window.ttsBridge || {
         preferredOnFirstRun: true
       },
       {
-        id: 'ko-supertonic-int8', label: 'Supertonic INT8', language: 'ko-KR',
-        sizeHint: '~200 MB', runtime: 'sherpa-onnx',
-        description: 'INT8 양자화 · 한국어+영어 · sherpa-onnx 호환'
+        id: 'ko-supertonic-int8', label: 'Supertonic 3 INT8', language: 'ko-KR',
+        sizeHint: '~140 MB', runtime: 'sherpa-onnx',
+        description: 'Supertonic 3 · INT8 · 단어 skip 감소 · 31언어'
       },
       {
         id: 'ko-mms-tts', label: 'MMS TTS', language: 'ko-KR',

@@ -106,22 +106,22 @@ Kokoro처럼 무거운 모델은 ONNX·음소화를 미리 올려 두어, 이후
 
 권장 입력: 한국어 문장. (영문만 넣으면 한국어 모델 특성상 어색할 수 있음)
 
-### 4.2 Supertonic INT8 (`ko-supertonic-int8`)
+### 4.2 Supertonic 3 INT8 (`ko-supertonic-int8`)
 
 | 항목 | 내용 |
 |------|------|
-| 언어 | 한국어 중심, sherpa 설정으로 다국어 `lang` 가능 |
+| 언어 | 한국어 중심, sherpa `lang`으로 31개 언어 가능 |
 | 엔진 | **sherpa-onnx** (`sherpa-onnx-node` + 플랫폼 네이티브 바이너리) |
-| 모델 타입 | Supertonic (INT8 양자화) |
-| HF | `csukuangfj2/sherpa-onnx-supertonic-tts-int8-2026-03-06` |
+| 모델 타입 | **Supertonic 3** (INT8 양자화) |
+| HF | `csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11` |
 | 주요 파일 | `duration_predictor.int8.onnx`, `text_encoder.int8.onnx`, `vector_estimator.int8.onnx`, `vocoder.int8.onnx`, `tts.json`, `unicode_indexer.bin`, `voice.bin` |
 | 샘플레이트 | 44100 Hz (엔진 보고값) |
 | 목소리 UI | **Speaker 0–9** (스피커 ID) |
-| 특징 | 품질·다국어 지원이 상대적 강점 |
+| 특징 | v2 대비 외래어·한자어 등 일부 단어 skip이 개선됨 |
+
+권장 입력: 한국어 문장. 앱을 켠 뒤 모델이 “미설치”로 보이면 **다운로드**로 v3를 받으세요 (기존 v2 캐시는 자동 교체).
 
 > **Supertonic = 모델**, **sherpa-onnx = 실행 엔진**입니다.
-
-권장 입력: 한국어 (영어 혼용도 가능한 경우가 있음).
 
 ### 4.3 MMS TTS (`ko-mms-tts`)
 

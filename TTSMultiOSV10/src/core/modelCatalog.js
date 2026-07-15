@@ -16,14 +16,14 @@ const defaultCatalog = [
   },
   {
     id: 'ko-supertonic-int8',
-    label: 'Supertonic INT8',
+    label: 'Supertonic 3 INT8',
     language: 'ko-KR',
-    sizeHint: '~200 MB',
+    sizeHint: '~140 MB',
     runtime: 'sherpa-onnx',
-    description: 'INT8 양자화 · 한국어+영어 · sherpa-onnx 호환',
+    description: 'Supertonic 3 · INT8 · 한국어 안정성 개선(단어 skip 감소) · 31언어',
     source: {
       type: 'repo',
-      repoId: 'csukuangfj2/sherpa-onnx-supertonic-tts-int8-2026-03-06'
+      repoId: 'csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11'
     }
   },
   {

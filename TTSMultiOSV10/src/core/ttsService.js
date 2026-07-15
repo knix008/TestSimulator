@@ -253,7 +253,11 @@ function getSherpaTts(modelId, modelDir) {
   };
 
   console.log(`[TTS] Supertonic 엔진 생성: ${modelDir}`);
-  const tts = new sherpa.OfflineTts(config);
+  const tts = new sherpa.OfflineTts({
+    ...config,
+    // Electron/Worker: avoid sharing ArrayBuffers across isolates
+    enableExternalBuffer: false,
+  });
   sherpaCache.set(modelId, { sherpa, tts });
   return { sherpa, tts };
 }
@@ -543,6 +547,13 @@ export async function synthesizeText({ text, modelId, store, onProgress, voiceId
 
     const result = await store.ensureModelAvailable(modelId, onProgress);
     const modelDir = result.modelPath;
+    // Weights replaced (e.g. Supertonic 2→3): drop cached OfflineTts handle
+    if (result.downloaded) {
+      sherpaCache.delete(modelId);
+      for (const key of [...sessionCache.keys()]) {
+        if (key.startsWith(`${modelId}:`)) sessionCache.delete(key);
+      }
+    }
     const catalog = await store.listModels();
     const model = catalog.find((m) => m.id === modelId);
     const runtime = model?.runtime || 'unknown';

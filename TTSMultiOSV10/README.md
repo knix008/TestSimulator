@@ -27,7 +27,7 @@ Electron 31 기반 멀티 플랫폼 TTS(Text-to-Speech) 애플리케이션.
 | 모델 ID | UI 이름 | 언어 | 런타임 키 | 추론 엔진 | HuggingFace 레포 | 대략 크기 |
 |---------|---------|------|-----------|-----------|------------------|-----------|
 | `ko-piper-kss` | Piper KSS | ko-KR | `piper-onnx` | **onnxruntime-node** + **goruut/pygoruut** IPA + `@piper-plus/g2p` Encoder | [neurlang/piper-onnx-kss-korean](https://huggingface.co/neurlang/piper-onnx-kss-korean) | ~64 MB (+ goruut ~96 MB) |
-| `ko-supertonic-int8` | Supertonic INT8 | ko-KR (+다국어) | `sherpa-onnx` | **sherpa-onnx-node** (`OfflineTts` · Supertonic) | [csukuangfj2/sherpa-onnx-supertonic-tts-int8-2026-03-06](https://huggingface.co/csukuangfj2/sherpa-onnx-supertonic-tts-int8-2026-03-06) | ~200 MB |
+| `ko-supertonic-int8` | Supertonic 3 INT8 | ko-KR (+31언어) | `sherpa-onnx` | **sherpa-onnx-node** (`OfflineTts` · Supertonic 3) | [csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11](https://huggingface.co/csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11) | ~140 MB |
 | `ko-mms-tts` | MMS TTS | ko-KR | `transformers-js` | **onnxruntime-node** + 한글 로마자화(uroman 스타일) | [Xenova/mms-tts-kor](https://huggingface.co/Xenova/mms-tts-kor) | ~140 MB |
 | `en-kokoro` | Kokoro 82M | en-US | `onnx` | **onnxruntime-node** + `phonemizer`(eSpeak-NG) | [onnx-community/Kokoro-82M-v1.0-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) | ~310 MB (복수 ONNX·voices 포함) |
 

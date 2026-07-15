@@ -109,18 +109,21 @@ OS Web Speech API는 더 이상 주 경로가 아닙니다.
 텍스트 → goruut IPA → map에 있는 글자만 토큰화 → `phoneme_id_map` ID 시퀀스(BOS/PAD/EOS) → VITS계 ONNX.  
 `@piper-plus/g2p`의 `KoreanG2P`는 이 가중치와 호환되지 않음(잘못된 IPA → 비한국어 발화).
 
-### 5.2 Supertonic INT8
+### 5.2 Supertonic 3 INT8
 
 | | |
 |--|--|
 | ID | `ko-supertonic-int8` |
 | runtime | `sherpa-onnx` |
 | Engine | `sherpa-onnx-node` (`OfflineTts` + `GenerationConfig`) |
-| Model family | **Supertonic** (모델) / **sherpa-onnx** (런타임) |
-| Source | `csukuangfj2/sherpa-onnx-supertonic-tts-int8-2026-03-06` |
+| Model family | **Supertonic 3** (모델) / **sherpa-onnx** (런타임) |
+| Source | `csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11` |
 | Config keys | `durationPredictor`, `textEncoder`, `vectorEstimator`, `vocoder`, `ttsJson`, `unicodeIndexer`, `voiceStyle` |
 | SR | ~44100 |
 | Speakers | `sid` 0…N-1 (UI: Speaker n) |
+
+Supertonic 2 대비 단어 반복/건너뛰기(skip) 실패가 줄어든다.  
+카탈로그 `repoId`가 바뀌면 캐시 매니페스트를 비교해 자동으로 재다운로드한다.
 
 Electron에서는 `enableExternalBuffer: false`로 외부 ArrayBuffer 제한을 회피합니다.  
 플랫폼별 네이티브: `sherpa-onnx-win-x64` 등 (`addon.js`가 로드).
