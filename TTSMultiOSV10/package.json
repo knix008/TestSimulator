@@ -9,10 +9,14 @@
   "scripts": {
     "start": "electron .",
     "web": "node server.js",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "copy:installers": "node scripts/copy-installers.mjs",
+    "copy:installers:win": "node scripts/copy-installers.mjs --platform win",
+    "copy:installers:mac": "node scripts/copy-installers.mjs --platform mac",
+    "copy:installers:linux": "node scripts/copy-installers.mjs --platform linux",
+    "build": "electron-builder && npm run copy:installers",
+    "build:win": "electron-builder --win && npm run copy:installers:win",
+    "build:mac": "electron-builder --mac && npm run copy:installers:mac",
+    "build:linux": "electron-builder --linux && npm run copy:installers:linux"
   },
   "build": {
     "appId": "com.shkwon.tts-multios",
@@ -52,7 +56,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "TTS Multi OS"
+      "shortcutName": "TTS Multi OS",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": [

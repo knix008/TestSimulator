@@ -30,12 +30,13 @@ const bridge = window.ttsBridge || {
         id: 'ko-piper-kss', label: 'Piper KSS', language: 'ko-KR',
         sizeHint: '64 MB', runtime: 'piper-onnx',
         description: '경량 임베디드 최적 모델 (VITS 기반)',
-        preferredOnFirstRun: true
+        preferredOnFirstRun: false
       },
       {
         id: 'ko-supertonic-int8', label: 'Supertonic 3 INT8', language: 'ko-KR',
         sizeHint: '~140 MB', runtime: 'sherpa-onnx',
-        description: 'Supertonic 3 · INT8 · 단어 skip 감소 · 31언어'
+        description: 'Supertonic 3 · INT8 · 단어 skip 감소 · 31언어',
+        preferredOnFirstRun: true
       },
       {
         id: 'ko-mms-tts', label: 'MMS TTS', language: 'ko-KR',
@@ -943,6 +944,13 @@ function showError(error) {
 }
 
 // ── Model list ───────────────────────────────────────────────────────────────
+function getPreferredModelForLanguage(language) {
+  if (!language) return null;
+  return state.models.find((m) => m.language === language && m.preferredOnFirstRun)
+    || state.models.find((m) => m.language === language)
+    || null;
+}
+
 async function refreshModels() {
   try {
     const [catalog, cachedModels] = await Promise.all([
@@ -974,8 +982,9 @@ async function refreshModels() {
       const available = state.models.find((m) => m.language === languageSelect.value && m.downloaded)
         || state.models.find((m) => m.downloaded)
         || null;
-      modelSelect.value = available?.id
-        || state.models.find((m) => m.language === languageSelect.value)?.id
+      const preferred = getPreferredModelForLanguage(languageSelect.value);
+      modelSelect.value = preferred?.id
+        || available?.id
         || state.models[0]?.id || '';
     }
 
@@ -1200,7 +1209,7 @@ document.getElementById('saveWav').addEventListener('click', saveWav);
 updateTransportButtons();
 
 languageSelect.addEventListener('change', () => {
-  const model = state.models.find((m) => m.language === languageSelect.value);
+  const model = getPreferredModelForLanguage(languageSelect.value);
   if (model) { modelSelect.value = model.id; updateStatusBarModel(model); }
   updateStatusBarLanguage();
   refreshVoiceList();

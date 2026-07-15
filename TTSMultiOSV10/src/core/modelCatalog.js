@@ -12,7 +12,7 @@ const defaultCatalog = [
       type: 'repo',
       repoId: 'neurlang/piper-onnx-kss-korean'
     },
-    preferredOnFirstRun: true
+    preferredOnFirstRun: false
   },
   {
     id: 'ko-supertonic-int8',
@@ -24,7 +24,8 @@ const defaultCatalog = [
     source: {
       type: 'repo',
       repoId: 'csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11'
-    }
+    },
+    preferredOnFirstRun: true
   },
   {
     id: 'ko-mms-tts',
