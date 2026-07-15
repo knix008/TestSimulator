@@ -1,0 +1,6 @@
+Text-to-speech technology has advanced significantly in recent years.
+Modern TTS systems use deep learning models trained on thousands of hours of speech data.
+These models can produce natural-sounding voices with proper intonation and rhythm.
+Applications range from accessibility tools for visually impaired users to voice assistants.
+The Kokoro 82M model used in this application achieves high quality English synthesis.
+Future developments will bring even more realistic and expressive speech generation.

@@ -1,0 +1,105 @@
+{
+  "name": "tts-multios-v10",
+  "version": "0.1.0",
+  "description": "Embedded-ready TTS Multi OS Application",
+  "author": "SHKWON <knix008@naver.com>",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "web": "node server.js",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.shkwon.tts-multios",
+    "productName": "TTS Multi OS",
+    "copyright": "Copyright © 2025-2026 SHKWON (knix008@naver.com)",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "index.html",
+      "server.js"
+    ],
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**/*",
+      "node_modules/sherpa-onnx-node/**/*",
+      "node_modules/sherpa-onnx-win-x64/**/*",
+      "node_modules/sherpa-onnx-linux-x64/**/*",
+      "node_modules/sherpa-onnx-darwin-x64/**/*",
+      "node_modules/sherpa-onnx-darwin-arm64/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TTS Multi OS"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "AudioVideo"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "allowScripts": {
+    "electron@31.7.7": true,
+    "onnxruntime-node@1.27.0": true
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "@piper-plus/g2p": "^0.4.1",
+    "onnxruntime-node": "^1.27.0",
+    "phonemizer": "^1.2.1",
+    "sherpa-onnx-node": "^1.13.4",
+    "sherpa-onnx-win-x64": "^1.13.4"
+  }
+}

@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+out/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+*.wav
+*.tmp
+
+# Downloaded TTS model cache
+models/
+
+# electron-builder cache
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TTS Multi OS</title>
+    <link rel="stylesheet" href="./src/web/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="toolbar">
+        <div class="brand">
+          <img class="brand-icon" src="./assets/icon.svg" alt="TTS Multi OS" />
+          <div>
+            <div class="eyebrow">Embedded-ready TTS</div>
+            <h1>TTS Multi OS</h1>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <button id="themeToggle" class="toolbar-button theme-button" title="테마 전환" aria-label="테마 전환">🌙</button>
+          <button id="openFileBtn" class="toolbar-button"><span>📂</span><span>파일 열기</span></button>
+          <button id="refreshModels" class="toolbar-button"><span>⟳</span><span>새로고침</span></button>
+          <button id="speakText" class="toolbar-button accent"><span>▶</span><span>읽기</span></button>
+          <button id="saveWav" class="toolbar-button"><span>📄</span><span>WAV 저장</span></button>
+          <button id="aboutBtn" class="toolbar-button" title="프로그램 정보"><span>ℹ</span><span>정보</span></button>
+        </div>
+      </header>
+
+      <main class="content">
+        <!-- 왼쪽: 텍스트 편집 -->
+        <section class="panel editor-panel">
+          <div class="editor-toolbar">
+            <label for="textInput" class="editor-label">텍스트</label>
+            <button id="openFileBtnEditor" class="editor-action-btn" title="텍스트 파일 열기">📂 파일 열기</button>
+          </div>
+          <textarea id="textInput" spellcheck="false" placeholder="여기에 읽을 문장을 입력하세요.">안녕하세요. 이 앱은 한국어와 영어를 지원하는 TTS 데모입니다.</textarea>
+        </section>
+
+        <!-- 오른쪽: 설정 + 상태 -->
+        <section class="panel settings-panel">
+          <label for="languageSelect">언어</label>
+          <select id="languageSelect">
+            <option value="ko-KR">한국어</option>
+            <option value="en-US">English</option>
+          </select>
+
+          <label for="modelSelect">모델 (다운로드)</label>
+          <div class="model-row">
+            <select id="modelSelect"></select>
+            <button id="downloadModel" class="model-dl-btn" title="선택한 모델 다운로드">↓ 다운로드</button>
+          </div>
+
+          <label for="voiceSelect">목소리 (모델)</label>
+          <select id="voiceSelect">
+            <option value="">— 모델 기본 목소리 —</option>
+          </select>
+
+          <!-- 음성 파라미터 슬라이더 -->
+          <div class="voice-params">
+            <div class="param-row">
+              <span class="param-label">볼륨</span>
+              <input type="range" id="volumeRange" class="param-slider" min="0" max="200" value="100" step="1">
+              <span id="volumeLabel" class="param-value">100%</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">속도</span>
+              <input type="range" id="speedRange" class="param-slider" min="25" max="400" value="100" step="5">
+              <span id="speedLabel" class="param-value">1.0×</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">피치</span>
+              <input type="range" id="pitchRange" class="param-slider" min="-12" max="12" value="0" step="1">
+              <span id="pitchLabel" class="param-value">±0</span>
+            </div>
+          </div>
+
+          <!-- 상태 카드 -->
+          <div class="status-card" id="statusCard">
+            <div class="status-title">상태</div>
+            <div id="statusText" class="status-text">모델 목록을 불러오는 중입니다.</div>
+
+            <!-- 다운로드 중 표시 (data-phase="downloading" 시 활성) -->
+            <div class="dl-panel" id="dlPanel">
+              <div class="dl-header">
+                <span id="dlPercent" class="dl-percent">0%</span>
+                <span id="dlFile" class="dl-file"></span>
+              </div>
+              <div class="dl-bar-track">
+                <div id="dlBarFill" class="dl-bar-fill"></div>
+              </div>
+              <div id="dlSize" class="dl-size"></div>
+            </div>
+
+            <!-- 일반 진행률 바 -->
+            <div class="status-progress-meta">
+              <span>진행률</span>
+              <span id="statusProgressLabel">0%</span>
+            </div>
+            <div class="status-progress-track" aria-hidden="true">
+              <div id="statusProgressBar" class="status-progress-bar"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- 파형 패널 (전체 너비, 항상 표시) -->
+      <div class="waveform-panel" id="waveformSection">
+        <div class="waveform-panel-header">
+          <span class="waveform-panel-title">파형</span>
+          <div class="waveform-time-group">
+            <span id="waveformCurrent" class="waveform-time-label">0:00</span>
+            <span class="waveform-time-sep"> / </span>
+            <span id="waveformDuration" class="waveform-time-label">-:--</span>
+          </div>
+          <span id="waveformVoiceLabel" class="waveform-voice-label"></span>
+        </div>
+        <div class="waveform-panel-body">
+          <canvas id="waveformCanvas" class="waveform-canvas"></canvas>
+          <div id="waveformEmpty" class="waveform-empty">▶ 읽기 버튼을 누르면 파형이 표시됩니다.</div>
+        </div>
+      </div>
+
+      <footer class="status-bar" aria-label="프로그램 상태">
+        <div class="status-bar-track" aria-hidden="true">
+          <div id="statusBarFill" class="status-bar-fill" data-phase="idle"></div>
+        </div>
+        <div class="status-bar-body">
+          <div class="status-pill status-pill--main">
+            <span id="statusDot" class="status-dot" data-phase="idle"></span>
+            <span class="status-pill-label">상태</span>
+            <span id="statusBarMessage">대기 중</span>
+          </div>
+          <div class="status-pill">
+            <span class="status-pill-label">언어</span>
+            <span id="statusBarLanguage">ko-KR</span>
+          </div>
+          <div class="status-pill">
+            <span class="status-pill-label">모델</span>
+            <span id="statusBarModel">-</span>
+          </div>
+          <div class="status-pill">
+            <span class="status-pill-label">캐시</span>
+            <span id="statusBarCache">-</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <dialog id="aboutDialog" class="about-dialog">
+      <form method="dialog" class="dialog-shell">
+        <header class="dialog-header">
+          <h2>프로그램 정보</h2>
+          <button class="close-button" value="close" aria-label="닫기">×</button>
+        </header>
+        <div class="about-body">
+          <div class="about-hero">
+            <img src="./assets/icon.svg" class="about-icon" alt="TTS Multi OS" />
+            <div class="about-title-block">
+              <div class="about-app-name">TTS Multi OS</div>
+              <div class="about-version">버전 0.1.0</div>
+              <div class="about-subtitle">Embedded-ready TTS System</div>
+            </div>
+          </div>
+          <div class="about-divider"></div>
+          <dl class="about-info">
+            <dt>개발자</dt>
+            <dd>SHKWON</dd>
+            <dt>연락처</dt>
+            <dd><a class="about-link" href="mailto:knix008@naver.com">knix008@naver.com</a></dd>
+            <dt>지원 모델</dt>
+            <dd>Piper ONNX · Sherpa-ONNX · Transformers.js · ONNX Runtime</dd>
+            <dt>지원 언어</dt>
+            <dd>한국어 (ko-KR) · English (en-US)</dd>
+            <dt>플랫폼</dt>
+            <dd>Windows · macOS · Linux &nbsp;|&nbsp; Electron 31</dd>
+          </dl>
+          <div class="about-copyright">
+            © 2025–2026 SHKWON (knix008@naver.com). All rights reserved.
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button class="toolbar-button" value="close"><span>✕</span><span>닫기</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="errorDialog" class="error-dialog">
+      <form method="dialog" class="dialog-shell">
+        <header class="dialog-header">
+          <h2>오류</h2>
+          <button class="close-button" value="close" aria-label="닫기">×</button>
+        </header>
+        <pre id="errorDetails" class="error-details"></pre>
+        <div class="dialog-actions">
+          <button id="copyError" type="button" class="toolbar-button primary"><span>⧉</span><span>복사</span></button>
+          <button class="toolbar-button" value="close"><span>✕</span><span>닫기</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./src/web/main.js"></script>
+  </body>
+</html>
