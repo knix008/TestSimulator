@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ensureModelCatalog, getDefaultCacheDirectory, getModelCatalog } from '../src/core/modelCatalog.js';
 import { createModelStore } from '../src/core/modelStore.js';
 import { exportWavFile } from '../src/core/wav.js';
-import { synthesizeText, listModelVoices } from '../src/core/ttsService.js';
+import { callTtsWorker, terminateTtsWorker } from './ttsWorkerHost.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +18,7 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
+    width: 1520,
     height: 1000,
     resizable: false,
     maximizable: false,
@@ -49,9 +49,14 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  terminateTtsWorker();
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  terminateTtsWorker();
 });
 
 app.on('activate', () => {
@@ -91,20 +96,20 @@ ipcMain.handle('app:downloadAndPrepareModel', async (_event, modelId) => {
   }
 });
 ipcMain.handle('app:speak', async (_event, payload) => {
-  const store = createModelStore();
-  return synthesizeText({
+  // Run in a worker so ONNX/phonemizer work does not freeze the UI thread
+  return callTtsWorker('speak', {
     text:     payload.text,
     modelId:  payload.modelId,
     voiceId:  payload.voiceId,
     speed:    payload.speed,
     language: payload.language,
-    store,
-    onProgress: null
   });
 });
+ipcMain.handle('app:warmModel', async (_event, modelId) => {
+  return callTtsWorker('warm', { modelId });
+});
 ipcMain.handle('app:listModelVoices', async (_event, modelId) => {
-  const store = createModelStore();
-  return listModelVoices(modelId, store);
+  return callTtsWorker('voices', { modelId });
 });
 ipcMain.handle('app:exportWav', async (_event, payload) => {
   return exportWavFile(payload.filePath, payload.audioBuffer, payload.sampleRate || 22050);

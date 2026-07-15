@@ -20,7 +20,6 @@
           <button id="themeToggle" class="toolbar-button theme-button" title="테마 전환" aria-label="테마 전환">🌙</button>
           <button id="openFileBtn" class="toolbar-button"><span>📂</span><span>파일 열기</span></button>
           <button id="refreshModels" class="toolbar-button"><span>⟳</span><span>새로고침</span></button>
-          <button id="speakText" class="toolbar-button accent"><span>▶</span><span>읽기</span></button>
           <button id="saveWav" class="toolbar-button"><span>📄</span><span>WAV 저장</span></button>
           <button id="aboutBtn" class="toolbar-button" title="프로그램 정보"><span>ℹ</span><span>정보</span></button>
         </div>
@@ -107,6 +106,12 @@
       <div class="waveform-panel" id="waveformSection">
         <div class="waveform-panel-header">
           <span class="waveform-panel-title">파형</span>
+          <div class="transport-group" role="group" aria-label="재생 제어">
+            <button id="speakText" class="wave-transport-btn accent" title="읽기"><span>▶</span><span>읽기</span></button>
+            <button id="pausePlayback" class="wave-transport-btn" title="멈춤" disabled><span>⏸</span><span>멈춤</span></button>
+            <button id="stopPlayback" class="wave-transport-btn" title="중단" disabled><span>■</span><span>중단</span></button>
+          </div>
+          <span class="waveform-hint">빨간 선을 끌어 재생 위치를 옮길 수 있습니다</span>
           <div class="waveform-time-group">
             <span id="waveformCurrent" class="waveform-time-label">0:00</span>
             <span class="waveform-time-sep"> / </span>
@@ -114,10 +119,44 @@
           </div>
           <span id="waveformVoiceLabel" class="waveform-voice-label"></span>
         </div>
-        <div class="waveform-panel-body">
+        <div class="waveform-panel-body" id="waveformBody">
           <canvas id="waveformCanvas" class="waveform-canvas"></canvas>
           <div id="waveformEmpty" class="waveform-empty">▶ 읽기 버튼을 누르면 파형이 표시됩니다.</div>
         </div>
+      </div>
+
+      <!-- 파형 우클릭 메뉴 -->
+      <div id="waveformContextMenu" class="ctx-menu" hidden role="menu" aria-label="파형 메뉴">
+        <button type="button" class="ctx-item" data-action="play" role="menuitem">
+          <span class="ctx-icon" aria-hidden="true">▶</span>
+          <span class="ctx-label">읽기</span>
+        </button>
+        <button type="button" class="ctx-item" data-action="pause" role="menuitem" disabled>
+          <span class="ctx-icon" aria-hidden="true">⏸</span>
+          <span class="ctx-label">멈춤</span>
+        </button>
+        <button type="button" class="ctx-item" data-action="stop" role="menuitem" disabled>
+          <span class="ctx-icon" aria-hidden="true">■</span>
+          <span class="ctx-label">중단</span>
+        </button>
+        <div class="ctx-sep" role="separator"></div>
+        <button type="button" class="ctx-item" data-action="seek-here" role="menuitem" disabled>
+          <span class="ctx-icon" aria-hidden="true">⌖</span>
+          <span class="ctx-label">이 위치로 이동</span>
+        </button>
+        <button type="button" class="ctx-item" data-action="seek-start" role="menuitem" disabled>
+          <span class="ctx-icon" aria-hidden="true">⏮</span>
+          <span class="ctx-label">처음으로</span>
+        </button>
+        <button type="button" class="ctx-item" data-action="seek-end" role="menuitem" disabled>
+          <span class="ctx-icon" aria-hidden="true">⏭</span>
+          <span class="ctx-label">끝으로</span>
+        </button>
+        <div class="ctx-sep" role="separator"></div>
+        <button type="button" class="ctx-item" data-action="save-wav" role="menuitem" disabled>
+          <span class="ctx-icon" aria-hidden="true">📄</span>
+          <span class="ctx-label">WAV 저장</span>
+        </button>
       </div>
 
       <footer class="status-bar" aria-label="프로그램 상태">

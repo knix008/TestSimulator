@@ -77,8 +77,23 @@ const state = {
   lastResult: null,
   audioContext: null,
   currentSource: null,
+  currentGain: null,
   waveformImageData: null,
-  rafId: null
+  waveformMeta: null,
+  rafId: null,
+  // Playback transport
+  playStatus: 'idle', // idle | playing | paused
+  playGen: 0,
+  pcm: null,
+  pcmSampleRate: 22050,
+  audioBuffer: null,
+  bufferOffsetSec: 0,
+  contextStartSec: 0,
+  speedFactor: 1,
+  scrubbing: false,
+  wasPlayingBeforeScrub: false,
+  synthKey: '',
+  synthesizing: false,
 };
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -110,6 +125,8 @@ const waveformSection    = document.getElementById('waveformSection');
 const waveformCanvas     = document.getElementById('waveformCanvas');
 const waveformCurrent    = document.getElementById('waveformCurrent');
 const waveformDuration   = document.getElementById('waveformDuration');
+const waveformEmpty      = document.getElementById('waveformEmpty');
+const waveformVoiceLabel = document.getElementById('waveformVoiceLabel');
 const errorDialog        = document.getElementById('errorDialog');
 const errorDetails       = document.getElementById('errorDetails');
 const copyError          = document.getElementById('copyError');
@@ -120,6 +137,14 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   if (themeToggle) themeToggle.textContent = theme === 'light' ? '☀️' : '🌙';
   localStorage.setItem('tts-theme', theme);
+  // Redraw waveform so baseline / axis colors match the theme
+  if (state.lastResult?.audioBuffer?.length) {
+    drawWaveform(
+      Float32Array.from(state.lastResult.audioBuffer),
+      state.lastResult.sampleRate || 22050,
+    );
+    syncPlayheadUi();
+  }
 }
 
 function cycleTheme() {
@@ -129,120 +154,54 @@ function cycleTheme() {
 applyTheme(localStorage.getItem('tts-theme') || 'dark');
 themeToggle?.addEventListener('click', cycleTheme);
 
-// ── Speech-like waveform generator ───────────────────────────────────────────
-// Uses additive synthesis with randomized micro-variation to mimic real speech.
-function generateSpeechLikeWaveform(text, sampleRate, speed = 1.0) {
-  const hasKorean  = /[가-힣]/.test(text);
-  const secPerChar = (hasKorean ? 0.11 : 0.075) / Math.max(0.1, speed);
-
-  // Build segments with character span info for onboundary mapping
-  const segs = [];
-  let charCursor = 0;
-  const tokens = text.split(/(\s+|[.!?,。、]+)/);
-
-  for (const tok of tokens) {
-    if (!tok) continue;
-    if (/^\s+$/.test(tok)) {
-      segs.push({ voiced: false, dur: 0.06 / speed, charStart: charCursor, charLen: tok.length });
-    } else if (/^[.!?。]+$/.test(tok)) {
-      segs.push({ voiced: false, dur: 0.26 / speed, charStart: charCursor, charLen: tok.length });
-    } else if (/^[,、]+$/.test(tok)) {
-      segs.push({ voiced: false, dur: 0.13 / speed, charStart: charCursor, charLen: tok.length });
-    } else {
-      segs.push({ voiced: true, dur: Math.max(0.06, tok.length * secPerChar), charStart: charCursor, charLen: tok.length });
-    }
-    charCursor += tok.length;
+/** Clear canvas cache and show overlay until real PCM is ready. */
+function clearWaveform(message) {
+  state.waveformImageData = null;
+  state.waveformMeta = null;
+  waveformCanvas?.classList.remove('has-audio');
+  if (waveformCanvas) {
+    const ctx = waveformCanvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
   }
-
-  const totalDur      = Math.max(1.0, segs.reduce((s, e) => s + e.dur, 0));
-  const len           = Math.round(sampleRate * totalDur);
-  const out           = new Float32Array(len);
-  const charSampleMap = new Int32Array(text.length + 1);
-
-  // Seeded pseudo-random for repeatable-but-varied waveform
-  let rngState = 0x9e3779b9;
-  function rng() {
-    rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5;
-    return (rngState >>> 0) / 0xffffffff;
+  if (waveformCurrent) waveformCurrent.textContent = '0:00';
+  if (waveformDuration) waveformDuration.textContent = '-:--';
+  if (waveformEmpty) {
+    waveformEmpty.textContent = message
+      || '▶ 읽기 버튼을 누르면 파형이 표시됩니다.';
+    waveformEmpty.classList.remove('hidden');
   }
-
-  let pos = 0;
-  let t   = 0;
-
-  for (const seg of segs) {
-    const segLen = Math.round(sampleRate * seg.dur);
-
-    for (let c = 0; c < seg.charLen; c++) {
-      const ci = seg.charStart + c;
-      if (ci < charSampleMap.length) {
-        charSampleMap[ci] = pos + Math.round((c / Math.max(1, seg.charLen)) * segLen);
-      }
-    }
-
-    if (seg.voiced) {
-      // Per-syllable parameters for natural variation
-      const f0Base   = 140 + rng() * 80;            // Fundamental: 140–220 Hz
-      const jitter   = 0.004 + rng() * 0.006;       // Pitch jitter (micro-variation)
-      const shimmer  = 0.04  + rng() * 0.08;        // Amplitude shimmer
-      const breathAmp = 0.04 + rng() * 0.06;        // Breathiness noise level
-
-      for (let i = 0; i < segLen && pos + i < len; i++) {
-        const loc = i / segLen;
-
-        // Natural amplitude envelope (attack/sustain/release)
-        const attack  = Math.min(1, loc * 12);
-        const release = Math.min(1, (1 - loc) * 10);
-        const env     = attack * release;
-
-        // Pitch with jitter and prosodic arc (rises then falls)
-        const prosody = 1 + 0.12 * Math.sin(Math.PI * loc);
-        const f0      = f0Base * prosody * (1 + jitter * (rng() - 0.5));
-
-        // Glottal source: harmonics with falling spectral tilt
-        const h1 = Math.sin(2 * Math.PI * f0 * t);
-        const h2 = Math.sin(2 * Math.PI * f0 * 2 * t) * 0.55;
-        const h3 = Math.sin(2 * Math.PI * f0 * 3 * t) * 0.28;
-        const h4 = Math.sin(2 * Math.PI * f0 * 4 * t) * 0.14;
-        const h5 = Math.sin(2 * Math.PI * f0 * 5 * t) * 0.07;
-        const h6 = Math.sin(2 * Math.PI * f0 * 6 * t) * 0.03;
-
-        // Formant-like resonance modulation (approximates vowel coloring)
-        const fmtMod = 1 + 0.18 * Math.sin(2 * Math.PI * 800 * t + rng() * 0.01);
-
-        // Breathiness (band-limited noise approximation using fast rng)
-        const noise = (rng() - 0.5) * 2;
-
-        const glottal  = (h1 + h2 + h3 + h4 + h5 + h6) * fmtMod;
-        const amShim   = 1 + shimmer * (rng() - 0.5);
-        out[pos + i]   = (glottal * amShim + noise * breathAmp) * env * 0.52;
-
-        t += 1 / sampleRate;
-      }
-    } else {
-      t += seg.dur;
-    }
-    pos += segLen;
-    if (pos >= len) break;
-  }
-  charSampleMap[text.length] = len;
-  return { samples: out, charSampleMap };
 }
 
 // ── Waveform accent colors (resolve CSS vars per theme) ──────────────────────
 function getWaveformColors() {
+  const styles = getComputedStyle(document.documentElement);
+  const css = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
     || (document.documentElement.getAttribute('data-theme') !== 'light'
         && !window.matchMedia('(prefers-color-scheme: light)').matches);
   return isDark
-    ? { fill: '#5ed7c0', strong: '#7ac7ff', played: 'rgba(94, 215, 192, 0.15)', cursor: '#ff3b3b' }
-    : { fill: '#147d72', strong: '#3464ff', played: 'rgba(20, 125, 114, 0.12)',  cursor: '#e01010' };
+    ? {
+        fill: '#5ed7c0',
+        strong: '#7ac7ff',
+        played: 'rgba(94, 215, 192, 0.15)',
+        cursor: '#ff3b3b',
+        baseline: css('--waveform-baseline', 'rgba(255, 255, 255, 0.55)'),
+        axis: css('--waveform-axis', 'rgba(255, 255, 255, 0.38)'),
+        tick: css('--waveform-tick', 'rgba(255, 255, 255, 0.55)'),
+        tickLabel: css('--waveform-tick-label', 'rgba(200, 210, 224, 0.92)'),
+      }
+    : {
+        fill: '#147d72',
+        strong: '#3464ff',
+        played: 'rgba(20, 125, 114, 0.12)',
+        cursor: '#e01010',
+        baseline: css('--waveform-baseline', 'rgba(12, 26, 40, 0.55)'),
+        axis: css('--waveform-axis', 'rgba(12, 26, 40, 0.28)'),
+        tick: css('--waveform-tick', 'rgba(12, 26, 40, 0.5)'),
+        tickLabel: css('--waveform-tick-label', 'rgba(40, 55, 70, 0.9)'),
+      };
 }
 
-// ── DOM refs (waveform empty state) ──────────────────────────────────────────
-const waveformEmpty = document.getElementById('waveformEmpty');
-const waveformVoiceLabel = document.getElementById('waveformVoiceLabel');
-
-// ── Waveform draw ────────────────────────────────────────────────────────────
 function formatTime(seconds) {
   const s = Math.max(0, seconds);
   const m = Math.floor(s / 60);
@@ -250,35 +209,146 @@ function formatTime(seconds) {
   return `${m}:${sec}`;
 }
 
+/** Axis labels: show tenths for short durations */
+function formatAxisTime(seconds) {
+  const s = Math.max(0, seconds);
+  if (s < 60 && Math.abs(s - Math.round(s)) > 0.001) {
+    return `${s.toFixed(1)}s`;
+  }
+  if (s < 60) return `${Math.round(s)}s`;
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
+}
+
+function chooseTimeTickStep(durationSec) {
+  const nice = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
+  // Aim for roughly 6–12 major ticks across the width
+  const target = durationSec / 8;
+  let step = nice[nice.length - 1];
+  for (const n of nice) {
+    if (n >= target) { step = n; break; }
+  }
+  return step;
+}
+
+function drawTimeAxis(ctx, w, axisY, plotBottom, durationSec, colors) {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return;
+
+  const axisH = plotBottom - axisY;
+  ctx.strokeStyle = colors.axis;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, axisY);
+  ctx.lineTo(w, axisY);
+  ctx.stroke();
+
+  const major = chooseTimeTickStep(durationSec);
+  const minor = major / 5;
+  const pad = 4;
+
+  ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  ctx.fillStyle = colors.tickLabel;
+  ctx.textBaseline = 'top';
+
+  // Minor ticks
+  if (minor > 0) {
+    ctx.strokeStyle = colors.axis;
+    ctx.globalAlpha = 0.55;
+    for (let t = 0; t <= durationSec + 1e-9; t += minor) {
+      const x = (t / durationSec) * w;
+      const isMajor = Math.abs((t / major) - Math.round(t / major)) < 1e-6;
+      if (isMajor) continue;
+      ctx.beginPath();
+      ctx.moveTo(x, axisY);
+      ctx.lineTo(x, axisY + Math.max(4, axisH * 0.28));
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Major ticks + labels
+  ctx.strokeStyle = colors.tick;
+  for (let t = 0; t <= durationSec + 1e-9; t += major) {
+    const x = (t / durationSec) * w;
+    ctx.beginPath();
+    ctx.moveTo(x, axisY);
+    ctx.lineTo(x, axisY + Math.max(7, axisH * 0.45));
+    ctx.stroke();
+
+    const label = formatAxisTime(t);
+    if (x < pad) {
+      ctx.textAlign = 'left';
+      ctx.fillText(label, pad, axisY + 9);
+    } else if (x > w - pad) {
+      ctx.textAlign = 'right';
+      ctx.fillText(label, w - pad, axisY + 9);
+    } else {
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, axisY + 9);
+    }
+  }
+
+  // End label if last major didn't land on duration
+  const remainder = durationSec % major;
+  if (remainder > major * 0.15 && Math.abs(remainder - major) > 1e-6) {
+    ctx.textAlign = 'right';
+    ctx.fillText(formatAxisTime(durationSec), w - pad, axisY + 9);
+    ctx.strokeStyle = colors.tick;
+    ctx.beginPath();
+    ctx.moveTo(w - 0.5, axisY);
+    ctx.lineTo(w - 0.5, axisY + Math.max(7, axisH * 0.45));
+    ctx.stroke();
+  }
+}
+
 function drawWaveform(samples, sampleRate) {
   if (!waveformCanvas || !samples?.length) return;
 
   if (waveformEmpty) waveformEmpty.classList.add('hidden');
 
-  // Use actual rect if non-zero, otherwise measure after one frame
   const dpr  = window.devicePixelRatio || 1;
   const rect = waveformCanvas.getBoundingClientRect();
-  const W    = Math.floor(rect.width  * dpr) || Math.floor(waveformCanvas.offsetWidth  * dpr) || 1100;
-  const H    = Math.floor(rect.height * dpr) || Math.floor(waveformCanvas.offsetHeight * dpr) || 88;
+  const W    = Math.floor(rect.width  * dpr) || Math.floor(waveformCanvas.offsetWidth  * dpr) || 1400;
+  const H    = Math.floor(rect.height * dpr) || Math.floor(waveformCanvas.offsetHeight * dpr) || 148;
 
   waveformCanvas.width  = W;
   waveformCanvas.height = H;
 
   const ctx = waveformCanvas.getContext('2d');
-  const w   = W / dpr;
-  const h   = H / dpr;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const w = W / dpr;
+  const h = H / dpr;
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, w, h);
 
-  const mid    = h / 2;
-  const step   = samples.length / w;
-  const colors = getWaveformColors();
+  const axisBand = 28; // px reserved for time axis
+  const plotTop = 4;
+  const plotBottom = h - axisBand;
+  const plotH = Math.max(24, plotBottom - plotTop);
+  const mid = plotTop + plotH / 2;
+  const amp = plotH * 0.42;
 
+  const step = samples.length / w;
+  const colors = getWaveformColors();
+  const durationSec = samples.length / sampleRate;
+
+  // Centre baseline (zero line) — theme-aware, high visibility
+  ctx.strokeStyle = colors.baseline;
+  ctx.lineWidth = 1.25;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, mid);
+  ctx.lineTo(w, mid);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Waveform strokes
   const grad = ctx.createLinearGradient(0, 0, w, 0);
   grad.addColorStop(0, colors.fill);
   grad.addColorStop(1, colors.strong);
   ctx.strokeStyle = grad;
-  ctx.lineWidth   = 1.5;
+  ctx.lineWidth = 1.5;
 
   ctx.beginPath();
   for (let x = 0; x < w; x++) {
@@ -290,16 +360,28 @@ function drawWaveform(samples, sampleRate) {
       if (v < min) min = v;
       if (v > max) max = v;
     }
-    ctx.moveTo(x, mid + min * mid * 0.88);
-    ctx.lineTo(x, mid + max * mid * 0.88);
+    ctx.moveTo(x, mid + min * amp);
+    ctx.lineTo(x, mid + max * amp);
   }
   ctx.stroke();
 
-  // Save for animation overlay
-  state.waveformImageData = ctx.getImageData(0, 0, W, H);
+  drawTimeAxis(ctx, w, plotBottom, h, durationSec, colors);
 
-  if (waveformDuration) waveformDuration.textContent = formatTime(samples.length / sampleRate);
-  if (waveformCurrent)  waveformCurrent.textContent  = '0:00';
+  state.waveformImageData = ctx.getImageData(0, 0, W, H);
+  state.waveformMeta = {
+    durationSec,
+    sampleRate,
+    plotTop,
+    plotBottom,
+    plotH,
+  };
+
+  if (waveformDuration) waveformDuration.textContent = formatTime(durationSec);
+  if (waveformCurrent) {
+    const progress = getPlaybackProgress();
+    waveformCurrent.textContent = formatTime(progress * durationSec);
+  }
+  waveformCanvas?.classList.add('has-audio');
 }
 
 function drawPlayheadAt(progress) {
@@ -310,40 +392,58 @@ function drawPlayheadAt(progress) {
   const H = waveformCanvas.height;
   const w = W / dpr;
   const h = H / dpr;
+  const meta = state.waveformMeta || {};
+  const plotBottom = meta.plotBottom ?? (h - 28);
 
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.putImageData(state.waveformImageData, 0, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const x = progress * w;
+  const x = Math.max(0, Math.min(1, progress)) * w;
   const colors = getWaveformColors();
 
-  // Played region tint
+  // Tint only the waveform band (keep time axis readable)
   ctx.fillStyle = colors.played;
-  ctx.fillRect(0, 0, x, h);
+  ctx.fillRect(0, 0, x, plotBottom);
 
-  // Playhead line
   ctx.beginPath();
   ctx.moveTo(x, 0);
-  ctx.lineTo(x, h);
+  ctx.lineTo(x, plotBottom);
   ctx.strokeStyle = colors.cursor;
-  ctx.lineWidth   = 2;
+  ctx.lineWidth = 2;
   ctx.stroke();
 }
 
-function startWaveformAnimation(audioCtx, startTime, duration) {
-  if (state.rafId) cancelAnimationFrame(state.rafId);
+function stopTransportAnimation() {
+  if (state.rafId) {
+    cancelAnimationFrame(state.rafId);
+    state.rafId = null;
+  }
+}
+
+function startTransportAnimation() {
+  stopTransportAnimation();
+  const context = getAudioContext();
+  if (!context) return;
 
   function tick() {
-    const elapsed  = audioCtx.currentTime - startTime;
-    const progress = Math.min(1, elapsed / duration);
-    drawPlayheadAt(progress);
-    if (waveformCurrent) waveformCurrent.textContent = formatTime(Math.min(elapsed, duration));
-    if (progress < 1 && state.currentSource) {
-      state.rafId = requestAnimationFrame(tick);
-    } else {
+    if (state.playStatus !== 'playing' || state.scrubbing) {
       state.rafId = null;
-      drawPlayheadAt(1);
-      if (waveformCurrent) waveformCurrent.textContent = formatTime(duration);
+      return;
     }
+    const progress = getPlaybackProgress();
+    const durationSec = state.audioBuffer
+      ? state.audioBuffer.duration / Math.max(0.01, state.speedFactor)
+      : (state.waveformMeta?.durationSec || 0);
+    drawPlayheadAt(progress);
+    if (waveformCurrent) {
+      waveformCurrent.textContent = formatTime(progress * durationSec);
+    }
+    if (progress >= 0.999) {
+      state.rafId = null;
+      return;
+    }
+    state.rafId = requestAnimationFrame(tick);
   }
 
   state.rafId = requestAnimationFrame(tick);
@@ -452,60 +552,278 @@ function getAudioContext() {
   return state.audioContext;
 }
 
-// ── Audio playback with controls ─────────────────────────────────────────────
-async function playAudioBuffer(samples, sampleRate) {
-  const context = getAudioContext();
-  if (!context) throw new Error('Audio playback is not supported in this environment.');
+const pauseBtn = document.getElementById('pausePlayback');
+const stopBtn  = document.getElementById('stopPlayback');
+const speakBtn = document.getElementById('speakText');
 
+function updateTransportButtons() {
+  const hasAudio = !!(state.pcm?.length || state.lastResult?.audioBuffer?.length);
+  const playing  = state.playStatus === 'playing';
+  const paused   = state.playStatus === 'paused';
+  if (pauseBtn) pauseBtn.disabled = !playing || state.synthesizing;
+  if (stopBtn)  stopBtn.disabled  = (!playing && !paused && !hasAudio) || state.synthesizing;
+  if (speakBtn) speakBtn.disabled = state.synthesizing;
+
+  const menu = document.getElementById('waveformContextMenu');
+  if (!menu) return;
+  const setDisabled = (action, disabled) => {
+    const el = menu.querySelector(`[data-action="${action}"]`);
+    if (el) el.disabled = !!disabled;
+  };
+  setDisabled('play', state.synthesizing);
+  setDisabled('pause', !playing || state.synthesizing);
+  setDisabled('stop', (!playing && !paused && !hasAudio) || state.synthesizing);
+  setDisabled('seek-here', !hasAudio || state.synthesizing);
+  setDisabled('seek-start', !hasAudio || state.synthesizing);
+  setDisabled('seek-end', !hasAudio || state.synthesizing);
+  setDisabled('save-wav', !hasAudio || state.synthesizing);
+}
+
+function getPlaybackProgress() {
+  if (!state.audioBuffer) {
+    const duration = state.waveformMeta?.durationSec || 0;
+    if (!duration) return 0;
+    return Math.max(0, Math.min(1, state.bufferOffsetSec / duration));
+  }
+  const bufDur = state.audioBuffer.duration;
+  if (bufDur <= 0) return 0;
+
+  let pos = state.bufferOffsetSec;
+  if (state.playStatus === 'playing' && state.audioContext && !state.scrubbing) {
+    const elapsed = (state.audioContext.currentTime - state.contextStartSec) * state.speedFactor;
+    pos = state.bufferOffsetSec + elapsed;
+  }
+  return Math.max(0, Math.min(1, pos / bufDur));
+}
+
+function syncPlayheadUi() {
+  const progress = getPlaybackProgress();
+  drawPlayheadAt(progress);
+  const timelineDur = state.waveformMeta?.durationSec
+    ?? (state.pcm ? state.pcm.length / state.pcmSampleRate : 0);
+  if (waveformCurrent) {
+    waveformCurrent.textContent = formatTime(progress * timelineDur);
+  }
+}
+
+function hardStopSource() {
   if (state.currentSource) {
-    try { state.currentSource.stop(); } catch { /* stopped already */ }
-    state.currentSource.disconnect();
+    try {
+      state.currentSource.onended = null;
+      state.currentSource.stop();
+    } catch { /* already stopped */ }
+    try { state.currentSource.disconnect(); } catch { /**/ }
     state.currentSource = null;
   }
+  if (state.currentGain) {
+    try { state.currentGain.disconnect(); } catch { /**/ }
+    state.currentGain = null;
+  }
+}
 
-  if (state.rafId) { cancelAnimationFrame(state.rafId); state.rafId = null; }
-
-  const data = samples instanceof Float32Array ? samples : Float32Array.from(samples || []);
+function buildPlaybackBuffer(pcm, sampleRate) {
+  const context = getAudioContext();
+  if (!context) throw new Error('Audio playback is not supported in this environment.');
+  const data = pcm instanceof Float32Array ? pcm : Float32Array.from(pcm || []);
   if (!data.length) throw new Error('No audio samples were generated.');
+
+  // Keep native sample rate; pitch uses detune, speed uses playbackRate (live-adjustable)
+  const buffer = context.createBuffer(1, data.length, sampleRate);
+  buffer.copyToChannel(data, 0);
+  return buffer;
+}
+
+function readSpeedFactor() {
+  return Math.max(0.05, Number(speedRange?.value ?? 100) / 100);
+}
+
+function readPitchCents() {
+  return Number(pitchRange?.value ?? 0) * 100;
+}
+
+function freezePlaybackPosition() {
+  const context = getAudioContext();
+  if (!context || !state.audioBuffer || state.playStatus !== 'playing') return;
+  const elapsed = (context.currentTime - state.contextStartSec) * state.speedFactor;
+  state.bufferOffsetSec = Math.min(
+    state.audioBuffer.duration,
+    Math.max(0, state.bufferOffsetSec + elapsed),
+  );
+  state.contextStartSec = context.currentTime;
+}
+
+function applyLiveVolume() {
+  if (state.currentGain) {
+    state.currentGain.gain.value = Number(volumeRange?.value ?? 100) / 100;
+  }
+}
+
+function applyLiveSpeed() {
+  const next = readSpeedFactor();
+  if (state.playStatus === 'playing' && state.currentSource) {
+    freezePlaybackPosition();
+    state.currentSource.playbackRate.value = next;
+    state.speedFactor = next;
+  } else {
+    state.speedFactor = next;
+  }
+}
+
+function applyLivePitch() {
+  if (state.currentSource) {
+    try {
+      state.currentSource.detune.value = readPitchCents();
+    } catch { /* detune unsupported */ }
+  }
+}
+
+function preparePcm(samples, sampleRate) {
+  const data = samples instanceof Float32Array ? samples : Float32Array.from(samples || []);
+  state.pcm = data;
+  state.pcmSampleRate = sampleRate;
+  state.audioBuffer = buildPlaybackBuffer(data, sampleRate);
+  drawWaveform(data, sampleRate);
+}
+
+async function startPlaybackFrom(progress = 0) {
+  const context = getAudioContext();
+  if (!context) throw new Error('Audio playback is not supported in this environment.');
+  if (!state.pcm?.length) throw new Error('재생할 오디오가 없습니다.');
 
   if (context.state === 'suspended') await context.resume();
 
-  // Read controls
-  const volume    = Number(volumeRange?.value ?? 100) / 100;
-  const speedPct  = Number(speedRange?.value  ?? 100);
-  const pitchSemi = Number(pitchRange?.value  ?? 0);
+  if (!state.audioBuffer || state.audioBuffer.length !== state.pcm.length) {
+    state.audioBuffer = buildPlaybackBuffer(state.pcm, state.pcmSampleRate);
+  }
+  const buffer = state.audioBuffer;
+  const speedFactor = readSpeedFactor();
+  const volume = Number(volumeRange?.value ?? 100) / 100;
+  const pitchCents = readPitchCents();
 
-  // Pitch via effective sample-rate (changes pitch without changing playback duration at cost of ~equal tempo shift)
-  const pitchFactor   = Math.pow(2, pitchSemi / 12);
-  const effSampleRate = Math.round(sampleRate * pitchFactor);
-  const speedFactor   = speedPct / 100;
+  const p = Math.max(0, Math.min(0.999, progress));
+  const offsetSec = p * buffer.duration;
+  if (offsetSec >= buffer.duration - 0.01) {
+    return startPlaybackFrom(0);
+  }
 
-  const buffer = context.createBuffer(1, data.length, effSampleRate);
-  buffer.copyToChannel(data, 0);
+  hardStopSource();
+  stopTransportAnimation();
+  state.playGen += 1;
+  const gen = state.playGen;
 
   const source = context.createBufferSource();
-  source.buffer       = buffer;
+  source.buffer = buffer;
   source.playbackRate.value = speedFactor;
+  try { source.detune.value = pitchCents; } catch { /* ignore */ }
 
   const gain = context.createGain();
   gain.gain.value = volume;
-
   source.connect(gain);
   gain.connect(context.destination);
 
   state.currentSource = source;
-  source.start();
+  state.currentGain = gain;
+  state.speedFactor = speedFactor;
+  state.bufferOffsetSec = offsetSec;
+  state.contextStartSec = context.currentTime;
+  state.playStatus = 'playing';
+  updateTransportButtons();
 
-  const startTime = context.currentTime;
-  // Actual audible duration = buffer samples / effSampleRate / speedFactor
-  const duration = data.length / effSampleRate / speedFactor;
+  source.onended = () => {
+    if (gen !== state.playGen) return;
+    if (state.playStatus === 'playing' && !state.scrubbing) {
+      state.playStatus = 'idle';
+      state.bufferOffsetSec = 0;
+      state.currentSource = null;
+      state.currentGain = null;
+      stopTransportAnimation();
+      drawPlayheadAt(0);
+      if (waveformCurrent) waveformCurrent.textContent = '0:00';
+      setPhase('done');
+      showStatus('읽기 완료.');
+      updateTransportButtons();
+      setTimeout(() => { if (state.playStatus === 'idle') setPhase('idle'); }, 2000);
+    }
+  };
 
-  // Draw waveform (original pitch samples for visual accuracy)
-  drawWaveform(data, sampleRate);
-  startWaveformAnimation(context, startTime, duration);
+  source.start(0, offsetSec);
+  setPhase('speaking');
+  showStatus('재생 중...');
+  startTransportAnimation();
+  syncPlayheadUi();
+}
 
-  await new Promise((resolve) => { source.onended = resolve; });
-  if (state.currentSource === source) state.currentSource = null;
+function pausePlayback() {
+  if (state.playStatus !== 'playing') return;
+  const context = getAudioContext();
+  if (context && state.audioBuffer) {
+    const elapsed = (context.currentTime - state.contextStartSec) * state.speedFactor;
+    state.bufferOffsetSec = Math.min(
+      state.audioBuffer.duration,
+      state.bufferOffsetSec + Math.max(0, elapsed),
+    );
+  }
+  state.playGen += 1;
+  hardStopSource();
+  stopTransportAnimation();
+  state.playStatus = 'paused';
+  syncPlayheadUi();
+  setPhase('idle');
+  showStatus('멈춤.');
+  updateTransportButtons();
+}
+
+function stopPlayback() {
+  state.playGen += 1;
+  hardStopSource();
+  stopTransportAnimation();
+  state.playStatus = 'idle';
+  state.bufferOffsetSec = 0;
+  syncPlayheadUi();
+  drawPlayheadAt(0);
+  if (waveformCurrent) waveformCurrent.textContent = '0:00';
+  setPhase('idle');
+  showStatus(state.pcm?.length ? '중단됨. 읽기를 누르면 다시 재생됩니다.' : '대기 중');
+  updateTransportButtons();
+}
+
+function seekToProgress(progress, { resumeIfWasPlaying = false } = {}) {
+  if (!state.pcm?.length && !state.lastResult?.audioBuffer?.length) return;
+  if (!state.pcm?.length && state.lastResult?.audioBuffer) {
+    preparePcm(state.lastResult.audioBuffer, state.lastResult.sampleRate);
+  }
+
+  const p = Math.max(0, Math.min(1, progress));
+  const shouldResume = resumeIfWasPlaying && !state.scrubbing;
+
+  if (state.playStatus === 'playing') {
+    state.playGen += 1;
+    hardStopSource();
+    stopTransportAnimation();
+    state.playStatus = 'paused';
+  }
+
+  if (!state.audioBuffer && state.pcm?.length) {
+    state.audioBuffer = buildPlaybackBuffer(state.pcm, state.pcmSampleRate);
+  }
+  if (!state.audioBuffer) return;
+
+  state.bufferOffsetSec = p * state.audioBuffer.duration;
+  if (state.playStatus === 'idle' && state.bufferOffsetSec > 0) {
+    state.playStatus = 'paused';
+  }
+
+  syncPlayheadUi();
+  updateTransportButtons();
+
+  if (shouldResume) {
+    startPlaybackFrom(p);
+  }
+}
+
+function canvasProgressFromEvent(e) {
+  const rect = waveformCanvas.getBoundingClientRect();
+  return Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
 }
 
 // ── Model voice list management ───────────────────────────────────────────────
@@ -594,18 +912,21 @@ function speakWithWebSpeech(text, lang, { rate, volume, pitch }, onBoundary) {
   });
 }
 
-// ── Voice param slider wiring ────────────────────────────────────────────────
+// ── Voice param slider wiring (live apply while playing) ─────────────────────
 volumeRange?.addEventListener('input', () => {
   if (volumeLabel) volumeLabel.textContent = `${volumeRange.value}%`;
+  applyLiveVolume();
 });
 
 speedRange?.addEventListener('input', () => {
   if (speedLabel) speedLabel.textContent = `${(Number(speedRange.value) / 100).toFixed(2)}×`;
+  applyLiveSpeed();
 });
 
 pitchRange?.addEventListener('input', () => {
   const v = Number(pitchRange.value);
   if (pitchLabel) pitchLabel.textContent = v === 0 ? '±0' : (v > 0 ? `+${v}` : `${v}`);
+  applyLivePitch();
 });
 
 // ── Error dialog ─────────────────────────────────────────────────────────────
@@ -666,51 +987,54 @@ async function refreshModels() {
       ? `설치된 모델이 없습니다. 모델을 선택하고 다운로드 버튼을 누르세요. (${state.models.length}개 항목)`
       : `모델 ${state.models.length}개 중 ${downloadedCount}개가 설치되어 있습니다.`);
     await refreshVoiceList();
+    // Background-preload current model so first Speak is snappy (esp. Kokoro)
+    warmSelectedModel();
   } catch (error) {
     setPhase('error');
     showError(error);
   }
 }
 
-// ── Speak ────────────────────────────────────────────────────────────────────
-async function speakText() {
+function currentSynthKey() {
+  const text = textInput?.value ?? '';
+  const modelId = modelSelect?.value || '';
+  const voiceId = voiceSelect?.value || '';
+  // Speed/pitch are playback params — not part of synthesis key
+  return `${modelId}|${voiceId}|${text}`;
+}
+
+// ── Speak / synthesize ───────────────────────────────────────────────────────
+async function synthesizeCurrentText() {
+  const text = textInput?.value ?? '';
+  if (!text.trim()) {
+    throw new Error('읽을 텍스트를 입력하세요.');
+  }
+
+  const lang    = languageSelect?.value ?? 'ko-KR';
+  const rate    = Number(speedRange?.value ?? 100) / 100;
+  const modelId = modelSelect?.value || '';
+  const model   = state.models.find((m) => m.id === modelId);
+  const voiceId = voiceSelect?.value || '';
+
+  if (!window.ttsBridge) {
+    throw new Error('모델 합성은 Electron 앱에서만 지원됩니다.\nnpm start 로 실행하세요.');
+  }
+  if (!model) throw new Error('모델을 선택하세요.');
+  if (!model.downloaded) {
+    throw new Error(`${model.label} 모델이 설치되어 있지 않습니다.\n다운로드 후 다시 시도하세요.`);
+  }
+
+  stopPlayback();
+  window.speechSynthesis?.cancel();
+
+  state.synthesizing = true;
+  updateTransportButtons();
+  setPhase('speaking');
+  showStatus(`${model.label} 모델 합성 중...`);
+  // Do not draw a fake waveform while waiting — only show real PCM.
+  clearWaveform(`${model.label} 합성 중…`);
+
   try {
-    const text = textInput?.value ?? '';
-    if (!text.trim()) {
-      showError('읽을 텍스트를 입력하세요.');
-      return;
-    }
-
-    // Stop any in-progress playback
-    if (state.currentSource) {
-      try { state.currentSource.stop(); } catch { /**/ }
-      state.currentSource = null;
-    }
-    if (state.rafId) { cancelAnimationFrame(state.rafId); state.rafId = null; }
-    window.speechSynthesis?.cancel();
-
-    setPhase('speaking');
-
-    const lang    = languageSelect?.value ?? 'ko-KR';
-    const rate    = Number(speedRange?.value ?? 100) / 100;
-    const modelId = modelSelect?.value || '';
-    const model   = state.models.find((m) => m.id === modelId);
-    const voiceId = voiceSelect?.value || '';
-
-    if (!window.ttsBridge) {
-      throw new Error('모델 합성은 Electron 앱에서만 지원됩니다.\nnpm start 로 실행하세요.');
-    }
-    if (!model) {
-      throw new Error('모델을 선택하세요.');
-    }
-    if (!model.downloaded) {
-      throw new Error(`${model.label} 모델이 설치되어 있지 않습니다.\n다운로드 후 다시 시도하세요.`);
-    }
-
-    showStatus(`${model.label} 모델 합성 중...`);
-    const { samples: placeholder } = generateSpeechLikeWaveform(text, 22050, rate);
-    drawWaveform(placeholder, 22050);
-
     const result = await bridge.speak({
       text,
       modelId,
@@ -723,25 +1047,59 @@ async function speakText() {
       throw new Error(`${model.label} 합성 결과가 비어 있습니다.`);
     }
 
-    const audioF32 = Float32Array.from(result.audioBuffer);
     state.lastResult = {
       audioBuffer: result.audioBuffer,
       sampleRate: result.sampleRate,
       text,
     };
+    state.synthKey = currentSynthKey();
+    preparePcm(result.audioBuffer, result.sampleRate);
+    state.bufferOffsetSec = 0;
 
     const voiceLabel = voiceId
       ? `${model.label} · ${voiceSelect?.selectedOptions?.[0]?.textContent || voiceId}`
       : model.label;
     if (waveformVoiceLabel) waveformVoiceLabel.textContent = voiceLabel;
 
-    showStatus(`${model.label} 합성 완료, 재생 중...`);
-    await playAudioBuffer(audioF32, result.sampleRate);
-    setPhase('done');
-    showStatus('읽기 완료.');
-    setTimeout(() => setPhase('idle'), 2500);
+    return model;
   } catch (err) {
-    if (state.rafId) { cancelAnimationFrame(state.rafId); state.rafId = null; }
+    clearWaveform('합성에 실패했습니다. 다시 시도해 주세요.');
+    throw err;
+  } finally {
+    state.synthesizing = false;
+    updateTransportButtons();
+  }
+}
+
+async function speakText() {
+  try {
+    // Resume from pause without re-synthesize
+    if (state.playStatus === 'paused' && state.pcm?.length && state.synthKey === currentSynthKey()) {
+      const progress = getPlaybackProgress();
+      await startPlaybackFrom(progress >= 0.999 ? 0 : progress);
+      return;
+    }
+
+    // Same audio already loaded — play from start (or current if scrubbed)
+    if (state.pcm?.length && state.synthKey === currentSynthKey() && state.playStatus !== 'playing') {
+      const progress = getPlaybackProgress();
+      await startPlaybackFrom(progress >= 0.999 ? 0 : progress);
+      return;
+    }
+
+    // Already playing same clip → restart from beginning
+    if (state.playStatus === 'playing' && state.synthKey === currentSynthKey()) {
+      await startPlaybackFrom(0);
+      return;
+    }
+
+    const model = await synthesizeCurrentText();
+    showStatus(`${model.label} 합성 완료, 재생 중...`);
+    await startPlaybackFrom(0);
+  } catch (err) {
+    stopTransportAnimation();
+    state.synthesizing = false;
+    updateTransportButtons();
     setPhase('error');
     showError(err);
   }
@@ -750,7 +1108,9 @@ async function speakText() {
 // ── Save WAV ─────────────────────────────────────────────────────────────────
 async function saveWav() {
   try {
-    if (!state.lastResult) await speakText();
+    if (!state.lastResult?.audioBuffer?.length) {
+      await synthesizeCurrentText();
+    }
     const filePath = await bridge.selectWavPath();
     if (!filePath) { showStatus('WAV 저장이 취소되었습니다.'); return; }
     await bridge.exportWav({
@@ -822,6 +1182,7 @@ downloadModelBtn?.addEventListener('click', async () => {
       showStatus(`${model.label}은 이미 설치되어 있습니다.`);
     }
     await refreshModels();
+    await warmSelectedModel();
   } catch (error) {
     setPhase('error');
     setDownloadPhase(false);
@@ -832,8 +1193,11 @@ downloadModelBtn?.addEventListener('click', async () => {
   }
 });
 
-document.getElementById('speakText').addEventListener('click', speakText);
+speakBtn?.addEventListener('click', speakText);
+pauseBtn?.addEventListener('click', () => pausePlayback());
+stopBtn?.addEventListener('click', () => stopPlayback());
 document.getElementById('saveWav').addEventListener('click', saveWav);
+updateTransportButtons();
 
 languageSelect.addEventListener('change', () => {
   const model = state.models.find((m) => m.language === languageSelect.value);
@@ -841,6 +1205,18 @@ languageSelect.addEventListener('change', () => {
   updateStatusBarLanguage();
   refreshVoiceList();
 });
+
+async function warmSelectedModel() {
+  const model = state.models.find((m) => m.id === modelSelect?.value);
+  if (!model?.downloaded || !bridge.warmModel) return;
+  try {
+    showStatus(`${model.label} 엔진 준비 중...`);
+    await bridge.warmModel(model.id);
+    showStatus(`${model.label} 준비 완료. 읽기를 누르세요.`);
+  } catch (err) {
+    console.warn('[TTS] warm 실패:', err?.message || err);
+  }
+}
 
 modelSelect.addEventListener('change', () => {
   const model = state.models.find((m) => m.id === modelSelect.value);
@@ -850,6 +1226,7 @@ modelSelect.addEventListener('change', () => {
     showStatus(`${model.label}${desc} (미설치, 다운로드 버튼을 눌러 설치하세요)`);
   }
   refreshVoiceList();
+  warmSelectedModel();
 });
 
 voiceSelect?.addEventListener('change', () => {
@@ -862,17 +1239,133 @@ voiceSelect?.addEventListener('change', () => {
   }
 });
 
-// Waveform click to seek (visual only — actual audio seek not supported by Web Audio)
-waveformCanvas?.addEventListener('click', (e) => {
-  if (!state.waveformImageData || !state.lastResult) return;
-  const rect = waveformCanvas.getBoundingClientRect();
-  const progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  drawPlayheadAt(progress);
-  if (waveformCurrent && state.lastResult.audioBuffer) {
-    const duration = (state.lastResult.audioBuffer.length || 0) / state.lastResult.sampleRate;
-    waveformCurrent.textContent = formatTime(progress * duration);
+// Waveform scrub / seek (drag the red playhead)
+function onScrubPointerDown(e) {
+  if (!state.pcm?.length && !state.lastResult?.audioBuffer?.length) return;
+  if (!state.pcm?.length && state.lastResult?.audioBuffer) {
+    preparePcm(state.lastResult.audioBuffer, state.lastResult.sampleRate);
+  }
+  state.wasPlayingBeforeScrub = state.playStatus === 'playing';
+  state.scrubbing = true;
+  waveformCanvas.classList.add('scrubbing');
+  waveformCanvas.setPointerCapture?.(e.pointerId);
+  seekToProgress(canvasProgressFromEvent(e));
+  e.preventDefault();
+}
+
+function onScrubPointerMove(e) {
+  if (!state.scrubbing) return;
+  seekToProgress(canvasProgressFromEvent(e));
+  e.preventDefault();
+}
+
+function onScrubPointerUp(e) {
+  if (!state.scrubbing) return;
+  const progress = canvasProgressFromEvent(e);
+  state.scrubbing = false;
+  waveformCanvas.classList.remove('scrubbing');
+  try { waveformCanvas.releasePointerCapture?.(e.pointerId); } catch { /**/ }
+  seekToProgress(progress, { resumeIfWasPlaying: state.wasPlayingBeforeScrub });
+  state.wasPlayingBeforeScrub = false;
+}
+
+waveformCanvas?.addEventListener('pointerdown', onScrubPointerDown);
+waveformCanvas?.addEventListener('pointermove', onScrubPointerMove);
+waveformCanvas?.addEventListener('pointerup', onScrubPointerUp);
+waveformCanvas?.addEventListener('pointercancel', onScrubPointerUp);
+
+// ── Waveform context menu (right-click) ───────────────────────────────────────
+const waveformBody = document.getElementById('waveformBody');
+const waveformContextMenu = document.getElementById('waveformContextMenu');
+let ctxSeekProgress = 0;
+
+function hideWaveformContextMenu() {
+  if (!waveformContextMenu || waveformContextMenu.hidden) return;
+  waveformContextMenu.hidden = true;
+}
+
+function showWaveformContextMenu(clientX, clientY, progress) {
+  if (!waveformContextMenu) return;
+  ctxSeekProgress = progress;
+  updateTransportButtons();
+  waveformContextMenu.hidden = false;
+
+  const pad = 8;
+  const mw = waveformContextMenu.offsetWidth || 180;
+  const mh = waveformContextMenu.offsetHeight || 220;
+  let left = clientX;
+  let top = clientY;
+  if (left + mw > window.innerWidth - pad) left = window.innerWidth - mw - pad;
+  if (top + mh > window.innerHeight - pad) top = window.innerHeight - mh - pad;
+  if (left < pad) left = pad;
+  if (top < pad) top = pad;
+  waveformContextMenu.style.left = `${left}px`;
+  waveformContextMenu.style.top = `${top}px`;
+}
+
+function onWaveformContextMenu(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (state.scrubbing) return;
+
+  let progress = 0;
+  if (waveformCanvas) {
+    const rect = waveformCanvas.getBoundingClientRect();
+    progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
+  }
+  showWaveformContextMenu(e.clientX, e.clientY, progress);
+}
+
+waveformBody?.addEventListener('contextmenu', onWaveformContextMenu);
+waveformCanvas?.addEventListener('contextmenu', onWaveformContextMenu);
+
+waveformContextMenu?.addEventListener('click', async (e) => {
+  const item = e.target.closest('[data-action]');
+  if (!item || item.disabled) return;
+  const action = item.dataset.action;
+  hideWaveformContextMenu();
+
+  try {
+    if (action === 'play') await speakText();
+    else if (action === 'pause') pausePlayback();
+    else if (action === 'stop') stopPlayback();
+    else if (action === 'seek-here') {
+      const wasPlaying = state.playStatus === 'playing';
+      seekToProgress(ctxSeekProgress, { resumeIfWasPlaying: wasPlaying });
+    }
+    else if (action === 'seek-start') {
+      const wasPlaying = state.playStatus === 'playing';
+      seekToProgress(0, { resumeIfWasPlaying: wasPlaying });
+    }
+    else if (action === 'seek-end') {
+      const wasPlaying = state.playStatus === 'playing';
+      seekToProgress(0.999, { resumeIfWasPlaying: false });
+      if (wasPlaying) pausePlayback();
+      else {
+        state.playStatus = 'paused';
+        updateTransportButtons();
+      }
+    }
+    else if (action === 'save-wav') await saveWav();
+  } catch (err) {
+    showError(err);
   }
 });
 
+document.addEventListener('pointerdown', (e) => {
+  if (!waveformContextMenu || waveformContextMenu.hidden) return;
+  if (waveformContextMenu.contains(e.target)) return;
+  hideWaveformContextMenu();
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWaveformContextMenu();
+});
+
+window.addEventListener('blur', hideWaveformContextMenu);
+window.addEventListener('resize', hideWaveformContextMenu);
+window.addEventListener('scroll', hideWaveformContextMenu, true);
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 refreshModels();
+updateTransportButtons();

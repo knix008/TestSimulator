@@ -108,22 +108,28 @@ async function findFileByName(modelDir, names) {
 }
 
 async function loadVocab(modelDir) {
+  if (vocabCache.has(modelDir)) return vocabCache.get(modelDir);
+
+  let vocab = null;
   try {
     const raw = JSON.parse(await fs.readFile(path.join(modelDir, 'tokenizer.json'), 'utf-8'));
     if (Array.isArray(raw.model?.vocab)) {
-      const vocab = {};
+      vocab = {};
       raw.model.vocab.forEach(([tok], idx) => { vocab[tok] = idx; });
-      return vocab;
+    } else if (raw.model?.vocab && typeof raw.model.vocab === 'object') {
+      vocab = raw.model.vocab;
     }
-    if (raw.model?.vocab && typeof raw.model.vocab === 'object') return raw.model.vocab;
   } catch { /* continue */ }
 
-  try {
-    const raw = JSON.parse(await fs.readFile(path.join(modelDir, 'vocab.json'), 'utf-8'));
-    if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
-  } catch { /* continue */ }
+  if (!vocab) {
+    try {
+      const raw = JSON.parse(await fs.readFile(path.join(modelDir, 'vocab.json'), 'utf-8'));
+      if (typeof raw === 'object' && !Array.isArray(raw)) vocab = raw;
+    } catch { /* continue */ }
+  }
 
-  return null;
+  if (vocab) vocabCache.set(modelDir, vocab);
+  return vocab;
 }
 
 function tokenizeMms(text, vocab, vocabSize = 25) {
@@ -141,7 +147,10 @@ function tokenizeMms(text, vocab, vocabSize = 25) {
 // ── ONNX session cache ───────────────────────────────────────────────────────
 const sessionCache = new Map();
 const sherpaCache = new Map();
-let piperG2pPromise = null;
+const voiceBinCache = new Map();
+const vocabCache = new Map();
+let phonemizeFnPromise = null;
+let phonemizerWarmed = false;
 
 async function getOrt() {
   const mod = await import('onnxruntime-node');
@@ -162,14 +171,7 @@ async function getOrtSession(cacheKey, onnxPath) {
   return entry;
 }
 
-async function getKoreanG2p() {
-  if (!piperG2pPromise) {
-    piperG2pPromise = import('@piper-plus/g2p/ko').then((mod) => new mod.KoreanG2P());
-  }
-  return piperG2pPromise;
-}
-
-// ── Piper KSS ────────────────────────────────────────────────────────────────
+// ── Piper KSS (phoneme_type: pygoruut — must use goruut IPA, not KoreanG2P) ───
 async function synthesizePiper(text, modelId, modelDir, { speed = 1 } = {}) {
   const onnxPath = await findOnnxFile(modelDir, [
     'piper-kss-korean.onnx',
@@ -185,13 +187,21 @@ async function synthesizePiper(text, modelId, modelDir, { speed = 1 } = {}) {
   if (!configPath) throw new Error(`Piper 설정 파일 없음: ${modelDir}`);
 
   const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-  const { Encoder } = await import('@piper-plus/g2p/encode');
-  const g2p = await getKoreanG2p();
-  const phonemized = g2p.phonemize(text.trim());
-  const tokens = Array.isArray(phonemized) ? phonemized : (phonemized?.tokens || []);
-  if (!tokens.length) throw new Error('Piper 음소 변환 결과 없음');
+  const phonemeType = config.phoneme_type || 'pygoruut';
+  if (phonemeType !== 'pygoruut') {
+    console.warn(`[TTS] Piper phoneme_type=${phonemeType}; expected pygoruut`);
+  }
 
-  const encoder = new Encoder(config.phoneme_id_map || {});
+  const { phonemizeWithGoruut, ipaToPiperTokens } = await import('./goruutPhonemizer.js');
+  const { Encoder } = await import('@piper-plus/g2p/encode');
+
+  const langName = config.language?.code || config.espeak?.voice || 'Korean';
+  const ipa = await phonemizeWithGoruut(text.trim(), langName);
+  const idMap = config.phoneme_id_map || {};
+  const tokens = ipaToPiperTokens(ipa, idMap);
+  if (!tokens.length) throw new Error(`Piper 음소 변환 결과 없음 (ipa 길이=${ipa.length})`);
+
+  const encoder = new Encoder(idMap);
   const { phonemeIds } = encoder.encode(tokens);
   if (phonemeIds.length < 3) throw new Error('Piper phoneme ID 생성 실패');
 
@@ -207,7 +217,7 @@ async function synthesizePiper(text, modelId, modelDir, { speed = 1 } = {}) {
     ]), [3]),
   };
 
-  console.log(`[TTS] Piper 추론: tokens=${tokens.length} ids=${phonemeIds.length}`);
+  console.log(`[TTS] Piper(pygoruut) ipaChars=${[...ipa].length} tokens=${tokens.length} ids=${phonemeIds.length}`);
   const results = await session.run(feeds);
   const audio = results[session.outputNames[0]].data;
   return toResult(audio, config.audio?.sample_rate || 22050);
@@ -313,11 +323,68 @@ async function synthesizeMmsTts(text, modelId, modelDir) {
 }
 
 // ── Kokoro ───────────────────────────────────────────────────────────────────
+function prepareEnglishForPhonemizer(text) {
+  // espeak-ng has no ko_dict in the bundled Windows data path; Hangul triggers
+  // endless "Can't read dictionary file: '/usr/share/espeak-ng-data/ko_dict'".
+  // Romanize Hangul first so phonemizer stays on en-us only.
+  let out = '';
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      out += romanizeKorean(ch);
+    } else if (code >= 0x1100 && code <= 0x11FF) {
+      // skip raw jamo
+    } else {
+      out += ch;
+    }
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+async function getPhonemizeFn() {
+  if (!phonemizeFnPromise) {
+    phonemizeFnPromise = import('phonemizer').then((mod) => mod.phonemize);
+  }
+  return phonemizeFnPromise;
+}
+
 async function phonemizeEnglish(text) {
-  const { phonemize } = await import('phonemizer');
-  const result = await phonemize(text, 'en-us');
-  if (Array.isArray(result)) return result.join(' ');
-  return String(result || '');
+  const cleaned = prepareEnglishForPhonemizer(text);
+  if (!cleaned) return '';
+
+  const phonemize = await getPhonemizeFn();
+
+  // Mute espeak-ng's stderr spam (missing dict / voice warnings)
+  const stderrWrite = process.stderr.write.bind(process.stderr);
+  process.stderr.write = (chunk, encoding, cb) => {
+    const msg = typeof chunk === 'string' ? chunk : chunk?.toString?.() || '';
+    if (msg.includes("Can't read dictionary file") || msg.includes('espeak-ng-data')) {
+      if (typeof encoding === 'function') encoding();
+      else if (typeof cb === 'function') cb();
+      return true;
+    }
+    return stderrWrite(chunk, encoding, cb);
+  };
+
+  try {
+    const result = await phonemize(cleaned, 'en-us');
+    if (Array.isArray(result)) return result.join(' ');
+    return String(result || '');
+  } finally {
+    process.stderr.write = stderrWrite;
+  }
+}
+
+async function loadVoiceBin(voicePath) {
+  if (voiceBinCache.has(voicePath)) return voiceBinCache.get(voicePath);
+  const voiceBuf = await fs.readFile(voicePath);
+  const voices = new Float32Array(
+    voiceBuf.buffer,
+    voiceBuf.byteOffset,
+    Math.floor(voiceBuf.byteLength / 4),
+  );
+  voiceBinCache.set(voicePath, voices);
+  return voices;
 }
 
 async function synthesizeKokoro(text, modelId, modelDir, { voiceId = 'af_heart', speed = 1 } = {}) {
@@ -343,19 +410,21 @@ async function synthesizeKokoro(text, modelId, modelDir, { voiceId = 'af_heart',
   if (ids.length > 510) throw new Error(`Kokoro 입력 길이 초과 (${ids.length} > 510)`);
 
   const voiceName = String(voiceId || 'af_heart').replace(/\.bin$/i, '');
-  const voicePath = path.join(modelDir, 'voices', `${voiceName}.bin`);
-  let voiceBuf;
+  let voicePath = path.join(modelDir, 'voices', `${voiceName}.bin`);
   try {
-    voiceBuf = await fs.readFile(voicePath);
+    await fs.access(voicePath);
   } catch {
-    voiceBuf = await fs.readFile(path.join(modelDir, 'voices', 'af_heart.bin'));
+    voicePath = path.join(modelDir, 'voices', 'af_heart.bin');
   }
 
-  const voices = new Float32Array(voiceBuf.buffer, voiceBuf.byteOffset, Math.floor(voiceBuf.byteLength / 4));
+  const voices = await loadVoiceBin(voicePath);
   const styleDim = 256;
   const frames = Math.floor(voices.length / styleDim);
   const styleIndex = Math.min(ids.length, Math.max(0, frames - 1));
-  const style = voices.subarray(styleIndex * styleDim, styleIndex * styleDim + styleDim);
+  // Copy style vector so ORT owns a non-shared buffer
+  const style = Float32Array.from(
+    voices.subarray(styleIndex * styleDim, styleIndex * styleDim + styleDim),
+  );
 
   const padded = [0, ...ids, 0];
   const { session, ort } = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
@@ -410,6 +479,61 @@ export async function listModelVoices(modelId, store) {
   } catch {
     return [{ id: 'default', label: model?.label || modelId }];
   }
+}
+
+/**
+ * Preload heavy model pieces (ONNX session / phonemizer / sherpa) so the first
+ * Speak click does not freeze the UI for several seconds.
+ */
+export async function warmModel(modelId, store) {
+  if (!modelId) return { warmed: false };
+  const available = await store.ensureModelAvailable(modelId, null);
+  const modelDir = available.modelPath;
+  const catalog = await store.listModels();
+  const model = catalog.find((m) => m.id === modelId);
+  const runtime = model?.runtime || 'unknown';
+
+  if (modelId === 'en-kokoro' || runtime === 'onnx') {
+    const onnxPath = await findOnnxFile(modelDir, [
+      'onnx/model_quantized.onnx',
+      'onnx/model_q8f16.onnx',
+      'onnx/model.onnx',
+    ]);
+    if (onnxPath) await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+    await loadVocab(modelDir);
+    await loadVoiceBin(path.join(modelDir, 'voices', 'af_heart.bin')).catch(() => null);
+    if (!phonemizerWarmed) {
+      await phonemizeEnglish('Hello.');
+      phonemizerWarmed = true;
+    }
+    console.log(`[TTS] Kokoro warm complete: ${modelId}`);
+    return { warmed: true, modelId };
+  }
+
+  if (modelId === 'ko-piper-kss' || runtime === 'piper-onnx') {
+    const onnxPath = await findOnnxFile(modelDir, ['piper-kss-korean.onnx', 'model.onnx']);
+    if (onnxPath) await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+    const { warmGoruut } = await import('./goruutPhonemizer.js');
+    await warmGoruut();
+    return { warmed: true, modelId };
+  }
+
+  if (modelId === 'ko-mms-tts' || runtime === 'transformers-js') {
+    const onnxPath = await findOnnxFile(modelDir, [
+      'onnx/model.onnx',
+      'onnx/model_quantized.onnx',
+    ]);
+    if (onnxPath) await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+    await loadVocab(modelDir);
+    return { warmed: true, modelId };
+  }
+
+  if (modelId === 'ko-supertonic-int8' || runtime === 'sherpa-onnx') {
+    getSherpaTts(modelId, modelDir);
+    return { warmed: true, modelId };
+  }
+
+  return { warmed: false, modelId };
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
