@@ -112,7 +112,22 @@ export class SpaceExplorer {
     this.sprintMul = 1.85
     this.eyeHeight = 1.55
     this.exploring = false
+    this.contentMode = 'space'
+    this.orbitTarget = new THREE.Vector3(0, 1, 0)
+    this.orbitRadius = 4
+    this.orbitYaw = 0
+    this.orbitPitch = 0
+    this.orbitMinRadius = 1.2
+    this.orbitMaxRadius = 18
+    this.orbitQuat = new THREE.Quaternion()
+    this.orbitEuler = new THREE.Euler(0, 0, 0, 'YXZ')
+    this.orbitOffset = new THREE.Vector3(0, 0, 1)
+    /** @type {{ target: THREE.Vector3, radius: number, yaw: number, pitch: number, zoom: number } | null} */
+    this.initialOrbit = null
     this.dragging = false
+    this.dragButton = 0
+    this.dragDistance = 0
+    this.suppressContextMenuOnce = false
     this.pointerId = null
     this.currentTheme = 'dark'
 
@@ -121,7 +136,7 @@ export class SpaceExplorer {
       this.keys[e.code] = true
       if (!this.spaceMesh) return
 
-      if (MOVE_CODES.has(e.code) && this.exploring) {
+      if (MOVE_CODES.has(e.code) && (this.exploring || this.contentMode === 'object')) {
         e.preventDefault()
       }
 
@@ -150,18 +165,30 @@ export class SpaceExplorer {
       if (!this.spaceMesh) return
       if (e.button !== 0 && e.button !== 2) return
       this.dragging = true
+      this.dragButton = e.button
+      this.dragDistance = 0
       this.pointerId = e.pointerId
       this.canvas.setPointerCapture(e.pointerId)
       this.canvas.classList.add('is-looking')
       e.preventDefault()
-      if (!this.exploring) this.setExploring(true)
+      if (this.contentMode !== 'object' && !this.exploring) this.setExploring(true)
     }
     this._onPointerMove = (e) => {
       if (!this.dragging || !this.spaceMesh) return
+      this.dragDistance += Math.abs(e.movementX) + Math.abs(e.movementY)
+
+      if (this.contentMode === 'object' && this.dragButton === 2) {
+        this.panOrbitTarget(e.movementX, e.movementY)
+        if (this.dragDistance > 4) this.suppressContextMenuOnce = true
+        return
+      }
+
       this.yaw -= e.movementX * this.lookSensitivity
       this.pitch -= e.movementY * this.lookSensitivity
-      const limit = Math.PI / 2 - 0.08
-      this.pitch = THREE.MathUtils.clamp(this.pitch, -limit, limit)
+      if (this.contentMode !== 'object') {
+        const limit = Math.PI / 2 - 0.08
+        this.pitch = THREE.MathUtils.clamp(this.pitch, -limit, limit)
+      }
       this.applyLook()
     }
     this._onPointerUp = (e) => {
@@ -169,7 +196,13 @@ export class SpaceExplorer {
       this.endDrag()
     }
     this._onLostCapture = () => this.endDrag()
-    this._onContextMenu = (e) => e.preventDefault()
+    this._onContextMenu = (e) => {
+      e.preventDefault()
+      if (this.suppressContextMenuOnce) {
+        this.suppressContextMenuOnce = false
+        e.stopPropagation()
+      }
+    }
     this._onWheel = (e) => {
       if (!this.spaceMesh) return
       e.preventDefault()
@@ -238,11 +271,17 @@ export class SpaceExplorer {
       }
     }
     this.dragging = false
+    this.dragButton = 0
+    this.dragDistance = 0
     this.pointerId = null
     this.canvas.classList.remove('is-looking')
   }
 
   applyLook() {
+    if (this.contentMode === 'object') {
+      this.updateOrbitCamera()
+      return
+    }
     this.camera.rotation.y = this.yaw
     this.camera.rotation.x = this.pitch
     this.camera.rotation.z = 0
@@ -296,6 +335,13 @@ export class SpaceExplorer {
       pitch: this.pitch,
       zoom: this.zoom
     }
+    this.initialOrbit = {
+      target: this.orbitTarget.clone(),
+      radius: this.orbitRadius,
+      yaw: this.orbitYaw,
+      pitch: this.orbitPitch,
+      zoom: this.zoom
+    }
   }
 
   /**
@@ -304,6 +350,20 @@ export class SpaceExplorer {
    */
   resetView() {
     if (!this.initialPose && !this.spawn) return false
+
+    if (this.contentMode === 'object' && this.initialOrbit) {
+      this.orbitTarget.copy(this.initialOrbit.target)
+      this.orbitRadius = this.initialOrbit.radius
+      this.orbitYaw = this.initialOrbit.yaw
+      this.orbitPitch = this.initialOrbit.pitch
+      this.yaw = this.orbitYaw
+      this.pitch = this.orbitPitch
+      this.applyLook()
+      this.setZoom(this.initialOrbit.zoom)
+      this.keys = Object.create(null)
+      this.setExploring(false)
+      return true
+    }
 
     if (this.initialPose) {
       this.camera.position.copy(this.initialPose.position)
@@ -392,6 +452,7 @@ export class SpaceExplorer {
     this.bounds = space.bounds
     this.spawn = space.spawn.clone()
     this.walkBounds = buildWalkBounds(space.bounds, space.spawn)
+    this.contentMode = space.mode === 'object' ? 'object' : 'space'
     this.scene.add(this.spaceMesh)
     if (this.enclosure) this.scene.add(this.enclosure)
 
@@ -408,13 +469,39 @@ export class SpaceExplorer {
       }
     })
 
-    this.camera.position.copy(space.spawn)
-    this.camera.lookAt(0, space.spawn.y, space.spawn.z - 6)
-    this.syncEulerFromCamera()
+    if (this.contentMode === 'object') {
+      const center = space.bounds.getCenter(new THREE.Vector3())
+      const size = space.bounds.getSize(new THREE.Vector3())
+      this.orbitTarget.copy(center)
+      this.orbitTarget.y = Math.max(this.floorY + 0.8, center.y)
+
+      const spawnOffset = space.spawn.clone().sub(this.orbitTarget)
+      const span = Math.max(size.x, size.y, size.z, 1)
+      const defaultRadius = THREE.MathUtils.clamp(span * 1.9, 2.2, 9.5)
+      this.orbitRadius = THREE.MathUtils.clamp(
+        spawnOffset.length() > 0.2 ? spawnOffset.length() : defaultRadius,
+        this.orbitMinRadius,
+        this.orbitMaxRadius
+      )
+
+      this.orbitYaw = Math.atan2(spawnOffset.x || 0, spawnOffset.z || 1)
+      this.orbitPitch = Math.asin(
+        THREE.MathUtils.clamp((spawnOffset.y || 0) / Math.max(1e-6, this.orbitRadius), -1, 1)
+      )
+
+      this.yaw = this.orbitYaw
+      this.pitch = this.orbitPitch
+      this.applyLook()
+      this.setExploring(false)
+    } else {
+      this.camera.position.copy(space.spawn)
+      this.camera.lookAt(0, space.spawn.y, space.spawn.z - 6)
+      this.syncEulerFromCamera()
+      this.setExploring(true)
+    }
     this.resetZoom()
     this.captureInitialPose()
     this.keys = Object.create(null)
-    this.setExploring(true)
     this.setVisualTheme(this.currentTheme)
   }
 
@@ -434,7 +521,38 @@ export class SpaceExplorer {
   }
 
   updateMovement(dt) {
-    if (!this.exploring || !this.spaceMesh) return
+    if (!this.spaceMesh) return
+
+    if (this.contentMode === 'object') {
+      let rotated = false
+      if (this.keys.KeyQ || this.keys.ArrowLeft) {
+        this.orbitYaw += this.turnSpeed * dt
+        rotated = true
+      }
+      if (this.keys.KeyE || this.keys.ArrowRight) {
+        this.orbitYaw -= this.turnSpeed * dt
+        rotated = true
+      }
+      if (this.keys.KeyW || this.keys.ArrowUp) {
+        this.orbitPitch += this.turnSpeed * dt * 0.72
+        rotated = true
+      }
+      if (this.keys.KeyS || this.keys.ArrowDown) {
+        this.orbitPitch -= this.turnSpeed * dt * 0.72
+        rotated = true
+      }
+
+      if (rotated) {
+        this.orbitYaw = wrapAngle(this.orbitYaw)
+        this.orbitPitch = wrapAngle(this.orbitPitch)
+        this.yaw = this.orbitYaw
+        this.pitch = this.orbitPitch
+        this.applyLook()
+      }
+      return
+    }
+
+    if (!this.exploring) return
 
     // Keyboard look (person turning in place).
     if (this.keys.KeyQ || this.keys.ArrowLeft) this.yaw += this.turnSpeed * dt
@@ -476,6 +594,34 @@ export class SpaceExplorer {
     this.camera.position.copy(next)
   }
 
+  updateOrbitCamera() {
+    this.orbitYaw = this.yaw
+    this.orbitPitch = this.pitch
+    this.orbitEuler.set(this.orbitPitch, this.orbitYaw, 0)
+    this.orbitQuat.setFromEuler(this.orbitEuler)
+
+    this.orbitOffset.set(0, 0, this.orbitRadius).applyQuaternion(this.orbitQuat)
+    this.camera.position.copy(this.orbitTarget).add(this.orbitOffset)
+    this.camera.quaternion.copy(this.orbitQuat)
+  }
+
+  /**
+   * Pan object orbit target with right-drag while preserving camera distance.
+   * @param {number} dx
+   * @param {number} dy
+   */
+  panOrbitTarget(dx, dy) {
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize()
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion).normalize()
+
+    const panScale = Math.max(0.0008, this.orbitRadius * 0.0012)
+    this.orbitTarget
+      .addScaledVector(right, -dx * panScale)
+      .addScaledVector(up, dy * panScale)
+
+    this.updateOrbitCamera()
+  }
+
   /**
    * Soft walk envelope — photo mesh is not a solid room, so avoid hard raycast walls
    * that freeze the camera against the depth surface.
@@ -512,6 +658,12 @@ export class SpaceExplorer {
     this.renderer.setAnimationLoop(null)
     this.renderer.dispose()
   }
+}
+
+function wrapAngle(rad) {
+  const twoPi = Math.PI * 2
+  if (!Number.isFinite(rad)) return 0
+  return ((((rad + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI
 }
 
 /**

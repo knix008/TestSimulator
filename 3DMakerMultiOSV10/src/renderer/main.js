@@ -37,6 +37,11 @@ const previewWrap = document.getElementById('previewWrap')
 const buildBtn = document.getElementById('buildBtn')
 const depthScaleEl = document.getElementById('depthScale')
 const depthScaleValueEl = document.getElementById('depthScaleValue')
+const bgRemovalModeGroupEl = document.getElementById('bgRemovalModeGroup')
+const bgRemovalModeEl = document.getElementById('bgRemovalMode')
+const alphaThresholdGroupEl = document.getElementById('alphaThresholdGroup')
+const alphaThresholdEl = document.getElementById('alphaThreshold')
+const alphaThresholdValueEl = document.getElementById('alphaThresholdValue')
 const meshResEl = document.getElementById('meshRes')
 const modelSelectEl = document.getElementById('modelSelect')
 const outputModeSelectEl = document.getElementById('outputModeSelect')
@@ -67,7 +72,107 @@ const lastModelByMode = {
   space: DEFAULT_MODEL_ID,
   object: DEFAULT_OBJECT_MODEL_ID
 }
+const ALPHA_THRESHOLD_STORAGE_KEY = 'space-maker.object.alpha-threshold'
+const BG_REMOVAL_MODE_STORAGE_KEY = 'space-maker.object.bg-removal-mode'
 const explorer = new SpaceExplorer(canvas)
+const runtimeBenchByModel = new Map()
+const runtimeBenchHistoryByModel = new Map()
+const BENCH_HISTORY_LIMIT = 12
+const BENCH_RECENT_WINDOW = 5
+let objectAlphaThresholdPct = 0.5
+let objectBgRemovalMode = 'auto'
+
+function nowMs() {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now()
+}
+
+function modelBenchKey(mode, modelId) {
+  return `${mode}:${modelId}`
+}
+
+function clamp01(v) {
+  return Math.min(1, Math.max(0, v))
+}
+
+function pushRuntimeBenchHistory(mode, modelId, sample) {
+  const key = modelBenchKey(mode, modelId)
+  const history = runtimeBenchHistoryByModel.get(key) || []
+  history.push(sample)
+  if (history.length > BENCH_HISTORY_LIMIT) {
+    history.splice(0, history.length - BENCH_HISTORY_LIMIT)
+  }
+  runtimeBenchHistoryByModel.set(key, history)
+}
+
+function summarizeRuntimeBench(history, recentWindow = BENCH_RECENT_WINDOW) {
+  if (!Array.isArray(history) || history.length === 0) return null
+  const recent = history.slice(-Math.max(1, recentWindow))
+  let latTotal = 0
+  let edgeTotal = 0
+  let latMin = Infinity
+  let latMax = -Infinity
+  let edgeMin = Infinity
+  let edgeMax = -Infinity
+
+  for (const item of recent) {
+    latTotal += item.latencyMs
+    edgeTotal += item.edgeScore
+    latMin = Math.min(latMin, item.latencyMs)
+    latMax = Math.max(latMax, item.latencyMs)
+    edgeMin = Math.min(edgeMin, item.edgeScore)
+    edgeMax = Math.max(edgeMax, item.edgeScore)
+  }
+
+  return {
+    count: recent.length,
+    avgLatencyMs: Math.round(latTotal / recent.length),
+    minLatencyMs: Math.round(latMin),
+    maxLatencyMs: Math.round(latMax),
+    avgEdgeScore: Math.round(edgeTotal / recent.length),
+    minEdgeScore: Math.round(edgeMin),
+    maxEdgeScore: Math.round(edgeMax)
+  }
+}
+
+function computeDepthEdgeScore(depth) {
+  const data = depth?.data
+  const width = depth?.width || 0
+  const height = depth?.height || 0
+  if (!data || width < 2 || height < 2) return 0
+
+  let min = Infinity
+  let max = -Infinity
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i]
+    if (v < min) min = v
+    if (v > max) max = v
+  }
+  const range = Math.max(1e-6, max - min)
+
+  const step = Math.max(1, Math.floor(Math.sqrt((width * height) / 90000)))
+  let sum = 0
+  let count = 0
+
+  for (let y = 0; y < height - step; y += step) {
+    for (let x = 0; x < width - step; x += step) {
+      const i = y * width + x
+      const r = i + step
+      const d = i + step * width
+
+      const v = (data[i] - min) / range
+      const vr = (data[r] - min) / range
+      const vd = (data[d] - min) / range
+
+      const grad = Math.abs(vr - v) + Math.abs(vd - v)
+      sum += grad
+      count++
+    }
+  }
+
+  if (!count) return 0
+  const meanGrad = sum / count
+  return Math.round(clamp01(meanGrad * 11.5) * 100)
+}
 
 function setStatus(text, kind = '') {
   statusEl.textContent = text
@@ -234,14 +339,18 @@ bindViewportToolbar(explorer, {
 function refreshLocalizedUi() {
   applyDocumentTranslations()
   updateBuildButtonLabels()
+  updateAlphaThresholdVisibility()
   populateModels()
   updateDepthScaleLabel()
+  updateAlphaThresholdLabel()
   if (!current && previewWrap.classList.contains('empty')) {
     previewWrap.textContent = t('menu.preview.empty')
   }
   if (!current) {
     overlayEl.innerHTML = t('overlay.ready')
     setStatus(t('status.idle'))
+  } else if (explorer.spaceMesh && !hudEl.hidden) {
+    renderHud(selectedModel())
   }
 }
 
@@ -274,6 +383,53 @@ function tierLabel(tier) {
 
 async function updateModelInfo() {
   const model = getModelById(modelSelectEl.value)
+  const benchKey = modelBenchKey(currentMode, model.id)
+  const runtimeBench = runtimeBenchByModel.get(benchKey)
+  const runtimeHistory = runtimeBenchHistoryByModel.get(benchKey) || []
+  const runtimeStats = summarizeRuntimeBench(runtimeHistory)
+  const bench = runtimeBench || model.benchmark
+  const benchSourceText = runtimeBench
+    ? t('model.benchmark.measured')
+    : t('model.benchmark.referenceTag')
+  const benchNoteText = runtimeBench
+    ? t('model.benchmark.measuredNote', {
+        depth: runtimeBench.depthMs,
+        mesh: runtimeBench.meshMs
+      })
+    : t('model.benchmark.reference')
+
+  const recentStatsRows = runtimeStats
+    ? `
+      <div class="model-info__bench-row"><span>${t('model.benchmark.recentWindow', { count: runtimeStats.count })}</span><strong>${t('model.benchmark.recentLabel')}</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.avgLatency')}</span><strong>${runtimeStats.avgLatencyMs} ms</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.minLatency')}</span><strong>${runtimeStats.minLatencyMs} ms</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.maxLatency')}</span><strong>${runtimeStats.maxLatencyMs} ms</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.avgEdge')}</span><strong>${runtimeStats.avgEdgeScore}/100</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.minEdge')}</span><strong>${runtimeStats.minEdgeScore}/100</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.maxEdge')}</span><strong>${runtimeStats.maxEdgeScore}/100</strong></div>
+    `
+    : ''
+
+  const tierBadgeKey =
+    model.tier === 'fast'
+      ? 'model.badge.fast'
+      : model.tier === 'quality'
+        ? 'model.badge.quality'
+        : 'model.badge.balanced'
+  const badgeLabels = [t(tierBadgeKey)]
+  if (Array.isArray(model.recommendedFor) && model.recommendedFor.includes(currentMode)) {
+    badgeLabels.push(
+      currentMode === 'object'
+        ? t('model.badge.recommendedObject')
+        : t('model.badge.recommendedSpace')
+    )
+  }
+  if (model.usePolicy === 'non-commercial') badgeLabels.push(t('model.badge.nonCommercial'))
+
+  const badgesHtml = badgeLabels
+    .map((label) => `<span class="model-info__badge">${label}</span>`)
+    .join('')
+
   let cacheLine =
     `<div class="model-info__cache model-info__cache--unknown">${t('model.cache.checking')}</div>`
 
@@ -293,8 +449,20 @@ async function updateModelInfo() {
   modelInfoEl.innerHTML = `
     <div class="model-info__title">${model.name}</div>
     <div class="model-info__meta">${model.family} · ${tierLabel(model.tier)} · ${model.sizeHint}</div>
+    <div class="model-info__badges">${badgesHtml}</div>
     ${cacheLine}
     <p class="model-info__desc">${model.description}</p>
+    <div class="model-info__kv"><strong>${t('model.license')}:</strong> ${model.license}</div>
+    <div class="model-info__kv"><strong>${t('model.policy')}:</strong> ${t('model.policy.nonCommercial')}</div>
+    <div class="model-info__bench">
+      <div class="model-info__bench-title">${t('model.benchmark.title')}</div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.source')}</span><strong>${benchSourceText}</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.sample')}</span><strong>${bench.sample}</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.latency')}</span><strong>${bench.latencyMs} ms</strong></div>
+      <div class="model-info__bench-row"><span>${t('model.benchmark.edge')}</span><strong>${bench.edgeScore}/100</strong></div>
+      ${recentStatsRows}
+      <div class="model-info__bench-note">${benchNoteText}</div>
+    </div>
     <div class="model-info__id" title="${model.id}">${t('model.id')}: ${model.id}</div>
   `
 }
@@ -305,6 +473,41 @@ function selectedModel() {
 
 function selectedModeLabel() {
   return currentMode === 'object' ? t('mode.object') : t('mode.space')
+}
+
+function selectedHudControlsHint() {
+  return currentMode === 'object' ? t('hud.controls.object') : t('hud.controls.space')
+}
+
+function selectedBgRemovalLabel() {
+  if (objectBgRemovalMode === 'on') return t('bgRemoval.on')
+  if (objectBgRemovalMode === 'off') return t('bgRemoval.off')
+  return t('bgRemoval.auto')
+}
+
+/**
+ * @param {import('./depth/models.js').DepthModelInfo} model
+ */
+function renderHud(model) {
+  const bgRemovalRow =
+    currentMode === 'object'
+      ? `<span>${t('hud.bgRemoval')}: ${selectedBgRemovalLabel()}</span><br />`
+      : ''
+
+  hudEl.innerHTML = `
+      <strong>${t('hud.model')}</strong><br />
+      <span>${selectedModeLabel()}</span><br />
+      ${model.name}<br />
+      <span>${model.family} · ${tierLabel(model.tier)} · ${model.sizeHint}</span><br />
+      ${bgRemovalRow}
+      <span>${selectedHudControlsHint()}</span>
+    `
+}
+
+function tByMode(baseKey, params) {
+  const keyed = `${baseKey}.${currentMode}`
+  const resolved = t(keyed, params)
+  return resolved === keyed ? t(baseKey, params) : resolved
 }
 
 /**
@@ -332,6 +535,33 @@ function updateDepthScaleLabel() {
   depthScaleEl.title = t('title.depthScale', { percent: pct })
 }
 
+function clampAlphaThresholdPct(value) {
+  if (!Number.isFinite(value)) return 0.5
+  return Math.min(5.0, Math.max(0.1, value))
+}
+
+function normalizeBgRemovalMode(value) {
+  const v = String(value || '').toLowerCase()
+  if (v === 'on' || v === 'off') return v
+  return 'auto'
+}
+
+function updateAlphaThresholdVisibility() {
+  const isObjectMode = currentMode === 'object'
+  const isAuto = objectBgRemovalMode === 'auto'
+  if (bgRemovalModeGroupEl) bgRemovalModeGroupEl.hidden = !isObjectMode
+  if (bgRemovalModeEl) bgRemovalModeEl.disabled = !isObjectMode
+  if (alphaThresholdGroupEl) alphaThresholdGroupEl.hidden = !isObjectMode || !isAuto
+  if (alphaThresholdEl) alphaThresholdEl.disabled = !isObjectMode || !isAuto
+}
+
+function updateAlphaThresholdLabel() {
+  const pct = Number(objectAlphaThresholdPct.toFixed(1))
+  alphaThresholdValueEl.textContent = `${pct}%`
+  alphaThresholdEl.setAttribute('aria-valuetext', t('aria.alphaThreshold', { percent: pct }))
+  alphaThresholdEl.title = t('title.alphaThreshold', { percent: pct })
+}
+
 initUiPreferences()
 
 if (langSelectEl) {
@@ -353,7 +583,14 @@ if (outputModeSelectEl) {
   outputModeSelectEl.value = currentMode
   outputModeSelectEl.addEventListener('change', () => {
     currentMode = outputModeSelectEl.value === 'object' ? 'object' : 'space'
+    updateAlphaThresholdVisibility()
     populateModels()
+    updateBuildButtonLabels()
+    if (current) {
+      overlayEl.innerHTML = t(
+        currentMode === 'object' ? 'overlay.buildHintObject' : 'overlay.buildHint'
+      )
+    }
     const modeLabel = selectedModeLabel()
     if (current) {
       setStatus(t('status.modeChangedReady', { mode: modeLabel }), 'ok')
@@ -425,6 +662,31 @@ modelSelectEl.addEventListener('change', () => {
 })
 updateDepthScaleLabel()
 depthScaleEl.addEventListener('input', updateDepthScaleLabel)
+
+{
+  const savedMode = localStorage.getItem(BG_REMOVAL_MODE_STORAGE_KEY)
+  objectBgRemovalMode = normalizeBgRemovalMode(savedMode)
+  bgRemovalModeEl.value = objectBgRemovalMode
+
+  bgRemovalModeEl.addEventListener('change', () => {
+    objectBgRemovalMode = normalizeBgRemovalMode(bgRemovalModeEl.value)
+    localStorage.setItem(BG_REMOVAL_MODE_STORAGE_KEY, objectBgRemovalMode)
+    updateAlphaThresholdVisibility()
+    if (explorer.spaceMesh && !hudEl.hidden) renderHud(selectedModel())
+  })
+
+  const saved = Number(localStorage.getItem(ALPHA_THRESHOLD_STORAGE_KEY))
+  objectAlphaThresholdPct = clampAlphaThresholdPct(saved)
+  alphaThresholdEl.value = String(objectAlphaThresholdPct)
+  updateAlphaThresholdVisibility()
+  updateAlphaThresholdLabel()
+  alphaThresholdEl.addEventListener('input', () => {
+    objectAlphaThresholdPct = clampAlphaThresholdPct(Number(alphaThresholdEl.value))
+    localStorage.setItem(ALPHA_THRESHOLD_STORAGE_KEY, String(objectAlphaThresholdPct))
+    updateAlphaThresholdLabel()
+  })
+}
+
 refreshLocalizedUi()
 syncMenuBuildButton()
 
@@ -486,13 +748,14 @@ buildBtn.addEventListener('click', async () => {
     model: `${modeLabel} · ${model.shortName}`
   })
   setStatus(t('status.start', { summary: formatModelSummary(model) }))
-  showProgressDialog({ title: t('dialog.progress.building', { model: model.shortName }) })
+  showProgressDialog({ title: tByMode('dialog.progress.building', { model: model.shortName }) })
   updateProgressDialog(t('status.start', { summary: formatModelSummary(model) }), 3)
 
   try {
     updateProgressDialog(t('status.depthBackground', { model: model.shortName }), 8)
     await yieldToUi()
 
+    const depthStartedAt = nowMs()
     const depth = await estimateDepth(
       current.depthImage,
       (msg) => {
@@ -513,19 +776,23 @@ buildBtn.addEventListener('click', async () => {
       },
       model.id
     )
+    const depthMs = Math.round(nowMs() - depthStartedAt)
 
-    updateProgressDialog(t('status.meshBuilding'), 88)
-    setStatus(t('status.meshBuilding'))
-    overlayEl.textContent = t('status.meshBuilding')
+    updateProgressDialog(tByMode('status.meshBuilding'), 88)
+    setStatus(tByMode('status.meshBuilding'))
+    overlayEl.textContent = tByMode('status.meshBuilding')
     await yieldToUi()
 
+    const meshStartedAt = nowMs()
     const space = await new Promise((resolve, reject) => {
       setTimeout(() => {
         try {
           const options = {
             meshRes: Number(meshResEl.value),
             depthScale: Number(depthScaleEl.value),
-            maxAnisotropy: explorer.renderer.capabilities.getMaxAnisotropy()
+            maxAnisotropy: explorer.renderer.capabilities.getMaxAnisotropy(),
+            transparentBgThreshold: objectAlphaThresholdPct / 100,
+            backgroundRemovalMode: objectBgRemovalMode
           }
           resolve(
             currentMode === 'object'
@@ -537,7 +804,25 @@ buildBtn.addEventListener('click', async () => {
         }
       }, 0)
     })
-    updateProgressDialog(t('status.scenePlacing'), 96)
+    const meshMs = Math.round(nowMs() - meshStartedAt)
+    const edgeScore = computeDepthEdgeScore(depth)
+    runtimeBenchByModel.set(modelBenchKey(currentMode, model.id), {
+      sample: current?.file?.name || current?.label || 'current-image',
+      latencyMs: depthMs + meshMs,
+      edgeScore,
+      depthMs,
+      meshMs
+    })
+    pushRuntimeBenchHistory(currentMode, model.id, {
+      sample: current?.file?.name || current?.label || 'current-image',
+      latencyMs: depthMs + meshMs,
+      edgeScore,
+      depthMs,
+      meshMs,
+      createdAt: Date.now()
+    })
+
+    updateProgressDialog(tByMode('status.scenePlacing'), 96)
     await yieldToUi()
 
     explorer.setSpace(space)
@@ -548,12 +833,7 @@ buildBtn.addEventListener('click', async () => {
     overlayEl.classList.add('hidden')
     crosshairEl.hidden = false
     hudEl.hidden = false
-    hudEl.innerHTML = `
-      <strong>${t('hud.model')}</strong><br />
-      <span>${selectedModeLabel()}</span><br />
-      ${model.name}<br />
-      <span>${model.family} · ${tierLabel(model.tier)} · ${model.sizeHint}</span>
-    `
+    renderHud(model)
     setStatus(
       t('status.completed', { model: model.shortName }),
       'ok'

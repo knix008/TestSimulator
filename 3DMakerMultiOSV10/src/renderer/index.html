@@ -17,10 +17,6 @@
             <span class="btn-content"><span class="menu-icon" aria-hidden="true">🖼</span><span data-i18n="menu.image.select">이미지 선택</span></span>
           </button>
           <label class="menu-item menu-item-select">
-            <span class="btn-content"><span class="menu-icon" aria-hidden="true">🧠</span><span data-i18n="menu.model">깊이 모델</span></span>
-            <select id="modelSelect"></select>
-          </label>
-          <label class="menu-item menu-item-select">
             <span class="btn-content"><span class="menu-icon" aria-hidden="true">🛠</span><span data-i18n="menu.mode">생성 모드</span></span>
             <select id="outputModeSelect">
               <option value="space" data-i18n="mode.space">공간</option>
@@ -28,11 +24,8 @@
             </select>
           </label>
           <label class="menu-item menu-item-select">
-            <span class="btn-content"><span class="menu-icon" aria-hidden="true">🌐</span><span data-i18n="menu.language">언어</span></span>
-            <select id="langSelect">
-              <option value="ko" data-i18n="lang.ko">한국어</option>
-              <option value="en" data-i18n="lang.en">영어</option>
-            </select>
+            <span class="btn-content"><span class="menu-icon" aria-hidden="true">🧠</span><span data-i18n="menu.model">깊이 모델</span></span>
+            <select id="modelSelect"></select>
           </label>
           <label class="menu-item menu-item-select">
             <span class="btn-content"><span class="menu-icon" aria-hidden="true">🌓</span><span data-i18n="menu.theme">테마</span></span>
@@ -44,6 +37,13 @@
           <button id="menuBuildBtn" type="button" class="menu-item menu-item-primary">
             <span class="btn-content"><span class="menu-icon" aria-hidden="true">🚀</span><span id="menuBuildLabel">3D 공간 생성</span></span>
           </button>
+          <label class="menu-item menu-item-select">
+            <span class="btn-content"><span class="menu-icon" aria-hidden="true">🌐</span><span data-i18n="menu.language">언어</span></span>
+            <select id="langSelect">
+              <option value="ko" data-i18n="lang.ko">한국어</option>
+              <option value="en" data-i18n="lang.en">영어</option>
+            </select>
+          </label>
         </div>
         <div class="menubar-group menubar-group-right" role="group" aria-label="앱 정보">
           <button id="menuAboutBtn" type="button" class="menu-item">
@@ -82,6 +82,21 @@
                 <span id="depthScaleValue" class="slider-value">180%</span>
               </span>
               <input id="depthScale" type="range" min="0.8" max="3.2" step="0.05" value="1.8" />
+            </label>
+            <label id="bgRemovalModeGroup" class="menu-label">
+              <span class="label-inline"><span class="menu-icon" aria-hidden="true">✂️</span><span data-i18n="menu.bgRemoval">배경 제거</span></span>
+              <select id="bgRemovalMode">
+                <option value="auto" data-i18n="bgRemoval.auto">자동</option>
+                <option value="on" data-i18n="bgRemoval.on">항상 제거</option>
+                <option value="off" data-i18n="bgRemoval.off">제거 안 함</option>
+              </select>
+            </label>
+            <label id="alphaThresholdGroup" class="slider-label">
+              <span class="slider-label__row">
+                <span class="label-inline"><span class="menu-icon" aria-hidden="true">🫥</span><span data-i18n="menu.alphaThreshold">투명 배경 감지</span></span>
+                <span id="alphaThresholdValue" class="slider-value">0.5%</span>
+              </span>
+              <input id="alphaThreshold" type="range" min="0.1" max="5.0" step="0.1" value="0.5" />
             </label>
             <label class="menu-label">
               <span class="label-inline"><span class="menu-icon" aria-hidden="true">🧩</span><span data-i18n="menu.meshRes">메시 해상도</span></span>

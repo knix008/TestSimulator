@@ -5,12 +5,18 @@ import * as THREE from 'three'
  *
  * @param {CanvasImageSource & { width: number, height: number, naturalWidth?: number, naturalHeight?: number }} image
  * @param {{ width: number, height: number, data: Float32Array }} depthMap
- * @param {{ meshRes?: number, depthScale?: number, maxAnisotropy?: number }} options
+ * @param {{ meshRes?: number, depthScale?: number, maxAnisotropy?: number, transparentBgThreshold?: number, backgroundRemovalMode?: 'auto'|'on'|'off'|string }} options
  */
 export function buildObjectFromDepth(image, depthMap, options = {}) {
   const meshRes = options.meshRes ?? 320
   const depthScale = options.depthScale ?? 1.6
   const maxAnisotropy = options.maxAnisotropy ?? 8
+  const transparentBgThreshold = THREE.MathUtils.clamp(
+    Number(options.transparentBgThreshold ?? 0.005),
+    0.001,
+    0.2
+  )
+  const bgRemovalMode = normalizeBgRemovalMode(options.backgroundRemovalMode)
 
   const { width: dw, height: dh, data } = depthMap
   const imgW = image.naturalWidth || image.width
@@ -25,7 +31,10 @@ export function buildObjectFromDepth(image, depthMap, options = {}) {
 
   if (shouldInvertForObject(depths, cols, rows)) invertDepthInPlace(depths)
 
-  const fgMask = computeForegroundMask(depths, cols, rows)
+  const keepSourceAlpha =
+    bgRemovalMode === 'off' ||
+    (bgRemovalMode === 'auto' && hasMeaningfulTransparency(image, transparentBgThreshold))
+  const fgMask = keepSourceAlpha ? null : computeForegroundMask(depths, cols, rows)
 
   for (let i = 0; i < depths.length; i++) {
     depths[i] = Math.pow(depths[i], 0.78)
@@ -57,14 +66,18 @@ export function buildObjectFromDepth(image, depthMap, options = {}) {
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
   geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
-  geometry.setIndex(buildForegroundIndices(cols, rows, fgMask, 0.16))
+  geometry.setIndex(
+    keepSourceAlpha
+      ? buildFullIndices(cols, rows)
+      : buildForegroundIndices(cols, rows, fgMask, 0.16)
+  )
   geometry.computeVertexNormals()
 
   const boxPre = new THREE.Box3().setFromBufferAttribute(geometry.getAttribute('position'))
   geometry.translate(0, -boxPre.min.y, 0)
   geometry.computeBoundingBox()
 
-  const maskedImage = makeMaskedImageCanvas(image, fgMask, cols, rows)
+  const maskedImage = keepSourceAlpha ? image : makeMaskedImageCanvas(image, fgMask, cols, rows)
   const texture = createPhotoTexture(maskedImage, maxAnisotropy)
   const material = new THREE.MeshStandardMaterial({
     map: texture,
@@ -95,6 +108,43 @@ export function buildObjectFromDepth(image, depthMap, options = {}) {
     spawn,
     bounds: box
   }
+}
+
+function normalizeBgRemovalMode(value) {
+  const v = String(value || '').toLowerCase()
+  if (v === 'on' || v === 'off') return v
+  return 'auto'
+}
+
+function hasMeaningfulTransparency(image, threshold = 0.005) {
+  const width = image.naturalWidth || image.width
+  const height = image.naturalHeight || image.height
+  if (!width || !height) return false
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return false
+
+  ctx.drawImage(image, 0, 0, width, height)
+  const rgba = ctx.getImageData(0, 0, width, height).data
+
+  const total = width * height
+  const step = Math.max(1, Math.floor(Math.sqrt(total / 160000)))
+  let sampled = 0
+  let transparent = 0
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const i = (y * width + x) * 4
+      sampled++
+      if (rgba[i + 3] < 250) transparent++
+    }
+  }
+
+  // Treat image as already cut-out when transparency is clearly present.
+  return sampled > 0 && transparent / sampled >= threshold
 }
 
 function sampleDepthGrid(data, width, height, cols, rows) {
