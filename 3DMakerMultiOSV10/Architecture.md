@@ -58,6 +58,7 @@
 ├── package.json
 ├── scripts/
 │   └── copy-ort.mjs           # onnxruntime-web WASM → public/ort 복사
+│   └── copy-installers-to-root.mjs # release 설치 파일 → 프로젝트 루트 복사
 ├── src/
 │   ├── main/
 │   │   ├── index.js           # Electron 메인 프로세스
@@ -163,6 +164,21 @@ File (JPEG/PNG/GIF/AVIF/WebP)
 - Main / Preload: SSR 번들 → `out/main`, `out/preload`
 - Renderer: Vite dev server 또는 `out/renderer`
 - Renderer에서 `onnxruntime-node`는 stub으로 해석
+
+### electron-builder (Desktop 패키징)
+
+- 출력 디렉터리: `release/`
+- Windows: NSIS(설치 마법사)
+  - 기존 설치 감지 시 제거 후 재설치
+  - 바탕화면/시작 메뉴 바로가기 선택 가능
+  - 제거 시 앱 데이터 삭제
+- 아이콘: `assets/icon.ico`를 설치기/실행 파일/바로가기에 사용
+- `extraResources`로 아이콘 파일을 설치본에 포함해 실행 중 아이콘 로딩 일관성을 유지
+
+### 설치 파일 루트 복사
+
+- `dist:win`, `dist:mac`, `dist:linux` 완료 후 `copy-installers-to-root.mjs` 실행
+- `release/`에서 설치 파일(`.exe`, `.dmg`, `.AppImage`, `.deb` 등)을 찾아 프로젝트 루트로 복사
 
 ### ORT 복사 (`scripts/copy-ort.mjs`)
 

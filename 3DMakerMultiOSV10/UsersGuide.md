@@ -28,6 +28,30 @@ npm run build
 npm run preview
 ```
 
+배포용 빌드:
+
+```bash
+# Web 정적 빌드
+npm run build:web
+
+# Linux 설치 파일 빌드 (Linux 환경 권장)
+npm run build:linux
+
+# Windows 설치 파일 빌드
+npm run build:win
+```
+
+- 설치 파일 원본은 `release/`에 생성됩니다.
+- 생성된 설치 파일은 프로젝트 루트에도 자동 복사됩니다.
+- `build:linux`는 Linux 환경에서 실행하는 것을 권장합니다.
+
+### Windows 설치 정책
+
+- 설치 마법사에서 바탕화면/시작 메뉴 바로가기 생성 여부를 선택할 수 있습니다.
+- 바로가기는 앱 아이콘(`assets/icon.ico`)을 사용합니다.
+- 기존 버전이 설치되어 있으면 제거 후 재설치됩니다.
+- 제거 시 사용자 앱 데이터도 함께 정리됩니다.
+
 ## 3. 지원 이미지
 
 | 형식 | 확장자 예 | 비고 |

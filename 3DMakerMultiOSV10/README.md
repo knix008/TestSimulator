@@ -28,8 +28,36 @@ npm run dev
 |------|------|
 | `npm run dev` | 개발 모드 실행 |
 | `npm run build` | 프로덕션 번들 생성 (`out/`) |
+| `npm run build:web` | Web 정적 빌드 생성 (`dist/web`) |
+| `npm run build:win` | Windows 설치 파일 빌드 (`release/`) |
+| `npm run build:mac` | macOS 설치 파일 빌드 (`release/`) |
+| `npm run build:linux` | Linux 설치 파일 빌드 (`release/`) |
+| `npm run copy-installers` | `release/` 설치 파일을 프로젝트 루트로 복사 |
 | `npm run preview` | 빌드 결과 미리보기 |
 | `npm run copy-ort` | ONNX Runtime WASM 로컬 복사 |
+
+> 참고: `build:mac`은 macOS에서, `build:linux`는 Linux에서 실행하는 것을 권장합니다.
+
+> Windows 설치기(NSIS)는 기존 설치가 감지되면 먼저 제거한 뒤 재설치합니다. 제거 시 앱 데이터까지 정리됩니다.
+
+> Windows 설치 시 바탕화면/시작 메뉴 바로가기를 선택할 수 있으며, 바로가기는 앱 아이콘(`assets/icon.ico`)을 사용합니다.
+
+> 설치본에서도 동일 아이콘이 유지되도록 아이콘 리소스를 패키지에 포함해 배포합니다.
+
+> Windows 빌드 시 `afterPack` 단계에서 실행 파일 아이콘을 `assets/icon.ico`로 다시 적용해 바로가기 아이콘과 일치시킵니다.
+
+> 기존 바로가기 아이콘이 갱신되지 않으면 아래 명령으로 Windows 아이콘 캐시를 정리하세요.
+>
+> `npm run refresh:win-icon-cache`
+
+> 설치 파일이 생성되면 `release/`와 함께 프로젝트 루트에도 자동 복사됩니다.
+
+### 산출물 위치
+
+- Web 빌드: `dist/web`
+- Desktop 번들: `out/`
+- 설치 파일(원본): `release/`
+- 설치 파일(복사본): 프로젝트 루트
 
 ## 지원 이미지
 
