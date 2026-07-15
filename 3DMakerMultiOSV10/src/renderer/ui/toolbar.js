@@ -2,6 +2,8 @@
  * Viewport toolbar: zoom controls, scale readout, action buttons + tooltips.
  */
 
+import { onLanguageChange, t } from './i18n.js'
+
 /**
  * @param {import('../scene/explorer.js').SpaceExplorer} explorer
  * @param {{
@@ -24,9 +26,10 @@ export function bindViewportToolbar(explorer, options = {}) {
   }
 
   const refreshZoom = (zoom) => {
-    zoomLabel.textContent = `${Math.round(zoom * 100)}%`
-    zoomLabel.title = `현재 배율 ${Math.round(zoom * 100)}%`
-    zoomLabel.setAttribute('aria-label', `현재 배율 ${Math.round(zoom * 100)}퍼센트`)
+    const percent = Math.round(zoom * 100)
+    zoomLabel.textContent = `${percent}%`
+    zoomLabel.title = t('zoom.currentTitle', { percent })
+    zoomLabel.setAttribute('aria-label', t('zoom.currentAria', { percent }))
   }
 
   const refreshExplore = (exploring) => {
@@ -43,30 +46,38 @@ export function bindViewportToolbar(explorer, options = {}) {
   refreshZoom(explorer.getZoom())
   refreshExplore(explorer.isExploring())
 
+  const stopLanguageWatch = onLanguageChange(() => {
+    refreshZoom(explorer.getZoom())
+  })
+
   root.addEventListener('pointerdown', (e) => e.stopPropagation())
   root.addEventListener('mousedown', (e) => e.stopPropagation())
   root.addEventListener('click', (e) => e.stopPropagation())
 
   buttons.zoomOut?.addEventListener('click', () => {
     explorer.zoomBy(1 / 1.15)
-    options.onStatus?.(`축소 · 배율 ${Math.round(explorer.getZoom() * 100)}%`)
+    options.onStatus?.(
+      t('status.zoomOut', { percent: Math.round(explorer.getZoom() * 100) })
+    )
   })
   buttons.zoomIn?.addEventListener('click', () => {
     explorer.zoomBy(1.15)
-    options.onStatus?.(`확대 · 배율 ${Math.round(explorer.getZoom() * 100)}%`)
+    options.onStatus?.(
+      t('status.zoomIn', { percent: Math.round(explorer.getZoom() * 100) })
+    )
   })
   buttons.zoomReset?.addEventListener('click', () => {
     explorer.resetZoom()
-    options.onStatus?.('배율 100%로 초기화')
+    options.onStatus?.(t('status.zoomReset'))
   })
   buttons.axes?.addEventListener('click', () => {
     const visible = explorer.toggleAxes()
     buttons.axes.classList.toggle('is-active', visible)
     buttons.axes.setAttribute('aria-pressed', String(visible))
-    options.onStatus?.(visible ? 'XYZ 축 표시' : 'XYZ 축 숨김')
+    options.onStatus?.(visible ? t('status.axesOn') : t('status.axesOff'))
   })
   const reportReset = (ok) => {
-    options.onStatus?.(ok ? '초기 위치·시야로 되돌렸습니다' : '생성된 공간이 없습니다')
+    options.onStatus?.(ok ? t('status.resetOk') : t('status.resetNoSpace'))
   }
   explorer.onResetView = reportReset
   buttons.resetView?.addEventListener('click', () => {
@@ -75,20 +86,25 @@ export function bindViewportToolbar(explorer, options = {}) {
   buttons.explore?.addEventListener('click', () => {
     const state = explorer.beginExplore()
     if (state == null) {
-      options.onStatus?.('먼저 3D 공간을 생성하세요')
+      options.onStatus?.(t('status.needBuild'))
       return
     }
     buttons.explore.classList.toggle('is-active', state)
     buttons.explore.setAttribute('aria-pressed', String(state))
     options.onStatus?.(
       state
-        ? '이동 ON — WASD/방향키로 걸을 수 있습니다'
-        : '이동 OFF — 드래그로 시야만 조작'
+        ? t('status.moveOn')
+        : t('status.moveOff')
     )
   })
 
   if (buttons.axes) {
     buttons.axes.classList.toggle('is-active', explorer.areAxesVisible())
     buttons.axes.setAttribute('aria-pressed', String(explorer.areAxesVisible()))
+  }
+
+  // Keep API compatible; return cleanup for callers that want it.
+  return () => {
+    stopLanguageWatch()
   }
 }

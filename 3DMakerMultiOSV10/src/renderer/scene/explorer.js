@@ -19,6 +19,31 @@ const MOVE_CODES = new Set([
   'KeyE'
 ])
 
+const WORLD_UP = new THREE.Vector3(0, 1, 0)
+
+const SCENE_THEMES = {
+  dark: {
+    background: 0x0a0e13,
+    fog: 0x0a0e13,
+    hemiSky: 0xdde7f5,
+    hemiGround: 0x2a241c,
+    hemiIntensity: 1.15,
+    keyColor: 0xffffff,
+    keyIntensity: 1.05,
+    shellColor: 0x070a0e
+  },
+  light: {
+    background: 0xe9f1f9,
+    fog: 0xe3edf7,
+    hemiSky: 0xffffff,
+    hemiGround: 0xc8d8ea,
+    hemiIntensity: 1.0,
+    keyColor: 0xfff8ef,
+    keyIntensity: 0.92,
+    shellColor: 0xd7e2ef
+  }
+}
+
 /**
  * First-person walk-in explorer: drag to look, WASD/arrows to move through space.
  */
@@ -29,8 +54,8 @@ export class SpaceExplorer {
   constructor(canvas) {
     this.canvas = canvas
     this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(0x0a0e13)
-    this.scene.fog = new THREE.Fog(0x0a0e13, 6, 18)
+    this.scene.background = new THREE.Color(SCENE_THEMES.dark.background)
+    this.scene.fog = new THREE.Fog(SCENE_THEMES.dark.fog, 6, 18)
 
     this.baseFov = 70
     this.zoom = 1
@@ -43,10 +68,9 @@ export class SpaceExplorer {
 
     this.camera = new THREE.PerspectiveCamera(this.baseFov, 1, 0.05, 80)
     this.camera.rotation.order = 'YXZ'
-    this.camera.position.set(2.8, 2.2, 3.4)
-    this.yaw = 0
-    this.pitch = -0.35
-    this.applyLook()
+    this.camera.position.set(0, 1.9, 4.4)
+    this.camera.lookAt(0, 1.0, 0)
+    this.syncEulerFromCamera()
     this.lookSensitivity = 0.0024
     this.turnSpeed = 1.6
 
@@ -60,10 +84,10 @@ export class SpaceExplorer {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.2
 
-    const hemi = new THREE.HemisphereLight(0xdde7f5, 0x2a241c, 1.15)
-    const key = new THREE.DirectionalLight(0xffffff, 1.05)
-    key.position.set(2.5, 6, 1.5)
-    this.scene.add(hemi, key)
+    this.hemiLight = new THREE.HemisphereLight(0xdde7f5, 0x2a241c, 1.15)
+    this.keyLight = new THREE.DirectionalLight(0xffffff, 1.05)
+    this.keyLight.position.set(2.5, 6, 1.5)
+    this.scene.add(this.hemiLight, this.keyLight)
 
     this.worldAxes = createWorldAxes(2.5)
     this.scene.add(this.worldAxes)
@@ -90,6 +114,7 @@ export class SpaceExplorer {
     this.exploring = false
     this.dragging = false
     this.pointerId = null
+    this.currentTheme = 'dark'
 
     this._onKeyDown = (e) => {
       if (isTypingTarget(e.target)) return
@@ -165,8 +190,43 @@ export class SpaceExplorer {
     canvas.addEventListener('wheel', this._onWheel, { passive: false })
 
     this.resize()
+    this.setVisualTheme('dark')
     this.clock.start()
     this.renderer.setAnimationLoop(() => this.tick())
+  }
+
+  /**
+   * @param {'dark'|'light'|string} theme
+   */
+  setVisualTheme(theme) {
+    const next = theme === 'light' ? 'light' : 'dark'
+    this.currentTheme = next
+    const palette = SCENE_THEMES[next]
+
+    this.scene.background = new THREE.Color(palette.background)
+    if (this.scene.fog) {
+      this.scene.fog.color.setHex(palette.fog)
+    } else {
+      this.scene.fog = new THREE.Fog(palette.fog, 6, 18)
+    }
+
+    this.hemiLight.color.setHex(palette.hemiSky)
+    this.hemiLight.groundColor.setHex(palette.hemiGround)
+    this.hemiLight.intensity = palette.hemiIntensity
+    this.keyLight.color.setHex(palette.keyColor)
+    this.keyLight.intensity = palette.keyIntensity
+
+    if (this.enclosure) {
+      this.enclosure.traverse((obj) => {
+        if (!obj.material) return
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+        for (const mat of mats) {
+          if ('color' in mat && mat.color) {
+            mat.color.setHex(palette.shellColor)
+          }
+        }
+      })
+    }
   }
 
   endDrag() {
@@ -336,7 +396,8 @@ export class SpaceExplorer {
     if (this.enclosure) this.scene.add(this.enclosure)
 
     this.worldAxes.position.set(0, this.floorY, 0)
-    this.scene.fog = new THREE.Fog(0x0a0e13, 18, 48)
+    const fogColor = this.currentTheme === 'light' ? SCENE_THEMES.light.fog : SCENE_THEMES.dark.fog
+    this.scene.fog = new THREE.Fog(fogColor, 18, 48)
 
     const maxAniso = this.renderer.capabilities.getMaxAnisotropy()
     this.spaceMesh.traverse((obj) => {
@@ -354,6 +415,7 @@ export class SpaceExplorer {
     this.captureInitialPose()
     this.keys = Object.create(null)
     this.setExploring(true)
+    this.setVisualTheme(this.currentTheme)
   }
 
   resize() {
@@ -395,7 +457,8 @@ export class SpaceExplorer {
     this.forward.y = 0
     if (this.forward.lengthSq() < 1e-6) this.forward.set(0, 0, -1)
     else this.forward.normalize()
-    this.right.crossVectors(this.forward, new THREE.Vector3(0, 1, 0)).normalize()
+    // Use right = up x forward (right-handed system). forward x up becomes left.
+    this.right.crossVectors(WORLD_UP, this.forward).normalize()
 
     const sprint =
       this.keys.ShiftLeft || this.keys.ShiftRight ? this.sprintMul : 1

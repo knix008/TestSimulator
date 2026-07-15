@@ -20,7 +20,7 @@ export function buildSpaceFromDepth(image, depthMap, options = {}) {
   const meshRes = options.meshRes ?? 384
   const depthScale = options.depthScale ?? 1.8
   const near = options.near ?? 0.75
-  const far = (options.far ?? 14) * depthScale
+  const baseFar = options.far ?? 14
   const invertMode = options.invertDepth ?? 'auto'
   const maxAnisotropy = options.maxAnisotropy ?? 16
 
@@ -31,17 +31,28 @@ export function buildSpaceFromDepth(image, depthMap, options = {}) {
   const cols = meshRes
   const rows = Math.max(16, Math.round(meshRes / aspect))
 
+  const lumaGuide = sampleImageLumaGrid(image, cols, rows)
   let depths = sampleDepthGrid(data, dw, dh, cols, rows)
-  depths = smoothDepth(depths, cols, rows, 1)
+  depths = smoothDepth(depths, cols, rows, 1, lumaGuide)
   normalizeByPercentile(depths, 0.02, 0.98)
+
+  const std = computeStdDev(depths)
+  const contrastBoost = THREE.MathUtils.clamp((0.19 - std) * 3.8, 0, 0.62)
+  if (contrastBoost > 0) {
+    applyGlobalContrast(depths, contrastBoost)
+    enhanceDepthLocalContrast(depths, cols, rows, contrastBoost * 0.5)
+  }
 
   if (invertMode === true || (invertMode === 'auto' && shouldInvertDepth(depths, cols, rows))) {
     invertDepthInPlace(depths)
   }
 
-  for (let i = 0; i < depths.length; i++) {
-    depths[i] = Math.pow(depths[i], 0.78)
-  }
+  const postStd = computeStdDev(depths)
+  const adapt = THREE.MathUtils.clamp((postStd - 0.1) / 0.2, 0, 1)
+  const gamma = THREE.MathUtils.lerp(0.72, 0.88, adapt)
+  for (let i = 0; i < depths.length; i++) depths[i] = Math.pow(depths[i], gamma)
+
+  const far = near + baseFar * depthScale * THREE.MathUtils.lerp(1.18, 0.92, adapt)
 
   let positions = new Float32Array(cols * rows * 3)
   let uvs = new Float32Array(cols * rows * 2)
@@ -114,6 +125,7 @@ export function buildSpaceFromDepth(image, depthMap, options = {}) {
   const spawn = new THREE.Vector3(0, 1.6, spawnZ)
 
   return {
+    mode: 'space',
     mesh: root,
     enclosure: null,
     floorY: 0,
@@ -132,21 +144,21 @@ function shapeAsRoom(positions, cols, rows, floorY, ceilY) {
       let py = positions[i * 3 + 1]
       let pz = positions[i * 3 + 2]
 
-      if (v > 0.52) {
-        const w = Math.pow(smoothstep(0.52, 0.98, v), 1.35)
-        py = THREE.MathUtils.lerp(py, floorY, w * 0.92)
+      if (v > 0.58) {
+        const w = Math.pow(smoothstep(0.58, 0.98, v), 1.4)
+        py = THREE.MathUtils.lerp(py, floorY, w * 0.72)
       }
 
-      if (v < 0.32) {
-        const w = Math.pow(1 - smoothstep(0.0, 0.32, v), 1.2)
-        py = THREE.MathUtils.lerp(py, ceilY, w * 0.8)
+      if (v < 0.25) {
+        const w = Math.pow(1 - smoothstep(0.0, 0.25, v), 1.2)
+        py = THREE.MathUtils.lerp(py, ceilY, w * 0.55)
       }
 
       const side = Math.max(smoothstep(0.82, 1.0, u), smoothstep(0.18, 0.0, u))
       if (side > 0) {
-        const sideX = (u < 0.5 ? -1 : 1) * Math.abs(px) * (1.05 + 0.15 * side)
-        px = THREE.MathUtils.lerp(px, sideX, side * 0.75)
-        py = THREE.MathUtils.lerp(py, THREE.MathUtils.clamp(py, floorY, ceilY), side * 0.35)
+        const sideX = (u < 0.5 ? -1 : 1) * Math.abs(px) * (1.04 + 0.1 * side)
+        px = THREE.MathUtils.lerp(px, sideX, side * 0.55)
+        py = THREE.MathUtils.lerp(py, THREE.MathUtils.clamp(py, floorY, ceilY), side * 0.22)
       }
 
       positions[i * 3] = px
@@ -196,13 +208,14 @@ function sampleBilinear(data, width, height, fx, fy) {
   return a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + d * tx * ty
 }
 
-function smoothDepth(src, cols, rows, radius) {
+function smoothDepth(src, cols, rows, radius, lumaGuide) {
   const out = new Float32Array(src.length)
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       let sum = 0
       let wsum = 0
       const center = src[y * cols + x]
+      const centerLuma = lumaGuide ? lumaGuide[y * cols + x] : 0
       for (let dy = -radius; dy <= radius; dy++) {
         for (let dx = -radius; dx <= radius; dx++) {
           const xx = x + dx
@@ -211,7 +224,9 @@ function smoothDepth(src, cols, rows, radius) {
           const val = src[yy * cols + xx]
           const spatial = dx * dx + dy * dy
           const range = Math.abs(val - center)
-          const w = Math.exp(-spatial / 2.2 - range * 18)
+          const luma = lumaGuide ? lumaGuide[yy * cols + xx] : centerLuma
+          const edge = Math.abs(luma - centerLuma)
+          const w = Math.exp(-spatial / 2.2 - range * 18 - edge * 14)
           sum += val * w
           wsum += w
         }
@@ -230,6 +245,55 @@ function normalizeByPercentile(depths, lowP, highP) {
   for (let i = 0; i < depths.length; i++) {
     depths[i] = THREE.MathUtils.clamp((depths[i] - lo) / range, 0, 1)
   }
+}
+
+function applyGlobalContrast(depths, amount) {
+  const gain = 1 + amount
+  for (let i = 0; i < depths.length; i++) {
+    const centered = (depths[i] - 0.5) * gain + 0.5
+    depths[i] = THREE.MathUtils.clamp(centered, 0, 1)
+  }
+}
+
+function enhanceDepthLocalContrast(depths, cols, rows, amount) {
+  if (amount <= 0) return
+  const blurred = smoothDepth(depths, cols, rows, 1)
+  for (let i = 0; i < depths.length; i++) {
+    const detail = depths[i] - blurred[i]
+    depths[i] = THREE.MathUtils.clamp(depths[i] + detail * amount, 0, 1)
+  }
+}
+
+function computeStdDev(values) {
+  if (!values.length) return 0
+  let mean = 0
+  for (let i = 0; i < values.length; i++) mean += values[i]
+  mean /= values.length
+  let variance = 0
+  for (let i = 0; i < values.length; i++) {
+    const d = values[i] - mean
+    variance += d * d
+  }
+  variance /= values.length
+  return Math.sqrt(variance)
+}
+
+function sampleImageLumaGrid(image, cols, rows) {
+  const canvas = document.createElement('canvas')
+  canvas.width = cols
+  canvas.height = rows
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.drawImage(image, 0, 0, cols, rows)
+  const rgba = ctx.getImageData(0, 0, cols, rows).data
+  const out = new Float32Array(cols * rows)
+  for (let i = 0; i < out.length; i++) {
+    const r = rgba[i * 4] / 255
+    const g = rgba[i * 4 + 1] / 255
+    const b = rgba[i * 4 + 2] / 255
+    out[i] = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
+  return out
 }
 
 function shouldInvertDepth(depths, cols, rows) {

@@ -126,6 +126,40 @@ export const DEPTH_MODELS = [
 ]
 
 export const DEFAULT_MODEL_ID = 'onnx-community/depth-anything-v2-base-ONNX'
+export const DEFAULT_OBJECT_MODEL_ID = 'Xenova/dpt-large'
+
+export const SPACE_MODEL_IDS = new Set([
+  'onnx-community/depth-anything-v2-small',
+  'onnx-community/depth-anything-v2-base',
+  'onnx-community/depth-anything-v2-small-ONNX',
+  'onnx-community/depth-anything-v2-base-ONNX',
+  'onnx-community/depth-anything-v2-large-ONNX',
+  'Xenova/glpn-kitti',
+  'Xenova/glpn-nyu'
+])
+
+export const OBJECT_MODEL_IDS = new Set([
+  'onnx-community/depth-anything-v2-base-ONNX',
+  'onnx-community/depth-anything-v2-large-ONNX',
+  'Xenova/dpt-hybrid-midas',
+  'Xenova/dpt-large',
+  'Xenova/depth-anything-small-hf'
+])
+
+/**
+ * @param {'space'|'object'|string} mode
+ */
+export function getModelsByMode(mode) {
+  const ids = mode === 'object' ? OBJECT_MODEL_IDS : SPACE_MODEL_IDS
+  return DEPTH_MODELS.filter((m) => ids.has(m.id))
+}
+
+/**
+ * @param {'space'|'object'|string} mode
+ */
+export function getDefaultModelIdByMode(mode) {
+  return mode === 'object' ? DEFAULT_OBJECT_MODEL_ID : DEFAULT_MODEL_ID
+}
 
 /**
  * @param {string} id

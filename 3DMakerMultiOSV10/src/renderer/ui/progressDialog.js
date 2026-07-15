@@ -2,6 +2,8 @@
  * Modal progress popup for 3D space generation.
  */
 
+import { t } from './i18n.js'
+
 let dialogEl = null
 let titleEl = null
 let messageEl = null
@@ -31,8 +33,8 @@ function ensureDialog() {
 export function showProgressDialog(options = {}) {
   ensureDialog()
   lastPercent = 0
-  titleEl.textContent = options.title || '3D 공간 생성 중'
-  messageEl.textContent = '준비 중…'
+  titleEl.textContent = options.title || t('dialog.progress.title')
+  messageEl.textContent = t('dialog.progress.preparing')
   percentEl.textContent = '0%'
   barFillEl.style.width = '0%'
   barFillEl.classList.remove('is-indeterminate')

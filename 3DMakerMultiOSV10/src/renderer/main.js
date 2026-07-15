@@ -1,13 +1,18 @@
 import './styles.css'
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { estimateDepth, yieldToUi } from './depth/estimate.js'
 import {
   DEFAULT_MODEL_ID,
   DEPTH_MODELS,
+  DEFAULT_OBJECT_MODEL_ID,
   formatModelSummary,
+  getDefaultModelIdByMode,
+  getModelsByMode,
   getModelById
 } from './depth/models.js'
 import { loadSupportedImage } from './image/loadImage.js'
 import { buildSpaceFromDepth } from './scene/buildSpace.js'
+import { buildObjectFromDepth } from './scene/buildObject.js'
 import { SpaceExplorer } from './scene/explorer.js'
 import { showErrorDialog } from './ui/errorDialog.js'
 import {
@@ -15,6 +20,16 @@ import {
   showProgressDialog,
   updateProgressDialog
 } from './ui/progressDialog.js'
+import {
+  applyDocumentTranslations,
+  getLanguage,
+  getTheme,
+  initUiPreferences,
+  onLanguageChange,
+  setLanguage,
+  setTheme,
+  t
+} from './ui/i18n.js'
 import { bindViewportToolbar } from './ui/toolbar.js'
 
 const imageInput = document.getElementById('imageInput')
@@ -24,15 +39,34 @@ const depthScaleEl = document.getElementById('depthScale')
 const depthScaleValueEl = document.getElementById('depthScaleValue')
 const meshResEl = document.getElementById('meshRes')
 const modelSelectEl = document.getElementById('modelSelect')
+const outputModeSelectEl = document.getElementById('outputModeSelect')
 const modelInfoEl = document.getElementById('modelInfo')
 const statusEl = document.getElementById('status')
 const overlayEl = document.getElementById('overlay')
 const hudEl = document.getElementById('hud')
 const crosshairEl = document.getElementById('crosshair')
 const canvas = document.getElementById('scene')
+const menuImageBtn = document.getElementById('menuImageBtn')
+const menuBuildBtn = document.getElementById('menuBuildBtn')
+const menuBuildLabelEl = document.getElementById('menuBuildLabel')
+const menuAboutBtn = document.getElementById('menuAboutBtn')
+const langSelectEl = document.getElementById('langSelect')
+const themeSelectEl = document.getElementById('themeSelect')
+const aboutDialogEl = document.getElementById('aboutDialog')
+const aboutDialogCloseBtn = document.getElementById('aboutDialogClose')
+const canvasContextMenuEl = document.getElementById('canvasContextMenu')
+const ctxSavePngBtn = document.getElementById('ctxSavePng')
+const ctxSaveGlbBtn = document.getElementById('ctxSaveGlb')
+const ctxCloseBtn = document.getElementById('ctxClose')
+const buildBtnLabelEl = document.getElementById('buildBtnLabel')
 
 /** @type {import('./image/loadImage.js').LoadedSpaceImage | null} */
 let current = null
+let currentMode = outputModeSelectEl?.value === 'object' ? 'object' : 'space'
+const lastModelByMode = {
+  space: DEFAULT_MODEL_ID,
+  object: DEFAULT_OBJECT_MODEL_ID
+}
 const explorer = new SpaceExplorer(canvas)
 
 function setStatus(text, kind = '') {
@@ -41,53 +75,219 @@ function setStatus(text, kind = '') {
   if (kind) statusEl.classList.add(kind)
 }
 
+function syncMenuBuildButton() {
+  if (!menuBuildBtn) return
+  menuBuildBtn.disabled = buildBtn.disabled
+}
+
+function updateBuildButtonLabels() {
+  const key = currentMode === 'object' ? 'menu.build.object' : 'menu.build.space'
+  const label = t(key)
+  if (menuBuildLabelEl) menuBuildLabelEl.textContent = label
+  if (buildBtnLabelEl) buildBtnLabelEl.textContent = label
+}
+
+function hasConvertedSpace() {
+  return Boolean(explorer.spaceMesh)
+}
+
+function makeExportBaseName() {
+  const src = current?.file?.name || 'converted-space'
+  const stem = src.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9._-]+/g, '_')
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const h = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  const s = String(d.getSeconds()).padStart(2, '0')
+  return `${stem}_${y}${m}${day}_${h}${min}${s}`
+}
+
+/**
+ * @param {Blob} blob
+ * @param {string} name
+ */
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 800)
+}
+
+function closeCanvasContextMenu() {
+  if (!canvasContextMenuEl) return
+  canvasContextMenuEl.hidden = true
+}
+
+/**
+ * @param {MouseEvent} event
+ */
+function openCanvasContextMenu(event) {
+  if (!canvasContextMenuEl) return
+  event.preventDefault()
+
+  const canSave = hasConvertedSpace()
+  if (ctxSavePngBtn) ctxSavePngBtn.disabled = !canSave
+  if (ctxSaveGlbBtn) ctxSaveGlbBtn.disabled = !canSave
+
+  canvasContextMenuEl.hidden = false
+  const pad = 8
+  const menuRect = canvasContextMenuEl.getBoundingClientRect()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const left = Math.max(pad, Math.min(event.clientX, vw - menuRect.width - pad))
+  const top = Math.max(pad, Math.min(event.clientY, vh - menuRect.height - pad))
+  canvasContextMenuEl.style.left = `${Math.round(left)}px`
+  canvasContextMenuEl.style.top = `${Math.round(top)}px`
+}
+
+function saveCanvasAsPng() {
+  if (!hasConvertedSpace()) {
+    setStatus(t('status.noResultToSave'), 'error')
+    return
+  }
+  try {
+    const dataUrl = explorer.renderer.domElement.toDataURL('image/png')
+    const blob = dataUrlToBlob(dataUrl)
+    const filename = `${makeExportBaseName()}.png`
+    downloadBlob(blob, filename)
+    setStatus(t('status.savedPng', { name: filename }), 'ok')
+  } catch (err) {
+    setStatus(
+      t('status.saveFailed', {
+        reason: err instanceof Error ? err.message : String(err)
+      }),
+      'error'
+    )
+  }
+}
+
+async function saveSpaceAsGlb() {
+  if (!hasConvertedSpace()) {
+    setStatus(t('status.noResultToSave'), 'error')
+    return
+  }
+  try {
+    const exporter = new GLTFExporter()
+    const source = explorer.spaceMesh
+    const glbBuffer = await new Promise((resolve, reject) => {
+      exporter.parse(
+        source,
+        (result) => {
+          if (result instanceof ArrayBuffer) resolve(result)
+          else reject(new Error('GLB 바이너리 생성에 실패했습니다.'))
+        },
+        (err) => reject(err instanceof Error ? err : new Error(String(err))),
+        {
+          binary: true,
+          onlyVisible: true,
+          trs: false
+        }
+      )
+    })
+
+    const filename = `${makeExportBaseName()}.glb`
+    downloadBlob(new Blob([glbBuffer], { type: 'model/gltf-binary' }), filename)
+    setStatus(t('status.savedGlb', { name: filename }), 'ok')
+  } catch (err) {
+    setStatus(
+      t('status.saveFailed', {
+        reason: err instanceof Error ? err.message : String(err)
+      }),
+      'error'
+    )
+  }
+}
+
+/**
+ * @param {string} dataUrl
+ */
+function dataUrlToBlob(dataUrl) {
+  const [head, b64] = dataUrl.split(',')
+  const mimeMatch = /data:(.*?);base64/.exec(head || '')
+  const mime = mimeMatch?.[1] || 'application/octet-stream'
+  const bytes = atob(b64 || '')
+  const out = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i++) out[i] = bytes.charCodeAt(i)
+  return new Blob([out], { type: mime })
+}
+
 bindViewportToolbar(explorer, {
   onStatus: (msg) => setStatus(msg),
   onExploreChange: (exploring) => {
     crosshairEl.hidden = true
     setStatus(
       exploring
-        ? '이동 중 — WASD/방향키 걷기 · 드래그·QE 시야 · Shift 빠르게'
-        : '이동 꺼짐 — 「탐색」을 켜면 키보드로 공간을 걸을 수 있습니다.',
+        ? t('status.exploringOn')
+        : t('status.exploringOff'),
       exploring ? 'ok' : undefined
     )
   }
 })
 
+function refreshLocalizedUi() {
+  applyDocumentTranslations()
+  updateBuildButtonLabels()
+  populateModels()
+  updateDepthScaleLabel()
+  if (!current && previewWrap.classList.contains('empty')) {
+    previewWrap.textContent = t('menu.preview.empty')
+  }
+  if (!current) {
+    overlayEl.innerHTML = t('overlay.ready')
+    setStatus(t('status.idle'))
+  }
+}
+
 function populateModels() {
+  const models = getModelsByMode(currentMode)
+  const preferred =
+    lastModelByMode[currentMode] || getDefaultModelIdByMode(currentMode)
+
   modelSelectEl.innerHTML = ''
-  for (const model of DEPTH_MODELS) {
+  for (const model of models) {
     const opt = document.createElement('option')
     opt.value = model.id
     opt.textContent = `${model.shortName} — ${tierLabel(model.tier)}`
-    if (model.id === DEFAULT_MODEL_ID) opt.selected = true
+    if (model.id === preferred) opt.selected = true
     modelSelectEl.appendChild(opt)
   }
+
+  if (!modelSelectEl.value && models.length) {
+    modelSelectEl.value = getDefaultModelIdByMode(currentMode)
+  }
+
   updateModelInfo()
 }
 
 function tierLabel(tier) {
-  if (tier === 'fast') return '빠름'
-  if (tier === 'quality') return '고품질'
-  return '균형'
+  if (tier === 'fast') return t('tier.fast')
+  if (tier === 'quality') return t('tier.quality')
+  return t('tier.balanced')
 }
 
 async function updateModelInfo() {
   const model = getModelById(modelSelectEl.value)
   let cacheLine =
-    '<div class="model-info__cache model-info__cache--unknown">캐시 상태 확인 중…</div>'
+    `<div class="model-info__cache model-info__cache--unknown">${t('model.cache.checking')}</div>`
 
   try {
     const status = await globalThis.modelCache?.status?.(model.id)
     if (status?.cached) {
-      cacheLine = `<div class="model-info__cache model-info__cache--hit">로컬 캐시됨 · ${status.bytesLabel} (재다운로드 없음)</div>`
+      cacheLine = `<div class="model-info__cache model-info__cache--hit">${t('model.cache.hit', { bytes: status.bytesLabel })}</div>`
     } else {
       cacheLine =
-        '<div class="model-info__cache model-info__cache--miss">아직 캐시 없음 · 처음 생성 시 한 번 다운로드</div>'
+        `<div class="model-info__cache model-info__cache--miss">${t('model.cache.miss')}</div>`
     }
   } catch {
     cacheLine =
-      '<div class="model-info__cache model-info__cache--unknown">캐시 상태를 읽지 못했습니다</div>'
+      `<div class="model-info__cache model-info__cache--unknown">${t('model.cache.unknown')}</div>`
   }
 
   modelInfoEl.innerHTML = `
@@ -95,12 +295,16 @@ async function updateModelInfo() {
     <div class="model-info__meta">${model.family} · ${tierLabel(model.tier)} · ${model.sizeHint}</div>
     ${cacheLine}
     <p class="model-info__desc">${model.description}</p>
-    <div class="model-info__id" title="${model.id}">ID: ${model.id}</div>
+    <div class="model-info__id" title="${model.id}">${t('model.id')}: ${model.id}</div>
   `
 }
 
 function selectedModel() {
   return getModelById(modelSelectEl.value)
+}
+
+function selectedModeLabel() {
+  return currentMode === 'object' ? t('mode.object') : t('mode.space')
 }
 
 /**
@@ -124,21 +328,113 @@ function reportError(err, options) {
 function updateDepthScaleLabel() {
   const pct = Math.round(Number(depthScaleEl.value) * 100)
   depthScaleValueEl.textContent = `${pct}%`
-  depthScaleEl.setAttribute('aria-valuetext', `${pct}퍼센트`)
-  depthScaleEl.title = `깊이 강도 ${pct}%`
+  depthScaleEl.setAttribute('aria-valuetext', t('aria.depthScale', { percent: pct }))
+  depthScaleEl.title = t('title.depthScale', { percent: pct })
 }
+
+initUiPreferences()
+
+if (langSelectEl) {
+  langSelectEl.value = getLanguage()
+  langSelectEl.addEventListener('change', () => {
+    setLanguage(langSelectEl.value)
+  })
+}
+
+if (themeSelectEl) {
+  themeSelectEl.value = getTheme()
+  themeSelectEl.addEventListener('change', () => {
+    setTheme(themeSelectEl.value)
+    explorer.setVisualTheme(themeSelectEl.value)
+  })
+}
+
+if (outputModeSelectEl) {
+  outputModeSelectEl.value = currentMode
+  outputModeSelectEl.addEventListener('change', () => {
+    currentMode = outputModeSelectEl.value === 'object' ? 'object' : 'space'
+    populateModels()
+    const modeLabel = selectedModeLabel()
+    if (current) {
+      setStatus(t('status.modeChangedReady', { mode: modeLabel }), 'ok')
+    } else {
+      setStatus(t('status.modeChangedIdle', { mode: modeLabel }))
+    }
+  })
+}
+
+explorer.setVisualTheme(getTheme())
+
+menuImageBtn?.addEventListener('click', () => {
+  imageInput.click()
+})
+
+menuBuildBtn?.addEventListener('click', () => {
+  if (buildBtn.disabled) return
+  buildBtn.click()
+})
+
+menuAboutBtn?.addEventListener('click', () => {
+  aboutDialogEl.hidden = false
+  aboutDialogCloseBtn?.focus()
+})
+
+aboutDialogCloseBtn?.addEventListener('click', () => {
+  aboutDialogEl.hidden = true
+})
+
+aboutDialogEl?.addEventListener('click', (event) => {
+  if (event.target === aboutDialogEl) aboutDialogEl.hidden = true
+})
+
+canvas.addEventListener('contextmenu', openCanvasContextMenu)
+ctxSavePngBtn?.addEventListener('click', () => {
+  closeCanvasContextMenu()
+  saveCanvasAsPng()
+})
+ctxSaveGlbBtn?.addEventListener('click', async () => {
+  closeCanvasContextMenu()
+  await saveSpaceAsGlb()
+})
+ctxCloseBtn?.addEventListener('click', closeCanvasContextMenu)
+
+window.addEventListener('click', (event) => {
+  if (!canvasContextMenuEl || canvasContextMenuEl.hidden) return
+  if (event.target instanceof Node && canvasContextMenuEl.contains(event.target)) return
+  closeCanvasContextMenu()
+})
+
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeCanvasContextMenu()
+})
+
+window.addEventListener('blur', closeCanvasContextMenu)
+window.addEventListener('resize', closeCanvasContextMenu)
+
+onLanguageChange((lang) => {
+  if (langSelectEl) langSelectEl.value = lang
+  if (outputModeSelectEl) outputModeSelectEl.value = currentMode
+  refreshLocalizedUi()
+})
 
 populateModels()
 modelSelectEl.addEventListener('change', updateModelInfo)
+modelSelectEl.addEventListener('change', () => {
+  if (!modelSelectEl.value) return
+  lastModelByMode[currentMode] = modelSelectEl.value
+})
 updateDepthScaleLabel()
 depthScaleEl.addEventListener('input', updateDepthScaleLabel)
+refreshLocalizedUi()
+syncMenuBuildButton()
 
 imageInput.addEventListener('change', async () => {
   const file = imageInput.files?.[0]
   if (!file) return
 
   buildBtn.disabled = true
-  setStatus('이미지 읽는 중…')
+  syncMenuBuildButton()
+  setStatus(t('status.loadingImage'))
 
   try {
     current = await loadSupportedImage(file)
@@ -147,25 +443,28 @@ imageInput.addEventListener('change', async () => {
     previewWrap.innerHTML = ''
     const thumb = document.createElement('img')
     thumb.src = current.previewUrl
-    thumb.alt = '선택 이미지'
+    thumb.alt = t('alt.selectedImage')
     previewWrap.appendChild(thumb)
 
     buildBtn.disabled = false
-    setStatus(`이미지 준비됨: ${current.label}`)
-    overlayEl.innerHTML =
-      '“3D 공간 생성”을 누르면 선택한 깊이 모델로 공간을 만듭니다<br /><small>XYZ: X 빨강(좌우) · Y 초록(위) · Z 파랑(사진 안쪽)</small>'
+    syncMenuBuildButton()
+    setStatus(t('status.imageReady', { label: current.label }))
+    overlayEl.innerHTML = t(
+      currentMode === 'object' ? 'overlay.buildHintObject' : 'overlay.buildHint'
+    )
     overlayEl.classList.remove('hidden')
     hudEl.hidden = true
   } catch (err) {
     current = null
     previewWrap.classList.add('empty')
-    previewWrap.textContent = '미리보기 없음'
+    previewWrap.textContent = t('menu.preview.empty')
     buildBtn.disabled = true
+    syncMenuBuildButton()
     reportError(err, {
-      title: '이미지를 열 수 없습니다',
+      title: t('error.openImage'),
       summary: err instanceof Error ? err.message : String(err),
       context: `이미지 선택 (${file.name})`,
-      statusText: '이미지 로드 실패'
+      statusText: t('status.imageLoadFail')
     })
   } finally {
     imageInput.value = ''
@@ -176,17 +475,22 @@ buildBtn.addEventListener('click', async () => {
   if (!current) return
 
   const model = selectedModel()
+  const modeLabel = selectedModeLabel()
   buildBtn.disabled = true
+  syncMenuBuildButton()
   imageInput.disabled = true
   modelSelectEl.disabled = true
+  if (menuImageBtn) menuImageBtn.disabled = true
   overlayEl.classList.remove('hidden')
-  overlayEl.textContent = `${model.shortName}로 공간을 구성하는 중…`
-  setStatus(`처리 시작 — ${formatModelSummary(model)}`)
-  showProgressDialog({ title: `3D 공간 생성 — ${model.shortName}` })
-  updateProgressDialog(`처리 시작 — ${formatModelSummary(model)}`, 3)
+  overlayEl.textContent = t('status.buildingWithModel', {
+    model: `${modeLabel} · ${model.shortName}`
+  })
+  setStatus(t('status.start', { summary: formatModelSummary(model) }))
+  showProgressDialog({ title: t('dialog.progress.building', { model: model.shortName }) })
+  updateProgressDialog(t('status.start', { summary: formatModelSummary(model) }), 3)
 
   try {
-    updateProgressDialog(`${model.shortName} — 백그라운드에서 깊이 추정 중…`, 8)
+    updateProgressDialog(t('status.depthBackground', { model: model.shortName }), 8)
     await yieldToUi()
 
     const depth = await estimateDepth(
@@ -210,31 +514,34 @@ buildBtn.addEventListener('click', async () => {
       model.id
     )
 
-    updateProgressDialog('공간 메시 생성 중…', 88)
-    setStatus('공간 메시 생성 중…')
-    overlayEl.textContent = '공간 메시 생성 중…'
+    updateProgressDialog(t('status.meshBuilding'), 88)
+    setStatus(t('status.meshBuilding'))
+    overlayEl.textContent = t('status.meshBuilding')
     await yieldToUi()
 
     const space = await new Promise((resolve, reject) => {
       setTimeout(() => {
         try {
+          const options = {
+            meshRes: Number(meshResEl.value),
+            depthScale: Number(depthScaleEl.value),
+            maxAnisotropy: explorer.renderer.capabilities.getMaxAnisotropy()
+          }
           resolve(
-            buildSpaceFromDepth(current.textureImage, depth, {
-              meshRes: Number(meshResEl.value),
-              depthScale: Number(depthScaleEl.value),
-              maxAnisotropy: explorer.renderer.capabilities.getMaxAnisotropy()
-            })
+            currentMode === 'object'
+              ? buildObjectFromDepth(current.textureImage, depth, options)
+              : buildSpaceFromDepth(current.textureImage, depth, options)
           )
         } catch (err) {
           reject(err)
         }
       }, 0)
     })
-    updateProgressDialog('장면 배치 중…', 96)
+    updateProgressDialog(t('status.scenePlacing'), 96)
     await yieldToUi()
 
     explorer.setSpace(space)
-    updateProgressDialog('완료', 100)
+    updateProgressDialog(t('status.done'), 100)
     await yieldToUi()
     hideProgressDialog()
 
@@ -242,48 +549,51 @@ buildBtn.addEventListener('click', async () => {
     crosshairEl.hidden = false
     hudEl.hidden = false
     hudEl.innerHTML = `
-      <strong>사용 모델</strong><br />
+      <strong>${t('hud.model')}</strong><br />
+      <span>${selectedModeLabel()}</span><br />
       ${model.name}<br />
       <span>${model.family} · ${tierLabel(model.tier)} · ${model.sizeHint}</span>
     `
     setStatus(
-      `완료 — ${model.shortName}. WASD로 걸어 들어가고, 드래그로 둘러보세요.`,
+      t('status.completed', { model: model.shortName }),
       'ok'
     )
     updateModelInfo()
   } catch (err) {
     hideProgressDialog()
-    overlayEl.textContent = '생성에 실패했습니다. 아래 오류 내용을 확인해 주세요.'
+    overlayEl.textContent = t('status.buildFailedOverlay')
     reportError(err, {
-      title: '3D 공간 생성 실패',
+      title: t('error.buildFailed'),
       summary: err instanceof Error ? err.message : String(err),
       context: `3D 공간 생성 (파일: ${current.file.name}, model: ${model.id}, meshRes: ${meshResEl.value}, depthScale: ${depthScaleEl.value})`,
-      statusText: '3D 공간 생성 실패'
+      statusText: t('error.buildFailed')
     })
   } finally {
     hideProgressDialog()
     buildBtn.disabled = !current
+    syncMenuBuildButton()
     imageInput.disabled = false
     modelSelectEl.disabled = false
+    if (menuImageBtn) menuImageBtn.disabled = false
   }
 })
 
 window.addEventListener('unhandledrejection', (event) => {
   reportError(event.reason, {
-    title: '처리되지 않은 오류',
+    title: t('error.unhandled'),
     summary: event.reason instanceof Error ? event.reason.message : String(event.reason),
     context: 'unhandledrejection',
-    statusText: '예기치 않은 오류'
+    statusText: t('status.unexpected')
   })
 })
 
 window.addEventListener('error', (event) => {
   reportError(event.error || event.message, {
-    title: '런타임 오류',
-    summary: event.message || '스크립트 오류가 발생했습니다.',
+    title: t('error.runtime'),
+    summary: event.message || t('error.script'),
     context: event.filename
       ? `${event.filename}:${event.lineno}:${event.colno}`
       : 'window.error',
-    statusText: '런타임 오류'
+    statusText: t('error.runtime')
   })
 })

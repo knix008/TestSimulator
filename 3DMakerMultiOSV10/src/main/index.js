@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, nativeImage, screen } from 'electron'
+import { app, BrowserWindow, Menu, shell, nativeImage, screen } from 'electron'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -99,6 +99,7 @@ function createWindow() {
     minHeight: bounds.minHeight,
     title: '3D Space Maker',
     backgroundColor: '#0f1419',
+    autoHideMenuBar: true,
     show: false,
     ...(icon ? { icon } : {}),
     webPreferences: {
@@ -108,6 +109,8 @@ function createWindow() {
       sandbox: false
     }
   })
+
+  win.setMenuBarVisibility(false)
 
   // Reinforce icon after create (Windows taskbar / title bar).
   if (icon) win.setIcon(icon)
@@ -139,6 +142,7 @@ function createWindow() {
 
 if (gotTheLock) {
   app.whenReady().then(() => {
+    Menu.setApplicationMenu(null)
     registerModelCacheIpc()
     registerDepthBridge()
 
