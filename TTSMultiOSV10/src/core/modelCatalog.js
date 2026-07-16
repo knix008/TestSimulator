@@ -31,12 +31,17 @@ const defaultCatalog = [
     id: 'ko-mms-tts',
     label: 'MMS TTS',
     language: 'ko-KR',
-    sizeHint: '140 MB',
+    sizeHint: '~38 MB',
     runtime: 'transformers-js',
-    description: 'Meta MMS · Transformers.js 호환',
+    description: 'Meta MMS · quantized ONNX',
     source: {
       type: 'repo',
-      repoId: 'Xenova/mms-tts-kor'
+      repoId: 'Xenova/mms-tts-kor',
+      // Full/fp16 ONNX from this repo fail ORT protobuf parse; ship quantized only.
+      packageId: 'quantized-v1',
+      preferOnnx: [
+        'onnx/model_quantized.onnx',
+      ],
     }
   },
   {

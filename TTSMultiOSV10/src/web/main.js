@@ -40,7 +40,7 @@ const bridge = window.ttsBridge || {
       },
       {
         id: 'ko-mms-tts', label: 'MMS TTS', language: 'ko-KR',
-        sizeHint: '140 MB', runtime: 'transformers-js',
+        sizeHint: '~38 MB', runtime: 'transformers-js',
         description: 'Meta MMS · Transformers.js 호환'
       },
       {
@@ -1007,9 +1007,65 @@ function showError(error) {
 // ── Model list ───────────────────────────────────────────────────────────────
 function getPreferredModelForLanguage(language) {
   if (!language) return null;
-  return state.models.find((m) => m.language === language && m.preferredOnFirstRun)
+  return state.models.find((m) => m.language === language && m.preferredOnFirstRun && m.downloaded)
+    || state.models.find((m) => m.language === language && m.downloaded)
+    || state.models.find((m) => m.language === language && m.preferredOnFirstRun)
     || state.models.find((m) => m.language === language)
     || null;
+}
+
+/** Detect ko-KR vs en-US from Hangul vs Latin letter counts. Returns null if undecided. */
+function detectSynthesisLanguage(text) {
+  let hangul = 0;
+  let latin = 0;
+  for (const ch of String(text || '')) {
+    const c = ch.codePointAt(0);
+    if ((c >= 0xAC00 && c <= 0xD7A3) || (c >= 0x1100 && c <= 0x11FF) || (c >= 0x3130 && c <= 0x318F)) {
+      hangul += 1;
+    } else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)) {
+      latin += 1;
+    }
+  }
+  if (hangul === 0 && latin === 0) return null;
+  return hangul >= latin ? 'ko-KR' : 'en-US';
+}
+
+/**
+ * Set synthesis language from input text. Switches model only when its language
+ * no longer matches the detected language (keeps user's Korean model choice).
+ */
+function applyLanguageFromText(text = textInput?.value, { quiet = false } = {}) {
+  const detected = detectSynthesisLanguage(text);
+  if (!detected || !languageSelect) return false;
+
+  const languageChanged = languageSelect.value !== detected;
+  languageSelect.value = detected;
+  if (languageChanged) updateStatusBarLanguage();
+
+  const currentModel = state.models.find((m) => m.id === modelSelect?.value) || null;
+  if (currentModel?.language === detected) {
+    return languageChanged;
+  }
+
+  const next = getPreferredModelForLanguage(detected);
+  if (!next) return languageChanged;
+
+  modelSelect.value = next.id;
+  updateStatusBarModel(next);
+  updateDownloadButtonState();
+  refreshVoiceList();
+  warmSelectedModel();
+  if (!quiet) {
+    const langLabel = detected === 'ko-KR' ? '한국어' : 'English';
+    showStatus(`입력 언어 감지: ${langLabel} → ${next.label}`);
+  }
+  return true;
+}
+
+let languageDetectTimer = 0;
+function scheduleLanguageFromText() {
+  clearTimeout(languageDetectTimer);
+  languageDetectTimer = setTimeout(() => applyLanguageFromText(), 250);
 }
 
 async function refreshModels() {
@@ -1052,12 +1108,14 @@ async function refreshModels() {
     updateStatusBarModel(state.models.find((m) => m.id === modelSelect.value) || null);
     updateStatusBarLanguage();
     updateStatusBarCache(`${downloadedCount}/${state.models.length} 설치됨`);
+    updateDownloadButtonState();
     showProgress(0);
     showStatus(downloadedCount === 0
       ? `설치된 모델이 없습니다. 모델을 선택하고 다운로드 버튼을 누르세요. (${state.models.length}개 항목)`
       : `모델 ${state.models.length}개 중 ${downloadedCount}개가 설치되어 있습니다.`);
     await refreshVoiceList();
     // Background-preload current model so first Speak is snappy (esp. Kokoro)
+    applyLanguageFromText(textInput?.value, { quiet: true });
     warmSelectedModel();
   } catch (error) {
     setPhase('error');
@@ -1079,6 +1137,8 @@ async function synthesizeCurrentText() {
   if (!text.trim()) {
     throw new Error('읽을 텍스트를 입력하세요.');
   }
+
+  applyLanguageFromText(text, { quiet: true });
 
   const lang    = languageSelect?.value ?? 'ko-KR';
   const rate    = Number(speedRange?.value ?? 100) / 100;
@@ -1296,6 +1356,7 @@ async function openFile() {
   const result = await openFn();
   if (result?.content != null && textInput) {
     textInput.value = result.content;
+    applyLanguageFromText(result.content, { quiet: true });
     const fileName = result.filePath ? result.filePath.replace(/.*[\\/]/, '') : '(파일)';
     showStatus(`파일 열림: ${fileName}`);
   }
@@ -1311,6 +1372,20 @@ document.getElementById('openFileBtnEditor')?.addEventListener('click', async ()
 
 const downloadModelBtn = document.getElementById('downloadModel');
 
+/** Disable download when the selected model is already installed (or while downloading). */
+function updateDownloadButtonState({ downloading = false } = {}) {
+  if (!downloadModelBtn) return;
+  const model = state.models.find((m) => m.id === modelSelect?.value) || null;
+  const installed = !!model?.downloaded;
+  downloadModelBtn.disabled = downloading || installed || !model;
+  downloadModelBtn.title = downloading
+    ? '다운로드 중...'
+    : installed
+      ? '이미 설치된 모델입니다'
+      : '선택한 모델 다운로드';
+  downloadModelBtn.setAttribute('aria-disabled', downloadModelBtn.disabled ? 'true' : 'false');
+}
+
 /** Download the currently selected model. Returns true when cache is ready. */
 async function downloadSelectedModel() {
   if (!window.ttsBridge) {
@@ -1325,7 +1400,12 @@ async function downloadSelectedModel() {
     showStatus('다운로드할 모델이 없습니다.');
     return false;
   }
-  if (downloadModelBtn) downloadModelBtn.disabled = true;
+  if (model.downloaded) {
+    showStatus(`${model.label}은 이미 설치되어 있습니다.`);
+    updateDownloadButtonState();
+    return true;
+  }
+  updateDownloadButtonState({ downloading: true });
   try {
     setPhase('downloading');
     setDownloadPhase(true);
@@ -1351,7 +1431,7 @@ async function downloadSelectedModel() {
     showProgress(0);
     throw error;
   } finally {
-    if (downloadModelBtn) downloadModelBtn.disabled = false;
+    updateDownloadButtonState();
   }
 }
 
@@ -1373,7 +1453,9 @@ languageSelect.addEventListener('change', () => {
   const model = getPreferredModelForLanguage(languageSelect.value);
   if (model) { modelSelect.value = model.id; updateStatusBarModel(model); }
   updateStatusBarLanguage();
+  updateDownloadButtonState();
   refreshVoiceList();
+  warmSelectedModel();
 });
 
 async function warmSelectedModel() {
@@ -1390,13 +1472,24 @@ async function warmSelectedModel() {
 
 modelSelect.addEventListener('change', () => {
   const model = state.models.find((m) => m.id === modelSelect.value);
+  if (model?.language && languageSelect && languageSelect.value !== model.language) {
+    languageSelect.value = model.language;
+    updateStatusBarLanguage();
+  }
   updateStatusBarModel(model || null);
+  updateDownloadButtonState();
   if (model && !model.downloaded) {
     const desc = model.description ? ` — ${model.description}` : '';
     showStatus(`${model.label}${desc} (미설치, 다운로드 버튼을 눌러 설치하세요)`);
   }
   refreshVoiceList();
   warmSelectedModel();
+});
+
+textInput?.addEventListener('input', scheduleLanguageFromText);
+textInput?.addEventListener('paste', () => {
+  // Paste updates value after the event; detect on next tick.
+  setTimeout(scheduleLanguageFromText, 0);
 });
 
 voiceSelect?.addEventListener('change', () => {

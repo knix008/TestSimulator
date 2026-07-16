@@ -4,6 +4,7 @@
  * so inference runs in a plain Node.js child where the native addon works.
  */
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,6 +28,24 @@ const ort = require('onnxruntime-node');
 const sessions = new Map();
 
 function toTypedData(type, data) {
+  if (Buffer.isBuffer(data) || ArrayBuffer.isView(data)) {
+    // IPC buffers often have non-aligned byteOffset; copy so TypedArray ctor is happy.
+    const src = Buffer.isBuffer(data)
+      ? data
+      : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+    const copy = Buffer.allocUnsafe(src.byteLength);
+    src.copy(copy);
+    if (type === 'int64') {
+      return new BigInt64Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 8));
+    }
+    if (type === 'float64') {
+      return new Float64Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 8));
+    }
+    if (type === 'int32') {
+      return new Int32Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 4));
+    }
+    return new Float32Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 4));
+  }
   if (type === 'int64') {
     return BigInt64Array.from(data.map((v) => BigInt(v)));
   }
@@ -39,11 +58,8 @@ function toTypedData(type, data) {
   return Float32Array.from(data);
 }
 
-function fromTypedData(type, typed) {
-  if (type === 'int64') {
-    return Array.from(typed, (v) => v.toString());
-  }
-  return Array.from(typed);
+function typedToBuffer(typed) {
+  return Buffer.from(typed.buffer, typed.byteOffset, typed.byteLength);
 }
 
 async function handleMessage(msg) {
@@ -59,9 +75,15 @@ async function handleMessage(msg) {
         try { await sessions.get(key).session.release?.(); } catch { /* ignore */ }
         sessions.delete(key);
       }
-      const session = await ort.InferenceSession.create(modelPath, options || {
+      const cores = os.cpus()?.length || 4;
+      const session = await ort.InferenceSession.create(modelPath, {
         executionProviders: ['cpu'],
+        // 'all' crashes Kokoro q8f16 on this host; extended is safe + faster than disabled.
         graphOptimizationLevel: 'extended',
+        intraOpNumThreads: Math.min(8, Math.max(2, cores - 1)),
+        interOpNumThreads: 1,
+        ...(options || {}),
+        executionProviders: options?.executionProviders || ['cpu'],
       });
       sessions.set(key, { session });
       return {
@@ -73,6 +95,7 @@ async function handleMessage(msg) {
     }
 
     if (type === 'sessionRun') {
+      const t0 = performance.now();
       const entry = sessions.get(msg.key);
       if (!entry) throw new Error(`ORT session not found: ${msg.key}`);
       const feeds = {};
@@ -84,16 +107,23 @@ async function handleMessage(msg) {
         );
       }
       const results = await entry.session.run(feeds);
+      const t1 = performance.now();
       const outputs = {};
       for (const name of entry.session.outputNames) {
         const t = results[name];
+        // Send binary Buffer (advanced serialization) — vastly faster than JSON number[].
         outputs[name] = {
           type: t.type,
           dims: t.dims,
-          data: fromTypedData(t.type, t.data),
+          data: typedToBuffer(t.data),
         };
       }
-      return { id, ok: true, outputs };
+      return {
+        id,
+        ok: true,
+        outputs,
+        inferMs: Math.round(t1 - t0),
+      };
     }
 
     if (type === 'sessionRelease') {

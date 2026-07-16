@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
+import os from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -51,6 +52,8 @@ function ensureChild() {
     child = fork(workerPath, [], {
       execPath,
       execArgv: [],
+      // Advanced serialization keeps Buffer/TypedArray binary (not JSON number[]).
+      serialization: 'advanced',
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
       env,
       cwd: path.resolve(__dirname, '..', '..'),
@@ -138,38 +141,81 @@ export class ProxyTensor {
   }
 }
 
+function toBuffer(typed) {
+  if (Buffer.isBuffer(typed)) return typed;
+  if (ArrayBuffer.isView(typed)) {
+    return Buffer.from(typed.buffer, typed.byteOffset, typed.byteLength);
+  }
+  return null;
+}
+
 function serializeFeeds(feeds) {
   const out = {};
   for (const [name, tensor] of Object.entries(feeds || {})) {
-    const data = tensor.data;
+    const buf = toBuffer(tensor.data);
+    if (buf && tensor.type !== 'int64') {
+      // Binary path for float/int32 tensors (style, speed, audio inputs).
+      out[name] = { type: tensor.type, dims: tensor.dims, data: buf };
+      continue;
+    }
+    if (buf && tensor.type === 'int64') {
+      out[name] = { type: tensor.type, dims: tensor.dims, data: buf };
+      continue;
+    }
+    // Fallback for plain arrays
     out[name] = {
       type: tensor.type,
       dims: tensor.dims,
       data: tensor.type === 'int64'
-        ? Array.from(data, (v) => (typeof v === 'bigint' ? v.toString() : String(v)))
-        : Array.from(data),
+        ? Array.from(tensor.data, (v) => (typeof v === 'bigint' ? v.toString() : String(v)))
+        : Array.from(tensor.data),
     };
   }
   return out;
 }
 
+function bufferToTyped(type, data) {
+  const buf = Buffer.isBuffer(data)
+    ? data
+    : (ArrayBuffer.isView(data)
+      ? Buffer.from(data.buffer, data.byteOffset, data.byteLength)
+      : null);
+
+  if (buf) {
+    // Copy to a freshly allocated Buffer so byteOffset is 0 (8-byte aligned).
+    const copy = Buffer.allocUnsafe(buf.byteLength);
+    buf.copy(copy);
+    if (type === 'int64') {
+      return new BigInt64Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 8));
+    }
+    if (type === 'float64') {
+      return new Float64Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 8));
+    }
+    if (type === 'int32') {
+      return new Int32Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 4));
+    }
+    return new Float32Array(copy.buffer, copy.byteOffset, Math.floor(copy.byteLength / 4));
+  }
+
+  if (type === 'int64') return BigInt64Array.from(data.map((v) => BigInt(v)));
+  if (type === 'float64') return Float64Array.from(data);
+  return Float32Array.from(data);
+}
+
 function deserializeOutputs(outputs) {
   const results = {};
   for (const [name, tensor] of Object.entries(outputs || {})) {
-    let data;
-    if (tensor.type === 'int64') {
-      data = BigInt64Array.from(tensor.data.map((v) => BigInt(v)));
-    } else if (tensor.type === 'float64') {
-      data = Float64Array.from(tensor.data);
-    } else {
-      data = Float32Array.from(tensor.data);
-    }
-    results[name] = { type: tensor.type, dims: tensor.dims, data };
+    results[name] = {
+      type: tensor.type,
+      dims: tensor.dims,
+      data: bufferToTyped(tensor.type, tensor.data),
+    };
   }
   return results;
 }
 
 export async function createChildOrtSession(cacheKey, onnxPath, options = {}) {
+  const cores = os.cpus()?.length || 4;
   const preferDml = Array.isArray(options.executionProviders)
     && options.executionProviders.includes('dml');
 
@@ -182,8 +228,9 @@ export async function createChildOrtSession(cacheKey, onnxPath, options = {}) {
       ...(preferDml
         ? { enableMemPattern: false, executionMode: 'sequential' }
         : {
-          intraOpNumThreads: options.intraOpNumThreads,
-          interOpNumThreads: options.interOpNumThreads,
+          intraOpNumThreads: options.intraOpNumThreads
+            ?? Math.min(8, Math.max(2, cores - 1)),
+          interOpNumThreads: options.interOpNumThreads ?? 1,
         }),
     },
   });
@@ -196,6 +243,9 @@ export async function createChildOrtSession(cacheKey, onnxPath, options = {}) {
         key: cacheKey,
         feeds: serializeFeeds(feeds),
       });
+      if (Number.isFinite(result.inferMs)) {
+        console.log(`[TTS] ORT child infer=${result.inferMs}ms`);
+      }
       return deserializeOutputs(result.outputs);
     },
   };

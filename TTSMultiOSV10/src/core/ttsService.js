@@ -440,12 +440,18 @@ async function synthesizeSupertonic(text, modelId, modelDir, { voiceId, speed = 
 }
 
 // ── MMS TTS ──────────────────────────────────────────────────────────────────
-async function synthesizeMmsTts(text, modelId, modelDir) {
-  const onnxPath = await findOnnxFile(modelDir, [
-    'onnx/model.onnx',
+function mmsOnnxCandidates() {
+  // Xenova mms-tts-kor full/fp16 ONNX often fail ORT protobuf parse; quantized loads reliably.
+  return [
     'onnx/model_quantized.onnx',
+    'onnx/model.onnx',
+    'model_quantized.onnx',
     'model.onnx',
-  ]);
+  ];
+}
+
+async function synthesizeMmsTts(text, modelId, modelDir) {
+  const onnxPath = await findOnnxFile(modelDir, mmsOnnxCandidates());
   if (!onnxPath) throw new Error(`ONNX 파일 없음: ${modelDir}`);
 
   const { session, ort } = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
@@ -576,7 +582,11 @@ async function synthesizeKokoro(text, modelId, modelDir, { voiceId = 'af_heart',
     voices.subarray(styleIndex * styleDim, styleIndex * styleDim + styleDim),
   );
 
-  const padded = [0, ...ids, 0];
+  const padded = new BigInt64Array(ids.length + 2);
+  padded[0] = 0n;
+  for (let i = 0; i < ids.length; i++) padded[i + 1] = BigInt(ids[i]);
+  padded[padded.length - 1] = 0n;
+
   let entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
   // If DML session fell back to CPU while we loaded an FP16 graph, switch to a CPU-optimized ONNX.
   if (preferGpu && entry.usedGpu === false) {
@@ -590,9 +600,9 @@ async function synthesizeKokoro(text, modelId, modelDir, { voiceId = 'af_heart',
   }
   const { session, ort } = entry;
   const feeds = {
-    input_ids: new ort.Tensor('int64', BigInt64Array.from(padded.map(BigInt)), [1, padded.length]),
+    input_ids: new ort.Tensor('int64', padded, [1, padded.length]),
     style: new ort.Tensor('float32', style, [1, styleDim]),
-    speed: new ort.Tensor('float32', Float32Array.from([Math.max(0.25, Math.min(4, speed))]), [1]),
+    speed: new ort.Tensor('float32', Float32Array.of(Math.max(0.25, Math.min(4, speed))), [1]),
   };
 
   const t1 = performance.now();
@@ -694,10 +704,7 @@ export async function warmModel(modelId, store) {
   }
 
   if (modelId === 'ko-mms-tts' || runtime === 'transformers-js') {
-    const onnxPath = await findOnnxFile(modelDir, [
-      'onnx/model.onnx',
-      'onnx/model_quantized.onnx',
-    ]);
+    const onnxPath = await findOnnxFile(modelDir, mmsOnnxCandidates());
     if (onnxPath) await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
     await loadVocab(modelDir);
     return { warmed: true, modelId };
