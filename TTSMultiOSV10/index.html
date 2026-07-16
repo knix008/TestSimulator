@@ -19,7 +19,7 @@
         <div class="toolbar-actions">
           <button id="themeToggle" class="toolbar-button theme-button" title="테마 전환" aria-label="테마 전환">🌙</button>
           <button id="refreshModels" class="toolbar-button"><span>⟳</span><span>새로고침</span></button>
-          <button id="saveWav" class="toolbar-button"><span>📄</span><span>WAV 저장</span></button>
+          <button id="saveAudio" class="toolbar-button" title="저장 (Ctrl+S / Cmd+S), 다른 이름으로 저장 (Ctrl+Shift+S / Cmd+Shift+S)"><span>💾</span><span>저장</span></button>
           <button id="aboutBtn" class="toolbar-button" title="프로그램 정보"><span>ℹ</span><span>정보</span></button>
         </div>
       </header>
@@ -77,6 +77,14 @@
             <button id="saveAudioDefaults" type="button" class="voice-defaults-btn">기본값으로 초기화</button>
             <span class="voice-defaults-hint">볼륨 100%, 속도 1.00×, 피치 ±0 으로 되돌립니다.</span>
           </div>
+
+          <label for="mp3BitrateSelect">MP3 비트레이트</label>
+          <select id="mp3BitrateSelect" title="MP3 저장 시 비트레이트를 선택합니다">
+            <option value="96">96 kbps</option>
+            <option value="128" selected>128 kbps</option>
+            <option value="192">192 kbps</option>
+            <option value="320">320 kbps</option>
+          </select>
 
         </section>
       </main>
@@ -139,6 +147,11 @@
 
       <!-- 파형 우클릭 메뉴 -->
       <div id="waveformContextMenu" class="ctx-menu" hidden role="menu" aria-label="파형 메뉴">
+        <button type="button" class="ctx-item" data-action="save-audio" role="menuitem" disabled>
+          <span class="ctx-icon" aria-hidden="true">💾</span>
+          <span class="ctx-label">오디오 저장</span>
+        </button>
+        <div class="ctx-sep" role="separator"></div>
         <button type="button" class="ctx-item" data-action="play" role="menuitem">
           <span class="ctx-icon" aria-hidden="true">▶</span>
           <span class="ctx-label">읽기</span>
@@ -163,11 +176,6 @@
         <button type="button" class="ctx-item" data-action="seek-end" role="menuitem" disabled>
           <span class="ctx-icon" aria-hidden="true">⏭</span>
           <span class="ctx-label">끝으로</span>
-        </button>
-        <div class="ctx-sep" role="separator"></div>
-        <button type="button" class="ctx-item" data-action="save-wav" role="menuitem" disabled>
-          <span class="ctx-icon" aria-hidden="true">📄</span>
-          <span class="ctx-label">WAV 저장</span>
         </button>
       </div>
 

@@ -52,8 +52,11 @@ const bridge = window.ttsBridge || {
   },
   async downloadAndPrepareModel() { return null; },
   async getCachedModels()         { return []; },
+  async selectAudioPath()         { return null; },
   async selectWavPath()           { return null; },
+  async selectMp3Path()           { return null; },
   async exportWav()               { return null; },
+  async exportMp3()               { return null; },
   async openTextFile()            { return webOpenTextFile(); },
   async speak({ text }) {
     const sampleRate = 22050;
@@ -76,6 +79,7 @@ const bridge = window.ttsBridge || {
 const state = {
   models: [],
   lastResult: null,
+  lastExport: null,
   audioContext: null,
   currentSource: null,
   currentGain: null,
@@ -134,6 +138,7 @@ const waveformVoiceLabel = document.getElementById('waveformVoiceLabel');
 const errorDialog        = document.getElementById('errorDialog');
 const errorDetails       = document.getElementById('errorDetails');
 const copyError          = document.getElementById('copyError');
+const mp3BitrateSelect   = document.getElementById('mp3BitrateSelect');
 
 const AUDIO_DEFAULTS_KEY = 'tts-audio-defaults';
 const DEFAULT_AUDIO_SETTINGS = {
@@ -688,7 +693,7 @@ function updateTransportButtons() {
   setDisabled('seek-here', !hasAudio || state.synthesizing);
   setDisabled('seek-start', !hasAudio || state.synthesizing);
   setDisabled('seek-end', !hasAudio || state.synthesizing);
-  setDisabled('save-wav', !hasAudio || state.synthesizing);
+  setDisabled('save-audio', !hasAudio || state.synthesizing);
 }
 
 function getPlaybackProgress() {
@@ -1319,20 +1324,113 @@ async function speakText() {
   }
 }
 
-// ── Save WAV ─────────────────────────────────────────────────────────────────
-async function saveWav() {
+function sanitizeFileNameSegment(input) {
+  return String(input || '')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function makeTimestampLocal() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${y}${m}${d}-${hh}${mm}${ss}`;
+}
+
+function formatDateTimeLocal(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+}
+
+function createExportBaseName() {
+  const model = state.models.find((m) => m.id === modelSelect?.value);
+  const label = sanitizeFileNameSegment(model?.label || model?.id || 'tts-output');
+  return `${label}-${makeTimestampLocal()}`;
+}
+
+function inferFormatFromPath(filePath, fallback = 'wav') {
+  const lower = String(filePath || '').toLowerCase();
+  if (lower.endsWith('.mp3')) return 'mp3';
+  if (lower.endsWith('.wav')) return 'wav';
+  return fallback === 'mp3' ? 'mp3' : 'wav';
+}
+
+function readMp3BitrateKbps() {
+  const value = Number(mp3BitrateSelect?.value ?? 128);
+  if (!Number.isFinite(value)) return 128;
+  return Math.max(32, Math.min(320, Math.round(value)));
+}
+
+async function saveAudio(preferredFormat = 'wav', options = {}) {
+  const reuseLastPath = !!options.reuseLastPath;
+  const usedQuickSavePath = reuseLastPath && !!state.lastExport?.filePath;
+  const saveTime = formatDateTimeLocal();
   try {
     if (!state.lastResult?.audioBuffer?.length) {
       await synthesizeCurrentText();
     }
-    const filePath = await bridge.selectWavPath();
-    if (!filePath) { showStatus('WAV 저장이 취소되었습니다.'); return; }
-    await bridge.exportWav({
-      filePath,
-      audioBuffer: state.lastResult.audioBuffer,
-      sampleRate:  state.lastResult.sampleRate
-    });
-    showStatus(`WAV 파일을 저장했습니다: ${filePath}`);
+
+    let selected = null;
+    if (reuseLastPath && state.lastExport?.filePath) {
+      selected = {
+        filePath: state.lastExport.filePath,
+        format: state.lastExport.format || inferFormatFromPath(state.lastExport.filePath, preferredFormat),
+      };
+    } else if (bridge.selectAudioPath) {
+      selected = await bridge.selectAudioPath({
+        format: preferredFormat,
+        baseName: createExportBaseName(),
+      });
+    } else {
+      const legacyPath = preferredFormat === 'mp3'
+        ? await bridge.selectMp3Path()
+        : await bridge.selectWavPath();
+      selected = legacyPath ? { filePath: legacyPath, format: preferredFormat } : null;
+    }
+
+    if (!selected?.filePath) {
+      showStatus(`${preferredFormat.toUpperCase()} 저장이 취소되었습니다.`);
+      return;
+    }
+
+    const format = selected.format || inferFormatFromPath(selected.filePath, preferredFormat);
+    if (format === 'mp3') {
+      const bitrateKbps = readMp3BitrateKbps();
+      await bridge.exportMp3({
+        filePath: selected.filePath,
+        audioBuffer: state.lastResult.audioBuffer,
+        sampleRate: state.lastResult.sampleRate,
+        bitrateKbps,
+      });
+      state.lastExport = { filePath: selected.filePath, format: 'mp3', bitrateKbps };
+      showStatus(
+        usedQuickSavePath
+          ? `빠른 저장 완료 [${saveTime}] (MP3): ${selected.filePath} (${bitrateKbps} kbps)`
+          : `MP3 파일을 저장했습니다: ${selected.filePath} (${bitrateKbps} kbps)`
+      );
+    } else {
+      await bridge.exportWav({
+        filePath: selected.filePath,
+        audioBuffer: state.lastResult.audioBuffer,
+        sampleRate: state.lastResult.sampleRate,
+      });
+      state.lastExport = { filePath: selected.filePath, format: 'wav' };
+      showStatus(
+        usedQuickSavePath
+          ? `빠른 저장 완료 [${saveTime}] (WAV): ${selected.filePath}`
+          : `WAV 파일을 저장했습니다: ${selected.filePath}`
+      );
+    }
   } catch (error) {
     setPhase('error');
     showError(error);
@@ -1574,7 +1672,7 @@ deleteModelBtn?.addEventListener('click', async () => {
 speakBtn?.addEventListener('click', speakText);
 pauseBtn?.addEventListener('click', () => pausePlayback());
 stopBtn?.addEventListener('click', () => stopPlayback());
-document.getElementById('saveWav').addEventListener('click', saveWav);
+document.getElementById('saveAudio')?.addEventListener('click', () => saveAudio('wav'));
 updateTransportButtons();
 
 languageSelect.addEventListener('change', () => {
@@ -1748,7 +1846,7 @@ waveformContextMenu?.addEventListener('click', async (e) => {
         updateTransportButtons();
       }
     }
-    else if (action === 'save-wav') await saveWav();
+    else if (action === 'save-audio') await saveAudio('wav');
   } catch (err) {
     showError(err);
   }
@@ -1761,6 +1859,14 @@ document.addEventListener('pointerdown', (e) => {
 }, true);
 
 document.addEventListener('keydown', (e) => {
+  const isSaveShortcut = (e.ctrlKey || e.metaKey) && !e.altKey && String(e.key).toLowerCase() === 's';
+  if (isSaveShortcut) {
+    e.preventDefault();
+    hideWaveformContextMenu();
+    const isSaveAs = !!e.shiftKey;
+    void saveAudio('wav', { reuseLastPath: !isSaveAs });
+    return;
+  }
   if (e.key === 'Escape') hideWaveformContextMenu();
 });
 

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ensureModelCatalog, getDefaultCacheDirectory, getModelCatalog } from '../src/core/modelCatalog.js';
 import { createModelStore } from '../src/core/modelStore.js';
 import { exportWavFile } from '../src/core/wav.js';
+import { exportMp3File } from '../src/core/mp3.js';
 import { synthesizeText, warmModel, listModelVoices } from '../src/core/ttsService.js';
 import { ensureOrtNativePath } from '../src/core/ortNative.js';
 import { terminateOrtChild } from '../src/core/ortChildClient.js';
@@ -21,6 +22,25 @@ ensureOrtNativePath();
 
 const ttsStore = createModelStore();
 let mainWindow;
+
+function sanitizeFileBaseName(name) {
+  const value = String(name || '')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return value || 'tts-output';
+}
+
+function normalizeAudioFormat(format) {
+  return String(format || '').toLowerCase() === 'mp3' ? 'mp3' : 'wav';
+}
+
+function inferFormatFromPath(filePath, fallback = 'wav') {
+  const ext = path.extname(String(filePath || '')).toLowerCase();
+  if (ext === '.mp3') return 'mp3';
+  if (ext === '.wav') return 'wav';
+  return normalizeAudioFormat(fallback);
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -77,10 +97,37 @@ ipcMain.handle('app:getCachedModels', async () => {
   return store.listCachedModels();
 });
 ipcMain.handle('app:getCacheDirectory', async () => getDefaultCacheDirectory());
+ipcMain.handle('app:selectAudioPath', async (_event, payload) => {
+  const preferred = normalizeAudioFormat(payload?.format);
+  const baseName = sanitizeFileBaseName(payload?.baseName);
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: `${baseName}.${preferred}`,
+    filters: [
+      { name: 'Audio Files', extensions: ['wav', 'mp3'] },
+      { name: 'WAV Audio', extensions: ['wav'] },
+      { name: 'MP3 Audio', extensions: ['mp3'] },
+    ]
+  });
+
+  if (result.canceled || !result.filePath) return null;
+
+  const format = inferFormatFromPath(result.filePath, preferred);
+  const finalPath = path.extname(result.filePath)
+    ? result.filePath
+    : `${result.filePath}.${format}`;
+  return { filePath: finalPath, format };
+});
 ipcMain.handle('app:selectWavPath', async () => {
   const result = await dialog.showSaveDialog(mainWindow, {
     defaultPath: 'tts-output.wav',
     filters: [{ name: 'WAV Audio', extensions: ['wav'] }]
+  });
+  return result.canceled ? null : result.filePath;
+});
+ipcMain.handle('app:selectMp3Path', async () => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: 'tts-output.mp3',
+    filters: [{ name: 'MP3 Audio', extensions: ['mp3'] }]
   });
   return result.canceled ? null : result.filePath;
 });
@@ -167,6 +214,9 @@ ipcMain.handle('app:listModelVoices', async (_event, modelId) => {
 });
 ipcMain.handle('app:exportWav', async (_event, payload) => {
   return exportWavFile(payload.filePath, payload.audioBuffer, payload.sampleRate || 22050);
+});
+ipcMain.handle('app:exportMp3', async (_event, payload) => {
+  return exportMp3File(payload.filePath, payload.audioBuffer, payload.sampleRate || 22050, payload.bitrateKbps || 128);
 });
 ipcMain.handle('app:openTextFile', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {

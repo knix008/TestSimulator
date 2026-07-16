@@ -7,7 +7,7 @@
 ## 1. 개요
 
 렌더러(UI)와 메인 프로세스가 IPC로 통신하고, **실제 TTS 합성은 Worker Thread**에서 수행합니다.  
-UI는 Electron과 웹에서 공유하지만, **다운로드·추론·WAV 저장은 Electron 전용**입니다.
+UI는 Electron과 웹에서 공유하지만, **다운로드·추론·WAV/MP3 저장은 Electron 전용**입니다.
 
 ---
 
@@ -32,6 +32,7 @@ UI는 Electron과 웹에서 공유하지만, **다운로드·추론·WAV 저장�
   src/core/modelStore.js   HuggingFace 다운로드·캐시
   src/core/modelCatalog.js 모델 메타데이터
   src/core/wav.js          WAV 인코딩
+  src/core/mp3.js          MP3 인코딩
 ```
 
 ---
@@ -43,7 +44,9 @@ UI는 Electron과 웹에서 공유하지만, **다운로드·추론·WAV 저장�
 | `app:getModelCatalog` | renderer→main | 카탈로그 |
 | `app:getCachedModels` | renderer→main | 설치 여부 |
 | `app:getCacheDirectory` | renderer→main | 캐시 루트 경로 |
+| `app:selectAudioPath` | renderer→main | 통합 저장 대화상자 (WAV/MP3) |
 | `app:selectWavPath` | renderer→main | 저장 대화상자 |
+| `app:selectMp3Path` | renderer→main | 저장 대화상자 |
 | `app:openTextFile` | renderer→main | 텍스트 파일 열기 |
 | `app:downloadAndPrepareModel` | renderer→main | HF 다운로드 |
 | `app:modelDownloadProgress` | main→renderer | 진행률 push |
@@ -51,6 +54,7 @@ UI는 Electron과 웹에서 공유하지만, **다운로드·추론·WAV 저장�
 | `app:warmModel` | renderer→main→**worker** | ONNX/음소화/sherpa 사전 로드 |
 | `app:listModelVoices` | renderer→main→**worker** | 모델별 보이스 목록 |
 | `app:exportWav` | renderer→main | PCM → WAV 파일 |
+| `app:exportMp3` | renderer→main | PCM → MP3 파일 |
 
 ---
 
@@ -74,7 +78,7 @@ UI는 Electron과 웹에서 공유하지만, **다운로드·추론·WAV 저장�
   └─ Renderer: drawWaveform(실PCM) → playAudioBuffer (볼륨/속도/피치)
 ```
 
-**파형·재생·WAV는 모두 모델이 만든 PCM**을 사용합니다.  
+**파형·재생·WAV/MP3는 모두 모델이 만든 PCM**을 사용합니다. MP3 인코딩 비트레이트는 UI에서 선택 가능합니다.  
 OS Web Speech API는 더 이상 주 경로가 아닙니다.
 
 ### 워밍업

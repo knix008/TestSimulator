@@ -103,6 +103,7 @@
     "onnxruntime-node@1.27.0": true
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@piper-plus/g2p": "^0.4.1",
     "onnxruntime-node": "^1.27.0",
     "phonemizer": "^1.2.1",
