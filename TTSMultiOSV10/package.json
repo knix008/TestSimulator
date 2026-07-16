@@ -8,6 +8,8 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
+    "postinstall": "electron-builder install-app-deps",
+    "rebuild:native": "electron-builder install-app-deps",
     "web": "node server.js",
     "copy:installers": "node scripts/copy-installers.mjs",
     "copy:installers:win": "node scripts/copy-installers.mjs --platform win",
@@ -104,6 +106,7 @@
     "@huggingface/transformers": "^4.2.0",
     "@piper-plus/g2p": "^0.4.1",
     "onnxruntime-node": "^1.27.0",
+    "onnxruntime-web": "^1.27.0",
     "phonemizer": "^1.2.1",
     "sherpa-onnx-node": "^1.13.4",
     "sherpa-onnx-win-x64": "^1.13.4"

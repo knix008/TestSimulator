@@ -2,6 +2,7 @@ import { formatError } from './errorDialog.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 
@@ -151,17 +152,34 @@ const voiceBinCache = new Map();
 const vocabCache = new Map();
 let phonemizeFnPromise = null;
 let phonemizerWarmed = false;
+let ortPromise = null;
 
 async function getOrt() {
-  const mod = await import('onnxruntime-node');
-  return mod.default ?? mod;
+  if (!ortPromise) {
+    ortPromise = (async () => {
+      try {
+        const mod = await import('onnxruntime-node');
+        return mod.default ?? mod;
+      } catch (error) {
+        console.warn(`[TTS] onnxruntime-node 로드 실패, onnxruntime-web으로 대체: ${error?.message || error}`);
+        const mod = await import('onnxruntime-web/wasm');
+        const ort = mod.default ?? mod;
+        const wasmBase = path.dirname(require.resolve('onnxruntime-web/wasm'));
+        ort.env.wasm.numThreads = 1;
+        ort.env.wasm.wasmPaths = pathToFileURL(wasmBase + path.sep).href;
+        return ort;
+      }
+    })();
+  }
+  return ortPromise;
 }
 
 async function getOrtSession(cacheKey, onnxPath) {
   if (sessionCache.has(cacheKey)) return sessionCache.get(cacheKey);
   const ort = await getOrt();
   console.log(`[TTS] ONNX 세션 생성: ${onnxPath}`);
-  const session = await ort.InferenceSession.create(onnxPath, {
+  const modelData = await fs.readFile(onnxPath);
+  const session = await ort.InferenceSession.create(modelData, {
     executionProviders: ['cpu'],
     graphOptimizationLevel: 'all',
   });

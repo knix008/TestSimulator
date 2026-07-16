@@ -132,6 +132,66 @@ const errorDialog        = document.getElementById('errorDialog');
 const errorDetails       = document.getElementById('errorDetails');
 const copyError          = document.getElementById('copyError');
 
+const AUDIO_DEFAULTS_KEY = 'tts-audio-defaults';
+const DEFAULT_AUDIO_SETTINGS = {
+  volume: 100,
+  speed: 100,
+  pitch: 0,
+};
+
+function clampNumber(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function readCurrentAudioSettings() {
+  return {
+    volume: clampNumber(volumeRange?.value, 0, 200, DEFAULT_AUDIO_SETTINGS.volume),
+    speed: clampNumber(speedRange?.value, 25, 400, DEFAULT_AUDIO_SETTINGS.speed),
+    pitch: clampNumber(pitchRange?.value, -12, 12, DEFAULT_AUDIO_SETTINGS.pitch),
+  };
+}
+
+function syncAudioParamLabels() {
+  if (volumeLabel && volumeRange) volumeLabel.textContent = `${volumeRange.value}%`;
+  if (speedLabel && speedRange) speedLabel.textContent = `${(Number(speedRange.value) / 100).toFixed(2)}×`;
+  if (pitchLabel && pitchRange) {
+    const v = Number(pitchRange.value);
+    pitchLabel.textContent = v === 0 ? '±0' : (v > 0 ? `+${v}` : `${v}`);
+  }
+}
+
+function applyAudioSettings(settings) {
+  if (volumeRange) volumeRange.value = String(clampNumber(settings?.volume, 0, 200, DEFAULT_AUDIO_SETTINGS.volume));
+  if (speedRange) speedRange.value = String(clampNumber(settings?.speed, 25, 400, DEFAULT_AUDIO_SETTINGS.speed));
+  if (pitchRange) pitchRange.value = String(clampNumber(settings?.pitch, -12, 12, DEFAULT_AUDIO_SETTINGS.pitch));
+  syncAudioParamLabels();
+  applyLiveVolume();
+  applyLiveSpeed();
+  applyLivePitch();
+}
+
+function loadAudioDefaults() {
+  try {
+    const raw = localStorage.getItem(AUDIO_DEFAULTS_KEY);
+    if (!raw) {
+      applyAudioSettings(DEFAULT_AUDIO_SETTINGS);
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    applyAudioSettings(parsed);
+  } catch {
+    applyAudioSettings(DEFAULT_AUDIO_SETTINGS);
+  }
+}
+
+function saveAudioDefaults() {
+  const settings = readCurrentAudioSettings();
+  localStorage.setItem(AUDIO_DEFAULTS_KEY, JSON.stringify(settings));
+  showStatus('볼륨, 속도, 피치를 기본값으로 저장했습니다.');
+}
+
 // ── Theme ────────────────────────────────────────────────────────────────────
 const themeToggle = document.getElementById('themeToggle');
 function applyTheme(theme) {
@@ -154,6 +214,7 @@ function cycleTheme() {
 
 applyTheme(localStorage.getItem('tts-theme') || 'dark');
 themeToggle?.addEventListener('click', cycleTheme);
+loadAudioDefaults();
 
 /** Clear canvas cache and show overlay until real PCM is ready. */
 function clearWaveform(message) {
@@ -1148,13 +1209,15 @@ document.getElementById('aboutBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('refreshModels').addEventListener('click', refreshModels);
+document.getElementById('saveAudioDefaults')?.addEventListener('click', saveAudioDefaults);
 
 async function openFile() {
   const openFn = bridge.openTextFile ?? webOpenTextFile;
   const result = await openFn();
   if (result?.content != null && textInput) {
     textInput.value = result.content;
-    showStatus(`파일 열림: ${result.filePath || '(파일)'}`);
+    const fileName = result.filePath ? result.filePath.replace(/.*[\\/]/, '') : '(파일)';
+    showStatus(`파일 열림: ${fileName}`);
   }
 }
 
