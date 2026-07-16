@@ -22,7 +22,7 @@ parentPort.on('message', async (msg) => {
     parentPort.postMessage({
       id,
       ok: false,
-      error: error?.message || String(error),
+      error: error?.stack || error?.message || String(error),
     });
   }
 });

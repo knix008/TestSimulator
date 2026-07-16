@@ -27,16 +27,16 @@ const bridge = window.ttsBridge || {
   async getModelCatalog() {
     return [
       {
-        id: 'ko-piper-kss', label: 'Piper KSS', language: 'ko-KR',
-        sizeHint: '64 MB', runtime: 'piper-onnx',
-        description: '경량 임베디드 최적 모델 (VITS 기반)',
-        preferredOnFirstRun: false
-      },
-      {
         id: 'ko-supertonic-int8', label: 'Supertonic 3 INT8', language: 'ko-KR',
         sizeHint: '~140 MB', runtime: 'sherpa-onnx',
         description: 'Supertonic 3 · INT8 · 단어 skip 감소 · 31언어',
         preferredOnFirstRun: true
+      },
+      {
+        id: 'ko-piper-kss', label: 'Piper KSS', language: 'ko-KR',
+        sizeHint: '64 MB', runtime: 'piper-onnx',
+        description: '경량 임베디드 최적 모델 (VITS 기반)',
+        preferredOnFirstRun: false
       },
       {
         id: 'ko-mms-tts', label: 'MMS TTS', language: 'ko-KR',
@@ -45,7 +45,7 @@ const bridge = window.ttsBridge || {
       },
       {
         id: 'en-kokoro', label: 'Kokoro 82M', language: 'en-US',
-        sizeHint: '~310 MB', runtime: 'onnx',
+        sizeHint: '~82 MB', runtime: 'onnx',
         description: '영어 고품질 TTS (ONNX)'
       }
     ];
@@ -1091,7 +1091,16 @@ async function synthesizeCurrentText() {
   }
   if (!model) throw new Error('모델을 선택하세요.');
   if (!model.downloaded) {
-    throw new Error(`${model.label} 모델이 설치되어 있지 않습니다.\n다운로드 후 다시 시도하세요.`);
+    showStatus(`${model.label}이 설치되어 있지 않아 다운로드를 시작합니다...`);
+    const installed = await downloadSelectedModel();
+    if (!installed) {
+      throw new Error(`${model.label} 다운로드에 실패했습니다.\n「↓ 다운로드」로 다시 시도하세요.`);
+    }
+    // Refresh local reference after install
+    const refreshed = state.models.find((m) => m.id === modelId);
+    if (!refreshed?.downloaded) {
+      throw new Error(`${model.label} 설치 상태를 확인하지 못했습니다.\n새로고침 후 다시 시도하세요.`);
+    }
   }
 
   stopPlayback();
@@ -1100,9 +1109,10 @@ async function synthesizeCurrentText() {
   state.synthesizing = true;
   updateTransportButtons();
   setPhase('speaking');
-  showStatus(`${model.label} 모델 합성 중...`);
+  const activeModel = state.models.find((m) => m.id === modelId) || model;
+  showStatus(`${activeModel.label} 모델 합성 중...`);
   // Do not draw a fake waveform while waiting — only show real PCM.
-  clearWaveform(`${model.label} 합성 중…`);
+  clearWaveform(`${activeModel.label} 합성 중…`);
 
   try {
     const result = await bridge.speak({
@@ -1110,11 +1120,11 @@ async function synthesizeCurrentText() {
       modelId,
       voiceId: voiceId || undefined,
       speed: rate,
-      language: model.language || lang,
+      language: activeModel.language || lang,
     });
 
     if (!result?.audioBuffer?.length) {
-      throw new Error(`${model.label} 합성 결과가 비어 있습니다.`);
+      throw new Error(`${activeModel.label} 합성 결과가 비어 있습니다.`);
     }
 
     state.lastResult = {
@@ -1127,11 +1137,11 @@ async function synthesizeCurrentText() {
     state.bufferOffsetSec = 0;
 
     const voiceLabel = voiceId
-      ? `${model.label} · ${voiceSelect?.selectedOptions?.[0]?.textContent || voiceId}`
-      : model.label;
+      ? `${activeModel.label} · ${voiceSelect?.selectedOptions?.[0]?.textContent || voiceId}`
+      : activeModel.label;
     if (waveformVoiceLabel) waveformVoiceLabel.textContent = voiceLabel;
 
-    return model;
+    return activeModel;
   } catch (err) {
     clearWaveform('합성에 실패했습니다. 다시 시도해 주세요.');
     throw err;
@@ -1196,8 +1206,78 @@ async function saveWav() {
 }
 
 // ── Event wiring ─────────────────────────────────────────────────────────────
-copyError?.addEventListener('click', async () => {
-  await navigator.clipboard.writeText(errorDetails?.textContent || '');
+function copyViaDomSelection(text) {
+  const value = String(text ?? '');
+  // Prefer selecting the visible error <pre> so modal focus stays valid.
+  if (errorDetails && (errorDetails.textContent || '').trim()) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(errorDetails);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const ok = document.execCommand('copy');
+    selection?.removeAllRanges();
+    if (ok) return true;
+  }
+
+  const ta = document.createElement('textarea');
+  ta.value = value;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;';
+  const host = errorDialog || document.body;
+  host.appendChild(ta);
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);
+  const ok = document.execCommand('copy');
+  ta.remove();
+  return !!ok;
+}
+
+async function copyTextToClipboard(text) {
+  const value = String(text ?? '');
+  const api = window.ttsBridge?.copyText || bridge.copyText;
+  if (typeof api === 'function') {
+    await api(value);
+    return true;
+  }
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    // Fall through to DOM selection copy.
+  }
+  if (copyViaDomSelection(value)) return true;
+  throw new Error('클립보드 복사에 실패했습니다.');
+}
+
+function getErrorDialogCopyText() {
+  const details = (errorDetails?.innerText || errorDetails?.textContent || '').trim();
+  return details ? `오류\n\n${details}` : '오류';
+}
+
+copyError?.addEventListener('click', async (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  const label = copyError.querySelector('span:last-child');
+  const prev = label?.textContent || '복사';
+  try {
+    await copyTextToClipboard(getErrorDialogCopyText());
+    if (label) label.textContent = '복사됨';
+    copyError.disabled = true;
+    setTimeout(() => {
+      if (label) label.textContent = prev;
+      copyError.disabled = false;
+    }, 1200);
+  } catch (err) {
+    if (label) label.textContent = '실패';
+    setTimeout(() => {
+      if (label) label.textContent = prev;
+    }, 1200);
+    console.warn('[UI] 오류 복사 실패:', err?.message || err);
+  }
 });
 
 const aboutDialog = document.getElementById('aboutDialog');
@@ -1230,13 +1310,21 @@ document.getElementById('openFileBtnEditor')?.addEventListener('click', async ()
 });
 
 const downloadModelBtn = document.getElementById('downloadModel');
-downloadModelBtn?.addEventListener('click', async () => {
+
+/** Download the currently selected model. Returns true when cache is ready. */
+async function downloadSelectedModel() {
   if (!window.ttsBridge) {
-    showError('Electron 브리지가 연결되지 않았습니다.\n\n브라우저에서는 모델 다운로드를 지원하지 않습니다.\nElectron 앱으로 실행하세요: npm start');
-    return;
+    throw new Error(
+      'Electron 브리지가 연결되지 않았습니다.\n\n'
+      + '브라우저에서는 모델 다운로드를 지원하지 않습니다.\n'
+      + 'Electron 앱으로 실행하세요: npm start',
+    );
   }
   const model = state.models.find((m) => m.id === modelSelect.value) || null;
-  if (!model) { showStatus('다운로드할 모델이 없습니다.'); return; }
+  if (!model) {
+    showStatus('다운로드할 모델이 없습니다.');
+    return false;
+  }
   if (downloadModelBtn) downloadModelBtn.disabled = true;
   try {
     setPhase('downloading');
@@ -1255,13 +1343,23 @@ downloadModelBtn?.addEventListener('click', async () => {
     }
     await refreshModels();
     await warmSelectedModel();
+    const refreshed = state.models.find((m) => m.id === model.id);
+    return !!refreshed?.downloaded;
   } catch (error) {
     setPhase('error');
     setDownloadPhase(false);
     showProgress(0);
-    showError(error);
+    throw error;
   } finally {
     if (downloadModelBtn) downloadModelBtn.disabled = false;
+  }
+}
+
+downloadModelBtn?.addEventListener('click', async () => {
+  try {
+    await downloadSelectedModel();
+  } catch (error) {
+    showError(error);
   }
 });
 
@@ -1311,12 +1409,15 @@ voiceSelect?.addEventListener('change', () => {
   }
 });
 
-// Waveform scrub / seek (drag the red playhead)
+// Waveform scrub / seek — left button only (right button opens context menu)
 function onScrubPointerDown(e) {
+  // Mouse: primary (left) only. Touch/pen still use button 0.
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
   if (!state.pcm?.length && !state.lastResult?.audioBuffer?.length) return;
   if (!state.pcm?.length && state.lastResult?.audioBuffer) {
     preparePcm(state.lastResult.audioBuffer, state.lastResult.sampleRate);
   }
+  hideWaveformContextMenu();
   state.wasPlayingBeforeScrub = state.playStatus === 'playing';
   state.scrubbing = true;
   waveformCanvas.classList.add('scrubbing');
@@ -1327,12 +1428,15 @@ function onScrubPointerDown(e) {
 
 function onScrubPointerMove(e) {
   if (!state.scrubbing) return;
+  // Ignore non-primary mouse moves while another button is held.
+  if (e.pointerType === 'mouse' && e.buttons !== 0 && (e.buttons & 1) === 0) return;
   seekToProgress(canvasProgressFromEvent(e));
   e.preventDefault();
 }
 
 function onScrubPointerUp(e) {
   if (!state.scrubbing) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
   const progress = canvasProgressFromEvent(e);
   state.scrubbing = false;
   waveformCanvas.classList.remove('scrubbing');
@@ -1378,7 +1482,12 @@ function showWaveformContextMenu(clientX, clientY, progress) {
 function onWaveformContextMenu(e) {
   e.preventDefault();
   e.stopPropagation();
-  if (state.scrubbing) return;
+  // Cancel accidental scrub if a previous left-drag was interrupted.
+  if (state.scrubbing) {
+    state.scrubbing = false;
+    waveformCanvas?.classList.remove('scrubbing');
+    state.wasPlayingBeforeScrub = false;
+  }
 
   let progress = 0;
   if (waveformCanvas) {

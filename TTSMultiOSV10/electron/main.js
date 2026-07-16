@@ -1,11 +1,13 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, globalShortcut } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, globalShortcut, clipboard } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { ensureModelCatalog, getDefaultCacheDirectory, getModelCatalog } from '../src/core/modelCatalog.js';
 import { createModelStore } from '../src/core/modelStore.js';
 import { exportWavFile } from '../src/core/wav.js';
-import { callTtsWorker, terminateTtsWorker } from './ttsWorkerHost.js';
+import { synthesizeText, warmModel, listModelVoices } from '../src/core/ttsService.js';
+import { ensureOrtNativePath } from '../src/core/ortNative.js';
+import { terminateOrtChild } from '../src/core/ortChildClient.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,12 +16,16 @@ const electronDataRoot = path.join(app.getPath('appData'), 'TTSMultiOSV10');
 app.setPath('userData', path.join(electronDataRoot, 'user-data'));
 app.setPath('sessionData', path.join(electronDataRoot, 'session-data'));
 
+// Windows: make onnxruntime.dll / DirectML.dll discoverable before first require.
+ensureOrtNativePath();
+
+const ttsStore = createModelStore();
 let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1520,
-    height: 1000,
+    height: 1120,
     resizable: false,
     maximizable: false,
     backgroundColor: '#101319',
@@ -49,14 +55,14 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  terminateTtsWorker();
+  terminateOrtChild();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
 app.on('before-quit', () => {
-  terminateTtsWorker();
+  terminateOrtChild();
 });
 
 app.on('activate', () => {
@@ -78,38 +84,76 @@ ipcMain.handle('app:selectWavPath', async () => {
   });
   return result.canceled ? null : result.filePath;
 });
+ipcMain.handle('app:copyText', (_event, text) => {
+  clipboard.writeText(String(text ?? ''));
+  return { ok: true, length: String(text ?? '').length };
+});
 ipcMain.handle('app:downloadAndPrepareModel', async (_event, modelId) => {
   const store = createModelStore();
   console.log(`[Download] 시작: ${modelId}`);
+  let lastLoggedPercent = -1;
+  const sendProgress = (progress) => {
+    try {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      const wc = mainWindow.webContents;
+      if (!wc || wc.isDestroyed()) return;
+      wc.send('app:modelDownloadProgress', progress);
+    } catch {
+      // Window closed mid-download — ignore IPC errors.
+    }
+  };
   try {
     const result = await store.ensureModelAvailable(modelId, (progress) => {
-      if (progress.phase === 'download' && progress.percent % 10 === 0) {
-        console.log(`[Download] ${modelId} ${progress.percent}% — ${progress.fileName || ''}`);
+      const percent = Number(progress?.percent) || 0;
+      if (
+        progress?.phase !== 'download'
+        || percent === 100
+        || percent === 0
+        || Math.floor(percent / 5) !== Math.floor(lastLoggedPercent / 5)
+      ) {
+        lastLoggedPercent = percent;
+        console.log(`[Download] ${modelId} ${percent}% — ${progress?.fileName || progress?.phase || ''}`);
       }
-      mainWindow?.webContents?.send('app:modelDownloadProgress', progress);
+      sendProgress(progress);
     });
     console.log(`[Download] 완료: ${modelId} (downloaded=${result.downloaded})`);
     return result;
   } catch (error) {
-    console.error(`[Download] 실패: ${modelId}\n`, error?.message || error);
-    throw error;
+    const message = error?.message || String(error);
+    console.error(`[Download] 실패: ${modelId}\n`, message);
+    // Surface a clean message to the renderer (avoid opaque "fetch failed" only).
+    throw new Error(message);
   }
 });
 ipcMain.handle('app:speak', async (_event, payload) => {
-  // Run in a worker so ONNX/phonemizer work does not freeze the UI thread
-  return callTtsWorker('speak', {
-    text:     payload.text,
-    modelId:  payload.modelId,
-    voiceId:  payload.voiceId,
-    speed:    payload.speed,
-    language: payload.language,
-  });
+  // Main-process inference: worker_threads cannot reliably load onnxruntime DLLs on Windows.
+  try {
+    return await synthesizeText({
+      text: payload.text,
+      modelId: payload.modelId,
+      voiceId: payload.voiceId,
+      speed: payload.speed,
+      language: payload.language,
+      store: ttsStore,
+      onProgress: null,
+    });
+  } catch (error) {
+    throw new Error(error?.message || String(error));
+  }
 });
 ipcMain.handle('app:warmModel', async (_event, modelId) => {
-  return callTtsWorker('warm', { modelId });
+  try {
+    return await warmModel(modelId, ttsStore);
+  } catch (error) {
+    throw new Error(error?.message || String(error));
+  }
 });
 ipcMain.handle('app:listModelVoices', async (_event, modelId) => {
-  return callTtsWorker('voices', { modelId });
+  try {
+    return await listModelVoices(modelId, ttsStore);
+  } catch (error) {
+    throw new Error(error?.message || String(error));
+  }
 });
 ipcMain.handle('app:exportWav', async (_event, payload) => {
   return exportWavFile(payload.filePath, payload.audioBuffer, payload.sampleRate || 22050);

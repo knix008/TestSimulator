@@ -149,7 +149,7 @@ Electron에서는 `enableExternalBuffer: false`로 외부 ArrayBuffer 제한을 
 | Engine | `onnxruntime-node` |
 | G2P | `phonemizer` (`en-us`, eSpeak-NG); 한글은 로마자화 후 처리 |
 | Source | `onnx-community/Kokoro-82M-v1.0-ONNX` |
-| Prefer file | `onnx/model_quantized.onnx` (없으면 q8f16 / fp32) |
+| Prefer file | 임베디드 패키지: `onnx/model_q8f16.onnx` (~82MB) + `voices/af_heart.bin` |
 | Style | `voices/<id>.bin` → length에 맞는 256-d style 벡터 |
 | I/O | `input_ids`, `style`, `speed` → `waveform` |
 | SR | 24000 |
@@ -215,11 +215,11 @@ Electron에서는 `enableExternalBuffer: false`로 외부 ArrayBuffer 제한을 
 
 | 항목 | 내용 |
 |------|------|
-| UI 동결 완화 | 합성을 Worker로 분리 + 모델 워밍업 |
+| UI 동결 완화 | 합성은 main 프로세스에서 수행 (Windows에서 Worker+ORT DLL 로드 이슈 회피) |
 | 파형 진실성 | placeholder는 대기용, 완료 후 실 PCM으로 교체 |
 | Kokoro + 한글 | ko_dict 없음 → 로마자 경로; 품질은 영어 입력이 적합 |
 | 웹 추론 | 미구현 |
-| GPU | 현재 CPU EP |
+| GPU / ORT | Electron에서는 system `node` 자식 프로세스로 ORT 추론 (네이티브 DLL 로드 이슈 회피) |
 
 ---
 

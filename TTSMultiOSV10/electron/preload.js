@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('ttsBridge', {
   listModelVoices:          (modelId)   => ipcRenderer.invoke('app:listModelVoices', modelId),
   exportWav:                (payload)   => ipcRenderer.invoke('app:exportWav', payload),
   openTextFile:             ()          => ipcRenderer.invoke('app:openTextFile'),
+  copyText:                 (text)      => ipcRenderer.invoke('app:copyText', text),
   onModelDownloadProgress: (callback) => {
     const channel  = 'app:modelDownloadProgress';
     const listener = (_event, progress) => callback(progress);

@@ -1,8 +1,13 @@
 import { formatError } from './errorDialog.js';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { ensureOrtNativePath } from './ortNative.js';
+import {
+  createChildOrtSession,
+  isElectronProcess,
+} from './ortChildClient.js';
 
 const require = createRequire(import.meta.url);
 
@@ -61,8 +66,9 @@ function normalizeAudio(samples) {
 }
 
 function toResult(audio, sampleRate) {
+  // Keep Float32Array — structured clone across Worker/IPC is far cheaper than Array.from(number[]).
   const normalized = normalizeAudio(audio);
-  return { audioBuffer: Array.from(normalized), sampleRate };
+  return { audioBuffer: normalized, sampleRate };
 }
 
 // ── Find files in model directory ────────────────────────────────────────────
@@ -153,40 +159,166 @@ const vocabCache = new Map();
 let phonemizeFnPromise = null;
 let phonemizerWarmed = false;
 let ortPromise = null;
+/** @type {'node'|'node-child'|null} */
+let ortBackend = null;
 
 async function getOrt() {
   if (!ortPromise) {
     ortPromise = (async () => {
+      const bindingDir = ensureOrtNativePath();
+      if (bindingDir) console.log(`[TTS] ORT native path: ${bindingDir}`);
+
+      // Electron on this Windows host cannot dlopen onnxruntime_binding.node
+      // ("The operating system cannot run %1"). Use system Node child instead.
+      if (isElectronProcess()) {
+        ortBackend = 'node-child';
+        console.log('[TTS] ORT backend: onnxruntime-node (system Node child)');
+        return { kind: 'child' };
+      }
+
       try {
-        const mod = await import('onnxruntime-node');
-        return mod.default ?? mod;
+        const ort = require('onnxruntime-node');
+        if (!ort?.InferenceSession) throw new Error('InferenceSession 없음');
+        ortBackend = 'node';
+        console.log('[TTS] ORT backend: onnxruntime-node (in-process)');
+        return { kind: 'local', ort };
       } catch (error) {
-        console.warn(`[TTS] onnxruntime-node 로드 실패, onnxruntime-web으로 대체: ${error?.message || error}`);
-        const mod = await import('onnxruntime-web/wasm');
-        const ort = mod.default ?? mod;
-        const wasmBase = path.dirname(require.resolve('onnxruntime-web/wasm'));
-        ort.env.wasm.numThreads = 1;
-        ort.env.wasm.wasmPaths = pathToFileURL(wasmBase + path.sep).href;
-        return ort;
+        console.warn(`[TTS] in-process ORT 실패, Node 자식으로 전환: ${error?.message || error}`);
+        ortBackend = 'node-child';
+        return { kind: 'child' };
       }
     })();
   }
   return ortPromise;
 }
 
-async function getOrtSession(cacheKey, onnxPath) {
+function listOrtBackendNames(ort) {
+  try {
+    const list = typeof ort.listSupportedBackends === 'function' ? ort.listSupportedBackends() : [];
+    return Array.isArray(list) ? list.map((b) => b?.name).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function buildSessionOptions(ort, { preferGpu = true } = {}) {
+  const backends = ort ? listOrtBackendNames(ort) : [];
+  const providers = [];
+  if (
+    preferGpu
+    && ortBackend === 'node'
+    && process.platform === 'win32'
+    && backends.includes('dml')
+  ) {
+    providers.push('dml');
+  }
+  providers.push('cpu');
+
+  const opts = {
+    executionProviders: providers,
+    // 'all' crashes on Kokoro q8f16 (ACCESS_VIOLATION / exit 0xC0000005) with ORT 1.27.
+    graphOptimizationLevel: 'extended',
+  };
+
+  if (providers[0] === 'dml') {
+    opts.enableMemPattern = false;
+    opts.executionMode = 'sequential';
+  } else {
+    const cores = os.cpus()?.length || 4;
+    opts.intraOpNumThreads = Math.min(8, Math.max(2, cores - 1));
+    opts.interOpNumThreads = 1;
+  }
+
+  return opts;
+}
+
+async function getOrtSession(cacheKey, onnxPath, { preferGpu = true } = {}) {
+  const fullKey = `${cacheKey}|gpu=${preferGpu ? 1 : 0}`;
+  if (sessionCache.has(fullKey)) return sessionCache.get(fullKey);
   if (sessionCache.has(cacheKey)) return sessionCache.get(cacheKey);
-  const ort = await getOrt();
-  console.log(`[TTS] ONNX 세션 생성: ${onnxPath}`);
-  const modelData = await fs.readFile(onnxPath);
-  const session = await ort.InferenceSession.create(modelData, {
-    executionProviders: ['cpu'],
-    graphOptimizationLevel: 'all',
-  });
-  console.log(`[TTS] 입력: [${session.inputNames}]  출력: [${session.outputNames}]`);
-  const entry = { session, ort };
-  sessionCache.set(cacheKey, entry);
+
+  const runtime = await getOrt();
+  const options = buildSessionOptions(runtime.kind === 'local' ? runtime.ort : null, { preferGpu });
+  console.log(
+    `[TTS] ONNX 세션 생성: ${path.basename(onnxPath)} backend=${ortBackend} ep=[${options.executionProviders.join(',')}]`,
+  );
+
+  let entry;
+  if (runtime.kind === 'child') {
+    try {
+      entry = await createChildOrtSession(fullKey, onnxPath, options);
+    } catch (error) {
+      if (options.executionProviders.includes('dml')) {
+        console.warn(`[TTS] child DML 실패, CPU로 재시도: ${error?.message || error}`);
+        entry = await createChildOrtSession(fullKey, onnxPath, {
+          ...options,
+          executionProviders: ['cpu'],
+        });
+        entry.usedGpu = false;
+      } else {
+        throw error;
+      }
+    }
+  } else {
+    const ort = runtime.ort;
+    let session;
+    let usedGpu = options.executionProviders.includes('dml');
+    try {
+      session = await ort.InferenceSession.create(onnxPath, options);
+    } catch (error) {
+      if (usedGpu) {
+        console.warn(`[TTS] DML 세션 실패, CPU로 재시도: ${error?.message || error}`);
+        usedGpu = false;
+        const cpuOpts = buildSessionOptions(ort, { preferGpu: false });
+        session = await ort.InferenceSession.create(onnxPath, cpuOpts);
+      } else {
+        throw error;
+      }
+    }
+    entry = { session, ort, backend: ortBackend, usedGpu };
+  }
+
+  console.log(
+    `[TTS] 입력: [${entry.session.inputNames}]  출력: [${entry.session.outputNames}] `
+    + `ep=${entry.usedGpu ? 'dml' : 'cpu'} backend=${entry.backend || ortBackend}`,
+  );
+  sessionCache.set(fullKey, entry);
   return entry;
+}
+
+function kokoroOnnxCandidates({ forGpu = false } = {}) {
+  // Embedded package ships q8f16 (~82MB). Prefer it; keep larger variants as optional fallbacks.
+  if (forGpu) {
+    return [
+      'onnx/model_q8f16.onnx',
+      'onnx/model_fp16.onnx',
+      'onnx/model_quantized.onnx',
+      'onnx/model.onnx',
+      'model.onnx',
+    ];
+  }
+  return [
+    'onnx/model_q8f16.onnx',
+    'onnx/model_quantized.onnx',
+    'onnx/model_uint8f16.onnx',
+    'onnx/model.onnx',
+    'model.onnx',
+  ];
+}
+
+async function resolveKokoroOnnxPath(modelDir) {
+  const runtime = await getOrt();
+  const wantGpu = ortBackend === 'node'
+    && runtime.kind === 'local'
+    && process.platform === 'win32'
+    && listOrtBackendNames(runtime.ort).includes('dml');
+
+  if (wantGpu) {
+    const gpuPath = await findOnnxFile(modelDir, kokoroOnnxCandidates({ forGpu: true }));
+    if (gpuPath) return { onnxPath: gpuPath, preferGpu: true };
+  }
+  const cpuPath = await findOnnxFile(modelDir, kokoroOnnxCandidates({ forGpu: false }));
+  return { onnxPath: cpuPath, preferGpu: false };
 }
 
 // ── Piper KSS (phoneme_type: pygoruut — must use goruut IPA, not KoreanG2P) ───
@@ -410,17 +542,13 @@ async function loadVoiceBin(voicePath) {
 }
 
 async function synthesizeKokoro(text, modelId, modelDir, { voiceId = 'af_heart', speed = 1 } = {}) {
-  const onnxPath = await findOnnxFile(modelDir, [
-    'onnx/model_quantized.onnx',
-    'onnx/model_q8f16.onnx',
-    'onnx/model.onnx',
-    'model.onnx',
-  ]);
+  let { onnxPath, preferGpu } = await resolveKokoroOnnxPath(modelDir);
   if (!onnxPath) throw new Error(`Kokoro ONNX 파일 없음: ${modelDir}`);
 
   const vocab = await loadVocab(modelDir);
   if (!vocab) throw new Error(`Kokoro tokenizer 없음: ${modelDir}`);
 
+  const t0 = performance.now();
   const phoneStr = await phonemizeEnglish(text.trim());
   if (!phoneStr.trim()) throw new Error('Kokoro 음소 변환 결과 없음');
 
@@ -449,16 +577,36 @@ async function synthesizeKokoro(text, modelId, modelDir, { voiceId = 'af_heart',
   );
 
   const padded = [0, ...ids, 0];
-  const { session, ort } = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+  let entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
+  // If DML session fell back to CPU while we loaded an FP16 graph, switch to a CPU-optimized ONNX.
+  if (preferGpu && entry.usedGpu === false) {
+    const cpuPath = await findOnnxFile(modelDir, kokoroOnnxCandidates({ forGpu: false }));
+    if (cpuPath && cpuPath !== onnxPath) {
+      console.log(`[TTS] Kokoro CPU 폴백 모델로 전환: ${path.basename(cpuPath)}`);
+      onnxPath = cpuPath;
+      preferGpu = false;
+      entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu: false });
+    }
+  }
+  const { session, ort } = entry;
   const feeds = {
     input_ids: new ort.Tensor('int64', BigInt64Array.from(padded.map(BigInt)), [1, padded.length]),
     style: new ort.Tensor('float32', style, [1, styleDim]),
     speed: new ort.Tensor('float32', Float32Array.from([Math.max(0.25, Math.min(4, speed))]), [1]),
   };
 
-  console.log(`[TTS] Kokoro 추론: voice=${voiceName} tokens=${ids.length}`);
+  const t1 = performance.now();
+  console.log(`[TTS] Kokoro 추론: voice=${voiceName} tokens=${ids.length} model=${path.basename(onnxPath)}`);
   const results = await session.run(feeds);
   const audio = results[session.outputNames[0]].data;
+  const t2 = performance.now();
+  const audioLen = audio?.length || 0;
+  const audioSec = audioLen / 24000;
+  console.log(
+    `[TTS] Kokoro 완료: phonemize=${(t1 - t0).toFixed(0)}ms infer=${(t2 - t1).toFixed(0)}ms `
+    + `audio=${audioSec.toFixed(2)}s rtf=${audioSec > 0 ? ((t2 - t1) / 1000 / audioSec).toFixed(2) : '?'} `
+    + `backend=${ortBackend} ep=${entry.usedGpu ? 'dml' : 'cpu'}`,
+  );
   return toResult(audio, 24000);
 }
 
@@ -516,19 +664,24 @@ export async function warmModel(modelId, store) {
   const runtime = model?.runtime || 'unknown';
 
   if (modelId === 'en-kokoro' || runtime === 'onnx') {
-    const onnxPath = await findOnnxFile(modelDir, [
-      'onnx/model_quantized.onnx',
-      'onnx/model_q8f16.onnx',
-      'onnx/model.onnx',
-    ]);
-    if (onnxPath) await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
+    const { onnxPath, preferGpu } = await resolveKokoroOnnxPath(modelDir);
+    if (onnxPath) {
+      const entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
+      // Warm the CPU-optimized graph too when DML init fell back.
+      if (preferGpu && entry.usedGpu === false) {
+        const cpuPath = await findOnnxFile(modelDir, kokoroOnnxCandidates({ forGpu: false }));
+        if (cpuPath && cpuPath !== onnxPath) {
+          await getOrtSession(`${modelId}:${cpuPath}`, cpuPath, { preferGpu: false });
+        }
+      }
+    }
     await loadVocab(modelDir);
     await loadVoiceBin(path.join(modelDir, 'voices', 'af_heart.bin')).catch(() => null);
     if (!phonemizerWarmed) {
       await phonemizeEnglish('Hello.');
       phonemizerWarmed = true;
     }
-    console.log(`[TTS] Kokoro warm complete: ${modelId}`);
+    console.log(`[TTS] Kokoro warm complete: ${modelId} backend=${ortBackend}`);
     return { warmed: true, modelId };
   }
 

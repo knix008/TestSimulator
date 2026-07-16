@@ -143,10 +143,10 @@ Kokoro처럼 무거운 모델은 ONNX·음소화를 미리 올려 두어, 이후
 | 항목 | 내용 |
 |------|------|
 | 언어 | **영어 (권장)** |
-| 엔진 | `onnxruntime-node` |
+| 엔진 | `onnxruntime-node` (Windows: DirectML GPU 우선 → CPU 다중 스레드; node 실패 시 WASM 폴백) |
 | 전처리 | `phonemizer` (eSpeak-NG) → Kokoro tokenizer; 한글이 섞이면 로마자화 후 en-us 처리 |
 | HF | `onnx-community/Kokoro-82M-v1.0-ONNX` |
-| 주요 파일 | `onnx/model_quantized.onnx` 등, `tokenizer.json`, `voices/*.bin` |
+| 주요 파일 | `onnx/model_q8f16.onnx` (~82MB), `voices/af_heart.bin`, `tokenizer.json` |
 | 샘플레이트 | 24000 Hz |
 | 목소리 UI | `voices/`의 **다수 보이스** (예: `af_heart`, `af_bella`, `bm_george` …) |
 | 특징 | 고품질 영어; 첫 준비(워밍업)에 시간이 조금 걸릴 수 있음 |
@@ -183,6 +183,7 @@ Kokoro처럼 무거운 모델은 ONNX·음소화를 미리 올려 두어, 이후
 | 「Electron에서만 지원」 | `npm start`로 실행했는지 |
 | 「모델이 설치되어 있지 않습니다」 | 해당 모델 다운로드 |
 | Kokoro 첫 읽기가 느림 | 모델 선택 후 「엔진 준비 중」 완료를 기다린 뒤 읽기 |
+| Kokoro 합성이 계속 느림 | 콘솔에 `ORT backend: onnxruntime-node`인지 확인; 아니면 `npm run rebuild:native` 후 재시작 |
 | Kokoro + 한글 문장 | 영어 입력 권장; 한글은 로마자 경로로 처리됨 |
 | Supertonic 무음/실패 | 모델 폴더 7개 파일 존재 여부, 앱 재시작 |
 | 네이티브 모듈 오류 | `npm install` 후 재실행; Windows는 `sherpa-onnx-win-x64` 필요 |

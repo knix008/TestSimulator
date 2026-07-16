@@ -2,19 +2,6 @@
 // 모든 레포는 HuggingFace 공개 레포이며 인증 없이 다운로드 가능
 const defaultCatalog = [
   {
-    id: 'ko-piper-kss',
-    label: 'Piper KSS',
-    language: 'ko-KR',
-    sizeHint: '64 MB',
-    runtime: 'piper-onnx',
-    description: '경량 임베디드 최적 모델 (VITS 기반)',
-    source: {
-      type: 'repo',
-      repoId: 'neurlang/piper-onnx-kss-korean'
-    },
-    preferredOnFirstRun: false
-  },
-  {
     id: 'ko-supertonic-int8',
     label: 'Supertonic 3 INT8',
     language: 'ko-KR',
@@ -26,6 +13,19 @@ const defaultCatalog = [
       repoId: 'csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11'
     },
     preferredOnFirstRun: true
+  },
+  {
+    id: 'ko-piper-kss',
+    label: 'Piper KSS',
+    language: 'ko-KR',
+    sizeHint: '64 MB',
+    runtime: 'piper-onnx',
+    description: '경량 임베디드 최적 모델 (VITS 기반)',
+    source: {
+      type: 'repo',
+      repoId: 'neurlang/piper-onnx-kss-korean'
+    },
+    preferredOnFirstRun: false
   },
   {
     id: 'ko-mms-tts',
@@ -43,14 +43,22 @@ const defaultCatalog = [
     id: 'en-kokoro',
     label: 'Kokoro 82M',
     language: 'en-US',
-    sizeHint: '~310 MB',
+    sizeHint: '~82 MB',
     runtime: 'onnx',
-    description: '영어 고품질 TTS (ONNX)',
+    description: '영어 고품질 TTS (ONNX q8f16, 임베디드용)',
     source: {
       type: 'repo',
-      repoId: 'onnx-community/Kokoro-82M-v1.0-ONNX'
-    }
-  }
+      repoId: 'onnx-community/Kokoro-82M-v1.0-ONNX',
+      // Embedded: q8f16 graph (~82MB) + default voice only (~0.5MB).
+      packageId: 'q8f16-af-heart-v1',
+      preferOnnx: [
+        'onnx/model_q8f16.onnx',
+      ],
+      preferVoices: [
+        'af_heart',
+      ],
+    },
+  },
 ];
 
 export function getPreferredModelId(language) {

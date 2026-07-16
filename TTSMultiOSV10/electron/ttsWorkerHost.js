@@ -1,6 +1,7 @@
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureOrtNativePath, getOrtBindingDir } from '../src/core/ortNative.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '..', 'src', 'core', 'ttsWorker.js');
@@ -14,13 +15,23 @@ function rejectAll(error) {
   pending.clear();
 }
 
+function buildWorkerEnv() {
+  // Ensure parent PATH includes ORT DLLs before the worker is spawned.
+  ensureOrtNativePath();
+  const env = { ...process.env };
+  const ortDir = getOrtBindingDir();
+  if (ortDir && process.platform === 'win32') {
+    env.PATH = `${ortDir}${path.delimiter}${env.PATH || ''}`;
+  }
+  return env;
+}
+
 function ensureWorker() {
   if (worker) return worker;
 
   worker = new Worker(workerPath, {
     type: 'module',
-    // Keep Electron from treating the worker as a renderer
-    env: { ...process.env },
+    env: buildWorkerEnv(),
   });
 
   worker.on('message', (msg) => {
