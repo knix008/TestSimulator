@@ -14,21 +14,34 @@ let nextId = 1;
 const pending = new Map();
 let readyPromise = null;
 
-function resolveNodeExecPath() {
-  // Prefer real Node.js — Electron cannot load onnxruntime_binding.node on this host.
-  if (!process.versions.electron) return process.execPath;
-  const candidates = [
-    process.env.npm_node_execpath,
-    process.env.NODE_EXE,
-    'C:\\Program Files\\nodejs\\node.exe',
-    'C:\\Program Files (x86)\\nodejs\\node.exe',
-  ].filter(Boolean);
-  for (const c of candidates) {
-    try {
-      if (c && fs.existsSync(c)) return c;
-    } catch { /* continue */ }
+function normalizeExecCandidate(value) {
+  if (!value) return '';
+  return String(value).trim().replace(/^"|"$/g, '');
+}
+
+function resolveNodeExecSpec() {
+  if (!process.versions.electron) {
+    return { execPath: process.execPath, runAsNode: false };
   }
-  return 'node';
+
+  // In packaged apps, prefer Electron's own executable in Node mode so .asar imports work.
+  const useElectronByDefault = { execPath: process.execPath, runAsNode: true };
+  const override = normalizeExecCandidate(
+    process.env.ORT_NODE_EXEC_PATH || process.env.npm_node_execpath || process.env.NODE_EXE,
+  );
+
+  if (!override) return useElectronByDefault;
+  if (override === 'node') return { execPath: 'node', runAsNode: false };
+
+  try {
+    if (fs.existsSync(override)) {
+      return { execPath: override, runAsNode: false };
+    }
+  } catch {
+    // ignore and keep safe default
+  }
+
+  return useElectronByDefault;
 }
 
 function rejectAll(error) {
@@ -39,13 +52,17 @@ function rejectAll(error) {
 function ensureChild() {
   if (child && !child.killed && readyPromise) return readyPromise;
 
-  const execPath = resolveNodeExecPath();
-  console.log(`[TTS] ORT child Node: ${execPath}`);
+  const { execPath, runAsNode } = resolveNodeExecSpec();
+  console.log(`[TTS] ORT child Node: ${execPath}${runAsNode ? ' (run-as-node)' : ''}`);
 
   readyPromise = new Promise((resolve, reject) => {
     let settled = false;
     const env = { ...process.env };
-    delete env.ELECTRON_RUN_AS_NODE;
+    if (runAsNode) {
+      env.ELECTRON_RUN_AS_NODE = '1';
+    } else {
+      delete env.ELECTRON_RUN_AS_NODE;
+    }
     delete env.ELECTRON_NO_ASAR;
     delete env.ELECTRON_PRESERVE_SYMLINKS;
 
@@ -56,7 +73,7 @@ function ensureChild() {
       serialization: 'advanced',
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
       env,
-      cwd: path.resolve(__dirname, '..', '..'),
+      cwd: process.cwd(),
     });
 
     const finish = (err) => {

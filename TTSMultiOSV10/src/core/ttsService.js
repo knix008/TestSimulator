@@ -564,6 +564,102 @@ async function loadVoiceBin(voicePath) {
   return voices;
 }
 
+async function tokenizeKokoroText(text, vocab) {
+  const phoneStr = await phonemizeEnglish(text.trim());
+  if (!phoneStr.trim()) return [];
+
+  const ids = [];
+  for (const ch of phoneStr) {
+    if (vocab[ch] !== undefined) ids.push(vocab[ch]);
+  }
+  return ids;
+}
+
+function splitTextNearMiddle(text) {
+  const value = String(text || '').trim();
+  if (!value) return null;
+  if (value.length <= 1) return null;
+
+  const midpoint = Math.floor(value.length / 2);
+  const separators = ['\n\n', '\n', '. ', '? ', '! ', '; ', ', ', ' '];
+
+  for (const separator of separators) {
+    const leftIndex = value.lastIndexOf(separator, midpoint);
+    const rightIndex = value.indexOf(separator, midpoint);
+    const hasLeft = leftIndex > 0;
+    const hasRight = rightIndex > 0;
+
+    let splitIndex = -1;
+    if (hasLeft && hasRight) {
+      splitIndex = (midpoint - leftIndex) <= (rightIndex - midpoint) ? leftIndex : rightIndex;
+    } else if (hasLeft) {
+      splitIndex = leftIndex;
+    } else if (hasRight) {
+      splitIndex = rightIndex;
+    }
+
+    if (splitIndex > 0) {
+      const cut = splitIndex + separator.length;
+      const left = value.slice(0, cut).trim();
+      const right = value.slice(cut).trim();
+      if (left && right) return [left, right];
+    }
+  }
+
+  const left = value.slice(0, midpoint).trim();
+  const right = value.slice(midpoint).trim();
+  if (left && right) return [left, right];
+  return null;
+}
+
+async function splitKokoroByTokenLimit(text, vocab, maxTokens = 510) {
+  const input = String(text || '').trim();
+  if (!input) return [];
+
+  const chunks = [];
+  const queue = [input];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current?.trim()) continue;
+
+    const ids = await tokenizeKokoroText(current, vocab);
+    if (!ids.length) continue;
+
+    if (ids.length <= maxTokens) {
+      chunks.push({ text: current, ids });
+      continue;
+    }
+
+    const split = splitTextNearMiddle(current);
+    if (!split) {
+      throw new Error(`Kokoro 입력 길이 초과 (${ids.length} > ${maxTokens})`);
+    }
+
+    const [left, right] = split;
+    queue.unshift(right);
+    queue.unshift(left);
+  }
+
+  return chunks;
+}
+
+function concatFloat32(chunks) {
+  if (!chunks.length) return new Float32Array();
+  if (chunks.length === 1) return chunks[0];
+
+  let total = 0;
+  for (const chunk of chunks) total += chunk.length;
+
+  const merged = new Float32Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return merged;
+}
+
 async function synthesizeKokoro(text, modelId, modelDir, opts = {}) {
   const { voiceId = 'af_heart', speed = 1 } = opts;
   let { onnxPath, preferGpu } = await resolveKokoroOnnxPath(modelDir);
@@ -573,15 +669,8 @@ async function synthesizeKokoro(text, modelId, modelDir, opts = {}) {
   if (!vocab) throw new Error(`Kokoro tokenizer 없음: ${modelDir}`);
 
   const t0 = performance.now();
-  const phoneStr = await phonemizeEnglish(text.trim());
-  if (!phoneStr.trim()) throw new Error('Kokoro 음소 변환 결과 없음');
-
-  const ids = [];
-  for (const ch of phoneStr) {
-    if (vocab[ch] !== undefined) ids.push(vocab[ch]);
-  }
-  if (!ids.length) throw new Error('Kokoro 토큰 ID 없음');
-  if (ids.length > 510) throw new Error(`Kokoro 입력 길이 초과 (${ids.length} > 510)`);
+  const chunks = await splitKokoroByTokenLimit(text, vocab, 510);
+  if (!chunks.length) throw new Error('Kokoro 토큰 ID 없음');
 
   const voiceName = String(voiceId || 'af_heart').replace(/\.bin$/i, '');
   let voicePath = path.join(modelDir, 'voices', `${voiceName}.bin`);
@@ -594,16 +683,6 @@ async function synthesizeKokoro(text, modelId, modelDir, opts = {}) {
   const voices = await loadVoiceBin(voicePath);
   const styleDim = 256;
   const frames = Math.floor(voices.length / styleDim);
-  const styleIndex = Math.min(ids.length, Math.max(0, frames - 1));
-  // Copy style vector so ORT owns a non-shared buffer
-  const style = Float32Array.from(
-    voices.subarray(styleIndex * styleDim, styleIndex * styleDim + styleDim),
-  );
-
-  const padded = new BigInt64Array(ids.length + 2);
-  padded[0] = 0n;
-  for (let i = 0; i < ids.length; i++) padded[i + 1] = BigInt(ids[i]);
-  padded[padded.length - 1] = 0n;
 
   let entry = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath, { preferGpu });
   // If DML session fell back to CPU while we loaded an FP16 graph, switch to a CPU-optimized ONNX.
@@ -617,21 +696,45 @@ async function synthesizeKokoro(text, modelId, modelDir, opts = {}) {
     }
   }
   const { session, ort } = entry;
-  const feeds = {
-    input_ids: new ort.Tensor('int64', padded, [1, padded.length]),
-    style: new ort.Tensor('float32', style, [1, styleDim]),
-    speed: new ort.Tensor('float32', Float32Array.of(Math.max(0.25, Math.min(4, speed))), [1]),
-  };
 
   const t1 = performance.now();
-  console.log(`[TTS] Kokoro 추론: voice=${voiceName} tokens=${ids.length} model=${path.basename(onnxPath)}`);
-  const results = await session.run(feeds);
-  const audio = results[session.outputNames[0]].data;
+  const chunkAudios = [];
+  let tokenTotal = 0;
+  for (let index = 0; index < chunks.length; index++) {
+    const { ids } = chunks[index];
+    tokenTotal += ids.length;
+
+    const styleIndex = Math.min(ids.length, Math.max(0, frames - 1));
+    const style = Float32Array.from(
+      voices.subarray(styleIndex * styleDim, styleIndex * styleDim + styleDim),
+    );
+
+    const padded = new BigInt64Array(ids.length + 2);
+    padded[0] = 0n;
+    for (let i = 0; i < ids.length; i++) padded[i + 1] = BigInt(ids[i]);
+    padded[padded.length - 1] = 0n;
+
+    const feeds = {
+      input_ids: new ort.Tensor('int64', padded, [1, padded.length]),
+      style: new ort.Tensor('float32', style, [1, styleDim]),
+      speed: new ort.Tensor('float32', Float32Array.of(Math.max(0.25, Math.min(4, speed))), [1]),
+    };
+
+    console.log(
+      `[TTS] Kokoro 추론: voice=${voiceName} chunk=${index + 1}/${chunks.length} `
+      + `tokens=${ids.length} model=${path.basename(onnxPath)}`,
+    );
+    const results = await session.run(feeds);
+    chunkAudios.push(Float32Array.from(results[session.outputNames[0]].data));
+  }
+
+  const audio = concatFloat32(chunkAudios);
   const t2 = performance.now();
   const audioLen = audio?.length || 0;
   const audioSec = audioLen / 24000;
   console.log(
-    `[TTS] Kokoro 완료: phonemize=${(t1 - t0).toFixed(0)}ms infer=${(t2 - t1).toFixed(0)}ms `
+    `[TTS] Kokoro 완료: chunks=${chunks.length} tokens=${tokenTotal} `
+    + `phonemize=${(t1 - t0).toFixed(0)}ms infer=${(t2 - t1).toFixed(0)}ms `
     + `audio=${audioSec.toFixed(2)}s rtf=${audioSec > 0 ? ((t2 - t1) / 1000 / audioSec).toFixed(2) : '?'} `
     + `backend=${ortBackend} ep=${entry.usedGpu ? 'dml' : 'cpu'}`,
   );
