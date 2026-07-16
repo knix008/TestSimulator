@@ -43,10 +43,11 @@
             <option value="en-US">English</option>
           </select>
 
-          <label for="modelSelect">모델 (다운로드)</label>
+          <label for="modelSelect">모델</label>
           <div class="model-row">
             <select id="modelSelect"></select>
             <button id="downloadModel" class="model-dl-btn" title="선택한 모델 다운로드">↓ 다운로드</button>
+            <button id="deleteModel" class="model-del-btn" title="미설치 모델입니다" disabled>✕ 삭제</button>
           </div>
 
           <label for="voiceSelect">목소리 (모델)</label>
@@ -74,38 +75,45 @@
           </div>
 
           <div class="voice-defaults-row">
-            <button id="saveAudioDefaults" type="button" class="voice-defaults-btn">현재 값을 기본값으로 저장</button>
-            <span class="voice-defaults-hint">다음 실행부터 이 볼륨, 속도, 피치를 사용합니다.</span>
+            <button id="saveAudioDefaults" type="button" class="voice-defaults-btn">기본값으로 초기화</button>
+            <span class="voice-defaults-hint">볼륨 100%, 속도 1.00×, 피치 ±0 으로 되돌립니다.</span>
           </div>
 
-          <!-- 상태 카드 -->
-          <div class="status-card" id="statusCard">
-            <div class="status-title">상태</div>
-            <div id="statusText" class="status-text">모델 목록을 불러오는 중입니다.</div>
-
-            <!-- 다운로드 중 표시 (data-phase="downloading" 시 활성) -->
-            <div class="dl-panel" id="dlPanel">
-              <div class="dl-header">
-                <span id="dlPercent" class="dl-percent">0%</span>
-                <span id="dlFile" class="dl-file"></span>
-              </div>
-              <div class="dl-bar-track">
-                <div id="dlBarFill" class="dl-bar-fill"></div>
-              </div>
-              <div id="dlSize" class="dl-size"></div>
-            </div>
-
-            <!-- 일반 진행률 바 -->
-            <div class="status-progress-meta">
-              <span>진행률</span>
-              <span id="statusProgressLabel">0%</span>
-            </div>
-            <div class="status-progress-track" aria-hidden="true">
-              <div id="statusProgressBar" class="status-progress-bar"></div>
-            </div>
-          </div>
         </section>
       </main>
+
+      <!-- PCM 고급 합성 설정 패널 (전체 너비) -->
+      <div class="pcm-panel">
+        <div class="pcm-panel-header">
+          <span class="pcm-panel-title">고급 합성 설정</span>
+        </div>
+        <div class="pcm-panel-body">
+          <div class="pcm-control-group">
+            <span class="pcm-ctrl-label">변동성</span>
+            <input type="range" id="noiseScaleRange" class="pcm-ctrl-slider" min="0" max="200" value="67" step="5">
+            <span id="noiseScaleLabel" class="pcm-ctrl-value">0.67</span>
+          </div>
+          <div class="pcm-sep"></div>
+          <div class="pcm-control-group">
+            <span class="pcm-ctrl-label">리듬</span>
+            <input type="range" id="noiseWRange" class="pcm-ctrl-slider" min="0" max="200" value="80" step="5">
+            <span id="noiseWLabel" class="pcm-ctrl-value">0.80</span>
+          </div>
+          <div class="pcm-sep"></div>
+          <label class="pcm-check-label">
+            <input type="checkbox" id="normalizeCheck" checked>
+            <span>피크 정규화</span>
+          </label>
+          <div class="pcm-control-group" id="normalizeLevelRow">
+            <span class="pcm-ctrl-label">목표 레벨</span>
+            <input type="range" id="normalizeLevelRange" class="pcm-ctrl-slider" min="10" max="100" value="90" step="5">
+            <span id="normalizeLevelLabel" class="pcm-ctrl-value">0.90</span>
+          </div>
+          <div class="pcm-sep"></div>
+          <button id="pcmDefaultsBtn" type="button" class="pcm-reset-btn">기본값으로 초기화</button>
+          <span class="pcm-hint">변동성·리듬은 Piper 모델에만 적용됩니다.</span>
+        </div>
+      </div>
 
       <!-- 파형 패널 (전체 너비, 항상 표시) -->
       <div class="waveform-panel" id="waveformSection">
@@ -174,6 +182,11 @@
             <span class="status-pill-label">상태</span>
             <span id="statusBarMessage">대기 중</span>
           </div>
+          <div class="status-pill status-pill--dl" id="dlInfoPill" hidden>
+            <span class="status-pill-label">다운로드</span>
+            <span id="dlPercent" class="dl-percent-badge">0%</span>
+            <span id="dlSize" class="dl-size-badge"></span>
+          </div>
           <div class="status-pill">
             <span class="status-pill-label">언어</span>
             <span id="statusBarLanguage">ko-KR</span>
@@ -212,7 +225,19 @@
             <dt>연락처</dt>
             <dd><a class="about-link" href="mailto:knix008@naver.com">knix008@naver.com</a></dd>
             <dt>지원 모델</dt>
-            <dd>Piper ONNX · Sherpa-ONNX · Transformers.js · ONNX Runtime</dd>
+            <dd>
+              <table class="about-model-table">
+                <thead>
+                  <tr><th>모델</th><th>언어</th><th>런타임</th><th>크기</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Supertonic 3 INT8</td><td>한국어</td><td>Sherpa-ONNX</td><td>~140 MB</td></tr>
+                  <tr><td>Piper KSS</td><td>한국어</td><td>Piper ONNX</td><td>~64 MB</td></tr>
+                  <tr><td>MMS TTS</td><td>한국어</td><td>Transformers.js</td><td>~38 MB</td></tr>
+                  <tr><td>Kokoro 82M</td><td>영어</td><td>ONNX Runtime</td><td>~82 MB</td></tr>
+                </tbody>
+              </table>
+            </dd>
             <dt>지원 언어</dt>
             <dd>한국어 (ko-KR) · English (en-US)</dd>
             <dt>플랫폼</dt>
@@ -224,6 +249,22 @@
         </div>
         <div class="dialog-actions">
           <button class="toolbar-button" value="close"><span>✕</span><span>닫기</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="confirmDialog" class="confirm-dialog">
+      <form method="dialog" class="dialog-shell">
+        <header class="dialog-header">
+          <h2 id="confirmTitle">확인</h2>
+          <button class="close-button" value="cancel" aria-label="닫기">×</button>
+        </header>
+        <div class="confirm-body">
+          <p id="confirmMessage"></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="toolbar-button" value="cancel">취소</button>
+          <button id="confirmOkBtn" class="toolbar-button btn-danger" value="ok">확인</button>
         </div>
       </form>
     </dialog>

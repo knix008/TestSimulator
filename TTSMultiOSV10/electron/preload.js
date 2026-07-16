@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('ttsBridge', {
   warmModel:                (modelId)   => ipcRenderer.invoke('app:warmModel', modelId),
   listModelVoices:          (modelId)   => ipcRenderer.invoke('app:listModelVoices', modelId),
   exportWav:                (payload)   => ipcRenderer.invoke('app:exportWav', payload),
+  deleteModel:              (modelId)   => ipcRenderer.invoke('app:deleteModel', modelId),
   openTextFile:             ()          => ipcRenderer.invoke('app:openTextFile'),
   copyText:                 (text)      => ipcRenderer.invoke('app:copyText', text),
   onModelDownloadProgress: (callback) => {

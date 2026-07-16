@@ -572,5 +572,13 @@ export function createModelStore() {
     async listModels() {
       return getModelCatalog();
     },
+
+    async deleteModel(modelId) {
+      const model = getModelCatalog().find((m) => m.id === modelId);
+      if (!model) throw new Error(`알 수 없는 모델: ${modelId}`);
+      const modelRoot = getModelRoot(cacheRoot, model);
+      await fs.rm(modelRoot, { recursive: true, force: true });
+      return { modelId, deleted: true };
+    },
   };
 }

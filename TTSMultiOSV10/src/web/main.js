@@ -101,19 +101,14 @@ const state = {
 const textInput          = document.getElementById('textInput');
 const languageSelect     = document.getElementById('languageSelect');
 const modelSelect        = document.getElementById('modelSelect');
-const statusText         = document.getElementById('statusText');
-const statusProgressBar  = document.getElementById('statusProgressBar');
-const statusProgressLabel = document.getElementById('statusProgressLabel');
 const statusBarMessage   = document.getElementById('statusBarMessage');
 const statusBarLanguage  = document.getElementById('statusBarLanguage');
 const statusBarModel     = document.getElementById('statusBarModel');
 const statusBarCache     = document.getElementById('statusBarCache');
 const statusBarFill      = document.getElementById('statusBarFill');
 const statusDot          = document.getElementById('statusDot');
-const statusCard         = document.getElementById('statusCard');
+const dlInfoPill         = document.getElementById('dlInfoPill');
 const dlPercent          = document.getElementById('dlPercent');
-const dlFile             = document.getElementById('dlFile');
-const dlBarFill          = document.getElementById('dlBarFill');
 const dlSize             = document.getElementById('dlSize');
 const voiceSelect        = document.getElementById('voiceSelect');
 const volumeRange        = document.getElementById('volumeRange');
@@ -122,6 +117,14 @@ const pitchRange         = document.getElementById('pitchRange');
 const volumeLabel        = document.getElementById('volumeLabel');
 const speedLabel         = document.getElementById('speedLabel');
 const pitchLabel         = document.getElementById('pitchLabel');
+const noiseScaleRange    = document.getElementById('noiseScaleRange');
+const noiseWRange        = document.getElementById('noiseWRange');
+const normalizeCheck     = document.getElementById('normalizeCheck');
+const normalizeLevelRange = document.getElementById('normalizeLevelRange');
+const normalizeLevelRow  = document.getElementById('normalizeLevelRow');
+const noiseScaleLabel    = document.getElementById('noiseScaleLabel');
+const noiseWLabel        = document.getElementById('noiseWLabel');
+const normalizeLevelLabel = document.getElementById('normalizeLevelLabel');
 const waveformSection    = document.getElementById('waveformSection');
 const waveformCanvas     = document.getElementById('waveformCanvas');
 const waveformCurrent    = document.getElementById('waveformCurrent');
@@ -137,6 +140,14 @@ const DEFAULT_AUDIO_SETTINGS = {
   volume: 100,
   speed: 100,
   pitch: 0,
+};
+
+const PCM_DEFAULTS_KEY = 'tts-pcm-defaults';
+const DEFAULT_PCM_SETTINGS = {
+  noiseScale: 67,   // slider value; actual = value / 100 = 0.67
+  noiseW: 80,       // slider value; actual = value / 100 = 0.80
+  normalize: true,
+  normalizeLevel: 90, // slider value; actual = value / 100 = 0.90
 };
 
 function clampNumber(value, min, max, fallback) {
@@ -192,6 +203,49 @@ function saveAudioDefaults() {
   showStatus('볼륨, 속도, 피치를 기본값으로 저장했습니다.');
 }
 
+// ── PCM settings ─────────────────────────────────────────────────────────────
+function readCurrentPcmSettings() {
+  return {
+    noiseScale: clampNumber(noiseScaleRange?.value, 0, 200, DEFAULT_PCM_SETTINGS.noiseScale),
+    noiseW:     clampNumber(noiseWRange?.value, 0, 200, DEFAULT_PCM_SETTINGS.noiseW),
+    normalize:  normalizeCheck?.checked ?? true,
+    normalizeLevel: clampNumber(normalizeLevelRange?.value, 10, 100, DEFAULT_PCM_SETTINGS.normalizeLevel),
+  };
+}
+
+function syncPcmParamLabels() {
+  if (noiseScaleLabel && noiseScaleRange)
+    noiseScaleLabel.textContent = (Number(noiseScaleRange.value) / 100).toFixed(2);
+  if (noiseWLabel && noiseWRange)
+    noiseWLabel.textContent = (Number(noiseWRange.value) / 100).toFixed(2);
+  if (normalizeLevelLabel && normalizeLevelRange)
+    normalizeLevelLabel.textContent = (Number(normalizeLevelRange.value) / 100).toFixed(2);
+  if (normalizeLevelRow)
+    normalizeLevelRow.style.opacity = (normalizeCheck?.checked) ? '' : '0.35';
+}
+
+function applyPcmSettings(settings) {
+  if (noiseScaleRange) noiseScaleRange.value = String(clampNumber(settings?.noiseScale, 0, 200, DEFAULT_PCM_SETTINGS.noiseScale));
+  if (noiseWRange)     noiseWRange.value     = String(clampNumber(settings?.noiseW, 0, 200, DEFAULT_PCM_SETTINGS.noiseW));
+  if (normalizeCheck)  normalizeCheck.checked = settings?.normalize !== false;
+  if (normalizeLevelRange) normalizeLevelRange.value = String(clampNumber(settings?.normalizeLevel, 10, 100, DEFAULT_PCM_SETTINGS.normalizeLevel));
+  syncPcmParamLabels();
+}
+
+function loadPcmDefaults() {
+  try {
+    const raw = localStorage.getItem(PCM_DEFAULTS_KEY);
+    applyPcmSettings(raw ? JSON.parse(raw) : DEFAULT_PCM_SETTINGS);
+  } catch {
+    applyPcmSettings(DEFAULT_PCM_SETTINGS);
+  }
+}
+
+function savePcmDefaults() {
+  const settings = readCurrentPcmSettings();
+  localStorage.setItem(PCM_DEFAULTS_KEY, JSON.stringify(settings));
+}
+
 // ── Theme ────────────────────────────────────────────────────────────────────
 const themeToggle = document.getElementById('themeToggle');
 function applyTheme(theme) {
@@ -215,6 +269,7 @@ function cycleTheme() {
 applyTheme(localStorage.getItem('tts-theme') || 'dark');
 themeToggle?.addEventListener('click', cycleTheme);
 loadAudioDefaults();
+loadPcmDefaults();
 
 /** Clear canvas cache and show overlay until real PCM is ready. */
 function clearWaveform(message) {
@@ -513,13 +568,11 @@ function startTransportAnimation() {
 
 // ── Download progress display ────────────────────────────────────────────────
 function setDownloadPhase(active) {
-  if (statusCard) statusCard.dataset.phase = active ? 'downloading' : '';
+  if (dlInfoPill) dlInfoPill.hidden = !active;
 }
 
-function updateDlPanel(percent, fileName, receivedMB, totalMB) {
+function updateDlPanel(percent, _fileName, receivedMB, totalMB) {
   if (dlPercent) dlPercent.textContent = `${percent}%`;
-  if (dlBarFill) dlBarFill.style.width = `${percent}%`;
-  if (dlFile) dlFile.textContent = fileName ? fileName.split('/').pop() : '';
   if (dlSize) {
     dlSize.textContent = totalMB
       ? `${receivedMB} / ${totalMB} MB`
@@ -529,15 +582,12 @@ function updateDlPanel(percent, fileName, receivedMB, totalMB) {
 
 // ── Status helpers ───────────────────────────────────────────────────────────
 function showStatus(message) {
-  if (statusText)       statusText.textContent = message;
   if (statusBarMessage) statusBarMessage.textContent = message;
 }
 
 function showProgress(percent = 0) {
   const v = Math.max(0, Math.min(100, Number(percent) || 0));
-  if (statusProgressBar)   statusProgressBar.style.width   = `${v}%`;
-  if (statusProgressLabel) statusProgressLabel.textContent = `${v}%`;
-  if (statusBarFill)       statusBarFill.style.width       = `${v}%`;
+  if (statusBarFill) statusBarFill.style.width = `${v}%`;
 }
 
 function setPhase(phase) {
@@ -1004,6 +1054,25 @@ function showError(error) {
   }
 }
 
+function showConfirm(title, message, { okLabel = '확인' } = {}) {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById('confirmDialog');
+    const titleEl = document.getElementById('confirmTitle');
+    const messageEl = document.getElementById('confirmMessage');
+    const okBtn = document.getElementById('confirmOkBtn');
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+    if (okBtn) okBtn.textContent = okLabel;
+    const onClose = () => {
+      dialog.removeEventListener('close', onClose);
+      resolve(dialog.returnValue === 'ok');
+    };
+    dialog.addEventListener('close', onClose);
+    if (dialog.open) dialog.close();
+    dialog.showModal();
+  });
+}
+
 // ── Model list ───────────────────────────────────────────────────────────────
 function getPreferredModelForLanguage(language) {
   if (!language) return null;
@@ -1175,12 +1244,17 @@ async function synthesizeCurrentText() {
   clearWaveform(`${activeModel.label} 합성 중…`);
 
   try {
+    const pcm = readCurrentPcmSettings();
     const result = await bridge.speak({
       text,
       modelId,
       voiceId: voiceId || undefined,
       speed: rate,
       language: activeModel.language || lang,
+      noiseScale:     pcm.noiseScale / 100,
+      noiseW:         pcm.noiseW / 100,
+      normalize:      pcm.normalize,
+      normalizeLevel: pcm.normalizeLevel / 100,
     });
 
     if (!result?.audioBuffer?.length) {
@@ -1349,7 +1423,32 @@ document.getElementById('aboutBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('refreshModels').addEventListener('click', refreshModels);
-document.getElementById('saveAudioDefaults')?.addEventListener('click', saveAudioDefaults);
+document.getElementById('saveAudioDefaults')?.addEventListener('click', () => {
+  applyAudioSettings(DEFAULT_AUDIO_SETTINGS);
+  showStatus('볼륨, 속도, 피치를 기본값으로 초기화했습니다.');
+});
+
+noiseScaleRange?.addEventListener('input', () => {
+  if (noiseScaleLabel) noiseScaleLabel.textContent = (Number(noiseScaleRange.value) / 100).toFixed(2);
+  savePcmDefaults();
+});
+noiseWRange?.addEventListener('input', () => {
+  if (noiseWLabel) noiseWLabel.textContent = (Number(noiseWRange.value) / 100).toFixed(2);
+  savePcmDefaults();
+});
+normalizeCheck?.addEventListener('change', () => {
+  syncPcmParamLabels();
+  savePcmDefaults();
+});
+normalizeLevelRange?.addEventListener('input', () => {
+  if (normalizeLevelLabel) normalizeLevelLabel.textContent = (Number(normalizeLevelRange.value) / 100).toFixed(2);
+  savePcmDefaults();
+});
+document.getElementById('pcmDefaultsBtn')?.addEventListener('click', () => {
+  applyPcmSettings(DEFAULT_PCM_SETTINGS);
+  savePcmDefaults();
+  showStatus('변동성, 리듬, 정규화를 기본값으로 초기화했습니다.');
+});
 
 async function openFile() {
   const openFn = bridge.openTextFile ?? webOpenTextFile;
@@ -1371,19 +1470,31 @@ document.getElementById('openFileBtnEditor')?.addEventListener('click', async ()
 });
 
 const downloadModelBtn = document.getElementById('downloadModel');
+const deleteModelBtn   = document.getElementById('deleteModel');
 
-/** Disable download when the selected model is already installed (or while downloading). */
-function updateDownloadButtonState({ downloading = false } = {}) {
+/** Sync download/delete button states with the selected model. */
+function updateDownloadButtonState({ downloading = false, deleting = false } = {}) {
   if (!downloadModelBtn) return;
   const model = state.models.find((m) => m.id === modelSelect?.value) || null;
   const installed = !!model?.downloaded;
-  downloadModelBtn.disabled = downloading || installed || !model;
+  const busy = downloading || deleting;
+
+  downloadModelBtn.disabled = busy || installed || !model;
   downloadModelBtn.title = downloading
     ? '다운로드 중...'
     : installed
       ? '이미 설치된 모델입니다'
       : '선택한 모델 다운로드';
   downloadModelBtn.setAttribute('aria-disabled', downloadModelBtn.disabled ? 'true' : 'false');
+
+  if (deleteModelBtn) {
+    deleteModelBtn.disabled = busy || !installed || !bridge.deleteModel;
+    deleteModelBtn.title = deleting
+      ? '삭제 중...'
+      : installed
+        ? `${model?.label || '모델'} 삭제`
+        : '미설치 모델입니다';
+  }
 }
 
 /** Download the currently selected model. Returns true when cache is ready. */
@@ -1440,6 +1551,27 @@ downloadModelBtn?.addEventListener('click', async () => {
     await downloadSelectedModel();
   } catch (error) {
     showError(error);
+  }
+});
+
+deleteModelBtn?.addEventListener('click', async () => {
+  const model = state.models.find((m) => m.id === modelSelect?.value);
+  if (!model?.downloaded) return;
+  const confirmed = await showConfirm(
+    '모델 삭제',
+    `"${model.label}" 모델을 삭제하시겠습니까?\n다시 사용하려면 다운로드가 필요합니다.`,
+    { okLabel: '삭제' },
+  );
+  if (!confirmed) return;
+  updateDownloadButtonState({ deleting: true });
+  try {
+    await bridge.deleteModel(model.id);
+    showStatus(`${model.label} 모델이 삭제되었습니다.`);
+    await refreshModels();
+  } catch (error) {
+    showError(error);
+  } finally {
+    updateDownloadButtonState();
   }
 });
 

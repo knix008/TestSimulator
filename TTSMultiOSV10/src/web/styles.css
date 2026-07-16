@@ -278,7 +278,6 @@ h1 {
 }
 
 .settings-panel {
-  /* Fixed window size: fit all controls without a vertical scrollbar. */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -360,6 +359,33 @@ textarea {
 
 .model-dl-btn:disabled {
   opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.model-del-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.08));
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 200ms;
+}
+
+.model-del-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.35), rgba(239, 68, 68, 0.20));
+}
+
+.model-del-btn:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -466,6 +492,155 @@ textarea {
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+}
+
+/* ── PCM panel (full-width, between main and waveform) ────────── */
+.pcm-panel {
+  flex-shrink: 0;
+  margin-top: 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+}
+
+.pcm-panel-header {
+  display: flex;
+  align-items: center;
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pcm-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.pcm-panel-body {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.pcm-control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pcm-ctrl-label {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pcm-ctrl-slider {
+  width: 130px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--slider-track);
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pcm-ctrl-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.25);
+}
+
+.pcm-ctrl-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.25);
+}
+
+.pcm-ctrl-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  min-width: 32px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pcm-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--panel-border);
+  flex-shrink: 0;
+}
+
+.pcm-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.pcm-check-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pcm-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.18), rgba(var(--accent-rgb), 0.08));
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.pcm-reset-btn:hover {
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.28), rgba(var(--accent-rgb), 0.16));
+  transform: translateY(-1px);
+}
+
+.pcm-hint {
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.7;
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 /* ── Waveform panel (full-width, always visible) ──────────────── */
@@ -666,141 +841,6 @@ textarea {
   color: var(--text);
 }
 
-/* ── Status card ──────────────────────────────────────────────── */
-.status-card {
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--panel-border);
-  margin-top: auto;
-  flex-shrink: 0;
-}
-
-.status-title {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  margin-bottom: 8px;
-}
-
-.status-text {
-  line-height: 1.6;
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status-progress-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.status-progress-track {
-  height: 10px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--panel-border);
-}
-
-.status-progress-bar {
-  width: 0%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
-  transition: width 160ms ease;
-}
-
-/* ── Download panel (shown during active download) ────────────── */
-.dl-panel {
-  display: none;
-  margin-top: 14px;
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--dl-panel-bg);
-  border: 1px solid var(--dl-panel-border);
-}
-
-.status-card[data-phase="downloading"] .dl-panel {
-  display: block;
-}
-
-.status-card[data-phase="downloading"] .status-progress-meta,
-.status-card[data-phase="downloading"] .status-progress-track {
-  display: none;
-}
-
-.dl-header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 10px;
-  min-width: 0;
-}
-
-.dl-percent {
-  font-size: 40px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.dl-file {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  flex: 1;
-}
-
-.dl-bar-track {
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.dl-bar-fill {
-  width: 0%;
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
-  border-radius: inherit;
-  transition: width 200ms ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.dl-bar-fill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.25) 50%, transparent 100%);
-  animation: dl-shimmer 1.6s linear infinite;
-}
-
-@keyframes dl-shimmer {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(300%); }
-}
-
-.dl-size {
-  font-size: 12px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ── Status bar (footer) ──────────────────────────────────────── */
 .status-bar {
@@ -830,8 +870,8 @@ textarea {
 .status-bar-fill[data-phase="error"] { background: #ef4444; }
 
 .status-bar-body {
-  display: grid;
-  grid-template-columns: 2fr repeat(3, 1fr);
+  display: flex;
+  align-items: stretch;
   gap: 10px;
   padding: 12px 16px;
 }
@@ -847,6 +887,7 @@ textarea {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--panel-border);
   overflow: hidden;
+  flex: 1 1 0;
 }
 
 .status-pill-label {
@@ -865,6 +906,7 @@ textarea {
 }
 
 .status-pill--main {
+  flex: 2 1 0;
   justify-content: flex-start;
   gap: 8px;
 }
@@ -872,6 +914,31 @@ textarea {
 .status-pill--main span:last-child {
   flex: 1;
   text-align: right;
+}
+
+.status-pill--dl {
+  flex: 1.2 1 0;
+  justify-content: flex-start;
+  gap: 8px;
+  border-color: rgba(var(--accent-rgb), 0.35);
+  background: rgba(var(--accent-rgb), 0.06);
+}
+
+.dl-percent-badge {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dl-size-badge {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .status-dot {
@@ -899,6 +966,44 @@ textarea {
 @keyframes status-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.4; transform: scale(0.65); }
+}
+
+/* ── Dialog backdrop (shared) ─────────────────────────────────── */
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+/* ── Confirm dialog ───────────────────────────────────────────── */
+.confirm-dialog {
+  border: none;
+  border-radius: 22px;
+  background: var(--bg-soft);
+  color: var(--text);
+  width: min(380px, calc(100vw - 32px));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  padding: 0;
+}
+
+.confirm-body {
+  padding: 4px 18px 0;
+}
+
+.confirm-body p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.btn-danger {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.28), rgba(239, 68, 68, 0.16)) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.44), rgba(239, 68, 68, 0.28)) !important;
 }
 
 /* ── About dialog ────────────────────────────────────────────── */
@@ -979,6 +1084,35 @@ textarea {
   margin: 0;
   color: var(--text);
   line-height: 1.5;
+}
+
+.about-model-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 2px 0 0;
+}
+
+.about-model-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 11px;
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.about-model-table td {
+  padding: 5px 10px 5px 0;
+  color: var(--text);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+}
+
+.about-model-table tr:last-child td {
+  border-bottom: none;
 }
 
 .about-link {

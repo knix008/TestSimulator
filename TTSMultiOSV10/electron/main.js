@@ -125,6 +125,12 @@ ipcMain.handle('app:downloadAndPrepareModel', async (_event, modelId) => {
     throw new Error(message);
   }
 });
+ipcMain.handle('app:deleteModel', async (_event, modelId) => {
+  const store = createModelStore();
+  const result = await store.deleteModel(modelId);
+  console.log(`[Model] 삭제: ${modelId}`);
+  return result;
+});
 ipcMain.handle('app:speak', async (_event, payload) => {
   // Main-process inference: worker_threads cannot reliably load onnxruntime DLLs on Windows.
   try {
@@ -134,6 +140,10 @@ ipcMain.handle('app:speak', async (_event, payload) => {
       voiceId: payload.voiceId,
       speed: payload.speed,
       language: payload.language,
+      noiseScale: payload.noiseScale,
+      noiseW: payload.noiseW,
+      normalize: payload.normalize,
+      normalizeLevel: payload.normalizeLevel,
       store: ttsStore,
       onProgress: null,
     });

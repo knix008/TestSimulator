@@ -263,13 +263,28 @@ export async function warmGoruut() {
 
 /**
  * Split IPA into Piper phoneme tokens present in phoneme_id_map.
- * Skips combining marks / modifiers missing from the map (e.g. ̠ ̹ ̞ ʰ).
+ * Uses greedy longest-match so multi-character phonemes like pʰ, tɕ, e̞
+ * are matched as a unit instead of being split into single codepoints.
  */
 export function ipaToPiperTokens(ipa, phonemeIdMap) {
   const map = phonemeIdMap || {};
+  // Pre-compute max key length (codepoint-safe via spread).
+  const maxLen = Object.keys(map).reduce((m, k) => Math.max(m, [...k].length), 1);
+  const chars = [...ipa]; // codepoint array
   const tokens = [];
-  for (const ch of ipa) {
-    if (map[ch]) tokens.push(ch);
+  let i = 0;
+  while (i < chars.length) {
+    let matched = false;
+    for (let len = Math.min(maxLen, chars.length - i); len >= 1; len--) {
+      const candidate = chars.slice(i, i + len).join('');
+      if (candidate in map) {
+        tokens.push(candidate);
+        i += len;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) i++; // skip unrecognized codepoint
   }
   return tokens;
 }

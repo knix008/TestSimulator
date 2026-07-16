@@ -49,7 +49,7 @@ function prepareMmsText(text) {
   return withBlanks;
 }
 
-function normalizeAudio(samples) {
+function normalizeAudio(samples, targetPeak = 0.9) {
   let audio = samples instanceof Float32Array ? samples : Float32Array.from(samples || []);
   let peak = 0;
   for (const v of audio) {
@@ -57,7 +57,7 @@ function normalizeAudio(samples) {
     if (a > peak) peak = a;
   }
   if (peak > 0.01) {
-    const scale = 0.9 / peak;
+    const scale = targetPeak / peak;
     const normalized = new Float32Array(audio.length);
     for (let i = 0; i < audio.length; i++) normalized[i] = audio[i] * scale;
     audio = normalized;
@@ -65,10 +65,11 @@ function normalizeAudio(samples) {
   return audio;
 }
 
-function toResult(audio, sampleRate) {
+function toResult(audio, sampleRate, { normalize = true, normalizeLevel = 0.9 } = {}) {
   // Keep Float32Array — structured clone across Worker/IPC is far cheaper than Array.from(number[]).
-  const normalized = normalizeAudio(audio);
-  return { audioBuffer: normalized, sampleRate };
+  let result = audio instanceof Float32Array ? audio : Float32Array.from(audio || []);
+  if (normalize) result = normalizeAudio(result, normalizeLevel);
+  return { audioBuffer: result, sampleRate };
 }
 
 // ── Find files in model directory ────────────────────────────────────────────
@@ -321,8 +322,28 @@ async function resolveKokoroOnnxPath(modelDir) {
   return { onnxPath: cpuPath, preferGpu: false };
 }
 
-// ── Piper KSS (phoneme_type: pygoruut — must use goruut IPA, not KoreanG2P) ───
-async function synthesizePiper(text, modelId, modelDir, { speed = 1 } = {}) {
+// PUA codepoints from @piper-plus/g2p/ko → nearest single-char IPA in the
+// KSS model's phoneme_id_map (which has no PUA entries).
+// Aspirated/tense distinctions collapse to their plain base; affricates → ɕ.
+const KO_PUA_FALLBACK = {
+  '': 'p',      // pʰ (ㅍ) → p
+  '': 't',      // tʰ (ㅌ) → t
+  '': 'k',      // kʰ (ㅋ) → k
+  '': 'ɕ', // tɕ  (ㅈ) → ɕ  [171]
+  '': 'ɕ', // tɕʰ (ㅊ) → ɕ
+  '': 'p',      // p͈  (ㅃ) → p
+  '': 't',      // t͈  (ㄸ) → t
+  '': 'k',      // k͈  (ㄲ) → k
+  '': 's',      // s͈  (ㅆ) → s
+  '': 'ɕ', // t͈ɕ (ㅉ) → ɕ
+  '': 'k',      // k̚  (ㄱ 받침) → k
+  '': 't',      // t̚  (ㄷ 받침) → t
+  '': 'p',      // p̚  (ㅂ 받침) → p
+};
+
+// ── Piper KSS ────────────────────────────────────────────────────────────────
+async function synthesizePiper(text, modelId, modelDir, opts = {}) {
+  const { speed = 1 } = opts;
   const onnxPath = await findOnnxFile(modelDir, [
     'piper-kss-korean.onnx',
     'model.onnx',
@@ -337,19 +358,16 @@ async function synthesizePiper(text, modelId, modelDir, { speed = 1 } = {}) {
   if (!configPath) throw new Error(`Piper 설정 파일 없음: ${modelDir}`);
 
   const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-  const phonemeType = config.phoneme_type || 'pygoruut';
-  if (phonemeType !== 'pygoruut') {
-    console.warn(`[TTS] Piper phoneme_type=${phonemeType}; expected pygoruut`);
-  }
+  const idMap = config.phoneme_id_map || {};
 
-  const { phonemizeWithGoruut, ipaToPiperTokens } = await import('./goruutPhonemizer.js');
+  const { KoreanG2P } = await import('@piper-plus/g2p/ko');
   const { Encoder } = await import('@piper-plus/g2p/encode');
 
-  const langName = config.language?.code || config.espeak?.voice || 'Korean';
-  const ipa = await phonemizeWithGoruut(text.trim(), langName);
-  const idMap = config.phoneme_id_map || {};
-  const tokens = ipaToPiperTokens(ipa, idMap);
-  if (!tokens.length) throw new Error(`Piper 음소 변환 결과 없음 (ipa 길이=${ipa.length})`);
+  const g2p = new KoreanG2P();
+  const { tokens: rawTokens } = g2p.phonemize(text.trim());
+  // Map PUA codepoints to approximate single-char IPA present in this model's map
+  const tokens = rawTokens.map(t => KO_PUA_FALLBACK[t] ?? t);
+  if (!tokens.some(t => t in idMap)) throw new Error('Piper 음소 변환 결과 없음');
 
   const encoder = new Encoder(idMap);
   const { phonemeIds } = encoder.encode(tokens);
@@ -357,20 +375,18 @@ async function synthesizePiper(text, modelId, modelDir, { speed = 1 } = {}) {
 
   const { session, ort } = await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
   const lengthScale = Math.max(0.25, Math.min(4, (config.inference?.length_scale ?? 1) / Math.max(0.1, speed)));
+  const noiseScale = opts.noiseScale ?? config.inference?.noise_scale ?? 0.667;
+  const noiseW     = opts.noiseW     ?? config.inference?.noise_w     ?? 0.8;
   const feeds = {
     input: new ort.Tensor('int64', BigInt64Array.from(phonemeIds.map(BigInt)), [1, phonemeIds.length]),
     input_lengths: new ort.Tensor('int64', BigInt64Array.from([BigInt(phonemeIds.length)]), [1]),
-    scales: new ort.Tensor('float32', Float32Array.from([
-      config.inference?.noise_scale ?? 0.667,
-      lengthScale,
-      config.inference?.noise_w ?? 0.8,
-    ]), [3]),
+    scales: new ort.Tensor('float32', Float32Array.from([noiseScale, lengthScale, noiseW]), [3]),
   };
 
-  console.log(`[TTS] Piper(pygoruut) ipaChars=${[...ipa].length} tokens=${tokens.length} ids=${phonemeIds.length}`);
+  console.log(`[TTS] Piper(KoreanG2P) rawTokens=${rawTokens.length} ids=${phonemeIds.length} noise_scale=${noiseScale.toFixed(3)} noise_w=${noiseW.toFixed(3)}`);
   const results = await session.run(feeds);
   const audio = results[session.outputNames[0]].data;
-  return toResult(audio, config.audio?.sample_rate || 22050);
+  return toResult(audio, config.audio?.sample_rate || 22050, opts);
 }
 
 // ── Supertonic (sherpa-onnx) ─────────────────────────────────────────────────
@@ -412,7 +428,8 @@ function getSherpaTts(modelId, modelDir) {
   return { sherpa, tts };
 }
 
-async function synthesizeSupertonic(text, modelId, modelDir, { voiceId, speed = 1, language = 'ko' } = {}) {
+async function synthesizeSupertonic(text, modelId, modelDir, opts = {}) {
+  const { voiceId, speed = 1, language = 'ko' } = opts;
   const { sherpa, tts } = getSherpaTts(modelId, modelDir);
   const sid = Number.parseInt(String(voiceId ?? '0'), 10);
   const speakerId = Number.isFinite(sid)
@@ -436,7 +453,7 @@ async function synthesizeSupertonic(text, modelId, modelDir, { voiceId, speed = 
   });
   if (!audio?.samples?.length) throw new Error('Supertonic 오디오 생성 실패');
   const samples = Float32Array.from(audio.samples);
-  return toResult(samples, audio.sampleRate || tts.sampleRate || 44100);
+  return toResult(samples, audio.sampleRate || tts.sampleRate || 44100, opts);
 }
 
 // ── MMS TTS ──────────────────────────────────────────────────────────────────
@@ -450,7 +467,7 @@ function mmsOnnxCandidates() {
   ];
 }
 
-async function synthesizeMmsTts(text, modelId, modelDir) {
+async function synthesizeMmsTts(text, modelId, modelDir, opts = {}) {
   const onnxPath = await findOnnxFile(modelDir, mmsOnnxCandidates());
   if (!onnxPath) throw new Error(`ONNX 파일 없음: ${modelDir}`);
 
@@ -479,7 +496,7 @@ async function synthesizeMmsTts(text, modelId, modelDir) {
     ? 'waveform'
     : session.outputNames[0];
   const audio = results[outName].data;
-  return toResult(audio, 16000);
+  return toResult(audio, 16000, opts);
 }
 
 // ── Kokoro ───────────────────────────────────────────────────────────────────
@@ -547,7 +564,8 @@ async function loadVoiceBin(voicePath) {
   return voices;
 }
 
-async function synthesizeKokoro(text, modelId, modelDir, { voiceId = 'af_heart', speed = 1 } = {}) {
+async function synthesizeKokoro(text, modelId, modelDir, opts = {}) {
+  const { voiceId = 'af_heart', speed = 1 } = opts;
   let { onnxPath, preferGpu } = await resolveKokoroOnnxPath(modelDir);
   if (!onnxPath) throw new Error(`Kokoro ONNX 파일 없음: ${modelDir}`);
 
@@ -617,7 +635,7 @@ async function synthesizeKokoro(text, modelId, modelDir, { voiceId = 'af_heart',
     + `audio=${audioSec.toFixed(2)}s rtf=${audioSec > 0 ? ((t2 - t1) / 1000 / audioSec).toFixed(2) : '?'} `
     + `backend=${ortBackend} ep=${entry.usedGpu ? 'dml' : 'cpu'}`,
   );
-  return toResult(audio, 24000);
+  return toResult(audio, 24000, opts);
 }
 
 // ── Voice listing helpers (used by UI via IPC) ───────────────────────────────
@@ -698,8 +716,6 @@ export async function warmModel(modelId, store) {
   if (modelId === 'ko-piper-kss' || runtime === 'piper-onnx') {
     const onnxPath = await findOnnxFile(modelDir, ['piper-kss-korean.onnx', 'model.onnx']);
     if (onnxPath) await getOrtSession(`${modelId}:${onnxPath}`, onnxPath);
-    const { warmGoruut } = await import('./goruutPhonemizer.js');
-    await warmGoruut();
     return { warmed: true, modelId };
   }
 
@@ -719,7 +735,7 @@ export async function warmModel(modelId, store) {
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
-export async function synthesizeText({ text, modelId, store, onProgress, voiceId, speed, language }) {
+export async function synthesizeText({ text, modelId, store, onProgress, voiceId, speed, language, noiseScale, noiseW, normalize, normalizeLevel }) {
   try {
     if (!text?.trim()) throw new Error('합성할 텍스트가 비어 있습니다.');
 
@@ -739,6 +755,10 @@ export async function synthesizeText({ text, modelId, store, onProgress, voiceId
       voiceId,
       speed: Number(speed) > 0 ? Number(speed) : 1,
       language: language || model?.language || 'ko',
+      noiseScale: Number.isFinite(Number(noiseScale)) ? Number(noiseScale) : undefined,
+      noiseW:     Number.isFinite(Number(noiseW))     ? Number(noiseW)     : undefined,
+      normalize:  normalize !== false,
+      normalizeLevel: Number.isFinite(Number(normalizeLevel)) ? Math.max(0.05, Math.min(1, Number(normalizeLevel))) : 0.9,
     };
 
     if (modelId === 'ko-piper-kss' || runtime === 'piper-onnx') {
@@ -748,7 +768,7 @@ export async function synthesizeText({ text, modelId, store, onProgress, voiceId
       return await synthesizeSupertonic(text, modelId, modelDir, opts);
     }
     if (modelId === 'ko-mms-tts' || runtime === 'transformers-js') {
-      return await synthesizeMmsTts(text, modelId, modelDir);
+      return await synthesizeMmsTts(text, modelId, modelDir, opts);
     }
     if (modelId === 'en-kokoro' || runtime === 'onnx') {
       return await synthesizeKokoro(text, modelId, modelDir, opts);
