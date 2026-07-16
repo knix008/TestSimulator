@@ -1,0 +1,76 @@
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --bg-app: #d9e0ea;
+  --bg-panel: #eef2f7;
+  --bg-panel-deep: #e2e8f0;
+  --bg-toolbar: linear-gradient(180deg, #f8fafc 0%, #e5ebf3 100%);
+  --bg-transport: linear-gradient(180deg, #e8eef6 0%, #d4dde9 100%);
+  --bg-module: #f7f9fc;
+  --border: #b8c4d4;
+  --border-strong: #8fa0b5;
+  --text: #152033;
+  --text-muted: #5a6a80;
+  --text-inverse: #f7fafc;
+  --accent: #1b63d8;
+  --accent-soft: rgba(27, 99, 216, 0.12);
+  --accent-hot: #d94826;
+  --success: #1a7f4b;
+  --danger: #c0392b;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset, 0 10px 28px rgba(20, 36, 60, 0.1);
+  --wave-bg: #edf2f8;
+  --wave-color: #1b63d8;
+  --wave-grid: #c5d0de;
+  --wave-selection: rgba(27, 99, 216, 0.18);
+  --wave-playhead: #d94826;
+  --meter-track: #c5d0de;
+  --meter-fill: linear-gradient(180deg, #2ecc71, #f1c40f 70%, #e74c3c);
+  --scrollbar: #aebccd;
+  --library-active: rgba(27, 99, 216, 0.14);
+  --select-bg: #ffffff;
+  --select-text: #152033;
+  --select-border: #8fa0b5;
+  --select-option-bg: #ffffff;
+  --select-option-text: #152033;
+  --lane-label-bg: rgba(238, 242, 247, 0.92);
+  --chip-bg: #1b63d8;
+  --chip-text: #ffffff;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-app: #0a0e14;
+  --bg-panel: #121821;
+  --bg-panel-deep: #0c1118;
+  --bg-toolbar: linear-gradient(180deg, #1a2230 0%, #121821 100%);
+  --bg-transport: linear-gradient(180deg, #182130 0%, #101722 100%);
+  --bg-module: #171e29;
+  --border: #2a3547;
+  --border-strong: #44556f;
+  --text: #e8eef7;
+  --text-muted: #8b98ad;
+  --text-inverse: #0d1118;
+  --accent: #4da3ff;
+  --accent-soft: rgba(77, 163, 255, 0.14);
+  --accent-hot: #ff6b4a;
+  --success: #3dd68c;
+  --danger: #ff5c5c;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 14px 36px rgba(0, 0, 0, 0.4);
+  --wave-bg: #080b10;
+  --wave-color: #4da3ff;
+  --wave-grid: #243044;
+  --wave-selection: rgba(77, 163, 255, 0.2);
+  --wave-playhead: #ff6b4a;
+  --meter-track: #243044;
+  --meter-fill: linear-gradient(180deg, #3dd68c, #f0c040 70%, #ff5c5c);
+  --scrollbar: #3a465a;
+  --library-active: rgba(77, 163, 255, 0.16);
+  --select-bg: #1a2330;
+  --select-text: #e8eef7;
+  --select-border: #44556f;
+  --select-option-bg: #1a2330;
+  --select-option-text: #e8eef7;
+  --lane-label-bg: rgba(18, 24, 33, 0.92);
+  --chip-bg: #4da3ff;
+  --chip-text: #0a0e14;
+}

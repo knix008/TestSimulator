@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Sound Effect Studio">
+  <defs>
+    <linearGradient id="bg" x1="48" y1="24" x2="460" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9fd0ff"/>
+      <stop offset="45%" stop-color="#6eb4f5"/>
+      <stop offset="100%" stop-color="#3d8de0"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="40" y1="20" x2="280" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="45%" stop-color="#eaf6ff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="spark" cx="0.22" cy="0.18" r="0.55">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="35%" stop-color="#d8efff" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="wave" x1="96" y1="256" x2="416" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#f0f7ff"/>
+      <stop offset="100%" stop-color="#dcecff"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="250" y1="120" x2="360" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffb087"/>
+      <stop offset="100%" stop-color="#ff6a3d"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="g"/>
+      <feMerge>
+        <feMergeNode in="g"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="round">
+      <rect width="512" height="512" rx="108"/>
+    </clipPath>
+  </defs>
+
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <g clip-path="url(#round)">
+    <!-- top-left glossy shine -->
+    <ellipse cx="96" cy="72" rx="220" ry="160" fill="url(#shine)"/>
+    <ellipse cx="70" cy="56" rx="140" ry="100" fill="url(#spark)"/>
+    <!-- sparkle points -->
+    <g fill="#ffffff" filter="url(#glow)" opacity="0.95">
+      <path d="M78 54l6 16 16 6-16 6-6 16-6-16-16-6 16-6z"/>
+      <path d="M148 38l3.5 9 9 3.5-9 3.5-3.5 9-3.5-9-9-3.5 9-3.5z" opacity="0.85"/>
+      <path d="M118 96l2.5 6.5 6.5 2.5-6.5 2.5-2.5 6.5-2.5-6.5-6.5-2.5 6.5-2.5z" opacity="0.75"/>
+      <circle cx="176" cy="68" r="3.5" opacity="0.8"/>
+      <circle cx="52" cy="110" r="2.5" opacity="0.7"/>
+    </g>
+  </g>
+
+  <rect x="36" y="36" width="440" height="440" rx="92" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
+
+  <!-- EQ bars -->
+  <g fill="url(#wave)" filter="url(#soft)">
+    <rect x="118" y="214" width="28" height="84" rx="14"/>
+    <rect x="166" y="168" width="28" height="176" rx="14"/>
+    <rect x="214" y="132" width="28" height="248" rx="14"/>
+    <rect x="262" y="176" width="28" height="160" rx="14"/>
+    <rect x="310" y="148" width="28" height="216" rx="14"/>
+    <rect x="358" y="198" width="28" height="116" rx="14"/>
+  </g>
+
+  <!-- playhead accent -->
+  <rect x="248" y="112" width="6" height="288" rx="3" fill="url(#accent)"/>
+  <circle cx="251" cy="112" r="10" fill="#ff6b4a"/>
+</svg>

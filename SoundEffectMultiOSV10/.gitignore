@@ -1,0 +1,7 @@
+node_modules/
+release/
+dist/
+.DS_Store
+*.log
+.vscode/
+Thumbs.db
