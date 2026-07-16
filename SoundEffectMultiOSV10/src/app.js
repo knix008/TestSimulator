@@ -78,9 +78,12 @@ const state = {
     ]
   },
   automationTarget: 'trackVolume',
+  automationCurveMode: 'linear',
   automationDragIndex: -1,
   clipSnapEnabled: true,
   clipSnapDivisions: 32,
+  autoCrossfadeEnabled: true,
+  autoCrossfadeSec: 0.16,
   dockVisible: true,
   sourceNodes: [],
   rafId: 0,
@@ -110,6 +113,8 @@ const els = {
   btnExport: document.getElementById('btnExport'),
   btnToggleDock: document.getElementById('btnToggleDock'),
   btnSnapGrid: document.getElementById('btnSnapGrid'),
+  btnAutoCrossfade: document.getElementById('btnAutoCrossfade'),
+  btnCurveMode: document.getElementById('btnCurveMode'),
   loopRangeLabel: document.getElementById('loopRangeLabel'),
   cueStatusLabel: document.getElementById('cueStatusLabel'),
   seekBar: document.getElementById('seekBar'),
@@ -205,10 +210,40 @@ function sampleAutomation(points, x) {
     const b = pts[i];
     if (nx <= b.x) {
       const t = (nx - a.x) / Math.max(0.0001, b.x - a.x);
+      if (state.automationCurveMode === 'smooth') {
+        const s = t * t * (3 - 2 * t);
+        return a.y + (b.y - a.y) * s;
+      }
       return a.y + (b.y - a.y) * t;
     }
   }
   return pts[pts.length - 1].y;
+}
+
+function getClipOverlapFade(trackId, clipStart, clipEnd) {
+  if (!state.autoCrossfadeEnabled) {
+    return { fadeIn: 0, fadeOut: 0 };
+  }
+  let fadeIn = 0;
+  let fadeOut = 0;
+
+  for (const c of state.clips) {
+    if (c.trackId === trackId) continue;
+    const otherStart = c.startSec;
+    const otherEnd = c.startSec + c.durationSec;
+    const overlapStart = Math.max(clipStart, otherStart);
+    const overlapEnd = Math.min(clipEnd, otherEnd);
+    const overlapDur = overlapEnd - overlapStart;
+    if (overlapDur <= 0) continue;
+    if (overlapStart <= clipStart + 0.0001) {
+      fadeIn = Math.max(fadeIn, Math.min(state.autoCrossfadeSec, overlapDur));
+    }
+    if (overlapEnd >= clipEnd - 0.0001) {
+      fadeOut = Math.max(fadeOut, Math.min(state.autoCrossfadeSec, overlapDur));
+    }
+  }
+
+  return { fadeIn, fadeOut };
 }
 
 function defaultTrackFx() {
@@ -461,6 +496,21 @@ async function playMix() {
       sendToCue ? engine.cueGain : engine.masterGain
     );
 
+    const { fadeIn, fadeOut } = getClipOverlapFade(track.id, clipStart, clipEnd);
+    const baseGain = dbToGain(track.gainDb);
+    const startTime = engine.ctx.currentTime + when;
+    chain.inputGain.gain.cancelScheduledValues(startTime);
+    chain.inputGain.gain.setValueAtTime(baseGain, startTime);
+    if (fadeIn > 0) {
+      chain.inputGain.gain.setValueAtTime(0.0001, startTime);
+      chain.inputGain.gain.linearRampToValueAtTime(baseGain, startTime + fadeIn);
+    }
+    if (fadeOut > 0) {
+      const fadeOutStart = Math.max(0, playDuration - fadeOut);
+      chain.inputGain.gain.setValueAtTime(baseGain, startTime + fadeOutStart);
+      chain.inputGain.gain.linearRampToValueAtTime(0.0001, startTime + playDuration);
+    }
+
     chain.source.onended = () => {
       liveNodes -= 1;
       if (liveNodes <= 0 && state.isPlaying) {
@@ -699,8 +749,20 @@ function drawAutomationCurve() {
   pts.forEach((p, i) => {
     const x = p.x * width;
     const y = (1 - p.y) * height;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    if (i === 0) {
+      ctx.moveTo(x, y);
+      return;
+    }
+    if (state.automationCurveMode === 'smooth') {
+      const prev = pts[i - 1];
+      const prevX = prev.x * width;
+      const prevY = (1 - prev.y) * height;
+      const midX = (prevX + x) * 0.5;
+      ctx.quadraticCurveTo(prevX, prevY, midX, (prevY + y) * 0.5);
+      ctx.quadraticCurveTo(x, y, x, y);
+      return;
+    }
+    ctx.lineTo(x, y);
   });
   ctx.stroke();
 
@@ -1381,8 +1443,11 @@ async function saveProject() {
     clips: state.clips,
     automationCurves: state.automationCurves,
     automationTarget: state.automationTarget,
+    automationCurveMode: state.automationCurveMode,
     clipSnapEnabled: state.clipSnapEnabled,
     clipSnapDivisions: state.clipSnapDivisions,
+    autoCrossfadeEnabled: state.autoCrossfadeEnabled,
+    autoCrossfadeSec: state.autoCrossfadeSec,
     tracks
   };
 
@@ -1502,10 +1567,15 @@ async function loadProjectFromFile(file) {
     state.automationTarget = ['trackVolume', 'trackPan', 'master'].includes(parsed.automationTarget)
       ? parsed.automationTarget
       : 'trackVolume';
+    state.automationCurveMode = parsed.automationCurveMode === 'smooth' ? 'smooth' : 'linear';
     state.clipSnapEnabled = parsed.clipSnapEnabled !== false;
     state.clipSnapDivisions = Number.isFinite(parsed.clipSnapDivisions)
       ? Math.max(1, Math.floor(parsed.clipSnapDivisions))
       : 32;
+    state.autoCrossfadeEnabled = parsed.autoCrossfadeEnabled !== false;
+    state.autoCrossfadeSec = Number.isFinite(parsed.autoCrossfadeSec)
+      ? clamp(parsed.autoCrossfadeSec, 0.02, 0.8)
+      : 0.16;
     state.recArmed = Boolean(parsed.recArmed);
     state.punchEnabled = Boolean(parsed.punchEnabled);
     state.cueMonitor = Boolean(parsed.cueMonitor);
@@ -1528,6 +1598,14 @@ async function loadProjectFromFile(file) {
     if (els.btnSnapGrid) {
       els.btnSnapGrid.classList.toggle('active', state.clipSnapEnabled);
       els.btnSnapGrid.textContent = state.clipSnapEnabled ? 'Snap 1/32' : 'Snap Off';
+    }
+    if (els.btnAutoCrossfade) {
+      els.btnAutoCrossfade.classList.toggle('active', state.autoCrossfadeEnabled);
+      els.btnAutoCrossfade.textContent = state.autoCrossfadeEnabled ? 'Auto XFade' : 'XFade Off';
+    }
+    if (els.btnCurveMode) {
+      els.btnCurveMode.classList.toggle('active', state.automationCurveMode === 'smooth');
+      els.btnCurveMode.textContent = state.automationCurveMode === 'smooth' ? 'Curve: Smooth' : 'Curve: Linear';
     }
     drawAutomationCurve();
 
@@ -1685,6 +1763,17 @@ function bindUi() {
     els.btnSnapGrid.classList.toggle('active', state.clipSnapEnabled);
     els.btnSnapGrid.textContent = state.clipSnapEnabled ? 'Snap 1/32' : 'Snap Off';
   });
+  els.btnAutoCrossfade?.addEventListener('click', () => {
+    state.autoCrossfadeEnabled = !state.autoCrossfadeEnabled;
+    els.btnAutoCrossfade.classList.toggle('active', state.autoCrossfadeEnabled);
+    els.btnAutoCrossfade.textContent = state.autoCrossfadeEnabled ? 'Auto XFade' : 'XFade Off';
+  });
+  els.btnCurveMode?.addEventListener('click', () => {
+    state.automationCurveMode = state.automationCurveMode === 'smooth' ? 'linear' : 'smooth';
+    els.btnCurveMode.classList.toggle('active', state.automationCurveMode === 'smooth');
+    els.btnCurveMode.textContent = state.automationCurveMode === 'smooth' ? 'Curve: Smooth' : 'Curve: Linear';
+    drawAutomationCurve();
+  });
   els.btnToggleDock?.addEventListener('click', () => {
     state.dockVisible = !state.dockVisible;
     els.dockMixer?.classList.toggle('hidden', !state.dockVisible);
@@ -1787,6 +1876,14 @@ function init() {
   if (els.btnSnapGrid) {
     els.btnSnapGrid.classList.toggle('active', state.clipSnapEnabled);
     els.btnSnapGrid.textContent = state.clipSnapEnabled ? 'Snap 1/32' : 'Snap Off';
+  }
+  if (els.btnAutoCrossfade) {
+    els.btnAutoCrossfade.classList.toggle('active', state.autoCrossfadeEnabled);
+    els.btnAutoCrossfade.textContent = state.autoCrossfadeEnabled ? 'Auto XFade' : 'XFade Off';
+  }
+  if (els.btnCurveMode) {
+    els.btnCurveMode.classList.toggle('active', state.automationCurveMode === 'smooth');
+    els.btnCurveMode.textContent = state.automationCurveMode === 'smooth' ? 'Curve: Smooth' : 'Curve: Linear';
   }
   updateTimeAndSeek();
   updateMaster();

@@ -562,6 +562,18 @@ button.tool-chip {
   border-color: #68a9df;
 }
 
+#btnCurveMode.active {
+  border-color: #63c8de;
+  background: linear-gradient(180deg, #24425a, #1a3044);
+  color: #ddf6ff;
+}
+
+#btnAutoCrossfade.active {
+  border-color: #77d4af;
+  background: linear-gradient(180deg, #234236, #1a3027);
+  color: #dfffee;
+}
+
 .timeline-ruler {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
