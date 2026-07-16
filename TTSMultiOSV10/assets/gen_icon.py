@@ -1,9 +1,10 @@
 """
-Generate icon.png with proper RGBA transparency from scratch using Pillow.
+Generate icon.png and icon.ico with proper RGBA transparency using Pillow.
 Designs a TTS app icon: teal gradient bg, upper-left gloss, TTS text, wave.
+Run: python assets/gen_icon.py
 """
 from PIL import Image, ImageDraw, ImageFont
-import math, os
+import math, os, struct, io
 
 SIZE = 512
 MARGIN = 28
@@ -110,12 +111,39 @@ for i in range(STEPS + 1):
 for i in range(len(pts) - 1):
     draw.line([pts[i], pts[i + 1]], fill=(255, 255, 255, 148), width=8)
 
-# ── 7. Resize and save ─────────────────────────────────────────────────────────
+# ── 7. Save PNG (256×256) ──────────────────────────────────────────────────────
 final = bg.resize((256, 256), Image.LANCZOS)
 final.save(OUT, format='PNG')
-print(f'Saved: {OUT}  size={os.path.getsize(OUT)//1024} KB')
+print(f'PNG: {OUT}  ({os.path.getsize(OUT)//1024} KB)')
+px = final.load()
+print(f'Corner RGBA={px[0,0]}  transparent={px[0,0][3]==0}')
 
-# Verify transparency
-pixels = final.load()
-tl = pixels[0, 0]
-print(f'Corner pixel (0,0): RGBA={tl}  transparent={tl[3]==0}')
+# ── 8. Save ICO (16/32/48/64/128/256, PNG-in-ICO for proper alpha) ───────────
+ICO = OUT.replace('.png', '.ico')
+ico_sizes = [16, 32, 48, 64, 128, 256]
+chunks = []
+for s in ico_sizes:
+    img_s = bg.resize((s, s), Image.LANCZOS)
+    buf = io.BytesIO()
+    img_s.save(buf, format='PNG')
+    chunks.append(buf.getvalue())
+
+with open(ICO, 'wb') as f:
+    f.write(struct.pack('<HHH', 0, 1, len(ico_sizes)))
+    offset = 6 + 16 * len(ico_sizes)
+    for s, data in zip(ico_sizes, chunks):
+        w = 0 if s == 256 else s
+        h = 0 if s == 256 else s
+        f.write(struct.pack('<BBBBHHII', w, h, 0, 0, 1, 32, len(data), offset))
+        offset += len(data)
+    for data in chunks:
+        f.write(data)
+
+print(f'ICO: {ICO}  ({os.path.getsize(ICO)//1024} KB)  sizes={ico_sizes}')
+
+# Also delete cached ICO in dist so electron-builder picks up the new one
+cached = os.path.join(os.path.dirname(__file__), '..', 'dist', '.icon-ico', 'icon.ico')
+cached = os.path.normpath(cached)
+if os.path.exists(cached):
+    os.remove(cached)
+    print(f'Deleted cache: {cached}')

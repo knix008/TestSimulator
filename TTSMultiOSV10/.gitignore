@@ -8,6 +8,16 @@ out/
 release/
 coverage/
 
+# Installer files copied to project root by copy-installers script
+*.exe
+*.msi
+*.dmg
+*.pkg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+
 # Logs
 *.log
 npm-debug.log*
