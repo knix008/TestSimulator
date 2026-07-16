@@ -32,15 +32,16 @@
       "src/**/*",
       "assets/**/*",
       "index.html",
-      "server.js"
+      "server.js",
+      "!node_modules/**/*.map",
+      "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**"
     ],
     "asarUnpack": [
       "node_modules/onnxruntime-node/**/*",
       "node_modules/sherpa-onnx-node/**/*",
-      "node_modules/sherpa-onnx-win-x64/**/*",
-      "node_modules/sherpa-onnx-linux-x64/**/*",
-      "node_modules/sherpa-onnx-darwin-x64/**/*",
-      "node_modules/sherpa-onnx-darwin-arm64/**/*"
+      "node_modules/sherpa-onnx-win-x64/**/*"
     ],
     "win": {
       "target": [
@@ -59,8 +60,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "TTS Multi OS",
-      "deleteAppDataOnUninstall": true,
-      "include": "build/installer.nsh"
+      "deleteAppDataOnUninstall": true
     },
     "mac": {
       "target": [
@@ -103,10 +103,8 @@
     "onnxruntime-node@1.27.0": true
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0",
     "@piper-plus/g2p": "^0.4.1",
     "onnxruntime-node": "^1.27.0",
-    "onnxruntime-web": "^1.27.0",
     "phonemizer": "^1.2.1",
     "sherpa-onnx-node": "^1.13.4",
     "sherpa-onnx-win-x64": "^1.13.4"

@@ -1461,10 +1461,6 @@ async function openFile() {
   }
 }
 
-document.getElementById('openFileBtn')?.addEventListener('click', async () => {
-  try { await openFile(); } catch (err) { showError(err); }
-});
-
 document.getElementById('openFileBtnEditor')?.addEventListener('click', async () => {
   try { await openFile(); } catch (err) { showError(err); }
 });
