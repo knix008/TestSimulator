@@ -1,0 +1,17 @@
+{
+  "name": "Studio Sample Pack A",
+  "version": 1,
+  "createdAt": "2026-07-16T08:38:08.999Z",
+  "files": [
+    "bass_55hz.wav",
+    "lead_440hz.wav",
+    "pad_220hz_saw.wav",
+    "snare_noise.wav",
+    "ambience_noise.wav",
+    "drum_loop_120bpm.wav"
+  ],
+  "notes": [
+    "CUE monitor check: lead_440hz.wav",
+    "Limiter check: increase master to +6 dB with 3+ tracks"
+  ]
+}

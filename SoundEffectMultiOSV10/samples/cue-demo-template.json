@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "title": "CUE demo template",
+  "instructions": [
+    "Import drum_loop_120bpm.wav and lead_440hz.wav",
+    "Set lead_440hz.wav track CUE = true",
+    "Toggle CUE MON on transport"
+  ]
+}
