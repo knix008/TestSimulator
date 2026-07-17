@@ -228,6 +228,41 @@
     </button>
   </div>
 
+  <div id="panelContextMenu" class="context-menu hidden" role="menu" aria-label="Panel context menu">
+    <button class="context-menu-item" data-action="import" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-import"/></svg>
+      <span data-i18n="importAudio">오디오 가져오기</span>
+    </button>
+    <button class="context-menu-item" data-action="addTone" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-tone"/></svg>
+      <span data-i18n="generateTone">테스트 톤 추가</span>
+    </button>
+    <button class="context-menu-item" data-action="playPause" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-play"/></svg>
+      <span id="panelContextPlayLabel" data-i18n="play">재생</span>
+    </button>
+    <button class="context-menu-item" data-action="stop" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-stop"/></svg>
+      <span data-i18n="stop">정지</span>
+    </button>
+    <button class="context-menu-item" data-action="export" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-mix"/></svg>
+      <span data-i18n="mixdownSave">믹스 저장</span>
+    </button>
+    <button class="context-menu-item" data-action="saveProject" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-save"/></svg>
+      <span data-i18n="saveProject">프로젝트 저장</span>
+    </button>
+    <button class="context-menu-item" data-action="loadProject" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-open"/></svg>
+      <span data-i18n="loadProject">프로젝트 불러오기</span>
+    </button>
+    <button class="context-menu-item" data-action="toggleDock" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-loop-out"/></svg>
+      <span data-i18n="contextToggleDock">도크 믹서 표시 / 숨기기</span>
+    </button>
+  </div>
+
   <script type="module" src="./app.js"></script>
 </body>
 </html>

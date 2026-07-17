@@ -130,6 +130,8 @@ const els = {
   trackCount: document.getElementById('trackCount'),
   clipLane: document.getElementById('clipLane'),
   waveContextMenu: document.getElementById('waveContextMenu'),
+  panelContextMenu: document.getElementById('panelContextMenu'),
+  panelContextPlayLabel: document.getElementById('panelContextPlayLabel'),
   automationCanvas: document.getElementById('automationCanvas'),
   automationTarget: document.getElementById('automationTarget'),
   btnAutomationReset: document.getElementById('btnAutomationReset'),
@@ -336,6 +338,10 @@ function applyLocalizedUi() {
 
   const exportLabel = els.btnExport?.querySelector('span:last-child');
   if (exportLabel) exportLabel.textContent = I18n.t('mixdownSave', '믹스 저장');
+
+  if (els.panelContextPlayLabel) {
+    els.panelContextPlayLabel.textContent = I18n.t(playKey, state.isPlaying ? '일시정지' : '재생');
+  }
 }
 
 function timelineSpanSec() {
@@ -1996,8 +2002,11 @@ function hideWaveContextMenu() {
   els.waveContextMenu?.classList.add('hidden');
 }
 
-function showWaveContextMenu(x, y) {
-  const menu = els.waveContextMenu;
+function hidePanelContextMenu() {
+  els.panelContextMenu?.classList.add('hidden');
+}
+
+function showContextMenu(menu, x, y) {
   if (!menu) return;
   menu.classList.remove('hidden');
 
@@ -2012,12 +2021,22 @@ function showWaveContextMenu(x, y) {
   menu.style.top = `${top}px`;
 }
 
+function showWaveContextMenu(x, y) {
+  showContextMenu(els.waveContextMenu, x, y);
+}
+
+function showPanelContextMenu(x, y) {
+  showContextMenu(els.panelContextMenu, x, y);
+}
+
 function bindWaveContextMenu() {
   const menu = els.waveContextMenu;
   if (!menu) return;
 
   const openMenu = (ev) => {
     ev.preventDefault();
+    ev.stopPropagation();
+    hidePanelContextMenu();
     showWaveContextMenu(ev.clientX, ev.clientY);
   };
 
@@ -2068,6 +2087,74 @@ function bindWaveContextMenu() {
 
   window.addEventListener('resize', hideWaveContextMenu);
   window.addEventListener('blur', hideWaveContextMenu);
+}
+
+function bindPanelContextMenu() {
+  const menu = els.panelContextMenu;
+  if (!menu) return;
+
+  const panelSelector = '.sidebar, .editor, .inspector-panel, .dock-mixer, .transport';
+  const panels = document.querySelectorAll(panelSelector);
+  const openMenu = (ev) => {
+    if (ev.target.closest('#waveCanvas, #clipLane, #automationCanvas, #waveContextMenu')) return;
+    ev.preventDefault();
+    hideWaveContextMenu();
+    showPanelContextMenu(ev.clientX, ev.clientY);
+  };
+
+  panels.forEach((panel) => {
+    panel.addEventListener('contextmenu', openMenu);
+  });
+
+  menu.addEventListener('click', async (ev) => {
+    const button = ev.target.closest('[data-action]');
+    if (!button) return;
+
+    hidePanelContextMenu();
+
+    switch (button.dataset.action) {
+      case 'import':
+        await importAudio();
+        break;
+      case 'addTone':
+        await addTestTone();
+        break;
+      case 'playPause':
+        if (state.isPlaying) pauseMix();
+        else await playMix();
+        break;
+      case 'stop':
+        stopMix();
+        break;
+      case 'export':
+        await exportMix();
+        break;
+      case 'saveProject':
+        await saveProject();
+        break;
+      case 'loadProject':
+        await loadProject();
+        break;
+      case 'toggleDock':
+        els.btnToggleDock?.click();
+        break;
+      default:
+        break;
+    }
+  });
+
+  document.addEventListener('pointerdown', (ev) => {
+    if (menu.classList.contains('hidden')) return;
+    if (menu.contains(ev.target)) return;
+    hidePanelContextMenu();
+  });
+
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') hidePanelContextMenu();
+  });
+
+  window.addEventListener('resize', hidePanelContextMenu);
+  window.addEventListener('blur', hidePanelContextMenu);
 }
 
 function bindUi() {
@@ -2226,6 +2313,7 @@ async function init() {
   bindAutomationUi();
   bindDockMixerScroll();
   bindWaveContextMenu();
+  bindPanelContextMenu();
   restoreTheme();
   restoreUiDensity();
   applyLocalizedUi();

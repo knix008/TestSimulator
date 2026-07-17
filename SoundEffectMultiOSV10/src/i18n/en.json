@@ -82,6 +82,7 @@
   "contextPlayPause": "Play / Pause",
   "contextLoopIn": "Set Loop In",
   "contextLoopOut": "Set Loop Out",
+  "contextToggleDock": "Show / Hide Dock Mixer",
   "waveform": "Waveform",
   "spectrum": "Spectrum",
   "spectrumEq": "Spectrum EQ",

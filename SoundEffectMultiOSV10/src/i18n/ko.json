@@ -82,6 +82,7 @@
   "contextPlayPause": "재생 / 일시정지",
   "contextLoopIn": "Loop In 설정",
   "contextLoopOut": "Loop Out 설정",
+  "contextToggleDock": "도크 믹서 표시 / 숨기기",
   "waveform": "파형",
   "spectrum": "스펙트럼",
   "spectrumEq": "스펙트럼 EQ",
