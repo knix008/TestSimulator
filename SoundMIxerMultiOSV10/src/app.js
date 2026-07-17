@@ -1,10 +1,13 @@
-import { audioBufferToWav, saveWav, openAudioFilesWeb } from './audio/exporter.js';
-import { getExtension, isSupportedAudioFile } from './audio/formats.js';
+import { audioBufferToWav, saveAudioBuffer, openAudioFilesWeb } from './audio/exporter.js';
+import { getExtension, isMidiFile, isSupportedAudioFile } from './audio/formats.js';
+import { midiArrayBufferToAudioBuffer } from './audio/midi.js';
 import I18n from './i18n/i18n.js';
 
 const impulseCache = new Map();
 const UI_DENSITY_STORAGE_KEY = 'sms_ui_density';
 const THEME_STORAGE_KEY = 'sms_theme';
+let lastErrorReport = '';
+let globalErrorHandlersBound = false;
 const FX_PRESETS = {
   flat: {
     lowGain: 0,
@@ -148,11 +151,135 @@ const els = {
   meterHoldR: document.getElementById('meterHoldR'),
   peakDbL: document.getElementById('peakDbL'),
   peakDbR: document.getElementById('peakDbR'),
-  projectFileInput: document.getElementById('projectFileInput')
+  projectFileInput: document.getElementById('projectFileInput'),
+  errorDialog: document.getElementById('errorDialog'),
+  errorDialogBackdrop: document.getElementById('errorDialogBackdrop'),
+  errorDialogTitle: document.getElementById('errorDialogTitle'),
+  errorDialogDetails: document.getElementById('errorDialogDetails'),
+  btnErrorCopy: document.getElementById('btnErrorCopy'),
+  btnErrorClose: document.getElementById('btnErrorClose')
 };
 
 function setStatus(text) {
   els.statusText.textContent = text;
+}
+
+function errorToDetail(err) {
+  if (err instanceof Error) {
+    return {
+      message: err.message || 'Unknown Error',
+      stack: err.stack || '',
+      raw: ''
+    };
+  }
+  if (typeof err === 'string') {
+    return {
+      message: err,
+      stack: '',
+      raw: ''
+    };
+  }
+
+  let raw = '';
+  try {
+    raw = JSON.stringify(err, null, 2);
+  } catch (_) {
+    raw = String(err);
+  }
+
+  return {
+    message: raw || 'Unknown Error',
+    stack: '',
+    raw
+  };
+}
+
+function buildErrorReport(title, err, context = '') {
+  const detail = errorToDetail(err);
+  const lines = [
+    `[${new Date().toISOString()}] ${title}`,
+    context ? `Context: ${context}` : 'Context: n/a',
+    `Message: ${detail.message || 'Unknown Error'}`
+  ];
+  if (detail.stack) lines.push('', 'Stack:', detail.stack);
+  if (detail.raw && detail.raw !== detail.message) lines.push('', 'Raw:', detail.raw);
+  return lines.join('\n');
+}
+
+function hideErrorDialog() {
+  if (!els.errorDialog) return;
+  els.errorDialog.classList.add('hidden');
+}
+
+function isErrorDialogOpen() {
+  return Boolean(els.errorDialog && !els.errorDialog.classList.contains('hidden'));
+}
+
+function showErrorDialog(title, err, context = '') {
+  const heading = title || I18n.t('errorDialogTitle', '오류가 발생했습니다');
+  lastErrorReport = buildErrorReport(heading, err, context);
+
+  if (els.errorDialogTitle) {
+    els.errorDialogTitle.textContent = heading;
+  }
+  if (els.errorDialogDetails) {
+    els.errorDialogDetails.value = lastErrorReport;
+    els.errorDialogDetails.scrollTop = 0;
+  }
+  if (els.errorDialog) {
+    els.errorDialog.classList.remove('hidden');
+  }
+}
+
+async function copyErrorReport() {
+  const text = lastErrorReport || els.errorDialogDetails?.value || '';
+  if (!text) return;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus(I18n.t('errorCopyDone', '오류 내용을 클립보드에 복사했습니다.'));
+    return;
+  } catch (_) {
+    // Fallback below for environments where clipboard API is unavailable.
+  }
+
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', 'readonly');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) {
+      setStatus(I18n.t('errorCopyDone', '오류 내용을 클립보드에 복사했습니다.'));
+    } else {
+      setStatus(I18n.t('errorCopyFail', '오류 내용 복사에 실패했습니다.'));
+    }
+  } catch (_) {
+    setStatus(I18n.t('errorCopyFail', '오류 내용 복사에 실패했습니다.'));
+  }
+}
+
+function installGlobalErrorHandlers() {
+  if (globalErrorHandlersBound) return;
+  globalErrorHandlersBound = true;
+
+  window.addEventListener('error', (event) => {
+    const err = event.error || new Error(event.message || 'Unhandled error');
+    const where = [event.filename, event.lineno, event.colno].filter(Boolean).join(':');
+    showErrorDialog(I18n.t('errorDialogTitle', '오류가 발생했습니다'), err, where || 'window.error');
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    showErrorDialog(
+      I18n.t('errorUnhandledPromise', '처리되지 않은 비동기 오류가 발생했습니다'),
+      event.reason,
+      'window.unhandledrejection'
+    );
+  });
 }
 
 function getThemeToken(name, fallback) {
@@ -1502,6 +1629,9 @@ async function decodeEntry(entry) {
   await ensureAudioContext();
   const source = entry.buffer instanceof ArrayBuffer ? entry.buffer : null;
   if (!source || source.byteLength === 0) throw new Error('invalid audio');
+  if (isMidiFile(entry.name || '', entry.mime || '')) {
+    return midiArrayBufferToAudioBuffer(source, { sampleRate: engine.ctx.sampleRate });
+  }
   return engine.ctx.decodeAudioData(source.slice(0));
 }
 
@@ -1541,7 +1671,7 @@ async function addAudioEntries(entries) {
     updateTimeAndSeek();
     setStatus(`${imported}개 트랙 추가됨`);
   } else {
-    setStatus('추가 가능한 오디오 파일이 없습니다.');
+    setStatus('추가 가능한 오디오/MIDI 파일이 없습니다.');
   }
 }
 
@@ -1557,6 +1687,7 @@ async function importAudio() {
   } catch (err) {
     console.error(err);
     setStatus('파일 불러오기 실패');
+    showErrorDialog('파일 불러오기 실패', err, 'importAudio');
   }
 }
 
@@ -1599,6 +1730,7 @@ async function addTestTone() {
   } catch (err) {
     console.error(err);
     setStatus('테스트 톤 생성 실패');
+    showErrorDialog('테스트 톤 생성 실패', err, 'addTestTone');
   }
 }
 
@@ -1626,11 +1758,22 @@ async function exportMix() {
   try {
     const rendered = await offline.startRendering();
     const wav = audioBufferToWav(rendered);
-    const result = await saveWav(wav, 'mixdown.wav');
-    setStatus(result?.ok ? '믹스 저장 완료' : '믹스 저장 취소/실패');
+    const result = await saveAudioBuffer(wav, 'mixdown.wav', 'wav');
+    if (result?.ok) {
+      const picked = result?.path ? getExtension(result.path) : '';
+      const fmt = picked ? picked.toUpperCase() : 'WAV';
+      setStatus(`믹스 저장 완료 (${fmt})`);
+    } else {
+      const detail = result?.error ? `: ${result.error}` : '';
+      setStatus(`믹스 저장 취소/실패${detail}`);
+      if (result?.error) {
+        showErrorDialog('믹스 저장 실패', result.error, 'exportMix.saveAudioBuffer');
+      }
+    }
   } catch (err) {
     console.error(err);
     setStatus('믹스 저장 실패');
+    showErrorDialog('믹스 저장 실패', err, 'exportMix');
   }
 }
 
@@ -1864,6 +2007,7 @@ async function loadProjectFromFile(file) {
   } catch (err) {
     console.error(err);
     setStatus('프로젝트 로드 실패: JSON/SMIXZ 형식 확인 필요');
+    showErrorDialog('프로젝트 로드 실패', err, 'loadProjectFromFile');
   } finally {
     els.projectFileInput.value = '';
   }
@@ -2158,6 +2302,10 @@ function bindPanelContextMenu() {
 }
 
 function bindUi() {
+  els.btnErrorClose?.addEventListener('click', hideErrorDialog);
+  els.btnErrorCopy?.addEventListener('click', copyErrorReport);
+  els.errorDialogBackdrop?.addEventListener('click', hideErrorDialog);
+
   els.btnImport.addEventListener('click', importAudio);
   els.btnAddTone.addEventListener('click', addTestTone);
   els.btnSaveProject.addEventListener('click', saveProject);
@@ -2260,6 +2408,11 @@ function bindUi() {
   });
 
   window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isErrorDialogOpen()) {
+      hideErrorDialog();
+      return;
+    }
+
     if (e.target.matches('input, textarea, select')) return;
 
     if (e.code === 'Space') {
@@ -2304,6 +2457,7 @@ function bindUi() {
 }
 
 async function init() {
+  installGlobalErrorHandlers();
   await I18n.init();
   if (els.languageSelect) {
     els.languageSelect.value = I18n.getLocale();
@@ -2350,4 +2504,5 @@ async function init() {
 init().catch((err) => {
   console.error(err);
   setStatus('초기화 실패');
+  showErrorDialog('초기화 실패', err, 'init');
 });

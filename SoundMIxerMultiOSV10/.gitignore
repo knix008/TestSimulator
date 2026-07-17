@@ -5,3 +5,15 @@ dist/
 *.log
 .vscode/
 Thumbs.db
+
+# Installer artifacts copied to repository root after build
+/Sound Effect Studio*.exe
+/Sound Effect Studio*.msi
+/Sound Effect Studio*.dmg
+/Sound Effect Studio*.pkg
+/Sound Effect Studio*.AppImage
+/Sound Effect Studio*.appimage
+/Sound Effect Studio*.deb
+/Sound Effect Studio*.rpm
+/Sound Effect Studio*.zip
+/Sound Effect Studio*.blockmap

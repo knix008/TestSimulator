@@ -1422,6 +1422,70 @@ button.tool-chip {
   color: #27415e;
 }
 
+.error-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 3100;
+}
+
+.error-dialog.hidden {
+  display: none;
+}
+
+.error-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 18, 0.62);
+}
+
+.error-dialog-panel {
+  position: relative;
+  margin: min(8vh, 64px) auto;
+  width: min(860px, calc(100vw - 2rem));
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.error-dialog-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.03em;
+  font-size: 1.02rem;
+}
+
+.error-dialog-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.77rem;
+}
+
+.error-dialog-details {
+  width: 100%;
+  min-height: 240px;
+  max-height: 56vh;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-panel-deep);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  padding: 0.62rem;
+}
+
+.error-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.46rem;
+}
+
 body[data-ui-density='compact'] .topbar {
   padding: 0.52rem 0.7rem;
   gap: 0.5rem;

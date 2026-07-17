@@ -1,6 +1,6 @@
 /**
- * Supported import formats (Chromium / Electron Web Audio decodeAudioData).
- * WAVE, MP3, OGG/Opus, FLAC, AAC/M4A, AIFF, WebM 등
+ * Supported import formats.
+ * Includes regular audio formats and MIDI container formats.
  */
 export const AUDIO_EXTENSIONS = [
   'wav',
@@ -24,11 +24,15 @@ export const AUDIO_EXTENSIONS = [
   'aifc',
   'caf',
   '3gp',
-  '3g2'
+  '3g2',
+  'mid',
+  'midi'
 ];
 
 export const AUDIO_MIME_PREFIXES = [
   'audio/',
+  'application/x-midi',
+  'audio/midi',
   'video/webm',
   'video/mp4',
   'video/ogg',
@@ -52,10 +56,17 @@ export function isSupportedAudioFile(fileOrName, mimeType = '') {
   return false;
 }
 
+export function isMidiFile(fileOrName, mimeType = '') {
+  const name = typeof fileOrName === 'string' ? fileOrName : fileOrName?.name || '';
+  const mime = (mimeType || (typeof fileOrName === 'object' ? fileOrName?.type : '') || '').toLowerCase();
+  const ext = getExtension(name);
+  return ext === 'mid' || ext === 'midi' || mime.includes('midi');
+}
+
 /** HTML file input accept attribute */
 export function getAcceptAttribute() {
   const byExt = AUDIO_EXTENSIONS.map((e) => `.${e}`).join(',');
-  return `audio/*,audio/wav,audio/wave,audio/x-wav,audio/mpeg,audio/mp3,audio/ogg,audio/flac,audio/aac,audio/mp4,audio/x-m4a,audio/webm,audio/aiff,audio/x-aiff,${byExt}`;
+  return `audio/*,audio/wav,audio/wave,audio/x-wav,audio/mpeg,audio/mp3,audio/ogg,audio/flac,audio/aac,audio/mp4,audio/x-m4a,audio/webm,audio/aiff,audio/x-aiff,audio/midi,application/x-midi,${byExt}`;
 }
 
 /** Electron dialog filters */
@@ -72,10 +83,11 @@ export function getElectronOpenFilters() {
     { name: 'FLAC', extensions: ['flac'] },
     { name: 'AIFF', extensions: ['aiff', 'aif', 'aifc'] },
     { name: 'WebM', extensions: ['webm', 'weba'] },
+    { name: 'MIDI', extensions: ['mid', 'midi'] },
     { name: 'All Files', extensions: ['*'] }
   ];
 }
 
 export function formatListLabel() {
-  return 'WAV, MP3, OGG, FLAC, AAC, M4A, AIFF, WebM…';
+  return 'WAV, MP3, OGG, FLAC, AAC, M4A, AIFF, WebM, MIDI…';
 }

@@ -62,16 +62,17 @@ function writeString(view, offset, string) {
   }
 }
 
-export async function saveWav(arrayBuffer, filename = 'export.wav') {
+export async function saveAudioBuffer(arrayBuffer, filename = 'export.wav', preferredExtension = 'wav') {
   if (window.electronAPI?.isElectron) {
     const result = await window.electronAPI.saveAudioFile({
       defaultName: filename,
-      extension: 'wav',
+      extension: preferredExtension || 'wav',
       data: arrayBuffer
     });
     return result;
   }
 
+  // Web fallback currently exports WAV data only.
   const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -80,6 +81,10 @@ export async function saveWav(arrayBuffer, filename = 'export.wav') {
   a.click();
   URL.revokeObjectURL(url);
   return { ok: true, path: filename };
+}
+
+export async function saveWav(arrayBuffer, filename = 'export.wav') {
+  return saveAudioBuffer(arrayBuffer, filename, 'wav');
 }
 
 export async function openAudioFilesWeb() {

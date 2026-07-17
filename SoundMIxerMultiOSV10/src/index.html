@@ -263,6 +263,21 @@
     </button>
   </div>
 
+  <div id="errorDialog" class="error-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="errorDialogTitle">
+    <div id="errorDialogBackdrop" class="error-dialog-backdrop"></div>
+    <section class="error-dialog-panel">
+      <header class="error-dialog-header">
+        <h3 id="errorDialogTitle" data-i18n="errorDialogTitle">오류가 발생했습니다</h3>
+      </header>
+      <p class="error-dialog-hint" data-i18n="errorDialogHint">아래 상세 로그를 복사해서 공유할 수 있습니다.</p>
+      <textarea id="errorDialogDetails" class="error-dialog-details" readonly spellcheck="false"></textarea>
+      <div class="error-dialog-actions">
+        <button id="btnErrorCopy" class="btn" type="button" data-i18n="errorDialogCopy">내용 복사</button>
+        <button id="btnErrorClose" class="btn primary" type="button" data-i18n="errorDialogClose">닫기</button>
+      </div>
+    </section>
+  </div>
+
   <script type="module" src="./app.js"></script>
 </body>
 </html>
