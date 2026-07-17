@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "title": "Northline — 크로스 플랫폼 도구",
+    "description": "데스크톱과 웹을 아우르는 생산성 소프트웨어를 만듭니다."
+  },
+  "nav": {
+    "home": "홈",
+    "products": "제품",
+    "about": "회사소개",
+    "contact": "문의",
+    "cta": "문의하기"
+  },
+  "hero": {
+    "brand": "Northline",
+    "headline": "도구가 일을 따라가게.",
+    "sub": "이미지, 문서, 워크플로를 하나로 잇는 크로스 플랫폼 소프트웨어.",
+    "primaryCta": "제품 살펴보기",
+    "secondaryCta": "회사 소개"
+  },
+  "home": {
+    "focusTitle": "한곳에 모은 작업 도구",
+    "focusBody": "뷰어, 변환, 협업까지 — 팀이 매일 쓰는 흐름에 맞춰 설계합니다.",
+    "focusLink": "모든 제품 보기"
+  },
+  "products": {
+    "title": "제품",
+    "subtitle": "플랫폼을 가리지 않는 실용 도구들.",
+    "items": {
+      "viewer": {
+        "name": "Image Suite",
+        "desc": "고해상도 이미지 열람·비교·배치 처리를 위한 데스크톱 뷰어."
+      },
+      "docs": {
+        "name": "Doc Bridge",
+        "desc": "문서 형식 변환과 OCR로 텍스트를 빠르게 꺼냅니다."
+      },
+      "flow": {
+        "name": "Flow Board",
+        "desc": "요구사항과 작업을 한 보드에서 추적하는 협업 도구."
+      },
+      "media": {
+        "name": "Capture Lab",
+        "desc": "화면 캡처, 스트리밍, 미디어 파이프라인을 위한 유틸리티."
+      }
+    }
+  },
+  "about": {
+    "title": "회사소개",
+    "subtitle": "작은 도구가 큰 하루를 바꿉니다.",
+    "body": "Northline은 데스크톱과 웹을 넘나드는 생산성 소프트웨어를 만듭니다. 복잡한 설치 없이, 필요한 순간에 바로 쓰는 도구를 목표로 합니다.",
+    "valuesTitle": "우리가 지키는 기준",
+    "values": {
+      "craft": {
+        "title": "정교함",
+        "desc": "매일 쓰는 도구일수록 디테일이 제품이 됩니다."
+      },
+      "speed": {
+        "title": "속도",
+        "desc": "실행은 가볍게, 결과는 분명하게."
+      },
+      "reach": {
+        "title": "도달",
+        "desc": "Windows, Linux, 웹 — 환경이 달라도 같은 품질."
+      }
+    }
+  },
+  "contact": {
+    "title": "문의",
+    "subtitle": "제품 도입, 파트너십, 기타 문의를 남겨 주세요.",
+    "name": "이름",
+    "email": "이메일",
+    "message": "메시지",
+    "submit": "보내기",
+    "sent": "메시지가 접수되었습니다. 곧 연락드리겠습니다.",
+    "placeholderName": "홍길동",
+    "placeholderEmail": "you@company.com",
+    "placeholderMessage": "문의 내용을 적어 주세요."
+  },
+  "footer": {
+    "tagline": "크로스 플랫폼 생산성 소프트웨어",
+    "rights": "© {year} Northline. All rights reserved."
+  }
+}

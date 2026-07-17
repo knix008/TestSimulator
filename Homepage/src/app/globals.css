@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #0c1a22;
+  --ink-soft: #2a3d48;
+  --mist: #e6eef2;
+  --paper: #f4f8fa;
+  --line: #c5d4dc;
+  --teal: #1a7a6d;
+  --teal-deep: #0f5349;
+  --teal-glow: #2bb5a0;
+  --sand: #d9e4ea;
+  --hero-top: #0a1620;
+  --hero-mid: #123038;
+  --hero-accent: #1f6b5e;
+  --font-display: var(--font-syne);
+  --font-body: var(--font-albert);
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-mist: var(--mist);
+  --color-paper: var(--paper);
+  --color-line: var(--line);
+  --color-teal: var(--teal);
+  --color-teal-deep: var(--teal-deep);
+  --color-teal-glow: var(--teal-glow);
+  --color-sand: var(--sand);
+  --color-hero-top: var(--hero-top);
+  --color-hero-mid: var(--hero-mid);
+  --color-hero-accent: var(--hero-accent);
+  --font-display: var(--font-syne);
+  --font-body: var(--font-albert);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--teal) 35%, white);
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -1.5%, 0) scale(1.04);
+  }
+}
+
+@keyframes shimmer-line {
+  from {
+    transform: translateX(-30%);
+    opacity: 0.2;
+  }
+  to {
+    transform: translateX(130%);
+    opacity: 0.55;
+  }
+}
+
+.animate-rise {
+  animation: rise-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-rise-delay-1 {
+  animation: rise-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+
+.animate-rise-delay-2 {
+  animation: rise-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both;
+}
+
+.animate-rise-delay-3 {
+  animation: rise-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.36s both;
+}
+
+.hero-atmosphere {
+  animation: drift 18s ease-in-out infinite;
+}
+
+.hero-shimmer {
+  animation: shimmer-line 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-rise,
+  .animate-rise-delay-1,
+  .animate-rise-delay-2,
+  .animate-rise-delay-3,
+  .hero-atmosphere,
+  .hero-shimmer {
+    animation: none !important;
+  }
+}

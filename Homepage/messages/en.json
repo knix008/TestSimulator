@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "title": "Northline — Cross-platform tools",
+    "description": "We build productivity software for desktop and the web."
+  },
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "about": "About",
+    "contact": "Contact",
+    "cta": "Get in touch"
+  },
+  "hero": {
+    "brand": "Northline",
+    "headline": "Tools that keep pace with your work.",
+    "sub": "Cross-platform software that connects images, documents, and workflows.",
+    "primaryCta": "Explore products",
+    "secondaryCta": "About us"
+  },
+  "home": {
+    "focusTitle": "Work tools, gathered in one place",
+    "focusBody": "From viewers and converters to collaboration — designed for the flow your team uses every day.",
+    "focusLink": "See all products"
+  },
+  "products": {
+    "title": "Products",
+    "subtitle": "Practical tools that work across platforms.",
+    "items": {
+      "viewer": {
+        "name": "Image Suite",
+        "desc": "Desktop viewers for high-resolution review, compare, and batch work."
+      },
+      "docs": {
+        "name": "Doc Bridge",
+        "desc": "Document conversion and OCR to pull text out fast."
+      },
+      "flow": {
+        "name": "Flow Board",
+        "desc": "Track requirements and tasks on one shared board."
+      },
+      "media": {
+        "name": "Capture Lab",
+        "desc": "Utilities for screen capture, streaming, and media pipelines."
+      }
+    }
+  },
+  "about": {
+    "title": "About",
+    "subtitle": "Small tools that change a long day.",
+    "body": "Northline builds productivity software across desktop and the web. We aim for tools you reach for in the moment — without heavy setup.",
+    "valuesTitle": "What we stand for",
+    "values": {
+      "craft": {
+        "title": "Craft",
+        "desc": "Daily tools live or die on the details."
+      },
+      "speed": {
+        "title": "Speed",
+        "desc": "Light to launch, clear in the outcome."
+      },
+      "reach": {
+        "title": "Reach",
+        "desc": "Windows, Linux, and web — same standard of quality."
+      }
+    }
+  },
+  "contact": {
+    "title": "Contact",
+    "subtitle": "Reach out about products, partnerships, or anything else.",
+    "name": "Name",
+    "email": "Email",
+    "message": "Message",
+    "submit": "Send",
+    "sent": "Message received. We’ll get back to you soon.",
+    "placeholderName": "Jane Doe",
+    "placeholderEmail": "you@company.com",
+    "placeholderMessage": "How can we help?"
+  },
+  "footer": {
+    "tagline": "Cross-platform productivity software",
+    "rights": "© {year} Northline. All rights reserved."
+  }
+}
