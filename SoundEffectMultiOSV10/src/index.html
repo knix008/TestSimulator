@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; script-src 'self'" />
   <title>Sound Mixer Studio</title>
   <link rel="icon" type="image/svg+xml" href="./assets/icons/app-icon.svg" />
+  <link rel="stylesheet" href="./styles/themes.css" />
   <link rel="stylesheet" href="./styles/main.css" />
 </head>
 <body>
@@ -29,8 +30,8 @@
       <div class="brand">
         <img src="./assets/icons/app-icon.svg" alt="app icon" />
         <div>
-          <h1>Sound Mixer Studio</h1>
-          <p>멀티 트랙 볼륨/팬/뮤트/솔로 믹싱</p>
+          <h1 data-i18n="appName">Sound Mixer Studio</h1>
+          <p data-i18n="appTagline">멀티 트랙 볼륨/팬/뮤트/솔로 믹싱</p>
         </div>
       </div>
       <div class="studio-status" aria-hidden="true">
@@ -40,19 +41,28 @@
         <span>Mix Bus A</span>
       </div>
       <div class="global-controls">
-        <button id="btnImport" class="btn primary" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-import"/></svg><span>오디오 가져오기</span></button>
-        <button id="btnAddTone" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-tone"/></svg><span>테스트 톤 추가</span></button>
-        <button id="btnSaveProject" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-save"/></svg><span>프로젝트 저장</span></button>
-        <button id="btnLoadProject" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-open"/></svg><span>프로젝트 불러오기</span></button>
-        <button id="btnPlayPause" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-play"/></svg><span>재생</span></button>
-        <button id="btnStop" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-stop"/></svg><span>정지</span></button>
-        <button id="btnExport" class="btn accent" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-mix"/></svg><span>믹스 저장(WAV)</span></button>
+        <button id="btnImport" class="btn primary" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-import"/></svg><span data-i18n="importAudio">오디오 가져오기</span></button>
+        <button id="btnAddTone" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-tone"/></svg><span data-i18n="generateTone">테스트 톤 추가</span></button>
+        <button id="btnSaveProject" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-save"/></svg><span data-i18n="saveProject">프로젝트 저장</span></button>
+        <button id="btnLoadProject" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-open"/></svg><span data-i18n="loadProject">프로젝트 불러오기</span></button>
+        <div class="prefs-controls">
+          <label for="themeSelect" data-i18n="theme">테마</label>
+          <select id="themeSelect" aria-label="Theme">
+            <option value="dark" data-i18n="themeDark">다크</option>
+            <option value="light" data-i18n="themeLight">라이트</option>
+          </select>
+          <label for="languageSelect" data-i18n="language">언어</label>
+          <select id="languageSelect" aria-label="Language">
+            <option value="ko" data-i18n="korean">한국어</option>
+            <option value="en" data-i18n="english">English</option>
+          </select>
+        </div>
       </div>
     </header>
 
     <section class="transport">
       <div class="transport-left">
-        <label for="seekBar">타임라인</label>
+        <label for="seekBar" data-i18n="transport">타임라인</label>
         <input id="seekBar" type="range" min="0" max="1" step="0.001" value="0" />
       </div>
       <div class="transport-ops">
@@ -69,64 +79,72 @@
     <main class="workspace">
       <aside class="sidebar browser-panel">
         <div class="sidebar-head">
-          <h2>Media Pool</h2>
+          <h2 data-i18n="mediaPool">Media Pool</h2>
           <span id="trackCount" class="count">0</span>
         </div>
         <div class="browser-tabs" aria-hidden="true">
-          <span class="tab active">Project</span>
-          <span class="tab">Files</span>
-          <span class="tab">FX</span>
+          <span class="tab active" data-i18n="tabProject">Project</span>
+          <span class="tab" data-i18n="tabFiles">Files</span>
+          <span class="tab" data-i18n="tabFx">FX</span>
         </div>
         <div id="trackList" class="track-list"></div>
       </aside>
 
       <section class="editor timeline-panel">
         <div class="editor-toolbar" aria-hidden="true">
-          <span class="tool-chip active">Arranger</span>
-          <span class="tool-chip">Editor</span>
-          <span class="tool-chip">Mixer</span>
-          <span class="tool-chip">Automation</span>
-          <button id="btnSnapGrid" class="tool-chip active" type="button">Snap 1/32</button>
-          <button id="btnAutoCrossfade" class="tool-chip active" type="button">Auto XFade</button>
-          <button id="btnCurveMode" class="tool-chip" type="button">Curve: Linear</button>
-          <button id="btnToggleDock" class="tool-chip" type="button">Dock Mixer</button>
+          <span class="tool-chip active" data-i18n="arranger">Arranger</span>
+          <span class="tool-chip" data-i18n="editor">Editor</span>
+          <span class="tool-chip" data-i18n="mixer">Mixer</span>
+          <span class="tool-chip" data-i18n="automation">Automation</span>
+          <button id="btnSnapGrid" class="tool-chip active" type="button" data-i18n="snapOn">Snap 1/32</button>
+          <button id="btnAutoCrossfade" class="tool-chip active" type="button" data-i18n="xfadeOn">Auto XFade</button>
+          <button id="btnCurveMode" class="tool-chip" type="button" data-i18n="curveLinear">Curve: Linear</button>
+          <button id="btnUiDensity" class="tool-chip" type="button" data-i18n="densityStudioLabel">Density: Studio</button>
+          <button id="btnToggleDock" class="tool-chip" type="button" data-i18n="dockMixer">Dock Mixer</button>
         </div>
         <div class="timeline-ruler" aria-hidden="true">
           <span>1.1</span><span>1.2</span><span>1.3</span><span>1.4</span><span>2.1</span><span>2.2</span><span>2.3</span><span>2.4</span>
         </div>
         <div class="wave-head">
-          <h2>Timeline / Clip Editor</h2>
-          <span id="selectedTrackLabel">선택된 트랙 없음</span>
+          <h2 data-i18n="timelineClipEditor">Timeline / Clip Editor</h2>
+          <div class="wave-head-right">
+            <div class="wave-actions" aria-label="Wave transport controls">
+              <button id="btnPlayPause" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-play"/></svg><span data-i18n="play">재생</span></button>
+              <button id="btnStop" class="btn" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-stop"/></svg><span data-i18n="stop">정지</span></button>
+              <button id="btnExport" class="btn accent" type="button"><svg class="btn-icon" aria-hidden="true"><use href="#i-mix"/></svg><span data-i18n="mixdownSave">믹스 저장</span></button>
+            </div>
+            <span id="selectedTrackLabel" data-i18n="selectedTrackNone">선택된 트랙 없음</span>
+          </div>
         </div>
         <div id="clipLane" class="clip-lane" aria-label="Clip lane"></div>
         <canvas id="waveCanvas" width="1200" height="320"></canvas>
         <div class="automation-head">
-          <span>Automation</span>
+          <span data-i18n="automation">Automation</span>
           <select id="automationTarget" aria-label="Automation target">
-            <option value="trackVolume">Selected Track Volume</option>
-            <option value="trackPan">Selected Track Pan</option>
-            <option value="master">Master Volume</option>
+            <option value="trackVolume" data-i18n="selectedTrackVolume">Selected Track Volume</option>
+            <option value="trackPan" data-i18n="selectedTrackPan">Selected Track Pan</option>
+            <option value="master" data-i18n="masterVolume">Master Volume</option>
           </select>
-          <button id="btnAutomationReset" class="mini-btn" type="button">Reset Curve</button>
+          <button id="btnAutomationReset" class="mini-btn" type="button" data-i18n="resetCurve">Reset Curve</button>
         </div>
         <canvas id="automationCanvas" width="1200" height="130"></canvas>
         <div class="arrangement-lanes" aria-hidden="true">
-          <div class="lane"><span>AUDIO 1</span></div>
-          <div class="lane"><span>AUDIO 2</span></div>
-          <div class="lane"><span>FX RETURN</span></div>
+          <div class="lane"><span data-i18n="laneAudio1">AUDIO 1</span></div>
+          <div class="lane"><span data-i18n="laneAudio2">AUDIO 2</span></div>
+          <div class="lane"><span data-i18n="laneFxReturn">FX RETURN</span></div>
         </div>
       </section>
 
       <aside class="inspector-panel">
-        <div class="inspector-head">Inspector</div>
+        <div class="inspector-head" data-i18n="inspector">Inspector</div>
         <div class="master-strip">
-          <label for="masterVolume">Master Output</label>
+          <label for="masterVolume" data-i18n="masterOutput">Master Output</label>
           <input id="masterVolume" type="range" min="-24" max="6" step="0.1" value="0" />
           <span id="masterVolumeValue">0.0 dB</span>
           <div class="time readout" id="timeLabel">0:00.000 / 0:00.000</div>
         </div>
         <div class="meter-panel">
-          <div class="meter-title">Master Level</div>
+          <div class="meter-title" data-i18n="masterLevel">Master Level</div>
           <div class="meter-wrap">
             <div class="meter-col">
               <div class="meter"><div id="meterL" class="fill"></div><div id="meterHoldL" class="hold"></div></div>
@@ -139,25 +157,25 @@
           </div>
           <div class="meter-bridge">
             <div class="meter-readout">
-              <span>Peak L</span>
+              <span data-i18n="peakL">Peak L</span>
               <strong id="peakDbL">-inf dB</strong>
             </div>
             <div class="meter-readout">
-              <span>Peak R</span>
+              <span data-i18n="peakR">Peak R</span>
               <strong id="peakDbR">-inf dB</strong>
             </div>
             <div class="meter-readout">
-              <span>Limiter GR</span>
+              <span data-i18n="limiterGr">Limiter GR</span>
               <strong id="limiterReduction">0.0 dB</strong>
             </div>
             <div class="meter-readout clip-readout">
-              <span>Clip</span>
+              <span data-i18n="clip">Clip</span>
               <strong id="clipIndicator" class="clip-lamp">SAFE</strong>
             </div>
           </div>
         </div>
         <div class="rack-panel" aria-hidden="true">
-          <div class="rack-head">Insert Rack</div>
+          <div class="rack-head" data-i18n="insertRack">Insert Rack</div>
           <div class="rack-slot">EQ Eight</div>
           <div class="rack-slot">Compressor</div>
           <div class="rack-slot">Limiter</div>
@@ -166,16 +184,49 @@
     </main>
 
     <section id="dockMixer" class="dock-mixer">
-      <div class="dock-head">Dock Mixer</div>
+      <div class="dock-head" data-i18n="dockMixer">Dock Mixer</div>
       <div id="dockMixerTracks" class="dock-tracks"></div>
     </section>
 
     <footer class="statusbar">
-      <span id="statusText">준비됨</span>
+      <span id="statusText" data-i18n="statusReady">준비됨</span>
     </footer>
   </div>
 
   <input id="projectFileInput" type="file" accept="application/json,application/gzip,.json,.smixz" hidden />
+
+  <div id="waveContextMenu" class="context-menu hidden" role="menu" aria-label="Wave context menu">
+    <button class="context-menu-item" data-action="playPause" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-play"/></svg>
+      <span data-i18n="contextPlayPause">재생 / 일시정지</span>
+      <kbd>Space</kbd>
+    </button>
+    <button class="context-menu-item" data-action="stop" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-stop"/></svg>
+      <span data-i18n="stop">정지</span>
+      <kbd>Shift+Space</kbd>
+    </button>
+    <button class="context-menu-item" data-action="loopIn" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-loop-in"/></svg>
+      <span data-i18n="contextLoopIn">Loop In 설정</span>
+      <kbd>I</kbd>
+    </button>
+    <button class="context-menu-item" data-action="loopOut" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-loop-out"/></svg>
+      <span data-i18n="contextLoopOut">Loop Out 설정</span>
+      <kbd>O</kbd>
+    </button>
+    <button class="context-menu-item" data-action="export" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-mix"/></svg>
+      <span data-i18n="mixdownSave">믹스 저장</span>
+      <kbd>Ctrl+S</kbd>
+    </button>
+    <button class="context-menu-item" data-action="import" type="button" role="menuitem">
+      <svg class="menu-icon" aria-hidden="true"><use href="#i-import"/></svg>
+      <span data-i18n="importAudio">오디오 가져오기</span>
+      <kbd>Ctrl+O</kbd>
+    </button>
+  </div>
 
   <script type="module" src="./app.js"></script>
 </body>

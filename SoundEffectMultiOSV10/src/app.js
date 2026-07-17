@@ -1,7 +1,10 @@
 import { audioBufferToWav, saveWav, openAudioFilesWeb } from './audio/exporter.js';
 import { getExtension, isSupportedAudioFile } from './audio/formats.js';
+import I18n from './i18n/i18n.js';
 
 const impulseCache = new Map();
+const UI_DENSITY_STORAGE_KEY = 'sms_ui_density';
+const THEME_STORAGE_KEY = 'sms_theme';
 const FX_PRESETS = {
   flat: {
     lowGain: 0,
@@ -85,6 +88,7 @@ const state = {
   autoCrossfadeEnabled: true,
   autoCrossfadeSec: 0.16,
   dockVisible: true,
+  uiDensity: 'studio',
   sourceNodes: [],
   rafId: 0,
   draggedTrackId: null
@@ -115,6 +119,9 @@ const els = {
   btnSnapGrid: document.getElementById('btnSnapGrid'),
   btnAutoCrossfade: document.getElementById('btnAutoCrossfade'),
   btnCurveMode: document.getElementById('btnCurveMode'),
+  btnUiDensity: document.getElementById('btnUiDensity'),
+  themeSelect: document.getElementById('themeSelect'),
+  languageSelect: document.getElementById('languageSelect'),
   loopRangeLabel: document.getElementById('loopRangeLabel'),
   cueStatusLabel: document.getElementById('cueStatusLabel'),
   seekBar: document.getElementById('seekBar'),
@@ -122,6 +129,7 @@ const els = {
   trackList: document.getElementById('trackList'),
   trackCount: document.getElementById('trackCount'),
   clipLane: document.getElementById('clipLane'),
+  waveContextMenu: document.getElementById('waveContextMenu'),
   automationCanvas: document.getElementById('automationCanvas'),
   automationTarget: document.getElementById('automationTarget'),
   btnAutomationReset: document.getElementById('btnAutomationReset'),
@@ -143,6 +151,84 @@ const els = {
 
 function setStatus(text) {
   els.statusText.textContent = text;
+}
+
+function getThemeToken(name, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function normalizeTheme(value) {
+  return value === 'light' ? 'light' : 'dark';
+}
+
+function applyTheme(theme, showStatus = false) {
+  const nextTheme = normalizeTheme(theme);
+  document.documentElement.dataset.theme = nextTheme;
+  if (els.themeSelect) {
+    els.themeSelect.value = nextTheme;
+  }
+
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+  } catch (err) {
+    console.warn('Failed to persist theme', err);
+  }
+
+  if (showStatus) {
+    const msg = nextTheme === 'light' ? '라이트 테마 적용' : '다크 테마 적용';
+    setStatus(msg);
+  }
+
+  refreshSelectedTrackView();
+  drawAutomationCurve();
+}
+
+function restoreTheme() {
+  let saved = document.documentElement.dataset.theme || 'dark';
+  try {
+    saved = localStorage.getItem(THEME_STORAGE_KEY) || saved;
+  } catch (err) {
+    console.warn('Failed to restore theme', err);
+  }
+  applyTheme(saved, false);
+}
+
+function normalizeUiDensity(value) {
+  return value === 'compact' ? 'compact' : 'studio';
+}
+
+function applyUiDensity(mode, showStatus = false) {
+  const density = normalizeUiDensity(mode);
+  state.uiDensity = density;
+  document.body.dataset.uiDensity = density;
+
+  if (els.btnUiDensity) {
+    els.btnUiDensity.textContent = density === 'compact'
+      ? I18n.t('densityCompactLabel', 'Density: Compact')
+      : I18n.t('densityStudioLabel', 'Density: Studio');
+    els.btnUiDensity.classList.toggle('active', density === 'compact');
+  }
+
+  try {
+    localStorage.setItem(UI_DENSITY_STORAGE_KEY, density);
+  } catch (err) {
+    console.warn('Failed to persist ui density', err);
+  }
+
+  if (showStatus) {
+    setStatus(density === 'compact' ? '컴팩트 UI 모드 적용' : '스튜디오 UI 모드 적용');
+  }
+}
+
+function restoreUiDensity() {
+  let saved = 'studio';
+  try {
+    saved = localStorage.getItem(UI_DENSITY_STORAGE_KEY) || 'studio';
+  } catch (err) {
+    console.warn('Failed to restore ui density', err);
+  }
+  applyUiDensity(saved, false);
 }
 
 function uid() {
@@ -173,6 +259,83 @@ function formatDb(linear) {
 function setPlayButtonLabel(text) {
   const label = els.btnPlayPause?.querySelector('span:last-child');
   if (label) label.textContent = text;
+}
+
+function presetLabel(preset) {
+  switch (preset) {
+    case 'vocal':
+      return I18n.t('presetVocal', 'Vocal');
+    case 'drums':
+      return I18n.t('presetDrums', 'Drums');
+    case 'ambient':
+      return I18n.t('presetAmbient', 'Ambient');
+    case 'flat':
+    default:
+      return I18n.t('presetFlat', 'Flat');
+  }
+}
+
+function trackFxLabel(key, value) {
+  switch (key) {
+    case 'lowEq':
+      return `${I18n.t('trackLowEq', 'Low EQ')} (${value.toFixed(1)} dB)`;
+    case 'midEq':
+      return `${I18n.t('trackMidEq', 'Mid EQ')} (${value.toFixed(1)} dB)`;
+    case 'highEq':
+      return `${I18n.t('trackHighEq', 'High EQ')} (${value.toFixed(1)} dB)`;
+    case 'compRatio':
+      return `${I18n.t('trackCompRatio', 'Comp Ratio')} (${value.toFixed(1)}:1)`;
+    case 'compThreshold':
+      return `${I18n.t('trackCompThreshold', 'Comp Thresh')} (${value.toFixed(1)} dB)`;
+    case 'reverbMix':
+      return `${I18n.t('trackReverb', 'Reverb')} (${Math.round(value * 100)}%)`;
+    case 'reverbDecay':
+      return `${I18n.t('trackReverbDecay', 'Rev Decay')} (${value.toFixed(2)}s)`;
+    case 'reverbPreDelay':
+      return `${I18n.t('trackReverbPreDelay', 'Rev PreDelay')} (${(value * 1000).toFixed(0)}ms)`;
+    default:
+      return String(value);
+  }
+}
+
+function refreshLocalizedPanels() {
+  renderTrackList();
+  refreshSelectedTrackView();
+}
+
+function applyLocalizedUi() {
+  const playKey = state.isPlaying ? 'pause' : 'play';
+  setPlayButtonLabel(I18n.t(playKey, state.isPlaying ? '일시정지' : '재생'));
+
+  if (els.btnSnapGrid) {
+    els.btnSnapGrid.textContent = state.clipSnapEnabled
+      ? I18n.t('snapOn', 'Snap 1/32')
+      : I18n.t('snapOff', 'Snap Off');
+  }
+
+  if (els.btnAutoCrossfade) {
+    els.btnAutoCrossfade.textContent = state.autoCrossfadeEnabled
+      ? I18n.t('xfadeOn', 'Auto XFade')
+      : I18n.t('xfadeOff', 'XFade Off');
+  }
+
+  if (els.btnCurveMode) {
+    els.btnCurveMode.textContent = state.automationCurveMode === 'smooth'
+      ? I18n.t('curveSmooth', 'Curve: Smooth')
+      : I18n.t('curveLinear', 'Curve: Linear');
+  }
+
+  if (els.btnUiDensity) {
+    els.btnUiDensity.textContent = state.uiDensity === 'compact'
+      ? I18n.t('densityCompactLabel', 'Density: Compact')
+      : I18n.t('densityStudioLabel', 'Density: Studio');
+  }
+
+  const stopLabel = els.btnStop?.querySelector('span:last-child');
+  if (stopLabel) stopLabel.textContent = I18n.t('stop', '정지');
+
+  const exportLabel = els.btnExport?.querySelector('span:last-child');
+  if (exportLabel) exportLabel.textContent = I18n.t('mixdownSave', '믹스 저장');
 }
 
 function timelineSpanSec() {
@@ -516,7 +679,7 @@ async function playMix() {
       if (liveNodes <= 0 && state.isPlaying) {
         state.isPlaying = false;
         state.playStartOffset = 0;
-        setPlayButtonLabel('재생');
+        setPlayButtonLabel(I18n.t('play', '재생'));
         updateTimeAndSeek();
         setStatus('재생 완료');
       }
@@ -544,7 +707,7 @@ async function playMix() {
   state.isPlaying = true;
   state.playStartContextTime = engine.ctx.currentTime;
   state.playStartOffset = startOffset;
-  setPlayButtonLabel('일시정지');
+  setPlayButtonLabel(I18n.t('pause', '일시정지'));
   setStatus('믹스 재생 중');
 }
 
@@ -553,7 +716,7 @@ function pauseMix() {
   state.playStartOffset = getCurrentTime();
   state.isPlaying = false;
   stopAllSources();
-  setPlayButtonLabel('재생');
+  setPlayButtonLabel(I18n.t('play', '재생'));
   setStatus('일시정지');
 }
 
@@ -561,7 +724,7 @@ function stopMix() {
   state.isPlaying = false;
   state.playStartOffset = 0;
   stopAllSources();
-  setPlayButtonLabel('재생');
+  setPlayButtonLabel(I18n.t('play', '재생'));
   updateTimeAndSeek();
   setStatus('정지');
 }
@@ -618,19 +781,22 @@ function drawWaveform(buffer) {
   const ctx = canvas.getContext('2d');
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
+  const waveBg = getThemeToken('--wave-bg', '#080b10');
+  const waveText = getThemeToken('--text-muted', '#8891bc');
+  const waveColor = getThemeToken('--wave-color', '#4da3ff');
 
   canvas.width = Math.max(1, Math.floor(width * devicePixelRatio));
   canvas.height = Math.max(1, Math.floor(height * devicePixelRatio));
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#131a30';
+  ctx.fillStyle = waveBg;
   ctx.fillRect(0, 0, width, height);
 
   if (!buffer) {
-    ctx.fillStyle = '#8891bc';
+    ctx.fillStyle = waveText;
     ctx.font = '14px Space Grotesk';
-    ctx.fillText('선택된 트랙이 없습니다.', 16, 28);
+    ctx.fillText(I18n.t('selectedTrackNone', '선택된 트랙 없음'), 16, 28);
     return;
   }
 
@@ -638,7 +804,7 @@ function drawWaveform(buffer) {
   const step = Math.ceil(data.length / Math.max(1, width));
   const mid = height / 2;
 
-  ctx.strokeStyle = '#2ec4b6';
+  ctx.strokeStyle = waveColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
 
@@ -724,15 +890,19 @@ function drawAutomationCurve() {
   const ctx = canvas.getContext('2d');
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
+  const waveBg = getThemeToken('--wave-bg', '#080b10');
+  const waveGrid = getThemeToken('--wave-grid', '#243044');
+  const waveColor = getThemeToken('--wave-color', '#4da3ff');
+  const wavePoint = getThemeToken('--text-inverse', '#d8f8ff');
   canvas.width = Math.max(1, Math.floor(width * devicePixelRatio));
   canvas.height = Math.max(1, Math.floor(height * devicePixelRatio));
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#111a28';
+  ctx.fillStyle = waveBg;
   ctx.fillRect(0, 0, width, height);
 
-  ctx.strokeStyle = '#2f4a68';
+  ctx.strokeStyle = waveGrid;
   ctx.lineWidth = 1;
   for (let i = 1; i < 4; i++) {
     const y = (height / 4) * i;
@@ -743,7 +913,7 @@ function drawAutomationCurve() {
   }
 
   const pts = getActiveAutomationPoints().slice().sort((a, b) => a.x - b.x);
-  ctx.strokeStyle = '#57cbe0';
+  ctx.strokeStyle = waveColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   pts.forEach((p, i) => {
@@ -766,7 +936,7 @@ function drawAutomationCurve() {
   });
   ctx.stroke();
 
-  ctx.fillStyle = '#d8f8ff';
+  ctx.fillStyle = wavePoint;
   pts.forEach((p) => {
     const x = p.x * width;
     const y = (1 - p.y) * height;
@@ -864,10 +1034,12 @@ function renderDockMixer() {
     strip.className = 'dock-strip';
     strip.dataset.trackId = track.id;
     strip.innerHTML = `
-      <div class="dock-name">${escapeHtml(track.name)}</div>
-      <div class="dock-mini-meter" aria-hidden="true">
-        <div class="dock-mini-fill" data-role="dockMiniFill"></div>
-        <div class="dock-mini-hold" data-role="dockMiniHold"></div>
+      <div class="dock-strip-head" data-dock-drag-handle="true">
+        <div class="dock-name">${escapeHtml(track.name)}</div>
+        <div class="dock-mini-meter" aria-hidden="true">
+          <div class="dock-mini-fill" data-role="dockMiniFill"></div>
+          <div class="dock-mini-hold" data-role="dockMiniHold"></div>
+        </div>
       </div>
       <input data-role="dockVol" class="dock-fader" type="range" min="-24" max="6" step="0.1" value="${track.gainDb}" />
       <div class="dock-val">${track.gainDb.toFixed(1)} dB</div>
@@ -885,7 +1057,7 @@ function renderDockMixer() {
     vol.addEventListener('input', () => {
       track.gainDb = Number(vol.value);
       val.textContent = `${track.gainDb.toFixed(1)} dB`;
-      renderTrackList();
+      syncTrackCardControls(track);
       if (state.isPlaying) {
         pauseMix();
         playMix();
@@ -894,7 +1066,7 @@ function renderDockMixer() {
 
     pan.addEventListener('input', () => {
       track.pan = Number(pan.value);
-      renderTrackList();
+      syncTrackCardControls(track);
       if (state.isPlaying) {
         pauseMix();
         playMix();
@@ -914,6 +1086,81 @@ function renderDockMixer() {
 
     els.dockMixerTracks.appendChild(strip);
   }
+}
+
+function syncTrackCardControls(track) {
+  const card = els.trackList?.querySelector(`[data-track-id="${track.id}"]`);
+  if (!card) return;
+
+  const vol = card.querySelector('[data-role="vol"]');
+  const volFader = card.querySelector('[data-role="volFader"]');
+  const volValue = card.querySelector('[data-role="volv"]');
+  const pan = card.querySelector('[data-role="pan"]');
+  const panValue = card.querySelector('[data-role="panv"]');
+  const faderLabel = card.querySelector('.v-fader-label');
+
+  if (vol) vol.value = String(track.gainDb);
+  if (volFader) volFader.value = String(track.gainDb);
+  if (volValue) volValue.textContent = `${track.gainDb.toFixed(1)} dB`;
+  if (faderLabel) faderLabel.textContent = `${track.gainDb.toFixed(1)} dB`;
+  if (pan) pan.value = String(track.pan);
+  if (panValue) panValue.textContent = track.pan.toFixed(2);
+}
+
+function bindDockMixerScroll() {
+  const dock = els.dockMixerTracks;
+  if (!dock || dock.dataset.scrollBound === 'true') return;
+  dock.dataset.scrollBound = 'true';
+
+  let dragState = null;
+
+  dock.addEventListener('wheel', (ev) => {
+    const canScroll = dock.scrollWidth > dock.clientWidth;
+    if (!canScroll) return;
+
+    const dominantDelta = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY;
+    if (dominantDelta === 0) return;
+
+    dock.scrollLeft += dominantDelta;
+    ev.preventDefault();
+  }, { passive: false });
+
+  dock.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    const dragHandle = ev.target.closest('[data-dock-drag-handle]');
+    if (!dragHandle && ev.target !== dock) return;
+    if (dock.scrollWidth <= dock.clientWidth) return;
+
+    ev.preventDefault();
+
+    dragState = {
+      pointerId: ev.pointerId,
+      startX: ev.clientX,
+      startScrollLeft: dock.scrollLeft
+    };
+
+    dock.classList.add('dragging');
+    dock.setPointerCapture(ev.pointerId);
+  });
+
+  dock.addEventListener('pointermove', (ev) => {
+    if (!dragState || dragState.pointerId !== ev.pointerId) return;
+    ev.preventDefault();
+    const dx = ev.clientX - dragState.startX;
+    dock.scrollLeft = dragState.startScrollLeft - dx;
+  });
+
+  const finishDrag = (ev) => {
+    if (!dragState || dragState.pointerId !== ev.pointerId) return;
+    dock.classList.remove('dragging');
+    if (dock.hasPointerCapture(ev.pointerId)) {
+      dock.releasePointerCapture(ev.pointerId);
+    }
+    dragState = null;
+  };
+
+  dock.addEventListener('pointerup', finishDrag);
+  dock.addEventListener('pointercancel', finishDrag);
 }
 
 function applyAutomationRuntime() {
@@ -1002,10 +1249,10 @@ function renderTrackList() {
       </div>
 
       <div class="preset-row">
-        <button data-role="preset" data-preset="flat" class="mini-btn${track.fxPreset === 'flat' ? ' active' : ''}" type="button">Flat</button>
-        <button data-role="preset" data-preset="vocal" class="mini-btn${track.fxPreset === 'vocal' ? ' active' : ''}" type="button">Vocal</button>
-        <button data-role="preset" data-preset="drums" class="mini-btn${track.fxPreset === 'drums' ? ' active' : ''}" type="button">Drums</button>
-        <button data-role="preset" data-preset="ambient" class="mini-btn${track.fxPreset === 'ambient' ? ' active' : ''}" type="button">Ambient</button>
+        <button data-role="preset" data-preset="flat" class="mini-btn${track.fxPreset === 'flat' ? ' active' : ''}" type="button">${escapeHtml(presetLabel('flat'))}</button>
+        <button data-role="preset" data-preset="vocal" class="mini-btn${track.fxPreset === 'vocal' ? ' active' : ''}" type="button">${escapeHtml(presetLabel('vocal'))}</button>
+        <button data-role="preset" data-preset="drums" class="mini-btn${track.fxPreset === 'drums' ? ' active' : ''}" type="button">${escapeHtml(presetLabel('drums'))}</button>
+        <button data-role="preset" data-preset="ambient" class="mini-btn${track.fxPreset === 'ambient' ? ' active' : ''}" type="button">${escapeHtml(presetLabel('ambient'))}</button>
       </div>
 
       <div class="channel-strip">
@@ -1016,13 +1263,13 @@ function renderTrackList() {
         </div>
         <div class="strip-inline-controls">
           <div class="track-controls">
-            <span>Vol</span>
+            <span>${escapeHtml(I18n.t('trackVolumeShort', 'Vol'))}</span>
             <input data-role="vol" type="range" min="-24" max="6" step="0.1" value="${track.gainDb}" />
             <span data-role="volv">${track.gainDb.toFixed(1)} dB</span>
           </div>
 
           <div class="track-controls">
-            <span>Pan</span>
+            <span>${escapeHtml(I18n.t('trackPanShort', 'Pan'))}</span>
             <input data-role="pan" type="range" min="-1" max="1" step="0.01" value="${track.pan}" />
             <span data-role="panv">${track.pan.toFixed(2)}</span>
           </div>
@@ -1031,35 +1278,35 @@ function renderTrackList() {
 
       <div class="track-fx-grid">
         <div class="track-fx">
-          <label>Low EQ (${track.fx.lowGain.toFixed(1)} dB)</label>
+          <label>${escapeHtml(trackFxLabel('lowEq', track.fx.lowGain))}</label>
           <input data-role="fxLow" type="range" min="-12" max="12" step="0.1" value="${track.fx.lowGain}" />
         </div>
         <div class="track-fx">
-          <label>Mid EQ (${track.fx.midGain.toFixed(1)} dB)</label>
+          <label>${escapeHtml(trackFxLabel('midEq', track.fx.midGain))}</label>
           <input data-role="fxMid" type="range" min="-12" max="12" step="0.1" value="${track.fx.midGain}" />
         </div>
         <div class="track-fx">
-          <label>High EQ (${track.fx.highGain.toFixed(1)} dB)</label>
+          <label>${escapeHtml(trackFxLabel('highEq', track.fx.highGain))}</label>
           <input data-role="fxHigh" type="range" min="-12" max="12" step="0.1" value="${track.fx.highGain}" />
         </div>
         <div class="track-fx">
-          <label>Comp Ratio (${track.fx.compRatio.toFixed(1)}:1)</label>
+          <label>${escapeHtml(trackFxLabel('compRatio', track.fx.compRatio))}</label>
           <input data-role="fxCompRatio" type="range" min="1" max="12" step="0.1" value="${track.fx.compRatio}" />
         </div>
         <div class="track-fx">
-          <label>Comp Thresh (${track.fx.compThreshold.toFixed(1)} dB)</label>
+          <label>${escapeHtml(trackFxLabel('compThreshold', track.fx.compThreshold))}</label>
           <input data-role="fxCompThreshold" type="range" min="-60" max="0" step="0.5" value="${track.fx.compThreshold}" />
         </div>
         <div class="track-fx">
-          <label>Reverb (${Math.round(track.fx.reverbMix * 100)}%)</label>
+          <label>${escapeHtml(trackFxLabel('reverbMix', track.fx.reverbMix))}</label>
           <input data-role="fxReverbMix" type="range" min="0" max="1" step="0.01" value="${track.fx.reverbMix}" />
         </div>
         <div class="track-fx">
-          <label>Rev Decay (${track.fx.reverbDecay.toFixed(2)}s)</label>
+          <label>${escapeHtml(trackFxLabel('reverbDecay', track.fx.reverbDecay))}</label>
           <input data-role="fxReverbDecay" type="range" min="0.3" max="6" step="0.05" value="${track.fx.reverbDecay}" />
         </div>
         <div class="track-fx">
-          <label>Rev PreDelay (${(track.fx.reverbPreDelay * 1000).toFixed(0)}ms)</label>
+          <label>${escapeHtml(trackFxLabel('reverbPreDelay', track.fx.reverbPreDelay))}</label>
           <input data-role="fxReverbPreDelay" type="range" min="0" max="0.3" step="0.005" value="${track.fx.reverbPreDelay}" />
         </div>
       </div>
@@ -1069,8 +1316,8 @@ function renderTrackList() {
         <button data-role="cue" class="mini-btn${track.cue ? ' active' : ''}" type="button">C</button>
         <button data-role="mute" class="mini-btn${track.mute ? ' active' : ''}" type="button">M</button>
         <button data-role="solo" class="mini-btn${track.solo ? ' active' : ''}" type="button">S</button>
-        <button data-role="select" class="mini-btn" type="button">선택</button>
-        <button data-role="remove" class="mini-btn danger" type="button">삭제</button>
+        <button data-role="select" class="mini-btn" type="button">${escapeHtml(I18n.t('selectTrack', 'Select'))}</button>
+        <button data-role="remove" class="mini-btn danger" type="button">${escapeHtml(I18n.t('deleteTrack', 'Delete'))}</button>
       </div>
     `;
 
@@ -1597,16 +1844,14 @@ async function loadProjectFromFile(file) {
     if (els.automationTarget) els.automationTarget.value = state.automationTarget;
     if (els.btnSnapGrid) {
       els.btnSnapGrid.classList.toggle('active', state.clipSnapEnabled);
-      els.btnSnapGrid.textContent = state.clipSnapEnabled ? 'Snap 1/32' : 'Snap Off';
     }
     if (els.btnAutoCrossfade) {
       els.btnAutoCrossfade.classList.toggle('active', state.autoCrossfadeEnabled);
-      els.btnAutoCrossfade.textContent = state.autoCrossfadeEnabled ? 'Auto XFade' : 'XFade Off';
     }
     if (els.btnCurveMode) {
       els.btnCurveMode.classList.toggle('active', state.automationCurveMode === 'smooth');
-      els.btnCurveMode.textContent = state.automationCurveMode === 'smooth' ? 'Curve: Smooth' : 'Curve: Linear';
     }
+    applyLocalizedUi();
     drawAutomationCurve();
 
     setStatus(`프로젝트 로드 완료 (${loaded.length} tracks)`);
@@ -1747,6 +1992,84 @@ function escapeHtml(text) {
     .replaceAll('"', '&quot;');
 }
 
+function hideWaveContextMenu() {
+  els.waveContextMenu?.classList.add('hidden');
+}
+
+function showWaveContextMenu(x, y) {
+  const menu = els.waveContextMenu;
+  if (!menu) return;
+  menu.classList.remove('hidden');
+
+  const margin = 8;
+  const rect = menu.getBoundingClientRect();
+  const maxX = window.innerWidth - rect.width - margin;
+  const maxY = window.innerHeight - rect.height - margin;
+  const left = Math.max(margin, Math.min(x, maxX));
+  const top = Math.max(margin, Math.min(y, maxY));
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function bindWaveContextMenu() {
+  const menu = els.waveContextMenu;
+  if (!menu) return;
+
+  const openMenu = (ev) => {
+    ev.preventDefault();
+    showWaveContextMenu(ev.clientX, ev.clientY);
+  };
+
+  els.waveCanvas?.addEventListener('contextmenu', openMenu);
+  els.clipLane?.addEventListener('contextmenu', openMenu);
+
+  menu.addEventListener('click', async (ev) => {
+    const button = ev.target.closest('[data-action]');
+    if (!button) return;
+
+    const action = button.dataset.action;
+    hideWaveContextMenu();
+
+    switch (action) {
+      case 'playPause':
+        if (state.isPlaying) pauseMix();
+        else await playMix();
+        break;
+      case 'stop':
+        stopMix();
+        break;
+      case 'loopIn':
+        setLoopIn();
+        break;
+      case 'loopOut':
+        setLoopOut();
+        break;
+      case 'export':
+        await exportMix();
+        break;
+      case 'import':
+        await importAudio();
+        break;
+      default:
+        break;
+    }
+  });
+
+  document.addEventListener('pointerdown', (ev) => {
+    if (menu.classList.contains('hidden')) return;
+    if (menu.contains(ev.target)) return;
+    hideWaveContextMenu();
+  });
+
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') hideWaveContextMenu();
+  });
+
+  window.addEventListener('resize', hideWaveContextMenu);
+  window.addEventListener('blur', hideWaveContextMenu);
+}
+
 function bindUi() {
   els.btnImport.addEventListener('click', importAudio);
   els.btnAddTone.addEventListener('click', addTestTone);
@@ -1761,18 +2084,30 @@ function bindUi() {
   els.btnSnapGrid?.addEventListener('click', () => {
     state.clipSnapEnabled = !state.clipSnapEnabled;
     els.btnSnapGrid.classList.toggle('active', state.clipSnapEnabled);
-    els.btnSnapGrid.textContent = state.clipSnapEnabled ? 'Snap 1/32' : 'Snap Off';
+    applyLocalizedUi();
   });
   els.btnAutoCrossfade?.addEventListener('click', () => {
     state.autoCrossfadeEnabled = !state.autoCrossfadeEnabled;
     els.btnAutoCrossfade.classList.toggle('active', state.autoCrossfadeEnabled);
-    els.btnAutoCrossfade.textContent = state.autoCrossfadeEnabled ? 'Auto XFade' : 'XFade Off';
+    applyLocalizedUi();
   });
   els.btnCurveMode?.addEventListener('click', () => {
     state.automationCurveMode = state.automationCurveMode === 'smooth' ? 'linear' : 'smooth';
     els.btnCurveMode.classList.toggle('active', state.automationCurveMode === 'smooth');
-    els.btnCurveMode.textContent = state.automationCurveMode === 'smooth' ? 'Curve: Smooth' : 'Curve: Linear';
+    applyLocalizedUi();
     drawAutomationCurve();
+  });
+  els.btnUiDensity?.addEventListener('click', () => {
+    const nextDensity = state.uiDensity === 'compact' ? 'studio' : 'compact';
+    applyUiDensity(nextDensity, true);
+  });
+  els.themeSelect?.addEventListener('change', () => {
+    applyTheme(els.themeSelect.value, true);
+  });
+  els.languageSelect?.addEventListener('change', async () => {
+    await I18n.load(els.languageSelect.value);
+    applyLocalizedUi();
+    setStatus(I18n.getLocale() === 'en' ? 'Language changed to English' : '언어가 한국어로 변경되었습니다');
   });
   els.btnToggleDock?.addEventListener('click', () => {
     state.dockVisible = !state.dockVisible;
@@ -1842,8 +2177,22 @@ function bindUi() {
 
     if (e.code === 'Space') {
       e.preventDefault();
-      if (state.isPlaying) pauseMix();
+      if (e.shiftKey) {
+        stopMix();
+      } else if (state.isPlaying) pauseMix();
       else playMix();
+      return;
+    }
+
+    if (e.code === 'KeyI') {
+      e.preventDefault();
+      setLoopIn();
+      return;
+    }
+
+    if (e.code === 'KeyO' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      setLoopOut();
       return;
     }
 
@@ -1867,24 +2216,38 @@ function bindUi() {
   }
 }
 
-function init() {
+async function init() {
+  await I18n.init();
+  if (els.languageSelect) {
+    els.languageSelect.value = I18n.getLocale();
+  }
+
   bindUi();
   bindAutomationUi();
+  bindDockMixerScroll();
+  bindWaveContextMenu();
+  restoreTheme();
+  restoreUiDensity();
+  applyLocalizedUi();
+
+  window.addEventListener('i18n:change', () => {
+    applyLocalizedUi();
+    refreshLocalizedPanels();
+  });
+
   if (els.automationTarget) {
     els.automationTarget.value = state.automationTarget;
   }
   if (els.btnSnapGrid) {
     els.btnSnapGrid.classList.toggle('active', state.clipSnapEnabled);
-    els.btnSnapGrid.textContent = state.clipSnapEnabled ? 'Snap 1/32' : 'Snap Off';
   }
   if (els.btnAutoCrossfade) {
     els.btnAutoCrossfade.classList.toggle('active', state.autoCrossfadeEnabled);
-    els.btnAutoCrossfade.textContent = state.autoCrossfadeEnabled ? 'Auto XFade' : 'XFade Off';
   }
   if (els.btnCurveMode) {
     els.btnCurveMode.classList.toggle('active', state.automationCurveMode === 'smooth');
-    els.btnCurveMode.textContent = state.automationCurveMode === 'smooth' ? 'Curve: Smooth' : 'Curve: Linear';
   }
+  applyLocalizedUi();
   updateTimeAndSeek();
   updateMaster();
   updateLoopUi();
@@ -1896,4 +2259,7 @@ function init() {
   setStatus('믹서 준비됨');
 }
 
-init();
+init().catch((err) => {
+  console.error(err);
+  setStatus('초기화 실패');
+});
