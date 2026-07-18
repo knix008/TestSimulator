@@ -26,12 +26,13 @@
     "productName": "My UML Multi OS",
     "directories": {
       "output": "release",
-      "buildResources": "build"
+      "buildResources": "assets"
     },
     "electronDist": "node_modules/electron/dist",
     "files": [
       "dist/app/**/*",
       "electron/**/*",
+      "assets/**/*",
       "package.json"
     ],
     "extraMetadata": {
@@ -41,7 +42,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "build/app-icon.svg"
+      "icon": "assets/app-icon.svg"
     },
     "nsis": {
       "oneClick": false,
@@ -56,14 +57,14 @@
         "deb"
       ],
       "category": "Development",
-      "icon": "build/app-icon.svg"
+      "icon": "assets/app-icon.svg"
     },
     "mac": {
       "target": [
         "dmg"
       ],
       "category": "public.app-category.developer-tools",
-      "icon": "build/app-icon.svg"
+      "icon": "assets/app-icon.svg"
     },
     "fileAssociations": [
       {
@@ -71,13 +72,14 @@
         "name": "My UML Multi OS Project",
         "description": "My UML Multi OS project file",
         "role": "Editor",
-        "icon": "build/project-icon.svg"
+        "icon": "assets/project-icon.svg"
       }
     ]
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
     "fast-xml-parser": "^5.10.1",
+    "gifenc": "^1.0.3",
     "lucide-react": "^0.561.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

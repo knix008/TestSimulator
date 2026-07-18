@@ -12,6 +12,12 @@ export interface AppMessages {
   chooseDiagram: string;
   pointer: string;
   save: string;
+  saveImage: string;
+  imageFormat: string;
+  transparentBackground: string;
+  transparentFormatHint: string;
+  opaqueFormatHint: string;
+  imageExportFailed: string;
   light: string;
   dark: string;
   english: string;
@@ -73,6 +79,12 @@ export const messages: Record<Locale, AppMessages> = {
     chooseDiagram: 'Choose diagram to add',
     pointer: 'Pointer',
     save: 'Save project',
+    saveImage: 'Save image',
+    imageFormat: 'Image format',
+    transparentBackground: 'Transparent background',
+    transparentFormatHint: 'Transparent export is available for PNG, GIF, and WEBP.',
+    opaqueFormatHint: 'Opaque export is available for PNG, JPEG, GIF, and WEBP.',
+    imageExportFailed: 'Could not save the diagram image.',
     light: 'Light',
     dark: 'Dark',
     english: 'English',
@@ -132,6 +144,12 @@ export const messages: Record<Locale, AppMessages> = {
     chooseDiagram: '추가할 다이어그램 선택',
     pointer: '선택',
     save: '프로젝트 저장',
+    saveImage: '이미지 저장',
+    imageFormat: '이미지 포맷',
+    transparentBackground: '배경 투명',
+    transparentFormatHint: '투명 배경은 PNG, GIF, WEBP로 저장할 수 있습니다.',
+    opaqueFormatHint: '불투명 배경은 PNG, JPEG, GIF, WEBP로 저장할 수 있습니다.',
+    imageExportFailed: '다이어그램 이미지를 저장할 수 없습니다.',
     light: '라이트',
     dark: '다크',
     english: '영어',

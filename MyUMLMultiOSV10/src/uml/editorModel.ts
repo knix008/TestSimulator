@@ -233,6 +233,11 @@ export function updateEdgeRelationship(document: UmlDiagramDocument, edgeId: str
 
 function defaultNodeSize(kind: UmlElementKind): { width: number; height: number } {
   switch (kind) {
+    case 'class':
+    case 'interface':
+    case 'dataType':
+    case 'enumeration':
+      return { width: 148, height: 176 };
     case 'actor':
       return { width: 88, height: 112 };
     case 'useCase':
@@ -254,12 +259,13 @@ function defaultNodeSize(kind: UmlElementKind): { width: number; height: number 
 
 function heightForOwnedElements(kind: UmlElementKind, ownedElementCount: number): number {
   const defaultHeight = defaultNodeSize(kind).height;
+  const minimumCompartmentHeight = 176;
 
   if (ownedElementCount === 0) {
     return defaultHeight;
   }
 
-  return Math.max(defaultHeight, 108 + (ownedElementCount - 1) * 18);
+  return Math.max(defaultHeight, minimumCompartmentHeight + ownedElementCount * 18);
 }
 
 function defaultOwnedElementName(kind: UmlOwnedElementKind): string {

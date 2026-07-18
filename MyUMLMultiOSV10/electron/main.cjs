@@ -31,7 +31,7 @@ function createMainWindow() {
     minWidth: 1180,
     minHeight: 820,
     backgroundColor: '#f2f0e7',
-    icon: path.join(__dirname, '..', 'build', 'app-icon.svg'),
+    icon: path.join(__dirname, '..', 'assets', 'app-icon.svg'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

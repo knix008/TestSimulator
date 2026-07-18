@@ -38,6 +38,7 @@ select {
   --node-fill: #fffdf7;
   --node-stroke: #29312a;
   --selected: #c47a25;
+  --selected-fill: #f6e0c2;
   --grid: #d7d9cf;
   --field: #fffef8;
   --danger: #9d2c2c;
@@ -69,6 +70,7 @@ select {
   --node-fill: #2d3431;
   --node-stroke: #dbe5dd;
   --selected: #e0a153;
+  --selected-fill: #4a3928;
   --grid: #38413c;
   --field: #252c29;
   --danger: #ff9a86;
@@ -457,18 +459,23 @@ code {
   fill: var(--node-stroke);
 }
 
-.node.selected rect,
-.node.selected ellipse,
-.node.selected circle,
-.node.selected path {
-  stroke: var(--selected);
-  stroke-width: 2.5;
+.node.selected > rect,
+.node.selected > ellipse,
+.node.selected > circle,
+.node.selected > path {
+  fill: var(--selected-fill);
 }
 
 .node text {
   fill: var(--text);
   font-size: 13px;
   pointer-events: none;
+}
+
+.node .compartment-label {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .owned-element-shape {
@@ -482,9 +489,9 @@ code {
 
 .owned-element-shape:hover rect,
 .owned-element-shape.selected rect {
-  fill: rgba(196, 122, 37, 0.12);
-  stroke: var(--selected);
-  stroke-width: 1;
+  fill: var(--selected-fill);
+  stroke: transparent;
+  stroke-width: 0;
 }
 
 label {
@@ -575,7 +582,7 @@ textarea {
 
 .owned-element-row {
   display: grid;
-  grid-template-columns: minmax(92px, 0.8fr) minmax(110px, 1fr) minmax(96px, 0.9fr);
+  grid-template-columns: minmax(92px, 0.8fr) minmax(130px, 1fr);
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--border);
@@ -639,7 +646,8 @@ textarea {
   margin-top: 16px;
 }
 
-.diagram-chooser {
+.diagram-chooser,
+.image-export-dialog {
   width: min(720px, 100%);
   max-height: min(680px, calc(100vh - 48px));
   overflow: auto;
@@ -649,6 +657,53 @@ textarea {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.image-export-dialog {
+  width: min(460px, 100%);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 4px 0 10px;
+  color: var(--text);
+}
+
+.checkbox-label input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.export-hint,
+.export-error {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.export-hint {
+  color: var(--muted);
+}
+
+.export-error {
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.primary-action {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
 }
 
 .diagram-choice-grid {
