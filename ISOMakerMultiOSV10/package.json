@@ -1,0 +1,43 @@
+{
+  "name": "iso-maker-multi-os",
+  "version": "0.1.0",
+  "description": "ISO create/extract/edit/mount (desktop) and ISO view/edit (web)",
+  "author": "SHKWON <knix008@naver.com>",
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "start:web": "vite --config vite.config.web.ts",
+    "dev": "vite",
+    "dev:web": "vite --config vite.config.web.ts",
+    "build": "tsc -p tsconfig.node.json && vite build",
+    "build:web": "vite build --config vite.config.web.ts",
+    "dist": "npm run dist:win",
+    "dist:win": "npm run build && electron-builder --win nsis && node scripts/copy-artifacts.mjs",
+    "dist:mac": "npm run build && electron-builder --mac dmg && node scripts/copy-artifacts.mjs",
+    "dist:linux": "npm run build && electron-builder --linux AppImage && node scripts/copy-artifacts.mjs",
+    "dist:all": "npm run build && electron-builder -mwl && node scripts/copy-artifacts.mjs",
+    "dist:dir": "npm run build && electron-builder --win dir",
+    "copy-artifacts": "node scripts/copy-artifacts.mjs",
+    "copy-installer": "node scripts/copy-artifacts.mjs",
+    "preview": "vite preview",
+    "preview:web": "vite preview --config vite.config.web.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "@vitejs/plugin-react": "^4.5.2",
+    "electron": "^36.4.0",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  }
+}

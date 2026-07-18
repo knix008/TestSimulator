@@ -1,0 +1,82 @@
+appId: com.shkwon.isomaker
+productName: ISO Maker
+copyright: Copyright © SHKWON
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - electron/preload.cjs
+  - package.json
+
+extraResources:
+  - from: assets
+    to: assets
+    filter:
+      - '**/*'
+  - from: vendor/xorriso
+    to: vendor/xorriso
+    filter:
+      - '**/*'
+
+asar: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  # Built-in shortcut creation disabled — custom page in installer.nsh asks the user.
+  createDesktopShortcut: false
+  createStartMenuShortcut: false
+  shortcutName: ISO Maker
+  include: build/installer.nsh
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  installerLanguages:
+    - ko_KR
+    - en_US
+  multiLanguageInstaller: true
+  runAfterFinish: true
+  # Manual uninstall also clears app data; reinstall path uses a full wipe in installer.nsh.
+  deleteAppDataOnUninstall: true
+  warningsAsErrors: false
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: assets/icon.png
+  category: public.app-category.utilities
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  icon: assets/icon.png
+  category: Utility
+  maintainer: SHKWON <knix008@naver.com>
+  artifactName: ${productName}-${version}.${ext}
+
+appImage:
+  artifactName: ${productName}-${version}.${ext}

@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Build outputs (Vite / Electron)
+dist/
+dist-web/
+dist-electron/
+*.tsbuildinfo
+
+# Packaging (electron-builder)
+release/
+out/
+*.blockmap
+*.nsis.7z
+# Final installers copied to project root by scripts/copy-artifacts.mjs
+/ISO Maker-Setup-*.exe
+/ISO Maker-*.dmg
+/ISO Maker-*.AppImage
+
+# Logs & caches
+*.log
+npm-debug.log*
+.vite/
+.cache/
+.eslintcache
+
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Local temp / drag-out / test extract output
+.temp/
+.tmp/
+.tmp-*/
+*.tmp
+isomaker-drag-*
+
+# Large media (keep out of git)
+*.iso
+*.img
+
+# Local xorriso binaries (install via MSYS2 / brew / apt, or ship via installer extraResources)
+vendor/xorriso/**/xorriso
+vendor/xorriso/**/xorriso.exe
+!vendor/xorriso/**/.gitkeep
