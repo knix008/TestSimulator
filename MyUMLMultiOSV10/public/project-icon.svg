@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="UML project file icon">
+  <defs>
+    <linearGradient id="paper" x1="110" y1="54" x2="390" y2="458" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fffdf5"/>
+      <stop offset="1" stop-color="#e8f4ef"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="326" y1="64" x2="430" y2="168" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#cfe5dc"/>
+    </linearGradient>
+    <filter id="shadow" x="70" y="40" width="370" height="438" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#38574d" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <path d="M112 56 H320 L424 160 V456 H112 Z" fill="url(#paper)" stroke="#9bb9ad" stroke-width="10" stroke-linejoin="round" filter="url(#shadow)"/>
+  <path d="M320 56 V160 H424" fill="url(#fold)" stroke="#9bb9ad" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M354 82 C386 90 410 116 418 148" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" opacity="0.72"/>
+  <path d="M184 222 H248 M272 222 H336 M260 244 V302 M210 328 H312" fill="none" stroke="#244f46" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="152" y="188" width="92" height="64" rx="16" fill="#ffffff" stroke="#244f46" stroke-width="11"/>
+  <rect x="300" y="188" width="92" height="64" rx="16" fill="#fff7e7" stroke="#c47a25" stroke-width="11"/>
+  <rect x="152" y="304" width="92" height="64" rx="16" fill="#eef8f3" stroke="#244f46" stroke-width="11"/>
+  <rect x="300" y="304" width="92" height="64" rx="16" fill="#ffffff" stroke="#244f46" stroke-width="11"/>
+  <path d="M158 410 H366" stroke="#c47a25" stroke-width="18" stroke-linecap="round"/>
+</svg>

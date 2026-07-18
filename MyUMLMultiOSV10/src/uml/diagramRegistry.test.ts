@@ -1,0 +1,128 @@
+import { describe, expect, it } from 'vitest';
+import { connectorLabels, diagramLabels, messages, notationHints, toolLabels } from '../app/i18n.js';
+import { diagramDefinitions } from './diagramRegistry.js';
+import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameNode, renameOwnedElement, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute } from './editorModel.js';
+import { getUmlConnectorNotation } from './umlNotation.js';
+
+describe('UML 2.5.1 diagram registry', () => {
+  it('registers the Papyrus diagram families used by the GUI', () => {
+    expect(diagramDefinitions.map((diagram) => diagram.kind)).toEqual([
+      'class',
+      'profile',
+      'package',
+      'object',
+      'compositeStructure',
+      'component',
+      'deployment',
+      'useCase',
+      'sequence',
+      'communication',
+      'activity',
+      'stateMachine',
+      'timing'
+    ]);
+  });
+
+  it('keeps each diagram tied to a Papyrus reference id and palette/connector tools', () => {
+    for (const definition of diagramDefinitions) {
+      expect(definition.papyrusDiagramId).toMatch(/^PapyrusUML/);
+      expect(definition.uml251Scope.length).toBeGreaterThan(10);
+      expect(definition.palette.length).toBeGreaterThan(0);
+      expect(definition.connectors.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('GUI localization', () => {
+  it('supports English and Korean labels for every registered diagram', () => {
+    for (const definition of diagramDefinitions) {
+      expect(diagramLabels.en[definition.kind]).toBeTruthy();
+      expect(diagramLabels.ko[definition.kind]).toBeTruthy();
+      expect(notationHints.en[definition.kind]).toBeTruthy();
+      expect(notationHints.ko[definition.kind]).toBeTruthy();
+    }
+
+    expect(messages.ko.properties).toBe('속성');
+    expect(toolLabels.ko.class).toBe('클래스');
+    expect(connectorLabels.ko.association).toBe('연관');
+  });
+});
+
+describe('UML editor model', () => {
+  it('creates nodes from a diagram palette and renames them', () => {
+    const document = createDiagramDocument('class');
+    const classTool = diagramDefinitions[0].palette[1];
+    const withClass = addPaletteNode(document, classTool, 120, 160);
+    const renamed = renameNode(withClass, withClass.nodes[0].id, 'Order');
+
+    expect(renamed.nodes[0]).toMatchObject({
+      kind: 'class',
+      name: 'Order',
+      umlType: 'uml:Class',
+      x: 120,
+      y: 160
+    });
+  });
+
+  it('moves nodes and stores node-owned UML elements for the tree and properties view', () => {
+    const document = createDiagramDocument('class');
+    const classTool = diagramDefinitions[0].palette[1];
+    const withClass = addPaletteNode(document, classTool, 120, 160);
+    const moved = moveNode(withClass, withClass.nodes[0].id, 240, 96);
+    const withAttribute = addOwnedElement(moved, moved.nodes[0].id, 'attribute');
+    const renamedAttribute = renameOwnedElement(withAttribute, withAttribute.nodes[0].id, withAttribute.nodes[0].ownedElements[0].id, 'id');
+
+    expect(renamedAttribute.nodes[0]).toMatchObject({ x: 240, y: 96 });
+    expect(renamedAttribute.nodes[0].ownedElements[0]).toMatchObject({
+      kind: 'attribute',
+      name: 'id',
+      umlType: 'uml:Property'
+    });
+  });
+
+  it('grows node height when owned UML elements are added', () => {
+    const document = createDiagramDocument('class');
+    const classTool = diagramDefinitions[0].palette[1];
+    const withClass = addPaletteNode(document, classTool, 120, 160);
+    const initialHeight = withClass.nodes[0].height;
+    const withAttribute = addOwnedElement(withClass, withClass.nodes[0].id, 'attribute');
+    const withOperation = addOwnedElement(withAttribute, withAttribute.nodes[0].id, 'operation');
+
+    expect(withAttribute.nodes[0].height).toBeGreaterThan(initialHeight);
+    expect(withOperation.nodes[0].height).toBeGreaterThan(withAttribute.nodes[0].height);
+  });
+
+  it('connects shapes and edits relationship type and line style', () => {
+    const document = createDiagramDocument('class');
+    const definition = diagramDefinitions[0];
+    const classTool = definition.palette[1];
+    const withSource = addPaletteNode(document, classTool, 120, 160);
+    const withTarget = addPaletteNode(withSource, classTool, 420, 220);
+    const connected = connectNodes(withTarget, definition.connectors[0], withTarget.nodes[0].id, withTarget.nodes[1].id);
+    const withMultiplicity = updateEdgeMultiplicity(connected, connected.edges[0].id, 'target', '0..*');
+    const rerouted = updateEdgeRoute(withMultiplicity, withMultiplicity.edges[0].id, 'orthogonal');
+    const generalized = updateEdgeRelationship(rerouted, rerouted.edges[0].id, definition.connectors[1]);
+
+    expect(generalized.edges[0]).toMatchObject({
+      kind: 'generalization',
+      name: 'Generalization1',
+      umlType: 'uml:Generalization',
+      sourceId: withTarget.nodes[0].id,
+      targetId: withTarget.nodes[1].id,
+      route: 'orthogonal',
+      sourceMultiplicity: '1',
+      targetMultiplicity: '0..*'
+    });
+  });
+});
+
+describe('UML connector notation', () => {
+  it('uses UML line conventions for core relationships', () => {
+    expect(getUmlConnectorNotation('association')).toEqual({ dashed: false, marker: 'none' });
+    expect(getUmlConnectorNotation('generalization')).toEqual({ dashed: false, marker: 'hollowTriangle' });
+    expect(getUmlConnectorNotation('dependency')).toEqual({ dashed: true, marker: 'openArrow' });
+    expect(getUmlConnectorNotation('realization')).toEqual({ dashed: true, marker: 'hollowTriangle' });
+    expect(getUmlConnectorNotation('include')).toEqual({ dashed: true, marker: 'openArrow', stereotype: 'include' });
+    expect(getUmlConnectorNotation('extend')).toEqual({ dashed: true, marker: 'openArrow', stereotype: 'extend' });
+  });
+});

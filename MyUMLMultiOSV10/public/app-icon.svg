@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="My UML Multi OS icon">
+  <defs>
+    <linearGradient id="base" x1="76" y1="52" x2="430" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fffdf4"/>
+      <stop offset="0.52" stop-color="#edf6ef"/>
+      <stop offset="1" stop-color="#dceee8"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="96" y1="56" x2="416" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#9bb9ad"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="350" y1="34" x2="468" y2="142" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.94"/>
+      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="34" y="34" width="444" height="444" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#38574d" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect x="58" y="50" width="396" height="396" rx="92" fill="url(#base)" stroke="url(#edge)" stroke-width="10" filter="url(#shadow)"/>
+  <path d="M344 58 C404 64 448 108 454 168 C421 139 380 98 344 58 Z" fill="url(#glass)"/>
+  <path d="M352 76 C394 82 426 114 434 156" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" opacity="0.62"/>
+  <path d="M160 172 H246 M266 172 H352 M256 194 V268 M188 300 H324" fill="none" stroke="#244f46" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="104" y="124" width="116" height="92" rx="24" fill="#ffffff" stroke="#244f46" stroke-width="14"/>
+  <rect x="292" y="124" width="116" height="92" rx="24" fill="#fff7e7" stroke="#c47a25" stroke-width="14"/>
+  <rect x="104" y="264" width="116" height="92" rx="24" fill="#eef8f3" stroke="#244f46" stroke-width="14"/>
+  <rect x="292" y="264" width="116" height="92" rx="24" fill="#ffffff" stroke="#244f46" stroke-width="14"/>
+  <circle cx="256" cy="172" r="16" fill="#c47a25"/>
+  <circle cx="256" cy="300" r="16" fill="#c47a25"/>
+  <path d="M152 166 H176 M152 190 H196 M340 166 H364 M340 190 H384 M152 306 H176 M152 330 H196 M340 306 H364 M340 330 H384" stroke="#244f46" stroke-width="10" stroke-linecap="round" opacity="0.72"/>
+</svg>

@@ -1,0 +1,98 @@
+{
+  "name": "my-uml-multi-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "description": "JavaScript-only Papyrus-compatible UML 2.5.1 editor.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -p tsconfig.json && vite build",
+    "build:web": "npm run build",
+    "build:desktop": "npm run build && electron-builder --publish never && node scripts/copy-installers.cjs",
+    "build:win": "npm run build && electron-builder --win --publish never && node scripts/copy-installers.cjs",
+    "build:linux": "npm run build && electron-builder --linux --publish never && node scripts/copy-installers.cjs",
+    "build:mac": "npm run build && electron-builder --mac --publish never && node scripts/copy-installers.cjs",
+    "build:all": "npm run build && electron-builder --win --linux --mac --publish never && node scripts/copy-installers.cjs",
+    "start": "npm run run:win",
+    "run:win": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"if (-not (Test-Path 'release\\win-unpacked\\My UML Multi OS.exe')) { npm run build:win }; Start-Process -FilePath 'release\\win-unpacked\\My UML Multi OS.exe'\"",
+    "start:win": "npm run run:win",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "check": "npm run build && npm run test"
+  },
+  "build": {
+    "appId": "com.shkwon.myumlmultios",
+    "productName": "My UML Multi OS",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "dist/app/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/app-icon.svg"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "My UML Multi OS"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "icon": "build/app-icon.svg"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/app-icon.svg"
+    },
+    "fileAssociations": [
+      {
+        "ext": "umlprj",
+        "name": "My UML Multi OS Project",
+        "description": "My UML Multi OS project file",
+        "role": "Editor",
+        "icon": "build/project-icon.svg"
+      }
+    ]
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "fast-xml-parser": "^5.10.1",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "vite": "^7.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
