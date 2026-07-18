@@ -16,6 +16,7 @@ const api = {
   extractIso: (options) => ipcRenderer.invoke('iso:extract', options),
   createIso: (options) => ipcRenderer.invoke('iso:create', options),
   createBootableIso: (options) => ipcRenderer.invoke('iso:createBootable', options),
+  cancelJob: () => ipcRenderer.invoke('iso:cancel'),
   mountIso: (isoPath) => ipcRenderer.invoke('iso:mount', isoPath),
   unmountIso: (target) => ipcRenderer.invoke('iso:unmount', target),
   listIsoTree: (isoPath) => ipcRenderer.invoke('iso:listTree', isoPath),

@@ -49,6 +49,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('extract')
   const [engine, setEngine] = useState<EngineInfo | null>(null)
   const [busy, setBusy] = useState(false)
+  const [cancelable, setCancelable] = useState(false)
   const [progress, setProgress] = useState<JobProgress | null>(null)
   const [statusNote, setStatusNote] = useState('')
   const [error, setError] = useState<string>('')
@@ -241,6 +242,7 @@ export default function App() {
     const out = await getApi().saveFile(defaultName, session.sourcePath, t('dlgSaveIso'))
     if (!out) return false
     setBusy(true)
+    setCancelable(true)
     setStatusNote(t('jobStart', t('saveIso')))
     try {
       const snap = await getApi().saveEditSession(out)
@@ -249,10 +251,16 @@ export default function App() {
       return true
     } catch (err) {
       const message = cleanIpcError(err)
+      if (isCanceledJobMessage(message)) {
+        setStatusNote(t('jobCanceled'))
+        appendChangeLog('job', t('jobCanceled'))
+        return false
+      }
       setStatusNote(message)
       showError(message)
       return false
     } finally {
+      setCancelable(false)
       setBusy(false)
     }
   }
@@ -524,9 +532,14 @@ export default function App() {
     return t('engineMissing')
   }, [engine, t])
 
-  async function runJob(labelKey: 'jobCreate' | 'jobBootable' | 'jobMount' | 'jobUnmount', fn: () => Promise<unknown>) {
+  async function runJob(
+    labelKey: 'jobCreate' | 'jobBootable' | 'jobMount' | 'jobUnmount',
+    fn: () => Promise<unknown>,
+    options: { cancelable?: boolean } = {},
+  ) {
     const label = t(labelKey)
     setBusy(true)
+    setCancelable(Boolean(options.cancelable))
     setError('')
     setErrorOpen(false)
     setProgress({ phase: label, percent: 0, message: t('jobStart', label) })
@@ -539,10 +552,31 @@ export default function App() {
       appendChangeLog('job', t('jobDone', label))
     } catch (err) {
       const message = cleanIpcError(err)
+      if (isCanceledJobMessage(message)) {
+        setProgress({ phase: label, percent: null, message: t('jobCanceled') })
+        setStatusNote(t('jobCanceled'))
+        appendChangeLog('job', t('jobCanceled'))
+        return
+      }
       setStatusNote(message)
       showError(message)
     } finally {
+      setCancelable(false)
       setBusy(false)
+    }
+  }
+
+  async function cancelCurrentJob() {
+    if (!busy || !cancelable) return
+    setCancelable(false)
+    setStatusNote(t('cancelRequested'))
+    appendChangeLog('job', t('cancelRequested'))
+    try {
+      await getApi().cancelJob()
+    } catch (err) {
+      const message = cleanIpcError(err)
+      setStatusNote(message)
+      showError(message)
     }
   }
 
@@ -568,20 +602,27 @@ export default function App() {
     if (tab === 'extract') return
     if (tab === 'create') {
       if (!sourceDir || !outputIso) return
-      void runJob('jobCreate', () => getApi().createIso({ sourceDir, outputIso, volumeLabel }))
+      void runJob(
+        'jobCreate',
+        () => getApi().createIso({ sourceDir, outputIso, volumeLabel }),
+        { cancelable: true },
+      )
       return
     }
     if (tab === 'bootable') {
       if (!sourceDir || !outputIso || (!useBios && !useEfi)) return
-      void runJob('jobBootable', () =>
-        getApi().createBootableIso({
-          sourceDir,
-          outputIso,
-          volumeLabel,
-          biosBootImage: useBios ? biosBootImage : undefined,
-          efiBootImage: useEfi ? efiBootImage : undefined,
-          isohybridMbr: isohybridMbr || undefined,
-        }),
+      void runJob(
+        'jobBootable',
+        () =>
+          getApi().createBootableIso({
+            sourceDir,
+            outputIso,
+            volumeLabel,
+            biosBootImage: useBios ? biosBootImage : undefined,
+            efiBootImage: useEfi ? efiBootImage : undefined,
+            isohybridMbr: isohybridMbr || undefined,
+          }),
+        { cancelable: true },
       )
       return
     }
@@ -680,6 +721,14 @@ export default function App() {
         icon: Icons.run,
         disabled: tab === 'extract' || !canRun,
         onClick: runCurrentAction,
+      },
+      {
+        id: 'cancel',
+        label: t('cancelJob'),
+        tooltip: t('tipCancelJob'),
+        icon: Icons.stop,
+        disabled: !busy || !cancelable,
+        onClick: () => void cancelCurrentJob(),
       },
       {
         id: 'folder',
@@ -866,8 +915,10 @@ export default function App() {
                 primary
                 disabled={busy || !sourceDir || !outputIso}
                 onClick={() =>
-                  void runJob('jobCreate', () =>
-                    getApi().createIso({ sourceDir, outputIso, volumeLabel }),
+                  void runJob(
+                    'jobCreate',
+                    () => getApi().createIso({ sourceDir, outputIso, volumeLabel }),
+                    { cancelable: true },
                   )
                 }
               />
@@ -960,15 +1011,18 @@ export default function App() {
                 primary
                 disabled={busy || !sourceDir || !outputIso || (!useBios && !useEfi)}
                 onClick={() =>
-                  void runJob('jobBootable', () =>
-                    getApi().createBootableIso({
-                      sourceDir,
-                      outputIso,
-                      volumeLabel,
-                      biosBootImage: useBios ? biosBootImage : undefined,
-                      efiBootImage: useEfi ? efiBootImage : undefined,
-                      isohybridMbr: isohybridMbr || undefined,
-                    }),
+                  void runJob(
+                    'jobBootable',
+                    () =>
+                      getApi().createBootableIso({
+                        sourceDir,
+                        outputIso,
+                        volumeLabel,
+                        biosBootImage: useBios ? biosBootImage : undefined,
+                        efiBootImage: useEfi ? efiBootImage : undefined,
+                        isohybridMbr: isohybridMbr || undefined,
+                      }),
+                    { cancelable: true },
                   )
                 }
               />
@@ -1325,6 +1379,10 @@ function cleanIpcError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
   const unwrapped = raw.replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/i, '')
   return unwrapped.trim() || raw
+}
+
+function isCanceledJobMessage(message: string): boolean {
+  return message.trim() === 'JOB_CANCELED'
 }
 
 function formatBytes(n: number): string {

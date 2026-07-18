@@ -39,11 +39,14 @@ export async function writeIso(
   root: IsoDirNode,
   volumeLabel: string,
   onProgress?: (p: WriteProgress) => void,
+  signal?: AbortSignal,
 ): Promise<Blob> {
+  throwIfAborted(signal)
   const label = sanitizeLabel(volumeLabel)
   const dirs: PlannedDir[] = []
   const files: PlannedFile[] = []
   collect(root, '', dirs, files)
+  throwIfAborted(signal)
 
   let nextLba = 19
 
@@ -84,6 +87,7 @@ export async function writeIso(
   const parts: Blob[] = []
 
   onProgress?.({ phase: 'write', percent: 5, message: '볼륨 헤더 작성…' })
+  throwIfAborted(signal)
 
   parts.push(toBlob(new Uint8Array(16 * SECTOR)))
 
@@ -116,9 +120,11 @@ export async function writeIso(
   parts.push(toBlob(meta))
 
   onProgress?.({ phase: 'write', percent: 20, message: '파일 데이터 연결…' })
+  throwIfAborted(signal)
 
   const totalFiles = Math.max(files.length, 1)
   for (let i = 0; i < files.length; i++) {
+    throwIfAborted(signal)
     const file = files[i]!
     onProgress?.({
       phase: 'write',
@@ -126,6 +132,7 @@ export async function writeIso(
       message: `파일 포함: ${file.path}`,
     })
     parts.push(await filePayload(file))
+    throwIfAborted(signal)
     const padded = sectorsFor(Math.max(file.size, 1)) * SECTOR - Math.max(file.size, 1)
     // empty files still occupy one sector
     if (file.size === 0) {
@@ -137,6 +144,10 @@ export async function writeIso(
 
   onProgress?.({ phase: 'write', percent: 100, message: 'ISO 작성 완료' })
   return new Blob(parts, { type: 'application/x-iso9660-image' })
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new Error('JOB_CANCELED')
 }
 
 async function filePayload(file: PlannedFile): Promise<Blob> {

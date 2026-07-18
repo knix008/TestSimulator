@@ -106,8 +106,8 @@ export class IsoEditSession {
     this.refreshEntries()
   }
 
-  async exportIso(onProgress?: (p: WriteProgress) => void): Promise<Blob> {
-    return writeIso(this.root, this.volumeLabel, onProgress)
+  async exportIso(onProgress?: (p: WriteProgress) => void, signal?: AbortSignal): Promise<Blob> {
+    return writeIso(this.root, this.volumeLabel, onProgress, signal)
   }
 
   private refreshEntries(): void {

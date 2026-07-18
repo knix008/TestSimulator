@@ -193,19 +193,27 @@ export async function prepareDragOutFile(entryPath: string): Promise<{ tempPath:
 export async function saveEditSession(
   outputPath: string,
   onProgress?: (progress: JobProgress) => void,
+  signal?: AbortSignal,
 ): Promise<EditSessionSnapshot> {
   const s = requireSession()
   const resolved = path.resolve(outputPath)
   fs.mkdirSync(path.dirname(resolved), { recursive: true })
 
+  throwIfAborted(signal)
   onProgress?.({ phase: 'save', percent: 0, message: 'Writing ISO…' })
   const blob = await s.exportIso((p) => {
     onProgress?.({ phase: 'save', percent: p.percent, message: p.message })
-  })
-  await writeBlobToFile(blob, resolved)
+  }, signal)
+  throwIfAborted(signal)
+  await writeBlobToFile(blob, resolved, signal)
+  throwIfAborted(signal)
   s.dirty = false
   onProgress?.({ phase: 'save', percent: 100, message: 'ISO saved' })
   return snapshot()
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new Error('JOB_CANCELED')
 }
 
 function snapshot(): EditSessionSnapshot {
@@ -265,15 +273,17 @@ function ensureDir(s: IsoEditSession, parentPath: string, name: string): void {
   s.mkdir(parentPath, name)
 }
 
-async function writeBlobToFile(blob: Blob, filePath: string): Promise<void> {
+async function writeBlobToFile(blob: Blob, filePath: string, signal?: AbortSignal): Promise<void> {
+  throwIfAborted(signal)
   // Small/empty payloads: writeFile is more reliable than streaming empty bodies.
   if (blob.size < 8 * 1024 * 1024) {
     const buf = Buffer.from(await blob.arrayBuffer())
-    await fs.promises.writeFile(filePath, buf)
+    throwIfAborted(signal)
+    await fs.promises.writeFile(filePath, buf, { signal })
     return
   }
   const stream = blob.stream() as unknown as import('node:stream/web').ReadableStream
-  await pipeline(Readable.fromWeb(stream), fs.createWriteStream(filePath))
+  await pipeline(Readable.fromWeb(stream), fs.createWriteStream(filePath), { signal })
 }
 
 function safeName(name: string): string {

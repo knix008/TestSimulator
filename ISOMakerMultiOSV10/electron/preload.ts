@@ -19,6 +19,7 @@ export type IsoMakerApi = {
   extractIso: (options: ExtractOptions) => Promise<{ ok: true }>
   createIso: (options: CreateIsoOptions) => Promise<{ ok: true }>
   createBootableIso: (options: CreateBootableIsoOptions) => Promise<{ ok: true }>
+  cancelJob: () => Promise<{ ok: true; canceled: boolean }>
   mountIso: (isoPath: string) => Promise<MountResult>
   unmountIso: (target: string) => Promise<MountResult>
   onProgress: (handler: (progress: JobProgress) => void) => () => void
@@ -33,6 +34,7 @@ const api: IsoMakerApi = {
   extractIso: (options) => ipcRenderer.invoke('iso:extract', options),
   createIso: (options) => ipcRenderer.invoke('iso:create', options),
   createBootableIso: (options) => ipcRenderer.invoke('iso:createBootable', options),
+  cancelJob: () => ipcRenderer.invoke('iso:cancel'),
   mountIso: (isoPath) => ipcRenderer.invoke('iso:mount', isoPath),
   unmountIso: (target) => ipcRenderer.invoke('iso:unmount', target),
   onProgress: (handler) => {

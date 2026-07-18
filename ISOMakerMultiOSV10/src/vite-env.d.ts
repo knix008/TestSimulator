@@ -33,6 +33,7 @@ export type IsoMakerApi = {
   extractIso: (options: ExtractOptions) => Promise<{ ok: true }>
   createIso: (options: CreateIsoOptions) => Promise<{ ok: true }>
   createBootableIso: (options: CreateBootableIsoOptions) => Promise<{ ok: true }>
+  cancelJob: () => Promise<{ ok: true; canceled: boolean }>
   mountIso: (isoPath: string) => Promise<MountResult>
   unmountIso: (target: string) => Promise<MountResult>
   listIsoTree: (isoPath: string) => Promise<IsoTreeResult>

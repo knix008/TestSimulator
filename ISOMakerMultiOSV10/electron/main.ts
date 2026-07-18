@@ -45,6 +45,7 @@ let mainWindow: BrowserWindow | null = null
 let allowClose = false
 let closePromptOpen = false
 let closeFallbackTimer: NodeJS.Timeout | null = null
+let currentJobAbort: AbortController | null = null
 
 function resolvePreloadPath(): string {
   const candidates = [
@@ -213,6 +214,17 @@ function sendProgress(progress: JobProgress): void {
   mainWindow?.webContents.send('job:progress', progress)
 }
 
+async function runCancelableJob<T>(fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  if (currentJobAbort) throw new Error('A job is already running')
+  const controller = new AbortController()
+  currentJobAbort = controller
+  try {
+    return await fn(controller.signal)
+  } finally {
+    if (currentJobAbort === controller) currentJobAbort = null
+  }
+}
+
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   createWindow()
@@ -331,18 +343,25 @@ ipcMain.handle('shell:openPath', async (_event, targetPath: string) => {
 })
 
 ipcMain.handle('iso:extract', async (_event, options: ExtractOptions) => {
-  await extractIso(options, sendProgress)
+  await runCancelableJob((signal) => extractIso(options, sendProgress, signal))
   return { ok: true }
 })
 
 ipcMain.handle('iso:create', async (_event, options: CreateIsoOptions) => {
-  await createIso(options, sendProgress)
+  await runCancelableJob((signal) => createIso(options, sendProgress, signal))
   return { ok: true }
 })
 
 ipcMain.handle('iso:createBootable', async (_event, options: CreateBootableIsoOptions) => {
-  await createBootableIso(options, sendProgress)
+  await runCancelableJob((signal) => createBootableIso(options, sendProgress, signal))
   return { ok: true }
+})
+
+ipcMain.handle('iso:cancel', async () => {
+  if (!currentJobAbort) return { ok: true, canceled: false }
+  currentJobAbort.abort()
+  sendProgress({ phase: 'cancel', percent: null, message: 'Canceling job…' })
+  return { ok: true, canceled: true }
 })
 
 ipcMain.handle('iso:mount', async (_event, isoPath: string) => mountIso(isoPath))
@@ -402,7 +421,7 @@ ipcMain.handle('session:prepareDragOutMany', async (_event, entryPaths: string[]
 })
 
 ipcMain.handle('session:save', async (_event, outputPath: string) => {
-  const snap = await saveEditSession(outputPath, sendProgress)
+  const snap = await runCancelableJob((signal) => saveEditSession(outputPath, sendProgress, signal))
   rememberPath(outputPath)
   return snap
 })

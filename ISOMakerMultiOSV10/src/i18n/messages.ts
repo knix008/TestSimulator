@@ -69,10 +69,12 @@ const ko = {
   runCreate: '생성 실행',
   runBootable: '부팅 ISO 실행',
   runMount: '마운트 실행',
+  cancelJob: '중지',
   tipRunExtract: '선택한 ISO를 디렉터리로 추출합니다 (Ctrl+Enter)',
   tipRunCreate: '소스 디렉터리로 ISO를 생성합니다 (Ctrl+Enter)',
   tipRunBootable: '부팅 가능한 ISO를 생성합니다 (Ctrl+Enter)',
   tipRunMount: 'ISO를 드라이브로 마운트합니다 (Ctrl+Enter)',
+  tipCancelJob: '진행 중인 ISO 작업을 중지합니다',
 
   openFolder: '폴더 열기',
   tipOpenExtract: '열린 ISO가 있는 폴더를 엽니다',
@@ -152,6 +154,8 @@ const ko = {
   jobBootable: '부팅 ISO',
   jobMount: '마운트',
   jobUnmount: '언마운트',
+  jobCanceled: '작업이 취소되었습니다',
+  cancelRequested: '작업 중지 요청 중…',
 
   // menu (also used by electron)
   menuFile: '파일',
@@ -268,10 +272,12 @@ const en: Record<MessageKey, string> = {
   runCreate: 'Run create',
   runBootable: 'Run bootable',
   runMount: 'Run mount',
+  cancelJob: 'Stop',
   tipRunExtract: 'Extract the selected ISO to a folder (Ctrl+Enter)',
   tipRunCreate: 'Create an ISO from the source folder (Ctrl+Enter)',
   tipRunBootable: 'Create a bootable ISO (Ctrl+Enter)',
   tipRunMount: 'Mount the ISO as a drive (Ctrl+Enter)',
+  tipCancelJob: 'Stop the running ISO job',
 
   openFolder: 'Open folder',
   tipOpenExtract: 'Open the folder that contains the ISO',
@@ -351,6 +357,8 @@ const en: Record<MessageKey, string> = {
   jobBootable: 'Bootable ISO',
   jobMount: 'Mount',
   jobUnmount: 'Unmount',
+  jobCanceled: 'Job canceled',
+  cancelRequested: 'Requesting stop…',
 
   menuFile: 'File',
   menuReload: 'Reload workspace',

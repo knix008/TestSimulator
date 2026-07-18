@@ -100,10 +100,15 @@ function adaptArgsForXorriso(binary: string, args: string[]): string[] {
 function runXorriso(
   args: string[],
   onProgress?: (progress: JobProgress) => void,
+  signal?: AbortSignal,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   const binary = resolveXorrisoPath()
   if (!binary) {
     return Promise.reject(new Error('xorriso binary not found'))
+  }
+
+  if (signal?.aborted) {
+    return Promise.reject(createAbortError())
   }
 
   const env = { ...process.env }
@@ -118,11 +123,19 @@ function runXorriso(
   const adaptedArgs = adaptArgsForXorriso(binary, args)
 
   return new Promise((resolve, reject) => {
+    let settled = false
     const child = spawn(binary, adaptedArgs, {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       env,
     })
+
+    const abort = () => {
+      if (settled) return
+      child.kill()
+    }
+
+    signal?.addEventListener('abort', abort, { once: true })
 
     let stdout = ''
     let stderr = ''
@@ -149,6 +162,13 @@ function runXorriso(
     })
 
     child.on('error', (err) => {
+      if (settled) return
+      settled = true
+      signal?.removeEventListener('abort', abort)
+      if (signal?.aborted) {
+        reject(createAbortError())
+        return
+      }
       reject(
         new Error(
           `Failed to start xorriso (${binary}): ${err.message}. Install xorriso or place a binary under vendor/xorriso/${process.platform}/`,
@@ -157,9 +177,20 @@ function runXorriso(
     })
 
     child.on('close', (code) => {
+      if (settled) return
+      settled = true
+      signal?.removeEventListener('abort', abort)
+      if (signal?.aborted) {
+        reject(createAbortError())
+        return
+      }
       resolve({ code: code ?? 1, stdout, stderr })
     })
   })
+}
+
+function createAbortError(): Error {
+  return new Error('JOB_CANCELED')
 }
 
 function parsePercent(text: string): number | null {
@@ -221,6 +252,7 @@ export async function getEngineInfo(): Promise<EngineInfo> {
 export async function extractIso(
   options: ExtractOptions,
   onProgress?: (progress: JobProgress) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const isoPath = path.resolve(options.isoPath)
   const outputDir = path.resolve(options.outputDir)
@@ -259,6 +291,7 @@ export async function extractIso(
       outputDir,
     ],
     onProgress,
+    signal,
   )
 
   if (result.code !== 0) {
@@ -284,6 +317,7 @@ function countSkippedSymlinks(log: string): number {
 export async function createIso(
   options: CreateIsoOptions,
   onProgress?: (progress: JobProgress) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const sourceDir = path.resolve(options.sourceDir)
   const outputIso = path.resolve(options.outputIso)
@@ -308,6 +342,7 @@ export async function createIso(
       sourceDir,
     ],
     onProgress,
+    signal,
   )
 
   if (result.code !== 0) {
@@ -324,6 +359,7 @@ export async function createIso(
 export async function createBootableIso(
   options: CreateBootableIsoOptions,
   onProgress?: (progress: JobProgress) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const sourceDir = path.resolve(options.sourceDir)
   const outputIso = path.resolve(options.outputIso)
@@ -371,7 +407,7 @@ export async function createBootableIso(
 
   onProgress?.({ phase: 'bootable', percent: 0, message: 'Creating bootable ISO…' })
 
-  const result = await runXorriso(args, onProgress)
+  const result = await runXorriso(args, onProgress, signal)
 
   if (result.code !== 0) {
     throw new Error(formatXorrisoError('bootable create', result.stderr || result.stdout))
@@ -388,11 +424,12 @@ export async function rebuildFromDirectory(
   options: CreateBootableIsoOptions | CreateIsoOptions,
   bootable: boolean,
   onProgress?: (progress: JobProgress) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   if (bootable) {
-    await createBootableIso(options as CreateBootableIsoOptions, onProgress)
+    await createBootableIso(options as CreateBootableIsoOptions, onProgress, signal)
   } else {
-    await createIso(options, onProgress)
+    await createIso(options, onProgress, signal)
   }
 }
 
