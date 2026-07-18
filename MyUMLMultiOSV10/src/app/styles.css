@@ -471,6 +471,22 @@ code {
   pointer-events: none;
 }
 
+.owned-element-shape {
+  cursor: pointer;
+}
+
+.owned-element-shape rect {
+  fill: transparent;
+  stroke: transparent;
+}
+
+.owned-element-shape:hover rect,
+.owned-element-shape.selected rect {
+  fill: rgba(196, 122, 37, 0.12);
+  stroke: var(--selected);
+  stroke-width: 1;
+}
+
 label {
   display: block;
   margin-bottom: 14px;
@@ -549,6 +565,33 @@ textarea {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.owned-element-list {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.owned-element-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(110px, 1fr) minmax(96px, 0.9fr);
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--button);
+  cursor: pointer;
+}
+
+.owned-element-row.active {
+  border-color: var(--selected);
+  box-shadow: inset 0 0 0 1px var(--selected);
+}
+
+.owned-element-row input,
+.owned-element-row select {
+  margin-top: 0;
 }
 
 .modal-backdrop {

@@ -588,7 +588,7 @@ export function App() {
               ))}
               {selectedConnector && pendingSourceNodeId && connectorPreviewPoint ? <ConnectorPreview source={document.nodes.find((node) => node.id === pendingSourceNodeId)} target={connectorPreviewPoint} connector={selectedConnector} /> : null}
               {document.nodes.map((node) => (
-                <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={stopDragging} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
+                <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={stopDragging} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
               ))}
             </g>
           </svg>
@@ -660,6 +660,21 @@ export function App() {
                     ))}
                   </select>
                 </div>
+                {(selectedNode.ownedElements ?? []).length > 0 ? (
+                  <div className="owned-element-list" aria-label={text.ownedElements}>
+                    {(selectedNode.ownedElements ?? []).map((element) => (
+                      <div key={element.id} className={selectedOwnedElement?.elementId === element.id ? 'owned-element-row active' : 'owned-element-row'} onClick={() => selectOwnedElement(selectedNode.id, element.id)}>
+                        <select aria-label={text.elementType} value={element.kind} onChange={(event) => updateActiveDocument((current) => updateOwnedElementKind(current, selectedNode.id, element.id, event.target.value as UmlOwnedElementKind))}>
+                          {ownedElementKindsForNode(selectedNode).map((kind) => (
+                            <option key={kind} value={kind}>{ownedElementLabels[locale][kind]}</option>
+                          ))}
+                        </select>
+                        <input aria-label={text.name} value={element.name} onChange={(event) => updateActiveDocument((current) => renameOwnedElement(current, selectedNode.id, element.id, event.target.value))} />
+                        <input aria-label={text.umlType} readOnly value={element.umlType} />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </>
             ) : null}
             {selectedOwnedElementValue && selectedOwnedElementNode ? (
@@ -1045,7 +1060,7 @@ function supportsMultiplicity(kind: RelationshipKind): boolean {
   }
 }
 
-function DiagramNode({ node, selected, onPointerDown, onPointerMove, onPointerUp, onContextMenu }: { node: UmlNode; selected: boolean; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: () => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
+function DiagramNode({ node, selected, selectedOwnedElementId, onPointerDown, onPointerMove, onPointerUp, onOwnedElementSelect, onContextMenu }: { node: UmlNode; selected: boolean; selectedOwnedElementId: string | undefined; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: () => void; onOwnedElementSelect: (elementId: string) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
   const className = selected ? 'node selected' : 'node';
   const ownedElements = node.ownedElements ?? [];
   const pointerHandlers = {
@@ -1110,7 +1125,10 @@ function DiagramNode({ node, selected, onPointerDown, onPointerMove, onPointerUp
       <text x="10" y="53">{node.umlType}</text>
       {ownedElements.length > 0 ? <line x1="0" y1="64" x2={node.width} y2="64" /> : null}
       {ownedElements.map((element, index) => (
-        <text key={element.id} x="10" y={84 + index * 18}>{formatOwnedElement(element.kind, element.name)}</text>
+        <g key={element.id} className={selectedOwnedElementId === element.id ? 'owned-element-shape selected' : 'owned-element-shape'} onPointerDown={(event) => { event.stopPropagation(); onOwnedElementSelect(element.id); }} onClick={(event) => event.stopPropagation()}>
+          <rect x="4" y={68 + index * 18} width={node.width - 8} height="18" rx="3" />
+          <text x="10" y={84 + index * 18}>{formatOwnedElement(element.kind, element.name)}</text>
+        </g>
       ))}
     </g>
   );
