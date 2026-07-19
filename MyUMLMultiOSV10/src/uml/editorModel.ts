@@ -30,11 +30,15 @@ export interface UmlEdge {
   targetId: string;
   directed: boolean;
   route: EdgeRoute;
+  sourceAnchor?: EdgeAnchor;
+  targetAnchor?: EdgeAnchor;
   sourceMultiplicity?: string;
   targetMultiplicity?: string;
+  sequenceY?: number;
 }
 
 export type EdgeRoute = 'straight' | 'orthogonal' | 'curve';
+export type EdgeAnchor = 'left' | 'right' | 'top' | 'bottom';
 
 export interface UmlDiagramDocument {
   id: string;
@@ -153,8 +157,8 @@ export function updateOwnedElementKind(document: UmlDiagramDocument, nodeId: str
   };
 }
 
-export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, sourceId: string, targetId: string): UmlDiagramDocument {
-  if (sourceId === targetId) {
+export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, sourceId: string, targetId: string, options: { sequenceY?: number } = {}): UmlDiagramDocument {
+  if (sourceId === targetId && tool.kind !== 'message') {
     return document;
   }
 
@@ -176,7 +180,8 @@ export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, 
     directed: tool.directed,
     route: 'straight',
     sourceMultiplicity: defaultMultiplicity(tool.kind),
-    targetMultiplicity: defaultMultiplicity(tool.kind)
+    targetMultiplicity: defaultMultiplicity(tool.kind),
+    sequenceY: options.sequenceY
   };
 
   return {
@@ -196,6 +201,21 @@ export function updateEdgeRoute(document: UmlDiagramDocument, edgeId: string, ro
   return {
     ...document,
     edges: document.edges.map((edge) => (edge.id === edgeId ? { ...edge, route } : edge))
+  };
+}
+
+export function updateEdgeAnchor(document: UmlDiagramDocument, edgeId: string, endpoint: 'source' | 'target', anchor: EdgeAnchor | undefined): UmlDiagramDocument {
+  return {
+    ...document,
+    edges: document.edges.map((edge) =>
+      edge.id === edgeId
+        ? {
+            ...edge,
+            sourceAnchor: endpoint === 'source' ? anchor : edge.sourceAnchor,
+            targetAnchor: endpoint === 'target' ? anchor : edge.targetAnchor
+          }
+        : edge
+    )
   };
 }
 
@@ -242,16 +262,29 @@ function defaultNodeSize(kind: UmlElementKind): { width: number; height: number 
       return { width: 88, height: 112 };
     case 'useCase':
       return { width: 136, height: 68 };
+    case 'subject':
+      return { width: 420, height: 280 };
     case 'lifeline':
       return { width: 124, height: 260 };
+    case 'combinedFragment':
+      return { width: 360, height: 220 };
     case 'message':
       return { width: 132, height: 34 };
     case 'initialNode':
     case 'finalNode':
+    case 'flowFinalNode':
     case 'pseudostate':
       return { width: 54, height: 54 };
     case 'decisionNode':
+    case 'mergeNode':
       return { width: 82, height: 82 };
+    case 'forkNode':
+    case 'joinNode':
+      return { width: 96, height: 16 };
+    case 'action':
+      return { width: 142, height: 62 };
+    case 'objectNode':
+      return { width: 132, height: 54 };
     default:
       return { width: 148, height: 78 };
   }

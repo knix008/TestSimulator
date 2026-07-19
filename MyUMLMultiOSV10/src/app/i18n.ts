@@ -8,10 +8,13 @@ export interface AppMessages {
   newProject: string;
   openProject: string;
   addDiagram: string;
+  deleteDiagram: string;
   diagramType: string;
   chooseDiagram: string;
   pointer: string;
   save: string;
+  undo: string;
+  redo: string;
   saveImage: string;
   imageFormat: string;
   transparentBackground: string;
@@ -30,6 +33,7 @@ export interface AppMessages {
   contextMenu: string;
   select: string;
   deleteSelected: string;
+  wrapWithLoop: string;
   diagramTypes: string;
   openDiagrams: string;
   palette: string;
@@ -44,6 +48,7 @@ export interface AppMessages {
   connectSource: string;
   connectTarget: string;
   nodes: string;
+  classes: string;
   edges: string;
   source: string;
   target: string;
@@ -51,6 +56,13 @@ export interface AppMessages {
   targetMultiplicity: string;
   relationship: string;
   lineStyle: string;
+  sourceAnchor: string;
+  targetAnchor: string;
+  anchorAuto: string;
+  anchorLeft: string;
+  anchorRight: string;
+  anchorTop: string;
+  anchorBottom: string;
   straight: string;
   orthogonal: string;
   curve: string;
@@ -75,10 +87,13 @@ export const messages: Record<Locale, AppMessages> = {
     newProject: 'New project',
     openProject: 'Open project',
     addDiagram: 'Add diagram',
+    deleteDiagram: 'Delete diagram',
     diagramType: 'Diagram type',
     chooseDiagram: 'Choose diagram to add',
     pointer: 'Pointer',
     save: 'Save project',
+    undo: 'Undo',
+    redo: 'Redo',
     saveImage: 'Save image',
     imageFormat: 'Image format',
     transparentBackground: 'Transparent background',
@@ -97,6 +112,7 @@ export const messages: Record<Locale, AppMessages> = {
     contextMenu: 'Context menu',
     select: 'Select',
     deleteSelected: 'Delete selected',
+    wrapWithLoop: 'Wrap with loop',
     diagramTypes: 'UML diagram types',
     openDiagrams: 'Open diagrams',
     palette: 'Palette',
@@ -111,6 +127,7 @@ export const messages: Record<Locale, AppMessages> = {
     connectSource: 'Select the source shape.',
     connectTarget: 'Select the target shape.',
     nodes: 'Shapes',
+    classes: 'Classes',
     edges: 'Relationships',
     source: 'Source',
     target: 'Target',
@@ -118,6 +135,13 @@ export const messages: Record<Locale, AppMessages> = {
     targetMultiplicity: 'Target multiplicity',
     relationship: 'Relationship',
     lineStyle: 'Line style',
+    sourceAnchor: 'Source connection',
+    targetAnchor: 'Target connection',
+    anchorAuto: 'Auto',
+    anchorLeft: 'Left',
+    anchorRight: 'Right',
+    anchorTop: 'Top',
+    anchorBottom: 'Bottom',
     straight: 'Straight',
     orthogonal: 'Orthogonal',
     curve: 'Curve',
@@ -140,10 +164,13 @@ export const messages: Record<Locale, AppMessages> = {
     newProject: '새 프로젝트',
     openProject: '프로젝트 열기',
     addDiagram: '다이어그램 추가',
+    deleteDiagram: '다이어그램 삭제',
     diagramType: '다이어그램 종류',
     chooseDiagram: '추가할 다이어그램 선택',
     pointer: '선택',
     save: '프로젝트 저장',
+    undo: '실행 취소',
+    redo: '다시 실행',
     saveImage: '이미지 저장',
     imageFormat: '이미지 포맷',
     transparentBackground: '배경 투명',
@@ -162,6 +189,7 @@ export const messages: Record<Locale, AppMessages> = {
     contextMenu: '컨텍스트 메뉴',
     select: '선택',
     deleteSelected: '선택 항목 삭제',
+    wrapWithLoop: 'loop로 감싸기',
     diagramTypes: 'UML 다이어그램 종류',
     openDiagrams: '열린 다이어그램',
     palette: '팔레트',
@@ -176,6 +204,7 @@ export const messages: Record<Locale, AppMessages> = {
     connectSource: '시작 도형을 선택하세요.',
     connectTarget: '대상 도형을 선택하세요.',
     nodes: '도형',
+    classes: '클래스',
     edges: '관계',
     source: '시작',
     target: '대상',
@@ -183,6 +212,13 @@ export const messages: Record<Locale, AppMessages> = {
     targetMultiplicity: '대상 multiplicity',
     relationship: '관계',
     lineStyle: '선 형태',
+    sourceAnchor: '시작 연결 위치',
+    targetAnchor: '끝 연결 위치',
+    anchorAuto: '자동',
+    anchorLeft: '왼쪽',
+    anchorRight: '오른쪽',
+    anchorTop: '위',
+    anchorBottom: '아래',
     straight: '직선',
     orthogonal: '직각',
     curve: '곡선',
@@ -285,12 +321,19 @@ export const toolLabels: Record<Locale, Partial<Record<UmlElementKind, string>>>
     executionEnvironment: '실행 환경',
     actor: '액터',
     useCase: '유스케이스',
+    subject: '시스템 경계',
     lifeline: '라이프라인',
     message: '메시지',
+    combinedFragment: '결합 fragment',
     action: '액션',
     decisionNode: '분기',
+    mergeNode: '병합',
+    forkNode: '포크',
+    joinNode: '조인',
+    objectNode: '객체 노드',
     initialNode: '시작',
     finalNode: '종료',
+    flowFinalNode: '흐름 종료',
     state: '상태',
     pseudostate: '초기 상태',
     timeObservation: '시간 관찰'

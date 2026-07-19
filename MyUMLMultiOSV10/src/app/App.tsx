@@ -1,5 +1,7 @@
 import {
   Activity,
+  ChevronDown,
+  ChevronRight,
   ArrowRight,
   Binary,
   Box,
@@ -24,11 +26,14 @@ import {
   PackagePlus,
   Plus,
   Puzzle,
+  Redo2,
   Save,
   Shapes,
   Square,
   Sun,
+  Trash2,
   ToggleLeft,
+  Undo2,
   UserRound,
   Waypoints,
   Workflow,
@@ -39,8 +44,10 @@ import {
 import { GIFEncoder, applyPalette, quantize } from 'gifenc';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { diagramDefinitions, getDiagramDefinition, type ConnectorTool, type DiagramKind, type PaletteTool, type RelationshipKind, type UmlElementKind } from '../uml/diagramRegistry.js';
-import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameEdge, renameNode, renameOwnedElement, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute, updateOwnedElementKind, type EdgeRoute, type UmlDiagramDocument, type UmlEdge, type UmlNode, type UmlOwnedElementKind } from '../uml/editorModel.js';
+import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameEdge, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute, updateOwnedElementKind, type EdgeAnchor, type EdgeRoute, type UmlDiagramDocument, type UmlEdge, type UmlNode, type UmlOwnedElementKind } from '../uml/editorModel.js';
 import { getUmlConnectorNotation } from '../uml/umlNotation.js';
+import { renderActivityDiagramNode } from './diagrams/activityDiagram.js';
+import { renderUseCaseDiagramNode } from './diagrams/useCaseDiagram.js';
 import { connectorLabels, diagramLabels, diagramScopes, messages, notationHints, type Locale, toolLabels } from './i18n.js';
 
 type Theme = 'light' | 'dark';
@@ -52,6 +59,7 @@ type ContextMenuState =
 const projectStorageKey = 'my-uml-multi-os:last-project';
 const minimumZoom = 0.5;
 const maximumZoom = 2;
+const classifierDragDataType = 'application/x-my-uml-classifier';
 const appIconUrl = `${import.meta.env.BASE_URL}app-icon.svg`;
 const imageExportFormats: ImageExportFormat[] = ['png', 'jpeg', 'gif', 'webp'];
 const transparentImageExportFormats: ImageExportFormat[] = ['png', 'gif', 'webp'];
@@ -65,12 +73,19 @@ const imageExportMimeTypes: Record<ImageExportFormat, string> = {
 interface SavedProjectFile {
   format: 'my-uml-multi-os-project';
   version: 1;
+  projectName?: string;
   documents: UmlDiagramDocument[];
   activeDocumentId: string;
 }
 
 interface ProjectOpenEvent extends Event {
   detail?: SavedProjectFile;
+}
+
+interface ProjectSnapshot {
+  projectName: string;
+  documents: UmlDiagramDocument[];
+  activeDocumentId: string;
 }
 
 function readStoredProject(locale: Locale): SavedProjectFile {
@@ -90,14 +105,20 @@ function readStoredProject(locale: Locale): SavedProjectFile {
 
 export function App() {
   const [initialProject] = useState(() => readStoredProject('ko'));
+  const [projectName, setProjectName] = useState<string>(() => initialProject.projectName ?? 'My UML Project');
   const [documents, setDocuments] = useState<UmlDiagramDocument[]>(() => initialProject.documents);
   const [activeDocumentId, setActiveDocumentId] = useState<string>(() => initialProject.activeDocumentId);
+  const [undoStack, setUndoStack] = useState<ProjectSnapshot[]>([]);
+  const [redoStack, setRedoStack] = useState<ProjectSnapshot[]>([]);
   const [selectedTool, setSelectedTool] = useState<PaletteTool | undefined>();
   const [selectedConnector, setSelectedConnector] = useState<ConnectorTool | undefined>();
   const [pendingSourceNodeId, setPendingSourceNodeId] = useState<string | undefined>();
   const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>();
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>();
   const [selectedOwnedElement, setSelectedOwnedElement] = useState<{ nodeId: string; elementId: string } | undefined>();
+  const [projectSelected, setProjectSelected] = useState(false);
+  const [diagramSelectedId, setDiagramSelectedId] = useState<string | undefined>(() => initialProject.activeDocumentId);
+  const [collapsedDiagramIds, setCollapsedDiagramIds] = useState<Set<string>>(() => new Set());
   const [connectorPreviewPoint, setConnectorPreviewPoint] = useState<Point | undefined>();
   const [canvasZooms, setCanvasZooms] = useState<Record<string, number>>({});
   const [locale, setLocale] = useState<Locale>('ko');
@@ -111,7 +132,11 @@ export function App() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<SVGSVGElement>(null);
-  const dragStateRef = useRef<{ nodeId: string; startClientX: number; startClientY: number; startX: number; startY: number } | undefined>(undefined);
+  const dragStateRef = useRef<{ nodeId: string; startClientX: number; startClientY: number; startX: number; startY: number; moved: boolean } | undefined>(undefined);
+  const resizeStateRef = useRef<{ nodeId: string; startClientX: number; startClientY: number; startWidth: number; startHeight: number } | undefined>(undefined);
+  const connectorDragStateRef = useRef<{ sourceId: string; startClientX: number; startClientY: number; moved: boolean; sequenceY?: number; startedFromLine?: boolean } | undefined>(undefined);
+  const messageReorderStateRef = useRef<{ edgeId: string; startClientY: number; startSequenceY: number } | undefined>(undefined);
+  const pendingConnectorRef = useRef<ConnectorTool | undefined>(undefined);
   const pendingSourceNodeIdRef = useRef<string | undefined>(undefined);
 
   const document = documents.find((candidate) => candidate.id === activeDocumentId) ?? documents[0];
@@ -121,16 +146,26 @@ export function App() {
   const selectedEdge = document.edges.find((edge) => edge.id === selectedEdgeId);
   const selectedOwnedElementNode = document.nodes.find((node) => node.id === selectedOwnedElement?.nodeId);
   const selectedOwnedElementValue = selectedOwnedElementNode?.ownedElements?.find((element) => element.id === selectedOwnedElement?.elementId);
+  const selectedDiagram = diagramSelectedId ? documents.find((candidate) => candidate.id === diagramSelectedId) : undefined;
+  const projectClassNodes = documents.flatMap((candidate) => candidate.nodes.filter((node) => node.kind === 'class').map((node) => ({ ...node, diagramId: candidate.id, diagramName: candidate.name })));
   const canvasZoom = canvasZooms[document.id] ?? 1;
   const effectiveImageExportFormat = imageExportTransparent && !transparentImageExportFormats.includes(imageExportFormat) ? 'png' : imageExportFormat;
-  const activeMode = selectedConnector ? connectorLabels[locale][selectedConnector.kind] ?? selectedConnector.label : selectedTool ? toolLabels[locale][selectedTool.kind] ?? selectedTool.label : text.pointer;
+  const canDeleteDiagram = documents.length > 1;
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
+  const activeConnector = selectedConnector ?? pendingConnectorRef.current;
+  const activeMode = activeConnector ? connectorLabels[locale][activeConnector.kind] ?? activeConnector.label : selectedTool ? paletteToolLabel(locale, selectedTool) : text.pointer;
   const selectionLabel = selectedOwnedElementValue
     ? `${selectedOwnedElementNode?.name ?? text.ownedElements} / ${selectedOwnedElementValue.name}`
     : selectedNode
       ? selectedNode.name
       : selectedEdge
         ? selectedEdge.name
-        : text.noSelection;
+        : selectedDiagram
+          ? selectedDiagram.name
+          : projectSelected
+            ? projectName
+            : text.noSelection;
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -139,12 +174,24 @@ export function App() {
         setContextMenu(undefined);
         setDiagramChooserOpen(false);
         setAboutOpen(false);
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoProjectChange();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'))) {
+        event.preventDefault();
+        redoProjectChange();
       }
     }
 
     globalThis.addEventListener('keydown', handleKeyDown);
     return () => globalThis.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  });
 
   useEffect(() => {
     function handleProjectOpen(event: ProjectOpenEvent) {
@@ -162,12 +209,55 @@ export function App() {
   }, []);
 
   function updateActiveDocument(updater: (current: UmlDiagramDocument) => UmlDiagramDocument) {
+    pushUndoSnapshot();
     setDocuments((currentDocuments) => currentDocuments.map((candidate) => (candidate.id === document.id ? updater(candidate) : candidate)));
+  }
+
+  function pushUndoSnapshot() {
+    setUndoStack((current) => [...current.slice(-99), { projectName, documents, activeDocumentId }]);
+    setRedoStack([]);
+  }
+
+  function restoreProjectSnapshot(snapshot: ProjectSnapshot) {
+    setProjectName(snapshot.projectName);
+    setDocuments(snapshot.documents);
+    setActiveDocumentId(snapshot.activeDocumentId);
+    resetSelection();
+    persistProjectFile(createProjectFile(snapshot.documents, snapshot.activeDocumentId, locale, snapshot.projectName));
+  }
+
+  function undoProjectChange() {
+    setUndoStack((current) => {
+      const previous = current[current.length - 1];
+
+      if (!previous) {
+        return current;
+      }
+
+      setRedoStack((redoCurrent) => [...redoCurrent.slice(-99), { projectName, documents, activeDocumentId }]);
+      restoreProjectSnapshot(previous);
+      return current.slice(0, -1);
+    });
+  }
+
+  function redoProjectChange() {
+    setRedoStack((current) => {
+      const next = current[current.length - 1];
+
+      if (!next) {
+        return current;
+      }
+
+      setUndoStack((undoCurrent) => [...undoCurrent.slice(-99), { projectName, documents, activeDocumentId }]);
+      restoreProjectSnapshot(next);
+      return current.slice(0, -1);
+    });
   }
 
   function createDiagram(kind: DiagramKind) {
     const nextDocument = createLocalizedDiagramDocument(kind, locale);
 
+    pushUndoSnapshot();
     setDocuments((currentDocuments) => [...currentDocuments, nextDocument]);
     setActiveDocumentId(nextDocument.id);
     setDiagramChooserOpen(false);
@@ -177,24 +267,49 @@ export function App() {
   function activateDocument(documentId: string) {
     setActiveDocumentId(documentId);
     resetSelection();
+    setDiagramSelectedId(documentId);
+  }
+
+  function deleteActiveDiagram() {
+    if (documents.length <= 1) {
+      return;
+    }
+
+    const currentIndex = Math.max(0, documents.findIndex((candidate) => candidate.id === document.id));
+    const nextDocuments = documents.filter((candidate) => candidate.id !== document.id);
+    const nextActiveDocument = nextDocuments[Math.min(currentIndex, nextDocuments.length - 1)] ?? nextDocuments[0];
+
+    pushUndoSnapshot();
+    setDocuments(nextDocuments);
+    setActiveDocumentId(nextActiveDocument.id);
+    resetSelection();
+    persistProjectFile(createProjectFile(nextDocuments, nextActiveDocument.id, locale, projectName));
   }
 
   function resetSelection() {
     setSelectedTool(undefined);
     setSelectedConnector(undefined);
+    pendingConnectorRef.current = undefined;
     pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    messageReorderStateRef.current = undefined;
     setPendingSourceNodeId(undefined);
     setSelectedNodeId(undefined);
     setSelectedEdgeId(undefined);
     setSelectedOwnedElement(undefined);
+    setProjectSelected(false);
+    setDiagramSelectedId(undefined);
     setConnectorPreviewPoint(undefined);
     setContextMenu(undefined);
   }
 
   function createNewProject() {
     const nextDocument = createLocalizedDiagramDocument('class', locale);
-    const nextProject = createProjectFile([nextDocument], nextDocument.id, locale);
+    const nextProjectName = 'My UML Project';
+    const nextProject = createProjectFile([nextDocument], nextDocument.id, locale, nextProjectName);
 
+    pushUndoSnapshot();
+    setProjectName(nextProjectName);
     setDocuments(nextProject.documents);
     setActiveDocumentId(nextProject.activeDocumentId);
     persistProjectFile(nextProject);
@@ -202,7 +317,7 @@ export function App() {
   }
 
   function saveProject() {
-    const projectFile = createProjectFile(documents, document.id, locale);
+    const projectFile = createProjectFile(documents, document.id, locale, projectName);
     const serializedProject = JSON.stringify(projectFile, null, 2);
     const blob = new Blob([serializedProject], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -265,16 +380,33 @@ export function App() {
   function applyProjectFile(projectFile: SavedProjectFile) {
     const normalizedProject = normalizeProjectFile(projectFile, locale);
 
+    pushUndoSnapshot();
+    setProjectName(normalizedProject.projectName ?? 'My UML Project');
     setDocuments(normalizedProject.documents);
     setActiveDocumentId(normalizedProject.activeDocumentId);
     persistProjectFile(normalizedProject);
     resetSelection();
   }
 
+  function updateProjectName(name: string) {
+    pushUndoSnapshot();
+    setProjectName(name);
+    persistProjectFile(createProjectFile(documents, document.id, locale, name));
+  }
+
+  function updateDiagramName(documentId: string, name: string) {
+    pushUndoSnapshot();
+    const nextDocuments = documents.map((candidate) => (candidate.id === documentId ? { ...candidate, name } : candidate));
+
+    setDocuments(nextDocuments);
+    persistProjectFile(createProjectFile(nextDocuments, activeDocumentId, locale, projectName));
+  }
+
   function switchLocale(nextLocale: Locale) {
     const currentDefaultNames = Object.values(diagramLabels.en).concat(Object.values(diagramLabels.ko));
 
     setLocale(nextLocale);
+  pushUndoSnapshot();
     setDocuments((currentDocuments) =>
       currentDocuments.map((candidate) => ({
         ...candidate,
@@ -311,19 +443,117 @@ export function App() {
     setContextMenu(undefined);
   }
 
+  function startClassifierDrag(event: React.DragEvent<HTMLButtonElement>, node: UmlNode) {
+    event.dataTransfer.effectAllowed = 'copy';
+    event.dataTransfer.setData(classifierDragDataType, JSON.stringify({ name: node.name }));
+  }
+
+  function handleCanvasDragOver(event: React.DragEvent<SVGSVGElement>) {
+    if (document.kind !== 'sequence' || !event.dataTransfer.types.includes(classifierDragDataType)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleCanvasDrop(event: React.DragEvent<SVGSVGElement>) {
+    if (document.kind !== 'sequence') {
+      return;
+    }
+
+    const rawPayload = event.dataTransfer.getData(classifierDragDataType);
+
+    if (!rawPayload) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const payload = JSON.parse(rawPayload) as { name?: string };
+    const lifelineTool = definition.palette.find((tool) => tool.kind === 'lifeline');
+
+    if (!lifelineTool || !payload.name) {
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = Math.round((event.clientX - bounds.left) / canvasZoom - 62);
+    const y = Math.round((event.clientY - bounds.top) / canvasZoom - 22);
+    const withLifeline = addPaletteNode(document, lifelineTool, Math.max(24, x), Math.max(24, y));
+    const createdNode = withLifeline.nodes[withLifeline.nodes.length - 1];
+    const nextDocument = renameNode(withLifeline, createdNode.id, payload.name);
+
+    updateActiveDocument(() => nextDocument);
+    setSelectedNodeId(createdNode.id);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    setContextMenu(undefined);
+  }
+
   function activatePointer() {
     setSelectedTool(undefined);
     setSelectedConnector(undefined);
+    clearConnectorState();
+  }
+
+  function clearConnectorState() {
+    pendingConnectorRef.current = undefined;
     pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
     setPendingSourceNodeId(undefined);
     setConnectorPreviewPoint(undefined);
   }
 
+  function completeConnector(sourceId: string, targetId: string) {
+    const connector = selectedConnector ?? pendingConnectorRef.current;
+
+    if (!connector) {
+      return;
+    }
+
+    const source = document.nodes.find((node) => node.id === sourceId);
+    const target = document.nodes.find((node) => node.id === targetId);
+
+    if (document.kind === 'sequence' && connector.kind === 'message' && (source?.kind !== 'lifeline' || target?.kind !== 'lifeline')) {
+      return;
+    }
+
+    const requestedSequenceY = connectorDragStateRef.current?.sequenceY ?? connectorPreviewPoint?.y ?? (source && target ? Math.max(source.y, target.y) + 72 : undefined);
+    const sequenceDocument = document.kind === 'sequence' && connector.kind === 'message' && source && target && requestedSequenceY !== undefined
+      ? extendLifelinesForMessage(document, sourceId, targetId, requestedSequenceY)
+      : document;
+    const sequenceSource = sequenceDocument.nodes.find((node) => node.id === sourceId);
+    const sequenceTarget = sequenceDocument.nodes.find((node) => node.id === targetId);
+    const sequenceY = sequenceDocument.kind === 'sequence' && connector.kind === 'message' && sequenceSource && sequenceTarget && requestedSequenceY !== undefined
+      ? clampLifelineMessageY(sequenceSource, sequenceTarget, requestedSequenceY)
+      : connectorPreviewPoint?.y;
+    const connectedDocument = connectNodes(sequenceDocument, connector, sourceId, targetId, { sequenceY });
+    const nextEdge = connectedDocument.edges[connectedDocument.edges.length - 1];
+    const nextDocument = connectedDocument.kind === 'sequence' && nextEdge?.kind === 'message'
+      ? spaceSequenceMessagesAfterInsert(connectedDocument, nextEdge.id)
+      : connectedDocument;
+
+    updateActiveDocument(() => nextDocument);
+    clearConnectorState();
+    setSelectedConnector(undefined);
+    setSelectedTool(undefined);
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(nextEdge?.id);
+    setSelectedOwnedElement(undefined);
+  }
+
   function selectNode(nodeId: string) {
     setContextMenu(undefined);
+    setProjectSelected(false);
+    setDiagramSelectedId(undefined);
 
     if (!selectedConnector) {
       pendingSourceNodeIdRef.current = undefined;
+      connectorDragStateRef.current = undefined;
+      messageReorderStateRef.current = undefined;
+      pendingConnectorRef.current = undefined;
       setSelectedNodeId(nodeId);
       setSelectedEdgeId(undefined);
       setSelectedOwnedElement(undefined);
@@ -334,44 +564,121 @@ export function App() {
     const pendingSourceNodeIdValue = pendingSourceNodeIdRef.current;
 
     if (!pendingSourceNodeIdValue) {
+      const sourceNode = document.nodes.find((node) => node.id === nodeId) ?? document.nodes[0];
+
+      if (document.kind === 'sequence' && selectedConnector.kind === 'message' && sourceNode?.kind !== 'lifeline') {
+        return;
+      }
+
+      pendingConnectorRef.current = selectedConnector;
       pendingSourceNodeIdRef.current = nodeId;
       setPendingSourceNodeId(nodeId);
       setSelectedNodeId(nodeId);
       setSelectedEdgeId(undefined);
       setSelectedOwnedElement(undefined);
-      setConnectorPreviewPoint(centerOf(document.nodes.find((node) => node.id === nodeId) ?? document.nodes[0]));
+      setConnectorPreviewPoint(initialConnectorPreviewPoint(sourceNode));
       return;
     }
 
-    const nextDocument = connectNodes(document, selectedConnector, pendingSourceNodeIdValue, nodeId);
-
-    updateActiveDocument(() => nextDocument);
-    pendingSourceNodeIdRef.current = undefined;
-    setPendingSourceNodeId(undefined);
-    setConnectorPreviewPoint(undefined);
-    setSelectedNodeId(undefined);
-    setSelectedEdgeId(nextDocument.edges[nextDocument.edges.length - 1]?.id);
-    setSelectedOwnedElement(undefined);
+    completeConnector(pendingSourceNodeIdValue, nodeId);
   }
 
   function selectEdge(edgeId: string) {
     setContextMenu(undefined);
+    setProjectSelected(false);
+    setDiagramSelectedId(undefined);
     setSelectedNodeId(undefined);
     setSelectedEdgeId(edgeId);
     setSelectedOwnedElement(undefined);
     pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    messageReorderStateRef.current = undefined;
+    pendingConnectorRef.current = undefined;
     setPendingSourceNodeId(undefined);
     setConnectorPreviewPoint(undefined);
   }
 
   function selectOwnedElement(nodeId: string, elementId: string) {
     setContextMenu(undefined);
+    setProjectSelected(false);
+    setDiagramSelectedId(undefined);
     setSelectedNodeId(nodeId);
     setSelectedEdgeId(undefined);
     setSelectedOwnedElement({ nodeId, elementId });
     pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    messageReorderStateRef.current = undefined;
+    pendingConnectorRef.current = undefined;
     setPendingSourceNodeId(undefined);
     setConnectorPreviewPoint(undefined);
+  }
+
+  function selectProjectFromTree() {
+    activatePointer();
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    setProjectSelected(true);
+    setDiagramSelectedId(undefined);
+    setContextMenu(undefined);
+  }
+
+  function selectDiagramFromTree(documentId: string) {
+    activatePointer();
+    setActiveDocumentId(documentId);
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    setProjectSelected(false);
+    setDiagramSelectedId(documentId);
+    setContextMenu(undefined);
+  }
+
+  function toggleDiagramTree(documentId: string) {
+    setCollapsedDiagramIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(documentId)) {
+        next.delete(documentId);
+      } else {
+        next.add(documentId);
+      }
+
+      return next;
+    });
+  }
+
+  function selectNodeFromTree(documentId: string, nodeId: string) {
+    activatePointer();
+    setActiveDocumentId(documentId);
+    setSelectedNodeId(nodeId);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    setProjectSelected(false);
+    setDiagramSelectedId(undefined);
+    setContextMenu(undefined);
+  }
+
+  function selectOwnedElementFromTree(documentId: string, nodeId: string, elementId: string) {
+    activatePointer();
+    setActiveDocumentId(documentId);
+    setSelectedNodeId(nodeId);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement({ nodeId, elementId });
+    setProjectSelected(false);
+    setDiagramSelectedId(undefined);
+    setContextMenu(undefined);
+  }
+
+  function selectEdgeFromTree(documentId: string, edgeId: string) {
+    activatePointer();
+    setActiveDocumentId(documentId);
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(edgeId);
+    setSelectedOwnedElement(undefined);
+    setProjectSelected(false);
+    setDiagramSelectedId(undefined);
+    setContextMenu(undefined);
   }
 
   function addElementToSelectedNode(kind: UmlOwnedElementKind) {
@@ -415,6 +722,41 @@ export function App() {
   function deleteEdge(edgeId: string) {
     updateActiveDocument((current) => ({ ...current, edges: current.edges.filter((edge) => edge.id !== edgeId) }));
     resetSelection();
+  }
+
+  function wrapMessageWithLoop(edgeId: string) {
+    const edge = document.edges.find((candidate) => candidate.id === edgeId);
+    const source = document.nodes.find((node) => node.id === edge?.sourceId);
+    const target = document.nodes.find((node) => node.id === edge?.targetId);
+    const loopTool = definition.palette.find((tool) => tool.kind === 'combinedFragment' && tool.label === 'Loop');
+
+    if (!edge || !source || !target || !loopTool) {
+      return;
+    }
+
+    const messageIndex = document.edges.slice(0, document.edges.findIndex((candidate) => candidate.id === edgeId)).filter((candidate) => candidate.kind === 'message').length;
+    const points = getSequenceMessagePoints(document.kind, edge, source, target, messageIndex);
+
+    if (!points) {
+      return;
+    }
+
+    const left = Math.min(source.x, target.x, points.source.x, points.target.x) - 42;
+    const right = Math.max(source.x + source.width, target.x + target.width, points.source.x, points.target.x) + 42;
+    const top = points.source.y - 46;
+    const height = points.selfCall ? 118 : 92;
+    const withLoop = addPaletteNode(document, loopTool, Math.max(24, Math.round(left)), Math.max(24, Math.round(top)));
+    const loopNode = withLoop.nodes[withLoop.nodes.length - 1];
+    const nextDocument = {
+      ...withLoop,
+      nodes: withLoop.nodes.map((node) => (node.id === loopNode.id ? { ...node, width: Math.max(220, Math.round(right - left)), height } : node))
+    };
+
+    updateActiveDocument(() => nextDocument);
+    setSelectedNodeId(loopNode.id);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    setContextMenu(undefined);
   }
 
   function deleteOwnedElement(nodeId: string, elementId: string) {
@@ -480,40 +822,143 @@ export function App() {
 
   function handleNodePointerDown(event: React.PointerEvent<SVGGElement>, node: UmlNode) {
     event.stopPropagation();
-    selectNode(node.id);
 
-    if (selectedConnector) {
+    const activeConnector = selectedConnector ?? pendingConnectorRef.current;
+
+    if (activeConnector) {
+      const pendingSourceNodeIdValue = pendingSourceNodeIdRef.current;
+
+      if (document.kind === 'sequence' && activeConnector.kind === 'message' && node.kind !== 'lifeline') {
+        return;
+      }
+
+      if (pendingSourceNodeIdValue) {
+        updatePendingSequenceMessageY(event, node);
+        completeConnector(pendingSourceNodeIdValue, node.id);
+        return;
+      }
+
+      pendingConnectorRef.current = activeConnector;
+      pendingSourceNodeIdRef.current = node.id;
+      const startPoint = pointerToCanvasPoint(event) ?? initialConnectorPreviewPoint(node);
+      const sequenceY = node.kind === 'lifeline' ? clampLifelineMessageY(node, node, startPoint.y) : undefined;
+      connectorDragStateRef.current = { sourceId: node.id, startClientX: event.clientX, startClientY: event.clientY, moved: false, sequenceY };
+      setPendingSourceNodeId(node.id);
+      setSelectedNodeId(node.id);
+      setSelectedEdgeId(undefined);
+      setSelectedOwnedElement(undefined);
+      setConnectorPreviewPoint(sequenceY === undefined ? initialConnectorPreviewPoint(node) : { x: initialConnectorPreviewPoint(node).x, y: sequenceY });
       return;
     }
+
+    selectNode(node.id);
 
     dragStateRef.current = {
       nodeId: node.id,
       startClientX: event.clientX,
       startClientY: event.clientY,
       startX: node.x,
-      startY: node.y
+      startY: node.y,
+      moved: false
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function handleCanvasPointerMove(event: React.PointerEvent<SVGElement>) {
+    const resizeState = resizeStateRef.current;
+
+    if (resizeState) {
+      const nextWidth = Math.max(160, Math.round(resizeState.startWidth + (event.clientX - resizeState.startClientX) / canvasZoom));
+      const nextHeight = Math.max(90, Math.round(resizeState.startHeight + (event.clientY - resizeState.startClientY) / canvasZoom));
+      updateActiveDocument((current) => ({
+        ...current,
+        nodes: current.nodes.map((node) => (node.id === resizeState.nodeId ? { ...node, width: nextWidth, height: nextHeight } : node))
+      }));
+      return;
+    }
+
+    const messageReorderState = messageReorderStateRef.current;
+
+    if (messageReorderState) {
+      const nextY = messageReorderState.startSequenceY + (event.clientY - messageReorderState.startClientY) / canvasZoom;
+      updateActiveDocument((current) => moveSequenceMessage(current, messageReorderState.edgeId, nextY));
+      return;
+    }
+
     const dragState = dragStateRef.current;
 
     if (!dragState) {
-      if (selectedConnector && pendingSourceNodeIdRef.current && canvasRef.current) {
+      if ((selectedConnector || pendingConnectorRef.current) && pendingSourceNodeIdRef.current && canvasRef.current) {
         const bounds = canvasRef.current.getBoundingClientRect();
+        const connectorDragState = connectorDragStateRef.current;
+
+        if (connectorDragState && Math.hypot(event.clientX - connectorDragState.startClientX, event.clientY - connectorDragState.startClientY) > 5) {
+          connectorDragState.moved = true;
+        }
+
+        const previewY = (event.clientY - bounds.top) / canvasZoom;
+
+        if (connectorDragState) {
+          connectorDragState.sequenceY = previewY;
+        }
+
         setConnectorPreviewPoint({
           x: (event.clientX - bounds.left) / canvasZoom,
-          y: (event.clientY - bounds.top) / canvasZoom
+          y: previewY
         });
       }
 
       return;
     }
 
-    const nextX = Math.max(0, Math.round(dragState.startX + (event.clientX - dragState.startClientX) / canvasZoom));
-    const nextY = Math.max(0, Math.round(dragState.startY + (event.clientY - dragState.startClientY) / canvasZoom));
+    const deltaX = event.clientX - dragState.startClientX;
+    const deltaY = event.clientY - dragState.startClientY;
+
+    if (Math.hypot(deltaX, deltaY) > 5) {
+      dragState.moved = true;
+    }
+
+    const nextX = Math.max(0, Math.round(dragState.startX + deltaX / canvasZoom));
+    const nextY = Math.max(0, Math.round(dragState.startY + deltaY / canvasZoom));
     updateActiveDocument((current) => moveNode(current, dragState.nodeId, nextX, nextY));
+  }
+
+  function pointerToCanvasPoint(event: React.PointerEvent<SVGElement>): Point | undefined {
+    if (!canvasRef.current) {
+      return undefined;
+    }
+
+    const bounds = canvasRef.current.getBoundingClientRect();
+
+    return {
+      x: (event.clientX - bounds.left) / canvasZoom,
+      y: (event.clientY - bounds.top) / canvasZoom
+    };
+  }
+
+  function handleNodePointerUp(event: React.PointerEvent<SVGGElement>, node: UmlNode) {
+    event.stopPropagation();
+
+    if (!selectedConnector && !pendingConnectorRef.current) {
+      stopDragging();
+      return;
+    }
+
+    const pendingSourceNodeIdValue = pendingSourceNodeIdRef.current;
+    const connectorDragState = connectorDragStateRef.current;
+
+    if (connectorDragState?.startedFromLine && pendingSourceNodeIdValue === node.id && !connectorDragState.moved) {
+      connectorDragState.startedFromLine = false;
+      return;
+    }
+
+    if (pendingSourceNodeIdValue && (pendingSourceNodeIdValue !== node.id || connectorDragState?.moved)) {
+      updatePendingSequenceMessageY(event, node);
+      completeConnector(pendingSourceNodeIdValue, node.id);
+      return;
+    }
+
+    connectorDragStateRef.current = undefined;
   }
 
   function handleCanvasWheel(event: React.WheelEvent<SVGSVGElement>) {
@@ -524,6 +969,121 @@ export function App() {
 
   function stopDragging() {
     dragStateRef.current = undefined;
+    resizeStateRef.current = undefined;
+    messageReorderStateRef.current = undefined;
+
+    if (connectorDragStateRef.current?.moved) {
+      pendingSourceNodeIdRef.current = undefined;
+      pendingConnectorRef.current = undefined;
+      setPendingSourceNodeId(undefined);
+      setConnectorPreviewPoint(undefined);
+    }
+
+    connectorDragStateRef.current = undefined;
+  }
+
+  function beginMessageFromLifelineLine(event: React.PointerEvent<SVGElement>, node: UmlNode) {
+    const messageConnector = definition.connectors.find((connector) => connector.kind === 'message');
+
+    if (document.kind !== 'sequence' || node.kind !== 'lifeline' || !messageConnector) {
+      return;
+    }
+
+    event.stopPropagation();
+    const startPoint = pointerToCanvasPoint(event) ?? initialConnectorPreviewPoint(node);
+    const sequenceY = clampLifelineMessageY(node, node, startPoint.y);
+
+    const pendingSourceNodeIdValue = pendingSourceNodeIdRef.current;
+    const activeConnector = selectedConnector ?? pendingConnectorRef.current;
+
+    if (activeConnector?.kind !== 'message') {
+      return;
+    }
+
+    if (pendingSourceNodeIdValue && activeConnector?.kind === 'message') {
+      if (connectorDragStateRef.current) {
+        connectorDragStateRef.current.sequenceY = startPoint.y;
+      }
+
+      completeConnector(pendingSourceNodeIdValue, node.id);
+      return;
+    }
+
+    clearConnectorState();
+    pendingConnectorRef.current = messageConnector;
+    pendingSourceNodeIdRef.current = node.id;
+    connectorDragStateRef.current = { sourceId: node.id, startClientX: event.clientX, startClientY: event.clientY, moved: false, sequenceY, startedFromLine: true };
+    setPendingSourceNodeId(node.id);
+    setSelectedNodeId(node.id);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    setConnectorPreviewPoint({ x: initialConnectorPreviewPoint(node).x, y: sequenceY });
+  }
+
+  function updatePendingSequenceMessageY(event: React.PointerEvent<SVGElement>, target: UmlNode) {
+    const connector = selectedConnector ?? pendingConnectorRef.current;
+
+    if (document.kind !== 'sequence' || connector?.kind !== 'message' || target.kind !== 'lifeline') {
+      return;
+    }
+
+    const point = pointerToCanvasPoint(event);
+
+    if (!point) {
+      return;
+    }
+
+    if (connectorDragStateRef.current) {
+      connectorDragStateRef.current.sequenceY = point.y;
+    } else {
+      connectorDragStateRef.current = {
+        sourceId: pendingSourceNodeIdRef.current ?? target.id,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        moved: true,
+        sequenceY: point.y
+      };
+    }
+
+    setConnectorPreviewPoint({ x: initialConnectorPreviewPoint(target).x, y: point.y });
+  }
+
+  function startNodeResize(event: React.PointerEvent<SVGGElement>, node: UmlNode) {
+    event.stopPropagation();
+    setContextMenu(undefined);
+    setSelectedNodeId(node.id);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    resizeStateRef.current = {
+      nodeId: node.id,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startWidth: node.width,
+      startHeight: node.height
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function startMessageReorder(event: React.PointerEvent<SVGGElement>, edge: UmlEdge) {
+    if (document.kind !== 'sequence' || edge.kind !== 'message' || selectedConnector) {
+      return;
+    }
+
+    event.stopPropagation();
+    setContextMenu(undefined);
+    pendingSourceNodeIdRef.current = undefined;
+    connectorDragStateRef.current = undefined;
+    setPendingSourceNodeId(undefined);
+    setConnectorPreviewPoint(undefined);
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(edge.id);
+    setSelectedOwnedElement(undefined);
+    messageReorderStateRef.current = {
+      edgeId: edge.id,
+      startClientY: event.clientY,
+      startSequenceY: sequenceYForEdge(document, edge)
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function updateCanvasZoom(delta: number) {
@@ -562,6 +1122,15 @@ export function App() {
             <Save size={18} />
             <span>{text.save}</span>
           </button>
+          <button type="button" title={text.undo} aria-label={text.undo} onClick={undoProjectChange} className="icon-button" disabled={!canUndo}>
+            <Undo2 size={17} />
+          </button>
+          <button type="button" title={text.redo} aria-label={text.redo} onClick={redoProjectChange} className="icon-button" disabled={!canRedo}>
+            <Redo2 size={17} />
+          </button>
+          <button type="button" title={text.deleteDiagram} aria-label={text.deleteDiagram} onClick={deleteActiveDiagram} className="icon-button" disabled={!canDeleteDiagram}>
+            <Trash2 size={17} />
+          </button>
           <button type="button" title={text.saveImage} aria-label={text.saveImage} onClick={() => { setImageExportError(undefined); setImageExportOpen(true); }} className="text-button">
             <ImageDown size={18} />
             <span>{text.saveImage}</span>
@@ -598,14 +1167,14 @@ export function App() {
             <PackagePlus size={18} />
             <span>{text.palette}</span>
           </div>
-          <button type="button" title={text.pointer} aria-label={text.pointer} onClick={activatePointer} className={!selectedTool && !selectedConnector ? 'tool active' : 'tool'}>
+          <button type="button" title={text.pointer} aria-label={text.pointer} onClick={activatePointer} className={!selectedTool && !activeConnector ? 'tool active' : 'tool'}>
             <MousePointer2 size={16} />
             <span>{text.pointer}</span>
           </button>
           {definition.palette.map((tool) => (
-            <button key={`${definition.kind}-${tool.kind}-${tool.label}`} type="button" className={selectedTool?.label === tool.label ? 'tool active' : 'tool'} onClick={() => { setSelectedTool(tool); setSelectedConnector(undefined); pendingSourceNodeIdRef.current = undefined; setPendingSourceNodeId(undefined); }}>
+            <button key={`${definition.kind}-${tool.kind}-${tool.label}`} type="button" className={selectedTool?.label === tool.label ? 'tool active' : 'tool'} onClick={() => { setSelectedTool(tool); setSelectedConnector(undefined); clearConnectorState(); }}>
               <ToolIcon kind={tool.kind} size={16} />
-              <span>{toolLabels[locale][tool.kind] ?? tool.label}</span>
+              <span>{paletteToolLabel(locale, tool)}</span>
             </button>
           ))}
           <div className="panel-heading connector-heading">
@@ -613,12 +1182,12 @@ export function App() {
             <span>{text.connectors}</span>
           </div>
           {definition.connectors.map((connector) => (
-            <button key={`${definition.kind}-${connector.kind}-${connector.label}`} type="button" className={selectedConnector?.label === connector.label ? 'tool active' : 'tool'} onClick={() => { setSelectedConnector(connector); setSelectedTool(undefined); pendingSourceNodeIdRef.current = undefined; setPendingSourceNodeId(undefined); }}>
+            <button key={`${definition.kind}-${connector.kind}-${connector.label}`} type="button" className={selectedConnector?.label === connector.label ? 'tool active' : 'tool'} onClick={() => { clearConnectorState(); setSelectedConnector(connector); setSelectedTool(undefined); }}>
               <ConnectorIcon kind={connector.kind} size={16} />
               <span>{connectorLabels[locale][connector.kind] ?? connector.label}</span>
             </button>
           ))}
-          {selectedConnector ? <p className="mode-hint">{pendingSourceNodeId ? text.connectTarget : text.connectSource}</p> : null}
+          {activeConnector ? <p className="mode-hint">{pendingSourceNodeId ? text.connectTarget : text.connectSource}</p> : null}
         </aside>
 
         <section className="editor">
@@ -638,7 +1207,7 @@ export function App() {
             <code>{definition.papyrusDiagramId}</code>
           </div>
 
-          <svg ref={canvasRef} className="canvas" role="application" aria-label={`${document.name} ${text.canvasSuffix}`} onClick={addNodeAtCanvas} onContextMenu={openCanvasContextMenu} onWheel={handleCanvasWheel} onPointerMove={handleCanvasPointerMove} onPointerUp={stopDragging} onPointerLeave={stopDragging}>
+          <svg ref={canvasRef} className="canvas" role="application" aria-label={`${document.name} ${text.canvasSuffix}`} onClick={addNodeAtCanvas} onContextMenu={openCanvasContextMenu} onWheel={handleCanvasWheel} onPointerMove={handleCanvasPointerMove} onPointerUp={stopDragging} onPointerLeave={stopDragging} onDragOver={handleCanvasDragOver} onDrop={handleCanvasDrop}>
             <defs>
               <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
                 <path className="grid-line" d="M 24 0 L 0 0 0 24" fill="none" strokeWidth="1" />
@@ -652,12 +1221,15 @@ export function App() {
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
             <g transform={`scale(${canvasZoom})`}>
-              {document.edges.map((edge) => (
-                <DiagramEdge key={edge.id} edge={edge} nodes={document.nodes} selected={edge.id === selectedEdgeId} onSelect={() => selectEdge(edge.id)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openEdgeContextMenu(event, edge.id)} />
+              {document.nodes.filter((node) => node.kind === 'combinedFragment' || node.kind === 'subject').map((node) => (
+                <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={false} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, node)} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, node)} onResizeStart={(event) => startNodeResize(event, node)} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
               ))}
-              {selectedConnector && pendingSourceNodeId && connectorPreviewPoint ? <ConnectorPreview source={document.nodes.find((node) => node.id === pendingSourceNodeId)} target={connectorPreviewPoint} connector={selectedConnector} /> : null}
-              {document.nodes.map((node) => (
-                <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={stopDragging} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
+              {document.edges.map((edge, edgeIndex) => (
+                <DiagramEdge key={edge.id} edge={edge} edgeIndex={document.kind === 'sequence' && edge.kind === 'message' ? document.edges.slice(0, edgeIndex).filter((candidate) => candidate.kind === 'message').length : edgeIndex} diagramKind={document.kind} nodes={document.nodes} selected={edge.id === selectedEdgeId} onSelect={() => selectEdge(edge.id)} onPointerDown={(event) => startMessageReorder(event, edge)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openEdgeContextMenu(event, edge.id)} />
+              ))}
+              {activeConnector && pendingSourceNodeId && connectorPreviewPoint ? <ConnectorPreview source={document.nodes.find((node) => node.id === pendingSourceNodeId)} target={connectorPreviewPoint} connector={activeConnector} diagramKind={document.kind} /> : null}
+              {document.nodes.filter((node) => node.kind !== 'combinedFragment' && node.kind !== 'subject').map((node) => (
+                <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={document.kind === 'sequence' && node.kind === 'lifeline' && activeConnector?.kind === 'message'} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, node)} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, node)} onResizeStart={(event) => startNodeResize(event, node)} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
               ))}
             </g>
           </svg>
@@ -669,32 +1241,62 @@ export function App() {
               <ListTree size={18} />
               <span>{text.modelTree}</span>
             </div>
-            <button type="button" className={!selectedNode && !selectedEdge && !selectedOwnedElementValue ? 'tree-item active' : 'tree-item'} onClick={() => { setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setSelectedOwnedElement(undefined); }}>
-              <DiagramIcon kind={definition.kind} size={16} />
-              <span>{document.name}</span>
+            <button type="button" className={projectSelected ? 'tree-item tree-root active' : 'tree-item tree-root'} onClick={selectProjectFromTree}>
+              <Package size={16} />
+              <span>{projectName || 'My UML Project'}</span>
             </button>
-            <div className="tree-group">{text.nodes}</div>
-            {document.nodes.map((node) => (
-              <div key={node.id}>
-                <button type="button" className={selectedNodeId === node.id && !selectedOwnedElementValue ? 'tree-item child active' : 'tree-item child'} onClick={() => selectNode(node.id)}>
-                  <ToolIcon kind={node.kind} size={15} />
-                  <span>{node.name}</span>
+            {documents.map((candidate) => {
+              const collapsed = collapsedDiagramIds.has(candidate.id);
+
+              return (
+              <div key={candidate.id} className="tree-branch">
+                <button type="button" className={diagramSelectedId === candidate.id ? 'tree-item tree-level-1 active' : 'tree-item tree-level-1'} onClick={() => selectDiagramFromTree(candidate.id)}>
+                  <span role="button" tabIndex={0} aria-label={collapsed ? 'Expand diagram' : 'Collapse diagram'} className="tree-toggle" onClick={(event) => { event.stopPropagation(); toggleDiagramTree(candidate.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); toggleDiagramTree(candidate.id); } }}>
+                    {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                  </span>
+                  <DiagramIcon kind={candidate.kind} size={15} />
+                  <span>{candidate.name}</span>
                 </button>
-                {(node.ownedElements ?? []).map((element) => (
-                  <button key={element.id} type="button" className={selectedOwnedElement?.elementId === element.id ? 'tree-item grandchild active' : 'tree-item grandchild'} onClick={() => selectOwnedElement(node.id, element.id)}>
-                    <Braces size={14} />
-                    <span>{element.name}</span>
+                {!collapsed ? (
+                  <>
+                    <div className="tree-group tree-level-2">{text.nodes}</div>
+                    {candidate.nodes.map((node) => (
+                      <div key={node.id}>
+                        <button type="button" draggable={node.kind === 'class'} className={candidate.id === document.id && selectedNodeId === node.id && !selectedOwnedElementValue ? 'tree-item tree-level-2 active' : 'tree-item tree-level-2'} onClick={() => selectNodeFromTree(candidate.id, node.id)} onDragStart={(event) => startClassifierDrag(event, node)}>
+                          <ToolIcon kind={node.kind} size={15} />
+                          <span>{node.name}</span>
+                        </button>
+                        {(node.ownedElements ?? []).map((element) => (
+                          <button key={element.id} type="button" className={candidate.id === document.id && selectedOwnedElement?.nodeId === node.id && selectedOwnedElement.elementId === element.id ? 'tree-item tree-level-3 active' : 'tree-item tree-level-3'} onClick={() => selectOwnedElementFromTree(candidate.id, node.id, element.id)}>
+                            <Braces size={14} />
+                            <span>{element.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                    <div className="tree-group tree-level-2">{text.edges}</div>
+                    {candidate.edges.map((edge) => (
+                      <button key={edge.id} type="button" className={candidate.id === document.id && selectedEdgeId === edge.id ? 'tree-item tree-level-2 active' : 'tree-item tree-level-2'} onClick={() => selectEdgeFromTree(candidate.id, edge.id)}>
+                        <ConnectorIcon kind={edge.kind} size={15} />
+                        <span>{edge.name}</span>
+                      </button>
+                    ))}
+                  </>
+                ) : null}
+              </div>
+              );
+            })}
+            {document.kind === 'sequence' && projectClassNodes.length > 0 ? (
+              <>
+                <div className="tree-group">{text.classes}</div>
+                {projectClassNodes.map((node) => (
+                  <button key={`${node.diagramId}-${node.id}`} type="button" draggable className="tree-item child draggable" onDragStart={(event) => startClassifierDrag(event, node)}>
+                    <ToolIcon kind="class" size={15} />
+                    <span>{node.name}</span>
                   </button>
                 ))}
-              </div>
-            ))}
-            <div className="tree-group">{text.edges}</div>
-            {document.edges.map((edge) => (
-              <button key={edge.id} type="button" className={selectedEdgeId === edge.id ? 'tree-item child active' : 'tree-item child'} onClick={() => selectEdge(edge.id)}>
-                <ConnectorIcon kind={edge.kind} size={15} />
-                <span>{edge.name}</span>
-              </button>
-            ))}
+              </>
+            ) : null}
           </section>
 
           <section className="properties" aria-label={text.properties}>
@@ -702,7 +1304,25 @@ export function App() {
               <Braces size={18} />
               <span>{text.properties}</span>
             </div>
-            {selectedOwnedElementValue && selectedOwnedElementNode ? (
+            {projectSelected ? (
+              <>
+                <label>
+                  {text.name}
+                  <input value={projectName} onChange={(event) => updateProjectName(event.target.value)} />
+                </label>
+              </>
+            ) : selectedDiagram ? (
+              <>
+                <label>
+                  {text.name}
+                  <input value={selectedDiagram.name} onChange={(event) => updateDiagramName(selectedDiagram.id, event.target.value)} />
+                </label>
+                <label>
+                  {text.diagramType}
+                  <input value={diagramLabels[locale][selectedDiagram.kind]} readOnly />
+                </label>
+              </>
+            ) : selectedOwnedElementValue && selectedOwnedElementNode ? (
               <>
                 <label>
                   {text.name}
@@ -755,6 +1375,26 @@ export function App() {
                     <option value="curve">{text.curve}</option>
                   </select>
                 </label>
+                <label>
+                  {text.sourceAnchor}
+                  <select value={selectedEdge.sourceAnchor ?? 'auto'} onChange={(event) => updateActiveDocument((current) => updateEdgeAnchor(current, selectedEdge.id, 'source', edgeAnchorFromSelection(event.target.value)))}>
+                    <option value="auto">{text.anchorAuto}</option>
+                    <option value="left">{text.anchorLeft}</option>
+                    <option value="right">{text.anchorRight}</option>
+                    <option value="top">{text.anchorTop}</option>
+                    <option value="bottom">{text.anchorBottom}</option>
+                  </select>
+                </label>
+                <label>
+                  {text.targetAnchor}
+                  <select value={selectedEdge.targetAnchor ?? 'auto'} onChange={(event) => updateActiveDocument((current) => updateEdgeAnchor(current, selectedEdge.id, 'target', edgeAnchorFromSelection(event.target.value)))}>
+                    <option value="auto">{text.anchorAuto}</option>
+                    <option value="left">{text.anchorLeft}</option>
+                    <option value="right">{text.anchorRight}</option>
+                    <option value="top">{text.anchorTop}</option>
+                    <option value="bottom">{text.anchorBottom}</option>
+                  </select>
+                </label>
                 {supportsMultiplicity(selectedEdge.kind) ? (
                   <>
                     <label>
@@ -782,7 +1422,7 @@ export function App() {
               {definition.palette.map((tool) => (
                 <button key={`context-${definition.kind}-${tool.kind}-${tool.label}`} type="button" role="menuitem" onClick={() => addNodeFromContext(tool, contextMenu.canvasX, contextMenu.canvasY)}>
                   <ToolIcon kind={tool.kind} size={14} />
-                  <span>{toolLabels[locale][tool.kind] ?? tool.label}</span>
+                  <span>{paletteToolLabel(locale, tool)}</span>
                 </button>
               ))}
               <div className="context-menu-heading">{text.connectors}</div>
@@ -808,6 +1448,7 @@ export function App() {
           {contextMenu.target === 'edge' ? (
             <>
               <button type="button" role="menuitem" onClick={() => selectEdge(contextMenu.edgeId)}>{text.select}</button>
+              {document.kind === 'sequence' && document.edges.find((edge) => edge.id === contextMenu.edgeId)?.kind === 'message' ? <button type="button" role="menuitem" onClick={() => wrapMessageWithLoop(contextMenu.edgeId)}>{text.wrapWithLoop}</button> : null}
               <div className="context-menu-heading">{text.lineStyle}</div>
               <button type="button" role="menuitem" onClick={() => { updateActiveDocument((current) => updateEdgeRoute(current, contextMenu.edgeId, 'straight')); setContextMenu(undefined); }}>{text.straight}</button>
               <button type="button" role="menuitem" onClick={() => { updateActiveDocument((current) => updateEdgeRoute(current, contextMenu.edgeId, 'orthogonal')); setContextMenu(undefined); }}>{text.orthogonal}</button>
@@ -903,10 +1544,11 @@ export function App() {
   );
 }
 
-function createProjectFile(documents: UmlDiagramDocument[], activeDocumentId: string, locale: Locale): SavedProjectFile {
+function createProjectFile(documents: UmlDiagramDocument[], activeDocumentId: string, locale: Locale, projectName = 'My UML Project'): SavedProjectFile {
   return normalizeProjectFile({
     format: 'my-uml-multi-os-project',
     version: 1,
+    projectName,
     documents,
     activeDocumentId
   }, locale);
@@ -927,7 +1569,7 @@ function normalizeProjectFile(projectFile: SavedProjectFile, locale: Locale): Sa
 
   if (documents.length === 0) {
     const document = createLocalizedDiagramDocument('class', locale);
-    return createProjectFile([document], document.id, locale);
+    return createProjectFile([document], document.id, locale, projectFile.projectName);
   }
 
   const activeDocumentId = documents.some((document) => document.id === projectFile.activeDocumentId) ? projectFile.activeDocumentId : documents[0].id;
@@ -935,6 +1577,7 @@ function normalizeProjectFile(projectFile: SavedProjectFile, locale: Locale): Sa
   return {
     format: 'my-uml-multi-os-project',
     version: 1,
+    projectName: projectFile.projectName ?? 'My UML Project',
     documents,
     activeDocumentId
   };
@@ -1010,8 +1653,11 @@ function normalizeEdge(edge: UmlEdge, connectors: ConnectorTool[], index: number
     targetId: edge.targetId,
     directed: typeof edge.directed === 'boolean' ? edge.directed : connector.directed,
     route: isEdgeRoute(edge.route) ? edge.route : 'straight',
+    sourceAnchor: isEdgeAnchor(edge.sourceAnchor) ? edge.sourceAnchor : undefined,
+    targetAnchor: isEdgeAnchor(edge.targetAnchor) ? edge.targetAnchor : undefined,
     sourceMultiplicity: typeof edge.sourceMultiplicity === 'string' ? edge.sourceMultiplicity : defaultSavedMultiplicity(connector.kind),
-    targetMultiplicity: typeof edge.targetMultiplicity === 'string' ? edge.targetMultiplicity : defaultSavedMultiplicity(connector.kind)
+    targetMultiplicity: typeof edge.targetMultiplicity === 'string' ? edge.targetMultiplicity : defaultSavedMultiplicity(connector.kind),
+    sequenceY: typeof edge.sequenceY === 'number' && Number.isFinite(edge.sequenceY) ? edge.sequenceY : undefined
   };
 }
 
@@ -1039,6 +1685,14 @@ function isEdgeRoute(route: string | undefined): route is EdgeRoute {
   return route === 'straight' || route === 'orthogonal' || route === 'curve';
 }
 
+function isEdgeAnchor(anchor: string | undefined): anchor is EdgeAnchor {
+  return anchor === 'left' || anchor === 'right' || anchor === 'top' || anchor === 'bottom';
+}
+
+function edgeAnchorFromSelection(anchor: string): EdgeAnchor | undefined {
+  return isEdgeAnchor(anchor) ? anchor : undefined;
+}
+
 function nonEmptyString(value: string | undefined, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value : fallback;
 }
@@ -1062,16 +1716,29 @@ function defaultSavedNodeSize(kind: UmlElementKind): { width: number; height: nu
       return { width: 88, height: 112 };
     case 'useCase':
       return { width: 136, height: 68 };
+    case 'subject':
+      return { width: 420, height: 280 };
     case 'lifeline':
       return { width: 124, height: 260 };
+    case 'combinedFragment':
+      return { width: 360, height: 220 };
     case 'message':
       return { width: 132, height: 34 };
     case 'initialNode':
     case 'finalNode':
+    case 'flowFinalNode':
     case 'pseudostate':
       return { width: 54, height: 54 };
     case 'decisionNode':
+    case 'mergeNode':
       return { width: 82, height: 82 };
+    case 'forkNode':
+    case 'joinNode':
+      return { width: 96, height: 16 };
+    case 'action':
+      return { width: 142, height: 62 };
+    case 'objectNode':
+      return { width: 132, height: 54 };
     default:
       return { width: 148, height: 78 };
   }
@@ -1219,6 +1886,7 @@ function createExportSvgCss(shellStyle: CSSStyleDeclaration, backgroundColor: st
     .node .compartment-label { fill: ${muted}; font-size: 12px; font-weight: 800; }
     .owned-element-shape rect { fill: transparent; stroke: transparent; stroke-width: 0; }
     .edge path { fill: none; stroke: ${nodeStroke}; stroke-width: 1.7; }
+    .edge .activation-bar { fill: ${nodeFill}; stroke: ${nodeStroke}; stroke-width: 1.4; }
     .edge text { fill: ${text}; font-family: Bahnschrift, 'Aptos Display', 'Segoe UI', sans-serif; font-size: 12px; paint-order: stroke; stroke: ${backgroundColor}; stroke-width: 4px; }
     .arrow-marker, .hollow-arrow-marker { stroke: ${nodeStroke}; stroke-width: 1.4; }
     .arrow-marker { fill: none; }
@@ -1340,12 +2008,19 @@ const toolIconMap: Partial<Record<UmlElementKind, LucideIcon>> = {
   executionEnvironment: Boxes,
   actor: UserRound,
   useCase: Circle,
+  subject: Square,
   lifeline: Workflow,
   message: Waypoints,
+  combinedFragment: Braces,
   action: Activity,
   decisionNode: GitBranch,
+  mergeNode: GitBranch,
+  forkNode: Square,
+  joinNode: Square,
+  objectNode: Box,
   initialNode: CircleDot,
   finalNode: CircleDot,
+  flowFinalNode: Circle,
   state: ToggleLeft,
   pseudostate: CircleDot,
   timeObservation: Clock3
@@ -1361,6 +2036,10 @@ function ToolIcon({ kind, size }: { kind: UmlElementKind; size: number }) {
   return <Icon size={size} />;
 }
 
+function paletteToolLabel(locale: Locale, tool: PaletteTool): string {
+  return tool.kind === 'combinedFragment' ? tool.label : toolLabels[locale][tool.kind] ?? tool.label;
+}
+
 function ConnectorIcon({ kind, size }: { kind: RelationshipKind; size: number }) {
   const notation = getUmlConnectorNotation(kind);
   const dashArray = notation.dashed ? '3 3' : undefined;
@@ -1374,7 +2053,7 @@ function ConnectorIcon({ kind, size }: { kind: RelationshipKind; size: number })
   );
 }
 
-function DiagramEdge({ edge, nodes, selected, onSelect, onContextMenu }: { edge: UmlEdge; nodes: UmlNode[]; selected: boolean; onSelect: () => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
+function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, selected, onSelect, onPointerDown, onContextMenu }: { edge: UmlEdge; edgeIndex: number; diagramKind: DiagramKind; nodes: UmlNode[]; selected: boolean; onSelect: () => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
   const source = nodes.find((node) => node.id === edge.sourceId);
   const target = nodes.find((node) => node.id === edge.targetId);
 
@@ -1386,44 +2065,257 @@ function DiagramEdge({ edge, nodes, selected, onSelect, onContextMenu }: { edge:
   const targetCenter = centerOf(target);
   const className = selected ? 'edge selected' : 'edge';
   const notation = getUmlConnectorNotation(edge.kind);
-  const sourcePoint = notation.marker === 'none' ? boundaryPoint(source, targetCenter) : orthogonalBoundaryPoint(source, targetCenter);
-  const targetPoint = notation.marker === 'none' ? boundaryPoint(target, sourceCenter) : orthogonalBoundaryPoint(target, sourceCenter);
+  const sequenceMessagePoints = getSequenceMessagePoints(diagramKind, edge, source, target, edgeIndex);
+  const sourceAnchor = edge.route === 'orthogonal' ? edge.sourceAnchor ?? connectionSideToward(source, targetCenter) : edge.sourceAnchor;
+  const targetAnchor = edge.route === 'orthogonal' ? edge.targetAnchor ?? connectionSideToward(target, sourceCenter) : edge.targetAnchor;
+  const sourcePoint = sequenceMessagePoints?.source ?? connectionPoint(source, targetCenter, sourceAnchor);
+  const targetPoint = sequenceMessagePoints?.target ?? connectionPoint(target, sourceCenter, targetAnchor);
   const markerEnd = notation.marker === 'hollowTriangle' ? 'url(#triangle-arrow)' : notation.marker === 'openArrow' ? 'url(#line-arrow)' : undefined;
   const label = notation.stereotype ? `«${notation.stereotype}»` : edge.name;
   const sourceMultiplicityPoint = pointBetween(sourcePoint, targetPoint, 0.18, -12);
   const targetMultiplicityPoint = pointBetween(sourcePoint, targetPoint, 0.82, -12);
+  const activation = sequenceMessagePoints ? getSequenceActivationRect(target, sequenceMessagePoints.target) : undefined;
+  const pathData = sequenceMessagePoints?.selfCall ? selfMessagePath(sequenceMessagePoints.source, sequenceMessagePoints.target) : edgePath(edge.route, sourcePoint, targetPoint, sourceAnchor, targetAnchor);
+  const labelPoint = sequenceMessagePoints?.selfCall ? { x: sequenceMessagePoints.source.x + 42, y: sequenceMessagePoints.source.y - 8 } : { x: (sourcePoint.x + targetPoint.x) / 2, y: (sourcePoint.y + targetPoint.y) / 2 - 8 };
 
   return (
-    <g className={className} onClick={(event) => { event.stopPropagation(); onSelect(); }} onContextMenu={onContextMenu}>
-      <path d={edgePath(edge.route, sourcePoint, targetPoint, notation.marker !== 'none')} markerEnd={markerEnd} strokeDasharray={notation.dashed ? '8 5' : undefined} />
-      <text x={(sourcePoint.x + targetPoint.x) / 2} y={(sourcePoint.y + targetPoint.y) / 2 - 8} textAnchor="middle">{label}</text>
+    <g className={className} onPointerDown={onPointerDown} onClick={(event) => { event.stopPropagation(); onSelect(); }} onContextMenu={onContextMenu}>
+      {activation ? <rect className="activation-bar" x={activation.x} y={activation.y} width={activation.width} height={activation.height} rx="2" /> : null}
+      <path d={pathData} markerEnd={markerEnd} strokeDasharray={notation.dashed ? '8 5' : undefined} />
+      <text x={labelPoint.x} y={labelPoint.y} textAnchor="middle">{label}</text>
       {supportsMultiplicity(edge.kind) && edge.sourceMultiplicity ? <text className="multiplicity" x={sourceMultiplicityPoint.x} y={sourceMultiplicityPoint.y} textAnchor="middle">{edge.sourceMultiplicity}</text> : null}
       {supportsMultiplicity(edge.kind) && edge.targetMultiplicity ? <text className="multiplicity" x={targetMultiplicityPoint.x} y={targetMultiplicityPoint.y} textAnchor="middle">{edge.targetMultiplicity}</text> : null}
     </g>
   );
 }
 
-function ConnectorPreview({ source, target, connector }: { source: UmlNode | undefined; target: Point; connector: ConnectorTool }) {
+function moveSequenceMessage(document: UmlDiagramDocument, edgeId: string, nextY: number): UmlDiagramDocument {
+  if (document.kind !== 'sequence') {
+    return document;
+  }
+
+  const edge = document.edges.find((candidate) => candidate.id === edgeId);
+
+  if (!edge || edge.kind !== 'message') {
+    return document;
+  }
+
+  const extendedDocument = extendLifelinesForMessage(document, edge.sourceId, edge.targetId, nextY);
+  const extendedEdge = extendedDocument.edges.find((candidate) => candidate.id === edgeId) ?? edge;
+  const clampedY = clampSequenceMessageY(extendedDocument, extendedEdge, nextY);
+  const movedEdges = extendedDocument.edges.map((candidate) => (candidate.id === edgeId ? { ...candidate, sequenceY: clampedY } : candidate));
+  const movedDocument = { ...extendedDocument, edges: movedEdges };
+  const originalIndexes = new Map(document.edges.map((candidate, index) => [candidate.id, index]));
+  const sortedMessages = movedEdges
+    .filter((candidate) => candidate.kind === 'message')
+    .sort((left, right) => sequenceYForEdge(movedDocument, left) - sequenceYForEdge(movedDocument, right) || (originalIndexes.get(left.id) ?? 0) - (originalIndexes.get(right.id) ?? 0));
+  let messageIndex = 0;
+
+  return {
+    ...extendedDocument,
+    edges: movedEdges.map((candidate) => (candidate.kind === 'message' ? sortedMessages[messageIndex++] : candidate))
+  };
+}
+
+function spaceSequenceMessagesAfterInsert(document: UmlDiagramDocument, insertedEdgeId: string): UmlDiagramDocument {
+  if (document.kind !== 'sequence') {
+    return document;
+  }
+
+  const insertedEdge = document.edges.find((edge) => edge.id === insertedEdgeId);
+
+  if (!insertedEdge || insertedEdge.kind !== 'message') {
+    return document;
+  }
+
+  const minimumGap = 42;
+  const originalIndexes = new Map(document.edges.map((edge, index) => [edge.id, index]));
+  const sortedMessages = document.edges
+    .filter((edge) => edge.kind === 'message')
+    .sort((left, right) => {
+      const yDifference = sequenceYForEdge(document, left) - sequenceYForEdge(document, right);
+
+      if (yDifference !== 0) {
+        return yDifference;
+      }
+
+      if (left.id === insertedEdgeId) {
+        return -1;
+      }
+
+      if (right.id === insertedEdgeId) {
+        return 1;
+      }
+
+      return (originalIndexes.get(left.id) ?? 0) - (originalIndexes.get(right.id) ?? 0);
+    });
+  const adjustedYByEdgeId = new Map<string, number>();
+  let previousY: number | undefined;
+
+  for (const message of sortedMessages) {
+    const requestedY = sequenceYForEdge(document, message);
+    const nextY = previousY === undefined ? requestedY : Math.max(requestedY, previousY + minimumGap);
+
+    adjustedYByEdgeId.set(message.id, nextY);
+    previousY = nextY;
+  }
+
+  let messageIndex = 0;
+  const spacedDocument = {
+    ...document,
+    edges: document.edges.map((edge) => {
+      if (edge.kind !== 'message') {
+        return edge;
+      }
+
+      const sortedMessage = sortedMessages[messageIndex++];
+      return { ...sortedMessage, sequenceY: adjustedYByEdgeId.get(sortedMessage.id) ?? sortedMessage.sequenceY };
+    })
+  };
+
+  return spacedDocument.edges.reduce(
+    (current, edge) => edge.kind === 'message' && edge.sequenceY !== undefined ? extendLifelinesForMessage(current, edge.sourceId, edge.targetId, edge.sequenceY) : current,
+    spacedDocument
+  );
+}
+
+function extendLifelinesForMessage(document: UmlDiagramDocument, sourceId: string, targetId: string, requestedY: number): UmlDiagramDocument {
+  if (document.kind !== 'sequence') {
+    return document;
+  }
+
+  const source = document.nodes.find((node) => node.id === sourceId);
+  const target = document.nodes.find((node) => node.id === targetId);
+
+  if (source?.kind !== 'lifeline' || target?.kind !== 'lifeline') {
+    return document;
+  }
+
+  const requiredBottom = Math.round(requestedY) + 72;
+
+  return {
+    ...document,
+    nodes: document.nodes.map((node) => {
+      if (node.id !== sourceId && node.id !== targetId) {
+        return node;
+      }
+
+      return { ...node, height: Math.max(node.height, requiredBottom - node.y) };
+    })
+  };
+}
+
+function sequenceYForEdge(document: UmlDiagramDocument, edge: UmlEdge): number {
+  const source = document.nodes.find((node) => node.id === edge.sourceId);
+  const target = document.nodes.find((node) => node.id === edge.targetId);
+
+  if (!source || !target) {
+    return edge.sequenceY ?? 72;
+  }
+
+  return edge.sequenceY ?? Math.max(source.y, target.y) + 72 + messageIndexForEdge(document.edges, edge.id) * 34;
+}
+
+function clampSequenceMessageY(document: UmlDiagramDocument, edge: UmlEdge, y: number): number {
+  const source = document.nodes.find((node) => node.id === edge.sourceId);
+  const target = document.nodes.find((node) => node.id === edge.targetId);
+
+  if (!source || !target) {
+    return y;
+  }
+
+  return clampLifelineMessageY(source, target, y);
+}
+
+function messageIndexForEdge(edges: UmlEdge[], edgeId: string): number {
+  return Math.max(0, edges.filter((edge) => edge.kind === 'message').findIndex((edge) => edge.id === edgeId));
+}
+
+function ConnectorPreview({ source, target, connector, diagramKind }: { source: UmlNode | undefined; target: Point; connector: ConnectorTool; diagramKind: DiagramKind }) {
   if (!source) {
     return null;
   }
 
   const notation = getUmlConnectorNotation(connector.kind);
-  const sourcePoint = notation.marker === 'none' ? boundaryPoint(source, target) : orthogonalBoundaryPoint(source, target);
+  const sequencePreview = diagramKind === 'sequence' && connector.kind === 'message' && source.kind === 'lifeline';
+  const previewY = sequencePreview ? clampLifelineMessageY(source, source, target.y) : target.y;
+  const sourcePoint = sequencePreview ? lifelineLinePoint(source, previewY) : connectionPoint(source, target);
+  const targetPoint = sequencePreview ? { x: target.x, y: sourcePoint.y } : target;
   const markerEnd = notation.marker === 'hollowTriangle' ? 'url(#triangle-arrow)' : notation.marker === 'openArrow' ? 'url(#line-arrow)' : undefined;
 
   return (
     <g className="edge preview-edge">
-      <path d={edgePath('straight', sourcePoint, target, notation.marker !== 'none')} markerEnd={markerEnd} strokeDasharray={notation.dashed ? '8 5' : undefined} />
-      <text x={(sourcePoint.x + target.x) / 2} y={(sourcePoint.y + target.y) / 2 - 8} textAnchor="middle">{notation.stereotype ? `«${notation.stereotype}»` : connector.label}</text>
+      <path d={edgePath('straight', sourcePoint, targetPoint)} markerEnd={markerEnd} strokeDasharray={notation.dashed ? '8 5' : undefined} />
+      <text x={(sourcePoint.x + targetPoint.x) / 2} y={(sourcePoint.y + targetPoint.y) / 2 - 8} textAnchor="middle">{notation.stereotype ? `«${notation.stereotype}»` : connector.label}</text>
     </g>
   );
 }
 
-function edgePath(route: EdgeRoute, source: Point, target: Point, forceOrthogonal: boolean): string {
-  if (route === 'orthogonal' || forceOrthogonal) {
-    const middleX = (source.x + target.x) / 2;
-    return `M ${source.x} ${source.y} L ${middleX} ${source.y} L ${middleX} ${target.y} L ${target.x} ${target.y}`;
+interface SequenceMessagePoints {
+  source: Point;
+  target: Point;
+  selfCall: boolean;
+}
+
+function getSequenceMessagePoints(diagramKind: DiagramKind, edge: UmlEdge, source: UmlNode, target: UmlNode, edgeIndex: number): SequenceMessagePoints | undefined {
+  if (diagramKind !== 'sequence' || edge.kind !== 'message' || source.kind !== 'lifeline' || target.kind !== 'lifeline') {
+    return undefined;
+  }
+
+  const y = clampLifelineMessageY(source, target, edge.sequenceY ?? Math.max(source.y, target.y) + 72 + edgeIndex * 34);
+
+  if (source.id === target.id) {
+    const sourcePoint = lifelineLinePoint(source, y);
+
+    return {
+      source: sourcePoint,
+      target: lifelineLinePoint(source, y + 34),
+      selfCall: true
+    };
+  }
+
+  return {
+    source: lifelineLinePoint(source, y),
+    target: lifelineLinePoint(target, y),
+    selfCall: false
+  };
+}
+
+function lifelineLinePoint(lifeline: UmlNode, y: number): Point {
+  return {
+    x: lifeline.x + lifeline.width / 2,
+    y: Math.max(lifeline.y + 44, Math.min(lifeline.y + lifeline.height, y))
+  };
+}
+
+function clampLifelineMessageY(source: UmlNode, target: UmlNode, y: number): number {
+  const top = Math.max(source.y, target.y) + 44;
+  const bottom = Math.min(source.y + source.height, target.y + target.height);
+
+  return Math.max(top, Math.min(bottom, Math.round(y)));
+}
+
+function selfMessagePath(source: Point, target: Point): string {
+  const loopX = source.x + 58;
+
+  return `M ${source.x} ${source.y} L ${loopX} ${source.y} L ${loopX} ${target.y} L ${target.x} ${target.y}`;
+}
+
+function getSequenceActivationRect(lifeline: UmlNode, messageTarget: Point): { x: number; y: number; width: number; height: number } {
+  const width = 14;
+  const y = Math.max(lifeline.y + 44, messageTarget.y);
+
+  return {
+    x: messageTarget.x - width / 2,
+    y,
+    width,
+    height: Math.min(54, Math.max(34, lifeline.y + lifeline.height - y))
+  };
+}
+
+function edgePath(route: EdgeRoute, source: Point, target: Point, sourceAnchor?: EdgeAnchor, targetAnchor?: EdgeAnchor): string {
+  if (route === 'orthogonal') {
+    return orthogonalEdgePath(source, target, sourceAnchor, targetAnchor);
   }
 
   if (route === 'curve') {
@@ -1433,6 +2325,43 @@ function edgePath(route: EdgeRoute, source: Point, target: Point, forceOrthogona
   }
 
   return `M ${source.x} ${source.y} L ${target.x} ${target.y}`;
+}
+
+function orthogonalEdgePath(source: Point, target: Point, sourceAnchor?: EdgeAnchor, targetAnchor?: EdgeAnchor): string {
+  const stubLength = 28;
+  const sourceDirection = anchorDirection(sourceAnchor ?? horizontalAnchorBetween(source, target));
+  const targetDirection = anchorDirection(targetAnchor ?? horizontalAnchorBetween(target, source));
+  const sourceStub = { x: source.x + sourceDirection.x * stubLength, y: source.y + sourceDirection.y * stubLength };
+  const targetStub = { x: target.x + targetDirection.x * stubLength, y: target.y + targetDirection.y * stubLength };
+  const points = targetDirection.x !== 0
+    ? [source, sourceStub, { x: targetStub.x, y: sourceStub.y }, targetStub, target]
+    : [source, sourceStub, { x: sourceStub.x, y: targetStub.y }, targetStub, target];
+
+  return pointsToPath(points);
+}
+
+function pointsToPath(points: Point[]): string {
+  const uniquePoints = points.filter((point, index) => index === 0 || point.x !== points[index - 1].x || point.y !== points[index - 1].y);
+  const [start, ...segments] = uniquePoints;
+
+  return `M ${start.x} ${start.y}${segments.map((point) => ` L ${point.x} ${point.y}`).join('')}`;
+}
+
+function anchorDirection(anchor: EdgeAnchor): Point {
+  switch (anchor) {
+    case 'left':
+      return { x: -1, y: 0 };
+    case 'right':
+      return { x: 1, y: 0 };
+    case 'top':
+      return { x: 0, y: -1 };
+    case 'bottom':
+      return { x: 0, y: 1 };
+  }
+}
+
+function horizontalAnchorBetween(source: Point, target: Point): EdgeAnchor {
+  return target.x >= source.x ? 'right' : 'left';
 }
 
 interface Point {
@@ -1447,8 +2376,54 @@ function centerOf(node: UmlNode): Point {
   };
 }
 
-function boundaryPoint(node: UmlNode, toward: Point): Point {
+function initialConnectorPreviewPoint(node: UmlNode): Point {
   const center = centerOf(node);
+
+  return node.kind === 'lifeline' ? { x: center.x + 88, y: Math.max(node.y + 72, center.y) } : center;
+}
+
+function connectionPoint(node: UmlNode, toward: Point, anchor?: EdgeAnchor): Point {
+  if (!anchor) {
+    return boundaryPoint(node, toward);
+  }
+
+  return anchoredBoundaryPoint(node, anchor);
+}
+
+function connectionSideToward(node: UmlNode, toward: Point): EdgeAnchor {
+  const bounds = connectionBounds(node);
+  const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  const deltaX = toward.x - center.x;
+  const deltaY = toward.y - center.y;
+
+  if (Math.abs(deltaX / bounds.width) >= Math.abs(deltaY / bounds.height)) {
+    return deltaX >= 0 ? 'right' : 'left';
+  }
+
+  return deltaY >= 0 ? 'bottom' : 'top';
+}
+
+function anchoredBoundaryPoint(node: UmlNode, anchor: EdgeAnchor): Point {
+  const center = centerOf(node);
+
+  switch (anchor) {
+    case 'left':
+      return boundaryPoint(node, { x: center.x - node.width, y: center.y });
+    case 'right':
+      return boundaryPoint(node, { x: center.x + node.width, y: center.y });
+    case 'top':
+      return boundaryPoint(node, { x: center.x, y: center.y - node.height });
+    case 'bottom':
+      return boundaryPoint(node, { x: center.x, y: center.y + node.height });
+  }
+}
+
+function boundaryPoint(node: UmlNode, toward: Point): Point {
+  const shapeBounds = connectionBounds(node);
+  const center = {
+    x: shapeBounds.x + shapeBounds.width / 2,
+    y: shapeBounds.y + shapeBounds.height / 2
+  };
   const deltaX = toward.x - center.x;
   const deltaY = toward.y - center.y;
 
@@ -1456,20 +2431,66 @@ function boundaryPoint(node: UmlNode, toward: Point): Point {
     return center;
   }
 
-  if (node.kind === 'useCase') {
-    const radiusX = node.width / 2;
-    const radiusY = node.height / 2;
-    const scale = 1 / Math.sqrt((deltaX * deltaX) / (radiusX * radiusX) + (deltaY * deltaY) / (radiusY * radiusY));
+  if (isEllipseConnectionNode(node)) {
+    return ellipseBoundaryPoint(shapeBounds, toward);
+  }
+
+  if (isDiamondConnectionNode(node)) {
+    return diamondBoundaryPoint(shapeBounds, toward);
+  }
+
+  return rectangleBoundaryPoint(shapeBounds, toward);
+}
+
+function connectionBounds(node: UmlNode): { x: number; y: number; width: number; height: number } {
+  if (node.kind === 'actor') {
+    return { x: node.x + 18, y: node.y + 5, width: 52, height: 99 };
+  }
+
+  if (isCircleConnectionNode(node)) {
+    const inset = 8;
 
     return {
-      x: center.x + deltaX * scale,
-      y: center.y + deltaY * scale
+      x: node.x + inset,
+      y: node.y + inset,
+      width: Math.max(1, node.width - inset * 2),
+      height: Math.max(1, node.height - inset * 2)
     };
   }
 
-  const halfWidth = node.width / 2;
-  const halfHeight = node.height / 2;
-  const scale = Math.min(Math.abs(halfWidth / deltaX) || Number.POSITIVE_INFINITY, Math.abs(halfHeight / deltaY) || Number.POSITIVE_INFINITY);
+  if (isDiamondConnectionNode(node)) {
+    const inset = 2;
+
+    return {
+      x: node.x + inset,
+      y: node.y + inset,
+      width: Math.max(1, node.width - inset * 2),
+      height: Math.max(1, node.height - inset * 2)
+    };
+  }
+
+  return { x: node.x, y: node.y, width: node.width, height: node.height };
+}
+
+function isCircleConnectionNode(node: UmlNode): boolean {
+  return node.kind === 'initialNode' || node.kind === 'finalNode' || node.kind === 'flowFinalNode' || node.kind === 'pseudostate';
+}
+
+function isEllipseConnectionNode(node: UmlNode): boolean {
+  return node.kind === 'useCase' || isCircleConnectionNode(node);
+}
+
+function isDiamondConnectionNode(node: UmlNode): boolean {
+  return node.kind === 'decisionNode' || node.kind === 'mergeNode';
+}
+
+function ellipseBoundaryPoint(bounds: { x: number; y: number; width: number; height: number }, toward: Point): Point {
+  const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  const radiusX = bounds.width / 2;
+  const radiusY = bounds.height / 2;
+  const deltaX = toward.x - center.x;
+  const deltaY = toward.y - center.y;
+  const scale = 1 / Math.sqrt((deltaX * deltaX) / (radiusX * radiusX) + (deltaY * deltaY) / (radiusY * radiusY));
 
   return {
     x: center.x + deltaX * scale,
@@ -1477,21 +2498,29 @@ function boundaryPoint(node: UmlNode, toward: Point): Point {
   };
 }
 
-function orthogonalBoundaryPoint(node: UmlNode, toward: Point): Point {
-  const center = centerOf(node);
+function diamondBoundaryPoint(bounds: { x: number; y: number; width: number; height: number }, toward: Point): Point {
+  const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
   const deltaX = toward.x - center.x;
   const deltaY = toward.y - center.y;
-
-  if (Math.abs(deltaX) >= Math.abs(deltaY)) {
-    return {
-      x: center.x + (deltaX >= 0 ? node.width / 2 : -node.width / 2),
-      y: center.y
-    };
-  }
+  const scale = 1 / ((Math.abs(deltaX) / (bounds.width / 2)) + (Math.abs(deltaY) / (bounds.height / 2)));
 
   return {
-    x: center.x,
-    y: center.y + (deltaY >= 0 ? node.height / 2 : -node.height / 2)
+    x: center.x + deltaX * scale,
+    y: center.y + deltaY * scale
+  };
+}
+
+function rectangleBoundaryPoint(bounds: { x: number; y: number; width: number; height: number }, toward: Point): Point {
+  const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  const deltaX = toward.x - center.x;
+  const deltaY = toward.y - center.y;
+  const halfWidth = bounds.width / 2;
+  const halfHeight = bounds.height / 2;
+  const scale = Math.min(Math.abs(halfWidth / deltaX) || Number.POSITIVE_INFINITY, Math.abs(halfHeight / deltaY) || Number.POSITIVE_INFINITY);
+
+  return {
+    x: center.x + deltaX * scale,
+    y: center.y + deltaY * scale
   };
 }
 
@@ -1519,7 +2548,7 @@ function supportsMultiplicity(kind: RelationshipKind): boolean {
   }
 }
 
-function DiagramNode({ node, selected, selectedOwnedElementId, onPointerDown, onPointerMove, onPointerUp, onOwnedElementSelect, onContextMenu }: { node: UmlNode; selected: boolean; selectedOwnedElementId: string | undefined; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: () => void; onOwnedElementSelect: (elementId: string) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
+function DiagramNode({ node, selected, selectedOwnedElementId, showMessageStartLine, onMessageStartLine, onPointerDown, onPointerMove, onPointerUp, onResizeStart, onOwnedElementSelect, onContextMenu }: { node: UmlNode; selected: boolean; selectedOwnedElementId: string | undefined; showMessageStartLine?: boolean; onMessageStartLine?: (event: React.PointerEvent<SVGElement>) => void; onPointerDown: (event: React.PointerEvent<SVGGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGGElement>) => void; onResizeStart: (event: React.PointerEvent<SVGGElement>) => void; onOwnedElementSelect: (elementId: string) => void; onContextMenu: (event: React.MouseEvent<SVGGElement>) => void }) {
   const className = selected ? 'node selected' : 'node';
   const ownedElements = node.ownedElements ?? [];
   const attributeElements = ownedElements.filter((element) => element.kind !== 'operation');
@@ -1535,23 +2564,16 @@ function DiagramNode({ node, selected, selectedOwnedElementId, onPointerDown, on
     onContextMenu
   };
 
-  if (node.kind === 'useCase') {
-    return (
-      <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <ellipse cx={node.width / 2} cy={node.height / 2} rx={node.width / 2} ry={node.height / 2} />
-        <text x={node.width / 2} y={node.height / 2 + 5} textAnchor="middle">{title}</text>
-      </g>
-    );
+  const useCaseNode = renderUseCaseDiagramNode({ node, className, title, pointerHandlers, onResizeStart });
+
+  if (useCaseNode) {
+    return useCaseNode;
   }
 
-  if (node.kind === 'actor') {
-    return (
-      <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <circle cx="44" cy="18" r="13" />
-        <path d="M44 31 V68 M18 44 H70 M44 68 L22 104 M44 68 L66 104" />
-        <text x="44" y="124" textAnchor="middle">{title}</text>
-      </g>
-    );
+  const activityNode = renderActivityDiagramNode({ node, className, title, pointerHandlers });
+
+  if (activityNode) {
+    return activityNode;
   }
 
   if (node.kind === 'initialNode' || node.kind === 'pseudostate') {
@@ -1576,7 +2598,26 @@ function DiagramNode({ node, selected, selectedOwnedElementId, onPointerDown, on
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
         <rect width={node.width} height="44" rx="4" />
         <line x1={node.width / 2} y1="44" x2={node.width / 2} y2={node.height} strokeDasharray="6 6" />
+        {showMessageStartLine && onMessageStartLine ? <rect className="lifeline-message-start-zone" x={node.width / 2 - 10} y="44" width="20" height={Math.max(1, node.height - 44)} onPointerDown={onMessageStartLine} /> : null}
         <text x={node.width / 2} y="28" textAnchor="middle">{title}</text>
+      </g>
+    );
+  }
+
+  if (node.kind === 'combinedFragment') {
+    const operator = title.replace(/\d+$/, '') || 'loop';
+    const showSeparator = /^alt|par$/i.test(operator);
+
+    return (
+      <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
+        <rect className="combined-fragment-frame" width={node.width} height={node.height} rx="2" />
+        <path className="combined-fragment-operator" d="M0 0 H72 L92 20 V34 H0 Z" />
+        <text x="12" y="22" textAnchor="start">{operator}</text>
+        {showSeparator ? <line className="operand-separator" x1="0" y1={node.height / 2} x2={node.width} y2={node.height / 2} strokeDasharray="8 5" /> : null}
+        <g className="resize-handle" transform={`translate(${node.width - 16} ${node.height - 16})`} onPointerDown={onResizeStart}>
+          <rect width="16" height="16" rx="2" />
+          <path d="M5 12 L12 5 M9 12 L12 9" />
+        </g>
       </g>
     );
   }

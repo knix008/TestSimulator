@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { connectorLabels, diagramLabels, messages, notationHints, toolLabels } from '../app/i18n.js';
 import { diagramDefinitions } from './diagramRegistry.js';
-import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameNode, renameOwnedElement, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute } from './editorModel.js';
+import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute } from './editorModel.js';
 import { getUmlConnectorNotation } from './umlNotation.js';
 
 describe('UML 2.5.1 diagram registry', () => {
@@ -30,6 +30,30 @@ describe('UML 2.5.1 diagram registry', () => {
       expect(definition.palette.length).toBeGreaterThan(0);
       expect(definition.connectors.length).toBeGreaterThan(0);
     }
+  });
+
+  it('uses UML use case diagram tools and relationships', () => {
+    const useCaseDefinition = diagramDefinitions.find((diagram) => diagram.kind === 'useCase');
+
+    expect(useCaseDefinition?.palette.map((tool) => tool.kind)).toEqual(['actor', 'useCase', 'subject']);
+    expect(useCaseDefinition?.connectors.map((connector) => connector.kind)).toEqual(['association', 'include', 'extend', 'generalization']);
+  });
+
+  it('uses UML activity diagram nodes and flows', () => {
+    const activityDefinition = diagramDefinitions.find((diagram) => diagram.kind === 'activity');
+
+    expect(activityDefinition?.palette.map((tool) => tool.kind)).toEqual([
+      'initialNode',
+      'action',
+      'objectNode',
+      'decisionNode',
+      'mergeNode',
+      'forkNode',
+      'joinNode',
+      'finalNode',
+      'flowFinalNode'
+    ]);
+    expect(activityDefinition?.connectors.map((connector) => connector.kind)).toEqual(['controlFlow', 'objectFlow']);
   });
 });
 
@@ -100,7 +124,9 @@ describe('UML editor model', () => {
     const withTarget = addPaletteNode(withSource, classTool, 420, 220);
     const connected = connectNodes(withTarget, definition.connectors[0], withTarget.nodes[0].id, withTarget.nodes[1].id);
     const withMultiplicity = updateEdgeMultiplicity(connected, connected.edges[0].id, 'target', '0..*');
-    const rerouted = updateEdgeRoute(withMultiplicity, withMultiplicity.edges[0].id, 'orthogonal');
+    const withSourceAnchor = updateEdgeAnchor(withMultiplicity, withMultiplicity.edges[0].id, 'source', 'bottom');
+    const withAnchors = updateEdgeAnchor(withSourceAnchor, withSourceAnchor.edges[0].id, 'target', 'top');
+    const rerouted = updateEdgeRoute(withAnchors, withAnchors.edges[0].id, 'orthogonal');
     const generalized = updateEdgeRelationship(rerouted, rerouted.edges[0].id, definition.connectors[1]);
 
     expect(generalized.edges[0]).toMatchObject({
@@ -110,6 +136,8 @@ describe('UML editor model', () => {
       sourceId: withTarget.nodes[0].id,
       targetId: withTarget.nodes[1].id,
       route: 'orthogonal',
+      sourceAnchor: 'bottom',
+      targetAnchor: 'top',
       sourceMultiplicity: '1',
       targetMultiplicity: '0..*'
     });

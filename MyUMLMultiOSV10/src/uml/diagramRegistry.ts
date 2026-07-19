@@ -1,3 +1,6 @@
+import { useCaseDiagramDefinition } from './diagrams/useCaseDiagram.js';
+import { activityDiagramDefinition } from './diagrams/activityDiagram.js';
+
 export type DiagramKind =
   | 'class'
   | 'profile'
@@ -29,12 +32,19 @@ export type UmlElementKind =
   | 'executionEnvironment'
   | 'actor'
   | 'useCase'
+  | 'subject'
   | 'lifeline'
   | 'message'
+  | 'combinedFragment'
   | 'action'
   | 'decisionNode'
+  | 'mergeNode'
+  | 'forkNode'
+  | 'joinNode'
+  | 'objectNode'
   | 'initialNode'
   | 'finalNode'
+  | 'flowFinalNode'
   | 'state'
   | 'pseudostate'
   | 'timeObservation';
@@ -149,22 +159,20 @@ export const diagramDefinitions: DiagramDefinition[] = [
     palette: [tool('node', 'Node', 'uml:Node', 'Node'), tool('device', 'Device', 'uml:Device', 'Device'), tool('executionEnvironment', 'Execution Environment', 'uml:ExecutionEnvironment', 'ExecutionEnvironment'), tool('artifact', 'Artifact', 'uml:Artifact', 'Artifact')],
     connectors: [connector('deployment', 'Deployment', 'uml:Deployment', 'Deployment', true), connector('dependency', 'Dependency', 'uml:Dependency', 'Dependency', true)]
   },
-  {
-    kind: 'useCase',
-    label: 'Use Case Diagram',
-    uml251Scope: 'Actors, use cases, subjects, include, extend, associations',
-    papyrusDiagramId: 'PapyrusUMLUseCaseDiagram',
-    notationHint: 'Use case diagrams combine UML Actor and UseCase elements with association/include/extend edges.',
-    palette: [tool('actor', 'Actor', 'uml:Actor', 'Actor'), tool('useCase', 'Use Case', 'uml:UseCase', 'UseCase'), tool('package', 'Subject', 'uml:Package', 'Subject')],
-    connectors: [connector('association', 'Association', 'uml:Association', 'Association', false), connector('include', 'Include', 'uml:Include', 'Include', true), connector('extend', 'Extend', 'uml:Extend', 'Extend', true)]
-  },
+  useCaseDiagramDefinition,
   {
     kind: 'sequence',
     label: 'Sequence Diagram',
     uml251Scope: 'Interactions, lifelines, messages, executions, combined fragments',
     papyrusDiagramId: 'PapyrusUMLSequenceDiagram',
     notationHint: 'Sequence diagrams persist UML Interaction content and lifeline/message notation separately.',
-    palette: [tool('lifeline', 'Lifeline', 'uml:Lifeline', 'Lifeline'), tool('message', 'Message', 'uml:Message', 'Message')],
+    palette: [
+      tool('lifeline', 'Lifeline', 'uml:Lifeline', 'Lifeline'),
+      tool('combinedFragment', 'Loop', 'uml:CombinedFragment', 'loop'),
+      tool('combinedFragment', 'Alt', 'uml:CombinedFragment', 'alt'),
+      tool('combinedFragment', 'Opt', 'uml:CombinedFragment', 'opt'),
+      tool('combinedFragment', 'Par', 'uml:CombinedFragment', 'par')
+    ],
     connectors: [connector('message', 'Message', 'uml:Message', 'Message', true)]
   },
   {
@@ -173,18 +181,10 @@ export const diagramDefinitions: DiagramDefinition[] = [
     uml251Scope: 'Interactions, lifelines, connectors, numbered messages',
     papyrusDiagramId: 'PapyrusUMLCommunicationDiagram',
     notationHint: 'Communication diagrams share Interaction elements with sequence diagrams but use graph-style notation.',
-    palette: [tool('lifeline', 'Participant', 'uml:Lifeline', 'Participant'), tool('message', 'Message', 'uml:Message', 'Message')],
+    palette: [tool('lifeline', 'Participant', 'uml:Lifeline', 'Participant')],
     connectors: [connector('message', 'Message', 'uml:Message', 'Message', true), connector('connector', 'Connector', 'uml:Connector', 'Connector', false)]
   },
-  {
-    kind: 'activity',
-    label: 'Activity Diagram',
-    uml251Scope: 'Activities, actions, control nodes, object flows, control flows',
-    papyrusDiagramId: 'PapyrusUMLActivityDiagram',
-    notationHint: 'Activity diagrams update UML Activity nodes and notation edges together.',
-    palette: [tool('initialNode', 'Initial', 'uml:InitialNode', 'Initial'), tool('action', 'Action', 'uml:OpaqueAction', 'Action'), tool('decisionNode', 'Decision', 'uml:DecisionNode', 'Decision'), tool('finalNode', 'Final', 'uml:ActivityFinalNode', 'Final')],
-    connectors: [connector('controlFlow', 'Control Flow', 'uml:ControlFlow', 'ControlFlow', true), connector('objectFlow', 'Object Flow', 'uml:ObjectFlow', 'ObjectFlow', true)]
-  },
+  activityDiagramDefinition,
   {
     kind: 'stateMachine',
     label: 'State Machine',

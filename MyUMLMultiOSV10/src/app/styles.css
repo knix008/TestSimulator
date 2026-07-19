@@ -14,7 +14,9 @@ body {
   min-height: 820px;
 }
 
-button,
+button {
+  position: relative;
+}
 input,
 textarea,
 select {
@@ -396,9 +398,21 @@ code {
   stroke-width: 1.7;
 }
 
+.edge .activation-bar {
+  fill: var(--node-fill);
+  stroke: var(--node-stroke);
+  stroke-width: 1.4;
+}
+
 .edge.selected path {
   stroke: var(--selected);
   stroke-width: 2.7;
+}
+
+.edge.selected .activation-bar {
+  fill: var(--selected-fill);
+  stroke: var(--selected);
+  stroke-width: 2;
 }
 
 .preview-edge {
@@ -457,6 +471,57 @@ code {
 
 .node .filled {
   fill: var(--node-stroke);
+}
+
+.node .activity-bar-node {
+  fill: var(--node-stroke);
+}
+
+.node .activity-flow-final {
+  fill: none;
+  stroke: var(--node-stroke);
+  stroke-width: 2;
+}
+
+.node .subject-boundary {
+  fill: transparent;
+}
+
+.node .combined-fragment-frame {
+  fill: rgba(255, 255, 255, 0.01);
+}
+
+.node .combined-fragment-operator {
+  fill: var(--node-fill);
+}
+
+.node .operand-separator {
+  stroke: var(--node-stroke);
+  stroke-width: 1.2;
+}
+
+.node .resize-handle {
+  cursor: nwse-resize;
+}
+
+.node .resize-handle rect {
+  fill: var(--button);
+  stroke: var(--node-stroke);
+  stroke-width: 1.2;
+}
+
+.node .resize-handle path {
+  fill: none;
+  stroke: var(--node-stroke);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.node .lifeline-message-start-zone,
+.node.selected > .lifeline-message-start-zone {
+  fill: transparent;
+  stroke: transparent;
+  cursor: crosshair;
 }
 
 .node.selected > rect,
@@ -535,22 +600,71 @@ textarea {
 }
 
 .tree-group {
-  margin: 12px 0 6px;
+  margin: 8px 0 3px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+}
+
+.tree-branch {
+  position: relative;
 }
 
 .tree-item {
   width: 100%;
-  min-height: 30px;
+  min-height: 26px;
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 5px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  gap: 6px;
+  margin-bottom: 1px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
   text-align: left;
+}
+
+.tree-item:hover {
+  background: var(--button);
+  border-color: var(--button-border);
+}
+
+.tree-item.active {
+  background: var(--selected-fill);
+  border-color: var(--selected);
+  box-shadow: inset 2px 0 0 var(--selected);
+}
+
+.tree-item.tree-root {
+  font-weight: 900;
+}
+
+.tree-toggle {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+  color: var(--muted);
+}
+
+.tree-toggle:focus-visible {
+  outline: 1px solid var(--selected);
+  outline-offset: 1px;
+}
+
+.tree-level-1 {
+  padding-left: 18px;
+}
+
+.tree-level-2 {
+  padding-left: 34px;
+}
+
+.tree-level-3 {
+  padding-left: 50px;
+  font-size: 12px;
 }
 
 .tree-item.child {
