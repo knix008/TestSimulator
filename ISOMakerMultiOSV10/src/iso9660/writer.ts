@@ -35,11 +35,15 @@ type PlannedDir = {
  * File payloads stay as Blob slices when possible (large-ISO friendly).
  * Note: Web rebuild is a data image; boot catalogs from the original are not preserved.
  */
+/** Optional reader for `{ type: 'path' }` sources (desktop / Node only). */
+export type PathFileReader = (absolutePath: string) => Promise<Blob>
+
 export async function writeIso(
   root: IsoDirNode,
   volumeLabel: string,
   onProgress?: (p: WriteProgress) => void,
   signal?: AbortSignal,
+  readPathFile?: PathFileReader,
 ): Promise<Blob> {
   throwIfAborted(signal)
   const label = sanitizeLabel(volumeLabel)
@@ -131,7 +135,7 @@ export async function writeIso(
       percent: 20 + Math.round((i / totalFiles) * 75),
       message: `파일 포함: ${file.path}`,
     })
-    parts.push(await filePayload(file))
+    parts.push(await filePayload(file, readPathFile))
     throwIfAborted(signal)
     const padded = sectorsFor(Math.max(file.size, 1)) * SECTOR - Math.max(file.size, 1)
     // empty files still occupy one sector
@@ -150,7 +154,7 @@ function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new Error('JOB_CANCELED')
 }
 
-async function filePayload(file: PlannedFile): Promise<Blob> {
+async function filePayload(file: PlannedFile, readPathFile?: PathFileReader): Promise<Blob> {
   if (file.size === 0) return new Blob([])
   const src = file.node.source
   if (src.type === 'blob') {
@@ -158,6 +162,13 @@ async function filePayload(file: PlannedFile): Promise<Blob> {
   }
   if (src.type === 'unavailable') {
     throw new Error(src.reason)
+  }
+  if (src.type === 'path') {
+    if (!readPathFile) {
+      throw new Error(`경로 소스는 데스크톱에서만 저장할 수 있습니다: ${src.absolutePath}`)
+    }
+    const blob = await readPathFile(src.absolutePath)
+    return blob.slice(0, file.size)
   }
   if (src.extents.length === 1) {
     const e = src.extents[0]!

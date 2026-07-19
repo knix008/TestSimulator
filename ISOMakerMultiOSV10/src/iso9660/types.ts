@@ -6,6 +6,7 @@ export type IsoExtent = {
 export type IsoFileSource =
   | { type: 'blob'; blob: Blob }
   | { type: 'iso'; iso: Blob; extents: IsoExtent[]; blockSize: number }
+  | { type: 'path'; absolutePath: string }
   | { type: 'unavailable'; reason: string }
 
 export type IsoDirNode = {

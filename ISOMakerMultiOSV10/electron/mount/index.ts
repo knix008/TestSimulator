@@ -9,7 +9,7 @@ const execFileAsync = promisify(execFile)
 
 export async function mountIso(isoPath: string): Promise<MountResult> {
   if (!fs.existsSync(isoPath)) {
-    return { mounted: false, message: `ISO not found: ${isoPath}` }
+    return { mounted: false, message: `Image not found: ${isoPath}` }
   }
 
   switch (process.platform) {

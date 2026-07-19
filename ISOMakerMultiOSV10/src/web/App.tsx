@@ -177,7 +177,7 @@ export default function WebApp() {
         setProgress(p.percent)
         setStatus(p.message)
       })
-      const outName = fileName.replace(/\.iso$/i, '') + '-edited.iso'
+      const outName = fileName.replace(/\.(iso|img)$/i, '') + '-edited' + (/\.img$/i.test(fileName) ? '.img' : '.iso')
       triggerDownload(blob, outName)
       session.dirty = false
       bump()
@@ -314,7 +314,7 @@ export default function WebApp() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".iso,application/x-iso9660-image"
+            accept=".iso,.img,application/x-iso9660-image"
             hidden
             onChange={(e) => void onPickIso(e)}
           />

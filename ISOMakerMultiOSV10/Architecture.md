@@ -77,6 +77,8 @@ flowchart TB
 | `paths.ts` | 패키징/`resources` 경로 해석 |
 | `iso/path-blob.ts` | 대용량 ISO용 올바른 `Blob.size` + 청크 읽기 |
 | `iso/edit-session.ts` | 열기·추가/삭제/이름변경·드래그 아웃 준비·저장 |
+| `iso/archive-open.ts` | AppImage(squashfs)·Docker/tar 추출 → 디렉터리 트리 세션 |
+| `iso/archive-save.ts` | 트리 materialize → tar / AppImage(런타임+mksquashfs) 재포장 |
 | `iso/xorriso.ts` | extract / create / bootable, 엔진 탐지 |
 | `iso/tree-serialize.ts` | 렌더러용 트리 JSON |
 | `mount/index.ts` | 플랫폼별 마운트·언마운트 |
@@ -87,7 +89,8 @@ flowchart TB
 | 파일 | 역할 |
 |------|------|
 | `binary.ts` | 섹터·both-endian·문자열 |
-| `reader.ts` | Primary/Joliet, multi-extent, 볼륨 경계 검증, unavailable 표시 |
+| `reader.ts` | Primary/Joliet, multi-extent, `.img` 파티션 offset 스캔, 볼륨 경계 검증 |
+| `image-formats.ts` | `.iso`/`.img`/AppImage/Docker tar 필터·저장 이름 헬퍼 |
 | `writer.ts` / `session.ts` | 트리 변형·새 ISO 작성 |
 | `types.ts`, `tree-types.ts` | 공유 타입 |
 

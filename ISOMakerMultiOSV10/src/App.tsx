@@ -10,9 +10,15 @@ import {
 } from 'react'
 import type { EngineInfo, JobProgress } from '../electron/iso/types'
 import { ContextMenu, type ContextMenuItem } from './components/ContextMenu'
-import { Dialog, DialogButton } from './components/Dialog'
+import { ConfirmDialog, Dialog, DialogButton, PromptDialog } from './components/Dialog'
 import { IsoTreeView } from './components/IsoTreeView'
 import { usePrefs } from './i18n/Preferences'
+import {
+  discImageFileFilters,
+  editedImageName,
+  guessImageKindByName,
+  saveImageFileFilters,
+} from './iso9660/image-formats'
 import type { IsoTreeNode } from './iso9660/tree-types'
 import { Icons, Toolbar, type ToolbarAction } from './Toolbar'
 import { APP_VERSION, APP_YEAR } from './version'
@@ -76,6 +82,19 @@ export default function App() {
   const [logPanelWidth, setLogPanelWidth] = useState(() => loadLogPanelWidth())
   const [splitterActive, setSplitterActive] = useState(false)
   const [selectedPaths, setSelectedPaths] = useState<string[]>([])
+  const [treeReveal, setTreeReveal] = useState<{ paths: string[]; nonce: number } | null>(
+    null,
+  )
+  const [promptDlg, setPromptDlg] = useState<
+    | null
+    | {
+        mode: 'mkdir' | 'rename'
+        destDir: string
+        node?: IsoTreeNode
+        defaultValue: string
+      }
+  >(null)
+  const [confirmDlg, setConfirmDlg] = useState<null | { paths: string[] }>(null)
   const [ctxMenu, setCtxMenu] = useState<{
     x: number
     y: number
@@ -206,6 +225,7 @@ export default function App() {
       const snap = await getApi().openEditSession(path)
       setChangeLog([])
       setSelectedPaths([])
+      setTreeReveal(null)
       setCtxMenu(null)
       setUnsavedReason(null)
       applySession(snap)
@@ -223,7 +243,7 @@ export default function App() {
 
   async function openIsoFile() {
     const p = await getApi().openFile(
-      [{ name: 'ISO', extensions: ['iso'] }],
+      discImageFileFilters(locale === 'en' ? 'en' : 'ko'),
       isoPath || mountIsoPath,
       t('dlgOpenIso'),
     )
@@ -238,8 +258,15 @@ export default function App() {
 
   async function saveIsoAs(): Promise<boolean> {
     if (!session) return false
-    const defaultName = pathBaseName(session.sourcePath).replace(/\.iso$/i, '') + '-edited.iso'
-    const out = await getApi().saveFile(defaultName, session.sourcePath, t('dlgSaveIso'))
+    const defaultName = editedImageName(pathBaseName(session.sourcePath))
+    const preferred = session.sourceKind ?? guessImageKindByName(session.sourcePath)
+    const lang = locale === 'en' ? 'en' : 'ko'
+    const out = await getApi().saveFile(
+      defaultName,
+      session.sourcePath,
+      t('dlgSaveIso'),
+      saveImageFileFilters(lang, preferred),
+    )
     if (!out) return false
     setBusy(true)
     setCancelable(true)
@@ -265,6 +292,20 @@ export default function App() {
     }
   }
 
+  /** Select + expand + scroll newly added tree entries into view. */
+  function focusTreeEntries(entryPaths: string[]) {
+    const paths = entryPaths.filter(Boolean)
+    if (!paths.length) return
+    setSelectedPaths(paths)
+    setTreeReveal({ paths, nonce: Date.now() })
+  }
+
+  function treePathsForAdded(destDir: string, diskPaths: string[]): string[] {
+    return diskPaths.map((p) =>
+      destDir ? `${destDir}/${pathBaseName(p)}` : pathBaseName(p),
+    )
+  }
+
   async function onDropFiles(destDir: string, files: File[]) {
     if (!session) return
     const paths = files
@@ -277,6 +318,7 @@ export default function App() {
     try {
       const snap = await getApi().addPathsToSession(destDir, paths)
       applySession(snap, t('statusAdded', String(paths.length)))
+      focusTreeEntries(treePathsForAdded(destDir, paths))
       const where = destDir || '/'
       if (paths.length === 1) {
         appendChangeLog('add', t('logAdded', where, pathBaseName(paths[0]!)))
@@ -295,13 +337,19 @@ export default function App() {
   }
 
   async function onPrepareDragOut(entryPaths: string[]): Promise<string[]> {
+    if (!session || !entryPaths.length) return entryPaths.map(() => '')
     const temps: string[] = []
     for (const entryPath of entryPaths) {
       try {
         const prepared = await getApi().prepareDragOut(entryPath)
-        temps.push(prepared.tempPath)
+        temps.push(prepared.tempPath || '')
       } catch (err) {
         const message = cleanIpcError(err)
+        // Ignore stale hover after session close / main reload.
+        if (/열린 ISO|NO_SESSION|No ISO session/i.test(message)) {
+          temps.push('')
+          continue
+        }
         setStatusNote(message)
         appendChangeLog('error', t('logError', message))
         temps.push('')
@@ -358,52 +406,70 @@ export default function App() {
   }
 
   async function ctxAddFiles(destDir: string) {
-    const paths = await getApi().openFiles(undefined, session?.sourcePath, t('dlgAddFiles'))
+    const title = destDir ? t('dlgAddFilesTo', destDir) : t('dlgAddFiles')
+    const paths = await getApi().openFiles(undefined, session?.sourcePath, title)
     if (!paths.length) return
     try {
       const snap = await getApi().addPathsToSession(destDir, paths)
       applySession(snap, t('statusAdded', String(paths.length)))
+      focusTreeEntries(treePathsForAdded(destDir, paths))
       appendChangeLog('add', t('logAddedMany', destDir || '/', String(paths.length)))
     } catch (err) {
       showError(cleanIpcError(err))
     }
   }
 
-  async function ctxNewFolder(destDir: string) {
-    const name = window.prompt(t('promptNewFolder'))
-    if (!name?.trim()) return
+  function ctxNewFolder(destDir: string) {
+    setPromptDlg({ mode: 'mkdir', destDir, defaultValue: '' })
+  }
+
+  function ctxRename(node: IsoTreeNode) {
+    setPromptDlg({ mode: 'rename', destDir: parentOf(node.path), node, defaultValue: node.name })
+  }
+
+  function ctxDeleteMany(paths: string[]) {
+    if (!paths.length) return
+    setConfirmDlg({ paths: [...paths] })
+  }
+
+  async function applyMkdir(name: string) {
+    if (!promptDlg || promptDlg.mode !== 'mkdir') return
+    const destDir = promptDlg.destDir
+    setPromptDlg(null)
     try {
-      const snap = await getApi().mkdirInSession(destDir, name.trim())
-      applySession(snap, t('logMkdir', destDir ? `${destDir}/${name.trim()}` : name.trim()))
-      appendChangeLog('add', t('logMkdir', destDir ? `${destDir}/${name.trim()}` : name.trim()))
+      const snap = await getApi().mkdirInSession(destDir, name)
+      const created = destDir ? `${destDir}/${name}` : name
+      applySession(snap, t('logMkdir', created))
+      focusTreeEntries([created])
+      appendChangeLog('add', t('logMkdir', created))
     } catch (err) {
       showError(cleanIpcError(err))
     }
   }
 
-  async function ctxRename(node: IsoTreeNode) {
-    const name = window.prompt(t('promptRename'), node.name)
-    if (!name?.trim() || name.trim() === node.name) return
+  async function applyRename(name: string) {
+    if (!promptDlg || promptDlg.mode !== 'rename' || !promptDlg.node) return
+    const node = promptDlg.node
+    if (name === node.name) {
+      setPromptDlg(null)
+      return
+    }
+    setPromptDlg(null)
     try {
-      const snap = await getApi().renameInSession(node.path, name.trim())
-      applySession(snap, t('logRenamed', node.path, name.trim()))
-      appendChangeLog('info', t('logRenamed', node.path, name.trim()))
-      const nextPath = parentOf(node.path)
-        ? `${parentOf(node.path)}/${name.trim()}`
-        : name.trim()
+      const snap = await getApi().renameInSession(node.path, name)
+      applySession(snap, t('logRenamed', node.path, name))
+      appendChangeLog('info', t('logRenamed', node.path, name))
+      const nextPath = parentOf(node.path) ? `${parentOf(node.path)}/${name}` : name
       setSelectedPaths([nextPath])
     } catch (err) {
       showError(cleanIpcError(err))
     }
   }
 
-  async function ctxDeleteMany(paths: string[]) {
-    if (!paths.length) return
-    const ok =
-      paths.length === 1
-        ? window.confirm(`${t('ctxDelete')}: ${paths[0]}`)
-        : window.confirm(t('confirmDeleteMany', String(paths.length)))
-    if (!ok) return
+  async function applyDelete() {
+    if (!confirmDlg?.paths.length) return
+    const paths = confirmDlg.paths
+    setConfirmDlg(null)
     try {
       const snap =
         paths.length === 1
@@ -470,13 +536,13 @@ export default function App() {
 
     items.push({
       id: 'add',
-      label: t('ctxAddFiles'),
+      label: destDir ? t('ctxAddFilesTo', destDir) : t('ctxAddFiles'),
       icon: Icons.addFile,
       onClick: () => void ctxAddFiles(destDir),
     })
     items.push({
       id: 'mkdir',
-      label: t('ctxNewFolder'),
+      label: destDir ? t('ctxNewFolderIn', destDir) : t('ctxNewFolder'),
       icon: Icons.mkdir,
       onClick: () => void ctxNewFolder(destDir),
     })
@@ -655,6 +721,22 @@ export default function App() {
         ? mountPoint || parentDir(mountIsoPath || isoPath)
         : sourceDir
 
+  /** Destination folder for Add — selected dir, or parent of selected file (all image kinds). */
+  function resolveAddDestDir(): string {
+    if (!session || selectedPaths.length === 0) return ''
+    const nodes = findTreeNodes(selectedPaths)
+    if (nodes.length === 1) {
+      const n = nodes[0]!
+      return n.isDir ? n.path : parentOf(n.path)
+    }
+    const dirs = nodes.filter((n) => n.isDir)
+    if (dirs.length === 1) return dirs[0]!.path
+    if (nodes.length > 0) return parentOf(nodes[0]!.path)
+    return ''
+  }
+
+  const addDestDir = resolveAddDestDir()
+
   const toolbarGroups: ToolbarAction[][] = [
     [
       {
@@ -673,6 +755,14 @@ export default function App() {
         icon: Icons.save,
         disabled: busy || !session || !dirty,
         onClick: () => void saveIsoAs(),
+      },
+      {
+        id: 'add-files',
+        label: addDestDir ? t('addFilesTo', pathBaseName(addDestDir) || addDestDir) : t('addFiles'),
+        tooltip: addDestDir ? t('tipAddFilesTo', addDestDir) : t('tipAddFiles'),
+        icon: Icons.addFile,
+        disabled: busy || !session || !(tab === 'extract' || tab === 'mount'),
+        onClick: () => void ctxAddFiles(addDestDir),
       },
     ],
     [
@@ -801,18 +891,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="hero">
-        <div>
-          <p className="brand">{t('brand')}</p>
-          <h1>{t('heroTitle')}</h1>
-          <p className="lede">{t('heroLede')}</p>
-        </div>
-        <div className={`engine ${engine?.available ? 'ok' : 'warn'}`}>
-          <span className="engine-dot" />
-          <div>
-            <strong>{engineBadge}</strong>
-            <small>{engine?.hint}</small>
-          </div>
-        </div>
+        <p className="brand">{t('brand')}</p>
       </header>
 
       <Toolbar groups={toolbarGroups} ariaLabel={t('toolbarAria')} />
@@ -834,6 +913,7 @@ export default function App() {
               filterPlaceholder={t('isoTreeFilter')}
               editable={treeEditable}
               dropHint={session ? t('treeDropHint') : undefined}
+              reveal={treeReveal}
               onDropFiles={onDropFiles}
               onPrepareDragOut={onPrepareDragOut}
               onStartDrag={(tempPaths) => getApi().startDrag(tempPaths)}
@@ -1084,6 +1164,7 @@ export default function App() {
               filterPlaceholder={t('isoTreeFilter')}
               editable={treeEditable}
               dropHint={session ? t('treeDropHint') : undefined}
+              reveal={treeReveal}
               onDropFiles={onDropFiles}
               onPrepareDragOut={onPrepareDragOut}
               onStartDrag={(tempPaths) => getApi().startDrag(tempPaths)}
@@ -1185,7 +1266,10 @@ export default function App() {
       />
 
       <footer className="app-statusbar" role="status">
-        <span className={`sb-item engine-pill ${engine?.available ? 'ok' : 'warn'}`} title={engine?.hint}>
+        <span
+          className={`sb-item engine-pill ${engine?.available ? 'ok' : 'warn'}`}
+          title={[engineBadge, engine?.hint].filter(Boolean).join('\n')}
+        >
           {engineBadge}
         </span>
         <span className="sb-item path" title={statusIsoLabel}>
@@ -1239,7 +1323,7 @@ export default function App() {
           },
         ]}
       >
-        <p style={{ marginTop: 0 }}>{t('errorDetailHeading')}</p>
+        <p className="dialog-message">{t('errorDetailHeading')}</p>
         <pre className="dialog-error-box">{error}</pre>
       </Dialog>
 
@@ -1318,7 +1402,7 @@ export default function App() {
           },
           {
             id: 'cancel',
-            label: t('unsavedCancel'),
+            label: t('dialogCancel'),
             icon: Icons.close,
             onClick: () => {
               if (unsavedReason === 'close') {
@@ -1330,11 +1414,53 @@ export default function App() {
           },
         ]}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="dialog-message">
           {unsavedReason === 'close' ? t('unsavedCloseMessage') : t('unsavedOpenMessage')}
         </p>
-        <p className="hint">{t('saveBootNote')}</p>
+        <p className="dialog-detail hint">{t('saveBootNote')}</p>
       </Dialog>
+
+      <PromptDialog
+        open={Boolean(promptDlg)}
+        title={
+          promptDlg?.mode === 'rename' ? t('promptRename') : t('promptNewFolder')
+        }
+        message={
+          promptDlg?.mode === 'rename' && promptDlg.node
+            ? t('promptRenameHint', promptDlg.node.path)
+            : promptDlg
+              ? t('promptNewFolderHint', promptDlg.destDir || '/')
+              : undefined
+        }
+        label={
+          promptDlg?.mode === 'rename' ? t('promptRenameLabel') : t('promptNewFolderLabel')
+        }
+        defaultValue={promptDlg?.defaultValue ?? ''}
+        confirmLabel={
+          promptDlg?.mode === 'rename' ? t('dialogRename') : t('dialogCreate')
+        }
+        cancelLabel={t('dialogCancel')}
+        onCancel={() => setPromptDlg(null)}
+        onConfirm={(value) => {
+          if (promptDlg?.mode === 'rename') void applyRename(value)
+          else void applyMkdir(value)
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(confirmDlg)}
+        title={t('confirmDeleteTitle')}
+        message={
+          confirmDlg && confirmDlg.paths.length === 1
+            ? t('confirmDeleteOne', confirmDlg.paths[0]!)
+            : t('confirmDeleteMany', String(confirmDlg?.paths.length ?? 0))
+        }
+        confirmLabel={t('confirmDeleteAction')}
+        cancelLabel={t('dialogCancel')}
+        danger
+        onCancel={() => setConfirmDlg(null)}
+        onConfirm={() => void applyDelete()}
+      />
     </div>
   )
 }

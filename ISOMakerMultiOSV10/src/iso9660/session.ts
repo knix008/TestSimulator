@@ -1,6 +1,6 @@
 import { getNodeAtPath, listChildren, normalizeKey, openIso, readIsoFile } from './reader'
 import type { IsoDirNode, IsoFlatEntry, IsoNode, OpenIsoResult } from './types'
-import { writeIso, type WriteProgress } from './writer'
+import { writeIso, type PathFileReader, type WriteProgress } from './writer'
 
 export class IsoEditSession {
   readonly original: Blob
@@ -21,6 +21,23 @@ export class IsoEditSession {
     return new IsoEditSession(file, opened)
   }
 
+  /** Build a session from an already-materialized directory tree (AppImage / Docker extract). */
+  static fromDirectoryTree(
+    root: IsoDirNode,
+    volumeLabel: string,
+    original: Blob = new Blob([]),
+  ): IsoEditSession {
+    const opened: OpenIsoResult = {
+      volumeLabel,
+      root,
+      entries: [],
+      totalBytes: 0,
+    }
+    const session = new IsoEditSession(original, opened)
+    session.refreshEntries()
+    return session
+  }
+
   get entries(): IsoFlatEntry[] {
     return this.entriesCache
   }
@@ -37,6 +54,11 @@ export class IsoEditSession {
     if (node.source.type === 'blob') return node.source.blob
     if (node.source.type === 'unavailable') {
       throw new Error(node.source.reason)
+    }
+    if (node.source.type === 'path') {
+      throw new Error(
+        `경로 소스는 데스크톱에서만 읽을 수 있습니다: ${node.source.absolutePath}`,
+      )
     }
     return readIsoFile(node.source.iso, node.source.extents, node.source.blockSize)
   }
@@ -68,6 +90,20 @@ export class IsoEditSession {
         source: { type: 'blob', blob: file },
       })
     }
+    this.dirty = true
+    this.refreshEntries()
+  }
+
+  /** Add a file by absolute disk path (desktop) without loading it into memory. */
+  addFileFromPath(dirPath: string, name: string, absolutePath: string, size: number): void {
+    const parent = getNodeAtPath(this.root, dirPath)
+    if (!parent || parent.kind !== 'dir') throw new Error(`폴더가 없습니다: ${dirPath || '/'}`)
+    parent.children.set(normalizeKey(name), {
+      kind: 'file',
+      name,
+      size,
+      source: { type: 'path', absolutePath },
+    })
     this.dirty = true
     this.refreshEntries()
   }
@@ -106,8 +142,12 @@ export class IsoEditSession {
     this.refreshEntries()
   }
 
-  async exportIso(onProgress?: (p: WriteProgress) => void, signal?: AbortSignal): Promise<Blob> {
-    return writeIso(this.root, this.volumeLabel, onProgress, signal)
+  async exportIso(
+    onProgress?: (p: WriteProgress) => void,
+    signal?: AbortSignal,
+    readPathFile?: PathFileReader,
+  ): Promise<Blob> {
+    return writeIso(this.root, this.volumeLabel, onProgress, signal, readPathFile)
   }
 
   private refreshEntries(): void {

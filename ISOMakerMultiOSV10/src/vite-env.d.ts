@@ -12,7 +12,9 @@ import type { IsoTreeResult } from './iso9660/tree-types'
 
 export type EditSessionSnapshot = IsoTreeResult & {
   sourcePath: string
+  sourceKind: 'iso' | 'img' | 'appimage' | 'docker' | 'unknown'
   dirty: boolean
+  canSaveAppImage: boolean
 }
 
 export type IsoMakerApi = {
@@ -28,7 +30,12 @@ export type IsoMakerApi = {
     title?: string,
   ) => Promise<string[]>
   openDirectory: (hintPath?: string, title?: string) => Promise<string | null>
-  saveFile: (defaultPath?: string, hintPath?: string, title?: string) => Promise<string | null>
+  saveFile: (
+    defaultPath?: string,
+    hintPath?: string,
+    title?: string,
+    filters?: { name: string; extensions: string[] }[],
+  ) => Promise<string | null>
   openPath: (targetPath: string) => Promise<string>
   extractIso: (options: ExtractOptions) => Promise<{ ok: true }>
   createIso: (options: CreateIsoOptions) => Promise<{ ok: true }>

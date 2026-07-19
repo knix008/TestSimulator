@@ -24,6 +24,11 @@ type IsoTreeViewProps = {
   filterPlaceholder: string
   editable?: boolean
   dropHint?: string
+  /**
+   * After add/mkdir: expand parents, clear filter, scroll first path into view,
+   * and briefly highlight these entries. `nonce` forces re-run when paths repeat.
+   */
+  reveal?: { paths: string[]; nonce: number } | null
   onDropFiles?: (destDir: string, files: File[]) => void
   onPrepareDragOut?: (entryPaths: string[]) => Promise<string[]>
   onStartDrag?: (tempPaths: string[]) => void
@@ -49,6 +54,7 @@ export function IsoTreeView({
   filterPlaceholder,
   editable,
   dropHint,
+  reveal,
   onDropFiles,
   onPrepareDragOut,
   onStartDrag,
@@ -63,13 +69,17 @@ export function IsoTreeView({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [dropTarget, setDropTarget] = useState<string | null>(null)
   const [preparing, setPreparing] = useState(false)
+  const [flashPaths, setFlashPaths] = useState<Set<string>>(() => new Set())
   const readyMapRef = useRef(new Map<string, string>())
   const failedDragRef = useRef(new Set<string>())
   const anchorRef = useRef<string | null>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
   const selectedSet = useMemo(() => new Set(selectedPaths), [selectedPaths])
+  const flashSet = flashPaths
 
-  const treeFingerprint = useMemo(
-    () => nodes.map((n) => `${n.path}:${n.size}:${n.children?.length ?? 0}`).join('|'),
+  /** Reset expand only when a different image/session root is loaded. */
+  const rootIdentity = useMemo(
+    () => nodes.map((n) => n.path).join('\0') + `#${nodes.length}`,
     [nodes],
   )
 
@@ -79,9 +89,57 @@ export function IsoTreeView({
     readyMapRef.current.clear()
     failedDragRef.current.clear()
     setPreparing(false)
+    setFlashPaths(new Set())
     anchorRef.current = null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeFingerprint])
+  }, [rootIdentity])
+
+  useEffect(() => {
+    if (!reveal?.paths.length) return
+    const focusPaths = reveal.paths
+    // Search filter would hide newly added rows — clear it.
+    setFilter('')
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      for (const entryPath of focusPaths) {
+        const parts = entryPath.split('/').filter(Boolean)
+        let acc = ''
+        for (const part of parts) {
+          acc = acc ? `${acc}/${part}` : part
+          next.add(acc)
+        }
+      }
+      return next
+    })
+    setFlashPaths(new Set(focusPaths))
+    const flashTimer = window.setTimeout(() => setFlashPaths(new Set()), 2800)
+
+    const first = focusPaths[0]!
+    const escaped =
+      typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(first)
+        : first.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+    let cancelled = false
+    let tries = 0
+    const tryScroll = () => {
+      if (cancelled) return
+      const el = bodyRef.current?.querySelector(`[data-tree-path="${escaped}"]`)
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        return
+      }
+      // Wait for session tree re-render + expand to paint the new row.
+      if (tries++ < 40) {
+        window.requestAnimationFrame(tryScroll)
+      }
+    }
+    window.requestAnimationFrame(tryScroll)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(flashTimer)
+    }
+  }, [reveal?.nonce])
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -111,6 +169,16 @@ export function IsoTreeView({
       const next = new Set(prev)
       if (next.has(path)) next.delete(path)
       else next.add(path)
+      return next
+    })
+  }
+
+  function ensureExpanded(path: string) {
+    if (!path) return
+    setExpanded((prev) => {
+      if (prev.has(path)) return prev
+      const next = new Set(prev)
+      next.add(path)
       return next
     })
   }
@@ -182,6 +250,16 @@ export function IsoTreeView({
     return Array.from(e.dataTransfer.types).includes('Files')
   }
 
+  /** True when the event is over a folder/file row that handles its own drop target. */
+  function isNestedDropZone(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false
+    return Boolean(
+      target.closest(
+        '.iso-tree-row, .iso-tree-list, .iso-tree-empty-folder, .iso-tree-branch',
+      ),
+    )
+  }
+
   return (
     <div
       className={[
@@ -193,6 +271,8 @@ export function IsoTreeView({
         .join(' ')}
       onDragOver={(e) => {
         if (!editable || !onDropFiles || !isFileDrag(e)) return
+        // Nested folder/file rows own the drop target (ISO / Docker / AppImage / IMG).
+        if (isNestedDropZone(e.target)) return
         e.preventDefault()
         e.dataTransfer.dropEffect = 'copy'
         setDropTarget('')
@@ -203,6 +283,7 @@ export function IsoTreeView({
       }}
       onDrop={(e) => {
         if (!editable || !onDropFiles) return
+        if (isNestedDropZone(e.target)) return
         e.preventDefault()
         setDropTarget(null)
         const files = Array.from(e.dataTransfer.files)
@@ -231,7 +312,7 @@ export function IsoTreeView({
         </div>
       </div>
       {editable && dropHint ? <p className="iso-tree-drop-hint">{dropHint}</p> : null}
-      <div className="iso-tree-body">
+      <div className="iso-tree-body" ref={bodyRef}>
         {loading ? (
           <div className="iso-tree-empty">{loadingText}</div>
         ) : visible.length === 0 ? (
@@ -249,6 +330,7 @@ export function IsoTreeView({
                 editable={editable}
                 dropTarget={dropTarget}
                 setDropTarget={setDropTarget}
+                ensureExpanded={ensureExpanded}
                 preparing={preparing}
                 readyMapRef={readyMapRef}
                 ensurePrepared={ensurePrepared}
@@ -258,6 +340,7 @@ export function IsoTreeView({
                 onDragOutNotReady={onDragOutNotReady}
                 onDragOutStarted={onDragOutStarted}
                 selectedSet={selectedSet}
+                flashSet={flashSet}
                 onSelect={applySelection}
                 onNodeContextMenu={(n, x, y) => {
                   let nextSelected = selectedPaths
@@ -277,6 +360,12 @@ export function IsoTreeView({
   )
 }
 
+function parentDirPath(entryPath: string): string {
+  const parts = entryPath.split('/').filter(Boolean)
+  if (parts.length <= 1) return ''
+  return parts.slice(0, -1).join('/')
+}
+
 function TreeNode({
   node,
   depth,
@@ -286,6 +375,7 @@ function TreeNode({
   editable,
   dropTarget,
   setDropTarget,
+  ensureExpanded,
   preparing,
   readyMapRef,
   ensurePrepared,
@@ -295,6 +385,7 @@ function TreeNode({
   onDragOutNotReady,
   onDragOutStarted,
   selectedSet,
+  flashSet,
   onSelect,
   onNodeContextMenu,
 }: {
@@ -306,6 +397,7 @@ function TreeNode({
   editable?: boolean
   dropTarget: string | null
   setDropTarget: (path: string | null) => void
+  ensureExpanded: (path: string) => void
   preparing: boolean
   readyMapRef: MutableRefObject<Map<string, string>>
   ensurePrepared: (entryPaths: string[]) => Promise<string[]>
@@ -315,6 +407,7 @@ function TreeNode({
   onDragOutNotReady?: (entryPaths: string[]) => void
   onDragOutStarted?: (entryPaths: string[]) => void
   selectedSet: Set<string>
+  flashSet: Set<string>
   onSelect: (path: string, ev: TreeSelectEvent) => void
   onNodeContextMenu?: (node: IsoTreeNode, clientX: number, clientY: number) => void
 }) {
@@ -322,19 +415,42 @@ function TreeNode({
   const hasChildren = Boolean(node.children?.length)
   const isDrop = dropTarget === node.path
   const isSelected = selectedSet.has(node.path)
+  const isFlash = flashSet.has(node.path)
+
+  function acceptIncomingFiles(e: DragEvent, destDir: string) {
+    if (!editable || !onDropFiles) return false
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return false
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    setDropTarget(destDir)
+    if (destDir) ensureExpanded(destDir)
+    return true
+  }
+
+  function dropIncomingFiles(e: DragEvent, destDir: string) {
+    if (!editable || !onDropFiles) return
+    e.preventDefault()
+    e.stopPropagation()
+    setDropTarget(null)
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length) onDropFiles(destDir, files)
+  }
 
   return (
-    <li>
+    <li className={isDrop && node.isDir ? 'iso-tree-branch drop-over' : 'iso-tree-branch'}>
       <div
         className={[
           node.isDir ? 'iso-tree-row dir' : 'iso-tree-row file',
           isDrop ? 'drop-over' : '',
           isSelected ? 'selected' : '',
+          isFlash ? 'just-added' : '',
           editable && !node.isDir ? 'draggable' : '',
           preparing && isSelected ? 'preparing' : '',
         ]
           .filter(Boolean)
           .join(' ')}
+        data-tree-path={node.path}
         style={{ paddingLeft: 8 + depth * 14 }}
         draggable={Boolean(editable && !node.isDir && onStartDrag)}
         onClick={(e: ReactMouseEvent) => {
@@ -382,24 +498,19 @@ function TreeNode({
           onDragOutStarted?.(paths)
         }}
         onDragOver={(e) => {
-          if (!editable || !node.isDir || !onDropFiles) return
-          if (!Array.from(e.dataTransfer.types).includes('Files')) return
-          e.preventDefault()
-          e.stopPropagation()
-          e.dataTransfer.dropEffect = 'copy'
-          setDropTarget(node.path)
+          // Directory → that folder; file → parent folder (so nested IMG/AppImage dirs work).
+          const dest = node.isDir ? node.path : parentDirPath(node.path)
+          acceptIncomingFiles(e, dest)
         }}
         onDragLeave={(e) => {
           if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
-          if (dropTarget === node.path) setDropTarget(null)
+          if (dropTarget === (node.isDir ? node.path : parentDirPath(node.path))) {
+            setDropTarget(null)
+          }
         }}
         onDrop={(e) => {
-          if (!editable || !node.isDir || !onDropFiles) return
-          e.preventDefault()
-          e.stopPropagation()
-          setDropTarget(null)
-          const files = Array.from(e.dataTransfer.files)
-          if (files.length) onDropFiles(node.path, files)
+          const dest = node.isDir ? node.path : parentDirPath(node.path)
+          dropIncomingFiles(e, dest)
         }}
       >
         <span className="iso-tree-twist">
@@ -411,32 +522,55 @@ function TreeNode({
         </span>
         <span className="iso-tree-size">{node.isDir ? '' : formatBytes(node.size)}</span>
       </div>
-      {node.isDir && isOpen && hasChildren && (
-        <ul className="iso-tree-list">
-          {node.children!.map((child) => (
-            <TreeNode
-              key={child.path}
-              node={child}
-              depth={depth + 1}
-              expanded={expanded}
-              onToggle={onToggle}
-              forceOpen={forceOpen}
-              editable={editable}
-              dropTarget={dropTarget}
-              setDropTarget={setDropTarget}
-              preparing={preparing}
-              readyMapRef={readyMapRef}
-              ensurePrepared={ensurePrepared}
-              dragPathsFor={dragPathsFor}
-              onDropFiles={onDropFiles}
-              onStartDrag={onStartDrag}
-              onDragOutNotReady={onDragOutNotReady}
-              onDragOutStarted={onDragOutStarted}
-              selectedSet={selectedSet}
-              onSelect={onSelect}
-              onNodeContextMenu={onNodeContextMenu}
+      {node.isDir && isOpen && (
+        <ul
+          className={['iso-tree-list', isDrop ? 'drop-over' : ''].filter(Boolean).join(' ')}
+          onDragOver={(e) => {
+            acceptIncomingFiles(e, node.path)
+          }}
+          onDrop={(e) => {
+            dropIncomingFiles(e, node.path)
+          }}
+        >
+          {hasChildren ? (
+            node.children!.map((child) => (
+              <TreeNode
+                key={child.path}
+                node={child}
+                depth={depth + 1}
+                expanded={expanded}
+                onToggle={onToggle}
+                forceOpen={forceOpen}
+                editable={editable}
+                dropTarget={dropTarget}
+                setDropTarget={setDropTarget}
+                ensureExpanded={ensureExpanded}
+                preparing={preparing}
+                readyMapRef={readyMapRef}
+                ensurePrepared={ensurePrepared}
+                dragPathsFor={dragPathsFor}
+                onDropFiles={onDropFiles}
+                onStartDrag={onStartDrag}
+                onDragOutNotReady={onDragOutNotReady}
+                onDragOutStarted={onDragOutStarted}
+                selectedSet={selectedSet}
+                flashSet={flashSet}
+                onSelect={onSelect}
+                onNodeContextMenu={onNodeContextMenu}
+              />
+            ))
+          ) : (
+            <li
+              className="iso-tree-empty-folder"
+              style={{ paddingLeft: 8 + (depth + 1) * 14 }}
+              onDragOver={(e) => {
+                acceptIncomingFiles(e, node.path)
+              }}
+              onDrop={(e) => {
+                dropIncomingFiles(e, node.path)
+              }}
             />
-          ))}
+          )}
         </ul>
       )}
     </li>

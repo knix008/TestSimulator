@@ -10,8 +10,8 @@ const api = {
     ipcRenderer.invoke('dialog:openFiles', filters, hintPath, title),
   openDirectory: (hintPath, title) =>
     ipcRenderer.invoke('dialog:openDirectory', hintPath, title),
-  saveFile: (defaultPath, hintPath, title) =>
-    ipcRenderer.invoke('dialog:saveFile', defaultPath, hintPath, title),
+  saveFile: (defaultPath, hintPath, title, filters) =>
+    ipcRenderer.invoke('dialog:saveFile', defaultPath, hintPath, title, filters),
   openPath: (targetPath) => ipcRenderer.invoke('shell:openPath', targetPath),
   extractIso: (options) => ipcRenderer.invoke('iso:extract', options),
   createIso: (options) => ipcRenderer.invoke('iso:create', options),

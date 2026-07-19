@@ -42,15 +42,19 @@ type VolumeChoice = {
 
 export async function openIso(iso: Blob): Promise<OpenIsoResult> {
   if (iso.size < SECTOR * 17) {
-    throw new Error('파일이 ISO로 보기에는 너무 작습니다.')
+    throw new Error('파일이 디스크 이미지로 보기에는 너무 작습니다.')
   }
 
-  const volume = await findBestVolume(iso)
+  // .img / hybrid images may place ISO9660 after a partition table.
+  const baseOffset = await findIsoFilesystemOffset(iso)
+  const image = baseOffset > 0 ? iso.slice(baseOffset) : iso
+
+  const volume = await findBestVolume(image)
   const root: IsoDirNode = { kind: 'dir', name: '', children: new Map() }
   const entries: IsoFlatEntry[] = []
   let totalBytes = 0
 
-  await walkDirectory(iso, volume, root, '', volume.rootLba, volume.rootSize, entries, (n) => {
+  await walkDirectory(image, volume, root, '', volume.rootLba, volume.rootSize, entries, (n) => {
     totalBytes += n
   })
 
@@ -62,6 +66,35 @@ export async function openIso(iso: Blob): Promise<OpenIsoResult> {
     entries,
     totalBytes,
   }
+}
+
+/** Return byte offset of ISO9660 start (0 if PVD is at the usual LBA 16). */
+async function findIsoFilesystemOffset(iso: Blob): Promise<number> {
+  const pvdAt = 16 * SECTOR
+  if (iso.size >= pvdAt + SECTOR) {
+    const probe = await readBytes(iso, pvdAt, SECTOR)
+    if (probe[0] === 1 && decodeAscii(probe.subarray(1, 6)) === 'CD001') {
+      return 0
+    }
+  }
+
+  // Scan the first 64 MiB on 2048-byte boundaries for a Primary Volume Descriptor.
+  const scanLimit = Math.min(iso.size, 64 * 1024 * 1024)
+  const chunkSize = 1024 * 1024
+  for (let start = 0; start < scanLimit; start += chunkSize) {
+    const len = Math.min(chunkSize + SECTOR, scanLimit - start)
+    if (len < SECTOR) break
+    const buf = await readBytes(iso, start, len)
+    const last = buf.length - SECTOR
+    for (let off = 0; off <= last; off += SECTOR) {
+      if (buf[off] !== 1) continue
+      if (decodeAscii(buf.subarray(off + 1, off + 6)) !== 'CD001') continue
+      const absPvd = start + off
+      const base = absPvd - 16 * SECTOR
+      if (base >= 0) return base
+    }
+  }
+  return 0
 }
 
 export async function readIsoFile(
@@ -146,7 +179,7 @@ async function findBestVolume(iso: Blob): Promise<VolumeChoice> {
 
   const chosen = joliet ?? primary
   if (!chosen) {
-    throw new Error('ISO9660 볼륨 디스크립터를 찾지 못했습니다.')
+    throw new Error('ISO9660 볼륨 디스크립터를 찾지 못했습니다. (ISO/IMG 형식이 아니거나 손상되었을 수 있습니다.)')
   }
   return chosen
 }

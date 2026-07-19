@@ -14,7 +14,12 @@ export type IsoMakerApi = {
   getEngineInfo: () => Promise<EngineInfo>
   openFile: (filters?: FileFilter[]) => Promise<string | null>
   openDirectory: () => Promise<string | null>
-  saveFile: (defaultPath?: string) => Promise<string | null>
+  saveFile: (
+    defaultPath?: string,
+    hintPath?: string,
+    title?: string,
+    filters?: FileFilter[],
+  ) => Promise<string | null>
   openPath: (targetPath: string) => Promise<string>
   extractIso: (options: ExtractOptions) => Promise<{ ok: true }>
   createIso: (options: CreateIsoOptions) => Promise<{ ok: true }>
@@ -29,7 +34,8 @@ const api: IsoMakerApi = {
   getEngineInfo: () => ipcRenderer.invoke('engine:info'),
   openFile: (filters) => ipcRenderer.invoke('dialog:openFile', filters),
   openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
-  saveFile: (defaultPath) => ipcRenderer.invoke('dialog:saveFile', defaultPath),
+  saveFile: (defaultPath, hintPath, title, filters) =>
+    ipcRenderer.invoke('dialog:saveFile', defaultPath, hintPath, title, filters),
   openPath: (targetPath) => ipcRenderer.invoke('shell:openPath', targetPath),
   extractIso: (options) => ipcRenderer.invoke('iso:extract', options),
   createIso: (options) => ipcRenderer.invoke('iso:create', options),

@@ -3,8 +3,28 @@ import os from 'node:os'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import {
+  buildTreeFromDirectory,
+  detectOpenKind,
+  extractArchiveToTemp,
+  isAppImageFile,
+  looksLikeTarArchive,
+  volumeLabelFromPath,
+} from './archive-open'
+import {
+  materializeTree,
+  packDirectoryAsAppImage,
+  packDirectoryAsTar,
+  type AppImageRuntime,
+} from './archive-save'
 import { IsoEditSession } from '../../src/iso9660/session'
 import { getNodeAtPath, normalizeKey } from '../../src/iso9660/reader'
+import {
+  guessImageKindByName,
+  isArchiveImageKind,
+  isGzipTarPath,
+  type OpenImageKind,
+} from '../../src/iso9660/image-formats'
 import type { IsoTreeResult } from '../../src/iso9660/tree-types'
 import type { JobProgress } from './types'
 import { openIsoBlob } from './path-blob'
@@ -12,14 +32,21 @@ import { serializeChildren } from './tree-serialize'
 
 let session: IsoEditSession | null = null
 let sourcePath: string | null = null
+let sourceKind: OpenImageKind = 'unknown'
+/** Runtime bytes for rebuilding AppImage (original file + squashfs offset). */
+let appImageRuntime: AppImageRuntime | null = null
+/** Temp dir for AppImage / Docker extract; deleted on close/reopen. */
+let extractRoot: string | null = null
 const dragTempFiles = new Set<string>()
 /** entryPath → prepared temp file (reuse so re-drag is instant). */
-const dragCache = new Map<string, { tempPath: string; name: string }>()
+const dragCache = new Map<string, { tempPath: string; name: string; owned: boolean }>()
 const dragInflight = new Map<string, Promise<{ tempPath: string; name: string }>>()
 
 export type EditSessionSnapshot = IsoTreeResult & {
   sourcePath: string
+  sourceKind: OpenImageKind
   dirty: boolean
+  canSaveAppImage: boolean
 }
 
 export function isEditDirty(): boolean {
@@ -33,19 +60,65 @@ export function getEditSourcePath(): string | null {
 export async function openEditSession(isoPath: string): Promise<EditSessionSnapshot> {
   const resolved = path.resolve(isoPath)
   if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
-    throw new Error(`ISO file not found: ${resolved}`)
+    throw new Error(`파일을 찾을 수 없습니다: ${resolved}`)
   }
   clearDragTemps()
-  const blob = await openIsoBlob(resolved)
-  session = await IsoEditSession.open(blob)
+  clearExtractRoot()
+  appImageRuntime = null
+  sourceKind = 'unknown'
+
+  const hinted = guessImageKindByName(resolved)
+  const kind = await detectOpenKind(resolved, hinted)
+
+  if (isArchiveImageKind(kind)) {
+    return openArchiveSession(resolved, kind)
+  }
+
+  try {
+    const blob = await openIsoBlob(resolved)
+    session = await IsoEditSession.open(blob)
+    sourcePath = resolved
+    sourceKind = kind === 'img' ? 'img' : 'iso'
+    return snapshot()
+  } catch (isoErr) {
+    // Extension-less / misnamed files: fall back to AppImage or tar.
+    if (await isAppImageFile(resolved)) {
+      return openArchiveSession(resolved, 'appimage')
+    }
+    if (await looksLikeTarArchive(resolved)) {
+      return openArchiveSession(resolved, 'docker')
+    }
+    throw isoErr
+  }
+}
+
+async function openArchiveSession(
+  resolved: string,
+  kind: 'appimage' | 'docker',
+): Promise<EditSessionSnapshot> {
+  const { extractRoot: root, treeRoot, squashfsOffset } = await extractArchiveToTemp(
+    resolved,
+    kind,
+  )
+  extractRoot = root
+  const tree = await buildTreeFromDirectory(treeRoot)
+  const label = volumeLabelFromPath(resolved)
+  session = IsoEditSession.fromDirectoryTree(tree, label)
   sourcePath = resolved
+  sourceKind = kind
+  if (kind === 'appimage' && squashfsOffset != null && squashfsOffset > 0) {
+    appImageRuntime = { runtimePath: resolved, squashfsOffset }
+  }
   return snapshot()
 }
 
 export function closeEditSession(): void {
   session = null
   sourcePath = null
+  sourceKind = 'unknown'
+  appImageRuntime = null
   clearDragTemps()
+  clearExtractRoot()
 }
 
 export function getEditSnapshot(): EditSessionSnapshot | null {
@@ -58,6 +131,10 @@ export async function addPathsToSession(
   filePaths: string[],
 ): Promise<EditSessionSnapshot> {
   const s = requireSession()
+  const parent = getNodeAtPath(s.root, destDir)
+  if (!parent || parent.kind !== 'dir') {
+    throw new Error(`폴더가 없습니다: ${destDir || '/'}`)
+  }
   for (const filePath of filePaths) {
     const resolved = path.resolve(filePath)
     if (!fs.existsSync(resolved)) continue
@@ -113,8 +190,12 @@ export async function exportFileFromSession(
   }
   const resolved = path.resolve(outputPath)
   fs.mkdirSync(path.dirname(resolved), { recursive: true })
-  const blob = await s.readFile(entryPath)
-  await writeBlobToFile(blob, resolved)
+  if (node.source.type === 'path') {
+    await fs.promises.copyFile(node.source.absolutePath, resolved)
+  } else {
+    const blob = await readSessionFile(s, entryPath)
+    await writeBlobToFile(blob, resolved)
+  }
   return { ok: true, outputPath: resolved }
 }
 
@@ -152,22 +233,41 @@ export async function prepareDragOutFiles(
 
 /** Extract a file from the session into a temp path for OS drag-out. */
 export async function prepareDragOutFile(entryPath: string): Promise<{ tempPath: string; name: string }> {
+  // Hover can fire prepare after close / HMR — do not throw (Electron logs handler errors).
+  if (!session) {
+    return { tempPath: '', name: '' }
+  }
+
   const cached = dragCache.get(entryPath)
   if (cached && fs.existsSync(cached.tempPath)) {
-    return cached
+    return { tempPath: cached.tempPath, name: cached.name }
   }
 
   const inflight = dragInflight.get(entryPath)
   if (inflight) return inflight
 
   const job = (async () => {
-    const s = requireSession()
+    if (!session) {
+      return { tempPath: '', name: '' }
+    }
+    const s = session
     const node = getNodeAtPath(s.root, entryPath)
     if (!node || node.kind !== 'file') {
       throw new Error(`파일이 없습니다: ${entryPath}`)
     }
     const name = node.name
-    const blob = await s.readFile(entryPath)
+
+    // Path sources already live on disk (extract tree) — reuse without copying.
+    if (node.source.type === 'path' && fs.existsSync(node.source.absolutePath)) {
+      const result = { tempPath: node.source.absolutePath, name, owned: false }
+      dragCache.set(entryPath, result)
+      return { tempPath: result.tempPath, name: result.name }
+    }
+
+    const blob = await readSessionFile(s, entryPath)
+    if (!session) {
+      return { tempPath: '', name: '' }
+    }
     const tempPath = path.join(
       os.tmpdir(),
       `isomaker-drag-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName(name)}`,
@@ -176,10 +276,10 @@ export async function prepareDragOutFile(entryPath: string): Promise<{ tempPath:
     if (!fs.existsSync(tempPath)) {
       throw new Error(`임시 파일 생성 실패: ${name}`)
     }
-    const result = { tempPath, name }
+    const result = { tempPath, name, owned: true }
     dragTempFiles.add(tempPath)
     dragCache.set(entryPath, result)
-    return result
+    return { tempPath, name }
   })()
 
   dragInflight.set(entryPath, job)
@@ -200,20 +300,92 @@ export async function saveEditSession(
   fs.mkdirSync(path.dirname(resolved), { recursive: true })
 
   throwIfAborted(signal)
-  onProgress?.({ phase: 'save', percent: 0, message: 'Writing ISO…' })
-  const blob = await s.exportIso((p) => {
-    onProgress?.({ phase: 'save', percent: p.percent, message: p.message })
-  }, signal)
-  throwIfAborted(signal)
-  await writeBlobToFile(blob, resolved, signal)
+  const outKind = guessImageKindByName(resolved)
+  const kind: OpenImageKind = outKind === 'unknown' ? 'iso' : outKind
+
+  if (kind === 'iso' || kind === 'img') {
+    onProgress?.({ phase: 'save', percent: 0, message: 'ISO/IMG 작성 중…' })
+    const blob = await s.exportIso(
+      (p) => {
+        onProgress?.({ phase: 'save', percent: p.percent, message: p.message })
+      },
+      signal,
+      openIsoBlob,
+    )
+    throwIfAborted(signal)
+    await writeBlobToFile(blob, resolved, signal)
+  } else if (kind === 'docker') {
+    await saveAsTarArchive(s, resolved, isGzipTarPath(resolved), onProgress, signal)
+  } else if (kind === 'appimage') {
+    await saveAsAppImage(s, resolved, onProgress, signal)
+  } else {
+    throw new Error(`지원하지 않는 저장 형식: ${path.basename(resolved)}`)
+  }
+
   throwIfAborted(signal)
   s.dirty = false
-  onProgress?.({ phase: 'save', percent: 100, message: 'ISO saved' })
+  onProgress?.({ phase: 'save', percent: 100, message: '저장 완료' })
   return snapshot()
+}
+
+async function saveAsTarArchive(
+  s: IsoEditSession,
+  outputPath: string,
+  gzip: boolean,
+  onProgress?: (progress: JobProgress) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const work = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'isomaker-save-tar-'))
+  try {
+    onProgress?.({ phase: 'save', percent: 0, message: '트리 준비 중…' })
+    await materializeTree(s.root, work, onProgress, signal)
+    await packDirectoryAsTar(work, outputPath, gzip, onProgress, signal)
+  } finally {
+    try {
+      fs.rmSync(work, { recursive: true, force: true })
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function saveAsAppImage(
+  s: IsoEditSession,
+  outputPath: string,
+  onProgress?: (progress: JobProgress) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (!appImageRuntime) {
+    throw new Error(
+      'AppImage로 저장하려면 원본 AppImage를 연 상태에서 저장해야 합니다.\n' +
+        '(런타임 ELF가 필요하며, ISO/IMG/tar에서 AppImage로 변환은 지원하지 않습니다.)\n' +
+        '대신 .iso / .img / .tar 로 저장할 수 있습니다.',
+    )
+  }
+  const work = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'isomaker-save-app-'))
+  try {
+    onProgress?.({ phase: 'save', percent: 0, message: '트리 준비 중…' })
+    await materializeTree(s.root, work, onProgress, signal)
+    await packDirectoryAsAppImage(work, outputPath, appImageRuntime, onProgress, signal)
+  } finally {
+    try {
+      fs.rmSync(work, { recursive: true, force: true })
+    } catch {
+      // ignore
+    }
+  }
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new Error('JOB_CANCELED')
+}
+
+async function readSessionFile(s: IsoEditSession, entryPath: string) {
+  const node = getNodeAtPath(s.root, entryPath)
+  if (node?.kind === 'file' && node.source.type === 'path') {
+    return openIsoBlob(node.source.absolutePath)
+  }
+  return s.readFile(entryPath)
 }
 
 function snapshot(): EditSessionSnapshot {
@@ -225,7 +397,9 @@ function snapshot(): EditSessionSnapshot {
   }
   return {
     sourcePath,
+    sourceKind,
     dirty: s.dirty,
+    canSaveAppImage: Boolean(appImageRuntime),
     volumeLabel: s.volumeLabel,
     totalBytes,
     entryCount: s.entries.length,
@@ -255,9 +429,9 @@ async function addPathRecursive(
     return
   }
 
-  const blob = await openIsoBlob(srcPath)
-  const file = new File([blob], name, { type: 'application/octet-stream' })
-  await s.addFiles(destDir, [file])
+  // Keep a path reference so large files can be added into IMG/AppImage folders
+  // without loading the whole payload into RAM.
+  s.addFileFromPath(destDir, name, srcPath, st.size)
 }
 
 function ensureDir(s: IsoEditSession, parentPath: string, name: string): void {
@@ -310,7 +484,7 @@ function invalidateDragCachePrefix(prefix: string): void {
     if (!prefix || key === prefix || key.startsWith(prefix + '/')) {
       const cached = dragCache.get(key)
       dragCache.delete(key)
-      if (cached) {
+      if (cached?.owned) {
         try {
           fs.unlinkSync(cached.tempPath)
         } catch {
@@ -324,6 +498,16 @@ function invalidateDragCachePrefix(prefix: string): void {
 
 function clearDragTemps(): void {
   dragInflight.clear()
+  for (const [key, cached] of dragCache) {
+    dragCache.delete(key)
+    if (!cached.owned) continue
+    try {
+      fs.unlinkSync(cached.tempPath)
+    } catch {
+      // ignore
+    }
+    dragTempFiles.delete(cached.tempPath)
+  }
   dragCache.clear()
   for (const file of dragTempFiles) {
     try {
@@ -333,4 +517,15 @@ function clearDragTemps(): void {
     }
   }
   dragTempFiles.clear()
+}
+
+function clearExtractRoot(): void {
+  if (!extractRoot) return
+  const dir = extractRoot
+  extractRoot = null
+  try {
+    fs.rmSync(dir, { recursive: true, force: true })
+  } catch {
+    // ignore
+  }
 }

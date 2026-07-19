@@ -65,7 +65,7 @@ npm run dist:all    # win+mac+linux (가능하면; mac 빌드는 macOS 필요)
 
 ## 주요 기능 (데스크톱)
 
-1. **ISO 열기 / 편집** — 트리를 보고 Ctrl·Shift 다중 선택, 컨텍스트 메뉴, 파일 드래그 인/아웃, 변경 시 dirty 표시 후 **새 ISO로 저장**
+1. **이미지 열기 / 편집 / 저장** — `.iso`·`.img`·`.AppImage`·Docker 저장본(`.tar`/`.tgz`) 트리 편집 후 **같은 형식 또는 다른 형식**으로 저장 (ISO/IMG·tar·AppImage). AppImage는 `unsquashfs`/`mksquashfs` 권장
 2. **ISO 생성** — 폴더 → ISO9660/Joliet (xorriso)
 3. **부팅 ISO** — BIOS / UEFI (소스 트리에 부트로더 이미지 필요)
 4. **마운트** — OS별 네이티브 마운트 (Windows `Mount-DiskImage`, macOS `hdiutil`, Linux `mount`/`fuseiso`)

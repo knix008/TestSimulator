@@ -35,6 +35,12 @@ import { listIsoTree } from './iso/list-tree'
 import { dialogDefaultPath, rememberPath } from './last-path'
 import { mountIso, unmountIso } from './mount'
 import { resolveResource } from './paths'
+import {
+  discImageFileFilters,
+  editedImageName,
+  guessImageKindByName,
+  saveImageFileFilters,
+} from '../src/iso9660/image-formats'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -46,6 +52,12 @@ let allowClose = false
 let closePromptOpen = false
 let closeFallbackTimer: NodeJS.Timeout | null = null
 let currentJobAbort: AbortController | null = null
+/** App UI language from renderer prefs (not OS locale). */
+let appLocale: 'ko' | 'en' = 'ko'
+
+function isKo(): boolean {
+  return appLocale === 'ko'
+}
 
 function resolvePreloadPath(): string {
   const candidates = [
@@ -157,21 +169,21 @@ async function confirmCloseWithNativeDialog(): Promise<void> {
     clearClosePrompt()
     return
   }
-  const localeGuess = app.getLocale().toLowerCase().startsWith('ko')
+  const ko = isKo()
   const result = await dialog.showMessageBox(mainWindow, {
     type: 'question',
-    buttons: localeGuess
+    buttons: ko
       ? ['저장 후 종료', '저장 안 함', '취소']
       : ['Save & quit', "Don't save", 'Cancel'],
     defaultId: 0,
     cancelId: 2,
-    title: localeGuess ? '저장하지 않은 변경' : 'Unsaved changes',
-    message: localeGuess
-      ? 'ISO 내용이 변경되었습니다. 종료하기 전에 새 ISO로 저장할까요?'
-      : 'The ISO has been modified. Save as a new ISO before quitting?',
-    detail: localeGuess
-      ? '부팅 정보는 새 ISO에 보존되지 않을 수 있습니다.'
-      : 'Boot information may not be preserved in the new ISO.',
+    title: ko ? '저장하지 않은 변경' : 'Unsaved changes',
+    message: ko
+      ? '내용이 변경되었습니다. 종료하기 전에 저장할까요?'
+      : 'Contents have been modified. Save before quitting?',
+    detail: ko
+      ? '저장 형식(ISO/IMG/AppImage/tar)을 선택할 수 있습니다.'
+      : 'You can choose the save format (ISO/IMG/AppImage/tar).',
   })
 
   if (result.response === 2) {
@@ -181,11 +193,12 @@ async function confirmCloseWithNativeDialog(): Promise<void> {
 
   if (result.response === 0) {
     const src = getEditSourcePath()
-    const base = src ? path.basename(src).replace(/\.iso$/i, '') + '-edited.iso' : 'edited.iso'
+    const base = src ? editedImageName(src) : 'edited.iso'
+    const preferred = src ? guessImageKindByName(src) : 'iso'
     const save = await dialog.showSaveDialog(mainWindow, {
-      title: localeGuess ? '새 ISO 파일 저장' : 'Save new ISO file',
+      title: ko ? '변경 내용 저장' : 'Save changes',
       defaultPath: dialogDefaultPath(src ?? undefined, base),
-      filters: [{ name: 'ISO', extensions: ['iso'] }],
+      filters: saveImageFileFilters(ko ? 'ko' : 'en', preferred),
     })
     if (save.canceled || !save.filePath) {
       clearClosePrompt()
@@ -199,7 +212,7 @@ async function confirmCloseWithNativeDialog(): Promise<void> {
       const message = err instanceof Error ? err.message : String(err)
       await dialog.showMessageBox(mainWindow, {
         type: 'error',
-        message: localeGuess ? '저장 실패' : 'Save failed',
+        message: ko ? '저장 실패' : 'Save failed',
         detail: message,
       })
       clearClosePrompt()
@@ -278,9 +291,9 @@ ipcMain.handle(
     title?: string,
   ) => {
     const result = await dialog.showOpenDialog({
-      title: title || 'Open ISO file',
+      title: title || (isKo() ? '이미지 열기' : 'Open image'),
       properties: ['openFile'],
-      filters: filters ?? [{ name: 'ISO', extensions: ['iso'] }],
+      filters: filters ?? discImageFileFilters(appLocale),
       defaultPath: dialogDefaultPath(hintPath),
     })
     const selected = result.canceled ? null : (result.filePaths[0] ?? null)
@@ -298,7 +311,7 @@ ipcMain.handle(
     title?: string,
   ) => {
     const result = await dialog.showOpenDialog({
-      title: title || 'Select files',
+      title: title || (isKo() ? '파일 선택' : 'Select files'),
       properties: ['openFile', 'multiSelections'],
       ...(filters?.length ? { filters } : {}),
       defaultPath: dialogDefaultPath(hintPath),
@@ -313,7 +326,7 @@ ipcMain.handle(
   'dialog:openDirectory',
   async (_event, hintPath?: string, title?: string) => {
     const result = await dialog.showOpenDialog({
-      title: title || 'Select directory',
+      title: title || (isKo() ? '디렉터리 선택' : 'Select directory'),
       properties: ['openDirectory', 'createDirectory'],
       defaultPath: dialogDefaultPath(hintPath),
     })
@@ -325,12 +338,19 @@ ipcMain.handle(
 
 ipcMain.handle(
   'dialog:saveFile',
-  async (_event, defaultPath?: string, hintPath?: string, title?: string) => {
+  async (
+    _event,
+    defaultPath?: string,
+    hintPath?: string,
+    title?: string,
+    filters?: { name: string; extensions: string[] }[],
+  ) => {
     const fileName = defaultPath || 'output.iso'
+    const preferred = guessImageKindByName(fileName)
     const result = await dialog.showSaveDialog({
-      title: title || 'Save ISO file',
+      title: title || (isKo() ? '이미지 저장' : 'Save image'),
       defaultPath: dialogDefaultPath(hintPath ?? defaultPath, fileName),
-      filters: [{ name: 'ISO', extensions: ['iso'] }],
+      filters: filters?.length ? filters : saveImageFileFilters(appLocale, preferred),
     })
     const selected = result.canceled ? null : (result.filePath ?? null)
     if (selected) rememberPath(selected)
@@ -455,7 +475,7 @@ ipcMain.on('ondragstart', (event, filePathOrPaths: string | string[]) => {
   }
 })
 
-ipcMain.handle('prefs:setLocale', async () => {
-  // Menu bar removed; locale is handled in the renderer only.
+ipcMain.handle('prefs:setLocale', async (_event, locale?: string) => {
+  if (locale === 'ko' || locale === 'en') appLocale = locale
   return { ok: true }
 })
