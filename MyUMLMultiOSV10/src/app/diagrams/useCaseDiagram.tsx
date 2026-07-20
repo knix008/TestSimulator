@@ -31,11 +31,13 @@ export function renderUseCaseDiagramNode({ node, className, title, pointerHandle
 
     return (
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <g transform={`scale(${scaleX} ${scaleY})`}>
+        {/* Full-box hit target so actors are easy to select and connect */}
+        <rect className="node-hit-area" x="0" y="0" width={node.width} height={node.height} rx="4" />
+        <g className="actor-figure" transform={`scale(${scaleX} ${scaleY})`}>
           <circle cx="44" cy="18" r="13" />
           <path d="M44 31 V68 M18 44 H70 M44 68 L22 104 M44 68 L66 104" />
-          <text x="44" y="124" textAnchor="middle">{title}</text>
         </g>
+        <text x={node.width / 2} y={node.height - 4} textAnchor="middle">{title}</text>
       </g>
     );
   }

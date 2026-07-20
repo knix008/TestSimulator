@@ -723,7 +723,7 @@ export function App() {
       setSelectedNodeId(nodeId);
       setSelectedEdgeId(undefined);
       setSelectedOwnedElement(undefined);
-      setConnectorPreviewPoint(initialConnectorPreviewPoint(sourceNode));
+      setConnectorPreviewPoint(initialConnectorPreviewPoint(sourceNode, document.kind));
       return;
     }
 
@@ -1068,14 +1068,14 @@ export function App() {
 
       pendingConnectorRef.current = activeConnector;
       pendingSourceNodeIdRef.current = node.id;
-      const startPoint = pointerToCanvasPoint(event) ?? initialConnectorPreviewPoint(node);
-      const sequenceY = node.kind === 'lifeline' ? clampLifelineMessageY(node, node, startPoint.y) : undefined;
+      const startPoint = pointerToCanvasPoint(event) ?? initialConnectorPreviewPoint(node, document.kind);
+      const sequenceY = document.kind === 'sequence' && node.kind === 'lifeline' ? clampLifelineMessageY(node, node, startPoint.y) : undefined;
       connectorDragStateRef.current = { sourceId: node.id, startClientX: event.clientX, startClientY: event.clientY, moved: false, sequenceY };
       setPendingSourceNodeId(node.id);
       setSelectedNodeId(node.id);
       setSelectedEdgeId(undefined);
       setSelectedOwnedElement(undefined);
-      setConnectorPreviewPoint(sequenceY === undefined ? initialConnectorPreviewPoint(node) : { x: initialConnectorPreviewPoint(node).x, y: sequenceY });
+      setConnectorPreviewPoint(sequenceY === undefined ? initialConnectorPreviewPoint(node, document.kind) : { x: initialConnectorPreviewPoint(node, document.kind).x, y: sequenceY });
       return;
     }
 
@@ -1260,6 +1260,31 @@ export function App() {
     updateCanvasZoom(event.deltaY < 0 ? 0.1 : -0.1);
   }
 
+  function handleCanvasPointerUp(event: React.PointerEvent<SVGSVGElement>) {
+    const pendingSourceNodeIdValue = pendingSourceNodeIdRef.current;
+    const activeConnector = selectedConnector ?? pendingConnectorRef.current;
+
+    if (activeConnector && pendingSourceNodeIdValue && document.kind === 'communication') {
+      const point = pointerToCanvasPoint(event);
+      if (point) {
+        const hit = [...document.nodes].reverse().find((node) =>
+          isCommunicationParticipant(node.kind)
+          && point.x >= node.x
+          && point.x <= node.x + node.width
+          && point.y >= node.y
+          && point.y <= node.y + node.height
+          && node.id !== pendingSourceNodeIdValue
+        );
+        if (hit) {
+          completeConnector(pendingSourceNodeIdValue, hit.id);
+          return;
+        }
+      }
+    }
+
+    stopDragging();
+  }
+
   function stopDragging() {
     dragStateRef.current = undefined;
     resizeStateRef.current = undefined;
@@ -1301,7 +1326,7 @@ export function App() {
     }
 
     event.stopPropagation();
-    const startPoint = pointerToCanvasPoint(event) ?? initialConnectorPreviewPoint(node);
+    const startPoint = pointerToCanvasPoint(event) ?? initialConnectorPreviewPoint(node, document.kind);
     const sequenceY = clampLifelineMessageY(node, node, startPoint.y);
 
     const pendingSourceNodeIdValue = pendingSourceNodeIdRef.current;
@@ -1328,7 +1353,7 @@ export function App() {
     setSelectedNodeId(node.id);
     setSelectedEdgeId(undefined);
     setSelectedOwnedElement(undefined);
-    setConnectorPreviewPoint({ x: initialConnectorPreviewPoint(node).x, y: sequenceY });
+    setConnectorPreviewPoint({ x: initialConnectorPreviewPoint(node, document.kind).x, y: sequenceY });
   }
 
   function updatePendingSequenceMessageY(event: React.PointerEvent<SVGElement>, target: UmlNode) {
@@ -1356,7 +1381,7 @@ export function App() {
       };
     }
 
-    setConnectorPreviewPoint({ x: initialConnectorPreviewPoint(target).x, y: point.y });
+    setConnectorPreviewPoint({ x: initialConnectorPreviewPoint(target, document.kind).x, y: point.y });
   }
 
   function startNodeResize(event: React.PointerEvent<SVGGElement>, node: UmlNode) {
@@ -1547,7 +1572,7 @@ export function App() {
                 </div>
               </div>
 
-              <svg ref={canvasRef} className={canvasClassName} role="application" aria-label={`${document.name} ${text.canvasSuffix}`} onClick={addNodeAtCanvas} onContextMenu={openCanvasContextMenu} onWheel={handleCanvasWheel} onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={stopDragging} onPointerLeave={stopDragging} onDragOver={handleCanvasDragOver} onDrop={handleCanvasDrop}>
+              <svg ref={canvasRef} className={canvasClassName} role="application" aria-label={`${document.name} ${text.canvasSuffix}`} onClick={addNodeAtCanvas} onContextMenu={openCanvasContextMenu} onWheel={handleCanvasWheel} onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={handleCanvasPointerUp} onPointerLeave={stopDragging} onDragOver={handleCanvasDragOver} onDrop={handleCanvasDrop}>
                 <defs>
                   <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
                     <path className="grid-line" d="M 24 0 L 0 0 0 24" fill="none" strokeWidth="1" />
@@ -2752,7 +2777,7 @@ function defaultSavedNodeSize(kind: UmlElementKind): { width: number; height: nu
     case 'enumeration':
       return { width: 148, height: 176 };
     case 'actor':
-      return { width: 88, height: 112 };
+      return { width: 88, height: 132 };
     case 'useCase':
       return { width: 136, height: 68 };
     case 'port':
@@ -3567,11 +3592,13 @@ function DiagramEdge({ edge, edgeIndex, diagramKind, nodes, edges, selected, onS
   const sourceMultiplicityPoint = pointBetween(effectiveSrc, effectiveTgt, 0.18, -12);
   const targetMultiplicityPoint = pointBetween(effectiveSrc, effectiveTgt, 0.82, -12);
   const activation = sequenceMessagePoints ? getSequenceActivationRect(target, sequenceMessagePoints.target) : undefined;
-  const pathData = sequenceMessagePoints?.selfCall
-    ? selfMessagePath(sequenceMessagePoints.source, sequenceMessagePoints.target)
-    : communicationMessagePoints?.selfCall
-      ? (communicationMessagePoints.path ?? edgePath(edge.route, effectiveSrc, effectiveTgt, sourceAnchor, targetAnchor))
-      : edgePath(edge.route, effectiveSrc, effectiveTgt, sourceAnchor, targetAnchor);
+  const pathData = (
+    sequenceMessagePoints?.selfCall
+      ? selfMessagePath(sequenceMessagePoints.source, sequenceMessagePoints.target)
+      : communicationMessagePoints?.selfCall
+        ? communicationMessagePoints.path
+        : edgePath(edge.route, effectiveSrc, effectiveTgt, sourceAnchor, targetAnchor)
+  ) || `M ${effectiveSrc.x} ${effectiveSrc.y} L ${effectiveTgt.x} ${effectiveTgt.y}`;
   const labelPoint = sequenceMessagePoints?.selfCall
     ? { x: sequenceMessagePoints.source.x + 42, y: sequenceMessagePoints.source.y - 8 }
     : communicationMessagePoints?.labelPoint
@@ -3960,10 +3987,15 @@ function centerOf(node: UmlNode): Point {
   };
 }
 
-function initialConnectorPreviewPoint(node: UmlNode): Point {
+function initialConnectorPreviewPoint(node: UmlNode, diagramKind?: DiagramKind): Point {
   const center = centerOf(node);
 
-  return node.kind === 'lifeline' ? { x: center.x + 88, y: Math.max(node.y + 72, center.y) } : center;
+  // Sequence lifelines extend downward; communication participants are compact rectangles.
+  if (node.kind === 'lifeline' && diagramKind !== 'communication') {
+    return { x: center.x + 88, y: Math.max(node.y + 72, center.y) };
+  }
+
+  return { x: center.x + Math.max(48, node.width / 2 + 24), y: center.y };
 }
 
 function connectionPoint(node: UmlNode, toward: Point, anchor?: EdgeAnchor): Point {
@@ -4028,7 +4060,13 @@ function boundaryPoint(node: UmlNode, toward: Point): Point {
 
 function connectionBounds(node: UmlNode): { x: number; y: number; width: number; height: number } {
   if (node.kind === 'actor') {
-    return { x: node.x + 18, y: node.y + 5, width: 52, height: 99 };
+    // Stick-figure body occupies most of the actor box; scale with node size.
+    return {
+      x: node.x + node.width * 0.2,
+      y: node.y + node.height * 0.04,
+      width: Math.max(1, node.width * 0.6),
+      height: Math.max(1, node.height * 0.75)
+    };
   }
 
   if (isCircleConnectionNode(node)) {

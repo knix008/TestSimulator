@@ -332,7 +332,7 @@ function defaultNodeSize(kind: UmlElementKind): { width: number; height: number 
     case 'enumeration':
       return { width: 148, height: 176 };
     case 'actor':
-      return { width: 88, height: 112 };
+      return { width: 88, height: 132 };
     case 'useCase':
       return { width: 136, height: 68 };
     case 'port':

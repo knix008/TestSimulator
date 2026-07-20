@@ -647,8 +647,19 @@ code {
   stroke-width: 2;
 }
 
-.node .subject-boundary {
+.node .node-hit-area {
   fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.node .actor-figure circle,
+.node .actor-figure path {
+  fill: none;
+  stroke: var(--node-stroke);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .node .combined-fragment-frame {
