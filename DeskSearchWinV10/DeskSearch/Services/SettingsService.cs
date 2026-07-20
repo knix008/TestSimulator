@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using DeskSearch.Helpers;
 using DeskSearch.Models;
 
 namespace DeskSearch.Services;
@@ -66,6 +67,8 @@ public sealed class SettingsService
 
     private static bool NormalizeSettings(AppSettings settings, string? rawJson = null)
     {
+        var migrated = false;
+
         settings.IncludedDrives ??= [];
         settings.IncludedDirectories ??= [];
         settings.ExcludedDirectories ??= [];
@@ -75,6 +78,7 @@ public sealed class SettingsService
 
         settings.WindowOpacity = Math.Clamp(settings.WindowOpacity, 50, 100);
         settings.BackgroundOpacity = Math.Clamp(settings.BackgroundOpacity, 0, 100);
+        settings.BorderThickness = Math.Clamp(settings.BorderThickness, 0, 6);
         settings.SearchResultSort = SearchResultSortPolicy.Normalize(settings.SearchResultSort);
 
         if (rawJson is null)
@@ -82,9 +86,24 @@ public sealed class SettingsService
 
         using var document = JsonDocument.Parse(rawJson);
         if (!document.RootElement.TryGetProperty(nameof(AppSettings.RunAtStartup), out _))
+        {
             settings.RunAtStartup = true;
+            migrated = true;
+        }
 
-        return MigrateIndexScope(settings, document.RootElement);
+        if (!document.RootElement.TryGetProperty(nameof(AppSettings.BorderThickness), out _))
+        {
+            settings.BorderThickness = 1;
+            migrated = true;
+        }
+
+        if (!document.RootElement.TryGetProperty(nameof(AppSettings.IconColor), out _))
+        {
+            settings.IconColor = ColorHelper.GetDefaultIconColor(settings.BackgroundColor);
+            migrated = true;
+        }
+
+        return MigrateIndexScope(settings, document.RootElement) || migrated;
     }
 
     private static bool MigrateIndexScope(AppSettings settings, JsonElement root)

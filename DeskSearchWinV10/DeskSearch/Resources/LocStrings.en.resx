@@ -118,6 +118,8 @@
   <data name="Settings_Startup" xml:space="preserve"><value>Startup</value></data>
   <data name="Settings_RunAtStartup" xml:space="preserve"><value>Run automatically when Windows starts</value></data>
   <data name="Settings_RunAtStartupDesc" xml:space="preserve"><value>DeskSearch starts at sign-in.</value></data>
+  <data name="Settings_ColorSettings" xml:space="preserve"><value>Colors</value></data>
+  <data name="Settings_ColorTarget" xml:space="preserve"><value>Target to change</value></data>
   <data name="Settings_BackgroundColor" xml:space="preserve"><value>Background color</value></data>
   <data name="Settings_PickColor" xml:space="preserve"><value>Pick color...</value></data>
   <data name="Settings_Preset_White" xml:space="preserve"><value>White</value></data>
@@ -127,7 +129,9 @@
   <data name="Settings_Preset_Dark" xml:space="preserve"><value>Dark</value></data>
   <data name="Settings_BackgroundOpacity" xml:space="preserve"><value>Background opacity</value></data>
   <data name="Settings_BorderColor" xml:space="preserve"><value>Border color</value></data>
+  <data name="Settings_BorderThickness" xml:space="preserve"><value>Border thickness</value></data>
   <data name="Settings_TextColor" xml:space="preserve"><value>Text color</value></data>
+  <data name="Settings_IconColor" xml:space="preserve"><value>Icon color</value></data>
   <data name="Settings_SearchPreview" xml:space="preserve"><value>Search preview</value></data>
   <data name="Settings_WindowOpacity" xml:space="preserve"><value>Window opacity</value></data>
   <data name="Settings_DisplayPriority" xml:space="preserve"><value>Window display priority</value></data>

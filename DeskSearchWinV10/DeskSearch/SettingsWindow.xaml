@@ -283,27 +283,69 @@
                            Margin="22,0,0,16"
                            TextWrapping="Wrap"/>
 
-                <TextBlock x:Name="BackgroundColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="ColorSettingsLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="ColorTargetLabel" Margin="0,0,0,4"/>
+                <ComboBox x:Name="ColorTargetComboBox"
+                          Style="{StaticResource SettingsComboBox}"
+                          Margin="0,0,0,8"
+                          SelectionChanged="ColorTargetComboBox_SelectionChanged"/>
                 <Grid Margin="0,0,0,8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Border x:Name="BackgroundPreview"
+                    <Border x:Name="UnifiedColorPreview"
                             Grid.Row="0"
-                            Height="32"
+                            Height="36"
                             CornerRadius="6"
                             BorderBrush="#CCCCCC"
                             BorderThickness="1"
-                            Margin="0,0,0,6"/>
-                    <Button x:Name="PickBackgroundColorButton"
+                            Margin="0,0,0,6">
+                        <Grid>
+                            <Border x:Name="PreviewBackgroundLayer"
+                                    CornerRadius="6"/>
+                            <Border x:Name="PreviewBorderLayer"
+                                    CornerRadius="6"
+                                    Margin="1"/>
+                            <Grid Margin="8,0">
+                                <StackPanel x:Name="TextPreviewPanel"
+                                            VerticalAlignment="Center">
+                                    <TextBlock x:Name="TextPreview"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel x:Name="IconPreviewPanel"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <TextBlock x:Name="IconPreviewMuted"
+                                               Text="&#xE700;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="13"
+                                               Margin="0,0,10,0"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="IconPreviewPrimary"
+                                               Text="&#xE721;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="15"
+                                               Margin="0,0,10,0"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="IconPreviewAccent"
+                                               Text="&#xE713;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="15"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    <Button x:Name="PickColorButton"
                             Grid.Row="1"
                             Style="{StaticResource SettingsActionButton}"
                             HorizontalAlignment="Left"
                             Margin="0,0,0,0"
-                            Click="PickBackgroundColor_Click"/>
+                            Click="PickColorButton_Click"/>
                 </Grid>
-                <WrapPanel x:Name="BackgroundSwatchPanel"
+                <WrapPanel x:Name="ColorSwatchPanel"
                            Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="BackgroundOpacityLabel" Margin="0,0,0,4"/>
@@ -324,55 +366,24 @@
                                VerticalAlignment="Center"/>
                 </Grid>
 
-                <TextBlock x:Name="BorderColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="BorderThicknessLabel" Margin="0,0,0,4"/>
                 <Grid Margin="0,0,0,12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Border x:Name="BorderPreview"
-                            Grid.Row="0"
-                            Height="32"
-                            CornerRadius="6"
-                            BorderBrush="#CCCCCC"
-                            BorderThickness="1"
-                            Margin="0,0,0,6"/>
-                    <Button x:Name="PickBorderColorButton"
-                            Grid.Row="1"
-                            Style="{StaticResource SettingsActionButton}"
-                            HorizontalAlignment="Left"
-                            Margin="0,0,0,0"
-                            Click="PickBorderColor_Click"/>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="48"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider x:Name="BorderThicknessSlider"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Minimum="0" Maximum="6" TickFrequency="0.5"
+                            IsSnapToTickEnabled="True"
+                            IsMoveToPointEnabled="True"
+                            ValueChanged="BorderThicknessSlider_ValueChanged"/>
+                    <TextBlock x:Name="BorderThicknessValueLabel"
+                               Grid.Column="1"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"/>
                 </Grid>
-                <WrapPanel x:Name="BorderSwatchPanel"
-                           Margin="0,0,0,12"/>
-
-                <TextBlock x:Name="TextColorLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <Grid Margin="0,0,0,12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Border Grid.Row="0"
-                            Height="32"
-                            CornerRadius="6"
-                            BorderBrush="#CCCCCC"
-                            BorderThickness="1"
-                            Background="White"
-                            Margin="0,0,0,6">
-                        <TextBlock x:Name="TextPreview"
-                                   VerticalAlignment="Center"
-                                   Margin="8,0"/>
-                    </Border>
-                    <Button x:Name="PickTextColorButton"
-                            Grid.Row="1"
-                            Style="{StaticResource SettingsActionButton}"
-                            HorizontalAlignment="Left"
-                            Margin="0,0,0,0"
-                            Click="PickTextColor_Click"/>
-                </Grid>
-                <WrapPanel x:Name="TextSwatchPanel"
-                           Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="WindowOpacityLabel" Margin="0,0,0,4"/>
                 <Grid Margin="0,0,0,12">
@@ -395,7 +406,8 @@
                 <TextBlock x:Name="DisplayPriorityLabel" FontWeight="SemiBold" Margin="0,4,0,6"/>
                 <RadioButton x:Name="PriorityAboveOthersRadio"
                              GroupName="DisplayPriority"
-                             Margin="0,0,0,4"/>
+                             Margin="0,0,0,4"
+                             Checked="PriorityRadio_Checked"/>
                 <TextBlock x:Name="AboveOthersDescLabel"
                            FontSize="11"
                            Foreground="#888888"
@@ -403,7 +415,8 @@
                            TextWrapping="Wrap"/>
                 <RadioButton x:Name="PriorityNormalRadio"
                              GroupName="DisplayPriority"
-                             Margin="0,0,0,4"/>
+                             Margin="0,0,0,4"
+                             Checked="PriorityRadio_Checked"/>
                 <TextBlock x:Name="NormalPriorityDescLabel"
                            FontSize="11"
                            Foreground="#888888"

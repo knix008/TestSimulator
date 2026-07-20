@@ -55,8 +55,10 @@ public partial class ResultsWindow : Window
 
         RootBorder.Background = new SolidColorBrush(bgWithAlpha);
         RootBorder.BorderBrush = ColorHelper.ToBrush(display.BorderColor);
+        RootBorder.BorderThickness = new Thickness(settings.BorderThickness);
         ResultToolTipBorder.Background = new SolidColorBrush(ColorHelper.WithOpacity(bgColor, Math.Min(100, settings.BackgroundOpacity + 5)));
         ResultToolTipBorder.BorderBrush = ColorHelper.ToBrush(display.BorderColor);
+        ResultToolTipBorder.BorderThickness = new Thickness(settings.BorderThickness);
         Topmost = settings.AlwaysOnTop;
         Opacity = Math.Clamp(settings.WindowOpacity, 50, 100) / 100.0;
     }

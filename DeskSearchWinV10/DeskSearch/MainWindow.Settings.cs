@@ -12,11 +12,18 @@ public partial class MainWindow
     private DebounceDispatcher? _positionSaveDebounce;
     private bool _isApplyingWindowLayout;
     private bool _sessionEndingHandlerRegistered;
+    private AppSettings? _settingsPreviewBaseline;
 
     private DebounceDispatcher LayoutSaveDebounce =>
         _positionSaveDebounce ??= new DebounceDispatcher(Dispatcher, delayMs: 400);
 
     private void ApplySettings(AppSettings settings)
+    {
+        ApplyWindowSettings(settings);
+        ApplyRuntimeSettings(settings);
+    }
+
+    private void ApplyWindowSettings(AppSettings settings)
     {
         LocalizationService.Apply(settings.Language);
 
@@ -26,6 +33,7 @@ public partial class MainWindow
 
         RootBorder.Background = new SolidColorBrush(bgWithAlpha);
         RootBorder.BorderBrush = ColorHelper.ToBrush(display.BorderColor);
+        RootBorder.BorderThickness = new Thickness(settings.BorderThickness);
 
         Resources["PrimaryTextBrush"] = ColorHelper.ToBrush(display.TextColor);
         Resources["SubTextBrush"] = ColorHelper.ToBrush(display.SubTextColor);
@@ -38,18 +46,32 @@ public partial class MainWindow
         Opacity = Math.Clamp(settings.WindowOpacity, 50, 100) / 100.0;
 
         ApplyThemeToResultsWindow();
+    }
 
+    private void ApplyRuntimeSettings(AppSettings settings)
+    {
         if (!StartupService.Sync(settings.RunAtStartup) && settings.RunAtStartup)
             ErrorDialogService.Show(LocalizationService.T("Error_StartupRegistration"));
     }
 
+    private void ApplySettingsPreview(AppSettings settings)
+    {
+        ApplyCurrentWindowLayout(settings);
+        ApplyWindowSettings(settings);
+        RefreshLocalization();
+    }
+
     private void ApplyIconBrushes(AppSettings settings)
     {
-        var isDark = ColorHelper.IsDark(ColorHelper.ParseColor(settings.BackgroundColor));
+        var iconColor = string.IsNullOrWhiteSpace(settings.IconColor)
+            ? ColorHelper.GetDefaultIconColor(settings.BackgroundColor)
+            : settings.IconColor;
 
-        Resources["IconPrimaryBrush"] = ColorHelper.ToBrush(isDark ? "#F5F5F5" : "#141414");
-        Resources["IconMutedBrush"] = ColorHelper.ToBrush(isDark ? "#B0BEC5" : "#555555");
-        Resources["IconAccentBrush"] = ColorHelper.ToBrush(isDark ? "#90CAF9" : "#004578");
+        Resources["IconPrimaryBrush"] = ColorHelper.ToBrush(iconColor);
+        Resources["IconMutedBrush"] = ColorHelper.ToBrush(iconColor, 0xB0);
+        Resources["IconAccentBrush"] = ColorHelper.ToBrush(iconColor);
+
+        var isDark = ColorHelper.IsDark(ColorHelper.ParseColor(settings.BackgroundColor));
         Resources["ListItemHoverBrush"] = ColorHelper.ToBrush(isDark ? "#22FFFFFF" : "#15000000");
         Resources["ListItemSelectedBrush"] = ColorHelper.ToBrush(isDark ? "#3390CAF9" : "#220078D4");
     }
@@ -241,6 +263,7 @@ public partial class MainWindow
 
         var dialog = new SettingsWindow(
             _settingsService.Current,
+            ApplySettingsPreview,
             GetSettingsProgress,
             RequestStartIndexingFromSettings,
             RequestStopIndexingFromSettings,
@@ -249,6 +272,7 @@ public partial class MainWindow
             Owner = this
         };
 
+        _settingsPreviewBaseline = _settingsService.Current.Clone();
         _openSettingsWindow = dialog;
         dialog.Closed += OnSettingsWindowClosed;
         dialog.Show();
@@ -263,13 +287,20 @@ public partial class MainWindow
         _openSettingsWindow = null;
 
         if (!dialog.SavedOnClose)
+        {
+            if (_settingsPreviewBaseline is not null)
+                ApplySettingsPreview(_settingsPreviewBaseline);
+
+            _settingsPreviewBaseline = null;
             return;
+        }
 
         var previousScope = IndexInclusionPolicy.FromSettings(_settingsService.Current);
 
         ApplyCurrentWindowLayout(dialog.Settings);
         _settingsService.Save(dialog.Settings);
         ApplySettings(_settingsService.Current);
+        _settingsPreviewBaseline = null;
 
         var scopeChanged = !previousScope.Equals(
             IndexInclusionPolicy.FromSettings(_settingsService.Current));

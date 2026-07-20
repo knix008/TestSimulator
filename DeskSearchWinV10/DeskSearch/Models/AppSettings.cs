@@ -5,8 +5,10 @@ public sealed class AppSettings
     public string BackgroundColor { get; set; } = "#FFFFFF";
     public int BackgroundOpacity { get; set; } = 95;
     public string BorderColor { get; set; } = "#33000000";
+    public double BorderThickness { get; set; } = 1;
     public string TextColor { get; set; } = "#222222";
     public string SubTextColor { get; set; } = "#888888";
+    public string IconColor { get; set; } = "#141414";
     public bool AlwaysOnTop { get; set; } = true;
     public string Language { get; set; } = "ko";
     public int WindowOpacity { get; set; } = 100;
@@ -29,8 +31,10 @@ public sealed class AppSettings
         BackgroundColor = BackgroundColor,
         BackgroundOpacity = BackgroundOpacity,
         BorderColor = BorderColor,
+        BorderThickness = BorderThickness,
         TextColor = TextColor,
         SubTextColor = SubTextColor,
+        IconColor = IconColor,
         AlwaysOnTop = AlwaysOnTop,
         Language = Language,
         WindowOpacity = WindowOpacity,

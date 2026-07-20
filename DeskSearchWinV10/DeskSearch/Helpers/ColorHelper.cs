@@ -6,6 +6,9 @@ namespace DeskSearch.Helpers;
 
 public static class ColorHelper
 {
+    public const string DefaultLightIconColor = "#141414";
+    public const string DefaultDarkIconColor = "#F5F5F5";
+
     public static MediaColor ParseColor(string hex)
     {
         if (string.IsNullOrWhiteSpace(hex))
@@ -58,6 +61,11 @@ public static class ColorHelper
         IsDark(ParseColor(backgroundColorHex))
             ? new ThemePalette("#F5F5F5", "#B0BEC5", "#44FFFFFF")
             : new ThemePalette("#222222", "#888888", "#33000000");
+
+    public static string GetDefaultIconColor(string backgroundColorHex) =>
+        IsDark(ParseColor(backgroundColorHex))
+            ? DefaultDarkIconColor
+            : DefaultLightIconColor;
 
     public static ThemePalette ResolveDisplayColors(AppSettings settings)
     {
