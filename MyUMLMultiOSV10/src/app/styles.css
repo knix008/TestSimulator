@@ -246,11 +246,12 @@ h2 {
 
 .inspector {
   min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(190px, 40%) minmax(260px, 60%);
+  display: flex;
+  flex-direction: column;
   padding: 0;
   border-right: 0;
   border-left: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .tree-panel,
@@ -263,7 +264,35 @@ h2 {
 }
 
 .tree-panel {
-  border-bottom: 1px solid var(--border);
+  min-height: 0;
+}
+
+.inspector-divider {
+  flex: 0 0 6px;
+  cursor: row-resize;
+  background: var(--border);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.inspector-divider::after {
+  content: '';
+  width: 28px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--muted);
+  pointer-events: none;
+}
+
+.inspector-divider:hover {
+  background: var(--accent);
+}
+
+.inspector-divider:hover::after {
+  background: var(--accent-text);
 }
 
 .diagram-tab,
@@ -478,19 +507,35 @@ code {
   stroke-width: 1.7;
 }
 
-.edge .assembly-connector-glyph path,
-.edge .assembly-connector-glyph line,
-.edge .assembly-connector-glyph circle {
-  fill: var(--canvas);
-  stroke: var(--node-stroke);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.edge path.assembly-hit {
+  stroke: transparent;
+  stroke-width: 16;
 }
 
-.edge .assembly-connector-glyph line,
-.edge .assembly-connector-glyph path {
+.edge .assembly-line {
   fill: none;
+  stroke: var(--node-stroke);
+  stroke-width: 1.5;
+  opacity: 0.85;
+}
+
+.edge.selected path.assembly-hit {
+  stroke: transparent;
+  stroke-width: 16;
+}
+
+.edge.selected .assembly-line {
+  stroke: var(--selected);
+  stroke-width: 2.5;
+  opacity: 1;
+}
+
+.box-select {
+  fill: none;
+  stroke: var(--selected, #3b82f6);
+  stroke-width: 1;
+  stroke-dasharray: 5 3;
+  pointer-events: none;
 }
 
 .edge.selected path {
@@ -546,6 +591,12 @@ code {
 
 .arrow-marker {
   fill: none;
+}
+
+.filled-arrow-marker {
+  fill: var(--node-stroke);
+  stroke: var(--node-stroke);
+  stroke-width: 1.4;
 }
 
 .hollow-arrow-marker {

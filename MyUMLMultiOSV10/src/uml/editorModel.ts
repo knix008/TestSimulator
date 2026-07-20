@@ -1,4 +1,5 @@
 import { getDiagramDefinition, type ConnectorTool, type DiagramKind, type PaletteTool, type RelationshipKind, type UmlElementKind } from './diagramRegistry.js';
+import { isInteractionMessageKind } from './umlNotation.js';
 
 export interface UmlNode {
   id: string;
@@ -10,6 +11,7 @@ export interface UmlNode {
   y: number;
   width: number;
   height: number;
+  parentComponentId?: string;
 }
 
 export type UmlOwnedElementKind = 'attribute' | 'operation' | 'literal' | 'slot' | 'port' | 'part' | 'region' | 'entry' | 'exit';
@@ -35,6 +37,8 @@ export interface UmlEdge {
   sourceMultiplicity?: string;
   targetMultiplicity?: string;
   sequenceY?: number;
+  /** Decimal sequence expression for communication diagram messages (e.g. "1", "1.1"). */
+  sequenceNumber?: string;
 }
 
 export type EdgeRoute = 'straight' | 'orthogonal' | 'curve';
@@ -62,6 +66,9 @@ export function createDiagramDocument(kind: DiagramKind): UmlDiagramDocument {
 
 export function addPaletteNode(document: UmlDiagramDocument, tool: PaletteTool, x: number, y: number): UmlDiagramDocument {
   const nodeCount = document.nodes.filter((node) => node.kind === tool.kind).length + 1;
+  const nodeSize = tool.kind === 'lifeline' && document.kind === 'communication'
+    ? { width: 124, height: 44 }
+    : defaultNodeSize(tool.kind);
   const nextNode: UmlNode = {
     id: createId(tool.kind),
     kind: tool.kind,
@@ -70,8 +77,8 @@ export function addPaletteNode(document: UmlDiagramDocument, tool: PaletteTool, 
     ownedElements: [],
     x,
     y,
-    width: defaultNodeSize(tool.kind).width,
-    height: defaultNodeSize(tool.kind).height
+    width: nodeSize.width,
+    height: nodeSize.height
   };
 
   return {
@@ -158,7 +165,7 @@ export function updateOwnedElementKind(document: UmlDiagramDocument, nodeId: str
 }
 
 export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, sourceId: string, targetId: string, options: { sequenceY?: number } = {}): UmlDiagramDocument {
-  if (sourceId === targetId && tool.kind !== 'message') {
+  if (sourceId === targetId && !isInteractionMessageKind(tool.kind)) {
     return document;
   }
 
@@ -169,7 +176,33 @@ export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, 
     return document;
   }
 
-  const edgeCount = document.edges.filter((edge) => edge.kind === tool.kind).length + 1;
+  let workingDocument = document;
+
+  // UML communication: messages travel along links — ensure an undirected link exists.
+  if (document.kind === 'communication' && isInteractionMessageKind(tool.kind) && sourceId !== targetId) {
+    const hasLink = document.edges.some((edge) =>
+      edge.kind === 'connector'
+      && ((edge.sourceId === sourceId && edge.targetId === targetId) || (edge.sourceId === targetId && edge.targetId === sourceId))
+    );
+
+    if (!hasLink) {
+      const linkCount = document.edges.filter((edge) => edge.kind === 'connector').length + 1;
+      const linkEdge: UmlEdge = {
+        id: createId('connector'),
+        kind: 'connector',
+        name: `Link${linkCount}`,
+        umlType: 'uml:Connector',
+        sourceId,
+        targetId,
+        directed: false,
+        route: 'straight'
+      };
+      workingDocument = { ...document, edges: [...document.edges, linkEdge] };
+    }
+  }
+
+  const edgeCount = workingDocument.edges.filter((edge) => edge.kind === tool.kind).length + 1;
+  const skipMultiplicity = document.kind === 'communication' && tool.kind === 'connector';
   const nextEdge: UmlEdge = {
     id: createId(tool.kind),
     kind: tool.kind,
@@ -179,15 +212,42 @@ export function connectNodes(document: UmlDiagramDocument, tool: ConnectorTool, 
     targetId,
     directed: tool.directed,
     route: 'straight',
-    sourceMultiplicity: defaultMultiplicity(tool.kind),
-    targetMultiplicity: defaultMultiplicity(tool.kind),
-    sequenceY: options.sequenceY
+    sourceMultiplicity: skipMultiplicity ? undefined : defaultMultiplicity(tool.kind),
+    targetMultiplicity: skipMultiplicity ? undefined : defaultMultiplicity(tool.kind),
+    sequenceY: options.sequenceY,
+    sequenceNumber: document.kind === 'communication' && isInteractionMessageKind(tool.kind)
+      ? allocateCommunicationSequenceNumber(workingDocument)
+      : undefined
   };
 
   return {
-    ...document,
-    edges: [...document.edges, nextEdge]
+    ...workingDocument,
+    edges: [...workingDocument.edges, nextEdge]
   };
+}
+
+export function renameEdgeSequenceNumber(document: UmlDiagramDocument, edgeId: string, sequenceNumber: string): UmlDiagramDocument {
+  return {
+    ...document,
+    edges: document.edges.map((edge) => (edge.id === edgeId ? { ...edge, sequenceNumber } : edge))
+  };
+}
+
+export function allocateCommunicationSequenceNumber(document: UmlDiagramDocument): string {
+  let maxTopLevel = 0;
+
+  for (const edge of document.edges) {
+    if (!isInteractionMessageKind(edge.kind) || !edge.sequenceNumber) {
+      continue;
+    }
+
+    const top = Number.parseInt(edge.sequenceNumber.split('.')[0] ?? '', 10);
+    if (Number.isFinite(top)) {
+      maxTopLevel = Math.max(maxTopLevel, top);
+    }
+  }
+
+  return String(maxTopLevel + 1);
 }
 
 export function renameEdge(document: UmlDiagramDocument, edgeId: string, name: string): UmlDiagramDocument {
@@ -237,17 +297,30 @@ export function updateEdgeMultiplicity(document: UmlDiagramDocument, edgeId: str
 export function updateEdgeRelationship(document: UmlDiagramDocument, edgeId: string, tool: ConnectorTool): UmlDiagramDocument {
   return {
     ...document,
-    edges: document.edges.map((edge) =>
-      edge.id === edgeId
-        ? {
-            ...edge,
-            kind: tool.kind,
-            name: renameGeneratedRelationship(edge.name, tool.defaultName),
-            umlType: tool.umlType,
-            directed: tool.directed
-          }
-        : edge
-    )
+    edges: document.edges.map((edge) => {
+      if (edge.id !== edgeId) {
+        return edge;
+      }
+
+      const becomingMessage = isInteractionMessageKind(tool.kind);
+      const wasMessage = isInteractionMessageKind(edge.kind);
+      const sequenceNumber = document.kind === 'communication' && becomingMessage
+        ? (wasMessage ? edge.sequenceNumber : allocateCommunicationSequenceNumber(document))
+        : becomingMessage
+          ? edge.sequenceNumber
+          : undefined;
+
+      return {
+        ...edge,
+        kind: tool.kind,
+        name: renameGeneratedRelationship(edge.name, tool.defaultName),
+        umlType: tool.umlType,
+        directed: tool.directed,
+        sequenceNumber,
+        sourceMultiplicity: document.kind === 'communication' && tool.kind === 'connector' ? undefined : edge.sourceMultiplicity ?? defaultMultiplicity(tool.kind),
+        targetMultiplicity: document.kind === 'communication' && tool.kind === 'connector' ? undefined : edge.targetMultiplicity ?? defaultMultiplicity(tool.kind)
+      };
+    })
   };
 }
 
@@ -266,7 +339,7 @@ function defaultNodeSize(kind: UmlElementKind): { width: number; height: number 
       return { width: 26, height: 26 };
     case 'providedInterface':
     case 'requiredInterface':
-      return { width: 88, height: 54 };
+      return { width: 56, height: 32 };
     case 'subject':
       return { width: 420, height: 280 };
     case 'lifeline':
@@ -363,7 +436,7 @@ function defaultMultiplicity(kind: RelationshipKind): string | undefined {
 }
 
 function renameGeneratedRelationship(currentName: string, nextDefaultName: string): string {
-  const match = currentName.match(/^(Association|Generalization|Dependency|Realization|PackageImport|Include|Extend|Connector|Deployment|Message|ControlFlow|ObjectFlow|Transition|Link|Extension|TimeMessage|DurationConstraint)(\d*)$/);
+  const match = currentName.match(/^(Association|Generalization|Dependency|Realization|PackageImport|Include|Extend|Connector|AssemblyConnector|DelegationConnector|Deployment|Message|AsyncMessage|ReplyMessage|ControlFlow|ObjectFlow|Transition|Link|Extension|TimeMessage|DurationConstraint|message|asyncMessage|reply)(\d*)$/i);
 
   if (!match) {
     return currentName;

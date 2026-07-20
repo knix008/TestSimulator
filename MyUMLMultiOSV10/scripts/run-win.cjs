@@ -15,6 +15,19 @@ if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }
 
+// Close a previously running source-run window so the rebuilt UI is always loaded.
+if (process.platform === 'win32') {
+  spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-Command',
+      "Get-CimInstance Win32_Process -Filter \"Name = 'electron.exe'\" | Where-Object { $_.CommandLine -like '*MyUMLMultiOSV10*' -or $_.CommandLine -like '*my-uml-multi-os*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+    ],
+    { stdio: 'ignore' }
+  );
+}
+
 let electronPath;
 try {
   electronPath = require('electron');

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { connectorLabels, diagramLabels, messages, notationHints, toolLabels } from '../app/i18n.js';
 import { diagramDefinitions } from './diagramRegistry.js';
+import { getUmlConnectorNotation, isInteractionMessageKind } from './umlNotation.js';
 import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute } from './editorModel.js';
-import { getUmlConnectorNotation } from './umlNotation.js';
 
 describe('UML 2.5.1 diagram registry', () => {
   it('registers the Papyrus diagram families used by the GUI', () => {
@@ -59,8 +59,20 @@ describe('UML 2.5.1 diagram registry', () => {
   it('uses UML component diagram component ports, interfaces, and connectors', () => {
     const componentDefinition = diagramDefinitions.find((diagram) => diagram.kind === 'component');
 
-    expect(componentDefinition?.palette.map((tool) => tool.kind)).toEqual(['component', 'port', 'providedInterface', 'requiredInterface', 'artifact']);
+    expect(componentDefinition?.palette.map((tool) => tool.kind)).toEqual(['component', 'port', 'artifact']);
     expect(componentDefinition?.connectors.map((connector) => connector.kind)).toEqual(['assemblyConnector', 'delegationConnector', 'dependency', 'realization']);
+  });
+
+  it('uses UML communication diagram participants, links, and message sorts', () => {
+    const communicationDefinition = diagramDefinitions.find((diagram) => diagram.kind === 'communication');
+
+    expect(communicationDefinition?.palette.map((tool) => tool.kind)).toEqual(['lifeline', 'actor']);
+    expect(communicationDefinition?.connectors.map((connector) => connector.kind)).toEqual([
+      'connector',
+      'message',
+      'asyncMessage',
+      'replyMessage'
+    ]);
   });
 });
 
@@ -162,6 +174,33 @@ describe('UML connector notation', () => {
     expect(getUmlConnectorNotation('controlFlow')).toEqual({ dashed: false, marker: 'openArrow' });
     expect(getUmlConnectorNotation('objectFlow')).toEqual({ dashed: false, marker: 'openArrow', objectToken: true });
     expect(getUmlConnectorNotation('assemblyConnector')).toEqual({ dashed: false, marker: 'none' });
-    expect(getUmlConnectorNotation('delegationConnector')).toEqual({ dashed: false, marker: 'none' });
+    expect(getUmlConnectorNotation('delegationConnector')).toEqual({ dashed: true, marker: 'none' });
+    expect(getUmlConnectorNotation('message')).toEqual({ dashed: false, marker: 'filledArrow' });
+    expect(getUmlConnectorNotation('asyncMessage')).toEqual({ dashed: false, marker: 'openArrow' });
+    expect(getUmlConnectorNotation('replyMessage')).toEqual({ dashed: true, marker: 'openArrow' });
+    expect(isInteractionMessageKind('message')).toBe(true);
+    expect(isInteractionMessageKind('asyncMessage')).toBe(true);
+    expect(isInteractionMessageKind('replyMessage')).toBe(true);
+    expect(isInteractionMessageKind('connector')).toBe(false);
+  });
+});
+
+describe('UML communication diagram model', () => {
+  it('assigns sequence numbers and auto-creates links for messages', () => {
+    const document = createDiagramDocument('communication');
+    const definition = diagramDefinitions.find((diagram) => diagram.kind === 'communication')!;
+    const participant = definition.palette[0];
+    const withSource = addPaletteNode(document, participant, 80, 80);
+    const withTarget = addPaletteNode(withSource, participant, 320, 80);
+    const connected = connectNodes(withTarget, definition.connectors[1], withTarget.nodes[0].id, withTarget.nodes[1].id);
+
+    expect(connected.edges.some((edge) => edge.kind === 'connector')).toBe(true);
+    const message = connected.edges.find((edge) => edge.kind === 'message');
+    expect(message?.sequenceNumber).toBe('1');
+    expect(message?.directed).toBe(true);
+
+    const withReply = connectNodes(connected, definition.connectors[3], withTarget.nodes[1].id, withTarget.nodes[0].id);
+    const reply = withReply.edges.find((edge) => edge.kind === 'replyMessage');
+    expect(reply?.sequenceNumber).toBe('2');
   });
 });

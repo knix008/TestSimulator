@@ -284,7 +284,7 @@ export const diagramScopes: Record<Locale, Record<DiagramKind, string>> = {
     deployment: 'Nodes, devices, execution environments, artifacts, deployments',
     useCase: 'Actors, use cases, subjects, include, extend, associations',
     sequence: 'Interactions, lifelines, messages, executions, combined fragments',
-    communication: 'Interactions, lifelines, connectors, numbered messages',
+    communication: 'Interactions, participants, actors, links, numbered synch/asynch/reply messages',
     activity: 'Activities, actions, control nodes, object flows, control flows',
     stateMachine: 'State machines, regions, states, pseudostates, transitions',
     timing: 'Lifelines, states over time, time observations, duration constraints'
@@ -299,7 +299,7 @@ export const diagramScopes: Record<Locale, Record<DiagramKind, string>> = {
     deployment: '노드, 디바이스, 실행 환경, 아티팩트, 배치',
     useCase: '액터, 유스케이스, 주체, include, extend, 연관',
     sequence: '인터랙션, 라이프라인, 메시지, 실행, 결합 fragment',
-    communication: '인터랙션, 라이프라인, 커넥터, 번호가 붙은 메시지',
+    communication: '인터랙션, 참여자, 액터, 링크, 번호가 붙은 동기/비동기/응답 메시지',
     activity: '액티비티, 액션, 제어 노드, 객체 흐름, 제어 흐름',
     stateMachine: '상태 머신, region, 상태, pseudostate, transition',
     timing: '라이프라인, 시간에 따른 상태, time observation, duration constraint'
@@ -347,7 +347,10 @@ export const toolLabels: Record<Locale, Partial<Record<UmlElementKind, string>>>
 };
 
 export const connectorLabels: Record<Locale, Partial<Record<RelationshipKind, string>>> = {
-  en: {},
+  en: {
+    asyncMessage: 'Async Message',
+    replyMessage: 'Reply Message'
+  },
   ko: {
     association: '연관',
     generalization: '일반화',
@@ -361,9 +364,40 @@ export const connectorLabels: Record<Locale, Partial<Record<RelationshipKind, st
     delegationConnector: '위임 커넥터',
     deployment: '배치',
     message: '메시지',
+    asyncMessage: '비동기 메시지',
+    replyMessage: '응답 메시지',
     controlFlow: '제어 흐름',
     objectFlow: '객체 흐름',
     transition: '전이'
+  }
+};
+
+export const communicationDiagramLabels: Record<Locale, {
+  participant: string;
+  actor: string;
+  link: string;
+  message: string;
+  asyncMessage: string;
+  replyMessage: string;
+  sequenceNumber: string;
+}> = {
+  en: {
+    participant: 'Participant',
+    actor: 'Actor',
+    link: 'Link',
+    message: 'Sync Message',
+    asyncMessage: 'Async Message',
+    replyMessage: 'Reply Message',
+    sequenceNumber: 'Sequence number'
+  },
+  ko: {
+    participant: '참여자',
+    actor: '액터',
+    link: '링크',
+    message: '동기 메시지',
+    asyncMessage: '비동기 메시지',
+    replyMessage: '응답 메시지',
+    sequenceNumber: '시퀀스 번호'
   }
 };
 
@@ -378,7 +412,7 @@ export const notationHints: Record<Locale, Record<DiagramKind, string>> = {
     deployment: 'Deployment diagrams map UML Node and Artifact elements to nested notation views.',
     useCase: 'Use case diagrams combine UML Actor and UseCase elements with association/include/extend edges.',
     sequence: 'Sequence diagrams persist UML Interaction content and lifeline/message notation separately.',
-    communication: 'Communication diagrams share Interaction elements with sequence diagrams but use graph-style notation.',
+    communication: 'Communication diagrams show participants and actors linked by undirected paths with numbered message arrows (1:, 1.1:).',
     activity: 'Activity diagrams update UML Activity nodes and notation edges together.',
     stateMachine: 'State machine diagrams persist UML StateMachine/Region contents and transition notation.',
     timing: 'Timing diagrams are Interaction-based diagrams with timeline notation and time observations.'
@@ -393,7 +427,7 @@ export const notationHints: Record<Locale, Record<DiagramKind, string>> = {
     deployment: '배치 다이어그램은 UML Node와 Artifact 요소를 중첩 notation view에 매핑합니다.',
     useCase: '유스케이스 다이어그램은 Actor와 UseCase 요소를 association/include/extend edge와 함께 저장합니다.',
     sequence: '시퀀스 다이어그램은 UML Interaction 내용과 lifeline/message notation을 분리해 저장합니다.',
-    communication: '커뮤니케이션 다이어그램은 시퀀스 다이어그램과 Interaction 요소를 공유하되 graph 형태 notation을 사용합니다.',
+    communication: '커뮤니케이션 다이어그램은 참여자/액터를 무방향 링크로 연결하고 번호가 붙은 메시지 화살표(1:, 1.1:)로 상호작용을 표현합니다.',
     activity: '액티비티 다이어그램은 UML Activity node와 notation edge를 함께 갱신합니다.',
     stateMachine: '상태 머신 다이어그램은 UML StateMachine/Region 내용과 transition notation을 저장합니다.',
     timing: '타이밍 다이어그램은 Interaction 기반 다이어그램이며 timeline notation과 time observation을 사용합니다.'

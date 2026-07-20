@@ -1,5 +1,6 @@
 import { useCaseDiagramDefinition } from './diagrams/useCaseDiagram.js';
 import { activityDiagramDefinition } from './diagrams/activityDiagram.js';
+import { communicationDiagramDefinition } from './diagrams/communicationDiagram.js';
 
 export type DiagramKind =
   | 'class'
@@ -65,6 +66,8 @@ export type RelationshipKind =
   | 'delegationConnector'
   | 'deployment'
   | 'message'
+  | 'asyncMessage'
+  | 'replyMessage'
   | 'controlFlow'
   | 'objectFlow'
   | 'transition';
@@ -155,8 +158,6 @@ export const diagramDefinitions: DiagramDefinition[] = [
     palette: [
       tool('component', 'Component', 'uml:Component', 'Component'),
       tool('port', 'Port', 'uml:Port', 'Port'),
-      tool('providedInterface', 'Provided Interface', 'uml:Interface', 'ProvidedInterface'),
-      tool('requiredInterface', 'Required Interface', 'uml:Interface', 'RequiredInterface'),
       tool('artifact', 'Artifact', 'uml:Artifact', 'Artifact')
     ],
     connectors: [
@@ -191,15 +192,7 @@ export const diagramDefinitions: DiagramDefinition[] = [
     ],
     connectors: [connector('message', 'Message', 'uml:Message', 'Message', true)]
   },
-  {
-    kind: 'communication',
-    label: 'Communication Diagram',
-    uml251Scope: 'Interactions, lifelines, connectors, numbered messages',
-    papyrusDiagramId: 'PapyrusUMLCommunicationDiagram',
-    notationHint: 'Communication diagrams share Interaction elements with sequence diagrams but use graph-style notation.',
-    palette: [tool('lifeline', 'Participant', 'uml:Lifeline', 'Participant')],
-    connectors: [connector('message', 'Message', 'uml:Message', 'Message', true), connector('connector', 'Connector', 'uml:Connector', 'Connector', false)]
-  },
+  communicationDiagramDefinition,
   activityDiagramDefinition,
   {
     kind: 'stateMachine',

@@ -2,13 +2,16 @@ const { app, BrowserWindow, Menu, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
-if (process.env.MY_UML_SOURCE_RUN === '1') {
+const isSourceRun = process.env.MY_UML_SOURCE_RUN === '1';
+
+if (isSourceRun) {
   app.setPath('userData', path.join(app.getPath('appData'), 'MyUML Source'));
 }
 
 app.setAppUserModelId('com.shkwon.myumlmultios');
 
 const appIconPath = path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'app-icon.ico' : 'app-icon.svg');
+const appHtmlPath = path.join(__dirname, '..', 'dist', 'app', 'index.html');
 
 let mainWindow;
 let pendingProjectPath = findProjectPath(process.argv);
@@ -32,6 +35,15 @@ function sendProjectToRenderer(filePath) {
   }
 }
 
+function reloadMainWindowFromDisk() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  // Source runs rebuild dist/ before launch; always pick up the latest bundle.
+  mainWindow.loadFile(appHtmlPath);
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     title: 'MyUML v0.0.1',
@@ -48,7 +60,7 @@ function createMainWindow() {
     }
   });
 
-  mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'app', 'index.html'));
+  mainWindow.loadFile(appHtmlPath);
   mainWindow.webContents.once('did-finish-load', () => {
     sendProjectToRenderer(pendingProjectPath);
     pendingProjectPath = undefined;
@@ -72,7 +84,17 @@ if (!singleInstanceLock) {
         mainWindow.restore();
       }
       mainWindow.focus();
-      sendProjectToRenderer(projectPath);
+
+      if (isSourceRun) {
+        pendingProjectPath = projectPath;
+        mainWindow.webContents.once('did-finish-load', () => {
+          sendProjectToRenderer(pendingProjectPath);
+          pendingProjectPath = undefined;
+        });
+        reloadMainWindowFromDisk();
+      } else {
+        sendProjectToRenderer(projectPath);
+      }
     } else {
       pendingProjectPath = projectPath;
     }
