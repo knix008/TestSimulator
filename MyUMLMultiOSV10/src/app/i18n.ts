@@ -13,6 +13,7 @@ export interface AppMessages {
   chooseDiagram: string;
   pointer: string;
   save: string;
+  refresh: string;
   undo: string;
   redo: string;
   saveImage: string;
@@ -82,7 +83,7 @@ export interface AppMessages {
 
 export const messages: Record<Locale, AppMessages> = {
   en: {
-    eyebrow: 'Papyrus-compatible UML 2.5.1',
+    eyebrow: '',
     projectActions: 'Project actions',
     newProject: 'New project',
     openProject: 'Open project',
@@ -92,6 +93,7 @@ export const messages: Record<Locale, AppMessages> = {
     chooseDiagram: 'Choose diagram to add',
     pointer: 'Pointer',
     save: 'Save project',
+    refresh: 'Refresh',
     undo: 'Undo',
     redo: 'Redo',
     saveImage: 'Save image',
@@ -105,7 +107,7 @@ export const messages: Record<Locale, AppMessages> = {
     english: 'English',
     korean: 'Korean',
     about: 'About',
-    aboutDescription: 'Standalone JavaScript/TypeScript UML 2.5.1 editor compatible with Papyrus-oriented project workflows.',
+    aboutDescription: 'Standalone JavaScript/TypeScript UML diagram editor.',
     copyright: 'Copyright (c) 2026 SHKWON. All rights reserved.',
     authorCredit: 'SHKWON(knix008@naver.com)',
     close: 'Close',
@@ -159,7 +161,7 @@ export const messages: Record<Locale, AppMessages> = {
     noSelection: 'None'
   },
   ko: {
-    eyebrow: 'Papyrus 호환 UML 2.5.1',
+    eyebrow: '',
     projectActions: '프로젝트 작업',
     newProject: '새 프로젝트',
     openProject: '프로젝트 열기',
@@ -169,6 +171,7 @@ export const messages: Record<Locale, AppMessages> = {
     chooseDiagram: '추가할 다이어그램 선택',
     pointer: '선택',
     save: '프로젝트 저장',
+    refresh: '새로 고침',
     undo: '실행 취소',
     redo: '다시 실행',
     saveImage: '이미지 저장',
@@ -182,7 +185,7 @@ export const messages: Record<Locale, AppMessages> = {
     english: '영어',
     korean: '한국어',
     about: '정보',
-    aboutDescription: 'Papyrus 호환 프로젝트 흐름을 고려한 독립 실행형 JavaScript/TypeScript UML 2.5.1 편집기입니다.',
+    aboutDescription: '독립 실행형 JavaScript/TypeScript UML 다이어그램 편집기입니다.',
     copyright: 'Copyright (c) 2026 SHKWON. All rights reserved.',
     authorCredit: 'SHKWON(knix008@naver.com)',
     close: '닫기',
@@ -192,7 +195,7 @@ export const messages: Record<Locale, AppMessages> = {
     wrapWithLoop: 'loop로 감싸기',
     diagramTypes: 'UML 다이어그램 종류',
     openDiagrams: '열린 다이어그램',
-    palette: '팔레트',
+    palette: '도구 모음',
     connectors: '연결',
     modelTree: '모델 트리',
     properties: '속성',
@@ -316,6 +319,9 @@ export const toolLabels: Record<Locale, Partial<Record<UmlElementKind, string>>>
     instanceSpecification: '객체',
     component: '컴포넌트',
     artifact: '아티팩트',
+    port: '포트',
+    providedInterface: '제공 인터페이스',
+    requiredInterface: '요구 인터페이스',
     node: '노드',
     device: '디바이스',
     executionEnvironment: '실행 환경',
@@ -351,6 +357,8 @@ export const connectorLabels: Record<Locale, Partial<Record<RelationshipKind, st
     include: 'include',
     extend: 'extend',
     connector: '커넥터',
+    assemblyConnector: '어셈블리 커넥터',
+    delegationConnector: '위임 커넥터',
     deployment: '배치',
     message: '메시지',
     controlFlow: '제어 흐름',

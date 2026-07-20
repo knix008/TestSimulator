@@ -55,6 +55,13 @@ describe('UML 2.5.1 diagram registry', () => {
     ]);
     expect(activityDefinition?.connectors.map((connector) => connector.kind)).toEqual(['controlFlow', 'objectFlow']);
   });
+
+  it('uses UML component diagram component ports, interfaces, and connectors', () => {
+    const componentDefinition = diagramDefinitions.find((diagram) => diagram.kind === 'component');
+
+    expect(componentDefinition?.palette.map((tool) => tool.kind)).toEqual(['component', 'port', 'providedInterface', 'requiredInterface', 'artifact']);
+    expect(componentDefinition?.connectors.map((connector) => connector.kind)).toEqual(['assemblyConnector', 'delegationConnector', 'dependency', 'realization']);
+  });
 });
 
 describe('GUI localization', () => {
@@ -152,5 +159,9 @@ describe('UML connector notation', () => {
     expect(getUmlConnectorNotation('realization')).toEqual({ dashed: true, marker: 'hollowTriangle' });
     expect(getUmlConnectorNotation('include')).toEqual({ dashed: true, marker: 'openArrow', stereotype: 'include' });
     expect(getUmlConnectorNotation('extend')).toEqual({ dashed: true, marker: 'openArrow', stereotype: 'extend' });
+    expect(getUmlConnectorNotation('controlFlow')).toEqual({ dashed: false, marker: 'openArrow' });
+    expect(getUmlConnectorNotation('objectFlow')).toEqual({ dashed: false, marker: 'openArrow', objectToken: true });
+    expect(getUmlConnectorNotation('assemblyConnector')).toEqual({ dashed: false, marker: 'none' });
+    expect(getUmlConnectorNotation('delegationConnector')).toEqual({ dashed: false, marker: 'none' });
   });
 });

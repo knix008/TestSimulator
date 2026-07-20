@@ -2,6 +2,14 @@ const { app, BrowserWindow, Menu, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
+if (process.env.MY_UML_SOURCE_RUN === '1') {
+  app.setPath('userData', path.join(app.getPath('appData'), 'MyUML Source'));
+}
+
+app.setAppUserModelId('com.shkwon.myumlmultios');
+
+const appIconPath = path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'app-icon.ico' : 'app-icon.svg');
+
 let mainWindow;
 let pendingProjectPath = findProjectPath(process.argv);
 
@@ -26,12 +34,13 @@ function sendProjectToRenderer(filePath) {
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
+    title: 'MyUML v0.0.1',
     width: 1440,
     height: 940,
     minWidth: 1180,
     minHeight: 820,
     backgroundColor: '#f2f0e7',
-    icon: path.join(__dirname, '..', 'assets', 'app-icon.svg'),
+    icon: appIconPath,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

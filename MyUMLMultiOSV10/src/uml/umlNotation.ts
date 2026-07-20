@@ -4,12 +4,15 @@ export interface UmlConnectorNotation {
   dashed: boolean;
   marker: 'none' | 'openArrow' | 'hollowTriangle';
   stereotype?: string;
+  objectToken?: boolean;
 }
 
 export function getUmlConnectorNotation(kind: RelationshipKind): UmlConnectorNotation {
   switch (kind) {
     case 'association':
     case 'connector':
+    case 'assemblyConnector':
+    case 'delegationConnector':
       return { dashed: false, marker: 'none' };
     case 'generalization':
       return { dashed: false, marker: 'hollowTriangle' };
@@ -25,8 +28,9 @@ export function getUmlConnectorNotation(kind: RelationshipKind): UmlConnectorNot
       return { dashed: true, marker: 'openArrow' };
     case 'message':
     case 'controlFlow':
-    case 'objectFlow':
     case 'transition':
       return { dashed: false, marker: 'openArrow' };
+    case 'objectFlow':
+      return { dashed: false, marker: 'openArrow', objectToken: true };
   }
 }

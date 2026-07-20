@@ -262,6 +262,11 @@ function defaultNodeSize(kind: UmlElementKind): { width: number; height: number 
       return { width: 88, height: 112 };
     case 'useCase':
       return { width: 136, height: 68 };
+    case 'port':
+      return { width: 26, height: 26 };
+    case 'providedInterface':
+    case 'requiredInterface':
+      return { width: 88, height: 54 };
     case 'subject':
       return { width: 420, height: 280 };
     case 'lifeline':

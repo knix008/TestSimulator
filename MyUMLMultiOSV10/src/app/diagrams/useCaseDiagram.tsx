@@ -26,11 +26,16 @@ export function renderUseCaseDiagramNode({ node, className, title, pointerHandle
   }
 
   if (node.kind === 'actor') {
+    const scaleX = node.width / 88;
+    const scaleY = node.height / 132;
+
     return (
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <circle cx="44" cy="18" r="13" />
-        <path d="M44 31 V68 M18 44 H70 M44 68 L22 104 M44 68 L66 104" />
-        <text x="44" y="124" textAnchor="middle">{title}</text>
+        <g transform={`scale(${scaleX} ${scaleY})`}>
+          <circle cx="44" cy="18" r="13" />
+          <path d="M44 31 V68 M18 44 H70 M44 68 L22 104 M44 68 L66 104" />
+          <text x="44" y="124" textAnchor="middle">{title}</text>
+        </g>
       </g>
     );
   }

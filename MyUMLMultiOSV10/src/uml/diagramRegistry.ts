@@ -27,6 +27,9 @@ export type UmlElementKind =
   | 'instanceSpecification'
   | 'component'
   | 'artifact'
+  | 'port'
+  | 'providedInterface'
+  | 'requiredInterface'
   | 'node'
   | 'device'
   | 'executionEnvironment'
@@ -58,6 +61,8 @@ export type RelationshipKind =
   | 'include'
   | 'extend'
   | 'connector'
+  | 'assemblyConnector'
+  | 'delegationConnector'
   | 'deployment'
   | 'message'
   | 'controlFlow'
@@ -147,8 +152,19 @@ export const diagramDefinitions: DiagramDefinition[] = [
     uml251Scope: 'Components, provided/required interfaces, dependencies, artifacts',
     papyrusDiagramId: 'PapyrusUMLComponentDiagram',
     notationHint: 'Papyrus persists components as UML Component elements and interface usages as relationships.',
-    palette: [tool('component', 'Component', 'uml:Component', 'Component'), tool('interface', 'Interface', 'uml:Interface', 'Interface'), tool('artifact', 'Artifact', 'uml:Artifact', 'Artifact')],
-    connectors: [connector('dependency', 'Dependency', 'uml:Dependency', 'Dependency', true), connector('realization', 'Realization', 'uml:InterfaceRealization', 'Realization', true)]
+    palette: [
+      tool('component', 'Component', 'uml:Component', 'Component'),
+      tool('port', 'Port', 'uml:Port', 'Port'),
+      tool('providedInterface', 'Provided Interface', 'uml:Interface', 'ProvidedInterface'),
+      tool('requiredInterface', 'Required Interface', 'uml:Interface', 'RequiredInterface'),
+      tool('artifact', 'Artifact', 'uml:Artifact', 'Artifact')
+    ],
+    connectors: [
+      connector('assemblyConnector', 'Assembly Connector', 'uml:Connector', 'AssemblyConnector', false),
+      connector('delegationConnector', 'Delegation Connector', 'uml:Connector', 'DelegationConnector', false),
+      connector('dependency', 'Dependency', 'uml:Dependency', 'Dependency', true),
+      connector('realization', 'Realization', 'uml:InterfaceRealization', 'Realization', true)
+    ]
   },
   {
     kind: 'deployment',

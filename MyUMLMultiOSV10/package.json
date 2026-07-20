@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
-  "description": "JavaScript-only Papyrus-compatible UML 2.5.1 editor.",
+  "description": "UML diagram editor.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -p tsconfig.json && vite build",
@@ -14,8 +14,8 @@
     "build:linux": "npm run build && electron-builder --linux --publish never && node scripts/copy-installers.cjs",
     "build:mac": "npm run build && electron-builder --mac --publish never && node scripts/copy-installers.cjs",
     "build:all": "npm run build && electron-builder --win --linux --mac --publish never && node scripts/copy-installers.cjs",
-    "start": "npm run run:win",
-    "run:win": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"if (-not (Test-Path 'release\\win-unpacked\\My UML Multi OS.exe')) { npm run build:win }; Start-Process -FilePath 'release\\win-unpacked\\My UML Multi OS.exe'\"",
+    "start": "node scripts/run-win.cjs",
+    "run:win": "node scripts/run-win.cjs",
     "start:win": "npm run run:win",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
@@ -23,12 +23,11 @@
   },
   "build": {
     "appId": "com.shkwon.myumlmultios",
-    "productName": "My UML Multi OS",
+    "productName": "UML Editor",
     "directories": {
       "output": "release",
       "buildResources": "assets"
     },
-    "electronDist": "node_modules/electron/dist",
     "files": [
       "dist/app/**/*",
       "electron/**/*",
@@ -42,14 +41,14 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/app-icon.svg"
+      "icon": "assets/app-icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "My UML Multi OS"
+      "shortcutName": "UML Editor"
     },
     "linux": {
       "target": [
@@ -69,10 +68,10 @@
     "fileAssociations": [
       {
         "ext": "umlprj",
-        "name": "My UML Multi OS Project",
-        "description": "My UML Multi OS project file",
+        "name": "MyUML Project",
+        "description": "MyUML project file",
         "role": "Editor",
-        "icon": "assets/project-icon.svg"
+        "icon": "assets/app-icon.ico"
       }
     ]
   },

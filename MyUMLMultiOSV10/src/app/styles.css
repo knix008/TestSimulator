@@ -2,6 +2,9 @@
   color: #1e211c;
   background: #f2f0e7;
   font-family: Bahnschrift, "Aptos Display", "Segoe UI", sans-serif;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 * {
@@ -10,8 +13,15 @@
 
 body {
   margin: 0;
-  min-width: 1180px;
-  min-height: 820px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 button {
@@ -49,8 +59,10 @@ select {
   background:
     linear-gradient(135deg, rgba(87, 128, 110, 0.16), rgba(221, 201, 139, 0.12)),
     var(--page);
-  min-width: 1180px;
-  height: 100vh;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) 30px;
 }
@@ -85,10 +97,10 @@ select {
 .topbar {
   position: relative;
   display: grid;
-  grid-template-rows: auto auto;
-  align-content: center;
-  gap: 10px;
-  padding: 12px 18px 12px 24px;
+  grid-template-rows: auto;
+  align-content: start;
+  gap: 0;
+  padding: 4px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
@@ -126,9 +138,11 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding-right: 110px;
+  align-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  row-gap: 4px;
+  padding-right: 0;
   overflow: visible;
 }
 
@@ -177,10 +191,8 @@ h2 {
 }
 
 .about-toolbar-button {
-  position: absolute;
-  right: 18px;
-  bottom: 12px;
-  z-index: 2;
+  position: static;
+  margin-left: auto;
 }
 
 .toolbar-select-label {
@@ -217,13 +229,15 @@ h2 {
 .workspace {
   min-height: 0;
   display: grid;
-  grid-template-columns: 200px minmax(520px, 1fr) 320px;
+  grid-template-columns: minmax(170px, 200px) minmax(360px, 1fr) minmax(260px, 320px);
+  overflow: hidden;
 }
 
 .diagram-rail,
 .palette,
 .inspector,
 .properties {
+  min-height: 0;
   padding: 14px;
   border-right: 1px solid var(--border);
   background: var(--panel);
@@ -242,7 +256,10 @@ h2 {
 .tree-panel,
 .properties {
   padding: 14px;
-  overflow: auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .tree-panel {
@@ -275,6 +292,11 @@ h2 {
   font-weight: 800;
 }
 
+.panel-scroll-body {
+  min-height: 0;
+  overflow: auto;
+}
+
 .connector-heading {
   margin-top: 18px;
 }
@@ -288,8 +310,10 @@ h2 {
 
 .editor {
   min-width: 0;
+  min-height: 0;
   display: grid;
   grid-template-rows: 42px 82px 1fr;
+  overflow: hidden;
 }
 
 .document-tabs {
@@ -322,12 +346,31 @@ h2 {
   white-space: nowrap;
 }
 
+.document-tab-close {
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.document-tab-close:hover,
+.document-tab-close:focus-visible {
+  background: var(--button-hover);
+  color: var(--text);
+  outline: none;
+}
+
 .connector-glyph {
   flex: 0 0 auto;
 }
 
 .connector-glyph line,
-.connector-glyph path {
+.connector-glyph path,
+.connector-glyph rect {
   fill: var(--canvas);
   stroke: currentColor;
   stroke-width: 1.7;
@@ -337,6 +380,10 @@ h2 {
 
 .connector-glyph line {
   fill: none;
+}
+
+.object-flow-glyph rect {
+  fill: currentColor;
 }
 
 .editor-header {
@@ -359,6 +406,21 @@ h2 {
   cursor: pointer;
   font-size: 12px;
   font-weight: 800;
+}
+
+.topbar .icon-button,
+.topbar .text-button,
+.topbar .zoom-value {
+  height: 32px;
+  min-height: 32px;
+}
+
+.topbar .icon-button {
+  width: 32px;
+}
+
+.topbar .text-button {
+  padding: 0 8px;
 }
 
 .editor-header p {
@@ -384,6 +446,12 @@ code {
   touch-action: none;
 }
 
+.canvas.connector-mode,
+.canvas.connector-mode .node,
+.canvas.connector-mode .edge {
+  cursor: crosshair;
+}
+
 .grid-line {
   stroke: var(--grid);
 }
@@ -404,6 +472,27 @@ code {
   stroke-width: 1.4;
 }
 
+.edge .object-flow-token {
+  fill: var(--canvas);
+  stroke: var(--node-stroke);
+  stroke-width: 1.7;
+}
+
+.edge .assembly-connector-glyph path,
+.edge .assembly-connector-glyph line,
+.edge .assembly-connector-glyph circle {
+  fill: var(--canvas);
+  stroke: var(--node-stroke);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.edge .assembly-connector-glyph line,
+.edge .assembly-connector-glyph path {
+  fill: none;
+}
+
 .edge.selected path {
   stroke: var(--selected);
   stroke-width: 2.7;
@@ -415,6 +504,18 @@ code {
   stroke-width: 2;
 }
 
+.edge.selected .object-flow-token {
+  stroke: var(--selected);
+  stroke-width: 2.4;
+}
+
+.edge.selected .assembly-connector-glyph path,
+.edge.selected .assembly-connector-glyph line,
+.edge.selected .assembly-connector-glyph circle {
+  stroke: var(--selected);
+  stroke-width: 2.4;
+}
+
 .preview-edge {
   pointer-events: none;
   opacity: 0.72;
@@ -423,6 +524,10 @@ code {
 .preview-edge path {
   stroke: var(--selected);
   stroke-width: 2.1;
+}
+
+.preview-edge .object-flow-token {
+  stroke: var(--selected);
 }
 
 .edge text {
@@ -477,6 +582,14 @@ code {
   fill: var(--node-stroke);
 }
 
+.node .activity-control-marker {
+  fill: none;
+  stroke: var(--node-stroke);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .node .activity-flow-final {
   fill: none;
   stroke: var(--node-stroke);
@@ -500,17 +613,56 @@ code {
   stroke-width: 1.2;
 }
 
-.node .resize-handle {
-  cursor: nwse-resize;
+.node .component-icon rect {
+  fill: var(--canvas);
 }
 
-.node .resize-handle rect {
+.node .port-node {
+  fill: var(--node-fill);
+}
+
+.node .node-hit-area {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.node .required-interface-socket {
+  fill: none;
+}
+
+.node .package-shape,
+.node .deployment-node-shape {
+  fill: var(--node-fill);
+}
+
+.node .deployment-node-depth {
+  fill: none;
+}
+
+.node .artifact-fold {
+  fill: none;
+}
+
+.node .resize-handle,
+.resize-handle {
+  cursor: nwse-resize;
+  display: none;
+}
+
+.node.selected + .resize-handle {
+  display: inline;
+}
+
+.node .resize-handle rect,
+.resize-handle rect {
   fill: var(--button);
   stroke: var(--node-stroke);
   stroke-width: 1.2;
 }
 
-.node .resize-handle path {
+.node .resize-handle path,
+.resize-handle path {
   fill: none;
   stroke: var(--node-stroke);
   stroke-width: 1.4;

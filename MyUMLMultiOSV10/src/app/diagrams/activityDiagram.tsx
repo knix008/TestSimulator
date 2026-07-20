@@ -70,15 +70,19 @@ export function renderActivityDiagramNode({ node, className, title, pointerHandl
     return (
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
         <path d={`M ${node.width / 2} 2 L ${node.width - 2} ${node.height / 2} L ${node.width / 2} ${node.height - 2} L 2 ${node.height / 2} Z`} />
-        <text x={node.width / 2} y={node.height / 2 + 5} textAnchor="middle">{title}</text>
       </g>
     );
   }
 
   if (node.kind === 'forkNode' || node.kind === 'joinNode') {
+    const width = Math.max(node.width, node.height);
+    const height = Math.min(node.width, node.height);
+    const x = (node.width - width) / 2;
+    const y = (node.height - height) / 2;
+
     return (
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
-        <rect className="activity-bar-node" width={node.width} height={node.height} rx="2" />
+        <rect className="activity-bar-node" x={x} y={y} width={width} height={height} rx="2" />
       </g>
     );
   }
