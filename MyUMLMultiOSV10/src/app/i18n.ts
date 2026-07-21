@@ -33,6 +33,8 @@ export interface AppMessages {
   close: string;
   contextMenu: string;
   select: string;
+  bringToFront: string;
+  sendToBack: string;
   deleteSelected: string;
   wrapWithLoop: string;
   diagramTypes: string;
@@ -113,6 +115,8 @@ export const messages: Record<Locale, AppMessages> = {
     close: 'Close',
     contextMenu: 'Context menu',
     select: 'Select',
+    bringToFront: 'Bring to front',
+    sendToBack: 'Send to back',
     deleteSelected: 'Delete selected',
     wrapWithLoop: 'Wrap with loop',
     diagramTypes: 'UML diagram types',
@@ -191,6 +195,8 @@ export const messages: Record<Locale, AppMessages> = {
     close: '닫기',
     contextMenu: '컨텍스트 메뉴',
     select: '선택',
+    bringToFront: '앞으로 가져오기',
+    sendToBack: '뒤로 보내기',
     deleteSelected: '선택 항목 삭제',
     wrapWithLoop: 'loop로 감싸기',
     diagramTypes: 'UML 다이어그램 종류',

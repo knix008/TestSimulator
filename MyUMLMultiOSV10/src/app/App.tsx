@@ -44,7 +44,7 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import { GIFEncoder, applyPalette, quantize } from 'gifenc';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { diagramDefinitions, getDiagramDefinition, type ConnectorTool, type DiagramKind, type PaletteTool, type RelationshipKind, type UmlElementKind } from '../uml/diagramRegistry.js';
 import { addOwnedElement, addPaletteNode, connectNodes, createDiagramDocument, moveNode, renameEdge, renameEdgeSequenceNumber, renameNode, renameOwnedElement, updateEdgeAnchor, updateEdgeMultiplicity, updateEdgeRelationship, updateEdgeRoute, updateOwnedElementKind, type EdgeAnchor, type EdgeRoute, type UmlDiagramDocument, type UmlEdge, type UmlNode, type UmlOwnedElement, type UmlOwnedElementKind } from '../uml/editorModel.js';
 import { getUmlConnectorNotation, isInteractionMessageKind } from '../uml/umlNotation.js';
@@ -914,6 +914,15 @@ export function App() {
     setContextMenu(undefined);
   }
 
+  function moveNodeLayer(nodeId: string, direction: 'front' | 'back') {
+    updateActiveDocument((current) => reorderNodeLayer(current, nodeId, direction));
+    setSelectedNodeId(nodeId);
+    setSelectedEdgeId(undefined);
+    setSelectedOwnedElement(undefined);
+    setSelectedNodeIds(new Set([nodeId]));
+    setContextMenu(undefined);
+  }
+
   function deleteNode(nodeId: string) {
     updateActiveDocument((current) => ({
       ...current,
@@ -1398,7 +1407,7 @@ export function App() {
     setSelectedEdgeId(undefined);
     setSelectedOwnedElement(undefined);
     pushUndoSnapshot();
-    const minSize = minimumResizableNodeSize(node.kind, node.ownedElements);
+    const minSize = minimumResizableNodeSize(node.kind, node.ownedElements, document.kind);
     resizeStateRef.current = {
       nodeId: node.id,
       nodeKind: node.kind,
@@ -1589,24 +1598,13 @@ export function App() {
                 </defs>
                 <rect width="100%" height="100%" fill="url(#grid)" />
                 <g transform={`scale(${canvasZoom})`}>
-                  {document.nodes.filter((node) => node.kind === 'combinedFragment' || node.kind === 'subject').map((node) => (
-                    <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId || selectedNodeIds.has(node.id)} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={false} diagramKind={document.kind} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, node)} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, node)} onResizeStart={(event) => startNodeResize(event, node)} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
-                  ))}
                   {document.edges.map((edge, edgeIndex) => (
                     <DiagramEdge key={edge.id} edge={edge} edgeIndex={document.kind === 'sequence' && edge.kind === 'message' ? document.edges.slice(0, edgeIndex).filter((candidate) => candidate.kind === 'message').length : edgeIndex} diagramKind={document.kind} nodes={document.nodes} edges={document.edges} selected={edge.id === selectedEdgeId} onSelect={() => selectEdge(edge.id)} onPointerDown={(event) => startMessageReorder(event, edge)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openEdgeContextMenu(event, edge.id)} />
                   ))}
                   {activeConnector && pendingSourceNodeId && connectorPreviewPoint ? <ConnectorPreview source={document.nodes.find((node) => node.id === pendingSourceNodeId)} target={connectorPreviewPoint} connector={activeConnector} diagramKind={document.kind} /> : null}
-                  {document.nodes.filter((node) => node.kind !== 'combinedFragment' && node.kind !== 'subject' && (document.kind !== 'component' || !isComponentSurfaceNode(node.kind))).map((node) => (
-                    <Fragment key={node.id}>
-                      <DiagramNode node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId || selectedNodeIds.has(node.id)} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={document.kind === 'sequence' && node.kind === 'lifeline' && activeConnector?.kind === 'message'} diagramKind={document.kind} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, node)} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, node)} onResizeStart={(event) => startNodeResize(event, node)} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
-                      {document.kind === 'component' && node.kind === 'component' ? document.nodes.filter((sn) => isComponentSurfaceNode(sn.kind) && sn.parentComponentId === node.id).map((sn) => (
-                        <DiagramNode key={sn.id} node={sn} selected={sn.id === selectedNodeId || sn.id === pendingSourceNodeId || selectedNodeIds.has(sn.id)} selectedOwnedElementId={selectedOwnedElement?.nodeId === sn.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={false} surfaceAttachment={(sn.kind === 'providedInterface' || sn.kind === 'requiredInterface') ? computeInterfaceAttachmentSide(sn, document.nodes) : undefined} diagramKind={document.kind} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, sn)} onPointerDown={(event) => handleNodePointerDown(event, sn)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, sn)} onResizeStart={(event) => startNodeResize(event, sn)} onOwnedElementSelect={(elementId) => selectOwnedElement(sn.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, sn.id)} />
-                      )) : null}
-                    </Fragment>
+                  {document.nodes.map((node) => (
+                    <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId || selectedNodeIds.has(node.id)} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={document.kind === 'sequence' && node.kind === 'lifeline' && activeConnector?.kind === 'message'} surfaceAttachment={(node.kind === 'providedInterface' || node.kind === 'requiredInterface') ? computeInterfaceAttachmentSide(node, document.nodes) : undefined} diagramKind={document.kind} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, node)} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, node)} onResizeStart={(event) => startNodeResize(event, node)} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
                   ))}
-                  {document.kind === 'component' ? document.nodes.filter((node) => isComponentSurfaceNode(node.kind) && !node.parentComponentId).map((node) => (
-                    <DiagramNode key={node.id} node={node} selected={node.id === selectedNodeId || node.id === pendingSourceNodeId || selectedNodeIds.has(node.id)} selectedOwnedElementId={selectedOwnedElement?.nodeId === node.id ? selectedOwnedElement.elementId : undefined} showMessageStartLine={false} surfaceAttachment={(node.kind === 'providedInterface' || node.kind === 'requiredInterface') ? computeInterfaceAttachmentSide(node, document.nodes) : undefined} diagramKind={document.kind} onMessageStartLine={(event) => beginMessageFromLifelineLine(event, node)} onPointerDown={(event) => handleNodePointerDown(event, node)} onPointerMove={handleCanvasPointerMove} onPointerUp={(event) => handleNodePointerUp(event, node)} onResizeStart={(event) => startNodeResize(event, node)} onOwnedElementSelect={(elementId) => selectOwnedElement(node.id, elementId)} onContextMenu={(event: React.MouseEvent<SVGGElement>) => openNodeContextMenu(event, node.id)} />
-                  )) : null}
                   {boxSelectRect ? (
                     <rect className="box-select" x={boxSelectRect.x} y={boxSelectRect.y} width={boxSelectRect.width} height={boxSelectRect.height} pointerEvents="none" />
                   ) : null}
@@ -1847,6 +1845,8 @@ export function App() {
           {contextMenu.target === 'node' ? (
             <>
               <button type="button" role="menuitem" onClick={() => selectNode(contextMenu.nodeId)}>{text.select}</button>
+              <button type="button" role="menuitem" onClick={() => moveNodeLayer(contextMenu.nodeId, 'front')}>{text.bringToFront}</button>
+              <button type="button" role="menuitem" onClick={() => moveNodeLayer(contextMenu.nodeId, 'back')}>{text.sendToBack}</button>
               {document.kind === 'component' && document.nodes.find((node) => node.id === contextMenu.nodeId)?.kind === 'component' ? (
                 <>
                   <div className="context-menu-heading">{text.addElement}</div>
@@ -2029,7 +2029,7 @@ function normalizeDiagramDocument(document: UmlDiagramDocument, locale: Locale, 
   }
 
   const definition = getDiagramDefinition(document.kind);
-  const nodes = (Array.isArray(document.nodes) ? document.nodes : []).map((node, nodeIndex) => normalizeNode(node, definition.palette, nodeIndex));
+  const nodes = (Array.isArray(document.nodes) ? document.nodes : []).map((node, nodeIndex) => normalizeNode(node, definition.palette, nodeIndex, document.kind));
   const nodeIds = new Set(nodes.map((node) => node.id));
   const edges = (Array.isArray(document.edges) ? document.edges : [])
     .map((edge, edgeIndex) => normalizeEdge(edge, definition.connectors, edgeIndex))
@@ -2044,13 +2044,13 @@ function normalizeDiagramDocument(document: UmlDiagramDocument, locale: Locale, 
   };
 }
 
-function normalizeNode(node: UmlNode, palette: PaletteTool[], index: number): UmlNode {
+function normalizeNode(node: UmlNode, palette: PaletteTool[], index: number, diagramKind: DiagramKind): UmlNode {
   const fallbackKind = palette[0]?.kind ?? 'class';
   const kind = isUmlElementKind(node.kind) ? node.kind : fallbackKind;
   const tool = palette.find((candidate) => candidate.kind === kind) ?? allPaletteTools().find((candidate) => candidate.kind === kind);
   const size = defaultSavedNodeSize(kind);
   const ownedElements = (Array.isArray(node.ownedElements) ? node.ownedElements : []).map((element, elementIndex) => normalizeOwnedElement(element, elementIndex));
-  const minimumSize = minimumResizableNodeSize(kind);
+  const minimumSize = minimumResizableNodeSize(kind, ownedElements, diagramKind);
   const width = Math.max(finitePositiveNumber(node.width, size.width), minimumSize.width);
   const height = Math.max(finitePositiveNumber(node.height, size.height), minimumSize.height);
 
@@ -2317,7 +2317,6 @@ function resizeComponentDiagramNode(document: UmlDiagramDocument, nodeId: string
   if (!resizingNode) {
     return document;
   }
-
   if (document.kind === 'component' && (resizingNode.kind === 'providedInterface' || resizingNode.kind === 'requiredInterface')) {
     const resizedDocument = {
       ...document,
@@ -2370,6 +2369,25 @@ function resizeComponentDiagramNode(document: UmlDiagramDocument, nodeId: string
       return snapInterfaceToPortOnSide(node, port, side);
     })
   };
+}
+
+function reorderNodeLayer(document: UmlDiagramDocument, nodeId: string, direction: 'front' | 'back'): UmlDiagramDocument {
+  const nodeIndex = document.nodes.findIndex((node) => node.id === nodeId);
+
+  if (nodeIndex < 0) {
+    return document;
+  }
+
+  const nodes = [...document.nodes];
+  const [node] = nodes.splice(nodeIndex, 1);
+
+  if (direction === 'front') {
+    nodes.push(node);
+  } else {
+    nodes.unshift(node);
+  }
+
+  return { ...document, nodes };
 }
 
 function resizeComponentSurfaceNode(node: UmlNode, startComponent: UmlNode, resizedComponent: UmlNode): UmlNode {
@@ -2813,7 +2831,7 @@ function defaultSavedNodeSize(kind: UmlElementKind): { width: number; height: nu
   }
 }
 
-function minimumResizableNodeSize(kind: UmlElementKind, ownedElements: UmlOwnedElement[] = []): { width: number; height: number } {
+function minimumResizableNodeSize(kind: UmlElementKind, ownedElements: UmlOwnedElement[] = [], diagramKind?: DiagramKind): { width: number; height: number } {
   switch (kind) {
     case 'port':
       return { width: 14, height: 14 };
@@ -2834,6 +2852,9 @@ function minimumResizableNodeSize(kind: UmlElementKind, ownedElements: UmlOwnedE
     case 'requiredInterface':
       return { width: 36, height: 24 };
     case 'lifeline':
+      if (diagramKind === 'communication') {
+        return { width: 64, height: 32 };
+      }
       return { width: 64, height: 96 };
     case 'combinedFragment':
     case 'subject':
@@ -2842,7 +2863,10 @@ function minimumResizableNodeSize(kind: UmlElementKind, ownedElements: UmlOwnedE
     case 'interface':
     case 'dataType':
     case 'enumeration':
-      return { width: 96, height: Math.max(72, compartmentMinimumHeight(ownedElements)) };
+      return {
+        width: Math.max(96, classCompartmentMinimumWidth(ownedElements)),
+        height: Math.max(72, compartmentMinimumHeight(ownedElements))
+      };
     case 'component':
     case 'package':
     case 'node':
@@ -4175,6 +4199,9 @@ function DiagramNode({ node, selected, selectedOwnedElementId, showMessageStartL
   const ownedElements = node.ownedElements ?? [];
   const attributeElements = ownedElements.filter((element) => element.kind !== 'operation');
   const methodElements = ownedElements.filter((element) => element.kind === 'operation');
+  const hasAttributeElements = attributeElements.length > 0;
+  const hasMethodElements = methodElements.length > 0;
+  const methodCompartmentTop = hasAttributeElements ? classSectionBottom(attributeElements.length) : 42;
   const classCompartmentNode = usesClassCompartments(node.kind);
   const nodeHeight = classCompartmentNode && ownedElements.length > 0 ? Math.max(node.height, classCompartmentHeight(attributeElements.length, methodElements.length)) : node.height;
   const title = displayNodeName(node);
@@ -4224,7 +4251,7 @@ function DiagramNode({ node, selected, selectedOwnedElementId, showMessageStartL
           <rect width={node.width} height={nodeHeight} rx="4" />
           <text x={node.width / 2} y={nodeHeight / 2 + 5} textAnchor="middle">{title}</text>
         </g>
-      ), node, nodeHeight, onResizeStart);
+      ), node, nodeHeight, onResizeStart, diagramKind);
     }
     return withResizeHandle((
       <g className={className} transform={`translate(${node.x} ${node.y})`} {...pointerHandlers}>
@@ -4436,16 +4463,22 @@ function DiagramNode({ node, selected, selectedOwnedElementId, showMessageStartL
       <text x={node.width / 2} y="21" textAnchor="middle">{title}</text>
       {classCompartmentNode ? (
         <>
-          <line x1="0" y1="42" x2={node.width} y2="42" />
-          <text className="compartment-label" x="10" y="58">Attribute</text>
-          {attributeElements.map((element, index) => (
-            <OwnedElementText key={element.id} element={element} y={80 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
-          ))}
-          <line x1="0" y1={attributeCompartmentBottom(attributeElements.length)} x2={node.width} y2={attributeCompartmentBottom(attributeElements.length)} />
-          <text className="compartment-label" x="10" y={attributeCompartmentBottom(attributeElements.length) + 18}>Method</text>
-          {methodElements.map((element, index) => (
-            <OwnedElementText key={element.id} element={element} y={attributeCompartmentBottom(attributeElements.length) + 40 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
-          ))}
+          {hasAttributeElements ? (
+            <>
+              <line x1="0" y1="42" x2={node.width} y2="42" />
+              {attributeElements.map((element, index) => (
+                <OwnedElementText key={element.id} element={element} y={60 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
+              ))}
+            </>
+          ) : null}
+          {hasMethodElements ? (
+            <>
+              <line x1="0" y1={methodCompartmentTop} x2={node.width} y2={methodCompartmentTop} />
+              {methodElements.map((element, index) => (
+                <OwnedElementText key={element.id} element={element} y={methodCompartmentTop + 18 + index * 18} nodeWidth={node.width} selected={selectedOwnedElementId === element.id} onSelect={() => onOwnedElementSelect(element.id)} />
+              ))}
+            </>
+          ) : null}
         </>
       ) : (
         ownedElements.map((element, index) => (
@@ -4456,8 +4489,8 @@ function DiagramNode({ node, selected, selectedOwnedElementId, showMessageStartL
   ), node, nodeHeight, onResizeStart);
 }
 
-function withResizeHandle(nodeContent: React.ReactNode, node: UmlNode, nodeHeight: number, onResizeStart: (event: React.PointerEvent<SVGGElement>) => void): React.ReactNode {
-  const handlePosition = resizeHandlePosition(node, nodeHeight);
+function withResizeHandle(nodeContent: React.ReactNode, node: UmlNode, nodeHeight: number, onResizeStart: (event: React.PointerEvent<SVGGElement>) => void, diagramKind?: DiagramKind): React.ReactNode {
+  const handlePosition = resizeHandlePosition(node, nodeHeight, diagramKind);
 
   return (
     <>
@@ -4470,8 +4503,8 @@ function withResizeHandle(nodeContent: React.ReactNode, node: UmlNode, nodeHeigh
   );
 }
 
-function resizeHandlePosition(node: UmlNode, nodeHeight: number): Point {
-  if (node.kind === 'lifeline') {
+function resizeHandlePosition(node: UmlNode, nodeHeight: number, diagramKind?: DiagramKind): Point {
+  if (node.kind === 'lifeline' && diagramKind !== 'communication') {
     return { x: node.x + node.width / 2 - 8, y: node.y + nodeHeight - 8 };
   }
 
@@ -4491,12 +4524,41 @@ function OwnedElementText({ element, y, nodeWidth, selected, onSelect }: { eleme
   );
 }
 
-function attributeCompartmentBottom(attributeCount: number): number {
-  return 88 + Math.max(1, attributeCount) * 18;
+function classSectionBottom(itemCount: number, sectionTop = 42): number {
+  return sectionTop + 12 + itemCount * 18;
+}
+
+function classCompartmentMinimumWidth(ownedElements: UmlOwnedElement[]): number {
+  if (ownedElements.length === 0) {
+    return 96;
+  }
+
+  const attributeElements = ownedElements.filter((element) => element.kind !== 'operation');
+  const methodElements = ownedElements.filter((element) => element.kind === 'operation');
+  const visibleTexts = [
+    ...attributeElements.map((element) => formatOwnedElement(element.kind, element.name)),
+    ...methodElements.map((element) => formatOwnedElement(element.kind, element.name))
+  ];
+
+  return Math.max(...visibleTexts.map(estimatedCompartmentTextWidth));
+}
+
+function estimatedCompartmentTextWidth(text: string): number {
+  return Math.ceil(text.length * 7.2 + 28);
 }
 
 function classCompartmentHeight(attributeCount: number, methodCount: number): number {
-  return attributeCompartmentBottom(attributeCount) + 52 + Math.max(1, methodCount) * 18;
+  let height = 72;
+
+  if (attributeCount > 0) {
+    height = classSectionBottom(attributeCount);
+  }
+
+  if (methodCount > 0) {
+    height = classSectionBottom(methodCount, attributeCount > 0 ? height : 42);
+  }
+
+  return height;
 }
 
 function usesClassCompartments(kind: UmlElementKind): boolean {
