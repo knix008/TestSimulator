@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeTextFile: (filePath, content, options) => ipcRenderer.invoke('write-text-file', filePath, content, options),
   readTextFile: (filePath) => ipcRenderer.invoke('read-text-file', filePath),
   readBinaryFile: (filePath) => ipcRenderer.invoke('read-binary-file', filePath),
-  saveSubtitleDialog: (defaultName) => ipcRenderer.invoke('save-subtitle-dialog', defaultName),
+  saveSubtitleDialog: (defaultName, preferredFormat) => ipcRenderer.invoke('save-subtitle-dialog', defaultName, preferredFormat),
   getSttProxyBase: () => ipcRenderer.invoke('get-stt-proxy-base'),
   isWhisperModelCached: (modelId) => ipcRenderer.invoke('is-whisper-model-cached', modelId),
 

@@ -5,17 +5,29 @@ import { FileInfo } from './fileInfo.js';
 import { Preview } from './preview.js';
 import { Timeline } from './timeline.js';
 import { ContextMenu } from './contextMenu.js';
-import { initDialog, showConfirm, showAlert } from './dialog.js';
+import { initDialog, showConfirm, showAlert, showSubtitleOptionsDialog, showSubtitleSaveFormatDialog } from './dialog.js';
 import { showOllamaSettingsDialog, loadOllamaSettings, isLikelyVlmModel } from './ollamaSettings.js';
 import { SceneAnalyzer } from './sceneAnalyzer.js';
 import { showAnalysisViewer } from './analysisViewer.js';
-import { generateSubtitlesFromPreview, cuesToSrt } from './subtitleGenerator.js';
+import { generateSubtitlesFromPreview, cuesToSrt, cuesToSmi, parseSubtitleText } from './subtitleGenerator.js';
 import { StreamLinks } from './streamLinks.js';
 
 const STORAGE_THEME = 'av-editor-theme';
 const STORAGE_LOCALE = 'av-editor-locale';
 const STORAGE_TIMELINE_COLLAPSED = 'av-editor-timeline-collapsed';
 const STORAGE_SIDEBAR_COLLAPSED = 'av-editor-sidebar-collapsed';
+const STORAGE_SUBTITLE_SIDECAR_ORDER = 'av-editor-subtitle-sidecar-order';
+const STORAGE_SUBTITLE_INPUT_LANG = 'av-editor-subtitle-input-language';
+const STORAGE_SUBTITLE_OUTPUT_LANG = 'av-editor-subtitle-output-language';
+const STORAGE_SUBTITLE_DUAL_MODE = 'av-editor-subtitle-dual-mode';
+const STORAGE_SUBTITLE_DUAL_ORDER = 'av-editor-subtitle-dual-order';
+const STORAGE_SUBTITLE_SAVE_MODE = 'av-editor-subtitle-save-mode';
+const STORAGE_SUBTITLE_CONFIDENCE_PROFILE = 'av-editor-subtitle-confidence-profile';
+const STORAGE_SUBTITLE_SUFFIX_SOURCE = 'av-editor-subtitle-suffix-source';
+const STORAGE_SUBTITLE_SUFFIX_TARGET = 'av-editor-subtitle-suffix-target';
+const STORAGE_SUBTITLE_SUFFIX_DUAL = 'av-editor-subtitle-suffix-dual';
+const STORAGE_SUBTITLE_SUFFIX_LANGCODE = 'av-editor-subtitle-suffix-langcode';
+const STORAGE_SUBTITLE_SUFFIX_LANGFORMAT = 'av-editor-subtitle-suffix-langformat';
 
 class AVEditorApp {
   constructor() {
@@ -23,6 +35,9 @@ class AVEditorApp {
     this.theme = localStorage.getItem(STORAGE_THEME) || 'dark';
     this._timelineCollapsed = localStorage.getItem(STORAGE_TIMELINE_COLLAPSED) === '1';
     this._sidebarCollapsed = localStorage.getItem(STORAGE_SIDEBAR_COLLAPSED) === '1';
+    this._subtitleSidecarOrder = localStorage.getItem(STORAGE_SUBTITLE_SIDECAR_ORDER) === 'smi-first'
+      ? 'smi-first'
+      : 'srt-first';
     this.projectPath = null;
     this.isDirty = false;
     this.isPlaying = false;
@@ -497,6 +512,7 @@ class AVEditorApp {
     const result = await window.electronAPI.loadProjectFile(filePath);
     if (!result.ok) { await showAlert('Failed to load project: ' + result.error); return; }
     this.timeline.loadState(result.data);
+    this._applySubtitleProjectSettings(result.data?.subtitleSettings || null);
     this.projectPath = filePath;
     this.isDirty = false;
     this._setTitle(filePath.split(/[\\/]/).pop());
@@ -525,7 +541,10 @@ class AVEditorApp {
     const suggested = this._buildModifiedSuggestedPath();
     const filePath = await window.electronAPI.saveProjectDialog(suggested);
     if (!filePath) return;
-    const state = this.timeline.getState();
+    const state = {
+      ...this.timeline.getState(),
+      subtitleSettings: this._getSubtitleProjectSettings(),
+    };
     const result = await window.electronAPI.saveProjectFile(filePath, state);
     if (!result.ok) { await showAlert('Failed to save: ' + result.error); return; }
     this._setStatus('savedModified');
@@ -539,7 +558,10 @@ class AVEditorApp {
       filePath = await window.electronAPI.saveProjectDialog();
       if (!filePath) return;
     }
-    const state = this.timeline.getState();
+    const state = {
+      ...this.timeline.getState(),
+      subtitleSettings: this._getSubtitleProjectSettings(),
+    };
     const result = await window.electronAPI.saveProjectFile(filePath, state);
     if (!result.ok) { await showAlert('Failed to save: ' + result.error); return; }
     this.projectPath = filePath;
@@ -744,6 +766,8 @@ class AVEditorApp {
 
   _onStreamEntrySelect(entry) {
     this.preview.loadFile(entry);
+    this.preview.clearSubtitles();
+    this._syncSubtitleToggleButton();
     this._setStatus('ready');
   }
 
@@ -752,6 +776,9 @@ class AVEditorApp {
   async _onFileSelect(entry) {
     const reqId = this.fileInfo.beginLoad(entry);
     this.preview.loadFile(entry);
+    this.preview.clearSubtitles();
+    this._syncSubtitleToggleButton();
+    await this._autoLoadSidecarSubtitles(entry);
     this._setStatus('ready');
 
     try {
@@ -847,6 +874,9 @@ class AVEditorApp {
 
   _onFileDblClick(entry) {
     this.preview.loadFile(entry);
+    this.preview.clearSubtitles();
+    this._syncSubtitleToggleButton();
+    this._autoLoadSidecarSubtitles(entry);
     const AUDIO_EXT = new Set(['.mp3','.wav','.aac','.flac','.ogg','.m4a','.wma','.opus','.aiff']);
     const isAudio = AUDIO_EXT.has((entry.extension || '').toLowerCase());
     const clip = this.timeline.addClip(entry, isAudio ? 'a1' : 'v1');
@@ -1017,6 +1047,123 @@ class AVEditorApp {
     }
   }
 
+  _replaceFileExt(filePath, newExt) {
+    const p = String(filePath || '');
+    if (!p) return '';
+    return p.replace(/\.[^./\\]+$/, '') + newExt;
+  }
+
+  _subtitleTextFor(format, cues) {
+    const fmt = String(format || '').toLowerCase();
+    if (fmt === 'smi') return cuesToSmi(cues);
+    return cuesToSrt(cues);
+  }
+
+  _subtitleAutoLoadOrderLabelKey() {
+    return this._subtitleSidecarOrder === 'smi-first'
+      ? 'context.subtitleAutoLoadOrderSmiFirst'
+      : 'context.subtitleAutoLoadOrderSrtFirst';
+  }
+
+  async _toggleSubtitleAutoLoadOrder() {
+    this._subtitleSidecarOrder = this._subtitleSidecarOrder === 'smi-first'
+      ? 'srt-first'
+      : 'smi-first';
+    localStorage.setItem(STORAGE_SUBTITLE_SIDECAR_ORDER, this._subtitleSidecarOrder);
+
+    const current = this.preview?.currentFile;
+    if (current?.path) {
+      this.preview.clearSubtitles();
+      this._syncSubtitleToggleButton();
+      await this._autoLoadSidecarSubtitles(current);
+    }
+  }
+
+  async _saveCurrentSubtitles(format = 'srt') {
+    const fmt = String(format || 'srt').toLowerCase() === 'smi' ? 'smi' : 'srt';
+    const cues = this.preview?.getSubtitles?.() || [];
+    if (!cues.length) {
+      await showAlert(this.i18n.t('subtitle.noneToToggle'));
+      return;
+    }
+
+    const saveMode = await this._pickSubtitleSaveMode(cues, {
+      defaultMode: localStorage.getItem(STORAGE_SUBTITLE_SAVE_MODE) || 'target',
+      stem,
+      format: fmt,
+    });
+    if (!saveMode) return;
+
+    const hasTranslated = this._hasTranslatedSubtitlePairs(cues);
+    const suffix = this._subtitleSaveSuffix(saveMode, hasTranslated, cues);
+    const saveCues = this._buildCuesForSaveMode(cues, saveMode);
+
+    const srcName = this.preview?.currentFile?.name || 'media';
+    const stem = String(srcName).replace(/\.[^.]+$/, '') || 'media';
+    const defaultName = `${stem}${suffix}.${fmt}`;
+    const text = this._subtitleTextFor(fmt, saveCues);
+    let outPath = null;
+
+    const currentPath = this.preview?.currentFile?.path;
+    if (currentPath && window.electronAPI?.writeTextFile) {
+      outPath = this._replaceFileExt(currentPath, `${suffix}.${fmt}`);
+      const result = await window.electronAPI.writeTextFile(outPath, text, { append: false });
+      if (!result?.ok) {
+        await showAlert(this.i18n.t('context.saveFileFailed').replace('{error}', result?.error || 'Unknown error'));
+        return;
+      }
+      await showAlert(this.i18n.t('context.saveFileOk').replace('{path}', outPath));
+      return;
+    }
+
+    if (window.electronAPI?.saveSubtitleDialog && window.electronAPI?.writeTextFile) {
+      outPath = await window.electronAPI.saveSubtitleDialog(defaultName, fmt);
+      if (!outPath) return;
+      const result = await window.electronAPI.writeTextFile(outPath, text, { append: false });
+      if (!result?.ok) {
+        await showAlert(this.i18n.t('context.saveFileFailed').replace('{error}', result?.error || 'Unknown error'));
+        return;
+      }
+      await showAlert(this.i18n.t('context.saveFileOk').replace('{path}', outPath));
+      return;
+    }
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = defaultName;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  async _autoLoadSidecarSubtitles(entry) {
+    const mediaPath = entry?.path;
+    if (!mediaPath || !window.electronAPI?.readTextFile) return;
+
+    const exts = this._subtitleSidecarOrder === 'smi-first'
+      ? ['.smi', '.srt']
+      : ['.srt', '.smi'];
+    const candidates = exts.map((ext) => ({
+      ext,
+      path: this._replaceFileExt(mediaPath, ext),
+    }));
+
+    for (const c of candidates) {
+      try {
+        const result = await window.electronAPI.readTextFile(c.path);
+        if (!result?.ok || !result.text) continue;
+        const cues = parseSubtitleText(result.text, c.ext);
+        if (!cues.length) continue;
+        this.preview.setSubtitles(cues);
+        this._lastSubtitles = cues;
+        this._syncSubtitleToggleButton();
+        return;
+      } catch {
+        // Ignore missing files and parse failures; try next candidate.
+      }
+    }
+  }
+
   _showPreviewContextMenu(x, y, file) {
     const t = (k) => this._t(k);
     const hasMedia = !!this.preview.mediaEl;
@@ -1135,6 +1282,23 @@ class AVEditorApp {
           action: () => this._toggleSubtitlesVisible(),
         };
       })(),
+      hasMedia && {
+        icon: Icons.download,
+        label: t('context.saveSubtitlesSrt'),
+        disabled: !this.preview?.hasSubtitles?.(),
+        action: () => this._saveCurrentSubtitles('srt'),
+      },
+      hasMedia && {
+        icon: Icons.download,
+        label: t('context.saveSubtitlesSmi'),
+        disabled: !this.preview?.hasSubtitles?.(),
+        action: () => this._saveCurrentSubtitles('smi'),
+      },
+      hasMedia && {
+        icon: Icons.subtitles,
+        label: t(this._subtitleAutoLoadOrderLabelKey()),
+        action: () => this._toggleSubtitleAutoLoadOrder(),
+      },
       { separator: true },
       {
         icon: Icons.import,
@@ -1482,15 +1646,58 @@ class AVEditorApp {
       return;
     }
 
+    const options = await showSubtitleOptionsDialog({
+      recognitionLanguage: localStorage.getItem(STORAGE_SUBTITLE_INPUT_LANG) || 'auto',
+      outputLanguage: localStorage.getItem(STORAGE_SUBTITLE_OUTPUT_LANG) || 'source',
+      dualMode: localStorage.getItem(STORAGE_SUBTITLE_DUAL_MODE) === '1',
+      dualOrder: localStorage.getItem(STORAGE_SUBTITLE_DUAL_ORDER) || 'source-first',
+      confidenceProfile: localStorage.getItem(STORAGE_SUBTITLE_CONFIDENCE_PROFILE) || 'balanced',
+      suffixSource: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_SOURCE) || '.source',
+      suffixTarget: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_TARGET) || '.target',
+      suffixDual: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_DUAL) || '.dual',
+      suffixLangCode: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_LANGCODE) === '1',
+      suffixLangFormat: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_LANGFORMAT) || 'iso',
+    });
+    if (!options) return;
+
+    const recognitionLanguage = String(options.recognitionLanguage || 'auto').trim().toLowerCase() || 'auto';
+    const outputLanguage = String(options.outputLanguage || 'source').trim().toLowerCase() || 'source';
+    const dualMode = !!options.dualMode;
+    const dualOrder = String(options.dualOrder || 'source-first') === 'target-first'
+      ? 'target-first'
+      : 'source-first';
+    const confidenceProfile = String(options.confidenceProfile || 'balanced').toLowerCase();
+    const suffixSource = this._normalizeSubtitleSuffix(options.suffixSource, '.source');
+    const suffixTarget = this._normalizeSubtitleSuffix(options.suffixTarget, '.target');
+    const suffixDual = this._normalizeSubtitleSuffix(options.suffixDual, '.dual');
+    const suffixLangCode = !!options.suffixLangCode;
+    const suffixLangFormat = String(options.suffixLangFormat || 'iso') === 'model' ? 'model' : 'iso';
+    localStorage.setItem(STORAGE_SUBTITLE_INPUT_LANG, recognitionLanguage);
+    localStorage.setItem(STORAGE_SUBTITLE_OUTPUT_LANG, outputLanguage);
+    localStorage.setItem(STORAGE_SUBTITLE_DUAL_MODE, dualMode ? '1' : '0');
+    localStorage.setItem(STORAGE_SUBTITLE_DUAL_ORDER, dualOrder);
+    localStorage.setItem(
+      STORAGE_SUBTITLE_CONFIDENCE_PROFILE,
+      confidenceProfile === 'strict' || confidenceProfile === 'lenient' ? confidenceProfile : 'balanced'
+    );
+    localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_SOURCE, suffixSource);
+    localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_TARGET, suffixTarget);
+    localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_DUAL, suffixDual);
+    localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_LANGCODE, suffixLangCode ? '1' : '0');
+    localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_LANGFORMAT, suffixLangFormat);
+
     this._subtitleBusy = true;
     this._subtitleCancelled = false;
     this._setStatus('analyzing');
     this._showSubtitleOverlay();
+    this._updateSubtitleDetectionInfo(null, null);
 
     try {
       const locale = this.i18n.getLocale() === 'ko' ? 'ko' : 'en';
       const result = await generateSubtitlesFromPreview(this.preview, {
         locale,
+        languageMode: recognitionLanguage,
+        confidenceProfile,
         cancelled: () => !!this._subtitleCancelled,
         onProgress: ({ percent, labelKey, labelParams }) => {
           const label = labelKey
@@ -1500,19 +1707,76 @@ class AVEditorApp {
         },
       });
 
-      this._hideSubtitleOverlay();
-      this._setStatus('ready');
-
       if (result?.cancelled) {
+        this._hideSubtitleOverlay();
+        this._setStatus('ready');
         await showAlert(this.i18n.t('subtitle.cancelled'));
         return;
       }
 
-      const cues = result?.cues || [];
+      let cues = result?.cues || [];
       if (!cues.length) {
+        this._hideSubtitleOverlay();
+        this._setStatus('ready');
         await showAlert(this.i18n.t('subtitle.empty'));
         return;
       }
+
+      const detectedLanguage = String(result?.detectedLanguage || locale).toLowerCase();
+      this._updateSubtitleDetectionInfo(detectedLanguage, result?.detectionConfidence);
+      if (outputLanguage !== 'source') {
+        const sourceCues = cues.map((c) => ({ ...c }));
+        const targetLabel = this._subtitleLanguageLabel(outputLanguage);
+        this._updateSubtitleProgress(88, this.i18n.t('subtitle.translatingTo', { language: targetLabel }));
+        const translatedCues = await this._translateSubtitlesWithOllama(cues, {
+          sourceLanguage: detectedLanguage,
+          targetLanguage: outputLanguage,
+          cancelled: () => !!this._subtitleCancelled,
+          onProgress: (percent) => {
+            this._updateSubtitleProgress(percent, this.i18n.t('subtitle.translatingTo', { language: targetLabel }));
+          },
+        });
+
+        cues = translatedCues.map((c, idx) => {
+          const sourceText = String(sourceCues[idx]?.text || '').trim();
+          const targetText = String(c?.text || '').trim();
+          return {
+            ...c,
+            sourceText,
+            targetText: targetText || sourceText,
+            sourceLang: detectedLanguage,
+            targetLang: outputLanguage,
+            sourceLangModel: String(result?.usedLanguage || detectedLanguage || '').toLowerCase(),
+            targetLangModel: String(outputLanguage || '').toLowerCase(),
+            text: targetText || sourceText,
+          };
+        });
+
+        if (dualMode) {
+          cues = cues.map((c, idx) => {
+            const sourceText = String(c?.sourceText || '').trim();
+            const targetText = String(c?.targetText || '').trim();
+            if (!sourceText) return c;
+            if (!targetText || targetText === sourceText) return c;
+            const top = dualOrder === 'target-first' ? targetText : sourceText;
+            const bottom = dualOrder === 'target-first' ? sourceText : targetText;
+            return {
+              ...c,
+              text: `${top}\n${bottom}`,
+            };
+          });
+        }
+      }
+
+      if (this._subtitleCancelled) {
+        this._hideSubtitleOverlay();
+        this._setStatus('ready');
+        await showAlert(this.i18n.t('subtitle.cancelled'));
+        return;
+      }
+
+      this._hideSubtitleOverlay();
+      this._setStatus('ready');
 
       this.preview.setSubtitles(cues);
       this._lastSubtitles = cues;
@@ -1524,16 +1788,30 @@ class AVEditorApp {
         this.preview.seek(t0);
         this._updatePlayBtn(false);
       } catch { /* ignore */ }
-      await showAlert(this.i18n.t('subtitle.applied', { count: cues.length }));
+      const detectLabel = this._subtitleLanguageLabel(String(result?.detectedLanguage || locale).toLowerCase());
+      const detectConf = this.i18n.t(`subtitle.confidence${this._toConfidenceSuffix(result?.detectionConfidence)}`);
+      await showAlert(this.i18n.t('subtitle.appliedWithDetection', {
+        count: cues.length,
+        language: detectLabel,
+        confidence: detectConf,
+      }));
 
       const save = await showConfirm(this.i18n.t('subtitle.saveSrt'));
       if (save) {
+        const saveMode = await this._pickSubtitleSaveMode(cues, {
+          defaultMode: dualMode ? 'dual' : null,
+          stem,
+          format: 'srt',
+        });
+        if (!saveMode) return;
+        const saveCues = this._buildCuesForSaveMode(cues, saveMode);
+        const suffix = this._subtitleSaveSuffix(saveMode, this._hasTranslatedSubtitlePairs(cues), cues);
         const srcName = this.preview.currentFile?.name || 'media';
         const stem = String(srcName).replace(/\.[^.]+$/, '') || 'subtitles';
-        const defaultName = `${stem}.srt`;
+        const defaultName = `${stem}${suffix}.srt`;
         const outPath = await window.electronAPI?.saveSubtitleDialog?.(defaultName);
         if (outPath) {
-          const srt = cuesToSrt(cues);
+          const srt = cuesToSrt(saveCues);
           if (window.electronAPI?.isWeb) {
             const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' });
             const a = document.createElement('a');
@@ -1560,6 +1838,304 @@ class AVEditorApp {
     }
   }
 
+  _subtitleLanguageLabel(code) {
+    const key = String(code || '').trim().toLowerCase();
+    const map = {
+      en: 'English',
+      ko: 'Korean',
+      ja: 'Japanese',
+      zh: 'Chinese',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      it: 'Italian',
+      pt: 'Portuguese',
+      ru: 'Russian',
+      ar: 'Arabic',
+      hi: 'Hindi',
+      tr: 'Turkish',
+      vi: 'Vietnamese',
+      th: 'Thai',
+      id: 'Indonesian',
+      pl: 'Polish',
+      nl: 'Dutch',
+      sv: 'Swedish',
+      no: 'Norwegian',
+      da: 'Danish',
+      fi: 'Finnish',
+      cs: 'Czech',
+      ro: 'Romanian',
+      hu: 'Hungarian',
+      uk: 'Ukrainian',
+    };
+    return map[key] || code;
+  }
+
+  _toConfidenceSuffix(level) {
+    const v = String(level || '').toLowerCase();
+    if (v === 'high') return 'High';
+    if (v === 'medium') return 'Medium';
+    return 'Low';
+  }
+
+  _hasTranslatedSubtitlePairs(cues) {
+    return Array.isArray(cues) && cues.some((c) => {
+      const source = String(c?.sourceText || '').trim();
+      const target = String(c?.targetText || '').trim();
+      return !!source && !!target && source !== target;
+    });
+  }
+
+  _buildCuesForSaveMode(cues, mode = 'target') {
+    const saveMode = String(mode || 'target').toLowerCase();
+    return (Array.isArray(cues) ? cues : []).map((c) => {
+      const source = String(c?.sourceText || c?.text || '').trim();
+      const target = String(c?.targetText || c?.text || '').trim();
+      let text = target;
+      if (saveMode === 'source') {
+        text = source || target;
+      } else if (saveMode === 'dual') {
+        text = source && target && source !== target
+          ? `${source}\n${target}`
+          : (source || target);
+      }
+      return {
+        start: Number(c?.start) || 0,
+        end: Number(c?.end) || 0,
+        text,
+      };
+    }).filter((c) => c.text && c.end > c.start);
+  }
+
+  async _pickSubtitleSaveMode(cues, { defaultMode = 'target', stem = 'subtitles', format = 'srt' } = {}) {
+    if (!this._hasTranslatedSubtitlePairs(cues)) return 'target';
+    const preferred = this._recommendedSubtitleSaveMode(cues, defaultMode);
+    const previewNames = {
+      source: `${stem}${this._subtitleSaveSuffix('source', true, cues)}.${format}`,
+      target: `${stem}${this._subtitleSaveSuffix('target', true, cues)}.${format}`,
+      dual: `${stem}${this._subtitleSaveSuffix('dual', true, cues)}.${format}`,
+    };
+    const mediaPath = String(this.preview?.currentFile?.path || '');
+    const dir = mediaPath ? mediaPath.replace(/[\\/][^\\/]*$/, '') : '';
+    const previewPaths = {
+      source: dir ? `${dir}${dir.endsWith('\\') || dir.endsWith('/') ? '' : '\\'}${previewNames.source}` : '',
+      target: dir ? `${dir}${dir.endsWith('\\') || dir.endsWith('/') ? '' : '\\'}${previewNames.target}` : '',
+      dual: dir ? `${dir}${dir.endsWith('\\') || dir.endsWith('/') ? '' : '\\'}${previewNames.dual}` : '',
+    };
+    const picked = await showSubtitleSaveFormatDialog({
+      defaultMode: preferred,
+      previewNames,
+      previewPaths,
+    });
+    if (!picked) return null;
+    localStorage.setItem(STORAGE_SUBTITLE_SAVE_MODE, picked);
+    return picked;
+  }
+
+  _recommendedSubtitleSaveMode(cues, defaultMode = null) {
+    const forced = String(defaultMode || '').toLowerCase();
+    if (forced === 'source' || forced === 'target' || forced === 'dual') return forced;
+
+    const last = String(localStorage.getItem(STORAGE_SUBTITLE_SAVE_MODE) || '').toLowerCase();
+    const hasDualDisplay = (Array.isArray(cues) ? cues : []).some((c) => {
+      const source = String(c?.sourceText || '').trim();
+      const target = String(c?.targetText || '').trim();
+      const text = String(c?.text || '').trim();
+      return !!source && !!target && source !== target && text.includes('\n');
+    });
+    if (hasDualDisplay) return 'dual';
+    if (last === 'source' || last === 'target' || last === 'dual') return last;
+    return 'target';
+  }
+
+  _subtitleSaveSuffix(mode, hasTranslated = true, cues = []) {
+    if (!hasTranslated) return '';
+    const key = String(mode || 'target').toLowerCase();
+    const source = this._normalizeSubtitleSuffix(localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_SOURCE), '.source');
+    const target = this._normalizeSubtitleSuffix(localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_TARGET), '.target');
+    const dual = this._normalizeSubtitleSuffix(localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_DUAL), '.dual');
+    const base = key === 'source' ? source : key === 'dual' ? dual : target;
+
+    if (localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_LANGCODE) !== '1') return base;
+
+    const format = localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_LANGFORMAT) === 'model' ? 'model' : 'iso';
+    const { sourceCode, targetCode } = this._subtitleLanguageCodesFromCues(cues, format);
+    if (key === 'source') return sourceCode ? `${base}.${sourceCode}` : base;
+    if (key === 'target') return targetCode ? `${base}.${targetCode}` : base;
+    if (sourceCode && targetCode && sourceCode !== targetCode) {
+      return `${base}.${sourceCode}-${targetCode}`;
+    }
+    return sourceCode ? `${base}.${sourceCode}` : (targetCode ? `${base}.${targetCode}` : base);
+  }
+
+  _subtitleLanguageCodesFromCues(cues, format = 'iso') {
+    const list = Array.isArray(cues) ? cues : [];
+    for (const c of list) {
+      const sourceRaw = format === 'model' ? c?.sourceLangModel : c?.sourceLang;
+      const targetRaw = format === 'model' ? c?.targetLangModel : c?.targetLang;
+      const source = this._normalizeLangCodeToken(sourceRaw);
+      const target = this._normalizeLangCodeToken(targetRaw);
+      if (source || target) {
+        return { sourceCode: source, targetCode: target || source };
+      }
+    }
+    return { sourceCode: '', targetCode: '' };
+  }
+
+  _normalizeLangCodeToken(code) {
+    const raw = String(code || '').trim().toLowerCase();
+    const cleaned = raw.replace(/[^a-z0-9-]/g, '');
+    if (!cleaned) return '';
+    return cleaned.slice(0, 8);
+  }
+
+  _getSubtitleProjectSettings() {
+    return {
+      inputLanguage: localStorage.getItem(STORAGE_SUBTITLE_INPUT_LANG) || 'auto',
+      outputLanguage: localStorage.getItem(STORAGE_SUBTITLE_OUTPUT_LANG) || 'source',
+      dualMode: localStorage.getItem(STORAGE_SUBTITLE_DUAL_MODE) === '1',
+      dualOrder: localStorage.getItem(STORAGE_SUBTITLE_DUAL_ORDER) || 'source-first',
+      confidenceProfile: localStorage.getItem(STORAGE_SUBTITLE_CONFIDENCE_PROFILE) || 'balanced',
+      suffixSource: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_SOURCE) || '.source',
+      suffixTarget: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_TARGET) || '.target',
+      suffixDual: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_DUAL) || '.dual',
+      suffixLangCode: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_LANGCODE) === '1',
+      suffixLangFormat: localStorage.getItem(STORAGE_SUBTITLE_SUFFIX_LANGFORMAT) || 'iso',
+      saveMode: localStorage.getItem(STORAGE_SUBTITLE_SAVE_MODE) || 'target',
+    };
+  }
+
+  _applySubtitleProjectSettings(settings) {
+    if (!settings || typeof settings !== 'object') return;
+    if (settings.inputLanguage != null) localStorage.setItem(STORAGE_SUBTITLE_INPUT_LANG, String(settings.inputLanguage));
+    if (settings.outputLanguage != null) localStorage.setItem(STORAGE_SUBTITLE_OUTPUT_LANG, String(settings.outputLanguage));
+    if (settings.dualMode != null) localStorage.setItem(STORAGE_SUBTITLE_DUAL_MODE, settings.dualMode ? '1' : '0');
+    if (settings.dualOrder != null) localStorage.setItem(STORAGE_SUBTITLE_DUAL_ORDER, String(settings.dualOrder));
+    if (settings.confidenceProfile != null) localStorage.setItem(STORAGE_SUBTITLE_CONFIDENCE_PROFILE, String(settings.confidenceProfile));
+    if (settings.suffixSource != null) localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_SOURCE, this._normalizeSubtitleSuffix(settings.suffixSource, '.source'));
+    if (settings.suffixTarget != null) localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_TARGET, this._normalizeSubtitleSuffix(settings.suffixTarget, '.target'));
+    if (settings.suffixDual != null) localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_DUAL, this._normalizeSubtitleSuffix(settings.suffixDual, '.dual'));
+    if (settings.suffixLangCode != null) localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_LANGCODE, settings.suffixLangCode ? '1' : '0');
+    if (settings.suffixLangFormat != null) localStorage.setItem(STORAGE_SUBTITLE_SUFFIX_LANGFORMAT, String(settings.suffixLangFormat) === 'model' ? 'model' : 'iso');
+    if (settings.saveMode != null) localStorage.setItem(STORAGE_SUBTITLE_SAVE_MODE, String(settings.saveMode));
+  }
+
+  _normalizeSubtitleSuffix(raw, fallback) {
+    const f = String(fallback || '.target');
+    let s = String(raw || '').trim();
+    if (!s) return f;
+    s = s.replace(/[^a-zA-Z0-9_.-]/g, '');
+    if (!s) return f;
+    if (!s.startsWith('.')) s = `.${s}`;
+    s = s.replace(/\.+/g, '.');
+    return s.length > 32 ? s.slice(0, 32) : s;
+  }
+
+  _updateSubtitleDetectionInfo(languageCode, confidence) {
+    const el = document.getElementById('subtitle-detect-info');
+    if (!el) return;
+    if (!languageCode) {
+      el.hidden = true;
+      el.textContent = '';
+      delete el.dataset.kind;
+      return;
+    }
+    const language = this._subtitleLanguageLabel(languageCode);
+    const conf = this.i18n.t(`subtitle.confidence${this._toConfidenceSuffix(confidence)}`);
+    const normalized = String(confidence || '').toLowerCase();
+    el.dataset.kind = normalized === 'high' || normalized === 'medium' ? normalized : 'low';
+    el.hidden = false;
+    el.textContent = this.i18n.t('subtitle.detectedLabel', { language, confidence: conf });
+  }
+
+  async _translateSubtitlesWithOllama(cues, {
+    sourceLanguage = 'auto',
+    targetLanguage,
+    cancelled = () => false,
+    onProgress = null,
+  } = {}) {
+    const target = String(targetLanguage || '').trim().toLowerCase();
+    if (!target || target === 'source') return cues;
+
+    const api = window.electronAPI;
+    if (!api?.ollamaChat) {
+      throw new Error(this.i18n.t('subtitle.translateUnavailable'));
+    }
+
+    const cfg = loadOllamaSettings();
+    if (!cfg?.model) {
+      throw new Error(this.i18n.t('subtitle.translateModelRequired'));
+    }
+
+    const sourceName = this._subtitleLanguageLabel(sourceLanguage || 'auto');
+    const targetName = this._subtitleLanguageLabel(target);
+    const chunkSize = 14;
+    const out = [];
+
+    for (let i = 0; i < cues.length; i += chunkSize) {
+      if (cancelled()) return cues;
+      const group = cues.slice(i, i + chunkSize);
+      const payload = group.map((c, idx) => ({
+        id: idx,
+        text: String(c?.text || ''),
+      }));
+
+      const prompt = [
+        `Translate subtitle lines from ${sourceName} to ${targetName}.`,
+        'Rules:',
+        `1) Keep exactly the same number of lines (${payload.length}).`,
+        '2) Return ONLY a JSON array string list in order.',
+        '3) Do not include explanations, markdown, or code blocks.',
+        '',
+        JSON.stringify(payload),
+      ].join('\n');
+
+      const chat = await api.ollamaChat({
+        baseUrl: cfg.baseUrl,
+        model: cfg.model,
+        system: 'You are a subtitle translator. Output strict JSON only.',
+        prompt,
+        timeoutMs: 180000,
+      });
+
+      if (!chat?.ok) {
+        throw new Error(chat?.error || this.i18n.t('subtitle.translateFailed'));
+      }
+
+      const translated = this._parseTranslationJsonArray(chat.content);
+      if (!Array.isArray(translated) || translated.length !== payload.length) {
+        throw new Error(this.i18n.t('subtitle.invalidTranslationResponse'));
+      }
+
+      for (let j = 0; j < group.length; j += 1) {
+        out.push({
+          ...group[j],
+          text: String(translated[j] || group[j].text || '').trim() || group[j].text,
+        });
+      }
+
+      const pct = 88 + Math.round(((i + group.length) / Math.max(1, cues.length)) * 11);
+      onProgress?.(Math.min(99, pct));
+    }
+
+    return out;
+  }
+
+  _parseTranslationJsonArray(content) {
+    const raw = String(content || '').trim();
+    if (!raw) return null;
+
+    const direct = tryParseJsonArray(raw);
+    if (direct) return direct;
+
+    const fenced = raw.match(/\[[\s\S]*\]/);
+    if (fenced) {
+      const parsed = tryParseJsonArray(fenced[0]);
+      if (parsed) return parsed;
+    }
+    return null;
+  }
+
   _showSubtitleOverlay() {
     let overlay = document.getElementById('subtitle-overlay');
     if (!overlay) {
@@ -1577,6 +2153,7 @@ class AVEditorApp {
           <span id="subtitle-progress-label">${this.i18n.t('subtitle.extractingAudio')}</span>
           <span id="subtitle-progress-pct">0%</span>
         </div>
+        <div class="subtitle-detect-info" id="subtitle-detect-info" hidden></div>
         <button class="export-cancel-btn" id="subtitle-cancel-btn">${Icons.close}<span>${this.i18n.t('dialog.cancel')}</span></button>
       </div>
     `;
@@ -1765,6 +2342,16 @@ class AVEditorApp {
   _hideAnalyzeOverlay() {
     const el = document.getElementById('analyze-overlay');
     if (el) el.classList.remove('visible');
+  }
+}
+
+function tryParseJsonArray(text) {
+  try {
+    const parsed = JSON.parse(String(text || ''));
+    if (!Array.isArray(parsed)) return null;
+    return parsed.map((item) => String(item ?? ''));
+  } catch {
+    return null;
   }
 }
 

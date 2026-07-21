@@ -1163,7 +1163,6 @@
 
     saveMediaFileDialog: async () => ({ ok: false, cancelled: true }),
   };
-
   console.info('[AV Editor] Web API shim active');
 
   // Prefetch MediaInfo WASM so the first File Info open is fast

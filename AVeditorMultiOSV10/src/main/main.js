@@ -737,12 +737,16 @@ ipcMain.handle('read-binary-file', async (_event, filePath) => {
   }
 });
 
-ipcMain.handle('save-subtitle-dialog', async (_event, defaultName) => {
+ipcMain.handle('save-subtitle-dialog', async (_event, defaultName, preferredFormat) => {
+  const fmt = String(preferredFormat || '').toLowerCase();
+  const defaultExt = fmt === 'smi' ? 'smi' : 'srt';
+  const normalizedDefault = String(defaultName || `subtitles.${defaultExt}`);
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     title: 'Save Subtitles',
-    defaultPath: defaultName || 'subtitles.srt',
+    defaultPath: normalizedDefault,
     filters: [
       { name: 'SubRip', extensions: ['srt'] },
+      { name: 'SAMI', extensions: ['smi'] },
       { name: 'All Files', extensions: ['*'] },
     ],
   });

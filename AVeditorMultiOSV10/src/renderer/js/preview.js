@@ -4,6 +4,7 @@ const VIEW_MODES = ['fit', 'fill', 'actual'];
 const STORAGE_VIEW = 'av-editor-preview-view';
 const STORAGE_VOLUME = 'av-editor-preview-volume';
 const STORAGE_MUTED = 'av-editor-preview-muted';
+const STORAGE_SUBTITLES_VISIBLE = 'av-editor-subtitles-visible';
 const VIDEO_EFFECT_PRESETS = {
   normal: { brightness: 100, contrast: 100, saturation: 100, speed: 1 },
   vivid: { brightness: 110, contrast: 112, saturation: 140, speed: 1 },
@@ -194,7 +195,7 @@ export class Preview {
     this.transportCueIcon = this.container.querySelector('#preview-transport-cue-icon');
     this.subtitleEl = this.container.querySelector('#preview-subtitle');
     this._subtitles = [];
-    this._subtitlesVisible = true;
+    this._subtitlesVisible = localStorage.getItem(STORAGE_SUBTITLES_VISIBLE) !== '0';
     this._activeSubtitleIndex = -1;
     this._cueSticky = false;
     this._cueTimer = null;
@@ -853,7 +854,6 @@ export class Preview {
   setSubtitles(cues) {
     this._subtitles = Array.isArray(cues) ? cues.slice() : [];
     this._activeSubtitleIndex = -1;
-    if (this._subtitles.length) this._subtitlesVisible = true;
     if (this.subtitleEl) {
       // Keep above video / pause cue in the stacking order
       if (this.viewport && this.subtitleEl.parentElement === this.viewport) {
@@ -877,6 +877,7 @@ export class Preview {
 
   setSubtitlesVisible(visible) {
     this._subtitlesVisible = !!visible;
+    localStorage.setItem(STORAGE_SUBTITLES_VISIBLE, this._subtitlesVisible ? '1' : '0');
     this._activeSubtitleIndex = -1;
     this._updateSubtitleDisplay(this.mediaEl?.currentTime || 0);
     return this._subtitlesVisible;

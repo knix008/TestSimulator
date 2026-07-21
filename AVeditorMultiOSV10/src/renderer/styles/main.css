@@ -1766,6 +1766,101 @@ body.resizing-row * {
 .ollama-status[data-kind="error"] { color: #f07178; }
 .ollama-status[data-kind="info"] { color: var(--text-secondary); }
 
+/* Subtitle generation options dialog */
+.subtitle-options-card {
+  min-width: min(420px, 92vw);
+  max-width: 520px;
+}
+.subtitle-options-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+.subtitle-dual-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.subtitle-dual-row input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+}
+.subtitle-inline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.subtitle-inline-row select {
+  min-width: 220px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.subtitle-inline-row .subtitle-suffix-input {
+  min-width: 140px;
+  max-width: 220px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.subtitle-help-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+.subtitle-save-format-card {
+  min-width: min(430px, 92vw);
+  max-width: 560px;
+}
+.subtitle-save-format-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.subtitle-save-preview {
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  word-break: break-all;
+}
+.subtitle-detect-info {
+  align-self: flex-start;
+  margin-top: -2px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-surface));
+  border: 1px solid var(--border);
+}
+.subtitle-detect-info[data-kind="high"] {
+  background: color-mix(in srgb, #3ecf8e 18%, var(--bg-surface));
+  border-color: color-mix(in srgb, #3ecf8e 40%, var(--border));
+}
+.subtitle-detect-info[data-kind="medium"] {
+  background: color-mix(in srgb, #e6b84d 18%, var(--bg-surface));
+  border-color: color-mix(in srgb, #e6b84d 35%, var(--border));
+}
+.subtitle-detect-info[data-kind="low"] {
+  background: color-mix(in srgb, #f07178 18%, var(--bg-surface));
+  border-color: color-mix(in srgb, #f07178 35%, var(--border));
+}
+
 /* Analysis result viewer */
 .analysis-viewer-overlay {
   position: fixed;
